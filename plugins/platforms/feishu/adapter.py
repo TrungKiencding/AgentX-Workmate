@@ -527,8 +527,10 @@ def _render_text_element(element: Dict[str, Any]) -> str:
 
     if _is_style_enabled(style_dict, "code"):
         return _wrap_inline_code(text)
-
-    rendered = _escape_markdown_text(text)
+    # Post text elements carry raw text plus separate style flags; the style wrappers below
+    # re-create the markdown. Escaping the text here put `\*\*bold\*\*` / `\`code\`` into the
+    # model's context and those backslashes came straight back out in replies (#9816).
+    rendered = text
     if not rendered:
         return ""
     if _is_style_enabled(style_dict, "bold"):
