@@ -68,6 +68,10 @@ def _is_ancestor_or_same(a: Path, b: Path) -> bool:
         return False
 
 
+_NAV_COMMANDS = frozenset({"cd", "pushd"})
+_SHELL_OPERATORS = frozenset({"&&", "||", "|", ";", "&"})
+
+
 class SubdirectoryHintTracker:
     """Track which directories the agent visits and load hints on first access.
 
@@ -193,7 +197,14 @@ class SubdirectoryHintTracker:
             tokens = shlex.split(cmd)
         except ValueError:
             tokens = cmd.split()
-
+        # `cd backend && ls`: a bare directory name has no `/` or `.`, so the generic filter below drops
+        # it; the token after a navigation command is a path by construction (#11032). `cd -` / bare `cd`
+        # are skipped (nothing under the working dir to load).
+        for idx, token in enumerate(tokens):
+            if token in _NAV_COMMANDS:
+                target = next((t for t in tokens[idx + 1:] if not t.startswith("-")), None)
+                if target and target not in _SHELL_OPERATORS:
+                    self._add_path_candidate(target.rstrip(";"), candidates)
         for token in tokens:
             # Skip flags
             if token.startswith("-"):
