@@ -39,11 +39,10 @@ logger = logging.getLogger(__name__)
 # (e.g. claude-opus-4.6-1m) and enterprise endpoints.
 # Tested on Individual and Enterprise accounts.
 COPILOT_OAUTH_CLIENT_ID = "Iv1.b507a08c87ecfe98"
-# Token type prefixes
-_CLASSIC_PAT_PREFIX = "ghp_"
+_CLASSIC_PAT_PREFIX = "ghp_"  # rejected by the Copilot API
+# Token families the Copilot API exchanges. Anything else (a random string in GITHUB_TOKEN) used
+# to pass validation and then fail downstream with an opaque auth error (#12650).
 _SUPPORTED_PREFIXES = ("gho_", "github_pat_", "ghu_")
-
-# Env var search order (matches Copilot CLI)
 COPILOT_ENV_VARS = ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")
 
 # Polling constants
@@ -66,9 +65,11 @@ def validate_copilot_token(token: str) -> tuple[bool, str]:
             "Copilot API. Use one of:\n"
             "  → `copilot login` or `agentx model` to authenticate via OAuth\n"
             "  → A fine-grained PAT (github_pat_*) with Copilot Requests permission\n"
-            "  → `gh auth login` with the default device code flow (produces gho_* tokens)"
-        )
-
+            "  → `gh auth login` with the default device code flow (produces gho_* tokens)")
+    if not token.startswith(_SUPPORTED_PREFIXES):
+        return False, (
+            "Unsupported GitHub token format for the Copilot API. "
+            f"Supported token prefixes: {', '.join(_SUPPORTED_PREFIXES)}.")
     return True, "OK"
 
 
@@ -113,9 +114,7 @@ def resolve_copilot_token() -> tuple[str, str]:
     if token:
         valid, msg = validate_copilot_token(token)
         if not valid:
-            raise ValueError(
-                f"Token from `gh auth token` is a classic PAT (ghp_*). {msg}"
-            )
+            raise ValueError(f"Token from `gh auth token` is not usable with Copilot. {msg}")
         return token, "gh auth token"
 
     return "", ""
