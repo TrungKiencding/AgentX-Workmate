@@ -19,7 +19,7 @@ Usage:
     all_dists = list_distributions()
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import random
 from toolsets import validate_toolset
 
@@ -214,17 +214,8 @@ DISTRIBUTIONS = {
 }
 
 
-def get_distribution(name: str) -> Optional[Dict[str, any]]:
-    """
-    Get a toolset distribution by name.
-    
-    Args:
-        name (str): Name of the distribution
-        
-    Returns:
-        Dict: Distribution definition with description and toolsets
-        None: If distribution not found
-    """
+def get_distribution(name: str) -> Optional[Dict[str, Any]]:
+    """Distribution definition (description + toolsets), or None if unknown."""
     return DISTRIBUTIONS.get(name)
 
 
