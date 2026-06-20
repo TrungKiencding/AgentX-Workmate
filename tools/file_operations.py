@@ -1081,15 +1081,17 @@ class ShellFileOperations(FileOperations):
         """
         from tools.tool_output_limits import get_max_line_length
         max_line_length = get_max_line_length()
-        lines = content.split('\n')
-        numbered = []
-        for i, line in enumerate(lines, start=start_line):
-            # Truncate long lines
-            if len(line) > max_line_length:
-                line = line[:max_line_length] + "... [truncated]"
-            numbered.append(f"{i}|{line}")
-        return '\n'.join(numbered)
-    
+        # A trailing newline terminates the final line — it does not start a new,
+        # empty one. Splitting without dropping it rendered a phantom "<N+1>|"
+        # gutter line on every newline-terminated file (`cat -n` semantics).
+        # Exactly ONE terminator is dropped, so a genuinely selected trailing
+        # blank line in a page keeps its own number.
+        if content.endswith('\n'):
+            content = content[:-1]
+        return '\n'.join(
+            f"{i}|{line if len(line) <= max_line_length else line[:max_line_length] + '... [truncated]'}"
+            for i, line in enumerate(content.split('\n'), start=start_line))
+
     def _expand_path(self, path: str) -> str:
         """
         Expand shell-style paths like ~ and ~user to absolute paths.
