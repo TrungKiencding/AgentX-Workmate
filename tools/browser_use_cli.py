@@ -122,6 +122,12 @@ def _base_subprocess_env() -> dict:
     return env
 
 
+def _base_subprocess_env() -> dict:
+    from tools.browser_tool import _build_browser_env
+
+    return _build_browser_env()
+
+
 def _read_browser_cfg() -> dict:
     """Return the ``browser:`` config section, or {} on any failure."""
     try:
