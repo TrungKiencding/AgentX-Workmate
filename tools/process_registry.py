@@ -2402,7 +2402,17 @@ class ProcessRegistry:
             return {"status": "error", "error": str(e)}
 
     def submit_stdin(self, session_id: str, data: str = "") -> dict:
-        """Send data + newline to a running process's stdin (like pressing Enter)."""
+        """Send data + Enter to a running process's stdin (like pressing Enter).
+
+        On a PTY, Enter is a carriage return, the byte a keyboard sends: raw-mode TUIs
+        (prompt_toolkit, Ink, vim) read ``\\n`` as Ctrl+J, and canonical-mode children still
+        get ``\\n`` through the tty's ICRNL mapping. On a Windows PTY ConPTY treats ``\\r`` as
+        end-of-line and a bare ``\\n`` through pywinpty is NOT a line terminator, so a blocking
+        line read would hang; ``\\r\\n`` gives it both. Pipes keep ``\\n``.
+        """
+        session = self.get(session_id)
+        if session is not None and session._pty:
+            return self.write_stdin(session_id, data + ("\r\n" if _IS_WINDOWS else "\r"))
         return self.write_stdin(session_id, data + "\n")
 
     def request_close_terminal(self, session_id: str) -> dict:
