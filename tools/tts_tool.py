@@ -2312,7 +2312,8 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
         },
     }
 
-    headers = {"Content-Type": "application/json"}
+    # HTTP errors include URLs, so credentials must stay in headers.
+    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
     if urlparse(base_url).hostname == "generativelanguage.googleapis.com":
         try:
             import hermes_cli as _hermes_cli
@@ -2328,7 +2329,6 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
     endpoint = f"{base_url}/models/{model}:generateContent"
     response = requests.post(
         endpoint,
-        params={"key": api_key},
         headers=headers,
         json=payload,
         timeout=60,

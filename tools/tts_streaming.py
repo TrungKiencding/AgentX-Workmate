@@ -385,7 +385,8 @@ class GeminiStreamer(StreamingTTSProvider):
         def _sse_chunks() -> Iterator[bytes]:
             with requests.post(
                 url,
-                params={"alt": "sse", "key": api_key},
+                params={"alt": "sse"},
+                headers={"x-goog-api-key": api_key},
                 json=payload,
                 timeout=60,
                 stream=True,
