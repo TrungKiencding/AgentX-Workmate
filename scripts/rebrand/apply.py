@@ -44,6 +44,7 @@ GLOBAL_EXCLUDE = [
     "flake.lock",
     "scripts/rebrand/*",  # this tooling names the old brand on purpose
     "tests/test_rebrand_rules.py",  # old names are its test fixtures
+    "REBRAND.md",  # the handoff plan names the old brand on purpose
     ".mailmap",
 ]
 

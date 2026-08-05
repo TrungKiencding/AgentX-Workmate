@@ -42,6 +42,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 #   *.lock, lockfiles  — generated, and carry upstream package URLs.
 ALLOWLIST = [
     "LICENSE",
+    "REBRAND.md",  # the handoff plan documents the old names
+    ".rebrand-baseline/*",  # pre-change test evidence
     "scripts/rebrand/*",
     "uv.lock",
     "package-lock.json",

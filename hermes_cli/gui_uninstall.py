@@ -40,6 +40,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from branding import DESKTOP_APP_NAME
 from hermes_constants import get_hermes_home
 
 from hermes_cli.colors import Colors, color
@@ -70,21 +71,28 @@ def _agent_root(hermes_home: Path) -> Path:
 def desktop_userdata_dir() -> Path:
     """Return the Electron ``userData`` directory for the desktop app.
 
-    Mirrors Electron's ``app.getPath('userData')`` for an app named "AgentX"
-    on each platform. This is GUI-only state (connection.json, updates.json,
-    Chromium cache) and never holds agent config or sessions.
+    Mirrors Electron's ``app.getPath('userData')``, which keys the directory
+    on ``productName`` from apps/desktop/package.json. The name is read from
+    :data:`branding.DESKTOP_APP_NAME` rather than spelled here, because the
+    two were spelled independently and drifted during the rebrand: this side
+    moved while package.json still said "Hermes", so the uninstaller looked
+    in a directory the app never wrote to and silently left GUI state behind.
+    Keep package.json's productName equal to DESKTOP_APP_NAME.
+
+    This is GUI-only state (connection.json, updates.json, Chromium cache)
+    and never holds agent config or sessions.
     """
     home = Path.home()
     if sys.platform == "darwin":
-        return home / "Library" / "Application Support" / "AgentX"
+        return home / "Library" / "Application Support" / DESKTOP_APP_NAME
     if sys.platform == "win32":
         appdata = os.environ.get("APPDATA")
         base = Path(appdata) if appdata else (home / "AppData" / "Roaming")
-        return base / "AgentX"
+        return base / DESKTOP_APP_NAME
     # Linux / other POSIX — XDG config home.
     xdg = os.environ.get("XDG_CONFIG_HOME")
     base = Path(xdg) if xdg else (home / ".config")
-    return base / "AgentX"
+    return base / DESKTOP_APP_NAME
 
 
 def source_built_gui_artifacts(hermes_home: Path) -> "list[Path]":
