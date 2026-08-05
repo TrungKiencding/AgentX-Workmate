@@ -8,12 +8,12 @@
   <a href="https://github.com/AstralX/agentx-workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/AstralX/agentx-workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
   <a href="https://github.com/AstralX/agentx-workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology"></a>
+  <img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology">
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=for-the-badge" alt="English"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
 </p>
 
-**由 [Nous Research](https://nousresearch.com) 构建的自进化 AI 代理。** 它是唯一内置学习闭环的智能代理——从经验中创建技能，在使用中改进技能，主动持久化知识，搜索过往对话，并在跨会话中逐步构建对你的深度理解。可以在 $5 的 VPS 上运行，也可以在 GPU 集群上运行，或者使用几乎零成本的 Serverless 基础设施。它不绑定你的笔记本——你可以在 Telegram 上与它对话，而它在云端 VM 上工作。
+**由 AstralX Technology 打造的自进化 AI 代理。** 它是唯一内置学习闭环的智能代理——从经验中创建技能，在使用中改进技能，主动持久化知识，搜索过往对话，并在跨会话中逐步构建对你的深度理解。可以在 $5 的 VPS 上运行，也可以在 GPU 集群上运行，或者使用几乎零成本的 Serverless 基础设施。它不绑定你的笔记本——你可以在 Telegram 上与它对话，而它在云端 VM 上工作。
 
 支持任意模型——[Nous Portal](https://portal.nousresearch.com)、[OpenRouter](https://openrouter.ai)（200+ 模型）、[NVIDIA NIM](https://build.nvidia.com)（Nemotron）、[小米 MiMo](https://platform.xiaomimimo.com)、[z.ai/GLM](https://z.ai)、[Kimi/Moonshot](https://platform.moonshot.ai)、[MiniMax](https://www.minimax.io)、[Hugging Face](https://huggingface.co)、OpenAI，或自定义端点。使用 `agentx model` 即可切换——无需改代码，无锁定。
 
@@ -113,7 +113,7 @@ AgentX 有两种入口：用 `agentx` 启动终端 UI，或运行网关从 Teleg
 
 ## 文档
 
-所有文档位于 **[hermes-agent.nousresearch.com/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**：
+所有文档位于 **[https://github.com/AstralX/agentx-workmate/tree/main/website/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**：
 
 | 章节 | 内容 |
 |------|------|
@@ -205,4 +205,4 @@ python -m pytest tests/ -q
 
 MIT — 详见 [LICENSE](LICENSE)。
 
-由 [Nous Research](https://nousresearch.com) 构建。
+由 AstralX Technology 打造。

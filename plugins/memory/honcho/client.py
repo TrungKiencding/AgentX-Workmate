@@ -37,7 +37,7 @@ HOST = "agentx"
 
 
 def profile_host_key(profile: str | None) -> str:
-    """Return the safe Honcho host key for a AgentX profile."""
+    """Return the safe Honcho host key for an AgentX profile."""
     if not profile or profile in {"default", "custom"}:
         return HOST
     sanitized = "".join(c if c.isalnum() or c in "_-" else "_" for c in profile).strip("_")
@@ -59,7 +59,7 @@ def resolve_active_host() -> str:
 
     Resolution order:
       1. AGENTX_HONCHO_HOST env var (explicit override)
-      2. Active profile name via profiles system -> ``hermes_<profile>``
+      2. Active profile name via profiles system -> ``agentx_<profile>``
       3. defaultHost from the active config, but only for the default profile
       4. Fallback: ``"agentx"`` (default profile)
     """
@@ -457,7 +457,7 @@ class HonchoClientConfig:
     sessions: dict[str, str] = field(default_factory=dict)
     # Raw global config for anything else consumers need
     raw: dict[str, Any] = field(default_factory=dict)
-    # True when Honcho was explicitly configured for this host (hosts.hermes
+    # True when Honcho was explicitly configured for this host (hosts.agentx
     # block exists or enabled was set explicitly), vs auto-enabled from a
     # stray HONCHO_API_KEY env var.
     explicitly_configured: bool = False
@@ -508,7 +508,7 @@ class HonchoClientConfig:
             return cls.from_env(host=resolved_host)
 
         host_block = _host_block(raw, resolved_host)
-        # A hosts.hermes block or explicit enabled flag means the user
+        # A hosts.agentx block or explicit enabled flag means the user
         # intentionally configured Honcho for this host.
         _explicitly_configured = bool(host_block) or raw.get("enabled") is True
 

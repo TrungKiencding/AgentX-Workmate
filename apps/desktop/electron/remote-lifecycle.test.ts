@@ -137,7 +137,7 @@ test('locateHermes tries the conventional venv path last', async () => {
   assert.equal(await locateHermes(ssh, ''), '~/.agentx/agentx-agent/venv/bin/agentx')
 })
 
-test('locateHermes throws a agentx-not-found error with an install hint', async () => {
+test('locateHermes throws an agentx-not-found error with an install hint', async () => {
   const ssh = fakeSsh([]) // nothing is executable
   await assert.rejects(
     () => locateHermes(ssh, ''),
@@ -534,7 +534,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
   ])
 
   const result = await connect(
-    connectDeps(ssh, { reuseToken, remoteHermesPath: '/new/agentx', adoptServedToken: async () => 'fresh' })
+    connectDeps(ssh, { reuseToken, remoteAgentxPath: '/new/agentx', adoptServedToken: async () => 'fresh' })
   )
 
   assert.equal(result.reused, false, 'must respawn, not reuse the old-path dashboard')

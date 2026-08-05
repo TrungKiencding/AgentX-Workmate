@@ -150,7 +150,7 @@ Honcho 将对话建模为 peer 之间的消息交换——每个 AgentX profile 
 |---------|-----------|
 | **Workspace** | 共享环境。同一 workspace 下的所有 AgentX profile 共享同一用户身份。 |
 | **用户 peer**（`peerName`） | 人类用户。在 workspace 内跨 profile 共享。 |
-| **AI peer**（`aiPeer`） | 每个 AgentX profile 一个。host key `agentx` → 默认；其他 profile 使用 `hermes.<profile>`。 |
+| **AI peer**（`aiPeer`） | 每个 AgentX profile 一个。host key `agentx` → 默认；其他 profile 使用 `agentx.<profile>`。 |
 | **Observation** | 每个 peer 的开关，控制 Honcho 从哪些消息中建模。`directional`（默认，全部开启）或 `unified`（单一观察者池）。 |
 
 ### 新建 profile，创建新 Honcho peer

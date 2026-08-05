@@ -274,7 +274,7 @@ async function connectWindowsRemote(deps) {
     ssh,
     ownershipId,
     profile = '',
-    remoteHermesPath = '',
+    remoteAgentxPath = '',
     reuseToken = '',
     signal,
     pickLocalPort,
@@ -287,7 +287,7 @@ async function connectWindowsRemote(deps) {
   } = deps
 
   assertCurrent(signal)
-  const runtime = await probeWindowsRemote(ssh, remoteHermesPath)
+  const runtime = await probeWindowsRemote(ssh, remoteAgentxPath)
   const inspection = await helper(ssh, runtime, 'inspect', [runtime.hermesPath])
 
   if (!inspection.supported) {

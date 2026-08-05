@@ -301,7 +301,7 @@ fi
 # top-level $AGENTX_HOME is mis-owned, so a warm volume with agentx-owned
 # AGENTX_HOME but root-owned logs/gateways would otherwise leave
 # s6-setuidgid agentx mkdir failing with Permission denied. Non-recursive:
-# profile leaf dirs are each created/owned by their own log/run as hermes.
+# profile leaf dirs are each created/owned by their own log/run as agentx.
 if [ -d "$AGENTX_HOME/logs/gateways" ]; then
     if refuse_symlinked_path "chown" "$AGENTX_HOME/logs/gateways"; then
         :

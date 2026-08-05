@@ -335,7 +335,7 @@ TIPS = [
     "AGENTX_DEV=1 bypasses container mode detection for local development.",
     "Each MCP server gets its own toolset (mcp-servername) that can be toggled independently via agentx tools.",
     "MCP ${ENV_VAR} placeholders in config are resolved at server spawn — including vars from ~/.agentx/.env.",
-    "Skills from trusted repos (NousResearch) get a 'trusted' security level; community skills get extra scanning.",
+    "Skills from trusted repos (openai, anthropics, huggingface, NVIDIA) get a 'trusted' security level; community skills get extra scanning.",
     "The skills quarantine at ~/.agentx/skills/.hub/quarantine/ holds skills pending security review.",
 
     # --- Advanced Slash Commands ---

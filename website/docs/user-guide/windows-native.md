@@ -287,7 +287,7 @@ Consequence: any codepath that said "check if this PID is alive" via `os.kill(pi
 
 ## Common pitfalls
 
-**`hermes: command not found` right after install.**
+**`agentx: command not found` right after install.**
 Open a new PowerShell window. The installer added `%LOCALAPPDATA%\agentx\bin` to User PATH, but existing shells need to be restarted to pick it up. In the meantime you can run `& "$env:LOCALAPPDATA\agentx\bin\agentx.cmd"`.
 
 **`WinError 193: %1 is not a valid Win32 application` when running a tool.**

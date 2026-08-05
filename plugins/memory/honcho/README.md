@@ -145,7 +145,7 @@ Config is read from the first file that exists:
 | 2 | `~/.agentx/honcho.json` | Default profile (shared host blocks) |
 | 3 | `~/.honcho/config.json` | Global (cross-app interop) |
 
-Host key is derived from the active AgentX profile: `agentx` (default) or `hermes_<profile>`.
+Host key is derived from the active AgentX profile: `agentx` (default) or `agentx_<profile>`.
 
 For every key, resolution order is: **host block > root > env var > default**.
 
@@ -241,7 +241,7 @@ The Honcho session name determines which conversation bucket memory lands in. Re
 
 Gateway platforms always resolve via priority 3 (per-chat isolation) regardless of `sessionStrategy`. The strategy setting only affects CLI sessions.
 
-If `sessionPeerPrefix` is `true`, the peer name is prepended: `alice-hermes-agent`.
+If `sessionPeerPrefix` is `true`, the peer name is prepended: `alice-agentx-agent`.
 
 #### What each strategy produces
 
@@ -276,7 +276,7 @@ Multiple AgentX profiles can share one workspace while maintaining separate AI i
 
 Both profiles see the same user (`yourname`) in the same shared environment (`agentx`), but each AI peer builds its own observations, conclusions, and behavior patterns. The coder's memory stays code-oriented; the main agent's stays broad.
 
-Host key is derived from the active AgentX profile: `agentx` (default) or `hermes_<profile>` (e.g. `agentx -p coder` -> host key `hermes_coder`). Older `hermes.<profile>` host blocks are still read for compatibility and are migrated when the CLI writes profile-scoped Honcho config.
+Host key is derived from the active AgentX profile: `agentx` (default) or `agentx_<profile>` (e.g. `agentx -p coder` -> host key `agentx_coder`). Older `agentx.<profile>` host blocks are still read for compatibility and are migrated when the CLI writes profile-scoped Honcho config.
 
 ### Dialectic & Reasoning
 

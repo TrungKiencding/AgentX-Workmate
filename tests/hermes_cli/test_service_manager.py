@@ -331,7 +331,7 @@ def _log_run_setup_fragment(rendered: str) -> str:
 def test_s6_log_run_creates_leaf_as_hermes_without_chown(
     s6_scandir, fake_subprocess_run,
 ) -> None:
-    """log/run must not root-chown/unlink volume paths; create leaf as hermes.
+    """log/run must not root-chown/unlink volume paths; create leaf as agentx.
 
     #45258 parent ownership is stage2's job (``logs/gateways`` seeded as
     agentx). Restartable log/run must not pathname-chown or pathname-rm a

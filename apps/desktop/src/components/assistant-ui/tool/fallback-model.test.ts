@@ -122,7 +122,7 @@ describe('buildToolView browser_navigate title', () => {
     )
 
     expect(view.status).toBe('error')
-    expect(view.title).toBe('Failed to open hermes-agent.nousresearch.com/docs')
+    expect(view.title).toBe('Failed to open github.com/AstralX/agentx-workmate/tree/main/website/docs')
   })
 
   it('shows opened title on success', () => {
@@ -136,7 +136,7 @@ describe('buildToolView browser_navigate title', () => {
     )
 
     expect(view.status).toBe('success')
-    expect(view.title).toBe('Opened hermes-agent.nousresearch.com/docs')
+    expect(view.title).toBe('Opened github.com/AstralX/agentx-workmate/tree/main/website/docs')
   })
 })
 

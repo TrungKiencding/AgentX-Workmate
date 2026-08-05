@@ -124,7 +124,7 @@ systemctl list-timers agentx-teams-pipeline-maintain.timer
 #### 方式三：普通 crontab
 
 ```cron
-0 */12 * * * /usr/local/bin/agentx teams-pipeline maintain-subscriptions >> /var/log/hermes/teams-pipeline-maintain.log 2>&1
+0 */12 * * * /usr/local/bin/agentx teams-pipeline maintain-subscriptions >> /var/log/agentx/teams-pipeline-maintain.log 2>&1
 ```
 
 确保 cron 环境中包含 `MSGRAPH_*` 凭据。最简单的方法：在 crontab 调用的包装脚本顶部 source `~/.agentx/.env`。

@@ -2657,7 +2657,7 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     root's home.  This translates it to the target user's equivalent path:
       /root/.agentx                    → /home/alice/.agentx
       /root/.agentx/profiles/coder     → /home/alice/.agentx/profiles/coder
-      /opt/custom-hermes               → /opt/custom-hermes  (kept as-is)
+      /opt/custom-agentx               → /opt/custom-agentx  (kept as-is)
     """
     current_hermes_raw = os.environ.get("AGENTX_HOME", "").strip()
     current_hermes = (

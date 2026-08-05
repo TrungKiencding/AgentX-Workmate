@@ -804,7 +804,7 @@ def _run_backup_locked(args, hermes_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
-    """Check that a zip looks like a AgentX backup.
+    """Check that a zip looks like an AgentX backup.
 
     Returns (ok, reason).
     """
@@ -812,7 +812,7 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
     if not names:
         return False, "zip archive is empty"
 
-    # Look for telltale files that a agentx home would have
+    # Look for telltale files that an agentx home would have
     markers = {"config.yaml", ".env", "state.db"}
     found = set()
     for n in names:
@@ -823,7 +823,7 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
 
     if not found:
         return False, (
-            "zip does not appear to be a AgentX backup "
+            "zip does not appear to be an AgentX backup "
             "(no config.yaml, .env, or state databases found)"
         )
 
@@ -847,7 +847,7 @@ def _detect_prefix(zf: zipfile.ZipFile) -> str:
     first_parts = {p[0] for p in parts_list if len(p) > 1}
     if len(first_parts) == 1:
         prefix = first_parts.pop()
-        # Only strip if it looks like a agentx dir name
+        # Only strip if it looks like an agentx dir name
         if prefix in {".agentx", "agentx"}:
             return prefix + "/"
 
@@ -855,7 +855,7 @@ def _detect_prefix(zf: zipfile.ZipFile) -> str:
 
 
 def run_import(args) -> None:
-    """Restore a AgentX backup from a zip file."""
+    """Restore an AgentX backup from a zip file."""
     zip_path = Path(args.zipfile).expanduser().resolve()
 
     if not zip_path.is_file():

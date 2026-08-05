@@ -5,7 +5,7 @@ skills/plugins/cron/memories directory. It's a soft guard — defense in
 depth, NOT a security boundary — but it prevents the agent from silently
 corrupting a profile that belongs to a different session.
 
-Reference: May 2026 incident — a agentx-security profile session
+Reference: May 2026 incident — an agentx-security profile session
 accidentally edited skills under both ~/.agentx/profiles/agentx-security/skills/
 AND ~/.agentx/skills/ (the default profile's skills), realizing only
 afterwards that the second path belonged to a different profile.
@@ -39,7 +39,7 @@ def fake_hermes(tmp_path, monkeypatch):
             coder/
               skills/foo/SKILL.md       # another named profile
     """
-    root = tmp_path / "fake-hermes"
+    root = tmp_path / "fake-agentx"
     (root / "skills" / "foo").mkdir(parents=True)
     (root / "skills" / "foo" / "SKILL.md").write_text("# default skill\n")
     (root / "plugins" / "foo").mkdir(parents=True)

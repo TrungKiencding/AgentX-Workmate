@@ -1700,7 +1700,7 @@ def _tui_need_npm_install(root: Path) -> bool:
     if entry.is_file() and not lock.is_file():
         return False
 
-    ink = ws_root / "node_modules" / "@hermes" / "ink" / "package.json"
+    ink = ws_root / "node_modules" / "@agentx" / "ink" / "package.json"
     if not ink.is_file():
         return True
     if not lock.is_file():
@@ -2069,7 +2069,7 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
         result = _run_tui_install()
         if result.returncode != 0:
             # An npm outside the root package.json's `engines.npm` range fails
-            # here before doing any work; repair once (upgrade a AgentX-managed
+            # here before doing any work; repair once (upgrade an AgentX-managed
             # npm in place, or provision a managed runtime when the npm belongs
             # to the user) and retry rather than dumping EBADENGINE at the user.
             from hermes_cli.npm_engine import maybe_repair_npm_engine
@@ -2297,7 +2297,7 @@ def _launch_tui(
 
     import tempfile
 
-    # TUI child is a agentx process: propagate the profile-home contract via
+    # TUI child is an agentx process: propagate the profile-home contract via
     # the single factory; keep secrets (the TUI/agent needs provider creds).
     from tools.environments.local import build_subprocess_env
     env = build_subprocess_env(scrub_secrets=False, inherit_profile_home=True)
@@ -4913,7 +4913,7 @@ def cmd_backup(args):
 
 
 def cmd_import(args):
-    """Restore a AgentX backup from a zip file."""
+    """Restore an AgentX backup from a zip file."""
     from hermes_cli.backup import run_import
 
     run_import(args)
@@ -5435,7 +5435,7 @@ def _nixos_build_env() -> dict[str, str] | None:
 
     # Tier 2: nix-shell fallback — resolves the absolute python3 path once.
     # Slower (~2–5 s for the nix-shell eval) but always works, even without
-    # a agentx venv (pip / non-managed / bare-git installs).  The resolved
+    # an agentx venv (pip / non-managed / bare-git installs).  The resolved
     # path is a self-contained Nix store binary (all deps via RPATH) so it
     # stays valid even after the nix-shell exits.
     try:
@@ -5518,7 +5518,7 @@ def _run_npm_install_deterministic(
     # command here identically (the `npm install` fallback included), so the
     # failure is worth exactly one repair attempt. `maybe_repair_npm_engine`
     # returns the npm to retry with — the same one after an in-place upgrade
-    # of a AgentX-managed install, or a freshly provisioned managed npm when
+    # of an AgentX-managed install, or a freshly provisioned managed npm when
     # the failing npm belongs to the user's own toolchain.
     from hermes_cli.npm_engine import maybe_repair_npm_engine
 
@@ -7162,7 +7162,7 @@ def cmd_gui(args: argparse.Namespace):
                 _desktop_macos_relaunchable_fixup(desktop_dir)
 
                 # Windows integrity gate (#69179): never declare the rebuild a
-                # success on a AgentX Workmate.exe Windows cannot load (truncated PE from
+                # success on an AgentX Workmate.exe Windows cannot load (truncated PE from
                 # a corrupt cached Electron zip, wrong-arch tree, interrupted
                 # rcedit rewrite). Roll back to the .bak tree preserved by
                 # before-pack.mjs when possible, then fail loudly so the

@@ -139,7 +139,7 @@ test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', (
 })
 
 test('resolveStagedUpdaterBinary returns null off Windows even when agentx-setup is staged (#74836)', () => {
-  const home = '/Users/hermes/.agentx'
+  const home = '/Users/agentx/.agentx'
   let probes = 0
 
   const resolved = resolveStagedUpdaterBinary(home, {

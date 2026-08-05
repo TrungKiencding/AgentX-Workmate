@@ -203,7 +203,7 @@ def test_hermes_agent_launcher_cleanup_on_uninstall(tmp_path):
     agentx and agentx-acp."""
     from hermes_cli.uninstall import remove_wrapper_script
 
-    # Simulate a agentx-agent wrapper in the user-local location
+    # Simulate an agentx-agent wrapper in the user-local location
     local_shim = tmp_path / ".local" / "bin" / "agentx-agent"
     local_shim.parent.mkdir(parents=True)
     local_shim.write_text("#!/usr/bin/env bash\nexec agentx-agent\n", encoding="utf-8")

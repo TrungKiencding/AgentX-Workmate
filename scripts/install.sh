@@ -467,7 +467,7 @@ get_command_link_display_dir() {
     fi
 }
 
-# Point a AgentX-managed Node's `npm install -g` at a directory that is on
+# Point an AgentX-managed Node's `npm install -g` at a directory that is on
 # PATH. npm's default global prefix for a bundled Node is the Node dir itself,
 # so global package binaries land in $AGENTX_HOME/node/bin — which is NOT on
 # PATH (only the command link dir is) and is wiped on every Node upgrade.
@@ -841,7 +841,7 @@ check_node() {
         return
     fi
 
-    # Prefer a AgentX-managed Node from a previous run over a too-old system one.
+    # Prefer an AgentX-managed Node from a previous run over a too-old system one.
     if [ -x "$AGENTX_HOME/node/bin/node" ] && node_satisfies_build "$("$AGENTX_HOME/node/bin/node" --version)"; then
         export PATH="$AGENTX_HOME/node/bin:$PATH"
         log_success "Node.js $("$AGENTX_HOME/node/bin/node" --version) found (AgentX-managed)"

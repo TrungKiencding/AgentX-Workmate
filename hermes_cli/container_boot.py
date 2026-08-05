@@ -336,7 +336,7 @@ def _strip_container_argv_prefix(argv: Sequence[str]) -> list[str]:
     if args and args[0].endswith("entrypoint-dispatch.sh"):
         args = args[1:]
 
-    # The wrapper re-execs `agentx <subcommand>`; peel an explicit hermes.
+    # The wrapper re-execs `agentx <subcommand>`; peel an explicit agentx.
     if args and Path(args[0]).name == "agentx":
         args = args[1:]
     return args

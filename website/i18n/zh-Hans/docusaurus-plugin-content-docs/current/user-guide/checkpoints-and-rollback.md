@@ -63,7 +63,7 @@ Agent 每个目录每轮**最多创建一个检查点**，因此长时间运行�
 - 每轮对话（每个目录）执行一次：
   - 为该文件解析合理的项目根目录。
   - 初始化或复用位于 `~/.agentx/checkpoints/store/` 的**单一共享影子存储**。
-  - 写入每个项目的索引，构建树对象，并提交到每个项目的引用（`refs/hermes/<project-hash>`）。
+  - 写入每个项目的索引，构建树对象，并提交到每个项目的引用（`refs/agentx/<project-hash>`）。
 - 这些每项目引用构成可通过 `/rollback` 检查和恢复的检查点历史。
 
 ```mermaid
@@ -218,7 +218,7 @@ AgentX 在后台执行：
 ~/.agentx/checkpoints/
   ├── store/                 # 单一共享裸 git 仓库
   │   ├── HEAD, objects/     # git 内部结构（跨项目共享）
-  │   ├── refs/hermes/<hash> # 每项目分支尖端
+  │   ├── refs/agentx/<hash> # 每项目分支尖端
   │   ├── indexes/<hash>     # 每项目 git 索引
   │   ├── projects/<hash>.json  # workdir + created_at + last_touch
   │   └── info/exclude

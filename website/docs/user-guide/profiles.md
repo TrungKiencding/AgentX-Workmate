@@ -269,7 +269,7 @@ Add the line to your `~/.bashrc` or `~/.zshrc` for persistent completion. Comple
 
 ## How it works
 
-Profiles use the `AGENTX_HOME` environment variable. When you run `coder chat`, the wrapper script sets `AGENTX_HOME=~/.agentx/profiles/coder` before launching hermes. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, AgentX state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
+Profiles use the `AGENTX_HOME` environment variable. When you run `coder chat`, the wrapper script sets `AGENTX_HOME=~/.agentx/profiles/coder` before launching agentx. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, AgentX state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
 
 This is separate from terminal working directory. Tool execution starts from `terminal.cwd` (or the launch directory when `cwd: "."` on the local backend), not automatically from `AGENTX_HOME`.
 

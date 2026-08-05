@@ -68,7 +68,7 @@ agentx [global-options] <command> [subcommand/options]
 | `agentx debug` | Debug tools — upload logs and system info for support. |
 | `agentx backup` | Back up AgentX home directory to a zip file. |
 | `agentx checkpoints` | Inspect / prune / clear `~/.agentx/checkpoints/` (the shadow store used by `/rollback`). Run with no args for a status overview. |
-| `agentx import` | Restore a AgentX backup from a zip file. |
+| `agentx import` | Restore an AgentX backup from a zip file. |
 | `agentx logs` | View, tail, and filter agent/gateway/error log files. |
 | `agentx config` | Show, edit, migrate, and query configuration files. |
 | `agentx skin` | List, switch, and tweak display skins. |
@@ -908,7 +908,7 @@ The backup uses SQLite's `backup()` API for safe copying, so it works correctly 
 
 ```bash
 agentx backup                           # Full backup to ~/agentx-backup-*.zip
-agentx backup -o /tmp/hermes.zip        # Full backup to specific path
+agentx backup -o /tmp/agentx.zip        # Full backup to specific path
 agentx backup --quick                   # Quick state-only snapshot
 agentx backup --quick --label "pre-upgrade"  # Quick snapshot with label
 ```
@@ -957,7 +957,7 @@ See [Checkpoints and `/rollback`](../user-guide/checkpoints-and-rollback.md) for
 agentx import <zipfile> [options]
 ```
 
-Restore a previously created AgentX backup into your AgentX home directory. All files in the archive overwrite existing files in your AgentX home; `--force` only skips the confirmation prompt that fires when the target already has a AgentX installation.
+Restore a previously created AgentX backup into your AgentX home directory. All files in the archive overwrite existing files in your AgentX home; `--force` only skips the confirmation prompt that fires when the target already has an AgentX installation.
 
 | Option | Description |
 |--------|-------------|
@@ -1354,7 +1354,7 @@ Manage MCP (Model Context Protocol) server configurations and run AgentX as an M
 | `configure <name>` (alias: `config`) | Toggle tool selection for a server. |
 | `login <name>` | Force re-authentication for an OAuth-based MCP server. |
 
-See [MCP Config Reference](./mcp-config-reference.md), [Use MCP with AgentX](../guides/use-mcp-with-agentx.md), and [MCP Server Mode](../user-guide/features/mcp.md#running-hermes-as-an-mcp-server).
+See [MCP Config Reference](./mcp-config-reference.md), [Use MCP with AgentX](../guides/use-mcp-with-agentx.md), and [MCP Server Mode](../user-guide/features/mcp.md#running-agentx-as-an-mcp-server).
 
 ## `agentx plugins`
 
@@ -1383,7 +1383,7 @@ Provider plugin selections are saved to `config.yaml`:
 
 General plugin disabled list is stored in `config.yaml` under `plugins.disabled`.
 
-See [Plugins](../user-guide/features/plugins.md) and [Build a AgentX Plugin](../developer-guide/plugins/index.md).
+See [Plugins](../user-guide/features/plugins.md) and [Build an AgentX Plugin](../developer-guide/plugins/index.md).
 
 ## `agentx tools`
 
@@ -1577,7 +1577,7 @@ Register this install as a self-hosted dashboard with your Nous Portal account. 
 | Option | Description |
 |--------|-------------|
 | `--name` | Human-readable label for the dashboard (default: auto-generated). |
-| `--redirect-uri` | Public HTTPS OAuth redirect URI (e.g. `https://hermes.example.com/auth/callback`). Omit for localhost-only use. |
+| `--redirect-uri` | Public HTTPS OAuth redirect URI (e.g. `https://agentx.example.com/auth/callback`). Omit for localhost-only use. |
 | `--portal-url` | Override the Nous Portal base URL for registration (default: the portal you logged into). Also settable via `AGENTX_DASHBOARD_PORTAL_URL`. |
 
 ```bash
@@ -1647,7 +1647,7 @@ agentx completion bash >> ~/.bashrc
 agentx completion zsh >> ~/.zshrc
 
 # Fish
-agentx completion fish > ~/.config/fish/completions/hermes.fish
+agentx completion fish > ~/.config/fish/completions/agentx.fish
 ```
 
 ## `agentx update`

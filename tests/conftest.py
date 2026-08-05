@@ -881,7 +881,7 @@ def _wal_is_usable() -> bool:
 
     This matters because the interpreter running the tests and the interpreter
     running AgentX can link DIFFERENT SQLite versions: a repo ``.venv`` on
-    3.50.4 (vulnerable → DELETE) alongside a AgentX managed runtime on 3.53.1
+    3.50.4 (vulnerable → DELETE) alongside an AgentX managed runtime on 3.53.1
     (fixed → WAL). The same test then passes in one and fails in the other.
 
     IMPORTANT: this must NOT import ``hermes_state``. That module computes

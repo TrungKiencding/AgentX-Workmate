@@ -10,7 +10,7 @@
   <a href="https://github.com/AstralX/agentx-workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/AstralX/agentx-workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
   <a href="https://github.com/AstralX/agentx-workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology"></a>
+  <img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology">
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
   <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
@@ -162,7 +162,7 @@ For the full command lists, see the [CLI guide](https://github.com/AstralX/agent
 
 ## Documentation
 
-All documentation lives at **[hermes-agent.nousresearch.com/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**:
+All documentation lives at **[https://github.com/AstralX/agentx-workmate/tree/main/website/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**:
 
 | Section                                                                                             | What's Covered                                             |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |

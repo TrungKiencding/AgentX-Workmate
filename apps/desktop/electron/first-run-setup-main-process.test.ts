@@ -18,10 +18,10 @@ test('a first-run bootstrap-needed remote apply connects without ensuring or boo
 
   const candidateRemote = {
     authMode: 'token',
-    baseUrl: 'https://gateway.example.com/hermes',
+    baseUrl: 'https://gateway.example.com/agentx',
     source: 'settings',
     token: 'secret',
-    wsUrl: 'wss://gateway.example.com/hermes/api/ws?token=secret'
+    wsUrl: 'wss://gateway.example.com/agentx/api/ws?token=secret'
   }
 
   let savedRemote: typeof candidateRemote | null = null

@@ -437,6 +437,15 @@ RENAMES = [
     ("Built by [Nous Research](https://nousresearch.com)", "Built by AstralX Technology"),
     ("Built%20by-Nous%20Research", "Built%20by-AstralX%20Technology"),
     ("security@nousresearch.com", "kien.le@astralx.com.vn"),
+    # The product name adjacent to a non-Latin script. `\b` is Unicode-aware in
+    # Python, so there is NO boundary between `Hermes` and `も` or `는` — the
+    # Japanese, Korean and Chinese UI strings kept the old name through every
+    # sweep that relied on one.
+    ("、Hermesもあなたの", "、AgentXもあなたの"),
+    ("Hermes는 실행 중이지만", "AgentX는 실행 중이지만"),
+    ("Hermes가 인식하지 못하는", "AgentX가 인식하지 못하는"),
+    # …while the model families next to the same scripts still must not move.
+    ("Hermes-4-70B、Hermes-4-405B", "Hermes-4-70B、Hermes-4-405B"),
     (
         'authors = ["Nous Research <info@nousresearch.com>"]',
         'authors = ["AstralX Technology <kien.le@astralx.com.vn>"]',
@@ -495,6 +504,26 @@ SCOPED_RENAMES = [
     (WORKTREE, 'b.startswith("hermes/hermes-")', 'b.startswith("agentx/agentx-")'),
     (WORKTREE, "refs/heads/hermes/feat", "refs/heads/agentx/feat"),
     (WORKTREE, 'wt_name = f"hermes-{short_id}"', 'wt_name = f"agentx-{short_id}"'),
+    # The Slack parent command, at the PRODUCER rather than the relay: the
+    # first pass renamed the relay's comparison and left this behind, so the
+    # command matched nothing.
+    ("plugins/platforms/slack/adapter.py", '_re.compile(r"^/hermes$")', '_re.compile(r"^/agentx$")'),
+    ("tests/gateway/test_slack_relay_parent_command.py", '"/hermes sethome"', '"/agentx sethome"'),
+    # The reverse-proxy path prefix — the same eight characters, a different
+    # family, scoped to the files where they mean a URL segment.
+    ("hermes_cli/dashboard_auth/middleware.py", "/hermes/login?next=...", "/agentx/login?next=..."),
+    (
+        "apps/desktop/electron/native-oauth.test.ts",
+        "'/hermes/auth/native/authorize'",
+        "'/agentx/auth/native/authorize'",
+    ),
+    ("apps/desktop/src/i18n/en.ts", "path prefixes like /hermes", "path prefixes like /agentx"),
+    # ── phase 11: the long tail the gate surfaced ────────────────────────
+    (BACKEND, '_REFS_PREFIX = "refs/hermes"', '_REFS_PREFIX = "refs/agentx"'),
+    (BACKEND, "refs/hermes/<hash16>", "refs/agentx/<hash16>"),
+    (BACKEND, "var(--hermes-diag-error)", "var(--agentx-diag-error)"),
+    (BACKEND, "--hermes-diag-critical: #f00;", "--agentx-diag-critical: #f00;"),
+    (BACKEND, "agentx desktop --hermes-root PATH", "agentx desktop --agentx-root PATH"),
 ]
 
 
@@ -509,8 +538,6 @@ def test_narrow_scoped_tokens_are_renamed(path, before, after):
 # extension directory. A rule that reached them would break a live lookup.
 OUT_OF_SCOPE_PRESERVED = [
     ("apps/desktop/src/app/artifacts/index.tsx", "import { x } from '@/hermes'"),
-    ("hermes_cli/dashboard_auth/middleware.py", "/hermes/login?next=..."),
-    ("apps/desktop/electron/native-oauth.test.ts", "'/hermes/auth/native/authorize'"),
     ("plugins/memory/openviking/__init__.py", "viking://user/hermes/.overview.md"),
     (
         "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",

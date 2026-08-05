@@ -60,7 +60,7 @@ test('resolveUnpackedRelease is null for AppImage / .deb / .rpm / dev / unresolv
   // AppImage mount
   assert.equal(resolveUnpackedRelease('/tmp/.mount_Hermes12345/AppRun', ROOT, 'linux'), null)
   // .deb / .rpm system install
-  assert.equal(resolveUnpackedRelease('/usr/lib/hermes/hermes', ROOT, 'linux'), null)
+  assert.equal(resolveUnpackedRelease('/usr/lib/agentx/agentx', ROOT, 'linux'), null)
   assert.equal(resolveUnpackedRelease('/opt/AgentX Workmate/AgentX Workmate', ROOT, 'linux'), null)
   // dev electron
   assert.equal(
@@ -162,7 +162,7 @@ test('collectRelaunchEnv preserves AGENTX_HOME + AGENTX_DESKTOP_* + sandbox opt-
     AGENTX_HOME: '/home/u/.agentx',
     AGENTX_DESKTOP_REMOTE_URL: 'http://box:9119',
     AGENTX_DESKTOP_REMOTE_TOKEN: 'secret',
-    AGENTX_DESKTOP_AGENTX_ROOT: '/home/u/dev/hermes',
+    AGENTX_DESKTOP_AGENTX_ROOT: '/home/u/dev/agentx',
     AGENTX_DESKTOP_APP_NAME: 'HermesSandbox',
     ELECTRON_DISABLE_SANDBOX: '1', // sandbox opt-out — preserved
     PATH: '/usr/bin', // not preserved
@@ -174,7 +174,7 @@ test('collectRelaunchEnv preserves AGENTX_HOME + AGENTX_DESKTOP_* + sandbox opt-
     AGENTX_HOME: '/home/u/.agentx',
     AGENTX_DESKTOP_REMOTE_URL: 'http://box:9119',
     AGENTX_DESKTOP_REMOTE_TOKEN: 'secret',
-    AGENTX_DESKTOP_AGENTX_ROOT: '/home/u/dev/hermes',
+    AGENTX_DESKTOP_AGENTX_ROOT: '/home/u/dev/agentx',
     AGENTX_DESKTOP_APP_NAME: 'HermesSandbox',
     ELECTRON_DISABLE_SANDBOX: '1'
   })

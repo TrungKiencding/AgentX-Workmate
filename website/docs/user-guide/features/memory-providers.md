@@ -157,7 +157,7 @@ The mapping:
 |---------|-----------|
 | **Workspace** | Shared environment. All AgentX profiles under one workspace see the same user identity. |
 | **User peer** (`peerName`) | The human. Shared across profiles in the workspace. |
-| **AI peer** (`aiPeer`) | One per AgentX profile. Host key `agentx` → default; `hermes.<profile>` for others. |
+| **AI peer** (`aiPeer`) | One per AgentX profile. Host key `agentx` → default; `agentx.<profile>` for others. |
 | **Observation** | Per-peer toggles controlling what Honcho models from whose messages. `directional` (default, all four on) or `unified` (single-observer pool). |
 
 ### New profile, fresh Honcho peer

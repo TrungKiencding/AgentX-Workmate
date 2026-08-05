@@ -56,7 +56,7 @@ The bar along the bottom of the chat shows live session state and exposes quick 
 - **Context-usage meter** — a live "% full" meter of the session's context window. Click it to open the **Context Usage** popover with a token breakdown by category (system prompt, tool definitions, skills, memory, rules, MCP, subagent definitions, and the conversation itself) so you can see exactly what's eating the window before compression kicks in.
 - **Customizable items** — right-click the status bar (**Show in status bar**) to choose what appears: the context meter, workspace, model, approvals, turn/session timers, terminal, Command Center, backend version, and more — or hide the bar entirely (**Cmd/Ctrl+Shift+S** toggles it).
 
-Chatting against a AgentX instance on another machine instead of the bundled local backend? See [Connecting to a remote backend](#connecting-to-a-remote-backend) below — and for the full picture of how the remote-hosted dashboard connection works (the auth gate, the `/api/ws` chat socket, and WebSocket close-code triage), see [Web Dashboard → Connecting AgentX Workmate Desktop to a remote backend](./features/web-dashboard.md#connecting-hermes-desktop-to-a-remote-backend).
+Chatting against an AgentX instance on another machine instead of the bundled local backend? See [Connecting to a remote backend](#connecting-to-a-remote-backend) below — and for the full picture of how the remote-hosted dashboard connection works (the auth gate, the `/api/ws` chat socket, and WebSocket close-code triage), see [Web Dashboard → Connecting AgentX Workmate Desktop to a remote backend](./features/web-dashboard.md#connecting-agentx-desktop-to-a-remote-backend).
 
 #### Repository discovery
 
@@ -199,7 +199,7 @@ To launch via the CLI, simply run `agentx desktop`. By default it installs works
 | `--build-only`       | Build the desktop app but do not launch it (used by `agentx update`)                      |
 | `--source`           | Launch via `electron .` against `apps/desktop/dist` instead of the packaged app           |
 | `--cwd PATH`         | Initial project directory for desktop chat sessions (sets `AGENTX_DESKTOP_CWD`)           |
-| `--hermes-root PATH` | Override the AgentX source root the app uses (sets `AGENTX_DESKTOP_AGENTX_ROOT`)          |
+| `--agentx-root PATH` | Override the AgentX source root the app uses (sets `AGENTX_DESKTOP_AGENTX_ROOT`)          |
 | `--ignore-existing`  | Force the app to ignore any `agentx` CLI already on `PATH` during backend resolution      |
 | `--fake-boot`        | Enable deterministic boot delays for validating the startup UI                            |
 
@@ -209,7 +209,7 @@ The packaged app ships the Electron shell and a native React chat surface. On fi
 
 ## Connecting to a remote backend
 
-By default the app starts and manages its own **local** backend. You can instead point it at a AgentX backend running on another machine — a VPS, a home server, or a Mini behind Tailscale.
+By default the app starts and manages its own **local** backend. You can instead point it at an AgentX backend running on another machine — a VPS, a home server, or a Mini behind Tailscale.
 
 **Settings → Gateway → Connection mode** offers the alternatives to the local gateway:
 
@@ -268,7 +268,7 @@ The backend reads and writes your `.env` (API keys, secrets) and can run agent c
 
 **Settings → Gateway → Remote gateway:**
 
-1. **Remote URL** — `http://<backend-host>:9119` (path prefixes like `/hermes` work if you front it with a reverse proxy)
+1. **Remote URL** — `http://<backend-host>:9119` (path prefixes like `/agentx` work if you front it with a reverse proxy)
 2. **Sign in** — the app detects which provider the backend advertises and adapts the button. For a username/password backend it shows a **Sign in** button that opens a credential form (enter the credentials from step 1). For an OAuth backend it shows **Sign in with `<provider>`** (e.g. *Sign in with Nous Research*), which runs the provider's browser sign-in. Either way the app ends up with an authenticated session against the backend.
 3. **Save and reconnect** — switches the desktop shell onto the remote backend. The session refreshes automatically; you stay signed in across restarts when `AGENTX_DASHBOARD_BASIC_AUTH_SECRET` is set.
 
@@ -285,7 +285,7 @@ The remote gateway host is configured per [profile](./profiles.md), so each prof
 - **Signed out on every restart** — set `AGENTX_DASHBOARD_BASIC_AUTH_SECRET` to a stable value. Without it the token-signing key is regenerated per boot, invalidating all sessions.
 - **Connection refused / times out** — the backend bound to `127.0.0.1` (the default) or a firewall/VPN is blocking the port. Bind to `0.0.0.0` or the tailscale IP and open the port to your trusted network.
 
-For the same setup from the web-dashboard angle, see [Web Dashboard → Connecting AgentX Workmate Desktop to a remote backend](./features/web-dashboard.md#connecting-hermes-desktop-to-a-remote-backend); the env vars are catalogued under [Environment Variables → Web Dashboard & AgentX Workmate Desktop](../reference/environment-variables.md#web-dashboard--hermes-desktop).
+For the same setup from the web-dashboard angle, see [Web Dashboard → Connecting AgentX Workmate Desktop to a remote backend](./features/web-dashboard.md#connecting-agentx-desktop-to-a-remote-backend); the env vars are catalogued under [Environment Variables → Web Dashboard & AgentX Workmate Desktop](../reference/environment-variables.md#web-dashboard--agentx-workmate-desktop).
 
 ## Extending the desktop app
 

@@ -2494,7 +2494,7 @@ def terminal_tool(
 
         session_key = get_current_session_key(default="") or (task_id or "")
 
-        # Hard-block: gateway lifecycle commands (systemctl/launchctl/hermes
+        # Hard-block: gateway lifecycle commands (systemctl/launchctl/agentx
         # restart|stop targeting agentx-gateway) must never run inside the
         # gateway process itself. The restart would SIGTERM the gateway, which
         # kills this very subprocess before it can complete — the service may

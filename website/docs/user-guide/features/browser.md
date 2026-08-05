@@ -377,7 +377,7 @@ For that setup, prefer `chrome-devtools-mcp` through AgentX MCP support.
 
 See the MCP guide for the practical setup:
 
-- [Use MCP with AgentX](../../guides/use-mcp-with-agentx.md#wsl2-bridge-hermes-in-wsl-to-windows-chrome)
+- [Use MCP with AgentX](../../guides/use-mcp-with-agentx.md#wsl2-bridge-agentx-in-wsl-to-windows-chrome)
 
 ### Local browser mode
 

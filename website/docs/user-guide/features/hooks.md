@@ -1534,7 +1534,7 @@ hooks:
       timeout: 10                           # per-attempt seconds (1–60)
 
     - name: tool-monitor
-      url: https://metrics.example.com/hooks/hermes
+      url: https://metrics.example.com/hooks/agentx
       events: [post_tool_call]
       matcher: "terminal|delegate_task"     # regex, tool-scoped events only
 ```

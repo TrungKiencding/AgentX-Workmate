@@ -43,7 +43,7 @@ def build_gui_parser(subparsers, *, cmd_gui: Callable) -> None:
         help="Force Desktop to ignore any agentx CLI already on PATH during backend resolution",
     )
     gui_parser.add_argument(
-        "--hermes-root",
+        "--agentx-root",
         help="Override the AgentX source root used by Desktop (sets AGENTX_DESKTOP_AGENTX_ROOT)",
     )
     gui_parser.add_argument(

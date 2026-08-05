@@ -107,7 +107,7 @@ def test_shim_drops_root_to_hermes_uid(sleep_container: str) -> None:
     """docker exec defaults to root; the shim should drop to uid 10000.
 
     We invoke `agentx` with a Python-style `-c` shim equivalent — there's no
-    pure-hermes "print my uid" command, so we use the venv's python directly
+    pure-agentx "print my uid" command, so we use the venv's python directly
     via the shim's PATH lookup: `python -c 'print(os.getuid())'` is resolved
     through the venv. But that bypasses the shim. Instead, we exploit the
     fact that the venv's `agentx` is a console_scripts entry — under the
@@ -142,7 +142,7 @@ def test_shim_drops_root_to_hermes_uid(sleep_container: str) -> None:
     assert r.returncode == 0, f"stat failed: {r.stderr}"
     assert r.stdout.strip() == "agentx:agentx", (
         f"config.yaml owned by {r.stdout.strip()!r}, expected agentx:agentx. "
-        "The shim did not drop privileges before invoking hermes."
+        "The shim did not drop privileges before invoking agentx."
     )
 
 

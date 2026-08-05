@@ -1241,7 +1241,7 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 # ``/agentx <command>`` on Slack only. They remain native on every other
 # surface (CLI, TUI, Telegram, Discord). Keep this list TIGHT and intentional —
 # the telegram-parity test reads it so an entry here is a deliberate
-# "Slack-via-/hermes" decision, not a silent clamp.
+# "Slack-via-/agentx" decision, not a silent clamp.
 #   - topup: the billing/balance surface; reached via /agentx topup on Slack.
 #     (the rehaul folded the old /credits + /billing surfaces into /topup.)
 #   - moa: high-cost slash mode, available through /agentx moa to avoid
@@ -1312,7 +1312,7 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
         if slack_name in _SLACK_RESERVED_COMMANDS:
             return
         if slack_name in _SLACK_VIA_AGENTX_ONLY:
-            # Intentionally Slack-via-/hermes only (see _SLACK_VIA_AGENTX_ONLY).
+            # Intentionally Slack-via-/agentx only (see _SLACK_VIA_AGENTX_ONLY).
             return
         if len(entries) >= _SLACK_MAX_SLASH_COMMANDS:
             return

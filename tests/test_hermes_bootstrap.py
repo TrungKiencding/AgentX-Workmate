@@ -326,9 +326,9 @@ class TestHardenImportPath:
         original_env = os.environ.get("AGENTX_PYTHON_SRC_ROOT")
         try:
             sys.path[:] = ["", "/cwd/proj", "/usr/lib"]
-            os.environ["AGENTX_PYTHON_SRC_ROOT"] = "/env/hermes"
+            os.environ["AGENTX_PYTHON_SRC_ROOT"] = "/env/agentx"
             hb.harden_import_path()
-            assert sys.path[0] == "/env/hermes"
+            assert sys.path[0] == "/env/agentx"
         finally:
             sys.path[:] = original
             if original_env is None:

@@ -167,7 +167,7 @@ you want to opt into.
 ### Updating the catalog manifest
 
 MCPs are never auto-updated. Re-run `agentx mcp install <name>` to refresh
-after a AgentX update if a manifest version changed.
+after an AgentX update if a manifest version changed.
 
 To add an MCP to the catalog, open a PR against
 [`optional-mcps/`](https://github.com/AstralX/agentx-workmate/tree/main/optional-mcps).
@@ -807,7 +807,7 @@ Or if you installed AgentX in a specific location:
 
 ### Available tools
 
-The MCP server exposes 10 tools, matching OpenClaw's channel bridge surface plus a AgentX-specific channel browser:
+The MCP server exposes 10 tools, matching OpenClaw's channel bridge surface plus an AgentX-specific channel browser:
 
 | Tool | Description |
 |------|-------------|

@@ -1,6 +1,6 @@
 """Profile distributions — shareable, packaged AgentX profiles via git.
 
-A distribution is a AgentX profile published as a git repository (or
+A distribution is an AgentX profile published as a git repository (or
 installed from a local directory for development). Install with one command
 from a git URL, update in place, and keep your local memories / sessions /
 credentials untouched.
@@ -415,7 +415,7 @@ def _stage_source(source: str, workdir: Path) -> Tuple[Path, str]:
         if not (cloned / MANIFEST_FILENAME).is_file():
             raise DistributionError(
                 f"No {MANIFEST_FILENAME} at the root of {src_str!r}. "
-                "This repository is not a AgentX profile distribution."
+                "This repository is not an AgentX profile distribution."
             )
         return cloned, src_str
 
@@ -506,7 +506,7 @@ def plan_install(
     if manifest is None:
         raise DistributionError(
             f"No {MANIFEST_FILENAME} found at the distribution root — "
-            "this source is not a AgentX distribution."
+            "this source is not an AgentX distribution."
         )
 
     # Version check up-front so we fail fast

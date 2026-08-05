@@ -88,7 +88,7 @@ After creation, the topic's detail page has a **Subscriptions** tab. Create one:
 
 - Subscription ID: `agentx-chat-events-sub`
 - Delivery type: **Pull**
-- Message retention: **7 days** (so backlog survives a agentx restart)
+- Message retention: **7 days** (so backlog survives an agentx restart)
 - Leave the rest default.
 
 ---

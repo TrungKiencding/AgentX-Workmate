@@ -2108,7 +2108,7 @@ def list_authenticated_providers(
     # "nous" pulls from the remote model-catalog manifest published at
     # https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/api/model-catalog.json so
     # newly added Portal models surface in the /model picker without
-    # requiring a AgentX release. Falls back to the in-repo
+    # requiring an AgentX release. Falls back to the in-repo
     # _PROVIDER_MODELS["nous"] snapshot when the manifest is unreachable.
     curated["nous"] = get_curated_nous_model_ids()
     # Ollama Cloud uses dynamic discovery (no static curated list)

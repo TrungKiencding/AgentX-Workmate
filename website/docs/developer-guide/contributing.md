@@ -22,7 +22,7 @@ We value contributions in this order:
 
 ## Common contribution paths
 
-- Building a custom/local tool without modifying AgentX core? Start with [Build a AgentX Plugin](../developer-guide/plugins/index.md)
+- Building a custom/local tool without modifying AgentX core? Start with [Build an AgentX Plugin](../developer-guide/plugins/index.md)
 - Building a new built-in core tool for AgentX itself? Start with [Adding Tools](./adding-tools.md)
 - Building a new skill? Start with [Creating Skills](./creating-skills.md)
 - Building a new inference provider? Start with [Adding Providers](./adding-providers.md)

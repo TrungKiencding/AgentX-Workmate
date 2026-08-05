@@ -63,8 +63,11 @@ export const DESKTOP_APP_NAME = 'AgentX Workmate'
  * consumers must omit the surrounding UI rather than render a dead link.
  * Prefer `docsUrl()` over testing `DOCS_URL` by hand.
  */
-export const WEBSITE_URL = ''
-export const DOCS_URL = ''
+// Annotated `string` rather than left as the literal type: TypeScript would
+// otherwise narrow these to `''`, and `docsUrl()` below — which guards on
+// emptiness and then operates on the value — would be manipulating `never`.
+export const WEBSITE_URL: string = ''
+export const DOCS_URL: string = ''
 
 /**
  * Canonical source repository. Update checks, release downloads and issue
@@ -90,8 +93,10 @@ export const envName = (name: string): string => `${ENV_PREFIX}${name}`
  * ```
  */
 export const docsUrl = (path = ''): string => {
-  if (!DOCS_URL) return ''
-  if (!path) return DOCS_URL
+  if (!DOCS_URL) {return ''}
+
+  if (!path) {return DOCS_URL}
+
   return `${DOCS_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
 }
 

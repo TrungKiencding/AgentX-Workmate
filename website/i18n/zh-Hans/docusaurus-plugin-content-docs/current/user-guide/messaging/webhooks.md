@@ -167,7 +167,7 @@ platforms:
 路由 payload 以 JSON 形式发送到 stdin：
 
 ```python
-# ~/.agentx/scripts/todoist-hermes-label.py
+# ~/.agentx/scripts/todoist-agentx-label.py
 import json
 import sys
 

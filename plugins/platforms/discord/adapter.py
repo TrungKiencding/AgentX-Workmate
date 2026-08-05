@@ -5569,7 +5569,7 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_deny(interaction: discord.Interaction, scope: str = ""):
             await self._run_simple_slash(interaction, f"/deny {scope}".strip())
 
-        @tree.command(name="thread", description="Create a new thread and start a AgentX session in it")
+        @tree.command(name="thread", description="Create a new thread and start an AgentX session in it")
         @discord.app_commands.describe(
             name="Thread name",
             message="Optional first message to send to AgentX in the thread",
@@ -5896,7 +5896,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
             cmd = discord.app_commands.Command(
                 name="skill",
-                description="Run a AgentX skill",
+                description="Run an AgentX skill",
                 callback=_skill_handler,
             )
             tree.add_command(cmd)

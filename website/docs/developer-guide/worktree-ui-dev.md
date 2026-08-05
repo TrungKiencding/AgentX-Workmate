@@ -41,7 +41,7 @@ The Ink TUI has a dev path already: `agentx --tui --dev` runs the TypeScript sou
 ```bash
 htui() {
   local root
-  root="$(_hermes_root)" || { echo "htui: not in a AgentX checkout" >&2; return 1; }
+  root="$(_hermes_root)" || { echo "htui: not in an AgentX checkout" >&2; return 1; }
   ( cd "$root" && PYTHONPATH="$root" \
       "$AGENTX_MAIN_CHECKOUT/.venv/bin/python" -m hermes_cli.main --tui --dev "$@" )
 }
@@ -60,7 +60,7 @@ The desktop app is heavier: it needs `node_modules` at both the repo root and `a
 ```bash
 hgui() {
   local root deps desktop
-  root="$(_hermes_root)" || { echo "hgui: not in a AgentX checkout" >&2; return 1; }
+  root="$(_hermes_root)" || { echo "hgui: not in an AgentX checkout" >&2; return 1; }
   deps="${AGENTX_GUI_DEPS_CHECKOUT:-$AGENTX_MAIN_CHECKOUT}"
   desktop="$root/apps/desktop"
 

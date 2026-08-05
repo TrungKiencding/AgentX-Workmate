@@ -153,7 +153,7 @@ def test_no_unreviewed_bare_managed_runtime_lookups():
     ]
 
     assert not unexpected, (
-        "Bare PATH lookup for a AgentX-managed runtime.\n\n"
+        "Bare PATH lookup for an AgentX-managed runtime.\n\n"
         + "\n".join(f"  {rel}:{lineno}  which({cmd!r})" for rel, cmd, lineno in unexpected)
         + "\n\n$AGENTX_HOME/bin (uv) and $AGENTX_HOME/node are not on an "
         "arbitrary process's PATH, so this resolves a system copy — or nothing "

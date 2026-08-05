@@ -35,7 +35,7 @@ test.skipIf(!liveHost || !liveUser || !configuredHermes)(
       ssh,
       ownershipId,
       profile: '',
-      remoteHermesPath: configuredHermes,
+      remoteAgentxPath: configuredHermes,
       pickLocalPort,
       forward: (local, remote) => ssh.forward(local, remote),
       cancelForward: (local, remote) => ssh.cancelForward(local, remote),

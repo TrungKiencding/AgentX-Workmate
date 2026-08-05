@@ -344,7 +344,7 @@ Nix 表达式中的值会进入 `/nix/store`，该目录是全局可读的。请
 ```nix
 {
   sops = {
-    defaultSopsFile = ./secrets/hermes.yaml;
+    defaultSopsFile = ./secrets/agentx.yaml;
     age.keyFile = "/home/user/.config/sops/age/keys.txt";
     secrets."agentx-env" = { format = "yaml"; };
   };
@@ -358,7 +358,7 @@ Nix 表达式中的值会进入 `/nix/store`，该目录是全局可读的。请
 密钥文件包含键值对：
 
 ```yaml
-# secrets/hermes.yaml（使用 sops 加密）
+# secrets/agentx.yaml（使用 sops 加密）
 agentx-env: |
     OPENROUTER_API_KEY=sk-or-...
     TELEGRAM_BOT_TOKEN=123456:ABC...
@@ -384,7 +384,7 @@ agentx-env: |
 ```nix
 {
   services.agentx-agent = {
-    authFile = config.sops.secrets."hermes/auth.json".path;
+    authFile = config.sops.secrets."agentx/auth.json".path;
     # authFileForceOverwrite = true;  # 每次激活时强制覆盖
   };
 }
@@ -552,7 +552,7 @@ scp ~/.agentx/mcp-tokens/my-oauth-server{,.client}.json \
 ```
 主机                                    容器
 ────                                    ─────────
-/nix/store/...-hermes-agent-0.1.0  ──►  /nix/store/... (ro)
+/nix/store/...-agentx-agent-0.1.0  ──►  /nix/store/... (ro)
 ~/.agentx -> /var/lib/agentx/.agentx       （符号链接桥接，按 hostUsers）
 /var/lib/agentx/                    ──►  /data/          (rw)
   ├── current-package -> /nix/store/...    （符号链接，每次重建更新）

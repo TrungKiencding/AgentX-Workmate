@@ -1,11 +1,11 @@
 ---
 sidebar_label: "Build a Plugin"
 slug: /developer-guide/plugins
-title: "Build a AgentX Plugin"
+title: "Build an AgentX Plugin"
 description: "Step-by-step guide to building a complete AgentX plugin with tools, hooks, data files, and skills"
 ---
 
-# Build a AgentX Plugin
+# Build an AgentX Plugin
 
 This guide walks through building a complete AgentX plugin from scratch. By the end you'll have a working plugin with multiple tools, lifecycle hooks, shipped data files, and a bundled skill — everything the plugin system supports.
 
@@ -39,7 +39,7 @@ See the full [Pluggable interfaces table](/user-guide/features/plugins#pluggable
 :::
 
 :::caution Third-party-product plugins ship standalone — not into the core tree
-Plugins that integrate **someone else's product or project** — observability/metrics backends, vendor SaaS connectors, analytics dashboards, paid-service tie-ins — are built and distributed as **standalone plugin repos**, not merged into `AstralX/agentx-workmate`. Users install them into `~/.agentx/plugins/` or via a pip entry point; everything in this guide works the same way from a standalone repo. This is a coupling-and-maintenance decision (the core moves fast and we don't own your backend), not a quality bar — a plugin can be excellent and still belong in its own repo. Promote it in the Nous Research Discord `#plugins-skills-and-skins` channel. See [CONTRIBUTING.md](https://github.com/AstralX/agentx-workmate/blob/main/CONTRIBUTING.md) for the policy.
+Plugins that integrate **someone else's product or project** — observability/metrics backends, vendor SaaS connectors, analytics dashboards, paid-service tie-ins — are built and distributed as **standalone plugin repos**, not merged into `AstralX/agentx-workmate`. Users install them into `~/.agentx/plugins/` or via a pip entry point; everything in this guide works the same way from a standalone repo. This is a coupling-and-maintenance decision (the core moves fast and we don't own your backend), not a quality bar — a plugin can be excellent and still belong in its own repo. Promote it in the project's GitHub Discussions `#plugins-skills-and-skins` channel. See [CONTRIBUTING.md](https://github.com/AstralX/agentx-workmate/blob/main/CONTRIBUTING.md) for the policy.
 :::
 
 ## What you're building

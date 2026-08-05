@@ -620,7 +620,7 @@ agentx backup [options]
 
 ```bash
 agentx backup                           # 完整备份到 ~/agentx-backup-*.zip
-agentx backup -o /tmp/hermes.zip        # 完整备份到指定路径
+agentx backup -o /tmp/agentx.zip        # 完整备份到指定路径
 agentx backup --quick                   # 仅状态快速快照
 agentx backup --quick --label "pre-upgrade"  # 带标签的快速快照
 ```
@@ -998,7 +998,7 @@ agentx mcp <subcommand>
 | `configure <name>`（别名：`config`） | 切换服务器的工具选择。 |
 | `login <name>` | 强制重新认证基于 OAuth 的 MCP 服务器。 |
 
-参见 [MCP 配置参考](./mcp-config-reference.md)、[在 AgentX 中使用 MCP](../guides/use-mcp-with-agentx.md) 和 [MCP 服务器模式](../user-guide/features/mcp.md#running-hermes-as-an-mcp-server)。
+参见 [MCP 配置参考](./mcp-config-reference.md)、[在 AgentX 中使用 MCP](../guides/use-mcp-with-agentx.md) 和 [MCP 服务器模式](../user-guide/features/mcp.md#running-agentx-as-an-mcp-server)。
 
 ## `agentx plugins`
 
@@ -1219,7 +1219,7 @@ agentx completion bash >> ~/.bashrc
 agentx completion zsh >> ~/.zshrc
 
 # Fish
-agentx completion fish > ~/.config/fish/completions/hermes.fish
+agentx completion fish > ~/.config/fish/completions/agentx.fish
 ```
 
 ## `agentx update`

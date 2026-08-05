@@ -11863,7 +11863,7 @@ def _rank_slash_completions(
 def _cli_exec_blocked(argv: list[str]) -> str | None:
     """Return user hint if this argv must not run headless in the gateway process."""
     if not argv:
-        return "bare `agentx` is interactive — use `/hermes chat -q …` or run `agentx` in another terminal"
+        return "bare `agentx` is interactive — use `agentx chat -q …` or run `agentx` in another terminal"
     a0 = argv[0].lower()
     if a0 == "setup":
         return "`agentx setup` needs a full terminal — run it outside the TUI"

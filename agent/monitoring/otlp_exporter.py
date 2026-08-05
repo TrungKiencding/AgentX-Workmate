@@ -161,7 +161,7 @@ def _span_attrs(ev: Dict[str, Any]) -> Dict[str, Any]:
                     v = (redact_for_export(v) or "[redacted]")[:500]
                 except Exception:
                     v = "[redaction-unavailable]"
-            attrs[f"hermes.{col}"] = v
+            attrs[f"agentx.{col}"] = v
     return attrs
 
 
@@ -171,7 +171,7 @@ def export_batch(provider, batch: List[Dict[str, Any]]) -> int:
     n = 0
     for ev in batch:
         try:
-            name = f"hermes.{ev.get('event', 'event')}"
+            name = f"agentx.{ev.get('event', 'event')}"
             span = tracer.start_span(name, attributes=_span_attrs(ev))
             span.end()
             n += 1

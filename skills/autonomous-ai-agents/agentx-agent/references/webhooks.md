@@ -77,9 +77,9 @@ Two mechanisms narrow broad event streams (e.g. Todoist/GitHub fire on every upd
 - **Route scripts** (`--script` on subscribe, or `script:` on a config route): a script under `~/.agentx/scripts/` receives the payload as JSON on stdin. JSON stdout replaces the payload before prompt templating; empty stdout, `[SILENT]`, or a nonzero exit ignores the webhook. `.sh`/`.bash` run with bash, everything else with Python. Scripts cannot live outside `~/.agentx/scripts/` (path traversal is blocked).
 
 ```bash
-agentx webhook subscribe todoist-hermes \
+agentx webhook subscribe todoist-agentx \
   --prompt "Task changed: {payload.content}" \
-  --script "todoist-hermes-label.py" \
+  --script "todoist-agentx-label.py" \
   --deliver telegram --deliver-chat-id "12345"
 ```
 

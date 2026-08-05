@@ -188,7 +188,7 @@ dos2unix path/to/script.sh
 
 Clone inside WSL. Always, unless you have a specific reason not to. A typical AgentX workflow (`agentx chat`, tool calls that `rg`/`ripgrep` the repo, file watchers, background gateway) will be dramatically faster and more reliable against `~/code/myrepo` than `/mnt/c/Users/you/myrepo`.
 
-One exception: **MCP bridges that launch Windows binaries.** If you're using `chrome-devtools-mcp` through `cmd.exe` (see [MCP guide: WSL → Windows Chrome](/guides/use-mcp-with-agentx#wsl2-bridge-hermes-in-wsl-to-windows-chrome)), Windows may complain with a `UNC` warning if AgentX's current working directory is `~`. In that case, start AgentX from somewhere under `/mnt/c/` so the Windows process has a drive-letter cwd.
+One exception: **MCP bridges that launch Windows binaries.** If you're using `chrome-devtools-mcp` through `cmd.exe` (see [MCP guide: WSL → Windows Chrome](/guides/use-mcp-with-agentx#wsl2-bridge-agentx-in-wsl-to-windows-chrome)), Windows may complain with a `UNC` warning if AgentX's current working directory is `~`. In that case, start AgentX from somewhere under `/mnt/c/` so the Windows process has a drive-letter cwd.
 
 ## Networking: WSL ↔ Windows
 
@@ -221,7 +221,7 @@ This is the reverse direction and is less documented elsewhere, but it's what yo
 
 On **Windows 11 22H2+ with mirrored mode enabled**, there is nothing to do. A process in WSL that binds to `0.0.0.0:8080` (or even `127.0.0.1:8080`) is reachable from a Windows browser at `http://localhost:8080`. WSL publishes the bind back to the host automatically.
 
-On **NAT mode** (Windows 10 / older Windows 11), the default "localhost forwarding" in WSL2 will generally forward Linux-side `127.0.0.1` binds to Windows `localhost`, so a AgentX service started with `--host 127.0.0.1` is usually reachable as `http://localhost:PORT` from Windows. If it isn't:
+On **NAT mode** (Windows 10 / older Windows 11), the default "localhost forwarding" in WSL2 will generally forward Linux-side `127.0.0.1` binds to Windows `localhost`, so an AgentX service started with `--host 127.0.0.1` is usually reachable as `http://localhost:PORT` from Windows. If it isn't:
 
 - Bind to `0.0.0.0` explicitly inside WSL.
 - Find the WSL VM's IP with `ip -4 addr show eth0 | grep inet` and hit that from Windows.
@@ -354,5 +354,5 @@ WSL2 stores its VM disk as a sparse VHDX under `%LOCALAPPDATA%\Packages\...`. It
 
 - **[Installation](/getting-started/installation)** — actual install steps (Linux/WSL2/Termux all use the same installer).
 - **[Integrations → Providers → WSL2 Networking](/integrations/providers#wsl2-networking-windows-users)** — the canonical networking deep-dive for local model servers.
-- **[MCP guide → WSL → Windows Chrome](/guides/use-mcp-with-agentx#wsl2-bridge-hermes-in-wsl-to-windows-chrome)** — controlling your signed-in Windows Chrome from AgentX in WSL.
+- **[MCP guide → WSL → Windows Chrome](/guides/use-mcp-with-agentx#wsl2-bridge-agentx-in-wsl-to-windows-chrome)** — controlling your signed-in Windows Chrome from AgentX in WSL.
 - **[Tool Gateway](/user-guide/features/tool-gateway)** and **[Web Dashboard](/user-guide/features/web-dashboard)** — the long-lived services you'll most often want to expose from WSL to the rest of your network.

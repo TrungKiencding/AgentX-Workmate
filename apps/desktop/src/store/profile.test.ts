@@ -31,7 +31,7 @@ const profile = (name: string, isDefault = false): ProfileInfo => ({
   is_default: isDefault,
   model: null,
   name,
-  path: `/tmp/hermes/${name}`,
+  path: `/tmp/agentx/${name}`,
   provider: null,
   skill_count: 0
 })

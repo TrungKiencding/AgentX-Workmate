@@ -267,7 +267,7 @@ class TestPublicUrlPersistence:
     """`--redirect-uri` derives & persists AGENTX_DASHBOARD_PUBLIC_URL in .env.
 
     --redirect-uri is the full public callback (e.g.
-    https://hermes.example.com/auth/callback). At serve time the dashboard auth
+    https://agentx.example.com/auth/callback). At serve time the dashboard auth
     layer reconstructs that callback by appending "/auth/callback" to
     AGENTX_DASHBOARD_PUBLIC_URL, so the value that's actually consumed is the
     ORIGIN (scheme://host). We derive the origin from the supplied redirect URI
@@ -348,7 +348,7 @@ class TestPublicUrlPersistence:
             "id": "selfhost-1",
             "name": "dreamy_tesla",
             "kind": "SELF_HOSTED",
-            "custom_redirect_uri": "https://hermes.example.com/auth/callback",
+            "custom_redirect_uri": "https://agentx.example.com/auth/callback",
             "created_at": "2026-06-04T12:00:00.000Z",
         }
         saved: dict = {}
@@ -373,11 +373,11 @@ class TestPublicUrlPersistence:
             dr.cmd_dashboard_register(
                 _ns(
                     portal_url="https://preview.example.com",
-                    redirect_uri="https://hermes.example.com/auth/callback",
+                    redirect_uri="https://agentx.example.com/auth/callback",
                 )
             )
         assert saved["AGENTX_DASHBOARD_PORTAL_URL"] == "https://preview.example.com"
-        assert saved["AGENTX_DASHBOARD_PUBLIC_URL"] == "https://hermes.example.com"
+        assert saved["AGENTX_DASHBOARD_PUBLIC_URL"] == "https://agentx.example.com"
 
 
 class TestPortalResolution:

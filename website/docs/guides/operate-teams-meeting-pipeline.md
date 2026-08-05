@@ -124,7 +124,7 @@ systemctl list-timers agentx-teams-pipeline-maintain.timer
 #### Option 3: Plain crontab
 
 ```cron
-0 */12 * * * /usr/local/bin/agentx teams-pipeline maintain-subscriptions >> /var/log/hermes/teams-pipeline-maintain.log 2>&1
+0 */12 * * * /usr/local/bin/agentx teams-pipeline maintain-subscriptions >> /var/log/agentx/teams-pipeline-maintain.log 2>&1
 ```
 
 Make sure the cron environment has the `MSGRAPH_*` credentials. Simplest fix: source `~/.agentx/.env` at the top of a wrapper script that crontab calls.

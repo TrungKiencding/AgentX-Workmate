@@ -47,7 +47,12 @@ def _parse_ts() -> dict[str, str]:
     text = TS_PATH.read_text(encoding="utf-8")
     return {
         m.group(1): m.group(2)
-        for m in re.finditer(r"^export const (\w+) = '([^']*)'$", text, re.MULTILINE)
+        # The optional `: string` is load-bearing on the URL constants: without
+        # it TypeScript narrows them to the empty-string literal type and the
+        # helpers that guard on emptiness end up operating on `never`.
+        for m in re.finditer(
+            r"^export const (\w+)(?:: \w+)? = '([^']*)'$", text, re.MULTILINE
+        )
     }
 
 

@@ -168,7 +168,7 @@ Use `script` when declarative filters are not enough. Scripts must live under `~
 The route payload is sent to stdin as JSON:
 
 ```python
-# ~/.agentx/scripts/todoist-hermes-label.py
+# ~/.agentx/scripts/todoist-agentx-label.py
 import json
 import sys
 

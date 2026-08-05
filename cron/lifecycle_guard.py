@@ -57,7 +57,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # gateway is benign (a no-op or "already running" error), and a
     # legitimate cron job might start a sibling profile's gateway.
     r"(?:agentx\s+gateway\s+(?:restart|stop))"
-    # Branch B: launchctl ops on a agentx-gateway label. macOS launchd
+    # Branch B: launchctl ops on an agentx-gateway label. macOS launchd
     # labels look like `ai.agentx.gateway` / `agentx-gateway`. Requiring the
     # gateway identifier prevents blocking unrelated agentx services (e.g.
     # `launchctl unload ai.agentx.update-checker.plist`).
@@ -70,7 +70,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # submissions that dodge this text anchor are caught separately by
     # `contains_launchctl_submit_command` (execution-aware, label-independent).
     r"|(?:launchctl\s+(?:kickstart|unload|load|stop|restart|submit|bootstrap)\b[^\n]*\bagentx[.\-]?gateway)"
-    # Branch C: systemctl ops on a agentx-gateway unit.
+    # Branch C: systemctl ops on an agentx-gateway unit.
     r"|(?:systemctl\s+(?:-\S+\s+)*(?:restart|stop|start)\b[^\n]*\bagentx[.\-]?gateway)"
     # Branch D: pkill / kill targeting the agentx gateway process. Both
     # token orders because real reproductions show both.

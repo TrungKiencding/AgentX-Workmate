@@ -454,6 +454,40 @@ RULES: list[Rule] = [
         replacement="⬡",
         note="caduceus (Hermes' staff) -> hexagon brand glyph",
     ),
+    # ── Phase 11: the long tail the gate surfaced ────────────────────────
+    Rule(
+        id="git-refs-namespace",
+        phase=11,
+        # `refs/hermes/<project-hash>` — the git ref namespace the checkpoint
+        # manager writes rollback commits to (`_REFS_PREFIX` in
+        # tools/checkpoint_manager.py) and the two doc pages describing it.
+        # Not reachable by branch-namespace: that rule refuses a preceding `/`
+        # so it stays off `/api/hermes/` and the openviking peer paths.
+        pattern=r"refs/hermes(?![A-Za-z0-9_])",
+        replacement="refs/agentx",
+        note="checkpoint git ref namespace refs/hermes/* -> refs/agentx/*",
+    ),
+    Rule(
+        id="kanban-diag-vars",
+        phase=11,
+        # `--hermes-diag-{warning,error,critical}`: three CSS custom properties
+        # and their fourteen var() readers. kanban-kebab could not see them —
+        # the token is `hermes-diag`, not `hermes-kanban`, even though it lives
+        # in the same stylesheet and belongs to the same board.
+        pattern=r"(?<![A-Za-z0-9_])hermes-diag-",
+        replacement="agentx-diag-",
+        note="kanban diagnostic CSS custom properties hermes-diag-* -> agentx-diag-*",
+    ),
+    Rule(
+        id="desktop-root-flag",
+        phase=11,
+        # `agentx desktop --hermes-root PATH`. The env var it sets moved in
+        # phase 2 (AGENTX_DESKTOP_AGENTX_ROOT); the flag the user types did
+        # not, so the docs describe one name and the parser accepts the other.
+        pattern=r"--hermes-root(?![A-Za-z0-9_-])",
+        replacement="--agentx-root",
+        note="desktop source-root flag --hermes-root -> --agentx-root",
+    ),
     # ── Phase 10: attribution and upstream coordinates ───────────────────
     Rule(
         id="docker-image",
@@ -717,28 +751,28 @@ RULES: list[Rule] = [
     Rule(
         id="wordmark-nous",
         phase=3,
-        pattern=r"\bNOUS HERMES\b",
+        pattern=r"(?<![A-Za-z0-9_])NOUS HERMES(?![A-Za-z0-9_])",
         replacement="AGENTX WORKMATE",
         note='uppercase "NOUS HERMES" wordmark -> "AGENTX WORKMATE"',
     ),
     Rule(
         id="wordmark-upper",
         phase=3,
-        pattern=r"\bHERMES[- ]AGENT\b",
+        pattern=r"(?<![A-Za-z0-9_])HERMES[- ]AGENT(?![A-Za-z0-9_])",
         replacement="AGENTX WORKMATE",
         note='uppercase "HERMES AGENT" wordmark -> "AGENTX WORKMATE"',
     ),
     Rule(
         id="display-name-full",
         phase=3,
-        pattern=r"\bHermes Agent\b",
+        pattern=r"(?<![A-Za-z0-9_])Hermes Agent(?![A-Za-z0-9_])",
         replacement="AgentX Workmate",
         note='"Hermes Agent" display string -> "AgentX Workmate"',
     ),
     Rule(
         id="display-name-desktop",
         phase=3,
-        pattern=r"\bHermes Desktop\b",
+        pattern=r"(?<![A-Za-z0-9_])Hermes Desktop(?![A-Za-z0-9_])",
         replacement="AgentX Workmate Desktop",
         note='"Hermes Desktop" -> "AgentX Workmate Desktop"',
     ),
@@ -747,6 +781,12 @@ RULES: list[Rule] = [
         phase=3,
         # Bare capitalised Hermes in prose/UI. Runs after the multi-word
         # display names above have claimed their occurrences.
+        #
+        # `\b` is deliberately NOT used on either side. Python's `re` makes it
+        # Unicode-aware, so `Hermes` followed by a CJK or Hangul character has
+        # no boundary at all — the Japanese, Korean and Chinese UI strings kept
+        # the product name through every earlier sweep because of it. The
+        # explicit ASCII classes below match the token in any script.
         #
         # The guards keep Nous's own artifacts intact. `(?<!Nous )` and
         # `(?![-\s]*\d)` protect the model slugs — hermes-4, Nous Hermes 3,
@@ -761,7 +801,7 @@ RULES: list[Rule] = [
         # these guards existed. `esearch/` is the same nine-character
         # fixed-width lookbehind dist-name uses, and it matches both the
         # PascalCase and the lowercase spelling of the org.
-        pattern=r"(?<!Nous )(?<!Nous-)(?<!esearch/)\bHermes\b(?![-\s]*\d)",
+        pattern=r"(?<!Nous )(?<!Nous-)(?<!esearch/)(?<![A-Za-z0-9_])Hermes(?![A-Za-z0-9_])(?![-\s]*\d)",
         replacement="AgentX",
         note='bare "Hermes" display string -> "AgentX" (model names exempt)',
     ),
@@ -769,7 +809,7 @@ RULES: list[Rule] = [
         id="wordmark-bare-upper",
         phase=3,
         # Runs last: the multi-word uppercase wordmarks above are gone by now.
-        pattern=r"\bHERMES\b(?![-\s]*\d)",
+        pattern=r"(?<![A-Za-z0-9_])HERMES(?![A-Za-z0-9_])(?![-\s]*\d)",
         replacement="AGENTX",
         note='bare uppercase "HERMES" -> "AGENTX"',
     ),
@@ -1281,7 +1321,43 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_@./-])/hermes(?![A-Za-z0-9_-])",
         replacement="/agentx",
         note="Slack parent slash command /hermes -> /agentx",
-        include=["gateway/*", "hermes_cli/commands.py", "AGENTS.md"],
+        # plugins/platforms/slack/adapter.py is the PRODUCER — it holds the
+        # `^/hermes$` match and every doc line describing the command — and
+        # tests/gateway/ holds the fixtures the relay asserts against. The
+        # first pass scoped this to gateway/ only, which renamed the relay's
+        # comparison and left both the adapter and the fixtures behind: the
+        # command stopped routing and two test files went red.
+        include=[
+            "gateway/*",
+            "hermes_cli/commands.py",
+            "plugins/platforms/slack/*",
+            "tests/gateway/*",
+            "AGENTS.md",
+        ],
+    ),
+    Rule(
+        id="proxy-path-prefix",
+        phase=8,
+        # `/hermes` as a reverse-proxy path prefix: the worked example in the
+        # dashboard-auth cookie/middleware/prefix docstrings, the
+        # `X-Forwarded-Prefix: /hermes` header value they parse, and the
+        # matching hint in all five desktop locales. Shares its spelling with
+        # the Slack slash command above, which is why both are scoped by file
+        # rather than distinguished by pattern — the same eight characters mean
+        # a chat command in one tree and a URL segment in the other.
+        pattern=r"(?<![A-Za-z0-9_@./-])/hermes(?![A-Za-z0-9_-])",
+        replacement="/agentx",
+        note="reverse-proxy path prefix example /hermes -> /agentx",
+        include=[
+            "hermes_cli/dashboard_auth/*",
+            "hermes_cli/web_server.py",
+            "hermes_cli/doctor.py",
+            "apps/desktop/src/i18n/*",
+            "apps/desktop/electron/*.test.ts",
+            "tests/hermes_cli/test_dashboard_auth*.py",
+            "tests/agent/test_system_prompt.py",
+            "tests/gateway/test_profile_resolution.py",
+        ],
     ),
     Rule(
         id="deeplink-scheme",

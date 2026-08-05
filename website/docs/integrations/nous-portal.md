@@ -85,7 +85,7 @@ They are **not recommended for use inside AgentX Workmate**, however. Hermes 4 i
 /model deepseek/deepseek-v4-pro        # cost-effective coder
 ```
 
-The Portal's own [model info page](https://portal.nousresearch.com/info) carries the same warning, so this isn't a AgentX-side opinion — it's the official guidance from Nous Research.
+The Portal's own [model info page](https://portal.nousresearch.com/info) carries the same warning, so this isn't an AgentX-side opinion — it's the official guidance from Nous Research.
 
 ## Setup
 

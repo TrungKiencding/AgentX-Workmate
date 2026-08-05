@@ -16,7 +16,7 @@ Model provider plugins are the third kind of **provider plugin**. The others are
 
 `providers/__init__.py._discover_providers()` runs lazily the first time any code calls `get_provider_profile()` or `list_providers()`. Discovery order:
 
-1. **Bundled plugins** — `<repo>/plugins/model-providers/<name>/` — ship with Hermes
+1. **Bundled plugins** — `<repo>/plugins/model-providers/<name>/` — ship with AgentX Workmate
 2. **User plugins** — `$AGENTX_HOME/plugins/model-providers/<name>/` — drop in any directory; no restart required for subsequent sessions
 3. **Legacy single-file** — `<repo>/providers/<name>.py` — back-compat for out-of-tree editable installs
 
@@ -257,7 +257,7 @@ acme-inference = "acme_hermes_plugin:register"
 
 …where `acme_hermes_plugin:register` is a function that calls `register_provider(profile)`. The general PluginManager picks up entry-point plugins during `discover_and_load()`. For `kind: model-provider` pip plugins, you still need to declare the kind in your manifest (or rely on the source-text heuristic).
 
-See [Building a AgentX Plugin](/developer-guide/plugins#distribute-via-pip) for the full entry-points setup.
+See [Building an AgentX Plugin](/developer-guide/plugins#distribute-via-pip) for the full entry-points setup.
 
 ## Related pages
 
@@ -265,4 +265,4 @@ See [Building a AgentX Plugin](/developer-guide/plugins#distribute-via-pip) for 
 - [Adding Providers](/developer-guide/adding-providers) — end-to-end checklist for new inference backends (covers both the fast plugin path and the full CLI/auth integration)
 - [Memory Provider Plugins](/developer-guide/memory-provider-plugin)
 - [Context Engine Plugins](/developer-guide/context-engine-plugin)
-- [Building a AgentX Plugin](/developer-guide/plugins) — general plugin authoring
+- [Building an AgentX Plugin](/developer-guide/plugins) — general plugin authoring

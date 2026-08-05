@@ -278,10 +278,10 @@ function normalizeSshConfig(entry) {
     out.keyPath = keyPath
   }
 
-  const remoteHermesPath = String(entry.remoteHermesPath || '').trim()
+  const remoteAgentxPath = String(entry.remoteAgentxPath || '').trim()
 
-  if (remoteHermesPath) {
-    out.remoteHermesPath = remoteHermesPath
+  if (remoteAgentxPath) {
+    out.remoteAgentxPath = remoteAgentxPath
   }
 
   // A Desktop profile can be a local routing label rather than the profile
@@ -447,7 +447,7 @@ function pathWithGlobalRemoteProfile(path, profile, opts: ProfileRouteOptions = 
   let parsed
 
   try {
-    parsed = new URL(rawPath, 'http://hermes.local')
+    parsed = new URL(rawPath, 'http://agentx.local')
   } catch {
     return path
   }
@@ -502,7 +502,7 @@ function resolveAuthMode(inputAuthMode, existingAuthMode) {
 }
 
 /**
- * True if any cookie in `cookies` is a agentx session ACCESS-token cookie
+ * True if any cookie in `cookies` is an agentx session ACCESS-token cookie
  * with a non-empty value. `cookies` is an array of {name, value} (the shape
  * Electron's session.cookies.get returns).
  *

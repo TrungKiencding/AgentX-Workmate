@@ -1363,7 +1363,7 @@ def write_proxy_config(config: Dict) -> Path:
     """
 
     try:
-        import yaml  # PyYAML is already a AgentX dep
+        import yaml  # PyYAML is already an AgentX dep
     except ImportError as exc:
         raise RuntimeError(
             "PyYAML is required to write the iron-proxy config but is not "

@@ -247,7 +247,7 @@ def check_fn_cache_scope() -> Optional[str]:
     """Return the active profile key when availability is profile-scoped.
 
     Single-profile processes intentionally keep the historical process-wide
-    cache. A multiplex gateway installs a AgentX-home override for every
+    cache. A multiplex gateway installs an AgentX-home override for every
     profile turn, so the canonical profile key is the stable isolation
     boundary across repeated turns for that profile.
     """

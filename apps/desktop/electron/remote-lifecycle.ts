@@ -126,7 +126,7 @@ function expandRemotePath(p) {
 // (throws a path-naming error if not executable — never silently falls back to a
 // different install). A BLANK path auto-detects: login-shell `command -v` (a
 // non-login `ssh host cmd` PATH misses user installs), then known install paths.
-async function locateHermes(ssh, remoteHermesPath) {
+async function locateHermes(ssh, remoteAgentxPath) {
   const resolveLauncher = async (candidate: string) => {
     const script =
       'import os,shlex,sys\n' +
@@ -159,13 +159,13 @@ async function locateHermes(ssh, remoteHermesPath) {
     }
   }
 
-  if (remoteHermesPath) {
-    if (await isExecutable(remoteHermesPath)) {
-      return resolveLauncher(remoteHermesPath)
+  if (remoteAgentxPath) {
+    if (await isExecutable(remoteAgentxPath)) {
+      return resolveLauncher(remoteAgentxPath)
     }
 
     const err: any = new Error(
-      `The AgentX path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
+      `The AgentX path you set is not an executable on the remote host: "${remoteAgentxPath}". ` +
         'Check the path (it must be the full path to the `agentx` binary on the remote, e.g. ' +
         '~/agentx-agent/.venv/bin/agentx), or clear it to auto-detect.'
     )
@@ -676,7 +676,7 @@ async function connect(deps) {
   const {
     ssh,
     profile = '',
-    remoteHermesPath = '',
+    remoteAgentxPath = '',
     ownershipId,
     forward,
     pickLocalPort,
@@ -693,7 +693,7 @@ async function connect(deps) {
   assertNotAborted(signal)
   const platform = await probeRemotePlatform(ssh)
   log(`remote platform ${platform.os}/${platform.arch}`)
-  const hermesPath = await locateHermes(ssh, remoteHermesPath)
+  const hermesPath = await locateHermes(ssh, remoteAgentxPath)
   log(`located agentx at ${hermesPath}`)
   const hermesVersion = await probeHermesVersion(ssh, hermesPath)
 

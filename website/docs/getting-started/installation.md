@@ -141,7 +141,7 @@ Running AgentX as a dedicated unprivileged user (e.g. a `agentx` systemd service
    sudo ln -s /home/agentx/.agentx/agentx-agent/venv/bin/agentx /usr/local/bin/agentx
    ```
 
-4. **Verify:** `agentx doctor` should now run cleanly. If you get `ModuleNotFoundError: No module named 'dotenv'`, you're invoking the repo source `agentx` file (`~/.agentx/agentx-agent/hermes`) with system Python instead of the venv launcher (`~/.agentx/agentx-agent/venv/bin/agentx`) — fix step 3.
+4. **Verify:** `agentx doctor` should now run cleanly. If you get `ModuleNotFoundError: No module named 'dotenv'`, you're invoking the repo source `agentx` file (`~/.agentx/agentx-agent/agentx`) with system Python instead of the venv launcher (`~/.agentx/agentx-agent/venv/bin/agentx`) — fix step 3.
 
 The same pattern works on Arch (the installer uses pacman with the same sudo-detection logic), Fedora/RHEL, and openSUSE — those distros don't support `--with-deps` at all, so an administrator always installs the system libraries separately. The relevant `dnf`/`zypper` commands are printed by the installer.
 
@@ -151,7 +151,7 @@ The same pattern works on Arch (the installer uses pacman with the same sudo-det
 
 | Problem | Solution |
 |---------|----------|
-| `hermes: command not found` | Reload your shell (`source ~/.bashrc`) or check PATH |
+| `agentx: command not found` | Reload your shell (`source ~/.bashrc`) or check PATH |
 | `API key not set` | Run `agentx model` to configure your provider, or `agentx config set OPENROUTER_API_KEY your_key` |
 | Missing config after update | Run `agentx config check` then `agentx config migrate` |
 

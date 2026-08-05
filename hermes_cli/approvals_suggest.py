@@ -251,7 +251,7 @@ def scan_approval_history(
 # ---------------------------------------------------------------------------
 
 def normalize_command(command: str) -> str:
-    """Fold user/hermes home prefixes and collapse whitespace.
+    """Fold user/agentx home prefixes and collapse whitespace.
 
     Reuses tools.approval's home-folding machinery so proposals are portable
     across machines/users (``/home/alice/x`` -> ``~/x``).

@@ -6,7 +6,7 @@ description: >
   ntfy push-notification gateway adapter for AgentX Workmate.
   Subscribes to a topic on ntfy.sh or any self-hosted ntfy server via
   HTTP streaming, and publishes replies via HTTP POST. Lightweight —
-  no external SDK, only httpx (already a AgentX dependency).
+  no external SDK, only httpx (already an AgentX dependency).
 
   ntfy has no native user-identity primitive; the adapter treats each
   topic as a single trusted channel and never derives user identity

@@ -560,7 +560,7 @@ def _build_hermes_tools_mcp_entry() -> dict:
     this for browser/web/delegate_task/vision/memory/skills tools.
 
     The command runs the worktree's Python via the current sys.executable
-    so a agentx installed under /opt/, /usr/local/, or a venv all work.
+    so an agentx installed under /opt/, /usr/local/, or a venv all work.
     AGENTX_HOME and PYTHONPATH are passed through so the spawned process
     sees the same config + module layout the user is running."""
     import sys

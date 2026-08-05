@@ -64,7 +64,7 @@ def test_discover_all_plugins_includes_entrypoint_plugins(monkeypatch, tmp_path)
     )
     entry_point = SimpleNamespace(
         name="wiki",
-        value="adapters.hermes.cli_plugin",
+        value="adapters.agentx.cli_plugin",
         group="hermes_agent.plugins",
         dist=dist,
     )
@@ -88,7 +88,7 @@ def test_discover_all_plugins_includes_entrypoint_plugins(monkeypatch, tmp_path)
             "0.1.0",
             "Karpathy-style LLM Wikis for AgentX",
             "entrypoint",
-            "adapters.hermes.cli_plugin",
+            "adapters.agentx.cli_plugin",
             "wiki",
         )
     ]

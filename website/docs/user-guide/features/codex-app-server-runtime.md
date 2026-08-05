@@ -169,7 +169,7 @@ uses:
 
 ## Enabling
 
-In a AgentX session:
+In an AgentX session:
 
 ```
 /codex-runtime codex_app_server
@@ -315,7 +315,7 @@ By default, AgentX points the codex subprocess at `~/.codex/` regardless of whic
 If you want per-profile Codex isolation (separate auth, separate installed plugins, separate config), set `CODEX_HOME` explicitly per profile. The cleanest way is to point at a directory under your `AGENTX_HOME`:
 
 ```bash
-# Inside the work profile, you might wrap hermes:
+# Inside the work profile, you might wrap agentx:
 CODEX_HOME=~/.agentx/profiles/work/codex agentx chat
 ```
 

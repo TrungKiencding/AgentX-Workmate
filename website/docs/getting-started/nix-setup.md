@@ -364,7 +364,7 @@ Both `environment` (non-secret vars) and `environmentFiles` (secret files) are m
 ```nix
 {
   sops = {
-    defaultSopsFile = ./secrets/hermes.yaml;
+    defaultSopsFile = ./secrets/agentx.yaml;
     age.keyFile = "/home/user/.config/sops/age/keys.txt";
     secrets."agentx-env" = { format = "yaml"; };
   };
@@ -378,7 +378,7 @@ Both `environment` (non-secret vars) and `environmentFiles` (secret files) are m
 The secrets file contains key-value pairs:
 
 ```yaml
-# secrets/hermes.yaml (encrypted with sops)
+# secrets/agentx.yaml (encrypted with sops)
 agentx-env: |
     OPENROUTER_API_KEY=sk-or-...
     TELEGRAM_BOT_TOKEN=123456:ABC...
@@ -404,7 +404,7 @@ For platforms requiring OAuth (e.g., Discord), use `authFile` to seed credential
 ```nix
 {
   services.agentx-agent = {
-    authFile = config.sops.secrets."hermes/auth.json".path;
+    authFile = config.sops.secrets."agentx/auth.json".path;
     # authFileForceOverwrite = true;  # overwrite on every activation
   };
 }
@@ -572,7 +572,7 @@ When container mode is enabled, agentx runs inside a persistent Ubuntu container
 ```
 Host                                    Container
 ────                                    ─────────
-/nix/store/...-hermes-agent-0.1.0  ──►  /nix/store/... (ro)
+/nix/store/...-agentx-agent-0.1.0  ──►  /nix/store/... (ro)
 ~/.agentx -> /var/lib/agentx/.agentx       (symlink bridge, per hostUsers)
 /var/lib/agentx/                    ──►  /data/          (rw)
   ├── current-package -> /nix/store/...    (symlink, updated each rebuild)

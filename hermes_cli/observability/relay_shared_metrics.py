@@ -176,7 +176,7 @@ class _Runtime:
         )
 
     def start_task(self, event: dict[str, Any]) -> _TaskRun | None:
-        """Open one Relay function scope for a AgentX task run."""
+        """Open one Relay function scope for an AgentX task run."""
         task_key = self._task_key(event)
         if task_key is None:
             return None

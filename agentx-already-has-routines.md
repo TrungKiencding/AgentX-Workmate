@@ -149,9 +149,9 @@ agentx webhook subscribe pr-review \
   --deliver github_comment
 ```
 
-Full automation blueprints gallery: [hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx)
+Full automation blueprints gallery: [https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx)
 
-Documentation: [hermes-agent.nousresearch.com](https://github.com/AstralX/agentx-workmate)
+Documentation: [https://github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate)
 
 GitHub: [github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate)
 

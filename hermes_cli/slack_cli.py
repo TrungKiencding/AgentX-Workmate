@@ -39,7 +39,7 @@ def _build_full_manifest(
     The slash-command list is always generated from ``COMMAND_REGISTRY`` so
     it stays in sync with the rest of AgentX. Other manifest sections
     (display info, OAuth scopes, socket mode) are set to sensible defaults
-    for a AgentX deployment — users can tweak them in the Slack UI after
+    for an AgentX deployment — users can tweak them in the Slack UI after
     pasting.
 
     By default, this keeps AgentX on Slack's older Assistant messaging

@@ -67,7 +67,7 @@ class TestEphemeralMode:
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
 
         session = _get_session("task-1")
-        assert session["user_id"].startswith("hermes_")
+        assert session["user_id"].startswith("agentx_")
         assert session["managed"] is False
 
 
@@ -218,7 +218,7 @@ class TestConfiguredCamofoxIdentity:
             secret_scope.reset_secret_scope(token)
             secret_scope.set_multiplex_active(False)
 
-        assert session["user_id"].startswith("hermes_")
+        assert session["user_id"].startswith("agentx_")
         assert session["user_id"] != "default-profile-user"
         assert session["session_key"] == "task_fail-closed"
         assert session["managed"] is False

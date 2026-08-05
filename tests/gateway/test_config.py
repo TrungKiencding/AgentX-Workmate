@@ -523,7 +523,7 @@ class TestLoadGatewayConfig:
             "    port: 8642\n"
             "    host: 0.0.0.0\n"
             "    key: sekrit\n"
-            "    model_name: my-hermes\n",
+            "    model_name: my-agentx\n",
             encoding="utf-8",
         )
         monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
@@ -534,7 +534,7 @@ class TestLoadGatewayConfig:
         assert extra["port"] == 8642
         assert extra["host"] == "0.0.0.0"
         assert extra["key"] == "sekrit"
-        assert extra["model_name"] == "my-hermes"
+        assert extra["model_name"] == "my-agentx"
 
 
     def test_non_platform_gateway_keys_not_misparsed_as_platforms(self, tmp_path, monkeypatch):

@@ -567,7 +567,7 @@ gateway:
     host: 127.0.0.1
     key: your-secret-key
     cors_origins: http://localhost:3000
-    model_name: my-hermes
+    model_name: my-agentx
     max_concurrent_runs: 10   # concurrent-run cap; 0 disables the limit
 ```
 

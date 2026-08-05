@@ -121,7 +121,7 @@ SECTIONS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
         ("guides/use-mcp-with-agentx", "Use MCP with AgentX", None),
         ("guides/use-voice-mode-with-agentx", "Use Voice Mode with AgentX", None),
         ("guides/use-soul-with-agentx", "Use SOUL.md with AgentX", None),
-        ("guides/build-a-agentx-plugin", "Build a AgentX Plugin", None),
+        ("guides/build-a-agentx-plugin", "Build an AgentX Plugin", None),
         ("guides/automate-with-cron", "Automate with Cron", None),
         ("guides/work-with-skills", "Work with Skills", None),
         ("guides/delegation-patterns", "Delegation Patterns", None),
@@ -210,8 +210,8 @@ def emit_llms_index() -> str:
     )
     lines.append("")
     lines.append(
-        "Install: `curl -fsSL https://raw.githubusercontent.com/NousResearch/"
-        "agentx-agent/main/scripts/install.sh | bash`  "
+        "Install: `curl -fsSL https://raw.githubusercontent.com/AstralX/"
+        "agentx-workmate/main/scripts/install.sh | bash`  "
         "(Linux, macOS, WSL2, Termux)"
     )
     lines.append("")

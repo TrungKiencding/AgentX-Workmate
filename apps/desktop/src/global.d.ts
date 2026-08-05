@@ -514,7 +514,7 @@ export interface DesktopActiveProfile {
 
 export interface DesktopConnectionConfig {
   envOverride: boolean
-  // The saved connection mode. 'cloud' is a AgentX Cloud connection: it carries
+  // The saved connection mode. 'cloud' is an AgentX Cloud connection: it carries
   // a remote-shaped block (remoteUrl = the selected agent's dashboardUrl,
   // remoteAuthMode 'oauth') but is remembered as cloud so settings reopens into
   // the cloud picker. Resolution treats cloud exactly as remote
@@ -576,7 +576,7 @@ export interface DesktopConnectionTestResult {
     | null
   error?: string | null
   host?: string
-  remoteHermesPath?: string
+  remoteAgentxPath?: string
   remoteHermesVersion?: string
   remotePlatform?: string
 }

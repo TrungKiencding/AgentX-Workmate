@@ -332,7 +332,7 @@ def _hermes_path_markers(hermes_home: Path) -> list[str]:
     # Also match if AGENTX_HOME was customised to somewhere else — find-and-nuke
     # any entry whose path component contains "agentx".  We don't want to catch
     # unrelated entries like "chermes-foo" or "ephermeral", so we look for
-    # backslash-hermes as a word-ish boundary.
+    # backslash-agentx as a word-ish boundary.
     return markers
 
 

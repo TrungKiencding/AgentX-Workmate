@@ -129,7 +129,7 @@ def build_relay_command_manifest() -> List[Dict[str, Any]]:
         },
         {
             "name": "thread",
-            "description": "Create a new thread and start a AgentX session in it",
+            "description": "Create a new thread and start an AgentX session in it",
             "options": [_opt("name", "Thread name")],
         },
         {

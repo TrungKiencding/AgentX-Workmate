@@ -800,7 +800,7 @@ class TestPgrepKillExpansion:
 
     def test_kill_pgrep_expansion_detected(self):
         for cmd in (
-            'kill -9 $(pgrep -f "hermes.*gateway")',
+            'kill -9 $(pgrep -f "agentx.*gateway")',
             "kill -9 `pgrep agentx`",
             "kill $(pgrep gateway)",
         ):

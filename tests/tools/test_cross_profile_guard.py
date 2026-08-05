@@ -23,7 +23,7 @@ def fake_hermes(tmp_path, monkeypatch):
     """Build a two-profile AgentX layout and point AGENTX_HOME at
     the agentx-security profile (matching the original-incident shape).
     """
-    root = tmp_path / "fake-hermes"
+    root = tmp_path / "fake-agentx"
     (root / "skills" / "shared-skill").mkdir(parents=True)
     (root / "skills" / "shared-skill" / "SKILL.md").write_text(
         "---\nname: shared-skill\ndescription: default copy.\n---\n"

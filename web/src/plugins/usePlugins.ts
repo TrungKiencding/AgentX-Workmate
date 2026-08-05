@@ -17,7 +17,7 @@ import {
   setPluginLoadError,
 } from "./registry";
 
-export const MANIFEST_CACHE_KEY = "hermes:plugin-manifests";
+export const MANIFEST_CACHE_KEY = "agentx:plugin-manifests";
 
 export function getCachedManifests(): PluginManifest[] | null {
   try {

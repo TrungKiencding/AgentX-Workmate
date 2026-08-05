@@ -2819,7 +2819,7 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
     falling back to static lists. For providers in ``_MODELS_DEV_PREFERRED``
     (opencode-go/zen, xiaomi, deepseek, smaller inference providers, etc.),
     models.dev entries are merged on top of curated so new models released
-    on the platform appear in ``/model`` without a AgentX release.
+    on the platform appear in ``/model`` without an AgentX release.
     """
     normalized = normalize_provider(provider)
     if normalized == "openrouter":
@@ -2829,7 +2829,7 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
 
         # Pass the live OAuth access token so the picker matches whatever
         # ChatGPT lists for this account right now (new models appear without
-        # a AgentX release). Falls back to the hardcoded catalog if no token
+        # an AgentX release). Falls back to the hardcoded catalog if no token
         # or the endpoint is unreachable.
         access_token = None
         try:
@@ -2864,7 +2864,7 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
             pass
         # Live failed (or no creds). Fall back to the docs-hosted manifest
         # — NOT the in-repo _PROVIDER_MODELS["nous"] snapshot — so newly
-        # added Portal models still surface without a AgentX release.
+        # added Portal models still surface without an AgentX release.
         manifest_ids = get_curated_nous_model_ids()
         if manifest_ids:
             return manifest_ids

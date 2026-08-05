@@ -1,28 +1,4 @@
 export {
-  ACP_COMMAND,
-  APP_ID,
-  BRAND_GLYPH,
-  CLI_COMMAND,
-  CONFIG_DIR_POSIX,
-  CONFIG_DIR_WINDOWS,
-  DESKTOP_APP_NAME,
-  DIST_NAME,
-  DOCS_URL,
-  docsUrl,
-  ENV_PREFIX,
-  envName,
-  GATEWAY_COMMAND,
-  PRODUCT_NAME,
-  PROJECT_CONFIG_FILE,
-  PROTOCOL_SCHEME,
-  REPO_URL,
-  repoUrl,
-  SHORT_NAME,
-  SUPPORT_EMAIL,
-  VENDOR_NAME,
-  WEBSITE_URL
-} from './branding'
-export {
   BILLING_REFUSAL_POLICY,
   type BillingRecovery,
   type BillingRefusalPolicy,
@@ -50,6 +26,30 @@ export type {
   UsageBarData,
   UsageModelData
 } from './billing-types'
+export {
+  ACP_COMMAND,
+  APP_ID,
+  BRAND_GLYPH,
+  CLI_COMMAND,
+  CONFIG_DIR_POSIX,
+  CONFIG_DIR_WINDOWS,
+  DESKTOP_APP_NAME,
+  DIST_NAME,
+  DOCS_URL,
+  docsUrl,
+  ENV_PREFIX,
+  envName,
+  GATEWAY_COMMAND,
+  PRODUCT_NAME,
+  PROJECT_CONFIG_FILE,
+  PROTOCOL_SCHEME,
+  REPO_URL,
+  repoUrl,
+  SHORT_NAME,
+  SUPPORT_EMAIL,
+  VENDOR_NAME,
+  WEBSITE_URL
+} from './branding'
 export {
   driveChargeSettlement,
   SETTLEMENT_MAX_RETRY_AFTER_MS,

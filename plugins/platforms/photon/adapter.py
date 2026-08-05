@@ -51,7 +51,7 @@ else:
     try:
         import httpx
         HTTPX_AVAILABLE = True
-    except ImportError:  # pragma: no cover - httpx is already a AgentX dep
+    except ImportError:  # pragma: no cover - httpx is already an AgentX dep
         HTTPX_AVAILABLE = False
         httpx = None
 

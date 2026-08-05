@@ -4,7 +4,7 @@
 This script reads the in-repo hardcoded curated lists (``OPENROUTER_MODELS``,
 ``_PROVIDER_MODELS["nous"]``) and writes them to a JSON manifest that the
 AgentX CLI fetches at runtime. Publishing the catalog through the docs site
-lets maintainers update model lists without shipping a AgentX release.
+lets maintainers update model lists without shipping an AgentX release.
 
 The runtime fetcher falls back to the same in-repo hardcoded lists if the
 manifest is unreachable, so this script is a convenience for keeping the

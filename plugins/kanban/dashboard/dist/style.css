@@ -1343,15 +1343,15 @@
 .agentx-kanban-attention,
 .agentx-kanban-warning-badge,
 .agentx-kanban-attention-row {
-  --hermes-diag-warning: #ff9e3b;
-  --hermes-diag-error:   #ff6b3d;
-  --hermes-diag-critical: #ff4d4d;
+  --agentx-diag-warning: #ff9e3b;
+  --agentx-diag-error:   #ff6b3d;
+  --agentx-diag-critical: #ff4d4d;
 }
 
 /* Warning-badge severity variants (overrides the base colour). */
-.agentx-kanban-warning-badge--warning { color: var(--hermes-diag-warning); }
-.agentx-kanban-warning-badge--error   { color: var(--hermes-diag-error); font-weight: 700; }
-.agentx-kanban-warning-badge--critical { color: var(--hermes-diag-critical); font-weight: 700; }
+.agentx-kanban-warning-badge--warning { color: var(--agentx-diag-warning); }
+.agentx-kanban-warning-badge--error   { color: var(--agentx-diag-error); font-weight: 700; }
+.agentx-kanban-warning-badge--critical { color: var(--agentx-diag-critical); font-weight: 700; }
 
 /* Attention-strip severity variants. */
 .agentx-kanban-attention--warning {
@@ -1366,8 +1366,8 @@
   border-color: rgba(255, 77, 77, 0.55);
   background: rgba(255, 77, 77, 0.10);
 }
-.agentx-kanban-attention--error .agentx-kanban-attention-icon { color: var(--hermes-diag-error); }
-.agentx-kanban-attention--critical .agentx-kanban-attention-icon { color: var(--hermes-diag-critical); }
+.agentx-kanban-attention--error .agentx-kanban-attention-icon { color: var(--agentx-diag-error); }
+.agentx-kanban-attention--critical .agentx-kanban-attention-icon { color: var(--agentx-diag-critical); }
 
 /* Per-row severity marker in the expanded attention list. */
 .agentx-kanban-attention-row-sev {
@@ -1375,9 +1375,9 @@
   min-width: 1.5rem;
   font-weight: 600;
 }
-.agentx-kanban-attention-row--warning .agentx-kanban-attention-row-sev { color: var(--hermes-diag-warning); }
-.agentx-kanban-attention-row--error    .agentx-kanban-attention-row-sev { color: var(--hermes-diag-error); font-weight: 700; }
-.agentx-kanban-attention-row--critical .agentx-kanban-attention-row-sev { color: var(--hermes-diag-critical); font-weight: 700; }
+.agentx-kanban-attention-row--warning .agentx-kanban-attention-row-sev { color: var(--agentx-diag-warning); }
+.agentx-kanban-attention-row--error    .agentx-kanban-attention-row-sev { color: var(--agentx-diag-error); font-weight: 700; }
+.agentx-kanban-attention-row--critical .agentx-kanban-attention-row-sev { color: var(--agentx-diag-critical); font-weight: 700; }
 
 /* Individual diagnostic card inside the drawer's Diagnostics section. */
 .agentx-kanban-diag-list {
@@ -1386,7 +1386,7 @@
   gap: 0.6rem;
 }
 .agentx-kanban-diag {
-  border-left: 3px solid var(--hermes-diag-warning);
+  border-left: 3px solid var(--agentx-diag-warning);
   background: rgba(255, 158, 59, 0.05);
   border-radius: 0.35rem;
   padding: 0.6rem 0.75rem;
@@ -1395,11 +1395,11 @@
   gap: 0.4rem;
 }
 .agentx-kanban-diag--error {
-  border-left-color: var(--hermes-diag-error);
+  border-left-color: var(--agentx-diag-error);
   background: rgba(255, 107, 61, 0.06);
 }
 .agentx-kanban-diag--critical {
-  border-left-color: var(--hermes-diag-critical);
+  border-left-color: var(--agentx-diag-critical);
   background: rgba(255, 77, 77, 0.07);
 }
 .agentx-kanban-diag-header {
@@ -1411,9 +1411,9 @@
   font-weight: 700;
   min-width: 1.5rem;
 }
-.agentx-kanban-diag--warning .agentx-kanban-diag-sev { color: var(--hermes-diag-warning); }
-.agentx-kanban-diag--error    .agentx-kanban-diag-sev { color: var(--hermes-diag-error); }
-.agentx-kanban-diag--critical .agentx-kanban-diag-sev { color: var(--hermes-diag-critical); }
+.agentx-kanban-diag--warning .agentx-kanban-diag-sev { color: var(--agentx-diag-warning); }
+.agentx-kanban-diag--error    .agentx-kanban-diag-sev { color: var(--agentx-diag-error); }
+.agentx-kanban-diag--critical .agentx-kanban-diag-sev { color: var(--agentx-diag-critical); }
 .agentx-kanban-diag-title {
   font-weight: 600;
   font-size: 0.875rem;

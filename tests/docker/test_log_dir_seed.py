@@ -44,10 +44,10 @@ def test_logs_gateways_seeded_and_hermes_owned(
         timeout=10,
     )
     assert "logs=agentx" in r.stdout, (
-        f"logs/ not owned by hermes: {r.stdout}"
+        f"logs/ not owned by agentx: {r.stdout}"
     )
     assert "gateways=agentx" in r.stdout, (
-        f"logs/gateways/ not owned by hermes: {r.stdout}"
+        f"logs/gateways/ not owned by agentx: {r.stdout}"
     )
 
 

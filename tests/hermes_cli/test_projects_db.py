@@ -39,15 +39,15 @@ def test_discovery_policy_change_clears_only_discovered_rows(conn):
 
 
 def test_create_get_list(conn):
-    pid = pdb.create_project(conn, name="AgentX Workmate", folders=["/tmp/hermes"])
+    pid = pdb.create_project(conn, name="AgentX Workmate", folders=["/tmp/agentx"])
     proj = pdb.get_project(conn, pid)
 
     assert proj is not None
     assert proj.slug == "agentx-workmate"
     assert proj.name == "AgentX Workmate"
     # First folder becomes primary.
-    assert proj.primary_path == "/tmp/hermes"
-    assert [f.path for f in proj.folders] == ["/tmp/hermes"]
+    assert proj.primary_path == "/tmp/agentx"
+    assert [f.path for f in proj.folders] == ["/tmp/agentx"]
     assert proj.folders[0].is_primary is True
 
     # Lookup by slug too.

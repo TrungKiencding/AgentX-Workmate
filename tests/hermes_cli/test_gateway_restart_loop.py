@@ -328,7 +328,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         assert "KeepAlive" in result["error"]
 
     @pytest.mark.parametrize("command", [
-        # Neutral, non-hermes label: label-independent detection is the point
+        # Neutral, non-agentx label: label-independent detection is the point
         # (#62891 second reproduction used `ai.agentx.svc-reload-tmp`).
         "launchctl submit -l com.foo -- /path/gateway",
         "launchctl submit -l ai.agentx.svc-reload-tmp -- /bin/sh /tmp/h-svc-reload.sh",
@@ -541,7 +541,7 @@ class TestTerminalToolGatewayLifecycleGuard:
         assert calls == [command]
 
     def test_safe_systemctl_commands_pass_through(self, monkeypatch):
-        """Non-hermes systemctl commands must not be blocked by this guard."""
+        """Non-agentx systemctl commands must not be blocked by this guard."""
         import tools.terminal_tool as tt
 
         calls = []

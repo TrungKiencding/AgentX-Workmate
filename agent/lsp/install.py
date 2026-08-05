@@ -1,7 +1,7 @@
 """Auto-installation of LSP server binaries.
 
 Tries to install missing servers using whatever package manager is
-appropriate.  All installs go to a AgentX-owned bin staging dir,
+appropriate.  All installs go to an AgentX-owned bin staging dir,
 ``<AGENTX_HOME>/lsp/bin/``, so we don't pollute the user's global
 toolchain.
 
@@ -342,7 +342,7 @@ def _install_go(pkg: str, bin_name: str) -> Optional[str]:
 
 
 def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
-    """Install a Python package into a agentx-owned target dir.
+    """Install a Python package into an agentx-owned target dir.
 
     We avoid polluting the user's site-packages by using
     ``pip install --target``.  Bins go into

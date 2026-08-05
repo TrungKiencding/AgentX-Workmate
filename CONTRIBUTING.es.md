@@ -1,6 +1,6 @@
-# Contribuir a AgentX Workmate
+# Contribuir an AgentX Workmate
 
-¡Gracias por contribuir a AgentX Workmate! Esta guía cubre todo lo que necesitas: configurar tu entorno de desarrollo, entender la arquitectura, decidir qué construir y conseguir que tu PR sea aceptado.
+¡Gracias por contribuir an AgentX Workmate! Esta guía cubre todo lo que necesitas: configurar tu entorno de desarrollo, entender la arquitectura, decidir qué construir y conseguir que tu PR sea aceptado.
 
 ---
 
@@ -194,7 +194,7 @@ agentx-agent/
 ├── skills/                   # Habilidades incluidas (copiadas a ~/.agentx/skills/ en la instalación)
 ├── optional-skills/          # Habilidades opcionales oficiales (descubribles vía hub, no activadas por defecto)
 ├── tests/                    # Suite de tests
-├── website/                  # Sitio de documentación (hermes-agent.nousresearch.com)
+├── website/                  # Sitio de documentación
 │
 ├── cli-config.yaml.example   # Configuración de ejemplo (copiada a ~/.agentx/config.yaml)
 └── AGENTS.md                 # Guía de desarrollo para asistentes de codificación IA

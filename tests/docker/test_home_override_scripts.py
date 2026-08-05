@@ -132,7 +132,7 @@ def test_stage2_repairs_profiles_and_cron_ownership(
     # Restart — stage2 hook runs again and repairs ownership.
     restart_container(container_name)
 
-    # Verify files are now owned by hermes.
+    # Verify files are now owned by agentx.
     r = docker_exec_sh(
         container_name,
         'stat -c "%U" /opt/data/profiles/testprof/marker '

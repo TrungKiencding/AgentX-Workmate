@@ -233,7 +233,7 @@ class _ModelHandler(BaseHTTPRequestHandler):
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--hermes-repo",
+        "--agentx-repo",
         type=Path,
         default=Path.cwd(),
         help="AgentX source checkout containing .venv/bin/agentx",

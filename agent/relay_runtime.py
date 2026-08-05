@@ -28,7 +28,7 @@ _PROFILE_KEY_CACHE: dict[str, str] = {}
 
 @dataclass
 class RelaySession:
-    """One isolated Relay scope stack owned by a AgentX session."""
+    """One isolated Relay scope stack owned by an AgentX session."""
 
     session_id: str
     parent_session_id: str = ""
@@ -67,7 +67,7 @@ class RelayRuntime:
             self._execution_consumers.discard(consumer)
 
     def managed_execution_enabled(self) -> bool:
-        """Return whether a AgentX-managed consumer needs the Relay pipeline."""
+        """Return whether an AgentX-managed consumer needs the Relay pipeline."""
         with self._execution_consumers_lock:
             return bool(self._execution_consumers)
 
@@ -184,7 +184,7 @@ class RelayRuntime:
             return None if session.closing else session
 
     def get_session_handle(self, session_id: str) -> Any:
-        """Return the Relay parent handle for a AgentX session, if active."""
+        """Return the Relay parent handle for an AgentX session, if active."""
         session = self.get_session(session_id)
         return None if session is None else session.handle
 
@@ -877,7 +877,7 @@ def emit_mark(
     data: Any = None,
     metadata: Any = None,
 ) -> bool:
-    """Emit a fail-open Relay mark under a AgentX session."""
+    """Emit a fail-open Relay mark under an AgentX session."""
     runtime = get_runtime(create=False)
     if runtime is None:
         return False

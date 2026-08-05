@@ -89,9 +89,9 @@ test('fresh bootstrap args include the packaged commit pin', () => {
     buildPosixPinArgs({
       installStamp,
       activeRoot: '/tmp/agentx-agent',
-      hermesHome: '/tmp/hermes'
+      hermesHome: '/tmp/agentx'
     }),
-    ['--dir', '/tmp/agentx-agent', '--agentx-home', '/tmp/hermes', '--branch', 'main', '--commit', installStamp.commit]
+    ['--dir', '/tmp/agentx-agent', '--agentx-home', '/tmp/agentx', '--branch', 'main', '--commit', installStamp.commit]
   )
 })
 
@@ -103,10 +103,10 @@ test('existing-checkout bootstrap args keep branch but skip the packaged commit 
     buildPosixPinArgs({
       installStamp,
       activeRoot: '/tmp/agentx-agent',
-      hermesHome: '/tmp/hermes',
+      hermesHome: '/tmp/agentx',
       pinCommit: false
     }),
-    ['--dir', '/tmp/agentx-agent', '--agentx-home', '/tmp/hermes', '--branch', 'main']
+    ['--dir', '/tmp/agentx-agent', '--agentx-home', '/tmp/agentx', '--branch', 'main']
   )
 })
 
@@ -124,10 +124,10 @@ test('fallback install stamps use an unpinned branch ref', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp: stamp,
-      activeRoot: '/tmp/hermes',
+      activeRoot: '/tmp/agentx',
       hermesHome: '/tmp/home'
     }),
-    ['--dir', '/tmp/hermes', '--agentx-home', '/tmp/home', '--branch', 'main']
+    ['--dir', '/tmp/agentx', '--agentx-home', '/tmp/home', '--branch', 'main']
   )
 })
 

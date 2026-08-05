@@ -31,7 +31,7 @@ beforeEach(() => {
       is_default: true,
       model: null,
       name: 'default',
-      path: '/tmp/hermes',
+      path: '/tmp/agentx',
       provider: null,
       skill_count: 0
     },
@@ -40,7 +40,7 @@ beforeEach(() => {
       is_default: false,
       model: null,
       name: 'work',
-      path: '/tmp/hermes/profiles/work',
+      path: '/tmp/agentx/profiles/work',
       provider: null,
       skill_count: 0
     }

@@ -46,7 +46,7 @@ This is more reliable than trying to force AgentX core browser transport to atta
 
 See:
 
-- [Use MCP with AgentX](../guides/use-mcp-with-agentx.md#wsl2-bridge-hermes-in-wsl-to-windows-chrome)
+- [Use MCP with AgentX](../guides/use-mcp-with-agentx.md#wsl2-bridge-agentx-in-wsl-to-windows-chrome)
 - [Browser Automation](../user-guide/features/browser.md#wsl2--windows-chrome-prefer-mcp-over-browser-connect)
 
 ### Is my data sent anywhere?
@@ -121,7 +121,7 @@ See the [Python Library guide](../user-guide/features/code-execution.md) for ful
 
 ### Installation Issues
 
-#### `hermes: command not found` after installation
+#### `agentx: command not found` after installation
 
 **Cause:** Your shell hasn't reloaded the updated PATH.
 
@@ -795,7 +795,7 @@ rsync -av --exclude='agentx-agent' ~/.agentx/ newmachine:~/.agentx/
 
 **Scenario:** After running the AgentX installer, `source ~/.zshrc` gives a permission denied error.
 
-**Cause:** This usually happens when `~/.zshrc` (or `~/.bashrc`) has incorrect file permissions, or when the installer couldn't write to it cleanly. It's not a AgentX-specific issue — it's a shell config permissions problem.
+**Cause:** This usually happens when `~/.zshrc` (or `~/.bashrc`) has incorrect file permissions, or when the installer couldn't write to it cleanly. It's not an AgentX-specific issue — it's a shell config permissions problem.
 
 **Solution:**
 ```bash
@@ -843,5 +843,5 @@ If using OpenRouter, make sure your API key has credits. A 400 from OpenRouter o
 If your issue isn't covered here:
 
 1. **Search existing issues:** [GitHub Issues](https://github.com/AstralX/agentx-workmate/issues)
-2. **Ask the community:** [Nous Research Discord](https://discord.gg/nousresearch)
+2. **Ask the community:** [GitHub Discussions](https://github.com/AstralX/agentx-workmate/discussions)
 3. **File a bug report:** Include your OS, Python version (`python3 --version`), AgentX version (`agentx --version`), and the full error message

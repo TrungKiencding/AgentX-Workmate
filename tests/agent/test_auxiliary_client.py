@@ -2656,7 +2656,7 @@ class TestAuxiliaryPoolRotationRetry:
 class TestAnthropicAuxiliaryReasoningTranslation:
     """Native Anthropic aux adapters must receive normalized AgentX reasoning.
 
-    MoA slot reasoning is carried through call_llm as a AgentX
+    MoA slot reasoning is carried through call_llm as an AgentX
     ``reasoning_config``. The native Anthropic Messages path cannot consume the
     generic OpenAI-style ``extra_body.reasoning`` fallback, so assert the final
     ``messages.create`` kwargs contain Anthropic's provider-aware wire shape.

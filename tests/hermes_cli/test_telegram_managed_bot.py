@@ -28,7 +28,7 @@ SECOND_VALID_TOKEN = "987654321:abcdefghijklmnopqrstuvwxyzABCDEF"
 class TestGenerateBotUsername:
     def test_secure_default_format(self):
         name = generate_bot_username()
-        assert name.startswith("hermes_")
+        assert name.startswith("agentx_")
         assert name.endswith("_bot")
         assert len(name) == len("hermes_") + 16 + len("_bot")
         assert len(name) <= 32

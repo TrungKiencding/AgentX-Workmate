@@ -449,7 +449,7 @@ agentx completion <shell>
 # 安装补全脚本
 agentx completion bash >> ~/.bashrc
 agentx completion zsh >> ~/.zshrc
-agentx completion fish > ~/.config/fish/completions/hermes.fish
+agentx completion fish > ~/.config/fish/completions/agentx.fish
 
 # 重新加载 shell
 source ~/.bashrc

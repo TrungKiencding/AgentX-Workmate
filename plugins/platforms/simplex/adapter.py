@@ -4,7 +4,7 @@ Connects to a simplex-chat daemon running in WebSocket mode.
 Inbound messages arrive via a persistent WebSocket connection.
 Outbound messages use the same WebSocket with JSON commands.
 
-This adapter ships as a AgentX platform plugin under
+This adapter ships as an AgentX platform plugin under
 ``plugins/platforms/simplex/``. The AgentX plugin loader scans the
 directory at startup, calls ``register(ctx)``, and the platform
 becomes available to ``gateway/run.py`` and ``tools/send_message_tool``

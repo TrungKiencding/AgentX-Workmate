@@ -8,7 +8,7 @@ description: "Set up AgentX Workmate as a Mattermost bot"
 
 AgentX Workmate integrates with Mattermost as a bot, letting you chat with your AI assistant through direct messages or team channels. Mattermost is a self-hosted, open-source Slack alternative — you run it on your own infrastructure, keeping full control of your data. The bot connects via Mattermost's REST API (v4) and WebSocket for real-time events, processes messages through the AgentX Workmate pipeline (including tool use, memory, and reasoning), and responds in real time. It supports text, file attachments, images, and slash commands.
 
-No external Mattermost library is required — the adapter uses `aiohttp`, which is already a AgentX dependency.
+No external Mattermost library is required — the adapter uses `aiohttp`, which is already an AgentX dependency.
 
 Before setup, here's the part most people want to know: how AgentX behaves once it's in your Mattermost instance.
 

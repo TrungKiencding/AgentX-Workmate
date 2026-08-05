@@ -485,7 +485,7 @@ Generates shell completion scripts. Includes completions for profile names and p
 # Install completions
 agentx completion bash >> ~/.bashrc
 agentx completion zsh >> ~/.zshrc
-agentx completion fish > ~/.config/fish/completions/hermes.fish
+agentx completion fish > ~/.config/fish/completions/agentx.fish
 
 # Reload shell
 source ~/.bashrc

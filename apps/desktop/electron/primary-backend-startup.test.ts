@@ -25,7 +25,7 @@ function startupOptions(overrides: Record<string, unknown> = {}) {
 
 test('remote apply re-resolves the saved connection without ensuring a local runtime', async () => {
   const gate = createFirstRunSetupGate({ stuckAfterMs: 0 })
-  const savedRemote = { baseUrl: 'https://gateway.example.com/hermes' }
+  const savedRemote = { baseUrl: 'https://gateway.example.com/agentx' }
   let configuredRemote: typeof savedRemote | null = null
 
   const options = startupOptions({
@@ -49,7 +49,7 @@ test('remote apply re-resolves the saved connection without ensuring a local run
 })
 
 test('an already-saved remote bypasses every local startup step', async () => {
-  const savedRemote = { baseUrl: 'https://gateway.example.com/hermes' }
+  const savedRemote = { baseUrl: 'https://gateway.example.com/agentx' }
   const options = startupOptions({ resolveRemote: vi.fn(async () => savedRemote) })
 
   assert.deepEqual(await runPrimaryBackendStartup(options), {

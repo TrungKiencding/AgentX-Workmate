@@ -997,7 +997,7 @@ function Install-Git {
         } else {
             Write-Warn "Git is on PATH, but its Git Bash installation could not be located."
         }
-        Write-Info "Trying a AgentX-managed PortableGit install instead..."
+        Write-Info "Trying an AgentX-managed PortableGit install instead..."
     }
 
     # Download PortableGit into $AgentXHome\git.  Always works as long as
@@ -1220,7 +1220,7 @@ function Test-Node {
         Write-Warn "Node.js $version is too old (AgentX requires Node >=26)"
     }
 
-    # Prefer a AgentX-managed Node from a previous run over a too-old system one.
+    # Prefer an AgentX-managed Node from a previous run over a too-old system one.
     $managedNode = "$AgentXHome\node\node.exe"
     if ((Test-Path $managedNode) -and (Test-NodeVersionOk (& $managedNode --version))) {
         $version = & $managedNode --version

@@ -233,9 +233,9 @@ agentx slack manifest --write
 3. 粘贴 `~/.agentx/slack-manifest.json` 的新内容
 4. **保存**。如果权限范围或斜杠命令有变化，Slack 会提示重新安装应用。
 
-### 旧版 `/hermes <子命令>` 仍然有效
+### 旧版 `/agentx <子命令>` 仍然有效
 
-为了向后兼容旧版 manifest，你仍然可以输入 `/hermes btw run the tests`——AgentX 会以与 `/btw run the tests` 相同的方式路由它。自由形式的问题也有效：`/hermes what's the weather?` 会被当作普通消息处理。
+为了向后兼容旧版 manifest，你仍然可以输入 `/agentx btw run the tests`——AgentX 会以与 `/btw run the tests` 相同的方式路由它。自由形式的问题也有效：`/agentx what's the weather?` 会被当作普通消息处理。
 
 ### 在话题（thread）中使用命令（`!cmd` 前缀）
 

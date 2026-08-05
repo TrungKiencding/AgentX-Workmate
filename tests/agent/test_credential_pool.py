@@ -790,7 +790,7 @@ def test_write_credential_pool_sanitizes_borrowed_payload_at_disk_boundary(tmp_p
             "label": "systemd-ref",
             "auth_type": "api_key",
             "priority": 0,
-            "source": "systemd://hermes/openrouter",
+            "source": "systemd://agentx/openrouter",
             "access_token": sentinel,
             "refresh_token": f"refresh-{sentinel}",
             "agent_key": f"agent-{sentinel}",
@@ -811,7 +811,7 @@ def test_write_credential_pool_sanitizes_borrowed_payload_at_disk_boundary(tmp_p
     assert manual_secret in auth_text
     entries = json.loads(auth_text)["credential_pool"]["openrouter"]
     borrowed, manual = entries
-    assert borrowed["source"] == "systemd://hermes/openrouter"
+    assert borrowed["source"] == "systemd://agentx/openrouter"
     assert "access_token" not in borrowed
     assert "refresh_token" not in borrowed
     assert "agent_key" not in borrowed

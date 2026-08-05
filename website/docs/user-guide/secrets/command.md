@@ -14,7 +14,7 @@ secrets:
     enabled: true
     command: "cat /run/user/1000/agentx-secrets.env"
     # or any vault CLI that dumps KEY=VALUE lines:
-    # command: "pass show hermes/env"
+    # command: "pass show agentx/env"
     # command: "secret-tool lookup service agentx-env"
 ```
 

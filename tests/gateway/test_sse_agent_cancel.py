@@ -390,7 +390,7 @@ class TestSSEAgentFailureFinishReason:
 
         reason, finish, _ = self._run(ok)
         assert reason == "stop"
-        # No error/hermes pollution on the happy path.
+        # No error/agentx pollution on the happy path.
         assert "error" not in finish
         assert "agentx" not in finish
 

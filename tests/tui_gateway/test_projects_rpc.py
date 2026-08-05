@@ -280,7 +280,7 @@ def test_scan_time_is_not_treated_as_session_activity(tmp_path):
 def test_terminal_session_persists_its_launch_cwd():
     """A terminal session's cwd IS its workspace, so the row must record it.
 
-    The user cd'd into that directory before running hermes. Dropping it left
+    The user cd'd into that directory before running agentx. Dropping it left
     the row with no cwd and no git_repo_root, so the sidebar could never place
     the session under its project.
     """

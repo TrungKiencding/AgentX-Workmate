@@ -1,8 +1,8 @@
 """Helpers for X-Forwarded-Prefix support.
 
 Mission-control style deploys reverse-proxy the dashboard at a path
-prefix (e.g. ``mission-control.tilos.com/hermes/*`` -> dashboard on
-:9119), injecting ``X-Forwarded-Prefix: /hermes`` so the backend can
+prefix (e.g. ``mission-control.tilos.com/agentx/*`` -> dashboard on
+:9119), injecting ``X-Forwarded-Prefix: /agentx`` so the backend can
 reconstruct prefixed URLs (Location: headers, OAuth redirect_uri,
 cookie Path attributes, SPA asset URLs).
 
@@ -51,7 +51,7 @@ def _warn_if_malformed(source: str, raw: str) -> None:
 
     A non-empty value that normalises to ``""`` is almost always a
     missing scheme (``agentx.example.com`` instead of
-    ``https://hermes.example.com``) — the single most common cause of
+    ``https://agentx.example.com``) — the single most common cause of
     "I set AGENTX_DASHBOARD_PUBLIC_URL but the OAuth callback is still
     http://". Without this warning the value is silently discarded and
     the dashboard falls back to reconstructing the redirect URI from
@@ -98,7 +98,7 @@ def _warn_if_malformed_prefix(raw: Optional[str], reason: str) -> None:
 def normalise_prefix(raw: Optional[str]) -> str:
     """Normalise an X-Forwarded-Prefix header value.
 
-    Returns a string like ``"/hermes"`` (no trailing slash) or ``""``
+    Returns a string like ``"/agentx"`` (no trailing slash) or ``""``
     when no prefix is set / the header is malformed. We deliberately
     reject anything containing ``..`` or non-printable bytes so a
     hostile proxy can't inject HTML or path-traversal sequences via the

@@ -1,6 +1,6 @@
 """On-demand supply-chain audit for AgentX Workmate installs.
 
-Scans three surfaces a AgentX user actually controls and we can map to
+Scans three surfaces an AgentX user actually controls and we can map to
 upstream advisories without auth or extra binaries:
 
 1. The AgentX venv (every PyPI dist via ``importlib.metadata``).

@@ -1,4 +1,4 @@
-"""Upload a AgentX session transcript to Hugging Face as an agent trace.
+"""Upload an AgentX session transcript to Hugging Face as an agent trace.
 
 AgentX stores sessions in its own SQLite store (``hermes_state.SessionDB``),
 so we reconstruct the conversation and emit it in the **Claude Code JSONL**

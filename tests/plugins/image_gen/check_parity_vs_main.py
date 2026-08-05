@@ -54,7 +54,7 @@ def _resolve_main_dir() -> Path:
 MAIN_DIR = _resolve_main_dir()
 PR_DIR = REPO_ROOT
 assert (PR_DIR / "tools" / "image_generation_tool.py").exists(), (
-    f"PR_DIR={PR_DIR} doesn't look like a agentx-agent checkout"
+    f"PR_DIR={PR_DIR} doesn't look like an agentx-agent checkout"
 )
 
 

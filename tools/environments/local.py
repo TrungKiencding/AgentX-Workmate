@@ -202,7 +202,7 @@ _AGENTX_PROVIDER_ENV_FORCE_PREFIX = "_AGENTX_FORCE_"
 
 # AgentX-managed AWS *inference* credentials for ``auth_type="aws_sdk"``
 # providers (Bedrock).  Scoped DELIBERATELY NARROW: this lists only the
-# Bedrock-specific bearer token, which is a AgentX inference secret exactly
+# Bedrock-specific bearer token, which is an AgentX inference secret exactly
 # analogous to ``OPENAI_API_KEY`` — nobody drives the ``aws``/``terraform``/
 # ``boto3`` toolchain off it, so stripping it from terminal/execute_code
 # subprocesses costs no user capability.
@@ -1104,7 +1104,7 @@ def _resolve_hermes_bin_dir() -> str | None:
         base = os.path.basename(argv0).lower()
         if (
             os.path.isabs(argv0)
-            and (base == "agentx" or base.startswith("hermes."))
+            and (base == "agentx" or base.startswith("agentx."))
             and os.path.isfile(argv0)
         ):
             candidate = os.path.dirname(argv0)

@@ -172,7 +172,7 @@ function canImportHermesCli(pythonPath: string, opts: { env?: Record<string, str
  * here -- `--version` is the cheapest "is this binary alive" smoke
  * test that every hermes_cli entry-point has supported since 0.1.
  *
- * @param {string} hermesCommand - Resolved absolute path to a agentx
+ * @param {string} hermesCommand - Resolved absolute path to an agentx
  *   executable (or an interpreter+script wrapper).
  * @param {boolean} [opts.shell] - Whether to run through a shell. For
  *   .cmd/.bat shims on Windows execFileSync needs shell:true to find

@@ -149,7 +149,7 @@ agentx -w
 AgentX 将：
 
 - 在仓库内的 `.worktrees/` 下创建临时 worktree。
-- 检出一个隔离分支（例如 `hermes/agentx-<hash>`）。
+- 检出一个隔离分支（例如 `agentx/agentx-<hash>`）。
 - 在该 worktree 内运行完整的 CLI 会话。
 
 这是获得 worktree 隔离的最简便方式。也可与单次查询结合使用：

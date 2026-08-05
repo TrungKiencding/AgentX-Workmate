@@ -370,13 +370,13 @@ USER agentx
 构建并替换官方镜像使用：
 
 ```sh
-docker build -t my-hermes:latest .
+docker build -t my-agentx:latest .
 docker run -d \
   --name agentx \
   --restart unless-stopped \
   -v ~/.agentx:/opt/data \
   -p 8642:8642 \
-  my-hermes:latest gateway run
+  my-agentx:latest gateway run
 ```
 
 入口点脚本和 `/opt/data` 语义原样继承，本页其余内容仍然适用。拉取更新的上游 `astralx/agentx-workmate` 时记得重新构建镜像。

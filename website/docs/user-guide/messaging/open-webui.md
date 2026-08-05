@@ -23,7 +23,7 @@ Open WebUI connects to AgentX Workmate's API server just like it would connect t
 :::important Runtime location
 The API server is a **AgentX agent runtime**, not a pure LLM proxy. For each request, AgentX creates a server-side `AIAgent` on the API-server host. Tool calls run where that API server is running.
 
-For example, if a laptop points Open WebUI or another OpenAI-compatible client at a AgentX API server on a remote machine, `pwd`, file tools, browser tools, local MCP tools, and other workspace tools run on the remote API-server host, not on the laptop.
+For example, if a laptop points Open WebUI or another OpenAI-compatible client at an AgentX API server on a remote machine, `pwd`, file tools, browser tools, local MCP tools, and other workspace tools run on the remote API-server host, not on the laptop.
 :::
 
 Open WebUI talks to AgentX server-to-server, so you do not need `API_SERVER_CORS_ORIGINS` for this integration.
@@ -130,7 +130,7 @@ If you prefer to configure the connection through the UI instead of environment 
 5. Click **+ Add New Connection**
 6. Enter:
    - **URL**: `http://host.docker.internal:8642/v1`
-   - **API Key**: the exact same value as `API_SERVER_KEY` in Hermes
+   - **API Key**: the exact same value as `API_SERVER_KEY` in AgentX Workmate
 7. Click the **checkmark** to verify the connection
 8. **Save**
 

@@ -50,7 +50,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 try:
     import httpx
-except ImportError:  # pragma: no cover - httpx is a agentx dependency
+except ImportError:  # pragma: no cover - httpx is an agentx dependency
     httpx = None  # type: ignore[assignment]
 
 from agent.secret_scope import UnscopedSecretError as _UnscopedSecretError

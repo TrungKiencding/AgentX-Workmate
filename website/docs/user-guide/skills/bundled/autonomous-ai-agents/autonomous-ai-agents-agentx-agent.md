@@ -49,7 +49,7 @@ What makes AgentX different:
 
 ## Scope & Verification
 
-This skill is a concise operating guide, not the complete source of truth for every AgentX feature. If a AgentX feature, command, or setting is not mentioned here or in a reference, do not treat that absence as evidence that it does not exist. Check the live repository and official docs before giving a negative answer.
+This skill is a concise operating guide, not the complete source of truth for every AgentX feature. If an AgentX feature, command, or setting is not mentioned here or in a reference, do not treat that absence as evidence that it does not exist. Check the live repository and official docs before giving a negative answer.
 
 Good verification targets:
 

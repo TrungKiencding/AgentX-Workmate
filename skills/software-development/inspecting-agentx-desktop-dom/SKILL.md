@@ -39,7 +39,7 @@ CDP; hand aesthetics to the user.
 - Reading renderer console errors the user mentions but can't copy out
 
 **Don't use for:** perf profiling or heap work (`node-inspect-debugger`,
-`debugging-hermes-desktop`), or anything where the real question is "does this
+`debugging-agentx-desktop`), or anything where the real question is "does this
 look right".
 
 ## The port
@@ -142,7 +142,7 @@ also want the perf harness.
   kill nukes Chromium's socket pool, and the resulting `ERR_NETWORK_CHANGED`
   gets blamed on whatever you just changed.
 - **A throwaway `AGENTX_HOME` has no backend.** The app logs `ECONNREFUSED` for
-  `hermes:api` and may exit on its own. The renderer still mounts and the DOM is
+  `agentx:api` and may exit on its own. The renderer still mounts and the DOM is
   readable — read promptly, and don't mistake a self-exited probe for a broken
   port. Chromium logs `DevTools listening on ws://127.0.0.1:<port>/…` when it
   binds; that line is the proof the port opened.

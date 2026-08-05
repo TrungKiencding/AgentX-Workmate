@@ -2035,9 +2035,9 @@ def _worktree_lock_is_live(repo_root: str, worktree_path: str, timeout: int = 10
             reason = line[len("locked"):].strip()
             m = re.search(r"agentx pid=(\d+)", reason)
             if not m:
-                # Locked by something we don't recognize as a agentx session
+                # Locked by something we don't recognize as an agentx session
                 # (or lock reason unavailable). Treat as dead — a foreign lock
-                # on a agentx -w worktree is almost certainly a leftover, and
+                # on an agentx -w worktree is almost certainly a leftover, and
                 # the age/dirty/unpushed gates already ran before we got here.
                 return "dead"
             pid = int(m.group(1))
@@ -3973,7 +3973,7 @@ def _build_compact_banner() -> str:
 
     w = min(shutil.get_terminal_size().columns - 2, 88)
     if w < 30:
-        return f"\n[{title_color}]{tiny_line}[/] [dim {dim_color}]- Nous Research[/]\n"
+        return f"\n[{title_color}]{tiny_line}[/] [dim {dim_color}]- AstralX Technology[/]\n"
 
     inner = w - 2  # inside the box border
     bar = "═" * w
@@ -7259,7 +7259,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     "[dim]   Fix: Set model.context_length in config.yaml, or increase your server's context setting[/]"
                 )
 
-        # Warn if the configured model is a Nous Hermes LLM (not agentic)
+        # Warn if the configured model is a Nous Hermes chat model (not agentic)
         from hermes_cli.model_switch import is_nous_hermes_non_agentic
 
         model_name = getattr(self, "model", "") or ""

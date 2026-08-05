@@ -34,7 +34,7 @@ declares every built-in slash command (`/btw`, `/stop`, `/model`, …),
 every required OAuth scope, every event subscription, and enables Socket
 Mode — all at once.
 
-### Option A: From a AgentX-generated manifest (recommended)
+### Option A: From an AgentX-generated manifest (recommended)
 
 1. Generate the manifest. New Slack apps must use Agent view:
    ```bash
@@ -167,7 +167,7 @@ This step enables direct messages to the bot. Without it, users see **"Sending m
 4. Check **"Allow users to send Slash commands and messages from the messages tab"**
 
 :::danger Without this step, DMs are completely blocked
-Even with all the correct scopes and event subscriptions, Slack will not allow users to send direct messages to the bot unless the Messages Tab is enabled. This is a Slack platform requirement, not a AgentX configuration issue.
+Even with all the correct scopes and event subscriptions, Slack will not allow users to send direct messages to the bot unless the Messages Tab is enabled. This is a Slack platform requirement, not an AgentX configuration issue.
 :::
 
 ---
@@ -298,11 +298,11 @@ Then in Slack:
 4. **Save**. Slack will prompt to reinstall the app if scopes or slash
    commands changed.
 
-### Legacy `/hermes <subcommand>` still works
+### Legacy `/agentx <subcommand>` still works
 
 For backward compatibility with older manifests, you can still type
-`/hermes btw run the tests` — AgentX routes it the same way as `/btw
-run the tests`. Free-form questions also work: `/hermes what's the
+`/agentx btw run the tests` — AgentX routes it the same way as `/btw
+run the tests`. Free-form questions also work: `/agentx what's the
 weather?` is treated as a regular message.
 
 ### Using commands inside threads (the `!cmd` prefix)

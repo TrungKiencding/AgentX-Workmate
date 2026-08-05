@@ -105,7 +105,7 @@ class TestIsBotMentioned:
     def test_m_mentions_user_ids_authoritative(self):
         """m.mentions.user_ids alone is sufficient — no body text needed."""
         assert self.adapter._is_bot_mentioned(
-            "please reply",  # no @hermes anywhere in body
+            "please reply",  # no @agentx anywhere in body
             mention_user_ids=["@agentx:example.org"],
         )
 

@@ -51,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/script
 
 参见：
 
-- [在 AgentX 中使用 MCP](../guides/use-mcp-with-agentx.md#wsl2-bridge-hermes-in-wsl-to-windows-chrome)
+- [在 AgentX 中使用 MCP](../guides/use-mcp-with-agentx.md#wsl2-bridge-agentx-in-wsl-to-windows-chrome)
 - [浏览器自动化](../user-guide/features/browser.md#wsl2--windows-chrome-prefer-mcp-over-browser-connect)
 
 ### 支持 Android / Termux 吗？
@@ -140,7 +140,7 @@ response = agent.chat("Explain quantum computing briefly")
 
 ### 安装问题
 
-#### 安装后出现 `hermes: command not found`
+#### 安装后出现 `agentx: command not found`
 
 **原因：** Shell 未重新加载更新后的 PATH。
 
@@ -855,5 +855,5 @@ agentx chat -q "hello" --model anthropic/claude-opus-4.7
 如果您的问题未在此处涵盖：
 
 1. **搜索现有 issue：** [GitHub Issues](https://github.com/AstralX/agentx-workmate/issues)
-2. **向社区提问：** [Nous Research Discord](https://discord.gg/nousresearch)
+2. **向社区提问：** [GitHub Discussions](https://github.com/AstralX/agentx-workmate/discussions)
 3. **提交 bug 报告：** 请包含您的操作系统、Python 版本（`python3 --version`）、AgentX 版本（`agentx --version`）以及完整的错误信息

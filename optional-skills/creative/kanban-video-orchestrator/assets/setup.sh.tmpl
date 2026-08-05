@@ -21,7 +21,7 @@ echo "═══ Checking required API keys ═══"
 
 check_key() {
     local var="$1"
-    local kc_account="${2:-hermes}"
+    local kc_account="${2:-agentx}"
     local kc_service="${3:-$1}"
     local _hermes_env="${AGENTX_HOME:-$HOME/.agentx}/.env"
     if grep -q "^${var}=" "$_hermes_env" 2>/dev/null && \
@@ -66,7 +66,7 @@ configure_profile() {
     local toolsets_json="$2"     # JSON array string, e.g. '["kanban","terminal","file"]'
     local skills_json="$3"       # JSON array string, e.g. '["ascii-video"]'
     python3 - "$profile" "$toolsets_json" "$skills_json" "$WORKSPACE" <<'PY'
-"""Patch a AgentX profile config.yaml using PyYAML so we don't depend on the
+"""Patch an AgentX profile config.yaml using PyYAML so we don't depend on the
 exact default-config string format. Validates the patch took effect and exits
 non-zero if anything's off."""
 import json

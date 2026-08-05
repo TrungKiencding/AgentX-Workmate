@@ -2360,7 +2360,7 @@ def _ensure_fhs_path_guard() -> None:
     (su, sudo -s, tmux panes, some web terminals): /etc/bashrc doesn't
     add /usr/local/bin and /root/.bash_profile doesn't either.  Symptom:
     ``agentx`` prints ``command not found`` even though the symlink lives
-    at /usr/local/bin/hermes.
+    at /usr/local/bin/agentx.
 
     Silent no-op on: non-Linux, non-root, non-FHS installs, and any system
     where ``bash -i -c 'command -v agentx'`` already resolves.  Idempotent.

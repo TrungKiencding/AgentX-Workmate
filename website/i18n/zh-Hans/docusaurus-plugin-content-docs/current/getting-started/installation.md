@@ -183,7 +183,7 @@ agentx setup --portal
    sudo ln -s /home/agentx/.agentx/agentx-agent/venv/bin/agentx /usr/local/bin/agentx
    ```
 
-4. **验证：** `agentx doctor` 现在应能正常运行。如果出现 `ModuleNotFoundError: No module named 'dotenv'`，说明你在用系统 Python 调用仓库源码中的 `agentx` 文件（`~/.agentx/agentx-agent/hermes`），而非 venv 启动器（`~/.agentx/agentx-agent/venv/bin/agentx`）——请修正步骤 3。
+4. **验证：** `agentx doctor` 现在应能正常运行。如果出现 `ModuleNotFoundError: No module named 'dotenv'`，说明你在用系统 Python 调用仓库源码中的 `agentx` 文件（`~/.agentx/agentx-agent/agentx`），而非 venv 启动器（`~/.agentx/agentx-agent/venv/bin/agentx`）——请修正步骤 3。
 
 同样的方式适用于 Arch（安装程序使用 pacman，具有相同的 sudo 检测逻辑）、Fedora/RHEL 和 openSUSE——这些发行版完全不支持 `--with-deps`，因此管理员始终需要单独安装系统库。安装程序会打印相应的 `dnf`/`zypper` 命令。
 
@@ -193,7 +193,7 @@ agentx setup --portal
 
 | 问题                        | 解决方案                                                                           |
 | --------------------------- | ---------------------------------------------------------------------------------- |
-| `hermes: command not found` | 重新加载 shell（`source ~/.bashrc`）或检查 PATH                                    |
+| `agentx: command not found` | 重新加载 shell（`source ~/.bashrc`）或检查 PATH                                    |
 | `API key not set`           | 运行 `agentx model` 配置提供商，或 `agentx config set OPENROUTER_API_KEY your_key` |
 | 更新后配置丢失              | 运行 `agentx config check`，然后运行 `agentx config migrate`                       |
 

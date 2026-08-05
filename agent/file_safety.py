@@ -291,7 +291,7 @@ def get_read_block_error(path: str) -> Optional[str]:
                 continue
             if resolved == blocked:
                 return (
-                    f"Access denied: {path} is a AgentX credential store "
+                    f"Access denied: {path} is an AgentX credential store "
                     "and cannot be read directly. Provider tools consume "
                     "these credentials through internal channels. "
                     "(Defense-in-depth — not a security boundary; the "
@@ -316,7 +316,7 @@ def get_read_block_error(path: str) -> Optional[str]:
         except ValueError:
             continue
         return (
-            f"Access denied: {path} is a AgentX MCP token file "
+            f"Access denied: {path} is an AgentX MCP token file "
             "and cannot be read directly. (Defense-in-depth — not a "
             "security boundary; the terminal tool can still bypass.)"
         )
@@ -377,7 +377,7 @@ def raise_if_read_blocked(path: str) -> None:
 # as the dangerous-command approval flow — the agent is told the boundary
 # exists, and explicit user direction is required to cross it.
 #
-# Reference: May 2026 incident where a agentx-security profile session
+# Reference: May 2026 incident where an agentx-security profile session
 # edited skills under both ``~/.agentx/profiles/agentx-security/skills/``
 # AND ``~/.agentx/skills/`` (the default profile's skills) without realizing
 # the second path belonged to a different profile.

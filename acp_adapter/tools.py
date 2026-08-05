@@ -82,7 +82,7 @@ _POLISHED_TOOLS = {
 
 
 def get_tool_kind(tool_name: str) -> ToolKind:
-    """Return the ACP ToolKind for a agentx tool, defaulting to 'other'."""
+    """Return the ACP ToolKind for an agentx tool, defaulting to 'other'."""
     return TOOL_KIND_MAP.get(tool_name, "other")
 
 

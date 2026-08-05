@@ -594,13 +594,13 @@ USER agentx
 Build it and use it in place of the official image:
 
 ```sh
-docker build -t my-hermes:latest .
+docker build -t my-agentx:latest .
 docker run -d \
   --name agentx \
   --restart unless-stopped \
   -v ~/.agentx:/opt/data \
   -p 8642:8642 \
-  my-hermes:latest gateway run
+  my-agentx:latest gateway run
 ```
 
 The entrypoint script and `/opt/data` semantics are inherited unchanged, so the rest of this page still applies. Remember to rebuild the image when pulling a newer upstream `astralx/agentx-workmate`.
@@ -796,11 +796,11 @@ On a NAS (UGOS, Synology, unRAID) the data directory is typically a **bind mount
 docker run -d \
   --name agentx \
   -e PUID=1000 -e PGID=10 \
-  -v /volume1/docker/hermes:/opt/data \
+  -v /volume1/docker/agentx:/opt/data \
   astralx/agentx-workmate gateway run
 ```
 
-`docker exec agentx <cmd>` automatically drops to UID 10000 too — see [`docker exec` automatically drops to the `agentx` user](#docker-exec-automatically-drops-to-the-hermes-user) for details and the per-invocation opt-out.
+`docker exec agentx <cmd>` automatically drops to UID 10000 too — see [`docker exec` automatically drops to the `agentx` user](#docker-exec-automatically-drops-to-the-agentx-user) for details and the per-invocation opt-out.
 
 ### Browser tools not working
 

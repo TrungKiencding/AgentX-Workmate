@@ -21,7 +21,7 @@ function hermesDevToken(): Plugin {
     /window\.__AGENTX_DASHBOARD_EMBEDDED_CHAT__\s*=\s*(true|false)/;
 
   return {
-    name: "hermes:dev-session-token",
+    name: "agentx:dev-session-token",
     apply: "serve",
     async transformIndexHtml() {
       try {

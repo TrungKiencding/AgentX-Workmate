@@ -580,7 +580,7 @@ class ModelCapabilities:
 
 
 def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
-    """Resolve a AgentX provider ID to its models dict from models.dev.
+    """Resolve an AgentX provider ID to its models dict from models.dev.
 
     Returns the models dict or None if the provider is unknown or has no data.
     """
@@ -845,7 +845,7 @@ def get_provider_info(
 ) -> Optional[ProviderInfo]:
     """Get full provider metadata from models.dev.
 
-    Accepts either a AgentX provider ID (e.g. "kilocode") or a models.dev
+    Accepts either an AgentX provider ID (e.g. "kilocode") or a models.dev
     ID (e.g. "kilo").  Returns None if the provider is not in the catalog.
     """
     # Resolve AgentX ID → models.dev ID

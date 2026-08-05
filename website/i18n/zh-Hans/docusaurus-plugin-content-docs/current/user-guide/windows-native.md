@@ -286,7 +286,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\agentx"
 
 ## 常见问题
 
-**安装后立即出现 `hermes: command not found`。**
+**安装后立即出现 `agentx: command not found`。**
 打开新的 PowerShell 窗口。安装程序已将 `%LOCALAPPDATA%\agentx\bin` 添加到用户 PATH，但现有 shell 需要重启才能获取更新。在此期间可以运行 `& "$env:LOCALAPPDATA\agentx\bin\agentx.cmd"`。
 
 **运行工具时出现 `WinError 193: %1 is not a valid Win32 application`。**

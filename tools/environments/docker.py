@@ -156,7 +156,7 @@ def reap_orphan_containers(
       belong to a sibling AgentX process whose reuse path will pick them
       up; killing them would crash the sibling mid-command)
     * (optional) ``label=agentx-profile=<profile_filter>`` (sweep only the
-      caller's profile by default; a agentx process in profile A must not
+      caller's profile by default; an agentx process in profile A must not
       tear down profile B's containers)
     * ``State.FinishedAt`` older than *max_age_seconds* ago (so a sibling
       process that just exited and is about to be replaced doesn't get
