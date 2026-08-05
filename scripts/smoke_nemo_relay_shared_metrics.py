@@ -28,7 +28,7 @@ TOOL_FILE = "relay-smoke-input.txt"
 def _resolve_hermes_executable(hermes_repo: Path) -> Path:
     for relative_path in (
         Path(".venv") / "bin" / "agentx",
-        Path(".venv") / "Scripts" / "hermes.exe",
+        Path(".venv") / "Scripts" / "agentx.exe",
     ):
         candidate = hermes_repo / relative_path
         if candidate.is_file():

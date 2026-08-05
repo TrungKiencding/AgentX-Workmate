@@ -15,7 +15,7 @@ def hermes_home(tmp_path, monkeypatch):
     home.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(home))
     # No managed dir: point the override at a guaranteed-absent path so a real
-    # /etc/hermes on the dev/CI box can't influence the test.
+    # /etc/agentx on the dev/CI box can't influence the test.
     monkeypatch.setenv("AGENTX_MANAGED_DIR", str(tmp_path / "no_such_managed_dir"))
     # Clear caches so each test re-reads from disk.
     import hermes_cli.config as cfg

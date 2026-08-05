@@ -21,6 +21,7 @@ Fully sharded data-parallel training for large models.
 | License | MIT |
 | Dependencies | `torch>=2.0`, `transformers` |
 | Platforms | linux, macos |
+| Tags | `Distributed Training`, `PyTorch`, `FSDP`, `Data Parallel`, `Sharding`, `Mixed Precision`, `CPU Offloading`, `FSDP2`, `Large-Scale Training` |
 
 ## Reference: full SKILL.md
 

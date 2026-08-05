@@ -714,7 +714,7 @@ class TestHealthDetailedEndpoint:
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["status"] == "ok"
-                assert data["platform"] == "hermes-agent"
+                assert data["platform"] == "agentx-agent"
                 assert data["gateway_state"] == "running"
                 assert data["platforms"] == {"telegram": {"state": "connected"}}
                 assert data["active_agents"] == 2
@@ -773,7 +773,7 @@ class TestModelsEndpoint:
             data = await resp.json()
             assert data["object"] == "list"
             assert len(data["data"]) == 1
-            assert data["data"][0]["id"] == "hermes-agent"
+            assert data["data"][0]["id"] == "agentx-agent"
             assert data["data"][0]["owned_by"] == "agentx"
 
     @pytest.mark.asyncio
@@ -791,9 +791,9 @@ class TestModelsEndpoint:
 
 
     def test_resolve_model_name_default_profile(self):
-        """Default profile falls back to 'hermes-agent'."""
+        """Default profile falls back to 'agentx-agent'."""
         with patch("hermes_cli.profiles.get_active_profile_name", return_value="default"):
-            assert APIServerAdapter._resolve_model_name("") == "hermes-agent"
+            assert APIServerAdapter._resolve_model_name("") == "agentx-agent"
 
 
     @pytest.mark.asyncio
@@ -859,8 +859,8 @@ class TestCapabilitiesEndpoint:
             assert resp.status == 200
             data = await resp.json()
             assert data["object"] == "hermes.api_server.capabilities"
-            assert data["platform"] == "hermes-agent"
-            assert data["model"] == "hermes-agent"
+            assert data["platform"] == "agentx-agent"
+            assert data["model"] == "agentx-agent"
             assert data["auth"]["type"] == "bearer"
             assert data["auth"]["required"] is False
             assert data["runtime"]["mode"] == "server_agent"
@@ -1335,7 +1335,7 @@ class TestResponsesEndpoint:
                 resp = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "What is the capital of France?",
                     },
                 )
@@ -1389,7 +1389,7 @@ class TestResponsesEndpoint:
                 resp = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "Now add 1 more",
                         "previous_response_id": "resp_prev",
                     },
@@ -1476,7 +1476,7 @@ class TestResponsesEndpoint:
                 resp = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "Read new file",
                         "previous_response_id": "resp_prev",
                     },
@@ -1497,7 +1497,7 @@ class TestResponsesEndpoint:
             resp = await cli.post(
                 "/v1/responses",
                 json={
-                    "model": "hermes-agent",
+                    "model": "agentx-agent",
                     "input": "follow up",
                     "previous_response_id": "resp_nonexistent",
                 },
@@ -1520,7 +1520,7 @@ class TestResponsesEndpoint:
                 resp = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "Hello",
                         "store": "false",
                     },
@@ -1543,7 +1543,7 @@ class TestResponsesEndpoint:
                 resp1 = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "Hello",
                         "instructions": "Be a pirate",
                     },
@@ -1558,7 +1558,7 @@ class TestResponsesEndpoint:
                 resp2 = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "Tell me more",
                         "previous_response_id": resp_id,
                     },
@@ -1586,7 +1586,7 @@ class TestResponsesEndpoint:
                 )
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "Hello"},
+                    json={"model": "agentx-agent", "input": "Hello"},
                 )
 
             assert resp.status == 200
@@ -1636,7 +1636,7 @@ class TestResponsesStreaming:
                 mock_write_sse.return_value = web.Response(status=200, text="ok")
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "hi", "stream": True},
+                    json={"model": "agentx-agent", "input": "hi", "stream": True},
                 )
                 assert resp.status == 200
 
@@ -1696,7 +1696,7 @@ class TestResponsesStreaming:
                 await adapter._write_sse_responses(
                     request=fake_request,
                     response_id=response_id,
-                    model="hermes-agent",
+                    model="agentx-agent",
                     created_at=int(time.time()),
                     stream_q=stream_q,
                     agent_task=agent_task,
@@ -1766,7 +1766,7 @@ class TestResponsesStreaming:
             await adapter._write_sse_responses(
                 request=fake_request,
                 response_id=response_id,
-                model="hermes-agent",
+                model="agentx-agent",
                 created_at=int(time.time()),
                 stream_q=stream_q,
                 agent_task=agent_task,
@@ -1851,7 +1851,7 @@ class TestMultipleSystemMessages:
                 resp = await cli.post(
                     "/v1/chat/completions",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "messages": [
                             {"role": "system", "content": "You are helpful."},
                             {"role": "system", "content": "Be concise."},
@@ -1924,7 +1924,7 @@ class TestGetResponse:
                 mock_run.return_value = (mock_result, {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15})
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "Hi"},
+                    json={"model": "agentx-agent", "input": "Hi"},
                 )
 
             assert resp.status == 200
@@ -1957,7 +1957,7 @@ class TestDeleteResponse:
                 mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "Hi"},
+                    json={"model": "agentx-agent", "input": "Hi"},
                 )
 
             data = await resp.json()
@@ -2020,7 +2020,7 @@ class TestToolCallsInOutput:
                 mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "What is 6*7?"},
+                    json={"model": "agentx-agent", "input": "What is 6*7?"},
                 )
 
             assert resp.status == 200
@@ -2058,7 +2058,7 @@ class TestUsageCounting:
                 mock_run.return_value = (mock_result, usage)
                 resp = await cli.post(
                     "/v1/responses",
-                    json={"model": "hermes-agent", "input": "Hi"},
+                    json={"model": "agentx-agent", "input": "Hi"},
                 )
 
             assert resp.status == 200
@@ -2109,7 +2109,7 @@ class TestTruncation:
                 resp = await cli.post(
                     "/v1/responses",
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "input": "follow up",
                         "previous_response_id": "resp_summary_mid",
                         "truncation": "auto",
@@ -2154,7 +2154,7 @@ class TestChatCompletionsAgentIncomplete:
                 mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
                 resp = await cli.post(
                     "/v1/chat/completions",
-                    json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hello"}]},
+                    json={"model": "agentx-agent", "messages": [{"role": "user", "content": "hello"}]},
                 )
 
             assert resp.status == 502
@@ -2318,7 +2318,7 @@ class TestSessionIdHeader:
                     resp = await cli.post(
                         "/v1/chat/completions",
                         headers={"X-Agentx-Session-Id": bad, "Authorization": "Bearer sk-secret"},
-                        json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hi"}]},
+                        json={"model": "agentx-agent", "messages": [{"role": "user", "content": "hi"}]},
                     )
                     assert resp.status == 400, f"{bad!r} should be rejected"
                 # The agent is never invoked for a rejected ID.
@@ -2345,7 +2345,7 @@ class TestSessionIdHeader:
                     headers={"X-Agentx-Session-Id": "existing-session", "Authorization": "Bearer sk-secret"},
                     # Request body has different history — should be ignored
                     json={
-                        "model": "hermes-agent",
+                        "model": "agentx-agent",
                         "messages": [
                             {"role": "user", "content": "old msg from client"},
                             {"role": "assistant", "content": "old reply from client"},
@@ -2398,7 +2398,7 @@ class TestSessionKeyHeader:
                         "X-Agentx-Session-Key": "agent:main:webui:dm:user-7",
                         "Authorization": "Bearer sk-secret",
                     },
-                    json={"model": "hermes-agent", "messages": [{"role": "user", "content": "hi"}]},
+                    json={"model": "agentx-agent", "messages": [{"role": "user", "content": "hi"}]},
                 )
             assert resp.status == 200
             # _create_agent must be called with gateway_session_key threaded through
@@ -2418,7 +2418,7 @@ class TestSessionKeyHeader:
                         "X-Agentx-Session-Key": "webui:chan-1",
                         "Authorization": "Bearer sk-secret",
                     },
-                    json={"model": "hermes-agent", "input": "hello", "store": False},
+                    json={"model": "agentx-agent", "input": "hello", "store": False},
                 )
             assert resp.status == 200
             assert resp.headers.get("X-Agentx-Session-Key") == "webui:chan-1"

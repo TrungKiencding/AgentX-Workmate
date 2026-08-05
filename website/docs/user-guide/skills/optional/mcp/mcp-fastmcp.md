@@ -20,6 +20,8 @@ Build, test, and deploy Python MCP servers.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `MCP`, `FastMCP`, `Python`, `Tools`, `Resources`, `Prompts`, `Deployment` |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent), [`mcporter`](/docs/user-guide/skills/optional/mcp/mcp-mcporter) |
 
 ## Reference: full SKILL.md
 

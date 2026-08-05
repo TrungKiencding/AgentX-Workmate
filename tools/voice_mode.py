@@ -124,7 +124,7 @@ def _voice_capture_install_hint() -> str:
     if _is_termux_environment():
         return "pkg install python-numpy portaudio && python -m pip install sounddevice"
     # If we're running inside a venv (e.g. the bundled AgentX venv at
-    # ~/.agentx/profiles/<name>/hermes-agent/venv/), `pip install` on the
+    # ~/.agentx/profiles/<name>/agentx-agent/venv/), `pip install` on the
     # user's PATH won't reach the right site-packages — the bare hint sends
     # them off to whichever Python their shell resolves first, which on macOS
     # is often a system Python under Rosetta with a totally separate wheel

@@ -447,7 +447,7 @@ describe('usePromptActions /wake', () => {
       if (method === 'wake.start') {
         return {
           owner_surface: 'gui',
-          phrase: 'hey hermes',
+          phrase: 'hey agentx',
           provider: 'openwakeword',
           started: true
         } as never
@@ -465,7 +465,7 @@ describe('usePromptActions /wake', () => {
           },
           listening: true,
           owner_surface: 'gui',
-          phrase: 'hey hermes',
+          phrase: 'hey agentx',
           provider: 'openwakeword'
         } as never
       }
@@ -505,7 +505,7 @@ describe('usePromptActions /wake', () => {
           enabled: statusCalls === 1,
           listening: statusCalls === 1,
           owner_surface: statusCalls === 1 ? 'gui' : null,
-          phrase: 'hey hermes',
+          phrase: 'hey agentx',
           provider: 'openwakeword'
         } as never
       }
@@ -2391,7 +2391,7 @@ describe('usePromptActions file attachment sync', () => {
     // not the original /Users/... path (which would dead-end as "outside the
     // allowed workspace").
     $connection.set({ mode: 'remote' } as never)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl: vi.fn(async () => 'data:text/plain;base64,aGVsbG8=') }
     })
@@ -2438,7 +2438,7 @@ describe('usePromptActions file attachment sync', () => {
     $connection.set({ mode: 'local' } as never)
     $currentCwd.set('/root')
     const readFileDataUrl = vi.fn(async () => 'data:text/plain;base64,aGVsbG8=')
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl }
     })
@@ -2490,7 +2490,7 @@ describe('usePromptActions file attachment sync', () => {
 
   it('uses image.attach_bytes for a Windows image when the local backend cwd is POSIX', async () => {
     const readFileDataUrl = vi.fn(async () => 'data:image/jpeg;base64,aGVsbG8=')
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl }
     })
@@ -2540,7 +2540,7 @@ describe('usePromptActions file attachment sync', () => {
     // path-less inline ref. See partitionDroppedFiles in use-composer-actions.
     $connection.set({ mode: 'remote' } as never)
     const readFileDataUrl = vi.fn(async () => 'data:application/pdf;base64,JVBERi0=')
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl }
     })
@@ -2579,7 +2579,7 @@ describe('usePromptActions file attachment sync', () => {
     $connection.set({ mode: 'local' } as never)
     $currentCwd.set('C:\\Users\\alice\\project')
     const readFileDataUrl = vi.fn(async () => 'data:text/plain;base64,c2hvdWxkLW5vdC1iZS1yZWFk')
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl }
     })
@@ -2640,7 +2640,7 @@ describe('usePromptActions eager-upload races', () => {
     // under .agentx/desktop-attachments/. Submit must await the in-flight upload
     // and reuse its gateway-side ref.
     $connection.set({ mode: 'remote' } as never)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl: vi.fn(async () => 'data:application/pdf;base64,JVBERi0=') }
     })
@@ -3839,7 +3839,7 @@ describe('usePromptActions new-chat first-send delivery (#63078)', () => {
     let releaseAttach: () => void = () => {}
 
     $connection.set({ mode: 'remote' } as never)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl: vi.fn(async () => 'data:text/plain;base64,aGVsbG8=') }
     })
@@ -3926,7 +3926,7 @@ describe('usePromptActions new-chat first-send delivery (#63078)', () => {
     let releaseFileAttach: () => void = () => {}
 
     $connection.set({ mode: 'remote' } as never)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl: vi.fn(async () => 'data:application/pdf;base64,JVBERi0=') }
     })
@@ -4137,7 +4137,7 @@ describe('usePromptActions eager attachment upload (drop-time)', () => {
     // waiting for submit.
     $connection.set({ mode: 'remote' } as never)
     const readFileDataUrl = vi.fn(async () => 'data:application/pdf;base64,JVBERi0=')
-    Object.defineProperty(window, 'hermesDesktop', { configurable: true, value: { readFileDataUrl } })
+    Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: { readFileDataUrl } })
 
     const calls: string[] = []
 
@@ -4174,7 +4174,7 @@ describe('usePromptActions eager attachment upload (drop-time)', () => {
 
   it('flags the chip uploadState=error when the eager upload fails, keeping the path so submit can retry', async () => {
     $connection.set({ mode: 'remote' } as never)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { readFileDataUrl: vi.fn(async () => 'data:application/pdf;base64,JVBERi0=') }
     })
@@ -4230,7 +4230,7 @@ describe('uploadComposerAttachment remote read failures', () => {
   it('turns the raw 16MB IPC cap error into a friendly remote-gateway message', async () => {
     // electron/hardening.ts rejects the readFileDataUrl IPC with this exact
     // shape when a file exceeds the configured data-URL read cap.
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: {
         readFileDataUrl: vi.fn(async () => {
@@ -4253,7 +4253,7 @@ describe('uploadComposerAttachment remote read failures', () => {
   })
 
   it('passes non-cap read errors through unchanged', async () => {
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: {
         readFileDataUrl: vi.fn(async () => {

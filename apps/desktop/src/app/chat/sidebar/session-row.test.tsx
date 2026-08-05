@@ -127,7 +127,7 @@ describe('SidebarSessionRow', () => {
         onDelete={noop}
         onPin={noop}
         onResume={noop}
-        session={makeSession({ title: 'Hermes doctor health check results' })}
+        session={makeSession({ title: 'AgentX doctor health check results' })}
       />
     )
 

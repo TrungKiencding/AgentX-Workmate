@@ -238,7 +238,7 @@ class TestGatewayRuntimeStatus:
         monkeypatch.setattr(status, "_get_process_start_time", lambda pid: 1000)
         for cmdline in (
             "agentx -p coder gateway run --replace",
-            "/opt/hermes/.venv/bin/agentx --profile coder gateway run --replace",
+            "/opt/agentx/.venv/bin/agentx --profile coder gateway run --replace",
             "hermes_home=/opt/data/profiles/coder agentx gateway run --replace",
         ):
             monkeypatch.setattr(status, "_read_process_cmdline", lambda pid, c=cmdline: c)
@@ -398,7 +398,7 @@ class TestScopedLocks:
             "pid": 873,
             "start_time": None,
             "kind": "agentx-gateway",
-            "argv": ["/Users/user/.agentx/hermes-agent/hermes_cli/main.py", "gateway", "run", "--replace"],
+            "argv": ["/Users/user/.agentx/agentx-agent/hermes_cli/main.py", "gateway", "run", "--replace"],
         }))
 
         # Post-#21561 the liveness probe routes through

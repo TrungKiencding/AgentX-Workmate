@@ -6,7 +6,7 @@ into AgentX and does not require `agentx plugins enable
 observability/nemo_relay`. AgentX remains importable without Relay on other
 native targets. Those targets use an explicit reduced-capability no-op host:
 AgentX execution remains available, while Relay scopes, middleware, plugins,
-and subscribers are unavailable. The `hermes-agent[nemo-relay]` extra remains
+and subscribers are unavailable. The `agentx-workmate[nemo-relay]` extra remains
 as a no-op compatibility alias for existing installation commands.
 
 AgentX requires NeMo Relay 0.6.0 or later within the 0.6 release line. That

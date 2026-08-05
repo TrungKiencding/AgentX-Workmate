@@ -80,7 +80,7 @@ export function ConfigSettings({
     isError: schemaFailed,
     refetch: refetchSchema
   } = useQuery({
-    queryKey: ['hermes-config-schema'],
+    queryKey: ['agentx-config-schema'],
     queryFn: getHermesConfigSchema,
     staleTime: 5 * 60 * 1000
   })

@@ -17,9 +17,11 @@ Free keyless meta-search aggregating 70+ engines.
 | Source | Optional — install with `agentx skills install official/research/searxng-search` |
 | Path | `optional-skills/research/searxng-search` |
 | Version | `1.0.1` |
-| Author | hermes-agent |
+| Author | agentx-agent |
 | License | MIT |
 | Platforms | linux, macos |
+| Tags | `search`, `searxng`, `meta-search`, `self-hosted`, `free`, `fallback` |
+| Related skills | [`duckduckgo-search`](/docs/user-guide/skills/optional/research/research-duckduckgo-search), [`domain-intel`](/docs/user-guide/skills/optional/research/research-domain-intel) |
 
 ## Reference: full SKILL.md
 

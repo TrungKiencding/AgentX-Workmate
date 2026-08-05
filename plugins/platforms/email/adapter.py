@@ -184,7 +184,7 @@ def _send_imap_id(imap: "imaplib.IMAP4") -> None:
             _hermes_version = "0"
         imap.xatom(
             "ID",
-            f'("name" "hermes-agent" "version" "{_hermes_version}" '
+            f'("name" "agentx-agent" "version" "{_hermes_version}" '
             '"vendor" "NousResearch" '
             '"support-email" "noreply@nousresearch.com")',
         )

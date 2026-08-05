@@ -5,7 +5,7 @@ The sidecar source ships inside the installed plugin tree
 (``plugins/platforms/photon/sidecar/``). On dev/source installs that tree is
 writable and everything — ``npm ci``, the spectrum patch, the sidecar itself —
 happens in place. Hosted/managed images instead keep the whole install tree
-under an immutable ``/opt/hermes`` (read-only for the agentx user), which
+under an immutable ``/opt/agentx`` (read-only for the agentx user), which
 broke every install/self-heal path with EROFS (NS-606).
 
 Resolution order (mirrors ``resolve_whatsapp_bridge_dir`` for the Baileys

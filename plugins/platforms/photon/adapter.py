@@ -119,7 +119,7 @@ _RUNTIME_RECORD_NAME = "photon-sidecar.json"
 
 
 def _runtime_record_path() -> Path:
-    # get_hermes_home() honors profile overrides — never hardcode ~/.hermes.
+    # get_hermes_home() honors profile overrides — never hardcode ~/.agentx.
     from hermes_constants import get_hermes_home
 
     return get_hermes_home() / "runtime" / _RUNTIME_RECORD_NAME

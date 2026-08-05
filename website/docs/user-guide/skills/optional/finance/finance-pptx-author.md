@@ -20,6 +20,8 @@ Build PowerPoint decks headless with python-pptx.
 | Author | Anthropic (adapted by Nous Research) |
 | License | Apache-2.0 |
 | Platforms | linux, macos, windows |
+| Tags | `powerpoint`, `pptx`, `python-pptx`, `presentation`, `finance` |
+| Related skills | [`excel-author`](/docs/user-guide/skills/optional/finance/finance-excel-author), [`powerpoint`](/docs/user-guide/skills/bundled/productivity/productivity-powerpoint) |
 
 ## Reference: full SKILL.md
 

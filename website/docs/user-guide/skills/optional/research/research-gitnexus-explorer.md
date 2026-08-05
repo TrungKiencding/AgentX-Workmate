@@ -20,6 +20,8 @@ Serve an interactive codebase knowledge graph web UI.
 | Author | AgentX Workmate + Teknium |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `gitnexus`, `code-intelligence`, `knowledge-graph`, `visualization` |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent), [`codebase-inspection`](/docs/user-guide/skills/bundled/github/github-codebase-inspection) |
 
 ## Reference: full SKILL.md
 
@@ -217,7 +219,7 @@ rm -rf .claude/
 - **The web UI does NOT create `.claude/` or `CLAUDE.md`.** Those are created by
   `npx gitnexus analyze`. Use `--skip-agents-md` to suppress the markdown files,
   then `rm -rf .claude/` for the rest. These are Claude Code integrations that
-  hermes-agent users don't need.
+  agentx-agent users don't need.
 
 - **Browser memory limit.** The web UI loads the entire graph into browser memory.
   Repos with 5k+ files may be sluggish. 30k+ files will likely crash the tab.

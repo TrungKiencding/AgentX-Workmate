@@ -1,6 +1,6 @@
 #!/bin/sh
 # s6-overlay shim. The real logic lives in docker/stage2-hook.sh, invoked
-# by /etc/cont-init.d/01-hermes-setup (installed by the Dockerfile). This
+# by /etc/cont-init.d/01-agentx-setup (installed by the Dockerfile). This
 # file exists so external references to docker/entrypoint.sh still work,
 # but it's no longer the ENTRYPOINT — /init is.
 #
@@ -25,4 +25,4 @@ echo "[agentx] WARNING: docker/entrypoint.sh is a deprecated shim under " \
     "and does NOT exec the CMD. If you hard-coded docker/entrypoint.sh " \
     "as your ENTRYPOINT, drop the override — docker will use the image's " \
     "default ENTRYPOINT dispatcher, which handles bootstrap AND CMD." >&2
-exec /opt/hermes/docker/stage2-hook.sh "$@"
+exec /opt/agentx/docker/stage2-hook.sh "$@"

@@ -235,7 +235,7 @@ The Honcho session name determines which conversation bucket memory lands in. Re
 | 2 | `/title` command (mid-session rename) | `"refactor-auth"` |
 | 3 | Gateway session key (Telegram, Discord, etc.) | `"agent-main-telegram-dm-8439114563"` |
 | 4 | `per-session` strategy | AgentX session ID (`20260415_a3f2b1`) |
-| 5 | `per-repo` strategy | Git root directory name (`hermes-agent`) |
+| 5 | `per-repo` strategy | Git root directory name (`agentx-agent`) |
 | 6 | `per-directory` strategy | Current directory basename (`src`) |
 | 7 | `global` strategy | Workspace name (`agentx`) |
 
@@ -350,7 +350,7 @@ Presets:
 | `HONCHO_OAUTH_AUTHORIZE_URL` | Full authorize URL (overrides the dashboard origin) |
 | `HONCHO_OAUTH_TOKEN_URL` | Token endpoint (default: cloud API; local-dev `localhost:8000`) |
 | `HONCHO_OAUTH_DEVICE_AUTH_URL` | Device-authorization endpoint (default: derived from the token URL) |
-| `HONCHO_OAUTH_CLIENT_ID` | OAuth client (default `hermes-agent`) |
+| `HONCHO_OAUTH_CLIENT_ID` | OAuth client (default `agentx-agent`) |
 | `HONCHO_OAUTH_SCOPE` | Requested scope (default `write`) |
 
 ## CLI Commands

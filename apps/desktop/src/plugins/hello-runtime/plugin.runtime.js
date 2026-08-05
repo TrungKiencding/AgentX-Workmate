@@ -6,7 +6,7 @@
  * `~/.agentx/desktop-plugins/<name>/plugin.js`.
  */
 
-import { cn, host, Tip, useValue } from '@hermes/plugin-sdk'
+import { cn, host, Tip, useValue } from '@agentx/plugin-sdk'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 function RuntimeChip() {

@@ -38,14 +38,14 @@ No admin rights required. The installer goes to `%LOCALAPPDATA%\agentx\` and add
 | `-Tag` | unset | Pin install to a specific git tag (e.g. `v0.14.0`) |
 | `-NoVenv` | off | Skip venv creation (advanced — you manage Python yourself) |
 | `-SkipSetup` | off | Skip the post-install `agentx setup` wizard |
-| `-HermesHome` | `%LOCALAPPDATA%\agentx` | Override data directory |
-| `-InstallDir` | `%LOCALAPPDATA%\agentx\hermes-agent` | Override code location |
+| `-AgentXHome` | `%LOCALAPPDATA%\agentx` | Override data directory |
+| `-InstallDir` | `%LOCALAPPDATA%\agentx\agentx-agent` | Override code location |
 
 The installer auto-retries flaky git fetches and strips BOM from any downloaded `install.ps1` payload, so a UTF-8 BOM picked up during HTTP transit no longer breaks the `[scriptblock]::Create((irm ...))` form.
 
 ### Desktop installer (alternative)
 
-A thin GUI installer is also available — useful if you'd rather double-click an `.exe` than open PowerShell. Download AgentX Workmate Desktop, run the installer, and on first launch the GUI calls `install.ps1` under the hood to provision Python (via `uv`), Node, PortableGit, and the rest of the dependency bootstrap described below. After the first run, the desktop app and the PowerShell-installed `agentx` CLI share the same `%LOCALAPPDATA%\agentx\hermes-agent` install and `%LOCALAPPDATA%\agentx` data directory — switch between the GUI and the CLI freely.
+A thin GUI installer is also available — useful if you'd rather double-click an `.exe` than open PowerShell. Download AgentX Workmate Desktop, run the installer, and on first launch the GUI calls `install.ps1` under the hood to provision Python (via `uv`), Node, PortableGit, and the rest of the dependency bootstrap described below. After the first run, the desktop app and the PowerShell-installed `agentx` CLI share the same `%LOCALAPPDATA%\agentx\agentx-agent` install and `%LOCALAPPDATA%\agentx` data directory — switch between the GUI and the CLI freely.
 
 Use the desktop installer when you want a familiar Windows install experience or you're handing AgentX to a non-developer; use the PowerShell one-liner when you're already in a terminal.
 
@@ -71,11 +71,11 @@ Top-to-bottom, in order:
 2. **Installs Python 3.11** via `uv`. No existing Python needed.
 3. **Installs Node.js 26** (winget if available, else a portable Node tarball unpacked under `%LOCALAPPDATA%\agentx\node`). Used for the browser tool and the WhatsApp bridge.
 4. **Installs portable Git** — if `git` is already on PATH the installer uses it; otherwise it downloads a trimmed, self-contained **PortableGit** (~45 MB, from the official `git-for-windows` release) to `%LOCALAPPDATA%\agentx\git`. No admin, no Windows installer registry, no interference with anything else on the box.
-5. **Clones the repo** to `%LOCALAPPDATA%\agentx\hermes-agent` and creates a virtualenv inside it.
+5. **Clones the repo** to `%LOCALAPPDATA%\agentx\agentx-agent` and creates a virtualenv inside it.
 6. **Tiered `uv pip install`** — tries `.[all]` first, falls back to progressively smaller sets (`[messaging,dashboard,ext]` → `[messaging]` → `.`) if a `git+https` dep flakes on rate-limited GitHub. Prevents "single flake drops you to a bare install" failure mode.
 7. **Auto-installs messaging SDKs** keyed off `.env` — if `TELEGRAM_BOT_TOKEN` / `DISCORD_BOT_TOKEN` / `SLACK_BOT_TOKEN` / `SLACK_APP_TOKEN` / `WHATSAPP_ENABLED` are present, runs `python -m ensurepip --upgrade` and targeted `pip install` calls so each platform's SDK is actually importable.
 8. **Sets `AGENTX_GIT_BASH_PATH`** to the resolved `bash.exe` so AgentX finds it deterministically in fresh shells.
-9. **Adds `%LOCALAPPDATA%\agentx\hermes-agent\venv\Scripts` to User PATH and sets `AGENTX_HOME=%LOCALAPPDATA%\agentx`** — exposes the `agentx` command (and points it at your data dir) after you open a new terminal.
+9. **Adds `%LOCALAPPDATA%\agentx\agentx-agent\venv\Scripts` to User PATH and sets `AGENTX_HOME=%LOCALAPPDATA%\agentx`** — exposes the `agentx` command (and points it at your data dir) after you open a new terminal.
 10. **Runs `agentx setup`** — the normal first-run wizard (model, provider, toolsets). Skip with `-SkipSetup`.
 
 :::tip Skip provider hunting on Windows
@@ -202,13 +202,13 @@ Services require admin rights to install and tie the gateway's lifecycle to mach
 
 | Path | Contents |
 |---|---|
-| `%LOCALAPPDATA%\agentx\hermes-agent\` | Git checkout + venv. `venv\Scripts\hermes.exe` is the command added to User PATH. Safe to `Remove-Item -Recurse` and reinstall. |
+| `%LOCALAPPDATA%\agentx\agentx-agent\` | Git checkout + venv. `venv\Scripts\agentx.exe` is the command added to User PATH. Safe to `Remove-Item -Recurse` and reinstall. |
 | `%LOCALAPPDATA%\agentx\git\` | PortableGit (only if the installer provisioned it). |
 | `%LOCALAPPDATA%\agentx\node\` | Portable Node.js (only if the installer provisioned it). |
 | `%LOCALAPPDATA%\agentx\bin\` | AgentX's managed `uv.exe` (the Python manager it uses for updates). |
 | `%LOCALAPPDATA%\agentx\` (root) | Your config, auth, skills, sessions, logs (`config.yaml`, `.env`, `skills\`, `sessions\`, `logs\`, …). **Survives reinstalls.** |
 
-On native Windows the installer sets `AGENTX_HOME=%LOCALAPPDATA%\agentx`, so your data and the disposable install live under the **same** `%LOCALAPPDATA%\agentx` root: the install/runtime is the `hermes-agent\`, `git\`, `node\`, and `bin\` subdirectories, while your data files sit directly in `%LOCALAPPDATA%\agentx`. Reinstalling only replaces the `hermes-agent\` checkout, so your data survives — but because the two share a root, **don't** `Remove-Item -Recurse %LOCALAPPDATA%\agentx` if you want to keep your data; delete the `hermes-agent\` subdirectory instead. Your data directory is identical in shape to a Linux `~/.agentx`, so you can mirror it between machines.
+On native Windows the installer sets `AGENTX_HOME=%LOCALAPPDATA%\agentx`, so your data and the disposable install live under the **same** `%LOCALAPPDATA%\agentx` root: the install/runtime is the `agentx-agent\`, `git\`, `node\`, and `bin\` subdirectories, while your data files sit directly in `%LOCALAPPDATA%\agentx`. Reinstalling only replaces the `agentx-agent\` checkout, so your data survives — but because the two share a root, **don't** `Remove-Item -Recurse %LOCALAPPDATA%\agentx` if you want to keep your data; delete the `agentx-agent\` subdirectory instead. Your data directory is identical in shape to a Linux `~/.agentx`, so you can mirror it between machines.
 
 **Override `AGENTX_HOME`:** set the environment variable to point at a different data dir (e.g. `%USERPROFILE%\.agentx` to match a Linux/WSL layout). Works the same as on Linux.
 
@@ -224,12 +224,12 @@ The browser tool uses `agent-browser` (a Node helper) to drive Chromium. On Wind
 
 ### PATH after install
 
-The installer adds `%LOCALAPPDATA%\agentx\hermes-agent\venv\Scripts` to your **User PATH** via `[Environment]::SetEnvironmentVariable`. Existing terminals don't pick this up — open a new PowerShell window (or Windows Terminal tab) after installation. Close-and-reopen, don't `$env:PATH += …` by hand unless you know what you're doing.
+The installer adds `%LOCALAPPDATA%\agentx\agentx-agent\venv\Scripts` to your **User PATH** via `[Environment]::SetEnvironmentVariable`. Existing terminals don't pick this up — open a new PowerShell window (or Windows Terminal tab) after installation. Close-and-reopen, don't `$env:PATH += …` by hand unless you know what you're doing.
 
 Verify:
 
 ```powershell
-Get-Command agentx        # should print C:\Users\<you>\AppData\Local\agentx\hermes-agent\venv\Scripts\hermes.exe
+Get-Command agentx        # should print C:\Users\<you>\AppData\Local\agentx\agentx-agent\venv\Scripts\agentx.exe
 agentx --version
 ```
 
@@ -262,7 +262,7 @@ From PowerShell:
 agentx uninstall
 ```
 
-That's the clean path — removes the schtasks entry, Startup folder shortcut, `hermes.cmd` shim, deletes `%LOCALAPPDATA%\agentx\hermes-agent\`, and trims the User PATH. It leaves the rest of `%LOCALAPPDATA%\agentx\` alone (your config, auth, skills, sessions, logs) in case you're reinstalling.
+That's the clean path — removes the schtasks entry, Startup folder shortcut, `agentx.cmd` shim, deletes `%LOCALAPPDATA%\agentx\agentx-agent\`, and trims the User PATH. It leaves the rest of `%LOCALAPPDATA%\agentx\` alone (your config, auth, skills, sessions, logs) in case you're reinstalling.
 
 To nuke everything:
 
@@ -288,7 +288,7 @@ Consequence: any codepath that said "check if this PID is alive" via `os.kill(pi
 ## Common pitfalls
 
 **`hermes: command not found` right after install.**
-Open a new PowerShell window. The installer added `%LOCALAPPDATA%\agentx\bin` to User PATH, but existing shells need to be restarted to pick it up. In the meantime you can run `& "$env:LOCALAPPDATA\agentx\bin\hermes.cmd"`.
+Open a new PowerShell window. The installer added `%LOCALAPPDATA%\agentx\bin` to User PATH, but existing shells need to be restarted to pick it up. In the meantime you can run `& "$env:LOCALAPPDATA\agentx\bin\agentx.cmd"`.
 
 **`WinError 193: %1 is not a valid Win32 application` when running a tool.**
 You hit a shebang-script invocation that bypassed the `.cmd` shim. AgentX resolves commands through `shutil.which(cmd, path=local_bin)` so PATHEXT picks up `.CMD` — if you're invoking the tool via a hardcoded path instead, switch to the `.cmd` variant (e.g., `npx.cmd`, not `npx`).

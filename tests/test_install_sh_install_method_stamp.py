@@ -12,7 +12,7 @@ booting last, would win and wrongly make the host install look like 'docker'
 
 The fix: detect_install_method() reads a CODE-scoped stamp first, and the
 installer writes ``git`` into $INSTALL_DIR (the git checkout, e.g.
-``~/.agentx/hermes-agent``), which is unique to this install and immune to the
+``~/.agentx/agentx-agent``), which is unique to this install and immune to the
 shared data dir.
 """
 from __future__ import annotations

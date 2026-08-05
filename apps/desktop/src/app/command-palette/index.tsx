@@ -363,7 +363,7 @@ const PaletteRow = memo(function PaletteRow({
   )
 })
 
-// Hermes session ids: <YYYYMMDD>_<HHMMSS>_<6 hex>. Used to offer a direct
+// AgentX session ids: <YYYYMMDD>_<HHMMSS>_<6 hex>. Used to offer a direct
 // "Go to session ‹id›" jump for ids that aren't in the recent-200 list.
 const SESSION_ID_RE = /^\d{8}_\d{6}_[a-f0-9]{6}$/
 
@@ -875,7 +875,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             detail: updateVersionLabel,
             icon: Download,
             id: 'cc-update-hermes',
-            keywords: ['update', 'upgrade', 'hermes', 'version', 'system', 'restart'],
+            keywords: ['update', 'upgrade', 'agentx', 'version', 'system', 'restart'],
             label: cc.updateHermes,
             run: () => requestActiveUpdate()
           }

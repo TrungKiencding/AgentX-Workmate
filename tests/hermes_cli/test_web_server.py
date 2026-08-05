@@ -984,7 +984,7 @@ class TestWebServerEndpoints:
         web_server._ACTION_PROCS.pop("hermes-update", None)
         web_server._ACTION_RESULTS.pop("hermes-update", None)
 
-        resp = self.client.post("/api/hermes/update")
+        resp = self.client.post("/api/agentx/update")
 
         assert resp.status_code == 200
         data = resp.json()

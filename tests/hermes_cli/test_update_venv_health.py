@@ -75,7 +75,7 @@ def test_detect_venv_python_excludes_self_and_ancestors(_winp, tmp_path):
         process_iter=lambda attrs: iter(
             [
                 _proc(_os.getpid(), venv_py, "python.exe"),
-                _proc(555, venv_py, "hermes.exe"),
+                _proc(555, venv_py, "agentx.exe"),
             ]
         ),
         Process=lambda *a, **k: me,

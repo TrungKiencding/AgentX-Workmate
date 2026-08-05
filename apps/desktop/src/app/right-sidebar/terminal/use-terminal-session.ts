@@ -335,7 +335,7 @@ function collectDroppedPaths(t: DataTransfer): string[] {
     // Malformed in-app drag payload — fall through to OS files.
   }
 
-  const getPath = window.hermesDesktop?.getPathForFile
+  const getPath = window.agentxDesktop?.getPathForFile
 
   const addFile = (file: File | null) => {
     if (!file || !getPath) {
@@ -492,7 +492,7 @@ export function useTerminalSession({
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
     const host = hostRef.current
-    const terminalApi = window.hermesDesktop?.terminal
+    const terminalApi = window.agentxDesktop?.terminal
 
     if (!host || !terminalApi) {
       setStatus('closed')
@@ -530,7 +530,7 @@ export function useTerminalSession({
       // handler; without it xterm shows a raw confirm() and then a window.open
       // Electron denies.
       linkHandler: terminalLinkHandler,
-      // Full-screen TUIs (hermes --tui, vim) grab the mouse, so a plain drag
+      // Full-screen TUIs (agentx --tui, vim) grab the mouse, so a plain drag
       // can't select — ⌥-drag (macOS) / Shift-drag (else) forces a native
       // selection over mouse-mode apps, which ⌘/Ctrl+L then sends to chat.
       macOptionClickForcesSelection: true,
@@ -821,7 +821,7 @@ export function useTerminalSession({
         return false
       }
       void (async () => {
-        const text = (await window.hermesDesktop?.readClipboard?.()) ?? ''
+        const text = (await window.agentxDesktop?.readClipboard?.()) ?? ''
 
         if (text) {
           hasSessionActivityRef.current = true
@@ -909,7 +909,7 @@ export function useTerminalSession({
         term.loadAddon(webgl)
         webglRef.current = webgl
       } catch (err) {
-        console.warn('[hermes-terminal] WebGL unavailable; falling back to DOM', err)
+        console.warn('[agentx-terminal] WebGL unavailable; falling back to DOM', err)
       }
 
       fitAndResize(initialActiveRef.current)
@@ -1042,7 +1042,7 @@ export function useTerminalSession({
       }
 
       hasSessionActivityRef.current = true
-      void window.hermesDesktop?.terminal?.write(sessionId, `${command}\r`)
+      void window.agentxDesktop?.terminal?.write(sessionId, `${command}\r`)
       $terminalInjection.set(null)
       termRef.current?.focus()
     })

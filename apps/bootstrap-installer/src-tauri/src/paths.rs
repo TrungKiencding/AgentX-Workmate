@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing_appender::non_blocking::WorkerGuard;
 
-/// Returns the canonical Hermes home directory, respecting $AGENTX_HOME if set.
+/// Returns the canonical AgentX home directory, respecting $AGENTX_HOME if set.
 pub fn hermes_home() -> PathBuf {
     if let Ok(override_path) = std::env::var("AGENTX_HOME") {
         if !override_path.trim().is_empty() {
@@ -31,9 +31,9 @@ pub fn hermes_home() -> PathBuf {
 
     #[cfg(target_os = "windows")]
     {
-        // %LOCALAPPDATA%\agentx — matches scripts/install.ps1's $HermesHome.
+        // %LOCALAPPDATA%\agentx — matches scripts/install.ps1's $AgentXHome.
         if let Some(local_app_data) = dirs::data_local_dir() {
-            return local_app_data.join("hermes");
+            return local_app_data.join("agentx");
         }
     }
 
@@ -64,15 +64,15 @@ pub fn bootstrap_cache_dir() -> PathBuf {
 /// The desktop app re-invokes this with `--update`, and the start-menu /
 /// desktop shortcuts can point users back to it. Lives directly under
 /// AGENTX_HOME so it survives repo checkout deletion (unlike anything under
-/// hermes-agent/).
+/// agentx-agent/).
 ///
-/// On Windows this is `%LOCALAPPDATA%\agentx\hermes-setup.exe`; on other
+/// On Windows this is `%LOCALAPPDATA%\agentx\agentx-setup.exe`; on other
 /// platforms the extension differs but the directory is the same.
 pub fn installer_dest() -> PathBuf {
     let name = if cfg!(target_os = "windows") {
-        "hermes-setup.exe"
+        "agentx-setup.exe"
     } else {
-        "hermes-setup"
+        "agentx-setup"
     };
     hermes_home().join(name)
 }
@@ -87,7 +87,7 @@ pub fn installer_dest() -> PathBuf {
 /// Electron desktop — which resolves AGENTX_HOME identically and pins it into
 /// the updater's env — agrees on the exact path.
 pub fn update_in_progress_marker() -> PathBuf {
-    hermes_home().join(".hermes-update-in-progress")
+    hermes_home().join(".agentx-update-in-progress")
 }
 
 /// Copy the currently-running installer binary to `installer_dest()` so it's
@@ -157,11 +157,11 @@ fn repair_macos_installer_helper(_path: &Path) {}
 
 /// Where the bootstrap-complete marker lives (existence-only for the Rust
 /// installer fast path; JSON schema-checked by the Electron app). Per main.ts:
-///   const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_AGENTX_ROOT, '.hermes-bootstrap-complete')
+///   const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_AGENTX_ROOT, '.agentx-bootstrap-complete')
 /// We don't always know ACTIVE_AGENTX_ROOT until install.ps1 reports it, so
 /// this is a probe helper, not a definitive path.
 pub fn likely_bootstrap_marker(install_root: &Path) -> PathBuf {
-    install_root.join(".hermes-bootstrap-complete")
+    install_root.join(".agentx-bootstrap-complete")
 }
 
 /// Initializes tracing to bootstrap-installer.log under AGENTX_HOME/logs/.
@@ -172,7 +172,7 @@ pub fn init_logging() -> Option<WorkerGuard> {
     if let Err(err) = std::fs::create_dir_all(&dir) {
         // No log dir → log to stderr only. Don't panic; the installer
         // should still be usable on an exotic filesystem.
-        eprintln!("[hermes-setup] could not create log dir {dir:?}: {err}");
+        eprintln!("[agentx-setup] could not create log dir {dir:?}: {err}");
         return None;
     }
 

@@ -20,6 +20,7 @@ Find accounts for a username across 400+ platforms.
 | Author | unmodeled-tyler |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `osint`, `security`, `username`, `social-media`, `reconnaissance` |
 
 ## Reference: full SKILL.md
 

@@ -12,7 +12,7 @@
 
       sandbox = pkgs.callPackage ./sandbox.nix { };
 
-      minimal = pkgs.callPackage ./hermes-agent.nix {
+      minimal = pkgs.callPackage ./agentx-agent.nix {
         inherit (inputs) uv2nix pyproject-nix pyproject-build-systems;
         npm-lockfile-fix = inputs'.npm-lockfile-fix.packages.default;
         # Only embed clean revs — dirtyRev doesn't represent any upstream
@@ -67,7 +67,7 @@
 
         tui = full.hermesTui;
         web = full.hermesWeb;
-        desktop = full.hermesDesktop;
+        desktop = full.agentxDesktop;
 
         update-npm-lockfile = full.hermesNpmLib.updateNpmLockfile;
       };

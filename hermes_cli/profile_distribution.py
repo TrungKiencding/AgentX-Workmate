@@ -114,7 +114,7 @@ USER_OWNED_EXCLUDE: frozenset = frozenset({
     "browser_screenshots", "checkpoints", "sandboxes",
     "backups", "cache",
     # Infrastructure
-    "hermes-agent", ".worktrees", "profiles", "bin", "node_modules",
+    "agentx-agent", ".worktrees", "profiles", "bin", "node_modules",
     # User customization namespace
     "local",
 })

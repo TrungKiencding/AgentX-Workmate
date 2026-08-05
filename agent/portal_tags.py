@@ -8,7 +8,7 @@ Nous can attribute usage to AgentX Workmate and bucket it by client release.
 Tag shape (sent in OpenAI-compatible ``extra_body['tags']``):
 
     [
-        "product=hermes-agent",
+        "product=agentx-agent",
         "client=hermes-client-v<__version__>",
     ]
 
@@ -132,7 +132,7 @@ def nous_portal_tags(session_id: str | None = None) -> List[str]:
     per-call-site plumbing. Callers outside any conversation (e.g. the
     auxiliary client's import-time base tags) get the canonical two-tag set.
     """
-    tags = ["product=hermes-agent", hermes_client_tag()]
+    tags = ["product=agentx-agent", hermes_client_tag()]
     # Ambient context first: the agent loop publishes the lineage ROOT id
     # (stable across context-compression rotation and delegate subagent
     # trees), which is the better conversation key than a per-segment

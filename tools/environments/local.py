@@ -55,9 +55,9 @@ def _resolve_local_initial_cwd(cwd: str) -> str:
 
     ``TERMINAL_CWD`` can be populated from config.yaml before the terminal
     backend is created.  If that value is relative and happens to match the
-    directory AgentX was already launched from (for example ``hermes-agent``
-    while the process cwd is ``~/.agentx/hermes-agent``), passing it through
-    unchanged makes the wrapper run ``cd hermes-agent`` *inside* the project
+    directory AgentX was already launched from (for example ``agentx-agent``
+    while the process cwd is ``~/.agentx/agentx-agent``), passing it through
+    unchanged makes the wrapper run ``cd agentx-agent`` *inside* the project
     and fail with a confusing nested-path error.  Anchor relative local cwd
     values once, up front, so both ``subprocess.Popen(cwd=...)`` and the
     in-shell ``cd`` use the same absolute directory.
@@ -77,9 +77,9 @@ def _resolve_local_initial_cwd(cwd: str) -> str:
     candidate = os.path.abspath(expanded)
     current = os.getcwd()
 
-    # Common recovery for config values like ``hermes-agent`` when AgentX was
+    # Common recovery for config values like ``agentx-agent`` when AgentX was
     # launched from that directory already.  ``os.path.abspath`` would point at
-    # a nonexistent nested ``./hermes-agent``; use the current directory instead.
+    # a nonexistent nested ``./agentx-agent``; use the current directory instead.
     if not os.path.isdir(candidate):
         wanted_parts = Path(expanded).parts
         current_parts = Path(current).parts
@@ -1112,7 +1112,7 @@ def _resolve_hermes_bin_dir() -> str | None:
     if candidate is None:
         exe_dir = os.path.dirname(sys.executable) if sys.executable else ""
         if exe_dir:
-            shim = "hermes.exe" if _IS_WINDOWS else "agentx"
+            shim = "agentx.exe" if _IS_WINDOWS else "agentx"
             if os.path.isfile(os.path.join(exe_dir, shim)):
                 candidate = exe_dir
 

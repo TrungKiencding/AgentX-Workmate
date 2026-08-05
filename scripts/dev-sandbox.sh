@@ -36,10 +36,10 @@ Run COMMAND in a throwaway chroot-like bubblewrap sandbox. The sandbox has no
 writable host mounts: only its own root, mounted at /work, is writable.
 
 Options:
-  --persistent          Keep the whole sandbox under .hermes-sandbox/.
+  --persistent          Keep the whole sandbox under .agentx-sandbox/.
   --delete              Delete the persistent sandbox (asks first).
   --root                Install as uid 0 with the root FHS layout: code in
-                        /usr/local/lib/hermes-agent, command in
+                        /usr/local/lib/agentx-agent, command in
                         /usr/local/bin. Default is the user-level layout.
   --from DIR            One-time copy of DIR into the sandbox's $HOME.
                         Existing persistent sandboxes are never overwritten.
@@ -72,7 +72,7 @@ installer). Put sandbox options first and separate installer arguments with
 Install layout: `install.sh` picks its layout from `id -u` alone, so uid is what
 separates the two real-world Linux installs. By default the sandbox runs as an
 unprivileged `agentx` user, giving the layout most people have —
-$AGENTX_HOME/hermes-agent plus a ~/.local/bin launcher. Pass --root for the FHS
+$AGENTX_HOME/agentx-agent plus a ~/.local/bin launcher. Pass --root for the FHS
 one. Both are worth testing; they differ in more than paths (root also relocates
 uv's Python to /usr/local/share for world-readability).
 
@@ -88,7 +88,7 @@ commit containing them; it never stages or commits the real worktree.
 
 Environment:
   AGENTX_DEV_SANDBOX_DIR    Sandbox directory name, relative to the repo root
-                            (default: .hermes-sandbox).
+                            (default: .agentx-sandbox).
 
 Examples:
   # create a sandbox, install this branch as `main`, and then drop to a shell,
@@ -193,7 +193,7 @@ COMMIT="$(git -C "$GIT_ROOT" rev-parse --verify 'HEAD^{commit}')" || {
   echo "error: current folder has no HEAD commit" >&2
   exit 1
 }
-SANDBOX_DIR_NAME="${AGENTX_DEV_SANDBOX_DIR:-.hermes-sandbox}"
+SANDBOX_DIR_NAME="${AGENTX_DEV_SANDBOX_DIR:-.agentx-sandbox}"
 PERSISTENT_ROOT="$GIT_ROOT/$SANDBOX_DIR_NAME"
 
 if [ "$DELETE" = true ]; then
@@ -279,7 +279,7 @@ if [ "$INSTALL_SHORTCUT" = true ]; then
     install_status=$?
     if [ "$install_status" -eq 0 ] && [ -f /work/promote-main ]; then
       next_main=$(cat /work/promote-main)
-      if git --git-dir=/work/repos/hermes-agent.git update-ref refs/heads/main "$next_main"; then
+      if git --git-dir=/work/repos/agentx-agent.git update-ref refs/heads/main "$next_main"; then
         rm -f /work/promote-main
         printf "[sandbox] fake main advanced to this folder for update testing\n" >&2
       else
@@ -381,8 +381,8 @@ printf '127.0.0.1 localhost\n' > "$SANDBOX_ROOT/etc/hosts"
 SOURCE_REPO="$GIT_ROOT"
 SOURCE_REF="$COMMIT"
 SNAPSHOT_REPO=""
-FAKE_REPO="$SANDBOX_ROOT/root/repos/hermes-agent.git"
-git -C "$SANDBOX_ROOT/root/repos" init --bare -q hermes-agent.git
+FAKE_REPO="$SANDBOX_ROOT/root/repos/agentx-agent.git"
+git -C "$SANDBOX_ROOT/root/repos" init --bare -q agentx-agent.git
 if [ -n "$INSTALL_REF" ]; then
   git --git-dir="$FAKE_REPO" fetch -q --force "$UPSTREAM_REPO" \
     "$UPSTREAM_COMMIT:refs/heads/main"

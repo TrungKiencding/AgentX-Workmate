@@ -3,10 +3,10 @@
 Three different surfaces can start an update of the same install tree:
 
 * ``agentx update`` from a terminal,
-* the dashboard's Update button (``POST /api/hermes/update`` →
+* the dashboard's Update button (``POST /api/agentx/update`` →
   ``_spawn_hermes_action(["update"])``, detached),
 * the desktop's Update button, which hands off to the Tauri
-  ``hermes-setup --update`` and, on its failure screen, to install-mode
+  ``agentx-setup --update`` and, on its failure screen, to install-mode
   bootstrap (``install.ps1`` / ``install.sh``).
 
 Until now only the Tauri updater published an "update in progress" marker
@@ -21,7 +21,7 @@ This module makes that same marker the single lock for **all** update
 entrypoints instead of adding a fourth mechanism. Format and location are
 unchanged and remain byte-compatible with the Rust and Electron readers:
 
-    <AGENTX_HOME>/.hermes-update-in-progress   body: "<pid>\\n<started_at_unix>"
+    <AGENTX_HOME>/.agentx-update-in-progress   body: "<pid>\\n<started_at_unix>"
 
 A marker only counts as a live update when its pid is alive AND it is younger
 than :data:`UPDATE_MARKER_MAX_AGE_MS` — mirroring ``readLiveUpdateMarker`` so a
@@ -40,7 +40,7 @@ Two mechanisms recognize the orchestrating parent, and either suffices:
   be the live marker owner, so a stale or forged value cannot bypass the lock.
 * A live holder that is a *process ancestor* of ours is likewise our own
   orchestrator. This is the load-bearing path for the fleet: the staged
-  ``hermes-setup`` binary under ``~/.agentx`` is only refreshed by a full
+  ``agentx-setup`` binary under ``~/.agentx`` is only refreshed by a full
   installer run (``copy_self_to_hermes_home`` deliberately no-ops during
   ``--update``), so every desktop whose staged updater predates the
   HANDOFF_PID_ENV export runs an old parent against a new child. Without the
@@ -64,9 +64,9 @@ logger = logging.getLogger(__name__)
 # live. A full update (git pull + uv sync + desktop rebuild) is minutes.
 UPDATE_MARKER_MAX_AGE_SECONDS = 20 * 60
 
-MARKER_NAME = ".hermes-update-in-progress"
+MARKER_NAME = ".agentx-update-in-progress"
 
-# Set by an orchestrating updater (the Tauri `hermes-setup --update` flow) to
+# Set by an orchestrating updater (the Tauri `agentx-setup --update` flow) to
 # its own pid before spawning `agentx update` as a child stage. The parent
 # holds the marker for its whole run, so without this the child refuses its
 # own parent's lock and the GUI update can never complete. See update_child_env
@@ -143,7 +143,7 @@ def _is_ancestor_pid(pid: int) -> bool:
     The orchestrating updater spawns ``agentx update`` as a (grand)child, so a
     live marker owned by one of our ancestors can only be the claim we are
     already running under — an unrelated concurrent updater is never in our
-    parent chain. This heals the fleet of staged ``hermes-setup`` binaries
+    parent chain. This heals the fleet of staged ``agentx-setup`` binaries
     that predate the HANDOFF_PID_ENV export and can never send it.
 
     Never includes our own pid, and any failure counts as "not an ancestor":

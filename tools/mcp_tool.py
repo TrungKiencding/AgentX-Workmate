@@ -3,7 +3,7 @@
 MCP (Model Context Protocol) Client Support
 
 Connects to external MCP servers via stdio, HTTP/StreamableHTTP, or SSE
-transport, discovers their tools, and registers them into the hermes-agent
+transport, discovers their tools, and registers them into the agentx-agent
 tool registry so the agent can call them like any built-in tool.
 
 Configuration is read from ~/.agentx/config.yaml under the ``mcp_servers`` key.

@@ -229,10 +229,10 @@ def _augment_path_with_known_tools() -> None:
         os.path.join(local_appdata, "agentx", "git", "cmd"),
         os.path.join(local_appdata, "agentx", "git", "bin"),
         os.path.join(local_appdata, "agentx", "git", "usr", "bin"),
-        # AgentX venv Scripts directory — host of the hermes.exe shim itself,
+        # AgentX venv Scripts directory — host of the agentx.exe shim itself,
         # also where any pip-installed console scripts land.  Usually already
         # on PATH when the user invokes agentx, but harmless to include.
-        os.path.join(local_appdata, "agentx", "hermes-agent", "venv", "Scripts"),
+        os.path.join(local_appdata, "agentx", "agentx-agent", "venv", "Scripts"),
         # WinGet packages directory — where ``winget install`` drops CLI
         # shims by default (ripgrep lands here as rg.exe).  Covers the case
         # of a system-Git install + ripgrep-via-winget that isn't yet on

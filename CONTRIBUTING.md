@@ -119,13 +119,13 @@ For most contributors, the best development bootstrap is the same path users
 take: run the standard installer, then work inside the repository it cloned.
 The installer creates the AgentX venv, wires the `agentx` command, stamps the
 install method for `agentx update`, and clones the full git project into
-`$AGENTX_HOME/hermes-agent` (usually `~/.agentx/hermes-agent`). That keeps your
+`$AGENTX_HOME/agentx-agent` (usually `~/.agentx/agentx-agent`). That keeps your
 development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-cd "${AGENTX_HOME:-$HOME/.agentx}/hermes-agent"
+cd "${AGENTX_HOME:-$HOME/.agentx}/agentx-agent"
 
 # Add dev/test extras on top of the standard install.
 uv pip install -e ".[all,dev]"
@@ -157,7 +157,7 @@ tree means no relative path from the workspace resolves to it.
 
 ```bash
 git clone https://github.com/NousResearch/hermes-agent.git
-cd hermes-agent
+cd agentx-agent
 
 # Create venv with Python 3.11, OUTSIDE the source tree
 uv venv ~/.agentx/venvs/hermes-dev --python 3.11
@@ -215,7 +215,7 @@ pytest tests/ -v
 ## Project Structure
 
 ```
-hermes-agent/
+agentx-agent/
 ├── run_agent.py              # AIAgent class — core conversation loop, tool dispatch, session persistence
 ├── cli.py                    # HermesCLI class — interactive TUI, prompt_toolkit integration
 ├── model_tools.py            # Tool orchestration (thin layer over tools/registry.py)

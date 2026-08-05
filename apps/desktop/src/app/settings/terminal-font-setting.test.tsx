@@ -62,7 +62,7 @@ describe('TerminalFontSetting', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mocks.loadedConfig = {
-      display: { skin: 'hermes' },
+      display: { skin: 'agentx' },
       terminal: { backend: 'local', cwd: '/workspace', font_family: '' }
     }
     mocks.save.mockResolvedValue({ ok: true })
@@ -88,7 +88,7 @@ describe('TerminalFontSetting', () => {
     await flushAutosave()
 
     expect(mocks.save).toHaveBeenCalledWith({
-      display: { skin: 'hermes' },
+      display: { skin: 'agentx' },
       terminal: { backend: 'local', cwd: '/workspace', font_family: 'MesloLGS NF' }
     })
     expect(mocks.cache).toHaveBeenCalledWith(mocks.save.mock.calls[0][0])

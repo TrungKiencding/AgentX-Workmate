@@ -5,6 +5,6 @@ def test_windows_native_install_path_docs_match_installer() -> None:
     doc = Path("website/docs/user-guide/windows-native.md").read_text()
     install = Path("scripts/install.ps1").read_text()
 
-    assert "%LOCALAPPDATA%\\agentx\\hermes-agent\\venv\\Scripts" in doc
-    assert "Get-Command agentx        # should print C:\\Users\\<you>\\AppData\\Local\\agentx\\hermes-agent\\venv\\Scripts\\hermes.exe" in doc
+    assert "%LOCALAPPDATA%\\agentx\\agentx-agent\\venv\\Scripts" in doc
+    assert "Get-Command agentx        # should print C:\\Users\\<you>\\AppData\\Local\\agentx\\agentx-agent\\venv\\Scripts\\agentx.exe" in doc
     assert '$hermesBin = "$InstallDir\\venv\\Scripts"' in install

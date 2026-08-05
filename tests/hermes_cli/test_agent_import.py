@@ -7,7 +7,7 @@ malformed-input skip reports, and the never-import-secrets rule.
 
 Uses the profile_env fixture pattern from tests/hermes_cli/test_profiles.py:
 Path.home() and AGENTX_HOME are redirected to tmp_path so nothing touches
-the real ~/.hermes.
+the real ~/.agentx.
 """
 
 import json
@@ -34,7 +34,7 @@ from hermes_cli.agent_import import (
 
 @pytest.fixture()
 def profile_env(tmp_path, monkeypatch):
-    """Isolated environment: Path.home() -> tmp_path, AGENTX_HOME -> tmp/.hermes."""
+    """Isolated environment: Path.home() -> tmp_path, AGENTX_HOME -> tmp/.agentx."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     default_home = tmp_path / ".agentx"
     default_home.mkdir(exist_ok=True)

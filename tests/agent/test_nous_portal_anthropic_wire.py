@@ -293,7 +293,7 @@ class TestPortalBodyFields:
 
         tags = self._build()["extra_body"]["tags"]
 
-        assert "product=hermes-agent" in tags
+        assert "product=agentx-agent" in tags
         assert hermes_client_tag() in tags
         assert all(isinstance(tag, str) for tag in tags), (
             "Portal skips non-string tag entries unpredictably"

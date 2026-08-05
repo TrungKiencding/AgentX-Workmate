@@ -33,7 +33,7 @@ class TestGetHermesHomeProfileWarning:
     def test_classic_mode_no_active_profile_no_warning(
         self, fresh_constants, tmp_path, capsys
     ):
-        """Classic mode: no active_profile file → silent, returns ~/.hermes."""
+        """Classic mode: no active_profile file → silent, returns ~/.agentx."""
         result = fresh_constants.get_hermes_home()
         assert result == tmp_path / ".agentx"
         assert "AGENTX_HOME fallback" not in capsys.readouterr().err

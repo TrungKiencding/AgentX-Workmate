@@ -20,6 +20,7 @@ Set up op CLI, sign in, and read or inject secrets.
 | Author | arceus77-7, enhanced by AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `security`, `secrets`, `1password`, `op`, `cli` |
 
 ## Reference: full SKILL.md
 

@@ -247,7 +247,7 @@ def delete_paste(url: str) -> bool:
     target = f"{_PASTE_RS_URL}{paste_id}"
     req = urllib.request.Request(
         target, method="DELETE",
-        headers={"User-Agent": "hermes-agent/debug-share"},
+        headers={"User-Agent": "agentx-agent/debug-share"},
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         return 200 <= resp.status < 300
@@ -280,7 +280,7 @@ def _upload_paste_rs(content: str) -> str:
         _PASTE_RS_URL, data=data, method="POST",
         headers={
             "Content-Type": "text/plain; charset=utf-8",
-            "User-Agent": "hermes-agent/debug-share",
+            "User-Agent": "agentx-agent/debug-share",
         },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -295,7 +295,7 @@ def _upload_dpaste_com(content: str, expiry_days: int = 7) -> str:
 
     dpaste.com uses multipart form data.
     """
-    boundary = "----HermesDebugBoundary9f3c"
+    boundary = "----AgentXDebugBoundary9f3c"
 
     def _field(name: str, value: str) -> str:
         return (
@@ -316,7 +316,7 @@ def _upload_dpaste_com(content: str, expiry_days: int = 7) -> str:
         _DPASTE_COM_URL, data=body, method="POST",
         headers={
             "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "User-Agent": "hermes-agent/debug-share",
+            "User-Agent": "agentx-agent/debug-share",
         },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -639,7 +639,7 @@ def collect_debug_report(
 
 # Bundle format identifier embedded in the Nous-S3 JSON envelope. The
 # discord-support viewer keys off this string to parse the bundle.
-_NOUS_BUNDLE_FORMAT = "hermes-debug-share/1"
+_NOUS_BUNDLE_FORMAT = "agentx-debug-share/1"
 
 
 def collect_share_bundle(
@@ -716,7 +716,7 @@ def build_nous_bundle(bundle: dict[str, str], redact: bool = True) -> bytes:
 
     The JSON shape is what the discord-support viewer (Repo 3) parses::
 
-        {"format": "hermes-debug-share/1",
+        {"format": "agentx-debug-share/1",
          "redacted": <bool>,
          "created": <iso8601>,
          "files": {"report": ..., "agent.log": ..., ...}}

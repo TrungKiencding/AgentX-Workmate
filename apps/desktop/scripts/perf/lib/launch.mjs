@@ -183,8 +183,8 @@ export async function startIsolatedInstance({
     return dir
   }
 
-  const home = hermesHome ?? mkTemp('hermes-perf-home-')
-  const userData = userDataDir ?? mkTemp('hermes-perf-ud-')
+  const home = hermesHome ?? mkTemp('agentx-perf-home-')
+  const userData = userDataDir ?? mkTemp('agentx-perf-ud-')
   const devUrl = prod ? null : `http://127.0.0.1:${devPort}`
 
   if (seedConfig && !hermesHome) {
@@ -339,8 +339,8 @@ export async function coldStartSamples({ runs = 3, port = 9222, devPort = 5174, 
   if (warm) {
     // Shared profile across runs: run 0 warms the V8 code cache (discarded),
     // runs 1..N are the representative warm samples.
-    const home = mkdtempSync(join(tmpdir(), 'hermes-perf-cold-home-'))
-    const userDataDir = mkdtempSync(join(tmpdir(), 'hermes-perf-cold-ud-'))
+    const home = mkdtempSync(join(tmpdir(), 'agentx-perf-cold-home-'))
+    const userDataDir = mkdtempSync(join(tmpdir(), 'agentx-perf-cold-ud-'))
     seedConfigFrom(join(homedir(), '.agentx'), home)
 
     try {

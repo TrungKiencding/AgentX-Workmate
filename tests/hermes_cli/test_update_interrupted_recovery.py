@@ -61,7 +61,7 @@ def test_recovery_self_lock_does_not_clear_core_marker_via_import_probes(
 
     scripts_dir = tmp_path / "venv" / "Scripts"
     scripts_dir.mkdir(parents=True)
-    shim = scripts_dir / "hermes.exe"
+    shim = scripts_dir / "agentx.exe"
     shim.write_text("")
 
     monkeypatch.setattr(m, "_is_windows", lambda: True)

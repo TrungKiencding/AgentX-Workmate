@@ -37,7 +37,7 @@
 set -e
 
 INIT_TARGET="${AGENTX_TINI_SHIM_TARGET:-/init}"
-WRAPPER="${AGENTX_TINI_SHIM_WRAPPER:-/opt/hermes/docker/main-wrapper.sh}"
+WRAPPER="${AGENTX_TINI_SHIM_WRAPPER:-/opt/agentx/docker/main-wrapper.sh}"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in

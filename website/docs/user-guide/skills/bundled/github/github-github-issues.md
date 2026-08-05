@@ -20,6 +20,8 @@ Create, triage, label, assign GitHub issues via gh or REST.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `GitHub`, `Issues`, `Project-Management`, `Bug-Tracking`, `Triage` |
+| Related skills | [`github-auth`](/docs/user-guide/skills/bundled/github/github-github-auth), [`github-pr-workflow`](/docs/user-guide/skills/bundled/github/github-github-pr-workflow) |
 
 ## Reference: full SKILL.md
 

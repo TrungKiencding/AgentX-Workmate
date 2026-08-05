@@ -20,6 +20,8 @@ Free keyless web, news, and image search via ddgs.
 | Author | gamedevCloudy |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `search`, `duckduckgo`, `web-search`, `free`, `fallback` |
+| Related skills | [`arxiv`](/docs/user-guide/skills/bundled/research/research-arxiv) |
 
 ## Reference: full SKILL.md
 

@@ -7,8 +7,8 @@ import { expandWindowsEnvRefs, parseRegQueryValue, readWindowsUserEnvVar } from 
 // ── parseRegQueryValue ─────────────────────────────────────────────────────
 
 test('parseRegQueryValue extracts a REG_SZ value', () => {
-  const out = ['', 'HKEY_CURRENT_USER\\Environment', '    AGENTX_HOME    REG_SZ    F:\\Hermes\\data', ''].join('\r\n')
-  assert.equal(parseRegQueryValue(out, 'AGENTX_HOME'), 'F:\\Hermes\\data')
+  const out = ['', 'HKEY_CURRENT_USER\\Environment', '    AGENTX_HOME    REG_SZ    F:\\AgentX Workmate\\data', ''].join('\r\n')
+  assert.equal(parseRegQueryValue(out, 'AGENTX_HOME'), 'F:\\AgentX Workmate\\data')
 })
 
 test('parseRegQueryValue matches the name case-insensitively', () => {
@@ -17,8 +17,8 @@ test('parseRegQueryValue matches the name case-insensitively', () => {
 })
 
 test('parseRegQueryValue preserves spaces inside the value', () => {
-  const out = '    AGENTX_HOME    REG_SZ    C:\\Program Files\\Hermes\r\n'
-  assert.equal(parseRegQueryValue(out, 'AGENTX_HOME'), 'C:\\Program Files\\Hermes')
+  const out = '    AGENTX_HOME    REG_SZ    C:\\Program Files\\AgentX Workmate\r\n'
+  assert.equal(parseRegQueryValue(out, 'AGENTX_HOME'), 'C:\\Program Files\\AgentX Workmate')
 })
 
 test('parseRegQueryValue returns null when the value line is absent', () => {
@@ -35,7 +35,7 @@ test('expandWindowsEnvRefs expands %VAR% case-insensitively', () => {
 })
 
 test('expandWindowsEnvRefs leaves literal paths and unknown refs intact', () => {
-  assert.equal(expandWindowsEnvRefs('F:\\Hermes\\data', {}), 'F:\\Hermes\\data')
+  assert.equal(expandWindowsEnvRefs('F:\\AgentX Workmate\\data', {}), 'F:\\AgentX Workmate\\data')
   assert.equal(expandWindowsEnvRefs('%NOPE%\\x', {}), '%NOPE%\\x')
 })
 
@@ -60,7 +60,7 @@ test('readWindowsUserEnvVar queries HKCU\\Environment and expands the value', ()
   const exec = (cmd, args) => {
     calls.push([cmd, args])
 
-    return 'HKEY_CURRENT_USER\\Environment\r\n    AGENTX_HOME    REG_EXPAND_SZ    %DRIVE%\\Hermes\r\n'
+    return 'HKEY_CURRENT_USER\\Environment\r\n    AGENTX_HOME    REG_EXPAND_SZ    %DRIVE%\\AgentX Workmate\r\n'
   }
 
   const value = readWindowsUserEnvVar('AGENTX_HOME', {
@@ -69,7 +69,7 @@ test('readWindowsUserEnvVar queries HKCU\\Environment and expands the value', ()
     exec
   })
 
-  assert.equal(value, 'F:\\Hermes')
+  assert.equal(value, 'F:\\AgentX Workmate')
   assert.deepEqual(calls, [['reg', ['query', 'HKCU\\Environment', '/v', 'AGENTX_HOME']]])
 })
 

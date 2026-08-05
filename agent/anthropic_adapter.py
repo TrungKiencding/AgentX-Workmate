@@ -519,7 +519,7 @@ def _is_kimi_family_endpoint(base_url: str | None, model: str | None = None) -> 
 
     Used to decide whether to drop Anthropic's ``thinking`` kwarg and to
     preserve unsigned reasoning_content-derived thinking blocks on replay.
-    See hermes-agent#13848, #17057.
+    See agentx-agent#13848, #17057.
     """
     if _is_kimi_coding_endpoint(base_url):
         return True
@@ -548,7 +548,7 @@ def _is_deepseek_anthropic_endpoint(base_url: str | None) -> bool:
     policy used for Kimi's ``/coding`` endpoint.  The match is pinned to
     the ``/anthropic`` path so the OpenAI-compatible ``api.deepseek.com``
     base URL (which never reaches this adapter) is not misclassified.
-    See hermes-agent#16748.
+    See agentx-agent#16748.
     """
     if not base_url_host_matches(base_url or "", "api.deepseek.com"):
         return False
@@ -2208,7 +2208,7 @@ def _convert_assistant_message(m: Dict[str, Any]) -> Dict[str, Any]:
     # Kimi's /coding endpoint (Anthropic protocol) requires assistant
     # tool-call messages to carry reasoning_content when thinking is
     # enabled server-side.  Preserve it as a thinking block so Kimi
-    # can validate the message history.  See hermes-agent#13848.
+    # can validate the message history.  See agentx-agent#13848.
     #
     # Accept empty string "" — _copy_reasoning_content_for_api()
     # injects "" as a tier-3 fallback for Kimi tool-call messages
@@ -2382,7 +2382,7 @@ def _strip_orphaned_tool_blocks(result: List[Dict[str, Any]]) -> None:
         # Anthropic rejects the replayed turn with HTTP 400 "thinking blocks in
         # the latest assistant message cannot be modified".  Flag the turn so
         # _manage_thinking_signatures can demote the dead signature instead of
-        # replaying it verbatim.  See hermes-agent: extended-thinking + parallel
+        # replaying it verbatim.  See agentx-agent: extended-thinking + parallel
         # tool batch interrupted mid-flight → non-retryable 400 crash-loop.
         if len(kept) != len(m["content"]) and any(
             isinstance(b, dict) and b.get("type") in {"thinking", "redacted_thinking"}
@@ -2481,8 +2481,8 @@ def _manage_thinking_signatures(
     and will reject them outright.  Kimi's /coding and DeepSeek's /anthropic
     endpoints speak the Anthropic protocol upstream but require unsigned
     thinking blocks (synthesised from ``reasoning_content``) to round-trip on
-    replayed assistant tool-call messages.  See hermes-agent#13848 (Kimi) and
-    hermes-agent#16748 (DeepSeek).
+    replayed assistant tool-call messages.  See agentx-agent#13848 (Kimi) and
+    agentx-agent#16748 (DeepSeek).
 
     Nous Portal's ``/v1/messages`` route is the exception among third-party
     hosts: it proxies Claude to Anthropic/Vertex/Bedrock and validates the
@@ -2902,7 +2902,7 @@ def build_anthropic_kwargs(
                 text = block.get("text", "")
                 text = text.replace("AgentX Workmate", "Claude Code")
                 text = text.replace("AgentX agent", "Claude Code")
-                text = text.replace("hermes-agent", "claude-code")
+                text = text.replace("agentx-agent", "claude-code")
                 text = text.replace("Nous Research", "Anthropic")
                 block["text"] = text
 

@@ -159,7 +159,7 @@ class TestConstruction:
     def test_rejects_malformed_client_id(self):
         with pytest.raises(ValueError, match="agent:"):
             nous_plugin.NousDashboardAuthProvider(
-                client_id="hermes-dashboard", portal_url="https://x"
+                client_id="agentx-dashboard", portal_url="https://x"
             )
 
 
@@ -541,7 +541,7 @@ class TestVerifySession:
             lifespan=nous_plugin._JWKS_CACHE_SECONDS,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "HermesAgent/1.0",
+                "User-Agent": "AgentX/1.0",
             },
         )
 

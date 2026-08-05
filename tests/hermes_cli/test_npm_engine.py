@@ -24,8 +24,8 @@ from hermes_cli.npm_engine import (
 EBADENGINE_OUTPUT = """
 npm error code EBADENGINE
 npm error engine Unsupported engine
-npm error engine Not compatible with your version of node/npm: hermes-agent@1.0.0
-npm error notsup Not compatible with your version of node/npm: hermes-agent@1.0.0
+npm error engine Not compatible with your version of node/npm: agentx-agent@1.0.0
+npm error notsup Not compatible with your version of node/npm: agentx-agent@1.0.0
 npm error notsup Required: {"node":">=20.0.0","npm":"<11.10.0 || >=12.0.0"}
 npm error notsup Actual:   {"npm":"11.10.0","node":"v22.23.1"}
 """

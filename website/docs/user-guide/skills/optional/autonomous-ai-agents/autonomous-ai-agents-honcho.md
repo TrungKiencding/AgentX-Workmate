@@ -20,6 +20,8 @@ Configure and troubleshoot Honcho memory for AgentX.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Honcho`, `Memory`, `Profiles`, `Observation`, `Dialectic`, `User-Modeling`, `Session-Summary` |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
 
 ## Reference: full SKILL.md
 

@@ -20,6 +20,8 @@ Provision SaaS services + sync creds via Stripe Projects.
 | Author | Teknium (teknium1), AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos |
+| Tags | `Payments`, `Stripe`, `Projects`, `Provisioning`, `Infrastructure` |
+| Related skills | [`stripe-link-cli`](/docs/user-guide/skills/optional/payments/payments-stripe-link-cli), [`mpp-agent`](/docs/user-guide/skills/optional/payments/payments-mpp-agent) |
 
 ## Reference: full SKILL.md
 

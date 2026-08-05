@@ -20,6 +20,7 @@ Run 150+ AI apps (image, video, LLM) via inference.sh CLI.
 | Author | okaris |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `AI`, `image-generation`, `video`, `LLM`, `search`, `inference`, `FLUX`, `Veo`, `Claude` |
 
 ## Reference: full SKILL.md
 

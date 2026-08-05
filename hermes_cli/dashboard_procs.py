@@ -38,7 +38,7 @@ def _scan_dashboard_processes(
     auth headers the old backend doesn't recognise → every API call 401s).
 
     The dashboard may be manually started or managed by the optional
-    ``hermes-dashboard.service`` systemd unit.  Managed units are restarted
+    ``agentx-dashboard.service`` systemd unit.  Managed units are restarted
     through their owning systemd scope; only manually-started processes use
     the kill path because we can't know their original launch args.
 
@@ -166,7 +166,7 @@ def _kill_stale_dashboard_processes(
     Manually-started dashboards are not auto-restarted because we don't know
     the original launch args (--host, --port, --insecure, --tui, --no-open).
     When ``restart_managed`` is true (the ``agentx update`` path), a detected
-    ``hermes-dashboard.service`` is restarted through systemd; any OTHER
+    ``agentx-dashboard.service`` is restarted through systemd; any OTHER
     killed PID that was supervised by a systemd unit (custom unit names —
     e.g. a remote backend's ``hermes-serve.service``) has its owning unit
     restarted after the kill, because systemd treats our SIGTERM as a clean
@@ -354,11 +354,11 @@ def _detect_concurrent_hermes_instances(
     ``[WinError 32]`` and uv inherits the lock.
 
     This helper enumerates processes whose ``exe`` matches one of the venv's
-    shims (``hermes.exe`` / ``agentx-gateway.exe``) and returns ``(pid,
+    shims (``agentx.exe`` / ``agentx-gateway.exe``) and returns ``(pid,
     process_name)`` pairs. The caller's own PID and its entire ancestor
     chain are excluded so the running ``agentx update`` invocation never
     reports itself — this matters on Windows where the setuptools .exe
-    launcher (``hermes.exe``) is a separate process from the Python
+    launcher (``agentx.exe``) is a separate process from the Python
     interpreter it loads (``python.exe``).
 
     Returns an empty list off-Windows, on missing psutil, or when no other
@@ -384,7 +384,7 @@ def _detect_concurrent_hermes_instances(
 
     # Build a set of PIDs to exclude: the Python process itself plus every
     # ancestor whose executable is one of our shims. On Windows the
-    # setuptools-generated hermes.exe launcher is a separate native process
+    # setuptools-generated agentx.exe launcher is a separate native process
     # that spawns python.exe (the interpreter that runs our code).
     # os.getpid() returns the Python PID, but the launcher (which holds the
     # file lock) is the parent. Without excluding it, every ``agentx update``
@@ -398,7 +398,7 @@ def _detect_concurrent_hermes_instances(
     #      across session/elevation boundaries), leaving the launcher shim in
     #      the candidate set and re-triggering the false positive.
     #   2. Only exclude ancestors whose exe is itself a shim. A genuine second
-    #      hermes.exe sitting *under* a non-AgentX parent (e.g. a AgentX
+    #      agentx.exe sitting *under* a non-AgentX parent (e.g. a AgentX
     #      Desktop backend child) must still be flagged, so we don't blanket-
     #      exclude unrelated ancestors like the shell or terminal.
     # Broad ``except Exception`` guards against partially-stubbed psutil in

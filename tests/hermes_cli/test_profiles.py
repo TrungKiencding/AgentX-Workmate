@@ -434,14 +434,14 @@ class TestWrapperScript:
 
     def test_creates_sh_on_posix(self, profile_env, monkeypatch):
         monkeypatch.setattr("sys.platform", "darwin")
-        monkeypatch.setattr("hermes_cli.profiles.shutil.which", lambda name: "/opt/hermes/bin/agentx")
+        monkeypatch.setattr("hermes_cli.profiles.shutil.which", lambda name: "/opt/agentx/bin/agentx")
         from hermes_cli.profiles import create_wrapper_script
         wrapper = create_wrapper_script("mybot")
         assert wrapper is not None
         assert wrapper.name == "mybot"
         content = wrapper.read_text()
         assert content.startswith("#!/bin/sh")
-        assert "exec /opt/hermes/bin/agentx -p mybot" in content
+        assert "exec /opt/agentx/bin/agentx -p mybot" in content
 
 
     def test_remove_finds_bat_on_windows(self, profile_env, monkeypatch):

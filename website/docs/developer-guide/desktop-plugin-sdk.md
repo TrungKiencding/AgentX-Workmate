@@ -170,7 +170,7 @@ interface PluginContext {
   socket: (path: string, onMessage: (data: unknown) => void) => () => void
   /** The curated OS door: native notification, open-external, reveal-in-file-manager, clipboard. */
   os: PluginOs
-  /** Plugin-scoped JSON persistence (keys live under `hermes.plugin.<id>.`). */
+  /** Plugin-scoped JSON persistence (keys live under `agentx.plugin.<id>.`). */
   storage: PluginStorage
 }
 ```
@@ -547,7 +547,7 @@ choice is remembered:
   stays disabled — don't fight it; the user turned you off.
 
 Persist your own state with `ctx.storage`, namespaced to your plugin
-(`hermes.plugin.<id>.*`) so plugins can't read or clobber each other:
+(`agentx.plugin.<id>.*`) so plugins can't read or clobber each other:
 
 ```javascript
 ctx.storage.set('lastTab', 'board')

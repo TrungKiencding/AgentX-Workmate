@@ -21,6 +21,7 @@ Constrain LLM output with grammars; guarantee valid JSON.
 | License | MIT |
 | Dependencies | `guidance`, `transformers` |
 | Platforms | linux, macos, windows |
+| Tags | `Prompt Engineering`, `Guidance`, `Constrained Generation`, `Structured Output`, `JSON Validation`, `Grammar`, `Microsoft Research`, `Format Enforcement`, `Multi-Step Workflows` |
 
 ## Reference: full SKILL.md
 

@@ -21,6 +21,7 @@ Run PyTorch training across GPUs with minimal changes.
 | License | MIT |
 | Dependencies | `accelerate`, `torch`, `transformers` |
 | Platforms | linux, macos, windows |
+| Tags | `Distributed Training`, `HuggingFace`, `Accelerate`, `DeepSpeed`, `FSDP`, `Mixed Precision`, `PyTorch`, `DDP`, `Unified API`, `Simple` |
 
 ## Reference: full SKILL.md
 

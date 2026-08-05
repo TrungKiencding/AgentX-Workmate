@@ -267,7 +267,7 @@ def test_main_skips_reconcile_in_dashboard_container_s6v3(
             "-e",
             "/run/s6/basedir/scripts/rc.init",
             "top",
-            "/opt/hermes/docker/main-wrapper.sh",
+            "/opt/agentx/docker/main-wrapper.sh",
             "dashboard",
             "--host",
             "0.0.0.0",

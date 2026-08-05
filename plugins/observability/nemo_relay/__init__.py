@@ -354,7 +354,7 @@ class _Runtime:
                     self.settings.atif_agent_version,
                     model_name=str(kwargs.get("model") or self.settings.atif_model_name),
                     extra={
-                        "source": "hermes-agent",
+                        "source": "agentx-agent",
                         "plugin": "observability/nemo_relay",
                     },
                 )

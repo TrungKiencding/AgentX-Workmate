@@ -13,10 +13,10 @@ import {
   POSIX_SANE_PATH_ENTRIES
 } from './backend-env'
 
-test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entries', () => {
+test('desktop backend PATH adds AgentX-managed bins and missing POSIX sane entries', () => {
   const result = buildDesktopBackendPath({
     hermesHome: '/Users/test/.agentx',
-    venvRoot: '/Users/test/.agentx/hermes-agent/venv',
+    venvRoot: '/Users/test/.agentx/agentx-agent/venv',
     currentPath: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin',
     platform: 'darwin',
     pathModule: path.posix
@@ -27,7 +27,7 @@ test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entri
   assert.deepEqual(entries.slice(0, 3), [
     '/Users/test/.agentx/node/bin',
     '/Users/test/.agentx/node',
-    '/Users/test/.agentx/hermes-agent/venv/bin'
+    '/Users/test/.agentx/agentx-agent/venv/bin'
   ])
   assert.ok(entries.includes('/opt/homebrew/bin'), 'Apple Silicon Homebrew bin is added')
   assert.ok(entries.includes('/opt/homebrew/sbin'), 'Apple Silicon Homebrew sbin is added')
@@ -58,7 +58,7 @@ test('managed Node dirs lead with the platform-native layout but always offer bo
   ])
 })
 
-test('managed Node dirs are empty without a Hermes home', () => {
+test('managed Node dirs are empty without a AgentX home', () => {
   assert.deepEqual(hermesManagedNodePathEntries(undefined, { platform: 'darwin', pathModule: path.posix }), [])
   assert.deepEqual(hermesManagedNodePathEntries('', { platform: 'win32', pathModule: path.win32 }), [])
 })
@@ -66,7 +66,7 @@ test('managed Node dirs are empty without a Hermes home', () => {
 test('every managed Node dir outranks the inherited PATH on both platforms', () => {
   for (const [platform, pathModule, home, inherited, delimiter] of [
     ['darwin', path.posix, '/Users/test/.agentx', '/usr/local/bin:/usr/bin', ':'],
-    ['win32', path.win32, 'C:\\hermes', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
+    ['win32', path.win32, 'C:\\agentx', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
   ] as const) {
     const entries = buildDesktopBackendPath({
       hermesHome: home,
@@ -91,7 +91,7 @@ test('every managed Node dir outranks the inherited PATH on both platforms', () 
 test('desktop backend PATH preserves first occurrence and avoids duplicates', () => {
   const result = buildDesktopBackendPath({
     hermesHome: '/Users/test/.agentx',
-    venvRoot: '/Users/test/.agentx/hermes-agent/venv',
+    venvRoot: '/Users/test/.agentx/agentx-agent/venv',
     currentPath: '/opt/homebrew/bin:/usr/bin:/opt/homebrew/bin:/bin',
     platform: 'darwin',
     pathModule: path.posix
@@ -108,8 +108,8 @@ test('desktop backend PATH preserves first occurrence and avoids duplicates', ()
 test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () => {
   const env = buildDesktopBackendEnv({
     hermesHome: '/Users/test/.agentx',
-    pythonPathEntries: ['/repo/hermes-agent'],
-    venvRoot: '/Users/test/.agentx/hermes-agent/venv',
+    pythonPathEntries: ['/repo/agentx-agent'],
+    venvRoot: '/Users/test/.agentx/agentx-agent/venv',
     currentEnv: {
       PATH: '/usr/bin:/bin',
       PYTHONPATH: '/existing/pythonpath'
@@ -118,10 +118,10 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
     pathModule: path.posix
   })
 
-  assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
+  assert.equal(env.PYTHONPATH, '/repo/agentx-agent:/existing/pythonpath')
   assert.ok(
     env.PATH.startsWith(
-      '/Users/test/.agentx/node/bin:/Users/test/.agentx/node:/Users/test/.agentx/hermes-agent/venv/bin:'
+      '/Users/test/.agentx/node/bin:/Users/test/.agentx/node:/Users/test/.agentx/agentx-agent/venv/bin:'
     )
   )
   assert.ok(env.PATH.includes('/opt/homebrew/bin'))
@@ -147,7 +147,7 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
   assert.equal(optedOut.PYTHONUTF8, '0')
 })
 
-test('normalizeHermesHomeRoot maps profile homes back to the global Hermes root', () => {
+test('normalizeHermesHomeRoot maps profile homes back to the global AgentX root', () => {
   assert.equal(
     normalizeHermesHomeRoot('/Users/test/.agentx/profiles/oracle', { pathModule: path.posix }),
     '/Users/test/.agentx'
@@ -162,8 +162,8 @@ test('normalizeHermesHomeRoot maps profile homes back to the global Hermes root'
 test('Windows PATH casing and delimiter are preserved without POSIX sane entries', () => {
   const env = buildDesktopBackendEnv({
     hermesHome: 'C:\\Users\\test\\AppData\\Local\\agentx',
-    pythonPathEntries: ['C:\\repo\\hermes-agent'],
-    venvRoot: 'C:\\Users\\test\\AppData\\Local\\agentx\\hermes-agent\\venv',
+    pythonPathEntries: ['C:\\repo\\agentx-agent'],
+    venvRoot: 'C:\\Users\\test\\AppData\\Local\\agentx\\agentx-agent\\venv',
     currentEnv: {
       Path: 'C:\\Windows\\System32;C:\\Windows',
       PYTHONPATH: 'C:\\existing\\pythonpath'

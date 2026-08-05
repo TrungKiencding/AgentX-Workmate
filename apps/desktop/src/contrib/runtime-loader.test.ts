@@ -25,7 +25,7 @@ beforeEach(() => {
   watchDirectory.mockReset()
   onPreviewFileChanged.mockReset()
   getStatus.mockClear()
-  ;(window as unknown as { hermesDesktop: unknown }).hermesDesktop = {
+  ;(window as unknown as { agentxDesktop: unknown }).agentxDesktop = {
     desktopPluginsRoot,
     onPreviewFileChanged,
     readDir,
@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete (window as unknown as { hermesDesktop?: unknown }).hermesDesktop
+  delete (window as unknown as { agentxDesktop?: unknown }).agentxDesktop
 })
 
 describe('scanDiskPlugins (#66899)', () => {

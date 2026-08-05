@@ -21,6 +21,7 @@ Vector search engine for production RAG systems.
 | License | MIT |
 | Dependencies | `qdrant-client>=1.14.0` |
 | Platforms | linux, macos, windows |
+| Tags | `RAG`, `Vector Search`, `Qdrant`, `Semantic Search`, `Embeddings`, `Similarity Search`, `HNSW`, `Production`, `Distributed` |
 
 ## Reference: full SKILL.md
 

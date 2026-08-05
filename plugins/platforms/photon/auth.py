@@ -109,7 +109,7 @@ E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 # ---------------------------------------------------------------------------
-# auth.json helpers — share the file with the rest of hermes-agent.
+# auth.json helpers — share the file with the rest of agentx-agent.
 
 def _auth_json_path() -> Path:
     """Resolve ``~/.agentx/auth.json`` honouring the active AgentX profile."""

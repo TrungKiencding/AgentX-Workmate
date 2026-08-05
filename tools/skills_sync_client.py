@@ -173,7 +173,7 @@ def parse_sync_manifest(data: bytes) -> Optional[Dict[str, bool]]:
 # Content addressing
 #
 # The wire uses the FULL 64-hex sha256 digest. This is a DIFFERENT
-# namespace from hermes-agent's local ``content_hash`` (skills_guard.py:846),
+# namespace from agentx-agent's local ``content_hash`` (skills_guard.py:846),
 # which is a truncated 16-hex digest used for local dedup. They must never be
 # conflated -- we compute full digests here.
 # ---------------------------------------------------------------------------

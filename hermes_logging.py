@@ -686,7 +686,7 @@ def drain_log_queue(timeout: float = 1.0) -> None:
         except Exception:
             pass
 
-    t = threading.Thread(target=_drain, name="hermes-log-drain", daemon=True)
+    t = threading.Thread(target=_drain, name="agentx-log-drain", daemon=True)
     t.start()
     t.join(timeout)
 

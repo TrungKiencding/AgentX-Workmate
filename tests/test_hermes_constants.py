@@ -35,7 +35,7 @@ class TestGetDefaultHermesRoot:
     """Tests for get_default_hermes_root() — Docker/custom deployment awareness."""
 
     def test_no_hermes_home_returns_native(self, tmp_path, monkeypatch):
-        """When AGENTX_HOME is not set, returns ~/.hermes."""
+        """When AGENTX_HOME is not set, returns ~/.agentx."""
         monkeypatch.delenv("AGENTX_HOME", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
@@ -56,7 +56,7 @@ class TestGetDefaultHermesRoot:
         assert get_default_hermes_root() == docker_root
 
     def test_no_hermes_home_returns_localappdata_root_on_windows(self, tmp_path, monkeypatch):
-        """Native Windows falls back to %LOCALAPPDATA%\\agentx, not ~/.hermes."""
+        """Native Windows falls back to %LOCALAPPDATA%\\agentx, not ~/.agentx."""
         local_appdata = tmp_path / "LocalAppData"
         monkeypatch.delenv("AGENTX_HOME", raising=False)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))

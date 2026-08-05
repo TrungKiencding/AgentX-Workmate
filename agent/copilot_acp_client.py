@@ -629,7 +629,7 @@ class CopilotACPClient:
                         }
                     },
                     "clientInfo": {
-                        "name": "hermes-agent",
+                        "name": "agentx-agent",
                         "title": "AgentX Workmate",
                         "version": "0.0.0",
                     },

@@ -195,7 +195,7 @@ def adapter():
 
 @pytest.fixture(autouse=True)
 def _redirect_cache(tmp_path, monkeypatch):
-    """Point document cache to tmp_path so tests don't touch ~/.hermes."""
+    """Point document cache to tmp_path so tests don't touch ~/.agentx."""
     monkeypatch.setattr(
         "gateway.platforms.base.DOCUMENT_CACHE_DIR", tmp_path / "doc_cache"
     )
@@ -4555,7 +4555,7 @@ class TestSlackUserAgent:
     """
 
     def test_hermes_slack_user_agent_prefix_format(self):
-        """Module constant matches the HermesAgent/<version> convention used
+        """Module constant matches the AgentX/<version> convention used
         elsewhere in the codebase for platform-partner attribution."""
-        assert _slack_mod._AGENTX_SLACK_USER_AGENT_PREFIX.startswith("HermesAgent/")
+        assert _slack_mod._AGENTX_SLACK_USER_AGENT_PREFIX.startswith("AgentX/")
 

@@ -18,6 +18,7 @@ Gateway to 400+ genomics and computational biology skills.
 | Path | `optional-skills/research/bioinformatics` |
 | Version | `1.0.0` |
 | Platforms | linux, macos |
+| Tags | `bioinformatics`, `genomics`, `sequencing`, `biology`, `research`, `science` |
 
 ## Reference: full SKILL.md
 

@@ -121,7 +121,7 @@ model:
   #     extra_headers:
   #       CF-Access-Client-Id: "xxxx.access"
   #       CF-Access-Client-Secret: "${CF_ACCESS_SECRET}"
-  #       X-Client-Name: "hermes-agent"
+  #       X-Client-Name: "agentx-agent"
 
 # Named provider overrides (optional)
 # Use this for per-provider request timeouts, non-stream stale timeouts,
@@ -1629,7 +1629,7 @@ updates:
 #     provider: self-hosted
 #     self_hosted:
 #       issuer: "https://auth.example.com/application/o/hermes/"  # required
-#       client_id: "hermes-dashboard"                             # required
+#       client_id: "agentx-dashboard"                             # required
 #       scopes: "openid profile email"                            # optional
 #
 #       # OPTIONAL — set ONLY if your IDP registered the client as

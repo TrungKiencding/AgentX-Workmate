@@ -397,7 +397,7 @@ def _install_method_project_root(project_root: Optional[Path] = None) -> Path:
     """Resolve the directory that holds the *running code* (the install tree).
 
     This is the parent of ``hermes_cli/`` — i.e. the git checkout for source
-    installs, ``/opt/hermes`` inside the published image. It is a property of
+    installs, ``/opt/agentx`` inside the published image. It is a property of
     the running interpreter, NOT of ``$AGENTX_HOME``, which is why a
     code-scoped stamp here is immune to two installs sharing one data
     directory.
@@ -446,7 +446,7 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
       - the curl installer (scripts/install.sh, the README/website install
         command) git-clones the repo and stamps ``git`` next to the code;
       - the published ``nousresearch/hermes-agent`` image bakes a ``docker``
-        stamp into ``/opt/hermes`` at build time.
+        stamp into ``/opt/agentx`` at build time.
     An unsupported manual install dropped into a container (no stamp) falls
     through to the ``.git`` checks and behaves like any off-path install.
     See issue #34397.
@@ -528,7 +528,7 @@ def stamp_install_method(method: str, project_root: Optional[Path] = None) -> No
     the full rationale.
 
     Best-effort: if the install tree is read-only (e.g. the immutable
-    ``/opt/hermes`` in the published image, which instead bakes the stamp at
+    ``/opt/agentx`` in the published image, which instead bakes the stamp at
     build time) the write silently no-ops and detection falls back to its
     other signals.
     """
@@ -582,7 +582,7 @@ pulling a fresh image and restarting your container instead:
 
   docker pull nousresearch/hermes-agent:latest
   # then restart whatever started the container, e.g.:
-  docker compose up -d --force-recreate hermes-agent
+  docker compose up -d --force-recreate agentx-agent
   # or, for ad-hoc runs, exit the current container and `docker run` again
 
 Verify the new version after restart:
@@ -620,7 +620,7 @@ def format_managed_message(action: str = "modify this AgentX installation") -> s
         return (
             f"Cannot {action}: this AgentX installation is managed by NixOS "
             f"(AGENTX_MANAGED={env_hint}).\n"
-            "Edit services.hermes-agent.settings in your configuration.nix and run:\n"
+            "Edit services.agentx-agent.settings in your configuration.nix and run:\n"
             "  sudo nixos-rebuild switch"
         )
 
@@ -671,7 +671,7 @@ def get_container_exec_info() -> Optional[dict]:
     # All other exceptions (PermissionError, malformed data, etc.) propagate
 
     backend = info.get("backend", "docker")
-    container_name = info.get("container_name", "hermes-agent")
+    container_name = info.get("container_name", "agentx-agent")
     exec_user = info.get("exec_user", "agentx")
     hermes_bin = info.get("hermes_bin", "/data/current-package/bin/agentx")
 
@@ -3293,7 +3293,7 @@ def _load_config_impl(*, want_deepcopy: bool) -> Dict[str, Any]:
             user_sig = None
 
         # Managed scope: fold the managed config file's (mtime, size) into the
-        # cache signature so editing /etc/hermes/config.yaml invalidates the
+        # cache signature so editing /etc/agentx/config.yaml invalidates the
         # cached merged result. (0, 0) means "no managed config file".
         from hermes_cli import managed_scope
 

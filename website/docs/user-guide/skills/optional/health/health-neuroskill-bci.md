@@ -20,6 +20,7 @@ Connect to a running NeuroSkill instance and incorporate the user's real-time co
 | Author | AgentX Workmate + Nous Research |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `BCI`, `neurofeedback`, `health`, `focus`, `EEG`, `cognitive-state`, `biometrics`, `neuroskill` |
 
 ## Reference: full SKILL.md
 

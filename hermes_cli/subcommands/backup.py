@@ -18,7 +18,7 @@ def build_backup_parser(subparsers, *, cmd_backup: Callable) -> None:
         "backup",
         help="Back up AgentX home directory to a zip file",
         description="Create a zip archive of your entire AgentX configuration, "
-        "skills, sessions, and data (excludes the hermes-agent codebase). "
+        "skills, sessions, and data (excludes the agentx-agent codebase). "
         "Use --quick for a fast snapshot of just critical state files.",
     )
     backup_parser.add_argument(

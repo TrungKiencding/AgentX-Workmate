@@ -476,7 +476,7 @@ ui-tui/
       paste.ts                   bracketed paste snippet token regex
 
     types/
-      hermes-ink.d.ts            type declarations for @hermes/ink
+      hermes-ink.d.ts            type declarations for @agentx/ink
 
     __tests__/                   vitest suite
 ```

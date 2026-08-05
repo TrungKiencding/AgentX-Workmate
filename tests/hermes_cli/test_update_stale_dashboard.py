@@ -164,13 +164,13 @@ class TestKillStaleDashboardPosix:
 
         def fake_run(args, *a, **kw):
             calls.append(list(args))
-            if args == ["systemctl", "--user", "list-unit-files", "hermes-dashboard.service", "--no-legend", "--no-pager"]:
-                return MagicMock(returncode=0, stdout="hermes-dashboard.service enabled enabled\n", stderr="")
-            if args == ["systemctl", "--user", "is-active", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "list-unit-files", "agentx-dashboard.service", "--no-legend", "--no-pager"]:
+                return MagicMock(returncode=0, stdout="agentx-dashboard.service enabled enabled\n", stderr="")
+            if args == ["systemctl", "--user", "is-active", "agentx-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="active\n", stderr="")
-            if args == ["systemctl", "--user", "is-enabled", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "is-enabled", "agentx-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="enabled\n", stderr="")
-            if args == ["systemctl", "--user", "restart", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "restart", "agentx-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"unexpected subprocess.run call: {args}")
 
@@ -180,15 +180,15 @@ class TestKillStaleDashboardPosix:
             _kill_stale_dashboard_processes(restart_managed=True)
 
         assert calls == [
-            ["systemctl", "--user", "list-unit-files", "hermes-dashboard.service", "--no-legend", "--no-pager"],
-            ["systemctl", "--user", "is-active", "hermes-dashboard.service"],
-            ["systemctl", "--user", "is-enabled", "hermes-dashboard.service"],
-            ["systemctl", "--user", "restart", "hermes-dashboard.service"],
+            ["systemctl", "--user", "list-unit-files", "agentx-dashboard.service", "--no-legend", "--no-pager"],
+            ["systemctl", "--user", "is-active", "agentx-dashboard.service"],
+            ["systemctl", "--user", "is-enabled", "agentx-dashboard.service"],
+            ["systemctl", "--user", "restart", "agentx-dashboard.service"],
         ]
         assert all(call[:1] != ["sudo"] and call[:2] != ["systemctl"] for call in calls)
         find_pids.assert_not_called()
         kill.assert_not_called()
-        assert "✓ restarted hermes-dashboard.service" in capsys.readouterr().out
+        assert "✓ restarted agentx-dashboard.service" in capsys.readouterr().out
 
 
 

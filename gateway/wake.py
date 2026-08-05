@@ -128,7 +128,7 @@ async def _self_post_chat_completion(
         "X-Agentx-Session-Id": session_id,
     }
     payload = {
-        "model": str(getattr(adapter, "_model_name", "") or "hermes-agent"),
+        "model": str(getattr(adapter, "_model_name", "") or "agentx-agent"),
         "messages": [{"role": "user", "content": text}],
         "stream": False,
     }

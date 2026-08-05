@@ -82,7 +82,7 @@ Esto no es una barra de calidad — es una decisión de acoplamiento y mantenimi
 
 ```bash
 git clone https://github.com/NousResearch/hermes-agent.git
-cd hermes-agent
+cd agentx-agent
 
 # Crear venv con Python 3.11
 uv venv venv --python 3.11
@@ -134,7 +134,7 @@ pytest tests/ -v
 ## Estructura del Proyecto
 
 ```
-hermes-agent/
+agentx-agent/
 ├── run_agent.py              # Clase AIAgent — bucle de conversación central, despacho de herramientas, persistencia de sesión
 ├── cli.py                    # Clase HermesCLI — TUI interactiva, integración prompt_toolkit
 ├── model_tools.py            # Orquestación de herramientas (capa delgada sobre tools/registry.py)

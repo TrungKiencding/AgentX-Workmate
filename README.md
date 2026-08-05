@@ -219,13 +219,13 @@ See `agentx claw migrate --help` for all options, or use the `openclaw-migration
 We welcome contributions! See the [Contributing Guide](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing) for development setup, code style, and PR process.
 
 Quick start for contributors — use the standard installer, then work from the
-full git checkout it creates at `$AGENTX_HOME/hermes-agent` (usually
-`~/.agentx/hermes-agent`). This matches the layout used by `agentx update`, the
+full git checkout it creates at `$AGENTX_HOME/agentx-agent` (usually
+`~/.agentx/agentx-agent`). This matches the layout used by `agentx update`, the
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-cd "${AGENTX_HOME:-$HOME/.agentx}/hermes-agent"
+cd "${AGENTX_HOME:-$HOME/.agentx}/agentx-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

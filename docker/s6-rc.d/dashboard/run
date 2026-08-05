@@ -25,7 +25,7 @@ export HOME=/opt/data
 
 cd /opt/data
 # shellcheck disable=SC1091
-. /opt/hermes/.venv/bin/activate
+. /opt/agentx/.venv/bin/activate
 
 dash_host="${AGENTX_DASHBOARD_HOST:-0.0.0.0}"
 dash_port="${AGENTX_DASHBOARD_PORT:-9119}"

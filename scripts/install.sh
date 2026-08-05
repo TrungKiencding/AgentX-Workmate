@@ -60,7 +60,7 @@ PYTHON_VERSION="3.11"
 NODE_VERSION="22"
 
 # FHS-style root install layout (set by resolve_install_layout when applicable):
-#   code at /usr/local/lib/hermes-agent, command at /usr/local/bin/agentx,
+#   code at /usr/local/lib/agentx-agent, command at /usr/local/bin/agentx,
 #   data still at /root/.agentx (AGENTX_HOME).  Matches Claude Code / Codex CLI
 #   and keeps Docker bind-mounted /root/ volumes lean.
 ROOT_FHS_LAYOUT=false
@@ -147,7 +147,7 @@ while [[ $# -gt 0 ]]; do
             INSTALL_DIR_EXPLICIT=true
             shift 2
             ;;
-        --hermes-home)
+        --agentx-home)
             AGENTX_HOME="$2"
             shift 2
             ;;
@@ -176,21 +176,21 @@ while [[ $# -gt 0 ]]; do
             echo "  --stage NAME   Run one desktop bootstrap stage"
             echo "  --json         Print a JSON result frame for --stage"
             echo "  --non-interactive  Skip stages that require user input"
-            echo "  --include-desktop  Also build the desktop app (apps/desktop -> AgentX.app)"
+            echo "  --include-desktop  Also build the desktop app (apps/desktop -> AgentX Workmate.app)"
             echo "  --dir PATH     Installation directory"
-            echo "                   default (non-root):  ~/.agentx/hermes-agent"
-            echo "                   default (root, Linux): /usr/local/lib/hermes-agent"
-            echo "  --hermes-home PATH  Data directory (default: ~/.agentx, or \$AGENTX_HOME)"
+            echo "                   default (non-root):  ~/.agentx/agentx-agent"
+            echo "                   default (root, Linux): /usr/local/lib/agentx-agent"
+            echo "  --agentx-home PATH  Data directory (default: ~/.agentx, or \$AGENTX_HOME)"
             echo "  -h, --help     Show this help"
             echo ""
             echo "Notes:"
             echo "  When running as root on Linux, AgentX installs the code under"
-            echo "  /usr/local/lib/hermes-agent and links the command into"
+            echo "  /usr/local/lib/agentx-agent and links the command into"
             echo "  /usr/local/bin/agentx (FHS layout — matches Claude Code / Codex CLI)."
             echo "  Data, config, sessions, and logs still live in \$AGENTX_HOME"
             echo "  (default /root/.agentx).  This keeps Docker bind-mounted volumes"
             echo "  small and ensures the command is on PATH for all shells."
-            echo "  Existing installs at \$AGENTX_HOME/hermes-agent are preserved in-place."
+            echo "  Existing installs at \$AGENTX_HOME/agentx-agent are preserved in-place."
             echo "  --ensure DEPS  Install only specified deps (comma-separated)"
             echo "                   Supported: node, browser, ripgrep, ffmpeg"
             echo "                   Does NOT clone repo or create venv"
@@ -394,14 +394,14 @@ is_termux() {
 # symlink goes.  Called after detect_os so $OS/$DISTRO are known.
 #
 # Defaults:
-#   - Non-root, any OS:       INSTALL_DIR = $AGENTX_HOME/hermes-agent
+#   - Non-root, any OS:       INSTALL_DIR = $AGENTX_HOME/agentx-agent
 #                             command link in $HOME/.local/bin
-#   - Termux (any uid):       INSTALL_DIR = $AGENTX_HOME/hermes-agent
+#   - Termux (any uid):       INSTALL_DIR = $AGENTX_HOME/agentx-agent
 #                             command link in $PREFIX/bin (already on PATH)
-#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/hermes-agent
+#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/agentx-agent
 #                             command link in /usr/local/bin
 #                             (unless a legacy install already exists at
-#                              $AGENTX_HOME/hermes-agent — then preserve it)
+#                              $AGENTX_HOME/agentx-agent — then preserve it)
 #
 # Always no-op when the user set --dir or $AGENTX_INSTALL_DIR.
 resolve_install_layout() {
@@ -412,7 +412,7 @@ resolve_install_layout() {
 
     # Termux: package manager manages /data/data/..., keep code in AGENTX_HOME.
     if is_termux; then
-        INSTALL_DIR="$AGENTX_HOME/hermes-agent"
+        INSTALL_DIR="$AGENTX_HOME/agentx-agent"
         return 0
     fi
 
@@ -420,13 +420,13 @@ resolve_install_layout() {
     # macOS root installs keep the legacy layout because /usr/local/ on macOS
     # is Homebrew territory and we don't want to fight that.
     if [ "$OS" = "linux" ] && [ "$(id -u)" -eq 0 ]; then
-        if [ -d "$AGENTX_HOME/hermes-agent/.git" ]; then
-            INSTALL_DIR="$AGENTX_HOME/hermes-agent"
+        if [ -d "$AGENTX_HOME/agentx-agent/.git" ]; then
+            INSTALL_DIR="$AGENTX_HOME/agentx-agent"
             log_info "Existing install detected at $INSTALL_DIR — keeping legacy layout"
-            log_info "  (new root installs use /usr/local/lib/hermes-agent)"
+            log_info "  (new root installs use /usr/local/lib/agentx-agent)"
             return 0
         fi
-        INSTALL_DIR="/usr/local/lib/hermes-agent"
+        INSTALL_DIR="/usr/local/lib/agentx-agent"
         ROOT_FHS_LAYOUT=true
         # Place uv-managed Python under /usr/local/share so the venv interpreter
         # is world-readable.  Default uv paths land in /root/.local/share/uv,
@@ -444,7 +444,7 @@ resolve_install_layout() {
     fi
 
     # Default: non-root, non-Termux → legacy user-scoped layout.
-    INSTALL_DIR="$AGENTX_HOME/hermes-agent"
+    INSTALL_DIR="$AGENTX_HOME/agentx-agent"
 }
 
 get_command_link_dir() {
@@ -1622,7 +1622,7 @@ try:
     specs = data["project"]["optional-dependencies"]["all"]
     extras = []
     for s in specs:
-        m = re.search(r"hermes-agent\[([\w-]+)\]", s)
+        m = re.search(r"agentx-agent\[([\w-]+)\]", s)
         if m:
             extras.append(m.group(1))
     print(",".join(extras))
@@ -1755,28 +1755,28 @@ EOF
     chmod +x "$command_link_dir/agentx"
     log_success "Installed agentx launcher → $command_link_display_dir/agentx"
 
-    # Also expose `hermes-agent`. The `hermes-agent` console script declared in
+    # Also expose `agentx-agent`. The `agentx-agent` console script declared in
     # pyproject.toml's [project.scripts] lives inside the venv, which is not on
     # the login-shell PATH. Without this launcher users can't invoke the agent
     # entrypoint directly from outside the venv. (#74819)
-    rm -f "$command_link_dir/hermes-agent"
+    rm -f "$command_link_dir/agentx-agent"
     if [ "$USE_VENV" = true ]; then
-        cat > "$command_link_dir/hermes-agent" <<EOF
+        cat > "$command_link_dir/agentx-agent" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$AGENTX_BIN" "$INSTALL_DIR/run_agent.py" "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes-agent" <<EOF
+        cat > "$command_link_dir/agentx-agent" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 exec "$AGENTX_BIN" run_agent.py "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes-agent"
-    log_success "Installed hermes-agent launcher → $command_link_display_dir/hermes-agent"
+    chmod +x "$command_link_dir/agentx-agent"
+    log_success "Installed agentx-agent launcher → $command_link_display_dir/agentx-agent"
 
     # Also expose `agentx-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
     # agent by command name on the login-shell PATH, and the `agentx-acp`
@@ -2532,7 +2532,7 @@ maybe_start_gateway() {
 }
 
 write_bootstrap_marker() {
-    # Writes $INSTALL_DIR/.hermes-bootstrap-complete, which tells the AgentX
+    # Writes $INSTALL_DIR/.agentx-bootstrap-complete, which tells the AgentX
     # desktop app (apps/desktop/electron/main.ts) and the macOS launcher fast
     # path (apps/bootstrap-installer) "a real install finished here -- don't
     # re-run first-run bootstrap."
@@ -2561,7 +2561,7 @@ write_bootstrap_marker() {
         return 0
     fi
 
-    local marker_path="$INSTALL_DIR/.hermes-bootstrap-complete"
+    local marker_path="$INSTALL_DIR/.agentx-bootstrap-complete"
     local tmp_path="$marker_path.tmp"
 
     # Atomic publish: the macOS launcher predicate only checks existence, so a
@@ -3084,8 +3084,8 @@ install_desktop() {
     else
         local cand
         for cand in \
-            "$desktop_dir/release/mac-arm64/AgentX.app" \
-            "$desktop_dir/release/mac/AgentX.app"; do
+            "$desktop_dir/release/mac-arm64/AgentX Workmate.app" \
+            "$desktop_dir/release/mac/AgentX Workmate.app"; do
             if [ -d "$cand" ]; then
                 app="$cand"
                 break

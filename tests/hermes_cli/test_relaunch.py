@@ -120,7 +120,7 @@ class TestRelaunch:
         agentx).  relaunch() must detect win32 and use subprocess.run +
         sys.exit instead."""
         monkeypatch.setattr(relaunch_mod.sys, "platform", "win32")
-        monkeypatch.setattr(relaunch_mod, "resolve_hermes_bin", lambda: r"C:\Users\test\hermes.exe")
+        monkeypatch.setattr(relaunch_mod, "resolve_hermes_bin", lambda: r"C:\Users\test\agentx.exe")
 
         import subprocess as _subprocess
 
@@ -148,12 +148,12 @@ class TestRelaunch:
 
         assert exc_info.value.code == 0
         assert execvp_calls == []
-        assert captured_argv == [[r"C:\Users\test\hermes.exe", "chat"]]
+        assert captured_argv == [[r"C:\Users\test\agentx.exe", "chat"]]
 
     def test_windows_propagates_child_exit_code(self, monkeypatch):
         """A non-zero exit from the child should flow through to sys.exit."""
         monkeypatch.setattr(relaunch_mod.sys, "platform", "win32")
-        monkeypatch.setattr(relaunch_mod, "resolve_hermes_bin", lambda: r"C:\hermes.exe")
+        monkeypatch.setattr(relaunch_mod, "resolve_hermes_bin", lambda: r"C:\agentx.exe")
 
         import subprocess as _subprocess
 
@@ -187,16 +187,16 @@ class TestResolveHermesBinWindowsPyGuard:
 
         monkeypatch.setattr(relaunch_mod.sys, "platform", "win32")
         monkeypatch.setattr(relaunch_mod.sys, "argv", [str(script), "chat"])
-        # Force PATH lookup to return a hermes.exe so the test doesn't
+        # Force PATH lookup to return a agentx.exe so the test doesn't
         # exercise the None-fallback path (that's a separate test).
         monkeypatch.setattr(
             relaunch_mod.shutil, "which",
-            lambda name: r"C:\venv\Scripts\hermes.exe" if name == "agentx" else None,
+            lambda name: r"C:\venv\Scripts\agentx.exe" if name == "agentx" else None,
         )
 
         bin_path = relaunch_mod.resolve_hermes_bin()
-        # Must NOT be the .py — must be the hermes.exe PATH entry.
-        assert bin_path == r"C:\venv\Scripts\hermes.exe"
+        # Must NOT be the .py — must be the agentx.exe PATH entry.
+        assert bin_path == r"C:\venv\Scripts\agentx.exe"
 
     def test_posix_still_accepts_py_argv0(self, monkeypatch, tmp_path):
         """POSIX behaviour unchanged: argv[0] pointing at an executable
@@ -211,7 +211,7 @@ class TestResolveHermesBinWindowsPyGuard:
         assert relaunch_mod.resolve_hermes_bin() == str(script)
 
     def test_windows_py_argv0_with_no_hermes_on_path_returns_none(self, monkeypatch, tmp_path):
-        """Bulletproof fallback: if argv0 is .py on Windows AND hermes.exe
+        """Bulletproof fallback: if argv0 is .py on Windows AND agentx.exe
         isn't on PATH, return None so the caller falls back to
         python -m hermes_cli.main."""
         script = tmp_path / "main.py"

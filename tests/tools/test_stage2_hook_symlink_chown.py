@@ -55,7 +55,7 @@ def test_chown_helper_repairs_real_directories(stage2_text: str, tmp_path: Path)
 
     assert proc.returncode == 0, proc.stderr
     assert log_path.read_text().splitlines() == [
-        f"-R hermes:hermes {target}",
+        f"-R agentx:agentx {target}",
     ]
 
 
@@ -105,9 +105,9 @@ def test_stage2_uses_symlink_safe_helper_for_hermes_home_trees(stage2_text: str)
     assert 'chown_hermes_tree "$AGENTX_HOME/$sub"' in stage2_text
     assert 'chown_hermes_tree "$AGENTX_HOME/profiles"' in stage2_text
     assert 'chown_hermes_tree "$AGENTX_HOME/cron"' in stage2_text
-    assert 'chown -R hermes:hermes "$AGENTX_HOME/$sub"' not in stage2_text
-    assert 'chown -R hermes:hermes "$AGENTX_HOME/profiles"' not in stage2_text
-    assert 'chown -R hermes:hermes "$AGENTX_HOME/cron"' not in stage2_text
+    assert 'chown -R agentx:agentx "$AGENTX_HOME/$sub"' not in stage2_text
+    assert 'chown -R agentx:agentx "$AGENTX_HOME/profiles"' not in stage2_text
+    assert 'chown -R agentx:agentx "$AGENTX_HOME/cron"' not in stage2_text
 
 
 def test_stage2_skips_top_level_chown_for_symlinked_hermes_home(

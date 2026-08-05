@@ -1,12 +1,12 @@
 ---
-title: "Hermes Agent Skill Authoring — Author in-repo SKILL.md files: frontmatter and structure"
-sidebar_label: "Hermes Agent Skill Authoring"
+title: "Agentx Agent Skill Authoring — Author in-repo SKILL.md files: frontmatter and structure"
+sidebar_label: "Agentx Agent Skill Authoring"
 description: "Author in-repo SKILL.md files: frontmatter and structure"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Hermes Agent Skill Authoring
+# Agentx Agent Skill Authoring
 
 Author in-repo SKILL.md files: frontmatter and structure.
 
@@ -20,6 +20,8 @@ Author in-repo SKILL.md files: frontmatter and structure.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `skills`, `authoring`, `agentx-agent`, `conventions`, `skill-md` |
+| Related skills | [`plan`](/docs/user-guide/skills/bundled/software-development/software-development-plan), [`requesting-code-review`](/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review) |
 
 ## Reference: full SKILL.md
 
@@ -34,13 +36,13 @@ The following is the complete skill definition that AgentX loads when this skill
 There are two places a SKILL.md can live:
 
 1. **User-local:** `~/.agentx/skills/<maybe-category>/<name>/SKILL.md` — personal, not shared. Created via `skill_manage(action='create')`.
-2. **In-repo (this skill is about this case):** `/home/bb/hermes-agent/skills/<category>/<name>/SKILL.md` — committed, shipped with the package. Use `write_file` + `git add`. `skill_manage(action='create')` does NOT target this tree.
+2. **In-repo (this skill is about this case):** `/home/bb/agentx-agent/skills/<category>/<name>/SKILL.md` — committed, shipped with the package. Use `write_file` + `git add`. `skill_manage(action='create')` does NOT target this tree.
 
 ## When to Use
 
 - User asks you to add a skill "in this branch / repo / commit"
-- You're committing a reusable workflow that should ship with hermes-agent
-- You're editing an existing skill under `/home/bb/hermes-agent/skills/` (use `patch` for small edits, `write_file` for rewrites; `skill_manage` still works for patch on in-repo skills, but not for `create`)
+- You're committing a reusable workflow that should ship with agentx-agent
+- You're editing an existing skill under `/home/bb/agentx-agent/skills/` (use `patch` for small edits, `write_file` for rewrites; `skill_manage` still works for patch on in-repo skills, but not for `create`)
 
 ## Required Frontmatter
 

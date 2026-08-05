@@ -922,7 +922,7 @@ class TestBuildNousBundle:
         # It's gzip — magic bytes.
         assert blob[:2] == b"\x1f\x8b"
         envelope = _json.loads(gzip.decompress(blob).decode())
-        assert envelope["format"] == "hermes-debug-share/1"
+        assert envelope["format"] == "agentx-debug-share/1"
         assert envelope["redacted"] is True
         assert envelope["files"] == files
         assert "created" in envelope

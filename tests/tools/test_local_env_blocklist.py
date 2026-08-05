@@ -280,7 +280,7 @@ class TestActiveVenvMarkerStripping:
 
     def test_virtualenv_marker_stripped_end_to_end(self):
         result_env = _run_with_env(extra_os_env={
-            "VIRTUAL_ENV": "/home/user/.agentx/hermes-agent/venv",
+            "VIRTUAL_ENV": "/home/user/.agentx/agentx-agent/venv",
         })
         assert "VIRTUAL_ENV" not in result_env
 
@@ -586,9 +586,9 @@ class TestHermesBinDirOnPath:
         from tools.environments import local as local_mod
         self._reset_cache()
         monkeypatch.setattr(local_mod.shutil, "which",
-                            lambda name: "/opt/hermes/bin/agentx" if name == "agentx" else None)
-        monkeypatch.setattr(local_mod.os.path, "isdir", lambda p: p == "/opt/hermes/bin")
-        assert local_mod._resolve_hermes_bin_dir() == "/opt/hermes/bin"
+                            lambda name: "/opt/agentx/bin/agentx" if name == "agentx" else None)
+        monkeypatch.setattr(local_mod.os.path, "isdir", lambda p: p == "/opt/agentx/bin")
+        assert local_mod._resolve_hermes_bin_dir() == "/opt/agentx/bin"
 
 
     def test_prepend_noop_when_unresolved(self, monkeypatch):
@@ -602,12 +602,12 @@ class TestHermesBinDirOnPath:
         from tools.environments import local as local_mod
         from tools.environments.local import _make_run_env
         self._reset_cache()
-        local_mod._AGENTX_BIN_DIR = "/opt/hermes/bin"
+        local_mod._AGENTX_BIN_DIR = "/opt/agentx/bin"
         monkeypatch.setattr(local_mod, "_IS_WINDOWS", False)
         with patch.dict(os.environ, {"PATH": "/usr/bin:/bin"}, clear=True):
             result = _make_run_env({})
         entries = result["PATH"].split(os.pathsep)
-        assert entries[0] == "/opt/hermes/bin"
+        assert entries[0] == "/opt/agentx/bin"
         assert "/usr/bin" in entries
 
 

@@ -32,13 +32,13 @@ const emptySessionsResponse = {
   total: 0
 }
 
-describe('Hermes REST helpers', () => {
+describe('AgentX REST helpers', () => {
   let api: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     resetSidebarBatchCapability()
     api = vi.fn().mockResolvedValue(emptySessionsResponse)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'agentxDesktop', {
       configurable: true,
       value: { api }
     })
@@ -47,7 +47,7 @@ describe('Hermes REST helpers', () => {
   afterEach(() => {
     setApiRequestProfile(null)
     vi.restoreAllMocks()
-    Reflect.deleteProperty(window, 'hermesDesktop')
+    Reflect.deleteProperty(window, 'agentxDesktop')
   })
 
   it('uses a longer timeout for the single-profile session list', async () => {
@@ -119,7 +119,7 @@ describe('Hermes REST helpers', () => {
         // The exact skew failure: Electron surfaces the backend catch-all.
         return Promise.reject(
           new Error(
-            'Error invoking remote method \'hermes:api\': Error: 404: {"detail":"No such API endpoint: /api/profiles/sessions/sidebar"}'
+            'Error invoking remote method \'agentx:api\': Error: 404: {"detail":"No such API endpoint: /api/profiles/sessions/sidebar"}'
           )
         )
       }

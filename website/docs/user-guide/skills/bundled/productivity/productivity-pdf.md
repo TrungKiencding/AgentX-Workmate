@@ -20,6 +20,8 @@ Create, merge, split, fill, and secure PDF files.
 | Author | Anthropic (adapted by Nous Research) |
 | License | Proprietary. LICENSE.txt has complete terms |
 | Platforms | linux, macos, windows |
+| Tags | `PDF`, `Documents`, `Forms`, `Office`, `Productivity` |
+| Related skills | [`ocr-and-documents`](/docs/user-guide/skills/bundled/productivity/productivity-ocr-and-documents), [`nano-pdf`](/docs/user-guide/skills/bundled/productivity/productivity-nano-pdf), [`docx`](/docs/user-guide/skills/bundled/productivity/productivity-docx), [`xlsx`](/docs/user-guide/skills/bundled/productivity/productivity-xlsx) |
 
 ## Reference: full SKILL.md
 

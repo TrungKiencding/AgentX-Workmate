@@ -21,6 +21,7 @@ Managed vector DB for production RAG and search.
 | License | MIT |
 | Dependencies | `pinecone` |
 | Platforms | linux, macos, windows |
+| Tags | `RAG`, `Pinecone`, `Vector Database`, `Managed Service`, `Serverless`, `Hybrid Search`, `Production`, `Auto-Scaling`, `Low Latency`, `Recommendations` |
 
 ## Reference: full SKILL.md
 

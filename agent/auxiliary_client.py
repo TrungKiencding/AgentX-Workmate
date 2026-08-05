@@ -897,7 +897,7 @@ def build_or_headers(or_config: dict | None = None) -> dict:
 # NVIDIA NIM cloud billing attribution.  Keep this host-gated because the
 # nvidia provider also supports local/on-prem NIM endpoints via NVIDIA_BASE_URL.
 _NVIDIA_NIM_CLOUD_HEADERS = {
-    "X-BILLING-INVOKE-ORIGIN": "HermesAgent",
+    "X-BILLING-INVOKE-ORIGIN": "AgentX",
 }
 
 
@@ -915,7 +915,7 @@ from hermes_cli import __version__ as _AGENTX_VERSION
 _AI_GATEWAY_HEADERS = {
     "HTTP-Referer": "https://hermes-agent.nousresearch.com",
     "X-Title": "AgentX Workmate",
-    "User-Agent": f"HermesAgent/{_AGENTX_VERSION}",
+    "User-Agent": f"AgentX/{_AGENTX_VERSION}",
 }
 
 # Nous Portal extra_body for product attribution.

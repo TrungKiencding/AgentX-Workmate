@@ -2,7 +2,7 @@
 
 Scans two directories for cron scheduler provider plugins:
 
-1. Bundled providers: ``plugins/cron_providers/<name>/`` (shipped with hermes-agent)
+1. Bundled providers: ``plugins/cron_providers/<name>/`` (shipped with agentx-agent)
 2. User-installed providers: ``$AGENTX_HOME/plugins/<name>/``
 
 Each subdirectory must contain ``__init__.py`` with a class implementing the

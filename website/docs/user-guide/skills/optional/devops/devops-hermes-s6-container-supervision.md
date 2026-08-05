@@ -20,6 +20,8 @@ Modify or debug s6 services in the AgentX Docker image.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux |
+| Tags | `docker`, `s6`, `supervision`, `gateway`, `profiles` |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
 
 ## Reference: full SKILL.md
 
@@ -34,7 +36,7 @@ The following is the complete skill definition that AgentX loads when this skill
 Load this skill when you're working on:
 - Adding or removing a static service in the AgentX Docker image (something that should be supervised at every container start, like the dashboard)
 - Diagnosing why a per-profile gateway isn't starting, restarting, or surviving `docker restart`
-- Understanding why the container's CMD is `/opt/hermes/docker/main-wrapper.sh` and how leading-dash args reach the user's program
+- Understanding why the container's CMD is `/opt/agentx/docker/main-wrapper.sh` and how leading-dash args reach the user's program
 - Modifying `cont-init.d` boot scripts (UID remap, volume seeding, profile reconciliation)
 - Changing the rendered run-script for per-profile gateways (Phase 4)
 
@@ -46,7 +48,7 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 ```
 /init                                  ← PID 1 (s6-overlay v3.2.3.0)
 ├── cont-init.d                        ← oneshot setup, runs as root
-│   ├── 01-hermes-setup                ← docker/stage2-hook.sh
+│   ├── 01-agentx-setup                ← docker/stage2-hook.sh
 │   │   ├── UID/GID remap
 │   │   ├── chown /opt/data
 │   │   ├── chown /opt/data/profiles (every boot)
@@ -70,7 +72,7 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 │   │   └── log/run     (s6-log → $AGENTX_HOME/logs/gateways/coder/current)
 │   └── ...
 │
-└── CMD ("main program")               ← /opt/hermes/docker/main-wrapper.sh
+└── CMD ("main program")               ← /opt/agentx/docker/main-wrapper.sh
     └── routes user args: bare exec | agentx subcommand | agentx (no args)
         — exec'd by /init with stdin/stdout/stderr inherited (TTY for --tui)
 ```
@@ -80,9 +82,9 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 
 | Path | Role |
 |---|---|
-| `Dockerfile` | s6-overlay install + cont-init.d wiring + `ENTRYPOINT ["/opt/hermes/docker/entrypoint-dispatch.sh"]` |
+| `Dockerfile` | s6-overlay install + cont-init.d wiring + `ENTRYPOINT ["/opt/agentx/docker/entrypoint-dispatch.sh"]` |
 | `docker/entrypoint-dispatch.sh` | PID-1 dispatcher: exec's `/init` + main-wrapper when the image owns PID 1; on wrapped runtimes (Fly Machines, `docker run --init`) falls back to stage2-hook + main-wrapper directly, restoring the s6 helper PATH first (#38349). |
-| `docker/stage2-hook.sh` | The "old entrypoint logic" — UID remap, chown, seed, skills sync. Runs as cont-init.d/01-hermes-setup. |
+| `docker/stage2-hook.sh` | The "old entrypoint logic" — UID remap, chown, seed, skills sync. Runs as cont-init.d/01-agentx-setup. |
 | `docker/cont-init.d/02-reconcile-profiles` | Calls `hermes_cli.container_boot` on every boot to restore profile gateway slots from the persistent volume. |
 | `docker/main-wrapper.sh` | The container's CMD. Routes user args, drops to agentx via `s6-setuidgid`, exec's the chosen program. |
 | `docker/s6-rc.d/main-hermes/run` | No-op `sleep infinity` — slot exists so the s6-rc user bundle is valid; main agentx runs as the CMD, not as a supervised service. |
@@ -99,7 +101,7 @@ The original plan (v1–v3) called for main agentx to run as a supervised s6-rc 
 1. **cont-init.d scripts receive no CMD args** — so the stage2 hook can't parse `docker run <image> chat -q "hi"` to set `AGENTX_ARGS` for a service `run` script to consume.
 2. **`/run/s6/basedir/bin/halt` does NOT propagate the exit code** written to `/run/s6-linux-init-container-results/exitcode`. Containers always exit 143 (SIGTERM) regardless. Confirmed by skarnet (s6 author) in [issue #477](https://github.com/just-containers/s6-overlay/issues/477): _"if you want a container shutdown, you need to either have your CMD exit, or, if you have no CMD, write the container exit code you want then call halt"_.
 
-So we use the s6-overlay-native CMD pattern via the dispatcher: `ENTRYPOINT ["/opt/hermes/docker/entrypoint-dispatch.sh"]`, which under PID 1 exec's `/init /opt/hermes/docker/main-wrapper.sh "$@"`. The wrapper is prepended to user args automatically — so `docker run <image> --version` becomes `/init main-wrapper.sh --version`, and `--version` doesn't get intercepted by /init's POSIX shell. The wrapper drops to agentx via `s6-setuidgid`, then exec's the chosen program. The program's exit code becomes the container exit code, exactly matching the pre-s6 tini contract. When the entrypoint is NOT PID 1 (Fly Machines, `docker run --init`), the dispatcher skips `/init` entirely (it would abort with `can only run as pid 1`), restores the s6 helper PATH, runs stage2-hook.sh, and exec's main-wrapper.sh directly — no supervised services on that path (#38349).
+So we use the s6-overlay-native CMD pattern via the dispatcher: `ENTRYPOINT ["/opt/agentx/docker/entrypoint-dispatch.sh"]`, which under PID 1 exec's `/init /opt/agentx/docker/main-wrapper.sh "$@"`. The wrapper is prepended to user args automatically — so `docker run <image> --version` becomes `/init main-wrapper.sh --version`, and `--version` doesn't get intercepted by /init's POSIX shell. The wrapper drops to agentx via `s6-setuidgid`, then exec's the chosen program. The program's exit code becomes the container exit code, exactly matching the pre-s6 tini contract. When the entrypoint is NOT PID 1 (Fly Machines, `docker run --init`), the dispatcher skips `/init` entirely (it would abort with `can only run as pid 1`), restores the s6 helper PATH, runs stage2-hook.sh, and exec's main-wrapper.sh directly — no supervised services on that path (#38349).
 
 Trade-off: main agentx is unsupervised under s6. That exactly matches its behavior under tini (the pre-s6 image). Dashboard supervision is the only **new** guarantee — and per-profile gateways under `/run/service/` get full supervision.
 
@@ -153,8 +155,8 @@ Edit `S6ServiceManager._render_run_script` in `hermes_cli/service_manager.py`. T
 ### Run the docker test harness
 
 ```sh
-docker build -t hermes-agent-harness:latest .
-AGENTX_TEST_IMAGE=hermes-agent-harness:latest scripts/run_tests.sh tests/docker/ -v
+docker build -t agentx-agent-harness:latest .
+AGENTX_TEST_IMAGE=agentx-agent-harness:latest scripts/run_tests.sh tests/docker/ -v
 # Expect 19 passed, 0 xfailed against the s6 image
 ```
 
@@ -164,7 +166,7 @@ The harness lives in `tests/docker/` and skips when Docker isn't available. The 
 
 ### "command not found" via `docker exec`
 
-`/command/` (where s6-overlay puts its binaries) is on PATH only for processes spawned by the supervision tree — services, cont-init.d, main-wrapper.sh. `docker exec <c> s6-svstat …` will fail with "command not found"; always use the absolute path `/command/s6-svstat`. The `agentx` binary works because the Dockerfile adds `/opt/hermes/.venv/bin` to the runtime `ENV PATH`.
+`/command/` (where s6-overlay puts its binaries) is on PATH only for processes spawned by the supervision tree — services, cont-init.d, main-wrapper.sh. `docker exec <c> s6-svstat …` will fail with "command not found"; always use the absolute path `/command/s6-svstat`. The `agentx` binary works because the Dockerfile adds `/opt/agentx/.venv/bin` to the runtime `ENV PATH`.
 
 ### Profile directory ownership
 
@@ -192,5 +194,5 @@ Check whether something is invoking `s6-svscanctl -t` or `/run/s6/basedir/bin/ha
 
 ## Related skills
 
-- `hermes-agent-dev`: General hermes-agent codebase navigation
+- `agentx-agent-dev`: General agentx-agent codebase navigation
 - `hermes-tool-quirks`: Specific AgentX-tool workarounds (sed/grep/etc.) — load when debugging the s6 stack's interaction with agentx built-in tools.

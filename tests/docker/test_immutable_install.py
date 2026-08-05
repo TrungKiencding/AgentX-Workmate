@@ -2,9 +2,9 @@
 
 Build the real image and verify at runtime:
 
-  1. /opt/hermes is not writable by the agentx user (immutable install tree)
+  1. /opt/agentx is not writable by the agentx user (immutable install tree)
   2. PYTHONDONTWRITEBYTECODE and AGENTX_DISABLE_LAZY_INSTALLS are set
-  3. /opt/hermes/.install_method contains "docker" (code-scoped stamp)
+  3. /opt/agentx/.install_method contains "docker" (code-scoped stamp)
   4. $AGENTX_HOME/.install_method is NOT stamped as "docker" by stage2
   5. A stale "docker" stamp in $AGENTX_HOME is healed (removed) on boot
 """
@@ -31,25 +31,25 @@ def test_install_tree_not_writable_by_hermes(
 
     r = docker_exec_sh(
         container_name,
-        # Try to create a file under /opt/hermes as the agentx user
-        "touch /opt/hermes/test_write 2>&1 && "
+        # Try to create a file under /opt/agentx as the agentx user
+        "touch /opt/agentx/test_write 2>&1 && "
         "echo WRITE_SUCCEEDED || echo WRITE_FAILED",
         timeout=10,
     )
     assert "WRITE_FAILED" in r.stdout, (
-        f"agentx user can write to /opt/hermes (install tree not immutable): "
+        f"agentx user can write to /opt/agentx (install tree not immutable): "
         f"{r.stdout}"
     )
 
     # Also check a key subdirectory
     r = docker_exec_sh(
         container_name,
-        "touch /opt/hermes/.venv/test_write 2>&1 && "
+        "touch /opt/agentx/.venv/test_write 2>&1 && "
         "echo WRITE_SUCCEEDED || echo WRITE_FAILED",
         timeout=10,
     )
     assert "WRITE_FAILED" in r.stdout, (
-        f"agentx user can write to /opt/hermes/.venv: {r.stdout}"
+        f"agentx user can write to /opt/agentx/.venv: {r.stdout}"
     )
 
 

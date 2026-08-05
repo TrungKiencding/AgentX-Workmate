@@ -74,7 +74,7 @@ function honchoSchema(): MemoryProviderConfig {
         kind: 'text',
         value: 'myws',
         description: 'Honcho workspace ID.',
-        placeholder: 'hermes',
+        placeholder: 'agentx',
         is_set: true,
         inline: true,
         group: 'Connection',
@@ -187,7 +187,7 @@ describe('ProviderConfigPanel', () => {
   })
 
   it('shows an inline error with retry when the load fails, then recovers', async () => {
-    getMemoryProviderConfig.mockRejectedValueOnce(new Error('Timed out connecting to Hermes backend'))
+    getMemoryProviderConfig.mockRejectedValueOnce(new Error('Timed out connecting to AgentX backend'))
 
     await renderPanel()
 

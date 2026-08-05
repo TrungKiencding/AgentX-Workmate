@@ -789,7 +789,7 @@ def test_completion_cwd_prefers_launch_config_over_stale_env(monkeypatch, tmp_pa
     """
     configured = tmp_path / "omni"
     configured.mkdir()
-    stale = tmp_path / "hermes-agent"
+    stale = tmp_path / "agentx-agent"
     stale.mkdir()
 
     monkeypatch.setenv("TERMINAL_CWD", str(stale))

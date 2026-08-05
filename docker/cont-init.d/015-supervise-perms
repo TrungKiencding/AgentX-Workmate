@@ -29,7 +29,7 @@
 #    it here. s6-supervise will keep using the same files; it never
 #    re-asserts ownership on a running service.
 #
-# This script runs as root after 01-hermes-setup but before
+# This script runs as root after 01-agentx-setup but before
 # 02-reconcile-profiles, so the chowns are settled before the
 # Python reconciler walks the scandir. Lexicographic ordering
 # guarantees this — the suffix is unusual because we want to slot
@@ -41,7 +41,7 @@ set -eu
 # /run/s6-rc/servicedirs holds the live, compiled service directories
 # for every static (s6-rc) service. Symlinks under /run/service/*
 # point here. Per-service supervise/ + event/ both need agentx
-# ownership for s6-svstat etc. to work as hermes.
+# ownership for s6-svstat etc. to work as agentx.
 SVC_ROOT=/run/s6-rc/servicedirs
 
 if [ ! -d "$SVC_ROOT" ]; then
@@ -63,7 +63,7 @@ for svc in "$SVC_ROOT"/*; do
 
     # supervise/ tree — needed by s6-svstat / s6-svc.
     if [ -d "$svc/supervise" ]; then
-        chown -R hermes:hermes "$svc/supervise" 2>/dev/null || \
+        chown -R agentx:agentx "$svc/supervise" 2>/dev/null || \
             echo "[supervise-perms] could not chown $svc/supervise"
         # 0710 = group searchable. ``s6-svstat`` only needs to openat
         # status, not list the dir, but giving the agentx group +x is
@@ -80,7 +80,7 @@ for svc in "$SVC_ROOT"/*; do
 
     # Top-level event/ dir — s6-svlisten1 / s6-svwait subscribe here.
     if [ -d "$svc/event" ]; then
-        chown hermes:hermes "$svc/event" 2>/dev/null || \
+        chown agentx:agentx "$svc/event" 2>/dev/null || \
             echo "[supervise-perms] could not chown $svc/event"
         # Preserve s6's 03730 mode (setgid + g+rwx + sticky).
         chmod 03730 "$svc/event" 2>/dev/null || true

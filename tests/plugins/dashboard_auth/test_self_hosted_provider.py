@@ -40,7 +40,7 @@ from hermes_cli.dashboard_auth import (
 )
 
 _ISSUER = "https://auth.example.com/application/o/hermes"
-_CLIENT_ID = "hermes-dashboard"
+_CLIENT_ID = "agentx-dashboard"
 
 _DISCOVERY_DOC = {
     "issuer": _ISSUER,
@@ -587,7 +587,7 @@ class TestVerifySession:
             lifespan=oidc_plugin._JWKS_CACHE_SECONDS,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "HermesAgent/1.0",
+                "User-Agent": "AgentX/1.0",
             },
         )
 

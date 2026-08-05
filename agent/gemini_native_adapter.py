@@ -108,7 +108,7 @@ def probe_gemini_tier(
                 json=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "X-Goog-Api-Client": f"hermes-agent/{_AGENTX_VERSION}",
+                    "X-Goog-Api-Client": f"agentx-agent/{_AGENTX_VERSION}",
                 },
             )
     except Exception as exc:
@@ -964,8 +964,8 @@ class GeminiNativeClient:
             # Include AgentX client context following Gemini's partner
             # integration guidance.
             # See https://ai.google.dev/gemini-api/docs/partner-integration
-            "User-Agent": f"hermes-agent/{_AGENTX_VERSION} (gemini-native)",
-            "X-Goog-Api-Client": f"hermes-agent/{_AGENTX_VERSION}",
+            "User-Agent": f"agentx-agent/{_AGENTX_VERSION} (gemini-native)",
+            "X-Goog-Api-Client": f"agentx-agent/{_AGENTX_VERSION}",
         }
         headers.update(self._default_headers)
         return headers

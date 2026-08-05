@@ -861,7 +861,7 @@ describe('createSlashHandler', () => {
 
   it('falls through to command.dispatch for skill commands, sending the body but showing the invocation', async () => {
     const skillMessage =
-      '[IMPORTANT: The user has invoked the "hermes-agent-dev" skill, indicating they want you to follow its instructions.\n' +
+      '[IMPORTANT: The user has invoked the "agentx-agent-dev" skill, indicating they want you to follow its instructions.\n' +
       'The full skill content is loaded below.]\n\nUse this skill to do X.\n\n## Steps\n1. First step'
 
     const ctx = buildCtx({
@@ -877,8 +877,8 @@ describe('createSlashHandler', () => {
               return Promise.resolve({
                 type: 'skill',
                 message: skillMessage,
-                name: 'hermes-agent-dev',
-                display: '/hermes-agent-dev'
+                name: 'agentx-agent-dev',
+                display: '/agentx-agent-dev'
               })
             }
 
@@ -890,9 +890,9 @@ describe('createSlashHandler', () => {
     })
 
     const h = createSlashHandler(ctx)
-    expect(h('/hermes-agent-dev')).toBe(true)
+    expect(h('/agentx-agent-dev')).toBe(true)
     await vi.waitFor(() => {
-      expect(ctx.transcript.send).toHaveBeenCalledWith(skillMessage, true, '/hermes-agent-dev')
+      expect(ctx.transcript.send).toHaveBeenCalledWith(skillMessage, true, '/agentx-agent-dev')
     })
 
     // The expanded skill body is model-facing: no transcript line may carry it.

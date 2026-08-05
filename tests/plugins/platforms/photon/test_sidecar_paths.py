@@ -1,7 +1,7 @@
 """Tests for the Photon sidecar directory resolver (NS-606).
 
 Hosted/managed images keep the plugin tree under an immutable
-``/opt/hermes``; ``resolve_sidecar_dir`` must run in place when the deps are
+``/opt/agentx``; ``resolve_sidecar_dir`` must run in place when the deps are
 baked and current, and mirror the sidecar to the writable ``AGENTX_HOME``
 volume when a runtime install is unavoidable.
 """

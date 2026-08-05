@@ -82,7 +82,7 @@ def _default_agent_name() -> str:
         import socket
         return f"hermes-{socket.gethostname()}"
     except Exception:
-        return "hermes-agent"
+        return "agentx-agent"
 
 
 def _clean_slug(value: str) -> str:

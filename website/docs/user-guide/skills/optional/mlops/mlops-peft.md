@@ -21,6 +21,7 @@ Fine-tune large LLMs with LoRA on limited GPU memory.
 | License | MIT |
 | Dependencies | `peft>=0.13.0`, `transformers>=4.45.0`, `torch>=2.0.0`, `bitsandbytes>=0.43.0` |
 | Platforms | linux, macos, windows |
+| Tags | `Fine-Tuning`, `PEFT`, `LoRA`, `QLoRA`, `Parameter-Efficient`, `Adapters`, `Low-Rank`, `Memory Optimization`, `Multi-Adapter` |
 
 ## Reference: full SKILL.md
 

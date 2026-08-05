@@ -61,17 +61,17 @@ esac
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-# Keep sandbox state out of the default .hermes-sandbox so a run never clobbers
+# Keep sandbox state out of the default .agentx-sandbox so a run never clobbers
 # a developer's own sandbox, and scope it per route so two routes can run
 # concurrently (CI runs them as parallel matrix legs). dev-sandbox.sh joins this
 # onto the worktree root and feeds it to `tar --exclude`, so it MUST be a
 # relative directory name.
-SANDBOX_DIR_NAME=".hermes-sandbox-e2e-$ROUTE"
+SANDBOX_DIR_NAME=".agentx-sandbox-e2e-$ROUTE"
 export AGENTX_DEV_SANDBOX_DIR="$SANDBOX_DIR_NAME"
 
 SANDBOX_ROOT="$REPO_ROOT/$SANDBOX_DIR_NAME"
-INSTALL_DIR="/home/hermes/.agentx/hermes-agent"   # user-level layout (sandbox default)
-FAKE_REMOTE="/work/repos/hermes-agent.git"
+INSTALL_DIR="/home/hermes/.agentx/agentx-agent"   # user-level layout (sandbox default)
+FAKE_REMOTE="/work/repos/agentx-agent.git"
 # Only used to fetch an old install.sh for the flag probe below; the sandbox does
 # its own fetching. Same override dev-sandbox.sh honours, so a fork can retarget
 # both together.

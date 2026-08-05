@@ -7,5 +7,5 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 export function visualOutDir() {
-  return process.env.AGENTX_TUI_VISUAL_DIR || join(tmpdir(), 'hermes-tui-visual')
+  return process.env.AGENTX_TUI_VISUAL_DIR || join(tmpdir(), 'agentx-tui-visual')
 }

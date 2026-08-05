@@ -20,6 +20,7 @@ X/Twitter via xurl CLI: raw post search, posting, DM, media.
 | Author | xdevplatform + openclaw + AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos |
+| Tags | `twitter`, `x`, `social-media`, `xurl`, `official-api` |
 
 ## Reference: full SKILL.md
 

@@ -85,7 +85,7 @@ wheel, AgentX installs its supported NeMo Relay runtime as a normal dependency:
 
 ```bash
 uv build --wheel
-python -m pip install --force-reinstall dist/hermes_agent-*.whl
+python -m pip install --force-reinstall dist/agentx_workmate-*.whl
 agentx plugins enable observability/nemo_relay
 ```
 

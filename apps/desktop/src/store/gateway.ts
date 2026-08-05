@@ -1,4 +1,4 @@
-import { type ConnectionState, type GatewayEvent, resolveGatewayWsUrl } from '@hermes/shared'
+import { type ConnectionState, type GatewayEvent, resolveGatewayWsUrl } from '@agentx/shared'
 import { atom } from 'nanostores'
 
 import { HermesGateway } from '@/hermes'
@@ -60,7 +60,7 @@ interface GatewayRegistryState {
   $gateway: ReturnType<typeof atom<HermesGateway | null>>
 }
 
-const STATE_KEY = Symbol.for('hermes.desktop.gatewayRegistryState')
+const STATE_KEY = Symbol.for('agentx.desktop.gatewayRegistryState')
 
 function createRegistryState(): GatewayRegistryState {
   return {
@@ -168,7 +168,7 @@ function clearTimer(entry: Secondary): void {
 }
 
 async function openSecondary(entry: Secondary): Promise<void> {
-  const desktop = window.hermesDesktop
+  const desktop = window.agentxDesktop
 
   if (!desktop) {
     return
@@ -337,7 +337,7 @@ export function reconnectSecondaryGateways(): void {
 // Keep the idle reaper from killing a backend we still need: ping every live
 // secondary. The active one is pinged separately (touchActiveGatewayBackend).
 export function touchSecondaryGateways(): void {
-  const desktop = window.hermesDesktop
+  const desktop = window.agentxDesktop
 
   for (const entry of g.secondaries.values()) {
     if (entry.wantOpen) {

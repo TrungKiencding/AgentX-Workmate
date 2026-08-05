@@ -329,7 +329,7 @@ function safeDirectiveSegments(text: string): Unstable_DirectiveSegment[] {
 }
 
 /**
- * Renders text containing Hermes directives (`@file:...`, `@image:...`) as
+ * Renders text containing AgentX directives (`@file:...`, `@image:...`) as
  * inline chips. Embedded MEDIA images render below as a thumbnail row.
  */
 export function DirectiveContent({ text }: { text: string }) {
@@ -405,7 +405,7 @@ const DirectiveImage: FC<{ id: string; label: string }> = ({ id, label }) => {
     // Remote gateway: the image lives on the gateway's disk, not ours — fetch
     // it over the authenticated API. Local: read it straight off this disk.
     const load =
-      window.hermesDesktop && isRemoteGateway() ? gatewayMediaDataUrl(id) : window.hermesDesktop?.readFileDataUrl(id)
+      window.agentxDesktop && isRemoteGateway() ? gatewayMediaDataUrl(id) : window.agentxDesktop?.readFileDataUrl(id)
 
     void Promise.resolve(load)
       .then(url => alive && url && setSrc(url))

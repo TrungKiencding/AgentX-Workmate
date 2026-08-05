@@ -1,6 +1,6 @@
 """Regression tests for the docker-exec privilege-drop shim.
 
-The shim (docker/hermes-exec-shim.sh, installed at /opt/hermes/bin/agentx)
+The shim (docker/hermes-exec-shim.sh, installed at /opt/agentx/bin/agentx)
 exists to prevent the auth.json ownership-mismatch bug where
 `docker exec <c> agentx login` would write /opt/data/auth.json as
 root:root mode 0600, leaving the supervised gateway (UID 10000) unable
@@ -14,7 +14,7 @@ These tests verify:
 2. ``docker exec --user agentx <c> agentx …`` (already non-root) short-
    circuits and doesn't try to drop again.
 3. Files written under $AGENTX_HOME from a ``docker exec`` session land
-   as hermes:hermes — the actual user-visible invariant.
+   as agentx:agentx — the actual user-visible invariant.
 4. The AGENTX_DOCKER_EXEC_AS_ROOT opt-out lets diagnostic sessions keep
    running as root deliberately.
 5. The main CMD path (``docker run <image> …``) is unaffected by the
@@ -43,19 +43,19 @@ def _wait_for_cont_init(container: str) -> None:
 
     The earlier ``_wait_for_init`` only polled ``docker exec <c> true``,
     which succeeds almost immediately on s6-overlay — long before the
-    ``01-hermes-setup`` cont-init hook (docker/stage2-hook.sh) has
-    finished seeding + ``chown hermes:hermes`` config.yaml and running the
+    ``01-agentx-setup`` cont-init hook (docker/stage2-hook.sh) has
+    finished seeding + ``chown agentx:agentx`` config.yaml and running the
     Python config migration. A test that wipes config.yaml and then writes
     it as root would then race that boot-time chown: on native amd64
     stage2-hook wins in a blink and the test always passed, but under arm64
     QEMU emulation the slow Python migration was still in flight and
-    clobbered the root-written file's ownership back to hermes:hermes,
+    clobbered the root-written file's ownership back to agentx:agentx,
     failing ``test_shim_opt_out_keeps_root`` non-deterministically.
 
     The reliable "cont-init is done" signal is
     ``$AGENTX_HOME/logs/container-boot.log``: it is written by
     ``02-reconcile-profiles`` (hermes_cli.container_boot), which s6 runs
-    *strictly after* ``01-hermes-setup`` in lexicographic order. The
+    *strictly after* ``01-agentx-setup`` in lexicographic order. The
     reconciler always logs at least one ``profile=default`` line even for a
     bare ``sleep infinity`` container, so once that marker appears every
     stage2-hook side effect (seed, chown, migrate) is guaranteed complete.
@@ -140,8 +140,8 @@ def test_shim_drops_root_to_hermes_uid(sleep_container: str) -> None:
         capture_output=True, text=True, timeout=10,
     )
     assert r.returncode == 0, f"stat failed: {r.stderr}"
-    assert r.stdout.strip() == "hermes:hermes", (
-        f"config.yaml owned by {r.stdout.strip()!r}, expected hermes:hermes. "
+    assert r.stdout.strip() == "agentx:agentx", (
+        f"config.yaml owned by {r.stdout.strip()!r}, expected agentx:agentx. "
         "The shim did not drop privileges before invoking hermes."
     )
 
@@ -155,7 +155,7 @@ def test_shim_drops_root_to_hermes_uid(sleep_container: str) -> None:
 def test_main_cmd_path_unaffected(built_image: str) -> None:
     """The CMD path (docker run <image> <args>) must still work.
 
-    The shim sits at /opt/hermes/bin earliest on PATH; main-wrapper.sh
+    The shim sits at /opt/agentx/bin earliest on PATH; main-wrapper.sh
     invokes `s6-setuidgid agentx agentx <args>` which resolves `agentx`
     through PATH. With the shim in the way, this could regress if the
     shim recurses or interferes with TTY/exit-code propagation.

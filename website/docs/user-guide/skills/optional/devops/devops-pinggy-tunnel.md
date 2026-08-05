@@ -20,6 +20,7 @@ Zero-install localhost tunnels over SSH via Pinggy.
 | Author | Teknium (teknium1), AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Pinggy`, `Tunnel`, `Networking`, `SSH`, `Webhook`, `Localhost` |
 
 ## Reference: full SKILL.md
 

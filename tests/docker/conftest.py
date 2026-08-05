@@ -19,7 +19,7 @@ from collections.abc import Iterator
 
 import pytest
 
-IMAGE_TAG = os.environ.get("AGENTX_TEST_IMAGE", "hermes-agent-harness:latest")
+IMAGE_TAG = os.environ.get("AGENTX_TEST_IMAGE", "agentx-agent-harness:latest")
 
 
 def _docker_available() -> bool:

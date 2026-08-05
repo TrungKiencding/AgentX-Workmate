@@ -1,4 +1,4 @@
-import type { ConnectionState } from '@hermes/shared'
+import type { ConnectionState } from '@agentx/shared'
 import { atom, computed } from 'nanostores'
 
 import { lastVisibleMessageIsUser } from '@/app/chat/thread-loading'
@@ -11,18 +11,18 @@ import type { SessionInfo, UsageStats } from '@/types/hermes'
 type Updater<T> = T | ((current: T) => T)
 export type ComposerModelSource = '' | 'default' | 'manual'
 
-const WORKSPACE_CWD_KEY = 'hermes.desktop.workspace-cwd'
+const WORKSPACE_CWD_KEY = 'agentx.desktop.workspace-cwd'
 
 // The composer's model/effort/fast is sticky UI state, NOT the profile default
 // (that lives in Settings → Model). Persisting it in localStorage makes a pick
 // follow across Cmd+N and app restarts instead of snapping back to the default.
 // It's deliberately global (not per-profile): a profile switch force-reseeds to
 // that profile's default, while within a profile new chats keep your last pick.
-const COMPOSER_MODEL_KEY = 'hermes.desktop.composer.model'
-const COMPOSER_PROVIDER_KEY = 'hermes.desktop.composer.provider'
-const COMPOSER_MODEL_SOURCE_KEY = 'hermes.desktop.composer.model-source'
-const COMPOSER_EFFORT_KEY = 'hermes.desktop.composer.reasoning-effort'
-const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
+const COMPOSER_MODEL_KEY = 'agentx.desktop.composer.model'
+const COMPOSER_PROVIDER_KEY = 'agentx.desktop.composer.provider'
+const COMPOSER_MODEL_SOURCE_KEY = 'agentx.desktop.composer.model-source'
+const COMPOSER_EFFORT_KEY = 'agentx.desktop.composer.reasoning-effort'
+const COMPOSER_FAST_KEY = 'agentx.desktop.composer.fast'
 
 // The last chat the user had open, so a relaunch lands back on it instead of an
 // empty new-chat. Stored (not runtime) id — the route is keyed by stored id.
@@ -33,7 +33,7 @@ const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
 // appears to bleed between profiles (#63590). Each profile now remembers its
 // own last session. The default profile keeps the original unsuffixed key so
 // existing installs' remembered session survives the upgrade.
-const LAST_SESSION_KEY = 'hermes.desktop.lastSessionId'
+const LAST_SESSION_KEY = 'agentx.desktop.lastSessionId'
 
 function rememberedSessionKey(profile?: null | string): string {
   const key = (profile ?? '').trim()
@@ -80,7 +80,7 @@ export function rememberedSessionProfile(
 // entirely, because the route is preferred over the id on cold start
 // (#67603 family). The default profile keeps the original unsuffixed key so
 // existing installs' remembered route survives the upgrade.
-const LAST_ROUTE_KEY = 'hermes.desktop.lastRoute'
+const LAST_ROUTE_KEY = 'agentx.desktop.lastRoute'
 
 function rememberedRouteKey(profile?: null | string): string {
   const key = (profile ?? '').trim()
@@ -111,7 +111,7 @@ export type NewChatWorkspaceTarget = null | string | undefined
 export const getConfiguredDefaultProjectDir = (): string => configuredDefaultProjectDir
 
 export async function syncConfiguredDefaultProjectDir(): Promise<string> {
-  const settings = window.hermesDesktop?.settings?.getDefaultProjectDir
+  const settings = window.agentxDesktop?.settings?.getDefaultProjectDir
 
   if (!settings) {
     configuredDefaultProjectDir = ''
@@ -129,7 +129,7 @@ export async function syncConfiguredDefaultProjectDir(): Promise<string> {
  *  packaged, optional Settings override). Clears stale install-dir paths that
  *  PR #37586's localStorage stickiness can preserve across the #37536 fix. */
 export async function ensureDefaultWorkspaceCwd(): Promise<void> {
-  const sanitize = window.hermesDesktop?.sanitizeWorkspaceCwd
+  const sanitize = window.agentxDesktop?.sanitizeWorkspaceCwd
 
   if (!sanitize) {
     return

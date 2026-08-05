@@ -33,7 +33,7 @@ def test_atomic_replace_swaps_content_on_success(tmp_path: Path) -> None:
     assert (dst / "new.txt").read_text() == "NEW"
     assert not (dst / "old.txt").exists()
     # No staging/backup siblings left behind.
-    assert not (dst.parent / "ui-tui.hermes-update-staging").exists()
-    assert not (dst.parent / "ui-tui.hermes-update-old").exists()
+    assert not (dst.parent / "ui-tui.agentx-update-staging").exists()
+    assert not (dst.parent / "ui-tui.agentx-update-old").exists()
 
 

@@ -17,8 +17,8 @@ describe('applyVoiceStopPhraseFromConfig', () => {
   })
 
   it('uses the first configured phrase so a custom phrase renders correctly', () => {
-    applyVoiceStopPhraseFromConfig({ voice: { stop_phrases: ['goodbye hermes', 'stop'] } })
-    expect($voiceStopPhrase.get()).toBe('goodbye hermes')
+    applyVoiceStopPhraseFromConfig({ voice: { stop_phrases: ['goodbye agentx', 'stop'] } })
+    expect($voiceStopPhrase.get()).toBe('goodbye agentx')
   })
 
   it('coerces a bare string like the backend does', () => {

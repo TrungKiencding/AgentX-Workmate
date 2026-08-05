@@ -19,6 +19,7 @@ Teams meeting summaries, job replay, Graph subscriptions.
 | Version | `1.1.0` |
 | Author | AgentX Workmate + Teknium |
 | License | MIT |
+| Tags | `Teams`, `Microsoft Graph`, `Meetings`, `Productivity`, `Operations` |
 
 ## Reference: full SKILL.md
 

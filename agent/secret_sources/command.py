@@ -1,7 +1,7 @@
 """``command`` secret source — resolve secrets via a user-configured helper.
 
 Ports the security semantics of the desktop app's TypeScript
-``CommandSecretsProvider`` (hermes-desktop ``src/main/secrets/commandProvider.ts``)
+``CommandSecretsProvider`` (agentx-desktop ``src/main/secrets/commandProvider.ts``)
 to the Python agent.  The helper command (e.g. ``keepassxc-cli``,
 ``secret-tool``, or a script that cats a tmpfs env file) comes from
 ``secrets.command`` in ``config.yaml`` — NEVER from ``.env``, which holds

@@ -20,6 +20,8 @@ Evolve prompts/regex/SQL/code with Imbue's evolution loop.
 | Author | Bihruze (Asahi0x), AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos |
+| Tags | `evolution`, `optimization`, `prompt-engineering`, `research` |
+| Related skills | [`arxiv`](/docs/user-guide/skills/bundled/research/research-arxiv), [`jupyter-notebook`](/docs/user-guide/skills/optional/data-science/data-science-jupyter-notebook) |
 
 ## Reference: full SKILL.md
 

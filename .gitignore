@@ -2,7 +2,7 @@
 /venv/
 /venv.old/
 /venv.stale.runtime-*/
-/.hermes-runtime/
+/.agentx-runtime/
 /_pycache/
 *.pyc*
 __pycache__/
@@ -58,7 +58,7 @@ agent-browser/
 privvy*
 images/
 __pycache__/
-hermes_agent.egg-info/
+agentx_workmate.egg-info/
 wandb/
 testlogs
 playwright-report/
@@ -141,13 +141,13 @@ docs/superpowers/*
 # bootstrap installer. It is AgentX-managed runtime state, never a code change —
 # ignore it so `agentx update`'s `git stash push --include-untracked` does not
 # treat it as a local edit and autostash it on every run (#38529).
-.hermes-bootstrap-complete
+.agentx-bootstrap-complete
 
 # Persistent dev sandbox dir (scripts/dev-sandbox.sh --persistent)
-.hermes-sandbox/
+.agentx-sandbox/
 # Sandbox dirs used by the install/update E2E (tests/install/). The suffix is
 # the route name, so each route gets its own tree and two can run at once.
-.hermes-sandbox-e2e*/
+.agentx-sandbox-e2e*/
 
 # Interrupted-update breadcrumb + recovery lock written next to the shared venv
 # by `agentx update` / launch-time self-heal. Runtime state, never a code change
@@ -181,7 +181,7 @@ apps/desktop/demo/
 
 # PR infographics are rendered locally and embedded in PR descriptions via the
 # image-provider (fal.media) URL — they are NEVER committed to the repo. The
-# PR body is the archive. See the hermes-agent-dev skill's
+# PR body is the archive. See the agentx-agent-dev skill's
 # pr-infographic-workflow reference (storage rule + lapse #8 / #COMMIT-1).
 #
 # Spelling variants are listed because a single `infographic/` pattern was

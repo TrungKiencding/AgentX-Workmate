@@ -46,7 +46,7 @@ def test_dashboard_service_resets_home(
         '  tr "\\0" "\\n" < /proc/$pid/environ | grep "^HOME="; '
         'else '
         '  grep -q "export HOME=/opt/data" '
-        '    /opt/hermes/docker/s6-rc.d/dashboard/run && '
+        '    /opt/agentx/docker/s6-rc.d/dashboard/run && '
         '  echo "HOME=/opt/data"; '
         'fi',
         timeout=15,
@@ -97,7 +97,7 @@ def test_stage2_repairs_profiles_and_cron_ownership(
 ) -> None:
     """profiles/ and cron/ must both be reclaimed after root-context writes.
 
-    The stage2 hook chowns these dirs to hermes:hermes on every boot.
+    The stage2 hook chowns these dirs to agentx:agentx on every boot.
     We simulate a root-owned file in each, then restart the container
     and verify ownership is repaired.
     """

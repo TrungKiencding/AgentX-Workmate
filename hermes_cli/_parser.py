@@ -60,7 +60,7 @@ Examples:
     agentx config edit            Edit config in $EDITOR
     agentx config set model gpt-4 Set a config value
     agentx gateway                Run messaging gateway
-    agentx -s hermes-agent-dev,github-auth
+    agentx -s agentx-agent-dev,github-auth
     agentx -w                     Start in isolated git worktree
     agentx gateway install        Install gateway background service
     agentx sessions list          List past sessions

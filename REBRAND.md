@@ -1,20 +1,21 @@
 # Rebrand: Hermes Agent → AgentX Workmate
 
-Handoff document. Phases 0–3 are done and committed; phases 4–11 are not
+Handoff document. Phases 0–7 are done and committed; phases 8–11 are not
 started. Everything needed to continue in a fresh session is here.
 
 ---
 
 ## 1. Where things stand
 
-Branch `rebrand/agentx-workmate`, three commits on top of tag
-`upstream-baseline` (`aec331899`):
+Branch `rebrand/agentx-workmate`, on top of tag `upstream-baseline`
+(`aec331899`):
 
 | Commit | Phase | What landed |
 |---|---|---|
 | `5b53a2616` | 0 + 1 | Baseline test capture; `branding.py`/`.ts`/`.sh`; rebrand tooling |
 | `74acc469d` | 2 | `AGENTX_*` env vars, `~/.agentx`, `.agentx.md`, Windows task/registry names |
 | `24c7b25ed` | 3 | `agentx` CLI, 8-bit banner artwork, 23 toolsets, launchd label, glyph |
+| *(this one)* | 4–7 | Desktop app + icons, packaging/containers, outbound identity, diagnostics |
 
 **Zero regressions** against the phase-0 baseline. Reproduce with §5.
 
@@ -24,21 +25,30 @@ The regression gate reports what is left:
 python3 scripts/rebrand/check_branding.py --summary
 ```
 
-At the end of phase 3: **24,106 violations**. That number is the remaining
-work and phases 4–11 drive it to zero.
+End of phase 3: 24,106 violations. End of phase 7: **19,720**. Phases 8–11
+drive the rest to zero.
 
-Distribution of the ~23,900 `hermes` tokens still in the tree:
+Distribution of the `hermes` tokens still in the tree:
 
 | Area | Tokens | Phase |
 |---|---:|---|
-| `website/docs` + `website/i18n` + `website/src` | 13,808 | 9 |
-| `apps/desktop` | 4,376 | 4 |
-| `tests` | 1,913 | follows whichever phase owns the code |
+| `website/docs` + `website/i18n` + `website/src` | 13,764 | 9 |
+| `apps/desktop` | 1,338 | **kept on purpose** — see below |
 | `plugins/kanban` (CSS classes) | 615 | 8 |
-| `hermes_cli` | 591 | mostly module-name self-references — check before touching |
-| `scripts` + `nix` + `docker` + `apps/bootstrap-installer` | 783 | 5 |
-| `ui-tui` + `web` + `tools` + `agent` + `gateway` | 599 | leftovers, mostly prose |
-| `skills` + `plugins/*` | ~300 | 8 |
+| `hermes_cli` | 407 | mostly module-name self-references — check before touching |
+| `tests` | ~1,360 | follows whichever phase owns the code |
+| `tools` + `agent` + `gateway` + `ui-tui` + `web` | ~450 | leftovers, mostly prose |
+| `scripts` + `nix` | 213 | prose + internal nix identifiers |
+| `skills` + `plugins/*` | ~200 | 8 |
+
+The 1,338 left in `apps/desktop` are not work: they are the internal
+identifiers §2 keeps (`hermesHome`, `HermesGateway`, `HermesConfigRecord`),
+the source file names imports resolve through (`@/hermes`,
+`@/types/hermes`, `use-hermes-config`), Nous's model slugs, upstream repo
+URLs, and example hosts in test fixtures (`https://gw.example.com/hermes`).
+Phase 11 has to decide whether the gate grows an allowlist for those or
+whether `check_branding.py`'s `BRAND_RE` learns about camelCase — as written
+it can never reach zero, because `hermes-4` and `hermes-parser` must survive.
 
 ---
 
@@ -81,8 +91,9 @@ scripts/rebrand/check_branding.py                  # the gate, with examples
 ```
 
 Rules live in one table in `apply.py`. Each has an id, a phase, a scoped
-pattern, and an explicit `exclude` list. `tests/test_rebrand_rules.py`
-(80 tests) pins both edges: names that must survive, and names that must
+pattern, and an explicit `include`/`exclude` list — `rewrite()` in the test
+file honours that scope, because several rules only run under `apps/`. `tests/test_rebrand_rules.py`
+(226 tests) pins both edges: names that must survive, and names that must
 move. **Add a case there for every new rule** — that file is excluded from
 the sweep precisely because the old names are its fixtures.
 
@@ -121,6 +132,12 @@ is worse than no rename — it silently breaks a lookup that used to work.
 | Bare name as a variable | `hermes = hosts.get(...)` renamed, `hermes.get(...)` not → **live `NameError` in `plugins/memory/honcho/cli.py`** | Run the AST check in §5 |
 | Two spellings of one name | `_looks_like_human_speaker('agentx agent', 'AgentX Workmate')` — lowercase and Title Case moved by different rules | Grep for both forms together |
 | `git grep -E` | Does **not** support `\b`. An early "the tree is clean" check was simply wrong | Use `git grep -P` |
+| Regex literal opening delimiter | `([\\/]+)Hermes` read the `/` of `/Hermes is not installed/` as a path separator and produced `/AgentX Workmate is not installed/`, which stopped matching the message the code throws | Add `(?! [a-z])` — a path segment is never followed by a space and a lowercase word |
+| Escaped separator inside a regex literal | `(?<=/)opt/hermes` never saw `\/opt\/hermes` in `assert.match(script, /rm -rf '\/opt\/hermes\/…'/)`, so the fixture data moved and the expectation reading it did not | Spell the separator `(\\?/)`, the same doubling trap as `AppData\\Local` |
+| Relative import vs. relative launcher | `./hermes` is the launcher in a shell script and `src/hermes.ts` in the desktop. One rule covering both rewrote six `from './hermes'` specifiers into modules that do not exist | Split the rule and scope the relative form away from `apps/` |
+| Bare name as a variable, in TypeScript too | `const hermes = await import('@/hermes')` renamed, `hermes.getHermesConfig` not — the §4 Python trap, in another language | `tsc --noEmit` catches it as TS2304; run every workspace's typecheck, not just the tests |
+| A third party sharing the name | `hermes-parser` and `hermes-estree` are Meta's JS-engine packages and reach the tree as ordinary npm deps; a kebab sweep would rename them and break `npm ci` | Guard by name, even when no in-scope file references them yet |
+| Import order is brand-sensitive | `@hermes/shared` → `@agentx/shared` and `HERMES_PATHS_MIME` → `AGENTX_PATHS_MIME` change where a symbol sorts, so eslint's `perfectionist/sort-imports` starts failing | Run `npm run lint` after a sweep; `lint:fix` resolves it mechanically |
 
 ### Must never be renamed
 
@@ -135,6 +152,13 @@ is worse than no rename — it silently breaks a lookup that used to work.
 * **`hermes-tools`** — MCP server name in codex config.
 * **`hermes_cli`, `hermes-ink`, `hermes-achievements`** — Python module and
   npm/plugin directory names.
+* **`hermes-parser`, `hermes-estree`** — Meta's JavaScript-engine packages,
+  ordinary npm dependencies. `app-kebab` guards them by name.
+* **`hermes-0day`** — the name of a security campaign, not a product.
+* **`@/hermes`, `@/types/hermes`, `use-hermes-config`, `windows-hermes-path`**
+  — source FILE names in `apps/desktop`. Renaming a specifier without the
+  file is an unresolved import; every kebab guard refuses a preceding hyphen
+  for exactly this reason.
 
 ---
 
@@ -217,167 +241,123 @@ PY
 
 ---
 
-## 6. Phase 4 — Desktop app (Electron)
+## 6. Phases 4–7 — done
 
-**Scope** `apps/desktop/` — 4,376 tokens. Currently untouched: phase 3
-excluded it wholesale so the app keeps working while the CLI moved.
+All four landed in one commit, because the families cross their boundaries:
+the desktop's update chain names the bootstrap installer (5), the installer
+writes the marker files the Electron main process reads (5), and the
+dashboard route the desktop calls is declared in `hermes_cli/web_server.py`.
 
-### Packaging identity — `apps/desktop/package.json`
+### Phase 4 — Desktop app
 
-| Line | Key | Now | Target |
-|---|---|---|---|
-| 2 | `name` | `hermes` | `agentx-workmate` |
-| 3, 166 | `productName` | `Hermes` | `AgentX Workmate` |
-| 165 | `appId` | `com.nousresearch.hermes` | `com.agentx.workmate` |
-| 167 | `executableName` | `Hermes` | `AgentX Workmate` |
-| 170 | protocol `name` | `Hermes Protocol` | `AgentX Workmate Protocol` |
-| — | protocol `schemes` | `["hermes"]` | `["agentx"]` |
-| 176 | `artifactName` | `Hermes-${version}-…` | `AgentXWorkmate-${version}-…` |
-| 212–214 | `CFBundleDisplayName/Executable/Name` | `Hermes` | `AgentX Workmate` |
-| — | `NS*UsageDescription` ×3 | "Hermes uses the microphone…" | rewrite |
-| 227 | dmg `title` | `Install Hermes` | `Install AgentX Workmate` |
-| 249 | `legalTrademarks` | `Hermes` | `AgentX Workmate` |
-| 258 | linux `maintainer` | `Nous Research <support@nousresearch.com>` | `AstralX Technology <kien.le@astralx.com.vn>` |
-| 259 | linux `synopsis` | "…for Hermes Agent." | rewrite |
-| 270–271 | nsis `shortcutName`, `uninstallDisplayName` | `Hermes` | `AgentX Workmate` |
+* **Packaging identity** — `apps/desktop/package.json`: `productName`,
+  `executableName`, `CFBundle*` and the NSIS/dmg names are all
+  `AgentX Workmate`; `appId` `com.agentx.workmate`; protocol scheme
+  `agentx://`; `artifactName` `AgentXWorkmate-…`; maintainer/author
+  `AstralX Technology <kien.le@astralx.com.vn>`; the three
+  `NS*UsageDescription` strings rewritten.
+* **The full product name, not the short one.** electron-builder derives the
+  bundle and binary from `productName`/`executableName`, Electron derives
+  `userData` from `productName`, and `hermes_cli/gui_uninstall.py` derives the
+  same directory from `branding.DESKTOP_APP_NAME`. All three now read
+  `AgentX Workmate`, and `tests/test_branding_consistency.py` plus a live
+  `npm run pack` confirm it.
+* **IPC + bridge** — all 121 `hermes:*` channels → `agentx:*`, and
+  `window.hermesDesktop` → `window.agentxDesktop` across ~560 call sites and
+  the `global.d.ts` declarations. One commit, per the §4 whole-family rule.
+* **Storage namespaces** — `hermes.desktop.*` (localStorage), the plugin
+  SDK's `hermes.plugin.<id>.*`, the `hermes-boot-*` cold-start theme keys
+  (shared with `ui-tui/src/lib/themeBoot.ts`), and the `data-hermes-*` /
+  `dataset.hermes*` attribute pair.
+* **Icons** — regenerated from the CLI's own artwork by
+  `scripts/make_brand_assets.py`, which parses `WORKMATE_MASCOT` and
+  `WORKMATE_LOGO` out of `hermes_cli/banner.py` so the terminal banner and
+  the app icon cannot drift. Outputs `icon.png`/`.icns`/`.ico`,
+  `apple-touch-icon.png`, `public/brand-mark.png` and the README
+  `assets/banner.png`. The upstream `nous-girl.jpg` badge and the orphaned
+  `public/hermes*.png` sprite artwork were deleted.
 
-`executableName` and `CFBundleExecutable` feed
-`scripts/patch-electron-builder-mac-binary.mjs` and
-`scripts/after-pack.mjs` (`${productName}.exe`) — change them together.
-`scripts/test-desktop.mjs:148` hard-codes the NSIS `artifactName` template.
+### Phase 5 — Installers, packaging, containers
 
-### Icons — you must supply or generate these
+* **Python dist** `agentx-workmate`; console scripts `agentx`,
+  `agentx-agent`, `agentx-acp`. The dist name and the console script are
+  deliberately different tokens, so the rule table splits them: `dist-name`
+  moves the script/install-dir/repo-folder spelling, `dist-name-proper`
+  moves only the pip requirement specs (`agentx-workmate[cron]`),
+  `dist-artifact-name` moves the wheel/egg-info spelling, and
+  `dist-metadata-lookup` moves the three `importlib.metadata.version(…)`
+  call sites.
+* **npm** — scope `@agentx/*`, root package `agentx-agent`, `ui-tui`
+  `agentx-tui`, `apps/desktop` `agentx-workmate`. All four lockfiles
+  regenerated/renamed so no `name` field disagrees with its `package.json`.
+* **Docker** — install roots `/opt/agentx`, `/etc/agentx`, the container init
+  hook `01-agentx-setup`, and the unix user/group. That last one was already
+  half-moved: phase 3 renamed `useradd … agentx` and `s6-setuidgid agentx`
+  but not the twelve `chown -R hermes:hermes` calls, so the image created one
+  user and chowned the data volume to another that did not exist.
+* **Nix** — `services.agentx-agent`, `pkgs.agentx-agent`, `agentx-dashboard`
+  service, the `agentx-config-*` derivations.
+* **Installer flags** — `--agentx-home` (install.sh) and `-AgentXHome`
+  (install.ps1), which the desktop's `bootstrap-runner.ts` passes.
+* **Bootstrap installer** — crate `agentx-bootstrap`, lib
+  `agentx_bootstrap_lib`, `agentx-setup.manifest` (the file was renamed; the
+  `include_str!` had already moved without it), Tauri product `AgentX Setup`,
+  `com.agentx.workmate.setup`.
 
-`apps/desktop/assets/icon.icns`, `icon.ico`, `icon.png`, plus
-`apps/desktop/public/` and `assets/banner.png` at the repo root.
-The 8-bit style is already established by the CLI banner: the 5×5 pixel
-font and the 26×14 robot sprite in `hermes_cli/banner.py`
-(`WORKMATE_LOGO`, `WORKMATE_MASCOT`) on the cyan→violet ramp
-`#7DF9FF → #38BDF8 → #4F7BF7 → #6366F1 → #8B5CF6`. Render the mascot at
-1024×1024 and downscale.
+### Phase 6 — Outbound identity
 
-### Code surfaces
+The `hermes-*` User-Agent strings had already moved with `dist-name`; what
+remained was the PascalCase product token `HermesAgent/1.0` and
+`HermesAgent/{version}`, now `AgentX/…`. Bot display names, `owned_by`,
+and the codex `client_name` had already moved in phase 3 — verified, not
+re-done.
 
-* `electron/main.ts` — 240 occurrences, the largest single file.
-* `electron/preload.ts:3` — `contextBridge.exposeInMainWorld('hermesDesktop', …)`.
-  Visible in DevTools. Renaming it touches ~360 call sites across
-  `src/**` plus the `window.hermesDesktop` type declarations in
-  `src/global.d.ts`. **Rename all of them in one commit** or not at all.
-* **121 distinct IPC channels** named `hermes:*` (`hermes:api`,
-  `hermes:boot-progress`, `hermes:bootstrap:cancel`, …). Same rule: whole
-  family or none. The `:` in the name is why phase 3's `cli-command`
-  skipped them.
-* `src/lib/external-link.tsx:23` — `SKIP_PROTO_RE` lists `hermes` as a
-  protocol; must match the new `agentx://` scheme.
-* `src/lib/voice-stop-word.ts` — the wake phrase `'hermes stop'`.
-* `src/components/chat/intro.tsx:147` — `const WORDMARK = 'HERMES AGENT'`.
-* `src/components/chat/intro-copy.jsonl` — marketing copy naming Hermes.
-* `src/i18n/{en,zh,zh-hant,ja,ar}.ts` — ~560 strings.
-* `electron/desktop-uninstall.ts:98` — matches `/[\\/]hermes-desktop$/i`;
-  its `%LOCALAPPDATA%\hermes-desktop` install dir must move with it.
-* `hermes_cli/gui_uninstall.py` — **already wired**: it reads
-  `branding.DESKTOP_APP_NAME` for the Electron `userData` directory. Phase 3
-  had moved this side while `productName` still said `Hermes`, so the
-  uninstaller was looking in a directory the app never wrote to. Setting
-  `productName` to `AgentX Workmate` closes the loop — keep the two equal.
-* `apps/desktop/e2e/` — Playwright specs and visual snapshots will need
-  regenerating after the window title changes.
+### Phase 7 — Logs and diagnostics
 
-**Verify**: `npm run test:ui` (392 files) and `test:desktop:platforms`
-(79 files) must stay green, plus `npm run typecheck --prefix apps/desktop`.
-Then build a real DMG on macOS and check the name in Finder, the Dock,
-the menu bar, and About:
+Four identifiers: the log-drain thread name, the debug-bundle format id
+`agentx-debug-share/1`, and its multipart boundary. Log *paths* moved in
+phase 2.
 
-```bash
-npm run dist:mac:dmg --prefix apps/desktop
-```
+### Half-renames from earlier phases that these commits closed
 
----
+Each of these was already broken on `main` before this work started, because
+phase 3 renamed one side of a pair while `apps/*` was excluded:
 
-## 7. Phase 5 — Installers, packaging, containers
+| Broken | Effect |
+|---|---|
+| `hermes_cli/web_server.py` sent `X-Agentx-Session-Token`, desktop sent `X-Hermes-Session-Token` | every authenticated desktop→dashboard REST call rejected |
+| `main.ts` resolved the backend as `IS_WINDOWS ? 'hermes.exe' : 'agentx'` | desktop could not find its backend on Windows |
+| `hermes_cli/main.py` globbed for `AgentX.exe`/`AgentX.app`, package.json built `Hermes.*` | `agentx desktop` reported "Desktop GUI build failed" |
+| Dockerfile created user `agentx`, twelve `chown` calls targeted `hermes:hermes` | every chown failed; supervise trees stayed root-owned |
+| `website/scripts/generate-skill-docs.py` read `metadata.agentx`, all 168 `SKILL.md` say `hermes:` | skills catalog generated with no tags — visible in this commit's diff as ~170 restored `Tags` rows |
+| `plugins/memory/honcho/oauth_flow.py` reported source `hermes-desktop` beside `agentx-cli` | mismatched OAuth attribution |
+| `hermes-dashboard.service` vs the already-renamed `agentx-gateway.service` | two services shipping together under two brands |
+| `remote-lifecycle.test.ts` matched `/command -v hermes/` against a resolver sending `agentx` | SSH fixtures asserting on a command no longer issued |
+| `scripts/test-desktop.mjs` looked in `%LOCALAPPDATA%\hermes` | desktop harness reading a directory phase 2 abandoned |
 
-**Scope** `apps/bootstrap-installer/` (233), `scripts/install*` (267),
-`nix/` (214), `docker/` + `Dockerfile` (69), `pyproject.toml`, the
-`package.json` name fields.
+### Still open, and deliberately so
 
-* **Python dist** — `pyproject.toml:4` `name = "hermes-agent"` →
-  `agentx-workmate`. Entry point `hermes-agent = "run_agent:main"`
-  (line 360) → `agentx-agent`. **Deliberately deferred from phase 3**:
-  `hermes-agent` is simultaneously the dist name, the console script, the
-  Docker image, the nix module option, the install directory and the
-  upstream repo slug. Move all of them in one commit.
-* **npm names** — `package.json` `hermes-agent`, `apps/shared` `@hermes/shared`,
-  `ui-tui` `hermes-tui`, `ui-tui/packages/hermes-ink` `@hermes/ink`,
-  `apps/desktop` `hermes`. The `@hermes/*` specifiers appear in
-  `file:` workspace deps and in imports; the *directory*
-  `ui-tui/packages/hermes-ink` stays (folder name).
-* **Install root** — `$AGENTX_HOME/hermes-agent`, `/usr/local/lib/hermes-agent`,
-  `~/.agentx/hermes-agent/venv`. A user browsing `~/.agentx/` currently
-  sees a folder called `hermes-agent`; that is runtime output, not source,
-  so rename it.
-* **Docker** — `/opt/hermes` (46 sites) and the unix user/group
-  `hermes:hermes` (12 sites, `chown -R hermes:hermes`). Renaming the user
-  means the Dockerfile `useradd`, every `chown`, and
-  `hermes_cli/config.py:675` `exec_user` must move together;
-  `tests/docker/` and `tests/tools/test_dockerfile_immutable_install.py`
-  assert on them.
-* **Nix** — `services.hermes-agent` module option (8 sites) plus
-  `nix/nixosModules.nix`. A heredoc delimiter there was desynced once
-  already; grep for `_DOC_EOF` pairs after any sweep.
-* **Update markers** — `.hermes-update-old`, `.hermes-update-new`,
-  `.hermes-update-staging`, `.hermes-bootstrap-complete`, `.hermes-runtime`,
-  `.hermes-tmp`, `.hermes-sandbox`. These are created in the user's install
-  tree. Phase 2 deliberately reverted a partial rename of these; move each
-  family completely, including
-  `apps/bootstrap-installer/src-tauri/src/update.rs` and
-  `apps/desktop/electron/main.ts:3553`.
-* **Bootstrap installer** — Tauri app titled "Hermes Setup";
-  `src/routes/welcome.tsx:34` renders the `HERMES AGENT` wordmark, and
-  `src-tauri/tauri.conf.json` carries its own bundle identity.
-* **Install URLs** — `install.sh` / `install.ps1` are served from
-  `hermes-agent.nousresearch.com`. Blocked on a domain (§11).
-
-**Verify**: `tests/docker/`, `tests/test_install_sh_symlink_stomp.py`,
-`tests/hermes_cli/test_verify_console_scripts.py`,
-`tests/test_hermes_bootstrap.py`, and a real
-`pip install -e .` round-trip confirming `agentx` lands on PATH.
+* **Install URLs.** `install.sh` / `install.ps1` are still served from
+  `hermes-agent.nousresearch.com`, and `NousResearch/hermes-agent` remains the
+  repo slug. Blocked on a domain (§14). The rule table guards both by
+  pattern — `(?<!esearch/)` and `(?!\.nousresearch)` — so a future sweep will
+  not silently rewrite a host that resolves nowhere.
+* **The `hermes/<slug>` branch namespace** and the `hermes-<id>` scratch
+  worktree names (`cli.py`, `hermes_cli/web_git.py`, the desktop's
+  `git-worktree-ops.ts`, and the backup/sandbox/session-id generators in
+  `plugins/*` and `tools/environments/*`). One coherent family with no owner
+  in phases 4–7; renaming the branch prefix alone would leave
+  `agentx/hermes-deadbeef`, and the pruner matching `startswith("hermes-")`.
+  Phase 8 should take it whole.
+* **`web/`'s own `hermes.*` localStorage keys and CSS classes** — a separate
+  surface from the desktop's, no cross-app contract, no phase in 4–7.
+* **Example hosts in desktop test fixtures** (`https://gw.example.com/hermes`,
+  `/tmp/hermes-*`). Every pattern broad enough to catch them also catches
+  `@/types/hermes`, which is a real import — left rather than risked.
 
 ---
 
-## 8. Phase 6 — Gateway, bots, outbound identity
-
-**Scope** `plugins/platforms/` (61), `gateway/` (64).
-
-* **HTTP User-Agent** — every outbound request currently identifies as
-  Hermes: `hermes-cli/{version}` (`hermes_cli/auth.py:108`),
-  `hermes-agent/{version}` (`agent/gemini_native_adapter.py:967`),
-  `hermes-agent-petdex` (`agent/pet/`), `hermes-agent` (iron_proxy,
-  bitwarden), `hermes-agent-osv-check/1.0`, and two osint-skill strings.
-  These leak to every server the product talks to.
-* **Bot display names** — `hermes_cli/slack_cli.py:186` and
-  `hermes_cli/subcommands/slack.py:47` default to `"Hermes"`.
-* **API response fields** — `gateway/platforms/api_server.py:2951`
-  `"owned_by": "hermes"` in the OpenAI-compatible model list, and the
-  `X-Agentx-Session-Id` / `X-Agentx-Session-Key` request headers
-  (already renamed; note the lowercase `x` — see §4).
-* `agent/transports/codex_app_server.py:162` — `client_name="hermes"`
-  sent to the codex app server.
-
-**Verify**: `tests/gateway/`, `tests/plugins/platforms/`.
-
----
-
-## 9. Phase 7 — Logs and diagnostics
-
-**Scope** `hermes_logging.py` (33 tokens), log formatting, debug bundles.
-
-Log *paths* already moved with phase 2 (`~/.agentx/logs/`). What remains is
-the formatter prefix, crash-report headers, and the `agentx debug share`
-bundle metadata. Small phase; can be folded into 6 or 8.
-
----
-
-## 10. Phase 8 — Prompts, skills, agent-visible content
+## 7. Phase 8 — Prompts, skills, agent-visible content
 
 This is the phase that decides whether a user can tell what the product was
 built from.
@@ -407,7 +387,7 @@ built from.
 
 ---
 
-## 11. Phase 9 — Docs and website
+## 8. Phase 9 — Docs and website
 
 **Scope** 13,808 tokens — the single largest phase.
 
@@ -427,11 +407,11 @@ removed from their `exclude` lists. Watch for: `docusaurus.config.ts`
 (site title, favicon, og:image), `website/static/img/favicon.svg` (contains
 `⚕`), and the 13 remaining caduceus glyphs, all of which are in `website/`.
 
-Blocked on a domain for any URL rewriting (§13).
+Blocked on a domain for any URL rewriting (§11).
 
 ---
 
-## 12. Phase 10 — Attribution cleanup
+## 9. Phase 10 — Attribution cleanup
 
 **Scope** 1,763 `Nous Research` + 670 `nousresearch.com` occurrences.
 
@@ -452,7 +432,7 @@ Blocked on a domain for any URL rewriting (§13).
 
 ---
 
-## 13. Phase 11 — Gate and final verification
+## 10. Phase 11 — Gate and final verification
 
 1. Wire `scripts/rebrand/check_branding.py` into CI (`.github/workflows/lint.yml`)
    so any commit reintroducing the brand fails. It must report **0** first.
@@ -472,15 +452,20 @@ Blocked on a domain for any URL rewriting (§13).
 
 ---
 
-## 14. Still needed from the user
+## 11. Still needed from the user
 
 | # | Item | Blocks |
 |---|---|---|
 | 1 | Domain to replace `hermes-agent.nousresearch.com` | Phase 5 install URLs, phase 9 docs links, `WEBSITE_URL`/`DOCS_URL` in `branding.py` |
-| 2 | Decision: rename skill-frontmatter `metadata: hermes:` → `agentx:`? | Phase 8 — trade-off is a clean break vs. compatibility with agentskills.io skills written for Hermes |
-| 3 | Decision: rename the 121 `hermes:*` Electron IPC channels and `window.hermesDesktop`? | Phase 4 — only visible in DevTools; renaming touches ~500 sites |
-| 4 | Decision: rename the Docker unix user `hermes` → `agentx`? | Phase 5 — visible in `docker exec`/`ps` inside the container |
-| 5 | Icon and banner artwork, or approval to generate them from the CLI mascot | Phase 4 packaging, phase 9 README |
+| 2 | Decision: rename skill-frontmatter `metadata: hermes:` → `agentx:`? | Phase 8 — trade-off is a clean break vs. compatibility with agentskills.io skills written for Hermes. **Note**: `website/scripts/generate-skill-docs.py` had already been half-moved to `agentx:` and was reading nothing; it is back on `hermes:` and now excluded from `cli-command` alongside the other three readers |
+
+Answered during phases 4–7, recorded so they are not re-litigated:
+
+| # | Item | Answer |
+|---|---|---|
+| 3 | The 121 `hermes:*` IPC channels and `window.hermesDesktop` | **Renamed**, whole family, one commit |
+| 4 | The Docker unix user | **Renamed** to `agentx` — it was already half-renamed and the image was broken |
+| 5 | Icon and banner artwork | **Generated** from the CLI mascot by `scripts/make_brand_assets.py` |
 
 ### One-time migration for the developer machine
 

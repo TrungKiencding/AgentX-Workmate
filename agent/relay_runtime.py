@@ -560,7 +560,7 @@ class RelaySessionCoordinator:
                     "model": model,
                 }
                 self._prepare_session(host, session_context)
-                metadata = {"hermes.execution_surface": platform or "unknown"}
+                metadata = {"agentx.execution_surface": platform or "unknown"}
                 if parent_session_id and parent_session_id != session_id:
                     session = host.register_subagent(
                         {
@@ -631,7 +631,7 @@ class RelaySessionCoordinator:
                     metadata={
                         RUNTIME_SCHEMA_KEY: RUNTIME_SCHEMA_VERSION,
                         RUNTIME_INSTANCE_KEY: lease.host.runtime_id,
-                        "hermes.execution_surface": lease.platform or "unknown",
+                        "agentx.execution_surface": lease.platform or "unknown",
                     },
                 )
             except Exception:

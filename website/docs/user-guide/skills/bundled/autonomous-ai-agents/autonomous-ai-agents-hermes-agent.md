@@ -1,12 +1,12 @@
 ---
-title: "Hermes Agent — Use, configure, theme, extend, and orchestrate AgentX Workmate"
-sidebar_label: "Hermes Agent"
+title: "Agentx Agent — Use, configure, theme, extend, and orchestrate AgentX Workmate"
+sidebar_label: "Agentx Agent"
 description: "Use, configure, theme, extend, and orchestrate AgentX Workmate"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Hermes Agent
+# Agentx Agent
 
 Use, configure, theme, extend, and orchestrate AgentX Workmate.
 
@@ -20,6 +20,8 @@ Use, configure, theme, extend, and orchestrate AgentX Workmate.
 | Author | AgentX Workmate + Teknium |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `agentx`, `setup`, `configuration`, `multi-agent`, `spawning`, `cli`, `gateway`, `themes`, `skins`, `desktop-plugins`, `tui-widgets`, `petdex`, `development` |
+| Related skills | [`claude-code`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code), [`codex`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex), [`opencode`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode) |
 
 ## Reference: full SKILL.md
 
@@ -92,7 +94,7 @@ $AGENTX_HOME/skills/        Installed skills
 ~/.agentx/sessions/         Gateway routing index, request dumps, *.jsonl transcripts
 ~/.agentx/logs/             Gateway and error logs
 ~/.agentx/auth.json         OAuth tokens and credential pools
-~/.agentx/hermes-agent/     Source code (if git-installed)
+~/.agentx/agentx-agent/     Source code (if git-installed)
 ```
 
 Profiles use `~/.agentx/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$AGENTX_HOME` — never hardcode `~/.agentx`.

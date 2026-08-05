@@ -2630,8 +2630,8 @@ def _remap_path_for_user(path: str, target_home_dir: str) -> str:
     If *path* lives under ``Path.home()`` the corresponding prefix is swapped
     to *target_home_dir*; otherwise the path is returned unchanged.
 
-      /root/.agentx/hermes-agent  -> /home/alice/.agentx/hermes-agent
-      /opt/hermes                 -> /opt/hermes  (kept as-is)
+      /root/.agentx/agentx-agent  -> /home/alice/.agentx/agentx-agent
+      /opt/agentx                 -> /opt/agentx  (kept as-is)
 
     Note: this function intentionally does NOT resolve symlinks. A venv's
     ``bin/python`` is typically a symlink to the base interpreter (e.g. a
@@ -4697,7 +4697,7 @@ def _truthy_env(value: str | None) -> bool:
 
 def _is_official_docker_checkout() -> bool:
     return (
-        str(PROJECT_ROOT) == "/opt/hermes"
+        str(PROJECT_ROOT) == "/opt/agentx"
         and (PROJECT_ROOT / "docker" / "entrypoint.sh").is_file()
     )
 
@@ -4903,7 +4903,7 @@ def _guard_official_docker_root_gateway() -> None:
     print(
         "  The image entrypoint normally drops privileges to the 'agentx' user. "
         "If you override entrypoint in Docker Compose, include "
-        "/opt/hermes/docker/entrypoint.sh before the AgentX command."
+        "/opt/agentx/docker/entrypoint.sh before the AgentX command."
     )
     print(
         "  Running the gateway as root can leave root-owned files in "
@@ -6175,7 +6175,7 @@ def _setup_signal():
         print_info("    Docker: bbernhard/signal-cli-rest-api")
         print()
         print_info("  After installing, link your account and start the daemon:")
-        print_info('    signal-cli link -n "HermesAgent"')
+        print_info('    signal-cli link -n "AgentX"')
         print_info("    signal-cli --account +YOURNUMBER daemon --http 127.0.0.1:8080")
         print()
 

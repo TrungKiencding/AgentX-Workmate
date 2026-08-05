@@ -21,6 +21,7 @@ Clean training loops with built-in distributed support.
 | License | MIT |
 | Dependencies | `lightning`, `torch`, `transformers` |
 | Platforms | linux, macos, windows |
+| Tags | `PyTorch Lightning`, `Training Framework`, `Distributed Training`, `DDP`, `FSDP`, `DeepSpeed`, `High-Level API`, `Callbacks`, `Best Practices`, `Scalable` |
 
 ## Reference: full SKILL.md
 

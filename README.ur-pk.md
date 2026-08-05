@@ -219,7 +219,7 @@ agentx claw migrate --overwrite  # موجودہ متصادم فائلوں کو �
 
 ```bash
 git clone https://github.com/NousResearch/hermes-agent.git
-cd hermes-agent
+cd agentx-agent
 ./setup-hermes.sh     # uv کو انسٹال کرتا ہے، venv بناتا ہے، .[all] کو انسٹال کرتا ہے، اور ~/.local/bin/agentx کا سیم لنک (symlink) بناتا ہے
 ./agentx              # خود بخود venv کی شناخت کرتا ہے، پہلے `source` کرنے کی ضرورت نہیں
 ```

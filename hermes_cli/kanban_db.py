@@ -38,7 +38,7 @@ Board resolution order (highest precedence first, all optional):
 
 In standard installs ``<root>`` is ``~/.agentx``. In Docker / custom
 deployments where ``AGENTX_HOME`` points outside ``~/.agentx`` (e.g.
-``/opt/hermes``), ``<root>`` is ``AGENTX_HOME``. Legacy env-var
+``/opt/agentx``), ``<root>`` is ``AGENTX_HOME``. Legacy env-var
 overrides still work:
 
 * ``AGENTX_KANBAN_DB`` — pin the database file path directly.
@@ -394,7 +394,7 @@ def scoped_current_board(slug: str):
 
 # Slug validator: lowercase alphanumerics, digits, hyphens; 1–64 chars.
 # Strict enough to stop traversal (`..`) and embedded path separators, loose
-# enough that kebab-case names like ``atm10-server`` or ``hermes-agent``
+# enough that kebab-case names like ``atm10-server`` or ``agentx-agent``
 # pass without fuss. Board names with display formatting (spaces, emoji)
 # live in ``board.json``; the slug is just the directory name.
 _BOARD_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]{0,63}$")

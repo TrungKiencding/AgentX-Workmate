@@ -325,7 +325,7 @@ def _try_lazy_install_stt() -> bool:
             "This is often a permission issue: the AgentX process user cannot "
             "write to the virtual environment. Try running manually as the "
             "venv owner: `stat -c '%%u' '$(dirname $(dirname $(which python3)))'` "
-            "then `su - <owner> -c 'VIRTUAL_ENV=/opt/hermes/.venv "
+            "then `su - <owner> -c 'VIRTUAL_ENV=/opt/agentx/.venv "
             "uv pip install faster-whisper==1.2.1'`",
             exc,
         )

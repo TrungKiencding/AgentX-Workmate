@@ -38,7 +38,7 @@ DEAD_PID = 4294967294
 
 @pytest.fixture
 def marker(tmp_path):
-    return tmp_path / ".hermes-update-in-progress"
+    return tmp_path / ".agentx-update-in-progress"
 
 
 def test_marker_path_follows_process_hermes_home(tmp_path, monkeypatch):
@@ -48,7 +48,7 @@ def test_marker_path_follows_process_hermes_home(tmp_path, monkeypatch):
     put the lock somewhere the other two owners never read.
     """
     monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
-    assert update_marker_path() == tmp_path / ".hermes-update-in-progress"
+    assert update_marker_path() == tmp_path / ".agentx-update-in-progress"
 
 
 def test_acquire_writes_pid_and_start_time(marker):
@@ -229,7 +229,7 @@ class TestHandoffFromOrchestratingUpdater:
 class TestAncestryHandoff:
     """Staged updaters older than the HANDOFF_PID_ENV export never send it.
 
-    ``hermes-setup`` under ``~/.agentx`` is only refreshed by a full installer
+    ``agentx-setup`` under ``~/.agentx`` is only refreshed by a full installer
     run, so an updated checkout (new lock) driven by a pre-handoff staged
     updater (old parent) deadlocks on exit 2 forever unless the child also
     recognizes a live holder that is its own process ancestor.

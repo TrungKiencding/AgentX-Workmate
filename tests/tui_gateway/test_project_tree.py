@@ -416,19 +416,19 @@ def test_deleted_sibling_worktree_folds_into_parent_home_checkout():
     # A deleted <repo>-<suffix> worktree leaves its session with an unresolvable
     # cwd and no persisted root. It joins the parent's trunk lane — no dead-path
     # lane, no phantom project.
-    resolve = _resolver({"/www/hermes-agent": ("/www/hermes-agent", "/www/hermes-agent")})
+    resolve = _resolver({"/www/agentx-agent": ("/www/agentx-agent", "/www/agentx-agent")})
     sessions = [
-        _session("/www/hermes-agent", branch="main"),
-        _session("/www/hermes-agent-session-links"),
+        _session("/www/agentx-agent", branch="main"),
+        _session("/www/agentx-agent-session-links"),
     ]
 
     tree = pt.build_tree([], sessions, [], resolve, hydrate=True)
     project = tree["projects"][0]
 
-    assert [p["id"] for p in tree["projects"]] == ["/www/hermes-agent"]
-    assert _lane_ids(project) == ["/www/hermes-agent::branch::main"]
+    assert [p["id"] for p in tree["projects"]] == ["/www/agentx-agent"]
+    assert _lane_ids(project) == ["/www/agentx-agent::branch::main"]
     main = project["repos"][0]["groups"][0]
-    assert main["isMain"] and main["path"] == "/www/hermes-agent"
+    assert main["isMain"] and main["path"] == "/www/agentx-agent"
     assert len(main["sessions"]) == 2
 
 

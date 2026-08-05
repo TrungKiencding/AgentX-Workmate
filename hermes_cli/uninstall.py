@@ -60,13 +60,13 @@ def remove_path_from_shell_configs():
             content = config_path.read_text(encoding="utf-8")
             original_content = content
             
-            # Remove lines containing hermes-agent or agentx PATH entries
+            # Remove lines containing agentx-agent or agentx PATH entries
             new_lines = []
             skip_next = False
             
             for line in content.split('\n'):
                 # Skip the "# AgentX Workmate" comment and following line
-                if '# AgentX Workmate' in line or '# hermes-agent' in line:
+                if '# AgentX Workmate' in line or '# agentx-agent' in line:
                     skip_next = True
                     continue
                 if skip_next and ('agentx' in line.lower() and 'PATH' in line):
@@ -101,10 +101,10 @@ def remove_wrapper_script():
     wrapper_paths = [
         Path.home() / ".local" / "bin" / "agentx",
         Path.home() / ".local" / "bin" / "agentx-acp",
-        Path.home() / ".local" / "bin" / "hermes-agent",
+        Path.home() / ".local" / "bin" / "agentx-agent",
         Path("/usr/local/bin/agentx"),
         Path("/usr/local/bin/agentx-acp"),
-        Path("/usr/local/bin/hermes-agent"),
+        Path("/usr/local/bin/agentx-agent"),
     ]
     
     removed = []
@@ -113,7 +113,7 @@ def remove_wrapper_script():
             try:
                 # Check if it's our wrapper (contains hermes_cli reference)
                 content = wrapper.read_text(encoding="utf-8")
-                if 'hermes_cli' in content or 'hermes-agent' in content:
+                if 'hermes_cli' in content or 'agentx-agent' in content:
                     wrapper.unlink()
                     removed.append(wrapper)
             except Exception as e:
@@ -327,8 +327,8 @@ def _hermes_path_markers(hermes_home: Path) -> list[str]:
     """Path-entry substrings that identify AgentX-owned User-PATH entries."""
     root = str(hermes_home).rstrip("\\/")
     # Match on prefix so sub-entries (git\cmd, git\bin, git\usr\bin, node, etc.)
-    # all get swept.  Also match the bare hermes-agent install dir.
-    markers = [root + "\\hermes-agent", root + "\\git", root + "\\node", root + "\\venv"]
+    # all get swept.  Also match the bare agentx-agent install dir.
+    markers = [root + "\\agentx-agent", root + "\\git", root + "\\node", root + "\\venv"]
     # Also match if AGENTX_HOME was customised to somewhere else — find-and-nuke
     # any entry whose path component contains "agentx".  We don't want to catch
     # unrelated entries like "chermes-foo" or "ephermeral", so we look for
@@ -537,7 +537,7 @@ def run_gui_uninstall(args):
     print()
     if agent_is_installed(hermes_home):
         print(color("Kept intact:", Colors.GREEN, Colors.BOLD))
-        print(f"  • The AgentX agent at {hermes_home / 'hermes-agent'}")
+        print(f"  • The AgentX agent at {hermes_home / 'agentx-agent'}")
         print(f"  • Your config, sessions, and secrets under {hermes_home}")
         print()
 
@@ -841,7 +841,7 @@ def _perform_uninstall(
     # We need to be careful here
     try:
         if project_root.exists():
-            # If the install is inside ~/.agentx/, just remove the hermes-agent subdir
+            # If the install is inside ~/.agentx/, just remove the agentx-agent subdir
             if hermes_home in project_root.parents or project_root.parent == hermes_home:
                 shutil.rmtree(project_root)
                 log_success(f"Removed {project_root}")

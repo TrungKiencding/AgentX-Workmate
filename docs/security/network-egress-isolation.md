@@ -27,7 +27,7 @@ explicitly allowlisted set.
 │  Docker Network: internal (no internet)     │
 │                                             │
 │   ┌──────────────┐   ┌──────────────────┐   │
-│   │ hermes-agent │   │ hermes-dashboard │   │
+│   │ agentx-agent │   │ agentx-dashboard │   │
 │   └──────┬───────┘   └────────┬─────────┘   │
 │          │                    │              │
 │          ▼                    │              │
@@ -119,7 +119,7 @@ services:
     environment:
       - HTTP_PROXY=http://egress-proxy:3128
       - HTTPS_PROXY=http://egress-proxy:3128
-      - NO_PROXY=agentx,hermes-dashboard,localhost
+      - NO_PROXY=agentx,agentx-dashboard,localhost
 
   dashboard:
     network_mode: ""
@@ -164,7 +164,7 @@ docker compose exec gateway \
 
 # From the agent container: this should SUCCEED (internal network)
 docker compose exec gateway \
-  curl -sf --max-time 5 http://hermes-dashboard:9119/health && echo "OK: internal reachable" || echo "FAIL"
+  curl -sf --max-time 5 http://agentx-dashboard:9119/health && echo "OK: internal reachable" || echo "FAIL"
 
 # If using egress proxy: this should SUCCEED (allowlisted)
 docker compose exec gateway \

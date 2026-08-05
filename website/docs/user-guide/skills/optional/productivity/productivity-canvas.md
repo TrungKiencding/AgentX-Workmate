@@ -20,6 +20,7 @@ Fetch Canvas LMS courses and assignments via API token.
 | Author | community |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Canvas`, `LMS`, `Education`, `Courses`, `Assignments` |
 
 ## Reference: full SKILL.md
 

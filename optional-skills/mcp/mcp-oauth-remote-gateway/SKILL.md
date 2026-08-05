@@ -8,7 +8,7 @@ platforms: [linux, macos]
 metadata:
   hermes:
     tags: [MCP, OAuth, PKCE, Remote-Deployment]
-    related_skills: [hermes-agent, mcporter, fastmcp]
+    related_skills: [agentx-agent, mcporter, fastmcp]
 ---
 
 # MCP OAuth on a Remote AgentX Gateway

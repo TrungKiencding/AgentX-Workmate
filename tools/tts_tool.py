@@ -2323,7 +2323,7 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
         # Include AgentX client context following Gemini's partner
         # integration guidance:
         # https://ai.google.dev/gemini-api/docs/partner-integration
-        headers["X-Goog-Api-Client"] = f"hermes-agent/{_hermes_version}"
+        headers["X-Goog-Api-Client"] = f"agentx-agent/{_hermes_version}"
 
     endpoint = f"{base_url}/models/{model}:generateContent"
     response = requests.post(

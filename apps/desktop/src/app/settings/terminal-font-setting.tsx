@@ -135,7 +135,7 @@ export function TerminalFontSetting() {
               aria-label={copy.terminalFontTitle}
               className="flex-1"
               disabled={draft === null}
-              list="hermes-terminal-font-families"
+              list="agentx-terminal-font-families"
               onChange={event => update(event.target.value)}
               placeholder={copy.terminalFontPlaceholder}
               value={value}
@@ -144,7 +144,7 @@ export function TerminalFontSetting() {
               {copy.terminalFontReset}
             </Button>
           </div>
-          <datalist id="hermes-terminal-font-families">
+          <datalist id="agentx-terminal-font-families">
             {TERMINAL_FONT_SUGGESTIONS.map(font => (
               <option key={font} value={font} />
             ))}

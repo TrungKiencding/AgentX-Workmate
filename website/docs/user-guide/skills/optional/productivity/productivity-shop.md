@@ -20,6 +20,8 @@ Shop catalog search, checkout, order tracking, returns.
 | Author | Joe Rinaldi Johnson (joerj123), AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Shopping`, `E-commerce`, `Shop`, `Products`, `Orders`, `Returns`, `Checkout`, `Reorder` |
+| Related skills | [`shopify`](/docs/user-guide/skills/optional/productivity/productivity-shopify), [`maps`](/docs/user-guide/skills/bundled/productivity/productivity-maps) |
 
 ## Reference: full SKILL.md
 

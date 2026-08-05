@@ -15,7 +15,7 @@ def _host_block(refresh="hch-rt-old", expires_at=10_000):
         "oauth": {
             "refreshToken": refresh,
             "expiresAt": expires_at,
-            "clientId": "hermes-desktop",
+            "clientId": "agentx-desktop",
             "tokenEndpoint": "http://localhost:8000/oauth/token",
             "scope": "write",
             "tokenType": "Bearer",
@@ -42,7 +42,7 @@ class TestCredentialModel:
         block = cred.oauth_block()
         assert block["refreshToken"] == "hch-rt-old"
         assert block["expiresAt"] == 10_000
-        assert block["clientId"] == "hermes-desktop"
+        assert block["clientId"] == "agentx-desktop"
 
     def test_incomplete_block_returns_none(self):
         # plain API key (no oauth sub-block)
@@ -83,7 +83,7 @@ class TestEnsureFreshToken:
         def fake_post(url, data, timeout):
             assert data["grant_type"] == "refresh_token"
             assert data["refresh_token"] == "hch-rt-old"
-            assert data["client_id"] == "hermes-desktop"
+            assert data["client_id"] == "agentx-desktop"
             return {
                 "access_token": "hch-at-new",
                 "refresh_token": "hch-rt-new",
@@ -152,7 +152,7 @@ class TestInstallGrant:
         }
         cred = oauth.install_grant(
             path, "agentx", grant,
-            client_id="hermes-desktop",
+            client_id="agentx-desktop",
             token_endpoint="http://localhost:8000/oauth/token",
             now=1000,
         )

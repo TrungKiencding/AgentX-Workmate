@@ -223,7 +223,7 @@ class TestCmdUpdateBranchFallback:
         with patch.object(
             hm,
             "_get_origin_url",
-            return_value="https://github.com/example/hermes-agent.git",
+            return_value="https://github.com/example/agentx-agent.git",
         ), patch.object(hm, "_sync_with_upstream_if_needed") as sync_mock:
             cmd_update(mock_args)
 

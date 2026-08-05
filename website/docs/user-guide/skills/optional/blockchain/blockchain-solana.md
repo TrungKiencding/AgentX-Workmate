@@ -20,6 +20,7 @@ Query Solana wallets, tokens, txs, and NFTs in USD.
 | Author | Deniz Alagoz (gizdusum), enhanced by AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Solana`, `Blockchain`, `Crypto`, `Web3`, `RPC`, `DeFi`, `NFT` |
 
 ## Reference: full SKILL.md
 

@@ -19,7 +19,7 @@ import { $workspaceChangeTick } from './workspace-events'
 // session's cwd is the repo; the pane reads git as the source of truth, the
 // same bounded "re-probe on structural edges" model as the coding rail.
 //
-// Scope is always "uncommitted" — Hermes' flow is agent edits you review BEFORE
+// Scope is always "uncommitted" — AgentX' flow is agent edits you review BEFORE
 // committing, so branch/last-turn scopes are almost always empty here (unlike
 // Codex, which commits per turn). We show the one view that's always populated.
 
@@ -27,10 +27,10 @@ import { $workspaceChangeTick } from './workspace-events'
 // event is addressed by pane id).
 export const REVIEW_PANE_ID = 'review'
 
-const OPEN_KEY = 'hermes.desktop.reviewOpen'
-const COMMIT_DEFAULT_KEY = 'hermes.desktop.reviewCommitDefault'
-const TREE_MODE_KEY = 'hermes.desktop.reviewTreeMode'
-const SELECTED_KEY = 'hermes.desktop.reviewSelectedPath'
+const OPEN_KEY = 'agentx.desktop.reviewOpen'
+const COMMIT_DEFAULT_KEY = 'agentx.desktop.reviewCommitDefault'
+const TREE_MODE_KEY = 'agentx.desktop.reviewTreeMode'
+const SELECTED_KEY = 'agentx.desktop.reviewSelectedPath'
 const REVIEW_REFRESH_DEBOUNCE_MS = 100
 const SHIP_INFO_STALE_MS = 30_000
 
@@ -96,7 +96,7 @@ export const reviewRepoCwd = (): null | string => $reviewScopeCwd.get()?.trim() 
 
 const repoCwd = reviewRepoCwd
 
-type ReviewBridge = NonNullable<NonNullable<NonNullable<Window['hermesDesktop']>['git']>['review']>
+type ReviewBridge = NonNullable<NonNullable<NonNullable<Window['agentxDesktop']>['git']>['review']>
 let reviewRefreshSeq = 0
 let reviewRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let shipInfoSeq = 0
@@ -515,7 +515,7 @@ export async function createOrOpenPr(): Promise<void> {
   const existing = $reviewShipInfo.get().pr
 
   if (existing?.url) {
-    void window.hermesDesktop?.openExternal?.(existing.url)
+    void window.agentxDesktop?.openExternal?.(existing.url)
 
     return
   }
@@ -524,7 +524,7 @@ export async function createOrOpenPr(): Promise<void> {
     const { url } = await ctx.review.createPr(ctx.cwd)
 
     if (url) {
-      void window.hermesDesktop?.openExternal?.(url)
+      void window.agentxDesktop?.openExternal?.(url)
     }
 
     void refreshShipInfo()

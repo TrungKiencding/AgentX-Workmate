@@ -446,11 +446,11 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
 
     Layout produced
     ---------------
-    ``svc_dir/``                           hermes:hermes, 0755 (parent must already exist)
-    ``svc_dir/event/``                     hermes:hermes, 03730   (setgid + g+rwx + sticky)
-    ``svc_dir/supervise/``                 hermes:hermes, 0755
-    ``svc_dir/supervise/event/``           hermes:hermes, 03730
-    ``svc_dir/supervise/control``          hermes:hermes, 0660    (FIFO)
+    ``svc_dir/``                           agentx:agentx, 0755 (parent must already exist)
+    ``svc_dir/event/``                     agentx:agentx, 03730   (setgid + g+rwx + sticky)
+    ``svc_dir/supervise/``                 agentx:agentx, 0755
+    ``svc_dir/supervise/event/``           agentx:agentx, 03730
+    ``svc_dir/supervise/control``          agentx:agentx, 0660    (FIFO)
 
     The ``death_tally``, ``lock``, and ``status`` regular files end up
     written by s6-supervise itself (as root), but those land mode 0644 —
@@ -672,7 +672,7 @@ class S6ServiceManager:
             "set -e",
             "export HOME=/opt/data",
             "cd /opt/data",
-            ". /opt/hermes/.venv/bin/activate",
+            ". /opt/agentx/.venv/bin/activate",
         ]
         for k, v in sorted(extra_env.items()):
             lines.append(f"export {k}={shlex.quote(v)}")

@@ -21,6 +21,7 @@ Structured LLM outputs validated with Pydantic.
 | License | MIT |
 | Dependencies | `instructor`, `pydantic`, `openai`, `anthropic` |
 | Platforms | linux, macos, windows |
+| Tags | `Prompt Engineering`, `Instructor`, `Structured Output`, `Pydantic`, `Data Extraction`, `JSON Parsing`, `Type Safety`, `Validation`, `Streaming`, `OpenAI`, `Anthropic` |
 
 ## Reference: full SKILL.md
 

@@ -52,14 +52,14 @@ FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f
 FROM debian:13.4
 
 # Disable Python stdout buffering to ensure logs are printed immediately.
-# Do not write .pyc files at runtime: /opt/hermes is immutable in the
+# Do not write .pyc files at runtime: /opt/agentx is immutable in the
 # published container and writable state belongs under /opt/data.
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Store Playwright browsers outside the volume mount so the build-time
 # install survives the /opt/data volume overlay at runtime.
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/agentx/.playwright
 
 # Install system dependencies in one layer, clear APT cache.
 # tini was previously PID 1 to reap orphaned zombie processes (MCP stdio
@@ -166,7 +166,7 @@ COPY --from=node_source /usr/local/lib/node_modules/npm /usr/local/lib/node_modu
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-WORKDIR /opt/hermes
+WORKDIR /opt/agentx
 
 # ---------- Layer-cached dependency install ----------
 # Copy only package manifests first so npm install + Playwright are cached
@@ -190,7 +190,7 @@ COPY apps/shared/ apps/shared/
 # explicitly anyway as defense-in-depth: the previous Debian-bundled npm
 # 9.x defaulted to install-as-copy, which produced a hidden
 # node_modules/.package-lock.json that permanently disagreed with the root
-# lock on the @hermes/ink entry, tripped the TUI launcher's
+# lock on the @agentx/ink entry, tripped the TUI launcher's
 # `_tui_need_npm_install()` check on every startup, and triggered a
 # runtime `npm install` that then failed with EACCES.  Keeping the env
 # guards against a future regression if the source npm version changes.
@@ -248,7 +248,7 @@ RUN cd plugins/platforms/photon/sidecar && \
 # remain external and are not part of the AgentX production image.
 #
 # The hindsight memory provider's client (hindsight-client) is baked in
-# for the same reason: it lazy-installs into /opt/hermes/.venv at first
+# for the same reason: it lazy-installs into /opt/agentx/.venv at first
 # use, which lives inside the (immutable) image layer rather than the
 # mounted /opt/data volume, so it is lost on every container recreate /
 # image update and recall/retain then fails with
@@ -286,20 +286,20 @@ RUN cd web && npm run build && \
 COPY --link --chmod=a+rX,go-w . .
 
 # ---------- Permissions ----------
-# Link hermes-agent itself (editable). Deps are already installed in the
+# Link agentx-agent itself (editable). Deps are already installed in the
 # cached layer above; `--no-deps` makes this a fast egg-link creation with no
 # resolution or downloads.
 RUN uv pip install --no-cache-dir --no-deps -e "."
 
-# Wire the exec shim and install-method stamp.  Files under /opt/hermes are
+# Wire the exec shim and install-method stamp.  Files under /opt/agentx are
 # already root-owned (COPY, uv sync, npm install all run as root) and
 # read-only for the agentx user (go-w from the --chmod above).
 
 USER root
-RUN mkdir -p /opt/hermes/bin && \
-    cp /opt/hermes/docker/hermes-exec-shim.sh /opt/hermes/bin/agentx && \
-    chmod 0755 /opt/hermes/bin/agentx && \
-    printf 'docker\n' > /opt/hermes/.install_method
+RUN mkdir -p /opt/agentx/bin && \
+    cp /opt/agentx/docker/hermes-exec-shim.sh /opt/agentx/bin/agentx && \
+    chmod 0755 /opt/agentx/bin/agentx && \
+    printf 'docker\n' > /opt/agentx/.install_method
 # The ``.install_method`` stamp is baked next to the running code (the install
 # tree), NOT into $AGENTX_HOME. $AGENTX_HOME (/opt/data) is a shared data
 # volume that is commonly bind-mounted from the host and even shared with a
@@ -319,7 +319,7 @@ RUN mkdir -p /opt/hermes/bin && \
 # we can't tell which commit the user is actually running.
 #
 # Fix: write the commit SHA passed via the AGENTX_GIT_SHA build-arg to
-# /opt/hermes/.hermes_build_sha at build time, and have
+# /opt/agentx/.hermes_build_sha at build time, and have
 # hermes_cli/build_info.py read it at runtime.  Both `agentx dump` and
 # banner.get_git_banner_state() try the baked SHA first, then fall back
 # to live `git rev-parse` for source installs (unchanged behaviour).
@@ -330,7 +330,7 @@ RUN mkdir -p /opt/hermes/bin && \
 # every published image has it.
 ARG AGENTX_GIT_SHA=
 RUN if [ -n "${AGENTX_GIT_SHA}" ]; then \
-        printf '%s\n' "${AGENTX_GIT_SHA}" > /opt/hermes/.hermes_build_sha; \
+        printf '%s\n' "${AGENTX_GIT_SHA}" > /opt/agentx/.hermes_build_sha; \
     fi
 
 # ---------- s6-overlay service wiring ----------
@@ -350,17 +350,17 @@ COPY docker/s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 # slots from $AGENTX_HOME/profiles/<name>/ after a container restart
 # (the /run/service/ scandir is tmpfs and wiped on restart). Phase 4.
 RUN mkdir -p /etc/cont-init.d && \
-    printf '#!/command/with-contenv sh\nexec /opt/hermes/docker/stage2-hook.sh\n' \
-        > /etc/cont-init.d/01-hermes-setup && \
-    chmod +x /etc/cont-init.d/01-hermes-setup
+    printf '#!/command/with-contenv sh\nexec /opt/agentx/docker/stage2-hook.sh\n' \
+        > /etc/cont-init.d/01-agentx-setup && \
+    chmod +x /etc/cont-init.d/01-agentx-setup
 COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-supervise-perms
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-ENV AGENTX_WEB_DIST=/opt/hermes/hermes_cli/web_dist
+ENV AGENTX_WEB_DIST=/opt/agentx/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
 # `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
-# fast path (`node --expose-gc /opt/hermes/ui-tui/dist/entry.js`) and skip the
+# fast path (`node --expose-gc /opt/agentx/ui-tui/dist/entry.js`) and skip the
 # _tui_need_npm_install / runtime `npm install` branch entirely — exactly the
 # nix/packaged-release path the launcher was designed for.
 #
@@ -374,11 +374,11 @@ ENV AGENTX_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # embedded-chat (/api/pty) connections → ENOTEMPTY → the chat tab dies with a
 # 502 / "[session ended]". Pointing at the prebuilt bundle sidesteps the whole
 # check. (A separate launcher hardening is tracked independently.)
-ENV AGENTX_TUI_DIR=/opt/hermes/ui-tui
+ENV AGENTX_TUI_DIR=/opt/agentx/ui-tui
 ENV AGENTX_HOME=/opt/data
 ENV AGENTX_WRITE_SAFE_ROOT=/opt/data
 ENV AGENTX_DISABLE_LAZY_INSTALLS=1
-# The published image seals /opt/hermes (root-owned, read-only) so a runtime
+# The published image seals /opt/agentx (root-owned, read-only) so a runtime
 # lazy install can't mutate the agent's own venv and brick it. But opt-in
 # backends (Firecrawl web search, Exa, Feishu, …) keep their SDKs in
 # tools/lazy_deps.py — deliberately NOT baked into [all] (see pyproject.toml
@@ -396,28 +396,28 @@ ENV AGENTX_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
 # `docker exec <c> agentx ...` they default to root, and any file the
 # command writes under $AGENTX_HOME (auth.json, .env, config.yaml) ends
 # up root-owned and unreadable to the supervised gateway (UID 10000).
-# The shim lives at /opt/hermes/bin/agentx, sits earliest on PATH, and
+# The shim lives at /opt/agentx/bin/agentx, sits earliest on PATH, and
 # transparently re-exec's the real venv binary via `s6-setuidgid agentx`
 # when invoked as root. Non-root callers (supervised processes,
 # `--user agentx`, etc.) hit the short-circuit path with no overhead.
 # Recursion is impossible because the shim exec's the venv binary by
-# absolute path (/opt/hermes/.venv/bin/agentx). See the shim source for
+# absolute path (/opt/agentx/.venv/bin/agentx). See the shim source for
 # the opt-out env var (AGENTX_DOCKER_EXEC_AS_ROOT=1).
-COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/hermes/bin/agentx
-COPY --chmod=0755 docker/entrypoint-dispatch.sh /opt/hermes/docker/entrypoint-dispatch.sh
+COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/agentx/bin/agentx
+COPY --chmod=0755 docker/entrypoint-dispatch.sh /opt/agentx/docker/entrypoint-dispatch.sh
 
 # Pre-s6 entrypoint.sh did `source .venv/bin/activate` which exported
 # the venv bin onto PATH; Architecture B's main-wrapper.sh does the
 # same for the container's main process, but `docker exec` and our
 # cont-init.d scripts don't pass through the wrapper. Expose the venv
 # bin globally so `docker exec <container> agentx ...` and any
-# subprocess that doesn't activate the venv first still find hermes.
+# subprocess that doesn't activate the venv first still find agentx.
 #
-# /opt/hermes/bin is prepended ahead of the venv so the privilege-drop
+# /opt/agentx/bin is prepended ahead of the venv so the privilege-drop
 # shim wins PATH resolution. The shim's last act is to exec the venv
 # binary by absolute path, so this PATH ordering is transparent to
 # every other consumer.
-ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:${PATH}"
+ENV PATH="/opt/agentx/bin:/opt/agentx/.venv/bin:/opt/data/.local/bin:${PATH}"
 RUN mkdir -p /opt/data
 VOLUME [ "/opt/data" ]
 
@@ -453,5 +453,5 @@ VOLUME [ "/opt/data" ]
 # supervised PID-1 path and the non-PID-1 fallback path. Without the
 # wrapper-as-ENTRYPOINT, leading-dash args like `--version` would be
 # intercepted by /init's POSIX shell.
-ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
+ENTRYPOINT [ "/opt/agentx/docker/entrypoint-dispatch.sh" ]
 CMD [ ]

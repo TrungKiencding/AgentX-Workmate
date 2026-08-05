@@ -9,7 +9,7 @@ probing, no conda guards, no multi-location resolution chains.
 
 The Python backing the install is different: it is shared by every AgentX
 profile because the checkout's ``venv`` is shared.  Runtime repair therefore
-uses an install-scoped store under ``<checkout>/.hermes-runtime/python``. A
+uses an install-scoped store under ``<checkout>/.agentx-runtime/python``. A
 vulnerable interpreter is never reinstalled in place. We provision a new
 immutable Python generation, build and smoke-test a relocatable sibling venv,
 then cut over with same-filesystem renames. The old venv remains available for
@@ -40,7 +40,7 @@ from hermes_cli.sqlite_runtime import SQLiteRuntimeInfo, probe_sqlite_runtime
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_RUNTIME_DIR_NAME = ".hermes-runtime"
+_RUNTIME_DIR_NAME = ".agentx-runtime"
 _VENV_NAME = "venv"
 _ALT_VENV_NAME = ".venv"
 _REPAIR_LOCK_NAME = "runtime-repair.lock"
@@ -395,7 +395,7 @@ def _reload_hermes_constants():
     contains it, which is what made this read as a contradiction:
 
         cannot import name 'venv_python_path' from 'hermes_constants'
-        (~/.agentx/hermes-agent/hermes_constants.py)
+        (~/.agentx/agentx-agent/hermes_constants.py)
 
     Reloading picks up the definitions actually on disk, so callers keep using
     the shared helper instead of hand-rolling a second copy of its logic. Same

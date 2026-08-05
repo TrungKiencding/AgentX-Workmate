@@ -1,5 +1,5 @@
 ---
-name: hermes-agent
+name: agentx-agent
 description: "Use, configure, theme, extend, and orchestrate AgentX Workmate."
 version: 3.1.0
 author: AgentX Workmate + Teknium
@@ -77,7 +77,7 @@ $AGENTX_HOME/skills/        Installed skills
 ~/.agentx/sessions/         Gateway routing index, request dumps, *.jsonl transcripts
 ~/.agentx/logs/             Gateway and error logs
 ~/.agentx/auth.json         OAuth tokens and credential pools
-~/.agentx/hermes-agent/     Source code (if git-installed)
+~/.agentx/agentx-agent/     Source code (if git-installed)
 ```
 
 Profiles use `~/.agentx/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$AGENTX_HOME` — never hardcode `~/.agentx`.

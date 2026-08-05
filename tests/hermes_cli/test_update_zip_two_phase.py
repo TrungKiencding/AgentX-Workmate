@@ -119,7 +119,7 @@ def test_staging_clears_leftovers_from_an_interrupted_run(tmp_path):
     live, new = tmp_path / "live", tmp_path / "new"
     _live_tree(live, {"agent": "old"})
     _live_tree(new, {"agent": "new"})
-    stale = Path(f"{live / 'agent'}.hermes-update-staging")
+    stale = Path(f"{live / 'agent'}.agentx-update-staging")
     stale.mkdir()
     (stale / "junk.txt").write_text("from a previous crash")
 
@@ -364,7 +364,7 @@ def test_staging_restores_backup_when_dst_is_missing(tmp_path, monkeypatch):
     live.mkdir()
     _live_tree(new, {"agent": "new"})
     # Simulate the crashed state: dst gone, backup holds the old tree.
-    backup = live / "agent.hermes-update-old"
+    backup = live / "agent.agentx-update-old"
     backup.mkdir()
     (backup / "version.txt").write_text("old")
 

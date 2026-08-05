@@ -6,7 +6,7 @@
 # Per-service privilege drop happens inside each service's `run` script
 # (and in main-wrapper.sh) via s6-setuidgid, not here.
 #
-# Wired into the image as /etc/cont-init.d/01-hermes-setup by the
+# Wired into the image as /etc/cont-init.d/01-agentx-setup by the
 # Dockerfile. The shim at docker/entrypoint.sh forwards to this script
 # so external references to docker/entrypoint.sh still work.
 #
@@ -18,7 +18,7 @@
 set -eu
 
 AGENTX_HOME="${AGENTX_HOME:-/opt/data}"
-INSTALL_DIR="/opt/hermes"
+INSTALL_DIR="/opt/agentx"
 
 # Drop to agentx via s6-setuidgid, but skip it when already non-root.
 as_hermes() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid agentx "$@"; }
@@ -30,7 +30,7 @@ as_hermes() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid agentx "$@";
 #
 # Under s6-overlay this no longer works: the bootstrap (UID remap, data-volume
 # ownership, config seeding) requires root, and it is skipped when the container
-# starts non-root. The baked install tree under /opt/hermes is intentionally
+# starts non-root. The baked install tree under /opt/agentx is intentionally
 # root-owned and non-writable; mutable runtime state must live under
 # $AGENTX_HOME. An arbitrary `--user` UID therefore cannot repair or populate
 # the data volume, and startup fails with EACCES. See #34837 for the
@@ -49,11 +49,11 @@ as_hermes() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid agentx "$@";
 cur_uid="$(id -u)"
 if [ "$cur_uid" != 0 ] && [ "$cur_uid" != "$(id -u agentx)" ]; then
     cat >&2 <<EOF
-[stage2] ERROR: container started with --user $cur_uid (an arbitrary, non-hermes UID).
+[stage2] ERROR: container started with --user $cur_uid (an arbitrary, non-agentx UID).
 
 This is not supported under the s6-overlay image. The container bootstrap
 (UID remap, data-volume ownership, config seeding) needs to start as root,
-and the baked /opt/hermes install tree is intentionally root-owned and
+and the baked /opt/agentx install tree is intentionally root-owned and
 non-writable, so a pinned --user UID cannot repair startup state — startup
 will fail.
 
@@ -78,7 +78,7 @@ fi
 # privileges so the chown checks below see real metadata and the later
 # `s6-setuidgid agentx mkdir -p` block doesn't EACCES on root-owned
 # ancestors. Without this, custom AGENTX_HOME paths whose parents only
-# root can create (e.g. `AGENTX_HOME=/home/hermes/.agentx` in a Compose
+# root can create (e.g. `AGENTX_HOME=/home/agentx/.agentx` in a Compose
 # file, or any path under a fresh / not pre-populated by the image)
 # fail on first boot with `mkdir: cannot create directory '/...': Permission
 # denied` and the cont-init hook exits non-zero. Idempotent — `mkdir -p`
@@ -135,7 +135,7 @@ fi
 # the entry, the dropped process has `Groups: 998 10000` as expected.
 #
 # Fix: detect the socket's GID at boot and ensure /etc/group has a
-# matching entry that includes hermes. Idempotent across container
+# matching entry that includes agentx. Idempotent across container
 # restarts. Skipped silently when no socket is bind-mounted.
 #
 # Handles the awkward corner cases:
@@ -178,7 +178,7 @@ done
 # host-mounted bind containing unrelated user files; `chown -R` would
 # silently destroy host ownership of those (see issue #19788).
 #
-# The canonical list of hermes-owned subdirs is the same one the s6-setuidgid
+# The canonical list of agentx-owned subdirs is the same one the s6-setuidgid
 # mkdir -p block below seeds. Keep them in sync if the seed list changes.
 actual_hermes_uid=$(id -u agentx)
 
@@ -216,7 +216,7 @@ chown_hermes_tree() {
     if refuse_symlinked_path "recursive chown" "$target"; then
         return 0
     fi
-    chown -R hermes:hermes "$target" 2>/dev/null || \
+    chown -R agentx:agentx "$target" 2>/dev/null || \
         echo "[stage2] Warning: chown $target failed (rootless container?) — continuing"
 }
 
@@ -241,7 +241,7 @@ if [ "$needs_chown" = true ]; then
     if refuse_symlinked_path "chown" "$AGENTX_HOME"; then
         :
     else
-        chown hermes:hermes "$AGENTX_HOME" 2>/dev/null || \
+        chown agentx:agentx "$AGENTX_HOME" 2>/dev/null || \
             echo "[stage2] Warning: chown $AGENTX_HOME failed (rootless container?) — continuing"
     fi
     # AgentX-owned subdirs: recursive chown is safe here because these are
@@ -258,7 +258,7 @@ fi
 # Do not chown runtime code or dependency trees under $INSTALL_DIR back to the
 # agentx user. Hosted/container instances keep mutable state under
 # $AGENTX_HOME (/opt/data) and run with PYTHONDONTWRITEBYTECODE plus
-# AGENTX_DISABLE_LAZY_INSTALLS=1. Keeping /opt/hermes root-owned and
+# AGENTX_DISABLE_LAZY_INSTALLS=1. Keeping /opt/agentx root-owned and
 # non-writable prevents an agent session from self-modifying the installed
 # source, venv, TUI bundle, or node_modules and bricking the gateway.
 #
@@ -295,10 +295,10 @@ if [ -d "$AGENTX_HOME/cron" ] && tree_has_non_hermes_owner "$AGENTX_HOME/cron"; 
     chown_hermes_tree "$AGENTX_HOME/cron"
 fi
 
-# Always ensure logs/gateways is hermes-owned (#45258). Formerly healed by
+# Always ensure logs/gateways is agentx-owned (#45258). Formerly healed by
 # restartable gateway log/run chown — removed due to symlink TOCTOU
 # (CWE-59/367). The targeted data-volume chown above only runs when the
-# top-level $AGENTX_HOME is mis-owned, so a warm volume with hermes-owned
+# top-level $AGENTX_HOME is mis-owned, so a warm volume with agentx-owned
 # AGENTX_HOME but root-owned logs/gateways would otherwise leave
 # s6-setuidgid agentx mkdir failing with Permission denied. Non-recursive:
 # profile leaf dirs are each created/owned by their own log/run as hermes.
@@ -306,7 +306,7 @@ if [ -d "$AGENTX_HOME/logs/gateways" ]; then
     if refuse_symlinked_path "chown" "$AGENTX_HOME/logs/gateways"; then
         :
     else
-        chown hermes:hermes "$AGENTX_HOME/logs/gateways" 2>/dev/null || true
+        chown agentx:agentx "$AGENTX_HOME/logs/gateways" 2>/dev/null || true
     fi
 fi
 
@@ -328,8 +328,8 @@ if [ -d "$AGENTX_HOME/pairing" ] && tree_has_non_hermes_owner "$AGENTX_HOME/pair
     chown_hermes_tree "$AGENTX_HOME/pairing"
 fi
 
-# Reset ownership of hermes-owned top-level state files on every boot.
-# The targeted data-volume chown above only covers hermes-owned
+# Reset ownership of agentx-owned top-level state files on every boot.
+# The targeted data-volume chown above only covers agentx-owned
 # *subdirectories*; loose state files living directly under $AGENTX_HOME
 # are missed. When those files are created or rewritten by
 # `docker exec <container> agentx …` (root unless `-u` is passed) they
@@ -354,7 +354,7 @@ for f in \
         if refuse_symlinked_path "chown" "$AGENTX_HOME/$f"; then
             :
         else
-            chown hermes:hermes "$AGENTX_HOME/$f" 2>/dev/null || true
+            chown agentx:agentx "$AGENTX_HOME/$f" 2>/dev/null || true
         fi
     fi
 done
@@ -366,7 +366,7 @@ if [ -f "$AGENTX_HOME/config.yaml" ]; then
     if refuse_symlinked_path "chown/chmod" "$AGENTX_HOME/config.yaml"; then
         :
     else
-        chown hermes:hermes "$AGENTX_HOME/config.yaml" 2>/dev/null || true
+        chown agentx:agentx "$AGENTX_HOME/config.yaml" 2>/dev/null || true
         chmod 640 "$AGENTX_HOME/config.yaml" 2>/dev/null || true
     fi
 fi
@@ -397,7 +397,7 @@ as_hermes mkdir -p \
 
 # --- Install-method stamp ---
 # The 'docker' stamp is baked into the immutable install tree at
-# /opt/hermes/.install_method (see Dockerfile), NOT written here into
+# /opt/agentx/.install_method (see Dockerfile), NOT written here into
 # $AGENTX_HOME. detect_install_method() reads the code-scoped stamp first.
 #
 # Why we no longer stamp $AGENTX_HOME: it is a shared DATA volume, commonly
@@ -407,7 +407,7 @@ as_hermes mkdir -p \
 # 'agentx update'. To heal homes already poisoned by older images, remove a
 # stale 'docker' stamp from $AGENTX_HOME if one is present (the host install's
 # own installer re-creates its code-scoped stamp; a genuine container relies on
-# the baked /opt/hermes stamp, so deleting the data-dir copy is safe).
+# the baked /opt/agentx stamp, so deleting the data-dir copy is safe).
 if [ -f "$AGENTX_HOME/.install_method" ]; then
     stamped="$(tr -d '[:space:]' < "$AGENTX_HOME/.install_method" 2>/dev/null || true)"
     if [ "$stamped" = "docker" ]; then
@@ -438,7 +438,7 @@ if [ -f "$AGENTX_HOME/.env" ]; then
     if refuse_symlinked_path "chown/chmod" "$AGENTX_HOME/.env"; then
         :
     else
-        chown hermes:hermes "$AGENTX_HOME/.env" 2>/dev/null || true
+        chown agentx:agentx "$AGENTX_HOME/.env" 2>/dev/null || true
         chmod 600 "$AGENTX_HOME/.env" 2>/dev/null || true
     fi
 fi
@@ -462,7 +462,7 @@ if [ ! -f "$AGENTX_HOME/auth.json" ] && [ -n "${AGENTX_AUTH_JSON_BOOTSTRAP:-}" ]
         :
     else
         printf '%s' "$AGENTX_AUTH_JSON_BOOTSTRAP" > "$AGENTX_HOME/auth.json"
-        chown hermes:hermes "$AGENTX_HOME/auth.json" 2>/dev/null || true
+        chown agentx:agentx "$AGENTX_HOME/auth.json" 2>/dev/null || true
         chmod 600 "$AGENTX_HOME/auth.json"
     fi
 fi
@@ -524,7 +524,7 @@ if [ ! -f "$AGENTX_HOME/gateway_state.json" ] && \
         :
     else
         printf '{"gateway_state":"running"}\n' > "$AGENTX_HOME/gateway_state.json"
-        chown hermes:hermes "$AGENTX_HOME/gateway_state.json" 2>/dev/null || true
+        chown agentx:agentx "$AGENTX_HOME/gateway_state.json" 2>/dev/null || true
         chmod 644 "$AGENTX_HOME/gateway_state.json"
     fi
 fi
@@ -542,7 +542,7 @@ fi
 
 # --- Discover agent-browser's Chromium binary ---
 # The image's Dockerfile runs `npx playwright install chromium`, which
-# populates ``$PLAYWRIGHT_BROWSERS_PATH`` (=/opt/hermes/.playwright) with
+# populates ``$PLAYWRIGHT_BROWSERS_PATH`` (=/opt/agentx/.playwright) with
 # a ``chromium_headless_shell-<build>/chrome-headless-shell-linux64/``
 # directory. agent-browser (the runtime CLI AgentX spawns for the
 # browser tool) doesn't recognise this layout in its own cache scan and

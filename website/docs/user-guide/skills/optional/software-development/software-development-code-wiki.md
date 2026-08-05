@@ -20,6 +20,8 @@ Generate wiki docs + Mermaid diagrams for any codebase.
 | Author | Teknium (teknium1), AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `Documentation`, `Mermaid`, `Architecture`, `Diagrams`, `Wiki`, `Code-Analysis` |
+| Related skills | [`codebase-inspection`](/docs/user-guide/skills/bundled/github/github-codebase-inspection), [`github-repo-management`](/docs/user-guide/skills/bundled/github/github-github-repo-management) |
 
 ## Reference: full SKILL.md
 
@@ -383,7 +385,7 @@ cat > "$OUTPUT_DIR/.codewiki-state.json" <<EOF
   "source_path": "$PWD",
   "source_sha": "$REPO_SHA",
   "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "generator": "hermes-agent code-wiki skill v0.1.0",
+  "generator": "agentx-agent code-wiki skill v0.1.0",
   "modules_documented": []
 }
 EOF

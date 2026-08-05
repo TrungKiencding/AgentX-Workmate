@@ -20,6 +20,8 @@ Create, read, edit .pptx decks, slides, notes, templates.
 | Author | Anthropic (adapted by Nous Research) |
 | License | Proprietary. LICENSE.txt has complete terms |
 | Platforms | linux, macos, windows |
+| Tags | `PowerPoint`, `PPTX`, `Presentations`, `Office`, `Productivity` |
+| Related skills | [`docx`](/docs/user-guide/skills/bundled/productivity/productivity-docx), [`xlsx`](/docs/user-guide/skills/bundled/productivity/productivity-xlsx), [`pdf`](/docs/user-guide/skills/bundled/productivity/productivity-pdf) |
 
 ## Reference: full SKILL.md
 

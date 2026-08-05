@@ -54,7 +54,7 @@ same precedence convention as the ``nous`` plugin)::
         provider: self-hosted
         self_hosted:
           issuer: https://auth.example.com/application/o/hermes/   # required
-          client_id: hermes-dashboard                              # required
+          client_id: agentx-dashboard                              # required
           scopes: "openid profile email"                           # optional
           # client_secret: set ONLY for a confidential client. It is a
           # credential — prefer the env var / ~/.agentx/.env over config.yaml.
@@ -603,7 +603,7 @@ class SelfHostedOIDCProvider(DashboardAuthProvider):
                 lifespan=_JWKS_CACHE_SECONDS,
                 headers={
                     "Accept": "application/json",
-                    "User-Agent": "HermesAgent/1.0",
+                    "User-Agent": "AgentX/1.0",
                 },
             )
         return self._jwks_client

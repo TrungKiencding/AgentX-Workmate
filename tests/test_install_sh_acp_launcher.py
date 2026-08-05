@@ -130,12 +130,12 @@ def test_acp_launcher_does_not_follow_a_symlink_into_the_venv(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# hermes-agent launcher regression (#74819)
+# agentx-agent launcher regression (#74819)
 # ---------------------------------------------------------------------------
 
 AGENTX_AGENT_BLOCK = re.compile(
-    r'(rm -f "\$command_link_dir/hermes-agent".*?'
-    r'log_success "Installed hermes-agent launcher[^\n]*\n)',
+    r'(rm -f "\$command_link_dir/agentx-agent".*?'
+    r'log_success "Installed agentx-agent launcher[^\n]*\n)',
     re.S,
 )
 
@@ -143,16 +143,16 @@ AGENTX_AGENT_BLOCK = re.compile(
 def _extract_hermes_agent_shim_block() -> str:
     match = AGENTX_AGENT_BLOCK.search(INSTALL_SH.read_text(encoding="utf-8"))
     assert match, (
-        "could not locate the hermes-agent launcher block in scripts/install.sh — "
+        "could not locate the agentx-agent launcher block in scripts/install.sh — "
         "if it was renamed, update this test with it"
     )
     return match.group(1)
 
 
 def _run_hermes_agent_block(tmp_path: Path, use_venv: str) -> Path | None:
-    """Execute the extracted hermes-agent block with the env vars setup_path() sets."""
+    """Execute the extracted agentx-agent block with the env vars setup_path() sets."""
     if use_venv == "false":
-        # --no-venv: hermes-agent is NOT installed by this block (handled
+        # --no-venv: agentx-agent is NOT installed by this block (handled
         # elsewhere), so there's nothing to test here.
         return None
 
@@ -180,13 +180,13 @@ def _run_hermes_agent_block(tmp_path: Path, use_venv: str) -> Path | None:
         cwd=tmp_path,
     )
     assert result.returncode == 0, (
-        f"hermes-agent shim block failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+        f"agentx-agent shim block failed:\nstdout={result.stdout}\nstderr={result.stderr}"
     )
-    return command_link_dir / "hermes-agent"
+    return command_link_dir / "agentx-agent"
 
 
 def test_venv_install_writes_executable_hermes_agent_launcher(tmp_path):
-    """venv install must write a user-executable hermes-agent launcher."""
+    """venv install must write a user-executable agentx-agent launcher."""
     shim = _run_hermes_agent_block(tmp_path, "true")
     assert shim is not None
     assert shim.is_file()
@@ -195,20 +195,20 @@ def test_venv_install_writes_executable_hermes_agent_launcher(tmp_path):
     text = shim.read_text(encoding="utf-8")
     assert "unset PYTHONPATH" in text
     assert "unset PYTHONHOME" in text
-    assert "run_agent.py" in text, "hermes-agent must dispatch to run_agent.py"
+    assert "run_agent.py" in text, "agentx-agent must dispatch to run_agent.py"
 
 
 def test_hermes_agent_launcher_cleanup_on_uninstall(tmp_path):
-    """uninstall.remove_wrapper_script() must remove hermes-agent alongside
+    """uninstall.remove_wrapper_script() must remove agentx-agent alongside
     agentx and agentx-acp."""
     from hermes_cli.uninstall import remove_wrapper_script
 
-    # Simulate a hermes-agent wrapper in the user-local location
-    local_shim = tmp_path / ".local" / "bin" / "hermes-agent"
+    # Simulate a agentx-agent wrapper in the user-local location
+    local_shim = tmp_path / ".local" / "bin" / "agentx-agent"
     local_shim.parent.mkdir(parents=True)
-    local_shim.write_text("#!/usr/bin/env bash\nexec hermes-agent\n", encoding="utf-8")
+    local_shim.write_text("#!/usr/bin/env bash\nexec agentx-agent\n", encoding="utf-8")
 
     with patch.object(Path, "home", return_value=tmp_path):
         removed = remove_wrapper_script()
 
-    assert local_shim in removed, "local hermes-agent wrapper must be removed"
+    assert local_shim in removed, "local agentx-agent wrapper must be removed"

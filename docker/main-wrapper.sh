@@ -1,6 +1,6 @@
 #!/bin/sh
 # shellcheck shell=sh
-# /opt/hermes/docker/main-wrapper.sh — wraps the container's CMD with
+# /opt/agentx/docker/main-wrapper.sh — wraps the container's CMD with
 # the same argument-routing logic the pre-s6 entrypoint.sh used. Runs
 # as /init's "main program" (Docker CMD) so it inherits stdin/stdout/
 # stderr from the container. The non-PID-1 entrypoint fallback also
@@ -33,14 +33,14 @@ drop() { [ "$(id -u)" = 0 ] && set -- s6-setuidgid agentx "$@"; exec "$@"; }
 # --- Reject the unsupported `docker run --user <uid>:<gid>` start ---
 # Mirror the guard in stage2-hook.sh (cont-init). This is the surface the
 # user actually sees in `docker run` output: when the container is pinned to
-# an arbitrary non-root, non-hermes UID, the bootstrap was skipped and the
+# an arbitrary non-root, non-agentx UID, the bootstrap was skipped and the
 # baked image dirs (owned by the agentx build UID) are unwritable, so fail
 # fast here with actionable guidance rather than crashing on `cd`/EACCES
 # further down. See stage2-hook.sh for the full rationale.
 cur_uid="$(id -u)"
 if [ "$cur_uid" != 0 ] && [ "$cur_uid" != "$(id -u agentx)" ]; then
     cat >&2 <<EOF
-[agentx] ERROR: container started with --user $cur_uid (an arbitrary, non-hermes UID) — not supported.
+[agentx] ERROR: container started with --user $cur_uid (an arbitrary, non-agentx UID) — not supported.
 
 To make container-written files match your HOST user, don't use --user.
 Start as root (the default) and pass your host UID/GID instead:
@@ -71,7 +71,7 @@ _hermes_orig_cwd="${AGENTX_ORIG_CWD:-$PWD}"
 
 cd /opt/data
 # shellcheck disable=SC1091
-. /opt/hermes/.venv/bin/activate
+. /opt/agentx/.venv/bin/activate
 
 # Restore the original working directory before handing off to
 # the user's command so `agentx chat` starts in the Docker -w

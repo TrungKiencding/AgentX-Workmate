@@ -22,6 +22,7 @@ whenever the `computer_use` tool is available.
 | Path | `skills/autonomous-ai-agents/computer-use` |
 | Version | `2.0.0` |
 | Platforms | macos, windows, linux |
+| Tags | `computer-use`, `desktop`, `automation`, `gui`, `cross-platform` |
 
 ## Reference: full SKILL.md
 

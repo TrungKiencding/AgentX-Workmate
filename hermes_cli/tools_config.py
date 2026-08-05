@@ -1660,7 +1660,7 @@ def _run_post_setup(post_setup_key: str):
                 _print_success("    Node.js dependencies installed")
             else:
                 from hermes_constants import display_hermes_home
-                _print_warning(f"    npm install failed - run manually: cd {display_hermes_home()}/hermes-agent && npm install --workspaces=false")
+                _print_warning(f"    npm install failed - run manually: cd {display_hermes_home()}/agentx-agent && npm install --workspaces=false")
                 if result.stderr:
                     _print_info(f"      {result.stderr.strip()[:200]}")
         elif node_modules.exists():
@@ -1668,7 +1668,7 @@ def _run_post_setup(post_setup_key: str):
             # the truth ("nothing to do") instead of implying a fresh install.
             _print_success("    agent-browser already installed, nothing to do")
         else:
-            _print_warning("    Node.js not found - browser tools require: npm install (in hermes-agent directory)")
+            _print_warning("    Node.js not found - browser tools require: npm install (in agentx-agent directory)")
             return
 
         # Step 2: only the local browser provider actually needs Chromium on

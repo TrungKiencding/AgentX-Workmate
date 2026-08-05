@@ -2,7 +2,7 @@
 Backup and import commands for agentx CLI.
 
 `agentx backup` creates a zip archive of the entire ~/.agentx/ directory
-(excluding the hermes-agent repo and transient files).
+(excluding the agentx-agent repo and transient files).
 
 `agentx import` restores from a backup zip, overlaying onto the current
 AGENTX_HOME root.
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Directory names to skip entirely (matched against each path component)
-# ``hermes-agent`` is special-cased to root level only in ``_should_exclude``
-# so that skill directories like ``skills/autonomous-ai-agents/hermes-agent/``
+# ``agentx-agent`` is special-cased to root level only in ``_should_exclude``
+# so that skill directories like ``skills/autonomous-ai-agents/agentx-agent/``
 # are not accidentally excluded.
 #
 # The dependency/cache entries below matter for more than tidiness: without
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 # exclude ``.archive`` here because the curator's ``skills/.archive/`` holds
 # restorable user skills that must survive a backup.
 _EXCLUDED_DIRS = {
-    "hermes-agent",     # the codebase repo — re-clone instead
+    "agentx-agent",     # the codebase repo — re-clone instead
     "__pycache__",      # bytecode caches — regenerated on import
     ".git",             # nested git dirs (profiles shouldn't have these, but safety)
     "node_modules",     # js deps — reinstalled on demand
@@ -297,10 +297,10 @@ def _should_exclude(rel_path: Path) -> bool:
     for part in parts:
         if part not in _EXCLUDED_DIRS:
             continue
-        # ``hermes-agent`` only matches at the root level (first component).
+        # ``agentx-agent`` only matches at the root level (first component).
         # Nested directories with the same name — e.g.
-        # ``skills/autonomous-ai-agents/hermes-agent/`` — must be preserved.
-        if part == "hermes-agent" and part != parts[0]:
+        # ``skills/autonomous-ai-agents/agentx-agent/`` — must be preserved.
+        if part == "agentx-agent" and part != parts[0]:
             continue
         return True
 
@@ -632,13 +632,13 @@ def _run_backup_locked(args, hermes_root: Path) -> None:
         rel_dir = dp.relative_to(hermes_root)
 
         # Prune excluded directories in-place so os.walk doesn't descend
-        # ``hermes-agent`` is only pruned at the root level; nested dirs
+        # ``agentx-agent`` is only pruned at the root level; nested dirs
         # with the same name (e.g. in skills/) must be preserved.
         is_root = rel_dir == Path(".")
         orig_dirnames = dirnames[:]
         dirnames[:] = [
             d for d in dirnames
-            if d not in _EXCLUDED_DIRS or (d == "hermes-agent" and not is_root)
+            if d not in _EXCLUDED_DIRS or (d == "agentx-agent" and not is_root)
         ]
         for removed in set(orig_dirnames) - set(dirnames):
             skipped_dirs.add(str(rel_dir / removed))
@@ -1061,8 +1061,8 @@ def run_import(args) -> None:
 
         # Guidance
         print()
-        if not (hermes_root / "hermes-agent").is_dir():
-            print("Note: The hermes-agent codebase was not included in the backup.")
+        if not (hermes_root / "agentx-agent").is_dir():
+            print("Note: The agentx-agent codebase was not included in the backup.")
             print("  If this is a fresh install, run: agentx update")
 
         if restored_profiles:

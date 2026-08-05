@@ -21,6 +21,7 @@ TRL: SFT, DPO, GRPO, RLOO reward modeling for LLM RLHF.
 | License | MIT |
 | Dependencies | `trl`, `transformers`, `datasets`, `peft`, `accelerate`, `torch` |
 | Platforms | linux, macos, windows |
+| Tags | `Post-Training`, `TRL`, `Reinforcement Learning`, `Fine-Tuning`, `SFT`, `DPO`, `GRPO`, `RLOO`, `RLHF`, `Preference Alignment`, `HuggingFace` |
 
 ## Reference: full SKILL.md
 

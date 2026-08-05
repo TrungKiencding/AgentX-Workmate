@@ -21,6 +21,7 @@ Fast BPE/WordPiece tokenization and custom vocab training.
 | License | MIT |
 | Dependencies | `tokenizers`, `transformers`, `datasets` |
 | Platforms | linux, macos, windows |
+| Tags | `Tokenization`, `HuggingFace`, `BPE`, `WordPiece`, `Unigram`, `Fast Tokenization`, `Rust`, `Custom Tokenizer`, `Alignment Tracking`, `Production` |
 
 ## Reference: full SKILL.md
 

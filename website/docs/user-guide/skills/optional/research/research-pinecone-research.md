@@ -21,6 +21,7 @@ Agent RAG and long-term memory with Pinecone.
 | License | MIT |
 | Dependencies | `pinecone-client`, `langchain-pinecone` |
 | Platforms | linux, macos, windows |
+| Tags | `RAG`, `Pinecone`, `Memory`, `Research`, `Vector Database`, `Agent`, `Retrieval` |
 
 ## Reference: full SKILL.md
 

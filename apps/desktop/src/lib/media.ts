@@ -71,15 +71,15 @@ export async function resolveMediaDisplaySrc(path: string): Promise<string> {
     return path
   }
 
-  if (window.hermesDesktop && isRemoteGateway()) {
+  if (window.agentxDesktop && isRemoteGateway()) {
     return gatewayMediaDataUrl(path)
   }
 
-  if (!window.hermesDesktop?.readFileDataUrl) {
+  if (!window.agentxDesktop?.readFileDataUrl) {
     return mediaExternalUrl(path)
   }
 
-  return window.hermesDesktop.readFileDataUrl(filePathFromMediaPath(path))
+  return window.agentxDesktop.readFileDataUrl(filePathFromMediaPath(path))
 }
 
 // Audio/video need a seekable source instead of a whole-file data URL. Keep
@@ -91,7 +91,7 @@ export async function resolveMediaPlaybackSrc(path: string): Promise<string> {
     return path
   }
 
-  if (window.hermesDesktop && ['audio', 'video'].includes(mediaKind(path))) {
+  if (window.agentxDesktop && ['audio', 'video'].includes(mediaKind(path))) {
     return isRemoteGateway() ? mediaExternalUrl(path) : mediaStreamUrl(path)
   }
 
@@ -123,7 +123,7 @@ export function mediaExternalUrl(path: string): string {
 // file with Range support. Used for audio/video so playback bypasses the data
 // URL size cap and supports seeking. `path` may be a plain path or `file://…`.
 export function mediaStreamUrl(path: string): string {
-  return `hermes-media://stream/${encodeURIComponent(filePathFromMediaPath(path))}`
+  return `agentx-media://stream/${encodeURIComponent(filePathFromMediaPath(path))}`
 }
 
 export function mediaPathFromMarkdownHref(href?: string): string | null {

@@ -63,7 +63,7 @@ LINUX_LIST_WINDOWS = [
         "app_name": "",
         "pid": 11433,
         "window_id": 41943052,
-        "title": "README.md - hermes-agent - Visual Studio Code",
+        "title": "README.md - agentx-agent - Visual Studio Code",
         "is_on_screen": False,
         "z_index": 0,
     },

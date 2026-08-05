@@ -157,7 +157,7 @@ def fake_as(monkeypatch):
     base = f"http://127.0.0.1:{port}"
     monkeypatch.setenv("HONCHO_OAUTH_AUTHORIZE_URL", f"{base}/authorize")
     monkeypatch.setenv("HONCHO_OAUTH_TOKEN_URL", f"{base}/oauth/token")
-    monkeypatch.setenv("HONCHO_OAUTH_CLIENT_ID", "hermes-desktop")
+    monkeypatch.setenv("HONCHO_OAUTH_CLIENT_ID", "agentx-desktop")
     try:
         yield base
     finally:
@@ -233,14 +233,14 @@ def test_client_id_defaults_to_hermes_agent(monkeypatch):
     # One client for every surface; the env var overrides for unusual deployments.
     monkeypatch.delenv("HONCHO_OAUTH_CLIENT_ID", raising=False)
     common = {"environment": "production", "base_url": "https://api.honcho.dev"}
-    assert oauth_flow.resolve_endpoints(**common).client_id == "hermes-agent"
+    assert oauth_flow.resolve_endpoints(**common).client_id == "agentx-agent"
     monkeypatch.setenv("HONCHO_OAUTH_CLIENT_ID", "custom-id")
     assert oauth_flow.resolve_endpoints(**common).client_id == "custom-id"
 
 
 def test_grant_persists_default_client_id(tmp_path, fake_as, monkeypatch):
     # Drop the fixture's override so the default takes effect; the grant must
-    # store client_id=hermes-agent so refresh reuses the right client.
+    # store client_id=agentx-agent so refresh reuses the right client.
     monkeypatch.delenv("HONCHO_OAUTH_CLIENT_ID", raising=False)
     config_path = tmp_path / "honcho.json"
     config_path.write_text(json.dumps({"hosts": {}}))
@@ -254,7 +254,7 @@ def test_grant_persists_default_client_id(tmp_path, fake_as, monkeypatch):
         timeout=10,
     )
     saved = json.loads(config_path.read_text())
-    assert saved["hosts"]["agentx"]["oauth"]["clientId"] == "hermes-agent"
+    assert saved["hosts"]["agentx"]["oauth"]["clientId"] == "agentx-agent"
 
 
 def test_config_path_rides_the_authorize_link(fake_as):
@@ -337,7 +337,7 @@ def test_supports_device_login_from_metadata(fake_as):
     dead = oauth_flow.OAuthEndpoints(
         authorize_url="http://127.0.0.1:1/authorize",
         token_url="http://127.0.0.1:1/oauth/token",
-        client_id="hermes-agent",
+        client_id="agentx-agent",
         scope="write",
     )
     assert oauth_flow.supports_device_login(dead, timeout=0.2) is False
@@ -351,7 +351,7 @@ def test_request_device_code_parses_response_and_sends_identity(fake_as):
     assert device.verification_uri.endswith("/device")
     assert device.verification_uri_complete.endswith("?user_code=ABCD-EFGH")
     assert (device.expires_in, device.interval) == (600, 0)
-    assert _FakeAS.last_device_form["client_id"] == "hermes-desktop"
+    assert _FakeAS.last_device_form["client_id"] == "agentx-desktop"
     assert _FakeAS.last_device_form["scope"] == "write"
     assert _FakeAS.last_device_form["source"] == "agentx-cli"
 
@@ -442,7 +442,7 @@ def test_launcher_runs_flow_in_background_and_reports_connected(monkeypatch, res
 
     st = oauth_flow.start_loopback_flow_background(config_path=Path("/t/honcho.json"), host="agentx")
     assert st["state"] == "pending"  # returns immediately, before the flow finishes
-    assert _wait_until(lambda: seen.get("source") == "hermes-desktop")  # default source tag
+    assert _wait_until(lambda: seen.get("source") == "agentx-desktop")  # default source tag
     assert seen["host"] == "agentx"
     gate.set()
     assert _wait_until(lambda: oauth_flow.get_flow_status()["state"] == "connected")
@@ -466,7 +466,7 @@ def test_get_flow_status_reports_stored_connection(tmp_path, monkeypatch, reset_
     cfgfile.write_text(json.dumps({"hosts": {"agentx": {
         "apiKey": "hch-at-tok",
         "oauth": {"refreshToken": "hch-rt-x", "expiresAt": 9_999_999_999,
-                  "clientId": "hermes-desktop", "tokenEndpoint": "http://x/oauth/token"},
+                  "clientId": "agentx-desktop", "tokenEndpoint": "http://x/oauth/token"},
     }}}))
     s = oauth_flow.get_flow_status()
     assert s["connected"] is True and s["auth"] == "oauth"

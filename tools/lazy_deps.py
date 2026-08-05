@@ -4,7 +4,7 @@ Lazy dependency installer for opt-in AgentX Workmate backends.
 Many AgentX features (Mistral TTS, ElevenLabs TTS, Honcho memory, Bedrock,
 Slack, Matrix, etc.) require Python packages that not every user needs. The
 historical approach was to bundle them all under ``pyproject.toml`` extras
-(``hermes-agent[all]``) and install them eagerly at setup time. That has
+(``agentx-workmate[all]``) and install them eagerly at setup time. That has
 two problems:
 
 1. **Fragility.** When one extra's transitive dependency becomes
@@ -28,7 +28,7 @@ Security model:
   active venv. We never touch the system Python.
 * **Durable-target mode (immutable images).** When the deployment seals the
   agent's own venv (the Docker image sets ``AGENTX_DISABLE_LAZY_INSTALLS=1``
-  and makes ``/opt/hermes`` read-only), setting
+  and makes ``/opt/agentx`` read-only), setting
   ``AGENTX_LAZY_INSTALL_TARGET`` redirects lazy installs to a writable
   directory on the durable data volume (e.g. ``/opt/data/lazy-packages``).
   That directory is **appended to the end of ``sys.path``** — never

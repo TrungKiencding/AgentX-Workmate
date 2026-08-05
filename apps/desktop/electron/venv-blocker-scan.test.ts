@@ -28,7 +28,7 @@ import {
 
 describe('resolveVenvPython', () => {
   it('returns a real path when a temp venv python file exists', () => {
-    const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-vt-'))
+    const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-vt-'))
 
     try {
       const scriptsDir = process.platform === 'win32' ? 'Scripts' : 'bin'
@@ -69,9 +69,9 @@ describe('formatBlockerMessage', () => {
 })
 
 describe('formatProbeFailedMessage', () => {
-  it('suggests retry and hermes update', () => {
+  it('suggests retry and agentx update', () => {
     const msg = formatProbeFailedMessage()
-    assert.ok(msg.includes('hermes update'))
+    assert.ok(msg.includes('agentx update'))
     assert.ok(msg.includes('retry'))
   })
 })

@@ -61,7 +61,7 @@ data/
 .notebooklm-home/
 
 # Compose/profile runtime state (bind-mounted; avoid ownership/secret issues)
-hermes-config/
+agentx-config/
 runtime/
 
 # ---------- Not needed inside the Docker image ----------

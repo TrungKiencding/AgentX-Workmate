@@ -542,9 +542,9 @@ def _labels_in_run_args(run_args):
 
 
 def test_run_command_tags_hermes_agent_label(monkeypatch):
-    """Every container hermes-agent starts must carry the hermes-agent=1 label
+    """Every container agentx-agent starts must carry the agentx-agent=1 label
     so the orphan reaper (and external operators) can identify them with a
-    single ``docker ps --filter label=hermes-agent=1`` call. Regression test
+    single ``docker ps --filter label=agentx-agent=1`` call. Regression test
     for issue #20561 — without the label there is no global sweep target."""
     monkeypatch.setattr(docker_env, "find_docker", lambda: "/usr/bin/docker")
     calls = _mock_subprocess_run(monkeypatch)
@@ -552,8 +552,8 @@ def test_run_command_tags_hermes_agent_label(monkeypatch):
     _make_dummy_env(task_id="my-task")
 
     labels = _labels_in_run_args(_run_args_from_calls(calls))
-    assert "hermes-agent=1" in labels, (
-        f"hermes-agent=1 label missing; got labels: {sorted(labels)}"
+    assert "agentx-agent=1" in labels, (
+        f"agentx-agent=1 label missing; got labels: {sorted(labels)}"
     )
 
 
@@ -601,7 +601,7 @@ def test_labels_attribute_populated_after_init(monkeypatch):
     env = _make_dummy_env(task_id="abc")
 
     assert env._labels == {
-        "hermes-agent": "1",
+        "agentx-agent": "1",
         "hermes-task-id": "abc",
         "hermes-profile": "default",
         "hermes-egress": "off",
@@ -1345,7 +1345,7 @@ def test_s6_image_skips_docker_init_and_mounts_run_exec(monkeypatch):
     monkeypatch.setattr(docker_env, "find_docker", lambda: "/usr/bin/docker")
     calls = _mock_subprocess_run_with_entrypoint(monkeypatch, '["/init"]')
 
-    _make_dummy_env(image="hermes-agent:latest")
+    _make_dummy_env(image="agentx-agent:latest")
 
     run_calls = [c for c in calls if isinstance(c[0], list) and len(c[0]) >= 2 and c[0][1] == "run"]
     assert run_calls, "docker run should have been called"

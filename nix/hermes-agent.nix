@@ -1,9 +1,9 @@
-# nix/hermes-agent.nix — Overridable AgentX Workmate package
+# nix/agentx-agent.nix — Overridable AgentX Workmate package
 #
 # callPackage auto-wires nixpkgs args; flake inputs are passed explicitly.
 # Users override via:
-#   pkgs.hermes-agent.override { extraPythonPackages = [...]; }
-#   pkgs.hermes-agent.override { extraDependencyGroups = [ "hindsight" ]; }
+#   pkgs.agentx-agent.override { extraPythonPackages = [...]; }
+#   pkgs.agentx-agent.override { extraDependencyGroups = [ "hindsight" ]; }
 {
   lib,
   stdenv,
@@ -159,7 +159,7 @@ let
   '';
 in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "hermes-agent";
+  pname = "agentx-agent";
   version = (fromTOML (builtins.readFile ../pyproject.toml)).project.version;
 
   dontUnpack = true;
@@ -172,25 +172,25 @@ stdenv.mkDerivation (finalAttrs: {
     # Symlinks, not copies: these are all store paths already, and the
     # wrapper env vars just hold paths.  Symlinking keeps this derivation
     # near-instant when only the venv changed, with an identical closure.
-    mkdir -p $out/share/hermes-agent $out/bin
-    ln -s ${bundledSkills} $out/share/hermes-agent/skills
-    ln -s ${bundledOptionalSkills} $out/share/hermes-agent/optional-skills
-    ln -s ${bundledPlugins} $out/share/hermes-agent/plugins
-    ln -s ${bundledLocales} $out/share/hermes-agent/locales
-    ln -s ${bundledOptionalMcps} $out/share/hermes-agent/optional-mcps
-    ln -s ${hermesWeb} $out/share/hermes-agent/web_dist
-    ln -s ${hermesTui}/lib/hermes-tui $out/ui-tui
+    mkdir -p $out/share/agentx-agent $out/bin
+    ln -s ${bundledSkills} $out/share/agentx-agent/skills
+    ln -s ${bundledOptionalSkills} $out/share/agentx-agent/optional-skills
+    ln -s ${bundledPlugins} $out/share/agentx-agent/plugins
+    ln -s ${bundledLocales} $out/share/agentx-agent/locales
+    ln -s ${bundledOptionalMcps} $out/share/agentx-agent/optional-mcps
+    ln -s ${hermesWeb} $out/share/agentx-agent/web_dist
+    ln -s ${hermesTui}/lib/agentx-tui $out/ui-tui
 
     ${lib.concatMapStringsSep "\n"
       (name: ''
         makeWrapper ${hermesVenv}/bin/${name} $out/bin/${name} \
           --suffix PATH : "${runtimePath}" \
-          --set AGENTX_BUNDLED_SKILLS $out/share/hermes-agent/skills \
-          --set AGENTX_OPTIONAL_SKILLS $out/share/hermes-agent/optional-skills \
-          --set AGENTX_BUNDLED_PLUGINS $out/share/hermes-agent/plugins \
-          --set AGENTX_BUNDLED_LOCALES $out/share/hermes-agent/locales \
-          --set AGENTX_OPTIONAL_MCPS $out/share/hermes-agent/optional-mcps \
-          --set AGENTX_WEB_DIST $out/share/hermes-agent/web_dist \
+          --set AGENTX_BUNDLED_SKILLS $out/share/agentx-agent/skills \
+          --set AGENTX_OPTIONAL_SKILLS $out/share/agentx-agent/optional-skills \
+          --set AGENTX_BUNDLED_PLUGINS $out/share/agentx-agent/plugins \
+          --set AGENTX_BUNDLED_LOCALES $out/share/agentx-agent/locales \
+          --set AGENTX_OPTIONAL_MCPS $out/share/agentx-agent/optional-mcps \
+          --set AGENTX_WEB_DIST $out/share/agentx-agent/web_dist \
           --set AGENTX_TUI_DIR $out/ui-tui \
           --set AGENTX_PYTHON ${hermesVenv}/bin/python3 \
           --set AGENTX_NODE ${lib.getExe hermesNpmLib.nodejs}${
@@ -208,7 +208,7 @@ stdenv.mkDerivation (finalAttrs: {
       '')
       [
         "agentx"
-        "hermes-agent"
+        "agentx-agent"
         "agentx-acp"
       ]
     }
@@ -234,14 +234,14 @@ stdenv.mkDerivation (finalAttrs: {
         hermesVenv
         ;
 
-      # `hermesDesktop` references `finalAttrs.finalPackage` (this whole
+      # `agentxDesktop` references `finalAttrs.finalPackage` (this whole
       # derivation, after all overrides are applied) so the desktop wrapper
       # can prepend its `/bin` to PATH.  The desktop's resolver step 4
       # ("existing agentx on PATH") then picks up the fully wrapped
       # `agentx` binary — venv with all deps, bundled skills/plugins,
       # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
       # of the agent resolution in the desktop wrapper.
-      hermesDesktop = callPackage ./desktop.nix {
+      agentxDesktop = callPackage ./desktop.nix {
         inherit hermesNpmLib electron;
         hermesAgent = finalAttrs.finalPackage;
       };

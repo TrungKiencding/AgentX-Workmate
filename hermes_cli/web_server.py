@@ -2677,7 +2677,7 @@ async def fs_write_text(payload: FsWriteText):
     if not target.parent.is_dir():
         raise HTTPException(status_code=400, detail="Parent directory does not exist")
 
-    tmp = target.with_name(f".{target.name}.hermes-tmp-{os.getpid()}")
+    tmp = target.with_name(f".{target.name}.agentx-tmp-{os.getpid()}")
     try:
         tmp.write_text(text, encoding="utf-8")
         os.replace(tmp, target)
@@ -4070,7 +4070,7 @@ async def gateway_drain(request: Request):
     }
 
 
-@app.post("/api/hermes/update")
+@app.post("/api/agentx/update")
 async def update_hermes():
     """Kick off ``agentx update`` in the background."""
     if _dashboard_local_update_managed_externally():
@@ -4180,13 +4180,13 @@ def _recent_upstream_commits(n: int = 20) -> List[Dict[str, Any]]:
         return []
 
 
-@app.get("/api/hermes/update/check")
+@app.get("/api/agentx/update/check")
 async def check_hermes_update(force: bool = False):
     """Report whether a AgentX update is available, without applying it.
 
     Powers the dashboard's "check before you update" flow: the System page
     shows the commit-behind count and asks the user to confirm before
-    ``POST /api/hermes/update`` actually runs ``agentx update``.
+    ``POST /api/agentx/update`` actually runs ``agentx update``.
 
     Returns:
         install_method: 'git' | 'docker' | 'nix' | 'nixos' | 'unknown'
@@ -4310,7 +4310,7 @@ async def transcribe_audio_upload(
     try:
         suffix = _audio_extension_for_mime(mime_type)
         with tempfile.NamedTemporaryFile(
-            prefix="hermes-desktop-voice-",
+            prefix="agentx-desktop-voice-",
             suffix=suffix,
             delete=False,
         ) as tmp:
@@ -5385,7 +5385,7 @@ def _install_memory_provider_pip_dependencies(dependencies: List[str]) -> List[D
     # Route through the lazy-install pipeline (tools.lazy_deps.install_specs)
     # instead of shelling out to pip against sys.executable directly. That
     # pipeline is environment-aware: on hosted/immutable images the agent venv
-    # under /opt/hermes is sealed read-only, and installs must be redirected
+    # under /opt/agentx is sealed read-only, and installs must be redirected
     # to the writable durable target on the data volume
     # (AGENTX_LAZY_INSTALL_TARGET, e.g. /opt/data/lazy-packages) — the same
     # path every lazy backend already uses. A direct `pip install --python
@@ -10244,7 +10244,7 @@ def _submit_anthropic_pkce(
             data=exchange_data,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": "hermes-dashboard/1.0",
+                "User-Agent": "agentx-dashboard/1.0",
             },
             method="POST",
         )

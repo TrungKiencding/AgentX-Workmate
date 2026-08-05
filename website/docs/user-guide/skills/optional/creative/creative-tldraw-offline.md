@@ -20,6 +20,7 @@ Drive and script tldraw offline canvases with an agent.
 | Author | Teknium + AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `tldraw`, `canvas`, `whiteboard`, `document-script`, `diagramming` |
 
 ## Reference: full SKILL.md
 

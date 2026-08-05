@@ -904,7 +904,7 @@ class TestGitHubTokenCheck:
 
         ``run_doctor`` reads the module-level ``AGENTX_HOME`` constant (cached
         at import time), NOT the env var — so ``setenv("AGENTX_HOME")`` alone
-        leaves doctor probing the REAL ~/.hermes. On a dev machine with a
+        leaves doctor probing the REAL ~/.agentx. On a dev machine with a
         large state.db that meant a multi-minute ``PRAGMA integrity_check``
         that blew the 300s per-file budget and killed the whole file.
         """

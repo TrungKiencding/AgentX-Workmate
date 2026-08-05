@@ -20,6 +20,7 @@ List, auth, and call MCP servers/tools from the terminal.
 | Author | community |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `MCP`, `Tools`, `API`, `Integrations`, `Interop` |
 
 ## Reference: full SKILL.md
 

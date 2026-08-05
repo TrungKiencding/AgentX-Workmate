@@ -5,7 +5,7 @@ For occasional contributors and PR authors. Full developer docs: https://hermes-
 ### Project Layout
 
 ```
-hermes-agent/
+agentx-agent/
 ├── run_agent.py          # AIAgent — core conversation loop
 ├── model_tools.py        # Tool discovery and dispatch
 ├── toolsets.py           # Toolset definitions

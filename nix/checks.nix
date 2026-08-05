@@ -6,13 +6,13 @@
 { inputs, ... }: {
   perSystem = { pkgs, lib, self', ... }:
     let
-      hermes-agent = self'.packages.default;
-      hermesVenv = hermes-agent.hermesVenv;
+      agentx-agent = self'.packages.default;
+      hermesVenv = agentx-agent.hermesVenv;
 
       configMergeScript = pkgs.callPackage ./configMergeScript.nix { };
 
       # Auto-generated config key reference — always in sync with Python
-      configKeys = pkgs.runCommand "hermes-config-keys" {} ''
+      configKeys = pkgs.runCommand "agentx-config-keys" {} ''
         set -euo pipefail
         export HOME=$TMPDIR
         ${hermesVenv}/bin/python3 -c '
@@ -63,7 +63,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # On Linux the runtime checks below already depend on the package,
         # but this ensures darwin builders also build it during flake check.
         build-package = pkgs.runCommand "hermes-build-package" { } ''
-          echo "PASS: package built at ${hermes-agent}"
+          echo "PASS: package built at ${agentx-agent}"
           mkdir -p $out
           echo "ok" > $out/result
         '';
@@ -79,12 +79,12 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         package-contents = pkgs.runCommand "hermes-package-contents" { } ''
           set -e
           echo "=== Checking binaries ==="
-          test -x ${hermes-agent}/bin/agentx || (echo "FAIL: agentx binary missing"; exit 1)
-          test -x ${hermes-agent}/bin/hermes-agent || (echo "FAIL: hermes-agent binary missing"; exit 1)
+          test -x ${agentx-agent}/bin/agentx || (echo "FAIL: agentx binary missing"; exit 1)
+          test -x ${agentx-agent}/bin/agentx-agent || (echo "FAIL: agentx-agent binary missing"; exit 1)
           echo "PASS: All binaries present"
 
           echo "=== Checking version ==="
-          ${hermes-agent}/bin/agentx version 2>&1 | grep -qi "agentx" || (echo "FAIL: version check"; exit 1)
+          ${agentx-agent}/bin/agentx version 2>&1 | grep -qi "agentx" || (echo "FAIL: version check"; exit 1)
           echo "PASS: Version check"
 
           echo "=== All checks passed ==="
@@ -96,8 +96,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         entry-points-sync = pkgs.runCommand "hermes-entry-points-sync" { } ''
           set -e
           echo "=== Checking entry points match pyproject.toml [project.scripts] ==="
-          for bin in agentx hermes-agent agentx-acp; do
-            test -x ${hermes-agent}/bin/$bin || (echo "FAIL: $bin binary missing from Nix package"; exit 1)
+          for bin in agentx agentx-agent agentx-acp; do
+            test -x ${agentx-agent}/bin/$bin || (echo "FAIL: $bin binary missing from Nix package"; exit 1)
             echo "PASS: $bin present"
           done
 
@@ -111,8 +111,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           export HOME=$(mktemp -d)
 
           echo "=== Checking agentx --help ==="
-          ${hermes-agent}/bin/agentx --help 2>&1 | grep -q "gateway" || (echo "FAIL: gateway subcommand missing"; exit 1)
-          ${hermes-agent}/bin/agentx --help 2>&1 | grep -q "config" || (echo "FAIL: config subcommand missing"; exit 1)
+          ${agentx-agent}/bin/agentx --help 2>&1 | grep -q "gateway" || (echo "FAIL: gateway subcommand missing"; exit 1)
+          ${agentx-agent}/bin/agentx --help 2>&1 | grep -q "config" || (echo "FAIL: config subcommand missing"; exit 1)
           echo "PASS: All subcommands accessible"
 
           echo "=== All CLI checks passed ==="
@@ -124,25 +124,25 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-skills = pkgs.runCommand "hermes-bundled-skills" { } ''
           set -e
           echo "=== Checking bundled skills ==="
-          test -d ${hermes-agent}/share/hermes-agent/skills || (echo "FAIL: skills directory missing"; exit 1)
+          test -d ${agentx-agent}/share/agentx-agent/skills || (echo "FAIL: skills directory missing"; exit 1)
           echo "PASS: skills directory exists"
 
           # -L: skills/ is a symlink to the filtered source store path
-          SKILL_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/skills -name "SKILL.md" | wc -l)
+          SKILL_COUNT=$(find -L ${agentx-agent}/share/agentx-agent/skills -name "SKILL.md" | wc -l)
           test "$SKILL_COUNT" -gt 0 || (echo "FAIL: no SKILL.md files found in skills directory"; exit 1)
           echo "PASS: $SKILL_COUNT bundled skills found"
 
-          grep -q "AGENTX_BUNDLED_SKILLS" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_BUNDLED_SKILLS" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_BUNDLED_SKILLS not in wrapper"; exit 1)
           echo "PASS: AGENTX_BUNDLED_SKILLS set in wrapper"
 
           # Optional skills ship via the wrapper too (pythonSrc excludes
           # them from the wheel, so the env var is the only path in nix).
-          test -d ${hermes-agent}/share/hermes-agent/optional-skills || \
+          test -d ${agentx-agent}/share/agentx-agent/optional-skills || \
             (echo "FAIL: optional-skills directory missing"; exit 1)
-          OPT_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/optional-skills -name "SKILL.md" | wc -l)
+          OPT_COUNT=$(find -L ${agentx-agent}/share/agentx-agent/optional-skills -name "SKILL.md" | wc -l)
           test "$OPT_COUNT" -gt 0 || (echo "FAIL: no SKILL.md files in optional-skills"; exit 1)
-          grep -q "AGENTX_OPTIONAL_SKILLS" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_OPTIONAL_SKILLS" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_OPTIONAL_SKILLS not in wrapper"; exit 1)
           echo "PASS: $OPT_COUNT optional skills found, AGENTX_OPTIONAL_SKILLS set in wrapper"
 
@@ -155,14 +155,14 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-plugins = pkgs.runCommand "hermes-bundled-plugins" { } ''
           set -e
           echo "=== Checking bundled plugins ==="
-          test -d ${hermes-agent}/share/hermes-agent/plugins || (echo "FAIL: plugins directory missing"; exit 1)
+          test -d ${agentx-agent}/share/agentx-agent/plugins || (echo "FAIL: plugins directory missing"; exit 1)
           echo "PASS: plugins directory exists"
 
-          test -f ${hermes-agent}/share/hermes-agent/plugins/platforms/irc/plugin.yaml || \
+          test -f ${agentx-agent}/share/agentx-agent/plugins/platforms/irc/plugin.yaml || \
             (echo "FAIL: irc plugin manifest missing"; exit 1)
           echo "PASS: irc plugin manifest present"
 
-          grep -q "AGENTX_BUNDLED_PLUGINS" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_BUNDLED_PLUGINS" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_BUNDLED_PLUGINS not in wrapper"; exit 1)
           echo "PASS: AGENTX_BUNDLED_PLUGINS set in wrapper"
 
@@ -177,18 +177,18 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-locales = pkgs.runCommand "hermes-bundled-locales" { } ''
           set -e
           echo "=== Checking bundled locales ==="
-          test -d ${hermes-agent}/share/hermes-agent/locales || (echo "FAIL: locales directory missing"; exit 1)
+          test -d ${agentx-agent}/share/agentx-agent/locales || (echo "FAIL: locales directory missing"; exit 1)
           echo "PASS: locales directory exists"
 
           # -L: locales/ is a symlink to the source store path
-          LOC_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/locales -name "*.yaml" | wc -l)
+          LOC_COUNT=$(find -L ${agentx-agent}/share/agentx-agent/locales -name "*.yaml" | wc -l)
           test "$LOC_COUNT" -ge 16 || (echo "FAIL: expected >=16 catalogs, found $LOC_COUNT"; exit 1)
           echo "PASS: $LOC_COUNT locale catalogs found"
 
-          test -f ${hermes-agent}/share/hermes-agent/locales/en.yaml || (echo "FAIL: en.yaml missing"; exit 1)
+          test -f ${agentx-agent}/share/agentx-agent/locales/en.yaml || (echo "FAIL: en.yaml missing"; exit 1)
           echo "PASS: en.yaml present"
 
-          grep -q "AGENTX_BUNDLED_LOCALES" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_BUNDLED_LOCALES" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_BUNDLED_LOCALES not in wrapper"; exit 1)
           echo "PASS: AGENTX_BUNDLED_LOCALES set in wrapper"
 
@@ -196,7 +196,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           # symlink + AGENTX_BUNDLED_LOCALES (not via wheel data-files).
           # Verify the wrapper override resolves real strings.
           export HOME=$(mktemp -d)
-          RENDERED=$(cd "$HOME" && AGENTX_BUNDLED_LOCALES=${hermes-agent}/share/hermes-agent/locales \
+          RENDERED=$(cd "$HOME" && AGENTX_BUNDLED_LOCALES=${agentx-agent}/share/agentx-agent/locales \
             ${hermesVenv}/bin/python3 -c "from agent import i18n; print(i18n.t('gateway.reset.header_default', lang='en'))")
           echo "rendered: $RENDERED"
           test "$RENDERED" != "gateway.reset.header_default" || (echo "FAIL: i18n returned the raw key with AGENTX_BUNDLED_LOCALES set"; exit 1)
@@ -213,19 +213,19 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-mcps = pkgs.runCommand "hermes-bundled-mcps" { } ''
           set -e
           echo "=== Checking bundled optional-mcps ==="
-          test -d ${hermes-agent}/share/hermes-agent/optional-mcps || (echo "FAIL: optional-mcps directory missing"; exit 1)
+          test -d ${agentx-agent}/share/agentx-agent/optional-mcps || (echo "FAIL: optional-mcps directory missing"; exit 1)
           echo "PASS: optional-mcps directory exists"
 
-          MANIFEST_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/optional-mcps -name "manifest.yaml" | wc -l)
+          MANIFEST_COUNT=$(find -L ${agentx-agent}/share/agentx-agent/optional-mcps -name "manifest.yaml" | wc -l)
           test "$MANIFEST_COUNT" -gt 0 || (echo "FAIL: no manifest.yaml files found"; exit 1)
           echo "PASS: $MANIFEST_COUNT catalog manifests found"
 
-          grep -q "AGENTX_OPTIONAL_MCPS" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_OPTIONAL_MCPS" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_OPTIONAL_MCPS not in wrapper"; exit 1)
           echo "PASS: AGENTX_OPTIONAL_MCPS set in wrapper"
 
           export HOME=$(mktemp -d)
-          CATALOG=$(cd "$HOME" && ${hermes-agent}/bin/agentx mcp catalog 2>/dev/null || true)
+          CATALOG=$(cd "$HOME" && ${agentx-agent}/bin/agentx mcp catalog 2>/dev/null || true)
           echo "catalog output: $CATALOG"
           test -n "$CATALOG" || (echo "FAIL: agentx mcp catalog returned empty"; exit 1)
           echo "PASS: mcp catalog resolves entries"
@@ -239,15 +239,15 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-tui = pkgs.runCommand "hermes-bundled-tui" { } ''
           set -e
           echo "=== Checking bundled TUI ==="
-          test -d ${hermes-agent}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
+          test -d ${agentx-agent}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
           echo "PASS: ui-tui directory exists"
 
-          test -f ${hermes-agent}/ui-tui/dist/entry.js || (echo "FAIL: compiled entry.js missing"; exit 1)
+          test -f ${agentx-agent}/ui-tui/dist/entry.js || (echo "FAIL: compiled entry.js missing"; exit 1)
           echo "PASS: compiled entry.js present"
 
           # self-contained bundle; no runtime node_modules expected
 
-          grep -q "AGENTX_TUI_DIR" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_TUI_DIR" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_TUI_DIR not in wrapper"; exit 1)
           echo "PASS: AGENTX_TUI_DIR set in wrapper"
 
@@ -261,11 +261,11 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         hermes-node = pkgs.runCommand "hermes-node-version" { } ''
           set -e
           echo "=== Checking AGENTX_NODE in wrapper ==="
-          grep -q "AGENTX_NODE" ${hermes-agent}/bin/agentx || \
+          grep -q "AGENTX_NODE" ${agentx-agent}/bin/agentx || \
             (echo "FAIL: AGENTX_NODE not set in wrapper"; exit 1)
           echo "PASS: AGENTX_NODE present in wrapper"
 
-          AGENTX_NODE=$(sed -n "s/^export AGENTX_NODE='\(.*\)'/\1/p" ${hermes-agent}/bin/agentx)
+          AGENTX_NODE=$(sed -n "s/^export AGENTX_NODE='\(.*\)'/\1/p" ${agentx-agent}/bin/agentx)
           test -x "$AGENTX_NODE" || (echo "FAIL: AGENTX_NODE=$AGENTX_NODE not executable"; exit 1)
           echo "PASS: AGENTX_NODE executable at $AGENTX_NODE"
 
@@ -293,8 +293,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           }
 
           echo "=== Checking AGENTX_MANAGED guards ==="
-          check_blocked "config set" ${hermes-agent}/bin/agentx config set model foo
-          check_blocked "config edit" ${hermes-agent}/bin/agentx config edit
+          check_blocked "config set" ${agentx-agent}/bin/agentx config set model foo
+          check_blocked "config edit" ${agentx-agent}/bin/agentx config edit
 
           echo "=== All guard checks passed ==="
           mkdir -p $out
@@ -304,7 +304,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Verify extraPythonPackages PYTHONPATH injection
         extra-python-packages = let
           testPkg = pkgs.python312Packages.pyfiglet;
-          hermesWithExtra = hermes-agent.override {
+          hermesWithExtra = agentx-agent.override {
             extraPythonPackages = [ testPkg ];
           };
         in pkgs.runCommand "hermes-extra-python-packages" { } ''
@@ -320,7 +320,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           echo "PASS: test package path found in wrapper"
 
           echo "=== Checking base package has no PYTHONPATH ==="
-          if grep -q "PYTHONPATH" ${hermes-agent}/bin/agentx; then
+          if grep -q "PYTHONPATH" ${agentx-agent}/bin/agentx; then
             echo "FAIL: base package should not have PYTHONPATH"; exit 1
           fi
           echo "PASS: base package clean"
@@ -332,7 +332,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
         # Verify extraDependencyGroups passes through to python.nix
         extra-dependency-groups = let
-          hermesWithGroups = hermes-agent.override {
+          hermesWithGroups = agentx-agent.override {
             extraDependencyGroups = [ "honcho" ];
           };
         in pkgs.runCommand "hermes-extra-dependency-groups" { } ''
@@ -424,7 +424,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 - USER_VAR
           '';
 
-        in pkgs.runCommand "hermes-config-roundtrip" {
+        in pkgs.runCommand "agentx-config-roundtrip" {
           nativeBuildInputs = [ pkgs.jq ];
         } ''
           set -e

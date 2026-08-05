@@ -20,6 +20,8 @@ Automate Unreal Engine editor scenes, actors, and renders.
 | Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `unreal`, `unreal-engine`, `ue5`, `3d`, `mcp`, `scenes`, `cinematics`, `lighting`, `gamedev` |
+| Related skills | [`blender-mcp`](/docs/user-guide/skills/optional/creative/creative-blender-mcp) |
 
 ## Reference: full SKILL.md
 

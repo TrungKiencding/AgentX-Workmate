@@ -6,7 +6,7 @@ Exposes an HTTP server with endpoints:
 - POST /v1/responses               — OpenAI Responses API format (stateful via previous_response_id; X-Agentx-Session-Key supported)
 - GET  /v1/responses/{response_id} — Retrieve a stored response
 - DELETE /v1/responses/{response_id} — Delete a stored response
-- GET  /v1/models                  — lists hermes-agent and any configured model_routes aliases
+- GET  /v1/models                  — lists agentx-agent and any configured model_routes aliases
 - GET  /v1/capabilities            — machine-readable API capabilities for external UIs
 - GET  /api/sessions               — list client-visible AgentX sessions
 - POST /api/sessions               — create an empty AgentX session
@@ -23,7 +23,7 @@ Exposes an HTTP server with endpoints:
 - GET  /health/detailed            — rich status for cross-container dashboard probing
 
 Any OpenAI-compatible frontend (Open WebUI, LobeChat, LibreChat,
-AnythingLLM, NextChat, ChatBox, etc.) can connect to hermes-agent
+AnythingLLM, NextChat, ChatBox, etc.) can connect to agentx-agent
 through this adapter by pointing at http://localhost:8642/v1 and
 authenticating with API_SERVER_KEY.
 
@@ -128,7 +128,7 @@ def _hermes_version() -> str:
     ``hermes_cli.__version__`` is the runtime source of truth used by the CLI,
     dashboard, portal tags, and release script. Prefer it over installed
     distribution metadata because editable/source checkouts can retain stale
-    ``hermes_agent-*.dist-info`` after a source update until the environment is
+    ``agentx_workmate-*.dist-info`` after a source update until the environment is
     reinstalled. Never raises — a version probe must not be able to break the
     health endpoint.
     """
@@ -141,7 +141,7 @@ def _hermes_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("hermes-agent")
+        return version("agentx-workmate")
     except Exception:
         return "dev"
 
@@ -376,7 +376,7 @@ def _request_agent_overrides(
 ) -> Dict[str, Any]:
     """Extract per-request model/provider/options for _run_agent.
 
-    ``/v1/models`` advertises a stable virtual model (usually ``hermes-agent``)
+    ``/v1/models`` advertises a stable virtual model (usually ``agentx-agent``)
     for OpenAI-compatible clients.  Treat that alias as "use the gateway
     default"; real model picker selections from the browser extension send the
     raw provider model id plus a provider slug and should override this turn.
@@ -1347,7 +1347,7 @@ class APIServerAdapter(BasePlatformAdapter):
     OpenAI-compatible HTTP API server adapter.
 
     Runs an aiohttp web server that accepts OpenAI-format requests
-    and routes them through hermes-agent's AIAgent.
+    and routes them through agentx-agent's AIAgent.
     """
 
     # Stateless request/response: every route (the OpenAI-spec
@@ -1586,7 +1586,7 @@ class APIServerAdapter(BasePlatformAdapter):
         Priority:
         1. Explicit override (config extra or API_SERVER_MODEL_NAME env var)
         2. Active profile name (so each profile advertises a distinct model)
-        3. Fallback: "hermes-agent"
+        3. Fallback: "agentx-agent"
 
         Delegates the tiered fallthrough to
         :func:`hermes_cli.model_switch.resolve_effective_model` (the shared
@@ -1602,7 +1602,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 profile_name = profile
         except Exception:
             pass
-        return resolve_effective_model(explicit, profile_name, "hermes-agent")
+        return resolve_effective_model(explicit, profile_name, "agentx-agent")
 
     def _cors_headers_for_origin(self, origin: str) -> Optional[Dict[str, str]]:
         """Return CORS headers for an allowed browser origin."""
@@ -2862,7 +2862,7 @@ class APIServerAdapter(BasePlatformAdapter):
     async def _handle_health(self, request: "web.Request") -> "web.Response":
         """GET /health — simple health check."""
         return web.json_response(
-            {"status": "ok", "platform": "hermes-agent", "version": _hermes_version()}
+            {"status": "ok", "platform": "agentx-agent", "version": _hermes_version()}
         )
 
     async def _handle_health_detailed(self, request: "web.Request") -> "web.Response":
@@ -2903,7 +2903,7 @@ class APIServerAdapter(BasePlatformAdapter):
         return web.json_response({
             "status": readiness["status"],
             "readiness": readiness,
-            "platform": "hermes-agent",
+            "platform": "agentx-agent",
             "version": _hermes_version(),
             "gateway_state": gw_state,
             "platforms": runtime.get("platforms", {}),
@@ -2925,7 +2925,7 @@ class APIServerAdapter(BasePlatformAdapter):
         })
 
     async def _handle_models(self, request: "web.Request") -> "web.Response":
-        """GET /v1/models — list hermes-agent and any configured model_routes aliases.
+        """GET /v1/models — list agentx-agent and any configured model_routes aliases.
 
         Under ``/p/<profile>/v1/models`` (multiplex on) the advertised primary
         model id follows that profile's name/config, not the default adapter's
@@ -3022,7 +3022,7 @@ class APIServerAdapter(BasePlatformAdapter):
 
         return web.json_response({
             "object": "hermes.api_server.capabilities",
-            "platform": "hermes-agent",
+            "platform": "agentx-agent",
             "model": self._model_name,
             "auth": {
                 "type": "bearer",

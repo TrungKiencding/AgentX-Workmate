@@ -9,7 +9,7 @@ persistent profiles, recreate the s6 service slots, and auto-start
 only those whose last recorded state was ``running``.
 
 Wired into the image as /etc/cont-init.d/02-reconcile-profiles by the
-Dockerfile (Phase 4 Task 4.0). Runs as root after 01-hermes-setup
+Dockerfile (Phase 4 Task 4.0). Runs as root after 01-agentx-setup
 (the stage2 hook) has chowned the volume and seeded $AGENTX_HOME, but
 before s6-rc starts user services.
 
@@ -301,10 +301,10 @@ def _strip_container_argv_prefix(argv: Sequence[str]) -> list[str]:
     Two container-command argv shapes are handled:
 
     * **s6-overlay v2 / tini:** PID 1 argv is
-      ``/init /opt/hermes/docker/main-wrapper.sh <subcommand> [args...]``.
+      ``/init /opt/agentx/docker/main-wrapper.sh <subcommand> [args...]``.
     * **s6-overlay v3:** PID 1 is ``s6-svscan`` and the command lives on the
       rc.init-launched process as ``/bin/sh -e
-      /run/s6/basedir/scripts/rc.init top /opt/hermes/docker/main-wrapper.sh
+      /run/s6/basedir/scripts/rc.init top /opt/agentx/docker/main-wrapper.sh
       <subcommand> [args...]`` (see :func:`_read_container_argv`).
 
     Rather than peel each leading token positionally (which silently breaks

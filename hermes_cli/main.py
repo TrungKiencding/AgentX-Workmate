@@ -241,7 +241,7 @@ def _set_process_title() -> None:
       2. ctypes ``prctl(PR_SET_NAME)`` (Linux only, 15-char limit).
       3. ctypes ``pthread_setname_np`` (macOS only, kernel thread name —
          changes lldb/top but not ``ps aux``).
-      4. No-op on Windows (the .exe name is already ``hermes.exe``).
+      4. No-op on Windows (the .exe name is already ``agentx.exe``).
     """
     # Strategy 1: setproctitle (best — works on macOS, Linux, BSD)
     try:
@@ -264,7 +264,7 @@ def _set_process_title() -> None:
         elif system == "Darwin":
             libc = ctypes.CDLL("libc.dylib", use_errno=True)
             libc.pthread_setname_np(b"agentx")
-        # Windows: the .exe name is already ``hermes.exe`` — nothing to do.
+        # Windows: the .exe name is already ``agentx.exe`` — nothing to do.
     except Exception:
         pass
 
@@ -1661,7 +1661,7 @@ def _termux_workspace_install_context(
 
 
 def _tui_need_npm_install(root: Path) -> bool:
-    """True when @hermes/ink is missing or node_modules is behind package-lock.json.
+    """True when @agentx/ink is missing or node_modules is behind package-lock.json.
 
     Prebuilt bundle mode: when ``dist/entry.js`` exists and there is no
     ``package-lock.json`` (nix install layout only ships ``dist/`` +
@@ -2090,8 +2090,8 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
         did_install = True
 
     if tui_dev:
-        # Keep the local @hermes/ink package exports in sync with source.
-        # --dev runs src/entry.tsx directly, but @hermes/ink resolves through
+        # Keep the local @agentx/ink package exports in sync with source.
+        # --dev runs src/entry.tsx directly, but @agentx/ink resolves through
         # packages/hermes-ink/dist/entry-exports.js. If that dist bundle is
         # stale after a pull, newer hooks/components can exist in src while
         # being missing at runtime (e.g. useCursorAdvance). Prebuild it here.
@@ -2307,7 +2307,7 @@ def _launch_tui(
     except Exception:
         logger.debug("Failed to apply terminal config bridge for TUI launch", exc_info=True)
     active_session_fd, active_session_file = tempfile.mkstemp(
-        prefix="hermes-tui-active-session-", suffix=".json"
+        prefix="agentx-tui-active-session-", suffix=".json"
     )
     os.close(active_session_fd)
     env["AGENTX_TUI_ACTIVE_SESSION_FILE"] = active_session_file
@@ -5937,19 +5937,19 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     """Return the current platform's unpacked Electron app executable."""
     release_dir = desktop_dir / "release"
     if sys.platform == "darwin":
-        candidates = list(release_dir.glob("mac*/AgentX.app/Contents/MacOS/AgentX"))
+        candidates = list(release_dir.glob("mac*/AgentX Workmate.app/Contents/MacOS/AgentX Workmate"))
     elif sys.platform == "win32":
         candidates = [
-            release_dir / "win-unpacked" / "AgentX.exe",
-            release_dir / "win-ia32-unpacked" / "AgentX.exe",
-            release_dir / "win-arm64-unpacked" / "AgentX.exe",
+            release_dir / "win-unpacked" / "AgentX Workmate.exe",
+            release_dir / "win-ia32-unpacked" / "AgentX Workmate.exe",
+            release_dir / "win-arm64-unpacked" / "AgentX Workmate.exe",
         ]
     else:
         candidates = [
-            release_dir / "linux-unpacked" / "agentx",
-            release_dir / "linux-unpacked" / "AgentX",
-            release_dir / "linux-arm64-unpacked" / "agentx",
-            release_dir / "linux-arm64-unpacked" / "AgentX",
+            release_dir / "linux-unpacked" / "AgentX Workmate",
+            release_dir / "linux-unpacked" / "agentx workmate",
+            release_dir / "linux-arm64-unpacked" / "AgentX Workmate",
+            release_dir / "linux-arm64-unpacked" / "agentx workmate",
         ]
 
     existing = [p for p in candidates if p.exists()]
@@ -5958,7 +5958,7 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     if sys.platform == "win32" and len(existing) > 1:
         # Multiple unpacked trees can coexist (e.g. a stale win-arm64-unpacked
         # left behind by a cross-arch experiment next to the real win-unpacked).
-        # Picking purely by mtime can then hand a wrong-architecture AgentX.exe
+        # Picking purely by mtime can then hand a wrong-architecture AgentX Workmate.exe
         # to the launcher, which Windows rejects with "This app can't run on
         # your computer" (#69179). Prefer candidates whose PE machine field
         # matches the host; fall back to mtime when none can be parsed.
@@ -5971,16 +5971,16 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
 
 # ─── Desktop exe integrity gate (#69179) ────────────────────────────────────
 #
-# The desktop self-update chain (Desktop → hermes-setup --update →
+# The desktop self-update chain (Desktop → agentx-setup --update →
 # `agentx update` → `agentx desktop --build-only` → relaunch) rebuilds
-# AgentX.exe on the end user's machine and used to verify only that the file
+# AgentX Workmate.exe on the end user's machine and used to verify only that the file
 # EXISTS before declaring success. A corrupt cached Electron zip whose
 # extraction produced a truncated electron.exe, an interrupted rcedit resource
 # rewrite, a disk-full pack, or a wrong-arch unpacked tree therefore shipped a
 # broken binary that Windows refuses to load ("This app can't run on your
 # computer" / 此应用无法在你的电脑上运行). These helpers parse the PE header —
 # no signature infrastructure required — so a structurally broken or
-# wrong-architecture AgentX.exe is caught BEFORE the updater replaces the
+# wrong-architecture AgentX Workmate.exe is caught BEFORE the updater replaces the
 # working app, and the previous build can be restored from the .bak tree that
 # apps/desktop/scripts/before-pack.mjs now preserves.
 
@@ -6014,7 +6014,7 @@ def _windows_native_machine_from_iswow64() -> Optional[str]:
     that makes ``IsWow64Process2`` fail with ``ERROR_INVALID_HANDLE`` (6),
     which is exactly the residual Windows-on-ARM failure after #71218: the
     gate fell through to ``PROCESSOR_ARCHITECTURE=AMD64`` (the emulated
-    process arch) and rejected a correctly-built ARM64 ``AgentX.exe``.
+    process arch) and rejected a correctly-built ARM64 ``AgentX Workmate.exe``.
     Binding ``restype``/``argtypes`` to ``wintypes.HANDLE`` keeps the full
     ``0xFFFFFFFFFFFFFFFF`` pseudo-handle.
     """
@@ -6079,7 +6079,7 @@ def _windows_native_machine() -> str:
     """The Windows host OS's NATIVE machine architecture, normalized upper.
 
     ``platform.machine()`` reports the PROCESS architecture, which lies under
-    emulation: the desktop update chain runs an x64 hermes-setup.exe (and thus
+    emulation: the desktop update chain runs an x64 agentx-setup.exe (and thus
     x64 Python) on Windows-on-ARM devices, where ``platform.machine()``
     returns ``AMD64`` even though the OS is ARM64. The #71119 integrity gate
     then rejected the CORRECT ARM64 rebuild as an "architecture mismatch"
@@ -6280,7 +6280,7 @@ def _ensure_desktop_exe_launchable(
     if error is None:
         return packaged_executable, False
 
-    print(f"✗ The built AgentX.exe failed its integrity check: {error}")
+    print(f"✗ The built AgentX Workmate.exe failed its integrity check: {error}")
     print(f"    at: {packaged_executable}")
 
     # Self-heal setup for the retry: drop the (likely corrupt) cached Electron
@@ -6294,7 +6294,7 @@ def _ensure_desktop_exe_launchable(
 
     restored = _rollback_desktop_from_backup(packaged_executable)
     if restored is not None:
-        print("  ↩ Update aborted — restored the previous working AgentX.exe from backup.")
+        print("  ↩ Update aborted — restored the previous working AgentX Workmate.exe from backup.")
         print("    Your existing version was kept and still works. Run `agentx desktop`")
         print("    (or the in-app update) again to retry with a fresh Electron download.")
         return restored, True
@@ -6347,7 +6347,7 @@ def _purge_electron_build_cache(desktop_dir: Path) -> list[Path]:
     next ``pack`` re-downloads and re-stages from scratch.
 
     Root cause of the ``ENOENT … rename '…/linux-unpacked/electron' ->
-    '…/linux-unpacked/AgentX'`` desktop build failure: a corrupt zip in the
+    '…/linux-unpacked/AgentX Workmate'`` desktop build failure: a corrupt zip in the
     per-user Electron download cache (a partial download resumed into the same
     file leaves prepended/concatenated junk, or an interrupted write truncates
     it). electron-builder's ``app-builder unpack-electron`` extracts the
@@ -6514,9 +6514,9 @@ def _stop_desktop_processes_locking_build(desktop_dir: Path) -> list[int]:
     """Terminate any running desktop app executing from this build's ``release``
     dir so a rebuild can replace its (otherwise locked) executable.
 
-    On Windows a running ``AgentX.exe`` keeps an exclusive lock on
-    ``release/win-unpacked/AgentX.exe``. electron-builder's pack then can't
-    delete the stale binary and dies with ``remove …\\AgentX.exe: Access is
+    On Windows a running ``AgentX Workmate.exe`` keeps an exclusive lock on
+    ``release/win-unpacked/AgentX Workmate.exe``. electron-builder's pack then can't
+    delete the stale binary and dies with ``remove …\\AgentX Workmate.exe: Access is
     denied`` / ``ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`` (before-pack hits the same
     EPERM cleaning the dir). The retry path repeats the failure because the lock
     is still held. POSIX lets you unlink a running binary, so this is a no-op
@@ -6724,7 +6724,7 @@ def _desktop_macos_local_codesign(
 
     # 1) Standalone Mach-O files (native modules, dylibs, crashpad handler).
     #    Compare paths relative to the app root — the absolute path always
-    #    contains the outer AgentX.app component, so an absolute-parts check
+    #    contains the outer AgentX Workmate.app component, so an absolute-parts check
     #    would skip every file.
     contents = app / "Contents"
     standalone: list[Path] = []
@@ -6802,7 +6802,7 @@ def _desktop_macos_relaunchable_fixup(
     exe = _desktop_packaged_executable(desktop_dir)
     if exe is None:
         return True
-    # exe = .../AgentX.app/Contents/MacOS/AgentX  ->  app bundle = .../AgentX.app
+    # exe = .../AgentX Workmate.app/Contents/MacOS/AgentX Workmate  ->  app bundle = .../AgentX Workmate.app
     app = exe.parents[2]
     if not str(app).endswith(".app") or not app.is_dir():
         return True
@@ -7066,7 +7066,7 @@ def cmd_gui(args: argparse.Namespace):
             # Put the AgentX-managed Node on PATH so npm's child scripts (which
             # shell out to bare `node`, e.g. electron-winstaller's
             # select-7z-arch.js) resolve it even when the parent PATH is
-            # stripped — the desktop updater chain (Desktop → hermes-setup →
+            # stripped — the desktop updater chain (Desktop → agentx-setup →
             # agentx update) loses shell PATH customizations. Wrapping the
             # NixOS build env keeps its PYTHON hint while restoring managed Node
             # ahead of a bare PATH (same idiom as the `agentx update` path).
@@ -7094,7 +7094,7 @@ def cmd_gui(args: argparse.Namespace):
                       "(CSC_IDENTITY_AUTO_DISCOVERY=false)")
             if not source_mode:
                 # A running desktop instance launched from release/win-unpacked
-                # holds AgentX.exe locked on Windows, so the pack can't replace
+                # holds AgentX Workmate.exe locked on Windows, so the pack can't replace
                 # it ("Access is denied" / ERR_ELECTRON_BUILDER_CANNOT_EXECUTE).
                 # Stop it first so the rebuild — including the installer's
                 # headless --update rebuild — succeeds instead of failing cryptically.
@@ -7125,7 +7125,7 @@ def cmd_gui(args: argparse.Namespace):
                     print("  ⚠ Desktop build failed; refreshed the Electron download and retrying once...")
                     for p in purged:
                         print(f"    - {p}")
-                    # The purge can't remove a win-unpacked tree whose AgentX.exe
+                    # The purge can't remove a win-unpacked tree whose AgentX Workmate.exe
                     # is still locked by a running instance; stop it before retry.
                     _stop_desktop_processes_locking_build(desktop_dir)
                     build_result = subprocess.run([npm, "run", build_script], cwd=desktop_dir, env=env, check=False)
@@ -7149,7 +7149,7 @@ def cmd_gui(args: argparse.Namespace):
                 print("✗ Desktop GUI build failed")
                 print(f"  Run manually:  cd apps/desktop && npm run {build_script}")
                 if sys.platform == "win32":
-                    print("  If this says \"Access is denied\" on AgentX.exe, close any")
+                    print("  If this says \"Access is denied\" on AgentX Workmate.exe, close any")
                     print("  running AgentX desktop window and retry.")
                 print("  If the log shows Electron download retries, rebuild via a mirror:")
                 print("    ELECTRON_MIRROR=<mirror-base-url> agentx desktop --force-build")
@@ -7162,7 +7162,7 @@ def cmd_gui(args: argparse.Namespace):
                 _desktop_macos_relaunchable_fixup(desktop_dir)
 
                 # Windows integrity gate (#69179): never declare the rebuild a
-                # success on a AgentX.exe Windows cannot load (truncated PE from
+                # success on a AgentX Workmate.exe Windows cannot load (truncated PE from
                 # a corrupt cached Electron zip, wrong-arch tree, interrupted
                 # rcedit rewrite). Roll back to the .bak tree preserved by
                 # before-pack.mjs when possible, then fail loudly so the
@@ -7290,7 +7290,7 @@ def _dashboard_probe_host(host: str | None) -> str:
     return normalized
 
 
-_DASHBOARD_SYSTEMD_UNIT = "hermes-dashboard.service"
+_DASHBOARD_SYSTEMD_UNIT = "agentx-dashboard.service"
 
 
 def _restart_managed_dashboard_service(
@@ -7825,7 +7825,7 @@ def _recover_core_update_marker_locked() -> None:
         "finishing dependency installation now..."
     )
 
-    # Windows: a normal ``hermes.exe`` launch always has the launcher as an
+    # Windows: a normal ``agentx.exe`` launch always has the launcher as an
     # ancestor. Full editable reinstall uses quarantine so the live shim can
     # still be replaced. Package-only import repair may help as first aid but
     # must NEVER clear this core marker on its own (#58004 review).
@@ -7833,7 +7833,7 @@ def _recover_core_update_marker_locked() -> None:
     if self_locked:
         install_prefix, install_env = _default_venv_install_target()
         print(
-            "  → Running from hermes.exe; applying package-only first aid, "
+            "  → Running from agentx.exe; applying package-only first aid, "
             "then quarantined full reinstall (core marker stays until that "
             "succeeds)..."
         )
@@ -8011,7 +8011,7 @@ def _hermes_exe_shims(scripts_dir: Path) -> list[Path]:
     if not _is_windows():
         return []
 
-    names = set(_load_console_script_names()) or {"agentx", "hermes-agent", "agentx-acp"}
+    names = set(_load_console_script_names()) or {"agentx", "agentx-agent", "agentx-acp"}
     # The gateway shim is not a [project.scripts] entry point, but older
     # update/install paths still rewrite and quarantine it.
     names.add("agentx-gateway")
@@ -8021,15 +8021,15 @@ def _hermes_exe_shims(scripts_dir: Path) -> list[Path]:
 def _quarantine_running_hermes_exe(
     scripts_dir: Path, *, max_attempts: int = 4
 ) -> list[tuple[Path, Path]]:
-    """Pre-empt Windows file lock on the running ``hermes.exe``.
+    """Pre-empt Windows file lock on the running ``agentx.exe``.
 
     Windows allows RENAMING a mapped/running executable (the kernel tracks the
     file by handle, not path), but blocks DELETE/REPLACE while it's loaded. uv
     needs to overwrite the entry-point shims during ``pip install -e .``;
-    when ``agentx update`` runs, ``hermes.exe`` IS the live process, and uv
+    when ``agentx update`` runs, ``agentx.exe`` IS the live process, and uv
     fails with ``Access is denied. (os error 5)``.
 
-    We rename live shims to ``hermes.exe.old.<unix-ms>`` first. uv then writes
+    We rename live shims to ``agentx.exe.old.<unix-ms>`` first. uv then writes
     fresh shims at the original paths. The ``.old`` files are cleaned up on
     the next agentx invocation by ``_cleanup_quarantined_exes``.
 
@@ -8172,10 +8172,10 @@ def _run_quarantined_install(
     env: dict[str, str] | None = None,
     scripts_dir: Path | None = None,
 ) -> None:
-    """Run an editable install, quarantining the running ``hermes.exe`` first.
+    """Run an editable install, quarantining the running ``agentx.exe`` first.
 
     Any ``pip install -e .`` (or ``--reinstall``) rewrites the entry-point
-    shims, and on Windows the live ``hermes.exe`` is the running process —
+    shims, and on Windows the live ``agentx.exe`` is the running process —
     pip can neither delete nor overwrite it, so without quarantine the shim
     is left missing and ``agentx`` drops off PATH. This wraps
     :func:`_run_install_with_heartbeat` with the same rename-out-of-the-way /
@@ -8201,7 +8201,7 @@ def _run_quarantined_install(
 
 
 def _cleanup_quarantined_exes(scripts_dir: Path | None = None) -> None:
-    """Sweep ``hermes.exe.old.*`` left by prior updates.
+    """Sweep ``agentx.exe.old.*`` left by prior updates.
 
     Called early on every agentx invocation. The .old files are unlocked once
     their owning process exited, so deletion succeeds the next run. Silent
@@ -8245,7 +8245,7 @@ def _run_package_only_install(
     """Run a package-only pip/uv install without quarantining entry-point shims.
 
     ``pip install --upgrade pip`` and ``--force-reinstall <pkg>`` do not
-    rewrite ``hermes.exe``. The editable-install quarantine path would rename
+    rewrite ``agentx.exe``. The editable-install quarantine path would rename
     shims without uv recreating them on Windows (#57828).
     """
     _run_install_with_heartbeat(cmd, env=env)
@@ -8404,7 +8404,7 @@ def _repair_venv_via_import_probes(
 
     Uses real ``import`` checks (not distribution metadata) so a venv where
     METADATA remains but ``.py`` files were wiped mid-install is still
-    detected (#57828). Package-only reinstall — never rewrites ``hermes.exe``.
+    detected (#57828). Package-only reinstall — never rewrites ``agentx.exe``.
 
     Never raises. Returns one of:
       - ``"healthy"`` — probes ran and found nothing broken
@@ -8450,7 +8450,7 @@ def _install_python_dependencies_with_optional_fallback(
     By default this targets ``.[all]``; Termux callers can pass
     ``group='termux-all'`` to use the curated Android-compatible profile.
 
-    On Windows, pre-renames live ``hermes.exe`` / ``agentx-gateway.exe`` shims
+    On Windows, pre-renames live ``agentx.exe`` / ``agentx-gateway.exe`` shims
     in the venv Scripts dir before each install attempt so uv can write fresh
     copies (Windows blocks REPLACE on a running .exe but allows RENAME). See
     ``_quarantine_running_hermes_exe`` for the rationale.
@@ -8533,11 +8533,11 @@ def _verify_console_scripts_installed(
 ) -> None:
     """Ensure every declared console_script shim exists on disk after install.
 
-    On Windows, ``uv pip install -e .`` can register ``hermes.exe`` in the
+    On Windows, ``uv pip install -e .`` can register ``agentx.exe`` in the
     wheel RECORD while the file never lands on disk — typically when the live
-    ``hermes.exe`` shim is locked during ``agentx update``, or when uv/distlib
-    skips a launcher write. The symptom is ``hermes-agent.exe`` and
-    ``agentx-acp.exe`` present but ``hermes.exe`` missing, so ``agentx`` drops
+    ``agentx.exe`` shim is locked during ``agentx update``, or when uv/distlib
+    skips a launcher write. The symptom is ``agentx-agent.exe`` and
+    ``agentx-acp.exe`` present but ``agentx.exe`` missing, so ``agentx`` drops
     off PATH even though the install reported success (issue #52931).
 
     If any shim is missing we reinstall with ``--reinstall -e .`` under the
@@ -8720,7 +8720,7 @@ def _verify_core_dependencies_installed(
     # extras install can cost minutes and trips on whatever optional extra
     # was already broken upstream. Base is fast and is what's actually wrong.
     #
-    # Quarantine the running ``hermes.exe`` first: ``--reinstall -e .``
+    # Quarantine the running ``agentx.exe`` first: ``--reinstall -e .``
     # rewrites the entry-point shims, and on Windows pip can't overwrite the
     # live launcher, which would leave ``agentx`` off PATH.
     scripts_dir = _venv_scripts_dir() if _is_windows() else None
@@ -11109,7 +11109,7 @@ def cmd_monitoring(args):
         else:
             print("  OTLP endpoint:  not configured (monitoring.export.otlp)")
         print(f"  OTel SDK:       {'installed' if otlp_exporter.is_available() else 'not installed'} "
-              f"(optional extra: hermes-agent[otlp])")
+              f"(optional extra: agentx-workmate[otlp])")
         print("\n  Scope: gateway service health + redacted diagnostics only.")
         print("  No prompts, messages, tool args/results, usage analytics, or traces.")
         return
@@ -11168,7 +11168,7 @@ def main():
     except Exception:
         pass
 
-    # Sweep stale ``hermes.exe.old.*`` quarantine files left by previous
+    # Sweep stale ``agentx.exe.old.*`` quarantine files left by previous
     # ``agentx update`` runs on Windows. Silent no-op on non-Windows or when
     # there's nothing to clean. See ``_quarantine_running_hermes_exe``.
     try:

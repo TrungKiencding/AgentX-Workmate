@@ -20,6 +20,8 @@ Write a markdown plan to .agentx/plans/; no execution.
 | Author | AgentX Workmate (writing-craft adapted from obra/superpowers) |
 | License | MIT |
 | Platforms | linux, macos, windows |
+| Tags | `planning`, `plan-mode`, `implementation`, `workflow`, `design`, `documentation` |
+| Related skills | [`subagent-driven-development`](/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development), [`test-driven-development`](/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development), [`requesting-code-review`](/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review) |
 
 ## Reference: full SKILL.md
 

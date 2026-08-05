@@ -558,7 +558,7 @@ test('cookiesHavePrivySession is false for an empty value', () => {
   assert.equal(cookiesHavePrivySession([{ name: 'privy-token', value: '' }]), false)
 })
 
-test('cookiesHavePrivySession does NOT treat hermes gateway cookies as a portal session', () => {
+test('cookiesHavePrivySession does NOT treat agentx gateway cookies as a portal session', () => {
   // The whole point of Q7: a gateway session cookie is NOT a portal sign-in.
   assert.equal(cookiesHavePrivySession([{ name: 'hermes_session_at', value: 'x' }]), false)
   assert.equal(cookiesHavePrivySession([{ name: '__Host-hermes_session_rt', value: 'x' }]), false)
@@ -682,7 +682,7 @@ test('gateway WS URL IPC result serializes success and the auth-vs-transport mat
 
   for (const error of [
     Object.assign(new Error('500: unavailable'), { statusCode: 500 }),
-    new Error('Timed out connecting to Hermes backend after 8000ms'),
+    new Error('Timed out connecting to AgentX backend after 8000ms'),
     Object.assign(new Error('socket reset'), { code: 'ECONNRESET' })
   ]) {
     assert.deepEqual(await gatewayWsUrlIpcResult(async () => Promise.reject(error)), {

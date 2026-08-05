@@ -643,7 +643,7 @@ class TestSystemUnitHermesHome:
 
 
 class TestSystemUnitRefreshSyncsHermesHome:
-    """sudo system refresh must not flip TimeoutStopSec via /root/.hermes."""
+    """sudo system refresh must not flip TimeoutStopSec via /root/.agentx."""
 
     def test_refresh_adopts_unit_hermes_home_before_rewriting(self, tmp_path, monkeypatch):
         root_home = tmp_path / "root"
@@ -1020,10 +1020,10 @@ class TestRemapPathForUser:
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "root")
         (tmp_path / "root").mkdir()
         result = gateway_cli._remap_path_for_user(
-            str(tmp_path / "root" / ".agentx" / "hermes-agent"),
+            str(tmp_path / "root" / ".agentx" / "agentx-agent"),
             str(tmp_path / "alice"),
         )
-        assert result == str(tmp_path / "alice" / ".agentx" / "hermes-agent")
+        assert result == str(tmp_path / "alice" / ".agentx" / "agentx-agent")
 
 
 class TestSystemUnitPathRemapping:
@@ -1032,7 +1032,7 @@ class TestSystemUnitPathRemapping:
     def test_system_unit_has_no_root_paths(self, monkeypatch, tmp_path):
         root_home = tmp_path / "root"
         root_home.mkdir()
-        project = root_home / ".agentx" / "hermes-agent"
+        project = root_home / ".agentx" / "agentx-agent"
         project.mkdir(parents=True)
         venv_bin = project / "venv" / "bin"
         venv_bin.mkdir(parents=True)
@@ -1062,7 +1062,7 @@ class TestSystemUnitPathRemapping:
         # checkout is the rot bug fixed alongside this: a relocated/removed
         # checkout would crash-loop the unit on CHDIR (status=200).
         assert "WorkingDirectory=/home/alice/.agentx" in unit
-        assert "WorkingDirectory=/home/alice/.agentx/hermes-agent" not in unit
+        assert "WorkingDirectory=/home/alice/.agentx/agentx-agent" not in unit
 
 
 class TestDockerAwareGateway:
@@ -1179,9 +1179,9 @@ class TestLegacyHermesUnitDetection:
         user_dir, _ = self._setup_search_paths(tmp_path, monkeypatch)
         variants = [
             "ExecStart=/venv/bin/python -m hermes_cli.main gateway run --replace",
-            "ExecStart=/venv/bin/python /opt/hermes/hermes_cli/main.py gateway run",
+            "ExecStart=/venv/bin/python /opt/agentx/hermes_cli/main.py gateway run",
             "ExecStart=/usr/local/bin/agentx gateway run --replace",
-            "ExecStart=/venv/bin/python /opt/hermes/gateway/run.py",
+            "ExecStart=/venv/bin/python /opt/agentx/gateway/run.py",
         ]
         for i, execstart in enumerate(variants):
             name = "hermes.service" if i == 0 else "hermes.service"  # same name

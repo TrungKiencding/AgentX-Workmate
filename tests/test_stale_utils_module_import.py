@@ -3,7 +3,7 @@
 Real incident (gateway session 1518671026962174144)::
 
     Sorry, I encountered an error (ImportError).
-    cannot import name 'env_float' from 'utils' (~/.agentx/hermes-agent/utils.py)
+    cannot import name 'env_float' from 'utils' (~/.agentx/agentx-agent/utils.py)
 
 Mechanism:
 

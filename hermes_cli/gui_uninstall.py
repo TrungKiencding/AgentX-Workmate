@@ -6,7 +6,7 @@ remove the artifacts of both, on Linux, macOS, and Windows, WITHOUT touching
 the Python agent or the user's config/data:
 
   1. Source-built GUI (``agentx desktop`` / ``agentx gui``)
-     Built inside the agent checkout under ``$AGENTX_HOME/hermes-agent/``:
+     Built inside the agent checkout under ``$AGENTX_HOME/agentx-agent/``:
        - ``apps/desktop/dist``      (compiled renderer)
        - ``apps/desktop/release``   (electron-builder unpacked app + installers)
        - ``apps/desktop/node_modules`` and the workspace-root ``node_modules``
@@ -17,12 +17,12 @@ the Python agent or the user's config/data:
   2. Packaged distributable (DMG / NSIS / AppImage / deb / rpm)
      Installed by the OS to a standard application location and carrying its
      own bundled Electron + a per-user Electron ``userData`` directory:
-       - macOS:   ``/Applications/AgentX.app`` or ``~/Applications/AgentX.app``
+       - macOS:   ``/Applications/AgentX Workmate.app`` or ``~/Applications/AgentX Workmate.app``
        - Windows: ``%LOCALAPPDATA%\\Programs\\AgentX`` (NSIS per-user)
        - Linux:   ``~/.local/share/applications`` .desktop entry + AppImage
 
 In both shapes the Electron runtime keeps a ``userData`` directory keyed on
-the app name ("AgentX"), separate from ``$AGENTX_HOME``:
+the app name ("AgentX Workmate"), separate from ``$AGENTX_HOME``:
   - macOS:   ``~/Library/Application Support/AgentX``
   - Windows: ``%APPDATA%\\AgentX``
   - Linux:   ``$XDG_CONFIG_HOME/AgentX`` (default ``~/.config/AgentX``)
@@ -65,7 +65,7 @@ def log_warn(msg: str):
 
 def _agent_root(hermes_home: Path) -> Path:
     """The agent checkout root — same layout install.sh / install.ps1 use."""
-    return hermes_home / "hermes-agent"
+    return hermes_home / "agentx-agent"
 
 
 def desktop_userdata_dir() -> Path:
@@ -75,7 +75,7 @@ def desktop_userdata_dir() -> Path:
     on ``productName`` from apps/desktop/package.json. The name is read from
     :data:`branding.DESKTOP_APP_NAME` rather than spelled here, because the
     two were spelled independently and drifted during the rebrand: this side
-    moved while package.json still said "Hermes", so the uninstaller looked
+    moved while package.json still said "AgentX", so the uninstaller looked
     in a directory the app never wrote to and silently left GUI state behind.
     Keep package.json's productName equal to DESKTOP_APP_NAME.
 
@@ -99,7 +99,7 @@ def source_built_gui_artifacts(hermes_home: Path) -> "list[Path]":
     """GUI build artifacts produced by ``agentx desktop`` inside the checkout.
 
     These are removable on a GUI uninstall without harming the agent: the
-    Python agent runs from ``hermes-agent/`` source + ``venv/`` and never
+    Python agent runs from ``agentx-agent/`` source + ``venv/`` and never
     needs the Electron build output or node_modules.
     """
     agent_root = _agent_root(hermes_home)
@@ -121,28 +121,28 @@ def packaged_gui_app_paths() -> "list[Path]":
 
     Returns every candidate for the current OS; the caller filters to those
     that actually exist. We never glob system-wide — only the well-known
-    electron-builder output locations for the "AgentX" product.
+    electron-builder output locations for the "AgentX Workmate" product.
     """
     home = Path.home()
     paths: list[Path] = []
     if sys.platform == "darwin":
         paths += [
-            Path("/Applications/AgentX.app"),
-            home / "Applications" / "AgentX.app",
+            Path("/Applications/AgentX Workmate.app"),
+            home / "Applications" / "AgentX Workmate.app",
         ]
     elif sys.platform == "win32":
         local = os.environ.get("LOCALAPPDATA")
         local_base = Path(local) if local else (home / "AppData" / "Local")
         paths += [
-            # NSIS per-user install (perMachine=false → Programs\AgentX).
-            local_base / "Programs" / "AgentX",
+            # NSIS per-user install (perMachine=false → Programs\AgentX Workmate).
+            local_base / "Programs" / "AgentX Workmate",
             # Older / alternate layout some builds used.
-            local_base / "hermes-desktop",
+            local_base / "agentx-desktop",
         ]
         program_files = os.environ.get("ProgramFiles")
         if program_files:
             # NSIS per-machine fallback (needs admin to remove).
-            paths.append(Path(program_files) / "AgentX")
+            paths.append(Path(program_files) / "AgentX Workmate")
     else:
         # Linux: AppImage is a single file the user placed somewhere; we can
         # only reliably clean the desktop entry + icon we know the name of.
@@ -242,7 +242,7 @@ def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = 
         system package manager and are reported, not force-removed)
       - the Electron ``userData`` directory (unless ``remove_userdata=False``)
 
-    Never touches ``hermes-agent/hermes_cli`` (agent source), ``venv/``, or any
+    Never touches ``agentx-agent/hermes_cli`` (agent source), ``venv/``, or any
     config / sessions / .env under ``$AGENTX_HOME``.
 
     Returns the list of paths actually removed.

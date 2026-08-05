@@ -6,7 +6,7 @@ import { createFirstRunSetupGate } from './first-run-setup-gate'
 import { FirstRunSetupResetError, runPrimaryBackendStartup } from './primary-backend-startup'
 
 const bootstrapBackend = {
-  activeRoot: '/tmp/hermes-home/hermes-agent',
+  activeRoot: '/tmp/hermes-home/agentx-agent',
   kind: 'bootstrap-needed',
   platform: 'linux'
 }
@@ -14,7 +14,7 @@ const bootstrapBackend = {
 function startupOptions(overrides: Record<string, unknown> = {}) {
   return {
     connectRemote: vi.fn(async remote => ({ baseUrl: remote.baseUrl, mode: 'remote' as const })),
-    ensureLocalRuntime: vi.fn(async backend => ({ ...backend, command: 'hermes' })),
+    ensureLocalRuntime: vi.fn(async backend => ({ ...backend, command: 'agentx' })),
     prepareLocalBackend: vi.fn(async () => bootstrapBackend),
     resolveRemote: vi.fn(async () => null),
     waitForDecision: vi.fn(async () => 'continue-local' as const),
@@ -77,7 +77,7 @@ test('remote apply fails clearly when no saved remote can be resolved', async ()
 
 test('continue local waits for update exclusion and ensures the prepared runtime exactly once', async () => {
   const gate = createFirstRunSetupGate({ stuckAfterMs: 0 })
-  const runtimeBackend = { ...bootstrapBackend, command: 'hermes' }
+  const runtimeBackend = { ...bootstrapBackend, command: 'agentx' }
 
   const options = startupOptions({
     ensureLocalRuntime: vi.fn(async () => runtimeBackend),

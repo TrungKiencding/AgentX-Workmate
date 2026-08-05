@@ -74,7 +74,7 @@ _LOCAL_TOKEN_URL = "http://localhost:8000/oauth/token"
 # One OAuth client for every surface. Consent branding/UI adapt via the
 # ``source`` query param (not a separate client_id), so there's a single grant
 # identity to refresh — no clientId-vs-refresh-token desync to revoke the grant.
-_DEFAULT_CLIENT_ID = "hermes-agent"
+_DEFAULT_CLIENT_ID = "agentx-agent"
 
 
 def _is_loopback_url(url: str | None) -> bool:
@@ -159,7 +159,7 @@ def begin_authorization(
     """Start an authorization: return ``(authorize_url, state)`` and stash PKCE.
 
     ``source`` tags the authorize link with the initiating surface
-    (``hermes-desktop`` / ``agentx-cli``) so the consent side can attribute
+    (``agentx-desktop`` / ``agentx-cli``) so the consent side can attribute
     connects and vary behavior per surface. ``config_path`` is a home-relative
     *display* string for the consent screen (never the absolute path); callers
     pass the actual write path separately to ``complete_authorization``.
@@ -625,7 +625,7 @@ def start_loopback_flow_background(
     *,
     config_path: Path | None = None,
     host: str | None = None,
-    source: str = "hermes-desktop",
+    source: str = "agentx-desktop",
     timeout: float = 300.0,
 ) -> dict[str, str]:
     """Launch the loopback flow in a daemon thread; returns the initial status.

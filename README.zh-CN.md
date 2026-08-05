@@ -169,12 +169,12 @@ agentx claw migrate --overwrite  # 覆盖已有冲突
 欢迎贡献！请参阅 [贡献指南](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing) 了解开发设置、代码风格和 PR 流程。
 
 贡献者快速开始——使用标准安装器，然后在它创建的完整 git checkout 中开发：
-`$AGENTX_HOME/hermes-agent`（通常是 `~/.agentx/hermes-agent`）。这会匹配
+`$AGENTX_HOME/agentx-agent`（通常是 `~/.agentx/agentx-agent`）。这会匹配
 `agentx update`、托管 venv、lazy dependencies、gateway 和 docs tooling 使用的布局。
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-cd "${AGENTX_HOME:-$HOME/.agentx}/hermes-agent"
+cd "${AGENTX_HOME:-$HOME/.agentx}/agentx-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

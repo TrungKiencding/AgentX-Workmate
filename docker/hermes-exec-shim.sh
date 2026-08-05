@@ -1,6 +1,6 @@
 #!/bin/sh
 # shellcheck shell=sh
-# /opt/hermes/bin/agentx — `docker exec` privilege-drop shim.
+# /opt/agentx/bin/agentx — `docker exec` privilege-drop shim.
 #
 # Background
 # ----------
@@ -19,7 +19,7 @@
 #
 # Fix
 # ---
-# This shim sits at /opt/hermes/bin/agentx and is placed earliest on PATH.
+# This shim sits at /opt/agentx/bin/agentx and is placed earliest on PATH.
 # When invoked as root, it drops to the agentx user (via s6-setuidgid)
 # before exec'ing the real venv binary, so anything that writes under
 # $AGENTX_HOME is uid-aligned with the supervised processes. When invoked
@@ -30,7 +30,7 @@
 # other path.
 #
 # Recursion safety: the shim exec's the venv binary by *absolute path*
-# (/opt/hermes/.venv/bin/agentx), so the second hop cannot re-enter this
+# (/opt/agentx/.venv/bin/agentx), so the second hop cannot re-enter this
 # shim regardless of PATH state. No sentinel env var needed.
 #
 # Opt-out: set AGENTX_DOCKER_EXEC_AS_ROOT=1 (1/true/yes, case-insensitive)
@@ -40,12 +40,12 @@
 
 set -e
 
-REAL=/opt/hermes/.venv/bin/agentx
+REAL=/opt/agentx/.venv/bin/agentx
 
 # Defensive: if the venv binary is missing (corrupted image, partial
 # install), fail loudly rather than silently masking it.
 if [ ! -x "$REAL" ]; then
-    echo "hermes-shim: $REAL not found or not executable" >&2
+    echo "agentx-shim: $REAL not found or not executable" >&2
     exit 127
 fi
 
@@ -73,8 +73,8 @@ if [ ! -x "$S6_SUID" ]; then
     # Non-s6 image (someone stripped s6-overlay, or a hand-built variant).
     # Fail loud rather than silently re-execing as root and leaking the
     # bug this shim exists to prevent.
-    echo "hermes-shim: $S6_SUID not found; refusing to silently run as root." >&2
-    echo "hermes-shim: re-run with --user agentx or set AGENTX_DOCKER_EXEC_AS_ROOT=1." >&2
+    echo "agentx-shim: $S6_SUID not found; refusing to silently run as root." >&2
+    echo "agentx-shim: re-run with --user agentx or set AGENTX_DOCKER_EXEC_AS_ROOT=1." >&2
     exit 126
 fi
 

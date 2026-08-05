@@ -60,7 +60,7 @@ Check the posture any time:
 agentx monitoring status
 ```
 
-The OpenTelemetry SDK is an optional extra (`pip install 'hermes-agent[otlp]'`),
+The OpenTelemetry SDK is an optional extra (`pip install 'agentx-workmate[otlp]'`),
 lazy-installed on first use. When the SDK is missing or the endpoint is down,
 the gateway runs unaffected: metric collection and ordinary event export stay
 off the hot path, while terminal cron events make one bounded fail-open flush

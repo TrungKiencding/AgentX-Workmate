@@ -14,13 +14,13 @@ def test_top_level_skills_flag_defaults_to_chat(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["agentx", "-s", "hermes-agent-dev,github-auth"],
+        ["agentx", "-s", "agentx-agent-dev,github-auth"],
     )
 
     main_mod.main()
 
     assert captured == {
-        "skills": ["hermes-agent-dev,github-auth"],
+        "skills": ["agentx-agent-dev,github-auth"],
         "command": None,
     }
 
@@ -40,7 +40,7 @@ def test_continue_worktree_and_skills_flags_work_together(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["agentx", "-c", "-w", "-s", "hermes-agent-dev"],
+        ["agentx", "-c", "-w", "-s", "agentx-agent-dev"],
     )
 
     main_mod.main()
@@ -48,6 +48,6 @@ def test_continue_worktree_and_skills_flags_work_together(monkeypatch):
     assert captured == {
         "continue_last": True,
         "worktree": True,
-        "skills": ["hermes-agent-dev"],
+        "skills": ["agentx-agent-dev"],
         "command": "chat",
     }

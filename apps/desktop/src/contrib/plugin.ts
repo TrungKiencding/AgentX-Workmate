@@ -28,7 +28,7 @@ export type { PluginNativeNotificationInput } from '@/store/native-notifications
 export type PluginContribution = Omit<Contribution, 'source' | 'id'> & { id: string }
 
 /** Namespaced JSON persistence (the VS Code `globalState` analog). Keys live
- *  under `hermes.plugin.<id>.` — plugins can't read or clobber each other. */
+ *  under `agentx.plugin.<id>.` — plugins can't read or clobber each other. */
 export interface PluginStorage {
   get<T>(key: string, fallback: T): T
   set(key: string, value: unknown): void
@@ -36,14 +36,14 @@ export interface PluginStorage {
 }
 
 /** The curated OS door — every way a plugin reaches outside the app window,
- *  in one attributed namespace instead of the raw `window.hermesDesktop`
+ *  in one attributed namespace instead of the raw `window.agentxDesktop`
  *  bridge. Every member resolves a result instead of throwing when the
  *  capability can't apply (no Electron shell, older desktop build), so
  *  callers branch on the return value rather than sniffing the bridge. */
 export interface PluginOs {
   /** Native OS notification (Electron), attributed to this plugin. Gated by
    *  Settings ▸ Notifications ▸ "Plugin notifications" and fires only while
-   *  the user is away from Hermes — use `host.notify` for the in-app toast.
+   *  the user is away from AgentX — use `host.notify` for the in-app toast.
    *  Throttled per plugin; reserve it for genuinely notable events. */
   notify: (input: PluginNativeNotificationInput) => void
   /** Open a URL with the OS default handler (browser, mail client, custom
@@ -102,7 +102,7 @@ export interface HermesPlugin {
 }
 
 function createPluginStorage(pluginId: string): PluginStorage {
-  const scoped = (key: string) => `hermes.plugin.${pluginId}.${key}`
+  const scoped = (key: string) => `agentx.plugin.${pluginId}.${key}`
 
   return {
     get(key, fallback) {
@@ -127,8 +127,8 @@ function createPluginStorage(pluginId: string): PluginStorage {
 // Electron shell (or run in a plain browser), so every door degrades to a
 // false result the plugin can branch on.
 function createPluginOs(pluginId: string): PluginOs {
-  const attempt = async (run: (bridge: NonNullable<typeof window.hermesDesktop>) => Promise<boolean>) => {
-    const bridge = typeof window === 'undefined' ? undefined : window.hermesDesktop
+  const attempt = async (run: (bridge: NonNullable<typeof window.agentxDesktop>) => Promise<boolean>) => {
+    const bridge = typeof window === 'undefined' ? undefined : window.agentxDesktop
 
     if (!bridge) {
       return false

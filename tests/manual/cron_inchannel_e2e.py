@@ -25,7 +25,7 @@ main-checkout install):
     cd <worktree>
     PYTHONPATH="$PWD" ../../.venv/bin/python tests/manual/cron_inchannel_e2e.py
 
-Uses a throwaway AGENTX_HOME so it never touches ~/.hermes. No real names.
+Uses a throwaway AGENTX_HOME so it never touches ~/.agentx. No real names.
 """
 
 import os

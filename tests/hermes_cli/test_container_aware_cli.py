@@ -33,7 +33,7 @@ def container_env(tmp_path, monkeypatch):
     container_mode.write_text(
         "# Written by NixOS activation script. Do not edit manually.\n"
         "backend=podman\n"
-        "container_name=hermes-agent\n"
+        "container_name=agentx-agent\n"
         "exec_user=agentx\n"
         "hermes_bin=/data/current-package/bin/agentx\n"
     )
@@ -47,7 +47,7 @@ def test_get_container_exec_info_returns_metadata(container_env):
 
     assert info is not None
     assert info["backend"] == "podman"
-    assert info["container_name"] == "hermes-agent"
+    assert info["container_name"] == "agentx-agent"
     assert info["exec_user"] == "agentx"
     assert info["hermes_bin"] == "/data/current-package/bin/agentx"
 
@@ -67,7 +67,7 @@ def test_get_container_exec_info_returns_metadata(container_env):
 def docker_container_info():
     return {
         "backend": "docker",
-        "container_name": "hermes-agent",
+        "container_name": "agentx-agent",
         "exec_user": "agentx",
         "hermes_bin": "/data/current-package/bin/agentx",
     }
@@ -77,7 +77,7 @@ def docker_container_info():
 def podman_container_info():
     return {
         "backend": "podman",
-        "container_name": "hermes-agent",
+        "container_name": "agentx-agent",
         "exec_user": "agentx",
         "hermes_bin": "/data/current-package/bin/agentx",
     }
@@ -110,7 +110,7 @@ def test_exec_in_container_calls_execvp(docker_container_info):
     e_values = [cmd[i + 1] for i in e_indices]
     assert "TERM=xterm-256color" in e_values
     assert "LANG=en_US.UTF-8" in e_values
-    assert "hermes-agent" in cmd
+    assert "agentx-agent" in cmd
     assert "/data/current-package/bin/agentx" in cmd
     assert "chat" in cmd
 

@@ -21,6 +21,7 @@ Serverless GPU cloud for ML jobs and model APIs.
 | License | MIT |
 | Dependencies | `modal>=1.0` |
 | Platforms | linux, macos, windows |
+| Tags | `Infrastructure`, `Serverless`, `GPU`, `Cloud`, `Deployment`, `Modal` |
 
 ## Reference: full SKILL.md
 

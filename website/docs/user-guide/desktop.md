@@ -205,7 +205,7 @@ To launch via the CLI, simply run `hermes desktop`. By default it installs works
 
 ## How it works
 
-The packaged app ships the Electron shell and a native React chat surface. On first launch it can install the Hermes Agent runtime into `AGENTX_HOME` (`~/.agentx`, or `%LOCALAPPDATA%\agentx` on Windows) — **the same layout a CLI install uses**, which is why the two are interchangeable. Backend resolution first honours `AGENTX_DESKTOP_AGENTX_ROOT`, then a completed managed install, then a probed `hermes` on `PATH` (unless `--ignore-existing` / `AGENTX_DESKTOP_IGNORE_EXISTING=1` is set), and finally an explicit `AGENTX_DESKTOP_HERMES` command override for packagers such as Nix. The React renderer talks to a headless backend the app launches for you — a `hermes serve` process that serves the `tui_gateway` JSON-RPC/WebSocket API — and reuses the agent runtime rather than embedding `hermes --tui`. The desktop app is **self-contained**: it runs its own `hermes serve` backend and never opens or requires the [web dashboard](./features/web-dashboard.md). (Runtimes older than the `serve` command fall back to a headless `dashboard --no-open` automatically, so an app update never outruns its backend.) Install, backend-resolution, and self-update logic live in the Electron main process.
+The packaged app ships the Electron shell and a native React chat surface. On first launch it can install the Hermes Agent runtime into `AGENTX_HOME` (`~/.agentx`, or `%LOCALAPPDATA%\agentx` on Windows) — **the same layout a CLI install uses**, which is why the two are interchangeable. Backend resolution first honours `AGENTX_DESKTOP_AGENTX_ROOT`, then a completed managed install, then a probed `hermes` on `PATH` (unless `--ignore-existing` / `AGENTX_DESKTOP_IGNORE_EXISTING=1` is set), and finally an explicit `AGENTX_DESKTOP_AGENTX` command override for packagers such as Nix. The React renderer talks to a headless backend the app launches for you — a `hermes serve` process that serves the `tui_gateway` JSON-RPC/WebSocket API — and reuses the agent runtime rather than embedding `hermes --tui`. The desktop app is **self-contained**: it runs its own `hermes serve` backend and never opens or requires the [web dashboard](./features/web-dashboard.md). (Runtimes older than the `serve` command fall back to a headless `dashboard --no-open` automatically, so an app update never outruns its backend.) Install, backend-resolution, and self-update logic live in the Electron main process.
 
 ## Connecting to a remote backend
 
@@ -316,7 +316,7 @@ rm "$HOME/.agentx/hermes-agent/.hermes-bootstrap-complete"
 rm -rf "$HOME/.agentx/hermes-agent/venv"
 
 # Reset a stuck macOS microphone prompt
-tccutil reset Microphone com.nousresearch.hermes
+tccutil reset Microphone com.agentx.workmate
 ```
 
 ### "Build desktop app" stuck on Electron download
@@ -392,7 +392,7 @@ detected and never re-signed.
 One-time note: changing the signing identity (including the first update after
 this fix) changes the app's identity once, so macOS will re-prompt one final
 time. Grants are stable from then on. If a permission gets stuck, reset it with
-`tccutil reset All com.nousresearch.hermes` and re-grant.
+`tccutil reset All com.agentx.workmate` and re-grant.
 
 ## See also
 
