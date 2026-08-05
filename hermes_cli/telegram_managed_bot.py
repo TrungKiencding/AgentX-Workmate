@@ -18,14 +18,20 @@ from typing import Optional
 
 import httpx
 
-# Default pairing API base URL (Nous-hosted Cloudflare Worker).
-# Override for PoC/staging with TELEGRAM_ONBOARDING_URL.
-DEFAULT_API_URL = "https://setup.hermes-agent.nousresearch.com"
+# Managed Telegram onboarding is a HOSTED service: a pairing API that mints a
+# bot on the user's behalf. Upstream shipped a default pointing at the one Nous
+# operates. AgentX Workmate does not run that service and must not send users'
+# pairing requests to a third party's, so there is no default — an operator
+# points this at their own deployment with TELEGRAM_ONBOARDING_URL, and until
+# they do, `agentx setup telegram` explains that and falls back to the
+# self-provided bot-token path, which needs no service at all.
+DEFAULT_API_URL = ""
 TELEGRAM_ONBOARDING_URL_ENV = "TELEGRAM_ONBOARDING_URL"
 
-# The Nous-hosted manager bot username (without @). The backend returns the
-# actual deep link, so this is only used by local helpers/tests.
-DEFAULT_MANAGER_BOT = "HermesSetupBot"
+# Manager bot username (without @) for whichever deployment is configured. The
+# backend returns the actual deep link, so this is only used by local
+# helpers/tests.
+DEFAULT_MANAGER_BOT = "AgentXSetupBot"
 
 DEFAULT_BOT_NAME = "AgentX Workmate"
 DEFAULT_POLL_TIMEOUT = 180
@@ -56,11 +62,28 @@ class TelegramBotSetupResult:
     owner_user_id: int | None = None
 
 
+class ManagedOnboardingUnavailable(RuntimeError):
+    """Raised when no managed-onboarding service is configured."""
+
+
 def _api_url(api_url: str | None = None) -> str:
-    """Resolve the onboarding API URL, honoring the PoC env override."""
-    return (
+    """Resolve the onboarding API URL.
+
+    Raises :class:`ManagedOnboardingUnavailable` when no service is configured,
+    rather than returning a placeholder — a request built on an empty base URL
+    would go somewhere unpredictable, and the caller can offer the token path
+    instead.
+    """
+    resolved = (
         api_url or os.environ.get(TELEGRAM_ONBOARDING_URL_ENV) or DEFAULT_API_URL
     ).rstrip("/")
+    if not resolved:
+        raise ManagedOnboardingUnavailable(
+            "Managed Telegram onboarding is not configured. Set "
+            f"{TELEGRAM_ONBOARDING_URL_ENV} to your own onboarding service, or "
+            "create a bot with @BotFather and paste its token instead."
+        )
+    return resolved
 
 
 def is_valid_telegram_bot_token(token: object) -> bool:

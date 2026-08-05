@@ -1,7 +1,7 @@
 # AgentX CLI Reference
 
 Live sources when anything looks stale: `agentx --help`, `agentx <command> --help`,
-https://hermes-agent.nousresearch.com/docs/reference/cli-commands
+https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/cli-commands.md
 
 ### Global Flags
 
@@ -79,7 +79,7 @@ agentx gateway run|install|start|stop|restart|status|setup
 ```
 
 20+ platforms: Telegram, Discord, Slack, WhatsApp (Baileys + Business Cloud API), iMessage (Photon — `agentx photon setup`), Signal, Email, SMS, Matrix, Mattermost, Teams, LINE, SimpleX, ntfy, Google Chat, Home Assistant, DingTalk, Feishu, WeCom, Weixin, API Server, Webhooks. Open WebUI connects via the API Server adapter. Most adapters ship under `plugins/platforms/`.
-Docs: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/
+Docs: https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md
 
 ### Sessions
 
@@ -141,10 +141,10 @@ Plugin- and provider-supplied subcommands (e.g. `agentx photon setup`) only appe
 
 | Looking for... | Location |
 |---|---|
-| Config options | `agentx config edit` · [Configuration docs](https://hermes-agent.nousresearch.com/docs/user-guide/configuration) |
-| Tools / toolsets | `agentx tools list` · [Tools reference](https://hermes-agent.nousresearch.com/docs/reference/tools-reference) |
-| Skills catalog | `agentx skills browse` · [Skills catalog](https://hermes-agent.nousresearch.com/docs/reference/skills-catalog) |
-| Provider setup | `agentx model` · [Providers guide](https://hermes-agent.nousresearch.com/docs/integrations/providers) |
-| Env variables | `agentx config env-path` · [Env vars reference](https://hermes-agent.nousresearch.com/docs/reference/environment-variables) |
+| Config options | `agentx config edit` · [Configuration docs](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/configuration.md) |
+| Tools / toolsets | `agentx tools list` · [Tools reference](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/tools-reference.md) |
+| Skills catalog | `agentx skills browse` · [Skills catalog](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/skills-catalog.md) |
+| Provider setup | `agentx model` · [Providers guide](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/integrations/providers.md) |
+| Env variables | `agentx config env-path` · [Env vars reference](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/environment-variables.md) |
 | Gateway logs | `~/.agentx/logs/gateway.log` (or `agentx logs`) |
 | Sessions | `agentx sessions browse` (reads state.db) |

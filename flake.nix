@@ -1,5 +1,5 @@
 {
-  description = "AgentX Workmate - AI agent framework by Nous Research";
+  description = "AgentX Workmate - AI agent framework by AstralX Technology";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

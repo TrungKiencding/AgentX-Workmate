@@ -7671,7 +7671,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "email": {
         "name": "Email",
         "description": "Talk to AgentX through an IMAP/SMTP mailbox.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md",
         "env_vars": (
             "EMAIL_ADDRESS",
             "EMAIL_PASSWORD",
@@ -7714,7 +7714,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "google_chat": {
         "name": "Google Chat",
         "description": "Connect AgentX to Google Chat via Cloud Pub/Sub.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/google_chat",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/google_chat.md",
     },
     "wecom": {
         "name": "WeCom (group bot)",
@@ -7743,7 +7743,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "weixin": {
         "name": "Weixin / WeChat (Personal)",
         "description": "Connect a personal WeChat account through Tencent's iLink Bot API.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/weixin/",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/weixin.md",
         "env_vars": ("WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN", "WEIXIN_BASE_URL"),
         "required_env": ("WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"),
     },
@@ -7770,34 +7770,34 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     # Channels page can point at the Microsoft Teams setup guide.
     "teams": {
         "description": "Connect AgentX to Microsoft Teams chats via the Bot Framework.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/teams.md",
     },
     # Bundled platform plugins: name comes from the plugin registry label;
     # give each a human description (the registry's install_hint is a
     # dependency note, not a description) and a docs link.
     "irc": {
         "description": "Relay messages between an IRC channel (or DMs) and AgentX.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/irc",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/irc.md",
     },
     "line": {
         "description": "Use AgentX from LINE via the LINE Messaging API webhook.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/line",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/line.md",
     },
     "ntfy": {
         "description": "Chat with AgentX over ntfy push topics (ntfy.sh or self-hosted).",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/ntfy",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/ntfy.md",
     },
     "photon": {
         "description": "Use AgentX through iMessage via Photon's managed Spectrum platform.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/photon",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/photon.md",
     },
     "raft": {
         "description": "Join a Raft workspace as an external agent.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/raft",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/raft.md",
     },
     "simplex": {
         "description": "Talk to AgentX over SimpleX Chat via a local simplex-chat daemon.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/simplex",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/simplex.md",
     },
     "yuanbao": {
         "name": "Yuanbao (元宝)",
@@ -7808,7 +7808,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "api_server": {
         "name": "API server",
         "description": "Expose AgentX as an OpenAI-compatible HTTP API for tools like Open WebUI.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md",
         "env_vars": (
             "API_SERVER_ENABLED",
             "API_SERVER_KEY",
@@ -7821,20 +7821,20 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "webhook": {
         "name": "Webhooks",
         "description": "Receive events from GitHub, GitLab, and other webhook sources.",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks/",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/webhooks.md",
         "env_vars": ("WEBHOOK_ENABLED", "WEBHOOK_PORT", "WEBHOOK_SECRET"),
         "required_env": (),
     },
     "msgraph_webhook": {
         "name": "Microsoft Graph Webhook",
         "description": "Receive Microsoft Graph change notifications (Teams meetings, Outlook, …).",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/msgraph-webhook",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/msgraph-webhook.md",
         "required_env": (),
     },
     "whatsapp_cloud": {
         "name": "WhatsApp Cloud API",
         "description": "Use AgentX via Meta's hosted WhatsApp Cloud API (no local bridge).",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp-cloud",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/whatsapp-cloud.md",
     },
     "relay": {
         "name": "Relay (experimental)",
@@ -8893,7 +8893,7 @@ async def cancel_whatsapp_onboarding(pairing_id: str):
     return {"ok": True}
 
 
-_TELEGRAM_ONBOARDING_DEFAULT_URL = "https://setup.hermes-agent.nousresearch.com"
+_TELEGRAM_ONBOARDING_DEFAULT_URL = "https://github.com/AstralX/agentx-workmate"
 _TELEGRAM_ONBOARDING_USER_AGENT = f"HermesDashboard/{__version__}"
 @dataclass
 class _TelegramOnboardingPairing:
@@ -9680,7 +9680,7 @@ _OAUTH_PROVIDER_CATALOG: tuple[Dict[str, Any], ...] = (
         # 127.0.0.1 callback.
         "flow": "device_code",
         "cli_command": "agentx auth add xai-oauth",
-        "docs_url": "https://hermes-agent.nousresearch.com/docs/guides/xai-grok-oauth",
+        "docs_url": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/guides/xai-grok-oauth.md",
         "status_fn": None,  # dispatched via auth.get_xai_oauth_auth_status
     },
     {

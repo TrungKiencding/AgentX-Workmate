@@ -296,7 +296,7 @@ Safe-root violations return `Write denied: '…' is outside AGENTX_WRITE_SAFE_RO
 
 When set, `write_file` and `patch` may only target paths inside the listed directory prefix(es). Anything outside is **hard-blocked** — not routed through dangerous-command approval.
 
-- Set automatically in the [official Docker image](https://github.com/NousResearch/hermes-agent) (`AGENTX_WRITE_SAFE_ROOT=/opt/data`)
+- Set automatically in the [official Docker image](https://github.com/AstralX/agentx-workmate) (`AGENTX_WRITE_SAFE_ROOT=/opt/data`)
 - Supports multiple roots separated by `:` on Unix or `;` on Windows
 - **Do not add to `~/.agentx/.env` casually.** If you set it to a project directory, the agent cannot write to `~/.agentx/cron/jobs.json`, profile skills, or other AgentX state outside that prefix
 

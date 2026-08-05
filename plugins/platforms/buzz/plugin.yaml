@@ -8,7 +8,7 @@ description: >
   collaboration platform built on Nostr) and relays messages between
   channels/DMs and the AgentX agent.  Pure stdlib — shells out to the
   buzz CLI binary (JSON in/out); no Python packages required.
-author: Nous Research
+author: AstralX Technology
 # ``requires_env`` entries are surfaced in ``agentx config`` UI via the
 # platform-plugin env var injector in ``hermes_cli/config.py``.
 requires_env:

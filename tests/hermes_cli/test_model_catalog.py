@@ -90,9 +90,22 @@ class TestFetchSuccess:
 
 
 class TestFetchFailure:
-    def test_network_failure_returns_empty_when_no_cache(self, isolated_home):
+    def test_network_failure_falls_back_to_the_shipped_manifest(self, isolated_home):
+        """No network and no cache still yields a catalog, not an empty dict.
+
+        The manifest ships in the tree, so a fresh offline install gets the
+        curated lists instead of the bare in-repo fallbacks. Before the catalog
+        became bundled-only this returned ``{}``.
+        """
         from hermes_cli import model_catalog
         with patch.object(model_catalog, "_fetch_manifest", return_value=None):
+            result = model_catalog.get_catalog(force_refresh=True)
+        assert result.get("providers"), "shipped manifest should have been seeded"
+
+    def test_returns_empty_when_no_manifest_is_reachable(self, isolated_home):
+        from hermes_cli import model_catalog
+        with patch.object(model_catalog, "_fetch_manifest", return_value=None), \
+                patch.object(model_catalog, "_seed_from_installed_tree", return_value=False):
             result = model_catalog.get_catalog(force_refresh=True)
         assert result == {}
 
@@ -137,11 +150,11 @@ class TestFallbackChain:
     releases (opus 4.8, etc.) never reach the picker.
     """
 
-    PRIMARY = "https://hermes-agent.nousresearch.com/docs/api/model-catalog.json"
-    FALLBACK = (
-        "https://raw.githubusercontent.com/NousResearch/hermes-agent"
-        "/main/website/static/api/model-catalog.json"
-    )
+    # Both URLs are operator-supplied. There is no default catalog host any
+    # more — DEFAULT_CATALOG_FALLBACK_URLS is empty — so these exercise the
+    # helper's walk with an explicit chain rather than a shipped one.
+    PRIMARY = "https://catalog.example.com/model-catalog.json"
+    FALLBACK = "https://mirror.example.com/model-catalog.json"
 
     def test_uses_primary_when_it_succeeds(self, isolated_home):
         from hermes_cli import model_catalog
@@ -168,7 +181,9 @@ class TestFallbackChain:
             return _valid_manifest()
 
         with patch.object(model_catalog, "_fetch_manifest", side_effect=fake_fetch):
-            result = model_catalog._fetch_manifest_with_fallback(self.PRIMARY, 5.0)
+            result = model_catalog._fetch_manifest_with_fallback(
+                self.PRIMARY, 5.0, (self.FALLBACK,)
+            )
 
         assert result is not None
         assert calls == [self.PRIMARY, self.FALLBACK]
@@ -187,7 +202,11 @@ class TestFallbackChain:
                 return None
             return manifest
 
-        with patch.object(model_catalog, "_fetch_manifest", side_effect=fake_fetch):
+        with patch.object(model_catalog, "_fetch_manifest", side_effect=fake_fetch), \
+                patch.object(model_catalog, "DEFAULT_CATALOG_FALLBACK_URLS", (self.FALLBACK,)), \
+                patch.object(model_catalog, "_load_catalog_config",
+                             return_value={"enabled": True, "url": self.PRIMARY,
+                                           "ttl_hours": 1.0, "providers": {}}):
             result = model_catalog.get_catalog(force_refresh=True)
 
         assert result == manifest
@@ -197,8 +216,15 @@ class TestFallbackChain:
 class TestCuratedAccessors:
     def test_openrouter_returns_tuples(self, isolated_home):
         from hermes_cli import model_catalog
+        # A configured URL is required for the fetch path to run at all: with
+        # the default empty URL the catalog comes from the shipped manifest.
         with patch.object(
             model_catalog, "_fetch_manifest", return_value=_valid_manifest()
+        ), patch.object(
+            model_catalog,
+            "_load_catalog_config",
+            return_value={"enabled": True, "url": "https://catalog.example.com/c.json",
+                          "ttl_hours": 1.0, "providers": {}},
         ):
             result = model_catalog.get_curated_openrouter_models()
         assert result == [
@@ -210,7 +236,8 @@ class TestCuratedAccessors:
 
     def test_nous_returns_none_when_catalog_empty(self, isolated_home):
         from hermes_cli import model_catalog
-        with patch.object(model_catalog, "_fetch_manifest", return_value=None):
+        with patch.object(model_catalog, "_fetch_manifest", return_value=None), \
+                patch.object(model_catalog, "_seed_from_installed_tree", return_value=False):
             assert model_catalog.get_curated_nous_models() is None
 
 

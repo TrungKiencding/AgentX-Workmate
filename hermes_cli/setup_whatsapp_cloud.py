@@ -535,7 +535,7 @@ def run_whatsapp_cloud_setup() -> int:
     print("        Requires Meta's business verification process —")
     print("        Business Manager → Security Center → Start Verification.")
     print()
-    print("  Docs: https://hermes-agent.nousresearch.com/docs/user-guide/")
+    print("  Docs: https://github.com/AstralX/agentx-workmate/tree/main/website/docs")
     print("        messaging/whatsapp-cloud")
     print()
     return 0

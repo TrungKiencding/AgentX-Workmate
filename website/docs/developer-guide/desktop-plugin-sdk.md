@@ -61,7 +61,7 @@ enable/disable live. Everything on this page is written against the disk door
 (what you and the agent write); [Bundled plugins](#bundled-plugins) notes the two
 differences. No desktop plugins ship in the core tree today — reference demos
 live in the companion
-[`agentx-example-plugins`](https://github.com/NousResearch/agentx-example-plugins)
+[`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
 repo.
 
 ## Quick start — your first plugin
@@ -569,7 +569,7 @@ enable/disable contract as a disk plugin. The two differences:
 
 No desktop plugins ship in the core tree today; the shipped app stays uncluttered
 and demos live in the
-[`agentx-example-plugins`](https://github.com/NousResearch/agentx-example-plugins)
+[`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
 companion repo.
 
 ## Security model

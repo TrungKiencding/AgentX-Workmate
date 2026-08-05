@@ -2,7 +2,7 @@
 name: docx
 description: "Create, read, edit Word .docx documents and templates."
 version: 1.0.0
-author: Anthropic (adapted by Nous Research)
+author: Anthropic (adapted for AgentX Workmate)
 license: Proprietary. LICENSE.txt has complete terms
 platforms: [linux, macos, windows]
 metadata:

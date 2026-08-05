@@ -127,13 +127,33 @@ PRESERVED = [
     # breaks `npm ci` outright.
     "hermes-parser",
     "hermes-estree",
-    # Upstream coordinates: the repo slug and the onboarding host stay until a
-    # domain exists (REBRAND.md §14).
-    "https://github.com/NousResearch/hermes-agent.git",
-    "git@github.com:NousResearch/hermes-agent.git",
-    "ghcr.io/nousresearch/hermes-agent:latest",
-    "https://hermes-agent.nousresearch.com/install.sh",
-    "https://setup.hermes-agent.nousresearch.com",
+    # Upstream issue and PR citations. These numbers exist in Nous's tracker
+    # and nowhere else, so repointing them at the new repo would turn a correct
+    # citation into a dead link. Phase 10's repo-slug rule exempts exactly this
+    # shape, and check_branding.py allows it.
+    "See https://github.com/NousResearch/hermes-agent/issues/10454",
+    "NousResearch/hermes-agent#53027",
+    "https://github.com/NousResearch/hermes-agent/pull/47705",
+    # The post-rename coordinates must survive the table unchanged — a rule
+    # that re-mangles its own output is how `agentx/hermes-deadbeef` happened.
+    "https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh",
+    "https://github.com/AstralX/agentx-workmate",
+    "astralx/agentx-workmate:latest",
+    # OTHER repositories and HuggingFace artifacts under the Nous org. Only
+    # `NousResearch/hermes-agent` is this product; every sibling below belongs
+    # to Nous and resolves nowhere once renamed. A widened kebab lookbehind
+    # rewrote five of them into coordinates that do not exist, which is why
+    # each is pinned by name rather than trusted to a boundary character.
+    "NousResearch/hermes-example-plugins",
+    "https://github.com/NousResearch/hermes-example-plugins.git",
+    "`hermes-example-plugins`",
+    "NousResearch/Hermes-Agent",
+    "NousResearch/Hermes-Agent.git",
+    "NousResearch/Hermes-Agent-Thinking-GLM-4.7-SFT1",
+    "NousResearch/hermes-agent-megascience-sft1",
+    "NousResearch/terminal-tasks-glm-hermes-agent",
+    "NousResearch/Nous-Hermes-llama-1b-v1",
+    "NousResearch/Hermes3",
 ]
 
 
@@ -395,7 +415,56 @@ RENAMES = [
     ("hermes-agent-skill-authoring", "agentx-agent-skill-authoring"),
     ("inspecting-hermes-desktop-dom", "inspecting-agentx-desktop-dom"),
     ("hermes-s6-container-supervision", "agentx-s6-container-supervision"),
+    # ── phase 10: upstream coordinates ───────────────────────────────────
+    (
+        "https://github.com/NousResearch/hermes-agent.git",
+        "https://github.com/AstralX/agentx-workmate.git",
+    ),
+    (
+        "git@github.com:NousResearch/hermes-agent.git",
+        "git@github.com:AstralX/agentx-workmate.git",
+    ),
+    # The lowercase canonical the update check compares an origin against.
+    ("github.com/nousresearch/hermes-agent", "github.com/AstralX/agentx-workmate"),
+    ("if: github.repository == 'NousResearch/hermes-agent'",
+     "if: github.repository == 'AstralX/agentx-workmate'"),
+    ("https://github.com/NousResearch/hermes-agent/issues", "https://github.com/AstralX/agentx-workmate/issues"),
+    # Vendor as the publisher of THIS build.
+    ("author: NousResearch", "author: AstralX Technology"),
+    ('"publisher": "Nous Research"', '"publisher": "AstralX Technology"'),
+    ("copyright: 'Copyright © 2026 Nous Research'", "copyright: 'Copyright © 2026 AstralX Technology'"),
+    ("CompanyName: 'Nous Research'", "CompanyName: 'AstralX Technology'"),
+    ("Built by [Nous Research](https://nousresearch.com)", "Built by AstralX Technology"),
+    ("Built%20by-Nous%20Research", "Built%20by-AstralX%20Technology"),
+    ("security@nousresearch.com", "kien.le@astralx.com.vn"),
+    (
+        'authors = ["Nous Research <info@nousresearch.com>"]',
+        'authors = ["AstralX Technology <kien.le@astralx.com.vn>"]',
+    ),
 ]
+
+# "Nous Research" where it is NOT the publisher of this build. Three separate
+# meanings, all of which must survive: the LLM provider this product
+# integrates with, the legal entity that charges the card, and the author of a
+# third-party model family. A blanket vendor sweep breaks auth and turns two
+# true sentences into false ones.
+VENDOR_PRESERVED = [
+    'display_name = "Nous Research"',
+    "By confirming, you authorize Nous Research to charge the card ending 4242",
+    "⚠ Nous Research Hermes 3 & 4 models are NOT agentic",
+    'provider_norm in {"nous", "nous-portal", "nousresearch"}',
+    'DEFAULT_PORTAL_BASE_URL = "https://portal.nousresearch.com"',
+    '_NOUS_DEFAULT_BASE_URL = "https://inference-api.nousresearch.com/v1"',
+    '"TOOL_GATEWAY_DOMAIN": "nousresearch.com"',
+    'base_url_host_matches(url, "nousresearch.com")',
+    "teknium@nousresearch.com",
+]
+
+
+@pytest.mark.parametrize("text", VENDOR_PRESERVED)
+def test_provider_identity_survives_the_vendor_sweep(text):
+    assert rewrite(text) == text, f"vendor sweep broke provider identity: {text!r}"
+
 
 
 @pytest.mark.parametrize(("before", "after"), RENAMES)
@@ -540,15 +609,30 @@ def test_mixed_line_renames_env_but_keeps_module():
     assert rewrite(line) == 'hermes_home = os.environ.get("AGENTX_HOME", "~/.agentx")'
 
 
-def test_upstream_repo_slug_is_left_until_a_domain_exists():
-    """`NousResearch/hermes-agent` is a third-party coordinate (REBRAND.md §14)."""
-    url = "https://github.com/NousResearch/hermes-agent.git"
-    assert rewrite(url) == url
-    assert rewrite(url, DESKTOP) == url
+def test_repo_slug_moves_but_issue_citations_do_not():
+    """Same slug, opposite answers — a numbered citation is provenance.
+
+    The clone source has to follow the fork or `agentx update` fetches Nous's
+    tree; the issue number has to stay or a correct citation becomes a 404.
+    """
+    clone = "https://github.com/NousResearch/hermes-agent.git"
+    assert rewrite(clone) == "https://github.com/AstralX/agentx-workmate.git"
+    for cite in (
+        "See https://github.com/NousResearch/hermes-agent/issues/10454",
+        "NousResearch/hermes-agent#53027",
+    ):
+        assert rewrite(cite) == cite
+        assert rewrite(cite, DESKTOP) == cite
 
 
-def test_install_dir_moves_even_though_the_repo_slug_does_not():
-    """Same token, opposite answers — the guard is the surrounding context."""
+def test_registry_coordinate_stays_lowercase():
+    """A `docker pull` needs the lowercase name; the GitHub URL needs the other."""
+    pull = "docker pull nousresearch/hermes-agent:latest"
+    assert rewrite(pull, "hermes_cli/config.py") == "docker pull astralx/agentx-workmate:latest"
+
+
+def test_install_dir_moves_independently_of_the_repo_slug():
+    """The checkout directory is named from the dist, not from the slug."""
     assert rewrite("~/.agentx/hermes-agent/venv") == "~/.agentx/agentx-agent/venv"
 
 

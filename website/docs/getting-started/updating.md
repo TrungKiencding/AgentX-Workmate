@@ -155,7 +155,7 @@ You no longer need to wrap `agentx update` in `screen` or `tmux` to survive a te
 agentx version
 ```
 
-Compare against the latest release at the [GitHub releases page](https://github.com/NousResearch/hermes-agent/releases).
+Compare against the latest release at the [GitHub releases page](https://github.com/AstralX/agentx-workmate/releases).
 
 ### Updating from Messaging Platforms
 

@@ -311,8 +311,8 @@ The CLI uses argparse, so `--help` is a good first probe for "did my new flag re
 
 ## See also
 
-- User-facing setup + troubleshooting: [Egress proxy](https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy)
-- Docker backend internals: [Docker](https://hermes-agent.nousresearch.com/docs/user-guide/docker)
-- Bitwarden Secrets Manager integration: [`agentx secrets bitwarden`](https://hermes-agent.nousresearch.com/docs/user-guide/secrets/bitwarden)
-- CLI command reference: [`agentx egress`](https://hermes-agent.nousresearch.com/docs/reference/cli-commands#agentx-egress)
-- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](https://hermes-agent.nousresearch.com/docs/reference/environment-variables#egress-proxy-sandbox-injected)
+- User-facing setup + troubleshooting: [Egress proxy](/user-guide/egress/iron-proxy)
+- Docker backend internals: [Docker](/user-guide/docker)
+- Bitwarden Secrets Manager integration: [`agentx secrets bitwarden`](/user-guide/secrets/bitwarden)
+- CLI command reference: [`agentx egress`](/reference/cli-commands#agentx-egress)
+- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](/reference/environment-variables#egress-proxy-sandbox-injected)

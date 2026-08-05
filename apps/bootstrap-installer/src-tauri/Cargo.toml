@@ -2,7 +2,7 @@
 name = "agentx-bootstrap"
 version = "0.0.1"
 description = "AgentX Setup — signed installer that drives scripts/install.ps1"
-authors = ["Nous Research <info@nousresearch.com>"]
+authors = ["AstralX Technology <kien.le@astralx.com.vn>"]
 edition = "2021"
 rust-version = "1.77"
 

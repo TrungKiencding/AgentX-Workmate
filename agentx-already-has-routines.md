@@ -127,7 +127,7 @@ A nightly backlog triage on Sonnet costs roughly $0.02-0.05. A monitoring check 
 AgentX Workmate is open source and free. The automation infrastructure — cron scheduler, webhook platform, skill system, multi-platform delivery — is built in.
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
 agentx setup
 ```
 
@@ -149,12 +149,12 @@ agentx webhook subscribe pr-review \
   --deliver github_comment
 ```
 
-Full automation blueprints gallery: [hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog](https://hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog)
+Full automation blueprints gallery: [hermes-agent.nousresearch.com/docs/reference/automation-blueprints-catalog](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx)
 
-Documentation: [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com)
+Documentation: [hermes-agent.nousresearch.com](https://github.com/AstralX/agentx-workmate)
 
-GitHub: [github.com/NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
+GitHub: [github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate)
 
 ---
 
-*AgentX Workmate is built by [Nous Research](https://nousresearch.com). Open source, model-agnostic, runs on your infrastructure.*
+*AgentX Workmate is built by AstralX Technology. Open source, model-agnostic, runs on your infrastructure.*

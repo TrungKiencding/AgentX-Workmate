@@ -339,7 +339,7 @@
         tier_part: tierPart,
         name: achievement.name,
       });
-      return tmpl + "\n\n@NousResearch · https://hermes-agent.nousresearch.com";
+      return tmpl + "\n\n@NousResearch · https://github.com/AstralX/agentx-workmate";
     }
 
     function shareOnX() {

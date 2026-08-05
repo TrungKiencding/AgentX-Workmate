@@ -17,7 +17,7 @@ Usage::
 Output: ``website/static/api/model-catalog.json``
 
 Live URL (after ``deploy-site.yml`` runs on merge to main):
-``https://hermes-agent.nousresearch.com/docs/api/model-catalog.json``
+``https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/api/model-catalog.json``
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def build_catalog() -> dict:
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "metadata": {
             "source": "agentx-agent repo",
-            "docs": "https://hermes-agent.nousresearch.com/docs/reference/model-catalog",
+            "docs": "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/model-catalog.md",
         },
         "providers": {
             "openrouter": {

@@ -36,8 +36,8 @@
     "category": "DeveloperTool",
     "shortDescription": "AgentX Workmate Setup",
     "longDescription": "Installs AgentX Workmate on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
-    "publisher": "Nous Research",
-    "copyright": "Copyright © 2026 Nous Research",
+    "publisher": "AstralX Technology",
+    "copyright": "Copyright © 2026 AstralX Technology",
     "targets": [
       "app",
       "dmg",

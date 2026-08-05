@@ -64,8 +64,8 @@ async function stampExeIdentity(exe, desktopRoot = resolve(import.meta.dirname, 
     'version-string': {
       ProductName: 'AgentX Workmate',
       FileDescription: 'AgentX Workmate',
-      CompanyName: 'Nous Research',
-      LegalCopyright: 'Copyright (c) 2026 Nous Research'
+      CompanyName: 'AstralX Technology',
+      LegalCopyright: 'Copyright (c) 2026 AstralX Technology'
     }
   })
 

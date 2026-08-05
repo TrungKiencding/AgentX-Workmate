@@ -51,7 +51,7 @@ That does not stop AgentX from working well as a phone-native CLI agent — it j
 AgentX now ships a Termux-aware installer path:
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
 ```
 
 On Termux, the installer automatically:
@@ -87,7 +87,7 @@ Why these packages?
 ### 2. Clone AgentX
 
 ```bash
-git clone https://github.com/NousResearch/hermes-agent.git
+git clone https://github.com/AstralX/agentx-workmate.git
 cd agentx-agent
 ```
 

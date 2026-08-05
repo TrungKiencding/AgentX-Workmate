@@ -2,7 +2,7 @@
 name: powerpoint
 description: "Create, read, edit .pptx decks, slides, notes, templates."
 version: 2.0.0
-author: Anthropic (adapted by Nous Research)
+author: Anthropic (adapted for AgentX Workmate)
 license: Proprietary. LICENSE.txt has complete terms
 platforms: [linux, macos, windows]
 metadata:

@@ -25,7 +25,7 @@ description: >
   survive compaction and restarts.
 
   Pure stdlib transport (http.server + urllib) — no a2a-sdk dependency required.
-author: Nous Research
+author: AstralX Technology
 # requires_env / optional_env are surfaced in the `agentx config` UI via the
 # platform-plugin env var injector in hermes_cli/config.py.
 requires_env: []

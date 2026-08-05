@@ -2382,14 +2382,20 @@ DEFAULT_CONFIG = {
         "backup_count": 3,     # Number of rotated backup files to keep
     },
 
-    # Remotely-hosted model catalog manifest.  When enabled, the CLI fetches
-    # curated model lists for OpenRouter and Nous Portal from this URL,
-    # falling back to the in-repo snapshot on network failure.  Lets us
-    # update model picker lists without shipping a agentx-agent release.
-    # The default URL is served by the docs site GitHub Pages deploy.
+    # Model catalog manifest: curated model lists for the picker.
+    #
+    # ``url`` is EMPTY by default, which means "no remote fetch". The manifest
+    # that ships in the tree (website/static/api/model-catalog.json) is the
+    # source, seeded into the cache on first use and refreshed by
+    # ``agentx update``. Upstream defaulted this to the vendor's docs host;
+    # AgentX Workmate operates no such host, and defaulting to somebody else's
+    # would make every install phone a third party at startup.
+    #
+    # Set ``url`` to your own published manifest to opt back into remote
+    # refresh — the fetch path, TTL and fallbacks below all still apply.
     "model_catalog": {
         "enabled": True,
-        "url": "https://hermes-agent.nousresearch.com/docs/api/model-catalog.json",
+        "url": "",
         # Disk cache TTL in hours.  Beyond this, the CLI refetches on the
         # next /model or `agentx model` invocation; network failures
         # silently fall back to the stale cache.

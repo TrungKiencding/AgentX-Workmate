@@ -2,7 +2,7 @@
 name: google-workspace
 description: "Gmail, Calendar, Drive, Docs, Sheets via gws CLI or Python."
 version: 1.1.0
-author: Nous Research
+author: AstralX Technology
 license: MIT
 platforms: [linux, macos, windows]
 required_credential_files:
@@ -13,7 +13,7 @@ required_credential_files:
 metadata:
   hermes:
     tags: [Google, Gmail, Calendar, Drive, Sheets, Docs, Contacts, Email, OAuth]
-    homepage: https://github.com/NousResearch/hermes-agent
+    homepage: https://github.com/AstralX/agentx-workmate
     related_skills: [himalaya]
 ---
 

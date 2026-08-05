@@ -62,18 +62,17 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_CATALOG_URL = (
-    "https://hermes-agent.nousresearch.com/docs/api/model-catalog.json"
-)
-# Fallback fetch chain. The Docusaurus site is served through Vercel, which
-# occasionally returns HTTP 403 + x-vercel-mitigated: challenge for non-
-# browser clients (urllib, curl). When that happens the disk cache goes
-# stale and new model releases never reach the picker. The raw GitHub URL
-# is the same manifest published from the same repo and is not bot-gated,
-# so we fall through to it whenever the primary URL fails.
-DEFAULT_CATALOG_FALLBACK_URLS: tuple[str, ...] = (
-    "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/website/static/api/model-catalog.json",
-)
+# No default catalog host. Upstream fetched this manifest from the vendor's
+# docs site; AgentX Workmate does not operate one, and pointing the fetch at
+# somebody else's host would make every install phone a third party on startup.
+# The manifest that ships in the checkout — website/static/api/model-catalog.json,
+# the same file that host served — is the source of truth instead, seeded into
+# the disk cache by `agentx update` and by _seed_from_installed_tree() below.
+#
+# An operator who publishes their own manifest sets `model_catalog.url` in
+# config; an empty URL simply means "no fetch", never a fetch from a default.
+DEFAULT_CATALOG_URL = ""
+DEFAULT_CATALOG_FALLBACK_URLS: tuple[str, ...] = ()
 DEFAULT_TTL_HOURS = 1
 DEFAULT_FETCH_TIMEOUT = 8.0
 SUPPORTED_SCHEMA_VERSION = 1
@@ -106,6 +105,7 @@ def _load_catalog_config() -> dict[str, Any]:
 
     return {
         "enabled": bool(raw.get("enabled", True)),
+        # Empty is meaningful: "no remote catalog configured, do not fetch".
         "url": str(raw.get("url") or DEFAULT_CATALOG_URL),
         "ttl_hours": float(raw.get("ttl_hours") or DEFAULT_TTL_HOURS),
         "providers": raw.get("providers") if isinstance(raw.get("providers"), dict) else {},
@@ -152,7 +152,7 @@ def _fetch_manifest(url: str, timeout: float) -> dict[str, Any] | None:
 def _fetch_manifest_with_fallback(
     primary_url: str,
     timeout: float,
-    fallback_urls: tuple[str, ...] = DEFAULT_CATALOG_FALLBACK_URLS,
+    fallback_urls: tuple[str, ...] | None = None,
 ) -> dict[str, Any] | None:
     """Try ``primary_url`` first, then walk ``fallback_urls``.
 
@@ -161,6 +161,10 @@ def _fetch_manifest_with_fallback(
     operator who configured the catalog URL to point at the raw GitHub
     copy doesn't double-fetch.
     """
+    # Resolved at call time, not bound as a default: the constant is empty by
+    # default and tests (and any future runtime override) need to substitute it.
+    if fallback_urls is None:
+        fallback_urls = DEFAULT_CATALOG_FALLBACK_URLS
     data = _fetch_manifest(primary_url, timeout)
     if data is not None:
         return data
@@ -276,6 +280,12 @@ def get_catalog(*, force_refresh: bool = False) -> dict[str, Any]:
     cfg = _load_catalog_config()
     if not cfg["enabled"]:
         return {}
+
+    # With no catalog URL configured (the default), the shipped manifest is the
+    # only source. Seed it once so the picker has curated lists on a fresh
+    # install that has never run `agentx update`.
+    if not cfg["url"] and _read_disk_cache()[0] is None:
+        _seed_from_installed_tree()
 
     ttl_seconds = max(0.0, cfg["ttl_hours"] * 3600.0)
 
@@ -462,6 +472,18 @@ def seed_cache_from_checkout(project_root: "Path | str") -> bool:
     _write_disk_cache(data)
     reset_cache()  # drop the in-process copy so the next read picks up the seed
     return True
+
+
+def _seed_from_installed_tree() -> bool:
+    """Seed the disk cache from the manifest shipped in the installed tree.
+
+    ``seed_cache_from_checkout`` needs a project root; this finds it relative
+    to this module, which is where the manifest actually is for both an editable
+    install and a checkout. Best-effort: a missing file just leaves the cache
+    empty, and callers already treat an empty catalog as "use the in-repo
+    fallbacks".
+    """
+    return seed_cache_from_checkout(Path(__file__).resolve().parent.parent)
 
 
 def reset_cache() -> None:

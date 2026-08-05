@@ -83,3 +83,24 @@ def test_build_welcome_banner_non_moa_unchanged(tmp_path, monkeypatch):
     out = console.export_text()
     assert "claude-opus-4.8" in out
     assert "MoA:" not in out
+
+
+def test_official_repo_canonical_matches_the_upstream_url():
+    """The canonical form must equal what the canonicaliser actually returns.
+
+    ``_canonical_github_remote`` lowercases its result, so a mixed-case
+    ``_OFFICIAL_REPO_CANONICAL`` compares unequal to every remote and
+    ``_is_official_ssh_remote`` silently returns False forever — the update
+    check keeps working but never takes the SSH fast path, with no error to
+    show for it. A rebrand that rewrote the slug in PascalCase introduced
+    exactly that, which is why the invariant is pinned rather than the literal.
+    """
+    from hermes_cli import banner
+
+    assert (
+        banner._canonical_github_remote(banner._UPSTREAM_REPO_URL)
+        == banner._OFFICIAL_REPO_CANONICAL
+    )
+    assert banner._is_official_ssh_remote(
+        "git@github.com:" + banner._OFFICIAL_REPO_CANONICAL.split("/", 1)[1] + ".git"
+    )

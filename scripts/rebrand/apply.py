@@ -454,6 +454,138 @@ RULES: list[Rule] = [
         replacement="⬡",
         note="caduceus (Hermes' staff) -> hexagon brand glyph",
     ),
+    # ── Phase 10: attribution and upstream coordinates ───────────────────
+    Rule(
+        id="docker-image",
+        phase=10,
+        # The Docker Hub / ghcr coordinate. Split from repo-slug because a
+        # registry name must stay lowercase: reusing repo-slug's PascalCase
+        # replacement would emit `AstralX/agentx-workmate` into a `docker pull`,
+        # which no registry serves. Runs before repo-slug so it claims these
+        # first.
+        pattern=r"(?<![A-Za-z0-9_-])nousresearch/hermes-agent(?![A-Za-z0-9-])",
+        replacement="astralx/agentx-workmate",
+        note="container image coordinate nousresearch/hermes-agent -> astralx/agentx-workmate",
+        include=[
+            ".github/workflows/docker.yml",
+            "docker-compose.windows.yml",
+            "hermes_cli/config.py",
+            "hermes_cli/tools_config.py",
+            "tools/browser_tool.py",
+            "scripts/run_tests_parallel.py",
+            "tests/hermes_cli/test_cmd_update_docker.py",
+            "tests/hermes_cli/test_doctor.py",
+            "tests/hermes_cli/test_web_server.py",
+            "tests/docker/*",
+            "website/docs/user-guide/docker.md",
+            "website/i18n/*/docusaurus-plugin-content-docs/current/user-guide/docker.md",
+        ],
+    ),
+    Rule(
+        id="repo-slug",
+        phase=10,
+        # The GitHub coordinate of the project itself: 608 sites — the update
+        # check's `git ls-remote` target, the installers' `git clone` source,
+        # the raw.githubusercontent URLs the desktop and the Tauri bootstrapper
+        # fetch install.sh from, the six `if: github.repository == …` workflow
+        # gates (leave one and that job silently never runs in the fork), the
+        # nix `src` fetchers, issue templates and doc links.
+        #
+        # The ORG casing varies and the REPO casing does not. GitHub URLs spell
+        # it `NousResearch/hermes-agent`; the canonical string the update check
+        # compares an origin against is lowercased to `nousresearch/hermes-agent`,
+        # and update-remote.test.ts exercises both — so the org half is an
+        # explicit alternation rather than a case-sensitive literal.
+        #
+        # The repo half must NOT be case-folded. `NousResearch/Hermes-Agent` is
+        # a different artifact: Nous's HuggingFace dataset. An earlier `(?i)`
+        # here rewrote it, and its two SFT variants, into coordinates that
+        # resolve nowhere.
+        #
+        # `(?![A-Za-z0-9-])` keeps it off the neighbouring repos and datasets
+        # that share the prefix: NousResearch/hermes-example-plugins,
+        # NousResearch/hermes-agent-megascience-sft1,
+        # NousResearch/terminal-tasks-glm-hermes-agent.
+        #
+        # The negative lookahead for a numbered issue/PR/discussion is the
+        # provenance exemption: 101 comments cite where a bug was actually
+        # discussed (`See …/issues/10454`, `agentx-agent#13848`). Those numbers
+        # do not exist in the new repo, so repointing them would turn a correct
+        # citation into a dead link. They stay, and check_branding.py allows
+        # exactly this shape.
+        pattern=(
+            r"(?<![A-Za-z0-9_-])(?:NousResearch|nousresearch)/hermes-agent"
+            r"(?![A-Za-z0-9-])(?!#\d)(?!/(?:issues|pull|pulls|discussions|compare)/\d)"
+        ),
+        replacement="AstralX/agentx-workmate",
+        note="upstream repo slug NousResearch/hermes-agent -> AstralX/agentx-workmate",
+    ),
+    Rule(
+        id="vendor-attribution",
+        phase=10,
+        # "Nous Research" where it names the PUBLISHER OF THIS BUILD: package
+        # authors, bundle publisher/copyright, the Windows PE CompanyName and
+        # LegalCopyright, plugin/skill `author:` frontmatter, README "Built by"
+        # lines and the flake description.
+        #
+        # Anchored on the field or phrase that introduces it, never on the name
+        # alone, because the same two words mean something else in three other
+        # places that MUST keep working:
+        #   * the LLM provider — portal/inference base URLs, the "nous" provider
+        #     id and its display name, the Nous Portal OAuth and billing flows;
+        #   * the billing consent text ("you authorize Nous Research to charge
+        #     …"), which names the entity that actually charges the card;
+        #   * Nous's own models — "Nous Research Hermes 3 & 4 models are NOT
+        #     agentic" is a statement about a third party's product.
+        # A blanket `Nous Research -> AstralX Technology` sweep breaks auth and
+        # turns two true sentences into false ones.
+        pattern=(
+            r"(?i)((?:copyright|authors?|publisher|companyname|company|maintainer"
+            r"|maintained by|built by|developed by|framework by|agent by|org)"
+            r"[\"'\s:=]{0,6}(?:\(c\)\s*)?(?:©\s*)?(?:\d{4}\s+)?[\"'\[]{0,2})"
+            r"Nous\s?Research"
+        ),
+        replacement=r"\1AstralX Technology",
+        note='vendor-as-publisher "Nous Research" -> "AstralX Technology"',
+        # Contributor identity data: real people's names and addresses. The
+        # same reason .mailmap is globally excluded.
+        exclude=["contributors/*", "scripts/release.py"],
+    ),
+    Rule(
+        id="vendor-homepage-link",
+        phase=10,
+        # Runs after vendor-attribution, which turns "Built by [Nous Research]"
+        # into "Built by [AstralX Technology]" and leaves the href pointing at
+        # nousresearch.com — a link whose text and destination disagree. AstralX
+        # has no site registered (branding.WEBSITE_URL is ""), so the credit
+        # becomes plain text rather than a link somewhere else. Matching on the
+        # already-rewritten label is what keeps this off the many legitimate
+        # nousresearch.com links that describe the model provider.
+        pattern=r"\[AstralX Technology\]\(https://nousresearch\.com/?\)",
+        replacement="AstralX Technology",
+        note="vendor credit link -> plain text (no vendor site registered)",
+    ),
+    Rule(
+        id="vendor-badge",
+        phase=10,
+        # The shields.io "Built by" badge, whose label is URL-encoded and so is
+        # invisible to every rule that spells the vendor with a space.
+        pattern=r"Built%20by-Nous%20Research",
+        replacement="Built%20by-AstralX%20Technology",
+        note="shields.io Built-by badge label -> AstralX Technology",
+    ),
+    Rule(
+        id="vendor-contact-email",
+        phase=10,
+        # The three ROLE addresses that route support for this product. Every
+        # other @nousresearch.com address in the tree belongs to a named
+        # contributor and is attribution data, so this rule lists the role
+        # accounts explicitly rather than matching the domain.
+        pattern=r"(?:info|security|support)@nousresearch\.com",
+        replacement="kien.le@astralx.com.vn",
+        note="product role addresses @nousresearch.com -> the support address",
+        exclude=["contributors/*", "scripts/release.py"],
+    ),
     Rule(
         id="service-user-home",
         phase=9,
@@ -570,7 +702,13 @@ RULES: list[Rule] = [
         # `/Hermes is not installed/` in windows-remote-lifecycle.test.ts
         # read as a path and became `/AgentX Workmate is not installed/`,
         # which no longer matched the message the code throws.
-        pattern=r"([\\/]+)Hermes\b(?![-\s]*\d)(?! [a-z])",
+        #
+        # The `(?<!esearch/)` AFTER the separator group is a third guard —
+        # after, because the group consumes the slash and a lookbehind
+        # placed before it would be testing the wrong position: `NousResearch/Hermes-Agent`
+        # is one of Nous's HuggingFace artifacts, not an install directory, and
+        # the `/` in front of it reads exactly like a path segment here.
+        pattern=r"([\\/]+)(?<!esearch/)Hermes\b(?![-\s]*\d)(?! [a-z])",
         replacement=r"\1AgentX Workmate",
         note="install/bundle directory .../Hermes -> .../AgentX Workmate",
     ),
@@ -610,10 +748,20 @@ RULES: list[Rule] = [
         # Bare capitalised Hermes in prose/UI. Runs after the multi-word
         # display names above have claimed their occurrences.
         #
-        # The two guards keep Nous's Hermes *models* intact — hermes-4,
-        # Nous Hermes 3, NousResearch/Hermes-3-Llama-3.1-70B are model slugs
-        # sent to provider APIs, and renaming one breaks the request.
-        pattern=r"(?<!Nous )\bHermes\b(?![-\s]*\d)",
+        # The guards keep Nous's own artifacts intact. `(?<!Nous )` and
+        # `(?![-\s]*\d)` protect the model slugs — hermes-4, Nous Hermes 3,
+        # NousResearch/Hermes-3-Llama-3.1-70B are sent to provider APIs and a
+        # rename turns a working request into a 404.
+        #
+        # `(?<!esearch/)` and `(?<!Nous-)` protect the artifacts whose name
+        # carries no digit and so slips past the model guard:
+        # `NousResearch/Hermes-Agent` (a HuggingFace dataset, plus its two
+        # -Thinking-GLM SFT variants) and `NousResearch/Nous-Hermes-llama-1b-v1`.
+        # All three were rewritten into coordinates that resolve nowhere before
+        # these guards existed. `esearch/` is the same nine-character
+        # fixed-width lookbehind dist-name uses, and it matches both the
+        # PascalCase and the lowercase spelling of the org.
+        pattern=r"(?<!Nous )(?<!Nous-)(?<!esearch/)\bHermes\b(?![-\s]*\d)",
         replacement="AgentX",
         note='bare "Hermes" display string -> "AgentX" (model names exempt)',
     ),
@@ -1044,7 +1192,7 @@ RULES: list[Rule] = [
             r"(?<![A-Za-z0-9_-])hermes-"
             r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
             r"|parser|estree|eslint|tools(?![-\w])|ink\b|achievements\b|0day"
-            r"|lcm\b|brain\b|seaeye|jc\b)"
+            r"|lcm\b|brain\b|seaeye|jc\b|example-plugins)"
         ),
         replacement="agentx-",
         note="app-local hermes-* CSS/storage/tmpdir names -> agentx-*",
@@ -1328,7 +1476,7 @@ RULES: list[Rule] = [
             r"(?<![A-Za-z0-9_-])hermes-"
             r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
             r"|parser|estree|eslint|tools(?![-\w])|ink\b|achievements\b|0day"
-            r"|lcm\b|brain\b|seaeye|jc\b)"
+            r"|lcm\b|brain\b|seaeye|jc\b|example-plugins)"
         ),
         replacement="agentx-",
         note="backend/plugin/test hermes-* names -> agentx-*",

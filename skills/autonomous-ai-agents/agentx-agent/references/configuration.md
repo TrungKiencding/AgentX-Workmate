@@ -1,7 +1,7 @@
 # Configuration, Toolsets & Voice
 
 Edit with `agentx config edit` or `agentx config set section.key value`.
-Full reference: https://hermes-agent.nousresearch.com/docs/user-guide/configuration
+Full reference: https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/configuration.md
 
 ### Config Sections (most-used keys)
 

@@ -3267,13 +3267,13 @@ class OptionalSkillSource(SkillSource):
     """
     Fetch skills from the optional-skills/ directory shipped with the repo.
 
-    These skills are official (maintained by Nous Research) but not activated
+    These skills are official (maintained by AstralX Technology) but not activated
     by default — they don't appear in the system prompt and aren't copied to
     ~/.agentx/skills/ during setup.  They are discoverable via the Skills Hub
     (search / install / inspect) and labelled "official" with "builtin" trust.
     """
 
-    OFFICIAL_REPO = "NousResearch/hermes-agent"
+    OFFICIAL_REPO = "AstralX/agentx-workmate"
 
     def __init__(self):
         from hermes_constants import get_optional_skills_dir
@@ -3967,7 +3967,16 @@ def check_for_skill_updates(
 # AgentX centralized index source
 # ---------------------------------------------------------------------------
 
-AGENTX_INDEX_URL = "https://hermes-agent.nousresearch.com/docs/api/skills-index.json"
+# Published skills index. Upstream served this from the vendor's docs site;
+# this points at the same artifact in our own repo, which CI publishes. It is
+# absent until that first publish, and the fetch below already degrades to the
+# stale cache and the bundled sources when it 404s — so a fresh fork gets a
+# working Skills Hub minus the remote index, not an error. Override with
+# AGENTX_SKILLS_INDEX_URL to point at your own deployment.
+AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
+    "https://raw.githubusercontent.com/AstralX/agentx-workmate"
+    "/main/website/static/api/skills-index.json"
+)
 AGENTX_INDEX_TTL = 6 * 3600  # 6 hours
 
 

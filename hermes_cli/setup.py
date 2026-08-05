@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
-_DOCS_BASE = "https://hermes-agent.nousresearch.com/docs"
+_DOCS_BASE = "https://github.com/AstralX/agentx-workmate/tree/main/website/docs"
 
 
 def _model_config_dict(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -1871,9 +1871,19 @@ def _is_valid_telegram_bot_token(token: str) -> bool:
 
 
 def _setup_telegram_auto_result():
-    """Attempt automatic Telegram bot creation via managed QR onboarding."""
+    """Attempt automatic Telegram bot creation via managed QR onboarding.
+
+    Returns None when no onboarding service is configured, which is the
+    default: managed onboarding needs a hosted pairing API, AgentX Workmate
+    does not operate one, and sending a user's pairing request to somebody
+    else's is not an acceptable fallback. The caller then walks the ordinary
+    @BotFather token path, which needs no service.
+    """
     try:
-        from hermes_cli.telegram_managed_bot import auto_setup_telegram_bot_result
+        from hermes_cli.telegram_managed_bot import (
+            ManagedOnboardingUnavailable,
+            auto_setup_telegram_bot_result,
+        )
     except ImportError:
         return None
 
@@ -1883,7 +1893,10 @@ def _setup_telegram_auto_result():
     except Exception:
         pass
 
-    return auto_setup_telegram_bot_result(profile_name=profile_name)
+    try:
+        return auto_setup_telegram_bot_result(profile_name=profile_name)
+    except ManagedOnboardingUnavailable:
+        return None
 
 
 def _profile_name_from_hermes_home(hermes_home) -> str | None:
@@ -2118,7 +2131,7 @@ def _setup_webhooks():
     print_warning("   internet. For security, run the gateway in a sandboxed environment")
     print_warning("   (Docker, VM, etc.) to limit blast radius from prompt injection.")
     print()
-    print_info("   Full guide: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks/")
+    print_info("   Full guide: https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/webhooks.md")
     print()
 
     port = prompt("Webhook port (default 8644)")
@@ -2145,7 +2158,7 @@ def _setup_webhooks():
     print_info("      http://your-server:8644/webhooks/<route-name>")
     print()
     print_info("   Route configuration guide:")
-    print_info("   https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks/#configuring-routes")
+    print_info("   https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/webhooks.md#configuring-routes")
     print()
     print_info("   Open config in your editor:  agentx config edit")
     print_info("   Open config in your editor:  agentx config edit")

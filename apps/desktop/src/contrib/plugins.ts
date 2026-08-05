@@ -4,7 +4,7 @@
  *  - BUNDLED: every `src/plugins/<name>/plugin.{ts,tsx}` default-exporting a
  *    `HermesPlugin` registers automatically (vite glob — drop a folder in).
  *    None ship in-tree today; reference/demo plugins live in the companion
- *    `agentx-example-plugins` repo.
+ *    `hermes-example-plugins` repo.
  *  - RUNTIME: the on-disk door (`<agentx home>/desktop-plugins/<name>/plugin.js`)
  *    — the agent's/user's door, watched + hot-reloaded by the runtime loader.
  */
