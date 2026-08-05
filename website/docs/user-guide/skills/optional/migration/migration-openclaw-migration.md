@@ -21,7 +21,7 @@ Import an OpenClaw setup (memories, skills) into AgentX.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `Migration`, `OpenClaw`, `AgentX`, `Memory`, `Persona`, `Import` |
-| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent) |
 
 ## Reference: full SKILL.md
 

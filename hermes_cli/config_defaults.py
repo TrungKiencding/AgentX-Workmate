@@ -4008,7 +4008,7 @@ OPTIONAL_ENV_VARS = {
         "category": "messaging",
     },
     "MATRIX_USER_ID": {
-        "description": "Matrix user ID (e.g. @hermes:example.org)",
+        "description": "Matrix user ID (e.g. @agentx:example.org)",
         "prompt": "Matrix user ID (@user:server)",
         "url": None,
         "password": False,

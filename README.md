@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="AgentX Workmate" width="100%">
 </p>
 
-# AgentX Workmate ☤
+# AgentX Workmate ⬡
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/">AgentX Workmate</a> | <a href="https://hermes-agent.nousresearch.com/">AgentX Workmate Desktop</a>
 </p>

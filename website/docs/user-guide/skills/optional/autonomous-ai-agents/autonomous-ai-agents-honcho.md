@@ -21,7 +21,7 @@ Configure and troubleshoot Honcho memory for AgentX.
 | License | MIT |
 | Platforms | linux, macos, windows |
 | Tags | `Honcho`, `Memory`, `Profiles`, `Observation`, `Dialectic`, `User-Modeling`, `Session-Summary` |
-| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent) |
 
 ## Reference: full SKILL.md
 
@@ -221,11 +221,11 @@ Each AgentX profile gets its own Honcho AI peer while sharing the same workspace
 
 ```bash
 agentx profile create coder --clone
-# creates host block hermes.coder, AI peer "coder", inherits config from default
+# creates host block agentx.coder, AI peer "coder", inherits config from default
 ```
 
 What `--clone` does for Honcho:
-1. Creates a `hermes.coder` host block in `honcho.json`
+1. Creates a `agentx.coder` host block in `honcho.json`
 2. Sets `aiPeer: "coder"` (the profile name)
 3. Inherits `workspace`, `peerName`, `writeFrequency`, `recallMode`, etc. from default
 4. Eagerly creates the peer in Honcho so it exists before first message
@@ -243,7 +243,7 @@ Override any setting in the host block:
 ```json
 {
   "hosts": {
-    "hermes.coder": {
+    "agentx.coder": {
       "aiPeer": "coder",
       "recallMode": "tools",
       "dialecticDepth": 2,

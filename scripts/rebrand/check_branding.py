@@ -57,9 +57,17 @@ ALLOWLIST = [
 BRAND_RE = re.compile(r"(?<![a-z0-9_])hermes(?!_[a-z])", re.IGNORECASE)
 
 EXTRA_CHECKS = [
-    ("caduceus-glyph", re.compile("⚕"), "Hermes' staff — use the ⬡ brand glyph"),
+    # Both caduceus codepoints. U+2695 is the one phase 3 swept; U+2624 is the
+    # one the README titles and the desktop share-card actually used, and a
+    # gate that checked only U+2695 called them clean.
+    ("caduceus-glyph", re.compile("[⚕☤]"), "Hermes' staff — use the ⬡ brand glyph"),
     ("vendor-name", re.compile(r"Nous\s?Research", re.IGNORECASE), "upstream vendor name"),
     ("vendor-domain", re.compile(r"nousresearch\.com"), "upstream domain"),
+    # The Urdu README transliterated the product name rather than keeping the
+    # Latin string, so every ASCII check reported it clean while the title
+    # still read "Hermes Agent". Any future translation that transliterates
+    # instead of transcribing is invisible the same way.
+    ("brand-transliteration", re.compile("ہرمیس"), "Urdu transliteration of the old product name"),
 ]
 
 

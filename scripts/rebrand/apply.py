@@ -280,7 +280,6 @@ RULES: list[Rule] = [
         replacement="agentx",
         note="bare `hermes` CLI command -> `agentx`",
         exclude=[
-            "website/*",
             # A list of model-family substrings ("claude", "qwen", "hermes", …)
             # matched against the *model* name to pick an edit format. The
             # entry names Nous's Hermes models, not this product.
@@ -310,6 +309,12 @@ RULES: list[Rule] = [
             "tests/tools/test_skills_hub.py",
             "tests/skills/test_grounded_citations_skill.py",
             "website/scripts/generate-skill-docs.py",
+            # The fourth reader of the same key, and the one phase 9 exposed:
+            # its `metadata.get("hermes", {})` is quoted on both sides, and a
+            # quote is in neither of this rule's guard classes. Unexcluded, the
+            # sweep would have moved the lookup while all 169 SKILL.md files
+            # kept the key, emptying the skills index the site builds from.
+            "website/scripts/extract-skills.py",
         ],
     ),
     Rule(
@@ -339,7 +344,6 @@ RULES: list[Rule] = [
         pattern=r"(bin|_dir|_DIR)([/\\]+)hermes(?![A-Za-z0-9_./:@-])",
         replacement=r"\1\2agentx",
         note="installed launcher path .../bin/hermes -> .../bin/agentx",
-        exclude=["website/*"],
     ),
     Rule(
         id="cli-launcher-relative",
@@ -349,7 +353,7 @@ RULES: list[Rule] = [
         pattern=r"(\.\.?)([/\\]+)hermes(?![A-Za-z0-9_./:@-])",
         replacement=r"\1\2agentx",
         note="launcher run from a checkout ./hermes -> ./agentx",
-        exclude=["apps/*", "website/*"],
+        exclude=["apps/*"],
     ),
     Rule(
         id="windows-launcher-exe",
@@ -371,7 +375,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.-])hermes(\\?\.(?:exe|cmd|bat))",
         replacement=r"agentx\1",
         note="Windows CLI launcher hermes.exe/.cmd/.bat -> agentx.*",
-        exclude=["website/*"],
     ),
     Rule(
         id="app-id",
@@ -406,7 +409,6 @@ RULES: list[Rule] = [
         r"|telegram|webhook|wecom|weixin|whatsapp|yuanbao|api-server)\b",
         replacement=r"agentx-\1",
         note="platform composite toolsets hermes-<platform> -> agentx-<platform>",
-        exclude=["website/*"],
     ),
     Rule(
         id="toolset-family-dynamic",
@@ -415,7 +417,6 @@ RULES: list[Rule] = [
         pattern=r'f"hermes-\{(platform|entry\.name)\}"',
         replacement=r'f"agentx-{\1}"',
         note="dynamic toolset name f\"hermes-{platform}\" -> f\"agentx-{platform}\"",
-        exclude=["website/*"],
     ),
     Rule(
         id="acp-prog",
@@ -423,7 +424,6 @@ RULES: list[Rule] = [
         pattern=r"hermes-acp",
         replacement="agentx-acp",
         note="hermes-acp entry point -> agentx-acp",
-        exclude=["website/*"],
     ),
     Rule(
         id="gateway-prog",
@@ -431,7 +431,6 @@ RULES: list[Rule] = [
         pattern=r"hermes-gateway",
         replacement="agentx-gateway",
         note="hermes-gateway entry point / systemd unit -> agentx-gateway",
-        exclude=["website/*"],
     ),
     Rule(
         id="launchd-label",
@@ -447,7 +446,6 @@ RULES: list[Rule] = [
         pattern=r"\bai\.hermes\.",
         replacement="ai.agentx.",
         note="launchd label ai.hermes.* -> ai.agentx.*",
-        exclude=["website/*"],
     ),
     Rule(
         id="brand-glyph",
@@ -455,7 +453,58 @@ RULES: list[Rule] = [
         pattern="⚕",
         replacement="⬡",
         note="caduceus (Hermes' staff) -> hexagon brand glyph",
-        exclude=["website/*"],
+    ),
+    Rule(
+        id="service-user-home",
+        phase=9,
+        # The service account's home and state directories. nix/nixosModules.nix
+        # already declares `user = "agentx"` and `group = "agentx"` (phase 5),
+        # but left that user's home at /var/lib/hermes, its container home at
+        # /home/hermes and its sudoers drop-in at /etc/sudoers.d/hermes — a
+        # user by one name living in a directory named after the other.
+        #
+        # cli-command cannot reach these: its guard refuses a preceding `/` on
+        # purpose, which is what keeps it off /api/hermes/ and ~/.hermes. So
+        # the directories are enumerated here instead. The trailing guard
+        # deliberately permits `-`, so /var/lib/hermes-tools-provisioned (the
+        # first-boot marker) moves with its directory rather than being
+        # stranded by general-kebab's MCP-server guard.
+        pattern=r"(?<![A-Za-z0-9_])(/(?:home|var/lib|data|etc/sudoers\.d)/)hermes(?![A-Za-z0-9_])",
+        replacement=r"\1agentx",
+        note="service-account home/state dirs /var/lib/hermes, /home/hermes -> .../agentx",
+    ),
+    Rule(
+        id="matrix-user-id",
+        phase=9,
+        # `@hermes:example.org` — the placeholder Matrix bot user id shown in
+        # the config schema, the five desktop locales and the messaging docs.
+        # Every rule that could otherwise reach it deliberately refuses a
+        # leading `@` or a trailing `:` (that guard is what protects real
+        # Matrix ids and `chown hermes:hermes`), so this family needs its own
+        # rule anchored on both punctuation marks at once — which no real
+        # third-party id in the tree matches.
+        pattern=r"@hermes:",
+        replacement="@agentx:",
+        note="placeholder Matrix bot user id @hermes:… -> @agentx:…",
+    ),
+    Rule(
+        id="brand-glyph-alt",
+        phase=9,
+        # The OTHER caduceus. U+2624 CADUCEUS is a different codepoint from
+        # U+2695 STAFF OF AESCULAPIUS that brand-glyph sweeps, and it is the
+        # one the README titles, the desktop README, the session-export footer
+        # and the achievements share-card actually use — so a gate that
+        # checked only U+2695 reported those clean.
+        #
+        # Excluded from tests/agent/, where the same character is deliberate
+        # arbitrary unicode: test_system_prompt_restore.py round-trips it to
+        # prove non-ASCII survives storage, and test_tool_guardrails.py uses it
+        # as a dictionary VALUE in a key-ordering fixture. Neither is a brand
+        # mark, and rewriting them would quietly change what those tests test.
+        pattern="☤",
+        replacement="⬡",
+        note="caduceus U+2624 -> hexagon brand glyph",
+        exclude=["tests/agent/*"],
     ),
     Rule(
         id="session-token-header",
@@ -469,7 +518,6 @@ RULES: list[Rule] = [
         pattern=r"X-Hermes-Session-Token",
         replacement="X-Agentx-Session-Token",
         note="dashboard auth header X-Hermes-Session-Token -> X-Agentx-Session-Token",
-        exclude=["website/*"],
     ),
     # ── Phase 4: the packaged desktop app's own file names ───────────────
     #
@@ -499,7 +547,6 @@ RULES: list[Rule] = [
         pattern=r"\bHermes(\\?\.(?:app|exe|AppImage))",
         replacement=r"AgentX Workmate\1",
         note="packaged app file Hermes.app/.exe/.AppImage -> AgentX Workmate.*",
-        exclude=["website/*"],
     ),
     Rule(
         id="desktop-install-dir",
@@ -526,7 +573,6 @@ RULES: list[Rule] = [
         pattern=r"([\\/]+)Hermes\b(?![-\s]*\d)(?! [a-z])",
         replacement=r"\1AgentX Workmate",
         note="install/bundle directory .../Hermes -> .../AgentX Workmate",
-        exclude=["website/*"],
     ),
     # Display names, longest first so a broader rule never eats a token a
     # narrower one was meant to claim.
@@ -536,7 +582,6 @@ RULES: list[Rule] = [
         pattern=r"\bNOUS HERMES\b",
         replacement="AGENTX WORKMATE",
         note='uppercase "NOUS HERMES" wordmark -> "AGENTX WORKMATE"',
-        exclude=["website/*"],
     ),
     Rule(
         id="wordmark-upper",
@@ -544,7 +589,6 @@ RULES: list[Rule] = [
         pattern=r"\bHERMES[- ]AGENT\b",
         replacement="AGENTX WORKMATE",
         note='uppercase "HERMES AGENT" wordmark -> "AGENTX WORKMATE"',
-        exclude=["website/*"],
     ),
     Rule(
         id="display-name-full",
@@ -552,7 +596,6 @@ RULES: list[Rule] = [
         pattern=r"\bHermes Agent\b",
         replacement="AgentX Workmate",
         note='"Hermes Agent" display string -> "AgentX Workmate"',
-        exclude=["website/*"],
     ),
     Rule(
         id="display-name-desktop",
@@ -560,7 +603,6 @@ RULES: list[Rule] = [
         pattern=r"\bHermes Desktop\b",
         replacement="AgentX Workmate Desktop",
         note='"Hermes Desktop" -> "AgentX Workmate Desktop"',
-        exclude=["website/*"],
     ),
     Rule(
         id="display-name-short",
@@ -574,7 +616,6 @@ RULES: list[Rule] = [
         pattern=r"(?<!Nous )\bHermes\b(?![-\s]*\d)",
         replacement="AgentX",
         note='bare "Hermes" display string -> "AgentX" (model names exempt)',
-        exclude=["website/*"],
     ),
     Rule(
         id="wordmark-bare-upper",
@@ -583,7 +624,6 @@ RULES: list[Rule] = [
         pattern=r"\bHERMES\b(?![-\s]*\d)",
         replacement="AGENTX",
         note='bare uppercase "HERMES" -> "AGENTX"',
-        exclude=["website/*"],
     ),
     # ── Phase 5: packaging families ──────────────────────────────────────
     #
@@ -623,7 +663,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_-])(?<!esearch/)hermes-agent(?!\.nousresearch)",
         replacement="agentx-agent",
         note="hermes-agent dist/script/install-dir -> agentx-agent (repo slug and install host exempt)",
-        exclude=["website/*"],
     ),
     Rule(
         id="dist-name-proper",
@@ -642,7 +681,6 @@ RULES: list[Rule] = [
         pattern=r"agentx-agent\[",
         replacement="agentx-workmate[",
         note="pip requirement spec agentx-agent[extra] -> agentx-workmate[extra]",
-        exclude=["website/*"],
     ),
     Rule(
         id="dist-metadata-lookup",
@@ -658,7 +696,6 @@ RULES: list[Rule] = [
         pattern=r'version\("agentx-agent"\)',
         replacement='version("agentx-workmate")',
         note='importlib.metadata.version("agentx-agent") -> ("agentx-workmate")',
-        exclude=["website/*"],
     ),
     Rule(
         id="dist-artifact-name",
@@ -671,7 +708,6 @@ RULES: list[Rule] = [
         pattern=r"hermes_agent(?=-\*|\.egg-info)",
         replacement="agentx_workmate",
         note="build artifact/egg-info name hermes_agent-* -> agentx_workmate-*",
-        exclude=["website/*"],
     ),
     Rule(
         id="installer-exe",
@@ -688,7 +724,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.])hermes-setup",
         replacement="agentx-setup",
         note="bootstrap installer binary / container init hook hermes-setup -> agentx-setup",
-        exclude=["website/*"],
     ),
     Rule(
         id="dashboard-service",
@@ -702,7 +737,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.-])hermes-dashboard",
         replacement="agentx-dashboard",
         note="dashboard service/container/client id hermes-dashboard -> agentx-dashboard",
-        exclude=["website/*"],
     ),
     Rule(
         id="config-artifact",
@@ -720,7 +754,7 @@ RULES: list[Rule] = [
         note="config derivation/export artifact names hermes-config* -> agentx-config*",
         # curator.py names `hermes-config-*` as an example SKILL-name cluster
         # inside a prompt; skill names are phase 8.
-        exclude=["website/*", "agent/curator.py"],
+        exclude=["agent/curator.py"],
     ),
     Rule(
         id="install-flag-home",
@@ -734,7 +768,6 @@ RULES: list[Rule] = [
         pattern=r"--hermes-home",
         replacement="--agentx-home",
         note="installer data-directory flag --hermes-home -> --agentx-home",
-        exclude=["website/*"],
     ),
     Rule(
         id="install-tree-markers",
@@ -755,7 +788,6 @@ RULES: list[Rule] = [
         pattern=r"\.hermes-(update|bootstrap|runtime|tmp|sandbox)",
         replacement=r".agentx-\1",
         note="install-tree marker dotfiles .hermes-* -> .agentx-*",
-        exclude=["website/*"],
     ),
     Rule(
         id="tui-package-name",
@@ -768,7 +800,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.-])hermes-tui",
         replacement="agentx-tui",
         note="TUI package/lib-dir name hermes-tui -> agentx-tui",
-        exclude=["website/*"],
     ),
     Rule(
         id="install-flag-home-windows",
@@ -784,7 +815,6 @@ RULES: list[Rule] = [
         pattern=r"\bHermesHome\b",
         replacement="AgentXHome",
         note="install.ps1 parameter -HermesHome / $HermesHome -> AgentXHome",
-        exclude=["website/*"],
     ),
     Rule(
         id="user-agent-token",
@@ -798,7 +828,6 @@ RULES: list[Rule] = [
         pattern=r"\bHermesAgent\b",
         replacement="AgentX",
         note="outbound User-Agent product token HermesAgent -> AgentX",
-        exclude=["website/*"],
     ),
     Rule(
         id="npm-scope",
@@ -810,7 +839,6 @@ RULES: list[Rule] = [
         pattern=r"@hermes/",
         replacement="@agentx/",
         note="npm scope @hermes/* -> @agentx/*",
-        exclude=["website/*"],
     ),
     Rule(
         id="container-user",
@@ -830,7 +858,6 @@ RULES: list[Rule] = [
         pattern=r"\bhermes:hermes\b",
         replacement="agentx:agentx",
         note="container unix user/group chown hermes:hermes -> agentx:agentx",
-        exclude=["website/*"],
     ),
     Rule(
         id="container-prefix",
@@ -846,7 +873,6 @@ RULES: list[Rule] = [
         pattern=r"(?<=/)(opt|etc)(\\?/)hermes(?![A-Za-z0-9_.-])",
         replacement=r"\1\2agentx",
         note="container/system install roots /opt/hermes, /etc/hermes -> .../agentx",
-        exclude=["website/*"],
     ),
     # ── Phase 4: desktop app, lowercase surfaces ─────────────────────────
     Rule(
@@ -919,7 +945,6 @@ RULES: list[Rule] = [
         pattern=r"data-hermes-",
         replacement="data-agentx-",
         note="DOM brand attributes data-hermes-* -> data-agentx-*",
-        exclude=["website/*"],
     ),
     Rule(
         id="dom-brand-dataset",
@@ -938,7 +963,6 @@ RULES: list[Rule] = [
         pattern=r"/api/hermes/",
         replacement="/api/agentx/",
         note="dashboard admin route /api/hermes/* -> /api/agentx/*",
-        exclude=["website/*"],
     ),
     Rule(
         id="desktop-package-name",
@@ -957,7 +981,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.-])hermes-desktop",
         replacement="agentx-desktop",
         note="desktop app package/install-dir name hermes-desktop -> agentx-desktop",
-        exclude=["website/*"],
     ),
     Rule(
         id="boot-theme-key",
@@ -971,7 +994,6 @@ RULES: list[Rule] = [
         pattern=r"(?<![A-Za-z0-9_.-])hermes-boot-",
         replacement="agentx-boot-",
         note="boot theme localStorage keys hermes-boot-* -> agentx-boot-*",
-        exclude=["website/*"],
     ),
     Rule(
         id="app-kebab",
@@ -1021,7 +1043,7 @@ RULES: list[Rule] = [
         pattern=(
             r"(?<![A-Za-z0-9_-])hermes-"
             r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
-            r"|parser|estree|eslint|tools\b|ink\b|achievements\b|0day"
+            r"|parser|estree|eslint|tools(?![-\w])|ink\b|achievements\b|0day"
             r"|lcm\b|brain\b|seaeye|jc\b)"
         ),
         replacement="agentx-",
@@ -1177,7 +1199,7 @@ RULES: list[Rule] = [
         # release.py is a contributor identity map: the keys are real people's
         # email addresses (`hermes.wanderer@yahoo.com`). Rewriting one falsifies
         # an attribution, the same reason .mailmap is globally excluded.
-        exclude=["website/*", "scripts/release.py"],
+        exclude=["scripts/release.py"],
     ),
     Rule(
         id="worktree-branch-pair",
@@ -1305,14 +1327,14 @@ RULES: list[Rule] = [
         pattern=(
             r"(?<![A-Za-z0-9_-])hermes-"
             r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
-            r"|parser|estree|eslint|tools\b|ink\b|achievements\b|0day"
+            r"|parser|estree|eslint|tools(?![-\w])|ink\b|achievements\b|0day"
             r"|lcm\b|brain\b|seaeye|jc\b)"
         ),
         replacement="agentx-",
         note="backend/plugin/test hermes-* names -> agentx-*",
         # apps/* is app-kebab's (phase 4, already applied); website/* is phase 9.
         # release.py is the contributor identity map — see telemetry-namespace.
-        exclude=["apps/*", "website/*", "scripts/release.py"],
+        exclude=["apps/*", "scripts/release.py"],
     ),
 ]
 

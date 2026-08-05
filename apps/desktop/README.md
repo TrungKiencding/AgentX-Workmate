@@ -1,4 +1,4 @@
-# AgentX Workmate Desktop ☤
+# AgentX Workmate Desktop ⬡
 
 <p align="center">
   <a href="https://github.com/NousResearch/hermes-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>

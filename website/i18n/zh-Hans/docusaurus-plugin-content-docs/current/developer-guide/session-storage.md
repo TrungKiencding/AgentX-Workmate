@@ -1,6 +1,6 @@
 # 会话存储
 
-Hermes Agent 使用 SQLite 数据库（`~/.agentx/state.db`）跨 CLI 和 gateway 会话持久化会话元数据、完整消息历史及模型配置。这替代了早期的逐会话 JSONL 文件方案。
+AgentX Workmate 使用 SQLite 数据库（`~/.agentx/state.db`）跨 CLI 和 gateway 会话持久化会话元数据、完整消息历史及模型配置。这替代了早期的逐会话 JSONL 文件方案。
 
 源文件：`hermes_state.py`
 
@@ -154,7 +154,7 @@ END;
 
 ## 写入竞争处理
 
-多个 hermes 进程（gateway + CLI 会话 + worktree agent）共享同一个 `state.db`。`SessionDB` 类通过以下方式处理写入竞争：
+多个 agentx 进程（gateway + CLI 会话 + worktree agent）共享同一个 `state.db`。`SessionDB` 类通过以下方式处理写入竞争：
 
 - **短 SQLite 超时**（1 秒），而非默认的 30 秒
 - **应用层重试**，带随机抖动（20–150ms，最多 15 次重试）

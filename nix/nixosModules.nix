@@ -82,7 +82,7 @@
 
     containerName = "agentx-agent";
     containerDataDir = "/data";     # stateDir mount point inside container
-    containerHomeDir = "/home/hermes";
+    containerHomeDir = "/home/agentx";
 
     # ── Container mode helpers ──────────────────────────────────────────
     containerBin = if cfg.container.backend == "docker"
@@ -120,7 +120,7 @@
         TARGET_HOME=$(echo "$PASSWD_ENTRY" | cut -d: -f6)
       else
         TARGET_USER="agentx"
-        TARGET_HOME="/home/hermes"
+        TARGET_HOME="/home/agentx"
         if command -v useradd >/dev/null 2>&1; then
           useradd -u "$AGENTX_UID" -g "$AGENTX_GID" -m -d "$TARGET_HOME" -s /bin/bash "$TARGET_USER"
         elif command -v adduser >/dev/null 2>&1; then
@@ -145,7 +145,7 @@
       # nodejs/npm: writable node so npm i -g works (nix store copies are read-only)
       #   Node 22 via NodeSource — Ubuntu 24.04 ships Node 18 which is EOL.
       # curl: needed for uv installer + NodeSource setup
-      if [ ! -f /var/lib/hermes-tools-provisioned ] && command -v apt-get >/dev/null 2>&1; then
+      if [ ! -f /var/lib/agentx-tools-provisioned ] && command -v apt-get >/dev/null 2>&1; then
         echo "First boot: provisioning agent tools..."
         apt-get update -qq
         apt-get install -y -qq sudo curl ca-certificates gnupg
@@ -156,13 +156,13 @@
           > /etc/apt/sources.list.d/nodesource.list
         apt-get update -qq
         apt-get install -y -qq nodejs
-        touch /var/lib/hermes-tools-provisioned
+        touch /var/lib/agentx-tools-provisioned
       fi
 
-      if command -v sudo >/dev/null 2>&1 && [ ! -f /etc/sudoers.d/hermes ]; then
+      if command -v sudo >/dev/null 2>&1 && [ ! -f /etc/sudoers.d/agentx ]; then
         mkdir -p /etc/sudoers.d
-        echo "$TARGET_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/hermes
-        chmod 0440 /etc/sudoers.d/hermes
+        echo "$TARGET_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agentx
+        chmod 0440 /etc/sudoers.d/agentx
       fi
 
       # uv (Python manager) — not in Ubuntu repos, retry-safe outside the sentinel
@@ -208,7 +208,7 @@
 
     identityFile = "${cfg.stateDir}/.container-identity";
 
-    # Default: /var/lib/hermes/workspace → /data/workspace.
+    # Default: /var/lib/agentx/workspace → /data/workspace.
     # Custom paths outside stateDir pass through unchanged (user must add extraVolumes).
     containerWorkDir =
       if lib.hasPrefix "${cfg.stateDir}/" cfg.workingDirectory
@@ -248,7 +248,7 @@
       # ── Directories ──────────────────────────────────────────────────────
       stateDir = mkOption {
         type = types.str;
-        default = "/var/lib/hermes";
+        default = "/var/lib/agentx";
         description = "State directory. Contains .agentx/ subdir (AGENTX_HOME).";
       };
 

@@ -262,7 +262,7 @@ def _is_gateway_approval_context() -> bool:
 
 # Sensitive write targets that should trigger approval even when referenced
 # via shell expansions like $HOME or $AGENTX_HOME, or by the resolved absolute
-# active profile home path such as /home/hermes/.agentx/config.yaml. The
+# active profile home path such as /home/agentx/.agentx/config.yaml. The
 # resolved-absolute form is folded into the ~/.agentx/ patterns at detection
 # time by _normalize_command_for_detection() — see the rewrite step there — so
 # these static patterns stay free of any import-time path snapshot (which would
@@ -1152,7 +1152,7 @@ def _rewrite_resolved_hermes_home(command: str) -> str:
     ``~/.agentx/`` so the static ``_AGENTX_CONFIG_PATH`` / ``_AGENTX_ENV_PATH``
     patterns match. In Docker and gateway deployments the agent often references
     the resolved absolute path directly (e.g. ``sed -i ...
-    /home/hermes/.agentx/config.yaml``) rather than ``~``, ``$HOME``, or
+    /home/agentx/.agentx/config.yaml``) rather than ``~``, ``$HOME``, or
     ``$AGENTX_HOME``. Matches both POSIX and Windows separators. No-op when the
     path can't be resolved or doesn't appear.
     """

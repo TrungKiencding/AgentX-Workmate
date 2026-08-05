@@ -1,19 +1,19 @@
 ---
 sidebar_label: "Desktop Plugin SDK"
-title: "Desktop Plugin SDK (@hermes/plugin-sdk)"
-description: "Extend the native Hermes Desktop app — panes, pages, sidebar nav, status bar, palette commands, keybinds, themes, and a scoped backend namespace, with one import and no build step."
+title: "Desktop Plugin SDK (@agentx/plugin-sdk)"
+description: "Extend the native AgentX Workmate Desktop app — panes, pages, sidebar nav, status bar, palette commands, keybinds, themes, and a scoped backend namespace, with one import and no build step."
 ---
 
 # Desktop Plugin SDK
 
-The native [Hermes Desktop](/user-guide/desktop) app is contribution-driven: every
+The native [AgentX Workmate Desktop](/user-guide/desktop) app is contribution-driven: every
 surface in the window — panes, routes, sidebar nav, status-bar items, palette
 entries, keybinds, themes — registers into one central registry. Core registers
 its surfaces exactly the way a plugin does, so the plugin story is the real one,
 not a bolted-on afterthought.
 
 A **desktop plugin** is a single ESM file that default-exports a `HermesPlugin`.
-It imports one module — `@hermes/plugin-sdk` — and gets everything: the app's
+It imports one module — `@agentx/plugin-sdk` — and gets everything: the app's
 live state, the gateway JSON-RPC door, a scoped REST/socket backend namespace,
 React Query, and the app's own UI kit so plugin UI looks native by default. No
 repo clone, no `npm run build`, no patching app source. Drop the file in
@@ -21,13 +21,13 @@ repo clone, no `npm run build`, no patching app source. Drop the file in
 and hot-reloads every save.
 
 :::warning This is not the web-dashboard plugin SDK
-"Plugin" means several unrelated things across Hermes. This page is the **native
-desktop app** (`hermes desktop`) SDK — the `@hermes/plugin-sdk` module and
-`$AGENTX_HOME/desktop-plugins/`. The **web dashboard** (`hermes dashboard`) has
+"Plugin" means several unrelated things across AgentX. This page is the **native
+desktop app** (`agentx desktop`) SDK — the `@agentx/plugin-sdk` module and
+`$AGENTX_HOME/desktop-plugins/`. The **web dashboard** (`agentx dashboard`) has
 its own, unrelated plugin system on `window.__AGENTX_PLUGIN_SDK__` with a
 `manifest.json` — documented at
 [Extending the Dashboard](/user-guide/features/extending-the-dashboard). Python
-CLI/gateway plugins are documented at [Build a Hermes Plugin](/developer-guide/plugins).
+CLI/gateway plugins are documented at [Build a AgentX Plugin](/developer-guide/plugins).
 The three do not share code, APIs, or delivery. Only the backend `plugin_api.py`
 namespace (`/api/plugins/<id>`) is shared between the desktop and dashboard SDKs.
 :::
@@ -61,7 +61,7 @@ enable/disable live. Everything on this page is written against the disk door
 (what you and the agent write); [Bundled plugins](#bundled-plugins) notes the two
 differences. No desktop plugins ship in the core tree today — reference demos
 live in the companion
-[`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
+[`agentx-example-plugins`](https://github.com/NousResearch/agentx-example-plugins)
 repo.
 
 ## Quick start — your first plugin
@@ -72,7 +72,7 @@ name must equal the plugin `id`.
 
 ```javascript
 // ~/.agentx/desktop-plugins/hello/plugin.js
-import { host, haptic, useValue } from '@hermes/plugin-sdk'
+import { host, haptic, useValue } from '@agentx/plugin-sdk'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 function HelloPane() {
@@ -81,7 +81,7 @@ function HelloPane() {
   return jsxs('div', {
     className: 'flex h-full flex-col gap-2 p-3 text-sm',
     children: [
-      jsx('div', { className: 'font-medium', children: 'Hello, Hermes' }),
+      jsx('div', { className: 'font-medium', children: 'Hello, AgentX' }),
       jsx('div', {
         className: 'text-(--ui-text-tertiary)',
         children: `gateway: ${gateway}`
@@ -128,7 +128,7 @@ save again.
 :::note No JSX, no build
 The disk file is loaded **uncompiled**, so JSX syntax will not parse. Write UI
 with `jsx()` / `jsxs()` calls from `react/jsx-runtime` (or `React.createElement`).
-The only importable specifiers are `@hermes/plugin-sdk`, `react`, and
+The only importable specifiers are `@agentx/plugin-sdk`, `react`, and
 `react/jsx-runtime` — everything else fails to resolve, on purpose.
 :::
 
@@ -248,7 +248,7 @@ A route mounts a full page in the workspace pane, like any built-in view. Pair i
 with a sidebar nav row (and/or a palette command) to make it reachable.
 
 ```javascript
-import { ROUTES_AREA, SIDEBAR_NAV_AREA } from '@hermes/plugin-sdk'
+import { ROUTES_AREA, SIDEBAR_NAV_AREA } from '@agentx/plugin-sdk'
 
 ctx.registerMany([
   {
@@ -275,7 +275,7 @@ Simplest is a `render` function; for a plain button use `data` as a
 `StatusbarItem` (`{ id, label?, icon?, detail?, variant?, menuItems?, … }`).
 
 ```javascript
-import { STATUSBAR_AREAS, TITLEBAR_AREAS } from '@hermes/plugin-sdk'
+import { STATUSBAR_AREAS, TITLEBAR_AREAS } from '@agentx/plugin-sdk'
 
 ctx.register({
   id: 'count',
@@ -291,7 +291,7 @@ data (`{ id, label, icon, active?, onSelect? }`).
 ### Palette commands and keybinds
 
 ```javascript
-import { PALETTE_AREA, KEYBINDS_AREA } from '@hermes/plugin-sdk'
+import { PALETTE_AREA, KEYBINDS_AREA } from '@agentx/plugin-sdk'
 
 ctx.registerMany([
   {
@@ -326,7 +326,7 @@ A theme contribution ships a full `DesktopTheme` as its `data` (name, label,
 colors, …). It appears in the theme picker like a built-in.
 
 ```javascript
-import { THEMES_AREA } from '@hermes/plugin-sdk'
+import { THEMES_AREA } from '@agentx/plugin-sdk'
 
 ctx.register({ id: 'noir', area: THEMES_AREA, data: myDesktopTheme })
 ```
@@ -345,7 +345,7 @@ die with a component that's already on screen (a page's own title-bar control
 leaves when the page unmounts), render `<Contribute>` inside it instead:
 
 ```javascript
-import { Contribute, TITLEBAR_AREAS } from '@hermes/plugin-sdk'
+import { Contribute, TITLEBAR_AREAS } from '@agentx/plugin-sdk'
 
 jsx(Contribute, {
   area: TITLEBAR_AREAS.center,
@@ -394,7 +394,7 @@ rejection your `.catch()` sees, never an error-boundary crash.
 `ctx.os` is the curated OS door — every way a plugin reaches outside the app
 window, in one namespace attributed to your plugin. `ctx.os.notify` posts a
 **native OS notification** — the same Electron pipeline the app's own
-approval/turn alerts use. It fires only while the user is away from Hermes
+approval/turn alerts use. It fires only while the user is away from AgentX
 (backgrounded / unfocused); use `host.notify` for the in-app toast when
 they're looking at the app. Users can silence it per device under Settings ▸
 Notifications ▸ "Plugin notifications", and repeats from the same plugin are
@@ -409,7 +409,7 @@ Plugins share the app's single `QueryClient`, so plugin queries cache, dedupe,
 poll, and invalidate exactly like core screens — never hand-roll a fetch loop.
 
 ```javascript
-import { useQuery, useMutation, useQueryClient, atom, computed, useValue } from '@hermes/plugin-sdk'
+import { useQuery, useMutation, useQueryClient, atom, computed, useValue } from '@agentx/plugin-sdk'
 
 function MyPanel() {
   const { data, isLoading } = useQuery({
@@ -426,7 +426,7 @@ renders the value with `useValue`. To invalidate a query from **outside** React
 (e.g. a `ctx.socket` frame arriving), import the shared `queryClient`:
 
 ```javascript
-import { queryClient } from '@hermes/plugin-sdk'
+import { queryClient } from '@agentx/plugin-sdk'
 
 ctx.socket('/events', () => {
   queryClient.invalidateQueries({ queryKey: ['my-plugin', 'items'] })
@@ -467,7 +467,7 @@ construction**.
 ### The Python side
 
 Desktop plugins reuse the dashboard plugin backend mount. Put the backend in a
-`dashboard/` subfolder of a regular Hermes plugin and declare it in a
+`dashboard/` subfolder of a regular AgentX plugin and declare it in a
 `manifest.json`:
 
 ```
@@ -494,7 +494,7 @@ async def action(body: dict):
 
 Routes mount under `/api/plugins/<id>/` (`GET /api/plugins/<id>/board`, …).
 Backend code runs inside the gateway process, so it can import from the
-hermes-agent codebase directly (`hermes_state`, `hermes_cli.config`, …). See
+agentx-agent codebase directly (`hermes_state`, `hermes_cli.config`, …). See
 [Extending the Dashboard → Backend API routes](/user-guide/features/extending-the-dashboard#backend-api-routes)
 for the full backend reference — the mount is identical.
 
@@ -563,13 +563,13 @@ no import, no registry edit — and shares the exact inventory + live
 enable/disable contract as a disk plugin. The two differences:
 
 1. It goes through the app's Vite build, so you can write **real JSX** and import
-   the SDK by its `@hermes/plugin-sdk` alias.
-2. It's still lint-fenced to `@hermes/plugin-sdk` + `react` only — no `@/…` app
+   the SDK by its `@agentx/plugin-sdk` alias.
+2. It's still lint-fenced to `@agentx/plugin-sdk` + `react` only — no `@/…` app
    internals.
 
 No desktop plugins ship in the core tree today; the shipped app stays uncluttered
 and demos live in the
-[`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
+[`agentx-example-plugins`](https://github.com/NousResearch/agentx-example-plugins)
 companion repo.
 
 ## Security model
@@ -592,7 +592,7 @@ not treat this pipeline as a trust boundary.
 - **JSX won't parse in a disk plugin.** The file loads uncompiled — use `jsx()` /
   `jsxs()` (or `React.createElement`), not JSX syntax. (Bundled plugins are built,
   so JSX is fine there.)
-- **Only three specifiers resolve:** `@hermes/plugin-sdk`, `react`,
+- **Only three specifiers resolve:** `@agentx/plugin-sdk`, `react`,
   `react/jsx-runtime`. Any other import surfaces an up-front load error.
 - **Never hardcode colors** (`#000`, `black`, `rgb(...)`). Leave the background
   alone; use theme variables (`var(--ui-*)`) for everything.
@@ -624,10 +624,10 @@ not treat this pipeline as a trust boundary.
 
 The canonical, always-current export list is `apps/desktop/src/sdk/index.ts`.
 
-### Agents: the `hermes-desktop-plugins` skill
+### Agents: the `agentx-desktop-plugins` skill
 
 When an agent writes a desktop plugin, it should load the bundled
-**`hermes-desktop-plugins`** skill — it carries the same contract as this page in
+**`agentx-desktop-plugins`** skill — it carries the same contract as this page in
 agent-facing form, with a ready-to-copy `templates/plugin.js`. This page is the
 human/developer reference; the skill is the working checklist.
 
@@ -636,10 +636,10 @@ human/developer reference; the skill is the working checklist.
 **My plugin doesn't appear.** Confirm the file is at
 `$AGENTX_HOME/desktop-plugins/<id>/plugin.js` and the folder name matches the
 export `id`. Run ⌘K → **Reload desktop plugins**. Check the app for an error
-toast naming the failure, and tail `hermes logs gui -f`.
+toast naming the failure, and tail `agentx logs gui -f`.
 
 **"unsupported import" on load.** A disk plugin may only import
-`@hermes/plugin-sdk`, `react`, and `react/jsx-runtime`. Remove any other import.
+`@agentx/plugin-sdk`, `react`, and `react/jsx-runtime`. Remove any other import.
 
 **A `jsx` element renders nothing / throws `ReferenceError`.** An identifier used
 in a `jsx()` call isn't imported. Add it to the import line.

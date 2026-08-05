@@ -335,7 +335,7 @@
     // paste in the same flow.
     function tweetText() {
       const tierPart = achievement.tier ? (achievement.tier + " tier ") : "";
-      const tmpl = tx(t, "share.tweet_text", "Just unlocked {tier_part}\"{name}\" in AgentX Workmate ☤", {
+      const tmpl = tx(t, "share.tweet_text", "Just unlocked {tier_part}\"{name}\" in AgentX Workmate ⬡", {
         tier_part: tierPart,
         name: achievement.name,
       });

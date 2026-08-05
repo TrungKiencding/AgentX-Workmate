@@ -1,16 +1,16 @@
 ---
 sidebar_position: 5
 title: "Microsoft Teams"
-description: "Set up Hermes Agent as a Microsoft Teams bot"
+description: "Set up AgentX Workmate as a Microsoft Teams bot"
 ---
 
 # Microsoft Teams Setup
 
-Connect Hermes Agent to Microsoft Teams as a bot. Unlike Slack's Socket Mode, Teams delivers messages by calling a **public HTTPS webhook**, so your instance needs a publicly reachable endpoint — either a dev tunnel (local dev) or a real domain (production).
+Connect AgentX Workmate to Microsoft Teams as a bot. Unlike Slack's Socket Mode, Teams delivers messages by calling a **public HTTPS webhook**, so your instance needs a publicly reachable endpoint — either a dev tunnel (local dev) or a real domain (production).
 
 Need meeting summaries from Microsoft Graph events rather than normal bot conversations? Use the dedicated setup page: [Teams Meetings](/user-guide/messaging/teams-meetings).
 
-> Run `hermes gateway setup` and pick **Microsoft Teams** for a guided walk-through.
+> Run `agentx gateway setup` and pick **Microsoft Teams** for a guided walk-through.
 
 ## How the Bot Responds
 
@@ -20,7 +20,7 @@ Need meeting summaries from Microsoft Graph events rather than normal bot conver
 | **Group chat** | Bot only responds when @mentioned. |
 | **Channel** | Bot only responds when @mentioned. |
 
-Teams delivers @mentions as regular messages with `<at>BotName</at>` tags, which Hermes strips automatically before processing.
+Teams delivers @mentions as regular messages with `<at>BotName</at>` tags, which AgentX strips automatically before processing.
 
 ---
 
@@ -56,9 +56,9 @@ Teams cannot deliver messages to `localhost`. For local development, use any tun
 
 ```bash
 # devtunnel (Microsoft)
-devtunnel create hermes-bot --allow-anonymous
-devtunnel port create hermes-bot -p 3978 --protocol https  # replace 3978 with TEAMS_PORT if changed
-devtunnel host hermes-bot
+devtunnel create agentx-bot --allow-anonymous
+devtunnel port create agentx-bot -p 3978 --protocol https  # replace 3978 with TEAMS_PORT if changed
+devtunnel host agentx-bot
 
 # ngrok
 ngrok http 3978  # replace 3978 with TEAMS_PORT if changed
@@ -77,7 +77,7 @@ For production, point your bot's endpoint at your server's public domain instead
 
 ```bash
 teams app create \
-  --name "Hermes" \
+  --name "AgentX" \
   --endpoint "https://<your-tunnel-url>/api/messages"
 ```
 
@@ -112,7 +112,7 @@ This starts the gateway. The default webhook port is `3978` (override with `TEAM
 
 ```bash
 curl http://localhost:3978/health   # should return: ok
-docker logs -f hermes
+docker logs -f agentx
 ```
 
 Look for:
@@ -216,7 +216,7 @@ For a permanent server, skip devtunnel and register your bot with your server's 
 
 ```bash
 teams app create \
-  --name "Hermes" \
+  --name "AgentX" \
   --endpoint "https://your-domain.com/api/messages"
 ```
 
@@ -239,8 +239,8 @@ Make sure your configured port (`TEAMS_PORT`, default `3978`) is reachable from 
 | Bot responds with auth errors | Verify `TEAMS_CLIENT_ID`, `TEAMS_CLIENT_SECRET`, and `TEAMS_TENANT_ID` are all set correctly |
 | `No inference provider configured` | Check that `ANTHROPIC_API_KEY` (or another provider key) is set in `~/.agentx/.env` |
 | Bot receives messages but ignores them | Your AAD object ID may not be in `TEAMS_ALLOWED_USERS`. Run `teams status --verbose` to find it |
-| Tunnel URL changes on restart | devtunnel URLs are persistent if you use a named tunnel (`devtunnel create hermes-bot`). ngrok and cloudflared generate a new URL each run unless you have a paid plan — update the bot endpoint with `teams app update` when it changes |
-| Teams shows "This bot is not responding" | The webhook returned an error. Check `docker logs hermes` for tracebacks |
+| Tunnel URL changes on restart | devtunnel URLs are persistent if you use a named tunnel (`devtunnel create agentx-bot`). ngrok and cloudflared generate a new URL each run unless you have a paid plan — update the bot endpoint with `teams app update` when it changes |
+| Teams shows "This bot is not responding" | The webhook returned an error. Check `docker logs agentx` for tracebacks |
 | `[teams] Failed to connect` in logs | The SDK failed to authenticate. Double-check your credentials and that the tenant ID matches the account you used in `teams login` |
 
 ---

@@ -2,7 +2,6 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   docs: [
-    'user-stories',
     {
       type: 'category',
       label: 'Getting Started',
@@ -19,7 +18,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Using Hermes',
+      label: 'Using AgentX',
       collapsed: true,
       items: [
         'user-guide/cli',
@@ -162,10 +161,10 @@ const sidebars: SidebarsConfig = {
                   key: 'skills-bundled-autonomous-ai-agents',
                   collapsed: true,
                   items: [
+                    'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent',
                     'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code',
                     'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex',
                     'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use',
-                    'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent',
                     'user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode',
                   ],
                 },
@@ -306,8 +305,8 @@ const sidebars: SidebarsConfig = {
                   key: 'skills-bundled-software-development',
                   collapsed: true,
                   items: [
+                    'user-guide/skills/bundled/software-development/software-development-agentx-agent-skill-authoring',
                     'user-guide/skills/bundled/software-development/software-development-dogfood',
-                    'user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring',
                     'user-guide/skills/bundled/software-development/software-development-inspecting-agentx-desktop-dom',
                     'user-guide/skills/bundled/software-development/software-development-node-inspect-debugger',
                     'user-guide/skills/bundled/software-development/software-development-plan',
@@ -395,9 +394,9 @@ const sidebars: SidebarsConfig = {
                   key: 'skills-optional-devops',
                   collapsed: true,
                   items: [
+                    'user-guide/skills/optional/devops/devops-agentx-s6-container-supervision',
                     'user-guide/skills/optional/devops/devops-cli',
                     'user-guide/skills/optional/devops/devops-docker-management',
-                    'user-guide/skills/optional/devops/devops-hermes-s6-container-supervision',
                     'user-guide/skills/optional/devops/devops-pinggy-tunnel',
                     'user-guide/skills/optional/devops/devops-watchers',
                   ],
@@ -698,15 +697,15 @@ const sidebars: SidebarsConfig = {
       collapsed: true,
       items: [
         'guides/run-nemotron-3-ultra-free',
-        'guides/run-hermes-with-nous-portal',
+        'guides/run-agentx-with-nous-portal',
         'guides/tips',
         'guides/local-llm-on-mac',
         'guides/daily-briefing-bot',
         'guides/team-telegram-assistant',
         'guides/python-library',
-        'guides/use-mcp-with-hermes',
-        'guides/use-soul-with-hermes',
-        'guides/use-voice-mode-with-hermes',
+        'guides/use-mcp-with-agentx',
+        'guides/use-soul-with-agentx',
+        'guides/use-voice-mode-with-agentx',
         'guides/automate-with-cron',
         'guides/cron-script-only',
         'guides/automation-blueprints',

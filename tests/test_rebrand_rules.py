@@ -264,6 +264,21 @@ RENAMES = [
     # glyph
     ("Goodbye! ⚕", "Goodbye! ⬡"),
     (" ⚕ Hermes ", " ⬡ AgentX "),
+    # The other caduceus codepoint, U+2624, which the READMEs and the
+    # session-export footer use.
+    ("# AgentX Workmate ☤", "# AgentX Workmate ⬡"),
+    ("Built with ☤ AgentX Workmate", "Built with ⬡ AgentX Workmate"),
+    # The placeholder Matrix bot id, which every other rule refuses on purpose.
+    ("placeholder: '@hermes:example.org'", "placeholder: '@agentx:example.org'"),
+    # The nix service account already runs as `agentx`; its directories did not.
+    ('default = "/var/lib/hermes"', 'default = "/var/lib/agentx"'),
+    ('containerHomeDir = "/home/hermes"', 'containerHomeDir = "/home/agentx"'),
+    ("/etc/sudoers.d/hermes", "/etc/sudoers.d/agentx"),
+    ("/var/lib/hermes-tools-provisioned", "/var/lib/agentx-tools-provisioned"),
+    ("/home/hermes/projects", "/home/agentx/projects"),
+    # …while the MCP server name, which is not a directory, still survives the
+    # kebab guard both bare and dotted.
+    ("mcp.hermes-tools.search", "mcp.hermes-tools.search"),
     # ── phase 4: the packaged desktop app ────────────────────────────────
     # The bundle and binary are named with the FULL product name, because
     # Electron derives userData from productName and gui_uninstall.py derives
@@ -432,7 +447,6 @@ OUT_OF_SCOPE_PRESERVED = [
         "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
         "OpenClaw's extensions/migrate-hermes/apply.ts",
     ),
-    ("tools/environments/docker.py", "/home/hermes/projects"),
 ]
 
 

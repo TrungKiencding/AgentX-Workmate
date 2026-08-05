@@ -21,7 +21,7 @@ Manual OAuth for remote MCP servers on headless gateways.
 | License | MIT |
 | Platforms | linux, macos |
 | Tags | `MCP`, `OAuth`, `PKCE`, `Remote-Deployment` |
-| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent), [`mcporter`](/docs/user-guide/skills/optional/mcp/mcp-mcporter), [`fastmcp`](/docs/user-guide/skills/optional/mcp/mcp-fastmcp) |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent), [`mcporter`](/docs/user-guide/skills/optional/mcp/mcp-mcporter), [`fastmcp`](/docs/user-guide/skills/optional/mcp/mcp-fastmcp) |
 
 ## Reference: full SKILL.md
 
@@ -314,7 +314,7 @@ body = json.dumps({
     "params": {
         "protocolVersion": "2025-06-18",
         "capabilities": {},
-        "clientInfo": {"name": "hermes-debug", "version": "1.0"},
+        "clientInfo": {"name": "agentx-debug", "version": "1.0"},
     },
 }).encode()
 # POST to the MCP URL with:

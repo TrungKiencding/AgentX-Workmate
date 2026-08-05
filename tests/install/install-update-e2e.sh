@@ -70,7 +70,7 @@ SANDBOX_DIR_NAME=".agentx-sandbox-e2e-$ROUTE"
 export AGENTX_DEV_SANDBOX_DIR="$SANDBOX_DIR_NAME"
 
 SANDBOX_ROOT="$REPO_ROOT/$SANDBOX_DIR_NAME"
-INSTALL_DIR="/home/hermes/.agentx/agentx-agent"   # user-level layout (sandbox default)
+INSTALL_DIR="/home/agentx/.agentx/agentx-agent"   # user-level layout (sandbox default)
 FAKE_REMOTE="/work/repos/agentx-agent.git"
 # Only used to fetch an old install.sh for the flag probe below; the sandbox does
 # its own fetching. Same override dev-sandbox.sh honours, so a fork can retarget

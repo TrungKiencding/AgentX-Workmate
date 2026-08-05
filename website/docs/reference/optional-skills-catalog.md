@@ -1,12 +1,12 @@
 ---
 sidebar_position: 9
 title: "Optional Skills Catalog"
-description: "Official optional skills shipped with hermes-agent — install via agentx skills install official/<category>/<skill>"
+description: "Official optional skills shipped with agentx-agent — install via agentx skills install official/<category>/<skill>"
 ---
 
 # Optional Skills Catalog
 
-Optional skills ship with hermes-agent under `optional-skills/` but are **not active by default**. Install them explicitly:
+Optional skills ship with agentx-agent under `optional-skills/` but are **not active by default**. Install them explicitly:
 
 ```bash
 agentx skills install official/<category>/<skill>
@@ -79,9 +79,9 @@ agentx skills uninstall <skill-name>
 
 | Skill | Description |
 |-------|-------------|
+| [**agentx-s6-container-supervision**](/docs/user-guide/skills/optional/devops/devops-agentx-s6-container-supervision) | Modify or debug s6 services in the AgentX Docker image. |
 | [**inference-sh-cli**](/docs/user-guide/skills/optional/devops/devops-cli) | Run 150+ AI apps (image, video, LLM) via inference.sh CLI. |
 | [**docker-management**](/docs/user-guide/skills/optional/devops/devops-docker-management) | Manage Docker containers, images, volumes, and Compose. |
-| [**agentx-s6-container-supervision**](/docs/user-guide/skills/optional/devops/devops-hermes-s6-container-supervision) | Modify or debug s6 services in the AgentX Docker image. |
 | [**pinggy-tunnel**](/docs/user-guide/skills/optional/devops/devops-pinggy-tunnel) | Zero-install localhost tunnels over SSH via Pinggy. |
 | [**watchers**](/docs/user-guide/skills/optional/devops/devops-watchers) | Poll RSS, JSON APIs, and GitHub with watermark dedup. |
 

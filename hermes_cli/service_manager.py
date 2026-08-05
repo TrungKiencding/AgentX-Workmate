@@ -629,7 +629,7 @@ class S6ServiceManager:
 
         The script:
           1. Sources AGENTX_HOME (and any extra env) via with-contenv —
-             so e.g. ``-e AGENTX_HOME=/data/hermes`` is honored at run
+             so e.g. ``-e AGENTX_HOME=/data/agentx`` is honored at run
              time, not Python-substituted at registration time (OQ8-C).
           2. Resets ``HOME`` to ``/opt/data`` before the privilege drop
              so with-contenv's root HOME does not leak into the
@@ -740,8 +740,8 @@ class S6ServiceManager:
         OQ8-C: persist to ``${AGENTX_HOME}/logs/gateways/<profile>/``.
         CRITICAL: the AGENTX_HOME path is sourced from the runtime env
         via with-contenv — NOT Python-substituted at registration time
-        — so a container started with ``-e AGENTX_HOME=/data/hermes``
-        gets its logs under /data/hermes/logs/..., not the build-time
+        — so a container started with ``-e AGENTX_HOME=/data/agentx``
+        gets its logs under /data/agentx/logs/..., not the build-time
         default.
 
         Output routing — the script is two action directives, applied

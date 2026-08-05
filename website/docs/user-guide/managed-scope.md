@@ -25,10 +25,10 @@ rather than locking the whole config. The two are independent and can coexist.
 
 ## Where it lives
 
-Managed scope is read from a system-level directory, default `/etc/hermes`:
+Managed scope is read from a system-level directory, default `/etc/agentx`:
 
 ```text
-/etc/hermes/
+/etc/agentx/
 ├── config.yaml     # managed config layer (wins over ~/.agentx/config.yaml)
 └── .env            # managed env layer (wins over ~/.agentx/.env + shell)
 ```
@@ -47,18 +47,18 @@ the feature.
 The location can be relocated with the `AGENTX_MANAGED_DIR` environment variable
 (for containers or non-`/etc` deployments). This is a deployment/bootstrap path
 knob — like `AGENTX_HOME` — set by the same administrator who owns the managed
-files. It is **never persisted** to any `.env` by Hermes.
+files. It is **never persisted** to any `.env` by AgentX.
 
 ```bash
 # Point managed scope at a custom directory (set by IT / the deployment, not the user)
-export AGENTX_MANAGED_DIR=/opt/org/hermes-policy
+export AGENTX_MANAGED_DIR=/opt/org/agentx-policy
 ```
 
 :::warning
 A user who can set `AGENTX_MANAGED_DIR` can repoint managed scope at a directory
 they control, defeating it. In a real deployment this variable should be fixed
 by the administrator (e.g. baked into the service unit / container image), not
-left user-settable. `hermes doctor` reports the *resolved* managed directory so
+left user-settable. `agentx doctor` reports the *resolved* managed directory so
 a redirect is visible.
 :::
 
@@ -68,7 +68,7 @@ For the keys a managed layer specifies, the order is (highest wins):
 
 | Tier | config.yaml | .env |
 |---|---|---|
-| 1 | `/etc/hermes/config.yaml` (managed) | `/etc/hermes/.env` (managed) |
+| 1 | `/etc/agentx/config.yaml` (managed) | `/etc/agentx/.env` (managed) |
 | 2 | `~/.agentx/config.yaml` (user) | `~/.agentx/.env` (user) |
 | 3 | built-in defaults | pre-existing shell environment |
 
@@ -93,28 +93,28 @@ to the specific keys the managed layer specifies.
 ## Seeing what's managed
 
 ```bash
-hermes config        # shows a header naming the managed source + the pinned keys
-hermes doctor        # reports the resolved managed dir + pinned key counts
+agentx config        # shows a header naming the managed source + the pinned keys
+agentx doctor        # reports the resolved managed dir + pinned key counts
 ```
 
-If you try to change a managed value, Hermes refuses and names the source:
+If you try to change a managed value, AgentX refuses and names the source:
 
 ```bash
-$ hermes config set model.default my/model
+$ agentx config set model.default my/model
 Cannot set 'model.default': it is managed by your administrator
-(/etc/hermes/config.yaml) and cannot be changed.
+(/etc/agentx/config.yaml) and cannot be changed.
 ```
 
-The same applies to managed secrets — `hermes config set` / setup will not write
+The same applies to managed secrets — `agentx config set` / setup will not write
 a user value for an env key pinned by the managed `.env`.
 
 ## Setting up a managed scope (administrators)
 
 ```bash
-sudo mkdir -p /etc/hermes
+sudo mkdir -p /etc/agentx
 
 # Pin some config values for every user on this machine
-sudo tee /etc/hermes/config.yaml >/dev/null <<'YAML'
+sudo tee /etc/agentx/config.yaml >/dev/null <<'YAML'
 model:
   provider: nous
 security:
@@ -122,22 +122,22 @@ security:
 YAML
 
 # Optionally pin a shared, non-sensitive env value
-sudo tee /etc/hermes/.env >/dev/null <<'ENV'
+sudo tee /etc/agentx/.env >/dev/null <<'ENV'
 OPENAI_API_BASE=https://inference.example.com/v1
 ENV
 
-sudo chmod 0755 /etc/hermes
-sudo chmod 0644 /etc/hermes/config.yaml /etc/hermes/.env
+sudo chmod 0755 /etc/agentx
+sudo chmod 0644 /etc/agentx/config.yaml /etc/agentx/.env
 ```
 
-Changes take effect on the next Hermes start (a malformed managed file is logged
+Changes take effect on the next AgentX start (a malformed managed file is logged
 loudly and ignored — it never blocks startup, but the admin should check
-`hermes doctor` to confirm the policy is being applied).
+`agentx doctor` to confirm the policy is being applied).
 
 ## Security model and limitations (v1)
 
 - **Enforcement is filesystem permissions only.** If a user has write access to
-  the managed directory (or runs Hermes as `root`), managed scope is advisory.
+  the managed directory (or runs AgentX as `root`), managed scope is advisory.
 - **The managed `.env` is world-readable** (`0644`), so any local user can read
   secrets pushed through it. Use it for shared, non-sensitive values (an org API
   base URL, feature defaults) rather than high-sensitivity secrets.

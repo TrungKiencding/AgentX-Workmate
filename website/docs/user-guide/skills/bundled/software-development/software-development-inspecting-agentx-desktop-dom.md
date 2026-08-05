@@ -1,12 +1,12 @@
 ---
-title: "Inspecting Hermes Desktop Dom — Read the live AgentX desktop DOM/CSS over CDP"
-sidebar_label: "Inspecting Hermes Desktop Dom"
+title: "Inspecting Agentx Desktop Dom — Read the live AgentX desktop DOM/CSS over CDP"
+sidebar_label: "Inspecting Agentx Desktop Dom"
 description: "Read the live AgentX desktop DOM/CSS over CDP"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Inspecting Hermes Desktop Dom
+# Inspecting Agentx Desktop Dom
 
 Read the live AgentX desktop DOM/CSS over CDP.
 

@@ -351,7 +351,7 @@ if [ "$RUN_AS_USER" = true ]; then
   SANDBOX_UID=1000
   SANDBOX_GID=1000
   SANDBOX_USER=agentx
-  SANDBOX_HOME=/home/hermes
+  SANDBOX_HOME=/home/agentx
 else
   SANDBOX_UID=0
   SANDBOX_GID=0

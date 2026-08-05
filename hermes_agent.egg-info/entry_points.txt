@@ -1,4 +1,4 @@
 [console_scripts]
-hermes = hermes_cli.main:main
-hermes-acp = acp_adapter.entry:main
-hermes-agent = run_agent:main
+agentx = hermes_cli.main:main
+agentx-acp = acp_adapter.entry:main
+agentx-agent = run_agent:main

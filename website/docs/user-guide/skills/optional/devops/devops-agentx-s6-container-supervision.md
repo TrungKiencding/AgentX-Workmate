@@ -1,12 +1,12 @@
 ---
-title: "Hermes S6 Container Supervision — Modify or debug s6 services in the AgentX Docker image"
-sidebar_label: "Hermes S6 Container Supervision"
+title: "Agentx S6 Container Supervision — Modify or debug s6 services in the AgentX Docker image"
+sidebar_label: "Agentx S6 Container Supervision"
 description: "Modify or debug s6 services in the AgentX Docker image"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Hermes S6 Container Supervision
+# Agentx S6 Container Supervision
 
 Modify or debug s6 services in the AgentX Docker image.
 
@@ -21,7 +21,7 @@ Modify or debug s6 services in the AgentX Docker image.
 | License | MIT |
 | Platforms | linux |
 | Tags | `docker`, `s6`, `supervision`, `gateway`, `profiles` |
-| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
+| Related skills | [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent) |
 
 ## Reference: full SKILL.md
 
@@ -55,7 +55,7 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 │   │   ├── seed .env / config.yaml / SOUL.md
 │   │   └── skills_sync.py
 │   └── 02-reconcile-profiles          ← hermes_cli.container_boot
-│       ├── chown /run/service (hermes-writable for runtime register)
+│       ├── chown /run/service (agentx-writable for runtime register)
 │       └── walk $AGENTX_HOME/profiles/<name>/gateway_state.json
 │           → recreate /run/service/gateway-<name>/
 │           → auto-start only those with prior_state == "running"
@@ -195,4 +195,4 @@ Check whether something is invoking `s6-svscanctl -t` or `/run/s6/basedir/bin/ha
 ## Related skills
 
 - `agentx-agent-dev`: General agentx-agent codebase navigation
-- `hermes-tool-quirks`: Specific AgentX-tool workarounds (sed/grep/etc.) — load when debugging the s6 stack's interaction with agentx built-in tools.
+- `agentx-tool-quirks`: Specific AgentX-tool workarounds (sed/grep/etc.) — load when debugging the s6 stack's interaction with agentx built-in tools.

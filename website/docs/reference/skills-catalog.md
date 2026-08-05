@@ -25,10 +25,10 @@ If a skill is missing from this list but present in the repo, the catalog is reg
 
 | Skill | Description | Path |
 |-------|-------------|------|
+| [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-agentx-agent) | Use, configure, theme, extend, and orchestrate AgentX Workmate. | `autonomous-ai-agents/agentx-agent` |
 | [`claude-code`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code) | Delegate coding to Claude Code CLI (features, PRs). | `autonomous-ai-agents/claude-code` |
 | [`codex`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex) | Delegate coding to OpenAI Codex CLI (features, PRs). | `autonomous-ai-agents/codex` |
 | [`computer-use`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-computer-use) | Drive the user's desktop in the background — clicking, typing, scrolling, dragging — without stealing the cursor, keyboard focus, or switching virtual desktops / Spaces. Cross-platform: macOS, Windows, Linux. Works with any tool-capable... | `autonomous-ai-agents/computer-use` |
-| [`agentx-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) | Use, configure, theme, extend, and orchestrate AgentX Workmate. | `autonomous-ai-agents/agentx-agent` |
 | [`opencode`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode) | Delegate coding to OpenCode CLI (features, PR review). | `autonomous-ai-agents/opencode` |
 
 ## creative
@@ -136,8 +136,8 @@ If a skill is missing from this list but present in the repo, the catalog is reg
 
 | Skill | Description | Path |
 |-------|-------------|------|
+| [`agentx-agent-skill-authoring`](/docs/user-guide/skills/bundled/software-development/software-development-agentx-agent-skill-authoring) | Author in-repo SKILL.md files: frontmatter and structure. | `software-development/agentx-agent-skill-authoring` |
 | [`dogfood`](/docs/user-guide/skills/bundled/software-development/software-development-dogfood) | Exploratory QA of web apps: find bugs, evidence, reports. | `software-development/dogfood` |
-| [`agentx-agent-skill-authoring`](/docs/user-guide/skills/bundled/software-development/software-development-hermes-agent-skill-authoring) | Author in-repo SKILL.md files: frontmatter and structure. | `software-development/agentx-agent-skill-authoring` |
 | [`inspecting-agentx-desktop-dom`](/docs/user-guide/skills/bundled/software-development/software-development-inspecting-agentx-desktop-dom) | Read the live AgentX desktop DOM/CSS over CDP. | `software-development/inspecting-agentx-desktop-dom` |
 | [`node-inspect-debugger`](/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger) | Debug Node.js via --inspect + Chrome DevTools Protocol CLI. | `software-development/node-inspect-debugger` |
 | [`plan`](/docs/user-guide/skills/bundled/software-development/software-development-plan) | Write a markdown plan to .agentx/plans/; no execution. | `software-development/plan` |

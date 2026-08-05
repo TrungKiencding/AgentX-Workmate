@@ -4,34 +4,34 @@ sidebar_position: 2
 
 # Profiles: Running Multiple Agents
 
-Run multiple independent Hermes agents on the same machine — each with its own config, API keys, memory, sessions, skills, and gateway state.
+Run multiple independent AgentX agents on the same machine — each with its own config, API keys, memory, sessions, skills, and gateway state.
 
 ## What are profiles?
 
-A profile is a separate Hermes home directory. Each profile gets its own directory containing its own `config.yaml`, `.env`, `SOUL.md`, memories, sessions, skills, cron jobs, and state database. Profiles let you run separate agents for different purposes — a coding assistant, a personal bot, a research agent — without mixing up Hermes state.
+A profile is a separate AgentX home directory. Each profile gets its own directory containing its own `config.yaml`, `.env`, `SOUL.md`, memories, sessions, skills, cron jobs, and state database. Profiles let you run separate agents for different purposes — a coding assistant, a personal bot, a research agent — without mixing up AgentX state.
 
 When you create a profile, it automatically becomes its own command. Create a profile called `coder` and you immediately have `coder chat`, `coder setup`, `coder gateway start`, etc.
 
 ## Quick start
 
 ```bash
-hermes profile create coder       # creates profile + "coder" command alias
+agentx profile create coder       # creates profile + "coder" command alias
 coder setup                       # configure API keys and model
 coder chat                        # start chatting
 ```
 
-That's it. `coder` is now its own Hermes profile with its own config, memory, and state.
+That's it. `coder` is now its own AgentX profile with its own config, memory, and state.
 
 ## Creating a profile
 
 :::tip
-Quickest setup: run `hermes setup --portal` inside the new profile to wire up models + tools at once. See [Nous Portal](/integrations/nous-portal).
+Quickest setup: run `agentx setup --portal` inside the new profile to wire up models + tools at once. See [Nous Portal](/integrations/nous-portal).
 :::
 
 ### Blank profile
 
 ```bash
-hermes profile create mybot
+agentx profile create mybot
 ```
 
 Creates a fresh profile with bundled skills seeded. Run `mybot setup` to configure API keys, model, and gateway tokens.
@@ -39,15 +39,15 @@ Creates a fresh profile with bundled skills seeded. Run `mybot setup` to configu
 If you plan to use this profile as a kanban worker (or want the kanban orchestrator to route work to it), pass `--description "<role>"` at create time so the orchestrator knows what it's good at:
 
 ```bash
-hermes profile create researcher --description "Reads source code and external docs, writes findings."
+agentx profile create researcher --description "Reads source code and external docs, writes findings."
 ```
 
-You can also set or auto-generate the description later with `hermes profile describe` — see the [Kanban guide](./features/kanban#auto-vs-manual-orchestration) for the full routing model.
+You can also set or auto-generate the description later with `agentx profile describe` — see the [Kanban guide](./features/kanban#auto-vs-manual-orchestration) for the full routing model.
 
 ### Clone config only (`--clone`)
 
 ```bash
-hermes profile create work --clone
+agentx profile create work --clone
 ```
 
 Copies your current profile's `config.yaml`, `.env`, `SOUL.md`, and skills into the new profile. Same API keys, model, and capabilities, but fresh sessions and memory. Edit `~/.agentx/profiles/work/.env` for different API keys, or `~/.agentx/profiles/work/SOUL.md` for a different personality.
@@ -55,21 +55,21 @@ Copies your current profile's `config.yaml`, `.env`, `SOUL.md`, and skills into 
 ### Clone everything (`--clone-all`)
 
 ```bash
-hermes profile create backup --clone-all
+agentx profile create backup --clone-all
 ```
 
-Copies **everything** — config, API keys, personality, all memories, skills, cron jobs, plugins. A complete working snapshot. Per-profile history is excluded (session history, `state.db`, `backups/`, `state-snapshots/`, `checkpoints/`) — these belong to the source profile and can reach tens of GB. For a full backup including history, use `hermes profile export` or `hermes backup` instead.
+Copies **everything** — config, API keys, personality, all memories, skills, cron jobs, plugins. A complete working snapshot. Per-profile history is excluded (session history, `state.db`, `backups/`, `state-snapshots/`, `checkpoints/`) — these belong to the source profile and can reach tens of GB. For a full backup including history, use `agentx profile export` or `agentx backup` instead.
 
 ### Clone from a specific profile
 
 ```bash
-hermes profile create work --clone-from coder
+agentx profile create work --clone-from coder
 ```
 
 `--clone-from <source>` selects the source profile directly and implies a config/skills/SOUL clone. Combine it with `--clone-all` when you want a full copy of that source profile:
 
 ```bash
-hermes profile create work-backup --clone-from coder --clone-all
+agentx profile create work-backup --clone-from coder --clone-all
 ```
 
 :::tip Honcho memory + profiles
@@ -91,28 +91,28 @@ coder skills list             # list coder's skills
 coder config set model.default anthropic/claude-sonnet-4
 ```
 
-The alias works with every hermes subcommand — it's just `hermes -p <name>` under the hood.
+The alias works with every agentx subcommand — it's just `agentx -p <name>` under the hood.
 
 ### The `-p` flag
 
 You can also target a profile explicitly with any command:
 
 ```bash
-hermes -p coder chat
-hermes --profile=coder doctor
-hermes chat -p coder -q "hello"    # works in any position
+agentx -p coder chat
+agentx --profile=coder doctor
+agentx chat -p coder -q "hello"    # works in any position
 ```
 
-### Sticky default (`hermes profile use`)
+### Sticky default (`agentx profile use`)
 
 ```bash
-hermes profile use coder
-hermes chat                   # now targets coder
-hermes tools                  # configures coder's tools
-hermes profile use default    # switch back
+agentx profile use coder
+agentx chat                   # now targets coder
+agentx tools                  # configures coder's tools
+agentx profile use default    # switch back
 ```
 
-Sets a default so plain `hermes` commands target that profile. Like `kubectl config use-context`.
+Sets a default so plain `agentx` commands target that profile. Like `kubectl config use-context`.
 
 ### Knowing where you are
 
@@ -120,13 +120,13 @@ The CLI always shows which profile is active:
 
 - **Prompt**: `coder ❯` instead of `❯`
 - **Banner**: Shows `Profile: coder` on startup
-- **`hermes profile`**: Shows current profile name, path, model, gateway status
+- **`agentx profile`**: Shows current profile name, path, model, gateway status
 
 ## Profiles vs workspaces vs sandboxing
 
 Profiles are often confused with workspaces or sandboxes, but they are different things:
 
-- A **profile** gives Hermes its own state directory: `config.yaml`, `.env`, `SOUL.md`, sessions, memory, logs, cron jobs, and gateway state.
+- A **profile** gives AgentX its own state directory: `config.yaml`, `.env`, `SOUL.md`, sessions, memory, logs, cron jobs, and gateway state.
 - A **workspace** or **working directory** is where terminal commands start. That is controlled separately by `terminal.cwd`.
 - A **sandbox** is what limits filesystem access. Profiles do **not** sandbox the agent.
 
@@ -140,7 +140,7 @@ terminal:
   cwd: /absolute/path/to/project
 ```
 
-Using `cwd: "."` on the local backend means "the directory Hermes was launched from", not "the profile directory".
+Using `cwd: "."` on the local backend means "the directory AgentX was launched from", not "the profile directory".
 
 Also note:
 
@@ -176,14 +176,14 @@ If two profiles accidentally use the same bot token, the second gateway will be 
 ### Persistent services
 
 ```bash
-coder gateway install         # creates hermes-gateway-coder systemd/launchd service
-assistant gateway install     # creates hermes-gateway-assistant service
+coder gateway install         # creates agentx-gateway-coder systemd/launchd service
+assistant gateway install     # creates agentx-gateway-assistant service
 ```
 
 Each profile gets its own service name. They run independently.
 
 :::note Inside the official Docker image
-Per-profile gateways are supervised by [s6-overlay](https://github.com/just-containers/s6-overlay) (PID 1 in the container), so `hermes profile create <name>` automatically registers an s6 service slot at `/run/service/gateway-<name>/`. `hermes -p <name> gateway start/stop/restart` dispatches to `s6-svc` instead of spawning a bare process — crashes are auto-restarted and `docker restart` preserves the previously-running set of gateways. See [Per-profile gateway supervision](/user-guide/docker#per-profile-gateway-supervision) for details.
+Per-profile gateways are supervised by [s6-overlay](https://github.com/just-containers/s6-overlay) (PID 1 in the container), so `agentx profile create <name>` automatically registers an s6 service slot at `/run/service/gateway-<name>/`. `agentx -p <name> gateway start/stop/restart` dispatches to `s6-svc` instead of spawning a bare process — crashes are auto-restarted and `docker restart` preserves the previously-running set of gateways. See [Per-profile gateway supervision](/user-guide/docker#per-profile-gateway-supervision) for details.
 :::
 
 ## Configuring profiles
@@ -216,15 +216,15 @@ also follows the switcher, spawning a conversation under the selected
 profile's home.
 
 Note: "Set as active" on the dashboard's Profiles page is the sticky
-default for **future CLI/gateway runs** (same as `hermes profile use`) —
+default for **future CLI/gateway runs** (same as `agentx profile use`) —
 to edit a profile from the dashboard, use the switcher instead.
 
 ## Updating
 
-`hermes update` pulls code once (shared) and syncs new bundled skills to **all** profiles automatically:
+`agentx update` pulls code once (shared) and syncs new bundled skills to **all** profiles automatically:
 
 ```bash
-hermes update
+agentx update
 # → Code updated (12 commits)
 # → Skills synced: default (up to date), coder (+2 new), assistant (+2 new)
 ```
@@ -234,42 +234,42 @@ User-modified skills are never overwritten.
 ## Managing profiles
 
 ```bash
-hermes profile list           # show all profiles with status
-hermes profile show coder     # detailed info for one profile
-hermes profile rename coder dev-bot   # rename (updates alias + service)
-hermes profile export coder   # export to coder.tar.gz
-hermes profile import coder.tar.gz   # import from archive
+agentx profile list           # show all profiles with status
+agentx profile show coder     # detailed info for one profile
+agentx profile rename coder dev-bot   # rename (updates alias + service)
+agentx profile export coder   # export to coder.tar.gz
+agentx profile import coder.tar.gz   # import from archive
 ```
 
 ## Deleting a profile
 
 ```bash
-hermes profile delete coder
+agentx profile delete coder
 ```
 
 This stops the gateway, removes the systemd/launchd service, removes the command alias, and deletes all profile data. You'll be asked to type the profile name to confirm.
 
-Use `--yes` to skip confirmation: `hermes profile delete coder --yes`
+Use `--yes` to skip confirmation: `agentx profile delete coder --yes`
 
 :::note
-You cannot delete the default profile (`~/.agentx`). To remove everything, use `hermes uninstall`.
+You cannot delete the default profile (`~/.agentx`). To remove everything, use `agentx uninstall`.
 :::
 
 ## Tab completion
 
 ```bash
 # Bash
-eval "$(hermes completion bash)"
+eval "$(agentx completion bash)"
 
 # Zsh
-eval "$(hermes completion zsh)"
+eval "$(agentx completion zsh)"
 ```
 
 Add the line to your `~/.bashrc` or `~/.zshrc` for persistent completion. Completes profile names after `-p`, profile subcommands, and top-level commands.
 
 ## How it works
 
-Profiles use the `AGENTX_HOME` environment variable. When you run `coder chat`, the wrapper script sets `AGENTX_HOME=~/.agentx/profiles/coder` before launching hermes. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, Hermes state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
+Profiles use the `AGENTX_HOME` environment variable. When you run `coder chat`, the wrapper script sets `AGENTX_HOME=~/.agentx/profiles/coder` before launching hermes. Since 119+ files in the codebase resolve paths via `get_hermes_home()`, AgentX state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.
 
 This is separate from terminal working directory. Tool execution starts from `terminal.cwd` (or the launch directory when `cwd: "."` on the local backend), not automatically from `AGENTX_HOME`.
 
@@ -281,22 +281,22 @@ per-profile tool config can opt in with `terminal.home_mode: profile`.
 
 This means two things that are easy to mix up:
 
-- `AGENTX_HOME` is the profile boundary. It controls Hermes config, `.env`,
-  memory, sessions, skills, logs, cron jobs, gateway state, and other Hermes
+- `AGENTX_HOME` is the profile boundary. It controls AgentX config, `.env`,
+  memory, sessions, skills, logs, cron jobs, gateway state, and other AgentX
   data.
 - `HOME` is the operating-system/user home that external CLIs expect. On host
-  installs, Hermes keeps it as the real user home by default so tools like
+  installs, AgentX keeps it as the real user home by default so tools like
   `git`, `ssh`, `gh`, `az`, `npm`, Claude Code, and Codex find the same
   credentials they use in your normal shell.
 
 The tradeoff is that host profiles share normal user-level CLI state by default.
 If you need separate CLI identities per profile, set `terminal.home_mode:
-profile` in that profile's `config.yaml`. In that mode Hermes launches tool
+profile` in that profile's `config.yaml`. In that mode AgentX launches tool
 subprocesses with `HOME={AGENTX_HOME}/home`; you then need to initialize or link
 the profile-specific `~/.ssh`, `~/.gitconfig`, `~/.config/gh`, cloud CLI auth,
 Claude/Codex auth, npm state, and similar files inside that profile home.
 
-Hermes also exposes `AGENTX_REAL_HOME` to subprocesses so scripts can still find
+AgentX also exposes `AGENTX_REAL_HOME` to subprocesses so scripts can still find
 the actual account home when `home_mode: profile` is active.
 
 The default profile is simply `~/.agentx` itself. No migration needed — existing installs work identically.
@@ -307,10 +307,10 @@ A profile you built on one machine can be packaged as a **git repository** and i
 
 ```bash
 # Install a whole agent from a git repo
-hermes profile install github.com/you/research-bot --alias
+agentx profile install github.com/you/research-bot --alias
 
 # Update later when the author ships a new version (keeps your memories + .env)
-hermes profile update research-bot
+agentx profile update research-bot
 ```
 
 See **[Profile Distributions: Share a Whole Agent](./profile-distributions.md)** for the full guide — authoring, publishing, update semantics, security model, and use cases.

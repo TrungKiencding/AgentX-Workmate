@@ -6,7 +6,7 @@ description: "Run custom code at key lifecycle points — log activity, send ale
 
 # Event Hooks
 
-Hermes has four hook systems that run custom code at key lifecycle points:
+AgentX has four hook systems that run custom code at key lifecycle points:
 
 | System | Registered via | Runs in | Use case |
 |--------|---------------|---------|----------|
@@ -180,7 +180,7 @@ events:
 # ~/.agentx/hooks/session-webhook/handler.py
 import httpx
 
-WEBHOOK_URL = "https://your-service.example.com/hermes-events"
+WEBHOOK_URL = "https://your-service.example.com/agentx-events"
 
 async def handle(event_type: str, context: dict):
     async with httpx.AsyncClient() as client:
@@ -194,7 +194,7 @@ async def handle(event_type: str, context: dict):
 
 A popular pattern from the community: drop a Markdown checklist at `~/.agentx/BOOT.md`, and have the agent run it once every time the gateway starts. Useful for "on every boot, check overnight cron failures and ping me on Discord if anything failed," or "summarize the last 24h of deploy.log and post it to Slack #ops."
 
-This tutorial shows how to build it yourself as a user-defined hook. Hermes does not ship a built-in BOOT.md hook — you wire up exactly the behavior you want.
+This tutorial shows how to build it yourself as a user-defined hook. AgentX does not ship a built-in BOOT.md hook — you wire up exactly the behavior you want.
 
 #### What we're building
 
@@ -209,7 +209,7 @@ Create `~/.agentx/BOOT.md`. Write it as if you were giving instructions to a hum
 ```markdown
 # Startup Checklist
 
-1. Run `hermes cron list` and check if any scheduled jobs failed overnight.
+1. Run `agentx cron list` and check if any scheduled jobs failed overnight.
 2. If any failed, summarize them for Discord #ops (the hook delivers your final response to its configured target).
 3. Check if `/opt/app/deploy.log` has any ERROR lines from the last 24 hours. If yes, summarize them and include in the same report.
 4. If nothing went wrong, reply with only `[SILENT]` so no message is sent.
@@ -323,13 +323,13 @@ Without these, a bare `AIAgent()` falls back to built-in defaults and will 401 a
 Restart the gateway:
 
 ```bash
-hermes gateway restart
+agentx gateway restart
 ```
 
 Watch the logs:
 
 ```bash
-hermes logs --follow --level INFO | grep boot-md
+agentx logs --follow --level INFO | grep boot-md
 ```
 
 You should see `Running BOOT.md (N chars)` followed by either `boot-md completed: ...` (summary of what the agent did) or `boot-md completed (nothing to report)` when the agent replied with an exact silence token such as `[SILENT]`.
@@ -344,7 +344,7 @@ Delete `~/.agentx/BOOT.md` to disable the checklist — the hook stays loaded bu
 
 #### Why this isn't a built-in
 
-An earlier version of Hermes shipped this as a built-in hook and silently spawned an agent with bare defaults on every gateway boot. That surprised users with custom endpoints and made the feature invisible to users who didn't know it was running. Keeping it as a documented pattern — built by you, in your hooks directory — means you see exactly what it does and opt in by writing the files.
+An earlier version of AgentX shipped this as a built-in hook and silently spawned an agent with bare defaults on every gateway boot. That surprised users with custom endpoints and made the feature invisible to users who didn't know it was running. Keeping it as a documented pattern — built by you, in your hooks directory — means you see exactly what it does and opt in by writing the files.
 
 ### How It Works
 
@@ -546,7 +546,7 @@ def my_callback(session_id: str, user_message: str, conversation_history: list,
 
 ```python
 # Inject context
-return {"context": "Recalled memories:\n- User likes Python\n- Working on hermes-agent"}
+return {"context": "Recalled memories:\n- User likes Python\n- Working on agentx-agent"}
 
 # Plain string (equivalent)
 return "Recalled memories:\n- User likes Python"
@@ -555,7 +555,7 @@ return "Recalled memories:\n- User likes Python"
 return None
 ```
 
-**Where context is injected:** Always the **user message**, never the system prompt. This preserves the prompt cache — the system prompt stays identical across turns, so cached tokens are reused. The system prompt is Hermes's territory (model guidance, tool enforcement, personality, skills). Plugins contribute context alongside the user's input.
+**Where context is injected:** Always the **user message**, never the system prompt. This preserves the prompt cache — the system prompt stays identical across turns, so cached tokens are reused. The system prompt is AgentX's territory (model guidance, tool enforcement, personality, skills). Plugins contribute context alongside the user's input.
 
 All injected context is **ephemeral** — added at API call time only. The original user message in the conversation history is never mutated, and nothing is persisted to the session database.
 
@@ -669,7 +669,7 @@ def register(ctx):
 
 Fires **once per turn when the agent edited code**, just before it finishes (after the built-in verify-on-stop guard). This is a user/plugin policy gate: a callback can keep the agent going — run a check, defer it, tidy the diff — instead of letting it stop.
 
-Hermes' shipped verification guidance is not a default `pre_verify` hook. It is appended to the evidence-based verify-on-stop nudge when edited code lacks fresh verification evidence, so it does not create a second default continuation path. Set `agent.verify_guidance: false` to keep that built-in evidence nudge terse.
+AgentX' shipped verification guidance is not a default `pre_verify` hook. It is appended to the evidence-based verify-on-stop nudge when edited code lacks fresh verification evidence, so it does not create a second default continuation path. Set `agent.verify_guidance: false` to keep that built-in evidence nudge terse.
 
 **Callback signature:**
 
@@ -1110,7 +1110,7 @@ def my_callback(
 import subprocess
 
 def notify_approval(command, description, session_key, **kwargs):
-    title = "Hermes needs approval"
+    title = "AgentX needs approval"
     body = f"{description}: {command[:80]}"
     subprocess.Popen([
         "osascript", "-e",
@@ -1296,7 +1296,7 @@ The hook is guarded on a non-empty, non-interrupted response — it will not fir
 
 ## Shell Hooks
 
-Declare shell-script hooks in your `~/.agentx/config.yaml` and Hermes will run them as subprocesses whenever the corresponding plugin-hook event fires — in both CLI and gateway sessions. No Python plugin authoring required.
+Declare shell-script hooks in your `~/.agentx/config.yaml` and AgentX will run them as subprocesses whenever the corresponding plugin-hook event fires — in both CLI and gateway sessions. No Python plugin authoring required.
 
 Use shell hooks when you want a drop-in, single-file script (Bash, Python, anything with a shebang) to:
 
@@ -1337,7 +1337,7 @@ Event names must be one of the [plugin hook events](#plugin-hooks); typos produc
 
 ### JSON wire protocol
 
-Each time the event fires, Hermes spawns a subprocess for every matching hook (matcher permitting), pipes a JSON payload to **stdin**, and reads **stdout** back as JSON.
+Each time the event fires, AgentX spawns a subprocess for every matching hook (matcher permitting), pipes a JSON payload to **stdin**, and reads **stdout** back as JSON.
 
 **stdin — payload the script receives:**
 
@@ -1359,7 +1359,7 @@ Each time the event fires, Hermes spawns a subprocess for every matching hook (m
 ```jsonc
 // Block a pre_tool_call (both shapes accepted; normalised internally):
 {"decision": "block", "reason":  "Forbidden: rm -rf"}   // Claude-Code style
-{"action":   "block", "message": "Forbidden: rm -rf"}   // Hermes-canonical
+{"action":   "block", "message": "Forbidden: rm -rf"}   // AgentX-canonical
 
 // Inject context for pre_llm_call:
 {"context": "Today is Friday, 2026-04-17"}
@@ -1438,7 +1438,7 @@ else
 fi
 ```
 
-Claude Code's `UserPromptSubmit` event is intentionally not a separate Hermes event — `pre_llm_call` fires at the same place and already supports context injection. Use it here.
+Claude Code's `UserPromptSubmit` event is intentionally not a separate AgentX event — `pre_llm_call` fires at the same place and already supports context injection. Use it here.
 
 #### 4. Log every subagent completion
 
@@ -1458,17 +1458,17 @@ printf '{}\n'
 
 ### Consent model
 
-Each unique `(event, command)` pair prompts the user for approval the first time Hermes sees it, then persists the decision to `~/.agentx/shell-hooks-allowlist.json`. Subsequent runs (CLI or gateway) skip the prompt.
+Each unique `(event, command)` pair prompts the user for approval the first time AgentX sees it, then persists the decision to `~/.agentx/shell-hooks-allowlist.json`. Subsequent runs (CLI or gateway) skip the prompt.
 
 Three escape hatches bypass the interactive prompt — any one is sufficient:
 
-1. `--accept-hooks` flag on the CLI (e.g. `hermes --accept-hooks chat`)
+1. `--accept-hooks` flag on the CLI (e.g. `agentx --accept-hooks chat`)
 2. `AGENTX_ACCEPT_HOOKS=1` environment variable
 3. `hooks_auto_accept: true` in `~/.agentx/config.yaml`
 
 Non-TTY runs (gateway, cron, CI) need one of these three — otherwise any newly-added hook silently stays un-registered and logs a warning.
 
-**Script edits are silently trusted.** The allowlist keys on the exact command string, not the script's hash, so editing the script on disk does not invalidate consent. `hermes hooks doctor` flags mtime drift so you can spot edits and decide whether to re-approve.
+**Script edits are silently trusted.** The allowlist keys on the exact command string, not the script's hash, so editing the script on disk does not invalidate consent. `agentx hooks doctor` flags mtime drift so you can spot edits and decide whether to re-approve.
 
 #### Manual allowlisting
 
@@ -1479,22 +1479,22 @@ Manual allowlisting is useful for non-TTY or service-account deployments where a
   "approvals": [
     {
       "event": "post_llm_call",
-      "command": "/home/hermes/.agentx/hooks/my-hook.py"
+      "command": "/home/agentx/.agentx/hooks/my-hook.py"
     }
   ]
 }
 ```
 
-The command string must match the configured hook command exactly. A path-keyed object with a `sha256` field is not the expected format and will not approve the hook. Verify manual entries with `hermes hooks list`.
+The command string must match the configured hook command exactly. A path-keyed object with a `sha256` field is not the expected format and will not approve the hook. Verify manual entries with `agentx hooks list`.
 
-### The `hermes hooks` CLI
+### The `agentx hooks` CLI
 
 | Command | What it does |
 |---------|--------------|
-| `hermes hooks list` | Dump configured hooks with matcher, timeout, and consent status |
-| `hermes hooks test <event> [--for-tool X] [--payload-file F]` | Fire every matching hook against a synthetic payload and print the parsed response |
-| `hermes hooks revoke <command>` | Remove every allowlist entry matching `<command>` (takes effect on next restart) |
-| `hermes hooks doctor` | For every configured hook: check exec bit, allowlist status, mtime drift, JSON output validity, and rough execution time |
+| `agentx hooks list` | Dump configured hooks with matcher, timeout, and consent status |
+| `agentx hooks test <event> [--for-tool X] [--payload-file F]` | Fire every matching hook against a synthetic payload and print the parsed response |
+| `agentx hooks revoke <command>` | Remove every allowlist entry matching `<command>` (takes effect on next restart) |
+| `agentx hooks doctor` | For every configured hook: check exec bit, allowlist status, mtime drift, JSON output validity, and rough execution time |
 
 ### Security
 
@@ -1502,7 +1502,7 @@ Shell hooks run with **your full user credentials** — same trust boundary as a
 
 - Only reference scripts you wrote or fully reviewed.
 - Keep scripts inside `~/.agentx/agent-hooks/` so the path is easy to audit.
-- Re-run `hermes hooks doctor` after you pull a shared config to spot newly-added hooks before they register.
+- Re-run `agentx hooks doctor` after you pull a shared config to spot newly-added hooks before they register.
 - If your config.yaml is version-controlled across a team, review PRs that change the `hooks:` section the same way you'd review CI config.
 
 ### Ordering and precedence
@@ -1511,14 +1511,14 @@ Both Python plugin hooks and shell hooks flow through the same `invoke_hook()` d
 
 ## Outbound Webhooks
 
-Outbound webhooks are the push-side mirror of the [inbound webhook platform](/user-guide/messaging/webhooks): inbound webhooks wake Hermes when the world changes; outbound webhooks tell the world when Hermes does something. Configure a list of HTTP endpoints and the lifecycle events they care about, and Hermes POSTs a signed JSON payload to each endpoint whenever a matching event fires — no polling on the receiving end.
+Outbound webhooks are the push-side mirror of the [inbound webhook platform](/user-guide/messaging/webhooks): inbound webhooks wake AgentX when the world changes; outbound webhooks tell the world when AgentX does something. Configure a list of HTTP endpoints and the lifecycle events they care about, and AgentX POSTs a signed JSON payload to each endpoint whenever a matching event fires — no polling on the receiving end.
 
 Typical uses:
 
 - Notify a CI system or dashboard when an agent turn finishes (`on_session_end`)
 - Track subagent completions across a fleet (`subagent_stop`)
 - Feed tool activity into external monitoring (`post_tool_call` with a `matcher`)
-- Wake *another* Hermes instance: point the URL at that instance's inbound webhook
+- Wake *another* AgentX instance: point the URL at that instance's inbound webhook
 
 ### Configuration
 
@@ -1528,7 +1528,7 @@ Add a `hooks.outbound:` list to `~/.agentx/config.yaml`:
 hooks:
   outbound:
     - name: ci-notify                       # optional label for logs
-      url: https://ci.example.com/hermes-events
+      url: https://ci.example.com/agentx-events
       events: [on_session_end, subagent_stop]
       secret_env: AGENTX_OUTBOUND_WEBHOOK_SECRET   # env var holding the HMAC secret
       timeout: 10                           # per-attempt seconds (1–60)
@@ -1541,7 +1541,7 @@ hooks:
 
 Any event from the plugin-hook set is valid (`pre_tool_call`, `post_tool_call`, `pre_llm_call`, `post_llm_call`, `on_session_start`, `on_session_end`, `subagent_start`, `subagent_stop`, ...). Malformed entries warn and are skipped — a broken webhook never crashes the agent. Changes take effect on the next CLI session / gateway restart.
 
-Secrets: prefer `secret_env` (the name of an environment variable, typically set in `~/.agentx/.env`) over an inline `secret:` literal, so the config file stays free of credentials. Entries without a secret are delivered unsigned (flagged as `UNSIGNED` by `hermes hooks list`).
+Secrets: prefer `secret_env` (the name of an environment variable, typically set in `~/.agentx/.env`) over an inline `secret:` literal, so the config file stays free of credentials. Entries without a secret are delivered unsigned (flagged as `UNSIGNED` by `agentx hooks list`).
 
 ### Wire format
 
@@ -1565,9 +1565,9 @@ Headers:
 | Header | Value |
 |--------|-------|
 | `Content-Type` | `application/json` |
-| `X-Hermes-Event` | The hook event name |
-| `X-Hermes-Delivery` | Unique id per delivery — same value as `delivery_id` in the body |
-| `X-Hermes-Signature-256` | `sha256=<hex>` — HMAC-SHA256 of the raw body, GitHub-style; only present when a secret is configured |
+| `X-AgentX-Event` | The hook event name |
+| `X-AgentX-Delivery` | Unique id per delivery — same value as `delivery_id` in the body |
+| `X-AgentX-Signature-256` | `sha256=<hex>` — HMAC-SHA256 of the raw body, GitHub-style; only present when a secret is configured |
 
 Verify the signature exactly as you would a GitHub webhook:
 
@@ -1581,7 +1581,7 @@ def verify(body: bytes, header: str, secret: str) -> bool:
 
 Because `delivery_id` and `timestamp` live **inside the signed body**, a verified receiver also gets replay protection for free:
 
-- **Dedupe** on `delivery_id` (or the matching `X-Hermes-Delivery` header) — remember recently seen ids and skip duplicates. Hermes retries failed deliveries once, so the same id can legitimately arrive twice.
+- **Dedupe** on `delivery_id` (or the matching `X-AgentX-Delivery` header) — remember recently seen ids and skip duplicates. AgentX retries failed deliveries once, so the same id can legitimately arrive twice.
 - **Reject stale events** by checking `timestamp` against your clock with a tolerance window (5 minutes is the common default). An attacker replaying a captured request can't forge a fresh timestamp without the secret.
 
 ### Delivery semantics
@@ -1593,4 +1593,4 @@ Because `delivery_id` and `timestamp` live **inside the signed body**, a verifie
 - **Bounded queue.** If the queue backs up (dead endpoint, event storm), new events are dropped with a warning rather than consuming unbounded memory.
 - **No consent prompt.** Outbound targets execute no code on your machine — they receive data at a URL you configured. `AGENTX_SAFE_MODE=1` still skips registration, same as plugins and shell hooks. Note that payloads include tool inputs and event metadata, so only point targets at endpoints you trust, and prefer `https://`.
 
-`hermes hooks list` shows configured outbound targets alongside shell hooks, including whether each target is signed.
+`agentx hooks list` shows configured outbound targets alongside shell hooks, including whether each target is signed.

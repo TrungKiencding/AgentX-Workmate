@@ -1,12 +1,12 @@
 ---
-title: "Hermes Agent Skill 编写——在仓库中编写 SKILL"
-sidebar_label: "Hermes Agent Skill 编写"
+title: "AgentX Workmate Skill 编写——在仓库中编写 SKILL"
+sidebar_label: "AgentX Workmate Skill 编写"
 description: "在仓库中编写 SKILL.md"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Hermes Agent Skill 编写
+# AgentX Workmate Skill 编写
 
 编写仓库内 SKILL.md：frontmatter（前置元数据）、验证器、结构。
 
@@ -17,32 +17,32 @@ description: "在仓库中编写 SKILL.md"
 | 来源 | 内置（默认安装） |
 | 路径 | `skills/software-development/agentx-agent-skill-authoring` |
 | 版本 | `1.0.0` |
-| 作者 | Hermes Agent |
+| 作者 | AgentX Workmate |
 | 许可证 | MIT |
 | 平台 | linux, macos, windows |
-| 标签 | `skills`, `authoring`, `hermes-agent`, `conventions`, `skill-md` |
+| 标签 | `skills`, `authoring`, `agentx-agent`, `conventions`, `skill-md` |
 | 相关 skill | [`writing-plans`](/user-guide/skills/bundled/software-development/software-development-writing-plans), [`requesting-code-review`](/user-guide/skills/bundled/software-development/software-development-requesting-code-review) |
 
 ## 参考：完整 SKILL.md
 
 :::info
-以下是 Hermes 在触发此 skill 时加载的完整 skill 定义。这是 agent 在 skill 激活时所看到的指令内容。
+以下是 AgentX 在触发此 skill 时加载的完整 skill 定义。这是 agent 在 skill 激活时所看到的指令内容。
 :::
 
-# 编写 Hermes-Agent Skills（仓库内）
+# 编写 AgentX-Agent Skills（仓库内）
 
 ## 概述
 
 SKILL.md 可以存放在两个位置：
 
 1. **用户本地：** `~/.agentx/skills/<maybe-category>/<name>/SKILL.md` — 个人使用，不共享。通过 `skill_manage(action='create')` 创建。
-2. **仓库内（本 skill 讨论此情况）：** `/home/bb/hermes-agent/skills/<category>/<name>/SKILL.md` — 已提交，随包一起发布。使用 `write_file` + `git add`。`skill_manage(action='create')` **不**针对此目录树。
+2. **仓库内（本 skill 讨论此情况）：** `/home/bb/agentx-agent/skills/<category>/<name>/SKILL.md` — 已提交，随包一起发布。使用 `write_file` + `git add`。`skill_manage(action='create')` **不**针对此目录树。
 
 ## 使用时机
 
 - 用户要求你"在此分支 / 仓库 / 提交中"添加一个 skill
-- 你正在提交一个应随 hermes-agent 一起发布的可复用工作流
-- 你正在编辑 `/home/bb/hermes-agent/skills/` 下的现有 skill（小改动用 `patch`，重写用 `write_file`；`skill_manage` 对仓库内 skill 的 `patch` 仍有效，但 `create` 无效）
+- 你正在提交一个应随 agentx-agent 一起发布的可复用工作流
+- 你正在编辑 `/home/bb/agentx-agent/skills/` 下的现有 skill（小改动用 `patch`，重写用 `write_file`；`skill_manage` 对仓库内 skill 的 `patch` 仍有效，但 `create` 无效）
 
 ## 必需的 Frontmatter
 
@@ -62,7 +62,7 @@ SKILL.md 可以存放在两个位置：
 name: my-skill-name               # 小写，连字符，≤64 个字符（MAX_NAME_LENGTH）
 description: Use when <trigger>. <one-line behavior>.
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 metadata:
   hermes:
@@ -96,7 +96,7 @@ One or two paragraphs: what and why.
 ## <Topic sections specific to the skill>
 - Quick-reference tables are common
 - Code blocks with exact commands
-- Hermes-specific recipes (tests via scripts/run_tests.sh, ui-tui paths, etc.)
+- AgentX-specific recipes (tests via scripts/run_tests.sh, ui-tui paths, etc.)
 
 ## Common Pitfalls
 Numbered list of mistakes and their fixes.

@@ -300,7 +300,7 @@ _CODEX_TOOL_ITEM_TYPES = frozenset(
 
 # Internal MCP server that wraps AgentX' native tools for codex. When
 # codex calls back through it, the inner dispatch runs in a SEPARATE
-# hermes-tools-mcp-server subprocess that has no access to the parent
+# agentx-tools-mcp-server subprocess that has no access to the parent
 # agent's tool_progress_callback — so the inner call can never surface
 # its own native progress event. The codex-level mcpToolCall event IS
 # the display event for those calls; we strip the mcp.hermes-tools.*
