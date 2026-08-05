@@ -1,4 +1,25 @@
 export {
+  ACP_COMMAND,
+  APP_ID,
+  BRAND_GLYPH,
+  CLI_COMMAND,
+  CONFIG_DIR_POSIX,
+  CONFIG_DIR_WINDOWS,
+  DESKTOP_APP_NAME,
+  DIST_NAME,
+  DOCS_URL,
+  ENV_PREFIX,
+  envName,
+  GATEWAY_COMMAND,
+  PRODUCT_NAME,
+  PROJECT_CONFIG_FILE,
+  PROTOCOL_SCHEME,
+  SHORT_NAME,
+  SUPPORT_EMAIL,
+  VENDOR_NAME,
+  WEBSITE_URL
+} from './branding'
+export {
   BILLING_REFUSAL_POLICY,
   type BillingRecovery,
   type BillingRefusalPolicy,

@@ -1,0 +1,2 @@
+=== Summary: 2616 files, 25542 tests passed, 69 failed (100% complete) in 893.5s (20 workers) ===
+  Durations cached to test_durations.json (2616 files)
