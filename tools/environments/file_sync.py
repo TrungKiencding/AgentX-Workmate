@@ -377,7 +377,7 @@ class FileSyncManager:
                 )
                 return
 
-            with tempfile.TemporaryDirectory(prefix="hermes-sync-back-") as staging:
+            with tempfile.TemporaryDirectory(prefix="agentx-sync-back-") as staging:
                 with tarfile.open(tf.name) as tar:
                     tar.extractall(staging, filter="data")
 

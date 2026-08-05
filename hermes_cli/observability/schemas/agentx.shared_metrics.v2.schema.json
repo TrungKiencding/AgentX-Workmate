@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "hermes.shared_metrics.v2"
+      "const": "agentx.shared_metrics.v2"
     },
     "package_id": {
       "$ref": "#/$defs/uuid"
@@ -94,7 +94,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.model_call.count"
+          "const": "agentx.model_call.count"
         },
         "type": {
           "const": "counter"
@@ -180,7 +180,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.model_route.count"
+          "const": "agentx.model_route.count"
         },
         "type": {
           "const": "counter"
@@ -224,7 +224,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.task_run.started"
+          "const": "agentx.task_run.started"
         },
         "type": {
           "const": "counter"
@@ -262,7 +262,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.task_run.finished"
+          "const": "agentx.task_run.finished"
         },
         "type": {
           "const": "counter"
@@ -423,7 +423,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.tool_call.count"
+          "const": "agentx.tool_call.count"
         },
         "type": {
           "const": "counter"
@@ -505,7 +505,7 @@
       ],
       "properties": {
         "name": {
-          "const": "hermes.tool_approval.count"
+          "const": "agentx.tool_approval.count"
         },
         "type": {
           "const": "counter"

@@ -47,7 +47,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _isolate_hermes_home():
-    os.environ.setdefault("AGENTX_HOME", "/tmp/hermes-bg-review-test")
+    os.environ.setdefault("AGENTX_HOME", "/tmp/agentx-bg-review-test")
 
 
 def _load_module():

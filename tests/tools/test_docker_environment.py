@@ -165,8 +165,8 @@ def _make_execute_only_env(forward_env=None):
     env._docker_exe = "/usr/bin/docker"
     # Base class attributes needed by unified execute()
     env._session_id = "test123"
-    env._snapshot_path = "/tmp/hermes-snap-test123.sh"
-    env._cwd_file = "/tmp/hermes-cwd-test123.txt"
+    env._snapshot_path = "/tmp/agentx-snap-test123.sh"
+    env._cwd_file = "/tmp/agentx-cwd-test123.txt"
     env._cwd_marker = "__AGENTX_CWD_test123__"
     env._snapshot_ready = True
     env._last_sync_time = None
@@ -585,7 +585,7 @@ def test_run_command_sanitizes_unsafe_task_id(monkeypatch):
 
     labels = _labels_in_run_args(_run_args_from_calls(calls))
     # Each non-OK character becomes an underscore; the safe chars survive.
-    assert "hermes-task-id=task_with_weird_chars" in labels, (
+    assert "agentx-task-id=task_with_weird_chars" in labels, (
         f"sanitized task-id label missing; got: {sorted(labels)}"
     )
 
@@ -602,9 +602,9 @@ def test_labels_attribute_populated_after_init(monkeypatch):
 
     assert env._labels == {
         "agentx-agent": "1",
-        "hermes-task-id": "abc",
-        "hermes-profile": "default",
-        "hermes-egress": "off",
+        "agentx-task-id": "abc",
+        "agentx-profile": "default",
+        "agentx-egress": "off",
     }
 
 
@@ -695,7 +695,7 @@ def test_egress_enabled_does_not_reuse_pre_egress_container(monkeypatch):
         docker_env,
         "_egress_proxy_args_for_docker",
         lambda: (
-            ["-v", "/tmp/ca:/etc/ssl/certs/hermes-egress-ca.crt:ro"],
+            ["-v", "/tmp/ca:/etc/ssl/certs/agentx-egress-ca.crt:ro"],
             {"HTTPS_PROXY": "http://host.docker.internal:9090"},
             ["--add-host", "host.docker.internal:host-gateway"],
         ),
@@ -711,7 +711,7 @@ def test_egress_enabled_does_not_reuse_pre_egress_container(monkeypatch):
             if sub == "ps":
                 # Simulate an old pre-egress container: without the egress label
                 # filter it would match; with the filter Docker returns no match.
-                assert any(str(part).startswith("label=hermes-egress=") for part in cmd)
+                assert any(str(part).startswith("label=agentx-egress=") for part in cmd)
                 return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
             if sub == "run":
                 return subprocess.CompletedProcess(cmd, 0, stdout="fresh-cid\n", stderr="")
@@ -807,7 +807,7 @@ def test_failed_docker_run_cleans_up_orphaned_container(monkeypatch):
     assert len(cleanup_calls) == 1, "docker rm should be called once for the orphaned container"
     rm_cmd = cleanup_calls[0]
     assert rm_cmd[1] == "rm" and rm_cmd[2] == "-f"
-    assert rm_cmd[3].startswith("hermes-"), "should remove the container by its generated name"
+    assert rm_cmd[3].startswith("agentx-"), "should remove the container by its generated name"
 
 
 def test_docker_run_timeout_cleans_up_orphaned_container(monkeypatch):
@@ -842,7 +842,7 @@ def test_docker_run_timeout_cleans_up_orphaned_container(monkeypatch):
     assert len(cleanup_calls) == 1, "docker rm should be called once for the orphaned container"
     rm_cmd = cleanup_calls[0]
     assert rm_cmd[1] == "rm" and rm_cmd[2] == "-f"
-    assert rm_cmd[3].startswith("hermes-"), "should remove the container by its generated name"
+    assert rm_cmd[3].startswith("agentx-"), "should remove the container by its generated name"
 
 
 def test_find_reusable_handles_empty_label_string(monkeypatch):

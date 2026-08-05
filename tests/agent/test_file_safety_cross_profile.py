@@ -5,8 +5,8 @@ skills/plugins/cron/memories directory. It's a soft guard — defense in
 depth, NOT a security boundary — but it prevents the agent from silently
 corrupting a profile that belongs to a different session.
 
-Reference: May 2026 incident — a hermes-security profile session
-accidentally edited skills under both ~/.agentx/profiles/hermes-security/skills/
+Reference: May 2026 incident — a agentx-security profile session
+accidentally edited skills under both ~/.agentx/profiles/agentx-security/skills/
 AND ~/.agentx/skills/ (the default profile's skills), realizing only
 afterwards that the second path belonged to a different profile.
 """
@@ -33,7 +33,7 @@ def fake_hermes(tmp_path, monkeypatch):
           cron/<state>
           memories/MEMORY.md
           profiles/
-            hermes-security/
+            agentx-security/
               skills/foo/SKILL.md       # named profile
               plugins/...
             coder/
@@ -46,7 +46,7 @@ def fake_hermes(tmp_path, monkeypatch):
     (root / "memories").mkdir(parents=True)
     (root / "cron").mkdir(parents=True)
 
-    sec_home = root / "profiles" / "hermes-security"
+    sec_home = root / "profiles" / "agentx-security"
     (sec_home / "skills" / "foo").mkdir(parents=True)
     (sec_home / "skills" / "foo" / "SKILL.md").write_text("# sec skill\n")
     (sec_home / "plugins").mkdir(parents=True)
@@ -117,7 +117,7 @@ class TestClassifyCrossProfileTarget:
             str(fake_hermes["default_home"] / "skills" / "foo" / "SKILL.md")
         )
         assert result is not None
-        assert result["active_profile"] == "hermes-security"
+        assert result["active_profile"] == "agentx-security"
         assert result["target_profile"] == "default"
         assert result["area"] == "skills"
 
@@ -130,7 +130,7 @@ class TestClassifyCrossProfileTarget:
         )
         assert result is not None
         assert result["active_profile"] == "default"
-        assert result["target_profile"] == "hermes-security"
+        assert result["target_profile"] == "agentx-security"
 
 
     @pytest.mark.parametrize("area", ["skills", "plugins", "cron", "memories"])
@@ -167,7 +167,7 @@ class TestGetCrossProfileWarning:
         assert warn is not None
         # Must name BOTH profiles so the model knows which is which.
         assert "default" in warn
-        assert "hermes-security" in warn
+        assert "agentx-security" in warn
         # Must name the bypass kwarg.
         assert "cross_profile=True" in warn
         # Must reference the area.

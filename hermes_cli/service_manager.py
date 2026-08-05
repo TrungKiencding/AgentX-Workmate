@@ -322,7 +322,7 @@ def get_service_manager() -> ServiceManager:
 # S6ServiceManager (container-only)
 #
 # Per-profile gateways are registered dynamically when `agentx profile create`
-# runs inside the container (Phase 4). Static services (main-hermes, dashboard)
+# runs inside the container (Phase 4). Static services (main-agentx, dashboard)
 # live in /etc/s6-overlay/s6-rc.d/ and are NOT managed by this class — they're
 # part of the image, not runtime-created.
 # ---------------------------------------------------------------------------
@@ -463,7 +463,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
     ``log/event/``, ``log/supervise/``, ``log/supervise/event/``,
     ``log/supervise/control``. Without this, unregister teardown
     would EACCES on the logger's supervise dir even after the parent
-    slot's supervise/ was hermes-owned.
+    slot's supervise/ was agentx-owned.
 
     Idempotency
     -----------
@@ -491,7 +491,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
         try:
             os.chown(path, _AGENTX_UID, _AGENTX_GID)
         except PermissionError:
-            # Running as the agentx user already — directory is hermes-
+            # Running as the agentx user already — directory is agentx-
             # owned by default. The chown is a no-op in that case, so
             # swallowing this keeps both root and unprivileged callers
             # on one code path.
@@ -527,7 +527,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
     # see servicedir(7)), it gets its own s6-supervise instance and
     # needs the same skeleton. Without this, unregister teardown
     # would EACCES on the logger's root-owned supervise/ dir even
-    # when the parent slot's supervise/ is hermes-owned.
+    # when the parent slot's supervise/ is agentx-owned.
     log_dir = svc_dir / "log"
     if log_dir.is_dir():
         _mkdir_owned(log_dir / "event", 0o3730)
@@ -602,7 +602,7 @@ class S6ServiceManager:
     """Per-profile gateway supervision via s6-overlay.
 
     Only handles runtime-registered services under
-    ``S6_DYNAMIC_SCANDIR``. Static services (main-hermes, dashboard)
+    ``S6_DYNAMIC_SCANDIR``. Static services (main-agentx, dashboard)
     are managed by s6-rc at image-build time and are out of scope.
     """
 
@@ -784,11 +784,11 @@ class S6ServiceManager:
             f': "${{AGENTX_HOME:=/opt/data}}"\n'
             f'log_dir="$AGENTX_HOME/logs/gateways/{prof}"\n'
             # Create the leaf and clear a stale s6-log lock as agentx when
-            # this script starts as root. Never chown or unlink hermes-writable
+            # this script starts as root. Never chown or unlink agentx-writable
             # volume paths from this restartable root-context script:
-            # log/supervise/control is hermes-owned, so an unprivileged user
+            # log/supervise/control is agentx-owned, so an unprivileged user
             # can race a pathname op through a symlink swap (CWE-59 /
-            # CWE-367). Parent logs/gateways is seeded hermes-owned at stage2
+            # CWE-367). Parent logs/gateways is seeded agentx-owned at stage2
             # boot (#45258; tests/docker/test_log_dir_seed.py).
             f'if [ "$(id -u)" = 0 ]; then\n'
             f'  s6-setuidgid agentx mkdir -p "$log_dir"\n'
@@ -1100,7 +1100,7 @@ class S6ServiceManager:
         # live s6-supervise, so rmtree can remove them. Files inside
         # supervise/ are root-owned (death_tally, lock, status, written
         # by s6-supervise itself) — but the parent supervise/ directory
-        # is hermes-owned (see ``_seed_supervise_skeleton``), and on
+        # is agentx-owned (see ``_seed_supervise_skeleton``), and on
         # POSIX you only need write+execute on the parent to remove
         # contained files regardless of file ownership.
         shutil.rmtree(svc_dir, ignore_errors=True)

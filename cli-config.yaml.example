@@ -978,8 +978,8 @@ agent:
 #   signal:        agentx-signal         (same as telegram)
 #   homeassistant: agentx-homeassistant  (same as telegram)
 #   qqbot:            agentx-qqbot            (same as telegram)
-#   teams:            hermes-teams            (same as telegram)
-#   google_chat:      hermes-google_chat      (same as telegram)
+#   teams:            agentx-teams            (same as telegram)
+#   google_chat:      agentx-google_chat      (same as telegram)
 #
 platform_toolsets:
   cli: [agentx-cli]
@@ -991,8 +991,8 @@ platform_toolsets:
   homeassistant: [agentx-homeassistant]
   qqbot: [agentx-qqbot]
   yuanbao: [agentx-yuanbao]
-  teams: [hermes-teams]
-  google_chat: [hermes-google_chat]
+  teams: [agentx-teams]
+  google_chat: [agentx-google_chat]
 
 # =============================================================================
 # Gateway Platform Settings
@@ -1702,6 +1702,6 @@ updates:
 #   # its stderr is discarded so diagnostics can't leak secret material.
 #   command:
 #     enabled: false
-#     command: "cat /run/user/1000/hermes-secrets.env"
+#     command: "cat /run/user/1000/agentx-secrets.env"
 #     helper_timeout_seconds: 3
 #     override_existing: false             # .env/shell win by default

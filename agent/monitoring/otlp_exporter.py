@@ -139,7 +139,7 @@ def _make_provider(config: Dict[str, Any]):
 def _span_attrs(ev: Dict[str, Any]) -> Dict[str, Any]:
     """Span attributes for a monitoring event (content-free by construction)."""
     kind = ev.get("event")
-    attrs: Dict[str, Any] = {"hermes.event": kind or "unknown"}
+    attrs: Dict[str, Any] = {"agentx.event": kind or "unknown"}
     keep_by_kind = {
         "gateway_health": ("name", "gateway_state", "old_state", "new_state",
                            "exit_reason", "restart_requested", "active_agents",
@@ -167,7 +167,7 @@ def _span_attrs(ev: Dict[str, Any]) -> Dict[str, Any]:
 
 def export_batch(provider, batch: List[Dict[str, Any]]) -> int:
     """Map a batch of events to OTel spans. Returns spans created."""
-    tracer = provider.get_tracer("hermes.monitoring")
+    tracer = provider.get_tracer("agentx.monitoring")
     n = 0
     for ev in batch:
         try:

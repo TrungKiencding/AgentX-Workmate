@@ -1884,7 +1884,7 @@ def fetch_ai_gateway_pricing(
     *,
     force_refresh: bool = False,
 ) -> dict[str, dict[str, str]]:
-    """Fetch Vercel AI Gateway /v1/models and return hermes-shaped pricing.
+    """Fetch Vercel AI Gateway /v1/models and return agentx-shaped pricing.
 
     Vercel uses ``input`` / ``output`` field names; agentx's picker expects
     ``prompt`` / ``completion``. This translates. Cache read/write field names

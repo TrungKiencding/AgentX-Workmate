@@ -3448,7 +3448,7 @@ def _ensure_skin_watcher() -> None:
             _broadcast_skin_if_changed()
             _broadcast_watched_changes()
 
-    threading.Thread(target=_loop, name="hermes-change-watcher", daemon=True).start()
+    threading.Thread(target=_loop, name="agentx-change-watcher", daemon=True).start()
 
 
 def _resolve_model() -> str:

@@ -160,8 +160,8 @@ git clone https://github.com/NousResearch/hermes-agent.git
 cd agentx-agent
 
 # Create venv with Python 3.11, OUTSIDE the source tree
-uv venv ~/.agentx/venvs/hermes-dev --python 3.11
-export VIRTUAL_ENV="$HOME/.agentx/venvs/hermes-dev"
+uv venv ~/.agentx/venvs/agentx-dev --python 3.11
+export VIRTUAL_ENV="$HOME/.agentx/venvs/agentx-dev"
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install with all extras (messaging, cron, CLI menus, dev tools)

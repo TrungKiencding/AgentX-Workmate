@@ -949,7 +949,7 @@ def _handle_comment(args: dict, **kw) -> str:
     # into the next worker's system prompt by ``build_worker_context``
     # as ``**{author}** (timestamp): {body}`` — accepting an
     # ``args["author"]`` override let a worker forge a comment from
-    # an authoritative-looking name like ``hermes-system`` and poison
+    # an authoritative-looking name like ``agentx-system`` and poison
     # the future-worker context with what reads as a system directive.
     # Cross-task commenting itself remains unrestricted (see #19713) —
     # comments are the deliberate handoff channel between tasks.
@@ -1069,7 +1069,7 @@ def _download_url_with_cap(url: str, max_bytes: int) -> tuple[bytes, Optional[st
         with httpx.stream(
             "GET",
             current_url,
-            headers={"User-Agent": "hermes-kanban/attach"},
+            headers={"User-Agent": "agentx-kanban/attach"},
             timeout=30,
             follow_redirects=False,
         ) as resp:

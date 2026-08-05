@@ -358,7 +358,7 @@ class TestConfig:
 
 class TestPostSetup:
     def test_setup_cancel_at_mode_picker_writes_nothing(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "agentx-home"
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
@@ -386,7 +386,7 @@ class TestPostSetup:
 
 
     def test_local_embedded_setup_materializes_profile_env(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "agentx-home"
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
@@ -1093,7 +1093,7 @@ class TestBankIdTemplate:
             "apiKey": "k",
             "api_url": "http://x",
             "bank_id": "fallback-bank",
-            "bank_id_template": "hermes-{profile}",
+            "bank_id_template": "agentx-{profile}",
         }
         config_path = tmp_path / "hindsight" / "config.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1108,8 +1108,8 @@ class TestBankIdTemplate:
             agent_identity="coder",
             agent_workspace="agentx",
         )
-        assert p._bank_id == "hermes-coder"
-        assert p._bank_id_template == "hermes-{profile}"
+        assert p._bank_id == "agentx-coder"
+        assert p._bank_id_template == "agentx-{profile}"
 
 
 # ---------------------------------------------------------------------------

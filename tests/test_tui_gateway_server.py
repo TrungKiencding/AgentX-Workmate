@@ -3140,10 +3140,10 @@ def test_resolve_model_strips_config_model(monkeypatch):
     monkeypatch.delenv("AGENTX_MODEL", raising=False)
     monkeypatch.delenv("AGENTX_INFERENCE_MODEL", raising=False)
     monkeypatch.setattr(
-        server, "_load_cfg", lambda: {"model": {"default": " nous/hermes-test "}}
+        server, "_load_cfg", lambda: {"model": {"default": " nous/agentx-test "}}
     )
 
-    assert server._resolve_model() == "nous/hermes-test"
+    assert server._resolve_model() == "nous/agentx-test"
 
 
 def _sync_test_session(**extra):
@@ -3377,15 +3377,15 @@ def test_apply_model_switch_persist_override_false_never_persists(monkeypatch):
 
 
 def test_startup_runtime_uses_tui_provider_env(monkeypatch):
-    monkeypatch.setenv("AGENTX_MODEL", "nous/hermes-test")
+    monkeypatch.setenv("AGENTX_MODEL", "nous/agentx-test")
     monkeypatch.setenv("AGENTX_TUI_PROVIDER", "nous")
     monkeypatch.delenv("AGENTX_INFERENCE_PROVIDER", raising=False)
 
-    assert server._resolve_startup_runtime() == ("nous/hermes-test", "nous")
+    assert server._resolve_startup_runtime() == ("nous/agentx-test", "nous")
 
 
 def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypatch):
-    monkeypatch.setenv("AGENTX_MODEL", "nous/hermes-test")
+    monkeypatch.setenv("AGENTX_MODEL", "nous/agentx-test")
     monkeypatch.delenv("AGENTX_TUI_PROVIDER", raising=False)
     monkeypatch.setenv("AGENTX_INFERENCE_PROVIDER", "nous")
     monkeypatch.setattr(
@@ -3393,7 +3393,7 @@ def test_startup_runtime_does_not_treat_inference_provider_as_explicit(monkeypat
         lambda model, provider: None,
     )
 
-    assert server._resolve_startup_runtime() == ("nous/hermes-test", None)
+    assert server._resolve_startup_runtime() == ("nous/agentx-test", None)
 
 
 def test_startup_runtime_detects_provider_for_model_env(monkeypatch):
@@ -13807,7 +13807,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
 
     sid = "save-sid"
     agent = types.SimpleNamespace(
-        model="hermes-test",
+        model="agentx-test",
         session_id="20260101_120000_abc123",
         session_start=datetime(2026, 1, 1, 12, 0, 0),
         _cached_system_prompt="You are AgentX.",
@@ -13839,7 +13839,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
     assert saved_file.exists()
 
     payload = json.loads(saved_file.read_text())
-    assert payload["model"] == "hermes-test"
+    assert payload["model"] == "agentx-test"
     assert payload["session_id"] == "20260101_120000_abc123"
     assert payload["session_start"] == "2026-01-01T12:00:00"
     assert payload["system_prompt"] == "You are AgentX."

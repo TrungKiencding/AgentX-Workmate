@@ -680,7 +680,7 @@ def _core_constraints_file() -> Optional[Path]:
             lines.append(f"{name}=={ver}")
         if not lines:
             return None
-        fd, path = tempfile.mkstemp(prefix="hermes-core-constraints-", suffix=".txt")
+        fd, path = tempfile.mkstemp(prefix="agentx-core-constraints-", suffix=".txt")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write("\n".join(sorted(lines)) + "\n")
         return Path(path)

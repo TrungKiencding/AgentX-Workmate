@@ -74,7 +74,7 @@ def built_image() -> str:
 def container_name(request) -> Iterator[str]:
     """Generate a unique container name and ensure cleanup on test exit."""
     safe = request.node.name.replace("[", "_").replace("]", "_")
-    name = f"hermes-test-{safe}"
+    name = f"agentx-test-{safe}"
     yield name
     subprocess.run(
         ["docker", "rm", "-f", name],

@@ -3021,7 +3021,7 @@ class APIServerAdapter(BasePlatformAdapter):
             return auth_err
 
         return web.json_response({
-            "object": "hermes.api_server.capabilities",
+            "object": "agentx.api_server.capabilities",
             "platform": "agentx-agent",
             "model": self._model_name,
             "auth": {
@@ -3393,7 +3393,7 @@ class APIServerAdapter(BasePlatformAdapter):
             return web.json_response(_openai_error(f"Session already exists: {session_id}", code="session_exists"), status=409)
         if err and err.startswith("title:"):
             return web.json_response(_openai_error(err[len("title:"):], code="invalid_title"), status=400)
-        return web.json_response({"object": "hermes.session", "session": self._session_response(session)}, status=201)
+        return web.json_response({"object": "agentx.session", "session": self._session_response(session)}, status=201)
 
     async def _handle_get_session(self, request: "web.Request") -> "web.Response":
         """GET /api/sessions/{session_id}."""
@@ -3403,7 +3403,7 @@ class APIServerAdapter(BasePlatformAdapter):
         session, err = await self._get_existing_session_or_404(request.match_info["session_id"])
         if err:
             return err
-        return web.json_response({"object": "hermes.session", "session": self._session_response(session)})
+        return web.json_response({"object": "agentx.session", "session": self._session_response(session)})
 
     async def _handle_patch_session(self, request: "web.Request") -> "web.Response":
         """PATCH /api/sessions/{session_id} — update client-safe session metadata."""
@@ -3431,7 +3431,7 @@ class APIServerAdapter(BasePlatformAdapter):
         if body.get("end_reason"):
             await asyncio.to_thread(db.end_session, session_id, str(body["end_reason"]))
         session = await asyncio.to_thread(db.get_session, session_id) or session
-        return web.json_response({"object": "hermes.session", "session": self._session_response(session)})
+        return web.json_response({"object": "agentx.session", "session": self._session_response(session)})
 
     async def _handle_delete_session(self, request: "web.Request") -> "web.Response":
         """DELETE /api/sessions/{session_id}."""
@@ -3444,7 +3444,7 @@ class APIServerAdapter(BasePlatformAdapter):
             return err
         db = await self._ensure_session_db_async()
         deleted = await asyncio.to_thread(db.delete_session, session_id)
-        return web.json_response({"object": "hermes.session.deleted", "id": session_id, "deleted": bool(deleted)})
+        return web.json_response({"object": "agentx.session.deleted", "id": session_id, "deleted": bool(deleted)})
 
     async def _handle_session_messages(self, request: "web.Request") -> "web.Response":
         """GET /api/sessions/{session_id}/messages."""
@@ -3509,7 +3509,7 @@ class APIServerAdapter(BasePlatformAdapter):
         except ValueError as exc:
             return web.json_response(_openai_error(str(exc), code="invalid_title"), status=400)
         fork = await asyncio.to_thread(db.get_session, fork_id) or {"id": fork_id, "parent_session_id": source_id}
-        return web.json_response({"object": "hermes.session", "session": self._session_response(fork)}, status=201)
+        return web.json_response({"object": "agentx.session", "session": self._session_response(fork)}, status=201)
 
     @_admit_api_agent_request
     async def _handle_session_chat(self, request: "web.Request") -> "web.Response":
@@ -3619,7 +3619,7 @@ class APIServerAdapter(BasePlatformAdapter):
         )
         return web.json_response(
             {
-                "object": "hermes.session.chat.completion",
+                "object": "agentx.session.chat.completion",
                 "session_id": effective_session_id or session_id,
                 "message": {"role": "assistant", "content": final_response},
                 "usage": usage,
@@ -3878,7 +3878,7 @@ class APIServerAdapter(BasePlatformAdapter):
             model_lock="accepted",
         )
         return web.json_response({
-            "object": "hermes.session.model_lock",
+            "object": "agentx.session.model_lock",
             "session_id": session_id,
             "runtime": runtime,
         })
@@ -4054,7 +4054,7 @@ class APIServerAdapter(BasePlatformAdapter):
             _started_tool_call_ids: set[str] = set()
 
             def _on_tool_start(tool_call_id, function_name, function_args):
-                """Emit ``hermes.tool.progress`` with ``status: running``.
+                """Emit ``agentx.tool.progress`` with ``status: running``.
 
                 Replaces the old ``tool_progress_callback("tool.started",
                 ...)`` emit so SSE consumers receive a single event per
@@ -4290,13 +4290,13 @@ class APIServerAdapter(BasePlatformAdapter):
 
                 Plain strings are sent as normal ``delta.content`` chunks.
                 Tagged tuples ``("__tool_progress__", payload)`` are sent
-                as a custom ``event: hermes.tool.progress`` SSE event so
+                as a custom ``event: agentx.tool.progress`` SSE event so
                 frontends can display them without storing the markers in
                 conversation history.  See #6972 for the original event,
                 #16588 for the ``toolCallId``/``status`` lifecycle fields.
                 """
                 if isinstance(item, tuple) and len(item) == 2 and item[0] == "__tool_progress__":
-                    await response.write(_sse_frame(item[1], event="hermes.tool.progress"))
+                    await response.write(_sse_frame(item[1], event="agentx.tool.progress"))
                 else:
                     content_chunk = {
                         "id": completion_id, "object": "chat.completion.chunk",
@@ -6191,7 +6191,7 @@ class APIServerAdapter(BasePlatformAdapter):
         now = time.time()
         current = self._run_statuses.get(run_id, {})
         current.update({
-            "object": "hermes.run",
+            "object": "agentx.run",
             "run_id": run_id,
             "status": status,
             "updated_at": now,
@@ -6851,7 +6851,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 pass
 
         return web.json_response({
-            "object": "hermes.run.approval_response",
+            "object": "agentx.run.approval_response",
             "run_id": run_id,
             "choice": choice,
             "resolved": resolved,

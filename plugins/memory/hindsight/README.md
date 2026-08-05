@@ -60,7 +60,7 @@ Config file: `~/.agentx/hindsight/config.json`
 | Key | Default | Description |
 |-----|---------|-------------|
 | `bank_id` | `agentx` | Memory bank name (static fallback used when `bank_id_template` is unset or resolves empty) |
-| `bank_id_template` | — | Optional template to derive the bank name dynamically. Placeholders: `{profile}`, `{workspace}`, `{platform}`, `{user}`, `{session}`. Example: `hermes-{profile}` isolates memory per active AgentX profile. Empty placeholders collapse cleanly (e.g. `hermes-{user}` with no user becomes `agentx`). |
+| `bank_id_template` | — | Optional template to derive the bank name dynamically. Placeholders: `{profile}`, `{workspace}`, `{platform}`, `{user}`, `{session}`. Example: `agentx-{profile}` isolates memory per active AgentX profile. Empty placeholders collapse cleanly (e.g. `agentx-{user}` with no user becomes `agentx`). |
 | `bank_mission` | — | Reflect mission (identity/framing for reflect reasoning). Applied via Banks API. |
 | `bank_retain_mission` | — | Retain mission (steers what gets extracted). Applied via Banks API. |
 

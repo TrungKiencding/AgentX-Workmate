@@ -2777,7 +2777,7 @@ async def _standalone_send(
                 "error": (
                     "Photon standalone send requires a running sidecar. "
                     "Start the AgentX gateway (which spawns the sidecar and "
-                    "records its address under <hermes-home>/runtime/"
+                    "records its address under <agentx-home>/runtime/"
                     f"{_RUNTIME_RECORD_NAME}), or set PHOTON_SIDECAR_TOKEN "
                     "in this process's environment." + stale_hint
                 )

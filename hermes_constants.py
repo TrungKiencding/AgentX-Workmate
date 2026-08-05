@@ -791,7 +791,7 @@ def display_hermes_home() -> str:
 
         default:  ``~/.agentx``
         profile:  ``~/.agentx/profiles/coder``
-        custom:   ``/opt/hermes-custom``
+        custom:   ``/opt/agentx-custom``
 
     Use this in **user-facing** print/log messages instead of hardcoding
     ``~/.agentx``.  For code that needs a real ``Path``, use

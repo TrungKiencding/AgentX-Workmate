@@ -43,7 +43,7 @@ def on_post_tool_call(**kwargs):
 The plugin manager injects this field into every hook payload:
 
 ```text
-telemetry_schema_version = "hermes.observer.v1"
+telemetry_schema_version = "agentx.observer.v1"
 ```
 
 Hook callbacks are fail-open. AgentX catches callback exceptions, logs a

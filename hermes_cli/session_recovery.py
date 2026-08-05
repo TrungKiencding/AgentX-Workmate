@@ -324,7 +324,7 @@ def _snapshot_and_inspect(
 ) -> tuple[tempfile.TemporaryDirectory[str], Path, dict[str, Any]]:
     before = _source_fingerprint(source)
     temp_dir = tempfile.TemporaryDirectory(
-        prefix="hermes-session-recovery-",
+        prefix="agentx-session-recovery-",
         dir=str(work_root),
     )
     snapshot_dir = Path(temp_dir.name)

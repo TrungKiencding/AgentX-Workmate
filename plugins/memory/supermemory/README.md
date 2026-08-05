@@ -47,7 +47,7 @@ Config file: `$AGENTX_HOME/supermemory.json`
 | Key | Default | Description |
 |-----|---------|-------------|
 | `base_url` | `https://api.supermemory.ai` | API endpoint for hosted or self-hosted Supermemory. Takes priority over `SUPERMEMORY_BASE_URL`. |
-| `container_tag` | `agentx` | Container tag used for search and writes. Supports `{identity}` template for profile-scoped tags (e.g. `hermes-{identity}` → `hermes-coder`). |
+| `container_tag` | `agentx` | Container tag used for search and writes. Supports `{identity}` template for profile-scoped tags (e.g. `agentx-{identity}` → `agentx-coder`). |
 | `auto_recall` | `true` | Inject relevant memory context before turns |
 | `auto_capture` | `true` | Store cleaned user-assistant turns after each response |
 | `max_recall_results` | `10` | Max recalled items to format into context |
@@ -106,11 +106,11 @@ Use `{identity}` in the `container_tag` to scope memories per AgentX profile:
 
 ```json
 {
-  "container_tag": "hermes-{identity}"
+  "container_tag": "agentx-{identity}"
 }
 ```
 
-For a profile named `coder`, this resolves to `hermes-coder`. The default profile resolves to `hermes-default`. Without `{identity}`, all profiles share the same container.
+For a profile named `coder`, this resolves to `agentx-coder`. The default profile resolves to `agentx-default`. Without `{identity}`, all profiles share the same container.
 
 ## Multi-Container Mode
 

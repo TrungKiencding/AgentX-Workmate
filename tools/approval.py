@@ -832,7 +832,7 @@ DANGEROUS_PATTERNS = [
     (r'gateway\s+run\b.*(&\s*$|&\s*;|\bdisown\b|\bsetsid\b)', "start gateway outside systemd (use 'systemctl --user restart agentx-gateway')"),
     (r'\bnohup\b.*gateway\s+run\b', "start gateway outside systemd (use 'systemctl --user restart agentx-gateway')"),
     # Self-termination protection: prevent agent from killing its own process
-    (r'\b(pkill|killall)\b.*\b(agentx|gateway|cli\.py)\b', "kill hermes/gateway process (self-termination)"),
+    (r'\b(pkill|killall)\b.*\b(agentx|gateway|cli\.py)\b', "kill agentx/gateway process (self-termination)"),
     # Self-termination via kill + command substitution (pgrep/pidof).
     # The name-based pattern above catches `pkill agentx` but not
     # `kill -9 $(pgrep -f agentx)` because the substitution is opaque
@@ -2172,7 +2172,7 @@ def _is_verification_artifact_cleanup(command: str) -> bool:
     target = os.path.realpath(operand)
     if os.path.dirname(target) != temp_dir:
         return False
-    return re.fullmatch(r"hermes-(?:verify|ad-hoc)-[A-Za-z0-9_.-]+", basename) is not None
+    return re.fullmatch(r"agentx-(?:verify|ad-hoc)-[A-Za-z0-9_.-]+", basename) is not None
 
 
 def detect_dangerous_command(command: str) -> tuple:

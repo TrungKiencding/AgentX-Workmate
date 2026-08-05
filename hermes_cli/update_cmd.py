@@ -140,7 +140,7 @@ def _validate_critical_files_syntax(root) -> tuple[bool, str | None, str | None]
     import tempfile
 
     root = Path(root)
-    with tempfile.TemporaryDirectory(prefix="hermes-syntax-check-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="agentx-syntax-check-") as tmpdir:
         for relpath in _UPDATE_CRITICAL_FILES:
             path = root / relpath
             if not path.exists():
@@ -746,7 +746,7 @@ def _update_via_zip(args):
     )
 
     print("→ Downloading latest version...")
-    tmp_dir = tempfile.mkdtemp(prefix="hermes-update-")
+    tmp_dir = tempfile.mkdtemp(prefix="agentx-update-")
     try:
         zip_path = os.path.join(tmp_dir, f"agentx-agent-{branch}.zip")
         urlretrieve(zip_url, zip_path)
@@ -1100,7 +1100,7 @@ def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[st
     from datetime import datetime, timezone
 
     stash_name = datetime.now(timezone.utc).strftime(
-        "hermes-update-autostash-%Y%m%d-%H%M%S"
+        "agentx-update-autostash-%Y%m%d-%H%M%S"
     )
     print("→ Local changes detected — stashing before update...")
     prev_stash = subprocess.run(

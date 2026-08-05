@@ -267,7 +267,7 @@ def test_bootstrap_marker_not_autostashed_by_update(tmp_path):
     marker.write_text("")
 
     # Exact flags used by agentx update (hermes_cli/main.py).
-    git("stash", "push", "--include-untracked", "-m", "hermes-update-autostash")
+    git("stash", "push", "--include-untracked", "-m", "agentx-update-autostash")
 
     assert marker.exists(), (
         ".agentx-bootstrap-complete was swept into the update autostash — it must "

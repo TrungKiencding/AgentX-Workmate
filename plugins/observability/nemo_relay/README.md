@@ -49,7 +49,7 @@ For isolated test homes, enable the plugin in the same `AGENTX_HOME` that the
 agent run will use:
 
 ```bash
-env AGENTX_HOME=/tmp/hermes-nemo-relay-test \
+env AGENTX_HOME=/tmp/agentx-nemo-relay-test \
   agentx plugins enable observability/nemo_relay
 ```
 
@@ -64,7 +64,7 @@ tests, choose any writable temporary directory and use the same value for every
 command in that test:
 
 ```bash
-export AGENTX_HOME=/tmp/hermes-nemo-relay-test
+export AGENTX_HOME=/tmp/agentx-nemo-relay-test
 agentx plugins enable observability/nemo_relay
 agentx chat --query 'Reply exactly ok' --provider custom --model qwen3.6:35b
 ```
@@ -247,7 +247,7 @@ The observe-only examples in this section use the NeMo Relay runtime installed
 with AgentX and a local Ollama model served through the OpenAI-compatible API.
 
 ```bash
-export AGENTX_HOME=/tmp/hermes-nemo-relay-docs/hermes-home
+export AGENTX_HOME=/tmp/agentx-nemo-relay-docs/agentx-home
 mkdir -p "$AGENTX_HOME"
 
 cat > "$AGENTX_HOME/config.yaml" <<'YAML'
@@ -277,11 +277,11 @@ child call `terminal`, and writes both ATOF and ATIF.
 
 ```bash
 export AGENTX_NEMO_RELAY_ATOF_ENABLED=1
-export AGENTX_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/hermes-nemo-relay-docs/subagent/atof
+export AGENTX_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/agentx-nemo-relay-docs/subagent/atof
 export AGENTX_NEMO_RELAY_ATOF_FILENAME=nested-subagent-atof.jsonl
 export AGENTX_NEMO_RELAY_ATOF_MODE=overwrite
 export AGENTX_NEMO_RELAY_ATIF_ENABLED=1
-export AGENTX_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/hermes-nemo-relay-docs/subagent/atif
+export AGENTX_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/agentx-nemo-relay-docs/subagent/atif
 export AGENTX_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='nested-subagent-atif-{session_id}.json'
 export AGENTX_NEMO_RELAY_ATIF_AGENT_NAME='AgentX Workmate E2E'
 export AGENTX_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
@@ -308,7 +308,7 @@ Sanitized ATOF excerpt:
 
 ```jsonl
 {"kind":"scope","category":"tool","name":"delegate_task","scope_category":"start","metadata":{"session_id":"docs-parent-session","tool_call_id":"call_delegate"},"data":{"goal":"Run the command `printf docs_nested_leaf_function` using the terminal tool.","toolsets":["terminal"]}}
-{"kind":"mark","name":"hermes.subagent.start","metadata":{"parent_session_id":"docs-parent-session","session_id":"docs-child-session","subagent_id":"sa-0-docs","child_role":"leaf"}}
+{"kind":"mark","name":"agentx.subagent.start","metadata":{"parent_session_id":"docs-parent-session","session_id":"docs-child-session","subagent_id":"sa-0-docs","child_role":"leaf"}}
 {"kind":"scope","category":"tool","name":"terminal","scope_category":"end","metadata":{"session_id":"docs-child-session","tool_call_id":"call_terminal","status":"ok"},"data":"{\"output\":\"docs_nested_leaf_function\",\"exit_code\":0,\"error\":null}"}
 {"kind":"scope","category":"tool","name":"delegate_task","scope_category":"end","metadata":{"session_id":"docs-parent-session","tool_call_id":"call_delegate","status":"ok"}}
 ```
@@ -357,17 +357,17 @@ message. AgentX dispatches the read-only tools as one batch, and NeMo Relay
 records both tool invocations.
 
 ```bash
-mkdir -p /tmp/hermes-nemo-relay-docs/workdir
-printf 'docs_parallel_alpha_function\n' > /tmp/hermes-nemo-relay-docs/workdir/alpha.txt
-printf 'docs_parallel_beta_function\n' > /tmp/hermes-nemo-relay-docs/workdir/beta.txt
-cd /tmp/hermes-nemo-relay-docs/workdir
+mkdir -p /tmp/agentx-nemo-relay-docs/workdir
+printf 'docs_parallel_alpha_function\n' > /tmp/agentx-nemo-relay-docs/workdir/alpha.txt
+printf 'docs_parallel_beta_function\n' > /tmp/agentx-nemo-relay-docs/workdir/beta.txt
+cd /tmp/agentx-nemo-relay-docs/workdir
 
 export AGENTX_NEMO_RELAY_ATOF_ENABLED=1
-export AGENTX_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/hermes-nemo-relay-docs/parallel/atof
+export AGENTX_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/agentx-nemo-relay-docs/parallel/atof
 export AGENTX_NEMO_RELAY_ATOF_FILENAME=parallel-tools-atof.jsonl
 export AGENTX_NEMO_RELAY_ATOF_MODE=overwrite
 export AGENTX_NEMO_RELAY_ATIF_ENABLED=1
-export AGENTX_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/hermes-nemo-relay-docs/parallel/atif
+export AGENTX_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/agentx-nemo-relay-docs/parallel/atif
 export AGENTX_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='parallel-tools-atif-{session_id}.json'
 export AGENTX_NEMO_RELAY_ATIF_AGENT_NAME='AgentX Workmate E2E'
 export AGENTX_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
@@ -465,7 +465,7 @@ mode = "observe_only"
 Enable it for AgentX:
 
 ```bash
-export AGENTX_NEMO_RELAY_PLUGINS_TOML=/tmp/hermes-middleware-test/plugins.toml
+export AGENTX_NEMO_RELAY_PLUGINS_TOML=/tmp/agentx-middleware-test/plugins.toml
 ```
 
 Execution follows these boundaries with or without an adaptive component:
@@ -492,8 +492,8 @@ supports `[components.config.tool_parallelism]`, as provided by NeMo Relay 0.6
 and later.
 
 ```bash
-export AGENTX_HOME=/tmp/hermes-middleware-test/hermes-home
-mkdir -p "$AGENTX_HOME" /tmp/hermes-middleware-test/nemo-relay
+export AGENTX_HOME=/tmp/agentx-middleware-test/agentx-home
+mkdir -p "$AGENTX_HOME" /tmp/agentx-middleware-test/nemo-relay
 
 cat > "$AGENTX_HOME/config.yaml" <<'YAML'
 model:
@@ -506,7 +506,7 @@ plugins:
     - observability/nemo_relay
 YAML
 
-cat > /tmp/hermes-middleware-test/nemo-relay/plugins.toml <<'TOML'
+cat > /tmp/agentx-middleware-test/nemo-relay/plugins.toml <<'TOML'
 version = 1
 
 [[components]]
@@ -518,13 +518,13 @@ version = 1
 
 [components.config.atof]
 enabled = true
-output_directory = "/tmp/hermes-middleware-test/atof"
+output_directory = "/tmp/agentx-middleware-test/atof"
 filename = "middleware-events.jsonl"
 mode = "overwrite"
 
 [components.config.atif]
 enabled = true
-output_directory = "/tmp/hermes-middleware-test/atif"
+output_directory = "/tmp/agentx-middleware-test/atif"
 filename_template = "middleware-trajectory-{session_id}.json"
 agent_name = "AgentX Middleware E2E"
 agent_version = "local"
@@ -537,7 +537,7 @@ enabled = true
 mode = "observe_only"
 TOML
 
-export AGENTX_NEMO_RELAY_PLUGINS_TOML=/tmp/hermes-middleware-test/nemo-relay/plugins.toml
+export AGENTX_NEMO_RELAY_PLUGINS_TOML=/tmp/agentx-middleware-test/nemo-relay/plugins.toml
 
 agentx chat \
   --query 'Use the terminal tool exactly once to run printf middleware_execution_ok. Then reply with exactly the command output.' \

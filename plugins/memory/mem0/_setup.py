@@ -239,7 +239,7 @@ def _setup_platform(hermes_home: str, config: dict, flags: dict[str, str]) -> No
     """
     schema = [
         {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": True, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai"},
-        {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
+        {"key": "user_id", "description": "User identifier", "default": "agentx-user"},
         {"key": "agent_id", "description": "Agent identifier", "default": "agentx"},
         {"key": "rerank", "description": "Enable reranking for recall", "default": "false", "choices": ["true", "false"]},
     ]
@@ -400,7 +400,7 @@ def _setup_selfhosted(hermes_home: str, config: dict, flags: dict[str, str]) -> 
             env_writes["MEM0_API_KEY"] = val
 
     user_id = flags.get("user_id") or _prompt(
-        "User identifier", default=provider_config.get("user_id") or "hermes-user"
+        "User identifier", default=provider_config.get("user_id") or "agentx-user"
     )
     agent_id = _prompt("Agent identifier", default=provider_config.get("agent_id") or "agentx")
 
@@ -455,7 +455,7 @@ def _setup_oss(hermes_home: str, config: dict, flags: dict[str, str]) -> None:
             print(f"  Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    user_id = flags.get("user_id") or os.getenv("USER", "hermes-user")
+    user_id = flags.get("user_id") or os.getenv("USER", "agentx-user")
 
     llm_id = oss_config["llm"]["provider"]
     embedder_id = oss_config["embedder"]["provider"]
@@ -515,7 +515,7 @@ def _prompt_api_key(label: str, env_var: str, hermes_home: str) -> str:
     return getpass.getpass(f"  {label} API key: ").strip()
 
 
-_PGVECTOR_CONTAINER = "hermes-pgvector"
+_PGVECTOR_CONTAINER = "agentx-pgvector"
 _PGVECTOR_IMAGE = "pgvector/pgvector:pg17"
 _PGVECTOR_PASSWORD = "agentx"
 
@@ -799,8 +799,8 @@ def _setup_oss_interactive(hermes_home: str, config: dict) -> None:
             if pg_password:
                 pgvector_config["password"] = pg_password
 
-    user_id = input(f"  User ID [{os.getenv('USER', 'hermes-user')}]: ").strip()
-    user_id = user_id or os.getenv("USER", "hermes-user")
+    user_id = input(f"  User ID [{os.getenv('USER', 'agentx-user')}]: ").strip()
+    user_id = user_id or os.getenv("USER", "agentx-user")
 
     agent_id = input("  Agent ID [agentx]: ").strip()
     agent_id = agent_id or "agentx"

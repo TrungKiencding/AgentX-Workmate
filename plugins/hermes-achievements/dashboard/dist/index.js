@@ -306,7 +306,7 @@
       const url = URL.createObjectURL(blobRef.current);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "hermes-achievement-" + (achievement.id || "badge") + ".png";
+      a.download = "agentx-achievement-" + (achievement.id || "badge") + ".png";
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -17,12 +17,12 @@ from hermes_constants import get_hermes_home
 
 logger = logging.getLogger(__name__)
 
-SESSION_SCOPE = "hermes.session"
-TURN_SCOPE = "hermes.turn"
-LOGICAL_LLM_SCOPE = "hermes.logical_llm_call"
-RUNTIME_SCHEMA_KEY = "hermes.relay.schema_version"
-RUNTIME_SCHEMA_VERSION = "hermes.relay.runtime.v1"
-RUNTIME_INSTANCE_KEY = "hermes.relay.runtime_instance"
+SESSION_SCOPE = "agentx.session"
+TURN_SCOPE = "agentx.turn"
+LOGICAL_LLM_SCOPE = "agentx.logical_llm_call"
+RUNTIME_SCHEMA_KEY = "agentx.relay.schema_version"
+RUNTIME_SCHEMA_VERSION = "agentx.relay.runtime.v1"
+RUNTIME_INSTANCE_KEY = "agentx.relay.runtime_instance"
 _PROFILE_KEY_CACHE: dict[str, str] = {}
 
 

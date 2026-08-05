@@ -683,7 +683,7 @@ class TestProviderFilter:
         other = SkillMeta(name="cuda-clone", description="gpu", source="clawhub",
                           identifier="clawhub/cuda-clone", trust_level="community")
         src = MagicMock()
-        src.source_id.return_value = "hermes-index"
+        src.source_id.return_value = "agentx-index"
         src.is_available = True
         src.search.return_value = [nv, other]
         results = unified_search("cuda", [src], source_filter="nvidia", limit=25)
@@ -1533,7 +1533,7 @@ class TestLoadHermesIndex:
         """Point the on-disk cache at an empty tmp dir so no real cache leaks in."""
         import tools.skills_hub as hub
 
-        cache_file = tmp_path / "hermes-index.json"
+        cache_file = tmp_path / "agentx-index.json"
         monkeypatch.setattr(hub, "_hermes_index_cache_file", lambda: cache_file)
         return cache_file
 

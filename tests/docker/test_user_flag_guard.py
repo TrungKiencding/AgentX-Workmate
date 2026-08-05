@@ -4,7 +4,7 @@ Build the real image and verify the actual runtime behavior:
 
   1. docker run --user <arbitrary-uid> is rejected with actionable guidance
   2. Root start (default) works fine
-  3. --user <hermes-uid> (10000) is allowed (supported non-root start)
+  3. --user <agentx-uid> (10000) is allowed (supported non-root start)
 """
 from __future__ import annotations
 

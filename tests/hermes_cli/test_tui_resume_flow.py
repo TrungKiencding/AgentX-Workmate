@@ -237,12 +237,12 @@ def test_launch_tui_exports_model_provider_and_toolsets(monkeypatch, main_mod):
 
     with pytest.raises(SystemExit):
         main_mod._launch_tui(
-            model="nous/hermes-test", provider="nous", toolsets="web, terminal"
+            model="nous/agentx-test", provider="nous", toolsets="web, terminal"
         )
 
     env = captured["env"]
-    assert env["AGENTX_MODEL"] == "nous/hermes-test"
-    assert env["AGENTX_INFERENCE_MODEL"] == "nous/hermes-test"
+    assert env["AGENTX_MODEL"] == "nous/agentx-test"
+    assert env["AGENTX_INFERENCE_MODEL"] == "nous/agentx-test"
     assert env["AGENTX_TUI_PROVIDER"] == "nous"
     assert env["AGENTX_INFERENCE_PROVIDER"] == "nous"
     assert env["AGENTX_TUI_TOOLSETS"] == "web,terminal"

@@ -13588,7 +13588,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if not token:
             return None
         import hashlib
-        return hashlib.sha256(("hermes-mux:" + token).encode("utf-8")).hexdigest()[:16]
+        return hashlib.sha256(("agentx-mux:" + token).encode("utf-8")).hexdigest()[:16]
 
     def _create_adapter(
         self, 
@@ -17260,10 +17260,10 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     pass
             if not home_env:
                 # Slack dispatches all AgentX commands through a single
-                # parent slash command `/hermes`; bare `/sethome` is not
+                # parent slash command `/agentx`; bare `/sethome` is not
                 # registered and would fail with "app did not respond".
                 sethome_cmd = (
-                    "/hermes sethome"
+                    "/agentx sethome"
                     if source.platform == Platform.SLACK
                     else "/sethome"
                 )
@@ -24423,7 +24423,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 encoding="utf-8",
             )
             file_handler.setFormatter(RedactingFormatter("%(message)s"))
-            tool_logger = logging.getLogger(f"hermes.tool_calls.{id(log_queue)}")
+            tool_logger = logging.getLogger(f"agentx.tool_calls.{id(log_queue)}")
             tool_logger.setLevel(logging.INFO)
             tool_logger.propagate = False
             tool_logger.addHandler(file_handler)
@@ -26339,7 +26339,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         # before sending SIGTERM. If present, treat the signal as a
         # planned shutdown and exit 0 so systemd's Restart=on-failure
         # doesn't revive us (which would flap-fight the replacer when
-        # both services are enabled, e.g. hermes.service + hermes-
+        # both services are enabled, e.g. hermes.service + agentx-
         # gateway.service from pre-rename installs).
         planned_takeover = False
         try:

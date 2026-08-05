@@ -214,7 +214,7 @@ class TestPostSetup:
         assert "MEM0_API_KEY=admin-key" in env_content
         mem0_json = json.loads((tmp_path / "mem0.json").read_text())
         assert mem0_json["host"] == "http://localhost:8888"  # trailing slash stripped
-        assert mem0_json["user_id"] == "hermes-user"
+        assert mem0_json["user_id"] == "agentx-user"
 
 
 class TestDryRun:

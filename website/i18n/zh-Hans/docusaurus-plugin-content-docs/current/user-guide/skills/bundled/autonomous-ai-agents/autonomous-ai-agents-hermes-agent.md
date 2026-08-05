@@ -15,7 +15,7 @@ description: "配置、扩展或贡献 Hermes Agent"
 | | |
 |---|---|
 | 来源 | 内置（默认安装） |
-| 路径 | `skills/autonomous-ai-agents/hermes-agent` |
+| 路径 | `skills/autonomous-ai-agents/agentx-agent` |
 | 版本 | `2.1.0` |
 | 作者 | Hermes Agent + Teknium |
 | 许可证 | MIT |

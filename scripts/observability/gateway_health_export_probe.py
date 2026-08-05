@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--wait", type=float, default=7.0)
     args = parser.parse_args()
 
-    hermes_home = Path(tempfile.mkdtemp(prefix="hermes-otel-smoke-"))
+    hermes_home = Path(tempfile.mkdtemp(prefix="agentx-otel-smoke-"))
     os.environ["AGENTX_HOME"] = str(hermes_home)
 
     from gateway.status import write_runtime_status

@@ -412,7 +412,7 @@ class CommandSource(SecretSource):
         secrets:
           command:
             enabled: true
-            command: "cat /run/user/1000/hermes-secrets.env"
+            command: "cat /run/user/1000/agentx-secrets.env"
             # or per-vault CLIs: keepassxc-cli / secret-tool / pass / gpg —
             # anything fast and NON-interactive.
     """

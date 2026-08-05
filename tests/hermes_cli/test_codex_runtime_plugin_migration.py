@@ -245,7 +245,7 @@ class TestMigrate:
             'args = ["--above"]\n'
         )
         # First migrate — adds managed block below user content
-        migrate({"mcp_servers": {"hermes-mcp": {"command": "npx"}}},
+        migrate({"mcp_servers": {"agentx-mcp": {"command": "npx"}}},
                 codex_home=tmp_path, discover_plugins=False,
                 expose_hermes_tools=False)
         text = target.read_text()
@@ -257,14 +257,14 @@ class TestMigrate:
             text + "\n[mcp_servers.user-below]\ncommand = \"below-server\"\n"
         )
         # Re-migrate — both should survive
-        migrate({"mcp_servers": {"hermes-mcp": {"command": "npx"}}},
+        migrate({"mcp_servers": {"agentx-mcp": {"command": "npx"}}},
                 codex_home=tmp_path, discover_plugins=False,
                 expose_hermes_tools=False)
         final = target.read_text()
         assert "user-above" in final
         assert "user-below" in final
         # And our managed block is still there with the new content
-        assert "[mcp_servers.hermes-mcp]" in final
+        assert "[mcp_servers.agentx-mcp]" in final
 
 
 

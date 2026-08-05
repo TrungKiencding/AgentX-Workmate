@@ -377,8 +377,8 @@ def raise_if_read_blocked(path: str) -> None:
 # as the dangerous-command approval flow — the agent is told the boundary
 # exists, and explicit user direction is required to cross it.
 #
-# Reference: May 2026 incident where a hermes-security profile session
-# edited skills under both ``~/.agentx/profiles/hermes-security/skills/``
+# Reference: May 2026 incident where a agentx-security profile session
+# edited skills under both ``~/.agentx/profiles/agentx-security/skills/``
 # AND ``~/.agentx/skills/`` (the default profile's skills) without realizing
 # the second path belonged to a different profile.
 # ---------------------------------------------------------------------------

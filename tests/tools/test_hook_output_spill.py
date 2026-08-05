@@ -35,7 +35,7 @@ class GetSpillConfigTests(unittest.TestCase):
 
 class SpillIfOversizedTests(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix="hermes-spill-test-")
+        self.tmpdir = tempfile.mkdtemp(prefix="agentx-spill-test-")
 
     def tearDown(self):
         import shutil
@@ -63,7 +63,7 @@ class SpillIfOversizedTests(unittest.TestCase):
 
     def test_default_directory_uses_hermes_home(self):
         """When no directory override, spill under AGENTX_HOME/hook_outputs."""
-        test_home = tempfile.mkdtemp(prefix="hermes-home-")
+        test_home = tempfile.mkdtemp(prefix="agentx-home-")
         try:
             with patch.dict(os.environ, {"AGENTX_HOME": test_home}):
                 # Also patch get_hermes_home to the env var to mirror production.

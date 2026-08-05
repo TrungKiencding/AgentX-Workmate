@@ -205,7 +205,7 @@ Subcommands:
 
 Categories: temp | test | research | download | chrome-profile | cron-output | other
 
-All operations are scoped to AGENTX_HOME and /tmp/hermes-*.
+All operations are scoped to AGENTX_HOME and /tmp/agentx-*.
 Test files are auto-tracked on write_file / terminal and auto-cleaned at session end.
 """
 

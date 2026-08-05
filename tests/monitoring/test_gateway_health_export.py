@@ -37,7 +37,7 @@ def test_otlp_attrs_redact_strings_and_never_export_profile():
         "exit_reason": "Bearer top-secret-token for user@example.com",
     })
 
-    assert "hermes.profile" not in attrs
+    assert "agentx.profile" not in attrs
     assert "top-secret-token" not in str(attrs)
     assert "user@example.com" not in str(attrs)
 
@@ -79,8 +79,8 @@ def test_diagnostic_log_attributes_are_allowlisted_redacted_and_profile_free():
         "custom": "must-not-egress",
     })
 
-    assert "hermes.profile" not in attrs
-    assert "hermes.custom" not in attrs
+    assert "agentx.profile" not in attrs
+    assert "agentx.custom" not in attrs
     assert "top-secret-token" not in str(attrs)
 
 

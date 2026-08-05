@@ -59,7 +59,7 @@ _CLIENT_ERROR_TYPES = ("MemoryNotFoundError", "ValidationError")
 # that legacy mem0.json files written by the setup wizard (which historically
 # wrote this exact placeholder) still allow gateway-native ids to flow
 # through instead of silently overriding them with the placeholder.
-_DEFAULT_USER_ID = "hermes-user"
+_DEFAULT_USER_ID = "agentx-user"
 
 
 def _is_client_error(exc: Exception) -> bool:
@@ -255,7 +255,7 @@ class Mem0MemoryProvider(MemoryProvider):
         return [
             {"key": "api_key", "description": "Mem0 Platform API key", "secret": True, "required": api_key_required, "env_var": "MEM0_API_KEY", "url": "https://app.mem0.ai"},
             {"key": "host", "description": "Self-hosted Mem0 server URL (leave blank for cloud)", "required": False, "env_var": "MEM0_HOST"},
-            {"key": "user_id", "description": "User identifier", "default": "hermes-user"},
+            {"key": "user_id", "description": "User identifier", "default": "agentx-user"},
             {"key": "agent_id", "description": "Agent identifier", "default": "agentx"},
             {"key": "rerank", "description": "Enable reranking for recall", "default": "false", "choices": ["true", "false"]},
         ]

@@ -144,7 +144,7 @@ export async function fetchJSON<T>(
       // fallback the post-login handler can read.
       try {
         sessionStorage.setItem(
-          "hermes.lastLocation",
+          "agentx.lastLocation",
           window.location.pathname + window.location.search,
         );
       } catch {
@@ -1409,7 +1409,7 @@ export interface SkillHubSource {
   label: string;
   /** GitHub only: whether the API is currently rate-limited. */
   rate_limited?: boolean;
-  /** hermes-index only: whether the centralized index loaded. */
+  /** agentx-index only: whether the centralized index loaded. */
   available?: boolean;
 }
 

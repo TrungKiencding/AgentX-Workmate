@@ -85,7 +85,7 @@ def test_self_heals_missing_singleton_access_token_from_codex_cli(tmp_path, monk
     resolved = resolve_codex_runtime_credentials()
 
     assert resolved["api_key"] == "fresh-access"
-    assert resolved["source"] == "hermes-auth-store"
+    assert resolved["source"] == "agentx-auth-store"
     stored = json.loads((hermes_home / "auth.json").read_text())
     tokens = stored["providers"]["openai-codex"]["tokens"]
     assert tokens["access_token"] == "fresh-access"

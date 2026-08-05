@@ -12,20 +12,20 @@ from agent.relay_runtime import (
     RUNTIME_SCHEMA_VERSION,
 )
 
-SCHEMA_KEY = "hermes.metrics.schema_version"
-SCHEMA_VERSION = "hermes.metrics.event.v2"
-MODEL_CALL_SCOPE = "hermes.model_call"
+SCHEMA_KEY = "agentx.metrics.schema_version"
+SCHEMA_VERSION = "agentx.metrics.event.v2"
+MODEL_CALL_SCOPE = "agentx.model_call"
 MODEL_CALL_PROFILE_MODEL = "unknown"
-TASK_SCOPE = "hermes.task_run"
-TOOL_CALL_SCOPE = "hermes.tool_call"
-TOOL_APPROVAL_MARK = "hermes.tool_approval"
-SUBSCRIBER_NAME = "hermes.nemo_relay.shared_metrics"
-LEGACY_MODEL_CALL_METRIC = "hermes.model_call.count"
-MODEL_ROUTE_METRIC = "hermes.model_route.count"
-TASK_STARTED_METRIC = "hermes.task_run.started"
-TASK_FINISHED_METRIC = "hermes.task_run.finished"
-TOOL_CALL_METRIC = "hermes.tool_call.count"
-TOOL_APPROVAL_METRIC = "hermes.tool_approval.count"
+TASK_SCOPE = "agentx.task_run"
+TOOL_CALL_SCOPE = "agentx.tool_call"
+TOOL_APPROVAL_MARK = "agentx.tool_approval"
+SUBSCRIBER_NAME = "agentx.nemo_relay.shared_metrics"
+LEGACY_MODEL_CALL_METRIC = "agentx.model_call.count"
+MODEL_ROUTE_METRIC = "agentx.model_route.count"
+TASK_STARTED_METRIC = "agentx.task_run.started"
+TASK_FINISHED_METRIC = "agentx.task_run.finished"
+TOOL_CALL_METRIC = "agentx.tool_call.count"
+TOOL_APPROVAL_METRIC = "agentx.tool_approval.count"
 MODEL_IDENTIFIER_MAX_LENGTH = 256
 PROVIDER_IDENTIFIER_MAX_LENGTH = 64
 _METRIC_IDENTIFIER_CHARACTERS = frozenset(
@@ -313,13 +313,13 @@ def _auxiliary_model_call_dimensions(event: Any) -> dict[str, str] | None:
     relay_metadata = set(metadata) - {
         RUNTIME_INSTANCE_KEY,
         RUNTIME_SCHEMA_KEY,
-        "hermes.call_role",
+        "agentx.call_role",
     }
     if relay_metadata - {"otel.status_code"} or metadata.get(
         "otel.status_code", "OK"
     ) not in {"OK", "ERROR"}:
         return None
-    call_role = metadata.get("hermes.call_role")
+    call_role = metadata.get("agentx.call_role")
     if not isinstance(call_role, str) or not call_role.startswith("auxiliary:"):
         return None
     if (

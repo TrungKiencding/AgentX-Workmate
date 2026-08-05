@@ -4065,7 +4065,7 @@ def resolve_codex_runtime_credentials(
         "provider": "openai-codex",
         "base_url": base_url,
         "api_key": access_token,
-        "source": "hermes-auth-store",
+        "source": "agentx-auth-store",
         "last_refresh": data.get("last_refresh"),
         "auth_mode": "chatgpt",
     }
@@ -5013,7 +5013,7 @@ def resolve_xai_oauth_runtime_credentials(
         "provider": "xai-oauth",
         "base_url": base_url,
         "api_key": access_token,
-        "source": "hermes-auth-store",
+        "source": "agentx-auth-store",
         "last_refresh": data.get("last_refresh"),
         # Display/telemetry only. Device-code is the only supported xAI OAuth
         # flow, so report it unconditionally — auth.json may still carry a
@@ -5191,11 +5191,11 @@ def _poll_for_token(
 # import instead of running the full device-code flow every time.
 #
 # File lives at ${AGENTX_SHARED_AUTH_DIR}/nous_auth.json, defaulting to
-# ``<hermes-root>/shared/nous_auth.json`` where ``<hermes-root>`` is what
+# ``<agentx-root>/shared/nous_auth.json`` where ``<agentx-root>`` is what
 # ``get_default_hermes_root()`` returns — ``~/.agentx`` on Linux/macOS,
 # ``%LOCALAPPDATA%\agentx`` on native Windows, or the Docker/custom root.
 # It is OUTSIDE any named profile's AGENTX_HOME so named profiles (which
-# typically live under ``<hermes-root>/profiles/<name>/``) all see the
+# typically live under ``<agentx-root>/profiles/<name>/``) all see the
 # same file.
 #
 # Written on successful login and on every runtime refresh so the stored
@@ -5213,7 +5213,7 @@ def _nous_shared_auth_dir() -> Path:
 
     Honors ``AGENTX_SHARED_AUTH_DIR`` so tests can redirect it to a tmp
     path without touching the real user's home. Defaults to
-    ``<hermes-root>/shared/``, where ``<hermes-root>`` is what
+    ``<agentx-root>/shared/``, where ``<agentx-root>`` is what
     :func:`hermes_constants.get_default_hermes_root` returns — so
     Linux/macOS classic installs land at ``~/.agentx/shared/``, native
     Windows installs at ``%LOCALAPPDATA%\\agentx\\shared\\``, and

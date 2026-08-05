@@ -271,7 +271,7 @@ divulgación privada y no reciben avisos.
   que deshabilitan explícitamente protecciones: `--insecure` y flags equivalentes
   en el dashboard u otros componentes, aprobaciones deshabilitadas,
   backend local en producción, perfiles de desarrollo que evitan
-  la seguridad de hermes-home, y similares. Los informes contra esas
+  la seguridad de agentx-home, y similares. Los informes contra esas
   configuraciones no son vulnerabilidades — eso es el trabajo del flag.
 - **Habilidades y plugins contribuidos por la comunidad.** Las habilidades de terceros
   (incluyendo el repositorio de habilidades de la comunidad) y los plugins de terceros

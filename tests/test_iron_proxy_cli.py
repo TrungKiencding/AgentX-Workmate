@@ -325,7 +325,7 @@ def test_cmd_setup_audit_log_failure_is_warning_not_abort(hermes_home, monkeypat
     monkeypatch.setattr(ip, "find_iron_proxy", lambda **kw: hermes_home / "iron-proxy")
     monkeypatch.setattr(ip, "discover_provider_mappings", lambda **kw: [
         ip.TokenMapping(
-            proxy_token="hermes-proxy-deadbeef",
+            proxy_token="agentx-proxy-deadbeef",
             real_env_name="OPENROUTER_API_KEY",
             upstream_hosts=("openrouter.ai",),
         ),

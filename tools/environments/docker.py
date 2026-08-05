@@ -38,7 +38,7 @@ _DOCKER_SEARCH_PATHS = [
 
 _docker_executable: Optional[str] = None  # resolved once, cached
 _ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_EGRESS_LABEL_KEY = "hermes-egress"
+_EGRESS_LABEL_KEY = "agentx-egress"
 
 
 def _normalize_forward_env_names(forward_env: list[str] | None) -> list[str]:
@@ -147,7 +147,7 @@ def reap_orphan_containers(
     profile_filter: str | None = None,
     docker_exe: str | None = None,
 ) -> int:
-    """Remove stale hermes-tagged containers left behind by prior processes.
+    """Remove stale agentx-tagged containers left behind by prior processes.
 
     Targets containers that match all of:
 
@@ -155,7 +155,7 @@ def reap_orphan_containers(
     * ``status=exited`` (running containers are NEVER reaped — they may
       belong to a sibling AgentX process whose reuse path will pick them
       up; killing them would crash the sibling mid-command)
-    * (optional) ``label=hermes-profile=<profile_filter>`` (sweep only the
+    * (optional) ``label=agentx-profile=<profile_filter>`` (sweep only the
       caller's profile by default; a agentx process in profile A must not
       tear down profile B's containers)
     * ``State.FinishedAt`` older than *max_age_seconds* ago (so a sibling
@@ -177,7 +177,7 @@ def reap_orphan_containers(
     docker = docker_exe or find_docker() or "docker"
     filters = ["--filter", "label=agentx-agent=1", "--filter", "status=exited"]
     if profile_filter:
-        filters.extend(["--filter", f"label=hermes-profile={_sanitize_label_value(profile_filter)}"])
+        filters.extend(["--filter", f"label=agentx-profile={_sanitize_label_value(profile_filter)}"])
 
     try:
         listing = subprocess.run(
@@ -484,7 +484,7 @@ def _egress_proxy_args_for_docker() -> tuple[list[str], dict[str, str], list[str
         logger.warning("%s — continuing without proxy (enforce_on_docker=false).", msg)
         return ([], {}, [])
 
-    container_ca = "/etc/ssl/certs/hermes-egress-ca.crt"
+    container_ca = "/etc/ssl/certs/agentx-egress-ca.crt"
     volume_args = ["-v", f"{status.ca_cert_path}:{container_ca}:ro"]
 
     # tunnel_port serves CONNECT (HTTPS); the plain-HTTP forward listener
@@ -1339,10 +1339,10 @@ class DockerEnvironment(BaseEnvironment):
         logger.info("Docker run_args: %s", all_run_args)
 
         # Start the container directly via `docker run -d`.
-        container_name = f"hermes-{uuid.uuid4().hex[:8]}"
-        # Labels make hermes-created containers identifiable to:
+        container_name = f"agentx-{uuid.uuid4().hex[:8]}"
+        # Labels make agentx-created containers identifiable to:
         #   * the orphan reaper (`agentx-agent=1` for the global sweep filter)
-        #   * future cross-process reuse (`hermes-task-id`, `hermes-profile`)
+        #   * future cross-process reuse (`agentx-task-id`, `agentx-profile`)
         #   * operators running `docker ps --filter label=agentx-agent=1`
         # Values are limited to the safe character set defined by
         # _sanitize_label_value(); the active AgentX profile is captured at
@@ -1351,8 +1351,8 @@ class DockerEnvironment(BaseEnvironment):
         task_label = _sanitize_label_value(task_id)
         label_args = [
             "--label", "agentx-agent=1",
-            "--label", f"hermes-task-id={task_label}",
-            "--label", f"hermes-profile={profile_name}",
+            "--label", f"agentx-task-id={task_label}",
+            "--label", f"agentx-profile={profile_name}",
             "--label", f"{_EGRESS_LABEL_KEY}={egress_label}",
         ]
         # Save args for container recreation on "No such container" recovery.
@@ -1363,8 +1363,8 @@ class DockerEnvironment(BaseEnvironment):
 
         self._labels = {
             "agentx-agent": "1",
-            "hermes-task-id": task_label,
-            "hermes-profile": profile_name,
+            "agentx-task-id": task_label,
+            "agentx-profile": profile_name,
             _EGRESS_LABEL_KEY: egress_label,
         }
 
@@ -1639,8 +1639,8 @@ class DockerEnvironment(BaseEnvironment):
         self._container_id = None
 
         # 1. Try label-based reuse (another process may have recreated it).
-        task_label = self._labels.get("hermes-task-id", "")
-        profile_label = self._labels.get("hermes-profile", "")
+        task_label = self._labels.get("agentx-task-id", "")
+        profile_label = self._labels.get("agentx-profile", "")
         existing = self._find_reusable_container(
             task_label, profile_label, self._labels.get(_EGRESS_LABEL_KEY, "off"),
         )
@@ -1668,7 +1668,7 @@ class DockerEnvironment(BaseEnvironment):
                 return False
             try:
                 import uuid as _uuid
-                new_name = f"hermes-{_uuid.uuid4().hex[:8]}"
+                new_name = f"agentx-{_uuid.uuid4().hex[:8]}"
                 init_args = [] if self._image_uses_s6_init else ["--init"]
                 label_args = []
                 for k, v in self._labels.items():
@@ -1817,14 +1817,14 @@ class DockerEnvironment(BaseEnvironment):
         whether the state warrants ``docker start`` before reuse.
 
         Restricted to the docker-stored label set this class creates; never
-        matches containers that happened to be named ``hermes-*`` but were
+        matches containers that happened to be named ``agentx-*`` but were
         started by some other tool.
         """
         try:
             filters = [
                 "--filter", "label=agentx-agent=1",
-                "--filter", f"label=hermes-task-id={task_label}",
-                "--filter", f"label=hermes-profile={profile_label}",
+                "--filter", f"label=agentx-task-id={task_label}",
+                "--filter", f"label=agentx-profile={profile_label}",
             ]
             if egress_label != "off":
                 filters.extend(["--filter", f"label={_EGRESS_LABEL_KEY}={egress_label}"])
@@ -1833,7 +1833,7 @@ class DockerEnvironment(BaseEnvironment):
                 # When egress is off, we widen the probe to find any
                 # task+profile container (regardless of egress label), then
                 # post-filter in Python: reject containers whose
-                # hermes-egress label is present and not "off".  Without
+                # agentx-egress label is present and not "off".  Without
                 # this, a container created with egress=on can be silently
                 # reused after the operator runs "agentx egress disable",
                 # preserving baked-in proxy env and CA mounts.
@@ -2000,7 +2000,7 @@ class DockerEnvironment(BaseEnvironment):
         # ``_atexit_cleanup`` in terminal_tool.py which waits up to ~60s for
         # outstanding cleanups, so most exits complete the work cleanly.
         import threading
-        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"hermes-cleanup-{log_id}")
+        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"agentx-cleanup-{log_id}")
         t.start()
         self._cleanup_thread = t
         self._container_id = None

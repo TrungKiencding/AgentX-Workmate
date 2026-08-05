@@ -168,7 +168,7 @@ def _kill_stale_dashboard_processes(
     When ``restart_managed`` is true (the ``agentx update`` path), a detected
     ``agentx-dashboard.service`` is restarted through systemd; any OTHER
     killed PID that was supervised by a systemd unit (custom unit names —
-    e.g. a remote backend's ``hermes-serve.service``) has its owning unit
+    e.g. a remote backend's ``agentx-serve.service``) has its owning unit
     restarted after the kill, because systemd treats our SIGTERM as a clean
     stop and ``Restart=on-failure`` would never fire (#68934).
     """

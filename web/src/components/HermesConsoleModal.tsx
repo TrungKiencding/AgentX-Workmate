@@ -490,7 +490,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
       onClick={(event) => event.target === event.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="hermes-console-title"
+      aria-labelledby="agentx-console-title"
     >
       <div
         className={cn(
@@ -504,7 +504,7 @@ export function HermesConsoleModal({ open, onClose }: HermesConsoleModalProps) {
           </div>
           <div className="min-w-0 flex-1">
             <h2
-              id="hermes-console-title"
+              id="agentx-console-title"
               className="font-mondwest text-display text-base tracking-wider"
             >
               AgentX Console

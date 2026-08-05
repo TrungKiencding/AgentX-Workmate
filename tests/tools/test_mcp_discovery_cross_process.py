@@ -29,7 +29,7 @@ def _wait_for_file(path: Path, *, timeout: float = 10.0) -> None:
 
 def test_two_processes_each_complete_local_mcp_discovery(tmp_path):
     """A lock loser waits, acquires the lock, and builds its own registry."""
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "agentx-home"
     hermes_home.mkdir()
 
     holder_ready = tmp_path / "holder-ready"

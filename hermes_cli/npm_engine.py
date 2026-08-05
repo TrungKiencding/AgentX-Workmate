@@ -187,7 +187,7 @@ def upgrade_managed_npm(
     try:
         # A temp cwd keeps the checkout's .npmrc (engine-strict, min-release-age)
         # from applying to the upgrade itself.
-        with tempfile.TemporaryDirectory(prefix="hermes-npm-upgrade-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="agentx-npm-upgrade-") as tmp:
             result = subprocess.run(
                 [
                     npm,

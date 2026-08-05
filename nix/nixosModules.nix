@@ -20,7 +20,7 @@
 #   services.agentx-agent = {
 #     enable = true;
 #     settings.model = "anthropic/claude-sonnet-4";
-#     environmentFiles = [ config.sops.secrets."hermes/env".path ];
+#     environmentFiles = [ config.sops.secrets."agentx/env".path ];
 #   };
 #
 { inputs, ... }: {
@@ -68,7 +68,7 @@
       lib.mapAttrsToList (k: v: "${k}=${v}") cfg.environment
     );
     # Build documents derivation (from 0xrsydn)
-    documentDerivation = pkgs.runCommand "hermes-documents" { } (
+    documentDerivation = pkgs.runCommand "agentx-documents" { } (
       ''
         mkdir -p $out
       '' + lib.concatStringsSep "\n" (
@@ -92,7 +92,7 @@
     # Runs as root inside the container on every start. Provisions the
     # agentx user + sudo on first boot (writable layer persists), then
     # drops privileges. Supports arbitrary base images (Debian, Alpine, etc).
-    containerEntrypoint = pkgs.writeShellScript "hermes-container-entrypoint" ''
+    containerEntrypoint = pkgs.writeShellScript "agentx-container-entrypoint" ''
       set -eu
 
       AGENTX_UID="''${AGENTX_UID:?AGENTX_UID must be set}"
@@ -749,7 +749,7 @@
           # Preserves user-added keys (skills, streaming, etc.); Nix keys win.
           # If configFile is user-provided (not generated), overwrite instead of merge.
           # Mode is configYamlMode (0660 under addToSystemPackages so interactive
-          # hermes-group users can save settings via the CLI/TUI, else 0640).
+          # agentx-group users can save settings via the CLI/TUI, else 0640).
           ${if cfg.configFile != null then ''
             install -o ${cfg.user} -g ${cfg.group} -m ${configYamlMode} -D ${configFile} ${cfg.stateDir}/.agentx/config.yaml
           '' else ''

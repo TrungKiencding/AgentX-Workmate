@@ -20,7 +20,7 @@ requires_env:
     prompt: "IRC channel"
     password: false
   - name: IRC_NICKNAME
-    description: "Bot nickname on IRC (default: hermes-bot)"
+    description: "Bot nickname on IRC (default: agentx-bot)"
     prompt: "Bot nickname"
     password: false
 optional_env:

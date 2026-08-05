@@ -1,6 +1,6 @@
 """Regression tests for the docker-exec privilege-drop shim.
 
-The shim (docker/hermes-exec-shim.sh, installed at /opt/agentx/bin/agentx)
+The shim (docker/agentx-exec-shim.sh, installed at /opt/agentx/bin/agentx)
 exists to prevent the auth.json ownership-mismatch bug where
 `docker exec <c> agentx login` would write /opt/data/auth.json as
 root:root mode 0600, leaving the supervised gateway (UID 10000) unable
@@ -189,7 +189,7 @@ def test_e2e_login_then_supervised_gateway_can_read_auth(
     for it by writing the same file shape via `agentx config set`-style
     writes — what matters is the *file ownership invariant* downstream
     of `_save_auth_store`. If the shim works, every file the
-    `docker exec` path produces is hermes-readable.
+    `docker exec` path produces is agentx-readable.
 
     Specifically: pretend the operator ran `agentx login` (writes
     auth.json) and verify (a) the file exists and (b) it's readable by

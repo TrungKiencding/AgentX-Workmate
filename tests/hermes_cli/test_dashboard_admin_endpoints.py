@@ -608,12 +608,12 @@ class TestSkillsHubSourcesEndpoint:
                 return self._sid
 
             def search(self, q, limit=10):
-                return [_FakeMeta("hermes-index/featured-skill", "trusted")]
+                return [_FakeMeta("agentx-index/featured-skill", "trusted")]
 
         def _fake_router():
             srcs = [_Src("official"), _Src("github")]
-            # hermes-index source advertises availability + featured search.
-            idx = _Src("hermes-index")
+            # agentx-index source advertises availability + featured search.
+            idx = _Src("agentx-index")
             idx.is_available = True
             srcs.insert(1, idx)
             return srcs
@@ -625,7 +625,7 @@ class TestSkillsHubSourcesEndpoint:
         assert r.status_code == 200
         body = r.json()
         ids = {s["id"] for s in body["sources"]}
-        assert {"official", "github", "hermes-index"} <= ids
+        assert {"official", "github", "agentx-index"} <= ids
         # Every source carries a human label.
         assert all(s.get("label") for s in body["sources"])
         assert body["index_available"] is True

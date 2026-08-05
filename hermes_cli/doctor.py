@@ -412,7 +412,7 @@ def _check_s6_supervision(issues: list[str]) -> None:
     container so host runs aren't cluttered with irrelevant output.
 
     Reports:
-      - Whether the main-hermes and dashboard static services are up
+      - Whether the main-agentx and dashboard static services are up
       - How many per-profile gateway slots are registered (via
         ``S6ServiceManager.list_profile_gateways()``) and how many are
         currently supervised as ``up``
@@ -434,7 +434,7 @@ def _check_s6_supervision(issues: list[str]) -> None:
 
     # Static services. They live under /run/service/ via s6-rc symlinks,
     # so the same s6-svstat probe works.
-    for static in ("main-hermes", "dashboard"):
+    for static in ("main-agentx", "dashboard"):
         if mgr.is_running(static):
             check_ok(f"{static}: up")
         else:

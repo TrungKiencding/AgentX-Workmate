@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 _INIT_FAILED = object()
 _LOCK = threading.RLock()
 _RUNTIMES: dict[str, "_Runtime | object"] = {}
-_SESSION_INITIALIZER_NAME = "hermes.nemo_relay.rich_observability"
+_SESSION_INITIALIZER_NAME = "agentx.nemo_relay.rich_observability"
 
 
 @dataclass
@@ -49,11 +49,11 @@ class _Settings:
     dynamic_plugins: list[dict[str, Any]] = field(default_factory=list)
     atof_enabled: bool = False
     atof_output_directory: str = ""
-    atof_filename: str = "hermes-atof.jsonl"
+    atof_filename: str = "agentx-atof.jsonl"
     atof_mode: str = "append"
     atif_enabled: bool = False
     atif_output_directory: str = ""
-    atif_filename_template: str = "hermes-atif-{session_id}.json"
+    atif_filename_template: str = "agentx-atif-{session_id}.json"
     atif_subagent_export_mode: str = "embedded"
     atif_agent_name: str = "AgentX Workmate"
     atif_agent_version: str = "unknown"
@@ -208,9 +208,9 @@ class _Runtime:
         self.sessions: dict[str, _SessionState] = {}
         self.subagent_contexts: dict[str, _SubagentContext] = {}
         self.atof_exporter: Any = None
-        self._atof_subscriber_name = f"hermes.nemo_relay.atof.{self.host.runtime_id}"
+        self._atof_subscriber_name = f"agentx.nemo_relay.atof.{self.host.runtime_id}"
         self._execution_consumer_name = (
-            f"hermes.nemo_relay.rich_observability.{self.host.runtime_id}"
+            f"agentx.nemo_relay.rich_observability.{self.host.runtime_id}"
         )
         self._execution_consumer_retained = False
         self._plugin_activation: Any = None
@@ -359,7 +359,7 @@ class _Runtime:
                     },
                 )
                 state.atif_subscriber_name = (
-                    f"hermes.nemo_relay.atif.{self.host.runtime_id}.{session_id}"
+                    f"agentx.nemo_relay.atif.{self.host.runtime_id}.{session_id}"
                 )
                 state.atif_exporter.register(state.atif_subscriber_name)
             self.sessions[session_id] = state
@@ -519,7 +519,7 @@ class _Runtime:
         self.run_in_session(
             parent_state,
             self.nemo_relay.scope.event,
-            "hermes.subagent.start",
+            "agentx.subagent.start",
             handle=parent_state.handle,
             data=_jsonable(kwargs),
             metadata=metadata,
@@ -534,7 +534,7 @@ class _Runtime:
             )
             with self._sessions_lock:
                 self.subagent_contexts.pop(child_session_id, None)
-        self.mark("hermes.subagent.stop", kwargs)
+        self.mark("agentx.subagent.stop", kwargs)
 
 def register(ctx) -> None:
     relay_runtime.SESSION_COORDINATOR.register_session_initializer(
@@ -566,7 +566,7 @@ def on_session_start(**kwargs: Any) -> None:
 def on_session_end(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: (runtime.mark("hermes.session.end", kwargs), runtime.export_atif(runtime.ensure_session(kwargs))))
+        _safe(lambda: (runtime.mark("agentx.session.end", kwargs), runtime.export_atif(runtime.ensure_session(kwargs))))
 
 
 def on_session_finalize(**kwargs: Any) -> None:
@@ -584,25 +584,25 @@ def on_session_reset(**kwargs: Any) -> None:
 def on_pre_llm_call(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("hermes.turn.start", kwargs))
+        _safe(lambda: runtime.mark("agentx.turn.start", kwargs))
 
 
 def on_post_llm_call(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("hermes.turn.end", kwargs))
+        _safe(lambda: runtime.mark("agentx.turn.end", kwargs))
 
 
 def on_pre_approval_request(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("hermes.approval.request", kwargs))
+        _safe(lambda: runtime.mark("agentx.approval.request", kwargs))
 
 
 def on_post_approval_response(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("hermes.approval.response", kwargs))
+        _safe(lambda: runtime.mark("agentx.approval.response", kwargs))
 
 
 def on_subagent_start(**kwargs: Any) -> None:
@@ -671,11 +671,11 @@ def _load_settings() -> _Settings:
         dynamic_plugins=_dynamic_plugin_specs(plugins_config, plugins_toml_path),
         atof_enabled=_env_bool("AGENTX_NEMO_RELAY_ATOF_ENABLED"),
         atof_output_directory=_env("AGENTX_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY"),
-        atof_filename=_env("AGENTX_NEMO_RELAY_ATOF_FILENAME") or "hermes-atof.jsonl",
+        atof_filename=_env("AGENTX_NEMO_RELAY_ATOF_FILENAME") or "agentx-atof.jsonl",
         atof_mode=_env("AGENTX_NEMO_RELAY_ATOF_MODE") or "append",
         atif_enabled=_env_bool("AGENTX_NEMO_RELAY_ATIF_ENABLED"),
         atif_output_directory=_env("AGENTX_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY"),
-        atif_filename_template=_env("AGENTX_NEMO_RELAY_ATIF_FILENAME_TEMPLATE") or "hermes-atif-{session_id}.json",
+        atif_filename_template=_env("AGENTX_NEMO_RELAY_ATIF_FILENAME_TEMPLATE") or "agentx-atif-{session_id}.json",
         atif_subagent_export_mode=_atif_subagent_export_mode(),
         atif_agent_name=_env("AGENTX_NEMO_RELAY_ATIF_AGENT_NAME") or "AgentX Workmate",
         atif_agent_version=_env("AGENTX_NEMO_RELAY_ATIF_AGENT_VERSION") or "unknown",
@@ -1000,7 +1000,7 @@ def _resolve_awaitable(value: Any) -> Any:
 
     thread = threading.Thread(
         target=_runner,
-        name="hermes-nemo-relay-awaitable",
+        name="agentx-nemo-relay-awaitable",
         daemon=True,
     )
     thread.start()

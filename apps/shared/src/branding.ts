@@ -61,12 +61,43 @@ export const DESKTOP_APP_NAME = 'AgentX Workmate'
 /**
  * Web presence. Not registered yet — an empty string means "no link", and
  * consumers must omit the surrounding UI rather than render a dead link.
+ * Prefer `docsUrl()` over testing `DOCS_URL` by hand.
  */
 export const WEBSITE_URL = ''
 export const DOCS_URL = ''
+
+/**
+ * Canonical source repository. Update checks, release downloads and issue
+ * links derive from this, so retargeting a fork is a one-line change.
+ */
+export const REPO_URL = 'https://github.com/AstralX/agentx-workmate'
 
 /**
  * Return the full environment variable name for a bare `name`.
  * `envName('HOME')` -> `'AGENTX_HOME'`.
  */
 export const envName = (name: string): string => `${ENV_PREFIX}${name}`
+
+/**
+ * Return an absolute docs URL for `path`, or `''` when no docs site is set.
+ *
+ * `DOCS_URL` is empty until a domain is registered, so callers must skip the
+ * surrounding UI when this returns empty rather than render `https:///docs`:
+ *
+ * ```ts
+ * const url = docsUrl('user-guide/cli')
+ * if (url) return <a href={url}>Docs</a>
+ * ```
+ */
+export const docsUrl = (path = ''): string => {
+  if (!DOCS_URL) return ''
+  if (!path) return DOCS_URL
+  return `${DOCS_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
+
+/**
+ * Return a URL under the canonical source repository. Never empty.
+ * `repoUrl('issues')` -> `https://github.com/AstralX/agentx-workmate/issues`.
+ */
+export const repoUrl = (path = ''): string =>
+  path ? `${REPO_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}` : REPO_URL

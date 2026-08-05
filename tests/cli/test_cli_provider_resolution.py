@@ -492,7 +492,7 @@ def test_cmd_model_forwards_nous_login_tls_options(monkeypatch):
         SimpleNamespace(
             portal_url="https://portal.nousresearch.com",
             inference_url="https://inference.nousresearch.com/v1",
-            client_id="hermes-local",
+            client_id="agentx-local",
             scope="openid profile",
             no_browser=True,
             timeout=7.5,
@@ -504,7 +504,7 @@ def test_cmd_model_forwards_nous_login_tls_options(monkeypatch):
     assert captured == {
         "portal_url": "https://portal.nousresearch.com",
         "inference_url": "https://inference.nousresearch.com/v1",
-        "client_id": "hermes-local",
+        "client_id": "agentx-local",
         "scope": "openid profile",
         "no_browser": True,
         "timeout": 7.5,

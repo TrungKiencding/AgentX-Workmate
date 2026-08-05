@@ -561,7 +561,7 @@ export default function SystemPage() {
         );
         return;
       }
-      setActiveAction(resp.name ?? "hermes-update");
+      setActiveAction(resp.name ?? "agentx-update");
       showToast("Update started", "success");
     } catch (e) {
       showToast(`Update failed: ${e}`, "error");
@@ -1308,7 +1308,7 @@ export default function SystemPage() {
                   id="import-path"
                   value={importPath}
                   onChange={(e) => setImportPath(e.target.value)}
-                  placeholder="$AGENTX_HOME/backups/hermes-backup.zip"
+                  placeholder="$AGENTX_HOME/backups/agentx-backup.zip"
                 />
               </div>
               <Button

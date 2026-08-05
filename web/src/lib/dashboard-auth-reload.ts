@@ -1,6 +1,6 @@
 type StorageLike = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
-const TOKEN_RELOAD_STORAGE_KEY = "hermes.tokenReloadAttempted";
+const TOKEN_RELOAD_STORAGE_KEY = "agentx.tokenReloadAttempted";
 
 function dashboardAuthRequired(): boolean {
   return typeof window !== "undefined" && !!window.__AGENTX_AUTH_REQUIRED__;

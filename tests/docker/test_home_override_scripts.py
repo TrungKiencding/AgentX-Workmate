@@ -140,6 +140,6 @@ def test_stage2_repairs_profiles_and_cron_ownership(
         timeout=5,
     )
     assert "agentx" in r.stdout, (
-        f"expected hermes-owned files after restart, got: {r.stdout!r} — "
+        f"expected agentx-owned files after restart, got: {r.stdout!r} — "
         f"stage2 hook did not repair profiles/ and cron/ ownership"
     )

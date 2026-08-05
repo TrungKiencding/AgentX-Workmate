@@ -144,10 +144,10 @@ class TestTempHomeServiceDefinitionGuard:
     """_temp_home_in_service_definition() — structural temp-dir detection."""
 
     def test_detects_tmp_home_in_systemd_unit(self):
-        unit = '[Service]\nEnvironment="AGENTX_HOME=/tmp/hermes-e2e-41264"\n'
+        unit = '[Service]\nEnvironment="AGENTX_HOME=/tmp/agentx-e2e-41264"\n'
         assert (
             gateway_cli._temp_home_in_service_definition(unit)
-            == "/tmp/hermes-e2e-41264"
+            == "/tmp/agentx-e2e-41264"
         )
 
 
@@ -155,7 +155,7 @@ class TestTempHomeServiceDefinitionGuard:
         import tempfile as _tempfile
 
         monkeypatch.setattr(_tempfile, "gettempdir", lambda: str(tmp_path))
-        unit = f'[Service]\nEnvironment="AGENTX_HOME={tmp_path}/hermes-home"\n'
+        unit = f'[Service]\nEnvironment="AGENTX_HOME={tmp_path}/agentx-home"\n'
         assert gateway_cli._temp_home_in_service_definition(unit) is not None
 
 

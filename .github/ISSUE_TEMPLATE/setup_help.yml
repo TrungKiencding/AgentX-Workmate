@@ -68,7 +68,7 @@ body:
       placeholder: "3.11.9"
 
   - type: input
-    id: hermes-version
+    id: agentx-version
     attributes:
       label: AgentX Version
       description: Output of `agentx version` (if install got that far)

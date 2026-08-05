@@ -134,7 +134,7 @@ class TestMem0UserIdScoping:
 
         with patch("plugins.memory.mem0._load_config", return_value={
             "api_key": "test-key",
-            "user_id": "hermes-user",
+            "user_id": "agentx-user",
             "agent_id": "agentx",
             "rerank": True,
         }):

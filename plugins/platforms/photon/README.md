@@ -171,7 +171,7 @@ All env vars are documented in `plugin.yaml`. The most important:
 - **Cron/standalone sends require a running gateway.** Processes outside
   the gateway (cron subprocesses, `agentx send`) cannot spawn the sidecar;
   they authenticate to the gateway's live sidecar via the runtime record at
-  `<hermes-home>/runtime/photon-sidecar.json` (written after the sidecar's
+  `<agentx-home>/runtime/photon-sidecar.json` (written after the sidecar's
   `/healthz` readiness check, `0600`, removed on stop/failed start). Also
   note that shared/free-tier Photon lines cannot INITIATE conversations
   with numbers that never texted the line — that's Photon-side policy, not

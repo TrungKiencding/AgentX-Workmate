@@ -212,7 +212,7 @@ fi
 if [ "$PERSISTENT" = true ]; then
   SANDBOX_ROOT="$PERSISTENT_ROOT"
 else
-  SANDBOX_ROOT="$(mktemp -d -t hermes-sandbox.XXXXXX)"
+  SANDBOX_ROOT="$(mktemp -d -t agentx-sandbox.XXXXXX)"
   cleanup() { chmod -R u+w "$SANDBOX_ROOT"; rm -rf -- "$SANDBOX_ROOT"; }
   trap cleanup EXIT INT TERM
 fi
@@ -222,7 +222,7 @@ UPSTREAM_REPO=""
 UPSTREAM_COMMIT=""
 if [ -n "$INSTALL_REF" ]; then
   echo "[sandbox] fetching upstream $INSTALL_REF for installer/update test" >&2
-  UPSTREAM_REPO="$(mktemp -d -t hermes-sandbox-upstream.XXXXXX)"
+  UPSTREAM_REPO="$(mktemp -d -t agentx-sandbox-upstream.XXXXXX)"
   git -C "$UPSTREAM_REPO" init -q
   # Fetch the ref as given. A branch or tag name resolves on its own; a raw SHA
   # needs the remote to allow fetching it directly, so fall back to fetching
@@ -389,7 +389,7 @@ if [ -n "$INSTALL_REF" ]; then
 fi
 if [ -n "$(git -C "$GIT_ROOT" status --porcelain)" ]; then
   echo '[sandbox] warning: current folder is dirty; creating a temporary fake commit for main' >&2
-  SNAPSHOT_REPO="$(mktemp -d -t hermes-sandbox-snapshot.XXXXXX)"
+  SNAPSHOT_REPO="$(mktemp -d -t agentx-sandbox-snapshot.XXXXXX)"
   git -C "$SNAPSHOT_REPO" init -q
   git -C "$SNAPSHOT_REPO" fetch -q "$GIT_ROOT" "$COMMIT"
   git -C "$SNAPSHOT_REPO" config user.name 'AgentX sandbox'
@@ -410,7 +410,7 @@ fi
 
 if [ -n "$INSTALL_REF" ]; then
   git --git-dir="$FAKE_REPO" fetch -q --force "$SOURCE_REPO" \
-    "$SOURCE_REF:refs/hermes-sandbox/next"
+    "$SOURCE_REF:refs/agentx-sandbox/next"
   printf '%s\n' "$SOURCE_REF" > "$SANDBOX_ROOT/root/promote-main"
 else
   git --git-dir="$FAKE_REPO" fetch -q --force "$SOURCE_REPO" \

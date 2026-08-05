@@ -82,7 +82,7 @@ nix build
     nixosConfigurations.your-host = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        hermes-agent.nixosModules.default
+        agentx-agent.nixosModules.default
         ./configuration.nix
       ];
     };

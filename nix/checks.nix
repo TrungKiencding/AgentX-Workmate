@@ -49,7 +49,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           results = map (sys: { inherit sys; result = tryEvalPkg sys; }) targetSystems;
           failures = builtins.filter (r: !r.result.success) results;
           failMsg = lib.concatMapStringsSep "\n" (r: "  - ${r.sys}") failures;
-        in pkgs.runCommand "hermes-cross-eval" { } (
+        in pkgs.runCommand "agentx-cross-eval" { } (
           if failures != [] then
             throw "Package fails to evaluate on:\n${failMsg}"
           else ''
@@ -62,21 +62,21 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Verify the default package builds successfully (cross-platform).
         # On Linux the runtime checks below already depend on the package,
         # but this ensures darwin builders also build it during flake check.
-        build-package = pkgs.runCommand "hermes-build-package" { } ''
+        build-package = pkgs.runCommand "agentx-build-package" { } ''
           echo "PASS: package built at ${agentx-agent}"
           mkdir -p $out
           echo "ok" > $out/result
         '';
 
         # Verify the devShell builds successfully (cross-platform).
-        build-devshell = pkgs.runCommand "hermes-build-devshell" { } ''
+        build-devshell = pkgs.runCommand "agentx-build-devshell" { } ''
           echo "PASS: devShell built at ${self'.devShells.default}"
           mkdir -p $out
           echo "ok" > $out/result
         '';
       } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         # Verify binaries exist and are executable
-        package-contents = pkgs.runCommand "hermes-package-contents" { } ''
+        package-contents = pkgs.runCommand "agentx-package-contents" { } ''
           set -e
           echo "=== Checking binaries ==="
           test -x ${agentx-agent}/bin/agentx || (echo "FAIL: agentx binary missing"; exit 1)
@@ -93,7 +93,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify every pyproject.toml [project.scripts] entry has a wrapped binary
-        entry-points-sync = pkgs.runCommand "hermes-entry-points-sync" { } ''
+        entry-points-sync = pkgs.runCommand "agentx-entry-points-sync" { } ''
           set -e
           echo "=== Checking entry points match pyproject.toml [project.scripts] ==="
           for bin in agentx agentx-agent agentx-acp; do
@@ -121,7 +121,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify bundled skills are present in the package
-        bundled-skills = pkgs.runCommand "hermes-bundled-skills" { } ''
+        bundled-skills = pkgs.runCommand "agentx-bundled-skills" { } ''
           set -e
           echo "=== Checking bundled skills ==="
           test -d ${agentx-agent}/share/agentx-agent/skills || (echo "FAIL: skills directory missing"; exit 1)
@@ -152,7 +152,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify bundled plugins (platforms, memory, context_engine) are present
-        bundled-plugins = pkgs.runCommand "hermes-bundled-plugins" { } ''
+        bundled-plugins = pkgs.runCommand "agentx-bundled-plugins" { } ''
           set -e
           echo "=== Checking bundled plugins ==="
           test -d ${agentx-agent}/share/agentx-agent/plugins || (echo "FAIL: plugins directory missing"; exit 1)
@@ -174,7 +174,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Verify bundled i18n locale catalogs are present and resolvable.
         # Regression for #23943 / #27632 / #35374 — sealed Nix venvs dropped
         # locales/, surfacing raw i18n keys like gateway.reset.header_default.
-        bundled-locales = pkgs.runCommand "hermes-bundled-locales" { } ''
+        bundled-locales = pkgs.runCommand "agentx-bundled-locales" { } ''
           set -e
           echo "=== Checking bundled locales ==="
           test -d ${agentx-agent}/share/agentx-agent/locales || (echo "FAIL: locales directory missing"; exit 1)
@@ -210,7 +210,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Verify bundled optional-mcps catalog is present and resolvable.
         # optional-mcps/ is a bare data dir shipped via symlink +
         # AGENTX_OPTIONAL_MCPS (not via wheel data-files).
-        bundled-mcps = pkgs.runCommand "hermes-bundled-mcps" { } ''
+        bundled-mcps = pkgs.runCommand "agentx-bundled-mcps" { } ''
           set -e
           echo "=== Checking bundled optional-mcps ==="
           test -d ${agentx-agent}/share/agentx-agent/optional-mcps || (echo "FAIL: optional-mcps directory missing"; exit 1)
@@ -236,7 +236,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify bundled TUI is present and compiled
-        bundled-tui = pkgs.runCommand "hermes-bundled-tui" { } ''
+        bundled-tui = pkgs.runCommand "agentx-bundled-tui" { } ''
           set -e
           echo "=== Checking bundled TUI ==="
           test -d ${agentx-agent}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
@@ -258,7 +258,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
         # Verify AGENTX_NODE is set in wrapper and points to Node 26+
         # (AgentX pins its toolchain to Node 26 everywhere)
-        hermes-node = pkgs.runCommand "hermes-node-version" { } ''
+        agentx-node = pkgs.runCommand "agentx-node-version" { } ''
           set -e
           echo "=== Checking AGENTX_NODE in wrapper ==="
           grep -q "AGENTX_NODE" ${agentx-agent}/bin/agentx || \
@@ -280,7 +280,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         '';
 
         # Verify AGENTX_MANAGED guard works on all mutation commands
-        managed-guard = pkgs.runCommand "hermes-managed-guard" { } ''
+        managed-guard = pkgs.runCommand "agentx-managed-guard" { } ''
           set -e
           export HOME=$(mktemp -d)
 
@@ -307,7 +307,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           hermesWithExtra = agentx-agent.override {
             extraPythonPackages = [ testPkg ];
           };
-        in pkgs.runCommand "hermes-extra-python-packages" { } ''
+        in pkgs.runCommand "agentx-extra-python-packages" { } ''
           set -e
           echo "=== Checking extraPythonPackages PYTHONPATH injection ==="
 
@@ -335,7 +335,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           hermesWithGroups = agentx-agent.override {
             extraDependencyGroups = [ "honcho" ];
           };
-        in pkgs.runCommand "hermes-extra-dependency-groups" { } ''
+        in pkgs.runCommand "agentx-extra-dependency-groups" { } ''
           set -e
           echo "=== Checking extraDependencyGroups override evaluates ==="
 
@@ -354,7 +354,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Regression guard: messaging deps live outside [all], so the
         # #messaging variant must actually ship discord.py — otherwise
         # `nix profile install .#messaging` regresses to the broken default.
-        messaging-variant = pkgs.runCommand "hermes-messaging-variant" { } ''
+        messaging-variant = pkgs.runCommand "agentx-messaging-variant" { } ''
           set -e
           echo "=== Checking discord.py importable from messaging variant ==="
           ${self'.packages.messaging.hermesVenv}/bin/python3 -c \

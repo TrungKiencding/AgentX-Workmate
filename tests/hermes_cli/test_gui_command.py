@@ -98,7 +98,7 @@ def test_gui_install_env_prepends_managed_node_on_bare_path(tmp_path, monkeypatc
     _make_packaged_executable(root, monkeypatch, platform="win32")
 
     # A managed Node tree on disk so with_hermes_node_path() actually prepends it.
-    home = tmp_path / "hermes-home"
+    home = tmp_path / "agentx-home"
     (home / "node" / "bin").mkdir(parents=True)
     monkeypatch.setenv("AGENTX_HOME", str(home))
     # Simulate the stripped PATH the desktop updater chain hands us.

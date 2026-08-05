@@ -2132,7 +2132,7 @@ def _find_legacy_hermes_units() -> list[tuple[str, Path, bool]]:
 
     * Explicit allowlist of legacy names (no globbing). Profile units such
       as ``agentx-gateway-coder.service`` and unrelated third-party
-      ``hermes-*`` services are never matched.
+      ``agentx-*`` services are never matched.
     * ExecStart content check — only flag units that invoke our gateway
       entrypoint. A user-created ``hermes.service`` running an unrelated
       binary is left untouched.
@@ -3062,7 +3062,7 @@ def _temp_home_in_service_definition(definition: str) -> str | None:
     the gateway comes back "active (running)" but pointed at an empty temp
     home ("No messaging platforms enabled"), deaf to every platform.
     Seen live 2026-06-11: an E2E guard probe ran ``agentx gateway restart``
-    with ``AGENTX_HOME=/tmp/hermes-e2e-<pr>`` exported; the restart path's
+    with ``AGENTX_HOME=/tmp/agentx-e2e-<pr>`` exported; the restart path's
     unit refresh baked the temp path into the production unit and the
     post-update restart produced a zombie gateway for 7+ hours.
 
@@ -3148,7 +3148,7 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
         return False
 
     # Structural variant of the same belt: refuse to bake ANY temp-dir
-    # AGENTX_HOME into the unit (manual E2E homes like /tmp/hermes-e2e-NNN
+    # AGENTX_HOME into the unit (manual E2E homes like /tmp/agentx-e2e-NNN
     # don't carry the pytest markers above but poison the unit identically).
     if _refuse_temp_home_service_write(new_unit, "systemd unit"):
         return False
@@ -4216,7 +4216,7 @@ def refresh_launchd_plist_if_needed() -> bool:
         # launchd no longer knows about, so the gateway stays dark until a
         # manual `launchctl bootstrap`. Failures append a timestamped line
         # to ~/.agentx/logs/launchd-reload.log, which the health watchdog
-        # can tail to detect a persistent orphan. See hermes-restart
+        # can tail to detect a persistent orphan. See agentx-restart
         # rootcause handoff (2026-06-26 incident).
         reload_log_path = get_hermes_home() / "logs" / "launchd-reload.log"
         try:
@@ -6811,8 +6811,8 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
     # `docker stop` sends SIGTERM, at which point /init runs stage 3
     # shutdown (which tears down the supervised gateway cleanly).
     #
-    # Prefer `sleep infinity` (matches the static main-hermes service's
-    # pattern in docker/s6-rc.d/main-hermes/run, and frees the Python
+    # Prefer `sleep infinity` (matches the static main-agentx service's
+    # pattern in docker/s6-rc.d/main-agentx/run, and frees the Python
     # interpreter — the heartbeat is a tiny `sleep` process, not a
     # resident interpreter). But `os.execvp` does a PATH lookup for the
     # `sleep` binary and historically crashed the whole container with

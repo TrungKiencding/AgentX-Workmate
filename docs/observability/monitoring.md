@@ -16,7 +16,7 @@ capture is a separate plane served by the NeMo Relay integration
 
 | Signal | OTLP route | Content |
 | --- | --- | --- |
-| Gateway gauges | `/v1/metrics` | `hermes.gateway.up/state/busy/drainable/active_agents/background_work/background_delegations/restart_requested`, `hermes.platform.up/degraded` with bounded `error_code` attributes |
+| Gateway gauges | `/v1/metrics` | `agentx.gateway.up/state/busy/drainable/active_agents/background_work/background_delegations/restart_requested`, `agentx.platform.up/degraded` with bounded `error_code` attributes |
 | Health/lifecycle events | `/v1/traces` | `gateway.lifecycle` state transitions (`starting -> running -> draining -> stopped`, `startup_failed`, exit), `gateway.health_snapshot`, platform state changes |
 | Diagnostics | `/v1/logs` | Warning/error gateway events with a constant body and bounded subsystem, severity, error class, and error code attributes; rendered log messages are never exported |
 | Cron scheduler gauges | `/v1/metrics` | Ticker heartbeat and last-success age (omitted when unavailable), a monotonic catch-up-occurrence count from the scheduler's stale-window branch, enabled/running job counts, and overdue count derived from persisted `next_run_at` plus the scheduler's existing grace rule |
@@ -26,8 +26,8 @@ Signals carry `service.name`, version, supervision mode, and a stable one-way
 hash of the install id so an operator can distinguish instances without
 exporting account/profile identity or the raw install identifier.
 
-`hermes.gateway.active_agents`, `hermes.gateway.background_work`, and
-`hermes.gateway.background_delegations` are complementary. `active_agents`
+`agentx.gateway.active_agents`, `agentx.gateway.background_work`, and
+`agentx.gateway.background_delegations` are complementary. `active_agents`
 counts foreground message turns plus in-flight cron jobs plus API runs — the
 work the gateway drains on shutdown. `background_work` counts detached work that
 `active_agents` never includes: backgrounded `delegate_task` subagents,
@@ -92,7 +92,7 @@ service:
 ```
 
 Point `monitoring.export.otlp.endpoint` at the collector. Alerts belong on
-`hermes.gateway.up`, `hermes.platform.up`, and `hermes.platform.degraded`.
+`agentx.gateway.up`, `agentx.platform.up`, and `agentx.platform.degraded`.
 
 ## Generic fleet queries and alerts
 
@@ -129,13 +129,13 @@ hermes_cron_jobs_overdue > 0
 increase(hermes_cron_scheduler_catch_up_occurrences[15m]) > 0
 ```
 
-Cron execution lifecycle records arrive as `hermes.cron_execution` spans.
+Cron execution lifecycle records arrive as `agentx.cron_execution` spans.
 Alert or derive events from bounded attributes such as:
 
 ```text
-hermes.status = failed|unknown
-hermes.delivery_outcome = failed|not_configured
-hermes.error_class = auth_failed|rate_limited|timeout|network_error|
+agentx.status = failed|unknown
+agentx.delivery_outcome = failed|not_configured
+agentx.error_class = auth_failed|rate_limited|timeout|network_error|
                      dispatch_failed|interrupted|empty_response|
                      invalid_config|unknown
 ```
@@ -146,7 +146,7 @@ Recommended operator views:
    state;
 2. scheduler heartbeat, last-success age, running count, overdue count, and
    catch-up increase;
-3. a cron lifecycle feed keyed only by opaque `hermes.job_key`;
+3. a cron lifecycle feed keyed only by opaque `agentx.job_key`;
 4. separate alerts for box absence, local bridge down, scheduler stale, cron
    failed/unknown, delivery failure, and overdue/catch-up activity.
 
@@ -261,7 +261,7 @@ classifier, never one without the other:
 Rules: keep the vocabulary SMALL and operationally meaningful (an error class
 should map to an operator action, not to an exception subclass); a new bucket
 must match on a stable keyword, not on message text that could vary; update the
-`hermes.error_class = ...` list in this file's alert section and the enum's unit
+`agentx.error_class = ...` list in this file's alert section and the enum's unit
 test so the contract is asserted, not frozen as a count.
 
 ### Adding a content-free attribute to an existing event/span

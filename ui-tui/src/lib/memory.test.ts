@@ -20,7 +20,7 @@ describe('performHeapDump auto opt-in gate (#21767)', () => {
       delete process.env[k]
     }
 
-    dir = mkdtempSync(join(tmpdir(), 'hermes-heapdump-test-'))
+    dir = mkdtempSync(join(tmpdir(), 'agentx-heapdump-test-'))
     process.env.AGENTX_HEAPDUMP_DIR = dir
   })
 
@@ -116,7 +116,7 @@ describe('heapdump retention guard (#21767)', () => {
     savedDir = process.env.AGENTX_HEAPDUMP_DIR
     savedMax = process.env.AGENTX_HEAPDUMP_MAX_BYTES
     delete process.env.AGENTX_AUTO_HEAPDUMP
-    dir = mkdtempSync(join(tmpdir(), 'hermes-heapdump-prune-'))
+    dir = mkdtempSync(join(tmpdir(), 'agentx-heapdump-prune-'))
     process.env.AGENTX_HEAPDUMP_DIR = dir
   })
 

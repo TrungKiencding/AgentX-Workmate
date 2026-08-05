@@ -604,7 +604,7 @@ class _SherpaKwsEngine(_Engine):
         # them and map display → profile for match routing.
         self._display_to_profile: Dict[str, str] = {}
         kw = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", prefix="hermes-kws-", delete=False, encoding="utf-8"
+            mode="w", suffix=".txt", prefix="agentx-kws-", delete=False, encoding="utf-8"
         )
         for p, toks in zip(phrases, tokens):
             display = p.upper().replace(" ", "_")

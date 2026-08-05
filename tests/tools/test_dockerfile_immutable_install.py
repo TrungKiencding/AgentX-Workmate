@@ -91,7 +91,7 @@ def test_dockerfile_redirects_lazy_installs_to_durable_target() -> None:
     )
     assert "lazy-packages" in stage2.split("for sub in", 1)[1].split(";", 1)[0], (
         "lazy-packages must be in the per-boot chown subdir list so it stays "
-        "hermes-owned"
+        "agentx-owned"
     )
 
 

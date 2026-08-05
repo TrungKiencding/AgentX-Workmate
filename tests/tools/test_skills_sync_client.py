@@ -837,12 +837,12 @@ class TestDeviceName:
     def test_env_seeds_first_use(self, tmp_path, monkeypatch):
         # AgentX Cloud path: AGENTX_SYNC_DEVICE_NAME seeds the first-use label.
         monkeypatch.setattr(ssc, "_skills_dir", lambda: tmp_path)
-        monkeypatch.setenv("AGENTX_SYNC_DEVICE_NAME", "hermes-cloud-ben-1")
-        assert ssc.stable_device_id() == "hermes-cloud-ben-1"
+        monkeypatch.setenv("AGENTX_SYNC_DEVICE_NAME", "agentx-cloud-ben-1")
+        assert ssc.stable_device_id() == "agentx-cloud-ben-1"
         # persisted so it stays stable even if the env later changes
-        assert (tmp_path / ".sync_device_id").read_text() == "hermes-cloud-ben-1"
+        assert (tmp_path / ".sync_device_id").read_text() == "agentx-cloud-ben-1"
         monkeypatch.setenv("AGENTX_SYNC_DEVICE_NAME", "changed")
-        assert ssc.stable_device_id() == "hermes-cloud-ben-1"
+        assert ssc.stable_device_id() == "agentx-cloud-ben-1"
 
     def test_set_device_name_overwrites(self, tmp_path, monkeypatch):
         monkeypatch.setattr(ssc, "_skills_dir", lambda: tmp_path)

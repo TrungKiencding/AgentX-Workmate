@@ -18,7 +18,7 @@ editors or ship built-in presets.
 ## Prerequisites
 
 - Write access to the AgentX home dir — `~/.agentx` by default, or `$AGENTX_HOME`
-  / the active profile's dir. Skins live in `<hermes-home>/skins/`.
+  / the active profile's dir. Skins live in `<agentx-home>/skins/`.
 - Native tools: `write_file` (create the YAML), `read_file` / `search_files`
   (inspect existing skins), `terminal` (activate via `agentx config set`).
 
@@ -27,7 +27,7 @@ editors or ship built-in presets.
 1. Pick a lowercase, hyphen-safe `name` (e.g. `synthwave`).
 2. Copy `templates/skin.yaml` and fill in the palette (keep every key — missing
    keys inherit the `default` skin).
-3. `write_file` it to `<hermes-home>/skins/<name>.yaml`.
+3. `write_file` it to `<agentx-home>/skins/<name>.yaml`.
 4. Activate it (see Procedure). Confirm the change landed.
 
 ## Quick Reference — element → key
@@ -65,7 +65,7 @@ so to recolor *only* tool calls (the classic "change the gold `●`") set `ui_to
    clears WCAG AA against it (~4.5:1) so labels stay legible — the GUI enforces
    contrast but a low-contrast accent still looks washed out. Keep
    `ui_ok`/`ui_warn`/`ui_error` recognizably green/amber/red.
-2. **Write the file** to `<hermes-home>/skins/<name>.yaml`. Every top-level
+2. **Write the file** to `<agentx-home>/skins/<name>.yaml`. Every top-level
    `colors` key from the template should be present.
 3. **Apply it yourself — never hand-edit `config.yaml`.** Run the safe writer via
    `terminal`:
@@ -121,7 +121,7 @@ enumerate.
 
 ## Verification
 
-- `read_file` the written `<hermes-home>/skins/<name>.yaml` and confirm valid
+- `read_file` the written `<agentx-home>/skins/<name>.yaml` and confirm valid
   YAML with the intended `name` and `colors`.
 - Run `agentx config get display.skin` and confirm it reports `<name>`.
 - The repaint lands as this turn ends — ask the user to confirm the new look.

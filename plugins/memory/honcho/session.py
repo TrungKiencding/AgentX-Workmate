@@ -384,7 +384,7 @@ class HonchoSessionManager:
         user_peer_id = self._resolve_user_peer_id(key)
 
         assistant_peer_id = self._sanitize_id(
-            self._config.ai_peer if self._config else "hermes-assistant"
+            self._config.ai_peer if self._config else "agentx-assistant"
         )
 
         # All expensive I/O outside the lock — Honcho's persistence is source of truth

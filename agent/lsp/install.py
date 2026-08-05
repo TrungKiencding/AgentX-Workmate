@@ -342,7 +342,7 @@ def _install_go(pkg: str, bin_name: str) -> Optional[str]:
 
 
 def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
-    """Install a Python package into a hermes-owned target dir.
+    """Install a Python package into a agentx-owned target dir.
 
     We avoid polluting the user's site-packages by using
     ``pip install --target``.  Bins go into

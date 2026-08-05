@@ -33,7 +33,7 @@ Config schema (``~/.agentx/config.yaml``)::
 
     hooks:
       outbound:
-        - url: https://ci.example.com/hermes-events
+        - url: https://ci.example.com/agentx-events
           events: [on_session_end, subagent_stop]
           # secret literal (discouraged) or env var name (preferred):
           secret_env: AGENTX_OUTBOUND_WEBHOOK_SECRET

@@ -67,9 +67,9 @@ SCHEMA_PATH = (
     / "hermes_cli"
     / "observability"
     / "schemas"
-    / "hermes.shared_metrics.v2.schema.json"
+    / "agentx.shared_metrics.v2.schema.json"
 )
-LEGACY_SCHEMA_PATH = SCHEMA_PATH.with_name("hermes.shared_metrics.v1.schema.json")
+LEGACY_SCHEMA_PATH = SCHEMA_PATH.with_name("agentx.shared_metrics.v1.schema.json")
 
 
 def _schema_validator(path: Path = SCHEMA_PATH):
@@ -141,7 +141,7 @@ def test_model_call_counter_survives_restart_and_exports_only_new_deltas(tmp_pat
     _schema_validator().validate(first_package)
     uuid.UUID(first_package["package_id"])
     uuid.UUID(first_package["install_id"])
-    assert first_package["schema_version"] == "hermes.shared_metrics.v2"
+    assert first_package["schema_version"] == "agentx.shared_metrics.v2"
     assert first_package["resource"] == {"hermes_version": "test-version"}
     assert first_package["metrics"] == [
         {
@@ -205,7 +205,7 @@ def test_v2_package_preserves_pending_v1_model_counters(tmp_path):
     package = json.loads(package_path.read_text(encoding="utf-8"))
     _schema_validator().validate(package)
 
-    assert package["schema_version"] == "hermes.shared_metrics.v2"
+    assert package["schema_version"] == "agentx.shared_metrics.v2"
     assert package["metrics"] == [
         {
             "name": LEGACY_MODEL_CALL_METRIC,
@@ -231,7 +231,7 @@ def test_v1_outbox_package_exports_unchanged_after_upgrade(tmp_path):
     store = SharedMetricsStore(database_path, outbox_directory)
     package_id = str(uuid.uuid4())
     payload = {
-        "schema_version": "hermes.shared_metrics.v1",
+        "schema_version": "agentx.shared_metrics.v1",
         "package_id": package_id,
         "install_id": str(uuid.uuid4()),
         "period_start": "2026-07-28T00:00:00Z",
@@ -325,7 +325,7 @@ def test_package_schema_matches_the_model_call_contract():
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     properties = _package_dimension_schema()["properties"]
 
-    assert schema["properties"]["schema_version"]["const"] == "hermes.shared_metrics.v2"
+    assert schema["properties"]["schema_version"]["const"] == "agentx.shared_metrics.v2"
     assert set(properties) == {"model", "provider"}
     assert properties["model"]["maxLength"] == MODEL_IDENTIFIER_MAX_LENGTH
     assert properties["provider"]["maxLength"] == PROVIDER_IDENTIFIER_MAX_LENGTH
@@ -337,7 +337,7 @@ def test_v1_package_schema_retains_the_legacy_model_contract():
     schema = json.loads(LEGACY_SCHEMA_PATH.read_text(encoding="utf-8"))
     model_counter = schema["$defs"]["model_call_counter"]
 
-    assert schema["properties"]["schema_version"]["const"] == "hermes.shared_metrics.v1"
+    assert schema["properties"]["schema_version"]["const"] == "agentx.shared_metrics.v1"
     assert model_counter["properties"]["name"]["const"] == LEGACY_MODEL_CALL_METRIC
     assert set(model_counter["properties"]["dimensions"]["properties"]) == {
         "call_role",
@@ -505,7 +505,7 @@ def test_auxiliary_logical_scope_projects_one_normalized_terminal_route():
         metadata={
             relay_runtime.RUNTIME_SCHEMA_KEY: relay_runtime.RUNTIME_SCHEMA_VERSION,
             relay_runtime.RUNTIME_INSTANCE_KEY: "runtime-1",
-            "hermes.call_role": "auxiliary:compression",
+            "agentx.call_role": "auxiliary:compression",
         },
     )
 
@@ -523,7 +523,7 @@ def test_auxiliary_logical_scope_projects_one_normalized_terminal_route():
         "provider": "openrouter",
     }
 
-    event.metadata["hermes.call_role"] = "primary"
+    event.metadata["agentx.call_role"] = "primary"
     assert model_call_dimensions(event) is None
 
 
@@ -572,9 +572,9 @@ def test_tool_subscriber_contract_accepts_only_bounded_events():
         kind="scope",
         category="tool",
         category_profile={},
-        name="hermes.tool_call",
+        name="agentx.tool_call",
         scope_category="end",
-        metadata={"hermes.metrics.schema_version": "hermes.metrics.event.v2"},
+        metadata={"agentx.metrics.schema_version": "agentx.metrics.event.v2"},
         data={
             "approval_outcome": "approved",
             "latency_bucket": "250ms_to_500ms",
@@ -598,13 +598,13 @@ def test_tool_subscriber_contract_accepts_only_bounded_events():
         kind="mark",
         category=None,
         category_profile=None,
-        name="hermes.tool_approval",
+        name="agentx.tool_approval",
         scope_category=None,
-        metadata={"hermes.metrics.schema_version": "hermes.metrics.event.v2"},
+        metadata={"agentx.metrics.schema_version": "agentx.metrics.event.v2"},
         data={"attribution": "unattributed", "outcome": "denied"},
     )
     assert tool_approval_counter(approval) == (
-        "hermes.tool_approval.count",
+        "agentx.tool_approval.count",
         approval.data,
     )
     approval.data["command"] = "must-not-pass"

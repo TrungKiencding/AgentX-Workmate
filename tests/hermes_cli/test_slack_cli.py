@@ -95,7 +95,7 @@ class TestSlackManifestArgparse:
     def test_long_description_file_reports_tilde_expansion_errors(
         self, monkeypatch, capsys
     ):
-        source = "~hermes-user-that-does-not-exist-20260716/AGENTS.md"
+        source = "~agentx-user-that-does-not-exist-20260716/AGENTS.md"
 
         def fail_expanduser(_path):
             raise RuntimeError("home directory unavailable")

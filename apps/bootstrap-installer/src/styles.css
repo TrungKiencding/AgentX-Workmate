@@ -40,11 +40,11 @@
   }
 }
 
-.hermes-fade-in {
+.agentx-fade-in {
   animation: agentx-fade-in 0.45s ease-out both;
 }
 
-.hermes-glow {
+.agentx-glow {
   background: radial-gradient(
     ellipse at center,
     color-mix(in srgb, var(--ui-warm) 18%, transparent) 0%,

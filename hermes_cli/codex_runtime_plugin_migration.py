@@ -471,7 +471,7 @@ def _query_codex_plugins(
         with CodexAppServerClient(
             codex_home=str(codex_home) if codex_home else None
         ) as client:
-            client.initialize(client_name="hermes-migration")
+            client.initialize(client_name="agentx-migration")
             resp = client.request("plugin/list", {}, timeout=timeout)
     except Exception as exc:
         return [], f"plugin/list query failed: {exc}"

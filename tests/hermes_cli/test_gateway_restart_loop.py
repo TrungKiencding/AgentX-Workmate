@@ -91,7 +91,7 @@ class TestGatewayLifecyclePattern:
         # `contains_launchctl_submit_command` handles neutral-label submits
         # at the terminal/cron-script chokepoints instead.
         "launchctl submit -l com.example.backup -- /bin/sh backup.sh",
-        "systemctl restart hermes-meta.service",
+        "systemctl restart agentx-meta.service",
         "systemctl restart agentx-cron-helper",
         # Regression (#30728 follow-up): legit prompts that merely mention an
         # unrelated gateway + a restart must NOT be blocked. The cron prompt is

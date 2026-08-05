@@ -213,7 +213,7 @@ def _check_disk_usage_warning():
         # Get total size of agentx directories
         total_bytes = 0
         import glob
-        for path in glob.glob(str(scratch_dir / "hermes-*")):
+        for path in glob.glob(str(scratch_dir / "agentx-*")):
             for f in Path(path).rglob('*'):
                 if f.is_file():
                     try:
@@ -1580,7 +1580,7 @@ def _get_env_config() -> Dict[str, Any]:
         "docker_persist_across_processes": os.getenv(
             "TERMINAL_DOCKER_PERSIST_ACROSS_PROCESSES", "true"
         ).lower() in {"true", "1", "yes"},
-        # Startup orphan reaper for hermes-tagged containers left behind by
+        # Startup orphan reaper for agentx-tagged containers left behind by
         # crashed / SIGKILL'd previous processes that bypassed atexit.
         # Conservative: only sweeps Exited containers older than 2× the
         # idle-reap window AND scoped to the current profile. Issue #20561.
@@ -1907,7 +1907,7 @@ def cleanup_all_environments():
     # Also clean any orphaned directories
     scratch_dir = _get_scratch_dir()
     import glob
-    for path in glob.glob(str(scratch_dir / "hermes-*")):
+    for path in glob.glob(str(scratch_dir / "agentx-*")):
         try:
             shutil.rmtree(path, ignore_errors=True)
             logger.info("Removed orphaned: %s", path)

@@ -366,7 +366,7 @@ function buildRoutes(
   return routes;
 }
 
-const SIDEBAR_COLLAPSED_KEY = "hermes-sidebar-collapsed";
+const SIDEBAR_COLLAPSED_KEY = "agentx-sidebar-collapsed";
 
 export default function App() {
   const { t } = useI18n();
@@ -659,7 +659,7 @@ export default function App() {
 
               {sidebarNav.pluginItems.length > 0 && (
                 <div
-                  aria-labelledby="hermes-sidebar-plugin-nav-heading"
+                  aria-labelledby="agentx-sidebar-plugin-nav-heading"
                   className="flex flex-col border-t border-current/10 pb-2"
                   role="group"
                 >
@@ -669,7 +669,7 @@ export default function App() {
                       "font-sans text-display text-xs tracking-[0.12em] text-text-tertiary",
                       isDesktopCollapsed && "lg:hidden",
                     )}
-                    id="hermes-sidebar-plugin-nav-heading"
+                    id="agentx-sidebar-plugin-nav-heading"
                   >
                     {t.app.pluginNavSection}
                   </span>

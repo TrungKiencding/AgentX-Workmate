@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("hermes.security_audit")
+logger = logging.getLogger("agentx.security_audit")
 
 # Sentinel so the audit only runs once per process even if both the CLI and
 # gateway startup paths call it.

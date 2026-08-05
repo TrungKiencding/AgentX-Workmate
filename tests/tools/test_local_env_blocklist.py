@@ -519,7 +519,7 @@ class TestSanePathIncludesHomebrew:
     @pytest.fixture(autouse=True)
     def _disable_hermes_bin_injection(self):
         """These tests assert the sane-path merge in isolation. Disable the
-        hermes-install-dir prepend (a separate concern, covered by
+        agentx-install-dir prepend (a separate concern, covered by
         TestHermesBinDirOnPath) so a real ``agentx`` on the test runner's PATH
         doesn't shift the asserted PATH layout."""
         from tools.environments import local as local_mod

@@ -1,6 +1,6 @@
 """Runtime smoke tests for the Docker image entrypoint and subcommands.
 
-Converted from the former ``.github/actions/hermes-smoke-test`` composite
+Converted from the former ``.github/actions/agentx-smoke-test`` composite
 action.  These tests exercise the image's real ENTRYPOINT (``/init`` +
 ``main-wrapper.sh``) via ``docker run --rm <image> --help`` and
 ``docker run --rm <image> dashboard --help`` to catch basic runtime

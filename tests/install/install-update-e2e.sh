@@ -81,7 +81,7 @@ UPSTREAM_URL="${AGENTX_DEV_SANDBOX_UPSTREAM:-https://github.com/NousResearch/her
 # and (unless --keep) deleted, and these logs are the most useful artifact when
 # a real install breaks. Created after the dirty check below, so that a log dir
 # pointed inside the repo cannot be the thing that makes the tree dirty.
-LOG_DIR="${AGENTX_E2E_LOG_DIR:-$(mktemp -d -t hermes-install-e2e-logs.XXXXXX)}"
+LOG_DIR="${AGENTX_E2E_LOG_DIR:-$(mktemp -d -t agentx-install-e2e-logs.XXXXXX)}"
 
 step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓ %s\033[0m\n' "$*"; }

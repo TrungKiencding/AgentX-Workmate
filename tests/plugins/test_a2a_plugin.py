@@ -214,10 +214,10 @@ class TestAudit:
 class TestAgentCardV1:
     def test_card_shape(self):
         card = protocol.build_agent_card(
-            name="hermes-test", url="http://localhost:9900/",
+            name="agentx-test", url="http://localhost:9900/",
             description="test", skills=[], streaming=False, auth_required=False,
         )
-        assert card["name"] == "hermes-test"
+        assert card["name"] == "agentx-test"
         # v1.0: no top-level protocolVersion / preferredTransport —
         # consolidated into supportedInterfaces[].
         assert "protocolVersion" not in card

@@ -2669,7 +2669,7 @@ class MCPServerTask:
                             '"method":"initialize",'
                             '"params":{"protocolVersion":"2025-03-26",'
                             '"capabilities":{},'
-                            '"clientInfo":{"name":"hermes-probe",'
+                            '"clientInfo":{"name":"agentx-probe",'
                             '"version":"0.1"}}}'
                         ),
                     )

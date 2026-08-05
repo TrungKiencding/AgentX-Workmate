@@ -115,7 +115,7 @@ def test_deferred_platform_loader_registers_cli_command_before_parser_table():
     before argparse builds plugin command subparsers (issue #54678 review).
 
     Existing unit tests mock ``platform_registry.get`` and only assert the
-    helper calls it. This regression exercises the full chain hermes-sweeper
+    helper calls it. This regression exercises the full chain agentx-sweeper
     asked for:
 
     1. a deferred platform loader is pending on a real ``PlatformRegistry``

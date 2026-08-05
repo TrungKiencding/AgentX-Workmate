@@ -200,7 +200,7 @@ class TestToolsetConsistency:
 
 
     def test_hermes_platforms_share_core_tools(self):
-        """All hermes-* platform toolsets share the same core tools.
+        """All agentx-* platform toolsets share the same core tools.
 
         Platform-specific additions (e.g. ``discord`` / ``discord_admin``
         on agentx-discord, gated on DISCORD_BOT_TOKEN) are allowed on top —

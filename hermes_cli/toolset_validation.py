@@ -24,7 +24,7 @@ def validate_platform_toolsets(
     Two failure modes are reported:
 
     1. A toolset name that ``is_valid_toolset`` rejects — usually a corrupted or
-       renamed entry. When ``hermes-<platform>`` would have been valid (the exact
+       renamed entry. When ``agentx-<platform>`` would have been valid (the exact
        #38798 shape, where ``cli`` held ``agentx`` instead of ``agentx-cli``),
        the warning includes that as a suggestion.
     2. The mapping is non-empty but resolves to *zero* valid toolsets, so the

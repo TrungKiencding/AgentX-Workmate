@@ -58,6 +58,11 @@ BRAND_DIST_NAME="agentx-workmate"
 # Desktop application name.
 BRAND_DESKTOP_APP_NAME="AgentX Workmate"
 
-# Web presence. Not registered yet — empty means "no link".
+# Web presence. Not registered yet — empty means "no link". A caller must
+# omit the whole line when these are empty rather than print a dead URL.
 BRAND_WEBSITE_URL=""
 BRAND_DOCS_URL=""
+
+# Canonical source repository. Install one-liners and update checks derive
+# their URLs from this, so retargeting a fork is a one-line change.
+BRAND_REPO_URL="https://github.com/AstralX/agentx-workmate"

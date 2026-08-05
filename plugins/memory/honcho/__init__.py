@@ -415,7 +415,7 @@ class HonchoMemoryProvider(MemoryProvider):
                 gateway_session_key=gateway_session_key,
             )
             or session_id
-            or "hermes-default"
+            or "agentx-default"
         )
 
     def _start_session_init_background(self, *, wait_timeout: float = 0.0) -> None:
@@ -442,7 +442,7 @@ class HonchoMemoryProvider(MemoryProvider):
 
             cfg = self._config
             init_kwargs = dict(self._lazy_init_kwargs)
-            init_session_id = self._lazy_init_session_id or "hermes-default"
+            init_session_id = self._lazy_init_session_id or "agentx-default"
 
             def _run() -> None:
                 try:
@@ -566,7 +566,7 @@ class HonchoMemoryProvider(MemoryProvider):
         try:
             self._do_session_init(
                 self._config,
-                self._lazy_init_session_id or "hermes-default",
+                self._lazy_init_session_id or "agentx-default",
                 **self._lazy_init_kwargs,
             )
             # Clear lazy refs

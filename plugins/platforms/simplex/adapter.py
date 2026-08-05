@@ -79,7 +79,7 @@ HEALTH_CHECK_INTERVAL = 30.0
 HEALTH_CHECK_STALE_THRESHOLD = 300.0
 
 # Correlation ID prefix for requests we send so we can ignore our own echoes.
-_CORR_PREFIX = "hermes-"
+_CORR_PREFIX = "agentx-"
 
 
 # ---------------------------------------------------------------------------

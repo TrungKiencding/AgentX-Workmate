@@ -1656,7 +1656,7 @@ def _play_audio_file_impl(file_path: str) -> bool:
                 if _win_tmp_wsl:
                     # Unique suffix prevents concurrent TTS playback collision.
                     _unique = uuid.uuid4().hex[:8]
-                    _wsl_wav = os.path.join(_win_tmp_wsl, f"hermes-tts-{_unique}.wav")
+                    _wsl_wav = os.path.join(_win_tmp_wsl, f"agentx-tts-{_unique}.wav")
                     _win_wav = subprocess.check_output(
                         ["wslpath", "-w", _wsl_wav],
                         stderr=subprocess.DEVNULL, timeout=3,

@@ -105,7 +105,7 @@ _CLI_TIMEOUT = 30.0
 _WS_AUTH_TIMEOUT = 20.0
 _WS_MAX_MESSAGE_BYTES = 2_000_000
 _WS_MEMBERSHIP_KIND = 44100
-_WS_MEMBERSHIP_SUB_ID = "hermes-buzz-membership"
+_WS_MEMBERSHIP_SUB_ID = "agentx-buzz-membership"
 
 # Where to look for a credentials JSON (keys: nsec / private_key_hex) when
 # BUZZ_PRIVATE_KEY is not set.  Module-level so tests can point it at a tmpdir.
@@ -805,7 +805,7 @@ class BuzzAdapter(BasePlatformAdapter):
         (kind 44100 p-tagged to us) for live DM discovery."""
         subscriptions: Dict[str, Optional[str]] = {}
         for index, channel_id in enumerate(list(self._channel_state)):
-            subscription_id = f"hermes-buzz-{index}"
+            subscription_id = f"agentx-buzz-{index}"
             subscriptions[subscription_id] = channel_id
             await self._send_channel_subscription(websocket, subscription_id, channel_id)
         if self._self_pubkey:
@@ -831,7 +831,7 @@ class BuzzAdapter(BasePlatformAdapter):
         for channel_id in self._channel_state:
             if channel_id in before:
                 continue
-            subscription_id = f"hermes-buzz-dm-{len(subscriptions)}"
+            subscription_id = f"agentx-buzz-dm-{len(subscriptions)}"
             subscriptions[subscription_id] = channel_id
             await self._send_channel_subscription(websocket, subscription_id, channel_id)
             logger.info("Buzz: subscribed to new conversation %s", channel_id)

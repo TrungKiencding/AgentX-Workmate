@@ -652,7 +652,7 @@ def _resolve_bank_id_template(template: str, fallback: str, **placeholders: str)
       {session}   — current session id
 
     Missing/empty placeholders are rendered as the empty string and then
-    collapsed — e.g. ``hermes-{user}`` with no user becomes ``agentx``.
+    collapsed — e.g. ``agentx-{user}`` with no user becomes ``agentx``.
 
     If the template is empty, resolution falls back to *fallback*.
     Returns the sanitized bank id.
@@ -1069,7 +1069,7 @@ class HindsightMemoryProvider(MemoryProvider):
             {"key": "llm_api_key", "description": "LLM API key (optional for openai_compatible)", "secret": True, "env_var": "HINDSIGHT_LLM_API_KEY", "when": {"mode": "local_embedded"}},
             {"key": "llm_model", "description": "LLM model", "default": "gpt-4o-mini", "default_from": {"field": "llm_provider", "map": _PROVIDER_DEFAULT_MODELS}, "when": {"mode": "local_embedded"}},
             {"key": "bank_id", "description": "Memory bank name (static fallback when bank_id_template is unset)", "default": "agentx"},
-            {"key": "bank_id_template", "description": "Optional template to derive bank_id dynamically. Placeholders: {profile}, {workspace}, {platform}, {user}, {session}. Example: hermes-{profile}", "default": ""},
+            {"key": "bank_id_template", "description": "Optional template to derive bank_id dynamically. Placeholders: {profile}, {workspace}, {platform}, {user}, {session}. Example: agentx-{profile}", "default": ""},
             {"key": "bank_mission", "description": "Mission/purpose description for the memory bank"},
             {"key": "bank_retain_mission", "description": "Custom extraction prompt for memory retention"},
             {"key": "recall_budget", "description": "Recall thoroughness", "default": "mid", "choices": ["low", "mid", "high"]},

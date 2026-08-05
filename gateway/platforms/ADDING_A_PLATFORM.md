@@ -236,7 +236,7 @@ inappropriate formatting (e.g., markdown on platforms that don't render it).
 Add a named toolset for your platform:
 
 ```python
-"hermes-your-platform": {
+"agentx-your-platform": {
     "description": "Your Platform bot toolset",
     "tools": _AGENTX_CORE_TOOLS,
     "includes": []
@@ -247,7 +247,7 @@ And add it to the `agentx-gateway` composite:
 
 ```python
 "agentx-gateway": {
-    "includes": [..., "hermes-your-platform"]
+    "includes": [..., "agentx-your-platform"]
 }
 ```
 

@@ -88,7 +88,7 @@ def test_install_sh_repository_stage_recovers_from_autostash_conflict(
 ) -> None:
     managed = _make_conflicted_managed_checkout(tmp_path)
     env = os.environ | {
-        "AGENTX_HOME": str(tmp_path / "hermes-home"),
+        "AGENTX_HOME": str(tmp_path / "agentx-home"),
         "AGENTX_INSTALL_DIR": str(managed),
     }
 
@@ -125,7 +125,7 @@ def test_install_ps1_repository_stage_recovers_from_autostash_conflict(
             "-InstallDir",
             str(managed),
             "-AgentXHome",
-            str(tmp_path / "hermes-home"),
+            str(tmp_path / "agentx-home"),
         ],
         cwd=tmp_path,
         capture_output=True,
@@ -175,7 +175,7 @@ def test_install_sh_repository_stage_clean_apply_drops_stash(
     _git(upstream, "push", "origin", "main")
 
     env = os.environ | {
-        "AGENTX_HOME": str(tmp_path / "hermes-home"),
+        "AGENTX_HOME": str(tmp_path / "agentx-home"),
         "AGENTX_INSTALL_DIR": str(managed),
     }
     result = subprocess.run(

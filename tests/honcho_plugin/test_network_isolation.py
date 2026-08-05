@@ -62,7 +62,7 @@ class TestAmbientProductionConfig:
     def test_ambient_live_config_produces_zero_requests(self, tmp_path, monkeypatch):
         """Regression 2: ambient AGENTX_HOME with a live URL must not leak
         requests - hygiene (factory injection) keeps the suite green."""
-        home = tmp_path / "hermes-home"
+        home = tmp_path / "agentx-home"
         home.mkdir()
         (home / "honcho.json").write_text(json.dumps({
             "baseUrl": "http://localhost:8000",

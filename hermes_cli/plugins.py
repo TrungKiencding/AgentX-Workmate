@@ -2424,7 +2424,7 @@ def resolve_plugin_command_result(result: Any) -> Any:
 
     thread = threading.Thread(
         target=_runner,
-        name="hermes-plugin-command-await",
+        name="agentx-plugin-command-await",
         daemon=True,
     )
     thread.start()

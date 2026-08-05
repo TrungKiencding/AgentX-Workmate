@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_DIAGNOSTIC_SCOPE = "hermes.gateway.diagnostics"
+_DEFAULT_DIAGNOSTIC_SCOPE = "agentx.gateway.diagnostics"
 
 _RESOURCE_ATTRIBUTE_KEYS = frozenset({
     "service.name",
@@ -304,7 +304,7 @@ def _read_cron_snapshot():
 def _read_background_work_count() -> int:
     """Count live background/subagent work that ``active_agents`` does NOT include.
 
-    ``hermes.gateway.active_agents`` counts foreground turns + in-flight cron
+    ``agentx.gateway.active_agents`` counts foreground turns + in-flight cron
     jobs + API runs, but deliberately excludes backgrounded ``delegate_task``
     subagents, ``terminal(background=true)`` processes, kanban workers, and the
     runner's own background tasks (they are tracked only for the scale-to-zero
@@ -366,14 +366,14 @@ def _read_runtime_snapshot(config: Dict[str, Any]):
         base = dict(gateway_snapshot.metrics[0].attributes) if gateway_snapshot.metrics else {}
         gateway_snapshot.metrics.append(
             GatewayMetric(
-                name="hermes.gateway.background_work",
+                name="agentx.gateway.background_work",
                 value=_read_background_work_count(),
                 attributes=base,
             )
         )
         gateway_snapshot.metrics.append(
             GatewayMetric(
-                name="hermes.gateway.background_delegations",
+                name="agentx.gateway.background_delegations",
                 value=_read_background_delegations_count(),
                 attributes=base,
             )
@@ -431,26 +431,26 @@ def _start_metric_provider(config: Dict[str, Any], sdk: Dict[str, Any]) -> Any:
         metric_readers=[reader],
         resource=sdk["Resource"].create(resource_attrs),
     )
-    meter = provider.get_meter("hermes.gateway.health")
+    meter = provider.get_meter("agentx.gateway.health")
     Observation = sdk["Observation"]
 
     metric_names = [
-        "hermes.gateway.up",
-        "hermes.gateway.state",
-        "hermes.gateway.active_agents",
-        "hermes.gateway.busy",
-        "hermes.gateway.drainable",
-        "hermes.gateway.restart_requested",
-        "hermes.gateway.background_work",
-        "hermes.gateway.background_delegations",
-        "hermes.platform.up",
-        "hermes.platform.degraded",
-        "hermes.cron.scheduler.heartbeat_age_seconds",
-        "hermes.cron.scheduler.last_success_age_seconds",
-        "hermes.cron.scheduler.catch_up_occurrences",
-        "hermes.cron.jobs.enabled",
-        "hermes.cron.jobs.running",
-        "hermes.cron.jobs.overdue",
+        "agentx.gateway.up",
+        "agentx.gateway.state",
+        "agentx.gateway.active_agents",
+        "agentx.gateway.busy",
+        "agentx.gateway.drainable",
+        "agentx.gateway.restart_requested",
+        "agentx.gateway.background_work",
+        "agentx.gateway.background_delegations",
+        "agentx.platform.up",
+        "agentx.platform.degraded",
+        "agentx.cron.scheduler.heartbeat_age_seconds",
+        "agentx.cron.scheduler.last_success_age_seconds",
+        "agentx.cron.scheduler.catch_up_occurrences",
+        "agentx.cron.jobs.enabled",
+        "agentx.cron.jobs.running",
+        "agentx.cron.jobs.overdue",
     ]
 
     def callback(name: str):

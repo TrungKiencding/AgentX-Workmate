@@ -335,7 +335,7 @@ def test_s6_log_run_creates_leaf_as_hermes_without_chown(
 
     #45258 parent ownership is stage2's job (``logs/gateways`` seeded as
     agentx). Restartable log/run must not pathname-chown or pathname-rm a
-    hermes-writable tree from root — that is a symlink TOCTOU hole.
+    agentx-writable tree from root — that is a symlink TOCTOU hole.
     """
     mgr = S6ServiceManager(scandir=s6_scandir)
     mgr.register_profile_gateway("coder")
@@ -343,7 +343,7 @@ def test_s6_log_run_creates_leaf_as_hermes_without_chown(
     log_text = (s6_scandir / "gateway-coder" / "log" / "run").read_text()
 
     assert not any(line.lstrip().startswith("chown ") for line in log_text.splitlines()), (
-        "restartable log/run must not invoke chown on hermes-writable paths; "
+        "restartable log/run must not invoke chown on agentx-writable paths; "
         f"saw: {log_text!r}"
     )
     assert 's6-setuidgid agentx mkdir -p "$log_dir"' in log_text

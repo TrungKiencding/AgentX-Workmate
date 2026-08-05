@@ -78,20 +78,34 @@ PRESERVED = [
     # installer parameter rule is \bHermesHome\b and must not reach these.
     "sandbox.hermesHome",
     "normalizeHermesHomeRoot(runtime.hermesHome)",
-    # Kebab tokens are a separate concern from the config directory, and the
-    # path rules must not nibble the first segment off one. Renaming half of
-    # a token pair is worse than renaming neither: it broke a CSS selector
-    # (summary.hermes-kanban-run-meta-label) whose counterpart still spelled
-    # the old way. The kanban classes belong to phase 8.
-    ".hermes-kanban-card",
-    "summary.hermes-kanban-run-meta-label",
     # The Electron executable is named by the desktop build config, not by the
     # launcher rules: `bin/` and `_dir/` are what anchor those.
     "release/linux-unpacked/hermes",
     # Kebab neighbours that are NOT ours.
     "hermes-tools",  # MCP server name
-    "hermes-index",  # skills-hub source id
     "hermes-ink",  # npm package directory on disk
+    # github.com/stephenschoettler/hermes-lcm — a third-party context-engine
+    # plugin, named in agent/ comments and packaged in nix/nixosModules.nix.
+    "hermes-lcm",
+    "See hermes-lcm#68",
+    # A deliberate counter-example: model_switch.py's non-agentic filter must
+    # not match a local Modelfile that merely starts with the word, and
+    # test_nous_hermes_non_agentic.py asserts exactly that. Renaming this
+    # fixture would make that test vacuous.
+    "hermes-brain:qwen3-14b-ctx16k",
+    "hermes-seaeye[bot]",  # a real GitHub account in the contributor audit
+    # The same guarded names behind a path separator, which is where they
+    # actually appear. Dropping `/` from the kebab lookbehind made these
+    # reachable, so the by-name guards are now the only thing holding them.
+    "ui-tui/packages/hermes-ink/package.json",
+    "plugins/hermes-achievements/dashboard/dist/index.js",
+    "import { parse } from 'hermes-parser'",
+    "node_modules/hermes-estree/dist/index.js",
+    # Deliberate references to a PRE-rename name: the migration allowlists that
+    # find and remove units/entries left by installs older than the rename.
+    "hermes.service",
+    '_LEGACY_SERVICE_NAMES: tuple[str, ...] = ("hermes.service",)',
+    'data_base / "applications" / "hermes.desktop"',
     "hermes-0day",  # the name of a security campaign, not a product
     # Nous's Hermes models. These slugs are sent to provider APIs; renaming
     # one turns a working request into a 404.
@@ -132,23 +146,6 @@ def test_internal_identifiers_survive(text):
 def test_internal_identifiers_survive_inside_apps(text):
     """The apps/-scoped rules are the broadest in the table — same edges hold."""
     assert rewrite(text, DESKTOP) == text, f"apps/ rules rewrote: {text!r}"
-
-
-# Preserved OUTSIDE apps/ only. Both of these are backend-side names whose
-# spelling inside apps/ would mean something else, so the scoped rules are
-# right to claim them there and would be wrong to claim them here.
-PRESERVED_BACKEND_ONLY = [
-    # The scratch worktree prefix, generated in cli.py and matched by
-    # `entry.name.startswith("hermes-")` in the pruner. It has no counterpart
-    # under apps/, and phase 8 owns it.
-    'wt_name = f"hermes-{short_id}"',
-    ".worktrees/hermes-deadbeef",
-]
-
-
-@pytest.mark.parametrize("text", PRESERVED_BACKEND_ONLY)
-def test_backend_only_identifiers_survive(text):
-    assert rewrite(text) == text, f"rule table rewrote: {text!r}"
 
 
 # Preserved INSIDE apps/ only: a TypeScript relative import of a source file
@@ -317,12 +314,131 @@ RENAMES = [
     # ── phase 6: outbound identity ───────────────────────────────────────
     ('"User-Agent": "HermesAgent/1.0"', '"User-Agent": "AgentX/1.0"'),
     ("Mozilla/5.0 (compatible; HermesAgent/1.0)", "Mozilla/5.0 (compatible; AgentX/1.0)"),
+    # ── phase 8: agent-visible content ───────────────────────────────────
+    # The kanban namespace, in all five spellings it actually appears in.
+    # The selector forms are the ones a word-character-only lookbehind would
+    # have skipped, leaving a stylesheet that matches nothing.
+    ('className: "hermes-kanban-card"', 'className: "agentx-kanban-card"'),
+    (".hermes-kanban-drawer {", ".agentx-kanban-drawer {"),
+    (
+        "summary.hermes-kanban-run-meta-label",
+        "summary.agentx-kanban-run-meta-label",
+    ),
+    (
+        "var(--hermes-kanban-drawer-width, 640px)",
+        "var(--agentx-kanban-drawer-width, 640px)",
+    ),
+    ("@keyframes hermes-kanban-drawer-in {", "@keyframes agentx-kanban-drawer-in {"),
+    ("docs/hermes-kanban-v1-spec.pdf", "docs/agentx-kanban-v1-spec.pdf"),
+    ("hermes-kanban-dispatcher.service", "agentx-kanban-dispatcher.service"),
+    ('"User-Agent": "hermes-kanban/attach"', '"User-Agent": "agentx-kanban/attach"'),
+    # The skills-hub source id, its cache file, and a qualified skill ref.
+    ('"hermes-index": 5000', '"agentx-index": 5000'),
+    ("hermes-index.json", "agentx-index.json"),
+    ("hermes-index/featured-skill", "agentx-index/featured-skill"),
+    ('sid == "hermes-index"', 'sid == "agentx-index"'),
+    # The s6-rc static service. The four tracked paths under docker/s6-rc.d are
+    # renamed by `git mv` in the same commit; this pins the content half.
+    ('for static in ("main-hermes", "dashboard")', 'for static in ("main-agentx", "dashboard")'),
+    ("docker/s6-rc.d/main-hermes/run", "docker/s6-rc.d/main-agentx/run"),
+    # The observability namespace: metric, span attribute, logger, SSE event,
+    # schema version, and the SPA storage keys sharing the shape.
+    ("hermes.task_run.started", "agentx.task_run.started"),
+    ('logging.getLogger("hermes.coding_context")', 'logging.getLogger("agentx.coding_context")'),
+    ('"hermes.shared_metrics.v2"', '"agentx.shared_metrics.v2"'),
+    ('event: "hermes.tool.progress"', 'event: "agentx.tool.progress"'),
+    ('"hermes.lastLocation"', '"agentx.lastLocation"'),
+    # General kebab: the backend/plugin/test counterpart of app-kebab.
+    ('topic: "hermes-in"', 'topic: "agentx-in"'),
+    ('publish_topic: "hermes-out"', 'publish_topic: "agentx-out"'),
+    ('"source": "hermes-auth-store"', '"source": "agentx-auth-store"'),
+    ('"hermes-update": "hermes-update.log"', '"agentx-update": "agentx-update.log"'),
+    ('mkdtemp(prefix="hermes-update-")', 'mkdtemp(prefix="agentx-update-")'),
+    ("hermes-ci-review-bot", "agentx-ci-review-bot"),
+    ('f"hermes-{socket.gethostname()}"', 'f"agentx-{socket.gethostname()}"'),
+    ('b"hermes-bws-encrypted-cache-v1"', 'b"agentx-bws-encrypted-cache-v1"'),
+    ("hermes-sidebar-collapsed", "agentx-sidebar-collapsed"),
+    # A kebab token behind a path separator or a selector dot. The first pass
+    # excluded `/` and `.` in the kebab lookbehind, which silently split every
+    # one of these from its already-renamed counterpart — a CSS rule whose
+    # selector nobody sets, and a fixture path the producer no longer writes.
+    ("/tmp/hermes-verify-example.py", "/tmp/agentx-verify-example.py"),
+    ("docker/hermes-exec-shim.sh", "docker/agentx-exec-shim.sh"),
+    ("profiles/hermes-security/skills/", "profiles/agentx-security/skills/"),
+    ("https://hermes-temp-hello.serene-temple.workers.dev", "https://agentx-temp-hello.serene-temple.workers.dev"),
+    # On-disk path names renamed by `git mv` in the same commit. The first two
+    # were already half-renamed before phase 8: nix/packages.nix called
+    # `./agentx-agent.nix` against a file still named hermes-agent.nix, and the
+    # skill directories were stale against a `name:` frontmatter that already
+    # said agentx-agent.
+    ("pkgs.callPackage ./hermes-agent.nix", "pkgs.callPackage ./agentx-agent.nix"),
+    ("./setup-hermes.sh", "./setup-agentx.sh"),
+    (
+        "skills/autonomous-ai-agents/hermes-agent/SKILL.md",
+        "skills/autonomous-ai-agents/agentx-agent/SKILL.md",
+    ),
+    ("hermes-agent-skill-authoring", "agentx-agent-skill-authoring"),
+    ("inspecting-hermes-desktop-dom", "inspecting-agentx-desktop-dom"),
+    ("hermes-s6-container-supervision", "agentx-s6-container-supervision"),
 ]
 
 
 @pytest.mark.parametrize(("before", "after"), RENAMES)
 def test_brand_tokens_are_renamed(before, after):
     assert rewrite(before) == after
+
+
+# ── Phase-8 rules with their own narrow file scope ───────────────────────
+#
+# Each of these renames a token whose OTHER spellings in the tree must not
+# move, so the rule is scoped by an explicit include list rather than by a
+# cleverer pattern.  Testing them at the wrong path would prove nothing.
+
+GATEWAY = "gateway/relay/ws_transport.py"
+CRON = "cron/blueprint_catalog.py"
+WORKTREE = "cli.py"
+
+SCOPED_RENAMES = [
+    # The Slack parent slash command — producer already says "agentx".
+    (GATEWAY, 'parent_parts[0] != "/hermes"', 'parent_parts[0] != "/agentx"'),
+    (GATEWAY, '"/hermes sethome"', '"/agentx sethome"'),
+    # The deep-link scheme. The desktop registered agentx:// in phase 4 while
+    # this producer kept emitting the old one.
+    (CRON, 'f"hermes://blueprint/{quote(key)}"', 'f"agentx://blueprint/{quote(key)}"'),
+    # The branch namespace and the scratch-worktree ids inside it. Both halves
+    # must move or the pruner stops matching what the creator writes.
+    (WORKTREE, 'branch_name = f"hermes/{wt_name}"', 'branch_name = f"agentx/{wt_name}"'),
+    (WORKTREE, 'b.startswith("hermes/hermes-")', 'b.startswith("agentx/agentx-")'),
+    (WORKTREE, "refs/heads/hermes/feat", "refs/heads/agentx/feat"),
+    (WORKTREE, 'wt_name = f"hermes-{short_id}"', 'wt_name = f"agentx-{short_id}"'),
+]
+
+
+@pytest.mark.parametrize(("path", "before", "after"), SCOPED_RENAMES)
+def test_narrow_scoped_tokens_are_renamed(path, before, after):
+    assert rewrite(before, path) == after
+
+
+# The same tokens spelled at a path OUTSIDE each rule's scope. These are the
+# real shapes that share the spelling: the desktop import specifier `@/hermes`,
+# a reverse-proxy URL prefix, an openviking peer path, and OpenClaw's own
+# extension directory. A rule that reached them would break a live lookup.
+OUT_OF_SCOPE_PRESERVED = [
+    ("apps/desktop/src/app/artifacts/index.tsx", "import { x } from '@/hermes'"),
+    ("hermes_cli/dashboard_auth/middleware.py", "/hermes/login?next=..."),
+    ("apps/desktop/electron/native-oauth.test.ts", "'/hermes/auth/native/authorize'"),
+    ("plugins/memory/openviking/__init__.py", "viking://user/hermes/.overview.md"),
+    (
+        "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+        "OpenClaw's extensions/migrate-hermes/apply.ts",
+    ),
+    ("tools/environments/docker.py", "/home/hermes/projects"),
+]
+
+
+@pytest.mark.parametrize(("path", "text"), OUT_OF_SCOPE_PRESERVED)
+def test_narrow_rules_do_not_reach_lookalikes(path, text):
+    assert rewrite(text, path) == text
 
 
 # ── Rules that only run inside apps/ ─────────────────────────────────────
@@ -348,6 +464,12 @@ APP_SCOPED_RENAMES = [
     ("localStorage.getItem('hermes-boot-background')", "localStorage.getItem('agentx-boot-background')"),
     ("mkdtempSync(join(tmpdir(), 'hermes-stage-'))", "mkdtempSync(join(tmpdir(), 'agentx-stage-'))"),
     ("'hermes-desktop-theme-v2'", "'agentx-desktop-theme-v2'"),
+    # The CSS SELECTOR half of a class the bootstrap-installer routes already
+    # set as `className="agentx-fade-in"`. Shipped split once, because the
+    # kebab lookbehind excluded the `.` that starts every selector; pinned
+    # here so it cannot split again.
+    (".hermes-fade-in {", ".agentx-fade-in {"),
+    (".hermes-glow {", ".agentx-glow {"),
 ]
 
 

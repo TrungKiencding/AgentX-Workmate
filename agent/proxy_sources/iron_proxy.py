@@ -481,7 +481,7 @@ def install_iron_proxy(*, force: bool = False) -> Path:
     asset_url = f"{_IRON_PROXY_RELEASE_BASE}/{asset_name}"
     checksum_url = f"{_IRON_PROXY_RELEASE_BASE}/{_IRON_PROXY_CHECKSUM_NAME}"
 
-    with tempfile.TemporaryDirectory(prefix="hermes-iron-proxy-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="agentx-iron-proxy-") as tmpdir:
         tmp = Path(tmpdir)
         archive_path = tmp / asset_name
         checksum_path = tmp / _IRON_PROXY_CHECKSUM_NAME
@@ -751,7 +751,7 @@ def ensure_ca_cert(*, force: bool = False) -> Tuple[Path, Path]:
 
     # 10-year cert.  iron-proxy mints short-lived leaf certs from this CA,
     # so the CA itself only rotates when the user explicitly forces it.
-    with tempfile.TemporaryDirectory(prefix="hermes-proxy-ca-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="agentx-proxy-ca-") as tmpdir:
         tmp = Path(tmpdir)
         tmp_key = tmp / "ca.key"
         tmp_crt = tmp / "ca.crt"
@@ -825,7 +825,7 @@ def ensure_ca_cert(*, force: bool = False) -> Tuple[Path, Path]:
 # ---------------------------------------------------------------------------
 
 
-def mint_proxy_token(prefix: str = "hermes-proxy") -> str:
+def mint_proxy_token(prefix: str = "agentx-proxy") -> str:
     """Mint a fresh opaque token to hand to the sandbox.
 
     The token has no internal structure beyond a recognizable prefix —
@@ -859,7 +859,7 @@ def ensure_management_token(*, force: bool = False) -> str:
                 return existing
         except OSError:
             pass
-    token = mint_proxy_token(prefix="hermes-mgmt")
+    token = mint_proxy_token(prefix="agentx-mgmt")
     fd = os.open(
         str(p),
         os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0),

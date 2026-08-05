@@ -189,7 +189,7 @@ class SingularityEnvironment(BaseEnvironment):
         self._memory = memory
 
         if self._persistent:
-            overlay_base = _get_scratch_dir() / "hermes-overlays"
+            overlay_base = _get_scratch_dir() / "agentx-overlays"
             overlay_base.mkdir(parents=True, exist_ok=True)
             self._overlay_dir = overlay_base / f"overlay-{task_id}"
             self._overlay_dir.mkdir(parents=True, exist_ok=True)

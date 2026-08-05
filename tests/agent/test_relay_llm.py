@@ -93,13 +93,13 @@ def test_stream_uses_rewritten_request_and_post_intercept_chunks(relay_turn):
         ])
 
     relay.intercepts.register_llm_request(
-        "hermes-test-request",
+        "agentx-test-request",
         1,
         False,
         rewrite_request,
     )
     relay.intercepts.register_llm_stream_execution(
-        "hermes-test-stream",
+        "agentx-test-stream",
         1,
         rewrite_stream,
     )
@@ -131,8 +131,8 @@ def test_stream_uses_rewritten_request_and_post_intercept_chunks(relay_turn):
         )
         chunks = list(stream)
     finally:
-        relay.intercepts.deregister_llm_stream_execution("hermes-test-stream")
-        relay.intercepts.deregister_llm_request("hermes-test-request")
+        relay.intercepts.deregister_llm_stream_execution("agentx-test-stream")
+        relay.intercepts.deregister_llm_request("agentx-test-request")
 
     assert captured_requests[0]["temperature"] == 0.25
     assert captured_requests[0]["extra_headers"] == {

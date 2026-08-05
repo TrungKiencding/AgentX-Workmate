@@ -1564,7 +1564,7 @@ def release_all_scoped_locks(
 # unexpected kills — but that also means a --replace takeover target
 # exits 1, which tricks systemd into reviving it 30 seconds later,
 # starting a flap loop against the replacer when both services are
-# enabled in the user's systemd (e.g. ``hermes.service`` + ``hermes-
+# enabled in the user's systemd (e.g. ``hermes.service`` + ``agentx-
 # gateway.service``).
 #
 # The takeover marker breaks the loop: the replacer writes a short-lived

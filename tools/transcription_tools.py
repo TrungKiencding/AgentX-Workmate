@@ -886,7 +886,7 @@ def _transcribe_command_stt(
     model = model_override or config.get("model") or ""
 
     try:
-        with tempfile.TemporaryDirectory(prefix=f"hermes-cmd-stt-{provider_name}-") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix=f"agentx-cmd-stt-{provider_name}-") as tmpdir:
             output_path = Path(tmpdir) / f"transcript.{output_format}"
             placeholders = {
                 "input_path": str(audio.resolve()),
@@ -1355,7 +1355,7 @@ def _prepare_audio_for_transcription(
                 "error": "Unsupported format: .silk. Install the optional 'pilk' dependency to enable WeChat voice transcription.",
             }
 
-    temp_dir = tempfile.mkdtemp(prefix="hermes-silk-")
+    temp_dir = tempfile.mkdtemp(prefix="agentx-silk-")
     converted_path = os.path.join(temp_dir, f"{audio_path.stem}.wav")
     try:
         import pilk
@@ -1758,7 +1758,7 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
     normalized_model = _normalize_local_command_model(model_name)
 
     try:
-        with tempfile.TemporaryDirectory(prefix="hermes-local-stt-") as output_dir:
+        with tempfile.TemporaryDirectory(prefix="agentx-local-stt-") as output_dir:
             prepared_input, prep_error = _prepare_local_audio(file_path, output_dir)
             if prep_error:
                 return {"success": False, "transcript": "", "error": prep_error}
@@ -1955,7 +1955,7 @@ def _transcribe_openai(
                 return client.audio.transcriptions.create(**create_kwargs)
 
         try:
-            with tempfile.TemporaryDirectory(prefix="hermes-stt-") as work_dir:
+            with tempfile.TemporaryDirectory(prefix="agentx-stt-") as work_dir:
                 try:
                     transcription = _create_transcription(file_path)
                 except BadRequestError as exc:

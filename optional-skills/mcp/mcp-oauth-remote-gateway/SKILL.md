@@ -296,7 +296,7 @@ body = json.dumps({
     "params": {
         "protocolVersion": "2025-06-18",
         "capabilities": {},
-        "clientInfo": {"name": "hermes-debug", "version": "1.0"},
+        "clientInfo": {"name": "agentx-debug", "version": "1.0"},
     },
 }).encode()
 # POST to the MCP URL with:

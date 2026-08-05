@@ -62,7 +62,7 @@ def test_no_scrub_inherit_profile_home_bridges_context_override(tmp_path):
 def test_e2e_child_sees_hermes_home_and_no_planted_secret(tmp_path, monkeypatch):
     """A real child spawned with a factory-built env must see AGENTX_HOME
     propagated and (with scrub on) a planted provider-style key absent."""
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "agentx-home"
     hermes_home.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-FAKE-planted")

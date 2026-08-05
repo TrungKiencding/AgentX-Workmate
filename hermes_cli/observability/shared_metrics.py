@@ -23,7 +23,7 @@ from .shared_metrics_contract import (
 )
 
 
-_PACKAGE_SCHEMA_VERSION = "hermes.shared_metrics.v2"
+_PACKAGE_SCHEMA_VERSION = "agentx.shared_metrics.v2"
 _STORE_SCHEMA_VERSION = "1"
 _BUSY_TIMEOUT_MS = 250
 _SCHEMA_BUSY_TIMEOUT_MS = 5_000

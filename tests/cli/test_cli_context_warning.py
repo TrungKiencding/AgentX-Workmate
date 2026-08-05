@@ -28,7 +28,7 @@ def cli_obj(_isolate):
         from cli import HermesCLI
         obj = HermesCLI.__new__(HermesCLI)
         obj.model = "test-model"
-        obj.enabled_toolsets = ["hermes-core"]
+        obj.enabled_toolsets = ["agentx-core"]
         obj.compact = False
         obj.console = MagicMock()
         obj.session_id = None

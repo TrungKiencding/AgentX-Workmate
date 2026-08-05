@@ -55,7 +55,7 @@ Docker layouts.
 Schema is intentionally small: tasks, task_links, task_comments,
 task_events.  The ``workspace_kind`` field decouples coordination from git
 worktrees so that research / ops / digital-twin workloads work alongside
-coding workloads.  See ``docs/hermes-kanban-v1-spec.pdf`` for the full
+coding workloads.  See ``docs/agentx-kanban-v1-spec.pdf`` for the full
 design specification.
 
 Concurrency strategy: WAL mode + ``BEGIN IMMEDIATE`` for write
@@ -9474,7 +9474,7 @@ def build_worker_context(conn: sqlite3.Connection, task_id: str) -> str:
             age = _relative_age(c.created_at, _now)
             ts_disp = f"{ts}, {age}" if age else ts
             # Render author with explicit "comment from worker" framing so
-            # operator-controlled AGENTX_PROFILE values like "hermes-system"
+            # operator-controlled AGENTX_PROFILE values like "agentx-system"
             # or "operator" can't be misread by the next worker as a system
             # directive above the (attacker-influenceable) comment body.
             # Defense-in-depth — the LLM-controlled author-forgery surface

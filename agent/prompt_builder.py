@@ -13,6 +13,7 @@ import contextvars
 from collections import OrderedDict
 from pathlib import Path
 
+import branding
 from hermes_constants import get_hermes_home, get_skills_dir, is_wsl
 from typing import Optional
 
@@ -142,7 +143,8 @@ def _strip_yaml_frontmatter(content: str) -> str:
 # =========================================================================
 
 DEFAULT_AGENT_IDENTITY = (
-    "You are AgentX Workmate, an intelligent AI assistant created by Nous Research. "
+    f"You are {branding.PRODUCT_NAME}, an intelligent AI assistant created by "
+    f"{branding.VENDOR_NAME}. "
     "You are helpful, knowledgeable, and direct. You assist users with a wide "
     "range of tasks including answering questions, writing and editing code, "
     "analyzing information, creative work, and executing actions via your tools. "
@@ -151,15 +153,27 @@ DEFAULT_AGENT_IDENTITY = (
     "Be targeted and efficient in your exploration and investigations."
 )
 
+# The documentation site is not registered yet (branding.DOCS_URL == ""), so the
+# guidance names the bundled skill as the authority rather than a dead URL. The
+# conditional is here, rather than a plain string, so that setting DOCS_URL in
+# branding.py is all it takes to put the docs back in the system prompt.
+_HELP_AUTHORITY = (
+    f"the documentation at {branding.docs_url()} is your authoritative reference "
+    "and always holds the latest, most up-to-date information. Load the "
+    "`agentx-agent` skill with skill_view(name='agentx-agent') for additional "
+    "guidance and proven workflows, but treat the docs as the source of truth "
+    "when the two differ."
+    if branding.docs_url()
+    else "load the `agentx-agent` skill with skill_view(name='agentx-agent') — it "
+    "is the authoritative reference for your own features, tools, and proven "
+    "workflows, and always holds the latest information."
+)
+
 AGENTX_AGENT_HELP_GUIDANCE = (
-    "You run on AgentX Workmate (by Nous Research). When the user needs help with "
-    "AgentX itself — configuring, setting up, using, extending, or troubleshooting "
-    "it — or when you need to understand your own features, tools, or capabilities, "
-    "the documentation at https://hermes-agent.nousresearch.com/docs is your "
-    "authoritative reference and always holds the latest, most up-to-date "
-    "information. Load the `agentx-agent` skill with skill_view(name='agentx-agent') "
-    "for additional guidance and proven workflows, but treat the docs as the source "
-    "of truth when the two differ."
+    f"You run on {branding.PRODUCT_NAME} (by {branding.VENDOR_NAME}). When the user "
+    "needs help with AgentX itself — configuring, setting up, using, extending, or "
+    "troubleshooting it — or when you need to understand your own features, tools, "
+    f"or capabilities, {_HELP_AUTHORITY}"
 )
 
 MEMORY_GUIDANCE = (

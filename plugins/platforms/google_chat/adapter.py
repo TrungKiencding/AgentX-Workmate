@@ -509,7 +509,7 @@ def card_spec_to_cards_v2(card_spec: Dict[str, Any]) -> Dict[str, Any]:
             rendered_header["imageAltText"] = str(header["image_alt_text"])
         card["header"] = rendered_header
 
-    return {"cardId": str(card_spec.get("card_id") or "hermes-card"), "card": card}
+    return {"cardId": str(card_spec.get("card_id") or "agentx-card"), "card": card}
 
 
 class _ThreadCountStore:
@@ -3449,7 +3449,7 @@ def interactive_setup() -> None:
     print_info("Walkthrough:")
     print_info("  1. Create or select a GCP project; enable Google Chat API + Cloud Pub/Sub API.")
     print_info("  2. Create a Service Account (no project-level IAM role needed).")
-    print_info("  3. Create a Pub/Sub topic (e.g. hermes-chat-events) and a Pull subscription.")
+    print_info("  3. Create a Pub/Sub topic (e.g. agentx-chat-events) and a Pull subscription.")
     print_info("  4. On the TOPIC: add chat-api-push@system.gserviceaccount.com as Pub/Sub Publisher.")
     print_info("  5. On the SUBSCRIPTION: grant your Service Account Pub/Sub Subscriber.")
     print_info("  6. Download the Service Account JSON key.")

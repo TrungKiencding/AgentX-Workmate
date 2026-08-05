@@ -299,19 +299,19 @@ class TestSupervisedBackendRestart:
         with patch.object(live, "_restart_managed_dashboard_service", return_value=False), \
              patch.object(live, "_find_stale_dashboard_pids", return_value=[4321]), \
              patch.object(live, "_get_pid_cgroup_path",
-                          return_value="/system.slice/hermes-serve.service"), \
+                          return_value="/system.slice/agentx-serve.service"), \
              patch.object(live, "_get_systemd_service_for_pid",
-                          return_value="hermes-serve.service"), \
+                          return_value="agentx-serve.service"), \
              patch.object(live, "_try_restart_systemd_service", return_value=True) as restart, \
              patch("os.kill", side_effect=fake_kill), \
              patch("time.sleep"):
             _kill_stale_dashboard_processes(restart_managed=True)
 
         restart.assert_called_once_with(
-            "hermes-serve.service", "/system.slice/hermes-serve.service"
+            "agentx-serve.service", "/system.slice/agentx-serve.service"
         )
         out = capsys.readouterr().out
-        assert "✓ restarted systemd service hermes-serve.service" in out
+        assert "✓ restarted systemd service agentx-serve.service" in out
         # Supervised restart succeeded — no manual hint.
         assert "when you're ready" not in out
 

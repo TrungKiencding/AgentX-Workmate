@@ -1,5 +1,5 @@
 ---
-name: inspecting-hermes-desktop-dom
+name: inspecting-agentx-desktop-dom
 description: "Read the live AgentX desktop DOM/CSS over CDP."
 version: 1.0.0
 author: AgentX Workmate

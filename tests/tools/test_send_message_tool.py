@@ -278,7 +278,7 @@ class TestSendMessageTool:
 
     def test_ntfy_topic_target_bypasses_channel_directory(self):
         ntfy_platform = Platform("ntfy")
-        ntfy_cfg = SimpleNamespace(enabled=True, token=None, extra={"topic": "hermes-in"})
+        ntfy_cfg = SimpleNamespace(enabled=True, token=None, extra={"topic": "agentx-in"})
         config = SimpleNamespace(
             platforms={ntfy_platform: ntfy_cfg},
             get_home_channel=lambda _platform: None,

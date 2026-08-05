@@ -7405,7 +7405,7 @@ def _get_systemd_service_for_pid(pid: int) -> str | None:
     """If *pid* belongs to a systemd service unit, return the unit name.
 
     Reads ``/proc/<pid>/cgroup`` and extracts the service name (e.g.
-    ``hermes-serve.service``).  Returns ``None`` when the PID is not
+    ``agentx-serve.service``).  Returns ``None`` when the PID is not
     part of a systemd service, when the file is unreadable, or on
     non-Linux platforms.
     """
@@ -7416,7 +7416,7 @@ def _get_systemd_service_for_pid(pid: int) -> str | None:
         text = cgroup_path.read_text(encoding="utf-8", errors="replace")
         for line in text.splitlines():
             line = line.strip()
-            # Format: 0::/system.slice/hermes-serve.service
+            # Format: 0::/system.slice/agentx-serve.service
             #         0::/user.slice/user-1000.slice/session-42.scope
             parts = line.split("::", 1)
             if len(parts) != 2:

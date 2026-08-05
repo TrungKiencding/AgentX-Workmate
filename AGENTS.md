@@ -388,7 +388,7 @@ All slash commands are defined in a central `COMMAND_REGISTRY` list of `CommandD
 - **Gateway** — `GATEWAY_KNOWN_COMMANDS` frozenset for hook emission, `resolve_command()` for dispatch
 - **Gateway help** — `gateway_help_lines()` generates `/help` output
 - **Telegram** — `telegram_bot_commands()` generates the BotCommand menu
-- **Slack** — `slack_subcommand_map()` generates `/hermes` subcommand routing
+- **Slack** — `slack_subcommand_map()` generates `/agentx` subcommand routing
 - **Autocomplete** — `COMMANDS` flat dict feeds `SlashCommandCompleter`
 - **CLI help** — `COMMANDS_BY_CATEGORY` dict feeds `show_help()`
 
@@ -845,7 +845,7 @@ plug into `agent/context_engine.py`; image-gen providers into
 `agent/image_gen_provider.py`. Reference / docs-companion plugins
 (`example-dashboard`, `strike-freedom-cockpit`, `plugin-llm-example`,
 `plugin-llm-async-example`) live in the
-[`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
+[`agentx-example-plugins`](https://github.com/NousResearch/agentx-example-plugins)
 companion repo, not in this tree.
 
 ---
@@ -1110,7 +1110,7 @@ kanban task.
   assigned profiles. Runs **inside the gateway** by default via
   `kanban.dispatch_in_gateway: true`.
 - **Plugin assets:** `plugins/kanban/dashboard/` (web UI) +
-  `plugins/kanban/systemd/` (`hermes-kanban-dispatcher.service` for
+  `plugins/kanban/systemd/` (`agentx-kanban-dispatcher.service` for
   standalone dispatcher deployment).
 
 Isolation model:

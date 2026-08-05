@@ -73,7 +73,7 @@ import { useProfileScope } from "@/contexts/useProfileScope";
 // instead of spawning a fresh one. Per-localStorage, so other devices can't grab it.
 // ``rotate`` mints a new token — used when the user explicitly starts a fresh
 // session so the old keep-alive PTY is NOT reattached (the registry reaps it).
-const PTY_ATTACH_TOKEN_KEY = "hermes.pty.token.chat";
+const PTY_ATTACH_TOKEN_KEY = "agentx.pty.token.chat";
 function ptyAttachToken(rotate = false): string {
   let t = "";
   if (!rotate) {
@@ -789,7 +789,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         term.loadAddon(webgl);
       } catch (err) {
         console.warn(
-          "[hermes-chat] WebGL renderer unavailable; falling back to default",
+          "[agentx-chat] WebGL renderer unavailable; falling back to default",
           err,
         );
       }
@@ -1521,7 +1521,7 @@ export default function ChatPage({ isActive = true }: { isActive?: boolean }) {
         >
           <div
             ref={hostRef}
-            className="hermes-chat-xterm-host min-h-0 min-w-0 flex-1"
+            className="agentx-chat-xterm-host min-h-0 min-w-0 flex-1"
           />
 
           {showReconnectOverlay && (

@@ -239,8 +239,8 @@ against its own checkout, destroying the running runtime mid-session.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv venv ~/.agentx/venvs/hermes-dev --python 3.11
-source ~/.agentx/venvs/hermes-dev/bin/activate
+uv venv ~/.agentx/venvs/agentx-dev --python 3.11
+source ~/.agentx/venvs/agentx-dev/bin/activate
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

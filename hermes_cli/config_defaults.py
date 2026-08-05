@@ -1879,7 +1879,7 @@ DEFAULT_CONFIG = {
     },
 
     # Honcho AI-native memory -- reads ~/.honcho/config.json as single source of truth.
-    # This section is only needed for hermes-specific overrides; everything else
+    # This section is only needed for agentx-specific overrides; everything else
     # (apiKey, workspace, peerName, sessions, enabled) comes from the global config.
     "honcho": {},
 
@@ -4152,7 +4152,7 @@ OPTIONAL_ENV_VARS = {
         "category": "messaging",
     },
     "IRC_NICKNAME": {
-        "description": "Bot nickname on IRC (default: hermes-bot)",
+        "description": "Bot nickname on IRC (default: agentx-bot)",
         "prompt": "IRC nickname",
         "url": None,
         "password": False,

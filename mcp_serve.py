@@ -41,7 +41,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-logger = logging.getLogger("hermes.mcp_serve")
+logger = logging.getLogger("agentx.mcp_serve")
 
 # ---------------------------------------------------------------------------
 # Lazy MCP SDK import

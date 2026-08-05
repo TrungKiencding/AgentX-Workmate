@@ -1,7 +1,7 @@
 """CLI for the AgentX Kanban board — ``agentx kanban …`` subcommand.
 
 Exposes the full Kanban command surface documented in the design spec
-(``docs/hermes-kanban-v1-spec.pdf``).  All DB work is delegated to
+(``docs/agentx-kanban-v1-spec.pdf``).  All DB work is delegated to
 ``kanban_db``.  This module adds:
 
   * Argparse subcommand construction (``build_parser``).
@@ -226,7 +226,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
             "Tasks are claimed atomically, can depend on other tasks, and "
             "are executed by a named profile in an isolated workspace. "
             "See https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban "
-            "or docs/hermes-kanban-v1-spec.pdf for the full design."
+            "or docs/agentx-kanban-v1-spec.pdf for the full design."
         ),
     )
     # --- global --board flag ---

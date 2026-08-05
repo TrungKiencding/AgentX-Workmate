@@ -80,7 +80,7 @@ def _default_agent_name() -> str:
         return name
     try:
         import socket
-        return f"hermes-{socket.gethostname()}"
+        return f"agentx-{socket.gethostname()}"
     except Exception:
         return "agentx-agent"
 

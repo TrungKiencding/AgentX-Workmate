@@ -50,7 +50,7 @@ def _warn_if_malformed(source: str, raw: str) -> None:
     was rejected by :func:`_normalise_public_url`.
 
     A non-empty value that normalises to ``""`` is almost always a
-    missing scheme (``hermes.example.com`` instead of
+    missing scheme (``agentx.example.com`` instead of
     ``https://hermes.example.com``) — the single most common cause of
     "I set AGENTX_DASHBOARD_PUBLIC_URL but the OAuth callback is still
     http://". Without this warning the value is silently discarded and
@@ -74,7 +74,7 @@ def _warn_if_malformed(source: str, raw: str) -> None:
         "scheme behind a reverse proxy.",
         source,
         cleaned,
-        cleaned.split("://")[-1] or "hermes.example.com",
+        cleaned.split("://")[-1] or "agentx.example.com",
     )
 
 

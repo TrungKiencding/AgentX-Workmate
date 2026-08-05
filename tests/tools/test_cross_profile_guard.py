@@ -21,7 +21,7 @@ import pytest
 @pytest.fixture
 def fake_hermes(tmp_path, monkeypatch):
     """Build a two-profile AgentX layout and point AGENTX_HOME at
-    the hermes-security profile (matching the original-incident shape).
+    the agentx-security profile (matching the original-incident shape).
     """
     root = tmp_path / "fake-hermes"
     (root / "skills" / "shared-skill").mkdir(parents=True)
@@ -29,7 +29,7 @@ def fake_hermes(tmp_path, monkeypatch):
         "---\nname: shared-skill\ndescription: default copy.\n---\n"
     )
 
-    sec_home = root / "profiles" / "hermes-security"
+    sec_home = root / "profiles" / "agentx-security"
     (sec_home / "skills").mkdir(parents=True)
 
     coder_home = root / "profiles" / "coder"
@@ -78,7 +78,7 @@ class TestWriteFileCrossProfileGuard:
         assert result.get("error"), "Cross-profile write should be refused"
         assert "cross-profile" in result["error"].lower()
         assert "default" in result["error"]
-        assert "hermes-security" in result["error"]
+        assert "agentx-security" in result["error"]
         # File untouched.
         assert target.read_text() == original
 
@@ -177,7 +177,7 @@ class TestSkillManageCrossProfileErrorUX:
         from tools.skill_manager_tool import _skill_not_found_error
 
         err = _skill_not_found_error("default-only-skill")
-        assert "not found in active profile 'hermes-security'" in err
+        assert "not found in active profile 'agentx-security'" in err
         assert "default" in err
         assert "cross_profile=True" in err
 
@@ -192,7 +192,7 @@ class TestSkillManageCrossProfileErrorUX:
         from tools.skill_manager_tool import _skill_not_found_error
 
         err = _skill_not_found_error("totally-imaginary-skill")
-        assert "not found in active profile 'hermes-security'" in err
+        assert "not found in active profile 'agentx-security'" in err
         assert "skills_list" in err
 
 
@@ -217,7 +217,7 @@ class TestSystemPromptActiveProfile:
         # See agent/system_prompt.py for the exact wording.
 
     def test_named_profile_line_in_prompt_text(self, fake_hermes):
-        """When active profile is 'hermes-security', the prompt warns
+        """When active profile is 'agentx-security', the prompt warns
         explicitly about NOT modifying default's skills/plugins/cron/memories."""
         # Spot-check by reading the source — the contract is:
         # (1) names the active profile, (2) names the default-profile

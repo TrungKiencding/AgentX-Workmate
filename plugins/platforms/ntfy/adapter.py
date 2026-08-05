@@ -18,8 +18,8 @@ Configuration in config.yaml::
         enabled: true
         extra:
           server: "https://ntfy.sh"       # or self-hosted URL
-          topic: "hermes-in"              # subscribe topic (incoming)
-          publish_topic: "hermes-out"     # optional — defaults to topic
+          topic: "agentx-in"              # subscribe topic (incoming)
+          publish_topic: "agentx-out"     # optional — defaults to topic
           token: "..."                    # optional Bearer / Basic auth token
           markdown: true                  # optional — enable markdown (default: false)
 

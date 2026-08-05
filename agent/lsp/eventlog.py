@@ -44,7 +44,7 @@ from typing import List, Tuple
 
 # Dedicated logger name so the documented grep recipe survives a
 # ``logging.getLogger(__name__)`` rename of any internal module.
-event_log = logging.getLogger("hermes.lint.lsp")
+event_log = logging.getLogger("agentx.lint.lsp")
 
 # ---------------------------------------------------------------------------
 # Once-per-X dedup sets

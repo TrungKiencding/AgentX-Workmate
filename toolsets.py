@@ -689,7 +689,7 @@ def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[st
 
 
 def bundle_non_core_tools(toolset_name: str) -> Set[str]:
-    """Return a ``hermes-*`` bundle's platform-specific tools, excluding core.
+    """Return a ``agentx-*`` bundle's platform-specific tools, excluding core.
 
     Platform bundles are defined as ``_AGENTX_CORE_TOOLS + [platform extras]``.
     When a bundle name appears in ``disabled_toolsets``, subtracting the whole
@@ -760,13 +760,13 @@ def resolve_toolset(name: str, visited: Set[str] = None, *, include_registry: bo
     # Get toolset definition
     toolset = get_toolset(name, include_registry=include_registry)
     if not toolset:
-        # Auto-generate a toolset for plugin platforms (hermes-<name>).
+        # Auto-generate a toolset for plugin platforms (agentx-<name>).
         # Gives them _AGENTX_CORE_TOOLS plus any tools the plugin registered
         # into a toolset matching the platform name. This is a registry-derived
         # view, so it only applies when registry tools are requested; the static
         # view (include_registry=False) has no plugin-platform definition.
-        if include_registry and name.startswith("hermes-"):
-            platform_name = name[len("hermes-"):]
+        if include_registry and name.startswith("agentx-"):
+            platform_name = name[len("agentx-"):]
             try:
                 from gateway.platform_registry import platform_registry
                 if platform_registry.is_registered(platform_name):

@@ -350,7 +350,7 @@ class TestSetupWizardDeploymentShape:
 
         class _FakeClientCfg:
             def resolve_session_name(self):
-                return "hermes-test"
+                return "agentx-test"
             workspace_id = "agentx"
             peer_name = "eri"
             ai_peer = "hermetika"
@@ -667,7 +667,7 @@ class TestCmdSetupDeviceFlow:
 
         class _FakeClientCfg:
             def resolve_session_name(self):
-                return "hermes-test"
+                return "agentx-test"
             workspace_id = "agentx"
             peer_name = "eri"
             ai_peer = "hermetika"

@@ -266,7 +266,7 @@ def _safe_next_target(request: Request) -> str:
     # navigates to ``login_url``. After the OAuth round trip the user
     # would land on the API URL and see raw JSON instead of the
     # dashboard. SPA routes survive (they don't start with ``/api/``);
-    # the SPA's own ``sessionStorage["hermes.lastLocation"]`` fallback
+    # the SPA's own ``sessionStorage["agentx.lastLocation"]`` fallback
     # in ``web/src/lib/api.ts`` covers the deep-link case.
     if path == "/api" or path.startswith("/api/"):
         return ""

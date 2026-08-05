@@ -59,7 +59,7 @@ if str(PROJECT_ROOT) not in sys.path:
 _PRE_SANDBOX_KANBAN_OVERRIDE = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
 _PRE_SANDBOX_AGENTX_HOME = os.environ.get("AGENTX_HOME", "")
 if not os.environ.get("AGENTX_HOME"):
-    _SESSION_AGENTX_HOME = tempfile.mkdtemp(prefix="hermes-test-home-")
+    _SESSION_AGENTX_HOME = tempfile.mkdtemp(prefix="agentx-test-home-")
     os.environ["AGENTX_HOME"] = _SESSION_AGENTX_HOME
     atexit.register(shutil.rmtree, _SESSION_AGENTX_HOME, True)
 
@@ -1027,7 +1027,7 @@ def _live_system_guard(request, monkeypatch):
     tokens[0]), so ``bash -c "systemctl restart agentx-gateway"``,
     ``sudo systemctl ...``, ``env systemctl ...``, ``setsid systemctl ...``
     are all caught. ``pkill``/``killall``/``taskkill`` invocations
-    targeting hermes/python patterns are also blocked.
+    targeting agentx/python patterns are also blocked.
     """
     if request.node.get_closest_marker(_LIVE_SYSTEM_GUARD_BYPASS_MARK):
         yield
@@ -1201,7 +1201,7 @@ def _live_system_guard(request, monkeypatch):
             head = tok.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
             if head in _PROCESS_KILLERS:
                 low = cmd_str.lower()
-                # pkill -f pattern: catch hermes-themed patterns + a
+                # pkill -f pattern: catch agentx-themed patterns + a
                 # plain "python" -f which would catch the live gateway
                 # whose cmdline contains "python -m hermes_cli.main".
                 if (
@@ -1225,7 +1225,7 @@ def _live_system_guard(request, monkeypatch):
             raise RuntimeError(
                 f"tests/conftest.py live-system guard: blocked "
                 f"subprocess.{name}({cmd!r}) — process-killer command "
-                "targeting hermes/python could hit the live gateway. "
+                "targeting agentx/python could hit the live gateway. "
                 "Mark with @pytest.mark.live_system_guard_bypass if "
                 "intentional."
             )

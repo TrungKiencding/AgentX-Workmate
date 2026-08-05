@@ -192,7 +192,7 @@ def _make_activity_event(
 ) -> Dict[str, Any]:
     event: Dict[str, Any] = {
         "schema": ACTIVITY_EVENT_SCHEMA,
-        "eventId": f"hermes-{uuid.uuid4()}",
+        "eventId": f"agentx-{uuid.uuid4()}",
         "sessionId": _safe_scalar(session_id, "unknown") or "unknown",
         "hookEventName": hook_event_name,
         "status": "error" if status == "error" else "ok",

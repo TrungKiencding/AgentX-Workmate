@@ -9,7 +9,7 @@ Tag shape (sent in OpenAI-compatible ``extra_body['tags']``):
 
     [
         "product=agentx-agent",
-        "client=hermes-client-v<__version__>",
+        "client=agentx-client-v<__version__>",
     ]
 
 The version is sourced live from ``hermes_cli.__version__`` so it auto-aligns
@@ -98,9 +98,9 @@ def _hermes_version() -> str:
 def hermes_client_tag() -> str:
     """Return the ``client=...`` tag for Nous Portal requests.
 
-    Format: ``client=hermes-client-v<MAJOR>.<MINOR>.<PATCH>``.
+    Format: ``client=agentx-client-v<MAJOR>.<MINOR>.<PATCH>``.
     """
-    return f"client=hermes-client-v{_hermes_version()}"
+    return f"client=agentx-client-v{_hermes_version()}"
 
 
 def conversation_tag(session_id: str) -> str:

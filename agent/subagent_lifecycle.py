@@ -162,7 +162,7 @@ _REGISTRY = _Registry()
 # executor and the async-delegation registry pool).
 from tools.daemon_pool import DaemonThreadPoolExecutor as _DaemonExecutor
 
-_EXECUTOR = _DaemonExecutor(max_workers=8, thread_name_prefix="hermes-lifecycle")
+_EXECUTOR = _DaemonExecutor(max_workers=8, thread_name_prefix="agentx-lifecycle")
 _SECRET = secrets.token_bytes(32)
 _ACTIVE_PARENT_AGENT: contextvars.ContextVar[Any] = contextvars.ContextVar(
     "hermes_subagent_lifecycle_parent", default=None

@@ -98,7 +98,7 @@ def _fresh_node_modules(bridge_dir: Path) -> None:
 
     nm = bridge_dir / "node_modules"
     nm.mkdir()
-    (nm / ".hermes-pkg-hash").write_text(
+    (nm / ".agentx-pkg-hash").write_text(
         _file_content_hash(bridge_dir / "package.json")
     )
 

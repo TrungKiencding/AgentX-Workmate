@@ -48,7 +48,7 @@ def catalog_dir(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _isolate_hermes_home(tmp_path, monkeypatch):
     """Redirect all config I/O to a temp AGENTX_HOME."""
-    hh = tmp_path / "hermes-home"
+    hh = tmp_path / "agentx-home"
     hh.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(hh))
     monkeypatch.setattr(

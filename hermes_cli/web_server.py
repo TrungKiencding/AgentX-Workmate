@@ -2124,7 +2124,7 @@ def _dashboard_local_update_managed_externally() -> bool:
     still behave like their actual install method in the CLI.
 
     However, when the install method is ``git`` (a bind-mounted checkout inside
-    a container — e.g. the hermes-webui image sharing the AgentX source tree),
+    a container — e.g. the agentx-webui image sharing the AgentX source tree),
     the dashboard's ``agentx update`` button is the correct update path and
     should not be suppressed. Other containerized install methods remain
     externally managed unless their apply path is proven safe inside the
@@ -3723,7 +3723,7 @@ _ACTION_LOG_FILES: Dict[str, str] = {
     "gateway-restart": "gateway-restart.log",
     "gateway-start": "gateway-start.log",
     "gateway-stop": "gateway-stop.log",
-    "hermes-update": "hermes-update.log",
+    "agentx-update": "agentx-update.log",
     "doctor": "action-doctor.log",
     "security-audit": "action-security-audit.log",
     "backup": "action-backup.log",
@@ -4079,11 +4079,11 @@ async def update_hermes():
             "containerized environments. The built-in local updater is "
             "disabled here."
         )
-        _record_completed_action("hermes-update", message, exit_code=1)
+        _record_completed_action("agentx-update", message, exit_code=1)
         return {
             "ok": False,
             "pid": None,
-            "name": "hermes-update",
+            "name": "agentx-update",
             "error": "dashboard_update_managed_externally",
             "message": message,
             "update_command": "managed outside dashboard",
@@ -4092,11 +4092,11 @@ async def update_hermes():
     install_method = detect_install_method(PROJECT_ROOT)
     if install_method == "docker":
         message = format_docker_update_message()
-        _record_completed_action("hermes-update", message, exit_code=1)
+        _record_completed_action("agentx-update", message, exit_code=1)
         return {
             "ok": False,
             "pid": None,
-            "name": "hermes-update",
+            "name": "agentx-update",
             "error": "docker_update_unsupported",
             "message": message,
             "update_command": recommended_update_command_for_method(install_method),
@@ -4104,25 +4104,25 @@ async def update_hermes():
 
     if install_method in {"nix", "nixos"}:
         message = recommended_update_command_for_method(install_method)
-        _record_completed_action("hermes-update", message, exit_code=1)
+        _record_completed_action("agentx-update", message, exit_code=1)
         return {
             "ok": False,
             "pid": None,
-            "name": "hermes-update",
+            "name": "agentx-update",
             "error": "nix_update_unsupported",
             "message": message,
             "update_command": message,
         }
 
     try:
-        proc = _spawn_hermes_action(["update"], "hermes-update")
+        proc = _spawn_hermes_action(["update"], "agentx-update")
     except Exception as exc:
         _log.exception("Failed to spawn agentx update")
         raise HTTPException(status_code=500, detail=f"Failed to start update: {exc}")
     return {
         "ok": True,
         "pid": proc.pid,
-        "name": "hermes-update",
+        "name": "agentx-update",
     }
 
 
@@ -5676,10 +5676,10 @@ def _read_memory_provider_existing_values(name: str) -> Dict[str, Any]:
         if isinstance(legacy_cfg, dict):
             values = {**legacy_cfg, **values}
 
-    # Holographic stores under plugins.hermes-memory-store.
+    # Holographic stores under plugins.agentx-memory-store.
     plugins_cfg = cfg.get("plugins") if isinstance(cfg, dict) else {}
     if name == "holographic" and isinstance(plugins_cfg, dict):
-        holographic_cfg = plugins_cfg.get("hermes-memory-store")
+        holographic_cfg = plugins_cfg.get("agentx-memory-store")
         if isinstance(holographic_cfg, dict):
             values.update(holographic_cfg)
 
@@ -12803,7 +12803,7 @@ def _dashboard_backup_dir() -> Path:
 
 def _new_dashboard_backup_path() -> Path:
     stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    return _dashboard_backup_dir() / f"hermes-backup-{stamp}-{secrets.token_hex(4)}.zip"
+    return _dashboard_backup_dir() / f"agentx-backup-{stamp}-{secrets.token_hex(4)}.zip"
 
 
 @app.post("/api/ops/backup")
@@ -13211,7 +13211,7 @@ from hermes_cli.web_routers.skills import (  # noqa: E402,F401 — legacy re-exp
 # provenance).  Keep in sync with create_source_router()'s source list.
 _SKILL_HUB_SOURCE_LABELS = {
     "official": "Official (Nous)",
-    "hermes-index": "AgentX Index",
+    "agentx-index": "AgentX Index",
     "skills-sh": "skills.sh",
     "well-known": "Well-Known",
     "url": "Direct URL",
@@ -15019,7 +15019,7 @@ def _active_session_file_for_channel(app: "FastAPI", channel: str) -> Path:
     if existing is not None:
         return existing
 
-    fd, raw_path = tempfile.mkstemp(prefix="hermes-pty-active-", suffix=".json")
+    fd, raw_path = tempfile.mkstemp(prefix="agentx-pty-active-", suffix=".json")
     os.close(fd)
     path = Path(raw_path)
     files[channel] = path
@@ -15087,7 +15087,7 @@ def _get_console_executor() -> concurrent.futures.ThreadPoolExecutor:
             if _console_executor is None:
                 _console_executor = concurrent.futures.ThreadPoolExecutor(
                     max_workers=_CONSOLE_EXECUTOR_MAX_WORKERS,
-                    thread_name_prefix="hermes-console",
+                    thread_name_prefix="agentx-console",
                 )
                 # Ensure the pool is torn down on interpreter exit. Don't wait on
                 # in-flight workers: a stuck 60s console command must not block
@@ -15975,7 +15975,7 @@ def _render_active_theme_bootstrap_css() -> str:
             # the cascade — the rule below re-resolves automatically and
             # never goes stale when the user picks a different theme.
             return (
-                '<style id="hermes-theme-bootstrap">'
+                '<style id="agentx-theme-bootstrap">'
                 ":root{"
                 f"--background-base:{_esc(bg_hex)};"
                 f"--midground-base:{_esc(mg_hex)};"

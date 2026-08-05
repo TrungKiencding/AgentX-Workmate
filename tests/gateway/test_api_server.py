@@ -858,7 +858,7 @@ class TestCapabilitiesEndpoint:
             resp = await cli.get("/v1/capabilities")
             assert resp.status == 200
             data = await resp.json()
-            assert data["object"] == "hermes.api_server.capabilities"
+            assert data["object"] == "agentx.api_server.capabilities"
             assert data["platform"] == "agentx-agent"
             assert data["model"] == "agentx-agent"
             assert data["auth"]["type"] == "bearer"
@@ -1141,7 +1141,7 @@ class TestChatCompletionsEndpoint:
                 # Tool progress must appear as a custom SSE event, not in
                 # delta.content — prevents model from learning to imitate
                 # markers instead of calling tools (#6972).
-                assert "event: hermes.tool.progress" in body
+                assert "event: agentx.tool.progress" in body
                 assert '"tool": "terminal"' in body
                 # ``label`` is now derived by ``build_tool_preview`` from the
                 # tool args rather than passed by the caller, so we assert
@@ -1170,14 +1170,14 @@ class TestChatCompletionsEndpoint:
         """Regression for #16588.
 
         ``/v1/chat/completions`` streaming previously emitted only a
-        ``tool.started``-style ``hermes.tool.progress`` event; clients
+        ``tool.started``-style ``agentx.tool.progress`` event; clients
         rendering tool lifecycle UI had no way to mark a tool as finished
         because no matching ``status: completed`` event was emitted, and
         no ``toolCallId`` was carried for correlation.
 
         The fix adds ``tool_start_callback`` / ``tool_complete_callback``
         to the chat completions agent invocation and writes both halves
-        of the lifecycle pair on the same ``event: hermes.tool.progress``
+        of the lifecycle pair on the same ``event: agentx.tool.progress``
         SSE line, with stable ``toolCallId`` and ``status``.
         """
         import asyncio
@@ -1223,7 +1223,7 @@ class TestChatCompletionsEndpoint:
             pairs: list[tuple[str | None, str | None]] = []
             lines = body.splitlines()
             for i, line in enumerate(lines):
-                if line.strip() != "event: hermes.tool.progress":
+                if line.strip() != "event: agentx.tool.progress":
                     continue
                 for follow in lines[i + 1: i + 4]:
                     if follow.startswith("data: "):

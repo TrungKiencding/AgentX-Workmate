@@ -988,7 +988,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
+        msg_id = f"<agentx-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
         msg["Message-ID"] = msg_id
 
         msg.attach(MIMEText(body, "plain", "utf-8"))
@@ -1101,7 +1101,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
+        msg_id = f"<agentx-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
         msg["Message-ID"] = msg_id
 
         if body:
@@ -1181,7 +1181,7 @@ class EmailAdapter(BasePlatformAdapter):
             msg["References"] = original_msg_id
 
         msg["Date"] = formatdate(localtime=True)
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
+        msg_id = f"<agentx-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
         msg["Message-ID"] = msg_id
 
         if body:

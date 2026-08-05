@@ -62,7 +62,7 @@ from typing import Any, Optional
 
 from hermes_cli._subprocess_compat import bounded_git_probe
 
-logger = logging.getLogger("hermes.coding_context")
+logger = logging.getLogger("agentx.coding_context")
 
 CODING_TOOLSET = "coding"
 

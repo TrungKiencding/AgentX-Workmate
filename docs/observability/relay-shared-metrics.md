@@ -75,11 +75,11 @@ lowercased and structurally bounded, but they are not normalized through a
 checked-in model catalog. Pricing and model-family classification belong to
 the metrics backend. Prompts, responses, endpoints, errors, session IDs, task
 IDs, and request IDs are not included in the metrics event or package.
-New calls use `hermes.model_route.count`. The previous
-`hermes.model_call.count` contract remains readable only so pending local
+New calls use `agentx.model_route.count`. The previous
+`agentx.model_call.count` contract remains readable only so pending local
 counters created by older builds can be exported without losing data.
 
-Each task run is a Relay `Function` scope named `hermes.task_run`, parented to
+Each task run is a Relay `Function` scope named `agentx.task_run`, parented to
 the owning AgentX session. The start counter contains only bounded execution
 surface and entrypoint values. The terminal counter contains bounded outcome,
 end reason, termination status, duration, logical model-call count, terminal
@@ -92,14 +92,14 @@ cancellations. Active task ownership follows the task ID if AgentX rotates its
 conversation session during context compression.
 
 Each tool invocation is represented by a Relay tool lifecycle named
-`hermes.tool_call`. The terminal counter contains only bounded tool category,
+`agentx.tool_call`. The terminal counter contains only bounded tool category,
 outcome, approval outcome, latency, and explicit retry-count buckets. AgentX
 derives the category from the toolset already declared in its runtime registry;
 custom and unrecognized toolsets collapse to `other` rather than exporting
 tool or plugin names. AgentX does not infer retries from repeated tool names or
 adjacent calls; when the
 hook does not provide an explicit retry relationship, the retry bucket is
-`unknown`. Approval decisions are emitted as `hermes.tool_approval` marks and
+`unknown`. Approval decisions are emitted as `agentx.tool_approval` marks and
 recorded as attributed to a tool call or explicitly `unattributed`. Tool names,
 call IDs, arguments, results, commands, descriptions, and error text are not
 included in shared-metrics events or packages. A started tool that is still

@@ -991,22 +991,38 @@ RULES: list[Rule] = [
         # to provider APIs, and `hermes-x`/`hermes-y` stand in for them in the
         # model-visibility fixtures.
         #
-        # The `-` and `.` in the lookbehind are load-bearing: they keep the
-        # sweep off `use-hermes-config` and `windows-hermes-path`, which are
-        # source FILE names (kept, §2) — renaming the specifier without the
-        # file is an unresolved import.
+        # The `-` in the lookbehind is load-bearing: it keeps the sweep off
+        # `use-hermes-config` and `windows-hermes-path`, which are source FILE
+        # names (kept, §2) — renaming the specifier without the file is an
+        # unresolved import.
+        #
+        # `.` and `/` were in the lookbehind too and were WRONG there, in the
+        # §4 "path rule eating kebab tokens" shape. The first pass renamed
+        # `className="hermes-fade-in"` in four bootstrap-installer routes and
+        # the `@keyframes` block, but not the `.hermes-fade-in` SELECTOR that
+        # binds them, because a CSS selector is a `.` followed by the class
+        # name — so the installer shipped with its entrance animation bound to
+        # a class nothing sets. `/` hid the same class of token behind a path
+        # segment (`/tmp/hermes-verify-example.py`). Neither character
+        # protects anything: every third-party and file name that must survive
+        # is named explicitly in the guard below.
         # The third guard is names that are not ours at all. `hermes-parser`
         # and `hermes-estree` are Meta's JavaScript-engine packages and reach
         # this tree as ordinary npm dependencies; `hermes-tools` is the MCP
-        # server name in the codex config; `hermes-index` is the skills-hub
-        # source id; `hermes-ink` and `hermes-achievements` are directories on
-        # disk. None appears under apps/ today — the guard is here so that the
-        # day one does, this rule does not quietly rename a third party's
-        # package and break `npm ci`.
+        # server name in the codex config; `hermes-ink` and
+        # `hermes-achievements` are directories on disk. None appears under
+        # apps/ today — the guard is here so that the day one does, this rule
+        # does not quietly rename a third party's package and break `npm ci`.
+        #
+        # `hermes-index` was guarded here too until phase 8, which renames the
+        # skills-hub source id across the whole tree. Leaving the guard would
+        # have made apps/ the one place still spelling it the old way — the
+        # §4 half-rename shape exactly.
         pattern=(
-            r"(?<![A-Za-z0-9_./-])hermes-"
+            r"(?<![A-Za-z0-9_-])hermes-"
             r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
-            r"|parser|estree|eslint|tools\b|index\b|ink\b|achievements\b|0day)"
+            r"|parser|estree|eslint|tools\b|ink\b|achievements\b|0day"
+            r"|lcm\b|brain\b|seaeye|jc\b)"
         ),
         replacement="agentx-",
         note="app-local hermes-* CSS/storage/tmpdir names -> agentx-*",
@@ -1017,6 +1033,286 @@ RULES: list[Rule] = [
         # leftovers are a separate surface with no phase in 4-7 owning them,
         # and a partial sweep there would split namespaces the way §4 warns.
         include=["apps/*"],
+    ),
+    # ── Phase 8: prompts, skills, agent-visible content ──────────────────
+    Rule(
+        id="kanban-kebab",
+        phase=8,
+        # The kanban board's whole `hermes-kanban*` namespace, moved as one
+        # family (§4): 557 CSS class names split across the two checked-in
+        # build artifacts (plugins/kanban/dashboard/dist/index.js declares
+        # them, dist/style.css styles them — there is no other source, so the
+        # pair IS the source of truth and a rule that moved only one would
+        # produce a stylesheet matching nothing), plus three siblings that
+        # spell the same prefix with a different separator:
+        #   - `hermes-kanban-dispatcher.service`, the systemd unit users type
+        #     into `systemctl --user enable` (the FILE is renamed too),
+        #   - `docs/hermes-kanban-v1-spec.pdf`, cited from three docstrings
+        #     and four doc pages (the FILE is renamed too),
+        #   - the `hermes-kanban/attach` User-Agent in tools/kanban_tools.py,
+        #     which is why the pattern stops at the prefix rather than
+        #     requiring the trailing hyphen.
+        #
+        # No `hermes-kanban*` token in the tree belongs to anyone else, so
+        # this rule needs none of app-kebab's third-party guards.
+        #
+        # The lookbehind blocks ONLY [A-Za-z0-9_], and that is the whole point.
+        # app-kebab additionally blocks `.` `/` `-`, and copying it here was
+        # measured to move 278 of 285 tokens in dist/index.js but 3 of 307 in
+        # dist/style.css — every class name renamed, every selector left behind,
+        # i.e. a stylesheet matching nothing. The three characters each carry a
+        # real occurrence: `.` is a CSS selector (`.hermes-kanban-card`,
+        # `summary.hermes-kanban-run-meta-label`), `/` is a path
+        # (`docs/hermes-kanban-v1-spec.pdf`), and `-` is the second dash of the
+        # `--hermes-kanban-drawer-width` custom property. Nothing in the tree
+        # spells this token after a word character, so nothing wider is needed.
+        pattern=r"(?<![A-Za-z0-9_])hermes-kanban",
+        replacement="agentx-kanban",
+        note="kanban CSS/service/spec/User-Agent namespace hermes-kanban* -> agentx-kanban*",
+    ),
+    Rule(
+        id="skills-index-source-id",
+        phase=8,
+        # `hermes-index` is the skills-hub source id for our own skills index:
+        # a dict key in two source registries (hermes_cli/skills_hub.py,
+        # tools/skills_hub.py), the `source` field stamped onto every cached
+        # bundle, the equality test in hermes_cli/web_routers/skills.py, the
+        # key of the display-name map in web_server.py (whose value phase 3
+        # already moved to "AgentX Index" — this rule closes that half-rename),
+        # and the `hermes-index.json` on-disk cache file name.
+        #
+        # Renaming the id invalidates that cache file rather than corrupting
+        # it: an unknown filename simply misses and the index is refetched.
+        #
+        # Deliberately NOT `(?![-.\w])`-terminated: `hermes-index.json` and
+        # `hermes-index/featured-skill` must move with the bare id. The
+        # lookbehind blocks only word characters, for the reason spelled out
+        # on kanban-kebab above — a path- or dot-preceded spelling of this id
+        # is still this id.
+        pattern=r"(?<![A-Za-z0-9_])hermes-index",
+        replacement="agentx-index",
+        note="skills-hub source id hermes-index -> agentx-index",
+    ),
+    Rule(
+        id="slack-slash-command",
+        phase=8,
+        # The Slack parent slash command. hermes_cli/commands.py:1305 already
+        # registers the subcommand table under "agentx" while the comment two
+        # lines above still says `/hermes`, and gateway/relay/ws_transport.py
+        # compares an inbound parent against the old spelling — so the relay
+        # path recognises a command the CLI no longer advertises.
+        #
+        # The `@` and `/` in the lookbehind are load-bearing even though this
+        # rule is scoped: without `@` the pattern matches `@/hermes`, the
+        # import specifier resolving to apps/desktop/src/hermes.ts (170 sites,
+        # a source FILE name we keep); without `/` it matches the reverse-proxy
+        # prefix examples `/hermes/login` and `/hermes/auth/native/authorize`,
+        # which belong to the URL-prefix family, not to this one.
+        pattern=r"(?<![A-Za-z0-9_@./-])/hermes(?![A-Za-z0-9_-])",
+        replacement="/agentx",
+        note="Slack parent slash command /hermes -> /agentx",
+        include=["gateway/*", "hermes_cli/commands.py", "AGENTS.md"],
+    ),
+    Rule(
+        id="deeplink-scheme",
+        phase=8,
+        # `hermes://blueprint/<key>?slot=val`. The desktop registered
+        # `agentx://` in phase 4 (apps/desktop/package.json build.protocols,
+        # main.ts:11733) but the PRODUCER lives in cron/blueprint_catalog.py,
+        # which phase 4 could not see: every deep link the blueprint catalog
+        # hands the docs site and the desktop today names a scheme no platform
+        # claims. Same pattern as the phase-4 desktop-ipc-channel rule, scoped
+        # to the producer side.
+        #
+        # `//` in the pattern rather than a bare `hermes:` keeps it off the
+        # skill frontmatter key (`  hermes:` — kept by decision) and off the
+        # ACP `_meta` wire key (`{"hermes": …}`).
+        pattern=r"(?<![A-Za-z0-9_@./-])hermes://",
+        replacement="agentx://",
+        note="deep-link URL scheme hermes:// -> agentx://",
+        include=["cron/*", "tests/cron/*", "plugins/memory/honcho/*", "website/scripts/*"],
+    ),
+    Rule(
+        id="s6-service-name",
+        phase=8,
+        # The s6-rc static service `main-hermes`. Four tracked paths under
+        # docker/s6-rc.d carry it (three files plus the contents.d entry whose
+        # FILE NAME *is* the service name), and hermes_cli/doctor.py:437 reads
+        # it back: `for static in ("main-hermes", "dashboard")`. The `git mv`
+        # of the two directories ships in the same commit as this rule —
+        # a content-only rename leaves the supervisor looking for a service
+        # tree that is not there.
+        pattern=r"(?<![A-Za-z0-9_])main-hermes(?![A-Za-z0-9_-])",
+        replacement="main-agentx",
+        note="s6-rc static service main-hermes -> main-agentx",
+    ),
+    Rule(
+        id="telemetry-namespace",
+        phase=8,
+        # The observability namespace: OTLP metric and span-attribute names
+        # (`hermes.task_run.started`, `hermes.gateway.up`), logger names
+        # (`hermes.coding_context`, `hermes.lint.lsp`), the SSE event
+        # `hermes.tool.progress`, the two shared-metrics schema versions, and
+        # the renderer/SPA storage keys that share the shape
+        # (`hermes.lastLocation`, `hermes.tokenReloadAttempted`).
+        #
+        # The lookbehind excludes `.` and `@`, and that alone is what protects
+        # the two dotted keys we keep: `metadata.hermes.*` (skill frontmatter,
+        # kept for agentskills.io compatibility) and `_meta.hermes` (the ACP
+        # wire namespace) are both preceded by a dot. `@` keeps it off the
+        # Matrix user id `@hermes:example.org` and the contributor addresses in
+        # scripts/release.py.
+        #
+        # Two explicit exemptions, both deliberate references to a PRE-rename
+        # name rather than to this product:
+        #   `hermes.service` — hermes_cli/gateway.py:2096 `_LEGACY_SERVICE_NAMES`,
+        #     the migration allowlist that finds and offers to remove systemd
+        #     units from installs predating the rename. Renaming it makes the
+        #     cleanup match nothing, which is the whole point of the constant.
+        #   `hermes.desktop` — the same idea in hermes_cli/gui_uninstall.py:156,
+        #     which removes both the legacy and the current XDG desktop entry.
+        pattern=r"(?<![A-Za-z0-9_@./-])hermes\.(?!service\b|desktop\b)(?=[a-z_])",
+        replacement="agentx.",
+        note="observability/metric/logger/storage namespace hermes.* -> agentx.*",
+        # release.py is a contributor identity map: the keys are real people's
+        # email addresses (`hermes.wanderer@yahoo.com`). Rewriting one falsifies
+        # an attribution, the same reason .mailmap is globally excluded.
+        exclude=["website/*", "scripts/release.py"],
+    ),
+    Rule(
+        id="worktree-branch-pair",
+        phase=8,
+        # `hermes/hermes-<shortid>` — the scratch worktree branch, where the
+        # brand appears TWICE and the two halves are claimed by two different
+        # rules. This rule must run first and take both, because neither of the
+        # others can: branch-namespace below stops at the slash, and
+        # general-kebab's lookbehind refuses a preceding `/` (which is what
+        # keeps it off `/tmp/...` style paths). Left to those two the token
+        # comes out `agentx/hermes-deadbeef` — a branch the creator writes one
+        # way and the pruner at cli.py:2480 matches the other, which is the
+        # exact failure REBRAND.md §6 predicted for this family.
+        pattern=r"(?:(?<=refs/heads/)|(?<![A-Za-z0-9_@./:-]))hermes/hermes-",
+        replacement="agentx/agentx-",
+        note="scratch worktree branch hermes/hermes-<id> -> agentx/agentx-<id>",
+        include=[
+            "cli.py",
+            "hermes_cli/web_git.py",
+            "apps/desktop/electron/git-worktree-ops.ts",
+            "apps/desktop/electron/git-worktree-ops.test.ts",
+            "tests/cli/test_worktree.py",
+        ],
+    ),
+    Rule(
+        id="branch-namespace",
+        phase=8,
+        # The git branch namespace `hermes/<slug>` and, inside it, the scratch
+        # worktree branches `hermes/hermes-<shortid>`. This is the family
+        # REBRAND.md §6 deferred: renaming the prefix alone would leave
+        # `agentx/hermes-deadbeef`, and renaming the worktree id alone would
+        # leave the pruner at cli.py:2480 — `b.startswith("hermes/hermes-")` —
+        # matching nothing. The `hermes-<shortid>` half moves under the
+        # general-kebab rule below, so the two must ship together.
+        #
+        # Scoped by an explicit include list rather than by a clever pattern,
+        # because `hermes/` appears in five unrelated shapes that must NOT
+        # move: reverse-proxy prefixes (`gw.example.com/hermes`,
+        # `/hermes/login`), filesystem fixtures (`/home/hermes`, `/tmp/hermes`),
+        # the openviking peer path (`viking://user/hermes/memories`), OpenClaw's
+        # own `extensions/migrate-hermes/`, and `docker/s6-rc.d/main-hermes/`.
+        # Every one of those is preceded by `/` or `-`, which is exactly what a
+        # branch ref is not — except `refs/heads/hermes/feat`, hence the
+        # explicit lookbehind alternative.
+        pattern=r"(?:(?<=refs/heads/)|(?<![A-Za-z0-9_@./:-]))hermes/",
+        replacement="agentx/",
+        note="git branch namespace hermes/<slug> -> agentx/<slug>",
+        include=[
+            "cli.py",
+            "hermes_cli/web_git.py",
+            "apps/desktop/electron/git-worktree-ops.ts",
+            "apps/desktop/electron/git-worktree-ops.test.ts",
+            "apps/desktop/src/app/chat/sidebar/projects/*",
+            "tests/cli/test_worktree.py",
+            "tests/tui_gateway/test_project_tree.py",
+            # Not branches, but the same token used as "A/B" prose naming the
+            # product ("targeting hermes/python", "kill hermes/gateway
+            # process") and the sops secret path example `"hermes/env"`.
+            "tests/conftest.py",
+            "tools/approval.py",
+            "nix/nixosModules.nix",
+        ],
+    ),
+    Rule(
+        id="repo-path-names",
+        phase=8,
+        # Paths on disk whose names carry the brand, renamed by `git mv` in
+        # this commit. Each is an exact identifier rather than prose, so this
+        # rule is NOT held back from website/* — a doc naming the old path
+        # tells the reader to run a script or open a directory that is gone.
+        #
+        # Three of these were already half-renamed before this phase:
+        #   nix/hermes-agent.nix     — nix/packages.nix:15 already called
+        #                              `./agentx-agent.nix`, so the nix build
+        #                              could not evaluate at all.
+        #   skills/…/hermes-agent/   — SKILL.md already declared
+        #                              `name: agentx-agent`, and skills resolve
+        #                              by frontmatter name, so only the
+        #                              directory (and every doc citing it) was
+        #                              stale.
+        #   …/hermes-agent-skill-authoring, …/hermes-s6-container-supervision
+        #                            — same shape.
+        # Written as one alternation of zero-width contexts around a bare
+        # `hermes` so the replacement stays a plain string. Four of the seven
+        # are unreachable by general-kebab below: three sit behind its `agent`
+        # guard (which belongs to the phase-5 dist-name family) and two sit
+        # behind a hyphen, which its lookbehind refuses so that
+        # `use-hermes-config` survives.
+        pattern=(
+            r"(?:(?<=setup-)hermes(?=\.sh)"
+            r"|(?<=inspecting-)hermes(?=-desktop-dom)"
+            r"|(?<=autonomous-ai-agents/)hermes(?=-agent(?![A-Za-z0-9_-]))"
+            r"|(?<![A-Za-z0-9_-])hermes(?=-agent\.nix)"
+            r"|(?<![A-Za-z0-9_-])hermes(?=-already-has-routines\.md)"
+            r"|(?<![A-Za-z0-9_-])hermes(?=-agent-skill-authoring)"
+            r"|(?<![A-Za-z0-9_-])hermes(?=-s6-container-supervision))"
+        ),
+        replacement="agentx",
+        note="on-disk path names (scripts, nix package, skill directories) -> agentx-*",
+    ),
+    Rule(
+        id="general-kebab",
+        phase=8,
+        # app-kebab's counterpart for everything outside apps/: the product's
+        # own `hermes-<something>` names in the backend, the gateway, the
+        # plugins, the TUI, the web dashboard and the tests. Container labels
+        # and sandbox names, /tmp scratch prefixes, ntfy topic defaults,
+        # credential-source tags, CI comment markers, the dashboard action id,
+        # the scratch worktree ids, storage keys and DOM ids.
+        #
+        # The guard list is app-kebab's plus four names this scope reaches that
+        # apps/ never did, each verified against the tree:
+        #   lcm    — github.com/stephenschoettler/hermes-lcm, a THIRD-PARTY
+        #            context-engine plugin cited by name in agent/ comments and
+        #            packaged in nix/nixosModules.nix.
+        #   brain  — `hermes-brain:qwen3-14b-ctx16k`, a deliberate counter-
+        #            example: hermes_cli/model_switch.py's non-agentic filter
+        #            must NOT match a user's local Modelfile that merely starts
+        #            with the word, and tests/hermes_cli/test_nous_hermes_non_agentic.py
+        #            asserts exactly that. Renaming it makes the test vacuous.
+        #   seaeye — `hermes-seaeye[bot]`, a real GitHub account cited in
+        #            scripts/contributor_audit.py as an example of the `[bot]`
+        #            suffix.
+        #   jc     — `jason@hermes-jc`, a contributor's real email domain.
+        pattern=(
+            r"(?<![A-Za-z0-9_-])hermes-"
+            r"(?!agent|setup|[0-9]|[xy](?![A-Za-z0-9_-])"
+            r"|parser|estree|eslint|tools\b|ink\b|achievements\b|0day"
+            r"|lcm\b|brain\b|seaeye|jc\b)"
+        ),
+        replacement="agentx-",
+        note="backend/plugin/test hermes-* names -> agentx-*",
+        # apps/* is app-kebab's (phase 4, already applied); website/* is phase 9.
+        # release.py is the contributor identity map — see telemetry-namespace.
+        exclude=["apps/*", "website/*", "scripts/release.py"],
     ),
 ]
 

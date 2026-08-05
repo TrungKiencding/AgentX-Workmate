@@ -297,7 +297,7 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 
 USER root
 RUN mkdir -p /opt/agentx/bin && \
-    cp /opt/agentx/docker/hermes-exec-shim.sh /opt/agentx/bin/agentx && \
+    cp /opt/agentx/docker/agentx-exec-shim.sh /opt/agentx/bin/agentx && \
     chmod 0755 /opt/agentx/bin/agentx && \
     printf 'docker\n' > /opt/agentx/.install_method
 # The ``.install_method`` stamp is baked next to the running code (the install
@@ -334,7 +334,7 @@ RUN if [ -n "${AGENTX_GIT_SHA}" ]; then \
     fi
 
 # ---------- s6-overlay service wiring ----------
-# Static services declared at build time: main-hermes + dashboard.
+# Static services declared at build time: main-agentx + dashboard.
 # Per-profile gateway services are registered dynamically at runtime by
 # the profile create/delete hooks (Phase 4); they live under
 # /run/service/ (tmpfs) and are reconciled on container restart by
@@ -403,7 +403,7 @@ ENV AGENTX_LAZY_INSTALL_TARGET=/opt/data/lazy-packages
 # Recursion is impossible because the shim exec's the venv binary by
 # absolute path (/opt/agentx/.venv/bin/agentx). See the shim source for
 # the opt-out env var (AGENTX_DOCKER_EXEC_AS_ROOT=1).
-COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/agentx/bin/agentx
+COPY --chmod=0755 docker/agentx-exec-shim.sh /opt/agentx/bin/agentx
 COPY --chmod=0755 docker/entrypoint-dispatch.sh /opt/agentx/docker/entrypoint-dispatch.sh
 
 # Pre-s6 entrypoint.sh did `source .venv/bin/activate` which exported

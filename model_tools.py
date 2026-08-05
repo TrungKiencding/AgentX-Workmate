@@ -427,7 +427,7 @@ def _compute_tool_definitions(
             if validate_toolset(toolset_name):
                 from toolsets import bundle_non_core_tools, get_toolset
                 if toolset_name.startswith("agentx-") or (get_toolset(toolset_name) or {}).get("posture"):
-                    # Platform bundles (hermes-*) include _AGENTX_CORE_TOOLS, and
+                    # Platform bundles (agentx-*) include _AGENTX_CORE_TOOLS, and
                     # posture toolsets (`posture: True`, e.g. `coding`) re-list
                     # those same core tools without owning them, so subtracting
                     # the whole toolset would strip core tools shared by other

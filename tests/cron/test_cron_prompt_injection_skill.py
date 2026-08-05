@@ -274,7 +274,7 @@ class TestScriptOutputNotStrictScanned:
     code — same trust class as install-vetted skill markdown — and must be
     scanned with the looser assembled-content tier instead.
 
-    Live incident: the ``hermes-triage`` cron was blocked every 5 minutes
+    Live incident: the ``agentx-triage`` cron was blocked every 5 minutes
     once an open security issue containing the root-delete pattern entered
     its ingest queue (112 such rows in the triage corpus — dangerous-command
     quotes are *normal* for triage data).

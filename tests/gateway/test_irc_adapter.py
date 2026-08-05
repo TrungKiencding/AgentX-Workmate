@@ -51,7 +51,7 @@ class TestIRCAdapterInit:
                 "server": "irc.libera.chat",
                 "port": 6697,
                 "nickname": "agentx",
-                "channel": "#hermes-dev",
+                "channel": "#agentx-dev",
                 "use_tls": True,
             },
         )
@@ -60,7 +60,7 @@ class TestIRCAdapterInit:
         assert adapter.server == "irc.libera.chat"
         assert adapter.port == 6697
         assert adapter.nickname == "agentx"
-        assert adapter.channel == "#hermes-dev"
+        assert adapter.channel == "#agentx-dev"
         assert adapter.use_tls is True
 
 

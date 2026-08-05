@@ -441,7 +441,7 @@ class TestInstallArchiveMemberValidation:
         member.size = len(payload)
         archive, checksums = self._write_archive(tmp_path, member, payload)
 
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "agentx-home"
         monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         with patch("tools.tirith_security._download_file",
                    side_effect=self._download_side_effect(archive, checksums)):
@@ -468,7 +468,7 @@ class TestInstallArchiveMemberValidation:
         member.linkname = "/bin/sh"
         archive, checksums = self._write_archive(tmp_path, member)
 
-        hermes_home = tmp_path / "hermes-home"
+        hermes_home = tmp_path / "agentx-home"
         monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         with patch("tools.tirith_security._download_file",
                    side_effect=self._download_side_effect(archive, checksums)):

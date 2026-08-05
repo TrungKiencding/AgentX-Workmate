@@ -843,7 +843,7 @@ def _logical_parent(
                     metadata={
                         relay_runtime.RUNTIME_SCHEMA_KEY: relay_runtime.RUNTIME_SCHEMA_VERSION,
                         relay_runtime.RUNTIME_INSTANCE_KEY: runtime.runtime_id,
-                        "hermes.call_role": str(
+                        "agentx.call_role": str(
                             (metadata or {}).get("call_role") or "primary"
                         ),
                     },

@@ -15,7 +15,7 @@ Author in-repo SKILL.md files: frontmatter and structure.
 | | |
 |---|---|
 | Source | Bundled (installed by default) |
-| Path | `skills/software-development/hermes-agent-skill-authoring` |
+| Path | `skills/software-development/agentx-agent-skill-authoring` |
 | Version | `1.1.0` |
 | Author | AgentX Workmate |
 | License | MIT |

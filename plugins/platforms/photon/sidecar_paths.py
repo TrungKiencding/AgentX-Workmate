@@ -63,7 +63,7 @@ def dir_writable(path: Path) -> bool:
     mounts), so probe with a real create+unlink like the WhatsApp bridge
     resolver does.
     """
-    probe = path / ".hermes-write-probe"
+    probe = path / ".agentx-write-probe"
     try:
         probe.touch()
         probe.unlink()

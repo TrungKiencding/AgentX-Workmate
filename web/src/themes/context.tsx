@@ -257,7 +257,7 @@ let _PREV_DYNAMIC_VAR_KEYS: Set<string> = new Set();
 
 /** ID for the injected <style> tag that carries a theme's customCSS.
  *  A single tag is reused + replaced on every theme switch. */
-const CUSTOM_CSS_STYLE_ID = "hermes-theme-custom-css";
+const CUSTOM_CSS_STYLE_ID = "agentx-theme-custom-css";
 
 function applyCustomCSS(css: string | undefined) {
   if (typeof document === "undefined") return;

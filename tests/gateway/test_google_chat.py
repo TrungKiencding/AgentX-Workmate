@@ -1471,7 +1471,7 @@ class TestGoogleChatInteractiveSetup:
         answers = {
             "GCP project ID (e.g. my-project)": "demo-project",
             "Pub/Sub subscription (projects/<proj>/subscriptions/<sub>)": (
-                "projects/demo-project/subscriptions/hermes-chat"
+                "projects/demo-project/subscriptions/agentx-chat"
             ),
             "Path to Service Account JSON (or inline JSON)": "/tmp/sa.json",
             "Allowed user emails (comma-separated)": "alice@example.com, bob@example.com",
@@ -1510,7 +1510,7 @@ class TestGoogleChatInteractiveSetup:
         assert saved["GOOGLE_CHAT_PROJECT_ID"] == "demo-project"
         assert (
             saved["GOOGLE_CHAT_SUBSCRIPTION_NAME"]
-            == "projects/demo-project/subscriptions/hermes-chat"
+            == "projects/demo-project/subscriptions/agentx-chat"
         )
         assert saved["GOOGLE_CHAT_SERVICE_ACCOUNT_JSON"] == "/tmp/sa.json"
         assert saved["GOOGLE_CHAT_ALLOWED_USERS"] == "alice@example.com,bob@example.com"

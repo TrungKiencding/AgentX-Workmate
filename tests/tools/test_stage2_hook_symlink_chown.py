@@ -62,7 +62,7 @@ def test_chown_helper_repairs_real_directories(stage2_text: str, tmp_path: Path)
 def test_chown_helper_refuses_symlinked_directories(stage2_text: str, tmp_path: Path) -> None:
     real_home = tmp_path / "real-home"
     real_home.mkdir()
-    symlinked_home = tmp_path / "hermes-home"
+    symlinked_home = tmp_path / "agentx-home"
     try:
         symlinked_home.symlink_to(real_home, target_is_directory=True)
     except (NotImplementedError, OSError):

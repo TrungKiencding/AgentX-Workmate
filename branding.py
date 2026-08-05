@@ -80,9 +80,15 @@ DESKTOP_APP_NAME = "AgentX Workmate"
 # ── Web presence ──────────────────────────────────────────────────────
 # Not registered yet.  Empty string means "no link" — every consumer must
 # treat these as optional and omit the surrounding UI when unset, rather
-# than rendering a dead link.
+# than rendering a dead link.  Use ``docs_url()`` rather than testing
+# ``DOCS_URL`` by hand, so the "omit when unset" rule is written once.
 WEBSITE_URL = ""
 DOCS_URL = ""
+
+#: Canonical source repository.  Update checks, release downloads, issue
+#: links, and the install one-liners all derive from this, so pointing the
+#: product at a different fork is a one-line change here.
+REPO_URL = "https://github.com/AstralX/agentx-workmate"
 
 
 def env(name: str) -> str:
@@ -99,3 +105,35 @@ def config_dir_name() -> str:
     import sys
 
     return CONFIG_DIR_WINDOWS if sys.platform == "win32" else CONFIG_DIR_POSIX
+
+
+def docs_url(path: str = "") -> str:
+    """Return an absolute docs URL for ``path``, or ``""`` when unset.
+
+    ``DOCS_URL`` is empty until a documentation domain is registered, so a
+    caller must never interpolate it blindly — that renders ``https:///docs``
+    to a user.  Ask for the URL and skip the whole line when it is empty::
+
+        if url := branding.docs_url("user-guide/cli"):
+            console.print(f"Docs: {url}")
+
+    Returning the empty string (rather than a relative path or a placeholder)
+    keeps a dead link from reaching a user under any code path.
+    """
+    if not DOCS_URL:
+        return ""
+    if not path:
+        return DOCS_URL
+    return f"{DOCS_URL.rstrip('/')}/{path.lstrip('/')}"
+
+
+def repo_url(path: str = "") -> str:
+    """Return a URL under the canonical source repository.
+
+    ``repo_url("issues")`` -> ``https://github.com/AstralX/agentx-workmate/issues``.
+    Unlike :func:`docs_url` this is never empty — the repository is where the
+    product lives, so a caller may interpolate it directly.
+    """
+    if not path:
+        return REPO_URL
+    return f"{REPO_URL.rstrip('/')}/{path.lstrip('/')}"

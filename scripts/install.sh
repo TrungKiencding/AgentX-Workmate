@@ -573,8 +573,8 @@ install_uv() {
     # `curl | sh` masks curl failures (sh exits 0 on empty stdin)
     # and conflates network errors with installer errors.
     local _uv_install_log _uv_installer
-    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-install.$$.log")"
-    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-installer.$$.sh")"
+    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/agentx-uv-install.$$.log")"
+    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/agentx-uv-installer.$$.sh")"
     if ! curl -LsSf https://astral.sh/uv/install.sh -o "$_uv_installer" 2>"$_uv_install_log"; then
         log_error "Failed to download uv installer from https://astral.sh/uv/install.sh"
         log_info "curl output:"
@@ -1262,7 +1262,7 @@ clone_repo() {
                     git reset -q
                 fi
                 local stash_name
-                stash_name="hermes-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
+                stash_name="agentx-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
                 log_info "Local changes detected, stashing before update..."
                 git stash push --include-untracked -m "$stash_name"
                 autostash_ref="stash@{0}"
@@ -1958,7 +1958,7 @@ copy_config_templates() {
     # here is self-healing, but keep them in sync to avoid a churn on first run.
     if [ ! -f "$AGENTX_HOME/SOUL.md" ]; then
         cat > "$AGENTX_HOME/SOUL.md" << 'SOUL_EOF'
-You are AgentX Workmate, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.
+You are AgentX Workmate, an intelligent AI assistant created by AstralX Technology. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.
 SOUL_EOF
         log_success "Created ~/.agentx/SOUL.md (edit to customize personality)"
     fi

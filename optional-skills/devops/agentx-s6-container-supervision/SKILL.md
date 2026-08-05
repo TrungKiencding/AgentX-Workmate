@@ -1,5 +1,5 @@
 ---
-name: hermes-s6-container-supervision
+name: agentx-s6-container-supervision
 description: Modify or debug s6 services in the AgentX Docker image.
 version: 1.0.0
 author: AgentX Workmate
@@ -37,13 +37,13 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 │   │   ├── seed .env / config.yaml / SOUL.md
 │   │   └── skills_sync.py
 │   └── 02-reconcile-profiles          ← hermes_cli.container_boot
-│       ├── chown /run/service (hermes-writable for runtime register)
+│       ├── chown /run/service (agentx-writable for runtime register)
 │       └── walk $AGENTX_HOME/profiles/<name>/gateway_state.json
 │           → recreate /run/service/gateway-<name>/
 │           → auto-start only those with prior_state == "running"
 │
 ├── s6-rc.d (static services, in /etc/s6-overlay/s6-rc.d/)
-│   ├── main-hermes/run                ← exec sleep infinity (no-op slot)
+│   ├── main-agentx/run                ← exec sleep infinity (no-op slot)
 │   └── dashboard/run                  ← if AGENTX_DASHBOARD=1, runs `agentx dashboard`
 │
 ├── /run/service (s6-svscan watches; tmpfs)
@@ -68,7 +68,7 @@ If you're just running the AgentX Workmate and want to use Docker, see `website/
 | `docker/stage2-hook.sh` | The "old entrypoint logic" — UID remap, chown, seed, skills sync. Runs as cont-init.d/01-agentx-setup. |
 | `docker/cont-init.d/02-reconcile-profiles` | Calls `hermes_cli.container_boot` on every boot to restore profile gateway slots from the persistent volume. |
 | `docker/main-wrapper.sh` | The container's CMD. Routes user args, drops to agentx via `s6-setuidgid`, exec's the chosen program. |
-| `docker/s6-rc.d/main-hermes/run` | No-op `sleep infinity` — slot exists so the s6-rc user bundle is valid; main agentx runs as the CMD, not as a supervised service. |
+| `docker/s6-rc.d/main-agentx/run` | No-op `sleep infinity` — slot exists so the s6-rc user bundle is valid; main agentx runs as the CMD, not as a supervised service. |
 | `docker/s6-rc.d/dashboard/run` | Conditional service — `exec sleep infinity` unless `AGENTX_DASHBOARD` is truthy. |
 | `docker/entrypoint.sh` | Back-compat shim that `exec`s the stage2 hook. External scripts that hard-coded the old entrypoint path still work. |
 | `hermes_cli/service_manager.py` | `S6ServiceManager`: `register_profile_gateway`, `unregister_profile_gateway`, `start/stop/restart/is_running`, `list_profile_gateways`. |
@@ -176,4 +176,4 @@ Check whether something is invoking `s6-svscanctl -t` or `/run/s6/basedir/bin/ha
 ## Related skills
 
 - `agentx-agent-dev`: General agentx-agent codebase navigation
-- `hermes-tool-quirks`: Specific AgentX-tool workarounds (sed/grep/etc.) — load when debugging the s6 stack's interaction with agentx built-in tools.
+- `agentx-tool-quirks`: Specific AgentX-tool workarounds (sed/grep/etc.) — load when debugging the s6 stack's interaction with agentx built-in tools.

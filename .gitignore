@@ -19,7 +19,7 @@ act/
 .env.production.local
 .env.development
 .env.test
-.hermes-docker/
+.agentx-docker/
 .notebooklm-home/
 .notebooklm-cli-venv/
 .notebooklm-playwright/
@@ -36,7 +36,7 @@ test_durations.json
 .pytest-cache/
 tmp/
 temp_vision_images/
-hermes-*/*
+agentx-*/*
 examples/
 tests/quick_test_dataset.jsonl
 tests/sample_dataset.jsonl
@@ -172,7 +172,7 @@ scripts/out/
 # Per-release changelog drafts. These exist only transiently during a release
 # cut (passed to `gh release create --notes-file`); the GitHub Release itself
 # stores the published notes. They are not a build artifact and must never be
-# committed to the repo root. See the hermes-release skill.
+# committed to the repo root. See the agentx-release skill.
 RELEASE_v*.md
 
 # Desktop demo-run scratch output (agentx writes demo/*.txt during recorded

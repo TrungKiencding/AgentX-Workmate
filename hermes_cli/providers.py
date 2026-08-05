@@ -902,7 +902,7 @@ def resolve_provider_full(
                         transport="openai_chat",
                         api_key_env_vars=tuple(_pcfg.api_key_env_vars or ()),
                         base_url=_pcfg.inference_base_url or "",
-                        source="hermes-auth-registry",
+                        source="agentx-auth-registry",
                     )
         except Exception:
             pass

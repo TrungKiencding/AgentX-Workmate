@@ -451,7 +451,7 @@ def _run_protected_sync_provider_call(
     threading.Thread(
         target=provider_context.run,
         args=(_provider_worker,),
-        name="hermes-protected-aux-provider",
+        name="agentx-protected-aux-provider",
         daemon=True,
     ).start()
 

@@ -981,21 +981,21 @@ class TestWebServerEndpoints:
         monkeypatch.setattr(web_server, "_dashboard_local_update_managed_externally", lambda: False)
         monkeypatch.setattr(web_server, "detect_install_method", lambda _root: "docker")
         monkeypatch.setattr(web_server, "_spawn_hermes_action", fail_spawn)
-        web_server._ACTION_PROCS.pop("hermes-update", None)
-        web_server._ACTION_RESULTS.pop("hermes-update", None)
+        web_server._ACTION_PROCS.pop("agentx-update", None)
+        web_server._ACTION_RESULTS.pop("agentx-update", None)
 
         resp = self.client.post("/api/agentx/update")
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["ok"] is False
-        assert data["name"] == "hermes-update"
+        assert data["name"] == "agentx-update"
         assert data["pid"] is None
         assert data["error"] == "docker_update_unsupported"
         assert "docker pull nousresearch/hermes-agent:latest" in data["message"]
         assert spawned is False
 
-        status = self.client.get("/api/actions/hermes-update/status")
+        status = self.client.get("/api/actions/agentx-update/status")
         assert status.status_code == 200
         status_data = status.json()
         assert status_data["running"] is False
@@ -2890,7 +2890,7 @@ class TestThemeBootstrapCSS:
             web_server, "load_config", lambda: {"dashboard": {"theme": "ocean"}}
         )
         css = web_server._render_active_theme_bootstrap_css()
-        assert css.startswith('<style id="hermes-theme-bootstrap">')
+        assert css.startswith('<style id="agentx-theme-bootstrap">')
         assert css.endswith("</style>")
         # Real bundle tokens (web/src/themes/context.tsx + index.css).
         assert "--background-base:#0a1628;" in css
@@ -2941,11 +2941,11 @@ class TestThemeBootstrapCSS:
         client = self._mount_spa_client(tmp_path, monkeypatch)
         resp = client.get("/chat")
         assert resp.status_code == 200
-        assert '<style id="hermes-theme-bootstrap">' in resp.text
+        assert '<style id="agentx-theme-bootstrap">' in resp.text
         assert "--background-base:#0a1628;" in resp.text
         # Injected inside <head>, before the closing tag.
         head = resp.text.split("</head>")[0]
-        assert "hermes-theme-bootstrap" in head
+        assert "agentx-theme-bootstrap" in head
 
 
 
@@ -3480,7 +3480,7 @@ class TestPtyWebSocket:
         """Bare Python commands are resolved from the TUI child's PATH."""
         import hermes_cli.main as main_mod
 
-        command = f"hermes-review-python{Path(sys.executable).suffix}"
+        command = f"agentx-review-python{Path(sys.executable).suffix}"
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         executable = bin_dir / command

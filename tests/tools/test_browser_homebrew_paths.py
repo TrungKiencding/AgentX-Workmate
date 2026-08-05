@@ -151,7 +151,7 @@ class TestRunBrowserCommandPathConstruction:
         }
         fake_json = json.dumps({"success": True})
         browser_path = "/Users/test/Library/Application Support/hermes/node_modules/.bin/agent-browser"
-        hermes_home = str(tmp_path / "hermes-home")
+        hermes_home = str(tmp_path / "agentx-home")
 
         with patch("tools.browser_tool._find_agent_browser", return_value=browser_path), \
  patch("tools.browser_tool._chromium_installed", return_value=True), \

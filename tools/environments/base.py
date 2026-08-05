@@ -559,8 +559,8 @@ class BaseEnvironment(ABC):
 
         self._session_id = uuid.uuid4().hex[:12]
         temp_dir = self.get_temp_dir().rstrip("/") or "/"
-        self._snapshot_path = f"{temp_dir}/hermes-snap-{self._session_id}.sh"
-        self._cwd_file = f"{temp_dir}/hermes-cwd-{self._session_id}.txt"
+        self._snapshot_path = f"{temp_dir}/agentx-snap-{self._session_id}.sh"
+        self._cwd_file = f"{temp_dir}/agentx-cwd-{self._session_id}.txt"
         self._cwd_marker = _cwd_marker(self._session_id)
         self._snapshot_ready = False
         self._snapshot_passthrough_names: set[str] = set()

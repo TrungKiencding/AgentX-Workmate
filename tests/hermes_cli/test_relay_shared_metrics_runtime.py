@@ -210,7 +210,7 @@ class _Relay:
 @pytest.fixture
 def direct_runtime(tmp_path, monkeypatch):
     fake = _Relay()
-    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "hermes-home"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx-home"))
     monkeypatch.setattr(relay_runtime, "_load_nemo_relay", lambda: fake)
     monkeypatch.setattr(
         "hermes_cli.config.read_raw_config_readonly",
@@ -229,7 +229,7 @@ def real_binding_runtime(tmp_path, monkeypatch):
     relay = pytest.importorskip("nemo_relay")
     if getattr(relay, "_native", None) is None:
         pytest.skip("NeMo Relay native binding is unavailable on this platform")
-    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "hermes-home"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx-home"))
     monkeypatch.setattr(
         "hermes_cli.config.read_raw_config_readonly",
         lambda: {"telemetry": {"shared_metrics": {"enabled": True}}},
@@ -337,7 +337,7 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
     ]
     assert len(scope_starts) == 2
     assert scope_starts[0][2] == direct_runtime.ScopeType.Agent
-    assert scope_starts[1][1] == "hermes.task_run"
+    assert scope_starts[1][1] == "agentx.task_run"
     assert scope_starts[1][2] == direct_runtime.ScopeType.Function
     assert scope_starts[1][3]["handle"][1] == relay_runtime.SESSION_SCOPE
     assert scope_starts[1][3]["input"] == {
@@ -348,7 +348,7 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
     assert len(ends) == 1
     assert len(tool_starts) == 1
     assert len(tool_ends) == 1
-    assert tool_starts[0][1] == "hermes.tool_call"
+    assert tool_starts[0][1] == "agentx.tool_call"
     assert tool_starts[0][2] == {}
     assert tool_ends[0][2] == {
         "approval_outcome": "approved",
@@ -374,25 +374,25 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
     assert "gpt-sensitive-model-id" not in serialized_events
     assert plugins.get_plugin_manager().list_plugins() == []
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "agentx-home" / "telemetry" / "shared_metrics"
     packages = list((root / "outbox").glob("*.json"))
     assert len(packages) == 1
     package = json.loads(packages[0].read_text(encoding="utf-8"))
     metrics = {metric["name"]: metric for metric in package["metrics"]}
     assert set(metrics) == {
-        "hermes.model_route.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
-        "hermes.tool_approval.count",
-        "hermes.tool_call.count",
+        "agentx.model_route.count",
+        "agentx.task_run.finished",
+        "agentx.task_run.started",
+        "agentx.tool_approval.count",
+        "agentx.tool_call.count",
     }
-    assert metrics["hermes.model_route.count"]["dimensions"] == {
+    assert metrics["agentx.model_route.count"]["dimensions"] == {
         "model": "claude-sonnet",
         "provider": "anthropic",
     }
-    assert metrics["hermes.model_route.count"]["value"] == 1
-    assert metrics["hermes.tool_call.count"] == {
-        "name": "hermes.tool_call.count",
+    assert metrics["agentx.model_route.count"]["value"] == 1
+    assert metrics["agentx.tool_call.count"] == {
+        "name": "agentx.tool_call.count",
         "type": "counter",
         "dimensions": {
             "approval_outcome": "approved",
@@ -403,8 +403,8 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
         },
         "value": 1,
     }
-    assert metrics["hermes.tool_approval.count"] == {
-        "name": "hermes.tool_approval.count",
+    assert metrics["agentx.tool_approval.count"] == {
+        "name": "agentx.tool_approval.count",
         "type": "counter",
         "dimensions": {
             "attribution": "tool_call",
@@ -412,8 +412,8 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
         },
         "value": 1,
     }
-    assert metrics["hermes.task_run.started"] == {
-        "name": "hermes.task_run.started",
+    assert metrics["agentx.task_run.started"] == {
+        "name": "agentx.task_run.started",
         "type": "counter",
         "dimensions": {
             "entrypoint": "interactive",
@@ -421,7 +421,7 @@ def test_direct_runtime_records_without_enabling_a_plugin(direct_runtime, tmp_pa
         },
         "value": 1,
     }
-    terminal = metrics["hermes.task_run.finished"]["dimensions"]
+    terminal = metrics["agentx.task_run.finished"]["dimensions"]
     assert terminal["duration_bucket"] in {
         "lt_1s",
         "1s_to_5s",
@@ -592,7 +592,7 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
 
     from hermes_cli.observability.shared_metrics import SharedMetricsStore
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "agentx-home" / "telemetry" / "shared_metrics"
     store = SharedMetricsStore(root / "metrics.sqlite3", root / "outbox")
     tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
     monkeypatch.setattr(
@@ -605,10 +605,10 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
     for counter in snapshot:
         by_metric.setdefault(counter["metric_name"], []).append(counter)
 
-    assert len(by_metric["hermes.task_run.started"]) == 1
-    assert by_metric["hermes.task_run.started"][0]["value"] == 3
-    assert len(by_metric["hermes.model_route.count"]) == 1
-    model_counter = by_metric["hermes.model_route.count"][0]
+    assert len(by_metric["agentx.task_run.started"]) == 1
+    assert by_metric["agentx.task_run.started"][0]["value"] == 3
+    assert len(by_metric["agentx.model_route.count"]) == 1
+    model_counter = by_metric["agentx.model_route.count"][0]
     assert model_counter["dimensions"] == {
         "model": model_canary,
         "provider": "custom",
@@ -616,11 +616,11 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
     assert model_counter["value"] == 3
     assert {
         counter["dimensions"]["outcome"]
-        for counter in by_metric["hermes.tool_call.count"]
+        for counter in by_metric["agentx.tool_call.count"]
     } == {"success", "failed", "cancelled"}
     tool_by_outcome = {
         counter["dimensions"]["outcome"]: counter["dimensions"]
-        for counter in by_metric["hermes.tool_call.count"]
+        for counter in by_metric["agentx.tool_call.count"]
     }
     assert tool_by_outcome["success"] == {
         "approval_outcome": "approved",
@@ -643,8 +643,8 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
         "retry_count_bucket": "unknown",
         "tool_category": "browser",
     }
-    assert len(by_metric["hermes.tool_approval.count"]) == 1
-    approval_counter = by_metric["hermes.tool_approval.count"][0]
+    assert len(by_metric["agentx.tool_approval.count"]) == 1
+    approval_counter = by_metric["agentx.tool_approval.count"][0]
     assert approval_counter["dimensions"] == {
         "attribution": "tool_call",
         "outcome": "approved",
@@ -653,7 +653,7 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
     assert approval_counter["packaged_value"] == 1
     terminal_by_outcome = {
         counter["dimensions"]["outcome"]: counter
-        for counter in by_metric["hermes.task_run.finished"]
+        for counter in by_metric["agentx.task_run.finished"]
     }
     assert set(terminal_by_outcome) == {"success", "failed", "cancelled"}
     assert terminal_by_outcome["success"]["dimensions"]["retry_count_bucket"] == "1"
@@ -680,7 +680,7 @@ def test_real_binding_drives_lifecycle_aggregation_export_and_snapshot(
         json.loads(package.read_text(encoding="utf-8")) for package in packages
     ]
     for package in package_payloads:
-        assert package["schema_version"] == "hermes.shared_metrics.v2"
+        assert package["schema_version"] == "agentx.shared_metrics.v2"
         for metric in package["metrics"]:
             key = (metric["name"], tuple(sorted(metric["dimensions"].items())))
             package_values[key] = package_values.get(key, 0) + metric["value"]
@@ -771,13 +771,13 @@ def test_real_binding_correlates_plugin_approval_denial_to_tool_metric(
     )
     lifecycle.finalize_session(session_id=base["session_id"])
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "agentx-home" / "telemetry" / "shared_metrics"
     store = SharedMetricsStore(root / "metrics.sqlite3", root / "outbox")
     snapshot = store.counter_snapshot()
     tool_metrics = [
         counter
         for counter in snapshot
-        if counter["metric_name"] == "hermes.tool_call.count"
+        if counter["metric_name"] == "agentx.tool_call.count"
     ]
     assert len(tool_metrics) == 1
     assert tool_metrics[0]["dimensions"] == {
@@ -790,7 +790,7 @@ def test_real_binding_correlates_plugin_approval_denial_to_tool_metric(
     approval_metrics = [
         counter
         for counter in snapshot
-        if counter["metric_name"] == "hermes.tool_approval.count"
+        if counter["metric_name"] == "agentx.tool_approval.count"
     ]
     assert len(approval_metrics) == 1
     assert approval_metrics[0]["dimensions"] == {
@@ -849,7 +849,7 @@ def test_real_binding_aggregates_tool_and_approval_timeouts(
     )
     lifecycle.finalize_session(session_id=base["session_id"])
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "agentx-home" / "telemetry" / "shared_metrics"
     snapshot = SharedMetricsStore(
         root / "metrics.sqlite3",
         root / "outbox",
@@ -857,7 +857,7 @@ def test_real_binding_aggregates_tool_and_approval_timeouts(
     [tool_metric] = [
         counter
         for counter in snapshot
-        if counter["metric_name"] == "hermes.tool_call.count"
+        if counter["metric_name"] == "agentx.tool_call.count"
     ]
     assert tool_metric["dimensions"] == {
         "approval_outcome": "timed_out",
@@ -869,7 +869,7 @@ def test_real_binding_aggregates_tool_and_approval_timeouts(
     [approval_metric] = [
         counter
         for counter in snapshot
-        if counter["metric_name"] == "hermes.tool_approval.count"
+        if counter["metric_name"] == "agentx.tool_approval.count"
     ]
     assert approval_metric["dimensions"] == {
         "attribution": "tool_call",
@@ -945,7 +945,7 @@ def test_core_runtime_is_fail_open_without_a_published_binding(monkeypatch, capl
         tool_name="terminal",
         args={"command": "true"},
     ) == {"command": "true"}
-    assert not relay_runtime.emit_mark("hermes.probe", session_id="s1")
+    assert not relay_runtime.emit_mark("agentx.probe", session_id="s1")
     assert "AgentX Relay runtime initialization failed" in caplog.text
     relay_runtime._reset_for_tests()
 
@@ -1185,10 +1185,10 @@ def test_disabling_shared_metrics_stops_collection_and_shutdown_export(
             kind="scope",
             category="function",
             category_profile=None,
-            name="hermes.task_run",
+            name="agentx.task_run",
             scope_category="start",
             metadata={
-                "hermes.metrics.schema_version": "hermes.metrics.event.v1",
+                "agentx.metrics.schema_version": "agentx.metrics.event.v1",
                 relay_runtime.RUNTIME_INSTANCE_KEY: runtime.host.runtime_id,
             },
             data={"entrypoint": "interactive", "execution_surface": "cli"},
@@ -1214,7 +1214,7 @@ def test_disabling_shared_metrics_stops_collection_and_shutdown_export(
     root = profile / "telemetry" / "shared_metrics"
     store = SharedMetricsStore(root / "metrics.sqlite3", root / "outbox")
     assert [row["metric_name"] for row in store.counter_snapshot()] == [
-        "hermes.task_run.started"
+        "agentx.task_run.started"
     ]
     assert list((root / "outbox").glob("*.json")) == []
     relay_runtime._reset_for_tests()
@@ -1649,7 +1649,7 @@ def test_same_request_id_is_isolated_between_tasks(direct_runtime):
     task_ends = [
         event[2]["output"]
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert len(task_ends) == 2
     assert all(fields["model_call_count_bucket"] == "1" for fields in task_ends)
@@ -1697,7 +1697,7 @@ def test_reused_tool_call_id_is_counted_for_each_provider_request(direct_runtime
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["tool_call_count_bucket"] == "2"
 
@@ -1737,7 +1737,7 @@ def test_partial_terminal_context_reuses_the_pending_tool_span(direct_runtime):
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["tool_call_count_bucket"] == "1"
 
@@ -1780,7 +1780,7 @@ def test_partial_terminal_variants_do_not_double_count_a_completed_call(
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["tool_call_count_bucket"] == "1"
 
@@ -1828,7 +1828,7 @@ def test_ambiguous_partial_terminal_does_not_create_a_phantom_tool_span(
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["tool_call_count_bucket"] == "2"
 
@@ -1865,12 +1865,12 @@ def test_reused_task_id_starts_a_new_run_for_each_turn(direct_runtime):
     task_starts = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.push" and event[1] == "hermes.task_run"
+        if event[0] == "scope.push" and event[1] == "agentx.task_run"
     ]
     task_ends = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     tool_ends = [
         event for event in direct_runtime.events if event[0] == "tool.call_end"
@@ -1959,7 +1959,7 @@ def test_late_tool_result_does_not_attach_to_reused_task_id(direct_runtime):
     task_ends = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert [
         event[2]["output"]["tool_call_count_bucket"] for event in task_ends
@@ -2013,13 +2013,13 @@ def test_pending_tool_is_closed_and_counted_when_task_is_interrupted(direct_runt
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["tool_call_count_bucket"] == "1"
     task_starts = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.push" and event[1] == "hermes.task_run"
+        if event[0] == "scope.push" and event[1] == "agentx.task_run"
     ]
     assert len(task_starts) == 1
 
@@ -2054,7 +2054,7 @@ def test_pending_tool_uses_the_outer_task_timeout_outcome(direct_runtime):
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["outcome"] == "timed_out"
     assert task_end[2]["output"]["tool_call_count_bucket"] == "1"
@@ -2090,7 +2090,7 @@ def test_approval_without_tool_context_is_counted_as_unattributed(direct_runtime
     [approval] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.event" and event[1] == "hermes.tool_approval"
+        if event[0] == "scope.event" and event[1] == "agentx.tool_approval"
     ]
     assert approval[2]["data"] == {
         "attribution": "unattributed",
@@ -2127,7 +2127,7 @@ def test_approval_with_unmatched_tool_id_is_counted_as_unattributed(direct_runti
     [approval] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.event" and event[1] == "hermes.tool_approval"
+        if event[0] == "scope.event" and event[1] == "agentx.tool_approval"
     ]
     assert approval[2]["data"] == {
         "attribution": "unattributed",
@@ -2230,7 +2230,7 @@ def test_task_retry_count_survives_provider_fallback_ordinal_reset(direct_runtim
     [task_end] = [
         event
         for event in direct_runtime.events
-        if event[0] == "scope.pop" and event[1][1] == "hermes.task_run"
+        if event[0] == "scope.pop" and event[1][1] == "agentx.task_run"
     ]
     assert task_end[2]["output"]["retry_count_bucket"] == "2"
 
@@ -2275,7 +2275,7 @@ def test_failed_flush_keeps_daily_export_open_for_later_task(
 
     finish_desktop_task("t1")
 
-    root = tmp_path / "hermes-home" / "telemetry" / "shared_metrics"
+    root = tmp_path / "agentx-home" / "telemetry" / "shared_metrics"
     assert list((root / "outbox").glob("*.json")) == []
     with sqlite3.connect(root / "metrics.sqlite3") as connection:
         [package_count] = connection.execute(
@@ -2288,8 +2288,8 @@ def test_failed_flush_keeps_daily_export_open_for_later_task(
     [package_path] = list((root / "outbox").glob("*.json"))
     package = json.loads(package_path.read_text(encoding="utf-8"))
     metrics = {metric["name"]: metric for metric in package["metrics"]}
-    assert metrics["hermes.task_run.started"]["value"] == 2
-    assert metrics["hermes.task_run.finished"]["value"] == 2
+    assert metrics["agentx.task_run.started"]["value"] == 2
+    assert metrics["agentx.task_run.finished"]["value"] == 2
     assert flush_attempts == 2
     assert "AgentX shared-metrics task flush failed" in caplog.text
 

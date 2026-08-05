@@ -37,7 +37,7 @@ const profile = (name: string, isDefault = false): ProfileInfo => ({
 })
 
 const remoteConn = (over: Partial<HermesConnection> = {}): HermesConnection =>
-  ({ baseUrl: 'https://hermes-roy.tail.ts.net', mode: 'remote', profile: 'vps-remote', ...over }) as HermesConnection
+  ({ baseUrl: 'https://agentx-roy.tail.ts.net', mode: 'remote', profile: 'vps-remote', ...over }) as HermesConnection
 
 const localConn = (over: Partial<HermesConnection> = {}): HermesConnection =>
   ({ baseUrl: '', mode: 'local', profile: 'default', ...over }) as HermesConnection

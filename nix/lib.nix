@@ -106,7 +106,7 @@ let
   # Python source: everything except JS/TS/docs/infra directories.
   pythonSrc = lib.cleanSourceWith {
     src = repoRoot;
-    name = "hermes-python-source";
+    name = "agentx-python-source";
     filter =
       path: type:
       let
@@ -169,7 +169,7 @@ let
           "SECURITY.md"
           "README.zh-CN.md"
           ".gitignore"
-          "setup-hermes.sh"
+          "setup-agentx.sh"
         ];
       in
       if relPath == "" then

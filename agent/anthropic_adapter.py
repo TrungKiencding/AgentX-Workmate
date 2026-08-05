@@ -21,6 +21,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
+import branding
 from hermes_constants import get_hermes_home
 from typing import Any, Dict, List, Optional, Tuple
 from utils import base_url_host_matches, base_url_hostname, normalize_proxy_env_vars
@@ -2897,13 +2898,22 @@ def build_anthropic_kwargs(
 
         # 2. Sanitize system prompt — replace product name references
         #    to avoid Anthropic's server-side content filters.
+        #
+        #    Derived from ``branding`` rather than spelled literally, because
+        #    the strings being masked are produced by
+        #    ``agent.prompt_builder`` from those same constants.  When the two
+        #    were written out by hand they drifted: the prompt's vendor moved
+        #    to AstralX Technology while one masking literal still said the old
+        #    vendor, and that spelling went onto the OAuth wire unmasked —
+        #    exactly what this block exists to prevent.  A miss here is silent,
+        #    so the pair must not be able to disagree.
         for block in system:
             if isinstance(block, dict) and block.get("type") == "text":
                 text = block.get("text", "")
-                text = text.replace("AgentX Workmate", "Claude Code")
-                text = text.replace("AgentX agent", "Claude Code")
-                text = text.replace("agentx-agent", "claude-code")
-                text = text.replace("Nous Research", "Anthropic")
+                text = text.replace(branding.PRODUCT_NAME, "Claude Code")
+                text = text.replace(f"{branding.SHORT_NAME} agent", "Claude Code")
+                text = text.replace(f"{branding.CLI_COMMAND}-agent", "claude-code")
+                text = text.replace(branding.VENDOR_NAME, "Anthropic")
                 block["text"] = text
 
         # 3. Normalize tool names so NOTHING goes on the OAuth wire with a

@@ -374,7 +374,7 @@ class TestPublicUrlOverride:
         # regardless of test ordering.
         prefix_mod._warned_malformed_public_urls.clear()
         patch_config(None)
-        monkeypatch.setenv("AGENTX_DASHBOARD_PUBLIC_URL", "hermes.domain.com")
+        monkeypatch.setenv("AGENTX_DASHBOARD_PUBLIC_URL", "agentx.domain.com")
 
         with caplog.at_level(logging.WARNING, logger=prefix_mod.__name__):
             result = prefix_mod.resolve_public_url()
@@ -387,7 +387,7 @@ class TestPublicUrlOverride:
         ]
         assert any(
             "AGENTX_DASHBOARD_PUBLIC_URL" in m
-            and "hermes.domain.com" in m
+            and "agentx.domain.com" in m
             and "scheme" in m
             for m in warnings
         ), f"expected a scheme warning, got: {warnings!r}"

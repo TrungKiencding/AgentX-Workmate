@@ -171,7 +171,7 @@ def test_ad_hoc_pass_satisfies_no_suite_stop_loop(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
     changed = str(tmp_path / "src" / "app.ts")
-    script = Path(tempfile.gettempdir()) / f"hermes-ad-hoc-stop-{tmp_path.name}.py"
+    script = Path(tempfile.gettempdir()) / f"agentx-ad-hoc-stop-{tmp_path.name}.py"
     script.write_text("print('ok')\n", encoding="utf-8")
     try:
         record_terminal_result(

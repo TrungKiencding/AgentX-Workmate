@@ -34,8 +34,8 @@ def register(ctx):
 
 Every middleware callback receives:
 
-- `telemetry_schema_version`: currently `hermes.observer.v1`
-- `middleware_schema_version`: currently `hermes.middleware.v1`
+- `telemetry_schema_version`: currently `agentx.observer.v1`
+- `middleware_schema_version`: currently `agentx.middleware.v1`
 - Runtime context such as `session_id`, `task_id`, `turn_id`,
   `api_request_id`, `provider`, `model`, `api_mode`, `tool_name`, and
   `tool_call_id` when applicable.
@@ -122,7 +122,7 @@ For isolated local testing, use one `AGENTX_HOME` for plugin enablement and the
 agent run:
 
 ```bash
-export AGENTX_HOME=/tmp/hermes-middleware-test
+export AGENTX_HOME=/tmp/agentx-middleware-test
 mkdir -p "$AGENTX_HOME"
 agentx plugins enable <plugin-name>
 agentx chat --query 'Reply exactly ok'
@@ -179,7 +179,7 @@ def normalize_terminal_workdir(**kwargs):
     if kwargs.get("tool_name") != "terminal":
         return None
     args = dict(kwargs["args"])
-    args.setdefault("workdir", "/tmp/hermes-middleware-demo")
+    args.setdefault("workdir", "/tmp/agentx-middleware-demo")
     return {
         "args": args,
         "source": "middleware-demo",

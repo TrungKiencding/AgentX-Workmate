@@ -429,7 +429,7 @@ def run_certify(args: argparse.Namespace) -> dict[str, Any]:
     import secrets
     token = secrets.token_urlsafe(24)
     parent_tmp = Path(tempfile.mkdtemp(prefix="iso-certify-"))
-    home = parent_tmp / "hermes-home"
+    home = parent_tmp / "agentx-home"
     seed_scratch_home(
         home,
         isolation=args.isolation,

@@ -628,7 +628,7 @@ function Update-ManagedNpm {
 
     Write-Info "Upgrading bundled npm to satisfy $range ..."
 
-    $tmpCwd = Join-Path $env:TEMP ("hermes-npm-upgrade-" + [Guid]::NewGuid().ToString("N"))
+    $tmpCwd = Join-Path $env:TEMP ("agentx-npm-upgrade-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $tmpCwd | Out-Null
     $prevAge = $env:npm_config_min_release_age
     $prevCI = $env:CI
@@ -1256,7 +1256,7 @@ function Test-Node {
         if ($zipName) {
             $downloadUrl = "${indexUrl}${zipName}"
             $tmpZip = "$env:TEMP\$zipName"
-            $tmpDir = "$env:TEMP\hermes-node-extract"
+            $tmpDir = "$env:TEMP\agentx-node-extract"
 
             Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpZip -UseBasicParsing
             if (Test-Path $tmpDir) { Remove-Item -Recurse -Force $tmpDir }
@@ -1435,7 +1435,7 @@ function Install-SystemPackages {
         # present -> happy path, no clutter).
         $pkgLogs = @{}
         foreach ($pkg in $wingetPkgs) {
-            $log = "$env:TEMP\hermes-winget-$($pkg -replace '[^A-Za-z0-9]','_')-$(Get-Random).log"
+            $log = "$env:TEMP\agentx-winget-$($pkg -replace '[^A-Za-z0-9]','_')-$(Get-Random).log"
             $pkgLogs[$pkg] = $log
             # --source winget pins us to the github-backed source.  Without this,
             # a broken msstore source (cert validation failures like 0x8a15005e
@@ -1635,7 +1635,7 @@ function Install-Repository {
                         Write-Info "Clearing unmerged index entries from a previous conflict..."
                         git -c windows.appendAtomically=false reset -q 2>$null
                     }
-                    $stashName = "hermes-install-autostash-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+                    $stashName = "agentx-install-autostash-" + (Get-Date -Format "yyyyMMdd-HHmmss")
                     Write-Info "Local changes detected, stashing before update..."
                     git -c windows.appendAtomically=false stash push --include-untracked -m "$stashName"
                     if ($LASTEXITCODE -eq 0) { $autostashRef = "stash@{0}" }
@@ -2589,7 +2589,7 @@ function Copy-ConfigTemplates {
         # upgrades the old comment-only scaffold to this text on next run, so
         # drift is self-healing, but keep them in sync to avoid first-run churn.
         $soulContent = @"
-You are AgentX Workmate, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.
+You are AgentX Workmate, an intelligent AI assistant created by AstralX Technology. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.
 "@
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($soulPath, $soulContent, $utf8NoBom)
@@ -2754,7 +2754,7 @@ function Install-NodeDeps {
     # Browser tools
     if (Test-Path "$InstallDir\package.json") {
         Write-Info "Installing Node.js dependencies (browser tools)..."
-        $browserLog = "$env:TEMP\hermes-npm-browser-$(Get-Random).log"
+        $browserLog = "$env:TEMP\agentx-npm-browser-$(Get-Random).log"
         $browserNpmOk = _Run-NpmInstall "Browser tools" $InstallDir $browserLog $npmExe
 
         # Install Playwright Chromium (mirrors scripts/install.sh behaviour for
@@ -2781,7 +2781,7 @@ function Install-NodeDeps {
                 Write-Warn "npx not found -- cannot install Playwright Chromium."
                 Write-Info "Run manually later: cd `"$InstallDir`"; npx playwright install chromium"
             } else {
-                $pwLog = "$env:TEMP\hermes-playwright-install-$(Get-Random).log"
+                $pwLog = "$env:TEMP\agentx-playwright-install-$(Get-Random).log"
                 Push-Location $InstallDir
                 # Capture EAP outside the try block so the catch's restore call
                 # always has a meaningful value (see Install-Uv for the full
@@ -2858,7 +2858,7 @@ function Install-NodeDeps {
     $tuiDir = "$InstallDir\ui-tui"
     if (Test-Path "$tuiDir\package.json") {
         Write-Info "Installing TUI dependencies..."
-        $tuiLog = "$env:TEMP\hermes-npm-tui-$(Get-Random).log"
+        $tuiLog = "$env:TEMP\agentx-npm-tui-$(Get-Random).log"
         [void](_Run-NpmInstall "TUI" $tuiDir $tuiLog $npmExe)
     }
 }

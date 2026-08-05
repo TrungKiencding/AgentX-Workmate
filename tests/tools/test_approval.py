@@ -101,7 +101,7 @@ class TestDetectDangerousRm:
 
     def test_nonrecursive_verification_artifact_cleanup_is_not_dangerous(self):
         with mock_patch("tempfile.gettempdir", return_value="/tmp"):
-            for prefix in ("hermes-verify-", "hermes-ad-hoc-"):
+            for prefix in ("agentx-verify-", "agentx-ad-hoc-"):
                 assert detect_dangerous_command(f"rm -f /tmp/{prefix}example.py") == (
                     False,
                     None,
@@ -113,7 +113,7 @@ class TestDetectDangerousRm:
         real_temp.mkdir()
         linked_temp = tmp_path / "linked-temp"
         linked_temp.symlink_to(real_temp, target_is_directory=True)
-        basename = "hermes-verify-example.py"
+        basename = "agentx-verify-example.py"
 
         with mock_patch("tempfile.gettempdir", return_value=str(linked_temp)):
             assert detect_dangerous_command(f"rm -f {linked_temp / basename}")[0] is True
@@ -125,15 +125,15 @@ class TestDetectDangerousRm:
 
     def test_verification_cleanup_exemption_rejects_broader_deletions(self):
         commands = (
-            "rm -rf /tmp/hermes-verify-example.py",
-            "rm -f /tmp/hermes-verify-example.py /tmp/other.py",
-            "rm -f /tmp/nested/../hermes-verify-example.py",
-            "rm -f /tmp/a/../../tmp/hermes-verify-example.py",
-            "rm -f /var/tmp/hermes-verify-example.py",
-            "rm -f /tmp/hermes-verify-*",
-            "rm -f /tmp/hermes-verify-$(touch>/tmp/pwned).py",
-            "rm -f /tmp/hermes-ad-hoc-`touch>/tmp/pwned`.py",
-            "rm -f /tmp/hermes-verify-example.py; touch /tmp/pwned",
+            "rm -rf /tmp/agentx-verify-example.py",
+            "rm -f /tmp/agentx-verify-example.py /tmp/other.py",
+            "rm -f /tmp/nested/../agentx-verify-example.py",
+            "rm -f /tmp/a/../../tmp/agentx-verify-example.py",
+            "rm -f /var/tmp/agentx-verify-example.py",
+            "rm -f /tmp/agentx-verify-*",
+            "rm -f /tmp/agentx-verify-$(touch>/tmp/pwned).py",
+            "rm -f /tmp/agentx-ad-hoc-`touch>/tmp/pwned`.py",
+            "rm -f /tmp/agentx-verify-example.py; touch /tmp/pwned",
         )
         with mock_patch("tempfile.gettempdir", return_value="/tmp"):
             for command in commands:
@@ -146,12 +146,12 @@ class TestDetectDangerousRm:
 class TestWindowsShellDestructiveCommands:
     def test_windows_destructive_requires_approval(self):
         cases = [
-            (r"cmd /c del /f /q C:\tmp\hermes-victim\file.txt", "Windows cmd destructive delete"),
-            (r"cmd.exe /k rmdir /s /q C:\tmp\hermes-victim", "Windows cmd destructive delete"),
+            (r"cmd /c del /f /q C:\tmp\agentx-victim\file.txt", "Windows cmd destructive delete"),
+            (r"cmd.exe /k rmdir /s /q C:\tmp\agentx-victim", "Windows cmd destructive delete"),
             # Regression: PowerShell runs the verb as the default positional arg,
             # so `powershell Remove-Item ...` with NO explicit -Command must still
             # be gated (the original pattern required -Command and missed this).
-            (r"powershell Remove-Item -Recurse -Force C:\tmp\hermes-victim",
+            (r"powershell Remove-Item -Recurse -Force C:\tmp\agentx-victim",
              "Windows PowerShell destructive delete"),
             # `ri` is the canonical Remove-Item alias.
             (r"powershell ri -Recurse -Force C:\tmp\x", "Windows PowerShell destructive delete"),

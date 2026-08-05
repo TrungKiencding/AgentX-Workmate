@@ -296,17 +296,17 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
     for counter in counters:
         by_name.setdefault(counter["name"], []).append(counter)
     if set(by_name) != {
-        "hermes.model_route.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
-        "hermes.tool_call.count",
+        "agentx.model_route.count",
+        "agentx.task_run.finished",
+        "agentx.task_run.started",
+        "agentx.tool_call.count",
     }:
         raise AssertionError(
             f"Unexpected SQLite counters:\n{json.dumps(counters, indent=2)}"
         )
-    [model] = by_name["hermes.model_route.count"]
+    [model] = by_name["agentx.model_route.count"]
     expected_model = {
-        "name": "hermes.model_route.count",
+        "name": "agentx.model_route.count",
         "dimensions": {
             "model": MODEL_CANARY,
             "provider": "custom",
@@ -316,10 +316,10 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
     }
     if model != expected_model:
         raise AssertionError(
-            f"Unexpected model counter: {by_name['hermes.model_route.count']}"
+            f"Unexpected model counter: {by_name['agentx.model_route.count']}"
         )
     expected_start = {
-        "name": "hermes.task_run.started",
+        "name": "agentx.task_run.started",
         "dimensions": {
             "entrypoint": "interactive",
             "execution_surface": "cli",
@@ -327,11 +327,11 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
         "value": 1,
         "packaged_value": 1,
     }
-    if by_name["hermes.task_run.started"] != [expected_start]:
+    if by_name["agentx.task_run.started"] != [expected_start]:
         raise AssertionError(
-            f"Unexpected task start: {by_name['hermes.task_run.started']}"
+            f"Unexpected task start: {by_name['agentx.task_run.started']}"
         )
-    [terminal] = by_name["hermes.task_run.finished"]
+    [terminal] = by_name["agentx.task_run.finished"]
     expected_terminal_dimensions = {
         "duration_bucket": terminal["dimensions"].get("duration_bucket"),
         "end_reason": "completed",
@@ -349,7 +349,7 @@ def _validate_store(database_path: Path) -> list[dict[str, Any]]:
         or terminal["packaged_value"] != 1
     ):
         raise AssertionError(f"Unexpected task terminal counter: {terminal}")
-    [tool] = by_name["hermes.tool_call.count"]
+    [tool] = by_name["agentx.tool_call.count"]
     expected_tool_dimensions = {
         "approval_outcome": "not_required",
         "latency_bucket": tool["dimensions"].get("latency_bucket"),
@@ -397,23 +397,23 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
     for metric in package.get("metrics", []):
         metrics.setdefault(metric["name"], []).append(metric)
     if set(metrics) != {
-        "hermes.model_route.count",
-        "hermes.task_run.finished",
-        "hermes.task_run.started",
-        "hermes.tool_call.count",
+        "agentx.model_route.count",
+        "agentx.task_run.finished",
+        "agentx.task_run.started",
+        "agentx.tool_call.count",
     }:
         raise AssertionError(
             f"Unexpected package metrics:\n{json.dumps(package.get('metrics'), indent=2)}"
         )
-    [model] = metrics["hermes.model_route.count"]
+    [model] = metrics["agentx.model_route.count"]
     if model["dimensions"] != {
         "model": MODEL_CANARY,
         "provider": "custom",
     } or model["value"] != 2:
         raise AssertionError(
-            f"Unexpected model metric: {metrics['hermes.model_route.count']}"
+            f"Unexpected model metric: {metrics['agentx.model_route.count']}"
         )
-    [terminal] = metrics["hermes.task_run.finished"]
+    [terminal] = metrics["agentx.task_run.finished"]
     if terminal["dimensions"] != {
         "duration_bucket": terminal["dimensions"].get("duration_bucket"),
         "end_reason": "completed",
@@ -426,7 +426,7 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
         "tool_call_count_bucket": "1",
     }:
         raise AssertionError(f"Unexpected task terminal metric: {terminal}")
-    [tool] = metrics["hermes.tool_call.count"]
+    [tool] = metrics["agentx.tool_call.count"]
     if (
         tool["dimensions"]
         != {
@@ -461,8 +461,8 @@ def main() -> int:
             raise SystemExit(f"Refusing to replace existing output directory: {root}")
         root.mkdir(parents=True)
     else:
-        root = Path(tempfile.mkdtemp(prefix="hermes-relay-shared-metrics-"))
-    home = root / "hermes-home"
+        root = Path(tempfile.mkdtemp(prefix="agentx-relay-shared-metrics-"))
+    home = root / "agentx-home"
     workdir = root / "workspace"
     workdir.mkdir()
     (workdir / TOOL_FILE).write_text(TOOL_RESULT_CANARY, encoding="utf-8")
@@ -510,8 +510,8 @@ def main() -> int:
         server.server_close()
         thread.join(timeout=5)
 
-    (root / "hermes.stdout.txt").write_text(result.stdout, encoding="utf-8")
-    (root / "hermes.stderr.txt").write_text(result.stderr, encoding="utf-8")
+    (root / "agentx.stdout.txt").write_text(result.stdout, encoding="utf-8")
+    (root / "agentx.stderr.txt").write_text(result.stderr, encoding="utf-8")
     if result.returncode != 0:
         raise AssertionError(
             f"AgentX exited with {result.returncode}\n"
@@ -540,7 +540,7 @@ def main() -> int:
         / "hermes_cli"
         / "observability"
         / "schemas"
-        / "hermes.shared_metrics.v2.schema.json",
+        / "agentx.shared_metrics.v2.schema.json",
     )
 
     print("AgentX -> NeMo Relay shared-metrics smoke test passed")

@@ -34,7 +34,7 @@ def test_build_gateway_argv_keeps_venv_console_python_for_uv_venv(monkeypatch, t
     project = tmp_path / "project"
     scripts = project / "venv" / "Scripts"
     site_packages = project / "venv" / "Lib" / "site-packages"
-    hermes_home = tmp_path / "hermes-home"
+    hermes_home = tmp_path / "agentx-home"
     base = tmp_path / "uv" / "python" / "cpython-3.11-windows-x86_64-none"
     scripts.mkdir(parents=True)
     site_packages.mkdir(parents=True)

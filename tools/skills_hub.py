@@ -3972,7 +3972,7 @@ AGENTX_INDEX_TTL = 6 * 3600  # 6 hours
 
 
 def _hermes_index_cache_file() -> Path:
-    return _index_cache_dir() / "hermes-index.json"
+    return _index_cache_dir() / "agentx-index.json"
 
 
 def _load_hermes_index() -> Optional[dict]:
@@ -4092,7 +4092,7 @@ class HermesIndexSource(SkillSource):
         return self._github
 
     def source_id(self) -> str:
-        return "hermes-index"
+        return "agentx-index"
 
     @property
     def is_available(self) -> bool:
@@ -4179,7 +4179,7 @@ class HermesIndexSource(SkillSource):
         if resolved:
             bundle = self._get_github().fetch(resolved)
             if bundle:
-                bundle.source = entry.get("source", "hermes-index")
+                bundle.source = entry.get("source", "agentx-index")
                 bundle.identifier = identifier
                 return bundle
 
@@ -4190,7 +4190,7 @@ class HermesIndexSource(SkillSource):
             github_id = f"{repo}/{path}"
             bundle = self._get_github().fetch(github_id)
             if bundle:
-                bundle.source = entry.get("source", "hermes-index")
+                bundle.source = entry.get("source", "agentx-index")
                 bundle.identifier = identifier
                 return bundle
 
@@ -4239,7 +4239,7 @@ class HermesIndexSource(SkillSource):
         return SkillMeta(
             name=entry.get("name", ""),
             description=entry.get("description", ""),
-            source=entry.get("source", "hermes-index"),
+            source=entry.get("source", "agentx-index"),
             identifier=entry.get("identifier", ""),
             trust_level=entry.get("trust_level", "community"),
             repo=entry.get("repo"),
@@ -4324,7 +4324,7 @@ def parallel_search_sources(
                                   "lobehub", "well-known"})
     if _effective_filter == "all":
         for src in sources:
-            if (src.source_id() == "hermes-index"
+            if (src.source_id() == "agentx-index"
                     and getattr(src, "is_available", False)):
                 _index_available = True
                 break

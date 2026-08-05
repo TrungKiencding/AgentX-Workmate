@@ -608,10 +608,10 @@ def _run_backup_locked(args, hermes_root: Path) -> None:
         # If user gave a directory, put the zip inside it
         if out_path.is_dir():
             stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            out_path = out_path / f"hermes-backup-{stamp}.zip"
+            out_path = out_path / f"agentx-backup-{stamp}.zip"
     else:
         stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        out_path = Path.home() / f"hermes-backup-{stamp}.zip"
+        out_path = Path.home() / f"agentx-backup-{stamp}.zip"
 
     # Ensure the suffix is .zip
     if out_path.suffix.lower() != ".zip":

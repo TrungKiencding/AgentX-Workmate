@@ -21,7 +21,7 @@ def _make_cli(session_id="20260524_000001_abc123"):
 class TestExitSummaryResumeHint:
     """The exit-line ``Resume this session with:`` hint must include the
     active profile (`-p <name>`) so session IDs round-trip across
-    profile boundaries — sessions live under `~/.hermes-profiles/<profile>/`,
+    profile boundaries — sessions live under `~/.agentx-profiles/<profile>/`,
     so a hint copied without `-p` from a non-default profile won't find
     the session.
     """

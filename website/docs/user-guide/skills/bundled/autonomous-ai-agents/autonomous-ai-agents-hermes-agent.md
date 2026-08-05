@@ -15,7 +15,7 @@ Use, configure, theme, extend, and orchestrate AgentX Workmate.
 | | |
 |---|---|
 | Source | Bundled (installed by default) |
-| Path | `skills/autonomous-ai-agents/hermes-agent` |
+| Path | `skills/autonomous-ai-agents/agentx-agent` |
 | Version | `3.1.0` |
 | Author | AgentX Workmate + Teknium |
 | License | MIT |

@@ -11,7 +11,7 @@ test('a first-run bootstrap-needed remote apply connects without ensuring or boo
   const gate = createFirstRunSetupGate({ stuckAfterMs: 0 })
 
   const bootstrapBackend = {
-    activeRoot: '/tmp/hermes-home/agentx-agent',
+    activeRoot: '/tmp/agentx-home/agentx-agent',
     kind: 'bootstrap-needed',
     platform: 'linux'
   }

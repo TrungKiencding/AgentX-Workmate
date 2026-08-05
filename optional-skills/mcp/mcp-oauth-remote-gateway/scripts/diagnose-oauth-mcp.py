@@ -70,7 +70,7 @@ def _mcp_initialize(mcp_url, access_token):
         data={
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                       "clientInfo": {"name": "hermes-diag", "version": "1.0"}},
+                       "clientInfo": {"name": "agentx-diag", "version": "1.0"}},
         },
         headers={
             "Authorization": "Bearer " + access_token,

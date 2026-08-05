@@ -87,7 +87,7 @@ def test_shell_wrappers_match_but_echo_does_not(tmp_path, monkeypatch):
 def test_temp_script_records_ad_hoc_evidence_without_canonical_suite(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
-    script = Path(tempfile.gettempdir()) / f"hermes-ad-hoc-{tmp_path.name}.py"
+    script = Path(tempfile.gettempdir()) / f"agentx-ad-hoc-{tmp_path.name}.py"
     script.write_text("print('ok')\n", encoding="utf-8")
     try:
         evidence = classify_verification_command(
@@ -198,14 +198,14 @@ def test_windows_backslash_ad_hoc_script_path_is_matched(tmp_path, monkeypatch):
     # posix=False preserves them. Mock _is_temp_script_path so the test
     # focuses on the splitting fallback without needing a real Windows FS.
     def mock_is_temp_script(token, root):
-        return "hermes-ad-hoc" in token and ".py" in token
+        return "agentx-ad-hoc" in token and ".py" in token
 
     monkeypatch.setattr(
         "agent.verification_evidence._is_temp_script_path",
         mock_is_temp_script,
     )
 
-    win_script = r"C:\Users\test\AppData\Local\Temp\hermes-ad-hoc-check.py"
+    win_script = r"C:\Users\test\AppData\Local\Temp\agentx-ad-hoc-check.py"
     result = _find_ad_hoc_match(f"python {win_script}", tmp_path)
     assert result is not None, (
         "Windows backslash path should be matched via posix=False fallback"

@@ -403,7 +403,7 @@ class _EmbeddedCuaDaemon:
         self._stderr_thread: Optional[threading.Thread] = None
         token = uuid.uuid4().hex[:12]
         if sys.platform == "win32":
-            self.socket_path = rf"\\.\pipe\hermes-cua-{token}"
+            self.socket_path = rf"\\.\pipe\agentx-cua-{token}"
         else:
             self.socket_path = os.path.join(
                 tempfile.gettempdir(), f"hc-{token}.sock"
@@ -461,7 +461,7 @@ class _EmbeddedCuaDaemon:
         self._stderr_thread = threading.Thread(
             target=self._drain_stderr,
             args=(self._process,),
-            name="hermes-cua-daemon-stderr",
+            name="agentx-cua-daemon-stderr",
             daemon=True,
         )
         self._stderr_thread.start()
@@ -1950,7 +1950,7 @@ class CuaDriverBackend(ComputerUseBackend):
         # unknown to the driver (older builds), the tool calls
         # degrade to the anonymous / unsynced path documented in the
         # MCP server instructions.
-        self._session_id: str = f"hermes-{uuid.uuid4().hex[:12]}"
+        self._session_id: str = f"agentx-{uuid.uuid4().hex[:12]}"
         self._typed_browser = CuaTypedBrowserRoute(
             session_id=self._session_id,
             call_tool=self._session.call_tool,
