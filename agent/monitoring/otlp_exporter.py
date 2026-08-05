@@ -1,7 +1,7 @@
 """Export monitoring events to an OpenTelemetry Collector over OTLP/HTTP.
 
 Maps gateway monitoring events to OTel spans and sends them to the endpoint
-configured under ``monitoring.export.otlp``. Lets an operator stream Hermes
+configured under ``monitoring.export.otlp``. Lets an operator stream AgentX
 gateway health into their own observability stack (OTEL Collector, DataDog,
 and similar).
 
@@ -120,7 +120,7 @@ def _resource_attributes(config: Dict[str, Any]) -> Dict[str, str]:
     from agent.monitoring.policy import ensure_install_id
 
     return {
-        "service.name": "hermes-gateway",
+        "service.name": "agentx-gateway",
         "service.instance.id": _safe_instance_id(ensure_install_id(config)),
         "telemetry.scope": "gateway_monitoring",
     }

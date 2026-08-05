@@ -1,4 +1,4 @@
-"""``hermes approvals`` subcommand parser.
+"""``agentx approvals`` subcommand parser.
 
 Follows the cron/security pattern: parser construction lives here, the
 handler is injected by ``main.py`` so this module never imports ``main``
@@ -17,7 +17,7 @@ def build_approvals_parser(subparsers, *, cmd_approvals: Callable) -> None:
         help="Approval-prompt tools (mine history into allowlist proposals)",
         description=(
             "Tools for the dangerous-command approval system. "
-            "`hermes approvals suggest` mines past approval decisions from "
+            "`agentx approvals suggest` mines past approval decisions from "
             "the session database and proposes command_allowlist entries so "
             "repeatedly-approved commands stop prompting."
         ),

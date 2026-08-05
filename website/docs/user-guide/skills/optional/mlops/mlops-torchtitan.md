@@ -14,19 +14,18 @@ Pretrain LLMs at scale with PyTorch 4D parallelism.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/torchtitan` |
+| Source | Optional — install with `agentx skills install official/mlops/torchtitan` |
 | Path | `optional-skills/mlops/torchtitan` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `torch>=2.6.0`, `torchtitan>=0.2.0`, `torchao>=0.5.0` |
 | Platforms | linux, macos |
-| Tags | `Model Architecture`, `Distributed Training`, `TorchTitan`, `FSDP2`, `Tensor Parallel`, `Pipeline Parallel`, `Context Parallel`, `Float8`, `Llama`, `Pretraining` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # TorchTitan - PyTorch Native Distributed LLM Pretraining

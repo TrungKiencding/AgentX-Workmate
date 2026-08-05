@@ -11,7 +11,7 @@ xai = ProviderProfile(
     env_vars=("XAI_API_KEY",),
     base_url="https://api.x.ai/v1",
     auth_type="api_key",
-    default_headers={"User-Agent": f"Hermes-Agent/{_AGENTX_VERSION}"},
+    default_headers={"User-Agent": f"AgentX-Agent/{_AGENTX_VERSION}"},
 )
 
 register_provider(xai)

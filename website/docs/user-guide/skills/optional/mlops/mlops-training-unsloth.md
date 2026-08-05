@@ -14,19 +14,18 @@ Unsloth: 2-5x faster LoRA/QLoRA fine-tuning, less VRAM.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/unsloth` |
+| Source | Optional — install with `agentx skills install official/mlops/unsloth` |
 | Path | `optional-skills/mlops/training/unsloth` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `unsloth`, `torch`, `transformers`, `trl`, `datasets`, `peft` |
 | Platforms | linux, macos |
-| Tags | `Fine-Tuning`, `Unsloth`, `Fast Training`, `LoRA`, `QLoRA`, `Memory-Efficient`, `Optimization`, `Llama`, `Mistral`, `Gemma`, `Qwen` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Unsloth Skill

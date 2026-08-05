@@ -14,19 +14,18 @@ TRL: SFT, DPO, GRPO, RLOO reward modeling for LLM RLHF.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/trl-fine-tuning` |
+| Source | Optional — install with `agentx skills install official/mlops/trl-fine-tuning` |
 | Path | `optional-skills/mlops/training/trl-fine-tuning` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `trl`, `transformers`, `datasets`, `peft`, `accelerate`, `torch` |
 | Platforms | linux, macos, windows |
-| Tags | `Post-Training`, `TRL`, `Reinforcement Learning`, `Fine-Tuning`, `SFT`, `DPO`, `GRPO`, `RLOO`, `RLHF`, `Preference Alignment`, `HuggingFace` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # TRL - Transformer Reinforcement Learning

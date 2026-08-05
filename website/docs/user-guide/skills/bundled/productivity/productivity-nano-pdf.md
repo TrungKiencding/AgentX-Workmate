@@ -20,13 +20,11 @@ Edit text in existing PDFs via natural-language prompts.
 | Author | community |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `PDF`, `Documents`, `Editing`, `NLP`, `Productivity` |
-| Related skills | [`pdf`](/docs/user-guide/skills/bundled/productivity/productivity-pdf), [`ocr-and-documents`](/docs/user-guide/skills/bundled/productivity/productivity-ocr-and-documents) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # nano-pdf
@@ -36,7 +34,7 @@ Edit PDFs using natural-language instructions. Point it at a page and describe w
 ## Prerequisites
 
 ```bash
-# Install with uv (recommended — already available in Hermes)
+# Install with uv (recommended — already available in AgentX)
 uv pip install nano-pdf
 
 # Or with pip

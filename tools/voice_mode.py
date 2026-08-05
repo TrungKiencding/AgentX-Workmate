@@ -123,7 +123,7 @@ from hermes_constants import is_termux as _is_termux_environment
 def _voice_capture_install_hint() -> str:
     if _is_termux_environment():
         return "pkg install python-numpy portaudio && python -m pip install sounddevice"
-    # If we're running inside a venv (e.g. the bundled Hermes venv at
+    # If we're running inside a venv (e.g. the bundled AgentX venv at
     # ~/.agentx/profiles/<name>/hermes-agent/venv/), `pip install` on the
     # user's PATH won't reach the right site-packages — the bare hint sends
     # them off to whichever Python their shell resolves first, which on macOS
@@ -301,7 +301,7 @@ def detect_audio_environment() -> dict:
             warnings.append(
                 "Running over SSH -- no audio devices available.\n"
                 "  If a sound server (PulseAudio/PipeWire) is running on this host,\n"
-                "  point Hermes at it, e.g.:\n"
+                "  point AgentX at it, e.g.:\n"
                 "    export XDG_RUNTIME_DIR=/run/user/$(id -u)\n"
                 "    # or: export PULSE_SERVER=unix:$XDG_RUNTIME_DIR/pulse/native"
             )
@@ -1636,7 +1636,7 @@ def _play_audio_file_impl(file_path: str) -> bool:
     # ffmpeg are available, convert the audio to a uniquely-named WAV in the
     # Windows %TEMP% directory and play it via Media.SoundPlayer -- which
     # always has a working audio device on the Windows host (#17608).
-    # A unique suffix prevents concurrent Hermes TTS calls from colliding on
+    # A unique suffix prevents concurrent AgentX TTS calls from colliding on
     # the same filename. The WAV is deleted in the shell pipeline
     # unconditionally (success or failure), and the ORIGINAL ffmpeg/
     # powershell exit status is preserved past that cleanup so the player

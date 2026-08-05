@@ -38,7 +38,7 @@ declare global {
     __AGENTX_AUTH_REQUIRED__?: boolean;
   }
 }
-const SESSION_HEADER = "X-Hermes-Session-Token";
+const SESSION_HEADER = "X-Agentx-Session-Token";
 
 function setSessionHeader(headers: Headers, token: string): void {
   if (!headers.has(SESSION_HEADER)) {
@@ -155,7 +155,7 @@ export async function fetchJSON<T>(
       return new Promise<T>(() => {});
     }
     // Loopback mode: ``_SESSION_TOKEN`` rotates on every server restart
-    // (``hermes update``, ``hermes gateway restart``, etc.). A tab kept
+    // (``agentx update``, ``agentx gateway restart``, etc.). A tab kept
     // open across the restart holds the OLD token in
     // ``window.__AGENTX_SESSION_TOKEN__`` from the previous HTML render,
     // so every fetch returns 401. The HTML is served ``Cache-Control:
@@ -231,7 +231,7 @@ export async function buildWsAuthParam(): Promise<[string, string]> {
  * the caller can read ``.blob()`` / ``.formData()`` / stream it.
  *
  * Auth, in both modes, exactly as ``fetchJSON`` does it:
- *  - loopback / ``--insecure``: attach the ``X-Hermes-Session-Token`` header.
+ *  - loopback / ``--insecure``: attach the ``X-Agentx-Session-Token`` header.
  *  - gated OAuth: no token header (it's absent by design); the
  *    ``hermes_session_at`` cookie rides along via ``credentials: 'include'``.
  *
@@ -1865,7 +1865,7 @@ export interface StatusResponse {
    * older gateway ⇒ the desktop falls back to the embedded-webview flow. */
   auth_flows?: string[];
   /** False when the dashboard is running in a hosted/managed layout where
-   * updates are handled by the outer launcher instead of ``hermes update``. */
+   * updates are handled by the outer launcher instead of ``agentx update``. */
   can_update_hermes?: boolean;
   config_path: string;
   config_version: number;

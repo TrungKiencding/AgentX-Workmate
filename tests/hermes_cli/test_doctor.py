@@ -31,13 +31,13 @@ class TestDoctorPlatformHints:
         hint = doctor._sqlite_upgrade_hint()
 
         assert "docker pull nousresearch/hermes-agent:latest" in hint
-        assert "recreate all Hermes containers" in hint
-        assert "hermes update" not in hint
+        assert "recreate all AgentX containers" in hint
+        assert "agentx update" not in hint
 
     def test_sqlite_upgrade_hint_keeps_git_runtime_repair(self):
         hint = doctor._sqlite_upgrade_hint("git")
 
-        assert "run `hermes update`" in hint
+        assert "run `agentx update`" in hint
 
 
 class TestProviderEnvDetection:
@@ -65,7 +65,7 @@ class TestDoctorToolAvailabilitySummary:
 
 
 class TestDoctorEnvFileEncoding:
-    """Regression for #18637 (bug 3): `hermes doctor` crashed on Windows
+    """Regression for #18637 (bug 3): `agentx doctor` crashed on Windows
     Chinese locale (GBK) because `.env` was read with Path.read_text() which
     defaults to the system locale encoding, not UTF-8."""
 
@@ -682,7 +682,7 @@ def test_run_doctor_termux_does_not_mark_browser_available_without_agent_browser
 
 def _run_doctor_with_managed_agent_browser(monkeypatch, tmp_path, runnable):
     """Set up run_doctor with node present, agent-browser only in the
-    Hermes-managed node bin (~/.agentx/node/bin), not on PATH or in
+    AgentX-managed node bin (~/.agentx/node/bin), not on PATH or in
     PROJECT_ROOT/node_modules. Returns the captured stdout."""
     home = tmp_path / ".agentx"
     (home / "node" / "bin").mkdir(parents=True, exist_ok=True)

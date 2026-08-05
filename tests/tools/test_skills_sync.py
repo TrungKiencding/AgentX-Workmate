@@ -157,15 +157,15 @@ class TestRmtreeWritableScopeGuard:
         would wipe every installed skill (the degenerate #48200 path)."""
         from tools.skills_sync import _rmtree_writable
 
-        hermes = tmp_path / "home"
-        hermes.mkdir()
-        skills = hermes / "skills"
+        home_dir = tmp_path / "home"
+        home_dir.mkdir()
+        skills = home_dir / "skills"
         (skills / "keep").mkdir(parents=True)
-        sibling = hermes / "kanban.db"  # any non-skills path
+        sibling = home_dir / "kanban.db"  # any non-skills path
         sibling.mkdir()
 
         with patch("tools.skills_sync.SKILLS_DIR", skills):
-            for target in (Path("/"), hermes, sibling, skills):
+            for target in (Path("/"), home_dir, sibling, skills):
                 with pytest.raises(ValueError, match="refusing to rmtree"):
                     _rmtree_writable(target)
 
@@ -692,9 +692,9 @@ class TestResetBundledSkill:
 class TestNoBundledSkillsOptOut:
     """The .no-bundled-skills marker makes sync_skills() a no-op.
 
-    This is what `hermes profile create --no-skills` (named profiles) and the
+    This is what `agentx profile create --no-skills` (named profiles) and the
     installer's `--no-skills` flag (default ~/.agentx) rely on so bundled
-    skills are never seeded at install time NOR re-injected by `hermes update`.
+    skills are never seeded at install time NOR re-injected by `agentx update`.
     """
 
     def test_marker_skips_sync_and_removal_seeds_normally(self, tmp_path):
@@ -740,7 +740,7 @@ class TestNoBundledSkillsOptOut:
 
 
 class TestOptOutToggleAndRemove:
-    """`hermes skills opt-out/opt-in` core: marker toggle + safe removal."""
+    """`agentx skills opt-out/opt-in` core: marker toggle + safe removal."""
 
     def _setup_bundled(self, tmp_path):
         bundled = tmp_path / "bundled"

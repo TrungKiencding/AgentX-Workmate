@@ -14,18 +14,17 @@ Manage Docker containers, images, volumes, and Compose.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/devops/docker-management` |
+| Source | Optional — install with `agentx skills install official/devops/docker-management` |
 | Path | `optional-skills/devops/docker-management` |
 | Version | `1.0.0` |
 | Author | sprmn24 |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `docker`, `containers`, `devops`, `infrastructure`, `compose`, `images`, `volumes`, `networks`, `debugging` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Docker Management

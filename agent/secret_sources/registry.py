@@ -116,7 +116,7 @@ def register_source(source: SecretSource, *, replace: bool = False) -> bool:
     if getattr(source, "api_version", None) != SECRET_SOURCE_API_VERSION:
         logger.warning(
             "Ignoring secret source '%s': built against secret-source API v%s, "
-            "this Hermes speaks v%s",
+            "this AgentX speaks v%s",
             name, getattr(source, "api_version", "?"), SECRET_SOURCE_API_VERSION,
         )
         return False
@@ -207,7 +207,7 @@ def _fetch_with_timeout(
     blows its budget is reported as ``TIMEOUT`` and its (eventual)
     result is discarded.  The thread itself may linger until process
     exit — acceptable for a startup-only path, and strictly better than
-    an unbounded hang on every ``hermes`` invocation.
+    an unbounded hang on every ``agentx`` invocation.
     """
     timeout = source.fetch_timeout_seconds(cfg)
     executor = concurrent.futures.ThreadPoolExecutor(

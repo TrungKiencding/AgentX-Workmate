@@ -76,7 +76,7 @@ class TestGmiConfigRegistry:
         assert OPTIONAL_ENV_VARS["GMI_BASE_URL"]["password"] is False
         # ENV_VARS_BY_VERSION entries are not needed for providers added after
         # _config_version 22 (the current baseline) — users discover GMI via
-        # hermes model, not via upgrade prompts.
+        # agentx model, not via upgrade prompts.
 
 
 class TestGmiModelCatalog:
@@ -273,7 +273,7 @@ class TestGmiMainFlow:
             "hermes_cli.main.cmd_chat",
             lambda args: recorded.setdefault("provider", args.provider),
         )
-        monkeypatch.setattr(sys, "argv", ["hermes", "chat", "--provider", "gmi"])
+        monkeypatch.setattr(sys, "argv", ["agentx", "chat", "--provider", "gmi"])
 
         from hermes_cli.main import main
 

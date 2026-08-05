@@ -1,4 +1,4 @@
-"""Tests for the direct Hermes-to-Relay shared-metrics runtime."""
+"""Tests for the direct AgentX-to-Relay shared-metrics runtime."""
 
 from __future__ import annotations
 
@@ -946,7 +946,7 @@ def test_core_runtime_is_fail_open_without_a_published_binding(monkeypatch, capl
         args={"command": "true"},
     ) == {"command": "true"}
     assert not relay_runtime.emit_mark("hermes.probe", session_id="s1")
-    assert "Hermes Relay runtime initialization failed" in caplog.text
+    assert "AgentX Relay runtime initialization failed" in caplog.text
     relay_runtime._reset_for_tests()
 
 
@@ -2291,5 +2291,5 @@ def test_failed_flush_keeps_daily_export_open_for_later_task(
     assert metrics["hermes.task_run.started"]["value"] == 2
     assert metrics["hermes.task_run.finished"]["value"] == 2
     assert flush_attempts == 2
-    assert "Hermes shared-metrics task flush failed" in caplog.text
+    assert "AgentX shared-metrics task flush failed" in caplog.text
 

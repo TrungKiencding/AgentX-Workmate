@@ -50,7 +50,7 @@ platform_toolsets:
     - terminal
     - web
 toolsets:
-  - hermes-cli
+  - agentx-cli
 agent:
   disabled_toolsets: []
 """.lstrip(),
@@ -61,7 +61,7 @@ agent:
 
     from hermes_cli import kanban_db as kb
 
-    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["agentx"])
 
     captured = {}
 
@@ -104,7 +104,7 @@ def test_default_spawn_model_override_survives_real_cli_parse(monkeypatch, tmp_p
     from hermes_cli import kanban_db as kb
     from hermes_cli._parser import build_top_level_parser
 
-    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["hermes"])
+    monkeypatch.setattr(kb, "_resolve_hermes_argv", lambda: ["agentx"])
     captured = {}
 
     class FakeProc:
@@ -146,7 +146,7 @@ platform_toolsets:
     - terminal
     - web
 toolsets:
-  - hermes-cli
+  - agentx-cli
 """.lstrip(),
         encoding="utf-8",
     )

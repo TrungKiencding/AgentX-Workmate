@@ -22,17 +22,17 @@ import subprocess
 
 
 def _exec_py(image: str, py: str) -> str:
-    """Run a Python snippet inside the image as the hermes user, return stdout."""
+    """Run a Python snippet inside the image as the agentx user, return stdout."""
     inner = (
         "source /opt/hermes/.venv/bin/activate && "
         "cd /opt/hermes && "
         f"python3 -c {shlex.quote(py)}"
     )
-    # Drop to the hermes user (UID 10000) so we exercise the same path the
+    # Drop to the agentx user (UID 10000) so we exercise the same path the
     # dashboard PTY child runs as — not root.
     cmd = [
         "docker", "run", "--rm", "--entrypoint", "su", image,
-        "hermes", "-s", "/bin/bash", "-c", inner,
+        "agentx", "-s", "/bin/bash", "-c", inner,
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     assert r.returncode == 0, f"in-container python failed:\n{r.stderr[-2000:]}"

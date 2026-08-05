@@ -1,4 +1,4 @@
-"""``hermes gateway`` and ``hermes proxy`` subcommand parsers.
+"""``agentx gateway`` and ``agentx proxy`` subcommand parsers.
 
 Extracted verbatim from ``hermes_cli/main.py:main()`` (god-file Phase 2).
 Both parsers are built together because they shared one inline block (the
@@ -228,9 +228,9 @@ def build_gateway_parser(
         "migrate-legacy",
         help="Remove legacy hermes.service units from pre-rename installs",
         description=(
-            "Stop, disable, and remove legacy Hermes gateway unit files "
+            "Stop, disable, and remove legacy AgentX gateway unit files "
             "(e.g. hermes.service) left over from older installs. Profile "
-            "units (hermes-gateway-<profile>.service) and unrelated "
+            "units (agentx-gateway-<profile>.service) and unrelated "
             "third-party services are never touched."
         ),
     )
@@ -262,7 +262,7 @@ def build_gateway_parser(
             "authoritative tenant from it), mints this gateway's per-gateway secret "
             "and per-tenant delivery key, and writes GATEWAY_RELAY_ID / "
             "GATEWAY_RELAY_SECRET / GATEWAY_RELAY_DELIVERY_KEY into ~/.agentx/.env. "
-            "Requires being logged in (hermes setup). Not available in managed installs."
+            "Requires being logged in (agentx setup). Not available in managed installs."
         ),
     )
     gateway_enroll.add_argument(
@@ -331,7 +331,7 @@ def build_gateway_parser(
     proxy_start.add_argument(
         "--provider",
         default="nous",
-        help="Upstream provider: nous or xai (default: nous). See `hermes proxy providers`.",
+        help="Upstream provider: nous or xai (default: nous). See `agentx proxy providers`.",
     )
     proxy_start.add_argument(
         "--host",

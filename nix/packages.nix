@@ -1,4 +1,4 @@
-# nix/packages.nix — Hermes Agent package built with uv2nix
+# nix/packages.nix — AgentX Workmate package built with uv2nix
 { inputs, ... }:
 {
   perSystem =

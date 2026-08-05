@@ -14,19 +14,18 @@ Vision-language chat: VQA, captioning, image dialogue.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/llava` |
+| Source | Optional — install with `agentx skills install official/mlops/llava` |
 | Path | `optional-skills/mlops/llava` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `transformers`, `torch`, `pillow` |
 | Platforms | linux, macos, windows |
-| Tags | `LLaVA`, `Vision-Language`, `Multimodal`, `Visual Question Answering`, `Image Chat`, `CLIP`, `Vicuna`, `Conversational AI`, `Instruction Tuning`, `VQA` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # LLaVA - Large Language and Vision Assistant

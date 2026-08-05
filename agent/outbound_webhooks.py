@@ -8,8 +8,8 @@ endpoints — CI systems, dashboards, other agents — with zero changes to
 call sites and zero polling on the receiving end.
 
 This is the outbound mirror of the inbound webhook platform
-(``gateway/platforms/webhook.py``): inbound wakes Hermes when the world
-changes; outbound tells the world when Hermes does something.
+(``gateway/platforms/webhook.py``): inbound wakes AgentX when the world
+changes; outbound tells the world when AgentX does something.
 
 Design notes
 ------------
@@ -19,7 +19,7 @@ Design notes
   enqueue, and return ``None`` immediately.  Outbound targets can never
   block a tool call, inject context, or otherwise influence agent flow.
 * Payloads are signed with HMAC-SHA256 (GitHub-style
-  ``X-Hermes-Signature-256: sha256=<hexdigest>`` over the raw body) when
+  ``X-Agentx-Signature-256: sha256=<hexdigest>`` over the raw body) when
   a secret is configured.  Receivers verify exactly like they verify
   GitHub webhooks.
 * No consent prompt: unlike shell hooks, an outbound target executes no
@@ -40,7 +40,7 @@ Config schema (``~/.agentx/config.yaml``)::
           # optional regex, honored for pre/post_tool_call only:
           matcher: "terminal|delegate_task"
           timeout: 10       # per-attempt seconds, clamped to [1, 60]
-          name: ci-notify   # optional label for logs / `hermes hooks list`
+          name: ci-notify   # optional label for logs / `agentx hooks list`
 
 Wire format (POST body)::
 
@@ -58,10 +58,10 @@ Wire format (POST body)::
 Headers::
 
     Content-Type:            application/json
-    User-Agent:              Hermes-Agent-Outbound-Webhook
-    X-Hermes-Event:          <hook event name>
-    X-Hermes-Delivery:       <delivery_id>
-    X-Hermes-Signature-256:  sha256=<hmac hexdigest>   # only when secret set
+    User-Agent:              AgentX-Agent-Outbound-Webhook
+    X-Agentx-Event:          <hook event name>
+    X-Agentx-Delivery:       <delivery_id>
+    X-Agentx-Signature-256:  sha256=<hmac hexdigest>   # only when secret set
 """
 
 from __future__ import annotations
@@ -209,7 +209,7 @@ def register_from_config(cfg: Optional[Dict[str, Any]]) -> List[WebhookTarget]:
 
 def iter_configured_targets(cfg: Optional[Dict[str, Any]]) -> List[WebhookTarget]:
     """Parse ``hooks.outbound`` without registering anything.
-    Used by ``hermes hooks list``."""
+    Used by ``agentx hooks list``."""
     if not isinstance(cfg, dict):
         return []
     hooks_cfg = cfg.get("hooks")
@@ -407,7 +407,7 @@ def _serialize_payload(
     """Render the POST body.  Same top-level shape as shell hooks' stdin
     (documented in :mod:`agent.shell_hooks`), plus delivery metadata.
 
-    ``delivery_id`` is shared with the ``X-Hermes-Delivery`` header so
+    ``delivery_id`` is shared with the ``X-Agentx-Delivery`` header so
     receivers can dedupe on either — and since it (plus ``timestamp``)
     lives inside the HMAC-signed body, it doubles as replay protection.
     """
@@ -434,17 +434,20 @@ def _serialize_payload(
 def _build_delivery(
     event: str, target: WebhookTarget, body: bytes, delivery_id: str,
 ) -> Dict[str, Any]:
+    # NB: spelled X-Agentx-* and not X-Agentx-*. urllib.request
+    # title-cases header names, so the inner capital never reaches the
+    # wire; writing it here the way it is sent keeps the two in step.
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "Hermes-Agent-Outbound-Webhook",
-        "X-Hermes-Event": event,
-        "X-Hermes-Delivery": delivery_id,
+        "User-Agent": "AgentX-Agent-Outbound-Webhook",
+        "X-Agentx-Event": event,
+        "X-Agentx-Delivery": delivery_id,
     }
     if target.secret:
         digest = hmac.new(
             target.secret.encode("utf-8"), body, hashlib.sha256
         ).hexdigest()
-        headers["X-Hermes-Signature-256"] = f"sha256={digest}"
+        headers["X-Agentx-Signature-256"] = f"sha256={digest}"
     return {
         "url": target.url,
         "label": target.label,

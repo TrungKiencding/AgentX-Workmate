@@ -118,7 +118,7 @@ TOOLSETS = {
             "x_search Responses tool. Read-only public X discovery; use the "
             "xurl skill for authenticated X API reads and account actions. "
             "Available when xAI credentials are configured (SuperGrok OAuth "
-            "or XAI_API_KEY). Off by default; enable in `hermes tools` → "
+            "or XAI_API_KEY). Off by default; enable in `agentx tools` → "
             "X (Twitter) Search."
         ),
         "tools": ["x_search"],
@@ -149,7 +149,7 @@ TOOLSETS = {
             "text-to-video (prompt only) and image-to-video (prompt + "
             "image_url), plus reference-to-video. Provider-specific edit/"
             "extend workflows may appear as separate tools. Configure via "
-            "``hermes tools`` → Video Generation."
+            "``agentx tools`` → Video Generation."
         ),
         "tools": ["video_generate", "xai_video_edit", "xai_video_extend"],
         "includes": []
@@ -367,7 +367,7 @@ TOOLSETS = {
         "includes": ["web", "vision", "image_gen"]
     },
 
-    # Coding posture (base Hermes — CLI/TUI/desktop/ACP). Auto-selected in a
+    # Coding posture (base AgentX — CLI/TUI/desktop/ACP). Auto-selected in a
     # code workspace; see agent/coding_context.py. Keeps everything you reach
     # for while pairing on code and drops the rest (messaging, tts, image_gen,
     # spotify, home-assistant, cron, computer-use).
@@ -395,15 +395,15 @@ TOOLSETS = {
     },
     
     # ==========================================================================
-    # Full Hermes toolsets (CLI + messaging platforms)
+    # Full AgentX toolsets (CLI + messaging platforms)
     #
     # All platforms share the same core tools. Note: agents do NOT get an
     # agent-callable send_message tool — outbound platform messaging is handled
     # outside the agent loop (cron delivery, the gateway kanban notifier, and
-    # the `hermes send` CLI), not by the model deciding to send on its own.
+    # the `agentx send` CLI), not by the model deciding to send on its own.
     # ==========================================================================
 
-    "hermes-acp": {
+    "agentx-acp": {
         "description": "Editor integration (VS Code, Zed, JetBrains) — coding-focused tools without messaging, audio, or clarify UI",
         "tools": [
             "web_search", "web_extract",
@@ -422,7 +422,7 @@ TOOLSETS = {
         "includes": []
     },
 
-    "hermes-api-server": {
+    "agentx-api-server": {
         "description": "OpenAI-compatible API server — full agent tools accessible via HTTP (no interactive UI tools like clarify or send_message)",
         "tools": [
             # Web
@@ -459,30 +459,30 @@ TOOLSETS = {
         "includes": []
     },
     
-    "hermes-cli": {
+    "agentx-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-cron": {
-        # Mirrors hermes-cli so cron's "default" toolset is the same set of
-        # core tools users see interactively — then `hermes tools` filters
+    "agentx-cron": {
+        # Mirrors agentx-cli so cron's "default" toolset is the same set of
+        # core tools users see interactively — then `agentx tools` filters
         # them down per the platform config. _DEFAULT_OFF_TOOLSETS (moa,
         # homeassistant) are excluded by _get_platform_tools() unless
         # the user explicitly enables them.
-        "description": "Default cron toolset - same core tools as hermes-cli; gated by `hermes tools`",
+        "description": "Default cron toolset - same core tools as agentx-cli; gated by `agentx tools`",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-telegram": {
+    "agentx-telegram": {
         "description": "Telegram bot toolset - full access for personal use (terminal has safety checks)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
     
-    "hermes-discord": {
+    "agentx-discord": {
         "description": "Discord bot toolset - full access (terminal has safety checks via dangerous command approval)",
         "tools": _AGENTX_CORE_TOOLS + [
             "discord",
@@ -491,61 +491,61 @@ TOOLSETS = {
         "includes": []
     },
     
-    "hermes-whatsapp": {
+    "agentx-whatsapp": {
         "description": "WhatsApp bot toolset - similar to Telegram (personal messaging, more trusted)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
     
-    "hermes-slack": {
+    "agentx-slack": {
         "description": "Slack bot toolset - full access for workspace use (terminal has safety checks)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
     
-    "hermes-signal": {
+    "agentx-signal": {
         "description": "Signal bot toolset - encrypted messaging platform (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-bluebubbles": {
+    "agentx-bluebubbles": {
         "description": "BlueBubbles iMessage bot toolset - Apple iMessage via local BlueBubbles server",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-homeassistant": {
+    "agentx-homeassistant": {
         "description": "Home Assistant bot toolset - smart home event monitoring and control",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-email": {
-        "description": "Email bot toolset - interact with Hermes via email (IMAP/SMTP)",
+    "agentx-email": {
+        "description": "Email bot toolset - interact with AgentX via email (IMAP/SMTP)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-mattermost": {
+    "agentx-mattermost": {
         "description": "Mattermost bot toolset - self-hosted team messaging (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-matrix": {
+    "agentx-matrix": {
         "description": "Matrix bot toolset - decentralized encrypted messaging (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-dingtalk": {
+    "agentx-dingtalk": {
         "description": "DingTalk bot toolset - enterprise messaging platform (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-feishu": {
+    "agentx-feishu": {
         "description": "Feishu/Lark bot toolset - enterprise messaging via Feishu/Lark (full access)",
         "tools": _AGENTX_CORE_TOOLS + [
             "feishu_doc_read",
@@ -557,31 +557,31 @@ TOOLSETS = {
         "includes": []
     },
 
-    "hermes-weixin": {
+    "agentx-weixin": {
         "description": "Weixin bot toolset - personal WeChat messaging via iLink (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-qqbot": {
+    "agentx-qqbot": {
         "description": "QQBot toolset - QQ messaging via Official Bot API v2 (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-wecom": {
+    "agentx-wecom": {
         "description": "WeCom bot toolset - enterprise WeChat messaging (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-wecom-callback": {
+    "agentx-wecom-callback": {
         "description": "WeCom callback toolset - enterprise self-built app messaging (full access)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-yuanbao": {
+    "agentx-yuanbao": {
         "description": "Yuanbao Bot 元宝消息平台工具集 - 群信息、成员查询、私聊、贴纸表情",
         "tools": _AGENTX_CORE_TOOLS + [
             "yb_query_group_info",
@@ -594,22 +594,22 @@ TOOLSETS = {
         "includes": []
     },
 
-    "hermes-sms": {
-        "description": "SMS bot toolset - interact with Hermes via SMS (Twilio)",
+    "agentx-sms": {
+        "description": "SMS bot toolset - interact with AgentX via SMS (Twilio)",
         "tools": _AGENTX_CORE_TOOLS,
         "includes": []
     },
 
-    "hermes-webhook": {
+    "agentx-webhook": {
         "description": "Webhook toolset - receive and process external webhook events",
         "tools": _AGENTX_WEBHOOK_SAFE_TOOLS,
         "includes": []
     },
 
-    "hermes-gateway": {
+    "agentx-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["hermes-telegram", "hermes-discord", "hermes-whatsapp", "hermes-slack", "hermes-signal", "hermes-bluebubbles", "hermes-homeassistant", "hermes-email", "hermes-sms", "hermes-mattermost", "hermes-matrix", "hermes-dingtalk", "hermes-feishu", "hermes-wecom", "hermes-wecom-callback", "hermes-weixin", "hermes-qqbot", "hermes-webhook", "hermes-yuanbao"]
+        "includes": ["agentx-telegram", "agentx-discord", "agentx-whatsapp", "agentx-slack", "agentx-signal", "agentx-bluebubbles", "agentx-homeassistant", "agentx-email", "agentx-sms", "agentx-mattermost", "agentx-matrix", "agentx-dingtalk", "agentx-feishu", "agentx-wecom", "agentx-wecom-callback", "agentx-weixin", "agentx-qqbot", "agentx-webhook", "agentx-yuanbao"]
     }
 }
 
@@ -699,7 +699,7 @@ def bundle_non_core_tools(toolset_name: str) -> Set[str]:
     one-level ``includes``), so disabling a bundle removes its platform tools
     while leaving core intact.
 
-    Bundle nesting is one level deep in practice (only ``hermes-gateway``
+    Bundle nesting is one level deep in practice (only ``agentx-gateway``
     includes other bundles, and those leaves don't nest further), so a single
     ``includes`` pass is sufficient. Unknown/garbage names fall back to the
     full resolution minus core — never re-introducing the core wipe.

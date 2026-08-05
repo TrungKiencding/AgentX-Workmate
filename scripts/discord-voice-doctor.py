@@ -235,7 +235,7 @@ def check_env_vars():
 
 
 def check_config(groq_key, eleven_key):
-    """Check hermes config.yaml."""
+    """Check agentx config.yaml."""
     section("Configuration")
 
     config_path = AGENTX_HOME / "config.yaml"

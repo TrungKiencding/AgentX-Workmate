@@ -276,7 +276,7 @@ def read_suppressed_names() -> Set[str]:
     """Built-in skills the curator pruned — the re-seeder must leave archived.
 
     One skill name per line in ``~/.agentx/skills/.curator_suppressed``. This is
-    what makes pruning a built-in durable: without it, ``hermes update`` would
+    what makes pruning a built-in durable: without it, ``agentx update`` would
     re-copy the bundled skill on the next sync.
     """
     path = _suppressed_file()
@@ -357,7 +357,7 @@ def list_agent_created_skill_names() -> List[str]:
     names: List[str] = []
     # Top-level SKILL.md files (flat layout) AND nested category/skill/SKILL.md
     for skill_md in base.rglob("SKILL.md"):
-        # Skip Hermes metadata, VCS, virtualenv/dependency, and cache dirs
+        # Skip AgentX metadata, VCS, virtualenv/dependency, and cache dirs
         if is_excluded_skill_path(skill_md):
             continue
         # External skill dirs can be mounted below the local skills tree.
@@ -394,8 +394,8 @@ def list_archived_skill_names() -> List[str]:
     """Enumerate skills in ``~/.agentx/skills/.archive/``.
 
     Archive layout is flat (``.archive/<skill>/``) as set by ``archive_skill``,
-    so the directory name is the skill name. Used by ``hermes curator
-    list-archived`` to help users pass a name to ``hermes curator restore``.
+    so the directory name is the skill name. Used by ``agentx curator
+    list-archived`` to help users pass a name to ``agentx curator restore``.
     """
     archive_root = _archive_dir()
     if not archive_root.exists():
@@ -492,7 +492,7 @@ def _is_curator_managed_record(record: Any) -> bool:
     * provenance = "who authored this file" — historical fact, and for records
       written before the marker existed it is simply unrecoverable.
     * management = "may autonomous curation mutate/archive this" — a policy
-      decision the user can change at any time via ``hermes curator adopt``.
+      decision the user can change at any time via ``agentx curator adopt``.
 
     ``created_by: "agent"`` therefore means "curator-managed", NOT "proof the
     agent wrote it". The field name is retained because it is already on disk
@@ -531,8 +531,8 @@ def list_unmanaged_skill_names() -> List[str]:
       belong to the user).
 
     Either way the skill is invisible to ``curated_report()`` and therefore to
-    every automatic transition. ``hermes curator status`` surfaces this count
-    so the blind spot is legible instead of silent, and ``hermes curator
+    every automatic transition. ``agentx curator status`` surfaces this count
+    so the blind spot is legible instead of silent, and ``agentx curator
     adopt`` lets the user hand specific skills over explicitly.
 
     Provenance is a DECLARATION, never an inference: this function only
@@ -615,7 +615,7 @@ def adopt_skill(skill_name: str) -> Tuple[bool, str]:
     if is_bundled(skill_name):
         # Bundled skills already fall under the curator via
         # ``curator.prune_builtins``; stamping created_by=agent on one would
-        # claim Hermes' own shipped skill was agent-authored and change nothing
+        # claim AgentX' own shipped skill was agent-authored and change nothing
         # about its eligibility.
         return False, (
             f"'{skill_name}' is a bundled built-in — it is governed by "

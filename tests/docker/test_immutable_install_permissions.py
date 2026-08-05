@@ -54,7 +54,7 @@ def test_hermes_user_cannot_modify_install_but_can_write_data(built_image: str) 
             "--entrypoint",
             "su",
             built_image,
-            "hermes",
+            "agentx",
             "-s",
             "/bin/sh",
             "-c",

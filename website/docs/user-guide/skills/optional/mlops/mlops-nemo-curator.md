@@ -14,19 +14,18 @@ Curate LLM training data: dedupe, filter, PII redaction.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/nemo-curator` |
+| Source | Optional — install with `agentx skills install official/mlops/nemo-curator` |
 | Path | `optional-skills/mlops/nemo-curator` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `nemo-curator`, `cudf`, `dask`, `rapids` |
 | Platforms | linux, macos |
-| Tags | `Data Processing`, `NeMo Curator`, `Data Curation`, `GPU Acceleration`, `Deduplication`, `Quality Filtering`, `NVIDIA`, `RAPIDS`, `PII Redaction`, `Multimodal`, `LLM Training Data` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # NeMo Curator - GPU-Accelerated Data Curation

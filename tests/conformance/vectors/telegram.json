@@ -47,8 +47,8 @@
       "id": "inline-code",
       "category": "grid",
       "expect": "semantic",
-      "input": "Run `pip install hermes` to start.",
-      "native_output": "Run `pip install hermes` to start\\."
+      "input": "Run `pip install agentx` to start.",
+      "native_output": "Run `pip install agentx` to start\\."
     },
     {
       "id": "fenced-code",

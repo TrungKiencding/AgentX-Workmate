@@ -1,35 +1,35 @@
 # NeMo Relay Shared Metrics
 
-Hermes includes NeMo Relay as a normal runtime dependency on platforms for
+AgentX includes NeMo Relay as a normal runtime dependency on platforms for
 which Relay publishes a native wheel. The shared-metrics integration is built
-into Hermes and does not require `hermes plugins enable
-observability/nemo_relay`. Hermes remains importable without Relay on other
+into AgentX and does not require `agentx plugins enable
+observability/nemo_relay`. AgentX remains importable without Relay on other
 native targets. Those targets use an explicit reduced-capability no-op host:
-Hermes execution remains available, while Relay scopes, middleware, plugins,
+AgentX execution remains available, while Relay scopes, middleware, plugins,
 and subscribers are unavailable. The `hermes-agent[nemo-relay]` extra remains
 as a no-op compatibility alias for existing installation commands.
 
-Hermes requires NeMo Relay 0.6.0 or later within the 0.6 release line. That
+AgentX requires NeMo Relay 0.6.0 or later within the 0.6 release line. That
 release establishes the lossless provider-codec contract used for Anthropic
 Messages, OpenAI Chat Completions, and OpenAI Responses requests.
 
 ## Runtime Dependency and Data Boundary
 
-Hermes installs the platform-specific `nemo-relay` native wheel from the
+AgentX installs the platform-specific `nemo-relay` native wheel from the
 bounded `>=0.6.0,<0.7` dependency range. The published package is built from
 the [NVIDIA NeMo Relay repository](https://github.com/NVIDIA/NeMo-Relay).
 Unsupported platforms use the explicit no-op runtime described above rather
 than downloading a different implementation.
 
 When Relay managed execution is active, the provider request and response pass
-through that native module in the Hermes process so configured interceptors can
+through that native module in the AgentX process so configured interceptors can
 operate on the real call. This is separate from the shared-metrics data
 contract. Shared-metrics mode installs no network exporter and its subscriber
 accepts only the versioned, allowlisted projection described below. Enabling a
 separately configured rich-observability or dynamic plugin can create a
 different data path and requires its own policy review.
 
-Collection remains off unless Hermes policy enables it:
+Collection remains off unless AgentX policy enables it:
 
 ```yaml
 telemetry:
@@ -45,11 +45,11 @@ The existing `observability/nemo_relay` plugin remains separate. Enable that
 plugin only for its opt-in rich observability exporters, adaptive execution,
 or dynamic Relay plugins.
 
-Hermes core owns one Relay host and one isolated Relay session scope per Hermes
+AgentX core owns one Relay host and one isolated Relay session scope per AgentX
 session. Core lifecycle producers use
 `hermes_cli.observability.relay_runtime` to obtain the shared session handle or
 run Relay scope, LLM, tool, and mark APIs in that session context. New product
-marks do not require Hermes plugin registration. Shared-metrics marks must
+marks do not require AgentX plugin registration. Shared-metrics marks must
 still contain only fields approved by the versioned allowlist; the hard
 dependency does not change the collection or privacy policy.
 
@@ -59,17 +59,17 @@ The current vertical slices record logical model calls, top-level task runs,
 and tool and approval outcomes:
 
 ```text
-Hermes turn, API, tool, and approval hooks
+AgentX turn, API, tool, and approval hooks
   -> Relay session, task, LLM, tool, and mark lifecycle
-  -> Hermes shared-metrics subscriber
+  -> AgentX shared-metrics subscriber
   -> SQLite counters
   -> immutable JSON delta package
 ```
 
-Hermes sends an empty `LLMRequest` into the metrics-owned lifecycle. This does
+AgentX sends an empty `LLMRequest` into the metrics-owned lifecycle. This does
 not describe the separate managed-execution call through the native runtime
 documented above. The terminal metrics event contains the model identifier and
-provider route that Hermes used for the logical call, such as
+provider route that AgentX used for the logical call, such as
 `nvidia/nemotron-3-ultra` through `openrouter`. These identifiers are
 lowercased and structurally bounded, but they are not normalized through a
 checked-in model catalog. Pricing and model-family classification belong to
@@ -80,23 +80,23 @@ New calls use `hermes.model_route.count`. The previous
 counters created by older builds can be exported without losing data.
 
 Each task run is a Relay `Function` scope named `hermes.task_run`, parented to
-the owning Hermes session. The start counter contains only bounded execution
+the owning AgentX session. The start counter contains only bounded execution
 surface and entrypoint values. The terminal counter contains bounded outcome,
 end reason, termination status, duration, logical model-call count, terminal
 tool-call count, and provider-retry count buckets. Retries are additional
-provider attempts for the same Hermes API request ID; they do not inflate the
-logical model-call count. Tool calls are deduplicated by their Hermes tool-call
+provider attempts for the same AgentX API request ID; they do not inflate the
+logical model-call count. Tool calls are deduplicated by their AgentX tool-call
 ID after a terminal tool result is observed. The outer `AIAgent` execution
 boundary closes the task for normal returns, early returns, exceptions, and
-cancellations. Active task ownership follows the task ID if Hermes rotates its
+cancellations. Active task ownership follows the task ID if AgentX rotates its
 conversation session during context compression.
 
 Each tool invocation is represented by a Relay tool lifecycle named
 `hermes.tool_call`. The terminal counter contains only bounded tool category,
-outcome, approval outcome, latency, and explicit retry-count buckets. Hermes
+outcome, approval outcome, latency, and explicit retry-count buckets. AgentX
 derives the category from the toolset already declared in its runtime registry;
 custom and unrecognized toolsets collapse to `other` rather than exporting
-tool or plugin names. Hermes does not infer retries from repeated tool names or
+tool or plugin names. AgentX does not infer retries from repeated tool names or
 adjacent calls; when the
 hook does not provide an explicit retry relationship, the retry bucket is
 `unknown`. Approval decisions are emitted as `hermes.tool_approval` marks and
@@ -137,7 +137,7 @@ pseudonymization, reset behavior, retention, and deletion.
 
 ## Smoke Test
 
-Run a real Hermes CLI turn against the deterministic local model server:
+Run a real AgentX CLI turn against the deterministic local model server:
 
 ```bash
 ./.venv/bin/python scripts/smoke_nemo_relay_shared_metrics.py

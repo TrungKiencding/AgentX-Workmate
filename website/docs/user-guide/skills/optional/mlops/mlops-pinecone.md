@@ -14,19 +14,18 @@ Managed vector DB for production RAG and search.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/pinecone` |
+| Source | Optional — install with `agentx skills install official/mlops/pinecone` |
 | Path | `optional-skills/mlops/pinecone` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `pinecone` |
 | Platforms | linux, macos, windows |
-| Tags | `RAG`, `Pinecone`, `Vector Database`, `Managed Service`, `Serverless`, `Hybrid Search`, `Production`, `Auto-Scaling`, `Low Latency`, `Recommendations` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Pinecone - Managed Vector Database

@@ -53,7 +53,7 @@ PRESERVED = [
     "hermes_home = get_hermes_home()",
     "self.hermes_root",
     "_hermes_bin_path",
-    "def set_hermes_home_override(path):"
+    "def set_hermes_home_override(path):",
     # Dotted DATA/PROTOCOL keys. These look like paths but are not, and
     # renaming them would break the wire format or orphan files on disk.
     "_meta.hermes",  # ACP protocol extension namespace
@@ -74,6 +74,15 @@ PRESERVED = [
     ".hermes-update-old",
     "C:\\Users\\x\\AppData\\Local\\hermes-desktop",
     "~/.hermes-agent",
+    # The Electron executable (named by the desktop build config, phase 4)
+    # and the install root (phase 5) both end in a path segment that looks
+    # like the launcher. Neither is.
+    "release/linux-unpacked/hermes",
+    "/usr/local/lib/hermes-agent",
+    # Kebab neighbours of the toolset family that are NOT toolsets.
+    "hermes-tools",  # MCP server name
+    "hermes-index",  # skills-hub source id
+    'wt_name = f"hermes-{short_id}"',  # scratch worktree
 ]
 
 
@@ -143,7 +152,20 @@ RENAMES = [
     ('prog="hermes"', 'prog="agentx"'),
     ("hermes gateway restart", "agentx gateway restart"),
     ("hermes-acp", "agentx-acp"),
+    # The platform composite toolsets are one family and move together.
+    ("hermes-telegram", "agentx-telegram"),
+    ("hermes-cli", "agentx-cli"),
+    ('default_toolset=f"hermes-{entry.name}"', 'default_toolset=f"agentx-{entry.name}"'),
+    ('f"hermes-{platform}"', 'f"agentx-{platform}"'),
     ("hermes-gateway", "agentx-gateway"),
+    ("ai.hermes.gateway", "ai.agentx.gateway"),
+    ("launchctl kickstart ai.hermes.gateway", "launchctl kickstart ai.agentx.gateway"),
+    # The launcher as an installed path. cli-command deliberately refuses
+    # anything after a slash, so these need their own rule.
+    ("/usr/local/bin/hermes", "/usr/local/bin/agentx"),
+    ('"$command_link_dir/hermes"', '"$command_link_dir/agentx"'),
+    ('AGENTX_ENTRYPOINT="$INSTALL_DIR/hermes"', 'AGENTX_ENTRYPOINT="$INSTALL_DIR/agentx"'),
+    ("venv/bin/hermes", "venv/bin/agentx"),
     # display names
     ("Hermes Agent", "AgentX Workmate"),
     ("Hermes Desktop", "AgentX Workmate Desktop"),

@@ -14,17 +14,16 @@ Gym workout planner and nutrition tracker. Search 690+ exercises by muscle, equi
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/health/fitness-nutrition` |
+| Source | Optional — install with `agentx skills install official/health/fitness-nutrition` |
 | Path | `optional-skills/health/fitness-nutrition` |
 | Version | `1.0.0` |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `health`, `fitness`, `nutrition`, `gym`, `workout`, `diet`, `exercise` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Fitness & Nutrition

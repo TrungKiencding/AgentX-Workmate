@@ -1502,13 +1502,13 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
 
     monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: {
         "enabled": True,
-        "phrase": "hey hermes",
+        "phrase": "hey agentx",
         "surface": "auto",
         "start_new_session": True,
     })
     monkeypatch.setattr(wake_word, "check_wake_word_requirements", lambda _cfg: {
         "available": True,
-        "phrase": "hey hermes",
+        "phrase": "hey agentx",
         "provider": "test",
         "hint": "",
     })
@@ -1590,7 +1590,7 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
         assert emitted == [(
             "wake.detected",
             "first-session",
-            {"phrase": "hey hermes", "profile": None, "start_new_session": True},
+            {"phrase": "hey agentx", "profile": None, "start_new_session": True},
             first,
         )]
         assert state["paused"] is True
@@ -1627,7 +1627,7 @@ def test_wake_owner_is_sticky_and_routes_detection_to_first_transport(monkeypatc
         assert emitted[-1] == (
             "wake.detected",
             "second-session",
-            {"phrase": "hey hermes", "profile": None, "start_new_session": True},
+            {"phrase": "hey agentx", "profile": None, "start_new_session": True},
             second,
         )
 
@@ -1650,7 +1650,7 @@ def test_wake_toggle_persists_enabled_flag_only_on_explicit_gesture(monkeypatch)
     """The ear toggle / /wake on|off write wake_word.enabled; auto-arm never does."""
     from tools import wake_word
 
-    config = {"enabled": False, "phrase": "hey hermes", "surface": "auto",
+    config = {"enabled": False, "phrase": "hey agentx", "surface": "auto",
               "start_new_session": True}
     persisted = []
 
@@ -1663,7 +1663,7 @@ def test_wake_toggle_persists_enabled_flag_only_on_explicit_gesture(monkeypatch)
     monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: dict(config))
     monkeypatch.setattr(wake_word, "check_wake_word_requirements", lambda _cfg: {
         "available": True,
-        "phrase": "hey hermes",
+        "phrase": "hey agentx",
         "provider": "test",
         "hint": "",
     })
@@ -1730,7 +1730,7 @@ def test_wake_status_reports_configured_input_device_and_windows_silence_hint(mo
 
     config = {
         "enabled": True,
-        "phrase": "hey hermes",
+        "phrase": "hey agentx",
         "provider": "openwakeword",
         "surface": "gui",
         "input_device": "Microphone Array",
@@ -1750,7 +1750,7 @@ def test_wake_status_reports_configured_input_device_and_windows_silence_hint(mo
         lambda cfg: {
             "available": True,
             "hint": "",
-            "phrase": "hey hermes",
+            "phrase": "hey agentx",
             "provider": "openwakeword",
         },
     )
@@ -2013,7 +2013,7 @@ def test_load_enabled_toolsets_rejects_disabled_mcp_env(monkeypatch, capsys):
     )
 
     # Sorted: ["kanban", "memory", "project"]. `kanban` is auto-recovered by
-    # _get_platform_tools (a non-configurable platform toolset in hermes-cli's
+    # _get_platform_tools (a non-configurable platform toolset in agentx-cli's
     # universe); `project` is GUI-only, folded in by _load_enabled_toolsets.
     # Toolsets inside their first release (_RECENTLY_SHIPPED_TOOLSETS) are
     # back-filled onto saved lists that never offered them — allow those too.
@@ -3305,7 +3305,7 @@ def test_config_sync_config_wins_over_env_seed(monkeypatch):
 
 
 def test_config_sync_ignores_env_seed_without_config_model(monkeypatch):
-    # `hermes --tui -m <model>` sets AGENTX_MODEL/AGENTX_INFERENCE_MODEL as a
+    # `agentx --tui -m <model>` sets AGENTX_MODEL/AGENTX_INFERENCE_MODEL as a
     # launch-scoped seed. When config.yaml has NO model.default (typical
     # custom-provider-only setup), the sync must NOT adopt the env seed as a
     # config target — doing so replayed the -m flag as a /model switch and
@@ -8264,7 +8264,7 @@ def test_session_status_reads_live_gateway_agent(monkeypatch):
         server._sessions.pop("sid", None)
 
     out = resp["result"]["output"]
-    assert "Hermes TUI Status" in out
+    assert "AgentX TUI Status" in out
     assert "Session ID: session-key" in out
     assert "Title: Live TUI" in out
     assert "Model: live-model (live-provider)" in out
@@ -11663,13 +11663,13 @@ def test_pending_title_finalizer_uses_session_profile_db(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------
-# model.options — curated-list parity with `hermes model` and classic /model
+# model.options — curated-list parity with `agentx model` and classic /model
 # --------------------------------------------------------------------------
 
 
 def test_model_options_does_not_overwrite_curated_models(monkeypatch):
     """The TUI model.options handler must surface the same curated model
-    list as `hermes model` and the classic CLI /model picker.
+    list as `agentx model` and the classic CLI /model picker.
 
     Regression: earlier versions of this handler unconditionally replaced
     each provider's curated ``models`` field with ``provider_model_ids()``
@@ -12211,7 +12211,7 @@ def test_session_active_list_excludes_finalized_sessions(monkeypatch):
     that window ``session.active_list`` would otherwise still report the dead
     session, which is exactly the footer "N sessions" count that only ever grew
     until a gateway restart. A live session on the real stdio transport (the
-    standalone ``hermes --tui`` case) must still be reported.
+    standalone ``agentx --tui`` case) must still be reported.
     """
     class _DB:
         def get_session_title(self, key):
@@ -13788,7 +13788,7 @@ def test_notification_poller_requeues_when_busy(monkeypatch):
 
 
 def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, tmp_path):
-    """TUI /save (session.save RPC) must snapshot under the Hermes profile
+    """TUI /save (session.save RPC) must snapshot under the AgentX profile
     home — not the project/workspace CWD — and include the system prompt,
     mirroring the classic CLI /save and the dashboard save export.
 
@@ -13810,7 +13810,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
         model="hermes-test",
         session_id="20260101_120000_abc123",
         session_start=datetime(2026, 1, 1, 12, 0, 0),
-        _cached_system_prompt="You are Hermes.",
+        _cached_system_prompt="You are AgentX.",
     )
     history = [
         {"role": "user", "content": "hi"},
@@ -13842,7 +13842,7 @@ def test_session_save_writes_under_hermes_home_with_system_prompt(monkeypatch, t
     assert payload["model"] == "hermes-test"
     assert payload["session_id"] == "20260101_120000_abc123"
     assert payload["session_start"] == "2026-01-01T12:00:00"
-    assert payload["system_prompt"] == "You are Hermes."
+    assert payload["system_prompt"] == "You are AgentX."
     assert payload["messages"] == history
 
 
@@ -15988,7 +15988,7 @@ def test_build_persist_message_quotes_paths_containing_spaces(tmp_path):
     with a space parses as a truncated ref with the tail left as loose text.
     Desktop composer images live in the app's userData dir, which on macOS is
     ``~/Library/Application Support/...`` — a space every time."""
-    img_dir = tmp_path / "Application Support" / "Hermes" / "composer-images"
+    img_dir = tmp_path / "Application Support" / "AgentX" / "composer-images"
     img_dir.mkdir(parents=True)
     img = img_dir / "cat.png"
     img.write_bytes(b"png")

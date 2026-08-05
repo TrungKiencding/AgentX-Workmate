@@ -1,6 +1,6 @@
-"""``hermes approvals suggest`` — mine approval history into allowlist proposals.
+"""``agentx approvals suggest`` — mine approval history into allowlist proposals.
 
-Hermes has no dedicated approval-decision ledger: ``always`` answers land in
+AgentX has no dedicated approval-decision ledger: ``always`` answers land in
 ``command_allowlist`` (config.yaml) via :func:`tools.approval.save_permanent_allowlist`,
 while ``once``/``session`` approvals are in-memory only.  What *does* persist
 is the session DB (``~/.agentx/state.db``): every assistant ``terminal`` tool
@@ -27,7 +27,7 @@ Safety posture:
   proposed**, no matter how often they were approved.  ``rm -rf build/``
   approved 100 times still never yields an ``rm`` allowlist entry.  Only
   benign, recoverable classes (container lifecycle, git force push, service
-  restarts, hermes self-management, …) are eligible.
+  restarts, agentx self-management, …) are eligible.
 * **Dangerous root binaries never become globs** (``rm *``, ``sudo *`` …).
 """
 
@@ -399,13 +399,13 @@ def _render_text(proposals: list[Proposal], days: int) -> None:
             print(f"       e.g. {ex}")
     print(
         "\nNothing has been changed. Apply selected entries with:\n"
-        "  hermes approvals suggest --apply 1,3\n"
+        "  agentx approvals suggest --apply 1,3\n"
         "Entries are merged into command_allowlist in ~/.agentx/config.yaml."
     )
 
 
 def suggest_command(args) -> int:
-    """Entry point for ``hermes approvals suggest``."""
+    """Entry point for ``agentx approvals suggest``."""
     db_path = Path(args.db) if getattr(args, "db", None) else default_db_path()
     days = getattr(args, "days", 90)
     if not db_path.exists():
@@ -466,17 +466,17 @@ def suggest_command(args) -> int:
 
 
 def approvals_command(args) -> int:
-    """Dispatch ``hermes approvals <subcommand>``."""
+    """Dispatch ``agentx approvals <subcommand>``."""
     sub = getattr(args, "approvals_command", None)
     if sub == "suggest":
         return suggest_command(args)
     print(
-        "usage: hermes approvals <subcommand>\n"
+        "usage: agentx approvals <subcommand>\n"
         "\n"
         "subcommands:\n"
         "  suggest    Mine past approval decisions into a proposed\n"
         "             command_allowlist (dry by default; --apply N,M to merge)\n"
         "\n"
-        "Run `hermes approvals suggest -h` for details."
+        "Run `agentx approvals suggest -h` for details."
     )
     return 1

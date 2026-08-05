@@ -27,7 +27,7 @@ def _reset_auth_registry():
 
 @pytest.fixture
 def hermes_home(tmp_path, monkeypatch):
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(home))
     return home

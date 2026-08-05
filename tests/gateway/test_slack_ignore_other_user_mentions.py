@@ -196,7 +196,7 @@ async def test_free_response_replies_when_bot_mentioned_in_pipe_form(adapter):
     await _run(
         adapter,
         _event(
-            f"<@{OTHER_USER_ID}|rasha> and <@{BOT_USER_ID}|hermes> please compare",
+            f"<@{OTHER_USER_ID}|rasha> and <@{BOT_USER_ID}|agentx> please compare",
             ts="1700000000.000004",
         ),
     )

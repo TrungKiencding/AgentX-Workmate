@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prove a user on some earlier commit can reach this one.
 #
-# Installs a real, earlier Hermes the way a user does, applies ONE update route,
-# and requires the checkout to land on this commit with a working `hermes`.
+# Installs a real, earlier AgentX the way a user does, applies ONE update route,
+# and requires the checkout to land on this commit with a working `agentx`.
 #
 # Nothing here is mocked. scripts/dev-sandbox.sh provides the fake Internet --
 # a bubblewrap sandbox with no writable host mounts, a MITM proxy serving the
@@ -24,7 +24,7 @@
 #                                       [--install-ref REF] [--keep]
 #
 #   --route         which update path to exercise (required):
-#                     update     `hermes update`
+#                     update     `agentx update`
 #                     installer  re-running the curl one-liner over the checkout
 #   --install-ref   what to install first; anything git resolves (a branch, a
 #                   tag like v2026.7.7, or a SHA reachable from main).
@@ -145,16 +145,16 @@ fi
 rm -rf -- "$SANDBOX_ROOT"
 
 # ── helpers ────────────────────────────────────────────────────────────────
-# Does the INSTALLED hermes accept FLAG on `hermes update`?
+# Does the INSTALLED agentx accept FLAG on `agentx update`?
 #
 # Asked of the installed binary rather than parsed out of a release's source:
 # the update subcommand has lived in main.py, subcommands/update.py, and
 # update_cmd.py across the releases we sample, so any static parse is a guess
-# that silently rots. `hermes update --help` is the same surface a user meets,
+# that silently rots. `agentx update --help` is the same surface a user meets,
 # and argparse prints every option it accepts.
 update_supports() {
   local flag="$1"
-  in_sandbox "hermes update --help 2>&1" | grep -qF -- "$flag"
+  in_sandbox "agentx update --help 2>&1" | grep -qF -- "$flag"
 }
 
 # Does the installer at REF accept FLAG? Read it out of that ref's own
@@ -240,13 +240,13 @@ require_landed_on_target() {
 # fails if the venv, dependencies, or entry point are broken.
 require_hermes_works() {
   local when="$1" out
-  out="$(in_sandbox "hermes --version" 2>&1)" \
-    || { printf '%s\n' "$out" >&2; fail "hermes --version failed $when"; }
+  out="$(in_sandbox "agentx --version" 2>&1)" \
+    || { printf '%s\n' "$out" >&2; fail "agentx --version failed $when"; }
   printf '%s\n' "$out" | sed 's/^/    /'
-  ok "hermes runs $when"
+  ok "agentx runs $when"
 }
 
-# ── install the earlier Hermes ─────────────────────────────────────────────
+# ── install the earlier AgentX ─────────────────────────────────────────────
 step "installing upstream $INSTALL_REF (real curl | install.sh: uv, Python, Node, venv)"
 install_in_sandbox "install of upstream $INSTALL_REF" "$INSTALL_REF" install
 
@@ -261,21 +261,21 @@ require_hermes_works 'after install'
 # ── apply exactly one update route ─────────────────────────────────────────
 case "$ROUTE" in
   update)
-    step 'ROUTE: hermes update'
+    step 'ROUTE: agentx update'
     # `--yes` reaches the update subcommand only in later releases, and argparse
     # rejects the whole invocation when it does not exist. Ask the installed
-    # hermes which it accepts; older ones read the prompt from stdin, so close it.
+    # agentx which it accepts; older ones read the prompt from stdin, so close it.
     if update_supports --yes; then
-      update_cmd="hermes update --yes"
+      update_cmd="agentx update --yes"
     else
-      update_cmd="hermes update </dev/null"
+      update_cmd="agentx update </dev/null"
     fi
     if ! in_sandbox "cd $INSTALL_DIR && $update_cmd"; then
       collect_sandbox_logs update
-      fail "hermes update failed ($update_cmd)"
+      fail "agentx update failed ($update_cmd)"
     fi
-    require_landed_on_target 'hermes update'
-    require_hermes_works 'after hermes update'
+    require_landed_on_target 'agentx update'
+    require_hermes_works 'after agentx update'
     ;;
   installer)
     step 'ROUTE: installer re-run over the existing checkout'

@@ -119,7 +119,7 @@ def test_openviking_provider_config_loader_uses_readonly_config(monkeypatch):
 
 def test_connection_settings_read_dashboard_config_file(tmp_path, monkeypatch):
     _clear_openviking_env(monkeypatch)
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "agentx"
     hermes_home.mkdir()
     (hermes_home / "config.yaml").write_text(
         """\
@@ -273,7 +273,7 @@ def test_link_ovcli_profile_removes_stale_inline_config(tmp_path):
 
 def test_post_setup_existing_profile_picker_validates_and_links_saved_profile(tmp_path, monkeypatch):
     _clear_openviking_env(monkeypatch)
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "agentx"
     hermes_home.mkdir()
     env_path = hermes_home / ".env"
     env_path.write_text("OPENVIKING_ENDPOINT=http://old.test\nOTHER_KEY=keep\n", encoding="utf-8")
@@ -535,7 +535,7 @@ def test_https_local_endpoint_is_not_runtime_autostart_eligible(monkeypatch):
     assert provider._client is None
     assert warnings == [
         "Remote OpenViking server at https://localhost:1934 is not reachable. "
-        "OpenViking memory is temporarily unavailable; Hermes will retry on a later access or when "
+        "OpenViking memory is temporarily unavailable; AgentX will retry on a later access or when "
         "the config changes. "
         "Check the configured endpoint and network connectivity."
     ]
@@ -569,7 +569,7 @@ def test_runtime_does_not_autostart_when_local_server_reports_unhealthy(monkeypa
     assert provider._client is None
     assert warnings == [
         "Service at http://localhost:1934 responded but reported unhealthy OpenViking status. "
-        "OpenViking memory is temporarily unavailable; Hermes will retry on a later access "
+        "OpenViking memory is temporarily unavailable; AgentX will retry on a later access "
         "or when the config changes."
     ]
 
@@ -714,7 +714,7 @@ def test_viking_client_delete_uses_identity_headers(monkeypatch):
         api_key="test-key",
         account="acct",
         user="alice",
-        agent="hermes",
+        agent="agentx",
     )
     captured = {}
 
@@ -737,7 +737,7 @@ def test_viking_client_delete_uses_identity_headers(monkeypatch):
     assert captured["url"] == "https://example.com/api/v1/fs"
     assert captured["kwargs"]["params"] == {"uri": "viking://user/memories/x.md"}
     assert captured["kwargs"]["headers"]["Authorization"] == "Bearer test-key"
-    assert captured["kwargs"]["headers"]["X-OpenViking-Actor-Peer"] == "hermes"
+    assert captured["kwargs"]["headers"]["X-OpenViking-Actor-Peer"] == "agentx"
 
 
 def test_openviking_identity_probes_are_anonymous_before_authenticated_requests(monkeypatch):
@@ -769,7 +769,7 @@ def test_openviking_identity_probes_are_anonymous_before_authenticated_requests(
         "api_key": "secret-key",
         "account": "acct",
         "user": "alice",
-        "agent": "hermes",
+        "agent": "agentx",
     })
 
     assert (valid, message, role) == (True, "", "root")
@@ -793,7 +793,7 @@ def test_repeated_openviking_health_probes_never_send_identity_headers(monkeypat
         api_key="secret-key",
         account="acct",
         user="alice",
-        agent="hermes",
+        agent="agentx",
     )
 
     def fake_get(_url, **kwargs):
@@ -951,7 +951,7 @@ def test_sync_turn_captures_session_id_before_worker_runs():
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "agentx"
     provider._session_id = "old-sid"
 
     started = threading.Event()
@@ -996,7 +996,7 @@ def test_sync_turn_captures_session_id_before_worker_runs():
     assert captured_payloads == [{
         "messages": [
             {"role": "user", "parts": [{"type": "text", "text": "u"}]},
-            {"role": "assistant", "parts": [{"type": "text", "text": "a"}], "peer_id": "hermes"},
+            {"role": "assistant", "parts": [{"type": "text", "text": "a"}], "peer_id": "agentx"},
         ]
     }]
 
@@ -1154,7 +1154,7 @@ def test_shutdown_waits_for_memory_write_worker(monkeypatch):
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "agentx"
 
     worker_started = threading.Event()
     release_worker = threading.Event()
@@ -1200,7 +1200,7 @@ def _make_prefetch_provider() -> OpenVikingMemoryProvider:
     provider._api_key = ""
     provider._account = "acct"
     provider._user = "usr"
-    provider._agent = "hermes"
+    provider._agent = "agentx"
     return provider
 
 

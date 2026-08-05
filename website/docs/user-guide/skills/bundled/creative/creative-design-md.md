@@ -17,16 +17,14 @@ Author/validate/export Google's DESIGN.md token spec files.
 | Source | Bundled (installed by default) |
 | Path | `skills/creative/design-md` |
 | Version | `1.1.0` |
-| Author | Hermes Agent |
+| Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `design`, `design-system`, `tokens`, `ui`, `accessibility`, `wcag`, `tailwind`, `dtcg`, `google` |
-| Related skills | [`popular-web-designs`](/docs/user-guide/skills/bundled/creative/creative-popular-web-designs), [`claude-design`](/docs/user-guide/skills/bundled/creative/creative-claude-design), [`excalidraw`](/docs/user-guide/skills/bundled/creative/creative-excalidraw), [`architecture-diagram`](/docs/user-guide/skills/bundled/creative/creative-architecture-diagram) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # DESIGN.md Skill

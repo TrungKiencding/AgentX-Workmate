@@ -1,6 +1,6 @@
 """Regression tests for _apply_profile_override AGENTX_HOME guard (issue #22502).
 
-When AGENTX_HOME is set to the hermes root (e.g. systemd hardcodes
+When AGENTX_HOME is set to the agentx root (e.g. systemd hardcodes
 AGENTX_HOME=/root/.agentx), _apply_profile_override must still read
 active_profile and update AGENTX_HOME to the profile directory.
 
@@ -41,7 +41,7 @@ def _run_apply_profile_override(
     else:
         monkeypatch.delenv("AGENTX_HOME", raising=False)
 
-    monkeypatch.setattr(sys, "argv", argv or ["hermes", "gateway", "start"])
+    monkeypatch.setattr(sys, "argv", argv or ["agentx", "gateway", "start"])
 
     from hermes_cli.main import _apply_profile_override
     _apply_profile_override()
@@ -52,7 +52,7 @@ def _run_apply_profile_override(
 class TestApplyProfileOverrideHermesHomeGuard:
     """Regression guard for issue #22502.
 
-    Verifies that AGENTX_HOME pointing to the hermes root does NOT suppress
+    Verifies that AGENTX_HOME pointing to the agentx root does NOT suppress
     the active_profile check, while AGENTX_HOME already pointing to a
     profile directory IS trusted as-is.
     """
@@ -63,8 +63,8 @@ class TestApplyProfileOverrideHermesHomeGuard:
         """AGENTX_HOME=/root/.agentx + active_profile=coder must redirect
         AGENTX_HOME to .../profiles/coder.
 
-        Bug scenario from #22502: systemd sets AGENTX_HOME to the hermes root
-        and the user switches to a profile via `hermes profile use`.
+        Bug scenario from #22502: systemd sets AGENTX_HOME to the agentx root
+        and the user switches to a profile via `agentx profile use`.
         Before the fix, the guard returned early and active_profile was ignored.
         """
         hermes_root = tmp_path / ".agentx"
@@ -89,16 +89,16 @@ class TestApplyProfileOverrideHermesHomeGuard:
     def test_sudo_explicit_profile_resolves_invoking_users_profile(self, tmp_path, monkeypatch):
         """sudo elias ... should resolve `-p elias` under SUDO_USER, not root."""
         root_home = tmp_path / "root"
-        user_home = tmp_path / "home" / "hermes"
+        user_home = tmp_path / "home" / "agentx"
         profile_dir = user_home / ".agentx" / "profiles" / "elias"
         profile_dir.mkdir(parents=True, exist_ok=True)
         (root_home / ".agentx").mkdir(parents=True, exist_ok=True)
 
         monkeypatch.setattr(Path, "home", lambda: root_home)
-        monkeypatch.setenv("SUDO_USER", "hermes")
+        monkeypatch.setenv("SUDO_USER", "agentx")
         monkeypatch.delenv("AGENTX_HOME", raising=False)
         monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
-        monkeypatch.setattr(sys, "argv", ["hermes", "-p", "elias", "gateway", "install", "--system"])
+        monkeypatch.setattr(sys, "argv", ["agentx", "-p", "elias", "gateway", "install", "--system"])
 
         import pwd
 
@@ -108,7 +108,7 @@ class TestApplyProfileOverrideHermesHomeGuard:
         _apply_profile_override()
 
         assert os.environ.get("AGENTX_HOME") == str(profile_dir)
-        assert sys.argv == ["hermes", "gateway", "install", "--system"]
+        assert sys.argv == ["agentx", "gateway", "install", "--system"]
 
 
 
@@ -117,7 +117,7 @@ class TestSupervisedChildIgnoresStickyProfile:
     """The reserved default gateway s6 slot must not follow active_profile.
 
     Inside the Docker s6 image the ``gateway-default`` service slot runs a
-    bare ``hermes gateway run`` (no ``-p``) to mean "the root AGENTX_HOME
+    bare ``agentx gateway run`` (no ``-p``) to mean "the root AGENTX_HOME
     profile". The run-script exports ``AGENTX_S6_SUPERVISED_CHILD=1``.
     Without a guard, ``_apply_profile_override`` would read the sticky
     ``active_profile`` file (set by e.g. the dashboard profile switcher) and
@@ -129,14 +129,14 @@ class TestSupervisedChildIgnoresStickyProfile:
     def test_non_supervised_run_still_follows_active_profile(
         self, tmp_path, monkeypatch
     ):
-        """Without the sentinel, a normal `hermes gateway run` still honors
+        """Without the sentinel, a normal `agentx gateway run` still honors
         active_profile — the guard is scoped strictly to supervised children."""
         result = _run_apply_profile_override(
             tmp_path,
             monkeypatch,
             hermes_home=None,
             active_profile="briefer",
-            argv=["hermes", "gateway", "run"],
+            argv=["agentx", "gateway", "run"],
         )
 
         assert result is not None
@@ -155,7 +155,7 @@ class TestSupervisedChildIgnoresStickyProfile:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.delenv("AGENTX_HOME", raising=False)
         monkeypatch.setenv("AGENTX_S6_SUPERVISED_CHILD", "1")
-        monkeypatch.setattr(sys, "argv", ["hermes", "-p", "coder", "gateway", "run"])
+        monkeypatch.setattr(sys, "argv", ["agentx", "-p", "coder", "gateway", "run"])
 
         from hermes_cli.main import _apply_profile_override
         _apply_profile_override()

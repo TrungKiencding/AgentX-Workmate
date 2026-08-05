@@ -14,19 +14,18 @@ Structured LLM outputs validated with Pydantic.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/instructor` |
+| Source | Optional — install with `agentx skills install official/mlops/instructor` |
 | Path | `optional-skills/mlops/instructor` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `instructor`, `pydantic`, `openai`, `anthropic` |
 | Platforms | linux, macos, windows |
-| Tags | `Prompt Engineering`, `Instructor`, `Structured Output`, `Pydantic`, `Data Extraction`, `JSON Parsing`, `Type Safety`, `Validation`, `Streaming`, `OpenAI`, `Anthropic` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Instructor: Structured LLM Outputs

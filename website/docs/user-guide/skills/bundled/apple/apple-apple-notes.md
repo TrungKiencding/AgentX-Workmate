@@ -17,16 +17,14 @@ Manage Apple Notes via memo CLI: create, search, edit.
 | Source | Bundled (installed by default) |
 | Path | `skills/apple/apple-notes` |
 | Version | `1.0.1` |
-| Author | Hermes Agent |
+| Author | AgentX Workmate |
 | License | MIT |
 | Platforms | macos |
-| Tags | `Notes`, `Apple`, `macOS`, `note-taking` |
-| Related skills | [`obsidian`](/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Apple Notes

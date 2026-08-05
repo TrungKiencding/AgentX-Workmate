@@ -3,12 +3,12 @@
 
 Usage (via cron with --no-agent):
 
-    hermes cron create hermes-issues \\
+    agentx cron create hermes-issues \\
       --schedule "*/5 * * * *" --no-agent \\
       --script "$AGENTX_HOME/skills/devops/watchers/scripts/watch_github.py" \\
       --script-args "--name hermes-issues --repo NousResearch/hermes-agent --scope issues"
 
-Set GITHUB_TOKEN (or GH_TOKEN) in the Hermes .env file
+Set GITHUB_TOKEN (or GH_TOKEN) in the AgentX .env file
 (``${AGENTX_HOME:-~/.agentx}/.env``) to avoid the 60 req/hr
 anonymous rate limit.
 
@@ -113,7 +113,7 @@ def main() -> int:
 
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "Hermes-Watcher/1.0",
+        "User-Agent": "AgentX-Watcher/1.0",
     }
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:

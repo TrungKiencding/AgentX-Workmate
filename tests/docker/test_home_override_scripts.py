@@ -38,10 +38,10 @@ def test_dashboard_service_resets_home(
     # Check if the dashboard process is running and inspect its HOME.
     r = docker_exec_sh(
         container_name,
-        # Find the dashboard process (hermes dashboard) and read its HOME
+        # Find the dashboard process (agentx dashboard) and read its HOME
         # from /proc/<pid>/environ. If not running, verify the run script
         # itself exports HOME=/opt/data by grepping the script source.
-        'pid=$(pgrep -f "hermes dashboard" | head -1); '
+        'pid=$(pgrep -f "agentx dashboard" | head -1); '
         'if [ -n "$pid" ]; then '
         '  tr "\\0" "\\n" < /proc/$pid/environ | grep "^HOME="; '
         'else '
@@ -77,7 +77,7 @@ def test_dashboard_does_not_auto_insecure_from_host(
     # Check the dashboard process command line for --insecure.
     r = docker_exec_sh(
         container_name,
-        'pid=$(pgrep -f "hermes dashboard" | head -1); '
+        'pid=$(pgrep -f "agentx dashboard" | head -1); '
         'if [ -n "$pid" ]; then '
         '  tr "\\0" " " < /proc/$pid/cmdline; '
         'fi',
@@ -139,7 +139,7 @@ def test_stage2_repairs_profiles_and_cron_ownership(
         '/opt/data/cron/root_owned.json',
         timeout=5,
     )
-    assert "hermes" in r.stdout, (
+    assert "agentx" in r.stdout, (
         f"expected hermes-owned files after restart, got: {r.stdout!r} — "
         f"stage2 hook did not repair profiles/ and cron/ ownership"
     )

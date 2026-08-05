@@ -1,6 +1,6 @@
 """Tests for subprocess HOME handling in profile mode.
 
-Hermes state stays profile-scoped through AGENTX_HOME. Host subprocesses should
+AgentX state stays profile-scoped through AGENTX_HOME. Host subprocesses should
 keep the user's real HOME by default so external CLIs find existing credentials.
 Containers still use the profile home for persistence, and users can explicitly
 opt into profile HOME isolation on the host.
@@ -120,7 +120,7 @@ class TestMakeRunEnvHomeInjection:
     """Verify _make_run_env() applies the subprocess HOME policy."""
 
     def test_host_auto_preserves_real_home_when_profile_home_exists(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         (hermes_home / "home").mkdir()
         real_home = tmp_path / "real-home"
@@ -137,7 +137,7 @@ class TestMakeRunEnvHomeInjection:
         assert result["AGENTX_REAL_HOME"] == str(real_home)
 
     def test_profile_mode_injects_profile_home_when_profile_home_exists(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         (hermes_home / "home").mkdir()
         real_home = tmp_path / "real-home"
@@ -155,7 +155,7 @@ class TestMakeRunEnvHomeInjection:
         assert result["AGENTX_REAL_HOME"] == str(real_home)
 
     def test_no_injection_when_home_dir_missing(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         # No home/ subdirectory
         monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
@@ -187,7 +187,7 @@ class TestSanitizeSubprocessEnvHomeInjection:
     """Verify _sanitize_subprocess_env() applies the subprocess HOME policy."""
 
     def test_host_auto_preserves_real_home_when_profile_home_exists(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         (hermes_home / "home").mkdir()
         real_home = tmp_path / "real-home"
@@ -203,7 +203,7 @@ class TestSanitizeSubprocessEnvHomeInjection:
         assert result["AGENTX_REAL_HOME"] == str(real_home)
 
     def test_profile_mode_injects_profile_home_when_profile_home_exists(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         (hermes_home / "home").mkdir()
         real_home = tmp_path / "real-home"
@@ -220,7 +220,7 @@ class TestSanitizeSubprocessEnvHomeInjection:
         assert result["AGENTX_REAL_HOME"] == str(real_home)
 
     def test_no_injection_when_home_dir_missing(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
         monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
 

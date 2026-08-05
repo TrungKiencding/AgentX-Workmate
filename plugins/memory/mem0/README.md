@@ -10,25 +10,25 @@ Server-side LLM fact extraction with semantic search and hybrid multi-signal ret
 ## Setup
 
 ```bash
-hermes memory setup    # select "mem0"
+agentx memory setup    # select "mem0"
 ```
 
 Or manually:
 ```bash
-hermes config set memory.provider mem0
+agentx config set memory.provider mem0
 echo "MEM0_API_KEY=your-key" >> ~/.agentx/.env
 ```
 
 ## Config
 
-Behavioral settings live in `$AGENTX_HOME/mem0.json` (set them via `hermes memory setup`). Only the secret `MEM0_API_KEY` belongs in `~/.agentx/.env`.
+Behavioral settings live in `$AGENTX_HOME/mem0.json` (set them via `agentx memory setup`). Only the secret `MEM0_API_KEY` belongs in `~/.agentx/.env`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-managed, in-process) |
 | `host` | — | Self-hosted Mem0 server URL (the Docker dashboard). When set, connects over HTTP with `X-API-Key`. Don't combine with `mode: oss` |
 | `user_id` | `hermes-user` | User identifier on Mem0 |
-| `agent_id` | `hermes` | Agent identifier |
+| `agent_id` | `agentx` | Agent identifier |
 | `rerank` | `false` | Rerank search results for relevance (platform mode only) |
 
 The plugin has three connection modes:
@@ -44,9 +44,9 @@ Connect the plugin to a standalone Mem0 server you run yourself — the Docker-s
 1. Run the Mem0 server (FastAPI + pgvector) from its Docker image and note its URL and `ADMIN_API_KEY`.
 2. Point the plugin at it — via the setup wizard:
    ```bash
-   hermes memory setup    # select "mem0" → "Self-hosted server"
+   agentx memory setup    # select "mem0" → "Self-hosted server"
    # Or non-interactive:
-   hermes memory setup mem0 --mode selfhosted --host http://localhost:8888 --api-key your-admin-api-key
+   agentx memory setup mem0 --mode selfhosted --host http://localhost:8888 --api-key your-admin-api-key
    ```
    or via env vars:
    ```bash
@@ -60,7 +60,7 @@ Connect the plugin to a standalone Mem0 server you run yourself — the Docker-s
      "api_key": "your-admin-api-key"
    }
    ```
-3. Start a fresh Hermes session and call `mem0_search` — it connects to your server.
+3. Start a fresh AgentX session and call `mem0_search` — it connects to your server.
 
 The plugin authenticates with `X-API-Key` and uses the server's `/search` and `/memories` routes. `api_key` is optional — omit it only for servers running with `AUTH_DISABLED`.
 
@@ -73,7 +73,7 @@ Run Mem0 locally with your own LLM, embedder, and vector store. This is the in-p
 ### Interactive Setup
 
 ```bash
-hermes memory setup
+agentx memory setup
 # Select "mem0" → "Open Source (self-hosted)"
 # Follow prompts for LLM, embedder, and vector store
 ```
@@ -81,7 +81,7 @@ hermes memory setup
 ### Agent-Driven Setup (Flags)
 
 ```bash
-hermes memory setup mem0 --mode oss \
+agentx memory setup mem0 --mode oss \
   --oss-llm openai --oss-llm-key sk-... \
   --oss-vector qdrant
 ```
@@ -111,7 +111,7 @@ hermes memory setup mem0 --mode oss \
 ### Platform to OSS
 
 ```bash
-hermes memory setup mem0 --mode oss --oss-llm-key sk-...
+agentx memory setup mem0 --mode oss --oss-llm-key sk-...
 ```
 
 Or edit `$AGENTX_HOME/mem0.json` directly:
@@ -129,13 +129,13 @@ Or edit `$AGENTX_HOME/mem0.json` directly:
 ### OSS to Platform
 
 ```bash
-hermes memory setup mem0 --mode platform --api-key sk-...
+agentx memory setup mem0 --mode platform --api-key sk-...
 ```
 
 ### Dry Run (preview without writing)
 
 ```bash
-hermes memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
+agentx memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
 ```
 
 ## Tools

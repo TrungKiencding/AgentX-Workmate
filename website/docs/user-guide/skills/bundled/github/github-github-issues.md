@@ -17,16 +17,14 @@ Create, triage, label, assign GitHub issues via gh or REST.
 | Source | Bundled (installed by default) |
 | Path | `skills/github/github-issues` |
 | Version | `1.1.0` |
-| Author | Hermes Agent |
+| Author | AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `GitHub`, `Issues`, `Project-Management`, `Bug-Tracking`, `Triage` |
-| Related skills | [`github-auth`](/docs/user-guide/skills/bundled/github/github-github-auth), [`github-pr-workflow`](/docs/user-guide/skills/bundled/github/github-github-pr-workflow) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # GitHub Issues Management

@@ -14,19 +14,18 @@ Fast vector similarity search at billion scale.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/faiss` |
+| Source | Optional — install with `agentx skills install official/mlops/faiss` |
 | Path | `optional-skills/mlops/faiss` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `faiss-cpu`, `faiss-gpu`, `numpy` |
 | Platforms | linux, macos |
-| Tags | `RAG`, `FAISS`, `Similarity Search`, `Vector Search`, `Facebook AI`, `GPU Acceleration`, `Billion-Scale`, `K-NN`, `HNSW`, `High Performance`, `Large Scale` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # FAISS - Efficient Similarity Search

@@ -14,19 +14,18 @@ Constrain LLM output with grammars; guarantee valid JSON.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/guidance` |
+| Source | Optional — install with `agentx skills install official/mlops/guidance` |
 | Path | `optional-skills/mlops/guidance` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `guidance`, `transformers` |
 | Platforms | linux, macos, windows |
-| Tags | `Prompt Engineering`, `Guidance`, `Constrained Generation`, `Structured Output`, `JSON Validation`, `Grammar`, `Microsoft Research`, `Format Enforcement`, `Multi-Step Workflows` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Guidance: Constrained LLM Generation

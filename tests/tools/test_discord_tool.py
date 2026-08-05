@@ -350,21 +350,21 @@ class TestRegistration:
 
 
 # ---------------------------------------------------------------------------
-# Toolset: discord / discord_admin only in hermes-discord
+# Toolset: discord / discord_admin only in agentx-discord
 # ---------------------------------------------------------------------------
 
 class TestToolsetInclusion:
     def test_discord_tools_only_in_hermes_discord_toolset(self):
         from toolsets import TOOLSETS, _AGENTX_CORE_TOOLS
-        assert "discord" in TOOLSETS["hermes-discord"]["tools"]
-        assert "discord_admin" in TOOLSETS["hermes-discord"]["tools"]
+        assert "discord" in TOOLSETS["agentx-discord"]["tools"]
+        assert "discord_admin" in TOOLSETS["agentx-discord"]["tools"]
         assert "discord" not in _AGENTX_CORE_TOOLS
         assert "discord_admin" not in _AGENTX_CORE_TOOLS
 
     def test_discord_tools_not_in_other_toolsets(self):
         from toolsets import TOOLSETS
         for name, ts in TOOLSETS.items():
-            if name in {"hermes-discord", "hermes-gateway", "discord", "discord_admin"}:
+            if name in {"agentx-discord", "agentx-gateway", "discord", "discord_admin"}:
                 continue
             tools = ts.get("tools", [])
             assert "discord" not in tools or name == "discord", (
@@ -745,7 +745,7 @@ class TestModelToolsIntegration:
         # skip_tool_search_assembly: this test exercises the dynamic schema
         # rebuild; under tiered disclosure the discord tools defer behind the
         # bridge, but the rebuilt schema is what tool_describe serves.
-        tools = get_tool_definitions(enabled_toolsets=["hermes-discord"], quiet_mode=True,
+        tools = get_tool_definitions(enabled_toolsets=["agentx-discord"], quiet_mode=True,
                                      skip_tool_search_assembly=True)
         discord_admin_tool = next(
             (t for t in tools if t.get("function", {}).get("name") == "discord_admin"),

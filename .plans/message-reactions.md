@@ -6,7 +6,7 @@ read the other's reactions as conversational signal.
 
 ## What already exists
 
-Hermes already models reactions on the **platform** side — the desktop is the
+AgentX already models reactions on the **platform** side — the desktop is the
 only surface without them.
 
 | Surface | Reaction support | Where |

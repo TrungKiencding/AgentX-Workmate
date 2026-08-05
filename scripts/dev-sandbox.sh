@@ -71,7 +71,7 @@ installer). Put sandbox options first and separate installer arguments with
 
 Install layout: `install.sh` picks its layout from `id -u` alone, so uid is what
 separates the two real-world Linux installs. By default the sandbox runs as an
-unprivileged `hermes` user, giving the layout most people have —
+unprivileged `agentx` user, giving the layout most people have —
 $AGENTX_HOME/hermes-agent plus a ~/.local/bin launcher. Pass --root for the FHS
 one. Both are worth testing; they differ in more than paths (root also relocates
 uv's Python to /usr/local/share for world-readability).
@@ -92,11 +92,11 @@ Environment:
 
 Examples:
   # create a sandbox, install this branch as `main`, and then drop to a shell,
-  # skipping `hermes setup` & the browser tools for speed.
+  # skipping `agentx setup` & the browser tools for speed.
   scripts/dev-sandbox.sh install --persistent -- --skip-setup --skip-browser
 
   # Install the official upstream main. You're dropped into a shell where
-  # you can run `hermes update`.
+  # you can run `agentx update`.
   scripts/dev-sandbox.sh install --persistent --from-main
 
 EOF
@@ -350,7 +350,7 @@ ln -sf "$DYNAMIC_LINKER" "$SANDBOX_ROOT/root/lib64/$(basename "$DYNAMIC_LINKER")
 if [ "$RUN_AS_USER" = true ]; then
   SANDBOX_UID=1000
   SANDBOX_GID=1000
-  SANDBOX_USER=hermes
+  SANDBOX_USER=agentx
   SANDBOX_HOME=/home/hermes
 else
   SANDBOX_UID=0
@@ -371,7 +371,7 @@ fi
     printf '%s:x:%s:\n' "$SANDBOX_USER" "$SANDBOX_GID"
   fi
 } > "$SANDBOX_ROOT/etc/group"
-# A user-level install writes the `hermes` launcher to ~/.local/bin and the
+# A user-level install writes the `agentx` launcher to ~/.local/bin and the
 # checkout to $AGENTX_HOME; both live under the sandbox HOME, which is bound
 # from $SANDBOX_ROOT/home. bwrap maps our real uid to $SANDBOX_UID, so the
 # host-side ownership of that directory is what the sandbox sees as its own.
@@ -392,7 +392,7 @@ if [ -n "$(git -C "$GIT_ROOT" status --porcelain)" ]; then
   SNAPSHOT_REPO="$(mktemp -d -t hermes-sandbox-snapshot.XXXXXX)"
   git -C "$SNAPSHOT_REPO" init -q
   git -C "$SNAPSHOT_REPO" fetch -q "$GIT_ROOT" "$COMMIT"
-  git -C "$SNAPSHOT_REPO" config user.name 'Hermes sandbox'
+  git -C "$SNAPSHOT_REPO" config user.name 'AgentX sandbox'
   git -C "$SNAPSHOT_REPO" config user.email 'sandbox@invalid'
   GIT_DIR="$SNAPSHOT_REPO/.git" GIT_WORK_TREE="$GIT_ROOT" git read-tree "$COMMIT"
   GIT_DIR="$SNAPSHOT_REPO/.git" GIT_WORK_TREE="$GIT_ROOT" \
@@ -435,7 +435,7 @@ cp "$SANDBOX_ASSETS/openssl.cnf" "$SANDBOX_ROOT/root/certs/openssl.cnf"
 if [ ! -f "$SANDBOX_ROOT/root/certs/ca.pem" ]; then
   if ! ca_error="$(OPENSSL_CONF="$SANDBOX_ROOT/root/certs/openssl.cnf" \
     openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
-    -subj '/CN=Hermes dev sandbox CA' \
+    -subj '/CN=AgentX dev sandbox CA' \
     -extensions sandbox_ca_ext \
     -keyout "$SANDBOX_ROOT/root/certs/ca.key" \
     -out "$SANDBOX_ROOT/root/certs/ca.pem" 2>&1 >/dev/null)"; then

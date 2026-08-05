@@ -21,12 +21,11 @@ vLLM: high-throughput LLM serving, OpenAI API, quantization.
 | License | MIT |
 | Dependencies | `vllm`, `torch`, `transformers` |
 | Platforms | linux, macos |
-| Tags | `vLLM`, `Inference Serving`, `PagedAttention`, `Continuous Batching`, `High Throughput`, `Production`, `OpenAI API`, `Quantization`, `Tensor Parallelism` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # vLLM - High-Performance LLM Serving

@@ -46,7 +46,7 @@ def test_dockerfile_bakes_code_scoped_install_method_stamp() -> None:
     (/opt/hermes/.install_method) first; baking it at build time keeps the
     published image self-identifying as 'docker' WITHOUT writing into the
     shared $AGENTX_HOME data volume (which a host install may also use).
-    The stamp is created by root in the shim-wiring RUN block; the hermes
+    The stamp is created by root in the shim-wiring RUN block; the agentx
     user can't modify it (go-w from the --chmod on the source COPY).
     """
     text = _dockerfile_text()
@@ -84,7 +84,7 @@ def test_dockerfile_redirects_lazy_installs_to_durable_target() -> None:
     assert "ENV AGENTX_DISABLE_LAZY_INSTALLS=1" in text
 
     # stage2-hook must seed + chown the target dir so first-use installs
-    # succeed as the unprivileged hermes runtime user.
+    # succeed as the unprivileged agentx runtime user.
     stage2 = (REPO_ROOT / "docker" / "stage2-hook.sh").read_text()
     assert '"$AGENTX_HOME/lazy-packages"' in stage2, (
         "stage2-hook.sh must create the lazy-packages dir on the data volume"

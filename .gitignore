@@ -132,14 +132,14 @@ config/mcporter.json
 hermes_cli/tui_dist/*
 hermes_cli/scripts/
 docs/superpowers/*
-# Working directory for the Hermes Agent's session state (~/.agentx/ at runtime;
+# Working directory for the AgentX Workmate's session state (~/.agentx/ at runtime;
 # also created in-repo when an agent operates in this checkout). Plans, audit
 # logs, and per-session caches are never artifacts of the codebase.
 .agentx/
 
 # Desktop/bootstrap install marker written into the managed checkout root by the
-# bootstrap installer. It is Hermes-managed runtime state, never a code change —
-# ignore it so `hermes update`'s `git stash push --include-untracked` does not
+# bootstrap installer. It is AgentX-managed runtime state, never a code change —
+# ignore it so `agentx update`'s `git stash push --include-untracked` does not
 # treat it as a local edit and autostash it on every run (#38529).
 .hermes-bootstrap-complete
 
@@ -150,7 +150,7 @@ docs/superpowers/*
 .hermes-sandbox-e2e*/
 
 # Interrupted-update breadcrumb + recovery lock written next to the shared venv
-# by `hermes update` / launch-time self-heal. Runtime state, never a code change
+# by `agentx update` / launch-time self-heal. Runtime state, never a code change
 # — ignore so `git status` stays clean and update's autostash skips them.
 .update-incomplete
 .update-incomplete.lock
@@ -162,7 +162,7 @@ docs/superpowers/*
 
 # Installer-written method stamp in the managed checkout root (scripts/install.sh).
 # Runtime metadata only — never a code change. Ignore so `git status` stays clean
-# and `hermes update`'s untracked autostash does not treat it as a local edit (#66189 / #54855).
+# and `agentx update`'s untracked autostash does not treat it as a local edit (#66189 / #54855).
 /.install_method
 
 # Tool Search live-test harness output — non-deterministic model transcripts,
@@ -175,7 +175,7 @@ scripts/out/
 # committed to the repo root. See the hermes-release skill.
 RELEASE_v*.md
 
-# Desktop demo-run scratch output (hermes writes demo/*.txt during recorded
+# Desktop demo-run scratch output (agentx writes demo/*.txt during recorded
 # walkthroughs). Throwaway artifacts, never part of the app.
 apps/desktop/demo/
 
@@ -193,7 +193,7 @@ infographics/
 infograficos/
 infografico/
 native/fts5_cjk/*.so
-# Runtime marker written by hermes update when a lazy dependency refresh is
+# Runtime marker written by agentx update when a lazy dependency refresh is
 # interrupted; consumed by launch-time recovery. Never commit it (was tracked
 # by accident via 3a69e34702, removed in the #72002 salvage).
 .lazy-refresh-incomplete

@@ -20,12 +20,11 @@ Monitor blogs and RSS/Atom feeds via blogwatcher-cli tool.
 | Author | JulienTant (fork of Hyaxia/blogwatcher) |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `RSS`, `Blogs`, `Feed-Reader`, `Monitoring` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Blogwatcher

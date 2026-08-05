@@ -1,4 +1,4 @@
-"""Direct NeMo Relay integration for Hermes shared client metrics."""
+"""Direct NeMo Relay integration for AgentX shared client metrics."""
 
 from __future__ import annotations
 
@@ -113,12 +113,12 @@ class _MetricsSession:
 
 
 class _Runtime:
-    """Own shared-metrics state layered on the Hermes core Relay host."""
+    """Own shared-metrics state layered on the AgentX core Relay host."""
 
     def __init__(self, host: relay_runtime.RelayRuntime | None = None) -> None:
         resolved_host = host or relay_runtime.get_runtime()
         if resolved_host is None:
-            raise RuntimeError("Hermes core Relay runtime is unavailable")
+            raise RuntimeError("AgentX core Relay runtime is unavailable")
         self.host: relay_runtime.RelayRuntime = resolved_host
         self.relay = self.host.relay
         self._sessions_lock = threading.RLock()
@@ -176,7 +176,7 @@ class _Runtime:
         )
 
     def start_task(self, event: dict[str, Any]) -> _TaskRun | None:
-        """Open one Relay function scope for a Hermes task run."""
+        """Open one Relay function scope for a AgentX task run."""
         task_key = self._task_key(event)
         if task_key is None:
             return None
@@ -278,7 +278,7 @@ class _Runtime:
                 existing.fields = fields
                 if task is not None:
                     # Every repeated start for one logical request is another
-                    # physical attempt. Provider fallback resets Hermes's
+                    # physical attempt. Provider fallback resets AgentX's
                     # provider-local retry ordinal, so ordinal deltas are not a
                     # reliable task-level retry counter.
                     task.retry_count += 1
@@ -291,7 +291,7 @@ class _Runtime:
             if task is not None:
                 task.model_call_ids.add(request_id)
                 if retry_ordinal is not None and retry_ordinal > 0:
-                    # A real Hermes retry can advance api_request_id while
+                    # A real AgentX retry can advance api_request_id while
                     # carrying the retry ordinal. Count that physical attempt.
                     task.retry_count += 1
                 handle = self._run_in_task(
@@ -516,7 +516,7 @@ class _Runtime:
                 self.relay.subscribers.flush()
             except Exception:
                 logger.warning(
-                    "Hermes shared-metrics task flush failed",
+                    "AgentX shared-metrics task flush failed",
                     exc_info=True,
                 )
             else:
@@ -556,7 +556,7 @@ class _Runtime:
                 self._sessions.pop(session.session_id, None)
         if failures:
             logger.warning(
-                "Hermes shared-metrics session %s closed with errors: %s",
+                "AgentX shared-metrics session %s closed with errors: %s",
                 session.session_id,
                 "; ".join(failures),
             )
@@ -573,7 +573,7 @@ class _Runtime:
             self.relay.subscribers.flush()
         except Exception:
             logger.warning(
-                "Hermes shared-metrics shutdown flush failed",
+                "AgentX shared-metrics shutdown flush failed",
                 exc_info=True,
             )
         else:
@@ -820,7 +820,7 @@ class _Runtime:
             )
         except Exception:
             logger.warning(
-                "Hermes shared-metrics tool call close failed",
+                "AgentX shared-metrics tool call close failed",
                 exc_info=True,
             )
 
@@ -869,7 +869,7 @@ class _Runtime:
                 )
         except Exception:
             logger.warning(
-                "Hermes shared-metrics model call close failed", exc_info=True
+                "AgentX shared-metrics model call close failed", exc_info=True
             )
 
     def _end_pending_model_calls(
@@ -941,7 +941,7 @@ class _Runtime:
                 metadata=self._event_metadata(),
             )
         except Exception:
-            logger.warning("Hermes shared-metrics task close failed", exc_info=True)
+            logger.warning("AgentX shared-metrics task close failed", exc_info=True)
         finally:
             session.tasks.pop(task_id, None)
             session.retired_turn_ids.extend(task.turn_ids)
@@ -969,12 +969,12 @@ class _Runtime:
         try:
             return callback(*args, **kwargs)
         except Exception:
-            logger.warning("Hermes shared metrics operation failed", exc_info=True)
+            logger.warning("AgentX shared metrics operation failed", exc_info=True)
             return None
 
 
 def enabled() -> bool:
-    """Return the shared-metrics policy for the active Hermes profile."""
+    """Return the shared-metrics policy for the active AgentX profile."""
     profile_key = relay_runtime.current_profile_key()
     try:
         from hermes_cli.config import read_raw_config_readonly
@@ -986,7 +986,7 @@ def enabled() -> bool:
         # on every call.
         config = read_raw_config_readonly() or {}
     except Exception:
-        logger.debug("Unable to read Hermes shared-metrics policy", exc_info=True)
+        logger.debug("Unable to read AgentX shared-metrics policy", exc_info=True)
         value = False
     else:
         telemetry = config.get("telemetry") if isinstance(config, dict) else None
@@ -1010,7 +1010,7 @@ def handles_hook(hook_name: str) -> bool:
 
 
 def observe_lifecycle(hook_name: str, **kwargs: Any) -> None:
-    """Project one Hermes lifecycle event into the core Relay integration."""
+    """Project one AgentX lifecycle event into the core Relay integration."""
     if not handles_hook(hook_name):
         return
     if not relay_runtime.relay_instrumentation_enabled():
@@ -1045,12 +1045,12 @@ def observe_lifecycle(hook_name: str, **kwargs: Any) -> None:
             runtime.close_session(kwargs)
     except Exception:
         logger.warning(
-            "Hermes shared metrics hook failed: %s", hook_name, exc_info=True
+            "AgentX shared metrics hook failed: %s", hook_name, exc_info=True
         )
 
 
 def _with_runtime_toolset(event: dict[str, Any]) -> dict[str, Any]:
-    """Attach the toolset already declared by Hermes's runtime registry."""
+    """Attach the toolset already declared by AgentX's runtime registry."""
     if event.get("toolset"):
         return event
     tool_name = str(event.get("tool_name") or "")
@@ -1089,7 +1089,7 @@ def start_task_run(
     platform: str,
     parent_session_id: str = "",
 ) -> None:
-    """Start task metrics at the outer Hermes execution boundary."""
+    """Start task metrics at the outer AgentX execution boundary."""
     if not enabled():
         return
     runtime = _get_runtime(retry_failed=True)
@@ -1178,7 +1178,7 @@ def _get_runtime(
         try:
             runtime = _Runtime(host=host)
         except Exception:
-            logger.warning("Hermes shared metrics initialization failed", exc_info=True)
+            logger.warning("AgentX shared metrics initialization failed", exc_info=True)
             _RUNTIMES[profile_key] = _RUNTIME_FAILED
             return None
         _RUNTIMES[profile_key] = runtime

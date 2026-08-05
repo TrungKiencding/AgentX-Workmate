@@ -1,5 +1,5 @@
 """
-``hermes photon ...`` CLI subcommands — registered by the plugin via
+``agentx photon ...`` CLI subcommands — registered by the plugin via
 ``ctx.register_cli_command()``.
 
 Subcommands:
@@ -10,7 +10,7 @@ Subcommands:
     telemetry          show or toggle Spectrum SDK telemetry (on/off)
 
 The device-code login runs automatically as the first step of ``setup``;
-there is no standalone ``login`` verb (matching how every other Hermes
+there is no standalone ``login`` verb (matching how every other AgentX
 gateway channel onboards through a single setup surface).
 
 Photon uses the spectrum-ts gRPC stream for inbound — there is no webhook
@@ -36,12 +36,12 @@ from .sidecar_paths import resolve_sidecar_dir
 # installs — NS-606). All npm/setup work happens here. Resolved lazily on
 # first use — resolve_sidecar_dir() probes the filesystem and may mirror
 # files, side effects that must not fire at import time (e.g. when argparse
-# wiring imports this module for `hermes --help`).
+# wiring imports this module for `agentx --help`).
 # Tests monkeypatch these module globals directly; the accessors honor a
 # non-None value and only resolve/derive when unset.
 _SIDECAR_DIR: Path | None = None
 # Written on npm failure so check_requirements() can surface the root cause
-# when called later (gateway start, hermes status). Cleared on success.
+# when called later (gateway start, agentx status). Cleared on success.
 _NPM_ERROR_LOG: Path | None = None
 
 
@@ -64,7 +64,7 @@ def _npm_error_log() -> Path:
 # argparse wiring
 
 def register_cli(parser: argparse.ArgumentParser) -> None:
-    """Wire up `hermes photon ...` subcommands."""
+    """Wire up `agentx photon ...` subcommands."""
     subs = parser.add_subparsers(dest="photon_command", required=False)
 
     p_setup = subs.add_parser(
@@ -72,7 +72,7 @@ def register_cli(parser: argparse.ArgumentParser) -> None:
         help="First-time setup (device login + project + user + sidecar)",
     )
     p_setup.add_argument("--project-name", default=None,
-                         help="Project name (default: 'Hermes Agent')")
+                         help="Project name (default: 'AgentX Workmate')")
     p_setup.add_argument("--phone", default=None,
                          help="Your E.164 phone number (e.g. +15551234567)")
     p_setup.add_argument("--first-name", default=None)
@@ -125,7 +125,7 @@ def _run_device_login(args: argparse.Namespace) -> int:
     """Run the RFC 8628 device-code login flow and persist the token.
 
     Internal helper — invoked as the first step of ``setup``. There is
-    no standalone ``hermes photon login`` command; Photon onboards
+    no standalone ``agentx photon login`` command; Photon onboards
     through the single ``setup`` surface like every other channel.
     """
     def _print_code(code):
@@ -181,7 +181,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
     else:
         print("[1/5] Reusing existing Photon token")
 
-    # 2. Find or create the "Hermes Agent" project.
+    # 2. Find or create the "AgentX Workmate" project.
     name = args.project_name or photon_auth.DEFAULT_PROJECT_NAME
     dashboard_id = photon_auth.load_dashboard_project_id()
     try:
@@ -244,7 +244,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
             print(
                 "  ⚠ Project secret was regenerated. If the gateway is running, "
                 "restart it so the sidecar picks up the new secret:\n"
-                "      hermes gateway restart"
+                "      agentx gateway restart"
             )
     except Exception as e:
         print(f"spectrum provisioning failed: {e}", file=sys.stderr)
@@ -348,7 +348,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
 
     print()
     print("✓ Photon setup complete.")
-    print("  Start the gateway:  hermes gateway start")
+    print("  Start the gateway:  agentx gateway start")
     return 0
 
 
@@ -388,8 +388,8 @@ def _cmd_status(_args: argparse.Namespace) -> int:
     node_bin = os.getenv("PHOTON_NODE_BIN") or shutil.which("node")
     sidecar_installed = sidecar_deps_installed()
     print(f"  node binary         : {node_bin or '✗ missing (install Node 18+)'}")
-    print(f"  sidecar deps        : {'✓ installed' if sidecar_installed else '✗ run `hermes photon install-sidecar`'}")
-    print(f"  telemetry           : {'on' if _telemetry_enabled() else 'off'} (`hermes photon telemetry on|off`)")
+    print(f"  sidecar deps        : {'✓ installed' if sidecar_installed else '✗ run `agentx photon install-sidecar`'}")
+    print(f"  telemetry           : {'on' if _telemetry_enabled() else 'off'} (`agentx photon telemetry on|off`)")
     return 0
 
 
@@ -428,7 +428,7 @@ def _cmd_telemetry(args: argparse.Namespace) -> int:
     state = getattr(args, "state", None)
     if state is None:
         print(f"Photon telemetry: {'on' if _telemetry_enabled() else 'off'}")
-        print("  Toggle with `hermes photon telemetry on` / `hermes photon telemetry off`.")
+        print("  Toggle with `agentx photon telemetry on` / `agentx photon telemetry off`.")
         return 0
     try:
         from hermes_cli.config import save_env_value
@@ -437,7 +437,7 @@ def _cmd_telemetry(args: argparse.Namespace) -> int:
         print(f"could not save PHOTON_TELEMETRY: {e}", file=sys.stderr)
         return 1
     print(f"✓ Spectrum telemetry turned {state} (PHOTON_TELEMETRY in ~/.agentx/.env)")
-    print("  Restart the gateway for the sidecar to pick it up:  hermes gateway restart")
+    print("  Restart the gateway for the sidecar to pick it up:  agentx gateway restart")
     return 0
 
 
@@ -503,15 +503,15 @@ def _install_sidecar() -> int:
 # ---------------------------------------------------------------------------
 # Gateway-setup entry point
 #
-# `hermes gateway setup` discovers platforms via the registry and calls each
+# `agentx gateway setup` discovers platforms via the registry and calls each
 # entry's zero-arg ``setup_fn``. Photon registers this function so it appears
 # in the unified setup wizard alongside every other channel — same onboarding
 # surface, no Photon-specific detour. It runs the identical device-login +
-# project + user + sidecar flow as ``hermes photon setup`` with interactive
+# project + user + sidecar flow as ``agentx photon setup`` with interactive
 # defaults (phone is prompted when stdin is a TTY).
 
 def gateway_setup() -> None:
-    """Run Photon first-time setup from the `hermes gateway setup` wizard."""
+    """Run Photon first-time setup from the `agentx gateway setup` wizard."""
     args = argparse.Namespace(
         photon_command="setup",
         project_name=None,

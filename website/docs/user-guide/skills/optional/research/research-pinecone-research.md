@@ -14,19 +14,18 @@ Agent RAG and long-term memory with Pinecone.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/research/pinecone-research` |
+| Source | Optional — install with `agentx skills install official/research/pinecone-research` |
 | Path | `optional-skills/research/pinecone-research` |
 | Version | `1.0.0` |
 | Author | immuhammadfurqan |
 | License | MIT |
 | Dependencies | `pinecone-client`, `langchain-pinecone` |
 | Platforms | linux, macos, windows |
-| Tags | `RAG`, `Pinecone`, `Memory`, `Research`, `Vector Database`, `Agent`, `Retrieval` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Pinecone Research — Agent RAG & Long-Term Memory

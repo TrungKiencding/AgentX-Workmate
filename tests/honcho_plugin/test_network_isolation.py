@@ -22,7 +22,7 @@ def _session(**kw) -> HonchoSession:
     return HonchoSession(
         key=kw.get("key", "cli:isolation"),
         user_peer_id="eri",
-        assistant_peer_id="hermes",
+        assistant_peer_id="agentx",
         honcho_session_id=kw.get("sid", "cli-isolation"),
         messages=kw.get("messages", []),
     )
@@ -67,7 +67,7 @@ class TestAmbientProductionConfig:
         (home / "honcho.json").write_text(json.dumps({
             "baseUrl": "http://localhost:8000",
             "workspace": "iris_curated_v1",
-            "hosts": {"hermes": {"apiKey": "live-looking-key", "saveMessages": True}},
+            "hosts": {"agentx": {"apiKey": "live-looking-key", "saveMessages": True}},
         }))
         monkeypatch.setenv("AGENTX_HOME", str(home))
         fake = MagicMock()

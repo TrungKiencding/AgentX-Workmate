@@ -14,19 +14,18 @@ SAM: zero-shot image segmentation via points, boxes, masks.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/segment-anything-model` |
+| Source | Optional — install with `agentx skills install official/mlops/segment-anything-model` |
 | Path | `optional-skills/mlops/models/segment-anything-model` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `segment-anything`, `transformers>=4.30.0`, `torch>=1.7.0` |
 | Platforms | linux, macos, windows |
-| Tags | `Multimodal`, `Image Segmentation`, `Computer Vision`, `SAM`, `Zero-Shot` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Segment Anything Model (SAM)

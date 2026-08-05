@@ -1,5 +1,5 @@
 """
-Session-scoped context variables for the Hermes gateway.
+Session-scoped context variables for the AgentX gateway.
 
 Replaces the previous ``os.environ``-based session state
 (``AGENTX_SESSION_PLATFORM``, ``AGENTX_SESSION_CHAT_ID``, etc.) with
@@ -469,7 +469,7 @@ def async_delivery_supported() -> bool:
     Returns ``False`` for finite runtimes that can end before a detached result
     is delivered: sessions explicitly bound by a stateless channel — an adapter
     that cannot route a notification back after the turn ends (the API server),
-    or a one-shot runner that exits after its final response (``hermes -z``,
+    or a one-shot runner that exits after its final response (``agentx -z``,
     cron — see :func:`declare_stateless_channel`) — and dispatcher-spawned
     Kanban workers (identified by ``AGENTX_KANBAN_TASK``), which are one-shot
     ``chat -q`` subprocesses. The real gateway platforms, the interactive CLI,

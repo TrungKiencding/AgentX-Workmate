@@ -1,5 +1,5 @@
 /**
- * Hermes Dashboard Plugin SDK — typed contract (SPIKE)
+ * AgentX Dashboard Plugin SDK — typed contract (SPIKE)
  * ====================================================
  *
  * This is the public type surface for ``window.__AGENTX_PLUGIN_SDK__`` and

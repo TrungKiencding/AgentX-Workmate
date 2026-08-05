@@ -85,7 +85,7 @@ if [ -n "$VENV" ]; then
 elif [ -n "${AGENTX_PYTHON:-}" ] && [ -x "$AGENTX_PYTHON" ] \
     && "$AGENTX_PYTHON" -c 'import pytest' 2>/dev/null; then
   # Guard with an import check: AGENTX_PYTHON may point at the RELEASE
-  # venv (no pytest) when inherited from a wrapped `hermes` binary rather
+  # venv (no pytest) when inherited from a wrapped `agentx` binary rather
   # than the devShell hook.
   PYTHON="$AGENTX_PYTHON"
   echo "▶ no local venv — using Nix dev venv via AGENTX_PYTHON: $PYTHON"

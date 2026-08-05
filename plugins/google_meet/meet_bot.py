@@ -2,7 +2,7 @@
 
 Runs as a standalone subprocess spawned by ``process_manager.py``. Reads config
 from env vars, writes status + transcript to files under
-``$AGENTX_HOME/workspace/meetings/<meeting-id>/``. The main hermes process
+``$AGENTX_HOME/workspace/meetings/<meeting-id>/``. The main agentx process
 reads those files via the ``meet_*`` tools — no IPC beyond filesystem.
 
 The scraping strategy mirrors OpenUtter (sumansid/openutter): we don't parse
@@ -449,7 +449,7 @@ def run_bot() -> int:  # noqa: C901 — orchestration, explicit branches
     out_dir_env = os.environ.get("AGENTX_MEET_OUT_DIR", "").strip()
     headed = os.environ.get("AGENTX_MEET_HEADED", "").lower() in {"1", "true", "yes"}
     auth_state = os.environ.get("AGENTX_MEET_AUTH_STATE", "").strip()
-    guest_name = os.environ.get("AGENTX_MEET_GUEST_NAME", "Hermes Agent")
+    guest_name = os.environ.get("AGENTX_MEET_GUEST_NAME", "AgentX Workmate")
     duration_s = _parse_duration(os.environ.get("AGENTX_MEET_DURATION", ""))
     # v2: optional realtime mode. Enabled when AGENTX_MEET_MODE=realtime.
     mode = os.environ.get("AGENTX_MEET_MODE", "transcribe").strip().lower()

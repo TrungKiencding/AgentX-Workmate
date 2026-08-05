@@ -14,18 +14,17 @@ Pixel art w/ era palettes (NES, Game Boy, PICO-8).
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/creative/pixel-art` |
+| Source | Optional — install with `agentx skills install official/creative/pixel-art` |
 | Path | `optional-skills/creative/pixel-art` |
 | Version | `2.0.0` |
 | Author | dodo-reach |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `creative`, `pixel-art`, `arcade`, `snes`, `nes`, `gameboy`, `retro`, `image`, `video` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Pixel Art
@@ -204,7 +203,7 @@ Quantizing before would waste error-diffusion on detail that disappears.
 
 - Python 3.9+
 - Pillow (`pip install Pillow`)
-- ffmpeg on PATH (only needed for video — Hermes installs package this)
+- ffmpeg on PATH (only needed for video — AgentX installs package this)
 
 ## Pitfalls
 

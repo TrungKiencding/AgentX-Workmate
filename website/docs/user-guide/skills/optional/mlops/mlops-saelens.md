@@ -14,19 +14,18 @@ Train sparse autoencoders to interpret model features.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/saelens` |
+| Source | Optional — install with `agentx skills install official/mlops/saelens` |
 | Path | `optional-skills/mlops/saelens` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `sae-lens>=6.0.0`, `transformer-lens>=2.0.0`, `torch>=2.0.0` |
 | Platforms | linux, macos, windows |
-| Tags | `Sparse Autoencoders`, `SAE`, `Mechanistic Interpretability`, `Feature Discovery`, `Superposition` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # SAELens: Sparse Autoencoders for Mechanistic Interpretability

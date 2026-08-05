@@ -1,8 +1,8 @@
 /**
- * Hermes desktop plugin template. Save as:
- *   <hermes home>/desktop-plugins/<id>/plugin.js   (folder name == id)
- * where <hermes home> is ~/.agentx by default, or ~/.agentx/profiles/<name>
- * when running a named profile (`hermes -p <name>`). Run `hermes doctor` (or
+ * AgentX desktop plugin template. Save as:
+ *   <agentx home>/desktop-plugins/<id>/plugin.js   (folder name == id)
+ * where <agentx home> is ~/.agentx by default, or ~/.agentx/profiles/<name>
+ * when running a named profile (`agentx -p <name>`). Run `agentx doctor` (or
  * check the app's Settings → Plugins folder path) if unsure which is active.
  * Then run "Reload desktop plugins" from ⌘K in the desktop app.
  *

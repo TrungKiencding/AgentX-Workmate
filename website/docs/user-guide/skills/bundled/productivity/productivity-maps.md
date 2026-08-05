@@ -20,12 +20,11 @@ Geocode, POIs, routes, timezones via OpenStreetMap/OSRM.
 | Author | Mibayy |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `maps`, `geocoding`, `places`, `routing`, `distance`, `directions`, `nearby`, `location`, `openstreetmap`, `nominatim`, `overpass`, `osrm` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Maps Skill

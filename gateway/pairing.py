@@ -413,7 +413,7 @@ class PairingStore:
 
     When constructed with ``profile="<name>"``, storage resolves from that
     profile's own AGENTX_HOME using the same legacy/consolidated layout rules
-    as ``hermes -p <name> pairing ...``. This keeps multiplex gateways and
+    as ``agentx -p <name> pairing ...``. This keeps multiplex gateways and
     profile-scoped CLI approvals on one whitelist. Without a profile, storage
     is the global pairing directory for the current AGENTX_HOME.
     """
@@ -438,7 +438,7 @@ class PairingStore:
         self._dir.mkdir(parents=True, exist_ok=True)
         if profile:
             # Explicit stores must resolve exactly as a standalone
-            # ``hermes -p <profile> pairing ...`` process does. Merge the
+            # ``agentx -p <profile> pairing ...`` process does. Merge the
             # alternate old/new layout so upgrades cannot split approvals.
             _migrate_split_pairing_dirs(home=profile_home, active=self._dir)
         else:
@@ -471,7 +471,7 @@ class PairingStore:
             except PermissionError as e:
                 # Surface this loudly: a 0600 file owned by a different user
                 # (classic Docker symptom: `docker exec` runs as root and writes
-                # the file, then the gateway process — running as `hermes` after
+                # the file, then the gateway process — running as `agentx` after
                 # gosu drop — can't read it) would otherwise be swallowed by
                 # the generic OSError branch below, silently leaving the user
                 # marked unauthorized. See issue #10270.
@@ -485,9 +485,9 @@ class PairingStore:
                 euid = os.geteuid() if hasattr(os, "geteuid") else "n/a"
                 logger.warning(
                     "Pairing file %s exists but is not readable as uid=%s (%s; %s). "
-                    "If you ran `docker exec <container> hermes pairing approve ...` as root, "
-                    "re-run with `docker exec -u hermes <container> ...` and "
-                    "chown the existing file to the hermes user, or restart the "
+                    "If you ran `docker exec <container> agentx pairing approve ...` as root, "
+                    "re-run with `docker exec -u agentx <container> ...` and "
+                    "chown the existing file to the agentx user, or restart the "
                     "container so the entrypoint can fix ownership.",
                     path, euid, owner_info, e,
                 )
@@ -736,7 +736,7 @@ class PairingStore:
         """
         Approve a pending pairing request by its server-side request id.
 
-        This is the grant path for authenticated admin surfaces (``hermes
+        This is the grant path for authenticated admin surfaces (``agentx
         pairing list``, the dashboard/desktop approve buttons), which show
         pending requests but must never reveal the one-time code DM'd to the
         user. Returns ``{user_id, user_name}`` on success, ``None`` for an

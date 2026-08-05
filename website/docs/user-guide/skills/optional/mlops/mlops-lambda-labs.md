@@ -14,19 +14,18 @@ On-demand GPU cloud instances for ML training.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/lambda-labs` |
+| Source | Optional — install with `agentx skills install official/mlops/lambda-labs` |
 | Path | `optional-skills/mlops/lambda-labs` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `lambda-cloud-client>=1.0.0` |
 | Platforms | linux, macos, windows |
-| Tags | `Infrastructure`, `GPU Cloud`, `Training`, `Inference`, `Lambda Labs` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Lambda Labs GPU Cloud

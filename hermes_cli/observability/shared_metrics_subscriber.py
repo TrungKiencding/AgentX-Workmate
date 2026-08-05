@@ -1,4 +1,4 @@
-"""Relay subscriber for the persisted Hermes shared-metrics slice."""
+"""Relay subscriber for the persisted AgentX shared-metrics slice."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class SharedMetricsSubscriber:
-    """Persist validated Hermes counters from Relay lifecycle events."""
+    """Persist validated AgentX counters from Relay lifecycle events."""
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class SharedMetricsSubscriber:
                 )
             except Exception:
                 logger.warning(
-                    "Unable to persist the Hermes shared metric: %s",
+                    "Unable to persist the AgentX shared metric: %s",
                     metric_name,
                     exc_info=True,
                 )

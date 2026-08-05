@@ -1,12 +1,12 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
 # Make supervise/ trees for ALL declared s6 services queryable and
-# controllable by the unprivileged hermes user (UID 10000).
+# controllable by the unprivileged agentx user (UID 10000).
 #
 # Background (PR #30136 review item I4): the entire s6 lifecycle
-# (s6-svc, s6-svstat, s6-svwait) is dispatched as the hermes user
-# inside the container (every Hermes runtime path runs under
-# ``s6-setuidgid hermes``). But s6-supervise creates each service's
+# (s6-svc, s6-svstat, s6-svwait) is dispatched as the agentx user
+# inside the container (every AgentX runtime path runs under
+# ``s6-setuidgid agentx``). But s6-supervise creates each service's
 # ``supervise/`` and top-level ``event/`` directory with mode 0700
 # owned by its effective UID — which is root, because s6-supervise
 # is spawned by s6-svscan running as PID 1. So unprivileged clients
@@ -17,7 +17,7 @@
 # 1. For RUNTIME-registered profile gateways (created via the s6
 #    runtime register hooks in profiles.py): the Python helper
 #    ``_seed_supervise_skeleton`` pre-creates supervise/ + event/ +
-#    supervise/control owned by hermes BEFORE s6-svscanctl -a fires.
+#    supervise/control owned by agentx BEFORE s6-svscanctl -a fires.
 #    s6-supervise's mkdir/mkfifo are EEXIST-safe, so it inherits our
 #    ownership and never tries to chown back to root.
 #
@@ -40,7 +40,7 @@ set -eu
 
 # /run/s6-rc/servicedirs holds the live, compiled service directories
 # for every static (s6-rc) service. Symlinks under /run/service/*
-# point here. Per-service supervise/ + event/ both need hermes
+# point here. Per-service supervise/ + event/ both need agentx
 # ownership for s6-svstat etc. to work as hermes.
 SVC_ROOT=/run/s6-rc/servicedirs
 
@@ -66,13 +66,13 @@ for svc in "$SVC_ROOT"/*; do
         chown -R hermes:hermes "$svc/supervise" 2>/dev/null || \
             echo "[supervise-perms] could not chown $svc/supervise"
         # 0710 = group searchable. ``s6-svstat`` only needs to openat
-        # status, not list the dir, but giving the hermes group +x is
+        # status, not list the dir, but giving the agentx group +x is
         # the minimum that lets group members access the contents.
         chmod 0710 "$svc/supervise" 2>/dev/null || true
         # supervise/control is a FIFO that s6-svc writes commands
-        # into; the hermes user needs +w. Owner is already hermes
+        # into; the agentx user needs +w. Owner is already agentx
         # after the recursive chown above; widen perms to 0660 so
-        # ``s6-svc`` works for any member of the hermes group too.
+        # ``s6-svc`` works for any member of the agentx group too.
         if [ -p "$svc/supervise/control" ]; then
             chmod 0660 "$svc/supervise/control" 2>/dev/null || true
         fi

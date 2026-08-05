@@ -9,7 +9,7 @@ plane (push objects + CAS a ref, pull the owner's HEAD, three-way merge on a
 
   * a debounced push hook in ``skill_manage`` (after the write-gate passes),
   * a periodic pull hook (``maybe_pull_skills``) at the curator tick sites,
-  * the ``hermes sync status|pull|push|now`` CLI.
+  * the ``agentx sync status|pull|push|now`` CLI.
 
 It lives beside ``tools/skills_sync.py`` (NOT under ``hermes_cli/``) so the
 low-level sync layer never imports the CLI -- same rule the bundled-skills
@@ -41,7 +41,7 @@ check, or a per-cohort feature flag) before shipping to users.
 
 --- OPT-IN DEFAULT (M1-D, provisional) -----------------------------------
 Nothing syncs unless the user marks a skill for sync. The user's local intent
-is toggled via ``hermes sync enable/disable`` (a ``sync`` flag on the skill's
+is toggled via ``agentx sync enable/disable`` (a ``sync`` flag on the skill's
 ``.usage.json`` sidecar, alongside ``pinned``/``created_by``), but the DURABLE,
 CROSS-DEVICE opt-in state is a committed ``sync-manifest`` object in the sync
 plane (design.md §2.8): a root-level blob in the tree at
@@ -101,7 +101,7 @@ ARTIFACT_TYPE_SKILL = "skill"
 # This makes opt-in durable and CROSS-DEVICE: device B learns which skills the
 # user opted in on device A by reading the manifest on pull, rather than each
 # device keeping its own local flag. The ``.usage.json`` ``sync`` flag is kept
-# only as the local *intent* the user toggles via ``hermes sync enable`` — it is
+# only as the local *intent* the user toggles via ``agentx sync enable`` — it is
 # reconciled TO the manifest on pull and FROM it on push; the manifest in the
 # plane is authoritative.
 #
@@ -335,7 +335,7 @@ def resolve_sync_base_url() -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Sync feature configuration — env-first, so a Hermes Cloud instance can be set
+# Sync feature configuration — env-first, so a AgentX Cloud instance can be set
 # up to use sync BY DEFAULT purely through environment variables (no per-user
 # config.yaml edit, no per-skill CLI call). Every knob follows the same
 # precedence as base_url: the AGENTX_SYNC_* env var wins, else config.yaml
@@ -392,7 +392,7 @@ def sync_feature_enabled() -> bool:
     """Whether the sync feature is turned on for this instance (env-first).
 
     ``AGENTX_SYNC_ENABLED`` -> ``sync.enabled`` -> False. This is the master
-    switch a Hermes Cloud deployment sets to opt its instances into sync by
+    switch a AgentX Cloud deployment sets to opt its instances into sync by
     default. It is checked by the gate-and-swallow entrypoints IN ADDITION to
     the Nous-admin token gate and a configured base URL — all three must hold for
     background sync to run.
@@ -406,7 +406,7 @@ def sync_org_auto_propose() -> bool:
     ``AGENTX_SYNC_ORG_AUTO_PROPOSE`` -> ``sync.org_auto_propose`` -> False.
 
     False (default): edits to an org-shared skill stay LOCAL until the user
-    runs ``hermes sync propose <skill>``. The skill keeps working with the
+    runs ``agentx sync propose <skill>``. The skill keeps working with the
     edit applied; the organisation just doesn't see it yet.
 
     True: every local edit to an org skill is submitted to the org as a
@@ -425,10 +425,10 @@ def sync_default_opt_in() -> bool:
     ``AGENTX_SYNC_DEFAULT_OPT_IN`` -> ``sync.default_opt_in`` -> False.
 
     False (default): opt-IN — a skill syncs only after an explicit
-    ``hermes sync enable`` (or a plane manifest that opted it in). True: opt-OUT
+    ``agentx sync enable`` (or a plane manifest that opted it in). True: opt-OUT
     — every sync-eligible skill is treated as opted in unless explicitly
     disabled, which is the "your skills follow you with no setup" default a
-    Hermes Cloud deployment wants. Per the design notes, this default is
+    AgentX Cloud deployment wants. Per the design notes, this default is
     provisional and expected to flip; exposing it as env config lets the
     operator choose per deployment without a protocol change.
     """
@@ -486,7 +486,7 @@ def list_synced_skill_names() -> List[str]:
 
     - **opt-in (default):** a skill syncs only when its usage record carries
       ``sync: true`` AND it is eligible. Nothing syncs by default.
-    - **opt-out (Hermes Cloud "on by default"):** every *eligible* skill syncs
+    - **opt-out (AgentX Cloud "on by default"):** every *eligible* skill syncs
       UNLESS its usage record explicitly carries ``sync: false``. This is what a
       deployment sets (via ``AGENTX_SYNC_DEFAULT_OPT_IN``) so a user's skills
       follow them with no per-skill setup.
@@ -681,7 +681,7 @@ def stable_device_id() -> str:
     short random suffix, e.g. ``bens-macbook-a1b2c3``) so the sync console shows
     something recognizable instead of an opaque hash. Existing ``.sync_device_id``
     files are honored verbatim (backward-compatible — a machine keeps its id).
-    Use ``set_device_name()`` / ``hermes sync device --name`` to set an explicit
+    Use ``set_device_name()`` / ``agentx sync device --name`` to set an explicit
     label."""
     path = _skills_dir() / ".sync_device_id"
     try:
@@ -692,10 +692,10 @@ def stable_device_id() -> str:
     except OSError:
         pass
 
-    # Hermes Cloud (and any templated deployment) can seed the label
+    # AgentX Cloud (and any templated deployment) can seed the label
     # declaratively via AGENTX_SYNC_DEVICE_NAME, so a hosted instance shows a
     # recognizable name with no CLI call. Env seeds the FIRST-USE value only; it
-    # is then persisted, so a later `hermes sync device --name` (or editing the
+    # is then persisted, so a later `agentx sync device --name` (or editing the
     # file) still wins on that device. An explicit file (above) always wins over
     # the env.
     import os
@@ -1246,8 +1246,8 @@ def _check_version(caps: Dict[str, Any]) -> None:
     major = ver.split(".", 1)[0]
     if major != WIRE_VERSION:
         raise SyncError(
-            f"this server speaks sync version {ver!r}, but this Hermes speaks "
-            f"{WIRE_VERSION} — update Hermes to sync with it"
+            f"this server speaks sync version {ver!r}, but this AgentX speaks "
+            f"{WIRE_VERSION} — update AgentX to sync with it"
         )
 
 
@@ -1260,7 +1260,7 @@ def push_skills(
     *,
     skill_names: Optional[List[str]] = None,
     identity: Optional[Dict[str, Any]] = None,
-    message: str = "hermes skill sync",
+    message: str = "agentx skill sync",
 ) -> Dict[str, Any]:
     """Push opted-in skills to the owner's HEAD (sync contract).
 
@@ -1412,7 +1412,7 @@ def _resolve_push_conflict(
             "actual_head": actual_head,
             "message": (
                 f"{len(overlaps)} skill(s) changed on both sides; wrote "
-                f"{conflict_ref}. Resolve out-of-band (hermes sync / NAS UI)."
+                f"{conflict_ref}. Resolve out-of-band (agentx sync / NAS UI)."
             ),
         }
 
@@ -1610,7 +1610,7 @@ def _opted_in_rel_paths() -> List[str]:
 # (no push, no pull, no-op) unless the signed-in user is a Nous admin.
 # ---------------------------------------------------------------------------
 
-def maybe_push_skills(*, message: str = "hermes skill sync") -> Optional[Dict[str, Any]]:
+def maybe_push_skills(*, message: str = "agentx skill sync") -> Optional[Dict[str, Any]]:
     """Best-effort push if all gates pass. Returns a result dict or None.
     Never raises. Called from the debounced skill_manage push hook."""
     try:
@@ -1648,7 +1648,7 @@ def maybe_pull_skills() -> Optional[Dict[str, Any]]:
 
 
 def sync_status() -> Dict[str, Any]:
-    """Return a status snapshot for ``hermes sync status``. Never raises."""
+    """Return a status snapshot for ``agentx sync status``. Never raises."""
     status: Dict[str, Any] = {
         "nous_admin": False,
         "logged_in": False,
@@ -1733,7 +1733,7 @@ def list_org_skill_names() -> List[str]:
 # here is inert (org_sync_available() False; pull/propose raise SyncInertError)
 # and the personal personal sync experience is untouched.
 #
-# `hermes sync propose` is the org sharing surface; proposal is
+# `agentx sync propose` is the org sharing surface; proposal is
 # intended to become largely automated later (curator/background hooks driving
 # the same propose_skill() path). Keep this callable non-interactive.
 # ---------------------------------------------------------------------------

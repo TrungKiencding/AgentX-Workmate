@@ -183,7 +183,7 @@ def read_install_method() -> str | None:
 def print_fast_version_info() -> None:
     from hermes_cli import __release_date__, __version__
 
-    print(f"Hermes Agent v{__version__} ({__release_date__})")
+    print(f"AgentX Workmate v{__version__} ({__release_date__})")
     print(f"Install directory: {project_root_str()}")
     install_method = read_install_method()
     if install_method:
@@ -193,11 +193,11 @@ def print_fast_version_info() -> None:
 
     openai_version = read_openai_version()
     print(f"OpenAI SDK: {openai_version}" if openai_version else "OpenAI SDK: Not installed")
-    print("Run 'hermes version' for update status.")
+    print("Run 'agentx version' for update status.")
 
 
 def try_fast_version(argv: list[str] | None = None) -> bool:
-    """Handle ``hermes --version`` before the heavy import wall.
+    """Handle ``agentx --version`` before the heavy import wall.
 
     Termux keeps its historical contract (also accepts the ``version``
     subcommand + the AGENTX_TERMUX_DISABLE_FAST_CLI escape hatch). Everywhere

@@ -14,19 +14,18 @@ Fully sharded data-parallel training for large models.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/pytorch-fsdp` |
+| Source | Optional — install with `agentx skills install official/mlops/pytorch-fsdp` |
 | Path | `optional-skills/mlops/pytorch-fsdp` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `torch>=2.0`, `transformers` |
 | Platforms | linux, macos |
-| Tags | `Distributed Training`, `PyTorch`, `FSDP`, `Data Parallel`, `Sharding`, `Mixed Precision`, `CPU Offloading`, `FSDP2`, `Large-Scale Training` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Pytorch-Fsdp Skill

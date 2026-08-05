@@ -14,19 +14,18 @@ Embedding database for RAG and semantic search.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/chroma` |
+| Source | Optional — install with `agentx skills install official/mlops/chroma` |
 | Path | `optional-skills/mlops/chroma` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `chromadb`, `sentence-transformers` |
 | Platforms | linux, macos, windows |
-| Tags | `RAG`, `Chroma`, `Vector Database`, `Embeddings`, `Semantic Search`, `Open Source`, `Self-Hosted`, `Document Retrieval`, `Metadata Filtering` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Chroma - Open-Source Embedding Database

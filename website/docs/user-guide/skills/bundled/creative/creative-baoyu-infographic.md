@@ -20,17 +20,16 @@ Infographics: 21 layouts x 21 styles (信息图, 可视化).
 | Author | 宝玉 (JimLiu) |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `infographic`, `visual-summary`, `creative`, `image-generation` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Infographic Generator
 
-Adapted from [baoyu-infographic](https://github.com/JimLiu/baoyu-skills) for Hermes Agent's tool ecosystem.
+Adapted from [baoyu-infographic](https://github.com/JimLiu/baoyu-skills) for AgentX Workmate's tool ecosystem.
 
 Two dimensions: **layout** (information structure) × **style** (visual aesthetics). Freely combine any layout with any style.
 

@@ -14,19 +14,18 @@ Clean training loops with built-in distributed support.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/pytorch-lightning` |
+| Source | Optional — install with `agentx skills install official/mlops/pytorch-lightning` |
 | Path | `optional-skills/mlops/pytorch-lightning` |
 | Version | `1.0.0` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `lightning`, `torch`, `transformers` |
 | Platforms | linux, macos, windows |
-| Tags | `PyTorch Lightning`, `Training Framework`, `Distributed Training`, `DDP`, `FSDP`, `DeepSpeed`, `High-Level API`, `Callbacks`, `Best Practices`, `Scalable` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # PyTorch Lightning - High-Level Training Framework

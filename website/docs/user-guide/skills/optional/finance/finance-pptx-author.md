@@ -14,19 +14,17 @@ Build PowerPoint decks headless with python-pptx.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/finance/pptx-author` |
+| Source | Optional — install with `agentx skills install official/finance/pptx-author` |
 | Path | `optional-skills/finance/pptx-author` |
 | Version | `1.0.0` |
 | Author | Anthropic (adapted by Nous Research) |
 | License | Apache-2.0 |
 | Platforms | linux, macos, windows |
-| Tags | `powerpoint`, `pptx`, `python-pptx`, `presentation`, `finance` |
-| Related skills | [`excel-author`](/docs/user-guide/skills/optional/finance/finance-excel-author), [`powerpoint`](/docs/user-guide/skills/bundled/productivity/productivity-powerpoint) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # pptx-author

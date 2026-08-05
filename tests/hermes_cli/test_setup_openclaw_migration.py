@@ -35,7 +35,7 @@ class TestOfferOpenclawMigration:
         openclaw_dir = tmp_path / ".openclaw"
         openclaw_dir.mkdir()
 
-        # Create a fake hermes home with config
+        # Create a fake agentx home with config
         hermes_home = tmp_path / ".agentx"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"

@@ -1,11 +1,11 @@
 """
-Hermes Desktop (Chat GUI) uninstaller.
+AgentX Workmate Desktop (Chat GUI) uninstaller.
 
 The desktop GUI ships in two shapes and this module knows how to find and
 remove the artifacts of both, on Linux, macOS, and Windows, WITHOUT touching
 the Python agent or the user's config/data:
 
-  1. Source-built GUI (``hermes desktop`` / ``hermes gui``)
+  1. Source-built GUI (``agentx desktop`` / ``agentx gui``)
      Built inside the agent checkout under ``$AGENTX_HOME/hermes-agent/``:
        - ``apps/desktop/dist``      (compiled renderer)
        - ``apps/desktop/release``   (electron-builder unpacked app + installers)
@@ -17,22 +17,22 @@ the Python agent or the user's config/data:
   2. Packaged distributable (DMG / NSIS / AppImage / deb / rpm)
      Installed by the OS to a standard application location and carrying its
      own bundled Electron + a per-user Electron ``userData`` directory:
-       - macOS:   ``/Applications/Hermes.app`` or ``~/Applications/Hermes.app``
-       - Windows: ``%LOCALAPPDATA%\\Programs\\Hermes`` (NSIS per-user)
+       - macOS:   ``/Applications/AgentX.app`` or ``~/Applications/AgentX.app``
+       - Windows: ``%LOCALAPPDATA%\\Programs\\AgentX`` (NSIS per-user)
        - Linux:   ``~/.local/share/applications`` .desktop entry + AppImage
 
 In both shapes the Electron runtime keeps a ``userData`` directory keyed on
-the app name ("Hermes"), separate from ``$AGENTX_HOME``:
-  - macOS:   ``~/Library/Application Support/Hermes``
-  - Windows: ``%APPDATA%\\Hermes``
-  - Linux:   ``$XDG_CONFIG_HOME/Hermes`` (default ``~/.config/Hermes``)
+the app name ("AgentX"), separate from ``$AGENTX_HOME``:
+  - macOS:   ``~/Library/Application Support/AgentX``
+  - Windows: ``%APPDATA%\\AgentX``
+  - Linux:   ``$XDG_CONFIG_HOME/AgentX`` (default ``~/.config/AgentX``)
 
 This holds the desktop's own ``connection.json`` / ``updates.json`` and
 Chromium cache — pure GUI state, safe to remove on a GUI uninstall.
 
 The functions here are deliberately import-light and side-effect-free at
 import time so the Electron main process can shell out to
-``hermes uninstall --gui`` (and friends) without paying for the full CLI.
+``agentx uninstall --gui`` (and friends) without paying for the full CLI.
 """
 
 import os
@@ -70,25 +70,25 @@ def _agent_root(hermes_home: Path) -> Path:
 def desktop_userdata_dir() -> Path:
     """Return the Electron ``userData`` directory for the desktop app.
 
-    Mirrors Electron's ``app.getPath('userData')`` for an app named "Hermes"
+    Mirrors Electron's ``app.getPath('userData')`` for an app named "AgentX"
     on each platform. This is GUI-only state (connection.json, updates.json,
     Chromium cache) and never holds agent config or sessions.
     """
     home = Path.home()
     if sys.platform == "darwin":
-        return home / "Library" / "Application Support" / "Hermes"
+        return home / "Library" / "Application Support" / "AgentX"
     if sys.platform == "win32":
         appdata = os.environ.get("APPDATA")
         base = Path(appdata) if appdata else (home / "AppData" / "Roaming")
-        return base / "Hermes"
+        return base / "AgentX"
     # Linux / other POSIX — XDG config home.
     xdg = os.environ.get("XDG_CONFIG_HOME")
     base = Path(xdg) if xdg else (home / ".config")
-    return base / "Hermes"
+    return base / "AgentX"
 
 
 def source_built_gui_artifacts(hermes_home: Path) -> "list[Path]":
-    """GUI build artifacts produced by ``hermes desktop`` inside the checkout.
+    """GUI build artifacts produced by ``agentx desktop`` inside the checkout.
 
     These are removable on a GUI uninstall without harming the agent: the
     Python agent runs from ``hermes-agent/`` source + ``venv/`` and never
@@ -113,28 +113,28 @@ def packaged_gui_app_paths() -> "list[Path]":
 
     Returns every candidate for the current OS; the caller filters to those
     that actually exist. We never glob system-wide — only the well-known
-    electron-builder output locations for the "Hermes" product.
+    electron-builder output locations for the "AgentX" product.
     """
     home = Path.home()
     paths: list[Path] = []
     if sys.platform == "darwin":
         paths += [
-            Path("/Applications/Hermes.app"),
-            home / "Applications" / "Hermes.app",
+            Path("/Applications/AgentX.app"),
+            home / "Applications" / "AgentX.app",
         ]
     elif sys.platform == "win32":
         local = os.environ.get("LOCALAPPDATA")
         local_base = Path(local) if local else (home / "AppData" / "Local")
         paths += [
-            # NSIS per-user install (perMachine=false → Programs\Hermes).
-            local_base / "Programs" / "Hermes",
+            # NSIS per-user install (perMachine=false → Programs\AgentX).
+            local_base / "Programs" / "AgentX",
             # Older / alternate layout some builds used.
             local_base / "hermes-desktop",
         ]
         program_files = os.environ.get("ProgramFiles")
         if program_files:
             # NSIS per-machine fallback (needs admin to remove).
-            paths.append(Path(program_files) / "Hermes")
+            paths.append(Path(program_files) / "AgentX")
     else:
         # Linux: AppImage is a single file the user placed somewhere; we can
         # only reliably clean the desktop entry + icon we know the name of.
@@ -146,7 +146,7 @@ def packaged_gui_app_paths() -> "list[Path]":
         data_base = Path(data) if data else (home / ".local" / "share")
         paths += [
             data_base / "applications" / "hermes.desktop",
-            data_base / "applications" / "Hermes.desktop",
+            data_base / "applications" / "AgentX.desktop",
         ]
     return paths
 
@@ -277,8 +277,8 @@ def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = 
     if sys.platform.startswith("linux"):
         log_info(
             "If you installed the desktop via a .deb / .rpm package, remove it "
-            "with your package manager (e.g. 'sudo apt remove hermes' or "
-            "'sudo dnf remove hermes'). AppImage builds are a single file you "
+            "with your package manager (e.g. 'sudo apt remove agentx' or "
+            "'sudo dnf remove agentx'). AppImage builds are a single file you "
             "can delete from wherever you saved it."
         )
 

@@ -221,12 +221,12 @@ class TestManagerImports:
 
 class TestToolset:
     def test_yuanbao_toolset_registered(self):
-        """toolsets.py 中存在 hermes-yuanbao 键"""
+        """toolsets.py 中存在 agentx-yuanbao 键"""
         import importlib
         ts = importlib.import_module("toolsets")
         assert hasattr(ts, "TOOLSETS") or hasattr(ts, "toolsets")
         toolsets_dict = getattr(ts, "TOOLSETS", getattr(ts, "toolsets", {}))
-        assert "hermes-yuanbao" in toolsets_dict
+        assert "agentx-yuanbao" in toolsets_dict
 
 
 

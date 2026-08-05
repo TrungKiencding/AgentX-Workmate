@@ -78,14 +78,14 @@ class TestSurrogateVsAsciiSanitization:
 
     def test_ascii_codec_strips_all_non_ascii(self):
         """ASCII codec case: all non-ASCII is stripped, not replaced."""
-        messages = [{"role": "user", "content": "test ⚕🤖你好 end"}]
+        messages = [{"role": "user", "content": "test ⬡🤖你好 end"}]
         assert _sanitize_messages_non_ascii(messages) is True
         # All non-ASCII chars removed; spaces around them collapse
         assert messages[0]["content"] == "test  end"
 
     def test_no_surrogates_returns_false(self):
         """When no surrogates present, _sanitize_messages_surrogates returns False."""
-        messages = [{"role": "user", "content": "hello ⚕ world"}]
+        messages = [{"role": "user", "content": "hello ⬡ world"}]
         assert _sanitize_messages_surrogates(messages) is False
 
 
@@ -149,13 +149,13 @@ class TestSanitizeStructureNonAscii:
     def test_sanitizes_nested_dict_structure(self):
         payload = {
             "default_headers": {
-                "X-Title": "Hermes │ Agent",
-                "User-Agent": "Hermes/1.0 🤖",
+                "X-Title": "AgentX │ Agent",
+                "User-Agent": "AgentX/1.0 🤖",
             }
         }
         assert _sanitize_structure_non_ascii(payload) is True
-        assert payload["default_headers"]["X-Title"] == "Hermes  Agent"
-        assert payload["default_headers"]["User-Agent"] == "Hermes/1.0 "
+        assert payload["default_headers"]["X-Title"] == "AgentX  Agent"
+        assert payload["default_headers"]["User-Agent"] == "AgentX/1.0 "
 
 
 class TestApiKeyClientSync:

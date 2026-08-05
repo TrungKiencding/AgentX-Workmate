@@ -161,7 +161,7 @@ class TestEnsureUvUpdateBoundary:
     """``ensure_uv()`` must answer to both the single-value and the legacy
     ``(path, fresh_bootstrap)`` call conventions — **on POSIX**.
 
-    ``hermes update`` runs the call site from the old, already-imported
+    ``agentx update`` runs the call site from the old, already-imported
     ``hermes_cli.main`` against the freshly pulled ``managed_uv``. A release
     parked on a ``(path, fresh)`` tuple runs ``uv_bin, fresh = ensure_uv()``
     against the single-value module; the path is an iterable ``str`` so the
@@ -230,7 +230,7 @@ class TestEnsureUvWindowsSafe:
         import subprocess
         from hermes_cli.managed_uv import _UvResult
         with pytest.raises(TypeError):
-            subprocess.list2cmdline([_UvResult("C:\\hermes\\uv.exe"), "pip"])
+            subprocess.list2cmdline([_UvResult("C:\\agentx\\uv.exe"), "pip"])
 
     def test_windows_returns_plain_str_safe_for_subprocess(self, tmp_path):
         import subprocess
@@ -988,7 +988,7 @@ class TestDefaultLiveVenv:
     """_default_live_venv() must cover BOTH install layouts (venv/ and .venv/).
 
     Historically repair hardcoded venv/, so uv-default/.venv checkouts got
-    'not-applicable' on every hermes update and stayed on journal_mode=DELETE
+    'not-applicable' on every agentx update and stayed on journal_mode=DELETE
     (2,600x slower state.db appends) while the WAL warning promised repair.
     """
 
@@ -1030,7 +1030,7 @@ class TestDefaultLiveVenv:
 class TestVenvPythonUpdateBoundary:
     """``_venv_python`` must survive a hermes_constants predating its symbol.
 
-    ``hermes update`` imports hermes_constants from the OLD checkout, ``git
+    ``agentx update`` imports hermes_constants from the OLD checkout, ``git
     pull`` replaces that file, and the freshly-pulled managed_uv then runs its
     lazy ``from hermes_constants import venv_python_path`` against the module
     object already cached in ``sys.modules``. That cached module has no such

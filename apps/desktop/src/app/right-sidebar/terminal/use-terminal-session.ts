@@ -75,7 +75,7 @@ function previewSelectionLabel(): string {
   return source.split(/[\\/]/).filter(Boolean).pop() || target?.label?.trim() || ''
 }
 
-const AGENTX_PATHS_MIME = 'application/x-hermes-paths'
+const AGENTX_PATHS_MIME = 'application/x-agentx-paths'
 
 function readEscapeSequence(data: string, index: number) {
   if (data.charCodeAt(index) !== 0x1b || index + 1 >= data.length) {

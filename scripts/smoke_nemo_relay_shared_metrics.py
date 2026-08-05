@@ -1,4 +1,4 @@
-"""Run a real Hermes CLI turn and validate the Relay shared-metrics output."""
+"""Run a real AgentX CLI turn and validate the Relay shared-metrics output."""
 
 from __future__ import annotations
 
@@ -27,17 +27,17 @@ TOOL_FILE = "relay-smoke-input.txt"
 
 def _resolve_hermes_executable(hermes_repo: Path) -> Path:
     for relative_path in (
-        Path(".venv") / "bin" / "hermes",
+        Path(".venv") / "bin" / "agentx",
         Path(".venv") / "Scripts" / "hermes.exe",
     ):
         candidate = hermes_repo / relative_path
         if candidate.is_file():
             return candidate
-    discovered = shutil.which("hermes")
+    discovered = shutil.which("agentx")
     if discovered:
         return Path(discovered)
     raise SystemExit(
-        "Hermes executable not found in the repository virtual environment "
+        "AgentX executable not found in the repository virtual environment "
         "or on PATH"
     )
 
@@ -236,7 +236,7 @@ def _arguments() -> argparse.Namespace:
         "--hermes-repo",
         type=Path,
         default=Path.cwd(),
-        help="Hermes source checkout containing .venv/bin/hermes",
+        help="AgentX source checkout containing .venv/bin/agentx",
     )
     parser.add_argument(
         "--relay-python",
@@ -377,7 +377,7 @@ def _validate_package(outbox: Path, schema_path: Path) -> tuple[Path, dict[str, 
         import jsonschema
     except ImportError as exc:
         raise RuntimeError(
-            "The Hermes development environment requires jsonschema"
+            "The AgentX development environment requires jsonschema"
         ) from exc
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.validate(package, schema)
@@ -446,7 +446,7 @@ def main() -> int:
     args = _arguments()
     hermes_repo = args.hermes_repo.resolve()
     relay_python = args.relay_python.resolve() if args.relay_python else None
-    hermes = _resolve_hermes_executable(hermes_repo)
+    hermes_exe = _resolve_hermes_executable(hermes_repo)
     if relay_python is not None and not any(
         (relay_python / "nemo_relay").glob("_native.*")
     ):
@@ -484,7 +484,7 @@ def main() -> int:
             ]).rstrip(os.pathsep)
         result = subprocess.run(
             [
-                str(hermes),
+                str(hermes_exe),
                 "chat",
                 "--query",
                 PROMPT_CANARY,
@@ -514,7 +514,7 @@ def main() -> int:
     (root / "hermes.stderr.txt").write_text(result.stderr, encoding="utf-8")
     if result.returncode != 0:
         raise AssertionError(
-            f"Hermes exited with {result.returncode}\n"
+            f"AgentX exited with {result.returncode}\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         )
     if len(_ModelHandler.requests) != 2:
@@ -525,12 +525,12 @@ def main() -> int:
     if request.get("model") != MODEL_CANARY:
         raise AssertionError(f"Unexpected model request: {request.get('model')!r}")
     if PROMPT_CANARY not in json.dumps(request.get("messages", [])):
-        raise AssertionError("Hermes model request did not contain the prompt canary")
+        raise AssertionError("AgentX model request did not contain the prompt canary")
     follow_up = json.dumps(_ModelHandler.requests[1].get("messages", []))
     if TOOL_CALL_CANARY not in follow_up or TOOL_RESULT_CANARY not in follow_up:
-        raise AssertionError("Hermes did not return the tool result to the model")
+        raise AssertionError("AgentX did not return the tool result to the model")
     if RESPONSE_CANARY not in result.stdout:
-        raise AssertionError("Hermes did not print the mock model response")
+        raise AssertionError("AgentX did not print the mock model response")
 
     telemetry = home / "telemetry" / "shared_metrics"
     counters = _validate_store(telemetry / "metrics.sqlite3")
@@ -543,7 +543,7 @@ def main() -> int:
         / "hermes.shared_metrics.v2.schema.json",
     )
 
-    print("Hermes -> NeMo Relay shared-metrics smoke test passed")
+    print("AgentX -> NeMo Relay shared-metrics smoke test passed")
     print(f"Artifact directory: {root}")
     print(f"Model requests: {len(_ModelHandler.requests)}")
     print(f"SQLite counters: {json.dumps(counters, indent=2)}")

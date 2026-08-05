@@ -14,19 +14,17 @@ Create meme PNGs from templates with Pillow text overlay.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/creative/meme-generation` |
+| Source | Optional — install with `agentx skills install official/creative/meme-generation` |
 | Path | `optional-skills/creative/meme-generation` |
 | Version | `2.0.0` |
 | Author | adanaleycio |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `creative`, `memes`, `humor`, `images` |
-| Related skills | [`ascii-art`](/docs/user-guide/skills/bundled/creative/creative-ascii-art) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Meme Generation

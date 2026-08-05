@@ -8,9 +8,9 @@ responsive (p99 < 1s) with zero event-loop stalls.
 
 What it does
 ------------
-1. Spawns a SCRATCH dashboard (``hermes dashboard``) bound to loopback on a
+1. Spawns a SCRATCH dashboard (``agentx dashboard``) bound to loopback on a
    free port, with an ISOLATED ``AGENTX_HOME`` (temp dir, minimal seeded state).
-   It NEVER touches the live :9119 dashboard / ai.hermes.dashboard / live
+   It NEVER touches the live :9119 dashboard / ai.agentx.dashboard / live
    state.db. Loopback bind ⇒ no auth gate (web_server.should_require_auth).
 2. Arms the synthetic GIL-heavy turn seam (``AGENTX_ISO_CERTIFY_SYNTH_TURN=1``,
    see ``tui_gateway/synthetic_turn.py``) so 6 concurrent turns reproduce the

@@ -34,8 +34,8 @@ def container_env(tmp_path, monkeypatch):
         "# Written by NixOS activation script. Do not edit manually.\n"
         "backend=podman\n"
         "container_name=hermes-agent\n"
-        "exec_user=hermes\n"
-        "hermes_bin=/data/current-package/bin/hermes\n"
+        "exec_user=agentx\n"
+        "hermes_bin=/data/current-package/bin/agentx\n"
     )
     return hermes_home
 
@@ -48,8 +48,8 @@ def test_get_container_exec_info_returns_metadata(container_env):
     assert info is not None
     assert info["backend"] == "podman"
     assert info["container_name"] == "hermes-agent"
-    assert info["exec_user"] == "hermes"
-    assert info["hermes_bin"] == "/data/current-package/bin/hermes"
+    assert info["exec_user"] == "agentx"
+    assert info["hermes_bin"] == "/data/current-package/bin/agentx"
 
 
 
@@ -68,8 +68,8 @@ def docker_container_info():
     return {
         "backend": "docker",
         "container_name": "hermes-agent",
-        "exec_user": "hermes",
-        "hermes_bin": "/data/current-package/bin/hermes",
+        "exec_user": "agentx",
+        "hermes_bin": "/data/current-package/bin/agentx",
     }
 
 
@@ -78,8 +78,8 @@ def podman_container_info():
     return {
         "backend": "podman",
         "container_name": "hermes-agent",
-        "exec_user": "hermes",
-        "hermes_bin": "/data/current-package/bin/hermes",
+        "exec_user": "agentx",
+        "hermes_bin": "/data/current-package/bin/agentx",
     }
 
 
@@ -105,13 +105,13 @@ def test_exec_in_container_calls_execvp(docker_container_info):
     assert cmd[1] == "exec"
     assert "-it" in cmd
     idx_u = cmd.index("-u")
-    assert cmd[idx_u + 1] == "hermes"
+    assert cmd[idx_u + 1] == "agentx"
     e_indices = [i for i, v in enumerate(cmd) if v == "-e"]
     e_values = [cmd[i + 1] for i in e_indices]
     assert "TERM=xterm-256color" in e_values
     assert "LANG=en_US.UTF-8" in e_values
     assert "hermes-agent" in cmd
-    assert "/data/current-package/bin/hermes" in cmd
+    assert "/data/current-package/bin/agentx" in cmd
     assert "chat" in cmd
 
 

@@ -204,37 +204,165 @@ RULES: list[Rule] = [
         note="%LOCALAPPDATA%\\hermes and AppData\\Local\\hermes -> ...\\agentx",
     ),
     # ── Phase 3: CLI surface ─────────────────────────────────────────────
+    #
+    # apps/** and website/** are deferred: the desktop app (its IPC channel
+    # names, protocol scheme, wordmark and icons) is phase 4, the installer is
+    # phase 5, and the docs site is phase 9. Renaming a token here that its
+    # counterpart there still spells the old way is the exact failure mode
+    # phase 2 kept hitting, so the boundary is drawn at whole surfaces.
     Rule(
         id="cli-command",
         phase=3,
-        # `hermes` as a standalone lowercase token — which, in this tree, is
+        # `hermes` as a standalone lowercase token, which in this tree is
         # always the command a user types (`hermes setup`, `prog="hermes"`,
-        # a bare `hermes` in backticks).
+        # a bare `hermes` in backticks). Enumerating the ~200 subcommands
+        # instead would silently miss any subcommand added later.
         #
         # The guards carve out everything that is NOT the command:
-        #   preceded by [A-Za-z0-9_]  -> hermes_cli, get_hermes_home, MyHermes
-        #   preceded by . / -         -> ~/.hermes, /api/hermes/, x-hermes
-        #   followed by [A-Za-z0-9_]  -> hermesDesktop, hermes_state
-        #   followed by . / -         -> hermes-agent, hermes.nousresearch.com
-        # Enumerating the ~200 subcommands instead would silently miss any
-        # subcommand added later.
-        pattern=r"(?<![A-Za-z0-9_./-])hermes(?![A-Za-z0-9_./-])",
+        #   preceded by [A-Za-z0-9_] -> hermes_cli, get_hermes_home
+        #   preceded by . / -        -> ~/.hermes, /api/hermes/, x-hermes
+        #   preceded by @ or :       -> @hermes:example.org, chown hermes:hermes
+        #   followed by [A-Za-z0-9_] -> hermesDesktop, hermes_state
+        #   followed by . / -        -> hermes-agent, hermes.example.com
+        #   followed by :            -> 'hermes:found-in-page' (Electron IPC),
+        #                               `  hermes:` (skill frontmatter key)
+        # and two more for the vendor namespace inside data, which reaches
+        # here as an ordinary quoted token:
+        # A `.get("hermes")` guard used to live here too. It was removed once
+        # the two protected namespaces moved to file-level exclusions: as a
+        # pattern it also blocked honcho's own per-host lookup, so the config
+        # writer moved to "agentx" while the reader kept asking for "hermes"
+        # and every stored host block became unreachable.
+        #
+        # The leading guard also admits an escape sequence, the same trap
+        # env-prefix hit: in "#!/bin/bash\\nhermes gateway restart\\n" the
+        # character before the token is the `n` of \\n, which reads as a word
+        # character. Those strings are the scripts the lifecycle guard scans,
+        # so missing them left the guard's own fixtures naming a command it
+        # no longer recognises.
+        # The trailing guard is a bare `:` and not `["\']\s*:` on purpose.
+        # Blocking the quoted form too also blocked every ordinary JSON key
+        # that names the product — honcho's per-host override block is
+        # {"hosts": {"hermes": {...}}}, and leaving that behind while the
+        # lookup moved to "agentx" silently dropped the override. The two
+        # namespaces that genuinely must not move (ACP _meta, skill
+        # frontmatter) are held back by file, not by pattern.
+        pattern=r'(?:(?<=\\n)|(?<=\\t)|(?<![A-Za-z0-9_./@:-]))hermes(?![A-Za-z0-9_./:@-])',
         replacement="agentx",
         note="bare `hermes` CLI command -> `agentx`",
+        exclude=[
+            "apps/*",
+            "website/*",
+            # A list of model-family substrings ("claude", "qwen", "hermes", …)
+            # matched against the *model* name to pick an edit format. The
+            # entry names Nous's Hermes models, not this product.
+            "agent/coding_context.py",
+            # Detects Nous's Hermes 3/4 chat models by regex to warn that they
+            # are not tool-call-tuned. Renaming the pattern makes the check
+            # match nothing, so the warning silently stops firing.
+            "hermes_cli/model_switch.py",
+            # The two vendor namespaces that must survive verbatim. ACP's
+            # _meta extension key is a wire format; the skill-frontmatter key
+            # is read from SKILL.md files already on disk, and renaming it
+            # would orphan every one of them.
+            "acp_adapter/provenance.py",
+            "acp_adapter/server.py",
+            "agent/skill_utils.py",
+            "agent/learning_graph.py",
+            "tools/blueprints.py",
+            "tools/skills_tool.py",
+            "skills/*",
+            "optional-skills/*",
+            "tests/acp/test_session_provenance.py",
+            "tests/tools/test_skills_tool.py",
+        ],
+    ),
+    Rule(
+        id="cli-launcher-path",
+        phase=3,
+        # The launcher file on PATH, as an installed path rather than a bare
+        # command: /usr/local/bin/hermes, $command_link_dir/hermes,
+        # venv/bin/hermes, $INSTALL_DIR/hermes.
+        #
+        # cli-command cannot claim these — it refuses anything after a slash,
+        # which is what keeps it off ~/.hermes and /api/hermes/. But leaving
+        # them behind is worse than either: install.sh already logs
+        # "Installed agentx launcher" while writing a file named hermes.
+        #
+        # Anchoring on bin/ and *_dir/ *_DIR/ is what separates the launcher
+        # from the Electron executable (release/linux-unpacked/hermes, whose
+        # name comes from the desktop build config in phase 4) and from the
+        # install root (/usr/local/lib/hermes-agent, phase 5). The `.`
+        # alternative covers `./hermes` run from a checkout; the apps/
+        # exclusion keeps it off the desktop's `from './hermes'` imports,
+        # which name a TypeScript file, not the launcher.
+        pattern=r"(bin|_dir|_DIR|\.)([/\\]+)hermes(?![A-Za-z0-9_./:@-])",
+        replacement=r"\1\2agentx",
+        note="installed launcher path .../bin/hermes -> .../bin/agentx",
+        exclude=["apps/*", "website/*"],
+    ),
+    Rule(
+        id="toolset-family",
+        phase=3,
+        # Platform composite toolsets, named hermes-<platform> and shown in
+        # `agentx tools` and config.yaml. They are one family: acp-prog and
+        # gateway-prog below renamed two of them, which split the family in
+        # half and made the three `startswith("hermes-")` filters stop
+        # recognising the renamed pair. The blank-slate installer then
+        # disabled agentx-acp as if it were a leaf toolset and stripped
+        # terminal/read_file/write_file from the agent.
+        #
+        # The alternation is explicit rather than `hermes-\w+` so it cannot
+        # swallow hermes-agent (the dist/repo name, phase 5), hermes-tools
+        # (the MCP server), hermes-index (a skills-hub source id), or the
+        # hermes-<id> scratch-worktree names.
+        pattern=r"hermes-(acp|gateway|cli|cron|bluebubbles|dingtalk|discord|email"
+        r"|feishu|homeassistant|matrix|mattermost|qqbot|signal|slack|sms"
+        r"|telegram|webhook|wecom|weixin|whatsapp|yuanbao|api-server)\b",
+        replacement=r"agentx-\1",
+        note="platform composite toolsets hermes-<platform> -> agentx-<platform>",
+        exclude=["apps/*", "website/*"],
+    ),
+    Rule(
+        id="toolset-family-dynamic",
+        phase=3,
+        # The same family, built at runtime from the platform name.
+        pattern=r'f"hermes-\{(platform|entry\.name)\}"',
+        replacement=r'f"agentx-{\1}"',
+        note="dynamic toolset name f\"hermes-{platform}\" -> f\"agentx-{platform}\"",
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="acp-prog",
         phase=3,
-        pattern=r"\bhermes-acp\b",
+        pattern=r"hermes-acp",
         replacement="agentx-acp",
         note="hermes-acp entry point -> agentx-acp",
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="gateway-prog",
         phase=3,
-        pattern=r"\bhermes-gateway\b",
+        pattern=r"hermes-gateway",
         replacement="agentx-gateway",
-        note="hermes-gateway entry point -> agentx-gateway",
+        note="hermes-gateway entry point / systemd unit -> agentx-gateway",
+        exclude=["apps/*", "website/*"],
+    ),
+    Rule(
+        id="launchd-label",
+        phase=3,
+        # The macOS launchd service label, as shown by `launchctl list`. It is
+        # the same identity as the systemd unit renamed just above, and the
+        # lifecycle guard matches both with one pattern — so leaving this
+        # behind made that pattern stop recognising its own service.
+        #
+        # No rule reaches it otherwise: config-dir-posix skips `.hermes` when
+        # a word character precedes it (to protect _meta.hermes), and here the
+        # preceding character is the `i` of `ai.`.
+        pattern=r"\bai\.hermes\.",
+        replacement="ai.agentx.",
+        note="launchd label ai.hermes.* -> ai.agentx.*",
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="brand-glyph",
@@ -242,6 +370,25 @@ RULES: list[Rule] = [
         pattern="⚕",
         replacement="⬡",
         note="caduceus (Hermes' staff) -> hexagon brand glyph",
+        exclude=["apps/*", "website/*"],
+    ),
+    # Display names, longest first so a broader rule never eats a token a
+    # narrower one was meant to claim.
+    Rule(
+        id="wordmark-nous",
+        phase=3,
+        pattern=r"\bNOUS HERMES\b",
+        replacement="AGENTX WORKMATE",
+        note='uppercase "NOUS HERMES" wordmark -> "AGENTX WORKMATE"',
+        exclude=["apps/*", "website/*"],
+    ),
+    Rule(
+        id="wordmark-upper",
+        phase=3,
+        pattern=r"\bHERMES[- ]AGENT\b",
+        replacement="AGENTX WORKMATE",
+        note='uppercase "HERMES AGENT" wordmark -> "AGENTX WORKMATE"',
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="display-name-full",
@@ -249,6 +396,7 @@ RULES: list[Rule] = [
         pattern=r"\bHermes Agent\b",
         replacement="AgentX Workmate",
         note='"Hermes Agent" display string -> "AgentX Workmate"',
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="display-name-desktop",
@@ -256,15 +404,30 @@ RULES: list[Rule] = [
         pattern=r"\bHermes Desktop\b",
         replacement="AgentX Workmate Desktop",
         note='"Hermes Desktop" -> "AgentX Workmate Desktop"',
+        exclude=["apps/*", "website/*"],
     ),
     Rule(
         id="display-name-short",
         phase=3,
-        # Bare capitalised Hermes in prose/UI. Runs last so the multi-word
-        # display names above have already claimed their occurrences.
-        pattern=r"\bHermes\b",
+        # Bare capitalised Hermes in prose/UI. Runs after the multi-word
+        # display names above have claimed their occurrences.
+        #
+        # The two guards keep Nous's Hermes *models* intact — hermes-4,
+        # Nous Hermes 3, NousResearch/Hermes-3-Llama-3.1-70B are model slugs
+        # sent to provider APIs, and renaming one breaks the request.
+        pattern=r"(?<!Nous )\bHermes\b(?![-\s]*\d)",
         replacement="AgentX",
-        note='bare "Hermes" display string -> "AgentX"',
+        note='bare "Hermes" display string -> "AgentX" (model names exempt)',
+        exclude=["apps/*", "website/*"],
+    ),
+    Rule(
+        id="wordmark-bare-upper",
+        phase=3,
+        # Runs last: the multi-word uppercase wordmarks above are gone by now.
+        pattern=r"\bHERMES\b(?![-\s]*\d)",
+        replacement="AGENTX",
+        note='bare uppercase "HERMES" -> "AGENTX"',
+        exclude=["apps/*", "website/*"],
     ),
 ]
 

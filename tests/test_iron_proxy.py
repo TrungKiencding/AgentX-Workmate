@@ -34,7 +34,7 @@ from agent.proxy_sources import iron_proxy as ip
 def hermes_home(tmp_path, monkeypatch):
     """Point AGENTX_HOME at a temp dir so install paths don't touch the real $HOME."""
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(home))
     # Make sure no stale provider keys influence discovery.

@@ -14,18 +14,17 @@ Pharmaceutical research assistant for drug discovery workflows. Search bioactive
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/research/drug-discovery` |
+| Source | Optional — install with `agentx skills install official/research/drug-discovery` |
 | Path | `optional-skills/research/drug-discovery` |
 | Version | `1.0.0` |
 | Author | bennytimz |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `science`, `chemistry`, `pharmacology`, `research`, `health` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Drug Discovery & Pharmaceutical Research

@@ -2,8 +2,8 @@
 
 Regression coverage for #20074: a chat session must export the active kanban
 board into `AGENTX_KANBAN_BOARD` at boot so subprocess shell-outs (e.g.
-`hermes kanban …`) inherit the same board the in-process kanban tools resolve.
-Without this, a concurrent `hermes kanban boards switch` from another session
+`agentx kanban …`) inherit the same board the in-process kanban tools resolve.
+Without this, a concurrent `agentx kanban boards switch` from another session
 can flip the global current-board file mid-turn and silently divert the
 shell calls to a different DB.
 """

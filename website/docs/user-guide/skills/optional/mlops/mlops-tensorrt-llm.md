@@ -14,19 +14,18 @@ High-throughput LLM inference on NVIDIA GPUs.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/tensorrt-llm` |
+| Source | Optional — install with `agentx skills install official/mlops/tensorrt-llm` |
 | Path | `optional-skills/mlops/tensorrt-llm` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `tensorrt-llm`, `torch` |
 | Platforms | linux, macos |
-| Tags | `Inference Serving`, `TensorRT-LLM`, `NVIDIA`, `Inference Optimization`, `High Throughput`, `Low Latency`, `Production`, `FP8`, `INT4`, `In-Flight Batching`, `Multi-GPU` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # TensorRT-LLM

@@ -1,6 +1,6 @@
 # disk-cleanup
 
-Auto-tracks and cleans up ephemeral files created during Hermes Agent
+Auto-tracks and cleans up ephemeral files created during AgentX Workmate
 sessions — test scripts, temp outputs, cron logs, stale chrome profiles.
 Scoped strictly to `$AGENTX_HOME` and `/tmp/hermes-*`.
 

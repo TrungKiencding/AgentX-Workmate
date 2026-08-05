@@ -23,9 +23,9 @@
     {
       devShells.default = pkgs.mkShell {
         packages = with pkgs; [
-          (pkgs.runCommand "hermes" { } ''
+          (pkgs.runCommand "agentx" { } ''
             mkdir -p $out/bin
-            install -Dm755 ${../hermes} $out/bin/hermes
+            install -Dm755 ${../agentx} $out/bin/agentx
           '')
           self'.packages.sandbox
           uv
@@ -56,8 +56,8 @@
           # environment instead of creating an empty project .venv.
           export VIRTUAL_ENV="$(dirname "$(dirname "$(readlink -f "$(command -v python)")")")"
 
-          echo "Hermes Agent dev shell in $AGENTX_PYTHON_SRC_ROOT"
-          echo "Ready. Run 'hermes' or 'sandbox hermes' to start."
+          echo "AgentX Workmate dev shell in $AGENTX_PYTHON_SRC_ROOT"
+          echo "Ready. Run 'agentx' or 'sandbox agentx' to start."
         '';
       };
     };

@@ -12,7 +12,7 @@ the existing module-level functions in hermes_cli.gateway and
 hermes_cli.gateway_windows directly. This protocol is a thin facade
 used by new code that needs to be backend-agnostic — specifically the
 profile create/delete hooks (Phase 4) and the s6 dispatch path in
-``hermes gateway start/stop/restart`` when running inside a container.
+``agentx gateway start/stop/restart`` when running inside a container.
 """
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def detect_service_manager() -> ServiceManagerKind:
     This function does NOT replace ``supports_systemd_services()`` —
     host call sites continue to use that. It exists for new backend-
     agnostic code (profile create/delete hooks, the s6 dispatch path
-    in ``hermes gateway start/stop/restart``).
+    in ``agentx gateway start/stop/restart``).
     """
     # Imports deferred so importing this module doesn't drag in the
     # whole gateway dependency graph for callers that only need the
@@ -112,7 +112,7 @@ def detect_service_manager() -> ServiceManagerKind:
     # NOT is_container(): the latter only detects Docker/Podman/lxc, so it is
     # False on Fly's Firecracker microVMs even though s6-overlay is PID 1 there.
     # That false negative made the whole s6 dispatch path inert on Fly, so
-    # `hermes gateway start/stop/restart` fell through to host code that spawns
+    # `agentx gateway start/stop/restart` fell through to host code that spawns
     # a foreground gateway competing with the supervised one. _s6_running() is
     # already an s6-overlay-specific signal, so the container gate was redundant.
     if _s6_running():
@@ -129,13 +129,13 @@ def detect_service_manager() -> ServiceManagerKind:
 def _s6_running() -> bool:
     """True when s6-svscan is running as PID 1 in this container.
 
-    Detection has to work for **both** root and the unprivileged hermes
+    Detection has to work for **both** root and the unprivileged agentx
     user (UID 10000). The obvious probe — ``Path('/proc/1/exe').resolve()``
     — only works as root: for any other UID, the symlink at
     ``/proc/1/exe`` is unreadable and ``resolve()`` silently returns the
     path unchanged, so the resolved name is the literal ``"exe"`` and
-    detection always fails. Since every Hermes runtime call inside the
-    container drops to hermes via ``s6-setuidgid``, that silent failure
+    detection always fails. Since every AgentX runtime call inside the
+    container drops to agentx via ``s6-setuidgid``, that silent failure
     made the entire service-manager runtime-registration path inert in
     production (PR #30136 review).
 
@@ -166,7 +166,7 @@ def _s6_running() -> bool:
 # in ``hermes_cli.gateway`` (systemd/launchd) and ``hermes_cli.gateway_windows``
 # (Windows Scheduled Tasks). The protocol's ``name`` parameter is currently
 # unused for host backends — they operate on whichever profile is currently
-# active (set via the ``hermes -p <profile>`` flag before the call). This
+# active (set via the ``agentx -p <profile>`` flag before the call). This
 # matches existing host-side semantics; the parameter shape is designed
 # for s6 where each profile maps to a distinct service directory.
 # ---------------------------------------------------------------------------
@@ -321,7 +321,7 @@ def get_service_manager() -> ServiceManager:
 # ---------------------------------------------------------------------------
 # S6ServiceManager (container-only)
 #
-# Per-profile gateways are registered dynamically when `hermes profile create`
+# Per-profile gateways are registered dynamically when `agentx profile create`
 # runs inside the container (Phase 4). Static services (main-hermes, dashboard)
 # live in /etc/s6-overlay/s6-rc.d/ and are NOT managed by this class — they're
 # part of the image, not runtime-created.
@@ -405,7 +405,7 @@ def _write_gateway_desired_state(name: str, desired_state: str) -> None:
 _S6_BIN_DIR = "/command"
 
 
-# UID/GID of the in-image ``hermes`` user. Hardcoded to match what
+# UID/GID of the in-image ``agentx`` user. Hardcoded to match what
 # ``stage2-hook.sh`` enforces (the runtime invariant — see also
 # tests/docker/test_uid_remap.py). The container starts s6-supervise
 # under root and immediately drops to this UID via ``s6-setuidgid``.
@@ -415,7 +415,7 @@ _AGENTX_GID = 10000
 
 def _seed_supervise_skeleton(svc_dir: Path) -> None:
     """Pre-create the ``supervise/`` and top-level ``event/`` skeleton
-    inside a service directory, owned by the hermes user.
+    inside a service directory, owned by the agentx user.
 
     Why this exists
     ---------------
@@ -424,14 +424,14 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
     ``0700``. It also ``mkfifo``s ``<svc>/supervise/control`` with mode
     ``0600``. Because s6-supervise runs as PID 1's effective UID (root)
     these dirs end up root-owned mode 0700, and an unprivileged client
-    (the ``hermes`` user — UID 10000 — running every Hermes runtime
+    (the ``agentx`` user — UID 10000 — running every AgentX runtime
     operation via ``s6-setuidgid``) gets ``EACCES`` on any ``s6-svc``,
     ``s6-svstat``, or ``s6-svwait`` invocation against the slot.
 
     The PR #30136 review surfaced this as a real product gap: the
     entire S6ServiceManager lifecycle (``register/start/stop/unregister
     _profile_gateway``) was inert in production because every operation
-    is dispatched as the hermes user.
+    is dispatched as the agentx user.
 
     Why this works
     --------------
@@ -441,7 +441,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
     chown/chmod fix-up that would normally make event/ ``03730
     root:root`` is **skipped** entirely — s6-supervise just opens the
     pre-existing FIFOs and proceeds. So if we lay the skeleton down
-    with hermes ownership before triggering ``s6-svscanctl -a``,
+    with agentx ownership before triggering ``s6-svscanctl -a``,
     s6-supervise inherits our layout and never touches it.
 
     Layout produced
@@ -455,7 +455,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
     The ``death_tally``, ``lock``, and ``status`` regular files end up
     written by s6-supervise itself (as root), but those land mode 0644 —
     world-readable — and ``s6-svstat`` only needs read access, so the
-    hermes user reads them fine.
+    agentx user reads them fine.
 
     If ``svc_dir/log/`` is present (the canonical s6 logger pattern —
     one s6-supervise instance per service, plus a second for its
@@ -491,7 +491,7 @@ def _seed_supervise_skeleton(svc_dir: Path) -> None:
         try:
             os.chown(path, _AGENTX_UID, _AGENTX_GID)
         except PermissionError:
-            # Running as the hermes user already — directory is hermes-
+            # Running as the agentx user already — directory is hermes-
             # owned by default. The chown is a no-op in that case, so
             # swallowing this keeps both root and unprivileged callers
             # on one code path.
@@ -560,7 +560,7 @@ class S6Error(RuntimeError):
 class GatewayNotRegisteredError(S6Error):
     """Raised when a lifecycle method targets a slot that doesn't exist.
 
-    Most commonly: ``hermes -p typo gateway start`` when no profile
+    Most commonly: ``agentx -p typo gateway start`` when no profile
     ``typo`` exists. Carries the unprefixed profile name (not the
     full ``gateway-<profile>`` service-dir name) so callers can phrase
     a user-facing message like "no such gateway 'typo'".
@@ -570,7 +570,7 @@ class GatewayNotRegisteredError(S6Error):
         self.profile = profile
         super().__init__(
             f"no such gateway {profile!r}: register it with "
-            f"`hermes profile create {profile}` first, or pass "
+            f"`agentx profile create {profile}` first, or pass "
             "an existing profile name via `-p <name>`",
             service=f"gateway-{profile}",
         )
@@ -635,11 +635,11 @@ class S6ServiceManager:
              so with-contenv's root HOME does not leak into the
              unprivileged gateway process.
           3. Activates the bundled venv.
-          4. Drops to the hermes user and exec's
-             ``hermes -p <profile> gateway run`` (or just ``hermes
+          4. Drops to the agentx user and exec's
+             ``agentx -p <profile> gateway run`` (or just ``agentx
              gateway run`` for the default profile — see below).
 
-        Special case: ``profile == "default"`` emits ``hermes gateway
+        Special case: ``profile == "default"`` emits ``agentx gateway
         run`` with **no** ``-p`` flag. This is the sentinel for "the
         root AGENTX_HOME profile" (the implicit profile that exists at
         the top of $AGENTX_HOME, not under profiles/). It must be
@@ -686,7 +686,7 @@ class S6ServiceManager:
         lines.append("export AGENTX_S6_SUPERVISED_CHILD=1")
         # ``--replace`` makes the supervised gateway authoritative for its
         # profile's AGENTX_HOME. Without it, a gateway started OUTSIDE s6
-        # (a stray ``hermes gateway run`` from a shell, an agent action, or
+        # (a stray ``agentx gateway run`` from a shell, an agent action, or
         # the Open WebUI helper) grabs the per-AGENTX_HOME PID lock first;
         # the supervised slot then execs a bare ``gateway run``, hits the
         # "Another gateway instance is already running" guard, exits
@@ -700,13 +700,13 @@ class S6ServiceManager:
         # single supervised instance per slot, so there is no legitimate
         # supervised sibling for ``--replace`` to clobber.
         if profile == "default":
-            gateway_cmd = "hermes gateway run --replace"
+            gateway_cmd = "agentx gateway run --replace"
         else:
-            gateway_cmd = f"hermes -p {shlex.quote(profile)} gateway run --replace"
+            gateway_cmd = f"agentx -p {shlex.quote(profile)} gateway run --replace"
         # Skip the drop when already non-root (setgroups() lacks CAP_SETGID →
         # s6 boot-loop).
         lines.append(f'[ "$(id -u)" = 0 ] || exec {gateway_cmd}')
-        lines.append(f"exec s6-setuidgid hermes {gateway_cmd}")
+        lines.append(f"exec s6-setuidgid agentx {gateway_cmd}")
         return "\n".join(lines) + "\n"
 
     @staticmethod
@@ -760,7 +760,7 @@ class S6ServiceManager:
              banner output and other plain stdout writes.)
           2. ``T <log_dir>`` — also write a timestamped copy to the
              rotated log directory (``current`` + archived ``@*.s``
-             files). This is what ``hermes logs`` reads and what
+             files). This is what ``agentx logs`` reads and what
              persists across container restarts via the volume mount.
 
         ``T`` is non-sticky: it only prefixes lines for the next
@@ -783,7 +783,7 @@ class S6ServiceManager:
             f"# shellcheck shell=sh\n"
             f': "${{AGENTX_HOME:=/opt/data}}"\n'
             f'log_dir="$AGENTX_HOME/logs/gateways/{prof}"\n'
-            # Create the leaf and clear a stale s6-log lock as hermes when
+            # Create the leaf and clear a stale s6-log lock as agentx when
             # this script starts as root. Never chown or unlink hermes-writable
             # volume paths from this restartable root-context script:
             # log/supervise/control is hermes-owned, so an unprivileged user
@@ -791,15 +791,15 @@ class S6ServiceManager:
             # CWE-367). Parent logs/gateways is seeded hermes-owned at stage2
             # boot (#45258; tests/docker/test_log_dir_seed.py).
             f'if [ "$(id -u)" = 0 ]; then\n'
-            f'  s6-setuidgid hermes mkdir -p "$log_dir"\n'
-            f'  s6-setuidgid hermes rm -f "$log_dir/lock"\n'
+            f'  s6-setuidgid agentx mkdir -p "$log_dir"\n'
+            f'  s6-setuidgid agentx rm -f "$log_dir/lock"\n'
             f'else\n'
             f'  mkdir -p "$log_dir"\n'
             f'  rm -f "$log_dir/lock"\n'
             f'fi\n'
             # Skip the drop when already non-root (CAP_SETGID).
             f'[ "$(id -u)" = 0 ] || exec s6-log 1 n10 s1000000 T "$log_dir"\n'
-            f'exec s6-setuidgid hermes s6-log 1 n10 s1000000 T "$log_dir"\n'
+            f'exec s6-setuidgid agentx s6-log 1 n10 s1000000 T "$log_dir"\n'
         )
 
     # -- lifecycle ---------------------------------------------------------
@@ -891,7 +891,7 @@ class S6ServiceManager:
         BEFORE sending the down command, so the gateway's shutdown
         handler recognises this SIGTERM as an operator-initiated stop
         and persists ``gateway_state=stopped`` (respecting the explicit
-        intent). Without the marker, an intentional ``hermes gateway
+        intent). Without the marker, an intentional ``agentx gateway
         stop`` is indistinguishable from the container/s6 SIGTERM sent on
         ``docker restart``; the latter must NOT persist ``stopped`` or
         container_boot refuses to auto-start on the next boot (#42675).
@@ -950,7 +950,7 @@ class S6ServiceManager:
         up immediately.  When *start_now* is ``True`` (the default) the
         service starts immediately; when ``False`` a ``down`` marker file
         is written so s6-supervise leaves the service stopped until the
-        user explicitly runs ``hermes -p <profile> gateway start``.
+        user explicitly runs ``agentx -p <profile> gateway start``.
 
         Raises:
             ValueError: if the profile name is invalid or the service
@@ -1007,11 +1007,11 @@ class S6ServiceManager:
             log_run.write_text(self._render_log_run(profile), encoding="utf-8")
             log_run.chmod(0o755)
 
-            # Pre-create the supervise/ skeleton with hermes ownership
+            # Pre-create the supervise/ skeleton with agentx ownership
             # BEFORE we publish the slot. s6-supervise will EEXIST our
             # dirs/FIFOs and inherit the ownership, so the runtime
             # s6-svc / s6-svstat / s6-svwait calls (all dispatched as
-            # the hermes user) won't hit EACCES on root-owned 0700
+            # the agentx user) won't hit EACCES on root-owned 0700
             # dirs. See ``_seed_supervise_skeleton`` for the full
             # rationale.
             _seed_supervise_skeleton(tmp_dir)

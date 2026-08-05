@@ -1,6 +1,6 @@
 """Regression tests for #34107 — Docker UID/GID handling in ensure_hermes_home.
 
-When Hermes runs in Docker with ``AGENTX_UID=1000`` / ``AGENTX_GID=911``,
+When AgentX runs in Docker with ``AGENTX_UID=1000`` / ``AGENTX_GID=911``,
 the entrypoint chowns the top-level ``AGENTX_HOME`` once at startup. But
 subdirectories created at runtime by ``ensure_hermes_home()`` — especially
 for profile namespaces under ``profiles/<name>/`` spawned by kanban

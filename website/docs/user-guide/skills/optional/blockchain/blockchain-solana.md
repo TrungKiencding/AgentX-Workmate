@@ -14,18 +14,17 @@ Query Solana wallets, tokens, txs, and NFTs in USD.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/blockchain/solana` |
+| Source | Optional — install with `agentx skills install official/blockchain/solana` |
 | Path | `optional-skills/blockchain/solana` |
 | Version | `0.2.0` |
-| Author | Deniz Alagoz (gizdusum), enhanced by Hermes Agent |
+| Author | Deniz Alagoz (gizdusum), enhanced by AgentX Workmate |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `Solana`, `Blockchain`, `Crypto`, `Web3`, `RPC`, `DeFi`, `NFT` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Solana Blockchain Skill

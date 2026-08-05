@@ -46,7 +46,7 @@ def test_resource_attributes_are_allowlisted_and_sanitized():
     from agent.monitoring.gateway_health_export import _safe_resource_attributes
 
     attrs = _safe_resource_attributes({
-        "service.name": "hermes-gateway",
+        "service.name": "agentx-gateway",
         "service.instance.id": "install-1",
         "deployment.environment.name": "staging",
         "user.email": "user@example.com",
@@ -55,7 +55,7 @@ def test_resource_attributes_are_allowlisted_and_sanitized():
     })
 
     assert attrs == {
-        "service.name": "hermes-gateway",
+        "service.name": "agentx-gateway",
         "service.instance.id": attrs["service.instance.id"],
         "deployment.environment.name": "staging",
     }

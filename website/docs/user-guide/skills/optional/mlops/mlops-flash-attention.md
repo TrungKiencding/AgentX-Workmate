@@ -14,19 +14,18 @@ Speed up long-sequence transformer training and inference.
 
 | | |
 |---|---|
-| Source | Optional — install with `hermes skills install official/mlops/flash-attention` |
+| Source | Optional — install with `agentx skills install official/mlops/flash-attention` |
 | Path | `optional-skills/mlops/flash-attention` |
 | Version | `1.0.1` |
 | Author | Orchestra Research |
 | License | MIT |
 | Dependencies | `flash-attn`, `torch`, `transformers` |
 | Platforms | linux, macos |
-| Tags | `Optimization`, `Flash Attention`, `Attention Optimization`, `Memory Efficiency`, `Speed Optimization`, `Long Context`, `PyTorch`, `SDPA`, `H100`, `FP8`, `Transformers` |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that AgentX loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
 # Flash Attention - Fast Memory-Efficient Attention

@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-Hermes Gateway - Standalone messaging platform integration.
+AgentX Gateway - Standalone messaging platform integration.
 
 This is the proper entry point for running the gateway as a service.
 NOT tied to the CLI - runs independently.
 
 Usage:
     # Run in foreground (for testing)
-    ./scripts/hermes-gateway
+    ./scripts/agentx-gateway
     
     # Install as systemd service
-    ./scripts/hermes-gateway install
+    ./scripts/agentx-gateway install
     
     # Manage the service
-    ./scripts/hermes-gateway start
-    ./scripts/hermes-gateway stop
-    ./scripts/hermes-gateway restart
-    ./scripts/hermes-gateway status
+    ./scripts/agentx-gateway start
+    ./scripts/agentx-gateway stop
+    ./scripts/agentx-gateway restart
+    ./scripts/agentx-gateway status
     
     # Uninstall
-    ./scripts/hermes-gateway uninstall
+    ./scripts/agentx-gateway uninstall
 """
 
 import argparse
@@ -45,8 +45,8 @@ if env_path.exists():
 # Service Configuration
 # =============================================================================
 
-SERVICE_NAME = "hermes-gateway"
-SERVICE_DESCRIPTION = "Hermes Agent Gateway - Messaging Platform Integration"
+SERVICE_NAME = "agentx-gateway"
+SERVICE_DESCRIPTION = "AgentX Workmate Gateway - Messaging Platform Integration"
 
 def get_systemd_unit_path() -> Path:
     """Get the path for the systemd user service file."""
@@ -54,7 +54,7 @@ def get_systemd_unit_path() -> Path:
 
 def get_launchd_plist_path() -> Path:
     """Get the path for the launchd plist file (macOS)."""
-    return Path.home() / "Library" / "LaunchAgents" / f"ai.hermes.gateway.plist"
+    return Path.home() / "Library" / "LaunchAgents" / f"ai.agentx.gateway.plist"
 
 def get_python_path() -> str:
     """Get the path to the Python interpreter."""
@@ -180,7 +180,7 @@ def generate_launchd_plist() -> str:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>ai.hermes.gateway</string>
+    <string>ai.agentx.gateway</string>
     
     <key>ProgramArguments</key>
     <array>
@@ -237,8 +237,8 @@ def install_launchd():
     print(f"  tail -f ~/.agentx/logs/gateway.log")
     print(f"")
     print(f"To manage the service:")
-    print(f"  launchctl start ai.hermes.gateway")
-    print(f"  launchctl stop ai.hermes.gateway")
+    print(f"  launchctl start ai.agentx.gateway")
+    print(f"  launchctl stop ai.agentx.gateway")
 
 def uninstall_launchd():
     """Uninstall the launchd service (macOS)."""
@@ -256,16 +256,16 @@ def uninstall_launchd():
 
 def launchd_status():
     """Show launchd service status."""
-    subprocess.run(["launchctl", "list", "ai.hermes.gateway"])
+    subprocess.run(["launchctl", "list", "ai.agentx.gateway"])
 
 def launchd_start():
     """Start the launchd service."""
-    subprocess.run(["launchctl", "start", "ai.hermes.gateway"], check=True)
+    subprocess.run(["launchctl", "start", "ai.agentx.gateway"], check=True)
     print(f"✓ Service started")
 
 def launchd_stop():
     """Stop the launchd service."""
-    subprocess.run(["launchctl", "stop", "ai.hermes.gateway"], check=True)
+    subprocess.run(["launchctl", "stop", "ai.agentx.gateway"], check=True)
     print(f"✓ Service stopped")
 
 def launchd_restart():
@@ -295,7 +295,7 @@ def is_windows() -> bool:
 def run_gateway():
     """Run the gateway in foreground."""
     from gateway.run import start_gateway
-    print("Starting Hermes Gateway...")
+    print("Starting AgentX Gateway...")
     print("Press Ctrl+C to stop.")
     print()
     asyncio.run(start_gateway())
@@ -307,24 +307,24 @@ def run_gateway():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Hermes Gateway - Messaging Platform Integration",
+        description="AgentX Gateway - Messaging Platform Integration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     # Run in foreground (for testing)
-    ./scripts/hermes-gateway run
+    ./scripts/agentx-gateway run
     
     # Install as system service
-    ./scripts/hermes-gateway install
+    ./scripts/agentx-gateway install
     
     # Manage the service
-    ./scripts/hermes-gateway start
-    ./scripts/hermes-gateway stop
-    ./scripts/hermes-gateway restart
-    ./scripts/hermes-gateway status
+    ./scripts/agentx-gateway start
+    ./scripts/agentx-gateway stop
+    ./scripts/agentx-gateway restart
+    ./scripts/agentx-gateway status
     
     # Uninstall
-    ./scripts/hermes-gateway uninstall
+    ./scripts/agentx-gateway uninstall
 
 Configuration:
     Set environment variables in .env file or system environment:
@@ -363,7 +363,7 @@ Configuration:
             install_launchd()
         else:
             print("Service installation not supported on this platform.")
-            print("Please run manually: ./scripts/hermes-gateway run")
+            print("Please run manually: ./scripts/agentx-gateway run")
             sys.exit(1)
     
     elif args.command == "uninstall":

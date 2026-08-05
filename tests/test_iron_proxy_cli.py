@@ -26,7 +26,7 @@ def hermes_home(tmp_path, monkeypatch):
     operator's real config.  Also blanks any provider env vars so we
     don't accidentally read a real key."""
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     monkeypatch.setenv("AGENTX_HOME", str(home))
     for key in list(os.environ):
@@ -273,11 +273,11 @@ def test_cmd_config_returns_0_when_present(hermes_home, monkeypatch):
 
 def test_register_cli_uses_egress_command_dest():
     """The subparser dest must be 'egress_command' to stay disjoint from
-    the inbound OAuth 'hermes proxy' subparser (dest='proxy_command').
+    the inbound OAuth 'agentx proxy' subparser (dest='proxy_command').
     A future grep-and-refactor on proxy_command should not hit this
     subparser by accident."""
 
-    parser = argparse.ArgumentParser(prog="hermes egress")
+    parser = argparse.ArgumentParser(prog="agentx egress")
     proxy_cli.register_cli(parser)
     # Parse a no-op invocation and confirm the attribute name.
     args = parser.parse_args(["install"])

@@ -127,7 +127,7 @@ def _sanitize_label_value(value: str) -> str:
 
 
 def _get_active_profile_name() -> str:
-    """Return the active Hermes profile name, or ``"default"`` on any error.
+    """Return the active AgentX profile name, or ``"default"`` on any error.
 
     Resolved at container-create time so a single container is permanently
     tagged with the profile that created it. Profile switches inside the
@@ -153,10 +153,10 @@ def reap_orphan_containers(
 
     * ``label=hermes-agent=1`` (created by this codebase)
     * ``status=exited`` (running containers are NEVER reaped — they may
-      belong to a sibling Hermes process whose reuse path will pick them
+      belong to a sibling AgentX process whose reuse path will pick them
       up; killing them would crash the sibling mid-command)
     * (optional) ``label=hermes-profile=<profile_filter>`` (sweep only the
-      caller's profile by default; a hermes process in profile A must not
+      caller's profile by default; a agentx process in profile A must not
       tear down profile B's containers)
     * ``State.FinishedAt`` older than *max_age_seconds* ago (so a sibling
       process that just exited and is about to be replaced doesn't get
@@ -169,9 +169,9 @@ def reap_orphan_containers(
 
     Issue #20561 — this is the safety net for SIGKILL / OOM / crashed
     terminal exits that bypass the ``atexit`` cleanup hook. Without it,
-    even with the cleanup-fix in the prior commit, a hard-killed Hermes
+    even with the cleanup-fix in the prior commit, a hard-killed AgentX
     process leaves its container behind permanently because there's no
-    subsequent Hermes process scheduled to reuse that exact (task, profile)
+    subsequent AgentX process scheduled to reuse that exact (task, profile)
     pair.
     """
     docker = docker_exe or find_docker() or "docker"
@@ -320,7 +320,7 @@ def find_docker() -> Optional[str]:
 # We drop all capabilities then add back the minimum needed:
 #   DAC_OVERRIDE - root can write to bind-mounted dirs owned by host user
 #   CHOWN/FOWNER - package managers (pip, npm, apt) need to set file ownership
-#   SETUID/SETGID - the image's init drops from root to the 'hermes'
+#   SETUID/SETGID - the image's init drops from root to the 'agentx'
 #       user (via `s6-setuidgid` in the bundled image, or whatever
 #       privilege-drop helper a user image uses), which requires these
 #       caps. Combined with `no-new-privileges`, the dropped process
@@ -434,7 +434,7 @@ def _egress_proxy_args_for_docker() -> tuple[list[str], dict[str, str], list[str
     if not status.configured:
         msg = (
             "proxy.enabled is true but iron-proxy is not configured. "
-            "Run `hermes egress setup` to mint tokens and write proxy.yaml."
+            "Run `agentx egress setup` to mint tokens and write proxy.yaml."
         )
         if enforce:
             raise RuntimeError(msg)
@@ -444,7 +444,7 @@ def _egress_proxy_args_for_docker() -> tuple[list[str], dict[str, str], list[str
     if not (status.pid and status.listening):
         msg = (
             f"iron-proxy is enabled but not running on port {status.tunnel_port}. "
-            "Start it with `hermes egress start`."
+            "Start it with `agentx egress start`."
         )
         if enforce:
             raise RuntimeError(msg)
@@ -461,7 +461,7 @@ def _egress_proxy_args_for_docker() -> tuple[list[str], dict[str, str], list[str
         # vars AND any other isolation, opening the sandbox.
         msg = (
             f"iron-proxy CA cert vanished from {status.ca_cert_path}. "
-            "Re-run `hermes egress setup` to regenerate it."
+            "Re-run `agentx egress setup` to regenerate it."
         )
         if enforce:
             raise RuntimeError(msg)
@@ -476,7 +476,7 @@ def _egress_proxy_args_for_docker() -> tuple[list[str], dict[str, str], list[str
     if not mappings:
         msg = (
             "iron-proxy is configured but mappings.json is empty or "
-            "corrupt.  Re-run `hermes egress setup` to mint provider "
+            "corrupt.  Re-run `agentx egress setup` to mint provider "
             "tokens before starting a sandbox."
         )
         if enforce:
@@ -1345,7 +1345,7 @@ class DockerEnvironment(BaseEnvironment):
         #   * future cross-process reuse (`hermes-task-id`, `hermes-profile`)
         #   * operators running `docker ps --filter label=hermes-agent=1`
         # Values are limited to the safe character set defined by
-        # _sanitize_label_value(); the active Hermes profile is captured at
+        # _sanitize_label_value(); the active AgentX profile is captured at
         # container-start time and never changes for the container's lifetime.
         profile_name = _sanitize_label_value(_get_active_profile_name())
         task_label = _sanitize_label_value(task_id)
@@ -1369,7 +1369,7 @@ class DockerEnvironment(BaseEnvironment):
         }
 
         # Cross-process container reuse (issue #20561 — docs claim "ONE long-lived
-        # container shared across sessions").  If a prior Hermes process
+        # container shared across sessions").  If a prior AgentX process
         # already started a container for this (task_id, profile) and it
         # still exists, attach to it instead of starting a fresh one.  This
         # restores the documented contract; opt out via
@@ -1544,8 +1544,8 @@ class DockerEnvironment(BaseEnvironment):
         except Exception:
             pass
         # Explicit docker_forward_env entries are an intentional opt-in and must
-        # win over the generic Hermes secret blocklist. Only implicit passthrough
-        # keys are filtered. Also strip Hermes-internal dynamic secrets
+        # win over the generic AgentX secret blocklist. Only implicit passthrough
+        # keys are filtered. Also strip AgentX-internal dynamic secrets
         # (AUXILIARY_*_API_KEY / _BASE_URL, GATEWAY_RELAY_* auth) that the
         # name-based blocklist doesn't cover — see _is_hermes_internal_secret.
         _implicit_forward = {
@@ -1835,7 +1835,7 @@ class DockerEnvironment(BaseEnvironment):
                 # post-filter in Python: reject containers whose
                 # hermes-egress label is present and not "off".  Without
                 # this, a container created with egress=on can be silently
-                # reused after the operator runs "hermes egress disable",
+                # reused after the operator runs "agentx egress disable",
                 # preserving baked-in proxy env and CA mounts.
                 fmt = '{{.ID}}\t{{.State}}\t{{.Label "' + _EGRESS_LABEL_KEY + '"}}'
             result = subprocess.run(
@@ -1863,7 +1863,7 @@ class DockerEnvironment(BaseEnvironment):
         if not lines:
             return None
         # Multiple matches are unusual (one (task, profile) should produce one
-        # container) but can happen if a previous Hermes process crashed
+        # container) but can happen if a previous AgentX process crashed
         # mid-cleanup. Prefer a running one if present; otherwise pick the
         # first listed. Stale duplicates get reaped by the orphan-reaper in a
         # follow-up commit; we don't try to be heroic about them here.
@@ -1899,7 +1899,7 @@ class DockerEnvironment(BaseEnvironment):
 
         Persist-mode (``persist_across_processes=True``, the default) leaves the
         container **running** untouched. The docs promise "ONE long-lived
-        container shared across sessions" and stopping it on every Hermes exit
+        container shared across sessions" and stopping it on every AgentX exit
         breaks that promise:
 
         * Background processes inside the container (``npm run dev``, watchers,
@@ -1912,8 +1912,8 @@ class DockerEnvironment(BaseEnvironment):
 
         Resource reclamation for the persist-mode case lives in the
         ``reap_orphan_containers()`` path (see issue #20561 commit 3): if no
-        Hermes process touches a labeled container for ``2 × lifetime_seconds``
-        it gets ``docker rm -f``'d at the next Hermes startup. That covers the
+        AgentX process touches a labeled container for ``2 × lifetime_seconds``
+        it gets ``docker rm -f``'d at the next AgentX startup. That covers the
         SIGKILL / OOM / abandoned-laptop cases without us needing to stop the
         container on every graceful exit.
 
@@ -1953,7 +1953,7 @@ class DockerEnvironment(BaseEnvironment):
         #   persist_across_processes=False → stop + rm (per-process isolation)
         #
         # The persist-mode no-op is the issue-#20561 contract: the container
-        # outlives Hermes processes, processes inside it stay alive, and
+        # outlives AgentX processes, processes inside it stay alive, and
         # reuse on next startup is instant.
         if force_remove:
             should_stop = True
@@ -2019,7 +2019,7 @@ class DockerEnvironment(BaseEnvironment):
         Returns ``True`` if the thread finished (or no thread was started),
         ``False`` on timeout. The atexit hook in terminal_tool.py calls this
         on every active environment so docker stop/rm actually completes
-        before the Python process exits — without this, ``hermes /quit``
+        before the Python process exits — without this, ``agentx /quit``
         races the interpreter shutdown and leaves stopped containers behind.
         """
         thread = getattr(self, "_cleanup_thread", None)

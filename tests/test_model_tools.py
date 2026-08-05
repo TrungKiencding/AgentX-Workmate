@@ -417,16 +417,16 @@ class TestDisabledToolsetsPlatformBundle:
     must not remove core tools from other enabled toolsets."""
 
     def test_disabling_platform_bundle_preserves_core_tools(self):
-        """Disabling hermes-yuanbao should not strip core tools from hermes-telegram."""
+        """Disabling agentx-yuanbao should not strip core tools from agentx-telegram."""
         from model_tools import get_tool_definitions
 
         tools_telegram = get_tool_definitions(
-            enabled_toolsets=["hermes-telegram"],
+            enabled_toolsets=["agentx-telegram"],
             quiet_mode=True,
         )
         tools_telegram_no_yuanbao = get_tool_definitions(
-            enabled_toolsets=["hermes-telegram"],
-            disabled_toolsets=["hermes-yuanbao"],
+            enabled_toolsets=["agentx-telegram"],
+            disabled_toolsets=["agentx-yuanbao"],
             quiet_mode=True,
         )
         names_telegram = {t["function"]["name"] for t in tools_telegram}
@@ -434,17 +434,17 @@ class TestDisabledToolsetsPlatformBundle:
 
         # Disabling a *different* platform bundle must not remove any tools
         assert names_telegram == names_no_yuanbao, (
-            f"Tools lost after disabling hermes-yuanbao: "
+            f"Tools lost after disabling agentx-yuanbao: "
             f"{names_telegram - names_no_yuanbao}"
         )
 
     def test_disabling_platform_bundle_removes_own_tools(self):
-        """Disabling hermes-discord should remove discord-specific tools."""
+        """Disabling agentx-discord should remove discord-specific tools."""
         from model_tools import get_tool_definitions
 
         tools = get_tool_definitions(
-            enabled_toolsets=["hermes-discord"],
-            disabled_toolsets=["hermes-discord"],
+            enabled_toolsets=["agentx-discord"],
+            disabled_toolsets=["agentx-discord"],
             quiet_mode=True,
         )
         names = {t["function"]["name"] for t in tools}
