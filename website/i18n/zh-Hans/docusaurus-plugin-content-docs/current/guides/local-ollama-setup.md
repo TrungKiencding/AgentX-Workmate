@@ -34,8 +34,8 @@ description: "使用 Ollama 和 Gemma 4 等开放权重模型在本机完整运�
 Ollama 可在纯 CPU 服务器上运行。现代 8 核 CPU 运行 9B 模型约可达 ~10 tokens/sec。31B 模型在 CPU 上更慢（~2–5 tokens/sec）——每次响应需要 30–120 秒，但可以正常工作。GPU 能大幅改善这一情况。对于纯 CPU 环境，通过环境变量（而非 `config.yaml` 键）放宽 API 超时时间：
 
 ```bash
-# ~/.hermes/.env
-HERMES_API_TIMEOUT=1800   # 30 分钟 — 为慢速本地模型留出充裕时间
+# ~/.agentx/.env
+AGENTX_API_TIMEOUT=1800   # 30 分钟 — 为慢速本地模型留出充裕时间
 ```
 :::
 
@@ -105,7 +105,7 @@ hermes setup
 - **API Key：** 留空或输入 `no-key`（Ollama 不需要密钥）
 - **Model：** `gemma4:31b`（或你拉取的模型）
 
-也可以直接编辑 `~/.hermes/config.yaml`：
+也可以直接编辑 `~/.agentx/config.yaml`：
 
 ```yaml
 model:
@@ -205,7 +205,7 @@ ollama ps   # 显示已加载的模型及 GPU 层数
 ### Telegram
 
 1. 通过 [@BotFather](https://t.me/BotFather) 创建机器人并获取 token
-2. 添加到 `~/.hermes/config.yaml`：
+2. 添加到 `~/.agentx/config.yaml`：
 
 ```yaml
 model:

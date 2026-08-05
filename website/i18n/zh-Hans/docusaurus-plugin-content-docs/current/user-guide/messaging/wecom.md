@@ -62,7 +62,7 @@ hermes gateway setup
 
 #### 方式 B：手动配置
 
-将以下内容添加到 `~/.hermes/.env`：
+将以下内容添加到 `~/.agentx/.env`：
 
 ```bash
 WECOM_BOT_ID=your-bot-id

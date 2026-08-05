@@ -211,14 +211,14 @@ def test_load_hermes_env_bridges_config_yaml_scalars(tmp_path, monkeypatch):
     """
     import os
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".agentx"
     hermes_home.mkdir()
     (hermes_home / ".env").write_text("SOME_TOKEN=abc123\n")
     (hermes_home / "config.yaml").write_text(
         "TELEGRAM_HOME_CHANNEL: '5550001111'\nnested:\n  ignored: true\n"
     )
 
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     monkeypatch.delenv("TELEGRAM_HOME_CHANNEL", raising=False)
     monkeypatch.delenv("SOME_TOKEN", raising=False)
 

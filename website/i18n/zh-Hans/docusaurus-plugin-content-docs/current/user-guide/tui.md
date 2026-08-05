@@ -31,7 +31,7 @@ hermes --tui --dev
 也可以通过环境变量启用：
 
 ```bash
-export HERMES_TUI=1
+export AGENTX_TUI=1
 hermes          # 现在使用 TUI
 hermes chat     # 同上
 ```
@@ -75,7 +75,7 @@ TUI 启动 banner 将运行时信息分为四个可折叠区块，每个区块�
 发行版若附带预构建 bundle（如 Nix、系统包），可将 Hermes 指向该 bundle：
 
 ```bash
-export HERMES_TUI_DIR=/path/to/prebuilt/ui-tui
+export AGENTX_TUI_DIR=/path/to/prebuilt/ui-tui
 hermes --tui
 ```
 
@@ -105,7 +105,7 @@ hermes --tui
 | `/details` | 切换详细工具调用详情（全局或按区块） |
 | `/usage` | 丰富的 token / 费用 / 上下文面板 |
 | `/agents`（别名 `/tasks`） | 可观测性浮层——带终止/暂停控制的实时子 agent 树、按分支的费用/token/文件汇总、逐轮历史记录 |
-| `/reload` | 将 `~/.hermes/.env` 重新读入运行中的 TUI 进程，使新添加的 API 密钥无需重启即可生效 |
+| `/reload` | 将 `~/.agentx/.env` 重新读入运行中的 TUI 进程，使新添加的 API 密钥无需重启即可生效 |
 | `/mouse [on\|off\|toggle\|wheel\|buttons\|all]` | 在运行时选择鼠标跟踪预设（同时持久化到 `config.yaml` 的 `display.mouse_tracking`）。`wheel`（1000+1006）保留滚轮滚动而不产生悬停事件，避免在 tmux 中向 prompt 行发送"No image in clipboard"垃圾信息；`buttons` 添加 1002 以支持终端侧拖拽选择；`all` 是带悬停 UI 的默认值。 |
 
 其他所有斜杠命令（包括已安装的 skill、快捷命令和 personality 切换）与 classic CLI 完全一致。请参阅[斜杠命令参考](../reference/slash-commands.md)。
@@ -120,14 +120,14 @@ TUI 的 Markdown 渲染管线支持内联 LaTeX 数学：`$E = mc^2$` 和 `$$\fr
 
 TUI 自动检测浅色终端并相应切换到浅色主题。检测分三层进行：
 
-1. `HERMES_TUI_THEME` 环境变量——最高优先级。可选值：`light`、`dark`，或原始 6 位背景十六进制色值（如 `ffffff`、`1a1a2e`）。
+1. `AGENTX_TUI_THEME` 环境变量——最高优先级。可选值：`light`、`dark`，或原始 6 位背景十六进制色值（如 `ffffff`、`1a1a2e`）。
 2. `COLORFGBG` 环境变量——xterm 衍生终端使用的经典"背景色查询"提示。
 3. 通过 OSC 11 探测终端背景——适用于不设置 `COLORFGBG` 的现代终端（Ghostty、Warp、iTerm2、WezTerm、Kitty）。
 
 若要无论终端如何都永久使用浅色主题：
 
 ```bash
-export HERMES_TUI_THEME=light
+export AGENTX_TUI_THEME=light
 ```
 
 ## 忙碌指示器样式
@@ -146,9 +146,9 @@ display:
 默认情况下，`hermes --tui` 每次启动都会开启新会话。若要自动重新连接到最近的 TUI 会话（在终端或 SSH 连接意外断开时很有用），可选择启用：
 
 ```bash
-export HERMES_TUI_RESUME=1          # 最近的 TUI 会话
+export AGENTX_TUI_RESUME=1          # 最近的 TUI 会话
 # 或：
-export HERMES_TUI_RESUME=<session-id>   # 指定会话
+export AGENTX_TUI_RESUME=<session-id>   # 指定会话
 ```
 
 取消设置该变量，或在每次启动时显式传入 `--resume <id>` 以覆盖。
@@ -173,11 +173,11 @@ TUI 的状态栏实时跟踪 agent 状态：
 - **每条 prompt 的耗时** — 轮次运行时显示 `⏱ 12s/3m 45s`（实时），轮次完成后冻结为 `⏲ 32s / 3m 45s`。第一个数字是自上次用户消息以来的时间；第二个是会话总时长。每次新 prompt 时重置。
 - **`🗜️ N`** — 当前会话被自动压缩的次数。首次压缩触发后显示。
 - **`▶ N`** — 当前会话中正在运行的 `/background` 任务数量。至少有一个任务在执行时显示。
-- **`⚠ YOLO`** — 每当 YOLO 模式开启时（`hermes --yolo`、`/yolo` 或 `HERMES_YOLO_MODE=1`）显示的可见警告。同一徽章也出现在启动 banner 中，确保你不会在未注意到的情况下启动自动审批会话。
+- **`⚠ YOLO`** — 每当 YOLO 模式开启时（`hermes --yolo`、`/yolo` 或 `AGENTX_YOLO_MODE=1`）显示的可见警告。同一徽章也出现在启动 banner 中，确保你不会在未注意到的情况下启动自动审批会话。
 
 ## 配置
 
-TUI 遵循所有标准 Hermes 配置：`~/.hermes/config.yaml`、profile、personality、skin、快捷命令、凭证池、内存提供商、工具/skill 启用状态。不存在 TUI 专属配置文件。
+TUI 遵循所有标准 Hermes 配置：`~/.agentx/config.yaml`、profile、personality、skin、快捷命令、凭证池、内存提供商、工具/skill 启用状态。不存在 TUI 专属配置文件。
 
 少数键专门用于调整 TUI 界面：
 
@@ -225,7 +225,7 @@ TUI 附带有主见的按区块默认值，将轮次以实时转录形式流式�
 
 ## 会话
 
-会话在 TUI 和 classic CLI 之间共享——两者均写入同一个 `~/.hermes/state.db`。可以在一个界面开始会话，在另一个界面恢复。会话选择器显示来自两个来源的会话，并带有来源标签。
+会话在 TUI 和 classic CLI 之间共享——两者均写入同一个 `~/.agentx/state.db`。可以在一个界面开始会话，在另一个界面恢复。会话选择器显示来自两个来源的会话，并带有来源标签。
 
 会话生命周期、搜索、压缩和导出，请参阅[会话](sessions.md)。
 
@@ -233,15 +233,15 @@ TUI 附带有主见的按区块默认值，将轮次以实时转录形式流式�
 
 默认情况下，TUI 会在进程内启动自己的 gateway，因此每个 TUI 实例是自包含的——无需任何配置。
 
-你可能会在代码或日志中看到 `HERMES_TUI_GATEWAY_URL` 环境变量。它是 **Web 仪表板的内部接线细节**，并非面向用户的远程连接开关。当你打开仪表板的 "Chat" 标签页（`hermes dashboard` → `/chat`）时，仪表板的 Web 服务器会派生一个内嵌的 TUI 子进程，并注入 `HERMES_TUI_GATEWAY_URL`，让该子进程通过本地回环 WebSocket（`/api/ws`）连接到仪表板自己的进程内 `tui_gateway`。`/api/ws` 端点仅存在于仪表板服务器内部（`hermes_cli/web_server.py`），并绑定到该进程的生命周期和认证。
+你可能会在代码或日志中看到 `AGENTX_TUI_GATEWAY_URL` 环境变量。它是 **Web 仪表板的内部接线细节**，并非面向用户的远程连接开关。当你打开仪表板的 "Chat" 标签页（`hermes dashboard` → `/chat`）时，仪表板的 Web 服务器会派生一个内嵌的 TUI 子进程，并注入 `AGENTX_TUI_GATEWAY_URL`，让该子进程通过本地回环 WebSocket（`/api/ws`）连接到仪表板自己的进程内 `tui_gateway`。`/api/ws` 端点仅存在于仪表板服务器内部（`hermes_cli/web_server.py`），并绑定到该进程的生命周期和认证。
 
-不存在通用的"将任意 TUI 指向任意独立 gateway 端口"的模式。特别是，OpenAI 兼容 API 服务器（`hermes gateway` / `api_server` 平台）**不**提供 `/api/ws`——它是模型后端接口（`/v1/chat/completions`、`/v1/models` 等），并刻意不暴露 TUI 的 JSON-RPC 控制通道。将 `HERMES_TUI_GATEWAY_URL` 设置为该端口将返回 404。
+不存在通用的"将任意 TUI 指向任意独立 gateway 端口"的模式。特别是，OpenAI 兼容 API 服务器（`hermes gateway` / `api_server` 平台）**不**提供 `/api/ws`——它是模型后端接口（`/v1/chat/completions`、`/v1/models` 等），并刻意不暴露 TUI 的 JSON-RPC 控制通道。将 `AGENTX_TUI_GATEWAY_URL` 设置为该端口将返回 404。
 
-如果你希望多个界面共享同一组会话，请使用共享的 `~/.hermes/state.db`（参见[会话](sessions.md)）或 Web 仪表板的内嵌聊天（参见 [Web Dashboard](features/web-dashboard.md#chat)）——而不是手动设置 gateway URL。
+如果你希望多个界面共享同一组会话，请使用共享的 `~/.agentx/state.db`（参见[会话](sessions.md)）或 Web 仪表板的内嵌聊天（参见 [Web Dashboard](features/web-dashboard.md#chat)）——而不是手动设置 gateway URL。
 
 ## 回退到 Classic CLI
 
-不带 `--tui` 启动 `hermes` 将继续使用 classic CLI。若要让某台机器默认使用 TUI，在 shell profile 中设置 `HERMES_TUI=1`。若要回退，取消设置即可。
+不带 `--tui` 启动 `hermes` 将继续使用 classic CLI。若要让某台机器默认使用 TUI，在 shell profile 中设置 `AGENTX_TUI=1`。若要回退，取消设置即可。
 
 如果 TUI 启动失败（无 Node、缺少 bundle、TTY 问题），Hermes 会打印诊断信息并回退——而不是让你陷入困境。
 

@@ -5,13 +5,13 @@ Hermetic-test invariants enforced here (see AGENTS.md for rationale):
 1. **No credential env vars.** All provider/credential-shaped env vars
    (ending in _API_KEY, _TOKEN, _SECRET, _PASSWORD, _CREDENTIALS, etc.)
    are unset before every test. Local developer keys cannot leak in.
-2. **Isolated HERMES_HOME.** HERMES_HOME points to a per-test tempdir so
-   code reading ``~/.hermes/*`` via ``get_hermes_home()`` can't see the
+2. **Isolated AGENTX_HOME.** AGENTX_HOME points to a per-test tempdir so
+   code reading ``~/.agentx/*`` via ``get_hermes_home()`` can't see the
    real one. (We do NOT also redirect HOME — that broke subprocesses in
-   CI. Code using ``Path.home() / ".hermes"`` instead of the canonical
+   CI. Code using ``Path.home() / ".agentx"`` instead of the canonical
    ``get_hermes_home()`` is a bug to fix at the callsite.)
 3. **Deterministic runtime.** TZ=UTC, LANG=C.UTF-8, PYTHONHASHSEED=0.
-4. **No HERMES_SESSION_* inheritance** — the agent's current gateway
+4. **No AGENTX_SESSION_* inheritance** — the agent's current gateway
    session must not leak into tests.
 
 These invariants make the local test run match CI closely. Gaps that
@@ -36,14 +36,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-# ── Sandbox HERMES_HOME before ANY test module is imported ──────────────────
+# ── Sandbox AGENTX_HOME before ANY test module is imported ──────────────────
 # `hermes_cli/main.py` calls `setup_logging()` at MODULE level, which resolves
 # `get_hermes_home()` and attaches rotating file handlers to the ROOT logger.
 # So merely importing it - which many test modules do, directly or
 # transitively - points the whole pytest session's logging at the operator's
-# real `~/.hermes/logs/agent.log` and `errors.log`.
+# real `~/.agentx/logs/agent.log` and `errors.log`.
 #
-# The `_isolate_env` fixture below also sandboxes HERMES_HOME, but fixtures run
+# The `_isolate_env` fixture below also sandboxes AGENTX_HOME, but fixtures run
 # AFTER collection imports test modules, by which point the handler already
 # holds an absolute path to the real log. Measured on a live install: 126
 # warnings in the operator's agent.log came from test runs, not the gateway -
@@ -53,23 +53,23 @@ if str(PROJECT_ROOT) not in sys.path:
 # window. The per-test fixture still applies for everything after import.
 #
 # ORDER MATTERS: the kanban write guard's deny-list (further down) must know
-# the REAL Hermes root — capture it BEFORE the sandbox rewires HERMES_HOME,
+# the REAL Hermes root — capture it BEFORE the sandbox rewires AGENTX_HOME,
 # otherwise the deny-list would point at the throwaway tempdir and the guard
-# would silently stop protecting the operator's actual ~/.hermes (#69385).
-_PRE_SANDBOX_KANBAN_OVERRIDE = os.environ.get("HERMES_KANBAN_HOME", "").strip()
-_PRE_SANDBOX_HERMES_HOME = os.environ.get("HERMES_HOME", "")
-if not os.environ.get("HERMES_HOME"):
-    _SESSION_HERMES_HOME = tempfile.mkdtemp(prefix="hermes-test-home-")
-    os.environ["HERMES_HOME"] = _SESSION_HERMES_HOME
-    atexit.register(shutil.rmtree, _SESSION_HERMES_HOME, True)
+# would silently stop protecting the operator's actual ~/.agentx (#69385).
+_PRE_SANDBOX_KANBAN_OVERRIDE = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
+_PRE_SANDBOX_AGENTX_HOME = os.environ.get("AGENTX_HOME", "")
+if not os.environ.get("AGENTX_HOME"):
+    _SESSION_AGENTX_HOME = tempfile.mkdtemp(prefix="hermes-test-home-")
+    os.environ["AGENTX_HOME"] = _SESSION_AGENTX_HOME
+    atexit.register(shutil.rmtree, _SESSION_AGENTX_HOME, True)
 
-#: HERMES_HOME as it stood when conftest was imported - i.e. before any test
+#: AGENTX_HOME as it stood when conftest was imported - i.e. before any test
 #: module could import code that configures logging. Recorded so the guard in
 #: tests/test_log_isolation.py can assert the sandbox existed AT THAT MOMENT.
 #: Reading os.environ from inside a test is useless here: the per-test
 #: `_isolate_env` fixture has sandboxed it by then, so the check would pass
 #: even with this block removed.
-HERMES_HOME_AT_CONFTEST_IMPORT = os.environ.get("HERMES_HOME", "")
+AGENTX_HOME_AT_CONFTEST_IMPORT = os.environ.get("AGENTX_HOME", "")
 
 
 # ── Per-file process isolation ──────────────────────────────────────────────
@@ -208,9 +208,9 @@ def _looks_like_credential(name: str) -> bool:
     return any(name.endswith(suf) for suf in _CREDENTIAL_SUFFIXES)
 
 
-# HERMES_* vars that change test behavior by being set. Unset all of these
+# AGENTX_* vars that change test behavior by being set. Unset all of these
 # unconditionally — individual tests that need them set do so explicitly.
-_HERMES_BEHAVIORAL_VARS = frozenset({
+_AGENTX_BEHAVIORAL_VARS = frozenset({
     # Voice/TTS runtime flags. ``tui_gateway/server.py`` reads these straight
     # off ``os.environ`` at call time (``_voice_mode_enabled`` /
     # ``_voice_tts_enabled``) and, on every completed turn, hands the turn's
@@ -219,70 +219,70 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
     # leak (from the shell, or from an earlier test that drove the
     # ``voice.toggle`` RPC, which writes ``os.environ`` directly) cannot carry
     # into the next test. See ``_audio_playback_guard`` for the second layer.
-    "HERMES_VOICE",
-    "HERMES_VOICE_TTS",
-    "HERMES_YOLO_MODE",
-    "HERMES_INTERACTIVE",
-    "HERMES_QUIET",
-    "HERMES_TOOL_PROGRESS",
-    "HERMES_TOOL_PROGRESS_MODE",
-    "HERMES_MAX_ITERATIONS",
-    "HERMES_SESSION_PLATFORM",
-    "HERMES_SESSION_CHAT_ID",
-    "HERMES_SESSION_CHAT_NAME",
-    "HERMES_SESSION_CHAT_TYPE",
-    "HERMES_SESSION_THREAD_ID",
-    "HERMES_SESSION_SOURCE",
-    "HERMES_SESSION_KEY",
-    "HERMES_GATEWAY_SESSION",
-    "HERMES_CRON_SESSION",
-    "_HERMES_GATEWAY",
-    "HERMES_PLATFORM",
-    "HERMES_MODEL",
-    "HERMES_INFERENCE_MODEL",
-    "HERMES_INFERENCE_PROVIDER",
-    "HERMES_TUI_PROVIDER",
-    "HERMES_MANAGED",
-    "HERMES_MANAGED_DIR",
-    "HERMES_DEV",
-    "HERMES_CONTAINER",
-    "HERMES_EPHEMERAL_SYSTEM_PROMPT",
-    "HERMES_TIMEZONE",
-    "HERMES_REDACT_SECRETS",
-    "HERMES_BACKGROUND_NOTIFICATIONS",
-    "HERMES_EXEC_ASK",
-    "HERMES_HOME_MODE",
-    "HERMES_AGENT_USE_LEGACY_SESSION_KEYS",
+    "AGENTX_VOICE",
+    "AGENTX_VOICE_TTS",
+    "AGENTX_YOLO_MODE",
+    "AGENTX_INTERACTIVE",
+    "AGENTX_QUIET",
+    "AGENTX_TOOL_PROGRESS",
+    "AGENTX_TOOL_PROGRESS_MODE",
+    "AGENTX_MAX_ITERATIONS",
+    "AGENTX_SESSION_PLATFORM",
+    "AGENTX_SESSION_CHAT_ID",
+    "AGENTX_SESSION_CHAT_NAME",
+    "AGENTX_SESSION_CHAT_TYPE",
+    "AGENTX_SESSION_THREAD_ID",
+    "AGENTX_SESSION_SOURCE",
+    "AGENTX_SESSION_KEY",
+    "AGENTX_GATEWAY_SESSION",
+    "AGENTX_CRON_SESSION",
+    "_AGENTX_GATEWAY",
+    "AGENTX_PLATFORM",
+    "AGENTX_MODEL",
+    "AGENTX_INFERENCE_MODEL",
+    "AGENTX_INFERENCE_PROVIDER",
+    "AGENTX_TUI_PROVIDER",
+    "AGENTX_MANAGED",
+    "AGENTX_MANAGED_DIR",
+    "AGENTX_DEV",
+    "AGENTX_CONTAINER",
+    "AGENTX_EPHEMERAL_SYSTEM_PROMPT",
+    "AGENTX_TIMEZONE",
+    "AGENTX_REDACT_SECRETS",
+    "AGENTX_BACKGROUND_NOTIFICATIONS",
+    "AGENTX_EXEC_ASK",
+    "AGENTX_HOME_MODE",
+    "AGENTX_AGENT_USE_LEGACY_SESSION_KEYS",
     # Kanban path/board pins must never leak from a developer shell or
     # dispatched worker into tests; otherwise tests can write fake tasks to
-    # the real ~/.hermes/kanban.db instead of the per-test HERMES_HOME.
-    "HERMES_KANBAN_DB",
-    "HERMES_KANBAN_BOARD",
-    "HERMES_KANBAN_HOME",
-    "HERMES_KANBAN_WORKSPACES_ROOT",
-    "HERMES_KANBAN_LOGS_ROOT",
-    "HERMES_KANBAN_TASK",
-    "HERMES_KANBAN_WORKSPACE",
-    "HERMES_KANBAN_RUN_ID",
-    "HERMES_KANBAN_CLAIM_LOCK",
-    "HERMES_KANBAN_DISPATCH_IN_GATEWAY",
+    # the real ~/.agentx/kanban.db instead of the per-test AGENTX_HOME.
+    "AGENTX_KANBAN_DB",
+    "AGENTX_KANBAN_BOARD",
+    "AGENTX_KANBAN_HOME",
+    "AGENTX_KANBAN_WORKSPACES_ROOT",
+    "AGENTX_KANBAN_LOGS_ROOT",
+    "AGENTX_KANBAN_TASK",
+    "AGENTX_KANBAN_WORKSPACE",
+    "AGENTX_KANBAN_RUN_ID",
+    "AGENTX_KANBAN_CLAIM_LOCK",
+    "AGENTX_KANBAN_DISPATCH_IN_GATEWAY",
     # Pytest is routinely launched from a delegated worker.  The worker
     # lineage marker must not make parent-state tests run as delegated
     # children; tests that exercise child behavior set it explicitly.
-    "HERMES_DELEGATED_CHILD_CONTEXT",
-    "HERMES_TENANT",
+    "AGENTX_DELEGATED_CHILD_CONTEXT",
+    "AGENTX_TENANT",
     # Honcho host selection changes which nested config block wins. A local
     # shell override leaked "myhost" into the full suite and flipped 20
     # otherwise-unrelated config tests away from the default "hermes" host.
-    "HERMES_HONCHO_HOST",
+    "AGENTX_HONCHO_HOST",
     # Dashboard OAuth auth gate (PR #30156). When set, the bundled
     # dashboard-auth `nous` plugin auto-registers itself on plugin discovery,
     # which is triggered by any `/api/status` call. That leaks a provider
     # into the dashboard_auth registry across tests in the same worker and
     # makes assertions like `auth_providers == []` flaky. CI never sets
     # these, so production tests must not see them either.
-    "HERMES_DASHBOARD_OAUTH_CLIENT_ID",
-    "HERMES_DASHBOARD_PORTAL_URL",
+    "AGENTX_DASHBOARD_OAUTH_CLIENT_ID",
+    "AGENTX_DASHBOARD_PORTAL_URL",
     "TERMINAL_CWD",
     "TERMINAL_ENV",
     "TERMINAL_VERCEL_RUNTIME",
@@ -402,8 +402,8 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
 def _hermetic_environment(tmp_path, monkeypatch):
     """Blank out all credential/behavioral env vars so local and CI match.
 
-    Also redirects HOME and HERMES_HOME to per-test tempdirs so code that
-    reads ``~/.hermes/*`` can't touch the real one, and pins TZ/LANG so
+    Also redirects HOME and AGENTX_HOME to per-test tempdirs so code that
+    reads ``~/.agentx/*`` can't touch the real one, and pins TZ/LANG so
     datetime/locale-sensitive tests are deterministic.
     """
     # 1. Blank every credential-shaped env var that's currently set.
@@ -411,8 +411,8 @@ def _hermetic_environment(tmp_path, monkeypatch):
         if _looks_like_credential(name):
             monkeypatch.delenv(name, raising=False)
 
-    # 2. Blank behavioral HERMES_* vars that could change test semantics.
-    for name in _HERMES_BEHAVIORAL_VARS:
+    # 2. Blank behavioral AGENTX_* vars that could change test semantics.
+    for name in _AGENTX_BEHAVIORAL_VARS:
         monkeypatch.delenv(name, raising=False)
 
     # Honcho's fallback host/config resolution legitimately reads the user's
@@ -420,17 +420,17 @@ def _hermetic_environment(tmp_path, monkeypatch):
     # on it), but pin the host so ordinary tests cannot inherit a developer's
     # defaultHost and silently select the wrong nested config block. Tests of
     # custom host resolution override/delete this explicitly.
-    monkeypatch.setenv("HERMES_HONCHO_HOST", "hermes")
+    monkeypatch.setenv("AGENTX_HONCHO_HOST", "hermes")
 
-    # 3. Redirect HERMES_HOME to a per-test tempdir. Code that reads
-    #    ``~/.hermes/*`` via ``get_hermes_home()`` now gets the tempdir.
+    # 3. Redirect AGENTX_HOME to a per-test tempdir. Code that reads
+    #    ``~/.agentx/*`` via ``get_hermes_home()`` now gets the tempdir.
     #
     #    NOTE: We do NOT also redirect HOME. Doing so broke CI because
     #    some tests (and their transitive deps) spawn subprocesses that
     #    inherit HOME and expect it to be stable. If a test genuinely
     #    needs HOME isolated, it should set it explicitly in its own
-    #    fixture. Any code in the codebase reading ``~/.hermes/*`` via
-    #    ``Path.home() / ".hermes"`` instead of ``get_hermes_home()``
+    #    fixture. Any code in the codebase reading ``~/.agentx/*`` via
+    #    ``Path.home() / ".agentx"`` instead of ``get_hermes_home()``
     #    is a bug to fix at the callsite.
     fake_hermes_home = tmp_path / "hermes_test"
     fake_hermes_home.mkdir()
@@ -438,7 +438,7 @@ def _hermetic_environment(tmp_path, monkeypatch):
     (fake_hermes_home / "cron").mkdir()
     (fake_hermes_home / "memories").mkdir()
     (fake_hermes_home / "skills").mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(fake_hermes_home))
+    monkeypatch.setenv("AGENTX_HOME", str(fake_hermes_home))
 
     # 3b. hermes_state computes ``DEFAULT_DB_PATH = get_hermes_home() / "state.db"``
     #     at import time. When the module is first imported at collection (any
@@ -481,10 +481,10 @@ def _hermetic_environment(tmp_path, monkeypatch):
     # suite timeout under tests that set fake proxy env vars. The kill-switch
     # makes ensure() raise FeatureUnavailable immediately instead.
     # tests/tools/test_lazy_deps.py overrides this var in both directions.
-    monkeypatch.setenv("HERMES_DISABLE_LAZY_INSTALLS", "1")
+    monkeypatch.setenv("AGENTX_DISABLE_LAZY_INSTALLS", "1")
 
     # 5. Reset plugin singleton so tests don't leak plugins from
-    #    ~/.hermes/plugins/ (which, per step 3, is now empty — but the
+    #    ~/.agentx/plugins/ (which, per step 3, is now empty — but the
     #    singleton might still be cached from a previous test).
     try:
         import hermes_cli.plugins as _plugins_mod
@@ -561,7 +561,7 @@ def _neutralize_macos_keychain_creds(request, monkeypatch):
 # fixture patches ``kanban_db.connect`` to refuse writes whose resolved DB
 # path lands under the REAL kanban root (captured at import time, before any
 # fixture rewires the environment). A deny-list is used instead of an
-# allow-list because test-level fixtures legitimately move HERMES_HOME to
+# allow-list because test-level fixtures legitimately move AGENTX_HOME to
 # sibling directories — an allow-list captured at setup time would see the
 # stale autouse-set value and falsely reject hermetic tests (#69385 review).
 
@@ -570,22 +570,22 @@ def _capture_real_kanban_root() -> Path:
     """Resolve the REAL kanban root from the pre-test environment.
 
     Uses the pre-sandbox environment snapshot taken at the very top of this
-    file (before the session HERMES_HOME sandbox rewired the env), so the
+    file (before the session AGENTX_HOME sandbox rewired the env), so the
     deny-list keeps pointing at the operator's actual root. Mirrors
     ``kanban_db.kanban_home()`` resolution order:
-    1. ``HERMES_KANBAN_HOME`` env var when set and non-empty
+    1. ``AGENTX_KANBAN_HOME`` env var when set and non-empty
     2. the real (pre-sandbox) Hermes root otherwise
     """
     if _PRE_SANDBOX_KANBAN_OVERRIDE:
         return Path(_PRE_SANDBOX_KANBAN_OVERRIDE).expanduser().resolve()
-    if _PRE_SANDBOX_HERMES_HOME:
-        # HERMES_HOME was genuinely set before the sandbox — honor it via the
+    if _PRE_SANDBOX_AGENTX_HOME:
+        # AGENTX_HOME was genuinely set before the sandbox — honor it via the
         # normal resolver (it may be a profile dir whose root matters).
         from hermes_constants import get_default_hermes_root
         return get_default_hermes_root().resolve()
-    # No pre-existing HERMES_HOME: the real root is the platform default,
+    # No pre-existing AGENTX_HOME: the real root is the platform default,
     # NOT the sandbox tempdir now sitting in the env.
-    return (Path.home() / ".hermes").resolve()
+    return (Path.home() / ".agentx").resolve()
 
 
 _REAL_KANBAN_ROOT = _capture_real_kanban_root()
@@ -597,8 +597,8 @@ def _kanban_write_guard(_hermetic_environment, monkeypatch):
 
     Uses a **deny-list**: only blocks writes where the resolved DB path
     (explicit ``db_path`` or ``kanban_db_path()``) lands under the real
-    ``~/.hermes`` captured at import time. Hermetic tests that legitimately
-    move HERMES_HOME to sibling tempdirs are unaffected.
+    ``~/.agentx`` captured at import time. Hermetic tests that legitimately
+    move AGENTX_HOME to sibling tempdirs are unaffected.
 
     Only patches when ``hermes_cli.kanban_db`` is *already imported* — a
     ``sys.modules`` probe, not an import — so the guard never drags the
@@ -887,8 +887,8 @@ def _wal_is_usable() -> bool:
     IMPORTANT: this must NOT import ``hermes_state``. That module computes
     ``DEFAULT_DB_PATH`` from ``get_hermes_home()`` at import time, so importing
     it during collection — before the per-test ``_isolate_hermes_home`` fixture
-    redirects ``HERMES_HOME`` — permanently caches the DEVELOPER'S REAL
-    ``~/.hermes/state.db`` for the whole session. Tests then read live
+    redirects ``AGENTX_HOME`` — permanently caches the DEVELOPER'S REAL
+    ``~/.agentx/state.db`` for the whole session. Tests then read live
     production sessions instead of a tempdir. The version predicate is
     duplicated from ``hermes_state._is_sqlite_wal_reset_vulnerable`` (upstream
     fixed ranges, stable) rather than imported, and
@@ -917,7 +917,7 @@ def _wal_is_usable() -> bool:
 #   1. ``test_voice_toggle_tts_branch_also_carries_record_key`` drives the
 #      ``voice.toggle`` RPC with ``action="tts"``. The handler
 #      (``tui_gateway/server.py``) flips the flag by writing the *real*
-#      process environment: ``os.environ["HERMES_VOICE_TTS"] = "1"``. The
+#      process environment: ``os.environ["AGENTX_VOICE_TTS"] = "1"``. The
 #      test's ``monkeypatch.delenv(..., raising=False)`` records no undo entry
 #      (pytest only records an undo when the key was present), so the "1"
 #      survives teardown and persists for the rest of the pytest process.
@@ -1125,7 +1125,7 @@ def _live_system_guard(request, monkeypatch):
         monkeypatch.setattr(_os, "killpg", _guarded_killpg)
 
     # ── Subprocess command-string inspection (whole-line) ──────────
-    _HERMES_TOKENS = (
+    _AGENTX_TOKENS = (
         "hermes-gateway",
         "hermes.service",
         "hermes_cli.main gateway",
@@ -1165,7 +1165,7 @@ def _live_system_guard(request, monkeypatch):
 
     def _matches_hermes_gateway(cmd_str: str) -> bool:
         low = cmd_str.lower()
-        return any(tok in low for tok in _HERMES_TOKENS)
+        return any(tok in low for tok in _AGENTX_TOKENS)
 
     def _is_blocked_systemctl(cmd) -> bool:
         cmd_str = _cmd_to_string(cmd)
@@ -1380,7 +1380,7 @@ def _audio_playback_guard(request, monkeypatch):
     """Stub TTS synthesis + speaker playback for every test.
 
     See the block comment above for the incident this closes. Defence in
-    depth behind ``_HERMES_BEHAVIORAL_VARS``: the env blanking stops the flag
+    depth behind ``_AGENTX_BEHAVIORAL_VARS``: the env blanking stops the flag
     leaking *between* tests, this stops the speakers ever opening even when a
     test sets the flag *itself* (which the ``voice.toggle`` RPC handler does,
     by writing ``os.environ`` directly).

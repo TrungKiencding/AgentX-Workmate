@@ -49,7 +49,7 @@ Gmail、Calendar、Drive、Contacts、Sheets 和 Docs —— 通过 Hermes 管�
 首先定义一个简写：
 
 ```bash
-GSETUP="python ${HERMES_HOME:-$HOME/.hermes}/skills/productivity/google-workspace/scripts/setup.py"
+GSETUP="python ${AGENTX_HOME:-$HOME/.agentx}/skills/productivity/google-workspace/scripts/setup.py"
 ```
 
 ### 步骤 0：检查是否已完成设置
@@ -121,7 +121,7 @@ $GSETUP --auth-url --services calendar,drive,sheets,docs --format json
 $GSETUP --auth-url --services all --format json
 ```
 
-此命令返回包含 `auth_url` 字段的 JSON，并将该 URL 保存至 `~/.hermes/google_oauth_last_url.txt`。
+此命令返回包含 `auth_url` 字段的 JSON，并将该 URL 保存至 `~/.agentx/google_oauth_last_url.txt`。
 
 本步骤的 Agent 规则：
 - 提取 `auth_url` 字段，将该确切 URL 以单行形式发送给用户。
@@ -149,9 +149,9 @@ $GSETUP --check
 
 ### 注意事项
 
-- Token 存储于 `~/.hermes/google_token.json`，自动刷新。
-- 待处理的 OAuth 会话状态/验证器临时存储于 `~/.hermes/google_oauth_pending.json`，直至交换完成。
-- 若已安装 `gws`，`google_api.py` 会将其指向同一个 `~/.hermes/google_token.json` 凭据文件。用户无需单独运行 `gws auth login` 流程。
+- Token 存储于 `~/.agentx/google_token.json`，自动刷新。
+- 待处理的 OAuth 会话状态/验证器临时存储于 `~/.agentx/google_oauth_pending.json`，直至交换完成。
+- 若已安装 `gws`，`google_api.py` 会将其指向同一个 `~/.agentx/google_token.json` 凭据文件。用户无需单独运行 `gws auth login` 流程。
 - 撤销授权：`$GSETUP --revoke`
 
 ## 使用方法
@@ -159,7 +159,7 @@ $GSETUP --check
 所有命令均通过 API 脚本执行。将 `GAPI` 设为简写：
 
 ```bash
-GAPI="python ${HERMES_HOME:-$HOME/.hermes}/skills/productivity/google-workspace/scripts/google_api.py"
+GAPI="python ${AGENTX_HOME:-$HOME/.agentx}/skills/productivity/google-workspace/scripts/google_api.py"
 ```
 
 ### Gmail

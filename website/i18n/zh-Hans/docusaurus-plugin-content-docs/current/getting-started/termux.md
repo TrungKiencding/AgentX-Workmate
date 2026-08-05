@@ -138,7 +138,7 @@ hermes
 hermes model
 ```
 
-或直接在 `~/.hermes/.env` 中设置密钥。
+或直接在 `~/.agentx/.env` 中设置密钥。
 
 ### 稍后重新运行完整的交互式设置向导
 

@@ -29,7 +29,7 @@ hermes fallback
 
 `hermes fallback` 复用 `hermes model` 的提供商选择器——相同的提供商列表、相同的凭据提示、相同的验证流程。使用子命令 `add`、`list`（别名 `ls`）、`remove`（别名 `rm`）和 `clear` 来管理备用链。更改会持久化到 `config.yaml` 顶层的 `fallback_providers:` 列表中。
 
-如果你更倾向于直接编辑 YAML，可在 `~/.hermes/config.yaml` 中添加 `fallback_model` 部分：
+如果你更倾向于直接编辑 YAML，可在 `~/.agentx/config.yaml` 中添加 `fallback_model` 部分：
 
 ```yaml
 fallback_model:
@@ -67,7 +67,7 @@ fallback_model:
 | xAI（Grok） | `xai`（别名 `grok`） | `XAI_API_KEY`（可选：`XAI_BASE_URL`） |
 | xAI Grok OAuth（SuperGrok） | `xai-oauth`（别名 `grok-oauth`） | `hermes model` → xAI Grok OAuth（浏览器登录；需 SuperGrok 订阅） |
 | AWS Bedrock | `bedrock` | 标准 boto3 认证（`AWS_REGION` + `AWS_PROFILE` 或 `AWS_ACCESS_KEY_ID`） |
-| Qwen Portal（OAuth） | `qwen-oauth` | `hermes model`（Qwen Portal OAuth；可选：`HERMES_QWEN_BASE_URL`） |
+| Qwen Portal（OAuth） | `qwen-oauth` | `hermes model`（Qwen Portal OAuth；可选：`AGENTX_QWEN_BASE_URL`） |
 | MiniMax（OAuth） | `minimax-oauth` | `hermes model`（MiniMax 门户 OAuth） |
 | OpenCode Zen | `opencode-zen` | `OPENCODE_ZEN_API_KEY` |
 | OpenCode Go | `opencode-go` | `OPENCODE_GO_API_KEY` |

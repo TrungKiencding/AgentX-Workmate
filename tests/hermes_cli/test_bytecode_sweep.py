@@ -56,7 +56,7 @@ def test_sweep_clears_pycache_when_checkout_changed(monkeypatch, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Plugin-update sibling site: __pycache__ under ~/.hermes/plugins/<name>
+# Plugin-update sibling site: __pycache__ under ~/.agentx/plugins/<name>
 # ---------------------------------------------------------------------------
 
 def test_clear_plugin_bytecode_removes_nested_caches(tmp_path):

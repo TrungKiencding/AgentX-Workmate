@@ -1,9 +1,9 @@
 """
 Configuration management for Hermes Agent.
 
-Config files are stored in ~/.hermes/ for easy access:
-- ~/.hermes/config.yaml  - All settings (model, toolsets, terminal, etc.)
-- ~/.hermes/.env         - API keys and secrets
+Config files are stored in ~/.agentx/ for easy access:
+- ~/.agentx/config.yaml  - All settings (model, toolsets, terminal, etc.)
+- ~/.agentx/.env         - API keys and secrets
 
 This module provides:
 - hermes config          - Show current configuration
@@ -101,7 +101,7 @@ def _warn_config_parse_failure(
 ) -> None:
     """Surface a config.yaml parse failure to user, log, and stderr.
 
-    A YAML parse error in ``~/.hermes/config.yaml`` causes ``load_config()``
+    A YAML parse error in ``~/.agentx/config.yaml`` causes ``load_config()``
     to silently fall back to ``DEFAULT_CONFIG``, which means every user
     override (auxiliary providers, fallback chain, model overrides, etc.)
     is dropped. Before this helper that was a one-line ``print(...)`` that
@@ -180,14 +180,14 @@ _ENV_VAR_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 #   ``$EDITOR``.
 # * ``SHELL`` — what subprocess uses with ``shell=True`` (we try to
 #   avoid that, but defense in depth).
-# * ``HERMES_HOME`` / ``HERMES_PROFILE`` / ``HERMES_CONFIG`` /
-#   ``HERMES_ENV`` — Hermes runtime location flags. Writing these into
+# * ``AGENTX_HOME`` / ``AGENTX_PROFILE`` / ``AGENTX_CONFIG`` /
+#   ``AGENTX_ENV`` — Hermes runtime location flags. Writing these into
 #   ``.env`` would relocate state in ways the user did not request from
 #   the dashboard. ``config.yaml`` is the supported surface for these.
 #
-# IMPORTANT: ``HERMES_*`` overall is NOT blocked. Many legitimate
-# integration credentials follow that prefix (HERMES_LANGFUSE_PUBLIC_KEY,
-# HERMES_SPOTIFY_CLIENT_ID, ...). The
+# IMPORTANT: ``AGENTX_*`` overall is NOT blocked. Many legitimate
+# integration credentials follow that prefix (AGENTX_LANGFUSE_PUBLIC_KEY,
+# AGENTX_SPOTIFY_CLIENT_ID, ...). The
 # denylist is name-by-name on purpose so the gate stays narrow and
 # doesn't accidentally break provider setup wizards.
 #
@@ -210,9 +210,9 @@ _ENV_VAR_NAME_DENYLIST: frozenset[str] = frozenset({
     # Git
     "GIT_SSH_COMMAND", "GIT_EXEC_PATH", "GIT_SHELL",
     # Hermes runtime location — never via dashboard env writer.
-    # NOT a HERMES_* blanket: integration credentials (HERMES_GEMINI_*,
-    # HERMES_LANGFUSE_*, HERMES_SPOTIFY_*, ...) ARE allowed.
-    "HERMES_HOME", "HERMES_PROFILE", "HERMES_CONFIG", "HERMES_ENV",
+    # NOT a AGENTX_* blanket: integration credentials (AGENTX_GEMINI_*,
+    # AGENTX_LANGFUSE_*, AGENTX_SPOTIFY_*, ...) ARE allowed.
+    "AGENTX_HOME", "AGENTX_PROFILE", "AGENTX_CONFIG", "AGENTX_ENV",
 })
 
 
@@ -227,9 +227,9 @@ def _reject_denylisted_env_var(key: str) -> None:
             f"Environment variable {key!r} is on the writer denylist. "
             "Names that influence subprocess execution (LD_PRELOAD, "
             "PYTHONPATH, PATH, EDITOR, ...) or Hermes runtime location "
-            "(HERMES_HOME, HERMES_PROFILE, ...) cannot be persisted via "
+            "(AGENTX_HOME, AGENTX_PROFILE, ...) cannot be persisted via "
             "the env writer. If you really need this, edit "
-            "~/.hermes/.env directly."
+            "~/.agentx/.env directly."
         )
 
 _LAST_EXPANDED_CONFIG_BY_PATH: Dict[str, Any] = {}
@@ -292,13 +292,13 @@ _EXTRA_ENV_KEYS = frozenset({
     "IRC_SERVER", "IRC_PORT", "IRC_NICKNAME", "IRC_CHANNEL",
     "IRC_USE_TLS", "IRC_SERVER_PASSWORD", "IRC_NICKSERV_PASSWORD",
     "TERMINAL_ENV", "TERMINAL_SSH_KEY", "TERMINAL_SSH_PORT",
-    # HERMES_TOOL_PROGRESS_MODE is deprecated (replaced by display.tool_progress
+    # AGENTX_TOOL_PROGRESS_MODE is deprecated (replaced by display.tool_progress
     # in config.yaml) but STILL READ at runtime by the gateway as a back-compat
     # fallback, so it must stay known to reload/compat paths. The boolean
-    # HERMES_TOOL_PROGRESS variant is fully unsupported since the v12 config
+    # AGENTX_TOOL_PROGRESS variant is fully unsupported since the v12 config
     # support floor retired its only consumer (the v3→4 migration): it is no
     # longer listed here and doctor flags it as ignored.
-    "HERMES_TOOL_PROGRESS_MODE",
+    "AGENTX_TOOL_PROGRESS_MODE",
     "WHATSAPP_MODE", "WHATSAPP_ENABLED",
     "MATTERMOST_HOME_CHANNEL", "MATTERMOST_HOME_CHANNEL_NAME", "MATTERMOST_REPLY_MODE",
     "MATRIX_PASSWORD", "MATRIX_ENCRYPTION", "MATRIX_DEVICE_ID", "MATRIX_HOME_ROOM",
@@ -308,20 +308,20 @@ _EXTRA_ENV_KEYS = frozenset({
     # Activation is via plugins.enabled (opt-in through `hermes plugins enable
     # observability/langfuse` or `hermes tools → Langfuse`); credentials gate
     # the plugin at runtime.
-    "HERMES_LANGFUSE_ENV",
-    "HERMES_LANGFUSE_RELEASE",
-    "HERMES_LANGFUSE_SAMPLE_RATE",
-    "HERMES_LANGFUSE_MAX_CHARS",
-    "HERMES_LANGFUSE_DEBUG",
+    "AGENTX_LANGFUSE_ENV",
+    "AGENTX_LANGFUSE_RELEASE",
+    "AGENTX_LANGFUSE_SAMPLE_RATE",
+    "AGENTX_LANGFUSE_MAX_CHARS",
+    "AGENTX_LANGFUSE_DEBUG",
     "LANGFUSE_PUBLIC_KEY",
     "LANGFUSE_SECRET_KEY",
     "LANGFUSE_BASE_URL",
     # ACP (Agent Client Protocol) keys — profile-isolable so different
     # profiles can use different ACP backends without cross-leak.
-    "HERMES_ACP_AUTH_METHOD",
-    "HERMES_ACP_AUTO_APPROVE",
-    "HERMES_COPILOT_ACP_COMMAND",
-    "HERMES_COPILOT_ACP_ARGS",
+    "AGENTX_ACP_AUTH_METHOD",
+    "AGENTX_ACP_AUTO_APPROVE",
+    "AGENTX_COPILOT_ACP_COMMAND",
+    "AGENTX_COPILOT_ACP_ARGS",
     "COPILOT_CLI_PATH",
     "COPILOT_ACP_BASE_URL",
 })
@@ -341,7 +341,7 @@ _MANAGED_SYSTEM_NAMES = {
     "nixos": "NixOS",
 }
 # The Nix store root. Used by detect_install_method to identify installs
-# from `nix run` / `nix profile install` (which don't set HERMES_MANAGED).
+# from `nix run` / `nix profile install` (which don't set AGENTX_MANAGED).
 # A module-level constant so tests can patch it without creating files
 # under the real /nix/store.
 _NIX_STORE = Path("/nix/store")
@@ -354,7 +354,7 @@ _IGNORED_MANAGED_VALUES = frozenset({"brew", "homebrew"})
 
 def get_managed_system() -> Optional[str]:
     """Return the package manager owning this install, if any."""
-    raw = os.getenv("HERMES_MANAGED", "").strip()
+    raw = os.getenv("AGENTX_MANAGED", "").strip()
     if raw:
         normalized = raw.lower()
         if normalized in _IGNORED_MANAGED_VALUES:
@@ -372,8 +372,8 @@ def get_managed_system() -> Optional[str]:
 def is_managed() -> bool:
     """Check if Hermes is running in package-manager-managed mode.
 
-    Two signals: the HERMES_MANAGED env var (set by the systemd service),
-    or a .managed marker file in HERMES_HOME (set by the NixOS activation
+    Two signals: the AGENTX_MANAGED env var (set by the systemd service),
+    or a .managed marker file in AGENTX_HOME (set by the NixOS activation
     script, so interactive shells also see it).
     """
     return get_managed_system() is not None
@@ -398,7 +398,7 @@ def _install_method_project_root(project_root: Optional[Path] = None) -> Path:
 
     This is the parent of ``hermes_cli/`` — i.e. the git checkout for source
     installs, ``/opt/hermes`` inside the published image. It is a property of
-    the running interpreter, NOT of ``$HERMES_HOME``, which is why a
+    the running interpreter, NOT of ``$AGENTX_HOME``, which is why a
     code-scoped stamp here is immune to two installs sharing one data
     directory.
     """
@@ -413,21 +413,21 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
     Resolution order:
     1. Code-scoped stamp ``<install tree>/.install_method`` (next to the
        running code) — the authoritative marker.
-    2. Legacy home-scoped stamp ``$HERMES_HOME/.install_method`` — read for
+    2. Legacy home-scoped stamp ``$AGENTX_HOME/.install_method`` — read for
        backward compatibility, but a ``docker`` value is IGNORED when we are
        not actually running inside a container (see below).
-    3. HERMES_MANAGED env / .managed marker (NixOS managed mode)
+    3. AGENTX_MANAGED env / .managed marker (NixOS managed mode)
     4. /nix/store/ path detection -> 'nix' (nix run / nix profile install)
     5. .git directory presence -> 'git'
     6. Fallback -> 'unknown'
 
-    Why the stamp is code-scoped, not home-scoped (issue: shared ``~/.hermes``)
+    Why the stamp is code-scoped, not home-scoped (issue: shared ``~/.agentx``)
     --------------------------------------------------------------------------
     The install method describes *the binary that is running*, but
-    ``$HERMES_HOME`` is a shared DATA directory — the Docker docs deliberately
-    bind-mount it (``~/.hermes:/opt/data``) so config/sessions/memory persist
+    ``$AGENTX_HOME`` is a shared DATA directory — the Docker docs deliberately
+    bind-mount it (``~/.agentx:/opt/data``) so config/sessions/memory persist
     and can be shared with a host-side Desktop/CLI install. When a
-    containerised gateway and a host install share one ``$HERMES_HOME``, a
+    containerised gateway and a host install share one ``$AGENTX_HOME``, a
     home-scoped stamp is a single slot describing two different installs:
     the container stamps ``docker`` on every boot, the host install then reads
     ``docker`` and ``hermes update`` refuses to run ("doesn't apply inside the
@@ -454,7 +454,7 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
     root = _install_method_project_root(project_root)
     supported_methods = {"docker", "nix", "nixos", "git", "unknown"}
 
-    # 1. Code-scoped stamp — authoritative, immune to shared $HERMES_HOME.
+    # 1. Code-scoped stamp — authoritative, immune to shared $AGENTX_HOME.
     try:
         method = (root / ".install_method").read_text(encoding="utf-8").strip().lower()
         if method in supported_methods:
@@ -464,7 +464,7 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
 
     # 2. Legacy home-scoped stamp — back-compat. Ignore a ``docker`` value
     #    when we are not actually containerised: that is the signature of a
-    #    host install whose shared $HERMES_HOME was stamped by a co-located
+    #    host install whose shared $AGENTX_HOME was stamped by a co-located
     #    container, and honouring it wrongly blocks ``hermes update``.
     try:
         method = (
@@ -482,7 +482,7 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
     if managed:
         return managed.lower().replace(" ", "-")
 
-    # detect Nix installs that don't set HERMES_MANAGED (e.g. ``nix run``,
+    # detect Nix installs that don't set AGENTX_MANAGED (e.g. ``nix run``,
     # ``nix profile install``). The code lives under /nix/store/ which is the
     # hallmark of a nix-built install — no other supported install path puts
     # code there.
@@ -523,7 +523,7 @@ def stamp_install_method(method: str, project_root: Optional[Path] = None) -> No
     """Write the install method next to the running code (code-scoped stamp).
 
     The stamp lives in the install tree (``<install tree>/.install_method``),
-    not in ``$HERMES_HOME``, so that two installs sharing one data directory
+    not in ``$AGENTX_HOME``, so that two installs sharing one data directory
     do not overwrite each other's marker. See ``detect_install_method`` for
     the full rationale.
 
@@ -593,7 +593,7 @@ Notes:
     won't move your container — pull the newer tag you actually want, or
     switch to ``:latest`` / ``:main`` for rolling updates.  See available
     tags at https://hub.docker.com/r/nousresearch/hermes-agent/tags
-  • Your config and session history live under ``$HERMES_HOME`` (``/opt/data``
+  • Your config and session history live under ``$AGENTX_HOME`` (``/opt/data``
     in the container, typically bind-mounted from the host) and persist
     across image upgrades — re-pulling doesn't lose any state.
   • Running a fork?  Build your own image with this repo's ``Dockerfile``
@@ -613,13 +613,13 @@ def format_docker_update_message() -> str:
 def format_managed_message(action: str = "modify this Hermes installation") -> str:
     """Build a user-facing error for managed installs."""
     managed_system = get_managed_system() or "a package manager"
-    raw = os.getenv("HERMES_MANAGED", "").strip().lower()
+    raw = os.getenv("AGENTX_MANAGED", "").strip().lower()
 
     if managed_system == "NixOS":
         env_hint = "true" if raw in _MANAGED_TRUE_VALUES else raw or "true"
         return (
             f"Cannot {action}: this Hermes installation is managed by NixOS "
-            f"(HERMES_MANAGED={env_hint}).\n"
+            f"(AGENTX_MANAGED={env_hint}).\n"
             "Edit services.hermes-agent.settings in your configuration.nix and run:\n"
             "  sudo nixos-rebuild switch"
         )
@@ -639,17 +639,17 @@ def managed_error(action: str = "modify configuration"):
 # =============================================================================
 
 def get_container_exec_info() -> Optional[dict]:
-    """Read container mode metadata from HERMES_HOME/.container-mode.
+    """Read container mode metadata from AGENTX_HOME/.container-mode.
 
     Returns a dict with keys: backend, container_name, exec_user, hermes_bin
     or None if container mode is not active, we're already inside the
-    container, or HERMES_DEV=1 is set.
+    container, or AGENTX_DEV=1 is set.
 
     The .container-mode file is written by the NixOS activation script when
     container.enable = true. It tells the host CLI to exec into the container
     instead of running locally.
     """
-    if os.environ.get("HERMES_DEV") == "1":
+    if os.environ.get("AGENTX_DEV") == "1":
         return None
 
     from hermes_constants import is_container
@@ -704,11 +704,11 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent.resolve()
 
 def _resolve_hermes_uid_gid() -> tuple[Optional[int], Optional[int]]:
-    """Read the HERMES_UID / HERMES_GID env vars set by Docker deployments.
+    """Read the AGENTX_UID / AGENTX_GID env vars set by Docker deployments.
 
     Docker containers running Hermes commonly set these to map the in-container
     user to a host user so volume-mounted state files end up with the right
-    ownership. The entrypoint chowns the top-level HERMES_HOME once, but
+    ownership. The entrypoint chowns the top-level AGENTX_HOME once, but
     subdirectories created at runtime by ``ensure_hermes_home()`` (especially
     for profile namespaces under ``profiles/<name>/``) need the same chown
     or they land as ``root:root`` and block subsequent uid-mapped workers
@@ -720,8 +720,8 @@ def _resolve_hermes_uid_gid() -> tuple[Optional[int], Optional[int]]:
     """
     if sys.platform == "win32":
         return None, None
-    uid_str = os.environ.get("HERMES_UID", "").strip()
-    gid_str = os.environ.get("HERMES_GID", "").strip()
+    uid_str = os.environ.get("AGENTX_UID", "").strip()
+    gid_str = os.environ.get("AGENTX_GID", "").strip()
     try:
         uid = int(uid_str) if uid_str else None
     except ValueError:
@@ -734,7 +734,7 @@ def _resolve_hermes_uid_gid() -> tuple[Optional[int], Optional[int]]:
 
 
 def _chown_to_hermes_uid(path) -> None:
-    """Chown ``path`` to ``HERMES_UID:HERMES_GID`` if those env vars are set.
+    """Chown ``path`` to ``AGENTX_UID:AGENTX_GID`` if those env vars are set.
 
     No-op when:
       - Either env var is unset/invalid
@@ -769,13 +769,13 @@ def _secure_dir(path):
     permissions (0750) so interactive users in the hermes group can
     share state with the gateway service.
 
-    The mode can be overridden via the HERMES_HOME_MODE environment variable
-    (e.g. HERMES_HOME_MODE=0701) for deployments where a web server (nginx,
-    caddy, etc.) needs to traverse HERMES_HOME to reach a served subdirectory.
+    The mode can be overridden via the AGENTX_HOME_MODE environment variable
+    (e.g. AGENTX_HOME_MODE=0701) for deployments where a web server (nginx,
+    caddy, etc.) needs to traverse AGENTX_HOME to reach a served subdirectory.
     The execute-only bit on a directory permits cd-through without exposing
     directory listings.
 
-    Also applies ``HERMES_UID``/``HERMES_GID``-based ownership when those env
+    Also applies ``AGENTX_UID``/``AGENTX_GID``-based ownership when those env
     vars are set (#34107 — Docker deployments need this so profile subdirs
     created at runtime by kanban workers don't land as root:root and block
     subsequent uid-mapped workers).
@@ -783,7 +783,7 @@ def _secure_dir(path):
     if is_managed():
         return
     try:
-        mode_str = os.environ.get("HERMES_HOME_MODE", "").strip()
+        mode_str = os.environ.get("AGENTX_HOME_MODE", "").strip()
         mode = int(mode_str, 8) if mode_str else 0o700
     except ValueError:
         mode = 0o700
@@ -803,7 +803,7 @@ def _is_container() -> bool:
     permissions.
     """
     # Explicit opt-out
-    if os.environ.get("HERMES_CONTAINER") or os.environ.get("HERMES_SKIP_CHMOD"):
+    if os.environ.get("AGENTX_CONTAINER") or os.environ.get("AGENTX_SKIP_CHMOD"):
         return True
     # Docker / Podman marker file
     if os.path.exists("/.dockerenv"):
@@ -826,7 +826,7 @@ def _secure_file(path):
     group-readable permissions (0640) on config files.
 
     Skipped in containers — Docker/Podman volume mounts often need broader
-    permissions.  Set HERMES_SKIP_CHMOD=1 to force-skip on other systems.
+    permissions.  Set AGENTX_SKIP_CHMOD=1 to force-skip on other systems.
     """
     if is_managed() or _is_container():
         return
@@ -838,7 +838,7 @@ def _secure_file(path):
 
 
 def _ensure_default_soul_md(home: Path) -> None:
-    """Seed a default SOUL.md into HERMES_HOME, upgrading legacy empty templates.
+    """Seed a default SOUL.md into AGENTX_HOME, upgrading legacy empty templates.
 
     First run: write DEFAULT_SOUL_MD. Existing installs whose SOUL.md is still
     the old comment-only scaffold (seeded by older install.sh / install.ps1 /
@@ -861,11 +861,11 @@ def _ensure_default_soul_md(home: Path) -> None:
 # Home paths whose directory skeleton has been created this process — see
 # ensure_hermes_home(). Only successful passes are recorded, so a raised
 # managed-mode/missing-profile error keeps re-checking on later loads.
-_HERMES_HOME_ENSURED: set = set()
+_AGENTX_HOME_ENSURED: set = set()
 
 
 def ensure_hermes_home():
-    """Ensure ~/.hermes directory structure exists with secure permissions.
+    """Ensure ~/.agentx directory structure exists with secure permissions.
 
     In managed mode (NixOS), dirs are created by the activation script with
     setgid + group-writable (2770). We skip mkdir and set umask(0o007) so
@@ -874,7 +874,7 @@ def ensure_hermes_home():
     Memoized per home path: this runs on EVERY ``load_config()`` (inside the
     config lock), and the ~14 mkdir/chmod syscalls per call made repeated
     config loads the dominant cost of hot read paths like ``model.options``.
-    After the first successful pass for a given ``HERMES_HOME`` we only re-run
+    After the first successful pass for a given ``AGENTX_HOME`` we only re-run
     the full walk if the home directory itself has vanished (a deleted home is
     recreated on the next load, as before). Profile switches change
     ``get_hermes_home()`` and therefore re-run for the new path.
@@ -882,11 +882,11 @@ def ensure_hermes_home():
     home = get_hermes_home()
     key = str(home)
 
-    if key in _HERMES_HOME_ENSURED and home.is_dir():
+    if key in _AGENTX_HOME_ENSURED and home.is_dir():
         return
     # Named profiles must be created explicitly (e.g. ``hermes profile create``).
     # If a stale process keeps running after the profile was renamed/deleted,
-    # silently mkdir-ing the old HERMES_HOME would resurrect an empty skeleton
+    # silently mkdir-ing the old AGENTX_HOME would resurrect an empty skeleton
     # and make the deleted profile reappear in Desktop/profile lists.
     if home.parent.name == "profiles" and not home.exists():
         raise FileNotFoundError(
@@ -911,14 +911,14 @@ def ensure_hermes_home():
             _secure_dir(d)
         _ensure_default_soul_md(home)
 
-    _HERMES_HOME_ENSURED.add(key)
+    _AGENTX_HOME_ENSURED.add(key)
 
 
 def _ensure_hermes_home_managed(home: Path):
     """Managed-mode variant: verify dirs exist (activation creates them), seed SOUL.md."""
     if not home.is_dir():
         raise RuntimeError(
-            f"HERMES_HOME {home} does not exist. "
+            f"AGENTX_HOME {home} does not exist. "
             "Run 'sudo nixos-rebuild switch' first."
         )
     for subdir in ("cron", "sessions", "logs", "memories"):
@@ -2511,7 +2511,7 @@ def _env_expand_match(m: re.Match) -> str:
         if val is not None:
             return val
         logger.warning(
-            "Config ref %r: %s is not set (check ~/.hermes/.env); "
+            "Config ref %r: %s is not set (check ~/.agentx/.env); "
             "keeping the literal placeholder", raw, name,
         )
         return raw
@@ -2931,7 +2931,7 @@ def cfg_get(cfg: Optional[Dict[str, Any]], *keys: str, default: Any = None) -> A
 
 
 def read_raw_config() -> Dict[str, Any]:
-    """Read ~/.hermes/config.yaml as-is, without merging defaults or migrating.
+    """Read ~/.agentx/config.yaml as-is, without merging defaults or migrating.
 
     Returns the raw YAML dict, or ``{}`` if the file doesn't exist or can't
     be parsed.  Use this for lightweight config reads where you just need a
@@ -3113,13 +3113,13 @@ def atomic_config_write(config_path: Path, data: Any, **kwargs: Any) -> None:
 
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from ~/.hermes/config.yaml.
+    """Load configuration from ~/.agentx/config.yaml.
 
     Cached on the config file's (mtime_ns, size). Returns a deepcopy of
     the cached value when unchanged, since most call sites mutate the
     result (e.g. ``cfg["model"]["default"] = ...`` before ``save_config``).
     The cache is keyed on ``str(config_path)`` so profile switches
-    (which change ``HERMES_HOME`` and therefore ``get_config_path()``)
+    (which change ``AGENTX_HOME`` and therefore ``get_config_path()``)
     don't collide.
 
     Read-only callers should use ``load_config_readonly()`` to skip the
@@ -3509,7 +3509,7 @@ def save_config(
     preserve_keys: Optional[Set[Tuple[str, ...]]] = None,
     merge_existing: bool = False,
 ):
-    """Save configuration to ~/.hermes/config.yaml.\n
+    """Save configuration to ~/.agentx/config.yaml.\n
 
     Default values from ``DEFAULT_CONFIG`` are not written to disk unless
     the user explicitly set them (i.e. the path exists in the raw config
@@ -3642,7 +3642,7 @@ def _parse_env_value(raw_value: str) -> str:
 
 
 def load_env() -> Dict[str, str]:
-    """Load environment variables from ~/.hermes/.env.
+    """Load environment variables from ~/.agentx/.env.
 
     Normalizes line endings before parsing while treating each assignment's
     value as opaque data for boundary discovery.
@@ -3743,7 +3743,7 @@ def _sanitize_env_lines(lines: list) -> list:
 
 
 def sanitize_env_file() -> int:
-    """Read, sanitize, and rewrite ~/.hermes/.env in place.
+    """Read, sanitize, and rewrite ~/.agentx/.env in place.
 
     Returns the number of lines whose safe formatting was normalized. Returns
     0 when no changes are needed.
@@ -3863,7 +3863,7 @@ def _env_line_defines_key(line: str, key: str) -> bool:
 
 
 def save_env_value(key: str, value: str):
-    """Save or update a value in ~/.hermes/.env."""
+    """Save or update a value in ~/.agentx/.env."""
     if is_managed():
         managed_error(f"set {key}")
         return
@@ -3966,17 +3966,17 @@ def custom_endpoint_key_env(identity: str) -> str:
     - It keys off the endpoint's own identity, not just its hostname, so two
       endpoints on one host (``127.0.0.1:8000`` and ``:8001``) get separate
       slots instead of the second save clobbering the first's credential.
-    - The fixed ``HERMES_CUSTOM_`` prefix keeps the result a valid POSIX name
+    - The fixed ``AGENTX_CUSTOM_`` prefix keeps the result a valid POSIX name
       even when the slug starts with a digit, which every IP-based local
       endpoint does (``127.0.0.1`` → ``127_0_0_1``). ``save_env_value``
       rejects digit-leading names outright.
     """
     slug = re.sub(r"[^A-Z0-9]+", "_", str(identity or "").upper()).strip("_")
-    return f"HERMES_CUSTOM_{slug}_API_KEY" if slug else "HERMES_CUSTOM_API_KEY"
+    return f"AGENTX_CUSTOM_{slug}_API_KEY" if slug else "AGENTX_CUSTOM_API_KEY"
 
 
 def remove_env_value(key: str) -> bool:
-    """Remove a key from ~/.hermes/.env and os.environ.
+    """Remove a key from ~/.agentx/.env and os.environ.
 
     Returns True if the key was found and removed, False otherwise.
     """
@@ -4085,7 +4085,7 @@ def save_env_value_secure(key: str, value: str) -> Dict[str, Any]:
 
 
 def reload_env() -> int:
-    """Re-read ~/.hermes/.env into os.environ. Returns count of vars updated.
+    """Re-read ~/.agentx/.env into os.environ. Returns count of vars updated.
 
     Adds/updates vars that changed and removes vars that were deleted from
     the .env file (but only vars known to Hermes — OPTIONAL_ENV_VARS and
@@ -4107,7 +4107,7 @@ def reload_env() -> int:
 
 
 def get_env_value(key: str) -> Optional[str]:
-    """Get a value from ``os.environ`` or ``~/.hermes/.env``, scope-aware.
+    """Get a value from ``os.environ`` or ``~/.agentx/.env``, scope-aware.
 
     The ``os.environ`` read routes through ``agent.secret_scope.get_secret``
     so that, under an active profile scope (multiplexed gateway turn), this
@@ -4144,7 +4144,7 @@ def get_env_value(key: str) -> Optional[str]:
 
 
 def get_env_value_prefer_dotenv(key: str) -> Optional[str]:
-    """Resolve a credential env value, preferring ``~/.hermes/.env`` over ``os.environ``.
+    """Resolve a credential env value, preferring ``~/.agentx/.env`` over ``os.environ``.
 
     Used for Hermes-managed credentials where a deliberate edit to ``.env``
     must take precedence over a stale value inherited from the parent shell
@@ -4316,14 +4316,14 @@ def show_config():
     print(f"  Model:        {redact_config_value(config.get('model', 'not set'))}")
     _cfg_max_turns = config.get('agent', {}).get('max_turns', DEFAULT_CONFIG['agent']['max_turns'])
     print(f"  Max turns:    {_cfg_max_turns}")
-    # Warn on stale HERMES_MAX_ITERATIONS ghost in .env that disagrees with
+    # Warn on stale AGENTX_MAX_ITERATIONS ghost in .env that disagrees with
     # config.yaml (issue #17534). Read the .env FILE directly so we catch the
     # ghost even when the gateway bridge already overrode os.environ.
     try:
-        _env_ghost = load_env().get("HERMES_MAX_ITERATIONS")
+        _env_ghost = load_env().get("AGENTX_MAX_ITERATIONS")
         if _env_ghost is not None and str(_env_ghost).strip() != str(_cfg_max_turns).strip():
             print(color(
-                f"                ⚠ .env has stale HERMES_MAX_ITERATIONS={_env_ghost} "
+                f"                ⚠ .env has stale AGENTX_MAX_ITERATIONS={_env_ghost} "
                 f"(run 'hermes doctor --fix' to remove)",
                 Colors.YELLOW,
             ))

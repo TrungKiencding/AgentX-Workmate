@@ -17,14 +17,14 @@ It imports one module — `@hermes/plugin-sdk` — and gets everything: the app'
 live state, the gateway JSON-RPC door, a scoped REST/socket backend namespace,
 React Query, and the app's own UI kit so plugin UI looks native by default. No
 repo clone, no `npm run build`, no patching app source. Drop the file in
-`$HERMES_HOME/desktop-plugins/<id>/plugin.js` and the app loads it within seconds
+`$AGENTX_HOME/desktop-plugins/<id>/plugin.js` and the app loads it within seconds
 and hot-reloads every save.
 
 :::warning This is not the web-dashboard plugin SDK
 "Plugin" means several unrelated things across Hermes. This page is the **native
 desktop app** (`hermes desktop`) SDK — the `@hermes/plugin-sdk` module and
-`$HERMES_HOME/desktop-plugins/`. The **web dashboard** (`hermes dashboard`) has
-its own, unrelated plugin system on `window.__HERMES_PLUGIN_SDK__` with a
+`$AGENTX_HOME/desktop-plugins/`. The **web dashboard** (`hermes dashboard`) has
+its own, unrelated plugin system on `window.__AGENTX_PLUGIN_SDK__` with a
 `manifest.json` — documented at
 [Extending the Dashboard](/user-guide/features/extending-the-dashboard). Python
 CLI/gateway plugins are documented at [Build a Hermes Plugin](/developer-guide/plugins).
@@ -53,7 +53,7 @@ plugin, and fail to resolve in a disk plugin). Capability comes in tiers:
 
 | Mode | Where | Who | Build step |
 |------|-------|-----|------------|
-| **Disk** (recommended) | `$HERMES_HOME/desktop-plugins/<id>/plugin.js` | users, agents | none — plain ESM, loaded uncompiled |
+| **Disk** (recommended) | `$AGENTX_HOME/desktop-plugins/<id>/plugin.js` | users, agents | none — plain ESM, loaded uncompiled |
 | **Bundled** | `apps/desktop/src/plugins/<id>/plugin.tsx` | in-tree, shipped with the app | the app's own Vite build |
 
 Both take the same `HermesPlugin` contract, appear in **Settings → Plugins**, and
@@ -66,12 +66,12 @@ repo.
 
 ## Quick start — your first plugin
 
-Create `$HERMES_HOME/desktop-plugins/hello/plugin.js` (that's `~/.hermes/...`
-by default, or `~/.hermes/profiles/<name>/...` under a named profile). The folder
+Create `$AGENTX_HOME/desktop-plugins/hello/plugin.js` (that's `~/.agentx/...`
+by default, or `~/.agentx/profiles/<name>/...` under a named profile). The folder
 name must equal the plugin `id`.
 
 ```javascript
-// ~/.hermes/desktop-plugins/hello/plugin.js
+// ~/.agentx/desktop-plugins/hello/plugin.js
 import { host, haptic, useValue } from '@hermes/plugin-sdk'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -471,7 +471,7 @@ Desktop plugins reuse the dashboard plugin backend mount. Put the backend in a
 `manifest.json`:
 
 ```
-~/.hermes/plugins/<id>/
+~/.agentx/plugins/<id>/
 └── dashboard/
     ├── manifest.json      # { "name": "<id>", "api": "plugin_api.py" }
     └── plugin_api.py      # exports `router = APIRouter()`
@@ -502,7 +502,7 @@ for the full backend reference — the mount is identical.
 Enabling a plugin in the desktop **Settings → Plugins** panel is a renderer-side
 choice; it does **not** import Python. A user plugin's `plugin_api.py` is
 imported only when the plugin is in the `plugins.enabled` allow-list in
-`config.yaml` (and not in `plugins.disabled`). Project plugins (`./.hermes/`)
+`config.yaml` (and not in `plugins.disabled`). Project plugins (`./.agentx/`)
 never auto-import Python. This is a security boundary, not an oversight
 (GHSA-mcfc-hp25-cjv7).
 :::
@@ -634,7 +634,7 @@ human/developer reference; the skill is the working checklist.
 ## Troubleshooting
 
 **My plugin doesn't appear.** Confirm the file is at
-`$HERMES_HOME/desktop-plugins/<id>/plugin.js` and the folder name matches the
+`$AGENTX_HOME/desktop-plugins/<id>/plugin.js` and the folder name matches the
 export `id`. Run ⌘K → **Reload desktop plugins**. Check the app for an error
 toast naming the failure, and tail `hermes logs gui -f`.
 
@@ -645,9 +645,9 @@ toast naming the failure, and tail `hermes logs gui -f`.
 in a `jsx()` call isn't imported. Add it to the import line.
 
 **`ctx.rest` returns 404.** The backend isn't mounted: confirm
-`~/.hermes/plugins/<id>/dashboard/manifest.json` has `"api": "plugin_api.py"`,
+`~/.agentx/plugins/<id>/dashboard/manifest.json` has `"api": "plugin_api.py"`,
 that the plugin is in `plugins.enabled` in `config.yaml`, and restart the gateway
-(backend routes mount at startup). Tail `~/.hermes/logs/errors.log` for
+(backend routes mount at startup). Tail `~/.agentx/logs/errors.log` for
 `Failed to load plugin <id> API routes`.
 
 **`ctx.socket` never fires.** On an OAuth remote it's a no-op by design — use your

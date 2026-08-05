@@ -17,7 +17,7 @@ description: "如何为 Hermes Agent 构建网页搜索/提取/爬取后端插�
 Hermes 在三个位置扫描网页搜索后端：
 
 1. **内置** — `<repo>/plugins/web/<name>/`（以 `kind: backend` 自动加载，始终可用）
-2. **用户** — `~/.hermes/plugins/web/<name>/`（通过 `plugins.enabled` 或 `hermes plugins enable <name>` 按需启用）
+2. **用户** — `~/.agentx/plugins/web/<name>/`（通过 `plugins.enabled` 或 `hermes plugins enable <name>` 按需启用）
 3. **Pip** — 声明了 `hermes_agent.plugins` 入口点的包
 
 每个插件的 `register(ctx)` 函数调用 `ctx.register_web_search_provider(...)` ——将实例注册到 `agent/web_search_registry.py` 中的注册表。各能力的活跃提供商由配置决定：
@@ -209,7 +209,7 @@ requires_env:
 Hermes 根据 `supports_*` 标志将调用路由至正确的提供商。一种常见的多提供商配置：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 web:
   search_backend: "brave-free"     # 纯搜索，速度快，每月免费 2k 次
   extract_backend: "firecrawl"     # 提取 + 爬取，付费配额

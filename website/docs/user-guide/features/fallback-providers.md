@@ -29,7 +29,7 @@ hermes fallback
 
 `hermes fallback` reuses the provider picker from `hermes model` — same provider list, same credential prompts, same validation. Use the subcommands `add`, `list` (alias `ls`), `remove` (alias `rm`), and `clear` to manage the chain. Changes persist under the top-level `fallback_providers:` list in `config.yaml`.
 
-If you'd rather edit the YAML directly, add a top-level `fallback_providers` list to `~/.hermes/config.yaml`:
+If you'd rather edit the YAML directly, add a top-level `fallback_providers` list to `~/.agentx/config.yaml`:
 
 ```yaml
 fallback_providers:
@@ -68,7 +68,7 @@ Each entry requires both `provider` and `model`. Entries missing either field ar
 | xAI (Grok) | `xai` (alias `grok`) | `XAI_API_KEY` (optional: `XAI_BASE_URL`) |
 | xAI Grok OAuth (SuperGrok) | `xai-oauth` (alias `grok-oauth`) | `hermes model` → xAI Grok OAuth (browser login; SuperGrok subscription) |
 | AWS Bedrock | `bedrock` | Standard boto3 auth (`AWS_REGION` + `AWS_PROFILE` or `AWS_ACCESS_KEY_ID`) |
-| Qwen Portal (OAuth) | `qwen-oauth` | `hermes model` (Qwen Portal OAuth; optional: `HERMES_QWEN_BASE_URL`) |
+| Qwen Portal (OAuth) | `qwen-oauth` | `hermes model` (Qwen Portal OAuth; optional: `AGENTX_QWEN_BASE_URL`) |
 | MiniMax (OAuth) | `minimax-oauth` | `hermes model` (MiniMax portal OAuth) |
 | OpenCode Zen | `opencode-zen` | `OPENCODE_ZEN_API_KEY` |
 | OpenCode Go | `opencode-go` | `OPENCODE_GO_API_KEY` |

@@ -109,8 +109,8 @@ remains in the task's tool-count bucket.
 Local state is written under:
 
 ```text
-$HERMES_HOME/telemetry/shared_metrics/metrics.sqlite3
-$HERMES_HOME/telemetry/shared_metrics/outbox/*.json
+$AGENTX_HOME/telemetry/shared_metrics/metrics.sqlite3
+$AGENTX_HOME/telemetry/shared_metrics/outbox/*.json
 ```
 
 The database keeps transactional aggregate and package-outbox state. Package
@@ -123,11 +123,11 @@ use v2, which accepts both the retired model-call contract and the current
 model-route contract so upgrades can drain pending counters safely.
 
 Each package contains an `install_id` generated as a random UUID. Despite the
-schema field name, its current scope is one `HERMES_HOME`, so it is more
+schema field name, its current scope is one `AGENTX_HOME`, so it is more
 precisely a persistent pseudonymous profile identifier. It is not derived from
 hardware, account, host, path, or credential data. It remains stable across
 packages from that profile and can therefore link those local packages.
-Deleting `$HERMES_HOME/telemetry/shared_metrics` resets the identifier together
+Deleting `$AGENTX_HOME/telemetry/shared_metrics` resets the identifier together
 with all aggregates and package files.
 
 This slice has no remote-delivery path. A future remote exporter must not reuse

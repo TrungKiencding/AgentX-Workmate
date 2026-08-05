@@ -71,7 +71,7 @@ hermes -w -z "Fix issue #123"     # 在 worktree 中以单次查询模式运行
 | 🗜️ N | **上下文压缩次数**——当前运行会话被自动压缩的次数。首次压缩触发后显示。 |
 | ▶ N | **活跃后台任务数**——当前会话中仍在运行的 `/background` prompt（提示词）数量。至少有一个任务进行中时显示。 |
 | 时长 | 会话已用时间 |
-| ⚠ YOLO | **YOLO 模式警告**——当 `HERMES_YOLO_MODE` 开启时显示（通过启动时的 `hermes --yolo` 或会话中的 `/yolo` 切换）。与横幅行警告保持同步，确保你不会忘记自己处于自动批准模式。 |
+| ⚠ YOLO | **YOLO 模式警告**——当 `AGENTX_YOLO_MODE` 开启时显示（通过启动时的 `hermes --yolo` 或会话中的 `/yolo` 切换）。与横幅行警告保持同步，确保你不会忘记自己处于自动批准模式。 |
 
 状态栏会根据终端宽度自适应——≥ 76 列时显示完整布局，52–75 列时显示紧凑布局，低于 52 列时显示最简布局（模型 + 时长，以及 YOLO 徽章（如已激活））。
 
@@ -144,7 +144,7 @@ hermes -w -z "Fix issue #123"     # 在 worktree 中以单次查询模式运行
 你可以定义自定义命令，无需调用 LLM 即可立即执行 shell 命令。这些命令在 CLI 和消息平台（Telegram、Discord 等）中均可使用。
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 quick_commands:
   status:
     type: exec
@@ -172,7 +172,7 @@ Hermes 会在第一轮对话前将每个指定的 skill 加载到会话 prompt �
 
 ## Skill 斜杠命令
 
-`~/.hermes/skills/` 中每个已安装的 skill 都会自动注册为斜杠命令。skill 名称即为命令名：
+`~/.agentx/skills/` 中每个已安装的 skill 都会自动注册为斜杠命令。skill 名称即为命令名：
 
 ```
 /gif-search funny cats
@@ -195,7 +195,7 @@ Hermes 会在第一轮对话前将每个指定的 skill 加载到会话 prompt �
 
 内置人格包括：`helpful`、`concise`、`technical`、`creative`、`teacher`、`kawaii`、`catgirl`、`pirate`、`shakespeare`、`surfer`、`noir`、`uwu`、`philosopher`、`hype`。
 
-你也可以在 `~/.hermes/config.yaml` 中定义自定义人格：
+你也可以在 `~/.agentx/config.yaml` 中定义自定义人格：
 
 ```yaml
 personalities:
@@ -255,7 +255,7 @@ personalities:
 | `"steer"` | 你的消息通过 `/steer` 注入当前运行，在下一次工具调用后到达 agent——不中断，不开启新轮次 |
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 display:
   busy_input_mode: "steer"   # 或 "queue" 或 "interrupt"（默认）
 ```
@@ -312,7 +312,7 @@ CLI 在 agent 工作时显示动态反馈：
 `display.tool_preview_length` 配置项控制工具调用预览行（如文件路径、终端命令）中显示的最大字符数。默认值为 `0`，表示无限制——显示完整路径和命令。
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 display:
   tool_preview_length: 80   # 将工具预览截断为 80 个字符（0 = 无限制）
 ```
@@ -351,7 +351,7 @@ hermes -r 20260225_143052_a1b2c3           # 简写形式
 
 ### 会话存储
 
-CLI 会话存储在 Hermes 的 SQLite 状态数据库 `~/.hermes/state.db` 中。数据库保存：
+CLI 会话存储在 Hermes 的 SQLite 状态数据库 `~/.agentx/state.db` 中。数据库保存：
 
 - 会话元数据（ID、标题、时间戳、token 计数器）
 - 消息历史
@@ -365,7 +365,7 @@ CLI 会话存储在 Hermes 的 SQLite 状态数据库 `~/.hermes/state.db` 中�
 长对话在接近上下文限制时会自动摘要：
 
 ```yaml
-# 在 ~/.hermes/config.yaml 中
+# 在 ~/.agentx/config.yaml 中
 compression:
   enabled: true
   threshold: 0.50    # 默认在上下文限制的 50% 时压缩

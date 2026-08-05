@@ -14,11 +14,11 @@ description: "在 Hermes 中接收 Microsoft Graph 变更通知（会议、日�
 
 - Microsoft Graph 应用凭据——[注册 Microsoft Graph 应用程序](/guides/microsoft-graph-app-registration)
 - 一个 Microsoft Graph 可访问的**公开 HTTPS URL**（Graph 不会调用私有端点）。测试时可使用 dev tunnel；生产环境需要具有有效证书的真实域名。
-- 一个强共享密钥，用作 `clientState` 的值。使用 `openssl rand -hex 32` 生成，并以 `MSGRAPH_WEBHOOK_CLIENT_STATE` 写入 `~/.hermes/.env`。
+- 一个强共享密钥，用作 `clientState` 的值。使用 `openssl rand -hex 32` 生成，并以 `MSGRAPH_WEBHOOK_CLIENT_STATE` 写入 `~/.agentx/.env`。
 
 ## 快速开始
 
-最小化 `~/.hermes/config.yaml`：
+最小化 `~/.agentx/config.yaml`：
 
 ```yaml
 platforms:
@@ -31,7 +31,7 @@ platforms:
         - "communications/onlineMeetings"
 ```
 
-或通过 `~/.hermes/.env` 中的环境变量（启动时自动合并）：
+或通过 `~/.agentx/.env` 中的环境变量（启动时自动合并）：
 
 ```bash
 MSGRAPH_WEBHOOK_ENABLED=true

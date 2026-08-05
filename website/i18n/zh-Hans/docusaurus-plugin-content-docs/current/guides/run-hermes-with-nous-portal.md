@@ -31,8 +31,8 @@ hermes setup --portal
 这条命令会完成五件事：
 
 1. 打开浏览器跳转至 portal.nousresearch.com 进行 OAuth 登录
-2. 将 refresh token 存储至 `~/.hermes/auth.json`
-3. 在 `~/.hermes/config.yaml` 中设置 `model.provider: nous`
+2. 将 refresh token 存储至 `~/.agentx/auth.json`
+3. 在 `~/.agentx/config.yaml` 中设置 `model.provider: nous`
 4. 选择一个默认的 agentic 模型（`anthropic/claude-sonnet-4.6` 或类似模型）
 5. 为网页搜索、图像生成、TTS 和浏览器自动化开启 Tool Gateway
 
@@ -171,7 +171,7 @@ hermes cron add "Daily AI news summary" "every day at 9am" \
 
 如果你使用 [Hermes profiles](/user-guide/profiles)（例如每个项目单独一套配置），Portal refresh token 会通过共享 token 存储自动在所有 profiles 之间共享。在任意 profile 上登录一次，其余 profiles 会自动获取。
 
-对于多人共用一台机器的团队场景，每个人有自己的 Portal 账号 → 每个 home 目录保存各自的 `~/.hermes/auth.json` → 用户之间不共享 token。这是正确的边界划分。
+对于多人共用一台机器的团队场景，每个人有自己的 Portal 账号 → 每个 home 目录保存各自的 `~/.agentx/auth.json` → 用户之间不共享 token。这是正确的边界划分。
 
 ## 故障排查
 

@@ -53,8 +53,7 @@ PRESERVED = [
     "hermes_home = get_hermes_home()",
     "self.hermes_root",
     "_hermes_bin_path",
-    "def set_hermes_home_override(path):",
-    "_HERMES_HOME_OVERRIDE",  # a Python identifier, not an env var name
+    "def set_hermes_home_override(path):"
     # Dotted DATA/PROTOCOL keys. These look like paths but are not, and
     # renaming them would break the wire format or orphan files on disk.
     "_meta.hermes",  # ACP protocol extension namespace
@@ -65,6 +64,16 @@ PRESERVED = [
     # camelCase properties that merely start with the old name
     "sandbox.hermesHome",
     "window.hermesDesktop",
+    # Kebab tokens are a separate concern from the config directory, and the
+    # path rules must not nibble the first segment off one. Renaming half of
+    # a token pair is worse than renaming neither: it broke a CSS selector
+    # (summary.hermes-kanban-run-meta-label) and an install-path check
+    # (hermes-desktop) that their counterparts still spelled the old way.
+    ".hermes-kanban-card",
+    "summary.hermes-kanban-run-meta-label",
+    ".hermes-update-old",
+    "C:\\Users\\x\\AppData\\Local\\hermes-desktop",
+    "~/.hermes-agent",
 ]
 
 
@@ -81,25 +90,54 @@ RENAMES = [
     ("os.environ['HERMES_SESSION_ID']", "os.environ['AGENTX_SESSION_ID']"),
     ("$HERMES_YOLO_MODE", "$AGENTX_YOLO_MODE"),
     ("HERMES_KANBAN_TASK=1", "AGENTX_KANBAN_TASK=1"),
+    # Private constants move too — every occurrence moves together, so
+    # nothing is left dangling.
+    ("_HERMES_HOME_OVERRIDE", "_AGENTX_HOME_OVERRIDE"),
+    # Regressions the earlier \b-anchored rule let through. Each one broke
+    # something real: a launcher generated as `exec ""`, and an unterminated
+    # heredoc in the nix module.
+    (r"f'set -e\nHERMES_BIN={pip_entry}'", r"f'set -e\nAGENTX_BIN={pip_entry}'"),
+    (r"'noise\nHERMES_DASHBOARD_READY port=1'", r"'noise\nAGENTX_DASHBOARD_READY port=1'"),
+    ("<<'HERMES_DOC_EOF'\\n${value}\\nHERMES_DOC_EOF", "<<'AGENTX_DOC_EOF'\\n${value}\\nAGENTX_DOC_EOF"),
+    ("zombie HERMES_HOMEs", "zombie AGENTX_HOMEs"),
+    # The prefix also has to move where a metacharacter follows the
+    # underscore: these regexes are the desktop's only way to recognise the
+    # port announcement the Python side prints.
+    (
+        "/^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\\d+)/m",
+        "/^AGENTX_(?:BACKEND|DASHBOARD)_READY port=(\\d+)/m",
+    ),
+    ("New `HERMES_*` env vars", "New `AGENTX_*` env vars"),
+    # Windows Title_Case spellings: scheduled-task name and registry value.
+    ('_TASK_NAME_DEFAULT = "Hermes_Gateway"', '_TASK_NAME_DEFAULT = "AgentX_Gateway"'),
+    ("Hermes_Home    REG_EXPAND_SZ", "AgentX_Home    REG_EXPAND_SZ"),
+    ("HERMES_*_REFRESH_TIMEOUT_SECONDS", "AGENTX_*_REFRESH_TIMEOUT_SECONDS"),
     # config dir
     ("~/.hermes/config.yaml", "~/.agentx/config.yaml"),
     ("/root/.hermes", "/root/.agentx"),
     ("Path.home() / '.hermes'", "Path.home() / '.agentx'"),
     ("~/.hermes/logs/tool_calls.log", "~/.agentx/logs/tool_calls.log"),
+    # URL-encoded separators: the desktop reads media over /api/fs URLs.
+    (
+        "path=%2Fhome%2Fu%2F.hermes%2Fskills%2Fa.png",
+        "path=%2Fhome%2Fu%2F.agentx%2Fskills%2Fa.png",
+    ),
+    ("#media:%2FUsers%2Fb%2F.hermes%2Fcache", "#media:%2FUsers%2Fb%2F.agentx%2Fcache"),
     # project config file
     (".hermes.md", ".agentx.md"),
     ("SOUL.md, .hermes.md, AGENTS.md", "SOUL.md, .agentx.md, AGENTS.md"),
     ("HERMES.md", "AGENTX.md"),
-    # A private module constant keeps its name (the leading underscore blocks
-    # the \b in env-prefix) while the brand strings it holds are rewritten.
-    # Self-consistent either way: the name is never renamed anywhere, so no
-    # reference goes stale.
+    # Constant name and the brand strings it holds move together.
     (
         '_HERMES_MD_NAMES = (".hermes.md", "HERMES.md")',
-        '_HERMES_MD_NAMES = (".agentx.md", "AGENTX.md")',
+        '_AGENTX_MD_NAMES = (".agentx.md", "AGENTX.md")',
     ),
-    # windows config dir
+    # windows config dir — both the variable form and the expanded form
     (r"%LOCALAPPDATA%\hermes", r"%LOCALAPPDATA%\agentx"),
+    (r"$env:LOCALAPPDATA\hermes", r"$env:LOCALAPPDATA\agentx"),
+    (r"C:\Users\test\AppData\Local\hermes", r"C:\Users\test\AppData\Local\agentx"),
+    # source files escape the separator, so the rule must survive doubling
+    (r"'C:\\Users\\test\\AppData\\Local\\hermes\\node'", r"'C:\\Users\\test\\AppData\\Local\\agentx\\node'"),
     # CLI command
     ("run `hermes setup` first", "run `agentx setup` first"),
     ('prog="hermes"', 'prog="agentx"'),

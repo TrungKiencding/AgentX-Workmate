@@ -825,7 +825,7 @@ export const zh: Translations = {
       defaultConnection: '默认连接会用于所有没有自定义覆盖的 profile。',
       profileConnection: profile => `仅当“${profile}”是当前 profile 时使用此连接。选择“使用默认网关”可移除其覆盖。`,
       envOverrideTitle: '环境变量正在控制此桌面会话。',
-      envOverrideDesc: '取消设置 HERMES_DESKTOP_REMOTE_URL 和 HERMES_DESKTOP_REMOTE_TOKEN 后才会使用下面保存的设置。',
+      envOverrideDesc: '取消设置 AGENTX_DESKTOP_REMOTE_URL 和 AGENTX_DESKTOP_REMOTE_TOKEN 后才会使用下面保存的设置。',
       modeTitle: '连接模式',
       localTitle: '本地网关',
       localDesc: '在 localhost 启动私有 Hermes 后端。这是默认方式，并且可离线工作。',
@@ -2942,7 +2942,7 @@ export const zh: Translations = {
       reject: '拒绝',
       alwaysTitle: '始终允许此命令？',
       alwaysDescription: pattern =>
-        `这会将“${pattern}”模式加入永久允许列表 (~/.hermes/config.yaml)。Hermes 对类似命令将不再询问，包括当前会话和未来会话。`,
+        `这会将“${pattern}”模式加入永久允许列表 (~/.agentx/config.yaml)。Hermes 对类似命令将不再询问，包括当前会话和未来会话。`,
       alwaysAllow: '始终允许'
     },
     clarify: {

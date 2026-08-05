@@ -30,14 +30,14 @@ Cron 任务在全新的 agent 会话中运行，不保留当前对话的任何�
 创建监控脚本：
 
 ```bash
-mkdir -p ~/.hermes/scripts
+mkdir -p ~/.agentx/scripts
 ```
 
-```python title="~/.hermes/scripts/watch-site.py"
+```python title="~/.agentx/scripts/watch-site.py"
 import hashlib, json, os, urllib.request
 
 URL = "https://example.com/pricing"
-STATE_FILE = os.path.expanduser("~/.hermes/scripts/.watch-site-state.json")
+STATE_FILE = os.path.expanduser("~/.agentx/scripts/.watch-site-state.json")
 
 # Fetch current content
 req = urllib.request.Request(URL, headers={"User-Agent": "Hermes-Monitor/1.0"})
@@ -67,7 +67,7 @@ else:
 设置 cron 任务：
 
 ```bash
-/cron add "every 1h" "If the script output says CHANGE DETECTED, summarize what changed on the page and why it might matter. If it says NO_CHANGE, respond with just [SILENT]." --script ~/.hermes/scripts/watch-site.py --name "Pricing monitor" --deliver telegram
+/cron add "every 1h" "If the script output says CHANGE DETECTED, summarize what changed on the page and why it might matter. If it says NO_CHANGE, respond with just [SILENT]." --script ~/.agentx/scripts/watch-site.py --name "Pricing monitor" --deliver telegram
 ```
 
 :::tip `[SILENT]` 技巧
@@ -132,11 +132,11 @@ Otherwise, provide a concise summary of the activity." --name "Repo watcher" --d
 
 定期抓取数据、保存到文件，并随时间检测趋势。此模式将脚本（用于采集）与 agent（用于分析）结合使用。
 
-```python title="~/.hermes/scripts/collect-prices.py"
+```python title="~/.agentx/scripts/collect-prices.py"
 import json, os, urllib.request
 from datetime import datetime
 
-DATA_DIR = os.path.expanduser("~/.hermes/data/prices")
+DATA_DIR = os.path.expanduser("~/.agentx/data/prices")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Fetch current data (example: crypto prices)
@@ -169,7 +169,7 @@ for r in recent[-6:]:
 
 If prices are flat and nothing notable, respond with [SILENT].
 If there's a significant move, explain what happened." \
-  --script ~/.hermes/scripts/collect-prices.py \
+  --script ~/.agentx/scripts/collect-prices.py \
   --name "Price tracker" \
   --deliver telegram
 ```

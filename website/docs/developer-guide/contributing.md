@@ -44,13 +44,13 @@ For most contributors, the best development bootstrap is the same path users
 take: run the standard installer, then work inside the repository it cloned.
 The installer creates the Hermes venv, wires the `hermes` command, stamps the
 install method for `hermes update`, and clones the full git project into
-`$HERMES_HOME/hermes-agent` (usually `~/.hermes/hermes-agent`). That keeps your
+`$AGENTX_HOME/hermes-agent` (usually `~/.agentx/hermes-agent`). That keeps your
 development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.hermes}/hermes-agent"
+cd "${AGENTX_HOME:-$HOME/.agentx}/hermes-agent"
 
 # Add dev/test extras on top of the standard install.
 uv pip install -e ".[all,dev]"
@@ -66,7 +66,7 @@ git checkout -b fix/description
 scripts/run_tests.sh
 ```
 
-You can also run a fully isolated Hermes instance (throwaway HERMES_HOME, separate Electron
+You can also run a fully isolated Hermes instance (throwaway AGENTX_HOME, separate Electron
 userData, distinct Electron app name to avoid the single-instance lock):
 
 ```bash
@@ -93,8 +93,8 @@ git clone https://github.com/NousResearch/hermes-agent.git
 cd hermes-agent
 
 # Create venv with Python 3.11, OUTSIDE the source tree
-uv venv ~/.hermes/venvs/hermes-dev --python 3.11
-export VIRTUAL_ENV="$HOME/.hermes/venvs/hermes-dev"
+uv venv ~/.agentx/venvs/hermes-dev --python 3.11
+export VIRTUAL_ENV="$HOME/.agentx/venvs/hermes-dev"
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install with all extras (messaging, cron, CLI menus, dev tools)
@@ -107,12 +107,12 @@ npm install
 ### Configure for Development
 
 ```bash
-mkdir -p ~/.hermes/{cron,sessions,logs,memories,skills}
-cp cli-config.yaml.example ~/.hermes/config.yaml
-touch ~/.hermes/.env
+mkdir -p ~/.agentx/{cron,sessions,logs,memories,skills}
+cp cli-config.yaml.example ~/.agentx/config.yaml
+touch ~/.agentx/.env
 
 # Add at minimum an LLM provider key:
-echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.hermes/.env
+echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.agentx/.env
 ```
 
 ### Run
@@ -143,7 +143,7 @@ scripts/run_tests.sh
 - **Comments**: Only when explaining non-obvious intent, trade-offs, or API quirks
 - **Error handling**: Catch specific exceptions. Use `logger.warning()`/`logger.error()` with `exc_info=True` for unexpected errors
 - **Cross-platform**: Never assume Unix (see below)
-- **Profile-safe paths**: Never hardcode `~/.hermes` — use `get_hermes_home()` from `hermes_constants` for code paths and `display_hermes_home()` for user-facing messages. See [AGENTS.md](https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md#profiles-multi-instance-support) for full rules.
+- **Profile-safe paths**: Never hardcode `~/.agentx` — use `get_hermes_home()` from `hermes_constants` for code paths and `display_hermes_home()` for user-facing messages. See [AGENTS.md](https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md#profiles-multi-instance-support) for full rules.
 
 ## Cross-Platform Compatibility
 

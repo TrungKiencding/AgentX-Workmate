@@ -38,7 +38,7 @@ describe('isRemoteGateway', () => {
 
 describe('filePathFromMediaPath', () => {
   it('passes through a plain path', () => {
-    expect(filePathFromMediaPath('/home/u/.hermes/images/a.png')).toBe('/home/u/.hermes/images/a.png')
+    expect(filePathFromMediaPath('/home/u/.agentx/images/a.png')).toBe('/home/u/.agentx/images/a.png')
   })
 
   it('decodes a file:// URL with encoded characters', () => {
@@ -195,11 +195,11 @@ describe('gatewayMediaDataUrl', () => {
   })
 
   it('reads gateway media through the desktop fs bridge instead of /api/media roots', async () => {
-    const url = await gatewayMediaDataUrl('/home/u/.hermes/skills/demo/images/a b.png')
+    const url = await gatewayMediaDataUrl('/home/u/.agentx/skills/demo/images/a b.png')
 
     expect(url).toBe('data:image/png;base64,ZHVtbXk=')
     expect(api).toHaveBeenCalledWith({
-      path: '/api/fs/read-data-url?path=%2Fhome%2Fu%2F.hermes%2Fskills%2Fdemo%2Fimages%2Fa%20b.png'
+      path: '/api/fs/read-data-url?path=%2Fhome%2Fu%2F.agentx%2Fskills%2Fdemo%2Fimages%2Fa%20b.png'
     })
   })
 })

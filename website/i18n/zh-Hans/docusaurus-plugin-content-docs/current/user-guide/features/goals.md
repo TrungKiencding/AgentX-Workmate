@@ -106,7 +106,7 @@ agent 正在运行时，`/goal status`、`/goal pause` 和 `/goal clear` 可以�
 
 ## 配置
 
-在 `~/.hermes/config.yaml` 中添加：
+在 `~/.agentx/config.yaml` 中添加：
 
 ```yaml
 goals:

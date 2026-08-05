@@ -29,15 +29,21 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Paths whose *content* must never be rewritten by any rule.  The upstream
-# licence keeps its original copyright holder (MIT requires it), the lockfiles
-# are generated, and this directory documents the old names on purpose.
+# Paths whose *content* must never be rewritten by any rule.
+#
+# tests/test_rebrand_rules.py is here because it is the one file that must
+# keep the old names: they are its fixtures. Left unexcluded, the first
+# --apply run rewrote ("HERMES_HOME", "AGENTX_HOME") into
+# ("AGENTX_HOME", "AGENTX_HOME") and every rename assertion silently became
+# an identity check that can never fail.
 GLOBAL_EXCLUDE = [
-    "LICENSE",
-    "uv.lock",
+    "LICENSE",  # MIT requires the original copyright notice to survive
+    "uv.lock",  # generated
     "package-lock.json",
     "*/package-lock.json",
-    "scripts/rebrand/*",
+    "flake.lock",
+    "scripts/rebrand/*",  # this tooling names the old brand on purpose
+    "tests/test_rebrand_rules.py",  # old names are its test fixtures
     ".mailmap",
 ]
 
@@ -79,10 +85,58 @@ RULES: list[Rule] = [
     Rule(
         id="env-prefix",
         phase=2,
-        # Uppercase-only, so lowercase module names (hermes_cli) are safe.
-        pattern=r"\bHERMES_([A-Z][A-Z0-9_]*)\b",
-        replacement=r"AGENTX_\1",
-        note="HERMES_* environment variables -> AGENTX_*",
+        # Uppercase-only, which is what keeps lowercase module names
+        # (hermes_cli, hermes_constants) safe — no word boundaries needed.
+        #
+        # Boundaries were tried and removed. A leading \b silently skipped
+        # every occurrence sitting after an escape in a string literal:
+        # in `f'...\nHERMES_BIN=...'` the source character before H is the
+        # `n` of `\n`, so \b never matched. That left install.sh reading
+        # $AGENTX_BIN while its test still set HERMES_BIN, and the generated
+        # launcher came out as `exec "" "$@"`. The same miss broke a heredoc
+        # in nix/nixosModules.nix, where the opening delimiter was renamed
+        # and the closing one was not. A trailing \b likewise skipped the
+        # plural in prose ("zombie HERMES_HOMEs").
+        #
+        # Matching unanchored also renames private constants like
+        # _HERMES_HOME_OVERRIDE. That is fine: every occurrence moves
+        # together, so no reference is left dangling.
+        #
+        # Nothing follows the underscore in the pattern either. Requiring an
+        # uppercase letter there skipped the prefix wherever it is spelled
+        # with a metacharacter next — the ready-sentinel regexes
+        # (/^HERMES_(?:BACKEND|DASHBOARD)_READY/) and glob prose (HERMES_*).
+        # That desynced the desktop's port scraper from the Python side that
+        # had already switched to AGENTX_DASHBOARD_READY, and every remote
+        # spawn test timed out waiting for an announcement that now used the
+        # other spelling.
+        pattern=r"HERMES_",
+        replacement="AGENTX_",
+        note="HERMES_ prefix (env vars, constants, regexes, globs) -> AGENTX_",
+    ),
+    Rule(
+        id="titlecase-prefix",
+        phase=2,
+        # Windows spells these in Title_Case: the scheduled-task name shown in
+        # Task Scheduler (Hermes_Gateway) and the Environment registry value
+        # (Hermes_Home). The uppercase env-prefix rule cannot see them, so the
+        # registry parser's case-insensitivity test ended up looking up
+        # AGENTX_HOME against a fixture that still said Hermes_Home.
+        pattern=r"\bHermes_",
+        replacement="AgentX_",
+        note="Title_Case Hermes_ prefix (Windows task/registry names) -> AgentX_",
+    ),
+    Rule(
+        id="bot-username",
+        phase=2,
+        # The sample Telegram bot handle. It belongs to phase 6 by topic, but
+        # it has to move now: env-prefix already rewrote the uppercase spelling
+        # (@HERMES_BOT, used to test that Telegram usernames compare
+        # case-insensitively) while leaving the lowercase fixture behind, so
+        # the two no longer describe the same handle.
+        pattern=r"\bhermes_bot\b",
+        replacement="agentx_bot",
+        note="sample Telegram bot username hermes_bot -> agentx_bot",
     ),
     Rule(
         id="config-dir-posix",
@@ -98,9 +152,21 @@ RULES: list[Rule] = [
         #     mcp.hermes-tools  MCP server name in codex config
         # A real path segment is always preceded by / ~ " ' ` : = or nothing.
         #
-        # The trailing (?![.\w]) leaves ``.hermes.md`` to the next rule and
+        # The trailing (?![-.\w]) leaves ``.hermes.md`` to the next rule and
         # keeps ``.hermesHome``-style camelCase properties intact.
-        pattern=r"(?<![A-Za-z0-9_])\.hermes(?![.\w])",
+        #
+        # The '-' in that class is load-bearing. Without it this rule also
+        # matched kebab tokens like ``.hermes-kanban-card`` — but only the
+        # occurrences at a selector start, because the lookbehind blocked
+        # ``summary.hermes-kanban-run-meta-label``. The result was 180 tokens
+        # renamed in one place and not the other, including a CSS selector
+        # pair that no longer matched anything. Kebab tokens are a separate
+        # concern with their own phase; this rule owns the config directory
+        # only.
+        # %2F is a path separator too — the desktop passes media paths through
+        # /api/fs URLs, and there the preceding character is the F of %2F,
+        # which the plain lookbehind reads as a word character and skips.
+        pattern=r"(?:(?<=%2F)|(?<=%2f)|(?<![A-Za-z0-9_]))\.hermes(?![-.\w])",
         replacement=".agentx",
         note="~/.hermes config directory -> ~/.agentx",
     ),
@@ -125,9 +191,17 @@ RULES: list[Rule] = [
     Rule(
         id="config-dir-windows",
         phase=2,
-        pattern=r"(LOCALAPPDATA[%}]?[\\/])hermes\b",
+        # Two spellings of the same directory reach it:
+        #   %LOCALAPPDATA%\hermes  $env:LOCALAPPDATA\hermes  ${LOCALAPPDATA}/hermes
+        #   C:\Users\x\AppData\Local\hermes   (expanded, as in the e2e fixtures)
+        # [\\/]+ rather than [\\/] because TypeScript/Python source escapes the
+        # separator: the file literally contains AppData\\Local\\hermes.
+        # (?![-\w]) for the same reason as config-dir-posix: \b alone matched
+        # the `hermes` inside `AppData\Local\hermes-desktop`, which is the
+        # desktop app's own install directory and a different token.
+        pattern=r"(?i)((?:LOCALAPPDATA[%}]?|AppData[\\/]+Local)[\\/]+)hermes(?![-\w])",
         replacement=r"\1agentx",
-        note="%LOCALAPPDATA%\\hermes -> %LOCALAPPDATA%\\agentx",
+        note="%LOCALAPPDATA%\\hermes and AppData\\Local\\hermes -> ...\\agentx",
     ),
     # ── Phase 3: CLI surface ─────────────────────────────────────────────
     Rule(

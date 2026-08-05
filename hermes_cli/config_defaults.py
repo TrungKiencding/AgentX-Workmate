@@ -113,7 +113,7 @@ DEFAULT_CONFIG = {
         # prompt's environment-hints block. Lets a host that wraps Hermes
         # (sandbox runner, managed platform) explain the runtime environment
         # — proxy, credential handling, mount layout — without editing the
-        # identity slot (SOUL.md). Empty by default. The HERMES_ENVIRONMENT_HINT
+        # identity slot (SOUL.md). Empty by default. The AGENTX_ENVIRONMENT_HINT
         # env var overrides this (build-time/container mechanism).
         "environment_hint": "",
         # Coding posture — on interactive coding surfaces (CLI, TUI, desktop
@@ -222,7 +222,7 @@ DEFAULT_CONFIG = {
         # local endpoint is detected, this finite ceiling replaces the former
         # infinite disable so a wedged local server eventually trips the
         # detector instead of hanging forever. The env var
-        # ``HERMES_LOCAL_STREAM_STALE_TIMEOUT`` overrides for escape-hatch use.
+        # ``AGENTX_LOCAL_STREAM_STALE_TIMEOUT`` overrides for escape-hatch use.
         "local_stream_stale_timeout": 900,
         # How user-attached images are presented to the main model on each turn.
         #   "auto"   — attach natively when the active model reports
@@ -273,9 +273,9 @@ DEFAULT_CONFIG = {
         "env_passthrough": [],
         # HOME handling for host tool subprocesses:
         #   auto    — host keeps the real OS-user HOME; containers use
-        #             HERMES_HOME/home for persistent state (default)
+        #             AGENTX_HOME/home for persistent state (default)
         #   real    — force the real OS-user HOME
-        #   profile — force HERMES_HOME/home when it exists (old strict
+        #   profile — force AGENTX_HOME/home when it exists (old strict
         #             per-profile CLI config isolation)
         "home_mode": "auto",
         # Extra files to source in the login shell when building the
@@ -327,7 +327,7 @@ DEFAULT_CONFIG = {
         # Each entry is "host_path:container_path" (standard Docker -v syntax).
         # Example:
         # ["/home/user/projects:/workspace/projects",
-        #  "/home/user/.hermes/cache/documents:/output"]
+        #  "/home/user/.agentx/cache/documents:/output"]
         # For gateway MEDIA delivery, write inside Docker to /output/... and emit
         # the host-visible path in MEDIA:, not the container path.
         "docker_volumes": [],
@@ -426,7 +426,7 @@ DEFAULT_CONFIG = {
         # limited the `/rollback` listing; v2 actually rewrites the ref and
         # garbage-collects older commits.
         "max_snapshots": 20,
-        # Hard ceiling on total ``~/.hermes/checkpoints/`` size (MB).  When
+        # Hard ceiling on total ``~/.agentx/checkpoints/`` size (MB).  When
         # exceeded, the oldest checkpoint per project is dropped in a
         # round-robin pass until total size falls under the cap.
         # 0 disables the size cap.
@@ -457,7 +457,7 @@ DEFAULT_CONFIG = {
     },
 
     # Hard cap (chars) for a single automatic context file such as SOUL.md,
-    # AGENTS.md, CLAUDE.md, .hermes.md, or .cursorrules before Hermes applies
+    # AGENTS.md, CLAUDE.md, .agentx.md, or .cursorrules before Hermes applies
     # head/tail truncation. ``null`` (the default) lets the cap scale with the
     # model's context window (floor 20K, ceiling 500K) so large-context models
     # rarely truncate a project doc. Set a positive integer to pin a fixed cap
@@ -1095,12 +1095,12 @@ DEFAULT_CONFIG = {
         #   "cli" — the classic prompt_toolkit REPL (default, preserves prior behavior)
         #   "tui" — the modern Ink TUI (same as passing `--tui`)
         # Explicit flags always win over this setting: `--cli` forces the classic
-        # REPL and `--tui` (or HERMES_TUI=1) forces the TUI regardless of config.
+        # REPL and `--tui` (or AGENTX_TUI=1) forces the TUI regardless of config.
         "interface": "cli",
         # When true, `hermes --tui` auto-resumes the most recent human-
         # facing session on launch instead of forging a fresh one.
         # Mirrors `hermes -c` muscle memory.  Default off so existing
-        # users aren't surprised.  HERMES_TUI_RESUME=<id> always wins.
+        # users aren't surprised.  AGENTX_TUI_RESUME=<id> always wins.
         "tui_auto_resume_recent": False,
         # When true (default), `hermes --tui` drops a one-time hint
         # ("subagents working · /agents to watch live") the first time a turn
@@ -1226,7 +1226,7 @@ DEFAULT_CONFIG = {
         "tool_progress_grouping": "accumulate",
         # Optional custom phrases for generic long-running status messages.
         # Built-in defaults live in gateway/assets/status_phrases.yaml. Users
-        # can set `path`/`paths` to HERMES_HOME-relative YAML files/directories
+        # can set `path`/`paths` to AGENTX_HOME-relative YAML files/directories
         # (or rely on conventional status_phrases.yaml / status_phrases/*.yaml).
         # Keys: status, generic. Use
         # mode: "append" (default) to add phrases, or "replace" to fully
@@ -1332,8 +1332,8 @@ DEFAULT_CONFIG = {
         # ``--insecure`` is not). The bundled Nous Portal plugin reads
         # both keys at startup; they are the canonical surface for these
         # settings. Each can be overridden by an environment variable —
-        # ``HERMES_DASHBOARD_OAUTH_CLIENT_ID`` and
-        # ``HERMES_DASHBOARD_PORTAL_URL`` respectively — and the env var
+        # ``AGENTX_DASHBOARD_OAUTH_CLIENT_ID`` and
+        # ``AGENTX_DASHBOARD_PORTAL_URL`` respectively — and the env var
         # wins when set to a non-empty value. The override path is what
         # Fly.io's platform-secret injection uses to push the per-deploy
         # client_id at provisioning time without operators needing to
@@ -1352,7 +1352,7 @@ DEFAULT_CONFIG = {
         # either ``password_hash`` (preferred — no plaintext at rest) or
         # ``password`` (plaintext, hashed in-memory at load) are set. Each
         # key is overridable by an env var
-        # (``HERMES_DASHBOARD_BASIC_AUTH_USERNAME`` /
+        # (``AGENTX_DASHBOARD_BASIC_AUTH_USERNAME`` /
         # ``_PASSWORD_HASH`` / ``_PASSWORD`` / ``_SECRET`` /
         # ``_TTL_SECONDS``), env winning when non-empty. Leave ``username``
         # empty (the default) to keep the plugin a no-op — loopback /
@@ -1378,7 +1378,7 @@ DEFAULT_CONFIG = {
         # generic non-interactive token-auth capability). The SECRET itself
         # is a credential and is NOT configured here: it is provisioned by
         # nous-account-service at deploy time via the
-        # ``HERMES_DASHBOARD_DRAIN_SECRET`` env var (the .env-is-for-secrets
+        # ``AGENTX_DASHBOARD_DRAIN_SECRET`` env var (the .env-is-for-secrets
         # rule). These are the behavioural knobs only. The plugin is a no-op
         # unless that env var is set to a >=256-bit secret; a weak secret is
         # rejected at registration (fail-closed) and the drain endpoint stays
@@ -1389,7 +1389,7 @@ DEFAULT_CONFIG = {
             "scope": "drain",
             "min_secret_chars": 43,
         },
-        # Public URL override (env: ``HERMES_DASHBOARD_PUBLIC_URL``).
+        # Public URL override (env: ``AGENTX_DASHBOARD_PUBLIC_URL``).
         # When set, this is the complete authority — scheme + host +
         # optional path prefix (e.g. ``https://example.com/hermes``) —
         # the OAuth ``redirect_uri`` is built from. Set this for deploys
@@ -1486,7 +1486,7 @@ DEFAULT_CONFIG = {
             # use, OR an absolute path to a pre-downloaded .onnx file.
             # Full voice list: https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/VOICES.md
             "voice": "en_US-lessac-medium",
-            # "voices_dir": "",        # Override voice cache dir; default = ~/.hermes/cache/piper-voices/
+            # "voices_dir": "",        # Override voice cache dir; default = ~/.agentx/cache/piper-voices/
             # "use_cuda": False,       # Requires onnxruntime-gpu
             # "length_scale": 1.0,     # 2.0 = twice as slow
             # "noise_scale": 0.667,
@@ -1618,7 +1618,7 @@ DEFAULT_CONFIG = {
     # "compressor" = built-in lossy summarization (default).
     # Set to a plugin name to activate an alternative engine (e.g. "lcm"
     # for Lossless Context Management).  The engine must be installed as
-    # a plugin in plugins/context_engine/<name>/ or ~/.hermes/plugins/.
+    # a plugin in plugins/context_engine/<name>/ or ~/.agentx/plugins/.
     "context": {
         "engine": "compressor",
         # Return freed glibc allocator pages after long-running agent/TUI
@@ -1687,7 +1687,7 @@ DEFAULT_CONFIG = {
         # the parent's context window and trigger a compression/429 death
         # spiral. delegate_task sizes each summary against the parent's
         # remaining context headroom (split across the batch); when it must
-        # trim, the full text is spilled to ~/.hermes/cache/delegation/
+        # trim, the full text is spilled to ~/.agentx/cache/delegation/
         # (mounted into remote backends) and the in-context summary becomes a
         # head+tail window plus a footer with the exact read_file offset to
         # page the omitted middle — the same convention web_extract uses for
@@ -1786,10 +1786,10 @@ DEFAULT_CONFIG = {
 
     # Skills — external skill directories for sharing skills across tools/agents.
     # Each path is expanded (~, ${VAR}) and resolved.  Read-only — skill creation
-    # always goes to ~/.hermes/skills/.
+    # always goes to ~/.agentx/skills/.
     "skills": {
         "external_dirs": [],   # e.g. ["~/.agents/skills", "/shared/team-skills"]
-        # Substitute ${HERMES_SKILL_DIR} and ${HERMES_SESSION_ID} in SKILL.md
+        # Substitute ${AGENTX_SKILL_DIR} and ${AGENTX_SESSION_ID} in SKILL.md
         # content with the absolute skill directory and the active session id
         # before the agent sees it.  Lets skill authors reference bundled
         # scripts without the agent having to join paths.
@@ -1869,8 +1869,8 @@ DEFAULT_CONFIG = {
         # to keep all bundled built-ins permanently.
         "prune_builtins": True,
         # Pre-run backup: before every real curator pass (dry-run is
-        # skipped), snapshot ~/.hermes/skills/ into
-        # ~/.hermes/skills/.curator_backups/<utc-iso>/skills.tar.gz so the
+        # skipped), snapshot ~/.agentx/skills/ into
+        # ~/.agentx/skills/.curator_backups/<utc-iso>/skills.tar.gz so the
         # user can roll back with `hermes curator rollback`.
         "backup": {
             "enabled": True,
@@ -2082,7 +2082,7 @@ DEFAULT_CONFIG = {
         # through tools.slash_confirm — native yes/no buttons on Telegram,
         # Discord, and Slack; text fallback elsewhere.  Users click "Always
         # Approve" to silence the prompt permanently; that flips this key to
-        # false.  TUI has its own modal overlay (HERMES_TUI_NO_CONFIRM=1 to
+        # false.  TUI has its own modal overlay (AGENTX_TUI_NO_CONFIRM=1 to
         # opt out there).
         "destructive_slash_confirm": True,
     },
@@ -2113,12 +2113,12 @@ DEFAULT_CONFIG = {
     # subagent_stop, etc.).  Each entry maps an event name to a list of
     # {matcher, command, timeout} dicts.  First registration of a new
     # command prompts the user for consent; subsequent runs reuse the
-    # stored approval from ~/.hermes/shell-hooks-allowlist.json.
+    # stored approval from ~/.agentx/shell-hooks-allowlist.json.
     # See `website/docs/user-guide/features/hooks.md` for schema + examples.
     "hooks": {},
 
     # Auto-accept shell-hook registrations without a TTY prompt.  Also
-    # toggleable per-invocation via --accept-hooks or HERMES_ACCEPT_HOOKS=1.
+    # toggleable per-invocation via --accept-hooks or AGENTX_ACCEPT_HOOKS=1.
     # Gateway / cron / non-interactive runs need this (or one of the other
     # channels) to pick up newly-added hooks.
     "hooks_auto_accept": False,
@@ -2176,7 +2176,7 @@ DEFAULT_CONFIG = {
         # Active cron SCHEDULER provider (Axis B — the trigger that decides
         # WHEN a due job fires). Empty string = the built-in in-process 60s
         # ticker (default). Name an installed provider (plugins/cron_providers/<name>/ or
-        # $HERMES_HOME/plugins/<name>/) to relocate the trigger — e.g. "chronos",
+        # $AGENTX_HOME/plugins/<name>/) to relocate the trigger — e.g. "chronos",
         # the NAS-mediated managed-cron provider for scale-to-zero deployments.
         # An unknown or unavailable provider falls back to the built-in, so cron
         # never loses its trigger.
@@ -2227,7 +2227,7 @@ DEFAULT_CONFIG = {
         # Maximum number of due jobs to run in parallel per tick.
         # null/0 = unbounded (limited only by thread count).
         # 1 = serial (pre-v0.9 behaviour).
-        # Also overridable via HERMES_CRON_MAX_PARALLEL env var.
+        # Also overridable via AGENTX_CRON_MAX_PARALLEL env var.
         "max_parallel_jobs": None,
         # Per-job output-file retention: save_job_output keeps the N most
         # recent .md files and prunes older ones. 0 or negative disables
@@ -2237,7 +2237,7 @@ DEFAULT_CONFIG = {
         # SessionDB opens/migrates state.db synchronously and has no timeout
         # of its own against a wedged sqlite3.connect. An unbounded hang here
         # wedges the job's dispatch guard forever. Also overridable via
-        # HERMES_CRON_SESSION_DB_TIMEOUT env var. 0 = unlimited (skip the bound).
+        # AGENTX_CRON_SESSION_DB_TIMEOUT env var. 0 = unlimited (skip the bound).
         "session_db_timeout_seconds": 10,
     },
 
@@ -2374,7 +2374,7 @@ DEFAULT_CONFIG = {
         },
     },
 
-    # Logging — controls file logging to ~/.hermes/logs/.
+    # Logging — controls file logging to ~/.agentx/logs/.
     # agent.log captures INFO+ (all agent activity); errors.log captures WARNING+.
     "logging": {
         "level": "INFO",       # Minimum level for agent.log: DEBUG, INFO, WARNING
@@ -2468,7 +2468,7 @@ DEFAULT_CONFIG = {
         # if your gateway hits "discord connect timed out" / "Timeout waiting
         # for connection to Discord" restart loops. ``0`` or negative disables
         # the timeout entirely (wait indefinitely). Bridged at startup to the
-        # internal HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT env var, which still
+        # internal AGENTX_GATEWAY_PLATFORM_CONNECT_TIMEOUT env var, which still
         # works as a manual override and wins if set explicitly.
         "platform_connect_timeout": 30,
 
@@ -2483,12 +2483,12 @@ DEFAULT_CONFIG = {
         # its routing index. The primary copy lives in state.db (the
         # gateway_routing table). Default True for backward compatibility with
         # external tooling and downgrade safety; set to false to stop
-        # producing ~/.hermes/sessions/sessions.json entirely.
+        # producing ~/.agentx/sessions/sessions.json entirely.
         "write_sessions_json": True,
 
         # Scale-to-zero idle detection (Phase 0). The gateway watches for idle
         # and, when an instance is opted in via the NAS "Labs" toggle (carried as
-        # the HERMES_SCALE_TO_ZERO env stamp) AND messaging is relay-only/absent
+        # the AGENTX_SCALE_TO_ZERO env stamp) AND messaging is relay-only/absent
         # AND a wakeUrl is registered, drives the relay transport dormant so the
         # platform (e.g. Fly autostop:"suspend") can suspend the now-idle machine;
         # it wakes on the connector's wakeUrl poke. This is the idle TIMEOUT only
@@ -2521,7 +2521,7 @@ DEFAULT_CONFIG = {
         # booting so a crash-looping supervisor (launchd KeepAlive, systemd
         # Restart=always) can't hammer the process into a respawn storm.
         # ``max_starts <= 0`` disables the breaker. The env vars
-        # ``HERMES_GATEWAY_MAX_STARTS`` / ``HERMES_GATEWAY_START_WINDOW_S``
+        # ``AGENTX_GATEWAY_MAX_STARTS`` / ``AGENTX_GATEWAY_START_WINDOW_S``
         # override these defaults for escape-hatch use.
         "respawn_storm": {
             "max_starts": 5,
@@ -2551,7 +2551,7 @@ DEFAULT_CONFIG = {
 
         # When false (default), any file path the agent emits is delivered
         # as a native attachment as long as it isn't under the credential /
-        # system-path denylist (/etc, /proc, ~/.ssh, ~/.aws, ~/.hermes/.env,
+        # system-path denylist (/etc, /proc, ~/.ssh, ~/.aws, ~/.agentx/.env,
         # auth.json, etc.). This matches the symmetry of inbound delivery
         # — we accept any document type the user uploads, and the agent
         # can hand back any file that isn't a credential.
@@ -2562,15 +2562,15 @@ DEFAULT_CONFIG = {
         # ``trust_recent_files_seconds`` window. Recommended for
         # public-facing gateways where prompt injection from one user
         # shouldn't be able to exfiltrate the host's secrets to that same
-        # user. Bridged to HERMES_MEDIA_DELIVERY_STRICT.
+        # user. Bridged to AGENTX_MEDIA_DELIVERY_STRICT.
         "strict": False,
         # Extra directories from which model-emitted bare file paths may be
         # uploaded as native gateway attachments. Files inside the Hermes
-        # cache (~/.hermes/cache/{documents,images,audio,video,screenshots})
+        # cache (~/.agentx/cache/{documents,images,audio,video,screenshots})
         # are always trusted; this list adds operator-controlled roots
         # (project dirs, scratch dirs, mounted shares). Accepts a list of
         # absolute paths or a single os.pathsep-separated string. Bridged
-        # to HERMES_MEDIA_ALLOW_DIRS at gateway startup. Tilde paths are
+        # to AGENTX_MEDIA_ALLOW_DIRS at gateway startup. Tilde paths are
         # expanded. Honored in both default and strict mode.
         "media_delivery_allow_dirs": [],
         # When true, files whose mtime is within ``trust_recent_files_seconds``
@@ -2579,11 +2579,11 @@ DEFAULT_CONFIG = {
         # PDFs the agent writes into a working directory. System paths
         # (/etc, /proc, ~/.ssh, ~/.aws, etc.) remain blocked regardless.
         # Disable to fall back to pure-allowlist mode. Bridged to
-        # HERMES_MEDIA_TRUST_RECENT_FILES. Only consulted when ``strict``
+        # AGENTX_MEDIA_TRUST_RECENT_FILES. Only consulted when ``strict``
         # is true; in default mode the denylist alone gates delivery.
         "trust_recent_files": True,
         # Recency window in seconds. 600 (10 min) comfortably covers a
-        # multi-tool agent turn. Bridged to HERMES_MEDIA_TRUST_RECENT_SECONDS.
+        # multi-tool agent turn. Bridged to AGENTX_MEDIA_TRUST_RECENT_SECONDS.
         # Only consulted when ``strict`` is true.
         "trust_recent_files_seconds": 600,
 
@@ -2639,7 +2639,7 @@ DEFAULT_CONFIG = {
         "fresh_final_after_seconds": 0.0,
     },
 
-    # Session storage — controls automatic cleanup of ~/.hermes/state.db.
+    # Session storage — controls automatic cleanup of ~/.agentx/state.db.
     # state.db accumulates every session, message, tool call, and FTS5 index
     # entry forever.  Without auto-pruning, a heavy user (gateway + cron)
     # reports 384MB+ databases with 68K+ messages, which slows down FTS5
@@ -2679,7 +2679,7 @@ DEFAULT_CONFIG = {
         # state.db itself, so it's shared across all processes.
         "min_interval_hours": 24,
         # Legacy per-session JSON snapshot writer.  When true, the agent
-        # rewrites ``~/.hermes/sessions/session_{sid}.json`` on every turn
+        # rewrites ``~/.agentx/sessions/session_{sid}.json`` on every turn
         # boundary with the full message list.  state.db is canonical and
         # has every field the snapshot stored (plus per-message timestamps
         # and token counts), so this is off by default — the snapshots had
@@ -2706,17 +2706,17 @@ DEFAULT_CONFIG = {
         "fts_optimize_notice": "advise",
         # CJK-bigram search index (messages_fts_cjk, cjk_unicode61 loadable
         # tokenizer). When the extension is built (native/fts5_cjk/build.sh →
-        # ~/.hermes/lib/libfts5_cjk.so), 1-2 char CJK terms (일본, 项目, ...)
+        # ~/.agentx/lib/libfts5_cjk.so), 1-2 char CJK terms (일본, 项目, ...)
         # get index-speed exact matching instead of LIKE full-table scans.
         # True (default): use the index when the extension is present; the
         # setting is inert when it isn't. False: never load the extension or
-        # serve the cjk index. Bridged to HERMES_CJK_FTS (internal carrier).
+        # serve the cjk index. Bridged to AGENTX_CJK_FTS (internal carrier).
         "cjk_fts": True,
         # Slow session-search log threshold in milliseconds: searches at or
         # above it log one INFO line with the routing path taken (fts_cjk /
         # fts5 / trigram / like_scan) so latency regressions stay
         # attributable per query shape. 0 logs every search. Bridged to
-        # HERMES_SEARCH_SLOW_MS (internal carrier).
+        # AGENTX_SEARCH_SLOW_MS (internal carrier).
         "search_slow_ms": 1000,
     },
 
@@ -2747,13 +2747,13 @@ DEFAULT_CONFIG = {
         #
         #   quick (default) — snapshot critical small state files (pairing
         #     JSONs, cron jobs, config.yaml, .env, auth.json, per-profile
-        #     DBs) into <HERMES_HOME>/state-snapshots/ before the update.
+        #     DBs) into <AGENTX_HOME>/state-snapshots/ before the update.
         #     Files over 1 GiB (e.g. a bloated state.db) are skipped with a
         #     warning so the snapshot stays fast. Restore via ``/snapshot``.
         #     This is the #15733 (lost pairing data) / #34600 (emptied cron
         #     jobs) safety net.
         #   full — the quick snapshot PLUS a full ``hermes backup``-style zip
-        #     of HERMES_HOME into <HERMES_HOME>/backups/, restorable with
+        #     of AGENTX_HOME into <AGENTX_HOME>/backups/, restorable with
         #     ``hermes import``. Can add minutes on large homes. This is the
         #     #48200 (wrong-path wipe) safety net. ``--backup`` forces this
         #     for a single run.
@@ -2816,7 +2816,7 @@ DEFAULT_CONFIG = {
 
         # How to handle missing server binaries.
         # ``"auto"`` — try to install via npm/go/pip into
-        #              ``<HERMES_HOME>/lsp/bin/`` on first use.
+        #              ``<AGENTX_HOME>/lsp/bin/`` on first use.
         # ``"manual"`` — only use binaries already on PATH.
         # ``"off"`` — alias for ``manual``.
         "install_strategy": "auto",
@@ -2870,7 +2870,7 @@ DEFAULT_CONFIG = {
     # External secret sources
     # =========================================================================
     # Pull credentials from external secret managers at process startup
-    # rather than storing them in ~/.hermes/.env.
+    # rather than storing them in ~/.agentx/.env.
     "secrets": {
         # Optional explicit ordering of enabled secret sources.  When
         # omitted, sources run in registration order (bundled first,
@@ -2888,7 +2888,7 @@ DEFAULT_CONFIG = {
             "enabled": False,
             # Name of the env var that holds the Bitwarden machine-account
             # access token.  This is the one bootstrap secret; it lives
-            # in ~/.hermes/.env (or your shell) and never in config.yaml.
+            # in ~/.agentx/.env (or your shell) and never in config.yaml.
             "access_token_env": "BWS_ACCESS_TOKEN",
             # UUID of the BSM project to sync from.
             "project_id": "",
@@ -2897,7 +2897,7 @@ DEFAULT_CONFIG = {
             "cache_ttl_seconds": 300,
             # Optional encrypted last-good fallback for network/timeout outages.
             # When enabled, successful BWS fetches write AES-GCM encrypted cache
-            # material under ~/.hermes/cache/. If a later startup cannot reach
+            # material under ~/.agentx/cache/. If a later startup cannot reach
             # Bitwarden due to NETWORK/TIMEOUT, Hermes may use this encrypted
             # cache for up to max_stale_seconds. Auth failures do not fall back.
             "encrypted_cache": {
@@ -2910,7 +2910,7 @@ DEFAULT_CONFIG = {
             # take effect until you also cleared the matching .env line.
             "override_existing": True,
             # When True, the bws binary is auto-downloaded into
-            # ~/.hermes/bin/ on first use.  When False you must install
+            # ~/.agentx/bin/ on first use.  When False you must install
             # bws yourself and have it on PATH.
             "auto_install": True,
             # Bitwarden region / self-hosted endpoint.  Empty string
@@ -2934,7 +2934,7 @@ DEFAULT_CONFIG = {
             # `op read --account <account>`.  Empty = op's default account.
             "account": "",
             # Name of the env var holding a 1Password service-account token
-            # for headless auth.  Sourced from ~/.hermes/.env (or the shell)
+            # for headless auth.  Sourced from ~/.agentx/.env (or the shell)
             # and exported to the op child as OP_SERVICE_ACCOUNT_TOKEN.
             # Leave the var unset to use an interactive/desktop op session.
             "service_account_token_env": "OP_SERVICE_ACCOUNT_TOKEN",
@@ -3019,7 +3019,7 @@ DEFAULT_CONFIG = {
         # Tunnel listener port.  Sandboxes get `HTTPS_PROXY=http://<host>:<port>`.
         # 9090 is the default; collide-aware setup wizard can reassign.
         "tunnel_port": 9090,
-        # Auto-download the pinned iron-proxy binary into ~/.hermes/bin/ on
+        # Auto-download the pinned iron-proxy binary into ~/.agentx/bin/ on
         # first use.  When false, you must place `iron-proxy` on PATH yourself.
         "auto_install": True,
         # Where iron-proxy looks up the real upstream secrets at egress time.
@@ -3078,7 +3078,7 @@ DEFAULT_CONFIG = {
         #   true    - always disable GPU acceleration (software rendering).
         #             Use on no-GPU VMs / Proxmox hosts where the GPU path hangs.
         #   false   - always keep GPU acceleration on, even over a remote display.
-        # Bridged to the HERMES_DESKTOP_DISABLE_GPU env var the Electron app reads.
+        # Bridged to the AGENTX_DESKTOP_DISABLE_GPU env var the Electron app reads.
         "disable_gpu": "auto",
         # macOS only: optional persistent code-signing identity (a cert in the
         # login keychain — a self-signed "Code Signing" cert from Keychain
@@ -3402,7 +3402,7 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "HERMES_QWEN_BASE_URL": {
+    "AGENTX_QWEN_BASE_URL": {
         "description": "Qwen Portal base URL override (default: https://portal.qwen.ai/v1)",
         "prompt": "Qwen Portal base URL (leave empty for default)",
         "url": None,
@@ -3865,21 +3865,21 @@ OPTIONAL_ENV_VARS = {
     },
 
     # ── Langfuse observability ──
-    "HERMES_LANGFUSE_PUBLIC_KEY": {
+    "AGENTX_LANGFUSE_PUBLIC_KEY": {
         "description": "Langfuse project public key (pk-lf-...)",
         "prompt": "Langfuse public key",
         "url": "https://cloud.langfuse.com",
         "password": False,
         "category": "tool",
     },
-    "HERMES_LANGFUSE_SECRET_KEY": {
+    "AGENTX_LANGFUSE_SECRET_KEY": {
         "description": "Langfuse project secret key (sk-lf-...)",
         "prompt": "Langfuse secret key",
         "url": "https://cloud.langfuse.com",
         "password": True,
         "category": "tool",
     },
-    "HERMES_LANGFUSE_BASE_URL": {
+    "AGENTX_LANGFUSE_BASE_URL": {
         "description": "Langfuse server URL (default: https://cloud.langfuse.com)",
         "prompt": "Langfuse server URL (leave empty for cloud.langfuse.com)",
         "url": None,
@@ -4054,7 +4054,7 @@ OPTIONAL_ENV_VARS = {
         "advanced": True,
     },
     "MATRIX_DEVICE_ID": {
-        "description": "Stable Matrix device ID for E2EE persistence across restarts (e.g. HERMES_BOT)",
+        "description": "Stable Matrix device ID for E2EE persistence across restarts (e.g. AGENTX_BOT)",
         "prompt": "Matrix device ID (stable across restarts)",
         "url": None,
         "password": False,
@@ -4270,23 +4270,23 @@ OPTIONAL_ENV_VARS = {
         "password": True,
         "category": "setting",
     },
-    # HERMES_TOOL_PROGRESS_MODE is deprecated — tool progress is configured via
+    # AGENTX_TOOL_PROGRESS_MODE is deprecated — tool progress is configured via
     # display.tool_progress in config.yaml (off|new|all|verbose|log). The
-    # gateway still falls back to HERMES_TOOL_PROGRESS_MODE for backward
+    # gateway still falls back to AGENTX_TOOL_PROGRESS_MODE for backward
     # compatibility, so it lives in _EXTRA_ENV_KEYS (known to reload and
     # compatibility paths) but is intentionally NOT listed here:
     # OPTIONAL_ENV_VARS feeds user-facing surfaces (dashboard keys page, setup
     # checklists) and deprecated knobs shouldn't be offered there. The boolean
-    # HERMES_TOOL_PROGRESS is fully unsupported since the v12 config support
+    # AGENTX_TOOL_PROGRESS is fully unsupported since the v12 config support
     # floor retired its only consumer (the v3→4 migration).
-    "HERMES_PREFILL_MESSAGES_FILE": {
+    "AGENTX_PREFILL_MESSAGES_FILE": {
         "description": "Path to JSON file with ephemeral prefill messages for few-shot priming",
         "prompt": "Prefill messages file path",
         "url": None,
         "password": False,
         "category": "setting",
     },
-    "HERMES_EPHEMERAL_SYSTEM_PROMPT": {
+    "AGENTX_EPHEMERAL_SYSTEM_PROMPT": {
         "description": "Ephemeral system prompt injected at API-call time (never persisted to sessions)",
         "prompt": "Ephemeral system prompt",
         "url": None,

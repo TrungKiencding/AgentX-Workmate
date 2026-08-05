@@ -7,9 +7,9 @@ Discovers, loads, and manages plugins from four sources:
 1. **Bundled plugins** – ``<repo>/plugins/<name>/`` (shipped with hermes-agent;
    ``memory/`` and ``context_engine/`` subdirs are excluded — they have their
    own discovery paths)
-2. **User plugins**   – ``~/.hermes/plugins/<name>/``
-3. **Project plugins** – ``./.hermes/plugins/<name>/`` (opt-in via
-   ``HERMES_ENABLE_PROJECT_PLUGINS``)
+2. **User plugins**   – ``~/.agentx/plugins/<name>/``
+3. **Project plugins** – ``./.agentx/plugins/<name>/`` (opt-in via
+   ``AGENTX_ENABLE_PROJECT_PLUGINS``)
 4. **Pip plugins**     – packages that expose the ``hermes_agent.plugins``
    entry-point group.
 
@@ -55,11 +55,11 @@ from hermes_cli.middleware import OBSERVER_SCHEMA_VERSION, VALID_MIDDLEWARE
 def get_bundled_plugins_dir() -> Path:
     """Locate the bundled ``plugins/`` directory.
 
-    Honours ``HERMES_BUNDLED_PLUGINS`` (set by the Nix wrapper / packaged
+    Honours ``AGENTX_BUNDLED_PLUGINS`` (set by the Nix wrapper / packaged
     installs) so read-only store paths are consulted first.  Falls back to
     the in-repo path used during development.
     """
-    env_override = os.getenv("HERMES_BUNDLED_PLUGINS")
+    env_override = os.getenv("AGENTX_BUNDLED_PLUGINS")
     if env_override:
         return Path(env_override)
     return Path(__file__).resolve().parent.parent / "plugins"
@@ -83,8 +83,8 @@ logger = logging.getLogger(__name__)
 # Plugin developer debug logging
 # ---------------------------------------------------------------------------
 #
-# Set ``HERMES_PLUGINS_DEBUG=1`` to surface verbose plugin-discovery logs to
-# stderr in addition to ~/.hermes/logs/agent.log. Aimed at plugin authors
+# Set ``AGENTX_PLUGINS_DEBUG=1`` to surface verbose plugin-discovery logs to
+# stderr in addition to ~/.agentx/logs/agent.log. Aimed at plugin authors
 # trying to figure out why their plugin isn't showing up: which directories
 # were scanned, which manifests parsed, which plugins were skipped (and why),
 # what each ``register(ctx)`` call registered, and full tracebacks on load
@@ -93,21 +93,21 @@ logger = logging.getLogger(__name__)
 # The env var is read once at import time; tests that need to flip it
 # mid-process can call ``_install_plugin_debug_handler(force=True)``.
 
-_PLUGINS_DEBUG = os.getenv("HERMES_PLUGINS_DEBUG", "").strip().lower() in {
+_PLUGINS_DEBUG = os.getenv("AGENTX_PLUGINS_DEBUG", "").strip().lower() in {
     "1", "true", "yes", "on",
 }
 _DEBUG_HANDLER_INSTALLED = False
 
 
 def _install_plugin_debug_handler(force: bool = False) -> None:
-    """When HERMES_PLUGINS_DEBUG is on, tee plugin logs to stderr at DEBUG.
+    """When AGENTX_PLUGINS_DEBUG is on, tee plugin logs to stderr at DEBUG.
 
     Idempotent: only attaches the handler once per process unless ``force``
     is passed. Does not touch the root logger or other Hermes loggers.
     """
     global _DEBUG_HANDLER_INSTALLED, _PLUGINS_DEBUG
     if force:
-        _PLUGINS_DEBUG = os.getenv("HERMES_PLUGINS_DEBUG", "").strip().lower() in {
+        _PLUGINS_DEBUG = os.getenv("AGENTX_PLUGINS_DEBUG", "").strip().lower() in {
             "1", "true", "yes", "on",
         }
     if not _PLUGINS_DEBUG or _DEBUG_HANDLER_INSTALLED:
@@ -122,7 +122,7 @@ def _install_plugin_debug_handler(force: bool = False) -> None:
     logger.propagate = True
     _DEBUG_HANDLER_INSTALLED = True
     logger.debug(
-        "HERMES_PLUGINS_DEBUG=1 — verbose plugin discovery logging enabled"
+        "AGENTX_PLUGINS_DEBUG=1 — verbose plugin discovery logging enabled"
     )
 
 
@@ -303,7 +303,7 @@ class PluginManifest:
     # ``platform``: gateway messaging platform adapter (e.g. IRC). Bundled
     #              platform plugins auto-load so every shipped platform is
     #              available out of the box; user-installed platform plugins
-    #              in ~/.hermes/plugins/ still gated by ``plugins.enabled``
+    #              in ~/.agentx/plugins/ still gated by ``plugins.enabled``
     #              (untrusted code).
     kind: str = "standalone"
     # Registry key — path-derived, used by ``plugins.enabled``/``disabled``
@@ -389,15 +389,15 @@ class PluginContext:
     def profile_name(self) -> str:
         """Return the active Hermes profile name (e.g. ``"default"``).
 
-        Derived from ``HERMES_HOME`` via
+        Derived from ``AGENTX_HOME`` via
         :func:`hermes_cli.profiles.get_active_profile_name`, so it works in
         every execution context — interactive CLI, gateway, and
         kanban-spawned worker sessions alike — without depending on
         ``_cli_ref`` (which is ``None`` outside an interactive CLI run).
 
         Returns ``"default"`` for the default profile, the profile id when
-        running under ``~/.hermes/profiles/<name>``, or ``"custom"`` when
-        ``HERMES_HOME`` points somewhere unrecognized.
+        running under ``~/.agentx/profiles/<name>``, or ``"custom"`` when
+        ``AGENTX_HOME`` points somewhere unrecognized.
         """
         try:
             from hermes_cli.profiles import get_active_profile_name
@@ -824,7 +824,7 @@ class PluginContext:
         ``source`` must be an instance of
         :class:`agent.secret_sources.base.SecretSource`.  Registered
         sources run during ``load_hermes_dotenv()`` startup — after
-        ``~/.hermes/.env`` loads, before Hermes reads credentials — when
+        ``~/.agentx/.env`` loads, before Hermes reads credentials — when
         their ``secrets.<source.name>`` config section is enabled.  The
         orchestrator (``agent.secret_sources.registry.apply_all``) owns
         ordering, mapped-vs-bulk precedence, conflict warnings, and
@@ -1224,7 +1224,7 @@ class PluginContext:
 
         The skill becomes resolvable as ``'<plugin_name>:<name>'`` via
         ``skill_view()``.  It does **not** enter the flat
-        ``~/.hermes/skills/`` tree and is **not** listed in the system
+        ``~/.agentx/skills/`` tree and is **not** listed in the system
         prompt's ``<available_skills>`` index — plugin skills are
         opt-in explicit loads only.
 
@@ -1304,8 +1304,8 @@ class PluginManager:
         """
         if self._discovered and not force:
             return
-        if env_var_enabled("HERMES_SAFE_MODE"):
-            logger.info("HERMES_SAFE_MODE=1 — plugin discovery skipped")
+        if env_var_enabled("AGENTX_SAFE_MODE"):
+            logger.info("AGENTX_SAFE_MODE=1 — plugin discovery skipped")
             self._discovered = True
             return
         if force:
@@ -1365,23 +1365,23 @@ class PluginManager:
         logger.debug("  bundled/platforms: %d manifest(s)", len(bundled_platforms))
         manifests.extend(bundled_platforms)
 
-        # 2. User plugins (~/.hermes/plugins/)
+        # 2. User plugins (~/.agentx/plugins/)
         user_dir = get_hermes_home() / "plugins"
         logger.debug("Scanning user plugins: %s", user_dir)
         user_manifests = self._scan_directory(user_dir, source="user")
         logger.debug("  user: %d manifest(s)", len(user_manifests))
         manifests.extend(user_manifests)
 
-        # 3. Project plugins (./.hermes/plugins/)
-        if _env_enabled("HERMES_ENABLE_PROJECT_PLUGINS"):
-            project_dir = Path.cwd() / ".hermes" / "plugins"
+        # 3. Project plugins (./.agentx/plugins/)
+        if _env_enabled("AGENTX_ENABLE_PROJECT_PLUGINS"):
+            project_dir = Path.cwd() / ".agentx" / "plugins"
             logger.debug("Scanning project plugins: %s", project_dir)
             project_manifests = self._scan_directory(project_dir, source="project")
             logger.debug("  project: %d manifest(s)", len(project_manifests))
             manifests.extend(project_manifests)
         else:
             logger.debug(
-                "Project plugins disabled (set HERMES_ENABLE_PROJECT_PLUGINS=1 to enable)"
+                "Project plugins disabled (set AGENTX_ENABLE_PROJECT_PLUGINS=1 to enable)"
             )
 
         # 4. Pip / entry-point plugins

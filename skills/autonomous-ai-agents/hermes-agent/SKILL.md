@@ -66,21 +66,21 @@ hermes proxy                   # OpenAI-compatible local proxy backed by your OA
 ## Key Paths
 
 ```
-~/.hermes/config.yaml       Main configuration (settings — never secrets)
-~/.hermes/.env              API keys and secrets ONLY (under $HERMES_HOME if set)
-$HERMES_HOME/skills/        Installed skills
-~/.hermes/skins/            Custom themes (see references/themes.md)
-~/.hermes/desktop-plugins/  Desktop app UI plugins (see references/desktop-plugins.md)
-~/.hermes/tui-widgets/      TUI widget apps (see references/tui-widgets.md)
-~/.hermes/pets/             Installed pet mascots (see references/petdex.md)
-~/.hermes/state.db          Canonical session store (SQLite + FTS5)
-~/.hermes/sessions/         Gateway routing index, request dumps, *.jsonl transcripts
-~/.hermes/logs/             Gateway and error logs
-~/.hermes/auth.json         OAuth tokens and credential pools
-~/.hermes/hermes-agent/     Source code (if git-installed)
+~/.agentx/config.yaml       Main configuration (settings — never secrets)
+~/.agentx/.env              API keys and secrets ONLY (under $AGENTX_HOME if set)
+$AGENTX_HOME/skills/        Installed skills
+~/.agentx/skins/            Custom themes (see references/themes.md)
+~/.agentx/desktop-plugins/  Desktop app UI plugins (see references/desktop-plugins.md)
+~/.agentx/tui-widgets/      TUI widget apps (see references/tui-widgets.md)
+~/.agentx/pets/             Installed pet mascots (see references/petdex.md)
+~/.agentx/state.db          Canonical session store (SQLite + FTS5)
+~/.agentx/sessions/         Gateway routing index, request dumps, *.jsonl transcripts
+~/.agentx/logs/             Gateway and error logs
+~/.agentx/auth.json         OAuth tokens and credential pools
+~/.agentx/hermes-agent/     Source code (if git-installed)
 ```
 
-Profiles use `~/.hermes/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$HERMES_HOME` — never hardcode `~/.hermes`.
+Profiles use `~/.agentx/profiles/<name>/` with the same layout. When a profile is active, resolve the real home from `$AGENTX_HOME` — never hardcode `~/.agentx`.
 
 ## Routing Table — load the reference for the task
 
@@ -90,7 +90,7 @@ Profiles use `~/.hermes/profiles/<name>/` with the same layout. When a profile i
 | In-session slash commands | `references/slash-commands.md` |
 | Provider setup, API keys, OAuth | `references/providers-and-models.md` |
 | config.yaml sections, toolsets, voice/STT/TTS | `references/configuration.md` |
-| AGENTS.md / .hermes.md / CLAUDE.md project rules | `references/project-context-files.md` |
+| AGENTS.md / .agentx.md / CLAUDE.md project rules | `references/project-context-files.md` |
 | Secret redaction, PII, approval modes, "reset permissions" | `references/security-privacy.md` |
 | Delegation, cron, curator, kanban | `references/background-systems.md` |
 | MCP servers (add, catalog, `hermes mcp`) | `references/native-mcp.md` |
@@ -200,5 +200,5 @@ terminal(command="tmux new-session -d -s resumed 'hermes --resume 20260225_14305
 - **Never break prompt caching** — don't change past context, toolsets, or the system prompt mid-conversation. The only exception is context compression.
 - **Message role alternation** — never two assistant or two user messages in a row; only `tool` results can repeat.
 - **Secrets in `.env`, settings in `config.yaml`** — never tell a user to put a non-credential setting in `.env`.
-- **Profile-safe paths** — `get_hermes_home()` in code, `$HERMES_HOME` when resolving paths in a session.
+- **Profile-safe paths** — `get_hermes_home()` in code, `$AGENTX_HOME` when resolving paths in a session.
 - **Never hand-edit `config.yaml` for the user** — use `hermes config set KEY VAL`; a stray indent can corrupt the file and break the live gateway.

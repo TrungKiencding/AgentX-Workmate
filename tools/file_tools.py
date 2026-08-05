@@ -666,7 +666,7 @@ def _get_hermes_config_resolved() -> str | None:
         _hermes_config_resolved = str(get_config_path().resolve())
     except Exception:
         try:
-            _hermes_config_resolved = str(Path(_expand_tilde("~/.hermes/config.yaml")).resolve())
+            _hermes_config_resolved = str(Path(_expand_tilde("~/.agentx/config.yaml")).resolve())
         except Exception:
             _hermes_config_resolved = None
     return _hermes_config_resolved
@@ -697,7 +697,7 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
         return (
             f"Refusing to write to Hermes config file: {filepath}\n"
             "Agent cannot modify security-sensitive configuration. "
-            "Edit ~/.hermes/config.yaml directly or use 'hermes config' instead."
+            "Edit ~/.agentx/config.yaml directly or use 'hermes config' instead."
         )
     return None
 
@@ -724,7 +724,7 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
             if env.__class__.__name__ == "DockerEnvironment" and bool(
                 getattr(env, "_persistent", False)
             ):
-                return "/root/.hermes"
+                return "/root/.agentx"
             return None
 
         config = _get_env_config()
@@ -732,7 +732,7 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
         return None
 
     if config.get("env_type") == "docker" and config.get("container_persistent", True):
-        return "/root/.hermes"
+        return "/root/.agentx"
     return None
 
 
@@ -746,13 +746,13 @@ def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | 
     * cross-profile — writes that hit another profile's
       ``skills/plugins/cron/memories`` directory.
     * sandbox-mirror (#32049) — writes that hit the
-      ``…/sandboxes/<backend>/<task>/home/.hermes/…`` mirror created by a
+      ``…/sandboxes/<backend>/<task>/home/.agentx/…`` mirror created by a
       non-local terminal backend (Docker, Daytona, etc.), where the host
       Hermes process never reads the mirror and the authoritative file is
       left untouched.
     * container-mirror (#32049 follow-up) — writes from inside a Docker
       container whose bind-mounted home strips the ``sandboxes/`` prefix, so
-      the agent sees a plain ``/root/.hermes/…`` path.
+      the agent sees a plain ``/root/.agentx/…`` path.
 
     Returns ``None`` when the write is in-scope or outside Hermes scope.
     All detectors are soft guards — the agent can override any by
@@ -775,7 +775,7 @@ def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | 
         return None
 
     # Resolve via the task's cwd so a relative ``skills/foo/SKILL.md``
-    # in a session that cd'd into ``~/.hermes/profiles/other/`` is
+    # in a session that cd'd into ``~/.agentx/profiles/other/`` is
     # classified against the right base.
     try:
         resolved = str(_resolve_path_for_task(filepath, task_id))
@@ -1348,9 +1348,9 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 2000, task_id: str =
 
         # ── Hermes internal path guard ────────────────────────────────
         # Prevent prompt injection via catalog or hub metadata files,
-        # and block credential stores under HERMES_HOME.  Pass the
+        # and block credential stores under AGENTX_HOME.  Pass the
         # already-resolved path so a relative-path read against
-        # TERMINAL_CWD == HERMES_HOME (e.g. "auth.json") still hits the
+        # TERMINAL_CWD == AGENTX_HOME (e.g. "auth.json") still hits the
         # denylist — get_read_block_error's own resolve() runs against
         # the Python process cwd, which can differ.
         block_error = get_read_block_error(str(_resolved))

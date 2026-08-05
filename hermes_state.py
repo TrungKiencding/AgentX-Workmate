@@ -252,8 +252,8 @@ def _default_db_path() -> Path:
     """Resolve the default state DB path at call time.
 
     ``DEFAULT_DB_PATH`` is computed when this module is first imported, which
-    freezes the developer's real ``~/.hermes`` even when a test fixture later
-    redirects ``HERMES_HOME`` — importing this module during collection was
+    freezes the developer's real ``~/.agentx`` even when a test fixture later
+    redirects ``AGENTX_HOME`` — importing this module during collection was
     enough to point every default ``SessionDB()`` at the real state.db.
 
     Precedence:
@@ -261,7 +261,7 @@ def _default_db_path() -> Path:
     1. A deliberately re-pointed ``DEFAULT_DB_PATH`` (differs from the
        import-time snapshot — the established test escape hatch) wins.
     2. Otherwise resolve ``get_hermes_home()`` fresh so a runtime
-       ``HERMES_HOME`` redirect takes effect regardless of import order.
+       ``AGENTX_HOME`` redirect takes effect regardless of import order.
     """
     if DEFAULT_DB_PATH != _IMPORT_DEFAULT_DB_PATH:
         return DEFAULT_DB_PATH
@@ -1542,7 +1542,7 @@ def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, A
 # complete ``messages_fts`` index's triggers.
 #
 # The table exists ONLY when the loadable tokenizer is available
-# (``~/.hermes/lib/libfts5_cjk.so``, built by ``native/fts5_cjk/build.sh``).
+# (``~/.agentx/lib/libfts5_cjk.so``, built by ``native/fts5_cjk/build.sh``).
 # A process that cannot load it self-heals by dropping the cjk triggers
 # (message writes keep working; the index goes stale and is rebuilt by the
 # next ``hermes sessions optimize-storage`` on a capable host).
@@ -1614,7 +1614,7 @@ END;
 
 def fts5_cjk_so_path() -> Path:
     """Location of the cjk_unicode61 loadable extension."""
-    env = os.getenv("HERMES_FTS5_CJK_SO")
+    env = os.getenv("AGENTX_FTS5_CJK_SO")
     if env:
         return Path(env).expanduser()
     return get_hermes_home() / "lib" / "libfts5_cjk.so"
@@ -1622,7 +1622,7 @@ def fts5_cjk_so_path() -> Path:
 
 def _cjk_fts_config_enabled() -> bool:
     """config.yaml ``sessions.cjk_fts`` (default on), via its env bridge."""
-    return os.getenv("HERMES_CJK_FTS", "1").strip().lower() not in (
+    return os.getenv("AGENTX_CJK_FTS", "1").strip().lower() not in (
         "0", "false", "off", "no",
     )
 
@@ -8716,7 +8716,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
     def retag_kanban_worker_sessions(self, workspaces_root: str) -> int:
         """Retag legacy kanban worker rows from ``cli`` to ``kanban``.
 
-        Workers used to spawn without ``HERMES_SESSION_SOURCE``, so their runs
+        Workers used to spawn without ``AGENTX_SESSION_SOURCE``, so their runs
         landed as untitled ``cli`` rows and the sidebar rendered one per attempt
         labeled with the worker's own prompt. New workers tag themselves; this
         reclaims the rows already on disk so they drop out of the session lists

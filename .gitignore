@@ -69,7 +69,7 @@ test-results/
 # CLI config (may contain sensitive SSH paths)
 cli-config.yaml
 
-# Skills Hub state (lives in ~/.hermes/skills/.hub/ at runtime, but just in case)
+# Skills Hub state (lives in ~/.agentx/skills/.hub/ at runtime, but just in case)
 skills/.hub/
 ignored/
 .worktrees/
@@ -132,10 +132,10 @@ config/mcporter.json
 hermes_cli/tui_dist/*
 hermes_cli/scripts/
 docs/superpowers/*
-# Working directory for the Hermes Agent's session state (~/.hermes/ at runtime;
+# Working directory for the Hermes Agent's session state (~/.agentx/ at runtime;
 # also created in-repo when an agent operates in this checkout). Plans, audit
 # logs, and per-session caches are never artifacts of the codebase.
-.hermes/
+.agentx/
 
 # Desktop/bootstrap install marker written into the managed checkout root by the
 # bootstrap installer. It is Hermes-managed runtime state, never a code change —

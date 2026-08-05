@@ -36,12 +36,12 @@ Hermes Agent 支持跨所有消息平台的文字转语音（TTS）输出和语�
 | Telegram | 语音气泡（内联播放） | Opus `.ogg` |
 | Discord | 语音气泡（Opus/OGG），回退为文件附件 | Opus/MP3 |
 | WhatsApp | 音频文件附件 | MP3 |
-| CLI | 保存至 `~/.hermes/audio_cache/` | MP3 |
+| CLI | 保存至 `~/.agentx/audio_cache/` | MP3 |
 
 ### 配置
 
 ```yaml
-# In ~/.hermes/config.yaml
+# In ~/.agentx/config.yaml
 tts:
   provider: "edge"              # "edge" | "elevenlabs" | "openai" | "minimax" | "mistral" | "gemini" | "xai" | "neutts" | "kittentts" | "piper"
   speed: 1.0                    # Global speed multiplier (provider-specific settings override this)
@@ -86,7 +86,7 @@ tts:
     clean_text: true                            # Expand numbers, currencies, units
   piper:
     voice: en_US-lessac-medium                  # voice name (auto-downloaded) OR absolute path to .onnx
-    # voices_dir: ''                            # default: ~/.hermes/cache/piper-voices/
+    # voices_dir: ''                            # default: ~/.agentx/cache/piper-voices/
     # use_cuda: false                           # requires onnxruntime-gpu
     # length_scale: 1.0                         # 2.0 = twice as slow
     # noise_scale: 0.667
@@ -192,7 +192,7 @@ tts:
     voice: en_US-lessac-medium
 ```
 
-首次对未在本地缓存的声音进行 TTS 调用时，Hermes 会运行 `python -m piper.download_voices <name>` 并将模型（约 20-90MB，取决于质量等级）下载至 `~/.hermes/cache/piper-voices/`。后续调用将复用已缓存的模型。
+首次对未在本地缓存的声音进行 TTS 调用时，Hermes 会运行 `python -m piper.download_voices <name>` 并将模型（约 20-90MB，取决于质量等级）下载至 `~/.agentx/cache/piper-voices/`。后续调用将复用已缓存的模型。
 
 **选择声音。** [完整声音目录](https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/VOICES.md) 涵盖英语、西班牙语、法语、德语、意大利语、荷兰语、葡萄牙语、俄语、波兰语、土耳其语、中文、阿拉伯语、印地语等——每种语言均有 `x_low` / `low` / `medium` / `high` 质量等级。可在 [rhasspy.github.io/piper-samples](https://rhasspy.github.io/piper-samples/) 试听声音样本。
 
@@ -316,7 +316,7 @@ tts:
 
 #### 最小插件
 
-将以下内容放入 `~/.hermes/plugins/my-tts/`：
+将以下内容放入 `~/.agentx/plugins/my-tts/`：
 
 `plugin.yaml`：
 ```yaml
@@ -387,13 +387,13 @@ def register(ctx):
 | **OpenAI Whisper API** | 良好至最佳 | 付费 | `VOICE_TOOLS_OPENAI_KEY` 或 `OPENAI_API_KEY` |
 
 :::info 零配置
-安装了 `faster-whisper` 后，本地转录即可开箱即用。若不可用，Hermes 也可使用常见安装位置（如 `/opt/homebrew/bin`）的本地 `whisper` CLI，或通过 `HERMES_LOCAL_STT_COMMAND` 指定的自定义命令。
+安装了 `faster-whisper` 后，本地转录即可开箱即用。若不可用，Hermes 也可使用常见安装位置（如 `/opt/homebrew/bin`）的本地 `whisper` CLI，或通过 `AGENTX_LOCAL_STT_COMMAND` 指定的自定义命令。
 :::
 
 ### 配置
 
 ```yaml
-# In ~/.hermes/config.yaml
+# In ~/.agentx/config.yaml
 stt:
   provider: "local"           # "local" | "groq" | "openai" | "mistral" | "xai"
   local:
@@ -422,11 +422,11 @@ stt:
 
 **OpenAI API** — 优先使用 `VOICE_TOOLS_OPENAI_KEY`，回退至 `OPENAI_API_KEY`。支持 `whisper-1`、`gpt-4o-mini-transcribe`、`gpt-4o-transcribe` 和 `gpt-transcribe`。
 
-**Mistral API（Voxtral Transcribe）** — 需要 `MISTRAL_API_KEY`。使用 Mistral 的 [Voxtral Transcribe](https://docs.mistral.ai/capabilities/audio/speech_to_text/) 模型。支持 13 种语言、说话人分离和词级时间戳。通过 `cd ~/.hermes/hermes-agent && uv pip install -e ".[mistral]"` 安装。
+**Mistral API（Voxtral Transcribe）** — 需要 `MISTRAL_API_KEY`。使用 Mistral 的 [Voxtral Transcribe](https://docs.mistral.ai/capabilities/audio/speech_to_text/) 模型。支持 13 种语言、说话人分离和词级时间戳。通过 `cd ~/.agentx/hermes-agent && uv pip install -e ".[mistral]"` 安装。
 
 **xAI Grok STT** — 需要 `XAI_API_KEY`。以 multipart/form-data 格式发送至 `https://api.x.ai/v1/stt`。如果你已在使用 xAI 进行聊天或 TTS 并希望一个 API 密钥搞定一切，这是个好选择。自动检测顺序将其排在 Groq 之后——显式设置 `stt.provider: xai` 可强制使用。
 
-**自定义本地 CLI 回退** — 若你希望 Hermes 直接调用本地转录命令，请设置 `HERMES_LOCAL_STT_COMMAND`。命令模板支持 `{input_path}`、`{output_dir}`、`{language}` 和 `{model}` 占位符。你的命令必须在 `{output_dir}` 下某处写入 `.txt` 转录文件。
+**自定义本地 CLI 回退** — 若你希望 Hermes 直接调用本地转录命令，请设置 `AGENTX_LOCAL_STT_COMMAND`。命令模板支持 `{input_path}`、`{output_dir}`、`{language}` 和 `{model}` 占位符。你的命令必须在 `{output_dir}` 下某处写入 `.txt` 转录文件。
 
 #### 示例：Doubao / Volcengine ASR
 
@@ -436,7 +436,7 @@ stt:
 pip install doubao-speech
 export VOLCENGINE_APP_ID="your-app-id"
 export VOLCENGINE_ACCESS_TOKEN="your-access-token"
-export HERMES_LOCAL_STT_COMMAND='doubao-speech transcribe {input_path} --out {output_dir}/transcript.txt'
+export AGENTX_LOCAL_STT_COMMAND='doubao-speech transcribe {input_path} --out {output_dir}/transcript.txt'
 ```
 
 ```yaml
@@ -449,7 +449,7 @@ Hermes 将传入的语音消息写入 `{input_path}`，运行命令，并读取 
 ### 回退行为
 
 若配置的提供商不可用，Hermes 会自动回退：
-- **本地 faster-whisper 不可用** → 在云端提供商之前尝试本地 `whisper` CLI 或 `HERMES_LOCAL_STT_COMMAND`
+- **本地 faster-whisper 不可用** → 在云端提供商之前尝试本地 `whisper` CLI 或 `AGENTX_LOCAL_STT_COMMAND`
 - **未设置 Groq 密钥** → 回退至本地转录，然后是 OpenAI
 - **未设置 OpenAI 密钥** → 回退至本地转录，然后是 Groq
 - **未设置 Mistral 密钥/SDK** → 在自动检测中跳过；回退至下一个可用提供商

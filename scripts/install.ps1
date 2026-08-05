@@ -29,8 +29,8 @@ param(
     # existing tree pass -ForceCommit.
     [switch]$ForceCommit,
     [string]$Tag = "",
-    [string]$HermesHome = $(if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\hermes" }),
-    [string]$InstallDir = $(if ($env:HERMES_HOME) { "$env:HERMES_HOME\hermes-agent" } else { "$env:LOCALAPPDATA\hermes\hermes-agent" }),
+    [string]$HermesHome = $(if ($env:AGENTX_HOME) { $env:AGENTX_HOME } else { "$env:LOCALAPPDATA\agentx" }),
+    [string]$InstallDir = $(if ($env:AGENTX_HOME) { "$env:AGENTX_HOME\hermes-agent" } else { "$env:LOCALAPPDATA\agentx\hermes-agent" }),
 
     # --- Stage protocol (additive; default invocation behaves as before) ----
     # See the "Stage protocol" section near the bottom of the file for the
@@ -694,7 +694,7 @@ function Resolve-UvCmd {
     }
 
     # Fall back to PATH (covers edge cases where the installer ran in a
-    # sibling process and HERMES_HOME wasn't propagated).
+    # sibling process and AGENTX_HOME wasn't propagated).
     if (Get-Command uv -ErrorAction SilentlyContinue) {
         $script:UvCmd = "uv"
         return
@@ -952,7 +952,7 @@ function Install-Git {
       1. Existing ``git`` on PATH -- use it as-is (the common fast path).
       2. Download **PortableGit** from the official git-for-windows GitHub
          release (self-extracting 7z.exe) and unpack it to
-         ``%LOCALAPPDATA%\hermes\git`` -- never touches system Git, never
+         ``%LOCALAPPDATA%\agentx\git`` -- never touches system Git, never
          requires admin, works even on locked-down machines and machines
          with a broken system Git install.
 
@@ -966,11 +966,11 @@ function Install-Git {
     We deliberately skip winget because it fails badly when the system Git
     install is in a half-installed state (partially registered, or uninstall-
     blocked).  Owning the Hermes copy of Git ourselves is predictable and
-    recoverable: if it ever breaks, ``Remove-Item %LOCALAPPDATA%\hermes\git``
+    recoverable: if it ever breaks, ``Remove-Item %LOCALAPPDATA%\agentx\git``
     and re-running this installer fully recovers.
 
     After install we locate ``bash.exe`` and persist the path in
-    ``HERMES_GIT_BASH_PATH`` (User scope) so Hermes can find it in a fresh
+    ``AGENTX_GIT_BASH_PATH`` (User scope) so Hermes can find it in a fresh
     shell without a second PATH refresh.
     #>
     $script:GitInstallFailureReason = $null
@@ -1140,7 +1140,7 @@ function Set-GitBashEnvVar {
     <#
     .SYNOPSIS
     Locate ``bash.exe`` from an already-installed Git and persist the path in
-    ``HERMES_GIT_BASH_PATH`` (User env scope) so Hermes can find it even before
+    ``AGENTX_GIT_BASH_PATH`` (User env scope) so Hermes can find it even before
     PATH propagation completes in a newly-spawned shell.
     #>
     $script:GitBashPath = $null
@@ -1178,16 +1178,16 @@ function Set-GitBashEnvVar {
 
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path $candidate)) {
-            [Environment]::SetEnvironmentVariable("HERMES_GIT_BASH_PATH", $candidate, "User")
-            $env:HERMES_GIT_BASH_PATH = $candidate
+            [Environment]::SetEnvironmentVariable("AGENTX_GIT_BASH_PATH", $candidate, "User")
+            $env:AGENTX_GIT_BASH_PATH = $candidate
             $script:GitBashPath = $candidate
-            Write-Info "Set HERMES_GIT_BASH_PATH=$candidate"
+            Write-Info "Set AGENTX_GIT_BASH_PATH=$candidate"
             return
         }
     }
 
     Write-Warn "Could not locate bash.exe -- Hermes may not find Git Bash."
-    Write-Info "If needed, set HERMES_GIT_BASH_PATH manually to your bash.exe path."
+    Write-Info "If needed, set AGENTX_GIT_BASH_PATH manually to your bash.exe path."
 }
 
 # The dependency tree's real Node floor is >=22.22.0, set by react-router 8.3.0
@@ -2013,7 +2013,7 @@ function Install-Venv {
             # on failure -- but only for tasks that were enabled to begin with.
             # Best-effort: a missing task just errors quietly.
             try {
-                schtasks /Query /FO CSV 2>$null | ConvertFrom-Csv | Where-Object { $_.TaskName -like '*Hermes_Gateway*' } | ForEach-Object {
+                schtasks /Query /FO CSV 2>$null | ConvertFrom-Csv | Where-Object { $_.TaskName -like '*AgentX_Gateway*' } | ForEach-Object {
                     $tn = $_.TaskName
                     if ($_.Status -eq 'Disabled') {
                         Write-Info "  gateway autostart task $tn is already disabled; leaving it that way"
@@ -2439,15 +2439,15 @@ function Set-PathVariable {
         Write-Info "PATH already configured"
     }
     
-    # Set HERMES_HOME so the Python code finds config/data in the right place.
-    # Only needed on Windows where we install to %LOCALAPPDATA%\hermes instead
-    # of the Unix default ~/.hermes
-    $currentHermesHome = [Environment]::GetEnvironmentVariable("HERMES_HOME", "User")
+    # Set AGENTX_HOME so the Python code finds config/data in the right place.
+    # Only needed on Windows where we install to %LOCALAPPDATA%\agentx instead
+    # of the Unix default ~/.agentx
+    $currentHermesHome = [Environment]::GetEnvironmentVariable("AGENTX_HOME", "User")
     if (-not $currentHermesHome -or $currentHermesHome -ne $HermesHome) {
-        [Environment]::SetEnvironmentVariable("HERMES_HOME", $HermesHome, "User")
-        Write-Success "Set HERMES_HOME=$HermesHome"
+        [Environment]::SetEnvironmentVariable("AGENTX_HOME", $HermesHome, "User")
+        Write-Success "Set AGENTX_HOME=$HermesHome"
     }
-    $env:HERMES_HOME = $HermesHome
+    $env:AGENTX_HOME = $HermesHome
     
     # Update current session
     $env:Path = "$hermesBin;$env:Path"
@@ -2535,7 +2535,7 @@ function Write-BootstrapMarker {
 function Copy-ConfigTemplates {
     Write-Info "Setting up configuration files..."
     
-    # Create the HERMES_HOME directory structure ($HermesHome, default %LOCALAPPDATA%\hermes)
+    # Create the AGENTX_HOME directory structure ($HermesHome, default %LOCALAPPDATA%\agentx)
     New-Item -ItemType Directory -Force -Path "$HermesHome\cron" | Out-Null
     New-Item -ItemType Directory -Force -Path "$HermesHome\sessions" | Out-Null
     New-Item -ItemType Directory -Force -Path "$HermesHome\logs" | Out-Null
@@ -3365,7 +3365,7 @@ function New-DesktopShortcuts {
 
 function Install-PlatformSdks {
     # Ensure messaging-platform SDKs matching tokens the user added to
-    # ~/.hermes/.env are importable.  Two problems this solves:
+    # ~/.agentx/.env are importable.  Two problems this solves:
     #
     # 1. The tiered `uv pip install` cascade above can fall through to a
     #    lower tier when the first fails (common when RL git deps choke),

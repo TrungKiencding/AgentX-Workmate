@@ -7,7 +7,7 @@ description: "Plugins shipped with Hermes Agent that run automatically via lifec
 
 # Built-in Plugins
 
-Hermes ships a small set of plugins bundled with the repository. They live under `<repo>/plugins/<name>/` and load automatically alongside user-installed plugins in `~/.hermes/plugins/`. They use the same plugin surface as third-party plugins — hooks, tools, slash commands — just maintained in-tree.
+Hermes ships a small set of plugins bundled with the repository. They live under `<repo>/plugins/<name>/` and load automatically alongside user-installed plugins in `~/.agentx/plugins/`. They use the same plugin surface as third-party plugins — hooks, tools, slash commands — just maintained in-tree.
 
 See the [Plugins](/user-guide/features/plugins) page for the general plugin system, and [Build a Hermes Plugin](/developer-guide/plugins) to write your own.
 
@@ -16,8 +16,8 @@ See the [Plugins](/user-guide/features/plugins) page for the general plugin syst
 The `PluginManager` scans four sources, in order:
 
 1. **Bundled** — `<repo>/plugins/<name>/` (what this page documents)
-2. **User** — `~/.hermes/plugins/<name>/`
-3. **Project** — `./.hermes/plugins/<name>/` (requires `HERMES_ENABLE_PROJECT_PLUGINS=1`)
+2. **User** — `~/.agentx/plugins/<name>/`
+3. **Project** — `./.agentx/plugins/<name>/` (requires `AGENTX_ENABLE_PROJECT_PLUGINS=1`)
 4. **Pip entry points** — `hermes_agent.plugins`
 
 On name collision, later sources win — a user plugin named `disk-cleanup` would replace the bundled one.
@@ -32,7 +32,7 @@ Bundled plugins ship disabled. Discovery finds them (they appear in `hermes plug
 hermes plugins enable disk-cleanup
 ```
 
-Or via `~/.hermes/config.yaml`:
+Or via `~/.agentx/config.yaml`:
 
 ```yaml
 plugins:
@@ -78,7 +78,7 @@ Auto-tracks and removes ephemeral files created during sessions — test scripts
 
 | Hook | Behaviour |
 |---|---|
-| `post_tool_call` | When `write_file` / `terminal` / `patch` creates a file matching `test_*`, `tmp_*`, or `*.test.*` inside `HERMES_HOME` or `/tmp/hermes-*`, track it silently as `test` / `temp` / `cron-output`. |
+| `post_tool_call` | When `write_file` / `terminal` / `patch` creates a file matching `test_*`, `tmp_*`, or `*.test.*` inside `AGENTX_HOME` or `/tmp/hermes-*`, track it silently as `test` / `temp` / `cron-output`. |
 | `on_session_end` | If any test files were auto-tracked during the turn, run the safe `quick` cleanup and log a one-line summary. Stays silent otherwise. |
 
 **Deletion rules:**
@@ -88,7 +88,7 @@ Auto-tracks and removes ephemeral files created during sessions — test scripts
 | `test` | every session end | Never |
 | `temp` | >7 days since tracked | Never |
 | `cron-output` | >14 days since tracked | Never |
-| empty dirs under HERMES_HOME | always | Never |
+| empty dirs under AGENTX_HOME | always | Never |
 | `research` | >30 days, beyond 10 newest | Always (deep only) |
 | `chrome-profile` | >14 days since tracked | Always (deep only) |
 | files >500 MB | never auto | Always (deep only) |
@@ -104,7 +104,7 @@ Auto-tracks and removes ephemeral files created during sessions — test scripts
 /disk-cleanup forget <path>              # stop tracking (does not delete)
 ```
 
-**State** — everything lives at `$HERMES_HOME/disk-cleanup/`:
+**State** — everything lives at `$AGENTX_HOME/disk-cleanup/`:
 
 | File | Contents |
 |---|---|
@@ -112,7 +112,7 @@ Auto-tracks and removes ephemeral files created during sessions — test scripts
 | `tracked.json.bak` | Atomic-write backup of the above |
 | `cleanup.log` | Append-only audit trail of every track / skip / reject / delete |
 
-**Safety** — cleanup only ever touches paths under `HERMES_HOME` or `/tmp/hermes-*`. Windows mounts (`/mnt/c/...`) are rejected. Well-known top-level state dirs (`logs/`, `memories/`, `sessions/`, `cron/`, `cache/`, `skills/`, `plugins/`, `disk-cleanup/` itself) are never removed even when empty — a fresh install does not get gutted on first session end.
+**Safety** — cleanup only ever touches paths under `AGENTX_HOME` or `/tmp/hermes-*`. Windows mounts (`/mnt/c/...`) are rejected. Well-known top-level state dirs (`logs/`, `memories/`, `sessions/`, `cron/`, `cache/`, `skills/`, `plugins/`, `disk-cleanup/` itself) are never removed even when empty — a fresh install does not get gutted on first session end.
 
 **Enabling:** `hermes plugins enable disk-cleanup` (or check the box in `hermes plugins`).
 
@@ -161,12 +161,12 @@ pip install langfuse
 hermes plugins enable observability/langfuse
 ```
 
-Then put the credentials in `~/.hermes/.env`:
+Then put the credentials in `~/.agentx/.env`:
 
 ```bash
-HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
-HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
-HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or your self-hosted URL
+AGENTX_LANGFUSE_PUBLIC_KEY=pk-lf-...
+AGENTX_LANGFUSE_SECRET_KEY=sk-lf-...
+AGENTX_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or your self-hosted URL
 ```
 
 **How it works:**
@@ -176,7 +176,7 @@ HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # or your self-hosted URL
 | `pre_api_request` / `pre_llm_call` | Open (or reuse) a per-turn root span "Hermes turn". Start a `generation` child observation for this API call with serialized recent messages as input. |
 | `post_api_request` / `post_llm_call` | Close the generation, attach `usage_details`, `cost_details`, `finish_reason`, assistant output + tool calls. If no tool calls and non-empty content, close the turn. |
 | `pre_tool_call` | Start a `tool` child observation with sanitized `args`. |
-| `post_tool_call` | Close the tool observation with sanitized `result`. `read_file` payloads get summarized (head + tail + omitted-line count) so a huge file read stays under `HERMES_LANGFUSE_MAX_CHARS`. |
+| `post_tool_call` | Close the tool observation with sanitized `result`. `read_file` payloads get summarized (head + tail + omitted-line count) so a huge file read stays under `AGENTX_LANGFUSE_MAX_CHARS`. |
 
 Session grouping keys off the Hermes session ID (or task ID for sub-agents) via `langfuse.propagate_attributes`, so everything in a single `hermes chat` session lives under one Langfuse session.
 
@@ -191,11 +191,11 @@ hermes chat -q "hello"              # check the Langfuse UI for a "Hermes turn" 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HERMES_LANGFUSE_ENV` | — | Environment tag on traces (`production`, `staging`, …) |
-| `HERMES_LANGFUSE_RELEASE` | — | Release/version tag |
-| `HERMES_LANGFUSE_SAMPLE_RATE` | `1.0` | Sampling rate passed to the SDK (0.0–1.0) |
-| `HERMES_LANGFUSE_MAX_CHARS` | `12000` | Per-field truncation for message content / tool args / tool results |
-| `HERMES_LANGFUSE_DEBUG` | `false` | Verbose plugin logging to `agent.log` |
+| `AGENTX_LANGFUSE_ENV` | — | Environment tag on traces (`production`, `staging`, …) |
+| `AGENTX_LANGFUSE_RELEASE` | — | Release/version tag |
+| `AGENTX_LANGFUSE_SAMPLE_RATE` | `1.0` | Sampling rate passed to the SDK (0.0–1.0) |
+| `AGENTX_LANGFUSE_MAX_CHARS` | `12000` | Per-field truncation for message content / tool args / tool results |
+| `AGENTX_LANGFUSE_DEBUG` | `false` | Verbose plugin logging to `agent.log` |
 
 Hermes-prefixed and standard SDK env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`) are both accepted — Hermes-prefixed wins when both are set.
 
@@ -212,7 +212,7 @@ Lets the agent **join, transcribe, and participate in Google Meet calls** — ta
 - A headless virtual participant that joins a Meet URL using browser automation
 - Live transcription of the meeting audio via the configured STT provider
 - A `meet_join` / `meet_status` / `meet_transcript` / `meet_leave` / `meet_say` toolset the agent invokes to join calls, poll the live transcript, and act on what it heard
-- Post-meeting artifacts (transcript, status) saved under `~/.hermes/workspace/meetings/<meeting_id>/`
+- Post-meeting artifacts (transcript, status) saved under `~/.agentx/workspace/meetings/<meeting_id>/`
 
 **Setup:**
 
@@ -232,7 +232,7 @@ The agent kicks off the meeting join, streams the transcription back into its co
 
 **When to use it:** recurring standups where you want a bot to transcribe + summarize for async attendees; deposition-style interviews where you want structured notes; any case where you'd otherwise need Fireflies / Otter / Grain. When you'd rather not have an AI listening in — don't enable it.
 
-**Disabling:** `hermes plugins disable google_meet`. Any saved transcripts stay in `~/.hermes/workspace/meetings/` until you remove them.
+**Disabling:** `hermes plugins disable google_meet`. Any saved transcripts stay in `~/.agentx/workspace/meetings/` until you remove them.
 
 ### hermes-achievements
 
@@ -240,10 +240,10 @@ Adds a **Steam-style achievements tab to the dashboard** — 60+ collectible, ti
 
 **How it works:**
 
-- Scans your entire `~/.hermes/state.db` session history on the dashboard backend
+- Scans your entire `~/.agentx/state.db` session history on the dashboard backend
 - Per-session stats are cached by `(started_at, last_active)` fingerprint, so only new or changed sessions re-analyze on subsequent scans
 - First-ever scan runs in a background thread — the dashboard never blocks waiting for it, even on databases with thousands of sessions
-- Unlock state is persisted to `$HERMES_HOME/plugins/hermes-achievements/state.json`
+- Unlock state is persisted to `$AGENTX_HOME/plugins/hermes-achievements/state.json`
 
 **Tier progression:** Copper → Silver → Gold → Diamond → Olympian. Each card exposes a "What counts" section listing the exact metric being tracked.
 
@@ -266,7 +266,7 @@ Adds a **Steam-style achievements tab to the dashboard** — 60+ collectible, ti
 | `POST /rescan` | Manual synchronous rescan (blocks; use when the user clicks the rescan button) |
 | `POST /reset-state` | Clear unlock history and cached snapshot |
 
-**State files** — live under `$HERMES_HOME/plugins/hermes-achievements/`:
+**State files** — live under `$AGENTX_HOME/plugins/hermes-achievements/`:
 
 | File | Contents |
 |---|---|
@@ -283,13 +283,13 @@ Adds a **Steam-style achievements tab to the dashboard** — 60+ collectible, ti
 
 **Enabling:** Nothing to enable — `hermes-achievements` is a dashboard-only plugin (no lifecycle hooks, no model-visible tools). It auto-registers as a tab in `hermes dashboard` on first launch. The `plugins.enabled` config only gates lifecycle/tool plugins; dashboard plugins are discovered purely via their `dashboard/manifest.json`.
 
-**Opting out:** Delete or rename `plugins/hermes-achievements/dashboard/manifest.json`, or override it with a user plugin of the same name in `~/.hermes/plugins/hermes-achievements/` that ships no dashboard. The plugin's state files under `$HERMES_HOME/plugins/hermes-achievements/` survive — reinstalling preserves your unlock history.
+**Opting out:** Delete or rename `plugins/hermes-achievements/dashboard/manifest.json`, or override it with a user plugin of the same name in `~/.agentx/plugins/hermes-achievements/` that ships no dashboard. The plugin's state files under `$AGENTX_HOME/plugins/hermes-achievements/` survive — reinstalling preserves your unlock history.
 
 ## Adding a bundled plugin
 
 Bundled plugins are written exactly like any other Hermes plugin — see [Build a Hermes Plugin](/developer-guide/plugins). The only differences are:
 
-- Directory lives at `<repo>/plugins/<name>/` instead of `~/.hermes/plugins/<name>/`
+- Directory lives at `<repo>/plugins/<name>/` instead of `~/.agentx/plugins/<name>/`
 - Manifest source is reported as `bundled` in `hermes plugins list`
 - User plugins with the same name override the bundled version
 

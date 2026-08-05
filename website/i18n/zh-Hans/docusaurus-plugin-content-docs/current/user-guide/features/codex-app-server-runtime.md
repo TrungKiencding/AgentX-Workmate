@@ -91,11 +91,11 @@ Codex 运行时 worker 内可用的功能：
 - 用于 browser_*、vision、image_gen、技能、TTS 的 Hermes 工具回调
 
 通过 MCP 回调同样可用的功能：
-- **`kanban_complete` / `kanban_block` / `kanban_comment` / `kanban_heartbeat`** — worker 交接工具。这些工具从环境变量中读取 `HERMES_KANBAN_TASK`（由分发器设置），正确进行访问控制，并写入由 `HERMES_KANBAN_DB` 固定的每个看板 SQLite 数据库。若回调中没有这些工具，此运行时上的 worker 可以完成任务但无法汇报，会一直挂起直到分发器超时。
+- **`kanban_complete` / `kanban_block` / `kanban_comment` / `kanban_heartbeat`** — worker 交接工具。这些工具从环境变量中读取 `AGENTX_KANBAN_TASK`（由分发器设置），正确进行访问控制，并写入由 `AGENTX_KANBAN_DB` 固定的每个看板 SQLite 数据库。若回调中没有这些工具，此运行时上的 worker 可以完成任务但无法汇报，会一直挂起直到分发器超时。
 - **`kanban_show` / `kanban_list`** — 只读看板查询，供 worker 检查自身上下文。
 - **`kanban_create` / `kanban_unblock` / `kanban_link`** — 仅限编排器的操作。供运行在 Codex 运行时上、需要分发新任务的编排器 agent 使用。
 
-Kanban 工具通过分发器设置的 `HERMES_KANBAN_TASK` 环境变量进行访问控制——该变量会传播到 Codex 子进程（Codex 继承环境变量），再从那里传播到生成的 `hermes-tools` MCP server 子进程。因此工具能看到正确的任务 id 并正确进行访问控制。对于 Codex app-server worker，当 `HERMES_KANBAN_TASK` 存在时，Hermes 还会传入精细的 app-server 沙箱覆盖配置：保持 `workspace-write` 沙箱，将**看板数据库目录以及分发器固定的所有 Kanban 路径**作为额外可写根目录添加（`HERMES_KANBAN_WORKSPACES_ROOT`、`HERMES_KANBAN_WORKSPACE`、旧版 `HERMES_KANBAN_ROOT`——去重，数据库目录优先），并默认禁用网络。这避免了脆弱的 `:danger-no-sandbox` 变通方案，同时允许 `kanban_complete` / `kanban_block` 更新看板数据库，**并且**允许 worker 在数据库目录之外的工作区挂载点下写入报告/产物（例如独立驱动器上的 `/media/.../kanban-workspaces/...`——[issue #27941](https://github.com/NousResearch/hermes-agent/issues/27941)）。
+Kanban 工具通过分发器设置的 `AGENTX_KANBAN_TASK` 环境变量进行访问控制——该变量会传播到 Codex 子进程（Codex 继承环境变量），再从那里传播到生成的 `hermes-tools` MCP server 子进程。因此工具能看到正确的任务 id 并正确进行访问控制。对于 Codex app-server worker，当 `AGENTX_KANBAN_TASK` 存在时，Hermes 还会传入精细的 app-server 沙箱覆盖配置：保持 `workspace-write` 沙箱，将**看板数据库目录以及分发器固定的所有 Kanban 路径**作为额外可写根目录添加（`AGENTX_KANBAN_WORKSPACES_ROOT`、`AGENTX_KANBAN_WORKSPACE`、旧版 `AGENTX_KANBAN_ROOT`——去重，数据库目录优先），并默认禁用网络。这避免了脆弱的 `:danger-no-sandbox` 变通方案，同时允许 `kanban_complete` / `kanban_block` 更新看板数据库，**并且**允许 worker 在数据库目录之外的工作区挂载点下写入报告/产物（例如独立驱动器上的 `/media/.../kanban-workspaces/...`——[issue #27941](https://github.com/NousResearch/hermes-agent/issues/27941)）。
 
 ### Cron 任务
 
@@ -139,7 +139,7 @@ Kanban 工具通过分发器设置的 `HERMES_KANBAN_TASK` 环境变量进行访
    ```bash
    codex login                  # 将 token 写入 ~/.codex/auth.json
    ```
-   Hermes 自己的 `hermes auth login codex` 写入 `~/.hermes/auth.json`——那是独立的会话。**如果你还没有运行过 `codex login`，请单独运行它。**
+   Hermes 自己的 `hermes auth login codex` 写入 `~/.agentx/auth.json`——那是独立的会话。**如果你还没有运行过 `codex login`，请单独运行它。**
 
 3. **（可选）安装你想要的 Codex 插件。** 启用运行时时，Hermes 会自动迁移你已通过 Codex CLI 安装的所有精选插件：
    ```bash
@@ -159,7 +159,7 @@ Kanban 工具通过分发器设置的 `HERMES_KANBAN_TASK` 环境变量进行访
 该命令会：
 - 验证 `codex` CLI 是否已安装（若未安装则阻止并提示安装方法）。
 - 将 `model.openai_runtime: codex_app_server` 持久化到你的 config.yaml。
-- 将用户 MCP server 从 `~/.hermes/config.yaml` 迁移到 `~/.codex/config.toml`。
+- 将用户 MCP server 从 `~/.agentx/config.yaml` 迁移到 `~/.codex/config.toml`。
 - **发现并迁移已安装的原生 Codex 插件**（Linear、GitHub、Gmail、Calendar、Canva 等），通过查询 Codex 的 `plugin/list` RPC 实现。
 - **将 Hermes 自身的工具注册为 MCP server**，以便 Codex 子进程能够回调获取 Codex 未内置的工具。
 - **写入 `default_permissions = ":workspace"`**，使沙箱允许在工作区内写入，无需对每次操作进行提示。
@@ -172,7 +172,7 @@ Kanban 工具通过分发器设置的 `HERMES_KANBAN_TASK` 环境变量进行访
 /codex-runtime
 ```
 
-你也可以在 `~/.hermes/config.yaml` 中手动设置：
+你也可以在 `~/.agentx/config.yaml` 中手动设置：
 ```yaml
 model:
   openai_runtime: codex_app_server   # 默认值为 "auto"（= Hermes 运行时）
@@ -246,7 +246,7 @@ default_permissions = ":read-only"
 
 这并非 `codex_app_server` 特有——现有的 `codex_responses` 路径也是如此——但在这里更为明显，因为你是在明确选择订阅计费。
 
-要将特定辅助任务路由到更便宜/不同的模型，请在 `~/.hermes/config.yaml` 中设置显式覆盖：
+要将特定辅助任务路由到更便宜/不同的模型，请在 `~/.agentx/config.yaml` 中设置显式覆盖：
 
 ```yaml
 auxiliary:
@@ -293,11 +293,11 @@ default_permissions = ":workspace"
 
 默认情况下，无论哪个 Hermes 配置文件处于活跃状态，Hermes 都将 Codex 子进程指向 `~/.codex/`。这意味着 `hermes -p work` 和 `hermes -p personal` 共享相同的 Codex 认证、插件和配置。对大多数用户来说这是正确的行为——与直接运行 `codex` CLI 的效果一致。
 
-如果你需要按配置文件隔离 Codex（独立的认证、独立的已安装插件、独立的配置），请为每个配置文件显式设置 `CODEX_HOME`。最简洁的方式是指向你 `HERMES_HOME` 下的某个目录：
+如果你需要按配置文件隔离 Codex（独立的认证、独立的已安装插件、独立的配置），请为每个配置文件显式设置 `CODEX_HOME`。最简洁的方式是指向你 `AGENTX_HOME` 下的某个目录：
 
 ```bash
 # 在 work 配置文件中，你可以这样包装 hermes：
-CODEX_HOME=~/.hermes/profiles/work/codex hermes chat
+CODEX_HOME=~/.agentx/profiles/work/codex hermes chat
 ```
 
 你需要在设置了该 `CODEX_HOME` 的情况下重新运行一次 `codex login`，以便 OAuth token 落入配置文件范围的位置。之后，`hermes -p work` 将在隔离的 Codex 状态下运行。
@@ -350,7 +350,7 @@ Codex 的内置工具集涵盖 shell/文件操作/patch，但没有网络搜索�
 [mcp_servers.hermes-tools]
 command = "/path/to/python"
 args = ["-m", "agent.transports.hermes_tools_mcp_server"]
-env = { HERMES_HOME = "/your/.hermes", PYTHONPATH = "...", HERMES_QUIET = "1" }
+env = { AGENTX_HOME = "/your/.agentx", PYTHONPATH = "...", AGENTX_QUIET = "1" }
 startup_timeout_sec = 30.0
 tool_timeout_sec = 600.0
 ```

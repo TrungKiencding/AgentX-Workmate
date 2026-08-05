@@ -236,7 +236,7 @@ qmd 提供 MCP 服务器，可通过原生 MCP 客户端直接向 Hermes Agent �
 
 ### 方案 A：Stdio 模式（简单）
 
-在 `~/.hermes/config.yaml` 中添加：
+在 `~/.agentx/config.yaml` 中添加：
 
 ```yaml
 mcp_servers:

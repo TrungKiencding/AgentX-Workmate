@@ -44,10 +44,10 @@ def marker(tmp_path):
 def test_marker_path_follows_process_hermes_home(tmp_path, monkeypatch):
     """The lock must land where the Rust updater and Electron gate look.
 
-    All three resolve the *process* HERMES_HOME; a profile-scoped path would
+    All three resolve the *process* AGENTX_HOME; a profile-scoped path would
     put the lock somewhere the other two owners never read.
     """
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     assert update_marker_path() == tmp_path / ".hermes-update-in-progress"
 
 
@@ -229,7 +229,7 @@ class TestHandoffFromOrchestratingUpdater:
 class TestAncestryHandoff:
     """Staged updaters older than the HANDOFF_PID_ENV export never send it.
 
-    ``hermes-setup`` under ``~/.hermes`` is only refreshed by a full installer
+    ``hermes-setup`` under ``~/.agentx`` is only refreshed by a full installer
     run, so an updated checkout (new lock) driven by a pre-handoff staged
     updater (old parent) deadlocks on exit 2 forever unless the child also
     recognizes a live holder that is its own process ancestor.

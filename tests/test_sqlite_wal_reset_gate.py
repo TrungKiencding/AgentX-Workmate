@@ -122,9 +122,9 @@ def test_doctor_warns_without_adding_issues(monkeypatch, tmp_path, capsys):
     """Vulnerable SQLite is warn-only in doctor — not a blocking issues[] entry."""
     from hermes_cli.doctor import run_doctor
 
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".agentx"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
     monkeypatch.setattr("hermes_constants.get_hermes_home", lambda: home)
     monkeypatch.setattr(
         hermes_state, "is_sqlite_wal_reset_vulnerable", lambda version_info=None: True

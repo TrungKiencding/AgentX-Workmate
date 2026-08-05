@@ -5,7 +5,7 @@ Unified tool configuration for Hermes Agent.
 Select a platform → toggle toolsets on/off → for newly enabled tools
 that need API keys, run through provider-aware configuration.
 
-Saves per-platform tool configuration to ~/.hermes/config.yaml under
+Saves per-platform tool configuration to ~/.agentx/config.yaml under
 the `platform_toolsets` key.
 """
 
@@ -140,7 +140,7 @@ def gui_toolset_label(label: str) -> str:
 
 
 # Toolsets that are OFF by default for new installs.
-# They're still in _HERMES_CORE_TOOLS (available at runtime if enabled),
+# They're still in _AGENTX_CORE_TOOLS (available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
 #
 # Video gen is off by default — it's a niche, paid, slow feature. Users
@@ -699,7 +699,7 @@ TOOL_CATEGORIES = {
                 ),
                 "env_vars": [
                     # cua-driver reads HOME/TMPDIR from the process env, no
-                    # extra keys required. Set HERMES_CUA_DRIVER_CMD to use a
+                    # extra keys required. Set AGENTX_CUA_DRIVER_CMD to use a
                     # specific binary (e.g. a local build); there is no
                     # version-pin env var.
                 ],
@@ -715,8 +715,8 @@ TOOL_CATEGORIES = {
                 "name": "Langfuse Cloud",
                 "tag": "Hosted Langfuse (cloud.langfuse.com)",
                 "env_vars": [
-                    {"key": "HERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)", "url": "https://cloud.langfuse.com"},
-                    {"key": "HERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)", "url": "https://cloud.langfuse.com"},
+                    {"key": "AGENTX_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)", "url": "https://cloud.langfuse.com"},
+                    {"key": "AGENTX_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)", "url": "https://cloud.langfuse.com"},
                 ],
                 "post_setup": "langfuse",
             },
@@ -724,9 +724,9 @@ TOOL_CATEGORIES = {
                 "name": "Langfuse Self-Hosted",
                 "tag": "Self-hosted Langfuse instance",
                 "env_vars": [
-                    {"key": "HERMES_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)"},
-                    {"key": "HERMES_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)"},
-                    {"key": "HERMES_LANGFUSE_BASE_URL", "prompt": "Langfuse server URL (e.g. http://localhost:3000)", "default": "http://localhost:3000"},
+                    {"key": "AGENTX_LANGFUSE_PUBLIC_KEY", "prompt": "Langfuse public key (pk-lf-...)"},
+                    {"key": "AGENTX_LANGFUSE_SECRET_KEY", "prompt": "Langfuse secret key (sk-lf-...)"},
+                    {"key": "AGENTX_LANGFUSE_BASE_URL", "prompt": "Langfuse server URL (e.g. http://localhost:3000)", "default": "http://localhost:3000"},
                 ],
                 "post_setup": "langfuse",
             },
@@ -754,7 +754,7 @@ TOOLSET_ENV_REQUIREMENTS = {
 
 def _cua_driver_cmd() -> str:
     """Return the configured cua-driver override, or the bare default name."""
-    return os.environ.get("HERMES_CUA_DRIVER_CMD", "").strip() or "cua-driver"
+    return os.environ.get("AGENTX_CUA_DRIVER_CMD", "").strip() or "cua-driver"
 
 
 def _resolved_cua_driver_cmd() -> Optional[str]:
@@ -805,7 +805,7 @@ def _pip_install(
     venv_root = Path(sys.executable).parent.parent
     uv_env = {**os.environ, "VIRTUAL_ENV": str(venv_root)}
 
-    # Managed uv first: $HERMES_HOME/bin is never on PATH, so a bare which()
+    # Managed uv first: $AGENTX_HOME/bin is never on PATH, so a bare which()
     # misses the uv Hermes installed and prefers a system one when both exist.
     # ensure_uv() rather than a pure lookup because this runs during setup,
     # where installing uv is in scope — and tier 2 is a pip that the Windows
@@ -1565,7 +1565,7 @@ def _run_cua_driver_installer(
             )
             # Preserve the full installer output. During `hermes update`,
             # sys.stdout is the mirroring _UpdateOutputStream whose `_log`
-            # handle is ~/.hermes/logs/update.log — write straight to it so
+            # handle is ~/.agentx/logs/update.log — write straight to it so
             # the captured "Next steps" wall is kept in full (success AND
             # failure), without echoing it to the terminal.
             if result.stdout:
@@ -1635,7 +1635,7 @@ def _run_post_setup(post_setup_key: str):
 
     if post_setup_key in {"agent_browser", "browserbase"}:
         node_modules = PROJECT_ROOT / "node_modules" / "agent-browser"
-        # Managed Node first — $HERMES_HOME/node is not on PATH, so a bare
+        # Managed Node first — $AGENTX_HOME/node is not on PATH, so a bare
         # which() reports "no npm" on installs whose only Node is the one
         # Hermes installed for exactly this toolchain.
         npm_bin = find_node_executable("npm")
@@ -1800,7 +1800,7 @@ def _run_post_setup(post_setup_key: str):
             if result.returncode == 0:
                 _print_success("    faster-whisper installed")
                 _print_info("    Model sizes: tiny, base (default), small, medium, large-v3")
-                _print_info("    Change via stt.local.model in ~/.hermes/config.yaml")
+                _print_info("    Change via stt.local.model in ~/.agentx/config.yaml")
             else:
                 _print_warning("    faster-whisper install failed:")
                 _print_info(f"      {(result.stderr or '').strip()[:300]}")
@@ -1856,7 +1856,7 @@ def _run_post_setup(post_setup_key: str):
                 return
         _print_info("    Default voice: en_US-lessac-medium (downloaded on first TTS call)")
         _print_info("    Full voice list: https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/VOICES.md")
-        _print_info("    Switch voices by setting tts.piper.voice in ~/.hermes/config.yaml")
+        _print_info("    Switch voices by setting tts.piper.voice in ~/.agentx/config.yaml")
 
     elif post_setup_key == "ddgs":
         try:
@@ -1884,7 +1884,7 @@ def _run_post_setup(post_setup_key: str):
         # Run the full `hermes auth spotify` flow — if the user has no
         # client_id yet, this drops them into the interactive wizard
         # (opens the Spotify dashboard, prompts for client_id, persists
-        # to ~/.hermes/.env), then continues straight into PKCE. If they
+        # to ~/.agentx/.env), then continues straight into PKCE. If they
         # already have an app, it skips the wizard and just does OAuth.
         from types import SimpleNamespace
         try:
@@ -2257,7 +2257,7 @@ def _get_platform_tools(
     # If the saved list contains any configurable keys directly, the user
     # has explicitly configured this platform — use direct membership.
     # This avoids the subset-inference bug where composite toolsets like
-    # "hermes-cli" (which include all _HERMES_CORE_TOOLS) cause disabled
+    # "hermes-cli" (which include all _AGENTX_CORE_TOOLS) cause disabled
     # toolsets to re-appear as enabled.
     has_explicit_config = any(ts in configurable_keys for ts in toolset_names)
 

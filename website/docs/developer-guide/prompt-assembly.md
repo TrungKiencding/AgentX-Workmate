@@ -29,7 +29,7 @@ Primary files:
 The cached system prompt is assembled as three ordered tiers (see `agent/system_prompt.py`):
 
 1. **stable** — identity (`SOUL.md` or fallback), tool/model guidance, skills prompt, environment hints, platform hints
-2. **context** — caller-supplied `system_message` plus project context files (`.hermes.md` / `AGENTS.md` / `CLAUDE.md` / `.cursorrules`)
+2. **context** — caller-supplied `system_message` plus project context files (`.agentx.md` / `AGENTS.md` / `CLAUDE.md` / `.cursorrules`)
 3. **volatile** — built-in memory snapshot (`MEMORY.md`), user profile snapshot (`USER.md`), external memory-provider block, timestamp/session/model/provider line
 
 The final system prompt is then joined as: `stable` → `context` → `volatile`.
@@ -46,7 +46,7 @@ When `skip_context_files` is set (e.g., subagent delegation), SOUL.md is not loa
 Here is a simplified view of what the final system prompt looks like when all layers are present (comments show the source of each section):
 
 ```
-# Layer 1: Agent Identity (from ~/.hermes/SOUL.md)
+# Layer 1: Agent Identity (from ~/.agentx/SOUL.md)
 You are Hermes, an AI assistant created by Nous Research.
 You are an expert software engineer and researcher.
 You value correctness, clarity, and efficiency.
@@ -155,7 +155,7 @@ not a live mid-session mutation of a frozen prompt.
 
 ## How SOUL.md appears in the prompt
 
-`SOUL.md` lives at `~/.hermes/SOUL.md` and serves as the agent's identity — the very first section of the system prompt. The loading logic in `prompt_builder.py` works as follows:
+`SOUL.md` lives at `~/.agentx/SOUL.md` and serves as the agent's identity — the very first section of the system prompt. The loading logic in `prompt_builder.py` works as follows:
 
 ```python
 # From agent/prompt_builder.py (simplified)
@@ -194,7 +194,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
 
     # Priority: first match wins — only ONE project context loaded
     project_context = (
-        _load_hermes_md(cwd_path)       # 1. .hermes.md / HERMES.md (walks to git root)
+        _load_hermes_md(cwd_path)       # 1. .agentx.md / AGENTX.md (walks to git root)
         or _load_agents_md(cwd_path)    # 2. AGENTS.md (cwd only)
         or _load_claude_md(cwd_path)    # 3. CLAUDE.md (cwd only)
         or _load_cursorrules(cwd_path)  # 4. .cursorrules / .cursor/rules/*.mdc
@@ -204,7 +204,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
     if project_context:
         sections.append(project_context)
 
-    # SOUL.md from HERMES_HOME (independent of project context)
+    # SOUL.md from AGENTX_HOME (independent of project context)
     if not skip_soul:
         soul_content = load_soul_md()
         if soul_content:
@@ -225,7 +225,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
 
 | Priority | Files | Search scope | Notes |
 |----------|-------|-------------|-------|
-| 1 | `.hermes.md`, `HERMES.md` | CWD up to git root | Hermes-native project config |
+| 1 | `.agentx.md`, `AGENTX.md` | CWD up to git root | Hermes-native project config |
 | 2 | `AGENTS.md` | CWD only | Common agent instruction file |
 | 3 | `CLAUDE.md` | CWD only | Claude Code compatibility |
 | 4 | `.cursorrules`, `.cursor/rules/*.mdc` | CWD only | Cursor compatibility |
@@ -233,7 +233,7 @@ def build_context_files_prompt(cwd=None, skip_soul=False):
 All context files are:
 - **Security scanned** — checked for prompt injection patterns (invisible unicode, "ignore previous instructions", credential exfiltration attempts)
 - **Truncated** — capped at `context_file_max_chars` characters using a 70/20 head/tail split with a truncation marker. The cap scales with the model's context window (20,000-char floor, 500K ceiling); an explicit `context_file_max_chars` in `config.yaml` always wins.
-- **YAML frontmatter stripped** — `.hermes.md` frontmatter is removed (reserved for future config overrides)
+- **YAML frontmatter stripped** — `.agentx.md` frontmatter is removed (reserved for future config overrides)
 
 ## API-call-time-only layers
 
@@ -256,7 +256,7 @@ Local memory and user profile data are captured in the system prompt's **volatil
 
 `agent/prompt_builder.py` scans and sanitizes project context files using a **priority system** — only one type is loaded (first match wins):
 
-1. `.hermes.md` / `HERMES.md` (walks to git root)
+1. `.agentx.md` / `AGENTX.md` (walks to git root)
 2. `AGENTS.md` (CWD at startup; subdirectories discovered progressively during the session via `agent/subdirectory_hints.py`)
 3. `CLAUDE.md` (CWD only)
 4. `.cursorrules` / `.cursor/rules/*.mdc` (CWD only)
@@ -275,12 +275,12 @@ Most users should treat `agent/prompt_builder.py` as implementation code, not a 
 
 ### Use these surfaces first
 
-- `~/.hermes/SOUL.md` — replace the built-in default identity block with your own agent persona and standing behavior.
-- `~/.hermes/MEMORY.md` and `~/.hermes/USER.md` — provide durable cross-session facts and user profile data that should be snapshotted into new sessions.
-- Project context files such as `.hermes.md`, `HERMES.md`, `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` — inject repo-specific working rules.
+- `~/.agentx/SOUL.md` — replace the built-in default identity block with your own agent persona and standing behavior.
+- `~/.agentx/MEMORY.md` and `~/.agentx/USER.md` — provide durable cross-session facts and user profile data that should be snapshotted into new sessions.
+- Project context files such as `.agentx.md`, `AGENTX.md`, `AGENTS.md`, `CLAUDE.md`, or `.cursorrules` — inject repo-specific working rules.
 - Skills — package reusable workflows and references without editing core prompt code.
 - Optional system prompt config / API overrides — add deployment-specific instruction text without forking Hermes.
-- Ephemeral overlays such as `HERMES_EPHEMERAL_SYSTEM_PROMPT` or prefill messages — add turn-scoped guidance that should not become part of the cached prompt prefix.
+- Ephemeral overlays such as `AGENTX_EPHEMERAL_SYSTEM_PROMPT` or prefill messages — add turn-scoped guidance that should not become part of the cached prompt prefix.
 
 ### When to edit code instead
 

@@ -1,6 +1,6 @@
 """CLI entry point for the hermes-agent ACP adapter.
 
-Loads environment variables from ``~/.hermes/.env``, configures logging
+Loads environment variables from ``~/.agentx/.env``, configures logging
 to write to stderr (so stdout is reserved for ACP JSON-RPC transport),
 and starts the ACP agent server.
 
@@ -100,7 +100,7 @@ def _setup_logging() -> None:
 
 
 def _load_env() -> None:
-    """Load .env from HERMES_HOME (default ``~/.hermes``)."""
+    """Load .env from AGENTX_HOME (default ``~/.agentx``)."""
     from hermes_cli.env_loader import load_hermes_dotenv
 
     hermes_home = get_hermes_home()
@@ -133,7 +133,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--setup-browser",
         action="store_true",
-        help="Install agent-browser + Playwright Chromium into ~/.hermes/node/ "
+        help="Install agent-browser + Playwright Chromium into ~/.agentx/node/ "
              "for browser tool support. Idempotent.",
     )
     parser.add_argument(
@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> None:
     # that path is unaffected.)  Moved from model_tools.py module scope
     # to avoid freezing the gateway's loop on lazy import (#16856).
     # Metadata-only hosts can opt out of unrelated global MCP startup.
-    if os.environ.get("HERMES_ACP_SKIP_CONFIGURED_MCP", "").strip() != "1":
+    if os.environ.get("AGENTX_ACP_SKIP_CONFIGURED_MCP", "").strip() != "1":
         try:
             from hermes_cli.mcp_startup import start_background_mcp_discovery
 

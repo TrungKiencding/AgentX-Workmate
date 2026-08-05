@@ -27,7 +27,7 @@ a **Connect** link next to the memory-provider dropdown.
 Or manually:
 ```bash
 hermes config set memory.provider honcho
-echo "HONCHO_API_KEY=***" >> ~/.hermes/.env
+echo "HONCHO_API_KEY=***" >> ~/.agentx/.env
 ```
 
 > `hermes honcho setup` also works, but only **after** Honcho is the active
@@ -141,8 +141,8 @@ Config is read from the first file that exists:
 
 | Priority | Path | Scope |
 |----------|------|-------|
-| 1 | `$HERMES_HOME/honcho.json` | Profile-local (isolated Hermes instances) |
-| 2 | `~/.hermes/honcho.json` | Default profile (shared host blocks) |
+| 1 | `$AGENTX_HOME/honcho.json` | Profile-local (isolated Hermes instances) |
+| 2 | `~/.agentx/honcho.json` | Default profile (shared host blocks) |
 | 3 | `~/.honcho/config.json` | Global (cross-app interop) |
 
 Host key is derived from the active Hermes profile: `hermes` (default) or `hermes_<profile>`.
@@ -345,7 +345,7 @@ Presets:
 | `HONCHO_API_KEY` | `apiKey` |
 | `HONCHO_BASE_URL` | `baseUrl` |
 | `HONCHO_ENVIRONMENT` | `environment` |
-| `HERMES_HONCHO_HOST` | Host key override |
+| `AGENTX_HONCHO_HOST` | Host key override |
 | `HONCHO_OAUTH_DASHBOARD` | OAuth authorize origin (default: cloud dashboard; local-dev `localhost:3000`) |
 | `HONCHO_OAUTH_AUTHORIZE_URL` | Full authorize URL (overrides the dashboard origin) |
 | `HONCHO_OAUTH_TOKEN_URL` | Token endpoint (default: cloud API; local-dev `localhost:8000`) |

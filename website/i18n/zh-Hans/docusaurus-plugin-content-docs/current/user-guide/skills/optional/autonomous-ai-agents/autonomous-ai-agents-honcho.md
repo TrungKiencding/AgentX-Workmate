@@ -352,7 +352,7 @@ honcho_reasoning query="<question>"  → synthesized answer, use when search isn
 
 ## 配置参考
 
-配置文件：`$HERMES_HOME/honcho.json`（配置文件本地）或 `~/.honcho/config.json`（全局）。
+配置文件：`$AGENTX_HOME/honcho.json`（配置文件本地）或 `~/.honcho/config.json`（全局）。
 
 ### 关键设置
 
@@ -404,7 +404,7 @@ Honcho 在注入前对 `memory-context` 块进行净化，以防止 prompt 注�
 ## 故障排查
 
 ### "Honcho not configured"
-运行 `hermes honcho setup`。确保 `~/.hermes/config.yaml` 中包含 `memory.provider: honcho`。
+运行 `hermes honcho setup`。确保 `~/.agentx/config.yaml` 中包含 `memory.provider: honcho`。
 
 ### 记忆未跨会话持久化
 检查 `hermes honcho status` -- 验证 `saveMessages: true` 且 `writeFrequency` 不是 `session`（该选项仅在退出时写入）。

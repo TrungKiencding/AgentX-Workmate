@@ -122,9 +122,9 @@ Hermes 在 `config.yaml` 中只管理一个 Entra 专属配置项：
 
 - **`scope`** — OAuth 资源 scope。默认为 Microsoft 文档中的推理 scope（`https://ai.azure.com/.default`）。仅在你的资源针对非标准 audience 进行了预配时才需要覆盖。
 
-其他所有内容（租户、服务主体密钥、联合令牌文件、主权云 authority、broker 偏好）均由 `azure-identity` 直接从标准 `AZURE_*` 环境变量读取——参见下方的[凭据解析顺序](#credential-resolution-order)。在 `~/.hermes/.env` 或你的部署环境中设置这些变量，与 Microsoft SDK 参考文档的描述完全一致。
+其他所有内容（租户、服务主体密钥、联合令牌文件、主权云 authority、broker 偏好）均由 `azure-identity` 直接从标准 `AZURE_*` 环境变量读取——参见下方的[凭据解析顺序](#credential-resolution-order)。在 `~/.agentx/.env` 或你的部署环境中设置这些变量，与 Microsoft SDK 参考文档的描述完全一致。
 
-Entra 模式下不会将任何密钥写入 `~/.hermes/.env`——`azure-identity` 在进程内缓存令牌（在可用时也会使用操作系统密钥链 / `~/.IdentityService`）。
+Entra 模式下不会将任何密钥写入 `~/.agentx/.env`——`azure-identity` 在进程内缓存令牌（在可用时也会使用操作系统密钥链 / `~/.IdentityService`）。
 
 ### 凭据解析顺序
 
@@ -205,7 +205,7 @@ model:
   context_length: 400000             # 自动检测
 ```
 
-以及在 `~/.hermes/.env` 中：
+以及在 `~/.agentx/.env` 中：
 
 ```
 AZURE_FOUNDRY_API_KEY=<your-azure-key>
@@ -261,7 +261,7 @@ model:
   default: claude-sonnet-4-6
 ```
 
-在 `~/.hermes/.env` 中设置 `AZURE_ANTHROPIC_KEY`。Hermes 检测到 base URL 中包含 `azure.com` 时，会绕过 Claude Code OAuth 令牌链，直接使用 Azure 密钥进行 `x-api-key` 认证。
+在 `~/.agentx/.env` 中设置 `AZURE_ANTHROPIC_KEY`。Hermes 检测到 base URL 中包含 `azure.com` 时，会绕过 Claude Code OAuth 令牌链，直接使用 Azure 密钥进行 `x-api-key` 认证。
 
 `key_env` 是规范的 snake_case 字段名；`api_key_env`（以及驼峰式 `keyEnv` / `apiKeyEnv`）作为别名被接受。如果同时设置了 `key_env` 和 `AZURE_ANTHROPIC_KEY`/`ANTHROPIC_API_KEY`，`key_env` 指定的环境变量优先。
 

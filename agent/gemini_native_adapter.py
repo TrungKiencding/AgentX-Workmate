@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 try:
     import hermes_cli as _hermes_cli
 
-    _HERMES_VERSION = str(_hermes_cli.__version__)
+    _AGENTX_VERSION = str(_hermes_cli.__version__)
 except Exception:
-    _HERMES_VERSION = "0.0.0"
+    _AGENTX_VERSION = "0.0.0"
 
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -108,7 +108,7 @@ def probe_gemini_tier(
                 json=payload,
                 headers={
                     "Content-Type": "application/json",
-                    "X-Goog-Api-Client": f"hermes-agent/{_HERMES_VERSION}",
+                    "X-Goog-Api-Client": f"hermes-agent/{_AGENTX_VERSION}",
                 },
             )
     except Exception as exc:
@@ -194,7 +194,7 @@ _STANDARD_KEY_GUIDANCE = (
     "key's type and status, and create a replacement Gemini API key (or, as "
     "a temporary bridge, restrict the Standard key to "
     "generativelanguage.googleapis.com). Then update GEMINI_API_KEY / "
-    "GOOGLE_API_KEY in ~/.hermes/.env and restart your session. "
+    "GOOGLE_API_KEY in ~/.agentx/.env and restart your session. "
     "Details: https://ai.google.dev/gemini-api/docs/api-key"
 )
 
@@ -927,7 +927,7 @@ class GeminiNativeClient:
         if not (api_key or "").strip():
             raise RuntimeError(
                 "Gemini native client requires an API key, but none was provided. "
-                "Set GOOGLE_API_KEY or GEMINI_API_KEY in your environment / ~/.hermes/.env "
+                "Set GOOGLE_API_KEY or GEMINI_API_KEY in your environment / ~/.agentx/.env "
                 "(get one at https://aistudio.google.com/app/apikey), or run `hermes setup` "
                 "to configure the Google provider."
             )
@@ -964,8 +964,8 @@ class GeminiNativeClient:
             # Include Hermes client context following Gemini's partner
             # integration guidance.
             # See https://ai.google.dev/gemini-api/docs/partner-integration
-            "User-Agent": f"hermes-agent/{_HERMES_VERSION} (gemini-native)",
-            "X-Goog-Api-Client": f"hermes-agent/{_HERMES_VERSION}",
+            "User-Agent": f"hermes-agent/{_AGENTX_VERSION} (gemini-native)",
+            "X-Goog-Api-Client": f"hermes-agent/{_AGENTX_VERSION}",
         }
         headers.update(self._default_headers)
         return headers

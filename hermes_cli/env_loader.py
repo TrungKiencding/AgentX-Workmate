@@ -41,7 +41,7 @@ _SECRET_SOURCES: dict[str, str] = {}
 # across profiles and may be overwritten by a later home's source apply.
 _SECRET_SOURCE_VALUES_BY_HOME: dict[str, dict[str, str]] = {}
 
-# HERMES_HOME paths we've already pulled external secrets for during this
+# AGENTX_HOME paths we've already pulled external secrets for during this
 # process.  ``load_hermes_dotenv()`` is called at module-import time from
 # several hot modules (cli.py, hermes_cli/main.py, run_agent.py,
 # trajectory_compressor.py, gateway/run.py, ...), so without this guard the
@@ -74,10 +74,10 @@ def _known_hermes_env_keys() -> set[str]:
 # documented way to supply them, and read-time secret-scope checks
 # (agent/secret_scope.py) own cross-profile credential isolation.
 _PROFILE_MANAGED_ENV_KEYS: frozenset[str] = frozenset({
-    "HERMES_ACP_AUTH_METHOD",
-    "HERMES_ACP_AUTO_APPROVE",
-    "HERMES_COPILOT_ACP_COMMAND",
-    "HERMES_COPILOT_ACP_ARGS",
+    "AGENTX_ACP_AUTH_METHOD",
+    "AGENTX_ACP_AUTO_APPROVE",
+    "AGENTX_COPILOT_ACP_COMMAND",
+    "AGENTX_COPILOT_ACP_ARGS",
     "COPILOT_CLI_PATH",
     "COPILOT_ACP_BASE_URL",
 })
@@ -217,7 +217,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
         if op_env.exists():
             for _name, _value in load_env_file(op_env).items():
                 local_env.setdefault(_name, _value)
-        local_env["HERMES_HOME"] = str(home)
+        local_env["AGENTX_HOME"] = str(home)
         report = apply_all(cfg, home, environ=local_env)
     except Exception:  # noqa: BLE001 — preserve fail-open startup behavior
         return {}
@@ -239,7 +239,7 @@ def _hydrate_profile_secret_sources(home: Path) -> dict[str, str]:
 
 
 def reset_secret_source_cache() -> None:
-    """Forget which HERMES_HOME paths have already had external secrets applied.
+    """Forget which AGENTX_HOME paths have already had external secrets applied.
 
     The first call to ``_apply_external_secret_sources(home_path)`` in a
     process pulls from Bitwarden (or other configured backend), records the
@@ -467,14 +467,14 @@ def load_hermes_dotenv(
     """Load Hermes environment files with user config taking precedence.
 
     Behavior:
-    - `~/.hermes/.env` overrides stale shell-exported values when present.
+    - `~/.agentx/.env` overrides stale shell-exported values when present.
     - project `.env` acts as a dev fallback and only fills missing values when
       the user env exists.
     - if no user env exists, the project `.env` also overrides stale shell vars.
     """
     loaded: list[Path] = []
 
-    home_path = Path(hermes_home or os.getenv("HERMES_HOME", Path.home() / ".hermes"))
+    home_path = Path(hermes_home or os.getenv("AGENTX_HOME", Path.home() / ".agentx"))
     user_env = home_path / ".env"
     project_env_path = Path(project_env) if project_env else None
 
@@ -498,7 +498,7 @@ def load_hermes_dotenv(
     # .op.env is gitignored — the service-account token never enters the
     # committed .env file.
     # Users on systemd can alternatively use:
-    #   EnvironmentFile=-/path/to/.hermes/.op.env
+    #   EnvironmentFile=-/path/to/.agentx/.op.env
     # in their gateway unit, which takes precedence (override=False below
     # ensures .op.env never clobbers a token already in the environment).
     op_env = home_path / ".op.env"
@@ -514,7 +514,7 @@ def load_hermes_dotenv(
 
     # config.yaml is the documented source of truth for terminal.* settings,
     # but the dotenv loads above run with override=True — so a stale
-    # TERMINAL_ENV=docker left in ~/.hermes/.env (e.g. written by an older
+    # TERMINAL_ENV=docker left in ~/.agentx/.env (e.g. written by an older
     # `hermes setup` before the user switched terminal.backend in config.yaml)
     # silently wins again on every reload. Startup launchers bridge
     # config→env once, but long-lived processes (gateway per-turn reload,
@@ -540,7 +540,7 @@ def _reapply_terminal_config_bridge(home_path: Path) -> None:
     config.yaml's ``terminal`` section override env values; a config.yaml
     without a terminal section leaves .env/shell selections untouched.
 
-    Scoped to the process HERMES_HOME: the shared bridge reads the
+    Scoped to the process AGENTX_HOME: the shared bridge reads the
     process-global config, so re-applying it for a *different* profile's
     ``load_hermes_dotenv(hermes_home=...)`` call would bridge the wrong
     profile's config. Fail-open — a config problem must never break dotenv
@@ -559,7 +559,7 @@ def _reapply_terminal_config_bridge(home_path: Path) -> None:
 def _apply_managed_env() -> None:
     """Apply the managed-scope .env last, with override, so it beats user/shell.
 
-    Managed scope is machine-global (independent of HERMES_HOME / profile). v1
+    Managed scope is machine-global (independent of AGENTX_HOME / profile). v1
     enforcement is "applied last with override=True" — at the end of startup load
     ``os.environ`` holds the managed value for every managed key, beating both the
     user ``.env`` and any pre-existing shell export. This deliberately inverts the
@@ -599,7 +599,7 @@ def _apply_external_secret_sources(home_path: Path) -> None:
     The heavy lifting (source ordering, mapped-beats-bulk precedence,
     first-claim-wins conflict handling, override semantics, provenance)
     lives in ``agent.secret_sources.registry.apply_all``; this wrapper
-    owns the once-per-HERMES_HOME guard, the post-apply ASCII
+    owns the once-per-AGENTX_HOME guard, the post-apply ASCII
     sanitization sweep, the ``_SECRET_SOURCES`` provenance map that
     UI surfaces read, and the startup status lines.
 
@@ -743,10 +743,10 @@ def _load_secrets_config(home_path: Path) -> dict:
 
 
 def _process_hermes_home() -> Path:
-    """The HERMES_HOME the shared config cache is keyed to."""
+    """The AGENTX_HOME the shared config cache is keyed to."""
     try:
         from hermes_constants import get_hermes_home
 
         return get_hermes_home()
     except Exception:
-        return Path.home() / ".hermes"
+        return Path.home() / ".agentx"

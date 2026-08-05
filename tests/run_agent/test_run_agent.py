@@ -542,11 +542,11 @@ class TestSaveSessionLogRedactsSecrets:
 
     @pytest.fixture(autouse=True)
     def _ensure_redaction_enabled(self, monkeypatch):
-        """Force redaction on regardless of host HERMES_REDACT_SECRETS state.
+        """Force redaction on regardless of host AGENTX_REDACT_SECRETS state.
         The hermetic conftest blanks the env var; the module-level
         ``_REDACT_ENABLED`` constant is captured at import time, so we
         flip it directly for the duration of these tests."""
-        monkeypatch.delenv("HERMES_REDACT_SECRETS", raising=False)
+        monkeypatch.delenv("AGENTX_REDACT_SECRETS", raising=False)
         monkeypatch.setattr("agent.redact._REDACT_ENABLED", True)
 
     def test_redacts_api_key_in_tool_content(self, agent, tmp_path):
@@ -1675,8 +1675,8 @@ class TestExecuteToolCalls:
         assert "tool was not executed" in messages[0]["content"].lower()
 
     def test_result_truncation_over_100k(self, agent, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
-        (tmp_path / ".hermes").mkdir()
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
+        (tmp_path / ".agentx").mkdir()
         tc = _mock_tool_call(name="web_search", arguments="{}", call_id="c1")
         mock_msg = _mock_assistant_msg(content="", tool_calls=[tc])
         messages = []
@@ -4072,7 +4072,7 @@ class TestRunConversation:
         self._setup_agent(agent)
         agent.max_iterations = 2
 
-        monkeypatch.setenv("HERMES_KANBAN_TASK", "t_test_task_123")
+        monkeypatch.setenv("AGENTX_KANBAN_TASK", "t_test_task_123")
 
         # Return a tool call for every iteration to exhaust the budget.
         tc = _mock_tool_call(name="web_search", arguments="{}", call_id="c1")
@@ -4120,12 +4120,12 @@ class TestRunConversation:
         assert "Iteration budget exhausted" in call.kwargs.get("error", "")
 
     def test_no_kanban_block_when_not_in_kanban_mode(self, agent, monkeypatch):
-        """The exhaustion bridge must NOT fire when HERMES_KANBAN_TASK
+        """The exhaustion bridge must NOT fire when AGENTX_KANBAN_TASK
         is unset (non-kanban runs are unaffected by #29747 gap 2)."""
         self._setup_agent(agent)
         agent.max_iterations = 2
 
-        monkeypatch.delenv("HERMES_KANBAN_TASK", raising=False)
+        monkeypatch.delenv("AGENTX_KANBAN_TASK", raising=False)
 
         tc = _mock_tool_call(name="web_search", arguments="{}", call_id="c1")
         tool_resp = _mock_response(

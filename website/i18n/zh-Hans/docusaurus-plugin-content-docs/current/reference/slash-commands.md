@@ -11,11 +11,11 @@ Hermes 有两个斜杠命令入口，均由 `hermes_cli/commands.py` 中的中�
 - **交互式 CLI 斜杠命令** — 由 `cli.py` 分发，支持从注册表自动补全
 - **消息平台斜杠命令** — 由 `gateway/run.py` 分发，帮助文本和平台菜单均从注册表生成
 
-已安装的 skill（技能）也会在两个入口以动态斜杠命令的形式暴露。这包括内置 skill，如 `/plan`，它会打开计划模式并将 markdown 计划保存在活动工作区/后端工作目录下的 `.hermes/plans/` 中。
+已安装的 skill（技能）也会在两个入口以动态斜杠命令的形式暴露。这包括内置 skill，如 `/plan`，它会打开计划模式并将 markdown 计划保存在活动工作区/后端工作目录下的 `.agentx/plans/` 中。
 
 ## 权限与管理员/用户分级
 
-每个支持按用户白名单的消息平台（Telegram、Discord、Slack、Matrix、Mattermost、Signal 等）都支持两级斜杠命令分级：**管理员**可使用所有已注册命令，**普通用户**只能使用你在 `user_allowed_commands` 中列出的命令（以及始终允许的 `/help` 和 `/whoami`）。在 `~/.hermes/gateway-config.yaml` 中对应平台的 `extra:` 块内配置 `allow_admin_from` 和 `user_allowed_commands`（以及群组等效项 `group_allow_admin_from` / `group_user_allowed_commands`）。
+每个支持按用户白名单的消息平台（Telegram、Discord、Slack、Matrix、Mattermost、Signal 等）都支持两级斜杠命令分级：**管理员**可使用所有已注册命令，**普通用户**只能使用你在 `user_allowed_commands` 中列出的命令（以及始终允许的 `/help` 和 `/whoami`）。在 `~/.agentx/gateway-config.yaml` 中对应平台的 `extra:` 块内配置 `allow_admin_from` 和 `user_allowed_commands`（以及群组等效项 `group_allow_admin_from` / `group_user_allowed_commands`）。
 
 各平台文档中有示例——结构在各平台间完全一致：
 
@@ -88,14 +88,14 @@ Hermes 有两个斜杠命令入口，均由 `hermes_cli/commands.py` 中的中�
 | `/browser [connect\|disconnect\|status]` | 管理本地 Chromium 系浏览器的 CDP 连接。`connect` 将浏览器工具附加到正在运行的 Chrome、Brave、Chromium 或 Edge 实例（默认：`http://127.0.0.1:9222`）。`disconnect` 断开连接。`status` 显示当前连接状态。若未检测到调试器，则自动启动支持的 Chromium 系浏览器。 |
 | `/skills` | 从在线注册表搜索、安装、检查或管理 skill |
 | `/memory [pending\|approve\|reject\|approval]` | 审核由写入审批门控（`memory.write_approval`）暂存的待处理 memory 写入，并切换该门控。见 [Memory 功能](/user-guide/features/memory)。 |
-| `/bundles` | 列出已配置的 skill bundle——即一次预加载多个 skill 的 `/<name>` 斜杠别名。在 `~/.hermes/config.yaml` 的 `bundles:` 下配置。见 [Skills 功能](/user-guide/features/skills)。 |
+| `/bundles` | 列出已配置的 skill bundle——即一次预加载多个 skill 的 `/<name>` 斜杠别名。在 `~/.agentx/config.yaml` 的 `bundles:` 下配置。见 [Skills 功能](/user-guide/features/skills)。 |
 | `/cron` | 管理定时任务（列出、添加/创建、编辑、暂停、恢复、运行、删除） |
 | `/suggestions [accept\|dismiss N\|catalog\|clear]`（别名：`/suggest`） | 审核建议的自动化。使用 `/suggestions` 列出待处理建议，`/suggestions accept <id>` 接受并创建建议任务，`/suggestions dismiss <id>` 拒绝单条建议，`/suggestions catalog` 添加精选起步自动化，`/suggestions clear` 清理已解决的建议记录。被接受的任务会保留当前表面作为投递来源。 |
 | `/blueprint [name] [slot=value ...]`（别名：`/bp`） | 通过 blueprint 模板设置自动化。裸 `/blueprint` 列出目录；`/blueprint <name>` 会在下一次 agent 轮次启动引导式填槽流程；`/blueprint <name> slot=value ...` 直接创建任务。 |
 | `/curator` | 后台 skill 维护——`status`、`run`、`pin`、`archive`。见 [Curator](/user-guide/features/curator)。 |
 | `/kanban <action>` | 无需离开聊天即可操作多 profile、多项目协作看板。完整的 `hermes kanban` 命令面均可用：`/kanban list`、`/kanban show t_abc`、`/kanban create "title" --assignee X`、`/kanban comment t_abc "text"`、`/kanban unblock t_abc`、`/kanban dispatch` 等。支持多看板：`/kanban boards list`、`/kanban boards create <slug>`、`/kanban boards switch <slug>`、`/kanban --board <slug> <action>`。见 [Kanban 斜杠命令](/user-guide/features/kanban#kanban-slash-command)。 |
 | `/reload-mcp`（别名：`/reload_mcp`） | 从 config.yaml 重新加载 MCP 服务器 |
-| `/reload-skills`（别名：`/reload_skills`） | 重新扫描 `~/.hermes/skills/` 以发现新安装或已删除的 skill |
+| `/reload-skills`（别名：`/reload_skills`） | 重新扫描 `~/.agentx/skills/` 以发现新安装或已删除的 skill |
 | `/reload` | 将 `.env` 变量重新加载到运行中的会话（无需重启即可获取新 API 密钥） |
 | `/plugins` | 列出已安装的插件及其状态 |
 
@@ -131,7 +131,7 @@ Hermes 有两个斜杠命令入口，均由 `hermes_cli/commands.py` 中的中�
 
 ### 快捷命令
 
-用户自定义快捷命令将一个短斜杠命令映射到 shell 命令或另一个斜杠命令。在 `~/.hermes/config.yaml` 中配置：
+用户自定义快捷命令将一个短斜杠命令映射到 shell 命令或另一个斜杠命令。在 `~/.agentx/config.yaml` 中配置：
 
 ```yaml
 quick_commands:
@@ -156,7 +156,7 @@ quick_commands:
 
 支持两种配置格式：
 
-**完整格式** — 固定精确的模型、提供商，以及可选的 base URL。写入 `~/.hermes/config.yaml`：
+**完整格式** — 固定精确的模型、提供商，以及可选的 base URL。写入 `~/.agentx/config.yaml`：
 
 ```yaml
 model_aliases:
@@ -229,7 +229,7 @@ hermes config set model.aliases.grok x-ai/grok-4
 | `/suggestions [accept\|dismiss N\|catalog\|clear]` | 直接在聊天中审核建议的自动化。`/suggestions` 列出待处理建议，`catalog` 添加精选起步自动化，`clear` 清理已解决的建议记录。被接受的建议会保留当前聊天/线程作为任务投递来源。 |
 | `/blueprint [name] [slot=value ...]` | 浏览 cron blueprint、启动引导式填槽对话，或直接创建 blueprint 任务。直接创建的任务会回投到当前聊天/线程。 |
 | `/memory [pending\|approve\|reject\|approval]` | 审核由写入审批门控（`memory.write_approval`）暂存的待处理 memory 写入——可直接在聊天中批准或拒绝——并通过 `/memory approval on\|off` 切换门控。见 [Memory 功能](/user-guide/features/memory)。 |
-| `/skills [pending\|approve\|reject\|diff\|approval]` | 审核由写入审批门控（`skills.write_approval`）暂存的待处理 **skill** 写入。每条待写入会显示一行摘要；`/skills diff <id>` 在聊天中会截断——完整 diff 请在 CLI 或 `~/.hermes/pending/skills/<id>.json` 中查看。仅当门控开启（或仍有待处理写入）时出现；搜索/安装仍然是 CLI-only。 |
+| `/skills [pending\|approve\|reject\|diff\|approval]` | 审核由写入审批门控（`skills.write_approval`）暂存的待处理 **skill** 写入。每条待写入会显示一行摘要；`/skills diff <id>` 在聊天中会截断——完整 diff 请在 CLI 或 `~/.agentx/pending/skills/<id>.json` 中查看。仅当门控开启（或仍有待处理写入）时出现；搜索/安装仍然是 CLI-only。 |
 | `/kanban <action>` | 从聊天中操作多 profile、多项目协作看板——参数与 CLI 完全一致。绕过运行中 agent 的保护，因此 `/kanban unblock t_abc`、`/kanban comment t_abc "…"`、`/kanban list --mine`、`/kanban boards switch <slug>` 等均可在轮次进行中使用。`/kanban create …` 会自动将发起聊天订阅到新任务的终态事件。见 [Kanban 斜杠命令](/user-guide/features/kanban#kanban-slash-command)。 |
 | `/platform <list\|pause\|resume> [name]` | 直接在聊天中操作正在运行的 gateway 平台。`/platform list` 列出所有适配器及其状态（运行中、熔断器暂停、手动暂停）；`/platform pause <name>` 停止向该适配器分发新消息但不卸载它；`/platform resume <name>` 重新启用它，并在上游恢复健康后清除已触发的熔断器。 |
 | `/reload-mcp`（别名：`/reload_mcp`） | 从配置重新加载 MCP 服务器。 |
@@ -267,4 +267,4 @@ CLI 在执行会丢弃未保存会话状态的斜杠命令前会提示确认。�
 
 **内联跳过：** 追加 `now`、`--yes` 或 `-y` 可为单次调用绕过弹窗——例如 `/reset now`、`/new --yes my-session`、`/clear -y`、`/undo -y`。适用于弹窗在你的终端无法正常渲染的情况（见 [issue #30768](https://github.com/NousResearch/hermes-agent/issues/30768)，原生 Windows PowerShell）或对 CLI 进行脚本化操作时。
 
-在 `~/.hermes/config.yaml` 中设置 `approvals.destructive_slash_confirm: false` 可全局禁用提示；设置回 `true` 可重新启用。背景说明见 [安全——破坏性斜杠命令确认](../user-guide/security.md#dangerous-command-approval)。
+在 `~/.agentx/config.yaml` 中设置 `approvals.destructive_slash_confirm: false` 可全局禁用提示；设置回 `true` 可重新启用。背景说明见 [安全——破坏性斜杠命令确认](../user-guide/security.md#dangerous-command-approval)。

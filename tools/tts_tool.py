@@ -16,7 +16,7 @@ Built-in TTS providers:
 
 Custom command providers:
 - Users can declare any number of named providers with ``type: command``
-  under ``tts.providers.<name>`` in ``~/.hermes/config.yaml``. Hermes
+  under ``tts.providers.<name>`` in ``~/.agentx/config.yaml``. Hermes
   writes the input text to a temp file and runs the configured shell
   command, which must produce the audio file at the expected path.
   See the Local Command section of ``website/docs/user-guide/features/tts.md``.
@@ -25,7 +25,7 @@ Output formats:
 - Opus (.ogg) for Telegram voice bubbles (requires ffmpeg for Edge TTS)
 - MP3 (.mp3) for everything else (CLI, Discord, WhatsApp)
 
-Configuration is loaded from ~/.hermes/config.yaml under the 'tts:' key.
+Configuration is loaded from ~/.agentx/config.yaml under the 'tts:' key.
 The user chooses the provider and voice; the model just sends text.
 
 Usage:
@@ -464,11 +464,11 @@ def _resolve_max_text_length(
 
 
 # ===========================================================================
-# Config loader -- reads tts: section from ~/.hermes/config.yaml
+# Config loader -- reads tts: section from ~/.agentx/config.yaml
 # ===========================================================================
 def _load_tts_config() -> Dict[str, Any]:
     """
-    Load TTS configuration from ~/.hermes/config.yaml.
+    Load TTS configuration from ~/.agentx/config.yaml.
 
     Returns a dict with provider settings. Falls back to defaults
     for any missing fields.
@@ -933,7 +933,7 @@ def _render_command_tts_template(
 
     def replace_match(match: re.Match[str]) -> str:
         name = match.group("double") or match.group("single")
-        token = f"__HERMES_TTS_PLACEHOLDER_{len(replacements)}__"
+        token = f"__AGENTX_TTS_PLACEHOLDER_{len(replacements)}__"
         replacements.append((
             token,
             _quote_command_tts_placeholder(
@@ -2551,8 +2551,8 @@ def _check_piper_available() -> bool:
 def _get_piper_voices_dir() -> Path:
     """Return the directory where Hermes caches Piper voice models.
 
-    Resolves to ``~/.hermes/cache/piper-voices/`` under the active
-    HERMES_HOME so voice downloads follow profile boundaries.
+    Resolves to ``~/.agentx/cache/piper-voices/`` under the active
+    AGENTX_HOME so voice downloads follow profile boundaries.
     """
     from hermes_constants import get_hermes_dir
     root = Path(get_hermes_dir("cache/piper-voices", "piper_voices_cache"))
@@ -2789,7 +2789,7 @@ def text_to_speech_tool(
     """
     Convert text to speech audio.
 
-    Reads provider/voice config from ~/.hermes/config.yaml (tts: section).
+    Reads provider/voice config from ~/.agentx/config.yaml (tts: section).
     The model sends text; the user configures voice and provider.
 
     On messaging platforms, the returned MEDIA:<path> tag is intercepted
@@ -2864,7 +2864,7 @@ def text_to_speech_tool(
     # ElevenLabs can produce Opus natively (no ffmpeg needed). Edge TTS
     # always outputs MP3 and needs ffmpeg for conversion.
     from gateway.session_context import get_session_env
-    platform = get_session_env("HERMES_SESSION_PLATFORM", "").lower()
+    platform = get_session_env("AGENTX_SESSION_PLATFORM", "").lower()
     want_opus = platform in OPUS_VOICE_PLATFORMS
 
     # Determine output path

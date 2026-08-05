@@ -10,7 +10,7 @@ hermes dashboard             # 在浏览器中打开 http://127.0.0.1:9119
 # 点击左侧导航栏中的 Kanban
 ```
 
-dashboard 是**你**观察系统最便捷的地方。dispatcher 生成的 agent worker 不会看到 dashboard 或 CLI——它们通过专用的 `kanban_*` [工具集](./kanban#how-workers-interact-with-the-board)（`kanban_show`、`kanban_list`、`kanban_complete`、`kanban_block`、`kanban_heartbeat`、`kanban_comment`、`kanban_create`、`kanban_link`、`kanban_unblock`）来操作看板。三个界面——dashboard、CLI、worker 工具——都通过同一个每看板独立的 SQLite 数据库（默认看板为 `~/.hermes/kanban.db`，后续创建的任意看板为 `~/.hermes/kanban/boards/<slug>/kanban.db`）进行路由，因此无论变更来自哪一侧，每个看板的数据始终一致。
+dashboard 是**你**观察系统最便捷的地方。dispatcher 生成的 agent worker 不会看到 dashboard 或 CLI——它们通过专用的 `kanban_*` [工具集](./kanban#how-workers-interact-with-the-board)（`kanban_show`、`kanban_list`、`kanban_complete`、`kanban_block`、`kanban_heartbeat`、`kanban_comment`、`kanban_create`、`kanban_link`、`kanban_unblock`）来操作看板。三个界面——dashboard、CLI、worker 工具——都通过同一个每看板独立的 SQLite 数据库（默认看板为 `~/.agentx/kanban.db`，后续创建的任意看板为 `~/.agentx/kanban/boards/<slug>/kanban.db`）进行路由，因此无论变更来自哪一侧，每个看板的数据始终一致。
 
 本教程全程使用 `default` 看板。如果你需要多个隔离队列（每个项目/仓库/领域一个），请参阅概述中的[看板（多项目）](./kanban#boards-multi-project)——相同的 CLI/dashboard/worker 流程适用于每个看板，且 worker 在物理上无法看到其他看板上的任务。
 
@@ -61,7 +61,7 @@ hermes kanban create "Write auth integration tests" \
 
 由于 `API` 以 `SCHEMA` 为父任务，`tests` 以 `API` 为父任务，只有 `SCHEMA` 从 `ready` 状态开始。其他两个任务在 `todo` 中等待，直到其父任务完成。这正是依赖提升引擎在发挥作用——在有 API 可测试之前，不会有其他 worker 去接手测试编写工作。
 
-在下一次 dispatcher tick 时（默认 60 秒，或点击 **Nudge dispatcher** 立即触发），`backend-dev` profile 会以 `HERMES_KANBAN_TASK=$SCHEMA` 作为环境变量生成一个 worker。以下是该 worker 在 agent 内部的工具调用循环：
+在下一次 dispatcher tick 时（默认 60 秒，或点击 **Nudge dispatcher** 立即触发），`backend-dev` profile 会以 `AGENTX_KANBAN_TASK=$SCHEMA` 作为环境变量生成一个 worker。以下是该 worker 在 agent 内部的工具调用循环：
 
 ```python
 # worker tool calls — NOT commands you run
@@ -84,7 +84,7 @@ kanban_complete(
 )
 ```
 
-`kanban_show` 默认将 `task_id` 设为 `$HERMES_KANBAN_TASK`，因此 worker 无需知道自己的 id。`kanban_complete` 将 summary 和 metadata 写入当前 `task_runs` 行，关闭该 run，并将任务转换为 `done`——全部通过 `kanban_db` 以原子方式完成。
+`kanban_show` 默认将 `task_id` 设为 `$AGENTX_KANBAN_TASK`，因此 worker 无需知道自己的 id。`kanban_complete` 将 summary 和 metadata 写入当前 `task_runs` 行，关闭该 run，并将任务转换为 `done`——全部通过 `kanban_db` 以原子方式完成。
 
 当 `SCHEMA` 进入 `done` 状态时，依赖引擎会自动将 `API` 提升为 `ready`。API worker 认领任务后，调用 `kanban_show()` 时会看到 `SCHEMA` 的 summary 和 metadata 附加在父任务交接信息中——因此它无需重新阅读冗长的设计文档就能了解 schema 的决策。
 

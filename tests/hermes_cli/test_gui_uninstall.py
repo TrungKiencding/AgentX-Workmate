@@ -49,7 +49,7 @@ def _make_user_data(hermes_home: Path) -> None:
 
 
 def test_gui_install_summary_shape(tmp_path, monkeypatch):
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".agentx"
     _make_agent(hermes_home)
     _make_gui_build(hermes_home)
     monkeypatch.setattr(gu, "packaged_gui_app_paths", lambda: [])

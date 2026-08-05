@@ -42,7 +42,7 @@ function ownedLock(over: any = {}) {
     port: 40000,
     profile: '',
     hermesPath: '~/.local/bin/hermes',
-    hermesHome: '~/.hermes',
+    hermesHome: '~/.agentx',
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
     tokenFingerprint: fingerprintToken('stored-token'),
     startedAt: '2026-07-14T00:00:00.000Z',
@@ -116,10 +116,10 @@ test('locateHermes canonicalizes an installer wrapper to its executable target',
   const ssh = fakeSsh([
     [/command -v hermes/, '/home/u/.local/bin/hermes\n'],
     [/\[ -x .*\.local\/bin\/hermes/, 'OK'],
-    [/python3 -c/, '/home/u/.hermes/hermes-agent/venv/bin/hermes\n']
+    [/python3 -c/, '/home/u/.agentx/hermes-agent/venv/bin/hermes\n']
   ])
 
-  assert.equal(await locateHermes(ssh, ''), '/home/u/.hermes/hermes-agent/venv/bin/hermes')
+  assert.equal(await locateHermes(ssh, ''), '/home/u/.agentx/hermes-agent/venv/bin/hermes')
 })
 
 test('locateHermes falls back to ~/.local/bin/hermes when the login-shell probe misses', async () => {
@@ -134,7 +134,7 @@ test('locateHermes falls back to ~/.local/bin/hermes when the login-shell probe 
 
 test('locateHermes tries the conventional venv path last', async () => {
   const ssh = fakeSsh([[/\[ -x .*venv\/bin\/hermes/, 'OK']])
-  assert.equal(await locateHermes(ssh, ''), '~/.hermes/hermes-agent/venv/bin/hermes')
+  assert.equal(await locateHermes(ssh, ''), '~/.agentx/hermes-agent/venv/bin/hermes')
 })
 
 test('locateHermes throws a hermes-not-found error with an install hint', async () => {
@@ -186,9 +186,9 @@ test('probeRemotePlatform rejects unsupported remote platforms', async () => {
 })
 
 test('ownership paths are isolated by ownership ID and spawn nonce', () => {
-  assert.equal(ownershipDirectory(OWNERSHIP_ID), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}`)
-  assert.equal(lockfilePath(OWNERSHIP_ID), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/backend.lock.json`)
-  assert.equal(spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.log`)
+  assert.equal(ownershipDirectory(OWNERSHIP_ID), `~/.agentx/desktop-ssh/${OWNERSHIP_ID}`)
+  assert.equal(lockfilePath(OWNERSHIP_ID), `~/.agentx/desktop-ssh/${OWNERSHIP_ID}/backend.lock.json`)
+  assert.equal(spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE), `~/.agentx/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.log`)
 })
 
 test('readLockfile returns null for missing, empty, malformed, or wrong-schema', async () => {
@@ -278,7 +278,7 @@ test('buildSpawnCommand is headless serve, detached, token not in argv', () => {
   assert.match(cmd, /<\/dev\/null/)
   assert.match(cmd, /echo \$!/)
   assert.ok(!cmd.includes('tok_secret_value'), 'token must not appear in spawn command')
-  assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
+  assert.ok(!cmd.includes('AGENTX_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
 })
 
 test('buildSpawnCommand always uses serve (legacy dashboard path removed)', () => {
@@ -325,8 +325,8 @@ test('spawnRemoteDashboard always spawns serve (legacy dashboard path removed)',
 })
 
 test('READY_RE accepts both serve and dashboard sentinels', () => {
-  assert.equal(READY_RE.exec('HERMES_BACKEND_READY port=4321')?.[1], '4321')
-  assert.equal(READY_RE.exec('HERMES_DASHBOARD_READY port=8765')?.[1], '8765')
+  assert.equal(READY_RE.exec('AGENTX_BACKEND_READY port=4321')?.[1], '4321')
+  assert.equal(READY_RE.exec('AGENTX_DASHBOARD_READY port=8765')?.[1], '8765')
 })
 
 test('spawnRemoteDashboard rejects when no pid is returned', async () => {
@@ -349,7 +349,7 @@ test('spawnRemoteDashboard rejects when no pid is returned', async () => {
 
 test('scrapeReadyPort reads only the named spawn log', async () => {
   const logPath = spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
-  const ssh = fakeSsh([[/cat/, 'some noise\nHERMES_DASHBOARD_READY port=51234\n']])
+  const ssh = fakeSsh([[/cat/, 'some noise\nAGENTX_DASHBOARD_READY port=51234\n']])
   const port = await scrapeReadyPort(ssh, logPath, { timeoutMs: 1000 })
   assert.equal(port, 51234)
   assert.ok(ssh.calls.every(call => !call.includes('desktop-ssh.log')))
@@ -408,7 +408,7 @@ test('connect() spawns fresh when there is no lockfile, adopts the served token'
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
     [/kill -0 777/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=51999\n']
   ])
 
   const result = await connect(connectDeps(ssh, { adoptServedToken: async () => 'the-served-token' }))
@@ -448,7 +448,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
     [/printf '%s\\n'/, ''],
     [/setsid/, '778\n'],
     [/kill -0 778/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_BACKEND_READY port=52000\n']
+    [/cat .*\.log/, 'AGENTX_BACKEND_READY port=52000\n']
   ])
 
   await connect(
@@ -462,7 +462,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
   assert.match(spawn, /--profile\b/)
   assert.ok(spawn.includes('writer_2'))
   assert.match(spawn, /serve\s+--isolated/)
-  assert.match(spawn, /\.hermes\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
+  assert.match(spawn, /\.agentx\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
   assert.ok(!spawn.includes(' work'), 'the local Desktop scope must not become the remote profile')
 })
 
@@ -502,7 +502,7 @@ test('connect() respawns when the requested remote profile differs from the lock
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
     [/kill -0 890/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -530,7 +530,7 @@ test('connect() respawns when the lockfile hermesPath differs from the resolved 
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -565,7 +565,7 @@ test('connect() respawns when the lockfile protocolVersion is incompatible', asy
     [/python3 -c/, ''],
     [/setsid/, '901\n'],
     [/kill -0 901/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=44100\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=44100\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken, adoptServedToken: async () => 'fresh' }))
@@ -580,13 +580,13 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
     [/uname/, 'Linux\nx86_64'],
     [/\[ -x/, 'OK'],
     [/cat .*lock\.json/, ''], // no lockfile
-    [/HERMES_HOME/, '/home/alice/.hermes\n'],
+    [/AGENTX_HOME/, '/home/alice/.agentx\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/printf '%s\\n'/, ''],
     [/setsid/, '700\n'],
     [/kill -0 700/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=45500\n'],
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=45500\n'],
     [
       /printf '%s' '/,
       c => {
@@ -600,7 +600,7 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
   await connect(connectDeps(ssh, { adoptServedToken: async () => 'fresh' }))
   const lockWrite = writes.find(c => c.includes('schemaVersion')) || ''
   assert.match(lockWrite, new RegExp(`"protocolVersion":${PROTOCOL_VERSION}`))
-  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.hermes"/)
+  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.agentx"/)
 })
 
 test('connect() respawns when the lockfile pid is dead (killed dashboard)', async () => {
@@ -616,7 +616,7 @@ test('connect() respawns when the lockfile pid is dead (killed dashboard)', asyn
     [/python3 -c/, ''],
     [/setsid/, '888\n'],
     [/kill -0 888/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=42000\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=42000\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken: 't', adoptServedToken: async () => 'fresh' }))
@@ -650,7 +650,7 @@ test('connect() respawns when the dashboard is wedged (alive pid, probe fails)',
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(
@@ -731,12 +731,12 @@ test('connect() preserves an owned backend when a reuse transport throws', async
 
 test('validateRemotePath accepts absolute POSIX paths', () => {
   assert.doesNotThrow(() => validateRemotePath('/usr/bin/hermes'))
-  assert.doesNotThrow(() => validateRemotePath('/home/user/.hermes/hermes-agent/venv/bin/hermes'))
+  assert.doesNotThrow(() => validateRemotePath('/home/user/.agentx/hermes-agent/venv/bin/hermes'))
 })
 
 test('validateRemotePath accepts ~/ prefix paths', () => {
   assert.doesNotThrow(() => validateRemotePath('~/bin/hermes'))
-  assert.doesNotThrow(() => validateRemotePath('~/.hermes/logs/desktop-ssh.log'))
+  assert.doesNotThrow(() => validateRemotePath('~/.agentx/logs/desktop-ssh.log'))
   assert.doesNotThrow(() => validateRemotePath('~'))
 })
 
@@ -766,7 +766,7 @@ test('validateRemotePath preserves shell metacharacters as path data', () => {
 })
 
 test('expandRemotePath expands ~/ to "$HOME"/', () => {
-  const result = expandRemotePath('~/.hermes/logs/desktop-ssh.log')
+  const result = expandRemotePath('~/.agentx/logs/desktop-ssh.log')
   assert.match(result, /\$HOME/)
   assert.ok(!result.includes('eval'), 'must not use eval')
   assert.ok(!result.includes('echo'), 'must not use echo for expansion')
@@ -786,18 +786,18 @@ test('expandRemotePath preserves spaces as data', () => {
 test('buildSpawnCommand does not embed the token in the command string', () => {
   const cmd = buildSpawnCommand('/x/hermes', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
   assert.ok(!cmd.includes('super_secret_token_value'), 'token must not appear in the spawn command')
-  assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
+  assert.ok(!cmd.includes('AGENTX_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
 })
 
 test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is provided', () => {
   const cmd = buildSpawnCommand('/x/hermes', 'work', {
-    tokenFilePath: `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
+    tokenFilePath: `~/.agentx/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
     spawnNonce: SPAWN_NONCE
   })
 
   assert.match(cmd, /--ssh-session-token-file/)
-  assert.match(cmd, /\.hermes\/desktop-ssh\//)
+  assert.match(cmd, /\.agentx\/desktop-ssh\//)
 })
 
 test('buildSpawnCommand always uses serve, never dashboard', () => {
@@ -975,14 +975,14 @@ test('spawnRemoteDashboard fails with update-required when remote lacks --ssh-se
 })
 
 test('readLockfile rejects a log path outside the exact ownership and spawn path', async () => {
-  const lock = ownedLock({ logPath: '~/.hermes/desktop-ssh/other.log' })
+  const lock = ownedLock({ logPath: '~/.agentx/desktop-ssh/other.log' })
   const ssh = fakeSsh([[/cat .*lock\.json/, JSON.stringify(lock)]])
   assert.equal(await readLockfile(ssh, OWNERSHIP_ID), null)
 })
 
 test('cleanupStale never deletes a lock-supplied unexpected log path', async () => {
   const ssh = fakeSsh([[/print\("OWNED"/, 'OWNED\n']])
-  await cleanupStale(ssh, OWNERSHIP_ID, ownedLock({ logPath: '~/.hermes/unrelated.log' }))
+  await cleanupStale(ssh, OWNERSHIP_ID, ownedLock({ logPath: '~/.agentx/unrelated.log' }))
   assert.ok(!ssh.calls.some(command => command.includes('unrelated.log')))
 })
 
@@ -1050,7 +1050,7 @@ test('connect replaces an exact-owned backend only after authenticated stale pro
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'AGENTX_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(

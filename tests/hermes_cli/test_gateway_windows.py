@@ -69,13 +69,13 @@ def test_build_gateway_argv_keeps_venv_console_python_for_uv_venv(monkeypatch, t
 
 class TestStableWindowsGatewayWorkingDir:
     def test_stable_gateway_working_dir_uses_hermes_home(self, tmp_path, monkeypatch):
-        home = tmp_path / ".hermes"
+        home = tmp_path / ".agentx"
         home.mkdir()
         monkeypatch.setattr("hermes_cli.config.get_hermes_home", lambda: home)
         assert gateway_windows._stable_gateway_working_dir(tmp_path / "checkout") == str(home.resolve())
 
     def test_stable_gateway_working_dir_falls_back_to_project_root(self, tmp_path, monkeypatch):
-        missing = tmp_path / "missing" / ".hermes"
+        missing = tmp_path / "missing" / ".agentx"
         project = tmp_path / "checkout"
         monkeypatch.setattr("hermes_cli.config.get_hermes_home", lambda: missing)
         assert gateway_windows._stable_gateway_working_dir(project) == str(project)
@@ -84,13 +84,13 @@ class TestStableWindowsGatewayWorkingDir:
 
 
 def _arrange_startup_fallback(monkeypatch, tmp_path, running_pids):
-    script_path = tmp_path / "Hermes_Gateway_alice.cmd"
-    startup_entry = tmp_path / "Startup" / "Hermes_Gateway_alice.cmd"
+    script_path = tmp_path / "AgentX_Gateway_alice.cmd"
+    startup_entry = tmp_path / "Startup" / "AgentX_Gateway_alice.cmd"
     calls = []
 
     monkeypatch.setattr(gateway_windows, "_prompt_install_choices", lambda *args, **kwargs: (False, True))
     monkeypatch.setattr(gateway_windows, "_assert_windows", lambda: None)
-    monkeypatch.setattr(gateway_windows, "get_task_name", lambda: "Hermes_Gateway_alice")
+    monkeypatch.setattr(gateway_windows, "get_task_name", lambda: "AgentX_Gateway_alice")
     monkeypatch.setattr(gateway_windows, "_write_task_script", lambda: script_path)
     monkeypatch.setattr(
         gateway_windows,
@@ -156,7 +156,7 @@ def test_elevated_gateway_command_uses_hidden_console_python(monkeypatch):
 def test_install_scheduled_task_recreates_instead_of_change(monkeypatch, tmp_path):
     """Install must delete+create so stale minute-repeat task settings are not preserved."""
     calls = []
-    script_path = tmp_path / "Hermes_Gateway_alice.cmd"
+    script_path = tmp_path / "AgentX_Gateway_alice.cmd"
     xml_seen = {}
 
     monkeypatch.setattr(gateway_windows, "_assert_windows", lambda: None)
@@ -173,11 +173,11 @@ def test_install_scheduled_task_recreates_instead_of_change(monkeypatch, tmp_pat
         raise AssertionError(f"unexpected schtasks args: {args}")
 
     monkeypatch.setattr(gateway_windows, "_exec_schtasks", fake_schtasks)
-    ok, detail = gateway_windows._install_scheduled_task("Hermes_Gateway_alice", script_path)
+    ok, detail = gateway_windows._install_scheduled_task("AgentX_Gateway_alice", script_path)
 
     assert ok is True
     assert "/Change" not in [arg for call in calls for arg in call]
-    assert calls[0][:4] == ("/Delete", "/F", "/TN", "Hermes_Gateway_alice")
+    assert calls[0][:4] == ("/Delete", "/F", "/TN", "AgentX_Gateway_alice")
     assert calls[1][0] == "/Create"
     assert "/XML" in calls[1]
     assert "/SC" not in calls[1]
@@ -193,7 +193,7 @@ def test_install_scheduled_task_recreates_instead_of_change(monkeypatch, tmp_pat
     # (issue #45599 fix A: no console -> no logon CTRL_CLOSE_EVENT / 0xC000013A).
     assert "<Command>wscript.exe</Command>" in xml_seen["text"]
     assert "//B //Nologo" in xml_seen["text"]
-    assert "Hermes_Gateway_alice.vbs" in xml_seen["text"]
+    assert "AgentX_Gateway_alice.vbs" in xml_seen["text"]
     assert "cmd.exe" not in xml_seen["text"]
 
 
@@ -217,7 +217,7 @@ def test_gateway_vbs_script_is_console_less(monkeypatch):
     assert "hermes_cli.main" in content
     assert "gateway run" in content
     assert ", 0, False" in content  # hidden window, detached/async
-    for var in ("HERMES_HOME", "PYTHONIOENCODING", "HERMES_GATEWAY_DETACHED", "VIRTUAL_ENV", "PYTHONPATH"):
+    for var in ("AGENTX_HOME", "PYTHONIOENCODING", "AGENTX_GATEWAY_DETACHED", "VIRTUAL_ENV", "PYTHONPATH"):
         assert var in content
     assert "--profile" in content and "work" in content
     assert content.endswith("\r\n")

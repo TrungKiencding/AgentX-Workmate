@@ -24,7 +24,7 @@ This pulls the latest code from `main`, updates dependencies, and prompts you to
 
 When you run `hermes update`, the following steps occur:
 
-1. **Pre-update snapshot** — a lightweight state snapshot is saved by default (covers pairing data, cron jobs, `config.yaml`, `.env`, `auth.json`, and other state files that get modified at runtime; individual files over 1 GiB are skipped so a large sessions DB never slows the update down). Controlled by `updates.pre_update_backup` (`quick` by default, `full` for a zip of all of `HERMES_HOME`, `off` to disable). Recoverable via the snapshot restore flow described under [Snapshots and rollback](../user-guide/checkpoints-and-rollback.md).
+1. **Pre-update snapshot** — a lightweight state snapshot is saved by default (covers pairing data, cron jobs, `config.yaml`, `.env`, `auth.json`, and other state files that get modified at runtime; individual files over 1 GiB are skipped so a large sessions DB never slows the update down). Controlled by `updates.pre_update_backup` (`quick` by default, `full` for a zip of all of `AGENTX_HOME`, `off` to disable). Recoverable via the snapshot restore flow described under [Snapshots and rollback](../user-guide/checkpoints-and-rollback.md).
 2. **Git pull** — pulls the latest code from the `main` branch and updates submodules
 3. **Post-pull syntax validation + auto-rollback** — after the pull, Hermes compiles the nine critical files every `hermes` invocation imports at startup. If any fails to parse (e.g. an orphan merge-conflict marker, an accidentally truncated file), Hermes runs `git reset --hard <pre-pull-sha>` to roll the install back so your shell stays bootable. Re-run `hermes update` once the upstream fix lands.
 4. **Dependency install** — runs `uv pip install -e ".[all]"` to pick up new or changed dependencies
@@ -49,7 +49,7 @@ When you run `hermes update` in a terminal, Hermes stashes any uncommitted sourc
 When the update runs **without a terminal** — from the desktop/chat app's "Update" button or a gateway-triggered update — there's no prompt to answer. The `updates.non_interactive_local_changes` setting decides what happens to your stashed changes:
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 updates:
   non_interactive_local_changes: stash   # default: keep + auto-restore
   # non_interactive_local_changes: discard  # throw local source edits away
@@ -66,7 +66,7 @@ Want to know if an update is available before pulling? Run `hermes update --chec
 
 ### Full pre-update backup: `--backup`
 
-For high-value profiles (production gateways, shared team installs) you can opt into a full pre-pull backup of `HERMES_HOME` (config, auth, sessions, skills, pairing):
+For high-value profiles (production gateways, shared team installs) you can opt into a full pre-pull backup of `AGENTX_HOME` (config, auth, sessions, skills, pairing):
 
 ```bash
 hermes update --backup
@@ -75,12 +75,12 @@ hermes update --backup
 Or make it the default for every run:
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 updates:
   pre_update_backup: full
 ```
 
-`updates.pre_update_backup` is a single knob with three modes: `quick` (default — the lightweight state snapshot described above), `full` (the quick snapshot plus a complete `HERMES_HOME` zip; can add minutes on large homes), and `off` (no pre-update backup at all — `--no-backup` does the same for a single run). Legacy boolean values still work: `true` means `full`, `false` means `off`.
+`updates.pre_update_backup` is a single knob with three modes: `quick` (default — the lightweight state snapshot described above), `full` (the quick snapshot plus a complete `AGENTX_HOME` zip; can add minutes on large homes), and `off` (no pre-update backup at all — `--no-backup` does the same for a single run). Legacy boolean values still work: `true` means `full`, `false` means `off`.
 
 ### Windows: another `hermes.exe` is running
 
@@ -139,10 +139,10 @@ If `git status --short` shows unexpected changes after `hermes update`, stop and
 `hermes update` protects itself against accidental terminal loss:
 
 - The update ignores `SIGHUP`, so closing your SSH session or terminal window no longer kills it mid-install. `pip` and `git` child processes inherit this protection, so the Python environment cannot be left half-installed by a dropped connection.
-- All output is mirrored to `~/.hermes/logs/update.log` while the update runs. If your terminal disappears, reconnect and inspect the log to see whether the update finished and whether the gateway restart succeeded:
+- All output is mirrored to `~/.agentx/logs/update.log` while the update runs. If your terminal disappears, reconnect and inspect the log to see whether the update finished and whether the gateway restart succeeded:
 
 ```bash
-tail -f ~/.hermes/logs/update.log
+tail -f ~/.agentx/logs/update.log
 ```
 
 - `Ctrl-C` (SIGINT) and system shutdown (SIGTERM) are still honored — those are deliberate cancellations, not accidents.
@@ -174,7 +174,7 @@ If you installed manually (not via the quick installer):
 ```bash
 cd /path/to/hermes-agent
 # Activate the venv you created during install (outside the source tree)
-export VIRTUAL_ENV="$HOME/.hermes/venvs/hermes-dev"
+export VIRTUAL_ENV="$HOME/.agentx/venvs/hermes-dev"
 export PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Pull latest code
@@ -245,14 +245,14 @@ See [Nix Setup](./nix-setup.md) for more details.
 hermes uninstall
 ```
 
-The uninstaller gives you the option to keep your configuration files (`~/.hermes/`) for a future reinstall.
+The uninstaller gives you the option to keep your configuration files (`~/.agentx/`) for a future reinstall.
 
 ### Manual Uninstall
 
 ```bash
 rm -f ~/.local/bin/hermes
 rm -rf /path/to/hermes-agent
-rm -rf ~/.hermes            # Optional — keep if you plan to reinstall
+rm -rf ~/.agentx            # Optional — keep if you plan to reinstall
 ```
 
 :::info

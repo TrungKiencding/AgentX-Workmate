@@ -3,7 +3,7 @@
 Hermes has no dedicated approval-decision ledger: ``always`` answers land in
 ``command_allowlist`` (config.yaml) via :func:`tools.approval.save_permanent_allowlist`,
 while ``once``/``session`` approvals are in-memory only.  What *does* persist
-is the session DB (``~/.hermes/state.db``): every assistant ``terminal`` tool
+is the session DB (``~/.agentx/state.db``): every assistant ``terminal`` tool
 call is stored with its arguments, and the paired ``role='tool'`` result
 records whether the command was blocked/denied ("BLOCKED: User denied …",
 "Asking the user for approval") or actually executed.
@@ -400,7 +400,7 @@ def _render_text(proposals: list[Proposal], days: int) -> None:
     print(
         "\nNothing has been changed. Apply selected entries with:\n"
         "  hermes approvals suggest --apply 1,3\n"
-        "Entries are merged into command_allowlist in ~/.hermes/config.yaml."
+        "Entries are merged into command_allowlist in ~/.agentx/config.yaml."
     )
 
 
@@ -439,7 +439,7 @@ def suggest_command(args) -> int:
             for pattern in applied:
                 print(f"  + {pattern}")
             print(f"\ncommand_allowlist now has {len(merged)} entries "
-                  "(~/.hermes/config.yaml).")
+                  "(~/.agentx/config.yaml).")
         return 0
 
     if getattr(args, "json", False):

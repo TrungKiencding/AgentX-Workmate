@@ -69,7 +69,7 @@ profile (the pre-unification behavior — useful if you deliberately expose
 different profiles' dashboards with different auth).
 
 The **Chat** tab follows the switcher too: a scoped chat spawns its PTY
-child with the selected profile's `HERMES_HOME`, so the conversation runs
+child with the selected profile's `AGENTX_HOME`, so the conversation runs
 with that profile's model, skills, memory, and session history. Switching
 profiles starts a fresh terminal session.
 
@@ -83,10 +83,10 @@ across profiles with its own filter).
 The default `hermes-agent` install does not ship the HTTP stack or PTY helper — those are optional extras. The **web dashboard** needs FastAPI and Uvicorn (`web` extra). The **Chat** tab also needs `ptyprocess` to spawn the embedded TUI behind a pseudo-terminal (`pty` extra on POSIX). Install both with:
 
 ```bash
-cd ~/.hermes/hermes-agent && uv pip install -e ".[web,pty]"
+cd ~/.agentx/hermes-agent && uv pip install -e ".[web,pty]"
 ```
 
-The `web` extra pulls in FastAPI/Uvicorn; `pty` pulls in `ptyprocess` (POSIX) or `pywinpty` (native Windows — note that the embedded TUI itself still requires WSL). `cd ~/.hermes/hermes-agent && uv pip install -e ".[all]"` includes both extras and is the easiest path if you also want messaging/voice/etc.
+The `web` extra pulls in FastAPI/Uvicorn; `pty` pulls in `ptyprocess` (POSIX) or `pywinpty` (native Windows — note that the embedded TUI itself still requires WSL). `cd ~/.agentx/hermes-agent && uv pip install -e ".[all]"` includes both extras and is the easiest path if you also want messaging/voice/etc.
 
 When you run `hermes dashboard` without the dependencies, it will tell you what to install. If the frontend hasn't been built yet and `npm` is available, it builds automatically on first launch.
 
@@ -124,7 +124,7 @@ The **Chat** tab embeds the full Hermes TUI (the same interface you get from `he
 **Prerequisites:**
 
 - Node.js (same requirement as `hermes --tui`; the TUI bundle is built on first launch)
-- `ptyprocess` — installed by the `pty` extra (`cd ~/.hermes/hermes-agent && uv pip install -e ".[web,pty]"`, or `[all]` covers both)
+- `ptyprocess` — installed by the `pty` extra (`cd ~/.agentx/hermes-agent && uv pip install -e ".[web,pty]"`, or `[all]` covers both)
 - POSIX kernel (Linux, macOS, or WSL2).  The `/chat` terminal pane specifically needs a POSIX PTY — native Windows Python has no equivalent, so on a native Windows install the rest of the dashboard (sessions, jobs, metrics, config editor) works but the `/chat` tab will show a banner telling you to use WSL2 for that feature.
 
 Close the browser tab and the PTY is reaped cleanly on the server. Re-opening spawns a fresh session.
@@ -150,17 +150,17 @@ Set a username and password, then run the dashboard bound to a reachable address
 
 ```ini
 [Service]
-EnvironmentFile=%h/.hermes/.env
+EnvironmentFile=%h/.agentx/.env
 ExecStart=/path/to/venv/bin/python -m hermes_cli.main dashboard \
     --host 0.0.0.0 --port 9119 --no-open
 ```
 
-with `~/.hermes/.env` containing:
+with `~/.agentx/.env` containing:
 
 ```bash
-HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
-HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=choose-a-strong-password
-HERMES_DASHBOARD_BASIC_AUTH_SECRET=<32+ random bytes; openssl rand -base64 32>
+AGENTX_DASHBOARD_BASIC_AUTH_USERNAME=admin
+AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD=choose-a-strong-password
+AGENTX_DASHBOARD_BASIC_AUTH_SECRET=<32+ random bytes; openssl rand -base64 32>
 ```
 
 Then in Desktop enter the **Remote URL** (e.g. `http://VM_IP:9119`) and **Sign in** with that username and password. See the [username/password provider](#usernamepassword-provider-no-oauth-idp) section for the full configuration surface.
@@ -288,7 +288,7 @@ Create and manage [profiles](../profiles.md) — isolated Hermes instances with 
 
 ### Skills
 
-Browse, search, and toggle installed skills and toolsets, and install new ones from the hub. Skills are loaded from `~/.hermes/skills/` and grouped by category.
+Browse, search, and toggle installed skills and toolsets, and install new ones from the hub. Skills are loaded from `~/.agentx/skills/` and grouped by category.
 
 - **Search** — filter installed skills and toolsets by name, description, or category
 - **Category filter** — click category pills to narrow the list (e.g. MLOps, MCP, Red Teaming, AI)
@@ -354,7 +354,7 @@ the API server and webhook endpoints) with its live connection status.
 - **Configure** — open a per-platform form with exactly the fields that channel needs (bot token, app token, server URL, allowlist, etc.). Secrets render as password inputs and are stored redacted; leaving a field blank keeps the existing value. Required fields are marked and validated. A "Setup guide" link points to the platform's credential docs.
 - **Enable / disable** — toggle a channel on or off. The credential stays on disk; only the active state changes.
 - **Test** — check whether the channel is configured, enabled, and reporting a live connection from the gateway.
-- **Restart gateway** — credentials are written to `~/.hermes/.env` and the enabled flag to `config.yaml`; the gateway connects each enabled channel on its next restart, which you can trigger right from the page.
+- **Restart gateway** — credentials are written to `~/.agentx/.env` and the enabled flag to `config.yaml`; the gateway connects each enabled channel on its next restart, which you can trigger right from the page.
 
 ![Channels admin page — every messaging platform with status, enable toggles, and per-platform setup forms](/img/dashboard/admin-channels.png)
 
@@ -395,7 +395,7 @@ You → /reload
   Reloaded .env (3 var(s) updated)
 ```
 
-This re-reads `~/.hermes/.env` into the running process's environment. Useful when you've added a new provider key via the dashboard and want to use it immediately.
+This re-reads `~/.agentx/.env` into the running process's environment. Useful when you've added a new provider key via the dashboard and want to use it immediately.
 
 ## REST API
 
@@ -406,7 +406,7 @@ The management endpoint families — `/api/config`, `/api/env`, `/api/skills`,
 `/api/tools/toolsets`, `/api/mcp`, and `/api/model/{info,options,auxiliary,set}` —
 accept an optional `?profile=<name>` query parameter (or `"profile"` in the
 JSON body for writes) that scopes the read/write to that profile's
-`HERMES_HOME`. Omitted = the dashboard's own profile. Unknown profile names
+`AGENTX_HOME`. Omitted = the dashboard's own profile. Unknown profile names
 return `404`. The `/api/pty` WebSocket accepts the same parameter to spawn
 a chat under the selected profile.
 :::
@@ -595,15 +595,15 @@ Because every login is verified against Nous Portal and protected by your Nous a
 
 To use the Nous provider you need an OAuth client ID (shape `agent:{id}`). There are two ways to get one:
 
-- **CLI — `hermes dashboard register`.** Run it on the host where the dashboard lives. It resolves your existing Nous login (run `hermes setup` first if you're not logged in), registers a self-hosted OAuth client with the Portal, and writes `HERMES_DASHBOARD_OAUTH_CLIENT_ID` into `~/.hermes/.env` for you. Optional flags: `--name` (a human-readable label, otherwise auto-generated) and `--redirect-uri` (a public HTTPS callback URL for an internet-facing host).
+- **CLI — `hermes dashboard register`.** Run it on the host where the dashboard lives. It resolves your existing Nous login (run `hermes setup` first if you're not logged in), registers a self-hosted OAuth client with the Portal, and writes `AGENTX_DASHBOARD_OAUTH_CLIENT_ID` into `~/.agentx/.env` for you. Optional flags: `--name` (a human-readable label, otherwise auto-generated) and `--redirect-uri` (a public HTTPS callback URL for an internet-facing host).
 
   ```bash
   hermes dashboard register
   # ✓ Registered dashboard "swift_falcon"
-  # …writes HERMES_DASHBOARD_OAUTH_CLIENT_ID to ~/.hermes/.env
+  # …writes AGENTX_DASHBOARD_OAUTH_CLIENT_ID to ~/.agentx/.env
   ```
 
-- **GUI — the Local Dashboards page.** Open [`/local-dashboards`](https://portal.nousresearch.com/local-dashboards) in the Nous Portal to register, name, manage, and revoke self-hosted dashboards from the browser. Copy the resulting `agent:{id}` client ID into `HERMES_DASHBOARD_OAUTH_CLIENT_ID` (env) or `dashboard.oauth.client_id` (config.yaml). This is also where you revoke a dashboard registered via the CLI.
+- **GUI — the Local Dashboards page.** Open [`/local-dashboards`](https://portal.nousresearch.com/local-dashboards) in the Nous Portal to register, name, manage, and revoke self-hosted dashboards from the browser. Copy the resulting `agent:{id}` client ID into `AGENTX_DASHBOARD_OAUTH_CLIENT_ID` (env) or `dashboard.oauth.client_id` (config.yaml). This is also where you revoke a dashboard registered via the CLI.
 
 #### Configuration
 
@@ -621,9 +621,9 @@ dashboard:
 
 | Env var | Overrides | Format | Provisioned by |
 |---------|-----------|--------|----------------|
-| `HERMES_DASHBOARD_OAUTH_CLIENT_ID` | `dashboard.oauth.client_id` | `agent:{instance_id}` | `hermes dashboard register` |
+| `AGENTX_DASHBOARD_OAUTH_CLIENT_ID` | `dashboard.oauth.client_id` | `agent:{instance_id}` | `hermes dashboard register` |
 
-Per the Hermes Agent convention (`~/.hermes/.env` is for API keys / secrets only), **`config.yaml` is the recommended place to set these values** for local dev, on-prem, and any deployment you control directly. The environment-variable path exists so a hosting platform's secret injection can push per-deploy `client_id`s without anyone having to edit `config.yaml` inside the image — that's its primary purpose.
+Per the Hermes Agent convention (`~/.agentx/.env` is for API keys / secrets only), **`config.yaml` is the recommended place to set these values** for local dev, on-prem, and any deployment you control directly. The environment-variable path exists so a hosting platform's secret injection can push per-deploy `client_id`s without anyone having to edit `config.yaml` inside the image — that's its primary purpose.
 
 Empty environment values are treated as unset, so a provisioned-but-not-populated platform secret can't accidentally shadow a valid `config.yaml` entry.
 
@@ -634,7 +634,7 @@ Refusing to bind dashboard to 0.0.0.0 — the auth gate engages on
 non-loopback binds, but no auth providers are registered.
 
 Bundled providers reported these issues:
-  • nous: HERMES_DASHBOARD_OAUTH_CLIENT_ID is not set (and
+  • nous: AGENTX_DASHBOARD_OAUTH_CLIENT_ID is not set (and
     dashboard.oauth.client_id in config.yaml is empty). …
 
 Configure an auth provider before exposing the dashboard:
@@ -649,13 +649,13 @@ There is no unauthenticated public-bind option — to keep it local, bind
 
 From a logged-in Hermes install to a Nous-gated dashboard in three steps.
 
-**1. Log in and register the dashboard.** `hermes dashboard register` uses your existing Nous login to provision an OAuth client and writes `HERMES_DASHBOARD_OAUTH_CLIENT_ID` into `~/.hermes/.env` for you:
+**1. Log in and register the dashboard.** `hermes dashboard register` uses your existing Nous login to provision an OAuth client and writes `AGENTX_DASHBOARD_OAUTH_CLIENT_ID` into `~/.agentx/.env` for you:
 
 ```bash
 hermes setup            # if you're not already logged into Nous Portal
 hermes dashboard register
 # ✓ Registered dashboard "swift_falcon"
-# …writes HERMES_DASHBOARD_OAUTH_CLIENT_ID to ~/.hermes/.env
+# …writes AGENTX_DASHBOARD_OAUTH_CLIENT_ID to ~/.agentx/.env
 ```
 
 **2. Run the dashboard on a reachable address.** A non-loopback bind engages the OAuth gate, and the `client_id` just written activates the `nous` provider:
@@ -672,7 +672,7 @@ curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'
 # ["nous"]
 ```
 
-`GET /api/auth/me` then returns the verified session (`provider: nous`). For an internet-facing host, register with `--redirect-uri https://hermes.example.com/auth/callback` and set `HERMES_DASHBOARD_PUBLIC_URL` so the OAuth callback resolves to your public URL (see [Public URL override](#public-url-override)).
+`GET /api/auth/me` then returns the verified session (`provider: nous`). For an internet-facing host, register with `--redirect-uri https://hermes.example.com/auth/callback` and set `AGENTX_DASHBOARD_PUBLIC_URL` so the OAuth callback resolves to your public URL (see [Public URL override](#public-url-override)).
 
 ### Username/password provider (no OAuth IDP)
 
@@ -707,11 +707,11 @@ dashboard:
 
 | Env var | Overrides | Notes |
 |---------|-----------|-------|
-| `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` | `dashboard.basic_auth.username` | required to activate |
-| `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH` | `dashboard.basic_auth.password_hash` | preferred (no plaintext at rest) |
-| `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD` | `dashboard.basic_auth.password` | plaintext; **wins over a config `password_hash`** so you can rotate via env |
-| `HERMES_DASHBOARD_BASIC_AUTH_SECRET` | `dashboard.basic_auth.secret` | token-signing key |
-| `HERMES_DASHBOARD_BASIC_AUTH_TTL_SECONDS` | `dashboard.basic_auth.session_ttl_seconds` | access-token lifetime |
+| `AGENTX_DASHBOARD_BASIC_AUTH_USERNAME` | `dashboard.basic_auth.username` | required to activate |
+| `AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD_HASH` | `dashboard.basic_auth.password_hash` | preferred (no plaintext at rest) |
+| `AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD` | `dashboard.basic_auth.password` | plaintext; **wins over a config `password_hash`** so you can rotate via env |
+| `AGENTX_DASHBOARD_BASIC_AUTH_SECRET` | `dashboard.basic_auth.secret` | token-signing key |
+| `AGENTX_DASHBOARD_BASIC_AUTH_TTL_SECONDS` | `dashboard.basic_auth.session_ttl_seconds` | access-token lifetime |
 
 :::caution Set an explicit `secret` for stable sessions
 When `secret` is empty, a random per-process signing key is generated. That's fine for a single process, but it means **every session is invalidated on restart** and sessions **don't span multiple workers**. Set an explicit `secret` for restart-surviving / multi-worker deployments.
@@ -723,18 +723,18 @@ The `/auth/password-login` endpoint is rate-limited per client IP (default 10 at
 
 From nothing to a password-gated dashboard on a trusted network in three steps.
 
-**1. Set credentials in `~/.hermes/.env`.** Hash the password so no plaintext sits at rest, and set a stable signing secret so sessions survive restarts:
+**1. Set credentials in `~/.agentx/.env`.** Hash the password so no plaintext sits at rest, and set a stable signing secret so sessions survive restarts:
 
 ```bash
 # Compute a scrypt hash of your chosen password:
 HASH=$(python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('choose-a-strong-password'))")
 
-cat >> ~/.hermes/.env <<EOF
-HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
-HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=$HASH
-HERMES_DASHBOARD_BASIC_AUTH_SECRET=$(openssl rand -base64 32)
+cat >> ~/.agentx/.env <<EOF
+AGENTX_DASHBOARD_BASIC_AUTH_USERNAME=admin
+AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=$HASH
+AGENTX_DASHBOARD_BASIC_AUTH_SECRET=$(openssl rand -base64 32)
 EOF
-chmod 600 ~/.hermes/.env
+chmod 600 ~/.agentx/.env
 ```
 
 **2. Run the dashboard on a reachable address.** A non-loopback bind engages the gate, and the username + hash activate the `basic` provider:
@@ -785,9 +785,9 @@ dashboard:
 
 | Env var | Overrides | Notes |
 |---------|-----------|-------|
-| `HERMES_DASHBOARD_OIDC_ISSUER` | `dashboard.oauth.self_hosted.issuer` | OIDC issuer URL — required |
-| `HERMES_DASHBOARD_OIDC_CLIENT_ID` | `dashboard.oauth.self_hosted.client_id` | Public client id — required |
-| `HERMES_DASHBOARD_OIDC_SCOPES` | `dashboard.oauth.self_hosted.scopes` | Defaults to `openid profile email` |
+| `AGENTX_DASHBOARD_OIDC_ISSUER` | `dashboard.oauth.self_hosted.issuer` | OIDC issuer URL — required |
+| `AGENTX_DASHBOARD_OIDC_CLIENT_ID` | `dashboard.oauth.self_hosted.client_id` | Public client id — required |
+| `AGENTX_DASHBOARD_OIDC_SCOPES` | `dashboard.oauth.self_hosted.scopes` | Defaults to `openid profile email` |
 
 In your IDP, register a **public** application/client with the authorization-code + PKCE (S256) grant and add the dashboard's callback as an allowed redirect URI. The callback is `<dashboard public URL>/auth/callback` (see [Public URL override](#public-url-override) for how the dashboard derives its public URL behind a proxy).
 
@@ -864,13 +864,13 @@ Once it's up, the realm advertises standard OIDC discovery at
 **2. Point the dashboard at it.** The self-hosted plugin permits a loopback `http://` issuer (HTTPS is required for any non-loopback issuer), so the local Keycloak works as-is:
 
 ```bash
-export HERMES_DASHBOARD_OIDC_ISSUER="http://localhost:8080/realms/hermes"
-export HERMES_DASHBOARD_OIDC_CLIENT_ID="hermes-dashboard"
-export HERMES_DASHBOARD_PUBLIC_URL="http://localhost:9119"
+export AGENTX_DASHBOARD_OIDC_ISSUER="http://localhost:8080/realms/hermes"
+export AGENTX_DASHBOARD_OIDC_CLIENT_ID="hermes-dashboard"
+export AGENTX_DASHBOARD_PUBLIC_URL="http://localhost:9119"
 hermes dashboard --host 0.0.0.0 --port 9119 --no-open
 ```
 
-`HERMES_DASHBOARD_PUBLIC_URL` tells the dashboard its OAuth callback is
+`AGENTX_DASHBOARD_PUBLIC_URL` tells the dashboard its OAuth callback is
 `http://localhost:9119/auth/callback` — the redirect URI the realm registered
 above. Binding to `0.0.0.0` (a non-loopback bind) is what
 engages the OAuth gate.
@@ -887,7 +887,7 @@ engages the OAuth gate.
 
 By default, the dashboard reconstructs the OAuth callback URL from the request — `X-Forwarded-Host` + `X-Forwarded-Proto` + `X-Forwarded-Prefix` (when uvicorn is configured with `proxy_headers=True`, which `start_server` enables under the gate). This works out of the box behind a reverse proxy that sets all three headers correctly.
 
-For deploys behind reverse proxies that don't reliably forward those headers (manual nginx setups, on-prem ingresses, custom-domain deploys with partial proxy chains), set `dashboard.public_url` (or `HERMES_DASHBOARD_PUBLIC_URL`) to the **complete public URL** the dashboard is reached at:
+For deploys behind reverse proxies that don't reliably forward those headers (manual nginx setups, on-prem ingresses, custom-domain deploys with partial proxy chains), set `dashboard.public_url` (or `AGENTX_DASHBOARD_PUBLIC_URL`) to the **complete public URL** the dashboard is reached at:
 
 ```yaml
 dashboard:
@@ -900,8 +900,8 @@ Same precedence as the other dashboard settings — env wins over `config.yaml`:
 
 | Surface | Override path | When to use |
 |---------|---------------|-------------|
-| `dashboard.public_url` in `config.yaml` | `HERMES_DASHBOARD_PUBLIC_URL` | Local dev / on-prem (canonical) |
-| `HERMES_DASHBOARD_PUBLIC_URL` env var | — | Hosting-platform secrets / CI |
+| `dashboard.public_url` in `config.yaml` | `AGENTX_DASHBOARD_PUBLIC_URL` | Local dev / on-prem (canonical) |
+| `AGENTX_DASHBOARD_PUBLIC_URL` env var | — | Hosting-platform secrets / CI |
 | (unset) | — | Default — reconstruct from `X-Forwarded-*` headers |
 
 Validation rejects values without `http://` / `https://` scheme, without a host, or containing quote / angle / whitespace / control characters. A malformed value silently falls through to header reconstruction so the login flow keeps working rather than dispatching the user to a hostile URL.
@@ -937,14 +937,14 @@ The sidebar widget shows `Logged in as <user_id…> via nous` with a logout icon
 
 ### Audit log
 
-Every login start, success, failure, and session-verify failure is written as a JSON line to `$HERMES_HOME/logs/dashboard-auth.log`. Sensitive fields (`access_token`, `refresh_token`, `code`, `code_verifier`, `state`, `Authorization` header) are redacted before logging.
+Every login start, success, failure, and session-verify failure is written as a JSON line to `$AGENTX_HOME/logs/dashboard-auth.log`. Sensitive fields (`access_token`, `refresh_token`, `code`, `code_verifier`, `state`, `Authorization` header) are redacted before logging.
 
 ### Custom providers
 
 To plug a non-Nous OAuth provider (e.g. Google, GitHub, custom OIDC), create a plugin that registers a `DashboardAuthProvider`:
 
 ```python
-# ~/.hermes/plugins/dashboard-auth-myidp/__init__.py
+# ~/.agentx/plugins/dashboard-auth-myidp/__init__.py
 from hermes_cli.dashboard_auth import DashboardAuthProvider, Session, LoginStart
 
 class MyIdPProvider(DashboardAuthProvider):
@@ -967,7 +967,7 @@ The login page lists all registered providers; multiple providers can be stacked
 
 Alongside interactive human login (session cookies + refresh), the `DashboardAuthProvider` ABC supports a **non-interactive, service-to-service** capability via `supports_token = True` + `verify_token(token=...)`. When a provider opts in, an inbound `Authorization: Bearer <token>` is verified and, on success, a `TokenPrincipal` is attached to the request (`request.state.token_principal`) for the endpoints that provider marks token-authable — no cookie, no redirect, no refresh.
 
-The bundled first consumer is the **drain** provider (`plugins/dashboard_auth/drain`): `nous-account-service` provisions a per-agent secret via `HERMES_DASHBOARD_DRAIN_SECRET`, and the provider verifies inbound bearer tokens against it with a constant-time compare, registering `/api/gateway/drain` as token-authable. It **fails closed** — a weak/short secret (< 256 bits) is rejected at registration and the endpoint stays disabled; it's a no-op when the env var is unset. Behavioural knobs (`scope`, `min_secret_chars`) live under `dashboard.drain_auth` in `config.yaml`.
+The bundled first consumer is the **drain** provider (`plugins/dashboard_auth/drain`): `nous-account-service` provisions a per-agent secret via `AGENTX_DASHBOARD_DRAIN_SECRET`, and the provider verifies inbound bearer tokens against it with a constant-time compare, registering `/api/gateway/drain` as token-authable. It **fails closed** — a weak/short secret (< 256 bits) is rejected at registration and the endpoint stays disabled; it's a no-op when the env var is unset. Behavioural knobs (`scope`, `min_secret_chars`) live under `dashboard.drain_auth` in `config.yaml`.
 
 Custom providers can implement `supports_token`/`verify_token` the same way to expose their own machine-authable endpoints.
 
@@ -975,7 +975,7 @@ Custom providers can implement `supports_token`/`verify_token` the same way to e
 
 ```bash
 # Quick env-var path.
-HERMES_DASHBOARD_OAUTH_CLIENT_ID=agent:test \
+AGENTX_DASHBOARD_OAUTH_CLIENT_ID=agent:test \
   hermes dashboard --host 0.0.0.0
 
 # Or the equivalent via config.yaml (recommended for local dev / on-prem):
@@ -1006,23 +1006,23 @@ The recipe below uses the username/password path because it's the quickest to st
 ### On the backend (the remote machine)
 
 ```bash
-# 1. Set the dashboard login credentials in ~/.hermes/.env (secrets file, 0600).
-cat >> ~/.hermes/.env <<'EOF'
-HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
-HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=choose-a-strong-password
+# 1. Set the dashboard login credentials in ~/.agentx/.env (secrets file, 0600).
+cat >> ~/.agentx/.env <<'EOF'
+AGENTX_DASHBOARD_BASIC_AUTH_USERNAME=admin
+AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD=choose-a-strong-password
 # Recommended: a stable signing secret so sessions survive restarts.
-HERMES_DASHBOARD_BASIC_AUTH_SECRET=$(openssl rand -base64 32)
+AGENTX_DASHBOARD_BASIC_AUTH_SECRET=$(openssl rand -base64 32)
 EOF
-chmod 600 ~/.hermes/.env
+chmod 600 ~/.agentx/.env
 
 # 2. Run the dashboard bound to a reachable address. The non-loopback bind
 #    engages the auth gate; the username/password provider handles login.
 hermes dashboard --no-open --host 0.0.0.0 --port 9119
 ```
 
-Prefer no plaintext at rest? Use `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH` with a scrypt hash instead — see [Username/password provider](#usernamepassword-provider-no-oauth-idp) for the full surface.
+Prefer no plaintext at rest? Use `AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD_HASH` with a scrypt hash instead — see [Username/password provider](#usernamepassword-provider-no-oauth-idp) for the full surface.
 
-If you run the dashboard as a systemd service, `~/.hermes/.env` is picked up automatically when the unit has `EnvironmentFile=%h/.hermes/.env`, so the credentials are in the environment at boot.
+If you run the dashboard as a systemd service, `~/.agentx/.env` is picked up automatically when the unit has `EnvironmentFile=%h/.agentx/.env`, so the credentials are in the environment at boot.
 
 :::warning
 The dashboard reads and writes your `.env` (API keys, secrets) and can run agent commands. The **username/password** setup shown here is for a trusted network — never expose a password-protected dashboard directly to the open internet. Put it behind a VPN. [Tailscale](https://tailscale.com/) is the clean option: bind to the machine's tailscale IP (`--host <tailscale-ip>`) and use `http://<tailscale-ip>:9119` as the Remote URL. Only devices on your tailnet can reach it. To reach a backend over the public internet, use the **OAuth (Nous Portal)** provider instead.
@@ -1036,22 +1036,22 @@ The dashboard reads and writes your `.env` (API keys, secrets) and can run agent
 - **Sign in** — the app detects the username/password gateway and shows a **Sign in** button; click it and enter the credentials from step 1
 - **Save and reconnect** — switches the desktop shell onto the remote backend
 
-The session refreshes automatically and survives restarts when `HERMES_DASHBOARD_BASIC_AUTH_SECRET` is set on the backend.
+The session refreshes automatically and survives restarts when `AGENTX_DASHBOARD_BASIC_AUTH_SECRET` is set on the backend.
 
 ### Environment-variable override
 
-Instead of the in-app setting, you can point the desktop at a backend with an env var before launching it. When `HERMES_DESKTOP_REMOTE_URL` is set, it overrides the saved in-app URL (the Gateway settings panel shows an "env override" badge and disables editing); you still **Sign in** with your username and password from the panel.
+Instead of the in-app setting, you can point the desktop at a backend with an env var before launching it. When `AGENTX_DESKTOP_REMOTE_URL` is set, it overrides the saved in-app URL (the Gateway settings panel shows an "env override" badge and disables editing); you still **Sign in** with your username and password from the panel.
 
 | Env var | Value |
 |---------|-------|
-| `HERMES_DESKTOP_REMOTE_URL` | `http://<backend-host>:9119` |
+| `AGENTX_DESKTOP_REMOTE_URL` | `http://<backend-host>:9119` |
 
 ### Troubleshooting
 
 - **"Remote gateway incomplete"** — you haven't entered a remote URL.
-- **Sign-in fails with 401 / "Invalid credentials"** — the username or password doesn't match the backend's `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`. The backend returns the same generic error for unknown user and wrong password, so check both. Confirm the gate with `curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'` — it should report `true` and include `"basic"`.
+- **Sign-in fails with 401 / "Invalid credentials"** — the username or password doesn't match the backend's `AGENTX_DASHBOARD_BASIC_AUTH_USERNAME` / `AGENTX_DASHBOARD_BASIC_AUTH_PASSWORD`. The backend returns the same generic error for unknown user and wrong password, so check both. Confirm the gate with `curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'` — it should report `true` and include `"basic"`.
 - **No "Sign in" button — it asks for a session token instead** — the username/password provider isn't active (`/api/status` won't list `"basic"`). Make sure the username and a password (or password hash) are set and the dashboard process loaded them.
-- **Signed out on every restart** — set `HERMES_DASHBOARD_BASIC_AUTH_SECRET` to a stable value; otherwise the signing key is regenerated per boot.
+- **Signed out on every restart** — set `AGENTX_DASHBOARD_BASIC_AUTH_SECRET` to a stable value; otherwise the signing key is regenerated per boot.
 - **Connection refused / times out** — the backend bound to `127.0.0.1` (the default) instead of a reachable address, or a firewall/VPN is blocking the port. Bind to `0.0.0.0` or the tailscale IP and open the port to your trusted network.
 
 ## CORS

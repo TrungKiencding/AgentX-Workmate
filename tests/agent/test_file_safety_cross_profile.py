@@ -6,8 +6,8 @@ depth, NOT a security boundary — but it prevents the agent from silently
 corrupting a profile that belongs to a different session.
 
 Reference: May 2026 incident — a hermes-security profile session
-accidentally edited skills under both ~/.hermes/profiles/hermes-security/skills/
-AND ~/.hermes/skills/ (the default profile's skills), realizing only
+accidentally edited skills under both ~/.agentx/profiles/hermes-security/skills/
+AND ~/.agentx/skills/ (the default profile's skills), realizing only
 afterwards that the second path belonged to a different profile.
 """
 from __future__ import annotations
@@ -91,7 +91,7 @@ class TestResolveActiveProfileName:
 
 
     def test_falls_back_to_default_on_resolution_failure(self, fake_hermes, monkeypatch):
-        """If HERMES_HOME resolution raises, return 'default' rather than crashing the tool."""
+        """If AGENTX_HOME resolution raises, return 'default' rather than crashing the tool."""
         import agent.file_safety as fs
 
         def _boom():

@@ -57,7 +57,7 @@ hermes gateway start
    `https://app.photon.codes/` for approval and stores the bearer token.
 2. **Find or create** the `Hermes Agent` project on the Photon dashboard.
 3. **Provision the project secret** — mint a fresh project secret (the
-   dashboard reveals it only once) and persist it to `~/.hermes/.env` so the
+   dashboard reveals it only once) and persist it to `~/.agentx/.env` so the
    sidecar can authenticate `spectrum-ts`. Spectrum is always on, so there's no
    separate enable step.
 4. **Register your phone number** as a Spectrum user (idempotent — skipped if
@@ -75,7 +75,7 @@ Run `hermes photon status` to see what's configured.
 
 ## Credentials
 
-Runtime SDK credentials live in `~/.hermes/.env` (the same place every other
+Runtime SDK credentials live in `~/.agentx/.env` (the same place every other
 channel keeps its token), and the adapter reads them from the environment:
 
 ```bash
@@ -83,7 +83,7 @@ PHOTON_PROJECT_ID=<projectId>   # the SDK's projectId (same as the dashboard pro
 PHOTON_PROJECT_SECRET=<projectSecret>
 ```
 
-Management metadata lives in `~/.hermes/auth.json` under `credential_pool`:
+Management metadata lives in `~/.agentx/auth.json` under `credential_pool`:
 
 ```jsonc
 {

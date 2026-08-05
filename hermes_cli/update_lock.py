@@ -21,7 +21,7 @@ This module makes that same marker the single lock for **all** update
 entrypoints instead of adding a fourth mechanism. Format and location are
 unchanged and remain byte-compatible with the Rust and Electron readers:
 
-    <HERMES_HOME>/.hermes-update-in-progress   body: "<pid>\\n<started_at_unix>"
+    <AGENTX_HOME>/.hermes-update-in-progress   body: "<pid>\\n<started_at_unix>"
 
 A marker only counts as a live update when its pid is alive AND it is younger
 than :data:`UPDATE_MARKER_MAX_AGE_MS` — mirroring ``readLiveUpdateMarker`` so a
@@ -40,7 +40,7 @@ Two mechanisms recognize the orchestrating parent, and either suffices:
   be the live marker owner, so a stale or forged value cannot bypass the lock.
 * A live holder that is a *process ancestor* of ours is likewise our own
   orchestrator. This is the load-bearing path for the fleet: the staged
-  ``hermes-setup`` binary under ``~/.hermes`` is only refreshed by a full
+  ``hermes-setup`` binary under ``~/.agentx`` is only refreshed by a full
   installer run (``copy_self_to_hermes_home`` deliberately no-ops during
   ``--update``), so every desktop whose staged updater predates the
   HANDOFF_PID_ENV export runs an old parent against a new child. Without the
@@ -71,7 +71,7 @@ MARKER_NAME = ".hermes-update-in-progress"
 # holds the marker for its whole run, so without this the child refuses its
 # own parent's lock and the GUI update can never complete. See update_child_env
 # in apps/bootstrap-installer/src-tauri/src/update.rs — keep the name in sync.
-HANDOFF_PID_ENV = "HERMES_UPDATE_HANDOFF_PID"
+HANDOFF_PID_ENV = "AGENTX_UPDATE_HANDOFF_PID"
 
 # Exit code meaning "another updater/instance owns this install right now".
 # Already the de-facto contract: the Windows shim + venv-holder guards in
@@ -86,7 +86,7 @@ def update_marker_path() -> Path:
     """Path of the shared update marker.
 
     Uses the *process* Hermes home (never the context-local profile override):
-    the Rust updater resolves ``$HERMES_HOME`` or the platform default, and the
+    the Rust updater resolves ``$AGENTX_HOME`` or the platform default, and the
     desktop pins that same value into the updater's env. A profile-scoped path
     here would put the lock somewhere the other two owners never look.
     """

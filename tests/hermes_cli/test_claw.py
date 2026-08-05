@@ -324,8 +324,8 @@ class TestPrintMigrationReport:
         report = {
             "summary": {"migrated": 2, "skipped": 1, "conflict": 1, "error": 0},
             "items": [
-                {"kind": "soul", "status": "migrated", "destination": "/home/user/.hermes/SOUL.md"},
-                {"kind": "memory", "status": "migrated", "destination": "/home/user/.hermes/memories/MEMORY.md"},
+                {"kind": "soul", "status": "migrated", "destination": "/home/user/.agentx/SOUL.md"},
+                {"kind": "memory", "status": "migrated", "destination": "/home/user/.agentx/memories/MEMORY.md"},
                 {"kind": "skills", "status": "conflict", "reason": "already exists"},
                 {"kind": "tts-assets", "status": "skipped", "reason": "not found"},
             ],

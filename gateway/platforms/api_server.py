@@ -341,7 +341,7 @@ def _resolve_request_runtime_agent_kwargs(provider: str, target_model: Optional[
 
     model_cfg = _get_model_config()
     max_tokens = None
-    env_max_tokens = os.environ.get("HERMES_MAX_TOKENS")
+    env_max_tokens = os.environ.get("AGENTX_MAX_TOKENS")
     if env_max_tokens:
         try:
             max_tokens = int(env_max_tokens)
@@ -840,7 +840,7 @@ class ResponseStore:
             self._conn = sqlite3.connect(":memory:", check_same_thread=False)
             self._db_path = None
         # Use shared WAL-fallback helper so response_store.db degrades
-        # gracefully on NFS/SMB/FUSE-mounted HERMES_HOME (same filesystem
+        # gracefully on NFS/SMB/FUSE-mounted AGENTX_HOME (same filesystem
         # issue addressed for state.db/kanban.db — see
         # hermes_state._WAL_INCOMPAT_MARKERS).
         from hermes_state import apply_wal_with_fallback
@@ -6514,7 +6514,7 @@ class APIServerAdapter(BasePlatformAdapter):
                                 # the other agent-entry routes bind it via
                                 # _run_agent(). Without it,
                                 # tools.async_delegation reads an empty
-                                # HERMES_SESSION_CHAT_ID on /v1/runs and
+                                # AGENTX_SESSION_CHAT_ID on /v1/runs and
                                 # background delegations stay forced-sync
                                 # (no wake target).
                                 chat_id=session_id or "",
@@ -7050,7 +7050,7 @@ class APIServerAdapter(BasePlatformAdapter):
             # unsandboxed local terminal backend. The API server can drive the
             # agent's terminal/file tools as the host user; on a public bind
             # that is the exact surface the hermes-0day campaign abused to write
-            # ~/.hermes/config.yaml and plant persistence. Sandboxing (Docker /
+            # ~/.agentx/config.yaml and plant persistence. Sandboxing (Docker /
             # remote backend) contains the blast radius. Warn, don't refuse —
             # the operator may have an external firewall / strong key.
             if is_network_accessible(self._host):

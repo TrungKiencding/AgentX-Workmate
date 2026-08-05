@@ -69,7 +69,7 @@ npx hyperframes doctor                      # 诊断环境问题
 ## 初始设置（一次性）
 
 ```bash
-bash "$(dirname "$(find ~/.hermes/skills -path '*/hyperframes/SKILL.md' 2>/dev/null | head -1)")/scripts/setup.sh"
+bash "$(dirname "$(find ~/.agentx/skills -path '*/hyperframes/SKILL.md' 2>/dev/null | head -1)")/scripts/setup.sh"
 ```
 
 该脚本执行以下操作：

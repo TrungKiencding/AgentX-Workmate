@@ -76,7 +76,7 @@ CLI 会输出你的 `CLIENT_ID`、`CLIENT_SECRET` 和 `TENANT_ID`，以及第六
 
 ## 第四步：配置环境变量
 
-添加到 `~/.hermes/.env`：
+添加到 `~/.agentx/.env`：
 
 ```bash
 # 必填
@@ -94,7 +94,7 @@ TEAMS_ALLOWED_USERS=<your-aad-object-id>
 ## 第五步：启动 Gateway
 
 ```bash
-HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d gateway
+AGENTX_UID=$(id -u) AGENTX_GID=$(id -g) docker compose up -d gateway
 ```
 
 此命令启动 gateway。默认 webhook 端口为 `3978`（可通过 `TEAMS_PORT` 覆盖）。检查运行状态：
@@ -138,7 +138,7 @@ teams app get <teamsAppId> --install-link
 
 ### config.yaml
 
-也可通过 `~/.hermes/config.yaml` 进行配置：
+也可通过 `~/.agentx/config.yaml` 进行配置：
 
 ```yaml
 platforms:
@@ -226,7 +226,7 @@ teams app update --id <teamsAppId> --endpoint "https://your-domain.com/api/messa
 | `health` 端点正常但机器人不响应 | 检查隧道是否仍在运行，以及机器人的消息端点是否与隧道 URL 匹配 |
 | 日志中出现 `KeyError: 'teams'` | 重启容器——此问题已在当前版本中修复 |
 | 机器人响应时出现认证错误 | 验证 `TEAMS_CLIENT_ID`、`TEAMS_CLIENT_SECRET` 和 `TEAMS_TENANT_ID` 是否均已正确设置 |
-| `No inference provider configured` | 检查 `~/.hermes/.env` 中是否设置了 `ANTHROPIC_API_KEY`（或其他提供商密钥） |
+| `No inference provider configured` | 检查 `~/.agentx/.env` 中是否设置了 `ANTHROPIC_API_KEY`（或其他提供商密钥） |
 | 机器人收到消息但忽略它们 | 你的 AAD 对象 ID 可能不在 `TEAMS_ALLOWED_USERS` 中。运行 `teams status --verbose` 查找 |
 | 隧道 URL 在重启后变更 | 使用命名隧道（`devtunnel create hermes-bot`）时，devtunnel URL 是持久的。ngrok 和 cloudflared 每次运行都会生成新 URL（除非你有付费计划）——URL 变更时请用 `teams app update` 更新机器人端点 |
 | Teams 显示"此机器人未响应" | Webhook 返回了错误。检查 `docker logs hermes` 中的错误堆栈 |
@@ -242,7 +242,7 @@ teams app update --id <teamsAppId> --endpoint "https://your-domain.com/api/messa
 将 `TEAMS_CLIENT_SECRET` 视同密码对待——定期通过 Azure 门户或 Teams CLI 进行轮换。
 :::
 
-- 将凭据存储在权限为 `600` 的 `~/.hermes/.env` 中（`chmod 600 ~/.hermes/.env`）
+- 将凭据存储在权限为 `600` 的 `~/.agentx/.env` 中（`chmod 600 ~/.agentx/.env`）
 - 机器人仅接受 `TEAMS_ALLOWED_USERS` 中用户的消息；未授权的消息会被静默丢弃
 - 你的公开端点（`/api/messages`）由 Teams Bot Framework 进行认证——不含有效 JWT 的请求会被拒绝
 

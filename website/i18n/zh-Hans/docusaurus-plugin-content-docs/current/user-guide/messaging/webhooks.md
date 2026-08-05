@@ -46,7 +46,7 @@ hermes gateway setup
 
 ### 通过环境变量
 
-添加到 `~/.hermes/.env`：
+添加到 `~/.agentx/.env`：
 
 ```bash
 WEBHOOK_ENABLED=true
@@ -82,7 +82,7 @@ curl http://localhost:8644/health
 | `secret` | **是** | 用于签名验证的 HMAC secret。若路由未设置，则回退到全局 `secret`。仅用于测试时可设为 `"INSECURE_NO_AUTH"`（跳过验证）。 |
 | `prompt` | 否 | 使用点号表示法访问 payload 字段的模板字符串（例如 `{pull_request.title}`）。若省略，则将完整 JSON payload 转储到 prompt 中。 |
 | `filters` | 否 | 声明式 payload 过滤器，在认证/请求体/事件过滤之后、agent 或直接投递之前求值。不匹配时返回 `{"status":"ignored","reason":"filter"}`（HTTP 200）。 |
-| `script` | 否 | 位于 `~/.hermes/scripts/` 下的过滤/转换脚本。webhook payload 以 JSON 形式通过 stdin 传入。stdout 为 JSON 对象时会在模板渲染前替换 payload；文本 stdout 以 `script_output` 形式暴露；空 stdout、`[SILENT]` 或非零退出码会忽略该 webhook。 |
+| `script` | 否 | 位于 `~/.agentx/scripts/` 下的过滤/转换脚本。webhook payload 以 JSON 形式通过 stdin 传入。stdout 为 JSON 对象时会在模板渲染前替换 payload；文本 stdout 以 `script_output` 形式暴露；空 stdout、`[SILENT]` 或非零退出码会忽略该 webhook。 |
 | `skills` | 否 | agent 运行时加载的 skill 名称列表。 |
 | `deliver` | 否 | 响应发送目标：`github_comment`、`telegram`、`discord`、`slack`、`signal`、`sms`、`whatsapp`、`matrix`、`mattermost`、`homeassistant`、`email`、`dingtalk`、`feishu`、`wecom`、`weixin`、`bluebubbles`、`qqbot`，或 `log`（默认）。 |
 | `deliver_extra` | 否 | 额外的投递配置——键取决于 `deliver` 类型（例如 `repo`、`pr_number`、`chat_id`）。值支持与 `prompt` 相同的 `{dot.notation}` 模板语法。 |
@@ -143,7 +143,7 @@ platforms:
                 - field: "payload.priority"
                   equals: 4
                 - field: "payload.project_id"
-                  in_file: "~/.hermes/data/todoist/watchlist.json"
+                  in_file: "~/.agentx/data/todoist/watchlist.json"
           prompt: "Todoist task changed: {payload.content}"
 ```
 
@@ -162,12 +162,12 @@ platforms:
 
 ### 脚本过滤与转换 {#script-filters-and-transforms}
 
-当声明式过滤器不够用时，使用 `script`。脚本必须位于当前 profile 的 `~/.hermes/scripts/` 目录下；相对路径在该目录内解析，且禁止路径穿越到目录之外。`.sh` 和 `.bash` 脚本用 bash 运行，其他扩展名用当前 Python 解释器运行。
+当声明式过滤器不够用时，使用 `script`。脚本必须位于当前 profile 的 `~/.agentx/scripts/` 目录下；相对路径在该目录内解析，且禁止路径穿越到目录之外。`.sh` 和 `.bash` 脚本用 bash 运行，其他扩展名用当前 Python 解释器运行。
 
 路由 payload 以 JSON 形式发送到 stdin：
 
 ```python
-# ~/.hermes/scripts/todoist-hermes-label.py
+# ~/.agentx/scripts/todoist-hermes-label.py
 import json
 import sys
 
@@ -242,7 +242,7 @@ webhooks:
 
 ### 2. 添加路由配置
 
-按照上方示例，将 `github-pr` 路由添加到 `~/.hermes/config.yaml`。
+按照上方示例，将 `github-pr` 路由添加到 `~/.agentx/config.yaml`。
 
 ### 3. 确保 `gh` CLI 已认证
 
@@ -433,7 +433,7 @@ hermes webhook test github-issues --payload '{"issue": {"number": 42, "title": "
 
 ### 动态订阅的工作原理
 
-- 订阅存储在 `~/.hermes/webhook_subscriptions.json`
+- 订阅存储在 `~/.agentx/webhook_subscriptions.json`
 - webhook 适配器在每次收到请求时热重载该文件（基于 mtime 检测，开销可忽略不计）
 - `config.yaml` 中的静态路由始终优先于同名的动态订阅
 - 动态订阅与静态路由使用相同的格式和功能（events、prompt 模板、skills、delivery）

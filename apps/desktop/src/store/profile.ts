@@ -127,7 +127,7 @@ export async function refreshActiveProfile(): Promise<void> {
   }
 }
 
-// Persist the choice and relaunch the backend under the new HERMES_HOME. The
+// Persist the choice and relaunch the backend under the new AGENTX_HOME. The
 // main process reloads the window, so this normally never returns to the caller
 // (the renderer is torn down). We optimistically reflect the selection first so
 // the pill updates instantly if the reload is delayed.
@@ -387,7 +387,7 @@ function orderedProfileKeys(): string[] {
   return hasDefault ? ['default', ...named] : named
 }
 
-// Switch to the default (root ~/.hermes) profile — bound to ⌘1.
+// Switch to the default (root ~/.agentx) profile — bound to ⌘1.
 export function switchToDefaultProfile(): void {
   const def = $profiles.get().find(profile => profile.is_default)
 

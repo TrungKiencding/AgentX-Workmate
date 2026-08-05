@@ -88,7 +88,7 @@ hermes whatsapp
 
 ## 第三步：配置 Hermes
 
-在 `~/.hermes/.env` 文件中添加以下内容：
+在 `~/.agentx/.env` 文件中添加以下内容：
 
 ```bash
 # 必填
@@ -108,7 +108,7 @@ WHATSAPP_ALLOWED_USERS=15551234567         # 逗号分隔的手机号（含国�
 [私信配对系统](/user-guide/security#dm-pairing-system)。
 :::
 
-在 `~/.hermes/config.yaml` 中可选的行为设置：
+在 `~/.agentx/config.yaml` 中可选的行为设置：
 
 ```yaml
 unauthorized_dm_behavior: pair
@@ -134,7 +134,7 @@ Gateway 会使用已保存的会话自动启动 WhatsApp 桥接。
 
 ## 会话持久化
 
-Baileys 桥接将会话保存在 `~/.hermes/platforms/whatsapp/session` 目录下。这意味着：
+Baileys 桥接将会话保存在 `~/.agentx/platforms/whatsapp/session` 目录下。这意味着：
 
 - **会话在重启后仍然有效**——无需每次重新扫描二维码
 - 会话数据包含加密密钥和设备凭证
@@ -163,7 +163,7 @@ Hermes 支持 WhatsApp 上的语音功能：
 - Agent 响应默认以"⚕ **Hermes Agent**"为前缀。可在 `config.yaml` 中自定义或禁用：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 whatsapp:
   reply_prefix: ""                          # 空字符串禁用标题
   # reply_prefix: "🤖 *My Bot*\n──────\n"  # 自定义前缀（支持 \n 换行）
@@ -204,13 +204,13 @@ AI 响应中的标准 Markdown 会自动转换为 WhatsApp 的原生格式：
 |------|---------|
 | **二维码无法扫描** | 确保终端宽度足够（60 列以上）。尝试换用其他终端。确保从正确的 WhatsApp 账号（机器人号码，而非个人号码）扫描。 |
 | **二维码过期** | 二维码约每 20 秒刷新一次。如果超时，重新运行 `hermes whatsapp`。 |
-| **会话未持久化** | 检查 `~/.hermes/platforms/whatsapp/session` 是否存在且可写。如在容器中运行，请将其挂载为持久卷。 |
+| **会话未持久化** | 检查 `~/.agentx/platforms/whatsapp/session` 是否存在且可写。如在容器中运行，请将其挂载为持久卷。 |
 | **意外退出登录** | WhatsApp 会在长时间不活跃后取消关联设备。保持手机开机并连接网络，如有需要使用 `hermes whatsapp` 重新配对。 |
 | **桥接崩溃或重连循环** | 重启 gateway，更新 Hermes，如会话因 WhatsApp 协议变更而失效则重新配对。 |
 | **WhatsApp 更新后机器人停止工作** | 更新 Hermes 以获取最新桥接版本，然后重新配对。 |
 | **macOS："Node.js not installed"但终端中 node 可用** | launchd 服务不继承你的 shell PATH。运行 `hermes gateway install` 将当前 PATH 重新快照到 plist 中，然后运行 `hermes gateway start`。详见 [Gateway 服务文档](./index.md#macos-launchd)。 |
 | **未收到消息** | 确认 `WHATSAPP_ALLOWED_USERS` 包含发送者号码（含国家代码，不含 `+` 或空格），或将其设为 `*` 允许所有人。在 `.env` 中设置 `WHATSAPP_DEBUG=true` 并重启 gateway，可在 `bridge.log` 中查看原始消息事件。 |
-| **机器人向陌生人回复配对码** | 如需对未授权私信静默处理，在 `~/.hermes/config.yaml` 中设置 `whatsapp.unauthorized_dm_behavior: ignore`。 |
+| **机器人向陌生人回复配对码** | 如需对未授权私信静默处理，在 `~/.agentx/config.yaml` 中设置 `whatsapp.unauthorized_dm_behavior: ignore`。 |
 
 ---
 
@@ -229,8 +229,8 @@ whatsapp:
   unauthorized_dm_behavior: ignore
 ```
 
-- `~/.hermes/platforms/whatsapp/session` 目录包含完整会话凭证——请像保护密码一样保护它
-- 设置文件权限：`chmod 700 ~/.hermes/platforms/whatsapp/session`
+- `~/.agentx/platforms/whatsapp/session` 目录包含完整会话凭证——请像保护密码一样保护它
+- 设置文件权限：`chmod 700 ~/.agentx/platforms/whatsapp/session`
 - 为机器人使用**专用手机号**，将风险与个人账号隔离
 - 如怀疑账号被入侵，在 WhatsApp → 设置 → 已关联设备中取消关联该设备
 - 日志中的手机号已部分脱敏，但请审查你的日志保留策略

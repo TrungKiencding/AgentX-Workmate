@@ -18,17 +18,17 @@ works even when the optional migration skill is not installed.
 Mappings
 --------
 claude-code (~/.claude):
-    CLAUDE.md                       → memory entries in HERMES_HOME/memories/MEMORY.md
+    CLAUDE.md                       → memory entries in AGENTX_HOME/memories/MEMORY.md
     settings.json permissions.allow → config.yaml command_allowlist (Bash(...) rules)
     settings.json permissions.deny  → config.yaml approvals.deny (Bash(...) rules)
     mcpServers (~/.claude.json or settings.json) → config.yaml mcp_servers
-    skills/<name>/SKILL.md          → HERMES_HOME/skills/claude-code-imports/<name>/
+    skills/<name>/SKILL.md          → AGENTX_HOME/skills/claude-code-imports/<name>/
 
 codex (~/.codex):
-    AGENTS.md                       → memory entries in HERMES_HOME/memories/MEMORY.md
+    AGENTS.md                       → memory entries in AGENTX_HOME/memories/MEMORY.md
     config.toml [mcp_servers.*]     → config.yaml mcp_servers
-    memories/*.md                   → memory entries in HERMES_HOME/memories/MEMORY.md
-    skills/<name>/SKILL.md          → HERMES_HOME/skills/codex-imports/<name>/
+    memories/*.md                   → memory entries in AGENTX_HOME/memories/MEMORY.md
+    skills/<name>/SKILL.md          → AGENTX_HOME/skills/codex-imports/<name>/
 
 Secrets are NEVER imported: credential files (.credentials.json, auth.json)
 are ignored, and MCP server env vars with secret-looking names (KEY, TOKEN,
@@ -805,7 +805,7 @@ class AgentImporter:
             dump_yaml_file(destination, config)
 
     def import_skills(self, source_root: Path) -> None:
-        """skills/<name>/SKILL.md dirs → HERMES_HOME/skills/<category>/<name>."""
+        """skills/<name>/SKILL.md dirs → AGENTX_HOME/skills/<category>/<name>."""
         category = _SKILL_CATEGORY[self.agent]
         destination_root = self.target_root / "skills" / category
         if not source_root.is_dir():
@@ -963,7 +963,7 @@ def import_agent_command(args) -> None:
     print()
     print_success("Import complete.")
     print_info("API keys and credentials were NOT imported — run 'hermes setup' "
-               "to configure providers, or add them to ~/.hermes/.env.")
+               "to configure providers, or add them to ~/.agentx/.env.")
 
 
 def print_import_report(report: Dict[str, Any], dry_run: bool) -> None:
@@ -1007,7 +1007,7 @@ def print_import_report(report: Dict[str, Any], dry_run: bool) -> None:
         print(color("  ⚷ Secrets stripped (never imported):", Colors.YELLOW))
         for name in stripped:
             print(f"      {name}")
-        print_info("Re-add credentials deliberately via 'hermes setup' or ~/.hermes/.env.")
+        print_info("Re-add credentials deliberately via 'hermes setup' or ~/.agentx/.env.")
         print()
 
     parts = []

@@ -32,7 +32,7 @@ Or via environment variables (overrides config.yaml):
     BUZZ_ALLOW_ALL_USERS
 
 The only secret is BUZZ_PRIVATE_KEY (nsec or hex) — it belongs in
-``~/.hermes/.env``.  It is passed to the CLI via the subprocess
+``~/.agentx/.env``.  It is passed to the CLI via the subprocess
 environment and is never logged.
 """
 
@@ -1480,7 +1480,7 @@ def interactive_setup() -> None:
         save_env_value("BUZZ_ALLOWED_USERS", allowed.replace(" ", "") if allowed else "")
 
     print()
-    print_success("Buzz configuration saved to ~/.hermes/.env")
+    print_success("Buzz configuration saved to ~/.agentx/.env")
     print_info("Restart the gateway for changes to take effect: hermes gateway restart")
 
 

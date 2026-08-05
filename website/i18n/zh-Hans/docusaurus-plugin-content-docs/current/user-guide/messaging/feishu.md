@@ -107,7 +107,7 @@ hermes gateway setup
 
 ### 方式 B：手动配置
 
-在 `~/.hermes/.env` 中添加以下内容：
+在 `~/.agentx/.env` 中添加以下内容：
 
 ```bash
 FEISHU_APP_ID=cli_xxx
@@ -296,7 +296,7 @@ Gateway 驱动的更新提示使用原生飞书 `Yes` / `No` 卡片，而非回�
 - **`allowlist`** — 静态用户/租户列表。
 - **`pairing`** — 静态列表 ∪ 运行时审批存储。适用于管理员可实时授权的灰度发布场景。
 
-规则存储在 `~/.hermes/feishu_comment_rules.json`（pairing 授权存储在 `~/.hermes/feishu_comment_pairing.json`），支持基于 mtime 缓存的热重载——编辑后无需重启 gateway，下一个评论事件即生效。
+规则存储在 `~/.agentx/feishu_comment_rules.json`（pairing 授权存储在 `~/.agentx/feishu_comment_pairing.json`），支持基于 mtime 缓存的热重载——编辑后无需重启 gateway，下一个评论事件即生效。
 
 CLI：
 
@@ -379,9 +379,9 @@ Agent 工作期间，机器人会在你的消息上显示 `Typing` 表情回应�
 
 | 设置 | 环境变量 | 默认值 |
 |---------|---------|---------|
-| 静默期 | `HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS` | 0.6s |
-| 每批最大消息数 | `HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES` | 8 |
-| 每批最大字符数 | `HERMES_FEISHU_TEXT_BATCH_MAX_CHARS` | 4000 |
+| 静默期 | `AGENTX_FEISHU_TEXT_BATCH_DELAY_SECONDS` | 0.6s |
+| 每批最大消息数 | `AGENTX_FEISHU_TEXT_BATCH_MAX_MESSAGES` | 8 |
+| 每批最大字符数 | `AGENTX_FEISHU_TEXT_BATCH_MAX_CHARS` | 4000 |
 
 ### 媒体批处理
 
@@ -389,7 +389,7 @@ Agent 工作期间，机器人会在你的消息上显示 `Typing` 表情回应�
 
 | 设置 | 环境变量 | 默认值 |
 |---------|---------|---------|
-| 静默期 | `HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | 0.8s |
+| 静默期 | `AGENTX_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | 0.8s |
 
 ### 按聊天串行化
 
@@ -473,11 +473,11 @@ platforms:
 
 ## 去重
 
-入站消息使用消息 ID 去重，TTL 为 24 小时。去重状态持久化到 `~/.hermes/feishu_seen_message_ids.json`，重启后仍有效。
+入站消息使用消息 ID 去重，TTL 为 24 小时。去重状态持久化到 `~/.agentx/feishu_seen_message_ids.json`，重启后仍有效。
 
 | 设置 | 环境变量 | 默认值 |
 |---------|---------|---------|
-| 缓存大小 | `HERMES_FEISHU_DEDUP_CACHE_SIZE` | 2048 条 |
+| 缓存大小 | `AGENTX_FEISHU_DEDUP_CACHE_SIZE` | 2048 条 |
 
 ## 所有环境变量
 
@@ -500,11 +500,11 @@ platforms:
 | `FEISHU_WEBHOOK_HOST` | — | `127.0.0.1` | Webhook 服务器绑定地址 |
 | `FEISHU_WEBHOOK_PORT` | — | `8765` | Webhook 服务器端口 |
 | `FEISHU_WEBHOOK_PATH` | — | `/feishu/webhook` | Webhook 端点路径 |
-| `HERMES_FEISHU_DEDUP_CACHE_SIZE` | — | `2048` | 最大去重消息 ID 追踪数量 |
-| `HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS` | — | `0.6` | 文本突发防抖静默期 |
-| `HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES` | — | `8` | 每批文本合并的最大消息数 |
-| `HERMES_FEISHU_TEXT_BATCH_MAX_CHARS` | — | `4000` | 每批文本合并的最大字符数 |
-| `HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | — | `0.8` | 媒体突发防抖静默期 |
+| `AGENTX_FEISHU_DEDUP_CACHE_SIZE` | — | `2048` | 最大去重消息 ID 追踪数量 |
+| `AGENTX_FEISHU_TEXT_BATCH_DELAY_SECONDS` | — | `0.6` | 文本突发防抖静默期 |
+| `AGENTX_FEISHU_TEXT_BATCH_MAX_MESSAGES` | — | `8` | 每批文本合并的最大消息数 |
+| `AGENTX_FEISHU_TEXT_BATCH_MAX_CHARS` | — | `4000` | 每批文本合并的最大字符数 |
+| `AGENTX_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | — | `0.8` | 媒体突发防抖静默期 |
 
 WebSocket 和按群 ACL 设置通过 `config.yaml` 的 `platforms.feishu.extra` 配置（参见上方 [WebSocket 调优](#websocket-tuning) 和[按群访问控制](#per-group-access-control)）。
 

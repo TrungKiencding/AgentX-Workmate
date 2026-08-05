@@ -340,7 +340,7 @@ def a2a_history(args: dict, **_: Any) -> str:
     """Recall a persisted A2A conversation by context_id.
 
     This is how prior A2A exchanges survive compaction/restarts: every turn is
-    written to ~/.hermes/a2a_conversations/<context>.jsonl and can be reloaded
+    written to ~/.agentx/a2a_conversations/<context>.jsonl and can be reloaded
     here.
     """
     context_id = str(args.get("context_id") or args.get("contextId") or "").strip()

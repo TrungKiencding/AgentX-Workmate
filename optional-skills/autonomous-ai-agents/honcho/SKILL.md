@@ -337,7 +337,7 @@ In `hybrid` and `context` modes, base context (user representation + card + sess
 
 ## Config Reference
 
-Config file: `$HERMES_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
+Config file: `$AGENTX_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
 
 ### Key settings
 
@@ -389,7 +389,7 @@ This fix addresses edge cases where raw user conclusions containing markup or sp
 ## Troubleshooting
 
 ### "Honcho not configured"
-Run `hermes honcho setup`. Ensure `memory.provider: honcho` is in `~/.hermes/config.yaml`.
+Run `hermes honcho setup`. Ensure `memory.provider: honcho` is in `~/.agentx/config.yaml`.
 
 ### Memory not persisting across sessions
 Check `hermes honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).

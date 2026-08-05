@@ -57,9 +57,9 @@ CLI 命令运行与下文所述相同的迁移脚本。当需要交互式、引�
 - 将 OpenClaw 的 `MEMORY.md` 和 `USER.md` 转换为 Hermes 记忆条目
 - 将 OpenClaw 命令审批模式合并到 Hermes `command_allowlist`
 - 迁移 Hermes 兼容的消息设置，例如 `TELEGRAM_ALLOWED_USERS` 和 `MESSAGING_CWD`
-- 将 OpenClaw skill 复制到 `~/.hermes/skills/openclaw-imports/`
+- 将 OpenClaw skill 复制到 `~/.agentx/skills/openclaw-imports/`
 - 可选地将 OpenClaw 工作区指令文件复制到所选 Hermes 工作区
-- 将兼容的工作区资产（如 `workspace/tts/`）镜像到 `~/.hermes/tts/`
+- 将兼容的工作区资产（如 `workspace/tts/`）镜像到 `~/.agentx/tts/`
 - 归档没有直接 Hermes 目标的非机密文档
 - 生成结构化报告，列出已迁移项、冲突项、跳过项及原因
 
@@ -71,13 +71,13 @@ CLI 命令运行与下文所述相同的迁移脚本。当需要交互式、引�
 
 从 Skills Hub 安装此 skill 后，通常位于：
 
-- `~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py`
+- `~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py`
 
-请勿猜测更短的路径，如 `~/.hermes/skills/openclaw-migration/...`。
+请勿猜测更短的路径，如 `~/.agentx/skills/openclaw-migration/...`。
 
 运行辅助脚本前：
 
-1. 优先使用 `~/.hermes/skills/migration/openclaw-migration/` 下的已安装路径。
+1. 优先使用 `~/.agentx/skills/migration/openclaw-migration/` 下的已安装路径。
 2. 如果该路径失败，检查已安装的 skill 目录，并相对于已安装的 `SKILL.md` 解析脚本路径。
 3. 仅在已安装位置缺失或 skill 被手动移动时，才使用 `find` 作为备用方案。
 4. 调用终端工具时，不要传入 `workdir: "~"`。请使用绝对目录（如用户主目录），或完全省略 `workdir`。
@@ -247,37 +247,37 @@ Hermes CLI 支持 `clarify` 工具进行交互式提示，但有以下限制：
 完整发现的 dry run：
 
 ```bash
-python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py
+python3 ~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py
 ```
 
 使用终端工具时，优先使用绝对调用模式，例如：
 
 ```json
-{"command":"python3 /home/USER/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py","workdir":"/home/USER"}
+{"command":"python3 /home/USER/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py","workdir":"/home/USER"}
 ```
 
 使用 user-data preset 的 dry run：
 
 ```bash
-python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --preset user-data
+python3 ~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --preset user-data
 ```
 
 执行 user-data 迁移：
 
 ```bash
-python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset user-data --skill-conflict skip
+python3 ~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset user-data --skill-conflict skip
 ```
 
 执行完整兼容迁移：
 
 ```bash
-python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset full --migrate-secrets --skill-conflict skip
+python3 ~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset full --migrate-secrets --skill-conflict skip
 ```
 
 包含工作区指令的执行：
 
 ```bash
-python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset user-data --skill-conflict rename --workspace-target "/absolute/workspace/path"
+python3 ~/.agentx/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py --execute --preset user-data --skill-conflict rename --workspace-target "/absolute/workspace/path"
 ```
 
 默认情况下不要使用 `$PWD` 或主目录作为工作区目标。请先明确询问工作区路径。
@@ -312,5 +312,5 @@ python3 ~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes
 
 - 已导入的 Hermes persona 状态
 - 已填充转换后 OpenClaw 知识的 Hermes 记忆文件
-- 在 `~/.hermes/skills/openclaw-imports/` 下可用的 OpenClaw skill
+- 在 `~/.agentx/skills/openclaw-imports/` 下可用的 OpenClaw skill
 - 显示任何冲突、遗漏或不支持数据的迁移报告

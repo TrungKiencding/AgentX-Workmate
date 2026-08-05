@@ -57,7 +57,7 @@ Brave Search、DDGS 和 xAI 均为**仅搜索**——如果同时需要 `web_ext
 若要将提取摘要路由到廉价快速的模型，无论主模型是什么：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 auxiliary:
   web_extract:
     provider: openrouter
@@ -92,7 +92,7 @@ hermes tools
 功能完整的搜索和提取。推荐大多数用户使用。
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 FIRECRAWL_API_KEY=fc-your-key-here
 ```
 
@@ -101,7 +101,7 @@ FIRECRAWL_API_KEY=fc-your-key-here
 **自托管 Firecrawl：** 指向您自己的实例而非云端 API：
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 FIRECRAWL_API_URL=http://localhost:3002
 ```
 
@@ -190,11 +190,11 @@ curl -s "http://localhost:8888/search?q=test&format=json" | python3 -c \
 **7. 配置 Hermes：**
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 SEARXNG_URL=http://localhost:8888
 ```
 
-然后在 `~/.hermes/config.yaml` 中选择 SearXNG 作为搜索后端：
+然后在 `~/.agentx/config.yaml` 中选择 SearXNG 作为搜索后端：
 
 ```yaml
 web:
@@ -210,7 +210,7 @@ web:
 公共 SearXNG 实例列表见 [searx.space](https://searx.space/)。筛选**已启用 JSON 格式**的实例（表格中有显示）。
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 SEARXNG_URL=https://searx.example.com
 ```
 
@@ -225,7 +225,7 @@ SEARXNG_URL=https://searx.example.com
 SearXNG 负责搜索；`web_extract` 需要单独的提供商。使用按能力配置的键：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 web:
   search_backend: "searxng"
   extract_backend: "firecrawl"   # 或 tavily、exa、parallel
@@ -240,7 +240,7 @@ web:
 针对 AI 优化的搜索和提取，免费层级慷慨。
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 TAVILY_API_KEY=tvly-your-key-here
 ```
 
@@ -253,7 +253,7 @@ TAVILY_API_KEY=tvly-your-key-here
 具有语义理解的神经搜索。适合研究和查找概念相关内容。
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 EXA_API_KEY=your-exa-key-here
 ```
 
@@ -266,7 +266,7 @@ EXA_API_KEY=your-exa-key-here
 具备深度研究能力的 AI 原生搜索和提取。
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 PARALLEL_API_KEY=your-parallel-key-here
 ```
 
@@ -281,7 +281,7 @@ PARALLEL_API_KEY=your-parallel-key-here
 支持两种凭证路径——无需新的环境变量，无需新的设置向导：
 
 ```bash
-# ~/.hermes/.env（环境变量路径）
+# ~/.agentx/.env（环境变量路径）
 XAI_API_KEY=sk-xai-your-key-here
 ```
 
@@ -294,7 +294,7 @@ hermes auth login xai-oauth
 然后选择 xAI 作为搜索后端：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 web:
   backend: "xai"
 ```
@@ -328,7 +328,7 @@ web:
 为所有网页功能设置一个提供商：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 web:
   backend: "searxng"   # firecrawl | searxng | brave-free | ddgs | tavily | exa | parallel | xai
 ```
@@ -338,7 +338,7 @@ web:
 搜索和提取使用不同的提供商。这允许您将免费搜索（SearXNG）与付费提取提供商组合使用，反之亦然：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 web:
   search_backend: "searxng"     # 由 web_search 使用
   extract_backend: "firecrawl"  # 由 web_extract 使用
@@ -379,7 +379,7 @@ xAI Web Search **不在**自动检测链中——设置了 `XAI_API_KEY`（或�
 
 ```bash
 # 激活 venv 并直接运行网页工具模块
-source ~/.hermes/hermes-agent/.venv/bin/activate
+source ~/.agentx/hermes-agent/.venv/bin/activate
 python -m tools.web_tools
 ```
 

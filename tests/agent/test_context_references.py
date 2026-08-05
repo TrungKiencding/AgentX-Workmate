@@ -142,16 +142,16 @@ async def test_blocks_canonical_read_denylist_credential_stores(tmp_path: Path, 
     The narrow in-module list historically missed the real credential stores
     (provider keys, OAuth tokens, MCP tokens, project-local .env). Because the
     gateway routes untrusted remote message text through reference expansion,
-    a chat peer could otherwise attach `@file:~/.hermes/auth.json` and read the
+    a chat peer could otherwise attach `@file:~/.agentx/auth.json` and read the
     operator's keys into context. These must all be refused, with their secret
     bodies kept out of the expanded message.
     """
     from agent.context_references import preprocess_context_references_async
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".agentx"
     (hermes_home).mkdir(parents=True)
 
     auth_json = hermes_home / "auth.json"
@@ -169,8 +169,8 @@ async def test_blocks_canonical_read_denylist_credential_stores(tmp_path: Path, 
     project_env.write_text("DB_PASSWORD=ENV-SECRET\n", encoding="utf-8")
 
     result = await preprocess_context_references_async(
-        "inspect @file:.hermes/auth.json and @file:.hermes/.anthropic_oauth.json "
-        "and @file:.hermes/mcp-tokens/github.json and @file:project/.env",
+        "inspect @file:.agentx/auth.json and @file:.agentx/.anthropic_oauth.json "
+        "and @file:.agentx/mcp-tokens/github.json and @file:project/.env",
         cwd=tmp_path,
         allowed_root=tmp_path,
         context_length=100_000,
@@ -201,9 +201,9 @@ async def test_canonical_guard_fails_closed_when_lookup_raises(tmp_path: Path, m
     from agent.context_references import preprocess_context_references_async
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
 
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".agentx"
     hermes_home.mkdir(parents=True)
     auth_json = hermes_home / "auth.json"
     auth_json.write_text('{"openai": "sk-AUTHJSON-SECRET"}\n', encoding="utf-8")
@@ -214,7 +214,7 @@ async def test_canonical_guard_fails_closed_when_lookup_raises(tmp_path: Path, m
     monkeypatch.setattr("agent.file_safety.get_read_block_error", _boom)
 
     result = await preprocess_context_references_async(
-        "inspect @file:.hermes/auth.json",
+        "inspect @file:.agentx/auth.json",
         cwd=tmp_path,
         allowed_root=tmp_path,
         context_length=100_000,

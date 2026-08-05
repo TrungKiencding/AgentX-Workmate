@@ -53,7 +53,7 @@ hermes model
 hermes
 ```
 
-首次登录后，凭据存储在 `~/.hermes/auth.json` 中，并在过期前自动刷新。
+首次登录后，凭据存储在 `~/.agentx/auth.json` 中，并在过期前自动刷新。
 
 ## 手动登录
 
@@ -78,7 +78,7 @@ Web 仪表盘和桌面应用使用相同的设备代码流程：显示验证 URL
 
 1. Hermes 向 `auth.x.ai` 请求设备代码。
 2. 你打开验证 URL，登录，如有提示则输入显示的代码，并批准访问。
-3. Hermes 轮询 xAI 直到批准，然后将 token 保存到 `~/.hermes/auth.json`。
+3. Hermes 轮询 xAI 直到批准，然后将 token 保存到 `~/.agentx/auth.json`。
 4. 此后，Hermes 在后台刷新 access token——你将保持登录状态，直到执行 `hermes auth logout xai-oauth` 或在 xAI 账号设置中撤销访问。
 
 ## 检查登录状态
@@ -106,7 +106,7 @@ hermes config set model.provider xai-oauth
 
 ## 配置参考
 
-登录后，`~/.hermes/config.yaml` 将包含：
+登录后，`~/.agentx/config.yaml` 将包含：
 
 ```yaml
 model:

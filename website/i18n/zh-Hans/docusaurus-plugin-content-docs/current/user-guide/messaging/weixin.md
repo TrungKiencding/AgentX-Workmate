@@ -34,7 +34,7 @@ description: "通过 iLink Bot API 将 Hermes Agent 连接到个人微信账号"
 ```bash
 pip install aiohttp cryptography
 # 可选：用于终端二维码显示
-cd ~/.hermes/hermes-agent && uv pip install -e ".[messaging]"
+cd ~/.agentx/hermes-agent && uv pip install -e ".[messaging]"
 ```
 
 ## 配置步骤
@@ -53,7 +53,7 @@ hermes gateway setup
 2. 在终端中显示二维码（或提供 URL）
 3. 等待你用微信手机端扫描二维码
 4. 提示你在手机上确认登录
-5. 自动将账号凭据保存至 `~/.hermes/weixin/accounts/`
+5. 自动将账号凭据保存至 `~/.agentx/weixin/accounts/`
 
 确认后，你将看到如下消息：
 
@@ -65,7 +65,7 @@ hermes gateway setup
 
 ### 2. 配置环境变量
 
-完成首次扫码登录后，在 `~/.hermes/.env` 中至少设置账号 ID：
+完成首次扫码登录后，在 `~/.agentx/.env` 中至少设置账号 ID：
 
 ```bash
 WEIXIN_ACCOUNT_ID=your-account-id
@@ -210,7 +210,7 @@ WEIXIN_GROUP_ALLOWED_USERS=group_id_1,group_id_2
 
 iLink Bot API 要求在每条出站消息中回传 `context_token`（针对特定对话方）。适配器维护一个基于磁盘的上下文 token 存储：
 
-- Token 按账号+对话方保存至 `~/.hermes/weixin/accounts/<account_id>.context-tokens.json`
+- Token 按账号+对话方保存至 `~/.agentx/weixin/accounts/<account_id>.context-tokens.json`
 - 启动时恢复之前保存的 token
 - 每条入站消息都会更新该发送方的已存储 token
 - 出站消息自动包含最新的上下文 token
@@ -309,4 +309,4 @@ iLink Bot API 要求在每条出站消息中回传 `context_token`（针对特�
 | 语音消息显示为文本 | 若微信提供了转录文本，适配器会使用文本内容，这是预期行为 |
 | 消息出现重复 | 适配器通过消息 ID 去重。若仍出现重复，检查是否有多个网关实例在运行 |
 | `iLink POST ... HTTP 4xx/5xx` | iLink 服务返回 API 错误。检查 token 有效性和网络连通性 |
-| 终端二维码无法渲染 | 使用 messaging 扩展重新安装：`cd ~/.hermes/hermes-agent && uv pip install -e ".[messaging]"`。或者，打开二维码上方打印的 URL |
+| 终端二维码无法渲染 | 使用 messaging 扩展重新安装：`cd ~/.agentx/hermes-agent && uv pip install -e ".[messaging]"`。或者，打开二维码上方打印的 URL |

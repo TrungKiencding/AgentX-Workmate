@@ -34,6 +34,20 @@ macOS dev box, not code defects:
 * **Linux-only** — `test_systemd_notify`, `test_service_manager`
 * **external services** — Daytona, Modal, Nous Portal, hindsight provider
 
+## Two flaky JS tests
+
+The JS columns above read 0 failures, but two tests assert on wall-clock time
+and fail intermittently under CPU load. Both pass 3/3 in isolation, and neither
+file is touched by the rebrand (`git diff` against this baseline is empty for
+both), so a failure in either is noise, not a regression:
+
+* `ui-tui/packages/hermes-ink/src/utils/execFileNoThrow.test.ts` —
+  "settles immediately on 'exit'…" asserts a duration under 500 ms
+* `ui-tui/src/__tests__/virtualHistoryOffsetCache.test.ts` —
+  "corrects and compensates a same-layout row measured at unmount"
+
+Re-run the single file before treating either as real.
+
 ## Reproducing
 
 ```bash

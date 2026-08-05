@@ -1,14 +1,14 @@
 ---
-title: "Plan — Write a markdown plan to .hermes/plans/; no execution"
+title: "Plan — Write a markdown plan to .agentx/plans/; no execution"
 sidebar_label: "Plan"
-description: "Write a markdown plan to .hermes/plans/; no execution"
+description: "Write a markdown plan to .agentx/plans/; no execution"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
 # Plan
 
-Write a markdown plan to .hermes/plans/; no execution.
+Write a markdown plan to .agentx/plans/; no execution.
 
 ## Skill metadata
 
@@ -41,7 +41,7 @@ For this turn, you are planning only.
 - Do not edit project files except the plan markdown file.
 - Do not run mutating terminal commands, commit, push, or perform external actions.
 - You may inspect the repo or other context with read-only commands/tools when needed.
-- Your deliverable is a markdown plan saved inside the active workspace under `.hermes/plans/`.
+- Your deliverable is a markdown plan saved inside the active workspace under `.agentx/plans/`.
 
 ## Output requirements
 
@@ -61,12 +61,12 @@ If the task is code-related, include exact file paths, likely test targets, and 
 ## Save location
 
 Save the plan with `write_file` under:
-- `.hermes/plans/YYYY-MM-DD_HHMMSS-<slug>.md`
+- `.agentx/plans/YYYY-MM-DD_HHMMSS-<slug>.md`
 
 Treat that as relative to the active working directory / backend workspace. Hermes file tools are backend-aware, so using this relative path keeps the plan with the workspace on local, docker, ssh, modal, and daytona backends.
 
 If the runtime provides a specific target path, use that exact path.
-If not, create a sensible timestamped filename yourself under `.hermes/plans/`.
+If not, create a sensible timestamped filename yourself under `.agentx/plans/`.
 
 ## Interaction style
 

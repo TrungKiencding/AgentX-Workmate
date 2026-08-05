@@ -44,7 +44,7 @@ hermes model
 hermes
 ```
 
-首次登录后，凭据将存储在 `~/.hermes/auth.json` 下，并在每次会话前自动刷新。
+首次登录后，凭据将存储在 `~/.agentx/auth.json` 下，并在每次会话前自动刷新。
 
 ## 手动登录
 
@@ -61,7 +61,7 @@ hermes auth add minimax-oauth
 ```bash
 hermes auth add minimax-cn --type oauth   # 如果您的中国账户支持 OAuth
 # 或更简单的方式：
-echo 'MINIMAX_CN_API_KEY=your-key' >> ~/.hermes/.env
+echo 'MINIMAX_CN_API_KEY=your-key' >> ~/.agentx/.env
 ```
 
 ### 远程/无头会话
@@ -82,7 +82,7 @@ Hermes 针对 MiniMax OAuth 端点实现了 PKCE 设备码流程：
 2. 携带 challenge 向 `{base_url}/oauth/code` 发送 POST 请求，获取 `user_code` 和 `verification_uri`。
 3. 浏览器打开 `verification_uri`。如有提示，输入 `user_code`。
 4. Hermes 轮询 `{base_url}/oauth/token`，直到令牌到达（或超过截止时间）。
-5. 令牌（`access_token`、`refresh_token`、过期时间）以 `minimax-oauth` 为键保存到 `~/.hermes/auth.json`。
+5. 令牌（`access_token`、`refresh_token`、过期时间）以 `minimax-oauth` 为键保存到 `~/.agentx/auth.json`。
 
 令牌刷新（标准 OAuth `refresh_token` 授权）在每次会话启动时自动执行，当 access token 距过期不足 60 秒时触发。
 
@@ -121,7 +121,7 @@ hermes config set provider minimax-oauth
 
 ## 配置参考
 
-登录后，`~/.hermes/config.yaml` 将包含类似如下的条目：
+登录后，`~/.agentx/config.yaml` 将包含类似如下的条目：
 
 ```yaml
 model:

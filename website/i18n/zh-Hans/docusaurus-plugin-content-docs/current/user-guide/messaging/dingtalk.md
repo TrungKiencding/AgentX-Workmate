@@ -44,7 +44,7 @@ group_sessions_per_user: false
 安装所需的 Python 包：
 
 ```bash
-cd ~/.hermes/hermes-agent && uv pip install -e ".[dingtalk]"
+cd ~/.agentx/hermes-agent && uv pip install -e ".[dingtalk]"
 ```
 
 或单独安装：
@@ -102,7 +102,7 @@ hermes gateway setup
 
 在提示时选择 **DingTalk**。设置向导支持两种授权路径：
 
-- **二维码设备流（推荐）。** 用钉钉手机 App 扫描终端中打印的二维码——Client ID 和 Client Secret 将自动返回并写入 `~/.hermes/.env`，无需前往开发者控制台。
+- **二维码设备流（推荐）。** 用钉钉手机 App 扫描终端中打印的二维码——Client ID 和 Client Secret 将自动返回并写入 `~/.agentx/.env`，无需前往开发者控制台。
 - **手动粘贴。** 如果你已有凭证（或扫码不方便），在提示时粘贴你的 Client ID、Client Secret 和允许的用户 ID。
 
 :::note openClaw 品牌披露
@@ -111,7 +111,7 @@ hermes gateway setup
 
 ### 方式 B：手动配置
 
-在 `~/.hermes/.env` 文件中添加以下内容：
+在 `~/.agentx/.env` 文件中添加以下内容：
 
 ```bash
 # 必填
@@ -132,7 +132,7 @@ DINGTALK_ALLOWED_USERS=user-id-1
 # DINGTALK_ALLOW_ALL_USERS=true
 ```
 
-`~/.hermes/config.yaml` 中的可选行为设置：
+`~/.agentx/config.yaml` 中的可选行为设置：
 
 ```yaml
 group_sessions_per_user: true
@@ -243,7 +243,7 @@ pip install dingtalk-stream httpx
 
 **原因**：凭证未在环境变量或 `.env` 文件中设置。
 
-**解决方法**：确认 `DINGTALK_CLIENT_ID` 和 `DINGTALK_CLIENT_SECRET` 已在 `~/.hermes/.env` 中正确设置。Client ID 是你的 AppKey，Client Secret 是钉钉开发者控制台中的 AppSecret。
+**解决方法**：确认 `DINGTALK_CLIENT_ID` 和 `DINGTALK_CLIENT_SECRET` 已在 `~/.agentx/.env` 中正确设置。Client ID 是你的 AppKey，Client Secret 是钉钉开发者控制台中的 AppSecret。
 
 ### Stream 断开 / 重连循环
 

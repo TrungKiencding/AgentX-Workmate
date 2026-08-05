@@ -528,7 +528,7 @@ async def select_toolset_provider(
 async def save_toolset_env(name: str, body: ToolsetEnvUpdate, profile: Optional[str] = None):
     """Persist API keys for a toolset's provider env vars.
 
-    Writes each ``key: value`` to ``~/.hermes/.env`` via ``save_env_value`` —
+    Writes each ``key: value`` to ``~/.agentx/.env`` via ``save_env_value`` —
     the same store ``hermes tools`` writes when it prompts for keys. Keys are
     validated against the env-var allowlist for the toolset's category (the
     union of every visible provider's ``env_vars``), so the GUI can't write an
@@ -596,7 +596,7 @@ async def run_toolset_post_setup(
     ``profile`` spawns the hook as ``hermes -p <profile> tools post-setup``.
     Most hooks install machine-level artifacts (repo node_modules, shared
     pip packages) where the scope is inert, but hooks that read config or
-    write per-profile state must see the same HERMES_HOME the rest of the
+    write per-profile state must see the same AGENTX_HOME the rest of the
     drawer's writes targeted — so the scope is threaded for consistency.
     """
     from hermes_cli.tools_config import (

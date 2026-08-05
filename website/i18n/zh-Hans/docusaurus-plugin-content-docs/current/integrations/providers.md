@@ -19,28 +19,28 @@ sidebar_position: 1
 | **GitHub Copilot** | `hermes model`（OAuth 设备码流程，`COPILOT_GITHUB_TOKEN`、`GH_TOKEN` 或 `gh auth token`） |
 | **GitHub Copilot ACP** | `hermes model`（在本地生成 `copilot --acp --stdio` 子进程） |
 | **Anthropic** | `hermes model`（Claude Max + 额外用量积分，通过 OAuth；也支持 Anthropic API key 或手动 setup-token——见下方说明） |
-| **OpenRouter** | `~/.hermes/.env` 中的 `OPENROUTER_API_KEY` |
-| **NovitaAI** | `~/.hermes/.env` 中的 `NOVITA_API_KEY`（provider: `novita`，200+ 模型，Model API、Agent Sandbox、GPU Cloud） |
-| **AI Gateway** | `~/.hermes/.env` 中的 `AI_GATEWAY_API_KEY`（provider: `ai-gateway`） |
-| **z.ai / GLM** | `~/.hermes/.env` 中的 `GLM_API_KEY`（provider: `zai`） |
-| **Kimi / Moonshot** | `~/.hermes/.env` 中的 `KIMI_API_KEY`（provider: `kimi-coding`） |
-| **Kimi / Moonshot（中国）** | `~/.hermes/.env` 中的 `KIMI_CN_API_KEY`（provider: `kimi-coding-cn`；别名：`kimi-cn`、`moonshot-cn`） |
-| **Arcee AI** | `~/.hermes/.env` 中的 `ARCEEAI_API_KEY`（provider: `arcee`；别名：`arcee-ai`、`arceeai`） |
-| **GMI Cloud** | `~/.hermes/.env` 中的 `GMI_API_KEY`（provider: `gmi`；别名：`gmi-cloud`、`gmicloud`） |
-| **MiniMax** | `~/.hermes/.env` 中的 `MINIMAX_API_KEY`（provider: `minimax`） |
-| **MiniMax 中国** | `~/.hermes/.env` 中的 `MINIMAX_CN_API_KEY`（provider: `minimax-cn`） |
-| **xAI（Grok）— Responses API** | `~/.hermes/.env` 中的 `XAI_API_KEY`（provider: `xai`） |
+| **OpenRouter** | `~/.agentx/.env` 中的 `OPENROUTER_API_KEY` |
+| **NovitaAI** | `~/.agentx/.env` 中的 `NOVITA_API_KEY`（provider: `novita`，200+ 模型，Model API、Agent Sandbox、GPU Cloud） |
+| **AI Gateway** | `~/.agentx/.env` 中的 `AI_GATEWAY_API_KEY`（provider: `ai-gateway`） |
+| **z.ai / GLM** | `~/.agentx/.env` 中的 `GLM_API_KEY`（provider: `zai`） |
+| **Kimi / Moonshot** | `~/.agentx/.env` 中的 `KIMI_API_KEY`（provider: `kimi-coding`） |
+| **Kimi / Moonshot（中国）** | `~/.agentx/.env` 中的 `KIMI_CN_API_KEY`（provider: `kimi-coding-cn`；别名：`kimi-cn`、`moonshot-cn`） |
+| **Arcee AI** | `~/.agentx/.env` 中的 `ARCEEAI_API_KEY`（provider: `arcee`；别名：`arcee-ai`、`arceeai`） |
+| **GMI Cloud** | `~/.agentx/.env` 中的 `GMI_API_KEY`（provider: `gmi`；别名：`gmi-cloud`、`gmicloud`） |
+| **MiniMax** | `~/.agentx/.env` 中的 `MINIMAX_API_KEY`（provider: `minimax`） |
+| **MiniMax 中国** | `~/.agentx/.env` 中的 `MINIMAX_CN_API_KEY`（provider: `minimax-cn`） |
+| **xAI（Grok）— Responses API** | `~/.agentx/.env` 中的 `XAI_API_KEY`（provider: `xai`） |
 | **xAI Grok OAuth（SuperGrok）** | `hermes model` → "xAI Grok OAuth (SuperGrok / Premium+)"——浏览器登录，无需 API key。参见[指南](../guides/xai-grok-oauth.md) |
-| **Qwen Cloud（阿里 DashScope）** | `~/.hermes/.env` 中的 `DASHSCOPE_API_KEY`（provider: `alibaba`） |
+| **Qwen Cloud（阿里 DashScope）** | `~/.agentx/.env` 中的 `DASHSCOPE_API_KEY`（provider: `alibaba`） |
 | **阿里云（Coding Plan）** | `DASHSCOPE_API_KEY`（provider: `alibaba-coding-plan`，别名：`alibaba_coding`）——独立计费 SKU，不同端点 |
-| **Kilo Code** | `~/.hermes/.env` 中的 `KILOCODE_API_KEY`（provider: `kilocode`） |
-| **小米 MiMo** | `~/.hermes/.env` 中的 `XIAOMI_API_KEY`（provider: `xiaomi`，别名：`mimo`、`xiaomi-mimo`） |
-| **腾讯 TokenHub** | `~/.hermes/.env` 中的 `TOKENHUB_API_KEY`（provider: `tencent-tokenhub`，别名：`tencent`、`tokenhub`、`tencentmaas`） |
-| **OpenCode Zen** | `~/.hermes/.env` 中的 `OPENCODE_ZEN_API_KEY`（provider: `opencode-zen`） |
-| **OpenCode Go** | `~/.hermes/.env` 中的 `OPENCODE_GO_API_KEY`（provider: `opencode-go`） |
-| **DeepSeek** | `~/.hermes/.env` 中的 `DEEPSEEK_API_KEY`（provider: `deepseek`） |
-| **Hugging Face** | `~/.hermes/.env` 中的 `HF_TOKEN`（provider: `huggingface`，别名：`hf`） |
-| **Google / Gemini** | `~/.hermes/.env` 中的 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）（provider: `gemini`） |
+| **Kilo Code** | `~/.agentx/.env` 中的 `KILOCODE_API_KEY`（provider: `kilocode`） |
+| **小米 MiMo** | `~/.agentx/.env` 中的 `XIAOMI_API_KEY`（provider: `xiaomi`，别名：`mimo`、`xiaomi-mimo`） |
+| **腾讯 TokenHub** | `~/.agentx/.env` 中的 `TOKENHUB_API_KEY`（provider: `tencent-tokenhub`，别名：`tencent`、`tokenhub`、`tencentmaas`） |
+| **OpenCode Zen** | `~/.agentx/.env` 中的 `OPENCODE_ZEN_API_KEY`（provider: `opencode-zen`） |
+| **OpenCode Go** | `~/.agentx/.env` 中的 `OPENCODE_GO_API_KEY`（provider: `opencode-go`） |
+| **DeepSeek** | `~/.agentx/.env` 中的 `DEEPSEEK_API_KEY`（provider: `deepseek`） |
+| **Hugging Face** | `~/.agentx/.env` 中的 `HF_TOKEN`（provider: `huggingface`，别名：`hf`） |
+| **Google / Gemini** | `~/.agentx/.env` 中的 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）（provider: `gemini`） |
 | **LM Studio** | `hermes model` → "LM Studio"（provider: `lmstudio`，可选 `LM_API_KEY`） |
 | **自定义端点** | `hermes model` → 选择"Custom endpoint"（保存在 `config.yaml`） |
 
@@ -67,7 +67,7 @@ hermes portal info        # 随时查看登录状态和路由信息
 
 
 :::info Codex 说明
-OpenAI Codex 提供商通过设备码（device code）认证——打开一个 URL 并输入验证码。Hermes 将生成的凭据存储在 `~/.hermes/auth.json` 的自有认证存储中，并在存在 `~/.codex/auth.json` 时可导入现有的 Codex CLI 凭据。无需安装 Codex CLI。
+OpenAI Codex 提供商通过设备码（device code）认证——打开一个 URL 并输入验证码。Hermes 将生成的凭据存储在 `~/.agentx/auth.json` 的自有认证存储中，并在存在 `~/.codex/auth.json` 时可导入现有的 Codex CLI 凭据。无需安装 Codex CLI。
 
 如果 token 刷新因终端错误（HTTP 4xx、`invalid_grant`、授权被撤销等）失败，Hermes 会将该刷新 token 标记为失效并停止重试，避免出现大量重复的认证失败。下一次请求会显示类型化的重新认证提示。运行 `hermes auth add codex-oauth`（或 `hermes model` → OpenAI Codex）开始新的设备码登录；成功交换后隔离状态自动解除。
 :::
@@ -119,7 +119,7 @@ hermes chat --provider anthropic
 hermes chat --provider anthropic  # 自动读取 Claude Code 凭据文件
 ```
 
-通过 `hermes model` 选择 Anthropic OAuth 时，Hermes 优先使用 Claude Code 自身的凭据存储，而不是将 token 复制到 `~/.hermes/.env`。这样可以保持 Claude 凭据的可刷新性。
+通过 `hermes model` 选择 Anthropic OAuth 时，Hermes 优先使用 Claude Code 自身的凭据存储，而不是将 token 复制到 `~/.agentx/.env`。这样可以保持 Claude 凭据的可刷新性。
 
 或永久设置：
 ```yaml
@@ -194,8 +194,8 @@ model:
 | 环境变量 | 说明 |
 |---------------------|-------------|
 | `COPILOT_GITHUB_TOKEN` | Copilot API 的 GitHub token（最高优先级） |
-| `HERMES_COPILOT_ACP_COMMAND` | 覆盖 Copilot CLI 二进制路径（默认：`copilot`） |
-| `HERMES_COPILOT_ACP_ARGS` | 覆盖 ACP 参数（默认：`--acp --stdio`） |
+| `AGENTX_COPILOT_ACP_COMMAND` | 覆盖 Copilot CLI 二进制路径（默认：`copilot`） |
+| `AGENTX_COPILOT_ACP_ARGS` | 覆盖 ACP 参数（默认：`--acp --stdio`） |
 
 ### 一等 API Key 提供商
 
@@ -204,48 +204,48 @@ model:
 ```bash
 # NovitaAI Model API
 hermes chat --provider novita --model moonshotai/kimi-k2.5
-# 需要：~/.hermes/.env 中的 NOVITA_API_KEY
+# 需要：~/.agentx/.env 中的 NOVITA_API_KEY
 
 # z.ai / ZhipuAI GLM
 hermes chat --provider zai --model glm-5
-# 需要：~/.hermes/.env 中的 GLM_API_KEY
+# 需要：~/.agentx/.env 中的 GLM_API_KEY
 
 # Kimi / Moonshot AI（国际版：api.moonshot.ai）
 hermes chat --provider kimi-coding --model kimi-for-coding
-# 需要：~/.hermes/.env 中的 KIMI_API_KEY
+# 需要：~/.agentx/.env 中的 KIMI_API_KEY
 
 # Kimi / Moonshot AI（中国版：api.moonshot.cn）
 hermes chat --provider kimi-coding-cn --model kimi-k2.5
-# 需要：~/.hermes/.env 中的 KIMI_CN_API_KEY
+# 需要：~/.agentx/.env 中的 KIMI_CN_API_KEY
 
 # MiniMax（全球端点）
 hermes chat --provider minimax --model MiniMax-M2.7
-# 需要：~/.hermes/.env 中的 MINIMAX_API_KEY
+# 需要：~/.agentx/.env 中的 MINIMAX_API_KEY
 
 # MiniMax（中国端点）
 hermes chat --provider minimax-cn --model MiniMax-M2.7
-# 需要：~/.hermes/.env 中的 MINIMAX_CN_API_KEY
+# 需要：~/.agentx/.env 中的 MINIMAX_CN_API_KEY
 
 # Qwen Cloud / DashScope（Qwen 模型）
 hermes chat --provider alibaba --model qwen3.5-plus
-# 需要：~/.hermes/.env 中的 DASHSCOPE_API_KEY
+# 需要：~/.agentx/.env 中的 DASHSCOPE_API_KEY
 
 # 小米 MiMo
 hermes chat --provider xiaomi --model mimo-v2-pro
-# 需要：~/.hermes/.env 中的 XIAOMI_API_KEY
+# 需要：~/.agentx/.env 中的 XIAOMI_API_KEY
 
 # 腾讯 TokenHub（Hy3 Preview）
 hermes chat --provider tencent-tokenhub --model hy3-preview
-# 需要：~/.hermes/.env 中的 TOKENHUB_API_KEY
+# 需要：~/.agentx/.env 中的 TOKENHUB_API_KEY
 
 # Arcee AI（Trinity 模型）
 hermes chat --provider arcee --model trinity-large-thinking
-# 需要：~/.hermes/.env 中的 ARCEEAI_API_KEY
+# 需要：~/.agentx/.env 中的 ARCEEAI_API_KEY
 
 # GMI Cloud
 # 使用 GMI /v1/models 端点返回的精确模型 ID。
 hermes chat --provider gmi --model zai-org/GLM-5.1-FP8
-# 需要：~/.hermes/.env 中的 GMI_API_KEY
+# 需要：~/.agentx/.env 中的 GMI_API_KEY
 ```
 
 或在 `config.yaml` 中永久设置提供商：
@@ -263,7 +263,7 @@ model:
 
 ### xAI（Grok）— Responses API + Prompt 缓存
 
-xAI 通过 Responses API（`codex_responses` 传输）接入，自动支持 Grok 4 模型的推理——无需 `reasoning_effort` 参数，服务端默认进行推理。在 `~/.hermes/.env` 中设置 `XAI_API_KEY` 并在 `hermes model` 中选择 xAI，或直接用 `grok` 作为快捷方式输入 `/model grok-4-1-fast-reasoning`。
+xAI 通过 Responses API（`codex_responses` 传输）接入，自动支持 Grok 4 模型的推理——无需 `reasoning_effort` 参数，服务端默认进行推理。在 `~/.agentx/.env` 中设置 `XAI_API_KEY` 并在 `hermes model` 中选择 xAI，或直接用 `grok` 作为快捷方式输入 `/model grok-4-1-fast-reasoning`。
 
 SuperGrok 和 X Premium+ 订阅者可以用浏览器 OAuth 登录，无需 API key——在 `hermes model` 中选择 **xAI Grok OAuth (SuperGrok / Premium+)**，或运行 `hermes auth add xai-oauth`。同一 OAuth bearer token 会被 xAI 直连工具（TTS、图像生成、视频生成、转录）自动复用。完整流程参见 [xAI Grok OAuth 指南](../guides/xai-grok-oauth.md)——如果 Hermes 运行在远程主机上，还需参见 [SSH / 远程主机上的 OAuth](../guides/oauth-over-ssh.md) 了解所需的 `ssh -L` 隧道配置。
 
@@ -280,7 +280,7 @@ xAI 还提供专属 TTS 端点（`/v1/tts`）。在 `hermes tools` → 语音与
 ```bash
 # 使用任意可用模型
 hermes chat --provider novita --model moonshotai/kimi-k2.5
-# 需要：~/.hermes/.env 中的 NOVITA_API_KEY
+# 需要：~/.agentx/.env 中的 NOVITA_API_KEY
 
 # 短别名
 hermes chat --provider novita-ai --model deepseek/deepseek-v3-0324
@@ -360,7 +360,7 @@ Bedrock 底层使用 **Converse API**——请求被转换为 Bedrock 的模型�
 hermes model
 # → 选择"Qwen OAuth (Portal)"
 # → 浏览器打开；使用阿里巴巴账户登录
-# → 确认——凭据保存到 ~/.hermes/auth.json
+# → 确认——凭据保存到 ~/.agentx/auth.json
 
 hermes chat   # 使用 portal.qwen.ai/v1 端点
 ```
@@ -372,7 +372,7 @@ model:
   default: "qwen3-coder-plus"
 ```
 
-仅在 portal 端点迁移时才需设置 `HERMES_QWEN_BASE_URL`（默认：`https://portal.qwen.ai/v1`）。
+仅在 portal 端点迁移时才需设置 `AGENTX_QWEN_BASE_URL`（默认：`https://portal.qwen.ai/v1`）。
 
 :::tip Qwen OAuth 与 Qwen Cloud（阿里 DashScope）
 `qwen-oauth` 使用面向消费者的 Qwen Portal，通过 OAuth 登录——适合个人用户。`alibaba` 提供商使用 Qwen Cloud（阿里 DashScope），需要 `DASHSCOPE_API_KEY`——适合程序化/生产工作负载。两者都路由到 Qwen 系列模型，但端点不同。
@@ -404,7 +404,7 @@ hermes chat --provider alibaba_coding --model qwen3-coder-plus
 hermes model
 # → 选择"MiniMax (OAuth)"
 # → 浏览器打开；使用 MiniMax 账户登录（全球或中国区）
-# → 确认——凭据保存到 ~/.hermes/auth.json
+# → 确认——凭据保存到 ~/.agentx/auth.json
 
 hermes chat   # 使用 api.minimax.io/anthropic 端点
 ```
@@ -429,7 +429,7 @@ model:
 ```bash
 # 云端（build.nvidia.com）
 hermes chat --provider nvidia --model nvidia/nemotron-3-super-120b-a12b
-# 需要：~/.hermes/.env 中的 NVIDIA_API_KEY
+# 需要：~/.agentx/.env 中的 NVIDIA_API_KEY
 
 # 本地 NIM 端点——覆盖基础 URL
 NVIDIA_BASE_URL=http://localhost:8000/v1 hermes chat --provider nvidia --model nvidia/nemotron-3-super-120b-a12b
@@ -455,7 +455,7 @@ Hermes 会在每次向 `build.nvidia.com` 发送请求时自动附加 NIM 计费
 ```bash
 # GMI Cloud
 hermes chat --provider gmi --model deepseek-ai/DeepSeek-R1
-# 需要：~/.hermes/.env 中的 GMI_API_KEY
+# 需要：~/.agentx/.env 中的 GMI_API_KEY
 ```
 
 或在 `config.yaml` 中永久设置：
@@ -474,7 +474,7 @@ model:
 ```bash
 # StepFun
 hermes chat --provider stepfun --model step-3.5-flash
-# 需要：~/.hermes/.env 中的 STEPFUN_API_KEY
+# 需要：~/.agentx/.env 中的 STEPFUN_API_KEY
 ```
 
 或在 `config.yaml` 中永久设置：
@@ -493,7 +493,7 @@ model:
 ```bash
 # 使用任意可用模型
 hermes chat --provider huggingface --model Qwen/Qwen3-235B-A22B-Thinking-2507
-# 需要：~/.hermes/.env 中的 HF_TOKEN
+# 需要：~/.agentx/.env 中的 HF_TOKEN
 
 # 短别名
 hermes chat --provider hf --model deepseek-ai/DeepSeek-V3.2
@@ -529,7 +529,7 @@ hermes model
 
 **手动配置（`config.yaml`）：**
 ```yaml
-# 在 ~/.hermes/config.yaml 中
+# 在 ~/.agentx/config.yaml 中
 model:
   default: your-model-name
   provider: custom
@@ -1182,14 +1182,14 @@ extra_body:
 
 ### 实战配置：Together AI、Groq、Perplexity
 
-[其他兼容提供商](#other-compatible-providers) 中列出的云提供商都使用 OpenAI 的 REST 方言，因此在 `custom_providers:` 下的接入方式相同。以下是三个可直接使用的配置示例。每个示例放入 `~/.hermes/config.yaml`，对应的 API key 放入 `~/.hermes/.env`。
+[其他兼容提供商](#other-compatible-providers) 中列出的云提供商都使用 OpenAI 的 REST 方言，因此在 `custom_providers:` 下的接入方式相同。以下是三个可直接使用的配置示例。每个示例放入 `~/.agentx/config.yaml`，对应的 API key 放入 `~/.agentx/.env`。
 
 #### Together AI
 
 托管开源模型（Llama、MiniMax、Gemma、DeepSeek、Qwen），价格显著低于一方 API。适合多模型场景的默认选择。
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 custom_providers:
   - name: together
     base_url: https://api.together.xyz/v1
@@ -1202,7 +1202,7 @@ model:
 ```
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 TOGETHER_API_KEY=your-together-key
 ```
 
@@ -1221,7 +1221,7 @@ Together 的 `/v1/models` 端点可用，因此 `hermes model` 可以自动发�
 超快推理（Llama-3.3-70B 约 500 tok/s）。模型目录较小，但对延迟敏感的交互式使用效果出色。
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 custom_providers:
   - name: groq
     base_url: https://api.groq.com/openai/v1
@@ -1233,7 +1233,7 @@ model:
 ```
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 GROQ_API_KEY=your-groq-key
 ```
 
@@ -1242,7 +1242,7 @@ GROQ_API_KEY=your-groq-key
 当你需要自动进行实时网页搜索和引用的模型时很有用。对可用模型有严格限制——查看 [perplexity.ai/settings/api](https://www.perplexity.ai/settings/api) 获取当前列表。
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 custom_providers:
   - name: perplexity
     base_url: https://api.perplexity.ai
@@ -1254,7 +1254,7 @@ model:
 ```
 
 ```bash
-# ~/.hermes/.env
+# ~/.agentx/.env
 PERPLEXITY_API_KEY=your-perplexity-key
 ```
 
@@ -1345,7 +1345,7 @@ model:
 
 ## OpenRouter 提供商路由
 
-使用 OpenRouter 时，可以控制请求如何在提供商之间路由。在 `~/.hermes/config.yaml` 中添加 `provider_routing` 节：
+使用 OpenRouter 时，可以控制请求如何在提供商之间路由。在 `~/.agentx/config.yaml` 中添加 `provider_routing` 节：
 
 ```yaml
 provider_routing:
@@ -1361,7 +1361,7 @@ provider_routing:
 
 ## OpenRouter Pareto Code 路由器
 
-OpenRouter 提供一个实验性编程模型路由器 `openrouter/pareto-code`，自动将请求路由到满足编程质量标准的最便宜模型（按 [Artificial Analysis](https://artificialanalysis.ai/) 排名）。选择此模型并在 `~/.hermes/config.yaml` 中调整 `min_coding_score` 参数：
+OpenRouter 提供一个实验性编程模型路由器 `openrouter/pareto-code`，自动将请求路由到满足编程质量标准的最便宜模型（按 [Artificial Analysis](https://artificialanalysis.ai/) 排名）。选择此模型并在 `~/.agentx/config.yaml` 中调整 `min_coding_score` 参数：
 
 ```yaml
 model:

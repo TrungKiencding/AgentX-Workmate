@@ -7,7 +7,7 @@ description: "随 Hermes Agent 附带并通过生命周期 hook 自动运行的�
 
 # 内置插件
 
-Hermes 随仓库附带了一小组插件。它们位于 `<repo>/plugins/<name>/`，与用户安装在 `~/.hermes/plugins/` 中的插件一同自动加载。它们使用与第三方插件相同的插件接口——hook、工具、斜杠命令——只是在仓库内维护。
+Hermes 随仓库附带了一小组插件。它们位于 `<repo>/plugins/<name>/`，与用户安装在 `~/.agentx/plugins/` 中的插件一同自动加载。它们使用与第三方插件相同的插件接口——hook、工具、斜杠命令——只是在仓库内维护。
 
 请参阅 [插件](/user-guide/features/plugins) 页面了解通用插件系统，以及 [构建 Hermes 插件](/developer-guide/plugins) 了解如何编写自己的插件。
 
@@ -16,8 +16,8 @@ Hermes 随仓库附带了一小组插件。它们位于 `<repo>/plugins/<name>/`
 `PluginManager` 按顺序扫描四个来源：
 
 1. **内置（Bundled）** — `<repo>/plugins/<name>/`（本页所记录的内容）
-2. **用户（User）** — `~/.hermes/plugins/<name>/`
-3. **项目（Project）** — `./.hermes/plugins/<name>/`（需要 `HERMES_ENABLE_PROJECT_PLUGINS=1`）
+2. **用户（User）** — `~/.agentx/plugins/<name>/`
+3. **项目（Project）** — `./.agentx/plugins/<name>/`（需要 `AGENTX_ENABLE_PROJECT_PLUGINS=1`）
 4. **Pip 入口点（Entry points）** — `hermes_agent.plugins`
 
 名称冲突时，后面的来源优先——名为 `disk-cleanup` 的用户插件会替换内置版本。
@@ -32,7 +32,7 @@ Hermes 随仓库附带了一小组插件。它们位于 `<repo>/plugins/<name>/`
 hermes plugins enable disk-cleanup
 ```
 
-或通过 `~/.hermes/config.yaml`：
+或通过 `~/.agentx/config.yaml`：
 
 ```yaml
 plugins:
@@ -75,7 +75,7 @@ hermes plugins disable disk-cleanup
 
 | Hook | 行为 |
 |---|---|
-| `post_tool_call` | 当 `write_file` / `terminal` / `patch` 在 `HERMES_HOME` 或 `/tmp/hermes-*` 内创建匹配 `test_*`、`tmp_*` 或 `*.test.*` 的文件时，静默追踪为 `test` / `temp` / `cron-output`。 |
+| `post_tool_call` | 当 `write_file` / `terminal` / `patch` 在 `AGENTX_HOME` 或 `/tmp/hermes-*` 内创建匹配 `test_*`、`tmp_*` 或 `*.test.*` 的文件时，静默追踪为 `test` / `temp` / `cron-output`。 |
 | `on_session_end` | 如果本轮中有任何测试文件被自动追踪，则执行安全的 `quick` 清理并记录一行摘要。否则保持静默。 |
 
 **删除规则：**
@@ -85,7 +85,7 @@ hermes plugins disable disk-cleanup
 | `test` | 每次会话结束 | 从不 |
 | `temp` | 追踪后超过 7 天 | 从不 |
 | `cron-output` | 追踪后超过 14 天 | 从不 |
-| HERMES_HOME 下的空目录 | 始终 | 从不 |
+| AGENTX_HOME 下的空目录 | 始终 | 从不 |
 | `research` | 超过 30 天，且超出最新 10 个 | 始终（仅 deep 模式） |
 | `chrome-profile` | 追踪后超过 14 天 | 始终（仅 deep 模式） |
 | 超过 500 MB 的文件 | 从不自动删除 | 始终（仅 deep 模式） |
@@ -101,7 +101,7 @@ hermes plugins disable disk-cleanup
 /disk-cleanup forget <path>              # 停止追踪（不删除）
 ```
 
-**状态** — 所有内容存储在 `$HERMES_HOME/disk-cleanup/`：
+**状态** — 所有内容存储在 `$AGENTX_HOME/disk-cleanup/`：
 
 | 文件 | 内容 |
 |---|---|
@@ -109,7 +109,7 @@ hermes plugins disable disk-cleanup
 | `tracked.json.bak` | 上述文件的原子写入备份 |
 | `cleanup.log` | 每次追踪 / 跳过 / 拒绝 / 删除操作的仅追加审计日志 |
 
-**安全性** — 清理操作仅涉及 `HERMES_HOME` 或 `/tmp/hermes-*` 下的路径。Windows 挂载点（`/mnt/c/...`）会被拒绝。已知的顶级状态目录（`logs/`、`memories/`、`sessions/`、`cron/`、`cache/`、`skills/`、`plugins/`、`disk-cleanup/` 本身）即使为空也不会被删除——全新安装不会在第一次会话结束时被清空。
+**安全性** — 清理操作仅涉及 `AGENTX_HOME` 或 `/tmp/hermes-*` 下的路径。Windows 挂载点（`/mnt/c/...`）会被拒绝。已知的顶级状态目录（`logs/`、`memories/`、`sessions/`、`cron/`、`cache/`、`skills/`、`plugins/`、`disk-cleanup/` 本身）即使为空也不会被删除——全新安装不会在第一次会话结束时被清空。
 
 **启用：** `hermes plugins enable disk-cleanup`（或在 `hermes plugins` 中勾选复选框）。
 
@@ -128,12 +128,12 @@ pip install langfuse
 hermes plugins enable observability/langfuse
 ```
 
-或在交互式 `hermes plugins` UI 中勾选复选框。然后将凭据写入 `~/.hermes/.env`：
+或在交互式 `hermes plugins` UI 中勾选复选框。然后将凭据写入 `~/.agentx/.env`：
 
 ```bash
-HERMES_LANGFUSE_PUBLIC_KEY=pk-lf-...
-HERMES_LANGFUSE_SECRET_KEY=sk-lf-...
-HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
+AGENTX_LANGFUSE_PUBLIC_KEY=pk-lf-...
+AGENTX_LANGFUSE_SECRET_KEY=sk-lf-...
+AGENTX_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
 ```
 
 **工作原理：**
@@ -143,7 +143,7 @@ HERMES_LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 或你的自托管 URL
 | `pre_api_request` / `pre_llm_call` | 打开（或复用）每轮的根 span "Hermes turn"。为本次 API 调用启动一个 `generation` 子 observation，将最近的消息序列化为输入。 |
 | `post_api_request` / `post_llm_call` | 关闭 generation，附加 `usage_details`、`cost_details`、`finish_reason`、助手输出和工具调用。如果没有工具调用且内容非空，则关闭本轮。 |
 | `pre_tool_call` | 启动一个带有经过清理的 `args` 的 `tool` 子 observation。 |
-| `post_tool_call` | 关闭 tool observation，附加经过清理的 `result`。`read_file` 的内容会被摘要化（头部 + 尾部 + 省略行数），以使大文件读取保持在 `HERMES_LANGFUSE_MAX_CHARS` 以内。 |
+| `post_tool_call` | 关闭 tool observation，附加经过清理的 `result`。`read_file` 的内容会被摘要化（头部 + 尾部 + 省略行数），以使大文件读取保持在 `AGENTX_LANGFUSE_MAX_CHARS` 以内。 |
 
 会话分组基于 Hermes 会话 ID（或子 agent 的任务 ID），通过 `langfuse.propagate_attributes` 实现，因此单次 `hermes chat` 会话中的所有内容都归属于同一个 Langfuse session。
 
@@ -158,11 +158,11 @@ hermes chat -q "hello"              # 在 Langfuse UI 中检查是否有 "Hermes
 
 | 变量 | 默认值 | 用途 |
 |---|---|---|
-| `HERMES_LANGFUSE_ENV` | — | trace 上的环境标签（`production`、`staging` 等） |
-| `HERMES_LANGFUSE_RELEASE` | — | 发布/版本标签 |
-| `HERMES_LANGFUSE_SAMPLE_RATE` | `1.0` | 传递给 SDK 的采样率（0.0–1.0） |
-| `HERMES_LANGFUSE_MAX_CHARS` | `12000` | 消息内容 / 工具参数 / 工具结果的单字段截断长度 |
-| `HERMES_LANGFUSE_DEBUG` | `false` | 向 `agent.log` 输出详细插件日志 |
+| `AGENTX_LANGFUSE_ENV` | — | trace 上的环境标签（`production`、`staging` 等） |
+| `AGENTX_LANGFUSE_RELEASE` | — | 发布/版本标签 |
+| `AGENTX_LANGFUSE_SAMPLE_RATE` | `1.0` | 传递给 SDK 的采样率（0.0–1.0） |
+| `AGENTX_LANGFUSE_MAX_CHARS` | `12000` | 消息内容 / 工具参数 / 工具结果的单字段截断长度 |
+| `AGENTX_LANGFUSE_DEBUG` | `false` | 向 `agent.log` 输出详细插件日志 |
 
 Hermes 前缀的环境变量和标准 SDK 环境变量（`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`、`LANGFUSE_BASE_URL`）均被接受——两者同时设置时，Hermes 前缀的优先。
 
@@ -179,7 +179,7 @@ Hermes 前缀的环境变量和标准 SDK 环境变量（`LANGFUSE_PUBLIC_KEY`�
 - 使用浏览器自动化加入 Meet URL 的无头虚拟参与者
 - 通过配置的 STT 提供者对会议音频进行实时转录
 - agent 调用的 `meet_summarize` / `meet_speak` / `meet_followup` 工具集，用于对所听内容采取行动
-- 会后产物（转录、带发言人归属的笔记、行动项）保存在 `~/.hermes/cache/google_meet/<meeting_id>/`
+- 会后产物（转录、带发言人归属的笔记、行动项）保存在 `~/.agentx/cache/google_meet/<meeting_id>/`
 
 **设置：**
 
@@ -198,7 +198,7 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 
 **适用场景：** 需要机器人转录并为异步参与者总结的定期站会；需要结构化笔记的访谈式会议；任何原本需要 Fireflies / Otter / Grain 的场景。如果你不希望有 AI 在旁监听——请勿启用。
 
-**禁用：** `hermes plugins disable google_meet`。已缓存的转录和录音保留在 `~/.hermes/cache/google_meet/`，直到你手动删除。
+**禁用：** `hermes plugins disable google_meet`。已缓存的转录和录音保留在 `~/.agentx/cache/google_meet/`，直到你手动删除。
 
 ### hermes-achievements
 
@@ -206,10 +206,10 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 
 **工作原理：**
 
-- 在仪表盘后端扫描你的整个 `~/.hermes/state.db` 会话历史
+- 在仪表盘后端扫描你的整个 `~/.agentx/state.db` 会话历史
 - 每个会话的统计数据按 `(started_at, last_active)` 指纹缓存，因此后续扫描只重新分析新增或变更的会话
 - 首次扫描在后台线程中运行——即使数据库有数千个会话，仪表盘也不会阻塞等待
-- 解锁状态持久化到 `$HERMES_HOME/plugins/hermes-achievements/state.json`
+- 解锁状态持久化到 `$AGENTX_HOME/plugins/hermes-achievements/state.json`
 
 **等级进阶：** 铜 → 银 → 金 → 钻石 → 奥林匹斯。每张卡片都有"计算方式"部分，列出所追踪的确切指标。
 
@@ -232,7 +232,7 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 | `POST /rescan` | 手动同步重新扫描（阻塞；在用户点击重新扫描按钮时使用） |
 | `POST /reset-state` | 清除解锁历史和缓存快照 |
 
-**状态文件** — 位于 `$HERMES_HOME/plugins/hermes-achievements/`：
+**状态文件** — 位于 `$AGENTX_HOME/plugins/hermes-achievements/`：
 
 | 文件 | 内容 |
 |---|---|
@@ -249,13 +249,13 @@ agent 会启动会议加入流程，在通话进行时将转录内容流式传�
 
 **启用：** 无需启用——`hermes-achievements` 是一个仅限仪表盘的插件（无生命周期 hook，无模型可见工具）。它在 `hermes dashboard` 首次启动时自动注册为标签页。`plugins.enabled` 配置仅控制生命周期/工具插件；仪表盘插件完全通过其 `dashboard/manifest.json` 发现。
 
-**退出：** 删除或重命名 `plugins/hermes-achievements/dashboard/manifest.json`，或在 `~/.hermes/plugins/hermes-achievements/` 中用同名用户插件覆盖它（该插件不包含仪表盘）。`$HERMES_HOME/plugins/hermes-achievements/` 下的插件状态文件会保留——重新安装后你的解锁历史依然存在。
+**退出：** 删除或重命名 `plugins/hermes-achievements/dashboard/manifest.json`，或在 `~/.agentx/plugins/hermes-achievements/` 中用同名用户插件覆盖它（该插件不包含仪表盘）。`$AGENTX_HOME/plugins/hermes-achievements/` 下的插件状态文件会保留——重新安装后你的解锁历史依然存在。
 
 ## 添加内置插件
 
 内置插件的编写方式与其他 Hermes 插件完全相同——参见 [构建 Hermes 插件](/developer-guide/plugins)。唯一的区别是：
 
-- 目录位于 `<repo>/plugins/<name>/`，而非 `~/.hermes/plugins/<name>/`
+- 目录位于 `<repo>/plugins/<name>/`，而非 `~/.agentx/plugins/<name>/`
 - 在 `hermes plugins list` 中，manifest 来源显示为 `bundled`
 - 同名用户插件会覆盖内置版本
 

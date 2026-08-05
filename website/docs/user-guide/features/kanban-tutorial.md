@@ -10,7 +10,7 @@ hermes dashboard             # opens http://127.0.0.1:9119 in your browser
 # click Kanban in the left nav
 ```
 
-The dashboard is the most comfortable place for **you** to watch the system. Agent workers the dispatcher spawns never see the dashboard or the CLI — they drive the board through a dedicated `kanban_*` [toolset](./kanban#how-workers-interact-with-the-board) (`kanban_show`, `kanban_list`, `kanban_complete`, `kanban_block`, `kanban_heartbeat`, `kanban_comment`, `kanban_attach`, `kanban_attach_url`, `kanban_attachments`, `kanban_create`, `kanban_link`, `kanban_unblock`). All three surfaces — dashboard, CLI, worker tools — route through the same per-board SQLite DB (`~/.hermes/kanban.db` for the default board, `~/.hermes/kanban/boards/<slug>/kanban.db` for any board you create later), so each board is consistent no matter which side of the fence a change came from.
+The dashboard is the most comfortable place for **you** to watch the system. Agent workers the dispatcher spawns never see the dashboard or the CLI — they drive the board through a dedicated `kanban_*` [toolset](./kanban#how-workers-interact-with-the-board) (`kanban_show`, `kanban_list`, `kanban_complete`, `kanban_block`, `kanban_heartbeat`, `kanban_comment`, `kanban_attach`, `kanban_attach_url`, `kanban_attachments`, `kanban_create`, `kanban_link`, `kanban_unblock`). All three surfaces — dashboard, CLI, worker tools — route through the same per-board SQLite DB (`~/.agentx/kanban.db` for the default board, `~/.agentx/kanban/boards/<slug>/kanban.db` for any board you create later), so each board is consistent no matter which side of the fence a change came from.
 
 This tutorial uses the `default` board throughout. If you want multiple isolated queues (one per project / repo / domain), see [Boards (multi-project)](./kanban#boards-multi-project) in the overview — the same CLI / dashboard / worker flows apply per board, and workers physically cannot see tasks on other boards.
 
@@ -61,7 +61,7 @@ hermes kanban create "Write auth integration tests" \
 
 Because `API` has `SCHEMA` as its parent, and `tests` has `API` as its parent, only `SCHEMA` starts in `ready`. The other two sit in `todo` until their parents complete. This is the dependency promotion engine doing its job — no other worker will pick up the test-writing until there's an API to test.
 
-On the next dispatcher tick (60s by default, or immediately if you hit **Nudge dispatcher**) the `backend-dev` profile spawns as a worker with `HERMES_KANBAN_TASK=$SCHEMA` in its env. Here's what the worker's tool-call loop looks like from inside the agent:
+On the next dispatcher tick (60s by default, or immediately if you hit **Nudge dispatcher**) the `backend-dev` profile spawns as a worker with `AGENTX_KANBAN_TASK=$SCHEMA` in its env. Here's what the worker's tool-call loop looks like from inside the agent:
 
 ```python
 # worker tool calls — NOT commands you run
@@ -84,7 +84,7 @@ kanban_complete(
 )
 ```
 
-`kanban_show` defaults `task_id` to `$HERMES_KANBAN_TASK`, so the worker doesn't need to know its own id. `kanban_complete` writes the summary + metadata onto the current `task_runs` row, closes that run, and transitions the task to `done` — all in one atomic hop through `kanban_db`.
+`kanban_show` defaults `task_id` to `$AGENTX_KANBAN_TASK`, so the worker doesn't need to know its own id. `kanban_complete` writes the summary + metadata onto the current `task_runs` row, closes that run, and transitions the task to `done` — all in one atomic hop through `kanban_db`.
 
 When `SCHEMA` hits `done`, the dependency engine promotes `API` to `ready` automatically. The API worker, when it picks up, will call `kanban_show()` and see `SCHEMA`'s summary and metadata attached to the parent handoff — so it knows the schema decisions without re-reading a long design doc.
 

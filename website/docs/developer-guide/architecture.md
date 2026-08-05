@@ -57,7 +57,7 @@ hermes-agent/
 ├── model_tools.py            # Tool discovery, schema collection, dispatch
 ├── toolsets.py               # Tool groupings and platform presets
 ├── hermes_state.py           # SQLite session/state database with FTS5
-├── hermes_constants.py       # HERMES_HOME, profile-aware paths
+├── hermes_constants.py       # AGENTX_HOME, profile-aware paths
 ├── batch_runner.py           # Batch trajectory generation
 │
 ├── agent/                    # Agent internals
@@ -231,7 +231,7 @@ Long-running process with 25+ platform adapters (built-in + bundled plugins), un
 
 ### Plugin System
 
-Three discovery sources: `~/.hermes/plugins/` (user), `.hermes/plugins/` (project), and pip entry points. Plugins register tools, hooks, and CLI commands through a context API. Two specialized plugin types exist: memory providers (`plugins/memory/`) and context engines (`plugins/context_engine/`). Both are single-select — only one of each can be active at a time, configured via `hermes plugins` or `config.yaml`.
+Three discovery sources: `~/.agentx/plugins/` (user), `.agentx/plugins/` (project), and pip entry points. Plugins register tools, hooks, and CLI commands through a context API. Two specialized plugin types exist: memory providers (`plugins/memory/`) and context engines (`plugins/context_engine/`). Both are single-select — only one of each can be active at a time, configured via `hermes plugins` or `config.yaml`.
 
 → [Plugin Guide](/developer-guide/plugins), [Memory Provider Plugin](./memory-provider-plugin.md)
 
@@ -262,7 +262,7 @@ Generates ShareGPT-format trajectories from agent sessions for training data gen
 | **Interruptible** | API calls and tool execution can be cancelled mid-flight by user input or signals. |
 | **Platform-agnostic core** | One AIAgent class serves CLI, gateway, ACP, batch, and API server. Platform differences live in the entry point, not the agent. |
 | **Loose coupling** | Optional subsystems (MCP, plugins, memory providers, RL environments) use registry patterns and check_fn gating, not hard dependencies. |
-| **Profile isolation** | Each profile (`hermes -p <name>`) gets its own HERMES_HOME, config, memory, sessions, and gateway PID. Multiple profiles run concurrently. |
+| **Profile isolation** | Each profile (`hermes -p <name>`) gets its own AGENTX_HOME, config, memory, sessions, and gateway PID. Multiple profiles run concurrently. |
 
 ## File Dependency Chain
 

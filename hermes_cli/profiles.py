@@ -1,11 +1,11 @@
 """
 Profile management for multiple isolated Hermes instances.
 
-Each profile is a fully independent HERMES_HOME directory with its own
+Each profile is a fully independent AGENTX_HOME directory with its own
 config.yaml, .env, memory, sessions, skills, gateway, cron, and logs.
-Profiles live under ``~/.hermes/profiles/<name>/`` by default.
+Profiles live under ``~/.agentx/profiles/<name>/`` by default.
 
-The "default" profile is ``~/.hermes`` itself — backward compatible,
+The "default" profile is ``~/.agentx`` itself — backward compatible,
 zero migration needed.
 
 Usage::
@@ -78,7 +78,7 @@ _CLONE_ALL_STRIP: list[str] = [
 ]
 
 # Infrastructure artifacts excluded from --clone-all when the source is the
-# default profile (``~/.hermes``).  Named profiles never contain these
+# default profile (``~/.agentx``).  Named profiles never contain these
 # directories at root, so the exclusion is gated to avoid silently dropping
 # user data from a named-profile source.
 #
@@ -151,7 +151,7 @@ def _clone_all_copytree_ignore(source_dir: Path):
          and should never carry into a fresh clone.  Applies to any source.
       2. Root-level entries in ``_CLONE_ALL_DEFAULT_EXCLUDE_ROOT`` — known
          Hermes infrastructure directories that only the default profile
-         (``~/.hermes``) ever contains.  Gated on ``source_dir`` actually
+         (``~/.agentx``) ever contains.  Gated on ``source_dir`` actually
          being the default profile so a named-profile source never has its
          own data silently dropped.
       3. Universal exclusions at any depth — Python bytecode caches that
@@ -196,7 +196,7 @@ def _clone_all_copytree_ignore(source_dir: Path):
     return _ignore
 
 
-# Directories/files to exclude when exporting the default (~/.hermes) profile.
+# Directories/files to exclude when exporting the default (~/.agentx) profile.
 # The default profile contains infrastructure (repo checkout, worktrees, DBs,
 # caches, binaries) that named profiles don't have.  We exclude those so the
 # export is a portable, reasonable-size archive of actual profile data.
@@ -224,11 +224,11 @@ _DEFAULT_EXPORT_EXCLUDE_ROOT = frozenset({
     "logs",                 # gateway logs
 })
 
-# Allow-list for ``export_profile("default")``: when HERMES_HOME equals the
+# Allow-list for ``export_profile("default")``: when AGENTX_HOME equals the
 # cwd (Docker/custom deployments), the default profile home is the working
 # directory and contains arbitrary user files that should NOT be bundled
 # into the export. The set below identifies the *known Hermes profile
-# artifacts* at the root of HERMES_HOME; everything else is excluded.
+# artifacts* at the root of AGENTX_HOME; everything else is excluded.
 # Sensitive runtime infrastructure (``state.db``, ``logs/``, ``auth.*``,
 # other profiles) is intentionally *not* in this list so the export stays
 # a portable, credential-free snapshot of the user-facing surface
@@ -252,7 +252,7 @@ _RESERVED_NAMES = frozenset({
 })
 
 # Hermes subcommands that cannot be used as profile names/aliases
-_HERMES_SUBCOMMANDS = frozenset({
+_AGENTX_SUBCOMMANDS = frozenset({
     "chat", "model", "gateway", "setup", "whatsapp", "login", "logout",
     "status", "cron", "doctor", "dump", "config", "pairing", "skills", "tools",
     "mcp", "sessions", "insights", "version", "update", "uninstall",
@@ -267,23 +267,23 @@ _HERMES_SUBCOMMANDS = frozenset({
 def _get_profiles_root() -> Path:
     """Return the directory where named profiles are stored.
 
-    Anchored to the hermes root, NOT to the current HERMES_HOME
+    Anchored to the hermes root, NOT to the current AGENTX_HOME
     (which may itself be a profile).  This ensures ``coder profile list``
     can see all profiles.
 
-    In Docker/custom deployments where HERMES_HOME points outside
-    ``~/.hermes``, profiles live under ``HERMES_HOME/profiles/`` so
+    In Docker/custom deployments where AGENTX_HOME points outside
+    ``~/.agentx``, profiles live under ``AGENTX_HOME/profiles/`` so
     they persist on the mounted volume.
     """
     return _get_default_hermes_home() / "profiles"
 
 
 def _get_default_hermes_home() -> Path:
-    """Return the default (pre-profile) HERMES_HOME path.
+    """Return the default (pre-profile) AGENTX_HOME path.
 
-    In standard deployments this is ``~/.hermes``.
-    In Docker/custom deployments where HERMES_HOME is outside ``~/.hermes``
-    (e.g. ``/opt/data``), returns HERMES_HOME directly.
+    In standard deployments this is ``~/.agentx``.
+    In Docker/custom deployments where AGENTX_HOME is outside ``~/.agentx``
+    (e.g. ``/opt/data``), returns AGENTX_HOME directly.
     """
     from hermes_constants import get_default_hermes_root
     return get_default_hermes_root()
@@ -332,12 +332,12 @@ def validate_profile_name(name: str) -> None:
 
     Also rejects names in :data:`_RESERVED_NAMES` (``hermes``, ``test``,
     ``tmp``, ``root``, ``sudo``) that would create confusing on-disk
-    collisions (a ``hermes`` profile inside ``~/.hermes/``) or get refused
+    collisions (a ``hermes`` profile inside ``~/.agentx/``) or get refused
     at alias-creation time anyway. ``default`` is a special pass-through —
     it's a valid alias for the built-in root profile.
     """
     if name == "default":
-        return  # special alias for ~/.hermes
+        return  # special alias for ~/.agentx
     if not _PROFILE_ID_RE.match(name):
         raise ValueError(
             f"Invalid profile name {name!r}. Must match "
@@ -368,7 +368,7 @@ def validate_alias_name(name: str) -> None:
 
 
 def get_profile_dir(name: str) -> Path:
-    """Resolve a profile name to its HERMES_HOME directory."""
+    """Resolve a profile name to its AGENTX_HOME directory."""
     canon = normalize_profile_name(name)
     if canon == "default":
         return _get_default_hermes_home()
@@ -400,7 +400,7 @@ def check_alias_collision(name: str) -> Optional[str]:
         return str(exc)
     if canon in _RESERVED_NAMES:
         return f"'{canon}' is a reserved name"
-    if canon in _HERMES_SUBCOMMANDS:
+    if canon in _AGENTX_SUBCOMMANDS:
         return f"'{canon}' conflicts with a hermes subcommand"
 
     # Check existing commands in PATH
@@ -711,7 +711,7 @@ def _check_gateway_running(profile_dir: Path) -> bool:
     no live PID file.  In those cases fall back to validating the PID recorded
     in the profile's own ``gateway_state.json`` against the live process table,
     mirroring the ``/api/status`` sidebar's liveness logic so the two surfaces
-    agree.  Parameterized by ``profile_dir`` so it never mutates ``HERMES_HOME``.
+    agree.  Parameterized by ``profile_dir`` so it never mutates ``AGENTX_HOME``.
     """
     try:
         from gateway.status import get_running_pid
@@ -961,7 +961,7 @@ def profiles_to_serve(multiplex: bool) -> List[Tuple[str, Path]]:
       always had. The name is ``"default"`` for the default profile or the
       active named profile's id.
     - ``multiplex=True``: returns the default profile plus every valid named
-      profile under ``profiles/``, each paired with its own HERMES_HOME.
+      profile under ``profiles/``, each paired with its own AGENTX_HOME.
 
     Intentionally lightweight (a directory scan + name validation only): no
     per-profile config reads, gateway-running probes, or skill counts like
@@ -1037,7 +1037,7 @@ def create_profile(
 
     if canon == "default":
         raise ValueError(
-            "Cannot create a profile named 'default' — it is the built-in profile (~/.hermes)."
+            "Cannot create a profile named 'default' — it is the built-in profile (~/.agentx)."
         )
 
     profile_dir = get_profile_dir(canon)
@@ -1061,7 +1061,7 @@ def create_profile(
             )
 
     if clone_all and source_dir:
-        # Full copy of source profile (exclude sibling ~/.hermes/profiles/)
+        # Full copy of source profile (exclude sibling ~/.agentx/profiles/)
         shutil.copytree(
             source_dir,
             profile_dir,
@@ -1187,7 +1187,7 @@ def create_profile(
 def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict]:
     """Seed bundled skills into a profile via subprocess.
 
-    Uses subprocess because sync_skills() caches HERMES_HOME at module level.
+    Uses subprocess because sync_skills() caches AGENTX_HOME at module level.
     Returns the sync result dict, or None on failure.
 
     Profiles that opted out of bundled skills (via ``hermes profile create
@@ -1208,7 +1208,7 @@ def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict
             [sys.executable, "-c",
              "import json; from tools.skills_sync import sync_skills; "
              "r = sync_skills(quiet=True); print(json.dumps(r))"],
-            env={**os.environ, "HERMES_HOME": str(profile_dir)},
+            env={**os.environ, "AGENTX_HOME": str(profile_dir)},
             cwd=str(project_root),
             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
         )
@@ -1291,7 +1291,7 @@ def _profile_bound_backend_pids(canon: str, profile_dir: Path) -> list[int]:
     ``ENOTEMPTY`` (and, pre-fix, resurrected the tree).  ``gateway.pid`` never
     names it, so find it by inspection: a Hermes backend subcommand
     (``serve``/``dashboard``/``gateway``) that is bound to *this* profile either
-    by a ``--profile <canon>`` / ``-p <canon>`` selector or by a ``HERMES_HOME``
+    by a ``--profile <canon>`` / ``-p <canon>`` selector or by a ``AGENTX_HOME``
     that resolves to ``profile_dir``.
 
     Best-effort and tightly scoped: current-user processes only, backend
@@ -1372,10 +1372,10 @@ def _profile_bound_backend_pids(canon: str, profile_dir: Path) -> list[int]:
                         bound = True
                         break
 
-            # ...or by HERMES_HOME env pointing at this profile dir.
+            # ...or by AGENTX_HOME env pointing at this profile dir.
             if not bound:
                 try:
-                    env_home = (proc.environ() or {}).get("HERMES_HOME", "")
+                    env_home = (proc.environ() or {}).get("AGENTX_HOME", "")
                     if env_home and Path(env_home).resolve() == resolved_dir:
                         bound = True
                 except Exception:
@@ -1477,7 +1477,7 @@ def delete_profile(name: str, yes: bool = False) -> Path:
 
     if canon == "default":
         raise ValueError(
-            "Cannot delete the default profile (~/.hermes).\n"
+            "Cannot delete the default profile (~/.agentx).\n"
             "To remove everything, use: hermes uninstall"
         )
 
@@ -1629,7 +1629,7 @@ def _maybe_register_gateway_service(profile_name: str) -> None:
     which goes through the same dispatch path.
 
     Port selection: each supervised profile gateway loads its own
-    ``HERMES_HOME`` and binds the port resolved by ``gateway/config.py``
+    ``AGENTX_HOME`` and binds the port resolved by ``gateway/config.py``
     from that profile's environment — ``API_SERVER_PORT`` (or
     ``platforms.api_server.extra.port`` in the profile's
     ``config.yaml``), defaulting to 8642. There is no ``[gateway] port``
@@ -1707,10 +1707,10 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
     import platform as _platform
 
     # Derive service name for this profile
-    # Temporarily set HERMES_HOME so _profile_suffix resolves correctly
-    old_home = os.environ.get("HERMES_HOME")
+    # Temporarily set AGENTX_HOME so _profile_suffix resolves correctly
+    old_home = os.environ.get("AGENTX_HOME")
     try:
-        os.environ["HERMES_HOME"] = str(profile_dir)
+        os.environ["AGENTX_HOME"] = str(profile_dir)
         from hermes_cli.gateway import get_service_name, get_launchd_plist_path
 
         if _platform.system() == "Linux":
@@ -1745,9 +1745,9 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
         print(f"⚠ Service cleanup: {e}")
     finally:
         if old_home is not None:
-            os.environ["HERMES_HOME"] = old_home
-        elif "HERMES_HOME" in os.environ:
-            del os.environ["HERMES_HOME"]
+            os.environ["AGENTX_HOME"] = old_home
+        elif "AGENTX_HOME" in os.environ:
+            del os.environ["AGENTX_HOME"]
 
 
 def _stop_gateway_process(profile_dir: Path) -> None:
@@ -1811,7 +1811,7 @@ def get_active_profile() -> str:
 def set_active_profile(name: str) -> None:
     """Set the sticky active profile.
 
-    Writes to ``~/.hermes/active_profile``. Use ``"default"`` to clear.
+    Writes to ``~/.agentx/active_profile``. Use ``"default"`` to clear.
     """
     canon = normalize_profile_name(name)
     validate_profile_name(canon)
@@ -1834,11 +1834,11 @@ def set_active_profile(name: str) -> None:
 
 
 def get_active_profile_name() -> str:
-    """Infer the current profile name from HERMES_HOME.
+    """Infer the current profile name from AGENTX_HOME.
 
-    Returns ``"default"`` if HERMES_HOME is not set or points to ``~/.hermes``.
-    Returns the profile name if HERMES_HOME points into ``~/.hermes/profiles/<name>``.
-    Returns ``"custom"`` if HERMES_HOME is set to an unrecognized path.
+    Returns ``"default"`` if AGENTX_HOME is not set or points to ``~/.agentx``.
+    Returns the profile name if AGENTX_HOME points into ``~/.agentx/profiles/<name>``.
+    Returns ``"custom"`` if AGENTX_HOME is set to an unrecognized path.
     """
     from hermes_constants import get_hermes_home
     hermes_home = get_hermes_home()
@@ -1872,9 +1872,9 @@ def _default_export_ignore(root_dir: Path):
     * **Root-level allow-list** — only entries whose name appears in
       ``_DEFAULT_EXPORT_INCLUDE_ROOT`` survive. Everything else (such as
       an unrelated ``x11-dev/`` directory in a Docker deployment where
-      HERMES_HOME equals the cwd) is excluded. Blacklisting was tried
+      AGENTX_HOME equals the cwd) is excluded. Blacklisting was tried
       first and proved unable to anticipate every non-Hermes file the
-      user may have lying alongside HERMES_HOME (#58394).
+      user may have lying alongside AGENTX_HOME (#58394).
     * **Universal exclusions at any depth** — ``__pycache__``, sockets,
       temp files; plus npm lockfiles, which may appear at the root.
 
@@ -1946,8 +1946,8 @@ def export_profile(name: str, output_path: str, extra_files: Optional[Dict[str, 
             target.write_text(content, encoding="utf-8")
 
     if canon == "default":
-        # The default profile IS ~/.hermes itself — its parent is ~/ and its
-        # directory name is ".hermes", not "default".  We stage a clean copy
+        # The default profile IS ~/.agentx itself — its parent is ~/ and its
+        # directory name is ".agentx", not "default".  We stage a clean copy
         # under a temp dir so the archive contains ``default/...``.
         with tempfile.TemporaryDirectory() as tmpdir:
             staged = Path(tmpdir) / "default"
@@ -2079,13 +2079,13 @@ def import_profile(archive_path: str, name: Optional[str] = None) -> Path:
         )
 
     # Archives exported from the default profile have "default/" as top-level
-    # dir.  Importing as "default" would target ~/.hermes itself — disallow
+    # dir.  Importing as "default" would target ~/.agentx itself — disallow
     # that and guide the user toward a named profile.
     canon = normalize_profile_name(inferred_name)
     validate_profile_name(canon)
     if canon == "default":
         raise ValueError(
-            "Cannot import as 'default' — that is the built-in root profile (~/.hermes). "
+            "Cannot import as 'default' — that is the built-in root profile (~/.agentx). "
             "Specify a different name: hermes profile import <archive> --name <name>"
         )
 
@@ -2240,10 +2240,10 @@ def rename_profile(old_name: str, new_name: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def resolve_profile_env(profile_name: str) -> str:
-    """Resolve a profile name to a HERMES_HOME path string.
+    """Resolve a profile name to a AGENTX_HOME path string.
 
     Called early in the CLI entry point, before any hermes modules
-    are imported, to set the HERMES_HOME environment variable.
+    are imported, to set the AGENTX_HOME environment variable.
     """
     canon = normalize_profile_name(profile_name)
     validate_profile_name(canon)

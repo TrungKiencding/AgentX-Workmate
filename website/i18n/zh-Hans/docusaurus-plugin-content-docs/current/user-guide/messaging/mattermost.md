@@ -136,7 +136,7 @@ hermes gateway setup
 
 ### 方式 B：手动配置
 
-在你的 `~/.hermes/.env` 文件中添加以下内容：
+在你的 `~/.agentx/.env` 文件中添加以下内容：
 
 ```bash
 # 必填
@@ -157,7 +157,7 @@ MATTERMOST_ALLOWED_USERS=3uo8dkh1p7g1mfk49ear5fzs5c
 # MATTERMOST_FREE_RESPONSE_CHANNELS=channel_id_1,channel_id_2
 ```
 
-`~/.hermes/config.yaml` 中的可选行为设置：
+`~/.agentx/config.yaml` 中的可选行为设置：
 
 ```yaml
 group_sessions_per_user: true
@@ -189,7 +189,7 @@ hermes gateway
 
 ### 手动配置
 
-在你的 `~/.hermes/.env` 中添加：
+在你的 `~/.agentx/.env` 中添加：
 
 ```bash
 MATTERMOST_HOME_CHANNEL=abc123def456ghi789jkl012mn
@@ -206,7 +206,7 @@ MATTERMOST_HOME_CHANNEL=abc123def456ghi789jkl012mn
 | `off`（默认） | Hermes 在频道中发送普通消息，与普通用户一样。 |
 | `thread` | Hermes 在你的原始消息下方以线程形式回复。在大量来回交流时保持频道整洁。 |
 
-在你的 `~/.hermes/.env` 中设置：
+在你的 `~/.agentx/.env` 中设置：
 
 ```bash
 MATTERMOST_REPLY_MODE=thread
@@ -306,7 +306,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 **原因**：你的用户 ID 不在 `MATTERMOST_ALLOWED_USERS` 中。
 
-**解决方法**：将你的用户 ID 添加到 `~/.hermes/.env` 中的 `MATTERMOST_ALLOWED_USERS`，然后重启 gateway。注意：用户 ID 是 26 位字母数字字符串，不是你的 `@用户名`。
+**解决方法**：将你的用户 ID 添加到 `~/.agentx/.env` 中的 `MATTERMOST_ALLOWED_USERS`，然后重启 gateway。注意：用户 ID 是 26 位字母数字字符串，不是你的 `@用户名`。
 
 ## 按频道设置 Prompt
 

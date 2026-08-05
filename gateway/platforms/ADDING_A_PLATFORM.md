@@ -4,7 +4,7 @@ There are two ways to add a platform to the Hermes gateway:
 
 ## Plugin Path (Recommended for Community/Third-Party)
 
-Create a plugin directory in `~/.hermes/plugins/` (or under `plugins/platforms/`
+Create a plugin directory in `~/.agentx/plugins/` (or under `plugins/platforms/`
 for bundled plugins) with a `plugin.yaml` and `adapter.py`.  The adapter
 inherits from `BasePlatformAdapter` and registers via
 `ctx.register_platform()` in the `register(ctx)` entry point.  This requires
@@ -238,7 +238,7 @@ Add a named toolset for your platform:
 ```python
 "hermes-your-platform": {
     "description": "Your Platform bot toolset",
-    "tools": _HERMES_CORE_TOOLS,
+    "tools": _AGENTX_CORE_TOOLS,
     "includes": []
 },
 ```

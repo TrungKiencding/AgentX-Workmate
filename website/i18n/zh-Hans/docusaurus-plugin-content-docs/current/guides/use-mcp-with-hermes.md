@@ -42,7 +42,7 @@ description: "将 MCP 服务器连接到 Hermes Agent、过滤其工具并在实
 如果你在没有附加组件的情况下安装，需要单独添加 MCP：
 
 ```bash
-cd ~/.hermes/hermes-agent
+cd ~/.agentx/hermes-agent
 uv pip install -e ".[mcp]"
 ```
 

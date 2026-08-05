@@ -10,7 +10,7 @@ This module provides a fail-closed, context-local secret scope:
 
 - ``set_secret_scope(mapping)`` installs the active profile's secrets for the
   current task (a contextvar, so it propagates into the agent's worker thread
-  via ``copy_context()`` exactly like the HERMES_HOME override).
+  via ``copy_context()`` exactly like the AGENTX_HOME override).
 - ``get_secret(name)`` reads from that scope. When multiplexing is **active**
   and no scope is set, it RAISES rather than silently falling back to
   ``os.environ`` — an un-migrated or newly-added call site fails loud at that
@@ -97,15 +97,15 @@ def current_secret_scope() -> Optional[Mapping[str, str]]:
 # list tight: when in doubt a value is a profile secret, not a global.
 _GLOBAL_ENV_EXACT = frozenset({
     # Hermes runtime / deployment
-    "HERMES_HOME", "HERMES_PROFILE", "HERMES_GATEWAY_LOCK_DIR",
-    "HERMES_MAX_ITERATIONS", "HERMES_MAX_TOKENS", "HERMES_API_TIMEOUT",
-    "HERMES_REDACT_SECRETS", "HERMES_NOUS_TIMEOUT_SECONDS",
-    "_HERMES_GATEWAY",
+    "AGENTX_HOME", "AGENTX_PROFILE", "AGENTX_GATEWAY_LOCK_DIR",
+    "AGENTX_MAX_ITERATIONS", "AGENTX_MAX_TOKENS", "AGENTX_API_TIMEOUT",
+    "AGENTX_REDACT_SECRETS", "AGENTX_NOUS_TIMEOUT_SECONDS",
+    "_AGENTX_GATEWAY",
     # OS / interpreter
     "PATH", "HOME", "USER", "LANG", "LC_ALL", "TZ", "PWD", "SHELL", "TMPDIR",
     "VIRTUAL_ENV", "PYTHONPATH", "SSL_CERT_FILE",
     # Kanban paths (per-board, not per-profile-secret)
-    "HERMES_KANBAN_DB", "HERMES_KANBAN_WORKSPACES_ROOT", "HERMES_KANBAN_BOARD",
+    "AGENTX_KANBAN_DB", "AGENTX_KANBAN_WORKSPACES_ROOT", "AGENTX_KANBAN_BOARD",
     # API-server LISTENER settings — deployment config (Docker compose
     # ``environment:`` block, systemd ``Environment=``), not profile secrets.
     # The scoped runner reload (#64674) must keep seeing them or container
@@ -116,8 +116,8 @@ _GLOBAL_ENV_EXACT = frozenset({
     "API_SERVER_CORS_ORIGINS",
 })
 _GLOBAL_ENV_PREFIXES = (
-    "HERMES_KANBAN_",
-    "HERMES_TELEGRAM_",   # tuning knobs (batch delays, fallback toggles) — NOT the token
+    "AGENTX_KANBAN_",
+    "AGENTX_TELEGRAM_",   # tuning knobs (batch delays, fallback toggles) — NOT the token
     "TERMINAL_",          # terminal/sandbox backend settings
 )
 

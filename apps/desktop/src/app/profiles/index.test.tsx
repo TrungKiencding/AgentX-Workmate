@@ -67,7 +67,7 @@ function makeProfile(name: string, isDefault = false): ProfileInfo {
     is_default: isDefault,
     model: null,
     name,
-    path: `/home/user/.hermes/profiles/${name}`,
+    path: `/home/user/.agentx/profiles/${name}`,
     provider: null,
     skill_count: 0
   }

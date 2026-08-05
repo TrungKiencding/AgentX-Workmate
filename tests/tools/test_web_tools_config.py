@@ -566,7 +566,7 @@ class TestNonBuiltinProviderAvailability:
 class TestFirecrawlEnvResolution:
     """Verify Firecrawl reads env values from hermes_cli.config.get_env_value,
     not just os.getenv.  This catches the regression reported in #40190 where
-    values stored in ~/.hermes/.env were invisible to the provider."""
+    values stored in ~/.agentx/.env were invisible to the provider."""
 
     def test_direct_config_reads_via_get_env_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """_get_direct_firecrawl_config() must use get_env_value, not os.getenv."""
@@ -607,7 +607,7 @@ class TestFirecrawlEnvResolution:
 class TestSiblingProvidersEnvResolution:
     """The same #40190 bug class widened: every keyed web provider must
     resolve its credential through the config-aware lookup (os.environ OR
-    ~/.hermes/.env), not bare os.getenv. Parametrized over the four
+    ~/.agentx/.env), not bare os.getenv. Parametrized over the four
     providers that previously read only the process environment."""
 
     _CASES = [

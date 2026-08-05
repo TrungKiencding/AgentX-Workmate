@@ -45,7 +45,7 @@ def work_dir(tmp_path):
 
 @pytest.fixture()
 def checkpoint_base(tmp_path):
-    """Isolated checkpoint base — never writes to ~/.hermes/."""
+    """Isolated checkpoint base — never writes to ~/.agentx/."""
     return tmp_path / "checkpoints"
 
 
@@ -123,7 +123,7 @@ class TestStoreInit:
         fake_repo = base / "deadbeefcafebabe"
         fake_repo.mkdir()
         (fake_repo / "HEAD").write_text("ref: refs/heads/main\n")
-        (fake_repo / "HERMES_WORKDIR").write_text(str(work_dir) + "\n")
+        (fake_repo / "AGENTX_WORKDIR").write_text(str(work_dir) + "\n")
         (fake_repo / "objects").mkdir()
 
         # Init store — should migrate the fake pre-v2 repo
@@ -565,7 +565,7 @@ def _seed_legacy_repo(base: Path, name: str, workdir: Path, mtime: float = None)
     shadow = base / name
     shadow.mkdir(parents=True)
     (shadow / "HEAD").write_text("ref: refs/heads/main\n")
-    (shadow / "HERMES_WORKDIR").write_text(str(workdir) + "\n")
+    (shadow / "AGENTX_WORKDIR").write_text(str(workdir) + "\n")
     (shadow / "info").mkdir()
     (shadow / "info" / "exclude").write_text("node_modules/\n")
     if mtime is not None:

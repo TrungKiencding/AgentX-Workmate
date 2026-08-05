@@ -711,16 +711,16 @@ class WhatsAppAdapter(WhatsAppBehaviorMixin, BasePlatformAdapter):
                     bridge_env[_key] = _v
             # Pass the profile-aware cache directories so the bridge writes
             # media where the Python side reads it.  Without these the bridge
-            # hardcodes ~/.hermes/{image,audio,document}_cache, which diverges
-            # under HERMES_HOME overrides, profiles, and the new cache/ layout.
+            # hardcodes ~/.agentx/{image,audio,document}_cache, which diverges
+            # under AGENTX_HOME overrides, profiles, and the new cache/ layout.
             from gateway.platforms.base import (
                 get_audio_cache_dir as _get_audio_dir,
                 get_document_cache_dir as _get_doc_dir,
                 get_image_cache_dir as _get_img_dir,
             )
-            bridge_env["HERMES_IMAGE_CACHE_DIR"] = str(_get_img_dir())
-            bridge_env["HERMES_AUDIO_CACHE_DIR"] = str(_get_audio_dir())
-            bridge_env["HERMES_DOCUMENT_CACHE_DIR"] = str(_get_doc_dir())
+            bridge_env["AGENTX_IMAGE_CACHE_DIR"] = str(_get_img_dir())
+            bridge_env["AGENTX_AUDIO_CACHE_DIR"] = str(_get_audio_dir())
+            bridge_env["AGENTX_DOCUMENT_CACHE_DIR"] = str(_get_doc_dir())
 
             self._bridge_process = subprocess.Popen(
                 [

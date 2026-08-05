@@ -22,13 +22,13 @@ from hermes_cli import proxy_cli
 
 @pytest.fixture
 def hermes_home(tmp_path, monkeypatch):
-    """Point HERMES_HOME at a temp dir so the wizard doesn't touch the
+    """Point AGENTX_HOME at a temp dir so the wizard doesn't touch the
     operator's real config.  Also blanks any provider env vars so we
     don't accidentally read a real key."""
 
     home = tmp_path / "hermes"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
     for key in list(os.environ):
         if key.endswith("_API_KEY") or key in (
             "BWS_ACCESS_TOKEN", "ANTHROPIC_API_KEY",
@@ -196,7 +196,7 @@ def test_cmd_restart_propagates_start_failure(hermes_home, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# _load_env_file_into_environ — setup discovers keys kept only in ~/.hermes/.env
+# _load_env_file_into_environ — setup discovers keys kept only in ~/.agentx/.env
 # ---------------------------------------------------------------------------
 
 

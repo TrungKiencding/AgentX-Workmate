@@ -36,7 +36,7 @@ Webhook payload 包含攻击者可控的数据——PR 标题、commit 消息和
 
 ## 第一步——启用 webhook 平台
 
-在你的 `~/.hermes/config.yaml` 中添加以下内容：
+在你的 `~/.agentx/config.yaml` 中添加以下内容：
 
 ```yaml
 platforms:
@@ -135,7 +135,7 @@ GitHub 会立即发送一个 `ping` 事件以确认连接。该事件会被安�
 要实时跟踪 agent 的进度：
 
 ```bash
-tail -f "${HERMES_HOME:-$HOME/.hermes}/logs/gateway.log"
+tail -f "${AGENTX_HOME:-$HOME/.agentx}/logs/gateway.log"
 ```
 
 ---
@@ -171,7 +171,7 @@ curl -s -X POST http://localhost:8644/webhooks/github-pr-review \
 
 然后观察 agent 运行：
 ```bash
-tail -f "${HERMES_HOME:-$HOME/.hermes}/logs/gateway.log"
+tail -f "${AGENTX_HOME:-$HOME/.agentx}/logs/gateway.log"
 ```
 
 :::note

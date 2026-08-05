@@ -126,7 +126,7 @@ class TestCmdUpdateNpmLockfileCache:
         checkout = tmp_path / "checkout"
         checkout.mkdir()
         (checkout / "package.json").write_text("{}")
-        shared_root = tmp_path / ".hermes"
+        shared_root = tmp_path / ".agentx"
         named_profile = shared_root / "profiles" / "work"
         named_profile.mkdir(parents=True)
 
@@ -142,10 +142,10 @@ class TestCmdUpdateNpmLockfileCache:
             "_npm_lockfile_changed",
             side_effect=lambda root: cache_roots.append(root) or False,
         ):
-            monkeypatch.setenv("HERMES_HOME", str(shared_root))
+            monkeypatch.setenv("AGENTX_HOME", str(shared_root))
             hm._update_node_dependencies()
 
-            monkeypatch.setenv("HERMES_HOME", str(named_profile))
+            monkeypatch.setenv("AGENTX_HOME", str(named_profile))
             hm._update_node_dependencies()
 
         assert cache_roots == [shared_root, shared_root]
@@ -187,7 +187,7 @@ class TestCmdUpdateTermuxUvBootstrap:
 
         pkg_uv = "/data/data/com.termux/files/usr/bin/uv"
         monkeypatch.setattr(hm, "_is_termux_env", lambda env=None: True)
-        # Production resolve_uv only checks $HERMES_HOME/bin/uv; model an empty
+        # Production resolve_uv only checks $AGENTX_HOME/bin/uv; model an empty
         # managed dir so the PATH probe is what surfaces the packaged uv.
         monkeypatch.setattr("hermes_cli.managed_uv.resolve_uv", lambda: None)
         monkeypatch.setattr("shutil.which", lambda name: pkg_uv if name == "uv" else None)
@@ -360,9 +360,9 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.hermes"))
-        active_p = SimpleNamespace(name="bit", path=Path("/fake/.hermes/profiles/bit"))
-        other_p = SimpleNamespace(name="work", path=Path("/fake/.hermes/profiles/work"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.agentx"))
+        active_p = SimpleNamespace(name="bit", path=Path("/fake/.agentx/profiles/bit"))
+        other_p = SimpleNamespace(name="work", path=Path("/fake/.agentx/profiles/work"))
         all_profiles = [default_p, active_p, other_p]
 
         synced_paths = []
@@ -398,7 +398,7 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.hermes"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.agentx"))
         synced_paths = []
 
         def fake_seed(path, quiet=False):

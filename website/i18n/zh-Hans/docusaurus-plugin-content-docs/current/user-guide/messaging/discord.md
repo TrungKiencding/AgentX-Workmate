@@ -256,7 +256,7 @@ hermes gateway setup
 
 ### 方式 B：手动配置
 
-将以下内容添加到你的 `~/.hermes/.env` 文件：
+将以下内容添加到你的 `~/.agentx/.env` 文件：
 
 ```bash
 # 必填
@@ -281,7 +281,7 @@ hermes gateway
 
 ## 配置参考
 
-Discord 行为通过两个文件控制：**`~/.hermes/.env`** 用于凭据和环境级开关，**`~/.hermes/config.yaml`** 用于结构化设置。当两者都设置时，环境变量始终优先于 config.yaml 的值。
+Discord 行为通过两个文件控制：**`~/.agentx/.env`** 用于凭据和环境级开关，**`~/.agentx/config.yaml`** 用于结构化设置。当两者都设置时，环境变量始终优先于 config.yaml 的值。
 
 ### 环境变量（`.env`）
 
@@ -313,12 +313,12 @@ Discord 行为通过两个文件控制：**`~/.hermes/.env`** 用于凭据和环
 | `DISCORD_PROXY` | 否 | — | Discord 连接的代理 URL（HTTP、WebSocket、REST）。覆盖 `HTTPS_PROXY`/`ALL_PROXY`。支持 `http://`、`https://` 和 `socks5://` 协议。 |
 | `DISCORD_ALLOW_ANY_ATTACHMENT` | 否 | `false` | 为 `true` 时，机器人接受任何文件类型的附件（不仅限于内置的 PDF/文本/zip/office 允许列表）。未知类型会被缓存到磁盘，并以 `application/octet-stream` MIME 类型作为本地路径提供给 agent，以便它可以使用 `terminal` / `read_file` / `ffprobe` 等工具检查。 |
 | `DISCORD_MAX_ATTACHMENT_BYTES` | 否 | `33554432` | 网关将下载并缓存的每个附件的最大字节数。默认 32 MiB。设置为 `0` 表示无上限（附件在写入时保存在内存中，因此无限制会带来真实的内存成本）。 |
-| `HERMES_DISCORD_TEXT_BATCH_DELAY_SECONDS` | 否 | `0.6` | 适配器在刷新排队文本块之前等待的宽限窗口。用于平滑流式输出。 |
-| `HERMES_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS` | 否 | `2.0` | 当单条消息超过 Discord 长度限制时，分割块之间的延迟。 |
+| `AGENTX_DISCORD_TEXT_BATCH_DELAY_SECONDS` | 否 | `0.6` | 适配器在刷新排队文本块之前等待的宽限窗口。用于平滑流式输出。 |
+| `AGENTX_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS` | 否 | `2.0` | 当单条消息超过 Discord 长度限制时，分割块之间的延迟。 |
 
 ### 配置文件（`config.yaml`）
 
-`~/.hermes/config.yaml` 中的 `discord` 部分与上述环境变量对应。config.yaml 设置作为默认值应用——如果已设置等效的环境变量，则环境变量优先。
+`~/.agentx/config.yaml` 中的 `discord` 部分与上述环境变量对应。config.yaml 设置作为默认值应用——如果已设置等效的环境变量，则环境变量优先。
 
 ```yaml
 # Discord 特定设置
@@ -671,7 +671,7 @@ discord:
   max_attachment_bytes: 33554432   # 字节；0 = 无限制
 ```
 
-启用该标志后，任何上传的文件都会被下载、缓存到 `~/.hermes/cache/documents/` 下，并以 `application/octet-stream` MIME 类型的 `DOCUMENT` 类型消息事件提供给 agent。Agent 收到指向本地路径的上下文说明（通过 `to_agent_visible_cache_path` 为 Docker/Modal 沙盒终端自动转换），可以使用 `terminal`（`ffprobe`、`unzip`、`file`、`strings` 等）或 `read_file` 检查文件。文件内容**不会**内联到 prompt 中——只有路径——因此二进制上传不会撑爆上下文窗口。
+启用该标志后，任何上传的文件都会被下载、缓存到 `~/.agentx/cache/documents/` 下，并以 `application/octet-stream` MIME 类型的 `DOCUMENT` 类型消息事件提供给 agent。Agent 收到指向本地路径的上下文说明（通过 `to_agent_visible_cache_path` 为 Docker/Modal 沙盒终端自动转换），可以使用 `terminal`（`ffprobe`、`unzip`、`file`、`strings` 等）或 `read_file` 检查文件。文件内容**不会**内联到 prompt 中——只有路径——因此二进制上传不会撑爆上下文窗口。
 
 已在允许列表中的已知文本格式（`.txt`、`.md`、`.log`）继续自动注入最多 100 KiB 的内容；启用该标志后此行为不变。
 
@@ -691,7 +691,7 @@ discord:
 
 点击编号按钮作答，或点击**其他**输入自由格式的响应（你在该频道中发送的下一条消息将成为答案）。开放式的 `clarify` 调用（没有预设选项）会跳过按钮，直接捕获你的下一条消息。
 
-按钮在做出选择后会自动禁用，防止重复点击导致重复解析提示。通过 `~/.hermes/config.yaml` 中的 `agent.clarify_timeout` 配置响应超时（默认 `600` 秒）。如果你在超时内没有响应，agent 会以一条哨兵消息解除阻塞并自行调整，而不是一直挂起。
+按钮在做出选择后会自动禁用，防止重复点击导致重复解析提示。通过 `~/.agentx/config.yaml` 中的 `agent.clarify_timeout` 配置响应超时（默认 `600` 秒）。如果你在超时内没有响应，agent 会以一条哨兵消息解除阻塞并自行调整，而不是一直挂起。
 
 ## 主频道
 
@@ -703,7 +703,7 @@ discord:
 
 ### 手动配置
 
-将以下内容添加到你的 `~/.hermes/.env`：
+将以下内容添加到你的 `~/.agentx/.env`：
 
 ```bash
 DISCORD_HOME_CHANNEL=123456789012345678
@@ -771,13 +771,13 @@ Discord 论坛频道（类型 15）不接受直接消息——论坛中的每个
 
 **原因**：你的用户 ID 不在 `DISCORD_ALLOWED_USERS` 中。
 
-**解决方法**：将你的用户 ID 添加到 `~/.hermes/.env` 中的 `DISCORD_ALLOWED_USERS` 并重启网关。
+**解决方法**：将你的用户 ID 添加到 `~/.agentx/.env` 中的 `DISCORD_ALLOWED_USERS` 并重启网关。
 
 ### 同一频道中的用户意外共享上下文
 
 **原因**：`group_sessions_per_user` 被禁用，或平台无法为该上下文中的消息提供用户 ID。
 
-**解决方法**：在 `~/.hermes/config.yaml` 中进行以下设置并重启网关：
+**解决方法**：在 `~/.agentx/config.yaml` 中进行以下设置并重启网关：
 
 ```yaml
 group_sessions_per_user: true
@@ -796,7 +796,7 @@ group_sessions_per_user: true
 对于通过角色而非个人用户列表管理访问权限的服务器（管理团队、支持人员、内部工具），使用 `DISCORD_ALLOWED_ROLES`——逗号分隔的角色 ID 列表。拥有其中任一角色的成员即被授权。
 
 ```bash
-# ~/.hermes/.env — 与 DISCORD_ALLOWED_USERS 配合使用或替代使用
+# ~/.agentx/.env — 与 DISCORD_ALLOWED_USERS 配合使用或替代使用
 DISCORD_ALLOWED_ROLES=987654321098765432,876543210987654321
 ```
 
@@ -816,7 +816,7 @@ DISCORD_ALLOWED_ROLES=987654321098765432,876543210987654321
 你可以通过环境变量或 `config.yaml` 放宽这些默认值：
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 discord:
   allow_mentions:
     everyone: false      # 允许机器人 ping @everyone / @here
@@ -826,7 +826,7 @@ discord:
 ```
 
 ```bash
-# ~/.hermes/.env — 环境变量优先于 config.yaml
+# ~/.agentx/.env — 环境变量优先于 config.yaml
 DISCORD_ALLOW_MENTION_EVERYONE=false
 DISCORD_ALLOW_MENTION_ROLES=false
 DISCORD_ALLOW_MENTION_USERS=true

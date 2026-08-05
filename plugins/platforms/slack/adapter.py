@@ -71,10 +71,10 @@ logger = logging.getLogger(__name__)
 # identify HermesAgent traffic — matching other Hermes outbound surfaces
 # that already set ``HermesAgent/<version>`` for platform-partner attribution.
 try:
-    from hermes_cli import __version__ as _HERMES_VERSION
+    from hermes_cli import __version__ as _AGENTX_VERSION
 except Exception:
-    _HERMES_VERSION = "unknown"
-_HERMES_SLACK_USER_AGENT_PREFIX = f"HermesAgent/{_HERMES_VERSION}"
+    _AGENTX_VERSION = "unknown"
+_AGENTX_SLACK_USER_AGENT_PREFIX = f"HermesAgent/{_AGENTX_VERSION}"
 
 _SLACK_ERROR_BODY_LIMIT_BYTES = 8 * 1024
 
@@ -1776,13 +1776,13 @@ class SlackAdapter(BasePlatformAdapter):
             logger.error(
                 "[Slack] SLACK_BOT_TOKEN not set — this is a permanent config "
                 "error; set SLACK_BOT_TOKEN via `hermes gateway setup` "
-                "or in the active profile's ~/.hermes/.env file, then restart "
+                "or in the active profile's ~/.agentx/.env file, then restart "
                 "the gateway.",
             )
             self._set_fatal_error(
                 "missing_slack_bot_token",
                 "SLACK_BOT_TOKEN not configured. Use `hermes gateway setup` "
-                "or add it to your active profile's ~/.hermes/.env file, "
+                "or add it to your active profile's ~/.agentx/.env file, "
                 "then restart the gateway.",
                 retryable=False,
             )
@@ -1791,13 +1791,13 @@ class SlackAdapter(BasePlatformAdapter):
             logger.error(
                 "[Slack] SLACK_APP_TOKEN not set — this is a permanent config "
                 "error; set SLACK_APP_TOKEN via `hermes gateway setup` "
-                "or in the active profile's ~/.hermes/.env file, then restart "
+                "or in the active profile's ~/.agentx/.env file, then restart "
                 "the gateway.",
             )
             self._set_fatal_error(
                 "missing_slack_app_token",
                 "SLACK_APP_TOKEN not configured. Use `hermes gateway setup` "
-                "or add it to your active profile's ~/.hermes/.env file, "
+                "or add it to your active profile's ~/.agentx/.env file, "
                 "then restart the gateway.",
                 retryable=False,
             )
@@ -1896,7 +1896,7 @@ class SlackAdapter(BasePlatformAdapter):
             primary_token = bot_tokens[0]
             primary_client = AsyncWebClient(
                 token=primary_token,
-                user_agent_prefix=_HERMES_SLACK_USER_AGENT_PREFIX,
+                user_agent_prefix=_AGENTX_SLACK_USER_AGENT_PREFIX,
             )
             self._app = AsyncApp(token=primary_token, client=primary_client)
             _apply_slack_proxy(self._app.client, proxy_url)
@@ -1905,7 +1905,7 @@ class SlackAdapter(BasePlatformAdapter):
             for token in bot_tokens:
                 client = AsyncWebClient(
                     token=token,
-                    user_agent_prefix=_HERMES_SLACK_USER_AGENT_PREFIX,
+                    user_agent_prefix=_AGENTX_SLACK_USER_AGENT_PREFIX,
                 )
                 _apply_slack_proxy(client, proxy_url)
                 auth_response = await client.auth_test()
@@ -8863,7 +8863,7 @@ def interactive_setup() -> None:
     )
 
     def _write_slack_manifest_and_instruct() -> None:
-        """Generate the Slack manifest, write it under HERMES_HOME, and print
+        """Generate the Slack manifest, write it under AGENTX_HOME, and print
         paste-into-Slack instructions. Failures are non-fatal."""
         try:
             from hermes_cli.slack_cli import _build_full_manifest

@@ -81,7 +81,7 @@ _SESSION_DRAIN_TIMEOUT = 10.0
 _DEFERRED_COMMIT_TIMEOUT = (_TIMEOUT * 2) + 5.0
 _SESSION_MESSAGE_BATCH_LIMIT = 100
 _REMOTE_RESOURCE_PREFIXES = ("http://", "https://", "git@", "ssh://", "git://")
-_SYNC_TRACE_ENV = "HERMES_OPENVIKING_SYNC_TRACE"
+_SYNC_TRACE_ENV = "AGENTX_OPENVIKING_SYNC_TRACE"
 _DEFAULT_RECALL_LIMIT = 6
 _DEFAULT_RECALL_SCORE_THRESHOLD = 0.15
 _DEFAULT_RECALL_MAX_INJECTED_CHARS = 4000
@@ -1408,7 +1408,7 @@ def _openviking_server_log_path() -> Path:
         from hermes_constants import get_hermes_home
         home = get_hermes_home()
     except Exception:
-        home = Path(os.environ.get("HERMES_HOME", "")).expanduser() if os.environ.get("HERMES_HOME") else Path.home() / ".hermes"
+        home = Path(os.environ.get("AGENTX_HOME", "")).expanduser() if os.environ.get("AGENTX_HOME") else Path.home() / ".agentx"
     return home / _OPENVIKING_SERVER_LOG_RELATIVE_PATH
 
 
@@ -2697,7 +2697,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
                 from hermes_constants import get_hermes_home
                 hermes_home = str(get_hermes_home())
             except Exception:
-                hermes_home = str(Path.home() / ".hermes")
+                hermes_home = str(Path.home() / ".agentx")
         self._hermes_home = hermes_home
         self._acquire_run_lock()
         self._profile_prefetched_sessions.clear()
@@ -2754,7 +2754,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
 
         ``/reload`` only refreshes ``os.environ`` — the existing provider
         instance is not re-initialized — so OPENVIKING_* values added to
-        ``~/.hermes/.env`` after startup never reach the live client and tools
+        ``~/.agentx/.env`` after startup never reach the live client and tools
         keep running against stale auth until the user restarts hermes (#21130).
 
         Re-resolve the connection settings on each access (same layering as

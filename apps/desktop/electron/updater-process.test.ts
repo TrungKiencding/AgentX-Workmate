@@ -121,7 +121,7 @@ test('spawnUpdaterProcess preserves updater options off Windows', () => {
 })
 
 test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', () => {
-  const home = 'C:\\Users\\hermes\\AppData\\Local\\hermes'
+  const home = 'C:\\Users\\hermes\\AppData\\Local\\agentx'
   const staged = path.join(home, 'hermes-setup.exe')
   const probed: string[] = []
 
@@ -139,7 +139,7 @@ test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', (
 })
 
 test('resolveStagedUpdaterBinary returns null off Windows even when hermes-setup is staged (#74836)', () => {
-  const home = '/Users/hermes/.hermes'
+  const home = '/Users/hermes/.agentx'
   let probes = 0
 
   const resolved = resolveStagedUpdaterBinary(home, {
@@ -158,7 +158,7 @@ test('resolveStagedUpdaterBinary returns null off Windows even when hermes-setup
 })
 
 test('resolveStagedUpdaterBinary returns null on Windows when nothing is staged', () => {
-  const resolved = resolveStagedUpdaterBinary('C:\\Users\\hermes\\AppData\\Local\\hermes', {
+  const resolved = resolveStagedUpdaterBinary('C:\\Users\\hermes\\AppData\\Local\\agentx', {
     fileExists: () => false,
     isWindows: true
   })

@@ -41,7 +41,7 @@ Reads from `~/.openclaw/` by default. Legacy `~/.clawdbot/` or `~/.moltbot/` dir
 | `--preset <name>` | `full` (all compatible settings) or `user-data` (excludes infrastructure config). Neither preset imports secrets by default — pass `--migrate-secrets` explicitly. |
 | `--overwrite` | Overwrite existing Hermes files on conflicts (default: refuse to apply when the plan has conflicts). |
 | `--migrate-secrets` | Include API keys. Required even under `--preset full` — no preset imports secrets silently. |
-| `--no-backup` | Skip the pre-migration zip snapshot of `~/.hermes/` (by default a single restore-point archive is written before apply, under `~/.hermes/backups/pre-migration-*.zip`; restorable with `hermes import`). |
+| `--no-backup` | Skip the pre-migration zip snapshot of `~/.agentx/` (by default a single restore-point archive is written before apply, under `~/.agentx/backups/pre-migration-*.zip`; restorable with `hermes import`). |
 | `--source <path>` | Custom OpenClaw directory. |
 | `--workspace-target <path>` | Where to place `AGENTS.md`. |
 | `--skill-conflict <mode>` | `skip` (default), `overwrite`, or `rename`. |
@@ -53,11 +53,11 @@ Reads from `~/.openclaw/` by default. Legacy `~/.clawdbot/` or `~/.moltbot/` dir
 
 | What | OpenClaw source | Hermes destination | Notes |
 |------|----------------|-------------------|-------|
-| Persona | `workspace/SOUL.md` | `~/.hermes/SOUL.md` | Direct copy |
+| Persona | `workspace/SOUL.md` | `~/.agentx/SOUL.md` | Direct copy |
 | Workspace instructions | `workspace/AGENTS.md` | `AGENTS.md` in `--workspace-target` | Requires `--workspace-target` flag |
-| Long-term memory | `workspace/MEMORY.md` | `~/.hermes/memories/MEMORY.md` | Parsed into entries, merged with existing, deduped. Uses `§` delimiter. |
-| User profile | `workspace/USER.md` | `~/.hermes/memories/USER.md` | Same entry-merge logic as memory. |
-| Daily memory files | `workspace/memory/*.md` | `~/.hermes/memories/MEMORY.md` | All daily files merged into main memory. |
+| Long-term memory | `workspace/MEMORY.md` | `~/.agentx/memories/MEMORY.md` | Parsed into entries, merged with existing, deduped. Uses `§` delimiter. |
+| User profile | `workspace/USER.md` | `~/.agentx/memories/USER.md` | Same entry-merge logic as memory. |
+| Daily memory files | `workspace/memory/*.md` | `~/.agentx/memories/MEMORY.md` | All daily files merged into main memory. |
 
 Workspace files are also checked at `workspace.default/` and `workspace-main/` as fallback paths (OpenClaw renamed `workspace/` to `workspace-main/` in recent versions, and uses `workspace-{agentId}` for multi-agent setups).
 
@@ -65,10 +65,10 @@ Workspace files are also checked at `workspace.default/` and `workspace-main/` a
 
 | Source | OpenClaw location | Hermes destination |
 |--------|------------------|-------------------|
-| Workspace skills | `workspace/skills/` | `~/.hermes/skills/openclaw-imports/` |
-| Managed/shared skills | `~/.openclaw/skills/` | `~/.hermes/skills/openclaw-imports/` |
-| Personal cross-project | `~/.agents/skills/` | `~/.hermes/skills/openclaw-imports/` |
-| Project-level shared | `workspace/.agents/skills/` | `~/.hermes/skills/openclaw-imports/` |
+| Workspace skills | `workspace/skills/` | `~/.agentx/skills/openclaw-imports/` |
+| Managed/shared skills | `~/.openclaw/skills/` | `~/.agentx/skills/openclaw-imports/` |
+| Personal cross-project | `~/.agents/skills/` | `~/.agentx/skills/openclaw-imports/` |
+| Project-level shared | `workspace/.agents/skills/` | `~/.agentx/skills/openclaw-imports/` |
 
 Skill conflicts are handled by `--skill-conflict`: `skip` leaves the existing Hermes skill, `overwrite` replaces it, `rename` creates a `-imported` copy.
 
@@ -78,7 +78,7 @@ Skill conflicts are handled by `--skill-conflict`: `skip` leaves the existing He
 |------|---------------------|-------------------|-------|
 | Default model | `agents.defaults.model` | `config.yaml` → `model` | Can be a string or `{primary, fallbacks}` object |
 | Custom providers | `models.providers.*` | `config.yaml` → `custom_providers` (auto-migrated to the canonical `providers:` dict on the next `hermes update` config migration) | Maps `baseUrl`, `apiType`/`api` — handles both short ("openai", "anthropic") and hyphenated ("openai-completions", "anthropic-messages", "google-generative-ai") values |
-| Provider API keys | `models.providers.*.apiKey` | `~/.hermes/.env` | Requires `--migrate-secrets`. See [API key resolution](#api-key-resolution) below. |
+| Provider API keys | `models.providers.*.apiKey` | `~/.agentx/.env` | Requires `--migrate-secrets`. See [API key resolution](#api-key-resolution) below. |
 
 ### Agent behavior
 
@@ -134,7 +134,7 @@ TTS settings are read from **two** OpenClaw config locations with this priority:
 | OpenAI model | `config.yaml` → `tts.openai.model` |
 | OpenAI voice | `config.yaml` → `tts.openai.voice` |
 | Edge TTS voice | `config.yaml` → `tts.edge.voice` (OpenClaw renamed "edge" to "microsoft" — both are recognized) |
-| TTS assets | `~/.hermes/tts/` (file copy) |
+| TTS assets | `~/.agentx/tts/` (file copy) |
 
 ### Messaging platforms
 
@@ -163,12 +163,12 @@ TTS settings are read from **two** OpenClaw config locations with this priority:
 | Browser CDP URL | `browser.cdpUrl` | `config.yaml` → `browser.cdp_url` | |
 | Browser headless | `browser.headless` | `config.yaml` → `browser.headless` | |
 | Brave search key | `tools.web.search.brave.apiKey` | `.env` → `BRAVE_API_KEY` | Requires `--migrate-secrets` |
-| Gateway auth token | `gateway.auth.token` | `.env` → `HERMES_GATEWAY_TOKEN` | Requires `--migrate-secrets` |
+| Gateway auth token | `gateway.auth.token` | `.env` → `AGENTX_GATEWAY_TOKEN` | Requires `--migrate-secrets` |
 | Working directory | `agents.defaults.workspace` | `config.yaml` → `terminal.cwd` | Legacy migrations may still emit `MESSAGING_CWD` as a compatibility fallback |
 
 ### Archived (no direct Hermes equivalent)
 
-These are saved to `~/.hermes/migration/openclaw/<timestamp>/archive/` for manual review:
+These are saved to `~/.agentx/migration/openclaw/<timestamp>/archive/` for manual review:
 
 | What | Archive file | How to recreate in Hermes |
 |------|-------------|--------------------------|
@@ -225,7 +225,7 @@ The migration resolves all three formats. For env templates and SecretRef object
 
 1. **Check the migration report** — printed on completion with counts of migrated, skipped, and conflicting items.
 
-2. **Review archived files** — anything in `~/.hermes/migration/openclaw/<timestamp>/archive/` needs manual attention.
+2. **Review archived files** — anything in `~/.agentx/migration/openclaw/<timestamp>/archive/` needs manual attention.
 
 3. **Start a new session** — imported skills and memory entries take effect in new sessions, not the current one.
 
@@ -251,7 +251,7 @@ Keys might be stored in several places depending on your OpenClaw version: inlin
 
 ### Skills not appearing after migration
 
-Imported skills land in `~/.hermes/skills/openclaw-imports/`. Start a new session for them to take effect, or run `/skills` to verify they're loaded.
+Imported skills land in `~/.agentx/skills/openclaw-imports/`. Start a new session for them to take effect, or run `/skills` to verify they're loaded.
 
 ### TTS voice not migrated
 

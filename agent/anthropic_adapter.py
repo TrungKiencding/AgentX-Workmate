@@ -903,7 +903,7 @@ def build_anthropic_client(
     client = _anthropic_sdk.Anthropic(**kwargs)
     # Bearer-only construction leaves ``api_key`` unset, so the SDK fills it
     # from ``ANTHROPIC_API_KEY`` (Hermes loads that into the process env from
-    # ``~/.hermes/.env``). The result is dual auth —
+    # ``~/.agentx/.env``). The result is dual auth —
     # ``X-Api-Key: sk-ant-…`` *and* ``Authorization: Bearer <portal-jwt>`` —
     # on every Portal / MiniMax / OAuth Messages request. Clear the env-filled
     # key whenever we intentionally authenticated via auth_token alone.
@@ -1319,7 +1319,7 @@ def _resolve_anthropic_pool_token() -> Optional[str]:
 
     Read-only: enumerates with ``clear_expired=False, refresh=False`` so a bare
     token *resolve* (which runs from diagnostic/read-only call sites such as
-    ``account_usage`` and ``hermes models``) never mutates ``~/.hermes/auth.json``
+    ``account_usage`` and ``hermes models``) never mutates ``~/.agentx/auth.json``
     or makes a network refresh call. Refresh-on-expiry is owned by the API call
     path's pool recovery, not the resolver.
     """
@@ -1363,7 +1363,7 @@ def resolve_anthropic_token() -> Optional[str]:
       3. ANTHROPIC_API_KEY env var (explicit regular API key)
       4. Claude Code credentials (~/.claude.json or ~/.claude/.credentials.json)
          — with automatic refresh if expired and a refresh token is available
-      5. Anthropic credential_pool OAuth entry (~/.hermes/auth.json)
+      5. Anthropic credential_pool OAuth entry (~/.agentx/auth.json)
 
     Returns the token string or None.
     """
@@ -1457,7 +1457,7 @@ def run_oauth_setup_token() -> Optional[str]:
 
 # ── Hermes-native PKCE OAuth flow ────────────────────────────────────────
 # Mirrors the flow used by Claude Code, pi-ai, and OpenCode.
-# Stores credentials in ~/.hermes/.anthropic_oauth.json (our own file).
+# Stores credentials in ~/.agentx/.anthropic_oauth.json (our own file).
 
 _OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 # Anthropic migrated the OAuth token endpoint to platform.claude.com;
@@ -1629,7 +1629,7 @@ def run_hermes_oauth_login_pure() -> Optional[Dict[str, Any]]:
 
 
 def read_hermes_oauth_credentials() -> Optional[Dict[str, Any]]:
-    """Read Hermes-managed OAuth credentials from ~/.hermes/.anthropic_oauth.json."""
+    """Read Hermes-managed OAuth credentials from ~/.agentx/.anthropic_oauth.json."""
     oauth_file = _get_hermes_oauth_file()
     if oauth_file.exists():
         try:

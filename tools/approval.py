@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Freeze YOLO mode at module import time. Reading os.environ on every call
 # would allow any skill running inside the process to set this variable and
 # instantly bypass all approval checks — a prompt-injection escalation path.
-_YOLO_MODE_FROZEN: bool = is_truthy_value(os.getenv("HERMES_YOLO_MODE", ""))
+_YOLO_MODE_FROZEN: bool = is_truthy_value(os.getenv("AGENTX_YOLO_MODE", ""))
 
 # Per-thread/per-task gateway session identity.
 # Gateway runs agent turns concurrently in executor threads, so reading a
@@ -53,13 +53,13 @@ _approval_tool_call_id: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 # Interactive-CLI flag. Concurrent ACP sessions run on a shared
 # ThreadPoolExecutor (acp_adapter/server.py), so mutating the process-global
-# os.environ["HERMES_INTERACTIVE"] races: one session's restore in `finally`
+# os.environ["AGENTX_INTERACTIVE"] races: one session's restore in `finally`
 # can clobber another session's set mid-run, dropping it onto the
 # non-interactive auto-approve path so a dangerous command executes without
 # the approval callback firing (GHSA-96vc-wcxf-jjff). A contextvar is
 # thread/task-local, so each executor worker (or asyncio task) sees only its
 # own value. None = unset → fall back to the env var for legacy
-# single-threaded CLI callers that still export HERMES_INTERACTIVE.
+# single-threaded CLI callers that still export AGENTX_INTERACTIVE.
 _hermes_interactive_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "hermes_interactive",
     default=None,
@@ -69,9 +69,9 @@ _hermes_interactive_ctx: contextvars.ContextVar[Optional[str]] = contextvars.Con
 def set_hermes_interactive_context(interactive: bool) -> contextvars.Token:
     """Bind interactive mode for the current context (thread or asyncio task).
 
-    Use this instead of mutating ``os.environ["HERMES_INTERACTIVE"]`` from
+    Use this instead of mutating ``os.environ["AGENTX_INTERACTIVE"]`` from
     concurrent executor threads. When unset (default), interactive detection
-    falls back to the ``HERMES_INTERACTIVE`` env var for legacy callers.
+    falls back to the ``AGENTX_INTERACTIVE`` env var for legacy callers.
     """
     return _hermes_interactive_ctx.set("1" if interactive else "")
 
@@ -85,12 +85,12 @@ def _is_interactive_cli() -> bool:
     """True when running an interactive CLI/ACP session.
 
     Prefers the context-local flag (set by concurrent ACP sessions) and falls
-    back to the ``HERMES_INTERACTIVE`` env var for single-threaded callers.
+    back to the ``AGENTX_INTERACTIVE`` env var for single-threaded callers.
     """
     ctx_val = _hermes_interactive_ctx.get()
     if ctx_val is not None:
         return is_truthy_value(ctx_val)
-    return env_var_enabled("HERMES_INTERACTIVE")
+    return env_var_enabled("AGENTX_INTERACTIVE")
 
 
 def _fire_approval_hook(hook_name: str, **kwargs) -> None:
@@ -211,7 +211,7 @@ def get_current_session_key(default: str = "default") -> str:
     if session_key:
         return session_key
     from gateway.session_context import get_session_env
-    return get_session_env("HERMES_SESSION_KEY", default)
+    return get_session_env("AGENTX_SESSION_KEY", default)
 
 
 def _get_session_platform() -> str:
@@ -219,9 +219,9 @@ def _get_session_platform() -> str:
     try:
         from gateway.session_context import get_session_env
 
-        return get_session_env("HERMES_SESSION_PLATFORM", "") or ""
+        return get_session_env("AGENTX_SESSION_PLATFORM", "") or ""
     except Exception:
-        return os.getenv("HERMES_SESSION_PLATFORM", "") or ""
+        return os.getenv("AGENTX_SESSION_PLATFORM", "") or ""
 
 
 def _is_cron_approval_context() -> bool:
@@ -235,20 +235,20 @@ def _is_cron_approval_context() -> bool:
     try:
         from gateway.session_context import get_session_env
 
-        return is_truthy_value(get_session_env("HERMES_CRON_SESSION", ""))
+        return is_truthy_value(get_session_env("AGENTX_CRON_SESSION", ""))
     except Exception:
-        return env_var_enabled("HERMES_CRON_SESSION")
+        return env_var_enabled("AGENTX_CRON_SESSION")
 
 
 def _is_gateway_approval_context() -> bool:
     """True when this call is inside a gateway/API session.
 
-    Legacy gateway integrations set HERMES_GATEWAY_SESSION in process env.
-    Newer concurrent gateway paths bind HERMES_SESSION_PLATFORM via
+    Legacy gateway integrations set AGENTX_GATEWAY_SESSION in process env.
+    Newer concurrent gateway paths bind AGENTX_SESSION_PLATFORM via
     contextvars so approval mode does not depend on process-global flags.
 
     Cron jobs are NEVER gateway-approval contexts even when they originate
-    from a gateway platform (cron binds HERMES_SESSION_PLATFORM via
+    from a gateway platform (cron binds AGENTX_SESSION_PLATFORM via
     contextvars for delivery routing). Cron approvals are governed by
     ``approvals.cron_mode`` config, not interactive resolve — letting cron
     fall through to the gateway branch would submit a pending approval
@@ -256,36 +256,36 @@ def _is_gateway_approval_context() -> bool:
     """
     if _is_cron_approval_context():
         return False
-    if env_var_enabled("HERMES_GATEWAY_SESSION"):
+    if env_var_enabled("AGENTX_GATEWAY_SESSION"):
         return True
     return bool(_get_session_platform())
 
 # Sensitive write targets that should trigger approval even when referenced
-# via shell expansions like $HOME or $HERMES_HOME, or by the resolved absolute
-# active profile home path such as /home/hermes/.hermes/config.yaml. The
-# resolved-absolute form is folded into the ~/.hermes/ patterns at detection
+# via shell expansions like $HOME or $AGENTX_HOME, or by the resolved absolute
+# active profile home path such as /home/hermes/.agentx/config.yaml. The
+# resolved-absolute form is folded into the ~/.agentx/ patterns at detection
 # time by _normalize_command_for_detection() — see the rewrite step there — so
 # these static patterns stay free of any import-time path snapshot (which would
-# go stale when HERMES_HOME is set after this module is imported, e.g. under the
+# go stale when AGENTX_HOME is set after this module is imported, e.g. under the
 # hermetic test conftest or any deferred-profile-resolution path).
 _SSH_SENSITIVE_PATH = r'(?:~|\$home|\$\{home\})/\.ssh(?:/|$)'
-_HERMES_ENV_PATH = (
-    r'(?:~\/\.hermes/|'
-    r'(?:\$home|\$\{home\})/\.hermes/|'
+_AGENTX_ENV_PATH = (
+    r'(?:~\/\.agentx/|'
+    r'(?:\$home|\$\{home\})/\.agentx/|'
     r'(?:\$hermes_home|\$\{hermes_home\})/)'
     r'\.env\b'
 )
-# ~/.hermes/config.yaml IS the security policy: approvals.mode, yolo, and the
+# ~/.agentx/config.yaml IS the security policy: approvals.mode, yolo, and the
 # permanent-approval allowlist live here, and the config cache is mtime-keyed
 # so a write takes effect mid-session (the agent could flip approvals.mode=off
 # and immediately bypass the gate). Pair the write_file/patch deny (file_tools
 # _check_sensitive_path) with terminal-side coverage so `sed -i`, `tee`, `>`,
 # `cp`, etc. targeting it are gated too — otherwise the deny is unpaired
-# theater. Mirrors _HERMES_ENV_PATH; matches the HERMES_HOME override form as
-# well as ~/.hermes/.
-_HERMES_CONFIG_PATH = (
-    r'(?:~\/\.hermes/|'
-    r'(?:\$home|\$\{home\})/\.hermes/|'
+# theater. Mirrors _AGENTX_ENV_PATH; matches the AGENTX_HOME override form as
+# well as ~/.agentx/.
+_AGENTX_CONFIG_PATH = (
+    r'(?:~\/\.agentx/|'
+    r'(?:\$home|\$\{home\})/\.agentx/|'
     r'(?:\$hermes_home|\$\{hermes_home\})/)'
     r'config\.yaml\b'
 )
@@ -313,8 +313,8 @@ _SYSTEM_CONFIG_PATH = (
 _SENSITIVE_WRITE_TARGET = (
     rf'(?:{_SYSTEM_CONFIG_PATH}|/dev/sd|'
     rf'{_SSH_SENSITIVE_PATH}|'
-    rf'{_HERMES_ENV_PATH}|'
-    rf'{_HERMES_CONFIG_PATH}|'
+    rf'{_AGENTX_ENV_PATH}|'
+    rf'{_AGENTX_CONFIG_PATH}|'
     rf'{_SHELL_RC_FILES}|'
     rf'{_CREDENTIAL_FILES})'
 )
@@ -845,7 +845,7 @@ DANGEROUS_PATTERNS = [
     # the `hermes gateway stop|restart` pattern above by driving launchd
     # directly against the service label (commonly `ai.hermes.gateway`).
     # Catch the operations that stop, restart, or unload it.
-    (r'\blaunchctl\s+(stop|kickstart|bootout|unload|kill|disable|remove)\b.*\b(hermes|ai\.hermes)\b', "stop/restart hermes launchd service (kills running agents)"),
+    (r'\blaunchctl\s+(stop|kickstart|bootout|unload|kill|disable|remove)\b.*\b(hermes|ai\.agentx)\b', "stop/restart hermes launchd service (kills running agents)"),
     # File copy/move/edit into sensitive system paths (/etc/ and macOS
     # /private/etc/ mirror).
     (rf'\b(cp|mv|install)\b.*\s{_SYSTEM_CONFIG_PATH}', "copy/move file into system config path"),
@@ -853,7 +853,7 @@ DANGEROUS_PATTERNS = [
     # cp/mv/install OVERWRITING a sensitive credential/SSH/shell-rc/Hermes file.
     # The tee/redirection patterns above already gate _SENSITIVE_WRITE_TARGET
     # (~/.ssh/*, ~/.netrc/.pgpass/.npmrc/.pypirc, shell rc files,
-    # ~/.hermes/config.yaml/.env), but cp/mv/install was only paired for /etc and
+    # ~/.agentx/config.yaml/.env), but cp/mv/install was only paired for /etc and
     # project-relative env/config — so `cp evil ~/.ssh/authorized_keys` (key
     # implant), `cp creds ~/.netrc`, and `cp evil ~/.bashrc` (login-time command
     # injection) slipped through with auto-approve. Same unpaired-door rationale
@@ -873,12 +873,12 @@ DANGEROUS_PATTERNS = [
     (rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_USER_SENSITIVE_WRITE_TARGET})[^\s"\']*', "in-place edit of sensitive credential/SSH/shell-rc path (perl/ruby)"),
     (rf'\bsed\s+-[^\s]*i.*\s{_SYSTEM_CONFIG_PATH}', "in-place edit of system config"),
     (rf'\bsed\s+--in-place\b.*\s{_SYSTEM_CONFIG_PATH}', "in-place edit of system config (long flag)"),
-    # In-place edit of a Hermes-managed security file (~/.hermes/config.yaml or
+    # In-place edit of a Hermes-managed security file (~/.agentx/config.yaml or
     # .env). sed -i bypasses the redirection/tee patterns above because it
     # mutates the file directly. Pairs the file_tools write_file/patch deny so
     # the terminal side is not an open door. See #14639.
-    (rf'\bsed\s+-[^\s]*i.*(?:{_HERMES_CONFIG_PATH}|{_HERMES_ENV_PATH})', "in-place edit of Hermes config/env"),
-    (rf'\bsed\s+--in-place\b.*(?:{_HERMES_CONFIG_PATH}|{_HERMES_ENV_PATH})', "in-place edit of Hermes config/env (long flag)"),
+    (rf'\bsed\s+-[^\s]*i.*(?:{_AGENTX_CONFIG_PATH}|{_AGENTX_ENV_PATH})', "in-place edit of Hermes config/env"),
+    (rf'\bsed\s+--in-place\b.*(?:{_AGENTX_CONFIG_PATH}|{_AGENTX_ENV_PATH})', "in-place edit of Hermes config/env (long flag)"),
     # perl -i and ruby -i perform the same in-place mutation as sed -i but are
     # not caught by the -e/-c script-execution pattern above (which targets code
     # evaluation, not file mutation). Pairs the sed -i coverage from #14639.
@@ -887,7 +887,7 @@ DANGEROUS_PATTERNS = [
     # backup suffix (`perl -i.bak`). Match any flag token containing `i`
     # anywhere in the args, not just the first token — `perl -e '...'` (code
     # eval, no -i) does not trip because it has no `-...i` flag token.
-    (rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_HERMES_CONFIG_PATH}|{_HERMES_ENV_PATH})', "in-place edit of Hermes config/env (perl/ruby)"),
+    (rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_AGENTX_CONFIG_PATH}|{_AGENTX_ENV_PATH})', "in-place edit of Hermes config/env (perl/ruby)"),
     # Interpreter heredocs are handled by _execution_flag_findings() alongside
     # inline-exec flags; keep only shell heredocs regex-based here.
     # Shell execution via heredoc — `bash <<'EOF' ... EOF` runs arbitrary
@@ -1025,10 +1025,10 @@ def _normalize_command_for_detection(command: str) -> str:
     # home-prefix folds below (which match C:\Users\alice\... — no newline).
     command = re.sub(r'\\\r?\n', '', command)
     # Fold absolute home / active-profile-home prefixes into their canonical
-    # ~/ and ~/.hermes/ forms so static user-sensitive patterns catch
+    # ~/ and ~/.agentx/ forms so static user-sensitive patterns catch
     # /home/alice/.bashrc and C:\Users\alice\.bashrc the same way they catch
     # ~/.bashrc. Resolve at detection time (not via an import-time snapshot) so
-    # it tracks HOME / HERMES_HOME even when those are set after this module is
+    # it tracks HOME / AGENTX_HOME even when those are set after this module is
     # imported — as the hermetic test conftest and profile/session launchers do.
     #
     # This MUST run before the backslash-escape strip below: on Windows the home
@@ -1080,7 +1080,7 @@ def _home_prefix_fold_regex(path: str):
     required (``+``), so a bare home with no path under it is not folded.
 
     Returns ``None`` for an unset or degenerate path — one with fewer than two
-    components below the root — so a stray HOME / HERMES_HOME such as ``/``,
+    components below the root — so a stray HOME / AGENTX_HOME such as ``/``,
     ``C:\\`` or ``""`` cannot rewrite unrelated filesystem prefixes. Cached
     because the resolved home is stable across calls on this hot path.
     """
@@ -1102,7 +1102,7 @@ def _home_prefix_fold_regex(path: str):
 def _fold_home_prefixes(command: str, paths, replacement: str) -> str:
     """Fold each resolved home *path* prefix in *command* to *replacement*.
 
-    *replacement* has no trailing separator (``~`` / ``~/.hermes``); the matched
+    *replacement* has no trailing separator (``~`` / ``~/.agentx``); the matched
     path tail (with its backslashes normalized to ``/``) supplies it. Longest
     candidate first so a deeper home (e.g. an explicit HOME under USERPROFILE)
     folds before a shorter overlapping one that would otherwise clobber it.
@@ -1145,15 +1145,15 @@ def _rewrite_resolved_user_home(command: str) -> str:
 
 
 def _rewrite_resolved_hermes_home(command: str) -> str:
-    """Rewrite the resolved absolute Hermes home prefix to ``~/.hermes/``.
+    """Rewrite the resolved absolute Hermes home prefix to ``~/.agentx/``.
 
-    Resolves the active ``HERMES_HOME`` at call time (and its symlink-resolved
+    Resolves the active ``AGENTX_HOME`` at call time (and its symlink-resolved
     form) and folds an occurrence of ``<home>/`` in *command* into
-    ``~/.hermes/`` so the static ``_HERMES_CONFIG_PATH`` / ``_HERMES_ENV_PATH``
+    ``~/.agentx/`` so the static ``_AGENTX_CONFIG_PATH`` / ``_AGENTX_ENV_PATH``
     patterns match. In Docker and gateway deployments the agent often references
     the resolved absolute path directly (e.g. ``sed -i ...
-    /home/hermes/.hermes/config.yaml``) rather than ``~``, ``$HOME``, or
-    ``$HERMES_HOME``. Matches both POSIX and Windows separators. No-op when the
+    /home/hermes/.agentx/config.yaml``) rather than ``~``, ``$HOME``, or
+    ``$AGENTX_HOME``. Matches both POSIX and Windows separators. No-op when the
     path can't be resolved or doesn't appear.
     """
     try:
@@ -1165,7 +1165,7 @@ def _rewrite_resolved_hermes_home(command: str) -> str:
         ]
     except Exception:
         return command
-    return _fold_home_prefixes(command, candidates, "~/.hermes")
+    return _fold_home_prefixes(command, candidates, "~/.agentx")
 
 
 _PARAM_REPLACEMENT_RE = re.compile(r"\$\{[^}/\s]+/[^}/]*/(?P<replacement>[^}]*)\}")
@@ -2632,7 +2632,7 @@ def prompt_dangerous_approval(command: str, description: str,
         # tests, sshd, etc.).
         pass
 
-    os.environ["HERMES_SPINNER_PAUSE"] = "1"
+    os.environ["AGENTX_SPINNER_PAUSE"] = "1"
     try:
         # Resolve the active UI language once per prompt so we don't re-read
         # config/YAML inside the retry loop below.
@@ -2710,8 +2710,8 @@ def prompt_dangerous_approval(command: str, description: str,
         print("\n" + t("approval.cancelled"))
         return "deny"
     finally:
-        if "HERMES_SPINNER_PAUSE" in os.environ:
-            del os.environ["HERMES_SPINNER_PAUSE"]
+        if "AGENTX_SPINNER_PAUSE" in os.environ:
+            del os.environ["AGENTX_SPINNER_PAUSE"]
         print()
         sys.stdout.flush()
 
@@ -2772,7 +2772,7 @@ def is_approval_bypass_active_for_session(session_key: str) -> bool:
 
     Collapses the canonical three-source bypass check used across the codebase
     into one place:
-      - process-scoped ``--yolo`` / ``HERMES_YOLO_MODE`` (frozen at import time
+      - process-scoped ``--yolo`` / ``AGENTX_YOLO_MODE`` (frozen at import time
         so a mid-process skill can't flip it — a prompt-injection escalation
         path; see ``_YOLO_MODE_FROZEN`` above),
       - the session-scoped gateway ``/yolo`` toggle,
@@ -3016,7 +3016,7 @@ def _run_approval_gate(
             auto-approve warning (identifies command vs plugin origin).
         fail_closed_when_no_human: When True, a non-interactive non-gateway
             context that is NOT a cron session (e.g. a bare script with
-            HERMES_INTERACTIVE unset) BLOCKS instead of auto-approving. The
+            AGENTX_INTERACTIVE unset) BLOCKS instead of auto-approving. The
             dangerous-command path keeps its historical fail-open default
             (False); the plugin-escalation path opts in to fail-closed so a
             plugin-flagged action never runs ungated without a human.
@@ -3065,8 +3065,8 @@ def _run_approval_gate(
             # command path keeps the historical fail-open default.)
             logger.warning(
                 "%s (pattern: %s): %s — no interactive user/gateway present; "
-                "BLOCKED (fail-closed). Set HERMES_INTERACTIVE or "
-                "HERMES_GATEWAY_SESSION to answer the prompt.",
+                "BLOCKED (fail-closed). Set AGENTX_INTERACTIVE or "
+                "AGENTX_GATEWAY_SESSION to answer the prompt.",
                 autoapprove_log_prefix, pattern_key, description,
             )
             return {
@@ -3079,13 +3079,13 @@ def _run_approval_gate(
                 "description": description,
             }
         logger.warning(
-            "%s (pattern: %s): %s — set HERMES_INTERACTIVE or "
-            "HERMES_GATEWAY_SESSION to require approval.",
+            "%s (pattern: %s): %s — set AGENTX_INTERACTIVE or "
+            "AGENTX_GATEWAY_SESSION to require approval.",
             autoapprove_log_prefix, pattern_key, description,
         )
         return {"approved": True, "message": None}
 
-    if is_gateway or env_var_enabled("HERMES_EXEC_ASK"):
+    if is_gateway or env_var_enabled("AGENTX_EXEC_ASK"):
         # Interactive gateway round-trip when a notify callback is
         # registered for this session (Discord/Telegram/Slack embed +
         # buttons, same mechanism as check_dangerous_command). Blocks the
@@ -3357,7 +3357,7 @@ def request_tool_approval(
 
     Non-interactive contexts: cron jobs honor ``approvals.cron_mode`` (parity
     with dangerous commands); any OTHER non-interactive non-gateway context
-    (a bare script with no ``HERMES_INTERACTIVE``) fails CLOSED — a plugin-
+    (a bare script with no ``AGENTX_INTERACTIVE``) fails CLOSED — a plugin-
     flagged action never runs ungated without a human.
     """
     description = reason or f"Plugin requires approval for {tool_name}"
@@ -3617,7 +3617,7 @@ def check_all_command_guards(command: str, env_type: str,
 
     is_cli = _is_interactive_cli()
     is_gateway = _is_gateway_approval_context()
-    is_ask = env_var_enabled("HERMES_EXEC_ASK")
+    is_ask = env_var_enabled("AGENTX_EXEC_ASK")
 
     # Preserve the existing non-interactive behavior: outside CLI/gateway/ask
     # flows, we do not block on approvals and we skip external guard work.
@@ -4090,7 +4090,7 @@ def check_execute_code_guard(code: str, env_type: str,
         return {"approved": True, "message": None}
 
     is_gateway = _is_gateway_approval_context()
-    is_ask = env_var_enabled("HERMES_EXEC_ASK")
+    is_ask = env_var_enabled("AGENTX_EXEC_ASK")
 
     # Cron: no user is present to approve arbitrary code.
     if _is_cron_approval_context():

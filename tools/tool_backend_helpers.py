@@ -168,7 +168,7 @@ def resolve_provider_secret(
     env/.env):
 
     1. An explicit ``config_value`` from config.yaml, when the caller has one.
-    2. The environment / ``~/.hermes/.env``. Under a multiplexed gateway turn
+    2. The environment / ``~/.agentx/.env``. Under a multiplexed gateway turn
        this reads the active profile's secret scope (authoritative — a scope
        miss must NOT borrow another profile's ``os.environ``; see
        ``agent/secret_scope.py``). Outside multiplexing it reads
@@ -293,7 +293,7 @@ def prefers_gateway(config_section: str) -> bool:
 def fal_key_is_configured() -> bool:
     """Return True when FAL_KEY is set to a non-whitespace value.
 
-    Consults both ``os.environ`` and ``~/.hermes/.env`` (via
+    Consults both ``os.environ`` and ``~/.agentx/.env`` (via
     ``hermes_cli.config.get_env_value`` when available) so tool-side
     checks and CLI setup-time checks agree.  A whitespace-only value
     is treated as unset everywhere.

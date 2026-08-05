@@ -67,21 +67,21 @@ cd "$REPO_ROOT"
 # onto the worktree root and feeds it to `tar --exclude`, so it MUST be a
 # relative directory name.
 SANDBOX_DIR_NAME=".hermes-sandbox-e2e-$ROUTE"
-export HERMES_DEV_SANDBOX_DIR="$SANDBOX_DIR_NAME"
+export AGENTX_DEV_SANDBOX_DIR="$SANDBOX_DIR_NAME"
 
 SANDBOX_ROOT="$REPO_ROOT/$SANDBOX_DIR_NAME"
-INSTALL_DIR="/home/hermes/.hermes/hermes-agent"   # user-level layout (sandbox default)
+INSTALL_DIR="/home/hermes/.agentx/hermes-agent"   # user-level layout (sandbox default)
 FAKE_REMOTE="/work/repos/hermes-agent.git"
 # Only used to fetch an old install.sh for the flag probe below; the sandbox does
 # its own fetching. Same override dev-sandbox.sh honours, so a fork can retarget
 # both together.
-UPSTREAM_URL="${HERMES_DEV_SANDBOX_UPSTREAM:-https://github.com/NousResearch/hermes-agent.git}"
+UPSTREAM_URL="${AGENTX_DEV_SANDBOX_UPSTREAM:-https://github.com/NousResearch/hermes-agent.git}"
 
 # Installer transcripts live outside the sandbox root: the sandbox is recreated
 # and (unless --keep) deleted, and these logs are the most useful artifact when
 # a real install breaks. Created after the dirty check below, so that a log dir
 # pointed inside the repo cannot be the thing that makes the tree dirty.
-LOG_DIR="${HERMES_E2E_LOG_DIR:-$(mktemp -d -t hermes-install-e2e-logs.XXXXXX)}"
+LOG_DIR="${AGENTX_E2E_LOG_DIR:-$(mktemp -d -t hermes-install-e2e-logs.XXXXXX)}"
 
 step() { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓ %s\033[0m\n' "$*"; }

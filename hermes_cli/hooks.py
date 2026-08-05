@@ -7,8 +7,8 @@ Usage::
     hermes hooks revoke <command>
     hermes hooks doctor
 
-Consent records live under ``~/.hermes/shell-hooks-allowlist.json`` and
-hook definitions come from the ``hooks:`` block in ``~/.hermes/config.yaml``
+Consent records live under ``~/.agentx/shell-hooks-allowlist.json`` and
+hook definitions come from the ``hooks:`` block in ``~/.agentx/config.yaml``
 (the same config read by the CLI / gateway at startup).
 
 This module is a thin CLI shell over :mod:`agent.shell_hooks`; every
@@ -57,14 +57,14 @@ def _cmd_list(_args) -> None:
     outbound = outbound_webhooks.iter_configured_targets(cfg)
 
     if not specs and not outbound:
-        print("No shell hooks or outbound webhooks configured in ~/.hermes/config.yaml.")
+        print("No shell hooks or outbound webhooks configured in ~/.agentx/config.yaml.")
         print("See `hermes hooks --help` or")
         print("    website/docs/user-guide/features/hooks.md")
         print("for the config schema and worked examples.")
         return
 
     if not specs:
-        print("No shell hooks configured in ~/.hermes/config.yaml.")
+        print("No shell hooks configured in ~/.agentx/config.yaml.")
     else:
         by_event: Dict[str, List] = {}
         for spec in specs:

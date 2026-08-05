@@ -5,7 +5,7 @@ Covers:
 - Reset individual stores (--target memory / --target user)
 - Skip confirmation with --yes
 - Graceful handling when no memory files exist
-- Profile-scoped reset (uses HERMES_HOME)
+- Profile-scoped reset (uses AGENTX_HOME)
 """
 
 import pytest
@@ -13,15 +13,15 @@ import pytest
 
 @pytest.fixture
 def memory_env(tmp_path, monkeypatch):
-    """Set up a fake HERMES_HOME with memory files."""
-    hermes_home = tmp_path / ".hermes"
+    """Set up a fake AGENTX_HOME with memory files."""
+    hermes_home = tmp_path / ".agentx"
     memories = hermes_home / "memories"
     memories.mkdir(parents=True)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
 
     # Create sample memory files
     (memories / "MEMORY.md").write_text(
-        "§\nHermes repo is at ~/.hermes/hermes-agent\n§\nUser prefers dark themes",
+        "§\nHermes repo is at ~/.agentx/hermes-agent\n§\nUser prefers dark themes",
         encoding="utf-8",
     )
     (memories / "USER.md").write_text(
@@ -76,9 +76,9 @@ class TestMemoryReset:
 
     def test_reset_no_files_exist(self, tmp_path, monkeypatch):
         """Should return 'nothing' when no memory files exist."""
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".agentx"
         (hermes_home / "memories").mkdir(parents=True)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
 
         result = _run_memory_reset(target="all", yes=True)
         assert result == "nothing"

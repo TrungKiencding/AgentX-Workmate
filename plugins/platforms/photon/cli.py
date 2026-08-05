@@ -32,7 +32,7 @@ from . import auth as photon_auth
 from .adapter import _NPM_ERROR_LOG_MAX_CHARS, sidecar_deps_installed
 from .sidecar_paths import resolve_sidecar_dir
 
-# Writable sidecar runtime dir (mirrors to HERMES_HOME on immutable
+# Writable sidecar runtime dir (mirrors to AGENTX_HOME on immutable
 # installs — NS-606). All npm/setup work happens here. Resolved lazily on
 # first use — resolve_sidecar_dir() probes the filesystem and may mirror
 # files, side effects that must not fire at import time (e.g. when argparse
@@ -204,7 +204,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
         print("could not resolve a Photon project id", file=sys.stderr)
         return 1
 
-    # 3. Provision Spectrum credentials (runtime -> ~/.hermes/.env,
+    # 3. Provision Spectrum credentials (runtime -> ~/.agentx/.env,
     #    ids -> auth.json). Spectrum is always enabled and provisioned at
     #    create-time, and the dashboard project id *is* the Spectrum project id
     #    (ids unified), so there's nothing to enable — the id we already have is
@@ -411,7 +411,7 @@ def _cmd_install_sidecar(_args: argparse.Namespace) -> int:
 
 
 def _telemetry_enabled() -> bool:
-    """Read PHOTON_TELEMETRY from the env / ~/.hermes/.env.
+    """Read PHOTON_TELEMETRY from the env / ~/.agentx/.env.
 
     Mirrors the sidecar's truthy set (index.mjs) so the state shown here
     always matches what the sidecar will actually do.
@@ -436,7 +436,7 @@ def _cmd_telemetry(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"could not save PHOTON_TELEMETRY: {e}", file=sys.stderr)
         return 1
-    print(f"✓ Spectrum telemetry turned {state} (PHOTON_TELEMETRY in ~/.hermes/.env)")
+    print(f"✓ Spectrum telemetry turned {state} (PHOTON_TELEMETRY in ~/.agentx/.env)")
     print("  Restart the gateway for the sidecar to pick it up:  hermes gateway restart")
     return 0
 

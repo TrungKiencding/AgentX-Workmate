@@ -13,7 +13,7 @@ shared API base URL, or `security.redact_secrets: true` across every user on a
 machine.
 
 When a managed scope is present, the values it specifies win over the user's
-`~/.hermes/config.yaml`, `~/.hermes/.env`, and even the shell environment — for
+`~/.agentx/config.yaml`, `~/.agentx/.env`, and even the shell environment — for
 exactly the keys it pins. Everything else stays fully user-controlled.
 
 :::note Different from a package-manager–locked install
@@ -29,8 +29,8 @@ Managed scope is read from a system-level directory, default `/etc/hermes`:
 
 ```text
 /etc/hermes/
-├── config.yaml     # managed config layer (wins over ~/.hermes/config.yaml)
-└── .env            # managed env layer (wins over ~/.hermes/.env + shell)
+├── config.yaml     # managed config layer (wins over ~/.agentx/config.yaml)
+└── .env            # managed env layer (wins over ~/.agentx/.env + shell)
 ```
 
 The directory and files are owned by `root` (directory mode `0755`, files
@@ -44,18 +44,18 @@ the feature.
 
 ### Relocating the directory
 
-The location can be relocated with the `HERMES_MANAGED_DIR` environment variable
+The location can be relocated with the `AGENTX_MANAGED_DIR` environment variable
 (for containers or non-`/etc` deployments). This is a deployment/bootstrap path
-knob — like `HERMES_HOME` — set by the same administrator who owns the managed
+knob — like `AGENTX_HOME` — set by the same administrator who owns the managed
 files. It is **never persisted** to any `.env` by Hermes.
 
 ```bash
 # Point managed scope at a custom directory (set by IT / the deployment, not the user)
-export HERMES_MANAGED_DIR=/opt/org/hermes-policy
+export AGENTX_MANAGED_DIR=/opt/org/hermes-policy
 ```
 
 :::warning
-A user who can set `HERMES_MANAGED_DIR` can repoint managed scope at a directory
+A user who can set `AGENTX_MANAGED_DIR` can repoint managed scope at a directory
 they control, defeating it. In a real deployment this variable should be fixed
 by the administrator (e.g. baked into the service unit / container image), not
 left user-settable. `hermes doctor` reports the *resolved* managed directory so
@@ -69,7 +69,7 @@ For the keys a managed layer specifies, the order is (highest wins):
 | Tier | config.yaml | .env |
 |---|---|---|
 | 1 | `/etc/hermes/config.yaml` (managed) | `/etc/hermes/.env` (managed) |
-| 2 | `~/.hermes/config.yaml` (user) | `~/.hermes/.env` (user) |
+| 2 | `~/.agentx/config.yaml` (user) | `~/.agentx/.env` (user) |
 | 3 | built-in defaults | pre-existing shell environment |
 
 Merging is **leaf-level**: pinning `model.default` does not freeze the rest of

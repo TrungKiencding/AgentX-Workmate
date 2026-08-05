@@ -27,7 +27,7 @@ description: "将你的 Nous Portal 订阅（或其他 OAuth 提供商）用作�
 hermes portal
 ```
 
-这会打开浏览器进行 Nous Portal OAuth 流程。Hermes 将刷新令牌存储在 `~/.hermes/auth.json` 中——与所有 Hermes 提供商登录信息存放在同一位置。
+这会打开浏览器进行 Nous Portal OAuth 流程。Hermes 将刷新令牌存储在 `~/.agentx/auth.json` 中——与所有 Hermes 提供商登录信息存放在同一位置。
 
 ### 2. 启动代理
 

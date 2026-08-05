@@ -90,7 +90,7 @@ def configure_windows_stdio() -> bool:
     Returns ``True`` if anything was actually changed, ``False`` on
     non-Windows or on a repeat call.
 
-    Set ``HERMES_DISABLE_WINDOWS_UTF8=1`` in the environment to opt out
+    Set ``AGENTX_DISABLE_WINDOWS_UTF8=1`` in the environment to opt out
     (for diagnosing encoding-related bugs by forcing the old cp1252 path).
 
     Also sets a sensible default ``EDITOR`` on Windows if none is already
@@ -105,7 +105,7 @@ def configure_windows_stdio() -> bool:
         _CONFIGURED = True
         return False
 
-    if os.environ.get("HERMES_DISABLE_WINDOWS_UTF8") in {"1", "true", "True", "yes"}:
+    if os.environ.get("AGENTX_DISABLE_WINDOWS_UTF8") in {"1", "true", "True", "yes"}:
         _CONFIGURED = True
         return False
 
@@ -197,7 +197,7 @@ def _augment_path_with_known_tools() -> None:
 
     Fixes the "User PATH was just updated but my process can't see it" gap on
     Windows.  When install.ps1 runs, it adds entries like
-    ``%LOCALAPPDATA%\\hermes\\git\\bin`` to the User PATH via
+    ``%LOCALAPPDATA%\\agentx\\git\\bin`` to the User PATH via
     ``SetEnvironmentVariable(..., "User")``.  That write propagates to newly
     *spawned* processes only — already-running shells (including the one the
     user invokes ``hermes`` from right after install) retain their old PATH.

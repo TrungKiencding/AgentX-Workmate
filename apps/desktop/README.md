@@ -67,10 +67,10 @@ npm run dev          # Vite renderer + Electron, which boots the Python backend
 Point the app at a specific source checkout, or sandbox it away from your real config:
 
 ```bash
-# throwaway HERMES_HOME, separate Electron userData, distinct app name to avoid the single-instance lock
+# throwaway AGENTX_HOME, separate Electron userData, distinct app name to avoid the single-instance lock
 ../scripts/dev-sandbox.sh npm run dev
-HERMES_DESKTOP_HERMES_ROOT=/path/to/clone npm run dev
-HERMES_HOME=/tmp/throwaway npm run dev
+AGENTX_DESKTOP_AGENTX_ROOT=/path/to/clone npm run dev
+AGENTX_HOME=/tmp/throwaway npm run dev
 npm run dev:fake-boot   # exercise the startup overlay with deterministic delays
 ```
 
@@ -88,8 +88,8 @@ Installers are built and uploaded to GitHub Releases manually. macOS/Windows sig
 ### How it works
 
 The packaged app ships the Electron shell and a native React chat surface. On
-first launch it can install the Hermes Agent runtime into `HERMES_HOME`
-(`~/.hermes`, or `%LOCALAPPDATA%\hermes` on Windows), using the same layout as a
+first launch it can install the Hermes Agent runtime into `AGENTX_HOME`
+(`~/.agentx`, or `%LOCALAPPDATA%\agentx` on Windows), using the same layout as a
 CLI install.
 
 The app has three boundaries:
@@ -104,10 +104,10 @@ The app has three boundaries:
 
 Backend resolution is an ordered ladder:
 
-1. `HERMES_DESKTOP_HERMES_ROOT`
+1. `AGENTX_DESKTOP_AGENTX_ROOT`
 2. the current source checkout during development
 3. a completed managed install
-4. `HERMES_DESKTOP_HERMES`, or `hermes` on `PATH`
+4. `AGENTX_DESKTOP_HERMES`, or `hermes` on `PATH`
 5. a system Python that can import the Hermes runtime
 6. the first-launch bootstrap installer
 
@@ -175,15 +175,15 @@ release-path changes.
 
 ### Troubleshooting
 
-Boot logs land in `HERMES_HOME/logs/desktop.log` (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
+Boot logs land in `AGENTX_HOME/logs/desktop.log` (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
 
 **macOS / Linux:**
 
 ```bash
 # Force a clean first-launch setup
-rm "$HOME/.hermes/hermes-agent/.hermes-bootstrap-complete"
+rm "$HOME/.agentx/hermes-agent/.hermes-bootstrap-complete"
 # Rebuild a broken Python venv
-rm -rf "$HOME/.hermes/hermes-agent/venv"
+rm -rf "$HOME/.agentx/hermes-agent/venv"
 # Reset a stuck macOS microphone prompt (macOS only)
 tccutil reset Microphone com.nousresearch.hermes
 ```
@@ -192,12 +192,12 @@ tccutil reset Microphone com.nousresearch.hermes
 
 ```powershell
 # Force a clean first-launch setup
-Remove-Item "$env:LOCALAPPDATA\hermes\hermes-agent\.hermes-bootstrap-complete"
+Remove-Item "$env:LOCALAPPDATA\agentx\hermes-agent\.hermes-bootstrap-complete"
 # Rebuild a broken Python venv
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\hermes\hermes-agent\venv"
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\agentx\hermes-agent\venv"
 ```
 
-> The default Hermes home on Windows is `%LOCALAPPDATA%\hermes`. Set the `HERMES_HOME` env var if you've relocated it.
+> The default Hermes home on Windows is `%LOCALAPPDATA%\agentx`. Set the `AGENTX_HOME` env var if you've relocated it.
 
 ---
 

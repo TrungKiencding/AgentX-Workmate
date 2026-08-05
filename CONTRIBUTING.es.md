@@ -51,7 +51,7 @@ Si tu habilidad es especializada, contribuida por la comunidad o de nicho, es me
 
 ## Proveedores de Memoria: Publicar como Plugin Independiente
 
-**Ya no aceptamos nuevos proveedores de memoria en este repositorio.** El conjunto de proveedores integrados en `plugins/memory/` (honcho, mem0, supermemory, byterover, hindsight, holographic, openviking, retaindb) está cerrado. Si quieres añadir un nuevo backend de memoria, publícalo como un **repositorio de plugin independiente** que los usuarios instalen en `~/.hermes/plugins/` (o a través de un entry point de pip).
+**Ya no aceptamos nuevos proveedores de memoria en este repositorio.** El conjunto de proveedores integrados en `plugins/memory/` (honcho, mem0, supermemory, byterover, hindsight, holographic, openviking, retaindb) está cerrado. Si quieres añadir un nuevo backend de memoria, publícalo como un **repositorio de plugin independiente** que los usuarios instalen en `~/.agentx/plugins/` (o a través de un entry point de pip).
 
 Los plugins de memoria independientes:
 
@@ -98,12 +98,12 @@ npm install
 ### Configurar para desarrollo
 
 ```bash
-mkdir -p ~/.hermes/{cron,sessions,logs,memories,skills}
-cp cli-config.yaml.example ~/.hermes/config.yaml
-touch ~/.hermes/.env
+mkdir -p ~/.agentx/{cron,sessions,logs,memories,skills}
+cp cli-config.yaml.example ~/.agentx/config.yaml
+touch ~/.agentx/.env
 
 # Añadir al menos una clave de proveedor LLM:
-echo "OPENROUTER_API_KEY=***" >> ~/.hermes/.env
+echo "OPENROUTER_API_KEY=***" >> ~/.agentx/.env
 ```
 
 ### Ejecutar
@@ -191,28 +191,28 @@ hermes-agent/
 │   ├── install.ps1               # Instalador Windows PowerShell
 │   └── whatsapp-bridge/          # Puente WhatsApp Node.js (Baileys)
 │
-├── skills/                   # Habilidades incluidas (copiadas a ~/.hermes/skills/ en la instalación)
+├── skills/                   # Habilidades incluidas (copiadas a ~/.agentx/skills/ en la instalación)
 ├── optional-skills/          # Habilidades opcionales oficiales (descubribles vía hub, no activadas por defecto)
 ├── tests/                    # Suite de tests
 ├── website/                  # Sitio de documentación (hermes-agent.nousresearch.com)
 │
-├── cli-config.yaml.example   # Configuración de ejemplo (copiada a ~/.hermes/config.yaml)
+├── cli-config.yaml.example   # Configuración de ejemplo (copiada a ~/.agentx/config.yaml)
 └── AGENTS.md                 # Guía de desarrollo para asistentes de codificación IA
 ```
 
-### Configuración del usuario (almacenada en `~/.hermes/`)
+### Configuración del usuario (almacenada en `~/.agentx/`)
 
 | Ruta | Propósito |
 |------|-----------|
-| `~/.hermes/config.yaml` | Configuración (modelo, terminal, toolsets, compresión, etc.) |
-| `~/.hermes/.env` | Claves API y secretos |
-| `~/.hermes/auth.json` | Credenciales OAuth (Nous Portal) |
-| `~/.hermes/skills/` | Todas las habilidades activas (incluidas + instaladas desde hub + creadas por el agente) |
-| `~/.hermes/memories/` | Memoria persistente (MEMORY.md, USER.md) |
-| `~/.hermes/state.db` | Base de datos de sesiones SQLite |
-| `~/.hermes/sessions/` | Índice de enrutamiento del gateway (`sessions.json`), migas de pan de solicitudes, transcripciones `*.jsonl` del gateway y (opcionalmente) snapshots JSON por sesión cuando `sessions.write_json_snapshots: true` está configurado. Los snapshots por sesión están desactivados por defecto; state.db es canónica. |
-| `~/.hermes/cron/` | Datos de trabajos programados |
-| `~/.hermes/whatsapp/session/` | Credenciales del puente WhatsApp |
+| `~/.agentx/config.yaml` | Configuración (modelo, terminal, toolsets, compresión, etc.) |
+| `~/.agentx/.env` | Claves API y secretos |
+| `~/.agentx/auth.json` | Credenciales OAuth (Nous Portal) |
+| `~/.agentx/skills/` | Todas las habilidades activas (incluidas + instaladas desde hub + creadas por el agente) |
+| `~/.agentx/memories/` | Memoria persistente (MEMORY.md, USER.md) |
+| `~/.agentx/state.db` | Base de datos de sesiones SQLite |
+| `~/.agentx/sessions/` | Índice de enrutamiento del gateway (`sessions.json`), migas de pan de solicitudes, transcripciones `*.jsonl` del gateway y (opcionalmente) snapshots JSON por sesión cuando `sessions.write_json_snapshots: true` está configurado. Los snapshots por sesión están desactivados por defecto; state.db es canónica. |
+| `~/.agentx/cron/` | Datos de trabajos programados |
+| `~/.agentx/whatsapp/session/` | Credenciales del puente WhatsApp |
 
 ---
 
@@ -311,7 +311,7 @@ importado por `discover_builtin_tools()` en `tools/registry.py` cuando `model_to
 se carga. **No** hay una lista de importaciones manual en `model_tools.py` que mantener.
 
 Todavía debes añadir el nombre de la herramienta a la lista apropiada en `toolsets.py`
-(por ejemplo `_HERMES_CORE_TOOLS` o un toolset dedicado); de lo contrario la herramienta
+(por ejemplo `_AGENTX_CORE_TOOLS` o un toolset dedicado); de lo contrario la herramienta
 se registra pero nunca se expone al agente.
 
 Consulta `AGENTS.md` (sección **Adding New Tools**) para rutas conscientes del perfil y
@@ -412,7 +412,7 @@ Hermes usa un sistema de skins basado en datos — no se necesitan cambios de c�
 
 **Opción A: Skin de usuario (archivo YAML)**
 
-Crea `~/.hermes/skins/<nombre>.yaml`:
+Crea `~/.agentx/skins/<nombre>.yaml`:
 
 ```yaml
 name: mitema

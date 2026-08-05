@@ -36,7 +36,7 @@ Hermes 使用专为编辑器工作流设计的精选 `hermes-acp` 工具集运�
 正常安装 Hermes 后，从安装检出目录添加 ACP 扩展：
 
 ```bash
-cd ~/.hermes/hermes-agent && uv pip install -e '.[acp]'
+cd ~/.agentx/hermes-agent && uv pip install -e '.[acp]'
 ```
 
 这将安装 `agent-client-protocol` 依赖并启用：
@@ -83,7 +83,7 @@ hermes acp --setup-browser --yes     # 非交互式接受下载
 
 具体操作：
 
-- 若缺少 Node.js 22 LTS，将其安装到 `~/.hermes/node/`
+- 若缺少 Node.js 22 LTS，将其安装到 `~/.agentx/node/`
 - 将 `npm install -g agent-browser @askjo/camofox-browser` 安装到该前缀（无需 sudo — `npm` 的 `--prefix` 指向用户可写的 Hermes 管理 Node）
 - 安装 Playwright Chromium，或在检测到系统 Chrome/Chromium 时使用已有版本
 
@@ -202,7 +202,7 @@ Desktop 会在该 agent 的 **Activity log** 中实时渲染生命周期、工�
 
 前提条件：
 
-- 先通过 `hermes model` 配置 Hermes provider 凭据，或在 `~/.hermes/.env` / `~/.hermes/config.yaml` 中设置。
+- 先通过 `hermes model` 配置 Hermes provider 凭据，或在 `~/.agentx/.env` / `~/.agentx/config.yaml` 中设置。
 
 ### JetBrains
 
@@ -249,10 +249,10 @@ Buzz 在你选择该选项时不会给出任何警告。
 
 ACP 模式使用与 CLI 相同的 Hermes 配置：
 
-- `~/.hermes/.env`
-- `~/.hermes/config.yaml`
-- `~/.hermes/skills/`
-- `~/.hermes/state.db`
+- `~/.agentx/.env`
+- `~/.agentx/config.yaml`
+- `~/.agentx/skills/`
+- `~/.agentx/state.db`
 
 Provider 解析使用 Hermes 的正常运行时解析器，因此 ACP 继承当前配置的 provider 和凭据。Hermes 还为首次运行的 ACP 客户端提供终端认证方法（`--setup`）；这将打开 Hermes 的交互式模型/provider 设置。
 
@@ -311,7 +311,7 @@ ACP 桥接将这些选项映射到 Hermes 的内部审批语义——`allow_alwa
 
 - 对于手动/本地开发，验证自定义 `agent_servers` 命令是否指向 `hermes acp`。
 - Hermes 已安装且在 PATH 中。
-- ACP 扩展已安装（`cd ~/.hermes/hermes-agent && uv pip install -e '.[acp]'`）。
+- ACP 扩展已安装（`cd ~/.agentx/hermes-agent && uv pip install -e '.[acp]'`）。
 
 ### ACP 启动后立即报错
 
@@ -332,7 +332,7 @@ ACP 模式使用 Hermes 现有的 provider 设置。通过以下方式配置凭�
 hermes model
 ```
 
-或编辑 `~/.hermes/.env`。终端认证流程（`hermes acp --setup`）也可以触发交互式 provider/模型设置。
+或编辑 `~/.agentx/.env`。终端认证流程（`hermes acp --setup`）也可以触发交互式 provider/模型设置。
 
 ## 另请参阅
 

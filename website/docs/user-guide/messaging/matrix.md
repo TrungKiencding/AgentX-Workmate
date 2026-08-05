@@ -255,7 +255,7 @@ Select **Matrix** when prompted, then provide your homeserver URL, access token 
 
 ### Option B: Manual Configuration
 
-Add the following to your `~/.hermes/.env` file:
+Add the following to your `~/.agentx/.env` file:
 
 **Using an access token:**
 
@@ -328,7 +328,7 @@ Treat federated rooms and untrusted homeservers as untrusted input: keep room
 allowlists tight, prefer DMs or private rooms for tool-heavy work, and avoid
 authorizing bridge ghosts or appservice puppets as allowed users.
 
-Optional behavior settings in `~/.hermes/config.yaml`:
+Optional behavior settings in `~/.agentx/config.yaml`:
 
 ```yaml
 group_sessions_per_user: true
@@ -363,7 +363,7 @@ E2EE requires the `mautrix` library with encryption extras and the `libolm` C li
 pip install 'mautrix[encryption]'
 
 # Or install with hermes extras
-cd ~/.hermes/hermes-agent && uv pip install -e ".[matrix]"
+cd ~/.agentx/hermes-agent && uv pip install -e ".[matrix]"
 ```
 
 You also need `libolm` installed on your system:
@@ -381,7 +381,7 @@ sudo dnf install libolm-devel
 
 ### Enable E2EE
 
-Add to your `~/.hermes/.env`:
+Add to your `~/.agentx/.env`:
 
 ```bash
 MATRIX_E2EE_MODE=required
@@ -401,7 +401,7 @@ For backwards compatibility, `MATRIX_ENCRYPTION=true` still enables required E2E
 
 When E2EE is enabled, Hermes:
 
-- Stores encryption keys in `~/.hermes/platforms/matrix/store/` (legacy installs: `~/.hermes/matrix/store/`)
+- Stores encryption keys in `~/.agentx/platforms/matrix/store/` (legacy installs: `~/.agentx/matrix/store/`)
 - Uploads device keys on first connection
 - Decrypts incoming messages and encrypts outgoing messages automatically
 - Auto-joins encrypted rooms when invited
@@ -461,7 +461,7 @@ startup to write a generated key once with file mode `0600`; the file is not
 overwritten if it already exists.
 
 :::warning[Deleting the crypto store]
-If you delete `~/.hermes/platforms/matrix/store/crypto.db`, the bot loses its encryption identity. Simply restarting with the same device ID will **not** fully recover — the homeserver still holds one-time keys signed with the old identity key, and peers cannot establish new Olm sessions.
+If you delete `~/.agentx/platforms/matrix/store/crypto.db`, the bot loses its encryption identity. Simply restarting with the same device ID will **not** fully recover — the homeserver still holds one-time keys signed with the old identity key, and peers cannot establish new Olm sessions.
 
 Hermes detects this condition on startup and refuses to enable E2EE, logging: `device XXXX has stale one-time keys on the server signed with a previous identity key`.
 
@@ -489,7 +489,7 @@ Hermes detects this condition on startup and refuses to enable E2EE, logging: `d
 
 2. Delete the local crypto store and restart Hermes:
    ```bash
-   rm -f ~/.hermes/platforms/matrix/store/crypto.db*
+   rm -f ~/.agentx/platforms/matrix/store/crypto.db*
    # restart hermes
    ```
 
@@ -511,7 +511,7 @@ If your Matrix client intercepts slash commands, type `!sethome` instead.
 
 ### Manual Configuration
 
-Add this to your `~/.hermes/.env`:
+Add this to your `~/.agentx/.env`:
 
 ```bash
 MATRIX_HOME_ROOM=!abc123def456:matrix.example.org
@@ -623,7 +623,7 @@ pip install 'mautrix[encryption]'
 Or with Hermes extras:
 
 ```bash
-cd ~/.hermes/hermes-agent && uv pip install -e ".[matrix]"
+cd ~/.agentx/hermes-agent && uv pip install -e ".[matrix]"
 ```
 
 ### Encryption errors / "could not decrypt event"
@@ -672,16 +672,16 @@ changed identity keys for the same device as suspicious.
      }'
    ```
 
-   Copy the new `access_token` and update `MATRIX_ACCESS_TOKEN` in `~/.hermes/.env`.
+   Copy the new `access_token` and update `MATRIX_ACCESS_TOKEN` in `~/.agentx/.env`.
 
 2. **Delete old encryption state**:
 
    ```bash
-   rm -f ~/.hermes/platforms/matrix/store/crypto.db
-   rm -f ~/.hermes/platforms/matrix/store/crypto_store.*
+   rm -f ~/.agentx/platforms/matrix/store/crypto.db
+   rm -f ~/.agentx/platforms/matrix/store/crypto_store.*
    ```
 
-3. **Set your recovery key** (if you use cross-signing — most Element users do). Add to `~/.hermes/.env`:
+3. **Set your recovery key** (if you use cross-signing — most Element users do). Add to `~/.agentx/.env`:
 
    ```bash
    MATRIX_RECOVERY_KEY=EsT... your recovery key here
@@ -747,7 +747,7 @@ The Docker container only handles Matrix protocol + E2EE. When a message arrives
 
 Enable the API server so the host accepts incoming requests from the Docker container.
 
-Add to `~/.hermes/.env`:
+Add to `~/.agentx/.env`:
 
 ```bash
 API_SERVER_ENABLED=true
@@ -788,13 +788,13 @@ services:
       MATRIX_ACCESS_TOKEN: "syt_..."
       MATRIX_ALLOWED_USERS: "@you:matrix.example.org"
       MATRIX_ENCRYPTION: "true"
-      MATRIX_DEVICE_ID: "HERMES_BOT"
+      MATRIX_DEVICE_ID: "AGENTX_BOT"
 
       # Proxy mode — forward to host agent
       GATEWAY_PROXY_URL: "http://192.168.1.100:8642"
       GATEWAY_PROXY_KEY: "your-secret-key-here"
     volumes:
-      - ./matrix-store:/root/.hermes/platforms/matrix/store
+      - ./matrix-store:/root/.agentx/platforms/matrix/store
 ```
 
 **`Dockerfile`:**
@@ -803,7 +803,7 @@ services:
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y libolm-dev && rm -rf /var/lib/apt/lists/*
-RUN cd ~/.hermes/hermes-agent && uv pip install -e ".[matrix]"
+RUN cd ~/.agentx/hermes-agent && uv pip install -e ".[matrix]"
 
 CMD ["hermes", "gateway"]
 ```
@@ -886,7 +886,7 @@ the first sync and check logs for `sync event dispatch error`.
 
 **Cause**: Your User ID isn't in `MATRIX_ALLOWED_USERS`.
 
-**Fix**: Add your User ID to `MATRIX_ALLOWED_USERS` in `~/.hermes/.env` and restart the gateway. Use the full `@user:server` format.
+**Fix**: Add your User ID to `MATRIX_ALLOWED_USERS` in `~/.agentx/.env` and restart the gateway. Use the full `@user:server` format.
 
 ### Bot ignores an entire room
 

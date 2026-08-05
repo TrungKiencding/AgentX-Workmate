@@ -262,7 +262,7 @@ class TestUpdateManagedUv:
 
         uv = tmp_path / "bin" / "uv"
         _make_executable(uv)
-        # Fresh stamp under the isolated HERMES_HOME.
+        # Fresh stamp under the isolated AGENTX_HOME.
         import hermes_constants
         stamp = hermes_constants.get_hermes_home() / "cache" / ".uv_self_update_stamp"
         stamp.parent.mkdir(parents=True, exist_ok=True)
@@ -313,9 +313,9 @@ class TestManagedPythonStore:
         from hermes_cli.managed_uv import managed_python_install_dir
 
         checkout = tmp_path / "checkout"
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "alpha"))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "profiles" / "alpha"))
         alpha = managed_python_install_dir(checkout)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "beta"))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "profiles" / "beta"))
         beta = managed_python_install_dir(checkout)
 
         expected = checkout / ".hermes-runtime" / "python"
@@ -1038,7 +1038,7 @@ class TestVenvPythonUpdateBoundary:
     plainly contains it, which is what made the error so confusing:
 
         cannot import name 'venv_python_path' from 'hermes_constants'
-        (~/.hermes/hermes-agent/hermes_constants.py)
+        (~/.agentx/hermes-agent/hermes_constants.py)
 
     It aborted the managed-Python runtime repair on the first update from any
     release older than the symbol. Same class as the ``ensure_uv()`` arity skew

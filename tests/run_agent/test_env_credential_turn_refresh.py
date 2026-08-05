@@ -1,4 +1,4 @@
-"""Per-turn adoption of ~/.hermes/.env credential edits (#67821).
+"""Per-turn adoption of ~/.agentx/.env credential edits (#67821).
 
 A Settings save (desktop ``PUT /api/env``, ``hermes setup``) updates .env and
 the saving process's os.environ, but a live session worker keeps the

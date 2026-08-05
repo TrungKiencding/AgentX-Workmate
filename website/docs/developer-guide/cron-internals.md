@@ -33,7 +33,7 @@ The model-facing surface is a single `cronjob` tool with action-style operations
 
 ## Job Storage
 
-Jobs are stored in `~/.hermes/cron/jobs.json` with atomic write semantics (write to temp file, then rename). Each job record contains:
+Jobs are stored in `~/.agentx/cron/jobs.json` with atomic write semantics (write to temp file, then rename). Each job record contains:
 
 ```json
 {
@@ -115,7 +115,7 @@ The active provider is chosen by the `cron.provider` config key:
   is byte-identical to the pre-provider behavior.
 - **a named provider** (e.g. `chronos`, a managed-cron provider for
   scale-to-zero deployments) → discovered from `plugins/cron_providers/<name>/` or
-  `$HERMES_HOME/plugins/<name>/`.
+  `$AGENTX_HOME/plugins/<name>/`.
 
 If a named provider is missing, fails to load, or reports `is_available() ==
 False`, the resolver falls back to the built-in with a warning — **cron is
@@ -200,7 +200,7 @@ Create a daily funding report → attach "ai-funding-daily-report" skill
 Jobs can also attach a Python script via the `script` field. The script runs *before* each agent turn, and its stdout is injected into the prompt as context. This enables data collection and change detection patterns:
 
 ```python
-# ~/.hermes/scripts/check_competitors.py
+# ~/.agentx/scripts/check_competitors.py
 import requests, json
 # Fetch competitor release notes, diff against last run
 # Print summary to stdout — agent analyzes and reports
@@ -209,11 +209,11 @@ import requests, json
 The script timeout defaults to 3600 seconds (1 hour). `_get_script_timeout()` resolves the limit through a three-layer chain:
 
 1. **Module-level override** — `_SCRIPT_TIMEOUT` (for tests/monkeypatching). Only used when it differs from the default.
-2. **Environment variable** — `HERMES_CRON_SCRIPT_TIMEOUT`
+2. **Environment variable** — `AGENTX_CRON_SCRIPT_TIMEOUT`
 3. **Config** — `cron.script_timeout_seconds` in `config.yaml` (read via `load_config()`)
 4. **Default** — 3600 seconds (1 hour)
 
-This timeout bounds the **pre-run script only**, not the agent. Skill-based / LLM-driven jobs run on a separate *inactivity*-based budget (`HERMES_CRON_TIMEOUT`, default 600s of idle time, `0` = unlimited) — they can run for hours as long as they keep calling tools or streaming tokens, and are only killed after the configured idle period with no activity. Scripts are dispatched to a persistent thread pool (not held under the tick lock), so a long-running script does not block other due jobs from firing.
+This timeout bounds the **pre-run script only**, not the agent. Skill-based / LLM-driven jobs run on a separate *inactivity*-based budget (`AGENTX_CRON_TIMEOUT`, default 600s of idle time, `0` = unlimited) — they can run for hours as long as they keep calling tools or streaming tokens, and are only killed after the configured idle period with no activity. Scripts are dispatched to a persistent thread pool (not held under the tick lock), so a long-running script does not block other due jobs from firing.
 
 ### Provider Recovery
 
@@ -235,7 +235,7 @@ Most platforms also accept an optional thread/topic as a third segment: `platfor
 | Target | Syntax | Example |
 |--------|--------|---------|
 | Origin chat | `origin` | Deliver to the chat where the job was created |
-| Local file | `local` | Save to `~/.hermes/cron/output/` |
+| Local file | `local` | Save to `~/.agentx/cron/output/` |
 | Telegram | `telegram`, `telegram:<chat_id>`, `telegram:<chat_id>:<thread_id>`, `telegram:@username` | `telegram:-1001234567890:17585` |
 | Discord | `discord`, `discord:#channel`, `discord:<channel_id>`, `discord:<channel_id>:<thread_id>` | `discord:#engineering` |
 | Slack | `slack`, `slack:#channel`, `slack:<channel_id>`, `slack:<channel_id>:<thread_ts>` | `slack:#engineering` |

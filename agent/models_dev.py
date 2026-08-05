@@ -11,7 +11,7 @@ of 4000+ models across 109+ providers.  Provides:
 Data resolution order:
   1. In-memory cache (fresh, or stale served immediately while a single
      background daemon thread refreshes)
-  2. Disk cache (~/.hermes/models_dev_cache.json — any age; stale data is
+  2. Disk cache (~/.agentx/models_dev_cache.json — any age; stale data is
      served rather than blocking callers on the network)
   3. Network fetch (https://models.dev/api.json) — only when no cache
      exists at all; failed refreshes back off for 5 minutes process-wide

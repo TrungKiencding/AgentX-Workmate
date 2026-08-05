@@ -347,11 +347,11 @@ fi
 
 echo -e "${CYAN}→${NC} Setting up hermes command..."
 
-HERMES_BIN="$SCRIPT_DIR/venv/bin/hermes"
+AGENTX_BIN="$SCRIPT_DIR/venv/bin/hermes"
 COMMAND_LINK_DIR="$(get_command_link_dir)"
 COMMAND_LINK_DISPLAY_DIR="$(get_command_link_display_dir)"
 mkdir -p "$COMMAND_LINK_DIR"
-ln -sf "$HERMES_BIN" "$COMMAND_LINK_DIR/hermes"
+ln -sf "$AGENTX_BIN" "$COMMAND_LINK_DIR/hermes"
 echo -e "${GREEN}✓${NC} Symlinked hermes → $COMMAND_LINK_DISPLAY_DIR/hermes"
 
 if is_termux; then
@@ -396,20 +396,20 @@ else
 fi
 
 # ============================================================================
-# Seed bundled skills into ~/.hermes/skills/
+# Seed bundled skills into ~/.agentx/skills/
 # ============================================================================
 
-HERMES_SKILLS_DIR="${HERMES_HOME:-$HOME/.hermes}/skills"
-mkdir -p "$HERMES_SKILLS_DIR"
+AGENTX_SKILLS_DIR="${AGENTX_HOME:-$HOME/.agentx}/skills"
+mkdir -p "$AGENTX_SKILLS_DIR"
 
 echo ""
-echo "Syncing bundled skills to ~/.hermes/skills/ ..."
+echo "Syncing bundled skills to ~/.agentx/skills/ ..."
 if "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/tools/skills_sync.py" 2>/dev/null; then
     echo -e "${GREEN}✓${NC} Skills synced"
 else
     # Fallback: copy if sync script fails (missing deps, etc.)
     if [ -d "$SCRIPT_DIR/skills" ]; then
-        cp -rn "$SCRIPT_DIR/skills/"* "$HERMES_SKILLS_DIR/" 2>/dev/null || true
+        cp -rn "$SCRIPT_DIR/skills/"* "$AGENTX_SKILLS_DIR/" 2>/dev/null || true
         echo -e "${GREEN}✓${NC} Skills copied"
     fi
 fi

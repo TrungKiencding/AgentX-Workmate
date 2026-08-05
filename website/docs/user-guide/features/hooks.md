@@ -10,10 +10,10 @@ Hermes has four hook systems that run custom code at key lifecycle points:
 
 | System | Registered via | Runs in | Use case |
 |--------|---------------|---------|----------|
-| **[Gateway hooks](#gateway-event-hooks)** | `HOOK.yaml` + `handler.py` in `~/.hermes/hooks/` | Gateway only | Logging, alerts, webhooks |
+| **[Gateway hooks](#gateway-event-hooks)** | `HOOK.yaml` + `handler.py` in `~/.agentx/hooks/` | Gateway only | Logging, alerts, webhooks |
 | **[Plugin hooks](#plugin-hooks)** | `ctx.register_hook()` in a [plugin](/user-guide/features/plugins) | CLI + Gateway | Tool interception, metrics, guardrails |
-| **[Shell hooks](#shell-hooks)** | `hooks:` block in `~/.hermes/config.yaml` pointing at shell scripts | CLI + Gateway | Drop-in scripts for blocking, auto-formatting, context injection |
-| **[Outbound webhooks](#outbound-webhooks)** | `hooks.outbound:` list in `~/.hermes/config.yaml` | CLI + Gateway | Push signed lifecycle events to external HTTP endpoints — CI, dashboards, other agents |
+| **[Shell hooks](#shell-hooks)** | `hooks:` block in `~/.agentx/config.yaml` pointing at shell scripts | CLI + Gateway | Drop-in scripts for blocking, auto-formatting, context injection |
+| **[Outbound webhooks](#outbound-webhooks)** | `hooks.outbound:` list in `~/.agentx/config.yaml` | CLI + Gateway | Push signed lifecycle events to external HTTP endpoints — CI, dashboards, other agents |
 
 All four systems are non-blocking — errors in any hook are caught and logged, never crashing the agent.
 
@@ -23,10 +23,10 @@ Gateway hooks fire automatically during gateway operation (Telegram, Discord, Sl
 
 ### Creating a Hook
 
-Each hook is a directory under `~/.hermes/hooks/` containing two files:
+Each hook is a directory under `~/.agentx/hooks/` containing two files:
 
 ```text
-~/.hermes/hooks/
+~/.agentx/hooks/
 └── my-hook/
     ├── HOOK.yaml      # Declares which events to listen for
     └── handler.py     # Python handler function
@@ -52,7 +52,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-LOG_FILE = Path.home() / ".hermes" / "hooks" / "my-hook" / "activity.log"
+LOG_FILE = Path.home() / ".agentx" / "hooks" / "my-hook" / "activity.log"
 
 async def handle(event_type: str, context: dict):
     """Called for each subscribed event. Must be named 'handle'."""
@@ -102,7 +102,7 @@ A handler posting a follow-up message into the same Telegram forum topic should 
 Send yourself a message when the agent takes more than 10 steps:
 
 ```yaml
-# ~/.hermes/hooks/long-task-alert/HOOK.yaml
+# ~/.agentx/hooks/long-task-alert/HOOK.yaml
 name: long-task-alert
 description: Alert when agent is taking many steps
 events:
@@ -110,7 +110,7 @@ events:
 ```
 
 ```python
-# ~/.hermes/hooks/long-task-alert/handler.py
+# ~/.agentx/hooks/long-task-alert/handler.py
 import os
 import httpx
 
@@ -135,7 +135,7 @@ async def handle(event_type: str, context: dict):
 Track which slash commands are used:
 
 ```yaml
-# ~/.hermes/hooks/command-logger/HOOK.yaml
+# ~/.agentx/hooks/command-logger/HOOK.yaml
 name: command-logger
 description: Log slash command usage
 events:
@@ -143,12 +143,12 @@ events:
 ```
 
 ```python
-# ~/.hermes/hooks/command-logger/handler.py
+# ~/.agentx/hooks/command-logger/handler.py
 import json
 from datetime import datetime
 from pathlib import Path
 
-LOG = Path.home() / ".hermes" / "logs" / "command_usage.jsonl"
+LOG = Path.home() / ".agentx" / "logs" / "command_usage.jsonl"
 
 def handle(event_type: str, context: dict):
     LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -168,7 +168,7 @@ def handle(event_type: str, context: dict):
 POST to an external service on new sessions:
 
 ```yaml
-# ~/.hermes/hooks/session-webhook/HOOK.yaml
+# ~/.agentx/hooks/session-webhook/HOOK.yaml
 name: session-webhook
 description: Notify external service on new sessions
 events:
@@ -177,7 +177,7 @@ events:
 ```
 
 ```python
-# ~/.hermes/hooks/session-webhook/handler.py
+# ~/.agentx/hooks/session-webhook/handler.py
 import httpx
 
 WEBHOOK_URL = "https://your-service.example.com/hermes-events"
@@ -192,19 +192,19 @@ async def handle(event_type: str, context: dict):
 
 ### Tutorial: BOOT.md — Run a Startup Checklist on Every Gateway Boot
 
-A popular pattern from the community: drop a Markdown checklist at `~/.hermes/BOOT.md`, and have the agent run it once every time the gateway starts. Useful for "on every boot, check overnight cron failures and ping me on Discord if anything failed," or "summarize the last 24h of deploy.log and post it to Slack #ops."
+A popular pattern from the community: drop a Markdown checklist at `~/.agentx/BOOT.md`, and have the agent run it once every time the gateway starts. Useful for "on every boot, check overnight cron failures and ping me on Discord if anything failed," or "summarize the last 24h of deploy.log and post it to Slack #ops."
 
 This tutorial shows how to build it yourself as a user-defined hook. Hermes does not ship a built-in BOOT.md hook — you wire up exactly the behavior you want.
 
 #### What we're building
 
-1. A file at `~/.hermes/BOOT.md` with natural-language startup instructions.
+1. A file at `~/.agentx/BOOT.md` with natural-language startup instructions.
 2. A gateway hook that fires on `gateway:startup`, spawns a one-shot agent with your gateway's resolved model/credentials, and runs the BOOT.md instructions.
 3. A `[SILENT]` convention so the agent can opt out of sending a message when there's nothing to report.
 
 #### Step 1: Write your checklist
 
-Create `~/.hermes/BOOT.md`. Write it as if you were giving instructions to a human assistant:
+Create `~/.agentx/BOOT.md`. Write it as if you were giving instructions to a human assistant:
 
 ```markdown
 # Startup Checklist
@@ -220,24 +220,24 @@ The agent sees this as part of its prompt, so anything you can describe in plain
 #### Step 2: Create the hook
 
 ```text
-~/.hermes/hooks/boot-md/
+~/.agentx/hooks/boot-md/
 ├── HOOK.yaml
 └── handler.py
 ```
 
-**`~/.hermes/hooks/boot-md/HOOK.yaml`**
+**`~/.agentx/hooks/boot-md/HOOK.yaml`**
 
 ```yaml
 name: boot-md
-description: Run ~/.hermes/BOOT.md on gateway startup
+description: Run ~/.agentx/BOOT.md on gateway startup
 events:
   - gateway:startup
 ```
 
-**`~/.hermes/hooks/boot-md/handler.py`**
+**`~/.agentx/hooks/boot-md/handler.py`**
 
 ```python
-"""Run ~/.hermes/BOOT.md on every gateway startup."""
+"""Run ~/.agentx/BOOT.md on every gateway startup."""
 
 import logging
 import threading
@@ -245,7 +245,7 @@ from pathlib import Path
 
 logger = logging.getLogger("hooks.boot-md")
 
-BOOT_FILE = Path.home() / ".hermes" / "BOOT.md"
+BOOT_FILE = Path.home() / ".agentx" / "BOOT.md"
 
 
 def _build_prompt(content: str) -> str:
@@ -334,7 +334,7 @@ hermes logs --follow --level INFO | grep boot-md
 
 You should see `Running BOOT.md (N chars)` followed by either `boot-md completed: ...` (summary of what the agent did) or `boot-md completed (nothing to report)` when the agent replied with an exact silence token such as `[SILENT]`.
 
-Delete `~/.hermes/BOOT.md` to disable the checklist — the hook stays loaded but silently skips when the file isn't there.
+Delete `~/.agentx/BOOT.md` to disable the checklist — the hook stays loaded but silently skips when the file isn't there.
 
 #### Extending the pattern
 
@@ -348,7 +348,7 @@ An earlier version of Hermes shipped this as a built-in hook and silently spawne
 
 ### How It Works
 
-1. On gateway startup, `HookRegistry.discover_and_load()` scans `~/.hermes/hooks/`
+1. On gateway startup, `HookRegistry.discover_and_load()` scans `~/.agentx/hooks/`
 2. Each subdirectory with `HOOK.yaml` + `handler.py` is loaded dynamically
 3. Handlers are registered for their declared events
 4. At each lifecycle point, `hooks.emit()` fires all matching handlers
@@ -1296,7 +1296,7 @@ The hook is guarded on a non-empty, non-interrupted response — it will not fir
 
 ## Shell Hooks
 
-Declare shell-script hooks in your `~/.hermes/config.yaml` and Hermes will run them as subprocesses whenever the corresponding plugin-hook event fires — in both CLI and gateway sessions. No Python plugin authoring required.
+Declare shell-script hooks in your `~/.agentx/config.yaml` and Hermes will run them as subprocesses whenever the corresponding plugin-hook event fires — in both CLI and gateway sessions. No Python plugin authoring required.
 
 Use shell hooks when you want a drop-in, single-file script (Bash, Python, anything with a shebang) to:
 
@@ -1311,8 +1311,8 @@ Shell hooks are registered by calling `agent.shell_hooks.register_from_config(cf
 
 | Dimension | Shell hooks | [Plugin hooks](#plugin-hooks) | [Gateway hooks](#gateway-event-hooks) |
 |-----------|-------------|-------------------------------|---------------------------------------|
-| Declared in | `hooks:` block in `~/.hermes/config.yaml` | `register()` in a `plugin.yaml` plugin | `HOOK.yaml` + `handler.py` directory |
-| Lives under | `~/.hermes/agent-hooks/` (by convention) | `~/.hermes/plugins/<name>/` | `~/.hermes/hooks/<name>/` |
+| Declared in | `hooks:` block in `~/.agentx/config.yaml` | `register()` in a `plugin.yaml` plugin | `HOOK.yaml` + `handler.py` directory |
+| Lives under | `~/.agentx/agent-hooks/` (by convention) | `~/.agentx/plugins/<name>/` | `~/.agentx/hooks/<name>/` |
 | Language | Any (Bash, Python, Go binary, …) | Python only | Python only |
 | Runs in | CLI + Gateway | CLI + Gateway | Gateway only |
 | Events | `VALID_HOOKS` (incl. `subagent_stop`) | `VALID_HOOKS` | Gateway lifecycle (`gateway:startup`, `agent:*`, `command:*`) |
@@ -1378,16 +1378,16 @@ Malformed JSON, non-zero exit codes, and timeouts log a warning but never abort 
 #### 1. Auto-format Python files after every write
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 hooks:
   post_tool_call:
     - matcher: "write_file|patch"
-      command: "~/.hermes/agent-hooks/auto-format.sh"
+      command: "~/.agentx/agent-hooks/auto-format.sh"
 ```
 
 ```bash
 #!/usr/bin/env bash
-# ~/.hermes/agent-hooks/auto-format.sh
+# ~/.agentx/agent-hooks/auto-format.sh
 payload="$(cat -)"
 path=$(echo "$payload" | jq -r '.tool_input.path // empty')
 [[ "$path" == *.py ]] && command -v black >/dev/null && black "$path" 2>/dev/null
@@ -1402,13 +1402,13 @@ The agent's in-context view of the file is **not** re-read automatically — the
 hooks:
   pre_tool_call:
     - matcher: "terminal"
-      command: "~/.hermes/agent-hooks/block-rm-rf.sh"
+      command: "~/.agentx/agent-hooks/block-rm-rf.sh"
       timeout: 5
 ```
 
 ```bash
 #!/usr/bin/env bash
-# ~/.hermes/agent-hooks/block-rm-rf.sh
+# ~/.agentx/agent-hooks/block-rm-rf.sh
 payload="$(cat -)"
 cmd=$(echo "$payload" | jq -r '.tool_input.command // empty')
 if echo "$cmd" | grep -qE 'rm[[:space:]]+-rf?[[:space:]]+/'; then
@@ -1423,12 +1423,12 @@ fi
 ```yaml
 hooks:
   pre_llm_call:
-    - command: "~/.hermes/agent-hooks/inject-cwd-context.sh"
+    - command: "~/.agentx/agent-hooks/inject-cwd-context.sh"
 ```
 
 ```bash
 #!/usr/bin/env bash
-# ~/.hermes/agent-hooks/inject-cwd-context.sh
+# ~/.agentx/agent-hooks/inject-cwd-context.sh
 cat - >/dev/null   # discard stdin payload
 if status=$(git status --porcelain 2>/dev/null) && [[ -n "$status" ]]; then
   jq --null-input --arg s "$status" \
@@ -1445,26 +1445,26 @@ Claude Code's `UserPromptSubmit` event is intentionally not a separate Hermes ev
 ```yaml
 hooks:
   subagent_stop:
-    - command: "~/.hermes/agent-hooks/log-orchestration.sh"
+    - command: "~/.agentx/agent-hooks/log-orchestration.sh"
 ```
 
 ```bash
 #!/usr/bin/env bash
-# ~/.hermes/agent-hooks/log-orchestration.sh
-log=~/.hermes/logs/orchestration.log
+# ~/.agentx/agent-hooks/log-orchestration.sh
+log=~/.agentx/logs/orchestration.log
 jq -c '{ts: now, parent: .session_id, extra: .extra}' < /dev/stdin >> "$log"
 printf '{}\n'
 ```
 
 ### Consent model
 
-Each unique `(event, command)` pair prompts the user for approval the first time Hermes sees it, then persists the decision to `~/.hermes/shell-hooks-allowlist.json`. Subsequent runs (CLI or gateway) skip the prompt.
+Each unique `(event, command)` pair prompts the user for approval the first time Hermes sees it, then persists the decision to `~/.agentx/shell-hooks-allowlist.json`. Subsequent runs (CLI or gateway) skip the prompt.
 
 Three escape hatches bypass the interactive prompt — any one is sufficient:
 
 1. `--accept-hooks` flag on the CLI (e.g. `hermes --accept-hooks chat`)
-2. `HERMES_ACCEPT_HOOKS=1` environment variable
-3. `hooks_auto_accept: true` in `~/.hermes/config.yaml`
+2. `AGENTX_ACCEPT_HOOKS=1` environment variable
+3. `hooks_auto_accept: true` in `~/.agentx/config.yaml`
 
 Non-TTY runs (gateway, cron, CI) need one of these three — otherwise any newly-added hook silently stays un-registered and logs a warning.
 
@@ -1472,14 +1472,14 @@ Non-TTY runs (gateway, cron, CI) need one of these three — otherwise any newly
 
 #### Manual allowlisting
 
-Manual allowlisting is useful for non-TTY or service-account deployments where an operator cannot answer the first-use prompt interactively. The allowlist file is `~/.hermes/shell-hooks-allowlist.json`, and the expected format is an `approvals` array. Each approval records the hook `event` and the exact `command` string:
+Manual allowlisting is useful for non-TTY or service-account deployments where an operator cannot answer the first-use prompt interactively. The allowlist file is `~/.agentx/shell-hooks-allowlist.json`, and the expected format is an `approvals` array. Each approval records the hook `event` and the exact `command` string:
 
 ```json
 {
   "approvals": [
     {
       "event": "post_llm_call",
-      "command": "/home/hermes/.hermes/hooks/my-hook.py"
+      "command": "/home/hermes/.agentx/hooks/my-hook.py"
     }
   ]
 }
@@ -1501,7 +1501,7 @@ The command string must match the configured hook command exactly. A path-keyed 
 Shell hooks run with **your full user credentials** — same trust boundary as a cron entry or a shell alias. Treat the `hooks:` block in `config.yaml` as privileged configuration:
 
 - Only reference scripts you wrote or fully reviewed.
-- Keep scripts inside `~/.hermes/agent-hooks/` so the path is easy to audit.
+- Keep scripts inside `~/.agentx/agent-hooks/` so the path is easy to audit.
 - Re-run `hermes hooks doctor` after you pull a shared config to spot newly-added hooks before they register.
 - If your config.yaml is version-controlled across a team, review PRs that change the `hooks:` section the same way you'd review CI config.
 
@@ -1522,7 +1522,7 @@ Typical uses:
 
 ### Configuration
 
-Add a `hooks.outbound:` list to `~/.hermes/config.yaml`:
+Add a `hooks.outbound:` list to `~/.agentx/config.yaml`:
 
 ```yaml
 hooks:
@@ -1530,7 +1530,7 @@ hooks:
     - name: ci-notify                       # optional label for logs
       url: https://ci.example.com/hermes-events
       events: [on_session_end, subagent_stop]
-      secret_env: HERMES_OUTBOUND_WEBHOOK_SECRET   # env var holding the HMAC secret
+      secret_env: AGENTX_OUTBOUND_WEBHOOK_SECRET   # env var holding the HMAC secret
       timeout: 10                           # per-attempt seconds (1–60)
 
     - name: tool-monitor
@@ -1541,7 +1541,7 @@ hooks:
 
 Any event from the plugin-hook set is valid (`pre_tool_call`, `post_tool_call`, `pre_llm_call`, `post_llm_call`, `on_session_start`, `on_session_end`, `subagent_start`, `subagent_stop`, ...). Malformed entries warn and are skipped — a broken webhook never crashes the agent. Changes take effect on the next CLI session / gateway restart.
 
-Secrets: prefer `secret_env` (the name of an environment variable, typically set in `~/.hermes/.env`) over an inline `secret:` literal, so the config file stays free of credentials. Entries without a secret are delivered unsigned (flagged as `UNSIGNED` by `hermes hooks list`).
+Secrets: prefer `secret_env` (the name of an environment variable, typically set in `~/.agentx/.env`) over an inline `secret:` literal, so the config file stays free of credentials. Entries without a secret are delivered unsigned (flagged as `UNSIGNED` by `hermes hooks list`).
 
 ### Wire format
 
@@ -1591,6 +1591,6 @@ Because `delivery_id` and `timestamp` live **inside the signed body**, a verifie
 - **Bounded retries.** Connection errors and 5xx responses are retried once with backoff; 4xx responses are not retried (the receiver said the request itself is wrong). Failures are logged and dropped — delivery is best-effort, not guaranteed.
 - **Redirects are never followed.** A 3xx response is treated as a misconfiguration and logged — following a redirected POST would silently drop the signed payload. Point the `url` at the final endpoint.
 - **Bounded queue.** If the queue backs up (dead endpoint, event storm), new events are dropped with a warning rather than consuming unbounded memory.
-- **No consent prompt.** Outbound targets execute no code on your machine — they receive data at a URL you configured. `HERMES_SAFE_MODE=1` still skips registration, same as plugins and shell hooks. Note that payloads include tool inputs and event metadata, so only point targets at endpoints you trust, and prefer `https://`.
+- **No consent prompt.** Outbound targets execute no code on your machine — they receive data at a URL you configured. `AGENTX_SAFE_MODE=1` still skips registration, same as plugins and shell hooks. Note that payloads include tool inputs and event metadata, so only point targets at endpoints you trust, and prefer `https://`.
 
 `hermes hooks list` shows configured outbound targets alongside shell hooks, including whether each target is signed.

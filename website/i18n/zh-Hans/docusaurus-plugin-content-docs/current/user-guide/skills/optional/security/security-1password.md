@@ -51,7 +51,7 @@ description: "设置并使用 1Password CLI (op)"
 
 ### 服务账户（推荐用于 Hermes）
 
-在 `~/.hermes/.env` 中设置 `OP_SERVICE_ACCOUNT_TOKEN`（skill 首次加载时会提示输入）。
+在 `~/.agentx/.env` 中设置 `OP_SERVICE_ACCOUNT_TOKEN`（skill 首次加载时会提示输入）。
 无需桌面应用。支持 `op read`、`op inject`、`op run`。
 
 ```bash

@@ -103,10 +103,10 @@ def test_apply_model_switch_does_not_leak_process_env():
             self.provider = kw["new_provider"]
 
     env_keys = (
-        "HERMES_MODEL",
-        "HERMES_INFERENCE_MODEL",
-        "HERMES_TUI_PROVIDER",
-        "HERMES_INFERENCE_PROVIDER",
+        "AGENTX_MODEL",
+        "AGENTX_INFERENCE_MODEL",
+        "AGENTX_TUI_PROVIDER",
+        "AGENTX_INFERENCE_PROVIDER",
     )
 
     sess_b = {"agent": _FakeAgent(), "session_key": "k-B", "model_override": None}

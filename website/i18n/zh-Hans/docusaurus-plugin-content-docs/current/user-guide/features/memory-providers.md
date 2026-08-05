@@ -18,7 +18,7 @@ hermes memory off        # 禁用外部提供者
 
 也可以通过 `hermes plugins` → Provider Plugins → Memory Provider 选择激活的记忆提供者。
 
-或在 `~/.hermes/config.yaml` 中手动设置：
+或在 `~/.agentx/config.yaml` 中手动设置：
 
 ```yaml
 memory:
@@ -68,7 +68,7 @@ hermes memory setup        # 选择 "honcho" — 运行 Honcho 专属的安装�
 
 旧版 `hermes honcho setup` 命令仍然有效（现在会重定向到 `hermes memory setup`），但只有在 Honcho 被选为激活记忆提供者后才会注册。
 
-**配置：** `$HERMES_HOME/honcho.json`（profile 本地）或 `~/.honcho/config.json`（全局）。解析顺序：`$HERMES_HOME/honcho.json` > `~/.hermes/honcho.json` > `~/.honcho/config.json`。参见[配置参考](https://github.com/hermes-ai/hermes-agent/blob/main/plugins/memory/honcho/README.md)和 [Honcho 集成指南](https://docs.honcho.dev/v3/guides/integrations/hermes)。
+**配置：** `$AGENTX_HOME/honcho.json`（profile 本地）或 `~/.honcho/config.json`（全局）。解析顺序：`$AGENTX_HOME/honcho.json` > `~/.agentx/honcho.json` > `~/.honcho/config.json`。参见[配置参考](https://github.com/hermes-ai/hermes-agent/blob/main/plugins/memory/honcho/README.md)和 [Honcho 集成指南](https://docs.honcho.dev/v3/guides/integrations/hermes)。
 
 <details>
 <summary>完整配置参考</summary>
@@ -283,7 +283,7 @@ openviking-server
 hermes memory setup    # 选择 "openviking"
 # 或手动配置：
 hermes config set memory.provider openviking
-echo "OPENVIKING_ENDPOINT=http://localhost:1933" >> ~/.hermes/.env
+echo "OPENVIKING_ENDPOINT=http://localhost:1933" >> ~/.agentx/.env
 ```
 
 **主要特性：**
@@ -311,10 +311,10 @@ echo "OPENVIKING_ENDPOINT=http://localhost:1933" >> ~/.hermes/.env
 hermes memory setup    # 选择 "mem0"
 # 或手动配置：
 hermes config set memory.provider mem0
-echo "MEM0_API_KEY=your-key" >> ~/.hermes/.env
+echo "MEM0_API_KEY=your-key" >> ~/.agentx/.env
 ```
 
-**配置：** `$HERMES_HOME/mem0.json`
+**配置：** `$AGENTX_HOME/mem0.json`
 
 | 键 | 默认值 | 描述 |
 |-----|---------|-------------|
@@ -341,14 +341,14 @@ echo "MEM0_API_KEY=your-key" >> ~/.hermes/.env
 hermes memory setup    # 选择 "hindsight"
 # 或手动配置：
 hermes config set memory.provider hindsight
-echo "HINDSIGHT_API_KEY=your-key" >> ~/.hermes/.env
+echo "HINDSIGHT_API_KEY=your-key" >> ~/.agentx/.env
 ```
 
 安装向导会自动安装依赖，并仅安装所选模式所需的内容（云端用 `hindsight-client`，本地用 `hindsight-all`）。需要 `hindsight-client >= 0.4.22`（会话启动时若版本过旧则自动升级）。
 
 **本地模式 UI：** `hindsight-embed -p hermes ui start`
 
-**配置：** `$HERMES_HOME/hindsight/config.json`
+**配置：** `$AGENTX_HOME/hindsight/config.json`
 
 | 键 | 默认值 | 描述 |
 |-----|---------|-------------|
@@ -394,7 +394,7 @@ hermes config set memory.provider holographic
 
 | 键 | 默认值 | 描述 |
 |-----|---------|-------------|
-| `db_path` | `$HERMES_HOME/memory_store.db` | SQLite 数据库路径 |
+| `db_path` | `$AGENTX_HOME/memory_store.db` | SQLite 数据库路径 |
 | `auto_extract` | `false` | 会话结束时自动提取事实 |
 | `default_trust` | `0.5` | 默认信任评分（0.0–1.0） |
 
@@ -424,7 +424,7 @@ hermes config set memory.provider holographic
 hermes memory setup    # 选择 "retaindb"
 # 或手动配置：
 hermes config set memory.provider retaindb
-echo "RETAINDB_API_KEY=your-key" >> ~/.hermes/.env
+echo "RETAINDB_API_KEY=your-key" >> ~/.agentx/.env
 ```
 
 ---
@@ -455,7 +455,7 @@ hermes config set memory.provider byterover
 
 **主要特性：**
 - 自动预压缩提取（在上下文压缩丢弃内容前保存洞察）
-- 知识树存储于 `$HERMES_HOME/byterover/`（profile 范围隔离）
+- 知识树存储于 `$AGENTX_HOME/byterover/`（profile 范围隔离）
 - SOC2 Type II 认证的云端同步（可选）
 
 ---
@@ -478,7 +478,7 @@ hermes config set memory.provider byterover
 hermes memory setup    # 选择 "supermemory"
 # 或手动配置：
 hermes config set memory.provider supermemory
-echo 'SUPERMEMORY_API_KEY=***' >> ~/.hermes/.env
+echo 'SUPERMEMORY_API_KEY=***' >> ~/.agentx/.env
 ```
 
 自托管安装：
@@ -488,7 +488,7 @@ npx supermemory local
 ```
 
 在运行 `hermes memory setup` **之前**，先在
-`$HERMES_HOME/supermemory.json` 中设置 `base_url`：
+`$AGENTX_HOME/supermemory.json` 中设置 `base_url`：
 
 ```json
 {
@@ -498,7 +498,7 @@ npx supermemory local
 
 然后运行 `hermes memory setup` 并输入本地服务器打印的 API key。先配置端点可确保安装连接探测也只访问本地服务器。
 
-**配置：** `$HERMES_HOME/supermemory.json`
+**配置：** `$AGENTX_HOME/supermemory.json`
 
 | 键 | 默认值 | 描述 |
 |-----|---------|-------------|
@@ -560,8 +560,8 @@ Base URL 优先级为 `supermemory.json` → `SUPERMEMORY_BASE_URL` → `https:/
 
 每个提供者的数据按 [profile](/user-guide/profiles) 隔离：
 
-- **本地存储提供者**（Holographic、ByteRover）使用 `$HERMES_HOME/` 路径，各 profile 路径不同
-- **配置文件提供者**（Honcho、Mem0、Hindsight、Supermemory）将配置存储在 `$HERMES_HOME/` 中，每个 profile 拥有独立凭证
+- **本地存储提供者**（Holographic、ByteRover）使用 `$AGENTX_HOME/` 路径，各 profile 路径不同
+- **配置文件提供者**（Honcho、Mem0、Hindsight、Supermemory）将配置存储在 `$AGENTX_HOME/` 中，每个 profile 拥有独立凭证
 - **云端提供者**（RetainDB）自动派生 profile 范围的项目名称
 - **环境变量提供者**（OpenViking）通过每个 profile 的 `.env` 文件配置
 

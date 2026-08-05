@@ -116,9 +116,9 @@ def _provider_default_routes(provider: str) -> set[str]:
     """Return known exact default routes for a canonical provider id."""
     routes: set[str] = set()
     try:
-        from hermes_cli.providers import HERMES_OVERLAYS, get_provider
+        from hermes_cli.providers import AGENTX_OVERLAYS, get_provider
 
-        overlay = HERMES_OVERLAYS.get(provider)
+        overlay = AGENTX_OVERLAYS.get(provider)
         provider_def = get_provider(provider, allow_network=False)
         for value in (
             getattr(overlay, "base_url_override", ""),
@@ -311,7 +311,7 @@ def _resolve_compression_threshold(
 def _codex_gpt55_autoraise_notice_marker():
     """Path to the per-profile marker recording that the autoraise notice ran.
 
-    Lives under ``$HERMES_HOME`` (which is profile-scoped) alongside the other
+    Lives under ``$AGENTX_HOME`` (which is profile-scoped) alongside the other
     internal markers like ``.container-mode`` — so it is not a user-facing config
     key, and every profile tracks its own notice state independently.
     """
@@ -350,7 +350,7 @@ def _codex_gpt55_autoraise_notice_seen(autoraise: Dict[str, Any]) -> bool:
 def _record_codex_gpt55_autoraise_notice(autoraise: Dict[str, Any]) -> None:
     """Persist that the autoraise notice was shown for this profile/config state.
 
-    Best-effort: a read-only or missing ``$HERMES_HOME`` just means the notice
+    Best-effort: a read-only or missing ``$AGENTX_HOME`` just means the notice
     may show again next init, which is preferable to breaking agent init.
     """
     try:
@@ -572,10 +572,10 @@ def init_agent(
         platform (str): The interface platform the user is on (e.g. "cli", "telegram", "discord", "whatsapp").
             Used to inject platform-specific formatting hints into the system prompt.
         skip_context_files (bool): If True, skip auto-injection of project context files
-            (SOUL.md, .hermes.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / HERMES_HOME
+            (SOUL.md, .agentx.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / AGENTX_HOME
             into the system prompt. Use this for batch processing and data generation to avoid
             polluting trajectories with user-specific persona or project instructions.
-        load_soul_identity (bool): If True, still use ~/.hermes/SOUL.md as the primary
+        load_soul_identity (bool): If True, still use ~/.agentx/SOUL.md as the primary
             identity even when skip_context_files=True. Project context files from the cwd
             remain skipped.
     """
@@ -917,7 +917,7 @@ def init_agent(
     # Credits tracking (dev-only, L0 usage-aware-credits) — updated from
     # x-nous-credits-* response headers after each API call.  Session-start
     # remaining is latched the first time a header is ever seen so we can
-    # report cumulative micros spent.  Surfaced behind HERMES_DEV_CREDITS.
+    # report cumulative micros spent.  Surfaced behind AGENTX_DEV_CREDITS.
     agent._credits_state = None
     agent._credits_session_start_micros = None
     # Threshold-notice latch (L4): active sticky-notice keys + the crossing gates.
@@ -930,7 +930,7 @@ def init_agent(
     agent._or_cache_hits: int = 0
 
     # Centralized logging — agent.log (INFO+) and errors.log (WARNING+)
-    # both live under ~/.hermes/logs/.  Idempotent, so gateway mode
+    # both live under ~/.agentx/logs/.  Idempotent, so gateway mode
     # (which creates a new AIAgent per message) won't duplicate handlers.
     from hermes_logging import setup_logging, setup_verbose_logging
     setup_logging(hermes_home=_ra()._hermes_home)
@@ -1450,7 +1450,7 @@ def init_agent(
 
     # Kanban worker/orchestrator lifecycle guidance is session-static:
     # the dispatcher decides at spawn time whether this process is a kanban
-    # worker (kanban_show tool is present iff HERMES_KANBAN_TASK is set).
+    # worker (kanban_show tool is present iff AGENTX_KANBAN_TASK is set).
     # Resolving the ~835-token block once here avoids re-running the
     # membership test + reference on every system-prompt rebuild
     # (init + each context compression).
@@ -1515,13 +1515,13 @@ def init_agent(
         except Exception:
             delegated_child = False
         if not delegated_child:
-            os.environ["HERMES_SESSION_ID"] = agent.session_id
+            os.environ["AGENTX_SESSION_ID"] = agent.session_id
 
-    # Session logs go into ~/.hermes/sessions/ alongside gateway sessions
+    # Session logs go into ~/.agentx/sessions/ alongside gateway sessions
     hermes_home = get_hermes_home()
     agent.logs_dir = hermes_home / "sessions"
     agent.logs_dir.mkdir(parents=True, exist_ok=True)
-    # Per-session JSON snapshot writer (~/.hermes/sessions/session_{sid}.json)
+    # Per-session JSON snapshot writer (~/.agentx/sessions/session_{sid}.json)
     # is opt-in via sessions.write_json_snapshots (default False).  state.db
     # is canonical — the snapshot is only useful for external tooling that
     # reads the JSON files directly.  See run_agent._save_session_log.

@@ -122,7 +122,7 @@ git worktree remove ../repo-feature
 
 - `git worktree remove` 在 worktree 存在未提交变更时会拒绝移除，除非强制执行。
 - 移除 worktree **不会**自动删除分支；可使用常规 `git branch` 命令决定是否删除分支。
-- `~/.hermes/checkpoints/` 下的 Hermes checkpoint 数据在移除 worktree 时不会自动清理，但通常体积很小。
+- `~/.agentx/checkpoints/` 下的 Hermes checkpoint 数据在移除 worktree 时不会自动清理，但通常体积很小。
 
 ## 最佳实践
 

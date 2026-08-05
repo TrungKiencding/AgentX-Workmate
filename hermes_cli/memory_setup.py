@@ -164,7 +164,7 @@ def _install_dependencies(provider_name: str, *, force: bool = False) -> None:
 
     # Environment-aware install: on immutable hosted images the agent venv
     # is sealed read-only and installs must go to the durable target on the
-    # data volume (HERMES_LAZY_INSTALL_TARGET). install_specs handles the
+    # data volume (AGENTX_LAZY_INSTALL_TARGET). install_specs handles the
     # routing/gating; on normal installs it is venv-scoped as before (NS-605).
     from tools.lazy_deps import install_specs
 
@@ -288,7 +288,7 @@ def cmd_setup(args) -> None:
 
     if not providers:
         print("\n  No memory provider plugins detected.")
-        print("  Install a plugin to ~/.hermes/plugins/ and try again.\n")
+        print("  Install a plugin to ~/.agentx/plugins/ and try again.\n")
         return
 
     # Build picker items
@@ -548,7 +548,7 @@ def cmd_status(args) -> None:
                         print(line)
         else:
             print("\n  Plugin:    NOT installed ✗")
-            print(f"  Install the '{provider_name}' memory plugin to ~/.hermes/plugins/")
+            print(f"  Install the '{provider_name}' memory plugin to ~/.agentx/plugins/")
 
     if providers:
         print("\n  Installed plugins:")

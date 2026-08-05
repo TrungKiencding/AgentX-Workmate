@@ -15,14 +15,14 @@ Hermes Agent 可以在**破坏性操作**之前自动为你的项目创建快照
 hermes chat --checkpoints
 ```
 
-或在 `~/.hermes/config.yaml` 中全局启用：
+或在 `~/.agentx/config.yaml` 中全局启用：
 
 ```yaml
 checkpoints:
   enabled: true
 ```
 
-此安全机制由内部**检查点管理器（Checkpoint Manager）**驱动，它在 `~/.hermes/checkpoints/store/` 下维护一个共享的影子 git 仓库——你真实项目的 `.git` 永远不会被触碰。Agent 操作的所有项目共享同一个存储，因此 git 的内容寻址对象数据库可以跨项目、跨轮次去重。
+此安全机制由内部**检查点管理器（Checkpoint Manager）**驱动，它在 `~/.agentx/checkpoints/store/` 下维护一个共享的影子 git 仓库——你真实项目的 `.git` 永远不会被触碰。Agent 操作的所有项目共享同一个存储，因此 git 的内容寻址对象数据库可以跨项目、跨轮次去重。
 
 ## 触发检查点的条件
 
@@ -62,7 +62,7 @@ Agent 每个目录每轮**最多创建一个检查点**，因此长时间运行�
 - Hermes 检测到工具即将**修改**工作树中的文件。
 - 每轮对话（每个目录）执行一次：
   - 为该文件解析合理的项目根目录。
-  - 初始化或复用位于 `~/.hermes/checkpoints/store/` 的**单一共享影子存储**。
+  - 初始化或复用位于 `~/.agentx/checkpoints/store/` 的**单一共享影子存储**。
   - 写入每个项目的索引，构建树对象，并提交到每个项目的引用（`refs/hermes/<project-hash>`）。
 - 这些每项目引用构成可通过 `/rollback` 检查和恢复的检查点历史。
 
@@ -72,7 +72,7 @@ flowchart LR
   agent["AIAgent\n(run_agent.py)"]
   tools["File & terminal tools"]
   cpMgr["CheckpointManager"]
-  store["Shared shadow store\n~/.hermes/checkpoints/store/"]
+  store["Shared shadow store\n~/.agentx/checkpoints/store/"]
 
   user --> agent
   agent -->|"tool call"| tools
@@ -84,7 +84,7 @@ flowchart LR
 
 ## 配置
 
-在 `~/.hermes/config.yaml` 中配置：
+在 `~/.agentx/config.yaml` 中配置：
 
 ```yaml
 checkpoints:
@@ -93,7 +93,7 @@ checkpoints:
   max_total_size_mb: 500      # 存储总大小硬上限；超出时丢弃最旧的提交
   max_file_size_mb: 10        # 跳过大于此值的单个文件
 
-  # 自动维护（默认开启）：启动时扫描 ~/.hermes/checkpoints/，
+  # 自动维护（默认开启）：启动时扫描 ~/.agentx/checkpoints/，
   # 删除 last_touch 超过 retention_days 的条目。通过 .last_prune
   # 标记控制，最多每 min_interval_hours 运行一次。此扫描不会删除
   # “孤立”条目（工作目录未找到）——启动时工作目录缺失含义模糊
@@ -146,7 +146,7 @@ hermes checkpoints
 示例输出：
 
 ```text
-Checkpoint base: /home/you/.hermes/checkpoints
+Checkpoint base: /home/you/.agentx/checkpoints
 Total size:      142.3 MB
   store/         138.1 MB
   legacy-*       4.2 MB
@@ -215,7 +215,7 @@ Hermes 在后台执行：
 ## 检查点的存储位置
 
 ```text
-~/.hermes/checkpoints/
+~/.agentx/checkpoints/
   ├── store/                 # 单一共享裸 git 仓库
   │   ├── HEAD, objects/     # git 内部结构（跨项目共享）
   │   ├── refs/hermes/<hash> # 每项目分支尖端
@@ -230,9 +230,9 @@ Hermes 在后台执行：
 
 ### 从 v1 迁移
 
-在 v2 重写之前，每个工作目录在 `~/.hermes/checkpoints/<hash>/` 下拥有独立的完整影子 git 仓库。该布局无法跨项目去重对象，且剪枝器有已知的空操作问题——存储会无限增长。
+在 v2 重写之前，每个工作目录在 `~/.agentx/checkpoints/<hash>/` 下拥有独立的完整影子 git 仓库。该布局无法跨项目去重对象，且剪枝器有已知的空操作问题——存储会无限增长。
 
-首次运行 v2 时，所有 v2 之前的影子仓库将被移入 `~/.hermes/checkpoints/legacy-<timestamp>/`，使新的单存储布局从干净状态开始。旧的 `/rollback` 历史仍可通过 `git` 手动检查 legacy 归档访问；确认不再需要后，运行：
+首次运行 v2 时，所有 v2 之前的影子仓库将被移入 `~/.agentx/checkpoints/legacy-<timestamp>/`，使新的单存储布局从干净状态开始。旧的 `/rollback` 历史仍可通过 `git` 手动检查 legacy 归档访问；确认不再需要后，运行：
 
 ```bash
 hermes checkpoints clear-legacy

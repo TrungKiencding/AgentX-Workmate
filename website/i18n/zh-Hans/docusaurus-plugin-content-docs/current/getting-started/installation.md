@@ -28,18 +28,18 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 iex (irm https://hermes-agent.nousresearch.com/install.ps1)
 ```
 
-安装程序处理**一切**：`uv`、Python 3.11、Node.js 22、`ripgrep`、`ffmpeg`，**以及一个便携式 Git Bash**（PortableGit——一个自包含的 Git-for-Windows 发行版，附带 `bash.exe` 和 Hermes 用于 shell 命令的完整 POSIX 工具链；在 32 位 Windows 上安装程序会回退到 MinGit，后者缺少 bash，终端工具和 agent 浏览器功能将被禁用）。它将仓库克隆到 `%LOCALAPPDATA%\hermes\hermes-agent`，创建虚拟环境，并将 `hermes` 添加到**用户 PATH**。安装完成后请重启终端（或打开新的 PowerShell 窗口）以使 PATH 生效。
+安装程序处理**一切**：`uv`、Python 3.11、Node.js 22、`ripgrep`、`ffmpeg`，**以及一个便携式 Git Bash**（PortableGit——一个自包含的 Git-for-Windows 发行版，附带 `bash.exe` 和 Hermes 用于 shell 命令的完整 POSIX 工具链；在 32 位 Windows 上安装程序会回退到 MinGit，后者缺少 bash，终端工具和 agent 浏览器功能将被禁用）。它将仓库克隆到 `%LOCALAPPDATA%\agentx\hermes-agent`，创建虚拟环境，并将 `hermes` 添加到**用户 PATH**。安装完成后请重启终端（或打开新的 PowerShell 窗口）以使 PATH 生效。
 
 **Git 的处理方式：**
 
 1. 如果 `git` 已在你的 PATH 中，安装程序将使用现有安装。
-2. 否则，它会下载便携式 **PortableGit**（约 50MB，来自官方 `git-for-windows` GitHub 发布页）并解压到 `%LOCALAPPDATA%\hermes\git`。无需管理员权限，完全隔离——不会干扰任何系统 Git 安装，无论其状态如何。（在 32 位 Windows 上会回退到 MinGit，因为 PortableGit 仅提供 64 位和 ARM64 资产；依赖 bash 的 Hermes 功能在 32 位主机上无法使用。）
+2. 否则，它会下载便携式 **PortableGit**（约 50MB，来自官方 `git-for-windows` GitHub 发布页）并解压到 `%LOCALAPPDATA%\agentx\git`。无需管理员权限，完全隔离——不会干扰任何系统 Git 安装，无论其状态如何。（在 32 位 Windows 上会回退到 MinGit，因为 PortableGit 仅提供 64 位和 ARM64 资产；依赖 bash 的 Hermes 功能在 32 位主机上无法使用。）
 
-**为什么不使用 winget？** 早期设计通过 `winget install Git.Git` 自动安装 Git，但当系统 Git 安装处于部分损坏状态时，winget 会严重失败（而这恰恰是用户最需要安装程序正常工作的时候）。便携式 Git 方案绕过了 winget、Windows 安装程序注册表以及任何现有系统 Git。如果 Hermes 的 Git 安装本身出现问题，执行 `Remove-Item %LOCALAPPDATA%\hermes\git` 并重新运行安装程序即可——对系统无影响，无需卸载操作。
+**为什么不使用 winget？** 早期设计通过 `winget install Git.Git` 自动安装 Git，但当系统 Git 安装处于部分损坏状态时，winget 会严重失败（而这恰恰是用户最需要安装程序正常工作的时候）。便携式 Git 方案绕过了 winget、Windows 安装程序注册表以及任何现有系统 Git。如果 Hermes 的 Git 安装本身出现问题，执行 `Remove-Item %LOCALAPPDATA%\agentx\git` 并重新运行安装程序即可——对系统无影响，无需卸载操作。
 
-安装程序还会将 `HERMES_GIT_BASH_PATH` 设置为找到的 `bash.exe` 路径，以便 Hermes 在新 shell 中确定性地解析它。
+安装程序还会将 `AGENTX_GIT_BASH_PATH` 设置为找到的 `bash.exe` 路径，以便 Hermes 在新 shell 中确定性地解析它。
 
-如果你偏好 WSL2，上方的 Linux 安装程序可在其中运行；原生安装和 WSL 安装可以共存而不冲突（原生数据位于 `%LOCALAPPDATA%\hermes`，WSL 数据位于 `~/.hermes`）。
+如果你偏好 WSL2，上方的 Linux 安装程序可在其中运行；原生安装和 WSL 安装可以共存而不冲突（原生数据位于 `%LOCALAPPDATA%\agentx`，WSL 数据位于 `~/.agentx`）。
 
 **桌面安装程序（替代方案）：** 也提供一个轻量 GUI 安装程序——下载 Hermes Desktop，运行 `.exe`，首次启动时它会在后台调用 `install.ps1` 来配置 Python（通过 `uv`）、Node、PortableGit 及其余依赖。桌面应用和 PowerShell 安装的 CLI 共享相同的安装目录和数据目录，可以单独或同时使用。详见 [Windows（原生）指南](../user-guide/windows-native#desktop-installer-alternative)。
 
@@ -72,7 +72,7 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 - **MCP 服务器** — 原生（stdio 和 HTTP 传输均支持）
 - **Dashboard `/chat` 终端面板** — **仅限 WSL2**（使用 POSIX PTY（伪终端），原生 Windows 无等效实现）。Dashboard 的其余部分（会话、任务、指标）可原生运行——仅嵌入式 PTY 终端标签页受限。
 
-如果遇到编码相关的 bug 并希望回退到旧版 cp1252 stdio 路径（用于问题定位），请在环境中设置 `HERMES_DISABLE_WINDOWS_UTF8=1`。
+如果遇到编码相关的 bug 并希望回退到旧版 cp1252 stdio 路径（用于问题定位），请在环境中设置 `AGENTX_DISABLE_WINDOWS_UTF8=1`。
 :::
 
 ### 安装程序做了什么
@@ -85,10 +85,10 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 
 | 安装方式                                | 代码位置                       | `hermes` 二进制                          | 数据目录                              |
 | --------------------------------------- | ------------------------------ | ---------------------------------------- | ------------------------------------- |
-| 用户级（git 安装程序）                  | `~/.hermes/hermes-agent/`      | `~/.local/bin/hermes`（符号链接）        | `~/.hermes/`                          |
-| Root 模式（`sudo curl … \| sudo bash`） | `/usr/local/lib/hermes-agent/` | `/usr/local/bin/hermes`                  | `/root/.hermes/`（或 `$HERMES_HOME`） |
+| 用户级（git 安装程序）                  | `~/.agentx/hermes-agent/`      | `~/.local/bin/hermes`（符号链接）        | `~/.agentx/`                          |
+| Root 模式（`sudo curl … \| sudo bash`） | `/usr/local/lib/hermes-agent/` | `/usr/local/bin/hermes`                  | `/root/.agentx/`（或 `$AGENTX_HOME`） |
 
-Root 模式的 **FHS 布局**（`/usr/local/lib/…`、`/usr/local/bin/hermes`）与其他系统级开发工具在 Linux 上的安装位置一致。适用于共享机器部署场景，一次系统安装可服务所有用户。每个用户的个人配置（认证、技能、会话）仍位于各自的 `~/.hermes/` 或显式指定的 `HERMES_HOME` 下。
+Root 模式的 **FHS 布局**（`/usr/local/lib/…`、`/usr/local/bin/hermes`）与其他系统级开发工具在 Linux 上的安装位置一致。适用于共享机器部署场景，一次系统安装可服务所有用户。每个用户的个人配置（认证、技能、会话）仍位于各自的 `~/.agentx/` 或显式指定的 `AGENTX_HOME` 下。
 
 ### 安装后
 
@@ -180,10 +180,10 @@ hermes setup --portal
    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
    # 方案 B — 系统级符号链接（以管理员身份运行）
-   sudo ln -s /home/hermes/.hermes/hermes-agent/venv/bin/hermes /usr/local/bin/hermes
+   sudo ln -s /home/hermes/.agentx/hermes-agent/venv/bin/hermes /usr/local/bin/hermes
    ```
 
-4. **验证：** `hermes doctor` 现在应能正常运行。如果出现 `ModuleNotFoundError: No module named 'dotenv'`，说明你在用系统 Python 调用仓库源码中的 `hermes` 文件（`~/.hermes/hermes-agent/hermes`），而非 venv 启动器（`~/.hermes/hermes-agent/venv/bin/hermes`）——请修正步骤 3。
+4. **验证：** `hermes doctor` 现在应能正常运行。如果出现 `ModuleNotFoundError: No module named 'dotenv'`，说明你在用系统 Python 调用仓库源码中的 `hermes` 文件（`~/.agentx/hermes-agent/hermes`），而非 venv 启动器（`~/.agentx/hermes-agent/venv/bin/hermes`）——请修正步骤 3。
 
 同样的方式适用于 Arch（安装程序使用 pacman，具有相同的 sudo 检测逻辑）、Fedora/RHEL 和 openSUSE——这些发行版完全不支持 `--with-deps`，因此管理员始终需要单独安装系统库。安装程序会打印相应的 `dnf`/`zypper` 命令。
 
@@ -201,4 +201,4 @@ hermes setup --portal
 
 ## 安装方式自动检测
 
-Hermes 会自动检测安装方式（git 安装程序、Docker 或 NixOS），`hermes update` 会打印对应路径的更新命令。无需设置任何环境变量——检测基于安装目录结构（`~/.hermes/hermes-agent/` 检出、Docker 镜像标记或 Nix store 路径）。`hermes doctor` 也会在其环境摘要中显示检测到的安装方式。
+Hermes 会自动检测安装方式（git 安装程序、Docker 或 NixOS），`hermes update` 会打印对应路径的更新命令。无需设置任何环境变量——检测基于安装目录结构（`~/.agentx/hermes-agent/` 检出、Docker 镜像标记或 Nix store 路径）。`hermes doctor` 也会在其环境摘要中显示检测到的安装方式。

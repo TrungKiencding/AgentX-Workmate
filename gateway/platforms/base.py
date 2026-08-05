@@ -165,7 +165,7 @@ def build_auto_tts_output_path(platform) -> str:
     """Return a unique temp output path for gateway auto-TTS synthesis.
 
     Platform-awareness lives HERE (the caller knows its platform), not in the
-    TTS tool's ``HERMES_SESSION_PLATFORM`` contextvar — that contextvar is
+    TTS tool's ``AGENTX_SESSION_PLATFORM`` contextvar — that contextvar is
     cleared by ``_clear_session_env`` before the post-handler auto-TTS block
     in ``BasePlatformAdapter`` runs, so relying on it always produced MP3
     (#57049, #36685). Platforms whose native voice bubbles require Ogg/Opus
@@ -626,7 +626,7 @@ def streaming_tts_should_skip_whole_file(
 
 GATEWAY_SECRET_CAPTURE_UNSUPPORTED_MESSAGE = (
     "Secure secret entry is not supported over messaging. "
-    "Load this skill in the local CLI to be prompted, or add the key to ~/.hermes/.env manually."
+    "Load this skill in the local CLI to be prompted, or add the key to ~/.agentx/.env manually."
 )
 
 
@@ -1146,36 +1146,36 @@ _CACHE_DIR_IMPORT_DEFAULTS = {
     "SCREENSHOT_CACHE_DIR": SCREENSHOT_CACHE_DIR,
 }
 
-_HERMES_HOME = get_hermes_home()
-_HERMES_ROOT = get_default_hermes_root()
-MEDIA_DELIVERY_ALLOW_DIRS_ENV = "HERMES_MEDIA_ALLOW_DIRS"
-MEDIA_DELIVERY_TRUST_RECENT_ENV = "HERMES_MEDIA_TRUST_RECENT_FILES"
-MEDIA_DELIVERY_TRUST_RECENT_SECONDS_ENV = "HERMES_MEDIA_TRUST_RECENT_SECONDS"
+_AGENTX_HOME = get_hermes_home()
+_AGENTX_ROOT = get_default_hermes_root()
+MEDIA_DELIVERY_ALLOW_DIRS_ENV = "AGENTX_MEDIA_ALLOW_DIRS"
+MEDIA_DELIVERY_TRUST_RECENT_ENV = "AGENTX_MEDIA_TRUST_RECENT_FILES"
+MEDIA_DELIVERY_TRUST_RECENT_SECONDS_ENV = "AGENTX_MEDIA_TRUST_RECENT_SECONDS"
 # Strict mode toggles the original allowlist+recency path-validation behavior.
 # Off by default — symmetric with inbound (we accept any document type the
 # user uploads), and with the denylist still blocking obvious credential /
 # system paths. Operators running public-facing gateways where prompt
 # injection from one user could exfiltrate the host's secrets to that same
 # user should set this to true.
-MEDIA_DELIVERY_STRICT_ENV = "HERMES_MEDIA_DELIVERY_STRICT"
+MEDIA_DELIVERY_STRICT_ENV = "AGENTX_MEDIA_DELIVERY_STRICT"
 MEDIA_DELIVERY_SAFE_ROOTS = (
     IMAGE_CACHE_DIR,
     AUDIO_CACHE_DIR,
     VIDEO_CACHE_DIR,
     DOCUMENT_CACHE_DIR,
     SCREENSHOT_CACHE_DIR,
-    _HERMES_HOME / "image_cache",
-    _HERMES_HOME / "audio_cache",
-    _HERMES_HOME / "video_cache",
-    _HERMES_HOME / "document_cache",
-    _HERMES_HOME / "browser_screenshots",
+    _AGENTX_HOME / "image_cache",
+    _AGENTX_HOME / "audio_cache",
+    _AGENTX_HOME / "video_cache",
+    _AGENTX_HOME / "document_cache",
+    _AGENTX_HOME / "browser_screenshots",
     # Canonical cache layout — listed alongside the legacy *_cache dirs so
     # generated artifacts deliver on installs that have both (#31733).
-    _HERMES_HOME / "cache" / "images",
-    _HERMES_HOME / "cache" / "audio",
-    _HERMES_HOME / "cache" / "videos",
-    _HERMES_HOME / "cache" / "documents",
-    _HERMES_HOME / "cache" / "screenshots",
+    _AGENTX_HOME / "cache" / "images",
+    _AGENTX_HOME / "cache" / "audio",
+    _AGENTX_HOME / "cache" / "videos",
+    _AGENTX_HOME / "cache" / "documents",
+    _AGENTX_HOME / "cache" / "screenshots",
 )
 
 # Default recency window for trusting freshly-produced files (seconds).
@@ -1238,16 +1238,16 @@ def _profile_cache_roots() -> List[Path]:
 
     Profile gateways write generated artifacts to
     ``<root>/profiles/<name>/cache/{images,audio,...}``. The static safe-roots
-    list only covers the *active* HERMES_HOME's cache, so a gateway running at
-    the root (e.g. ``HERMES_HOME=/opt/data``) while the model emits a
+    list only covers the *active* AGENTX_HOME's cache, so a gateway running at
+    the root (e.g. ``AGENTX_HOME=/opt/data``) while the model emits a
     profile-scoped path silently fails delivery. Enumerated dynamically at
     check time so profiles created after startup are covered, and so the
     resolved profile path is allowlisted *before* the ``/root`` system denylist
-    is consulted (which otherwise wins when HERMES_HOME is symlinked under a
+    is consulted (which otherwise wins when AGENTX_HOME is symlinked under a
     denied prefix and $HOME is not that prefix). See issue #31733.
     """
     roots: List[Path] = []
-    profiles_dir = _HERMES_ROOT / "profiles"
+    profiles_dir = _AGENTX_ROOT / "profiles"
     try:
         profile_dirs = [p for p in profiles_dir.iterdir() if p.is_dir()]
     except OSError:
@@ -1260,11 +1260,11 @@ def _profile_cache_roots() -> List[Path]:
 
 def _kanban_attachment_roots() -> List[Path]:
     """Return durable Kanban attachment roots without importing kanban_db."""
-    override = os.environ.get("HERMES_KANBAN_ATTACHMENTS_ROOT", "").strip()
+    override = os.environ.get("AGENTX_KANBAN_ATTACHMENTS_ROOT", "").strip()
     if override:
         return [Path(override).expanduser()]
-    home_override = os.environ.get("HERMES_KANBAN_HOME", "").strip()
-    root = Path(home_override).expanduser() if home_override else _HERMES_ROOT
+    home_override = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
+    root = Path(home_override).expanduser() if home_override else _AGENTX_ROOT
     roots = [root / "kanban" / "attachments"]
     boards_root = root / "kanban" / "boards"
     try:
@@ -1342,12 +1342,12 @@ def _media_delivery_denied_paths() -> List[Path]:
     # validate_media_delivery_path, so generated media still delivers).
     #
     # These are the per-file credential / secret stores that live at the
-    # HERMES_HOME root. The set mirrors the canonical read guard in
+    # AGENTX_HOME root. The set mirrors the canonical read guard in
     # agent/file_safety.py (get_read_block_error / build_write_denied_*) so the
     # delivery (read/exfil) side can't trail the write side: a credential the
     # agent is forbidden to write or read must also never be auto-attached to a
     # chat reply. Enumerated explicitly per-file rather than denying the whole
-    # tree, so skills/, logs/, and ad-hoc agent-written files under ~/.hermes
+    # tree, so skills/, logs/, and ad-hoc agent-written files under ~/.agentx
     # stay deliverable (see #32090, #34425).
     _ROOT_CREDENTIAL_FILES = (
         ".env",
@@ -1382,7 +1382,7 @@ def _media_delivery_denied_paths() -> List[Path]:
         "pairing",
         "mcp-tokens",
     )
-    for hermes_root in (_HERMES_HOME, _HERMES_ROOT):
+    for hermes_root in (_AGENTX_HOME, _AGENTX_ROOT):
         for rel in _ROOT_CREDENTIAL_FILES:
             denied.append(hermes_root / rel)
         for rel in _ROOT_CREDENTIAL_DIRS:
@@ -1399,7 +1399,7 @@ def _path_under_denied_prefix(resolved: Path) -> bool:
     on a root-run gateway ``$HOME=/root`` and the operator's own deliverables
     (``/root/work/proposal.docx``) live directly under it. The credential
     sub-directories inside home (``~/.ssh``, ``~/.aws``, ...) and Hermes
-    secrets (``~/.hermes/.env``, ``auth.json``) are *separate, more-specific*
+    secrets (``~/.agentx/.env``, ``auth.json``) are *separate, more-specific*
     denied paths, so they stay blocked regardless of this exception — it can
     only un-block a plain file sitting in the running user's home tree, never a
     credential location or another user's home.
@@ -1459,9 +1459,9 @@ def validate_media_delivery_path(path: str) -> Optional[str]:
     back any file that isn't a credential.
 
     Strict mode (opt-in via ``gateway.strict`` in ``config.yaml`` or
-    ``HERMES_MEDIA_DELIVERY_STRICT=1``): the file MUST live under a
+    ``AGENTX_MEDIA_DELIVERY_STRICT=1``): the file MUST live under a
     Hermes-managed cache, under an operator-allowlisted root
-    (``HERMES_MEDIA_ALLOW_DIRS``), or be freshly produced inside the
+    (``AGENTX_MEDIA_ALLOW_DIRS``), or be freshly produced inside the
     configured recency window. Suitable for public-facing bots where
     prompt injection from one user shouldn't be able to exfiltrate the
     host's secrets to that same user.
@@ -1506,11 +1506,11 @@ def validate_media_delivery_path(path: str) -> Optional[str]:
 
     # Non-strict mode (default): accept anything not on the denylist.
     # The denylist still blocks /etc, /proc, ~/.ssh, ~/.aws, and the
-    # credential/secret stores under the Hermes root (~/.hermes/.env,
+    # credential/secret stores under the Hermes root (~/.agentx/.env,
     # auth.json, .anthropic_oauth.json, google_token.json, pairing/, ...) —
     # so the obvious prompt-injection / credential-exfil sites
     # (``MEDIA:/etc/passwd``, ``MEDIA:~/.ssh/id_rsa``,
-    # ``MEDIA:~/.hermes/google_token.json``) remain rejected.
+    # ``MEDIA:~/.agentx/google_token.json``) remain rejected.
     if not _media_delivery_strict_mode():
         if _path_under_denied_prefix(resolved):
             return None
@@ -2683,7 +2683,7 @@ class BasePlatformAdapter(ABC):
     # the watcher/drain loops). False for stateless request/response adapters
     # (the API server): every route closes its channel when the turn ends, so
     # there is nowhere to push a later completion. The gateway propagates this
-    # into the ``HERMES_SESSION_ASYNC_DELIVERY`` contextvar at session-bind
+    # into the ``AGENTX_SESSION_ASYNC_DELIVERY`` contextvar at session-bind
     # time; tools read it via ``async_delivery_supported()`` and refuse to make
     # a delivery promise they can't keep. A new stateless adapter only needs to
     # set this to False to stay correct-by-default.
@@ -2765,7 +2765,7 @@ class BasePlatformAdapter(ABC):
         self._fatal_error_message: Optional[str] = None
         self._fatal_error_retryable = True
         self._fatal_error_handler: Optional[Callable[["BasePlatformAdapter"], Awaitable[None] | None]] = None
-        # Cross-HERMES_HOME token takeover is armed by GatewayRunner only for
+        # Cross-AGENTX_HOME token takeover is armed by GatewayRunner only for
         # an adapter's initial connect during an explicit ``gateway run
         # --replace`` startup.  Ordinary starts and every reconnect fail safe
         # through the existing retryable conflict path.
@@ -2788,14 +2788,14 @@ class BasePlatformAdapter(ABC):
         # pre-sync read matches the single-knob default rather than silently
         # queueing.
         self._busy_text_mode: str = (
-            os.environ.get("HERMES_GATEWAY_BUSY_TEXT_MODE", "interrupt").strip().lower()
+            os.environ.get("AGENTX_GATEWAY_BUSY_TEXT_MODE", "interrupt").strip().lower()
             or "interrupt"
         )
         self._busy_text_debounce_seconds: float = _float_env(
-            "HERMES_GATEWAY_BUSY_TEXT_DEBOUNCE_SECONDS", 0.35
+            "AGENTX_GATEWAY_BUSY_TEXT_DEBOUNCE_SECONDS", 0.35
         )
         self._busy_text_hard_cap_seconds: float = _float_env(
-            "HERMES_GATEWAY_BUSY_TEXT_HARD_CAP_SECONDS", 1.0
+            "AGENTX_GATEWAY_BUSY_TEXT_HARD_CAP_SECONDS", 1.0
         )
         self._text_debounce: dict[str, TextDebounceState] = {}
         # Background message-processing tasks spawned by handle_message().
@@ -3217,7 +3217,7 @@ class BasePlatformAdapter(ABC):
     def _acquire_platform_lock(self, scope: str, identity: str, resource_desc: str) -> bool:
         """Acquire a scoped lock for this adapter. Returns True on success.
 
-        A live cross-HERMES_HOME holder may be replaced only when the runner
+        A live cross-AGENTX_HOME holder may be replaced only when the runner
         explicitly arms this adapter for its initial ``--replace`` connect.
         The status module validates PID/start-time/home ownership, places the
         marker in the target's home, and performs the bounded termination.
@@ -4420,7 +4420,7 @@ class BasePlatformAdapter(ABC):
 
         Serialized tool results frequently embed a previous reply's text, e.g.::
 
-            {"result": "MEDIA:/Users/x/.hermes/media/generated/stale.png"}
+            {"result": "MEDIA:/Users/x/.agentx/media/generated/stale.png"}
 
         Here the ``MEDIA:`` is part of stored text, not an outbound directive,
         but the bare-path branch of ``MEDIA_TAG_CLEANUP_RE`` would still match it
@@ -5762,11 +5762,11 @@ class BasePlatformAdapter(ABC):
         Return a random delay in seconds for human-like response pacing.
 
         Reads from env vars:
-          HERMES_HUMAN_DELAY_MODE: "off" (default) | "natural" | "custom"
-          HERMES_HUMAN_DELAY_MIN_MS: minimum delay in ms (default 800, custom mode)
-          HERMES_HUMAN_DELAY_MAX_MS: maximum delay in ms (default 2500, custom mode)
+          AGENTX_HUMAN_DELAY_MODE: "off" (default) | "natural" | "custom"
+          AGENTX_HUMAN_DELAY_MIN_MS: minimum delay in ms (default 800, custom mode)
+          AGENTX_HUMAN_DELAY_MAX_MS: maximum delay in ms (default 2500, custom mode)
         """
-        mode = os.getenv("HERMES_HUMAN_DELAY_MODE", "off").lower()
+        mode = os.getenv("AGENTX_HUMAN_DELAY_MODE", "off").lower()
         if mode == "off":
             return 0.0
         if mode == "natural":
@@ -5774,11 +5774,11 @@ class BasePlatformAdapter(ABC):
             return random.uniform(min_ms / 1000.0, max_ms / 1000.0)
         # custom mode — tolerate malformed env vars instead of crashing.
         try:
-            min_ms = int(os.getenv("HERMES_HUMAN_DELAY_MIN_MS", "800"))
+            min_ms = int(os.getenv("AGENTX_HUMAN_DELAY_MIN_MS", "800"))
         except (TypeError, ValueError):
             min_ms = 800
         try:
-            max_ms = int(os.getenv("HERMES_HUMAN_DELAY_MAX_MS", "2500"))
+            max_ms = int(os.getenv("AGENTX_HUMAN_DELAY_MAX_MS", "2500"))
         except (TypeError, ValueError):
             max_ms = 2500
         return random.uniform(min_ms / 1000.0, max_ms / 1000.0)
@@ -5974,7 +5974,7 @@ class BasePlatformAdapter(ABC):
                             if not speech_text:
                                 raise ValueError("Empty text after markdown cleanup")
                             # Pass an explicit platform-aware output path: the
-                            # HERMES_SESSION_PLATFORM contextvar the tool would
+                            # AGENTX_SESSION_PLATFORM contextvar the tool would
                             # otherwise consult is already cleared by the time
                             # this post-handler block runs, which silently
                             # produced MP3 (audio attachment, not a native
@@ -6604,7 +6604,7 @@ class BasePlatformAdapter(ABC):
         resolves the matching profile from guild/chat/thread and stamps it on
         ``source.profile``. Downstream code (``_resolve_profile_home_for_source``
         in run.py) reads that field to enter ``_profile_runtime_scope`` for
-        per-profile HERMES_HOME isolation.
+        per-profile AGENTX_HOME isolation.
         """
         # Normalize empty topic to None
         if chat_topic is not None and not chat_topic.strip():

@@ -49,7 +49,7 @@ plane (design.md §2.8): a root-level blob in the tree at
 the manifest from local intent; pull reconciles local intent FROM it, so a skill
 opted in on one device becomes opted in on the others. The plane manifest is
 authoritative; the local flag is just the editable intent. Only agent-created +
-user-authored skills under ``~/.hermes/skills/`` are eligible; bundled and
+user-authored skills under ``~/.agentx/skills/`` are eligible; bundled and
 hub-installed skills are excluded.
 """
 
@@ -297,7 +297,7 @@ def dev_gate_open() -> bool:
 #
 # The sync routes are mounted under /v1/sync/. The base URL defaults to the
 # production plane, so a normal user configures nothing; config.yaml
-# sync.base_url (or the HERMES_SYNC_BASE_URL bridge env) overrides it to point
+# sync.base_url (or the AGENTX_SYNC_BASE_URL bridge env) overrides it to point
 # a dev/staging build at another plane. It is NOT the inference base_url.
 # ---------------------------------------------------------------------------
 
@@ -307,7 +307,7 @@ DEFAULT_SYNC_BASE_URL = "https://gateway-gateway.nousresearch.com"
 def resolve_sync_base_url() -> Optional[str]:
     """Resolve the sync-plane base URL.
 
-    Order: HERMES_SYNC_BASE_URL env bridge -> config.yaml ``sync.base_url`` ->
+    Order: AGENTX_SYNC_BASE_URL env bridge -> config.yaml ``sync.base_url`` ->
     the production plane. Returns a base without a trailing slash (e.g.
     ``https://host``); the ``/v1/sync/`` prefix is appended by the client.
 
@@ -315,7 +315,7 @@ def resolve_sync_base_url() -> Optional[str]:
     env var and config key exist to point a dev/staging build at another
     plane. Returns None only if the default is somehow blanked out.
     """
-    env = os.getenv("HERMES_SYNC_BASE_URL")
+    env = os.getenv("AGENTX_SYNC_BASE_URL")
     if env and env.strip():
         return env.strip().rstrip("/")
     try:
@@ -338,12 +338,12 @@ def resolve_sync_base_url() -> Optional[str]:
 # Sync feature configuration — env-first, so a Hermes Cloud instance can be set
 # up to use sync BY DEFAULT purely through environment variables (no per-user
 # config.yaml edit, no per-skill CLI call). Every knob follows the same
-# precedence as base_url: the HERMES_SYNC_* env var wins, else config.yaml
+# precedence as base_url: the AGENTX_SYNC_* env var wins, else config.yaml
 # ``sync.*``, else a built-in default.
 #
-#   HERMES_SYNC_BASE_URL        -> sync.base_url        (the sync plane URL)
-#   HERMES_SYNC_ENABLED         -> sync.enabled         (master on/off; default off)
-#   HERMES_SYNC_DEFAULT_OPT_IN  -> sync.default_opt_in  (personal sync policy; default false
+#   AGENTX_SYNC_BASE_URL        -> sync.base_url        (the sync plane URL)
+#   AGENTX_SYNC_ENABLED         -> sync.enabled         (master on/off; default off)
+#   AGENTX_SYNC_DEFAULT_OPT_IN  -> sync.default_opt_in  (personal sync policy; default false
 #                                                        = opt-in. Set true to make
 #                                                        every eligible skill sync
 #                                                        without per-skill enable —
@@ -391,19 +391,19 @@ def _sync_config_bool(env_var: str, config_key: str, *, default: bool) -> bool:
 def sync_feature_enabled() -> bool:
     """Whether the sync feature is turned on for this instance (env-first).
 
-    ``HERMES_SYNC_ENABLED`` -> ``sync.enabled`` -> False. This is the master
+    ``AGENTX_SYNC_ENABLED`` -> ``sync.enabled`` -> False. This is the master
     switch a Hermes Cloud deployment sets to opt its instances into sync by
     default. It is checked by the gate-and-swallow entrypoints IN ADDITION to
     the Nous-admin token gate and a configured base URL — all three must hold for
     background sync to run.
     """
-    return _sync_config_bool("HERMES_SYNC_ENABLED", "enabled", default=False)
+    return _sync_config_bool("AGENTX_SYNC_ENABLED", "enabled", default=False)
 
 
 def sync_org_auto_propose() -> bool:
     """Whether an agent/user edit to an org skill is proposed automatically.
 
-    ``HERMES_SYNC_ORG_AUTO_PROPOSE`` -> ``sync.org_auto_propose`` -> False.
+    ``AGENTX_SYNC_ORG_AUTO_PROPOSE`` -> ``sync.org_auto_propose`` -> False.
 
     False (default): edits to an org-shared skill stay LOCAL until the user
     runs ``hermes sync propose <skill>``. The skill keeps working with the
@@ -415,14 +415,14 @@ def sync_org_auto_propose() -> bool:
     back without anyone remembering to push them.
     """
     return _sync_config_bool(
-        "HERMES_SYNC_ORG_AUTO_PROPOSE", "org_auto_propose", default=False
+        "AGENTX_SYNC_ORG_AUTO_PROPOSE", "org_auto_propose", default=False
     )
 
 
 def sync_default_opt_in() -> bool:
     """The personal sync default opt-in policy (env-first).
 
-    ``HERMES_SYNC_DEFAULT_OPT_IN`` -> ``sync.default_opt_in`` -> False.
+    ``AGENTX_SYNC_DEFAULT_OPT_IN`` -> ``sync.default_opt_in`` -> False.
 
     False (default): opt-IN — a skill syncs only after an explicit
     ``hermes sync enable`` (or a plane manifest that opted it in). True: opt-OUT
@@ -432,13 +432,13 @@ def sync_default_opt_in() -> bool:
     provisional and expected to flip; exposing it as env config lets the
     operator choose per deployment without a protocol change.
     """
-    return _sync_config_bool("HERMES_SYNC_DEFAULT_OPT_IN", "default_opt_in", default=False)
+    return _sync_config_bool("AGENTX_SYNC_DEFAULT_OPT_IN", "default_opt_in", default=False)
 
 
 # ---------------------------------------------------------------------------
 # Local skill eligibility + the personal sync opt-in "sync" flag
 #
-# Only agent-created + user-authored skills under ~/.hermes/skills/ sync.
+# Only agent-created + user-authored skills under ~/.agentx/skills/ sync.
 # Bundled (.bundled_manifest) and hub-installed skills are excluded. Sync is
 # opt-in: a skill only syncs when its usage-sidecar carries ``sync: true``.
 # ---------------------------------------------------------------------------
@@ -452,7 +452,7 @@ def _skills_dir() -> Path:
 def is_sync_eligible(skill_name: str) -> bool:
     """Whether *skill_name* is a candidate for sync (before the opt-in check).
 
-    Eligible = present locally under ~/.hermes/skills/, NOT bundled, NOT
+    Eligible = present locally under ~/.agentx/skills/, NOT bundled, NOT
     hub-installed, NOT an external-dir skill, and NOT under the org mirror
     (``_org/`` — enterprise-managed content pulls from the org HEAD and must
     never ride a personal push; the sync contract / the design notes). Mirrors the
@@ -488,7 +488,7 @@ def list_synced_skill_names() -> List[str]:
       ``sync: true`` AND it is eligible. Nothing syncs by default.
     - **opt-out (Hermes Cloud "on by default"):** every *eligible* skill syncs
       UNLESS its usage record explicitly carries ``sync: false``. This is what a
-      deployment sets (via ``HERMES_SYNC_DEFAULT_OPT_IN``) so a user's skills
+      deployment sets (via ``AGENTX_SYNC_DEFAULT_OPT_IN``) so a user's skills
       follow them with no per-skill setup.
 
     Sorted, deduped.
@@ -520,7 +520,7 @@ def list_synced_skill_names() -> List[str]:
 
 def _all_local_skill_names() -> List[str]:
     """Best-effort enumeration of every locally-present skill name (used by the
-    opt-out policy). A skill is any directory under ~/.hermes/skills/ containing
+    opt-out policy). A skill is any directory under ~/.agentx/skills/ containing
     a ``SKILL.md``; the name is its frontmatter ``name`` (falling back to the
     directory name). Eligibility (bundled/hub/external exclusion) is applied by
     the caller via ``is_sync_eligible``.
@@ -675,7 +675,7 @@ def _default_device_label() -> str:
 def stable_device_id() -> str:
     """Return a stable per-device label for commit ``author.device`` (contract
      -- advisory, never an auth input). Persisted under
-    ~/.hermes/skills/.sync_device_id.
+    ~/.agentx/skills/.sync_device_id.
 
     New devices are seeded with a HUMAN-FRIENDLY default (short hostname + a
     short random suffix, e.g. ``bens-macbook-a1b2c3``) so the sync console shows
@@ -693,14 +693,14 @@ def stable_device_id() -> str:
         pass
 
     # Hermes Cloud (and any templated deployment) can seed the label
-    # declaratively via HERMES_SYNC_DEVICE_NAME, so a hosted instance shows a
+    # declaratively via AGENTX_SYNC_DEVICE_NAME, so a hosted instance shows a
     # recognizable name with no CLI call. Env seeds the FIRST-USE value only; it
     # is then persisted, so a later `hermes sync device --name` (or editing the
     # file) still wins on that device. An explicit file (above) always wins over
     # the env.
     import os
 
-    env_name = (os.environ.get("HERMES_SYNC_DEVICE_NAME") or "").strip()
+    env_name = (os.environ.get("AGENTX_SYNC_DEVICE_NAME") or "").strip()
     val = env_name if env_name else _default_device_label()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -713,7 +713,7 @@ def stable_device_id() -> str:
 def set_device_name(name: str) -> str:
     """Set the human-friendly device label used for commit ``author.device``.
 
-    Writes the (trimmed) name to ~/.hermes/skills/.sync_device_id, overwriting
+    Writes the (trimmed) name to ~/.agentx/skills/.sync_device_id, overwriting
     any previous value. The label is advisory metadata only — never an auth
     input (contract §2.4) — so any non-empty string is accepted. Returns the
     stored value. Raises ValueError on an empty name.
@@ -936,7 +936,7 @@ class SyncClient:
 # (skills_sync.py, truncated local content_hash namespace) AND from the
 # `sync-manifest` OBJECT in the sync plane (the per-skill opt-in content). This
 # is purely local reconciliation bookkeeping. Lives at
-# ~/.hermes/skills/.sync_state as JSON.
+# ~/.agentx/skills/.sync_state as JSON.
 #
 # NOTE: renamed from `.sync_manifest` -> `.sync_state` to remove the collision
 # with the  plane `sync-manifest`. `read_sync_state` migrates an existing
@@ -1053,13 +1053,13 @@ def materialize_tree(
 # Profile snapshot -- build the objects + per-skill tree map for a push
 #
 # The profile root is a tree whose entries mirror each synced skill's relative
-# path under ~/.hermes/skills/ (the sync contract: "the profile root is a tree
+# path under ~/.agentx/skills/ (the sync contract: "the profile root is a tree
 # whose entries are category trees"). Only opted-in, eligible skills are
 # included (personal sync opt-in + eligibility).
 # ---------------------------------------------------------------------------
 
 def _skill_rel_path(skill_name: str) -> Optional[PurePosixPath]:
-    """Return the skill's path relative to ~/.hermes/skills/ (posix), or None."""
+    """Return the skill's path relative to ~/.agentx/skills/ (posix), or None."""
     try:
         from tools.skill_usage import _find_skill_dir
     except Exception:
@@ -1515,7 +1515,7 @@ def pull_skills(
 
     Fetches ``refs/user/<owner>/HEAD``; if it advanced past our recorded head,
     walks the profile-root tree and writes each skill tree into
-    ~/.hermes/skills/. Only paths the user has opted into (``sync: true``) are
+    ~/.agentx/skills/. Only paths the user has opted into (``sync: true``) are
     materialized, so a pull never resurrects a skill the user hasn't chosen.
     Best-effort; returns a result dict.
     """
@@ -1618,7 +1618,7 @@ def maybe_push_skills(*, message: str = "hermes skill sync") -> Optional[Dict[st
         if not identity.get("nous_admin"):
             return None  # access gate: inert unless the user is a Nous admin
         if not sync_feature_enabled():
-            return None  # feature off for this instance (HERMES_SYNC_ENABLED)
+            return None  # feature off for this instance (AGENTX_SYNC_ENABLED)
         if not resolve_sync_base_url():
             return None
         if not list_synced_skill_names():
@@ -1638,7 +1638,7 @@ def maybe_pull_skills() -> Optional[Dict[str, Any]]:
         if not identity.get("nous_admin"):
             return None  # access gate: inert unless the user is a Nous admin
         if not sync_feature_enabled():
-            return None  # feature off for this instance (HERMES_SYNC_ENABLED)
+            return None  # feature off for this instance (AGENTX_SYNC_ENABLED)
         if not resolve_sync_base_url():
             return None
         return pull_skills(identity=identity)
@@ -1722,7 +1722,7 @@ def list_org_skill_names() -> List[str]:
 # ---------------------------------------------------------------------------
 # Org-shared skills (sync contract) — org pull + propose.
 #
-# Org skills live under a DISTINCT local namespace, ~/.hermes/skills/_org/
+# Org skills live under a DISTINCT local namespace, ~/.agentx/skills/_org/
 # (the design notes: enterprise-managed skills are read-only to the runtime; a
 # local edit is a personal fork of record until proposed). The org canonical
 # set is `refs/org/<org_id>/HEAD` — the SAME object model as personal sync.
@@ -1807,7 +1807,7 @@ def pull_org_skills(
     *,
     identity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Pull the org canonical set into ``~/.hermes/skills/_org/<org_id>/``.
+    """Pull the org canonical set into ``~/.agentx/skills/_org/<org_id>/``.
 
     Fast-forward only (design.md §2.6: no client merge on the org path): the
     mirror is replaced with the org HEAD's content. Local edits under _org/

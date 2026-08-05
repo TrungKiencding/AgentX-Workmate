@@ -42,7 +42,7 @@ tools/environments/docker.py
   DockerEnvironment.__init__          Docker-side merge logic: collision
                                        detection against critical egress vars,
                                        NODE_OPTIONS append-merge via the
-                                       _HERMES_EGRESS_NODE_OPTIONS_APPEND
+                                       _AGENTX_EGRESS_NODE_OPTIONS_APPEND
                                        sentinel, enforce_on_docker precedence.
 
 tests/test_iron_proxy.py              Hermetic tests (~70).  Binary install
@@ -56,7 +56,7 @@ tests/test_iron_proxy_cli.py          CLI handler unit tests (~20).  Argparse
                                        wire-up, dest='egress_command'
                                        regression guard.
 
-tests/test_iron_proxy_e2e.py          Live E2E (gated on HERMES_RUN_E2E=1).
+tests/test_iron_proxy_e2e.py          Live E2E (gated on AGENTX_RUN_E2E=1).
                                        Real iron-proxy binary, real curl,
                                        end-to-end token swap verified.
 ```
@@ -71,8 +71,8 @@ hermes egress install
        tarfile.extract(..., filter="data") on Python 3.12+ (PEP 706);
          falls back to plain extract on older Python with member-name
          sanitisation via _pick_tar_member.
-       Stage into ~/.hermes/bin/.iron-proxy_XXXX, chmod 755, os.replace
-         to ~/.hermes/bin/iron-proxy (atomic).
+       Stage into ~/.agentx/bin/.iron-proxy_XXXX, chmod 755, os.replace
+         to ~/.agentx/bin/iron-proxy (atomic).
        _VERSION_CACHE.pop(target) so a forced reinstall re-probes
          --version on next call.
 
@@ -148,7 +148,7 @@ These are the load-bearing properties.  If you touch the module, you must preser
 
 | Path | Mode | Test |
 |---|---|---|
-| `~/.hermes/proxy/` (dir) | `0o700` | `test_proxy_state_dir_is_0o700` |
+| `~/.agentx/proxy/` (dir) | `0o700` | `test_proxy_state_dir_is_0o700` |
 | `ca.key` | `0o600` | `test_ca_key_created_with_0o600` |
 | `ca.crt` | `0o644` | (implicit; chmod call in `ensure_ca_cert`) |
 | `proxy.yaml` | `0o600` | (chmod after atomic rename in `write_proxy_config`) |
@@ -283,7 +283,7 @@ _NON_BEARER_PROVIDERS: Tuple[str, ...] = (
 1. Reads `load_config().get("proxy", {})`; returns empty args if `enabled` is false.
 2. Calls `iron_proxy.get_status()`; surfaces `enforce` semantics on `configured` / `pid` / `listening` / `ca_cert_path` failure paths.
 3. Calls `iron_proxy.load_mappings()`; refuses to mount if empty AND `enforce_on_docker: true`.
-4. Sets the seven env vars (HTTPS_PROXY, NO_PROXY, REQUESTS_CA_BUNDLE, SSL_CERT_FILE, CURL_CA_BUNDLE, NODE_EXTRA_CA_CERTS, HERMES_EGRESS_PROXY) and the per-mapping `HERMES_PROXY_TOKEN_<NAME>` vars.
+4. Sets the seven env vars (HTTPS_PROXY, NO_PROXY, REQUESTS_CA_BUNDLE, SSL_CERT_FILE, CURL_CA_BUNDLE, NODE_EXTRA_CA_CERTS, AGENTX_EGRESS_PROXY) and the per-mapping `AGENTX_PROXY_TOKEN_<NAME>` vars.
 5. Distributes the CA cert into the sandbox at a path the runtime will trust (typically `/etc/ssl/certs/hermes-egress-ca.crt`).
 6. Implements collision detection against the user's backend-specific env config.
 
@@ -291,7 +291,7 @@ The Docker implementation is ~150 lines; expect similar volume for Modal / Dayto
 
 ### Subscribing to per-request audit events
 
-iron-proxy writes line-delimited JSON to `~/.hermes/proxy/iron-proxy.log` on the currently pinned v0.39 (daemon + per-request records combined; see "Logging on iron-proxy v0.39" in the user guide).  A plugin / external watcher can tail that file and react to allowlist denials, secret swaps, or upstream errors.  When the pinned version is bumped to one that supports `log.audit_path`, the per-request stream moves to `audit.log` and watchers wired to that path go live without operator action.  The schema is documented at [docs.iron.sh/audit](https://docs.iron.sh/audit) (link).
+iron-proxy writes line-delimited JSON to `~/.agentx/proxy/iron-proxy.log` on the currently pinned v0.39 (daemon + per-request records combined; see "Logging on iron-proxy v0.39" in the user guide).  A plugin / external watcher can tail that file and react to allowlist denials, secret swaps, or upstream errors.  When the pinned version is bumped to one that supports `log.audit_path`, the per-request stream moves to `audit.log` and watchers wired to that path go live without operator action.  The schema is documented at [docs.iron.sh/audit](https://docs.iron.sh/audit) (link).
 
 ## Testing
 
@@ -300,11 +300,11 @@ iron-proxy writes line-delimited JSON to `~/.hermes/proxy/iron-proxy.log` on the
 scripts/run_tests.sh tests/test_iron_proxy.py tests/test_iron_proxy_cli.py
 
 # Live E2E (real binary, real curl, real CONNECT tunnel)
-HERMES_RUN_E2E=1 scripts/run_tests.sh tests/test_iron_proxy_e2e.py
+AGENTX_RUN_E2E=1 scripts/run_tests.sh tests/test_iron_proxy_e2e.py
 
 # Live PTY smoke against `hermes egress`
-HERMES_HOME=/tmp/hermes-egress-test python3 -m hermes_cli.main egress --help
-HERMES_HOME=/tmp/hermes-egress-test python3 -m hermes_cli.main egress setup --help
+AGENTX_HOME=/tmp/hermes-egress-test python3 -m hermes_cli.main egress --help
+AGENTX_HOME=/tmp/hermes-egress-test python3 -m hermes_cli.main egress setup --help
 ```
 
 The CLI uses argparse, so `--help` is a good first probe for "did my new flag register correctly".

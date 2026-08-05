@@ -55,7 +55,7 @@ hermes gateway setup
 
 ### 手动配置
 
-在 `~/.hermes/.env` 中添加：
+在 `~/.agentx/.env` 中添加：
 
 ```bash
 # 必填
@@ -169,7 +169,7 @@ platforms:
 
 - 使用**应用专用密码**代替主密码（Gmail 开启双重验证后必须如此）
 - 设置 `EMAIL_ALLOWED_USERS` 以限制可与 Agent 交互的用户
-- 密码存储在 `~/.hermes/.env` 中——请保护此文件（`chmod 600`）
+- 密码存储在 `~/.agentx/.env` 中——请保护此文件（`chmod 600`）
 - IMAP 默认使用 SSL（端口 993），SMTP 默认使用 STARTTLS（端口 587）——连接已加密
 
 ---

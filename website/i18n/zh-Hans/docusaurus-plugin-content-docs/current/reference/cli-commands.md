@@ -27,9 +27,9 @@ hermes [global-options] <command> [subcommand/options]
 | `--worktree`, `-w` | 在隔离的 git worktree 中启动，用于并行 agent 工作流。 |
 | `--yolo` | 跳过危险命令的审批提示。 |
 | `--pass-session-id` | 在 agent 的 system prompt（系统提示词）中包含会话 ID。 |
-| `--ignore-user-config` | 忽略 `~/.hermes/config.yaml`，回退到内置默认值。`.env` 中的凭据仍会加载。 |
+| `--ignore-user-config` | 忽略 `~/.agentx/config.yaml`，回退到内置默认值。`.env` 中的凭据仍会加载。 |
 | `--ignore-rules` | 跳过 `AGENTS.md`、`SOUL.md`、`.cursorrules`、memory（记忆）和预加载 skill 的自动注入。 |
-| `--tui` | 启动 [TUI](../user-guide/tui.md) 而非经典 CLI。等同于 `HERMES_TUI=1`。 |
+| `--tui` | 启动 [TUI](../user-guide/tui.md) 而非经典 CLI。等同于 `AGENTX_TUI=1`。 |
 | `--dev` | 与 `--tui` 配合使用：通过 `tsx` 直接运行 TypeScript 源码而非预构建包（供 TUI 贡献者使用）。 |
 
 ## 顶级命令
@@ -57,7 +57,7 @@ hermes [global-options] <command> [subcommand/options]
 | `hermes dump` | 可直接复制粘贴的设置摘要，用于支持/调试。 |
 | `hermes debug` | 调试工具——上传日志和系统信息以获取支持。 |
 | `hermes backup` | 将 Hermes 主目录备份为 zip 文件。 |
-| `hermes checkpoints` | 检查/修剪/清除 `~/.hermes/checkpoints/`（`/rollback` 使用的影子存储）。不带参数运行可查看状态概览。 |
+| `hermes checkpoints` | 检查/修剪/清除 `~/.agentx/checkpoints/`（`/rollback` 使用的影子存储）。不带参数运行可查看状态概览。 |
 | `hermes import` | 从 zip 文件恢复 Hermes 备份。 |
 | `hermes logs` | 查看、跟踪和过滤 agent/gateway/错误日志文件。 |
 | `hermes config` | 显示、编辑、迁移和查询配置文件。 |
@@ -79,7 +79,7 @@ hermes [global-options] <command> [subcommand/options]
 | `hermes profile` | 管理 profile——多个隔离的 Hermes 实例。 |
 | `hermes completion` | 打印 shell 补全脚本（bash/zsh/fish）。 |
 | `hermes version` | 显示版本信息。 |
-| `hermes update` | 拉取最新代码并重新安装依赖。`--check` 预览而不安装；`--backup` 在拉取前对 `HERMES_HOME` 进行快照。 |
+| `hermes update` | 拉取最新代码并重新安装依赖。`--check` 预览而不安装；`--backup` 在拉取前对 `AGENTX_HOME` 进行快照。 |
 | `hermes uninstall` | 从系统中删除 Hermes。 |
 
 ## `hermes chat`
@@ -105,7 +105,7 @@ hermes chat [options]
 | `--checkpoints` | 在破坏性文件变更前启用文件系统 checkpoint。 |
 | `--yolo` | 跳过审批提示。 |
 | `--pass-session-id` | 将会话 ID 传入 system prompt。 |
-| `--ignore-user-config` | 忽略 `~/.hermes/config.yaml`，使用内置默认值。`.env` 中的凭据仍会加载。适用于隔离的 CI 运行、可复现的 bug 报告和第三方集成。 |
+| `--ignore-user-config` | 忽略 `~/.agentx/config.yaml`，使用内置默认值。`.env` 中的凭据仍会加载。适用于隔离的 CI 运行、可复现的 bug 报告和第三方集成。 |
 | `--ignore-rules` | 跳过 `AGENTS.md`、`SOUL.md`、`.cursorrules`、持久 memory 和预加载 skill 的自动注入。与 `--ignore-user-config` 组合可实现完全隔离的运行。 |
 | `--source <tag>` | 用于过滤的会话来源标签（默认：`cli`）。对于不应出现在用户会话列表中的第三方集成，使用 `tool`。 |
 | `--max-turns <N>` | 每个对话轮次的最大工具调用迭代次数（默认：500，或 config 中的 `agent.max_turns`）。 |
@@ -134,17 +134,17 @@ hermes -z "What's the capital of France?"
 answer=$(hermes -z "summarize this" < /path/to/file.txt)
 ```
 
-单次运行覆盖（不修改 `~/.hermes/config.yaml`）：
+单次运行覆盖（不修改 `~/.agentx/config.yaml`）：
 
 | 标志 | 等效环境变量 | 用途 |
 |---|---|---|
-| `-m` / `--model <model>` | `HERMES_INFERENCE_MODEL` | 覆盖本次运行的模型 |
+| `-m` / `--model <model>` | `AGENTX_INFERENCE_MODEL` | 覆盖本次运行的模型 |
 | `--provider <provider>` | _(无)_ | 覆盖本次运行的 provider |
 
 ```bash
 hermes -z "…" --provider openrouter --model openai/gpt-5.5
 # 或：
-HERMES_INFERENCE_MODEL=anthropic/claude-sonnet-4.6 hermes -z "…"
+AGENTX_INFERENCE_MODEL=anthropic/claude-sonnet-4.6 hermes -z "…"
 ```
 
 相同的 agent、相同的工具、相同的 skill——只是剥离了所有交互式/装饰性层。如果你还需要在记录中包含工具输出，请改用 `hermes chat -q`；`-z` 专门用于"我只需要最终答案"的场景。
@@ -223,8 +223,8 @@ hermes gateway <subcommand>
 
 | 选项 | 说明 |
 |--------|-------------|
-| `--all` | 在 `start` / `restart` / `stop` 时：对**每个 profile** 的 gateway 执行操作，而不仅限于活跃的 `HERMES_HOME`。当你并行运行多个 profile 并希望在 `hermes update` 后全部重启时很有用。 |
-| `--no-supervise` | 在 `run` 时：在 s6-overlay Docker 镜像内部，跳过 s6 自动监管，退回到 pre-s6 前台语义——gateway 作为容器主进程运行，无自动重启。在 s6 镜像之外为空操作。等同于设置 `HERMES_GATEWAY_NO_SUPERVISE=1`。 |
+| `--all` | 在 `start` / `restart` / `stop` 时：对**每个 profile** 的 gateway 执行操作，而不仅限于活跃的 `AGENTX_HOME`。当你并行运行多个 profile 并希望在 `hermes update` 后全部重启时很有用。 |
+| `--no-supervise` | 在 `run` 时：在 s6-overlay Docker 镜像内部，跳过 s6 自动监管，退回到 pre-s6 前台语义——gateway 作为容器主进程运行，无自动重启。在 s6 镜像之外为空操作。等同于设置 `AGENTX_GATEWAY_NO_SUPERVISE=1`。 |
 
 :::tip WSL 用户
 使用 `hermes gateway run` 而非 `hermes gateway start`——WSL 的 systemd 支持不稳定。用 tmux 包裹以保持持久运行：`tmux new -s hermes 'hermes gateway run'`。详见 [WSL FAQ](/reference/faq#wsl-gateway-keeps-disconnecting-or-hermes-gateway-start-fails)。
@@ -309,7 +309,7 @@ hermes whatsapp
 
 ```bash
 hermes slack manifest              # 将 manifest 打印到 stdout
-hermes slack manifest --write      # 写入 ~/.hermes/slack-manifest.json
+hermes slack manifest --write      # 写入 ~/.agentx/slack-manifest.json
 hermes slack manifest --slashes-only  # 仅输出 features.slash_commands 数组
 ```
 
@@ -317,7 +317,7 @@ hermes slack manifest --slashes-only  # 仅输出 features.slash_commands 数组
 
 | 标志 | 默认值 | 用途 |
 |------|---------|---------|
-| `--write [PATH]` | stdout | 写入文件而非 stdout。裸 `--write` 写入 `$HERMES_HOME/slack-manifest.json`。 |
+| `--write [PATH]` | stdout | 写入文件而非 stdout。裸 `--write` 写入 `$AGENTX_HOME/slack-manifest.json`。 |
 | `--name NAME` | `Hermes` | Slack 中的机器人显示名称。 |
 | `--description DESC` | 默认简介 | Slack app 目录中显示的机器人描述。 |
 | `--slashes-only` | 关闭 | 仅输出 `features.slash_commands`，用于合并到手动维护的 manifest 中。 |
@@ -385,22 +385,22 @@ hermes cron <list|create|edit|pause|resume|run|remove|status|tick>
 hermes kanban [--board <slug>] <action> [options]
 ```
 
-多 profile、多项目协作看板。每个安装可托管多个看板（每个项目、仓库或领域一个）；每个看板是独立的队列，拥有自己的 SQLite 数据库和调度器作用域。新安装从名为 `default` 的单个看板开始，其数据库为 `~/.hermes/kanban.db`（向后兼容）；其他看板位于 `~/.hermes/kanban/boards/<slug>/kanban.db`。嵌入在 gateway 中的调度器每次 tick 扫描所有看板。
+多 profile、多项目协作看板。每个安装可托管多个看板（每个项目、仓库或领域一个）；每个看板是独立的队列，拥有自己的 SQLite 数据库和调度器作用域。新安装从名为 `default` 的单个看板开始，其数据库为 `~/.agentx/kanban.db`（向后兼容）；其他看板位于 `~/.agentx/kanban/boards/<slug>/kanban.db`。嵌入在 gateway 中的调度器每次 tick 扫描所有看板。
 
 **全局标志（适用于以下所有操作）：**
 
 | 标志 | 用途 |
 |------|---------|
-| `--board <slug>` | 操作特定看板。默认为当前看板（通过 `hermes kanban boards switch`、`HERMES_KANBAN_BOARD` 环境变量或 `default` 设置）。 |
+| `--board <slug>` | 操作特定看板。默认为当前看板（通过 `hermes kanban boards switch`、`AGENTX_KANBAN_BOARD` 环境变量或 `default` 设置）。 |
 
-**这是人工/脚本操作界面。** 调度器生成的 agent worker 通过专用的 `kanban_*` [toolset](/user-guide/features/kanban#how-workers-interact-with-the-board)（`kanban_show`、`kanban_complete`、`kanban_block`、`kanban_create`、`kanban_link`、`kanban_comment`、`kanban_heartbeat`；编排器 profile 还可使用 `kanban_list` 和 `kanban_unblock`）驱动看板，而非调用 `hermes kanban`。Worker 的环境中固定了 `HERMES_KANBAN_BOARD`，因此物理上无法看到其他看板。
+**这是人工/脚本操作界面。** 调度器生成的 agent worker 通过专用的 `kanban_*` [toolset](/user-guide/features/kanban#how-workers-interact-with-the-board)（`kanban_show`、`kanban_complete`、`kanban_block`、`kanban_create`、`kanban_link`、`kanban_comment`、`kanban_heartbeat`；编排器 profile 还可使用 `kanban_list` 和 `kanban_unblock`）驱动看板，而非调用 `hermes kanban`。Worker 的环境中固定了 `AGENTX_KANBAN_BOARD`，因此物理上无法看到其他看板。
 
 | 操作 | 用途 |
 |--------|---------|
 | `init` | 如果缺少则创建 `kanban.db`。幂等操作。 |
 | `boards list` / `boards ls` | 列出所有看板及任务数量。支持 `--json`、`--all`（包含已归档）。 |
 | `boards create <slug>` | 创建新看板。标志：`--name`、`--description`、`--icon`、`--color`、`--switch`（设为活跃）。Slug 为 kebab-case，自动转小写。 |
-| `boards switch <slug>` / `boards use` | 将 `<slug>` 持久化为活跃看板（写入 `~/.hermes/kanban/current`）。 |
+| `boards switch <slug>` / `boards use` | 将 `<slug>` 持久化为活跃看板（写入 `~/.agentx/kanban/current`）。 |
 | `boards show` / `boards current` | 打印当前活跃看板的名称、数据库路径和任务数量。 |
 | `boards rename <slug> "<name>"` | 更改看板的显示名称。Slug 不可变。 |
 | `boards rm <slug>` | 归档（默认）或硬删除看板。`--delete` 跳过归档步骤。已归档看板移至 `boards/_archived/<slug>-<ts>/`。`default` 看板拒绝此操作。 |
@@ -440,7 +440,7 @@ hermes kanban boards rm atm10-server
 hermes kanban boards rm atm10-server --delete
 ```
 
-看板解析顺序（优先级从高到低）：`--board <slug>` 标志 → `HERMES_KANBAN_BOARD` 环境变量 → `~/.hermes/kanban/current` 文件 → `default`。
+看板解析顺序（优先级从高到低）：`--board <slug>` 标志 → `AGENTX_KANBAN_BOARD` 环境变量 → `~/.agentx/kanban/current` 文件 → `default`。
 
 所有操作也可作为 gateway 中的斜杠命令使用（`/kanban …`），参数界面相同——包括 `boards` 子命令和 `--board` 标志。
 
@@ -477,9 +477,9 @@ hermes webhook subscribe <name> [options]
 | `--deliver-chat-id` | 跨平台投递的目标聊天/频道 ID。 |
 | `--secret` | 自定义 HMAC 密钥。省略时自动生成。 |
 | `--deliver-only` | 跳过 agent——将渲染后的 `--prompt` 作为字面消息投递。零 LLM 成本，亚秒级投递。要求 `--deliver` 为真实目标（非 `log`）。 |
-| `--script` | 位于 `~/.hermes/scripts/` 下的过滤/转换脚本。webhook payload 以 JSON 形式通过 stdin 传入；JSON stdout 会替换 payload，空 stdout、`[SILENT]` 或非零退出码会忽略该 webhook。参见[脚本过滤与转换](../user-guide/messaging/webhooks.md#script-filters-and-transforms)。 |
+| `--script` | 位于 `~/.agentx/scripts/` 下的过滤/转换脚本。webhook payload 以 JSON 形式通过 stdin 传入；JSON stdout 会替换 payload，空 stdout、`[SILENT]` 或非零退出码会忽略该 webhook。参见[脚本过滤与转换](../user-guide/messaging/webhooks.md#script-filters-and-transforms)。 |
 
-订阅持久化到 `~/.hermes/webhook_subscriptions.json`，webhook 适配器无需重启 gateway 即可热重载。
+订阅持久化到 `~/.agentx/webhook_subscriptions.json`，webhook 适配器无需重启 gateway 即可热重载。
 
 ## `hermes doctor`
 
@@ -509,7 +509,7 @@ hermes dump [--show-keys]
 |---------|---------|
 | **Header** | Hermes 版本、发布日期、git commit hash |
 | **Environment** | 操作系统、Python 版本、OpenAI SDK 版本 |
-| **Identity** | 活跃 profile 名称、HERMES_HOME 路径 |
+| **Identity** | 活跃 profile 名称、AGENTX_HOME 路径 |
 | **Model** | 已配置的默认模型和 provider |
 | **Terminal** | 后端类型（local、docker、ssh 等） |
 | **API keys** | 所有 22 个 provider/工具 API 密钥的存在性检查 |
@@ -527,7 +527,7 @@ os:               Linux 6.14.0-37-generic x86_64
 python:           3.11.14
 openai_sdk:       2.24.0
 profile:          default
-hermes_home:      ~/.hermes
+hermes_home:      ~/.agentx
 model:            anthropic/claude-opus-4.6
 provider:         openrouter
 terminal:         local
@@ -631,7 +631,7 @@ hermes backup --quick --label "pre-upgrade"  # 带标签的快速快照
 hermes checkpoints [COMMAND]
 ```
 
-检查和管理 `~/.hermes/checkpoints/` 处的影子 git 存储——会话内 `/rollback` 命令的存储层。可随时安全运行；不需要 agent 正在运行。
+检查和管理 `~/.agentx/checkpoints/` 处的影子 git 存储——会话内 `/rollback` 命令的存储层。可随时安全运行；不需要 agent 正在运行。
 
 | 子命令 | 说明 |
 |------------|-------------|
@@ -691,7 +691,7 @@ hermes import ~/hermes-backup-20260423.zip --force   # 不提示直接覆盖
 hermes logs [log_name] [options]
 ```
 
-查看、跟踪和过滤 Hermes 日志文件。所有日志存储在 `~/.hermes/logs/`（非默认 profile 存储在 `<profile>/logs/`）。
+查看、跟踪和过滤 Hermes 日志文件。所有日志存储在 `~/.agentx/logs/`（非默认 profile 存储在 `<profile>/logs/`）。
 
 ### 日志文件
 
@@ -843,7 +843,7 @@ hermes skills reset google-workspace --restore --yes
 hermes bundles <subcommand>
 ```
 
-Skill bundle 将多个 skill 归组到一个 `/<bundle-name>` 斜杠命令下。调用 bundle 会将每个引用的 skill 加载到单个合并的用户消息中。存储位置：`~/.hermes/skill-bundles/<slug>.yaml`。YAML schema 和行为请参阅 [Skill Bundles](../user-guide/features/skills.md#skill-bundles)。
+Skill bundle 将多个 skill 归组到一个 `/<bundle-name>` 斜杠命令下。调用 bundle 会将每个引用的 skill 加载到单个合并的用户消息中。存储位置：`~/.agentx/skill-bundles/<slug>.yaml`。YAML schema 和行为请参阅 [Skill Bundles](../user-guide/features/skills.md#skill-bundles)。
 
 子命令：
 
@@ -853,7 +853,7 @@ Skill bundle 将多个 skill 归组到一个 `/<bundle-name>` 斜杠命令下。
 | `show <name>` | 显示某个 bundle 的名称、描述、skill 和文件路径 |
 | `create <name>` | 创建新 bundle。传入 `--skill <id>`（可重复）或省略以进行交互式输入。支持 `--description`、`--instruction`、`--force`。 |
 | `delete <name>` | 删除 bundle 文件 |
-| `reload` | 重新扫描 `~/.hermes/skill-bundles/` 并报告新增/删除的 bundle |
+| `reload` | 重新扫描 `~/.agentx/skill-bundles/` 并报告新增/删除的 bundle |
 
 示例：
 
@@ -885,8 +885,8 @@ Curator 是一个辅助模型后台任务，定期审查 agent 创建的 skill�
 | `run` | 立即触发 curator 审查（阻塞直到 LLM 处理完成） |
 | `run --background` | 在后台线程中启动 LLM 处理并立即返回 |
 | `run --dry-run` | 仅预览——生成审查报告但不进行任何修改 |
-| `backup` | 手动对 `~/.hermes/skills/` 进行 tar.gz 快照（curator 在每次真实运行前也会自动快照） |
-| `rollback` | 从快照恢复 `~/.hermes/skills/`（默认使用最新快照） |
+| `backup` | 手动对 `~/.agentx/skills/` 进行 tar.gz 快照（curator 在每次真实运行前也会自动快照） |
+| `rollback` | 从快照恢复 `~/.agentx/skills/`（默认使用最新快照） |
 | `rollback --list` | 列出可用快照 |
 | `rollback --id <ts>` | 按 id 恢复特定快照 |
 | `rollback -y` | 跳过确认提示 |
@@ -926,7 +926,7 @@ hermes fallback <subcommand>
 hermes hooks <subcommand>
 ```
 
-检查 `~/.hermes/config.yaml` 中声明的 shell 脚本 hook，针对合成 payload 测试它们，并管理 `~/.hermes/shell-hooks-allowlist.json` 处的首次使用同意许可名单。
+检查 `~/.agentx/config.yaml` 中声明的 shell 脚本 hook，针对合成 payload 测试它们，并管理 `~/.agentx/shell-hooks-allowlist.json` 处的首次使用同意许可名单。
 
 | 子命令 | 说明 |
 |------------|-------------|
@@ -975,7 +975,7 @@ python -m acp_adapter
 首先安装支持：
 
 ```bash
-cd ~/.hermes/hermes-agent && uv pip install -e '.[acp]'
+cd ~/.agentx/hermes-agent && uv pip install -e '.[acp]'
 ```
 
 参见 [ACP 编辑器集成](../user-guide/features/acp.md) 和 [ACP 内部原理](../developer-guide/acp-internals.md)。
@@ -1094,7 +1094,7 @@ hermes insights [--days N] [--source platform]
 hermes claw migrate [options]
 ```
 
-将 OpenClaw 设置迁移到 Hermes。从 `~/.openclaw`（或自定义路径）读取并写入 `~/.hermes`。自动检测旧版目录名（`~/.clawdbot`、`~/.moltbot`）和配置文件名（`clawdbot.json`、`moltbot.json`）。
+将 OpenClaw 设置迁移到 Hermes。从 `~/.openclaw`（或自定义路径）读取并写入 `~/.agentx`。自动检测旧版目录名（`~/.clawdbot`、`~/.moltbot`）和配置文件名（`clawdbot.json`、`moltbot.json`）。
 
 | 选项 | 说明 |
 |--------|-------------|
@@ -1102,7 +1102,7 @@ hermes claw migrate [options]
 | `--preset <name>` | 迁移预设：`full`（所有兼容设置）或 `user-data`（排除基础设施配置）。两种预设都不导入密钥——需要显式传入 `--migrate-secrets`。 |
 | `--overwrite` | 在冲突时覆盖现有 Hermes 文件（默认：当计划有冲突时拒绝应用）。 |
 | `--migrate-secrets` | 在迁移中包含 API 密钥。即使在 `--preset full` 下也需要显式指定。 |
-| `--no-backup` | 跳过迁移前对 `~/.hermes/` 的 zip 快照（默认情况下，在应用前会将单个还原点归档写入 `~/.hermes/backups/pre-migration-*.zip`；可用 `hermes import` 恢复）。 |
+| `--no-backup` | 跳过迁移前对 `~/.agentx/` 的 zip 快照（默认情况下，在应用前会将单个还原点归档写入 `~/.agentx/backups/pre-migration-*.zip`；可用 `hermes import` 恢复）。 |
 | `--source <path>` | 自定义 OpenClaw 目录（默认：`~/.openclaw`）。 |
 | `--workspace-target <path>` | 工作区说明（AGENTS.md）的目标目录。 |
 | `--skill-conflict <mode>` | 处理 skill 名称冲突：`skip`（默认）、`overwrite` 或 `rename`。 |
@@ -1145,7 +1145,7 @@ hermes claw migrate --source /home/user/old-openclaw
 hermes dashboard [options]
 ```
 
-启动 Web 控制台——基于浏览器的界面，用于管理配置、API 密钥和监控会话。需要 `cd ~/.hermes/hermes-agent && uv pip install -e ".[web]"`（FastAPI + Uvicorn）。内嵌浏览器 Chat 标签页始终可用，但额外需要 `pty` extra（`cd ~/.hermes/hermes-agent && uv pip install -e ".[web,pty]"`）以及 POSIX PTY 环境（如 Linux、macOS 或 WSL2）。完整文档请参阅 [Web 控制台](/user-guide/features/web-dashboard)。
+启动 Web 控制台——基于浏览器的界面，用于管理配置、API 密钥和监控会话。需要 `cd ~/.agentx/hermes-agent && uv pip install -e ".[web]"`（FastAPI + Uvicorn）。内嵌浏览器 Chat 标签页始终可用，但额外需要 `pty` extra（`cd ~/.agentx/hermes-agent && uv pip install -e ".[web,pty]"`）以及 POSIX PTY 环境（如 Linux、macOS 或 WSL2）。完整文档请参阅 [Web 控制台](/user-guide/features/web-dashboard)。
 
 | 选项 | 默认值 | 说明 |
 |--------|---------|-------------|
@@ -1233,12 +1233,12 @@ hermes update [--check] [--backup] [--restart-gateway]
 | 选项 | 说明 |
 |--------|-------------|
 | `--check` | 并排打印当前 commit 和最新 `origin/main` commit，同步时退出码为 0，落后时为 1。不拉取、不安装、不重启任何内容。 |
-| `--backup` | 在拉取前创建 `HERMES_HOME` 的带标签预更新快照（config、auth、会话、skill、配对数据）。默认**关闭**——之前的始终备份行为在大型主目录上每次更新会增加数分钟。通过 `config.yaml` 中的 `update.backup: true` 永久开启。 |
+| `--backup` | 在拉取前创建 `AGENTX_HOME` 的带标签预更新快照（config、auth、会话、skill、配对数据）。默认**关闭**——之前的始终备份行为在大型主目录上每次更新会增加数分钟。通过 `config.yaml` 中的 `update.backup: true` 永久开启。 |
 | `--restart-gateway` | 成功更新后重启正在运行的 gateway 服务。如果安装了多个 profile，隐含 `--all` 语义。 |
 
 附加行为：
 
-- **配对数据快照。** 即使 `--backup` 关闭，`hermes update` 也会在 `git pull` 前对 `~/.hermes/pairing/` 和 Feishu 评论规则进行轻量快照。如果拉取覆盖了你正在编辑的文件，可以用 `hermes backup restore --state pre-update` 回滚。
+- **配对数据快照。** 即使 `--backup` 关闭，`hermes update` 也会在 `git pull` 前对 `~/.agentx/pairing/` 和 Feishu 评论规则进行轻量快照。如果拉取覆盖了你正在编辑的文件，可以用 `hermes backup restore --state pre-update` 回滚。
 - **旧版 `hermes.service` 警告。** 如果 Hermes 检测到预重命名的 `hermes.service` systemd 单元（而非当前的 `hermes-gateway.service`），会打印一次性迁移提示，帮助你避免循环重启问题。
 - **退出码。** 成功时为 `0`，拉取/安装/安装后错误时为 `1`，阻止 `git pull` 的意外工作树变更时为 `2`。
 

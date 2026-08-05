@@ -40,11 +40,11 @@ description: "如何为 Hermes Agent 做贡献 — 开发环境配置、代码�
 
 ### 使用标准安装器
 
-对大多数贡献者来说，最好的开发启动方式和用户安装方式相同：运行标准安装器，然后在它克隆出的仓库里开发。安装器会创建 Hermes venv、配置 `hermes` 命令、为 `hermes update` 写入安装方式标记，并把完整 git 项目克隆到 `$HERMES_HOME/hermes-agent`（通常是 `~/.hermes/hermes-agent`）。这样你的开发环境会和 CLI、updater、lazy dependency installer、gateway、docs 默认假设的布局一致。
+对大多数贡献者来说，最好的开发启动方式和用户安装方式相同：运行标准安装器，然后在它克隆出的仓库里开发。安装器会创建 Hermes venv、配置 `hermes` 命令、为 `hermes update` 写入安装方式标记，并把完整 git 项目克隆到 `$AGENTX_HOME/hermes-agent`（通常是 `~/.agentx/hermes-agent`）。这样你的开发环境会和 CLI、updater、lazy dependency installer、gateway、docs 默认假设的布局一致。
 
 ```bash
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-cd "${HERMES_HOME:-$HOME/.hermes}/hermes-agent"
+cd "${AGENTX_HOME:-$HOME/.agentx}/hermes-agent"
 
 # 在标准安装基础上添加开发/测试 extras。
 uv pip install -e ".[all,dev]"
@@ -82,12 +82,12 @@ npm install
 ### 配置开发环境
 
 ```bash
-mkdir -p ~/.hermes/{cron,sessions,logs,memories,skills}
-cp cli-config.yaml.example ~/.hermes/config.yaml
-touch ~/.hermes/.env
+mkdir -p ~/.agentx/{cron,sessions,logs,memories,skills}
+cp cli-config.yaml.example ~/.agentx/config.yaml
+touch ~/.agentx/.env
 
 # 至少添加一个 LLM 提供商密钥：
-echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.hermes/.env
+echo 'OPENROUTER_API_KEY=sk-or-v1-your-key' >> ~/.agentx/.env
 ```
 
 ### 运行
@@ -117,7 +117,7 @@ scripts/run_tests.sh
 - **注释**：仅在解释非显而易见的意图、权衡取舍或 API 特殊行为时添加
 - **错误处理**：捕获具体异常。对于意外错误，使用 `logger.warning()`/`logger.error()` 并设置 `exc_info=True`
 - **跨平台**：不得假设 Unix 环境（见下文）
-- **Profile 安全路径**：不得硬编码 `~/.hermes` — 代码路径使用 `hermes_constants` 中的 `get_hermes_home()`，面向用户的消息使用 `display_hermes_home()`。完整规则参见 [AGENTS.md](https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md#profiles-multi-instance-support)。
+- **Profile 安全路径**：不得硬编码 `~/.agentx` — 代码路径使用 `hermes_constants` 中的 `get_hermes_home()`，面向用户的消息使用 `display_hermes_home()`。完整规则参见 [AGENTS.md](https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md#profiles-multi-instance-support)。
 
 ## 跨平台兼容性
 

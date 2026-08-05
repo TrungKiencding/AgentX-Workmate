@@ -1,10 +1,10 @@
 """Hermes-managed uv and Python runtime repair.
 
-Hermes owns its own uv binary at ``$HERMES_HOME/bin/uv`` (or ``uv.exe`` on
+Hermes owns its own uv binary at ``$AGENTX_HOME/bin/uv`` (or ``uv.exe`` on
 Windows).  Every code path that needs uv resolves it from that single location.
 If the binary is missing, ``ensure_uv()`` bootstraps it via the official
 standalone installer with ``UV_UNMANAGED_INSTALL`` / ``UV_INSTALL_DIR`` pointed
-at ``$HERMES_HOME/bin`` so the installer writes directly there — no PATH
+at ``$AGENTX_HOME/bin`` so the installer writes directly there — no PATH
 probing, no conda guards, no multi-location resolution chains.
 
 The Python backing the install is different: it is shared by every Hermes
@@ -53,7 +53,7 @@ _REPAIR_LOCK_NAME = "runtime-repair.lock"
 def managed_uv_path() -> Path:
     """Return the path where Hermes keeps *its* uv binary.
 
-    ``$HERMES_HOME/bin/uv`` on POSIX, ``$HERMES_HOME\\bin\\uv.exe`` on
+    ``$AGENTX_HOME/bin/uv`` on POSIX, ``$AGENTX_HOME\\bin\\uv.exe`` on
     Windows.  The directory may not exist yet — callers should use
     ``ensure_uv()`` to bootstrap it.
     """
@@ -281,7 +281,7 @@ def _uv_self_update_is_fresh(now: float | None = None) -> bool:
 
     uv releases roughly weekly while many users run ``hermes update`` daily;
     re-running a blocking network self-update on every invocation is waste
-    and, offline, an unbounded hang risk. A stamp file under HERMES_HOME
+    and, offline, an unbounded hang risk. A stamp file under AGENTX_HOME
     caches the last successful self-update time.
     """
     try:
@@ -395,7 +395,7 @@ def _reload_hermes_constants():
     contains it, which is what made this read as a contradiction:
 
         cannot import name 'venv_python_path' from 'hermes_constants'
-        (~/.hermes/hermes-agent/hermes_constants.py)
+        (~/.agentx/hermes-agent/hermes_constants.py)
 
     Reloading picks up the definitions actually on disk, so callers keep using
     the shared helper instead of hand-rolling a second copy of its logic. Same
@@ -1247,7 +1247,7 @@ def _install_uv(target: Path) -> None:
 
     Uses ``UV_UNMANAGED_INSTALL`` (POSIX) or ``UV_INSTALL_DIR`` (Windows)
     so the astral installer writes the binary directly into
-    ``$HERMES_HOME/bin/`` instead of ``~/.local/bin/``.
+    ``$AGENTX_HOME/bin/`` instead of ``~/.local/bin/``.
     """
     system = platform.system()
     env = {

@@ -20,7 +20,7 @@ from agent.skill_utils import is_excluded_skill_path
 
 
 def _dotenv_key_names() -> set[str]:
-    """Return the set of env-var names assigned a non-empty value in ~/.hermes/.env.
+    """Return the set of env-var names assigned a non-empty value in ~/.agentx/.env.
 
     The managed backends (launchd / systemd / the desktop-spawned ``serve``
     process) load credentials from this file — NOT from an interactive shell's
@@ -58,7 +58,7 @@ def _get_git_commit(project_root: Path) -> str:
     The published Docker image excludes ``.git`` from the build context, so
     that lookup always fails — we fall back to the baked-in build SHA written
     to ``<project_root>/.hermes_build_sha`` by the Dockerfile's
-    ``HERMES_GIT_SHA`` build-arg (see ``hermes_cli/build_info.py``).
+    ``AGENTX_GIT_SHA`` build-arg (see ``hermes_cli/build_info.py``).
     The output format is identical regardless of source.
     """
     try:
@@ -400,7 +400,7 @@ def run_dump(args):
             display = _redact(val)
         else:
             display = "set" if val else "not set"
-        # Set in this (shell) process but absent from ~/.hermes/.env: a managed
+        # Set in this (shell) process but absent from ~/.agentx/.env: a managed
         # backend (launchd/systemd/desktop `serve`) loads .env, not the login
         # shell, so it likely can't see this key — even though the dump reads
         # "set". Flag it so support doesn't chase a phantom "key is configured"

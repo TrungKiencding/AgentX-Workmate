@@ -24,9 +24,9 @@ from hermes_cli import projects_db as pdb
 def fresh_home(tmp_path, monkeypatch):
     home = tmp_path / "hermes_home"
     home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    for var in ("HERMES_KANBAN_DB", "HERMES_KANBAN_WORKSPACES_ROOT", "HERMES_KANBAN_HOME", "HERMES_KANBAN_BOARD"):
+    for var in ("AGENTX_KANBAN_DB", "AGENTX_KANBAN_WORKSPACES_ROOT", "AGENTX_KANBAN_HOME", "AGENTX_KANBAN_BOARD"):
         monkeypatch.delenv(var, raising=False)
     try:
         import hermes_constants

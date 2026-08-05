@@ -115,16 +115,16 @@ def provider_catalog() -> list[ProviderDescriptor]:
     # entry of their own — notably the ``moa`` virtual provider (auth_type
     # "virtual"), which has no real credential and no network endpoint.
     try:
-        from hermes_cli.providers import HERMES_OVERLAYS
+        from hermes_cli.providers import AGENTX_OVERLAYS
     except Exception:
-        HERMES_OVERLAYS = {}
+        AGENTX_OVERLAYS = {}
 
     out: list[ProviderDescriptor] = []
     for order, entry in enumerate(CANONICAL_PROVIDERS):
         slug = entry.slug
         cfg = PROVIDER_REGISTRY.get(slug)
         prof = profiles.get(slug)
-        overlay = HERMES_OVERLAYS.get(slug)
+        overlay = AGENTX_OVERLAYS.get(slug)
 
         # auth_type: registry is authoritative; fall back to profile, then the
         # Hermes overlay (e.g. moa → "virtual"), then api_key.

@@ -98,7 +98,7 @@ def _make_adapter(telegram_adapter_cls):
     return a
 
 
-def _make_channel_message(text="channel id test @hermes_bot"):
+def _make_channel_message(text="channel id test @agentx_bot"):
     chat = SimpleNamespace(
         id=-1003950368353,
         type="channel",

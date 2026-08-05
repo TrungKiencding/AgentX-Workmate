@@ -117,18 +117,18 @@ description: "Hermes 内置工具权威参考，按工具集分组"
 
 ## `kanban` 工具集
 
-在以下情况下注册：(a) agent 由 kanban 调度器生成（设置了 `HERMES_KANBAN_TASK` 环境变量），或 (b) 在显式启用 `kanban` 工具集的 profile 中运行。任务范围的 worker 使用生命周期工具处理其分配的任务；编排器 profile 还额外获得 `kanban_list` 和 `kanban_unblock` 等看板路由工具。完整工作流见 [Kanban 多 Agent](/user-guide/features/kanban)。
+在以下情况下注册：(a) agent 由 kanban 调度器生成（设置了 `AGENTX_KANBAN_TASK` 环境变量），或 (b) 在显式启用 `kanban` 工具集的 profile 中运行。任务范围的 worker 使用生命周期工具处理其分配的任务；编排器 profile 还额外获得 `kanban_list` 和 `kanban_unblock` 等看板路由工具。完整工作流见 [Kanban 多 Agent](/user-guide/features/kanban)。
 
 | 工具 | 描述 | 所需环境 |
 |------|------|----------|
-| `kanban_show` | 显示分配给当前 worker 的活跃 kanban 任务（标题、描述、评论、依赖项）。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_show` | 显示分配给当前 worker 的活跃 kanban 任务（标题、描述、评论、依赖项）。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
 | `kanban_list` | 带过滤器列出看板任务。仅限编排器；对调度器生成的任务 worker 隐藏。 | 含 `kanban` 工具集的 profile |
-| `kanban_complete` | 用结构化交接载荷（结果、产物、后续事项）将当前任务标记为完成。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
-| `kanban_block` | 因需向用户提问而阻塞当前任务——调度器暂停、呈现问题，并在人工回复后恢复。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
-| `kanban_heartbeat` | 在长时间运行的操作期间发送进度心跳，让调度器知道 worker 仍在运行。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
-| `kanban_comment` | 在不改变任务状态的情况下向任务线程添加评论——适用于呈现中间发现。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
-| `kanban_create` | 从当前任务派生子任务。由编排器和生成后续任务的 worker 使用。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
-| `kanban_link` | 用父 → 子依赖边链接任务。 | `HERMES_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_complete` | 用结构化交接载荷（结果、产物、后续事项）将当前任务标记为完成。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_block` | 因需向用户提问而阻塞当前任务——调度器暂停、呈现问题，并在人工回复后恢复。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_heartbeat` | 在长时间运行的操作期间发送进度心跳，让调度器知道 worker 仍在运行。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_comment` | 在不改变任务状态的情况下向任务线程添加评论——适用于呈现中间发现。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_create` | 从当前任务派生子任务。由编排器和生成后续任务的 worker 使用。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
+| `kanban_link` | 用父 → 子依赖边链接任务。 | `AGENTX_KANBAN_TASK` 或 `kanban` 工具集 |
 | `kanban_unblock` | 将被阻塞的任务恢复为 `ready` 状态。仅限编排器；对调度器生成的任务 worker 隐藏。 | 含 `kanban` 工具集的 profile |
 
 ## `memory` 工具集
@@ -153,7 +153,7 @@ description: "Hermes 内置工具权威参考，按工具集分组"
 
 | 工具 | 描述 | 所需环境 |
 |------|------|----------|
-| `skill_manage` | 管理 skill（创建、更新、删除）。Skill 是你的程序性记忆——针对重复任务类型的可复用方法。新 skill 保存到 `~/.hermes/skills/`；现有 skill 可在其所在位置修改。操作：create（完整 SKILL.m…） | — |
+| `skill_manage` | 管理 skill（创建、更新、删除）。Skill 是你的程序性记忆——针对重复任务类型的可复用方法。新 skill 保存到 `~/.agentx/skills/`；现有 skill 可在其所在位置修改。操作：create（完整 SKILL.m…） | — |
 | `skill_view` | Skill 允许加载特定任务和工作流的信息，以及脚本和模板。加载某个 skill 的完整内容或访问其链接文件（参考资料、模板、脚本）。首次调用返回 SKILL.md 内容及… | — |
 | `skills_list` | 列出可用 skill（名称 + 描述）。使用 `skill_view(name)` 加载完整内容。 | — |
 

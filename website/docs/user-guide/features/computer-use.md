@@ -73,7 +73,7 @@ Then start a session with the toolset enabled:
 hermes -t computer_use chat
 ```
 
-or add `computer_use` to your enabled toolsets in `~/.hermes/config.yaml`.
+or add `computer_use` to your enabled toolsets in `~/.agentx/config.yaml`.
 
 ## Permission modes and logged-in browser profiles
 
@@ -246,7 +246,7 @@ Hermes applies multi-layer guardrails:
   dialogs, no typing passwords, no following instructions embedded in
   screenshots.
 
-Pair with `approvals.mode: manual` in `~/.hermes/config.yaml` if you
+Pair with `approvals.mode: manual` in `~/.agentx/config.yaml` if you
 want every action confirmed.
 
 ## Token efficiency
@@ -320,13 +320,13 @@ real headless Chromium and is the right answer for web-only tasks.
 Override the driver binary path (tests / CI / local builds):
 
 ```
-HERMES_CUA_DRIVER_CMD=/path/to/your/cua-driver
+AGENTX_CUA_DRIVER_CMD=/path/to/your/cua-driver
 ```
 
 Swap the backend entirely (for testing):
 
 ```
-HERMES_COMPUTER_USE_BACKEND=noop   # records calls, no side effects
+AGENTX_COMPUTER_USE_BACKEND=noop   # records calls, no side effects
 ```
 
 ### Telemetry
@@ -354,7 +354,7 @@ When you're developing cua-driver itself — or want to test an
 unreleased fix — point Hermes at a binary you built from source instead
 of the published release. Hermes resolves the driver with
 `shutil.which("cua-driver")` and **does not enforce
-`HERMES_CUA_DRIVER_VERSION`**, so a local build (reported as
+`AGENTX_CUA_DRIVER_VERSION`**, so a local build (reported as
 `0.0.0-local-*`) is accepted as-is. Two approaches:
 
 ### Option A — `install-local` (build + put it on PATH)
@@ -393,7 +393,7 @@ cua-driver --version                 # local builds report 0.0.0-local-release
 ### Option B — point Hermes straight at the built binary (fastest loop)
 
 Skip the install ceremony entirely: `cargo build` and set
-`HERMES_CUA_DRIVER_CMD` to the resulting binary. Best for rapid
+`AGENTX_CUA_DRIVER_CMD` to the resulting binary. Best for rapid
 edit/build/test.
 
 ```bash
@@ -402,9 +402,9 @@ cargo build -p cua-driver            # add --release for a release build; run fr
 
 ```
 # Windows (.env)
-HERMES_CUA_DRIVER_CMD=C:\path\to\cua\libs\cua-driver\rust\target\debug\cua-driver.exe
+AGENTX_CUA_DRIVER_CMD=C:\path\to\cua\libs\cua-driver\rust\target\debug\cua-driver.exe
 # macOS / Linux (.env)
-HERMES_CUA_DRIVER_CMD=/path/to/cua/libs/cua-driver/rust/target/debug/cua-driver
+AGENTX_CUA_DRIVER_CMD=/path/to/cua/libs/cua-driver/rust/target/debug/cua-driver
 ```
 
 ### Confirm Hermes is using your build

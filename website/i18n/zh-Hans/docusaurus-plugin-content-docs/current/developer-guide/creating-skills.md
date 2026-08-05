@@ -216,7 +216,7 @@ metadata:
 
 3. **运行时注入：** Skill 加载时，其 config 值会被解析并追加到 skill 消息中：
    ```
-   [Skill config (from ~/.hermes/config.yaml):
+   [Skill config (from ~/.agentx/config.yaml):
      myplugin.path = /home/user/my-data
    ]
    ```
@@ -228,7 +228,7 @@ metadata:
    ```
 
 :::tip 如何选择
-对 API key、token 及其他**密钥**使用 `required_environment_variables`（存储在 `~/.hermes/.env`，不向模型展示）。对**路径、偏好设置及非敏感配置**使用 `config`（存储在 `config.yaml`，在 config show 中可见）。
+对 API key、token 及其他**密钥**使用 `required_environment_variables`（存储在 `~/.agentx/.env`，不向模型展示）。对**路径、偏好设置及非敏感配置**使用 `config`（存储在 `config.yaml`，在 config show 中可见）。
 :::
 
 ### 凭证文件要求（OAuth token 等）
@@ -244,7 +244,7 @@ required_credential_files:
 ```
 
 每个条目支持：
-- `path`（必需）——相对于 `~/.hermes/` 的文件路径
+- `path`（必需）——相对于 `~/.agentx/` 的文件路径
 - `description`（可选）——说明该文件的用途及创建方式
 
 加载时，Hermes 会检查这些文件是否存在。缺少文件会触发 `setup_needed`。已存在的文件会自动：
@@ -253,7 +253,7 @@ required_credential_files:
 - 在**本地**后端无需任何特殊处理即可使用
 
 :::tip 如何选择
-对简单的 API key 和 token（存储在 `~/.hermes/.env` 中的字符串）使用 `required_environment_variables`。对 OAuth token 文件、客户端密钥、服务账号 JSON、证书或任何以磁盘文件形式存在的凭证使用 `required_credential_files`。
+对简单的 API key 和 token（存储在 `~/.agentx/.env` 中的字符串）使用 `required_environment_variables`。对 OAuth token 文件、客户端密钥、服务账号 JSON、证书或任何以磁盘文件形式存在的凭证使用 `required_credential_files`。
 :::
 
 完整示例请参见 `skills/productivity/google-workspace/SKILL.md`，其中同时使用了两者。
@@ -282,15 +282,15 @@ Skill 加载时，激活消息会将 skill 目录的绝对路径以 `[Skill dire
 
 | Token | 替换为 |
 |---|---|
-| `${HERMES_SKILL_DIR}` | skill 目录的绝对路径 |
-| `${HERMES_SESSION_ID}` | 当前会话 ID（若无会话则保留原样） |
+| `${AGENTX_SKILL_DIR}` | skill 目录的绝对路径 |
+| `${AGENTX_SESSION_ID}` | 当前会话 ID（若无会话则保留原样） |
 
 因此，SKILL.md 可以直接告知 agent 运行内置脚本：
 
 ```markdown
 To analyse the input, run:
 
-    node ${HERMES_SKILL_DIR}/scripts/analyse.js <input>
+    node ${AGENTX_SKILL_DIR}/scripts/analyse.js <input>
 ```
 
 Agent 看到替换后的绝对路径，并使用 `terminal` tool 执行已就绪的命令——无需路径计算，无需额外的 `skill_view` 往返。可在 `config.yaml` 中设置 `skills.template_vars: false` 全局禁用替换。
@@ -301,7 +301,7 @@ Skill 也可在 SKILL.md 正文中嵌入以 `` !`cmd` `` 形式编写的内联 s
 
 ```markdown
 Current date: !`date -u +%Y-%m-%d`
-Git branch: !`git -C ${HERMES_SKILL_DIR} rev-parse --abbrev-ref HEAD`
+Git branch: !`git -C ${AGENTX_SKILL_DIR} rev-parse --abbrev-ref HEAD`
 ```
 
 此功能**默认关闭**——SKILL.md 中的任何片段都会在未经审批的情况下在宿主机上运行，因此仅对你信任的 skill 来源启用：

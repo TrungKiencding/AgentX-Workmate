@@ -47,7 +47,7 @@ hermes computer-use install
    ```
    hermes -t computer_use chat
    ```
-   或在 `~/.hermes/config.yaml` 中将 `computer_use` 添加到已启用的工具集列表。
+   或在 `~/.agentx/config.yaml` 中将 `computer_use` 添加到已启用的工具集列表。
 
 ## 保持 cua-driver 最新
 
@@ -93,7 +93,7 @@ Hermes 应用多层防护机制：
 - 硬性屏蔽的输入模式：`curl | bash`、`sudo rm -rf /`、fork bomb 等。
 - Agent 的系统 prompt 明确规定：不得点击权限对话框，不得输入密码，不得执行截图中嵌入的指令。
 
-如需对每个操作进行确认，可在 `~/.hermes/config.yaml` 中配置 `approvals.mode: manual`。
+如需对每个操作进行确认，可在 `~/.agentx/config.yaml` 中配置 `approvals.mode: manual`。
 
 ## Token 效率
 
@@ -109,7 +109,7 @@ Hermes 应用多层防护机制：
 ## 限制
 
 - **仅限 macOS。** cua-driver 使用的私有 Apple SPI 在 Linux 或 Windows 上不存在。跨平台 GUI 自动化请使用 `browser` 工具集。
-- **私有 SPI 风险。** Apple 可能在任何 OS 更新中更改 SkyLight 的符号接口。Hermes 始终安装最新版 cua-driver，并在已安装的二进制文件低于其测试基线版本（按操作系统分别设定）时发出警告。没有版本固定开关——如需可复现的版本，请将 `HERMES_CUA_DRIVER_CMD` 指向特定的二进制文件。
+- **私有 SPI 风险。** Apple 可能在任何 OS 更新中更改 SkyLight 的符号接口。Hermes 始终安装最新版 cua-driver，并在已安装的二进制文件低于其测试基线版本（按操作系统分别设定）时发出警告。没有版本固定开关——如需可复现的版本，请将 `AGENTX_CUA_DRIVER_CMD` 指向特定的二进制文件。
 - **性能。** 后台模式比前台模式慢——SkyLight 路由事件耗时约 5–20ms，而直接 HID 投递更快。对于 Agent 速度的点击操作无明显影响；若尝试录制速通视频则会有感知。
 - **不支持键盘输入密码。** `type` 对命令行 payload 有硬性屏蔽模式；密码请使用系统自动填充功能。
 
@@ -118,13 +118,13 @@ Hermes 应用多层防护机制：
 覆盖驱动二进制路径（用于测试 / CI）：
 
 ```
-HERMES_CUA_DRIVER_CMD=/opt/homebrew/bin/cua-driver
+AGENTX_CUA_DRIVER_CMD=/opt/homebrew/bin/cua-driver
 ```
 
 完全替换后端（用于测试）：
 
 ```
-HERMES_COMPUTER_USE_BACKEND=noop   # records calls, no side effects
+AGENTX_COMPUTER_USE_BACKEND=noop   # records calls, no side effects
 ```
 
 ## 故障排查

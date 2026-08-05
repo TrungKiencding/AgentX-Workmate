@@ -37,12 +37,12 @@ Convert text to speech with eleven providers:
 | Telegram | Voice bubble (plays inline) | Opus `.ogg` |
 | Discord | Voice bubble (Opus/OGG), falls back to file attachment | Opus/MP3 |
 | WhatsApp | Audio file attachment | MP3 |
-| CLI | Saved to `~/.hermes/audio_cache/` | MP3 |
+| CLI | Saved to `~/.agentx/audio_cache/` | MP3 |
 
 ### Configuration
 
 ```yaml
-# In ~/.hermes/config.yaml
+# In ~/.agentx/config.yaml
 tts:
   provider: "edge"              # "edge" | "elevenlabs" | "openai" | "minimax" | "mistral" | "gemini" | "xai" | "deepinfra" | "neutts" | "kittentts" | "piper"
   speed: 1.0                    # Global speed multiplier (provider-specific settings override this)
@@ -96,7 +96,7 @@ tts:
     clean_text: true                            # Expand numbers, currencies, units
   piper:
     voice: en_US-lessac-medium                  # voice name (auto-downloaded) OR absolute path to .onnx
-    # voices_dir: ''                            # default: ~/.hermes/cache/piper-voices/
+    # voices_dir: ''                            # default: ~/.agentx/cache/piper-voices/
     # use_cuda: false                           # requires onnxruntime-gpu
     # length_scale: 1.0                         # 2.0 = twice as slow
     # noise_scale: 0.667
@@ -125,7 +125,7 @@ tts:
   provider: gemini
   gemini:
     voice: Algieba
-    persona_prompt_file: ~/.hermes/tts/butler-voice.md
+    persona_prompt_file: ~/.agentx/tts/butler-voice.md
 ```
 
 ### Audio Tags (Gemini, xAI)
@@ -242,7 +242,7 @@ tts:
     voice: en_US-lessac-medium
 ```
 
-On the first TTS call for a voice that isn't cached locally, Hermes runs `python -m piper.download_voices <name>` and downloads the model (~20-90MB depending on quality tier) into `~/.hermes/cache/piper-voices/`. Subsequent calls reuse the cached model.
+On the first TTS call for a voice that isn't cached locally, Hermes runs `python -m piper.download_voices <name>` and downloads the model (~20-90MB depending on quality tier) into `~/.agentx/cache/piper-voices/`. Subsequent calls reuse the cached model.
 
 **Picking a voice.** The [full voice catalog](https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/VOICES.md) covers English, Spanish, French, German, Italian, Dutch, Portuguese, Russian, Polish, Turkish, Chinese, Arabic, Hindi, and more — each with `x_low` / `low` / `medium` / `high` quality tiers. Sample voices at [rhasspy.github.io/piper-samples](https://rhasspy.github.io/piper-samples/).
 
@@ -380,7 +380,7 @@ Built-ins always win, and command providers win over a same-name plugin — so p
 
 #### Minimal plugin
 
-Drop this in `~/.hermes/plugins/my-tts/`:
+Drop this in `~/.agentx/plugins/my-tts/`:
 
 `plugin.yaml`:
 ```yaml
@@ -451,28 +451,28 @@ Voice messages sent on Telegram, Discord, WhatsApp, Slack, or Signal are automat
 | **OpenAI Whisper API** | Good–Best | Paid | `VOICE_TOOLS_OPENAI_KEY` or `OPENAI_API_KEY` |
 
 :::info Zero Config
-Local transcription works out of the box when `faster-whisper` is installed. If that's unavailable, Hermes can also use a local `whisper` CLI from common install locations (like `/opt/homebrew/bin`) or a custom command via `HERMES_LOCAL_STT_COMMAND`.
+Local transcription works out of the box when `faster-whisper` is installed. If that's unavailable, Hermes can also use a local `whisper` CLI from common install locations (like `/opt/homebrew/bin`) or a custom command via `AGENTX_LOCAL_STT_COMMAND`.
 :::
 
 ### Configuration
 
 ```yaml
-# In ~/.hermes/config.yaml
+# In ~/.agentx/config.yaml
 stt:
   provider: "local"           # "local" | "groq" | "openai" | "mistral" | "xai" | "elevenlabs" | "deepinfra"
   language: "en"              # Global language hint applied to every provider unless a per-provider language overrides it; set "" to restore auto-detect
   local:
     model: "base"             # tiny, base, small, medium, large-v3
-    language: ""              # optional ISO-639-1 hint; blank = use HERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
+    language: ""              # optional ISO-639-1 hint; blank = use AGENTX_LOCAL_STT_LANGUAGE if set, else auto-detect
   groq:
-    language: ""              # optional ISO-639-1 hint; blank = use HERMES_LOCAL_STT_LANGUAGE if set, else auto-detect
+    language: ""              # optional ISO-639-1 hint; blank = use AGENTX_LOCAL_STT_LANGUAGE if set, else auto-detect
   openai:
     model: "whisper-1"        # whisper-1, gpt-4o-mini-transcribe, gpt-4o-transcribe, gpt-transcribe
   mistral:
     model: "voxtral-mini-latest"  # voxtral-mini-latest, voxtral-mini-2602
   xai:
     model: "grok-stt"         # xAI Grok STT
-    language: ""              # optional ISO-639-1 hint; blank = use HERMES_LOCAL_STT_LANGUAGE if set, else "en"
+    language: ""              # optional ISO-639-1 hint; blank = use AGENTX_LOCAL_STT_LANGUAGE if set, else "en"
 ```
 
 ### Provider Details
@@ -487,15 +487,15 @@ stt:
 | `medium` | ~1.5 GB | Slower | Great |
 | `large-v3` | ~3 GB | Slowest | Best |
 
-**Groq API** — Requires `GROQ_API_KEY`. Good cloud fallback when you want a free hosted STT option. Set `stt.groq.language` (or the global `HERMES_LOCAL_STT_LANGUAGE` env var) to skip Whisper's auto-detect and reduce latency on known-language audio.
+**Groq API** — Requires `GROQ_API_KEY`. Good cloud fallback when you want a free hosted STT option. Set `stt.groq.language` (or the global `AGENTX_LOCAL_STT_LANGUAGE` env var) to skip Whisper's auto-detect and reduce latency on known-language audio.
 
 **OpenAI API** — Accepts `VOICE_TOOLS_OPENAI_KEY` first and falls back to `OPENAI_API_KEY`. Supports `whisper-1`, `gpt-4o-mini-transcribe`, `gpt-4o-transcribe`, and `gpt-transcribe`.
 
-**Mistral API (Voxtral Transcribe)** — Requires `MISTRAL_API_KEY`. Uses Mistral's [Voxtral Transcribe](https://docs.mistral.ai/capabilities/audio/speech_to_text/) models. Supports 13 languages, speaker diarization, and word-level timestamps. Install with `cd ~/.hermes/hermes-agent && uv pip install -e ".[mistral]"`.
+**Mistral API (Voxtral Transcribe)** — Requires `MISTRAL_API_KEY`. Uses Mistral's [Voxtral Transcribe](https://docs.mistral.ai/capabilities/audio/speech_to_text/) models. Supports 13 languages, speaker diarization, and word-level timestamps. Install with `cd ~/.agentx/hermes-agent && uv pip install -e ".[mistral]"`.
 
 **xAI Grok STT** — Requires `XAI_API_KEY`. Posts to `https://api.x.ai/v1/stt` as multipart/form-data. Good choice if you're already using xAI for chat or TTS and want one API key for everything. Auto-detection order puts it after Groq — explicitly set `stt.provider: xai` to force it.
 
-**Custom local CLI fallback** — Set `HERMES_LOCAL_STT_COMMAND` if you want Hermes to call a local transcription command directly. The command template supports `{input_path}`, `{output_dir}`, `{language}`, and `{model}` placeholders. Hermes tokenizes the rendered template into an argument list and executes it without a shell, so operators such as `|`, `>`, `&&`, and `;` are passed as literal arguments. Your command must write a `.txt` transcript somewhere under `{output_dir}`.
+**Custom local CLI fallback** — Set `AGENTX_LOCAL_STT_COMMAND` if you want Hermes to call a local transcription command directly. The command template supports `{input_path}`, `{output_dir}`, `{language}`, and `{model}` placeholders. Hermes tokenizes the rendered template into an argument list and executes it without a shell, so operators such as `|`, `>`, `&&`, and `;` are passed as literal arguments. Your command must write a `.txt` transcript somewhere under `{output_dir}`.
 
 #### Example: Doubao / Volcengine ASR
 
@@ -505,13 +505,13 @@ If you use [`doubao-speech`](https://pypi.org/project/doubao-speech/) for Doubao
 pip install doubao-speech
 export VOLCENGINE_APP_ID="your-app-id"
 export VOLCENGINE_ACCESS_TOKEN="your-access-token"
-export HERMES_LOCAL_STT_COMMAND='doubao-speech transcribe {input_path} --out {output_dir}/transcript.txt'
+export AGENTX_LOCAL_STT_COMMAND='doubao-speech transcribe {input_path} --out {output_dir}/transcript.txt'
 ```
 
 If a trusted local template intentionally needs pipes, redirects, or another shell feature, invoke the shell explicitly. Keep dynamic paths outside the shell program and pass them as positional arguments:
 
 ```bash
-export HERMES_LOCAL_STT_COMMAND='sh -c '\''whisper "$1" --output_format txt --output_dir "$2" | tee "$2/whisper.log"'\'' _ {input_path} {output_dir}'
+export AGENTX_LOCAL_STT_COMMAND='sh -c '\''whisper "$1" --output_format txt --output_dir "$2" | tee "$2/whisper.log"'\'' _ {input_path} {output_dir}'
 ```
 
 On Windows, use an explicit `cmd /c` or PowerShell wrapper instead. An explicit wrapper makes shell interpretation an opt-in part of the configured argv rather than an implicit property of every local STT template.
@@ -526,7 +526,7 @@ Hermes writes the incoming voice message to `{input_path}`, runs the command, an
 ### Fallback Behavior
 
 If your configured provider isn't available, Hermes automatically falls back:
-- **Local faster-whisper unavailable** → Tries a local `whisper` CLI or `HERMES_LOCAL_STT_COMMAND` before cloud providers
+- **Local faster-whisper unavailable** → Tries a local `whisper` CLI or `AGENTX_LOCAL_STT_COMMAND` before cloud providers
 - **Groq key not set** → Falls back to local transcription, then OpenAI
 - **OpenAI key not set** → Falls back to local transcription, then Groq
 - **Mistral key/SDK not set** → Skipped in auto-detect; falls through to next available provider
@@ -560,7 +560,7 @@ stt:
       format: json
 ```
 
-This complements the legacy `HERMES_LOCAL_STT_COMMAND` escape hatch via the built-in `local_command` path. Unlike the shell-driven command-provider registry, the legacy template is tokenized into argv and runs without implicit shell interpretation. Use `stt.providers.<name>` when you want **multiple** shell-driven STT engines, a name you can pick via `stt.provider`, or anything that needs per-provider `language` / `model` / `timeout`.
+This complements the legacy `AGENTX_LOCAL_STT_COMMAND` escape hatch via the built-in `local_command` path. Unlike the shell-driven command-provider registry, the legacy template is tokenized into argv and runs without implicit shell interpretation. Use `stt.providers.<name>` when you want **multiple** shell-driven STT engines, a name you can pick via `stt.provider`, or anything that needs per-provider `language` / `model` / `timeout`.
 
 #### STT placeholders
 
@@ -606,7 +606,7 @@ For `format: json` / `srt` / `vtt`, Hermes returns the raw file content as the `
 
 #### STT command-provider security
 
-The shell command runs under the same user as Hermes with full filesystem access — same trust model as `tts.providers.<name>: type: command` and `HERMES_LOCAL_STT_COMMAND`. Only declare command providers from sources you trust.
+The shell command runs under the same user as Hermes with full filesystem access — same trust model as `tts.providers.<name>: type: command` and `AGENTX_LOCAL_STT_COMMAND`. Only declare command providers from sources you trust.
 
 ### Python plugin providers (STT)
 
@@ -617,7 +617,7 @@ For STT engines that aren't built-in AND can't be expressed as a shell command (
 | Backend has…                                                 | Use                                                              |
 |--------------------------------------------------------------|------------------------------------------------------------------|
 | A single shell command that takes an audio file and emits text | `stt.providers.<name>: type: command` (no Python needed)        |
-| Only the legacy single-command escape hatch is wanted        | `HERMES_LOCAL_STT_COMMAND` env var (argv-tokenized; no implicit shell) |
+| Only the legacy single-command escape hatch is wanted        | `AGENTX_LOCAL_STT_COMMAND` env var (argv-tokenized; no implicit shell) |
 | A Python SDK with no CLI                                     | `register_transcription_provider()` plugin                      |
 | OAuth-refreshing auth, streaming chunks, voice-list metadata | `register_transcription_provider()` plugin                      |
 | A built-in already covers it (`local`, `groq`, `openai`, …)  | Set `stt.provider: <name>` — built-ins are inline               |
@@ -649,7 +649,7 @@ The dispatcher forwards `model` and `language` from this section; everything els
 
 #### Minimal plugin
 
-Drop this in `~/.hermes/plugins/my-stt/`:
+Drop this in `~/.agentx/plugins/my-stt/`:
 
 `plugin.yaml`:
 ```yaml

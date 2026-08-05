@@ -221,7 +221,7 @@ Each entry supports:
 
 3. **Runtime injection:** When a skill loads, its config values are resolved and appended to the skill message:
    ```
-   [Skill config (from ~/.hermes/config.yaml):
+   [Skill config (from ~/.agentx/config.yaml):
      myplugin.path = /home/user/my-data
    ]
    ```
@@ -233,7 +233,7 @@ Each entry supports:
    ```
 
 :::tip When to use which
-Use `required_environment_variables` for API keys, tokens, and other **secrets** (stored in `~/.hermes/.env`, never shown to the model). Use `config` for **paths, preferences, and non-sensitive settings** (stored in `config.yaml`, visible in config show).
+Use `required_environment_variables` for API keys, tokens, and other **secrets** (stored in `~/.agentx/.env`, never shown to the model). Use `config` for **paths, preferences, and non-sensitive settings** (stored in `config.yaml`, visible in config show).
 :::
 
 ### Credential File Requirements (OAuth tokens, etc.)
@@ -249,7 +249,7 @@ required_credential_files:
 ```
 
 Each entry supports:
-- `path` (required) — file path relative to `~/.hermes/`
+- `path` (required) — file path relative to `~/.agentx/`
 - `description` (optional) — explains what the file is and how it's created
 
 When loaded, Hermes checks if these files exist. Missing files trigger `setup_needed`. Existing files are automatically:
@@ -258,7 +258,7 @@ When loaded, Hermes checks if these files exist. Missing files trigger `setup_ne
 - Available on **local** backend without any special handling
 
 :::tip When to use which
-Use `required_environment_variables` for simple API keys and tokens (strings stored in `~/.hermes/.env`). Use `required_credential_files` for OAuth token files, client secrets, service account JSON, certificates, or any credential that's a file on disk.
+Use `required_environment_variables` for simple API keys and tokens (strings stored in `~/.agentx/.env`). Use `required_credential_files` for OAuth token files, client secrets, service account JSON, certificates, or any credential that's a file on disk.
 :::
 
 See the `skills/productivity/google-workspace/SKILL.md` for a complete example using both.
@@ -287,15 +287,15 @@ When a skill is loaded, the activation message exposes the absolute skill direct
 
 | Token | Replaced with |
 |---|---|
-| `${HERMES_SKILL_DIR}` | Absolute path to the skill's directory |
-| `${HERMES_SESSION_ID}` | The active session id (left in place if there is no session) |
+| `${AGENTX_SKILL_DIR}` | Absolute path to the skill's directory |
+| `${AGENTX_SESSION_ID}` | The active session id (left in place if there is no session) |
 
 So a SKILL.md can tell the agent to run a bundled script directly with:
 
 ```markdown
 To analyse the input, run:
 
-    node ${HERMES_SKILL_DIR}/scripts/analyse.js <input>
+    node ${AGENTX_SKILL_DIR}/scripts/analyse.js <input>
 ```
 
 The agent sees the substituted absolute path and invokes the `terminal` tool with a ready-to-run command — no path math, no extra `skill_view` round-trip. Disable substitution globally with `skills.template_vars: false` in `config.yaml`.
@@ -306,7 +306,7 @@ Skills can also embed inline shell snippets written as `` !`cmd` `` in the SKILL
 
 ```markdown
 Current date: !`date -u +%Y-%m-%d`
-Git branch: !`git -C ${HERMES_SKILL_DIR} rev-parse --abbrev-ref HEAD`
+Git branch: !`git -C ${AGENTX_SKILL_DIR} rev-parse --abbrev-ref HEAD`
 ```
 
 This is **off by default** — any snippet in a SKILL.md runs on the host without approval, so only enable it for skill sources you trust:

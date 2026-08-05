@@ -168,7 +168,7 @@ class TestRunBrowserCommandPathConstruction:
                  {
                      "PATH": "/usr/bin:/bin",
                      "HOME": "/home/test",
-                     "HERMES_HOME": hermes_home,
+                     "AGENTX_HOME": hermes_home,
                  },
                  clear=True,
              ):

@@ -138,7 +138,7 @@ def _apply_active_turn_redirect(agent: Any, messages: List[Dict[str, Any]], text
     "Provider returned an empty response" storms that no retry, nudge, or
     empty-recovery branch can escape (July 2026: four sessions bricked this
     way; every reasoning-free checkpoint that week was untouched — same
-    mechanism as the ~/.hermes/prefill.json incident, 20/20 blocked with
+    mechanism as the ~/.agentx/prefill.json incident, 20/20 blocked with
     assistant-exposed CoT vs 0/20 without). The interrupted reasoning was
     incomplete by definition; the model regenerates it on the retried turn.
     If a future path needs to preserve interrupted thinking, carry it in a
@@ -1291,7 +1291,7 @@ def run_conversation(
     agent._last_compression_attempt_recorded = False
     agent._last_compression_attempt_in_place = None
 
-    # Adopt any ~/.hermes/.env credential/base-url edits made since the last
+    # Adopt any ~/.agentx/.env credential/base-url edits made since the last
     # turn — a Settings save updates .env but not this worker's client, which
     # was built at agent init (#67821). No-op when .env is unchanged.
     try:
@@ -2317,7 +2317,7 @@ def run_conversation(
                 except Exception:
                     pass
 
-                if env_var_enabled("HERMES_DUMP_REQUESTS"):
+                if env_var_enabled("AGENTX_DUMP_REQUESTS"):
                     agent._dump_api_request_debug(api_kwargs, reason="preflight")
 
                 # This object is private to the in-process MoA facade.  Add it
@@ -5449,7 +5449,7 @@ def run_conversation(
                         agent._vprint(
                             f"{agent.log_prefix}      1. Set "
                             f"`providers.{_provider}.models.{_model}.stale_timeout_seconds: 900` "
-                            f"in `~/.hermes/config.yaml` to extend the per-call "
+                            f"in `~/.agentx/config.yaml` to extend the per-call "
                             f"timeout. (Hermes's built-in floor is 600s for "
                             f"known reasoning models — if you still see this "
                             f"after raising, the upstream cap is even shorter.)",
@@ -6564,7 +6564,7 @@ def run_conversation(
                 # takes ~0s to process) followed by slow post-tool
                 # processing (compression, persist) and a slow
                 # follow-up API call can exceed the gateway inactivity
-                # timeout (HERMES_AGENT_TIMEOUT, default 1800s) and the
+                # timeout (AGENTX_AGENT_TIMEOUT, default 1800s) and the
                 # gateway kills the session before the next activity
                 # touch fires (#69559, #69131).
                 agent._touch_activity(f"tool results posted, continuing iteration #{api_call_count}")
@@ -7190,7 +7190,7 @@ def run_conversation(
                     logger.info(
                         "kanban stop-loop nudge issued (attempt %d) task=%s",
                         agent._kanban_stop_nudges,
-                        os.environ.get("HERMES_KANBAN_TASK", ""),
+                        os.environ.get("AGENTX_KANBAN_TASK", ""),
                     )
                     agent._emit_status(
                         "⚠️ Kanban worker tried to exit without "

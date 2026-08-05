@@ -209,7 +209,7 @@ class TestSetupTelegramAuto:
         from hermes_cli import setup
 
         seen = {}
-        profile_home = tmp_path / ".hermes" / "profiles" / "oracle"
+        profile_home = tmp_path / ".agentx" / "profiles" / "oracle"
         profile_home.mkdir(parents=True)
 
         monkeypatch.setattr(setup, "get_hermes_home", lambda: profile_home)
@@ -231,7 +231,7 @@ class TestSetupTelegramAuto:
 
         assert (
             _profile_name_from_hermes_home(
-                PureWindowsPath(r"C:\Users\test\AppData\Local\hermes\profiles\oracle")
+                PureWindowsPath(r"C:\Users\test\AppData\Local\agentx\profiles\oracle")
             )
             == "oracle"
         )

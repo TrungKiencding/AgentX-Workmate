@@ -233,7 +233,7 @@ def _(rid, params: dict) -> dict:
 
 @method("reload.env")
 def _(rid, params: dict) -> dict:
-    """Re-read ``~/.hermes/.env`` into the gateway process via
+    """Re-read ``~/.agentx/.env`` into the gateway process via
     ``hermes_cli.config.reload_env``, matching classic CLI's ``/reload``
     handler.  Newly added API keys take effect on the next agent call
     without restarting the TUI.
@@ -1386,9 +1386,9 @@ def _(rid, params: dict) -> dict:
         model = _resolve_model()
         from agent.secret_scope import get_secret
 
-        api_key = get_secret("HERMES_API_KEY", "") or cfg.get("api_key", "")
+        api_key = get_secret("AGENTX_API_KEY", "") or cfg.get("api_key", "")
         masked = f"****{api_key[-4:]}" if len(api_key) > 4 else "(not set)"
-        base_url = os.environ.get("HERMES_BASE_URL", "") or cfg.get("base_url", "")
+        base_url = os.environ.get("AGENTX_BASE_URL", "") or cfg.get("base_url", "")
 
         sections = [
             {

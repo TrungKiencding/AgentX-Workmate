@@ -32,7 +32,7 @@ Optional environment variables:
                                for any group. Omit to disable groups entirely.
     SIMPLEX_HOME_CHANNEL       Default contact/group ID for cron delivery
     SIMPLEX_HOME_CHANNEL_NAME  Human label for the home channel
-    HERMES_SIMPLEX_TEXT_BATCH_DELAY
+    AGENTX_SIMPLEX_TEXT_BATCH_DELAY
                                Quiet-period seconds (default: 0.8) used to
                                concatenate rapid-fire inbound text messages
                                into a single MessageEvent — same pattern as
@@ -192,7 +192,7 @@ class SimplexAdapter(BasePlatformAdapter):
         # Text message batching — concatenate rapid-fire messages into one
         # event before dispatching, mirroring Telegram's batching.
         self._text_batch_delay = float(
-            os.getenv("HERMES_SIMPLEX_TEXT_BATCH_DELAY", "0.8")
+            os.getenv("AGENTX_SIMPLEX_TEXT_BATCH_DELAY", "0.8")
         )
         self._pending_text_batches: Dict[str, MessageEvent] = {}
         self._pending_text_batch_tasks: Dict[str, asyncio.Task] = {}
@@ -1291,7 +1291,7 @@ def interactive_setup() -> None:
     """Minimal stdin wizard for ``hermes setup gateway`` → SimpleX.
 
     Prompts for the WebSocket URL and the optional allowlist / groups /
-    auto-accept / home channel. Writes to ``~/.hermes/.env`` via
+    auto-accept / home channel. Writes to ``~/.agentx/.env`` via
     ``hermes_cli.config``.
     """
     print()
@@ -1307,7 +1307,7 @@ def interactive_setup() -> None:
     except ImportError:
         print(
             "hermes_cli.config not available; set SIMPLEX_* vars manually in "
-            "~/.hermes/.env"
+            "~/.agentx/.env"
         )
         return
 

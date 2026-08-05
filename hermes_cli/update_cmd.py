@@ -1910,7 +1910,7 @@ def _ensure_uv_for_termux(pip_cmd: list[str]) -> str | None:
     """Best-effort uv bootstrap on Termux for faster update installs.
 
     The normal path (``ensure_uv()`` in managed_uv) installs the managed
-    standalone uv into ``$HERMES_HOME/bin/uv``, but on Termux the official
+    standalone uv into ``$AGENTX_HOME/bin/uv``, but on Termux the official
     installer may not work (glibc vs bionic).  Prefer a uv already on PATH
     (e.g. ``pkg install uv``); only if there is none do we fall back to a
     wheel-only ``pip install uv`` so we never source-build the Rust crate.
@@ -2138,7 +2138,7 @@ def _update_node_dependencies() -> list[str]:
     return _partial_update_failure("ui-tui, web workspaces")
 
 def _log_only_write(text: str) -> None:
-    """Write ``text`` to ``~/.hermes/logs/update.log`` only, never the terminal.
+    """Write ``text`` to ``~/.agentx/logs/update.log`` only, never the terminal.
 
     During ``hermes update`` ``sys.stdout`` is an ``_UpdateOutputStream`` that
     mirrors to both the terminal and ``update.log``. Loud, low-signal
@@ -2548,7 +2548,7 @@ def _run_pre_update_backup(args) -> Optional[str]:
       under ``state-snapshots/``. Files over 1 GiB are skipped with a
       warning so a bloated state.db can never stall the update
       (issues #15733, #34600 are the reason this safety net exists).
-    - ``full``  — the quick snapshot PLUS a full zip of HERMES_HOME under
+    - ``full``  — the quick snapshot PLUS a full zip of AGENTX_HOME under
       ``backups/`` (restorable via ``hermes import``; the #48200 wrong-path
       wipe is the reason this level exists).
 
@@ -2689,7 +2689,7 @@ def _run_pre_update_backup(args) -> Optional[str]:
         size_bytes /= 1024
         size_str = f"{size_bytes:.1f} {unit}"
 
-    # Render path using display_hermes_home so the user sees ~/.hermes/...
+    # Render path using display_hermes_home so the user sees ~/.agentx/...
     try:
         from hermes_constants import get_hermes_home, display_hermes_home
 
@@ -4330,7 +4330,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # Seed the model-catalog disk cache from the freshly-pulled checkout.
         # The repo ships the canonical catalog at
         # website/static/api/model-catalog.json, and `git pull` just made it
-        # current — so copy it straight over ~/.hermes/cache/model_catalog.json
+        # current — so copy it straight over ~/.agentx/cache/model_catalog.json
         # instead of waiting on a network fetch (which can be bot-gated or hit a
         # Portal hiccup). Keeps the model picker's curated/free lists in sync
         # with the version the user just installed. Non-fatal on failure: the
@@ -4375,10 +4375,10 @@ def _cmd_update_impl(args, gateway_mode: bool):
             logger.debug("Skills sync during update failed: %s", e)
 
         # Sync bundled skills to all profiles (including the active one).
-        # seed_profile_skills() uses subprocess with an explicit HERMES_HOME so
-        # it is not affected by sync_skills()'s module-level HERMES_HOME cache,
+        # seed_profile_skills() uses subprocess with an explicit AGENTX_HOME so
+        # it is not affected by sync_skills()'s module-level AGENTX_HOME cache,
         # which means the active profile is reliably synced regardless of whether
-        # the caller's HERMES_HOME env var points at the default or a named profile.
+        # the caller's AGENTX_HOME env var points at the default or a named profile.
         try:
             from hermes_cli.profiles import (
                 list_profiles,

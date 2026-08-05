@@ -1,6 +1,6 @@
 # Spotify
 
-Hermes 可以直接控制 Spotify——播放、队列、搜索、播放列表、已保存的曲目/专辑以及收听历史——通过 Spotify 官方 Web API 配合 PKCE OAuth 实现。Token（令牌）存储在 `~/.hermes/auth.json` 中，遇到 401 时自动刷新；每台机器只需登录一次。
+Hermes 可以直接控制 Spotify——播放、队列、搜索、播放列表、已保存的曲目/专辑以及收听历史——通过 Spotify 官方 Web API 配合 PKCE OAuth 实现。Token（令牌）存储在 `~/.agentx/auth.json` 中，遇到 401 时自动刷新；每台机器只需登录一次。
 
 与 Hermes 内置的 OAuth 集成（Google、GitHub Copilot、Codex）不同，Spotify 要求每位用户自行注册一个轻量级开发者应用。Spotify 不允许第三方发布可供所有人使用的公共 OAuth 应用。整个过程大约需要两分钟，`hermes auth spotify` 会全程引导你完成。
 
@@ -44,15 +44,15 @@ hermes auth spotify
 
 7 个 Spotify 工具只有在完成第 1 步后才会出现在 agent 的工具集中——它们默认关闭，以避免不需要它们的用户在每次 API 调用时额外传输工具 schema。
 
-若未设置 `HERMES_SPOTIFY_CLIENT_ID`，Hermes 会内联引导你完成应用注册：
+若未设置 `AGENTX_SPOTIFY_CLIENT_ID`，Hermes 会内联引导你完成应用注册：
 
 1. 在浏览器中打开 `https://developer.spotify.com/dashboard`
 2. 打印需要粘贴到 Spotify "Create app" 表单中的确切值
 3. 提示你输入获得的 Client ID
-4. 将其保存到 `~/.hermes/.env`，后续运行时跳过此步骤
+4. 将其保存到 `~/.agentx/.env`，后续运行时跳过此步骤
 5. 直接进入 OAuth 授权流程
 
-授权完成后，token 将写入 `~/.hermes/auth.json` 的 `providers.spotify` 下。当前推理提供商不会改变——Spotify 认证与你的 LLM 提供商无关。
+授权完成后，token 将写入 `~/.agentx/auth.json` 的 `providers.spotify` 下。当前推理提供商不会改变——Spotify 认证与你的 LLM 提供商无关。
 
 ### 创建 Spotify 应用（向导所需内容）
 
@@ -225,7 +225,7 @@ hermes cron add \
 hermes auth logout spotify
 ```
 
-从 `~/.hermes/auth.json` 中移除 token。若还需清除应用配置，请从 `~/.hermes/.env` 中删除 `HERMES_SPOTIFY_CLIENT_ID`（以及 `HERMES_SPOTIFY_REDIRECT_URI`，如果你设置了的话），或重新运行向导。
+从 `~/.agentx/auth.json` 中移除 token。若还需清除应用配置，请从 `~/.agentx/.env` 中删除 `AGENTX_SPOTIFY_CLIENT_ID`（以及 `AGENTX_SPOTIFY_REDIRECT_URI`，如果你设置了的话），或重新运行向导。
 
 若要在 Spotify 侧撤销应用，请访问[已连接到你账号的应用](https://www.spotify.com/account/apps/)并点击 **REMOVE ACCESS**。
 
@@ -237,7 +237,7 @@ hermes auth logout spotify
 
 **`get_currently_playing` 返回 `204 No Content`** — 当前所有设备上均无内容播放。这是 Spotify 的正常响应，不是错误；Hermes 将其呈现为说明性的空结果（`is_playing: false`）。
 
-**`INVALID_CLIENT: Invalid redirect URI`** — 你的 Spotify 应用设置中的 redirect URI 与 Hermes 使用的不匹配。默认值为 `http://127.0.0.1:43827/spotify/callback`。请将其添加到应用的允许 redirect URI 列表中，或在 `~/.hermes/.env` 中将 `HERMES_SPOTIFY_REDIRECT_URI` 设置为你注册的值。
+**`INVALID_CLIENT: Invalid redirect URI`** — 你的 Spotify 应用设置中的 redirect URI 与 Hermes 使用的不匹配。默认值为 `http://127.0.0.1:43827/spotify/callback`。请将其添加到应用的允许 redirect URI 列表中，或在 `~/.agentx/.env` 中将 `AGENTX_SPOTIFY_REDIRECT_URI` 设置为你注册的值。
 
 **`429 Too Many Requests`** — Spotify 的速率限制。Hermes 会返回友好的错误提示；等待一分钟后重试。若持续出现，你可能在脚本中运行了紧密循环——Spotify 的配额大约每 30 秒重置一次。
 
@@ -261,11 +261,11 @@ Scope 参考：[Spotify Web API scopes](https://developer.spotify.com/documentat
 hermes auth spotify --client-id <id> --redirect-uri http://localhost:3000/callback
 ```
 
-或在 `~/.hermes/.env` 中永久设置：
+或在 `~/.agentx/.env` 中永久设置：
 
 ```
-HERMES_SPOTIFY_CLIENT_ID=<your_id>
-HERMES_SPOTIFY_REDIRECT_URI=http://localhost:3000/callback
+AGENTX_SPOTIFY_CLIENT_ID=<your_id>
+AGENTX_SPOTIFY_REDIRECT_URI=http://localhost:3000/callback
 ```
 
 Redirect URI 必须在你的 Spotify 应用设置中加入白名单。默认值适用于绝大多数情况——只有在 43827 端口被占用时才需要更改。
@@ -274,6 +274,6 @@ Redirect URI 必须在你的 Spotify 应用设置中加入白名单。默认值�
 
 | 文件 | 内容 |
 |------|----------|
-| `~/.hermes/auth.json` → `providers.spotify` | access token、refresh token、过期时间、scope、redirect URI |
-| `~/.hermes/.env` | `HERMES_SPOTIFY_CLIENT_ID`，可选 `HERMES_SPOTIFY_REDIRECT_URI` |
+| `~/.agentx/auth.json` → `providers.spotify` | access token、refresh token、过期时间、scope、redirect URI |
+| `~/.agentx/.env` | `AGENTX_SPOTIFY_CLIENT_ID`，可选 `AGENTX_SPOTIFY_REDIRECT_URI` |
 | Spotify 应用 | 由你在 [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) 管理；包含 Client ID 和 redirect URI 白名单 |
