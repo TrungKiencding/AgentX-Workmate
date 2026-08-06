@@ -6,9 +6,43 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useI18n } from '@/i18n'
 import { Check, LogOut, UserCircle } from '@/lib/icons'
-import { $keycloakAccount, refreshKeycloakAccount, signOutKeycloak } from '@/store/account'
+import {
+  $accountIsolation,
+  $keycloakAccount,
+  type AccountIsolationState,
+  refreshAccountIsolation,
+  refreshKeycloakAccount,
+  rotateAccountKey,
+  signOutKeycloak
+} from '@/store/account'
 
 import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
+
+/**
+ * One line describing the account's model key.
+ *
+ * Table-driven over the provisioning status rather than a condition ladder,
+ * and it never renders the backend's raw `detail` for the states a user can
+ * act on — those get product language. The remaining states fall through to
+ * `detail`, which is operator-facing prose naming the setting that is wrong.
+ */
+function describeKey(
+  litellm: NonNullable<AccountIsolationState['litellm']>,
+  copy: ReturnType<typeof useI18n>['t']['settings']['account']
+): string {
+  if (litellm.ok) {
+    return litellm.masked_key ? `${litellm.masked_key} · ${litellm.base_url}` : litellm.base_url
+  }
+
+  const byStatus: Record<string, string> = {
+    disabled: copy.keyDisabled,
+    missing: copy.keyNone,
+    offline: copy.keyOffline,
+    unconfigured: copy.keyDisabled
+  }
+
+  return byStatus[litellm.status] || litellm.detail
+}
 
 /**
  * Settings → Account: who you are signed in to AgentX as, and how to leave.
@@ -20,7 +54,9 @@ import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from
 export function AccountSettings() {
   const { t } = useI18n()
   const account = useStore($keycloakAccount)
+  const isolation = useStore($accountIsolation)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [rotating, setRotating] = useState(false)
   const copy = t.settings.account
 
   // Re-read on mount rather than trusting a boot-time snapshot: the main
@@ -28,6 +64,7 @@ export function AccountSettings() {
   // early read reports "not configured" on a perfectly gated install.
   useEffect(() => {
     void refreshKeycloakAccount()
+    void refreshAccountIsolation()
   }, [])
 
   if (!account.loaded) {
@@ -78,6 +115,64 @@ export function AccountSettings() {
         />
 
         <ListRow description={account.issuer || undefined} title={copy.realmTitle} />
+
+        {account.signedIn && isolation.loaded && isolation.account ? (
+          <ListRow
+            // `isolated: false` means this backend is serving the machine's
+            // SHARED home. Saying so is the whole point — a panel that showed
+            // the account name regardless would imply a separation that is not
+            // in place yet.
+            action={
+              isolation.isolated ? (
+                <Pill tone="primary">
+                  <Check className="size-3" />
+                  {isolation.account}
+                </Pill>
+              ) : undefined
+            }
+            description={isolation.isolated ? isolation.home || undefined : copy.homeSharedDesc}
+            hint={
+              isolation.isolated && isolation.home ? (
+                <span data-selectable-text="true">{isolation.account}</span>
+              ) : undefined
+            }
+            title={copy.homeTitle}
+          />
+        ) : null}
+
+        {account.signedIn && isolation.loaded && isolation.litellm ? (
+          <ListRow
+            action={
+              // Rotation only makes sense once a key exists. Offering it against
+              // a disabled or unconfigured install would be a button that
+              // cannot succeed.
+              isolation.litellm.ok ? (
+                <Button
+                  disabled={rotating}
+                  onClick={async () => {
+                    setRotating(true)
+
+                    try {
+                      await rotateAccountKey()
+                    } finally {
+                      setRotating(false)
+                    }
+                  }}
+                  variant="outline"
+                >
+                  {rotating ? copy.keyRotating : copy.keyRotate}
+                </Button>
+              ) : undefined
+            }
+            description={describeKey(isolation.litellm, copy)}
+            hint={
+              isolation.litellm.models.length
+                ? copy.keyModels(isolation.litellm.models.length)
+                : undefined
+            }
+            title={copy.keyTitle}
+          />
+        ) : null}
 
         {account.signedIn ? (
           <ListRow

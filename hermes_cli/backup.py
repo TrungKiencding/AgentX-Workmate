@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hermes_constants import get_default_hermes_root, get_hermes_home, display_hermes_home
+from hermes_constants import get_user_root, get_hermes_home, display_hermes_home
 
 logger = logging.getLogger(__name__)
 
@@ -585,7 +585,7 @@ def _format_size(nbytes: int) -> str:
 
 def run_backup(args) -> None:
     """Create a zip backup of the AgentX home directory."""
-    hermes_root = get_default_hermes_root()
+    hermes_root = get_user_root()
 
     if not hermes_root.is_dir():
         print(f"Error: AgentX home directory not found at {hermes_root}")
@@ -866,7 +866,7 @@ def run_import(args) -> None:
         print(f"Error: Not a valid zip file: {zip_path}")
         sys.exit(1)
 
-    hermes_root = get_default_hermes_root()
+    hermes_root = get_user_root()
 
     with zipfile.ZipFile(zip_path, "r") as zf:
         # Validate
@@ -1805,7 +1805,7 @@ def create_pre_update_backup(
     found or the backup could not be created.  Never raises — the caller
     (``agentx update``) should continue even if the backup fails.
     """
-    hermes_root = hermes_home or get_default_hermes_root()
+    hermes_root = hermes_home or get_user_root()
     if not hermes_root.is_dir():
         return None
 
@@ -1880,7 +1880,7 @@ def create_pre_migration_backup(
     to back up (fresh install) or the write failed.  Never raises — the
     caller decides whether to abort or proceed.
     """
-    hermes_root = hermes_home or get_default_hermes_root()
+    hermes_root = hermes_home or get_user_root()
     if not hermes_root.is_dir():
         return None
 

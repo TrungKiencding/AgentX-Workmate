@@ -363,7 +363,18 @@ export const zh: Translations = {
       signOutConfirmTitle: '要退出 AgentX 吗？',
       signOutConfirmDesc: 'AgentX Workmate 将结束会话并回到登录界面。你的对话和设置都会保留。',
       notConfiguredTitle: '此安装没有 AgentX 账号',
-      notConfiguredDesc: '这份 AgentX Workmate 尚未连接到 AgentX 身份提供方。'
+      notConfiguredDesc: '这份 AgentX Workmate 尚未连接到 AgentX 身份提供方。',
+      homeTitle: '你在这台机器上的工作区',
+      homeSharedDesc:
+        '这个后端运行在共享主目录中，因此对话、记忆与密钥尚未按账号分离。请重启 AgentX Workmate 以完成账号设置。',
+      keyTitle: '模型访问',
+      keyNone: '尚未为这个账号签发密钥。',
+      keyDisabled: '这份安装不会签发按账号的模型密钥。',
+      keyOffline: '无法连接到模型代理。你现有的密钥仍然可用。',
+      keyRotate: '签发新密钥',
+      keyRotateDesc: '停用当前密钥并签发一把新的。密钥泄露时使用。',
+      keyRotating: '签发中…',
+      keyModels: n => `${n} 个可用模型`
     },
     plugins: {
       title: '桌面插件',

@@ -572,6 +572,14 @@ A non-loopback bind (`agentx dashboard --host 0.0.0.0`) engages the auth gate au
 | `AGENTX_DESKTOP_DEV_SERVER` | Vite dev-server URL the Electron shell loads instead of the packaged bundle (e.g. `http://127.0.0.1:5174`). Set automatically by `npm run dev`; only relevant when hacking on the app. |
 | `AGENTX_DESKTOP_CDP_PORT` | Overrides the Chrome DevTools Protocol port the renderer exposes on `127.0.0.1` for DOM/CSS inspection tooling (default `9222`). Dev-server runs (`npm run dev`, `hgui`) open it automatically; a packaged app never does, and no value here changes that. Set to `off` to disable it on a dev run. Anything that can reach the port can execute code in the renderer. |
 
+### Per-Account Provisioning (LiteLLM)
+
+The one secret behind [per-account provisioning](../user-guide/features/accounts.md) — minting a LiteLLM virtual key for each person who signs in. Everything else about it is non-secret configuration and belongs under `accounts.litellm` in `config.yaml`.
+
+| Variable | Description |
+|----------|-------------|
+| `AGENTX_LITELLM_ADMIN_KEY` | LiteLLM admin (master or admin-scoped virtual) key used to mint, list, and delete the per-account virtual keys. Read **only** when `accounts.litellm.mode: direct`, where the machine calls LiteLLM's admin API itself. In the default **broker** mode this key lives solely on the broker server running `agentx account broker` and is never read on a laptop — which is the point: AgentX Workmate is installed on the employee's own machine, so an admin key in that machine's `.env` is an admin key that employee can read and use to mint themselves unlimited budget or delete a colleague's key. On a laptop, this variable normally should **not** be present. Secret, so `~/.agentx/.env`, never `config.yaml`. |
+
 ### Microsoft Graph (Teams Meetings)
 
 App-only credentials for the Microsoft Graph REST client used by the upcoming Teams meeting summary pipeline. See [Register a Microsoft Graph application](/guides/microsoft-graph-app-registration) for the Azure portal walkthrough and the exact API permissions required.

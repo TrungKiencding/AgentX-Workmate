@@ -4,6 +4,42 @@ Pure-data leaf module: DEFAULT_CONFIG and OPTIONAL_ENV_VARS, extracted
 verbatim from hermes_cli/config.py. Must not import from hermes_cli.config.
 """
 
+# ── AgentX's own deployment ───────────────────────────────────────────
+#
+# Workmate reaches employees as a signed installer, and a fresh install has
+# no ``~/.agentx`` to read from: anything the first launch needs has to be
+# in the build already. These are that — the realm an employee's account
+# lives in, and the proxy their model key is minted against. Without them
+# a new machine comes up ungated and model-less, which looks exactly like a
+# working install and is not one.
+#
+# Every value here is public by construction. The Keycloak client is a
+# PUBLIC client (a desktop binary on someone's laptop cannot keep a secret)
+# and its id, realm and base URL are all visible in the address bar during
+# sign-in. The one real secret in this system, the LiteLLM admin key, is
+# deliberately NOT here: it is injected into the packaged desktop app at
+# build time by ``apps/desktop/scripts/write-deployment-config.mjs`` and
+# must never be committed, because this repository is public.
+#
+# A fork, a self-hosted deployment, or a developer working against a realm
+# they cannot reach overrides any of it per machine:
+#   * ``agentx dashboard keycloak --base-url URL --realm REALM --client-id ID``
+#   * the matching ``AGENTX_DASHBOARD_KEYCLOAK_*`` env vars, which win
+#   * ``AGENTX_DASHBOARD_REQUIRE_AUTH=0`` to run with no sign-in at all
+#   * ``accounts.litellm.enabled: false`` to leave model config alone
+
+#: Keycloak that backs AgentX. Sign-in is redirected here; see
+#: ``dashboard.oauth.keycloak`` below for the keys these fill in.
+DEPLOYMENT_KEYCLOAK_BASE_URL = "https://agentx.astralx.com.vn/auth"
+DEPLOYMENT_KEYCLOAK_REALM = "agent-hub"
+DEPLOYMENT_KEYCLOAK_CLIENT_ID = "agentx-workmate"
+
+#: LiteLLM proxy each signed-in account is given its own virtual key on.
+DEPLOYMENT_LITELLM_BASE_URL = "https://vtn-4000.wondertek.space"
+
+#: Model pinned as an account's default the first time its key is minted.
+DEPLOYMENT_LITELLM_DEFAULT_MODEL = "Qwen/Qwen3.5-35B-A3B-FP8"
+
 DEFAULT_CONFIG = {
     "model": "",
     "providers": {},
@@ -1334,14 +1370,24 @@ DEFAULT_CONFIG = {
         # ``web_server.should_require_auth``). That reasoning doesn't hold for
         # AgentX Workmate: it runs on an employee's own machine and must know
         # *which* employee before it does anything, so its users are the same
-        # ones AgentX already has in Keycloak. Set this True — or export
-        # ``AGENTX_DASHBOARD_REQUIRE_AUTH=1``, which wins in both directions —
-        # to require a real sign-in on http://127.0.0.1 too.
+        # ones AgentX already has in Keycloak.
         #
-        # When True, at least one DashboardAuthProvider MUST be registered or
-        # the dashboard refuses to start (fail closed, never open). Configure
-        # one first: ``agentx dashboard keycloak --help``.
-        "require_auth": False,
+        # Three states, not two:
+        #
+        #   None (default) — AUTO. Gated exactly when an identity provider is
+        #                    configured. Setting up Keycloak IS the opt-in;
+        #                    there is no second switch to remember, and no
+        #                    state where sign-in is configured, looks like it
+        #                    works, and is silently not enforced.
+        #   True           — always gated. Fails closed at startup if no
+        #                    provider is registered.
+        #   False          — never gated on loopback. The escape hatch for a
+        #                    developer running locally against a realm they
+        #                    cannot reach.
+        #
+        # ``AGENTX_DASHBOARD_REQUIRE_AUTH`` overrides all three, in both
+        # directions. A non-loopback bind is gated regardless of this setting.
+        "require_auth": None,
         # OAuth gate configuration (engaged when ``--host`` is set and
         # ``--insecure`` is not). The bundled Nous Portal plugin reads
         # both keys at startup; they are the canonical surface for these
@@ -1367,6 +1413,12 @@ DEFAULT_CONFIG = {
             # winning when non-empty. ``agentx dashboard keycloak`` writes
             # these for you and prints the redirect URIs to register.
             #
+            # These three ship filled in (see DEPLOYMENT_* at the top of this
+            # module), which is what makes a freshly installed Workmate ask
+            # for a sign-in on its first launch rather than coming up open.
+            # Filling them in IS the opt-in for the loopback gate — see
+            # ``web_server._loopback_auth_opt_in``.
+            #
             # The client MUST be a PUBLIC Keycloak client: a desktop binary on
             # an employee's machine cannot keep a secret. ``client_secret`` is
             # here only for a browser-only deployment whose realm insists on a
@@ -1380,9 +1432,9 @@ DEFAULT_CONFIG = {
             # other required action cannot complete that flow — Keycloak just
             # answers invalid_grant and the user has no way to respond.
             "keycloak": {
-                "base_url": "",  # e.g. https://agentx.example.com/auth
-                "realm": "",  # e.g. agent-hub
-                "client_id": "",  # e.g. agentx-workmate (PUBLIC client)
+                "base_url": DEPLOYMENT_KEYCLOAK_BASE_URL,
+                "realm": DEPLOYMENT_KEYCLOAK_REALM,
+                "client_id": DEPLOYMENT_KEYCLOAK_CLIENT_ID,  # PUBLIC client
                 "client_secret": "",  # leave empty — public client + PKCE
                 "scopes": "",  # blank → "openid profile email"
                 "issuer": "",  # blank → {base_url}/realms/{realm}
@@ -1456,6 +1508,70 @@ DEFAULT_CONFIG = {
         # falls through to request reconstruction rather than breaking
         # the login flow.
         "public_url": "",
+    },
+
+    # Per-account provisioning.
+    #
+    # AgentX Workmate runs on an employee's own machine but its accounts are
+    # central. When somebody signs in, this is what turns "who they are" into
+    # "what they can use": a LiteLLM virtual key that belongs to them alone,
+    # written into their own account home. Ten people signing in on one laptop
+    # get ten keys, ten spend lines, and ten sets of state.
+    #
+    # On by default, pointed at AgentX's own proxy (DEPLOYMENT_LITELLM_* at
+    # the top of this module), so an employee who installs Workmate and signs
+    # in has a working model on the first screen instead of a setup errand.
+    # Set ``enabled: false`` to leave `agentx model` configuration alone.
+    "accounts": {
+        "litellm": {
+            # Master switch. Left False, sign-in provisions nothing and the
+            # user's own `agentx model` configuration is untouched.
+            "enabled": True,
+            # The LiteLLM proxy every account's key is minted against, e.g.
+            # https://litellm.example.com — no trailing /v1, that is appended
+            # where the OpenAI-compatible base URL is needed.
+            "base_url": DEPLOYMENT_LITELLM_BASE_URL,
+            # "broker" asks a central service to mint the key, so the LiteLLM
+            # admin key never lands on an employee's laptop. "direct" lets
+            # this machine call LiteLLM's admin API itself using
+            # AGENTX_LITELLM_ADMIN_KEY from .env.
+            #
+            # AgentX ships "direct": there is no broker deployed yet, and a
+            # laptop that cannot mint has no model at all. Understand what
+            # that costs — the admin key travels inside the installer, so
+            # anyone who unpacks the app can read it, mint themselves
+            # unlimited budget, or delete a colleague's key. Stand the broker
+            # up (``agentx litellm-broker serve``), point ``broker_url`` at
+            # it, flip this to "broker", and rotate the admin key; that is
+            # the migration, and nothing on the laptop side changes.
+            "mode": "direct",
+            # Broker endpoint. Receives the user's Keycloak bearer and answers
+            # with that user's key. Required when mode is "broker".
+            "broker_url": "",
+            # The name this proxy gets under `providers:` in the account's
+            # config.yaml, and therefore the name shown by `agentx model`.
+            "provider_name": "litellm",
+            # Prefix for the LiteLLM key_alias. The account slug is appended,
+            # which is what makes provisioning idempotent: one alias per
+            # person, looked up before anything is minted.
+            "key_alias_prefix": "agentx-workmate",
+            # Restrict the minted key to these model ids. Empty means every
+            # model the proxy exposes.
+            "models": [],
+            # Spend and rate ceilings applied to each minted key. 0 / "" means
+            # "no limit", which is LiteLLM's own default.
+            "max_budget": 0,
+            "budget_duration": "",
+            "tpm_limit": 0,
+            "rpm_limit": 0,
+            # Model to pin as the account's default the first time its key is
+            # minted. Blank leaves model selection alone.
+            "default_model": DEPLOYMENT_LITELLM_DEFAULT_MODEL,
+            # Ask the proxy for its model list after provisioning so the model
+            # picker is populated without the user typing ids.
+            "discover_models": True,
+            "request_timeout_seconds": 20,
+        },
     },
 
     # Privacy settings
@@ -4331,6 +4447,17 @@ OPTIONAL_ENV_VARS = {
     # checklists) and deprecated knobs shouldn't be offered there. The boolean
     # AGENTX_TOOL_PROGRESS is fully unsupported since the v12 config support
     # floor retired its only consumer (the v3→4 migration).
+    # Only read in accounts.litellm.mode == "direct", where this machine mints
+    # its own per-account keys. In broker mode the admin key stays on the
+    # broker and never reaches a laptop — which is the point of broker mode.
+    "AGENTX_LITELLM_ADMIN_KEY": {
+        "description": "LiteLLM admin key, used to mint a per-account virtual key in direct mode",
+        "prompt": "LiteLLM admin key",
+        "url": None,
+        "password": True,
+        "category": "provider",
+        "advanced": True,
+    },
     "AGENTX_PREFILL_MESSAGES_FILE": {
         "description": "Path to JSON file with ephemeral prefill messages for few-shot priming",
         "prompt": "Prefill messages file path",

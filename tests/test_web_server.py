@@ -2,6 +2,14 @@
 
 The server now uses uvicorn.Server directly (not uvicorn.run) so we stub
 Config + Server + asyncio.run to capture kwargs without starting an event loop.
+
+Every ``start_server`` test here also takes ``no_shipped_identity_provider``.
+A stock install ships a Keycloak client, which engages the loopback auth gate,
+and ``start_server`` then FAILS CLOSED unless a provider is actually registered
+— which nothing does here, since these tests stub out everything but the
+uvicorn wiring. The fixture puts them back in the un-configured world they were
+written for. (The fail-closed exit itself is covered in
+``tests/hermes_cli/test_dashboard_auth_loopback_gate.py``.)
 """
 
 import asyncio
@@ -69,7 +77,7 @@ def _stub_uvicorn(monkeypatch):
     return captured
 
 
-def test_start_server_applies_process_local_ssh_bootstrap_state(monkeypatch):
+def test_start_server_applies_process_local_ssh_bootstrap_state(no_shipped_identity_provider, monkeypatch):
     captured = _stub_uvicorn(monkeypatch)
 
     web_server.start_server(
@@ -85,7 +93,7 @@ def test_start_server_applies_process_local_ssh_bootstrap_state(monkeypatch):
     assert captured["port"] == 0
 
 
-def test_start_server_disables_ws_ping_on_loopback(monkeypatch):
+def test_start_server_disables_ws_ping_on_loopback(no_shipped_identity_provider, monkeypatch):
     """Loopback binds (the Desktop case) MUST disable uvicorn's protocol-level
     keepalive ping so an event-loop stall can never trigger a false disconnect.
 
@@ -107,7 +115,7 @@ def test_start_server_disables_ws_ping_on_loopback(monkeypatch):
     assert captured["ws_ping_timeout"] is None
 
 
-def test_start_server_accepts_base64_desktop_attachments_above_preview_limit(monkeypatch):
+def test_start_server_accepts_base64_desktop_attachments_above_preview_limit(no_shipped_identity_provider, monkeypatch):
     """The gateway frame cap must fit the Desktop attachment default after
     base64 expansion and JSON framing; uvicorn's 16 MiB default would reject
     the request before ``file.attach`` can stage it.
@@ -146,7 +154,7 @@ def test_start_server_enables_ws_ping_for_half_open_detection(monkeypatch):
     assert captured["ws_ping_timeout"] >= captured["ws_ping_interval"]
 
 
-def test_start_server_runs_on_uvicorns_loop_factory(monkeypatch):
+def test_start_server_runs_on_uvicorns_loop_factory(no_shipped_identity_provider, monkeypatch):
     """The dashboard/desktop backend must serve uvicorn on the loop *uvicorn*
     selects, not the interpreter default.
 
@@ -205,7 +213,7 @@ def test_start_server_runs_on_uvicorns_loop_factory(monkeypatch):
     )
 
 
-def test_start_server_keeps_bare_asyncio_run_on_posix(monkeypatch):
+def test_start_server_keeps_bare_asyncio_run_on_posix(no_shipped_identity_provider, monkeypatch):
     """POSIX behavior must be byte-for-byte unchanged: serve via the plain
     ``asyncio.run(_serve())`` path, never the Windows loop-factory branch.
 

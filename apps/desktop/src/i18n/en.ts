@@ -373,7 +373,18 @@ export const en: Translations = {
       signOutConfirmDesc:
         'AgentX Workmate will close its session and return to the sign-in screen. Your chats and settings are kept.',
       notConfiguredTitle: 'No AgentX account on this install',
-      notConfiguredDesc: 'This copy of AgentX Workmate is not connected to an AgentX identity provider.'
+      notConfiguredDesc: 'This copy of AgentX Workmate is not connected to an AgentX identity provider.',
+      homeTitle: 'Your workspace on this machine',
+      homeSharedDesc:
+        'This backend is running in the shared home, so chats, memory, and keys are not separated by account yet. Restart AgentX Workmate to finish setting your account up.',
+      keyTitle: 'Model access',
+      keyNone: 'No key has been issued for this account yet.',
+      keyDisabled: 'This install does not issue per-account model keys.',
+      keyOffline: 'Could not reach the model proxy. Your existing key still works.',
+      keyRotate: 'Issue a new key',
+      keyRotateDesc: 'Retires the current key and issues a fresh one. Use this if the key has leaked.',
+      keyRotating: 'Issuing…',
+      keyModels: n => `${n} model${n === 1 ? '' : 's'} available`
     },
     plugins: {
       title: 'Desktop plugins',

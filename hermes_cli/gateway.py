@@ -1755,35 +1755,45 @@ def _profile_suffix() -> str:
     """Derive a service-name suffix from the current AGENTX_HOME.
 
     Returns ``""`` for the default root, the profile name for
-    ``<root>/profiles/<name>``, or a short hash for any other path.
-    Works correctly in Docker (AGENTX_HOME=/opt/data) and standard deployments.
+    ``<root>/profiles/<name>``, the account slug for
+    ``<root>/accounts/<slug>`` (and ``<slug>-<name>`` for a profile inside an
+    account), or a short hash for any other path.  Works correctly in Docker
+    (AGENTX_HOME=/opt/data) and standard deployments.
+
+    Two accounts on one machine must never collide here: the suffix is what
+    separates ``agentx-gateway-<a>`` from ``agentx-gateway-<b>``, and a
+    collision would have one person's gateway unit overwrite the other's.
     """
     import hashlib
-    import re
-    from hermes_constants import get_default_hermes_root
+    from hermes_constants import split_home_scope
 
     home = get_hermes_home().resolve()
-    default = get_default_hermes_root().resolve()
-    if home == default:
+    account, profile = split_home_scope(home)
+    if account and profile:
+        return f"{account}-{profile}"
+    if account:
+        return account
+    if profile:
+        return profile
+    from hermes_constants import get_default_hermes_root
+
+    if home == get_default_hermes_root().resolve():
         return ""
-    # Detect <root>/profiles/<name> pattern → use the profile name
-    profiles_root = (default / "profiles").resolve()
-    try:
-        rel = home.relative_to(profiles_root)
-        parts = rel.parts
-        if len(parts) == 1 and re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
-            return parts[0]
-    except ValueError:
-        pass
     # Fallback: short hash for arbitrary AGENTX_HOME paths
     return hashlib.sha256(str(home).encode()).hexdigest()[:8]
 
 
 def _profile_arg(hermes_home: str | None = None, default_root: str | Path | None = None) -> str:
-    """Return ``--profile <name>`` only when AGENTX_HOME is a named profile.
+    """Return the argv that re-homes a child process back to AGENTX_HOME.
 
     For ``~/.agentx/profiles/<name>``, returns ``"--profile <name>"``.
+    For ``~/.agentx/accounts/<slug>``, ``"--account <slug>"`` — and both,
+    in that order, for a profile nested inside an account.
     For the default profile or hash-based custom paths, returns the empty string.
+
+    A service unit generated for an account home MUST carry ``--account``:
+    without it the supervised gateway starts in the machine's shared root and
+    answers with the wrong person's sessions and provider key.
 
     Args:
         hermes_home: Optional explicit AGENTX_HOME path. Defaults to the current
@@ -1794,22 +1804,17 @@ def _profile_arg(hermes_home: str | None = None, default_root: str | Path | None
             process, where ``Path.home()`` and ``get_default_hermes_root()``
             refer to root but the target profile lives under the service user.
     """
-    import re
-    from hermes_constants import get_default_hermes_root
+    from hermes_constants import split_home_scope
 
     home = Path(hermes_home or str(get_hermes_home())).resolve()
-    default = Path(default_root).resolve() if default_root else get_default_hermes_root().resolve()
-    if home == default:
-        return ""
-    profiles_root = (default / "profiles").resolve()
-    try:
-        rel = home.relative_to(profiles_root)
-        parts = rel.parts
-        if len(parts) == 1 and re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
-            return f"--profile {parts[0]}"
-    except ValueError:
-        pass
-    return ""
+    account, profile = split_home_scope(home, default_root)
+
+    parts = []
+    if account:
+        parts.append(f"--account {account}")
+    if profile:
+        parts.append(f"--profile {profile}")
+    return " ".join(parts)
 
 
 def _profile_arg_for_target_user(hermes_home: str, target_home_dir: str) -> str:

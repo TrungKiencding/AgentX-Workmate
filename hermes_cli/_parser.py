@@ -13,11 +13,15 @@ because its dispatch is tightly coupled to module-level ``cmd_*`` functions.
 import argparse
 
 
-# `--profile` / `-p` is consumed by ``main._apply_profile_override`` before
-# argparse runs (it sets ``AGENTX_HOME`` and strips itself from ``sys.argv``),
-# so it isn't on the parser. Listed here so all "carry over on relaunch"
-# metadata lives in one file.
+# `--account`, `--profile` and `-p` are consumed by
+# ``main._apply_account_override`` / ``main._apply_profile_override`` before
+# argparse runs (they set ``AGENTX_HOME`` and strip themselves from
+# ``sys.argv``), so they aren't on the parser. Listed here so all "carry over
+# on relaunch" metadata lives in one file. ``--account`` comes first because
+# it is the outer scope: a relaunch that dropped it would land the new process
+# in a different person's home.
 PRE_ARGPARSE_INHERITED_FLAGS: list[tuple[str, bool]] = [
+    ("--account", True),
     ("--profile", True),
     ("-p", True),
 ]
@@ -66,6 +70,8 @@ Examples:
     agentx sessions list          List past sessions
     agentx sessions browse        Interactive session picker
     agentx sessions rename ID T   Rename/title a session
+    agentx account list           List the signed-in accounts on this machine
+    agentx account show           Show the active account and its model key
     agentx logs                   View agent.log (last 50 lines)
     agentx logs -f                Follow agent.log in real time
     agentx logs errors            View errors.log

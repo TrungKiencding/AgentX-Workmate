@@ -325,6 +325,16 @@ export interface Translations {
       signOutConfirmDesc: string
       notConfiguredTitle: string
       notConfiguredDesc: string
+      homeTitle: string
+      homeSharedDesc: string
+      keyTitle: string
+      keyNone: string
+      keyDisabled: string
+      keyOffline: string
+      keyRotate: string
+      keyRotateDesc: string
+      keyRotating: string
+      keyModels: (n: number) => string
     }
     plugins: {
       title: string

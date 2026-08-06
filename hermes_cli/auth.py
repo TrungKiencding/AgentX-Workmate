@@ -984,11 +984,16 @@ def _global_auth_file_path() -> Optional[Path]:
     Used by read-only fallback paths so providers authed at the root are
     visible to profile processes that haven't configured them locally.
 
+    Anchored on :func:`hermes_constants.get_user_root`, so under an account
+    the fallback is *that person's* root rather than the machine's. Falling
+    back to the machine root would show one employee the credentials another
+    employee authed on the same laptop.
+
     See issue #18594 follow-up (credential_pool shadowing).
     """
     try:
-        from hermes_constants import get_default_hermes_root
-        global_root = get_default_hermes_root()
+        from hermes_constants import get_user_root
+        global_root = get_user_root()
     except Exception:
         return None
     profile_home = get_hermes_home()
@@ -5224,8 +5229,8 @@ def _nous_shared_auth_dir() -> Path:
     override = os.getenv("AGENTX_SHARED_AUTH_DIR", "").strip()
     if override:
         return Path(override).expanduser()
-    from hermes_constants import get_default_hermes_root
-    return get_default_hermes_root() / "shared"
+    from hermes_constants import get_user_root
+    return get_user_root() / "shared"
 
 
 def _nous_shared_store_path() -> Path:

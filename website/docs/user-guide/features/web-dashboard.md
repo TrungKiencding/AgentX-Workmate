@@ -569,17 +569,20 @@ When the dashboard is bound to a public or non-loopback address — anything oth
 
 | Flags | Auth gate | Use case |
 |-------|-----------|----------|
-| `agentx dashboard` (default — binds to `127.0.0.1`) | OFF | Local development |
-| `agentx dashboard` with `dashboard.require_auth: true` | **ON** | AgentX Workmate — a personal install that still has to know who you are |
+| `agentx dashboard` on a stock AgentX Workmate install | **ON** | The shipped build points at AgentX's Keycloak, so it asks who you are |
+| `agentx dashboard` with no identity provider configured | OFF | A fork or a source checkout pointed at nothing |
+| `agentx dashboard` with `dashboard.require_auth: false` | OFF | Local development against a realm you cannot reach |
 | `agentx dashboard --host 0.0.0.0` | **ON** | Remote / production — protect with Keycloak, username/password, or OAuth |
 
-A non-loopback bind — `0.0.0.0` or any RFC1918 / LAN address — always engages the gate. A **loopback** bind does not, *unless* you opt in:
+A non-loopback bind — `0.0.0.0` or any RFC1918 / LAN address — always engages the gate, whatever the config says.
+
+A **loopback** bind engages it when an identity provider is configured. **Configuring Keycloak is the opt-in**; there is no second switch. That rule is what makes an installed Workmate ask for a sign-in on a machine nobody has touched: the realm, the client id and the proxy ship inside the build (`hermes_cli/config_defaults.py`), so a fresh install is gated from its first launch. Point an install at your own realm with:
 
 ```bash
-agentx dashboard keycloak --base-url https://agentx.example.com/auth --realm agent-hub --client-id agentx-workmate --require-auth
+agentx dashboard keycloak --base-url https://agentx.example.com/auth --realm agent-hub --client-id agentx-workmate
 ```
 
-That sets `AGENTX_DASHBOARD_REQUIRE_AUTH=1` (equivalently `dashboard.require_auth: true` in `config.yaml`). It exists because AgentX Workmate runs on an employee's own machine and still has to establish *which* employee before it does anything. Leave it off and a local dashboard behaves exactly as it always has — no auth, no login page.
+To run with no sign-in at all — a developer working against a realm they cannot reach — set `AGENTX_DASHBOARD_REQUIRE_AUTH=0`, or `dashboard.require_auth: false` in `config.yaml`. Either wins over everything above on a loopback bind, and neither can open a non-loopback one.
 
 The legacy `--insecure` flag **no longer disables** the gate — it's accepted for backward compatibility but ignored, with a warning.
 

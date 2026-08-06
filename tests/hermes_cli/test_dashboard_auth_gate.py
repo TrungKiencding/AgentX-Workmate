@@ -17,14 +17,31 @@ from hermes_cli import web_server
 
 @pytest.fixture(autouse=True)
 def _no_loopback_gate_opt_in(monkeypatch):
-    """Pin the loopback rows of the truth table against a developer's env.
+    """Pin the loopback rows of the truth table to an install with no opt-in.
 
-    ``should_require_auth`` now consults ``AGENTX_DASHBOARD_REQUIRE_AUTH``
-    (and ``dashboard.require_auth``) for loopback binds. Anyone who exports it
-    to work on AgentX Workmate's Keycloak gate would otherwise flip the
-    expected results in this file.
+    ``should_require_auth`` consults three things for a loopback bind:
+    ``AGENTX_DASHBOARD_REQUIRE_AUTH``, ``dashboard.require_auth``, and — when
+    neither is set — whether an identity provider is configured at all.
+
+    All three have to be cleared here, and the third is the surprising one:
+    AgentX Workmate SHIPS a Keycloak provider in ``DEFAULT_CONFIG``, so on a
+    stock install the auto rung resolves to "gated" and every loopback row
+    below would flip. These rows are about the predicate's shape, not about
+    what the product happens to ship, so the fixture takes the config out of
+    the picture. ``test_dashboard_auth_loopback_gate.py`` covers the auto rung
+    itself, and ``test_deployment_defaults.py`` covers the shipped answer.
     """
     monkeypatch.delenv("AGENTX_DASHBOARD_REQUIRE_AUTH", raising=False)
+
+    for key in (
+        "AGENTX_DASHBOARD_KEYCLOAK_ISSUER",
+        "AGENTX_DASHBOARD_KEYCLOAK_BASE_URL",
+        "AGENTX_DASHBOARD_KEYCLOAK_REALM",
+        "AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    monkeypatch.setattr("hermes_cli.config.load_config", lambda: {})
 
 
 @pytest.fixture

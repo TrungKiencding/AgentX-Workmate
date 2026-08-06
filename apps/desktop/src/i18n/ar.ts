@@ -324,7 +324,18 @@ export const ar = defineLocale({
       signOutConfirmTitle: 'تسجيل الخروج من AgentX؟',
       signOutConfirmDesc: 'سيُنهي AgentX Workmate الجلسة ويعود إلى شاشة تسجيل الدخول. تبقى محادثاتك وإعداداتك كما هي.',
       notConfiguredTitle: 'لا يوجد حساب AgentX في هذا التثبيت',
-      notConfiguredDesc: 'نسخة AgentX Workmate هذه غير متصلة بمزود هوية AgentX.'
+      notConfiguredDesc: 'نسخة AgentX Workmate هذه غير متصلة بمزود هوية AgentX.',
+      homeTitle: 'مساحة عملك على هذا الجهاز',
+      homeSharedDesc:
+        'تعمل هذه الخلفية في المساحة المشتركة، لذا لم يتم بعد فصل المحادثات والذاكرة والمفاتيح حسب الحساب. أعد تشغيل AgentX Workmate لإكمال إعداد حسابك.',
+      keyTitle: 'الوصول إلى النماذج',
+      keyNone: 'لم يُصدَر بعد أي مفتاح لهذا الحساب.',
+      keyDisabled: 'لا تُصدر هذه النسخة مفاتيح نماذج لكل حساب.',
+      keyOffline: 'تعذّر الوصول إلى وسيط النماذج. مفتاحك الحالي ما زال يعمل.',
+      keyRotate: 'إصدار مفتاح جديد',
+      keyRotateDesc: 'يسحب المفتاح الحالي ويُصدر مفتاحًا جديدًا. استخدمه إذا تسرّب المفتاح.',
+      keyRotating: 'جارٍ الإصدار…',
+      keyModels: n => `${n} نموذج متاح`
     },
     plugins: {
       title: 'إضافات سطح المكتب',

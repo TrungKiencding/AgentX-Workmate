@@ -108,6 +108,13 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     signIn: profile => ipcRenderer.invoke('agentx:keycloak:sign-in', profile),
     signOut: profile => ipcRenderer.invoke('agentx:keycloak:sign-out', profile)
   },
+  // The signed-in account: which AgentX home this person owns on this machine,
+  // and the state of the model key provisioned for them. There is no `set` —
+  // the account is whoever signed in, never a renderer choice.
+  account: {
+    status: () => ipcRenderer.invoke('agentx:account:status'),
+    provision: options => ipcRenderer.invoke('agentx:account:provision', options)
+  },
   profile: {
     get: () => ipcRenderer.invoke('agentx:profile:get'),
     set: name => ipcRenderer.invoke('agentx:profile:set', name)

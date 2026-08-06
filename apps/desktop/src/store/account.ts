@@ -1,6 +1,6 @@
 import { atom } from 'nanostores'
 
-import type { DesktopKeycloakStatus } from '@/global'
+import type { DesktopAccountStatus, DesktopKeycloakStatus } from '@/global'
 
 /**
  * Who is signed in to AgentX, for the account surface.
@@ -64,6 +64,76 @@ export async function refreshKeycloakAccount(): Promise<KeycloakAccountState> {
 
     return next
   }
+}
+
+/**
+ * The account home this person owns on this machine, and its model key.
+ *
+ * Separate from `$keycloakAccount` because the two answer different questions
+ * and fail differently: identity comes off the local token store and is always
+ * available, while this reaches the backend and can be stale, absent, or
+ * reporting a LiteLLM that is down. Keeping them apart means an unreachable
+ * proxy cannot make the identity panel look broken.
+ */
+export interface AccountIsolationState extends DesktopAccountStatus {
+  available: boolean
+  loaded: boolean
+}
+
+const INITIAL_ISOLATION: AccountIsolationState = {
+  account: null,
+  available: false,
+  loaded: false,
+  signedIn: false
+}
+
+export const $accountIsolation = atom<AccountIsolationState>(INITIAL_ISOLATION)
+
+/** Re-read the account's home and key state. Never throws. */
+export async function refreshAccountIsolation(): Promise<AccountIsolationState> {
+  const bridge = window.agentxDesktop?.account
+
+  if (!bridge) {
+    const next = { ...INITIAL_ISOLATION, loaded: true }
+
+    $accountIsolation.set(next)
+
+    return next
+  }
+
+  try {
+    const status = await bridge.status()
+
+    const next: AccountIsolationState = {
+      ...INITIAL_ISOLATION,
+      ...status,
+      available: true,
+      loaded: true
+    }
+
+    $accountIsolation.set(next)
+
+    return next
+  } catch {
+    const next: AccountIsolationState = { ...INITIAL_ISOLATION, available: true, loaded: true }
+
+    $accountIsolation.set(next)
+
+    return next
+  }
+}
+
+/**
+ * Mint a fresh model key for this account, retiring the current one.
+ *
+ * The user-facing reason to do this is a leaked key. It is not a repair
+ * button: a key that merely stopped working is replaced automatically on the
+ * next launch.
+ */
+export async function rotateAccountKey(): Promise<AccountIsolationState> {
+  await window.agentxDesktop?.account?.provision({ rotate: true }).catch(() => undefined)
+
+  return refreshAccountIsolation()
 }
 
 /**

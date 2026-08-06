@@ -21,6 +21,7 @@ test runner at ``scripts/run_tests.sh``.
 
 import asyncio
 import atexit
+import copy
 import os
 import shutil
 import sqlite3
@@ -1468,3 +1469,52 @@ def _moa_caches_isolated():
     yield
     moa._preset_cache.clear()
     moa._runtime_cache.clear()
+
+
+@pytest.fixture
+def no_shipped_identity_provider(monkeypatch):
+    """Blank the Keycloak client that AgentX Workmate ships in DEFAULT_CONFIG.
+
+    A stock install carries a realm and a public client id (see
+    ``config_defaults.DEPLOYMENT_KEYCLOAK_*``), so the bundled Keycloak plugin
+    registers a provider on any machine running the suite. That is correct for
+    the product and wrong for any test asserting on the *set* of registered
+    providers, or on a gate that should be off — those end up seeing a stray
+    ``keycloak`` alongside their own stub.
+
+    Requesting this fixture puts the test back in the world it was written for:
+    an install pointed at no identity provider. Tests that want the shipped
+    answer are in ``test_deployment_defaults.py`` and do not use it.
+    """
+    from hermes_cli import config as config_module
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    for key in (
+        "AGENTX_DASHBOARD_KEYCLOAK_ISSUER",
+        "AGENTX_DASHBOARD_KEYCLOAK_BASE_URL",
+        "AGENTX_DASHBOARD_KEYCLOAK_REALM",
+        "AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    real_load_config = config_module.load_config
+
+    def _load_config_without_the_shipped_client():
+        cfg = real_load_config()
+        keycloak = cfg.get("dashboard", {}).get("oauth", {}).get("keycloak")
+
+        if isinstance(keycloak, dict):
+            keycloak.update({"base_url": "", "realm": "", "client_id": "", "issuer": ""})
+
+        return cfg
+
+    monkeypatch.setattr(config_module, "load_config", _load_config_without_the_shipped_client)
+
+    # Both seams are needed. Wrapping load_config covers the cache: it keys on
+    # the config FILE's (mtime, size), so a load that happened before this
+    # fixture ran would keep serving a merged dict with the shipped client in
+    # it. Blanking DEFAULT_CONFIG covers everything that reads the defaults
+    # without going through load_config at all.
+    blanked = copy.deepcopy(DEFAULT_CONFIG["dashboard"]["oauth"]["keycloak"])
+    blanked.update({"base_url": "", "realm": "", "client_id": "", "issuer": ""})
+    monkeypatch.setitem(DEFAULT_CONFIG["dashboard"]["oauth"], "keycloak", blanked)

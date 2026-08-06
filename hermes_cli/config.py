@@ -893,6 +893,16 @@ def ensure_hermes_home():
             f"Named profile home does not exist: {home}. "
             "Create the profile explicitly before using it."
         )
+    # Same resurrection guard for accounts. An account home is created by
+    # sign-in (``--account`` / ``ensure_account_home``); if it is gone by the
+    # time some long-running process next loads config, the account was
+    # deleted underneath us and re-creating an empty skeleton would make the
+    # deleted person reappear in account lists with none of their data.
+    if home.parent.name == "accounts" and not home.exists():
+        raise FileNotFoundError(
+            f"Account home does not exist: {home}. "
+            "Sign in again to recreate it."
+        )
     if is_managed():
         old_umask = os.umask(0o007)
         try:
@@ -1321,6 +1331,12 @@ def _normalize_custom_provider_entry(
         # into provider entries. Accept it silently so those (self-written)
         # configs don't warn on every load.
         "provider",
+        # ``enabled`` is read by is_provider_enabled() and honored by the
+        # runtime resolver, the model picker and doctor. Omitting it here made
+        # the one config that turns a provider off warn "unknown config keys
+        # ignored: enabled" on every load — telling users the supported key
+        # they just set does nothing.
+        "enabled",
         "name", "api", "url", "base_url", "api_key", "key_env", "api_key_env",
         "api_mode", "transport", "model", "default_model", "models",
         "context_length", "rate_limit_delay",

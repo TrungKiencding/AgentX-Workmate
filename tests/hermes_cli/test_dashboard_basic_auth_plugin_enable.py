@@ -44,7 +44,9 @@ class TestEnsureBasicAuthPluginEnabled:
 
 
 class TestBasicProviderLoadsAfterUnblock:
-    def test_disabled_basic_blocks_registration(self, hermes_home, monkeypatch):
+    def test_disabled_basic_blocks_registration(
+        self, no_shipped_identity_provider, hermes_home, monkeypatch
+    ):
         password_hash = basic_plugin.hash_password("hunter2")
         _write_config(
             hermes_home,
@@ -68,7 +70,7 @@ class TestBasicProviderLoadsAfterUnblock:
         assert list_providers() == []
 
     def test_unblock_then_rediscover_registers_provider(
-        self, hermes_home, monkeypatch,
+        self, no_shipped_identity_provider, hermes_home, monkeypatch,
     ):
         password_hash = basic_plugin.hash_password("hunter2")
         cfg = {

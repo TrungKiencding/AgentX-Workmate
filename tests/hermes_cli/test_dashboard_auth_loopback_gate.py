@@ -8,7 +8,10 @@ line up with the ones AgentX already has in Keycloak.
 ``dashboard.require_auth`` / ``AGENTX_DASHBOARD_REQUIRE_AUTH`` is what turns the
 gate on there. The properties worth pinning:
 
-  * it defaults OFF, so every existing local install is untouched;
+  * unset, it follows whether an identity provider is configured — which is
+    why a shipped build (one ships a Keycloak client) is gated and a
+    provider-less checkout is not. ``test_deployment_defaults.py`` pins the
+    shipped answer; every test here supplies its own config;
   * env beats config.yaml in BOTH directions (an explicit 0 must be able to
     turn off what config turned on);
   * a broken config.yaml degrades to "off" rather than taking the server down;

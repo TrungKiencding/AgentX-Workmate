@@ -441,6 +441,7 @@ from hermes_cli.subcommands._shared import add_accept_hooks_flag as _add_accept_
 from hermes_cli.subcommands.cron import build_cron_parser
 from hermes_cli.subcommands.sync import build_sync_parser
 from hermes_cli.subcommands.gateway import build_gateway_parser
+from hermes_cli.subcommands.account import build_account_parser
 from hermes_cli.subcommands.profile import build_profile_parser
 from hermes_cli.subcommands.model import build_model_parser
 from hermes_cli.subcommands.setup import build_setup_parser
@@ -514,6 +515,75 @@ _ensure_project_root_on_path_fast()
 # The flag is stripped from sys.argv so argparse never sees it.
 # Falls back to ~/.agentx/active_profile for sticky default.
 # ---------------------------------------------------------------------------
+def _apply_account_override() -> None:
+    """Pre-parse ``--account`` and pin AGENTX_HOME to that account's home.
+
+    Runs before :func:`_apply_profile_override` because the account is the
+    outer scope: once AGENTX_HOME points inside ``accounts/<slug>``, the
+    profile machinery anchored on it resolves ``profiles/``, ``active_profile``
+    and the ``default`` profile *within* that account, and no ``-p`` value can
+    reach across into somebody else's state.
+
+    Unlike ``--profile``, a missing home is created rather than refused. The
+    slug is derived from a verified identity by whoever is spawning us (the
+    desktop app after sign-in, or ``agentx account use``), never typed by a
+    user guessing at a name — so "it does not exist yet" just means this is
+    the person's first launch on this machine.
+    """
+    argv = sys.argv[1:]
+    slug = None
+    consume = 0
+    index = None
+
+    def _inside_mcp_add_args(index: int) -> bool:
+        """True once argv reaches ``agentx mcp add ... --args <command argv>``.
+
+        Everything past that point is a child MCP command's own argv, and a
+        child that happens to take ``--account`` is not talking to us. Mirrors
+        the identical guard in :func:`_apply_profile_override`.
+        """
+        try:
+            mcp_index = argv.index("mcp", 0, index)
+            argv.index("add", mcp_index + 1, index)
+        except ValueError:
+            return False
+        return True
+
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--":
+            break
+        if arg == "--args" and _inside_mcp_add_args(i):
+            break
+        if arg == "--account" and i + 1 < len(argv):
+            slug, consume, index = argv[i + 1], 2, i
+            break
+        if arg.startswith("--account="):
+            slug, consume, index = arg.split("=", 1)[1], 1, i
+            break
+        i += 1
+
+    if slug is None:
+        return
+
+    try:
+        from hermes_cli.accounts import ensure_account_home
+
+        home = ensure_account_home(slug)
+    except Exception as exc:
+        # An unusable --account is fatal: continuing would silently write this
+        # person's chat history and provider key into the shared root home,
+        # which is the exact failure the flag exists to prevent.
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    os.environ["AGENTX_HOME"] = str(home)
+    if index is not None:
+        start = index + 1  # +1 because argv is sys.argv[1:]
+        sys.argv = sys.argv[:start] + sys.argv[start + consume :]
+
+
 def _apply_profile_override() -> None:
     """Pre-parse --profile/-p and set AGENTX_HOME before imports."""
     argv = sys.argv[1:]
@@ -648,9 +718,12 @@ def _apply_profile_override() -> None:
     # the "Docker & Profiles & Dashboard" report.
     if profile_name is None and not os.environ.get("AGENTX_S6_SUPERVISED_CHILD"):
         try:
-            from hermes_constants import get_default_hermes_root
+            from hermes_constants import get_user_root
 
-            active_path = get_default_hermes_root() / "active_profile"
+            # get_user_root() — not the install root — so a signed-in account
+            # follows its OWN sticky profile choice instead of whatever the
+            # machine's shared root last recorded.
+            active_path = get_user_root() / "active_profile"
             if active_path.exists():
                 name = active_path.read_text(encoding="utf-8").strip()
                 if name and name != "default":
@@ -687,6 +760,7 @@ def _apply_profile_override() -> None:
             sys.argv = sys.argv[:start] + sys.argv[start + consume :]
 
 
+_apply_account_override()
 _apply_profile_override()
 
 # Load .env from ~/.agentx/.env first, then project root as dev fallback.
@@ -9227,6 +9301,155 @@ def _coalesce_session_name_args(argv: list) -> list:
     return result
 
 
+def cmd_account(args):
+    """``agentx account`` — inspect accounts and their per-account model keys."""
+    from hermes_cli.accounts import (
+        AccountError,
+        delete_account,
+        list_accounts,
+        read_account_identity,
+    )
+    from hermes_constants import get_active_account, get_hermes_home
+
+    action = getattr(args, "account_action", None)
+    active = get_active_account()
+
+    if action in (None, "list"):
+        accounts = list_accounts()
+        if not accounts:
+            print("\nNo accounts on this machine.")
+            print(
+                "This install uses the shared home at "
+                f"{get_hermes_home()} — sign in from AgentX Workmate Desktop "
+                "to give each person their own.\n"
+            )
+            return
+        print()
+        for info in accounts:
+            marker = "◆" if info.is_active else " "
+            print(f" {marker} {info.slug:<34} {info.label}")
+        print(f"\n{len(accounts)} account(s). ◆ = the one this shell is using.\n")
+        return
+
+    if action == "show":
+        slug = getattr(args, "account_name", None) or active
+        if not slug:
+            print("Error: no active account. Pass a slug, or run with --account <slug>.")
+            sys.exit(1)
+        try:
+            from hermes_cli.accounts import account_home
+
+            home = account_home(slug)
+        except AccountError as exc:
+            print(f"Error: {exc}")
+            sys.exit(1)
+        if not home.is_dir():
+            print(f"Error: account {slug!r} does not exist at {home}")
+            sys.exit(1)
+
+        identity = read_account_identity(home)
+        print(f"\nAccount:  {slug}{'  (active)' if slug == active else ''}")
+        print(f"Home:     {home}")
+        if identity:
+            print(f"User:     {identity.display_name or identity.username or '—'}")
+            print(f"Email:    {identity.email or '—'}")
+            print(f"Subject:  {identity.subject}")
+            if identity.issuer:
+                print(f"Issuer:   {identity.issuer}")
+
+        # Key status reads the account's own .env, so it is only meaningful for
+        # the account this process is actually homed in.
+        if slug == active:
+            from hermes_cli.account_provisioning import account_key_status
+
+            status = account_key_status(slug)
+            print(f"LiteLLM:  {status.status} — {status.detail}")
+            if status.masked_key:
+                print(f"          key {status.masked_key} at {status.base_url}")
+                print(f"          alias {status.key_alias}")
+        else:
+            print("LiteLLM:  (run `agentx --account "
+                  f"{slug} account show` to read this account's key)")
+        print()
+        return
+
+    if action == "provision":
+        if not active:
+            print(
+                "Error: provisioning writes into an account's own home, and this "
+                "shell is using the shared one. Re-run as "
+                "`agentx --account <slug> account provision`."
+            )
+            sys.exit(1)
+        from hermes_cli.accounts import AccountIdentity, write_account_identity
+
+        subject = (getattr(args, "subject", "") or "").strip()
+        identity = read_account_identity(active)
+
+        if subject:
+            # Explicitly supplied identity wins and is recorded, so the next
+            # run (and `account show`) can name the person.
+            identity = AccountIdentity(
+                subject=subject,
+                username=(getattr(args, "username", "") or "").strip(),
+                email=(getattr(args, "email", "") or "").strip(),
+                display_name=(getattr(args, "username", "") or "").strip(),
+                issuer=identity.issuer if identity else "",
+            )
+            write_account_identity(active, identity)
+        elif identity is None:
+            print(
+                f"Error: account {active!r} has no recorded identity, so there is "
+                "nothing to mint a key for. Sign in from AgentX Workmate Desktop "
+                "once, or pass --subject to record one by hand."
+            )
+            sys.exit(1)
+
+        from hermes_cli.account_provisioning import ensure_account_key
+
+        result = ensure_account_key(
+            identity,
+            active,
+            bearer=getattr(args, "token", "") or "",
+            force_rotate=bool(getattr(args, "rotate", False)),
+        )
+        print(f"\n{result.status}: {result.detail}")
+        if result.masked_key:
+            print(f"  provider {result.provider}  key {result.masked_key}")
+            print(f"  alias    {result.key_alias}")
+            print(f"  base_url {result.base_url}")
+        if result.models:
+            print(f"  models   {len(result.models)} discovered")
+        print()
+        sys.exit(0 if result.ok or result.status in {"disabled", "unconfigured"} else 1)
+
+    if action == "broker":
+        from hermes_cli.litellm_broker import BROKER_ROUTE, serve
+
+        print(
+            f"Starting the AgentX Workmate key broker on "
+            f"http://{args.host}:{args.port}{BROKER_ROUTE}"
+        )
+        sys.exit(serve(host=args.host, port=args.port))
+
+    if action == "delete":
+        slug = args.account_name
+        if not getattr(args, "yes", False):
+            answer = input(
+                f"Delete account {slug!r} and every session, memory, and key in it? [y/N] "
+            )
+            if answer.strip().lower() not in {"y", "yes"}:
+                print("Cancelled.")
+                return
+        try:
+            removed = delete_account(slug)
+        except AccountError as exc:
+            print(f"Error: {exc}")
+            sys.exit(1)
+        print(f"Deleted {removed}")
+        return
+
+
 def cmd_profile(args):
     """Profile management — create, delete, list, switch, alias."""
     from hermes_cli.profiles import (
@@ -12391,6 +12614,11 @@ def main():
     # profile command  (parser built in hermes_cli/subcommands/profile.py)
     # =========================================================================
     build_profile_parser(subparsers, cmd_profile=cmd_profile)
+
+    # =========================================================================
+    # account command  (parser built in hermes_cli/subcommands/account.py)
+    # =========================================================================
+    build_account_parser(subparsers, cmd_account=cmd_account)
 
     # =========================================================================
     # completion command

@@ -472,22 +472,78 @@ _LOOPBACK_HOST_VALUES: frozenset = frozenset({
 _TRUTHY_ENV_VALUES: frozenset = frozenset({"1", "true", "yes", "on"})
 
 
-def _loopback_auth_opt_in() -> bool:
-    """True when the operator opted a LOOPBACK bind into the auth gate.
+def _identity_provider_is_configured() -> bool:
+    """True when this install has an identity provider set up.
 
-    A loopback dashboard has historically been ungated, on the reasoning that
+    Deliberately reads *configuration*, not the provider registry: this is
+    called while deciding whether to gate, which happens before and
+    independently of plugin registration, and a registry read would make the
+    answer depend on import order.
+
+    Only Keycloak counts. It is the one provider that identifies a *person*
+    against a directory the organisation already runs; the bundled password
+    provider is a shared secret with nobody's name on it, and gating a
+    loopback bind behind it would demand a password without producing an
+    account.
+
+    Mirrors the registration condition in ``plugins/dashboard_auth/keycloak``
+    exactly — env var wins when non-empty, else config.yaml, and a provider
+    needs an issuer (or base_url + realm) *and* a client_id. Anything looser
+    would call a half-finished setup "configured", gate the dashboard on it,
+    and then fail closed at startup because the provider never registered:
+    a partial config would take the app down instead of leaving it as it was.
+    """
+    try:
+        from hermes_cli.config import cfg_get, load_config
+    except Exception:
+        return False
+
+    try:
+        kc = cfg_get(load_config(), "dashboard", "oauth", "keycloak", default=None)
+    except Exception:
+        kc = None
+    if not isinstance(kc, dict):
+        kc = {}
+
+    def _setting(env_var: str, key: str) -> str:
+        value = os.environ.get(env_var, "").strip()
+        return value or str(kc.get(key) or "").strip()
+
+    issuer = _setting("AGENTX_DASHBOARD_KEYCLOAK_ISSUER", "issuer")
+    base_url = _setting("AGENTX_DASHBOARD_KEYCLOAK_BASE_URL", "base_url")
+    realm = _setting("AGENTX_DASHBOARD_KEYCLOAK_REALM", "realm")
+    client_id = _setting("AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID", "client_id")
+
+    have_issuer = bool(issuer) or (bool(base_url) and bool(realm))
+    return have_issuer and bool(client_id)
+
+
+def _loopback_auth_opt_in() -> bool:
+    """True when a LOOPBACK bind must still go through the auth gate.
+
+    A loopback dashboard was historically ungated, on the reasoning that
     whoever reaches 127.0.0.1 is already the trusted operator. That reasoning
     does not hold for AgentX Workmate: it is installed on an employee's own
     machine and must establish *which employee* is using it before it will do
     anything, so its accounts line up with the ones AgentX already has in
-    Keycloak. This opt-in is what lets the gate engage there.
+    Keycloak.
 
-    ``AGENTX_DASHBOARD_REQUIRE_AUTH`` wins when set (in both directions — an
-    explicit ``0`` must be able to turn off what config.yaml turned on); else
-    ``dashboard.require_auth`` from config.yaml; else False, which is the
-    historic behaviour every existing local install keeps.
+    **Configuring Keycloak IS the opt-in.** There is no second switch to
+    remember. An operator who has pointed this install at an identity provider
+    has said what they want; making them also flip ``dashboard.require_auth``
+    only creates a state where sign-in is configured, appears to work, and is
+    silently not enforced — which looks exactly like a working install and is
+    not one.
 
-    Never raises — a config.yaml that won't load degrades to "not opted in"
+    Precedence:
+      1. ``AGENTX_DASHBOARD_REQUIRE_AUTH`` — wins in both directions, so an
+         explicit ``0`` remains the escape hatch for a developer who needs a
+         local run without a realm.
+      2. ``dashboard.require_auth`` in config.yaml — same, when set explicitly.
+      3. Otherwise: gated iff an identity provider is configured. An install
+         with no provider stays ungated, exactly as before.
+
+    Never raises — a config.yaml that won't load degrades to "not gated"
     rather than taking the dashboard down with it.
     """
     env = os.environ.get("AGENTX_DASHBOARD_REQUIRE_AUTH", "").strip().lower()
@@ -496,9 +552,16 @@ def _loopback_auth_opt_in() -> bool:
     try:
         from hermes_cli.config import cfg_get, load_config
 
-        return bool(cfg_get(load_config(), "dashboard", "require_auth", default=False))
+        explicit = cfg_get(load_config(), "dashboard", "require_auth", default=None)
     except Exception:
         return False
+
+    if isinstance(explicit, bool):
+        return explicit
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip().lower() in _TRUTHY_ENV_VALUES
+
+    return _identity_provider_is_configured()
 
 
 def should_require_auth(host: str, allow_public: bool = False) -> bool:
@@ -13704,6 +13767,13 @@ def _clear_skills_prompt_cache() -> None:
 from hermes_cli.web_routers import tools as _tools_routes  # noqa: E402
 
 app.include_router(_tools_routes.router)
+
+# Account routes are gated by design (they read request.state.session), so
+# they are NOT added to PUBLIC_API_PATHS — an ungated loopback backend has no
+# signed-in account to describe.
+from hermes_cli.web_routers import accounts as _accounts_routes  # noqa: E402
+
+app.include_router(_accounts_routes.router)
 from hermes_cli.web_routers.tools import (  # noqa: E402,F401 — legacy re-exports; tests call these via web_server.<name>
     get_toolsets,
     toggle_toolset,

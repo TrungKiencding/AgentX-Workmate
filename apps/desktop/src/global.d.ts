@@ -118,6 +118,14 @@ declare global {
         signIn: (profile?: string) => Promise<DesktopKeycloakSignInResult>
         signOut: (profile?: string) => Promise<{ ok: boolean }>
       }
+      // The signed-in account — which AgentX home this person owns on this
+      // machine, and the model key provisioned for them. Read-only by design:
+      // the account follows the sign-in, so there is nothing for a renderer to
+      // set. `provision` is the one action, and it is a rotation.
+      account?: {
+        status: () => Promise<DesktopAccountStatus>
+        provision: (options?: { rotate?: boolean }) => Promise<DesktopAccountProvisionResult>
+      }
       profile: {
         get: () => Promise<DesktopActiveProfile>
         // Persists the desktop's profile choice and relaunches the local
@@ -654,6 +662,44 @@ export interface DesktopKeycloakSignInResult {
   // actually ran, the others mean an existing session was still good.
   outcome?: 'stored' | 'refreshed' | 'signed-in' | 'needs-login' | 'stale-offline'
   error?: string
+}
+
+// --- Per-account state and model access ---
+
+export interface DesktopAccountLiteLlm {
+  // provisioned | rotated | reused | disabled | unconfigured | offline | error | missing
+  status: string
+  detail: string
+  ok: boolean
+  provider: string
+  key_alias: string
+  // Never the key itself — the last four characters at most.
+  masked_key: string
+  base_url: string
+  models: string[]
+}
+
+export interface DesktopAccountStatus {
+  // The account slug, or null when nobody has signed in on this machine.
+  account: string | null
+  signedIn: boolean
+  subject?: string
+  email?: string
+  displayName?: string
+  // The absolute AGENTX_HOME the backend is actually running in.
+  home?: string
+  // False means the backend is serving the machine's SHARED home rather than
+  // this person's own — a re-home is pending or it failed. Surface it; do not
+  // imply isolation that is not there.
+  isolated?: boolean
+  provisioned?: boolean
+  litellm?: DesktopAccountLiteLlm | null
+}
+
+export interface DesktopAccountProvisionResult {
+  ok: boolean
+  error?: string
+  litellm?: DesktopAccountLiteLlm
 }
 
 // --- AgentX Cloud (cloud-auto-discovery Phase 3) ---

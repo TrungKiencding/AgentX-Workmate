@@ -253,7 +253,18 @@ export const zhHant = defineLocale({
       signOutConfirmTitle: '要登出 AgentX 嗎？',
       signOutConfirmDesc: 'AgentX Workmate 會結束工作階段並回到登入畫面。您的對話與設定都會保留。',
       notConfiguredTitle: '這個安裝沒有 AgentX 帳號',
-      notConfiguredDesc: '這份 AgentX Workmate 尚未連接到 AgentX 身分提供方。'
+      notConfiguredDesc: '這份 AgentX Workmate 尚未連接到 AgentX 身分提供方。',
+      homeTitle: '你在這台機器上的工作區',
+      homeSharedDesc:
+        '這個後端執行於共用主目錄，因此對話、記憶與金鑰尚未依帳號分離。請重新啟動 AgentX Workmate 以完成帳號設定。',
+      keyTitle: '模型存取',
+      keyNone: '尚未為這個帳號簽發金鑰。',
+      keyDisabled: '這份安裝不會簽發個別帳號的模型金鑰。',
+      keyOffline: '無法連線到模型代理。你現有的金鑰仍可使用。',
+      keyRotate: '簽發新金鑰',
+      keyRotateDesc: '停用目前的金鑰並簽發新的一把。金鑰外洩時使用。',
+      keyRotating: '簽發中…',
+      keyModels: n => `${n} 個可用模型`
     },
     notifications: {
       title: '通知',

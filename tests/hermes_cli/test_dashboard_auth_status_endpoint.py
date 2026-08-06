@@ -55,7 +55,7 @@ def loopback_client():
     web_server.app.state.auth_required = prev_required
 
 
-def test_status_reports_auth_required_in_gated_mode(gated_client):
+def test_status_reports_auth_required_in_gated_mode(no_shipped_identity_provider, gated_client):
     # No ``_login()`` call — ``/api/status`` is in the shared
     # ``PUBLIC_API_PATHS`` allowlist precisely so external probes (and
     # the SPA's pre-login bootstrap) can read the gate's shape without

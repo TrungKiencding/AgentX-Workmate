@@ -166,8 +166,34 @@ def get_process_hermes_home() -> Path:
     return _hermes_home_from_env()
 
 
+ACCOUNTS_DIR_NAME = "accounts"
+PROFILES_DIR_NAME = "profiles"
+
+
+def _strip_home_scoping_segments(path: Path) -> Path:
+    """Climb out of the ``accounts/<slug>`` and ``profiles/<name>`` suffixes.
+
+    ``AGENTX_HOME`` is layered: an install root holds ``accounts/<slug>``
+    homes, and each of those holds its own ``profiles/<name>`` homes.  Both
+    layers are optional, so the four shapes below all collapse to ``<root>``::
+
+        <root>
+        <root>/profiles/<name>
+        <root>/accounts/<slug>
+        <root>/accounts/<slug>/profiles/<name>
+
+    Order matters: the profile segment is the inner one, so it is stripped
+    first.
+    """
+    if path.parent.name == PROFILES_DIR_NAME:
+        path = path.parent.parent
+    if path.parent.name == ACCOUNTS_DIR_NAME:
+        path = path.parent.parent
+    return path
+
+
 def get_default_hermes_root() -> Path:
-    """Return the root AgentX directory for profile-level operations.
+    """Return the root AgentX directory for install-level operations.
 
     In standard deployments this is the platform-native AgentX home
     (``~/.agentx`` on POSIX, ``%LOCALAPPDATA%\\agentx`` on native Windows).
@@ -177,9 +203,12 @@ def get_default_hermes_root() -> Path:
     — that IS the root.
 
     In profile mode where ``AGENTX_HOME`` is ``<root>/profiles/<name>``,
-    returns ``<root>`` so that ``profile list`` can see all profiles.
-    Works both for standard (``~/.agentx/profiles/coder``) and Docker
-    (``/opt/data/profiles/coder``) layouts.
+    returns ``<root>``.  In account mode (``<root>/accounts/<slug>``, or
+    ``<root>/accounts/<slug>/profiles/<name>``) it likewise returns
+    ``<root>``, because everything anchored here is shared by the whole
+    install — the ``agentx-agent`` checkout, the venv, ``node_modules``, the
+    update markers.  Per-*user* state anchors at :func:`get_user_root`
+    instead.
 
     Import-safe — no dependencies beyond stdlib.
     """
@@ -190,20 +219,124 @@ def get_default_hermes_root() -> Path:
     env_path = Path(env_home)
     try:
         env_path.resolve().relative_to(native_home.resolve())
-        # AGENTX_HOME is under ~/.agentx (normal or profile mode)
+        # AGENTX_HOME is under ~/.agentx (normal, account, or profile mode)
         return native_home
     except ValueError:
         pass
 
-    # Docker / custom deployment.
-    # Check if this is a profile path: <root>/profiles/<name>
-    # If the immediate parent dir is named "profiles", the root is
-    # the grandparent — this covers Docker profiles correctly.
-    if env_path.parent.name == "profiles":
-        return env_path.parent.parent
+    # Docker / custom deployment: peel off whichever scoping segments are
+    # present. A path with neither IS the root.
+    return _strip_home_scoping_segments(env_path)
 
-    # Not a profile path — AGENTX_HOME itself is the root
-    return env_path
+
+# ---------------------------------------------------------------------------
+# Accounts
+#
+# An account is one signed-in person on this machine.  It owns an AGENTX_HOME
+# of its own at ``<root>/accounts/<slug>`` so that two people sharing a laptop
+# never share credentials, sessions, memory, or config.  Profiles keep working
+# unchanged *inside* an account (``<root>/accounts/<slug>/profiles/<name>``):
+# accounts answer "who", profiles answer "which workspace".
+#
+# No account is the pre-existing single-user layout, where AGENTX_HOME is the
+# root itself.  Every install starts there and stays there until something
+# signs in, so nothing about an existing machine changes on upgrade.
+# ---------------------------------------------------------------------------
+
+def get_accounts_root() -> Path:
+    """Return the directory that holds every account home on this install."""
+    return get_default_hermes_root() / ACCOUNTS_DIR_NAME
+
+
+def get_account_home(slug: str) -> Path:
+    """Return the AGENTX_HOME directory belonging to account *slug*."""
+    return get_accounts_root() / slug
+
+
+def account_slug_for_home(home: str | Path | None) -> str | None:
+    """Return the account slug owning *home*, or ``None`` when it owns none.
+
+    Recognises both an account home and a profile home nested inside one, so
+    a process running under ``agentx --account kien -p work`` still reports
+    ``kien``.  The slug is derived from the path rather than carried in a
+    separate env var: one source of truth means a subprocess that inherits
+    only ``AGENTX_HOME`` can never disagree with its parent about who it is.
+    """
+    if not home:
+        return None
+    path = Path(home)
+    if path.parent.name == PROFILES_DIR_NAME:
+        path = path.parent.parent
+    if path.parent.name == ACCOUNTS_DIR_NAME:
+        slug = path.name
+        return slug or None
+    return None
+
+
+def get_active_account() -> str | None:
+    """Return the account slug this call is scoped to, or ``None``.
+
+    Follows the same resolution as :func:`get_hermes_home`, so a context-local
+    profile override (the multiplexed gateway, cron) reports the account that
+    override belongs to rather than the one the process launched under.
+    """
+    return account_slug_for_home(get_hermes_home())
+
+
+def split_home_scope(
+    home: str | Path,
+    root: str | Path | None = None,
+) -> tuple[str | None, str | None]:
+    """Decompose an AGENTX_HOME into ``(account_slug, profile_name)``.
+
+    Both halves are ``None`` when *home* is the install root itself, and
+    either can be ``None`` independently — ``accounts/kien`` has no profile,
+    ``profiles/work`` has no account.  Anything that is not one of the four
+    recognised shapes returns ``(None, None)``: callers treat that as "an
+    arbitrary custom home" and fall back to their own disambiguation.
+
+    Used to reconstruct the argv that reproduces a home (``--account`` /
+    ``--profile``) when AgentX writes a service unit for itself.
+    """
+    home_path = Path(home).expanduser().resolve(strict=False)
+    root_path = Path(root).expanduser().resolve(strict=False) if root else get_default_hermes_root().resolve(strict=False)
+
+    if home_path == root_path:
+        return (None, None)
+
+    profile: str | None = None
+    cursor = home_path
+    if cursor.parent.name == PROFILES_DIR_NAME:
+        profile = cursor.name
+        cursor = cursor.parent.parent
+
+    account: str | None = None
+    if cursor.parent.name == ACCOUNTS_DIR_NAME:
+        account = cursor.name
+        cursor = cursor.parent.parent
+
+    if cursor != root_path or (account is None and profile is None):
+        return (None, None)
+    return (account, profile)
+
+
+def get_user_root() -> Path:
+    """Return the root that anchors per-user, cross-profile state.
+
+    This is the account home when an account is active, and the install root
+    otherwise — which makes it identical to :func:`get_default_hermes_root`
+    on every install that has never signed anybody in.
+
+    Use it for anything that belongs to *a person* but is shared across their
+    profiles: the profile store itself, the sticky ``active_profile`` marker,
+    the shared Nous credential, the kanban dispatch bus.  Use
+    :func:`get_default_hermes_root` for anything that belongs to *the machine*
+    — the checkout, the venv, node_modules, update markers.
+    """
+    slug = get_active_account()
+    if slug:
+        return get_accounts_root() / slug
+    return get_default_hermes_root()
 
 
 def get_optional_skills_dir(default: Path | None = None) -> Path:

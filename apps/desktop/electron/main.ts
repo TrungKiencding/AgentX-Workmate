@@ -31,6 +31,17 @@ import {
 } from 'electron'
 import nodePty from 'node-pty'
 
+import { accountSlugForIdentity } from './account-slug'
+import {
+  type AccountRecord,
+  type AccountStoreIo,
+  bootAccountSlug,
+  markProvisioned,
+  readAccountState,
+  rehomeTarget,
+  rememberSignIn,
+  writeAccountState
+} from './account-store'
 import { classifyActiveRuntime } from './active-runtime-state'
 import { stopBackendChild as stopBackendChildImpl } from './backend-child'
 import { dashboardFallbackArgs, sourceDeclaresServe } from './backend-command'
@@ -78,6 +89,11 @@ import {
 } from './connection-config'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
 import { adoptServedDashboardToken } from './dashboard-token'
+import {
+  parseDeploymentConfig,
+  seedDeploymentSecrets,
+  type SeedOutcome
+} from './deployment-config'
 import { loadOrCreateInstallationId, sshOwnershipId } from './desktop-installation'
 import {
   buildPosixCleanupScript,
@@ -595,6 +611,88 @@ function resolveHermesHome() {
 
 const AGENTX_HOME = resolveHermesHome()
 
+// --- Baked deployment credentials ---
+//
+// A machine that has never run Workmate has no ~/.agentx to read, so the
+// LiteLLM admin key that `accounts.litellm.mode: direct` needs to mint a
+// per-user key has to arrive with the app. It is injected at build time
+// (scripts/write-deployment-config.mjs) rather than committed, because the
+// repository is public and this is the one value in the system that is not.
+//
+// Seeded before anything spawns a backend: provisioning runs on the first
+// sign-in, and a key that lands after that would leave the first launch
+// without a model. Append-only — a machine that already assigns the key
+// keeps its own. See deployment-config.ts for the full trade-off.
+const DEPLOYMENT_CONFIG = loadDeploymentConfig()
+const DEPLOYMENT_SEED_OUTCOME = seedBakedDeploymentSecrets()
+
+function loadDeploymentConfig() {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'deployment.json') : null,
+    path.join(APP_ROOT, 'build', 'deployment.json')
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    const parsed = parseDeploymentConfig(readTextOrNull(candidate))
+
+    if (parsed) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function readTextOrNull(filePath: string): string | null {
+  try {
+    return fs.readFileSync(filePath, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+function seedBakedDeploymentSecrets(): SeedOutcome {
+  const outcome = seedDeploymentSecrets({
+    config: DEPLOYMENT_CONFIG,
+    envPath: path.join(AGENTX_HOME, '.env'),
+    io: {
+      readText: readTextOrNull,
+      writeText: (filePath, text) => {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true })
+        // 0600 on create; an existing file keeps whatever mode it had.
+        fs.writeFileSync(filePath, text, { encoding: 'utf8', mode: 0o600 })
+      }
+    }
+  })
+
+  if (outcome === 'no-secret' && IS_PACKAGED) {
+    console.warn(
+      '[agentx] WARNING: this build carries no LiteLLM admin key. Sign-in will work, but no per-user ' +
+        'model key can be minted on a machine that has not been configured by hand.'
+    )
+  }
+
+  return outcome
+}
+
+let deploymentSeedLogged = false
+
+function logDeploymentSeedOnce() {
+  if (deploymentSeedLogged) {
+    return
+  }
+
+  deploymentSeedLogged = true
+
+  if (DEPLOYMENT_SEED_OUTCOME === 'seeded') {
+    rememberLog('[deployment] baked LiteLLM admin key installed into this home')
+  } else if (DEPLOYMENT_SEED_OUTCOME === 'failed') {
+    rememberLog('[deployment] could not install the baked LiteLLM admin key; model provisioning will report it')
+  } else if (DEPLOYMENT_SEED_OUTCOME === 'no-secret' && IS_PACKAGED) {
+    rememberLog('[deployment] this build carries no LiteLLM admin key; per-user model keys cannot be minted')
+  }
+}
+
 function pathWithHermesManagedNode(...entries) {
   const managed = hermesManagedNodePathEntries(AGENTX_HOME).filter(directoryExists)
 
@@ -632,6 +730,13 @@ const DESKTOP_WINDOW_STATE_PATH = path.join(app.getPath('userData'), 'window-sta
 // ~/.agentx/active_profile file. Unset (null) preserves the legacy behavior:
 // no --profile flag, so the backend honors active_profile / default.
 const DESKTOP_PROFILE_CONFIG_PATH = path.join(app.getPath('userData'), 'active-profile.json')
+// accounts.json maps each Keycloak subject we have seen on this machine to the
+// AgentX home it owns (`<AGENTX_HOME>/accounts/<slug>`), and points at the one
+// currently in use. startHermes() reads it BEFORE spawning so the backend comes
+// up already inside the signed-in person's home — see account-store.ts for why
+// this memory has to exist at all. It holds no token; the session lives in the
+// OS keychain.
+const DESKTOP_ACCOUNT_CONFIG_PATH = path.join(app.getPath('userData'), 'accounts.json')
 // Mirrors hermes_cli.profiles._PROFILE_ID_RE so we never hand the backend a
 // value its profile resolver would reject and exit on.
 const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
@@ -7191,6 +7296,56 @@ function readActiveDesktopProfile() {
   return null
 }
 
+// --- The signed-in account ------------------------------------------------
+//
+// An account is one person's AgentX home under `<AGENTX_HOME>/accounts/<slug>`.
+// The desktop's job is narrow: know who signed in, turn that into a slug, pass
+// `--account <slug>` at spawn, and re-home the backend when the answer changes.
+// Everything downstream of AGENTX_HOME — sessions, memory, config, the LiteLLM
+// key — then isolates itself, because it always did, per home.
+
+function _accountStoreIo(): AccountStoreIo {
+  return {
+    readText: () => {
+      try {
+        return fs.readFileSync(DESKTOP_ACCOUNT_CONFIG_PATH, 'utf8')
+      } catch {
+        return null
+      }
+    },
+    rememberLog,
+    writeText: text => {
+      fs.mkdirSync(path.dirname(DESKTOP_ACCOUNT_CONFIG_PATH), { recursive: true })
+      writeFileAtomic(DESKTOP_ACCOUNT_CONFIG_PATH, text)
+    }
+  }
+}
+
+/** The account slug the CURRENT backend process was spawned with, or null. */
+let _spawnedAccountSlug: string | null = null
+
+/**
+ * One-shot latch for the re-home respawn.
+ *
+ * The re-home path tears the backend down and reloads the window, which starts
+ * boot again. If the second boot somehow still disagrees about the account,
+ * repeating the dance would be an infinite loop with a visible flicker; the
+ * latch turns that into one logged mismatch the user can actually report.
+ */
+let _accountRehomeAttempted = false
+
+/** Read the account the next spawn should use. Null means the shared home. */
+function readBootAccountSlug(): string | null {
+  return bootAccountSlug(readAccountState(_accountStoreIo()))
+}
+
+/** The account record for whoever is signed in right now, if anyone. */
+function currentAccountRecord(): AccountRecord | null {
+  const state = readAccountState(_accountStoreIo())
+
+  return state.activeSubject ? state.accounts[state.activeSubject] || null : null
+}
+
 function writeActiveDesktopProfile(name) {
   const value = typeof name === 'string' ? name.trim() : ''
 
@@ -8420,8 +8575,23 @@ async function spawnPoolBackend(profile, entry) {
 
   // --profile wins over the inherited AGENTX_HOME env (see _apply_profile_override
   // step 3 in hermes_cli/main.py), so the child re-homes to this profile.
+  // --account precedes it so a pool backend lands in the SAME person's home as
+  // the primary — without it, switching profiles in the sidebar would quietly
+  // drop back to the machine's shared home.
   // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
-  const backendArgs = ['--profile', profile, 'serve', '--host', '127.0.0.1', '--port', '0']
+  const poolAccount = readBootAccountSlug()
+
+  const backendArgs = [
+    ...(poolAccount ? ['--account', poolAccount] : []),
+    '--profile',
+    profile,
+    'serve',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '0'
+  ]
+
   const backend = await ensureRuntime(resolveHermesBackend(backendArgs))
   // Route old runtimes (no `serve`) through the legacy `dashboard --no-open`.
   backend.args = getBackendArgsForRuntime(backend)
@@ -8598,7 +8768,188 @@ async function prepareProfileDeleteRequest(request) {
   return decision.profile
 }
 
+/** Thrown mid-boot when the backend came up in the wrong person's home. */
+class AccountRehomeRequested extends Error {
+  slug: string
+
+  constructor(slug: string) {
+    super(`AgentX backend must restart in account "${slug}"`)
+    this.name = 'AccountRehomeRequested'
+    this.slug = slug
+  }
+}
+
+/**
+ * After a successful sign-in: record who it was, and say whether the running
+ * backend is in their home.
+ *
+ * Returns the slug to re-home to, or null when the backend is already right —
+ * which is every launch except the first on a machine and the one right after
+ * somebody else signs in.
+ *
+ * Provisioning the LiteLLM key rides along here because this is the first
+ * moment both halves exist: a verified identity and a backend running in that
+ * identity's home. It is awaited only when this account has never had a key,
+ * so the common launch is not held up by a call to LiteLLM — and even that
+ * first wait cannot fail the boot, because a person with no key still needs
+ * their app in order to be told why.
+ */
+async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null> {
+  const tokens = _nativeTokens.get(baseUrl)
+
+  if (!tokens?.userId) {
+    // Ungated backend, or a brokered/remote session with no identity claims.
+    // Neither is an account, and neither should disturb one.
+    return null
+  }
+
+  let slug: string
+
+  try {
+    slug = accountSlugForIdentity({
+      email: tokens.email || '',
+      subject: tokens.userId,
+      username: tokens.displayName || ''
+    })
+  } catch (error) {
+    rememberLog(
+      `[account] could not derive an account from this sign-in: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+
+    return null
+  }
+
+  const io = _accountStoreIo()
+
+  const { state, switched } = rememberSignIn(readAccountState(io), {
+    displayName: tokens.displayName || '',
+    email: tokens.email || '',
+    issuer: _keycloakConfigs.get(baseUrl)?.issuer || '',
+    lastSignInAt: new Date().toISOString(),
+    slug,
+    subject: tokens.userId
+  })
+
+  writeAccountState(state, io)
+
+  const target = rehomeTarget(_spawnedAccountSlug, slug)
+
+  if (target && !_accountRehomeAttempted) {
+    rememberLog(
+      `[account] signed in as "${slug}" but the backend started in ` +
+        `${_spawnedAccountSlug ? `"${_spawnedAccountSlug}"` : 'the shared home'}; restarting in the right one`
+    )
+
+    return target
+  }
+
+  if (target) {
+    rememberLog(
+      `[account] still in ${_spawnedAccountSlug ? `"${_spawnedAccountSlug}"` : 'the shared home'} ` +
+        `after a re-home attempt; continuing there. Sessions and the provider key for "${slug}" ` +
+        'will not be isolated until this is resolved.'
+    )
+
+    return null
+  }
+
+  if (switched) {
+    rememberLog(`[account] now signed in as "${slug}"`)
+  }
+
+  const record = state.accounts[tokens.userId]
+
+  await ensureAccountProvisioned(baseUrl, tokens.userId, { await: !record?.provisioned })
+
+  return null
+}
+
+/**
+ * Ask the backend to make sure this account holds a working LiteLLM key.
+ *
+ * Fire-and-forget unless the account has never been provisioned: a key that
+ * already works only needs a cheap liveness check, and making every launch
+ * wait on the proxy would put someone else's downtime in front of the app.
+ */
+async function ensureAccountProvisioned(
+  baseUrl: string,
+  subject: string,
+  { await: shouldAwait = false, rotate = false }: { await?: boolean; rotate?: boolean } = {}
+): Promise<any> {
+  const run = async () => {
+    const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
+
+    if (!bearer) {
+      return null
+    }
+
+    const body = (await fetchJson(`${baseUrl}/api/account/provision`, null, {
+      bearer,
+      body: { rotate },
+      method: 'POST',
+      // Generous: a cold LiteLLM plus a broker round trip plus model discovery
+      // is a chain of network calls, and giving up early would rotate a key
+      // that was about to be minted successfully.
+      timeoutMs: 45_000
+    })) as any
+
+    const status = body?.litellm?.status || 'unknown'
+
+    rememberLog(`[account] LiteLLM key: ${status} — ${body?.litellm?.detail || ''}`)
+
+    if (body?.litellm?.ok) {
+      const io = _accountStoreIo()
+
+      writeAccountState(markProvisioned(readAccountState(io), subject), io)
+    }
+
+    return body
+  }
+
+  const attempt = run().catch(error => {
+    // Never fatal. The person is signed in and their state is isolated; what
+    // they are missing is a model key, and the next launch retries.
+    rememberLog(
+      `[account] could not provision a LiteLLM key: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+
+    return null
+  })
+
+  return shouldAwait ? attempt : null
+}
+
+/**
+ * Tear the backend down and boot again, this time in `slug`'s home.
+ *
+ * The store was updated before we got here, so the next spawn reads the right
+ * account without being told. Only the latch is set here — the actual argv
+ * decision stays in one place, at the spawn.
+ */
+async function restartInAccountHome(slug: string) {
+  _accountRehomeAttempted = true
+
+  await teardownPrimaryBackendAndWait()
+
+  // Pool backends were started in the previous account's home and would keep
+  // answering with that person's sessions.
+  stopAllPoolBackends()
+
+  rememberLog(`[account] restarting the backend in account "${slug}"`)
+
+  return startHermes()
+}
+
 async function startHermes() {
+  // Module-scope work can't reach rememberLog (the log buffer it writes to is
+  // declared further down), so the seeding outcome is reported here instead —
+  // the first point in a boot that has a desktop log to write to.
+  logDeploymentSeedOnce()
+
   // Latched-failure short-circuit: once bootstrap has failed in this
   // process, every subsequent startHermes() call re-throws the same error
   // without re-running install.ps1. This prevents the renderer's
@@ -8685,6 +9036,19 @@ async function startHermes() {
 
     if (activeProfile) {
       backendArgs.unshift('--profile', activeProfile)
+    }
+
+    // The account is the OUTER scope and must precede --profile, so the
+    // profile resolves inside this person's home rather than the machine's
+    // shared one. Unset (nobody has signed in on this machine yet) leaves the
+    // launch exactly as it was before accounts existed.
+    const bootAccount = readBootAccountSlug()
+
+    _spawnedAccountSlug = bootAccount
+
+    if (bootAccount) {
+      backendArgs.unshift('--account', bootAccount)
+      rememberLog(`[account] starting the backend in account "${bootAccount}"`)
     }
 
     const setup = await runPrimaryBackendStartup({
@@ -8846,6 +9210,7 @@ async function startHermes() {
       label: 'Local AgentX backend',
       childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed
     })
+
     const authToken = auth.token
     const wsUrl = auth.wsUrl
 
@@ -8859,6 +9224,17 @@ async function startHermes() {
           auth.authMode === 'oauth' ? 'sign-in ticket' : 'session token'
         }: ${wsProbe.reason}`
       )
+    }
+
+    // Now that we know WHO signed in, check that the backend we just started
+    // is serving THEIR home. On every launch after the first it already is —
+    // the store chose the slug before the spawn. A mismatch means either this
+    // machine's first sign-in or a different person signing in, and the only
+    // honest fix is to start over in the right home.
+    const rehomeTo = await reconcileAccountAfterAuth(baseUrl)
+
+    if (rehomeTo) {
+      throw new AccountRehomeRequested(rehomeTo)
     }
 
     updateBootProgress({
@@ -8893,6 +9269,16 @@ async function startHermes() {
 
     if (error instanceof FirstRunSetupResetError) {
       throw error
+    }
+
+    // A re-home is not a failure — it is the boot discovering, at the only
+    // moment it could have, that it started in the wrong person's home. Tear
+    // the backend down and run boot again; the store now names the right
+    // account, so the second pass spawns straight into it. Latched to one
+    // attempt so a persistent disagreement surfaces as an error the user can
+    // report rather than a boot loop.
+    if (error instanceof AccountRehomeRequested) {
+      return restartInAccountHome(error.slug)
     }
 
     const message = error instanceof Error ? error.message : String(error)
@@ -10286,6 +10672,11 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
     }
   }
 
+  // Whoever signs in next may be a different person, and re-homing for them is
+  // a fresh decision. The account map itself is kept: signing back in as the
+  // same person should land straight in their home, not respawn to find it.
+  _accountRehomeAttempted = false
+
   try {
     const endpoints = await fetchKeycloakEndpoints(config, keycloakDeps())
     const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
@@ -10341,6 +10732,101 @@ ipcMain.handle('agentx:connection-config:apply', async (_event, payload) => {
   })
 
   return sanitizeDesktopConnectionConfig(config, payload?.profile)
+})
+
+/**
+ * The base URL of the running LOCAL primary backend, or null.
+ *
+ * Joins the in-flight boot rather than starting a new one (startHermes returns
+ * its cached promise), so an account panel opened during boot waits for the
+ * same connection everything else is waiting for. Returns null for a remote
+ * connection or a failed boot — both are states the panel renders, not errors
+ * it should throw.
+ */
+async function primaryLocalBaseUrl(): Promise<string | null> {
+  try {
+    const connection = (await startHermes()) as any
+
+    return connection?.mode === 'local' ? connection.baseUrl : null
+  } catch {
+    return null
+  }
+}
+
+// --- Account IPC ----------------------------------------------------------
+// The renderer never chooses an account — it is whoever signed in. These
+// answer "which one am I in, and does it have a working model key?", plus the
+// one action a user can take about it: mint a fresh key.
+
+ipcMain.handle('agentx:account:status', async () => {
+  const record = currentAccountRecord()
+
+  if (!record) {
+    return { account: null, signedIn: false }
+  }
+
+  const baseUrl = await primaryLocalBaseUrl()
+
+  const status: any = {
+    account: record.slug,
+    displayName: record.displayName || '',
+    email: record.email || '',
+    // Whether the RUNNING backend is actually in this account's home, as
+    // opposed to the machine's shared one. False means a re-home is pending
+    // or failed, and the panel should say so rather than imply isolation.
+    isolated: _spawnedAccountSlug === record.slug,
+    provisioned: Boolean(record.provisioned),
+    signedIn: true,
+    subject: record.subject
+  }
+
+  if (!baseUrl) {
+    return status
+  }
+
+  try {
+    const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
+
+    if (bearer) {
+      const body = (await fetchJson(`${baseUrl}/api/account`, null, {
+        bearer,
+        timeoutMs: 8_000
+      })) as any
+
+      status.home = body?.home || ''
+      status.isolated = Boolean(body?.isolated)
+      status.litellm = body?.litellm || null
+    }
+  } catch (error) {
+    // The panel must render offline; the local half above is enough for that.
+    rememberLog(
+      `[account] could not read the backend's account status: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+  }
+
+  return status
+})
+
+ipcMain.handle('agentx:account:provision', async (_event, options) => {
+  const record = currentAccountRecord()
+  const baseUrl = await primaryLocalBaseUrl()
+
+  if (!record || !baseUrl) {
+    return { ok: false, error: 'Sign in first — there is no account to provision.' }
+  }
+
+  const body = await ensureAccountProvisioned(baseUrl, record.subject, {
+    await: true,
+    rotate: Boolean(options?.rotate)
+  })
+
+  if (!body?.litellm) {
+    return { ok: false, error: 'The backend did not answer the provisioning request.' }
+  }
+
+  return { ok: Boolean(body.litellm.ok), litellm: body.litellm }
 })
 
 ipcMain.handle('agentx:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
@@ -11485,11 +11971,20 @@ ipcMain.handle('agentx:fs:openDir', async (_event, dirPath) => {
 // on-disk plugin door silently breaks (#66899). Electron owns this resolution
 // so it stays valid in every connection mode. Created on demand, like openDir.
 ipcMain.handle('agentx:fs:desktopPluginsRoot', async () => {
-  // Profile-aware: a named Desktop profile gets its own plugin root under
-  // profiles/<name>/, matching the profile-scoped hermes_home the backend
-  // reported before this resolver existed. 'default'/unset pins the global root.
+  // Account- and profile-aware, in that nesting order, so this resolves to the
+  // same directory the backend's own get_hermes_home() would: an account home
+  // holds its profiles, and each of those holds its own plugins. Leaving the
+  // account out would hand every signed-in person the same plugin root, which
+  // is code the app loads — the one thing that must not be shared by accident.
+  // 'default'/unset pins the enclosing root, as before.
   const profile = readActiveDesktopProfile()
-  const base = profile && profile !== 'default' ? path.join(AGENTX_HOME, 'profiles', profile) : AGENTX_HOME
+  const account = readBootAccountSlug()
+  let base = account ? path.join(AGENTX_HOME, 'accounts', account) : AGENTX_HOME
+
+  if (profile && profile !== 'default') {
+    base = path.join(base, 'profiles', profile)
+  }
+
   const dir = path.join(base, 'desktop-plugins')
 
   try {

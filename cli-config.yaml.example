@@ -1655,6 +1655,12 @@ updates:
 # The fastest way to write these is `agentx dashboard keycloak`, which also
 # validates the realm and prints the redirect URIs to register.
 #
+# WHAT A SHIPPED INSTALL ALREADY HAS: an AgentX Workmate build comes with
+# base_url, realm and client_id filled in (hermes_cli/config_defaults.py,
+# DEPLOYMENT_KEYCLOAK_*), which is what makes a freshly installed app ask an
+# employee to sign in without anyone touching their machine. Write this block
+# only to point an install at a DIFFERENT realm.
+#
 # Each setting can be overridden by an environment variable:
 #
 #   dashboard.require_auth                             <-  AGENTX_DASHBOARD_REQUIRE_AUTH
@@ -1672,12 +1678,21 @@ updates:
 #   # Require a sign-in even on a LOOPBACK bind. The gate normally engages only
 #   # for non-loopback binds, on the reasoning that whoever reaches 127.0.0.1 is
 #   # already the trusted operator. AgentX Workmate runs on an employee's own
-#   # machine and still has to know WHICH employee, so it turns this on. Leave
-#   # it false and a local dashboard behaves exactly as it always has.
+#   # machine and still has to know WHICH employee.
 #   #
-#   # When true, at least one auth provider MUST be configured or the dashboard
-#   # refuses to start (fail closed, never open).
-#   require_auth: true
+#   # Leave this unset. Configuring the keycloak block below IS the opt-in:
+#   # the gate engages on loopback exactly when an identity provider is
+#   # configured, and an install with none stays ungated as it always has.
+#   # A separate switch would only create a state where sign-in is set up,
+#   # looks like it works, and is silently not enforced.
+#   #
+#   # Set it explicitly only to override that:
+#   #   true  - always gated; fails closed at startup with no provider, so
+#   #           removing the keycloak block cannot quietly ungate the install
+#   #   false - never gated on loopback; the escape hatch for developing
+#   #           against a realm you cannot reach
+#   # AGENTX_DASHBOARD_REQUIRE_AUTH overrides both, in either direction.
+#   # require_auth: true
 #
 #   oauth:
 #     keycloak:
@@ -1716,6 +1731,116 @@ updates:
 #       # This is a CREDENTIAL: prefer AGENTX_DASHBOARD_KEYCLOAK_CLIENT_SECRET
 #       # in ~/.agentx/.env.
 #       # client_secret: ""
+
+# =============================================================================
+# Per-account provisioning
+# =============================================================================
+# What a Keycloak sign-in turns into, beyond a session. Each signed-in person
+# gets their own AGENTX_HOME at <install root>/accounts/<slug>/ (their profiles
+# live inside it), and — when this block is enabled — their own LiteLLM virtual
+# key inside that home. Ten people signing in on one machine get ten keys, ten
+# spend lines, and ten sets of state instead of one key everybody shares.
+#
+# Entirely opt-in. Left as shipped, sign-in provisions nothing and model
+# configuration behaves exactly as it did before accounts existed.
+#
+# Requires dashboard auth to be on (see the Keycloak block above): provisioning
+# only ever acts on a VERIFIED identity, never on a name a client asked for.
+#
+# The LiteLLM admin key is a CREDENTIAL and is never read from here. In broker
+# mode it lives only on the broker server, as AGENTX_LITELLM_ADMIN_KEY in that
+# server's ~/.agentx/.env. In direct mode it has to be in the .env of every
+# machine that mints — which is the whole reason broker mode exists.
+#
+# WHAT A SHIPPED INSTALL ALREADY HAS: an AgentX Workmate build comes with this
+# block filled in — enabled, direct mode, AgentX's own proxy, a default model —
+# and the installer carries the admin key, which the desktop app writes into
+# ~/.agentx/.env on first launch. Everything below is for changing that, or for
+# pointing an install at your own proxy. The shipped values live in
+# hermes_cli/config_defaults.py (DEPLOYMENT_LITELLM_*).
+#
+# Docs: https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/accounts.md
+#
+# Read from the INSTALL ROOT's config.yaml (~/.agentx/config.yaml), whichever
+# account a process is running as — this is operator policy that every
+# account inherits, not a per-user preference. Write it once, before anybody
+# signs in: an account home is created AT sign-in with no config.yaml of its
+# own, so a value written inside one is invisible to every other account.
+#
+# accounts:
+#   litellm:
+#     # Master switch. False means sign-in provisions nothing and `agentx
+#     # model` configuration is left alone. A shipped build sets it true.
+#     enabled: false
+#
+#     # The LiteLLM proxy keys are minted against, e.g.
+#     # "https://litellm.example.com". No trailing /v1 — that suffix is added
+#     # where an OpenAI-compatible base URL is needed. Required on the BROKER
+#     # server; on a laptop in broker mode the broker's answer wins, so moving
+#     # LiteLLM does not mean pushing new config to every machine.
+#     base_url: ""
+#
+#     # How this machine obtains a key.
+#     #
+#     #   broker - (recommended) POST the signed-in user's Keycloak token to
+#     #            a central service, which verifies it and mints on their
+#     #            behalf. The admin key stays on that service.
+#     #   direct - this machine calls LiteLLM's admin API itself with
+#     #            AGENTX_LITELLM_ADMIN_KEY from its own .env. Nothing to
+#     #            deploy — and an admin key that whoever owns the laptop can
+#     #            read, and use to mint unlimited budget or delete a
+#     #            colleague's key.
+#     #
+#     # A shipped AgentX build sets "direct": no broker is deployed yet, and
+#     # a laptop that cannot mint has no model at all. Moving off it is one
+#     # migration — run `agentx litellm-broker serve`, set broker_url, flip
+#     # this to "broker", rotate the admin key.
+#     mode: "broker"
+#
+#     # Where the broker listens. Required when mode is "broker"; put TLS in
+#     # front of it. Run the server side with `agentx account broker`.
+#     broker_url: ""   # e.g. "https://keys.example.com/api/litellm/account-key"
+#
+#     # The name this proxy gets under `providers:` in the account's own
+#     # config.yaml, and therefore the name `agentx model` shows. Change it
+#     # only if "litellm" already means something else on your installs.
+#     provider_name: "litellm"
+#
+#     # Prefix of the LiteLLM key_alias; the account slug is appended, giving
+#     # one alias per person. That alias is the idempotency handle — it is
+#     # looked up before anything is minted, so signing in twice reuses the
+#     # key instead of leaving an orphan behind on every launch.
+#     key_alias_prefix: "agentx-workmate"
+#
+#     # Restrict each minted key to these model ids. Empty means every model
+#     # the proxy exposes to that key.
+#     # models: ["gpt-4o", "claude-sonnet-4-5"]
+#     models: []
+#
+#     # Spend and rate ceilings stamped onto each key at mint time. 0 / "" is
+#     # "no limit", which is LiteLLM's own default. Changing these affects
+#     # keys minted afterwards; existing keys keep the limits they were born
+#     # with until they are rotated.
+#     max_budget: 0            # USD per budget_duration, e.g. 25
+#     budget_duration: ""      # LiteLLM duration string, e.g. "30d", "1mo"
+#     tpm_limit: 0             # tokens per minute
+#     rpm_limit: 0             # requests per minute
+#
+#     # Model pinned as the account's default the FIRST time its key is minted,
+#     # and only while the user has not chosen one themselves — re-pinning it
+#     # on every sign-in would fight whoever ran `agentx model`. Blank leaves
+#     # model selection alone. Pick something you have verified end to end: a
+#     # model can be listed by the proxy and still be refused at call time by
+#     # the upstream key behind it.
+#     default_model: ""
+#
+#     # Ask the proxy what the new key can reach and record it, so the model
+#     # picker is populated without anyone typing ids.
+#     discover_models: true
+#
+#     # Timeout for each provisioning HTTP call. This runs on the sign-in
+#     # path, so a wedged proxy must not be allowed to hold up a launch.
+#     request_timeout_seconds: 20
 
 # =============================================================================
 # External secret sources

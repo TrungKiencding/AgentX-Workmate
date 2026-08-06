@@ -166,13 +166,18 @@ def cmd_dashboard_keycloak(args) -> None:
         print("      (re-run with --public-url URL to have this printed exactly)")
     print()
 
+    print("The auth gate is now ON, including loopback binds — `agentx dashboard`")
+    print("and AgentX Workmate Desktop will both ask for a sign-in before they show")
+    print("anything. Configuring Keycloak is what turns it on; there is no second")
+    print("switch.")
     if args.require_auth:
-        print("The auth gate is now ON for loopback binds too — `agentx dashboard`")
-        print("will send you to /login before it shows anything.")
+        print()
+        print("--require-auth pinned it explicitly, so removing the Keycloak settings")
+        print("later will fail the dashboard closed rather than silently ungate it.")
     else:
-        print("The auth gate is still OFF for loopback binds, so a local")
-        print("`agentx dashboard` will NOT ask anyone to sign in. Re-run with")
-        print("--require-auth (or set dashboard.require_auth: true) to turn it on.")
+        print()
+        print("To run locally without a sign-in (a realm you cannot reach from here),")
+        print("set dashboard.require_auth: false or export AGENTX_DASHBOARD_REQUIRE_AUTH=0.")
 
     if args.allow_password_grant:
         print()

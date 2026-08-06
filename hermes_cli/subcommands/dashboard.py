@@ -294,8 +294,10 @@ def build_dashboard_parser(
         dest="require_auth",
         action="store_true",
         help=(
-            "Engage the auth gate on loopback binds too, so a local dashboard "
-            "requires a sign-in. This is what AgentX Workmate wants."
+            "No longer needed: configuring Keycloak already engages the auth "
+            "gate on loopback. Pass this only to pin it on explicitly, so a "
+            "later edit to dashboard.oauth.keycloak cannot quietly ungate the "
+            "install."
         ),
     )
     dashboard_keycloak_parser.set_defaults(func=cmd_dashboard_keycloak)

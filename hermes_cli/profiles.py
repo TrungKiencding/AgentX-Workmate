@@ -256,7 +256,7 @@ _AGENTX_SUBCOMMANDS = frozenset({
     "chat", "model", "gateway", "setup", "whatsapp", "login", "logout",
     "status", "cron", "doctor", "dump", "config", "pairing", "skills", "tools",
     "mcp", "sessions", "insights", "version", "update", "uninstall",
-    "profile", "plugins", "honcho", "acp",
+    "profile", "plugins", "honcho", "acp", "account",
 })
 
 
@@ -267,7 +267,7 @@ _AGENTX_SUBCOMMANDS = frozenset({
 def _get_profiles_root() -> Path:
     """Return the directory where named profiles are stored.
 
-    Anchored to the agentx root, NOT to the current AGENTX_HOME
+    Anchored to the profile root, NOT to the current AGENTX_HOME
     (which may itself be a profile).  This ensures ``coder profile list``
     can see all profiles.
 
@@ -279,14 +279,19 @@ def _get_profiles_root() -> Path:
 
 
 def _get_default_hermes_home() -> Path:
-    """Return the default (pre-profile) AGENTX_HOME path.
+    """Return the AGENTX_HOME that profiles hang off.
 
-    In standard deployments this is ``~/.agentx``.
-    In Docker/custom deployments where AGENTX_HOME is outside ``~/.agentx``
-    (e.g. ``/opt/data``), returns AGENTX_HOME directly.
+    Without an account this is the install root — ``~/.agentx`` normally, or
+    ``AGENTX_HOME`` itself for Docker/custom deployments outside it.
+
+    With an account active it is that account's home, so ``profiles/``,
+    ``active_profile``, and the ``default`` profile all resolve *inside* the
+    account.  Two people signed in on one machine therefore get two separate
+    profile stores rather than one shared namespace they could step across
+    with ``-p``.
     """
-    from hermes_constants import get_default_hermes_root
-    return get_default_hermes_root()
+    from hermes_constants import get_user_root
+    return get_user_root()
 
 
 def _get_active_profile_path() -> Path:

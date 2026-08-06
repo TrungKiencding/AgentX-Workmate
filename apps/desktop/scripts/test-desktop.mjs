@@ -323,6 +323,32 @@ function validateBundle() {
     die(`install-stamp.json is missing the branch field: ${JSON.stringify(stamp)}`)
   }
 
+  // Positive assertion: deployment.json ships with a LiteLLM admin key.
+  //
+  // This is the assertion that catches the failure this whole mechanism
+  // exists to prevent: a release built on a machine that had no key, which
+  // installs cleanly, signs in cleanly, and then has no model. There is
+  // nothing about the running app that would tell you — so check the artifact.
+  const deploymentPath = path.join(APP.resourcesPath, 'deployment.json')
+  if (!exists(deploymentPath)) {
+    die(`Missing deployment.json (required for per-user model provisioning): ${deploymentPath}`)
+  }
+  let deployment
+  try {
+    deployment = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'))
+  } catch (err) {
+    die(`deployment.json is not valid JSON: ${err.message}`)
+  }
+  if (deployment.schemaVersion !== 1) {
+    die(`deployment.json schemaVersion ${deployment.schemaVersion} is not the expected 1`)
+  }
+  if (!deployment.litellmAdminKey || typeof deployment.litellmAdminKey !== 'string') {
+    die(
+      'deployment.json carries no LiteLLM admin key: this build would install without model access. ' +
+        'Set AGENTX_LITELLM_ADMIN_KEY (or configure it in the build machine .env) and rebuild.'
+    )
+  }
+
   // Positive assertion: node-pty native deps shipped
   const native = expectedNativeDepPaths()
   if (!exists(native.packageJson)) {

@@ -260,7 +260,18 @@ export const ja = defineLocale({
       signOutConfirmTitle: 'AgentX からサインアウトしますか？',
       signOutConfirmDesc: 'AgentX Workmate はセッションを終了し、サインイン画面に戻ります。会話と設定は保持されます。',
       notConfiguredTitle: 'このインストールに AgentX アカウントはありません',
-      notConfiguredDesc: 'この AgentX Workmate は AgentX の ID プロバイダーに接続されていません。'
+      notConfiguredDesc: 'この AgentX Workmate は AgentX の ID プロバイダーに接続されていません。',
+      homeTitle: 'このマシン上のワークスペース',
+      homeSharedDesc:
+        'このバックエンドは共有ホームで動作しているため、チャット・メモリ・キーはまだアカウントごとに分離されていません。AgentX Workmate を再起動してアカウントの設定を完了してください。',
+      keyTitle: 'モデルへのアクセス',
+      keyNone: 'このアカウントにはまだキーが発行されていません。',
+      keyDisabled: 'このインストールではアカウントごとのモデルキーを発行しません。',
+      keyOffline: 'モデルプロキシに接続できませんでした。既存のキーは引き続き使えます。',
+      keyRotate: '新しいキーを発行',
+      keyRotateDesc: '現在のキーを失効させ、新しいキーを発行します。キーが漏れた場合に使用してください。',
+      keyRotating: '発行中…',
+      keyModels: n => `${n} 個のモデルが利用可能`
     },
     notifications: {
       title: '通知',

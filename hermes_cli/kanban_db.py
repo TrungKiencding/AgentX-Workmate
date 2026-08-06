@@ -422,20 +422,25 @@ def kanban_home() -> Path:
 
     1. ``AGENTX_KANBAN_HOME`` env var when set and non-empty (explicit
        override for tests and unusual deployments).
-    2. ``get_default_hermes_root()``, which already returns ``<root>``
-       when ``AGENTX_HOME`` is ``<root>/profiles/<name>``, and returns
-       ``AGENTX_HOME`` directly for Docker / custom deployments.
+    2. ``get_user_root()``, which already returns ``<root>`` when
+       ``AGENTX_HOME`` is ``<root>/profiles/<name>``, returns the account
+       home when one is signed in, and returns ``AGENTX_HOME`` directly for
+       Docker / custom deployments.
 
     The kanban board is shared across profiles **by design** (see the
     module docstring). Resolving the kanban paths through the active
     profile's ``AGENTX_HOME`` would silently fork the board per profile,
     which breaks the dispatcher / worker handoff.
+
+    It is NOT shared across accounts: a board is one person's work queue,
+    and two employees on the same laptop dispatching into a single board
+    would see and claim each other's cards.
     """
     override = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
     if override:
         return Path(override).expanduser()
-    from hermes_constants import get_default_hermes_root
-    return get_default_hermes_root()
+    from hermes_constants import get_user_root
+    return get_user_root()
 
 
 def boards_root() -> Path:
@@ -10103,8 +10108,8 @@ def list_profiles_on_disk() -> list[str]:
     path).
     """
     try:
-        from hermes_constants import get_default_hermes_root
-        default_root = get_default_hermes_root()
+        from hermes_constants import get_user_root
+        default_root = get_user_root()
         profiles_dir = default_root / "profiles"
     except Exception:
         return []
