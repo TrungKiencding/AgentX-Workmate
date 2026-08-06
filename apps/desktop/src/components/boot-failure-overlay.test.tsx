@@ -98,4 +98,25 @@ describe('BootFailureOverlay', () => {
       restore()
     }
   })
+
+  // AgentX Workmate gates its LOCAL backend behind AgentX's Keycloak. That is
+  // a sign-in prompt, not a crash, and it has its own surface (SignInOverlay)
+  // at the same z-rung — this overlay must stay out of the way entirely or two
+  // full-screen gates stack on each other.
+  it('renders nothing for the AgentX sign-in gate', () => {
+    $desktopBoot.set({
+      error: 'AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.',
+      fakeMode: false,
+      message: 'boot failed',
+      phase: 'renderer.error',
+      progress: 40,
+      running: false,
+      timestamp: Date.now(),
+      visible: true
+    })
+
+    const { container } = render(<BootFailureOverlay />)
+
+    expect(container.firstChild).toBeNull()
+  })
 })

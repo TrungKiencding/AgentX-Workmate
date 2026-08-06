@@ -44,6 +44,16 @@ export interface NativeTokenSet {
   expiresAt: number
   provider: string
   userId: string
+  /**
+   * Who the user actually is, for display.
+   *
+   * Optional because the gateway-brokered flow has no identity claims to give —
+   * it hands back an opaque token and a `user_id`. The direct Keycloak flow
+   * reads `email` / `name` off the ID token it already verifies, so the app can
+   * show a person instead of a UUID. Anything reading these must tolerate ''.
+   */
+  email?: string
+  displayName?: string
 }
 
 /** base64url without `=` padding (RFC 7636 §4). */
@@ -208,13 +218,21 @@ export function parseStoredTokenSet(body: any): NativeTokenSet {
   }
 
   const expiresAt = Number(body?.expiresAt)
+  // Carried through so a session stored before this launch still shows a name
+  // rather than reverting to the raw subject id. Omitted rather than blanked
+  // when absent: the gateway-brokered flow has no identity claims, and adding
+  // empty keys to its token set would change a shape other code compares.
+  const email = String(body?.email || '')
+  const displayName = String(body?.displayName || '')
 
   return {
     accessToken,
     refreshToken: String(body?.refreshToken || ''),
     expiresAt: Number.isFinite(expiresAt) ? expiresAt : 0,
     provider: String(body?.provider || ''),
-    userId: String(body?.userId || '')
+    userId: String(body?.userId || ''),
+    ...(email ? { email } : {}),
+    ...(displayName ? { displayName } : {})
   }
 }
 

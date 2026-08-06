@@ -35,6 +35,7 @@ from hermes_cli.dashboard_auth.base import (
     InvalidCodeError,
     InvalidCredentialsError,
     ProviderError,
+    provider_offers_redirect,
 )
 from hermes_cli.dashboard_auth.cookies import (
     clear_pkce_cookie,
@@ -160,18 +161,30 @@ async def api_auth_providers() -> Any:
             {"detail": "no auth providers registered"},
             status_code=503,
         )
-    return {
-        "providers": [
+    entries = []
+    for p in providers:
+        # ``native_oidc_config`` is an optional capability — a provider from
+        # before it existed, or a third-party one, simply doesn't have it.
+        # A broken implementation must not 500 the public bootstrap route the
+        # login page depends on, so a raise degrades to "no native story".
+        native: Any = None
+        try:
+            native = p.native_oidc_config()
+        except Exception as e:  # noqa: BLE001 — a provider bug is not fatal here
+            _log.warning(
+                "dashboard-auth: native_oidc_config() on %r raised: %s", p.name, e
+            )
+            native = None
+        entries.append(
             {
                 "name": p.name,
                 "display_name": p.display_name,
-                "supports_password": bool(
-                    getattr(p, "supports_password", False)
-                ),
+                "supports_password": bool(getattr(p, "supports_password", False)),
+                "supports_native_oidc": bool(native),
+                "native_oidc": native,
             }
-            for p in providers
-        ],
-    }
+        )
+    return {"providers": entries}
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +205,11 @@ async def auth_login(request: Request, provider: str, next: str = ""):
             status_code=404,
             detail=f"Provider does not support interactive login: {provider!r}",
         )
-    if getattr(p, "supports_password", False):
+    if not provider_offers_redirect(p):
+        # Password-only provider: there is no redirect to start, so send the
+        # caller back to the form. A provider that supports BOTH (Keycloak with
+        # direct access grants on) falls through and starts the redirect —
+        # bouncing it here would make its own "single sign-on" button a no-op.
         from urllib.parse import quote
 
         safe_next = _validate_post_login_target(next)

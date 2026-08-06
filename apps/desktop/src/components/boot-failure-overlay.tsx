@@ -15,6 +15,7 @@ import { $desktopOnboarding } from '@/store/onboarding'
 import type { RemoteReauth } from './boot-failure-reauth'
 import {
   deriveProviderShape,
+  isKeycloakSignInFailure,
   isRemoteConfig,
   isRemoteReauthFailure,
   signInLabel,
@@ -59,7 +60,11 @@ export function BootFailureOverlay() {
   // juggling, no second connection form to maintain).
   const [view, setView] = useState<RecoveryView>('recovery')
 
-  const visible = Boolean(boot.error) && !boot.running
+  // The AgentX sign-in gate is NOT a boot failure — the backend came up fine
+  // and is waiting to be told who the user is. It has its own surface
+  // (SignInOverlay), which sits at the same z-rung; rendering both would stack
+  // two full-screen gates.
+  const visible = Boolean(boot.error) && !boot.running && !isKeycloakSignInFailure(boot.error)
   // While first-run onboarding owns the picker/flow we let it surface its own
   // progress; the recovery overlay is for hard failures, which it covers via a
   // higher z-index regardless of onboarding state.
@@ -143,10 +148,20 @@ export function BootFailureOverlay() {
     return null
   }
 
-  const retry = async () => {
-    setBusy('retry')
+  // Re-dial the backend and repaint. Clearing the latched failure FIRST is the
+  // load-bearing half: main.ts latches a local boot failure so a crash-looping
+  // backend isn't respawned on every renderer paint, and a bare reload
+  // therefore replays the very same failure. Anything that has genuinely fixed
+  // the boot condition — Retry, or a completed sign-in — has to clear the latch
+  // or the user lands right back on this screen.
+  const restartBoot = async () => {
     await window.agentxDesktop?.resetBootstrap().catch(() => undefined)
     window.location.reload()
+  }
+
+  const retry = async () => {
+    setBusy('retry')
+    await restartBoot()
   }
 
   const repair = async () => {
@@ -181,7 +196,11 @@ export function BootFailureOverlay() {
 
       if (result?.connected) {
         notify({ kind: 'success', title: t.boot.failure.signedInTitle, message: t.boot.failure.signedInMessage })
-        window.location.reload()
+        // Signing in is exactly the condition the latched boot failure was
+        // waiting on, so clear it — a plain reload would replay the same
+        // "sign-in required" error and make a successful sign-in look like it
+        // did nothing until the user pressed Retry.
+        await restartBoot()
 
         return
       }

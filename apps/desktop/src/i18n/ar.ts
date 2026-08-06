@@ -95,7 +95,13 @@ export const ar = defineLocale({
       signInFailed: 'فشل تسجيل الدخول',
       signInToRemoteGateway: 'تسجيل الدخول للبوابة البعيدة',
       signInWithProvider: provider => `تسجيل الدخول عبر ${provider}`,
-      identityProvider: 'مزود الهوية'
+      identityProvider: 'مزود الهوية',
+      keycloakTitle: 'تسجيل الدخول إلى AgentX Workmate',
+      keycloakDescription: 'استخدم حساب AgentX للمتابعة. إنه الحساب نفسه الذي تسجّل به الدخول إلى AgentX.',
+      keycloakSignInHint: 'سيفتح المتصفح لتسجيل الدخول. ستبقى مسجّلاً حتى تنتهي صلاحية جلسة AgentX.',
+      signInWithAgentX: 'تسجيل الدخول عبر AgentX',
+      keycloakSigningIn: 'في انتظار المتصفح…',
+      keycloakReconnecting: 'تم تسجيل الدخول. جارٍ تشغيل AgentX Workmate…'
     }
   },
   notifications: {
@@ -294,6 +300,7 @@ export const ar = defineLocale({
       providerAccounts: 'الحسابات',
       providerApiKeys: 'مفاتيح API',
       gateway: 'البوابة',
+      account: 'الحساب',
       apiKeys: 'الأدوات والمفاتيح',
       keysTools: 'الأدوات',
       keysSettings: 'الإعدادات',
@@ -303,6 +310,21 @@ export const ar = defineLocale({
       notifications: 'الإشعارات',
       keybinds: 'اختصارات لوحة المفاتيح',
       plugins: 'الإضافات'
+    },
+    account: {
+      title: 'حساب AgentX',
+      signedIn: 'مسجَّل الدخول',
+      signedOut: 'تم تسجيل الخروج',
+      signedOutDesc: 'سجّل الدخول من شاشة البدء لمتابعة استخدام AgentX Workmate.',
+      unknownUser: 'المستخدم المسجَّل',
+      realmTitle: 'مزود الهوية',
+      signOut: 'تسجيل الخروج',
+      signOutTitle: 'تسجيل الخروج من AgentX',
+      signOutDesc: 'يمسح هذه الجلسة وينهيها في Keycloak. سيُطلب منك تسجيل الدخول مجددًا.',
+      signOutConfirmTitle: 'تسجيل الخروج من AgentX؟',
+      signOutConfirmDesc: 'سيُنهي AgentX Workmate الجلسة ويعود إلى شاشة تسجيل الدخول. تبقى محادثاتك وإعداداتك كما هي.',
+      notConfiguredTitle: 'لا يوجد حساب AgentX في هذا التثبيت',
+      notConfiguredDesc: 'نسخة AgentX Workmate هذه غير متصلة بمزود هوية AgentX.'
     },
     plugins: {
       title: 'إضافات سطح المكتب',

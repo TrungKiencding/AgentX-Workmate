@@ -165,6 +165,22 @@ class DashboardAuthProvider(ABC):
     # and are completely unaffected.
     supports_password: bool = False
 
+    # Whether this provider can be signed into via the OAuth redirect leg
+    # (``start_login`` → IDP → ``/auth/callback``).
+    #
+    # ``None`` (the default) means "derive": the login page treats a
+    # ``supports_password`` provider as form-instead-of-button, which is right
+    # for a pure-password provider whose ``start_login`` is a raising stub.
+    #
+    # Set it True explicitly on a provider that offers BOTH. The login page
+    # then renders the credential form AND the redirect button, which is what
+    # an IDP with direct access grants enabled needs: the form covers the
+    # common case, while accounts that must go through the IDP's own page —
+    # MFA, a required password change, a brokered corporate IdP — still have a
+    # way in. Without this they would be stranded at a form that can only ever
+    # answer "invalid credentials".
+    supports_redirect: Optional[bool] = None
+
     # When True, this provider can verify a non-interactive bearer token
     # (``verify_token``) presented on a single request by a service-to-service
     # caller — no login, no cookie, no refresh. This is the generic
@@ -268,6 +284,56 @@ class DashboardAuthProvider(ABC):
             f"{type(self).__name__} does not support token auth "
             "(set supports_token = True and override verify_token)"
         )
+
+    def native_oidc_config(self) -> Optional[dict]:
+        """Public OIDC parameters a native client needs to sign in directly.
+
+        A desktop shell cannot always use the browser round trip this protocol
+        assumes. When the backend is a locally-spawned process its port is
+        ephemeral, so ``{origin}/auth/callback`` — the redirect_uri
+        ``start_login`` is handed — is a different URL on every launch and
+        cannot be pre-registered with the IDP. Such a shell instead runs its
+        own Authorization Code + PKCE flow against a fixed loopback listener it
+        controls, and to do that it needs the issuer and client_id.
+
+        Return ``None`` (the default) when a provider has no direct-native
+        story; the shell then falls back to the gateway-brokered
+        ``/auth/native/*`` flow. When non-None the dict MUST contain only
+        NON-SECRET values — it is served from the public
+        ``/api/auth/providers`` route — with these keys:
+
+          * ``issuer`` (str) — the OIDC issuer identifier.
+          * ``client_id`` (str) — a PUBLIC client id.
+          * ``scopes`` (str) — space-separated.
+          * ``confidential`` (bool) — True if the client carries a secret, in
+            which case a native client CANNOT complete the flow and must use
+            the brokered path instead.
+        """
+        return None
+
+
+def provider_offers_redirect(provider: object) -> bool:
+    """True if ``provider`` can be signed into via the OAuth redirect leg.
+
+    The single source of truth for a question two places ask: the login page
+    (does this provider get a "Sign in with X" button?) and ``/auth/login``
+    (is starting a redirect meaningful, or should the caller be sent back to
+    the credential form?).
+
+    ``supports_redirect`` answers it outright when set. Left ``None`` it is
+    derived: a ``supports_password`` provider is assumed form-only, because a
+    pure-password provider's ``start_login`` is a stub that raises and linking
+    to it would hand the user a dead button.
+
+    Keeping the two callers on one function is what stops a provider that does
+    BOTH — Keycloak with direct access grants enabled — from being offered a
+    redirect button that ``/auth/login`` then bounces straight back to the
+    login page, which reads to the user as a button that does nothing.
+    """
+    explicit = getattr(provider, "supports_redirect", None)
+    if isinstance(explicit, bool):
+        return explicit
+    return not bool(getattr(provider, "supports_password", False))
 
 
 def assert_protocol_compliance(cls: type) -> None:

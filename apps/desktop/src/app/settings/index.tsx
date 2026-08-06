@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Settings2,
   Upload,
+  UserCircle,
   Wrench,
   Zap
 } from '@/lib/icons'
@@ -31,6 +32,7 @@ import { OverlayView } from '../overlays/overlay-view'
 import { SKILLS_ROUTE } from '../routes'
 
 import { AboutSettings } from './about-settings'
+import { AccountSettings } from './account-settings'
 import { AppearanceSettings } from './appearance-settings'
 import { BillingSettings } from './billing'
 import { ConfigSettings } from './config-settings'
@@ -48,6 +50,7 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   ...SECTIONS.map(s => `config:${s.id}` as SettingsViewId),
   'providers',
   'gateway',
+  'account',
   'keybinds',
   'keys',
   'notifications',
@@ -207,6 +210,13 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         onSelect: () => setActiveView('gateway')
       },
       {
+        active: activeView === 'account',
+        icon: UserCircle,
+        id: 'account',
+        label: t.settings.nav.account,
+        onSelect: () => setActiveView('account')
+      },
+      {
         active: activeView === 'keybinds',
         icon: Keyboard,
         id: 'keybinds',
@@ -305,6 +315,8 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             <AboutSettings />
           ) : activeView === 'gateway' ? (
             <GatewaySettings />
+          ) : activeView === 'account' ? (
+            <AccountSettings />
           ) : activeView === 'keybinds' ? (
             <KeybindSettings />
           ) : activeView.startsWith('config:') ? (

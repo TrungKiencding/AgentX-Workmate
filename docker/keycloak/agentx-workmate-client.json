@@ -1,0 +1,24 @@
+{
+  "clientId": "agentx-workmate",
+  "name": "AgentX Workmate",
+  "description": "Desktop and browser sign-in for AgentX Workmate, against the same accounts as AgentX.",
+  "protocol": "openid-connect",
+  "enabled": true,
+  "publicClient": true,
+  "standardFlowEnabled": true,
+  "directAccessGrantsEnabled": false,
+  "implicitFlowEnabled": false,
+  "serviceAccountsEnabled": false,
+  "frontchannelLogout": true,
+  "redirectUris": [
+    "http://127.0.0.1:47821/callback",
+    "http://127.0.0.1:47822/callback",
+    "http://127.0.0.1:47823/callback",
+    "http://localhost:9119/auth/callback"
+  ],
+  "webOrigins": [],
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "http://127.0.0.1:47821/*##http://127.0.0.1:47822/*##http://127.0.0.1:47823/*##http://localhost:9119/*"
+  }
+}

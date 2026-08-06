@@ -172,4 +172,23 @@ describe("api OAuth helpers", () => {
       expect((init.headers as Headers).has(SESSION_HEADER)).toBe(false);
     }
   });
+
+  // Signing out must land on the login page, not on whatever a reverse proxy
+  // serves at its own root. The base path is injected into index.html at serve
+  // time, so it is empty in a plain loopback dashboard and non-empty behind a
+  // path-mounting proxy — both have to work.
+  it("navigates to the login page under the injected base path on logout", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", {
+      __AGENTX_AUTH_REQUIRED__: true,
+      location: { assign },
+    });
+    vi.stubGlobal("fetch", jsonFetchMock({ ok: true }));
+
+    await api.logout();
+
+    expect(assign).toHaveBeenCalledTimes(1);
+    const target = assign.mock.calls[0][0] as string;
+    expect(target.endsWith("/login")).toBe(true);
+  });
 });

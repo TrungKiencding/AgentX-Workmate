@@ -1643,6 +1643,80 @@ updates:
 #       # in ~/.agentx/.env over putting it here in config.yaml.
 #       #   client_secret: ""
 
+# -----------------------------------------------------------------------------
+# Keycloak dashboard auth — sign in with AgentX accounts.
+#
+# This is what AgentX Workmate uses: it points this install at the SAME Keycloak
+# realm that backs AgentX, so employees keep the account they already have and
+# nobody administers a second user directory. Sign-in is OpenID Connect
+# authorization code + PKCE against a PUBLIC client, which keeps MFA, required
+# actions and LDAP/AD federation working.
+#
+# The fastest way to write these is `agentx dashboard keycloak`, which also
+# validates the realm and prints the redirect URIs to register.
+#
+# Each setting can be overridden by an environment variable:
+#
+#   dashboard.require_auth                             <-  AGENTX_DASHBOARD_REQUIRE_AUTH
+#   dashboard.oauth.keycloak.base_url                  <-  AGENTX_DASHBOARD_KEYCLOAK_BASE_URL
+#   dashboard.oauth.keycloak.realm                     <-  AGENTX_DASHBOARD_KEYCLOAK_REALM
+#   dashboard.oauth.keycloak.client_id                 <-  AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID
+#   dashboard.oauth.keycloak.client_secret             <-  AGENTX_DASHBOARD_KEYCLOAK_CLIENT_SECRET
+#   dashboard.oauth.keycloak.scopes                    <-  AGENTX_DASHBOARD_KEYCLOAK_SCOPES
+#   dashboard.oauth.keycloak.issuer                    <-  AGENTX_DASHBOARD_KEYCLOAK_ISSUER
+#   dashboard.oauth.keycloak.org_claim                 <-  AGENTX_DASHBOARD_KEYCLOAK_ORG_CLAIM
+#   dashboard.oauth.keycloak.idp_hint                  <-  AGENTX_DASHBOARD_KEYCLOAK_IDP_HINT
+#   dashboard.oauth.keycloak.allow_password_grant      <-  AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT
+#
+# dashboard:
+#   # Require a sign-in even on a LOOPBACK bind. The gate normally engages only
+#   # for non-loopback binds, on the reasoning that whoever reaches 127.0.0.1 is
+#   # already the trusted operator. AgentX Workmate runs on an employee's own
+#   # machine and still has to know WHICH employee, so it turns this on. Leave
+#   # it false and a local dashboard behaves exactly as it always has.
+#   #
+#   # When true, at least one auth provider MUST be configured or the dashboard
+#   # refuses to start (fail closed, never open).
+#   require_auth: true
+#
+#   oauth:
+#     keycloak:
+#       base_url: "https://agentx.example.com/auth"  # Keycloak server root
+#       realm: "agent-hub"                           # realm holding your users
+#       client_id: "agentx-workmate"                 # MUST be a PUBLIC client
+#
+#       # scopes: "openid profile email"   # default
+#
+#       # Explicit issuer, for split-horizon deploys where the browser and the
+#       # server reach Keycloak by different names. Blank → {base_url}/realms/{realm}.
+#       # issuer: ""
+#
+#       # Dotted claim path feeding the session's org_id. Blank walks
+#       # tenant_slug → organization → org_id → realm_access.roles → groups,
+#       # which is the same order AgentX itself uses.
+#       # org_claim: ""
+#
+#       # kc_idp_hint — skips Keycloak's identity-provider chooser and goes
+#       # straight to a brokered corporate AD/SAML provider.
+#       # idp_hint: ""
+#
+#       # Also render a username/password form inside the app (Keycloak direct
+#       # access grants), alongside — never instead of — the sign-in redirect.
+#       #
+#       # OFF by default, and that default is right for most realms: a user with
+#       # MFA or any pending required action CANNOT complete this flow (Keycloak
+#       # answers invalid_grant and the form cannot say why), it needs "Direct
+#       # access grants" enabled on the client, and realm brute-force protection
+#       # counts failures against the real account.
+#       # allow_password_grant: false
+#
+#       # OPTIONAL — only for a confidential client. Setting it stops the
+#       # DESKTOP app from running its own sign-in (a binary on an employee's
+#       # machine cannot hold a secret), leaving only the browser dashboard.
+#       # This is a CREDENTIAL: prefer AGENTX_DASHBOARD_KEYCLOAK_CLIENT_SECRET
+#       # in ~/.agentx/.env.
+#       # client_secret: ""
+
 # =============================================================================
 # External secret sources
 # =============================================================================

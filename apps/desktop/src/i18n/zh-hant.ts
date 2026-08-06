@@ -105,7 +105,13 @@ export const zhHant = defineLocale({
       signInFailed: '登入失敗',
       signInToRemoteGateway: '登入遠端閘道',
       signInWithProvider: provider => `使用 ${provider} 登入`,
-      identityProvider: '您的身分提供方'
+      identityProvider: '您的身分提供方',
+      keycloakTitle: '登入 AgentX Workmate',
+      keycloakDescription: '使用您的 AgentX 帳號繼續。就是您登入 AgentX 時用的同一個帳號。',
+      keycloakSignInHint: '會開啟瀏覽器完成登入。在 AgentX 工作階段到期前都不需要重新登入。',
+      signInWithAgentX: '使用 AgentX 登入',
+      keycloakSigningIn: '正在等待瀏覽器…',
+      keycloakReconnecting: '已登入，正在啟動 AgentX Workmate…'
     }
   },
 
@@ -223,6 +229,7 @@ export const zhHant = defineLocale({
       providerApiKeys: 'API 金鑰',
       providerCustomEndpoints: '自訂端點',
       gateway: '閘道',
+      account: '帳號',
       apiKeys: '工具與金鑰',
       keybinds: '鍵盤快捷鍵',
       keysTools: '工具',
@@ -232,6 +239,21 @@ export const zhHant = defineLocale({
       about: '關於',
       billing: '帳單',
       notifications: '通知'
+    },
+    account: {
+      title: 'AgentX 帳號',
+      signedIn: '已登入',
+      signedOut: '已登出',
+      signedOutDesc: '在啟動畫面重新登入即可繼續使用 AgentX Workmate。',
+      unknownUser: '已登入的使用者',
+      realmTitle: '身分提供方',
+      signOut: '登出',
+      signOutTitle: '登出 AgentX',
+      signOutDesc: '會清除本機工作階段並在 Keycloak 結束它，之後需要重新登入。',
+      signOutConfirmTitle: '要登出 AgentX 嗎？',
+      signOutConfirmDesc: 'AgentX Workmate 會結束工作階段並回到登入畫面。您的對話與設定都會保留。',
+      notConfiguredTitle: '這個安裝沒有 AgentX 帳號',
+      notConfiguredDesc: '這份 AgentX Workmate 尚未連接到 AgentX 身分提供方。'
     },
     notifications: {
       title: '通知',

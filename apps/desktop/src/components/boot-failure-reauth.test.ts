@@ -4,6 +4,7 @@ import type { DesktopConnectionConfig } from '@/global'
 
 import {
   deriveProviderShape,
+  isKeycloakSignInFailure,
   isRemoteConfig,
   isRemoteReauthError,
   isRemoteReauthFailure,
@@ -173,5 +174,31 @@ describe('signInLabel', () => {
 
   it('null reauth falls back to the generic provider phrase', () => {
     expect(signInLabel(null)).toBe('Sign in with your identity provider')
+  })
+})
+
+describe('isKeycloakSignInFailure', () => {
+  // The marker phrase is raised by main.ts's resolveLocalBackendAuth. If one
+  // side is reworded without the other, the overlay silently falls back to the
+  // local Retry/Repair actions, which cannot fix a sign-in gate.
+  it('matches the marker main.ts raises', () => {
+    expect(
+      isKeycloakSignInFailure('AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.')
+    ).toBe(true)
+  })
+
+  it('is case-insensitive and tolerates surrounding text', () => {
+    expect(isKeycloakSignInFailure('Error: agentx sign-in required (backend gated)')).toBe(true)
+  })
+
+  it('does not fire on an ordinary boot failure', () => {
+    expect(isKeycloakSignInFailure('Could not connect to AgentX gateway')).toBe(false)
+    expect(isKeycloakSignInFailure('Remote gateway session has expired')).toBe(false)
+  })
+
+  it('handles absent errors', () => {
+    expect(isKeycloakSignInFailure(null)).toBe(false)
+    expect(isKeycloakSignInFailure(undefined)).toBe(false)
+    expect(isKeycloakSignInFailure('')).toBe(false)
   })
 })

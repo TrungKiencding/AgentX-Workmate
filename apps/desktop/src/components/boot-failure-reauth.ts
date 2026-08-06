@@ -118,6 +118,20 @@ export function sshFailureMessage(
   return copy.sshErrUnknown || raw
 }
 
+// True when the boot failed because the LOCAL backend is gated behind AgentX's
+// Keycloak and nobody is signed in yet.
+//
+// Distinct from the remote-reauth branch: there is no gateway URL to edit and
+// no token to paste — the only fix is signing in with an AgentX account, which
+// the shell can do directly. main.ts raises this with a fixed leading phrase
+// ("AgentX sign-in required"); the rest of the sentence is user-facing copy and
+// is deliberately not matched on.
+export function isKeycloakSignInFailure(error: string | null | undefined): boolean {
+  return String(error || '')
+    .toLowerCase()
+    .includes('agentx sign-in required')
+}
+
 export function isRemoteReauthFailure(
   config: DesktopConnectionConfig | null | undefined,
   error?: string | null

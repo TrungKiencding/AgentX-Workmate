@@ -558,22 +558,30 @@ same auth gate as the rest of `/api/`.
 
 ## Authentication (gated mode)
 
-When the dashboard is bound to a public or non-loopback address — anything other than `127.0.0.1` / `localhost` — AgentX Workmate engages an auth gate. Every request must carry a verified session cookie or it's bounced to the login page. Three providers ship in the box:
+When the dashboard is bound to a public or non-loopback address — anything other than `127.0.0.1` / `localhost` — AgentX Workmate engages an auth gate. Every request must carry a verified session cookie or it's bounced to the login page. Four providers ship in the box:
 
+- **[Keycloak (AgentX accounts)](#keycloak-provider-agentx-accounts)** — sign in with the accounts your organisation already has in AgentX. This is the provider AgentX Workmate uses, and the only one that also works on a **local** install (see the loopback opt-in below).
 - **[Username/password](#usernamepassword-provider-no-oauth-idp)** — the simplest way to put auth on a self-hosted / on-prem / homelab dashboard. No external identity provider. **Use it only on a trusted network or behind a VPN — not for public-internet exposure.**
 - **[OAuth (Nous Portal)](#default-provider-nous-research)** — for hosted deployments and any dashboard reachable over the public internet, and the recommended path for a [remote AgentX Workmate Desktop connection](#connecting-agentx-desktop-to-a-remote-backend). Every login is verified against your Nous account, so this is the provider suitable for internet-facing use.
-- **[Self-hosted OIDC](#self-hosted-oidc-provider)** — for bringing your own identity provider via standard OpenID Connect (Keycloak, Auth0, Okta, Google, GitHub via an OIDC bridge, etc.). No Nous Portal involved; suitable for public-internet exposure when fronted by a conformant OIDC server.
-
-Operator-owned dashboards bound to loopback are unaffected — no auth, no login page.
+- **[Self-hosted OIDC](#self-hosted-oidc-provider)** — for bringing your own identity provider via standard OpenID Connect (Authentik, Auth0, Okta, Google, GitHub via an OIDC bridge, etc.). No Nous Portal involved; suitable for public-internet exposure when fronted by a conformant OIDC server.
 
 ### When the gate engages
 
 | Flags | Auth gate | Use case |
 |-------|-----------|----------|
 | `agentx dashboard` (default — binds to `127.0.0.1`) | OFF | Local development |
-| `agentx dashboard --host 0.0.0.0` | **ON** | Remote / production — protect with the username/password provider or OAuth |
+| `agentx dashboard` with `dashboard.require_auth: true` | **ON** | AgentX Workmate — a personal install that still has to know who you are |
+| `agentx dashboard --host 0.0.0.0` | **ON** | Remote / production — protect with Keycloak, username/password, or OAuth |
 
-The gate is on if and only if the bind host is not `127.0.0.1`, `::1`, or `localhost`. Binding to `0.0.0.0` (or any RFC1918 / LAN address) engages the gate. The legacy `--insecure` flag **no longer disables it** — it's accepted for backward compatibility but ignored, with a warning.
+A non-loopback bind — `0.0.0.0` or any RFC1918 / LAN address — always engages the gate. A **loopback** bind does not, *unless* you opt in:
+
+```bash
+agentx dashboard keycloak --base-url https://agentx.example.com/auth --realm agent-hub --client-id agentx-workmate --require-auth
+```
+
+That sets `AGENTX_DASHBOARD_REQUIRE_AUTH=1` (equivalently `dashboard.require_auth: true` in `config.yaml`). It exists because AgentX Workmate runs on an employee's own machine and still has to establish *which* employee before it does anything. Leave it off and a local dashboard behaves exactly as it always has — no auth, no login page.
+
+The legacy `--insecure` flag **no longer disables** the gate — it's accepted for backward compatibility but ignored, with a warning.
 
 :::danger `--insecure` is a no-op — it does not disable auth
 Since the June 2026 hardening, `--insecure` no longer bypasses dashboard authentication: a non-loopback bind always requires an auth provider (the username/password provider or OAuth). If you want an auth-free dashboard, bind to `127.0.0.1` and reach it over an SSH tunnel or Tailscale.
@@ -584,6 +592,66 @@ Since the June 2026 hardening, `--insecure` no longer bypasses dashboard authent
 If the gate would engage but **no** `DashboardAuthProvider` is registered (no Nous plugin, no custom plugin), `agentx dashboard` refuses to bind with an explicit error message. There is no "default-deny but accept everything" fallback — a misconfigured gated dashboard never starts.
 
 When you run `agentx dashboard --host 0.0.0.0` **interactively** (a real terminal) and no provider is configured yet, AgentX doesn't just fail — it offers to set one up on the spot: pick **username & password** (writes `dashboard.basic_auth` to `config.yaml` and you're running in seconds) or **OAuth** (points you at `agentx dashboard register`). Non-interactive callers — Docker/s6, CI, piped runs — skip the prompt and hit the fail-closed error above, so an unattended deploy still never starts without auth.
+
+### Keycloak provider (AgentX accounts)
+
+AgentX Workmate is the decentralised sibling of AgentX: it runs on each employee's own machine instead of on a central server. The accounts, though, stay central. The bundled `plugins/dashboard_auth/keycloak` plugin points Workmate at the same Keycloak realm that backs AgentX, so nobody administers a second user directory and nobody remembers a second password.
+
+Sign-in uses OpenID Connect **authorization code + PKCE (S256)** against a **public** client. The user lands on Keycloak's own login page, which is what keeps MFA, password-reset prompts, terms-of-use screens, brokered identity providers, and LDAP/AD federation working — none of which a form inside the app could satisfy. The password never enters Workmate's process.
+
+#### Setup
+
+```bash
+agentx dashboard keycloak \
+  --base-url https://agentx.example.com/auth \
+  --realm agent-hub \
+  --client-id agentx-workmate \
+  --require-auth
+```
+
+The command checks the realm is reachable and really is Keycloak (it fetches the realm's OIDC discovery document), writes the `AGENTX_DASHBOARD_KEYCLOAK_*` values into `~/.agentx/.env`, and prints the redirect URIs you must register. Add `--public-url https://workmate.example.com` to have the browser redirect URI printed exactly rather than as a placeholder.
+
+Then create the client in your realm. The fastest way is to import the ready-made definition that ships with AgentX Workmate — in the Keycloak admin console, pick your realm, go to **Clients → Import client**, and upload `docker/keycloak/agentx-workmate-client.json`. Edit the last redirect URI to match your dashboard's own URL (or drop it if you only ship the desktop app). `docker/keycloak/README.md` explains what each setting is for and why.
+
+To do it by hand instead, these are the settings that matter:
+
+| Setting | Value |
+|---------|-------|
+| Client ID | `agentx-workmate` |
+| Client authentication | **Off** — it must be a public client. A desktop app installed on employees' machines cannot keep a secret. |
+| Standard flow | On |
+| Direct access grants | Off (unless you enable the in-app form below) |
+| PKCE method | `S256` |
+| Valid redirect URIs | `http://127.0.0.1:47821/callback`, `http://127.0.0.1:47822/callback`, `http://127.0.0.1:47823/callback` (the desktop app), plus `<your dashboard URL>/auth/callback` (the browser dashboard) |
+
+The three fixed loopback ports are what the desktop app listens on for its own OAuth callback. It needs them because the local backend is started on an ephemeral port that changes every launch — that URL could never be registered with Keycloak, so the app runs the flow against a listener it controls instead.
+
+#### Identity mapping
+
+Claims are read the same way AgentX itself reads them, so a user looks identical in both products:
+
+| Claim | Becomes |
+|-------|---------|
+| `sub` | user ID |
+| `email` | email |
+| `name`, else `preferred_username`, else `email` | display name |
+| `tenant_slug`, else `organization`, else `org_id`, else `realm_access.roles`, else `groups` | org ID |
+
+Override the last one with `dashboard.oauth.keycloak.org_claim` (a dotted path, e.g. `realm_access.roles`).
+
+#### Optional: an in-app username/password form
+
+Setting `dashboard.oauth.keycloak.allow_password_grant: true` adds a credential form to the login page, alongside — never instead of — the sign-in redirect. It authenticates via Keycloak's direct access grants.
+
+It is off by default, and the default is the right choice for most realms:
+
+- A user with MFA, a required password change, or any other Keycloak *required action* **cannot** complete this flow. Keycloak answers `invalid_grant` and the form has no way to tell them why. That is precisely why the redirect button stays on the page even when the form is enabled.
+- The client needs *Direct access grants* enabled, which every AgentX realm client ships with turned off.
+- Realm brute-force protection counts failures against the real account, so a client that retries can lock people out.
+
+#### Multiple sign-in options
+
+Keycloak's own identity-provider chooser can be skipped with `--idp-hint <alias>` (or `dashboard.oauth.keycloak.idp_hint`), which sends users straight to a brokered corporate AD/SAML provider.
 
 ### Default provider: Nous Research
 

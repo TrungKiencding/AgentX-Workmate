@@ -1,0 +1,9 @@
+name: keycloak
+version: 1.0.0
+description: "Dashboard auth provider — Keycloak SSO. Signs AgentX Workmate in against the same Keycloak realm that backs AgentX, so employees use the accounts they already have. Default flow is OpenID Connect authorization-code + PKCE (S256) against a public client, which keeps MFA, password-reset prompts and LDAP/AD federation working. An in-app username/password form can additionally be enabled with dashboard.oauth.keycloak.allow_password_grant when the realm permits direct access grants. Activates when base_url + realm + client_id are configured under dashboard.oauth.keycloak.* in config.yaml or via the AGENTX_DASHBOARD_KEYCLOAK_* env vars. Verifies the OIDC ID token (RS256/PS256/ES256) against the realm's jwks_uri."
+author: AstralX Technology
+kind: backend
+requires_env:
+  - AGENTX_DASHBOARD_KEYCLOAK_BASE_URL
+  - AGENTX_DASHBOARD_KEYCLOAK_REALM
+  - AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID

@@ -24,6 +24,7 @@ from __future__ import annotations
 import html
 
 from hermes_cli.dashboard_auth import list_session_providers
+from hermes_cli.dashboard_auth.base import provider_offers_redirect
 
 # Inline minimal CSS. The dashboard's full skin lives in the React
 # bundle, which we deliberately do NOT load here — the login page must
@@ -275,6 +276,41 @@ _LOGIN_HTML_TEMPLATE = """\
     margin-top: 0.25rem;
   }}
 
+  /* Secondary action — the SSO redirect offered alongside a credential form
+     when one provider supports both. Outlined rather than filled so the
+     primary submit stays the obvious default. */
+  .provider-btn-alt {{
+    background: transparent;
+    color: var(--midground);
+    border: 1px solid var(--hairline-strong);
+    box-shadow: none;
+  }}
+  .provider-btn-alt:hover {{
+    background: color-mix(in srgb, var(--midground) 10%, transparent);
+    filter: none;
+  }}
+  .provider-btn-alt:active {{
+    filter: none;
+    background: color-mix(in srgb, var(--midground) 18%, transparent);
+  }}
+
+  /* Hairline rule with a centred label, separating the two sign-in methods. */
+  .alt-sep {{
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: color-mix(in srgb, var(--foreground) 40%, transparent);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }}
+  .alt-sep::before, .alt-sep::after {{
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--hairline);
+  }}
+
   footer {{
     margin-top: 1.75rem;
     text-align: center;
@@ -302,16 +338,16 @@ _LOGIN_HTML_TEMPLATE = """\
 </head>
 <body>
 <main>
-  <div class="brand">Nous<span class="dot"></span>Research</div>
+  <div class="brand">AgentX<span class="dot"></span>Workmate</div>
   <div class="card">
     <h1>Sign in</h1>
-    <p class="subtitle">Choose a sign-in method to continue to the AgentX Workmate dashboard.</p>
+    <p class="subtitle">{subtitle}</p>
     <div class="provider-list">
 {provider_buttons}
     </div>
   </div>
   <footer>
-    <span class="sep"></span>Public bind &middot; Auth required<span class="sep"></span>
+    <span class="sep"></span>Authentication required<span class="sep"></span>
   </footer>
 </main>
 {password_script}
@@ -390,11 +426,14 @@ _EMPTY_HTML = """\
 <body>
 <main>
 <h1>Sign-in unavailable</h1>
-<p>This dashboard is bound to a non-loopback host but no authentication
-providers are installed.</p>
-<p>Install <code>plugins/dashboard-auth-nous</code> (default) or another
-auth provider, or restart with <code>--insecure</code> to bypass the
-auth gate (not recommended on untrusted networks).</p>
+<p>This dashboard requires authentication, but no sign-in provider is
+configured, so there is no way to sign in.</p>
+<p>To use AgentX accounts (Keycloak), run
+<code>agentx dashboard keycloak --base-url URL --realm REALM --client-id ID</code>
+and restart. Any other <code>DashboardAuthProvider</code> plugin works too.</p>
+<p>There is no bypass: <code>--insecure</code> has not disabled the auth gate
+since June 2026. To run without a sign-in, bind to <code>127.0.0.1</code> and
+leave <code>dashboard.require_auth</code> off.</p>
 </main>
 </body>
 </html>
@@ -482,19 +521,59 @@ def render_login_html(*, next_path: str = "") -> str:
     buttons = []
     needs_password_script = False
     for p in providers:
-        if getattr(p, "supports_password", False):
+        has_password = bool(getattr(p, "supports_password", False))
+        # A provider can offer both doors — the Keycloak provider does when
+        # direct access grants are enabled: a credential form for the common
+        # case, and the redirect for anyone whose account needs Keycloak's own
+        # page (MFA, a required password change, a brokered corporate IdP).
+        # Offering only the form would strand those users.
+        has_redirect = provider_offers_redirect(p)
+        if has_password:
             needs_password_script = True
             buttons.append(_render_password_form(p, next_path))
-        else:
-            buttons.append(
-                f'      <a class="provider-btn" '
-                f'href="/auth/login?provider={html.escape(p.name, quote=True)}{next_qs}">'
-                f'Sign in with {html.escape(p.display_name)}</a>'
-            )
+        if has_redirect:
+            if has_password:
+                buttons.append('      <div class="alt-sep">or</div>')
+            buttons.append(_render_redirect_button(p, next_qs, alt=has_password))
     script = _PASSWORD_FORM_SCRIPT if needs_password_script else ""
     return _LOGIN_HTML_TEMPLATE.format(
         provider_buttons="\n".join(buttons),
+        subtitle=_subtitle(providers),
         password_script=script,
+    )
+
+
+def _subtitle(providers) -> str:
+    """Headline copy under "Sign in", adapted to what is actually on offer."""
+    if len(providers) == 1:
+        return (
+            f"Sign in with your {html.escape(providers[0].display_name)} "
+            "account to continue to AgentX Workmate."
+        )
+    return "Choose a sign-in method to continue to AgentX Workmate."
+
+
+def _render_redirect_button(provider, next_qs: str, *, alt: bool) -> str:
+    """Render the "Sign in with X" anchor that starts the OAuth round trip.
+
+    ``alt`` styles it as the secondary action, which it is when a credential
+    form for the same provider sits above it.
+
+    The ``class="provider-btn"`` anchor shape is load-bearing:
+    ``tests/hermes_cli/test_dashboard_auth_401_reauth.py`` walks the flow by
+    scraping the first one's ``href``. Keep ``provider-btn`` first in the
+    class list so that scrape still finds this element.
+    """
+    cls = "provider-btn provider-btn-alt" if alt else "provider-btn"
+    label = (
+        f"Use {html.escape(provider.display_name)} single sign-on"
+        if alt
+        else f"Sign in with {html.escape(provider.display_name)}"
+    )
+    return (
+        f'      <a class="{cls}" '
+        f'href="/auth/login?provider={html.escape(provider.name, quote=True)}{next_qs}">'
+        f"{label}</a>"
     )
 
 

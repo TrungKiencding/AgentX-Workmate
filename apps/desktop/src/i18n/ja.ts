@@ -108,7 +108,14 @@ export const ja = defineLocale({
       signInFailed: 'サインインに失敗しました',
       signInToRemoteGateway: 'リモートゲートウェイにサインイン',
       signInWithProvider: provider => `${provider} でサインイン`,
-      identityProvider: 'ID プロバイダー'
+      identityProvider: 'ID プロバイダー',
+      keycloakTitle: 'AgentX Workmate にサインイン',
+      keycloakDescription: 'AgentX アカウントで続行します。AgentX にサインインするときと同じアカウントです。',
+      keycloakSignInHint:
+        'ブラウザーが開いてサインインします。AgentX のセッションが期限切れになるまでサインインしたままになります。',
+      signInWithAgentX: 'AgentX でサインイン',
+      keycloakSigningIn: 'ブラウザーの操作を待っています…',
+      keycloakReconnecting: 'サインインしました。AgentX Workmate を起動しています…'
     }
   },
 
@@ -229,6 +236,7 @@ export const ja = defineLocale({
       providerApiKeys: 'API キー',
       providerCustomEndpoints: 'カスタムエンドポイント',
       gateway: 'ゲートウェイ',
+      account: 'アカウント',
       apiKeys: 'ツールとキー',
       keybinds: 'キーボードショートカット',
       keysTools: 'ツール',
@@ -238,6 +246,21 @@ export const ja = defineLocale({
       about: '情報',
       billing: '請求',
       notifications: '通知'
+    },
+    account: {
+      title: 'AgentX アカウント',
+      signedIn: 'サインイン済み',
+      signedOut: 'サインアウト済み',
+      signedOutDesc: '起動画面から再度サインインすると AgentX Workmate を続けて使えます。',
+      unknownUser: 'サインイン中のユーザー',
+      realmTitle: 'ID プロバイダー',
+      signOut: 'サインアウト',
+      signOutTitle: 'AgentX からサインアウト',
+      signOutDesc: 'このセッションを消去し、Keycloak 側でも終了します。次回はサインインが必要です。',
+      signOutConfirmTitle: 'AgentX からサインアウトしますか？',
+      signOutConfirmDesc: 'AgentX Workmate はセッションを終了し、サインイン画面に戻ります。会話と設定は保持されます。',
+      notConfiguredTitle: 'このインストールに AgentX アカウントはありません',
+      notConfiguredDesc: 'この AgentX Workmate は AgentX の ID プロバイダーに接続されていません。'
     },
     notifications: {
       title: '通知',

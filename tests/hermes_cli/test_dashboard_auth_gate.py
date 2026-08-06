@@ -15,6 +15,18 @@ from fastapi.testclient import TestClient
 from hermes_cli import web_server
 
 
+@pytest.fixture(autouse=True)
+def _no_loopback_gate_opt_in(monkeypatch):
+    """Pin the loopback rows of the truth table against a developer's env.
+
+    ``should_require_auth`` now consults ``AGENTX_DASHBOARD_REQUIRE_AUTH``
+    (and ``dashboard.require_auth``) for loopback binds. Anyone who exports it
+    to work on AgentX Workmate's Keycloak gate would otherwise flip the
+    expected results in this file.
+    """
+    monkeypatch.delenv("AGENTX_DASHBOARD_REQUIRE_AUTH", raising=False)
+
+
 @pytest.fixture
 def client_loopback():
     # Pin the bound-host state for host_header_middleware so requests with

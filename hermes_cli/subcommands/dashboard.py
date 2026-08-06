@@ -11,7 +11,7 @@ importing ``main``.
 from __future__ import annotations
 
 import argparse
-from typing import Callable
+from typing import Callable, Optional
 
 
 def _add_server_runtime_args(parser) -> None:
@@ -85,7 +85,14 @@ def _add_server_runtime_args(parser) -> None:
 
 
 def build_dashboard_parser(
-    subparsers, *, cmd_dashboard: Callable, cmd_dashboard_register: Callable
+    subparsers,
+    *,
+    cmd_dashboard: Callable,
+    cmd_dashboard_register: Callable,
+    # Optional so a caller that only cares about the `dashboard` / `serve` flag
+    # surface (the parser-contract tests) can inject just those two handlers.
+    # Omitting it drops the `keycloak` subcommand rather than raising.
+    cmd_dashboard_keycloak: Optional[Callable] = None,
 ) -> None:
     """Attach the ``dashboard`` and ``serve`` subcommands.
 
@@ -212,3 +219,83 @@ def build_dashboard_parser(
         ),
     )
     dashboard_register_parser.set_defaults(func=cmd_dashboard_register)
+
+    if cmd_dashboard_keycloak is None:
+        return
+
+    # `agentx dashboard keycloak` — point the dashboard at AgentX's Keycloak so
+    # it accepts the accounts users already have there. Validates the realm,
+    # writes the AGENTX_DASHBOARD_KEYCLOAK_* env vars, and prints the redirect
+    # URIs an operator must register on the Keycloak side.
+    dashboard_keycloak_parser = dashboard_subparsers.add_parser(
+        "keycloak",
+        help="Configure Keycloak SSO so this install accepts AgentX accounts",
+        description=(
+            "Point this dashboard at the Keycloak realm that backs AgentX, so "
+            "employees sign in with the account they already have. Validates the "
+            "realm against its OIDC discovery document, writes the "
+            "AGENTX_DASHBOARD_KEYCLOAK_* values into ~/.agentx/.env, and prints "
+            "the redirect URIs you must register on the Keycloak client."
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--base-url",
+        dest="base_url",
+        default=None,
+        help=(
+            "Keycloak server root, e.g. https://agentx.example.com/auth "
+            "(older deployments) or https://agentx.example.com (Quarkus-era)"
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--realm",
+        default=None,
+        help="Keycloak realm name, e.g. agent-hub",
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--client-id",
+        dest="client_id",
+        default=None,
+        help=(
+            "Keycloak client id for this product, e.g. agentx-workmate. Must be "
+            "a PUBLIC client — a desktop install cannot hold a client secret."
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--public-url",
+        dest="public_url",
+        default=None,
+        help=(
+            "The dashboard's own public URL, used only to print the exact "
+            "browser redirect URI to register (e.g. https://workmate.example.com)"
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--idp-hint",
+        dest="idp_hint",
+        default=None,
+        help=(
+            "Optional kc_idp_hint — skips Keycloak's identity-provider chooser "
+            "and goes straight to the named broker (e.g. a corporate AD/SAML)"
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--allow-password-grant",
+        dest="allow_password_grant",
+        action="store_true",
+        help=(
+            "Also show a username/password form inside the app (Keycloak direct "
+            "access grants). Off by default: it cannot satisfy MFA or a pending "
+            "required action, and needs 'Direct access grants' on the client."
+        ),
+    )
+    dashboard_keycloak_parser.add_argument(
+        "--require-auth",
+        dest="require_auth",
+        action="store_true",
+        help=(
+            "Engage the auth gate on loopback binds too, so a local dashboard "
+            "requires a sign-in. This is what AgentX Workmate wants."
+        ),
+    )
+    dashboard_keycloak_parser.set_defaults(func=cmd_dashboard_keycloak)

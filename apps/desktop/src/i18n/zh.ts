@@ -105,7 +105,13 @@ export const zh: Translations = {
       signInFailed: '登录失败',
       signInToRemoteGateway: '登录远程网关',
       signInWithProvider: provider => `使用 ${provider} 登录`,
-      identityProvider: '你的身份提供方'
+      identityProvider: '你的身份提供方',
+      keycloakTitle: '登录 AgentX Workmate',
+      keycloakDescription: '使用你的 AgentX 账号继续。就是你登录 AgentX 时用的那个账号。',
+      keycloakSignInHint: '会打开浏览器完成登录。在 AgentX 会话过期之前都无需重新登录。',
+      signInWithAgentX: '使用 AgentX 登录',
+      keycloakSigningIn: '正在等待浏览器…',
+      keycloakReconnecting: '已登录，正在启动 AgentX Workmate…'
     }
   },
 
@@ -332,6 +338,7 @@ export const zh: Translations = {
       providerApiKeys: 'API 密钥',
       providerCustomEndpoints: '自定义端点',
       gateway: '网关',
+      account: '账号',
       apiKeys: '工具与密钥',
       keybinds: '键盘快捷键',
       keysTools: '工具',
@@ -342,6 +349,21 @@ export const zh: Translations = {
       billing: '账单',
       notifications: '通知',
       plugins: '插件'
+    },
+    account: {
+      title: 'AgentX 账号',
+      signedIn: '已登录',
+      signedOut: '已退出',
+      signedOutDesc: '在启动界面重新登录即可继续使用 AgentX Workmate。',
+      unknownUser: '已登录用户',
+      realmTitle: '身份提供方',
+      signOut: '退出登录',
+      signOutTitle: '退出 AgentX',
+      signOutDesc: '会清除本机会话并在 Keycloak 结束该会话，之后需要重新登录。',
+      signOutConfirmTitle: '要退出 AgentX 吗？',
+      signOutConfirmDesc: 'AgentX Workmate 将结束会话并回到登录界面。你的对话和设置都会保留。',
+      notConfiguredTitle: '此安装没有 AgentX 账号',
+      notConfiguredDesc: '这份 AgentX Workmate 尚未连接到 AgentX 身份提供方。'
     },
     plugins: {
       title: '桌面插件',

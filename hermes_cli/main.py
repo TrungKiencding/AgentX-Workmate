@@ -7000,8 +7000,13 @@ def cmd_gui(args: argparse.Namespace):
         env["AGENTX_DESKTOP_BOOT_FAKE"] = "1"
     if getattr(args, "ignore_existing", False):
         env["AGENTX_DESKTOP_IGNORE_EXISTING"] = "1"
-    if getattr(args, "hermes_root", None):
-        env["AGENTX_DESKTOP_AGENTX_ROOT"] = str(Path(args.hermes_root).expanduser().resolve())
+    # ``--agentx-root`` has no explicit ``dest``, so argparse names it
+    # ``agentx_root``. Reading the pre-rebrand ``hermes_root`` made the flag a
+    # silent no-op: Desktop fell back to PATH/default-install resolution and
+    # launched the INSTALLED backend instead of the developer's checkout — the
+    # exact thing the flag exists to prevent.
+    if getattr(args, "agentx_root", None):
+        env["AGENTX_DESKTOP_AGENTX_ROOT"] = str(Path(args.agentx_root).expanduser().resolve())
     if getattr(args, "cwd", None):
         env["AGENTX_DESKTOP_CWD"] = str(Path(args.cwd).expanduser().resolve())
     else:
@@ -10496,6 +10501,13 @@ def cmd_dashboard_register(args):
     _impl(args)
 
 
+def cmd_dashboard_keycloak(args):
+    """Point the dashboard at the Keycloak realm that backs AgentX."""
+    from hermes_cli.dashboard_keycloak import cmd_dashboard_keycloak as _impl
+
+    _impl(args)
+
+
 def cmd_gateway_enroll(args):
     """Enroll a self-hosted gateway with a relay connector."""
     from hermes_cli.gateway_enroll import cmd_gateway_enroll as _impl
@@ -12403,6 +12415,7 @@ def main():
         subparsers,
         cmd_dashboard=cmd_dashboard,
         cmd_dashboard_register=cmd_dashboard_register,
+        cmd_dashboard_keycloak=cmd_dashboard_keycloak,
     )
 
 

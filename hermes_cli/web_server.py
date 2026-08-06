@@ -469,16 +469,53 @@ _LOOPBACK_HOST_VALUES: frozenset = frozenset({
 })
 
 
+_TRUTHY_ENV_VALUES: frozenset = frozenset({"1", "true", "yes", "on"})
+
+
+def _loopback_auth_opt_in() -> bool:
+    """True when the operator opted a LOOPBACK bind into the auth gate.
+
+    A loopback dashboard has historically been ungated, on the reasoning that
+    whoever reaches 127.0.0.1 is already the trusted operator. That reasoning
+    does not hold for AgentX Workmate: it is installed on an employee's own
+    machine and must establish *which employee* is using it before it will do
+    anything, so its accounts line up with the ones AgentX already has in
+    Keycloak. This opt-in is what lets the gate engage there.
+
+    ``AGENTX_DASHBOARD_REQUIRE_AUTH`` wins when set (in both directions — an
+    explicit ``0`` must be able to turn off what config.yaml turned on); else
+    ``dashboard.require_auth`` from config.yaml; else False, which is the
+    historic behaviour every existing local install keeps.
+
+    Never raises — a config.yaml that won't load degrades to "not opted in"
+    rather than taking the dashboard down with it.
+    """
+    env = os.environ.get("AGENTX_DASHBOARD_REQUIRE_AUTH", "").strip().lower()
+    if env:
+        return env in _TRUTHY_ENV_VALUES
+    try:
+        from hermes_cli.config import cfg_get, load_config
+
+        return bool(cfg_get(load_config(), "dashboard", "require_auth", default=False))
+    except Exception:
+        return False
+
+
 def should_require_auth(host: str, allow_public: bool = False) -> bool:
     """Return True iff the dashboard auth gate must be active.
 
     Truth table:
-      host == loopback        → False (no auth — local-only, trusted operator)
       host != loopback        → True  (gate engages — OAuth or password required)
+      host == loopback        → the ``dashboard.require_auth`` opt-in
+                                (``AGENTX_DASHBOARD_REQUIRE_AUTH``), default False
 
     "Loopback" is 127.0.0.1, localhost, ::1. RFC1918 / CGNAT / link-local are
     deliberately treated as PUBLIC — a hostile device on the same LAN is exactly
     the threat model the gate is designed for.
+
+    The loopback opt-in exists for AgentX Workmate, which requires a Keycloak
+    sign-in on the user's own machine; see :func:`_loopback_auth_opt_in`. It
+    only ever *adds* a gate — a non-loopback bind is gated regardless.
 
     ``allow_public`` (the legacy ``--insecure`` escape hatch) NO LONGER disables
     the gate. It is accepted for backward-compat with old launch scripts and
@@ -488,7 +525,9 @@ def should_require_auth(host: str, allow_public: bool = False) -> bool:
     MCP-persistence campaign, where ``--insecure --host 0.0.0.0`` left the
     config/MCP/agent surface open to internet scanners.
     """
-    return host not in _LOOPBACK_HOST_VALUES
+    if host not in _LOOPBACK_HOST_VALUES:
+        return True
+    return _loopback_auth_opt_in()
 
 
 def _is_accepted_host(host_header: str, bound_host: str) -> bool:
@@ -17455,19 +17494,27 @@ def start_server(
             # module-level ``LAST_SKIP_REASON`` string for this purpose;
             # without it the operator would only see "no providers" which
             # is misleading when the provider IS installed but unconfigured.
-            skip_reasons: list[str] = []
-            try:
-                from plugins.dashboard_auth import nous as _nous_plugin
+            import importlib
 
-                if _nous_plugin.LAST_SKIP_REASON:
-                    skip_reasons.append(
-                        f"  • nous: {_nous_plugin.LAST_SKIP_REASON}"
+            skip_reasons: list[str] = []
+            for _mod in ("keycloak", "nous", "self_hosted", "basic", "drain"):
+                try:
+                    _plugin = importlib.import_module(
+                        f"plugins.dashboard_auth.{_mod}"
                     )
-            except Exception:
-                pass
+                except Exception:
+                    continue
+                _reason = getattr(_plugin, "LAST_SKIP_REASON", "")
+                if _reason:
+                    skip_reasons.append(f"  • {_mod}: {_reason}")
 
             _fix_hint = (
                 "Configure an auth provider before exposing the dashboard:\n"
+                "  • Keycloak SSO (AgentX accounts): run "
+                "`agentx dashboard keycloak --base-url URL --realm REALM "
+                "--client-id ID`,\n"
+                "    or set dashboard.oauth.keycloak.{base_url,realm,client_id} "
+                "in config.yaml\n"
                 "  • Password: set dashboard.basic_auth.username + "
                 "password_hash in config.yaml\n"
                 "    (hash with: python -c \"from "
@@ -17504,20 +17551,28 @@ def start_server(
                     ) + _fix_hint
             except Exception:
                 pass
+            # Why the gate is on decides which sentence is actually true —
+            # telling a Workmate operator who set dashboard.require_auth that
+            # "the gate engages on non-loopback binds" would send them looking
+            # for a bind problem they don't have.
+            _why_gated = (
+                "the auth gate engages on non-loopback binds"
+                if host not in _LOOPBACK_HOST_VALUES
+                else "dashboard.require_auth (or AGENTX_DASHBOARD_REQUIRE_AUTH) "
+                "opted this loopback bind into the auth gate"
+            )
             if skip_reasons:
                 raise SystemExit(
-                    f"Refusing to bind dashboard to {host} — the auth gate "
-                    f"engages on non-loopback binds, but no auth providers "
-                    f"are registered.\n\n"
+                    f"Refusing to bind dashboard to {host} — {_why_gated}, but "
+                    f"no auth providers are registered.\n\n"
                     f"Bundled providers reported these issues:\n"
                     + "\n".join(skip_reasons)
                     + "\n\n"
                     + _fix_hint
                 )
             raise SystemExit(
-                f"Refusing to bind dashboard to {host} — the auth gate "
-                f"engages on non-loopback binds, but no auth providers are "
-                f"registered.\n\n" + _fix_hint
+                f"Refusing to bind dashboard to {host} — {_why_gated}, but no "
+                f"auth providers are registered.\n\n" + _fix_hint
             )
         _log.info(
             "Dashboard binding to %s with auth gate enabled. Providers: %s",

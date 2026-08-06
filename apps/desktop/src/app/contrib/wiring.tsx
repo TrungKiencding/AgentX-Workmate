@@ -23,6 +23,7 @@ import { DesktopOnboardingOverlay } from '@/components/onboarding'
 import { $newSessionTabAction, registerPaneCloser } from '@/components/pane-shell/tree/store'
 import { FloatingPet } from '@/components/pet/floating-pet'
 import { RemoteDisplayBanner } from '@/components/remote-display-banner'
+import { SignInOverlay } from '@/components/sign-in-overlay'
 import { emitGatewayEvent } from '@/contrib/events'
 import { getSessionMessages, triggerCronJob } from '@/hermes'
 import { type ChatMessage, chatMessageText, preserveLocalAssistantErrors, toChatMessages } from '@/lib/chat-messages'
@@ -1029,6 +1030,9 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       <UpdatesOverlay />
       <GatewayConnectingOverlay />
       <BootFailureOverlay />
+      {/* Mutually exclusive with BootFailureOverlay — each self-gates on
+          isKeycloakSignInFailure(boot.error), so only one ever paints. */}
+      <SignInOverlay />
       <CommandPalette />
       <PetGenerateOverlay />
       <SessionSwitcher />

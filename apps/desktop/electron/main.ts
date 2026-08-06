@@ -134,6 +134,15 @@ import {
   resolveTimeoutMs,
   TEXT_PREVIEW_SOURCE_MAX_BYTES
 } from './hardening'
+import {
+  discoverKeycloakConfig,
+  ensureKeycloakSession,
+  forgetKeycloakSession,
+  type KeycloakSessionDeps
+} from './keycloak-desktop-session'
+import { fetchKeycloakEndpoints } from './keycloak-login'
+import { buildEndSessionUrl, type KeycloakOidcConfig } from './keycloak-oidc'
+import { loadKeycloakSession } from './keycloak-session-store'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
 import { ensureMainWindow } from './main-window-lifecycle'
 import {
@@ -6367,6 +6376,28 @@ function postJsonNoAuth(url: string, body: unknown, opts: any = {}) {
 // /auth/native/refresh if the stored one is at/near expiry. Returns null when
 // there are no tokens or the refresh is terminally rejected (caller re-logins).
 async function ensureNativeAccessToken(baseUrl: string): Promise<string | null> {
+  // A local gated backend's session belongs to Keycloak, not to the gateway's
+  // brokered flow: it is stored per realm+client (the base URL carries an
+  // ephemeral port) and refreshes at Keycloak's own token endpoint. Route it
+  // there before falling through to the brokered path below.
+  const keycloakConfig = _keycloakConfigs.get(baseUrl)
+
+  if (keycloakConfig) {
+    // Non-interactive: a token that has genuinely lapsed must surface as "sign
+    // in again" through the UI, not pop a browser out of a background refresh.
+    const session = await ensureKeycloakSession(keycloakConfig, keycloakDeps({ interactive: false }))
+
+    if (session.tokens) {
+      _nativeTokens.set(baseUrl, session.tokens)
+
+      return session.tokens.accessToken
+    }
+
+    _nativeTokens.delete(baseUrl)
+
+    return null
+  }
+
   const tokens = _loadNativeTokens(baseUrl)
 
   if (!tokens) {
@@ -6405,6 +6436,209 @@ async function ensureNativeAccessToken(baseUrl: string): Promise<string | null> 
     }
 
     throw error
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Keycloak sign-in for a LOCAL gated backend (AgentX Workmate).
+//
+// A Workmate install runs its backend on loopback with the auth gate on
+// (``dashboard.require_auth``), so the app must establish who the user is
+// before it can talk to its own backend — using the account they already have
+// in AgentX.
+//
+// This runs the OIDC flow DIRECTLY against Keycloak rather than through the
+// gateway-brokered /auth/native/* path the remote case uses. The brokered flow
+// redirects to the BACKEND's /auth/callback, and a local backend is spawned
+// with ``--port 0``: the URL changes every launch and cannot be registered as a
+// Keycloak redirect URI. Running it ourselves puts the redirect on a listener
+// we own, on fixed ports (keycloak-oidc.ts). The remote/brokered path is
+// untouched — a remote gateway has a stable public URL and keeps using it.
+//
+// Nothing here hard-codes a Keycloak URL: issuer and client_id come from the
+// backend's public /api/auth/providers, so a realm change needs no rebuild.
+// ---------------------------------------------------------------------------
+
+// Realm+client config per backend base URL, resolved once at connect time.
+const _keycloakConfigs = new Map<string, KeycloakOidcConfig>()
+
+// POST an application/x-www-form-urlencoded body. The OAuth token endpoint
+// takes form encoding, not JSON, so fetchJson (which always sends JSON) can't
+// serve this leg.
+function keycloakFormPost(url: string, form: Record<string, string>, options: any = {}): Promise<any> {
+  return new Promise((resolve, reject) => {
+    let parsed: URL
+
+    try {
+      parsed = new URL(url)
+    } catch (error) {
+      reject(new Error(`Invalid Keycloak URL: ${error instanceof Error ? error.message : String(error)}`))
+
+      return
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      reject(new Error(`Unsupported Keycloak URL protocol: ${parsed.protocol}`))
+
+      return
+    }
+
+    const payload = Buffer.from(new URLSearchParams(form).toString())
+    const client = parsed.protocol === 'https:' ? https : http
+    const timeoutMs = resolveTimeoutMs(options.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS)
+
+    const req = client.request(
+      parsed,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+          'Content-Length': String(payload.length)
+        }
+      },
+      res => {
+        const chunks: Buffer[] = []
+
+        res.on('data', chunk => chunks.push(chunk))
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8')
+          const status = res.statusCode || 0
+
+          if (status < 200 || status >= 300) {
+            // Carry the status so the session layer can tell a rejected token
+            // (sign in again) from an unreachable realm (retry later) — and
+            // never echo the response body, which can contain the grant.
+            const error = new Error(`Keycloak returned HTTP ${status}`) as any
+
+            try {
+              const parsedBody = JSON.parse(text)
+
+              if (parsedBody?.error) {
+                error.message = `Keycloak rejected the request: ${parsedBody.error}`
+              }
+            } catch {
+              // Non-JSON error body — the status alone is the signal.
+            }
+
+            error.statusCode = status
+            reject(error)
+
+            return
+          }
+
+          try {
+            resolve(text ? JSON.parse(text) : {})
+          } catch {
+            reject(new Error('Keycloak returned a non-JSON token response'))
+          }
+        })
+      }
+    )
+
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Keycloak request timed out after ${timeoutMs}ms`))
+    })
+    req.on('error', reject)
+    req.write(payload)
+    req.end()
+  })
+}
+
+// GET JSON with no auth — discovery and the backend's public provider list.
+function keycloakGetJson(url: string, options: any = {}): Promise<any> {
+  return fetchJson(url, null, { timeoutMs: DEFAULT_FETCH_TIMEOUT_MS, ...options })
+}
+
+function keycloakDeps(extra: Partial<KeycloakSessionDeps> = {}): KeycloakSessionDeps {
+  return {
+    // System browser, never a BrowserWindow (RFC 8252 BCP) — it is also what
+    // lets someone already signed in to AgentX in that browser pass straight
+    // through on the existing Keycloak SSO cookie.
+    openExternal: (url: string) => shell.openExternal(url),
+    getJson: keycloakGetJson,
+    postForm: keycloakFormPost,
+    store: _nativeTokenStoreIo(),
+    rememberLog,
+    ...extra
+  }
+}
+
+/**
+ * Resolve auth for a freshly-started LOCAL backend.
+ *
+ * Ungated (the historic default): adopt the injected dashboard session token
+ * and authenticate the WebSocket with ``?token=``, exactly as before.
+ *
+ * Gated: the served index carries no token and ``?token=`` is refused outright,
+ * so instead sign in to Keycloak, present the ID token as a bearer, and mint a
+ * single-use ``?ticket=`` for the WebSocket.
+ *
+ * Both branches end at the same shape, so the callers stay symmetrical.
+ */
+async function resolveLocalBackendAuth(
+  baseUrl: string,
+  token: string,
+  opts: { label: string; childAlive: () => boolean; interactive?: boolean }
+): Promise<{ authMode: 'token' | 'oauth'; token: string | null; wsUrl: string }> {
+  const status = await fetchJson(`${baseUrl}/api/status`, token, { timeoutMs: 8_000 }).catch(() => null)
+
+  if (authModeFromStatus(status) !== 'oauth') {
+    const authToken = await adoptServedDashboardToken(baseUrl, token, {
+      childAlive: opts.childAlive,
+      label: opts.label,
+      rememberLog
+    })
+
+    return {
+      authMode: 'token',
+      token: authToken,
+      wsUrl: buildGatewayWsUrl(baseUrl, authToken)
+    }
+  }
+
+  const config = await discoverKeycloakConfig(baseUrl, keycloakDeps())
+
+  if (!config) {
+    throw new Error(
+      `${opts.label} requires sign-in, but it advertises no usable Keycloak client. ` +
+        'Configure one with `agentx dashboard keycloak --base-url URL --realm REALM --client-id ID` ' +
+        '(the client must be PUBLIC), or turn dashboard.require_auth off.'
+    )
+  }
+
+  _keycloakConfigs.set(baseUrl, config)
+
+  // Non-interactive by default: boot must not throw a browser window at
+  // someone who just double-clicked the app icon. A missing or lapsed session
+  // stops the boot with a recognisable error, and the shell puts a Sign in
+  // button in front of the user — clicking it is what opens the browser.
+  const session = await ensureKeycloakSession(config, keycloakDeps({ interactive: opts.interactive === true }))
+
+  if (!session.tokens) {
+    // The leading phrase is the marker the renderer matches on
+    // (`isKeycloakSignInFailure`); keep the two in step.
+    const error = new Error(
+      'AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.'
+    ) as any
+
+    error.needsKeycloakLogin = true
+    throw error
+  }
+
+  // The bearer path reuses the existing native-token cache so mintGatewayWsTicket
+  // and every other ``ensureNativeAccessToken`` caller finds it. Refresh stays
+  // owned by the Keycloak layer (keyed by realm, not by the ephemeral port), so
+  // the entry here is the current access token, not the refresh authority.
+  _nativeTokens.set(baseUrl, session.tokens)
+
+  const ticket = await mintGatewayWsTicket(baseUrl)
+
+  return {
+    authMode: 'oauth',
+    // No static token in gated mode — REST authenticates with the bearer.
+    token: null,
+    wsUrl: buildGatewayWsUrlWithTicket(baseUrl, ticket)
   }
 }
 
@@ -8264,22 +8498,25 @@ async function spawnPoolBackend(profile, entry) {
   await Promise.race([waitForHermes(baseUrl, token), startFailed])
   ready = true
 
-  const authToken = await adoptServedDashboardToken(baseUrl, token, {
-    childAlive: () => child.exitCode === null && !child.killed,
+  // Same ungated/gated split as the primary backend. Every profile's backend
+  // verifies the SAME Keycloak bearer — one sign-in per app, not per profile.
+  const auth = await resolveLocalBackendAuth(baseUrl, token, {
     label: `AgentX backend for profile "${profile}"`,
-    rememberLog
+    childAlive: () => child.exitCode === null && !child.killed
   })
 
-  entry.token = authToken
+  entry.token = auth.token
 
-  // Verify the WebSocket session token before declaring backend ready.
+  // Verify the WebSocket accepts our credential before declaring backend ready.
   // HTTP /api/status can pass while WS auth fails (separate transport, separate guards).
-  const wsUrl = `ws://127.0.0.1:${port}/api/ws?token=${encodeURIComponent(authToken)}`
+  const wsUrl = auth.wsUrl
   const wsProbe = await probeGatewayWebSocket(wsUrl, { WebSocketImpl: globalThis.WebSocket })
 
   if (!wsProbe.ok) {
     throw new Error(
-      `AgentX backend for profile "${profile}" is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
+      `AgentX backend for profile "${profile}" is HTTP-reachable but the WebSocket (/api/ws) rejected the ${
+        auth.authMode === 'oauth' ? 'sign-in ticket' : 'session token'
+      }: ${wsProbe.reason}`
     )
   }
 
@@ -8287,8 +8524,8 @@ async function spawnPoolBackend(profile, entry) {
     baseUrl,
     mode: 'local',
     source: 'local',
-    authMode: 'token',
-    token: authToken,
+    authMode: auth.authMode,
+    token: auth.token,
     profile,
     wsUrl,
     logs: hermesLog.slice(-80),
@@ -8603,18 +8840,24 @@ async function startHermes() {
     backendReady = true
     backendStartFailure = null
 
-    const authToken = await adoptServedDashboardToken(baseUrl, token, {
-      childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed,
-      rememberLog
+    // Ungated → injected session token; gated (AgentX Workmate) → Keycloak
+    // sign-in and a bearer + WS ticket. Both end at the same shape.
+    const auth = await resolveLocalBackendAuth(baseUrl, token, {
+      label: 'Local AgentX backend',
+      childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed
     })
+    const authToken = auth.token
+    const wsUrl = auth.wsUrl
 
-    // Verify the WebSocket session token before declaring backend ready.
-    const wsUrl = `ws://127.0.0.1:${port}/api/ws?token=${encodeURIComponent(authToken)}`
+    // Verify the WebSocket accepts our credential before declaring backend ready:
+    // HTTP can pass while WS auth fails (separate transport, separate guards).
     const wsProbe = await probeGatewayWebSocket(wsUrl, { WebSocketImpl: globalThis.WebSocket })
 
     if (!wsProbe.ok) {
       throw new Error(
-        `Local AgentX backend is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
+        `Local AgentX backend is HTTP-reachable but the WebSocket (/api/ws) rejected the ${
+          auth.authMode === 'oauth' ? 'sign-in ticket' : 'session token'
+        }: ${wsProbe.reason}`
       )
     }
 
@@ -8637,7 +8880,7 @@ async function startHermes() {
       baseUrl,
       mode: 'local',
       source: 'local',
-      authMode: 'token',
+      authMode: auth.authMode,
       token: authToken,
       wsUrl,
       logs: hermesLog.slice(-80),
@@ -9953,6 +10196,115 @@ ipcMain.handle('agentx:cloud:agent-sign-in', async (_event, dashboardUrl) => {
   // saves a cloud-mode connection pointed at this dashboardUrl.
   return cloudAgentSilentSignIn(dashboardUrl)
 })
+// --- Keycloak sign-in for a gated LOCAL backend (AgentX Workmate) ---
+// The renderer surfaces these on the boot overlay and in Settings → Gateway.
+// The flow itself lives in keycloak-desktop-session.ts; these are the seams.
+
+/** The realm+client config for a backend we've already connected to, if any. */
+function keycloakConfigForProfile(profile?: string): KeycloakOidcConfig | null {
+  const entry = profile ? backendPool.get(profile) : null
+  const baseUrl = entry?.port ? `http://127.0.0.1:${entry.port}` : null
+
+  if (baseUrl) {
+    return _keycloakConfigs.get(baseUrl) || null
+  }
+
+  // No profile given (or none started yet): with one realm per install there is
+  // at most one distinct config, so the single stored entry is unambiguous.
+  const configs = [..._keycloakConfigs.values()]
+
+  return configs.length === 1 ? configs[0] : configs[0] || null
+}
+
+ipcMain.handle('agentx:keycloak:status', async (_event, profile) => {
+  const config = keycloakConfigForProfile(typeof profile === 'string' ? profile : undefined)
+
+  if (!config) {
+    return { configured: false, signedIn: false }
+  }
+
+  const tokens = loadKeycloakSession(config, _nativeTokenStoreIo())
+
+  return {
+    configured: true,
+    signedIn: !!tokens,
+    issuer: config.issuer,
+    clientId: config.clientId,
+    userId: tokens?.userId || '',
+    // Read straight off the stored session, so this stays answerable with no
+    // network — the account panel must render while Keycloak is unreachable.
+    email: tokens?.email || '',
+    displayName: tokens?.displayName || ''
+  }
+})
+
+ipcMain.handle('agentx:keycloak:sign-in', async (_event, profile) => {
+  const config = keycloakConfigForProfile(typeof profile === 'string' ? profile : undefined)
+
+  if (!config) {
+    return { ok: false, error: 'This install is not configured for AgentX sign-in.' }
+  }
+
+  try {
+    const session = await ensureKeycloakSession(config, keycloakDeps({ interactive: true }))
+
+    rememberLog(`[keycloak] sign-in finished (outcome=${session.outcome}, tokens=${!!session.tokens})`)
+
+    return { ok: !!session.tokens, outcome: session.outcome }
+  } catch (error) {
+    // A failure here used to surface ONLY as a renderer toast, which is easy to
+    // miss and leaves nothing behind to debug: the log would show the browser
+    // being opened and then simply stop, with the OAuth exchange having plainly
+    // succeeded upstream. Sign-in is the one thing standing between the user
+    // and the app, so its failures belong in the log.
+    const detail = error instanceof Error ? (error.stack || error.message) : String(error)
+
+    rememberLog(`[keycloak] sign-in FAILED: ${detail}`)
+
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
+ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
+  const config = keycloakConfigForProfile(typeof profile === 'string' ? profile : undefined)
+
+  if (!config) {
+    return { ok: true }
+  }
+
+  // Read the ID token BEFORE clearing: RP-initiated logout needs it as
+  // id_token_hint, and without it Keycloak keeps the browser SSO session alive
+  // and the next sign-in silently walks straight back in — which does not look
+  // like signing out.
+  const tokens = loadKeycloakSession(config, _nativeTokenStoreIo())
+
+  forgetKeycloakSession(config, { store: _nativeTokenStoreIo() })
+
+  for (const [baseUrl, cfg] of _keycloakConfigs.entries()) {
+    if (cfg.issuer === config.issuer && cfg.clientId === config.clientId) {
+      _nativeTokens.delete(baseUrl)
+    }
+  }
+
+  try {
+    const endpoints = await fetchKeycloakEndpoints(config, keycloakDeps())
+    const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
+
+    if (url) {
+      await shell.openExternal(url)
+    }
+  } catch (error) {
+    // Local state is already cleared, which is the part the user asked for.
+    rememberLog(
+      `[keycloak] could not open the Keycloak logout page: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+  }
+
+  return { ok: true }
+})
+
 ipcMain.handle('agentx:connection-config:save', async (_event, payload) => {
   const config = coerceDesktopConnectionConfig(payload)
   writeDesktopConnectionConfig(config)

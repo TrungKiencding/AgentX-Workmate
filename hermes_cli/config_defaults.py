@@ -1328,6 +1328,20 @@ DEFAULT_CONFIG = {
         # Set this to True to re-enable the surfaces with the understanding
         # that the numbers are a local lower-bound estimate, not billing.
         "show_token_analytics": False,
+        # Engage the auth gate even on a LOOPBACK bind. The gate normally
+        # activates only for non-loopback binds, on the reasoning that whoever
+        # reaches 127.0.0.1 is already the trusted operator (see
+        # ``web_server.should_require_auth``). That reasoning doesn't hold for
+        # AgentX Workmate: it runs on an employee's own machine and must know
+        # *which* employee before it does anything, so its users are the same
+        # ones AgentX already has in Keycloak. Set this True — or export
+        # ``AGENTX_DASHBOARD_REQUIRE_AUTH=1``, which wins in both directions —
+        # to require a real sign-in on http://127.0.0.1 too.
+        #
+        # When True, at least one DashboardAuthProvider MUST be registered or
+        # the dashboard refuses to start (fail closed, never open). Configure
+        # one first: ``agentx dashboard keycloak --help``.
+        "require_auth": False,
         # OAuth gate configuration (engaged when ``--host`` is set and
         # ``--insecure`` is not). The bundled Nous Portal plugin reads
         # both keys at startup; they are the canonical surface for these
@@ -1344,6 +1358,38 @@ DEFAULT_CONFIG = {
         "oauth": {
             "client_id": "",  # agent:{instance_id} — Portal provisions this
             "portal_url": "",  # blank → use plugin default (production Portal)
+            # Keycloak SSO — read by the bundled ``dashboard_auth/keycloak``
+            # plugin. This is how AgentX Workmate signs users in against the
+            # SAME Keycloak realm that backs AgentX, so nobody gets a second
+            # account. The plugin stays a no-op until ``base_url`` + ``realm``
+            # (or an explicit ``issuer``) and ``client_id`` are all set; every
+            # key is overridable by ``AGENTX_DASHBOARD_KEYCLOAK_<KEY>``, env
+            # winning when non-empty. ``agentx dashboard keycloak`` writes
+            # these for you and prints the redirect URIs to register.
+            #
+            # The client MUST be a PUBLIC Keycloak client: a desktop binary on
+            # an employee's machine cannot keep a secret. ``client_secret`` is
+            # here only for a browser-only deployment whose realm insists on a
+            # confidential client — setting it stops the desktop app from
+            # running its own sign-in.
+            #
+            # ``allow_password_grant`` additionally renders a username/password
+            # form inside Workmate (Keycloak direct access grants) instead of
+            # only the redirect to Keycloak's own login page. Off by default
+            # because a realm with MFA, a password-reset requirement, or any
+            # other required action cannot complete that flow — Keycloak just
+            # answers invalid_grant and the user has no way to respond.
+            "keycloak": {
+                "base_url": "",  # e.g. https://agentx.example.com/auth
+                "realm": "",  # e.g. agent-hub
+                "client_id": "",  # e.g. agentx-workmate (PUBLIC client)
+                "client_secret": "",  # leave empty — public client + PKCE
+                "scopes": "",  # blank → "openid profile email"
+                "issuer": "",  # blank → {base_url}/realms/{realm}
+                "org_claim": "",  # blank → tenant_slug → organization → roles
+                "idp_hint": "",  # optional kc_idp_hint (skip the IdP chooser)
+                "allow_password_grant": False,  # in-app credential form
+            },
         },
         # Username/password gate configuration — read by the bundled
         # ``dashboard_auth/basic`` plugin (a self-hosted "just put a

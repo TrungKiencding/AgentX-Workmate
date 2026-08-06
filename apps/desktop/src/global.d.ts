@@ -109,6 +109,15 @@ declare global {
         discover: (org?: string) => Promise<DesktopCloudDiscoverResult>
         agentSignIn: (dashboardUrl: string) => Promise<DesktopCloudAgentSignInResult>
       }
+      // Keycloak SSO for a gated LOCAL backend — the AgentX Workmate sign-in,
+      // using the account the user already has in AgentX. `signIn` opens the
+      // system browser and resolves once the loopback callback lands, so it can
+      // take as long as the user takes.
+      keycloak?: {
+        status: (profile?: string) => Promise<DesktopKeycloakStatus>
+        signIn: (profile?: string) => Promise<DesktopKeycloakSignInResult>
+        signOut: (profile?: string) => Promise<{ ok: boolean }>
+      }
       profile: {
         get: () => Promise<DesktopActiveProfile>
         // Persists the desktop's profile choice and relaunches the local
@@ -620,6 +629,31 @@ export interface DesktopOauthLoginResult {
 export interface DesktopOauthLogoutResult {
   ok: boolean
   connected: boolean
+}
+
+// --- Keycloak SSO for a gated local backend (AgentX Workmate) ---
+
+export interface DesktopKeycloakStatus {
+  // False when this install has no Keycloak client configured — the backend is
+  // ungated, or it is gated behind some other provider.
+  configured: boolean
+  signedIn: boolean
+  issuer?: string
+  clientId?: string
+  // The `sub` claim of the stored ID token. Opaque — a UUID, not a name.
+  userId?: string
+  // Who the user is, for display. Empty when the session predates these fields
+  // or the realm withheld the claim, so always fall back before rendering.
+  email?: string
+  displayName?: string
+}
+
+export interface DesktopKeycloakSignInResult {
+  ok: boolean
+  // How the session was obtained — 'signed-in' means the browser round trip
+  // actually ran, the others mean an existing session was still good.
+  outcome?: 'stored' | 'refreshed' | 'signed-in' | 'needs-login' | 'stale-offline'
+  error?: string
 }
 
 // --- AgentX Cloud (cloud-auto-discovery Phase 3) ---

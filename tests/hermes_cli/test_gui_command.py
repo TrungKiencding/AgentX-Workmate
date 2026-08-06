@@ -14,6 +14,11 @@ from hermes_cli import main as cli_main
 
 
 def _ns(**kw):
+    # Field names must match what the REAL parser produces — see
+    # ``test_desktop_flags_reach_electron_env``. Hand-rolling a namespace with a
+    # stale name is how ``--agentx-root`` stayed a silent no-op: both the reader
+    # and this helper used the pre-rebrand ``hermes_root``, so they agreed with
+    # each other and disagreed with argparse.
     defaults = dict(
         skip_build=False,
         build_only=False,
@@ -21,11 +26,26 @@ def _ns(**kw):
         source=False,
         fake_boot=False,
         ignore_existing=False,
-        hermes_root=None,
+        agentx_root=None,
         cwd=None,
     )
     defaults.update(kw)
     return argparse.Namespace(**defaults)
+
+
+def _parse_desktop_args(argv):
+    """Parse ``agentx desktop`` args through the REAL parser.
+
+    Going through the parser (rather than a hand-built Namespace) is the whole
+    point: it is what catches a flag whose argparse ``dest`` has drifted away
+    from the attribute ``cmd_gui`` reads.
+    """
+    from hermes_cli.subcommands.gui import build_gui_parser
+
+    parser = argparse.ArgumentParser()
+    build_gui_parser(parser.add_subparsers(dest="command"), cmd_gui=lambda a: a)
+
+    return parser.parse_args(argv)
 
 
 def _make_desktop_tree(tmp_path: Path) -> Path:
@@ -81,6 +101,64 @@ def test_gui_installs_packages_and_launches_desktop_app(tmp_path, monkeypatch):
     assert mock_run.call_args_list[0].kwargs["cwd"] == desktop_dir
     assert mock_run.call_args_list[1].args[0] == [str(packaged_exe)]
     assert mock_run.call_args_list[1].kwargs["cwd"] == desktop_dir
+
+
+def test_desktop_flags_reach_electron_env(tmp_path, monkeypatch):
+    """``--agentx-root`` / ``--ignore-existing`` must reach the Electron child.
+
+    These two flags are the only way to point Desktop at a developer checkout
+    instead of the installed copy under ``~/.agentx/agentx-agent``. When
+    ``--agentx-root`` silently did nothing, Desktop resolved the INSTALLED
+    backend, so a developer testing a change ran their new shell against the
+    old backend and saw none of their work — with no error to explain it.
+
+    Driving the real parser is what makes this test meaningful: a namespace
+    built by hand would keep passing while the flag stayed dead.
+    """
+    root = _make_desktop_tree(tmp_path)
+    monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
+    packaged_exe = _make_packaged_executable(root, monkeypatch)
+
+    checkout = tmp_path / "my-checkout"
+    checkout.mkdir()
+
+    args = _parse_desktop_args(
+        ["desktop", "--skip-build", "--ignore-existing", "--agentx-root", str(checkout)]
+    )
+
+    launch_ok = subprocess.CompletedProcess([str(packaged_exe)], 0)
+
+    with patch("hermes_cli.main.shutil.which", return_value="/usr/bin/npm"), \
+         patch("hermes_cli.main._desktop_macos_relaunchable_fixup"), \
+         patch("hermes_cli.main.subprocess.run", return_value=launch_ok) as mock_run, \
+         pytest.raises(SystemExit):
+        cli_main.cmd_gui(args)
+
+    env = mock_run.call_args.kwargs["env"]
+    assert env["AGENTX_DESKTOP_AGENTX_ROOT"] == str(checkout.resolve())
+    assert env["AGENTX_DESKTOP_IGNORE_EXISTING"] == "1"
+
+
+def test_desktop_root_flag_absent_leaves_env_unset(tmp_path, monkeypatch):
+    """Without the flag the override must not appear at all — Desktop then
+    falls back to its normal resolution ladder."""
+    root = _make_desktop_tree(tmp_path)
+    monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
+    packaged_exe = _make_packaged_executable(root, monkeypatch)
+    monkeypatch.delenv("AGENTX_DESKTOP_AGENTX_ROOT", raising=False)
+
+    args = _parse_desktop_args(["desktop", "--skip-build"])
+    launch_ok = subprocess.CompletedProcess([str(packaged_exe)], 0)
+
+    with patch("hermes_cli.main.shutil.which", return_value="/usr/bin/npm"), \
+         patch("hermes_cli.main._desktop_macos_relaunchable_fixup"), \
+         patch("hermes_cli.main.subprocess.run", return_value=launch_ok) as mock_run, \
+         pytest.raises(SystemExit):
+        cli_main.cmd_gui(args)
+
+    env = mock_run.call_args.kwargs["env"]
+    assert "AGENTX_DESKTOP_AGENTX_ROOT" not in env
+    assert "AGENTX_DESKTOP_IGNORE_EXISTING" not in env
 
 
 def test_gui_install_env_prepends_managed_node_on_bare_path(tmp_path, monkeypatch):

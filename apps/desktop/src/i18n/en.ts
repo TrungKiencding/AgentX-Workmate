@@ -107,7 +107,13 @@ export const en: Translations = {
       signInFailed: 'Sign-in failed',
       signInToRemoteGateway: 'Sign in to remote gateway',
       signInWithProvider: provider => `Sign in with ${provider}`,
-      identityProvider: 'your identity provider'
+      identityProvider: 'your identity provider',
+      keycloakTitle: 'Sign in to AgentX Workmate',
+      keycloakDescription: 'Use your AgentX account to continue. This is the same account you sign in to AgentX with.',
+      keycloakSignInHint: 'Opens your browser to sign in. You stay signed in until your AgentX session expires.',
+      signInWithAgentX: 'Sign in with AgentX',
+      keycloakSigningIn: 'Waiting for your browser…',
+      keycloakReconnecting: 'Signed in. Starting AgentX Workmate…'
     }
   },
 
@@ -341,6 +347,7 @@ export const en: Translations = {
       providerApiKeys: 'API keys',
       providerCustomEndpoints: 'Custom Endpoints',
       gateway: 'Gateway',
+      account: 'Account',
       apiKeys: 'Tools & Keys',
       keybinds: 'Keyboard Shortcuts',
       keysTools: 'Tools',
@@ -351,6 +358,22 @@ export const en: Translations = {
       billing: 'Billing',
       notifications: 'Notifications',
       plugins: 'Plugins'
+    },
+    account: {
+      title: 'AgentX account',
+      signedIn: 'Signed in',
+      signedOut: 'Signed out',
+      signedOutDesc: 'Sign in again from the start-up screen to keep using AgentX Workmate.',
+      unknownUser: 'Signed-in user',
+      realmTitle: 'Identity provider',
+      signOut: 'Sign out',
+      signOutTitle: 'Sign out of AgentX',
+      signOutDesc: 'Clears this session and ends it in Keycloak. You will be asked to sign in again.',
+      signOutConfirmTitle: 'Sign out of AgentX?',
+      signOutConfirmDesc:
+        'AgentX Workmate will close its session and return to the sign-in screen. Your chats and settings are kept.',
+      notConfiguredTitle: 'No AgentX account on this install',
+      notConfiguredDesc: 'This copy of AgentX Workmate is not connected to an AgentX identity provider.'
     },
     plugins: {
       title: 'Desktop plugins',

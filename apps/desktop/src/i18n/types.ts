@@ -151,6 +151,12 @@ export interface Translations {
       signInToRemoteGateway: string
       signInWithProvider: (provider: string) => string
       identityProvider: string
+      keycloakTitle: string
+      keycloakDescription: string
+      keycloakSignInHint: string
+      signInWithAgentX: string
+      keycloakSigningIn: string
+      keycloakReconnecting: string
     }
   }
 
@@ -293,6 +299,7 @@ export interface Translations {
       providerApiKeys: string
       providerCustomEndpoints: string
       gateway: string
+      account: string
       apiKeys: string
       keybinds: string
       keysTools: string
@@ -303,6 +310,21 @@ export interface Translations {
       billing: string
       notifications: string
       plugins: string
+    }
+    account: {
+      title: string
+      signedIn: string
+      signedOut: string
+      signedOutDesc: string
+      unknownUser: string
+      realmTitle: string
+      signOut: string
+      signOutTitle: string
+      signOutDesc: string
+      signOutConfirmTitle: string
+      signOutConfirmDesc: string
+      notConfiguredTitle: string
+      notConfiguredDesc: string
     }
     plugins: {
       title: string

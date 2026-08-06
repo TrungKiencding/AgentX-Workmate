@@ -100,6 +100,14 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     discover: org => ipcRenderer.invoke('agentx:cloud:discover', org),
     agentSignIn: dashboardUrl => ipcRenderer.invoke('agentx:cloud:agent-sign-in', dashboardUrl)
   },
+  // Keycloak SSO for a gated LOCAL backend: the AgentX Workmate sign-in, using
+  // the account the user already has in AgentX. `signIn` opens the system
+  // browser and resolves once the loopback callback lands.
+  keycloak: {
+    status: profile => ipcRenderer.invoke('agentx:keycloak:status', profile),
+    signIn: profile => ipcRenderer.invoke('agentx:keycloak:sign-in', profile),
+    signOut: profile => ipcRenderer.invoke('agentx:keycloak:sign-out', profile)
+  },
   profile: {
     get: () => ipcRenderer.invoke('agentx:profile:get'),
     set: name => ipcRenderer.invoke('agentx:profile:set', name)
