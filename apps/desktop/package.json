@@ -2,7 +2,7 @@
   "name": "agentx-workmate",
   "productName": "AgentX Workmate",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Native desktop shell for AgentX Workmate.",
   "author": "AstralX Technology",
   "type": "module",
