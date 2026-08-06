@@ -33,6 +33,20 @@
   src: url('../../../node_modules/@nous-research/ui/dist/fonts/Collapse-Bold.woff2') format('woff2');
 }
 
+/* Neuebit — the wordmark face. Collapse draws its capital A with the left
+   diagonal reduced to a hairline and a triangular notch cut out of the lower
+   left; that is the typeface's design, not a rendering fault, and it read as
+   a broken glyph once A became the first letter of the product name. Neuebit
+   is a pixel face, which also lines the desktop wordmark up with the 8-bit
+   banner the CLI draws in hermes_cli/banner.py. */
+@font-face {
+  font-family: 'Neuebit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../../node_modules/@nous-research/ui/dist/fonts/Neuebit-Bold.woff2') format('woff2');
+}
+
 /* JetBrains Mono — bundled terminal font (Apache-2.0) so bold/italic share the
    regular face's metrics instead of squeezing against a system fallback. */
 @font-face {

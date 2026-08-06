@@ -7,7 +7,7 @@ import { launchAgentxDesktop } from '../store'
 
 /*
  * Success screen. AGENTX WORKMATE wordmark stays as the visual anchor
- * (same Collapse Bold treatment as Welcome + the desktop chat intro),
+ * (same Neuebit Bold treatment as Welcome + the desktop chat intro),
  * with a status line below.
  *
  * Launching the desktop can fail (e.g. Stage-Desktop was skipped and
@@ -38,7 +38,7 @@ export default function Success() {
     <div className="agentx-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+          className="fit-text mx-auto mb-4 w-full font-['Neuebit'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
           style={
             {
               '--fit-text-line-height': '0.9',

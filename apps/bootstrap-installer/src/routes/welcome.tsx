@@ -7,7 +7,7 @@ import { startInstall } from '../store'
  * Welcome screen.
  *
  * Mirrors the desktop's chat intro (apps/desktop/src/components/chat/intro.tsx):
- *   - AGENTX WORKMATE wordmark rendered in Collapse Bold, uppercase, tracked
+ *   - AGENTX WORKMATE wordmark rendered in Neuebit Bold, uppercase, tracked
  *   - mix-blend-plus-lighter so the type "glows" on the canvas
  *   - fit-text utility so the wordmark sizes itself to the column
  *
@@ -21,7 +21,7 @@ export default function Welcome() {
       {/* Hero — same recipe the desktop's chat/intro.tsx uses */}
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+          className="fit-text mx-auto mb-4 w-full font-['Neuebit'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
           style={
             {
               '--fit-text-line-height': '0.9',
