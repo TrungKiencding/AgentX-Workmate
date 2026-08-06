@@ -30,7 +30,7 @@ class TestDoctorPlatformHints:
 
         hint = doctor._sqlite_upgrade_hint()
 
-        assert "docker pull astralx/agentx-workmate:latest" in hint
+        assert "docker pull trungkiencding/agentx-workmate:latest" in hint
         assert "recreate all AgentX containers" in hint
         assert "agentx update" not in hint
 

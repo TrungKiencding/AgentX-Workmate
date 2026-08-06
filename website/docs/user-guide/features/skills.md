@@ -24,7 +24,7 @@ By default every profile is seeded with the bundled skill catalog, and each `age
 **At install time** (applies to the default `~/.agentx` profile):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash -s -- --no-skills
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash -s -- --no-skills
 ```
 
 **At profile-create time** (named profiles):

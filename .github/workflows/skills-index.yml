@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-index:
     # Only run on the upstream repository, not on forks
-    if: github.repository == 'AstralX/agentx-workmate'
+    if: github.repository == 'TrungKiencding/AgentX-Workmate'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: trusted-automation

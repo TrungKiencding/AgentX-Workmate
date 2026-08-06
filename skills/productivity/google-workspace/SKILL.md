@@ -13,7 +13,7 @@ required_credential_files:
 metadata:
   hermes:
     tags: [Google, Gmail, Calendar, Drive, Sheets, Docs, Contacts, Email, OAuth]
-    homepage: https://github.com/AstralX/agentx-workmate
+    homepage: https://github.com/TrungKiencding/AgentX-Workmate
     related_skills: [himalaya]
 ---
 

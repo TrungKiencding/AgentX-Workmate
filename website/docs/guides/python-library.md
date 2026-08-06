@@ -15,7 +15,7 @@ AgentX isn't just a CLI tool. You can import `AIAgent` directly and use it progr
 Clone AgentX and create its supported editable development environment:
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 uv sync
 ```

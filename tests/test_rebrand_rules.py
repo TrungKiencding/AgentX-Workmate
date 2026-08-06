@@ -136,9 +136,9 @@ PRESERVED = [
     "https://github.com/NousResearch/hermes-agent/pull/47705",
     # The post-rename coordinates must survive the table unchanged — a rule
     # that re-mangles its own output is how `agentx/hermes-deadbeef` happened.
-    "https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh",
-    "https://github.com/AstralX/agentx-workmate",
-    "astralx/agentx-workmate:latest",
+    "https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh",
+    "https://github.com/TrungKiencding/AgentX-Workmate",
+    "trungkiencding/agentx-workmate:latest",
     # OTHER repositories and HuggingFace artifacts under the Nous org. Only
     # `NousResearch/hermes-agent` is this product; every sibling below belongs
     # to Nous and resolves nowhere once renamed. A widened kebab lookbehind
@@ -418,17 +418,17 @@ RENAMES = [
     # ── phase 10: upstream coordinates ───────────────────────────────────
     (
         "https://github.com/NousResearch/hermes-agent.git",
-        "https://github.com/AstralX/agentx-workmate.git",
+        "https://github.com/TrungKiencding/AgentX-Workmate.git",
     ),
     (
         "git@github.com:NousResearch/hermes-agent.git",
-        "git@github.com:AstralX/agentx-workmate.git",
+        "git@github.com:TrungKiencding/AgentX-Workmate.git",
     ),
     # The lowercase canonical the update check compares an origin against.
-    ("github.com/nousresearch/hermes-agent", "github.com/AstralX/agentx-workmate"),
+    ("github.com/nousresearch/hermes-agent", "github.com/TrungKiencding/AgentX-Workmate"),
     ("if: github.repository == 'NousResearch/hermes-agent'",
-     "if: github.repository == 'AstralX/agentx-workmate'"),
-    ("https://github.com/NousResearch/hermes-agent/issues", "https://github.com/AstralX/agentx-workmate/issues"),
+     "if: github.repository == 'TrungKiencding/AgentX-Workmate'"),
+    ("https://github.com/NousResearch/hermes-agent/issues", "https://github.com/TrungKiencding/AgentX-Workmate/issues"),
     # Vendor as the publisher of THIS build.
     ("author: NousResearch", "author: AstralX Technology"),
     ('"publisher": "Nous Research"', '"publisher": "AstralX Technology"'),
@@ -643,7 +643,7 @@ def test_repo_slug_moves_but_issue_citations_do_not():
     tree; the issue number has to stay or a correct citation becomes a 404.
     """
     clone = "https://github.com/NousResearch/hermes-agent.git"
-    assert rewrite(clone) == "https://github.com/AstralX/agentx-workmate.git"
+    assert rewrite(clone) == "https://github.com/TrungKiencding/AgentX-Workmate.git"
     for cite in (
         "See https://github.com/NousResearch/hermes-agent/issues/10454",
         "NousResearch/hermes-agent#53027",
@@ -655,7 +655,7 @@ def test_repo_slug_moves_but_issue_citations_do_not():
 def test_registry_coordinate_stays_lowercase():
     """A `docker pull` needs the lowercase name; the GitHub URL needs the other."""
     pull = "docker pull nousresearch/hermes-agent:latest"
-    assert rewrite(pull, "hermes_cli/config.py") == "docker pull astralx/agentx-workmate:latest"
+    assert rewrite(pull, "hermes_cli/config.py") == "docker pull trungkiencding/agentx-workmate:latest"
 
 
 def test_install_dir_moves_independently_of_the_repo_slug():

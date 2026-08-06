@@ -88,7 +88,7 @@ DOCS_URL = ""
 #: Canonical source repository.  Update checks, release downloads, issue
 #: links, and the install one-liners all derive from this, so pointing the
 #: product at a different fork is a one-line change here.
-REPO_URL = "https://github.com/AstralX/agentx-workmate"
+REPO_URL = "https://github.com/TrungKiencding/AgentX-Workmate"
 
 
 def env(name: str) -> str:
@@ -130,7 +130,7 @@ def docs_url(path: str = "") -> str:
 def repo_url(path: str = "") -> str:
     """Return a URL under the canonical source repository.
 
-    ``repo_url("issues")`` -> ``https://github.com/AstralX/agentx-workmate/issues``.
+    ``repo_url("issues")`` -> ``https://github.com/TrungKiencding/AgentX-Workmate/issues``.
     Unlike :func:`docs_url` this is never empty — the repository is where the
     product lives, so a caller may interpolate it directly.
     """

@@ -24,10 +24,10 @@ A quick search before you build saves your time and keeps the PR queue clean —
 
 - **Search both open *and* merged PRs and issues** for your topic or error symptom — the duplicate-check in the PR template fires at review time, after you've already done the work:
   ```bash
-  gh search issues --repo AstralX/agentx-workmate "<your terms>"
-  gh search prs --repo AstralX/agentx-workmate --state all "<your terms>"
+  gh search issues --repo TrungKiencding/AgentX-Workmate "<your terms>"
+  gh search prs --repo TrungKiencding/AgentX-Workmate --state all "<your terms>"
   ```
-  Or use the web UI: [issues](https://github.com/AstralX/agentx-workmate/issues?q=) · [PRs (all states)](https://github.com/AstralX/agentx-workmate/pulls?q=is%3Apr).
+  Or use the web UI: [issues](https://github.com/TrungKiencding/AgentX-Workmate/issues?q=) · [PRs (all states)](https://github.com/TrungKiencding/AgentX-Workmate/pulls?q=is%3Apr).
 - **The issue tracker can lag the code.** Many requested features are already implemented in-tree, so also search the source (`search_files`, or your editor's grep) for the capability before proposing it.
 - **If an open PR already addresses it**, consider reviewing or improving that one instead of opening a competing duplicate.
 - **For larger work**, comment on the issue to signal you're working on it, so others don't start the same thing.
@@ -63,7 +63,7 @@ Bundled skills (in `skills/`) ship with every AgentX install. They should be **b
 
 If your skill is official and useful but not universally needed (e.g., a paid service integration, a heavyweight dependency), put it in **`optional-skills/`** — it ships with the repo but isn't activated by default. Users can discover it via `agentx skills browse` (labeled "official") and install it with `agentx skills install` (no third-party warning, built-in trust).
 
-If your skill is specialized, community-contributed, or niche, it's better suited for a **Skills Hub** — upload it to a skills registry and share it in the [GitHub Discussions](https://github.com/AstralX/agentx-workmate/discussions). Users can install it with `agentx skills install`.
+If your skill is specialized, community-contributed, or niche, it's better suited for a **Skills Hub** — upload it to a skills registry and share it in the [GitHub Discussions](https://github.com/TrungKiencding/AgentX-Workmate/discussions). Users can install it with `agentx skills install`.
 
 ---
 
@@ -93,10 +93,10 @@ The reason is maintenance load, not quality. Every external product absorbed int
 
 Publish these as a **standalone plugin repo** instead:
 
-- Implement the relevant ABC and use the existing plugin discovery path (`~/.agentx/plugins/`, project `.agentx/plugins/`, or a pip entry point) — see [Build an AgentX Plugin](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)
+- Implement the relevant ABC and use the existing plugin discovery path (`~/.agentx/plugins/`, project `.agentx/plugins/`, or a pip entry point) — see [Build an AgentX Plugin](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)
 - Register lifecycle hooks (`pre_tool_call`, `post_tool_call`, `pre_llm_call`, `post_llm_call`, `on_session_start`, `on_session_end`), tools (`ctx.register_tool`), and CLI subcommands (`ctx.register_cli_command`) through the surface we already expose — no core changes needed
 - If your plugin needs a capability the framework doesn't expose, that's a feature request to **widen the generic plugin surface** (a new hook or `ctx` method) — never special-case your plugin in core
-- Promote it in the [GitHub Discussions](https://github.com/AstralX/agentx-workmate/discussions) `#plugins-skills-and-skins` channel so users can find and install it
+- Promote it in the [GitHub Discussions](https://github.com/TrungKiencding/AgentX-Workmate/discussions) `#plugins-skills-and-skins` channel so users can find and install it
 
 A well-built third-party-product plugin can clear automated review and still be closed for this reason — it's a placement decision, not a verdict on the code. PRs that add such a directory under `plugins/` will be closed with a pointer to publish it as its own repo.
 
@@ -124,7 +124,7 @@ development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 cd "${AGENTX_HOME:-$HOME/.agentx}/agentx-agent"
 
 # Add dev/test extras on top of the standard install.
@@ -156,7 +156,7 @@ which silently destroys the running runtime mid-session. Keeping it outside the
 tree means no relative path from the workspace resolves to it.
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 
 # Create venv with Python 3.11, OUTSIDE the source tree
@@ -988,7 +988,7 @@ test(tools): add unit tests for file_operations
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/AstralX/agentx-workmate/issues)
+- Use [GitHub Issues](https://github.com/TrungKiencding/AgentX-Workmate/issues)
 - Include: OS, Python version, AgentX version (`agentx version`), full error traceback
 - Include steps to reproduce
 - Check existing issues before creating duplicates
@@ -998,7 +998,7 @@ test(tools): add unit tests for file_operations
 
 ## Community
 
-- **Discussions**: [GitHub Discussions](https://github.com/AstralX/agentx-workmate/discussions) — for questions, showcasing projects, and sharing skills
+- **Discussions**: [GitHub Discussions](https://github.com/TrungKiencding/AgentX-Workmate/discussions) — for questions, showcasing projects, and sharing skills
 - **GitHub Discussions**: For design proposals and architecture discussions
 - **Skills Hub**: Upload specialized skills to a registry and share them with the community
 

@@ -9,8 +9,8 @@ Outputs:
                                     comments separating files.
 
 Both publish at:
-  https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/llms.txt
-  https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/llms-full.txt
+  https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/website/static/llms.txt
+  https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/website/static/llms-full.txt
 
 The `/docs/` prefix is not a mistake — Docusaurus serves `website/static/`
 at the `docs/` base path. Clients and IDE plugins that probe the classic
@@ -31,7 +31,7 @@ WEBSITE = SCRIPT_DIR.parent
 DOCS = WEBSITE / "docs"
 STATIC = WEBSITE / "static"
 
-SITE_BASE = "https://github.com/AstralX/agentx-workmate/tree/main/website/docs"
+SITE_BASE = "https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"
 
 # Curated sections for llms.txt — mirrors the product story, not the filesystem.
 # Each entry: (docs-relative path without .md, display title, optional short desc).
@@ -215,7 +215,7 @@ def emit_llms_index() -> str:
         "(Linux, macOS, WSL2, Termux)"
     )
     lines.append("")
-    lines.append("Repo: https://github.com/AstralX/agentx-workmate")
+    lines.append("Repo: https://github.com/TrungKiencding/AgentX-Workmate")
     lines.append("")
 
     for section, items in SECTIONS:
@@ -248,8 +248,8 @@ def emit_llms_full() -> str:
             "Started, Using AgentX, Features, Messaging, Integrations, Guides, "
             "Developer Guide, Reference, then everything else.\n"
         ),
-        "Canonical site: https://github.com/AstralX/agentx-workmate/tree/main/website/docs\n",
-        "Short index: https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/llms.txt\n",
+        "Canonical site: https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs\n",
+        "Short index: https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/website/static/llms.txt\n",
         "\n---\n\n",
     ]
 

@@ -1692,7 +1692,7 @@ function cachedScriptPath(hermesHome, commit) {
 }
 function downloadInstallScript(ref, destPath) {
   const scriptName = installScriptName();
-  const url = `https://raw.githubusercontent.com/AstralX/agentx-workmate/${ref}/scripts/${scriptName}`;
+  const url = `https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/${ref}/scripts/${scriptName}`;
   return new Promise((resolve, reject) => {
     fs3.mkdirSync(path2.dirname(destPath), { recursive: true });
     const tmpPath = destPath + ".tmp";
@@ -10435,7 +10435,7 @@ print(out)`;
     }
   }
   const err = new Error(
-    "AgentX is not installed on the remote host (could not find a `agentx` executable). Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | sh  \u2014 or set the AgentX path explicitly in the SSH connection settings."
+    "AgentX is not installed on the remote host (could not find a `agentx` executable). Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | sh  \u2014 or set the AgentX path explicitly in the SSH connection settings."
   );
   err.kind = "agentx-not-found";
   throw err;
@@ -12415,8 +12415,8 @@ exec ${shellQuote(execPath)}${quotedArgs ? " " + quotedArgs : ""}
 }
 
 // electron/update-remote.ts
-var OFFICIAL_REPO_HTTPS_URL = "https://github.com/AstralX/agentx-workmate.git";
-var OFFICIAL_REPO_CANONICAL = "github.com/astralx/agentx-workmate";
+var OFFICIAL_REPO_HTTPS_URL = "https://github.com/TrungKiencding/AgentX-Workmate.git";
+var OFFICIAL_REPO_CANONICAL = "github.com/trungkiencding/agentx-workmate";
 function canonicalGitHubRemote(url) {
   if (!url) {
     return "";

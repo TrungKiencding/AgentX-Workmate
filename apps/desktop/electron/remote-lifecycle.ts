@@ -204,7 +204,7 @@ async function locateHermes(ssh, remoteAgentxPath) {
 
   const err: any = new Error(
     'AgentX is not installed on the remote host (could not find a `agentx` executable). ' +
-      'Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | sh  ' +
+      'Install it on the remote with:  curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | sh  ' +
       '— or set the AgentX path explicitly in the SSH connection settings.'
   )
 

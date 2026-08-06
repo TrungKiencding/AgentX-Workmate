@@ -55,13 +55,13 @@ Good verification targets:
 
 - CLI commands: `agentx --help`, `agentx <command> --help`, and `hermes_cli/main.py`
 - User documentation: /
-- Source tree: https://github.com/AstralX/agentx-workmate
+- Source tree: https://github.com/TrungKiencding/AgentX-Workmate
 
 ## Quick Start
 
 ```bash
 # Install (shell installer — sets up uv, Python, the venv, and the launcher)
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 
 # Interactive chat (default surface; set display.interface: tui to launch the Ink TUI instead)
 agentx

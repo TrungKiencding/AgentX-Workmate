@@ -34,7 +34,7 @@ result before hitting Enter.
 mkdir -p ~/.agentx
 docker run -it --rm \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate setup
+  trungkiencding/agentx-workmate setup
 ```
 
 This drops you into the setup wizard, which will prompt you for your API keys and write them to `~/.agentx/.env`. You only need to do this once. It is highly recommended to set up a chat system for the gateway to work with at this point.
@@ -53,7 +53,7 @@ docker run -d \
   --restart unless-stopped \
   -v ~/.agentx:/opt/data \
   -p 8642:8642 \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 Port 8642 exposes the gateway's [OpenAI-compatible API server](./features/api-server.md) and health endpoint. It's optional if you only use chat platforms (Telegram, Discord, etc.), but required if you want the dashboard or external tools to reach the gateway.
@@ -94,7 +94,7 @@ docker run -d \
   -e API_SERVER_HOST=0.0.0.0 \
   -e API_SERVER_KEY="$(openssl rand -hex 32)" \
   -e API_SERVER_CORS_ORIGINS='*' \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 Opening any port on an internet facing machine is a security risk. You should not do it unless you understand the risks.
@@ -111,7 +111,7 @@ docker run -d \
   -p 8642:8642 \
   -p 9119:9119 \
   -e AGENTX_DASHBOARD=1 \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 The dashboard is supervised by s6 — if it crashes, `s6-supervise` restarts it automatically after a short backoff. Dashboard stdout/stderr is forwarded to `docker logs <container>` (no prefix; the gateway's own output now lives in a per-profile s6-log file — see [Where the logs go](#where-the-logs-go) below — so the two streams don't clash).
@@ -153,7 +153,7 @@ To open an interactive chat session against a running data directory:
 ```sh
 docker run -it --rm \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate
+  trungkiencding/agentx-workmate
 ```
 
 Or if you have already opened a terminal in your running container (via Docker Desktop for instance), just run:
@@ -279,7 +279,7 @@ In those cases, declare one service per profile with distinct `container_name`, 
 ```yaml
 services:
   agentx-work:
-    image: astralx/agentx-workmate:latest
+    image: trungkiencding/agentx-workmate:latest
     container_name: agentx-work
     restart: unless-stopped
     command: gateway run
@@ -289,7 +289,7 @@ services:
       - ~/.agentx-work:/opt/data
 
   agentx-personal:
-    image: astralx/agentx-workmate:latest
+    image: trungkiencding/agentx-workmate:latest
     container_name: agentx-personal
     restart: unless-stopped
     command: gateway run
@@ -326,7 +326,7 @@ docker run -it --rm \
   -v ~/.agentx:/opt/data \
   -e ANTHROPIC_API_KEY="sk-ant-..." \
   -e OPENAI_API_KEY="sk-..." \
-  astralx/agentx-workmate
+  trungkiencding/agentx-workmate
 ```
 
 Direct `-e` flags override values from `.env`. This is useful for CI/CD or secrets-manager integrations where you don't want keys on disk.
@@ -342,7 +342,7 @@ For persistent deployment with both the gateway and dashboard, a `docker-compose
 ```yaml
 services:
   hermes:
-    image: astralx/agentx-workmate:latest
+    image: trungkiencding/agentx-workmate:latest
     container_name: agentx
     restart: unless-stopped
     command: gateway run
@@ -397,7 +397,7 @@ ctl.!default {
 Then build a small derived image with the ALSA PulseAudio plugin installed:
 
 ```dockerfile title="Dockerfile.audio"
-FROM astralx/agentx-workmate:latest
+FROM trungkiencding/agentx-workmate:latest
 
 USER root
 RUN apt-get update \
@@ -464,7 +464,7 @@ docker run -d \
   --restart unless-stopped \
   --memory=4g --cpus=2 \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 ## What the Dockerfile does
@@ -536,13 +536,13 @@ When a migration is needed, AgentX writes timestamped backups next to
 `config.yaml` and `.env` first.
 
 ```sh
-docker pull astralx/agentx-workmate:latest
+docker pull trungkiencding/agentx-workmate:latest
 docker rm -f agentx
 docker run -d \
   --name agentx \
   --restart unless-stopped \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 Or with Docker Compose:
@@ -579,10 +579,10 @@ This is a good fit for tools that are quick to install and used occasionally. Fo
 
 ### Durable installs — build a derived image
 
-When a tool must be available immediately on every container start with no re-install delay, build a new image that inherits from `astralx/agentx-workmate` and installs the tool in a layer:
+When a tool must be available immediately on every container start with no re-install delay, build a new image that inherits from `trungkiencding/agentx-workmate` and installs the tool in a layer:
 
 ```dockerfile
-FROM astralx/agentx-workmate:latest
+FROM trungkiencding/agentx-workmate:latest
 
 USER root
 RUN apt-get update \
@@ -603,7 +603,7 @@ docker run -d \
   my-agentx:latest gateway run
 ```
 
-The entrypoint script and `/opt/data` semantics are inherited unchanged, so the rest of this page still applies. Remember to rebuild the image when pulling a newer upstream `astralx/agentx-workmate`.
+The entrypoint script and `/opt/data` semantics are inherited unchanged, so the rest of this page still applies. Remember to rebuild the image when pulling a newer upstream `trungkiencding/agentx-workmate`.
 
 ### Complex tools or multi-service stacks — run a sidecar container
 
@@ -612,7 +612,7 @@ For tools that bring their own service (a database, a web server, a queue, a hea
 ```yaml
 services:
   hermes:
-    image: astralx/agentx-workmate:latest
+    image: trungkiencding/agentx-workmate:latest
     container_name: agentx
     restart: unless-stopped
     command: gateway run
@@ -639,7 +639,7 @@ From inside the AgentX container, the sidecar is reachable at `http://my-tool:<p
 
 ### Broadly useful tools — open an issue or pull request
 
-If a tool is likely to be useful to most AgentX Workmate users, consider contributing it upstream rather than carrying it in a private derived image. Open an issue or pull request on the [agentx-agent repository](https://github.com/AstralX/agentx-workmate) describing the tool and its use case. Tools that get bundled into the official image benefit every user and avoid the maintenance overhead of a downstream fork.
+If a tool is likely to be useful to most AgentX Workmate users, consider contributing it upstream rather than carrying it in a private derived image. Open an issue or pull request on the [agentx-agent repository](https://github.com/TrungKiencding/AgentX-Workmate) describing the tool and its use case. Tools that get bundled into the official image benefit every user and avoid the maintenance overhead of a downstream fork.
 
 ## Connecting to local inference servers (vLLM, Ollama, etc.)
 
@@ -670,7 +670,7 @@ services:
             - capabilities: [gpu]
 
   hermes:
-    image: astralx/agentx-workmate:latest
+    image: trungkiencding/agentx-workmate:latest
     container_name: agentx
     restart: unless-stopped
     command: gateway run
@@ -714,7 +714,7 @@ docker run -d \
   --name agentx \
   -v ~/.agentx:/opt/data \
   -p 8642:8642 \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 ```yaml
@@ -733,7 +733,7 @@ docker run -d \
   --name agentx \
   --network host \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 ```yaml
@@ -797,7 +797,7 @@ docker run -d \
   --name agentx \
   -e PUID=1000 -e PGID=10 \
   -v /volume1/docker/agentx:/opt/data \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 `docker exec agentx <cmd>` automatically drops to UID 10000 too — see [`docker exec` automatically drops to the `agentx` user](#docker-exec-automatically-drops-to-the-agentx-user) for details and the per-invocation opt-out.
@@ -811,7 +811,7 @@ docker run -d \
   --name agentx \
   --shm-size=1g \
   -v ~/.agentx:/opt/data \
-  astralx/agentx-workmate gateway run
+  trungkiencding/agentx-workmate gateway run
 ```
 
 ### Gateway not reconnecting after network issues
@@ -826,6 +826,6 @@ docker restart agentx
 
 ```sh
 docker logs --tail 50 agentx          # Recent logs
-docker run -it --rm astralx/agentx-workmate:latest version     # Verify version
+docker run -it --rm trungkiencding/agentx-workmate:latest version     # Verify version
 docker stats agentx                    # Resource usage
 ```

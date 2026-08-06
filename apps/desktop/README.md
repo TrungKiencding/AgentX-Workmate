@@ -1,10 +1,10 @@
 # AgentX Workmate Desktop ⬡
 
 <p align="center">
-  <a href="https://github.com/AstralX/agentx-workmate/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
 </p>
 
 **The native desktop app for [AgentX Workmate](../../README.md) — the self-improving AI agent from AstralX Technology.** Same agent, same skills, same memory as the CLI and gateway, in a polished native window — chat with streaming tool output, side-by-side previews, a file browser, voice, and settings, no terminal required. Available for **macOS, Windows, and Linux**.
@@ -34,7 +34,7 @@ It builds and launches the GUI against your existing install — same config, ke
 
 ### Prebuilt installers
 
-Prebuilt installers are built and distributed via [the AgentX Workmate Desktop website.](https://github.com/AstralX/agentx-workmate).
+Prebuilt installers are built and distributed via [the AgentX Workmate Desktop website.](https://github.com/TrungKiencding/AgentX-Workmate).
 
 ---
 
@@ -203,9 +203,9 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\agentx\agentx-agent\venv"
 
 ## Community
 
-- 💬 [Discussions](https://github.com/AstralX/agentx-workmate/discussions)
-- 📖 [Documentation](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)
-- 🐛 [Issues](https://github.com/AstralX/agentx-workmate/issues)
+- 💬 [Discussions](https://github.com/TrungKiencding/AgentX-Workmate/discussions)
+- 📖 [Documentation](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)
+- 🐛 [Issues](https://github.com/TrungKiencding/AgentX-Workmate/issues)
 
 ---
 

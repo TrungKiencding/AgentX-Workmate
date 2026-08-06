@@ -1,6 +1,6 @@
 # Contributor Quick Reference
 
-For occasional contributors and PR authors. Full developer docs: https://github.com/AstralX/agentx-workmate/tree/main/website/docs
+For occasional contributors and PR authors. Full developer docs: https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs
 
 ### Project Layout
 

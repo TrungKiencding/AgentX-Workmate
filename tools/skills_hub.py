@@ -3273,7 +3273,7 @@ class OptionalSkillSource(SkillSource):
     (search / install / inspect) and labelled "official" with "builtin" trust.
     """
 
-    OFFICIAL_REPO = "AstralX/agentx-workmate"
+    OFFICIAL_REPO = "TrungKiencding/AgentX-Workmate"
 
     def __init__(self):
         from hermes_constants import get_optional_skills_dir
@@ -3974,7 +3974,7 @@ def check_for_skill_updates(
 # working Skills Hub minus the remote index, not an error. Override with
 # AGENTX_SKILLS_INDEX_URL to point at your own deployment.
 AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
-    "https://raw.githubusercontent.com/AstralX/agentx-workmate"
+    "https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate"
     "/main/website/static/api/skills-index.json"
 )
 AGENTX_INDEX_TTL = 6 * 3600  # 6 hours

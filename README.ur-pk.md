@@ -7,9 +7,9 @@
 # AgentX Workmate ⬡ (AgentX Workmate)
 
 <p align="center">
-  <a href="https://github.com/AstralX/agentx-workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology">
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=for-the-badge" alt="English"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -38,21 +38,21 @@
 <div dir="ltr">
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 ```
 
 </div>
 
 ### ونڈوز (نیٹو، پاور شیل)
 
-> **توجہ فرمائیں:** مقامی ونڈوز (Native Windows) پر AgentX بغیر WSL کے چلتا ہے — CLI، گیٹ وے، TUI، اور ٹولز سب مقامی طور پر کام کرتے ہیں۔ اگر آپ WSL2 استعمال کرنا پسند کرتے ہیں، تو اوپر دی گئی لینکس/میک او ایس کی کمانڈ وہاں بھی کام کرے گی۔ کوئی مسئلہ نظر آیا؟ براہ کرم [مسائل (issues) درج کریں](https://github.com/AstralX/agentx-workmate/issues)۔
+> **توجہ فرمائیں:** مقامی ونڈوز (Native Windows) پر AgentX بغیر WSL کے چلتا ہے — CLI، گیٹ وے، TUI، اور ٹولز سب مقامی طور پر کام کرتے ہیں۔ اگر آپ WSL2 استعمال کرنا پسند کرتے ہیں، تو اوپر دی گئی لینکس/میک او ایس کی کمانڈ وہاں بھی کام کرے گی۔ کوئی مسئلہ نظر آیا؟ براہ کرم [مسائل (issues) درج کریں](https://github.com/TrungKiencding/AgentX-Workmate/issues)۔
 
 اسے پاور شیل (PowerShell) میں چلائیں:
 
 <div dir="ltr">
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.ps1)
+iex (irm https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.ps1)
 ```
 
 </div>
@@ -61,7 +61,7 @@ iex (irm https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/
 
 اگر آپ کے پاس پہلے سے گٹ (Git) انسٹال ہے، تو انسٹالر اسے شناخت کر لیتا ہے اور اسے ہی استعمال کرتا ہے۔ بصورت دیگر آپ کو صرف ~45MB کے MinGit ڈاؤنلوڈ کی ضرورت ہوگی — یہ آپ کے سسٹم کے گٹ پر کوئی اثر نہیں ڈالے گا۔
 
-> **اینڈرائیڈ (Android) / ٹرمکس (Termux):** ٹیسٹ کیا گیا مینوئل طریقہ [Termux گائیڈ](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/getting-started/termux.md) میں موجود ہے۔ ٹرمکس پر AgentX ایک مخصوص `.[termux]` ایکسٹرا انسٹال کرتا ہے کیونکہ مکمل `.[all]` ایکسٹرا میں ایسی وائس ڈیپینڈینسیز شامل ہیں جو اینڈرائیڈ کے ساتھ مطابقت نہیں رکھتیں۔
+> **اینڈرائیڈ (Android) / ٹرمکس (Termux):** ٹیسٹ کیا گیا مینوئل طریقہ [Termux گائیڈ](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/getting-started/termux.md) میں موجود ہے۔ ٹرمکس پر AgentX ایک مخصوص `.[termux]` ایکسٹرا انسٹال کرتا ہے کیونکہ مکمل `.[all]` ایکسٹرا میں ایسی وائس ڈیپینڈینسیز شامل ہیں جو اینڈرائیڈ کے ساتھ مطابقت نہیں رکھتیں۔
 >
 > **ونڈوز (Windows):** مقامی ونڈوز کی مکمل سپورٹ موجود ہے — اوپر دی گئی پاور شیل کی کمانڈ سب کچھ انسٹال کر دیتی ہے۔ اگر آپ WSL2 استعمال کرنا چاہتے ہیں، تو لینکس کی کمانڈ وہاں کام کرتی ہے۔ مقامی ونڈوز میں انسٹالیشن `%LOCALAPPDATA%\agentx` میں ہوتی ہے؛ جبکہ WSL2 میں لینکس کی طرح `~/.agentx` میں ہوتی ہے۔ AgentX کا وہ واحد فیچر جسے فی الحال خاص طور پر WSL2 کی ضرورت ہے وہ براؤزر پر مبنی ڈیش بورڈ چیٹ پین ہے (یہ POSIX PTY استعمال کرتا ہے — کلاسک CLI اور گیٹ وے دونوں مقامی طور پر چلتے ہیں)۔
 
@@ -96,7 +96,7 @@ agentx doctor       # کسی بھی مسئلے کی تشخیص کریں
 
 </div>
 
-📖 **[مکمل دستاویزات →](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**
+📖 **[مکمل دستاویزات →](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)**
 
 ---
 
@@ -117,7 +117,7 @@ agentx setup --portal
 
 </div>
 
-یہ آپ کو OAuth کے ذریعے لاگ ان کرواتا ہے، Nous کو آپ کا پرووائیڈر مقرر کرتا ہے، اور ٹول گیٹ وے کو آن کر دیتا ہے۔ `agentx portal info` کمانڈ استعمال کر کے آپ کسی بھی وقت چیک کر سکتے ہیں کہ کون کون سی سروسز منسلک ہیں۔ مکمل تفصیلات [Tool Gateway دستاویزات کے صفحے](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/tool-gateway.md) پر موجود ہیں۔
+یہ آپ کو OAuth کے ذریعے لاگ ان کرواتا ہے، Nous کو آپ کا پرووائیڈر مقرر کرتا ہے، اور ٹول گیٹ وے کو آن کر دیتا ہے۔ `agentx portal info` کمانڈ استعمال کر کے آپ کسی بھی وقت چیک کر سکتے ہیں کہ کون کون سی سروسز منسلک ہیں۔ مکمل تفصیلات [Tool Gateway دستاویزات کے صفحے](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tool-gateway.md) پر موجود ہیں۔
 
 آپ اب بھی کسی بھی ٹول کے لیے اپنی مرضی کی API کیز استعمال کر سکتے ہیں — گیٹ وے ہر سروس کے لیے الگ الگ کام کرتا ہے، ایسا نہیں کہ یا تو سب کچھ استعمال کریں یا کچھ بھی نہیں۔
 
@@ -143,33 +143,33 @@ AgentX کے دو بنیادی انٹر فیس ہیں: آپ ٹرمینل UI کو 
 
 </div>
 
-مکمل کمانڈ لسٹ کے لیے، [CLI گائیڈ](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/cli.md) اور [میسجنگ گیٹ وے گائیڈ](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md) دیکھیں۔
+مکمل کمانڈ لسٹ کے لیے، [CLI گائیڈ](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/cli.md) اور [میسجنگ گیٹ وے گائیڈ](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md) دیکھیں۔
 
 ---
 
 ## دستاویزات (Documentation)
 
-تمام دستاویزات **[https://github.com/AstralX/agentx-workmate/tree/main/website/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)** پر موجود ہیں:
+تمام دستاویزات **[https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)** پر موجود ہیں:
 
 <div dir="ltr">
 
 | سیکشن (Section)                                                                                     | تفصیل (What's Covered)                                     |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [فوری آغاز (Quickstart)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/getting-started/quickstart.md)     | انسٹالیشن → سیٹ اپ → 2 منٹ میں پہلی بات چیت شروع کریں       |
-| [CLI کا استعمال](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/cli.md)                         | کمانڈز، کی بائنڈنگز (keybindings)، پرسنلٹیز (personalities)، سیشنز |
-| [کنفیگریشن (Configuration)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/configuration.md)    | کنفگ فائل، پرووائیڈرز، ماڈلز، اور تمام آپشنز               |
-| [میسجنگ گیٹ وے](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md)                    | ٹیلی گرام، ڈسکارڈ، سلیک، واٹس ایپ، سگنل، ہوم اسسٹنٹ         |
-| [سیکیورٹی (Security)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/security.md)              | کمانڈ کی منظوری، DM پیئرنگ (pairing)، کنٹینر آئسولیشن       |
-| [ٹولز اور ٹول سیٹس](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/tools.md)          | 40 سے زائد ٹولز، ٹول سیٹ سسٹم، ٹرمینل بیک اینڈز             |
-| [مہارتوں کا سسٹم (Skills System)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/skills.md)| پروسیجرل (Procedural) میموری، سکلز ہب، نئی مہارتیں بنانا    |
-| [میموری (Memory)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/memory.md)            | مستقل میموری، یوزر پروفائلز، بہترین طریقہ کار              |
-| [MCP انضمام (Integration)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/mcp.md)      | صلاحیتوں کو بڑھانے کے لیے کسی بھی MCP سرور کو جوڑیں        |
-| [کرون (Cron) شیڈیولنگ](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/cron.md)         | پلیٹ فارم ڈیلیوری کے ساتھ شیڈول کیے گئے کام                 |
-| [کانٹیکسٹ (Context) فائلز](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/context-files.md)| پروجیکٹ کا سیاق و سباق (context) جو ہر بات چیت پر اثر انداز ہوتا ہے |
-| [آرکیٹیکچر (Architecture)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/architecture.md) | پروجیکٹ کا ڈھانچہ، ایجنٹ لوپ، اہم کلاسز                    |
-| [تعاون (Contributing)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/contributing.md)     | ڈیویلپمنٹ سیٹ اپ، PR کا طریقہ کار، کوڈنگ کا انداز          |
-| [CLI حوالہ جات (Reference)](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/cli-commands.md)      | تمام کمانڈز اور فلیگز (flags)                              |
-| [انوائرمنٹ ویری ایبلز](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/environment-variables.md)  | مکمل انوائرمنٹ ویری ایبل حوالہ جات                         |
+| [فوری آغاز (Quickstart)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/getting-started/quickstart.md)     | انسٹالیشن → سیٹ اپ → 2 منٹ میں پہلی بات چیت شروع کریں       |
+| [CLI کا استعمال](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/cli.md)                         | کمانڈز، کی بائنڈنگز (keybindings)، پرسنلٹیز (personalities)، سیشنز |
+| [کنفیگریشن (Configuration)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/configuration.md)    | کنفگ فائل، پرووائیڈرز، ماڈلز، اور تمام آپشنز               |
+| [میسجنگ گیٹ وے](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md)                    | ٹیلی گرام، ڈسکارڈ، سلیک، واٹس ایپ، سگنل، ہوم اسسٹنٹ         |
+| [سیکیورٹی (Security)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/security.md)              | کمانڈ کی منظوری، DM پیئرنگ (pairing)، کنٹینر آئسولیشن       |
+| [ٹولز اور ٹول سیٹس](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tools.md)          | 40 سے زائد ٹولز، ٹول سیٹ سسٹم، ٹرمینل بیک اینڈز             |
+| [مہارتوں کا سسٹم (Skills System)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/skills.md)| پروسیجرل (Procedural) میموری، سکلز ہب، نئی مہارتیں بنانا    |
+| [میموری (Memory)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/memory.md)            | مستقل میموری، یوزر پروفائلز، بہترین طریقہ کار              |
+| [MCP انضمام (Integration)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/mcp.md)      | صلاحیتوں کو بڑھانے کے لیے کسی بھی MCP سرور کو جوڑیں        |
+| [کرون (Cron) شیڈیولنگ](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/cron.md)         | پلیٹ فارم ڈیلیوری کے ساتھ شیڈول کیے گئے کام                 |
+| [کانٹیکسٹ (Context) فائلز](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/context-files.md)| پروجیکٹ کا سیاق و سباق (context) جو ہر بات چیت پر اثر انداز ہوتا ہے |
+| [آرکیٹیکچر (Architecture)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/architecture.md) | پروجیکٹ کا ڈھانچہ، ایجنٹ لوپ، اہم کلاسز                    |
+| [تعاون (Contributing)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/contributing.md)     | ڈیویلپمنٹ سیٹ اپ، PR کا طریقہ کار، کوڈنگ کا انداز          |
+| [CLI حوالہ جات (Reference)](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/cli-commands.md)      | تمام کمانڈز اور فلیگز (flags)                              |
+| [انوائرمنٹ ویری ایبلز](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/environment-variables.md)  | مکمل انوائرمنٹ ویری ایبل حوالہ جات                         |
 
 </div>
 
@@ -211,14 +211,14 @@ agentx claw migrate --overwrite  # موجودہ متصادم فائلوں کو �
 
 ## تعاون کریں (Contributing)
 
-ہم آپ کے تعاون کا خیرمقدم کرتے ہیں! ڈیویلپمنٹ سیٹ اپ، کوڈ کے انداز اور PR کے طریقہ کار کے لیے براہ کرم ہماری [Contributing گائیڈ](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/contributing.md) دیکھیں۔
+ہم آپ کے تعاون کا خیرمقدم کرتے ہیں! ڈیویلپمنٹ سیٹ اپ، کوڈ کے انداز اور PR کے طریقہ کار کے لیے براہ کرم ہماری [Contributing گائیڈ](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/contributing.md) دیکھیں۔
 
 معاونین (contributors) کے لیے فوری آغاز — کلون (clone) کریں اور `setup-agentx.sh` چلائیں:
 
 <div dir="ltr">
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 ./setup-agentx.sh     # uv کو انسٹال کرتا ہے، venv بناتا ہے، .[all] کو انسٹال کرتا ہے، اور ~/.local/bin/agentx کا سیم لنک (symlink) بناتا ہے
 ./agentx              # خود بخود venv کی شناخت کرتا ہے، پہلے `source` کرنے کی ضرورت نہیں
@@ -244,9 +244,9 @@ scripts/run_tests.sh
 
 ## کمیونٹی (Community)
 
-- 💬 [ڈسکارڈ (Discord)](https://github.com/AstralX/agentx-workmate/discussions)
+- 💬 [ڈسکارڈ (Discord)](https://github.com/TrungKiencding/AgentX-Workmate/discussions)
 - 📚 [سکلز ہب (Skills Hub)](https://agentskills.io)
-- 🐛 [مسائل (Issues)](https://github.com/AstralX/agentx-workmate/issues)
+- 🐛 [مسائل (Issues)](https://github.com/TrungKiencding/AgentX-Workmate/issues)
 - 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — AgentX اور دیگر MCP ہوسٹس کے لیے لینکس (Linux) ڈیسک ٹاپ کنٹرول MCP سرور، جس میں AT-SPI ایکسیسیبلٹی ٹریز، Wayland/X11 ان پٹ، سکرین شاٹس، اور کمپوزیٹر ونڈو ٹارگیٹنگ شامل ہے۔
 - 🔌 [HermesClaw](https://github.com/AaronWong1999/hermesclaw) — کمیونٹی وی چیٹ (WeChat) برج: AgentX Workmate اور OpenClaw کو ایک ہی وی چیٹ اکاؤنٹ پر چلائیں۔
 

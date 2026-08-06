@@ -252,7 +252,7 @@ class LongPreviewAgent:
 
 
 class UrlPreviewAgent:
-    URL = "https://github.com/AstralX/agentx-workmate/tree/main/website/docs"
+    URL = "https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"
 
     def __init__(self, **kwargs):
         self.tool_progress_callback = kwargs.get("tool_progress_callback")

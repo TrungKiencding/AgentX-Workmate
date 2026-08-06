@@ -2,7 +2,7 @@
 
 Renders any content as colored ASCII character video. Audio, video, images, text, or pure math in, MP4/GIF/PNG sequence out. Full RGB color per character cell, 1080p 24fps default. No GPU.
 
-Built for [AgentX Workmate](https://github.com/AstralX/agentx-workmate). Usable in any coding agent. Canonical source lives here; synced to [`AstralX/agentx-workmate/skills/creative/ascii-video`](https://github.com/AstralX/agentx-workmate/tree/main/skills/creative/ascii-video) via PR.
+Built for [AgentX Workmate](https://github.com/TrungKiencding/AgentX-Workmate). Usable in any coding agent. Canonical source lives here; synced to [`TrungKiencding/AgentX-Workmate/skills/creative/ascii-video`](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/skills/creative/ascii-video) via PR.
 
 ## What this is
 

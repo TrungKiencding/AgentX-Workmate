@@ -15,7 +15,7 @@ AgentX 不仅仅是一个 CLI 工具。你可以直接导入 `AIAgent`，在自�
 克隆 AgentX 并创建受支持的可编辑开发环境：
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 uv sync
 ```

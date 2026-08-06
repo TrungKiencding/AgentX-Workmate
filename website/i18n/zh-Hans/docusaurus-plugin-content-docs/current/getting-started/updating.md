@@ -123,7 +123,7 @@ tail -f ~/.agentx/logs/update.log
 agentx version
 ```
 
-与 [GitHub releases 页面](https://github.com/AstralX/agentx-workmate/releases) 上的最新版本进行比较。
+与 [GitHub releases 页面](https://github.com/TrungKiencding/AgentX-Workmate/releases) 上的最新版本进行比较。
 
 ### 从消息平台更新
 

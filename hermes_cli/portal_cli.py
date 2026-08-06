@@ -28,7 +28,7 @@ from hermes_cli.config import load_config
 
 DEFAULT_PORTAL_URL = "https://portal.nousresearch.com"
 SUBSCRIPTION_URL = "https://portal.nousresearch.com/manage-subscription"
-DOCS_URL = "https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/tool-gateway.md"
+DOCS_URL = "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tool-gateway.md"
 
 
 def _cmd_status(args) -> int:

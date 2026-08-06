@@ -44,6 +44,7 @@ GLOBAL_EXCLUDE = [
     "flake.lock",
     "scripts/rebrand/*",  # this tooling names the old brand on purpose
     "tests/test_rebrand_rules.py",  # old names are its test fixtures
+    "tests/test_branding_gate.py",  # ditto: it feeds the gate what it must reject
     "REBRAND.md",  # the handoff plan names the old brand on purpose
     ".mailmap",
 ]
@@ -494,12 +495,12 @@ RULES: list[Rule] = [
         phase=10,
         # The Docker Hub / ghcr coordinate. Split from repo-slug because a
         # registry name must stay lowercase: reusing repo-slug's PascalCase
-        # replacement would emit `AstralX/agentx-workmate` into a `docker pull`,
+        # replacement would emit `TrungKiencding/AgentX-Workmate` into a `docker pull`,
         # which no registry serves. Runs before repo-slug so it claims these
         # first.
         pattern=r"(?<![A-Za-z0-9_-])nousresearch/hermes-agent(?![A-Za-z0-9-])",
-        replacement="astralx/agentx-workmate",
-        note="container image coordinate nousresearch/hermes-agent -> astralx/agentx-workmate",
+        replacement="trungkiencding/agentx-workmate",
+        note="container image coordinate nousresearch/hermes-agent -> trungkiencding/agentx-workmate",
         include=[
             ".github/workflows/docker.yml",
             "docker-compose.windows.yml",
@@ -551,8 +552,8 @@ RULES: list[Rule] = [
             r"(?<![A-Za-z0-9_-])(?:NousResearch|nousresearch)/hermes-agent"
             r"(?![A-Za-z0-9-])(?!#\d)(?!/(?:issues|pull|pulls|discussions|compare)/\d)"
         ),
-        replacement="AstralX/agentx-workmate",
-        note="upstream repo slug NousResearch/hermes-agent -> AstralX/agentx-workmate",
+        replacement="TrungKiencding/AgentX-Workmate",
+        note="upstream repo slug NousResearch/hermes-agent -> TrungKiencding/AgentX-Workmate",
     ),
     Rule(
         id="vendor-attribution",
@@ -895,6 +896,11 @@ RULES: list[Rule] = [
         # built wheel by exactly this name.
         pattern=r"hermes_agent(?=-\*|\.egg-info)",
         replacement="agentx_workmate",
+        # .gitignore names the PRE-rename artifact on purpose, so a stale
+        # hermes_agent.egg-info left by an install from before the rename
+        # stays ignored. Rewriting it would drop that entry and duplicate the
+        # agentx_workmate one already above it.
+        exclude=[".gitignore"],
         note="build artifact/egg-info name hermes_agent-* -> agentx_workmate-*",
     ),
     Rule(

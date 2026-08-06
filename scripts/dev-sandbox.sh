@@ -115,7 +115,7 @@ INSTALLER_PATH=""
 # reachable from main -- so "can a user two releases back still update?" is
 # expressible. --from-main is shorthand for refs/heads/main.
 INSTALL_REF=""
-UPSTREAM_URL="${AGENTX_DEV_SANDBOX_UPSTREAM:-https://github.com/AstralX/agentx-workmate.git}"
+UPSTREAM_URL="${AGENTX_DEV_SANDBOX_UPSTREAM:-https://github.com/TrungKiencding/AgentX-Workmate.git}"
 
 if [ "${1:-}" = install ]; then
   INSTALL_SHORTCUT=true
@@ -266,16 +266,16 @@ if [ -n "$HTTP_ROOT" ]; then
   cp -a "$HTTP_ROOT/." "$SANDBOX_ROOT/root/http/"
 fi
 if [ "$INSTALL_SHORTCUT" = true ]; then
-  mkdir -p "$SANDBOX_ROOT/root/http/github.com/AstralX/agentx-workmate"
+  mkdir -p "$SANDBOX_ROOT/root/http/github.com/TrungKiencding/AgentX-Workmate"
   if [ -n "$INSTALL_REF" ]; then
     git -C "$UPSTREAM_REPO" show "$UPSTREAM_COMMIT:scripts/install.sh" \
-      > "$SANDBOX_ROOT/root/http/github.com/AstralX/agentx-workmate/install.sh"
+      > "$SANDBOX_ROOT/root/http/github.com/TrungKiencding/AgentX-Workmate/install.sh"
   else
-    cp -a "$INSTALLER_PATH" "$SANDBOX_ROOT/root/http/github.com/AstralX/agentx-workmate/install.sh"
+    cp -a "$INSTALLER_PATH" "$SANDBOX_ROOT/root/http/github.com/TrungKiencding/AgentX-Workmate/install.sh"
   fi
   set -- bash -c '
     set +e
-    curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash -s -- "$@"
+    curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash -s -- "$@"
     install_status=$?
     if [ "$install_status" -eq 0 ] && [ -f /work/promote-main ]; then
       next_main=$(cat /work/promote-main)

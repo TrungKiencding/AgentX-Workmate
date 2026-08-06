@@ -6,7 +6,7 @@ scope for vulnerability reports.
 
 ## 1. Reporting a Vulnerability
 
-Report privately via [GitHub Security Advisories](https://github.com/AstralX/agentx-workmate/security/advisories/new)
+Report privately via [GitHub Security Advisories](https://github.com/TrungKiencding/AgentX-Workmate/security/advisories/new)
 or **kien.le@astralx.com.vn**. Do not open public issues for
 security vulnerabilities. **AgentX Workmate does not operate a bug
 bounty program.**

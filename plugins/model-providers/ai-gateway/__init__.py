@@ -34,7 +34,7 @@ vercel = VercelAIGatewayProfile(
     env_vars=("AI_GATEWAY_API_KEY",),
     base_url="https://ai-gateway.vercel.sh/v1",
     default_headers={
-        "HTTP-Referer": "https://github.com/AstralX/agentx-workmate",
+        "HTTP-Referer": "https://github.com/TrungKiencding/AgentX-Workmate",
         "X-Title": "AgentX Workmate",
     },
     default_aux_model="google/gemini-3-flash",

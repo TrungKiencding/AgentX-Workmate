@@ -13,7 +13,7 @@ import urllib.request
 
 DEFAULT_UA = (
     "agentx-osint-investigation/0.2 "
-    "(+https://github.com/AstralX/agentx-workmate; "
+    "(+https://github.com/TrungKiencding/AgentX-Workmate; "
     "set AGENTX_OSINT_UA env var to identify yourself per "
     "Wikimedia / SEC fair-use guidance)"
 )

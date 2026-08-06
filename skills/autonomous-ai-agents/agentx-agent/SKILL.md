@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [agentx, setup, configuration, multi-agent, spawning, cli, gateway, themes, skins, desktop-plugins, tui-widgets, petdex, development]
-    homepage: https://github.com/AstralX/agentx-workmate
+    homepage: https://github.com/TrungKiencding/AgentX-Workmate
     related_skills: [claude-code, codex, opencode]
 ---
 
@@ -28,7 +28,7 @@ What makes AgentX different:
 
 **This skill is a hub.** The body covers identity, quick start, spawning/orchestration, and hard invariants. Everything else lives in reference files — **load the matching reference (below) before answering**; do not answer detail questions from the body alone.
 
-**Docs:** https://github.com/AstralX/agentx-workmate/tree/main/website/docs
+**Docs:** https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs
 
 ## Scope & Verification
 
@@ -37,14 +37,14 @@ This skill is a concise operating guide, not the complete source of truth for ev
 Good verification targets:
 
 - CLI commands: `agentx --help`, `agentx <command> --help`, and `hermes_cli/main.py`
-- User documentation: https://github.com/AstralX/agentx-workmate/tree/main/website/docs
-- Source tree: https://github.com/AstralX/agentx-workmate
+- User documentation: https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs
+- Source tree: https://github.com/TrungKiencding/AgentX-Workmate
 
 ## Quick Start
 
 ```bash
 # Install (shell installer — sets up uv, Python, the venv, and the launcher)
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 
 # Interactive chat (default surface; set display.interface: tui to launch the Ink TUI instead)
 agentx

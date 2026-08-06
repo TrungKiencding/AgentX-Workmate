@@ -52,7 +52,7 @@ AgentX 的差异化特性：
 
 ```bash
 # 安装
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 
 # 交互式聊天（默认）
 agentx

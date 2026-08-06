@@ -667,7 +667,7 @@ agentx kanban notify-unsubscribe t_abcd \
 ### 多 profile 部署：投递按 profile 归属
 
 在每个 profile 一个 gateway 的部署中（单一调度器，`writer`、`admin` 等各自
-运行独立的 gateway 进程 —— 参见[多 gateway 指南](https://github.com/AstralX/agentx-workmate/blob/main/docs/kanban/multi-gateway.md)），
+运行独立的 gateway 进程 —— 参见[多 gateway 指南](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/docs/kanban/multi-gateway.md)），
 调度与投递的归属是分开的：
 
 - **调度保持单一所有者。** 只有一个 gateway 保持

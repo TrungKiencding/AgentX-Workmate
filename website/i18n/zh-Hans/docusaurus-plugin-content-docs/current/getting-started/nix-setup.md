@@ -35,11 +35,11 @@ AgentX Workmate 提供了一个 Nix flake，支持三个层级的集成：
 
 ```bash
 # 直接运行（首次使用时构建，之后使用缓存）
-nix run github:AstralX/agentx-workmate -- setup
-nix run github:AstralX/agentx-workmate -- chat
+nix run github:TrungKiencding/AgentX-Workmate -- setup
+nix run github:TrungKiencding/AgentX-Workmate -- chat
 
 # 或持久化安装
-nix profile install github:AstralX/agentx-workmate
+nix profile install github:TrungKiencding/AgentX-Workmate
 agentx setup
 agentx chat
 ```
@@ -50,7 +50,7 @@ agentx chat
 <summary><strong>从本地克隆构建</strong></summary>
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 nix build
 ./result/bin/agentx setup
@@ -75,7 +75,7 @@ nix build
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    agentx-agent.url = "github:AstralX/agentx-workmate";
+    agentx-agent.url = "github:TrungKiencding/AgentX-Workmate";
   };
 
   outputs = { nixpkgs, agentx-agent, ... }: {
@@ -685,7 +685,7 @@ services.agentx-agent = {
 
 ```nix
 {
-  inputs.agentx-agent.url = "github:AstralX/agentx-workmate";
+  inputs.agentx-agent.url = "github:TrungKiencding/AgentX-Workmate";
   outputs = { agentx-agent, nixpkgs, ... }: {
     nixpkgs.overlays = [ agentx-agent.overlays.default ];
     # 然后：

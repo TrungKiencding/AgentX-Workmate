@@ -214,7 +214,7 @@ If you've worked through this guide and the issue persists:
 
 1. Run the job with `agentx cron run <job_id>` (fires on next gateway tick) and watch for errors in the chat output
 2. Check `~/.agentx/logs/agent.log` for scheduler messages and `~/.agentx/logs/errors.log` for warnings
-3. Open an issue at [github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate) with:
+3. Open an issue at [github.com/TrungKiencding/AgentX-Workmate](https://github.com/TrungKiencding/AgentX-Workmate) with:
    - The job ID and schedule
    - The delivery target
    - What you expected vs. what happened

@@ -127,7 +127,7 @@ A nightly backlog triage on Sonnet costs roughly $0.02-0.05. A monitoring check 
 AgentX Workmate is open source and free. The automation infrastructure — cron scheduler, webhook platform, skill system, multi-platform delivery — is built in.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 agentx setup
 ```
 
@@ -149,11 +149,11 @@ agentx webhook subscribe pr-review \
   --deliver github_comment
 ```
 
-Full automation blueprints gallery: [https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx)
+Full automation blueprints gallery: [https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/automation-blueprints-catalog.mdx)
 
-Documentation: [https://github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate)
+Documentation: [https://github.com/TrungKiencding/AgentX-Workmate](https://github.com/TrungKiencding/AgentX-Workmate)
 
-GitHub: [github.com/AstralX/agentx-workmate](https://github.com/AstralX/agentx-workmate)
+GitHub: [github.com/TrungKiencding/AgentX-Workmate](https://github.com/TrungKiencding/AgentX-Workmate)
 
 ---
 

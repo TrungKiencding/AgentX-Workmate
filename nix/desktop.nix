@@ -175,7 +175,7 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Native Electron desktop shell for AgentX Workmate";
-    homepage = "https://github.com/AstralX/agentx-workmate";
+    homepage = "https://github.com/TrungKiencding/AgentX-Workmate";
     license = licenses.mit;
     platforms = platforms.unix;
     mainProgram = "agentx-desktop";

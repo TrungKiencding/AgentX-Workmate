@@ -5,7 +5,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   iex (irm https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.ps1)
+#   iex (irm https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.ps1)
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
@@ -143,8 +143,8 @@ foreach ($tmpVar in @('TEMP', 'TMP')) {
 # ============================================================================
 
 # AGENTX_REPO_URL overrides where the checkout comes from -- see install.sh.
-$RepoUrlSsh = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "git@github.com:AstralX/agentx-workmate.git" }
-$RepoUrlHttps = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "https://github.com/AstralX/agentx-workmate.git" }
+$RepoUrlSsh = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "git@github.com:TrungKiencding/AgentX-Workmate.git" }
+$RepoUrlHttps = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "https://github.com/TrungKiencding/AgentX-Workmate.git" }
 $PythonVersion = "3.11"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system
@@ -1832,13 +1832,13 @@ function Install-Repository {
                 # for.  GitHub supports archive URLs for commits, tags, and
                 # branches; we honour Commit > Tag > Branch.
                 if ($Commit) {
-                    $zipUrl = "https://github.com/AstralX/agentx-workmate/archive/$Commit.zip"
+                    $zipUrl = "https://github.com/TrungKiencding/AgentX-Workmate/archive/$Commit.zip"
                     $zipLabel = $Commit
                 } elseif ($Tag) {
-                    $zipUrl = "https://github.com/AstralX/agentx-workmate/archive/refs/tags/$Tag.zip"
+                    $zipUrl = "https://github.com/TrungKiencding/AgentX-Workmate/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
                 } else {
-                    $zipUrl = "https://github.com/AstralX/agentx-workmate/archive/refs/heads/$Branch.zip"
+                    $zipUrl = "https://github.com/TrungKiencding/AgentX-Workmate/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
                 $zipPath = "$env:TEMP\agentx-agent-$zipLabel.zip"
@@ -4021,7 +4021,7 @@ try {
     Write-Err "Installation failed: $_"
     Write-Host ""
     Write-Info "If the error is unclear, try downloading and running the script directly:"
-    Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
+    Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""
 }

@@ -100,7 +100,7 @@ def _discord_request(
         headers={
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
-            "User-Agent": "AgentX-Agent (https://github.com/AstralX/agentx-workmate)",
+            "User-Agent": "AgentX-Agent (https://github.com/TrungKiencding/AgentX-Workmate)",
         },
     )
 

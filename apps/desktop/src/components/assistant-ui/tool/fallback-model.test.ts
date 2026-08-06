@@ -115,28 +115,28 @@ describe('buildToolView browser_navigate title', () => {
     const view = buildToolView(
       part({
         toolName: 'browser_navigate',
-        args: { url: 'https://github.com/AstralX/agentx-workmate/tree/main/website/docs' },
+        args: { url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs' },
         result: { success: false, error: 'Command timed out after 60 seconds' }
       }),
       ''
     )
 
     expect(view.status).toBe('error')
-    expect(view.title).toBe('Failed to open github.com/AstralX/agentx-workmate/tree/main/website/docs')
+    expect(view.title).toBe('Failed to open github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs')
   })
 
   it('shows opened title on success', () => {
     const view = buildToolView(
       part({
         toolName: 'browser_navigate',
-        args: { url: 'https://github.com/AstralX/agentx-workmate/tree/main/website/docs' },
-        result: { success: true, url: 'https://github.com/AstralX/agentx-workmate/tree/main/website/docs', title: 'Docs' }
+        args: { url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs' },
+        result: { success: true, url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs', title: 'Docs' }
       }),
       ''
     )
 
     expect(view.status).toBe('success')
-    expect(view.title).toBe('Opened github.com/AstralX/agentx-workmate/tree/main/website/docs')
+    expect(view.title).toBe('Opened github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs')
   })
 })
 

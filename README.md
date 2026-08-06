@@ -4,12 +4,12 @@
 
 # AgentX Workmate ⬡
 <p align="center">
-  <a href="https://github.com/AstralX/agentx-workmate">AgentX Workmate</a> | <a href="https://github.com/AstralX/agentx-workmate">AgentX Workmate Desktop</a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate">AgentX Workmate</a> | <a href="https://github.com/TrungKiencding/AgentX-Workmate">AgentX Workmate Desktop</a>
 </p>
 <p align="center">
-  <a href="https://github.com/AstralX/agentx-workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
-  <a href="https://github.com/AstralX/agentx-workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
+  <a href="https://github.com/TrungKiencding/AgentX-Workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Built%20by-AstralX%20Technology-blueviolet?style=for-the-badge" alt="Built by AstralX Technology">
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
@@ -18,7 +18,7 @@
 
 **The self-improving AI agent built by AstralX Technology.** It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
 
-Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/integrations/providers.md). Switch with `agentx model` — no code changes, no lock-in.
+Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/integrations/providers.md). Switch with `agentx model` — no code changes, no lock-in.
 
 <table>
 <tr><td><b>A real terminal interface</b></td><td>Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output.</td></tr>
@@ -37,24 +37,24 @@ Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenR
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 ```
 
 ### Windows (native, PowerShell)
 
-> **Heads up:** Native Windows runs AgentX without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/AstralX/agentx-workmate/issues).
+> **Heads up:** Native Windows runs AgentX without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/TrungKiencding/AgentX-Workmate/issues).
 
 Run this in PowerShell:
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.ps1)
+iex (irm https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.ps1)
 ```
 
 The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\agentx\git` — no admin required, completely isolated from any system Git install). AgentX uses this bundled Git Bash to run shell commands.
 
 If you already have Git installed, the installer detects it and uses that instead. Otherwise a ~45MB MinGit download is all you need — it won't touch or interfere with any system Git.
 
-> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/getting-started/termux.md). On Termux, AgentX installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
+> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/getting-started/termux.md). On Termux, AgentX installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
 >
 > **Windows:** Native Windows is fully supported — the PowerShell one-liner above installs everything. If you'd rather use WSL2, the Linux command works there too. Native Windows install lives under `%LOCALAPPDATA%\agentx`; WSL2 installs under `~/.agentx` as on Linux.
 
@@ -117,7 +117,7 @@ agentx update       # Update to the latest version
 agentx doctor       # Diagnose any issues
 ```
 
-📖 **[Full documentation →](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**
+📖 **[Full documentation →](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)**
 
 ---
 
@@ -134,7 +134,7 @@ One command from a fresh install:
 agentx setup --portal
 ```
 
-That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `agentx portal info`. Full details on the [Tool Gateway docs page](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/tool-gateway.md).
+That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `agentx portal info`. Full details on the [Tool Gateway docs page](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tool-gateway.md).
 
 You can still bring your own keys per-tool whenever you want — the gateway is per-backend, not all-or-nothing.
 
@@ -156,31 +156,31 @@ AgentX has two entry points: start the terminal UI with `agentx`, or run the gat
 | Interrupt current work         | `Ctrl+C` or send a new message                | `/stop` or send a new message                                                    |
 | Platform-specific status       | `/platforms`                                  | `/status`, `/sethome`                                                            |
 
-For the full command lists, see the [CLI guide](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/cli.md) and the [Messaging Gateway guide](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md).
+For the full command lists, see the [CLI guide](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/cli.md) and the [Messaging Gateway guide](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md).
 
 ---
 
 ## Documentation
 
-All documentation lives at **[https://github.com/AstralX/agentx-workmate/tree/main/website/docs](https://github.com/AstralX/agentx-workmate/tree/main/website/docs)**:
+All documentation lives at **[https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs](https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs)**:
 
 | Section                                                                                             | What's Covered                                             |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Quickstart](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/getting-started/quickstart.md)                 | Install → setup → first conversation in 2 minutes          |
-| [CLI Usage](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/cli.md)                              | Commands, keybindings, personalities, sessions             |
-| [Configuration](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/configuration.md)                | Config file, providers, models, all options                |
-| [Messaging Gateway](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/messaging/index.md)                | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
-| [Security](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/security.md)                          | Command approval, DM pairing, container isolation          |
-| [Tools & Toolsets](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/tools.md)            | 40+ tools, toolset system, terminal backends               |
-| [Skills System](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/skills.md)              | Procedural memory, Skills Hub, creating skills             |
-| [Memory](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/memory.md)                     | Persistent memory, user profiles, best practices           |
-| [MCP Integration](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/mcp.md)               | Connect any MCP server for extended capabilities           |
-| [Cron Scheduling](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/cron.md)              | Scheduled tasks with platform delivery                     |
-| [Context Files](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/context-files.md)       | Project context that shapes every conversation             |
-| [Architecture](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/architecture.md)             | Project structure, agent loop, key classes                 |
-| [Contributing](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/contributing.md)             | Development setup, PR process, code style                  |
-| [CLI Reference](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/cli-commands.md)                  | All commands and flags                                     |
-| [Environment Variables](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/reference/environment-variables.md) | Complete env var reference                                 |
+| [Quickstart](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/getting-started/quickstart.md)                 | Install → setup → first conversation in 2 minutes          |
+| [CLI Usage](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/cli.md)                              | Commands, keybindings, personalities, sessions             |
+| [Configuration](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/configuration.md)                | Config file, providers, models, all options                |
+| [Messaging Gateway](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md)                | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
+| [Security](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/security.md)                          | Command approval, DM pairing, container isolation          |
+| [Tools & Toolsets](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tools.md)            | 40+ tools, toolset system, terminal backends               |
+| [Skills System](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/skills.md)              | Procedural memory, Skills Hub, creating skills             |
+| [Memory](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/memory.md)                     | Persistent memory, user profiles, best practices           |
+| [MCP Integration](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/mcp.md)               | Connect any MCP server for extended capabilities           |
+| [Cron Scheduling](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/cron.md)              | Scheduled tasks with platform delivery                     |
+| [Context Files](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/context-files.md)       | Project context that shapes every conversation             |
+| [Architecture](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/architecture.md)             | Project structure, agent loop, key classes                 |
+| [Contributing](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/contributing.md)             | Development setup, PR process, code style                  |
+| [CLI Reference](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/cli-commands.md)                  | All commands and flags                                     |
+| [Environment Variables](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/reference/environment-variables.md) | Complete env var reference                                 |
 
 ---
 
@@ -216,7 +216,7 @@ See `agentx claw migrate --help` for all options, or use the `openclaw-migration
 
 ## Contributing
 
-We welcome contributions! See the [Contributing Guide](https://github.com/AstralX/agentx-workmate/blob/main/website/docs/developer-guide/contributing.md) for development setup, code style, and PR process.
+We welcome contributions! See the [Contributing Guide](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/developer-guide/contributing.md) for development setup, code style, and PR process.
 
 Quick start for contributors — use the standard installer, then work from the
 full git checkout it creates at `$AGENTX_HOME/agentx-agent` (usually
@@ -224,7 +224,7 @@ full git checkout it creates at `$AGENTX_HOME/agentx-agent` (usually
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 cd "${AGENTX_HOME:-$HOME/.agentx}/agentx-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
@@ -249,9 +249,9 @@ scripts/run_tests.sh
 
 ## Community
 
-- 💬 [Discussions](https://github.com/AstralX/agentx-workmate/discussions)
+- 💬 [Discussions](https://github.com/TrungKiencding/AgentX-Workmate/discussions)
 - 📚 [Skills Hub](https://agentskills.io)
-- 🐛 [Issues](https://github.com/AstralX/agentx-workmate/issues)
+- 🐛 [Issues](https://github.com/TrungKiencding/AgentX-Workmate/issues)
 - 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Linux desktop-control MCP server for AgentX and other MCP hosts, with AT-SPI accessibility trees, Wayland/X11 input, screenshots, and compositor window targeting.
 - 🔌 [HermesClaw](https://github.com/AaronWong1999/hermesclaw) — Community WeChat bridge: Run AgentX Workmate and OpenClaw on the same WeChat account.
 

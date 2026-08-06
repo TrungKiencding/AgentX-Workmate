@@ -73,7 +73,7 @@ export const DOCS_URL: string = ''
  * Canonical source repository. Update checks, release downloads and issue
  * links derive from this, so retargeting a fork is a one-line change.
  */
-export const REPO_URL = 'https://github.com/AstralX/agentx-workmate'
+export const REPO_URL = 'https://github.com/TrungKiencding/AgentX-Workmate'
 
 /**
  * Return the full environment variable name for a bare `name`.
@@ -102,7 +102,7 @@ export const docsUrl = (path = ''): string => {
 
 /**
  * Return a URL under the canonical source repository. Never empty.
- * `repoUrl('issues')` -> `https://github.com/AstralX/agentx-workmate/issues`.
+ * `repoUrl('issues')` -> `https://github.com/TrungKiencding/AgentX-Workmate/issues`.
  */
 export const repoUrl = (path = ''): string =>
   path ? `${REPO_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}` : REPO_URL

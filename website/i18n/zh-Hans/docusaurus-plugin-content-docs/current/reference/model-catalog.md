@@ -13,7 +13,7 @@ AgentX 从托管于文档站点旁的 JSON 清单中获取 **OpenRouter** 和 **
 ## 线上清单 URL
 
 ```
-https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/api/model-catalog.json
+https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/website/static/api/model-catalog.json
 ```
 
 每次合并到 `main` 时，通过现有的 `deploy-site.yml` GitHub Pages 流水线发布。真实来源位于仓库的 `website/static/api/model-catalog.json`。
@@ -68,7 +68,7 @@ https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/ap
 ```yaml
 model_catalog:
   enabled: true
-  url: https://raw.githubusercontent.com/AstralX/agentx-workmate/main/website/static/api/model-catalog.json
+  url: https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/website/static/api/model-catalog.json
   ttl_hours: 1
   providers: {}
 ```

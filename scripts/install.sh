@@ -6,7 +6,7 @@
 # Uses uv for desktop/server installs and Python's stdlib venv + pip on Termux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | bash
 #
 # Or with options:
 #   curl -fsSL ... | bash -s -- --no-venv --skip-setup
@@ -47,8 +47,8 @@ BOLD='\033[1m'
 # a filesystem path, so this is also how a build made from a local branch
 # installs itself: the commit it pins exists on no remote, and cloning the
 # checkout it was built from is the only way to get that exact tree.
-REPO_URL_SSH="${AGENTX_REPO_URL:-git@github.com:AstralX/agentx-workmate.git}"
-REPO_URL_HTTPS="${AGENTX_REPO_URL:-https://github.com/AstralX/agentx-workmate.git}"
+REPO_URL_SSH="${AGENTX_REPO_URL:-git@github.com:TrungKiencding/AgentX-Workmate.git}"
+REPO_URL_HTTPS="${AGENTX_REPO_URL:-https://github.com/TrungKiencding/AgentX-Workmate.git}"
 AGENTX_HOME="${AGENTX_HOME:-$HOME/.agentx}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
@@ -533,7 +533,7 @@ detect_os() {
             OS="windows"
             DISTRO="windows"
             log_error "Windows detected. Please use the PowerShell installer:"
-            log_info "  iex (irm https://raw.githubusercontent.com/AstralX/agentx-workmate/main/scripts/install.ps1)"
+            log_info "  iex (irm https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.ps1)"
             exit 1
             ;;
         *)

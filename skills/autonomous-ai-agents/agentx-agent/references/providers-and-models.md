@@ -2,7 +2,7 @@
 
 Set via `agentx model` (picker) or `agentx setup`. 35+ provider profiles ship as
 plugins under `plugins/model-providers/`; user plugins of the same name override.
-Full docs: https://github.com/AstralX/agentx-workmate/blob/main/website/docs/integrations/providers.md
+Full docs: https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/integrations/providers.md
 
 ### Providers
 

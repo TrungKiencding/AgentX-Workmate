@@ -15,7 +15,7 @@
 
 [Unit]
 Description=AgentX Kanban dispatcher (DEPRECATED standalone daemon — prefer gateway-embedded dispatch)
-Documentation=https://github.com/AstralX/agentx-workmate/blob/main/website/docs/user-guide/features/kanban.md
+Documentation=https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/kanban.md
 After=network.target
 
 [Service]

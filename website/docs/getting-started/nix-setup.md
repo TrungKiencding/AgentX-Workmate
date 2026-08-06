@@ -41,17 +41,17 @@ No clone needed. Nix fetches, builds, and runs everything:
 
 ```bash
 # Run the desktop app
-nix run github:AstralX/agentx-workmate#desktop
+nix run github:TrungKiencding/AgentX-Workmate#desktop
 
 # Or install persistently
-nix profile install github:AstralX/agentx-workmate#desktop
+nix profile install github:TrungKiencding/AgentX-Workmate#desktop
 
 # run the tui
-nix run github:AstralX/agentx-workmate -- setup
-nix run github:AstralX/agentx-workmate -- --tui
+nix run github:TrungKiencding/AgentX-Workmate -- setup
+nix run github:TrungKiencding/AgentX-Workmate -- --tui
 
 # or install it in your profile
-nix profile install github:AstralX/agentx-workmate
+nix profile install github:TrungKiencding/AgentX-Workmate
 agentx setup
 agentx --tui
 ```
@@ -69,7 +69,7 @@ The `default` package adds ~700 MB to the closure. If you only need messaging pl
 <summary><strong>Running from a local clone</strong></summary>
 
 ```bash
-git clone https://github.com/AstralX/agentx-workmate.git
+git clone https://github.com/TrungKiencding/AgentX-Workmate.git
 cd agentx-agent
 nix develop
 agentx setup
@@ -94,7 +94,7 @@ This module requires NixOS. For non-NixOS systems (macOS, other Linux distros), 
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    agentx-agent.url = "github:AstralX/agentx-workmate";
+    agentx-agent.url = "github:TrungKiencding/AgentX-Workmate";
   };
 
   outputs = { nixpkgs, agentx-agent, ... }: {
@@ -733,7 +733,7 @@ External flakes can override the package directly:
 
 ```nix
 {
-  inputs.agentx-agent.url = "github:AstralX/agentx-workmate";
+  inputs.agentx-agent.url = "github:TrungKiencding/AgentX-Workmate";
   outputs = { agentx-agent, nixpkgs, ... }: {
     nixpkgs.overlays = [ agentx-agent.overlays.default ];
     # Then:

@@ -7,7 +7,7 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://github.com/AstralX/agentx-workmate',
+  url: 'https://github.com/TrungKiencding/AgentX-Workmate',
   baseUrl: '/docs/',
 
   organizationName: 'AstralX',
@@ -114,7 +114,7 @@ const config: Config = {
         docs: {
           routeBasePath: '/',  // Docs at the root of /docs/
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/AstralX/agentx-workmate/edit/main/website/',
+          editUrl: 'https://github.com/TrungKiencding/AgentX-Workmate/edit/main/website/',
         },
         blog: false,
         theme: {
@@ -155,7 +155,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://github.com/AstralX/agentx-workmate',
+          href: 'https://github.com/TrungKiencding/AgentX-Workmate',
           label: 'Download',
           position: 'left',
         },
@@ -164,17 +164,17 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/AstralX/agentx-workmate',
+          href: 'https://github.com/TrungKiencding/AgentX-Workmate',
           label: 'Home',
           position: 'right',
         },
         {
-          href: 'https://github.com/AstralX/agentx-workmate',
+          href: 'https://github.com/TrungKiencding/AgentX-Workmate',
           label: 'GitHub',
           position: 'right',
         },
         {
-          href: 'https://github.com/AstralX/agentx-workmate/discussions',
+          href: 'https://github.com/TrungKiencding/AgentX-Workmate/discussions',
           label: 'Discussions',
           position: 'right',
         },
@@ -195,17 +195,17 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'Discussions', href: 'https://github.com/AstralX/agentx-workmate/discussions' },
-            { label: 'GitHub Issues', href: 'https://github.com/AstralX/agentx-workmate/issues' },
+            { label: 'Discussions', href: 'https://github.com/TrungKiencding/AgentX-Workmate/discussions' },
+            { label: 'GitHub Issues', href: 'https://github.com/TrungKiencding/AgentX-Workmate/issues' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],
         },
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://github.com/AstralX/agentx-workmate' },
-            { label: 'GitHub', href: 'https://github.com/AstralX/agentx-workmate' },
-            { label: 'GitHub', href: 'https://github.com/AstralX/agentx-workmate' },
+            { label: 'Desktop Download', href: 'https://github.com/TrungKiencding/AgentX-Workmate' },
+            { label: 'GitHub', href: 'https://github.com/TrungKiencding/AgentX-Workmate' },
+            { label: 'GitHub', href: 'https://github.com/TrungKiencding/AgentX-Workmate' },
           ],
         },
       ],

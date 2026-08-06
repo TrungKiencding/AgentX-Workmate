@@ -264,7 +264,7 @@ The Portal routes each model to a suitable backend — some through OpenRouter, 
 /model anthropic/claude-opus-4.6
 ```
 
-If a model is genuinely missing, [open an issue](https://github.com/AstralX/agentx-workmate/issues) — we surface the Portal's catalog to AgentX and gaps usually mean a routing config we can update.
+If a model is genuinely missing, [open an issue](https://github.com/TrungKiencding/AgentX-Workmate/issues) — we surface the Portal's catalog to AgentX and gaps usually mean a routing config we can update.
 
 ### Bills not appearing on my Portal account
 
