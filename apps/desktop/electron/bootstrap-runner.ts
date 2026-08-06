@@ -405,10 +405,22 @@ async function resolveInstallScript({
         fs.mkdirSync(path.dirname(cached), { recursive: true })
         fs.copyFileSync(installed, cached)
 
-        return { path: cached, source: fallbackSource, commit: resolvedCommit, kind: installScriptKind() }
+        return {
+          path: cached,
+          source: fallbackSource,
+          commit: resolvedCommit,
+          kind: installScriptKind(),
+          repoRoot: fromBuildRoot ? installStamp.repoRoot : null
+        }
       } catch {
         // Cache copy failed (read-only FS, etc.) -- use the source path directly.
-        return { path: installed, source: fallbackSource, commit: resolvedCommit, kind: installScriptKind() }
+        return {
+          path: installed,
+          source: fallbackSource,
+          commit: resolvedCommit,
+          kind: installScriptKind(),
+          repoRoot: fromBuildRoot ? installStamp.repoRoot : null
+        }
       }
     }
 
@@ -470,7 +482,7 @@ function resolveWindowsPowerShell() {
   return 'powershell.exe'
 }
 
-function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, hermesHome, repoUrl }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const ps = process.platform === 'win32' ? resolveWindowsPowerShell() : 'pwsh'
     const fullArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]
@@ -484,7 +496,8 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
           ...process.env,
           // Pass AGENTX_HOME through so install.ps1 respects the caller's
           // choice rather than re-computing the default.
-          AGENTX_HOME: hermesHome || process.env.AGENTX_HOME || ''
+          AGENTX_HOME: hermesHome || process.env.AGENTX_HOME || '',
+          AGENTX_REPO_URL: repoUrl || process.env.AGENTX_REPO_URL || ''
         }
       })
     )
@@ -574,13 +587,16 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
   })
 }
 
-function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome }: any = {}) {
+function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome, repoUrl }: any = {}) {
   return new Promise<any>((resolve, reject) => {
     const child = spawn('bash', [scriptPath, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        AGENTX_HOME: hermesHome || process.env.AGENTX_HOME || ''
+        AGENTX_HOME: hermesHome || process.env.AGENTX_HOME || '',
+        // Empty means "use the installer's own default". Set only for a
+        // build whose commit exists nowhere but the checkout it came from.
+        AGENTX_REPO_URL: repoUrl || process.env.AGENTX_REPO_URL || ''
       }
     })
 
@@ -704,7 +720,7 @@ function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = t
   return args
 }
 
-async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit }) {
+async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit, repoUrl }) {
   const isPosix = installerKind === 'posix'
 
   const args = isPosix
@@ -714,7 +730,8 @@ async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, acti
   const result = await (isPosix ? spawnBash : spawnPowerShell)(scriptPath, args, {
     emit,
     stageName: '__manifest__',
-    hermesHome
+    hermesHome,
+    repoUrl
   })
 
   if (result.code !== 0) {
@@ -775,7 +792,8 @@ async function runStage({
   activeRoot,
   abortSignal,
   installStamp,
-  pinCommit
+  pinCommit,
+  repoUrl
 }) {
   const startedAt = Date.now()
   emit({ type: 'stage', name: stage.name, state: 'running' })
@@ -796,7 +814,8 @@ async function runStage({
     emit,
     stageName: stage.name,
     abortSignal,
-    hermesHome
+    hermesHome,
+    repoUrl
   })
 
   const durationMs = Date.now() - startedAt
@@ -952,7 +971,8 @@ async function runBootstrap(opts) {
       hermesHome,
       activeRoot,
       installStamp,
-      pinCommit
+      pinCommit,
+      repoUrl: scriptInfo.repoRoot
     })
 
     emit({
@@ -981,7 +1001,8 @@ async function runBootstrap(opts) {
         activeRoot,
         abortSignal,
         installStamp,
-        pinCommit
+        pinCommit,
+        repoUrl: scriptInfo.repoRoot
       })
 
       if (ev.state === 'failed') {

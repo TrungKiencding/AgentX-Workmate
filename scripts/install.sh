@@ -43,8 +43,12 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Configuration
-REPO_URL_SSH="git@github.com:AstralX/agentx-workmate.git"
-REPO_URL_HTTPS="https://github.com/AstralX/agentx-workmate.git"
+# AGENTX_REPO_URL overrides where the checkout comes from. `git clone` accepts
+# a filesystem path, so this is also how a build made from a local branch
+# installs itself: the commit it pins exists on no remote, and cloning the
+# checkout it was built from is the only way to get that exact tree.
+REPO_URL_SSH="${AGENTX_REPO_URL:-git@github.com:AstralX/agentx-workmate.git}"
+REPO_URL_HTTPS="${AGENTX_REPO_URL:-https://github.com/AstralX/agentx-workmate.git}"
 AGENTX_HOME="${AGENTX_HOME:-$HOME/.agentx}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an

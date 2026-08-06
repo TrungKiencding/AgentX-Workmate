@@ -142,8 +142,9 @@ foreach ($tmpVar in @('TEMP', 'TMP')) {
 # Configuration
 # ============================================================================
 
-$RepoUrlSsh = "git@github.com:AstralX/agentx-workmate.git"
-$RepoUrlHttps = "https://github.com/AstralX/agentx-workmate.git"
+# AGENTX_REPO_URL overrides where the checkout comes from -- see install.sh.
+$RepoUrlSsh = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "git@github.com:AstralX/agentx-workmate.git" }
+$RepoUrlHttps = if ($env:AGENTX_REPO_URL) { $env:AGENTX_REPO_URL } else { "https://github.com/AstralX/agentx-workmate.git" }
 $PythonVersion = "3.11"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system

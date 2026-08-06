@@ -217,6 +217,9 @@ test('resolveInstallScript falls back to the build checkout when the pinned SHA 
 
     assert.equal(result.source, 'build-checkout')
     assert.equal(result.commit, commit)
+    // The installer must clone from the same checkout it came from: the
+    // commit exists on no remote, so GitHub has nothing to give it.
+    assert.equal(result.repoRoot, repoRoot)
     assert.equal(fs.readFileSync(result.path, 'utf8'), '#!/bin/sh\necho from the build checkout\n')
     assert.ok(
       logs.some(ev => /falling back to build checkout/.test(ev.line || '')),
@@ -251,6 +254,33 @@ test('resolveInstallScript ignores a build root that a CI stamp did not record',
     )
 
     assert.equal(attempts, 1, 'still tried the network exactly once')
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('resolveInstallScript reports no repo root when the installed agent is the fallback', async () => {
+  // An installed-agent fallback says nothing about where to clone from, so the
+  // installer keeps its own default rather than being pointed somewhere wrong.
+  const home = mkTmpHome()
+
+  try {
+    const shipped = path.join(home, 'agentx-agent', 'scripts')
+    fs.mkdirSync(shipped, { recursive: true })
+    fs.writeFileSync(path.join(shipped, process.platform === 'win32' ? 'install.ps1' : 'install.sh'), '#!/bin/sh\n')
+
+    const result = await resolveInstallScript({
+      installStamp: { commit: 'd'.repeat(40), branch: 'main', source: 'ci' },
+      sourceRepoRoot: null,
+      hermesHome: home,
+      emit: () => {},
+      _download: async () => {
+        throw new Error('HTTP 404')
+      }
+    })
+
+    assert.equal(result.source, 'installed-agent')
+    assert.equal(result.repoRoot, null)
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
   }
