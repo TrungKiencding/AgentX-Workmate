@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test } from 'vitest'
 
 import {
@@ -94,4 +97,33 @@ test('resolveStamp falls back when neither CI nor git is available', () => {
     dirty: false,
     source: 'fallback'
   })
+})
+
+test('every field the writer emits survives loadInstallStamp in main.ts', () => {
+  // main.ts is the electron entry point and exports nothing, so this reads it
+  // as source. It is a blunt check, but it guards a real failure: the parser's
+  // returned object literal is an ALLOWLIST, and a field added to the writer
+  // without being added there is dropped silently. That is exactly how
+  // `repoRoot` reached the packaged stamp and still arrived as undefined in
+  // the bootstrap's build-checkout fallback, which kept 404ing on a commit
+  // that exists only on the build machine.
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const mainTs = readFileSync(path.join(here, '..', 'electron', 'main.ts'), 'utf8')
+
+  const parserBody = mainTs.slice(
+    mainTs.indexOf('function loadInstallStamp()'),
+    mainTs.indexOf('const INSTALL_STAMP = loadInstallStamp()')
+  )
+  assert.ok(parserBody, 'could not locate loadInstallStamp in main.ts')
+
+  // Fields the writer can put in the payload, per write-build-stamp.mjs.
+  const written = ['schemaVersion', 'commit', 'branch', 'builtAt', 'dirty', 'source', 'repoRoot']
+
+  for (const field of written) {
+    assert.ok(
+      new RegExp(`\\b${field}\\s*:`).test(parserBody),
+      `loadInstallStamp() drops "${field}" — add it to the returned object or ` +
+        `every consumer sees undefined`
+    )
+  }
 })

@@ -489,6 +489,13 @@ function loadInstallStamp() {
           continue
         }
 
+        // This object literal is an allowlist: any field missing from it is
+        // silently dropped between the writer and every consumer. `repoRoot`
+        // was added to write-build-stamp.mjs and read by bootstrap-runner.ts
+        // but not listed here, so the bootstrap's build-checkout fallback saw
+        // undefined and kept failing on a 404 for an unpushed commit. The
+        // test in scripts/write-build-stamp.test.mjs now fails if the writer
+        // gains a field this list does not carry.
         return Object.freeze({
           schemaVersion: parsed.schemaVersion,
           commit: parsed.commit,
@@ -496,6 +503,7 @@ function loadInstallStamp() {
           builtAt: parsed.builtAt || null,
           dirty: Boolean(parsed.dirty),
           source: parsed.source || null,
+          repoRoot: parsed.repoRoot || null,
           path: p
         })
       }
