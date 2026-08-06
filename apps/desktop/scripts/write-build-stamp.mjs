@@ -79,7 +79,14 @@ export function fromLocalGit(repoRoot = REPO_ROOT, execFn = tryExec) {
     commit: sha,
     branch: branch === "HEAD" ? null : branch, // detached HEAD -> null
     dirty: dirty,
-    source: "local"
+    source: "local",
+    // The checkout this build came from.  A local commit exists on no remote,
+    // so the desktop bootstrap cannot fetch install.sh for it from GitHub —
+    // recording the root lets it read the installer straight off disk instead
+    // of dying with a 404 on a SHA only this machine has.  CI builds omit
+    // this: their commit IS fetchable, and the runner's path means nothing on
+    // a user's machine.
+    repoRoot: repoRoot
   }
 }
 
@@ -156,6 +163,15 @@ function main() {
     builtAt: new Date().toISOString(),
     dirty: stamp.dirty,
     source: stamp.source
+  }
+
+  // Local builds only. The commit they pin exists on no remote, so the desktop
+  // bootstrap cannot fetch install.sh for it from GitHub; the checkout path
+  // lets it read the installer off disk instead. A CI stamp deliberately omits
+  // this — its commit IS fetchable, and a runner path is meaningless on a
+  // user's machine.
+  if (stamp.source === "local" && stamp.repoRoot) {
+    payload.repoRoot = stamp.repoRoot
   }
 
   mkdirSync(OUT_DIR, { recursive: true })

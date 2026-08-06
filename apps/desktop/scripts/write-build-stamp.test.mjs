@@ -37,9 +37,20 @@ test('fromLocalGit reads HEAD + branch + dirty status', () => {
     commit: 'b'.repeat(40),
     branch: 'main',
     dirty: true,
-    source: 'local'
+    source: 'local',
+    // The checkout is recorded because a local commit exists on no remote:
+    // the desktop bootstrap cannot fetch install.sh for it from GitHub and
+    // reads it off disk instead. A CI stamp has no repoRoot — its commit IS
+    // fetchable, and a runner path means nothing on a user's machine.
+    repoRoot: '/repo'
   })
   assert.ok(calls.includes('git rev-parse HEAD'))
+})
+
+test('fromCI does not record a repo root', () => {
+  const stamp = fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'main' })
+  assert.equal(stamp.source, 'ci')
+  assert.ok(!('repoRoot' in stamp), 'a CI runner path is meaningless downstream')
 })
 
 test('fromFallback uses the all-zero placeholder commit', () => {

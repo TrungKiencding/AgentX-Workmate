@@ -188,6 +188,74 @@ test('resolveInstallScript downloads fallback stamps by branch instead of zero c
   }
 })
 
+test('resolveInstallScript falls back to the build checkout when the pinned SHA 404s', async () => {
+  // A packaged build made from a local branch pins a commit that exists on no
+  // remote, so the GitHub fetch can never succeed for it. On a machine that
+  // has not completed an install yet there is no installed agent to fall back
+  // to either — which left a self-built desktop app dead on arrival with a 404
+  // for a SHA only that machine had.
+  const home = mkTmpHome()
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-buildroot-'))
+
+  try {
+    fs.mkdirSync(path.join(repoRoot, 'scripts'), { recursive: true })
+    const shipped = path.join(repoRoot, 'scripts', process.platform === 'win32' ? 'install.ps1' : 'install.sh')
+    fs.writeFileSync(shipped, '#!/bin/sh\necho from the build checkout\n')
+
+    const logs = []
+    const commit = 'b'.repeat(40)
+
+    const result = await resolveInstallScript({
+      installStamp: { commit, branch: 'rebrand/x', source: 'local', repoRoot },
+      sourceRepoRoot: null,
+      hermesHome: home,
+      emit: ev => logs.push(ev),
+      _download: async () => {
+        throw new Error('HTTP 404')
+      }
+    })
+
+    assert.equal(result.source, 'build-checkout')
+    assert.equal(result.commit, commit)
+    assert.equal(fs.readFileSync(result.path, 'utf8'), '#!/bin/sh\necho from the build checkout\n')
+    assert.ok(
+      logs.some(ev => /falling back to build checkout/.test(ev.line || '')),
+      'says which fallback it took'
+    )
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+    fs.rmSync(repoRoot, { recursive: true, force: true })
+  }
+})
+
+test('resolveInstallScript ignores a build root that a CI stamp did not record', async () => {
+  // CI stamps pin a commit that IS fetchable and carry no repoRoot; a runner
+  // path would mean nothing on a user's machine anyway.
+  const home = mkTmpHome()
+
+  try {
+    const commit = 'c'.repeat(40)
+    let attempts = 0
+
+    await assert.rejects(
+      resolveInstallScript({
+        installStamp: { commit, branch: 'main', source: 'ci' },
+        sourceRepoRoot: null,
+        hermesHome: home,
+        emit: () => {},
+        _download: async () => {
+          attempts += 1
+          throw new Error('HTTP 404')
+        }
+      })
+    )
+
+    assert.equal(attempts, 1, 'still tried the network exactly once')
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+
 test('resolveInstallScript prefers a cached script without touching the network', async () => {
   const home = mkTmpHome()
 

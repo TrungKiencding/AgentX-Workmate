@@ -377,24 +377,38 @@ async function resolveInstallScript({
     // write-build-stamp.mjs fromLocalGit). Fall back to the installer that
     // ships inside the already-installed agent checkout so dev/self-builds can
     // still bootstrap instead of dying with a fatal 404.
-    const installed = installedAgentInstallScript(hermesHome)
+    // Before that: the checkout this build was produced from. A packaged
+    // local build pins a SHA that exists on no remote, so the fetch above can
+    // never succeed for it — and on a machine that has not completed an
+    // install yet there is no installed agent to fall back to either, which
+    // is how a self-built desktop app ended up dead on arrival with a 404 for
+    // a commit only that machine has. write-build-stamp.mjs records the root
+    // for local builds precisely so this path can read the installer off disk.
+    const fromBuildRoot =
+      installStamp && installStamp.source === 'local'
+        ? resolveLocalInstallScript(installStamp.repoRoot)
+        : null
+
+    const installed = fromBuildRoot || installedAgentInstallScript(hermesHome)
+    const fallbackSource = fromBuildRoot ? 'build-checkout' : 'installed-agent'
 
     if (installed) {
       emit({
         type: 'log',
         line:
           `[bootstrap] GitHub fetch failed (${err.message}); ` +
-          `falling back to installed agent ${installScriptName()} at ${installed}`
+          `falling back to ${fromBuildRoot ? 'build checkout' : 'installed agent'} ` +
+          `${installScriptName()} at ${installed}`
       })
 
       try {
         fs.mkdirSync(path.dirname(cached), { recursive: true })
         fs.copyFileSync(installed, cached)
 
-        return { path: cached, source: 'installed-agent', commit: resolvedCommit, kind: installScriptKind() }
+        return { path: cached, source: fallbackSource, commit: resolvedCommit, kind: installScriptKind() }
       } catch {
         // Cache copy failed (read-only FS, etc.) -- use the source path directly.
-        return { path: installed, source: 'installed-agent', commit: resolvedCommit, kind: installScriptKind() }
+        return { path: installed, source: fallbackSource, commit: resolvedCommit, kind: installScriptKind() }
       }
     }
 
