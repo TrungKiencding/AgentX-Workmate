@@ -108,24 +108,8 @@ def _base_subprocess_env() -> dict:
     from tools.browser_tool import _build_browser_env
 
     env = _build_browser_env()
-    # The browser-use CLI runs under its own Python (uv tool / uvx), which
-    # may differ from AgentX's venv Python. PYTHONPATH/PYTHONHOME inherited
-    # from the agent process point at AgentX's venv site-packages, and a
-    # child interpreter honors them ahead of its own site-packages — so the
-    # CLI imports compiled C-extensions (e.g. pydantic_core) built for the
-    # wrong interpreter and crashes on ABI mismatch (#83427, #84841, #86006,
-    # #86104). Strip both — the CLI manages its own environment and never
-    # needs AgentX's import path.
-    env.pop("PYTHONPATH", None)
-    env.pop("PYTHONHOME", None)
     env.setdefault("ANONYMIZED_TELEMETRY", "false")
     return env
-
-
-def _base_subprocess_env() -> dict:
-    from tools.browser_tool import _build_browser_env
-
-    return _build_browser_env()
 
 
 def _read_browser_cfg() -> dict:
