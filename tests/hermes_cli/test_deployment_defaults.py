@@ -24,7 +24,7 @@ import pytest
 
 from hermes_cli import web_server
 from hermes_cli.account_provisioning import load_settings
-from hermes_cli.config import get_env_path, load_config, load_env
+from hermes_cli.config import load_config, load_env
 from hermes_cli.config_defaults import (
     DEFAULT_CONFIG,
     DEPLOYMENT_KEYCLOAK_BASE_URL,
@@ -175,24 +175,26 @@ class TestModelsWorkOutOfTheBox:
         assert settings.base_url == DEPLOYMENT_LITELLM_BASE_URL
         assert settings.default_model == DEPLOYMENT_LITELLM_DEFAULT_MODEL
 
-    def test_it_ships_in_direct_mode_because_no_broker_is_deployed(self, fresh_machine):
-        """Direct mode is a deliberate, documented trade, not an oversight.
+    def test_it_ships_asking_the_second_brain_for_its_key(self, fresh_machine):
+        """The shipped mode is the one that needs no secret on the laptop.
 
-        It puts the LiteLLM admin key on every laptop. When a broker exists,
-        this flips to "broker" with a ``broker_url`` and the laptops change
-        nothing — see ``hermes_cli/litellm_broker.py``.
+        ``second_brain`` mints once per person and hands the same key to every
+        machine they sign in on. The other two mint per machine, which is the
+        fault the service was built to end, and ``direct`` additionally needs
+        an admin credential on the laptop.
         """
         settings = load_settings(load_config())
 
-        assert settings.mode == "direct"
+        assert settings.mode == "second_brain"
         assert settings.broker_url == ""
 
-    def test_direct_mode_still_needs_a_key_the_repo_does_not_carry(self, fresh_machine):
-        """The one value that is NOT baked in, and must never be.
+    def test_no_credential_is_needed_or_carried_for_the_shipped_mode(self, fresh_machine):
+        """Nothing secret reaches a laptop, from here or from the installer.
 
-        This repository is public. The admin key reaches users inside the
-        packaged desktop app (apps/desktop/scripts/write-deployment-config.mjs),
-        never through here.
+        This repository is public, and the desktop package no longer carries a
+        ``deployment.json`` — the mechanism that used to inject the LiteLLM
+        admin key into every build was removed with the key vault. If a value
+        has to reach laptops, it goes behind the service.
         """
         source = (REPO_ROOT / "hermes_cli" / "config_defaults.py").read_text(encoding="utf-8")
 
@@ -203,55 +205,37 @@ class TestModelsWorkOutOfTheBox:
 
         assert load_env().get("AGENTX_LITELLM_ADMIN_KEY") is None
 
+        desktop = REPO_ROOT / "apps" / "desktop"
+        assert not (desktop / "scripts" / "write-deployment-config.mjs").exists(), (
+            "the admin-key injector is back; nothing secret ships inside the app"
+        )
+        assert "deployment.json" not in (desktop / "package.json").read_text(
+            encoding="utf-8"
+        ), "the packaged app is carrying a baked-credentials file again"
 
-# ---------------------------------------------------------------------------
-# The desktop's .env seeding
-# ---------------------------------------------------------------------------
+    def test_a_fresh_install_with_no_service_configured_says_which_setting_is_missing(
+        self, fresh_machine
+    ):
+        """The consequence of shipping ``second_brain`` by default.
 
-
-class TestTheDesktopSeederWritesWhatPythonReads:
-    """Two writers, one file, two languages.
-
-    The desktop app (TypeScript) seeds ``AGENTX_LITELLM_ADMIN_KEY`` into
-    ``<AGENTX_HOME>/.env`` on first launch; ``load_env()`` (Python) reads it
-    back. The fixtures below are the exact bytes
-    ``apps/desktop/electron/deployment-config.test.ts`` pins its writer to, so
-    a change to either side that breaks the other fails here.
-    """
-
-    def _seed(self, home: Path, text: str) -> dict:
-        home.mkdir(parents=True, exist_ok=True)
-        get_env_path().write_text(text, encoding="utf-8")
-
-        return load_env()
-
-    def test_a_seeded_empty_home_reads_back(self, fresh_machine):
-        # deployment-config.test.ts: 'writes the baked key into an empty home'
-        env = self._seed(fresh_machine, "AGENTX_LITELLM_ADMIN_KEY=sk-baked\n")
-
-        assert env["AGENTX_LITELLM_ADMIN_KEY"] == "sk-baked"
-
-    def test_an_appended_key_reads_back_alongside_what_was_there(self, fresh_machine):
-        # deployment-config.test.ts: 'appends without disturbing what is there'
-        env = self._seed(fresh_machine, "A=1\nB=2\nAGENTX_LITELLM_ADMIN_KEY=sk-baked\n")
-
-        assert env["AGENTX_LITELLM_ADMIN_KEY"] == "sk-baked"
-        assert env["A"] == "1"
-        assert env["B"] == "2"
-
-    def test_a_quoted_value_reads_back_unquoted(self, fresh_machine):
-        # deployment-config.test.ts: quoteEnvValue('has space') -> '"has space"'
-        env = self._seed(fresh_machine, 'AGENTX_LITELLM_ADMIN_KEY="has space"\n')
-
-        assert env["AGENTX_LITELLM_ADMIN_KEY"] == "has space"
-
-    def test_the_export_form_the_seeder_refuses_to_duplicate_is_readable(self, fresh_machine):
-        """Why the seeder matches ``export KEY=`` before appending.
-
-        ``load_env()`` reads the export form, so it is live configuration. A
-        seeder that did not recognise it would append a second assignment and
-        leave which one wins to line order.
+        Until ``DEPLOYMENT_SECOND_BRAIN_URL`` names a deployed service, a fresh
+        install has no model key — and has to say so in terms an admin can act
+        on rather than silently having no model, which is the exact failure
+        this module exists to prevent.
         """
-        env = self._seed(fresh_machine, "export AGENTX_LITELLM_ADMIN_KEY=sk-mine\n")
+        from hermes_cli.accounts import AccountIdentity
+        from hermes_cli.account_provisioning import ensure_account_key
 
-        assert env["AGENTX_LITELLM_ADMIN_KEY"] == "sk-mine"
+        settings = load_settings(load_config())
+        if settings.second_brain_url:
+            pytest.skip("this build has a second brain configured")
+
+        result = ensure_account_key(
+            AccountIdentity(subject="s", username="u", email="u@test", issuer="kc"),
+            "u-1234",
+            settings=settings,
+            home=fresh_machine,
+        )
+
+        assert result.status == "unconfigured"
+        assert "accounts.second_brain.base_url" in result.detail

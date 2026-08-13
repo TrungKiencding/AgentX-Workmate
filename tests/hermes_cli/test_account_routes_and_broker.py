@@ -89,6 +89,10 @@ class _FakeLiteLLM:
         self.minted: list[str] = []
         self.unreachable = False
         self.fail_next: tuple[int, dict] | None = None
+        #: How many times somebody asked which keys wear an alias. Looking one
+        #: up is the first half of delete-by-alias, so the count is worth
+        #: asserting on rather than only its consequences.
+        self.alias_lookups = 0
         self._counter = 0
 
     @property
@@ -118,6 +122,7 @@ class _FakeLiteLLM:
         body = json.loads(request.content or b"{}") if request.content else {}
 
         if path == "/key/list":
+            self.alias_lookups += 1
             alias = request.url.params.get("key_alias", "")
             rows = [
                 {k: v for k, v in record.items() if k != "key"}
@@ -335,7 +340,19 @@ def test_broker_ignores_the_account_field_in_the_body(broker):
     assert payload["key"] == proxy.key_for(attacker_alias)
 
 
-def test_broker_rotates_instead_of_accumulating_keys(broker):
+def test_the_broker_never_retires_a_key_it_cannot_attribute(broker):
+    """The broker leaks rather than revokes, deliberately.
+
+    It used to delete every key wearing the alias before minting, and that was
+    the fault the second brain was built to end: one person's machines all
+    present the same alias, so the second laptop to call retired the first
+    laptop's working key. The broker keeps no record of which machine holds
+    which key, so it cannot tell a stale one from a colleague machine's live
+    one — and an orphan is a bill, where the delete was an outage.
+
+    This is a holding position, not a design. ``mode: "second_brain"`` mints
+    once per person and has no orphans at all.
+    """
     client, realm, proxy, settings = broker
     realm.add("tok-ada", _session("kc-ada", "ada@corp.test", "ada", "tok-ada"))
     alias = settings.alias_for(
@@ -346,12 +363,16 @@ def test_broker_rotates_instead_of_accumulating_keys(broker):
     second = _post(client, token="tok-ada").json()
 
     assert first["rotated"] is False
-    assert second["rotated"] is True
+    assert second["rotated"] is False
     assert second["key"] != first["key"]
-    # One person, one live key: the old one is retired, not orphaned upstream.
-    assert len(proxy.records_for(alias)) == 1
-    assert proxy.key_for(alias) == second["key"]
+    # Both keys are still live upstream. The first one may be the key another
+    # of this person's machines is using right now.
+    assert len(proxy.records_for(alias)) == 2
     assert len(proxy.minted) == 2
+
+    # And it never asked which keys wear the alias, because the answer has no
+    # safe use here.
+    assert proxy.alias_lookups == 0
 
 
 def test_broker_answers_503_when_the_realm_is_unreachable(broker):

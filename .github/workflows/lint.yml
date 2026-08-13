@@ -179,6 +179,76 @@ jobs:
       - name: Run footgun checker
         run: python scripts/check-windows-footguns.py --all
 
+  secrets:
+    # Tree-wide secret scanning. Until the second-brain deploy directory
+    # landed, no deployment configuration lived in this repository and there
+    # was nothing here to scan for; there is now, and the repository is
+    # public. This is not a hypothetical class of mistake for us — the LiteLLM
+    # admin key has already shipped inside a released installer once.
+    #
+    # Deliberately the WHOLE tree, not just deploy/. A secret committed to
+    # docs/ or a stray .env.local is exactly as published as one committed to
+    # a compose file.
+    #
+    # gitleaks' own rules do the detecting; .gitleaks.toml at the repo root
+    # holds the allowlist, each entry with the reason it is excluded.
+    name: Secret scanning (blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install gitleaks (prebuilt binary)
+        # The binary rather than gitleaks-action: from v2 that action requires
+        # a licence key for organisation-owned repositories, and a required
+        # check that stops working the day this repository moves under an org
+        # is a check nobody can rely on. Version and checksum pinned, the same
+        # way tests.yml installs ripgrep.
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION=8.30.1
+          GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          TARBALL=gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+          curl -sSfL --retry 3 --retry-delay 5 -o "$TARBALL" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${TARBALL}"
+          echo "${GITLEAKS_SHA256}  ${TARBALL}" | sha256sum -c -
+          tar -xzf "$TARBALL" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          rm -f "$TARBALL"
+          gitleaks version
+
+      - name: Prove the scanner is awake
+        # A scanner that has silently stopped looking passes every run. Plant
+        # a secret, require it to be caught, then take it away — so a green
+        # job means "nothing found", not "nothing looked for".
+        run: |
+          set -euo pipefail
+          scripts/check-secret-scanning.sh
+
+      - name: Scan the tree
+        # The working tree of this checkout, which is everything the
+        # repository publishes. Rules and allowlist live in .gitleaks.toml;
+        # the scope decision (tree, not history) is argued there.
+        run: gitleaks dir --no-banner --redact --exit-code 1 .
+
+  compose-validate:
+    # The deploy directory is only useful if it actually parses. Runs with
+    # .env.example so the required-variable guards (${VAR:?...}) are satisfied
+    # by placeholders rather than by a real .env that CI must never have.
+    name: Validate deploy compose files (blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: docker compose config
+        # Exactly what `make -C deploy/second-brain config` runs, so a
+        # developer can reproduce a failure without reading this file.
+        working-directory: deploy/second-brain
+        run: docker compose --env-file .env.example config --quiet
+
   branding:
     # The rebrand regression gate. AgentX Workmate is a fork of an
     # MIT-licensed upstream, and a rename is a one-off sweep that quietly

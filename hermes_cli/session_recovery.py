@@ -56,6 +56,14 @@ _GENERATED_META_KEYS = frozenset({
     "fts_cjk_rebuild_high_water",
     "fts_cjk_rebuild_progress",
     "telegram_dm_topic_schema_version",
+    # Describes the destination's own triggers, not the source's rows.
+    "sync_trigger_fingerprint",
+    # The messages.uuid backfill is bounded by ids in the database it ran
+    # against. Carrying the source's position across would let a partially
+    # backfilled source hand the destination a "finished" marker over rows
+    # that arrived here without an identity.
+    "sync_uuid_backfill_high_water",
+    "sync_uuid_backfill_progress",
 })
 
 _SIDECAR_SUFFIXES = ("", "-wal", "-shm", "-journal")
@@ -1236,6 +1244,14 @@ def _finalize_derived_metadata(destination: sqlite3.Connection) -> dict[str, Any
 
     fts_keys = tuple(key for key in _GENERATED_META_KEYS if key.startswith("fts_"))
     placeholders = ", ".join("?" for _ in fts_keys)
+    # Explicit, not prefix-matched: ``sync_trigger_fingerprint`` is also a
+    # sync_* key, but the destination wrote its own when it was created and
+    # clearing it would only churn the triggers on the next open.
+    backfill_keys = (
+        "sync_uuid_backfill_high_water",
+        "sync_uuid_backfill_progress",
+    )
+    backfill_placeholders = ", ".join("?" for _ in backfill_keys)
     destination.execute("BEGIN IMMEDIATE")
     try:
         destination.execute(
@@ -1246,6 +1262,18 @@ def _finalize_derived_metadata(destination: sqlite3.Connection) -> dict[str, Any
             "INSERT INTO state_meta(key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             ("fts_storage_version", str(FTS_STORAGE_VERSION)),
+        )
+        # The row copy above ran through the destination's own INSERT
+        # triggers, so ``sync_outbox`` now holds one change record per
+        # recovered row — a whole database described as a change, which is
+        # not what a change log means. Drop it and re-derive the sync
+        # bookkeeping from the destination: the next open re-seeds the uuid
+        # backfill against the ids that actually landed here, covering any
+        # row copied from a source whose own backfill was still in flight.
+        destination.execute("DELETE FROM sync_outbox")
+        destination.execute(
+            f"DELETE FROM state_meta WHERE key IN ({backfill_placeholders})",
+            backfill_keys,
         )
         destination.execute("COMMIT")
     except BaseException:

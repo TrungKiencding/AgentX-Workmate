@@ -16,7 +16,9 @@ import {
   signOutKeycloak
 } from '@/store/account'
 
+import { DeviceList } from './device-list'
 import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
+import { SyncStatus } from './sync-status'
 
 /**
  * One line describing the account's model key.
@@ -26,7 +28,7 @@ import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from
  * act on — those get product language. The remaining states fall through to
  * `detail`, which is operator-facing prose naming the setting that is wrong.
  */
-function describeKey(
+export function describeKey(
   litellm: NonNullable<AccountIsolationState['litellm']>,
   copy: ReturnType<typeof useI18n>['t']['settings']['account']
 ): string {
@@ -38,7 +40,13 @@ function describeKey(
     disabled: copy.keyDisabled,
     missing: copy.keyNone,
     offline: copy.keyOffline,
-    unconfigured: copy.keyDisabled
+    // Not the same sentence as `disabled`, which they used to share. An
+    // install with no model service configured is one somebody has to finish
+    // setting up, and telling the user it "does not issue keys" reads as
+    // settled policy rather than as a thing to chase.
+    unconfigured: copy.keyUnconfigured,
+    // The one status the user has to act on rather than wait out.
+    revoked: copy.keyRevoked
   }
 
   return byStatus[litellm.status] || litellm.detail
@@ -187,6 +195,16 @@ export function AccountSettings() {
           />
         ) : null}
       </div>
+
+      {/* Below the model-key row, because "which machines hold this key" only
+          makes sense once you have been told there is a key. Renders nothing
+          when no second-brain service is configured. */}
+      {account.signedIn ? <DeviceList /> : null}
+
+      {/* And below the devices, because "is my history in step" is a question
+          about those machines. Renders nothing when synchronisation is not
+          configured on this install. */}
+      {account.signedIn ? <SyncStatus /> : null}
 
       <ConfirmDialog
         confirmLabel={copy.signOut}

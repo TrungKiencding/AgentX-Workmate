@@ -13,13 +13,15 @@ verbatim from hermes_cli/config.py. Must not import from hermes_cli.config.
 # a new machine comes up ungated and model-less, which looks exactly like a
 # working install and is not one.
 #
-# Every value here is public by construction. The Keycloak client is a
-# PUBLIC client (a desktop binary on someone's laptop cannot keep a secret)
+# Every value here is public by construction, and these days that is the
+# whole set — nothing secret reaches a laptop at all. The Keycloak client is
+# a PUBLIC client (a desktop binary on someone's laptop cannot keep a secret)
 # and its id, realm and base URL are all visible in the address bar during
-# sign-in. The one real secret in this system, the LiteLLM admin key, is
-# deliberately NOT here: it is injected into the packaged desktop app at
-# build time by ``apps/desktop/scripts/write-deployment-config.mjs`` and
-# must never be committed, because this repository is public.
+# sign-in. The one real secret in this system, the LiteLLM admin key, lives
+# on the second-brain service, which issues each person their model key over
+# the Keycloak bearer they already hold. It used to be injected into the
+# packaged desktop app at build time, which put it inside every installer;
+# that mechanism is gone and must not come back.
 #
 # A fork, a self-hosted deployment, or a developer working against a realm
 # they cannot reach overrides any of it per machine:
@@ -39,6 +41,23 @@ DEPLOYMENT_LITELLM_BASE_URL = "https://vtn-4000.wondertek.space"
 
 #: Model pinned as an account's default the first time its key is minted.
 DEPLOYMENT_LITELLM_DEFAULT_MODEL = "Qwen/Qwen3.5-35B-A3B-FP8"
+
+#: The second-brain service: one model key per person, the devices they hold
+#: it on, and (later) the change feed their history syncs through. Public — it
+#: is a URL, and every route behind it verifies a Keycloak bearer.
+#:
+#: SET THIS BEFORE CUTTING A RELEASE. Since the key vault shipped, this URL is
+#: where a laptop gets its model key: ``accounts.litellm.mode`` defaults to
+#: "second_brain", and an install with no URL here provisions nothing and says
+#: so in Settings, naming the setting. Machines that already hold a key keep
+#: working with it — the reuse path never asks the service — but a fresh
+#: install has no model until this is filled in.
+#:
+#: It is deliberately not a fallback to local minting. Falling back is how the
+#: LiteLLM admin key came to travel inside every installer.
+#:
+#: See deploy/second-brain/README.md for standing one up.
+DEPLOYMENT_SECOND_BRAIN_URL = "https://brain.dev-server.cloud"
 
 DEFAULT_CONFIG = {
     "model": "",
@@ -1531,20 +1550,28 @@ DEFAULT_CONFIG = {
             # https://litellm.example.com — no trailing /v1, that is appended
             # where the OpenAI-compatible base URL is needed.
             "base_url": DEPLOYMENT_LITELLM_BASE_URL,
-            # "broker" asks a central service to mint the key, so the LiteLLM
-            # admin key never lands on an employee's laptop. "direct" lets
-            # this machine call LiteLLM's admin API itself using
-            # AGENTX_LITELLM_ADMIN_KEY from .env.
+            # Where this machine's key comes from.
             #
-            # AgentX ships "direct": there is no broker deployed yet, and a
-            # laptop that cannot mint has no model at all. Understand what
-            # that costs — the admin key travels inside the installer, so
-            # anyone who unpacks the app can read it, mint themselves
-            # unlimited budget, or delete a colleague's key. Stand the broker
-            # up (``agentx litellm-broker serve``), point ``broker_url`` at
-            # it, flip this to "broker", and rotate the admin key; that is
-            # the migration, and nothing on the laptop side changes.
-            "mode": "direct",
+            # "second_brain" (shipped) asks the central account service, which
+            # mints ONCE PER PERSON and hands the same key back to every
+            # machine they sign in on. It needs accounts.second_brain.base_url
+            # below, and nothing secret on the laptop.
+            #
+            # "broker" (deprecated) asks the older service, which keeps the
+            # admin key off laptops but still mints per machine — so two of
+            # somebody's laptops still fight over one alias.
+            #
+            # "direct" (deprecated, removed 2027-02-13) lets this machine call
+            # LiteLLM's admin API itself using AGENTX_LITELLM_ADMIN_KEY from
+            # .env. That key mints and revokes for the whole estate and anyone
+            # with the machine can read it; it is no longer shipped inside the
+            # installer, so this mode now needs an admin to place it by hand.
+            #
+            # An install with no accounts.second_brain.base_url provisions
+            # nothing and says so, naming the setting. It does not fall back
+            # to minting locally: falling back is how the admin key ended up
+            # on laptops in the first place.
+            "mode": "second_brain",
             # Broker endpoint. Receives the user's Keycloak bearer and answers
             # with that user's key. Required when mode is "broker".
             "broker_url": "",
@@ -1571,6 +1598,45 @@ DEFAULT_CONFIG = {
             # picker is populated without the user typing ids.
             "discover_models": True,
             "request_timeout_seconds": 20,
+        },
+        # The central account service. Today it answers one question: which
+        # machines is this person signed in on, and can I revoke one? Later it
+        # holds their model key and their conversation history.
+        #
+        # Machine-wide policy like the LiteLLM block above, read from the
+        # INSTALL root's config rather than from an account home — an account
+        # home is created at sign-in with no config.yaml, so a per-account
+        # setting would come back empty and nothing would ever be configured.
+        "second_brain": {
+            # Where it is. Empty means "not deployed here": Settings says so
+            # and nothing else changes. There is no separate `enabled` flag,
+            # because a URL is the only thing that decides whether there is a
+            # service to talk to.
+            "base_url": DEPLOYMENT_SECOND_BRAIN_URL,
+            "request_timeout_seconds": 15,
+            # Conversation history converging across this person's machines.
+            #
+            # There is no separate URL: synchronisation talks to the service
+            # named above, and an install with no `base_url` never starts it.
+            "sync": {
+                # Off switch for the field. Left absent it is ON, so an
+                # install that already has a service configured starts
+                # synchronising on update without anybody editing this file.
+                # Set it to false on a machine that must not send its history
+                # anywhere — the app stays fully usable, it simply stops
+                # converging.
+                "enabled": True,
+                # Seconds between ticks. Thirty is well inside the window in
+                # which "did my other laptop get this?" still feels live, and
+                # an idle tick is one request that returns an empty page.
+                "interval_seconds": 30,
+                # Hold a socket open so a change made on another machine
+                # arrives at once instead of on the next tick. Purely an
+                # optimisation in front of the polling above — turn it off on
+                # a network whose proxy will not pass a WebSocket upgrade and
+                # everything still converges, just on the interval.
+                "realtime": True,
+            },
         },
     },
 

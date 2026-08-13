@@ -105,6 +105,73 @@ function expectedNativeDepPaths() {
   }
 }
 
+// Anything shaped like a LiteLLM virtual key. The prefix alone is too common
+// to assert on (it appears in prose and in variable names); a prefix followed
+// by a long opaque run is not.
+const LITELLM_KEY_SHAPE = /sk-[A-Za-z0-9_-]{24,}/
+
+// Skip files large enough that scanning them costs real time and that could
+// not plausibly be hiding a hand-placed credential.
+const SCAN_SIZE_LIMIT_BYTES = 96 * 1024 * 1024
+
+/**
+ * Fail if anything under resources/ looks like it carries the LiteLLM admin
+ * key.
+ *
+ * The plan's acceptance check, done the only way that is worth anything:
+ * against the built artifact. A source-level assertion would pass on a build
+ * whose deployment step put the key back.
+ */
+function assertNoAdminKeyInPackage() {
+  const offenders = []
+
+  const walk = directory => {
+    let entries = []
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const target = path.join(directory, entry.name)
+
+      if (entry.isDirectory()) {
+        walk(target)
+        continue
+      }
+      if (!entry.isFile()) continue
+
+      let text
+      try {
+        if (fs.statSync(target).size > SCAN_SIZE_LIMIT_BYTES) continue
+        // latin1 so the asar archive's embedded strings are searchable as
+        // bytes rather than being mangled by UTF-8 decoding.
+        text = fs.readFileSync(target, 'latin1')
+      } catch {
+        continue
+      }
+
+      const match = text.match(LITELLM_KEY_SHAPE)
+      if (match) {
+        offenders.push(`${target} (matched ${match[0].slice(0, 8)}…)`)
+      }
+    }
+  }
+
+  walk(APP.resourcesPath)
+
+  if (offenders.length) {
+    die(
+      'This package carries something shaped like a LiteLLM key:\n  ' +
+        offenders.join('\n  ') +
+        '\n\nNothing secret ships with the app. The admin key lives on the ' +
+        'second-brain service, which issues each person one key over their ' +
+        'Keycloak bearer.'
+    )
+  }
+}
+
 function ensurePlatformBuilds() {
   if (PLATFORM === 'darwin') return
   if (PLATFORM === 'win32') return
@@ -323,31 +390,26 @@ function validateBundle() {
     die(`install-stamp.json is missing the branch field: ${JSON.stringify(stamp)}`)
   }
 
-  // Positive assertion: deployment.json ships with a LiteLLM admin key.
+  // Negative assertion: no LiteLLM admin key ships inside the package.
   //
-  // This is the assertion that catches the failure this whole mechanism
-  // exists to prevent: a release built on a machine that had no key, which
-  // installs cleanly, signs in cleanly, and then has no model. There is
-  // nothing about the running app that would tell you — so check the artifact.
+  // This used to be the opposite assertion. Every release carried the admin
+  // credential in resources/deployment.json so that `mode: direct` laptops
+  // could mint their own keys — which meant anyone who unpacked the .app or
+  // .exe could read a key that mints and revokes for the whole estate. The
+  // second-brain service holds it now.
+  //
+  // Checked against the artifact rather than the source, because the failure
+  // this catches is a build script or a stray file putting it back, and
+  // nothing about the running app would tell you.
   const deploymentPath = path.join(APP.resourcesPath, 'deployment.json')
-  if (!exists(deploymentPath)) {
-    die(`Missing deployment.json (required for per-user model provisioning): ${deploymentPath}`)
-  }
-  let deployment
-  try {
-    deployment = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'))
-  } catch (err) {
-    die(`deployment.json is not valid JSON: ${err.message}`)
-  }
-  if (deployment.schemaVersion !== 1) {
-    die(`deployment.json schemaVersion ${deployment.schemaVersion} is not the expected 1`)
-  }
-  if (!deployment.litellmAdminKey || typeof deployment.litellmAdminKey !== 'string') {
+  if (exists(deploymentPath)) {
     die(
-      'deployment.json carries no LiteLLM admin key: this build would install without model access. ' +
-        'Set AGENTX_LITELLM_ADMIN_KEY (or configure it in the build machine .env) and rebuild.'
+      `deployment.json is back in the package: ${deploymentPath}\n` +
+        'It existed to carry the LiteLLM admin key into installers. Nothing secret ' +
+        'ships with the app any more — the second-brain service issues model keys.'
     )
   }
+  assertNoAdminKeyInPackage()
 
   // Positive assertion: node-pty native deps shipped
   const native = expectedNativeDepPaths()

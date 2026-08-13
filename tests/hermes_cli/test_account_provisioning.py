@@ -45,6 +45,7 @@ from hermes_cli.litellm_admin import (
 
 PROXY_URL = "https://litellm.test"
 BROKER_URL = "https://broker.test/api/litellm/account-key"
+BRAIN_URL = "https://brain.test"
 
 IDENTITY = AccountIdentity(
     subject="8f1c0b2e-keycloak-sub",
@@ -101,6 +102,10 @@ class FakeLiteLLM:
 
     def holds_token(self, token: str) -> bool:
         return token in self.records
+
+    def key_is_live_for_tests(self, key: str) -> bool:
+        """Whether the proxy would still accept this plaintext."""
+        return any(record["key"] == key for record in self.records.values())
 
     def revoke_everything(self) -> None:
         self.records.clear()
@@ -235,6 +240,18 @@ def broker_settings(**overrides) -> LiteLLMAccountSettings:
         "enabled": True,
         "mode": "broker",
         "broker_url": BROKER_URL,
+        "base_url": PROXY_URL,
+        "discover_models": False,
+    }
+    base.update(overrides)
+    return LiteLLMAccountSettings(**base)
+
+
+def brain_settings(**overrides) -> LiteLLMAccountSettings:
+    base = {
+        "enabled": True,
+        "mode": "second_brain",
+        "second_brain_url": BRAIN_URL,
         "base_url": PROXY_URL,
         "discover_models": False,
     }
@@ -551,10 +568,22 @@ class TestDirectProvisioning:
             settings.alias_for(account.slug)
         )
 
-    def test_an_orphaned_upstream_key_is_replaced_not_duplicated(self, account, fake_proxy):
+    def test_a_key_this_machine_did_not_mint_is_left_alone(self, account, fake_proxy):
+        """The alias is shared by every machine one person signs in on.
+
+        So a key wearing it that this machine has no record of minting is, as
+        far as this machine can tell, the key their other laptop is using
+        right now. Deleting it is the defect the second brain exists to fix,
+        and it used to live on exactly this path: provisioning retired
+        everything under the alias before minting, which is why signing in on
+        a second machine revoked the first one's key.
+
+        The cost of the fix is an orphan in the proxy that an operator can see
+        and remove. The cost of the bug was somebody's other laptop.
+        """
         settings = direct_settings()
         alias = settings.alias_for(account.slug)
-        orphan = fake_proxy.mint(alias, user_id=account.identity.subject)
+        theirs = fake_proxy.mint(alias, user_id=account.identity.subject)
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings,
@@ -562,11 +591,23 @@ class TestDirectProvisioning:
         )
 
         assert result.status == "provisioned"
-        assert len(fake_proxy.records_for_alias(alias)) == 1
-        assert fake_proxy.holds_token(orphan["token"]) is False
-        assert env_value(provider_key_env(settings.provider_name)) == (
-            fake_proxy.sole_key_for_alias(alias)
+        assert fake_proxy.holds_token(theirs["token"]) is True
+        assert len(fake_proxy.records_for_alias(alias)) == 2
+
+        # And this machine holds the one it just minted, not the other one.
+        held = env_value(provider_key_env(settings.provider_name))
+        assert held != theirs["key"]
+        assert fake_proxy.holds_token(read_state(account.home)["token"])
+
+    def test_the_alias_is_never_looked_up(self, account, fake_proxy):
+        # Looking a key up by alias is the first half of delete-by-alias, and
+        # nothing on this path has any other use for the answer.
+        ensure_account_key(
+            account.identity, account.slug, settings=direct_settings(),
+            home=account.home, client=make_client(fake_proxy),
         )
+
+        assert fake_proxy.paths_hit("/key/list") == 0
 
     def test_the_minted_key_is_scoped_to_the_signed_in_subject(self, account, fake_proxy):
         settings = direct_settings()
@@ -630,14 +671,27 @@ class TestDegradation:
         assert read_state(account.home) == {}
 
     @pytest.mark.parametrize(
-        "settings",
+        "settings,names",
         [
-            pytest.param(broker_settings(broker_url=""), id="broker-without-broker-url"),
-            pytest.param(direct_settings(base_url=""), id="direct-without-base-url"),
+            pytest.param(
+                brain_settings(second_brain_url=""),
+                "accounts.second_brain.base_url",
+                id="second-brain-without-a-service-url",
+            ),
+            pytest.param(
+                broker_settings(broker_url=""),
+                "accounts.litellm.broker_url",
+                id="broker-without-broker-url",
+            ),
+            pytest.param(
+                direct_settings(base_url=""),
+                "accounts.litellm.base_url",
+                id="direct-without-base-url",
+            ),
         ],
     )
     def test_enabled_but_incomplete_config_is_unconfigured(
-        self, account, fake_proxy, settings
+        self, account, fake_proxy, settings, names
     ):
         result = ensure_account_key(
             account.identity, account.slug, settings=settings,
@@ -646,8 +700,29 @@ class TestDegradation:
 
         assert result.status == "unconfigured"
         assert result.ok is False
+        # Naming the setting is the whole value of this status: a shipped
+        # install with no service configured has no model, and the person
+        # reading Settings needs to be able to tell an admin what to set.
+        assert names in result.detail
         assert fake_proxy.requests == []
         assert env_value(provider_key_env(settings.provider_name)) == ""
+
+    def test_an_unconfigured_second_brain_never_falls_back_to_minting_locally(
+        self, account, fake_proxy, monkeypatch
+    ):
+        # Falling back is how the admin key came to travel inside every
+        # installer. An install with no service configured provisions nothing
+        # and says so.
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(second_brain_url=""),
+            home=account.home, bearer="tok",
+        )
+
+        assert result.status == "unconfigured"
+        assert fake_proxy.requests == []
 
     def test_direct_mode_without_an_admin_key_names_the_env_var(self, account, monkeypatch):
         monkeypatch.delenv(ADMIN_KEY_ENV_VAR, raising=False)
@@ -695,6 +770,392 @@ class TestDegradation:
         assert result.status == "error"
         assert "401" in result.detail
         assert env_value(provider_key_env(settings.provider_name)) == ""
+
+
+# ===========================================================================
+# second_brain mode — the fix for the bug this project exists for
+# ===========================================================================
+
+
+class FakeSecondBrain:
+    """A second brain that holds one key per person, like the real one.
+
+    Faithful on the single point every assertion below rests on: the FIRST
+    call for a person mints, and every call after it — from any machine —
+    returns that same plaintext. That is the behaviour the service's own
+    tests pin from the inside; this pins the laptop's half of it.
+    """
+
+    def __init__(self, proxy: FakeLiteLLM, base_url: str = PROXY_URL) -> None:
+        self.proxy = proxy
+        self.base_url = base_url
+        self.keys: dict[str, dict] = {}
+        self.requests: list[httpx.Request] = []
+        self.unreachable = False
+        self.revoked_devices: set[str] = set()
+        self.status_code = 0
+
+    @property
+    def transport(self) -> httpx.MockTransport:
+        return httpx.MockTransport(self._handle)
+
+    def rotate_from_another_device(self, subject: str) -> dict:
+        """What one of this person's OTHER machines rotating looks like here.
+
+        Mints a replacement and retires exactly the stored token, which is
+        what the service does — so the key this machine holds stops being
+        accepted by the proxy, without anything having deleted by alias.
+        """
+        held = self.keys[subject]
+        record = self.proxy.mint(
+            LiteLLMAccountSettings().alias_for(subject), user_id=subject
+        )
+        self.proxy.records.pop(held["token"], None)
+        self.keys[subject] = {
+            **held,
+            "key": record["key"],
+            "token": record["token"],
+        }
+        return self.keys[subject]
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+
+        if self.unreachable:
+            raise httpx.ConnectError("connection refused", request=request)
+        if self.status_code:
+            return httpx.Response(
+                self.status_code, json={"error": "litellm_unavailable", "detail": "no"}
+            )
+
+        device = request.headers.get("X-AgentX-Device") or ""
+        if not device:
+            return httpx.Response(
+                400, json={"error": "device_header_missing", "detail": "no device"}
+            )
+        if device in self.revoked_devices:
+            return httpx.Response(
+                403, json={"error": "device_revoked", "detail": "this device is out"}
+            )
+
+        bearer = (request.headers.get("Authorization") or "").removeprefix("Bearer ").strip()
+        if not bearer:
+            return httpx.Response(401, json={"error": "missing_bearer", "detail": "no"})
+
+        # The token decides the person, exactly as the service does it.
+        subject = bearer
+        body = json.loads(request.content or b"{}")
+        held = self.keys.get(subject)
+
+        if held is not None and not body.get("rotate"):
+            return httpx.Response(200, json={**held, "status": "reused"})
+
+        alias = LiteLLMAccountSettings().alias_for(subject)
+        record = self.proxy.mint(alias, user_id=subject)
+        if held is not None:
+            # Exactly the previously stored token, and never by alias.
+            self.proxy.records.pop(held["token"], None)
+
+        issued = {
+            "key": record["key"],
+            "token": record["token"],
+            "key_alias": alias,
+            "base_url": self.base_url,
+            "models": [],
+        }
+        self.keys[subject] = issued
+        return httpx.Response(
+            200, json={**issued, "status": "rotated" if held is not None else "issued"}
+        )
+
+
+@pytest.fixture()
+def brain(fake_proxy) -> FakeSecondBrain:
+    return FakeSecondBrain(fake_proxy)
+
+
+class TestSecondBrainMode:
+    def test_it_asks_the_service_and_never_the_admin_api(
+        self, account, fake_proxy, brain, monkeypatch
+    ):
+        # An admin key present on the machine must make no difference: this
+        # mode never touches the admin API, which is what lets the installer
+        # stop shipping one.
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+        settings = brain_settings()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        assert result.status == "provisioned"
+        assert result.ok is True
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert brain.requests[0].headers["Authorization"] == "Bearer tok"
+        assert brain.requests[0].headers["X-AgentX-Device"] == "dev-a"
+
+        # The only proxy traffic is the service's own mint, made through the
+        # fake brain — nothing from this machine's admin client.
+        assert fake_proxy.paths_hit("/key/list") == 0
+        assert fake_proxy.paths_hit("/key/delete") == 0
+
+    def test_the_key_lands_where_everything_downstream_expects_it(
+        self, account, brain
+    ):
+        settings = brain_settings()
+        key_env = provider_key_env(settings.provider_name)
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        # Nothing downstream of provisioning changes: same .env credential,
+        # same providers: entry, same state sidecar.
+        assert env_value(key_env) == brain.keys["tok"]["key"]
+        entry = raw_config(account.home)["providers"][settings.provider_name]
+        assert entry["key_env"] == key_env
+        assert entry["base_url"] == openai_base_url(PROXY_URL)
+        assert read_state(account.home)["mode"] == "second_brain"
+        assert read_state(account.home)["token"] == brain.keys["tok"]["token"]
+        assert result.masked_key == mask_key(env_value(key_env))
+
+    def test_two_machines_signing_in_end_up_with_the_same_key(
+        self, tmp_path, monkeypatch, fake_proxy, brain
+    ):
+        """The acceptance test for the whole project, on the laptop side.
+
+        One person, two installs, in sequence — which is exactly the sequence
+        that used to leave the first machine with a revoked key. Both homes
+        must hold the same plaintext afterwards, and the proxy must hold
+        exactly one key.
+        """
+        from hermes_cli.config import load_env
+
+        settings = brain_settings()
+        key_env = provider_key_env(settings.provider_name)
+        held: list[str] = []
+
+        for machine in ("machine-one", "machine-two"):
+            root = tmp_path / machine / ".agentx"
+            root.mkdir(parents=True)
+            monkeypatch.setenv("AGENTX_HOME", str(root))
+            slug = account_slug_for_identity(
+                IDENTITY.subject, username=IDENTITY.username, email=IDENTITY.email
+            )
+            home = ensure_account_home(slug, IDENTITY)
+            monkeypatch.setenv("AGENTX_HOME", str(home))
+
+            result = ensure_account_key(
+                IDENTITY, slug, settings=settings, home=home,
+                bearer="tok", device_id=machine, brain_transport=brain.transport,
+            )
+
+            assert result.ok is True
+            held.append(load_env().get(key_env, ""))
+
+        # The second sign-in neither minted nor revoked anything.
+        assert held[0] == held[1]
+        assert held[0].startswith("sk-")
+        assert len(fake_proxy.records) == 1
+
+    def test_the_second_machine_is_told_it_reused_rather_than_rotated(
+        self, account, brain
+    ):
+        settings = brain_settings()
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        second = ensure_account_key(
+            account.identity, "other-home-same-person", settings=settings,
+            home=account.home, bearer="tok", device_id="dev-b",
+            brain_transport=brain.transport,
+        )
+
+        # Telling somebody their key was replaced when the service simply
+        # handed back the one they already had describes the fix as the bug.
+        assert second.status == "reused"
+        assert second.ok is True
+
+    def test_force_rotate_asks_the_service_to_rotate(self, account, brain, fake_proxy):
+        settings = brain_settings()
+        first = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        old_token = read_state(account.home)["token"]
+
+        rotated = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            force_rotate=True,
+        )
+
+        assert rotated.status == "rotated"
+        assert rotated.masked_key != first.masked_key
+        assert json.loads(brain.requests[-1].content)["rotate"] is True
+        assert fake_proxy.holds_token(old_token) is False
+
+    def test_a_key_the_proxy_stopped_accepting_is_collected_not_rotated(
+        self, account, brain, fake_proxy
+    ):
+        """Another machine rotated. This one collects; it does not rotate back.
+
+        Rotating here would take the other machine's brand-new key in turn,
+        which is the ping-pong the whole project exists to end. This is the
+        self-healing property: the other device is not broken by a rotation,
+        it is one call behind it.
+        """
+        settings = brain_settings()
+        key_env = provider_key_env(settings.provider_name)
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=make_client(fake_proxy),
+        )
+        stale = env_value(key_env)
+
+        replacement = brain.rotate_from_another_device("tok")
+        assert fake_proxy.key_is_live_for_tests(stale) is False
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=make_client(fake_proxy),
+        )
+
+        assert result.status == "reused"
+        assert json.loads(brain.requests[-1].content)["rotate"] is False
+        assert env_value(key_env) == replacement["key"]
+        assert env_value(key_env) != stale
+
+    def test_an_unreachable_service_keeps_the_key_this_machine_holds(
+        self, account, brain
+    ):
+        settings = brain_settings()
+        key_env = provider_key_env(settings.provider_name)
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        held = env_value(key_env)
+
+        brain.unreachable = True
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            force_rotate=True,
+        )
+
+        # Unreachable is never a revocation. A person who opens their laptop
+        # on a train still has their agent.
+        assert result.status == "offline"
+        assert result.ok is False
+        assert env_value(key_env) == held
+
+    @pytest.mark.parametrize("status_code", [502, 503])
+    def test_a_service_that_cannot_reach_litellm_reads_as_offline(
+        self, account, brain, status_code
+    ):
+        brain.status_code = status_code
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        # Nothing was minted and nothing was lost. From this machine that is
+        # indistinguishable from an outage, and must be treated as one.
+        assert result.status == "offline"
+        assert env_value(provider_key_env("litellm")) == ""
+
+    def test_a_revoked_device_is_told_to_sign_in_again(self, account, brain):
+        settings = brain_settings()
+        key_env = provider_key_env(settings.provider_name)
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        held = env_value(key_env)
+
+        brain.revoked_devices.add("dev-a")
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            force_rotate=True,
+        )
+
+        # Not "offline" and not "error": the one failure the app must act on
+        # by re-authenticating rather than by waiting.
+        assert result.status == "revoked"
+        assert result.ok is False
+        assert "sign in again" in result.detail.lower()
+        # The key on disk is not the problem, and is left alone.
+        assert env_value(key_env) == held
+
+    def test_an_empty_bearer_never_reads_as_success(self, account, brain):
+        result = ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        assert result.status == "error"
+        assert brain.requests == []
+        assert env_value(provider_key_env("litellm")) == ""
+
+    def test_a_service_that_returns_no_key_is_an_error(self, account):
+        transport, _seen = broker_transport(
+            lambda _r: httpx.Response(200, json={"status": "issued"})
+        )
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=transport,
+        )
+
+        assert result.status == "error"
+        assert env_value(provider_key_env("litellm")) == ""
+
+    def test_a_backend_with_no_device_header_names_itself(
+        self, account, brain, tmp_path, monkeypatch
+    ):
+        """A CLI sign-in has no desktop above it and so no device header.
+
+        The service refuses a request that will not name its machine, so the
+        backend keeps an id of its own at the install root — one per install,
+        shared by every account on it, exactly like the desktop's.
+        """
+        from hermes_cli.second_brain_client import DEVICE_FILENAME
+
+        root = tmp_path / ".agentx"
+        monkeypatch.setattr(
+            "hermes_constants.get_default_hermes_root", lambda: root
+        )
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="tok", brain_transport=brain.transport,
+        )
+
+        assert result.ok is True
+        sent = brain.requests[0].headers["X-AgentX-Device"]
+        assert sent
+        assert json.loads((root / DEVICE_FILENAME).read_text())["id"] == sent
+
+        # And it is stable: a second sign-in is the same machine, not a
+        # second row in somebody's device list.
+        ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="tok", brain_transport=brain.transport,
+            force_rotate=True,
+        )
+        assert brain.requests[-1].headers["X-AgentX-Device"] == sent
 
 
 # ===========================================================================
@@ -919,10 +1380,17 @@ class TestLoadSettings:
 
     def test_a_bad_mode_falls_back_to_the_safe_one(self):
         settings = load_settings({"accounts": {"litellm": {"mode": "yolo"}}})
-        assert settings.mode == "broker"
+
+        # The safe one is the mode that needs no credential on the machine and
+        # cannot delete a key another of this person's devices is using.
+        assert settings.mode == "second_brain"
 
     def test_mode_is_case_insensitive(self):
         assert load_settings({"accounts": {"litellm": {"mode": "Direct"}}}).mode == "direct"
+        assert (
+            load_settings({"accounts": {"litellm": {"mode": "Second_Brain"}}}).mode
+            == "second_brain"
+        )
 
     def test_values_are_coerced_and_the_base_url_normalized(self):
         settings = load_settings(

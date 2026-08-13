@@ -330,11 +330,57 @@ export interface Translations {
       keyTitle: string
       keyNone: string
       keyDisabled: string
+      keyUnconfigured: string
       keyOffline: string
+      keyRevoked: string
       keyRotate: string
       keyRotateDesc: string
       keyRotating: string
       keyModels: (n: number) => string
+      devicesTitle: string
+      devicesEmpty: string
+      devicesEmptyDesc: string
+      deviceCurrent: string
+      deviceUnnamed: string
+      deviceRevoked: string
+      deviceRevoke: string
+      deviceRevokeConfirmTitle: string
+      deviceRevokeConfirmDesc: (name: string) => string
+      deviceRotateKey: string
+      deviceRotateKeyDesc: string
+      deviceRevokedWithKey: string
+      deviceRevokedWithoutKey: string
+      deviceRevokeFailed: string
+      deviceRevokeLastError: string
+      deviceRevokedSelf: string
+      deviceOffline: string
+      deviceUnconfigured: string
+      deviceLastSeenNow: string
+      deviceLastSeenUnknown: string
+      deviceLastSeenMinutes: (n: number) => string
+      deviceLastSeenHours: (n: number) => string
+      deviceLastSeenDays: (n: number) => string
+      syncTitle: string
+      syncUpToDate: string
+      syncPending: (n: number) => string
+      syncPendingPill: (n: number) => string
+      syncOffline: string
+      syncError: string
+      syncReauth: string
+      syncSignedOut: string
+      syncDisabled: string
+      syncDisabledDesc: string
+      syncNow: string
+      syncRunning: string
+      syncNowDone: string
+      syncLastPull: string
+      syncLastPullDesc: (when: string) => string
+      syncLastError: string
+      syncNever: string
+      syncJustNow: string
+      syncMinutesAgo: (n: number) => string
+      syncHoursAgo: (n: number) => string
+      syncDaysAgo: (n: number) => string
     }
     plugins: {
       title: string

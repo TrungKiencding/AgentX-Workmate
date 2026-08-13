@@ -1,0 +1,90 @@
+# Secret scanning configuration. Enforced by the `secrets` job in
+# .github/workflows/lint.yml, which is blocking.
+#
+# Scope: the working tree of a fresh checkout — i.e. everything the repository
+# actually publishes. Not the full history, deliberately: once a secret is in
+# history a history scan fails forever until somebody rewrites it, which turns
+# a required check into a permanently red light people learn to ignore. A
+# secret that reached history is a rotation emergency, not a lint failure.
+#
+# Every allowlist entry below is a class of file, with the reason it is
+# excluded. Adding a path here is a decision to stop looking at it, so say why.
+
+title = "AgentX Workmate"
+
+[extend]
+useDefault = true
+
+# --- Fixtures, documentation, and vendored third-party text ------------------
+#
+# These carry example credentials by design: a test that asserts redaction
+# needs something to redact, and a page documenting `curl -H "Authorization:
+# Bearer …"` needs a token in it. Excluding them wholesale is a real trade —
+# a genuine secret committed under tests/ would not be caught — taken because
+# the alternative is several hundred per-finding exceptions and a gate too
+# noisy to keep green, which catches nothing at all.
+[[allowlists]]
+description = "Test fixtures, docs, and vendored upstream text"
+paths = [
+    '''^tests/''',
+    '''(^|/)[^/]+\.test\.(ts|tsx|js|jsx|mjs)$''',
+    '''^tests-js/''',
+    '''^website/''',
+    '''^docs/''',
+    '''^skills/''',
+    '''^optional-skills/''',
+    '''^contributors/''',
+    '''^mcp-research-data/''',
+    '''^datagen-config-examples/''',
+    '''(^|/)vendor/''',
+    # Redaction code has to contain the shapes it redacts.
+    '''^agent/redact\.py$''',
+]
+
+# --- Not source ---------------------------------------------------------------
+#
+# Dependencies, lockfiles, build outputs and caches. None of these is committed
+# (a CI checkout has none of them), so this only keeps a LOCAL run from
+# spending its time — and its credibility — on files nobody publishes.
+[[allowlists]]
+description = "Dependencies, lockfiles, and build output"
+paths = [
+    '''(^|/)node_modules/''',
+    '''^\.venv/''',
+    '''^venv/''',
+    '''^\.git/''',
+    '''^\.pytest_cache/''',
+    '''^\.ruff_cache/''',
+    '''^\.codegraph/''',
+    '''^apps/desktop/(build|dist|release)/''',
+    '''^web/(build|dist)/''',
+    '''^uv\.lock$''',
+    '''^package-lock\.json$''',
+    '''^test_durations\.json$''',
+    '''\.(dmg|exe|zip|tar\.gz|blockmap|asar)$''',
+]
+
+# --- Public identifiers -------------------------------------------------------
+#
+# An OAuth client id for a PUBLIC client is not a secret: it is visible in the
+# address bar during sign-in, and a desktop binary on somebody's laptop cannot
+# keep one anyway. Matched on the line so the exception cannot be widened to
+# any random UUID.
+[[allowlists]]
+description = "Public OAuth client ids"
+regexTarget = "line"
+regexes = [
+    '''(?i)oauth_client_id\s*[=:]''',
+]
+
+# --- Placeholders -------------------------------------------------------------
+#
+# Files whose entire purpose is to show the shape of a value without carrying
+# one. A real secret in .env.example is a mistake these patterns will not catch,
+# so keep the list to files that are reviewed as configuration templates.
+[[allowlists]]
+description = "Configuration templates"
+paths = [
+    '''(^|/)\.env\.example$''',
+    '''(^|/)cli-config\.yaml\.example$''',
+]

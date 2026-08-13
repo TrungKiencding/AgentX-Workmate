@@ -404,6 +404,7 @@ class TestWebServerEndpoints:
 
         from hermes_constants import get_hermes_home
         from hermes_state import SessionDB
+        from hermes_state_common import _SYNC_TRIGGERS
 
         db_path = get_hermes_home() / "state.db"
         seed = SessionDB(db_path=db_path)
@@ -414,6 +415,13 @@ class TestWebServerEndpoints:
 
         legacy = sqlite3.connect(str(db_path))
         try:
+            # A store old enough to be missing this column also predates the
+            # v26 sync triggers, so drop them to reach that shape: SQLite
+            # refuses to drop a column any live trigger names, and
+            # sync_sessions_update watches both archived and pinned. The
+            # reopen below recreates them, which is the real upgrade path.
+            for trigger in _SYNC_TRIGGERS:
+                legacy.execute(f"DROP TRIGGER IF EXISTS {trigger}")
             legacy.execute(f"ALTER TABLE sessions DROP COLUMN {missing_column}")
             legacy.commit()
         finally:

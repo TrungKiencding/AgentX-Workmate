@@ -392,6 +392,33 @@ class SessionPortabilityMixin:
         This asymmetry is intentional and covered by regression
         (tests/gateway/test_watchdog_review_76354.py::test_s4_export_includes_activity_import_resets_it).
         """
+        normalized, errors = self._prepare_session_import(sessions)
+        if errors:
+            return {
+                "ok": False,
+                "imported": 0,
+                "skipped": 0,
+                "detached": 0,
+                "errors": errors,
+            }
+        return self._execute_write(
+            lambda conn: self._write_session_import(conn, normalized)
+        )
+
+    def _prepare_session_import(
+        self, sessions: List[Dict[str, Any]]
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Validate and normalize an import payload before any write.
+
+        Split out from :meth:`import_sessions` so a caller that is ALREADY
+        inside a write transaction — ``SessionSyncMixin.apply_remote_documents``
+        — can reuse the one serializer instead of growing a second one that
+        drifts from it. ``_execute_write`` holds a non-reentrant lock, so the
+        two halves have to be callable separately.
+
+        Returns ``(normalized, errors)``; a non-empty ``errors`` means nothing
+        should be written.
+        """
         if not isinstance(sessions, list):
             raise ValueError("sessions must be a list")
         if len(sessions) > self._IMPORT_MAX_SESSIONS:
@@ -537,178 +564,177 @@ class SessionPortabilityMixin:
                 {"index": index, "session": clean_session, "messages": clean_messages}
             )
 
-        if errors:
-            return {
-                "ok": False,
-                "imported": 0,
-                "skipped": 0,
-                "detached": 0,
-                "errors": errors,
-            }
+        return normalized, errors
 
-        def _do(conn):
-            imported_ids: List[str] = []
-            skipped_ids: List[str] = []
-            parent_updates: List[tuple[str, str]] = []
-            detached = 0
+    def _write_session_import(
+        self, conn, normalized: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Write a payload prepared by :meth:`_prepare_session_import`.
 
-            for item in normalized:
-                raw = item["session"]
-                messages = item["messages"]
-                session_id = str(raw.get("id") or "").strip()
-                exists = conn.execute(
-                    "SELECT 1 FROM sessions WHERE id = ? LIMIT 1",
-                    (session_id,),
-                ).fetchone()
-                if exists:
-                    skipped_ids.append(session_id)
+        Runs inside the caller's write transaction (takes the live ``conn``),
+        so both ``import_sessions`` and the sync mixin's apply path land rows
+        through exactly this code.
+        """
+        imported_ids: List[str] = []
+        skipped_ids: List[str] = []
+        parent_updates: List[tuple[str, str]] = []
+        detached = 0
+
+        for item in normalized:
+            raw = item["session"]
+            messages = item["messages"]
+            session_id = str(raw.get("id") or "").strip()
+            exists = conn.execute(
+                "SELECT 1 FROM sessions WHERE id = ? LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if exists:
+                skipped_ids.append(session_id)
+                continue
+
+            started_at = self._float_or_none(raw.get("started_at"))
+            if started_at is None:
+                started_at = time.time()
+            archived = 1 if raw.get("archived") else 0
+            system_prompt_hash = self._store_system_prompt(
+                conn, raw.get("system_prompt")
+            )
+
+            conn.execute(
+                """INSERT INTO sessions (
+                       id, source, user_id, model, model_config, system_prompt,
+                       system_prompt_hash,
+                       parent_session_id, started_at, ended_at, end_reason,
+                       message_count, tool_call_count, input_tokens, output_tokens,
+                       cache_read_tokens, cache_write_tokens, reasoning_tokens,
+                       cwd, git_branch, git_repo_root,
+                       billing_provider, billing_base_url, billing_mode,
+                       estimated_cost_usd, actual_cost_usd, cost_status, cost_source,
+                       pricing_version, title, api_call_count, archived
+                   )
+                   VALUES (
+                       :id, :source, :user_id, :model, :model_config,
+                       NULL, :system_prompt_hash, NULL, :started_at, :ended_at,
+                       :end_reason, 0, 0, :input_tokens, :output_tokens,
+                       :cache_read_tokens, :cache_write_tokens,
+                       :reasoning_tokens, :cwd, :git_branch, :git_repo_root,
+                       :billing_provider, :billing_base_url, :billing_mode,
+                       :estimated_cost_usd, :actual_cost_usd, :cost_status,
+                       :cost_source, :pricing_version, :title,
+                       :api_call_count, :archived
+                   )""",
+                {
+                    "id": session_id,
+                    "source": str(raw.get("source") or "import"),
+                    "user_id": raw.get("user_id"),
+                    "model": raw.get("model"),
+                    "model_config": raw.get("model_config"),
+                    "system_prompt_hash": system_prompt_hash,
+                    "started_at": started_at,
+                    "ended_at": self._float_or_none(raw.get("ended_at")),
+                    "end_reason": raw.get("end_reason"),
+                    "input_tokens": self._int_or_default(raw.get("input_tokens")),
+                    "output_tokens": self._int_or_default(raw.get("output_tokens")),
+                    "cache_read_tokens": self._int_or_default(
+                        raw.get("cache_read_tokens")
+                    ),
+                    "cache_write_tokens": self._int_or_default(
+                        raw.get("cache_write_tokens")
+                    ),
+                    "reasoning_tokens": self._int_or_default(
+                        raw.get("reasoning_tokens")
+                    ),
+                    "cwd": raw.get("cwd"),
+                    "git_branch": raw.get("git_branch"),
+                    "git_repo_root": raw.get("git_repo_root"),
+                    "billing_provider": raw.get("billing_provider"),
+                    "billing_base_url": raw.get("billing_base_url"),
+                    "billing_mode": raw.get("billing_mode"),
+                    "estimated_cost_usd": self._float_or_none(
+                        raw.get("estimated_cost_usd")
+                    ),
+                    "actual_cost_usd": self._float_or_none(
+                        raw.get("actual_cost_usd")
+                    ),
+                    "cost_status": raw.get("cost_status"),
+                    "cost_source": raw.get("cost_source"),
+                    "pricing_version": raw.get("pricing_version"),
+                    "title": raw.get("title"),
+                    "api_call_count": self._int_or_default(raw.get("api_call_count")),
+                    "archived": archived,
+                },
+            )
+
+            sanitized_messages: List[Dict[str, Any]] = []
+            for msg in messages:
+                clean = dict(msg)
+                for key in (
+                    "reasoning_details",
+                    "codex_reasoning_items",
+                    "codex_message_items",
+                ):
+                    clean[key] = self._reasoning_json_value(clean.get(key))
+                sanitized_messages.append(clean)
+
+            total_messages, total_tool_calls = self._insert_message_rows(
+                conn,
+                session_id,
+                sanitized_messages,
+            )
+            conn.execute(
+                "UPDATE sessions SET message_count = ?, tool_call_count = ? WHERE id = ?",
+                (total_messages, total_tool_calls, session_id),
+            )
+
+            parent_id = str(raw.get("parent_session_id") or "").strip()
+            if parent_id:
+                parent_updates.append((session_id, parent_id))
+            imported_ids.append(session_id)
+
+        parent_by_child = dict(parent_updates)
+
+        def _would_create_cycle(session_id: str, parent_id: str) -> bool:
+            seen = {session_id}
+            current = parent_id
+            while current:
+                if current in seen:
+                    return True
+                seen.add(current)
+                if current in parent_by_child:
+                    current = parent_by_child[current]
                     continue
-
-                started_at = self._float_or_none(raw.get("started_at"))
-                if started_at is None:
-                    started_at = time.time()
-                archived = 1 if raw.get("archived") else 0
-                system_prompt_hash = self._store_system_prompt(
-                    conn, raw.get("system_prompt")
-                )
-
-                conn.execute(
-                    """INSERT INTO sessions (
-                           id, source, user_id, model, model_config, system_prompt,
-                           system_prompt_hash,
-                           parent_session_id, started_at, ended_at, end_reason,
-                           message_count, tool_call_count, input_tokens, output_tokens,
-                           cache_read_tokens, cache_write_tokens, reasoning_tokens,
-                           cwd, git_branch, git_repo_root,
-                           billing_provider, billing_base_url, billing_mode,
-                           estimated_cost_usd, actual_cost_usd, cost_status, cost_source,
-                           pricing_version, title, api_call_count, archived
-                       )
-                       VALUES (
-                           :id, :source, :user_id, :model, :model_config,
-                           NULL, :system_prompt_hash, NULL, :started_at, :ended_at,
-                           :end_reason, 0, 0, :input_tokens, :output_tokens,
-                           :cache_read_tokens, :cache_write_tokens,
-                           :reasoning_tokens, :cwd, :git_branch, :git_repo_root,
-                           :billing_provider, :billing_base_url, :billing_mode,
-                           :estimated_cost_usd, :actual_cost_usd, :cost_status,
-                           :cost_source, :pricing_version, :title,
-                           :api_call_count, :archived
-                       )""",
-                    {
-                        "id": session_id,
-                        "source": str(raw.get("source") or "import"),
-                        "user_id": raw.get("user_id"),
-                        "model": raw.get("model"),
-                        "model_config": raw.get("model_config"),
-                        "system_prompt_hash": system_prompt_hash,
-                        "started_at": started_at,
-                        "ended_at": self._float_or_none(raw.get("ended_at")),
-                        "end_reason": raw.get("end_reason"),
-                        "input_tokens": self._int_or_default(raw.get("input_tokens")),
-                        "output_tokens": self._int_or_default(raw.get("output_tokens")),
-                        "cache_read_tokens": self._int_or_default(
-                            raw.get("cache_read_tokens")
-                        ),
-                        "cache_write_tokens": self._int_or_default(
-                            raw.get("cache_write_tokens")
-                        ),
-                        "reasoning_tokens": self._int_or_default(
-                            raw.get("reasoning_tokens")
-                        ),
-                        "cwd": raw.get("cwd"),
-                        "git_branch": raw.get("git_branch"),
-                        "git_repo_root": raw.get("git_repo_root"),
-                        "billing_provider": raw.get("billing_provider"),
-                        "billing_base_url": raw.get("billing_base_url"),
-                        "billing_mode": raw.get("billing_mode"),
-                        "estimated_cost_usd": self._float_or_none(
-                            raw.get("estimated_cost_usd")
-                        ),
-                        "actual_cost_usd": self._float_or_none(
-                            raw.get("actual_cost_usd")
-                        ),
-                        "cost_status": raw.get("cost_status"),
-                        "cost_source": raw.get("cost_source"),
-                        "pricing_version": raw.get("pricing_version"),
-                        "title": raw.get("title"),
-                        "api_call_count": self._int_or_default(raw.get("api_call_count")),
-                        "archived": archived,
-                    },
-                )
-
-                sanitized_messages: List[Dict[str, Any]] = []
-                for msg in messages:
-                    clean = dict(msg)
-                    for key in (
-                        "reasoning_details",
-                        "codex_reasoning_items",
-                        "codex_message_items",
-                    ):
-                        clean[key] = self._reasoning_json_value(clean.get(key))
-                    sanitized_messages.append(clean)
-
-                total_messages, total_tool_calls = self._insert_message_rows(
-                    conn,
-                    session_id,
-                    sanitized_messages,
-                )
-                conn.execute(
-                    "UPDATE sessions SET message_count = ?, tool_call_count = ? WHERE id = ?",
-                    (total_messages, total_tool_calls, session_id),
-                )
-
-                parent_id = str(raw.get("parent_session_id") or "").strip()
-                if parent_id:
-                    parent_updates.append((session_id, parent_id))
-                imported_ids.append(session_id)
-
-            parent_by_child = dict(parent_updates)
-
-            def _would_create_cycle(session_id: str, parent_id: str) -> bool:
-                seen = {session_id}
-                current = parent_id
-                while current:
-                    if current in seen:
-                        return True
-                    seen.add(current)
-                    if current in parent_by_child:
-                        current = parent_by_child[current]
-                        continue
-                    row = conn.execute(
-                        "SELECT parent_session_id FROM sessions WHERE id = ? LIMIT 1",
-                        (current,),
-                    ).fetchone()
-                    if row is None:
-                        return False
-                    current = row["parent_session_id"]
-                return False
-
-            for session_id, parent_id in parent_updates:
-                parent_exists = conn.execute(
-                    "SELECT 1 FROM sessions WHERE id = ? LIMIT 1",
-                    (parent_id,),
+                row = conn.execute(
+                    "SELECT parent_session_id FROM sessions WHERE id = ? LIMIT 1",
+                    (current,),
                 ).fetchone()
-                if parent_exists and not _would_create_cycle(session_id, parent_id):
-                    conn.execute(
-                        "UPDATE sessions SET parent_session_id = ? WHERE id = ?",
-                        (parent_id, session_id),
-                    )
-                else:
-                    # Drop only the closing edge. Later entries can still attach
-                    # to this now-root session, preserving the acyclic portion
-                    # of a malformed imported lineage.
-                    parent_by_child.pop(session_id, None)
-                    detached += 1
+                if row is None:
+                    return False
+                current = row["parent_session_id"]
+            return False
 
-            return {
-                "ok": True,
-                "imported": len(imported_ids),
-                "skipped": len(skipped_ids),
-                "detached": detached,
-                "imported_ids": imported_ids,
-                "skipped_ids": skipped_ids,
-                "errors": [],
-            }
+        for session_id, parent_id in parent_updates:
+            parent_exists = conn.execute(
+                "SELECT 1 FROM sessions WHERE id = ? LIMIT 1",
+                (parent_id,),
+            ).fetchone()
+            if parent_exists and not _would_create_cycle(session_id, parent_id):
+                conn.execute(
+                    "UPDATE sessions SET parent_session_id = ? WHERE id = ?",
+                    (parent_id, session_id),
+                )
+            else:
+                # Drop only the closing edge. Later entries can still attach
+                # to this now-root session, preserving the acyclic portion
+                # of a malformed imported lineage.
+                parent_by_child.pop(session_id, None)
+                detached += 1
 
-        return self._execute_write(_do)
+        return {
+            "ok": True,
+            "imported": len(imported_ids),
+            "skipped": len(skipped_ids),
+            "detached": detached,
+            "imported_ids": imported_ids,
+            "skipped_ids": skipped_ids,
+            "errors": [],
+        }

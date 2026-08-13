@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:17.9-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brain
+      POSTGRES_DB: brain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - brain-db:/var/lib/postgresql/data
+    healthcheck:
+      # The API's own migrations wait for nothing, so the API must not start
+      # until this answers.
+      test: [ "CMD-SHELL", "pg_isready -U brain -d brain" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  brain:
+    build:
+      # The repository root: the service is part of this package, and pip
+      # installs it from here.
+      context: ../..
+      dockerfile: deploy/second-brain/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AGENTX_BRAIN_DATABASE_URL: ${AGENTX_BRAIN_DATABASE_URL:?set AGENTX_BRAIN_DATABASE_URL in .env}
+      AGENTX_BRAIN_KEK: ${AGENTX_BRAIN_KEK:?set AGENTX_BRAIN_KEK in .env — see make kek}
+      AGENTX_BRAIN_KEK_ID: ${AGENTX_BRAIN_KEK_ID:-k1}
+      AGENTX_BRAIN_LITELLM_BASE_URL: ${AGENTX_BRAIN_LITELLM_BASE_URL:-}
+      AGENTX_LITELLM_ADMIN_KEY: ${AGENTX_LITELLM_ADMIN_KEY:-}
+      AGENTX_DASHBOARD_KEYCLOAK_BASE_URL: ${AGENTX_DASHBOARD_KEYCLOAK_BASE_URL:?set the realm in .env}
+      AGENTX_DASHBOARD_KEYCLOAK_REALM: ${AGENTX_DASHBOARD_KEYCLOAK_REALM:?set the realm in .env}
+      AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID: ${AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID:?set the realm in .env}
+      # The service is a server, not somebody's install. Point AGENTX_HOME at
+      # a writable path inside the container so nothing tries to create one in
+      # a read-only home directory.
+      AGENTX_HOME: /tmp/agentx
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      - brain
+    ports:
+      - "${BRAIN_HTTP_PUBLISH:-80}:80"
+      - "${BRAIN_HTTPS_PUBLISH:-443}:443"
+    environment:
+      BRAIN_SITE_ADDRESS: ${BRAIN_SITE_ADDRESS:-${BRAIN_DOMAIN:?set BRAIN_DOMAIN, or BRAIN_SITE_ADDRESS if something else owns 80/443}}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  brain-db:
+  caddy-data:
+  caddy-config:

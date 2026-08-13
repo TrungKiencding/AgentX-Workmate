@@ -594,6 +594,81 @@ def test_cli_allow_partial_salvages_rows_across_a_corrupt_leaf(
     }
 
 
+def test_recovery_rederives_sync_bookkeeping_instead_of_carrying_it(
+    tmp_path: Path,
+) -> None:
+    """Recovery copies rows through the destination's own INSERT triggers.
+
+    That means ``sync_outbox`` ends up holding one change record per
+    recovered row — a whole database described as a change — and the uuid
+    backfill markers must describe the ids that actually landed here, not
+    the source's. Both are derived state the destination owns.
+    """
+    source = tmp_path / "sync-state.db"
+    output = tmp_path / "sync-recovered.db"
+    _make_source(source)
+
+    db = SessionDB(db_path=source)
+    try:
+        # A source caught mid-backfill: one message still has no identity.
+        db._conn.execute(
+            "UPDATE messages SET uuid = NULL "
+            "WHERE id = (SELECT MIN(id) FROM messages)"
+        )
+        db.set_meta("sync_uuid_backfill_high_water", "999999")
+        db.set_meta("sync_uuid_backfill_progress", "999999")
+        db._conn.commit()
+        source_uuids = {
+            str(row[0])
+            for row in db._conn.execute(
+                "SELECT uuid FROM messages WHERE uuid IS NOT NULL"
+            )
+        }
+    finally:
+        db.close()
+
+    report = recover_session_database(source, output, work_dir=tmp_path)
+    assert report["verified"] is True
+
+    conn = sqlite3.connect(str(output))
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM sync_outbox").fetchone()[0] == 0
+        markers = dict(
+            conn.execute(
+                "SELECT key, value FROM state_meta "
+                "WHERE key LIKE 'sync_uuid_backfill%'"
+            ).fetchall()
+        )
+        assert markers == {}
+        # Identities that already existed came across unchanged: a recovered
+        # device must look like the same device to the other ones. The row
+        # the source had not reached yet is stamped on arrival by the
+        # destination's own INSERT trigger, so nothing lands unidentified.
+        recovered = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT uuid FROM messages WHERE uuid IS NOT NULL"
+            )
+        }
+        assert source_uuids < recovered
+        assert conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE uuid IS NULL"
+        ).fetchone()[0] == 0
+    finally:
+        conn.close()
+
+    # Reopening re-seeds the markers against this database's own ids and
+    # finds nothing left to do.
+    db = SessionDB(db_path=output)
+    try:
+        assert db.get_meta("sync_uuid_backfill_progress") == db.get_meta(
+            "sync_uuid_backfill_high_water"
+        )
+        assert db.outbox_pending_count() == 0
+    finally:
+        db.close()
+
+
 def test_partial_recovery_clears_only_unreadable_system_prompt_refs(
     tmp_path: Path,
 ) -> None:

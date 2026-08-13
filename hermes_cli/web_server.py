@@ -259,15 +259,56 @@ async def _lifespan(app: "FastAPI"):
     # sweeping stale sessions on schedule, independent of list requests.
     auto_archive_task = asyncio.create_task(_auto_archive_ticker_loop())
 
+    # Carry this account's history to and from the second brain. The loop
+    # cannot start synchronising on its own — this process holds no bearer for
+    # the signed-in person — so it idles until POST /api/sync/tick delivers
+    # one, and then keeps working for as long as that token is good. It exits
+    # immediately when no service is configured, which is every install that
+    # has not deployed one.
+    sync_task = asyncio.create_task(_sync_engine_loop())
+
     try:
         yield
     finally:
         pty_reaper_task.cancel()
         selftest_task.cancel()
         auto_archive_task.cancel()
+        sync_task.cancel()
         await PTY_REGISTRY.close_all()
+        _shutdown_sync_engine()
         if cron_stop is not None:
             cron_stop.set()
+
+
+async def _sync_engine_loop() -> None:
+    """Run the second-brain sync engine, or return quietly if it is not wanted.
+
+    Import-guarded because ``second_brain`` synchronisation is optional: an
+    install with no service configured, or one whose dependencies are not
+    present, must start exactly as it always did.
+    """
+    try:
+        from hermes_cli.sync_engine import engine
+    except Exception as exc:  # noqa: BLE001 - optional feature, never fatal
+        _log.debug("sync: engine unavailable: %s", exc)
+        return
+
+    try:
+        await engine().run_forever()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - must not take the backend down
+        _log.warning("sync: engine stopped: %s", exc)
+
+
+def _shutdown_sync_engine() -> None:
+    """Release the engine's ``state.db`` handle during shutdown."""
+    try:
+        from hermes_cli.sync_engine import shutdown
+
+        shutdown()
+    except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+        _log.debug("sync: engine shutdown failed: %s", exc)
 
 
 def _get_event_state(app: "FastAPI"):
@@ -13774,6 +13815,13 @@ app.include_router(_tools_routes.router)
 from hermes_cli.web_routers import accounts as _accounts_routes  # noqa: E402
 
 app.include_router(_accounts_routes.router)
+
+# Sync routes are gated for the same reason, and additionally because
+# POST /api/sync/tick is how the bearer reaches the engine at all: this
+# process holds no credential of its own for the signed-in person.
+from hermes_cli.web_routers import sync as _sync_routes  # noqa: E402
+
+app.include_router(_sync_routes.router)
 from hermes_cli.web_routers.tools import (  # noqa: E402,F401 — legacy re-exports; tests call these via web_server.<name>
     get_toolsets,
     toggle_toolset,

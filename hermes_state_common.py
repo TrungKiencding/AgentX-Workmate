@@ -152,7 +152,7 @@ def _sql_session_last_active_by_id(session_id_expr: str) -> str:
     )
 
 
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 
 
 # FTS storage-layout version, tracked INDEPENDENTLY of SCHEMA_VERSION in the
@@ -179,6 +179,36 @@ _FTS_TRIGGERS = (
     "messages_fts_trigram_insert",
     "messages_fts_trigram_delete",
     "messages_fts_trigram_update",
+)
+
+
+_SYNC_TRIGGERS = (
+    "sync_sessions_insert",
+    "sync_sessions_update",
+    "sync_sessions_delete",
+    "sync_messages_insert",
+)
+
+
+# Unix epoch seconds as a REAL — the same clock ``time.time()`` writes into
+# every other timestamp column in this schema. Derived from the Julian day
+# rather than ``unixepoch(..., 'subsec')`` because that needs SQLite 3.42 and
+# this file has to run on whatever build the host shipped.
+_SQL_EPOCH_NOW = "((julianday('now') - 2440587.5) * 86400.0)"
+
+
+# A random UUIDv4 as text. SQLite has no uuid() function, so assemble one from
+# randomblob: version nibble '4' fixed, variant nibble drawn from '89ab'.
+# ``random() & 3`` rather than ``abs(random()) % 4`` — abs() returns NULL on
+# the single most-negative integer, which would silently produce a NULL uuid.
+_SQL_UUID4 = (
+    "lower("
+    "hex(randomblob(4)) || '-' || hex(randomblob(2))"
+    " || '-4' || substr(hex(randomblob(2)), 2)"
+    " || '-' || substr('89ab', (random() & 3) + 1, 1)"
+    " || substr(hex(randomblob(2)), 2)"
+    " || '-' || hex(randomblob(6))"
+    ")"
 )
 
 
@@ -246,6 +276,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     archived INTEGER NOT NULL DEFAULT 0,
     pinned INTEGER NOT NULL DEFAULT 0,
     last_read_at REAL,
+    -- Last edit to the fields another device cares about, stamped by
+    -- sync_sessions_update (see SYNC_TRIGGER_SQL). NULL on rows written
+    -- before v26 and on rows never edited since creation; every reader
+    -- must therefore fall back to started_at, which is NOT NULL.
+    updated_at REAL,
     FOREIGN KEY (parent_session_id) REFERENCES sessions(id),
     FOREIGN KEY (system_prompt_hash) REFERENCES system_prompts(hash)
 );
@@ -273,7 +308,14 @@ CREATE TABLE IF NOT EXISTS messages (
     compacted INTEGER NOT NULL DEFAULT 0,
     api_content TEXT,
     display_kind TEXT,
-    display_metadata TEXT
+    display_metadata TEXT,
+    -- Portable identity for synchronisation. ``id`` is a local AUTOINCREMENT
+    -- row number, so it means nothing on another machine; ``uuid`` is what
+    -- travels. Filled by sync_messages_insert for any writer that does not
+    -- supply one, and backfilled onto pre-v26 rows by
+    -- _backfill_message_uuids. NULL only while that backfill is still in
+    -- flight, which is why the unique index below is partial.
+    uuid TEXT
 );
 
 CREATE TABLE IF NOT EXISTS session_model_usage (
@@ -339,6 +381,34 @@ CREATE TABLE IF NOT EXISTS async_delegations (
     delivery_claimed_at REAL
 );
 
+-- ── Synchronisation bookkeeping (schema v26) ──────────────────────────
+-- sync_outbox is the local change log: SYNC_TRIGGER_SQL appends one row per
+-- edit another device needs to see, and the sync engine drains it. It is a
+-- QUEUE, not a record — rows are deleted once the service acknowledges them,
+-- so its steady state is empty and losing it costs a re-push, not data.
+--
+-- ``kind`` is an opaque string end to end (see the second-brain plan, R8):
+-- adding a synced content type must not require a schema change on either
+-- side, so nothing here constrains it to the two kinds v26 emits
+-- ('session' / 'message').
+CREATE TABLE IF NOT EXISTS sync_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    doc_id TEXT NOT NULL,
+    op TEXT NOT NULL,
+    queued_at REAL NOT NULL
+);
+
+-- One row (id = 1) holding this device's position in the server's change
+-- feed plus the last outcome, which is what the Settings surface reads.
+CREATE TABLE IF NOT EXISTS sync_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    cursor INTEGER NOT NULL DEFAULT 0,
+    last_pull_at REAL,
+    last_push_at REAL,
+    last_error TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source);
 CREATE INDEX IF NOT EXISTS idx_sessions_source_id ON sessions(source, id);
 CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id);
@@ -378,6 +448,13 @@ CREATE INDEX IF NOT EXISTS idx_sessions_handoff_state
     ON sessions(handoff_state, started_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_system_prompt_hash
     ON sessions(system_prompt_hash);
+-- messages.uuid is the sync identity: UNIQUE so a remote document applied
+-- twice cannot land twice, and PARTIAL so the still-NULL rows a resumable
+-- backfill has not reached yet don't collide with each other (and cost
+-- nothing to index — on a legacy DB the index starts empty and grows with
+-- the backfill).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_uuid
+    ON messages(uuid) WHERE uuid IS NOT NULL;
 """
 
 
@@ -446,6 +523,103 @@ BEGIN
     VALUES ('delete', old.id, old.content, old.tool_name, old.tool_calls);
     INSERT INTO messages_fts(rowid, content, tool_name, tool_calls)
     VALUES (new.id, new.content, new.tool_name, new.tool_calls);
+END;
+"""
+
+
+# ── Synchronisation triggers (schema v26) ─────────────────────────────
+# The outbox is fed by triggers rather than by threading a call through every
+# write site — the same idiom FTS_SQL above already uses, and for the same
+# reason: there is no write path that can forget to participate, including
+# ones that predate this file.
+#
+# ``sync_sessions_update`` narrows to AFTER UPDATE OF <named columns> exactly
+# as messages_fts_update does, and the list is the point of the trigger:
+# sessions rows are rewritten on nearly every turn for token counters, cost
+# fields, last_activity_* and compression bookkeeping. None of that means
+# anything on another machine, and an untargeted trigger would turn the outbox
+# into a firehose (#68858 / #73639 are the FTS-side version of that mistake).
+#
+# The WHEN guard is not belt-and-braces either, for the same reason
+# messages_fts_update carries one: UPDATE OF fires on whether a column appears
+# in the SET clause, not on whether its value moved, and
+# ``update_token_counts`` writes ``model = COALESCE(model, ?)`` in the very
+# same statement as the token counters — once per API call. Without the guard
+# every turn would enqueue a session upsert that changed nothing.
+#
+# ``updated_at`` is forced strictly upwards rather than simply set to "now",
+# and that MAX is load-bearing in both directions. SQLite's ``'now'`` truncates
+# to the millisecond while ``started_at`` comes from ``time.time()`` at
+# microsecond resolution, so a session renamed in the same millisecond it was
+# created would otherwise stamp EARLIER than it started — and last-writer-wins
+# compares against ``COALESCE(updated_at, started_at)``, so the other device
+# would read the rename as stale and silently drop it. The same MAX also keeps
+# two edits inside one millisecond distinguishable.
+#
+# ``sync_messages_insert`` fills ``uuid`` AND enqueues in ONE body. Two
+# separate AFTER INSERT triggers do not work: ``new.uuid`` in the second one
+# still reads the value as it was at INSERT time (NULL) no matter what the
+# first one wrote. So fill first, then re-SELECT the stored row.
+#
+# ``uuid IS NULL`` guards the fill so a writer that supplies its own uuid
+# (the Python insert sites, session recovery copying rows between databases)
+# keeps it — the UPDATE then matches no row and costs a primary-key probe
+# instead of a full row rewrite, which matters because message content can be
+# megabytes and this is the hot write path.
+#
+# There is deliberately NO trigger on message DELETE in v26. Deleting a
+# session deletes its messages first (see delete_session), so a per-message
+# tombstone trigger would turn one session delete into one outbox row per
+# message — the firehose again — while the session tombstone already covers
+# the whole cascade. Propagating a targeted message deletion (rewind,
+# /compress rewrites) is a Phase 3 decision that belongs with the sync
+# engine, which is the component that knows how to re-push a rewritten
+# transcript as a whole.
+SYNC_TRIGGER_SQL = f"""
+CREATE TRIGGER IF NOT EXISTS sync_sessions_insert AFTER INSERT ON sessions
+BEGIN
+    INSERT INTO sync_outbox (kind, doc_id, op, queued_at)
+    VALUES ('session', new.id, 'upsert', {_SQL_EPOCH_NOW});
+END;
+
+CREATE TRIGGER IF NOT EXISTS sync_sessions_update
+AFTER UPDATE OF title, display_name, archived, pinned, last_read_at,
+                ended_at, end_reason, model, parent_session_id ON sessions
+WHEN old.title IS NOT new.title
+   OR old.display_name IS NOT new.display_name
+   OR old.archived IS NOT new.archived
+   OR old.pinned IS NOT new.pinned
+   OR old.last_read_at IS NOT new.last_read_at
+   OR old.ended_at IS NOT new.ended_at
+   OR old.end_reason IS NOT new.end_reason
+   OR old.model IS NOT new.model
+   OR old.parent_session_id IS NOT new.parent_session_id
+BEGIN
+    UPDATE sessions
+    SET updated_at = MAX(
+        {_SQL_EPOCH_NOW},
+        COALESCE(updated_at, started_at) + 0.000001
+    )
+    WHERE id = new.id;
+
+    INSERT INTO sync_outbox (kind, doc_id, op, queued_at)
+    VALUES ('session', new.id, 'upsert', {_SQL_EPOCH_NOW});
+END;
+
+CREATE TRIGGER IF NOT EXISTS sync_sessions_delete AFTER DELETE ON sessions
+BEGIN
+    INSERT INTO sync_outbox (kind, doc_id, op, queued_at)
+    VALUES ('session', old.id, 'delete', {_SQL_EPOCH_NOW});
+END;
+
+CREATE TRIGGER IF NOT EXISTS sync_messages_insert AFTER INSERT ON messages
+BEGIN
+    UPDATE messages SET uuid = {_SQL_UUID4}
+    WHERE id = new.id AND uuid IS NULL;
+
+    INSERT INTO sync_outbox (kind, doc_id, op, queued_at)
+    SELECT 'message', uuid, 'upsert', {_SQL_EPOCH_NOW}
+    FROM messages WHERE id = new.id AND uuid IS NOT NULL;
 END;
 """
 

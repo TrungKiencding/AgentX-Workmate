@@ -317,6 +317,14 @@ youtube = [
 # starlette==1.3.1 pinned for CVE-2026-48710 (BadHost) — fastapi pulls Starlette
 # transitively and pre-1.0.1 is the vulnerable range. See the mcp extra above.
 web = ["fastapi==0.133.1", "uvicorn[standard]==0.41.0", "starlette==1.3.1", "python-multipart==0.0.32"]
+# The central account service (`agentx second-brain serve`). SERVER-side only:
+# nothing a laptop or an installer runs imports `second_brain`, which is the
+# point — this is where the LiteLLM admin key lives so that laptops need not
+# hold it. asyncpg is pinned to the version [matrix] already carries rather
+# than introducing a second one for the same driver. `cryptography` (the
+# envelope encryption around each stored model key) is already a core
+# dependency, so it is not repeated here.
+second-brain = ["fastapi==0.133.1", "uvicorn[standard]==0.41.0", "starlette==1.3.1", "asyncpg==0.31.0"]  # starlette: CVE-2026-48710
 all = [
   # Policy (2026-05-12): `[all]` includes only extras that genuinely
   # CAN'T be lazy-installed via `tools/lazy_deps.py` — i.e. things every
@@ -389,6 +397,7 @@ py-modules = [
   "hermes_state_portability",
   "hermes_state_schema",
   "hermes_state_search",
+  "hermes_state_sync",
   "hermes_time",
   "hermes_logging",
   "utils",
@@ -396,7 +405,7 @@ py-modules = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "hermes_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*"]
+include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "hermes_cli.*", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "cron.*", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*", "second_brain", "second_brain.*"]
 
 [tool.setuptools.package-data]
 hermes_cli = ["observability/schemas/*.json"]
@@ -406,6 +415,10 @@ hermes_cli = ["observability/schemas/*.json"]
 # topic-setup image disappears. Loaded via Path(__file__).parent / "assets"
 # in gateway/status_phrases.py and gateway/run.py.
 gateway = ["assets/**/*"]
+# The service reads its schema from these at boot. Without this line an
+# installed copy has no migrations directory and the first launch against a
+# fresh database creates nothing at all.
+"second_brain.store" = ["migrations/*.sql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

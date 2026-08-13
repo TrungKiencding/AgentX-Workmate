@@ -75,6 +75,7 @@ from hermes_state_common import (  # noqa: F401  (re-exported for back-compat)
 from hermes_state_portability import SessionPortabilityMixin
 from hermes_state_schema import SessionSchemaMixin
 from hermes_state_search import SessionSearchMixin
+from hermes_state_sync import SessionSyncMixin
 
 try:  # Hard dependency, but tolerate scaffold-phase imports before pip install.
     import psutil
@@ -1871,7 +1872,12 @@ def quarantine_zeroed_state_db(path: Path) -> Optional[Path]:
             handle.close()
 
 
-class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin):
+class SessionDB(
+    SessionSearchMixin,
+    SessionSchemaMixin,
+    SessionPortabilityMixin,
+    SessionSyncMixin,
+):
     """
     SQLite-backed session storage with FTS5 search.
 
@@ -1985,6 +1991,32 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
             if "system_prompt" in data:
                 data["system_prompt"] = resolved
         return data
+
+    def _message_row_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Decode one ``messages`` row into the shape callers expect.
+
+        The counterpart of :meth:`_session_row_dict`. Reverses the stored
+        encodings (content, tool_calls JSON, display metadata) so a reader
+        that wants a single row — the sync mixin looking one up by uuid —
+        gets exactly what :meth:`get_messages` would have handed it for the
+        same row, rather than a second decoder that can drift from it.
+        """
+        msg = dict(row)
+        if "content" in msg:
+            msg["content"] = self._decode_content(msg["content"])
+        if msg.get("tool_calls"):
+            try:
+                msg["tool_calls"] = json.loads(msg["tool_calls"])
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(
+                    "Failed to deserialize tool_calls in get_messages, falling back to []"
+                )
+                msg["tool_calls"] = []
+        if msg.get("display_metadata") is not None:
+            msg["display_metadata"] = self._decode_display_metadata(
+                msg["display_metadata"]
+            )
+        return msg
 
     def __init__(self, db_path: Path = None, read_only: bool = False):
         self.db_path = db_path or _default_db_path()
@@ -6693,6 +6725,52 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
 
         return row[0] if row else None
 
+    @staticmethod
+    def _claimable_uuids(conn, messages: List[Dict[str, Any]]) -> List[Optional[str]]:
+        """Which supplied ``uuid`` values each message may actually keep.
+
+        One query for the whole batch rather than a probe per row: message
+        identities are UNIQUE, and an insert that collided would abort the
+        caller's entire transaction — a malformed import file or a compaction
+        re-inserting rows whose soft-archived originals are still on disk
+        would take the whole write down with it.
+
+        Returns a list parallel to *messages*: the uuid to write, or None to
+        let ``sync_messages_insert`` mint a fresh one.
+        """
+        wanted = [
+            msg.get("uuid") if isinstance(msg.get("uuid"), str) and msg.get("uuid") else None
+            for msg in messages
+        ]
+        candidates = sorted({uuid for uuid in wanted if uuid})
+        if not candidates:
+            return wanted
+
+        taken: set = set()
+        # SQLITE_MAX_VARIABLE_NUMBER is 999 on old builds; batches can be
+        # larger (import allows 10k messages per session).
+        chunk = 900
+        for start in range(0, len(candidates), chunk):
+            window = candidates[start:start + chunk]
+            placeholders = ",".join("?" for _ in window)
+            taken.update(
+                row[0]
+                for row in conn.execute(
+                    f"SELECT uuid FROM messages WHERE uuid IN ({placeholders})",
+                    window,
+                ).fetchall()
+            )
+
+        claimed: set = set()
+        result: List[Optional[str]] = []
+        for uuid in wanted:
+            if uuid is None or uuid in taken or uuid in claimed:
+                result.append(None)
+            else:
+                claimed.add(uuid)
+                result.append(uuid)
+        return result
+
     def _insert_message_rows(self, conn, session_id: str, messages: List[Dict[str, Any]]) -> tuple[int, int]:
         """Insert *messages* as fresh active rows for *session_id*.
 
@@ -6701,11 +6779,22 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         caller's write transaction (takes the live ``conn``). Returns
         ``(inserted_count, tool_call_count)``. Does NOT touch sessions.* counters
         — the caller owns that, since the two flows reconcile counts differently.
+
+        A message that arrives carrying a ``uuid`` keeps it, so a document
+        applied from another device (or a session restored from an export)
+        lands under the identity it already has instead of a fresh one —
+        which is what makes applying the same document twice a no-op. A uuid
+        already spoken for is dropped rather than written: the collision is
+        resolved to a new identity by ``sync_messages_insert``, because two
+        distinct rows may not share one. This is the normal case for
+        :meth:`archive_and_compact`, whose soft-archived originals stay on
+        disk beside the rows it re-inserts.
         """
         now_ts = time.time()
         inserted = 0
         tool_calls_total = 0
-        for msg in messages:
+        claimed_uuids = self._claimable_uuids(conn, messages)
+        for index, msg in enumerate(messages):
             role = msg.get("role", "unknown")
             tool_calls = msg.get("tool_calls")
             message_timestamp = now_ts
@@ -6756,8 +6845,9 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                 """INSERT INTO messages (session_id, role, content, tool_call_id,
                    tool_calls, tool_name, effect_disposition, timestamp, token_count, finish_reason,
                    reasoning, reasoning_content, reasoning_details, codex_reasoning_items,
-                   codex_message_items, platform_message_id, observed, active, api_content, display_kind, display_metadata)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   codex_message_items, platform_message_id, observed, active, api_content, display_kind, display_metadata,
+                   uuid)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     session_id,
                     role,
@@ -6780,6 +6870,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
                     _scrub_surrogates(api_content) if isinstance(api_content, str) else None,
                     _scrub_surrogates(msg.get("display_kind")) if isinstance(msg.get("display_kind"), str) else None,
                     self._encode_display_metadata(msg.get("display_metadata")),
+                    claimed_uuids[index],
                 ),
             )
             inserted += 1
@@ -6982,21 +7073,7 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         with self._read_ctx() as conn:
             cursor = conn.execute(sql, params)
             rows = cursor.fetchall()
-        result = []
-        for row in rows:
-            msg = dict(row)
-            if "content" in msg:
-                msg["content"] = self._decode_content(msg["content"])
-            if msg.get("tool_calls"):
-                try:
-                    msg["tool_calls"] = json.loads(msg["tool_calls"])
-                except (json.JSONDecodeError, TypeError):
-                    logger.warning("Failed to deserialize tool_calls in get_messages, falling back to []")
-                    msg["tool_calls"] = []
-            if msg.get("display_metadata") is not None:
-                msg["display_metadata"] = self._decode_display_metadata(msg["display_metadata"])
-            result.append(msg)
-        return result
+        return [self._message_row_dict(row) for row in rows]
 
     def get_messages_around(
         self,

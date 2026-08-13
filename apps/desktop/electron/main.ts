@@ -89,11 +89,6 @@ import {
 } from './connection-config'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
 import { adoptServedDashboardToken } from './dashboard-token'
-import {
-  parseDeploymentConfig,
-  seedDeploymentSecrets,
-  type SeedOutcome
-} from './deployment-config'
 import { loadOrCreateInstallationId, sshOwnershipId } from './desktop-installation'
 import {
   buildPosixCleanupScript,
@@ -105,6 +100,12 @@ import {
   uninstallArgsForMode
 } from './desktop-uninstall'
 import { describeDevCdpDecision, resolveDevCdpPort } from './dev-cdp'
+import {
+  deviceHeaders,
+  type DeviceRecord,
+  type DeviceStoreIo,
+  readDeviceRecord
+} from './device-id'
 import { installEmbedReferer } from './embed-referer'
 import { createEventDeduper } from './event-dedupe'
 import { findGitBash as _findGitBash } from './find-git-bash'
@@ -611,87 +612,24 @@ function resolveHermesHome() {
 
 const AGENTX_HOME = resolveHermesHome()
 
-// --- Baked deployment credentials ---
+// --- No baked credentials ---
 //
-// A machine that has never run Workmate has no ~/.agentx to read, so the
-// LiteLLM admin key that `accounts.litellm.mode: direct` needs to mint a
-// per-user key has to arrive with the app. It is injected at build time
-// (scripts/write-deployment-config.mjs) rather than committed, because the
-// repository is public and this is the one value in the system that is not.
+// This app used to carry the LiteLLM ADMIN key. `accounts.litellm.mode:
+// direct` had each laptop mint its own per-user key, minting needs the admin
+// credential, and a machine that has never run Workmate has no ~/.agentx to
+// read it from — so it was injected at build time and seeded into the user's
+// .env on first launch. Which put a credential that mints and revokes for the
+// whole estate inside every installer, readable by anyone who unpacked it.
 //
-// Seeded before anything spawns a backend: provisioning runs on the first
-// sign-in, and a key that lands after that would leave the first launch
-// without a model. Append-only — a machine that already assigns the key
-// keeps its own. See deployment-config.ts for the full trade-off.
-const DEPLOYMENT_CONFIG = loadDeploymentConfig()
-const DEPLOYMENT_SEED_OUTCOME = seedBakedDeploymentSecrets()
-
-function loadDeploymentConfig() {
-  const candidates = [
-    process.resourcesPath ? path.join(process.resourcesPath, 'deployment.json') : null,
-    path.join(APP_ROOT, 'build', 'deployment.json')
-  ].filter(Boolean)
-
-  for (const candidate of candidates) {
-    const parsed = parseDeploymentConfig(readTextOrNull(candidate))
-
-    if (parsed) {
-      return parsed
-    }
-  }
-
-  return null
-}
-
-function readTextOrNull(filePath: string): string | null {
-  try {
-    return fs.readFileSync(filePath, 'utf8')
-  } catch {
-    return null
-  }
-}
-
-function seedBakedDeploymentSecrets(): SeedOutcome {
-  const outcome = seedDeploymentSecrets({
-    config: DEPLOYMENT_CONFIG,
-    envPath: path.join(AGENTX_HOME, '.env'),
-    io: {
-      readText: readTextOrNull,
-      writeText: (filePath, text) => {
-        fs.mkdirSync(path.dirname(filePath), { recursive: true })
-        // 0600 on create; an existing file keeps whatever mode it had.
-        fs.writeFileSync(filePath, text, { encoding: 'utf8', mode: 0o600 })
-      }
-    }
-  })
-
-  if (outcome === 'no-secret' && IS_PACKAGED) {
-    console.warn(
-      '[agentx] WARNING: this build carries no LiteLLM admin key. Sign-in will work, but no per-user ' +
-        'model key can be minted on a machine that has not been configured by hand.'
-    )
-  }
-
-  return outcome
-}
-
-let deploymentSeedLogged = false
-
-function logDeploymentSeedOnce() {
-  if (deploymentSeedLogged) {
-    return
-  }
-
-  deploymentSeedLogged = true
-
-  if (DEPLOYMENT_SEED_OUTCOME === 'seeded') {
-    rememberLog('[deployment] baked LiteLLM admin key installed into this home')
-  } else if (DEPLOYMENT_SEED_OUTCOME === 'failed') {
-    rememberLog('[deployment] could not install the baked LiteLLM admin key; model provisioning will report it')
-  } else if (DEPLOYMENT_SEED_OUTCOME === 'no-secret' && IS_PACKAGED) {
-    rememberLog('[deployment] this build carries no LiteLLM admin key; per-user model keys cannot be minted')
-  }
-}
+// It is gone. The second-brain service holds the admin key now and issues each
+// person one key over their Keycloak bearer, so everything a fresh install
+// needs is public and lives in `hermes_cli/config_defaults.py`. Do not
+// reintroduce a "just one secret" carrier here; the way to ship a value to
+// laptops is to put it behind the service.
+//
+// A build whose `DEPLOYMENT_SECOND_BRAIN_URL` is empty installs and signs in
+// normally and has no model key: provisioning reports `unconfigured` in
+// Settings → Account, naming the setting.
 
 function pathWithHermesManagedNode(...entries) {
   const managed = hermesManagedNodePathEntries(AGENTX_HOME).filter(directoryExists)
@@ -737,6 +675,12 @@ const DESKTOP_PROFILE_CONFIG_PATH = path.join(app.getPath('userData'), 'active-p
 // this memory has to exist at all. It holds no token; the session lives in the
 // OS keychain.
 const DESKTOP_ACCOUNT_CONFIG_PATH = path.join(app.getPath('userData'), 'accounts.json')
+// device.json names this INSTALL to the second-brain service, so Settings can
+// list the machines a person is signed in on and revoke one of them. It sits
+// in userData beside accounts.json rather than in an AgentX home on purpose:
+// the id belongs to the install, so signing in as somebody else must not turn
+// one machine into two. See device-id.ts.
+const DESKTOP_DEVICE_CONFIG_PATH = path.join(app.getPath('userData'), 'device.json')
 // Mirrors hermes_cli.profiles._PROFILE_ID_RE so we never hand the backend a
 // value its profile resolver would reject and exit on.
 const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
@@ -4385,6 +4329,11 @@ function fetchJson(url, token, options: any = {}) {
         headers: {
           'Content-Type': contentType,
           'X-Agentx-Session-Token': token,
+          // Which machine this is. The second-brain service needs it on every
+          // request to keep a device registry that Settings can revoke from;
+          // the local backend ignores headers it does not know, so this
+          // travels harmlessly until that service exists. See device-id.ts.
+          ...deviceHeaders(currentDeviceRecord()),
           // RFC 8252 native flow authenticates the gated gateway with a bearer
           // token instead of the loopback session-token header. When
           // ``options.bearer`` is set we send Authorization: Bearer <token>;
@@ -7321,6 +7270,45 @@ function _accountStoreIo(): AccountStoreIo {
   }
 }
 
+// --- This install's device identity ---------------------------------------
+
+function _deviceStoreIo(): DeviceStoreIo {
+  return {
+    hostname: () => {
+      try {
+        return os.hostname()
+      } catch {
+        return ''
+      }
+    },
+    readText: () => {
+      try {
+        return fs.readFileSync(DESKTOP_DEVICE_CONFIG_PATH, 'utf8')
+      } catch {
+        return null
+      }
+    },
+    rememberLog,
+    writeText: text => {
+      fs.mkdirSync(path.dirname(DESKTOP_DEVICE_CONFIG_PATH), { recursive: true })
+      writeFileAtomic(DESKTOP_DEVICE_CONFIG_PATH, text)
+    }
+  }
+}
+
+// Read once per process. The record only changes when the machine is renamed,
+// and every outbound request asks for it — re-reading a file per request to
+// notice a hostname change nobody made is not a trade worth making.
+let _deviceRecord: DeviceRecord | null = null
+
+function currentDeviceRecord(): DeviceRecord {
+  if (_deviceRecord === null) {
+    _deviceRecord = readDeviceRecord(_deviceStoreIo())
+  }
+
+  return _deviceRecord
+}
+
 /** The account slug the CURRENT backend process was spawned with, or null. */
 let _spawnedAccountSlug: string | null = null
 
@@ -8905,6 +8893,15 @@ async function ensureAccountProvisioned(
       writeAccountState(markProvisioned(readAccountState(io), subject), io)
     }
 
+    // Once per launch, and here rather than at boot because this is the first
+    // point where the backend is up AND somebody is signed in — which is what
+    // the service needs to attribute the machine to a person.
+    heartbeatDevice()
+
+    // Same reason, and the same moment: synchronisation needs a bearer, and
+    // this is the first point in a launch where one can be minted.
+    startSyncTicker()
+
     return body
   }
 
@@ -8945,11 +8942,6 @@ async function restartInAccountHome(slug: string) {
 }
 
 async function startHermes() {
-  // Module-scope work can't reach rememberLog (the log buffer it writes to is
-  // declared further down), so the seeding outcome is reported here instead —
-  // the first point in a boot that has a desktop log to write to.
-  logDeploymentSeedOnce()
-
   // Latched-failure short-circuit: once bootstrap has failed in this
   // process, every subsequent startHermes() call re-throws the same error
   // without re-running install.ps1. This prevents the renderer's
@@ -9975,6 +9967,16 @@ function createWindow() {
   mainWindow.on('hide', () => sendWindowStateChanged())
   mainWindow.on('show', () => sendWindowStateChanged())
 
+  // Coming back to this machine is exactly when "did my other laptop get
+  // that?" gets asked, and waiting up to thirty seconds to answer it feels
+  // broken even though nothing is. No-ops until the ticker has started, which
+  // is after somebody signs in.
+  mainWindow.on('focus', () => {
+    if (syncTimer) {
+      void syncTick('focus')
+    }
+  })
+
   // Reopen where the user left off. resized/moved settle once per drag; close is
   // the cross-platform backstop, flushed synchronously before the window is gone.
   mainWindow.on('resized', schedulePersistWindowState)
@@ -10828,6 +10830,169 @@ ipcMain.handle('agentx:account:provision', async (_event, options) => {
 
   return { ok: Boolean(body.litellm.ok), litellm: body.litellm }
 })
+
+// --- The machines this person is signed in on ----------------------------
+//
+// Both handlers go through the LOCAL backend rather than calling the service
+// directly. The backend already holds the two things that decide the answer:
+// which service this install talks to (machine policy in config.yaml) and the
+// offline contract, which says an unreachable service is reported and never
+// thrown. Calling the service from here would mean a second copy of both.
+//
+// Neither handler throws. A device list that cannot be fetched is a sentence
+// in Settings; it is never a reason for a dialog the user cannot act on.
+
+async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
+  const baseUrl = await primaryLocalBaseUrl()
+
+  if (!baseUrl) {
+    return { current: '', detail: 'The local backend is not running.', devices: [], status: 'offline' }
+  }
+
+  try {
+    const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
+
+    if (!bearer) {
+      return {
+        current: '',
+        detail: 'Not signed in.',
+        devices: [],
+        status: 'offline'
+      }
+    }
+
+    return await fetchJson(`${baseUrl}${path}`, null, {
+      bearer,
+      timeoutMs: 20_000,
+      ...options
+    })
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+
+    rememberLog(`[devices] ${path} failed: ${detail}`)
+
+    return { current: '', detail, devices: [], status: 'offline' }
+  }
+}
+
+ipcMain.handle('agentx:devices:list', async () => callDeviceRoute('/api/account/devices'))
+
+ipcMain.handle('agentx:devices:revoke', async (_event, options) => {
+  const id = String(options?.id || '')
+
+  if (!id) {
+    return { detail: 'No device was named.', status: 'error' }
+  }
+
+  const rotate = options?.rotateKey ? 'true' : 'false'
+
+  return callDeviceRoute(`/api/account/devices/${encodeURIComponent(id)}?rotate_key=${rotate}`, {
+    method: 'DELETE'
+  })
+})
+
+/**
+ * Tell the service what this machine is, once per launch.
+ *
+ * Authentication on the service registers the device by itself, so this is not
+ * what makes it appear in the list — it is what stops the list from reading
+ * "unknown device" three times over. Fire-and-forget: a person whose service
+ * is down still gets a working app, and the next launch tries again.
+ */
+function heartbeatDevice(): void {
+  void callDeviceRoute('/api/account/devices/heartbeat', {
+    body: { app_version: app.getVersion(), platform: process.platform },
+    method: 'POST'
+  }).then(body => {
+    if (body?.status && body.status !== 'ok') {
+      rememberLog(`[devices] heartbeat: ${body.status} — ${body.detail || ''}`)
+    }
+  })
+}
+
+// --- Conversation history, across this person's machines -------------------
+//
+// The backend does the work; this drives it. That split is not arbitrary — the
+// backend holds `state.db` and the sync engine, but it holds NO credential for
+// the signed-in person and cannot mint one. This process does: it keeps the
+// refresh token in the OS keychain and `ensureNativeAccessToken` renews the
+// bearer without asking anybody anything.
+//
+// So each tick is both a trigger and a delivery. The bearer travelling on it
+// is what lets the backend's own loop keep working between ticks, which is
+// what a first sync needs — a large backlog takes several ticks in a row, and
+// this timer alone would be the slow part.
+//
+// Nothing here surfaces an error. Synchronisation being down is not something
+// a person can act on, and it costs them nothing while the app keeps working.
+
+/** How often to sync while the window is open. Matches the backend default. */
+const SYNC_TICK_INTERVAL_MS = 30_000
+
+let syncTimer: ReturnType<typeof setInterval> | null = null
+let syncInFlight = false
+
+async function syncTick(reason: string): Promise<any> {
+  // One at a time. A tick that runs long (a first sync draining pages) must
+  // not have the interval stack a second one behind it, each holding a
+  // database write lock the other is waiting for.
+  if (syncInFlight) {
+    return { detail: 'A synchronisation is already running.', status: 'busy' }
+  }
+
+  syncInFlight = true
+
+  try {
+    const body = await callDeviceRoute('/api/sync/tick', { body: {}, method: 'POST' })
+
+    if (body?.status && !['ok', 'offline', 'signed_out', 'unconfigured', 'disabled'].includes(body.status)) {
+      rememberLog(`[sync] ${reason}: ${body.status} — ${body.detail || ''}`)
+    }
+
+    return body
+  } finally {
+    syncInFlight = false
+  }
+}
+
+/**
+ * Start the sync timer, and tick on the moments a person is about to care.
+ *
+ * Window focus is one of them: coming back to this machine is exactly when
+ * "did my other laptop get that?" gets asked, and waiting up to thirty seconds
+ * to answer it feels broken even though nothing is.
+ */
+function startSyncTicker(): void {
+  if (syncTimer) {
+    return
+  }
+
+  void syncTick('launch')
+
+  syncTimer = setInterval(() => {
+    void syncTick('interval')
+  }, SYNC_TICK_INTERVAL_MS)
+
+  // `unref` so a stray timer can never be the reason the process will not
+  // exit. Electron's main process outlives the window, and a 30-second
+  // interval holding it open is a quit that silently does nothing.
+  syncTimer.unref?.()
+}
+
+function stopSyncTicker(): void {
+  if (!syncTimer) {
+    return
+  }
+
+  clearInterval(syncTimer)
+  syncTimer = null
+}
+
+ipcMain.handle('agentx:sync:tick', async () => syncTick('requested'))
+
+ipcMain.handle('agentx:sync:status', async () =>
+  callDeviceRoute('/api/sync/status', { method: 'GET' })
+)
 
 ipcMain.handle('agentx:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
 ipcMain.handle('agentx:profile:set', async (_event, name) => {
@@ -12811,6 +12976,8 @@ app.on('before-quit', event => {
   if (heldQuitForActiveWork(event)) {
     return
   }
+
+  stopSyncTicker()
 
   if ((sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) && !sshQuitTeardownDone) {
     event.preventDefault()

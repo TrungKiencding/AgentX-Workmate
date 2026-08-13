@@ -442,6 +442,7 @@ from hermes_cli.subcommands.cron import build_cron_parser
 from hermes_cli.subcommands.sync import build_sync_parser
 from hermes_cli.subcommands.gateway import build_gateway_parser
 from hermes_cli.subcommands.account import build_account_parser
+from hermes_cli.subcommands.second_brain import build_second_brain_parser
 from hermes_cli.subcommands.profile import build_profile_parser
 from hermes_cli.subcommands.model import build_model_parser
 from hermes_cli.subcommands.setup import build_setup_parser
@@ -9450,6 +9451,133 @@ def cmd_account(args):
         return
 
 
+def cmd_second_brain(args):
+    """``agentx second-brain`` — the account service, and this machine's sync."""
+    action = getattr(args, "second_brain_action", None)
+
+    if action in ("status", "sync", "reset"):
+        _second_brain_sync_action(args, action)
+        return
+
+    if action != "serve":
+        print(
+            "\nUsage: agentx second-brain {status|sync|reset|serve}\n\n"
+            "  status   where history synchronisation has got to (no network)\n"
+            "  sync     synchronise now\n"
+            "  reset    re-pull the whole feed from the start\n"
+            "  serve    run the service itself [--host HOST] [--port PORT]\n\n"
+            "`serve` runs the service that holds one model key per person, the\n"
+            "devices they use it on, and the change feed their history syncs\n"
+            "through. That belongs on a server you control, never on a laptop.\n"
+        )
+        sys.exit(2)
+
+    from second_brain import API_PREFIX
+    from second_brain.app import serve
+
+    print(
+        f"Starting the AgentX second brain on "
+        f"http://{args.host}:{args.port}{API_PREFIX}"
+    )
+    sys.exit(serve(host=args.host, port=args.port))
+
+
+def _second_brain_sync_action(args, action: str) -> None:
+    """The laptop-side actions of ``agentx second-brain``."""
+    from hermes_cli.sync_engine import engine
+
+    running = engine()
+
+    if action == "status":
+        status = running.status()
+        if getattr(args, "json", False):
+            print(json.dumps(status, indent=2, default=str))
+            return
+        _print_sync_status(status)
+        return
+
+    if action == "reset":
+        if not getattr(args, "yes", False):
+            print(
+                "\nThis re-pulls every document in your account from the start.\n"
+                "It is safe — applying a document twice changes nothing — but on\n"
+                "a large history it will take a while.\n"
+            )
+            if input("Reset the sync cursor? [y/N]: ").strip().lower() not in ("y", "yes"):
+                print("Left alone.")
+                return
+        status = running.reset_cursor()
+        print(
+            f"\nCursor reset to {status.get('cursor', 0)}. "
+            "The next tick re-pulls everything.\n"
+        )
+        return
+
+    outcome = running.tick()
+    print()
+    print(f"  {outcome.status}: {outcome.detail or 'done'}")
+    if outcome.status == "ok":
+        print(
+            f"  pushed {outcome.pushed}, pulled {outcome.pulled} "
+            f"(applied {outcome.applied}, deleted {outcome.deleted})"
+        )
+        print(f"  cursor {outcome.cursor}, {outcome.pending} still queued")
+    if outcome.status == "signed_out":
+        # Worth spelling out: this is the normal answer from a bare terminal,
+        # and it is not a fault. The backend holds no credential of its own.
+        print(
+            "\n  Synchronisation needs the signed-in person's token, and this\n"
+            "  machine's backend only receives one while the app is open. Open\n"
+            "  AgentX Workmate and it will sync on its own.\n"
+        )
+    print()
+
+
+def _print_sync_status(status: dict) -> None:
+    """Render the sync status for a person reading it over SSH."""
+    print()
+    if not status.get("configured"):
+        print("  History synchronisation is not configured on this machine.")
+        print("  Set accounts.second_brain.base_url in config.yaml.\n")
+        return
+    if not status.get("enabled"):
+        print(
+            "  History synchronisation is switched off "
+            "(accounts.second_brain.sync.enabled).\n"
+        )
+        return
+
+    print(f"  Service:   {status.get('base_url')}")
+    print(f"  Position:  {status.get('cursor', 0)}")
+    print(f"  Queued:    {status.get('pending', 0)} change(s) waiting to be sent")
+    print(f"  Last pull: {_sync_stamp(status.get('last_pull_at'))}")
+    print(f"  Last push: {_sync_stamp(status.get('last_push_at'))}")
+
+    last_error = status.get("last_error")
+    if last_error:
+        print(f"  Last error: {last_error}")
+
+    last = status.get("last") or {}
+    if last.get("status") and last.get("status") != "idle":
+        print(
+            f"  This process's last tick: {last.get('status')} — "
+            f"{last.get('detail') or 'ok'}"
+        )
+    print()
+
+
+def _sync_stamp(value) -> str:
+    """An epoch-seconds column, or 'never'."""
+    if not value:
+        return "never"
+    try:
+        import datetime
+
+        return datetime.datetime.fromtimestamp(float(value)).strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OSError):
+        return str(value)
+
+
 def cmd_profile(args):
     """Profile management — create, delete, list, switch, alias."""
     from hermes_cli.profiles import (
@@ -12619,6 +12747,11 @@ def main():
     # account command  (parser built in hermes_cli/subcommands/account.py)
     # =========================================================================
     build_account_parser(subparsers, cmd_account=cmd_account)
+
+    # =========================================================================
+    # second-brain command  (parser in hermes_cli/subcommands/second_brain.py)
+    # =========================================================================
+    build_second_brain_parser(subparsers, cmd_second_brain=cmd_second_brain)
 
     # =========================================================================
     # completion command

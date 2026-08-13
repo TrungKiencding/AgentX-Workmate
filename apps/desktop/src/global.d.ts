@@ -126,6 +126,21 @@ declare global {
         status: () => Promise<DesktopAccountStatus>
         provision: (options?: { rotate?: boolean }) => Promise<DesktopAccountProvisionResult>
       }
+      // The machines this person is signed in on. Reads through the local
+      // backend, which holds both the service URL (machine policy in
+      // config.yaml) and the offline contract — an unreachable service is
+      // reported, never thrown.
+      devices?: {
+        list: () => Promise<DesktopDeviceList>
+        revoke: (id: string, options?: { rotateKey?: boolean }) => Promise<DesktopDeviceRevokeResult>
+      }
+      // Conversation history converging across this person's machines. `tick`
+      // both triggers a synchronisation and delivers the bearer the backend
+      // needs to keep going between ticks, so calling it is a real action.
+      sync?: {
+        status: () => Promise<DesktopSyncStatus>
+        tick: () => Promise<DesktopSyncOutcome>
+      }
       profile: {
         get: () => Promise<DesktopActiveProfile>
         // Persists the desktop's profile choice and relaunches the local
@@ -700,6 +715,103 @@ export interface DesktopAccountProvisionResult {
   ok: boolean
   error?: string
   litellm?: DesktopAccountLiteLlm
+}
+
+// --- Devices: the machines one person is signed in on ---
+
+export interface DesktopDevice {
+  // The install's id, generated once per machine (see electron/device-id.ts).
+  id: string
+  name: string
+  platform: string
+  app_version: string
+  created_at: string
+  last_seen_at: string
+  revoked_at: string | null
+  revoked: boolean
+  // True for the machine that asked. A property of the caller, not the row.
+  current: boolean
+}
+
+export interface DesktopDeviceList {
+  // ok          the list is live
+  // unconfigured  no second-brain service on this install; there is no list
+  // offline     the service could not be reached; say so and move on
+  // revoked     THIS device has been cut off — sign in again
+  // no_device_id  the request carried no device header (an older build)
+  // error       the service refused; `error` carries the machine-readable code
+  status: 'ok' | 'unconfigured' | 'offline' | 'revoked' | 'no_device_id' | 'error'
+  devices: DesktopDevice[]
+  // This machine's id, so the list can mark it even when the call failed.
+  current: string
+  detail?: string
+  error?: string
+  status_code?: number
+}
+
+export interface DesktopDeviceRevokeResult {
+  status: 'ok' | 'unconfigured' | 'offline' | 'revoked' | 'no_device_id' | 'error'
+  device?: DesktopDevice
+  // Whether the model key was actually reissued. False with
+  // key_rotation: 'unsupported' means this deployment cannot rotate centrally
+  // yet — the revoked machine keeps the key it holds.
+  key_rotated?: boolean
+  key_rotation?: 'rotated' | 'failed' | 'unsupported' | 'not_requested'
+  detail?: string
+  error?: string
+  status_code?: number
+}
+
+// --- Conversation history, across this person's machines -------------------
+
+/** What one synchronisation attempt did. */
+export interface DesktopSyncOutcome {
+  // ok            the tick completed, whether or not anything moved
+  // offline       the service could not be reached. NOT an error to show.
+  // signed_out    nobody is signed in, so there is nothing to synchronise
+  // unconfigured  no second-brain service on this install
+  // disabled      switched off for this machine, in config.yaml
+  // busy          a synchronisation was already running
+  // reauth        this device is revoked, or its token was rejected
+  // error         the service answered, and refused
+  status:
+    | 'ok'
+    | 'offline'
+    | 'signed_out'
+    | 'unconfigured'
+    | 'disabled'
+    | 'busy'
+    | 'reauth'
+    | 'error'
+  detail?: string
+  pushed?: number
+  rejected?: number
+  pulled?: number
+  applied?: number
+  deleted?: number
+  skipped?: number
+  cursor?: number
+  pending?: number
+}
+
+/** Where synchronisation has got to. Read from the local database only. */
+export interface DesktopSyncStatus {
+  enabled?: boolean
+  configured?: boolean
+  base_url?: string
+  interval_seconds?: number
+  // This device's position in the server's change feed.
+  cursor?: number
+  // Changes made here that have not been sent yet.
+  pending?: number
+  // Epoch seconds, or null when it has never happened.
+  last_pull_at?: number | null
+  last_push_at?: number | null
+  last_error?: string | null
+  last?: DesktopSyncOutcome
+  // Set when the local state could not be read at all.
+  detail?: string
+  status?: string
 }
 
 // --- AgentX Cloud (cloud-auto-discovery Phase 3) ---

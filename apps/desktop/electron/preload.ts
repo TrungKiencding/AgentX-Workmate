@@ -115,6 +115,20 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     status: () => ipcRenderer.invoke('agentx:account:status'),
     provision: options => ipcRenderer.invoke('agentx:account:provision', options)
   },
+  // The machines this person is signed in on, and the way to cut one off.
+  // `revoke` takes the id of the device to remove — which may be this one; the
+  // service is what decides whether that is allowed.
+  devices: {
+    list: () => ipcRenderer.invoke('agentx:devices:list'),
+    revoke: (id, options) => ipcRenderer.invoke('agentx:devices:revoke', { id, ...options })
+  },
+  // Conversation history, across this person's machines. `tick` is also how
+  // the backend receives a bearer at all — it holds no credential of its own —
+  // so Settings asking for a sync is a real trigger and not just a refresh.
+  sync: {
+    status: () => ipcRenderer.invoke('agentx:sync:status'),
+    tick: () => ipcRenderer.invoke('agentx:sync:tick')
+  },
   profile: {
     get: () => ipcRenderer.invoke('agentx:profile:get'),
     set: name => ipcRenderer.invoke('agentx:profile:set', name)

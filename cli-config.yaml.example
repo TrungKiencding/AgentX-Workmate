@@ -1782,20 +1782,28 @@ updates:
 #
 #     # How this machine obtains a key.
 #     #
-#     #   broker - (recommended) POST the signed-in user's Keycloak token to
-#     #            a central service, which verifies it and mints on their
-#     #            behalf. The admin key stays on that service.
-#     #   direct - this machine calls LiteLLM's admin API itself with
-#     #            AGENTX_LITELLM_ADMIN_KEY from its own .env. Nothing to
-#     #            deploy — and an admin key that whoever owns the laptop can
-#     #            read, and use to mint unlimited budget or delete a
-#     #            colleague's key.
+#     #   second_brain - (shipped) ask the central account service, which
+#     #                  mints ONCE PER PERSON and hands the same key back to
+#     #                  every machine they sign in on. Needs
+#     #                  accounts.second_brain.base_url below, and nothing
+#     #                  secret on the laptop.
+#     #   broker       - (deprecated) POST the Keycloak token to the older
+#     #                  service, which mints on the user's behalf. Keeps the
+#     #                  admin key off laptops but still mints per MACHINE, so
+#     #                  two of somebody's laptops still fight over one alias.
+#     #   direct       - (deprecated, removed 2027-02-13) this machine calls
+#     #                  LiteLLM's admin API itself with
+#     #                  AGENTX_LITELLM_ADMIN_KEY from its own .env — an admin
+#     #                  key whoever owns the laptop can read and use to mint
+#     #                  unlimited budget or delete a colleague's key. It is no
+#     #                  longer shipped in the installer, so an admin has to
+#     #                  place it by hand.
 #     #
-#     # A shipped AgentX build sets "direct": no broker is deployed yet, and
-#     # a laptop that cannot mint has no model at all. Moving off it is one
-#     # migration — run `agentx litellm-broker serve`, set broker_url, flip
-#     # this to "broker", rotate the admin key.
-#     mode: "broker"
+#     # An install with no second_brain.base_url provisions nothing and says
+#     # so, naming the setting. It does NOT fall back to minting locally:
+#     # falling back is how the admin key ended up on laptops in the first
+#     # place.
+#     mode: "second_brain"
 #
 #     # Where the broker listens. Required when mode is "broker"; put TLS in
 #     # front of it. Run the server side with `agentx account broker`.
@@ -1807,9 +1815,11 @@ updates:
 #     provider_name: "litellm"
 #
 #     # Prefix of the LiteLLM key_alias; the account slug is appended, giving
-#     # one alias per person. That alias is the idempotency handle — it is
-#     # looked up before anything is minted, so signing in twice reuses the
-#     # key instead of leaving an orphan behind on every launch.
+#     # one alias per person. It is a LABEL, for reading the proxy's own
+#     # console — nothing looks a key up by it and nothing deletes one by it.
+#     # It used to be the idempotency handle, and that was the bug: every
+#     # machine one person owns presents the same alias, so retiring "the key
+#     # wearing this alias" retired their other laptop's working key.
 #     key_alias_prefix: "agentx-workmate"
 #
 #     # Restrict each minted key to these model ids. Empty means every model
@@ -1841,6 +1851,27 @@ updates:
 #     # Timeout for each provisioning HTTP call. This runs on the sign-in
 #     # path, so a wedged proxy must not be allowed to hold up a launch.
 #     request_timeout_seconds: 20
+#
+#   # ---- The second brain ----------------------------------------------------
+#   # The central account service (`agentx second-brain serve`). It answers one
+#   # question today: which machines is this person signed in on, and can I
+#   # revoke one? Later it holds their model key and their conversation
+#   # history, so a second laptop stops costing them the first one.
+#   #
+#   # Machine-wide policy, like the litellm block above: written once per
+#   # install and inherited by every account on it.
+#   #
+#   # Standing one up: deploy/second-brain/README.md.
+#   second_brain:
+#     # Where it is, e.g. "https://brain.example.com". Empty means no service
+#     # is deployed for this install: Settings says so, the device list is
+#     # hidden, and nothing else changes. There is no separate `enabled` flag
+#     # — a URL is what decides whether there is anything to talk to.
+#     base_url: ""
+#
+#     # Timeout for each call. Settings must not feel wedged because a
+#     # service is slow, so this is shorter than the provisioning timeout.
+#     request_timeout_seconds: 15
 
 # =============================================================================
 # External secret sources

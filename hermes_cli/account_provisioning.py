@@ -7,31 +7,46 @@ minted for them, written into their account's ``.env``, and referenced from
 their account's ``config.yaml``. Ten people on one laptop end up with ten keys
 and ten spend lines instead of one key everybody shares.
 
-Two ways to get the key, chosen by ``accounts.litellm.mode``:
+Three ways to get the key, chosen by ``accounts.litellm.mode``:
 
-**broker** (the default, and the one to deploy)
-    The laptop POSTs its Keycloak bearer to a central service, which verifies
-    the token and mints on the user's behalf. The LiteLLM admin key stays on
-    that service. This matters because the product runs on employees'
-    machines: an admin key shipped to the laptop is an admin key every
-    employee can read out of ``.env`` and use to mint themselves unlimited
-    budget or enumerate their colleagues' keys.
+**second_brain** (the shipped default)
+    The laptop asks the second-brain service, which mints **once per person**
+    and hands the same key back to every machine they sign in on. The LiteLLM
+    admin key stays on that service. This is the mode that fixes the fault the
+    other two share: a key looked up by an alias derived from somebody's
+    ``sub`` is a key every one of their machines competes for, and both older
+    paths deleted whatever wore that alias before minting. Signing in on a
+    second laptop revoked the first laptop's key.
 
-**direct**
+**broker** (deprecated)
+    The laptop POSTs its Keycloak bearer to a central service that mints on
+    its behalf. Keeps the admin key off laptops, which was its point, but
+    still mints per machine rather than per person — so it does not solve the
+    multi-device problem, only the credential-exposure one.
+
+**direct** (deprecated, removed 2027-02-13)
     The laptop calls LiteLLM's admin API itself with
-    ``AGENTX_LITELLM_ADMIN_KEY``. Nothing to deploy, works today, and carries
-    exactly the exposure described above. Good for a pilot on trusted
-    machines; say so out loud before rolling it out.
+    ``AGENTX_LITELLM_ADMIN_KEY``. Nothing to deploy, and it carries the full
+    exposure: the product runs on employees' machines, so an admin key on the
+    laptop is one every employee can read out of ``.env`` and use to mint
+    themselves unlimited budget or enumerate their colleagues' keys. It is no
+    longer shipped in the installer.
 
-Both paths converge on the same idempotency rule: **one LiteLLM key per
-account, found by alias, reused until it stops working.** Provisioning runs on
-every sign-in, so anything that minted unconditionally would leave a trail of
-orphaned keys — one per launch, per person.
+All three converge on the same idempotency rule: **one LiteLLM key per person,
+reused until it stops working.** Provisioning runs on every sign-in, so
+anything that minted unconditionally would leave a trail of orphaned keys —
+one per launch, per person.
+
+**No path here deletes a key by alias.** That is the defect this module was
+carrying: an alias is shared by all of one person's machines, so deleting by it
+is deleting somebody else's working key. Rotation retires the token *this
+account recorded when it minted*, and nothing else.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,10 +62,27 @@ from hermes_cli.litellm_admin import (
     normalize_base_url,
     openai_base_url,
 )
+from hermes_cli.second_brain_client import (
+    SecondBrainClient,
+    SecondBrainError,
+    install_device_identity,
+)
+
+logger = logging.getLogger(__name__)
 
 # Credential holding the LiteLLM admin key in direct mode. A secret, so it
 # lives in .env rather than config.yaml.
 ADMIN_KEY_ENV_VAR = "AGENTX_LITELLM_ADMIN_KEY"
+
+#: Modes ``accounts.litellm.mode`` accepts. Anything else falls back to
+#: ``second_brain``, which is the one that needs no credential on the machine
+#: and cannot revoke another device's key.
+MODES = ("second_brain", "broker", "direct")
+
+#: When ``mode: "direct"`` goes away. Named rather than open-ended: a
+#: compatibility flag with no end date is a compatibility flag forever, and
+#: this one keeps an admin credential on employees' laptops.
+DIRECT_MODE_REMOVAL_DATE = "2027-02-13"
 
 # Sidecar recording what was provisioned, next to the account's state. It
 # deliberately holds no plaintext key: the key lives in .env, where the rest
@@ -72,8 +104,12 @@ class LiteLLMAccountSettings:
 
     enabled: bool = False
     base_url: str = ""
-    mode: str = "broker"
+    mode: str = "second_brain"
     broker_url: str = ""
+    #: Copied from the sibling ``accounts.second_brain.base_url`` rather than
+    #: restated under ``accounts.litellm``. One install talks to one service,
+    #: and two settings naming it would eventually name two.
+    second_brain_url: str = ""
     provider_name: str = "litellm"
     key_alias_prefix: str = "agentx-workmate"
     models: tuple[str, ...] = ()
@@ -90,11 +126,29 @@ class LiteLLMAccountSettings:
         """True when this install actually wants per-account provisioning."""
         if not self.enabled:
             return False
+        if self.mode == "second_brain":
+            return bool(self.second_brain_url)
         if self.mode == "broker":
             return bool(self.broker_url)
         return bool(self.base_url)
 
+    @property
+    def missing_setting(self) -> str:
+        """The setting an unconfigured install has to fill in, by name."""
+        if self.mode == "second_brain":
+            return "accounts.second_brain.base_url"
+        if self.mode == "broker":
+            return "accounts.litellm.broker_url"
+        return "accounts.litellm.base_url"
+
     def alias_for(self, account_slug: str) -> str:
+        """The label this person's key wears in LiteLLM.
+
+        One alias per person, deliberately — the same person on two machines
+        gets one name in the proxy's console because they have one key. It is
+        a label and nothing more: no code path here looks a key up by it, let
+        alone deletes one.
+        """
         return f"{self.key_alias_prefix}-{account_slug}"
 
 
@@ -189,15 +243,25 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
         str(m).strip() for m in models if str(m).strip()
     ) if isinstance(models, (list, tuple)) else ()
 
-    mode = _str("mode", "broker").lower()
-    if mode not in {"broker", "direct"}:
-        mode = "broker"
+    mode = _str("mode", "second_brain").lower()
+    if mode not in MODES:
+        # The safe one: it needs no credential on this machine and cannot
+        # delete a key another of this person's devices is using.
+        mode = "second_brain"
+
+    # The service URL lives under its own section, because the device list and
+    # (from Phase 3) the change feed use the same one.
+    brain_section = cfg_get(cfg, "accounts", "second_brain", default=None)
+    if not isinstance(brain_section, dict):
+        brain_section = {}
+    second_brain_url = str(brain_section.get("base_url") or "").strip().rstrip("/")
 
     return LiteLLMAccountSettings(
         enabled=bool(section.get("enabled", False)),
         base_url=normalize_base_url(_str("base_url")),
         mode=mode,
         broker_url=_str("broker_url").rstrip("/"),
+        second_brain_url=second_brain_url,
         provider_name=_str("provider_name", "litellm") or "litellm",
         key_alias_prefix=_str("key_alias_prefix", "agentx-workmate") or "agentx-workmate",
         models=model_tuple,
@@ -261,8 +325,9 @@ def _admin_key() -> str:
     before anybody has an account home to write it into — and without the
     fallback direct mode would only ever work in the shared home.
 
-    Broker mode never calls this: the whole point of the broker is that this
-    value does not exist on the machine at all.
+    Only direct mode calls this. The point of the other two modes is that this
+    value does not exist on the machine at all, and since the key vault
+    shipped it is no longer placed there by the installer either.
     """
     from hermes_cli.config import get_env_value_prefer_dotenv
     from hermes_constants import (
@@ -293,26 +358,45 @@ def _mint_direct(
     alias: str,
     *,
     client: LiteLLMAdminClient | None = None,
+    previous_token: str = "",
 ) -> MintedKey:
-    """Mint against LiteLLM's admin API from this machine."""
+    """Mint against LiteLLM's admin API from this machine.
+
+    Deprecated, and reached only under an explicit ``mode: "direct"``. Every
+    launch through here logs why, because the admin key it needs is one every
+    person using this machine can read out of ``.env``.
+    """
+    logger.warning(
+        "accounts.litellm.mode is 'direct', so this machine holds %s and mints "
+        "its own keys. That credential can mint and revoke for the whole "
+        "estate and anyone with this machine can read it. Direct mode is "
+        "removed on %s — move to mode: 'second_brain' and set "
+        "accounts.second_brain.base_url.",
+        ADMIN_KEY_ENV_VAR,
+        DIRECT_MODE_REMOVAL_DATE,
+    )
+
     if client is None:
         admin = _admin_key()
         if not admin:
             raise ProvisioningError(
                 f"accounts.litellm.mode is 'direct' but {ADMIN_KEY_ENV_VAR} is not set. "
-                "Add it to this machine's .env, or switch to broker mode so the "
-                "admin key never leaves your server."
+                "Add it to this machine's .env, or switch to mode 'second_brain' "
+                "so the admin key never leaves your server."
             )
         client = LiteLLMAdminClient(
             settings.base_url, admin, timeout=settings.request_timeout_seconds
         )
 
-    # Retire anything already wearing this alias. LiteLLM cannot hand back an
-    # existing key's plaintext, so reaching here means we have no usable copy
-    # of it — leaving it alive would just accumulate keys nobody holds.
-    existing = client.keys_for_alias(alias)
-    if existing:
-        client.delete_keys([record.token for record in existing])
+    # Retire the key THIS ACCOUNT recorded when it last minted, and nothing
+    # else. What used to be here was a delete of everything wearing the alias,
+    # and that was the defect the second brain exists to fix: one person's
+    # machines all share an alias, so deleting by it deletes a colleague
+    # machine's working key. A key we cannot name is a key we leave alone —
+    # it costs an orphan in the proxy, which an operator can see and remove,
+    # where the alternative cost somebody their other laptop.
+    if previous_token:
+        client.delete_keys([previous_token])
 
     return client.generate_key(
         key_alias=alias,
@@ -329,6 +413,77 @@ def _mint_direct(
             "issuer": identity.issuer,
         },
     )
+
+
+def _key_from_second_brain(
+    settings: LiteLLMAccountSettings,
+    identity: AccountIdentity,
+    alias: str,
+    bearer: str,
+    *,
+    device_id: str = "",
+    device_name: str = "",
+    rotate: bool = False,
+    transport: Any | None = None,
+) -> tuple[MintedKey, str, str]:
+    """Ask the second brain for this person's key.
+
+    Returns the key, the proxy URL, and what the service says it did —
+    ``issued``, ``reused`` or ``rotated``. That last one matters: reporting
+    "rotated" in Settings when the service simply handed back the key this
+    person already had would describe the fix as though it were the bug.
+
+    Usually this mints nothing at all: the service holds one key per person and
+    hands the same plaintext to every machine, so the second device to sign in
+    gets a copy rather than a replacement. That is the whole fix — the reason
+    this path exists is that the other two could not do it, because LiteLLM
+    reveals a key's plaintext exactly once and only the machine that minted it
+    ever had one.
+
+    The service is the authority on the proxy URL as well as on the key, so a
+    ``base_url`` in the response wins over the local setting: an operator who
+    moves LiteLLM changes one server rather than every laptop.
+    """
+    if not bearer:
+        raise ProvisioningError(
+            "second_brain mode needs the signed-in user's access token, and "
+            "none was supplied. This is a bug in the caller, not a "
+            "configuration problem."
+        )
+
+    if not device_id:
+        # Only reached without a desktop above us — a CLI sign-in, or a
+        # backend somebody started by hand. The service refuses a request that
+        # will not name its machine, so name it.
+        device_id, fallback_name = install_device_identity()
+        device_name = device_name or fallback_name
+
+    client = SecondBrainClient(
+        settings.second_brain_url,
+        timeout=settings.request_timeout_seconds,
+        transport=transport,
+    )
+    payload = client.model_key(
+        bearer=bearer,
+        device_id=device_id,
+        device_name=device_name,
+        rotate=rotate,
+    )
+    if not isinstance(payload, dict):
+        raise ProvisioningError("the second brain returned an unexpected body")
+
+    key = str(payload.get("key") or "").strip()
+    if not key:
+        raise ProvisioningError("the second brain returned no key")
+
+    minted = MintedKey(
+        key=key,
+        token=str(payload.get("token") or ""),
+        key_alias=str(payload.get("key_alias") or alias),
+        models=tuple(str(m) for m in (payload.get("models") or ())),
+    )
+    base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
+    return minted, base_url, str(payload.get("status") or "issued")
 
 
 def _mint_via_broker(
@@ -499,23 +654,29 @@ def ensure_account_key(
     account_slug: str,
     *,
     bearer: str = "",
+    device_id: str = "",
+    device_name: str = "",
     force_rotate: bool = False,
     settings: LiteLLMAccountSettings | None = None,
     home: Path | None = None,
     client: LiteLLMAdminClient | None = None,
     broker_transport: Any | None = None,
+    brain_transport: Any | None = None,
 ) -> ProvisionResult:
     """Make sure this account holds a working LiteLLM key, and return what happened.
 
     Called on every sign-in, so the common path has to be cheap and silent:
     a key we already minted, still accepted by the proxy, is reused with one
     ``GET /v1/models``. A key that is missing, or that the proxy no longer
-    accepts, is replaced.
+    accepts, is replaced — and in ``second_brain`` mode "replaced" usually
+    means "collected from the service", which is why a second machine no
+    longer costs somebody their first one.
 
-    Never raises for "the proxy is unreachable" — a person who opens their
+    Never raises for "the service is unreachable" — a person who opens their
     laptop on a train must still get their agent, with the key they already
     have. Only a genuine misconfiguration (direct mode with no admin key, a
-    broker that rejects the sign-in) surfaces as an error status.
+    service that rejects the sign-in) surfaces as an error status, and only a
+    revoked device surfaces as ``revoked``.
     """
     from hermes_constants import get_hermes_home
 
@@ -528,10 +689,9 @@ def ensure_account_key(
             detail="accounts.litellm.enabled is false; nothing to provision.",
         )
     if not settings.configured:
-        missing = "broker_url" if settings.mode == "broker" else "base_url"
         return ProvisionResult(
             status="unconfigured",
-            detail=f"accounts.litellm.{missing} is not set.",
+            detail=f"{settings.missing_setting} is not set.",
         )
 
     alias = settings.alias_for(account_slug)
@@ -546,10 +706,13 @@ def ensure_account_key(
     # 1. Reuse. The cheapest and by far the most common outcome.
     if stored_key and not force_rotate and state.get("key_alias") == alias:
         if not base_url:
-            # Broker-only install that has not learned the proxy URL yet.
+            # A service- or broker-only install that has not learned the proxy
+            # URL yet.
             return _rotate(
                 settings, identity, account_slug, alias, key_env, home, bearer,
-                client=client, broker_transport=broker_transport, reason="no base URL on record",
+                client=client, broker_transport=broker_transport,
+                brain_transport=brain_transport, device_id=device_id,
+                device_name=device_name, reason="no base URL on record",
             )
         probe = _probe_client(settings, base_url, client)
         if probe is None or probe.key_is_live(stored_key):
@@ -563,13 +726,21 @@ def ensure_account_key(
                 models=tuple(state.get("models") or ()),
             )
 
-    # 2. Mint (or re-mint).
+    # 2. Fetch, mint, or re-mint.
+    #
+    # Only an explicit rotation asks the second brain for a NEW key. A stored
+    # key the proxy no longer accepts means somebody rotated from another
+    # machine, and the right answer to that is to collect what they rotated
+    # to — not to rotate again and take their key in turn, which is the
+    # ping-pong this whole project exists to end.
     reason = "rotation requested" if force_rotate else (
         "no key on this account yet" if not stored_key else "the proxy no longer accepts the stored key"
     )
     return _rotate(
         settings, identity, account_slug, alias, key_env, home, bearer,
-        client=client, broker_transport=broker_transport, reason=reason,
+        client=client, broker_transport=broker_transport,
+        brain_transport=brain_transport, device_id=device_id,
+        device_name=device_name, rotate=force_rotate, reason=reason,
     )
 
 
@@ -610,18 +781,89 @@ def _rotate(
     client: LiteLLMAdminClient | None,
     broker_transport: Any | None,
     reason: str,
+    brain_transport: Any | None = None,
+    device_id: str = "",
+    device_name: str = "",
+    rotate: bool = False,
 ) -> ProvisionResult:
-    """Mint a fresh key and wire it into this account."""
-    had_key = bool(read_state(home).get("key_alias"))
+    """Get this account a working key and wire it in.
+
+    In ``second_brain`` mode this usually mints nothing: the service already
+    holds this person's key and answers with it. ``rotate`` is the only thing
+    that asks for a new one.
+    """
+    state = read_state(home)
+    had_key = bool(state.get("key_alias"))
+    service_status = ""
 
     try:
-        if settings.mode == "broker":
+        if settings.mode == "second_brain":
+            minted, base_url, service_status = _key_from_second_brain(
+                settings, identity, alias, bearer,
+                device_id=device_id, device_name=device_name,
+                rotate=rotate, transport=brain_transport,
+            )
+        elif settings.mode == "broker":
             minted, base_url = _mint_via_broker(
                 settings, identity, alias, bearer, transport=broker_transport
             )
         else:
-            minted = _mint_direct(settings, identity, alias, client=client)
+            minted = _mint_direct(
+                settings,
+                identity,
+                alias,
+                client=client,
+                previous_token=str(state.get("token") or ""),
+            )
             base_url = settings.base_url
+    except SecondBrainError as exc:
+        if exc.revoked:
+            # The one failure that must reach the user as "sign in again"
+            # rather than "try later". The key on this machine is not the
+            # problem and is left exactly where it is; what has ended is this
+            # machine's permission to ask for it.
+            return ProvisionResult(
+                status="revoked",
+                detail=(
+                    "this device has been revoked. Sign in again to use it "
+                    f"({exc})."
+                ),
+                provider=settings.provider_name,
+                key_alias=alias,
+                base_url=settings.base_url,
+            )
+        if exc.unreachable:
+            return ProvisionResult(
+                status="offline",
+                detail=(
+                    f"could not reach the second brain ({exc}); keeping "
+                    "whatever key this account has."
+                ),
+                provider=settings.provider_name,
+                key_alias=alias,
+                base_url=settings.base_url,
+            )
+        if exc.status_code in (502, 503):
+            # The service is up but cannot reach LiteLLM, or has no proxy
+            # configured. Nothing was minted and nothing was lost — the same
+            # answer as an outage, because that is what it is from here.
+            return ProvisionResult(
+                status="offline",
+                detail=(
+                    f"the second brain could not issue a key right now ({exc}); "
+                    "keeping whatever key this account has."
+                ),
+                provider=settings.provider_name,
+                key_alias=alias,
+                base_url=settings.base_url,
+            )
+        return ProvisionResult(
+            status="error",
+            detail=str(exc),
+            provider=settings.provider_name,
+            key_alias=alias,
+            base_url=settings.base_url,
+        )
     except LiteLLMError as exc:
         if exc.unreachable:
             return ProvisionResult(
@@ -672,9 +914,31 @@ def _rotate(
         },
     )
 
+    # What the second brain says it did beats what this machine assumed. A
+    # laptop that fetched the key its owner's other laptop minted has neither
+    # provisioned nor rotated anything, and telling somebody their key was
+    # replaced when it was not is how a fix comes to look like the bug.
+    if service_status == "reused":
+        status, detail = "reused", (
+            "collected this account's key from the second brain "
+            f"({reason}); no new key was issued."
+        )
+    elif service_status == "rotated":
+        status, detail = "rotated", (
+            f"the second brain issued a replacement key for this account ({reason})."
+        )
+    elif service_status:
+        status, detail = ("rotated" if had_key else "provisioned"), (
+            f"the second brain issued this account's key ({reason})."
+        )
+    else:
+        status, detail = ("rotated" if had_key else "provisioned"), (
+            f"minted a new LiteLLM key for this account ({reason})."
+        )
+
     return ProvisionResult(
-        status="rotated" if had_key else "provisioned",
-        detail=f"minted a new LiteLLM key for this account ({reason}).",
+        status=status,
+        detail=detail,
         provider=settings.provider_name,
         key_alias=alias,
         masked_key=minted.masked,

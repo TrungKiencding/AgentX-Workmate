@@ -1,5 +1,11 @@
 """The service that keeps the LiteLLM admin key off employees' laptops.
 
+DEPRECATED. It solved the credential-exposure half of the problem and not the
+other half: it still mints per machine rather than per person, so two of
+somebody's laptops still end up with two different keys under one alias.
+``second_brain`` (``agentx second-brain serve``) replaces it and mints once per
+person. This module stays only until no install runs ``mode: "broker"``.
+
 AgentX Workmate is installed on each person's own machine. Minting a per-user
 LiteLLM key needs an admin credential, and an admin credential shipped to a
 laptop is an admin credential every employee can read out of ``.env`` — enough
@@ -21,11 +27,14 @@ an ``account`` hint for logging; the slug that is actually used is derived
 from the verified ``sub``. A user cannot ask for somebody else's key by
 editing a JSON field.
 
-**Minting is idempotent per person, and rotating is explicit.** Repeat calls
-return the same alias. LiteLLM cannot re-reveal an existing key's plaintext
-(``/key/{token}/regenerate`` is an Enterprise route and answers HTTP 500 on
-the open-source build), so a caller that has lost its copy gets the old key
-retired and a new one minted. That is a rotation, and it is logged as one.
+**Nothing here deletes a key.** LiteLLM cannot re-reveal an existing key's
+plaintext (``/key/{token}/regenerate`` is an Enterprise route and answers HTTP
+500 on the open-source build), so a caller that has lost its copy gets a new
+key minted — and the old one is left alive, because this service keeps no
+record of which machine holds which key and so cannot tell a stale key from a
+colleague machine's working one. That leaks an orphaned key per re-mint. It is
+the deliberate trade: an orphan is a bill, and the delete that used to be here
+was somebody's laptop losing its model access.
 
 Run it with::
 
@@ -179,9 +188,19 @@ def build_app(provider=None, client=None, settings=None):
             )
 
         def _mint():
-            existing = resolved_client.keys_for_alias(alias)
-            if existing:
-                resolved_client.delete_keys([r.token for r in existing])
+            # NOTHING IS DELETED HERE. What used to be on this line was a
+            # delete of every key wearing this alias, and that was the defect:
+            # one person's machines all present the same alias, so the second
+            # laptop to sign in revoked the first laptop's key, and the first
+            # then revoked the second. The broker cannot tell which key
+            # belongs to which machine — it keeps no record — so the only safe
+            # thing it can do is leave them alone. That leaks an orphaned key
+            # per re-mint, visible in `/key/list` and removable by hand, which
+            # is a bill rather than an outage.
+            #
+            # The real fix is the second-brain service, which mints once per
+            # person and hands the same key back to every device. This module
+            # exists only until no install runs `mode: "broker"`.
             return resolved_client.generate_key(
                 key_alias=alias,
                 user_id=session.user_id,
@@ -195,18 +214,17 @@ def build_app(provider=None, client=None, settings=None):
                     "email": session.email,
                     "issuer": session.provider,
                 },
-            ), bool(existing)
+            )
 
         try:
-            minted, rotated = await run_in_threadpool(_mint)
+            minted = await run_in_threadpool(_mint)
         except LiteLLMError as exc:
             logger.error("broker: LiteLLM refused to mint for %s: %s", alias, exc)
             status = 503 if exc.unreachable else 502
             raise HTTPException(status_code=status, detail=str(exc)) from exc
 
         logger.info(
-            "broker: %s key for %s (%s)",
-            "rotated" if rotated else "issued", alias, session.email or session.user_id,
+            "broker: issued key for %s (%s)", alias, session.email or session.user_id
         )
 
         return {
@@ -215,7 +233,10 @@ def build_app(provider=None, client=None, settings=None):
             "token": minted.token,
             "base_url": resolved_settings.base_url,
             "models": list(minted.models or resolved_settings.models),
-            "rotated": rotated,
+            # Always false now: this broker retires nothing, because it cannot
+            # tell one of a person's machines from another. Kept in the body so
+            # an older laptop reading it does not trip over a missing field.
+            "rotated": False,
             "account": slug,
         }
 

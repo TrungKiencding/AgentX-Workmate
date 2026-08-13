@@ -1,0 +1,24 @@
+# An ALLOWLIST, not a denylist, and deliberately so.
+#
+# The root .gitignore already covers `.env`, which is the file people actually
+# worry about. But it is a denylist: `git check-ignore secrets.yaml`,
+# `kek.txt`, `admin-key.json`, `backup.sql` — none of them match anything, and
+# every one of them is a plausible name for something an operator drops in this
+# directory while standing the service up. This repository is public and the
+# service holds the LiteLLM admin key. Once is enough: an admin key has already
+# shipped inside an installer.
+#
+# So: ignore everything, then name what may be committed. A new file is
+# invisible to git until somebody adds it here on purpose, which is exactly the
+# moment to think about whether it contains a secret.
+*
+
+!.gitignore
+!docker-compose.yml
+!Dockerfile
+!Caddyfile
+!Makefile
+!.env.example
+!README.md
+!migrations/
+!migrations/**

@@ -1,0 +1,74 @@
+# TLS, and nothing else.
+#
+# The site address comes from BRAIN_SITE_ADDRESS, and its shape is what picks
+# between the two ways this can be deployed:
+#
+#   brain.example.com     Caddy owns ports 80 and 443 and gets its own
+#                         certificate. The default, and the simplest thing
+#                         that works on a host with nothing else on those
+#                         ports. Set BRAIN_DOMAIN and leave
+#                         BRAIN_SITE_ADDRESS empty; compose derives this.
+#
+#   localhost             Same, but Caddy uses its internal CA instead of
+#                         asking Let's Encrypt for a certificate it could
+#                         never get. For a local trial only — a laptop will
+#                         refuse that certificate unless you install the CA.
+#
+#   :80                   Plain HTTP, no certificate, no ACME. Correct when
+#                         something else on this host already owns 80/443 and
+#                         terminates TLS — nginx, an existing Caddy, traefik,
+#                         an ingress. Publish this container on a LOOPBACK
+#                         address (see BRAIN_HTTP_PUBLISH in .env.example) and
+#                         point that proxy at it.
+#
+# Why a non-standard TLS port is NOT on that list: ACME HTTP-01 must be
+# answered on port 80 and TLS-ALPN-01 on 443. That is Let's Encrypt's rule,
+# not Caddy's, so moving Caddy to 8443 does not move the challenge with it and
+# the certificate never arrives. If you have a certificate already, add a
+# `tls <cert> <key>` line inside the block below and mount the files in.
+#
+# There is no auth here on purpose. Every route the service exposes verifies a
+# Keycloak bearer itself, and a second gate at the proxy would be a second
+# place to configure the realm — which is how a proxy ends up trusting a realm
+# the service has already left.
+
+{$BRAIN_SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Sync pushes carry whole sessions. The service enforces its own body
+	# limit and answers 413; this one is deliberately looser so that the
+	# limit a client sees is the service's, with a message it understands,
+	# rather than a bare proxy rejection.
+	request_body {
+		max_size 32MB
+	}
+
+	reverse_proxy brain:8811 {
+		# Long enough for a first sync on a large history, short enough that
+		# a wedged upstream cannot pin a connection indefinitely.
+		#
+		# These also bound the change socket at /v1/sync/stream, which Caddy
+		# upgrades automatically and then streams. THE SERVICE'S KEEPALIVE
+		# MUST STAY BELOW THESE VALUES — it pings every 45s
+		# (KEEPALIVE_SECONDS in second_brain/stream.py), which is what keeps
+		# an idle socket inside the 120s window. Shorten these and idle
+		# clients get disconnected every couple of minutes; they reconnect and
+		# nothing breaks, but the log fills with it for no reason.
+		#
+		# In `:80` mode the proxy in front of this one needs the same two
+		# properties, and neither is a default: it must pass the WebSocket
+		# upgrade through, and its own read/write timeouts must be at least
+		# these. An outer proxy that closes idle connections at 60s costs no
+		# data — every device still converges on its polling interval — but it
+		# reconnects the socket forever and buries the log.
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
