@@ -249,8 +249,25 @@ def build_app(
 
 
 def serve(host: str = "127.0.0.1", port: int = 8811) -> int:
-    """Run the service. Returns a process exit code."""
+    """Run the service. Returns a process exit code.
+
+    Configures the root logger before anything else. ``uvicorn.run``'s
+    ``log_level`` only reaches uvicorn's own loggers, so without this every
+    ``logger.error`` in this package is written to a root logger that has no
+    handler and silently discarded — including the one line that says WHY a
+    mint failed. The route still answers 502 and the access log still shows it,
+    so the service looks like it is reporting the failure while the only
+    diagnosable part of it is thrown away.
+    """
     import uvicorn
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        # The container is the log sink; anything already configured (a test
+        # harness, an embedding host) is left alone.
+        force=False,
+    )
 
     try:
         app = build_app()
