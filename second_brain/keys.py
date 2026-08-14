@@ -245,6 +245,68 @@ async def _rewrap(ctx: BrainContext, subject: str, row: ModelKeyRow, plaintext: 
 # ---------------------------------------------------------------------------
 
 
+async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
+    """Return the models a key may reach, in the order modes were configured.
+
+    A proxy serves more than the things a person talks to. Embedding and
+    rerank models answer ``/v1/models`` exactly like a chat model, so a key
+    scoped to everything puts ``BAAI/bge-m3`` in the picker; choosing it fails
+    mid-conversation and reads like a broken proxy rather than a wrong pick.
+
+    The returned order matters twice over: LiteLLM stores it, and the first
+    entry becomes the account's default model. Sorting by
+    ``key_model_modes`` — chat first by default — is what makes opening the
+    app land on something you can talk to, with no model id written down
+    anywhere on the laptop.
+
+    ``accounts.litellm.models`` still wins when an operator set it. That is an
+    explicit fleet-wide allow-list, and second-guessing it by mode would mean
+    the setting quietly means something other than what it says.
+
+    Raises rather than falling back to an unrestricted key when the proxy
+    cannot say what it serves. Falling back is how the admin key came to
+    travel inside every installer; the same instinct here would hand out
+    embedding models to everyone the first time one endpoint hiccuped.
+    """
+    from hermes_cli.litellm_admin import LiteLLMError
+
+    from starlette.concurrency import run_in_threadpool
+
+    if settings.key_models:
+        return tuple(settings.key_models)
+
+    try:
+        modes = await run_in_threadpool(client.model_modes)
+    except LiteLLMError as exc:
+        logger.error("second_brain: could not read the proxy's model list: %s", exc)
+        raise _litellm_failed(exc) from exc
+
+    wanted = tuple(settings.key_model_modes)
+    granted = [
+        model
+        for mode in wanted
+        for model, declared in modes.items()
+        if declared == mode
+    ]
+
+    if not granted:
+        skipped = sorted({m for m in modes.values() if m}) or ["(none declared)"]
+        logger.error(
+            "second_brain: the proxy serves no model in modes %s; it declares %s",
+            ", ".join(wanted),
+            ", ".join(skipped),
+        )
+        raise BrainHTTPError(
+            502,
+            "no_grantable_models",
+            "the model proxy serves nothing this deployment is allowed to hand "
+            "out. Check AGENTX_BRAIN_KEY_MODEL_MODES against the modes the "
+            "proxy declares in /model/info.",
+        )
+
+    return tuple(granted)
+
+
 async def _mint_and_store(
     ctx: BrainContext,
     subject: str,
@@ -268,11 +330,13 @@ async def _mint_and_store(
     client = _litellm_or_503(ctx)
     settings = ctx.settings
 
+    granted = await _grantable_models(client, settings)
+
     def _mint():
         return client.generate_key(
             key_alias=alias,
             user_id=subject,
-            models=settings.key_models,
+            models=granted,
             max_budget=settings.key_max_budget or None,
             budget_duration=settings.key_budget_duration,
             tpm_limit=settings.key_tpm_limit or None,
@@ -300,7 +364,12 @@ async def _mint_and_store(
         nonce=nonce,
         kek_id=settings.kek_id,
         base_url=settings.litellm_base_url,
-        models=minted.models or settings.key_models,
+        # `granted` before `minted.models`: the proxy echoes back what it
+        # stored, and an older LiteLLM echoes an empty list for an
+        # unrestricted key. Preferring our own list keeps the stored order —
+        # which is what picks the account's default model — instead of
+        # inheriting whatever order the echo happens to have.
+        models=granted or minted.models,
     )
 
     if existing is not None and existing.litellm_token and existing.litellm_token != minted.token:
@@ -345,6 +414,14 @@ def _body(row: ModelKeyRow, plaintext: str, *, status: str, account: str = "") -
         "token": row.litellm_token,
         "base_url": row.base_url,
         "models": list(row.models),
+        # The account's default model, and the only place one is decided.
+        # It is the first model the key can reach, which — because the list is
+        # sorted by configured mode — is a chat model unless an operator asked
+        # for something else. Deriving it here rather than shipping a constant
+        # is what stops an installer from pinning a model the proxy retired:
+        # the key cannot grant what the proxy does not serve, so the default
+        # cannot name it either.
+        "default_model": (list(row.models) or [""])[0],
         "status": status,
         "account": account,
         "created_at": row.created_at.isoformat(),

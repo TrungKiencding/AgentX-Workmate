@@ -310,6 +310,36 @@ class LiteLLMAdminClient:
             if isinstance(row, dict) and row.get("id")
         ]
 
+    def model_modes(self) -> dict[str, str]:
+        """Return ``{model_id: mode}`` for every model this proxy serves.
+
+        ``/v1/models`` answers with ids and nothing else, which is why this
+        exists: scoping a key to what a person can actually chat with means
+        knowing that ``BAAI/bge-m3`` is an embedding model and not a small one.
+        Granting it is not harmless — it shows up in the model picker, and the
+        chat that follows fails in a way that reads like a broken proxy.
+
+        Admin-only, so this is never called with a user key. A model the proxy
+        declares without a mode maps to ``""``: reported, not guessed, because
+        the caller is the one that decides whether an unlabelled model is safe
+        to hand out.
+        """
+        payload = self._request("GET", "/model/info")
+        rows = payload.get("data") if isinstance(payload, dict) else None
+        modes: dict[str, str] = {}
+        for row in rows or ():
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("model_name") or "").strip()
+            if not name:
+                continue
+            info = row.get("model_info")
+            mode = ""
+            if isinstance(info, dict):
+                mode = str(info.get("mode") or "").strip().lower()
+            modes[name] = mode
+        return modes
+
     def key_is_live(self, api_key: str) -> bool:
         """True when *api_key* is still accepted by the proxy.
 

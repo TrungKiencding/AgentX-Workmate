@@ -70,9 +70,16 @@ class FakeLiteLLM:
     a key findable.
     """
 
-    def __init__(self, catalog=("gpt-4o-mini", "claude-sonnet-4")):
+    def __init__(self, catalog=("gpt-4o-mini", "claude-sonnet-4"), modes=None):
         self.admin_key = "sk-admin-master-0000"
         self.catalog = list(catalog)
+        # `/model/info` is how a caller tells a chat model from an embedding
+        # one; `/v1/models` cannot. Defaulting every catalog entry to "chat"
+        # keeps the suites that predate model filtering meaningful — they are
+        # about keys, not about modes — while a test that cares passes its own.
+        self.modes: dict[str, str] = (
+            dict(modes) if modes else {m: "chat" for m in self.catalog}
+        )
         self.records: dict[str, dict] = {}
         self.requests: list[tuple[str, str]] = []
         self.fault: str | None = None
@@ -145,6 +152,17 @@ class FakeLiteLLM:
         if bearer != self.admin_key:
             return httpx.Response(
                 401, json={"error": {"message": "Authentication Error: admin key required"}}
+            )
+
+        if method == "GET" and path == "/model/info":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"model_name": name, "model_info": {"mode": mode}}
+                        for name, mode in self.modes.items()
+                    ]
+                },
             )
 
         if method == "GET" and path == "/key/list":

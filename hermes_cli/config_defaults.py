@@ -40,7 +40,19 @@ DEPLOYMENT_KEYCLOAK_CLIENT_ID = "agentx-workmate"
 DEPLOYMENT_LITELLM_BASE_URL = "https://vtn-4000.wondertek.space"
 
 #: Model pinned as an account's default the first time its key is minted.
-DEPLOYMENT_LITELLM_DEFAULT_MODEL = "Qwen/Qwen3.5-35B-A3B-FP8"
+#:
+#: EMPTY ON PURPOSE, and leaving it that way is the point. Under
+#: ``mode: "second_brain"`` the default comes from the minted key itself: the
+#: service grants only the modes an operator allows, sorted so a chat model
+#: leads, and provisioning pins the first of them.
+#:
+#: A constant here cannot know when the proxy retires a model. This one said
+#: ``Qwen/Qwen3.5-35B-A3B-FP8`` while the proxy had moved to 3.6, so every
+#: fresh account opened on a model group that did not exist — and the error
+#: named the model, not the stale default that chose it. Filling this in again
+#: brings that back, and only helps the deprecated ``broker``/``direct`` modes,
+#: where nothing upstream vouches for the model list.
+DEPLOYMENT_LITELLM_DEFAULT_MODEL = ""
 
 #: The second-brain service: one model key per person, the devices they hold
 #: it on, and (later) the change feed their history syncs through. Public — it

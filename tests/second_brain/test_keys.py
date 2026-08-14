@@ -712,3 +712,131 @@ class TestAuthorization:
         # never do that.
         assert response.status_code == 503
         assert response.json()["error"] == "identity_unavailable"
+
+
+# ---------------------------------------------------------------------------
+# What a key is allowed to reach, and what an account opens on
+# ---------------------------------------------------------------------------
+
+
+MIXED_CATALOG = {
+    "Qwen/Qwen3.6-35B-A3B-FP8": "chat",
+    "BAAI/bge-m3": "embedding",
+    "MiniMax/MiniMax-M3": "chat",
+    "BAAI/bge-reranker-v2-m3": "rerank",
+    "dall-e-3": "image_generation",
+}
+
+
+@pytest.fixture
+def mixed_proxy() -> FakeLiteLLM:
+    """A proxy serving what a real one serves: chat next to embeddings."""
+    return FakeLiteLLM(catalog=tuple(MIXED_CATALOG), modes=MIXED_CATALOG)
+
+
+@pytest_asyncio.fixture
+async def mixed_vault(build_brain, brain_settings, mixed_proxy):
+    import dataclasses
+
+    client = LiteLLMAdminClient(
+        PROXY_URL, mixed_proxy.admin_key, transport=mixed_proxy.transport, sleep=lambda _s: None
+    )
+    settings = dataclasses.replace(
+        brain_settings,
+        litellm_base_url=PROXY_URL,
+        litellm_admin_key=mixed_proxy.admin_key,
+    )
+    async with brain_client(build_brain(litellm=client, settings=settings)) as c:
+        yield c
+
+
+class TestGrantedModels:
+    async def test_embedding_and_rerank_models_are_never_granted(
+        self, mixed_vault, mixed_proxy, two_devices
+    ):
+        response = await mixed_vault.post(
+            "/v1/model-key", headers=two_devices["laptop"], json={}
+        )
+
+        assert response.status_code == 200
+        granted = response.json()["models"]
+
+        # The defect this prevents is not a security one. An embedding model
+        # in the picker looks like a model; choosing it fails mid-conversation
+        # and reads like a broken proxy.
+        assert "BAAI/bge-m3" not in granted
+        assert "BAAI/bge-reranker-v2-m3" not in granted
+        assert set(granted) == {
+            "Qwen/Qwen3.6-35B-A3B-FP8",
+            "MiniMax/MiniMax-M3",
+            "dall-e-3",
+        }
+
+    async def test_the_key_itself_carries_the_restriction(
+        self, mixed_vault, mixed_proxy, two_devices
+    ):
+        await mixed_vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+
+        # Enforced by LiteLLM against the key, not by the client against a
+        # list it could ignore.
+        minted = [r for r in mixed_proxy.records.values()]
+        assert len(minted) == 1
+        assert "BAAI/bge-m3" not in minted[0]["models"]
+
+    async def test_the_default_model_is_a_chat_model_from_the_key(
+        self, mixed_vault, two_devices
+    ):
+        response = await mixed_vault.post(
+            "/v1/model-key", headers=two_devices["laptop"], json={}
+        )
+
+        body = response.json()
+
+        # Chat leads because `key_model_modes` puts it first, and the laptop
+        # pins whatever leads. No model id is written down on the laptop, so
+        # the proxy retiring a model cannot leave an installer pinning it.
+        assert body["default_model"] == "Qwen/Qwen3.6-35B-A3B-FP8"
+        assert body["default_model"] == body["models"][0]
+
+    async def test_the_second_device_gets_the_same_default(
+        self, mixed_vault, two_devices
+    ):
+        first = await mixed_vault.post(
+            "/v1/model-key", headers=two_devices["laptop"], json={}
+        )
+        second = await mixed_vault.post(
+            "/v1/model-key", headers=two_devices["desktop"], json={}
+        )
+
+        assert first.json()["default_model"] == second.json()["default_model"]
+
+    async def test_a_proxy_that_serves_nothing_grantable_refuses_to_mint(
+        self, build_brain, brain_settings, two_devices
+    ):
+        import dataclasses
+
+        only_embeddings = FakeLiteLLM(
+            catalog=("BAAI/bge-m3",), modes={"BAAI/bge-m3": "embedding"}
+        )
+        client = LiteLLMAdminClient(
+            PROXY_URL,
+            only_embeddings.admin_key,
+            transport=only_embeddings.transport,
+            sleep=lambda _s: None,
+        )
+        settings = dataclasses.replace(
+            brain_settings,
+            litellm_base_url=PROXY_URL,
+            litellm_admin_key=only_embeddings.admin_key,
+        )
+
+        async with brain_client(build_brain(litellm=client, settings=settings)) as vault:
+            response = await vault.post(
+                "/v1/model-key", headers=two_devices["laptop"], json={}
+            )
+
+        # Refusing beats minting an unrestricted key. Falling back is how the
+        # admin key came to travel inside every installer.
+        assert response.status_code == 502
+        assert response.json()["error"] == "no_grantable_models"
+        assert only_embeddings.paths_hit("/key/generate") == 0

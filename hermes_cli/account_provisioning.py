@@ -576,6 +576,7 @@ def _write_provider_config(
     base_url: str,
     key_env: str,
     models: tuple[str, ...],
+    default_model: str = "",
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -618,18 +619,26 @@ def _write_provider_config(
     providers[settings.provider_name] = entry
     cfg["providers"] = providers
 
-    # Pin the account's default model only when the operator asked for one and
-    # the user has not already chosen. Overriding a model somebody picked
-    # themselves, on every sign-in, would be maddening.
+    # Pin the account's default model only when we have one and the user has
+    # not already chosen. Overriding a model somebody picked themselves, on
+    # every sign-in, would be maddening.
+    #
+    # ``default_model`` comes from the key, not from a constant: the service
+    # sorts what it grants so a chat model leads, and the caller hands us the
+    # first entry. A shipped constant is how an installer came to pin
+    # ``Qwen3.5-35B`` at a proxy that had moved to 3.6 — the app then opened on
+    # a model group that did not exist, and the error named the model rather
+    # than the stale default that chose it.
     #
     # The main-slot key is ``model.default`` — ``model.model`` is not a thing,
     # and writing it puts the choice somewhere no resolver looks.
-    if settings.default_model:
+    chosen = (default_model or settings.default_model or "").strip()
+    if chosen:
         model_cfg = cfg.get("model")
         model_cfg = dict(model_cfg) if isinstance(model_cfg, dict) else {}
         if not str(model_cfg.get("default") or "").strip():
             model_cfg["provider"] = settings.provider_name
-            model_cfg["default"] = settings.default_model
+            model_cfg["default"] = chosen
             model_cfg["key_env"] = key_env
             model_cfg.pop("api_key", None)
             cfg["model"] = model_cfg
@@ -897,7 +906,16 @@ def _rotate(
     if settings.discover_models and not models:
         models = tuple(_discover_models(settings, base_url, minted.key))
 
-    _write_provider_config(settings, base_url, key_env, models)
+    # The account's default model is the first one its key can reach. Only the
+    # second brain vouches for that order — it sorts by configured mode so a
+    # chat model leads — so the deprecated modes keep whatever the operator
+    # configured rather than opening on whichever id `/v1/models` returned
+    # first, which may well be an embedding model.
+    default_model = (
+        models[0] if settings.mode == "second_brain" and models else settings.default_model
+    )
+
+    _write_provider_config(settings, base_url, key_env, models, default_model=default_model)
 
     write_state(
         home,

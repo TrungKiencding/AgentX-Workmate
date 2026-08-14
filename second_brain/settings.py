@@ -60,6 +60,20 @@ LITELLM_ADMIN_KEY_ENV_VAR = "AGENTX_LITELLM_ADMIN_KEY"
 #: because those are fleet-wide decisions that belong in one place.
 KEY_ALIAS_PREFIX_ENV_VAR = "AGENTX_BRAIN_KEY_ALIAS_PREFIX"
 
+#: Which kinds of model a minted key may reach, as a comma-separated list of
+#: LiteLLM ``model_info.mode`` values.
+#:
+#: A proxy serves more than the things a person chats with. Embedding and
+#: rerank models answer ``/v1/models`` exactly like a chat model does, so a key
+#: scoped to everything puts them in the model picker, and picking one fails
+#: mid-conversation in a way that reads like a broken proxy rather than a
+#: wrong choice.
+#:
+#: Configurable rather than hard-coded because LiteLLM keeps adding modes, and
+#: the day it adds one this fleet wants is not a day anybody should need a new
+#: image for.
+KEY_MODEL_MODES_ENV_VAR = "AGENTX_BRAIN_KEY_MODEL_MODES"
+
 #: Connection-pool bounds. The service is small; the defaults are sized for a
 #: few hundred devices polling on a 30-second tick, not for a fleet.
 POOL_MIN_ENV_VAR = "AGENTX_BRAIN_POOL_MIN"
@@ -99,6 +113,12 @@ _DEFAULT_TOMBSTONE_SWEEP_SECONDS = 24 * 60 * 60
 #: normal case rather than an error — a container carries no AgentX home.
 _DEFAULT_KEY_ALIAS_PREFIX = "agentx-workmate"
 
+#: The modes a key is granted by default: everything a person drives directly
+#: from a conversation. Ordered, and the order is load-bearing — the model list
+#: on a minted key is sorted by it, and the first entry becomes the account's
+#: default model. Chat leads because that is what opening the app does.
+_DEFAULT_KEY_MODEL_MODES = ("chat", "completion", "image_generation", "video_generation")
+
 #: How long a call to LiteLLM may take before the caller is told the proxy is
 #: unreachable. Matches the laptop-side default in ``litellm_admin`` — the
 #: reasoning is the same, since a wedged proxy must not hold up a sign-in.
@@ -132,6 +152,7 @@ class BrainSettings:
     #: remembers writing.
     key_alias_prefix: str = _DEFAULT_KEY_ALIAS_PREFIX
     key_models: tuple[str, ...] = ()
+    key_model_modes: tuple[str, ...] = _DEFAULT_KEY_MODEL_MODES
     key_max_budget: float = 0.0
     key_budget_duration: str = ""
     key_tpm_limit: int = 0
@@ -232,6 +253,22 @@ def _litellm_policy_from_config():
         return None
 
 
+def _mode_list(raw: str | None) -> tuple[str, ...]:
+    """Parse ``AGENTX_BRAIN_KEY_MODEL_MODES``, or return the shipped default.
+
+    Order is preserved because it decides which model an account opens on:
+    the minted key's model list is sorted by it and the first entry becomes
+    the default. An operator who wants image generation to lead can say so by
+    putting it first, and nothing else has to change.
+
+    An empty value means "the default", not "no modes". Reading it as the
+    latter would mint keys that reach nothing, from a variable somebody
+    cleared expecting it to stop mattering.
+    """
+    parts = tuple(p.strip().lower() for p in (raw or "").split(",") if p.strip())
+    return parts or _DEFAULT_KEY_MODEL_MODES
+
+
 def _int_env(source, name: str, fallback: int) -> int:
     try:
         value = int((source.get(name) or "").strip() or fallback)
@@ -317,6 +354,7 @@ def load_settings(env: dict[str, str] | None = None) -> BrainSettings:
         ),
         key_alias_prefix=alias_prefix,
         key_models=tuple(getattr(policy, "models", ()) or ()),
+        key_model_modes=_mode_list(source.get(KEY_MODEL_MODES_ENV_VAR)),
         key_max_budget=float(getattr(policy, "max_budget", 0.0) or 0.0),
         key_budget_duration=str(getattr(policy, "budget_duration", "") or ""),
         key_tpm_limit=int(getattr(policy, "tpm_limit", 0) or 0),
