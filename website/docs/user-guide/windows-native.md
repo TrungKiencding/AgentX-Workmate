@@ -262,14 +262,21 @@ From PowerShell:
 agentx uninstall
 ```
 
-That's the clean path — removes the schtasks entry, Startup folder shortcut, `agentx.cmd` shim, deletes `%LOCALAPPDATA%\agentx\agentx-agent\`, and trims the User PATH. It leaves the rest of `%LOCALAPPDATA%\agentx\` alone (your config, auth, skills, sessions, logs) in case you're reinstalling.
+That removes everything: the schtasks entry, the Startup folder shortcut, the Desktop and Start Menu shortcuts, all of `%LOCALAPPDATA%\agentx\` (agent, venv, PortableGit, Node, config, auth, skills, sessions, logs), the desktop app's own data under `%APPDATA%\AgentX Workmate`, and the `AGENTX_HOME` and PATH entries in `HKCU\Environment`.
 
-To nuke everything:
+Some of those files are locked while the uninstall is running — `agentx.exe` and the venv's `python.exe` are the very binaries executing it, and Windows will not let a running image be deleted. The uninstaller hands the locked remainder to a detached cleanup that finishes the moment the command exits, and it names the paths involved before it does. Open a new terminal afterwards to pick up the updated PATH.
+
+To keep your config, chats, and secrets for a future reinstall:
 
 ```powershell
-agentx uninstall
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\agentx"
-# Also remove a legacy CLI/WSL data dir if you ever used one:
+agentx uninstall --keep-data
+```
+
+You can also uninstall from **Settings → Apps**. That uninstaller shows a checkbox — ticked by default — that runs the same full removal; leaving it unticked removes only the desktop app and keeps the `agentx` command.
+
+If you ever used a legacy CLI/WSL data dir, it lives outside `%LOCALAPPDATA%` and has to go by hand:
+
+```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\.agentx"
 ```
 

@@ -245,7 +245,7 @@ See [Nix Setup](./nix-setup.md) for more details.
 agentx uninstall
 ```
 
-The uninstaller gives you the option to keep your configuration files (`~/.agentx/`) for a future reinstall.
+This removes everything: the code, the `agentx` command, the desktop app and its data, and your configuration under `~/.agentx/`. Pass `--keep-data` to hold on to that last part for a future reinstall, or answer the prompt with option 2.
 
 ### Manual Uninstall
 

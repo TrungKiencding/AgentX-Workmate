@@ -17,12 +17,25 @@ def build_uninstall_parser(subparsers, *, cmd_uninstall: Callable) -> None:
     uninstall_parser = subparsers.add_parser(
         "uninstall",
         help="Uninstall AgentX Workmate",
-        description="Remove AgentX Workmate from your system. Can keep configs/data for reinstall.",
+        description=(
+            "Remove AgentX Workmate from your system. Removes everything by "
+            "default: the code, the agentx command, shortcuts, the desktop "
+            "app's data, and your configs/sessions/logs. Pass --keep-data to "
+            "hold on to the last of those for a future reinstall."
+        ),
+    )
+    uninstall_parser.add_argument(
+        "--keep-data",
+        action="store_true",
+        help="Keep configs, sessions, and logs (~/.agentx) for a future reinstall",
     )
     uninstall_parser.add_argument(
         "--full",
         action="store_true",
-        help="Full uninstall - remove everything including configs and data",
+        help=(
+            "Remove everything including configs and data. This is now the "
+            "default; the flag is accepted so existing scripts keep working."
+        ),
     )
     uninstall_parser.add_argument(
         "--gui",

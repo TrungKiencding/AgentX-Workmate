@@ -176,13 +176,15 @@ The [manual update process](/getting-started/updating) also works with the GUI.
 
 Open **Settings → About → Danger zone** and pick how much to remove:
 
+- **Uninstall everything** (recommended) — removes the app, the agent, the `agentx` command, your shortcuts, and all user data. (Same as `agentx uninstall`.)
+- **Uninstall GUI + agent, keep my data** — removes the app and the agent but keeps config, chats, and secrets for a future reinstall. (Same as `agentx uninstall --keep-data`.)
 - **Uninstall Chat GUI only** — removes the desktop app and its data; the AgentX agent, your config, and your chats stay. (Same as `agentx uninstall --gui`.)
-- **Uninstall GUI + agent, keep my data** — removes the app and the agent but keeps config, chats, and secrets for a future reinstall. (Same as `agentx uninstall`.)
-- **Uninstall everything** — removes the app, the agent, and all user data. (Same as `agentx uninstall --full`.)
 
 The app closes to finish the job (the cleanup runs after it exits so it can remove the running app bundle and its own venv). The agent-removing options are hidden automatically when no local agent is installed (for example, a GUI-only "lite" client connected to a remote backend).
 
-You can do the same from the terminal — `agentx uninstall --gui` for the GUI alone, or `agentx uninstall` / `agentx uninstall --full` for the agent too.
+You can do the same from the terminal — `agentx uninstall` removes everything, `agentx uninstall --keep-data` keeps your config and chats, and `agentx uninstall --gui` touches only the desktop app.
+
+On Windows you can also uninstall from **Settings → Apps** (or Programs and Features). That uninstaller asks the same question with a checkbox — ticked by default — and hands the rest of the job to the agent's own uninstaller, so the `agentx` command comes off your PATH too. Leaving it unticked removes only the desktop app; the agent and the `agentx` command stay.
 
 :::note
 Running `agentx uninstall --gui` from a **source checkout** (a `agentx desktop` dev build) also removes the workspace `node_modules` and `apps/desktop/{dist,release}` build output, since those are GUI build artifacts. They're recoverable with `agentx desktop` (or `npm install` + a rebuild) — but if you're actively hacking on the desktop app, expect to reinstall dependencies afterward.

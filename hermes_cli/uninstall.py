@@ -106,7 +106,7 @@ def remove_wrapper_script():
         Path("/usr/local/bin/agentx-acp"),
         Path("/usr/local/bin/agentx-agent"),
     ]
-    
+
     removed = []
     for wrapper in wrapper_paths:
         if wrapper.exists():
@@ -118,7 +118,107 @@ def remove_wrapper_script():
                     removed.append(wrapper)
             except Exception as e:
                 log_warn(f"Could not remove {wrapper}: {e}")
-    
+
+    return removed
+
+
+# ============================================================================
+# Everything the app leaves OUTSIDE the checkout and AGENTX_HOME
+# ============================================================================
+#
+# Uninstalling used to mean "delete the code, maybe delete AGENTX_HOME", and
+# that left a surprising amount behind: the Start Menu and Desktop shortcuts
+# both installers create, and the per-user directories Chromium/Electron open
+# on first launch under names keyed on the product name and the bundle id.
+#
+# None of these are large. They matter because a reinstall inherits them, and
+# because a user who has just uninstalled reasonably expects the shortcut on
+# their desktop to be gone.
+
+
+def desktop_shortcut_paths() -> "list[Path]":
+    """Shortcuts the installers create, on every platform that has them.
+
+    Two names because two installers: ``scripts/install.ps1`` writes
+    ``AgentX.lnk`` and the NSIS installer writes one named after
+    ``build.nsis.shortcutName`` (``AgentX Workmate``). A machine that has seen
+    both — which is how the "I uninstalled it and it is still there" reports
+    start — has both.
+    """
+    if sys.platform != "win32":
+        # macOS has no shortcut concept for this, and the Linux .desktop entry
+        # is already handled by ``gui_uninstall.packaged_gui_app_paths``.
+        return []
+
+    from branding import DESKTOP_APP_NAME, SHORT_NAME
+
+    home = Path.home()
+    appdata = os.environ.get("APPDATA")
+    roaming = Path(appdata) if appdata else (home / "AppData" / "Roaming")
+    start_menu = roaming / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+
+    paths: list[Path] = []
+    for folder in (home / "Desktop", start_menu):
+        for name in (SHORT_NAME, DESKTOP_APP_NAME):
+            paths.append(folder / f"{name}.lnk")
+    # electron-builder puts the uninstaller's Start Menu entry in a folder when
+    # a menuCategory is configured; sweep the folder too so an older install
+    # that used one does not leave an empty shell behind.
+    paths.append(start_menu / DESKTOP_APP_NAME)
+    return paths
+
+
+def desktop_runtime_data_paths() -> "list[Path]":
+    """Per-user directories Electron/Chromium create for the desktop app.
+
+    ``gui_uninstall.desktop_userdata_dir()`` already covers the ``userData``
+    directory that holds connection.json and the encrypted token store. These
+    are the OTHER ones — caches, logs, crash dumps, window state — which the
+    OS keys on the product name or the bundle id rather than on AGENTX_HOME,
+    and which therefore survive every wipe of it.
+    """
+    from branding import APP_ID, DESKTOP_APP_NAME
+
+    home = Path.home()
+
+    if sys.platform == "darwin":
+        library = home / "Library"
+        return [
+            library / "Caches" / DESKTOP_APP_NAME,
+            library / "Caches" / APP_ID,
+            library / "Logs" / DESKTOP_APP_NAME,
+            library / "Preferences" / f"{APP_ID}.plist",
+            library / "HTTPStorages" / APP_ID,
+            library / "WebKit" / APP_ID,
+            library / "Saved Application State" / f"{APP_ID}.savedState",
+        ]
+
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        local_base = Path(local) if local else (home / "AppData" / "Local")
+        return [local_base / DESKTOP_APP_NAME]
+
+    xdg_cache = os.environ.get("XDG_CACHE_HOME")
+    cache_base = Path(xdg_cache) if xdg_cache else (home / ".cache")
+    return [cache_base / DESKTOP_APP_NAME]
+
+
+def remove_desktop_leftovers() -> "list[Path]":
+    """Delete the shortcuts and per-user runtime dirs. Returns what went."""
+    removed: list[Path] = []
+
+    for path in [*desktop_shortcut_paths(), *desktop_runtime_data_paths()]:
+        try:
+            if path.is_symlink() or path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(path)
+            else:
+                continue
+            removed.append(path)
+        except Exception as e:
+            log_warn(f"Could not remove {path}: {e}")
+
     return removed
 
 
@@ -422,6 +522,175 @@ def _is_windows() -> bool:
     return sys.platform == "win32"
 
 
+# ============================================================================
+# Deleting the tree we are running from
+# ============================================================================
+#
+# THE BUG THIS EXISTS FOR
+# -----------------------
+# ``agentx`` on Windows is ``<AGENTX_HOME>\agentx-agent\venv\Scripts\agentx.exe``
+# — inside the very tree ``agentx uninstall`` is asked to delete. Windows takes
+# a mandatory lock on a running image and on every DLL it has loaded, so the
+# rmtree hits the venv, raises PermissionError partway through, and stops. What
+# is left is a half-deleted checkout that still contains agentx.exe, with the
+# User PATH entry still pointing at it — so the command is still there, running
+# it again fails the same way, and running it a third time finds a tree too
+# broken to import from. That is "I ran agentx uninstall many times and it is
+# still in my terminal", exactly.
+#
+# POSIX has no such problem: unlinking a running executable is legal, and the
+# process keeps its open inode until it exits. So this is Windows-only, and the
+# spawn is gated accordingly rather than being written as a cross-platform
+# ritual nobody can test.
+#
+# The desktop app already solved this shape for its own uninstall button, by
+# handing the work to a detached child that waits for the app to exit
+# (apps/desktop/electron/desktop-uninstall.ts). The CLI needs the same thing
+# and did not have it.
+
+
+def running_inside(path: Path) -> bool:
+    """True when the interpreter executing us lives under ``path``.
+
+    That is the condition under which Windows cannot complete the delete —
+    and, on any platform, the reason to double-check before assuming an
+    ordinary rmtree failure was transient.
+    """
+    try:
+        executable = Path(sys.executable).resolve()
+    except (OSError, ValueError):
+        return False
+
+    try:
+        target = path.resolve()
+    except OSError:
+        return False
+
+    return target == executable or target in executable.parents
+
+
+def build_windows_cleanup_script(pid: int, targets: "list[Path]") -> str:
+    """A cmd script that deletes ``targets`` once process ``pid`` is gone.
+
+    Bounded everywhere. The wait is capped so a mismatched or never-exiting
+    PID cannot wedge the cleanup forever, and each delete is retried because
+    Windows releases directory handles lazily — a single ``rmdir /s /q``
+    straight after the process exits routinely half-fails.
+
+    ``/FI "PID eq N"`` is an exact filter, and the ``findstr`` matches the
+    number as a whole space-delimited token, so PID 99 cannot match PID 990.
+
+    Finally the script deletes itself, so a machine that reboots mid-wait is
+    left with one stray file in TEMP at worst.
+    """
+    quoted = lambda value: '"{}"'.format(str(value).replace('"', ""))
+
+    lines = [
+        "@echo off",
+        "setlocal enableextensions",
+        f'set "PID={int(pid)}"',
+        "set /a waited=0",
+        ":waitloop",
+        'tasklist /NH /FI "PID eq %PID%" 2>nul | findstr /r /c:" %PID% " >nul',
+        "if %ERRORLEVEL% neq 0 goto gone",
+        "set /a waited+=1",
+        "if %waited% geq 60 goto gone",
+        "timeout /t 1 /nobreak >nul",
+        "goto waitloop",
+        ":gone",
+    ]
+
+    for index, target in enumerate(targets):
+        path = quoted(target)
+        lines += [
+            f"set /a tries{index}=0",
+            f":rm{index}",
+            f"if not exist {path} goto done{index}",
+            f"rmdir /s /q {path} >nul 2>&1",
+            f"del /f /q {path} >nul 2>&1",
+            f"if not exist {path} goto done{index}",
+            f"set /a tries{index}+=1",
+            f"if %tries{index}% geq 10 goto done{index}",
+            "timeout /t 1 /nobreak >nul",
+            f"goto rm{index}",
+            f":done{index}",
+        ]
+
+    lines += ['del /f /q "%~f0" >nul 2>&1', ""]
+
+    return "\r\n".join(lines)
+
+
+def spawn_detached_cleanup(targets: "list[Path]") -> "Path | None":
+    """Hand ``targets`` to a detached child that finishes after we exit.
+
+    Returns the script path, or ``None`` when nothing was scheduled — this is
+    not the platform that needs it, there is nothing left to delete, or the
+    spawn failed. A failure here is reported by the caller as "these paths are
+    still on disk", never as a silent success: telling somebody the uninstall
+    finished while their venv is still there is how this defect stayed hidden.
+    """
+    remaining = [t for t in targets if t.exists()]
+    if not remaining or not _is_windows():
+        return None
+
+    import tempfile
+
+    try:
+        script = Path(tempfile.gettempdir()) / f"agentx-uninstall-{os.getpid()}.cmd"
+        script.write_text(
+            build_windows_cleanup_script(os.getpid(), remaining), encoding="utf-8"
+        )
+    except OSError as e:
+        log_warn(f"Could not write the deferred cleanup script: {e}")
+        return None
+
+    # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: the child must outlive this
+    # process and must not die with the console it was launched from.
+    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008) | getattr(
+        subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200
+    )
+
+    try:
+        subprocess.Popen(  # noqa: S603 - fixed argv, path written by us above
+            ["cmd.exe", "/c", str(script)],
+            creationflags=creationflags,
+            close_fds=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as e:
+        log_warn(f"Could not start the deferred cleanup: {e}")
+        return None
+
+    return script
+
+
+def _remove_tree(path: Path) -> bool:
+    """Delete ``path``. Returns False when anything survived.
+
+    ``shutil.rmtree`` stops at the first error, which on Windows means the
+    locked venv aborts the walk and leaves most of the tree in place. Passing
+    ``onerror`` lets it get through everything it CAN delete, so the deferred
+    cleanup is left with the locked remainder rather than the whole checkout —
+    and so a machine that never runs the deferred pass is still mostly clean.
+    """
+    if not path.exists():
+        return True
+
+    failures: list[str] = []
+
+    # ``onexc`` replaced ``onerror`` in 3.12 and the old name warns there; both
+    # spellings do the same job for us, which is "keep going and tell me".
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=lambda _func, target, _exc: failures.append(str(target)))
+    else:
+        shutil.rmtree(path, onerror=lambda _func, target, _info: failures.append(str(target)))
+
+    return not (path.exists() or failures)
+
+
 def _is_default_hermes_home(hermes_home: Path) -> bool:
     """Return True when ``hermes_home`` points at the default (non-profile) root."""
     try:
@@ -568,13 +837,34 @@ def run_gui_uninstall(args):
     print()
 
 
+def wants_full_uninstall(args) -> bool:
+    """Resolve the two flags into one answer: wipe everything, or keep data?
+
+    Uninstall removes everything unless ``--keep-data`` says otherwise. It did
+    not always: the default was keep-data, chosen so a reinstall could pick up
+    where you left off. In practice that is what made "I uninstalled it" and
+    "it is gone" two different states — the old config, the old .env, and the
+    old model key all survived, and the next install silently adopted them
+    instead of provisioning fresh. Somebody uninstalling wants it gone; keeping
+    a copy of their secrets is the surprising half, so it is the half that now
+    has to be asked for.
+
+    ``--full`` predates this and used to be how you asked for a wipe. It is
+    still accepted, and now means what it always said, because scripts and
+    docs carrying it should not quietly start doing the opposite of a wipe.
+    """
+    return not bool(getattr(args, "keep_data", False))
+
+
 def run_uninstall(args):
     """
     Run the uninstall process.
-    
+
     Options:
-    - Full uninstall: removes code + ~/.agentx/ (configs, data, logs)
-    - Keep data: removes code but keeps ~/.agentx/ for future reinstall
+    - Full uninstall (the default): removes code + ~/.agentx/ (configs, data,
+      logs), the agentx command, shortcuts, and the desktop app's own state
+    - Keep data (``--keep-data``): removes code but keeps ~/.agentx/ for a
+      future reinstall
     """
     project_root = get_project_root()
     hermes_home = get_hermes_home()
@@ -583,7 +873,7 @@ def run_uninstall(args):
         _print_uninstall_dry_run(
             project_root=project_root,
             hermes_home=hermes_home,
-            full_uninstall=bool(getattr(args, "full", False)),
+            full_uninstall=wants_full_uninstall(args),
         )
         return
 
@@ -593,15 +883,14 @@ def run_uninstall(args):
     is_default_profile = _is_default_hermes_home(hermes_home)
     named_profiles = _discover_named_profiles() if is_default_profile else []
 
-    # Non-interactive fast path (``--yes``): no prompts. ``--full`` selects a
-    # full wipe (code + ~/.agentx data); otherwise keep-data. Named profiles
-    # are NOT auto-removed here — that's a destructive, surprising default for
-    # an unattended run, so it stays opt-in to the interactive flow. This is
-    # the path the desktop app's detached cleanup script uses for its
-    # lite/full modes.
+    # Non-interactive fast path (``--yes``): no prompts. A full wipe unless
+    # ``--keep-data`` was passed. Named profiles are NOT auto-removed here —
+    # that's a destructive, surprising default for an unattended run, so it
+    # stays opt-in to the interactive flow. This is the path the desktop app's
+    # detached cleanup script uses for its lite/full modes.
     skip_confirm = bool(getattr(args, "yes", False))
     if skip_confirm:
-        full_uninstall = bool(getattr(args, "full", False))
+        full_uninstall = wants_full_uninstall(args)
         _perform_uninstall(
             project_root=project_root,
             hermes_home=hermes_home,
@@ -632,31 +921,34 @@ def run_uninstall(args):
             print(f"  • {p.name}{running}: {p.path}")
         print()
     
-    # Ask for confirmation
+    # Ask for confirmation. Option 1 is the full wipe and bare Enter picks it:
+    # somebody who typed `agentx uninstall` wants it gone, and leaving their
+    # config, .env and model key behind is the choice that needs asking for.
     print(color("Uninstall Options:", Colors.YELLOW, Colors.BOLD))
     print()
-    print("  1) " + color("Keep data", Colors.GREEN) + " - Remove code only, keep configs/sessions/logs")
-    print("     (Recommended - you can reinstall later with your settings intact)")
+    print("  1) " + color("Remove everything", Colors.RED) + " - code, the agentx command, shortcuts,")
+    print("     configs, sessions, logs, and the desktop app's data")
+    print("     (Recommended - this is what 'uninstall' should mean)")
     print()
-    print("  2) " + color("Full uninstall", Colors.RED) + " - Remove everything including all data")
-    print("     (Warning: This deletes all configs, sessions, and logs permanently)")
+    print("  2) " + color("Keep my data", Colors.GREEN) + " - remove the code but keep configs/sessions/logs")
+    print(f"     (Leaves {hermes_home} in place for a future reinstall)")
     print()
     print("  3) " + color("Cancel", Colors.CYAN) + " - Don't uninstall")
     print()
-    
+
     try:
-        choice = input(color("Select option [1/2/3]: ", Colors.BOLD)).strip()
+        choice = input(color("Select option [1/2/3] (default 1): ", Colors.BOLD)).strip()
     except (KeyboardInterrupt, EOFError):
         print()
         print("Cancelled.")
         return
-    
+
     if choice == "3" or choice.lower() in {"c", "cancel", "q", "quit", "n", "no"}:
         print()
         print("Uninstall cancelled.")
         return
-    
-    full_uninstall = (choice == "2")
+
+    full_uninstall = choice != "2"
 
     # When doing a full uninstall from the default profile, also offer to
     # remove any named profiles — stopping their gateway services, unlinking
@@ -726,6 +1018,10 @@ def _print_uninstall_dry_run(*, project_root: Path, hermes_home: Path, full_unin
     print("  • AgentX PATH entries from shell configs / Windows User PATH")
     print("  • AgentX wrapper scripts and AgentX-managed node/npm/npx symlinks")
     print("  • Desktop Chat GUI artifacts")
+    for path in desktop_shortcut_paths():
+        print(f"  • Shortcut: {path}")
+    for path in desktop_runtime_data_paths():
+        print(f"  • Desktop app data: {path}")
     print(f"  • Code checkout: {project_root}")
     if full_uninstall:
         print(f"  • AgentX config/data: {hermes_home}")
@@ -834,24 +1130,30 @@ def _perform_uninstall(
     except Exception as e:
         log_warn(f"Could not remove desktop GUI artifacts: {e}")
 
+    # 3d. Shortcuts and the per-user Electron/Chromium directories. Both live
+    #     outside the checkout and outside AGENTX_HOME, so neither of the
+    #     rmtrees below would ever reach them — which is why a "finished"
+    #     uninstall used to leave the icon sitting on the desktop.
+    log_info("Removing shortcuts and desktop app data...")
+    removed_leftovers = remove_desktop_leftovers()
+    if removed_leftovers:
+        for path in removed_leftovers:
+            log_success(f"Removed {path}")
+    else:
+        log_info("No shortcuts or desktop app data found")
+
+    # Paths a locked file stopped us from deleting. Handed to a detached child
+    # at the end, which finishes once this process is gone.
+    pending: list[Path] = []
+
     # 4. Remove installation directory (code)
     log_info("Removing installation directory...")
-    
-    # Check if we're running from within the install dir
-    # We need to be careful here
-    try:
-        if project_root.exists():
-            # If the install is inside ~/.agentx/, just remove the agentx-agent subdir
-            if hermes_home in project_root.parents or project_root.parent == hermes_home:
-                shutil.rmtree(project_root)
-                log_success(f"Removed {project_root}")
-            else:
-                # Installation is somewhere else entirely
-                shutil.rmtree(project_root)
-                log_success(f"Removed {project_root}")
-    except Exception as e:
-        log_warn(f"Could not fully remove {project_root}: {e}")
-        log_info("You may need to manually remove it")
+
+    if project_root.exists():
+        if _remove_tree(project_root):
+            log_success(f"Removed {project_root}")
+        else:
+            pending.append(project_root)
 
     # 4b. Remove Windows-only installer artifacts that are NOT user data:
     #     PortableGit, bundled Node, gateway-service dir.  Installer put them
@@ -880,16 +1182,33 @@ def _perform_uninstall(
                 _uninstall_profile(prof)
 
         log_info("Removing configuration and data...")
-        try:
-            if hermes_home.exists():
-                shutil.rmtree(hermes_home)
+        if hermes_home.exists():
+            if _remove_tree(hermes_home):
                 log_success(f"Removed {hermes_home}")
-        except Exception as e:
-            log_warn(f"Could not fully remove {hermes_home}: {e}")
-            log_info("You may need to manually remove it")
+            else:
+                pending.append(hermes_home)
     else:
         log_info(f"Keeping configuration and data in {hermes_home}")
-    
+
+    # 6. Whatever a lock stopped us from deleting. On Windows that is normally
+    #    the venv holding this very python.exe, and it is the difference
+    #    between an uninstall that works and one the user runs five times.
+    if pending:
+        script = spawn_detached_cleanup(pending)
+        if script:
+            log_info(
+                "Some files are locked by this running process; a background "
+                "cleanup will remove them the moment it exits:"
+            )
+            for path in pending:
+                log_info(f"  • {path}")
+        else:
+            log_warn("These could not be removed and are still on disk:")
+            for path in pending:
+                log_warn(f"  • {path}")
+            log_info("Close any AgentX process and delete them by hand.")
+
+
     # Done
     print()
     print(color("┌─────────────────────────────────────────────────────────┐", Colors.GREEN, Colors.BOLD))
@@ -926,6 +1245,9 @@ class _UninstallArgs:
         self.gui = mode == "gui"
         self.gui_summary = False
         self.full = mode == "full"
+        # ``lite`` is the desktop's name for "remove the agent, keep my data",
+        # which is exactly what --keep-data means on the command line.
+        self.keep_data = mode == "lite"
         self.yes = True  # the module entrypoint is always non-interactive
 
 

@@ -15,15 +15,29 @@ interface ModeOption {
   consequence: string
   /** True when the option removes the Python agent (hidden if no agent). */
   needsAgent: boolean
+  /** Marks the option we lead with, and say so about. */
+  recommended?: boolean
 }
 
+// Order matters: "everything" leads. It used to come last, under two options
+// that keep some of the install, and the partial ones read as the safe default
+// — which is how machines ended up with the agent still on PATH and an old
+// model key still in .env after somebody thought they had uninstalled. A
+// person opening "Danger zone" wants it gone; the options that keep something
+// are the ones worth reading carefully, so they come after.
 const OPTIONS: ModeOption[] = [
   {
-    mode: 'gui',
-    title: 'Uninstall Chat GUI only',
-    description: 'Remove this desktop app. The AgentX agent, your config, and chats all stay.',
-    consequence: 'the desktop Chat GUI (this app and its data)',
-    needsAgent: false
+    mode: 'full',
+    title: 'Uninstall everything',
+    description:
+      'Remove the app, the agent, the agentx command, and all user data — config, chats, scheduled jobs, secrets, logs.',
+    consequence: 'EVERYTHING — the Chat GUI, the AgentX agent, and all of your config, chats, secrets, and logs',
+    // full removes the agent (and user data), so it's an agent-removing option:
+    // hide it on a lite client with no local agent, same as lite. A lite client
+    // connecting to a remote backend has no local agent OR local user data the
+    // GUI installed, so gui-only is the correct (and only) option there.
+    needsAgent: true,
+    recommended: true
   },
   {
     mode: 'lite',
@@ -33,15 +47,11 @@ const OPTIONS: ModeOption[] = [
     needsAgent: true
   },
   {
-    mode: 'full',
-    title: 'Uninstall everything',
-    description: 'Remove the app, the agent, and all user data — config, chats, scheduled jobs, secrets, logs.',
-    consequence: 'EVERYTHING — the Chat GUI, the AgentX agent, and all of your config, chats, secrets, and logs',
-    // full removes the agent (and user data), so it's an agent-removing option:
-    // hide it on a lite client with no local agent, same as lite. A lite client
-    // connecting to a remote backend has no local agent OR local user data the
-    // GUI installed, so gui-only is the correct (and only) option there.
-    needsAgent: true
+    mode: 'gui',
+    title: 'Uninstall Chat GUI only',
+    description: 'Remove this desktop app. The AgentX agent, your config, and chats all stay.',
+    consequence: 'the desktop Chat GUI (this app and its data)',
+    needsAgent: false
   }
 ]
 
@@ -172,7 +182,14 @@ export function UninstallSection() {
                 >
                   <Trash2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-foreground">{opt.title}</span>
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      {opt.title}
+                      {opt.recommended && (
+                        <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[0.62rem] font-medium tracking-wide text-destructive uppercase">
+                          Recommended
+                        </span>
+                      )}
+                    </span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">{opt.description}</span>
                   </span>
                 </button>
