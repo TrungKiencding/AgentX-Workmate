@@ -153,7 +153,6 @@
     "esbuild": "0.28.1",
     "jsdom": "29.1.1",
     "prettier": "3.9.5",
-    "rcedit": "5.0.2",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "vite": "8.2.0",
@@ -186,7 +185,6 @@
     ],
     "beforeBuild": "scripts/before-build.mjs",
     "beforePack": "scripts/before-pack.mjs",
-    "afterPack": "scripts/after-pack.mjs",
     "extraResources": [
       {
         "from": "build/install-stamp.json",
@@ -198,7 +196,7 @@
       }
     ],
     "asar": true,
-    "afterSign": "scripts/notarize.mjs",
+    "afterSign": "scripts/after-sign.mjs",
     "asarUnpack": [
       "**/*.node",
       "**/prebuilds/**",
@@ -251,7 +249,7 @@
         "nsis",
         "msi"
       ],
-      "signAndEditExecutable": false
+      "signExecutable": false
     },
     "linux": {
       "category": "Development",
@@ -269,7 +267,8 @@
       "perMachine": false,
       "shortcutName": "AgentX Workmate",
       "uninstallDisplayName": "AgentX Workmate",
-      "warningsAsErrors": false
+      "warningsAsErrors": false,
+      "include": "build/installer.nsh"
     }
   }
 }

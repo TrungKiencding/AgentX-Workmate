@@ -3131,13 +3131,18 @@ function Install-Desktop {
     # launchable binary the Tauri installer can spawn.
     #
     # CSC_IDENTITY_AUTO_DISCOVERY=false tells electron-builder we are
-    # NOT signing the output. Combined with signAndEditExecutable=false in
+    # NOT signing the output. Combined with signExecutable=false in
     # apps/desktop/package.json's build.win block, electron-builder never
     # invokes signtool and therefore never fetches/extracts winCodeSign
     # (whose macOS symlinks crash 7-Zip on non-admin Windows -- a dead end we
-    # are NOT trying to work around). The AgentX icon + product name are
-    # stamped onto AgentX Workmate.exe by our own rcedit step (Set-DesktopExeIdentity)
-    # AFTER this build, completely decoupled from electron-builder signing.
+    # are NOT trying to work around).
+    #
+    # signExecutable (not signAndEditExecutable) is the load-bearing spelling:
+    # both switch signing off, but signAndEditExecutable ALSO switches off the
+    # resource editing that puts the AgentX icon and product name on
+    # AgentX Workmate.exe -- which is how builds came to ship the stock Electron
+    # atom. The afterPack hook verifies the stamp landed and fails the build if
+    # it did not.
     #
     # WIN_CSC_LINK and WIN_CSC_KEY_PASSWORD explicitly cleared as
     # belt-and-suspenders: if the user's environment has them set
@@ -3269,13 +3274,12 @@ function Install-Desktop {
         throw "Desktop build completed but no AgentX Workmate.exe was found under $desktopDir\release\*-unpacked\"
     }
 
-    # 3b. The AgentX icon + identity are stamped onto AgentX Workmate.exe by the
-    #     electron-builder `afterPack` hook (apps/desktop/scripts/after-pack.mjs)
-    #     during `npm run pack` above -- for every build, so the installer's
-    #     --update rebuild stays branded too. No separate stamp step needed here.
-    #     electron-builder's own rcedit step stays disabled (signAndEditExecutable
-    #     =false) because enabling it drags in signtool -> winCodeSign -> the
-    #     unfixable symlink crash; the afterPack hook runs rcedit directly.
+    # 3b. The AgentX icon + identity are written onto AgentX Workmate.exe by
+    #     electron-builder itself during `npm run pack` above, and the afterPack
+    #     hook (apps/desktop/scripts/after-sign.mjs) fails the build if they are
+    #     not there. So a build that reached this line is branded, on the first
+    #     install and on the installer's --update rebuild alike. No stamp step
+    #     is needed here.
 
     # 3c. Grant ALL APPLICATION PACKAGES (S-1-15-2-2) RX on the unpacked app
     #     directory. Chromium's GPU/renderer sandboxes CHECK-fail with

@@ -5377,6 +5377,49 @@ function getAppIconPath() {
   return APP_ICON_PATHS.find(fileExists)
 }
 
+// Put the AgentX icon in the macOS Dock when the bundle around us isn't ours.
+//
+// A packaged AgentX Workmate.app already carries assets/icon.icns, at every
+// size from 16 up to 1024, and macOS draws that from the moment the app
+// bounces — nothing to do, and overriding it with a flat PNG would only cost
+// resolution at large Dock sizes and in Cmd-Tab.
+//
+// Unpackaged is the case that needs help: `agentx desktop --source` and
+// `npm run dev` both run `electron .`, so the bundle is Electron's own and the
+// Dock shows Electron's atom. It used to show it for the whole boot — the only
+// setIcon call lived in createWindow(), which does not run until the backend
+// is up — which is why the atom kept turning up on Macs "every so often".
+//
+// assets/icon.png is the 1024px master the .icns and every other brand asset
+// are generated from (scripts/make_icons.py), so this is the same artwork the
+// packaged app shows. It is read straight from the checkout, never from inside
+// an asar, because this path only ever runs unpackaged.
+function applyMacDockIcon() {
+  if (!IS_MAC || IS_PACKAGED || !app.dock) {
+    return
+  }
+
+  const source = [path.join(APP_ROOT, 'assets', 'icon.png'), ...APP_ICON_PATHS].find(fileExists)
+
+  if (!source) {
+    return
+  }
+
+  try {
+    const image = nativeImage.createFromPath(source)
+
+    if (!image.isEmpty()) {
+      app.dock.setIcon(image)
+    }
+  } catch (error) {
+    // A Dock icon is cosmetic; never let it stop the boot.
+    rememberLog(
+      `[icon] could not set the macOS dock icon from ${source}: ` +
+        `${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+}
+
 function sendOpenUpdatesRequested() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return
@@ -9900,10 +9943,6 @@ function createWindow() {
 
   if (IS_MAC) {
     mainWindow.setWindowButtonPosition?.(WINDOW_BUTTON_POSITION)
-
-    if (icon) {
-      app.dock?.setIcon(icon)
-    }
   }
 
   if (!IS_MAC) {
@@ -12857,6 +12896,10 @@ app.whenReady().then(() => {
   } else {
     Menu.setApplicationMenu(null)
   }
+
+  // Before anything slow: the boot can take a while, and until this runs an
+  // unpackaged launch sits in the Dock as Electron's atom.
+  applyMacDockIcon()
 
   installMediaPermissions()
   registerMediaProtocol()

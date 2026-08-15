@@ -79,7 +79,14 @@ environments/benchmarks/evals/
 hermes_cli/web_dist/
 # Cross-process web UI build lock (flock target, always empty)
 .web_ui_build.lock
-apps/desktop/build/
+# `build/*` rather than `build/`: git cannot re-include a file whose parent
+# DIRECTORY is excluded, and installer.nsh below has to be re-included. It is
+# SOURCE that happens to live in the buildResources directory electron-builder
+# reads — the NSIS uninstall customisation (the checkbox that also removes the
+# agent and the agentx command). Losing it silently reverts Windows uninstall
+# to "leaves everything behind", which is the bug it was written to fix.
+apps/desktop/build/*
+!apps/desktop/build/installer.nsh
 apps/desktop/dist/
 
 # tsc-emitted artifacts (a stray `tsc -b` compiles into src/, and vite then
