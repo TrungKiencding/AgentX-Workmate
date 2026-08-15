@@ -812,6 +812,11 @@ class FakeSecondBrain:
         self.unreachable = False
         self.revoked_devices: set[str] = set()
         self.status_code = 0
+        # What the NEXT issued key is scoped to. The real service answers with
+        # the modes an operator allows this person, and that set changes over
+        # time — which is the whole reason the laptop has to be able to take a
+        # model back out of the picker, not just add to it.
+        self.grants: list[str] = []
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -879,7 +884,7 @@ class FakeSecondBrain:
             "token": record["token"],
             "key_alias": alias,
             "base_url": self.base_url,
-            "models": [],
+            "models": list(self.grants),
         }
         self.keys[subject] = issued
         return httpx.Response(
@@ -1189,6 +1194,250 @@ def broker_transport(responder) -> tuple[httpx.MockTransport, list[httpx.Request
         return responder(request)
 
     return httpx.MockTransport(handler), seen
+
+
+class TestUpgradingOntoTheSecondBrain:
+    """What an install that predates the second brain has to do on next launch.
+
+    This is the shape the bug arrived in. A machine that had provisioned under
+    the old ``direct``/``broker`` modes still held a live key, so the reuse
+    rung — which only ever compared the alias — matched on every launch and the
+    service was never asked. Sign-in worked, nothing looked broken, and the
+    person simply never got the key their other machines share, while the model
+    picker kept offering whatever the old key had reached.
+    """
+
+    def test_a_key_minted_before_the_brain_existed_is_collected_from_it(
+        self, account, fake_proxy, brain, monkeypatch
+    ):
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+
+        # Provision the way this machine used to: locally, against the admin API.
+        old = ensure_account_key(
+            account.identity, account.slug,
+            settings=direct_settings(), home=account.home,
+            client=make_client(fake_proxy),
+        )
+        assert old.status == "provisioned"
+        assert read_state(account.home)["mode"] == "direct"
+        key_env = provider_key_env("litellm")
+        local_key = env_value(key_env)
+
+        # The install updates and now ships mode: second_brain. The old key is
+        # still perfectly live at the proxy, which is exactly why the reuse rung
+        # used to keep it forever.
+        assert make_client(fake_proxy).key_is_live(local_key)
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        assert result.ok is True
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert env_value(key_env) == brain.keys["tok"]["key"]
+        assert env_value(key_env) != local_key
+        assert read_state(account.home)["mode"] == "second_brain"
+
+    def test_the_reason_says_the_key_predates_the_brain(self, account, fake_proxy, brain, monkeypatch):
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+        ensure_account_key(
+            account.identity, account.slug,
+            settings=direct_settings(), home=account.home,
+            client=make_client(fake_proxy),
+        )
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        # Settings renders this. "the proxy no longer accepts the stored key"
+        # would have been a lie — the proxy accepts it fine.
+        assert "predates the second brain" in result.detail
+
+    def test_a_sidecar_written_before_the_mode_field_existed_is_also_collected(
+        self, account, brain
+    ):
+        from hermes_cli.account_provisioning import write_state
+
+        settings = brain_settings()
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        # An older AgentX recorded no mode at all. Absent must read as "not
+        # ours", not as "close enough" — a machine that upgraded twice would
+        # otherwise stay stuck on a local key with no way out.
+        state = read_state(account.home)
+        state.pop("mode")
+        write_state(account.home, state)
+        brain.requests.clear()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        assert result.ok is True
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert read_state(account.home)["mode"] == "second_brain"
+
+    def test_a_key_the_brain_issued_is_still_reused_without_asking_again(
+        self, account, brain
+    ):
+        """The common path must stay free. Re-checking the mode on every launch
+        is only worth it if it costs nothing when nothing has changed."""
+        settings = brain_settings()
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        brain.requests.clear()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        assert result.status == "reused"
+        assert brain.requests == []
+
+    def test_a_deprecated_mode_never_re_mints_over_a_brain_issued_key(
+        self, account, fake_proxy, brain, monkeypatch
+    ):
+        """Downgrading is not a reason to burn a working key.
+
+        ``direct`` mints by deleting first, so treating a brain-issued key as
+        unusable there would retire a key this person's other machines are
+        still holding — the exact ping-pong the second brain exists to end.
+        """
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+        ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+        key_env = provider_key_env("litellm")
+        brain_key = env_value(key_env)
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=direct_settings(), home=account.home,
+            client=make_client(fake_proxy),
+        )
+
+        assert result.status == "reused"
+        assert env_value(key_env) == brain_key
+        assert fake_proxy.paths_hit("/key/delete") == 0
+
+
+class TestModelListFollowsTheKey:
+    """The picker must be able to shrink, not only grow.
+
+    ``providers.<name>.models`` was merged into and never pruned, so a key
+    replaced by one scoped to fewer models left every id the OLD key reached
+    sitting in the picker. Choosing one of those got the user a refusal from
+    the proxy naming a model they were plainly being offered.
+    """
+
+    def test_ids_the_new_key_cannot_reach_are_taken_back_out(self, account, brain):
+        settings = brain_settings()
+        brain.grants = ["chat-a", "chat-b"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "chat-a", "chat-b",
+        }
+
+        brain.grants = ["chat-a", "chat-c"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", force_rotate=True,
+            brain_transport=brain.transport,
+        )
+
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "chat-a", "chat-c",
+        }
+
+    def test_a_model_the_user_added_by_hand_is_never_pruned(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        settings = brain_settings()
+        brain.grants = ["chat-a"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        cfg = load_config()
+        cfg["providers"]["litellm"]["models"]["my-own-model"] = {"context_window": 8000}
+        save_config(cfg, merge_existing=True)
+
+        brain.grants = ["chat-b"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", force_rotate=True,
+            brain_transport=brain.transport,
+        )
+
+        models = raw_config(account.home)["providers"]["litellm"]["models"]
+        assert set(models) == {"chat-b", "my-own-model"}
+        # And their settings on it survived the round trip.
+        assert models["my-own-model"] == {"context_window": 8000}
+
+    def test_a_default_we_pinned_is_re_pinned_when_the_key_loses_it(self, account, brain):
+        settings = brain_settings()
+        brain.grants = ["chat-x", "chat-y"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+        assert raw_config(account.home)["model"]["default"] == "chat-x"
+
+        brain.grants = ["chat-y"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", force_rotate=True,
+            brain_transport=brain.transport,
+        )
+
+        # Leaving chat-x pinned would open the app on a model group this key is
+        # refused for, on every launch, and the error would name chat-x rather
+        # than the stale pin that chose it.
+        assert raw_config(account.home)["model"]["default"] == "chat-y"
+
+    def test_a_default_the_user_chose_is_left_alone_even_when_it_goes_away(
+        self, account, brain
+    ):
+        from hermes_cli.config import load_config, save_config
+
+        settings = brain_settings()
+        brain.grants = ["chat-a"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        cfg = load_config()
+        cfg["model"]["default"] = "something-i-picked"
+        save_config(cfg, merge_existing=True)
+
+        brain.grants = ["chat-b"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", force_rotate=True,
+            brain_transport=brain.transport,
+        )
+
+        # We only ever take back a pin we made ourselves.
+        assert raw_config(account.home)["model"]["default"] == "something-i-picked"
 
 
 class TestBrokerMode:

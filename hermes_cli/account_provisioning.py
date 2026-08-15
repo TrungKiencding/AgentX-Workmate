@@ -577,6 +577,7 @@ def _write_provider_config(
     key_env: str,
     models: tuple[str, ...],
     default_model: str = "",
+    previous_models: tuple[str, ...] = (),
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -584,6 +585,13 @@ def _write_provider_config(
     user may have hand-added ``extra_headers`` or an ``api_mode`` — and
     rebuilding it from scratch on every sign-in would quietly delete their
     work.
+
+    ``previous_models`` is what the last provisioning run recorded, and it is
+    what makes the merge able to SHRINK. Without it the model map only ever
+    grew: a key replaced by one that reaches fewer models left every id the old
+    key could reach sitting in the picker, so people kept being offered models
+    their key was refused for. Only ids we wrote ourselves are removed — an id
+    the user added by hand is theirs and stays.
     """
     from hermes_cli.config import load_config, save_config
 
@@ -606,11 +614,18 @@ def _write_provider_config(
     # config.yaml in plaintext (#69449); drop any legacy inline copy.
     entry.pop("api_key", None)
 
+    # Ids the LAST run wrote that this key can no longer reach. Scoped to our
+    # own previous list on purpose: anything else in the map was put there by
+    # the user, and this is not the place to prune it.
+    retired_models = tuple(m for m in previous_models if m not in models) if models else ()
+
     if models:
         existing_models = entry.get("models")
         model_map: dict[str, Any] = (
             dict(existing_models) if isinstance(existing_models, dict) else {}
         )
+        for retired in retired_models:
+            model_map.pop(retired, None)
         for model_id in models:
             current = model_map.get(model_id)
             model_map[model_id] = dict(current) if isinstance(current, dict) else {}
@@ -632,11 +647,26 @@ def _write_provider_config(
     #
     # The main-slot key is ``model.default`` — ``model.model`` is not a thing,
     # and writing it puts the choice somewhere no resolver looks.
+    #
+    # The one case that DOES overwrite an existing default is a default we
+    # pinned ourselves that this key can no longer reach. Leaving it would sit
+    # the account on a dead model group on every launch, and the error the user
+    # sees names the model rather than the stale pin that chose it — the same
+    # failure as the shipped-constant default, arrived at from the other side.
+    # A model the user picked by hand is never in ``previous_models``, so their
+    # choice still stands.
     chosen = (default_model or settings.default_model or "").strip()
     if chosen:
         model_cfg = cfg.get("model")
         model_cfg = dict(model_cfg) if isinstance(model_cfg, dict) else {}
-        if not str(model_cfg.get("default") or "").strip():
+        current_default = str(model_cfg.get("default") or "").strip()
+        ours_and_unreachable = bool(
+            current_default
+            and models
+            and current_default in previous_models
+            and current_default not in models
+        )
+        if not current_default or ours_and_unreachable:
             model_cfg["provider"] = settings.provider_name
             model_cfg["default"] = chosen
             model_cfg["key_env"] = key_env
@@ -644,6 +674,38 @@ def _write_provider_config(
             cfg["model"] = model_cfg
 
     save_config(cfg, merge_existing=True)
+
+    # A removal cannot ride along with that write. ``merge_existing`` deep-
+    # merges the on-disk section back over ours precisely so a partial caller
+    # cannot drop somebody's sibling keys — which means a model id we just took
+    # out of the map comes straight back. Deletions go through a full-document
+    # write against the raw config instead, the same route the config
+    # migrations take (see ``_persist_migration``'s docstring).
+    if retired_models:
+        _drop_provider_models(settings.provider_name, retired_models)
+
+
+def _drop_provider_models(provider_name: str, retired: tuple[str, ...]) -> None:
+    """Delete ``retired`` model ids from a provider's entry in config.yaml."""
+    from hermes_cli.config import read_raw_config, save_config
+
+    raw = read_raw_config()
+    providers = raw.get("providers")
+    entry = providers.get(provider_name) if isinstance(providers, dict) else None
+    models = entry.get("models") if isinstance(entry, dict) else None
+
+    if not isinstance(models, dict):
+        return
+
+    removed = [model_id for model_id in retired if model_id in models]
+
+    if not removed:
+        return
+
+    for model_id in removed:
+        del models[model_id]
+
+    save_config(raw)
 
 
 def provider_key_env(provider_name: str) -> str:
@@ -713,7 +775,12 @@ def ensure_account_key(
     base_url = normalize_base_url(str(state.get("base_url") or "")) or settings.base_url
 
     # 1. Reuse. The cheapest and by far the most common outcome.
-    if stored_key and not force_rotate and state.get("key_alias") == alias:
+    if (
+        stored_key
+        and not force_rotate
+        and state.get("key_alias") == alias
+        and _key_came_from_the_current_authority(state, settings)
+    ):
         if not base_url:
             # A service- or broker-only install that has not learned the proxy
             # URL yet.
@@ -742,15 +809,50 @@ def ensure_account_key(
     # machine, and the right answer to that is to collect what they rotated
     # to — not to rotate again and take their key in turn, which is the
     # ping-pong this whole project exists to end.
-    reason = "rotation requested" if force_rotate else (
-        "no key on this account yet" if not stored_key else "the proxy no longer accepts the stored key"
-    )
+    if force_rotate:
+        reason = "rotation requested"
+    elif not stored_key:
+        reason = "no key on this account yet"
+    elif not _key_came_from_the_current_authority(state, settings):
+        reason = "this account's key predates the second brain"
+    else:
+        reason = "the proxy no longer accepts the stored key"
+
     return _rotate(
         settings, identity, account_slug, alias, key_env, home, bearer,
         client=client, broker_transport=broker_transport,
         brain_transport=brain_transport, device_id=device_id,
         device_name=device_name, rotate=force_rotate, reason=reason,
     )
+
+
+def _key_came_from_the_current_authority(
+    state: Mapping[str, Any], settings: LiteLLMAccountSettings
+) -> bool:
+    """True when the stored key came from the source the current mode names.
+
+    ``second_brain`` is the only mode that promises anything across machines:
+    one key per person, held by the service, handed back to every device they
+    sign in on. A key this account minted under the older ``direct`` or
+    ``broker`` modes — or one whose sidecar predates the ``mode`` field
+    altogether — carries no such promise. Reusing it means the person keeps a
+    machine-local key forever and the service is never asked, which is exactly
+    what an in-place upgrade looked like from the outside: sign-in worked, no
+    key was ever collected, and the model list stayed the one the old key came
+    with.
+
+    Collecting instead is safe to do unprompted. The service answers with the
+    key this person already has rather than minting a replacement, so the
+    correction costs one request and takes nobody's key away.
+
+    The deprecated modes keep the lenient behaviour on purpose: they mint by
+    deleting first, so treating a brain-issued key as unusable there would
+    retire a working key to fix nothing.
+    """
+    if settings.mode != "second_brain":
+        return True
+
+    return state.get("mode") == "second_brain"
 
 
 def _probe_client(
@@ -915,7 +1017,16 @@ def _rotate(
         models[0] if settings.mode == "second_brain" and models else settings.default_model
     )
 
-    _write_provider_config(settings, base_url, key_env, models, default_model=default_model)
+    _write_provider_config(
+        settings,
+        base_url,
+        key_env,
+        models,
+        default_model=default_model,
+        # What the previous run wrote, so ids this key no longer reaches can be
+        # taken back out of the picker instead of accumulating forever.
+        previous_models=tuple(str(m) for m in (state.get("models") or ())),
+    )
 
     write_state(
         home,
