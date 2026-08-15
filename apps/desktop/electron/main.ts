@@ -242,6 +242,7 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
+import { decideInAppAgentUpdate } from './windows-agent-update'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
   buildPathExtCandidates,
@@ -2927,9 +2928,26 @@ async function applyUpdates(opts = {}) {
     }
 
     if (!updater) {
-      // No staged updater binary — this is a CLI-installed user (they ran
-      // `agentx desktop`, never the Tauri installer that self-copies
-      // agentx-setup.exe into AGENTX_HOME). They DO have a working `agentx`
+      // An NSIS-installed desktop lives outside the checkout and ships its own
+      // Electron, so an update has nothing of ours to rebuild and nothing of
+      // ours to lock — the whole reason Windows hands off does not apply, and
+      // we can run `agentx update` here. See windows-agent-update.ts.
+      const inApp = decideInAppAgentUpdate({
+        execPath: process.execPath,
+        updateRoot: resolveUpdateRoot(),
+        isPackaged: IS_PACKAGED,
+        platform: process.platform,
+        hasStagedUpdater: false
+      })
+
+      if (inApp.inApp) {
+        return await applyAgentOnlyUpdateInApp()
+      }
+
+      // Otherwise: a CLI-installed user (they ran `agentx desktop`, never the
+      // Tauri installer that self-copies agentx-setup.exe into AGENTX_HOME).
+      // Their desktop IS built from the checkout, so an update must rebuild a
+      // running exe — which Windows forbids. They DO have a working `agentx`
       // on PATH / in the venv, so the correct path is the one-liner in their
       // native medium. We show the EXACT command, branch-pinned to the
       // checkout they're on — bare `agentx update` defaults to main and would
@@ -3352,6 +3370,104 @@ function preflightStateDb(hermesHome, rememberLog) {
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`
+}
+
+// Windows in-app update for a desktop that is NOT built from the checkout —
+// an NSIS install. Runs `agentx update` and nothing else: no rebuild (this app
+// ships its own Electron and is replaced by downloading a new installer), no
+// hand-off (nothing here needs the running exe swapped), no quit.
+//
+// The one hard precondition is that our backend must be down first. On Windows
+// the backend runs the venv's `agentx.exe`, `uv pip install` cannot replace a
+// running image, and `agentx update` correctly refuses while it sees one. So
+// the sequence is: stop the backend, confirm the shim unlocked, update, bring
+// the backend back.
+//
+// It ends on `guiSkew` — the terminal state the renderer already has for
+// "backend moved, packaged shell did not". That is exactly what happened, and
+// saying "restart to load the new version" instead would be a lie: restarting
+// this .exe reopens the same .exe.
+async function applyAgentOnlyUpdateInApp() {
+  const updateRoot = resolveUpdateRoot()
+  const agentx = resolveHermesCliBinary(updateRoot)
+
+  if (!agentx) {
+    // No venv entry point to drive. Fall back to telling them the command.
+    emitUpdateProgress({ stage: 'manual', message: 'agentx update', percent: null })
+
+    return { ok: true, manual: true, command: 'agentx update', hermesRoot: updateRoot }
+  }
+
+  preflightStateDb(AGENTX_HOME, rememberLog)
+
+  // Stop our own backend(s) and wait for the venv shim to unlock. Without this
+  // `agentx update` sees a live agentx.exe and refuses — correctly, because
+  // continuing would leave a half-written venv.
+  const lock = await releaseBackendLockForUpdate(updateRoot)
+
+  if (!lock.unlocked) {
+    const message =
+      'Update aborted: another process is holding the AgentX install open ' +
+      '(a second AgentX window or a terminal running agentx?). Close it and retry.'
+
+    emitUpdateProgress({ stage: 'error', message, percent: null })
+    startHermes().catch(() => {})
+
+    return { ok: false, error: message }
+  }
+
+  const env: Record<string, string> = {
+    AGENTX_HOME,
+    // `agentx update` writes to a pipe here, so CPython block-buffers stdout
+    // and long quiet steps stream nothing — users read silence as a hang.
+    PYTHONUNBUFFERED: '1',
+    PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'Scripts'))
+  }
+
+  // Branch-pin so a non-main checkout isn't switched to main (and self-heal to
+  // main when the pinned branch no longer exists on origin).
+  let branchArgs: string[] = []
+
+  try {
+    const head = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: updateRoot })
+    const current = (head.stdout || '').trim()
+
+    if (head.code === 0 && current && current !== 'HEAD') {
+      branchArgs = ['--branch', await resolveHealedBranch(updateRoot, current)]
+    }
+  } catch {
+    // best effort
+  }
+
+  emitUpdateProgress({ stage: 'update', message: 'Updating AgentX (git + dependencies)…', percent: 10 })
+  rememberLog(`[updates] packaged Windows install: running \`agentx update\` in-app against ${updateRoot}`)
+
+  const updated = (await runStreamedUpdate(agentx, ['update', '--yes', ...branchArgs], {
+    cwd: updateRoot,
+    env,
+    stage: 'update'
+  })) as any
+
+  // Bring the backend back either way. A failed update leaves the previous
+  // install intact and working; leaving the user with a dead app on top of it
+  // would turn a retryable failure into a broken one.
+  startHermes().catch(() => {})
+
+  if (updated.code !== 0) {
+    emitUpdateProgress({ stage: 'error', message: 'agentx update failed.', error: updated.error || 'update-failed' })
+
+    return { ok: false, error: 'agentx update failed' }
+  }
+
+  emitUpdateProgress({
+    stage: 'guiSkew',
+    message:
+      'AgentX was updated. This desktop app package was not changed — ' +
+      'install the latest AgentX Workmate to match.',
+    percent: 100
+  })
+
+  return { ok: true, backendUpdated: true, guiUpdated: false, guiSkew: true }
 }
 
 // macOS/Linux in-app update: backend (`agentx update`) + OS-aware GUI rebuild
