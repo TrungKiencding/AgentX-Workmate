@@ -246,8 +246,7 @@
     "win": {
       "legalTrademarks": "AgentX Workmate",
       "target": [
-        "nsis",
-        "msi"
+        "nsis"
       ],
       "signExecutable": false
     },

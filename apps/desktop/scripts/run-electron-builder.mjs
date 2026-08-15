@@ -10,6 +10,22 @@
 // electron.exe that was never there — which is how `npm run dist:win` on a Mac
 // failed with a bare ENOENT that named a file nobody asked for. Cross-platform
 // targets fall through to @electron/get, which fetches the right one.
+//
+// WHICH WINDOWS TARGETS CROSS-BUILD
+// ---------------------------------
+// nsis does; msi does not. The MSI target drives the WiX toolset, and WiX is a
+// Windows binary — on a macOS or Linux host electron-builder runs it under
+// Wine, which on Apple Silicon fails before it starts ("directory L\"C:\\windows\"
+// could not be created", then `wine: cannot find ... candle.exe`).
+//
+// So `build.win.target` lists nsis only. msi is still one command away
+// (`npm run dist:win:msi`) for anyone on Windows or a CI runner that has WiX.
+// Leaving it in the default list meant `npm run dist:win` — the command
+// releases are actually cut with — failed on the only machine anybody builds
+// from, AFTER it had already produced a perfectly good NSIS installer, so the
+// good artifact looked like part of a failed build. No release has ever shipped
+// the .msi; the target that cannot be built here is the one that stopped being
+// implied.
 
 import fs from "node:fs"
 import path from "node:path"

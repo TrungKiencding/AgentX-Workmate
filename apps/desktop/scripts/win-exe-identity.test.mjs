@@ -383,4 +383,14 @@ describe('the electron-builder config that decides whether branding happens', ()
     assert.equal(pkg.build.icon, 'assets/icon')
     assert.ok(fs.existsSync(ICON_ICO), 'assets/icon.ico must exist for the Windows build')
   })
+
+  test('the default Windows targets are ones a macOS build host can actually produce', () => {
+    // `msi` drives the WiX toolset, a Windows binary that electron-builder runs
+    // under Wine on a non-Windows host — where it dies before it starts. With
+    // msi in this list, `npm run dist:win` failed on the machine releases are
+    // cut from, after the NSIS installer had already been built and written.
+    // msi stays available on demand through `npm run dist:win:msi`.
+    assert.deepEqual(pkg.build.win.target, ['nsis'])
+    assert.equal(pkg.scripts['dist:win:msi'], 'npm run build && npm run builder -- --win msi')
+  })
 })
