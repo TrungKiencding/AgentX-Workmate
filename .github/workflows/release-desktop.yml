@@ -1,0 +1,169 @@
+# .github/workflows/release-desktop.yml
+#
+# Builds the AgentX Workmate desktop installers on the operating systems that
+# can actually produce them, because one machine cannot.
+#
+# The macOS dev box that cuts releases by hand can build the NSIS .exe (Windows
+# resources are edited in pure JS since `signExecutable: false` replaced
+# `signAndEditExecutable: false`), but it cannot build the .msi: that target
+# drives the WiX toolset, a Windows binary electron-builder runs through Wine,
+# which fails before it starts on Apple Silicon. A windows-latest runner has
+# WiX natively, so the target that could never be built locally is built here.
+#
+# It also removes the step where a person remembers to run two commands and
+# copy six files into the right folder.
+#
+# Triggers:
+#   - a `desktop-v*` tag  → build, then attach the installers to the GitHub
+#                           Release for that tag
+#   - manual dispatch     → build and keep the installers as workflow artifacts,
+#                           so a build can be exercised without cutting a release
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+  workflow_dispatch:
+    inputs:
+      msi:
+        description: "Also build the Windows .msi (needs the WiX toolset; Windows runner only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      # One platform failing must not throw away a good build of the other —
+      # a released .dmg with no .exe beside it is still worth having while the
+      # Windows failure is diagnosed.
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (dmg + zip)
+            os: macos-latest
+            artifact: macos
+          - name: Windows (nsis)
+            os: windows-latest
+            artifact: windows
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: grab npm 12
+        run: npm i -g npm@12
+
+      # The desktop workspace resolves through the repo root, and `npm ci`
+      # refuses when apps/desktop/package.json and the lockfile disagree on the
+      # version — which is the check that catches a bump applied to only one.
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+
+      - name: Build the renderer and main bundle
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        working-directory: apps/desktop
+        env:
+          # Signing and notarisation are opt-in: set these repository secrets
+          # and the same command signs, staples, and produces a .dmg that opens
+          # without a Gatekeeper warning. Left unset, the build still succeeds
+          # and produces an UNSIGNED bundle — which users must right-click →
+          # Open to launch. scripts/notarize.mjs skips itself when the Apple
+          # credentials are absent and says so in the log.
+          CSC_LINK: ${{ secrets.APPLE_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.APPLE_CSC_LINK != '' }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: npm run builder -- --mac
+
+      # nsis always; msi only when asked for, because it is the slow half and
+      # nothing has ever shipped one. `--x64 --arm64` matches what releases have
+      # carried to date.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: npm run builder -- --win nsis ${{ (inputs.msi && 'msi') || '' }} --x64 --arm64
+
+      # The build already refuses to produce an unbranded Windows exe
+      # (scripts/verify-win-exe-identity.mjs runs in the afterSign hook), so
+      # reaching this step means the icon and version strings are AgentX's.
+      # This asserts the artifacts themselves exist, so an empty upload cannot
+      # look like a successful release.
+      - name: Check the artifacts exist
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(release/AgentXWorkmate-*.dmg release/AgentXWorkmate-*.exe release/AgentXWorkmate-*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No installers were produced in apps/desktop/release/"
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agentx-workmate-${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            apps/desktop/release/AgentXWorkmate-*.dmg
+            apps/desktop/release/AgentXWorkmate-*.exe
+            apps/desktop/release/AgentXWorkmate-*.msi
+            apps/desktop/release/AgentXWorkmate-*.zip
+
+  release:
+    name: Attach to the release
+    needs: build
+    # Only a tag cuts a release. A manual dispatch is for exercising the build,
+    # and should not be able to publish one.
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: installers
+          merge-multiple: true
+
+      # `gh` is preinstalled on the runner, so this needs no third-party action
+      # in a repo that pins and audits every one it takes.
+      - name: Upload the installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(installers/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Nothing was downloaded from the build jobs."
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            || echo "Release already exists; uploading into it."
+          gh release upload "${GITHUB_REF_NAME}" "${files[@]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
