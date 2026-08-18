@@ -675,6 +675,19 @@ def _find_mutation(command: str, cwd: Path, root: Path, depth: int = 0) -> str |
     return None
 
 
+def guard_active() -> bool:
+    """Whether the self-repo git guard applies on this platform.
+
+    Windows-only: NTFS locks loaded .py/.pyd files and an in-place overwrite
+    of the live checkout can corrupt the running process. On POSIX, open file
+    handles keep the old inode alive, so a checkout swap under a running
+    process is safe — already-imported modules keep executing the old code
+    and the mixed-module hazard is limited to later lazy imports, which is
+    not worth blocking every git workflow for.
+    """
+    return os.name == "nt"
+
+
 def detect_self_repo_git_mutation(
     command: str,
     cwd: str | None,
@@ -695,8 +708,8 @@ def detect_self_repo_git_mutation(
 
 def _block_message(operation: str, root: Path) -> str:
     return (
-        f"Blocked: `{operation}` would rewrite Hermes's live source checkout "
+        f"Blocked: `{operation}` would rewrite AgentX's live source checkout "
         f"({root}) and can mix module versions in this running process. "
         "Use a separate worktree or temporary clone. To change this checkout, "
-        "stop Hermes, run the command externally, then restart Hermes."
+        "stop AgentX, run the command externally, then restart AgentX."
     )

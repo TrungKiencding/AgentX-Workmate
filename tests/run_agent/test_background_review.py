@@ -120,8 +120,7 @@ def test_background_review_fork_opts_out_of_session_finalization(monkeypatch):
     assert seen.get("at_run_time") is False
 
 
-<<<<<<< HEAD
-=======
+
 def test_background_review_skipped_in_delegation_subagent(monkeypatch):
     """The automatic post-turn review must NOT fire inside a delegation
     subagent (``_delegate_depth > 0``).
@@ -306,10 +305,6 @@ def test_new_live_turn_cancels_still_running_background_review(monkeypatch):
     _pending_review.interrupt("superseded by a new live turn")
 
     assert calls == ["superseded by a new live turn"]
-
->>>>>>> ece3bc7d5 (fix(agent): skip the automatic background review inside delegation subagents)
-
-
 
 
 

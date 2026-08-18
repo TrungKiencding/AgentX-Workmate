@@ -707,6 +707,28 @@ def _execute_job_now(job: Dict[str, Any]) -> Dict[str, Any]:
         return {"claimed": True, "success": False, "error": str(e)}
 
 
+def _try_dispatch_background_run(
+    job: Dict[str, Any],
+    session_id: Optional[str] = None,
+    extra_prompt: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Background cron dispatch gate (#86721).
+
+    Upstream can detach long cron runs onto the async delegation executor.
+    This fork still executes manual runs synchronously; keep the gate so
+    one-shot CLI invocations never orphan a claimed execution row.
+    """
+    del job, session_id, extra_prompt
+    try:
+        from gateway.session_context import async_delivery_supported
+
+        if not async_delivery_supported():
+            return None
+    except Exception:
+        pass
+    return None
+
+
 def cronjob(
     action: str,
     job_id: Optional[str] = None,

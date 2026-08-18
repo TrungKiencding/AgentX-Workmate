@@ -2575,6 +2575,38 @@ def terminal_tool(
                     "status": "error",
                 }, ensure_ascii=False)
 
+        # Block git mutations against the live source checkout on local backends.
+        if env_type == "local":
+            from tools.self_repo_guard import (
+                detect_self_repo_git_mutation,
+                guard_active,
+            )
+
+            guard_cwd_base = get_session_cwd(session_key)
+            if guard_cwd_base is None:
+                guard_cwd_base = getattr(env, "cwd", None) or cwd
+            guard_cwd = _resolve_command_cwd(
+                workdir=workdir,
+                default_cwd=guard_cwd_base,
+                session_key=session_key,
+            )
+            _self_repo_hit, _self_repo_msg = (
+                detect_self_repo_git_mutation(command, guard_cwd)
+                if guard_active()
+                else (False, None)
+            )
+            if _self_repo_hit:
+                logger.warning(
+                    "Blocked self-repo git mutation (command: %s)",
+                    _safe_command_preview(command),
+                )
+                return json.dumps({
+                    "output": "",
+                    "exit_code": 1,
+                    "error": _self_repo_msg,
+                    "status": "blocked",
+                }, ensure_ascii=False)
+
         # Pre-exec security checks (tirith + dangerous command detection)
         # Skip check if force=True (user has confirmed they want to run it)
         approval_note = None

@@ -1559,13 +1559,13 @@ def _get_session_inactivity_timeout() -> int:
 BROWSER_SESSION_INACTIVITY_TIMEOUT = _get_session_inactivity_timeout()
 
 # How often the cleanup thread re-runs the orphan reaper.  The reaper used to
-# run exactly once, before the cleanup loop started, which meant a hermes
+# run exactly once, before the cleanup loop started, which meant an AgentX
 # process that stays up for days could never recover from a leak that appeared
 # *after* boot.  Observed in the wild: five agent-browser daemons accumulated
 # over 10 days in a single 18-day-uptime process, pinning ~5 CPU cores.
 BROWSER_ORPHAN_REAP_INTERVAL = 300  # seconds
 
-# Hard ceiling for a daemon whose owning hermes process is still alive but
+# Hard ceiling for a daemon whose owning AgentX process is still alive but
 # which has fallen out of that process's in-memory session tracking.  The
 # owner-alive check alone makes such a daemon immortal: in-memory tracking is
 # lost on any exception path, yet the owner PID stays up, so the reaper skips
@@ -1810,7 +1810,7 @@ def _socket_dir_idle_seconds(socket_dir: str) -> Optional[float]:
     Every browser command writes ``_stdout_<cmd>`` / ``_stderr_<cmd>`` temp
     files into the session's socket dir, so the newest mtime under that dir is
     a last-activity marker that — unlike ``_session_last_activity`` — survives
-    hermes restarts and does not depend on in-memory bookkeeping surviving an
+    AgentX restarts and does not depend on in-memory bookkeeping surviving an
     exception path.
 
     The directory's own mtime is not sufficient: command names repeat, so

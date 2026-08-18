@@ -447,7 +447,7 @@ def _job_action(action: str, job_id: str, success_verb: str) -> int:
         # orphaned mid-LLM-call — the delegation dies 'unknown' and the job's
         # execution row is stuck 'claimed', blocking future runs (#86721).
         # The background path in ``_try_dispatch_background_run`` triggers when
-        # the CLI inherits a gateway/desktop session env (HERMES_SESSION_KEY);
+        # the CLI inherits a gateway/desktop session env (AGENTX_SESSION_KEY);
         # declare the channel stateless so ``async_delivery_supported()`` gates
         # it off and the run executes synchronously to completion instead.
         # The declaration is scoped to this call (token reset in ``finally``)
