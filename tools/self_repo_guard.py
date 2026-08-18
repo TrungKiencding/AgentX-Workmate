@@ -14,6 +14,8 @@ from tools.approval import (
     _deobfuscate_shell_word_for_detection,
     _iter_shell_command_starts,
     _read_shell_word,
+    _scan_backtick_end,
+    _scan_dollar_paren_end,
 )
 
 
@@ -640,12 +642,79 @@ def _inspect_github_cli(
     return None
 
 
+def _substitution_scripts(command: str) -> list[str]:
+    """Extract ``$(...)`` and backtick substitution bodies for recursive scanning.
+
+    Single-quoted regions are literal. Double-quoted regions still expand
+    command substitutions — match bash behaviour.
+    """
+    scripts: list[str] = []
+    i = 0
+    quote: str | None = None
+    while i < len(command):
+        char = command[i]
+        if quote == "'":
+            if char == "'":
+                quote = None
+            i += 1
+            continue
+        if quote == '"':
+            if char == "\\" and i + 1 < len(command):
+                i += 2
+                continue
+            if char == '"':
+                quote = None
+                i += 1
+                continue
+            if command.startswith("$(", i):
+                end = _scan_dollar_paren_end(command, i)
+                if end is not None:
+                    scripts.append(command[i + 2 : end - 1])
+                    i = end
+                    continue
+            if char == "`":
+                end = _scan_backtick_end(command, i)
+                if end is not None:
+                    scripts.append(command[i + 1 : end - 1])
+                    i = end
+                    continue
+            i += 1
+            continue
+        if char == "'":
+            quote = "'"
+            i += 1
+            continue
+        if char == '"':
+            quote = '"'
+            i += 1
+            continue
+        if command.startswith("$(", i):
+            end = _scan_dollar_paren_end(command, i)
+            if end is not None:
+                scripts.append(command[i + 2 : end - 1])
+                i = end
+                continue
+        if char == "`":
+            end = _scan_backtick_end(command, i)
+            if end is not None:
+                scripts.append(command[i + 1 : end - 1])
+                i = end
+                continue
+        i += 1
+    return scripts
+
+
 def _find_mutation(command: str, cwd: Path, root: Path, depth: int = 0) -> str | None:
     if depth > _MAX_RECURSION:
         return None
 
     masked_command, heredoc_scripts = _mask_heredocs(command)
     for script in heredoc_scripts:
+        operation = _find_mutation(script, cwd, root, depth + 1)
+        if operation:
+            return operation
+
+    for script in _substitution_scripts(masked_command):
         operation = _find_mutation(script, cwd, root, depth + 1)
         if operation:
             return operation
