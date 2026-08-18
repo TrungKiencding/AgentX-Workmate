@@ -880,6 +880,23 @@ def _run_review_in_thread(
             # agent.compression_enabled, so this short-circuits both paths.
             review_agent.compression_enabled = False
 
+            # Register this fork on the parent so interrupt() and the next live
+            # turn can reach/cancel a still-running review (#85859 follow-ups).
+            if hasattr(agent, "_background_review_agent"):
+                _br_lock = getattr(agent, "_background_review_lock", None)
+                if _br_lock is not None:
+                    with _br_lock:
+                        agent._background_review_agent = review_agent
+                else:
+                    agent._background_review_agent = review_agent
+            if hasattr(agent, "_active_children"):
+                _ac_lock = getattr(agent, "_active_children_lock", None)
+                if _ac_lock is not None:
+                    with _ac_lock:
+                        agent._active_children.append(review_agent)
+                else:
+                    agent._active_children.append(review_agent)
+
             from model_tools import get_tool_definitions
             from hermes_cli.plugins import (
                 set_thread_tool_whitelist,
@@ -951,6 +968,25 @@ def _run_review_in_thread(
                 review_agent.close()
             except Exception:
                 pass
+            if review_agent is not None:
+                if hasattr(agent, "_background_review_agent"):
+                    _br_lock = getattr(agent, "_background_review_lock", None)
+                    if _br_lock is not None:
+                        with _br_lock:
+                            if agent._background_review_agent is review_agent:
+                                agent._background_review_agent = None
+                    elif agent._background_review_agent is review_agent:
+                        agent._background_review_agent = None
+                if hasattr(agent, "_active_children"):
+                    try:
+                        _ac_lock = getattr(agent, "_active_children_lock", None)
+                        if _ac_lock is not None:
+                            with _ac_lock:
+                                agent._active_children.remove(review_agent)
+                        else:
+                            agent._active_children.remove(review_agent)
+                    except (ValueError, AttributeError):
+                        pass
             review_agent = None
 
         # Scan the review agent's messages for successful tool actions

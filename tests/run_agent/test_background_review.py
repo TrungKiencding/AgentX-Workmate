@@ -29,6 +29,11 @@ def _bare_agent() -> AIAgent:
     agent.background_review_callback = None
     agent.status_callback = None
     agent._safe_print = lambda *_args, **_kwargs: None
+    import threading as _threading
+    agent._background_review_agent = None
+    agent._background_review_lock = _threading.Lock()
+    agent._active_children = []
+    agent._active_children_lock = _threading.Lock()
     return agent
 
 

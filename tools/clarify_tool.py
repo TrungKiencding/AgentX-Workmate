@@ -22,6 +22,11 @@ from typing import List, Optional, Callable
 # A 5th "Other (type your answer)" option is always appended by the UI.
 MAX_CHOICES = 4
 
+# Suffix appended to the first choice so the user can see, at a glance, which
+# option the agent actually recommends. Applied here rather than per-surface so
+# CLI, TUI, desktop, and messaging adapters all render the same label.
+RECOMMENDED_LABEL = "(Recommended)"
+
 
 def _flatten_choice(c) -> str:
     """Coerce a single choice into its user-facing display string.
@@ -54,6 +59,24 @@ def _flatten_choice(c) -> str:
     if isinstance(c, (list, tuple)):
         return " ".join(_flatten_choice(x) for x in c).strip()
     return str(c).strip()
+
+
+def mark_recommended(choices: List[str]) -> List[str]:
+    """Label the first choice as the agent's recommendation."""
+    if len(choices) < 2:
+        return choices
+    first = str(choices[0]).strip()
+    if first != strip_recommended(first):
+        return choices
+    return [f"{first} {RECOMMENDED_LABEL}"] + list(choices[1:])
+
+
+def strip_recommended(text: str) -> str:
+    """Remove the recommendation label from a resolved answer."""
+    stripped = str(text).strip()
+    if stripped.casefold().endswith(RECOMMENDED_LABEL.casefold()):
+        return stripped[: -len(RECOMMENDED_LABEL)].strip()
+    return stripped
 
 
 def _invoke_callback(callback, question, choices, multi_select):

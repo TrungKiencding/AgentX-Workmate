@@ -27,6 +27,9 @@ _WORKTREE_MUTATIONS = frozenset({
     "clean",
     "cherry-pick",
     "revert",
+    # bisect drives repeated checkouts of the running root — the exact
+    # module-version-skew hazard this guard exists for.
+    "bisect",
 })
 _WORKTREE_TARGET_ACTIONS = frozenset({"move", "remove"})
 _STASH_SAFE_ACTIONS = frozenset({"list", "show", "create", "store", "drop", "clear"})
@@ -35,10 +38,17 @@ _KNOWN_GIT_BUILTINS = frozenset({
     "add",
     "am",
     "apply",
-    "bisect",
     "blame",
     "branch",
     "bundle",
+    "cat-file",
+    # `reset`/`stash`/`clean`/`restore` reach this set only in their SAFE
+    # forms — _mutates_worktree classifies the dangerous forms first (see
+    # _inspect_git) — so listing them here only prevents a pointless
+    # `git config --get alias.<sub>` subprocess for `stash list`,
+    # `reset --soft`, `clean -n`, `restore --staged`, which agent dev
+    # sessions run constantly inside the source repo.
+    "clean",
     "clone",
     "commit",
     "config",
@@ -50,18 +60,28 @@ _KNOWN_GIT_BUILTINS = frozenset({
     "help",
     "init",
     "log",
+    "ls-files",
+    "ls-remote",
+    "ls-tree",
     "maintenance",
+    "merge-base",
     "mv",
     "notes",
     "push",
     "range-diff",
+    "reflog",
     "remote",
     "repack",
     "replace",
+    "reset",
+    "restore",
     "rev-list",
     "rev-parse",
     "rm",
+    "shortlog",
     "show",
+    "show-ref",
+    "stash",
     "status",
     "submodule",
     "tag",
@@ -707,9 +727,22 @@ def detect_self_repo_git_mutation(
 
 
 def _block_message(operation: str, root: Path) -> str:
+    scratch = _scratch_dir_hint()
     return (
         f"Blocked: `{operation}` would rewrite AgentX's live source checkout "
         f"({root}) and can mix module versions in this running process. "
-        "Use a separate worktree or temporary clone. To change this checkout, "
-        "stop AgentX, run the command externally, then restart AgentX."
+        f"Use a separate worktree or a shared clone on real disk, e.g. "
+        f"`git clone --shared {root} {scratch}/<task>` — avoid /tmp for "
+        "clones that install node/python deps: /tmp is usually RAM-backed "
+        "tmpfs and a few dependency installs can fill it and ENOSPC other "
+        "work. Delete the clone when the branch is pushed. To change this "
+        "checkout, stop AgentX, run the command externally, then restart "
+        "AgentX."
     )
+
+
+def _scratch_dir_hint() -> str:
+    """Disk-backed scratch location suggested to agents for temporary clones."""
+    from hermes_constants import display_hermes_home
+
+    return str(display_hermes_home()) + "/scratch"
