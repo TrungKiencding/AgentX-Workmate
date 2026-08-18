@@ -160,9 +160,13 @@ class TestOneKeyPerPerson:
             "person-a", username="Person A", email="a@test"
         )
         assert body["account"] == slug
-        # Nothing depends on the two agreeing, but an operator reading the
-        # proxy's console is entitled to one naming scheme rather than two.
-        assert body["key_alias"] == LiteLLMAccountSettings().alias_for(slug)
+        assert body["key_alias"] == LiteLLMAccountSettings().alias_for(
+            slug,
+            subject="person-a",
+            username="Person A",
+            display_name="Person A",
+            email="a@test",
+        )
 
     async def test_the_response_carries_what_the_laptop_records(self, vault, two_devices):
         body = (
@@ -809,6 +813,35 @@ class TestGrantedModels:
         )
 
         assert first.json()["default_model"] == second.json()["default_model"]
+
+    async def test_an_explicit_models_allow_list_still_excludes_embeddings(
+        self, build_brain, brain_settings, mixed_proxy, two_devices
+    ):
+        """Operator ``accounts.litellm.models`` must not bypass mode filtering."""
+        import dataclasses
+
+        client = LiteLLMAdminClient(
+            PROXY_URL,
+            mixed_proxy.admin_key,
+            transport=mixed_proxy.transport,
+            sleep=lambda _s: None,
+        )
+        settings = dataclasses.replace(
+            brain_settings,
+            litellm_base_url=PROXY_URL,
+            litellm_admin_key=mixed_proxy.admin_key,
+            key_models=tuple(MIXED_CATALOG),
+        )
+
+        async with brain_client(build_brain(litellm=client, settings=settings)) as vault:
+            response = await vault.post(
+                "/v1/model-key", headers=two_devices["laptop"], json={}
+            )
+
+        assert response.status_code == 200
+        granted = response.json()["models"]
+        assert "BAAI/bge-m3" not in granted
+        assert "BAAI/bge-reranker-v2-m3" not in granted
 
     async def test_a_proxy_that_serves_nothing_grantable_refuses_to_mint(
         self, build_brain, brain_settings, two_devices

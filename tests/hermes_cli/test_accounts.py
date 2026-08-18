@@ -43,6 +43,8 @@ from hermes_cli.accounts import (
     ensure_account_home,
     find_account_for_subject,
     list_accounts,
+    litellm_key_alias_for_identity,
+    litellm_key_alias_label,
     read_account_identity,
     resolve_account_for_identity,
     validate_account_slug,
@@ -226,6 +228,17 @@ class TestAccountSlugDerivation:
     def test_blank_subject_is_refused(self, subject):
         with pytest.raises(AccountError):
             account_slug_for_identity(subject, username="ana")
+
+
+class TestLitellmKeyAlias:
+    def test_vietnamese_display_name_becomes_ascii_username(self):
+        assert litellm_key_alias_label(display_name="Lê Trung Kiên") == "letrungkien"
+        assert litellm_key_alias_for_identity(
+            "second-brain", subject="sub-1", display_name="Lê Trung Kiên"
+        ) == "second-brain-letrungkien"
+
+    def test_username_beats_display_name(self):
+        assert litellm_key_alias_label(username="kien", display_name="Kien Le") == "kien"
 
 
 class TestValidateAccountSlug:

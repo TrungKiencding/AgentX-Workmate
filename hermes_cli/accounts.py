@@ -32,6 +32,7 @@ import json
 import os
 import re
 import shutil
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -78,6 +79,9 @@ _SLUG_LABEL_MAX = 24
 # (hermes_cli.gateway._profile_suffix) and is far past collision risk for the
 # number of accounts one machine will ever hold.
 _SLUG_DIGEST_CHARS = 8
+
+# Longest username fragment in a LiteLLM key alias (`second-brain-letrungkien`).
+_LITELLM_KEY_ALIAS_LABEL_MAX = 48
 
 
 class AccountError(Exception):
@@ -132,6 +136,54 @@ class AccountInfo:
                 if candidate:
                     return candidate
         return self.slug
+
+
+def litellm_key_alias_label(
+    *,
+    username: str = "",
+    display_name: str = "",
+    email: str = "",
+    subject: str = "",
+) -> str:
+    """Return the human-readable half of a LiteLLM key alias.
+
+    Keycloak usernames and display names may carry accents and spaces; LiteLLM
+    aliases are plain ASCII labels. ``Lê Trung Kiên`` becomes ``letrungkien``.
+    """
+    raw = (username or display_name or "").strip()
+    if not raw:
+        raw = (email or "").strip().split("@", 1)[0]
+
+    normalized = unicodedata.normalize("NFD", raw)
+    stripped = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+    label = re.sub(r"[^a-z0-9]+", "", stripped.casefold())
+
+    if label:
+        return label[:_LITELLM_KEY_ALIAS_LABEL_MAX]
+
+    subject = (subject or "").strip()
+    if subject:
+        digest = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:_SLUG_DIGEST_CHARS]
+        return f"u{digest}"
+    return "user"
+
+
+def litellm_key_alias_for_identity(
+    prefix: str,
+    *,
+    subject: str,
+    username: str = "",
+    display_name: str = "",
+    email: str = "",
+) -> str:
+    """Build ``{prefix}-{username}``, e.g. ``second-brain-letrungkien``."""
+    label = litellm_key_alias_label(
+        username=username,
+        display_name=display_name,
+        email=email,
+        subject=subject,
+    )
+    return f"{prefix}-{label}"
 
 
 def _slug_label(username: str, email: str) -> str:

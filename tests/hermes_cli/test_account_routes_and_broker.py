@@ -288,7 +288,13 @@ def test_broker_mints_for_the_token_holder(broker):
     payload = response.json()
 
     expected_slug = account_slug_for_identity("kc-ada", username="ada", email="ada@corp.test")
-    expected_alias = settings.alias_for(expected_slug)
+    expected_alias = settings.alias_for(
+        expected_slug,
+        subject="kc-ada",
+        username="ada",
+        display_name="ada",
+        email="ada@corp.test",
+    )
 
     assert payload["account"] == expected_slug
     assert payload["key_alias"] == expected_alias
@@ -318,11 +324,23 @@ def test_broker_ignores_the_account_field_in_the_body(broker):
     victim_slug = account_slug_for_identity(
         "kc-grace", username="grace", email="grace@corp.test"
     )
-    victim_alias = settings.alias_for(victim_slug)
+    victim_alias = settings.alias_for(
+        victim_slug,
+        subject="kc-grace",
+        username="grace",
+        display_name="grace",
+        email="grace@corp.test",
+    )
     attacker_slug = account_slug_for_identity(
         "kc-ada", username="ada", email="ada@corp.test"
     )
-    attacker_alias = settings.alias_for(attacker_slug)
+    attacker_alias = settings.alias_for(
+        attacker_slug,
+        subject="kc-ada",
+        username="ada",
+        display_name="ada",
+        email="ada@corp.test",
+    )
     assert victim_alias != attacker_alias
 
     response = _post(
@@ -356,7 +374,11 @@ def test_the_broker_never_retires_a_key_it_cannot_attribute(broker):
     client, realm, proxy, settings = broker
     realm.add("tok-ada", _session("kc-ada", "ada@corp.test", "ada", "tok-ada"))
     alias = settings.alias_for(
-        account_slug_for_identity("kc-ada", username="ada", email="ada@corp.test")
+        account_slug_for_identity("kc-ada", username="ada", email="ada@corp.test"),
+        subject="kc-ada",
+        username="ada",
+        display_name="ada",
+        email="ada@corp.test",
     )
 
     first = _post(client, token="tok-ada").json()
@@ -615,7 +637,7 @@ def test_provision_direct_mode_lands_the_key_in_the_account_env(
     tmp_path, monkeypatch, proxy, ada
 ):
     home, slug = _provisioning_home(tmp_path, monkeypatch, proxy, ada)
-    alias = f"agentx-workmate-{slug}"
+    alias = "agentx-workmate-adalovelace"
 
     with TestClient(_account_app(ada)) as client:
         response = client.post("/api/account/provision")
@@ -651,7 +673,7 @@ def test_provision_is_idempotent_until_rotation_is_asked_for(
     tmp_path, monkeypatch, proxy, ada
 ):
     home, slug = _provisioning_home(tmp_path, monkeypatch, proxy, ada)
-    alias = f"agentx-workmate-{slug}"
+    alias = "agentx-workmate-adalovelace"
 
     with TestClient(_account_app(ada)) as client:
         first = client.post("/api/account/provision").json()["litellm"]
@@ -692,9 +714,10 @@ def test_provision_ignores_an_account_named_in_the_body(
             json={"account": other_slug, "subject": "kc-grace", "slug": other_slug},
         ).json()
 
+    expected_alias = "agentx-workmate-adalovelace"
     assert body["account"] == slug
-    assert body["litellm"]["key_alias"] == f"agentx-workmate-{slug}"
-    assert proxy.aliases() == {f"agentx-workmate-{slug}"}
+    assert body["litellm"]["key_alias"] == expected_alias
+    assert proxy.aliases() == {expected_alias}
 
 
 def test_provision_tolerates_a_body_that_is_not_json(tmp_path, monkeypatch, proxy, ada):
@@ -723,6 +746,7 @@ def test_get_account_reports_the_key_after_provisioning(
 
     assert before["status"] == "missing"
     assert after["status"] == "reused"
-    assert after["key_alias"] == f"agentx-workmate-{slug}"
-    assert after["masked_key"].endswith(proxy.key_for(after["key_alias"])[-4:])
+    expected_alias = "agentx-workmate-adalovelace"
+    assert after["key_alias"] == expected_alias
+    assert after["masked_key"].endswith(proxy.key_for(expected_alias)[-4:])
     assert Path(home / "litellm-account.json").is_file()

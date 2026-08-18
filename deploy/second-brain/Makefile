@@ -5,6 +5,10 @@
 
 COMPOSE ?= docker compose
 SERVICE ?= brain
+# Override when publishing: make image-push IMAGE=you/agentx-second-brain:2026-08-18
+IMAGE ?= letrungkien/agentx-second-brain:latest
+DOCKERFILE ?= deploy/second-brain/Dockerfile
+REPO_ROOT := $(abspath ../..)
 
 .DEFAULT_GOAL := help
 
@@ -30,6 +34,27 @@ pw: ## Print a URL-safe POSTGRES_PASSWORD (32 bytes, hex)
 .PHONY: up
 up: ## Build and start everything
 	$(COMPOSE) up -d --build
+
+.PHONY: up-hub
+up-hub: ## Start using BRAIN_IMAGE from a registry (no local build)
+	@test -n "$(BRAIN_IMAGE)" || { echo "usage: BRAIN_IMAGE=you/agentx-second-brain:tag make up-hub"; exit 2; }
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.hub.yml up -d
+
+.PHONY: image-build
+image-build: ## Build the brain image locally (tag: $(IMAGE))
+	docker build -f $(REPO_ROOT)/deploy/second-brain/Dockerfile -t $(IMAGE) $(REPO_ROOT)
+
+.PHONY: image-build-amd64
+image-build-amd64: ## Build for typical Linux VPS (amd64)
+	docker build --platform linux/amd64 -f $(REPO_ROOT)/deploy/second-brain/Dockerfile -t $(IMAGE) $(REPO_ROOT)
+
+.PHONY: image-push
+image-push: image-build ## Build and push $(IMAGE) to the registry
+	docker push $(IMAGE)
+
+.PHONY: image-push-amd64
+image-push-amd64: image-build-amd64 ## Build amd64 and push $(IMAGE)
+	docker push $(IMAGE)
 
 .PHONY: down
 down: ## Stop everything, keeping the database volume

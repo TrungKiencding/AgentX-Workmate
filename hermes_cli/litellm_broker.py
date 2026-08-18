@@ -175,7 +175,13 @@ def build_app(provider=None, client=None, settings=None):
             username=session.display_name or "",
             email=session.email or "",
         )
-        alias = resolved_settings.alias_for(slug)
+        alias = resolved_settings.alias_for(
+            slug,
+            subject=session.user_id,
+            username=session.display_name or "",
+            display_name=session.display_name or "",
+            email=session.email or "",
+        )
 
         # Logged so an operator can answer "who got a key, and when" without
         # reading LiteLLM's database. The hint from the body is recorded only

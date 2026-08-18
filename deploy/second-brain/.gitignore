@@ -15,6 +15,7 @@
 
 !.gitignore
 !docker-compose.yml
+!docker-compose.hub.yml
 !Dockerfile
 !Caddyfile
 !Makefile

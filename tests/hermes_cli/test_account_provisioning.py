@@ -240,6 +240,17 @@ def account(tmp_path, monkeypatch):
     return SimpleNamespace(slug=slug, home=home, root=root, identity=IDENTITY)
 
 
+def alias_for_account(settings: LiteLLMAccountSettings, account) -> str:
+    ident = account.identity
+    return settings.alias_for(
+        account.slug,
+        subject=ident.subject,
+        username=ident.username,
+        display_name=ident.display_name,
+        email=ident.email,
+    )
+
+
 def direct_settings(**overrides) -> LiteLLMAccountSettings:
     base = {
         "enabled": True,
@@ -472,7 +483,7 @@ class TestKeyLifecycle:
 class TestDirectProvisioning:
     def test_first_call_writes_the_key_env_config_and_state(self, account, fake_proxy):
         settings = direct_settings(models=("gpt-4o-mini",))
-        alias = settings.alias_for(account.slug)
+        alias = alias_for_account(settings, account)
         key_env = provider_key_env(settings.provider_name)
 
         result = ensure_account_key(
@@ -514,7 +525,7 @@ class TestDirectProvisioning:
             client=make_client(fake_proxy),
         )
 
-        minted = fake_proxy.sole_key_for_alias(settings.alias_for(account.slug))
+        minted = fake_proxy.sole_key_for_alias(alias_for_account(settings, account))
         assert minted not in config_text(account.home)
         assert minted not in json.dumps(read_state(account.home))
 
@@ -535,11 +546,11 @@ class TestDirectProvisioning:
         assert second.status == "reused"
         assert second.ok is True
         assert env_value(provider_key_env(settings.provider_name)) == key_after_first
-        assert len(fake_proxy.records_for_alias(settings.alias_for(account.slug))) == 1
+        assert len(fake_proxy.records_for_alias(alias_for_account(settings, account))) == 1
 
     def test_force_rotate_mints_a_new_key_and_retires_the_old_one(self, account, fake_proxy):
         settings = direct_settings()
-        alias = settings.alias_for(account.slug)
+        alias = alias_for_account(settings, account)
         key_env = provider_key_env(settings.provider_name)
 
         ensure_account_key(
@@ -583,7 +594,7 @@ class TestDirectProvisioning:
         assert result.status == "rotated"
         assert env_value(key_env) != old_key
         assert env_value(key_env) == fake_proxy.sole_key_for_alias(
-            settings.alias_for(account.slug)
+            alias_for_account(settings, account)
         )
 
     def test_a_key_this_machine_did_not_mint_is_left_alone(self, account, fake_proxy):
@@ -600,7 +611,7 @@ class TestDirectProvisioning:
         and remove. The cost of the bug was somebody's other laptop.
         """
         settings = direct_settings()
-        alias = settings.alias_for(account.slug)
+        alias = alias_for_account(settings, account)
         theirs = fake_proxy.mint(alias, user_id=account.identity.subject)
 
         result = ensure_account_key(
@@ -634,7 +645,7 @@ class TestDirectProvisioning:
             home=account.home, client=make_client(fake_proxy),
         )
 
-        record = fake_proxy.records_for_alias(settings.alias_for(account.slug))[0]
+        record = fake_proxy.records_for_alias(alias_for_account(settings, account))[0]
         assert record["user_id"] == account.identity.subject
 
     def test_two_accounts_on_one_machine_get_two_keys(self, account, fake_proxy, monkeypatch):
@@ -660,8 +671,16 @@ class TestDirectProvisioning:
 
         assert other_slug != account.slug
         assert second_key != first_key
-        assert len(fake_proxy.records_for_alias(settings.alias_for(account.slug))) == 1
-        assert len(fake_proxy.records_for_alias(settings.alias_for(other_slug))) == 1
+        assert len(fake_proxy.records_for_alias(alias_for_account(settings, account))) == 1
+        assert len(fake_proxy.records_for_alias(
+            settings.alias_for(
+                other_slug,
+                subject=other.subject,
+                username=other.username,
+                display_name=other.display_name,
+                email=other.email,
+            )
+        )) == 1
         # Each home holds only its own key.
         assert first_key not in (other_home / ".env").read_text()
         assert second_key not in (account.home / ".env").read_text()
@@ -1445,7 +1464,7 @@ class TestBrokerMode:
         self, account, fake_proxy
     ):
         settings = broker_settings(base_url="https://stale-local.test")
-        alias = settings.alias_for(account.slug)
+        alias = alias_for_account(settings, account)
         minted = fake_proxy.mint(alias)
 
         transport, seen = broker_transport(
@@ -1483,7 +1502,7 @@ class TestBrokerMode:
         self, account, fake_proxy
     ):
         settings = broker_settings()
-        minted = fake_proxy.mint(settings.alias_for(account.slug))
+        minted = fake_proxy.mint(alias_for_account(settings, account))
         transport, _seen = broker_transport(
             lambda _r: httpx.Response(200, json={"key": minted["key"], "token": minted["token"]})
         )
@@ -1584,7 +1603,7 @@ class TestAccountKeyStatus:
         result = account_key_status(account.slug, settings=settings, home=account.home)
 
         assert result.status == "reused"
-        assert result.key_alias == settings.alias_for(account.slug)
+        assert result.key_alias == alias_for_account(settings, account)
         assert result.base_url == PROXY_URL
         assert result.masked_key == mask_key(minted)
         assert minted not in result.masked_key
@@ -1697,8 +1716,14 @@ class TestLoadSettings:
 
     def test_the_alias_is_per_account(self):
         settings = LiteLLMAccountSettings(key_alias_prefix="acme")
-        assert settings.alias_for("kien-abc") == "acme-kien-abc"
-        assert settings.alias_for("kien-abc") != settings.alias_for("mai-def")
+        kien = settings.alias_for(
+            subject="sub-kien", username="Kien Le", display_name="Kien Le"
+        )
+        mai = settings.alias_for(
+            subject="sub-mai", username="Mai Tran", display_name="Mai Tran"
+        )
+        assert kien == "acme-kienle"
+        assert kien != mai
 
     def test_settings_come_from_the_machine_config_not_the_accounts_own(self, account):
         """``accounts.litellm`` is operator policy, read at the install root.

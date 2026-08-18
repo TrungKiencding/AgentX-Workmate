@@ -1,0 +1,11 @@
+# Pull a pre-built brain image from a registry instead of building on the server.
+#
+#   export BRAIN_IMAGE=letrungkien/agentx-second-brain:latest
+#   docker compose -f docker-compose.yml -f docker-compose.hub.yml up -d
+#
+# Postgres and Caddy are unchanged; only the `brain` service uses the image.
+
+services:
+  brain:
+    image: ${BRAIN_IMAGE:?set BRAIN_IMAGE, e.g. letrungkien/agentx-second-brain:latest}
+    build: !reset null

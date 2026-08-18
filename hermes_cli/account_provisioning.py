@@ -111,7 +111,7 @@ class LiteLLMAccountSettings:
     #: and two settings naming it would eventually name two.
     second_brain_url: str = ""
     provider_name: str = "litellm"
-    key_alias_prefix: str = "agentx-workmate"
+    key_alias_prefix: str = "second-brain"
     models: tuple[str, ...] = ()
     max_budget: float = 0.0
     budget_duration: str = ""
@@ -141,14 +141,37 @@ class LiteLLMAccountSettings:
             return "accounts.litellm.broker_url"
         return "accounts.litellm.base_url"
 
-    def alias_for(self, account_slug: str) -> str:
+    def alias_for(
+        self,
+        account_slug: str = "",
+        *,
+        subject: str = "",
+        username: str = "",
+        display_name: str = "",
+        email: str = "",
+    ) -> str:
         """The label this person's key wears in LiteLLM.
 
         One alias per person, deliberately — the same person on two machines
         gets one name in the proxy's console because they have one key. It is
         a label and nothing more: no code path here looks a key up by it, let
         alone deletes one.
+
+        When identity fields are supplied the alias is ``{prefix}-{username}``
+        derived from Keycloak (``Lê Trung Kiên`` → ``second-brain-letrungkien``).
+        ``account_slug`` alone is a legacy fallback for callers that have not
+        moved to identity-based naming yet.
         """
+        from hermes_cli.accounts import litellm_key_alias_for_identity
+
+        if subject or username or display_name or email:
+            return litellm_key_alias_for_identity(
+                self.key_alias_prefix,
+                subject=subject,
+                username=username,
+                display_name=display_name,
+                email=email,
+            )
         return f"{self.key_alias_prefix}-{account_slug}"
 
 
@@ -263,7 +286,7 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
         broker_url=_str("broker_url").rstrip("/"),
         second_brain_url=second_brain_url,
         provider_name=_str("provider_name", "litellm") or "litellm",
-        key_alias_prefix=_str("key_alias_prefix", "agentx-workmate") or "agentx-workmate",
+        key_alias_prefix=_str("key_alias_prefix", "second-brain") or "second-brain",
         models=model_tuple,
         max_budget=_float("max_budget"),
         budget_duration=_str("budget_duration"),
@@ -765,7 +788,13 @@ def ensure_account_key(
             detail=f"{settings.missing_setting} is not set.",
         )
 
-    alias = settings.alias_for(account_slug)
+    alias = settings.alias_for(
+        account_slug,
+        subject=identity.subject,
+        username=identity.username,
+        display_name=identity.display_name,
+        email=identity.email,
+    )
     key_env = provider_key_env(settings.provider_name)
     state = read_state(home)
 

@@ -111,7 +111,7 @@ _DEFAULT_TOMBSTONE_SWEEP_SECONDS = 24 * 60 * 60
 #: Matches ``accounts.litellm.key_alias_prefix`` in ``config_defaults``. Only
 #: reached when the config cannot be read at all, which on a server is the
 #: normal case rather than an error — a container carries no AgentX home.
-_DEFAULT_KEY_ALIAS_PREFIX = "agentx-workmate"
+_DEFAULT_KEY_ALIAS_PREFIX = "second-brain"
 
 #: The modes a key is granted by default: everything a person drives directly
 #: from a conversation. Ordered, and the order is load-bearing — the model list
@@ -169,16 +169,36 @@ class BrainSettings:
         """
         return bool(self.litellm_base_url and self.litellm_admin_key)
 
-    def alias_for(self, account_slug: str) -> str:
+    def alias_for(self, account_slug: str = "") -> str:
+        """The label this person's key wears in LiteLLM (legacy slug form).
+
+        Prefer :meth:`alias_for_identity` — it derives the username label from
+        Keycloak rather than from the account slug digest.
+        """
+        return f"{self.key_alias_prefix}-{account_slug}"
+
+    def alias_for_identity(
+        self,
+        *,
+        subject: str,
+        username: str = "",
+        display_name: str = "",
+        email: str = "",
+    ) -> str:
         """The label this person's key wears in LiteLLM.
 
         Deliberately the same string ``LiteLLMAccountSettings.alias_for``
-        builds on the laptop. Nothing depends on the two agreeing — the
-        service finds a key by subject, never by alias — but an operator
-        reading the proxy's console is entitled to see one naming scheme
-        rather than two.
+        builds on the laptop when identity fields are supplied.
         """
-        return f"{self.key_alias_prefix}-{account_slug}"
+        from hermes_cli.accounts import litellm_key_alias_for_identity
+
+        return litellm_key_alias_for_identity(
+            self.key_alias_prefix,
+            subject=subject,
+            username=username,
+            display_name=display_name,
+            email=email,
+        )
 
     def kek_for(self, kek_id: str) -> bytes | None:
         """The KEK that opens a row wearing *kek_id*, or None.

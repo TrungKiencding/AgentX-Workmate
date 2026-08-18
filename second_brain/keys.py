@@ -65,6 +65,9 @@ logger = logging.getLogger(__name__)
 #: is defined for; anything else costs an extra hashing step and buys nothing.
 NONCE_BYTES = 12
 
+#: LiteLLM model modes that must never appear on a person-scoped key.
+_EXCLUDED_KEY_MODES = frozenset({"embedding", "embeddings", "rerank", "reranking"})
+
 router = APIRouter(prefix=API_PREFIX)
 
 
@@ -259,9 +262,9 @@ async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
     app land on something you can talk to, with no model id written down
     anywhere on the laptop.
 
-    ``accounts.litellm.models`` still wins when an operator set it. That is an
-    explicit fleet-wide allow-list, and second-guessing it by mode would mean
-    the setting quietly means something other than what it says.
+    ``accounts.litellm.models`` still wins when an operator set it, but only as
+    an additional allow-list intersected with the mode filter — it must not
+    bypass embedding/rerank exclusion.
 
     Raises rather than falling back to an unrestricted key when the proxy
     cannot say what it serves. Falling back is how the admin key came to
@@ -272,8 +275,9 @@ async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
 
     from starlette.concurrency import run_in_threadpool
 
-    if settings.key_models:
-        return tuple(settings.key_models)
+    wanted = tuple(
+        mode for mode in settings.key_model_modes if mode not in _EXCLUDED_KEY_MODES
+    )
 
     try:
         modes = await run_in_threadpool(client.model_modes)
@@ -281,13 +285,18 @@ async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
         logger.error("second_brain: could not read the proxy's model list: %s", exc)
         raise _litellm_failed(exc) from exc
 
-    wanted = tuple(settings.key_model_modes)
-    granted = [
+    mode_filtered = [
         model
         for mode in wanted
         for model, declared in modes.items()
         if declared == mode
     ]
+
+    if settings.key_models:
+        allowed = set(settings.key_models)
+        granted = [model for model in mode_filtered if model in allowed]
+    else:
+        granted = mode_filtered
 
     if not granted:
         skipped = sorted({m for m in modes.values() if m}) or ["(none declared)"]
@@ -471,7 +480,16 @@ async def model_key(
                 plaintext = await open_stored_key(ctx, principal.subject, existing)
                 return _body(existing, plaintext, status="reused", account=principal.slug)
 
-            alias = existing.key_alias if existing else ctx.settings.alias_for(principal.slug)
+            alias = (
+                existing.key_alias
+                if existing
+                else ctx.settings.alias_for_identity(
+                    subject=principal.subject,
+                    username=principal.display_name,
+                    display_name=principal.display_name,
+                    email=principal.email,
+                )
+            )
             row, plaintext = await _mint_and_store(
                 ctx,
                 principal.subject,

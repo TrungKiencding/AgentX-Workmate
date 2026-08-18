@@ -1593,7 +1593,7 @@ DEFAULT_CONFIG = {
             # Prefix for the LiteLLM key_alias. The account slug is appended,
             # which is what makes provisioning idempotent: one alias per
             # person, looked up before anything is minted.
-            "key_alias_prefix": "agentx-workmate",
+            "key_alias_prefix": "second-brain",
             # Restrict the minted key to these model ids. Empty means every
             # model the proxy exposes.
             "models": [],
