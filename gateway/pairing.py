@@ -709,13 +709,10 @@ class PairingStore:
         """
         with self._lock:
             self._cleanup_expired(platform)
-            code = code.upper().strip()
-
-            # Lockout check — must run before the pending lookup so a
-            # valid code (e.g. one already sitting in pending) cannot be
-            # accepted once the lockout fires. Without this, the lockout
-            # only blocks `generate_code`, not `approve_code` — nullifying
-            # the brute-force protection for any code already issued.
+            # Chat UIs insert visual spacing between code characters; strip all
+            # whitespace, then match exactly (surrounding words still fail). #89937
+            code = "".join(str(code or "").upper().split())
+            # Before the lookup, or an already-issued valid code would bypass lockout.
             if self._is_locked_out(platform):
                 return None
 
