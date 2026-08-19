@@ -5,6 +5,7 @@ Handles: agentx gateway [run|start|stop|restart|status|install|uninstall|setup]
 """
 
 import asyncio
+from hermes_cli.cli_output import line_input
 import json
 import logging
 import os
@@ -6614,7 +6615,7 @@ def _setup_signal():
     print_info("  Enter the URL where signal-cli HTTP daemon is running.")
     default_url = existing_url or "http://127.0.0.1:8080"
     try:
-        url = input(f"  HTTP URL [{default_url}]: ").strip() or default_url
+        url = line_input(f"  HTTP URL [{default_url}]: ").strip() or default_url
     except (EOFError, KeyboardInterrupt):
         print("\n  Setup cancelled.")
         return
@@ -6646,7 +6647,7 @@ def _setup_signal():
     print_info("  Example: +15551234567")
     default_account = existing_account or ""
     try:
-        account = input(
+        account = line_input(
             f"  Account number{f' [{default_account}]' if default_account else ''}: "
         ).strip()
         if not account:
@@ -6669,7 +6670,7 @@ def _setup_signal():
     default_allowed = existing_allowed or account
     try:
         allowed = (
-            input(f"  Allowed users [{default_allowed}]: ").strip() or default_allowed
+            line_input(f"  Allowed users [{default_allowed}]: ").strip() or default_allowed
         )
     except (EOFError, KeyboardInterrupt):
         print("\n  Setup cancelled.")
@@ -6687,7 +6688,7 @@ def _setup_signal():
         existing_groups = get_env_value("SIGNAL_GROUP_ALLOWED_USERS") or ""
         try:
             groups = (
-                input(f"  Group IDs [{existing_groups or '*'}]: ").strip()
+                line_input(f"  Group IDs [{existing_groups or '*'}]: ").strip()
                 or existing_groups
                 or "*"
             )
