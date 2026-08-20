@@ -215,6 +215,14 @@ _ENV_VAR_NAME_DENYLIST: frozenset[str] = frozenset({
     # NOT a AGENTX_* blanket: integration credentials (AGENTX_GEMINI_*,
     # AGENTX_LANGFUSE_*, AGENTX_SPOTIFY_*, ...) ARE allowed.
     "AGENTX_HOME", "AGENTX_PROFILE", "AGENTX_CONFIG", "AGENTX_ENV",
+    "AGENTX_CONFIG_PATH", "AGENTX_ENV_PATH",
+    # AgentX security policy / approval-routing context. These remain available
+    # through their dedicated CLI/config/session controls, but a generic
+    # credential writer must not persist them for the next process startup.
+    "AGENTX_YOLO_MODE", "AGENTX_ACCEPT_HOOKS", "AGENTX_REDACT_SECRETS",
+    "AGENTX_INTERACTIVE", "AGENTX_EXEC_ASK", "AGENTX_GATEWAY_SESSION",
+    "AGENTX_CRON_SESSION", "AGENTX_SINGLE_QUERY_SESSION",
+    "AGENTX_SESSION_KEY", "AGENTX_SESSION_PLATFORM",
 })
 
 
@@ -229,10 +237,22 @@ def _reject_denylisted_env_var(key: str) -> None:
             f"Environment variable {key!r} is on the writer denylist. "
             "Names that influence subprocess execution (LD_PRELOAD, "
             "PYTHONPATH, PATH, EDITOR, ...) or AgentX runtime location "
-            "(AGENTX_HOME, AGENTX_PROFILE, ...) cannot be persisted via "
+            "and security policy (AGENTX_HOME, AGENTX_YOLO_MODE, ...) "
+            "cannot be persisted via "
             "the env writer. If you really need this, edit "
             "~/.agentx/.env directly."
         )
+
+
+def validate_env_var_name_for_write(key: str) -> None:
+    """Validate an environment name before a generic persistence write.
+
+    Exposed separately from :func:`save_env_value` so batch-style callers can
+    validate their complete request before writing the first value.
+    """
+    if not _ENV_VAR_NAME_RE.match(key):
+        raise ValueError(f"Invalid environment variable name: {key!r}")
+    _reject_denylisted_env_var(key)
 
 _LAST_EXPANDED_CONFIG_BY_PATH: Dict[str, Any] = {}
 # (path, mtime_ns, size) -> cached expanded config dict.
@@ -4042,9 +4062,7 @@ def save_env_value(key: str, value: str):
             file=sys.stderr,
         )
         return
-    if not _ENV_VAR_NAME_RE.match(key):
-        raise ValueError(f"Invalid environment variable name: {key!r}")
-    _reject_denylisted_env_var(key)
+    validate_env_var_name_for_write(key)
     value = value.replace("\n", "").replace("\r", "")
     # API keys / tokens must be ASCII — strip non-ASCII with a warning.
     value = _check_non_ascii_credential(key, value)

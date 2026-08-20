@@ -1037,7 +1037,7 @@ class TestDiscordChannelPromptsConfig:
 class TestEnvWriteDenylist:
     """``save_env_value`` refuses to persist env-var names that
     influence how subprocesses execute — ``LD_PRELOAD``, ``PYTHONPATH``,
-    ``PATH``, ``EDITOR``, etc. — or any ``AGENTX_*`` runtime flag.
+    ``PATH``, ``EDITOR``, etc. — or selected AgentX runtime/security controls.
 
     The dashboard exposes ``PUT /api/env`` to any authed caller (and
     the session token lives in the SPA's HTML where any future plugin
@@ -1067,14 +1067,38 @@ class TestEnvWriteDenylist:
         ],
     )
     def test_hermes_integration_keys_still_writable(self, allowed_key):
-        """``AGENTX_*`` overall is NOT blocked — only the four runtime
-        location names (HOME/PROFILE/CONFIG/ENV) are. Integration
-        credentials following the ``AGENTX_*`` convention must keep
-        working or we'd regress every provider setup wizard that
-        currently writes one of these (auth.py, Spotify, Langfuse, …)."""
+        """``AGENTX_*`` overall is NOT blocked.
+
+        Integration credentials following that convention must keep working
+        or we'd regress provider setup flows (auth.py, Spotify, Langfuse, …).
+        """
         save_env_value(allowed_key, "test-value-123")
         env = load_env()
         assert env[allowed_key] == "test-value-123"
+
+    @pytest.mark.parametrize(
+        "protected_key",
+        [
+            "AGENTX_CONFIG_PATH",
+            "AGENTX_ENV_PATH",
+            "AGENTX_YOLO_MODE",
+            "AGENTX_ACCEPT_HOOKS",
+            "AGENTX_REDACT_SECRETS",
+            "AGENTX_INTERACTIVE",
+            "AGENTX_EXEC_ASK",
+            "AGENTX_GATEWAY_SESSION",
+            "AGENTX_CRON_SESSION",
+            "AGENTX_SINGLE_QUERY_SESSION",
+            "AGENTX_SESSION_KEY",
+            "AGENTX_SESSION_PLATFORM",
+        ],
+    )
+    def test_hermes_security_control_keys_are_not_writable(self, protected_key):
+        """Generic writers must not persist runtime or approval controls."""
+        with pytest.raises(ValueError, match="denylist"):
+            save_env_value(protected_key, "1")
+
+        assert protected_key not in load_env()
 
 
 
