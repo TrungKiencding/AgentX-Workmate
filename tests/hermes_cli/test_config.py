@@ -1081,6 +1081,7 @@ class TestEnvWriteDenylist:
         [
             "AGENTX_CONFIG_PATH",
             "AGENTX_ENV_PATH",
+            "AGENTX_OPTIONAL_MCPS",
             "AGENTX_YOLO_MODE",
             "AGENTX_ACCEPT_HOOKS",
             "AGENTX_REDACT_SECRETS",
@@ -1099,6 +1100,54 @@ class TestEnvWriteDenylist:
             save_env_value(protected_key, "1")
 
         assert protected_key not in load_env()
+
+    def test_preexisting_optional_mcps_override_still_loads(self, tmp_path):
+        """The writer gate must not migrate or ignore operator-owned .env state."""
+        from hermes_cli.config import invalidate_env_cache
+
+        catalog = tmp_path / "custom-mcp-catalog"
+        (tmp_path / ".env").write_text(
+            f"AGENTX_OPTIONAL_MCPS={catalog}\n",
+            encoding="utf-8",
+        )
+        invalidate_env_cache()
+
+        assert load_env()["AGENTX_OPTIONAL_MCPS"] == str(catalog)
+
+    @pytest.mark.parametrize(
+        ("key", "expected"),
+        [
+            ("Path", "PATH"),
+            ("Agentx_Yolo_Mode", "AGENTX_YOLO_MODE"),
+            ("Agentx_Optional_Mcps", "AGENTX_OPTIONAL_MCPS"),
+        ],
+    )
+    def test_windows_policy_names_are_case_insensitive(self, key, expected):
+        from hermes_cli.config import _env_var_policy_name
+
+        assert _env_var_policy_name(key, is_windows=True) == expected
+
+    def test_posix_policy_names_remain_case_sensitive(self):
+        from hermes_cli.config import _env_var_policy_name
+
+        assert _env_var_policy_name("Path", is_windows=False) == "Path"
+
+    @pytest.mark.parametrize("prefix", ["", "export "])
+    def test_windows_env_assignment_matching_is_case_insensitive(self, prefix):
+        from hermes_cli.config import _env_line_defines_key
+
+        line = f"{prefix}Path=C:\\Windows\\System32\n"
+        assert _env_line_defines_key(line, "PATH", is_windows=True)
+        assert not _env_line_defines_key(line, "PATH", is_windows=False)
+
+    def test_windows_writer_rejects_mixed_case_protected_name(self, monkeypatch):
+        # Simulate the Windows policy (case-insensitive names) on any host so
+        # the gate is exercised everywhere, not only on a Windows CI lane.
+        import hermes_cli.config as config_mod
+
+        monkeypatch.setattr(config_mod, "_IS_WINDOWS", True)
+        with pytest.raises(ValueError, match="denylist"):
+            save_env_value("Agentx_Yolo_Mode", "1")
 
 
 
