@@ -3256,6 +3256,12 @@ class SessionDB(
             return False
         if not self._is_fts_write_corruption_error(exc):
             return False
+        # Set the one-shot flag before the foreign-holder check: even when
+        # the rebuild is skipped, the fail-open path that follows persists
+        # the FTS_STALE_KEY marker so the next process startup will retry
+        # via _recover_stale_fts (which has its own holder guard). Setting
+        # the flag here also avoids re-running the expensive psutil scan on
+        # every subsequent corrupted write through this instance.
         self._fts_runtime_rebuild_attempted = True
         logger.warning(
             "state.db write failed with an FTS-corruption error (%s) — "
