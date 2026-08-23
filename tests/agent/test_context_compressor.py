@@ -2389,7 +2389,9 @@ class TestSanitizerStripsOrphanedToolCalls:
         """Negative control: registering both id and call_id must not
         over-relax orphan detection. A genuinely orphaned tool_call (no
         result matching either id variant) is still stripped, while a valid
-        dual-id pair in the same window survives."""
+        dual-id pair in the same window survives. A trailing user turn keeps
+        the assistant message out of the in-flight protection window (#79278),
+        which intentionally preserves a still-pending trailing call."""
         msgs = [
             {
                 "role": "assistant",
@@ -2410,6 +2412,7 @@ class TestSanitizerStripsOrphanedToolCalls:
                 ],
             },
             {"role": "tool", "tool_call_id": "call_1", "content": "result"},
+            {"role": "user", "content": "next question"},
         ]
 
         sanitized = compressor._sanitize_tool_pairs(msgs)
