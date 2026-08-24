@@ -11,6 +11,7 @@ because its dispatch is tightly coupled to module-level ``cmd_*`` functions.
 """
 
 import argparse
+from functools import lru_cache
 
 
 # `--account`, `--profile` and `-p` are consumed by
@@ -25,6 +26,20 @@ PRE_ARGPARSE_INHERITED_FLAGS: list[tuple[str, bool]] = [
     ("--profile", True),
     ("-p", True),
 ]
+
+
+@lru_cache(maxsize=1)
+def top_level_value_flag_sets() -> tuple[frozenset[str], frozenset[str]]:
+    """Return required- and optional-value flags from the live parser."""
+    parser = build_top_level_parser()[0]
+    required: set[str] = set()
+    optional: set[str] = set()
+    for action in parser._actions:
+        if not action.option_strings or action.nargs == 0:
+            continue
+        target = optional if action.nargs == "?" else required
+        target.update(action.option_strings)
+    return frozenset(required), frozenset(optional)
 
 
 def _inherited_flag(parser, *args, **kwargs):

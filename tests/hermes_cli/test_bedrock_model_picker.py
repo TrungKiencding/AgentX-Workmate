@@ -99,12 +99,6 @@ class TestProviderModelIdsBedrock:
             assert _m in us_result
         assert eu_result != us_result
 
-
-
-        # Should fall back to static table (may be empty or populated depending on
-        # the current static list, but must not crash and must be a list).
-        assert isinstance(result, list)
-
     def test_falls_back_to_static_list_on_exception(self, monkeypatch):
         """When discover_bedrock_models() raises, fall back gracefully."""
         from hermes_cli.models import provider_model_ids
@@ -137,8 +131,16 @@ class TestProviderModelIdsBedrock:
 class TestListAuthenticatedProvidersBedrock:
     """Bedrock should appear in the /model picker when AWS creds are present."""
 
+    def test_bedrock_shown_with_credentials(self, monkeypatch):
+        """Bedrock must appear when AWS credentials resolve."""
+        from hermes_cli.model_switch import list_authenticated_providers
 
+        monkeypatch.setenv("AWS_PROFILE", "my-sso-profile")
 
+        with patch("agent.bedrock_adapter.has_aws_credentials", return_value=True), \
+             patch("agent.bedrock_adapter.discover_bedrock_models", return_value=_EU_MODELS), \
+             patch("agent.bedrock_adapter.resolve_bedrock_region", return_value="eu-central-1"):
+            providers = list_authenticated_providers(current_provider="openai")
 
         bedrock = next((p for p in providers if p["slug"] == "bedrock"), None)
         assert bedrock is not None, "bedrock should appear when AWS credentials are present"
