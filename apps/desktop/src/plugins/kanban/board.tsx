@@ -78,6 +78,7 @@ import {
 } from './api'
 import { BoardSwitcher } from './board-switcher'
 import { TaskDrawer } from './drawer'
+import { shouldSubmitOnEnter } from './ime-enter'
 import { EMPTY_OVERRIDE, ModelOverrideField, overrideCreateFields, type TaskModelOverride } from './model-override'
 import { OrchestrationPanel } from './orchestration'
 import { columnMeta, type KanbanBoard, type KanbanTask, type TaskEstimate } from './types'
@@ -682,7 +683,7 @@ function NewTaskDialog({
             autoFocus
             onChange={event => setTitle(event.target.value)}
             onKeyDown={event => {
-              if (event.key === 'Enter') {
+              if (shouldSubmitOnEnter(event)) {
                 event.preventDefault()
                 void submit()
               }
