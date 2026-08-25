@@ -28,8 +28,8 @@ Usage (gateway side):
     adapter = platform_registry.create_adapter("irc", platform_config)
 """
 
-import threading
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
@@ -189,7 +189,7 @@ class PlatformRegistry:
     """
 
     def __init__(self) -> None:
-        # registered_names() reads the scope maps under this lock; without it
+        # registered_names() reads the name maps under this lock; without it
         # the first call raises AttributeError (upstream 85020f2238).
         self._lock = threading.RLock()
         self._entries: dict[str, PlatformEntry] = {}
@@ -296,16 +296,17 @@ class PlatformRegistry:
     def registered_names(self) -> set[str]:
         """Return concrete and deferred platform names without loading adapters.
 
-        Mirrors ``is_registered()``'s scope semantics: names registered under
-        the current profile scope AND process-global names both count. Plugin
-        platforms register deferred loaders under a profile scope, so reading
-        only the global maps would miss every plugin platform.
+        Mirrors ``is_registered()``: a deferred loader counts as registered,
+        so callers get the full name set without paying for the imports.
+
+        Upstream reads per-profile scope maps here, because there
+        ``register_deferred()`` files plugin platforms under a profile scope.
+        That isolation (85020f2238) touches thirteen registry modules and is
+        not ported, so on this tree ``register_deferred()`` writes the
+        process-global map and reading it is the complete answer. Restore the
+        scoped read together with that commit, not before.
         """
         with self._lock:
-            # NOTE: upstream reads per-profile scope maps here. The profile
-            # isolation those come from (85020f2238) conflicts across thirteen
-            # registries and is not ported, so this mirrors is_registered()'s
-            # actual semantics on this tree: the process-global maps.
             return set(self._entries) | set(self._deferred)
 
     def is_registered(self, name: str) -> bool:
