@@ -1408,7 +1408,7 @@ Set `fail_closed: true` (or `failClosed: true`, the Cursor/Claude Code spelling)
 hooks:
   pre_tool_call:
     - matcher: "terminal|write_file|patch"
-      command: "~/.hermes/agent-hooks/secret-scan.sh"
+      command: "~/.agentx/agent-hooks/secret-scan.sh"
       timeout: 10
       fail_closed: true
 ```
@@ -1422,7 +1422,7 @@ With `fail_closed: true`, each of these now **blocks** the tool call with `hook 
 | Non-JSON stdout (e.g. a stack trace) | warn, proceed | **block** |
 | Clean exit, valid no-op JSON (`{}`) | proceed | proceed |
 
-`fail_closed` only applies to blocking-capable events (`pre_tool_call` today); setting it on any other event logs a warning at config-parse time and is ignored. `hermes hooks test` reflects these semantics — the `parsed` line shows exactly the block shape the dispatcher would receive.
+`fail_closed` only applies to blocking-capable events (`pre_tool_call` today); setting it on any other event logs a warning at config-parse time and is ignored. `agentx hooks test` reflects these semantics — the `parsed` line shows exactly the block shape the dispatcher would receive.
 
 ### Worked examples
 
