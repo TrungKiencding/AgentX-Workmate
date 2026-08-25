@@ -5746,7 +5746,7 @@ def validate_requested_model(
                 "recognized": False,
                 "message": (
                     f"Note: could not reach this Ollama endpoint's `/api/tags` model listing to validate `{requested}`. "
-                    "Hermes will save the model name, but local Ollama model discovery could not verify it."
+                    "AgentX will save the model name, but local Ollama model discovery could not verify it."
                 ),
             }
         if requested_for_lookup in set(ollama_models):
