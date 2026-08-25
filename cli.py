@@ -93,6 +93,23 @@ except Exception:
 import threading
 import queue
 
+
+# Guard to prevent cleanup from running multiple times on exit
+_cleanup_done = False
+_cleanup_in_progress = False
+_cli_wake_owner = None
+# One-shot CLI finalization runs before process cleanup so plugins can observe
+# the session boundary while the agent is still attached. If a signal lands in
+# that narrow window, atexit cleanup must not emit that session finalization again.
+_single_query_finalize_attempted_session_ids: set[str | None] = set()
+# Session IDs that were handed off to the gateway via /handoff.  The CLI
+# process exits after a successful handoff, but the gateway now owns the
+# session lifecycle — _run_cleanup must NOT call finalize_session on these,
+# because doing so sets end_reason on a row the gateway just reopened and is
+# actively writing to (#88234).  The race made the handoff leg vanish from
+# session history and broke session_search recall for the handed-off session.
+_handed_off_session_ids: set[str | None] = set()
+
 def CanonicalUsage(*args, **kwargs):
     from agent.usage_pricing import CanonicalUsage as _CanonicalUsage
 

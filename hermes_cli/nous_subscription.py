@@ -54,6 +54,25 @@ def _uses_gateway(section: object) -> bool:
     return is_truthy_value(section.get("use_gateway"), default=False)
 
 
+def _selected_provider(section: object, name_key: str = "provider") -> Optional[str]:
+    """Return the stored provider string for a config section dict.
+
+    Mirrors :func:`tools.tool_backend_helpers.read_selection`'s semantics on
+    an in-memory section dict: ``"nous"`` for the managed selection (stored
+    ``nous`` value or legacy ``use_gateway: true``), a vendor name for BYOK
+    picks, or ``None`` when no selection is stored. Keeping this in lockstep
+    with the runtime resolver is what stops ``hermes status`` from lying.
+    """
+    if not isinstance(section, dict):
+        return None
+    if is_truthy_value(section.get("use_gateway"), default=False):
+        return "nous"
+    value = section.get(name_key)
+    if value is None:
+        return None
+    name = str(value).strip().lower()
+    return name or None
+
 @dataclass(frozen=True)
 class NousFeatureState:
     key: str

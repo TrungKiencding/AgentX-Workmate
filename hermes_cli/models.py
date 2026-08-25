@@ -2157,6 +2157,29 @@ _KNOWN_PROVIDER_NAMES: set[str] = (
 )
 
 
+def _configured_custom_provider_ids() -> set[str]:
+    """Return routable custom-provider IDs configured by the user."""
+    ids = {"custom"}
+    try:
+        from hermes_cli.config import load_config
+        from hermes_cli.providers import custom_provider_slug
+
+        config = load_config()
+        providers = config.get("providers", {})
+        if isinstance(providers, dict):
+            for key, entry in providers.items():
+                if isinstance(entry, dict):
+                    ids.add(custom_provider_slug(str(entry.get("name") or key), str(key)))
+        legacy = config.get("custom_providers", [])
+        if isinstance(legacy, list):
+            for entry in legacy:
+                if isinstance(entry, dict):
+                    ids.add(custom_provider_slug(str(entry.get("name") or "")))
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError):
+        pass
+    return ids
+
+
 def list_available_providers() -> list[dict[str, str]]:
     """Return info about all providers the user could use with ``provider:model``.
 

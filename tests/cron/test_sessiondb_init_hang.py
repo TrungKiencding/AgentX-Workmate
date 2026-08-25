@@ -1,3 +1,5 @@
+import threading
+import time
 """Regression test for a hung SessionDB() init permanently wedging a cron job.
 
 Real-world incident: a cron job's ``SessionDB()`` construction inside

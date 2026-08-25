@@ -1,3 +1,4 @@
+import sqlite3
 """Tests for agent/context_compressor.py — compression logic, thresholds, truncation fallback."""
 
 import json

@@ -27,6 +27,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from utils import base_url_host_matches, base_url_hostname, normalize_proxy_env_vars
 from agent.secret_scope import get_secret as _get_secret
 
+try:
+    import hermes_cli as _agentx_cli
+
+    _AGENTX_VERSION = str(_agentx_cli.__version__)
+except Exception:
+    _AGENTX_VERSION = "0.0.0"
+
 
 def _getenv(name: str, default: str = "") -> str:
     """Profile-scoped replacement for os.getenv on credential reads.

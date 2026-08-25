@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import http.client
 import logging
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, List, NamedTuple, Optional
