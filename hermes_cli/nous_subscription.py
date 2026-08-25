@@ -61,7 +61,7 @@ def _selected_provider(section: object, name_key: str = "provider") -> Optional[
     an in-memory section dict: ``"nous"`` for the managed selection (stored
     ``nous`` value or legacy ``use_gateway: true``), a vendor name for BYOK
     picks, or ``None`` when no selection is stored. Keeping this in lockstep
-    with the runtime resolver is what stops ``hermes status`` from lying.
+    with the runtime resolver is what stops ``agentx status`` from lying.
     """
     if not isinstance(section, dict):
         return None
