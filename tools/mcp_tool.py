@@ -434,7 +434,7 @@ def sdk_httpx():
 
     mcp 2.0 moved its HTTP transports and OAuth stack from ``httpx`` to
     ``httpx2`` — a separate distribution with the same public API, importable
-    side by side with Hermes' own pinned ``httpx``. Every object that crosses
+    side by side with AgentX's own pinned ``httpx``. Every object that crosses
     the SDK boundary has to come from the module the SDK itself imports:
     the ``AsyncClient`` handed to ``streamable_http_client``, the client the
     ``sse_client`` factory returns, the ``Request`` built by the SDK's OAuth
@@ -4429,7 +4429,7 @@ def _http_status_error_types() -> tuple:
     """``HTTPStatusError`` classes that can reach us, from both httpx flavours.
 
     A 401 can be raised either by the MCP SDK's own HTTP stack (``httpx2`` on
-    mcp >= 2.0) or by Hermes' pinned ``httpx``, and the two define unrelated
+    mcp >= 2.0) or by AgentX's pinned ``httpx``, and the two define unrelated
     exception classes. Both go in the tuple so ``isinstance`` covers whichever
     layer raised.
     """
