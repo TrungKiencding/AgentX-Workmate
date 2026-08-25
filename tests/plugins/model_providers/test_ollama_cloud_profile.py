@@ -119,7 +119,7 @@ class TestOllamaCloudReasoningEffort:
         assert top_level == {}
 
     def test_minimal_effort_clamps_to_low(self, ollama_cloud_profile):
-        """``minimal`` is a real Hermes effort level but is rejected by
+        """``minimal`` is a real AgentX effort level but is rejected by
         Ollama Cloud's /v1/chat/completions. The shared clamp degrades it to
         ``low`` — the nearest supported level — instead of silently dropping
         the user's ask (old behavior left the server default, i.e. MORE

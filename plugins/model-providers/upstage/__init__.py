@@ -75,7 +75,7 @@ class UpstageProfile(ProviderProfile):
         if reasoning_config.get("enabled") is False:
             return {}, top_level
 
-        # Map Hermes' effort vocabulary onto Solar's accepted set via the
+        # Map AgentX' effort vocabulary onto Solar's accepted set via the
         # shared clamp (agent.reasoning_effort). minimal → omit (Solar's
         # minimal means off); unknown-but-enabled bespoke levels collapse to
         # high rather than silently downgrading (#62650 precedent).
