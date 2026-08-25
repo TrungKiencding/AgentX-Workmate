@@ -197,7 +197,7 @@ def _github_compare_behind(current_rev: str, target_rev: str) -> Optional[int]:
     if not (_is_full_sha(current_rev) and _is_full_sha(target_rev)):
         return None
     url = (
-        "https://api.github.com/repos/nousresearch/hermes-agent/"
+        "https://api.github.com/repos/TrungKiencding/AgentX-Workmate/"
         f"compare/{current_rev}...{target_rev}"
     )
     try:
@@ -208,7 +208,7 @@ def _github_compare_behind(current_rev: str, target_rev: str) -> Optional[int]:
             headers={
                 "Accept": "application/vnd.github+json",
                 # api.github.com 403s requests without a User-Agent.
-                "User-Agent": "hermes-cli-update-check",
+                "User-Agent": "agentx-cli-update-check",
             },
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -268,7 +268,7 @@ def _check_via_local_git(repo_dir: Path) -> Optional[int]:
         # Passive probe via HTTPS ls-remote (never SSH — no hardware-key
         # prompts). Tip SHAs alone can't distinguish "behind" from a local
         # carried commit sitting AHEAD of origin/main, and misreporting an
-        # ahead checkout as behind nudges the user into `hermes update`,
+        # ahead checkout as behind nudges the user into `agentx update`,
         # which can wipe their carried work.
         upstream_rev = _upstream_main_sha()
         if upstream_rev is None:

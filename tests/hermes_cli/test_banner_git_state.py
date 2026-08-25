@@ -46,7 +46,7 @@ def test_check_via_local_git_ssh_fastpath_ahead_not_behind(tmp_path):
 
     A carried local commit means tip SHAs differ, but the fresh upstream tip
     is an ancestor of HEAD — that is "ahead", and reporting it as behind
-    nudges the user into `hermes update`, which can wipe the carried work.
+    nudges the user into `agentx update`, which can wipe the carried work.
     """
     from unittest.mock import MagicMock
 
@@ -57,7 +57,7 @@ def test_check_via_local_git_ssh_fastpath_ahead_not_behind(tmp_path):
 
     def fake_git_stdout(args, *, cwd, timeout=5):
         if args == ["remote", "get-url", "origin"]:
-            return "git@github.com:NousResearch/hermes-agent.git"
+            return "git@github.com:TrungKiencding/AgentX-Workmate.git"
         if args == ["rev-parse", "HEAD"]:
             return "b" * 40  # carried commit, differs from upstream tip
         raise AssertionError(f"unexpected git call: {args}")
@@ -84,7 +84,7 @@ def test_check_via_local_git_ssh_fastpath_genuinely_behind(tmp_path):
 
     def fake_git_stdout(args, *, cwd, timeout=5):
         if args == ["remote", "get-url", "origin"]:
-            return "git@github.com:NousResearch/hermes-agent.git"
+            return "git@github.com:TrungKiencding/AgentX-Workmate.git"
         if args == ["rev-parse", "HEAD"]:
             return "b" * 40
         raise AssertionError(f"unexpected git call: {args}")
@@ -112,7 +112,7 @@ def test_check_via_local_git_ssh_fastpath_offline_keeps_sentinel(tmp_path):
 
     def fake_git_stdout(args, *, cwd, timeout=5):
         if args == ["remote", "get-url", "origin"]:
-            return "git@github.com:NousResearch/hermes-agent.git"
+            return "git@github.com:TrungKiencding/AgentX-Workmate.git"
         if args == ["rev-parse", "HEAD"]:
             return "b" * 40
         raise AssertionError(f"unexpected git call: {args}")
