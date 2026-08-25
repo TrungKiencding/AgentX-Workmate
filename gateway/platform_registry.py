@@ -28,6 +28,7 @@ Usage (gateway side):
     adapter = platform_registry.create_adapter("irc", platform_config)
 """
 
+import threading
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
@@ -188,6 +189,9 @@ class PlatformRegistry:
     """
 
     def __init__(self) -> None:
+        # registered_names() reads the scope maps under this lock; without it
+        # the first call raises AttributeError (upstream 85020f2238).
+        self._lock = threading.RLock()
         self._entries: dict[str, PlatformEntry] = {}
         # Deferred platform loaders: name -> zero-arg callable that imports the
         # owning plugin module (which calls register() and populates _entries).
@@ -298,14 +302,11 @@ class PlatformRegistry:
         only the global maps would miss every plugin platform.
         """
         with self._lock:
-            scope = self.current_scope_key()
-            entries, deferred = self._scope_maps(scope)
-            return (
-                entries.keys()
-                | deferred.keys()
-                | self._entries.keys()
-                | self._deferred.keys()
-            )
+            # NOTE: upstream reads per-profile scope maps here. The profile
+            # isolation those come from (85020f2238) conflicts across thirteen
+            # registries and is not ported, so this mirrors is_registered()'s
+            # actual semantics on this tree: the process-global maps.
+            return set(self._entries) | set(self._deferred)
 
     def is_registered(self, name: str) -> bool:
         # A deferred (not-yet-imported) platform still counts as registered --
