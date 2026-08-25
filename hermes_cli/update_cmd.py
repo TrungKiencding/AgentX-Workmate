@@ -89,7 +89,7 @@ def _reload_updated_runtime_modules() -> None:
 def _reload_config_modules() -> None:
     """Force-reload modules from disk after git pull.
 
-    ``hermes update`` runs in the PRE-pull Python process. After ``git pull``
+    ``agentx update`` runs in the PRE-pull Python process. After ``git pull``
     updates the source files on disk, modules already in ``sys.modules``
     still hold the OLD code. Function-level imports return the cached module,
     so ``DEFAULT_CONFIG["_config_version"]`` is the OLD value and
@@ -154,12 +154,12 @@ def _migrate_sibling_profile_configs() -> list[tuple[str, int, int]]:
     """Migrate every SIBLING profile's config.yaml to the current version.
 
     #91277 Phase 2 (fleet-wide config migration; #20438/#54926/#79048): the
-    shared checkout serves every profile, but ``hermes update`` historically
+    shared checkout serves every profile, but ``agentx update`` historically
     migrated only the active profile's config — siblings drifted versions
     until their gateway hit a config the new code couldn't read.
 
     Per profile home (skipping the active one, already migrated by the
-    caller): scope config reads/writes via the context-local HERMES_HOME
+    caller): scope config reads/writes via the context-local AGENTX_HOME
     override (thread-safe — never ``os.environ``), check the version, and
     run the NON-INTERACTIVE, quiet migration. Prompt-requiring settings are
     left for the profile's own next interactive session, identical to the
@@ -212,7 +212,7 @@ def _migrate_sibling_profile_configs() -> list[tuple[str, int, int]]:
     return migrated
 
 
-# Critical files that Hermes must be able to import immediately after an
+# Critical files that AgentX must be able to import immediately after an
 # update/install. Most are imported on every CLI startup; ``web_server.py``
 # is the desktop/dashboard backend path that a fresh Windows install launches
 # right away. If any of these fail to parse after a pull, the user can be
@@ -5305,7 +5305,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # drifted (field repro: sibling gateway restarted onto new code but
         # stayed at config v33 vs v37). Run the same NON-INTERACTIVE safe
         # migration for every sibling profile home, scoped via the
-        # context-local HERMES_HOME override (never os.environ — other
+        # context-local AGENTX_HOME override (never os.environ — other
         # threads must not see it).
         try:
             _migrated_siblings = _migrate_sibling_profile_configs()

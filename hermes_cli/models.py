@@ -1570,7 +1570,7 @@ _openrouter_reasoning_caps_failed_at: float | None = None
 #
 # The in-process caches are always cold in a short-lived process, and every
 # consumer is on a hot path that must never block on HTTP — so without a disk
-# copy, `hermes -p`, a cron job, or a freshly booted gateway answers
+# copy, `agentx -p`, a cron job, or a freshly booted gateway answers
 # "capability unknown" for its whole first turn and falls back to the
 # conservative wire shape. Persisting the parsed catalog makes every run after
 # the first correct from its first turn.
@@ -1696,7 +1696,7 @@ def _fetch_reasoning_caps_catalog(
 
     Sends a User-Agent because the Portal 403s anonymous catalog reads.
     """
-    headers = {"Accept": "application/json", "User-Agent": _HERMES_USER_AGENT}
+    headers = {"Accept": "application/json", "User-Agent": _AGENTX_USER_AGENT}
     try:
         req = urllib.request.Request(url, headers=headers)
         with _urlopen_model_catalog_request(req, timeout=timeout) as resp:
@@ -2925,7 +2925,7 @@ def probe_ollama_local_models(
 
     try:
         url = root.rstrip("/") + "/api/tags"
-        request_headers = {"User-Agent": _HERMES_USER_AGENT}
+        request_headers = {"User-Agent": _AGENTX_USER_AGENT}
         request_headers.update(headers or {})
         req = urllib.request.Request(url, headers=request_headers)
         with _urlopen_model_catalog_request(req, timeout=timeout) as resp:

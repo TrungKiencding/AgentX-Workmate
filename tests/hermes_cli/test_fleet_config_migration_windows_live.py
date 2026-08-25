@@ -1,7 +1,7 @@
 """LIVE Windows E2E for the fleet-wide config migration (wine2e lane).
 
 Real profile homes on the Windows filesystem, real migration pipeline,
-fresh-process semantics via HERMES_HOME env — mirrors the Linux live E2E.
+fresh-process semantics via AGENTX_HOME env — mirrors the Linux live E2E.
 """
 import sys
 from pathlib import Path
@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="live Windows E2
 
 
 def test_fleet_config_migration_live_windows(tmp_path, monkeypatch):
-    active = tmp_path / "hermes-home"
+    active = tmp_path / "agentx-home"
     profiles = active / "profiles"
     for name, ver in [("research", 12), ("work", 25)]:
         home = profiles / name
@@ -29,7 +29,7 @@ def test_fleet_config_migration_live_windows(tmp_path, monkeypatch):
     (active / "config.yaml").write_text(
         yaml.safe_dump({"_config_version": 12}), encoding="utf-8"
     )
-    monkeypatch.setenv("HERMES_HOME", str(active))
+    monkeypatch.setenv("AGENTX_HOME", str(active))
 
     import hermes_cli.update_cmd as update_cmd
     from hermes_cli.config import DEFAULT_CONFIG

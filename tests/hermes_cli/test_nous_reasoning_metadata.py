@@ -92,9 +92,9 @@ class TestNousModelReasoningCapabilities:
         from hermes_cli.models import nous_catalog_url
 
         monkeypatch.setenv(
-            "NOUS_INFERENCE_BASE_URL", "https://staging.nousresearch.com/v1"
+            "NOUS_INFERENCE_BASE_URL", "https://stg-inference-api.nousresearch.com/v1"
         )
-        assert nous_catalog_url() == "https://staging.nousresearch.com/v1/models"
+        assert nous_catalog_url() == "https://stg-inference-api.nousresearch.com/v1/models"
 
         monkeypatch.delenv("NOUS_INFERENCE_BASE_URL")
         assert nous_catalog_url().endswith("/v1/models")
