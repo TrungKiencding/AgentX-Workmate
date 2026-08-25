@@ -219,6 +219,10 @@ _MCP_MESSAGE_HANDLER_SUPPORTED = False
 # HTTP transport path even on older-but-supported SDK versions.
 LATEST_PROTOCOL_VERSION = "2025-03-26"
 
+# Not in _MCP_SDK_LAZY_SYMBOLS on purpose: tests patch this name directly,
+# and mock.patch needs it to already exist as a module attribute.
+sse_client = None
+
 # The heavy SDK import is LAZY (see _ensure_mcp_sdk): importing `mcp` costs
 # ~260ms (mcp.types alone is ~60ms of pydantic model construction), which used
 # to be paid at tool-discovery time on EVERY CLI startup even with zero MCP
