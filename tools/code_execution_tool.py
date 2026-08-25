@@ -1494,9 +1494,9 @@ def execute_code(
 
         # ``hermes_tools.py`` always lives in the staging directory, so that
         # directory must be importable even when project mode changes CWD.
-        # Hermes's own package root is useful too, but only when the child
+        # AgentX's own package root is useful too, but only when the child
         # uses the same Python environment. Project mode can select an
-        # external venv; exposing Hermes's site-packages to that interpreter
+        # external venv; exposing AgentX's site-packages to that interpreter
         # can mix incompatible compiled extensions (for example, Python 3.12
         # NumPy with a Python 3.9 project interpreter).
         _hermes_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1894,7 +1894,7 @@ def _python_environment_prefix(python_path: str) -> str:
 
 
 def _uses_hermes_python_environment(python_path: str) -> bool:
-    """Whether *python_path* belongs to Hermes's active Python environment."""
+    """Whether *python_path* belongs to AgentX's active Python environment."""
     return _python_environment_prefix(python_path) == os.path.realpath(sys.prefix)
 
 
