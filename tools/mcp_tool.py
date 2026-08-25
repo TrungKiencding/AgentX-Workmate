@@ -281,27 +281,6 @@ except ImportError:
     logger.debug("mcp package not installed -- MCP tool support disabled")
 
 
-_MISSING = object()
-
-
-def mcp_field(obj, snake: str, camel: str, default=None):
-    """Read an MCP model field across the 1.x -> 2.x field rename.
-
-    mcp 2.0 renamed every model field to snake_case and kept the camelCase
-    spelling only as a *serialization* alias — pydantic aliases do not apply
-    to attribute access, so ``getattr(result, "isError", False)`` returns the
-    default on 2.x rather than raising. That turns a rename into silent wrong
-    behaviour: failed tool calls read as successful, tool schemas read as
-    empty, paginated lists stop after page one. Asking for both spellings
-    keeps the read correct on either SDK generation, which matters because
-    ``mcp`` is an optional extra users can install at their own version.
-    """
-    value = getattr(obj, snake, _MISSING)
-    if value is not _MISSING:
-        return value
-    value = getattr(obj, camel, _MISSING)
-    return default if value is _MISSING else value
-
 def _check_message_handler_support() -> bool:
     """Check if ClientSession accepts ``message_handler`` kwarg.
 
