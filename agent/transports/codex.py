@@ -50,17 +50,17 @@ def _bounded_prompt_cache_key(value: Any) -> Optional[str]:
 # server-side tool (incomplete hang or HTTP 400 duplicate names); this alias
 # avoids that while still dispatching through AgentX's configured provider
 # (Firecrawl / Tavily / …). Mapped back to ``web_search`` in normalize_response.
-_XAI_CLIENT_WEB_SEARCH_ALIAS = "hermes_web_search"
+_XAI_CLIENT_WEB_SEARCH_ALIAS = "agentx_web_search"
 
 # OpenCode's /v1/responses endpoints (Zen and Go, including custom providers
 # pointing at opencode.ai) reserve certain function names server-side and
 # reject client tools that use them with HTTP 400 ("custom function name
 # 'X' is reserved"). Reported for grok-4.5 on Go with `search_files` and
 # `web_search` (#85589). Same treatment as the xAI web_search collision:
-# rename on the wire (hermes_<name>), map back in normalize_response so
-# Hermes dispatch is unaffected.
+# rename on the wire (agentx_<name>), map back in normalize_response so
+# AgentX dispatch is unaffected.
 _OPENCODE_RESERVED_TOOL_NAMES = ("web_search", "search_files")
-_RESERVED_TOOL_ALIAS_PREFIX = "hermes_"
+_RESERVED_TOOL_ALIAS_PREFIX = "agentx_"
 _RESERVED_ALIAS_TO_NAME = {
     f"{_RESERVED_TOOL_ALIAS_PREFIX}{name}": name
     for name in _OPENCODE_RESERVED_TOOL_NAMES
@@ -384,7 +384,7 @@ class ResponsesApiTransport(ProviderTransport):
         # 2. **Client** (Firecrawl / Tavily / Exa / … configured or resolved):
         #    keep AgentX dispatch so ``web.backend`` / ``web.search_backend``
         #    is honored, but rename the wire tool to
-        #    ``hermes_web_search`` so Grok cannot hijack the name. The alias
+        #    ``agentx_web_search`` so Grok cannot hijack the name. The alias
         #    is mapped back to ``web_search`` in ``normalize_response``.
         if is_xai_responses and response_tools:
             has_client_web_search = any(
@@ -644,7 +644,7 @@ class ResponsesApiTransport(ProviderTransport):
                 if name == _XAI_CLIENT_WEB_SEARCH_ALIAS:
                     name = "web_search"
                 # Undo the OpenCode reserved-name wire aliases the same way
-                # (hermes_web_search / hermes_search_files, #85589).
+                # (agentx_web_search / agentx_search_files, #85589).
                 elif name in _RESERVED_ALIAS_TO_NAME:
                     name = _RESERVED_ALIAS_TO_NAME[name]
                 tool_calls.append(ToolCall(

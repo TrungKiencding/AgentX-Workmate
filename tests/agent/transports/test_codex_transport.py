@@ -377,7 +377,7 @@ class TestCodexBuildKwargs:
         names = [t.get("name") for t in kw.get("tools", []) if t.get("type") == "function"]
         assert "read_file" in names
         assert "web_search" not in names
-        assert "hermes_web_search" not in names
+        assert "agentx_web_search" not in names
 
     def test_xai_renames_client_web_search_when_firecrawl_configured(self, transport, monkeypatch):
         """Configured Firecrawl (or any non-xai backend) must keep AgentX
@@ -405,7 +405,7 @@ class TestCodexBuildKwargs:
         assert not any(t.get("type") == "web_search" for t in tools), tools
         names = [t.get("name") for t in tools if t.get("type") == "function"]
         assert "read_file" in names
-        assert "hermes_web_search" in names
+        assert "agentx_web_search" in names
         assert "web_search" not in names
 
     def test_xai_normalize_maps_client_web_search_alias_back(self, transport, monkeypatch):
@@ -544,8 +544,8 @@ class TestOpencodeReservedToolAliases:
             base_url="https://opencode.ai/zen/go/v1",
         )
         names = self._names(kw)
-        assert "hermes_search_files" in names
-        assert "hermes_web_search" in names
+        assert "agentx_search_files" in names
+        assert "agentx_web_search" in names
         assert "search_files" not in names
         assert "web_search" not in names
         assert "read_file" in names  # non-reserved untouched
@@ -560,7 +560,7 @@ class TestOpencodeReservedToolAliases:
             base_url="https://opencode.ai/zen/go/v1",
         )
         names = self._names(kw)
-        assert "hermes_search_files" in names
+        assert "agentx_search_files" in names
         assert "search_files" not in names
 
     def test_opencode_host_match_without_family_provider(self, transport):
@@ -573,8 +573,8 @@ class TestOpencodeReservedToolAliases:
             base_url="https://opencode.ai/zen/go/v1",
         )
         names = self._names(kw)
-        assert "hermes_search_files" in names
-        assert "hermes_web_search" in names
+        assert "agentx_search_files" in names
+        assert "agentx_web_search" in names
 
     def test_non_opencode_backend_keeps_original_names(self, transport):
         kw = transport.build_kwargs(
@@ -587,7 +587,7 @@ class TestOpencodeReservedToolAliases:
         names = self._names(kw)
         assert "search_files" in names
         assert "web_search" in names
-        assert "hermes_search_files" not in names
+        assert "agentx_search_files" not in names
 
     def test_normalize_maps_reserved_aliases_back(self, transport, monkeypatch):
         msg = SimpleNamespace(
@@ -597,15 +597,15 @@ class TestOpencodeReservedToolAliases:
                 SimpleNamespace(
                     id="call_1", call_id="call_1", response_item_id="fc_1",
                     function=SimpleNamespace(
-                        name="hermes_search_files",
+                        name="agentx_search_files",
                         arguments='{"pattern":"README"}',
                     ),
                 ),
                 SimpleNamespace(
                     id="call_2", call_id="call_2", response_item_id="fc_2",
                     function=SimpleNamespace(
-                        name="hermes_web_search",
-                        arguments='{"query":"hermes"}',
+                        name="agentx_web_search",
+                        arguments='{"query":"agentx"}',
                     ),
                 ),
             ],
