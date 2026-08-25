@@ -207,6 +207,35 @@ mcp_servers:
       resources: false
 ```
 
+## Drive your own signed-in browser with AgentX WebMate
+
+[AgentX WebMate](https://github.com/astralxkienlt/agentx-webmate) is the AgentX browser extension. Its MCP server lets AgentX Workmate hand a whole task to the browser you are already logged into — SSO dashboards, webmail, admin panels — without API keys or a headless login dance.
+
+Mental model:
+
+```text
+AgentX Workmate -> MCP stdio -> agentx-webmate-mcp (127.0.0.1:17374) <- WebMate extension (your Chrome)
+```
+
+Install from the catalog, then attach the browser:
+
+```bash
+agentx mcp install official/webmate
+```
+
+1. In Chrome (or Edge/Brave) with the AgentX WebMate extension installed, open **Settings → General → Advanced → Cloud bridge**, set `ws://127.0.0.1:17374/extension`, and enable it.
+2. Start a new AgentX session (or `/reload-mcp`).
+3. Ask: `call mcp__webmate__webmate_connection` — it should answer **Connected**.
+
+The server exposes six task-level tools — `webmate_run`, `webmate_extract`, `webmate_status`, `webmate_respond`, `webmate_abort`, `webmate_connection` — rather than raw click/type primitives, so WebMate's in-browser permission prompts still apply. `webmate_run` defaults to read-only Ask mode; Act mode can click and type. The bundled `webmate` skill tells the agent when to prefer these over the headless `browser_*` tools.
+
+Limits worth knowing:
+
+- Loopback only, on both ends: AgentX and the browser must be on the same machine (from a VPS, forward the port with `ssh -L 17374:127.0.0.1:17374 <vps>` on the laptop).
+- Chromium only; Firefox has no offscreen document to host the bridge.
+- The extension holds one bridge socket at a time (17373 WebMate Cloud, 17374 this server, 17375 LM Studio).
+- Act-mode permission requests pause the run as `needs_user_input`; AgentX answers with exactly `once`, `always` or `deny` (free text is treated as deny by the browser, and the server rejects it). If the WebMate side panel is open on that tab, the user can also click the request there.
+
 ## What does filtering actually affect?
 
 There are two categories of MCP-exposed functionality in AgentX:
