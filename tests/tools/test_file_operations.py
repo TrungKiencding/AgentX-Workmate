@@ -354,7 +354,7 @@ class TestShellFileOpsHelpers:
         )
 
         def side_effect(command, **kwargs):
-            if command.startswith("wc -c"):
+            if command.startswith("if [ -f ") or command.startswith("wc -c"):
                 return {"output": "12\n", "returncode": 0}
             if command.startswith("head -c"):
                 return {"output": "print('ok')\n", "returncode": 0}
@@ -382,7 +382,7 @@ class TestShellFileOpsHelpers:
         )
 
         def side_effect(command, **kwargs):
-            if command.startswith("wc -c"):
+            if command.startswith("if [ -f ") or command.startswith("wc -c"):
                 return {"output": "6\n", "returncode": 0}
             if command.startswith("head -c"):
                 return {"output": "alpha\n", "returncode": 0}
@@ -518,7 +518,7 @@ class TestPatchReplacePostWriteVerification:
             if command.startswith("mkdir "):
                 return {"output": "", "returncode": 0}
             # wc -c for byte count after write
-            if command.startswith("wc -c"):
+            if command.startswith("if [ -f ") or command.startswith("wc -c"):
                 for path in file_contents:
                     if path in command:
                         return {"output": str(len(file_contents[path].encode())), "returncode": 0}
@@ -555,7 +555,7 @@ class TestPatchReplacePostWriteVerification:
                 return {"output": "", "returncode": 1}
             if command.startswith("mkdir "):
                 return {"output": "", "returncode": 0}
-            if command.startswith("wc -c"):
+            if command.startswith("if [ -f ") or command.startswith("wc -c"):
                 return {"output": str(len(state["content"].encode())), "returncode": 0}
             return {"output": "", "returncode": 0}
 
@@ -775,7 +775,7 @@ class TestByteLayerBinaryDetection:
         import base64 as b64
 
         def side_effect(command, **kwargs):
-            if command.startswith("wc -c"):
+            if command.startswith("if [ -f ") or command.startswith("wc -c"):
                 return {"output": f"{len(cjk_bytes)}\n", "returncode": 0}
             if command.startswith("head -c") and "| base64" in command:
                 return {"output": b64.b64encode(cjk_bytes[:1000]).decode(), "returncode": 0}
