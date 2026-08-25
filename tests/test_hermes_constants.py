@@ -506,13 +506,13 @@ class TestSecureParentDir:
     def test_install_tree_skipped(self, monkeypatch):
         """Parent dir equal to (or inside) the install tree must NOT be chmod'd.
 
-        Regression test for #93050: secure_parent_dir() chmod'd /opt/hermes to
+        Regression test for #93050: secure_parent_dir() chmod'd the install root to
         0700 because it has 3 path parts and passed the ``< 3`` guard, locking
-        out UID 10000 (hermes user) from traversing the install dir.
+        out UID 10000 (the service account) from traversing the install dir.
         """
         install_root = Path(hermes_constants.__file__).resolve().parent
 
-        # Directly under the install root (e.g. /opt/hermes/auth.json)
+        # Directly under the install root (e.g. <install_root>/auth.json)
         target = install_root / "auth.json"
         called_with = []
         monkeypatch.setattr(os, "chmod", lambda p, m: called_with.append((str(p), m)))

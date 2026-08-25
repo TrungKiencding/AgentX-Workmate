@@ -84,7 +84,7 @@ def test_reasoning_value_is_not_misclassified_as_subcommand(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["hermes", "--reasoning", "high", "chat", "hello"],
+        ["agentx", "--reasoning", "high", "chat", "hello"],
     )
 
     assert _first_positional_argv() == "chat"
