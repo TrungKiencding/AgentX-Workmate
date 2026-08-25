@@ -102,7 +102,7 @@ class TestWriteFileSurrogates:
         assert res.bytes_written == 3
         assert res.verified is True
         assert p.read_bytes() == b"\xff\x00\xfe"
-        assert not list(tmp_path.glob(".hermes-tmp*"))
+        assert not list(tmp_path.glob(".agentx-tmp*"))
 
     def test_roundtrip_mixed_normal_and_surrogate(self, ops, tmp_path):
         content = "head\n" + b"\xff".decode("utf-8", "surrogateescape") + "\ntail\n"

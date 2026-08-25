@@ -1,4 +1,4 @@
-"""DCP-style model-guided context engine for Hermes Agent."""
+"""DCP-style model-guided context engine for AgentX Workmate."""
 
 from __future__ import annotations
 

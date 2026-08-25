@@ -1,7 +1,7 @@
 name: plugin-doctor
 version: 0.1.0
-description: Validate Hermes plugin manifests, imports, and duplicate tool/CLI names.
-author: HermesAgent
+description: Validate AgentX plugin manifests, imports, and duplicate tool/CLI names.
+author: AgentX
 kind: standalone
 platforms:
   - windows

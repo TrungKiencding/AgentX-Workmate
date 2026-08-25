@@ -2,7 +2,7 @@
 name: weekly-review-planning
 description: "Use when a user asks for a weekly review or planning session across tasks, calendar, notes, email, and projects: clear inboxes, reconcile commitments, find stalled work, and choose realistic next actions."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

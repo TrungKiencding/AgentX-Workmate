@@ -433,7 +433,7 @@ class TestSteerRun:
 
         assert resp.status == 200
         assert payload == {
-            "object": "hermes.run.steer",
+            "object": "agentx.run.steer",
             "run_id": "run_123",
             "accepted": True,
         }

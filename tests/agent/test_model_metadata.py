@@ -1492,7 +1492,7 @@ class TestGrok46StaleCacheGuard:
         assert not _stale_pre_catalog_cache_entry("grok-4.5", 500_000)
 
     def test_stale_grok_4_6_dropped_and_reresolves_to_500k(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         import importlib
         import agent.model_metadata as mm
         importlib.reload(mm)
@@ -1536,7 +1536,7 @@ class TestGenericPreCatalogStaleGuard:
         assert not _stale_pre_catalog_cache_entry("minimax", 204_800)
 
     def test_stale_qwen36_plus_dropped_and_reresolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         import importlib
         import agent.model_metadata as mm
         importlib.reload(mm)

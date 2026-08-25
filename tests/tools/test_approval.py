@@ -857,22 +857,22 @@ class TestLaunchctlGatewayLifecycle:
         deliberately does not touch, so they auto-approved.
         """
         for cmd in (
-            'launchctl kick"start" -k gui/501/ai.hermes.gateway',
-            "launchctl kick'start' -k gui/501/ai.hermes.gateway",
-            'launchctl boot"out" gui/501/ai.hermes.gateway',
-            'launchctl bootout gui/501/ai.hermes."gateway"',
-            'hermes gateway re"start"',
-            'systemctl re"start" hermes-gateway',
+            'launchctl kick"start" -k gui/501/ai.agentx.gateway',
+            "launchctl kick'start' -k gui/501/ai.agentx.gateway",
+            'launchctl boot"out" gui/501/ai.agentx.gateway',
+            'launchctl bootout gui/501/ai.agentx."gateway"',
+            'agentx gateway re"start"',
+            'systemctl re"start" agentx-gateway',
         ):
             dangerous, _, _ = detect_dangerous_command(cmd)
             assert dangerous is True, cmd
 
     def test_spliced_detection_does_not_flag_prose_or_other_services(self):
         """The splice pass must not widen the blast radius: it is anchored on
-        a hermes-gateway identifier, so quoted prose and non-gateway hermes
+        a agentx-gateway identifier, so quoted prose and non-gateway agentx
         services stay auto-approved."""
         for cmd in (
-            'launchctl kick"start" -k gui/501/ai.hermes.update-checker',
+            'launchctl kick"start" -k gui/501/ai.agentx.update-checker',
             'echo "restart the payment gateway"',
             'git commit -m "document the api gateway restart flow"',
         ):

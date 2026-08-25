@@ -127,23 +127,23 @@ done
 # The runner's own documented environment knobs must survive the hermetic
 # `env -i` below, or they are silent no-ops for anyone invoking this script:
 #
-#   * HERMES_TEST_WORKERS / PATHS / FILE_TIMEOUT / FILE_RETRIES / SLICE are
+#   * AGENTX_TEST_WORKERS / PATHS / FILE_TIMEOUT / FILE_RETRIES / SLICE are
 #     read by run_tests_parallel.py at argparse-default time — inside the
 #     stripped environment.
-#   * HERMES_TEST_IMAGE is read by tests/docker/conftest.py to skip its
+#   * AGENTX_TEST_IMAGE is read by tests/docker/conftest.py to skip its
 #     session-scoped `docker build`. CI's docker.yml sets it to the image
 #     the build step just loaded; stripping it made every per-file pytest
 #     subprocess rebuild the 5GB image from a cold builder cache instead
 #     (~4 min per worker per run, and the rebuilt image lacked the
-#     HERMES_GIT_SHA build-arg the workflow bakes in).
+#     AGENTX_GIT_SHA build-arg the workflow bakes in).
 #
 # These are test-infrastructure knobs, not credentials — same class as the
-# HERMES_RUN_SLOW_PET_TESTS / HERMES_E2E_BROWSER opt-ins already forwarded.
-# Keep this an explicit allowlist (no HERMES_TEST_* glob) so the "no
+# AGENTX_RUN_SLOW_PET_TESTS / AGENTX_E2E_BROWSER opt-ins already forwarded.
+# Keep this an explicit allowlist (no AGENTX_TEST_* glob) so the "no
 # credential can leak" property stays auditable at a glance.
 TEST_ENV=()
-for _test_var in HERMES_TEST_IMAGE HERMES_TEST_WORKERS HERMES_TEST_PATHS \
-  HERMES_TEST_FILE_TIMEOUT HERMES_TEST_FILE_RETRIES HERMES_TEST_SLICE; do
+for _test_var in AGENTX_TEST_IMAGE AGENTX_TEST_WORKERS AGENTX_TEST_PATHS \
+  AGENTX_TEST_FILE_TIMEOUT AGENTX_TEST_FILE_RETRIES AGENTX_TEST_SLICE; do
   if [ -n "${!_test_var:-}" ]; then
     TEST_ENV+=("$_test_var=${!_test_var}")
   fi

@@ -2016,7 +2016,7 @@ class APIServerAdapter(BasePlatformAdapter):
             # closed: answering as the local profile would deliver the
             # request to a DIFFERENT agent than the one addressed — silent
             # misdelivery, strictly worse than a 404. Observed live (Aug
-            # 2026): `hermes peer dm mini/researcher` answered by the mini's
+            # 2026): `agentx peer dm mini/researcher` answered by the mini's
             # default agent, with no error anywhere.
             try:
                 from hermes_cli.profiles import get_active_profile_name
@@ -2391,7 +2391,7 @@ class APIServerAdapter(BasePlatformAdapter):
         model = split_model or raw_model
         alias_route = self._resolve_route(raw_model) or self._resolve_route(model)
         route = dict(alias_route) if isinstance(alias_route, dict) else None
-        # The virtual model alias (self._model_name, e.g. "hermes-agent") is
+        # The virtual model alias (self._model_name, e.g. "agentx-agent") is
         # not a real provider model id — it's the id /v1/models advertises
         # for "use the gateway default". A client that echoes it back
         # (explicitly or via a generic model picker) means "no real request",
@@ -3460,9 +3460,9 @@ class APIServerAdapter(BasePlatformAdapter):
         requested = runtime_request.get("requested") or {}
         # requested["model"] is already normalized by
         # _session_runtime_request_from_body: provider-prefixed values
-        # (e.g. "provider::hermes-agent") are split, and the virtual model
-        # alias (self._model_name, e.g. "hermes-agent") is nulled out
-        # there — a bare "hermes-agent" is not a model_routes alias, so a
+        # (e.g. "provider::agentx-agent") are split, and the virtual model
+        # alias (self._model_name, e.g. "agentx-agent") is nulled out
+        # there — a bare "agentx-agent" is not a model_routes alias, so a
         # later chat on this session would otherwise fall into the raw
         # session_model precedence branch in _handle_session_chat and get
         # sent to the provider literally, failing with "invalid model
@@ -6081,7 +6081,7 @@ class APIServerAdapter(BasePlatformAdapter):
                         "id": f"fc_{uuid.uuid4().hex[:24]}",
                         "type": "function_call",
                         # These calls were already executed server-side by the
-                        # Hermes agent; they are replayed for structured tool
+                        # AgentX agent; they are replayed for structured tool
                         # UI only.  Mark them completed (matching the SSE
                         # streaming path) so OpenAI clients don't interpret
                         # them as pending calls the client must execute.
@@ -7176,7 +7176,7 @@ class APIServerAdapter(BasePlatformAdapter):
                     "timestamp": time.time(),
                     "accepted": True,
                 })
-        return web.json_response({"object": "hermes.run.steer", "run_id": run_id, "accepted": True})
+        return web.json_response({"object": "agentx.run.steer", "run_id": run_id, "accepted": True})
 
     async def _handle_stop_run(self, request: "web.Request") -> "web.Response":
         """POST /v1/runs/{run_id}/stop — interrupt a running agent."""

@@ -172,7 +172,7 @@ def test_release_orphaned_leases_reclaims_only_unowned_own_pid_entries(tmp_path,
 def test_release_under_profile_home_override_targets_acquisition_registry(
     tmp_path, monkeypatch
 ):
-    """Regression for #85431: a lease acquired against the root HERMES_HOME
+    """Regression for #85431: a lease acquired against the root AGENTX_HOME
     must release from the root registry even when ``release()`` runs inside a
     profile home override (native multiplex runs agent cleanup under
     ``_profile_runtime_scope``). Before the fix the root entry survived and
@@ -182,10 +182,10 @@ def test_release_under_profile_home_override_targets_acquisition_registry(
         set_hermes_home_override,
     )
 
-    root = tmp_path / "hermes"
+    root = tmp_path / "agentx"
     profile = root / "profiles" / "worker"
     profile.mkdir(parents=True)
-    monkeypatch.setenv("HERMES_HOME", str(root))
+    monkeypatch.setenv("AGENTX_HOME", str(root))
 
     lease, error = active_sessions.try_acquire_active_session(
         session_id="agent:worker:telegram:dm:synthetic",
@@ -219,10 +219,10 @@ def test_transfer_under_profile_home_override_targets_acquisition_registry(
         set_hermes_home_override,
     )
 
-    root = tmp_path / "hermes"
+    root = tmp_path / "agentx"
     profile = root / "profiles" / "worker"
     profile.mkdir(parents=True)
-    monkeypatch.setenv("HERMES_HOME", str(root))
+    monkeypatch.setenv("AGENTX_HOME", str(root))
 
     lease, error = active_sessions.try_acquire_active_session(
         session_id="before",

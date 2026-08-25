@@ -1575,9 +1575,9 @@ def _docker_persistent_home_host_root() -> Optional[Path]:
 
 
 def _cache_dir_container_mounts() -> List[Tuple[Path, Path]]:
-    """(host, container) pairs for the auto-mounted Hermes cache dirs.
+    """(host, container) pairs for the auto-mounted AgentX cache dirs.
 
-    The agent legitimately sees generated artifacts at ``/root/.hermes/...``
+    The agent legitimately sees generated artifacts at ``/root/.agentx/...``
     (``agent_visible_image`` from image_generate, cache-dir reads) and will
     naturally emit those container paths in MEDIA tags. These mounts are
     longer prefixes than the ``/root`` home mount, so longest-prefix matching
@@ -1600,14 +1600,14 @@ def _translate_docker_container_media_path(candidate: Path) -> Optional[Path]:
     """Translate a container-absolute path to its host path when possible.
 
     Uses longest-prefix match across configured ``docker_volumes``, the
-    auto-mounted Hermes cache dirs (``/root/.hermes/...``), the default
+    auto-mounted AgentX cache dirs (``/root/.agentx/...``), the default
     persistent Docker ``/workspace`` host root, and the persistent ``/root``
     home mount.
     """
     if not candidate.is_absolute():
         return None
 
-    # In-process gateways (Desktop backend, `hermes serve`) may not have
+    # In-process gateways (Desktop backend, `agentx serve`) may not have
     # bridged terminal.* config into TERMINAL_* env vars — run the idempotent
     # bridge so the mount parsing below sees the active backend and volumes
     # (same guard _binary_reference_block applies for inbound attachments).
@@ -1625,17 +1625,17 @@ def _translate_docker_container_media_path(candidate: Path) -> Optional[Path]:
     if default_ws is not None and not any(c.as_posix() == "/workspace" for _, c in mounts):
         mounts.append((default_ws, Path("/workspace")))
     # Synthetic /root mount for the persistent home bind. Cache mounts above
-    # are longer prefixes, so /root/.hermes/... still translates to the host
+    # are longer prefixes, so /root/.agentx/... still translates to the host
     # cache — this only catches stray home writes like /root/out.png.
     default_home = _docker_persistent_home_host_root()
     if default_home is not None and not any(c.as_posix() == "/root" for _, c in mounts):
-        # /root/.hermes/* that did NOT match a cache mount is the container's
+        # /root/.agentx/* that did NOT match a cache mount is the container's
         # credential/secret surface (.env, auth.json, ... are individually
         # bind-mounted from the real host stores). Translating those through
         # the home mount would resolve to sandbox-home copies OUTSIDE the
         # host-side credential denylist prefixes — refuse instead so the
         # normal "container path doesn't exist on host" rejection applies.
-        if not candidate.as_posix().startswith("/root/.hermes"):
+        if not candidate.as_posix().startswith("/root/.agentx"):
             mounts.append((default_home, Path("/root")))
 
     if not mounts:
@@ -3535,7 +3535,7 @@ class BasePlatformAdapter(ABC):
             holder += f" (PID {owner_pid})" if owner_pid else ""
             remedy = (
                 f" Stop that gateway first "
-                f"(hermes --profile {owner_profile} gateway stop)."
+                f"(agentx --profile {owner_profile} gateway stop)."
             )
         else:
             holder = f" (PID {owner_pid})" if owner_pid else ""

@@ -92,7 +92,7 @@ cron:
   preflight: false
 ```
 
-Or: `hermes config set cron.preflight false`
+Or: `agentx config set cron.preflight false`
 
 ## Letting unpinned jobs track global defaults
 
@@ -490,7 +490,7 @@ Or set the `AGENTX_CRON_SCRIPT_TIMEOUT` environment variable. The resolution ord
 Cron also bounds post-run session and agent-resource cleanup. This happens after the LLM turn returns, so it is separate from the inactivity timeout. The default is 10 seconds per cleanup operation. If a storage or client finalizer stops returning, the scheduler logs an error, releases the job's in-flight guard, and allows later runs to dispatch instead of skipping that job forever.
 
 ```yaml
-# ~/.hermes/config.yaml
+# ~/.agentx/config.yaml
 cron:
   cleanup_timeout_seconds: 10
 ```

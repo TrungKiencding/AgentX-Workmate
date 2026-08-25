@@ -241,7 +241,7 @@ def test_bounded_fallback_records_kanban_failure_when_interrupted(monkeypatch):
     the bounded fallback path (#87096).
     """
     monkeypatch.setattr("hermes_cli.plugins.invoke_hook", lambda *_a, **_kw: [])
-    monkeypatch.setenv("HERMES_KANBAN_TASK", "task-456")
+    monkeypatch.setenv("AGENTX_KANBAN_TASK", "task-456")
     record = MagicMock(name="record_task_failure")
     conn = SimpleNamespace(close=lambda: None)
     monkeypatch.setattr("hermes_cli.kanban_db.connect", lambda: conn)
@@ -282,7 +282,7 @@ def test_bounded_fallback_records_kanban_failure_when_failed(monkeypatch):
     the bounded fallback must still record a terminal kanban failure (#87096).
     """
     monkeypatch.setattr("hermes_cli.plugins.invoke_hook", lambda *_a, **_kw: [])
-    monkeypatch.setenv("HERMES_KANBAN_TASK", "task-789")
+    monkeypatch.setenv("AGENTX_KANBAN_TASK", "task-789")
     record = MagicMock(name="record_task_failure")
     conn = SimpleNamespace(close=lambda: None)
     monkeypatch.setattr("hermes_cli.kanban_db.connect", lambda: conn)
@@ -346,7 +346,7 @@ def test_bounded_fallback_does_not_fire_when_budget_not_exhausted(monkeypatch):
     task is active, the bounded fallback must NOT fire (#87096).
     """
     monkeypatch.setattr("hermes_cli.plugins.invoke_hook", lambda *_a, **_kw: [])
-    monkeypatch.setenv("HERMES_KANBAN_TASK", "task-999")
+    monkeypatch.setenv("AGENTX_KANBAN_TASK", "task-999")
     record = MagicMock(name="record_task_failure")
     conn = SimpleNamespace(close=lambda: None)
     monkeypatch.setattr("hermes_cli.kanban_db.connect", lambda: conn)

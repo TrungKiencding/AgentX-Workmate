@@ -3,7 +3,7 @@
 Covers the three seams the integration relies on:
 
 * Mode detection — ``browser.backend: browser-use`` in config (set via the
-  ``hermes tools`` picker); off by default.
+  ``agentx tools`` picker); off by default.
 * Tool-surface swap — when the mode is on, ``check_browser_requirements``
   returns False so every legacy ``browser_*`` tool (including
   browser_cdp/browser_dialog, whose check_fns funnel through it) is hidden,
@@ -103,7 +103,7 @@ class TestSubprocessEnvironment:
 
     def test_subprocess_env_strips_parent_python_import_paths(self, monkeypatch):
         """#83427/#84841/#86006/#86104: the browser-use CLI runs under its
-        own Python — inherited PYTHONPATH/PYTHONHOME pointing at Hermes's
+        own Python — inherited PYTHONPATH/PYTHONHOME pointing at AgentX's
         venv make it import wrong-ABI C-extensions (pydantic_core) and
         crash. Both must be stripped; unrelated vars survive."""
         import sys
@@ -111,8 +111,8 @@ class TestSubprocessEnvironment:
 
         browser_tool = ModuleType("tools.browser_tool")
         browser_tool._build_browser_env = lambda: {
-            "PYTHONPATH": "/hermes:/hermes/venv/lib/site-packages",
-            "PYTHONHOME": "/hermes/venv",
+            "PYTHONPATH": "/agentx:/agentx/venv/lib/site-packages",
+            "PYTHONHOME": "/agentx/venv",
             "KEEP_ME": "yes",
         }
         monkeypatch.setitem(sys.modules, "tools.browser_tool", browser_tool)
@@ -507,7 +507,7 @@ class TestOwnTabPreamble:
             bt, "_get_session_info",
             lambda key: {"cdp_url": "wss://browser.example/cdp/" + key},
         )
-        cli = _fake_cli(tmp_path, 'cat > /dev/null\necho "sentinel:${_HERMES_BU_PRIVATE_BROWSER:-unset}"\n')
+        cli = _fake_cli(tmp_path, 'cat > /dev/null\necho "sentinel:${_AGENTX_BU_PRIVATE_BROWSER:-unset}"\n')
         monkeypatch.setattr(bu_cli, "_find_cli", lambda: [cli])
         result = json.loads(bu_cli.browser_exec("print(1)", session="r7k2"))
         assert "sentinel:unset" in result["output"]
@@ -521,7 +521,7 @@ class TestOwnTabPreamble:
 
 
 class TestProviderPickerIntegration:
-    """The `hermes tools` Browser Automation picker row (browser_backend
+    """The `agentx tools` Browser Automation picker row (browser_backend
     marker) must enter/leave CLI mode cleanly and highlight correctly."""
 
     def _rows(self):
@@ -837,8 +837,8 @@ class TestBrowserExec:
 
 
 class TestFindCliManagedBin:
-    """MANAGED-FIRST: _find_cli probes $HERMES_HOME/bin before PATH and
-    ~/.local/bin, so the Hermes-installed copy always wins."""
+    """MANAGED-FIRST: _find_cli probes $AGENTX_HOME/bin before PATH and
+    ~/.local/bin, so the AgentX-installed copy always wins."""
 
     @pytest.fixture(autouse=True)
     def _hermetic_home(self, tmp_path, monkeypatch):
@@ -879,7 +879,7 @@ class TestFindCliManagedBin:
         assert bu_cli._find_cli_unpatched() == [str(cli)]
 
     def test_managed_bin_precedes_user_local_bin(self, tmp_path, monkeypatch):
-        """MANAGED-FIRST: Hermes' managed copy wins over a user-level side
+        """MANAGED-FIRST: AgentX' managed copy wins over a user-level side
         install — every backend selection provisions/updates the managed
         copy, so resolution must land on the binary we control (no version
         drift from stray `uv tool install` runs)."""
@@ -923,7 +923,7 @@ class TestInstallCli:
     def test_path_install_does_not_short_circuit(self, tmp_path, monkeypatch):
         """MANAGED-FIRST: a browser-use on PATH is a user-level side install
         and must NOT satisfy install_cli() — only the managed copy does,
-        otherwise resolution stays pinned to a binary Hermes can't update."""
+        otherwise resolution stays pinned to a binary AgentX can't update."""
         cli = _fake_cli(tmp_path, "")
         monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "home"))
         monkeypatch.setattr(bu_cli.shutil, "which", lambda name, path=None: cli if name == "browser-use" and path is None else None)

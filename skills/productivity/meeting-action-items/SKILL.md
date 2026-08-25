@@ -2,7 +2,7 @@
 name: meeting-action-items
 description: "Use when a user provides meeting notes or a transcript and asks to extract decisions, action items, owners, due dates, unresolved questions, follow-up messages, or tickets."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

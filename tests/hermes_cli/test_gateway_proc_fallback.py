@@ -181,12 +181,12 @@ class TestGetServicePidsAllProfiles:
             patch("hermes_cli.gateway.supports_systemd_services", return_value=False),
             patch(
                 "hermes_cli.gateway.get_launchd_label",
-                return_value="ai.hermes.gateway.myprofile",
+                return_value="ai.agentx.gateway.myprofile",
             ),
             patch("subprocess.run") as mock_run,
         ):
             mock_run.return_value = MagicMock(
-                returncode=0, stdout="123\t0\tai.hermes.gateway.myprofile", stderr=""
+                returncode=0, stdout="123\t0\tai.agentx.gateway.myprofile", stderr=""
             )
             pids = gateway_mod._get_service_pids()
 
@@ -199,11 +199,11 @@ class TestGetServicePidsAllProfiles:
         ]
         assert len(launchctl_calls) == 1
         assert launchctl_calls[0][1] == "list"
-        assert launchctl_calls[0][2] == "ai.hermes.gateway.myprofile"
+        assert launchctl_calls[0][2] == "ai.agentx.gateway.myprofile"
 
     def test_all_profiles_enumerates_all_gateway_labels(self):
         """With all_profiles=True, ``launchctl list`` is called without a label
-        filter, and every row whose last column starts with ``ai.hermes.gateway``
+        filter, and every row whose last column starts with ``ai.agentx.gateway``
         is collected."""
         with (
             patch("hermes_cli.gateway.is_macos", return_value=True),
@@ -213,8 +213,8 @@ class TestGetServicePidsAllProfiles:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=(
-                    "123\t0\tai.hermes.gateway.profile-a\n"
-                    "456\t0\tai.hermes.gateway.profile-b\n"
+                    "123\t0\tai.agentx.gateway.profile-a\n"
+                    "456\t0\tai.agentx.gateway.profile-b\n"
                     "789\t0\tcom.apple.some.other.agent\n"
                 ),
                 stderr="",
@@ -234,7 +234,7 @@ class TestGetServicePidsAllProfiles:
         assert launchctl_calls[0] == ["launchctl", "list"]
 
     def test_all_profiles_empty_when_no_gateway_labels(self):
-        """When no ai.hermes.gateway* labels exist, all_profiles returns empty."""
+        """When no ai.agentx.gateway* labels exist, all_profiles returns empty."""
         with (
             patch("hermes_cli.gateway.is_macos", return_value=True),
             patch("hermes_cli.gateway.supports_systemd_services", return_value=False),
@@ -259,8 +259,8 @@ class TestGetServicePidsAllProfiles:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=(
-                    "-\t0\tai.hermes.gateway.broken\n"
-                    "  123  \t0\tai.hermes.gateway.ok\n"
+                    "-\t0\tai.agentx.gateway.broken\n"
+                    "  123  \t0\tai.agentx.gateway.ok\n"
                 ),
                 stderr="",
             )
@@ -270,7 +270,7 @@ class TestGetServicePidsAllProfiles:
 
     def test_all_profiles_preserves_systemd_behavior(self):
         """systemd scope is unaffected by the all_profiles switch — it already
-        lists every hermes-gateway* unit unconditionally."""
+        lists every agentx-gateway* unit unconditionally."""
         with (
             patch("hermes_cli.gateway.is_macos", return_value=False),
             patch("hermes_cli.gateway.supports_systemd_services", return_value=True),
@@ -282,7 +282,7 @@ class TestGetServicePidsAllProfiles:
                 if "list-units" in cmd_str:
                     return MagicMock(
                         returncode=0,
-                        stdout="hermes-gateway-jarvis.service loaded active running\n",
+                        stdout="agentx-gateway-jarvis.service loaded active running\n",
                         stderr="",
                     )
                 if "show" in cmd_str and "MainPID" in cmd_str:

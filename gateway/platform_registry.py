@@ -52,7 +52,7 @@ class PlatformEntry:
 
     # PASSIVE dependency probe: returns True when the platform's dependencies
     # are available RIGHT NOW.  Must be side-effect free — it is called from
-    # status displays (``hermes setup``, ``hermes status``, the dashboard
+    # status displays (``agentx setup``, ``agentx status``, the dashboard
     # readiness probe) and the config enablement pass, none of which may
     # trigger a pip install.  Put install logic in ``ensure_deps_fn`` instead.
     check_fn: Callable[[], bool]

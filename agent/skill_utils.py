@@ -459,7 +459,7 @@ def get_disabled_skill_names(platform: str | None = None) -> Set[str]:
 def parse_config_string_list(value) -> List[str]:
     """Normalize a config value that may hold a JSON-array string into a list.
 
-    ``hermes config set`` and JSON-mode editor saves store lists as quoted
+    ``agentx config set`` and JSON-mode editor saves store lists as quoted
     JSON strings (``'["a","b"]'`` or the Python-literal ``"['a']"``). Treating
     such a string as a single name makes a curated disabled list silently
     filter nothing (#86661); parsing it restores the intended list. A scalar

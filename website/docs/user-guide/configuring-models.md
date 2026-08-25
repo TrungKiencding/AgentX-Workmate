@@ -200,13 +200,13 @@ providers:
         prompt_caching: true
 ```
 
-Hermes matches this declaration to the exact provider route and runtime model
+AgentX matches this declaration to the exact provider route and runtime model
 id, without rewriting the alias or inferring support from its provider name,
 host, or model family. The marker layout follows the configured transport:
 `openai_chat` uses the OpenAI-compatible envelope layout and
 `anthropic_messages` uses the native inner-block layout. Set
 `prompt_caching: false` to explicitly disable cache markers for a model; when
-omitted, Hermes keeps its normal provider and model capability detection.
+omitted, AgentX keeps its normal provider and model capability detection.
 
 :::note Legacy format
 Older configs used a top-level `custom_providers:` list (with `base_url` instead of `api`). It still works and is auto-migrated to the `providers:` dict on `agentx update` (config v12).

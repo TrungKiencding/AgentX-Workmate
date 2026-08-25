@@ -163,10 +163,10 @@ _PROFILE_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 
 def _profile_label_for_home(home: Path | str) -> Optional[str]:
-    """Best-effort profile label for a HERMES_HOME path.
+    """Best-effort profile label for a AGENTX_HOME path.
 
     Returns the profile name for ``<root>/profiles/<name>`` layouts (both
-    ``~/.hermes/profiles/coder`` and Docker ``/opt/data/profiles/coder``),
+    ``~/.agentx/profiles/coder`` and Docker ``/opt/data/profiles/coder``),
     ``"default"`` for the deployment's root home, and ``None`` when no label
     can be inferred.  Never raises — this feeds diagnostics only.
     """
@@ -195,7 +195,7 @@ def scoped_lock_owner_label(record: Optional[dict[str, Any]]) -> Optional[str]:
     """Profile label for the gateway that owns a scoped credential lock.
 
     Scoped locks are machine-global, so the holder may belong to a different
-    HERMES_HOME profile than the caller.  Prefers the explicit ``profile``
+    AGENTX_HOME profile than the caller.  Prefers the explicit ``profile``
     field stamped by :func:`acquire_scoped_lock`; falls back to inferring the
     label from the persisted ``hermes_home`` for locks written before the
     profile field existed.  Returns ``None`` for legacy or malformed records

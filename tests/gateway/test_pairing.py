@@ -578,10 +578,10 @@ class TestProfileScopedStorage:
         """Regression test for #93449.
 
         PairingStore() (no profile) must not freeze its directory to
-        whatever HERMES_HOME resolved to the first time this module's
+        whatever AGENTX_HOME resolved to the first time this module's
         default path was computed. A long-lived process (the gateway,
         started once at container/process boot) can construct a
-        PairingStore before HERMES_HOME/profile context is fully
+        PairingStore before AGENTX_HOME/profile context is fully
         established; a later store in the same process must still pick up
         the real, current value instead of being stuck with a stale one.
         Deliberately does not patch PAIRING_DIR directly, unlike the sibling

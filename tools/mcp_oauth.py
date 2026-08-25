@@ -1330,7 +1330,7 @@ def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
         "token_endpoint_auth_method": auth_method,
         # SEP-837 (2026-07-28 spec): clients MUST declare an application_type
         # during registration so OIDC-strict authorization servers stop
-        # rejecting loopback redirect_uris. Hermes is a CLI/desktop app
+        # rejecting loopback redirect_uris. AgentX is a CLI/desktop app
         # redirecting to 127.0.0.1/localhost — that is exactly "native".
         # Overridable for the rare hosted-dashboard deployment fronting a
         # real https redirect.
@@ -1363,7 +1363,7 @@ def _invalidate_tokens_on_client_change(
     the ``invalid_client`` auto-poison path (config-supplied identity can't
     be healed by re-registration), so without this check the stale tokens
     wedge every request until the user manually wipes
-    ``~/.hermes/mcp-tokens/<server>.*``.
+    ``~/.agentx/mcp-tokens/<server>.*``.
 
     Compares the on-disk ``client.json`` identity against the incoming
     config identity BEFORE the new client info overwrites it. Matching
@@ -1397,7 +1397,7 @@ def _invalidate_tokens_on_client_change(
         logger.warning(
             "MCP OAuth '%s': configured OAuth client changed (client_id %r "
             "-> %r); discarded tokens minted under the previous client. "
-            "Re-authorize with: hermes mcp login %s",
+            "Re-authorize with: agentx mcp login %s",
             storage._server_name, old_client_id, new_client_id,
             storage._server_name,
         )

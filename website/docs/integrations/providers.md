@@ -261,8 +261,8 @@ agentx chat --provider arcee --model trinity-large-thinking
 # Requires: ARCEEAI_API_KEY in ~/.agentx/.env
 
 # Meta Model API (Muse Spark family)
-hermes chat --provider meta-ai --model muse-spark-1.2
-# Requires: MODEL_API_KEY in ~/.hermes/.env
+agentx chat --provider meta-ai --model muse-spark-1.2
+# Requires: MODEL_API_KEY in ~/.agentx/.env
 
 # GMI Cloud
 # Use the exact model ID returned by GMI's /v1/models endpoint.
@@ -1226,7 +1226,7 @@ Each entry accepts: `api` (the endpoint base URL — `base_url`/`url` are accept
 
 #### Command-minted credentials (`key_cmd`)
 
-Enterprise gateways often issue short-lived bearer tokens (SSO/OIDC brokers, cloud IAM, internal auth proxies) rather than static API keys, so a token copied into `.env` goes stale mid-session and requests start returning 401. `key_cmd` names a command that *prints* a token; Hermes runs it and caches the result until shortly before expiry, so long sessions keep working with no restart:
+Enterprise gateways often issue short-lived bearer tokens (SSO/OIDC brokers, cloud IAM, internal auth proxies) rather than static API keys, so a token copied into `.env` goes stale mid-session and requests start returning 401. `key_cmd` names a command that *prints* a token; AgentX runs it and caches the result until shortly before expiry, so long sessions keep working with no restart:
 
 ```yaml
 providers:

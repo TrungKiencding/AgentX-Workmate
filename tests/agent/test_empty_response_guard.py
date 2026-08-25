@@ -126,7 +126,7 @@ class TestDeterministicEmpty:
         assert guard.deterministic_empty(agent) is False
 
     def test_guard_disabled_via_env(self, monkeypatch):
-        monkeypatch.setenv("HERMES_DETERMINISTIC_EMPTY_GUARD", "0")
+        monkeypatch.setenv("AGENTX_DETERMINISTIC_EMPTY_GUARD", "0")
         agent = _agent()
         _record_streak(agent, [_response(), _response()])
         assert guard.deterministic_empty(agent) is False
@@ -170,7 +170,7 @@ class TestEmptyRetryBudget:
         )
 
     def test_custom_threshold_env(self, monkeypatch):
-        monkeypatch.setenv("HERMES_EMPTY_RETRY_COST_THRESHOLD_USD", "5.00")
+        monkeypatch.setenv("AGENTX_EMPTY_RETRY_COST_THRESHOLD_USD", "5.00")
         monkeypatch.setattr(
             guard, "_estimate_attempt_cost", lambda a, r: Decimal("0.80")
         )
@@ -180,13 +180,13 @@ class TestEmptyRetryBudget:
         )
 
     def test_bad_threshold_env_falls_back(self, monkeypatch):
-        monkeypatch.setenv("HERMES_EMPTY_RETRY_COST_THRESHOLD_USD", "banana")
+        monkeypatch.setenv("AGENTX_EMPTY_RETRY_COST_THRESHOLD_USD", "banana")
         assert guard._cost_threshold_usd() == guard.DEFAULT_COST_THRESHOLD_USD
-        monkeypatch.setenv("HERMES_EMPTY_RETRY_COST_THRESHOLD_USD", "-1")
+        monkeypatch.setenv("AGENTX_EMPTY_RETRY_COST_THRESHOLD_USD", "-1")
         assert guard._cost_threshold_usd() == guard.DEFAULT_COST_THRESHOLD_USD
 
     def test_guard_disabled_keeps_default_budget(self, monkeypatch):
-        monkeypatch.setenv("HERMES_DETERMINISTIC_EMPTY_GUARD", "0")
+        monkeypatch.setenv("AGENTX_DETERMINISTIC_EMPTY_GUARD", "0")
         monkeypatch.setattr(
             guard, "_estimate_attempt_cost", lambda a, r: Decimal("9.99")
         )

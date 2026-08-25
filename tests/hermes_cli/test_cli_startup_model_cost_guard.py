@@ -188,7 +188,7 @@ def test_top_level_oneshot_rejects_noninteractive_gpt55_pro_startup_override(
     main_mod, codex_config, monkeypatch, capsys
 ):
     monkeypatch.setattr(sys, "stdin", _NonInteractiveStdin())
-    monkeypatch.setattr(sys, "argv", ["hermes", "-z", "hello", "-m", "openai/gpt-5.5-pro"])
+    monkeypatch.setattr(sys, "argv", ["agentx", "-z", "hello", "-m", "openai/gpt-5.5-pro"])
     monkeypatch.setattr(main_mod, "_prepare_agent_startup", lambda _args: None)
 
     called = False

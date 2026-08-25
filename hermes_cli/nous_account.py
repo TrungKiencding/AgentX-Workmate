@@ -285,7 +285,7 @@ def _no_paid_access_message(
             f"Your Nous Portal access is paused because you've exceeded the"
             f" per-member spend cap set by your organisation.{cap_detail}"
             f"{credit_detail} Ask your organisation admin to raise the"
-            f" member spend cap at {billing_url}, then run `hermes model`"
+            f" member spend cap at {billing_url}, then run `agentx model`"
             f" to refresh."
         )
 

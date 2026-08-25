@@ -247,7 +247,7 @@ def _poll_krea_job(
     job_url = f"{base_url}/jobs/{job_id}"
     headers = {
         "Authorization": f"Bearer {auth_token}",
-        "User-Agent": "Hermes-Agent/1.0 (krea-image-gen)",
+        "User-Agent": "AgentX-Agent/1.0 (krea-image-gen)",
     }
     interval = _POLL_INITIAL_INTERVAL
     deadline = time.monotonic() + timeout_seconds
@@ -314,7 +314,7 @@ def _enhance_image(
     headers = {
         "Authorization": f"Bearer {auth_token}",
         "Content-Type": "application/json",
-        "User-Agent": "Hermes-Agent/1.0 (krea-image-gen)",
+        "User-Agent": "AgentX-Agent/1.0 (krea-image-gen)",
     }
     if managed:
         headers["x-idempotency-key"] = str(uuid.uuid4())

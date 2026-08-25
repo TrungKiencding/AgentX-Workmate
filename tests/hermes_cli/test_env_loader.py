@@ -11,7 +11,7 @@ def test_recovered_update_retry_skips_external_secret_sources(tmp_path, monkeypa
     import hermes_cli.env_loader as env_loader
     from hermes_cli import _early_recovery
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     env_file.write_text("UPDATE_RETRY_DOTENV=loaded\n", encoding="utf-8")
@@ -38,7 +38,7 @@ def test_utf8_bom_does_not_mangle_first_key(tmp_path, monkeypatch):
     a BOM (EF BB BF). With encoding=utf-8, python-dotenv keeps U+FEFF on the
     first key so the canonical name is absent and callers see "not configured".
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     env_file.write_bytes(
@@ -59,7 +59,7 @@ def test_utf8_bom_does_not_mangle_first_key(tmp_path, monkeypatch):
 
 def test_bomless_utf8_env_still_loads(tmp_path, monkeypatch):
     """BOM-less UTF-8 .env files must keep loading after utf-8-sig."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     env_file.write_text("OPENAI_API_KEY=sk-plain\nSECOND_KEY=ok\n", encoding="utf-8")
@@ -76,7 +76,7 @@ def test_bomless_utf8_env_still_loads(tmp_path, monkeypatch):
 
 def test_latin1_env_falls_back(tmp_path, monkeypatch):
     """Invalid UTF-8 bytes must still load via the latin-1 fallback."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     # 0xE9 is "é" in latin-1 and not a valid UTF-8 lead sequence alone.
@@ -92,7 +92,7 @@ def test_latin1_env_falls_back(tmp_path, monkeypatch):
 
 def test_utf8_bom_preserves_first_api_key_name(tmp_path, monkeypatch):
     """Real-world case: BOM + first line is a provider API key name."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     env_file.write_bytes(
@@ -118,7 +118,7 @@ def test_utf8_bom_plus_invalid_utf8_preserves_first_key(tmp_path, monkeypatch):
     latin-1 fallback, a leading EF BB BF would otherwise become part of the
     first key name under latin-1 and drop the canonical name.
     """
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     # BOM + valid first key + latin-1 é (0xE9) in a later value.
@@ -139,7 +139,7 @@ def test_utf8_bom_plus_invalid_utf8_preserves_first_key(tmp_path, monkeypatch):
 
 def test_bomless_latin1_env_still_loads(tmp_path, monkeypatch):
     """BOM-less cp1252/latin-1 .env files must keep loading after the BOM strip."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     env_file.write_bytes(b"LATIN1_VALUE=caf\xe9\nOTHER=ok\n")
@@ -157,7 +157,7 @@ def test_latin1_fallback_stream_honors_override(tmp_path, monkeypatch):
     """Stream-based latin-1 fallback must honor override= identically to dotenv_path."""
     from hermes_cli.env_loader import _load_dotenv_with_fallback
 
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     # Invalid UTF-8 forces the stream/latin-1 path.
@@ -178,7 +178,7 @@ def test_latin1_fallback_stream_honors_override(tmp_path, monkeypatch):
 
 def test_latin1_fallback_stream_preserves_interpolation(tmp_path, monkeypatch):
     """Stream/latin-1 path must still expand ${VAR} like the dotenv_path form."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "agentx"
     home.mkdir()
     env_file = home / ".env"
     # 0xE9 forces latin-1 fallback; ${FOO} must still expand.

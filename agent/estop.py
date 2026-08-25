@@ -1,12 +1,12 @@
 """Global emergency stop (ESTOP) — a resumable pause for NEW work only.
 
-``hermes pause`` writes a sentinel file at ``$HERMES_HOME/ESTOP``;
-``hermes resume`` removes it. While the sentinel exists:
+``agentx pause`` writes a sentinel file at ``$AGENTX_HOME/ESTOP``;
+``agentx resume`` removes it. While the sentinel exists:
 
 * the cron scheduler skips dispatching due jobs (``cron/scheduler.py:tick``),
 * the embedded kanban dispatcher skips spawning workers
   (``gateway/kanban_watchers.py``),
-* new gateway turns get a brief "Hermes is paused" reply instead of an
+* new gateway turns get a brief "AgentX is paused" reply instead of an
   agent run (``gateway/run.py:_handle_message``).
 
 In-flight work is NEVER killed — this is pause-new-work, not panic/exit.
@@ -16,7 +16,7 @@ the very next check.
 
 The sentinel body is optional JSON ``{"reason": ..., "engaged_at": ...}``.
 A corrupt or empty file still counts as engaged (fail safe): the pause must
-hold even if the file was created by ``touch ~/.hermes/ESTOP``.
+hold even if the file was created by ``touch ~/.agentx/ESTOP``.
 
 Ported from: gastownhall/gastown estop.go (MIT). Related prior art:
 #26778 (/panic — kill/exit semantics; deliberately different, ours is
@@ -43,16 +43,16 @@ _logged_components: set[str] = set()
 
 
 def _hermes_home() -> Path:
-    """Resolve the active HERMES_HOME (profile-aware) at call time."""
+    """Resolve the active AGENTX_HOME (profile-aware) at call time."""
     try:
         from hermes_constants import get_hermes_home
         return get_hermes_home()
     except Exception:
-        return Path(os.path.expanduser("~/.hermes"))
+        return Path(os.path.expanduser("~/.agentx"))
 
 
 def sentinel_path() -> Path:
-    """Path of the ESTOP sentinel under the active HERMES_HOME."""
+    """Path of the ESTOP sentinel under the active AGENTX_HOME."""
     return _hermes_home() / SENTINEL_NAME
 
 
@@ -123,12 +123,12 @@ def paused_reply() -> Optional[str]:
     reason = state.get("reason")
     if reason:
         return (
-            f"⏸️ Hermes is paused ({reason}). New work is on hold; "
-            "run `hermes resume` to pick things back up."
+            f"⏸️ AgentX is paused ({reason}). New work is on hold; "
+            "run `agentx resume` to pick things back up."
         )
     return (
-        "⏸️ Hermes is paused. New work is on hold; "
-        "run `hermes resume` to pick things back up."
+        "⏸️ AgentX is paused. New work is on hold; "
+        "run `agentx resume` to pick things back up."
     )
 
 
@@ -153,7 +153,7 @@ def check_paused(component: str, logger: logging.Logger) -> bool:
         suffix = f" (reason: {reason})" if reason else ""
         logger.info(
             "%s dispatch paused by global emergency stop%s — remove with "
-            "`hermes resume` (%s)",
+            "`agentx resume` (%s)",
             component,
             suffix,
             sentinel_path(),

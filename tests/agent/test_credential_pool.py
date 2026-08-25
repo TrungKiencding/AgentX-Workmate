@@ -151,7 +151,7 @@ def test_stale_credential_id_prefers_api_key_hint(tmp_path, monkeypatch):
     fallback together with the primary key that actually failed. The
     healthy key must not inherit the primary's 429.
     """
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     monkeypatch.setattr("agent.anthropic_adapter.read_claude_code_credentials", lambda: None)
     _write_auth_store(
         tmp_path,

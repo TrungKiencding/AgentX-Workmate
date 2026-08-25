@@ -128,7 +128,7 @@ def test_explanation_persistence_unknown_cause_is_neutral():
         assert out.strip() != ""
         assert "disk space" not in lower
         assert "full disk" not in lower
-        assert "hermes doctor" in lower
+        assert "agentx doctor" in lower
         assert "again" in lower
 
 
@@ -213,7 +213,7 @@ def test_explainer_config_read_once_then_cached():
         return {"display": {"turn_completion_explainer": True}}
 
     with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("HERMES_TURN_COMPLETION_EXPLAINER", None)
+        os.environ.pop("AGENTX_TURN_COMPLETION_EXPLAINER", None)
         with patch("hermes_cli.config.load_config", counting_load):
             # First call reads config and caches the result.
             assert agent._turn_completion_explainer_enabled() is True
@@ -224,7 +224,7 @@ def test_explainer_config_read_once_then_cached():
             assert calls["n"] == 1
             # Env override stays authoritative even after the cache is warm.
             with patch.dict(
-                os.environ, {"HERMES_TURN_COMPLETION_EXPLAINER": "0"}, clear=False
+                os.environ, {"AGENTX_TURN_COMPLETION_EXPLAINER": "0"}, clear=False
             ):
                 assert agent._turn_completion_explainer_enabled() is False
             assert calls["n"] == 1  # env path never touches config

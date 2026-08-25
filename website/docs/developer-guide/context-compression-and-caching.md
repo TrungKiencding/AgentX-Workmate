@@ -37,7 +37,7 @@ For building a context engine plugin, see [Context Engine Plugins](/developer-gu
 
 ## DCP Context Engine
 
-Hermes can also run a DCP-style context engine with:
+AgentX can also run a DCP-style context engine with:
 
 ```yaml
 context:
@@ -45,9 +45,9 @@ context:
 ```
 
 DCP mode is different from the built-in `ContextCompressor`. The built-in
-compressor is host-driven: Hermes decides that the session is too large, calls
+compressor is host-driven: AgentX decides that the session is too large, calls
 an auxiliary summarization model, and replaces the stored message list with a
-compressed transcript. DCP mode is model-guided: Hermes exposes a `compress`
+compressed transcript. DCP mode is model-guided: AgentX exposes a `compress`
 tool, adds stable message and block references to the outbound request, and
 lets the active model compress completed ranges when it has enough semantic
 context to know what is safe to replace.
@@ -274,14 +274,14 @@ agentx config set compression.codex_gpt55_autoraise_notice false
 
 The ChatGPT Codex backend *advertises* a 272K window for the gpt-5.4 and
 gpt-5.6 (Sol/Terra/Luna) families, but actually accepts ~911K input tokens
-for ChatGPT-subscription accounts (live-verified Aug 2026). Hermes keeps the
+for ChatGPT-subscription accounts (live-verified Aug 2026). AgentX keeps the
 **advertised 272K as the default** for the base slugs — a bigger window means
 more tokens per request and much faster subscription-usage burn, so the large
 window is strictly opt-in.
 
 To use the large window, pick the explicit `-900k` variant in `/model` (e.g.
 `gpt-5.6-sol-900k`, `gpt-5.6-terra-900k`, `gpt-5.6-luna-900k`,
-`gpt-5.4-900k`). These are Hermes-side aliases: the suffix is stripped before
+`gpt-5.4-900k`). These are AgentX-side aliases: the suffix is stripped before
 the model id is sent to the backend, and pricing/usage accounting treats them
 as the base model. Slugs that genuinely enforce 272K (gpt-5.5, gpt-5.4-mini)
 have no `-900k` variant.

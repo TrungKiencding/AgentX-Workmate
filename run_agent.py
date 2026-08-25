@@ -2605,7 +2605,7 @@ class AIAgent:
                 for marker in network_resolution_markers
             ):
                 return (
-                    "Hermes can't reach the model provider. You may be offline. "
+                    "AgentX can't reach the model provider. You may be offline. "
                     "Check your internet connection and try again."
                 )
             current = current.__cause__ or current.__context__
@@ -3806,7 +3806,7 @@ class AIAgent:
                 return (
                     prefix
                     + "the turn was stopped because session storage was busy "
-                    "(another Hermes process was writing to the state "
+                    "(another AgentX process was writing to the state "
                     "database). Your message was saved — please send it "
                     "again in a moment."
                 )
@@ -3823,7 +3823,7 @@ class AIAgent:
                 prefix
                 + "the turn was stopped because session storage could not be "
                 "written (the transcript would have been lost on restart). "
-                "Check the state database health (`hermes doctor`), then "
+                "Check the state database health (`agentx doctor`), then "
                 "send your message again."
             )
         # Unknown/diagnostic-only reasons (e.g. "unknown", guardrail_halt

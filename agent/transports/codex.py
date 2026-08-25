@@ -295,7 +295,7 @@ class ResponsesApiTransport(ProviderTransport):
             elif reasoning_config.get("effort"):
                 reasoning_effort = reasoning_config["effort"]
 
-        # "ultra" is Hermes-internal ladder vocabulary (the Codex product
+        # "ultra" is AgentX-internal ladder vocabulary (the Codex product
         # tier); no Responses-API backend accepts it verbatim, so the
         # baseline maps it to its wire cap "max" for EVERY model — the old
         # gpt-5.6-only guard leaked "ultra" untranslated to sibling models
@@ -310,7 +310,7 @@ class ResponsesApiTransport(ProviderTransport):
             # Actual Computer relays to SGLang/vLLM backends that accept only
             # none/low/medium/high/max for reasoning effort — a forwarded
             # xhigh/ultra fails with a wrapped HTTP 400 ("Expecting value:
-            # line 1 column 1"). Clamp Hermes' wider set to the supported one.
+            # line 1 column 1"). Clamp AgentX' wider set to the supported one.
             _effort_clamp.update({"xhigh": "high", "ultra": "max"})
         reasoning_effort = _effort_clamp.get(reasoning_effort, reasoning_effort)
 
@@ -367,7 +367,7 @@ class ResponsesApiTransport(ProviderTransport):
             strip_codex_context_variant_suffix as _strip_ctx_variant,
         )
         kwargs = {
-            # ``-900k`` large-context picker variants are Hermes-side aliases
+            # ``-900k`` large-context picker variants are AgentX-side aliases
             # (gpt-5.6-sol-900k etc.) — the Codex/OpenAI backend only knows
             # the base slug, so strip the suffix before it hits the wire.
             "model": _strip_ctx_variant(model),

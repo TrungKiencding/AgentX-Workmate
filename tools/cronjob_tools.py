@@ -751,9 +751,9 @@ def _gateway_liveness_notice() -> dict:
         return {
             "gateway_running": False,
             "warning": (
-                "The Hermes gateway is not running — this job is saved "
+                "The AgentX gateway is not running — this job is saved "
                 "but will NOT fire until the gateway is started "
-                "(hermes gateway install / hermes gateway start). "
+                "(agentx gateway install / agentx gateway start). "
                 "Tell the user the task is scheduled but not active yet."
             ),
         }

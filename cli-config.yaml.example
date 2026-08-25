@@ -21,7 +21,7 @@ database:
 # =============================================================================
 # Runtime Limits
 # =============================================================================
-# Long-running Hermes server processes raise their RLIMIT_NOFILE soft limit to
+# Long-running AgentX server processes raise their RLIMIT_NOFILE soft limit to
 # this value when the operating system permits it. The value is clamped to the
 # hard limit and never lowers an already higher soft limit. Set to 0, false, or
 # null to disable the adjustment. Default: 4096.
@@ -138,7 +138,7 @@ model:
 # Enterprise gateways often issue SHORT-LIVED bearers (SSO/OIDC brokers, cloud
 # IAM, internal auth proxies) rather than static API keys, so a value copied
 # into .env via `key_env` is stale within the hour and every later request 401s.
-# `key_cmd` names a command that PRINTS a token instead: Hermes runs it per
+# `key_cmd` names a command that PRINTS a token instead: AgentX runs it per
 # request (cached until shortly before expiry), so long sessions keep working
 # with no restart.
 #
@@ -1283,7 +1283,7 @@ stt:
 #     model: ""
 #     voice: "default"
 
-# "Hey Hermes" hands-free wake word (off by default; toggle with /wake).
+# "Hey AgentX" hands-free wake word (off by default; toggle with /wake).
 # Full engine/provider options inherit from DEFAULT_CONFIG in
 # hermes_cli/config_defaults.py — only capture placement is documented here.
 # wake_word:

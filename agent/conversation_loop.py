@@ -566,7 +566,7 @@ def _billing_or_entitlement_message(
                 "/model <model> --provider <provider>.",
                 # The exhaustion latch replays the stored error without issuing
                 # a request, so a real fix looks like it didn't work.
-                "Retry with a fresh credential state: `hermes auth reset anthropic`. Until "
+                "Retry with a fresh credential state: `agentx auth reset anthropic`. Until "
                 "that cooldown clears, this error can be replayed from cache without "
                 "contacting the API.",
             ]
@@ -8210,7 +8210,7 @@ def run_conversation(
                 _turn_exit_reason = "interpreter_shutdown"
                 final_response = (
                     "Session is shutting down. Your conversation can be "
-                    "resumed with: hermes --resume <session-id>"
+                    "resumed with: agentx --resume <session-id>"
                 )
                 # Don't append the assistant message here — a thinking-prefill
                 # or interim assistant may already be the tail, and appending

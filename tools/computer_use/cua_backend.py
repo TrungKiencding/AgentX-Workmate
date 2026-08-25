@@ -321,10 +321,10 @@ def _empty_discovery_reason() -> str:
             "window discovery returned no windows; on macOS this usually "
             "means no shareable display (headless Mac or panel asleep) — "
             "wake the display or attach a monitor/HDMI dummy, then run "
-            "`hermes computer-use doctor`"
+            "`agentx computer-use doctor`"
         )
     return (
-        "window discovery returned no windows; run `hermes computer-use "
+        "window discovery returned no windows; run `agentx computer-use "
         "doctor` (display reachability, AX capability)"
     )
 
@@ -778,7 +778,7 @@ def _candidate_cua_driver_commands(override: Optional[str] = None) -> List[str]:
         candidates.extend([
             # Official cua-driver installer location on Windows. Freshly
             # installed sessions inherit a stale PATH, so PATH lookup alone
-            # misses it until every Hermes process is restarted.
+            # misses it until every AgentX process is restarted.
             os.path.join(
                 local_app_data, "Programs", "Cua", "cua-driver", "bin", "cua-driver.exe"
             ),
@@ -1654,7 +1654,7 @@ class _CuaDriverSession:
                 # "daemon is not running" is a PERMANENT condition for this
                 # invocation (`cua-driver call` requires the machine-wide
                 # daemon socket, which Linux installs typically never start —
-                # Hermes talks to the direct `cua-driver mcp` runtime
+                # AgentX talks to the direct `cua-driver mcp` runtime
                 # instead). Retrying with backoff burns ~3.5s of sleeps per
                 # fallback for an outcome that cannot change; fail fast so
                 # callers surface a diagnosable error immediately.

@@ -689,7 +689,7 @@ _managed_fal_client_lock = threading.Lock()
 # Managed FAL gateway (Nous Subscription)
 # ---------------------------------------------------------------------------
 def _resolve_managed_fal_gateway():
-    """Resolve the FAL route from the stored `hermes tools` selection.
+    """Resolve the FAL route from the stored `agentx tools` selection.
 
     Dispatch is a plain switch on the stored ``image_gen`` provider string:
     - ``"nous"`` (or legacy ``use_gateway: true``) → managed fal-queue
@@ -1322,7 +1322,7 @@ def image_generate_tool(
 
 
 def check_fal_api_key() -> bool:
-    """True if the FAL backend selected via `hermes tools` (or, on a
+    """True if the FAL backend selected via `agentx tools` (or, on a
     never-configured install, any FAL backend) is available.
 
     A stored-but-broken selection reports False here (registry gating);

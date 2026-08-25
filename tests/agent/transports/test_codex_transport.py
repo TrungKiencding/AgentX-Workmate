@@ -40,7 +40,7 @@ class TestCodexTransportBasic:
 class TestCodexBuildKwargs:
 
     def test_900k_context_variant_suffix_stripped_on_wire(self, transport):
-        """``-900k`` large-context picker variants are Hermes-side aliases —
+        """``-900k`` large-context picker variants are AgentX-side aliases —
         the Codex backend only knows the base slug, so build_kwargs must
         strip the suffix from the wire model id."""
         messages = [{"role": "user", "content": "Hi"}]

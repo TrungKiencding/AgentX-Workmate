@@ -147,11 +147,11 @@ def _scan_dashboard_processes(
 
 
 def _hermes_home_for_pid(pid: int) -> str | None:
-    """Best-effort ``HERMES_HOME`` from *pid*'s environment."""
+    """Best-effort ``AGENTX_HOME`` from *pid*'s environment."""
     try:
         import psutil
 
-        home = psutil.Process(pid).environ().get("HERMES_HOME")
+        home = psutil.Process(pid).environ().get("AGENTX_HOME")
         if home:
             return home
     except Exception:
@@ -161,7 +161,7 @@ def _hermes_home_for_pid(pid: int) -> str | None:
     except (OSError, PermissionError):
         return None
     for part in raw.split(b"\x00"):
-        if part.startswith(b"HERMES_HOME="):
+        if part.startswith(b"AGENTX_HOME="):
             return part.split(b"=", 1)[1].decode("utf-8", errors="replace") or None
     return None
 
@@ -169,9 +169,9 @@ def _hermes_home_for_pid(pid: int) -> str | None:
 def _is_ephemeral_port_zero_backend(argv: list[str]) -> bool:
     """True for Desktop-style ``serve|dashboard --port 0`` backends (#78821).
 
-    Ephemeral-port backends are owned by Hermes Desktop (or become PPID-1
+    Ephemeral-port backends are owned by AgentX Workmate Desktop (or become PPID-1
     orphans after a prior update respawn).  Replaying them after
-    ``hermes update`` multiplies listening backends because ``--port 0``
+    ``agentx update`` multiplies listening backends because ``--port 0``
     always binds a fresh free port.  Covers both ``serve`` and the legacy
     ``dashboard --no-open`` fallback older Desktop runtimes use.
     """
@@ -214,12 +214,12 @@ def _normalize_dashboard_cmdline(argv: list[str]) -> tuple[str, ...]:
 def _profile_key_for_respawn(
     argv: list[str], hermes_home: str | None = None
 ) -> str:
-    """Stable owner key: ``HERMES_HOME`` when known, else ``--profile`` / ``-p``.
+    """Stable owner key: ``AGENTX_HOME`` when known, else ``--profile`` / ``-p``.
 
-    ``HERMES_HOME`` ending in ``profiles/<name>`` is normalized to
+    ``AGENTX_HOME`` ending in ``profiles/<name>`` is normalized to
     ``profile:<name>`` so it shares a cap with an explicit ``--profile``
     flag for the same profile (#78821).  Non-profile homes (including
-    distinct ``…/.hermes`` roots) keep a resolved ``home:`` key so
+    distinct ``…/.agentx`` roots) keep a resolved ``home:`` key so
     unrelated installs do not collapse together.
     """
     profile_name: str | None = None
@@ -252,21 +252,21 @@ def _profile_key_for_respawn(
 def _filter_dashboard_respawn_candidates(
     candidates: list[tuple[int, list[str], str | None]],
 ) -> list[list[str]]:
-    """Select which killed manual backends to respawn after ``hermes update``.
+    """Select which killed manual backends to respawn after ``agentx update``.
 
     Each candidate is ``(pid, argv, hermes_home)``.
 
     Rules (#78821):
     1. Never resurrect Desktop ephemeral ``serve|dashboard --port 0``
-       backends — Desktop (``HERMES_DESKTOP_CHILD_PID``) owns their
+       backends — Desktop (``AGENTX_DESKTOP_CHILD_PID``) owns their
        lifecycle.  These are also the PPID-1 orphans that previously
        multiplied across updates because ``--port 0`` always binds a
        fresh free port.
     2. Dedupe by normalized cmdline (identical argv → one respawn).
-    3. Cap at most one managed backend per profile / ``HERMES_HOME``.
+    3. Cap at most one managed backend per profile / ``AGENTX_HOME``.
 
     Intentionally does **not** blanket-skip every PPID-1 process: a prior
-    ``hermes update`` respawn detaches with ``start_new_session=True``, so
+    ``agentx update`` respawn detaches with ``start_new_session=True``, so
     fixed-port manual backends are reparented to init and must still be
     eligible for the next update's #40449 restart.
     """
@@ -367,7 +367,7 @@ def _kill_stale_dashboard_processes(
             if not pid_service[pid]:
                 # Manually-started process: preserve its exact argv so we
                 # can respawn it after the update (#40449, #68934).
-                # Snapshot HERMES_HOME before the kill so per-profile caps
+                # Snapshot AGENTX_HOME before the kill so per-profile caps
                 # still work after the process is gone (#78821).
                 cmdline = _m()._dashboard_cmdline_for_pid(pid)
                 if cmdline:

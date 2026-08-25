@@ -234,7 +234,7 @@ class TestGeneratedSystemdUnits:
 
     def test_launchd_plist_persists_configured_nofile_soft_limit(self, monkeypatch):
         """The generated plist must carry SoftResourceLimits/NumberOfFiles so a
-        plist rewrite by `hermes gateway start` cannot strip the FD floor and
+        plist rewrite by `agentx gateway start` cannot strip the FD floor and
         reintroduce EMFILE crashes (launchd default soft limit is 256)."""
         import hermes_cli.resource_limits as resource_limits
 
@@ -393,7 +393,7 @@ class TestLaunchdServiceRecovery:
         2026-08-05: the in-process retry loop was killed mid-bootstrap and
         nothing re-registered the label. So always prefer the detached helper.
         """
-        plist_path = tmp_path / "ai.hermes.gateway.plist"
+        plist_path = tmp_path / "ai.agentx.gateway.plist"
         plist_path.write_text("<plist>old content</plist>", encoding="utf-8")
 
         monkeypatch.setattr(gateway_cli, "get_launchd_plist_path", lambda: plist_path)
@@ -402,8 +402,8 @@ class TestLaunchdServiceRecovery:
             gateway_cli,
             "generate_launchd_plist",
             lambda: (
-                "<plist>--replace\n<key>HERMES_HOME</key>"
-                "<string>/Users/alice/.hermes</string></plist>"
+                "<plist>--replace\n<key>AGENTX_HOME</key>"
+                "<string>/Users/alice/.agentx</string></plist>"
             ),
         )
         # Gateway running, but we are NOT inside its tree.
@@ -445,7 +445,7 @@ class TestLaunchdServiceRecovery:
         issued while it drains fails EIO ("already loaded"), which is how the
         retry budget got burned on 2026-08-05 (4 attempts, all rc=5).
         """
-        plist_path = tmp_path / "ai.hermes.gateway.plist"
+        plist_path = tmp_path / "ai.agentx.gateway.plist"
         plist_path.write_text("<plist>old content</plist>", encoding="utf-8")
 
         monkeypatch.setattr(gateway_cli, "get_launchd_plist_path", lambda: plist_path)
@@ -454,8 +454,8 @@ class TestLaunchdServiceRecovery:
             gateway_cli,
             "generate_launchd_plist",
             lambda: (
-                "<plist>--replace\n<key>HERMES_HOME</key>"
-                "<string>/Users/alice/.hermes</string></plist>"
+                "<plist>--replace\n<key>AGENTX_HOME</key>"
+                "<string>/Users/alice/.agentx</string></plist>"
             ),
         )
         monkeypatch.setattr("gateway.status.get_running_pid", lambda *a, **k: 4242)
@@ -498,7 +498,7 @@ class TestLaunchdServiceRecovery:
         reloaded. The in-process path waits out the old gateway's drain first so
         its retry budget isn't spent on guaranteed-EIO bootstraps.
         """
-        plist_path = tmp_path / "ai.hermes.gateway.plist"
+        plist_path = tmp_path / "ai.agentx.gateway.plist"
         plist_path.write_text("<plist>old content</plist>", encoding="utf-8")
 
         monkeypatch.setattr(gateway_cli, "get_launchd_plist_path", lambda: plist_path)
@@ -507,8 +507,8 @@ class TestLaunchdServiceRecovery:
             gateway_cli,
             "generate_launchd_plist",
             lambda: (
-                "<plist>--replace\n<key>HERMES_HOME</key>"
-                "<string>/Users/alice/.hermes</string></plist>"
+                "<plist>--replace\n<key>AGENTX_HOME</key>"
+                "<string>/Users/alice/.agentx</string></plist>"
             ),
         )
         monkeypatch.setattr("gateway.status.get_running_pid", lambda *a, **k: 4242)
@@ -534,7 +534,7 @@ class TestLaunchdServiceRecovery:
                 # the success check correctly refuses to stop retrying.
                 return SimpleNamespace(
                     returncode=0,
-                    stdout='{\n\t"PID" = 5150;\n\t"Label" = "ai.hermes.gateway";\n};',
+                    stdout='{\n\t"PID" = 5150;\n\t"Label" = "ai.agentx.gateway";\n};',
                     stderr="",
                 )
             return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -837,21 +837,21 @@ class TestSystemUnitHermesHome:
     def test_empty_managed_node_dir_uses_only_ambient_fallback(
         self, monkeypatch, tmp_path
     ):
-        managed_bin = tmp_path / ".hermes" / "node" / "bin"
+        managed_bin = tmp_path / ".agentx" / "node" / "bin"
         managed_bin.mkdir(parents=True)
         monkeypatch.setattr(
             gateway_cli.shutil, "which", lambda name: "/opt/external-node/bin/node"
         )
         entries: list[str] = []
 
-        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".hermes")
+        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".agentx")
 
         assert entries == ["/opt/external-node/bin"]
 
     def test_non_executable_managed_node_uses_only_ambient_fallback(
         self, monkeypatch, tmp_path
     ):
-        managed_bin = tmp_path / ".hermes" / "node" / "bin"
+        managed_bin = tmp_path / ".agentx" / "node" / "bin"
         managed_bin.mkdir(parents=True)
         node = managed_bin / "node"
         node.write_text("#!/bin/sh\n")
@@ -861,7 +861,7 @@ class TestSystemUnitHermesHome:
         )
         entries: list[str] = []
 
-        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".hermes")
+        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".agentx")
 
         assert entries == ["/opt/external-node/bin"]
 
@@ -870,9 +870,9 @@ class TestSystemUnitHermesHome:
     ):
         """A target-managed Node must suppress caller-specific PATH fallbacks."""
         target_home = tmp_path / "home" / "alice"
-        target_hermes = target_home / ".hermes"
+        target_hermes = target_home / ".agentx"
         root_home = tmp_path / "root"
-        root_hermes = root_home / ".hermes"
+        root_hermes = root_home / ".agentx"
         managed_bin = target_hermes / "node" / "bin"
         managed_bin.mkdir(parents=True)
         node = managed_bin / "node"
@@ -881,7 +881,7 @@ class TestSystemUnitHermesHome:
         root_hermes.mkdir(parents=True)
 
         monkeypatch.setattr(Path, "home", staticmethod(lambda: root_home))
-        monkeypatch.setenv("HERMES_HOME", str(root_hermes))
+        monkeypatch.setenv("AGENTX_HOME", str(root_hermes))
         monkeypatch.setattr(
             gateway_cli,
             "_system_service_identity",
@@ -916,7 +916,7 @@ class TestSystemUnitHermesHome:
         )
         entries: list[str] = []
 
-        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".hermes")
+        gateway_cli._append_node_dir_for_service(entries, tmp_path / ".agentx")
 
         assert entries == ["/opt/external-node/bin"]
 
@@ -2023,7 +2023,7 @@ class TestRetryLaunchctlBootstrapUntilRegistered:
     # `launchctl list <label>` output for a job launchd is actively running.
     # Success requires a PID here, not just exit 0 — exit 0 alone also covers a
     # registered-but-not-running definition (macOS 26+ `state = not running`).
-    RUNNING_LIST_OUTPUT = '{\n\t"PID" = 4242;\n\t"Label" = "ai.hermes.gateway";\n};'
+    RUNNING_LIST_OUTPUT = '{\n\t"PID" = 4242;\n\t"Label" = "ai.agentx.gateway";\n};'
 
     def test_returns_true_once_label_is_registered(self, monkeypatch):
         """Success requires launchctl list to confirm a supervised process, not
@@ -2096,7 +2096,7 @@ class TestRetryLaunchctlBootstrapUntilRegistered:
                 # Registered (exit 0) but no PID line — never running.
                 return SimpleNamespace(
                     returncode=0,
-                    stdout='{\n\t"Label" = "ai.hermes.gateway";\n};',
+                    stdout='{\n\t"Label" = "ai.agentx.gateway";\n};',
                     stderr="",
                 )
             return SimpleNamespace(returncode=0, stdout="", stderr="")

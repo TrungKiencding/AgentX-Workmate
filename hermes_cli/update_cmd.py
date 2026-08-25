@@ -132,13 +132,13 @@ def _editable_install_is_current(git_cmd, cwd, pre_pull_sha: str | None) -> bool
 
     ``uv pip install -e .`` never audits an editable target — it reinstalls on
     every invocation, and every reinstall rewrites the console-script shims.
-    On Windows that rewrite is the only reason the running ``hermes.exe`` has
+    On Windows that rewrite is the only reason the running ``agentx.exe`` has
     to be quarantined, and a quarantine that loses its race is the whole
     ``os error 32`` family. Not reinstalling when the reinstall provably
     cannot change anything removes that risk outright for the common update,
     rather than trying to make the rename win more often.
 
-    Skipping is safe because Hermes pins its editable finder to a *static*
+    Skipping is safe because AgentX pins its editable finder to a *static*
     module list (``[tool.setuptools] py-modules`` plus
     ``packages.find.include``). The one source-only change that would stale
     that finder is a new top-level module or package, and it cannot land
@@ -926,7 +926,7 @@ def _update_via_zip(args):
                 staged.append((_stage_replacement(src, dst), dst))
                 # #70337/#87331: the GitHub source ZIP contains only source —
                 # apps/desktop/release/ (the BUILT desktop app, win-unpacked/
-                # Hermes.exe) exists only in the LIVE tree. Swapping `apps`
+                # AgentX Workmate.exe) exists only in the LIVE tree. Swapping `apps`
                 # without it deletes the desktop build and breaks the
                 # shortcut. Graft the live release dir into the staged copy
                 # BEFORE the swap so the commit preserves it atomically.
@@ -3093,7 +3093,7 @@ def _detect_venv_python_processes(
 # uninstall and reinstall, stranding the venv half-updated (#83569).
 # ``cryptography`` is the canonical case: ``hermes_cli.main`` imports it at
 # startup while resolving external secret sources, so EVERY CLI-driven
-# ``hermes update`` used to self-lock before that import was made lazy.
+# ``agentx update`` used to self-lock before that import was made lazy.
 # Keep this guard as defence-in-depth against future eager imports (new
 # secret sources, plugins absorbed into core, refactors of the startup
 # order).  Keys are module prefixes in ``sys.modules``; values are display
@@ -3135,7 +3135,7 @@ def _defer_update_for_self_lock(loaded: list[str]) -> None:
         print(f"    {name}")
     print()
     print("  On Windows a mapped extension cannot be replaced by the process")
-    print("  holding it. The update has been deferred: the next `hermes` launch")
+    print("  holding it. The update has been deferred: the next `agentx` launch")
     print("  will complete it in a fresh process before anything imports these")
     print("  modules.")
     _m()._write_update_incomplete_marker()
@@ -3292,23 +3292,23 @@ def _orphaned_desktop_backend_pids(
     supervises and respawns it within seconds), so the user must close the
     app. But in the GUI-updater handoff path the Desktop has *already
     exited* — by contract it tree-kills its backends and waits for the venv
-    shim before spawning hermes-setup, and the update-in-progress marker
+    shim before spawning agentx-setup, and the update-in-progress marker
     parks any relaunched Desktop from spawning a fresh backend (#50238). A
     ``serve`` backend still holding the venv at that point is a straggler
     whose supervisor is gone: SIGTERM raced its spawn, or it belongs to a
     crashed window. Nothing will respawn it, and refusing on it dead-ends
-    the update with "Hermes is still running" while the user stares at zero
+    the update with "AgentX is still running" while the user stares at zero
     open windows (ryanc's 2026-08-09 01:59/02:17 failures).
 
     A holder qualifies only when BOTH hold:
 
-    - its cmdline is a Hermes backend (``hermes_cli.main`` + ``serve`` /
+    - its cmdline is a AgentX backend (``hermes_cli.main`` + ``serve`` /
       ``dashboard``), and
     - its supervising parent is demonstrably gone: the parent PID no longer
       exists, or the PID was reused (parent created *after* the child).
 
     Tree-aware: the scanner can return an orphaned backend AND one of its
-    managed-runtime descendants (the ``.hermes-runtime`` interpreter child)
+    managed-runtime descendants (the ``.agentx-runtime`` interpreter child)
     in the same holder set. That descendant has a live parent — the orphaned
     backend itself — and isn't a ``serve`` cmdline, so per-process rules
     would refuse a set that is entirely safe to reap. Holders that sit
@@ -3393,7 +3393,7 @@ def _stop_process_trees(pids: list[int]) -> None:
 
     ``taskkill /T /F`` mirrors the Desktop's ``forceKillProcessTree`` and
     install.ps1's venv sweep: stopping only the parent can leave a managed
-    ``.hermes-runtime`` interpreter child alive and holding the install open
+    ``.agentx-runtime`` interpreter child alive and holding the install open
     (#70026). Best effort; never raises.
     """
     for pid in pids:
@@ -3696,8 +3696,8 @@ def _warn_gateway_restart_phase_aborted(exc: BaseException, pids) -> None:
         print("  Any gateway still running is serving pre-update code")
         print("  (mixed sys.modules) against the updated checkout.")
     print("  Restart it manually, then verify:")
-    print("    hermes gateway restart")
-    print("    hermes gateway status")
+    print("    agentx gateway restart")
+    print("    agentx gateway status")
 
 def _refresh_windows_gateway_launchers() -> None:
     """Regenerate installed Windows gateway launcher scripts after update.
@@ -3731,8 +3731,8 @@ def _refresh_windows_gateway_launchers() -> None:
 def _refresh_bootstrap_cache_scripts(branch: str = "main") -> None:
     """Sync the installer's bootstrap-cache scripts from the fresh checkout.
 
-    The Desktop GUI updater (``hermes-setup.exe``) executes
-    ``$HERMES_HOME/bootstrap-cache/install-<ref>.ps1`` (or ``.sh``) for its
+    The Desktop GUI updater (``agentx-setup.exe``) executes
+    ``$AGENTX_HOME/bootstrap-cache/install-<ref>.ps1`` (or ``.sh``) for its
     repair/bootstrap stages. Installer binaries built before the #67193
     cache-refresh fix (June 2026 and earlier) NEVER re-download a cached
     branch-ref script — ``install-main.ps1`` cached at install time is
@@ -3740,7 +3740,7 @@ def _refresh_bootstrap_cache_scripts(branch: str = "main") -> None:
     2026-08-09 incident: a June 4 cached script's venv stage lacked the
     #81327 process-tree sweep and died on ``Access denied``). The binary
     has no self-update path, so the poisoned cache outlives every
-    ``hermes update``.
+    ``agentx update``.
 
     Overwriting the cached script for *branch* with the freshly pulled
     ``scripts/install.ps1`` / ``scripts/install.sh`` on every update turns
@@ -4136,9 +4136,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 # Every remaining holder is a Desktop `serve` backend whose
                 # supervising app is GONE — the GUI-updater handoff race:
                 # Electron's teardown lost the SIGTERM race, exited, and left
-                # its backend (and any .hermes-runtime child) holding the
+                # its backend (and any .agentx-runtime child) holding the
                 # venv. Nothing will respawn an orphan, so reap the tree and
-                # re-check instead of dead-ending with "Hermes is still
+                # re-check instead of dead-ending with "AgentX is still
                 # running" while no window is open. Backends whose Desktop
                 # is still alive never reach here (_orphaned_desktop_
                 # backend_pids returns None for them) — that path keeps the
@@ -4156,7 +4156,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
             sys.exit(2)
 
     # Self-lock preflight: the venv-holder sweep above excludes this process
-    # by design (a CLI `hermes update` IS the venv python), so an updater
+    # by design (a CLI `agentx update` IS the venv python), so an updater
     # that has already imported a native venv extension would sail through
     # and lock its own dependency sync — the #83569 failure mode. Refuse
     # before touching the checkout; the marker makes the next fresh launch
@@ -4606,9 +4606,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # applied: a checkout that is pinned to a raw SHA (detached HEAD) can
         # report "N new commit(s)" against origin yet still sit on the old
         # commit afterward (the branch-switch step re-detaches to the SHA).
-        # Before this guard, ``hermes update`` printed "✓ Code updated!" and
+        # Before this guard, ``agentx update`` printed "✓ Code updated!" and
         # reinstalled deps + rebuilt the desktop app against the stale tree —
-        # no error, no warning, ``hermes doctor`` healthy. Compare pre-pull
+        # no error, no warning, ``agentx doctor`` healthy. Compare pre-pull
         # and post-pull HEAD; if they match, surface the no-op instead of
         # claiming success.
         post_pull_sha = _capture_head_sha(git_cmd, _m().PROJECT_ROOT)
@@ -4621,7 +4621,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
             )
             print(
                 "  Reattach to the branch and retry: "
-                f"git -C {_m().PROJECT_ROOT} checkout {branch} && hermes update"
+                f"git -C {_m().PROJECT_ROOT} checkout {branch} && agentx update"
             )
             _m()._resume_windows_gateways_after_update(_windows_gateway_resume)
             sys.exit(1)
@@ -5144,7 +5144,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     # here and crashes the update at this prompt.
                     print(
                         "  ⚠ Could not read input (encoding issue). Skipping. "
-                        "Run 'hermes config migrate' manually to configure."
+                        "Run 'agentx config migrate' manually to configure."
                     )
                     response = "n"
 

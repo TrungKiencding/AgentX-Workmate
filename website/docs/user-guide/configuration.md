@@ -71,8 +71,8 @@ cannot override, via a system-level managed directory. See
 
 ## Runtime Limits
 
-Long-running Hermes server surfaces (including the gateway and
-`hermes serve --isolated`) apply the configured `RLIMIT_NOFILE` soft limit
+Long-running AgentX server surfaces (including the gateway and
+`agentx serve --isolated`) apply the configured `RLIMIT_NOFILE` soft limit
 during startup when the operating system supports it:
 
 ```yaml
@@ -80,7 +80,7 @@ runtime:
   nofile_soft_limit: 4096
 ```
 
-The default is `4096`. Hermes clamps the target to the operating system's hard
+The default is `4096`. AgentX clamps the target to the operating system's hard
 limit and never lowers a process that already has a higher soft limit. Set the
 value to `0`, `false`, or `null` to disable the adjustment. On Windows and in
 sandboxes
@@ -1605,7 +1605,7 @@ This mirrors Claude Code's per-session WebSearch and subagent caps (v2.1.212), w
 
 ### Runtime anti-stall guards
 
-Complementing the failure-based guardrails above, `agent.stall_guards` (default `true`) enables two conservative runtime guards against wasted turns. First, an **identical-call loop breaker**: when the same tool is called 3+ consecutive times with identical arguments *and* returns an identical result, a short one-line notice is appended to that tool result telling the model not to repeat the call — it never blocks the call, and legitimately-repeatable pollers (`process`, `*_get_result`, `*_poll`) are exempt. Second, a **continue-intent recovery**: when the model ends a turn with no tool calls but its short reply trails off announcing an action ("Let me now update the file…"), Hermes re-prompts it to act via the same bounded continuation mechanism used for intent-ack recovery (max 2 re-prompts per turn). Both are cache-safe (notices are added at result construction, never retroactively) and can be disabled together:
+Complementing the failure-based guardrails above, `agent.stall_guards` (default `true`) enables two conservative runtime guards against wasted turns. First, an **identical-call loop breaker**: when the same tool is called 3+ consecutive times with identical arguments *and* returns an identical result, a short one-line notice is appended to that tool result telling the model not to repeat the call — it never blocks the call, and legitimately-repeatable pollers (`process`, `*_get_result`, `*_poll`) are exempt. Second, a **continue-intent recovery**: when the model ends a turn with no tool calls but its short reply trails off announcing an action ("Let me now update the file…"), AgentX re-prompts it to act via the same bounded continuation mechanism used for intent-ack recovery (max 2 re-prompts per turn). Both are cache-safe (notices are added at result construction, never retroactively) and can be disabled together:
 
 ```yaml
 agent:

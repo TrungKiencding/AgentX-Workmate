@@ -251,7 +251,7 @@ class TestCrashDurability:
         """A config.yaml symlinked into a dotfiles repo must stay a symlink."""
         real_dir = tmp_path / "dotfiles"
         real_dir.mkdir()
-        real = real_dir / "hermes-config.yaml"
+        real = real_dir / "agentx-config.yaml"
         real.write_text(
             "principal:\n"
             "  provider: xai\n"
@@ -289,6 +289,6 @@ class TestCrashDurability:
         apply_migration(trap_config, issues, backup=False)
 
         text = trap_config.read_text(encoding="utf-8")
-        assert "# Hermes config (sample)" in text
+        assert "# AgentX config (sample)" in text
         assert "# the main model" in text
         assert "# not affected" in text

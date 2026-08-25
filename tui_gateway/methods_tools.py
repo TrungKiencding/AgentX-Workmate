@@ -1157,7 +1157,7 @@ def _(rid, params: dict) -> dict:
         from agent.skill_commands import get_skill_commands
         from hermes_constants import reset_hermes_home_override, set_hermes_home_override
 
-        # Re-bind HERMES_HOME to the session's profile so get_skill_commands()
+        # Re-bind AGENTX_HOME to the session's profile so get_skill_commands()
         # sees that profile's skills.external_dirs rather than whatever the
         # process-level env happens to carry (#88023): dispatch() runs this
         # handler on the pool with a copied context, and nothing upstream of
@@ -1653,7 +1653,7 @@ def _(rid, params: dict) -> dict:
 @method("cron.manage")
 def _(rid, params: dict) -> dict:
     action, jid = params.get("action", "list"), params.get("name", "")
-    # Optional profile scoping: cronjob() keys off HERMES_HOME, so scoping the
+    # Optional profile scoping: cronjob() keys off AGENTX_HOME, so scoping the
     # env override lets a per-profile cron store be listed/mutated even when
     # that profile runs a separate gateway. Omitted/None = the launch profile.
     # Mirrors ``skills.manage`` / ``mcp.catalog``.
@@ -1875,7 +1875,7 @@ def _(rid, params: dict) -> dict:
 
     Params: optional ``profile`` (defaults to the launch profile). Result:
     ``{servers: [{name, description, installed, enabled, requires: [env
-    keys], transport}]}`` — the same catalog `hermes mcp` offers, so
+    keys], transport}]}`` — the same catalog `agentx mcp` offers, so
     capability UIs can present the full menu and know which entries need
     setup (missing requires) before they'll work.
     """
@@ -1932,7 +1932,7 @@ def _(rid, params: dict) -> dict:
 # Gateway RPCs mirroring the dashboard's REST surface
 # (hermes_cli/web_routers/mcp.py) so a desktop plugin can manage MCP servers for
 # ANY profile, not just the launch profile. Each accepts an optional ``profile``
-# param that scopes HERMES_HOME via set_hermes_home_override (omitted/None = the
+# param that scopes AGENTX_HOME via set_hermes_home_override (omitted/None = the
 # launch profile) in a try/finally, exactly like ``skills.manage`` / ``mcp.catalog``.
 # All persistence reuses hermes_cli/mcp_config.py helpers — no logic is duplicated.
 # Shared helpers (resolve_profile / reset_profile / summarize_server) live in
@@ -2237,11 +2237,11 @@ def _(rid, params: dict) -> dict:
     ``{ok: true, session_id, auth_url, flow: "pkce"}``.
 
     The client (desktop) opens ``auth_url`` in the native browser
-    (``window.hermesDesktop.openExternal``) and then polls
+    (``window.agentxDesktop.openExternal``) and then polls
     ``mcp.servers.oauth.poll`` with the returned ``session_id`` until
     ``status == "approved"``. This mirrors the provider-OAuth start/poll model
     (``/api/providers/oauth/{id}/start`` + ``/poll``): a background worker drives
-    the SAME interactive MCP OAuth machinery ``hermes mcp login`` uses
+    the SAME interactive MCP OAuth machinery ``agentx mcp login`` uses
     (``_probe_single_server`` under ``force_interactive_oauth``), and a loopback
     listener captures the browser redirect — no FastAPI request object needed.
 

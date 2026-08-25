@@ -90,7 +90,7 @@ def remove_path_from_shell_configs():
             if new_content != original_content:
                 from utils import atomic_write_text
 
-                # This is the user's own shell rc, not a Hermes-owned file, and
+                # This is the user's own shell rc, not a AgentX-owned file, and
                 # nothing in this function backs it up. A bare write_text()
                 # truncates it before the new content lands, so a crash or
                 # SIGINT mid-write leaves the user with an empty or truncated
@@ -102,7 +102,7 @@ def remove_path_from_shell_configs():
                 prior_mode = stat.S_IMODE(config_path.stat().st_mode)
                 atomic_write_text(config_path, new_content)
                 # atomic_write_text swaps in a fresh 0600 temp file; shell rc
-                # files are normally 0644 and removing Hermes' PATH block must
+                # files are normally 0644 and removing AgentX' PATH block must
                 # not quietly change their permissions.
                 try:
                     os.chmod(config_path, prior_mode)

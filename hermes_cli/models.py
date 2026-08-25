@@ -5189,7 +5189,7 @@ def validate_requested_model(
         except Exception:
             catalog_models = []
         # Ineligible ``-900k`` aliases (e.g. `gpt-5.5-900k`) must be rejected
-        # BEFORE the hidden-slug soft-accept below: the suffix is a Hermes
+        # BEFORE the hidden-slug soft-accept below: the suffix is a AgentX
         # picker convention, so an unknown `*-900k` name can never be a real
         # hidden provider slug — soft-accepting one silently runs at 272K on
         # a different model than the user thinks (#92797 review).

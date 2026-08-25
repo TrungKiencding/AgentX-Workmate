@@ -96,7 +96,7 @@ def _add_context_variants(model_ids: List[str]) -> List[str]:
     families but accepts ~911K (live-verified Aug 2026). The base slugs keep
     the cheaper advertised 272K limit by default; each verified slug gets an
     explicit ``<slug>-900k`` picker entry that opts into the large window.
-    The suffix is Hermes-side only — it is stripped before the model id hits
+    The suffix is AgentX-side only — it is stripped before the model id hits
     the wire (agent/transports/codex.py, agent/auxiliary_client.py).
     """
     from agent.model_metadata import (

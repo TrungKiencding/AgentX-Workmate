@@ -69,22 +69,22 @@ class TestGatewayLifecyclePattern:
     @pytest.mark.parametrize("text", [
         # #80269: the shell resolves quote-splicing and backslash-escaping
         # into a single literal word BEFORE the command runs, so
-        # `launchctl kick"start" ... ai.hermes.gateway` executes exactly as
+        # `launchctl kick"start" ... ai.agentx.gateway` executes exactly as
         # the blocked `kickstart` form. Raw-text matching sees the quote (or
         # backslash) wedged between the verb's halves and misses it, leaving
         # the bypassable approval layer as the only cover.
-        'launchctl kick"start" -k gui/501/ai.hermes.gateway',
-        "launchctl kick'start' -k gui/501/ai.hermes.gateway",
-        "launchctl kick\\start -k gui/501/ai.hermes.gateway",
-        'launchctl "kickstart" -k gui/501/ai.hermes.gateway',
+        'launchctl kick"start" -k gui/501/ai.agentx.gateway',
+        "launchctl kick'start' -k gui/501/ai.agentx.gateway",
+        "launchctl kick\\start -k gui/501/ai.agentx.gateway",
+        'launchctl "kickstart" -k gui/501/ai.agentx.gateway',
         # Splices on the newer/legacy unload spellings this PR added.
-        'launchctl boot"out" gui/501/ai.hermes.gateway',
-        "launchctl dis\\able gui/501/ai.hermes.gateway",
+        'launchctl boot"out" gui/501/ai.agentx.gateway',
+        "launchctl dis\\able gui/501/ai.agentx.gateway",
         # The gateway identifier itself can be spliced just as easily.
-        'launchctl bootout gui/501/ai.hermes."gateway"',
-        # Same class on the systemctl and hermes-CLI branches.
-        'systemctl re"start" hermes-gateway',
-        'hermes gateway re"start"',
+        'launchctl bootout gui/501/ai.agentx."gateway"',
+        # Same class on the systemctl and agentx-CLI branches.
+        'systemctl re"start" agentx-gateway',
+        'agentx gateway re"start"',
     ])
     def test_shell_token_spliced_lifecycle_verbs(self, text):
         assert _contains_gateway_lifecycle_command(text), f"Should match: {text!r}"
@@ -101,7 +101,7 @@ class TestGatewayLifecyclePattern:
             contains_gateway_lifecycle_command_or_referenced_script,
         )
 
-        command = 'sh -c \'launchctl kick"start" -k gui/501/ai.hermes.gateway\''
+        command = 'sh -c \'launchctl kick"start" -k gui/501/ai.agentx.gateway\''
         assert contains_gateway_lifecycle_command_or_referenced_script(command)
 
     @pytest.mark.parametrize("text", [
@@ -109,8 +109,8 @@ class TestGatewayLifecyclePattern:
         # non-gateway services stay allowed even though tokenization now
         # strips their quotes too.
         'echo "restart the payment gateway"',
-        'launchctl kick"start" -k gui/501/ai.hermes.update-checker',
-        'systemctl re"start" hermes-meta.service',
+        'launchctl kick"start" -k gui/501/ai.agentx.update-checker',
+        'systemctl re"start" agentx-meta.service',
         "Summarize how the API gateway handles a restart after rate limiting",
     ])
     def test_tokenizing_pass_does_not_overmatch(self, text):
@@ -158,7 +158,7 @@ class TestGatewayLifecyclePattern:
 
 
 class TestProfileFlagGatewayLifecycle:
-    """#78028: `hermes -p <profile> gateway restart|stop` bypasses Branch A's
+    """#78028: `agentx -p <profile> gateway restart|stop` bypasses Branch A's
     literal adjacency, so it needs its own pattern. It is only the same
     self-termination foot-gun when the named profile IS the profile running
     the guard; sibling-profile restarts are legitimate fleet operations and
@@ -166,41 +166,41 @@ class TestProfileFlagGatewayLifecycle:
 
     @pytest.fixture(autouse=True)
     def _pin_profile_identity(self, monkeypatch):
-        # The ambient test env may carry HERMES_HOME/HERMES_PROFILE; pin the
+        # The ambient test env may carry AGENTX_HOME/AGENTX_PROFILE; pin the
         # profile identity explicitly so every assertion is deterministic.
-        monkeypatch.setenv("HERMES_PROFILE", "zeus")
-        monkeypatch.delenv("HERMES_PROFILE_NAME", raising=False)
+        monkeypatch.setenv("AGENTX_PROFILE", "zeus")
+        monkeypatch.delenv("AGENTX_PROFILE_NAME", raising=False)
 
     @pytest.mark.parametrize("text", [
-        "hermes -p zeus gateway stop",
-        "hermes -p zeus gateway restart",
-        "hermes --profile zeus gateway restart",
-        "hermes --profile zeus gateway stop",
-        "hermes --profile=zeus gateway restart",
+        "agentx -p zeus gateway stop",
+        "agentx -p zeus gateway restart",
+        "agentx --profile zeus gateway restart",
+        "agentx --profile zeus gateway stop",
+        "agentx --profile=zeus gateway restart",
         # Global flags before/after the selector must not hide the shape.
-        "hermes -v -p zeus gateway restart",
-        "hermes -p zeus -v gateway restart",
-        "hermes --debug --profile zeus gateway stop",
+        "agentx -v -p zeus gateway restart",
+        "agentx -p zeus -v gateway restart",
+        "agentx --debug --profile zeus gateway stop",
         # Shell quoting of the profile id is equivalent to the bare name.
-        "hermes -p 'zeus' gateway restart",
-        "hermes --profile \"zeus\" gateway stop",
+        "agentx -p 'zeus' gateway restart",
+        "agentx --profile \"zeus\" gateway stop",
     ])
     def test_self_target_blocked(self, text):
         assert _contains_gateway_lifecycle_command(text), f"Should block: {text!r}"
 
     @pytest.mark.parametrize("text", [
-        "hermes -p venus gateway stop",
-        "hermes -p venus gateway restart",
-        "hermes --profile venus gateway restart",
-        "hermes --profile=venus gateway stop",
-        "hermes -p venus -v gateway restart",
+        "agentx -p venus gateway stop",
+        "agentx -p venus gateway restart",
+        "agentx --profile venus gateway restart",
+        "agentx --profile=venus gateway stop",
+        "agentx -p venus -v gateway restart",
     ])
     def test_sibling_allowed(self, text):
         assert not _contains_gateway_lifecycle_command(text), f"Should allow: {text!r}"
 
     @pytest.mark.parametrize("text", [
-        "hermes -p zeus gateway start",
-        "hermes -p zeus gateway start --all",
+        "agentx -p zeus gateway start",
+        "agentx -p zeus gateway start --all",
     ])
     def test_start_still_allowed(self, text):
         # `start` is intentionally excluded from the guard, with or without
@@ -210,20 +210,20 @@ class TestProfileFlagGatewayLifecycle:
     def test_adjacent_form_still_blocked(self):
         # Branch A remains unconditional — the profile-flag check is an
         # additional layer, not a replacement.
-        assert _contains_gateway_lifecycle_command("hermes gateway restart")
-        assert _contains_gateway_lifecycle_command("hermes gateway stop")
+        assert _contains_gateway_lifecycle_command("agentx gateway restart")
+        assert _contains_gateway_lifecycle_command("agentx gateway stop")
 
     def test_hermes_home_derived_profile(self, monkeypatch):
-        # Without HERMES_PROFILE the guard falls back to the HERMES_HOME-
+        # Without AGENTX_PROFILE the guard falls back to the AGENTX_HOME-
         # derived profile identity (get_active_profile_name) — the signal the
         # gateway process itself carries.
-        monkeypatch.delenv("HERMES_PROFILE", raising=False)
-        monkeypatch.delenv("HERMES_PROFILE_NAME", raising=False)
+        monkeypatch.delenv("AGENTX_PROFILE", raising=False)
+        monkeypatch.delenv("AGENTX_PROFILE_NAME", raising=False)
         import hermes_cli.profiles as profiles_mod
 
         monkeypatch.setattr(profiles_mod, "get_active_profile_name", lambda: "zeus")
-        assert _contains_gateway_lifecycle_command("hermes -p zeus gateway restart")
-        assert not _contains_gateway_lifecycle_command("hermes -p venus gateway restart")
+        assert _contains_gateway_lifecycle_command("agentx -p zeus gateway restart")
+        assert not _contains_gateway_lifecycle_command("agentx -p venus gateway restart")
 
     def test_no_profile_context_conservative_allow(self, monkeypatch):
         # With no profile identity the guard cannot prove self-targeting, so
@@ -232,8 +232,8 @@ class TestProfileFlagGatewayLifecycle:
         import cron.lifecycle_guard as lifecycle_guard
 
         monkeypatch.setattr(lifecycle_guard, "_current_profile_name", lambda: None)
-        assert not _contains_gateway_lifecycle_command("hermes -p zeus gateway restart")
-        assert _contains_gateway_lifecycle_command("hermes gateway restart")
+        assert not _contains_gateway_lifecycle_command("agentx -p zeus gateway restart")
+        assert _contains_gateway_lifecycle_command("agentx gateway restart")
 
 
 class TestCronCreateLifecycleBlock:
@@ -709,7 +709,7 @@ class TestLifecycleGuardModule:
             contains_gateway_lifecycle_command_or_referenced_script,
         )
         script = tmp_path / "restart.sh"
-        script.write_text("#!/bin/bash\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nagentx gateway restart\n")
         assert (
             contains_gateway_lifecycle_command_or_referenced_script(f". {script}")
             is True
@@ -727,7 +727,7 @@ class TestLifecycleGuardModule:
             contains_gateway_lifecycle_command_or_referenced_script,
         )
         script = tmp_path / "padded.sh"
-        script.write_bytes(b"#!/bin/bash\n# pad\x00\nhermes gateway restart\n")
+        script.write_bytes(b"#!/bin/bash\n# pad\x00\nagentx gateway restart\n")
         assert (
             contains_gateway_lifecycle_command_or_referenced_script(f"bash {script}")
             is True
@@ -739,7 +739,7 @@ class TestLifecycleGuardModule:
             contains_gateway_lifecycle_command_or_referenced_script,
         )
         script = tmp_path / "restart.sh"
-        script.write_text("#!/bin/bash\nhermes gateway restart\n")
+        script.write_text("#!/bin/bash\nagentx gateway restart\n")
         assert (
             contains_gateway_lifecycle_command_or_referenced_script(f"source {script}")
             is True
@@ -768,7 +768,7 @@ class TestLifecycleGuardModule:
             contains_gateway_lifecycle_command_or_referenced_script,
         )
         script = tmp_path / "padded_noshebang.sh"
-        script.write_bytes(b"# ok\n# pad\x00\nhermes gateway restart\n")
+        script.write_bytes(b"# ok\n# pad\x00\nagentx gateway restart\n")
         assert (
             contains_gateway_lifecycle_command_or_referenced_script(f"bash {script}")
             is True

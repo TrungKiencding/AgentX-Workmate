@@ -261,7 +261,7 @@ class TestTelegramRichMessagesHint:
 
     def test_gateway_rich_messages_integration_via_real_config(self, tmp_path, monkeypatch):
         """End-to-end through the real config-resolution chain: a config.yaml
-        under HERMES_HOME with ``gateway.platforms.telegram.extra.rich_messages``
+        under AGENTX_HOME with ``gateway.platforms.telegram.extra.rich_messages``
         must activate the rich hint. ``load_config_readonly`` is NOT mocked here,
         so this guards against the exact path-mismatch bug this PR fixes.
         """
@@ -276,7 +276,7 @@ class TestTelegramRichMessagesHint:
         home.mkdir()
         (home / "config.yaml").write_text(config_yaml)
 
-        monkeypatch.setenv("HERMES_HOME", str(home))
+        monkeypatch.setenv("AGENTX_HOME", str(home))
         # Point config resolution at the temp file without mocking the loader:
         # mirror the pattern used in test_config_env_expansion.py.
         from hermes_cli import config as _cfgmod

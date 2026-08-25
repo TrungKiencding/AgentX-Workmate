@@ -740,7 +740,7 @@ def test_agent_disabled_toolsets_still_wins():
 @_requires_recently_shipped
 def test_agent_disabled_toolsets_json_array_string_form_still_wins():
     """#86661: the suppression list may arrive as a JSON-array string (e.g.
-    `hermes config set agent.disabled_toolsets '["memory"]'`). It must be
+    `agentx config set agent.disabled_toolsets '["memory"]'`). It must be
     parsed, not treated as one dead toolset name that filters nothing."""
     config = _saved_list_from_before()
     import json as _json
@@ -802,7 +802,7 @@ def test_platforms_whose_composite_excludes_it_are_left_narrow():
 def test_explicit_plugin_toolset_admitted_in_platform_toolsets(monkeypatch):
     """When a plugin toolset key is explicitly listed under
     ``platform_toolsets.<platform>`` (alongside a composite like
-    ``hermes-cli``), it MUST be admitted as a configurable key instead of
+    ``agentx-cli``), it MUST be admitted as a configurable key instead of
     being silently dropped by the has_explicit_config filter.
 
     Reproduces the second half of #81163: even after the eager register_tools
@@ -851,9 +851,9 @@ def test_explicit_plugin_toolset_admitted_in_platform_toolsets(monkeypatch):
     )
 
     # An explicit platform_toolsets list with a plugin key alongside the
-    # standard composite — exactly the "I want hermes-cli AND a2a in my CLI
+    # standard composite — exactly the "I want agentx-cli AND a2a in my CLI
     # session" config the issue's user was trying to write.
-    config = {"platform_toolsets": {"cli": ["hermes-cli", "dplat_client"]}}
+    config = {"platform_toolsets": {"cli": ["agentx-cli", "dplat_client"]}}
 
     enabled = _get_platform_tools(config, "cli")
 
@@ -865,7 +865,7 @@ def test_explicit_plugin_toolset_admitted_in_platform_toolsets(monkeypatch):
 
 def test_explicit_plugin_toolset_admitted_against_real_a2a_plugin(monkeypatch):
     """End-to-end Layer 2 regression: with the bundled a2a plugin enabled and
-    a real config like ``platform_toolsets.cli: [hermes-cli, a2a]``, ``a2a``
+    a real config like ``platform_toolsets.cli: [agentx-cli, a2a]``, ``a2a``
     must appear in the resolved enabled toolset set. Before the fix, the
     filter dropped all non-CONFIGURABLE keys (a2a included)."""
     # Discover real plugins so _get_plugin_toolset_keys() sees the a2a key.
@@ -877,7 +877,7 @@ def test_explicit_plugin_toolset_admitted_against_real_a2a_plugin(monkeypatch):
     if "a2a" not in plugin_ts_keys:
         pytest.skip("bundled a2a plugin not discoverable in this worktree")
 
-    config = {"platform_toolsets": {"cli": ["hermes-cli", "a2a"]}}
+    config = {"platform_toolsets": {"cli": ["agentx-cli", "a2a"]}}
     enabled = _get_platform_tools(config, "cli")
     assert "a2a" in enabled, (
         f"plugin-provided 'a2a' toolset dropped by _get_platform_tools "

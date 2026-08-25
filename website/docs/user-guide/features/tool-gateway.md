@@ -86,7 +86,7 @@ Some accounts are also entitled to a **free tool pool** — a small managed-tool
 
 ## The enablement checklist
 
-Picking a Nous model (`hermes model`) offers a per-tool checklist of gateway backends. Its behavior respects your existing setup:
+Picking a Nous model (`agentx model`) offers a per-tool checklist of gateway backends. Its behavior respects your existing setup:
 
 - Tools you've explicitly pointed at another backend (e.g. `web.backend: searxng`, `browser.cloud_provider: camofox`) are **never offered** — your selection can't be accidentally overwritten.
 - Tools configured via environment variables alone (e.g. `SEARXNG_URL`, `CAMOFOX_URL`) are offered **unchecked**, labeled to keep your own backend.

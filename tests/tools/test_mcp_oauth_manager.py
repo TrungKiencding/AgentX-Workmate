@@ -373,7 +373,7 @@ async def test_manager_provider_token_exchange_includes_dcr_secret(tmp_path, mon
     from tools.mcp_oauth_manager import MCPOAuthManager, reset_manager_for_tests
 
     reset_manager_for_tests()
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     _set_interactive_stdin(monkeypatch)
 
     mgr = MCPOAuthManager()
@@ -402,7 +402,7 @@ async def test_manager_malformed_201_token_response_does_not_expose_body(
 ):
     from mcp.client.auth.oauth2 import OAuthTokenError
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     provider = _provider_with_token_endpoint(
         tmp_path, {}, "https://idp.example.com/oauth/token", monkeypatch
     )
@@ -424,7 +424,7 @@ async def test_manager_token_read_error_does_not_expose_body(tmp_path, monkeypat
     import httpx
     from mcp.client.auth.oauth2 import OAuthTokenError
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     provider = _provider_with_token_endpoint(
         tmp_path, {}, "https://idp.example.com/oauth/token", monkeypatch
     )
@@ -448,7 +448,7 @@ async def test_manager_malformed_201_refresh_response_clears_tokens(
 ):
     import logging
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     provider = _provider_with_token_endpoint(
         tmp_path, {}, "https://idp.example.com/oauth/token", monkeypatch
     )
@@ -471,7 +471,7 @@ async def test_manager_malformed_201_refresh_response_clears_tokens(
 async def test_manager_refresh_read_error_clears_tokens(tmp_path, monkeypatch):
     import httpx
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     provider = _provider_with_token_endpoint(
         tmp_path, {}, "https://idp.example.com/oauth/token", monkeypatch
     )

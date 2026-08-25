@@ -465,7 +465,7 @@ class TestValidateCodexAutoCorrection:
 
 
 class TestValidateCodex900kVariants:
-    """`-900k` is a Hermes picker convention: valid variants come from the
+    """`-900k` is a AgentX picker convention: valid variants come from the
     catalog; ineligible aliases are hard-rejected BEFORE the hidden-slug
     soft-accept (#92797 review)."""
 

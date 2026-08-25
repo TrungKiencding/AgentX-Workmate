@@ -73,7 +73,7 @@ skills:
 
 
 class TestParseConfigStringList:
-    """#86661: `hermes config set` and JSON-mode editor saves store lists as
+    """#86661: `agentx config set` and JSON-mode editor saves store lists as
     quoted strings (e.g. '["a","b"]'). Treating such a string as a single name
     made curated disabled lists silently filter nothing."""
 
@@ -84,7 +84,7 @@ class TestParseConfigStringList:
         ]
 
     def test_python_literal_array_string_parses(self):
-        # `hermes config set` can persist single-quoted Python-literal forms.
+        # `agentx config set` can persist single-quoted Python-literal forms.
         assert parse_config_string_list("['skill-a']") == ["skill-a"]
 
     def test_scalar_string_means_one_name(self):
@@ -115,13 +115,13 @@ class TestDisabledSkillsJsonArrayString:
     def test_get_disabled_skill_names_parses_json_array_string(
         self, tmp_path, monkeypatch
     ):
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".agentx"
         hermes_home.mkdir()
         (hermes_home / "config.yaml").write_text(
             "skills:\n  disabled: '[\"skill-a\",\"skill-b\"]'\n",
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         from agent import skill_utils
 
         getattr(skill_utils, "_raw_config_cache_clear", lambda: None)()
@@ -131,13 +131,13 @@ class TestDisabledSkillsJsonArrayString:
     def test_get_disabled_skill_names_scalar_string_still_single_name(
         self, tmp_path, monkeypatch
     ):
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".agentx"
         hermes_home.mkdir()
         (hermes_home / "config.yaml").write_text(
             "skills:\n  disabled: 'hidden-skill'\n",
             encoding="utf-8",
         )
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         from agent import skill_utils
 
         getattr(skill_utils, "_raw_config_cache_clear", lambda: None)()

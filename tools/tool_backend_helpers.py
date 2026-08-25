@@ -314,7 +314,7 @@ _DEFAULT_NAME_KEYS = ("provider", "backend", "cloud_provider")
 
 
 def read_selection(section: str) -> str | None:
-    """Return the stored `hermes tools` provider string for a config section.
+    """Return the stored `agentx tools` provider string for a config section.
 
     THE single runtime read of the persisted selection. Returns:
     - ``"nous"`` — the managed Nous Tool Gateway row was selected,
@@ -405,8 +405,8 @@ def selection_exists(section: str) -> bool:
 def selection_error(section: str, selection_name: str, failure: str) -> str:
     """The uniform honest-error contract for a selected-but-broken provider."""
     return (
-        f"{section} is configured to use {selection_name} (set via hermes "
-        f"tools), but {failure}. Run 'hermes tools' to change it."
+        f"{section} is configured to use {selection_name} (set via agentx "
+        f"tools), but {failure}. Run 'agentx tools' to change it."
     )
 
 

@@ -621,7 +621,7 @@ class TestPluginEnablementGate:
         ))
         try:
             home = self._write_config(tmp_path)
-            monkeypatch.setenv("HERMES_HOME", str(home))
+            monkeypatch.setenv("AGENTX_HOME", str(home))
 
             from gateway.config import load_gateway_config, Platform
             cfg = load_gateway_config()
@@ -658,7 +658,7 @@ class TestPluginEnablementGate:
         ))
         try:
             home = self._write_config(tmp_path)
-            monkeypatch.setenv("HERMES_HOME", str(home))
+            monkeypatch.setenv("AGENTX_HOME", str(home))
 
             from gateway.config import load_gateway_config, Platform
             cfg = load_gateway_config()

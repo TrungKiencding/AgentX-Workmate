@@ -10,7 +10,7 @@ REQUIRED_PLUGIN_KEYS = {"name", "version", "description", "kind"}
 DEFAULT_PLUGINS_DIR = "plugins"
 
 SCAN_SCHEMA = {
-    "description": "Validate Hermes plugin manifests and import/register entry points.",
+    "description": "Validate AgentX plugin manifests and import/register entry points.",
     "type": "object",
     "properties": {
         "plugins_dir": {

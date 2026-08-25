@@ -2313,7 +2313,7 @@ def _get_platform_tools(
     plugin_ts_keys = _get_plugin_toolset_keys()
     platform_default_keys = {p["default_toolset"] for p in PLATFORMS.values()}
     # Plugin-provided toolsets are first-class on a platform-toolsets list —
-    # explicit config like ``[hermes-cli, a2a]`` must survive filtering just
+    # explicit config like ``[agentx-cli, a2a]`` must survive filtering just
     # like a built-in configurable toolset would. See issue #81163.
     explicit_known_keys = configurable_keys | plugin_ts_keys
 
@@ -2547,7 +2547,7 @@ def _get_platform_tools(
     # globally suppress specific toolsets (e.g. "memory") across all
     # platforms without per-platform toolset configuration.  This runs
     # last so it overrides everything above.  The value may arrive as a
-    # JSON-array string (e.g. "['memory']") from `hermes config set` or a
+    # JSON-array string (e.g. "['memory']") from `agentx config set` or a
     # JSON-mode editor save; parse it so the list is not silently dead (#86661).
     agent_cfg = config.get("agent") or {}
     disabled_toolsets = agent_cfg.get("disabled_toolsets") or []

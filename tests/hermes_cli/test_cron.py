@@ -237,7 +237,7 @@ def test_cron_create_failure_returns_nonzero(monkeypatch, capsys):
 
 
 class TestCronRunBackgroundDispatch:
-    """`hermes cron run` must not report 'failed' when the run was dispatched
+    """`agentx cron run` must not report 'failed' when the run was dispatched
     to the background delegation worker.
 
     The CLI process inherits the gateway/desktop session env, so a manual run

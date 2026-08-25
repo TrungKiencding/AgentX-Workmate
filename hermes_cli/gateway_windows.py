@@ -49,7 +49,7 @@ from hermes_cli._subprocess_compat import (
 logger = logging.getLogger(__name__)
 
 # Private launcher-to-child metadata. This is diagnostic state, not user config.
-_GATEWAY_BREAKAWAY_ENV = "_HERMES_GATEWAY_BREAKAWAY"
+_GATEWAY_BREAKAWAY_ENV = "_AGENTX_GATEWAY_BREAKAWAY"
 
 # Short timeouts: schtasks occasionally wedges and we don't want to hang forever.
 _SCHTASKS_TIMEOUT_S = 15

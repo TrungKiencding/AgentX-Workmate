@@ -1,4 +1,4 @@
-"""Fetch-failure classification for `hermes update` / `hermes update --check`.
+"""Fetch-failure classification for `agentx update` / `agentx update --check`.
 
 A GitHub-side HTTP 429 (rate limit / outage) used to be reported as the
 generic "Failed to fetch updates from origin." — or worse, matched the
@@ -15,7 +15,7 @@ RATE_LIMIT_STDERR = (
     "fatal: expected flush after ref listing"
 )
 CURL_429_STDERR = (
-    "fatal: unable to access 'https://github.com/NousResearch/hermes-agent.git/':"
+    "fatal: unable to access 'https://github.com/TrungKiencding/AgentX-Workmate.git/':"
     " The requested URL returned error: 429"
 )
 

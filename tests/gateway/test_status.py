@@ -170,7 +170,7 @@ class TestGatewayPidState:
 
 class TestGatewayRuntimeStatus:
     def test_clear_profile_platforms_preserves_primary_entries(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         (tmp_path / "gateway_state.json").write_text(
             json.dumps({
                 "platforms": {
@@ -192,7 +192,7 @@ class TestGatewayRuntimeStatus:
     def test_clear_profile_platforms_and_write_are_one_atomic_update(
         self, tmp_path, monkeypatch
     ):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         (tmp_path / "gateway_state.json").write_text(
             json.dumps({
                 "platforms": {
@@ -224,7 +224,7 @@ class TestGatewayRuntimeStatus:
         # therefore stamped with the writer's (pid, start_time) identity —
         # the same PID-reuse fingerprint the liveness checks use — so
         # ownership is exact equality, not clock heuristics.
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
 
         status.write_runtime_status(platform="telegram", platform_state="connected")
 
@@ -237,7 +237,7 @@ class TestGatewayRuntimeStatus:
     def test_clear_profile_platforms_repairs_malformed_platforms(
         self, tmp_path, monkeypatch
     ):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         (tmp_path / "gateway_state.json").write_text(
             json.dumps({"platforms": ["not", "a", "mapping"]}),
             encoding="utf-8",
@@ -590,8 +590,8 @@ class TestScopedLocks:
 
     def test_acquire_scoped_lock_stamps_profile_label(self, tmp_path, monkeypatch):
         """OOF-3: scoped locks are machine-global — record which profile owns them."""
-        monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "lead-gen-outreach"))
+        monkeypatch.setenv("AGENTX_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "profiles" / "lead-gen-outreach"))
 
         acquired, existing = status.acquire_scoped_lock(
             "telegram-bot-token", "secret", metadata={"platform": "telegram"}
@@ -606,8 +606,8 @@ class TestScopedLocks:
 
     def test_acquire_scoped_lock_omits_profile_when_not_inferable(self, tmp_path, monkeypatch):
         """No label for unrecognizable custom homes — field omitted, not null."""
-        monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "some-custom-dir"))
+        monkeypatch.setenv("AGENTX_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "some-custom-dir"))
         monkeypatch.setattr(status, "_profile_label_for_home", lambda home: None)
 
         acquired, _ = status.acquire_scoped_lock("telegram-bot-token", "secret")
@@ -634,11 +634,11 @@ class TestScopedLockOwnerLabel:
         )
 
     def test_profile_label_for_root_home_is_default(self, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", "/opt/data")
+        monkeypatch.setenv("AGENTX_HOME", "/opt/data")
         assert status._profile_label_for_home("/opt/data") == "default"
 
     def test_profile_label_for_unknown_layout_is_none(self, monkeypatch):
-        monkeypatch.delenv("HERMES_HOME", raising=False)
+        monkeypatch.delenv("AGENTX_HOME", raising=False)
         assert status._profile_label_for_home("/somewhere/else") is None
 
     def test_profile_label_rejects_invalid_directory_names(self, tmp_path):

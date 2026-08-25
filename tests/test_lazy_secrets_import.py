@@ -1,4 +1,4 @@
-"""Regression test: hermes update must not load cryptography eagerly.
+"""Regression test: agentx update must not load cryptography eagerly.
 
 The secrets_cli import in main() used to be eager, causing
 cryptography._rust.pyd to load before the update preflight. On Windows,
@@ -83,13 +83,13 @@ sys.exit(0)
         )
 
     def test_update_command_no_cryptography(self):
-        """Running hermes update should NOT load cryptography._rust."""
-        # This is the key regression: hermes update must stay clean
+        """Running agentx update should NOT load cryptography._rust."""
+        # This is the key regression: agentx update must stay clean
         code = """
 import sys
 
 # Import main and run update with --check (dry run, no actual update)
-sys.argv = ['hermes', 'update', '--check']
+sys.argv = ['agentx', 'update', '--check']
 
 import hermes_cli.main
 

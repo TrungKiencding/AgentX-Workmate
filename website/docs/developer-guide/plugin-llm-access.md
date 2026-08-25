@@ -321,7 +321,7 @@ tasks. Operator configuration in `auxiliary.<task>` overrides those
 defaults and controls the deployment choice. A plugin can only use a task
 it registered itself; unknown or foreign task names fail before provider
 invocation. `allow_task_override: true` is an explicit operator grant for
-using Hermes built-in auxiliary tasks; it does not permit another plugin's
+using AgentX built-in auxiliary tasks; it does not permit another plugin's
 tasks. Omit `task=` (or use `"auto"`) to keep the active main provider/model.
 
 ### Result attributes

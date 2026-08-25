@@ -64,7 +64,7 @@ class CustomProfile(ProviderProfile):
                 top_level["reasoning_effort"] = "none"
                 extra_body["think"] = False
             elif _effort:
-                # "ultra" is Hermes-internal ladder vocabulary — no known
+                # "ultra" is AgentX-internal ladder vocabulary — no known
                 # OpenAI-compatible backend accepts it verbatim (GLM/ARK,
                 # vLLM and SGLang all top out at "max"); cap it at the wire
                 # ceiling instead of forwarding a guaranteed 400 (#89503).

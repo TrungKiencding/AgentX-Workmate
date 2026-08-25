@@ -2,7 +2,7 @@
 name: github-issue-to-pr
 description: "Use when a user asks to implement or fix a GitHub issue and carry it through repository inspection, reproduction, tests, code changes, pull request creation, CI checks, and final PR verification."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

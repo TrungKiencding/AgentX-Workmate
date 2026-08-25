@@ -526,7 +526,7 @@ def load_hermes_dotenv(
     #    invocation that must not import optional secret-manager libraries
     #    (Bitwarden → cryptography → ``_rust.pyd``) into the process that
     #    replaces that same environment on Windows (#73381, #86735).
-    # 2. A fresh ``hermes update`` retry just completed a deferred dependency
+    # 2. A fresh ``agentx update`` retry just completed a deferred dependency
     #    install before importing this module.  Do not remap native
     #    secret-source dependencies in that same updater process or the
     #    self-lock preflight will recreate the marker and exit 2 again.

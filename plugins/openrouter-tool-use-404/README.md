@@ -15,7 +15,7 @@ provider plugins can own their provider's error quirks without patching
 Like all bundled standalone plugins, this ships opt-in:
 
 ```bash
-hermes plugins enable openrouter-tool-use-404
+agentx plugins enable openrouter-tool-use-404
 ```
 
 ## Origin

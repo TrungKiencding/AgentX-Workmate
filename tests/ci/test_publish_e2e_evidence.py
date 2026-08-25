@@ -197,7 +197,7 @@ def test_publish_skips_when_no_review_comment_exists(tmp_path, monkeypatch, caps
 
     assert _mod.publish(
         "github-token",
-        "NousResearch/hermes-agent",
+        "TrungKiencding/AgentX-Workmate",
         tmp_path,
         "83202",
         "image-token",

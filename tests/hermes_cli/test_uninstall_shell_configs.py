@@ -1,6 +1,6 @@
 """Tests for ``remove_path_from_shell_configs`` — the uninstaller's shell-rc rewrite.
 
-This rewrites files Hermes does not own (``~/.bashrc``, ``~/.zshrc``, ...) and
+This rewrites files AgentX does not own (``~/.bashrc``, ``~/.zshrc``, ...) and
 takes no backup of them, so the rewrite has to be atomic: a bare
 ``write_text()`` truncates the rc file before the new content lands, and the
 caller wraps everything in ``except Exception: log_warn(...)``, so a partial
@@ -21,7 +21,7 @@ ZSHRC = (
     "export EDITOR=vim\n"
     "alias ll='ls -la'\n"
     "\n"
-    "# Hermes Agent\n"
+    "# AgentX Workmate\n"
     'export PATH="$HOME/.local/bin:$PATH"\n'
     "\n"
     "source ~/.work-profile\n"
@@ -30,11 +30,11 @@ ZSHRC = (
 
 @pytest.fixture
 def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point both ``Path.home()`` and ``HERMES_HOME`` at a throwaway dir."""
+    """Point both ``Path.home()`` and ``AGENTX_HOME`` at a throwaway dir."""
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    monkeypatch.setenv("HERMES_HOME", str(home / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(home / ".agentx"))
     return home
 
 
@@ -47,7 +47,7 @@ class TestHappyPath:
 
         assert removed == [rc]
         text = rc.read_text(encoding="utf-8")
-        assert "# Hermes Agent" not in text
+        assert "# AgentX Workmate" not in text
         # The user's own lines are untouched.
         assert "export EDITOR=vim" in text
         assert "source ~/.work-profile" in text
@@ -75,7 +75,7 @@ class TestCrashDurability:
             raise OSError("simulated crash mid-write")
 
         # Scoped context so restoring os.fsync doesn't also undo the
-        # Path.home()/HERMES_HOME patches the fake_home fixture installed.
+        # Path.home()/AGENTX_HOME patches the fake_home fixture installed.
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(os, "fsync", boom)
             removed = uninstall.remove_path_from_shell_configs()
@@ -101,7 +101,7 @@ class TestCrashDurability:
 
         assert removed == [rc]
         assert rc.is_symlink(), "the symlink was replaced by a regular file"
-        assert "# Hermes Agent" not in real.read_text(encoding="utf-8")
+        assert "# AgentX Workmate" not in real.read_text(encoding="utf-8")
         assert "export EDITOR=vim" in real.read_text(encoding="utf-8")
 
     def test_existing_file_mode_is_preserved(self, fake_home: Path):

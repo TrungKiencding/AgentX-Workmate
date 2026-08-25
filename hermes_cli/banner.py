@@ -214,7 +214,7 @@ def _check_via_local_git(repo_dir: Path) -> Optional[int]:
         # is no local history to count commits against. Return the
         # UPDATE_AVAILABLE_NO_COUNT sentinel so the banner and CLI renderers
         # print "update available" instead of fabricating a "1 commit behind"
-        # message. The dashboard's REST /api/hermes/update/check already
+        # message. The dashboard's REST /api/agentx/update/check already
         # treats any nonzero behind as update_available=true (see
         # hermes_cli/web_server.py::check_hermes_update), and the desktop
         # store clamps behind<=0 to 0 and reads update_available separately

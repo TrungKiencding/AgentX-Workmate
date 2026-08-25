@@ -1087,7 +1087,7 @@ async def test_startup_restore_gate_releases_when_boot_path_send_hangs(
     gate. A Telegram flood-control sleep on either call queued inbound on
     every platform for the full ``retry_after``.
     """
-    monkeypatch.setenv("HERMES_STARTUP_RESTORE_DRAIN_TIMEOUT", "0.05")
+    monkeypatch.setenv("AGENTX_STARTUP_RESTORE_DRAIN_TIMEOUT", "0.05")
 
     runner, adapter = make_restart_runner()
     runner._startup_restore_in_progress = True
@@ -1144,7 +1144,7 @@ async def test_startup_restore_gate_releases_when_boot_path_send_hangs(
 @pytest.mark.asyncio
 async def test_startup_boot_sends_still_run_when_they_finish_quickly(monkeypatch):
     """The bound must not skip restart notification or redelivery on a fast path."""
-    monkeypatch.setenv("HERMES_STARTUP_RESTORE_DRAIN_TIMEOUT", "2")
+    monkeypatch.setenv("AGENTX_STARTUP_RESTORE_DRAIN_TIMEOUT", "2")
 
     runner, _adapter = make_restart_runner()
     runner._background_tasks = set()

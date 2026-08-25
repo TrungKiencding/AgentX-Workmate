@@ -553,7 +553,7 @@ def _submit_fal_video_request(endpoint: str, arguments: Dict[str, Any]):
 
 
 def _check_fal_video_available() -> bool:
-    """True if the FAL video backend selected via `hermes tools` (or, on a
+    """True if the FAL video backend selected via `agentx tools` (or, on a
     never-configured install, any FAL backend) is reachable.
 
     Never raises — a stored-but-broken selection reports False here; the

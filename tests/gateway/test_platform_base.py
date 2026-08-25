@@ -877,42 +877,42 @@ class TestDockerContainerMediaPathTranslation:
         ) == str(media.resolve())
 
     def test_cache_dir_container_path_translates_to_host_cache(self, tmp_path, monkeypatch):
-        """MEDIA:/root/.hermes/cache/images/... (the agent_visible_image path
+        """MEDIA:/root/.agentx/cache/images/... (the agent_visible_image path
         under docker) must translate to the HOST cache file, not the sandbox
         home copy."""
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".agentx"
         cache = hermes_home / "cache" / "images"
         cache.mkdir(parents=True)
         media = cache / "generated.png"
         media.write_bytes(b"\x89PNG\r\n\x1a\n")
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         monkeypatch.setenv("TERMINAL_ENV", "docker")
         monkeypatch.delenv("TERMINAL_DOCKER_VOLUMES", raising=False)
 
         assert BasePlatformAdapter.validate_media_delivery_path(
-            "/root/.hermes/cache/images/generated.png"
+            "/root/.agentx/cache/images/generated.png"
         ) == str(media.resolve())
 
     def test_container_credential_path_never_translates_through_home(self, tmp_path, monkeypatch):
-        """/root/.hermes/* outside a cache mount (the sandbox's credential
+        """/root/.agentx/* outside a cache mount (the sandbox's credential
         surface: .env, auth.json) must NOT resolve through the persistent
         home mount — those host-side copies sit outside the credential
         denylist prefixes and would otherwise deliver."""
         sandbox = tmp_path / "sandboxes"
         home = sandbox / "docker" / "default" / "home"
-        secret = home / ".hermes"
+        secret = home / ".agentx"
         secret.mkdir(parents=True)
         (secret / "auth.json").write_text('{"token": "SECRET"}')
-        hermes_home = tmp_path / ".hermes"
+        hermes_home = tmp_path / ".agentx"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
         monkeypatch.setenv("TERMINAL_ENV", "docker")
         monkeypatch.setenv("TERMINAL_CONTAINER_PERSISTENT", "true")
         monkeypatch.setenv("TERMINAL_SANDBOX_DIR", str(sandbox))
         monkeypatch.delenv("TERMINAL_DOCKER_VOLUMES", raising=False)
 
         assert BasePlatformAdapter.validate_media_delivery_path(
-            "/root/.hermes/auth.json"
+            "/root/.agentx/auth.json"
         ) is None
 
 

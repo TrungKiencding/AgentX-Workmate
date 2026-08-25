@@ -1,7 +1,7 @@
 """Compatibility helpers for Agent Plugins v1 portable directory packages.
 
 This module validates the versioned portable format locally and translates its
-supported components into records consumed by Hermes' existing skill and MCP
+supported components into records consumed by AgentX' existing skill and MCP
 runtimes. It deliberately performs no schema fetching and imports no plugin
 Python code.
 """

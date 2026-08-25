@@ -802,7 +802,7 @@ class TestTerminalOutputRedaction:
         assert _command_reads_env_file("cat -n .env")
         assert _command_reads_env_file("cat -A .env")
         # With paths
-        assert _command_reads_env_file("cat ~/.hermes/.env")
+        assert _command_reads_env_file("cat ~/.agentx/.env")
         assert _command_reads_env_file("cat /home/user/project/.env")
         assert _command_reads_env_file("cat ./config/.env.local")
         # In a pipeline / sequence

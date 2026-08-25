@@ -1,21 +1,21 @@
 /**
- * Hermes Bot Mode — a "one chat per agent" roster for the Hermes desktop.
+ * AgentX Bot Mode — a "one chat per agent" roster for the AgentX desktop.
  *
- * Left pane "Bots": one row per Hermes profile (a bot = an agent profile) with
+ * Left pane "Bots": one row per AgentX profile (a bot = an agent profile) with
  * a customizable avatar (shape + color + eyes, image, or pet). Click opens that
  * bot's chat; right-click → Edit Profile (avatar, title, description).
  * "New Agent" creates a profile — Name / Title / Description with an
  * "Advanced" disclosure for full profile config.
  *
- * Right tile "Routines": scheduled tasks (Hermes cron jobs) scoped to the
+ * Right tile "Routines": scheduled tasks (AgentX cron jobs) scoped to the
  * bot you're currently chatting with — follows the live gateway profile.
  *
  * Bots message each other straight into each bot's ONE canonical "Bot
  * Chat" — @-mentions deliver over gateway RPCs (no CLI relay), and
- * bot-initiated sends use `hermes -p <bot> chat --in ~ -c "Bot Chat"`.
+ * bot-initiated sends use `agentx -p <bot> chat --in ~ -c "Bot Chat"`.
  */
 
-import * as sdk from '@hermes/plugin-sdk'
+import * as sdk from '@agentx/plugin-sdk'
 import {
   atom,
   Button,
@@ -56,7 +56,7 @@ import {
   Tip,
   useQuery,
   useValue
-} from '@hermes/plugin-sdk'
+} from '@agentx/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -64,7 +64,7 @@ const { McpTab, ToolsetConfigPanel } = sdk
 // Keep optional exports feature-detected; test harnesses may strip the SDK namespace.
 const SkillsView = typeof sdk === 'undefined' ? undefined : sdk.SkillsView
 
-const ID = 'hermes-bots'
+const ID = 'agentx-bots'
 const ROSTER_KEY = [ID, 'roster']
 const ROUTINES_KEY = [ID, 'routines']
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
@@ -212,7 +212,7 @@ async function saveBotMeta(name, patch) {
   let serverRequest = null
   try {
     const { image, pet, ...rest } = next[name] || {}
-    serverRequest = Promise.resolve(host.request('profiles.configure', { name, ui_meta: { 'hermes-bots': rest } }))
+    serverRequest = Promise.resolve(host.request('profiles.configure', { name, ui_meta: { 'agentx-bots': rest } }))
   } catch {
     /* older/unavailable gateway — the local fallback remains saved */
   }
@@ -306,7 +306,7 @@ function pushLocalAvatars(roster) {
       avatarPushInflight.add(bot.name)
       host
         .request('profiles.set_asset', { name: bot.name, asset: 'avatar', data: image })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['hermes-bots', 'roster'] }))
+        .then(() => queryClient.invalidateQueries({ queryKey: ['agentx-bots', 'roster'] }))
         .catch(() => avatarPushInflight.delete(bot.name))
       continue
     }
@@ -326,7 +326,7 @@ function pushLocalAvatars(roster) {
         png
           ? host
               .request('profiles.set_asset', { name: bot.name, asset: 'avatar', data: png })
-              .then(() => queryClient.invalidateQueries({ queryKey: ['hermes-bots', 'roster'] }))
+              .then(() => queryClient.invalidateQueries({ queryKey: ['agentx-bots', 'roster'] }))
           : Promise.reject(new Error('rasterize failed'))
       )
       .catch(() => avatarPushInflight.delete(bot.name))
@@ -434,7 +434,7 @@ function mergeServerMeta(roster) {
   const next = { ...local }
 
   for (const bot of roster) {
-    const server = bot.ui_meta?.['hermes-bots']
+    const server = bot.ui_meta?.['agentx-bots']
     if (server && typeof server === 'object') {
       const mine = next[bot.name] || {}
       const merged = { ...mine, ...server }
@@ -516,7 +516,7 @@ async function duplicateBot(bot, roster) {
   return name
 }
 
-/** Permanently delete a bot's Hermes profile, then remove plugin-local state
+/** Permanently delete a bot's AgentX profile, then remove plugin-local state
  * that would otherwise leave stale appearance/unread data behind.
  *
  * Prefer the SDK's `host.deleteProfile` when this Desktop build ships it: it
@@ -526,7 +526,7 @@ async function duplicateBot(bot, roster) {
  * roster's hover pre-warm just woke (right-click hovers the row!) holds the
  * profile dir open — the CLI's rmtree races the live backend and the
  * renderer's socket reconnect respawns it mid-delete, resurrecting the
- * directory (hermes-agent#52279). That is the "can't delete a bot" error. */
+ * directory (agentx-agent#52279). That is the "can't delete a bot" error. */
 async function deleteBot(bot) {
   if (typeof host.deleteProfile === 'function') {
     await host.deleteProfile(bot.name)
@@ -584,15 +584,15 @@ async function deleteBot(bot) {
 // the root's overflow:hidden clips it, and NOTHING scrolls (#88). Capping
 // the viewport itself (inheriting the root's max-height) makes it the real
 // scroll container; lists shorter than the cap still shrink to fit.
-if (typeof document !== 'undefined' && !document.getElementById('hermes-bots-roster-css')) {
+if (typeof document !== 'undefined' && !document.getElementById('agentx-bots-roster-css')) {
   const style = document.createElement('style')
-  style.id = 'hermes-bots-roster-css'
+  style.id = 'agentx-bots-roster-css'
   style.textContent =
-    '.hermes-bots-roster [data-radix-scroll-area-viewport] > div {' +
+    '.agentx-bots-roster [data-radix-scroll-area-viewport] > div {' +
     ' display: block !important; width: 100%; min-width: 0; }' +
-    '.hermes-scroll-cap > [data-radix-scroll-area-viewport] { max-height: inherit; }' +
-    '@keyframes hermes-bots-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }' +
-    '.hermes-bots-pulse { animation: hermes-bots-pulse 1.2s ease-in-out infinite; }'
+    '.agentx-scroll-cap > [data-radix-scroll-area-viewport] { max-height: inherit; }' +
+    '@keyframes agentx-bots-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }' +
+    '.agentx-bots-pulse { animation: agentx-bots-pulse 1.2s ease-in-out infinite; }'
   document.head.appendChild(style)
 }
 
@@ -1207,7 +1207,7 @@ function BotFace({ shape, color, image, size = 36, name = 'agent', mood = 'idle'
 
 // -- inline MCP setup (per-profile), driven by the mcp.servers.* gateway RPCs --
 // Feature-detected: if the gateway predates those RPCs the setup button hides
-// and the row falls back to the "run hermes mcp / Settings" hint. profile is
+// and the row falls back to the "run agentx mcp / Settings" hint. profile is
 // the target bot's profile name (its config is what we write).
 
 async function mcpRpc(method, params) {
@@ -1367,8 +1367,8 @@ function McpSetupButton({ profile, entry, onDone, ensureProfile }) {
     try {
       if (host.openExternal) {
         host.openExternal(authUrl)
-      } else if (typeof window !== 'undefined' && window.hermesDesktop && window.hermesDesktop.openExternal) {
-        window.hermesDesktop.openExternal(authUrl)
+      } else if (typeof window !== 'undefined' && window.agentxDesktop && window.agentxDesktop.openExternal) {
+        window.agentxDesktop.openExternal(authUrl)
       } else {
         window.open(authUrl, '_blank')
       }
@@ -1757,7 +1757,7 @@ function AvatarPicker({ shape, color, image, onShape, onColor, onImage, generate
               className: 'px-2 py-3 text-center text-xs leading-5 text-(--ui-text-tertiary)',
               children:
                 imagen === false
-                  ? 'No image model available. If you just enabled one (or updated Hermes), restart the gateway: Ctrl+K → "Restart gateway".'
+                  ? 'No image model available. If you just enabled one (or updated AgentX), restart the gateway: Ctrl+K → "Restart gateway".'
                   : 'Checking image backend…'
             })
         : null,
@@ -1890,7 +1890,7 @@ function PetTab({ image, onImage }) {
   if (!pets.length) {
     return jsx('div', {
       className: 'px-2 py-3 text-center text-xs text-(--ui-text-tertiary)',
-      children: 'No pets in the petdex gallery. Run `hermes pets` to explore.'
+      children: 'No pets in the petdex gallery. Run `agentx pets` to explore.'
     })
   }
 
@@ -2007,7 +2007,7 @@ function PetTab({ image, onImage }) {
 // ── data ─────────────────────────────────────────────────────────────────────
 
 /** True once profiles.list reports the backend injects the bot-to-bot
- *  protocol into the system prompt itself (hermes-agent bot_mode_probe).
+ *  protocol into the system prompt itself (agentx-agent bot_mode_probe).
  *  Gates every SOUL.md protocol append below. */
 let serverInjectsProtocol = false
 
@@ -2032,10 +2032,10 @@ function useRoster() {
 }
 
 /** The @handle users tag a bot with. The primary profile's callable alias
- *  is 'hermes' — the mention middleware resolves it back to 'default' — so
+ *  is 'agentx' — the mention middleware resolves it back to 'default' — so
  *  the word 'default' never surfaces in the UI. */
 function botHandle(name) {
-  return (name || '').trim().toLowerCase() === 'default' ? 'hermes' : name
+  return (name || '').trim().toLowerCase() === 'default' ? 'agentx' : name
 }
 
 function showsHandle(name, meta) {
@@ -2169,10 +2169,10 @@ function displayName(bot, meta) {
   }
 
   // The primary profile is literally named "default" — as a bot identity
-  // that reads like nobody bothered. Present it as Hermes (the agent it is)
+  // that reads like nobody bothered. Present it as AgentX (the agent it is)
   // unless the user gives it a real title.
   if ((bot.name || '').trim().toLowerCase() === 'default' && !bot.title) {
-    return 'Hermes'
+    return 'AgentX'
   }
 
   const raw = (bot.title || bot.name || '').replace(/[-_]+/g, ' ').trim()
@@ -2264,7 +2264,7 @@ function knownGroups(metaByName) {
 // actually speaks is its own turn's choice — replying with exactly "(pass)"
 // (or nothing, or failing) is silence. Hard caps end every turn; a round in
 // which everyone passed means the conversation settled. Each member runs its
-// turn in its OWN persistent per-group Hermes session and is fed only the
+// turn in its OWN persistent per-group AgentX session and is fed only the
 // room messages that are NEW since it last saw the room.
 
 const GROUP_CHAT_MAX_ROUNDS = 3
@@ -2742,7 +2742,7 @@ function messagingProtocolSection(name, roster) {
     'into it, like a DM. To message a teammate, run:',
     '',
     '```',
-    'hermes -p <agent-name> chat --in ~ -c "Bot Chat" -Q -q "Message from \uD83E\uDD16 ' + handle + ' (@' + handle + '): your message"',
+    'agentx -p <agent-name> chat --in ~ -c "Bot Chat" -Q -q "Message from \uD83E\uDD16 ' + handle + ' (@' + handle + '): your message"',
     '',
     'Run the send with background=true and notify_on_complete=true on the',
     'terminal tool, then finish your turn — the reply arrives later as a',
@@ -2756,7 +2756,7 @@ function messagingProtocolSection(name, roster) {
     'Their reply prints to stdout — relay the relevant part back to the',
     'user, and say which agent it came from. In the rare case the target',
     'has no "Bot Chat" yet, send once WITHOUT -c, then',
-    '`hermes -p <agent-name> sessions rename <session-id> "Bot Chat"`.)',
+    '`agentx -p <agent-name> sessions rename <session-id> "Bot Chat"`.)',
     '',
     'If a message in YOUR chat starts with "Message from \uD83E\uDD16 <name>", it is',
     'a teammate messaging you, not the user. Answer it directly — your reply',
@@ -2767,7 +2767,7 @@ function messagingProtocolSection(name, roster) {
     '"tell <name> ...", that is a handoff: message that agent, wait for the',
     'reply, and report back.',
     '',
-    'The roster grows over time — run `hermes profile list` for the LIVE',
+    'The roster grows over time — run `agentx profile list` for the LIVE',
     'teammate list before a handoff. Teammates when you were created:',
     ...(teammates.length
       ? teammates.map(b => `- \`${b.name}\`${b.description ? ` — ${b.description}` : ''}`)
@@ -3042,7 +3042,7 @@ function BotRow({ bot, onDelete, onEdit, onGroup }) {
                 : null,
               activeNow
                 ? jsx('span', {
-                    className: 'hermes-bots-pulse size-1.5 shrink-0 rounded-full bg-(--ui-accent,#4f9cf9)',
+                    className: 'agentx-bots-pulse size-1.5 shrink-0 rounded-full bg-(--ui-accent,#4f9cf9)',
                     title: 'Active in the last 90s'
                   })
                 : null,
@@ -3389,7 +3389,7 @@ function AdvancedProfileConfig({ bot, state, setState }) {
   if (unsupported) {
     return jsx('div', {
       className: 'px-2 py-3 text-center text-xs text-(--ui-text-tertiary)',
-      children: 'Full configuration needs a newer gateway (restart it after updating Hermes).'
+      children: 'Full configuration needs a newer gateway (restart it after updating AgentX).'
     })
   }
 
@@ -3431,7 +3431,7 @@ function AdvancedProfileConfig({ bot, state, setState }) {
   const enabledMcp = mcpList.filter(m => m.enabled).length
 
   // Newer desktop builds export the WHOLE core Capabilities surface
-  // (hermes-agent#87317): Skills (installed list + one-click hub installs +
+  // (agentx-agent#87317): Skills (installed list + one-click hub installs +
   // full-skill detail), Tools (per-toolset config), and MCP — pinned to this
   // bot via fixedProfile, tab state kept out of the page router via embedded.
   // Render THAT instead of the checkbox stand-ins; writes go straight to the
@@ -3484,7 +3484,7 @@ function AdvancedProfileConfig({ bot, state, setState }) {
               onChange: event => setSkillFilter(event.target.value)
             }),
             jsx(ScrollArea, {
-              className: 'hermes-scroll-cap',
+              className: 'agentx-scroll-cap',
               style: { maxHeight: 180 },
               children: jsx(CheckList, { items: visibleSkills, onToggle: toggleSkill, columns: 2 })
             }),
@@ -3505,7 +3505,7 @@ function AdvancedProfileConfig({ bot, state, setState }) {
         jsx('div', {
           className: 'rounded-md border border-(--ui-stroke-secondary) p-2',
           children: jsx(ScrollArea, {
-            className: 'hermes-scroll-cap',
+            className: 'agentx-scroll-cap',
             style: { maxHeight: 320 },
             children: jsx('div', {
               className: 'grid gap-1.5',
@@ -3562,7 +3562,7 @@ function AdvancedProfileConfig({ bot, state, setState }) {
                   children: 'No MCP servers configured or in the catalog.'
                 })
               : jsx(ScrollArea, {
-                  className: 'hermes-scroll-cap',
+                  className: 'agentx-scroll-cap',
                   style: { maxHeight: 180 },
                   children: jsx('div', {
                     className: 'grid gap-1 p-2',
@@ -3625,14 +3625,16 @@ function AdvancedProfileConfig({ bot, state, setState }) {
 }
 
 // ── skills hub section: the REAL hub page (docs) embedded as a picker ──────
-// https://hermes-agent.nousresearch.com/docs/skills?embed=picker hides the
-// docs chrome and adds "+ Add to this Agent" per card, posting
-// {type: 'hermes-skill-pick', ...} to us (hermes-agent#86243). We validate
+// A docs site at `${HUB_ORIGIN}/docs/skills?embed=picker` hides the docs
+// chrome and adds "+ Add to this Agent" per card, posting
+// {type: 'agentx-skill-pick', ...} to us (agentx-agent#86243). We validate
 // the origin, install via skills.manage, and bubble onInstalled so the
 // checklist above gains the row. Search-box fallback kept for offline use.
 
-const HUB_ORIGIN = 'https://hermes-agent.nousresearch.com'
-const HUB_PICKER_URL = HUB_ORIGIN + '/docs/skills?embed=picker'
+// Empty until AgentX Workmate registers a docs host; mirrors DOCS_URL in
+// apps/shared/src/branding.ts, where '' means "skip the feature".
+const HUB_ORIGIN = ''
+const HUB_PICKER_URL = HUB_ORIGIN ? HUB_ORIGIN + '/docs/skills?embed=picker' : ''
 
 function HubSkillsSection({ forProfile, onInstalled }) {
   const [query, setQuery] = useState('')
@@ -3654,7 +3656,7 @@ function HubSkillsSection({ forProfile, onInstalled }) {
     }
 
     const onMessage = event => {
-      if (event.origin !== HUB_ORIGIN) {
+      if (!HUB_ORIGIN || event.origin !== HUB_ORIGIN) {
         return
       }
 
@@ -3664,7 +3666,7 @@ function HubSkillsSection({ forProfile, onInstalled }) {
 
       const data = event.data
 
-      if (!data || data.type !== 'hermes-skill-pick' || !data.name) {
+      if (!data || data.type !== 'agentx-skill-pick' || !data.name) {
         return
       }
 
@@ -3749,15 +3751,17 @@ function HubSkillsSection({ forProfile, onInstalled }) {
             className: 'text-[0.7rem] font-medium text-(--ui-text-secondary)',
             children: 'Skills Hub'
           }),
-          jsx('button', {
-            type: 'button',
-            className: 'text-[0.65rem] text-(--ui-text-quaternary) hover:text-(--ui-text-secondary)',
-            onClick: () => setBrowseHub(v => !v),
-            children: browseHub ? 'hide the hub browser' : 'browse the full hub ▾'
-          })
+          HUB_ORIGIN
+            ? jsx('button', {
+                type: 'button',
+                className: 'text-[0.65rem] text-(--ui-text-quaternary) hover:text-(--ui-text-secondary)',
+                onClick: () => setBrowseHub(v => !v),
+                children: browseHub ? 'hide the hub browser' : 'browse the full hub ▾'
+              })
+            : null
         ]
       }),
-      browseHub
+      browseHub && HUB_ORIGIN
         ? jsxs('div', {
             className: 'grid gap-1',
             children: [
@@ -3781,7 +3785,7 @@ function HubSkillsSection({ forProfile, onInstalled }) {
                 },
                 children: jsx('iframe', {
                   src: HUB_PICKER_URL,
-                  title: 'Hermes Skills Hub',
+                  title: 'AgentX Skills Hub',
                   ref: frameRef,
                   style: {
                     width: '133.34%',
@@ -3842,7 +3846,7 @@ function HubSkillsSection({ forProfile, onInstalled }) {
               children: 'No hub skills matched.'
             })
           : jsx(ScrollArea, {
-              className: 'hermes-scroll-cap',
+              className: 'agentx-scroll-cap',
               style: { maxHeight: 150 },
               children: jsx('div', {
                 className: 'grid gap-1',
@@ -4653,7 +4657,7 @@ function CreateAgentDialog({ open, onClose, roster }) {
                         ? jsx('div', {
                             className: 'px-2 py-3 text-center text-xs text-(--ui-text-tertiary)',
                             children:
-                              'Capability catalog needs a newer gateway (restart it after updating Hermes).'
+                              'Capability catalog needs a newer gateway (restart it after updating AgentX).'
                           })
                         : !caps
                           ? jsx('div', {
@@ -4679,7 +4683,7 @@ function CreateAgentDialog({ open, onClose, roster }) {
                                       onChange: event => setCapFilter(event.target.value)
                                     }),
                                     jsx(ScrollArea, {
-                                      className: 'hermes-scroll-cap',
+                                      className: 'agentx-scroll-cap',
                                       style: { maxHeight: 200 },
                                       children: jsx(CheckList, {
                                         items: capFilter.trim()
@@ -4711,7 +4715,7 @@ function CreateAgentDialog({ open, onClose, roster }) {
                                   className: 'grid gap-1.5',
                                   children: [
                                     jsx(ScrollArea, {
-                                      className: 'hermes-scroll-cap',
+                                      className: 'agentx-scroll-cap',
                                       style: { maxHeight: 200 },
                                       children: jsx(CheckList, {
                                         items: caps.toolsets,
@@ -4734,7 +4738,7 @@ function CreateAgentDialog({ open, onClose, roster }) {
                                     className: 'grid gap-1.5',
                                     children: [
                                       jsx(ScrollArea, {
-                                        className: 'hermes-scroll-cap',
+                                        className: 'agentx-scroll-cap',
                                         style: { maxHeight: 200 },
                                         children: jsx('div', {
                                           className: 'grid gap-1',
@@ -4850,7 +4854,7 @@ function CreateAgentDialog({ open, onClose, roster }) {
 //
 // Jobs are namespaced "[bot:<name>] <routine>". A job running in the active
 // bot profile uses the plain instruction; a different profile keeps the
-// hermes -p <bot> chat delegation wrapper so the run reaches that bot's
+// agentx -p <bot> chat delegation wrapper so the run reaches that bot's
 // history. The tile follows the bot you're chatting with (gateway profile).
 const BOT_TAG_RE = /^\[bot:([a-z0-9][a-z0-9_-]*)\]\s*/i
 const SAFE_ROUTINE_MARKER = '[bot-mode:routine:v2] '
@@ -4973,7 +4977,7 @@ function routinePrompt(bot, title, instruction, activeProfile) {
   return (
     `${SAFE_ROUTINE_MARKER}You are running the scheduled routine "${title}" for agent '${bot}'. ` +
     `Execute it AS that agent so the run lands in its own history: run this in the terminal and relay the output:\n\n` +
-    `hermes -p ${shellQuote(bot)} chat -c ${shellQuote(`Routine: ${title}`)} -q ${shellQuote(`[Scheduled routine] ${instruction}`)}\n\n` +
+    `agentx -p ${shellQuote(bot)} chat -c ${shellQuote(`Routine: ${title}`)} -q ${shellQuote(`[Scheduled routine] ${instruction}`)}\n\n` +
     `If the command fails, report the error instead.`
   )
 }
@@ -5108,7 +5112,7 @@ function RoutineRow({ job, profile }) {
 
 // Structured schedule picker: frequency first, then only the detail that
 // frequency needs (time of day, weekday, day of month, interval). Emits a
-// Hermes-native schedule string; Advanced exposes it raw.
+// AgentX-native schedule string; Advanced exposes it raw.
 const FREQUENCIES = [
   { id: 'once', label: 'Once, in\u2026' },
   { id: 'hourly', label: 'Every hour' },
@@ -5142,7 +5146,7 @@ const TIMES = (() => {
   return out
 })()
 
-/** Compose the Hermes schedule string from picker state. */
+/** Compose the AgentX schedule string from picker state. */
 function composeSchedule(state) {
   const [h, m] = (state.time || '9:0').split(':').map(Number)
 
@@ -5628,7 +5632,7 @@ async function openProfileSession(botName, storedId, gatewayGeneration) {
   const id = String(storedId || '')
   if (!NAME_RE.test(profile) || !id || gatewayGeneration !== $sessionsGatewayGeneration.get()) return
   if (typeof host.openSession !== 'function') {
-    throw new Error('This Hermes Desktop version cannot open stored sessions')
+    throw new Error('This AgentX Workmate Desktop version cannot open stored sessions')
   }
   await host.openSession(id, { profile })
   if (gatewayGeneration !== $sessionsGatewayGeneration.get()) return
@@ -6032,7 +6036,7 @@ function BotsPane() {
   // freshly created bot tops the list until another bot gets a message.
   // No special slot for the primary bot — it competes on recency too.
   const activityOf = bot => {
-    const created = allMeta[bot.name]?.created || bot.ui_meta?.['hermes-bots']?.created || 0
+    const created = allMeta[bot.name]?.created || bot.ui_meta?.['agentx-bots']?.created || 0
     const lastMsg = (bot.last_session?.last_active || 0) * 1000
 
     return Math.max(created, lastMsg)
@@ -6183,7 +6187,7 @@ function BotsPane() {
               children: [
                 jsx('div', {
                   children: gatewayUp
-                    ? `Roster unavailable: ${error instanceof Error ? error.message : 'gateway error'}. If your gateway predates profiles.list, update Hermes and restart the gateway.`
+                    ? `Roster unavailable: ${error instanceof Error ? error.message : 'gateway error'}. If your gateway predates profiles.list, update AgentX and restart the gateway.`
                     : 'Waiting for the gateway connection… (remote gateways can take a few seconds; retries automatically)'
                 }),
                 jsx(Button, {
@@ -6210,7 +6214,7 @@ function BotsPane() {
                   children: `No bots match “${query.trim()}”`
                 })
               : jsx(ScrollArea, {
-                  className: 'hermes-bots-roster min-h-0 flex-1',
+                  className: 'agentx-bots-roster min-h-0 flex-1',
                   children: jsx('div', {
                     className: 'grid w-full min-w-0 gap-0.5 px-1.5 pb-2',
                     children: groupRoster(filteredRoster, allMeta).flatMap(section => [
@@ -6288,7 +6292,7 @@ function BotsPane() {
               children: [
                 'This will permanently delete the bot ',
                 jsx('span', { className: 'font-medium text-foreground', children: deleting.name }),
-                ' and its associated Hermes profile at ',
+                ' and its associated AgentX profile at ',
                 jsx('span', { className: 'font-mono text-xs', children: deleting.path }),
                 '. This cannot be undone.'
               ]
@@ -6326,10 +6330,10 @@ export default {
 
     // Keyframes for the pet bob — injected because plugin classes aren't in
     // the app's precompiled CSS. Idempotent across hot reloads.
-    if (!document.getElementById('hermes-bots-keyframes')) {
+    if (!document.getElementById('agentx-bots-keyframes')) {
       const style = document.createElement('style')
-      style.id = 'hermes-bots-keyframes'
-      style.textContent = '@keyframes hermes-bots-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }'
+      style.id = 'agentx-bots-keyframes'
+      style.textContent = '@keyframes agentx-bots-bob { from { transform: translateY(0); } to { transform: translateY(-3px); } }'
       document.head.appendChild(style)
     }
 
@@ -6515,7 +6519,7 @@ export default {
           for (const match of prose.matchAll(/(^|\s)@([a-z0-9][a-z0-9_-]*)/gi)) {
             let name = match[2].toLowerCase()
 
-            if (name === 'hermes' && !names.includes('hermes') && names.includes('default')) {
+            if (name === 'agentx' && !names.includes('agentx') && names.includes('default')) {
               name = 'default'
             }
 
@@ -6542,8 +6546,8 @@ export default {
           const note =
             '\n\n[@mention handoff — for each mentioned agent (' + mentioned.map(botHandle).join(', ') + '): ' +
             'COMPOSE a message from you (' + senderName + ') to that agent conveying what the user wants — do not forward this text verbatim (avoid double quotes in your composed message). Send it with exactly one terminal call, run with background=true AND notify_on_complete=true (the recipient may take minutes; the user must not be blocked):\n' +
-            mentioned.map(n => '`hermes -p ' + shellQuote(n) + ' chat --in ~ -c "Bot Chat" -Q -q "Message from \uD83E\uDD16 ' + shellDoubleQuote(senderName) + ' (@' + shellDoubleQuote(botHandle(active)) + '): <your composed message>"`').join('\n') +
-            '\nAfter dispatching, tell the user the message was sent and END YOUR TURN — do not wait or poll; when the background process completes, its notification carries the reply — relay it then, attributed to that agent. If it fails with "No session found matching \'Bot Chat\'", send once without the -c flag, then run `hermes -p <agent> sessions rename <session_id from the output> "Bot Chat"`. ' +
+            mentioned.map(n => '`agentx -p ' + shellQuote(n) + ' chat --in ~ -c "Bot Chat" -Q -q "Message from \uD83E\uDD16 ' + shellDoubleQuote(senderName) + ' (@' + shellDoubleQuote(botHandle(active)) + '): <your composed message>"`').join('\n') +
+            '\nAfter dispatching, tell the user the message was sent and END YOUR TURN — do not wait or poll; when the background process completes, its notification carries the reply — relay it then, attributed to that agent. If it fails with "No session found matching \'Bot Chat\'", send once without the -c flag, then run `agentx -p <agent> sessions rename <session_id from the output> "Bot Chat"`. ' +
             'Relay the reply back to the user, attributed to that agent.]'
 
           return { ...draft, text: text + note }

@@ -225,7 +225,7 @@ def test_moa_generic_client_rebuild_preserves_virtual_facade(monkeypatch, tmp_pa
     from agent.chat_completion_helpers import _dispatch_nonstreaming_api_request
     from agent.moa_loop import MoAClient
 
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".agentx"
     home.mkdir()
     (home / "config.yaml").write_text(
         """
@@ -242,7 +242,7 @@ moa:
 """.strip(),
         encoding="utf-8",
     )
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
 
     agent = AIAgent(
         api_key="moa-virtual-provider",

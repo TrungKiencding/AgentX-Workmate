@@ -119,7 +119,7 @@ def test_list_authenticated_providers_includes_custom_providers(monkeypatch):
 def test_providers_singular_model_does_not_suppress_ollama_native_discovery(monkeypatch):
     """A saved selection in ``providers:`` is not an explicit catalog."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     monkeypatch.setattr(
         "hermes_cli.models.fetch_ollama_local_models",
         lambda *a, **k: ["qwen3:latest", "llama3.2:latest"],
@@ -143,7 +143,7 @@ def test_providers_singular_model_does_not_suppress_ollama_native_discovery(monk
 
 def test_list_authenticated_providers_can_skip_custom_provider_live_probe(monkeypatch):
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     fetch = lambda *a, **k: (_ for _ in ()).throw(AssertionError("unexpected probe"))
     monkeypatch.setattr("hermes_cli.models.fetch_api_models", fetch)
 
@@ -468,7 +468,7 @@ def test_list_groups_same_name_custom_providers_into_one_row(monkeypatch):
     """Multiple custom_providers entries sharing a name should produce one row
     with all models collected, not N duplicate rows."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     monkeypatch.setattr("hermes_cli.models.fetch_api_models", lambda *a, **k: [])
 
     providers = list_authenticated_providers(
@@ -500,7 +500,7 @@ def test_list_deduplicates_same_model_in_group(monkeypatch):
     """Duplicate model entries under the same provider name should not produce
     duplicate entries in the models list."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     monkeypatch.setattr("hermes_cli.models.fetch_api_models", lambda *a, **k: [])
 
     providers = list_authenticated_providers(
@@ -524,11 +524,11 @@ def test_custom_provider_no_key_singular_model_still_probes_live_models(monkeypa
     """A singular ``model:`` is the active selection, not an explicit catalog.
 
     No-key local OpenAI-compatible endpoints such as llama.cpp should still be
-    probed so /model matches the terminal ``hermes model`` flow. Ollama-native
+    probed so /model matches the terminal ``agentx model`` flow. Ollama-native
     discovery is covered separately with a fake ``/api/tags`` server.
     """
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     calls = []
 
@@ -568,7 +568,7 @@ def test_custom_provider_no_key_singular_model_still_probes_live_models(monkeypa
 def test_custom_provider_model_metadata_dict_still_probes(monkeypatch):
     """Dict-shaped ``models:`` is metadata, not an explicit allowlist."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     calls = []
 
     def fetch(*args, **kwargs):
@@ -603,7 +603,7 @@ def test_custom_provider_model_metadata_dict_still_probes(monkeypatch):
 def test_custom_provider_group_explicit_duplicate_skips_probe(monkeypatch):
     """A later grouped entry can explicitly narrow to an existing model."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     calls = []
 
     def fetch(*args, **kwargs):
@@ -637,7 +637,7 @@ def test_custom_provider_group_explicit_duplicate_skips_probe(monkeypatch):
 def test_custom_provider_current_only_probe_respects_explicit_catalog(monkeypatch):
     """Normal GUI opens probe only the active singular-only provider."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     calls = []
 
     def fetch(api_key, base_url, **kwargs):
@@ -688,7 +688,7 @@ def test_custom_provider_current_only_probe_respects_explicit_catalog(monkeypatc
 def test_custom_provider_current_explicit_catalog_skips_probe(monkeypatch):
     """Current-only GUI probing must still honor an explicit catalog."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     calls = []
 
     def fetch(*args, **kwargs):
@@ -722,7 +722,7 @@ def test_custom_provider_current_explicit_catalog_skips_probe(monkeypatch):
 def test_custom_provider_empty_explicit_list_allows_probe(monkeypatch):
     """An empty ``models:`` declaration is not an explicit catalog."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     calls = []
 
     def fetch(api_key, base_url, **kwargs):
@@ -759,13 +759,13 @@ def test_list_enumerates_dict_format_models_alongside_default(monkeypatch):
     """custom_providers entry with dict-format ``models:`` plus singular
     ``model:`` should surface the default and every dict key.
 
-    Regression: Hermes's own writer stores configured models as a dict
+    Regression: AgentX's own writer stores configured models as a dict
     keyed by model id, but the /model picker previously only honored the
     singular ``model:`` field, so multi-model custom providers appeared
     to have only the active model.
     """
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     providers = list_authenticated_providers(
         current_provider="openai-codex",
@@ -795,7 +795,7 @@ def test_list_enumerates_dict_format_models_without_singular_model(monkeypatch):
     """Dict-format ``models:`` with no singular ``model:`` should still
     enumerate every dict key (previously the picker reported 0 models)."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     providers = list_authenticated_providers(
         current_provider="openai-codex",
@@ -828,7 +828,7 @@ def test_list_dedupes_dict_model_matching_singular_default(monkeypatch):
     """When the singular ``model:`` is also a key in the ``models:`` dict,
     it must appear exactly once in the picker."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     providers = list_authenticated_providers(
         current_provider="openai-codex",
@@ -864,7 +864,7 @@ def test_list_authenticated_providers_groups_same_endpoint(monkeypatch):
     """Multiple custom_providers entries sharing a base_url+api_key must be
     returned as a single picker row with all their models merged."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     providers = list_authenticated_providers(
         current_provider="custom",
@@ -900,7 +900,7 @@ def test_list_authenticated_providers_current_endpoint_uses_current_slug(monkeyp
     credential pipeline — provided current_provider is a real slug, not
     the corrupt bare "custom" (see #17478)."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     providers = list_authenticated_providers(
         current_provider="custom:ollama",
@@ -1485,14 +1485,14 @@ def test_save_discovered_models_preserves_dict_form(monkeypatch):
 
 
 def test_model_flow_named_custom_persists_discovered_models(monkeypatch):
-    """The ``hermes model`` named-custom-provider flow persists the discovered
+    """The ``agentx model`` named-custom-provider flow persists the discovered
     catalog back to the entry's ``models:`` list.
 
     No-probe surfaces (dashboard, desktop, ACP) call
     ``build_models_payload(..., probe_custom_providers=False)`` and only show
     the configured ``models:`` list. The CLI flow probes and shows the full
     catalog but (before this fix) never saved it, so a provider added via
-    ``hermes model`` collapsed to the single ``model:`` default everywhere but
+    ``agentx model`` collapsed to the single ``model:`` default everywhere but
     the CLI. It must persist discovered models the same way the picker path in
     ``_save_discovered_models_to_config`` does.
     """
@@ -1738,7 +1738,7 @@ def _no_probe_local_row(monkeypatch, *, custom_providers=None, user_providers=No
     """Run the GUI picker path (no live probing) and return the local row
     plus every base_url a live fetch was attempted against."""
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     fetched = []
 
     def fetch(_api_key, base_url, **_kwargs):
@@ -1812,7 +1812,7 @@ def test_no_probe_open_serves_cached_catalog_for_bare_custom_endpoint(monkeypatc
     _seed_custom_model_cache(monkeypatch, _LOCAL_CATALOG)
 
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
     fetched = []
     monkeypatch.setattr(
         "hermes_cli.models.fetch_api_models",
@@ -1907,7 +1907,7 @@ def test_cached_catalog_is_not_written_back_to_config(monkeypatch):
 
 
 def test_keyless_endpoint_with_saved_catalog_still_reads_cache(monkeypatch):
-    """A keyless local server must not be pinned by Hermes' own auto-save.
+    """A keyless local server must not be pinned by AgentX' own auto-save.
 
     ``_save_discovered_models_to_config()`` writes a plain list into
     ``models:``, which ``_models_config_is_allowlist()`` reads back as an
@@ -1941,14 +1941,14 @@ def test_keyless_endpoint_with_saved_catalog_still_reads_cache(monkeypatch):
 def test_keyless_endpoint_with_saved_catalog_is_still_not_probed(monkeypatch):
     """...but the network-cost gate it rides on must survive intact.
 
-    The no-key + declared-catalog combination exists to keep Hermes from
+    The no-key + declared-catalog combination exists to keep AgentX from
     probing an endpoint it cannot authenticate to. Serving that endpoint from
     a warm cache is free; hitting the network is not. With a cold cache and
     live probing fully enabled, this row must still make zero fetches.
     """
     _seed_custom_model_cache(monkeypatch, [])  # cold: only a probe could answer
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     fetched = []
 
@@ -1996,7 +1996,7 @@ def test_api_mode_rows_do_not_share_a_cached_catalog(monkeypatch):
 
     openai_catalog = ["gpt-oss-a", "gpt-oss-b"]
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
-    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
+    monkeypatch.setattr(providers_mod, "AGENTX_OVERLAYS", {})
 
     fetched = []
 
@@ -2070,7 +2070,7 @@ def test_auto_saved_catalog_round_trips_without_pinning(tmp_path, monkeypatch):
     """
     import hermes_cli.config as config_mod
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(
         "custom_providers:\n"
@@ -2106,7 +2106,7 @@ def test_auto_saved_catalog_round_trips_without_pinning(tmp_path, monkeypatch):
 def test_legacy_sentinel_catalog_still_resolves_and_migrates(tmp_path, monkeypatch):
     """Old-shape configs (sentinels inside ``models``) keep working.
 
-    Pre-fix Hermes wrote ``__discovered_model_catalog__: true`` (and
+    Pre-fix AgentX wrote ``__discovered_model_catalog__: true`` (and
     ``__explicit_model_allowlist__``) inside the user-facing ``models``
     mapping. Reading such a config must (a) recognize the catalog as
     discovered — not a user pin, (b) never list the sentinels as model IDs,
@@ -2154,7 +2154,7 @@ def test_legacy_sentinel_catalog_still_resolves_and_migrates(tmp_path, monkeypat
     assert fetched == []
 
     # (c) the next discovery save rewrites to the clean shape.
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(
         yaml.safe_dump({"custom_providers": [legacy_entry]})

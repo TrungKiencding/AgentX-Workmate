@@ -256,7 +256,7 @@ def apply_migration(
     # SIGINT mid-write leaves config.yaml empty or half-written -- and
     # ``--no-backup`` is a documented flag, so on that path the truncated file
     # is the only copy left. The load half above returns early when ``doc is
-    # None``, so the next `hermes migrate xai` reports nothing to migrate
+    # None``, so the next `agentx migrate xai` reports nothing to migrate
     # rather than surfacing the damage. atomic_replace also keeps a symlinked
     # config.yaml (dotfiles repo / managed deployment) intact (GitHub #16743).
     buf = io.StringIO()

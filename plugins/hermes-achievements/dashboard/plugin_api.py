@@ -143,11 +143,11 @@ ACHIEVEMENTS: List[Dict[str, Any]] = [
 
 
 def _data_dir() -> Path:
-    """Durable data root (``<hermes home>/plugin-data/hermes-achievements/``).
+    """Durable data root (``<agentx home>/plugin-data/hermes-achievements/``).
 
     Was the install tree (``plugins/hermes-achievements/``) before the
     plugin-data convention existed — state parked there died on
-    ``hermes plugins remove``/``update``. Legacy files migrate on first read.
+    ``agentx plugins remove``/``update``. Legacy files migrate on first read.
     """
     try:
         from plugins.plugin_storage import plugin_data_dir

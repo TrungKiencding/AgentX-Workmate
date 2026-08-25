@@ -144,7 +144,7 @@ class TestUnicodeDecodeErrorInUpdatePrompts:
     interactive update prompts call input() directly -- the config-
     migration prompt, the stash-restore prompt, and the upstream-remote
     prompt -- and each must fail safe (skip, don't crash) rather than let
-    the exception escape and crash `hermes update` mid-flight.
+    the exception escape and crash `agentx update` mid-flight.
     """
 
     @patch("hermes_cli.config.migrate_config")
@@ -180,7 +180,7 @@ class TestUnicodeDecodeErrorInUpdatePrompts:
             cmd_update(args)  # must not raise
 
         out = capsys.readouterr().out
-        assert "hermes config migrate" in out
+        assert "agentx config migrate" in out
         assert mock_migrate.call_count == 0 or (
             mock_migrate.call_args and mock_migrate.call_args.kwargs.get("interactive") is not True
         )

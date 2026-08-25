@@ -21,7 +21,7 @@ method = _registry.method
 
 @method("profiles.list")
 def _(rid, params: dict) -> dict:
-    """List Hermes profiles (name, path, model, description, skill count).
+    """List AgentX profiles (name, path, model, description, skill count).
 
     ``include_sessions`` (default true) additionally reports each profile's
     most recent conversation as ``last_session`` so a roster UI can paint
@@ -181,7 +181,7 @@ def _(rid, params: dict) -> dict:
     tokens / credential pools), so a profile created headlessly from a
     plugin was born with NO inference provider — the first message failed
     with "No inference provider configured" and there is no interactive
-    ``hermes setup`` in that flow to recover. A profile spawned as an
+    ``agentx setup`` in that flow to recover. A profile spawned as an
     always-available teammate must be able to think out of the box; callers
     that want an isolated/credential-free profile pass
     ``mirror_credentials: false``.
@@ -304,7 +304,7 @@ def _(rid, params: dict) -> dict:
         "didn't work in bot mode" while working on the primary profile.
 
         Reads/writes go through the canonical loaders scoped to the target
-        profile via the context-local HERMES_HOME override — the same
+        profile via the context-local AGENTX_HOME override — the same
         mechanism as ``_write_profile_model`` (config-read-guard: no raw
         yaml on config.yaml).
         """
@@ -414,7 +414,7 @@ def _(rid, params: dict) -> dict:
     Skill enablement mirrors the disabled-list model (installed = enabled
     unless in ``skills.disabled``). Toolset enablement reports the profile's
     ``tools.enabled_toolsets`` pin, or every toolset enabled when unpinned.
-    All reads are scoped to the profile via the HERMES_HOME override.
+    All reads are scoped to the profile via the AGENTX_HOME override.
     """
     name = str(params.get("name") or "").strip()
     if not name:
@@ -446,12 +446,12 @@ def _(rid, params: dict) -> dict:
                         {"name": skill_name, "enabled": skill_name.lower() not in disabled}
                     )
 
-            # Toolsets: the same filtered universe the `hermes tools`
+            # Toolsets: the same filtered universe the `agentx tools`
             # checklist offers — configurable toolsets (built-in + plugin),
             # minus platform-restricted ones that don't apply here — with
             # enablement resolved the way the runtime actually resolves it.
             # The raw registry (get_all_toolsets) leaks internal platform
-            # composites (hermes-discord, feishu_drive, ...) and reports
+            # composites (agentx-discord, feishu_drive, ...) and reports
             # everything "enabled" whenever the profile has no pin, which a
             # capabilities UI then faithfully mis-renders (tester report).
             from hermes_cli.tools_config import (
@@ -489,7 +489,7 @@ def _(rid, params: dict) -> dict:
                 )
                 # Default-off integrations (a2a, yuanbao, spotify, ...) are
                 # opt-ins; when the profile hasn't opted in they're noise in
-                # a per-profile editor — `hermes tools` / Settings is where
+                # a per-profile editor — `agentx tools` / Settings is where
                 # you turn them on globally first. Enabled ones still show.
                 # yuanbao rides the same rule: a region-specific integration
                 # that isn't in _DEFAULT_OFF_TOOLSETS but is equally opt-in.

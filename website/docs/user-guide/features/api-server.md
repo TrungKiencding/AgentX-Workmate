@@ -142,7 +142,7 @@ OpenAI Responses API format. Supports server-side conversation state via `previo
 }
 ```
 
-Tool calls in the `output` array were already executed server-side by the Hermes agent — they are replayed with `"status": "completed"` for structured tool UI, never as pending calls for the client to execute.
+Tool calls in the `output` array were already executed server-side by the AgentX agent — they are replayed with `"status": "completed"` for structured tool UI, never as pending calls for the client to execute.
 
 **Inline image input:** `input[].content` can contain `input_text` and `input_image` parts. Both remote URLs and `data:image/...` URLs are supported:
 

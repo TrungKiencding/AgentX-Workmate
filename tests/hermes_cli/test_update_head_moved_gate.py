@@ -1,9 +1,9 @@
-"""Tests for the post-pull HEAD-movement gate in ``hermes update``.
+"""Tests for the post-pull HEAD-movement gate in ``agentx update``.
 
 Issue #79678: a detached/pinned checkout can report "N new commit(s)"
 against origin, run the ff-only merge successfully, and still sit on the
 old commit afterward (the branch-switch step re-detaches to the raw SHA).
-Before this guard ``hermes update`` printed "✓ Code updated!" and
+Before this guard ``agentx update`` printed "✓ Code updated!" and
 reinstalled deps + rebuilt the desktop app against the stale tree — no
 error, no warning. The gate compares the pre-pull and post-pull HEAD SHA
 and fails loudly when the update was a no-op.
@@ -81,7 +81,7 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
     monkeypatch.setattr(hermes_main, "_is_windows", lambda: False)
     monkeypatch.setattr(
         hermes_main, "_get_origin_url",
-        lambda *a, **k: "https://github.com/NousResearch/hermes-agent.git",
+        lambda *a, **k: "https://github.com/TrungKiencding/AgentX-Workmate.git",
     )
     monkeypatch.setattr(hermes_main, "_is_fork", lambda *a, **k: False)
     monkeypatch.setattr(

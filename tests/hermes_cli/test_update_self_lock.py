@@ -1,7 +1,7 @@
 """Regression coverage for the updater self-lock preflight (#83569).
 
 ``_detect_venv_python_processes`` excludes the calling process and its
-ancestors by design — a CLI ``hermes update`` IS the venv python.  Before
+ancestors by design — a CLI ``agentx update`` IS the venv python.  Before
 this guard, an updater that had already imported a native venv extension
 (e.g. ``cryptography.hazmat.bindings._rust``, mapped the moment
 ``hermes_cli.main`` resolved external secret sources) sailed through every

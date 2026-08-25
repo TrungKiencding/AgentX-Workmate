@@ -2,7 +2,7 @@
 name: google-workspace-daily-brief
 description: "Use when a user asks for a daily brief from Gmail and Google Calendar: urgent mail, today's meetings, preparation needs, deadlines, follow-ups, and schedule conflicts."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

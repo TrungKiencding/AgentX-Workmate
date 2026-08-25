@@ -688,7 +688,7 @@ def _install_safe_python_generation(
 
     # All patches on the current minor line are vulnerable or rejected.
     # Fall forward to the next supported minor (e.g. 3.11 → 3.12) so the
-    # user isn't stuck on every `hermes update` with no path to a fixed
+    # user isn't stuck on every `agentx update` with no path to a fixed
     # runtime (issue #76106).  The requires-python constraint
     # (>=3.11,<3.14) and the downstream import smoke-test gate
     # compatibility; we only need to stay inside that window.

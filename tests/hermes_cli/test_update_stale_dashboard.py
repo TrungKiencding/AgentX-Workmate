@@ -352,7 +352,7 @@ class TestManualBackendRespawn:
     def test_non_orphan_fixed_port_still_respawns(self, capsys):
         """A supervised-by-shell dashboard with a fixed port is still restarted."""
         live = self._live()
-        argv = ["hermes", "dashboard", "--port", "8300"]
+        argv = ["agentx", "dashboard", "--port", "8300"]
 
         def fake_kill(pid, sig):
             if sig == 0:
@@ -407,7 +407,7 @@ class TestManualBackendRespawn:
     def test_detached_fixed_port_still_respawns_after_prior_update(self, capsys):
         """PPID-1 fixed-port backends (prior start_new_session respawn) stay eligible."""
         live = self._live()
-        argv = ["hermes", "dashboard", "--port", "8300"]
+        argv = ["agentx", "dashboard", "--port", "8300"]
 
         def fake_kill(pid, sig):
             if sig == 0:
@@ -471,14 +471,14 @@ class TestFilterDashboardRespawnCandidates:
             "serve", "--host", "127.0.0.1", "--port", "0",
         ]
         assert _filter_dashboard_respawn_candidates([
-            (42, argv, "/home/u/.hermes/profiles/mini-cat"),
+            (42, argv, "/home/u/.agentx/profiles/mini-cat"),
         ]) == []
 
     def test_skips_legacy_dashboard_port_zero(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
         argv = [
-            "hermes", "--profile", "coder",
+            "agentx", "--profile", "coder",
             "dashboard", "--no-open", "--host", "127.0.0.1", "--port", "0",
         ]
         assert _filter_dashboard_respawn_candidates([(7, argv, None)]) == []
@@ -486,14 +486,14 @@ class TestFilterDashboardRespawnCandidates:
     def test_skips_serve_port_equals_zero(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        argv = ["hermes", "serve", "--port=0"]
+        argv = ["agentx", "serve", "--port=0"]
         assert _filter_dashboard_respawn_candidates([(1, argv, None)]) == []
 
     def test_keeps_ppid1_fixed_port_for_repeat_update(self):
         """Detached prior-update respawns (PPID 1) must remain restartable (#40449)."""
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        argv = ["hermes", "dashboard", "--port", "9119"]
+        argv = ["agentx", "dashboard", "--port", "9119"]
         assert _filter_dashboard_respawn_candidates([(10, argv, None)]) == [argv]
 
     def test_dedupes_identical_normalized_cmdlines(self):
@@ -510,9 +510,9 @@ class TestFilterDashboardRespawnCandidates:
     def test_caps_one_per_profile(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        a = ["hermes", "--profile", "coder", "dashboard", "--port", "8300"]
-        b = ["hermes", "--profile", "coder", "dashboard", "--port", "8301"]
-        c = ["hermes", "--profile", "writer", "dashboard", "--port", "8302"]
+        a = ["agentx", "--profile", "coder", "dashboard", "--port", "8300"]
+        b = ["agentx", "--profile", "coder", "dashboard", "--port", "8301"]
+        c = ["agentx", "--profile", "writer", "dashboard", "--port", "8302"]
         out = _filter_dashboard_respawn_candidates([
             (1, a, None),
             (2, b, None),
@@ -523,9 +523,9 @@ class TestFilterDashboardRespawnCandidates:
     def test_caps_one_per_hermes_home(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        home = "/tmp/hermes-home-a"
-        a = ["hermes", "dashboard", "--port", "8300"]
-        b = ["hermes", "dashboard", "--port", "8301"]
+        home = "/tmp/agentx-home-a"
+        a = ["agentx", "dashboard", "--port", "8300"]
+        b = ["agentx", "dashboard", "--port", "8301"]
         out = _filter_dashboard_respawn_candidates([
             (1, a, home),
             (2, b, home),
@@ -535,20 +535,20 @@ class TestFilterDashboardRespawnCandidates:
     def test_profile_flag_and_profiles_home_share_cap(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        a = ["hermes", "--profile", "coder", "dashboard", "--port", "8300"]
-        b = ["hermes", "dashboard", "--port", "8301"]
+        a = ["agentx", "--profile", "coder", "dashboard", "--port", "8300"]
+        b = ["agentx", "dashboard", "--port", "8301"]
         out = _filter_dashboard_respawn_candidates([
             (1, a, None),
-            (2, b, "/home/u/.hermes/profiles/coder"),
+            (2, b, "/home/u/.agentx/profiles/coder"),
         ])
         assert out == [a]
 
     def test_default_profile_same_root_home_caps(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        a = ["hermes", "--profile", "default", "dashboard", "--port", "8300"]
-        b = ["hermes", "dashboard", "--port", "8301"]
-        home = "/home/u/.hermes"
+        a = ["agentx", "--profile", "default", "dashboard", "--port", "8300"]
+        b = ["agentx", "dashboard", "--port", "8301"]
+        home = "/home/u/.agentx"
         out = _filter_dashboard_respawn_candidates([
             (1, a, home),
             (2, b, home),
@@ -558,18 +558,18 @@ class TestFilterDashboardRespawnCandidates:
     def test_distinct_dot_hermes_homes_do_not_share_cap(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        a = ["hermes", "dashboard", "--port", "8300"]
-        b = ["hermes", "dashboard", "--port", "8301"]
+        a = ["agentx", "dashboard", "--port", "8300"]
+        b = ["agentx", "dashboard", "--port", "8301"]
         out = _filter_dashboard_respawn_candidates([
-            (1, a, "/home/u/.hermes"),
-            (2, b, "/work/project/.hermes"),
+            (1, a, "/home/u/.agentx"),
+            (2, b, "/work/project/.agentx"),
         ])
         assert out == [a, b]
 
     def test_keeps_fixed_port_serve(self):
         from hermes_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
-        argv = ["hermes", "serve", "--host", "0.0.0.0", "--port", "9119"]
+        argv = ["agentx", "serve", "--host", "0.0.0.0", "--port", "9119"]
         assert _filter_dashboard_respawn_candidates([
             (9, argv, None),
         ]) == [argv]
@@ -641,7 +641,7 @@ class TestCmdlineCapture:
 class TestPostUpdateStaleModuleReload:
     """Regression tests for the post-update stale-module ImportError.
 
-    ``hermes update`` runs in the PRE-pull Python process. When the update
+    ``agentx update`` runs in the PRE-pull Python process. When the update
     adds a new symbol to ``hermes_cli._subprocess_compat`` (as #87134 added
     ``bounded_probe_run``), the post-update dashboard cleanup's lazy
     ``from hermes_cli._subprocess_compat import bounded_probe_run`` hits the

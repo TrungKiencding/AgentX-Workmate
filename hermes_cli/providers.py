@@ -527,7 +527,7 @@ def get_provider(name: str, *, allow_network: bool = True) -> Optional[ProviderD
 
     # Plugin-registered provider profiles (plugins/model-providers/<name>/).
     # Providers that ship only as plugin profiles (e.g. commandcode,
-    # tencent-tokenhub) are absent from models.dev and HERMES_OVERLAYS, so
+    # tencent-tokenhub) are absent from models.dev and AGENTX_OVERLAYS, so
     # without this fallback they resolve as "Unknown provider" in /model,
     # --provider, and the model-switch path even though the picker lists them
     # (CANONICAL_PROVIDERS auto-extends from the same plugin registry).

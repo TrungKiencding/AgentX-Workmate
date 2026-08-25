@@ -155,7 +155,7 @@ class TestBuildWebUISkipsWhenFresh:
 
     def test_workspace_root_install_names_update_closure(self, tmp_path, monkeypatch):
         """From the workspace root, _build_web_ui must install the SAME
-        closure as `hermes update` (ui-tui + web + --include-workspace-root).
+        closure as `agentx update` (ui-tui + web + --include-workspace-root).
 
         The install helper prefers `npm ci`, which deletes node_modules before
         reifying the requested tree — a narrower `--workspace web`-only pass

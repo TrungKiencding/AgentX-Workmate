@@ -198,7 +198,7 @@ def _resolve_skill_commands_platform() -> Optional[str]:
 
 
 def _resolve_skill_commands_home() -> str:
-    """Return the effective Hermes home the skill scan should be scoped to.
+    """Return the effective AgentX home the skill scan should be scoped to.
 
     A gateway session can switch between profiles that each carry their own
     ``skills.external_dirs`` (via ``set_hermes_home_override``), but the
@@ -525,7 +525,7 @@ def get_skill_commands() -> Dict[str, Dict[str, Any]]:
     Rescans when the active platform scope changes (e.g. a gateway
     process serving Telegram and Discord concurrently) so each platform
     sees its own ``skills.platform_disabled`` view (#14536), and when the
-    active profile's Hermes home changes (e.g. Desktop switching profiles
+    active profile's AgentX home changes (e.g. Desktop switching profiles
     mid-session) so each profile sees its own ``skills.external_dirs`` (#88023).
     """
     current_platform = _resolve_skill_commands_platform()

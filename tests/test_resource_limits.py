@@ -29,14 +29,14 @@ class _FakeResource:
 
 def test_real_config_loader_reads_runtime_nofile_setting(monkeypatch, tmp_path):
     """The helper uses the canonical config loader, not a second YAML parser."""
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".agentx"
     home.mkdir()
     (home / "config.yaml").write_text(
         "runtime:\n  nofile_soft_limit: 2048\n",
         encoding="utf-8",
     )
     fake_resource = _FakeResource(soft=256, hard=4096)
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
     monkeypatch.setattr(resource_limits, "_resource", fake_resource)
 
     assert resource_limits.apply_nofile_soft_limit() is True
@@ -193,7 +193,7 @@ def test_named_profile_reroute_defers_limit_to_final_process(monkeypatch, tmp_pa
     calls: list[str] = []
     exec_call: dict[str, object] = {}
 
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
+    monkeypatch.delenv("AGENTX_DESKTOP", raising=False)
     monkeypatch.setattr(
         resource_limits,
         "apply_nofile_soft_limit",
@@ -245,7 +245,7 @@ def test_named_profile_reroute_defers_limit_to_final_process(monkeypatch, tmp_pa
 
     assert calls == []
     assert exec_call["argv"][1:5] == ["-m", "hermes_cli.main", "-p", "default"]
-    assert exec_call["env"]["HERMES_HOME"] == str(tmp_path)
+    assert exec_call["env"]["AGENTX_HOME"] == str(tmp_path)
 
 
 @pytest.mark.parametrize("lifecycle_flag", ["status", "stop"])

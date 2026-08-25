@@ -96,7 +96,7 @@ def test_shell_wrappers_match_but_echo_does_not(tmp_path, monkeypatch):
 def test_masking_shell_control_is_not_verification_evidence(
     tmp_path, monkeypatch, command
 ):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
 
     evidence = classify_verification_command(
@@ -113,7 +113,7 @@ def test_masking_shell_control_is_not_verification_evidence(
 def test_successful_and_chain_preserves_passing_evidence(
     tmp_path, monkeypatch, command
 ):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
 
     evidence = classify_verification_command(
@@ -131,7 +131,7 @@ def test_successful_and_chain_preserves_passing_evidence(
 def test_final_verifier_after_sequence_owns_shell_exit_status(
     tmp_path, monkeypatch, exit_code, expected
 ):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
 
     evidence = classify_verification_command(
@@ -146,7 +146,7 @@ def test_final_verifier_after_sequence_owns_shell_exit_status(
 
 
 def test_quoted_shell_operator_remains_a_verifier_argument(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
 
     evidence = classify_verification_command(
@@ -162,7 +162,7 @@ def test_quoted_shell_operator_remains_a_verifier_argument(tmp_path, monkeypatch
 
 @pytest.mark.parametrize("redirect", ["2>&1", "&> test.log"])
 def test_shell_redirection_does_not_hide_simple_verifier(tmp_path, monkeypatch, redirect):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
 
     evidence = classify_verification_command(
@@ -177,9 +177,9 @@ def test_shell_redirection_does_not_hide_simple_verifier(tmp_path, monkeypatch, 
 
 
 def test_masked_ad_hoc_script_is_not_verification_evidence(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     (tmp_path / "package.json").write_text("{}", encoding="utf-8")
-    script = Path(tempfile.gettempdir()) / f"hermes-ad-hoc-{tmp_path.name}.py"
+    script = Path(tempfile.gettempdir()) / f"agentx-ad-hoc-{tmp_path.name}.py"
     script.write_text("raise SystemExit(1)\n", encoding="utf-8")
     try:
         evidence = classify_verification_command(
@@ -195,7 +195,7 @@ def test_masked_ad_hoc_script_is_not_verification_evidence(tmp_path, monkeypatch
 
 
 def test_masked_verifier_does_not_clear_edited_ledger_state(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / ".agentx"))
     _python_project(tmp_path)
     record_terminal_result(
         command="pytest",

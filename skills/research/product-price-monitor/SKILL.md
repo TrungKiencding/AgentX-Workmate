@@ -2,7 +2,7 @@
 name: product-price-monitor
 description: "Use when a user asks to track prices or availability for specific products, subscriptions, flights, hotels, tickets, or marketplace listings and alert when a declared threshold or condition is met."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

@@ -2978,7 +2978,7 @@ def _get_due_jobs_locked() -> List[Dict[str, Any]]:
                                     "WITHOUT firing. This record was re-armed "
                                     "without a budget reset (pre-#93615 store "
                                     "or hand edit); re-run it with "
-                                    "'hermes cron resume <job> --run-now' "
+                                    "'agentx cron resume <job> --run-now' "
                                     "(#93524).",
                                     job.get("name", job.get("id", "?")),
                                     completed,
@@ -3131,7 +3131,7 @@ def save_job_output(job_id: str, output: str):
 def _canonical_skill_ref(raw: Any) -> str:
     """Reduce one job skill reference to the bare name the curator matches on.
 
-    A job may store an absolute path under ``HERMES_HOME/skills`` or an
+    A job may store an absolute path under ``AGENTX_HOME/skills`` or an
     external skills dir; the scheduler resolves those through
     ``normalize_skill_lookup_name`` before handing them to ``skill_view``.
     The curator compares this set against bare skill names, so it has to

@@ -12,7 +12,7 @@ import hermes_cli.gateway_windows as gateway_windows
 import hermes_cli.setup as setup
 
 
-_BREAKAWAY_MARKER = "_HERMES_GATEWAY_BREAKAWAY"
+_BREAKAWAY_MARKER = "_AGENTX_GATEWAY_BREAKAWAY"
 
 
 
@@ -87,7 +87,7 @@ def test_spawn_detached_marks_primary_breakaway_success(monkeypatch, tmp_path, c
     monkeypatch.setattr(
         gateway_windows,
         "_build_gateway_argv",
-        lambda: (argv, cwd, {"HERMES_GATEWAY_DETACHED": "1"}),
+        lambda: (argv, cwd, {"AGENTX_GATEWAY_DETACHED": "1"}),
     )
     monkeypatch.setattr("hermes_cli.config.get_hermes_home", lambda: tmp_path)
     monkeypatch.setattr(gateway_windows.subprocess, "Popen", fake_popen)
@@ -128,7 +128,7 @@ def test_spawn_detached_warns_and_marks_no_breakaway_fallback(
         lambda: (
             argv,
             cwd,
-            {"HERMES_GATEWAY_DETACHED": "1", "SECRET_SENTINEL": "do-not-log"},
+            {"AGENTX_GATEWAY_DETACHED": "1", "SECRET_SENTINEL": "do-not-log"},
         ),
     )
     monkeypatch.setattr("hermes_cli.config.get_hermes_home", lambda: tmp_path)

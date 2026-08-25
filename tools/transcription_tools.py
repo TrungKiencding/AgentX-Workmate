@@ -2520,7 +2520,7 @@ def _transcribe_prepared_audio(file_path: str, model: Optional[str] = None) -> D
 
     # An explicit openai selection flattened to "none" carries a
     # selection-specific reason (e.g. the managed openai-audio gateway is
-    # unavailable). Surface it — with its `hermes tools` remediation —
+    # unavailable). Surface it — with its `agentx tools` remediation —
     # instead of the all-provider setup hint (#93045).
     if provider_key == "none" and str(stt_config.get("provider") or "") == "openai" and _HAS_OPENAI:
         try:

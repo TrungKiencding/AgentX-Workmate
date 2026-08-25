@@ -2287,7 +2287,7 @@ class TestElementSpillFile:
                              window_title="Discord", png_bytes_len=0)
 
     def test_spill_file_holds_full_untruncated_tree(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use.tool import _capture_response
 
         out = json.loads(_capture_response(self._dense_capture()))
@@ -2302,7 +2302,7 @@ class TestElementSpillFile:
         assert spill["elements"][119]["label"].startswith("msg 119")
 
     def test_no_spill_when_nothing_dropped(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use.backend import CaptureResult, UIElement
         from tools.computer_use.tool import _capture_response
 
@@ -2316,7 +2316,7 @@ class TestElementSpillFile:
         assert "elements_file" not in out
 
     def test_spill_pruning_bounds_cache_growth(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use import tool as cu_tool
 
         cap = self._dense_capture()
@@ -2359,7 +2359,7 @@ class TestCaptureScreenshotPersistence:
     def test_multimodal_capture_exposes_shareable_screenshot(
         self, tmp_path, monkeypatch,
     ):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use import tool as cu_tool
 
         monkeypatch.setattr(
@@ -2374,7 +2374,7 @@ class TestCaptureScreenshotPersistence:
         assert Path(screenshot_path).read_bytes() == base64.b64decode(self._PNG_B64)
 
     def test_capture_cache_is_bounded(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use import tool as cu_tool
 
         monkeypatch.setattr(cu_tool, "_MAX_CAPTURE_FILES", 2)
@@ -2387,7 +2387,7 @@ class TestCaptureScreenshotPersistence:
 
 class TestBoundsScaleField:
     def test_scale_reported_when_spaces_diverge(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         from tools.computer_use.backend import CaptureResult, UIElement
         from tools.computer_use.tool import _capture_response
 

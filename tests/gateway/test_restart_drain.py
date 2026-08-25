@@ -391,12 +391,12 @@ def _live_agent(idle_seconds: float = 1.0) -> MagicMock:
 async def test_request_restart_skips_wait_when_only_wedged_turns(monkeypatch):
     """A turn idle past agent.gateway_timeout must not defer the restart.
 
-    Regression: a WhatsApp turn wedged for 30+ min pinned `hermes update`
+    Regression: a WhatsApp turn wedged for 30+ min pinned `agentx update`
     in "draining" for the full restart_after_turn_timeout cap — the
     after-turn wait counted the wedged agent as active work even though
     the inactivity watchdog had already declared it dead (Aug 2026).
     """
-    monkeypatch.delenv("HERMES_AGENT_TIMEOUT", raising=False)
+    monkeypatch.delenv("AGENTX_AGENT_TIMEOUT", raising=False)
     runner, _adapter = make_restart_runner()
     runner.stop = AsyncMock()
     # A cap long enough that the test would hang without the wedge bypass.
@@ -416,7 +416,7 @@ async def test_request_restart_skips_wait_when_only_wedged_turns(monkeypatch):
 @pytest.mark.asyncio
 async def test_request_restart_still_waits_for_live_turn_alongside_wedged(monkeypatch):
     """Mixed live + wedged: the live turn is honored, the wedged one ignored."""
-    monkeypatch.delenv("HERMES_AGENT_TIMEOUT", raising=False)
+    monkeypatch.delenv("AGENTX_AGENT_TIMEOUT", raising=False)
     runner, _adapter = make_restart_runner()
     runner.stop = AsyncMock()
     runner._launch_detached_restart_command = AsyncMock()
@@ -439,14 +439,14 @@ async def test_request_restart_still_waits_for_live_turn_alongside_wedged(monkey
 
 def test_wedged_agent_count_disabled_timeout_counts_nothing(monkeypatch):
     """gateway_timeout=0 (unbounded turns) disables wedge detection."""
-    monkeypatch.setenv("HERMES_AGENT_TIMEOUT", "0")
+    monkeypatch.setenv("AGENTX_AGENT_TIMEOUT", "0")
     runner, _adapter = make_restart_runner()
     runner._running_agents["agent:main:telegram:dm:1"] = _wedged_agent(10**6)
     assert runner._wedged_agent_count() == 0
 
 
 def test_wedged_agent_count_ignores_sentinels_and_bad_summaries(monkeypatch):
-    monkeypatch.delenv("HERMES_AGENT_TIMEOUT", raising=False)
+    monkeypatch.delenv("AGENTX_AGENT_TIMEOUT", raising=False)
     runner, _adapter = make_restart_runner()
     broken = MagicMock()
     broken.get_activity_summary = MagicMock(side_effect=RuntimeError("boom"))

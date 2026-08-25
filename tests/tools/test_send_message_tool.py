@@ -487,7 +487,7 @@ class TestSendToPlatformChunking:
     def test_signal_long_message_is_chunked(self, monkeypatch):
         """Standalone Signal sends split at the adapter's 8000-char limit.
 
-        The standalone path (hermes send / cron / MCP) speaks raw JSON-RPC via
+        The standalone path (agentx send / cron / MCP) speaks raw JSON-RPC via
         _send_signal and bypasses SignalAdapter.send(), so the shared
         truncate_message() pass in _send_to_platform must know Signal's limit
         (regression for #67279 / #57929 — long sends were rejected whole).

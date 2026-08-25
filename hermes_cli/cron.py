@@ -222,7 +222,7 @@ def cron_tick():
         # (#87644). For the one-shot CLI surface, report cleanly instead of
         # dumping a traceback; the gateway ticker loop handles its own retry.
         print(color(f"✗ Cron tick failed: {exc}", Colors.RED))
-        print("  Check `hermes cron status` and the gateway log for details.")
+        print("  Check `agentx cron status` and the gateway log for details.")
         return 1
     return 0
 
@@ -564,7 +564,7 @@ def cron_resume(args) -> int:
 
 
 def cron_notepad(args) -> int:
-    """Handle ``hermes cron notepad <job_id> [get|set|delete|list]``.
+    """Handle ``agentx cron notepad <job_id> [get|set|delete|list]``.
 
     The per-job durable KV scratchpad (``cron/notepad.py``). This CLI is the
     write path — a running cron agent updates its own notepad by invoking
@@ -585,7 +585,7 @@ def cron_notepad(args) -> int:
     try:
         if action == "set":
             if key is None or value is None:
-                print(color("Usage: hermes cron notepad <job_id> set <key> <value>", Colors.RED))
+                print(color("Usage: agentx cron notepad <job_id> set <key> <value>", Colors.RED))
                 return 1
             notepad.set_note(job_id, key, value)
             print(color(f"Set notepad key '{key}' for job {job_id}.", Colors.GREEN))
@@ -593,7 +593,7 @@ def cron_notepad(args) -> int:
 
         if action == "get":
             if key is None:
-                print(color("Usage: hermes cron notepad <job_id> get <key>", Colors.RED))
+                print(color("Usage: agentx cron notepad <job_id> get <key>", Colors.RED))
                 return 1
             stored = notepad.get_note(job_id, key)
             if stored is None:
@@ -604,7 +604,7 @@ def cron_notepad(args) -> int:
 
         if action == "delete":
             if key is None:
-                print(color("Usage: hermes cron notepad <job_id> delete <key>", Colors.RED))
+                print(color("Usage: agentx cron notepad <job_id> delete <key>", Colors.RED))
                 return 1
             if notepad.delete_note(job_id, key):
                 print(color(f"Deleted notepad key '{key}' for job {job_id}.", Colors.GREEN))

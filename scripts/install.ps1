@@ -575,7 +575,7 @@ function Install-Uv {
         # on PATH, or at ~/.local/bin (the astral default location when
         # UV_INSTALL_DIR was ignored by an older installer) -- copy it into
         # the managed location so the managed-first invariant holds
-        # (hermes_cli/managed_uv.py looks only at $HermesHome\bin\uv.exe).
+        # (hermes_cli/managed_uv.py looks only at $AgentXHome\bin\uv.exe).
         if (-not (Test-Path $managedUv)) {
             $existingUv = $null
             $uvOnPath = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue |
@@ -2162,7 +2162,7 @@ function Install-Venv {
             # That process holds the venv's .pyd files open and re-triggers the
             # access-denied failure. Select only roots whose executable lives
             # under this venv, then stop each root's whole process tree. Some
-            # Hermes children re-exec through .hermes-runtime, so killing only
+            # AgentX children re-exec through .agentx-runtime, so killing only
             # the selected venv process can leave its child holding the install
             # open. The path-prefix check still keeps unrelated Python processes
             # outside this venv untouched.
@@ -2216,7 +2216,7 @@ function Install-Venv {
             $renameErr = $_.Exception.Message
             throw (
                 "Could not move the existing venv aside ($renameErr). " +
-                "A process still has the install directory open (often a non-Hermes " +
+                "A process still has the install directory open (often a non-AgentX " +
                 "python.exe that resolved into this venv via PATH). Close those " +
                 "processes and retry - the previous install was left intact."
             )
@@ -2477,7 +2477,7 @@ except Exception:
     if (-not $NoVenv) {
         $venvPython = "$InstallDir\venv\Scripts\python.exe"
         if (-not (Test-Path $venvPython)) {
-            throw "Install reported success but $venvPython does not exist. The dependency sync likely landed in a sibling .venv\ directory. Re-run the installer; if it persists, close Hermes processes and preserve existing venv directories before retrying. Do not delete venv in place."
+            throw "Install reported success but $venvPython does not exist. The dependency sync likely landed in a sibling .venv\ directory. Re-run the installer; if it persists, close AgentX processes and preserve existing venv directories before retrying. Do not delete venv in place."
         }
         # Relax EAP=Stop while running the import probe.  Python writes
         # deprecation warnings and import-system info to stderr; under
@@ -2493,7 +2493,7 @@ except Exception:
         if ($importExitCode -ne 0) {
             $sibling = "$InstallDir\.venv"
             $hint = if (Test-Path $sibling) {
-                "Detected sibling .venv\ at $sibling -- uv synced there instead of venv\. Close Hermes processes, preserve the existing venv, and rerun the installer so the transactional recovery path can move directories safely."
+                "Detected sibling .venv\ at $sibling -- uv synced there instead of venv\. Close AgentX processes, preserve the existing venv, and rerun the installer so the transactional recovery path can move directories safely."
             } else {
                 "Recover with: cd '$InstallDir'; `$env:UV_PROJECT_ENVIRONMENT='$InstallDir\venv'; uv sync --extra all --locked"
             }

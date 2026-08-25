@@ -370,7 +370,7 @@ async def test_session_chat_resolves_stored_model_route_alias(session_db, monkey
 @pytest.mark.asyncio
 async def test_session_chat_treats_pre_existing_poisoned_row_as_no_model(session_db):
     """A session row created before the alias-leak fix may still have the
-    virtual model alias (e.g. "hermes-agent") persisted literally as its
+    virtual model alias (e.g. "agentx-agent") persisted literally as its
     model. Reading that back must NOT thread it through as a raw
     session_model override — it must fall through to the global default,
     exactly like a row that never had a model at all (#session-model-

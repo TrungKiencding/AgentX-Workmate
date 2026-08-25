@@ -1,4 +1,4 @@
-"""Hermes plugin manifest/import validator."""
+"""AgentX plugin manifest/import validator."""
 
 from __future__ import annotations
 
@@ -28,12 +28,12 @@ def register(ctx) -> None:
     ctx.register_command(
         "plugin-doctor",
         handler=lambda raw_args: core.handle_slash(raw_args),
-        description="Validate Hermes plugin manifests and import/register entry points.",
+        description="Validate AgentX plugin manifests and import/register entry points.",
         args_hint="[plugins_dir]",
     )
     ctx.register_cli_command(
         name="plugin-doctor",
-        help="Validate Hermes plugin manifests and imports",
+        help="Validate AgentX plugin manifests and imports",
         setup_fn=register_cli,
         handler_fn=plugin_doctor_command,
         description="Scan plugin.yaml metadata, imports, register(ctx), and duplicate names.",

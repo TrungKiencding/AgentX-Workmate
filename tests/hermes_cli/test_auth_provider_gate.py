@@ -54,33 +54,33 @@ def test_ambient_pool_source_does_not_count_as_explicit(tmp_path, monkeypatch):
 
 def test_vertex_adc_counts_as_explicit_when_config_present(tmp_path, monkeypatch):
     """A keyless Vertex provider is explicitly configured when the user pointed
-    Hermes at it (VERTEX_PROJECT_ID / vertex.project_id / VERTEX_CREDENTIALS_PATH),
+    AgentX at it (VERTEX_PROJECT_ID / vertex.project_id / VERTEX_CREDENTIALS_PATH),
     even when it is NOT the current provider — otherwise it silently vanishes
     from explicit-only pickers (desktop chat model menu) unless already selected."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     for var in ("VERTEX_PROJECT_ID", "VERTEX_CREDENTIALS_PATH", "GOOGLE_APPLICATION_CREDENTIALS"):
         monkeypatch.delenv(var, raising=False)
     _write_auth_store(tmp_path, {"version": 1, "providers": {}, "active_provider": None})
 
     from hermes_cli.auth import is_provider_explicitly_configured
 
-    # vertex.project_id in config.yaml is a deliberate, Hermes-scoped signal.
+    # vertex.project_id in config.yaml is a deliberate, AgentX-scoped signal.
     _write_config(tmp_path, {
         "model": {"provider": "anthropic", "default": "claude-opus-4-8"},
         "vertex": {"project_id": "my-gcp-project"},
     })
     assert is_provider_explicitly_configured("vertex") is True
 
-    # No Hermes-scoped Vertex config at all → stays hidden.
+    # No AgentX-scoped Vertex config at all → stays hidden.
     _write_config(tmp_path, {"model": {"provider": "anthropic", "default": "claude-opus-4-8"}})
     assert is_provider_explicitly_configured("vertex") is False
 
 
 def test_vertex_ambient_google_creds_env_does_not_count_as_explicit(tmp_path, monkeypatch):
     """An ambient GOOGLE_APPLICATION_CREDENTIALS path (commonly set globally for
-    unrelated GCP work) must NOT mark Vertex explicit — only Hermes-scoped
+    unrelated GCP work) must NOT mark Vertex explicit — only AgentX-scoped
     signals do. Regression guard for the picker gate (PR review feedback)."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)
     monkeypatch.delenv("VERTEX_CREDENTIALS_PATH", raising=False)
     _write_config(tmp_path, {"model": {"provider": "anthropic", "default": "claude-opus-4-8"}})
@@ -98,7 +98,7 @@ def test_vertex_ambient_google_creds_env_does_not_count_as_explicit(tmp_path, mo
 def test_vertex_credentials_path_must_be_readable_file(tmp_path, monkeypatch):
     """VERTEX_CREDENTIALS_PATH must point to an actual readable file, not a directory
     or non-existent path."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)
     monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
     _write_config(tmp_path, {"model": {"provider": "anthropic", "default": "claude-opus-4-8"}})
@@ -126,7 +126,7 @@ def test_vertex_credentials_path_must_be_readable_file(tmp_path, monkeypatch):
 def test_bedrock_region_counts_as_explicit(tmp_path, monkeypatch):
     """Bedrock (AWS SDK auth, no API key) is explicitly configured once the
     user pins a region in config.yaml, mirroring the Vertex keyless case."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     _write_auth_store(tmp_path, {"version": 1, "providers": {}, "active_provider": None})
 
     from hermes_cli.auth import is_provider_explicitly_configured
@@ -220,8 +220,8 @@ def _clean_aws_env(monkeypatch):
 
 
 def test_bedrock_not_explicit_without_aws_env(tmp_path, monkeypatch, _clean_aws_env):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
 
     from hermes_cli.auth import is_provider_explicitly_configured
     assert is_provider_explicitly_configured("bedrock") is False
@@ -230,8 +230,8 @@ def test_bedrock_not_explicit_without_aws_env(tmp_path, monkeypatch, _clean_aws_
 def test_bedrock_bearer_token_counts_as_explicit(tmp_path, monkeypatch, _clean_aws_env):
     """AWS_BEARER_TOKEN_BEDROCK is Bedrock-specific — the user set it for
     exactly this provider, so it gates like a provider API key."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "ABSKexample-bearer-token-value")
 
     from hermes_cli.auth import is_provider_explicitly_configured
@@ -239,8 +239,8 @@ def test_bedrock_bearer_token_counts_as_explicit(tmp_path, monkeypatch, _clean_a
 
 
 def test_bedrock_access_key_pair_counts_as_explicit(tmp_path, monkeypatch, _clean_aws_env):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAEXAMPLE1234567890")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "examplesecretexamplesecretexample0000000")
 
@@ -250,8 +250,8 @@ def test_bedrock_access_key_pair_counts_as_explicit(tmp_path, monkeypatch, _clea
 
 def test_bedrock_access_key_without_secret_is_not_explicit(tmp_path, monkeypatch, _clean_aws_env):
     """A lone AWS_ACCESS_KEY_ID can't authenticate anything — require the pair."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAEXAMPLE1234567890")
 
     from hermes_cli.auth import is_provider_explicitly_configured
@@ -260,10 +260,10 @@ def test_bedrock_access_key_without_secret_is_not_explicit(tmp_path, monkeypatch
 
 def test_bedrock_ambient_aws_profile_is_not_explicit(tmp_path, monkeypatch, _clean_aws_env):
     """AWS_PROFILE is ambient machine state (SSO / shared credentials file),
-    not an explicit Hermes provider choice — same principle as gh_cli-seeded
+    not an explicit AgentX provider choice — same principle as gh_cli-seeded
     Copilot pool entries (#56974)."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("AWS_PROFILE", "default")
 
     from hermes_cli.auth import is_provider_explicitly_configured
@@ -273,8 +273,8 @@ def test_bedrock_ambient_aws_profile_is_not_explicit(tmp_path, monkeypatch, _cle
 def test_aws_env_does_not_leak_into_other_providers(tmp_path, monkeypatch, _clean_aws_env):
     """The aws_sdk env check must key on the provider's auth_type, not fire
     for every provider whenever AWS credentials happen to be present."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    (tmp_path / "hermes").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    (tmp_path / "agentx").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "ABSKexample-bearer-token-value")
 
     from hermes_cli.auth import is_provider_explicitly_configured

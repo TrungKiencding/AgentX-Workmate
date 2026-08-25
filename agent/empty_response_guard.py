@@ -26,12 +26,12 @@ Two independent guards, both failing OPEN to today's behaviour:
    and keep the full retry budget.
 
 2. **Cost-aware retry budget** — when the estimated input cost of a
-   single empty attempt exceeds ``HERMES_EMPTY_RETRY_COST_THRESHOLD_USD``
+   single empty attempt exceeds ``AGENTX_EMPTY_RETRY_COST_THRESHOLD_USD``
    (default $0.25), the empty-retry budget for this streak drops from 3
    to 1. Unknown pricing, missing usage, or included/subscription routes
    leave the budget untouched.
 
-Set ``HERMES_DETERMINISTIC_EMPTY_GUARD=0`` to disable both guards.
+Set ``AGENTX_DETERMINISTIC_EMPTY_GUARD=0`` to disable both guards.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ class EmptyAttempt:
 
 
 def guard_enabled() -> bool:
-    return os.environ.get("HERMES_DETERMINISTIC_EMPTY_GUARD", "1").strip().lower() not in (
+    return os.environ.get("AGENTX_DETERMINISTIC_EMPTY_GUARD", "1").strip().lower() not in (
         "0",
         "false",
         "no",
@@ -82,7 +82,7 @@ def guard_enabled() -> bool:
 
 
 def _cost_threshold_usd() -> Decimal:
-    raw = os.environ.get("HERMES_EMPTY_RETRY_COST_THRESHOLD_USD", "").strip()
+    raw = os.environ.get("AGENTX_EMPTY_RETRY_COST_THRESHOLD_USD", "").strip()
     if not raw:
         return DEFAULT_COST_THRESHOLD_USD
     try:

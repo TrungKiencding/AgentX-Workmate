@@ -1459,7 +1459,7 @@ export const ar = defineLocale({
       message: count => `سيتم تخطي ${count} من المهام المجدولة حتى تراجع إعدادات النموذج الخاصة بها.`,
       detailMore: (names, remaining) => `${names} و${remaining} أخرى`,
       review: 'مراجعة المهام المجدولة',
-      saveFailed: 'لم يحفظ Hermes تغيير النموذج هذا.'
+      saveFailed: 'لم يحفظ AgentX تغيير النموذج هذا.'
     },
     search: 'بحث',
     loading: 'جار التحميل...',

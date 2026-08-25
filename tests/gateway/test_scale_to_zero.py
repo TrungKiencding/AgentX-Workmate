@@ -111,7 +111,7 @@ from gateway.scale_to_zero import (  # noqa: E402 - grouped with their section
     suspend_self,
 )
 
-_FLY_ENV = {FLY_APP_NAME_ENV: "hermes-agent-stg-test", FLY_MACHINE_ID_ENV: "d891234f"}
+_FLY_ENV = {FLY_APP_NAME_ENV: "agentx-agent-stg-test", FLY_MACHINE_ID_ENV: "d891234f"}
 
 
 def _fake_flaps(tmp_path, status_line, capture):
@@ -151,7 +151,7 @@ def test_suspend_self_posts_suspend_for_this_machine(tmp_path):
     # The request must target THIS machine's suspend endpoint, per the Fly
     # Machines API (POST /v1/apps/{app}/machines/{id}/suspend on /.fly/api).
     assert request.startswith(
-        "POST /v1/apps/hermes-agent-stg-test/machines/d891234f/suspend HTTP/1.1\r\n"
+        "POST /v1/apps/agentx-agent-stg-test/machines/d891234f/suspend HTTP/1.1\r\n"
     )
     assert "Host: flaps\r\n" in request
 

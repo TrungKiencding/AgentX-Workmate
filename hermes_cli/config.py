@@ -1466,8 +1466,8 @@ def _normalize_custom_provider_entry(
         normalized["model"] = model_name.strip()
 
     # Entry-level marker: the ``models`` mapping was auto-discovered by
-    # Hermes (``_save_discovered_models_to_config``), not hand-curated.
-    # Older Hermes versions wrote an in-mapping ``__discovered_model_catalog__``
+    # AgentX (``_save_discovered_models_to_config``), not hand-curated.
+    # Older AgentX versions wrote an in-mapping ``__discovered_model_catalog__``
     # sentinel instead; accept it on read and strip it from the models
     # mapping so sentinel keys never surface as model IDs.
     models_discovered = entry.get("models_discovered") is True
@@ -4740,13 +4740,13 @@ def resolve_cron_model_drift_defaults(
     """Resolve the global provider/model values cron compares against snapshots.
 
     Mirrors the scheduler's global-model precedence: a truthy configured model
-    wins ``HERMES_MODEL``; the environment is only a fallback. Per-job and cron
+    wins ``AGENTX_MODEL``; the environment is only a fallback. Per-job and cron
     fleet defaults are handled by the caller/classifier because they suppress a
     drift axis rather than changing the global assignment.
     """
     env = os.environ if environ is None else environ
     provider = ""
-    model = _model_assignment_text(env.get("HERMES_MODEL", ""))
+    model = _model_assignment_text(env.get("AGENTX_MODEL", ""))
     model_config = config.get("model") if isinstance(config, dict) else None
     if isinstance(model_config, str):
         configured_model = model_config.strip()

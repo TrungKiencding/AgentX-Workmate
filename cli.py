@@ -1460,7 +1460,7 @@ def _finalize_single_query(cli) -> None:
         # notify_on_complete=true BEFORE any teardown. The one-shot parent
         # owns those children's stdout pipes; exiting now kills the delivery
         # a few seconds later. Bot Mode handoff replies dispatched from a
-        # short-lived `hermes -p <bot> chat -Q` recipient (message_agent /
+        # short-lived `agentx -p <bot> chat -Q` recipient (message_agent /
         # bot_relay spawns) are exactly this shape and were silently
         # destroyed on parent exit (#90879).
         try:
@@ -2299,7 +2299,7 @@ def _cleanup_worktree(info: Dict[str, str] = None) -> None:
             # about why we're keeping it — the startup pruner deepens the
             # clone in the background and will reap it on a later startup.
             print(f"\n\033[33m⚠ Shallow clone — cannot verify push state, keeping: {wt_path}\033[0m")
-            print("  The next `hermes -w` session deepens the clone and prunes merged worktrees automatically.")
+            print("  The next `agentx -w` session deepens the clone and prunes merged worktrees automatically.")
         else:
             print(f"\n\033[33m⚠ Worktree has unpushed commits, keeping: {wt_path}\033[0m")
             print(f"  To clean up manually: git worktree remove --force {wt_path}")
@@ -2932,7 +2932,7 @@ def _heal_cooked_mode_drift(fd: int) -> bool:
     prompt_toolkit's ``run_in_terminal`` / ``in_terminal`` wraps every
     "print above the prompt" in a ``cooked_mode()`` context: it flips the
     tty back to cooked (ICANON/ECHO/ISIG), runs the function, then restores
-    raw mode.  Hermes schedules those windows cross-thread constantly — the
+    raw mode.  AgentX schedules those windows cross-thread constantly — the
     background self-review's ``💾`` summary, background process notification
     drains, curses pickers — and if a restore is ever lost (coroutine
     cancelled mid-window, racing chains, an external writer touching the
@@ -3860,11 +3860,11 @@ def _hermes_call_output_screen_diff(
     size,
     previous_width,
 ):
-    """Call prompt_toolkit ``_output_screen_diff`` with Hermes resize guards.
+    """Call prompt_toolkit ``_output_screen_diff`` with AgentX resize guards.
 
     1. Inflate ``previous_screen.height`` when the new screen is taller so pt
        skips the reserve-vertical-space cursor move that stamps chrome into
-       scrollback (pt #29 / Hermes #26137).
+       scrollback (pt #29 / AgentX #26137).
     2. On AttributeError/TypeError from a corrupt previous paint buffer
        (classic after tmux attach with same width), retry once with
        ``previous_screen=None`` so pt first-paints cleanly instead of crashing
@@ -5335,7 +5335,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
         Terminals with focus tracking active (Ghostty, iTerm2, xterm builds,
         multiplexers that toggle DECSET 1004 upstream) emit ``\\x1b[I`` when
-        the Hermes tab/window becomes visible again. Emulators can coalesce
+        the AgentX tab/window becomes visible again. Emulators can coalesce
         or drop hidden-tab output and repaint the surface while we're
         invisible, so on regain prompt_toolkit's incremental diff stacks on
         stale content — a second copy of the composer/prompt chrome next to
@@ -11800,7 +11800,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         _cprint(labels.get(self.tool_progress_mode, ""))
 
     def _write_terminal_breadcrumb(self) -> None:
-        """Record this terminal's live session for bare ``hermes -c``.
+        """Record this terminal's live session for bare ``agentx -c``.
 
         Called at session start and whenever ``self.session_id`` is
         reassigned mid-run (/new, /branch, auto-compression rotation) so a
@@ -11899,7 +11899,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             is_session_yolo_enabled,
         )
 
-        # Process-level YOLO (--yolo flag / HERMES_YOLO_MODE at startup) is
+        # Process-level YOLO (--yolo flag / AGENTX_YOLO_MODE at startup) is
         # frozen into tools.approval at import time and cannot be disabled by
         # the session toggle. Before this guard, /yolo printed "YOLO mode OFF —
         # dangerous commands will require approval" while every command kept
@@ -11909,7 +11909,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         if _YOLO_MODE_FROZEN:
             _cprint(
                 f"  ⚡ YOLO is {_Colors.BOLD}{_Colors.RED}locked ON{_Colors.RESET}"
-                " for this process (started with --yolo / HERMES_YOLO_MODE)."
+                " for this process (started with --yolo / AGENTX_YOLO_MODE)."
                 " /yolo cannot disable it — restart without the flag to"
                 " re-enable approvals."
             )
@@ -17922,7 +17922,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             multi_select = state.get("multi_select", False)
             selected_indices = state.get("selected_indices", set()) if multi_select else set()
 
-            title = "Hermes needs your input"
+            title = "AgentX needs your input"
             header = f"{len(questions_list)} questions"
 
             def _status_rows(width):
@@ -19670,13 +19670,13 @@ def main(
         # (and only) tool snapshot. See #51316.
         cli._single_query_mode = True
         # Mark single-query for the approval gate. cli.py sets
-        # HERMES_INTERACTIVE earlier for interactive sudo prompts, but a -q
+        # AGENTX_INTERACTIVE earlier for interactive sudo prompts, but a -q
         # run has NO user waiting to answer approval prompts. The gate reads
         # this marker (via gateway.session_context.get_session_env, which falls
         # back to os.environ when the session-context layer isn't engaged) and
         # takes the deterministic approvals.single_query_mode path instead of
         # waiting the full timeout. See #86878.
-        os.environ["HERMES_SINGLE_QUERY_SESSION"] = "1"
+        os.environ["AGENTX_SINGLE_QUERY_SESSION"] = "1"
         if not cli._claim_active_session("cli", stderr=bool(quiet)):
             sys.exit(1)
         try:

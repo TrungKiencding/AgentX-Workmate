@@ -115,7 +115,7 @@ class TestHermesTokenStorage:
     def test_client_info_with_secret_uses_client_secret_post(self, tmp_path, monkeypatch):
         from mcp.shared.auth import OAuthClientInformationFull
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         storage = HermesTokenStorage("supabase")
         client_info = OAuthClientInformationFull.model_validate({
             "client_id": "client-id",
@@ -132,7 +132,7 @@ class TestHermesTokenStorage:
         assert json.loads(client_path.read_text())["token_endpoint_auth_method"] == "client_secret_post"
 
     def test_client_info_with_secret_and_none_method_is_coerced(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         token_dir = tmp_path / "mcp-tokens"
         token_dir.mkdir(parents=True)
         client_path = token_dir / "supabase.client.json"
@@ -190,7 +190,7 @@ class TestBuildOAuthAuth:
         from mcp.shared.auth import OAuthClientInformationFull
         from urllib.parse import parse_qs
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -215,7 +215,7 @@ class TestBuildOAuthAuth:
     async def test_token_response_accepts_201_created(self, tmp_path, monkeypatch):
         import httpx
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -241,7 +241,7 @@ class TestBuildOAuthAuth:
         import httpx
         from mcp.client.auth.oauth2 import OAuthTokenError
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -261,7 +261,7 @@ class TestBuildOAuthAuth:
         import httpx
         from mcp.client.auth.oauth2 import OAuthTokenError
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -285,7 +285,7 @@ class TestBuildOAuthAuth:
         import logging
         import httpx
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -305,7 +305,7 @@ class TestBuildOAuthAuth:
     async def test_refresh_read_error_clears_tokens(self, tmp_path, monkeypatch):
         import httpx
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         _set_interactive_stdin(monkeypatch)
         provider = build_oauth_auth("supabase", "https://mcp.supabase.com/mcp")
         assert provider is not None
@@ -586,7 +586,7 @@ class TestInvalidateTokensOnClientChange:
 
     def _seed(self, tmp_path, monkeypatch, client_id="client-a",
               client_secret=None):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         storage = HermesTokenStorage("chg-server")
         d = tmp_path / "mcp-tokens"
         d.mkdir(parents=True, exist_ok=True)
@@ -630,7 +630,7 @@ class TestInvalidateTokensOnClientChange:
 
     def test_no_prior_client_info_is_noop(self, tmp_path, monkeypatch):
         from tools.mcp_oauth import _invalidate_tokens_on_client_change
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         storage = HermesTokenStorage("fresh-server")
         d = tmp_path / "mcp-tokens"
         d.mkdir(parents=True, exist_ok=True)

@@ -2627,7 +2627,7 @@ class TestSessionDbOffEventLoop:
     @pytest.mark.asyncio
     async def test_create_session_without_model_does_not_persist_virtual_alias(self, auth_adapter):
         """A session created with no ``model`` field must not persist the
-        virtual model alias (self._model_name, e.g. "hermes-agent") as if it
+        virtual model alias (self._model_name, e.g. "agentx-agent") as if it
         were a real provider model id.
 
         Regression: _handle_create_session previously did
@@ -2636,7 +2636,7 @@ class TestSessionDbOffEventLoop:
         the session row. _handle_session_chat later reads it back as a raw
         session_model override (since it's not a model_routes alias) and
         sends it to the provider literally — Bedrock/OpenAI then reject
-        "hermes-agent" as an invalid model identifier on every turn.
+        "agentx-agent" as an invalid model identifier on every turn.
         """
         app = _create_app(auth_adapter)
         app.router.add_post("/api/sessions", auth_adapter._handle_create_session)
@@ -2654,7 +2654,7 @@ class TestSessionDbOffEventLoop:
 
     @pytest.mark.asyncio
     async def test_create_session_with_explicit_virtual_alias_does_not_persist_it(self, auth_adapter):
-        """Sending ``model: "hermes-agent"`` explicitly (the virtual alias
+        """Sending ``model: "agentx-agent"`` explicitly (the virtual alias
         itself, e.g. a client that just echoes /v1/models' advertised id)
         must be treated the same as omitting model entirely."""
         app = _create_app(auth_adapter)
@@ -2695,7 +2695,7 @@ class TestSessionDbOffEventLoop:
         Regression: _handle_create_session used to re-derive its own `model`
         straight from the raw request body, bypassing the provider-prefix
         split that _session_runtime_request_from_body performs — so
-        "openrouter::hermes-agent" never matched self._model_name and leaked
+        "openrouter::agentx-agent" never matched self._model_name and leaked
         through as a literal session override.
         """
         app = _create_app(auth_adapter)

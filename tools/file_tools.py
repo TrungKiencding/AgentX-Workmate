@@ -708,7 +708,7 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
 # ---------------------------------------------------------------------------
 # Files that steer FUTURE agent behavior are a prompt-injection persistence
 # vector: an injected instruction that edits AGENTS.md / CLAUDE.md / SOUL.md /
-# .cursorrules (or a project-local .hermes config tree) outlives the current
+# .cursorrules (or a project-local .agentx config tree) outlives the current
 # turn and poisons every later session that loads it. Writes to these files
 # therefore ALWAYS require human approval — even under --yolo / auto-approve —
 # and fail closed when no human channel exists.
@@ -734,7 +734,7 @@ _real_hermes_home_loaded = False
 
 
 def _get_real_hermes_home() -> str | None:
-    """Return the realpath of the authoritative Hermes home (cached)."""
+    """Return the realpath of the authoritative AgentX home (cached)."""
     global _real_hermes_home_cached, _real_hermes_home_loaded
     if _real_hermes_home_loaded:
         return _real_hermes_home_cached
@@ -744,7 +744,7 @@ def _get_real_hermes_home() -> str | None:
         _real_hermes_home_cached = os.path.realpath(str(get_hermes_home()))
     except Exception:
         try:
-            _real_hermes_home_cached = os.path.realpath(_expand_tilde("~/.hermes"))
+            _real_hermes_home_cached = os.path.realpath(_expand_tilde("~/.agentx"))
         except Exception:
             _real_hermes_home_cached = None
     return _real_hermes_home_cached
@@ -801,10 +801,10 @@ def _protected_instruction_reason(filepath: str, task_id: str = "default",
     except (OSError, ValueError, RuntimeError):
         resolved = os.path.realpath(normalized)
 
-    # The authoritative ~/.hermes home is governed by its own guards
+    # The authoritative ~/.agentx home is governed by its own guards
     # (config.yaml hard-block, cross-profile guard, write_approval); this
     # gate targets PROJECT-LOCAL instruction files only. Checked before the
-    # ``.hermes`` component rule below, which would otherwise match the
+    # ``.agentx`` component rule below, which would otherwise match the
     # home directory itself.
     real_home = _get_real_hermes_home()
     if real_home and (resolved == real_home
@@ -820,14 +820,14 @@ def _protected_instruction_reason(filepath: str, task_id: str = "default",
         for pattern in extra_patterns:
             if fnmatch.fnmatch(base_lower, pattern.lower()):
                 return base
-        # Project-local .hermes config dirs (e.g. <repo>/.hermes/config.yaml)
+        # Project-local .agentx config dirs (e.g. <repo>/.agentx/config.yaml)
         # are loaded as project context and steer behavior the same way.
-        # Scope: the file's IMMEDIATE parent must be ``.hermes`` — matching
-        # any ancestor named .hermes would gate every write inside a
-        # checkout that happens to live under ~/.hermes (e.g. the
-        # hermes-agent repo itself at ~/.hermes/hermes-agent).
+        # Scope: the file's IMMEDIATE parent must be ``.agentx`` — matching
+        # any ancestor named .agentx would gate every write inside a
+        # checkout that happens to live under ~/.agentx (e.g. the
+        # agentx-agent repo itself at ~/.agentx/agentx-agent).
         parts = candidate.replace("\\", "/").rstrip("/").split("/")
-        if len(parts) >= 2 and parts[-2] == ".hermes":
+        if len(parts) >= 2 and parts[-2] == ".agentx":
             return candidate
     return None
 

@@ -1298,7 +1298,7 @@ class _CodexCompletionsAdapter:
         )
 
         resp_kwargs: Dict[str, Any] = {
-            # Strip the Hermes-side ``-900k`` large-context picker suffix —
+            # Strip the AgentX-side ``-900k`` large-context picker suffix —
             # the Codex backend only knows the base slug (mirrors the main
             # transport in agent/transports/codex.py::build_kwargs).
             "model": _strip_codex_ctx_variant(model),
@@ -1342,7 +1342,7 @@ class _CodexCompletionsAdapter:
                     effort = reasoning_cfg.get("effort") or "medium"
                     # Codex backend rejects "minimal"; clamp to "low" to
                     # match the main-agent Codex transport behavior. "ultra"
-                    # is Hermes-internal ladder vocabulary with no wire
+                    # is AgentX-internal ladder vocabulary with no wire
                     # equivalent anywhere on this API; cap it at "max"
                     # (same class as #89503).
                     if effort == "minimal":

@@ -21,7 +21,7 @@ def _write_auth_store(tmp_path, payload: dict) -> None:
 def _write_groq_provider_config(
     tmp_path, *, provider_key="groq", name="Groq", base_url=None
 ) -> None:
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "agentx"
     hermes_home.mkdir(parents=True, exist_ok=True)
     (hermes_home / "config.yaml").write_text(
         yaml.safe_dump(
@@ -118,8 +118,8 @@ def test_auth_add_api_key_persists_manual_entry(tmp_path, monkeypatch):
 
 def test_auth_add_configured_provider_uses_canonical_pool_key(tmp_path, monkeypatch):
     """A keyed providers row must keep its runtime slug in the auth pool."""
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     _write_auth_store(tmp_path, {"version": 1, "providers": {}})
     _write_groq_provider_config(tmp_path)
@@ -142,8 +142,8 @@ def test_auth_add_configured_provider_uses_canonical_pool_key(tmp_path, monkeypa
 def test_auth_add_migrates_legacy_prefixed_key_for_configured_provider(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     _write_auth_store(
         tmp_path,
@@ -186,8 +186,8 @@ def test_auth_add_migrates_legacy_prefixed_key_for_configured_provider(
 def test_auth_add_migrates_display_name_derived_legacy_pool_key(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     _write_auth_store(
         tmp_path,
@@ -233,8 +233,8 @@ def test_auth_add_migrates_display_name_derived_legacy_pool_key(
 def test_auth_add_non_registry_configured_provider_preserves_endpoint(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     _write_auth_store(tmp_path, {"version": 1, "providers": {}})
     _write_groq_provider_config(
         tmp_path,
@@ -265,7 +265,7 @@ def test_auth_add_non_registry_configured_provider_preserves_endpoint(
 def test_auth_list_includes_non_registry_configured_provider(
     tmp_path, monkeypatch, capsys
 ):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     _write_groq_provider_config(tmp_path, provider_key="private-groq")
     _write_auth_store(
         tmp_path,
@@ -297,8 +297,8 @@ def test_auth_list_includes_non_registry_configured_provider(
 def test_interactive_auth_add_accepts_non_registry_configured_provider(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     _write_auth_store(tmp_path, {"version": 1, "providers": {}})
     _write_groq_provider_config(tmp_path, provider_key="private-groq")
 
@@ -317,8 +317,8 @@ def test_interactive_auth_add_accepts_non_registry_configured_provider(
 def test_interactive_auth_add_normalizes_display_name_to_provider_key(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     _write_auth_store(tmp_path, {"version": 1, "providers": {}})
     _write_groq_provider_config(
         tmp_path, provider_key="groq-cloud", name="Groq Enterprise"
@@ -340,8 +340,8 @@ def test_interactive_auth_add_normalizes_display_name_to_provider_key(
 def test_auth_add_explicit_custom_provider_keeps_prefixed_pool_key(
     tmp_path, monkeypatch
 ):
-    hermes_home = tmp_path / "hermes"
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    hermes_home = tmp_path / "agentx"
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
     _write_auth_store(tmp_path, {"version": 1, "providers": {}})
     _write_groq_provider_config(
         tmp_path,
@@ -793,7 +793,7 @@ def test_auth_remove_reindexes_priorities(tmp_path, monkeypatch):
 
 def test_auth_remove_codex_migrates_legacy_dict_suppression(tmp_path, monkeypatch):
     """Removing a Codex credential must tolerate legacy dict suppression data."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
     store = _codex_pool_only_store()
     primary = store["credential_pool"]["openai-codex"][0]
     primary.update({"id": "codex-qb", "label": "qb"})
@@ -808,7 +808,7 @@ def test_auth_remove_codex_migrates_legacy_dict_suppression(tmp_path, monkeypatc
 
     auth_remove_command(_Args())
 
-    payload = json.loads((tmp_path / "hermes" / "auth.json").read_text(encoding="utf-8"))
+    payload = json.loads((tmp_path / "agentx" / "auth.json").read_text(encoding="utf-8"))
     assert payload.get("credential_pool", {}).get("openai-codex", []) == []
     assert payload["suppressed_sources"]["openai-codex"] == [
         "legacy",
@@ -1075,9 +1075,9 @@ def test_auth_remove_env_seeded_dotenv_with_bom_no_shell_hint(tmp_path, monkeypa
     warn about a phantom shell export). Regression for the reader that
     dropped encoding='utf-8-sig' and misread the BOM'd first line.
     """
-    hermes_home = tmp_path / "hermes"
+    hermes_home = tmp_path / "agentx"
     hermes_home.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("AGENTX_HOME", str(hermes_home))
 
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     # BOM prefix (utf-8-sig) + the target var as the FIRST line.

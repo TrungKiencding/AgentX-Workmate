@@ -199,7 +199,7 @@ def _resolve_model(caller_model: Optional[str] = None) -> Tuple[str, Dict[str, A
 
     Priority:
     1. Caller-supplied ``caller_model`` — the dispatcher forwards top-level
-       ``image_gen.model`` (what ``hermes tools`` writes) as the ``model``
+       ``image_gen.model`` (what ``agentx tools`` writes) as the ``model``
        kwarg, mirroring the openrouter provider.
     2. ``XAI_IMAGE_MODEL`` env override.
     3. Scoped ``image_gen.xai.model`` in config.yaml.

@@ -2,7 +2,7 @@
 
 A gateway whose event loop is stalled cannot process a graceful shutdown, so
 the updater's drain wait used to burn the full 180s budget ("Gateway PID X
-still running after 180.0s — restart may fail") and could deadlock `hermes
+still running after 180.0s — restart may fail") and could deadlock `agentx
 update`. The fix probes the loop-liveness heartbeat file BEFORE draining and,
 only when the loop is provably dead, escalates SIGTERM → SIGKILL bounded to
 seconds. A busy-but-alive gateway (fresh heartbeat) must keep the full drain
@@ -190,7 +190,7 @@ class TestLaunchdRestartWedgedIntegration:
 
     def _setup(self, monkeypatch, liveness):
         events = []
-        monkeypatch.setattr(gateway_cli, "get_launchd_label", lambda: "ai.hermes.gateway")
+        monkeypatch.setattr(gateway_cli, "get_launchd_label", lambda: "ai.agentx.gateway")
         monkeypatch.setattr(gateway_cli, "_launchd_domain", lambda: "gui/501")
         monkeypatch.setattr(gateway_cli, "_get_restart_drain_timeout", lambda: 180.0)
         monkeypatch.setattr("gateway.status.get_running_pid", lambda *a, **k: 4242)

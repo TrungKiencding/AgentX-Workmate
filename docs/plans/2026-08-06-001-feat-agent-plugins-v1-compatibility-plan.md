@@ -13,9 +13,9 @@ deepened: 2026-08-06
 
 ## Goal Capsule
 
-- **Objective:** Let Hermes install, discover, validate, explicitly enable, and load portable Agent Plugins v1.0.0 directory packages that contain Agent Skills and MCP servers.
-- **Authority:** Preserve Hermes native `plugin.yaml` plus `register(ctx)` behavior and the Agent Plugins v1.0.0 normative text. When machine schemas and specification prose differ, the specification prose governs.
-- **Execution profile:** Add a compatibility adapter that translates portable components into Hermes' existing namespaced plugin-skill registry and MCP client. Do not add a model-visible core tool or a parallel runtime.
+- **Objective:** Let AgentX install, discover, validate, explicitly enable, and load portable Agent Plugins v1.0.0 directory packages that contain Agent Skills and MCP servers.
+- **Authority:** Preserve AgentX native `plugin.yaml` plus `register(ctx)` behavior and the Agent Plugins v1.0.0 normative text. When machine schemas and specification prose differ, the specification prose governs.
+- **Execution profile:** Add a compatibility adapter that translates portable components into AgentX' existing namespaced plugin-skill registry and MCP client. Do not add a model-visible core tool or a parallel runtime.
 - **Stop conditions:** The supported subset, security boundaries, failure isolation, native regressions, documentation, and focused integration tests are complete. Full Agent Plugins conformance must not be claimed unless every applicable normative requirement is proved.
 - **Tail ownership:** This change ships as one focused PR linked to #64182 and explicitly complementary to #69446 and #64181.
 
@@ -25,11 +25,11 @@ deepened: 2026-08-06
 
 ### Summary
 
-Hermes will recognize root `plugin.json` packages alongside native plugins, but only enabled packages can contribute components. A local compatibility adapter will validate the v1.0.0 format and feed valid skills and MCP entries into existing Hermes machinery.
+AgentX will recognize root `plugin.json` packages alongside native plugins, but only enabled packages can contribute components. A local compatibility adapter will validate the v1.0.0 format and feed valid skills and MCP entries into existing AgentX machinery.
 
 ### Problem Frame
 
-Hermes already owns the two portable component runtimes standardized by Agent Plugins v1: Agent Skills and MCP servers. Its native plugin system uses a different package contract based on `plugin.yaml` and Python `register(ctx)`, so standard portable packages are currently invisible even when their components are otherwise compatible.
+AgentX already owns the two portable component runtimes standardized by Agent Plugins v1: Agent Skills and MCP servers. Its native plugin system uses a different package contract based on `plugin.yaml` and Python `register(ctx)`, so standard portable packages are currently invisible even when their components are otherwise compatible.
 
 The compatibility boundary is security-sensitive. A portable package can expose instructions, supporting files, local executables, process environment, and remote MCP endpoints. Discovery must therefore remain opt-in, path-contained, locally validated, and isolated at the narrowest component boundary.
 
@@ -39,9 +39,9 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 
 #### Package discovery and activation
 
-- R1. Hermes recognizes a root `plugin.json` as an Agent Plugins v1 package without changing native `plugin.yaml`, `plugin.yml`, Python module, or entry-point plugin behavior.
+- R1. AgentX recognizes a root `plugin.json` as an Agent Plugins v1 package without changing native `plugin.yaml`, `plugin.yml`, Python module, or entry-point plugin behavior.
 - R2. User and project portable packages use the existing `plugins.enabled` allow-list and `plugins.disabled` deny-list, with explicit disable taking precedence and no automatic trust or activation.
-- R3. `hermes plugins install`, `list`, `enable`, `disable`, `update`, and `remove` accept portable packages through the existing plugin workflow and retain the install-disabled default.
+- R3. `agentx plugins install`, `list`, `enable`, `disable`, `update`, and `remove` accept portable packages through the existing plugin workflow and retain the install-disabled default.
 - R4. Portable package identity and component names are deterministic and namespaced so they cannot silently replace native skills or MCP servers.
 
 #### Local validation and containment
@@ -54,16 +54,16 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 #### Skills compatibility
 
 - R9. Each immediate skill is validated against the complete Agent Skills frontmatter contract: required matching `name` and non-empty `description`, plus every optional field's type and limit when present. Invalid skills are reported and skipped without blocking valid siblings or MCP.
-- R10. Valid portable skills use Hermes' read-only namespaced plugin-skill registry and existing `skill_view` safeguards, preprocessing, linked-file containment, platform checks, and prompt-injection warnings.
+- R10. Valid portable skills use AgentX' read-only namespaced plugin-skill registry and existing `skill_view` safeguards, preprocessing, linked-file containment, platform checks, and prompt-injection warnings.
 - R11. Portable skill discovery does not mutate the system prompt or past messages during a conversation; any inventory change takes effect only through existing startup or turn-boundary behavior.
 
 #### MCP compatibility
 
 - R12. Root `mcp.json` is locally validated for the canonical v1.0.0 schema identifier, a version matching `plugin.json`, the closed top-level shape, and independently closed server variants.
 - R13. Invalid top-level MCP configuration disables MCP only for that package, while invalid or unsupported server entries are skipped independently and valid skills and sibling servers continue.
-- R14. Stdio commands remain one opaque executable token with arguments passed separately; Hermes never invokes a shell or splits a command string for portable packages.
-- R15. The initial portable subset supports stdio MCP only. Package files and plugin-relative commands resolve within `PLUGIN_ROOT`; explicit `cwd` resolves within its selected `PLUGIN_ROOT` or `PLUGIN_DATA` root, and omitted `cwd` becomes `PLUGIN_ROOT`. Streamable HTTP and legacy SSE entries are reported and skipped until Hermes can enforce the v1 cross-origin configured-header rules throughout the native remote client.
-- R16. Hermes creates a dedicated persistent writable `PLUGIN_DATA` directory per installed package instance, sets filesystem-resolved `PLUGIN_ROOT` and `PLUGIN_DATA` after configured environment overlays, and prevents packages from overriding either reserved key.
+- R14. Stdio commands remain one opaque executable token with arguments passed separately; AgentX never invokes a shell or splits a command string for portable packages.
+- R15. The initial portable subset supports stdio MCP only. Package files and plugin-relative commands resolve within `PLUGIN_ROOT`; explicit `cwd` resolves within its selected `PLUGIN_ROOT` or `PLUGIN_DATA` root, and omitted `cwd` becomes `PLUGIN_ROOT`. Streamable HTTP and legacy SSE entries are reported and skipped until AgentX can enforce the v1 cross-origin configured-header rules throughout the native remote client.
+- R16. AgentX creates a dedicated persistent writable `PLUGIN_DATA` directory per installed package instance, sets filesystem-resolved `PLUGIN_ROOT` and `PLUGIN_DATA` after configured environment overlays, and prevents packages from overriding either reserved key.
 - R17. Placeholder expansion is a single non-recursive replacement of exact `${PLUGIN_ROOT}` and `${PLUGIN_DATA}` occurrences only in `args`, environment values, and `cwd`; no other environment, command, URL, header, key, or path expansion is performed.
 - R18. Portable MCP entries pass through existing suspicious-entry filtering, safe subprocess environment construction, async discovery, tool registration, approval middleware, reconnect handling, and per-server connection failure isolation.
 
@@ -75,8 +75,8 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 ### Acceptance Examples
 
 - AE1. **Covers R1, R2, R9, R10.** Given an enabled portable package with one valid skill and a native Python plugin in a separate directory beneath the same plugin search root, when discovery runs, then `skill_view` resolves the qualified portable skill and the native plugin still registers normally.
-- AE2. **Covers R2, R3.** Given a valid installed package absent from `plugins.enabled`, when Hermes starts, then the package is listed as not enabled and contributes no skills, MCP servers, or subprocesses.
-- AE3. **Covers R5, R6.** Given a manifest with one unknown top-level field but otherwise valid content, when discovery runs, then Hermes reports and ignores the field and continues; an unsupported `$schema` rejects the package.
+- AE2. **Covers R2, R3.** Given a valid installed package absent from `plugins.enabled`, when AgentX starts, then the package is listed as not enabled and contributes no skills, MCP servers, or subprocesses.
+- AE3. **Covers R5, R6.** Given a manifest with one unknown top-level field but otherwise valid content, when discovery runs, then AgentX reports and ignores the field and continues; an unsupported `$schema` rejects the package.
 - AE4. **Covers R7, R8.** Given an in-root skills directory and an `mcp.json` symlink escaping the package, when discovery runs, then valid skills remain available and MCP is disabled only for that package.
 - AE5. **Covers R9, R13.** Given one valid skill, one invalid skill, one valid MCP server, and one invalid server entry, when the enabled package loads, then only the valid skill and server are registered.
 - AE6. **Covers R14, R15, R16, R17.** Given a stdio entry with an opaque command, separate args, plugin placeholders, and omitted `cwd`, when translated, then the command is unchanged, placeholders expand exactly once, reserved environment values are host-owned, and the native process receives the resolved plugin root as `cwd`.
@@ -85,7 +85,7 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 
 ### Success Criteria
 
-- Every scenario named in the task brief has focused automated coverage using isolated `HOME` and `HERMES_HOME` fixtures.
+- Every scenario named in the task brief has focused automated coverage using isolated `HOME` and `AGENTX_HOME` fixtures.
 - Native plugin discovery, activation, skill registration, and MCP configuration remain backward compatible.
 - Portable packages are useful through existing CLI, skill, and MCP surfaces without changing prompt caching or the core tool schema.
 - Public documentation and PR wording distinguish the supported subset from catalog, pack, lifecycle, consent, and gateway roadmap work.
@@ -95,7 +95,7 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 #### Deferred to Follow-Up Work
 
 - Catalog metadata, pinned-source admission, search, and discovery remain owned by #64181 and #69446.
-- Hermes-native manifest v2 and plugin pack export or install semantics remain owned by #64165 and #64166.
+- AgentX-native manifest v2 and plugin pack export or install semantics remain owned by #64165 and #64166.
 - Capability declaration, consent, staged updates, and ownership lifecycle remain owned by #64228, #37977, #64229, and #76490.
 - Full-profile distribution packaging remains separate from the portable plugin adapter.
 
@@ -110,13 +110,13 @@ The official rendered specification page labels v1.0.0 a Working Draft, while th
 ### Assumptions
 
 - The portable package root is an installed plugin directory already visible to the native plugin scanner; this change does not search arbitrary ancestor directories or reinterpret workspace-root files as packages.
-- Portable components use a deterministic package namespace when exposed to Hermes. Native user config retains precedence because portable MCP server names cannot collide with unqualified native server keys.
-- Hermes supports Agent Plugins stdio through its existing client. Portable Streamable HTTP and legacy SSE remain unsupported in this first subset because the current redirect path cannot prove the v1 configured-header boundary end to end.
-- Package state lives below profile-specific `HERMES_HOME` in a dedicated data subtree keyed by canonical package identity. Removal may leave data intact unless existing uninstall policy explicitly owns cleanup.
+- Portable components use a deterministic package namespace when exposed to AgentX. Native user config retains precedence because portable MCP server names cannot collide with unqualified native server keys.
+- AgentX supports Agent Plugins stdio through its existing client. Portable Streamable HTTP and legacy SSE remain unsupported in this first subset because the current redirect path cannot prove the v1 configured-header boundary end to end.
+- Package state lives below profile-specific `AGENTX_HOME` in a dedicated data subtree keyed by canonical package identity. Removal may leave data intact unless existing uninstall policy explicitly owns cleanup.
 
 ### Key Technical Decisions
 
-- KTD1. **Add a compatibility adapter, not a runtime.** A focused module owns v1 manifest, skill, MCP, path, and placeholder validation, then returns native Hermes records to the existing plugin manager and MCP registry.
+- KTD1. **Add a compatibility adapter, not a runtime.** A focused module owns v1 manifest, skill, MCP, path, and placeholder validation, then returns native AgentX records to the existing plugin manager and MCP registry.
 - KTD2. **Preserve native discovery contracts.** The plugin scanner recognizes `plugin.json` only when no native manifest owns the directory, records a portable marker on the manifest, and routes enabled portable packages to component registration without importing `__init__.py`.
 - KTD3. **Use namespaced read-only skills with collision refusal.** Portable skills use the canonical discovered plugin key as their namespace and enter the same registry as `ctx.register_skill` output. Registration reports and skips a duplicate qualified name rather than overwriting a native or portable skill, and progressive disclosure does not join the editable flat skill tree or force a system-prompt rebuild.
 - KTD4. **Merge MCP after native interpolation.** Native `config.yaml` servers keep their current secret interpolation. Portable entries are independently translated and merged afterward so the portable contract can leave unknown placeholders literal and restrict expansion to the two standardized variables.
@@ -158,8 +158,8 @@ flowchart TB
 ### System-Wide Impact
 
 - **Prompt caching:** Package discovery and MCP registration finish before agent tool snapshots. Portable skills use existing progressive disclosure. No system prompt or past message is mutated mid-conversation.
-- **Trust:** Agent Plugins v1 does not define enablement, permissions, provenance, or sandboxing. Hermes' existing explicit activation and full-trust plugin warning remain the client-owned boundary.
-- **Profiles:** Package data and activation are profile-scoped through `get_hermes_home()`. Tests must isolate both `HOME` and `HERMES_HOME` to prevent cross-profile leakage.
+- **Trust:** Agent Plugins v1 does not define enablement, permissions, provenance, or sandboxing. AgentX' existing explicit activation and full-trust plugin warning remain the client-owned boundary.
+- **Profiles:** Package data and activation are profile-scoped through `get_hermes_home()`. Tests must isolate both `HOME` and `AGENTX_HOME` to prevent cross-profile leakage.
 - **MCP security:** Portable configuration receives stricter format validation before existing IOC, suspicious-shell, safe-environment, malware preflight, and connection controls.
 - **Startup parity:** Background CLI, TUI, dashboard, and slash-worker gates treat enabled portable MCP entries as configured so a portable-only package reaches discovery before tool snapshots.
 - **Compatibility:** Native Python plugins, model providers, memory providers, platform plugins, and entry points remain on their existing loading paths.
@@ -167,7 +167,7 @@ flowchart TB
 ### Risks and Dependencies
 
 - The official website and repository disagree on v1.0.0 publication status. Runtime behavior must key on canonical schema identifiers, not a mutable status label.
-- Agent Plugins delegates `SKILL.md` validity to the Agent Skills specification, which is stricter than Hermes' permissive frontmatter parser. The adapter needs a narrow explicit validator rather than weakening local skill behavior globally.
+- Agent Plugins delegates `SKILL.md` validity to the Agent Skills specification, which is stricter than AgentX' permissive frontmatter parser. The adapter needs a narrow explicit validator rather than weakening local skill behavior globally.
 - Existing MCP config performs broad `${VAR}` secret interpolation, which is incompatible with the portable expansion rules. Merge ordering must keep native and portable interpolation paths separate.
 - Existing stdio startup currently omits `cwd` from its SDK parameters. Adding it must be regression-tested for native servers with and without `cwd`.
 - Filesystem containment must consider symlinks and platform path forms without pretending to sandbox the launched process.
@@ -177,7 +177,7 @@ flowchart TB
 - Agent Plugins v1.0.0 normative specification: <https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md>
 - Rendered specification with Working Draft label: <https://agent-plugins.org/specification>
 - Agent Skills format specification: <https://agentskills.io/specification>
-- Hermes roadmap tracking issue: <https://github.com/NousResearch/hermes-agent/issues/64182>
+- AgentX roadmap tracking issue: <https://github.com/NousResearch/hermes-agent/issues/64182>
 - Community index issue and catalog PR: <https://github.com/NousResearch/hermes-agent/issues/64181> and <https://github.com/NousResearch/hermes-agent/pull/69446>
 - Existing gateway plugin PR, outside this adapter: <https://github.com/NousResearch/hermes-agent/pull/64436>
 
@@ -194,7 +194,7 @@ flowchart TB
 - **Approach:**
   1. Define canonical schema identifiers and explicit closed-field validators in Python so load never needs network access or a new dependency.
   2. Resolve package, fixed component, skill, command, and working-directory paths through one containment helper with narrow typed diagnostics.
-  3. Validate Agent Skills frontmatter without changing Hermes' permissive local-skill parser.
+  3. Validate Agent Skills frontmatter without changing AgentX' permissive local-skill parser.
   4. Translate valid stdio and supported remote entries into native MCP configuration, including dedicated data directories and exact single-pass placeholders.
 - **Patterns to follow:** `hermes_cli/plugins_cmd.py` safe install-path resolution, `tools/path_security.py` containment, `agent/skill_utils.py` frontmatter parsing, and `hermes_cli/mcp_security.py` fail-closed entry checks.
 - **Test scenarios:**
@@ -229,7 +229,7 @@ flowchart TB
   - Native and portable packages that would produce the same qualified skill name do not overwrite one another and emit a deterministic diagnostic.
   - A native `plugin.yaml` plus `register(ctx)` plugin and a portable package load in the same isolated process with unchanged native registration.
   - Source collision and rescan behavior remain deterministic and do not leave stale portable skill entries.
-- **Verification:** Loader-level integration under temporary `HOME` and `HERMES_HOME` proves activation, CLI visibility, namespaced skill access, and native regression behavior.
+- **Verification:** Loader-level integration under temporary `HOME` and `AGENTX_HOME` proves activation, CLI visibility, namespaced skill access, and native regression behavior.
 
 ### U3. Portable MCP merge and native runtime support
 
@@ -262,7 +262,7 @@ flowchart TB
 - **Dependencies:** U1-U3.
 - **Files:** `website/docs/developer-guide/plugins/index.md`, `website/docs/user-guide/cli.md`, `hermes_cli/subcommands/plugins.py`.
 - **Approach:**
-  1. Add a concise portable-package section showing the fixed v1 layout and existing `hermes plugins` workflow.
+  1. Add a concise portable-package section showing the fixed v1 layout and existing `agentx plugins` workflow.
   2. State supported component types, stdio-only portable MCP transport support, explicit activation, full-trust process posture, profile-scoped data, failure isolation, and unsupported v1/client-owned features.
   3. Record that the rendered site says Working Draft while the repository says Published, and link directly to the normative versioned specification.
   4. Explain that the adapter complements the catalog and roadmap work rather than replacing it.
@@ -277,7 +277,7 @@ flowchart TB
 | Gate | Scope | Evidence |
 |---|---|---|
 | Focused validator tests | U1 | Manifest, version, fields, skills, MCP variants, placeholders, and containment cases pass. |
-| Plugin loader and CLI tests | U2 | Isolated `HOME` and `HERMES_HOME` integration proves disabled/untrusted packages, valid loading, partial failures, CLI behavior, and native plugin regression. |
+| Plugin loader and CLI tests | U2 | Isolated `HOME` and `AGENTX_HOME` integration proves disabled/untrusted packages, valid loading, partial failures, CLI behavior, and native plugin regression. |
 | MCP unit and integration tests | U3 | Native config plus portable translation, SDK `cwd`, safe environment, collision isolation, mixed entries, and connection failure isolation pass. |
 | Existing regression suites | U2, U3 | Relevant plugin-skill, plugin-manager, plugin CLI, MCP startup, and MCP tool suites pass unchanged. |
 | Static quality | U1-U4 | Repository lint or compile checks cover every changed Python file. |
@@ -296,7 +296,7 @@ flowchart TB
 - Manifest and component validation performs no schema network requests at load time.
 - Filesystem and symlink escapes are rejected at the narrowest required failure boundary.
 - PLUGIN variables, command token handling, `cwd`, and MCP failure isolation match the documented subset.
-- Native Hermes plugins and MCP configuration retain existing behavior.
+- Native AgentX plugins and MCP configuration retain existing behavior.
 - Prompt and tool snapshots remain stable for the life of an active conversation except existing cache-safe turn-boundary mechanisms.
 - Documentation states exact support and source-status discrepancy without an unproved conformance claim.
 - No catalog, pack, manifest-v2, consent, lifecycle, gateway, Desktop, or core-tool scope appears in the diff.

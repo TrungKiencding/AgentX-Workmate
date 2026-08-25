@@ -302,7 +302,7 @@ class OpenRouterCompatImageProvider(ImageGenProvider):
         Fetches the endpoint's ``/models`` catalog filtered to
         ``output_modalities`` containing ``image`` (5-min cache per backend),
         so every image model OpenRouter serves — including ones released
-        after this code shipped — is selectable in ``hermes tools``.
+        after this code shipped — is selectable in ``agentx tools``.
         """
         live = self._live_models()
         if live:

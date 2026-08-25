@@ -200,7 +200,7 @@ def _(rid, params: dict) -> dict:
                     4029,
                     "truncate_before_user_ordinal requires confirm_truncate=true; "
                     "an ordinary prompt.submit must not drop session history "
-                    "(update your Hermes client if a rewind was intended)",
+                    "(update your AgentX client if a rewind was intended)",
                 )
             user_indices = [
                 i for i, m in enumerate(history)
@@ -771,7 +771,7 @@ def _(rid, params: dict) -> dict:
             from run_agent import AIAgent
 
             # Bug #50233: ephemeral agent threads don't inherit the session's
-            # HERMES_HOME override (the ContextVar set on the session-create
+            # AGENTX_HOME override (the ContextVar set on the session-create
             # thread doesn't propagate here), so a background turn under a
             # non-default profile would run against the wrong home. Re-bind the
             # override for the duration of this turn, exactly as the normal
@@ -898,7 +898,7 @@ def _(rid, params: dict) -> dict:
                 {"task_id": task_id, "text": f"Starting hidden restart agent{history_note}"},
             )
             # Bug #50233: ephemeral preview-restart agent threads don't inherit
-            # the session's HERMES_HOME override (the ContextVar set on the
+            # the session's AGENTX_HOME override (the ContextVar set on the
             # session-create thread doesn't propagate here). Re-bind it for the
             # duration of the turn, mirroring the normal prompt turn, then
             # restore it. NOTE: we deliberately do NOT close this agent through

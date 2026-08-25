@@ -183,7 +183,7 @@ None of this requires additional config — it ships on by default in recent sig
 
 ### Long Messages
 
-Signal caps a single message at **8,000 characters**. Hermes splits longer responses into numbered chunks (`(1/3)`, `(2/3)`, …) automatically instead of truncating them. This applies to every delivery path — live conversation replies, cron job deliveries, `hermes send`, and MCP `send_message` calls — and native formatting (bold, italic, code, spoilers) is preserved across chunk boundaries.
+Signal caps a single message at **8,000 characters**. AgentX splits longer responses into numbered chunks (`(1/3)`, `(2/3)`, …) automatically instead of truncating them. This applies to every delivery path — live conversation replies, cron job deliveries, `agentx send`, and MCP `send_message` calls — and native formatting (bold, italic, code, spoilers) is preserved across chunk boundaries.
 
 ### Typing Indicators
 

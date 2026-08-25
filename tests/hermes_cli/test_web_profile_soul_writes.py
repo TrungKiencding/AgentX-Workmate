@@ -27,8 +27,8 @@ SOUL = "# Persona\n\nYou are a careful, terse assistant.\n"
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_DASHBOARD_SESSION_TOKEN", "soul-test-token")
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_DASHBOARD_SESSION_TOKEN", "soul-test-token")
     from hermes_cli import web_server
 
     with TestClient(web_server.app, raise_server_exceptions=False) as c:
@@ -38,8 +38,8 @@ def client(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def profile_dir(tmp_path, monkeypatch) -> Path:
-    """Create a real profile directory under the test HERMES_HOME."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    """Create a real profile directory under the test AGENTX_HOME."""
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     from hermes_cli import profiles as profiles_mod
 
     d = profiles_mod.get_profile_dir("demo")
@@ -77,7 +77,7 @@ class TestSoulWriteDurability:
             raise OSError("simulated crash mid-write")
 
         # Scoped context so restoring os.fsync doesn't also undo the
-        # HERMES_HOME patch the client/profile_dir fixtures installed.
+        # AGENTX_HOME patch the client/profile_dir fixtures installed.
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(os, "fsync", boom)
             r = client.put(

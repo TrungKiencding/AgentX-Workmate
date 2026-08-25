@@ -3108,7 +3108,7 @@ def terminal_tool(
                             # (/new) before the process finishes, instead of
                             # injecting it into the chat's NEW session.
                             proc_session.parent_session_id = _gse(
-                                "HERMES_SESSION_ID", ""
+                                "AGENTX_SESSION_ID", ""
                             )
 
                 # Mutual exclusion: if both notify_on_complete and watch_patterns

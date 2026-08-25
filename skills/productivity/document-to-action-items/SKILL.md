@@ -2,7 +2,7 @@
 name: document-to-action-items
 description: "Use when a user provides a PDF, scan, contract, report, form, or attachment and asks to extract obligations, deadlines, structured facts, risks, and approved downstream tasks while preserving page-level citations."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

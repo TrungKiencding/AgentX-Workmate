@@ -396,14 +396,14 @@ section.
 ### Store durable state
 
 Never write runtime state into your plugin directory: that's the install
-tree, and `hermes plugins update` / `remove` git-pull or delete it — your
+tree, and `agentx plugins update` / `remove` git-pull or delete it — your
 users' data dies with it. The sanctioned home is the per-plugin data root,
 which survives both and follows the active profile:
 
 ```python
 from plugins.plugin_storage import plugin_data_dir, plugin_db
 
-# <hermes home>/plugin-data/<name>/ — created on first use
+# <agentx home>/plugin-data/<name>/ — created on first use
 state_file = plugin_data_dir("my-plugin") / "state.json"
 
 # Or a SQLite database at <data dir>/data.db (WAL mode, thread-friendly)

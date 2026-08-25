@@ -70,7 +70,7 @@ from hermes_cli.colors import Colors, color
 logger = logging.getLogger(__name__)
 
 # Private launcher-to-child metadata. This is diagnostic state, not user config.
-_WINDOWS_GATEWAY_BREAKAWAY_ENV = "_HERMES_GATEWAY_BREAKAWAY"
+_WINDOWS_GATEWAY_BREAKAWAY_ENV = "_AGENTX_GATEWAY_BREAKAWAY"
 
 # =============================================================================
 # Process Management (for manual gateway runs)
@@ -110,7 +110,7 @@ def _get_service_pids(all_profiles: bool = False) -> set:
     returns (true for both systemd and launchd in practice).
 
     ``all_profiles`` widens the launchd branch to every installed
-    ``ai.hermes.gateway*`` agent — the update path needs the whole fleet
+    ``ai.agentx.gateway*`` agent — the update path needs the whole fleet
     excluded from its sweep so sibling-profile launchd gateways found by the
     ps scan aren't misclassified as manual processes (#73626).  Default-scope
     callers (``gateway status``, cron checks) keep seeing only the current
@@ -119,7 +119,7 @@ def _get_service_pids(all_profiles: bool = False) -> set:
     pids: set = set()
 
     # --- systemd (Linux): user and system scopes ---
-    # systemd always lists every hermes-gateway* unit regardless of scope.
+    # systemd always lists every agentx-gateway* unit regardless of scope.
     if supports_systemd_services():
         for scope_args in [["systemctl", "--user"], ["systemctl"]]:
             try:
@@ -160,7 +160,7 @@ def _get_service_pids(all_profiles: bool = False) -> set:
     if is_macos():
         try:
             if all_profiles:
-                # Enumerate every ai.hermes.gateway* agent across profiles
+                # Enumerate every ai.agentx.gateway* agent across profiles
                 # so the update sweep's exclude set is complete (#73626).
                 # Without this, sibling-profile launchd gateways found by the
                 # (now-working) ps scan would be misclassified as manual and
@@ -175,7 +175,7 @@ def _get_service_pids(all_profiles: bool = False) -> set:
                     for line in result.stdout.strip().splitlines():
                         parts = line.split()
                         if len(parts) >= 3 and parts[-1].startswith(
-                            "ai.hermes.gateway"
+                            "ai.agentx.gateway"
                         ):
                             try:
                                 pid = int(parts[0])
@@ -366,7 +366,7 @@ def _wait_for_pid_exit(pid: int, timeout: float) -> bool:
 # A gateway whose asyncio loop is stalled (e.g. an in-loop compression pass,
 # #72707) cannot process SIGTERM/SIGUSR1 shutdown: the drain wait then burns
 # the full drain budget (180s by default), warns "still running after 180.0s
-# — restart may fail", and `hermes update` can deadlock behind it.  The loop
+# — restart may fail", and `agentx update` can deadlock behind it.  The loop
 # publishes a liveness signal precisely for this case: an asyncio task
 # rewrites ``state/gateway.heartbeat`` every 30s (#66892), so a frozen loop
 # stops refreshing the file while a busy-but-alive loop keeps refreshing it.
@@ -572,7 +572,7 @@ def _scan_gateway_pids(
             # ``subprocess.run(timeout=...)`` — because on Windows ``run()``'s
             # post-timeout cleanup joins the pipe reader threads unbounded; a
             # descendant (conhost.exe) holding duplicated pipe handles then
-            # wedges the caller forever. ``hermes update`` hung exactly there
+            # wedges the caller forever. ``agentx update`` hung exactly there
             # on slow-WMI machines where the full Win32_Process scan exceeds
             # its budget (#87134).
             # bounded_probe_run also hides the console window: this scan runs
@@ -1717,14 +1717,14 @@ def _reap_unsupervised_gateway_orphans(extra_exclude: set | None = None) -> bool
     # detached gateway on every desktop serve start (#86098, #87001).
     if is_windows():
         try:
-            # The install-time task name is profile-aware (Hermes_Gateway /
-            # Hermes_Gateway_<profile>) — never hardcode it, or the guard is
-            # dormant on every standard `hermes gateway install` deployment.
+            # The install-time task name is profile-aware (AgentX_Gateway /
+            # AgentX_Gateway_<profile>) — never hardcode it, or the guard is
+            # dormant on every standard `agentx gateway install` deployment.
             from hermes_cli.gateway_windows import get_task_name
 
             _task_name = get_task_name()
         except Exception:
-            _task_name = "Hermes_Gateway"
+            _task_name = "AgentX_Gateway"
         if _windows_scheduled_task_supervises(_task_name):
             return False
 
@@ -1734,7 +1734,7 @@ def _reap_unsupervised_gateway_orphans(extra_exclude: set | None = None) -> bool
     if extra_exclude:
         own |= extra_exclude
     # On macOS, exclude the launchd-managed gateway PID so the orphan reaper
-    # doesn't kill a supervised gateway when Hermes Desktop opens (the serve
+    # doesn't kill a supervised gateway when AgentX Workmate Desktop opens (the serve
     # process calls this on startup).  supports_systemd_services() returns
     # False on macOS, so without this the launchd gateway looks like an
     # unsupervised orphan and gets SIGTERM'd, causing launchd to restart it.
@@ -3170,7 +3170,7 @@ def _append_node_dir_for_service(
             path_entries.append(entry)
 
     # Ambient PATH lookup is a fallback, not an additional rung. Once the
-    # target Hermes home provides managed Node, consulting the invoker's PATH
+    # target AgentX home provides managed Node, consulting the invoker's PATH
     # makes a system unit differ between sudo/root and its service user.
     if managed_node_present:
         return
@@ -4490,7 +4490,7 @@ def generate_launchd_plist() -> str:
 
     # Persist the configured RLIMIT_NOFILE floor into the service definition
     # itself. launchd starts children with a soft limit of 256 by default;
-    # without this block every plist rewrite (e.g. `hermes gateway start`)
+    # without this block every plist rewrite (e.g. `agentx gateway start`)
     # would silently strip a manually-added limit and reintroduce EMFILE
     # crashes under load. The in-process floor (resource_limits.py) still
     # applies as a second layer for non-launchd launches.
@@ -5004,7 +5004,7 @@ def launchd_restart():
         if pid is not None and probe_gateway_loop_liveness(pid) == GATEWAY_LOOP_WEDGED:
             # Health probe says the event loop is provably dead (#81642):
             # the gateway cannot process a graceful shutdown, so waiting the
-            # full drain budget only stalls the restart (and `hermes update`
+            # full drain budget only stalls the restart (and `agentx update`
             # behind it) for 180s. Bounded escalation instead: SIGTERM grace
             # → SIGKILL → proceed, ~10s worst case. Never taken for a
             # busy-but-alive gateway — a fresh heartbeat keeps the drain path
@@ -5417,7 +5417,7 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False, fo
         _stdin_is_tty = False
     _console_window_attached = _windows_console_window_attached()
     _gateway_detached = (
-        os.getenv("HERMES_GATEWAY_DETACHED", "").strip().lower()
+        os.getenv("AGENTX_GATEWAY_DETACHED", "").strip().lower()
         in {"1", "true", "yes", "on"}
     )
     _breakaway = _windows_gateway_breakaway_state()

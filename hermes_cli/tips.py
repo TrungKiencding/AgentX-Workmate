@@ -489,7 +489,7 @@ def get_random_tip(exclude_recent: int = 0) -> str:
 # Composer placeholders — short, task-oriented example prompts shown in the
 # empty input box to nudge new users toward high-value first actions (C-09,
 # inspired by opencode/codex rotating placeholders). Kept generic so they fit
-# any project or none — Hermes is not a coding-only agent.
+# any project or none — AgentX is not a coding-only agent.
 # ---------------------------------------------------------------------------
 
 COMPOSER_PLACEHOLDERS = [

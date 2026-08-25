@@ -86,7 +86,7 @@ class KimiProfile(ProviderProfile):
 
         # Enabled: prefer an explicit effort; only fall back to extra_body
         # thinking when no recognized effort is requested.
-        # K3 accepts low/high/max (default high). Map Hermes' wider effort
+        # K3 accepts low/high/max (default high). Map AgentX' wider effort
         # vocabulary onto K3's set:
         #   low, minimal       → low
         #   medium, high        → high

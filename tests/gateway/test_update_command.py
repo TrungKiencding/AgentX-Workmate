@@ -425,7 +425,7 @@ class TestSendUpdateNotification:
         cleans up — exactly once.
         """
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
 
         pending = {"platform": "discord", "chat_id": "111", "user_id": "222"}
@@ -464,7 +464,7 @@ class TestSendUpdateNotification:
     async def test_completion_notification_tolerates_invalid_utf8_output(self, tmp_path):
         """Completion-only update notifications must not crash on bad bytes."""
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
 
         pending = {"platform": "discord", "chat_id": "111", "user_id": "222"}
@@ -487,7 +487,7 @@ class TestSendUpdateNotification:
         assert "ok before" in sent_text
         assert "invalid byte" in sent_text
         assert "continued after" in sent_text
-        assert "Hermes update finished" in sent_text
+        assert "AgentX update finished" in sent_text
         assert not pending_path.exists()
         assert not output_path.exists()
         assert not exit_code_path.exists()
@@ -515,7 +515,7 @@ class TestWatchUpdateProgress:
     @pytest.mark.asyncio
     async def test_invalid_utf8_update_output_does_not_crash_watcher(self, tmp_path):
         runner = _make_runner()
-        hermes_home = tmp_path / "hermes"
+        hermes_home = tmp_path / "agentx"
         hermes_home.mkdir()
 
         (hermes_home / ".update_pending.json").write_text(json.dumps({
@@ -537,5 +537,5 @@ class TestWatchUpdateProgress:
         sent = "\n".join(call.args[1] for call in mock_adapter.send.call_args_list)
         assert "ok before" in sent
         assert "continued after" in sent
-        assert "Hermes update finished" in sent
+        assert "AgentX update finished" in sent
         assert not (hermes_home / ".update_pending.json").exists()

@@ -229,19 +229,19 @@ def has_vertex_credentials() -> bool:
 
 
 def has_explicit_vertex_config() -> bool:
-    """True only when the user deliberately pointed Hermes at Vertex.
+    """True only when the user deliberately pointed AgentX at Vertex.
 
     Stricter than :func:`has_vertex_credentials`, which also returns True for
     an ambient ``GOOGLE_APPLICATION_CREDENTIALS`` path — a var commonly set
     globally for unrelated GCP work. That ambient signal must NOT mark Vertex
     "explicitly configured" for the model-picker gate, or a user who never set
-    Hermes up for Vertex would suddenly see it (and could spend against those
-    credentials). So this checks only Hermes-scoped signals:
+    AgentX up for Vertex would suddenly see it (and could spend against those
+    credentials). So this checks only AgentX-scoped signals:
 
       * ``VERTEX_PROJECT_ID`` env or ``vertex.project_id`` in config.yaml
         (``_resolve_project_override``), or
       * a resolvable ``VERTEX_CREDENTIALS_PATH`` service-account file
-        (the Hermes-specific path var — NOT ``GOOGLE_APPLICATION_CREDENTIALS``).
+        (the AgentX-specific path var — NOT ``GOOGLE_APPLICATION_CREDENTIALS``).
     """
     if _resolve_project_override():
         return True

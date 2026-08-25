@@ -2436,7 +2436,7 @@ _CODEX_OAUTH_CONTEXT_FALLBACK: Dict[str, int] = {
 # explicit ``-900k`` picker variants (e.g. ``gpt-5.6-sol-900k``) — the base
 # slugs keep the advertised 272K so the cheaper limit is the default. A
 # week of the 900K default burned through subscription usage for people
-# who never asked for it. The variant suffix is a Hermes-side alias: it is
+# who never asked for it. The variant suffix is a AgentX-side alias: it is
 # stripped before the model id hits the wire (see
 # ``strip_codex_context_variant_suffix`` callers in agent/transports/codex.py
 # and agent/auxiliary_client.py).
@@ -2461,7 +2461,7 @@ _CODEX_OAUTH_VERIFIED_ABOVE_ADVERTISED_EXACT: Dict[str, int] = {
 # The advertised value the verified-above table is allowed to override.
 _CODEX_OAUTH_STALE_ADVERTISED_CTX = 272_000
 
-# Hermes-side picker suffix that opts a Codex slug into the live-verified
+# AgentX-side picker suffix that opts a Codex slug into the live-verified
 # large window. Never sent on the wire.
 CODEX_CONTEXT_VARIANT_SUFFIX = "-900k"
 
@@ -2528,7 +2528,7 @@ def is_codex_context_variant(model: Optional[str]) -> bool:
 def strip_codex_context_variant_suffix(model: Optional[str]) -> str:
     """Return the wire-safe slug with a VALID ``-900k`` suffix removed.
 
-    The suffix is a Hermes picker alias (``gpt-5.6-sol-900k``); the Codex
+    The suffix is a AgentX picker alias (``gpt-5.6-sol-900k``); the Codex
     backend only knows the base slug. Stripping is conditional on base
     eligibility: an ineligible alias like ``gpt-5.5-900k`` is returned
     unchanged so it fails honestly at the API instead of silently running
@@ -2721,7 +2721,7 @@ def _resolve_codex_oauth_context_length_with_source(
             return bumped, source
         return ctx, source
 
-    # ``-900k`` variants are Hermes picker aliases — the Codex catalog only
+    # ``-900k`` variants are AgentX picker aliases — the Codex catalog only
     # knows the base slug, so resolve against the stripped id. Also drop any
     # ``vendor/`` namespace (``openai/gpt-5.6-sol-900k``): the main-agent
     # path normalizes it away before reaching here, but display/auxiliary

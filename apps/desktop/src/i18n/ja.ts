@@ -1573,7 +1573,7 @@ export const ja = defineLocale({
       message: count => `モデル設定を確認するまで、${count} 件のスケジュール済みジョブがスキップされます。`,
       detailMore: (names, remaining) => `${names}、ほか ${remaining} 件`,
       review: 'スケジュール済みジョブを確認',
-      saveFailed: 'Hermes はモデルの変更を保存しませんでした。'
+      saveFailed: 'AgentX はモデルの変更を保存しませんでした。'
     },
     search: 'Cron ジョブを検索...',
     loading: 'Cron ジョブを読み込み中...',

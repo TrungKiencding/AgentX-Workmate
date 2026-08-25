@@ -1141,9 +1141,9 @@ def _claim_repair_attempt(db_path: Path) -> bool:
 
 # Cross-process serialisation for the schema-surgery paths below.  The
 # ``_repair_attempt_lock`` above is a ``threading.Lock`` — it only covers
-# threads inside ONE interpreter, yet a normal Hermes host runs several
+# threads inside ONE interpreter, yet a normal AgentX host runs several
 # independent processes against the same ``state.db``: the gateway service,
-# the Desktop app's own ``hermes serve`` backend, interactive CLI sessions,
+# the Desktop app's own ``agentx serve`` backend, interactive CLI sessions,
 # and the TUI slash worker.  Two of those hitting a malformed DB at once each
 # ran the full ``writable_schema`` surgery + ``VACUUM`` on their own private
 # connection, with nothing serialising them.
@@ -1285,7 +1285,7 @@ _MAX_PERSISTENT_REPAIR_ATTEMPTS = 3
 _MAX_MALFORMED_BACKUPS = 3
 
 # Sidecars copied alongside a damaged DB and pruned with it. ``-journal`` is
-# included because rollback-journal (DELETE) mode — Hermes's fallback on
+# included because rollback-journal (DELETE) mode — AgentX's fallback on
 # NFS/SMB/FUSE/ZFS and on WAL-reset-vulnerable SQLite builds — leaves a hot
 # journal on disk whenever a transaction was open, and that file is what
 # interprets the damaged bytes. Omitting it from the forensic copy means the
@@ -2303,7 +2303,7 @@ def _live_writer_holds_db(db_path: Path) -> bool:
 
     Scope: the WAL-index exclusive lock is what makes this detect a holder, so
     the guard is effective in WAL mode. On SQLite builds carrying the WAL-reset
-    bug and on NFS/SMB, Hermes deliberately runs ``state.db`` in
+    bug and on NFS/SMB, AgentX deliberately runs ``state.db`` in
     ``journal_mode=DELETE`` (see :func:`apply_wal_with_fallback`); there a held
     reader takes only a SHARED lock, ``BEGIN IMMEDIATE`` still acquires
     RESERVED, and this probe returns False. In that mode repair is serialised
@@ -2431,7 +2431,7 @@ def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, A
                 report["error"] = (
                     "a live writer still holds state.db; skipped schema surgery "
                     "to avoid tearing b-tree pages under a concurrent writer. "
-                    "Stop the gateway (hermes gateway stop) and retry."
+                    "Stop the gateway (agentx gateway stop) and retry."
                 )
                 logger.error("state.db repair skipped: %s", report["error"])
             else:
@@ -5008,7 +5008,7 @@ class SessionDB(
     # recovery: the chat resolves to the last keyed row instead — days older
     # — and the conversation time-travels. Hardening the write side cannot
     # reach a row that is *already* damaged; these two methods are the
-    # offline repair path behind ``hermes sessions repair-routing``.
+    # offline repair path behind ``agentx sessions repair-routing``.
 
     # Widest plausible gap between a keyed predecessor going quiet and its
     # unkeyed successor being minted. The reported incident gap was ~60s;
@@ -11411,7 +11411,7 @@ class SessionDB(
         # VACUUM cannot be executed inside a transaction.
         with self._lock:
             # Best-effort WAL checkpoint first, then VACUUM. PASSIVE, not
-            # TRUNCATE: a manual `hermes sessions vacuum` runs in a transient
+            # TRUNCATE: a manual `agentx sessions vacuum` runs in a transient
             # CLI process, and a TRUNCATE reset here would race a live gateway
             # writer and tear B-tree pages (#45383). VACUUM folds the WAL back
             # itself; journal_size_limit bounds the file.

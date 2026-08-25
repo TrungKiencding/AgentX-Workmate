@@ -4841,7 +4841,7 @@ class TurnRunner:
         # slower than Linux. Off by default; soul identity is preserved so
         # the persona survives even with minimal context.
         _platforms_gw_cfg = (ctx.user_config.get("gateway") or {}).get("platforms") or {}
-        # ``hermes gateway setup`` writes ``gateway.platforms`` as a LIST of
+        # ``agentx gateway setup`` writes ``gateway.platforms`` as a LIST of
         # enabled platform names (e.g. ``- telegram``), not a dict.  Treat any
         # non-dict shape as "no per-platform overrides" instead of crashing
         # on ``.get()`` for every incoming turn (#83185).
@@ -10641,7 +10641,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         progress) for longer than ``agent.gateway_timeout`` is wedged — the
         same threshold at which the turn reaper gives up on it. The restart
         after-turn wait must not treat such turns as work worth waiting for:
-        a wedged agent pinned ``hermes update`` in "draining" for the full
+        a wedged agent pinned ``agentx update`` in "draining" for the full
         ``restart_after_turn_timeout`` cap because the drain counted it as
         active while its own inactivity watchdog had already declared it dead
         (Aug 2026, WhatsApp turn idle 30+ min, drain waited on it anyway).
@@ -10653,7 +10653,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         turns, never wedged. Fail-open per agent: an unreadable activity
         summary means "not wedged".
         """
-        timeout = _float_env("HERMES_AGENT_TIMEOUT", 1800)
+        timeout = _float_env("AGENTX_AGENT_TIMEOUT", 1800)
         if timeout <= 0:
             return 0
         wedged = 0
@@ -11404,7 +11404,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         exact = 0
         fallback = 0
         try:
-            agent_timeout = max(1.0, _float_env("HERMES_AGENT_TIMEOUT", 1800))
+            agent_timeout = max(1.0, _float_env("AGENTX_AGENT_TIMEOUT", 1800))
             marker_max_age = max(60 * 60, int(agent_timeout * 2))
             exact = await self.async_session_store.recover_interrupted_turns(
                 max_age_seconds=marker_max_age
@@ -11761,7 +11761,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # Recover sessions that were active when the gateway last exited.
         # Exact durable turn markers cover long-running work; the 120-second
         # recency heuristic remains as an upgrade fallback for turns started by
-        # older Hermes versions that did not write exact markers.
+        # older AgentX versions that did not write exact markers.
         #
         # SKIP suspension after a clean (graceful) shutdown — the previous
         # process already drained active agents, so sessions aren't stuck.
@@ -15539,7 +15539,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     pairing_store._record_rate_limit(platform_name, source.user_id)
             return None
 
-        # Global emergency stop (`hermes pause`): give new turns a brief
+        # Global emergency stop (`agentx pause`): give new turns a brief
         # paused notice instead of starting an agent run. Internal events
         # (background-process completions from IN-FLIGHT work) bypass the
         # gate — pause stops NEW work, it never kills or orphans running

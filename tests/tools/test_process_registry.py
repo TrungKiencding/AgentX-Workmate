@@ -908,7 +908,7 @@ class TestCheckpoint:
             "pid": 999999999,
             "pid_scope": "host",
             "host_start_time": 123.0,
-            "systemd_unit": "hermes-worker-proc_dead_scope.scope",
+            "systemd_unit": "agentx-worker-proc_dead_scope.scope",
         }
         checkpoint.write_text(json.dumps([entry]))
         monkeypatch.setattr(registry, "_host_pid_is_ours", lambda *_args: False)
@@ -932,7 +932,7 @@ class TestCheckpoint:
             "pid": 999999999,
             "pid_scope": "host",
             "host_start_time": 123.0,
-            "systemd_unit": "hermes-worker-proc_dead_scope.scope",
+            "systemd_unit": "agentx-worker-proc_dead_scope.scope",
         }
         checkpoint.write_text(json.dumps([entry]))
         monkeypatch.setattr(registry, "_host_pid_is_ours", lambda *_args: False)
@@ -1651,7 +1651,7 @@ class TestSystemdCgroupIsolation:
 
     @pytest.fixture(autouse=True)
     def _mark_gateway_process(self, monkeypatch):
-        monkeypatch.setenv("_HERMES_GATEWAY", "1")
+        monkeypatch.setenv("_AGENTX_GATEWAY", "1")
         monkeypatch.setattr(
             "gateway.status.get_running_pid",
             lambda *, cleanup_stale=False: os.getpid(),
@@ -1678,7 +1678,7 @@ class TestSystemdCgroupIsolation:
         self, registry, monkeypatch
     ):
         """Under a supervisor with systemd-run available, the spawn argv is
-        wrapped in ``systemd-run --user --scope --unit=hermes-worker-<id>``."""
+        wrapped in ``systemd-run --user --scope --unit=agentx-worker-<id>``."""
         fake_popen, captured = self._fake_popen_capture()
 
         monkeypatch.setattr("tools.process_registry._find_shell", lambda: "/bin/bash")
@@ -1709,8 +1709,8 @@ class TestSystemdCgroupIsolation:
         )
         assert "--unit" in argv
         unit_idx = argv.index("--unit")
-        assert argv[unit_idx + 1].startswith("hermes-worker-"), argv
-        assert argv[unit_idx + 1] == f"hermes-worker-{session.id}", (
+        assert argv[unit_idx + 1].startswith("agentx-worker-"), argv
+        assert argv[unit_idx + 1] == f"agentx-worker-{session.id}", (
             argv
         )  # _build_systemd_scope_argv uses bare name
         properties = [
@@ -1734,7 +1734,7 @@ class TestSystemdCgroupIsolation:
         # systemd-run owns session/cgroup creation — no start_new_session.
         assert captured["start_new_session"] is False
         # The session must record the unit name so kill_process can stop it.
-        assert session.systemd_unit == f"hermes-worker-{session.id}.scope"
+        assert session.systemd_unit == f"agentx-worker-{session.id}.scope"
 
     def test_falls_back_when_systemd_run_unavailable(self, registry, monkeypatch):
         """Under a supervisor but without systemd-run, fall back to the
@@ -1797,7 +1797,7 @@ class TestSystemdCgroupIsolation:
         fake_popen, captured = self._fake_popen_capture()
 
         monkeypatch.setenv("INVOCATION_ID", "herdr-service-inherited-marker")
-        monkeypatch.delenv("_HERMES_GATEWAY", raising=False)
+        monkeypatch.delenv("_AGENTX_GATEWAY", raising=False)
         monkeypatch.setattr("tools.process_registry._find_shell", lambda: "/bin/bash")
         monkeypatch.setattr(
             "tools.process_registry._systemd_run_user_scope_available",
@@ -1829,7 +1829,7 @@ class TestSystemdCgroupIsolation:
         fake_pty.pid = 4321
 
         monkeypatch.setenv("INVOCATION_ID", "herdr-service-inherited-marker")
-        monkeypatch.delenv("_HERMES_GATEWAY", raising=False)
+        monkeypatch.delenv("_AGENTX_GATEWAY", raising=False)
         monkeypatch.setattr("tools.process_registry._find_shell", lambda: "/bin/bash")
         monkeypatch.setattr(
             "tools.process_registry._systemd_run_user_scope_available",
@@ -1858,7 +1858,7 @@ class TestSystemdCgroupIsolation:
         fake_popen, captured = self._fake_popen_capture()
 
         monkeypatch.setenv("INVOCATION_ID", "inherited-systemd-marker")
-        monkeypatch.setenv("_HERMES_GATEWAY", "1")
+        monkeypatch.setenv("_AGENTX_GATEWAY", "1")
         monkeypatch.setattr(
             "gateway.status.get_running_pid",
             lambda *, cleanup_stale=False: os.getpid() + 1,
@@ -1893,7 +1893,7 @@ class TestSystemdCgroupIsolation:
         fake_pty = MagicMock(pid=4321)
 
         monkeypatch.setenv("INVOCATION_ID", "inherited-systemd-marker")
-        monkeypatch.setenv("_HERMES_GATEWAY", "1")
+        monkeypatch.setenv("_AGENTX_GATEWAY", "1")
         monkeypatch.setattr(
             "gateway.status.get_running_pid",
             lambda *, cleanup_stale=False: os.getpid() + 1,
@@ -1949,7 +1949,7 @@ class TestSystemdCgroupIsolation:
                 registry.spawn_local("echo hello", cwd="/tmp")
 
         stop_unit.assert_called_once()
-        assert stop_unit.call_args.args[0].startswith("hermes-worker-proc_")
+        assert stop_unit.call_args.args[0].startswith("agentx-worker-proc_")
         assert stop_unit.call_args.args[0].endswith(".scope")
         killpg.assert_not_called()
 
@@ -1982,7 +1982,7 @@ class TestSystemdCgroupIsolation:
         assert "--unit" in argv
         assert "--" in argv
         assert argv[-3:] == ["/bin/bash", "-lic", "set +m; codex"]
-        assert session.systemd_unit == f"hermes-worker-{session.id}.scope"
+        assert session.systemd_unit == f"agentx-worker-{session.id}.scope"
 
     def test_pty_spawn_failure_reaps_scope_before_distinct_pipe_fallback(
         self, registry, monkeypatch
@@ -2030,13 +2030,13 @@ class TestSystemdCgroupIsolation:
         assert [event[0] for event in events] == ["pty", "stop", "pipe"]
         stopped_unit = events[1][1]
         fallback_argv = events[2][1]
-        assert stopped_unit == f"hermes-worker-{session.id}.scope"
+        assert stopped_unit == f"agentx-worker-{session.id}.scope"
         unit_idx = fallback_argv.index("--unit")
         assert fallback_argv[unit_idx + 1] == (
-            f"hermes-worker-{session.id}-pipe-fallback"
+            f"agentx-worker-{session.id}-pipe-fallback"
         )
         assert session.systemd_unit == (
-            f"hermes-worker-{session.id}-pipe-fallback.scope"
+            f"agentx-worker-{session.id}-pipe-fallback.scope"
         )
 
     def test_pty_spawn_failure_does_not_fallback_when_scope_reap_fails(
@@ -2114,7 +2114,7 @@ class TestSystemdCgroupIsolation:
         session.pid_scope = "host"
         session.pid = 12345
         session.host_start_time = 67890
-        session.systemd_unit = "hermes-worker-proc_recovered_scope.scope"
+        session.systemd_unit = "agentx-worker-proc_recovered_scope.scope"
         registry._running[session.id] = session
 
         stopped = []
@@ -2127,7 +2127,7 @@ class TestSystemdCgroupIsolation:
             result = registry.kill_process(session.id)
 
         assert result["status"] == "already_exited"
-        assert stopped == ["hermes-worker-proc_recovered_scope.scope"]
+        assert stopped == ["agentx-worker-proc_recovered_scope.scope"]
         assert terminated == []
         assert session.exited is True
         assert session.id in registry._finished
@@ -2240,8 +2240,8 @@ class TestSystemdCgroupIsolation:
             lambda *args, **kwargs: subprocess.CompletedProcess(
                 args=args[0],
                 returncode=5,
-                stderr=b"Unit hermes-worker-gone.scope not loaded.\n",
+                stderr=b"Unit agentx-worker-gone.scope not loaded.\n",
             ),
         )
 
-        assert pr._stop_systemd_unit("hermes-worker-gone.scope") is True
+        assert pr._stop_systemd_unit("agentx-worker-gone.scope") is True

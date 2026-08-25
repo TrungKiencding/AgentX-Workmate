@@ -116,7 +116,7 @@ def is_camofox_mode() -> bool:
     """True when the Camofox backend is selected and no CDP override is active.
 
     Camofox is a selection: ``browser.cloud_provider: camofox`` (set via
-    ``hermes tools``). ``CAMOFOX_URL`` is the server ADDRESS only — its
+    ``agentx tools``). ``CAMOFOX_URL`` is the server ADDRESS only — its
     presence no longer selects the backend when a different
     ``browser.cloud_provider`` is stored. Legacy read-time interpretation:
     when NO cloud provider selection was ever written, a set ``CAMOFOX_URL``

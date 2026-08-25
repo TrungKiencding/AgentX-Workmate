@@ -173,12 +173,12 @@ stdenv.mkDerivation {
     # XDG launcher entry
     mkdir -p $out/share/applications $out/share/icons/hicolor/1024x1024/apps
     install -m 0644 ${../apps/desktop/assets/icon.png} \
-      $out/share/icons/hicolor/1024x1024/apps/hermes.png
+      $out/share/icons/hicolor/1024x1024/apps/agentx.png
     export PYTHONPATH=$(mktemp -d)
     cp ${../hermes_cli/linux_desktop_entry.py} "$PYTHONPATH/linux_desktop_entry.py"
-    export DESKTOP_EXEC="$out/bin/hermes-desktop"
-    export DESKTOP_ICON="$out/share/icons/hicolor/1024x1024/apps/hermes.png"
-    python3 -c 'import os; from linux_desktop_entry import render_desktop_entry; print(render_desktop_entry(os.environ["DESKTOP_EXEC"], os.environ["DESKTOP_ICON"]))' > $out/share/applications/hermes.desktop
+    export DESKTOP_EXEC="$out/bin/agentx-desktop"
+    export DESKTOP_ICON="$out/share/icons/hicolor/1024x1024/apps/agentx.png"
+    python3 -c 'import os; from linux_desktop_entry import render_desktop_entry; print(render_desktop_entry(os.environ["DESKTOP_EXEC"], os.environ["DESKTOP_ICON"]))' > $out/share/applications/agentx.desktop
     runHook postInstall
   '';
 

@@ -32,7 +32,7 @@ Blocking cron specs at creation time as well means the agent gets an immediate,
 informative rejection instead of scheduling a job that will only fail
 (silently) when it fires.
 
-The profile-flag form (``hermes -p <profile> gateway restart|stop``, #78028)
+The profile-flag form (``agentx -p <profile> gateway restart|stop``, #78028)
 is handled profile-aware: it is blocked only when the named profile is the
 profile running the guard. Sibling-profile restarts are legitimate fleet
 operations and stay allowed.
@@ -98,18 +98,18 @@ _SHELL_LINE_CONTINUATION = re.compile(r"\\\r?\n[ \t]*")
 
 
 # Branch A2 (#78028): the same foot-gun written with an explicit profile
-# selector — `hermes -p <profile> gateway restart|stop` / `--profile <name>`
-# / `--profile=<name>`. The selector token between `hermes` and `gateway`
+# selector — `agentx -p <profile> gateway restart|stop` / `--profile <name>`
+# / `--profile=<name>`. The selector token between `agentx` and `gateway`
 # breaks Branch A's literal adjacency. Unlike Branch A this form is NOT
 # unconditionally self-targeting: issued from inside gateway `zeus`,
-# `hermes -p venus gateway restart` operates on a sibling profile's gateway
+# `agentx -p venus gateway restart` operates on a sibling profile's gateway
 # and is a legitimate fleet operation. The pattern captures the named
 # profile so `contains_gateway_lifecycle_command` can block only the
 # self-targeting shape (named profile == the profile running the guard).
 # `start` stays excluded for the same reason as Branch A.
 _PROFILE_FLAG_LIFECYCLE_PATTERN = re.compile(
     r"(?i)"
-    r"hermes\s+"
+    r"agentx\s+"
     # Any global flags before the profile selector (each may carry a value).
     r"(?:-{1,2}\S+(?:\s+\S+)?\s+)*"
     # The selector itself: `--profile=<name>` or the space-separated
@@ -125,13 +125,13 @@ _PROFILE_FLAG_LIFECYCLE_PATTERN = re.compile(
 def _current_profile_name() -> Optional[str]:
     """Return the name of the profile running the guard, if determinable.
 
-    Prefers the explicit ``HERMES_PROFILE_NAME`` / ``HERMES_PROFILE`` env
+    Prefers the explicit ``AGENTX_PROFILE_NAME`` / ``AGENTX_PROFILE`` env
     (set by the profile launcher and kanban worker spawns), falling back to
     ``hermes_cli.profiles.get_active_profile_name`` (derived from
-    ``HERMES_HOME``, which the gateway process inherits from its launch
+    ``AGENTX_HOME``, which the gateway process inherits from its launch
     profile). Returns ``None`` when neither source yields a name.
     """
-    for env_name in ("HERMES_PROFILE_NAME", "HERMES_PROFILE"):
+    for env_name in ("AGENTX_PROFILE_NAME", "AGENTX_PROFILE"):
         value = os.environ.get(env_name)
         if value and value.strip():
             return value.strip()
@@ -171,7 +171,7 @@ def contains_gateway_lifecycle_command(text: str) -> bool:
     blocked lifecycle command (#80269, reported against #80260's bootout
     parity fix). Tokenizing closes that gap while keeping the same
     gateway-label anchoring (``_GATEWAY_LIFECYCLE_PATTERN`` still requires
-    a ``hermes``/``gateway`` token) — this function is the single choke
+    a ``agentx``/``gateway`` token) — this function is the single choke
     point ``_contains_unsafe_gateway_action`` calls at every recursion
     level, so referenced-script and ``sh -c`` payload scanning inherit the
     fix automatically.
@@ -181,8 +181,8 @@ def contains_gateway_lifecycle_command(text: str) -> bool:
     normalized = _SHELL_LINE_CONTINUATION.sub(" ", text)
     if _GATEWAY_LIFECYCLE_PATTERN.search(normalized):
         return True
-    # Profile-flag form (#78028): `hermes -p <profile> gateway restart|stop`
-    # bypasses Branch A because the selector sits between `hermes` and
+    # Profile-flag form (#78028): `agentx -p <profile> gateway restart|stop`
+    # bypasses Branch A because the selector sits between `agentx` and
     # `gateway`. It is only the same foot-gun when the named profile IS the
     # profile running the guard — sibling-profile restarts are legitimate
     # fleet operations and stay allowed.

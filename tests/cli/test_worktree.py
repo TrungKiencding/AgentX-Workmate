@@ -1189,7 +1189,7 @@ class TestShallowCloneDeepening:
     guard: the shallow boundary disconnects an older worktree HEAD from
     origin/*, so `git log HEAD --not --remotes` misreports already-public
     commits as unpushed and every aged worktree is preserved forever
-    (real incident: 21 of 25 hermes-* trees stuck on a default install).
+    (real incident: 21 of 25 agentx-* trees stuck on a default install).
 
     These build a REAL shallow clone over file:// and verify the pruner
     deepens it and reaps the false-positive tree.
@@ -1247,10 +1247,10 @@ class TestShallowCloneDeepening:
         clone = self._shallow_clone(tmp_path, up)
         assert cli._repo_is_shallow(str(clone)), "fixture must start shallow"
 
-        wt = clone / ".worktrees" / "hermes-shallowstuck"
+        wt = clone / ".worktrees" / "agentx-shallowstuck"
         (clone / ".worktrees").mkdir()
         self._run(
-            ["git", "worktree", "add", str(wt), "-b", "hermes/hermes-shallowstuck", "HEAD"],
+            ["git", "worktree", "add", str(wt), "-b", "agentx/agentx-shallowstuck", "HEAD"],
             clone,
         )
 

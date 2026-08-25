@@ -2,7 +2,7 @@
 name: competitor-news-monitor
 description: "Use when a user asks to monitor named competitors or companies for product launches, pricing changes, funding, partnerships, hiring, filings, executive changes, incidents, or other material news and deliver recurring cited updates."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

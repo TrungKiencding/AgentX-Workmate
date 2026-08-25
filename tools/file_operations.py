@@ -1151,7 +1151,7 @@ class ShellFileOperations(FileOperations):
         form (``/c/Users/x``) so bash builtins resolve them. But native
         Windows binaries invoked from that bash (ripgrep installed via
         winget/cargo/choco, native git, etc.) do not understand ``/c/...``
-        paths — and Hermes disables MSYS argument conversion for its bash
+        paths — and AgentX disables MSYS argument conversion for its bash
         subprocesses (``MSYS_NO_PATHCONV=1`` / ``MSYS2_ARG_CONV_EXCL=*``,
         see ``_apply_windows_msys_bash_env_defaults``), so nothing ever
         translates the MSYS form back. The native tool then fails with
@@ -2290,7 +2290,7 @@ class ShellFileOperations(FileOperations):
         # A per-file `tsc --noEmit <file>` cannot read the project's
         # tsconfig.json, so for any .ts that belongs to a TS project it floods
         # phantom errors — unresolved path aliases (`@/…` → TS2307) and ambient
-        # globals (`Window.hermesDesktop` → TS2339) that are defined by the
+        # globals (`Window.agentxDesktop` → TS2339) that are defined by the
         # config it never loads. The delta filter then reports the misleading
         # "pre-existing lint errors … the file is still broken", which carries
         # no signal and wastes the caller's turns. When an ancestor
@@ -3043,7 +3043,7 @@ class ShellFileOperations(FileOperations):
         cmd_parts.append(self._escape_shell_arg(pattern))
         # rg is a native Windows binary when installed via winget/cargo/choco:
         # it needs the C:/... path form, not the MSYS /c/... form (which
-        # nothing converts back — Hermes sets MSYS_NO_PATHCONV for its bash).
+        # nothing converts back — AgentX sets MSYS_NO_PATHCONV for its bash).
         cmd_parts.append(self._escape_native_tool_arg(path))
         
         # Fetch extra rows so we can report the true total before slicing.

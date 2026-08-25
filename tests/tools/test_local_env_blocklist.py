@@ -230,7 +230,7 @@ class TestProviderEnvBlocklist:
         assert "PATH" in result_env
 
     def test_bare_hermes_resolves_from_sanitized_subprocess_path(self):
-        """Cron children can resolve Hermes even when the gateway PATH cannot."""
+        """Cron children can resolve AgentX even when the gateway PATH cannot."""
         from tools.environments.local import _sanitize_subprocess_env
 
         with patch(

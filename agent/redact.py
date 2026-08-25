@@ -1269,7 +1269,7 @@ def _has_known_prefix_substring(text: str) -> bool:
 # ADDITIVE-ONLY by design: a plugin can extend what gets masked but has no
 # API to remove or weaken a built-in pattern, so a plugin can only ever
 # over-redact, never expose. The operator's global opt-out
-# (``security.redact_secrets: false`` / HERMES_REDACT_SECRETS) applies to
+# (``security.redact_secrets: false`` / AGENTX_REDACT_SECRETS) applies to
 # plugin patterns exactly as it does to built-ins.
 
 # Keyed by registration source (e.g. "plugin:my-plugin") so the plugin

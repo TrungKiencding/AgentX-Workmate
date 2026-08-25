@@ -183,7 +183,7 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
     "xiaomi": "xiaomi",
     "nvidia": "nvidia",
     # Meta Model API (Muse Spark family, api.meta.ai). models.dev keys these
-    # under the "meta" provider id; Hermes' provider is "meta-ai" (and the
+    # under the "meta" provider id; AgentX' provider is "meta-ai" (and the
     # api.meta.ai host reverse-maps to "meta-ai"), so without both aliases the
     # context/pricing lookup misses and muse-spark-* falls back to the generic
     # 256K default instead of its true 1M window.
@@ -623,7 +623,7 @@ class ModelCapabilities:
 #      ``_default: {context_window: 128000}`` therefore cannot clamp every
 #      catalog-known model of a provider.
 #
-# Provider keys accept the Hermes provider id (as used elsewhere in
+# Provider keys accept the AgentX provider id (as used elsewhere in
 # config.yaml) or the models.dev provider id. Model ids match exactly,
 # then case-insensitively (mirroring catalog lookup).
 
@@ -657,7 +657,7 @@ def _load_model_overrides() -> Dict[str, Any]:
 def _provider_override_section(provider: str) -> Optional[Dict[str, Any]]:
     """Return the override section for *provider*, or None.
 
-    Accepts either the Hermes provider id or the models.dev provider id as
+    Accepts either the AgentX provider id or the models.dev provider id as
     the config key, so ``copilot`` and ``github-copilot`` both work
     regardless of which id space a caller passes in.
     """
@@ -672,7 +672,7 @@ def _provider_override_section(provider: str) -> Optional[Dict[str, Any]]:
     mapped = PROVIDER_TO_MODELS_DEV.get(provider_key)
     if mapped and mapped != provider_key:
         candidates.append(mapped)
-    # Reverse: caller passed a models.dev id, config keyed by Hermes id.
+    # Reverse: caller passed a models.dev id, config keyed by AgentX id.
     for hermes_id, mdev_id in PROVIDER_TO_MODELS_DEV.items():
         if mdev_id == provider_key and hermes_id != provider_key:
             candidates.append(hermes_id)

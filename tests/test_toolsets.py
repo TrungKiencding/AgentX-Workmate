@@ -299,8 +299,8 @@ class TestResolveToolsetMemo:
         registry_id = id(registry)
         generation = registry._generation
 
-        first = resolve_toolset("hermes-cli")
-        second = resolve_toolset("hermes-cli")
+        first = resolve_toolset("agentx-cli")
+        second = resolve_toolset("agentx-cli")
 
         assert first == second
         assert get_toolset_calls["n"] == 1, (
@@ -308,7 +308,7 @@ class TestResolveToolsetMemo:
             f"got {get_toolset_calls['n']} calls"
         )
         assert (
-            "hermes-cli", True, registry_id, generation
+            "agentx-cli", True, registry_id, generation
         ) in toolsets_mod._resolve_toolset_memo
 
     def test_generation_bump_invalidates_memo(self, monkeypatch):
@@ -326,12 +326,12 @@ class TestResolveToolsetMemo:
 
         monkeypatch.setattr(toolsets_mod, "get_toolset", counting_get_toolset)
 
-        resolve_toolset("hermes-cli")
+        resolve_toolset("agentx-cli")
         assert get_toolset_calls["n"] == 1
 
         # Simulate a registry mutation bumping the generation.
         registry._generation += 1
-        resolve_toolset("hermes-cli")
+        resolve_toolset("agentx-cli")
         assert get_toolset_calls["n"] == 2, (
             "generation bump must invalidate the memo and re-resolve"
         )
@@ -339,8 +339,8 @@ class TestResolveToolsetMemo:
     def test_memo_result_matches_fresh_resolution(self):
         """The memo must never change the resolved result."""
         toolsets_mod._resolve_toolset_memo.clear()
-        first = resolve_toolset("hermes-cli", include_registry=False)
-        second = resolve_toolset("hermes-cli", include_registry=False)
+        first = resolve_toolset("agentx-cli", include_registry=False)
+        second = resolve_toolset("agentx-cli", include_registry=False)
         assert first == second
         assert first  # non-empty sanity
 

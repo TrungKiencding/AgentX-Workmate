@@ -113,9 +113,9 @@ from hermes_constants import is_termux as _is_termux
 
 
 def _estop_status_line():
-    """One-line pause banner for `hermes status`, or None when not paused.
+    """One-line pause banner for `agentx status`, or None when not paused.
 
-    Cheap: a single stat on $HERMES_HOME/ESTOP via agent.estop.
+    Cheap: a single stat on $AGENTX_HOME/ESTOP via agent.estop.
     """
     try:
         from agent.estop import get_state
@@ -126,7 +126,7 @@ def _estop_status_line():
         return None
     reason = state.get("reason")
     suffix = f" — reason: {reason}" if reason else ""
-    return f"⏸️  PAUSED (global emergency stop{suffix}; `hermes resume` to lift)"
+    return f"⏸️  PAUSED (global emergency stop{suffix}; `agentx resume` to lift)"
 
 
 def show_status(args):

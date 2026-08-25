@@ -262,7 +262,7 @@ class ActiveSessionLease:
     enabled: bool = True
     released: bool = False
     # Registry paths pinned at acquisition time. A lease acquired under the
-    # root ``HERMES_HOME`` must release against the same registry even when
+    # root ``AGENTX_HOME`` must release against the same registry even when
     # ``release()`` runs inside a profile home override (native multiplex
     # routes turns under ``_profile_runtime_scope``), otherwise the root
     # entry survives until process exit and the session cap fills with
@@ -346,7 +346,7 @@ def try_acquire_active_session(
 
 def release_active_session(lease: ActiveSessionLease) -> None:
     # Prefer the registry the lease was acquired against: the caller may be
-    # running under a profile HERMES_HOME override (#85431).
+    # running under a profile AGENTX_HOME override (#85431).
     state_path = lease.state_path or _state_path()
     lock_path = lease.lock_path or _lock_path()
     try:

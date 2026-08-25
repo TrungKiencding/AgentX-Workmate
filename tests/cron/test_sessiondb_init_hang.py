@@ -292,7 +292,7 @@ class TestLateSessionDbClosedAfterTimeout:
     abandoned worker, the orphaned result must be closed (#72782)."""
 
     def test_late_session_db_result_is_closed(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_CRON_SESSION_DB_TIMEOUT", "0.2")
+        monkeypatch.setenv("AGENTX_CRON_SESSION_DB_TIMEOUT", "0.2")
         never_set = threading.Event()
         late_db_holder = []  # captures the SessionDB returned by the late init
 

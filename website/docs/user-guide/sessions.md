@@ -115,7 +115,7 @@ This looks up the most recent `cli` session from the SQLite database and loads i
 
 #### Per-Terminal Continue
 
-A bare `-c` is terminal-aware: each CLI session drops a small breadcrumb file under `~/.hermes/terminal-sessions/` keyed by the terminal it runs in (tty device, tmux pane, kitty window, wezterm pane, Zellij pane, Windows Terminal session, ...). When you run `hermes -c` again in the *same* terminal, Hermes resumes that terminal's own session — so two panes side by side each continue their own conversation instead of both grabbing the globally most-recent one. If there's no breadcrumb for the terminal (first use, deleted session, or a stale breadcrumb older than 30 days), `-c` falls back to the most-recent-session behavior. `-c "name"` and `--resume` are unaffected. Disable with `session.terminal_continue: false` in `config.yaml`.
+A bare `-c` is terminal-aware: each CLI session drops a small breadcrumb file under `~/.agentx/terminal-sessions/` keyed by the terminal it runs in (tty device, tmux pane, kitty window, wezterm pane, Zellij pane, Windows Terminal session, ...). When you run `agentx -c` again in the *same* terminal, AgentX resumes that terminal's own session — so two panes side by side each continue their own conversation instead of both grabbing the globally most-recent one. If there's no breadcrumb for the terminal (first use, deleted session, or a stale breadcrumb older than 30 days), `-c` falls back to the most-recent-session behavior. `-c "name"` and `--resume` are unaffected. Disable with `session.terminal_continue: false` in `config.yaml`.
 
 ### Resume by Name
 
@@ -550,27 +550,27 @@ For deeper analytics — token usage, cost estimates, tool breakdown, and activi
 
 ## Importing Sessions from Claude Code and Codex CLI
 
-Started a conversation in another agent CLI? You can pull it into Hermes and
-continue it here. Hermes reads Claude Code's session logs
+Started a conversation in another agent CLI? You can pull it into AgentX and
+continue it here. AgentX reads Claude Code's session logs
 (`~/.claude/projects/`) and Codex CLI's rollouts (`~/.codex/sessions/`) —
 the foreign files are only read, never modified.
 
 ```bash
 # Interactive picker across both tools, newest first
-hermes sessions import
+agentx sessions import
 
 # Limit to one tool, or point at a specific file
-hermes sessions import --from claude
-hermes sessions import --from codex ~/.codex/sessions/2026/08/15/rollout-....jsonl
+agentx sessions import --from claude
+agentx sessions import --from codex ~/.codex/sessions/2026/08/15/rollout-....jsonl
 
 # Import-and-resume in one step
-hermes --resume @claude
-hermes --resume @codex
+agentx --resume @claude
+agentx --resume @codex
 ```
 
-`hermes sessions import` creates a new Hermes session titled
+`agentx sessions import` creates a new AgentX session titled
 `Imported from Claude Code: <first user message>` (or Codex CLI) and prints
-the id plus a ready-to-paste `hermes --resume <id>` command.
+the id plus a ready-to-paste `agentx --resume <id>` command.
 `--resume @claude` / `--resume @codex` show the same picker and drop you
 straight into the imported conversation.
 

@@ -104,7 +104,7 @@ def _acp_supported(command: str, args: list[str]) -> bool | None:
         command" error with full context.
 
     Only probes when ``--acp`` is actually among ``args``: a custom
-    HERMES_COPILOT_ACP_ARGS transport is the operator's business.
+    AGENTX_COPILOT_ACP_ARGS transport is the operator's business.
     """
     if "--acp" not in args:
         return True
@@ -574,7 +574,7 @@ class CopilotACPClient:
                 f"Claude Code v2.x) or a different tool than expected. "
                 f"Either install a CLI that ships with --acp support "
                 f"(e.g. `@github/copilot` late 2025+), or set "
-                f"HERMES_COPILOT_ACP_COMMAND / HERMES_COPILOT_ACP_ARGS "
+                f"AGENTX_COPILOT_ACP_COMMAND / AGENTX_COPILOT_ACP_ARGS "
                 f"to a working pair."
             )
 

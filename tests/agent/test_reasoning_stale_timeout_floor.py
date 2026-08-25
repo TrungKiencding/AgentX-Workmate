@@ -155,8 +155,8 @@ def test_automatic_reasoning_floor_preserves_local_nonstream_opt_out(
     monkeypatch, tmp_path
 ):
     """An automatic model floor must not look like an explicit user timeout."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.delenv("AGENTX_API_CALL_STALE_TIMEOUT", raising=False)
     _write_config(tmp_path, "")
 
     import run_agent
@@ -181,8 +181,8 @@ def test_automatic_reasoning_floor_remains_finite_for_cloud_endpoint(
     monkeypatch, tmp_path
 ):
     """The local opt-out must not disable the same floor for hosted models."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.delenv("AGENTX_API_CALL_STALE_TIMEOUT", raising=False)
     _write_config(tmp_path, "")
 
     import run_agent
@@ -200,8 +200,8 @@ def test_automatic_reasoning_floor_remains_finite_for_cloud_endpoint(
 
 def test_explicit_local_reasoning_timeout_remains_finite(monkeypatch, tmp_path):
     """A user-configured local timeout must continue to override the opt-out."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.delenv("AGENTX_API_CALL_STALE_TIMEOUT", raising=False)
     _write_config(tmp_path, "")
 
     import run_agent

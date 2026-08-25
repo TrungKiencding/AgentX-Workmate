@@ -86,7 +86,7 @@ def _declared_model_ids(value: Any) -> list[str]:
 
     if isinstance(value, dict):
         for model_id in value:
-            # Backward compat: pre-fix Hermes wrote sentinel keys inside the
+            # Backward compat: pre-fix AgentX wrote sentinel keys inside the
             # user-facing ``models`` mapping. Never list them as model IDs.
             if model_id in {
                 "__explicit_model_allowlist__",
@@ -112,10 +112,10 @@ def _declared_model_ids(value: Any) -> list[str]:
 
 
 def _entry_models_discovered(entry: Any) -> bool:
-    """True when the entry's ``models`` mapping was auto-discovered by Hermes.
+    """True when the entry's ``models`` mapping was auto-discovered by AgentX.
 
     The current shape is an entry-level ``models_discovered: true`` sibling of
-    ``models``. Older Hermes versions wrote an in-mapping
+    ``models``. Older AgentX versions wrote an in-mapping
     ``__discovered_model_catalog__: true`` sentinel instead — accept that on
     read for backward compatibility (the next discovery save migrates the
     entry to the clean shape).
@@ -145,7 +145,7 @@ def _models_config_is_allowlist(value: Any, discovered: bool = False) -> bool:
     dict-shaped catalog, set ``discover_models: false``.
 
     ``discovered`` is the entry-level ``models_discovered`` flag (see
-    ``_entry_models_discovered``): a catalog Hermes itself persisted after a
+    ``_entry_models_discovered``): a catalog AgentX itself persisted after a
     successful probe is never a user pin, whatever its shape.
     """
     if discovered:
@@ -217,7 +217,7 @@ def _save_discovered_models_to_config(
             # (e.g. ``{"model-a": {"context_length": 8192}}``) or a list of
             # dicts (e.g. ``[{"id": "model-a", "context_length": 8192}]``),
             # the user has curated metadata per model — do not replace it.
-            # A mapping Hermes itself discovered (``models_discovered: true``
+            # A mapping AgentX itself discovered (``models_discovered: true``
             # or the legacy in-mapping sentinel) is ours to refresh.
             if isinstance(existing, dict) and not entry_discovered:
                 continue

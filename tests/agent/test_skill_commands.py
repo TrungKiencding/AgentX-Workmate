@@ -203,7 +203,7 @@ class TestScanSkillCommands:
     def test_get_skill_commands_rescans_when_profile_home_changes(self, tmp_path):
         """Switching profiles must rescan even when the platform is unchanged
         (#88023): a Desktop session that switches profiles mid-session keeps
-        the same platform scope, so only ``HERMES_HOME`` moves. Each profile
+        the same platform scope, so only ``AGENTX_HOME`` moves. Each profile
         declares its own ``skills.external_dirs``, and the previous profile's
         skill list must not leak into the new one.
         """

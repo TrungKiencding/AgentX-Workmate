@@ -2,7 +2,7 @@
 name: email-inbox-triage
 description: "Use when a user asks to review an email inbox, find messages needing attention, prioritize threads, extract commitments, draft replies, or reach inbox zero. Works above Himalaya, Gmail, and other mailbox connectors."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

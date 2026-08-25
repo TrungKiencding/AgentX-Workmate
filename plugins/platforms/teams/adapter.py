@@ -1479,7 +1479,7 @@ def register(ctx) -> None:
         required_env=["TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET", "TEAMS_TENANT_ID"],
         install_hint=(
             "Teams SDK missing — restart the gateway to auto-install, or run: "
-            "~/.hermes/hermes-agent/venv/bin/pip install 'microsoft-teams-apps==2.0.13.4' 'aiohttp==3.14.1'"
+            "~/.agentx/agentx-agent/venv/bin/pip install 'microsoft-teams-apps==2.0.13.4' 'aiohttp==3.14.1'"
         ),
         setup_fn=interactive_setup,
         # Env-driven auto-configuration — seeds PlatformConfig.extra with

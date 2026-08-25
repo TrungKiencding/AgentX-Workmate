@@ -41,7 +41,7 @@ Example config::
           name: "X-User-Id"    # to this server's HTTP/SSE requests
           value_from: "static" # "static" (default) or "profile"
           value: "alice"       # required for static; profile mode uses the
-                               # active Hermes profile name
+                               # active AgentX profile name
         timeout: 180
         skip_preflight: true  # bypass the content-type probe for a valid
                               # Streamable HTTP endpoint that answers HEAD/GET
@@ -1258,7 +1258,7 @@ def _resolve_identity_header(server_name: str, config: dict):
     Returns a ``(header_name, header_value)`` tuple, or ``None`` when the
     key is unset or invalid. Invalid configs warn and are ignored — an
     identity header must never break the server connection. ``profile``
-    mode resolves the value to the active Hermes profile name once at
+    mode resolves the value to the active AgentX profile name once at
     connect time; there is no per-call mutation.
     """
     raw = config.get("identity_header")

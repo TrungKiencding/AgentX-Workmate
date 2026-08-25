@@ -39,12 +39,12 @@ container" still goes through normally.
 
 ## Remote desktop (client capture)
 
-When the desktop app connects to a **remote** Hermes backend (for example a
+When the desktop app connects to a **remote** AgentX backend (for example a
 headless Docker host or a machine in another room), the backend often has **no
 microphone**. Server-side PortAudio then fails with “Failed to open the
 wake-word microphone.”
 
-Hermes supports **client capture** for that case:
+AgentX supports **client capture** for that case:
 
 1. The desktop arms wake with `capture: client` (automatic for the GUI when the
    backend has no local input device, or set explicitly below).

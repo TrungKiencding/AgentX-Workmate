@@ -323,7 +323,7 @@ mcp_servers:
 ```
 
 - `value_from: static` sends the literal `value` from config.yaml.
-- `value_from: profile` sends the active Hermes profile name, resolved once at connect time — useful when multiple profiles on one machine talk to the same server and it needs to tell them apart.
+- `value_from: profile` sends the active AgentX profile name, resolved once at connect time — useful when multiple profiles on one machine talk to the same server and it needs to tell them apart.
 
 An explicit entry in the server's `headers` mapping with the same name (any casing) always wins; the identity header never overrides your own header config. Invalid `identity_header` blocks are warned about and ignored — they never block the server from connecting. On stdio servers the key is ignored with a warning (stdio transports have no headers).
 

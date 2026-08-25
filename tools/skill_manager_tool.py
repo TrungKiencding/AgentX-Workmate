@@ -1000,7 +1000,7 @@ def _attach_lint_findings(result: Dict[str, Any], skill_md: Path) -> None:
     result["lint_hint"] = (
         "The skill was created. These are advisory authoring-convention "
         "findings (not blockers) — fix them with skill_manage(action='patch') "
-        "to match Hermes skill standards."
+        "to match AgentX skill standards."
     )
 
 

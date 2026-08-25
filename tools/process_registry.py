@@ -93,13 +93,13 @@ WATCH_GLOBAL_COOLDOWN_SECONDS = 30
 # ---------------------------------------------------------------------------
 # systemd cgroup isolation for gateway-spawned local executors (#70716)
 # ---------------------------------------------------------------------------
-# When Hermes runs as a systemd gateway with MemoryHigh/MemoryMax limits,
+# When AgentX runs as a systemd gateway with MemoryHigh/MemoryMax limits,
 # local background terminal commands inherit the gateway's cgroup.  A
 # memory-heavy executor (Codex, tests, Node) can push the whole cgroup past
 # MemoryMax and trigger systemd-oomd to kill the ENTIRE gateway — taking down
 # the messaging control plane and silently losing the active turn.
 #
-# Wrapping the spawn in ``systemd-run --user --scope --unit=hermes-worker-<pid>``
+# Wrapping the spawn in ``systemd-run --user --scope --unit=agentx-worker-<pid>``
 # places the worker in its own transient cgroup so an OOM in the worker kills
 # only the worker, not the gateway.  We probe *once* whether
 # ``systemd-run --user --scope`` is actually usable (the binary can exist on
@@ -223,7 +223,7 @@ def _systemd_run_user_scope_available() -> bool:
                 if binary:
                     # Probe: create a transient scope that immediately exits.
                     # A unique unit avoids collisions; timeout bounds D-Bus.
-                    probe_unit = f"hermes-probe-scope-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+                    probe_unit = f"agentx-probe-scope-{os.getpid()}-{uuid.uuid4().hex[:8]}"
                     result = subprocess.run(
                         [
                             binary, "--user", "--scope", "--quiet",
@@ -256,15 +256,15 @@ def _systemd_run_user_scope_available() -> bool:
 
 
 def _is_supervised_gateway_process() -> bool:
-    """Return whether this process is in a supervised Hermes gateway runtime.
+    """Return whether this process is in a supervised AgentX gateway runtime.
 
-    Both supervisor markers and ``_HERMES_GATEWAY`` are inherited by every
+    Both supervisor markers and ``_AGENTX_GATEWAY`` are inherited by every
     descendant, and importing ``gateway.run`` also sets the latter. Require
     this process to own the live gateway PID file as well. That keeps transient
     systemd scopes limited to the gateway itself instead of terminal children
     or unrelated interactive CLIs in the same supervised process tree.
     """
-    if os.environ.get("_HERMES_GATEWAY") != "1":
+    if os.environ.get("_AGENTX_GATEWAY") != "1":
         return False
 
     try:
@@ -298,7 +298,7 @@ def _build_systemd_scope_argv(
         # Caller should have checked _systemd_run_user_scope_available();
         # guard anyway so we never pass None into Popen.
         return shell_argv
-    unit_name = f"hermes-worker-{unit_suffix}"
+    unit_name = f"agentx-worker-{unit_suffix}"
     memory_max = _worker_memory_max_bytes()
     return [
         binary,
@@ -1082,7 +1082,7 @@ class ProcessRegistry:
                         pty_argv,
                         unit_suffix=session.id,
                     )
-                    session.systemd_unit = f"hermes-worker-{session.id}.scope"
+                    session.systemd_unit = f"agentx-worker-{session.id}.scope"
                     pty_scope_attempted = True
                 elif pty_in_supervised_gateway:
                     logger.debug(
@@ -1163,7 +1163,7 @@ class ProcessRegistry:
                 shell_argv,
                 unit_suffix=unit_suffix,
             )
-            session.systemd_unit = f"hermes-worker-{unit_suffix}.scope"
+            session.systemd_unit = f"agentx-worker-{unit_suffix}.scope"
             # CRITICAL (#70716 regression): systemd-run --scope does NOT give
             # the worker a new session — the invoked process keeps the
             # parent's session and inherits its controlling terminal.  From an
@@ -1686,13 +1686,13 @@ class ProcessRegistry:
     ) -> dict:
         """Bounded wait for tracked ``notify_on_complete`` background processes.
 
-        One-shot CLI runs (``hermes -q/-Q/-z``) exit as soon as their single
+        One-shot CLI runs (``agentx -q/-Q/-z``) exit as soon as their single
         turn ends.  Any background process the turn spawned with
         ``notify_on_complete=True`` — a bounded task whose completion the
         caller explicitly cares about — still holds a stdout pipe owned by
         the dying parent, so it is killed by SIGPIPE on its next write a few
         seconds later.  Bot Mode handoff REPLIES are the visible casualty
-        (#90879): a recipient invoked as ``hermes -p <bot> chat -Q
+        (#90879): a recipient invoked as ``agentx -p <bot> chat -Q
         --query-file ...`` dispatches its reply via ``message_agent`` /
         ``bot_relay`` exactly this way, then exits, and the reply process is
         destroyed ~3s later.  The sender waits forever for a reply that was
@@ -2667,7 +2667,7 @@ class ProcessRegistry:
                             "session_id": s.id,
                             # Redact inline credentials before persisting to
                             # disk — the checkpoint file lives under
-                            # ~/.hermes/processes.json with the raw command
+                            # ~/.agentx/processes.json with the raw command
                             # (issue #77484). Recovery only uses command for
                             # display/logging (the process is already running;
                             # adoption re-validates the PID, never re-runs the

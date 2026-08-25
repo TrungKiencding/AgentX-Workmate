@@ -341,7 +341,7 @@ class TestBomHandling:
 class TestProtectedInstructionFiles:
     """Writes to agent-instruction files ALWAYS require approval.
 
-    AGENTS.md / CLAUDE.md / SOUL.md / .cursorrules / project-local .hermes
+    AGENTS.md / CLAUDE.md / SOUL.md / .cursorrules / project-local .agentx
     config steer future agent behavior, so a prompt-injected agent writing
     them is a persistence vector. The gate must ask the human every time —
     even under yolo/auto-approve — and fail closed when no human channel
@@ -484,17 +484,17 @@ class TestProtectedInstructionFiles:
         assert res.get("error") and "BLOCKED" in res["error"]
 
     def test_project_local_hermes_dir_is_gated(self, tmp_path, approvals):
-        proj = tmp_path / "proj" / ".hermes"
+        proj = tmp_path / "proj" / ".agentx"
         proj.mkdir(parents=True)
         approvals["answer"] = "deny"
         res = self._write(proj / "config.yaml")
         assert res.get("error") and "BLOCKED" in res["error"]
 
     def test_checkout_nested_under_hermes_dir_not_gated(self, tmp_path, approvals):
-        """A repo living UNDER a .hermes dir (e.g. ~/.hermes/hermes-agent)
+        """A repo living UNDER a .agentx dir (e.g. ~/.agentx/agentx-agent)
         must not have every write gated — only files directly inside a
-        .hermes dir count as project config."""
-        repo = tmp_path / ".hermes" / "some-repo" / "src"
+        .agentx dir count as project config."""
+        repo = tmp_path / ".agentx" / "some-repo" / "src"
         repo.mkdir(parents=True)
         res = self._write(repo / "module.py", "x = 1\n")
         assert not res.get("error"), res
@@ -503,9 +503,9 @@ class TestProtectedInstructionFiles:
     def test_real_hermes_home_not_gated_by_this_check(
         self, tmp_path, approvals, monkeypatch
     ):
-        """~/.hermes itself is governed by existing guards, not this gate."""
+        """~/.agentx itself is governed by existing guards, not this gate."""
         import tools.file_tools as ft
-        fake_home = tmp_path / ".hermes"
+        fake_home = tmp_path / ".agentx"
         (fake_home / "notes").mkdir(parents=True)
         monkeypatch.setattr(
             ft, "_get_real_hermes_home", lambda: str(fake_home.resolve())

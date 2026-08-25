@@ -2306,7 +2306,7 @@ def anthropic_prompt_cache_policy(
     )
 
     # A configured route may use an arbitrary provider name and model alias
-    # that are canonicalized only after Hermes sends the request. Honor its
+    # that are canonicalized only after AgentX sends the request. Honor its
     # existing per-model ``prompt_caching`` capability instead of guessing
     # support from either spelling. Explicit false is authoritative too.
     #

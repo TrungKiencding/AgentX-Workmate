@@ -5998,7 +5998,7 @@ def test_pet_gallery_quoted_false_enabled_reports_disabled(tmp_path, monkeypatch
     import yaml
 
     monkeypatch.setattr(server, "_hermes_home", tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         yaml.safe_dump({"display": {"pet": {"enabled": "false"}}})
     )

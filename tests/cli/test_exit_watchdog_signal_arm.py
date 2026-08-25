@@ -141,7 +141,7 @@ def test_sigterm_on_wedged_process_forces_exit_within_leash():
 def test_signal_watchdog_is_skipped_once_cleanup_starts():
     """If cleanup starts after signal intent, the cleanup-owned watchdog should
     govern shutdown and the signal watchdog should not hard-kill midway."""
-    env = dict(os.environ, HERMES_EXIT_WATCHDOG_S="1", PYTHONPATH=_REPO_ROOT)
+    env = dict(os.environ, AGENTX_EXIT_WATCHDOG_S="1", PYTHONPATH=_REPO_ROOT)
     env.pop("PYTEST_CURRENT_TEST", None)
     src = _CLEANUP_OVERLAP_SRC.format(repo=_REPO_ROOT)
     p = subprocess.Popen(

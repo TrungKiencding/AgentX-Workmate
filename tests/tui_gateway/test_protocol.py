@@ -575,7 +575,7 @@ def test_slash_exec_rejects_skill_commands(server):
 
 def test_slash_exec_scopes_skill_lookup_to_session_profile(server, tmp_path):
     """slash.exec must resolve get_skill_commands() against the session's own
-    profile_home rather than the gateway process's ambient HERMES_HOME
+    profile_home rather than the gateway process's ambient AGENTX_HOME
     (#88023). A Desktop session that switches profiles mid-session shares
     the same gateway process, so a skill declared only under the new
     profile's skills.external_dirs must still be recognized here — else the
@@ -618,7 +618,7 @@ def test_slash_exec_scopes_skill_lookup_to_session_profile(server, tmp_path):
             "params": {"command": "b-only", "session_id": sid},
         })
 
-    # The gateway's own HERMES_HOME (the test-isolation tempdir, no
+    # The gateway's own AGENTX_HOME (the test-isolation tempdir, no
     # skills.external_dirs) has no "b-only" skill — the only way this
     # resolves is by scoping the lookup to the session's profile_home.
     assert "error" in resp

@@ -219,12 +219,12 @@ def _find_uv_binary() -> str | None:
 
     uv-managed base interpreters carry an ``EXTERNALLY-MANAGED`` marker, so
     the stdlib ``pip`` fallback below refuses to touch them.  In that state
-    the only sanctioned installer is uv itself, which Hermes already vendors
-    (``~/.hermes/bin/uv.exe``) or the user has on PATH.  Stdlib-only.
+    the only sanctioned installer is uv itself, which AgentX already vendors
+    (``~/.agentx/bin/uv.exe``) or the user has on PATH.  Stdlib-only.
     """
     exe = "uv.exe" if sys.platform == "win32" else "uv"
     candidates = [
-        Path.home() / ".hermes" / "bin" / exe,
+        Path.home() / ".agentx" / "bin" / exe,
         Path.home() / ".local" / "bin" / exe,
         Path.home() / ".cargo" / "bin" / exe,
     ]
@@ -394,7 +394,7 @@ def recover_if_needed(
         # A live marker owner means another updater is currently inside the
         # marker-to-install window.  Never race it.  A dead owner means this is
         # a prior deferral/interruption and MUST be recovered even when this
-        # launch is itself `hermes update`: CLI and Desktop retries preserve
+        # launch is itself `agentx update`: CLI and Desktop retries preserve
         # that argv, and skipping solely on argv recreates the self-lock loop.
         if core_marker.exists():
             if _marker_owner_is_live(core_marker):
@@ -463,7 +463,7 @@ def recover_if_needed(
 
 # Cap on automatic early-pass install retries.  A persistently failing
 # install (e.g. network down, index unreachable) must not reinstall-hammer
-# every `hermes` launch: past this many attempts the early pass hands the
+# every `agentx` launch: past this many attempts the early pass hands the
 # marker to main.py's post-import recovery, which presents the manual
 # recovery command.  The counter lives inside the marker file itself (JSON
 # body) and is bumped on each failed attempt.
@@ -503,7 +503,7 @@ def _complete_pending_core_install(root: Path, core_marker: Path) -> bool:
     """Run the pending core install BEFORE main.py can import native modules.
 
     ``recover_if_needed`` invokes this when ``.update-incomplete`` exists —
-    a prior ``hermes update`` (or the self-lock preflight, #83569) left the
+    a prior ``agentx update`` (or the self-lock preflight, #83569) left the
     dependency sync deliberately unfinished.  Completing it here matters on
     Windows: the deferral exists precisely because the process that wrote the
     marker had a native venv extension mapped; this process, running before
@@ -513,7 +513,7 @@ def _complete_pending_core_install(root: Path, core_marker: Path) -> bool:
     Marker lifecycle: cleared on success; kept (attempts counter bumped) on
     failure for the next launch or main.py's post-import recovery.  An
     attempts ceiling caps automatic retries so a persistent installer
-    failure does not block every launch (``hermes acp`` included).
+    failure does not block every launch (``agentx acp`` included).
 
     Never raises: any failure leaves the marker for the post-import path and
     returns ``False``.  Returns ``True`` only after the install succeeds.
@@ -551,7 +551,7 @@ def _complete_pending_core_install(root: Path, core_marker: Path) -> bool:
 
         try:
             print(
-                "⚠ A previous `hermes update` was interrupted mid-install — "
+                "⚠ A previous `agentx update` was interrupted mid-install — "
                 "finishing dependency installation now (before any native "
                 "extensions load)...",
                 file=sys.stderr,
@@ -565,7 +565,7 @@ def _complete_pending_core_install(root: Path, core_marker: Path) -> bool:
                 file=sys.stderr,
             )
             print(
-                "  The next launch will retry; hermes will keep working from "
+                "  The next launch will retry; agentx will keep working from "
                 "the current venv in the meantime.",
                 file=sys.stderr,
             )

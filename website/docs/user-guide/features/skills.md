@@ -315,7 +315,7 @@ scanner version, findings, timestamp, and fresh-or-cached status in
 ### Advisory SkillEvaluator scan
 
 In addition to the built-in security scanner (which enforces the install
-policy above), Hermes can run [NVIDIA SkillEvaluator](https://github.com/NVIDIA/SkillEvaluator)
+policy above), AgentX can run [NVIDIA SkillEvaluator](https://github.com/NVIDIA/SkillEvaluator)
 Tier 1 checks on every hub install as a second opinion. Tier 1 is
 deterministic and keyless — PII detection (leaked emails, personal paths,
 connection strings), unicode-smuggling detection, script lint, license

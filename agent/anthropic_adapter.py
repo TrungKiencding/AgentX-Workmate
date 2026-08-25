@@ -954,9 +954,9 @@ def build_anthropic_client(
         # route builds its client right here and never sees the profile. Merge
         # the same set on top of whatever auth branch ran above.
         headers = dict(kwargs.get("default_headers") or {})
-        headers.setdefault("HTTP-Referer", "https://hermes-agent.nousresearch.com")
-        headers.setdefault("X-Title", "Hermes Agent")
-        headers.setdefault("User-Agent", f"HermesAgent/{_HERMES_VERSION}")
+        headers.setdefault("HTTP-Referer", "https://github.com/TrungKiencding/AgentX-Workmate")
+        headers.setdefault("X-Title", "AgentX Workmate")
+        headers.setdefault("User-Agent", f"AgentX/{_AGENTX_VERSION}")
         kwargs["default_headers"] = headers
 
     client = _anthropic_sdk.Anthropic(**kwargs)

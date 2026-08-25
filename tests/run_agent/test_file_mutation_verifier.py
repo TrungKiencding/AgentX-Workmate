@@ -322,7 +322,7 @@ class TestVerifierEnabled:
         must be cached after the first call; the env-var override must still
         win on every call, cached or not.
         """
-        monkeypatch.delenv("HERMES_FILE_MUTATION_VERIFIER", raising=False)
+        monkeypatch.delenv("AGENTX_FILE_MUTATION_VERIFIER", raising=False)
         agent = _bare_agent()
         calls = {"n": 0}
 
@@ -342,13 +342,13 @@ class TestVerifierEnabled:
         assert agent._file_mutation_verifier_enabled() is True
         assert calls["n"] == 1
         # Env override stays authoritative even after the cache is warm.
-        monkeypatch.setenv("HERMES_FILE_MUTATION_VERIFIER", "0")
+        monkeypatch.setenv("AGENTX_FILE_MUTATION_VERIFIER", "0")
         assert agent._file_mutation_verifier_enabled() is False
         assert calls["n"] == 1  # env path never touches config
 
     def test_cache_respects_config_value(self, monkeypatch):
         """A disabled config value is cached as False, not re-read."""
-        monkeypatch.delenv("HERMES_FILE_MUTATION_VERIFIER", raising=False)
+        monkeypatch.delenv("AGENTX_FILE_MUTATION_VERIFIER", raising=False)
         agent = _bare_agent()
 
         import hermes_cli.config as _cfg_mod

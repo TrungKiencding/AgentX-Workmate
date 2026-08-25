@@ -820,7 +820,7 @@ def test_cloud_health_retries_with_api_key_after_anonymous_auth_error(monkeypatc
     client = _VikingClient(
         "https://api.vikingdb.cn-beijing.volces.com/openviking",
         api_key="account.user.0123456789abcdef0123456789abcdef",
-        agent="hermes",
+        agent="agentx",
     )
     modern = {"status": "ok", "healthy": True, "version": "0.3.0"}
 
@@ -857,7 +857,7 @@ def test_cloud_health_does_not_send_key_without_api_key(monkeypatch):
     client = _VikingClient(
         "https://api.vikingdb.cn-beijing.volces.com/openviking",
         api_key="",
-        agent="hermes",
+        agent="agentx",
     )
     calls = []
 
@@ -885,7 +885,7 @@ def test_health_non_auth_errors_do_not_retry_with_credentials(monkeypatch):
     client = _VikingClient(
         "https://openviking.example",
         api_key="secret-key",
-        agent="hermes",
+        agent="agentx",
     )
     calls = []
 

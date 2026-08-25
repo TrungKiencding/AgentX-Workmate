@@ -1,6 +1,6 @@
 """Tests for the per-plugin durable storage convention (plugins/plugin_storage).
 
-The contract under test: data lives under ``<hermes home>/plugin-data/<name>/``
+The contract under test: data lives under ``<agentx home>/plugin-data/<name>/``
 (NOT the ``plugins/<name>/`` install tree), names that could escape the root
 are rejected, and the sqlite helper opens a WAL-mode connection inside the
 data dir.
@@ -29,7 +29,7 @@ def test_data_dir_lives_outside_the_install_tree(hermes_home):
     assert root == hermes_home / "plugin-data" / "my-plugin"
     assert root.is_dir()
     # The invariant that motivated the module: data must not live under the
-    # install tree that `hermes plugins remove` deletes.
+    # install tree that `agentx plugins remove` deletes.
     assert (hermes_home / "plugins") not in root.parents
 
 

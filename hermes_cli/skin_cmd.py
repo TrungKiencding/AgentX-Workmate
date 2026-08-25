@@ -78,7 +78,7 @@ def _skin_set(key: str, value: str, skin: str | None) -> int:
     # writes with no fsync and no atomic swap, so a crash or power loss can
     # leave <skin>.yaml zero-length — and ``safe_load("")`` returns ``None``,
     # which the ``or {}`` above turns into an empty palette, so the next
-    # ``hermes skin set`` rewrites from empty and permanently drops every
+    # ``agentx skin set`` rewrites from empty and permanently drops every
     # other color. (A file left with *invalid* YAML raises instead and
     # aborts the command — loud, and not a loss.) The gateway's skin watcher
     # repaints live surfaces from this file within ~1s, so a half-written

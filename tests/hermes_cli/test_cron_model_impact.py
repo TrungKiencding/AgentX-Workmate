@@ -175,13 +175,13 @@ def test_guard_disabled_summary_is_available_but_empty() -> None:
 def test_effective_defaults_match_scheduler_config_over_env_precedence() -> None:
     assert resolve_cron_model_drift_defaults(
         {"model": {"provider": "managed", "default": "managed/model"}},
-        environ={"HERMES_MODEL": "env/model"},
+        environ={"AGENTX_MODEL": "env/model"},
     ) == ("managed", "managed/model")
     assert resolve_cron_model_drift_defaults(
-        {"model": {}}, environ={"HERMES_MODEL": "env/model"}
+        {"model": {}}, environ={"AGENTX_MODEL": "env/model"}
     ) == ("", "env/model")
     assert resolve_cron_model_drift_defaults(
-        {"model": "legacy/model"}, environ={"HERMES_MODEL": "env/model"}
+        {"model": "legacy/model"}, environ={"AGENTX_MODEL": "env/model"}
     ) == ("", "legacy/model")
 
 

@@ -54,7 +54,7 @@ def _is_termux_env(env: dict | None = None) -> bool:
 def _stdout_to_stderr():
     """Route fd 1 (and sys.stdout) to stderr for the duration of an install.
 
-    ``hermes acp`` speaks JSON-RPC on stdout; an inherited-fd install child
+    ``agentx acp`` speaks JSON-RPC on stdout; an inherited-fd install child
     writing there would corrupt the protocol. Mirrors
     ``main.py::_recover_from_interrupted_install``.
     """
@@ -133,7 +133,7 @@ def _load_console_script_names(root: Path) -> list[str]:
 
 
 def _quarantine_running_hermes_exe(scripts_dir: Path) -> list[tuple[Path, Path]]:
-    """Rename live hermes*.exe shims aside so the installer can rewrite them.
+    """Rename live agentx*.exe shims aside so the installer can rewrite them.
 
     Windows blocks REPLACE on a running .exe but allows RENAME. Best-effort:
     silently skips anything that cannot be renamed. Returns (original,
@@ -143,11 +143,11 @@ def _quarantine_running_hermes_exe(scripts_dir: Path) -> list[tuple[Path, Path]]
     if not _is_windows():
         return []
     names = set(_load_console_script_names(scripts_dir.parent.parent)) or {
-        "hermes",
-        "hermes-agent",
-        "hermes-acp",
+        "agentx",
+        "agentx-agent",
+        "agentx-acp",
     }
-    names.add("hermes-gateway")
+    names.add("agentx-gateway")
     moved: list[tuple[Path, Path]] = []
     for name in sorted(names):
         shim = scripts_dir / f"{name}.exe"
@@ -187,7 +187,7 @@ def _run_install_cmd(cmd: list[str], *, env: dict | None, root: Path) -> None:
         # Restore runs on success AND failure: a SUCCESSFUL install can still
         # skip the entry-points step entirely (uv audits an already-satisfied
         # editable install as a no-op and rewrites nothing), which would leave
-        # the quarantined shims renamed aside and `hermes` gone from PATH
+        # the quarantined shims renamed aside and `agentx` gone from PATH
         # (#75584). _restore_quarantined_exes only renames back when the
         # installer did NOT write a fresh shim, so this is safe in both cases.
         if scripts_dir is not None:
@@ -228,7 +228,7 @@ def run_core_install(root: Path) -> None:
       to ``python -m pip`` when no uv binary is available
     - target ``.[all]`` (or ``.[termux-all]`` on Termux) with the per-extra
       fallback ladder when the combined extras resolve fails
-    - quarantine live ``hermes*.exe`` shims on Windows so they can be replaced
+    - quarantine live ``agentx*.exe`` shims on Windows so they can be replaced
     - route ALL install output to stderr (acp/JSON-RPC safety)
     - Termux strips leaked PYTHONPATH/PYTHONHOME from the uv env
 

@@ -163,7 +163,7 @@ def _resolve_source_meta_and_bundle(identifier: str, sources):
 
     Meta and bundle must come from the same adapter. Keeping catalog
     metadata from skills.sh while taking a ClawHub zip of a same-named
-    skill is how ``hermes skills inspect owner/repo/skills/foo`` showed
+    skill is how ``agentx skills inspect owner/repo/skills/foo`` showed
     the requested identifier and the wrong SKILL.md.
     """
     first_meta = None

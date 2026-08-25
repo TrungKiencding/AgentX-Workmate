@@ -506,7 +506,7 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
     for _marker in _ACTIVE_VENV_MARKER_VARS:
         sanitized.pop(_marker, None)
 
-    # Keep bare ``hermes`` invocations available to child jobs even when the
+    # Keep bare ``agentx`` invocations available to child jobs even when the
     # gateway was launched by a service manager or cron without the console
     # script's directory on PATH.  The terminal environment already applies
     # this invariant; Cron scripts use this sanitizer directly (#92998).

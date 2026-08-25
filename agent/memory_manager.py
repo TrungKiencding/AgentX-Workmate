@@ -559,7 +559,7 @@ class MemoryManager:
             except Exception as exc:  # pragma: no cover - re-raised by caller
                 error_box["value"] = exc
 
-        # Propagate the caller's contextvars (profile HERMES_HOME override)
+        # Propagate the caller's contextvars (profile AGENTX_HOME override)
         # to the prefetch thread — see _submit_background.
         import contextvars
 
@@ -705,7 +705,7 @@ class MemoryManager:
 
         The submitted callable is wrapped with the CALLER's contextvars:
         profile isolation in multi-profile processes (gateway multiplexer,
-        dashboard, cron) is a ContextVar-scoped HERMES_HOME override, and
+        dashboard, cron) is a ContextVar-scoped AGENTX_HOME override, and
         executor worker threads start with empty contexts — without the
         wrap, a provider resolving ambient state (config paths, secrets)
         from the worker would silently land on the default profile.

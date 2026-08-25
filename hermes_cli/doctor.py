@@ -100,7 +100,7 @@ def _sqlite_upgrade_hint(install_method: str | None = None) -> str:
 
 
 def _hermes_database_paths(hermes_home: Path) -> list[tuple[str, Path]]:
-    """Return (display name, path) pairs for Hermes-managed SQLite databases."""
+    """Return (display name, path) pairs for AgentX-managed SQLite databases."""
     # backup.py owns the canonical list of per-profile stores; reuse it.
     from hermes_cli.backup import _QUICK_STATE_FILES
 
@@ -187,11 +187,11 @@ def _report_database_journal_modes(
     from hermes_state import _wal_reset_repair_hint, is_sqlite_wal_reset_vulnerable
 
     vulnerable = is_sqlite_wal_reset_vulnerable(version_info)
-    home = hermes_home if hermes_home is not None else HERMES_HOME
+    home = hermes_home if hermes_home is not None else AGENTX_HOME
     try:
         databases = _hermes_database_paths(home)
     except Exception as exc:
-        check_warn(f"Could not list Hermes databases: {exc}")
+        check_warn(f"Could not list AgentX databases: {exc}")
         return
     exposed = []
     for name, path in databases:

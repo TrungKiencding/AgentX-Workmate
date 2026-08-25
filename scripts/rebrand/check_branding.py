@@ -264,6 +264,12 @@ ALLOWED: list[tuple[str, re.Pattern[str], str]] = [
             # provider plugin and the Portal integration page.
             r"|signup_url\s*=\s*\"https://nousresearch\.com/?\""
             r"|https://nousresearch\.com(?=[\"')\s]|$)"
+            # Negative fixtures for base_url_host_matches: lookalike hosts that
+            # must NOT match the provider domain (a suffix graft and a path
+            # segment).  The provider host above is deliberately kept, so its
+            # spoofing tests have to name it too.
+            r"|nousresearch\.com\.evil\.io"
+            r"|proxy\.example/nousresearch\.com"
         ),
         "the LLM provider's OAuth, inference and gateway hosts — rebranding "
         "one breaks authentication",

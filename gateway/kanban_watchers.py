@@ -59,7 +59,7 @@ def _resolve_auto_decompose_settings(
 
 
 def _kanban_dispatch_allowed() -> bool:
-    """Return False while the global emergency stop (`hermes pause`) is engaged.
+    """Return False while the global emergency stop (`agentx pause`) is engaged.
 
     Checked every dispatcher tick BEFORE spawning new workers so a pause takes
     effect on the next tick without a gateway restart. In-flight workers are
@@ -1476,7 +1476,7 @@ class GatewayKanbanWatchersMixin:
                 logger.exception("kanban dispatcher: zombie reaper failed")
 
             try:
-                # Global emergency stop (`hermes pause`): skip auto-decompose
+                # Global emergency stop (`agentx pause`): skip auto-decompose
                 # and dispatch entirely — no new workers while paused. Running
                 # workers finish naturally; zombie reaping above still runs.
                 if not _kanban_dispatch_allowed():

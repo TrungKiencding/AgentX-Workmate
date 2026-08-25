@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 # Synthetic error code used when the OpenAI SDK rejects a provider's SSE
-# ``data:`` field before Hermes receives a completion chunk.  Keeping this
+# ``data:`` field before AgentX receives a completion chunk.  Keeping this
 # distinct from generic JSON parse failures lets the classifier make narrow,
 # provider-stream-specific recovery decisions without inventing an HTTP status.
 PROVIDER_STREAM_NON_JSON_ERROR_CODE = "provider_stream_non_json_data"
@@ -453,7 +453,7 @@ _REQUEST_VALIDATION_PATTERNS = [
     "unsupported_parameter",
 ]
 
-# Request parameters that Hermes sends on SOME routes only, paired with the
+# Request parameters that AgentX sends on SOME routes only, paired with the
 # providers/hosts where sending them is deliberate.
 #
 # When a host that is NOT in the allowed set rejects one of these fields, the

@@ -268,7 +268,7 @@ auxiliary:
     model: vendor/model-id
 ```
 
-Plugin 可以为自己注册的任务提供 provider/模型注册默认值。运营人员在 `auxiliary.<task>` 中的配置会覆盖这些默认值，并控制部署选择。Plugin 只能使用自己注册的任务；未知或属于其他 plugin 的任务名会在调用 provider 前失败。`allow_task_override: true` 是运营人员显式授予的权限，用于使用 Hermes 内置辅助任务；它不允许使用其他 plugin 的任务。省略 `task=`（或使用 `"auto"`）会继续使用当前主 provider/模型。
+Plugin 可以为自己注册的任务提供 provider/模型注册默认值。运营人员在 `auxiliary.<task>` 中的配置会覆盖这些默认值，并控制部署选择。Plugin 只能使用自己注册的任务；未知或属于其他 plugin 的任务名会在调用 provider 前失败。`allow_task_override: true` 是运营人员显式授予的权限，用于使用 AgentX 内置辅助任务；它不允许使用其他 plugin 的任务。省略 `task=`（或使用 `"auto"`）会继续使用当前主 provider/模型。
 
 ### 结果属性
 

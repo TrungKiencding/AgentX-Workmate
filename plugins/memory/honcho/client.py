@@ -546,7 +546,7 @@ class HonchoClientConfig:
         # The Honcho SDK's native config format — and what Claude Desktop
         # writes — nests the URL at endpoint.baseUrl. Read it first: a user
         # who has that block set almost certainly means it, and the flat
-        # baseUrl / base_url keys below are the Hermes-specific spelling.
+        # baseUrl / base_url keys below are the AgentX-specific spelling.
         endpoint_block = raw.get("endpoint")
         native_base_url = (
             endpoint_block.get("baseUrl")

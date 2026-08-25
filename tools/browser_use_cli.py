@@ -28,7 +28,7 @@ _SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 # resolved browser is EXCLUSIVE to this named session (per-name provider
 # browser, or a named Browser Use cloud browser). Popped before the
 # subprocess launches — never exported to the CLI.
-_PRIVATE_BROWSER_SENTINEL = "_HERMES_BU_PRIVATE_BROWSER"
+_PRIVATE_BROWSER_SENTINEL = "_AGENTX_BU_PRIVATE_BROWSER"
 
 # Preamble prepended to the model's code for named sessions on SHARED
 # browsers (local Chrome / CDP override). The harness daemon attaches to the
@@ -38,7 +38,7 @@ _PRIVATE_BROWSER_SENTINEL = "_HERMES_BU_PRIVATE_BROWSER"
 # once per daemon (marker file keyed by BU_NAME under the harness runtime
 # state), costs one IPC round-trip on later calls.
 _OWN_TAB_PREAMBLE = """\
-# hermes: pin this named session to its own tab (once per daemon process)
+# agentx: pin this named session to its own tab (once per daemon process)
 def _hermes_ensure_own_tab():
     import os as _os, tempfile as _tf
     _name = _os.environ.get("BU_NAME", "default")
@@ -52,7 +52,7 @@ def _hermes_ensure_own_tab():
         _dpid = "0"
     _uid = _os.getuid() if hasattr(_os, "getuid") else 0
     _marker = _os.path.join(
-        _tf.gettempdir(), "hermes-bu-owntab-%s-%s-%s" % (_uid, _name, _dpid)
+        _tf.gettempdir(), "agentx-bu-owntab-%s-%s-%s" % (_uid, _name, _dpid)
     )
     if _os.path.exists(_marker):
         return

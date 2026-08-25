@@ -53,7 +53,7 @@ def _(rid, params: dict) -> dict:
         another agent profile; completing profile names alongside path refs
         makes that discoverable. Bare-word matches only — never for
         `@kind:` directive queries. The primary profile is also offered
-        under the 'hermes' alias when no real profile claims that name.
+        under the 'agentx' alias when no real profile claims that name.
         """
         out: list[dict] = []
         try:
@@ -74,11 +74,11 @@ def _(rid, params: dict) -> dict:
                             "meta": desc or "agent profile",
                         }
                     )
-            if "hermes".startswith(prefix.lower()) and "hermes" not in seen:
+            if "agentx".startswith(prefix.lower()) and "agentx" not in seen:
                 out.append(
                     {
-                        "text": "@hermes",
-                        "display": "@hermes",
+                        "text": "@agentx",
+                        "display": "@agentx",
                         "meta": "agent profile (primary)",
                     }
                 )

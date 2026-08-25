@@ -2,7 +2,7 @@
 name: social-media-content-calendar
 description: "Use when a user asks to create a multi-platform social media content calendar with campaign themes, post briefs, channel-specific copy, asset requirements, approval status, and scheduled publishing handoff."
 version: 1.0.0
-author: Hermes Agent
+author: AgentX Workmate
 license: MIT
 platforms: [linux, macos, windows]
 metadata:

@@ -465,11 +465,11 @@ class TestUsesHermesPythonEnvironment(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# PYTHONPATH composition — hermes root included only for same-env interpreters
+# PYTHONPATH composition — agentx root included only for same-env interpreters
 # ---------------------------------------------------------------------------
 
 class TestPythonPathComposition(unittest.TestCase):
-    """Verify hermes root inclusion in PYTHONPATH depends on env match.
+    """Verify agentx root inclusion in PYTHONPATH depends on env match.
 
     Patches ``_uses_hermes_python_environment`` directly so these tests are
     independent of subprocess availability — the unit tests above already
@@ -510,18 +510,18 @@ class TestPythonPathComposition(unittest.TestCase):
         return os.path.dirname(tools_dir)
 
     def test_hermes_root_included_when_same_env(self):
-        """When interpreter is in the Hermes env, hermes root is in PYTHONPATH."""
+        """When interpreter is in the AgentX env, agentx root is in PYTHONPATH."""
         pythonpath = self._capture_pythonpath(same_env=True)
         parts = pythonpath.split(os.pathsep)
         self.assertIn(self._hermes_root(), parts,
-                      "hermes root must be in PYTHONPATH for same-env interpreters")
+                      "agentx root must be in PYTHONPATH for same-env interpreters")
 
     def test_hermes_root_excluded_when_external_env(self):
-        """When interpreter is external, hermes root must NOT be in PYTHONPATH."""
+        """When interpreter is external, agentx root must NOT be in PYTHONPATH."""
         pythonpath = self._capture_pythonpath(same_env=False)
         parts = pythonpath.split(os.pathsep)
         self.assertNotIn(self._hermes_root(), parts,
-                         "hermes root must not leak into an external interpreter's PYTHONPATH")
+                         "agentx root must not leak into an external interpreter's PYTHONPATH")
 
     def test_staging_dir_always_present(self):
         """The staging tmpdir must always be the first PYTHONPATH entry."""

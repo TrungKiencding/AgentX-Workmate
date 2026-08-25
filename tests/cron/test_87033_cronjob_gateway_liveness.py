@@ -4,7 +4,7 @@ The builtin cron ticker only runs inside the gateway process. Before the
 fix, ``cronjob(action="create")`` returned a clean success even with no
 gateway running, so the agent confidently told the user a recurring task
 was scheduled while the job could never fire. The CLI already warned
-(``hermes cron list`` / ``hermes cron status``); the agent path did not.
+(``agentx cron list`` / ``agentx cron status``); the agent path did not.
 
 Contract pinned here:
 
@@ -25,11 +25,11 @@ import pytest
 
 @pytest.fixture
 def hermes_env(tmp_path, monkeypatch):
-    """Isolate HERMES_HOME for each test so jobs don't leak."""
-    home = tmp_path / ".hermes"
+    """Isolate AGENTX_HOME for each test so jobs don't leak."""
+    home = tmp_path / ".agentx"
     home.mkdir()
     (home / "cron").mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("AGENTX_HOME", str(home))
 
     import importlib
 

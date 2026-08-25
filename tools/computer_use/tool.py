@@ -919,7 +919,7 @@ def _text_response(res: ActionResult) -> str:
 # Window classes of browsers whose page content the typed cua_browser_* route
 # can drive with trusted input and ZERO focus steal. When background text
 # delivery is refused for one of these surfaces, the driver's only hint is
-# "foreground" (it doesn't know Hermes has a typed page route), so the model
+# "foreground" (it doesn't know AgentX has a typed page route), so the model
 # flashes the user's window to front for every keystroke batch. The hint below
 # offers the no-flash rung first; foreground remains valid for browser chrome,
 # native dialogs, and anything the typed route can't bind exactly.
@@ -1556,7 +1556,7 @@ _MAX_CAPTURE_FILES = 20
 
 
 def _persist_capture_image(cap: CaptureResult) -> Optional[str]:
-    """Save a capture in Hermes' media cache and return its absolute path.
+    """Save a capture in AgentX' media cache and return its absolute path.
 
     Captures are normally embedded only in the model's tool context. Persisting
     a bounded copy gives attachment-capable surfaces a real file to deliver

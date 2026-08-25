@@ -251,7 +251,7 @@ class TestExecReadSafety:
         resolver must transparently retry before raising, so users don't
         see 'could not read inside the sandbox' on a file that is fully
         readable on the second attempt."""
-        home = tmp_path / "hermes"
+        home = tmp_path / "agentx"
         isrc = _reload(monkeypatch, home)
         monkeypatch.setenv("TERMINAL_ENV", "docker")
 
@@ -280,7 +280,7 @@ class TestExecReadSafety:
         """#76566: when every retry still fails, the error must carry the
         container's stderr/stdout so the user can tell 'no such file'
         from 'permission denied' from 'cold start never came up'."""
-        home = tmp_path / "hermes"
+        home = tmp_path / "agentx"
         isrc = _reload(monkeypatch, home)
         monkeypatch.setenv("TERMINAL_ENV", "docker")
 
@@ -340,7 +340,7 @@ class TestLazySandboxBringUp:
 
     @pytest.mark.asyncio
     async def test_first_read_brings_up_sandbox_then_reads(self, tmp_path, monkeypatch):
-        isrc = _reload(monkeypatch, tmp_path / "hermes")
+        isrc = _reload(monkeypatch, tmp_path / "agentx")
         monkeypatch.setenv("TERMINAL_ENV", "ssh")
 
         brought_up = []
@@ -370,7 +370,7 @@ class TestLazySandboxBringUp:
     async def test_bringup_that_yields_no_env_still_fails_closed(self, tmp_path, monkeypatch):
         """If the bring-up can't produce an env, the resolver still refuses
         rather than falling back to a host read."""
-        isrc = _reload(monkeypatch, tmp_path / "hermes")
+        isrc = _reload(monkeypatch, tmp_path / "agentx")
         monkeypatch.setenv("TERMINAL_ENV", "ssh")
         secret = tmp_path / "id_rsa"
         secret.write_bytes(b"HOST-PRIVATE-KEY")

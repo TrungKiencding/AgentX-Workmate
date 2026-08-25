@@ -86,7 +86,7 @@ def _add_prompt_cache_key(
 def _reasoning_config_for_model(model: str, reasoning_config: dict | None) -> dict | None:
     """Return the model's wire-compatible reasoning config.
 
-    Hermes' internal effort set extends the wire vocabulary with ``ultra``
+    AgentX' internal effort set extends the wire vocabulary with ``ultra``
     (the /reasoning command documents none..xhigh|max|ultra). OpenAI-
     compatible wires — OpenRouter chief among them — accept exactly
     max|xhigh|high|medium|low|minimal|none and reject the extension with
@@ -540,10 +540,10 @@ class ChatCompletionsTransport(ProviderTransport):
             )
             if not _kimi_thinking_off:
                 # K3 accepts low/high/max only (default high) — "medium" and
-                # Hermes' upper-ladder levels 400 or silently degrade. Mirror
+                # AgentX' upper-ladder levels 400 or silently degrade. Mirror
                 # the kimi-coding plugin's _K3_EFFORT_MAP; older Kimi models
                 # keep the low/medium/high vocabulary with the stronger
-                # Hermes levels capped at high instead of being dropped
+                # AgentX levels capped at high instead of being dropped
                 # (dropping them inverted the ladder: ultra sent the
                 # "medium" default, weaker than an explicit high).
                 _e = ""
@@ -579,7 +579,7 @@ class ChatCompletionsTransport(ProviderTransport):
                 and reasoning_config.get("enabled") is False
             )
             if not _tokenhub_thinking_off:
-                # TokenHub accepts low/medium/high. Map Hermes' full ladder
+                # TokenHub accepts low/medium/high. Map AgentX' full ladder
                 # onto that set instead of dropping unknown levels to the
                 # "high" default — dropping inverted the ladder for
                 # "minimal" (asked for the least, got the most).

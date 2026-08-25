@@ -169,7 +169,7 @@ def normalize_actual_base_url(base_url: str) -> str:
 
     Actual hosted inference is exposed at api.actual.inc, while the Actual
     client's offline local server binds a loopback host. Both use a /v1 API
-    surface for Hermes' Responses transport.
+    surface for AgentX' Responses transport.
     """
     url = str(base_url or "").strip().rstrip("/")
     if not url:
@@ -362,7 +362,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         # `sk-ant-oat01…` OAuth token: sent as `x-api-key` it 401s, and sent as a
         # bare Bearer it 429s. It is listed here because this tuple doubles as the
         # credential-DISCOVERY list (agent/credential_pool.py builds its env scan
-        # from it), so removing it would stop Hermes finding a setup-token
+        # from it), so removing it would stop AgentX finding a setup-token
         # credential at all. The adapter routes such a value down the OAuth path
         # on the strength of its prefix, not on this entry. Only ANTHROPIC_API_KEY
         # and ANTHROPIC_TOKEN are usable as literal API keys.
@@ -2019,7 +2019,7 @@ def is_provider_explicitly_configured(provider_id: str) -> bool:
     # NOTE: this uses has_explicit_vertex_config(), NOT has_vertex_credentials()
     # — the latter also counts an ambient GOOGLE_APPLICATION_CREDENTIALS path
     # (commonly set globally for unrelated GCP work), which would mark Vertex
-    # explicit for users who never set Hermes up for it. Only Hermes-scoped
+    # explicit for users who never set AgentX up for it. Only AgentX-scoped
     # signals (VERTEX_PROJECT_ID / vertex.project_id / VERTEX_CREDENTIALS_PATH)
     # count here.
     try:

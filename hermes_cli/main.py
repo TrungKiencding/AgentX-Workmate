@@ -2724,7 +2724,7 @@ def cmd_chat(args):
                     sys.exit(1)
 
     # --resume @claude / --resume @codex: import a foreign session (Claude
-    # Code / Codex CLI) and resume the newly created Hermes session.
+    # Code / Codex CLI) and resume the newly created AgentX session.
     _resume_foreign = getattr(args, "resume", None)
     if isinstance(_resume_foreign, str) and _resume_foreign.strip().lower() in (
         "@claude",
@@ -2745,7 +2745,7 @@ def cmd_chat(args):
             print(f"Error: {e}")
             sys.exit(1)
         print(f"✓ Imported as {_imported_id} — resuming it now.")
-        print(f"  (later: hermes --resume {_imported_id})")
+        print(f"  (later: agentx --resume {_imported_id})")
         args.resume = _imported_id
 
     # Resolve --resume by title if it's not a direct session ID
@@ -5915,7 +5915,7 @@ def _do_build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
     # web_dir itself and --workspace would fail.  See #42973.
     #
     # When running from the workspace root, this must name the SAME closure
-    # as `hermes update`'s _update_node_dependencies() (ui-tui + web +
+    # as `agentx update`'s _update_node_dependencies() (ui-tui + web +
     # --include-workspace-root): the helper prefers `npm ci`, which deletes
     # node_modules before reifying the requested tree, so a narrower closure
     # here silently prunes everything the update step just installed (root
@@ -8417,7 +8417,7 @@ def _run_quarantined_install(
         # FAILURE (install died before the entry-points step) and on SUCCESS
         # too: uv audits an already-satisfied editable install as a no-op and
         # rewrites no entry points, which would otherwise leave the shims
-        # quarantined aside and `hermes` missing from PATH after a green
+        # quarantined aside and `agentx` missing from PATH after a green
         # install (#75584). _restore_quarantined_exes skips any shim the
         # installer actually replaced, so this never clobbers fresh output.
         # Errors are not swallowed — the finally re-raises whatever escaped.
@@ -11813,7 +11813,7 @@ def main():
     # Lazy import — only pays for itself when this subcommand is actually used.
     # The secrets_cli module imports agent.secret_sources.bitwarden which loads
     # cryptography._rust.pyd on Windows; loading it eagerly here would cause
-    # hermes update to self-lock (the updater itself maps the .pyd before the
+    # agentx update to self-lock (the updater itself maps the .pyd before the
     # dependency sync runs).  Defer the import until the dispatcher actually
     # handles a secrets subcommand.
     def _dispatch_secrets(args):  # noqa: ANN001
@@ -12894,11 +12894,11 @@ def main():
 
     sessions_import = sessions_subparsers.add_parser(
         "import",
-        help="Import a Claude Code or Codex CLI session into Hermes",
+        help="Import a Claude Code or Codex CLI session into AgentX",
         description=(
             "Pull a conversation started in Claude Code (~/.claude/projects) "
-            "or Codex CLI (~/.codex/sessions) into the Hermes session store "
-            "so it can be resumed with 'hermes --resume <id>'. The foreign "
+            "or Codex CLI (~/.codex/sessions) into the AgentX session store "
+            "so it can be resumed with 'agentx --resume <id>'. The foreign "
             "files are only read, never modified."
         ),
     )

@@ -407,7 +407,7 @@ class TestLeakedDaemonWithLiveOwner:
     tracking is lost on any exception path between spawn and registration,
     yet the owner PID stays up, so the reaper skipped it forever.  Observed in
     the wild — five agent-browser daemons accumulated over 10 days inside one
-    long-lived hermes process, pinning ~5 CPU cores and driving load to 100+.
+    long-lived agentx process, pinning ~5 CPU cores and driving load to 100+.
 
     The daemon-side ``AGENT_BROWSER_IDLE_TIMEOUT_MS`` is not a backstop here:
     it does not fire when the daemon itself is wedged (e.g. Chrome's framework
@@ -532,7 +532,7 @@ class TestPeriodicOrphanReap:
     """The reaper must run repeatedly, not only at cleanup-thread startup.
 
     A startup-only reap can never recover from a leak that appears *after*
-    boot — which is exactly what happens in a hermes process that stays up
+    boot — which is exactly what happens in a agentx process that stays up
     for days.
     """
 

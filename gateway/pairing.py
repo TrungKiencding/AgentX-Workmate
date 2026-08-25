@@ -59,11 +59,11 @@ MAX_FAILED_ATTEMPTS = 5             # Failed approvals before lockout
 # Default (non-profile-scoped) pairing directory. Left unresolved (``None``)
 # here rather than computed eagerly: this module is imported once by the
 # long-lived gateway process at container/process boot, and computing the
-# path eagerly freezes it to whatever HERMES_HOME/profile context existed
+# path eagerly freezes it to whatever AGENTX_HOME/profile context existed
 # at that exact import moment for the rest of the process's lifetime --
 # even if a context-local override (see hermes_constants.set_hermes_home_override)
 # is established afterward. A freshly-started, short-lived process (e.g. the
-# ``hermes pairing`` CLI) re-imports this module later with the final
+# ``agentx pairing`` CLI) re-imports this module later with the final
 # environment already in place, so it never observes the stale value -- the
 # resulting asymmetry is what made pending pairing codes issued by the
 # gateway unrecoverable while CLI-side writes to the same directory kept

@@ -137,7 +137,7 @@ def _fallback_chain_phrase() -> str:
     if chain:
         return "Fallback chain was exhausted or unavailable."
     return (
-        "No fallback chain configured — add one with `hermes fallback add`, "
+        "No fallback chain configured — add one with `agentx fallback add`, "
         "or set a cron fleet default via `cron.model` + `cron.model_provider` "
         "in config.yaml."
     )
@@ -623,7 +623,7 @@ _terminal_cwd_lock = _ReadWriteLock()
 
 # Ceiling on how long a cron job waits for the TERMINAL_CWD lock before
 # FAILING (fail-closed, #79768). Derived from the cron inactivity limit
-# (HERMES_CRON_TIMEOUT, default 600s): a *wedged* lock holder stops touching
+# (AGENTX_CRON_TIMEOUT, default 600s): a *wedged* lock holder stops touching
 # its activity clock, so the inactivity monitor kills it and the lock is
 # released within roughly that limit — a waiter that outlasts it plus margin
 # is facing a holder even the monitor could not reap, and must not run:
@@ -640,7 +640,7 @@ _CWD_LOCK_TIMEOUT_MARGIN_SECONDS = 60.0
 
 def _cwd_lock_timeout_seconds() -> float:
     """Bound for the TERMINAL_CWD lock wait: inactivity limit + margin."""
-    raw = os.getenv("HERMES_CRON_TIMEOUT", "").strip()
+    raw = os.getenv("AGENTX_CRON_TIMEOUT", "").strip()
     try:
         inactivity = float(raw) if raw else 600.0
     except (ValueError, TypeError):
@@ -711,7 +711,7 @@ def _utcnow_iso_ms() -> str:
 
 
 def _write_usage_audit(record: dict) -> None:
-    """Append a single JSONL line to ~/.hermes/cron/usage_audit.jsonl.
+    """Append a single JSONL line to ~/.agentx/cron/usage_audit.jsonl.
 
     NEVER raises — a logger bug must not break cron jobs. Wraps the entire
     write (path resolve, mkdir, json.dumps, file append) in a single try.
@@ -1675,7 +1675,7 @@ def _send_media_via_adapter(
                 # big exports) can legitimately exceed a fixed 30s upload
                 # window. Configurable, matching the other cron timeouts.
                 result = future.result(
-                    timeout=int(os.getenv("HERMES_CRON_MEDIA_SEND_TIMEOUT", "300"))
+                    timeout=int(os.getenv("AGENTX_CRON_MEDIA_SEND_TIMEOUT", "300"))
                 )
             except TimeoutError:
                 future.cancel()
@@ -3257,7 +3257,7 @@ def _preflight_check_provider_key(job: dict, cfg: dict) -> Optional[str]:
         or str((_cron_cfg or {}).get("model_provider") or "").strip()
         or None
     )
-    model = job.get("model") or os.getenv("HERMES_MODEL") or ""
+    model = job.get("model") or os.getenv("AGENTX_MODEL") or ""
 
     from hermes_cli.auth import AuthError
 
@@ -3271,7 +3271,7 @@ def _preflight_check_provider_key(job: dict, cfg: dict) -> Optional[str]:
     except AuthError as exc:
         return (
             f"provider credential missing: {exc}. "
-            "Set the provider API key in .env (or `hermes setup`), or pin a "
+            "Set the provider API key in .env (or `agentx setup`), or pin a "
             "working provider via `cronjob action=update job_id="
             f"{job.get('id')} provider=<p>`."
         )
@@ -3331,7 +3331,7 @@ def _preflight_check_delivery(job: dict) -> Optional[str]:
             return (
                 f"delivery platform '{platform_name}' has no gateway "
                 "credentials configured (not connected). Configure it via "
-                "`hermes setup` or change the job's `deliver` target."
+                "`agentx setup` or change the job's `deliver` target."
             )
     return None
 
@@ -5282,9 +5282,9 @@ def tick(
         raise
 
     try:
-        # Global emergency stop (`hermes pause`): skip dispatch entirely while
+        # Global emergency stop (`agentx pause`): skip dispatch entirely while
         # the ESTOP sentinel exists. Never touches in-flight runs — due jobs
-        # simply wait for the next tick after `hermes resume`. Logged once per
+        # simply wait for the next tick after `agentx resume`. Logged once per
         # engagement (not every tick) by check_paused.
         try:
             from agent.estop import check_paused as _estop_check_paused

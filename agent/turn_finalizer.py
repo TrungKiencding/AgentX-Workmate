@@ -216,7 +216,7 @@ def finalize_turn(
         # ``_record_task_failure`` (compare-and-swap receipt path) which
         # is a no-op if another path closed it — the CAS invariant in
         # ``_end_run`` (``WHERE ended_at IS NULL``) guarantees idempotence.
-        _kanban_task = os.environ.get("HERMES_KANBAN_TASK")
+        _kanban_task = os.environ.get("AGENTX_KANBAN_TASK")
         if _kanban_task:
             _record_kanban_budget_exhausted(
                 _kanban_task, api_call_count, agent.max_iterations, logger,
@@ -726,7 +726,7 @@ def finalize_turn(
     if failed and str(_turn_exit_reason) == "session_persistence_failed":
         result["error"] = final_response or (
             "session storage could not be written — check the state database "
-            "health (`hermes doctor`), then send your message again"
+            "health (`agentx doctor`), then send your message again"
         )
         # Machine-readable cause for the gateway/desktop: exactly
         # 'session_persistence_failed:<locked|disk|unknown>'. Never clobber a

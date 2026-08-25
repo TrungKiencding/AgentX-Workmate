@@ -52,7 +52,7 @@ _approval_tool_call_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "approval_tool_call_id",
     default="",
 )
-# Hermes session id (observability identity, distinct from the gateway
+# AgentX session id (observability identity, distinct from the gateway
 # routing session_key above). Approval hooks forward it so observer
 # plugins can attach approval marks to the REAL session scope — without
 # it they fall back to a synthetic "default" session whose scope never
@@ -124,7 +124,7 @@ def _fire_approval_hook(hook_name: str, **kwargs) -> None:
     try:
         kwargs.setdefault("turn_id", _approval_turn_id.get())
         kwargs.setdefault("tool_call_id", _approval_tool_call_id.get())
-        # Forward the Hermes session id so observer plugins parent approval
+        # Forward the AgentX session id so observer plugins parent approval
         # marks to the real session scope instead of a synthetic "default"
         # session (whose scope never closes → marks never export).
         _session_id = _approval_session_id.get()
@@ -268,8 +268,8 @@ def _is_cron_approval_context() -> bool:
 def _is_single_query_approval_context() -> bool:
     """True when the current approval decision is from a single-query (-q) session.
 
-    ``hermes chat -q "..."`` runs one turn and exits with no user waiting to
-    answer approval prompts, but it still exports ``HERMES_INTERACTIVE=1`` so
+    ``agentx chat -q "..."`` runs one turn and exits with no user waiting to
+    answer approval prompts, but it still exports ``AGENTX_INTERACTIVE=1`` so
     interactive sudo password prompts can be driven from stdin. Without an
     explicit marker, ``_is_interactive_cli()`` would report True and the gate
     would wait the full approval timeout for a human who never comes — failing
@@ -285,9 +285,9 @@ def _is_single_query_approval_context() -> bool:
     try:
         from gateway.session_context import get_session_env
 
-        return is_truthy_value(get_session_env("HERMES_SINGLE_QUERY_SESSION", ""))
+        return is_truthy_value(get_session_env("AGENTX_SINGLE_QUERY_SESSION", ""))
     except Exception:
-        return env_var_enabled("HERMES_SINGLE_QUERY_SESSION")
+        return env_var_enabled("AGENTX_SINGLE_QUERY_SESSION")
 
 
 def _is_gateway_approval_context() -> bool:
@@ -909,7 +909,7 @@ DANGEROUS_PATTERNS = [
     (r'\b(?:powershell|pwsh)(?:\.exe)?\b(?:\s+-\S+)*\s+(?:-(?:command|c)\s+)?["\']?(?:remove-item|rmdir|erase|del|rd|ri|rm)\b', "Windows PowerShell destructive delete"),
     (r'\b(?:powershell|pwsh)(?:\.exe)?\b.*\s-(?:encodedcommand|enc|e)\b', "PowerShell encoded command execution"),
     # ── Windows destructive tier (#69472) ────────────────────────────────
-    # These are native Windows EXEs / cmdlets reachable from ANY Hermes
+    # These are native Windows EXEs / cmdlets reachable from ANY AgentX
     # terminal backend on a Windows host — including the default git-bash
     # backend (taskkill.exe, icacls.exe, reg.exe, vssadmin.exe, bcdedit.exe,
     # cipher.exe are ordinary PATH executables there). Detection input is
@@ -955,7 +955,7 @@ DANGEROUS_PATTERNS = [
     # Credential/key paths in Windows form — the POSIX ~/.ssh patterns never
     # match drive-letter or backslash spellings. Match both separators.
     (r'\busers[\\/][^\\/\s]+[\\/]\.ssh\b', "access to SSH keys (Windows path)"),
-    (r'\bappdata[\\/](?:local|roaming)[\\/]hermes[^\n]*\.env\b', "access to Hermes secrets (Windows path)"),
+    (r'\bappdata[\\/](?:local|roaming)[\\/]agentx[^\n]*\.env\b', "access to AgentX secrets (Windows path)"),
     # ─────────────────────────────────────────────────────────────────────
     (r'\bchmod\s+(-[^\s]*\s+)*(777|666|o\+[rwx]*w|a\+[rwx]*w)\b', "world/other-writable permissions"),
     (r'\bchmod\s+--recursive\b.*(777|666|o\+[rwx]*w|a\+[rwx]*w)', "recursive world/other-writable (long flag)"),
@@ -2428,7 +2428,7 @@ def _is_verification_artifact_cleanup(command: str) -> bool:
 
 
 _GATEWAY_LIFECYCLE_SPLICE_DESCRIPTION = (
-    "stop/restart hermes gateway via shell-spliced verb (kills running agents)"
+    "stop/restart agentx gateway via shell-spliced verb (kills running agents)"
 )
 
 
@@ -2441,11 +2441,11 @@ def _is_shell_token_spliced_gateway_lifecycle(command: str) -> bool:
     deliberately scoped to command-position words (widening it would let
     quoted prose like ``git commit -m "rm -rf /"`` match the destructive
     patterns), and the spliced verb sits in an ARGUMENT position. So
-    ``launchctl kick"start" -k gui/501/ai.hermes.gateway`` auto-approved
+    ``launchctl kick"start" -k gui/501/ai.agentx.gateway`` auto-approved
     while executing exactly as the gated ``kickstart`` form (#80269).
 
     Delegate to ``cron.lifecycle_guard``, which tokenizes with shlex and is
-    anchored on a hermes-gateway identifier — reusing its prose
+    anchored on a agentx-gateway identifier — reusing its prose
     false-positive coverage instead of loosening the generic pattern
     engine. This runs last, so an ordinary pattern match still wins and
     keeps its more specific reason string. Unlike the guard's use inside
@@ -3536,7 +3536,7 @@ def _run_approval_gate(
     is_cli = _is_interactive_cli()
     is_gateway = _is_gateway_approval_context()
 
-    # Single-query (-q) sessions export HERMES_INTERACTIVE=1 but have no user
+    # Single-query (-q) sessions export AGENTX_INTERACTIVE=1 but have no user
     # to answer approval prompts — an unanswered prompt just waits the full
     # timeout then fails closed. Treat them as a deterministic non-interactive
     # context governed by approvals.single_query_mode (mirrors cron below).
@@ -4154,14 +4154,14 @@ def check_all_command_guards(command: str, env_type: str,
     is_gateway = _is_gateway_approval_context()
     is_ask = env_var_enabled("AGENTX_EXEC_ASK")
 
-    # Single-query (-q) sessions export HERMES_INTERACTIVE=1 but have no user
+    # Single-query (-q) sessions export AGENTX_INTERACTIVE=1 but have no user
     # to answer approval prompts — an unanswered prompt just waits the full
     # timeout then fails closed. Treat them as a deterministic non-interactive
     # context governed by approvals.single_query_mode (mirrors cron below).
     if _is_single_query_approval_context():
         is_cli = False
         is_gateway = False
-        # HERMES_EXEC_ASK routes through the gateway decision loop (no human
+        # AGENTX_EXEC_ASK routes through the gateway decision loop (no human
         # either here) — ignore it so single_query_mode actually takes effect.
         is_ask = False
 

@@ -87,7 +87,7 @@ DEFAULT_CONFIG = {
         "wal_autocheckpoint": None,
         "journal_size_limit": None,
     },
-    # Soft file-descriptor limit for long-running Hermes server processes.
+    # Soft file-descriptor limit for long-running AgentX server processes.
     # Clamped to the OS hard limit; 0/false/null disables the adjustment.
     "runtime": {
         "nofile_soft_limit": 4096,
@@ -101,8 +101,8 @@ DEFAULT_CONFIG = {
     # pressure. Reopening one re-resumes it from disk. 0/null disables.
     "max_live_sessions": 16,
     "session": {
-        # Per-terminal `hermes -c`: each CLI session drops a breadcrumb file
-        # under $HERMES_HOME/terminal-sessions/<terminal-id>, and a bare
+        # Per-terminal `agentx -c`: each CLI session drops a breadcrumb file
+        # under $AGENTX_HOME/terminal-sessions/<terminal-id>, and a bare
         # -c/--continue resumes THIS terminal's session (tmux pane, kitty
         # window, wezterm pane, plain tty, ...) instead of the globally
         # most-recent one. Set false to restore the old latest-session
@@ -132,7 +132,7 @@ DEFAULT_CONFIG = {
         # so the requesting turn is not amputated by restart_drain_timeout.
         # 0 = legacy behaviour (enter stop()/drain immediately). Default
         # 30 min is a safety valve for wedged agents, not a target latency —
-        # an interactive `hermes gateway restart` must never block for hours
+        # an interactive `agentx gateway restart` must never block for hours
         # on a turn that wedged (#79133). Long unattended turns can raise
         # this in config.yaml.
         "restart_after_turn_timeout": 1800,
@@ -385,7 +385,7 @@ DEFAULT_CONFIG = {
         # still running. The dying parent owns those children's stdout pipes,
         # so exiting immediately kills the delivery a few seconds later —
         # destroying Bot Mode handoff replies dispatched via message_agent /
-        # bot_relay from a short-lived `hermes -p <bot> chat -Q` recipient
+        # bot_relay from a short-lived `agentx -p <bot> chat -Q` recipient
         # (#90879). The parent instead waits (up to this bound) for tracked
         # notify_on_complete processes to finish before exiting. Plain
         # background processes without notify_on_complete (servers, daemons)
@@ -2160,7 +2160,7 @@ DEFAULT_CONFIG = {
         # scanned regardless of this setting.
         "guard_agent_created": False,
         # Advisory NVIDIA SkillEvaluator Tier 1 scan on hub installs
-        # (`hermes skills install`). Runs ALONGSIDE the built-in skills
+        # (`agentx skills install`). Runs ALONGSIDE the built-in skills
         # guard (which stays the enforcement layer) and only when the
         # optional `skillevaluator` binary is on PATH:
         #   uv tool install --python 3.13 \
@@ -2393,7 +2393,7 @@ DEFAULT_CONFIG = {
     #   approve — auto-approve all dangerous commands in cron jobs
     #
     # single_query_mode — what to do when a single-query (-q) session hits a
-    # dangerous command. -q runs export HERMES_INTERACTIVE=1 (for interactive
+    # dangerous command. -q runs export AGENTX_INTERACTIVE=1 (for interactive
     # sudo prompts) but have NO user waiting to answer approval prompts — an
     # unanswered prompt just waits the full timeout then fails closed, so the
     # agent is forced to work around the block (often via execute_code). This
@@ -2500,7 +2500,7 @@ DEFAULT_CONFIG = {
         "allow_private_urls": False,  # Allow requests to private/internal IPs (for OpenWrt, proxies, VPNs)
         "redact_secrets": True,
         # Writes to agent-instruction files (AGENTS.md/CLAUDE.md/SOUL.md/
-        # .cursorrules, project-local .hermes config) always require human
+        # .cursorrules, project-local .agentx config) always require human
         # approval — even under auto-approve/yolo. Extra patterns are
         # fnmatch globs matched against the basename (e.g. "*.mdc").
         "protected_instruction_files": True,
@@ -2624,7 +2624,7 @@ DEFAULT_CONFIG = {
         # pruning (for operators who manage cleanup externally). Default 50.
         "output_retention": 50,
         # Timeout (seconds) for a no-agent cron script. Also overridable via
-        # HERMES_CRON_SCRIPT_TIMEOUT. Keep this in sync with
+        # AGENTX_CRON_SCRIPT_TIMEOUT. Keep this in sync with
         # cron.scheduler._DEFAULT_SCRIPT_TIMEOUT so config set recognizes the
         # same setting the scheduler reads.
         "script_timeout_seconds": 3600,
@@ -2835,7 +2835,7 @@ DEFAULT_CONFIG = {
     # doesn't know yet is the supported self-unblock path (#84482,
     # #8731).
     #
-    # Provider keys accept the Hermes provider id (as used elsewhere in
+    # Provider keys accept the AgentX provider id (as used elsewhere in
     # this file) or the models.dev provider id; model ids match
     # case-insensitively.
     #
@@ -2981,7 +2981,7 @@ DEFAULT_CONFIG = {
         # the breaker never tripped — e.g. the ~150s wedged-event-loop cycle in
         # #81642 (stall -> ~90s liveness-watchdog hard-exit -> respawn ->
         # auto-resume replays the same session), which also makes
-        # `hermes update` hang because it can never drain the gateway.
+        # `agentx update` hang because it can never drain the gateway.
         "restart_loop_guard": {
             "max_restarts": 3,
             "window_seconds": 60,
