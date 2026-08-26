@@ -176,7 +176,7 @@ export function FindBar() {
       />
 
       {matchLabel && (
-        <span aria-live="polite" className="min-w-[3rem] text-center text-[0.6875rem] text-(--ui-text-tertiary)">
+        <span aria-live="polite" className="min-w-[3rem] text-center text-2xs tabular-nums text-(--ui-text-tertiary)">
           {matchLabel}
         </span>
       )}

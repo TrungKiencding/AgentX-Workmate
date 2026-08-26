@@ -42,8 +42,11 @@ export function SectionHeading({
   title: string
 }) {
   return (
-    <div className="mb-2.5 flex items-center gap-2 pt-2 text-[length:var(--conversation-text-font-size)] font-medium">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
+    // Deliberately uneven rhythm: a section takes more air ABOVE its heading
+    // than below it, so the heading reads as belonging to the rows under it
+    // rather than floating between two equal gaps.
+    <div className="mb-3 flex items-center gap-2 pt-6 text-md font-semibold">
+      <Icon className="size-4.5 shrink-0 text-muted-foreground" />
       <span>{title}</span>
       {meta && <Pill>{meta}</Pill>}
       {aside && <div className="ml-auto flex min-w-0 items-center">{aside}</div>}
@@ -68,7 +71,7 @@ export function SettingsSection({
   title: string
 }) {
   return (
-    <section className="mb-6">
+    <section className="mb-2">
       <SectionHeading aside={aside} icon={icon} meta={meta} title={title} />
       {children}
     </section>
@@ -89,7 +92,7 @@ export function NavLink({
   return (
     <Button
       className={cn(
-        'flex min-h-7 w-full justify-start gap-2 rounded-md px-2 text-left text-[length:var(--conversation-text-font-size)] transition',
+        'flex min-h-(--control-h-md) w-full justify-start gap-2 rounded-(--radius-control) px-2 text-left text-sm transition-[background-color,border-color,color] duration-(--dur-micro)',
         active
           ? 'bg-(--ui-bg-tertiary) text-foreground'
           : 'text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-foreground'
@@ -129,18 +132,14 @@ export function ListRow({
     <div className={cn('@container', className)}>
       <div
         className={cn(
-          'grid gap-3 py-3',
+          'grid min-h-11 gap-3 py-3',
           !wide && '@2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:items-center'
         )}
       >
         <div className="min-w-0">
-          <div className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">{title}</div>
-          {description && (
-            <div className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-              {description}
-            </div>
-          )}
-          {hint && <div className="mt-1 block font-mono text-[0.68rem] text-muted-foreground/45">{hint}</div>}
+          <div className="text-base font-medium text-foreground">{title}</div>
+          {description && <div className="mt-1 text-sm text-(--ui-text-tertiary)">{description}</div>}
+          {hint && <div className="mt-1 block font-mono text-xs text-(--ui-text-quaternary)">{hint}</div>}
           {below}
         </div>
         {action && <div className={cn('min-w-0', !wide && '@2xl:justify-self-end')}>{action}</div>}
@@ -186,8 +185,8 @@ export function ToggleRow({
 // its shape (like ModelSettings) instead of collapsing to a centered spinner.
 export function SectionHeadingSkeleton() {
   return (
-    <div className="mb-2.5 flex items-center gap-2 pt-2">
-      <Skeleton className="size-4" />
+    <div className="mb-3 flex items-center gap-2 pt-6">
+      <Skeleton className="size-4.5" />
       <Skeleton className="h-4 w-36 max-w-full" />
     </div>
   )
@@ -198,7 +197,7 @@ export function ListRowSkeleton({ wide = false }: { wide?: boolean }) {
     <div className="@container">
       <div
         className={cn(
-          'grid gap-3 py-3',
+          'grid min-h-11 gap-3 py-3',
           !wide && '@2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:items-center'
         )}
       >
@@ -226,7 +225,7 @@ export function SettingsSkeleton({
     <SettingsContent>
       {search && <Skeleton className="mb-3 h-8 w-full" />}
       {sections.map((section, i) => (
-        <section className={cn(i > 0 && 'mt-6')} key={i}>
+        <section className={cn(i > 0 && 'mt-2')} key={i}>
           {section.heading && <SectionHeadingSkeleton />}
           <div className="grid gap-1">
             {Array.from({ length: section.rows }, (_, r) => (

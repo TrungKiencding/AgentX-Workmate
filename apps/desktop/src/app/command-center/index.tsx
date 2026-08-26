@@ -33,7 +33,7 @@ import { $sessions, sessionPinId } from '@/store/session'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
-import { OverlayMain, OverlayNav, OverlaySplitLayout } from '../overlays/overlay-split-layout'
+import { OverlayMain, OverlayNav, OverlayPageHeader, OverlaySplitLayout } from '../overlays/overlay-split-layout'
 import { OverlayView } from '../overlays/overlay-view'
 
 import { MaintenancePanel } from './maintenance'
@@ -327,34 +327,33 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
         <OverlayNav groups={navGroups} />
 
         <OverlayMain>
-          <header className="mb-4 flex items-center justify-between gap-3 max-[47.5rem]:mb-2">
-            {/* Redundant on narrow — the nav dropdown already names the section. */}
-            <div className="min-w-0 max-[47.5rem]:hidden">
-              <h2 className="text-[length:var(--conversation-text-font-size)] font-semibold text-foreground">
-                {cc.sections[section]}
-              </h2>
-              <p className="mt-0.5 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                {cc.sectionDescriptions[section]}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {section === 'sessions' && (
-                <SearchField
-                  containerClassName="max-w-[40vw]"
-                  onChange={next => setQuery(next)}
-                  placeholder={cc.searchPlaceholder}
-                  value={query}
-                />
-              )}
-              {section === 'usage' && (
-                <SegmentedControl
-                  onChange={id => setUsagePeriod(Number(id) as UsagePeriod)}
-                  options={USAGE_PERIODS.map(value => ({ id: String(value), label: cc.days(value) }))}
-                  value={String(usagePeriod)}
-                />
-              )}
-            </div>
-          </header>
+          {/* The shared overlay page-title block. On narrow the title is
+              redundant (the nav dropdown already names the section), so the
+              header collapses to its actions row. */}
+          <OverlayPageHeader
+            actions={
+              <>
+                {section === 'sessions' && (
+                  <SearchField
+                    containerClassName="max-w-[40vw]"
+                    onChange={next => setQuery(next)}
+                    placeholder={cc.searchPlaceholder}
+                    value={query}
+                  />
+                )}
+                {section === 'usage' && (
+                  <SegmentedControl
+                    onChange={id => setUsagePeriod(Number(id) as UsagePeriod)}
+                    options={USAGE_PERIODS.map(value => ({ id: String(value), label: cc.days(value) }))}
+                    value={String(usagePeriod)}
+                  />
+                )}
+              </>
+            }
+            className="max-[47.5rem]:mb-2 max-[47.5rem]:[&_[data-slot=overlay-page-title]]:hidden"
+            description={cc.sectionDescriptions[section]}
+            title={cc.sections[section]}
+          />
 
           {section === 'sessions' ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -373,10 +372,10 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                           onClick={() => onOpenSession(session.id)}
                           type="button"
                         >
-                          <div className="truncate text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
+                          <div className="truncate text-base font-medium text-foreground">
                             {sessionTitle(session)}
                           </div>
-                          <div className="truncate text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+                          <div className="truncate text-xs tabular-nums text-(--ui-text-tertiary)">
                             {formatTimestamp(session.last_active || session.started_at)}
                           </div>
                         </button>
@@ -466,7 +465,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
 
               <div className="flex min-h-0 flex-col pt-2">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <span className="text-[0.625rem] font-medium uppercase tracking-[0.08em] text-(--ui-text-tertiary)">
+                  <span className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
                     {cc.recentLogs}
                   </span>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -500,7 +499,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                   )}
                 </div>
                 <LogTail
-                  className="flex-1 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary)"
+                  className="flex-1 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary)"
                   emptyLabel={cc.noLogs}
                   lines={systemLoading && logs.length === 0 ? null : visibleLogs}
                 />
@@ -576,15 +575,15 @@ function UsagePanel({ error, loading, onRefresh, period, usage }: UsagePanelProp
 
       <section>
         <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[0.625rem] font-medium uppercase tracking-[0.08em] text-(--ui-text-tertiary)">
+          <span className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
             {cc.dailyTokens}
           </span>
-          <span className="flex items-center gap-3 text-[0.65rem] text-(--ui-text-tertiary)">
+          <span className="flex items-center gap-3 text-2xs text-(--ui-text-tertiary)">
             <span className="inline-flex items-center gap-1">
               <span className="size-2 rounded-[1px] bg-[color:var(--dt-primary)]/60" /> {cc.input}
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="size-2 rounded-[1px] bg-emerald-500/70" /> {cc.output}
+              <span className="size-2 rounded-[1px] bg-(--ui-green)/70" /> {cc.output}
             </span>
           </span>
         </div>
@@ -617,7 +616,7 @@ function UsagePanel({ error, loading, onRefresh, period, usage }: UsagePanelProp
                 )
               })}
             </div>
-            <div className="mt-1 flex justify-between text-[0.6rem] text-(--ui-text-tertiary)">
+            <div className="mt-1 flex justify-between text-2xs text-(--ui-text-tertiary)">
               <span>{daily[0]?.day}</span>
               <span>{daily[daily.length - 1]?.day}</span>
             </div>
@@ -660,7 +659,7 @@ function UsageList({
 }) {
   return (
     <section className="min-w-0">
-      <div className="mb-1.5 text-[0.625rem] font-medium uppercase tracking-[0.08em] text-(--ui-text-tertiary)">
+      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
         {title}
       </div>
       {rows.length === 0 ? (
@@ -671,8 +670,8 @@ function UsageList({
         <ul>
           {rows.map(row => (
             <li className="flex items-center justify-between gap-2 py-1.5" key={row.key}>
-              <span className="min-w-0 truncate font-mono text-[0.7rem] text-foreground">{row.label}</span>
-              <span className="shrink-0 text-[0.65rem] text-(--ui-text-tertiary)">{row.value}</span>
+              <span className="min-w-0 truncate font-mono text-xs text-foreground">{row.label}</span>
+              <span className="shrink-0 text-2xs text-(--ui-text-tertiary)">{row.value}</span>
             </li>
           ))}
         </ul>
@@ -684,9 +683,11 @@ function UsageList({
 function UsageStat({ hint, label, value }: { hint?: string; label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[0.625rem] font-medium uppercase tracking-[0.12em] text-(--ui-text-tertiary)">{label}</div>
-      <div className="mt-1 truncate text-base font-semibold tracking-tight text-foreground">{value}</div>
-      {hint && <div className="mt-0.5 truncate text-[0.62rem] text-(--ui-text-tertiary)">{hint}</div>}
+      <div className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{label}</div>
+      {/* Columnar figures: `tabular-nums` so the row of stats keeps its column
+          edges as the numbers tick. */}
+      <div className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">{value}</div>
+      {hint && <div className="mt-0.5 truncate text-2xs tabular-nums text-(--ui-text-tertiary)">{hint}</div>}
     </div>
   )
 }

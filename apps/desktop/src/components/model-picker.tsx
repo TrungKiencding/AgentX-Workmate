@@ -230,14 +230,14 @@ function ModelResults({
                     <HighlightMatches query={search} text={model} />
                   </span>
                   {locked && (
-                    <span className="shrink-0 text-[0.62rem] uppercase tracking-wide opacity-80">{copy.pro}</span>
+                    <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>
                   )}
                   <ModelPrice isCurrent={isCurrent} price={price} />
                 </CommandItem>
               )
             })}
             {unavailable.size > 0 && (
-              <div className="px-6 pb-2 pt-1 text-[0.62rem] leading-relaxed text-muted-foreground">
+              <div className="px-6 pb-2 pt-1 text-2xs leading-relaxed text-muted-foreground">
                 {copy.proNeedsSubscription}
               </div>
             )}
@@ -264,8 +264,8 @@ function ModelPrice({ price, isCurrent }: { price?: ModelPricing; isCurrent: boo
         {typeof price.discount_percent === 'number' ? (
           <span
             className={cn(
-              'rounded-sm px-1 py-0.5 text-[0.62rem] font-semibold',
-              isCurrent ? 'bg-primary-foreground/20' : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+              'rounded-sm px-1 py-0.5 text-2xs font-semibold',
+              isCurrent ? 'bg-primary-foreground/20' : 'bg-(--ui-yellow)/15 text-(--ui-yellow)'
             )}
           >
             -{price.discount_percent}%
@@ -273,8 +273,8 @@ function ModelPrice({ price, isCurrent }: { price?: ModelPricing; isCurrent: boo
         ) : null}
         <span
           className={cn(
-            'shrink-0 rounded-sm px-1 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide',
-            isCurrent ? 'bg-primary-foreground/20' : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            'shrink-0 rounded-sm px-1 py-0.5 text-2xs font-semibold uppercase tracking-wide',
+            isCurrent ? 'bg-primary-foreground/20' : 'bg-(--ui-green)/15 text-(--ui-green)'
           )}
         >
           {copy.free}
@@ -288,7 +288,7 @@ function ModelPrice({ price, isCurrent }: { price?: ModelPricing; isCurrent: boo
   return (
     <span
       className={cn(
-        'shrink-0 inline-flex items-center gap-1.5 text-[0.66rem] tabular-nums',
+        'shrink-0 inline-flex items-center gap-1.5 text-2xs tabular-nums',
         isCurrent ? 'text-primary-foreground/80' : 'text-muted-foreground'
       )}
       title={copy.priceTitle}
@@ -296,8 +296,8 @@ function ModelPrice({ price, isCurrent }: { price?: ModelPricing; isCurrent: boo
       {onSale ? (
         <span
           className={cn(
-            'rounded-sm px-1 py-0.5 text-[0.62rem] font-semibold',
-            isCurrent ? 'bg-primary-foreground/20' : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+            'rounded-sm px-1 py-0.5 text-2xs font-semibold',
+            isCurrent ? 'bg-primary-foreground/20' : 'bg-(--ui-yellow)/15 text-(--ui-yellow)'
           )}
         >
           -{price.discount_percent}%
@@ -339,11 +339,11 @@ function ProviderHeading({ provider }: { provider: ModelOptionProvider }) {
   // free_tier is only set for Nous. true → "Free tier", false → "Pro".
   const tierBadge =
     provider.free_tier === true ? (
-      <span className="rounded-sm bg-emerald-500/15 px-1 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+      <span className="rounded-sm bg-(--ui-green)/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-label text-(--ui-green)">
         {copy.freeTier}
       </span>
     ) : provider.free_tier === false ? (
-      <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-primary">
+      <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-wide text-primary">
         {copy.pro}
       </span>
     ) : null

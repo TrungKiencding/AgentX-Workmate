@@ -2395,7 +2395,7 @@ export const en: Translations = {
   },
 
   onboarding: {
-    headerTitle: "Let's get you setup with AgentX Workmate",
+    headerTitle: 'Let’s get you set up with AgentX Workmate',
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',
     preparingInstall: 'AgentX is finishing install. This usually takes under a minute on first run.',
     starting: 'Starting AgentX…',

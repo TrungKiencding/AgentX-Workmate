@@ -291,7 +291,7 @@ function CronJobSidebarRow({
           </Tip>
           {/* Trailing cluster: countdown by default, quick actions on hover. */}
           <div className="flex items-center gap-0.5 justify-self-end pr-1">
-            <span className="text-[0.6875rem] text-(--ui-text-tertiary) tabular-nums group-hover/cron:hidden">
+            <span className="text-2xs text-(--ui-text-tertiary) tabular-nums group-hover/cron:hidden">
               {meta}
             </span>
             <div className="hidden items-center gap-0.5 group-hover/cron:flex">
@@ -379,17 +379,17 @@ function CronJobSidebarRuns({ jobId, onOpenRun }: { jobId: string; onOpenRun: (s
   return (
     <div className="mb-1 ml-[1.375rem] flex flex-col gap-px">
       {runs === null ? (
-        <div className="flex items-center gap-1.5 py-1 pl-1 text-[0.6875rem] text-(--ui-text-tertiary)">
+        <div className="flex items-center gap-1.5 py-1 pl-1 text-2xs text-(--ui-text-tertiary)">
           <GlyphSpinner ariaLabel={c.loading} className="text-[0.75rem]" />
         </div>
       ) : runs.length === 0 ? (
-        <div className="py-1 pl-1 text-[0.6875rem] text-(--ui-text-tertiary)">{c.noRuns}</div>
+        <div className="py-1 pl-1 text-2xs text-(--ui-text-tertiary)">{c.noRuns}</div>
       ) : (
         <>
           {runs.map(run => (
             <button
               className={cn(
-                'truncate rounded-md px-1.5 py-0.5 text-left text-[0.6875rem] tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                'truncate rounded-md px-1.5 py-0.5 text-left text-2xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
                 run.id === selectedSessionId
                   ? 'bg-(--ui-row-active-background) text-foreground'
                   : 'text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-foreground'

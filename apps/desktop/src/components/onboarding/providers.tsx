@@ -35,7 +35,7 @@ export function FeaturedProviderRow({
 
   return (
     <button
-      className="group relative flex w-full items-center justify-between gap-4 rounded-[8px] bg-primary/[0.06] px-3 py-2.5 text-left transition-colors hover:bg-primary/10"
+      className="group relative flex w-full items-center justify-between gap-4 rounded-(--radius-card) bg-primary/[0.06] px-3 py-2.5 text-left transition-colors hover:bg-primary/10"
       onClick={() => onSelect(provider)}
       type="button"
     >
@@ -49,7 +49,7 @@ export function FeaturedProviderRow({
           {loggedIn ? (
             <ConnectedTag />
           ) : (
-            <span className="inline-flex items-center gap-1.5 bg-primary px-2 py-0.5 text-[0.64rem] font-semibold uppercase tracking-[0.16em] text-primary-foreground">
+            <span className="inline-flex items-center gap-1.5 bg-primary px-2 py-0.5 text-2xs font-semibold uppercase tracking-label text-primary-foreground">
               <span aria-hidden="true" className="dither inline-block size-2 shrink-0" />
               {t.onboarding.recommended}
             </span>
@@ -74,7 +74,7 @@ function ConnectedTag() {
 }
 
 const PROVIDER_ROW_CLASS =
-  'group flex w-full items-center justify-between gap-3 rounded-[6px] px-3 py-2.5 text-left transition-colors hover:bg-(--ui-control-hover-background)'
+  'group flex w-full items-center justify-between gap-3 rounded-(--radius-control) px-3 py-2.5 text-left transition-colors hover:bg-(--ui-control-hover-background)'
 
 /** Quick-key row for API-key providers (Fireworks #2 after Nous, OpenRouter further down). */
 export function KeyProviderRow({ onClick, pitch, title }: { onClick: () => void; pitch: string; title: string }) {

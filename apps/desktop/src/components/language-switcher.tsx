@@ -164,7 +164,7 @@ function LanguageCommand({
               >
                 <Check className={cn('size-3.5 shrink-0 text-primary', !selected && 'invisible')} />
                 <span className="min-w-0 flex-1 truncate">{meta.name}</span>
-                <span className="font-mono text-[0.65rem] uppercase text-(--ui-text-tertiary)">{code}</span>
+                <span className="font-mono text-2xs uppercase text-(--ui-text-tertiary)">{code}</span>
               </CommandItem>
             )
           })

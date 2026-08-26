@@ -8,7 +8,7 @@ export const PANE_TAB_STRIP_LINE_LEFT = 'shadow-[inset_1px_0_0_var(--ui-stroke-t
 export const PANE_TAB_STRIP_LINE_RIGHT = 'shadow-[inset_-1px_0_0_var(--ui-stroke-tertiary)]'
 
 const TAB =
-  'group/tab relative flex shrink-0 items-center border-transparent bg-(--tab-bg) text-[0.6875rem] font-medium [-webkit-app-region:no-drag]'
+  'group/tab relative flex shrink-0 items-center border-transparent bg-(--tab-bg) text-sm font-medium [-webkit-app-region:no-drag]'
 
 // Full height: with the strip's rule removed there is no last-pixel row to
 // leave uncovered, so tabs fill the bar and no sliver of gutter shows through.
@@ -17,7 +17,8 @@ const TAB_HORIZONTAL = 'h-full min-w-0 max-w-48 not-first:border-l not-first:bor
 const TAB_VERTICAL =
   'w-full max-h-48 justify-center not-first:border-t not-first:border-t-(--ui-stroke-quaternary) [writing-mode:vertical-rl]'
 
-const TAB_ACTIVE = 'h-full text-foreground [--tab-bg:var(--pane-tab-active-bg,var(--ui-editor-surface-background))]'
+const TAB_ACTIVE =
+  'h-full font-semibold text-foreground [--tab-bg:var(--pane-tab-active-bg,var(--ui-editor-surface-background))]'
 
 // Horizontal only: the active tab is the sole seam on the strip — a
 // theme-primary underline drawn as an inset shadow in its own last pixel row,
@@ -157,8 +158,7 @@ interface PaneTabLabelProps extends React.ComponentProps<'button'> {
   as?: 'button' | 'span'
 }
 
-/** Truncating label inside a `PaneTab`. `className` merges into the text span
- *  (e.g. `normal-case tracking-normal` for filenames). */
+/** Truncating label inside a `PaneTab`. `className` merges into the text span. */
 export const PaneTabLabel = React.forwardRef<HTMLElement, PaneTabLabelProps>(function PaneTabLabel(
   { as = 'span', className, children, ...props },
   ref
@@ -171,9 +171,10 @@ export const PaneTabLabel = React.forwardRef<HTMLElement, PaneTabLabelProps>(fun
       ref={ref}
       {...props}
     >
-      <span className={cn('block min-w-0 truncate text-[9px] font-medium tracking-wide uppercase', className)}>
-        {children}
-      </span>
+      {/* Tab labels ride the chrome size (13px) like every other tab in the app.
+          They are proper names — a pane title, a filename — so they keep their
+          own casing instead of being shouted in tracked-out uppercase. */}
+      <span className={cn('block min-w-0 truncate', className)}>{children}</span>
     </Comp>
   )
 })

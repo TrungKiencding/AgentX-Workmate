@@ -94,6 +94,42 @@ export function OverlayMain({ children, className }: OverlayMainProps) {
   )
 }
 
+interface OverlayPageHeaderProps {
+  /** Right-aligned controls (search, segmented control, primary action). */
+  actions?: ReactNode
+  className?: string
+  description?: ReactNode
+  title: ReactNode
+}
+
+/**
+ * The one page-title block an overlay pane wears — Command Center and every
+ * `Panel` overlay (agents, cron, profiles, webhooks, via `PanelHeader`) render
+ * this, so a configuration page announces itself the same way everywhere.
+ *
+ * Type does the work, not a box: a 22px title over a 13px muted line, with the
+ * actions row pulled to the right of the same baseline. No rule under it — the
+ * gap below is the separation (flat, not boxed).
+ *
+ * Settings is the deliberate exception: its left rail already names the page,
+ * so a 22px title above every settings view would only repeat the rail. Its
+ * hierarchy comes from `SectionHeading` (15px) over `ListRow` (14px) instead.
+ */
+export function OverlayPageHeader({ actions, className, description, title }: OverlayPageHeaderProps) {
+  return (
+    <header className={cn('mb-4 flex shrink-0 items-start justify-between gap-4', className)}>
+      {/* `data-slot`: a pane that must hide the title at a breakpoint (Command
+          Center on narrow, where the nav dropdown already names the section)
+          targets this block by name instead of by DOM position. */}
+      <div className="min-w-0" data-slot="overlay-page-title">
+        <h2 className="truncate text-xl font-semibold text-foreground">{title}</h2>
+        {description ? <p className="mt-1 text-sm text-(--ui-text-tertiary)">{description}</p> : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+    </header>
+  )
+}
+
 export const OverlayNavItem = memo(function OverlayNavItem({
   active,
   icon: Icon,
@@ -105,7 +141,9 @@ export const OverlayNavItem = memo(function OverlayNavItem({
   return (
     <button
       className={cn(
-        'flex h-7 w-full items-center justify-start gap-2 rounded-md border px-2 text-left text-[length:var(--conversation-text-font-size)] font-normal transition-colors',
+        // A nav row is a control: it rides --control-h-md (32px) at the chrome
+        // text size, so the rail lines up with the buttons and fields beside it.
+        'flex h-(--control-h-md) w-full items-center justify-start gap-2 rounded-(--radius-control) border px-2 text-left text-sm font-normal transition-[background-color,border-color,color] duration-(--dur-micro)',
         nested
           ? active
             ? 'border-transparent bg-(--chrome-action-hover) font-medium text-foreground'

@@ -37,7 +37,7 @@ function ThemePreview({ name, mode }: { name: string; mode: 'light' | 'dark' }) 
 
   return (
     <div
-      className="h-20 overflow-hidden rounded-xl border shadow-xs"
+      className="h-20 overflow-hidden rounded-(--radius-control) border shadow-xs"
       style={{ backgroundColor: c.background, borderColor: c.border }}
     >
       <div className="flex h-full">
@@ -358,10 +358,8 @@ export function AppearanceSettings() {
                             >
                               <ThemePreview mode={resolvedMode} name={theme.name} />
                               <div className="mt-3 px-1">
-                                <div className="truncate text-[length:var(--conversation-text-font-size)] font-medium">
-                                  {theme.label}
-                                </div>
-                                <div className="mt-0.5 line-clamp-2 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
+                                <div className="truncate text-base font-semibold">{theme.label}</div>
+                                <div className="mt-0.5 line-clamp-2 text-sm text-(--ui-text-tertiary)">
                                   {theme.description}
                                 </div>
                               </div>

@@ -86,7 +86,7 @@ export function SessionSwitcher() {
               {i < 9 && (
                 <span
                   className={cn(
-                    'shrink-0 font-mono text-[0.625rem] tabular-nums',
+                    'shrink-0 font-mono text-2xs tabular-nums',
                     selected ? 'text-accent-foreground/70' : 'text-(--ui-text-quaternary)'
                   )}
                 >

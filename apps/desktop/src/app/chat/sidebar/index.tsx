@@ -1150,7 +1150,7 @@ export function ChatSidebar({
                       // resolved region has been observed to swallow clicks on the
                       // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
                       // thread.tsx.
-                      'flex h-7 w-full justify-start gap-2 rounded-md border border-transparent px-2 text-left text-[0.8125rem] font-medium text-(--ui-text-secondary) transition-colors duration-100 ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
+                      'flex h-(--sidebar-row-height) w-full justify-start gap-2 rounded-md border border-transparent px-2 text-left text-sm font-medium text-(--ui-text-secondary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
                       active &&
                         'border-(--ui-stroke-tertiary) bg-(--ui-control-active-background) text-foreground shadow-none hover:border-(--ui-stroke-tertiary)!',
                       !isInteractive &&
@@ -1415,7 +1415,7 @@ export function ChatSidebar({
                 labelMeta={
                   worktreeGroupingActive ? (
                     reposScanning && !projectsSkeletonVisible ? (
-                      <GlyphSpinner ariaLabel={s.loading} className="text-[0.6875rem] text-(--ui-text-quaternary)" />
+                      <GlyphSpinner ariaLabel={s.loading} className="text-2xs text-(--ui-text-quaternary)" />
                     ) : undefined
                   ) : undefined
                 }

@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n'
 import { isMissingPendingPromptRequest } from '@/lib/gateway-rpc'
 import { triggerHaptic } from '@/lib/haptics'
-import { KeyRound, Loader2, Lock } from '@/lib/icons'
+import { KeyRound, Lock } from '@/lib/icons'
 import { $gateway } from '@/store/gateway'
 import { notifyError } from '@/store/notifications'
 import { clearSecretRequest, clearSudoRequest, sessionSecretRequest, sessionSudoRequest } from '@/store/prompts'
@@ -125,11 +125,17 @@ function SudoDialog({ sessionId }: { sessionId: string | null }) {
             value={password}
           />
           <DialogFooter>
-            <Button disabled={submitting} onClick={() => void send('')} type="button" variant="ghost">
+            <Button
+              disabled={submitting}
+              onClick={() => void send('')}
+              size="lg"
+              type="button"
+              variant="ghost"
+            >
               {t.common.cancel}
             </Button>
-            <Button disabled={submitting} type="submit">
-              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : t.common.send}
+            <Button loading={submitting} size="lg" type="submit">
+              {t.common.send}
             </Button>
           </DialogFooter>
         </form>
@@ -226,11 +232,17 @@ function SecretDialog({ sessionId }: { sessionId: string | null }) {
             value={value}
           />
           <DialogFooter>
-            <Button disabled={submitting} onClick={() => void send('')} type="button" variant="ghost">
+            <Button
+              disabled={submitting}
+              onClick={() => void send('')}
+              size="lg"
+              type="button"
+              variant="ghost"
+            >
               {t.common.cancel}
             </Button>
-            <Button disabled={submitting || !value} type="submit">
-              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : t.common.send}
+            <Button disabled={!value} loading={submitting} size="lg" type="submit">
+              {t.common.send}
             </Button>
           </DialogFooter>
         </form>

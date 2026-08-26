@@ -87,12 +87,12 @@ export function ContextUsagePanel({
       <div className="flex items-baseline justify-between gap-2">
         <p className="font-medium text-foreground">{copy.title}</p>
 
-        <span className="text-[0.6875rem] text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           {copy.tokenSummary(`~${compactNumber(contextUsed)}`, compactNumber(contextMax))}
         </span>
       </div>
 
-      <p className="text-[0.6875rem] text-foreground">{copy.percentFull(contextPercent)}</p>
+      <p className="text-2xs text-foreground">{copy.percentFull(contextPercent)}</p>
 
       <ContextUsageBar categories={categories} segmentTotal={segmentTotal} />
 
@@ -110,9 +110,9 @@ export function ContextUsagePanel({
         ))}
       </ul>
 
-      {loading && <p className="text-[0.6875rem] text-muted-foreground">{copy.loading}</p>}
+      {loading && <p className="text-2xs text-muted-foreground">{copy.loading}</p>}
 
-      {!loading && !categories.length && <p className="text-[0.6875rem] text-muted-foreground">{copy.empty}</p>}
+      {!loading && !categories.length && <p className="text-2xs text-muted-foreground">{copy.empty}</p>}
     </div>
   )
 }

@@ -10,6 +10,8 @@ import {
   selectTerminal,
   type TerminalEntry
 } from '@/app/right-sidebar/terminal/terminals'
+import type { ClientSessionState } from '@/app/types'
+import { createClientSessionState } from '@/lib/chat-runtime'
 import { $keycloakAccount } from '@/store/account'
 import { $repoStatusByCwd } from '@/store/coding-status'
 import { $gateway } from '@/store/gateway'
@@ -19,11 +21,13 @@ import {
   $currentCwd,
   $freshDraftReady,
   $messages,
+  $selectedStoredSessionId,
   $sessions,
   setBusy,
   setCurrentCwdTransient,
   setMessages
 } from '@/store/session'
+import { clearAllSessionStates, publishSessionState } from '@/store/session-states'
 import type { SessionInfo } from '@/types/hermes'
 
 type Sample = {
@@ -74,6 +78,14 @@ declare global {
        */
       introSetup: (opts?: { displayName?: string; projects?: number; sessions?: number }) => void
       introReset: () => void
+      /**
+       * Put the synthetic sidebar rows seeded by `introSetup` into their real
+       * states — selected, running, waiting on the user — by writing the atoms
+       * the rows actually read. Lets the navigation chrome be inspected with no
+       * live backend. `sidebarReset()` clears the published states.
+       */
+      sidebarSetup: (opts?: { attentionIndex?: number; selectedIndex?: number; workingIndex?: number }) => void
+      sidebarReset: () => void
       reset: () => void
       snapshotMsgs: () => number
     }
@@ -246,6 +258,30 @@ if (typeof window !== 'undefined' && !window.__PERF_DRIVE__) {
       $keycloakAccount.set(introBaseline.account)
       $projectTree.set(introBaseline.projects)
       $sessions.set(introBaseline.sessions)
+    },
+    sidebarReset: () => {
+      clearAllSessionStates()
+      $selectedStoredSessionId.set(null)
+    },
+    sidebarSetup: ({ attentionIndex, selectedIndex, workingIndex } = {}) => {
+      if (selectedIndex !== undefined) {
+        $selectedStoredSessionId.set(`perf-session-${selectedIndex}`)
+      }
+
+      const mark = (index: number | undefined, patch: Partial<ClientSessionState>) => {
+        if (index === undefined) {
+          return
+        }
+
+        const storedSessionId = `perf-session-${index}`
+        publishSessionState(`perf-runtime-${index}`, {
+          ...createClientSessionState(storedSessionId),
+          ...patch
+        })
+      }
+
+      mark(workingIndex, { busy: true })
+      mark(attentionIndex, { needsInput: true })
     },
     introSetup: ({ displayName = '', projects = 0, sessions = 0 } = {}) => {
       $desktopOnboarding.set({ ...$desktopOnboarding.get(), configured: true, manual: false })

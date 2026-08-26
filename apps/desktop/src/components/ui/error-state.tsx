@@ -18,7 +18,7 @@ export function ErrorBanner({ children, className }: { children: ReactNode; clas
   return (
     <div
       className={cn(
-        'flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-destructive',
+        'flex items-start gap-2 rounded-(--radius-card) border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive',
         className
       )}
     >
@@ -49,14 +49,14 @@ export function ErrorState({ children, className, description, icon, title }: Er
       <div className="flex flex-col items-center gap-3 text-center">
         {icon ?? <ErrorIcon />}
 
-        {typeof title === 'string' ? (
-          <h2 className="text-center text-xl font-semibold tracking-tight">{title}</h2>
-        ) : (
-          title
-        )}
+        {/* The same three beats as EmptyState, at the failure surface's scale:
+            an ErrorState owns a whole surface (the boundary, the boot failure),
+            so it names itself at the page-title rung (22px, tracking from the
+            ramp), says why at 13px, and `children` carries what to do next. */}
+        {typeof title === 'string' ? <h2 className="text-center text-xl font-semibold">{title}</h2> : title}
 
         {typeof description === 'string' ? (
-          <p className="max-w-prose text-center text-sm leading-5 text-muted-foreground">{description}</p>
+          <p className="max-w-prose text-center text-sm text-(--ui-text-tertiary)">{description}</p>
         ) : (
           description
         )}

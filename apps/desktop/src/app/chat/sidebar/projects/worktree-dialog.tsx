@@ -180,7 +180,7 @@ export function WorktreeDialog({ repoPath, onStarted, open, onOpenChange, initia
                   >
                     <Codicon className="shrink-0 text-(--ui-text-tertiary)" name="git-branch" size="0.8rem" />
                     <span className="truncate">{branch.name}</span>
-                    <span className="ml-auto shrink-0 text-[0.625rem] text-(--ui-text-tertiary)">
+                    <span className="ml-auto shrink-0 text-2xs text-(--ui-text-tertiary)">
                       {branchActionLabel(branch, p)}
                     </span>
                   </CommandItem>

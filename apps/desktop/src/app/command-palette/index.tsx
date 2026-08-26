@@ -14,7 +14,14 @@ import {
   HUD_TEXT
 } from '@/app/floating-hud'
 import { codiconIcon } from '@/components/ui/codicon'
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSelectionIndicator
+} from '@/components/ui/command'
 import { HighlightMatches } from '@/components/ui/highlight-matches'
 import { KbdCombo } from '@/components/ui/kbd'
 import { getHermesConfigRecord, listAllProfileSessions } from '@/hermes'
@@ -335,7 +342,9 @@ const PaletteRow = memo(function PaletteRow({
 
   return (
     <CommandItem
-      className={cn(HUD_ITEM, HUD_TEXT)}
+      // The selected background is drawn once by CommandSelectionIndicator and
+      // slid between rows, so the row itself paints no selected fill.
+      className={cn(HUD_ITEM, HUD_TEXT, 'data-[selected=true]:bg-transparent')}
       keywords={item.keywords}
       onMouseDown={onSelectMods}
       onSelect={() => onSelectItem(item)}
@@ -1275,7 +1284,10 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
         className={cn(
           HUD_POSITION,
           HUD_SURFACE,
-          'z-(--z-over-modal-content) w-[min(34rem,calc(100vw-2rem))] overflow-hidden duration-150 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-2 data-[state=open]:zoom-in-95'
+          // Opens in the frame it is asked for — no entry animation at all. The
+          // CLOSE animation stays: `onAnimationEnd` below is what retires the
+          // subtree, so removing it would strand the palette mounted.
+          'z-(--z-over-modal-content) w-[min(34rem,calc(100vw-2rem))] overflow-hidden duration-150 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
         )}
         // The close animation finishing is what retires this whole subtree —
         // the CSS owns the duration, not a hardcoded timer. Guarded on the
@@ -1291,7 +1303,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
         <Command className="bg-transparent" loop shouldFilter={false}>
           {activePage && (
             <button
-              className="flex w-full items-center gap-1.5 border-b border-border px-3 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className="flex w-full items-center gap-1.5 border-b border-border px-3 py-1.5 text-left text-2xs text-muted-foreground transition-colors hover:text-foreground"
               onClick={goBack}
               type="button"
             >
@@ -1328,6 +1340,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             value={search}
           />
           <CommandList className="dt-portal-scrollbar max-h-[min(20rem,56vh)]">
+            <CommandSelectionIndicator />
             {/* Server-driven pages render their own list; the rest show groups. */}
             {page === 'pets' ? (
               <PetPalettePage

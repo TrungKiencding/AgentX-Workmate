@@ -392,9 +392,11 @@ function Header() {
   const { t } = useI18n()
 
   return (
-    <div className="bg-(--ui-chat-bubble-background) px-5 pt-5 pb-1">
-      <h2 className="text-[0.9375rem] font-semibold tracking-tight">{t.onboarding.headerTitle}</h2>
-      <p className="mt-1 max-w-xl text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">{t.onboarding.headerDesc}</p>
+    <div className="bg-(--ui-chat-bubble-background) px-5 pb-2 pt-6">
+      {/* Serif outlier slot 2 of 2 (the home greeting is slot 1). Roman, never
+          italic — the one moment of voice on the way in. */}
+      <h2 className="font-serif-display text-2xl text-(--ui-text-primary)">{t.onboarding.headerTitle}</h2>
+      <p className="mt-1.5 max-w-xl text-base text-(--ui-text-tertiary)">{t.onboarding.headerDesc}</p>
     </div>
   )
 }

@@ -119,6 +119,7 @@ for call-site shadow or border inventions.
 | `--stroke-nous` | the overlay hairline (pairs with `shadow-nous`) |
 | `--ui-text-primary / -secondary / -tertiary` | text hierarchy |
 | `--ui-bg-quaternary` | soft control fill (secondary button) |
+| `--ui-row-active-bar` · `-width` | the selected row's 2px leading accent bar |
 | `--ui-widget-surface-background` | fill for inline chat widgets (`WIDGET_SHELL_CLASS`) |
 | `--chrome-action-hover` | hover fill for quiet controls |
 | `--theme-primary`, `--ui-accent` | brand/accent |
@@ -175,12 +176,21 @@ sizes — no ad-hoc `text-[…]`):
 Line-height rides the ramp (chrome 1.4 · content 1.5 · prose 1.6 · display
 1.15–1.3); tracking tightens from 18px (`-0.01em`) and again from 28px
 (`-0.02em`). Floor: nothing under 11px; reading content at 14px+. Columnar
-numbers use `tabular-nums`.
+numbers use `tabular-nums` — every counter in the statusbar, every stat tile,
+every timestamp in a list.
+
+`--tracking-label` (0.06em, utility `tracking-label`) is the app's **only**
+widened tracking, and it belongs to exactly one species: the 11px uppercase
+section label (sidebar sections, date dividers, palette group headings, panel
+section labels, stat-tile captions). Nothing else tracks out.
 
 ## Control & radius tokens
 
 - `--control-h-sm/md/lg/xl` (28/32/36/40px) — one height ramp for every
   control; an input and a button on the same row are the same height.
+- `--sidebar-row-height` (32px) · `--statusbar-height` (26px) — the navigation
+  band's own two heights. A sidebar row matches `--control-h-md`, so a row and
+  a button on the same rail line up; the statusbar keeps its shorter band.
 - `--radius-control` (6px) · `--radius-card` (10px) · `--radius-overlay`
   (12px) — the corner voice. Fixed values; they do not ride `--radius-scalar`.
   The composer keeps its own 16px shell.
@@ -272,6 +282,39 @@ Notes:
   wrapper. The visual track stays compact; an invisible pad extends the hit
   target to ≥ 24px.
 
+## Navigation chrome
+
+The sidebar, statusbar, and pane tabs are the frame around the work. They must
+read as structure at a glance — what is a group, what is selected, what is
+running — while staying quieter than the content they frame.
+
+- **Section labels** (`SidebarPanelLabel`, `SidebarDateDivider`,
+  `PanelSectionLabel`, cmdk group headings) are one look: `text-2xs`,
+  `font-medium`, `uppercase`, `tracking-label`, `--ui-text-tertiary`. Visible
+  enough to group the rows under them, never a headline. Not brand-tinted —
+  accent is for state, not for labelling.
+- **Sidebar rows** own their height only on `SidebarRowShell`
+  (`--sidebar-row-height`). Session title `text-sm font-medium`; meta and
+  timestamps `text-2xs tabular-nums` in tertiary. Hover-revealed row actions use
+  `size="icon-xs"` (24px) — the hit-target floor.
+- **Selected is fill *plus* bar.** A selected sidebar row paints
+  `--ui-row-active-background` **and** a 2px `--ui-row-active-bar` on its
+  leading edge, drawn as a `::before` inside the row's own padding so it costs
+  no layout and never nudges the label. Tint alone does not survive these
+  near-neighbour surfaces.
+- **Statusbar:** `--statusbar-height`, `text-2xs` (the ramp floor) with
+  `tabular-nums` on every item — the bar is counters that tick in place. Warning
+  and failure states use `--ui-yellow` / `destructive`, never a raw palette ramp,
+  and always pair the colour with a glyph.
+- **Pane tabs** (`PaneTab` / `PaneTabLabel`) ride the chrome size (`text-sm`)
+  like every other tab. Labels are proper names — a pane title, a filename — so
+  they keep their own casing; no tracked-out uppercase. Active = the 2px
+  `--pane-tab-active-accent` seam **and** `font-semibold`.
+- The profile rail is the one deliberately dense strip: identity squares, the
+  create/import glyphs, and the scope pills all sit at 24px so the rail reads as
+  one row. Its drag pitch is measured from the node, so the size is free to
+  change; `RAIL_GAP` is not.
+
 ## Layout
 
 - **Gutters:** `PAGE_INSET_X` (`src/app/layout-constants.ts`) for page side
@@ -280,8 +323,30 @@ Notes:
 - **Master/detail overlays:** `OverlaySplitLayout` + `OverlaySidebar` /
   `OverlayMain`. Cron, profiles, etc. ride this — don't rebuild a titlebar
   shell.
+- **Page titles:** `OverlayPageHeader` (`overlays/overlay-split-layout.tsx`) is
+  the one page-title block — `text-xl` (22px) semibold over a `text-sm` muted
+  line, actions right. Command Center and every `Panel` (`PanelHeader` composes
+  it) announce themselves through it. No rule under it; the gap is the
+  separation. A pane that must hide the title at a breakpoint targets
+  `[data-slot=overlay-page-title]`, not a DOM position. **Settings is the
+  deliberate exception** — its left rail already names the page, so it takes
+  its hierarchy from `SectionHeading` over `ListRow` instead of repeating the
+  rail at 22px.
+- **Overlay nav rows** (`OverlayNavItem`, settings `NavLink`) are controls:
+  `--control-h-md` at `text-sm`, `--radius-control`.
 - **Rows:** `ListRow` (settings `primitives.tsx`) for label/description/action
-  rows. Flat, flush-left; no per-row indentation that fights flush headers.
+  rows — `min-h-11` (44px), title `text-base`, description `text-sm` tertiary,
+  mono hint `text-xs`. Flat, flush-left; no per-row indentation that fights
+  flush headers.
+- **Section rhythm:** `SectionHeading` is `text-md` semibold with an 18px icon,
+  and its spacing is deliberately uneven — 24px above, 12px below — so a heading
+  belongs to the rows under it instead of floating between two equal gaps.
+- **In-page cards** carry `--radius-card`, 16–20px padding, a `text-base`
+  semibold title, and **one** border level (`--ui-stroke-tertiary`). No
+  card-in-card. Figures use `tabular-nums`.
+- **Dialogs** name themselves at `text-lg` (18px) — a dialog is a task, not a
+  page — over a `text-sm` tertiary description, and their primary action rides
+  `size="lg"`/`"xl"` with its Cancel matched.
 - **No dividers between rows** unless the list genuinely needs them; prefer
   spacing. When you do need one, it's a single `--ui-stroke-tertiary` hairline.
 
@@ -297,8 +362,32 @@ Notes:
 - **Logs:** `LogView` — no bg, hairline border, tight padding, small mono.
   Every place we surface raw logs uses it.
 - **Empty:** `EmptyState` for plain page bodies; `PanelEmpty` for overlay
-  master/detail empties with an icon and action. Don't hand-roll a third
-  centered empty.
+  master/detail empties with a leading icon. Don't hand-roll a third centered
+  empty.
+- **Three beats.** `EmptyState`, `PanelEmpty`, and `ErrorState` all say the same
+  three things in the same order: the **name** of what is missing or broken
+  (`text-base` medium — `text-xl` for `ErrorState`, which owns a whole surface),
+  the **reason** (`text-sm` tertiary), and **one action** that resolves it
+  (`EmptyState`/`PanelEmpty` take an `action` node; `ErrorState` takes
+  `children`). Buttons are concrete verbs — never "OK", never "Oops". Skip the
+  action only when the surface already shows it inches away.
+
+## Command surfaces
+
+The palette and the session switcher share `floating-hud.ts` — `HUD_SURFACE`,
+`HUD_POSITION`, `HUD_TEXT` (`text-sm`, the chrome size: a palette is read at
+speed and gets no discount), `HUD_ITEM` (a 36px **floor**, not a fixed height,
+so two-line rows still grow), `HUD_HEADING`.
+
+- **It opens in the frame it is asked for.** The palette has no entry animation
+  at all. Its *close* animation stays — `onAnimationEnd` is what retires the
+  subtree.
+- **One highlight, and it slides.** `CommandSelectionIndicator`
+  (`components/ui/command.tsx`) is a single element that moves to the selected
+  row; rows that use it opt out of `data-[selected=true]:bg-accent`. It runs on
+  a MutationObserver, never React state, so arrowing through a hundred rows
+  re-renders nothing — the selection is instant, only the paint follows. The
+  global reduced-motion rule collapses the slide to a jump.
 
 ## Chat, tools & boot surfaces
 

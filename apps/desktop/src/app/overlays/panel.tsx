@@ -9,6 +9,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { translateNow } from '@/i18n'
 import { cn } from '@/lib/utils'
 
+import { OverlayPageHeader } from './overlay-split-layout'
 import { OVERLAY_TOP_CLEARANCE, OverlayView } from './overlay-view'
 
 // Overlay "panel" primitive — the centered, capped card + framed chrome lifted
@@ -67,17 +68,17 @@ interface PanelHeaderProps {
 
 export function PanelHeader({ actions, subtitle, title }: PanelHeaderProps) {
   return (
-    // The overlay's close (X) is absolutely positioned at right-3 and costs no
-    // layout space, so header actions would otherwise slide right up against it.
-    // Reserve clearance (button footprint from the card edge + a small gap) on
-    // the right whenever actions are present.
-    <header className={cn('mb-3 flex shrink-0 items-start justify-between gap-3', actions ? 'pr-8' : undefined)}>
-      <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {subtitle ? <p className="truncate text-xs text-muted-foreground/80">{subtitle}</p> : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
-    </header>
+    // The shared overlay page-title block, so a Panel announces itself exactly
+    // like Settings and Command Center. The overlay's close (X) is absolutely
+    // positioned at right-3 and costs no layout space, so header actions would
+    // otherwise slide right up against it — reserve clearance (button footprint
+    // from the card edge + a small gap) on the right whenever actions are present.
+    <OverlayPageHeader
+      actions={actions}
+      className={actions ? 'pr-8' : undefined}
+      description={subtitle}
+      title={title}
+    />
   )
 }
 
@@ -183,7 +184,7 @@ export function PanelListRow({
   const row = (
     <div
       className={cn(
-        'group/row row-hover relative flex h-7 w-full items-center rounded-md text-[0.78rem] hover:text-foreground',
+        'group/row row-hover relative flex h-(--control-h-md) w-full items-center rounded-md text-sm hover:text-foreground',
         active ? 'bg-(--ui-row-active-background) text-foreground' : 'text-(--ui-text-secondary)'
       )}
       data-panel-row={rowKey}
@@ -200,7 +201,7 @@ export function PanelListRow({
           ) : null)}
         <span className="min-w-0 flex-1 truncate font-medium text-foreground/85">{title}</span>
       </RowButton>
-      {meta ? <span className="shrink-0 pr-2 text-[0.62rem] tabular-nums text-muted-foreground/45">{meta}</span> : null}
+      {meta ? <span className="shrink-0 pr-2 text-2xs tabular-nums text-muted-foreground/55">{meta}</span> : null}
       {menuItems ? (
         <div className="shrink-0 pr-1">
           <PanelRowMenu items={menuItems} label={menuLabel} />
@@ -264,8 +265,8 @@ export function PanelRowMenu({ items, label = 'Actions' }: { items: PanelMenuIte
     <ActionsMenu ariaLabel={label} contentClassName="w-40" items={renderPanelMenuItems(items)}>
       <Button
         aria-label={label}
-        className="size-5 rounded-[4px] bg-transparent text-(--ui-text-tertiary) opacity-0 transition-colors duration-100 hover:bg-(--ui-control-active-background) hover:text-foreground focus-visible:opacity-100 focus-visible:ring-0 group-hover/row:opacity-100 data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground data-[state=open]:opacity-100 [&_svg]:size-3.5!"
-        size="icon"
+        className="bg-transparent text-(--ui-text-tertiary) opacity-0 hover:bg-(--ui-control-active-background) hover:text-foreground focus-visible:opacity-100 group-hover/row:opacity-100 data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground data-[state=open]:opacity-100"
+        size="icon-xs"
         variant="ghost"
       >
         <Codicon name="kebab-vertical" size="0.875rem" />
@@ -292,15 +293,16 @@ interface PanelEmptyProps {
   title?: ReactNode
 }
 
+// Three beats, always in this order: the name of what's missing (14px medium),
+// why it's missing (13px muted), and one action that fixes it. Shared with
+// EmptyState (components/ui/empty-state) — same rhythm, different container.
 export function PanelEmpty({ action, description, icon = 'inbox', title }: PanelEmptyProps) {
   return (
     <div className="grid flex-1 place-items-center px-6 py-10 text-center">
       <div className="flex flex-col items-center gap-2">
-        <Codicon className="text-muted-foreground/50" name={icon} size="1.25rem" />
-        {title ? <p className="text-sm font-medium text-foreground/90">{title}</p> : null}
-        {description ? (
-          <p className="max-w-sm text-xs leading-relaxed text-muted-foreground/70">{description}</p>
-        ) : null}
+        <Codicon className="text-(--ui-text-quaternary)" name={icon} size="1.25rem" />
+        {title ? <p className="text-base font-medium text-foreground">{title}</p> : null}
+        {description ? <p className="max-w-sm text-sm text-(--ui-text-tertiary)">{description}</p> : null}
         {action ? <div className="mt-2">{action}</div> : null}
       </div>
     </div>
@@ -309,7 +311,7 @@ export function PanelEmpty({ action, description, icon = 'inbox', title }: Panel
 
 export function PanelSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('text-[0.6rem] font-medium uppercase tracking-wider text-muted-foreground/50', className)}>
+    <div className={cn('text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)', className)}>
       {children}
     </div>
   )
@@ -323,7 +325,7 @@ export interface PanelMetaRow {
 
 export function PanelMeta({ className, rows }: { className?: string; rows: PanelMetaRow[] }) {
   return (
-    <dl className={cn('grid grid-cols-[5rem_1fr] gap-x-2 gap-y-1 text-[0.7rem]', className)}>
+    <dl className={cn('grid grid-cols-[5rem_1fr] gap-x-2 gap-y-1 text-xs', className)}>
       {rows.map((row, i) => (
         <div className="contents" key={typeof row.label === 'string' ? row.label : i}>
           <dt className="truncate text-muted-foreground/55">{row.label}</dt>
@@ -340,7 +342,7 @@ export function PanelBlock({ children, className }: { children: ReactNode; class
   return (
     <pre
       className={cn(
-        'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-foreground/5 p-2.5 text-[0.68rem] leading-relaxed text-foreground/80',
+        'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-(--radius-control) bg-foreground/5 p-2.5 font-mono text-xs leading-relaxed text-foreground/80',
         className
       )}
     >
@@ -355,14 +357,16 @@ const PILL_TONE: Record<PanelPillTone, string> = {
   bad: 'bg-destructive/10 text-destructive',
   good: 'bg-primary/10 text-primary',
   muted: 'bg-foreground/10 text-muted-foreground',
-  warn: 'bg-amber-500/10 text-amber-600 dark:text-amber-300'
+  // The semantic warning token, not a raw palette ramp — it is already pitched
+  // per mode, so no dark: override is needed.
+  warn: 'bg-(--ui-yellow)/12 text-(--ui-yellow)'
 }
 
 export function PanelPill({ children, tone = 'muted' }: { children: ReactNode; tone?: PanelPillTone }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.62rem] font-medium capitalize',
+        'inline-flex items-center rounded-full px-1.5 py-0.5 text-2xs font-medium capitalize',
         PILL_TONE[tone]
       )}
     >
@@ -386,7 +390,7 @@ export function PanelAddButton({
     <Tip label={label}>
       <Button
         aria-label={label}
-        className="h-7 w-full shrink-0 justify-center text-muted-foreground/70 hover:bg-(--ui-row-hover-background) hover:text-foreground"
+        className="w-full shrink-0 justify-center text-muted-foreground/70 hover:bg-(--ui-row-hover-background) hover:text-foreground"
         onClick={onClick}
         size="sm"
         variant="ghost"

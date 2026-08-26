@@ -219,14 +219,16 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        'text-[0.9375rem] font-semibold tracking-tight text-foreground',
+        // A dialog names itself at the ramp's section-title rung (18px), one
+        // step under a full page title — a dialog is a task, not a page.
+        'text-lg font-semibold text-foreground',
         Icon && 'flex items-center gap-2',
         className
       )}
       data-slot="dialog-title"
       {...props}
     >
-      {Icon ? <Icon className="size-4 shrink-0 text-primary" /> : null}
+      {Icon ? <Icon className="size-4.5 shrink-0 text-primary" /> : null}
       {children}
     </DialogPrimitive.Title>
   )
@@ -236,7 +238,7 @@ function DialogDescription({ className, ...props }: React.ComponentProps<typeof 
   return (
     <DialogPrimitive.Description
       className={cn(
-        'text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)',
+        'text-sm text-(--ui-text-tertiary)',
         className
       )}
       data-slot="dialog-description"

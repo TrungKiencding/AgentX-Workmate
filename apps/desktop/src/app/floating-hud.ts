@@ -19,18 +19,21 @@ export const HUD_POSITION =
 export const HUD_SURFACE =
   'rounded-xl border border-(--stroke-nous) bg-(--ui-chat-bubble-background) shadow-nous [-webkit-app-region:no-drag]'
 
-// One row/text size for both HUDs (compact — two notches under `text-sm`).
-export const HUD_TEXT = 'text-xs'
+// One row/text size for both HUDs — the app's chrome size (13px). A palette is
+// something you read at speed under a moving selection; it gets no discount.
+export const HUD_TEXT = 'text-sm'
 
-// Shared item layout + padding for both HUDs. Tight vertical rhythm so rows
-// don't feel chunky; overrides the shadcn `CommandItem` default (`px-2 py-1.5`).
-export const HUD_ITEM = 'gap-2 px-2 py-1'
+// Shared item layout for both HUDs: a 36px row, the Linear/Raycast pitch — big
+// enough to aim at, tight enough that a dozen fit on screen. A FLOOR, not a
+// fixed height, so the two-line rows on the pet/theme sub-pages still grow.
+// Overrides the shadcn `CommandItem` default (`px-2 py-1.5`).
+export const HUD_ITEM = 'min-h-9 gap-2 px-2.5 py-1'
 
-// Section headings styled like the sidebar panel labels: brand-tinted, uppercase,
-// tightly tracked — plain text, no sticky chrome bar. Targets the cmdk group
-// heading via the universal-descendant variant.
+// Section headings styled like the sidebar panel labels: quiet, uppercase, and
+// opened up by the shared label tracking — plain text, no sticky chrome bar.
+// Targets the cmdk group heading via the universal-descendant variant.
 export const HUD_HEADING =
-  '**:[[cmdk-group-heading]]:static **:[[cmdk-group-heading]]:bg-transparent **:[[cmdk-group-heading]]:px-2.5 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:pt-2.5 **:[[cmdk-group-heading]]:text-[0.64rem] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-[0.16em] **:[[cmdk-group-heading]]:text-(--theme-primary)'
+  '**:[[cmdk-group-heading]]:static **:[[cmdk-group-heading]]:bg-transparent **:[[cmdk-group-heading]]:px-2.5 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:pt-2.5 **:[[cmdk-group-heading]]:text-2xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-label **:[[cmdk-group-heading]]:text-(--ui-text-tertiary)'
 
 // A short note trailing a row's label — a version, a count, a live state. Sits
 // closer than the row's icon-to-label `gap-2` because it reads as a suffix of

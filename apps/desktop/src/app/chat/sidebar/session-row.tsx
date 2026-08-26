@@ -103,9 +103,9 @@ function SidebarSessionRowImpl({
     >
       <SidebarRowShell
         actions={
-          <div className="relative z-2 grid w-[1.375rem] place-items-center" data-row-actions>
+          <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
             {!isWorking && (
-              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 text-right text-[0.625rem] leading-none text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 text-right text-2xs leading-none tabular-nums text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
                 {age}
               </span>
             )}
@@ -121,8 +121,8 @@ function SidebarSessionRowImpl({
             >
               <Button
                 aria-label={r.sessionActions}
-                className="size-5 rounded-[4px] bg-transparent text-transparent transition-colors duration-100 hover:bg-(--ui-control-active-background) hover:text-foreground focus-visible:bg-(--ui-control-active-background) focus-visible:text-foreground focus-visible:ring-0 data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground group-hover:text-(--ui-text-tertiary) [&_svg]:size-3.5!"
-                size="icon"
+                className="bg-transparent text-transparent hover:bg-(--ui-control-active-background) hover:text-foreground focus-visible:bg-(--ui-control-active-background) focus-visible:text-foreground data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground group-hover:text-(--ui-text-tertiary)"
+                size="icon-xs"
                 variant="ghost"
               >
                 <Codicon name="kebab-vertical" size="0.875rem" />
@@ -132,7 +132,11 @@ function SidebarSessionRowImpl({
         }
         className={cn(
           'group row-hover relative',
-          isSelected && 'bg-(--ui-row-active-background)',
+          // Selected reads at a glance: the tinted row fill PLUS a 2px accent
+          // bar on the leading edge (drawn in the row's own padding, so it
+          // costs no layout and never nudges the label).
+          isSelected &&
+            'bg-(--ui-row-active-background) before:absolute before:inset-y-1 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]',
           isWorking && 'text-foreground',
           // Opaque surface while lifted so the dragged row erases what's under
           // it (translucency let the rows below bleed through).
@@ -238,7 +242,7 @@ function SidebarSessionRowImpl({
               />
             </Tip>
           ) : null}
-          <SidebarRowLabel className="flex-1 font-normal group-hover:text-foreground group-data-[working=true]:text-foreground/90">
+          <SidebarRowLabel className="flex-1 font-medium group-hover:text-foreground group-data-[working=true]:text-foreground/90">
             {title}
           </SidebarRowLabel>
           {showProfile && <ProfileTag profile={session.profile} />}

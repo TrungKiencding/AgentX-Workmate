@@ -187,6 +187,11 @@
   --text-3xl--line-height: 1.15;
   --text-3xl--letter-spacing: -0.02em;
 
+  /* Section labels — the only widened tracking in the app. Small caps-ish
+     chrome labels (sidebar sections, palette groups) open up just enough to
+     read as a label rather than as content. */
+  --tracking-label: 0.06em;
+
   /* Motion easing — the only curves allowed on UI state (physical springs keep
      their own named tokens). Enter = ease-out, exit = ease-in, morph = in-out. */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -412,6 +417,12 @@
       var(--ui-accent) var(--theme-row-active-accent-mix),
       color-mix(in srgb, var(--ui-base) 5%, transparent)
     );
+    /* The selected row's left marker. A tinted background alone barely
+       registers on these near-neighbour surfaces, so the active row also
+       carries a 2px accent bar on its leading edge — the state reads at a
+       glance, and it costs no layout (drawn inside the row's own padding). */
+    --ui-row-active-bar: var(--ui-accent);
+    --ui-row-active-bar-width: 2px;
     --ui-control-hover-background: color-mix(
       in srgb,
       var(--ui-accent) var(--theme-control-hover-accent-mix),
@@ -578,6 +589,12 @@
     --control-h-md: 2rem; /* 32px — the default control height */
     --control-h-lg: 2.25rem; /* 36px — prominent form controls */
     --control-h-xl: 2.5rem; /* 40px — hero CTAs (onboarding, primary dialog action) */
+
+    /* Chrome row heights — the navigation band's own ramp. The sidebar row is a
+       real 32px target (it matches --control-h-md, so a row and a button on the
+       same rail line up); the statusbar keeps its own shorter band. */
+    --sidebar-row-height: 2rem; /* 32px — sidebar session / project rows */
+    --statusbar-height: 1.625rem; /* 26px — the bottom status band */
 
     /* Corner-radius voice — controls 6px · cards/widgets 10px · overlays 12px
        (the composer keeps its own 16px shell). Fixed on purpose: these rungs do

@@ -426,14 +426,16 @@ function EditSoulDialog({ onClose, profileName }: { onClose: () => void; profile
 function AddProfileButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <Tip label={label}>
-      <button
+      <Button
         aria-label={label}
-        className="grid size-5 shrink-0 place-items-center rounded-[3px] text-(--ui-text-tertiary) opacity-55 transition hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100"
+        className="bg-transparent text-(--ui-text-tertiary) opacity-55 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100"
         onClick={onClick}
+        size="icon-xs"
         type="button"
+        variant="ghost"
       >
-        <Codicon name="add" size="0.75rem" />
-      </button>
+        <Codicon name="add" size="0.875rem" />
+      </Button>
     </Tip>
   )
 }
@@ -444,14 +446,16 @@ function AddProfileButton({ label, onClick }: { label: string; onClick: () => vo
 function ImportProfileButton({ label }: { label: string }) {
   return (
     <Tip label={label}>
-      <button
+      <Button
         aria-label={label}
-        className="grid size-5 shrink-0 place-items-center rounded-[3px] text-(--ui-text-tertiary) opacity-55 transition hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100"
+        className="bg-transparent text-(--ui-text-tertiary) opacity-55 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100"
         onClick={() => void runImportProfileFlow()}
+        size="icon-xs"
         type="button"
+        variant="ghost"
       >
-        <Codicon name="cloud-download" size="0.75rem" />
-      </button>
+        <Codicon name="cloud-download" size="0.875rem" />
+      </Button>
     </Tip>
   )
 }
@@ -504,7 +508,7 @@ function ProfileDropdownItem({ color, name }: { color: null | string; name: stri
       <span className="flex min-w-0 items-center gap-1.5">
         <span
           aria-hidden="true"
-          className="grid size-4 shrink-0 place-items-center rounded-[3px] text-[0.5rem] font-semibold uppercase leading-none"
+          className="grid size-5 shrink-0 place-items-center rounded-(--radius-control) text-2xs font-semibold uppercase leading-none"
           style={{ backgroundColor: profileColorSoft(hue, 22), color: color ?? undefined }}
         >
           {name.replace(/[^a-z0-9]/gi, '').charAt(0) || '?'}
@@ -627,7 +631,7 @@ function ProfileSquare({
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      'grid size-5 shrink-0 cursor-grab touch-none select-none place-items-center rounded-[3px] text-[0.5625rem] font-semibold uppercase leading-none transition-opacity hover:opacity-100',
+                      'grid size-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded-(--radius-control) text-2xs font-semibold uppercase leading-none transition-opacity hover:opacity-100',
                       active ? 'opacity-100' : 'opacity-55',
                       isDragging && 'z-10 cursor-grabbing opacity-100'
                     )}

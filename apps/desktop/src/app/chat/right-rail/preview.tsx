@@ -113,13 +113,12 @@ export function ChatPreviewRail({ onRestartServer, setTitlebarToolGroup }: ChatP
                       <PaneTabLabel
                         aria-selected={active}
                         as="button"
-                        className="normal-case tracking-normal"
                         onClick={() => selectRightRailTab(tab.id)}
                         role="tab"
                         type="button"
                       >
                         {tab.target.kind === 'artifact' && (
-                          <Codicon className="mr-1 shrink-0 text-[0.6875rem] opacity-70" name="sparkle" />
+                          <Codicon className="mr-1 shrink-0 text-2xs opacity-70" name="sparkle" />
                         )}
                         {tab.label}
                       </PaneTabLabel>
