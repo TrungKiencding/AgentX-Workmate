@@ -2393,6 +2393,18 @@ export interface Translations {
   }
 
   assistant: {
+    /** The empty chat home surface — greeting + quick-start chips. */
+    intro: {
+      greetingMorning: (name?: string) => string
+      greetingAfternoon: (name?: string) => string
+      greetingEvening: (name?: string) => string
+      quickStart: string
+      resume: (title: string) => string
+      starterExplainLabel: string
+      starterExplainPrompt: string
+      starterPlanLabel: string
+      starterPlanPrompt: string
+    }
     thread: {
       loadingSession: string
       showEarlier: string

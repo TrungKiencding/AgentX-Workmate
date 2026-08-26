@@ -69,6 +69,30 @@ replace the foreground transcript or steal focus.
 
 ## Surfaces & elevation
 
+Two neutral bands, one construction: a lightness ladder on hue 262, every rung
+carrying a trace of chroma (a 0-chroma grey beside a tinted paper reads as a
+dead patch). Declared as hex in `themes/presets.ts` (`PAPER` / `GRAPHITE` — the
+theme pipeline in `themes/color.ts` parses `#rrggbb` only) and mirrored as the
+`--theme-neutral-*` OKLCH fallbacks in `styles.css`. Change one, change both.
+
+| Rung | Light — **Paper** | Dark — **Graphite** |
+| --- | --- | --- |
+| sidebar | `#f5f7fa` · L 97.5% | `#080b10` · L 15% |
+| page / chrome | `#f9fafd` · L 98.5% | `#0d0f15` · L 17% |
+| card / editor | `#fcfdfe` · L 99.4% | `#13161c` · L 20% |
+| elevated (popover, menu, dialog) | `#fefeff` · L 99.7% | `#1a1d23` · L 23% |
+
+**In dark, elevation is lightness** — +3% per rung, never a glow, never a
+heavier shadow. In light the rungs are ~1% apart and elevation is carried by
+`shadow-nous` + the hairline instead. `--theme-neutral-*` is the color each
+surface mixes toward, pinned to that surface's own rung, so the default skin
+paints its band exactly and a tinted skin is pulled toward the band rather than
+toward near-black. `--theme-mix-elevated` is **100%** in both modes: the
+elevated rung is the one surface that must stay a visible step above the card.
+
+Graphite is the default dark band. The royal-blue dark that preceded it lives on
+whole as the **Nous Classic** preset — no one loses the palette they picked.
+
 Floating panels (base `Dialog`, route overlays, boot/install/update surfaces,
 model-picker, onboarding, prompt overlays, notifications) use:
 
@@ -98,6 +122,17 @@ for call-site shadow or border inventions.
 | `--ui-widget-surface-background` | fill for inline chat widgets (`WIDGET_SHELL_CLASS`) |
 | `--chrome-action-hover` | hover fill for quiet controls |
 | `--theme-primary`, `--ui-accent` | brand/accent |
+| `--ui-green / --ui-yellow / --ui-red` | success · warning · danger |
+| `--ui-*-foreground` (green/yellow/red) | text/glyph placed **on** that fill |
+| `--ui-focus-ring`, `--ui-focus-ring-width/-offset` | the one focus indicator |
+| `--ui-scrollbar-thumb*` | scrollbar thumb, per state |
+| `--ui-selection-seed` | the selection amber, one seed at two strengths |
+
+The semantic trio is one construction: fixed hue + chroma, lightness pitched per
+mode. Light clears 4.5:1 on paper (`oklch(52% 0.14 155)` · `oklch(55% 0.12 80)`
+· `oklch(56.59% 0.1967 12.3)`), `.dark` lifts all three onto graphite
+(`64%` · `75%` · `68%`). That means a semantic color can carry *text*, not only
+a dot — but a status still needs a glyph as well as a hue.
 
 Never hardcode `border-gray-*`, `bg-white`, `text-black`, etc. The white tile in
 `BrandMark` is the one sanctioned literal (the mark needs a fixed backdrop).
@@ -159,7 +194,8 @@ do **not** pass `h-*`, `px-*`, `py-*`, or icon-size overrides.
 the default non-primary look), `outline` (transparent + 1px inset ring, no
 fill/shadow), `ghost`, `link`, `text` (boxless quiet inline — "Cancel",
 "Clear"), `textStrong` (bold underlined inline affordance — "Change",
-"Open logs").
+"Open logs"), `chip` (hairline pill for an *optional* way in — the home
+surface's quick-start row; pair it with `size="chip"`).
 
 **Sizes** ride the `--control-h-*` ramp at 13px text (`text-sm`):
 
@@ -172,6 +208,7 @@ fill/shadow), `ghost`, `link`, `text` (boxless quiet inline — "Cancel",
 | `xs` | padding-driven, 12px text | genuinely dense chrome (statusbar) |
 | `inline` | flush, zero box | buttons inside a heading/sentence |
 | `micro` | flush, 12px text | status-stack headers, table footers |
+| `chip` | 36px pill, 13px text, 16px icon | the `chip` variant's size |
 | `icon` / `icon-sm` / `icon-lg` | 32/28/36px square | icon-only actions |
 | `icon-xs` | 24px square | inline icon actions only |
 | `icon-titlebar` | OS chrome | window controls — untouched by the ramp |
@@ -265,6 +302,25 @@ Notes:
 
 ## Chat, tools & boot surfaces
 
+- **The home surface is the empty transcript** (`components/chat/intro.tsx`):
+  a serif greeting (`font-serif-display`, `text-2xl`, roman — outlier slot 1 of
+  2), one muted 14px line from `intro-copy.jsonl`, then a **quick-start row** of
+  at most four `chip` buttons. The composer stays the only CTA; the block leads
+  the eye down to it.
+  - Every chip is grounded in something the app already knows — the session you
+    were last in, a project you already added — plus two fixed starters whose
+    label *and* prompt live in the locale files. **Nothing here invents a
+    suggestion**: no recent session, no resume chip. The selection rule is the
+    pure `introChipSources()` in `intro-chips.ts`, so it is testable without a
+    renderer; `Intro` only renders. Clicking a chip runs one *existing* action
+    (`openSession`, `requestStartWorkSession`, `requestComposerInsert`) — the
+    home surface owns no navigation of its own.
+  - The greeting names the user only when the account store actually has a
+    display name. No name, no comma, no invented placeholder.
+  - **One entrance, once per app launch** — not once per empty state. The
+    greeting rises at `--dur-long`; the body and each chip follow on a 40ms
+    step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
+    collapses it to a 150ms crossfade with no stagger and no transform.
 - The transcript and composer are built on `@assistant-ui/react`. Extend the
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or
@@ -277,6 +333,12 @@ Notes:
 - Bordered surfaces in the transcript (tables, fences, callouts, attachments)
   use `--ui-stroke-tertiary`. Not `border-border` — that's the app-wide
   default and reads too hot against the thread.
+- **The composer is the focus of the chat screen** and carries the transcript's
+  one elevation: at rest a `--ui-stroke-secondary` hairline plus
+  `--shadow-composer`; on `:focus-within` the accent border
+  (`--composer-ring-strength`, 1 light / 1.3 dark) and one step up the *same*
+  shadow ladder to `--shadow-sm`. No new shadow, no colored glow — the border
+  does the talking, and neither property is transitioned.
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
 - Install, onboarding, connecting, boot failure, and reauthentication are
@@ -386,7 +448,16 @@ The detailed state contract lives in the scoped
 
 - `cursor-pointer` at the primitive level (Button, dropdown/select) — don't
   hardcode it per call site.
-- Global focus-ring reset; titlebar actions have no active-background state.
+- **One focus ring, app-wide.** `styles.css` kills the native outline and
+  Tailwind's `ring-*` shadow, then gives *keyboard* focus a single tokenized
+  outline: `--ui-focus-ring-width` (2px) accent at `--ui-focus-ring-offset`
+  (2px). The offset is load-bearing — it paints the surface behind the control
+  between fill and ring, so the ring stays legible on a primary button that is
+  the same accent. Never transitioned; it must be there in the frame focus
+  lands. Text-entry controls (`.desktop-input-chrome`, `contenteditable`) and
+  menu/option rows opt out: they already carry focus in their own border or
+  selected-row background. `data-focus-ring="none"` opts a one-off out.
+- Titlebar actions have no active-background state.
 - `Esc` closes every dismissable overlay/dialog (install/onboarding excluded);
   close is an x-icon, not the word "Close".
 

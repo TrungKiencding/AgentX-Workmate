@@ -416,11 +416,9 @@ export const en: Translations = {
       deviceLastSeenDays: n => `Last seen ${n} day${n === 1 ? '' : 's'} ago`,
       syncTitle: 'Conversation history',
       syncUpToDate: 'Your history is in step with your other devices.',
-      syncPending: n =>
-        `${n} change${n === 1 ? '' : 's'} waiting to reach your other devices.`,
+      syncPending: n => `${n} change${n === 1 ? '' : 's'} waiting to reach your other devices.`,
       syncPendingPill: n => `${n} waiting`,
-      syncOffline:
-        'Could not reach the AgentX account service. Your work is saved here and will catch up on its own.',
+      syncOffline: 'Could not reach the AgentX account service. Your work is saved here and will catch up on its own.',
       syncError: 'The account service refused the last sync. It will try again shortly.',
       syncReauth: 'This device can no longer sync. Sign in again to resume.',
       syncSignedOut: 'Sign in to sync your history across your devices.',
@@ -2348,7 +2346,8 @@ export const en: Translations = {
     installLocalDesc: 'Download AgentX, create its Python environment, and run the backend on this computer.',
     localStartUnavailable: 'Local installation could not start. Restart AgentX Workmate Desktop and try again.',
     remoteSetupTitle: 'Connect to existing AgentX',
-    remoteSetupDesc: 'Enter your gateway URL. AgentX Workmate Desktop will detect whether it needs a token or browser sign-in.',
+    remoteSetupDesc:
+      'Enter your gateway URL. AgentX Workmate Desktop will detect whether it needs a token or browser sign-in.',
     remoteUrlTitle: 'Gateway URL',
     remoteUrlDesc: 'Use the base URL of the AgentX gateway, including https:// when remote.',
     remoteUrlPlaceholder: 'https://gateway.example.com/agentx',
@@ -2808,6 +2807,18 @@ export const en: Translations = {
   },
 
   assistant: {
+    intro: {
+      greetingMorning: name => (name ? `Good morning, ${name}` : 'Good morning'),
+      greetingAfternoon: name => (name ? `Good afternoon, ${name}` : 'Good afternoon'),
+      greetingEvening: name => (name ? `Good evening, ${name}` : 'Good evening'),
+      quickStart: 'Quick start',
+      resume: title => `Resume “${title}”`,
+      starterExplainLabel: 'Explain this repo',
+      starterExplainPrompt: 'Explain what this repository does and how the code is organized.',
+      starterPlanLabel: 'Plan a change',
+      starterPlanPrompt:
+        'I want to make a change. Ask me what you need to know, then propose a plan before writing code.'
+    },
     thread: {
       loadingSession: 'Loading session',
       showEarlier: 'Show earlier messages',

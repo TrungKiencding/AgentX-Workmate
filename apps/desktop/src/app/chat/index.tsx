@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 
+import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
@@ -303,6 +304,7 @@ export const ChatView = memo(function ChatView({
   onDismissError
 }: ChatViewProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { t } = useI18n()
   // The view this surface renders: the primary route-driven session (global
   // atoms) or a tile's session slice — same component either way.
@@ -396,8 +398,17 @@ export const ChatView = memo(function ChatView({
   // waiting for the resume effect (which paints a frame later) to clear them.
   const routeSessionMismatch = isRoutedSessionView && routedSessionId !== selectedSessionId
 
-  // The compact new-session pop-out skips the wordmark/tagline intro — it's a
-  // scratch window, not the full-height empty state.
+  // Resuming from the home surface's quick-start row. Navigation belongs to
+  // the route, not to the presentational intro — the chip is handed the action.
+  const resumeFromIntro = useCallback(
+    (sessionId: string) => {
+      openSession(sessionId, navigate)
+    },
+    [navigate]
+  )
+
+  // The compact new-session pop-out skips the greeting/quick-start intro — it's
+  // a scratch window, not the full-height empty state.
   const showIntro =
     isPrimary &&
     !isSecondaryWindow() &&
@@ -549,7 +560,11 @@ export const ChatView = memo(function ChatView({
             clampToComposer={showChatBar}
             cwd={currentCwd}
             gateway={gateway}
-            intro={showIntro ? { personality: introPersonality, seed: introSeed } : undefined}
+            intro={
+              showIntro
+                ? { onResumeSession: resumeFromIntro, personality: introPersonality, seed: introSeed }
+                : undefined
+            }
             loading={threadLoading}
             onBranchInNewChat={onBranchInNewChat}
             onCancel={haltRun}

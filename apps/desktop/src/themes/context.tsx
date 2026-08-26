@@ -159,8 +159,11 @@ function renderedModeFor(colors: DesktopThemeColors, mode: 'light' | 'dark'): 'l
 // Per-mode mix knobs. Light/dark fallbacks live in styles.css `:root` /
 // `:root.dark`; setting them inline keeps active-skin overrides surviving
 // the boot-time paint.
-// styles.css --theme-neutral-chrome — keep in sync.
-const NEUTRAL_CHROME = { light: '#f3f3f3', dark: '#0d0d0e' } as const
+// styles.css --theme-neutral-chrome — keep in sync. Both rungs are the page
+// colour of their band (PAPER.page / GRAPHITE.page in presets.ts), so the
+// default skin's chrome mix is a no-op and a tinted skin is pulled toward the
+// band rather than toward a 0-chroma near-black.
+const NEUTRAL_CHROME = { light: '#f9fafd', dark: '#0d0f15' } as const
 
 const chromeBackground = (background: string, isDark: boolean) =>
   mix(background, NEUTRAL_CHROME[isDark ? 'dark' : 'light'], isDark ? 0.26 : 0.08)
@@ -169,7 +172,10 @@ const mixesFor = (isDark: boolean): Record<string, string> => ({
   '--theme-mix-chrome': isDark ? '74%' : '92%',
   '--theme-mix-sidebar': '100%',
   '--theme-mix-card': isDark ? '38%' : '22%',
-  '--theme-mix-elevated': isDark ? '46%' : '28%',
+  // 100% in both modes: the elevated rung (popover / menu / dialog) is the one
+  // surface that must stay a visible step above the card, so it paints the
+  // skin's own elevated colour instead of being pulled back into the card.
+  '--theme-mix-elevated': '100%',
   '--theme-mix-bubble': isDark ? '46%' : '0%'
 })
 

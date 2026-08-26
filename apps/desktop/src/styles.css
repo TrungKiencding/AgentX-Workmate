@@ -245,27 +245,37 @@
   :root {
     color-scheme: light;
 
-    /* Light seeds, stated in OKLCH (exact conversions of the shipped hex —
-       #17171a, #0053fd Nous blue, #cf806d, #f8faff, #f3f7ff, #f3f3f3, #fcfcfc)
-       so future palette tuning happens on perceptual axes, not hex guessing. */
-    --theme-foreground: oklch(20.59% 0.0059 285.9);
+    /* Light seeds, stated in OKLCH (exact conversions of the shipped hex in
+       themes/presets.ts — #16171a, #0053fd Nous blue, #cf806d, #f9fafd paper,
+       #f5f7fa sidebar, #fcfdfe card, #fefeff elevated) so palette tuning
+       happens on perceptual axes, not hex guessing. The paper band is one
+       ladder on hue 262: sidebar 97.5% → paper 98.5% → card 99.4% → elevated
+       99.7%. Every neutral keeps a trace of chroma — a 0-chroma grey beside a
+       tinted paper reads as a dead patch. */
+    --theme-foreground: oklch(20.48% 0.0061 271.1);
     --theme-primary: oklch(52.79% 0.2594 262.7);
     --theme-secondary: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 7%, #ffffff);
     --theme-accent-soft: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 10%, #ffffff);
     --theme-midground: oklch(52.79% 0.2594 262.7);
     --theme-warm: oklch(67.88% 0.1026 34.3);
-    --theme-background-seed: oklch(98.5% 0.007 268.5);
-    --theme-sidebar-seed: oklch(97.54% 0.0115 264.5);
-    --theme-card-seed: #ffffff;
-    --theme-elevated-seed: #ffffff;
+    --theme-background-seed: oklch(98.52% 0.0041 271.4);
+    --theme-sidebar-seed: oklch(97.55% 0.0045 258.3);
+    --theme-card-seed: oklch(99.36% 0.0017 247.8);
+    --theme-elevated-seed: oklch(99.73% 0.0013 286.4);
     --theme-bubble-seed: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 6%, #ffffff);
-    --theme-neutral-chrome: oklch(96.42% 0 0);
-    --theme-neutral-sidebar: oklch(96.42% 0 0);
-    --theme-neutral-card: oklch(99.11% 0 0);
+    /* The neutral each surface mixes toward. Pinned to that surface's own rung
+       of the ladder, so the default skin paints its declared band exactly and a
+       tinted skin is pulled toward the same band instead of toward grey. */
+    --theme-neutral-chrome: oklch(98.52% 0.0041 271.4);
+    --theme-neutral-sidebar: oklch(97.55% 0.0045 258.3);
+    --theme-neutral-card: oklch(99.36% 0.0017 247.8);
     --theme-mix-chrome: 92%;
     --theme-mix-sidebar: 100%;
     --theme-mix-card: 22%;
-    --theme-mix-elevated: 28%;
+    /* 100%: the elevated rung is the one surface that must stay a visible step
+       above the card, so a popover / menu / dialog paints the skin's own
+       elevated colour instead of being pulled back down into the card. */
+    --theme-mix-elevated: 100%;
     --theme-mix-bubble: 0%;
     --theme-fill-primary-accent-mix: 16%;
     --theme-fill-secondary-accent-mix: 11%;
@@ -285,10 +295,20 @@
     --ui-accent: var(--theme-midground);
     --ui-accent-secondary: var(--theme-primary);
     --ui-warm: var(--theme-warm);
-    --ui-red: #cf2d56;
+    /* Semantic trio, stated in OKLCH so all three share one construction:
+       fixed hue + chroma, lightness pitched per mode for contrast (`.dark`
+       lifts each one). The light values clear 4.5:1 on paper, so a semantic
+       colour can carry text and not only a dot. */
+    --ui-red: oklch(56.59% 0.1967 12.3); /* danger — was #cf2d56; 4.83:1 on paper */
     --ui-orange: #db704b;
-    --ui-yellow: #c08532;
-    --ui-green: #1f8a65;
+    --ui-yellow: oklch(55% 0.12 80); /* warning — 4.70:1 on paper */
+    --ui-green: oklch(52% 0.14 155); /* success — 4.89:1 on paper */
+    /* Text/glyph colour to place ON a semantic fill (filled badge, status
+       chip). Light fills are dark, so the pair is near-white; `.dark` flips it
+       to the paper colour. Every pair clears 4.8:1. */
+    --ui-red-foreground: oklch(99.36% 0.0017 247.8);
+    --ui-yellow-foreground: oklch(99.36% 0.0017 247.8);
+    --ui-green-foreground: oklch(99.36% 0.0017 247.8);
     --ui-cyan: #4c7f8c;
     --ui-blue: #0053fd;
     --ui-purple: #9e94d5;
@@ -356,7 +376,7 @@
       var(--theme-neutral-card)
     );
     --ui-bg-card: color-mix(in srgb, var(--ui-accent) 4%, color-mix(in srgb, var(--ui-base) 4%, transparent));
-    --ui-bg-input: #fcfcfc;
+    --ui-bg-input: var(--ui-bg-editor);
     --ui-bg-primary: color-mix(
       in srgb,
       var(--ui-accent) var(--theme-fill-primary-accent-mix),
@@ -439,6 +459,13 @@
     );
     --ui-sash-hover-border: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-stroke-tertiary));
     --ui-sash-hover-background: color-mix(in srgb, var(--ui-accent) 6%, transparent);
+    /* Scrollbar thumb — one knob per state instead of the same color-mix copied
+       across the webkit / portal / Firefox rules. `.dark` raises the alphas:
+       the 18% accent that reads on paper vanishes into a graphite ground. */
+    --ui-scrollbar-thumb: color-mix(in srgb, var(--dt-midground) 18%, transparent);
+    --ui-scrollbar-thumb-hover: color-mix(in srgb, var(--dt-midground) 40%, transparent);
+    --ui-scrollbar-thumb-overlay: color-mix(in srgb, var(--dt-midground) 28%, transparent);
+    --ui-scrollbar-thumb-overlay-hover: color-mix(in srgb, var(--dt-midground) 50%, transparent);
     --ui-surface-background: var(--ui-bg-editor);
     --ui-sidebar-surface-background: var(--ui-bg-sidebar);
     --ui-chat-surface-background: var(--ui-bg-chrome);
@@ -461,7 +488,11 @@
     --ui-chat-bubble-opaque-background: var(--ui-bg-editor);
     --ui-inline-code-background: color-mix(in srgb, #141414 5%, transparent);
     --ui-inline-code-foreground: color-mix(in srgb, #141414 88%, transparent);
-    --ui-selection-background: color-mix(in srgb, #ffd24a 55%, transparent);
+    /* Selection amber — one seed, two strengths. Hue 90 sits in the same warm
+       family as the warning token, so a selection over a warning row doesn't
+       fight it. Stated in OKLCH (exact conversion of #ffd24a). */
+    --ui-selection-seed: oklch(87.97% 0.1554 90);
+    --ui-selection-background: color-mix(in srgb, var(--ui-selection-seed) 55%, transparent);
 
     --dt-background: var(--ui-bg-chrome);
     --dt-foreground: var(--ui-text-primary);
@@ -524,6 +555,15 @@
     --dt-line-height: 1.5;
     --dt-letter-spacing: 0;
     --dt-spacing-mul: 1;
+
+    /* Focus indicator — one look for every keyboard-focusable control. The 2px
+       offset paints the surface BEHIND the control between it and the ring, so
+       an accent ring stays legible on an accent-filled button (the ring is read
+       against the page, not against the fill). `--dt-ring` is repainted per
+       skin by applyTheme(). Never transitioned — see the focus-ring rule. */
+    --ui-focus-ring: var(--dt-ring);
+    --ui-focus-ring-width: 2px;
+    --ui-focus-ring-offset: 2px;
 
     --radius: 0.75rem;
     /* Effective value everywhere: the chat backdrop used to force 0.2 onto the
@@ -642,19 +682,42 @@
   }
 
   :root.dark {
-    /* Per-mode mix knobs — overridden inline by `applyTheme()` per skin. */
+    /* Per-mode mix knobs — overridden inline by `applyTheme()` per skin.
+       Keep in sync with `mixesFor()` in themes/context.tsx. */
     --theme-mix-chrome: 74%;
     --theme-mix-card: 38%;
-    --theme-mix-elevated: 46%;
+    --theme-mix-elevated: 100%;
     --theme-mix-bubble: 46%;
-    --theme-neutral-chrome: #0d0d0e;
-    --theme-neutral-sidebar: #0a0a0b;
-    --theme-neutral-card: #161618;
+    /* Graphite — the dark neutral voice. One ladder on hue 262 at 0.012 chroma,
+       +3% OKLCH lightness per rung: sidebar 15% → page 17% → card 20% →
+       elevated 23%. Elevation is LIGHTNESS, never a glow. These are the neutral
+       each surface mixes toward, so the default dark skin paints the band
+       exactly and a tinted skin is pulled toward it instead of toward a
+       0-chroma near-black. */
+    --theme-neutral-chrome: oklch(16.91% 0.013 270.5); /* #0d0f15 */
+    --theme-neutral-sidebar: oklch(14.86% 0.012 259.7); /* #080b10 */
+    --theme-neutral-card: oklch(19.98% 0.0129 264.2); /* #13161c */
 
-    /* Dark-only accent palette overrides. */
-    --ui-red: #e75e78;
-    --ui-green: #55a583;
+    /* Dark-only accent palette overrides — the semantic trio lifted onto the
+       graphite ground (same hue + chroma as light, higher lightness). */
+    --ui-red: oklch(68% 0.17 12.3); /* danger — 6.12:1 on the graphite page */
+    --ui-yellow: oklch(75% 0.12 80); /* warning — 8.53:1 */
+    --ui-green: oklch(64% 0.14 155); /* success — 6.04:1 */
+    /* Dark fills are light, so text on them is the page colour, not white. */
+    --ui-red-foreground: oklch(16.91% 0.013 270.5);
+    --ui-yellow-foreground: oklch(16.91% 0.013 270.5);
+    --ui-green-foreground: oklch(16.91% 0.013 270.5);
     --ui-cyan: #6f9ba6;
+    /* A 4px thumb at 18% accent disappears on graphite — match the visibility
+       the light thumb has on paper rather than its alpha. */
+    --ui-scrollbar-thumb: color-mix(in srgb, var(--dt-midground) 32%, transparent);
+    --ui-scrollbar-thumb-hover: color-mix(in srgb, var(--dt-midground) 58%, transparent);
+    --ui-scrollbar-thumb-overlay: color-mix(in srgb, var(--dt-midground) 42%, transparent);
+    --ui-scrollbar-thumb-overlay-hover: color-mix(in srgb, var(--dt-midground) 68%, transparent);
+    /* The sash is a drag affordance: on hover it has to be findable, and the
+       hairline + 6% wash that works over paper is invisible over graphite. */
+    --ui-sash-hover-border: color-mix(in srgb, var(--ui-accent) 60%, var(--ui-stroke-tertiary));
+    --ui-sash-hover-background: color-mix(in srgb, var(--ui-accent) 12%, transparent);
     --ui-diff-add-foreground: color-mix(in srgb, var(--ui-green) 62%, #fff);
     --ui-diff-remove-foreground: color-mix(in srgb, var(--ui-red) 62%, #fff);
 
@@ -669,7 +732,7 @@
 
     --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);
     --ui-inline-code-foreground: color-mix(in srgb, #ffffff 88%, transparent);
-    --ui-selection-background: color-mix(in srgb, #ffd24a 38%, transparent);
+    --ui-selection-background: color-mix(in srgb, var(--ui-selection-seed) 38%, transparent);
     /* A dark card sits ABOVE the chrome (#161618 over #0d0d0e), so an inline
        widget wearing the raw card fill reads as a lit panel. Take it down a
        touch — still clearly a surface, no longer the brightest thing in the
@@ -1145,6 +1208,36 @@
   --tw-ring-offset-shadow: 0 0 #0000 !important;
 }
 
+/* …except for KEYBOARD focus, which gets exactly one ring, app-wide: 2px accent
+   at a 2px offset. The offset gap is load-bearing — it paints the surface
+   behind the control between fill and ring, so the ring reads against the page
+   even on a primary button that is the same accent (the two-layer pattern,
+   without needing a second colour). Zero-specificity `:where()`, so a surface
+   with its own focus chrome can still win with a plain class.
+
+   Excluded on purpose: text-entry controls (`.desktop-input-chrome` and
+   `contenteditable` already own an outline matched to their border geometry),
+   and menu / option rows, where focus is carried by the selected-row
+   background — an outline on top of that is two indicators for one state.
+   Never transitioned: a focus ring has to be there in the frame focus lands. */
+:where(
+    a[href],
+    button,
+    summary,
+    select,
+    [role='button'],
+    [role='link'],
+    [role='tab'],
+    [role='switch'],
+    [role='checkbox'],
+    [role='radio'],
+    [role='slider'],
+    [tabindex]:not([tabindex='-1'])
+  ):where(:not([contenteditable], .desktop-input-chrome, [data-focus-ring='none'])):focus-visible {
+  outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-ring-offset);
+}
+
 button {
   -webkit-app-region: no-drag;
 }
@@ -1300,14 +1393,14 @@ code {
 
   .scrollbar-dt::-webkit-scrollbar-thumb,
   .scrollbar-dt *:not(.scrollbar-overlay)::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--dt-midground) 18%, transparent);
+    background: var(--ui-scrollbar-thumb);
     border-radius: 9999rem;
     background-clip: padding-box;
   }
 
   .scrollbar-dt::-webkit-scrollbar-thumb:hover,
   .scrollbar-dt *:not(.scrollbar-overlay)::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--dt-midground) 40%, transparent);
+    background: var(--ui-scrollbar-thumb-hover);
     background-clip: padding-box;
   }
 
@@ -1331,13 +1424,13 @@ code {
   }
 
   .dt-portal-scrollbar::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--dt-midground) 28%, transparent);
+    background: var(--ui-scrollbar-thumb-overlay);
     border-radius: 9999rem;
     background-clip: padding-box;
   }
 
   .dt-portal-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--dt-midground) 50%, transparent);
+    background: var(--ui-scrollbar-thumb-overlay-hover);
     background-clip: padding-box;
   }
 
@@ -1349,19 +1442,19 @@ code {
     .scrollbar-dt,
     .scrollbar-dt *:not(.scrollbar-overlay) {
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in srgb, var(--dt-midground) 18%, transparent) transparent;
+      scrollbar-color: var(--ui-scrollbar-thumb) transparent;
     }
 
     .dt-portal-scrollbar {
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in srgb, var(--dt-midground) 28%, transparent) transparent;
+      scrollbar-color: var(--ui-scrollbar-thumb-overlay) transparent;
     }
 
     /* Firefox has no real overlay mode; thin + transparent track is the closest
        match to the Chromium overlay opt-out above. */
     .scrollbar-overlay {
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in srgb, var(--dt-midground) 28%, transparent) transparent;
+      scrollbar-color: var(--ui-scrollbar-thumb-overlay) transparent;
     }
   }
 }
@@ -1505,12 +1598,72 @@ code {
   max-width: min(var(--composer-width), 82vw);
 }
 
-[data-slot='aui_intro'] p:last-child {
+/* The one "human" moment in the product: a serif line that greets, a muted line
+   that says what this surface is for, and a row of ways in. The composer stays
+   the only CTA — this block leads the eye down to it. Roman, never italic, and
+   never all-caps (see design.md § Typography, serif slot 1 of 2). */
+.intro-greeting {
+  margin: 0;
+  font-weight: 400;
+}
+
+.intro-body {
   max-width: 34rem;
-  margin-inline: auto;
+  margin: 0.5rem auto 0;
   color: var(--ui-text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   line-height: 1.45;
+}
+
+.intro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* ONE entrance, once per app launch (the component owns the `data-entrance`
+   latch). Greeting rises over --dur-long; the body and each chip follow on a
+   40ms step at --dur-short, so the last chip has settled by 400ms. Motion
+   follows state — nothing here delays the surface being usable. */
+@keyframes intro-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-enter-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+[data-slot='aui_intro'][data-entrance] .intro-enter {
+  animation: intro-enter var(--dur-short) var(--ease-out) both;
+  animation-delay: calc(var(--intro-step, 0) * 40ms);
+}
+
+[data-slot='aui_intro'][data-entrance] .intro-greeting {
+  animation-duration: var(--dur-long);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='aui_intro'][data-entrance] .intro-enter,
+  [data-slot='aui_intro'][data-entrance] .intro-greeting {
+    animation: intro-enter-fade 150ms linear both;
+    animation-delay: 0ms;
+  }
 }
 
 .fit-text {
@@ -1625,8 +1778,25 @@ code {
   ) !important;
 }
 
+/* The composer is the focus of the chat screen, so it carries the one elevation
+   in the transcript: at rest a hairline + the contact shadow it already has a
+   token for, focused the accent border + one step up the SAME shadow ladder
+   (--shadow-composer → --shadow-sm). No new shadow, and no coloured glow — the
+   border does the talking. `--composer-ring-strength` (1 light / 1.3 dark) is
+   the single knob. Neither property is transitioned: focus paints in the frame
+   it lands. */
 [data-slot='composer-surface'] {
   border-color: var(--ui-stroke-secondary) !important;
+  box-shadow: var(--shadow-composer);
+}
+
+[data-slot='composer-surface']:focus-within {
+  border-color: color-mix(
+    in srgb,
+    var(--dt-composer-ring) calc(70% * var(--composer-ring-strength)),
+    transparent
+  ) !important;
+  box-shadow: var(--shadow-sm);
 }
 
 [data-slot='composer-fade'] {

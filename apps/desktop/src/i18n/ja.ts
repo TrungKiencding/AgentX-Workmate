@@ -311,8 +311,7 @@ export const ja = defineLocale({
       syncReauth: 'このデバイスは同期できなくなりました。再度サインインしてください。',
       syncSignedOut: 'サインインすると履歴が各デバイスで同期されます。',
       syncDisabled: '履歴の同期はオフです',
-      syncDisabledDesc:
-        'この端末は会話履歴を同期しない設定です。他の機能は通常どおり動作します。',
+      syncDisabledDesc: 'この端末は会話履歴を同期しない設定です。他の機能は通常どおり動作します。',
       syncNow: '今すぐ同期',
       syncRunning: '同期中…',
       syncNowDone: '最新の状態です。',
@@ -2627,6 +2626,17 @@ export const ja = defineLocale({
   },
 
   assistant: {
+    intro: {
+      greetingMorning: name => (name ? `おはようございます、${name}さん` : 'おはようございます'),
+      greetingAfternoon: name => (name ? `こんにちは、${name}さん` : 'こんにちは'),
+      greetingEvening: name => (name ? `こんばんは、${name}さん` : 'こんばんは'),
+      quickStart: 'すぐはじめる',
+      resume: title => `「${title}」を再開`,
+      starterExplainLabel: 'このリポジトリを説明',
+      starterExplainPrompt: 'このリポジトリが何をするものか、コードがどう構成されているかを説明してください。',
+      starterPlanLabel: '変更を計画',
+      starterPlanPrompt: '変更を加えたいです。必要なことを質問してから、コードを書く前に計画を提案してください。'
+    },
     thread: {
       loadingSession: 'セッションを読み込み中',
       showEarlier: '以前のメッセージを表示',

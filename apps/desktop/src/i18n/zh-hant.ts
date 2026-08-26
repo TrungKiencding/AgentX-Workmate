@@ -280,8 +280,7 @@ export const zhHant = defineLocale({
       deviceRotateKeyDesc:
         '你的裝置共用一把模型金鑰，因此只撤銷並不會收回那台裝置的模型存取權。其他裝置會自行取得新金鑰。',
       deviceRevokedWithKey: '已撤銷裝置，並簽發了新的模型金鑰。',
-      deviceRevokedWithoutKey:
-        '已撤銷裝置。它仍持有原本的模型金鑰——若要收回存取權，請再次撤銷並簽發新金鑰。',
+      deviceRevokedWithoutKey: '已撤銷裝置。它仍持有原本的模型金鑰——若要收回存取權，請再次撤銷並簽發新金鑰。',
       deviceRevokeFailed: '無法撤銷該裝置。',
       deviceRevokeLastError:
         '這是帳號上僅存的一台裝置。此時簽發新金鑰，就沒有機器能取得它了。請先在另一台機器登入，或不簽發新金鑰直接撤銷。',
@@ -2543,6 +2542,17 @@ export const zhHant = defineLocale({
   },
 
   assistant: {
+    intro: {
+      greetingMorning: name => (name ? `早安，${name}` : '早安'),
+      greetingAfternoon: name => (name ? `午安，${name}` : '午安'),
+      greetingEvening: name => (name ? `晚安，${name}` : '晚安'),
+      quickStart: '快速開始',
+      resume: title => `繼續「${title}」`,
+      starterExplainLabel: '介紹這個專案',
+      starterExplainPrompt: '請說明這個專案是做什麼的，程式碼又是如何組織的。',
+      starterPlanLabel: '規劃一項變更',
+      starterPlanPrompt: '我想改一個地方。先問清楚你需要知道的資訊，再提出方案，然後再寫程式碼。'
+    },
     thread: {
       loadingSession: '正在載入工作階段',
       showEarlier: '顯示較早的訊息',

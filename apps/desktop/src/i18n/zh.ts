@@ -390,8 +390,7 @@ export const zh: Translations = {
       deviceRotateKeyDesc:
         '你的设备共用一把模型密钥，所以仅仅吊销并不会收回那台设备的模型访问权。其他设备会自动取得新密钥。',
       deviceRevokedWithKey: '已吊销设备，并签发了新的模型密钥。',
-      deviceRevokedWithoutKey:
-        '已吊销设备。它仍持有原来的模型密钥——如需收回访问权，请再次吊销并签发新密钥。',
+      deviceRevokedWithoutKey: '已吊销设备。它仍持有原来的模型密钥——如需收回访问权，请再次吊销并签发新密钥。',
       deviceRevokeFailed: '无法吊销该设备。',
       deviceRevokeLastError:
         '这是账号上仅剩的一台设备。此时签发新密钥，就没有机器能取得它了。请先在另一台机器上登录，或者不签发新密钥直接吊销。',
@@ -2980,6 +2979,17 @@ export const zh: Translations = {
   },
 
   assistant: {
+    intro: {
+      greetingMorning: name => (name ? `早上好，${name}` : '早上好'),
+      greetingAfternoon: name => (name ? `下午好，${name}` : '下午好'),
+      greetingEvening: name => (name ? `晚上好，${name}` : '晚上好'),
+      quickStart: '快速开始',
+      resume: title => `继续“${title}”`,
+      starterExplainLabel: '介绍这个仓库',
+      starterExplainPrompt: '请说明这个仓库是做什么的，代码又是如何组织的。',
+      starterPlanLabel: '规划一项改动',
+      starterPlanPrompt: '我想改一个地方。先问清楚你需要知道的信息，再给出方案，然后再写代码。'
+    },
     thread: {
       loadingSession: '正在加载会话',
       showEarlier: '显示更早的消息',

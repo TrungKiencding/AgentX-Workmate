@@ -37,6 +37,55 @@ const NOUS_BLUE = '#0053FD'
 const PSYCHE_BLUE = '#1540B1'
 const PSYCHE_WARM = '#FFE6CB'
 
+/**
+ * The two neutral bands, as flat hex (this pipeline is hex-only: `color.ts`
+ * mixes, luminance-buckets and contrast-checks every preset value, and it
+ * parses `#rrggbb` alone). Each rung is the exact sRGB of the OKLCH stated
+ * beside it, and the same rungs are mirrored as `--theme-neutral-*` fallbacks
+ * in styles.css — change one, change both.
+ *
+ * PAPER (light): one ladder on hue 262, ~1% lightness per rung, every neutral
+ * carrying a trace of chroma so it never reads as a dead grey patch.
+ *
+ * GRAPHITE (dark): the new default dark band. +3% lightness per rung — in dark
+ * mode elevation IS lightness, never a glow and never a heavier shadow.
+ */
+const PAPER = {
+  sidebar: '#f5f7fa', // oklch(97.55% 0.0045 258.3)
+  page: '#f9fafd', // oklch(98.52% 0.0041 271.4)
+  card: '#fcfdfe', // oklch(99.36% 0.0017 247.8)
+  elevated: '#fefeff', // oklch(99.73% 0.0013 286.4)
+  ink: '#16171a' // oklch(20.48% 0.0061 271.1)
+} as const
+
+const GRAPHITE = {
+  sidebar: '#080b10', // oklch(15% 0.012 262)
+  page: '#0d0f15', // oklch(17% 0.012 262)
+  card: '#13161c', // oklch(20% 0.012 262)
+  elevated: '#1a1d23', // oklch(23% 0.012 262)
+  muted: '#21242a', // oklch(26% 0.012 262)
+  raised: '#252930', // oklch(28% 0.014 262)
+  accentSoft: '#1f242e', // oklch(26% 0.020 262)
+  border: '#2e333b', // oklch(32% 0.016 262)
+  input: '#23272d', // oklch(27% 0.014 262)
+  sidebarBorder: '#1e2229', // oklch(25% 0.014 262)
+  bubble: '#181f2c', // oklch(24% 0.026 262)
+  bubbleBorder: '#2f3849', // oklch(34% 0.032 262)
+  ink: '#e6e8ec', // oklch(93% 0.006 262) — 13.8:1 on the page
+  inkMuted: '#9a9fa7', // oklch(70% 0.013 262) — 7.2:1
+  inkSecondary: '#ced1d6', // oklch(86% 0.008 262)
+  inkAccent: '#dee1e7' // oklch(91% 0.008 262)
+} as const
+
+/**
+ * Nous blue on graphite. The seed itself (L 53%) is too dark to carry a stroke
+ * on a 17% ground, so strokes/focus/active use the lifted blue and the primary
+ * BUTTON stays deep enough for white text (5.06:1) — the two jobs need
+ * different lightness, not different hues.
+ */
+const NOUS_BLUE_LIFTED = '#4886fe' // oklch(64% 0.19 262) — 5.58:1 on the page
+const NOUS_BLUE_DEEP = '#2867e4' // oklch(55% 0.20 262) — white on it: 5.06:1
+
 const nousTint = (pct: number) => `color-mix(in srgb, ${NOUS_BLUE} ${pct}%, #FFFFFF)`
 const nousTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_BLUE} ${pct}%, transparent)`
 
@@ -50,20 +99,20 @@ export const nousTheme: DesktopTheme = {
   label: 'Nous',
   description: 'Glass neutrals with Nous blue accents',
   colors: {
-    background: '#F8FAFF',
-    foreground: '#17171A',
-    card: '#FFFFFF',
-    cardForeground: '#17171A',
+    background: PAPER.page,
+    foreground: PAPER.ink,
+    card: PAPER.card,
+    cardForeground: PAPER.ink,
     muted: nousTint(5),
-    mutedForeground: '#666678',
-    popover: '#FFFFFF',
-    popoverForeground: '#17171A',
+    mutedForeground: '#656971',
+    popover: PAPER.elevated,
+    popoverForeground: PAPER.ink,
     primary: NOUS_BLUE,
     primaryForeground: '#FCFCFC',
     secondary: nousTint(7),
-    secondaryForeground: '#242432',
+    secondaryForeground: '#25262c',
     accent: nousTint(10),
-    accentForeground: '#202030',
+    accentForeground: '#1f2027',
     border: nousTintTransparent(22),
     input: nousTintTransparent(30),
     ring: NOUS_BLUE,
@@ -71,11 +120,58 @@ export const nousTheme: DesktopTheme = {
     composerRing: NOUS_BLUE,
     destructive: '#C72E4D',
     destructiveForeground: '#FFFFFF',
-    sidebarBackground: '#F3F7FF',
+    sidebarBackground: PAPER.sidebar,
     sidebarBorder: nousTintTransparent(18),
     userBubble: nousTint(6),
     userBubbleBorder: nousTintTransparent(24)
   },
+  /** Graphite — the default dark band. Quiet ground, elevation by lightness. */
+  darkColors: {
+    background: GRAPHITE.page,
+    foreground: GRAPHITE.ink,
+    card: GRAPHITE.card,
+    cardForeground: GRAPHITE.ink,
+    muted: GRAPHITE.muted,
+    mutedForeground: GRAPHITE.inkMuted,
+    popover: GRAPHITE.elevated,
+    popoverForeground: GRAPHITE.ink,
+    primary: NOUS_BLUE_DEEP,
+    primaryForeground: '#ffffff',
+    secondary: GRAPHITE.raised,
+    secondaryForeground: GRAPHITE.inkSecondary,
+    accent: GRAPHITE.accentSoft,
+    accentForeground: GRAPHITE.inkAccent,
+    border: GRAPHITE.border,
+    input: GRAPHITE.input,
+    ring: NOUS_BLUE_LIFTED,
+    midground: NOUS_BLUE_LIFTED,
+    composerRing: NOUS_BLUE_LIFTED,
+    destructive: '#cf2d56',
+    destructiveForeground: '#ffffff',
+    sidebarBackground: GRAPHITE.sidebar,
+    sidebarBorder: GRAPHITE.sidebarBorder,
+    userBubble: GRAPHITE.bubble,
+    userBubbleBorder: GRAPHITE.bubbleBorder
+  },
+  // The default skin rides DEFAULT_TYPOGRAPHY (bundled Geist + JetBrains
+  // Mono). No fontUrl on purpose: the default theme must never fetch a font
+  // CDN at runtime.
+  typography: {
+    fontSans: GEIST_SANS,
+    fontMono: JETBRAINS_MONO
+  }
+}
+
+/**
+ * Nous Classic — the royal-blue dark AgentX shipped before Graphite, kept whole
+ * so nobody loses the palette they chose. Same light side as Nous; only the
+ * dark band differs.
+ */
+export const nousClassicTheme: DesktopTheme = {
+  name: 'nous-classic',
+  label: 'Nous Classic',
+  description: 'The original royal-blue dark, with the Nous light palette',
+  colors: nousTheme.colors,
   darkColors: {
     background: '#0D2F86',
     foreground: PSYCHE_WARM,
@@ -103,9 +199,6 @@ export const nousTheme: DesktopTheme = {
     userBubble: '#143B91',
     userBubbleBorder: '#3A63BD'
   },
-  // The default skin rides DEFAULT_TYPOGRAPHY (bundled Geist + JetBrains
-  // Mono). No fontUrl on purpose: the default theme must never fetch a font
-  // CDN at runtime.
   typography: {
     fontSans: GEIST_SANS,
     fontMono: JETBRAINS_MONO
@@ -294,6 +387,7 @@ export const slateTheme: DesktopTheme = {
 
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
   nous: nousTheme,
+  'nous-classic': nousClassicTheme,
   midnight: midnightTheme,
   ember: emberTheme,
   mono: monoTheme,

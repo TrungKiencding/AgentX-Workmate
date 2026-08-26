@@ -10,9 +10,21 @@ import {
   selectTerminal,
   type TerminalEntry
 } from '@/app/right-sidebar/terminal/terminals'
+import { $keycloakAccount } from '@/store/account'
 import { $repoStatusByCwd } from '@/store/coding-status'
 import { $gateway } from '@/store/gateway'
-import { $currentCwd, $messages, setBusy, setCurrentCwdTransient, setMessages } from '@/store/session'
+import { $desktopOnboarding } from '@/store/onboarding'
+import { $projectTree } from '@/store/projects'
+import {
+  $currentCwd,
+  $freshDraftReady,
+  $messages,
+  $sessions,
+  setBusy,
+  setCurrentCwdTransient,
+  setMessages
+} from '@/store/session'
+import type { SessionInfo } from '@/types/hermes'
 
 type Sample = {
   id: string
@@ -55,6 +67,13 @@ declare global {
       rightPaneReset: () => void
       rightPaneSelect: (id: string) => void
       rightPaneWrite: (procId: string, chunk: string) => void
+      /**
+       * Seed the empty-chat home surface so its states can be inspected with no
+       * live backend: the fresh-draft latch, a recents list, a project, an
+       * account display name. `introReset()` puts all of them back.
+       */
+      introSetup: (opts?: { displayName?: string; projects?: number; sessions?: number }) => void
+      introReset: () => void
       reset: () => void
       snapshotMsgs: () => number
     }
@@ -195,7 +214,55 @@ if (typeof window !== 'undefined' && !window.__PERF_DRIVE__) {
     return [user, assistant]
   }
 
+  // Home-surface driver. Everything it touches is an ordinary store atom set to
+  // a synthetic value — the same trick `rightPaneSetup` uses — so the intro's
+  // states can be captured with the gateway closed.
+  const introBaseline = {
+    account: $keycloakAccount.get(),
+    fresh: $freshDraftReady.get(),
+    onboarding: $desktopOnboarding.get(),
+    projects: $projectTree.get(),
+    sessions: $sessions.get()
+  }
+
+  const syntheticSessions = (count: number): SessionInfo[] =>
+    Array.from({ length: count }, (_, i) => ({
+      ended_at: null,
+      id: `perf-session-${i}`,
+      is_active: false,
+      last_active: Math.floor(Date.now() / 1000) - i * 3600,
+      message_count: 8,
+      model: null,
+      preview: null,
+      source: null,
+      started_at: Math.floor(Date.now() / 1000) - i * 7200,
+      title: i === 0 ? 'Wire the settings search field' : `Synthetic session ${i}`
+    })) as unknown as SessionInfo[]
+
   window.__PERF_DRIVE__ = {
+    introReset: () => {
+      $desktopOnboarding.set(introBaseline.onboarding)
+      $freshDraftReady.set(introBaseline.fresh)
+      $keycloakAccount.set(introBaseline.account)
+      $projectTree.set(introBaseline.projects)
+      $sessions.set(introBaseline.sessions)
+    },
+    introSetup: ({ displayName = '', projects = 0, sessions = 0 } = {}) => {
+      $desktopOnboarding.set({ ...$desktopOnboarding.get(), configured: true, manual: false })
+      $freshDraftReady.set(true)
+      $keycloakAccount.set({ ...$keycloakAccount.get(), displayName, loaded: true })
+      $sessions.set(syntheticSessions(sessions))
+      $projectTree.set(
+        Array.from({ length: projects }, (_, i) => ({
+          id: `perf-project-${i}`,
+          label: i === 0 ? 'agentx-workmate' : `project-${i}`,
+          lastActive: Math.floor(Date.now() / 1000) - i * 3600,
+          path: `/perf/project-${i}`,
+          repos: [],
+          sessionCount: 3
+        }))
+      )
+    },
     snapshotMsgs: () => $messages.get().length,
     connected: () => {
       try {

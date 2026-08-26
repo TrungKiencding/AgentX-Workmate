@@ -33,7 +33,11 @@ const buttonVariants = cva(
         text: `text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${TEXT_ACTION_ICON}`,
         // Emphasized inline-text action: bold + always-underlined link. Use for
         // the actionable affordance in a row ("Change", "Set", "Open logs", …).
-        textStrong: `font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground ${TEXT_ACTION_ICON}`
+        textStrong: `font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground ${TEXT_ACTION_ICON}`,
+        // Pill affordance for an optional way in — the home surface's
+        // quick-start row. Hairline at rest so the row stays quiet against the
+        // greeting; the border firms up and the fill arrives on hover.
+        chip: 'rounded-full border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-secondary) hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)'
       },
       size: {
         default: 'h-(--control-h-md) px-3.5 has-[>svg]:px-3',
@@ -47,8 +51,10 @@ const buttonVariants = cva(
         // (replaces ad-hoc `h-auto px-0 py-0` overrides).
         inline: 'h-auto gap-1 p-0 has-[>svg]:px-0',
         // Status-stack headers, table footers — 12px text actions beside a label.
-        micro:
-          "h-auto gap-0.5 px-1 py-0 text-xs font-normal has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3",
+        micro: "h-auto gap-0.5 px-1 py-0 text-xs font-normal has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3",
+        // Pairs with the `chip` variant: 36px pill at chrome text size, with a
+        // little more air than a boxed button of the same height.
+        chip: "h-(--control-h-lg) gap-2 rounded-full px-4 [&_svg:not([class*='size-'])]:size-4",
         icon: 'size-(--control-h-md)',
         'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3",
         'icon-sm': 'size-(--control-h-sm)',
