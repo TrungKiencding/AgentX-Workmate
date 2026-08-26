@@ -26,7 +26,7 @@ export function ChatDropOverlay({ kind }: { kind: DragKind }) {
     <div
       aria-hidden
       className={cn(
-        'pointer-events-none absolute inset-0 z-40 flex items-center justify-center transition-opacity duration-150 ease-out',
+        'pointer-events-none absolute inset-0 z-40 flex items-center justify-center transition-opacity duration-(--dur-short-exit) ease-out',
         kind ? 'opacity-100' : 'opacity-0'
       )}
       data-slot="chat-drop-overlay"

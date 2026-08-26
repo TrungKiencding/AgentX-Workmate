@@ -6,10 +6,13 @@ import { type InputModality, lastInputModality } from '@/lib/input-modality'
 import { useKeybindHint } from '@/lib/keybinds/use-keybind-hint'
 import { cn } from '@/lib/utils'
 
-/** Default hover-open delay for `Tip`. Non-zero so a cursor sweeping across the
- *  chrome doesn't flash a trail of tips — they only appear on a deliberate,
- *  settled hover. Call sites that need an instant tip pass `delayDuration={0}`. */
-const TIP_DELAY_MS = 200
+/** Default hover-open delay for `Tip`. Long enough that a cursor crossing a
+ *  toolbar never lights one up in passing — a tip is the reward for stopping on
+ *  a control, not a tax on sweeping past it. Radix applies this to POINTER
+ *  opens only; a keyboard focus still opens the tip in the same frame, which is
+ *  what a11y needs. Call sites that want an instant hover tip pass
+ *  `delayDuration={0}`. */
+const TIP_DELAY_MS = 500
 
 /** True inside `RootTooltipProvider`. `Tip` uses this to decide whether it
  *  needs to supply its own provider — see the note on `Tip`. */

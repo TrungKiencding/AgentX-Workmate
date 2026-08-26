@@ -126,7 +126,7 @@ export const AssistantMessage: FC<{
       ref={enterRef}
     >
       <div
-        className="wrap-anywhere min-w-0 max-w-full overflow-hidden text-pretty text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground"
+        className="wrap-anywhere min-w-0 max-w-full overflow-hidden text-pretty text-[length:var(--conversation-text-font-size)] leading-(--conversation-prose-line-height) text-foreground"
         data-slot="aui_assistant-message-content"
       >
         {/* Todos render in the composer status stack now, not inline. */}
@@ -141,7 +141,7 @@ export const AssistantMessage: FC<{
         )}
         <MessagePrimitive.Error>
           <ErrorPrimitive.Root
-            className="mt-1.5 flex items-start gap-1.5 text-[0.78rem] leading-5 text-[color-mix(in_srgb,var(--dt-destructive)_78%,var(--ui-text-secondary))]"
+            className="mt-1.5 flex items-start gap-1.5 text-[length:var(--conversation-caption-font-size)] leading-5 text-(--conversation-error-text)"
             role="alert"
           >
             <ErrorPrimitive.Message className="min-w-0 flex-1" />
@@ -241,7 +241,7 @@ const AssistantActionBar: FC<MessageActionProps> = ({ messageId, getMessageText,
             tooltip={copy.react}
           >
             {shownReactions.length > 0 ? (
-              <span className="flex items-center gap-0.5 text-[0.8125rem] leading-none">
+              <span className="flex items-center gap-0.5 text-sm leading-none">
                 {shownReactions.map(reaction => (
                   <span className="reaction-pop" key={`${reaction.author}-${reaction.emoji}`}>
                     {reaction.emoji}
@@ -312,7 +312,7 @@ const MessageAge: FC = () => {
   // Compact "2h ago" (shared util) with the absolute time on hover.
   return (
     <span
-      className="px-0.5 text-[0.6875rem] tabular-nums text-muted-foreground"
+      className="px-0.5 text-2xs tabular-nums text-muted-foreground"
       title={formatMessageTimestamp(date, t.assistant.thread) || undefined}
     >
       {formatAgo(date.getTime(), t.agents)}

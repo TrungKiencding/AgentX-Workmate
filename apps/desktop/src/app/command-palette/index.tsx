@@ -1287,7 +1287,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
           // Opens in the frame it is asked for — no entry animation at all. The
           // CLOSE animation stays: `onAnimationEnd` below is what retires the
           // subtree, so removing it would strand the palette mounted.
-          'z-(--z-over-modal-content) w-[min(34rem,calc(100vw-2rem))] overflow-hidden duration-150 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
+          'z-(--z-over-modal-content) w-[min(34rem,calc(100vw-2rem))] overflow-hidden duration-(--dur-short-exit) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
         )}
         // The close animation finishing is what retires this whole subtree —
         // the CSS owns the duration, not a hardcoded timer. Guarded on the

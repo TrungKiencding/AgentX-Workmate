@@ -69,7 +69,7 @@ export function Progress({
       ) : (
         <div
           className={cn(
-            'relative h-full rounded-full transition-[width] duration-300 ease-out',
+            'relative h-full rounded-full transition-[width] duration-(--dur-long) ease-out',
             fillColor,
             indeterminate && 'w-1/3 animate-pulse',
             fillClassName

@@ -409,18 +409,20 @@ interface MarkdownTextSurfaceProps {
   disableArtifacts?: boolean
 }
 
-// Headings shrink to chat scale rather than the prose default (h1≈xl). Kept
-// table-driven so adding/tweaking levels is one row.
+// A heading inside a reply is a section break in a message, not a page title:
+// it tops out one rung above the prose (18px) and steps down to the content
+// floor (14px). Sizes are `--conversation-h*-font-size` so they ride the
+// reading surface — bump the chat text and the headings follow.
 const HEADING_SIZES: Record<'h1' | 'h2' | 'h3' | 'h4', string> = {
-  h1: 'text-[1rem] tracking-tight',
-  h2: 'text-[0.9375rem] tracking-tight',
-  h3: 'text-[0.875rem]',
-  h4: 'text-[0.8125rem]'
+  h1: 'text-[length:var(--conversation-h1-font-size)] tracking-tight',
+  h2: 'text-[length:var(--conversation-h2-font-size)] tracking-tight',
+  h3: 'text-[length:var(--conversation-h3-font-size)]',
+  h4: 'text-[length:var(--conversation-h4-font-size)]'
 }
 
 const MARKDOWN_CONTAINER_CLASS_NAME = cn(
-  'aui-md prose w-full max-w-none overflow-hidden text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground',
-  'prose-p:leading-(--dt-line-height) prose-li:leading-(--dt-line-height)',
+  'aui-md prose w-full max-w-none overflow-hidden text-[length:var(--conversation-text-font-size)] leading-(--conversation-prose-line-height) text-foreground',
+  'prose-p:leading-(--conversation-prose-line-height) prose-li:leading-(--conversation-prose-line-height)',
   'prose-headings:text-foreground prose-strong:text-foreground',
   'prose-a:break-words prose-p:[overflow-wrap:anywhere]',
   'prose-li:marker:text-muted-foreground/70',
@@ -436,7 +438,7 @@ function HugeTextFallback({ containerClassName, text }: { containerClassName?: s
   return (
     <div
       className={cn(
-        'aui-md w-full max-w-none overflow-hidden rounded-[0.625rem] border border-(--ui-stroke-tertiary) font-mono text-[0.7rem] leading-relaxed text-foreground/90',
+        'aui-md w-full max-w-none overflow-hidden rounded-(--radius-card) border border-(--ui-stroke-tertiary) font-mono text-[length:var(--conversation-code-font-size)] leading-(--conversation-code-line-height) text-foreground/90',
         containerClassName
       )}
     >
@@ -490,7 +492,7 @@ function MarkdownTextSurface({
           // Vertical rhythm is owned by styles.css (`--paragraph-gap`), which
           // must out-specify Tailwind Typography's `prose` margins — so no
           // `my-*` here on purpose.
-          <p className={cn('wrap-anywhere leading-(--dt-line-height)', className)} {...props} />
+          <p className={cn('wrap-anywhere leading-(--conversation-prose-line-height)', className)} {...props} />
         ),
         a: MarkdownLink,
         // Inline code must not vote when an ancestor resolves `dir="auto"`
@@ -523,7 +525,7 @@ function MarkdownTextSurface({
 
           return (
             <blockquote
-              className={cn('border-s-2 border-(--ui-stroke-tertiary) ps-3 text-muted-foreground italic', className)}
+              className={cn('border-s-2 border-(--ui-stroke-tertiary) ps-3 text-muted-foreground', className)}
               dir="auto"
               {...props}
             >
@@ -538,13 +540,13 @@ function MarkdownTextSurface({
           <ol className={cn('my-1 gap-0', className)} dir="auto" {...props} />
         ),
         li: ({ className, ...props }: ComponentProps<'li'>) => (
-          <li className={cn('leading-(--dt-line-height)', className)} {...props} />
+          <li className={cn('leading-(--conversation-prose-line-height)', className)} {...props} />
         ),
         table: ({ className, ...props }: ComponentProps<'table'>) => (
-          <div className="aui-md-table my-2 max-w-full overflow-x-auto rounded-[0.375rem] border border-(--ui-stroke-tertiary)">
+          <div className="aui-md-table my-2 max-w-full overflow-x-auto rounded-(--radius-control) border border-(--ui-stroke-tertiary)">
             <table
               className={cn(
-                'm-0 w-full min-w-[18rem] border-collapse text-[0.8125rem] [&_tr]:border-b [&_tr]:border-(--ui-stroke-tertiary) last:[&_tr]:border-0',
+                'm-0 w-full min-w-[18rem] border-collapse text-[length:var(--conversation-caption-font-size)] [&_tr]:border-b [&_tr]:border-(--ui-stroke-tertiary) last:[&_tr]:border-0',
                 className
               )}
               {...props}
@@ -557,14 +559,20 @@ function MarkdownTextSurface({
         th: ({ className, ...props }: ComponentProps<'th'>) => (
           <th
             className={cn(
-              'whitespace-nowrap px-2.5 py-1.5 text-left align-middle text-[0.75rem] font-medium text-muted-foreground',
+              'whitespace-nowrap px-2.5 py-1.5 text-left align-middle text-[length:var(--conversation-tool-font-size)] font-medium text-muted-foreground',
               className
             )}
             {...props}
           />
         ),
         td: ({ className, ...props }: ComponentProps<'td'>) => (
-          <td className={cn('px-2.5 py-1.5 align-top text-[0.8125rem] leading-snug', className)} {...props} />
+          <td
+            className={cn(
+              'px-2.5 py-1.5 align-top text-[length:var(--conversation-caption-font-size)] leading-snug',
+              className
+            )}
+            {...props}
+          />
         ),
         img: MarkdownImage,
         // ```mermaid / ```svg fences route to their lazy renderers; substantial

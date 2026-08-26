@@ -184,6 +184,25 @@ widened tracking, and it belongs to exactly one species: the 11px uppercase
 section label (sidebar sections, date dividers, palette group headings, panel
 section labels, stat-tile captions). Nothing else tracks out.
 
+**The transcript reads on its own scale.** A reply is read in paragraphs, so
+the chat column has a second, narrower set of tokens layered on the ramp —
+all in `rem`, so they ride `--dt-base-size` like everything else:
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--conversation-text-font-size` | 15px | prose (the `text-md` rung) |
+| `--conversation-caption-font-size` | 13px | scaffold labels, table cells |
+| `--conversation-tool-font-size` | 12px | tool meta, card subtitles |
+| `--conversation-code-font-size` · `-line-height` | 12.5px · 1.55 | every mono payload in the thread: fences, diffs, stdout, terminal tails |
+| `--conversation-prose-line-height` | 1.6 | prose only — chrome keeps `--dt-line-height` (1.5) |
+| `--conversation-measure` | 72ch | the reading measure (see Chat) |
+| `--conversation-h1…h4-font-size` | 18 / 16 / 15 / 14px | markdown headings inside a reply |
+
+A heading in a reply is a section break in a message, not a page title: it
+tops out one rung above the prose and bottoms out at the 14px content floor.
+It never reaches the page ramp's 18px+ display sizes by accident — those
+belong to `OverlayPageHeader` and the home greeting.
+
 ## Control & radius tokens
 
 - `--control-h-sm/md/lg/xl` (28/32/36/40px) — one height ramp for every
@@ -193,7 +212,12 @@ section labels, stat-tile captions). Nothing else tracks out.
   a button on the same rail line up; the statusbar keeps its shorter band.
 - `--radius-control` (6px) · `--radius-card` (10px) · `--radius-overlay`
   (12px) — the corner voice. Fixed values; they do not ride `--radius-scalar`.
-  The composer keeps its own 16px shell.
+  The composer keeps its own 16px shell. In the transcript that means:
+  `--radius-card` for the user bubble, the code card and `WIDGET_SHELL_CLASS`;
+  `--radius-control` for what sits *inside* them (an expanded tool shell, a
+  choice row, a fence inside a bubble) so a nested surface reads one rung
+  tighter than its host. `rounded-md`/`rounded-xl` are `--radius-scalar`-driven
+  and land near 2–3px — they are the menu vocabulary, not the card one.
 
 ## Buttons — one component
 
@@ -414,11 +438,46 @@ so two-line rows still grow), `HUD_HEADING`.
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or
   approval renderer for one feature.
+- **The reading measure.** Paragraphs, list items, quotes and markdown headings
+  stop at `--conversation-measure` (72ch); code, tables, diffs and embeds keep
+  the full column and bleed past it. A figure may run wider than the measure, a
+  sentence may not. The cap is one rule in `styles.css` — don't re-cap a block
+  at its call site.
+- **The user bubble** is a card: `--radius-card`, 14×10px padding, the
+  `--dt-user-bubble` fill and a `--ui-stroke-tertiary` hairline that warms to
+  secondary on hover. Its meta (process notices, checkpoints, timestamps) sits
+  at `text-2xs` — the ramp floor, never below it.
 - **Inline widgets** — a tool result that renders as a panel the user reads or
   acts on (clarify, artifact card) wears `WIDGET_SHELL_CLASS`
-  (`src/components/chat/widget-shell.ts`): shared radius, the
+  (`src/components/chat/widget-shell.ts`): `--radius-card`, the
   `--ui-widget-surface-background` fill, no border. Its actions sit *outside*
-  the panel, below it. Don't give one widget its own radius or fill.
+  the panel, below it, on the normal control ramp (a widget's primary action is
+  a real 32px button, not statusbar-dense chrome). Don't give one widget its own
+  radius or fill.
+- **Fenced code** rides `CodeCard` (`src/components/chat/code-card.tsx`):
+  `--radius-card` over `--ui-bg-editor`, no border, mono at
+  `--conversation-code-font-size`/`-line-height`. `CodeCardHeader` is one 28px
+  row — the language on the left at `text-2xs` mono tertiary (a language is a
+  proper name: its own casing, no tracked-out uppercase), the copy control on
+  the right at `size="icon-sm"`. No divider under it; the padding is the
+  separation. Copy answers in place — the glyph becomes a check and the label
+  becomes "Copied" for 2s (`COPIED_RESET_MS`). Never a toast, and never fake
+  window chrome (no red/yellow/green dots).
+- **A fence that is still streaming gets exactly one motion primitive:** it
+  rises into place at `--dur-short-exit`, and its body carries a soft bottom
+  mask. No pulsing halo — a coloured glow around a card is banned on any
+  surface, and a second loop would compete with the text actually arriving.
+- **Tool rows are scaffolding, not cards.** They stay transparent and faded
+  (`data-conversation-scaffold`) so the prose column reads first. One voice
+  for all of them: `SCAFFOLD_LABEL_CLASS` (13px medium at
+  `--conversation-scaffold-text`) for the name, `SCAFFOLD_META_CLASS`
+  (`text-2xs tabular-nums`) for counts, durations and diff stats. Do not box a
+  tool row into a widget shell.
+- **Tool state is a glyph *and* a colour, from the semantic tokens.** Running
+  is the breathing spinner, error `destructive`, recovered `--ui-yellow`,
+  delegate-done `--ui-green`, diff counts `--ui-diff-add-foreground` /
+  `--ui-diff-remove-foreground`. Never a raw Tailwind ramp (`amber-600`,
+  `emerald-400`) — those don't move with the theme.
 - Bordered surfaces in the transcript (tables, fences, callouts, attachments)
   use `--ui-stroke-tertiary`. Not `border-border` — that's the app-wide
   default and reads too hot against the thread.
@@ -463,9 +522,46 @@ so two-line rows still grow), `HUD_HEADING`.
 - **Tokens only:** durations `--dur-micro` (100ms — press, toggle, color),
   `--dur-short` (200ms — hover, menu, tooltip), `--dur-long` (320ms — overlay,
   entrance); curves `--ease-out` (enter), `--ease-in` (exit), `--ease-in-out`
-  (in-place morph). Exits run ≈ 75% of the paired enter. Springs live only on
-  physical interactions (drag release, reaction pop). Focus rings appear
-  instantly — never transitioned.
+  (in-place morph). Exits run ≈ 75% of the paired enter, and that rule is a
+  token too: `--dur-micro-exit` (75ms) · `--dur-short-exit` (150ms) ·
+  `--dur-long-exit` (240ms). Focus rings appear instantly — never transitioned.
+- **Two springs, both named, both physical.** `--spring-pop`
+  (`cubic-bezier(.34,1.56,.64,1)` — reaction pop, particle burst, drag-reorder
+  settle) and `--spring-reveal` (`cubic-bezier(.22,1.4,.4,1)` — the pet
+  hatching). Overshoot on a UI *state* — a menu opening, a row selecting, a
+  panel resizing — is a bug, not a flourish.
+- **The Web Animations API can't read CSS vars,** so `src/lib/motion.ts` is the
+  JavaScript mirror of these tokens (`EASE_OUT`, `SPRING_POP`, `DUR_SHORT_MS`,
+  …). Those two files are the *only* places in `src/` where a literal
+  `cubic-bezier()` may appear; change a curve in one and change it in the
+  other. A WAAPI call or a drag library's easing string imports from there.
+
+**Recipes** — the whole motion vocabulary, so nothing has to be invented:
+
+| Interaction | What moves | Duration · curve |
+| --- | --- | --- |
+| Hover on a control | `background-color`, `border-color`, `color` | `--dur-short` · `--ease-out` |
+| Press | `active:translate-y-px` | `--dur-micro` |
+| Disclosure caret / row fade | `transform`, `opacity` | `--dur-short-exit` |
+| Scaffolding lifting out of its fade | `opacity` | `--dur-micro` · `--ease-out` |
+| Overlay / boot surface arriving | `opacity` (+ the surface's own stagger) | `--dur-long` · `--ease-out` |
+| Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
+| Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` |
+
+- **Menus, popovers, dialogs and the palette open in the frame they are asked
+  for** — no entry animation at all. Only their *close* is animated, and only
+  where the surface already owns one. This is deliberate: a command surface is
+  used at speed and an entry animation is a tax on every use.
+- **Tooltips: 500ms on hover, 0ms on focus.** `TIP_DELAY_MS` is long enough
+  that a cursor crossing a toolbar never lights one up in passing; Radix applies
+  it to pointer opens only, so keyboard focus still shows the tip in the same
+  frame. `skipDelayDuration` is zeroed so each tip honours the delay
+  independently instead of a sweep opening a trail of them.
+- **Silent success.** An action whose result is visible on screen says nothing:
+  renaming a session repaints its row, pausing a cron job flips its state pill,
+  copying fills the clipboard and the control answers in place. Toasts are for
+  what the user *cannot* see (a background job started, a credential saved) and
+  for failure — and a failure toast always carries what to do next.
 - Quick, functional transitions (~100ms on controls). Respect
   `prefers-reduced-motion` for anything beyond a fade.
 - Choreographed exits (e.g. onboarding's "matrix" fade-down) stagger per-element

@@ -378,13 +378,10 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
 
     try {
       const isPaused = jobState(job) === 'paused'
+      // Silent success — the row's state pill flips in place. Failure still
+      // speaks, and says what to do about it.
       const updated = isPaused ? await resumeCronJob(job.id) : await pauseCronJob(job.id)
       updateCronJobs(rows => rows.map(row => (row.id === job.id ? updated : row)))
-      notify({
-        kind: 'success',
-        title: isPaused ? c.resumed : c.paused,
-        message: truncate(jobTitle(job), 60)
-      })
     } catch (err) {
       notifyError(err, c.failedUpdate)
     } finally {

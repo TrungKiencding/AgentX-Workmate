@@ -24,7 +24,7 @@ const ROW_CLASS =
 // `[data-slot='thread-timeline-popover']` rule in styles.css, so it's 1:1 with
 // the dropdown/select/dialog menus. We only own layout + the border/radius here.
 const POPOVER_SHELL =
-  'absolute right-full top-1/2 z-50 max-h-[min(22rem,calc(100vh-8rem))] w-80 max-w-[min(20rem,calc(100vw-2rem))] -translate-y-1/2 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border p-1 text-popover-foreground transition-[opacity,transform] duration-100 ease-out group-hover/timeline:transition-none'
+  'absolute right-full top-1/2 z-50 max-h-[min(22rem,calc(100vh-8rem))] w-80 max-w-[min(20rem,calc(100vw-2rem))] -translate-y-1/2 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border p-1 text-popover-foreground transition-[opacity,transform] duration-(--dur-micro) ease-out group-hover/timeline:transition-none'
 
 function userPromptText(content: unknown): string {
   if (typeof content === 'string') {
@@ -408,7 +408,7 @@ const TimelineTicks: FC<{
       >
         <span
           className={cn(
-            'block h-px w-3 transition-opacity duration-100 ease-out',
+            'block h-px w-3 transition-opacity duration-(--dur-micro) ease-out',
             index === activeIndex ? 'bg-(--theme-primary)' : 'dither text-(--ui-text-quaternary) opacity-70'
           )}
           ref={listRef(tickRefs, index)}

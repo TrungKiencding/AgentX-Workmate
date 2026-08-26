@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { PageLoader } from '@/components/page-loader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CopyButton } from '@/components/ui/copy-button'
 import {
   type ActionResponse,
   type CuratorStatusResponse,
@@ -234,16 +235,7 @@ export function MaintenancePanel() {
                 <span className="min-w-0 truncate font-mono text-xs">
                   {key}: {url}
                 </span>
-                <Button
-                  onClick={() => {
-                    void window.agentxDesktop.writeClipboard(url)
-                    notify({ durationMs: 1500, kind: 'success', message: mm.linkCopied })
-                  }}
-                  size="xs"
-                  variant="text"
-                >
-                  {mm.copyLink}
-                </Button>
+                <CopyButton buttonSize="xs" buttonVariant="text" label={mm.copyLink} text={url} />
               </div>
             ))}
           </div>
@@ -347,9 +339,7 @@ export function MaintenancePanel() {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-      {children}
-    </div>
+    <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{children}</div>
   )
 }
 

@@ -4,7 +4,7 @@ import type { SyntaxHighlighterProps } from '@assistant-ui/react-streamdown'
 import { type ComponentProps, type FC, lazy, Suspense, useMemo } from 'react'
 import type ShikiHighlighter from 'react-shiki'
 
-import { CodeCard, CodeCardBody } from '@/components/chat/code-card'
+import { CodeCard, CodeCardBody, CodeCardHeader } from '@/components/chat/code-card'
 import { ExpandableBlock } from '@/components/chat/expandable-block'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
@@ -13,9 +13,9 @@ import { isLikelyProseCodeBlock } from '@/lib/markdown-code'
 /**
  * Streamdown's code adapter renders header + body as inline siblings, so we
  * own the wrapping `<CodeCard>` here and neutralize the upstream
- * `data-streamdown="code-block"` chrome from styles.css. The card is
- * background-only — no header row, no language label — so a fence reads as a
- * tinted slab of the reply; copy is a hover-reveal control in the corner.
+ * `data-streamdown="code-block"` chrome from styles.css. The fence gets one
+ * thin `CodeCardHeader`: the language on the left, copy on the right at the
+ * hit-target size. No divider under it — the padding separates the rows.
  *
  * `react-shiki` full bundle so all `bundledLanguages` work; theme switches
  * follow the document `color-scheme` via `defaultColor="light-dark()"`.
@@ -31,7 +31,7 @@ export const SHIKI_THEME = { dark: 'github-dark-dimmed', light: 'github-light-de
 
 /**
  * `github-light-default` colors comments `#6e7781` (~4.2:1 against the code
- * card background) — borderline unreadable at our 11px code size, and worst of
+ * card background) — borderline unreadable at our 12.5px code size, and worst of
  * all for shell snippets where a single `#` turns the rest of the line into one
  * long comment span. Remap light-mode comments to GitHub's darker muted gray
  * (`#57606a`, ~6.4:1). Dark mode (`#8b949e`, ~6.1:1) already reads fine, so we
@@ -146,15 +146,16 @@ export const SyntaxHighlighter: FC<HermesSyntaxHighlighterProps> = ({
 
   return (
     <CodeCard data-streaming={defer ? 'true' : undefined}>
-      <CopyButton
-        appearance="inline"
-        className="absolute right-1.5 top-1.5 z-10 h-5 gap-0 rounded-md px-1 opacity-0 transition-opacity group-hover/code:opacity-100 focus-visible:opacity-100"
-        iconClassName="size-2.5"
-        label={t.assistant.tool.copyCode}
-        showLabel={false}
-        text={trimmed}
-      />
-      <CodeCardBody className="[&_pre]:px-3 [&_pre]:py-2.5">
+      <CodeCardHeader label={language || undefined}>
+        <CopyButton
+          appearance="icon"
+          buttonSize="icon-sm"
+          label={t.assistant.tool.copyCode}
+          side="left"
+          text={trimmed}
+        />
+      </CodeCardHeader>
+      <CodeCardBody className="[&_pre]:px-3 [&_pre]:pt-0 [&_pre]:pb-2.5">
         <ExpandableBlock>
           <Pre className="aui-shiki m-0 overflow-hidden bg-transparent p-0">
             {plain ? (

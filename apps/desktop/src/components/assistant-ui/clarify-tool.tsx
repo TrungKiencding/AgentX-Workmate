@@ -88,7 +88,7 @@ export function readClarifyResult(result: unknown): ClarifyResult {
 const letterFor = (index: number): string => String.fromCharCode(65 + index)
 
 const OPTION_ROW_CLASS =
-  'flex w-full items-start gap-2 rounded-[0.25rem] px-1.5 py-1 text-left disabled:cursor-not-allowed disabled:opacity-50'
+  'flex w-full items-start gap-2 rounded-(--radius-control) px-1.5 py-1 text-left disabled:cursor-not-allowed disabled:opacity-50'
 
 // field-sizing on top of Textarea's shared chrome; kill min-h-16 for one-liners.
 const CLARIFY_TEXTAREA_CLASS = 'field-sizing-content max-h-40 min-h-0 resize-none'
@@ -124,7 +124,7 @@ function KeyBadge({ char, preview, selected }: { char: string; preview?: boolean
     <Kbd
       className={cn(
         'mt-px',
-        selected && 'border-primary bg-primary text-white shadow-none',
+        selected && 'border-primary bg-primary text-primary-foreground shadow-none',
         !selected && preview && 'border-primary text-primary shadow-none'
       )}
       size="sm"
@@ -268,7 +268,7 @@ function ClarifyToolSettled({ args, result }: ToolCallMessagePartProps) {
               title={copy.lateAnswerTip}
             />
           ))}
-          <p className="px-1.5 pt-0.5 text-[0.6875rem] leading-4 text-(--ui-text-tertiary)">{copy.lateAnswerHint}</p>
+          <p className="px-1.5 pt-0.5 text-2xs leading-4 text-(--ui-text-tertiary)">{copy.lateAnswerHint}</p>
         </div>
       ) : null}
     </ClarifyShell>
@@ -624,20 +624,14 @@ function ClarifyToolPending({ args }: ToolCallMessagePartProps) {
       </ClarifyShell>
 
       <div className="flex items-center justify-end gap-1">
-        <Button disabled={submitting} onClick={() => void respond('')} size="xs" type="button" variant="text">
+        <Button disabled={submitting} onClick={() => void respond('')} type="button" variant="text">
           {copy.skip}
         </Button>
-        <Button disabled={submitting || !pendingAnswer} size="xs" type="submit">
-          {submitting ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <>
-              {copy.continueLabel}
-              <span aria-hidden className="ml-0.5 text-[0.625rem] opacity-70">
-                ⏎
-              </span>
-            </>
-          )}
+        <Button disabled={!pendingAnswer} loading={submitting} type="submit">
+          {copy.continueLabel}
+          <span aria-hidden className="ml-0.5 text-2xs opacity-70">
+            ⏎
+          </span>
         </Button>
       </div>
     </form>

@@ -816,7 +816,7 @@ function ZoneDropOverlay({ node }: { node: GroupNode }) {
           // backdrop-filter, and a blur interpolating while the insets glide
           // re-blurs half a zone every frame — the single most expensive
           // paint in the whole drag.
-          'absolute transition-[top,right,bottom,left,background-color,border-color,opacity] duration-150 ease-out',
+          'absolute transition-[top,right,bottom,left,background-color,border-color,opacity] duration-(--dur-short-exit) ease-out',
           // Blur only the live target — idle outlines must not fog the app.
           active && !centerLink && DROP_SHEET_BLUR_CLASS,
           centerLink && 'opacity-0'

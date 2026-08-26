@@ -106,19 +106,19 @@ export function ArtifactCard({ code, detection, streaming = false }: ArtifactCar
       onClick={open}
       type="button"
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/55 text-muted-foreground">
-        <CodeCardIcon className="text-[1rem]" name={detectionIcon(detection)} />
+      <span className="grid size-8 shrink-0 place-items-center rounded-(--radius-control) bg-muted/55 text-muted-foreground">
+        <CodeCardIcon name={detectionIcon(detection)} size="1rem" />
       </span>
       <span className="min-w-0 flex-1">
         <span
           className={cn(
-            'block truncate text-[length:var(--conversation-text-font-size)] font-medium text-foreground',
+            'block truncate text-sm font-medium text-foreground',
             streaming && 'shimmer text-foreground/55'
           )}
         >
           {title}
         </span>
-        <span className="block truncate text-[length:var(--conversation-tool-font-size)] text-muted-foreground">
+        <span className="block truncate text-[length:var(--conversation-tool-font-size)] text-(--ui-text-tertiary)">
           {streaming
             ? copy.generating(lineCount)
             : versionCount > 1

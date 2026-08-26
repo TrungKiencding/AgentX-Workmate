@@ -17,10 +17,12 @@ import { DisclosureRow } from '@/components/chat/disclosure-row'
  * A surface that skips the mark reads a shade brighter than its neighbours.
  */
 export const SCAFFOLD_LABEL_CLASS =
-  'text-[length:var(--conversation-tool-font-size)] leading-(--conversation-line-height) text-(--conversation-scaffold-text)'
+  'text-[length:var(--conversation-caption-font-size)] font-medium leading-(--conversation-line-height) text-(--conversation-scaffold-text)'
 
-/** Durations, counts and diff stats trailing a scaffold label. */
-export const SCAFFOLD_META_CLASS = 'shrink-0 text-[0.625rem] tabular-nums text-(--conversation-scaffold-meta)'
+/** Durations, counts and diff stats trailing a scaffold label. Sits at the
+ *  type ramp's floor (11px) — a step behind the label it trails, never below
+ *  what the ramp allows. */
+export const SCAFFOLD_META_CLASS = 'shrink-0 text-2xs tabular-nums text-(--conversation-scaffold-meta)'
 
 /**
  * One scaffold line. `children` is the label and whatever trails it in flow

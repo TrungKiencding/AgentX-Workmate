@@ -1,5 +1,6 @@
 import { type ComponentProps, useEffect, useRef } from 'react'
 
+import { EASE_IN_OUT, EASE_OUT } from '@/lib/motion'
 import { createRendererLoopPauseController } from '@/lib/renderer-loop-pause'
 
 const PULSE_DURATION_MS = 400
@@ -119,7 +120,7 @@ export function StatusPulse({ kind, opacity = 1, ...props }: StatusPulseProps) {
           : [{ opacity: 1 }, { opacity: 0.5 }, { opacity: 1 }],
         {
           duration: PULSE_DURATION_MS,
-          easing: kind === 'ping' ? 'cubic-bezier(0, 0, 0.2, 1)' : 'ease-in-out',
+          easing: kind === 'ping' ? EASE_OUT : EASE_IN_OUT,
           iterations: 1
         }
       )

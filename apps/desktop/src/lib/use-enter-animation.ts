@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react'
 
+import { DUR_SHORT_EXIT_MS, EASE_OUT } from '@/lib/motion'
+
 /**
  * One-shot enter animation via the Web Animations API.
  *
@@ -94,7 +96,7 @@ export function useEnterAnimation(enabled: boolean, animationKey?: string): (el:
         // whatever CSS says it should be and answers hover afterwards.
         { transform: 'translateY(0)' }
       ],
-      { duration: 180, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' }
+      { duration: DUR_SHORT_EXIT_MS, easing: EASE_OUT, fill: 'both' }
     )
 
     if (key) {

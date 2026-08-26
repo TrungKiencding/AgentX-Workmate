@@ -14,9 +14,11 @@
  */
 
 import { triggerHaptic } from '@/lib/haptics'
+import { DUR_SHORT_MS, SPRING_POP } from '@/lib/motion'
 
-/** easeOutBack — a little overshoot so items spring into their slot. */
-export const REORDER_SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+/** easeOutBack — a little overshoot so items spring into their slot. One of the
+ *  two sanctioned physical springs; see `--spring-pop` in styles.css. */
+export const REORDER_SPRING = SPRING_POP
 
 /** Displaced neighbors reflow on this (dnd-kit object + CSS string forms). */
 export const REORDER_RAIL_DURATION_MS = 300
@@ -24,7 +26,7 @@ export const REORDER_RAIL_TRANSITION = { duration: REORDER_RAIL_DURATION_MS, eas
 export const REORDER_RAIL_TRANSITION_CSS = `transform ${REORDER_RAIL_DURATION_MS}ms ${REORDER_SPRING}`
 
 /** The dragged item glides between snapped slots on this (snappier). */
-export const REORDER_DRAG_TRANSITION_CSS = `transform 200ms ${REORDER_SPRING}`
+export const REORDER_DRAG_TRANSITION_CSS = `transform ${DUR_SHORT_MS}ms ${REORDER_SPRING}`
 
 /** Tick each time the drag crosses into a new slot. */
 export const reorderStepHaptic = () => triggerHaptic('selection')

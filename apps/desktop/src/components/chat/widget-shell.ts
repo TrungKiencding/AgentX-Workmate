@@ -6,7 +6,8 @@
  * They share one shell so they cannot drift apart. They used to each pick their
  * own: clarify sat on a 2px radius over the chat backdrop's own color (a card
  * you could only see by its hairline), the artifact card on a hardcoded 10px
- * over nothing. One radius one rung above the composer, one mode-derived fill,
- * no border — the surface reads as a surface on the fill alone.
+ * over nothing. One radius — `--radius-card`, the app's card rung — one
+ * mode-derived fill, no border: the surface reads as a surface on the fill
+ * alone.
  */
-export const WIDGET_SHELL_CLASS = 'rounded-3xl bg-(--ui-widget-surface-background) px-3.5 py-3'
+export const WIDGET_SHELL_CLASS = 'rounded-(--radius-card) bg-(--ui-widget-surface-background) px-3.5 py-3'

@@ -12,7 +12,9 @@ import { cn } from '@/lib/utils'
 type CopyPayload = string | (() => Promise<string> | string)
 type CopyButtonAppearance = 'button' | 'icon' | 'inline' | 'menu-item' | 'context-menu-item' | 'tool-row'
 type CopyStatus = 'copied' | 'error' | 'idle'
-const COPIED_RESET_MS = 1_500
+// Long enough to read the swapped label without a toast, short enough that the
+// control is back to "Copy" before the user reaches for it again.
+const COPIED_RESET_MS = 2_000
 
 export async function writeClipboardText(text: string) {
   if (!text) {

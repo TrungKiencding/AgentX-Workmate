@@ -56,7 +56,7 @@ function VoiceLevelBars({ level, active }: { active: boolean; level: number }) {
         return (
           <span
             className={cn(
-              'w-0.5 rounded-full bg-current transition-[height,opacity] duration-100 ease-out',
+              'w-0.5 rounded-full bg-current transition-[height,opacity] duration-(--dur-micro) ease-out',
               active ? 'opacity-80' : 'animate-pulse opacity-45'
             )}
             key={index}

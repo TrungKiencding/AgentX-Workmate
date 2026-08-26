@@ -162,7 +162,7 @@ export const BackgroundResumeNotice: FC = () => {
   return (
     <div
       aria-live="polite"
-      className="flex max-w-[min(86%,44rem)] items-center gap-1.5 self-center px-2 py-0.5 text-[0.6875rem] leading-5 text-muted-foreground/55"
+      className="flex max-w-[min(86%,44rem)] items-center gap-1.5 self-center px-2 py-0.5 text-2xs leading-5 text-muted-foreground/55"
       data-slot="aui_background-resume"
       role="status"
     >

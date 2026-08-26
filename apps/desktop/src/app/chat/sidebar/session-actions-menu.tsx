@@ -524,8 +524,9 @@ function RenameSessionDialog({ open, onOpenChange, sessionId, currentTitle, prof
     try {
       const result = await renameSessionPreferringRpc(sessionId, next, profile)
       const finalTitle = result.title || next || ''
+      // Silent success: the row's title repaints in place and the dialog
+      // closes. A toast here would only restate what the sidebar just did.
       setSessions(prev => prev.map(s => (s.id === sessionId ? { ...s, title: finalTitle || null } : s)))
-      notify({ durationMs: 2_000, kind: 'success', message: r.renamed })
       onOpenChange(false)
     } catch (err) {
       notifyError(err, r.renameFailed)

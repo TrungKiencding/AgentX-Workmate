@@ -219,7 +219,7 @@ export function PreviewConsolePanel({
         onPointerDown={startConsoleResize}
         role="separator"
       >
-        <span className="absolute left-1/2 top-1/2 h-0.75 w-23 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/80 opacity-0 transition-opacity duration-100 group-hover:opacity-[0.5]" />
+        <span className="absolute left-1/2 top-1/2 h-0.75 w-23 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/80 opacity-0 transition-opacity duration-(--dur-micro) group-hover:opacity-[0.5]" />
       </div>
       <div className="flex h-8 shrink-0 items-center justify-between border-b border-border/50 px-2">
         <div className="flex items-center gap-2 text-[0.6875rem] font-medium text-muted-foreground">

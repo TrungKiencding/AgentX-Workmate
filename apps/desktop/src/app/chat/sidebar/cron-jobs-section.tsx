@@ -209,7 +209,6 @@ function CronJobSidebarRow({
     try {
       const updated = isPaused ? await resumeCronJob(job.id) : await pauseCronJob(job.id)
       updateCronJobs(rows => rows.map(row => (row.id === job.id ? updated : row)))
-      notify({ kind: 'success', title: isPaused ? c.resumed : c.paused, message: label })
     } catch (err) {
       notifyError(err, c.failedUpdate)
     }
@@ -291,9 +290,7 @@ function CronJobSidebarRow({
           </Tip>
           {/* Trailing cluster: countdown by default, quick actions on hover. */}
           <div className="flex items-center gap-0.5 justify-self-end pr-1">
-            <span className="text-2xs text-(--ui-text-tertiary) tabular-nums group-hover/cron:hidden">
-              {meta}
-            </span>
+            <span className="text-2xs text-(--ui-text-tertiary) tabular-nums group-hover/cron:hidden">{meta}</span>
             <div className="hidden items-center gap-0.5 group-hover/cron:flex">
               <Tip label={c.triggerNow}>
                 <button

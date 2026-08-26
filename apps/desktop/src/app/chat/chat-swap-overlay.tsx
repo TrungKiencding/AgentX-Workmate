@@ -34,7 +34,7 @@ export function ChatSwapOverlay({ profile }: { profile: string | null }) {
     <div
       aria-hidden
       className={cn(
-        'pointer-events-none absolute inset-0 z-50 flex items-center justify-center transition-opacity duration-150 ease-out',
+        'pointer-events-none absolute inset-0 z-50 flex items-center justify-center transition-opacity duration-(--dur-short-exit) ease-out',
         profile ? 'opacity-100' : 'opacity-0'
       )}
     >

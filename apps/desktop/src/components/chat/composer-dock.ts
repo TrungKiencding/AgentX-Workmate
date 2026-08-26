@@ -11,7 +11,7 @@ export const composerFill = 'bg-(--composer-fill)'
  *  goes opaque (drawer open) — nothing shows through to blur. */
 export const composerSurfaceGlass = cn(
   'backdrop-blur-[0.75rem] backdrop-saturate-[1.12] [-webkit-backdrop-filter:blur(0.75rem)_saturate(1.12)]',
-  'transition-[background-color] duration-150 ease-out'
+  'transition-[background-color] duration-(--dur-short-exit) ease-out'
 )
 
 const composerDockEdge = (edge: 'bottom' | 'top') =>

@@ -242,7 +242,7 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
             // Inset (mx-2) so the stack reads slightly narrower than the composer
             // surface below it — the original look.
             'mx-2 overflow-hidden rounded-b-none border-b border-b-transparent pt-0.5',
-            'transition-opacity duration-200 ease-out',
+            'transition-opacity duration-(--dur-short) ease-out',
             scrolledUp ? 'opacity-30 group-hover/composer:opacity-100' : 'opacity-100'
           )}
         >

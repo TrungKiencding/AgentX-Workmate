@@ -60,6 +60,16 @@ declare global {
        */
       loadTranscript: (turns?: number) => Promise<number>
       /**
+       * Replace the transcript with one turn that carries every tool-row state
+       * — running, success, warning, error — plus a fenced code block. Lets
+       * the transcript's scaffolding be inspected and screenshotted with no
+       * live backend, the way `introSetup` does for the home surface. Kept out
+       * of `loadTranscript` on purpose so the `transcript` perf scenario keeps
+       * measuring exactly what its baseline was recorded against.
+       * `reset()` restores.
+       */
+      loadToolStates: () => void
+      /**
        * Whether the active gateway socket is open. The perf harness waits on
        * this before measuring so background reconnect churn (a booting/absent
        * backend) doesn't contaminate frame-pacing numbers.
@@ -370,6 +380,55 @@ if (typeof window !== 'undefined' && !window.__PERF_DRIVE__) {
       return { procId, terminalIds }
     },
     rightPaneWrite: (procId, chunk) => writeAgentTerminalChunk(procId, chunk),
+    loadToolStates: () => {
+      if (!baseline) {
+        baseline = $messages.get()
+      }
+
+      const toolPart = (name: string, args: unknown, extra: Record<string, unknown>) => ({
+        type: 'tool-call' as const,
+        toolCallId: `perf-tool-${name}`,
+        toolName: name,
+        args: args as never,
+        argsText: JSON.stringify(args),
+        ...extra
+      })
+
+      setMessages([
+        {
+          id: 'perf-tool-u',
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: 'Rename the flush helper and run the suite.' }],
+          timestamp: Date.now()
+        },
+        {
+          id: 'perf-tool-a',
+          role: 'assistant' as const,
+          parts: [
+            toolPart('read_file', { path: 'src/lib/flush.ts' }, { result: 'ok\n' }),
+            toolPart('edit_file', { path: 'src/lib/flush.ts' }, { result: '@@ -1 +1 @@\n-old\n+new\n' }),
+            toolPart('bash', { command: 'npm test' }, { result: 'exit 1\nsuite failed', isError: true }),
+            toolPart('web_search', { query: 'bounded queue back-pressure' }, {}),
+            {
+              type: 'text' as const,
+              text: [
+                '## What changed',
+                '',
+                'The helper now drains through a bounded queue.',
+                '',
+                '```ts',
+                'export function flush(items: number[]) {',
+                '  return items.reduce((a, b) => a + b, 0)',
+                '}',
+                '```'
+              ].join('\n')
+            }
+          ],
+          timestamp: Date.now(),
+          pending: true
+        }
+      ] as unknown as ReturnType<typeof $messages.get>)
+    },
     loadTranscript: (turns = 200) => {
       if (!baseline) {
         baseline = $messages.get()
