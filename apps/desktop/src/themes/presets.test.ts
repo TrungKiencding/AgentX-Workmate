@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BUILTIN_THEME_LIST, DEFAULT_TYPOGRAPHY, EMOJI_FALLBACK } from './presets'
+import { BUILTIN_THEME_LIST, DEFAULT_SERIF_DISPLAY, DEFAULT_TYPOGRAPHY, EMOJI_FALLBACK } from './presets'
 
 // #40364: none of the UI text/mono fonts carry emoji glyphs, so every font
 // stack must end with a color-emoji fallback or emoji render as tofu on
@@ -29,5 +29,25 @@ describe('theme typography emoji fallback (#40364)', () => {
     expect(EMOJI_FALLBACK).toContain('Apple Color Emoji')
     expect(EMOJI_FALLBACK).toContain('Segoe UI Emoji')
     expect(EMOJI_FALLBACK).toContain('Noto Color Emoji')
+  })
+})
+
+describe('bundled default typography', () => {
+  it('leads with the vendored faces (no CDN fetch for the default theme)', () => {
+    expect(DEFAULT_TYPOGRAPHY.fontSans).toMatch(/^"Geist"/)
+    expect(DEFAULT_TYPOGRAPHY.fontMono).toMatch(/^"JetBrains Mono"/)
+    // The default skin must not carry a runtime font stylesheet URL.
+    expect(BUILTIN_THEME_LIST.find(theme => theme.name === 'nous')?.typography?.fontUrl).toBeUndefined()
+  })
+
+  it('ships a serif-display default; themes may omit the field', () => {
+    expect(DEFAULT_TYPOGRAPHY.fontSerifDisplay).toBe(DEFAULT_SERIF_DISPLAY)
+    expect(DEFAULT_SERIF_DISPLAY).toContain('Instrument Serif')
+
+    // Pre-existing themes never declare it — the merge in applyTheme falls
+    // back to the default, so old user themes keep loading unchanged.
+    for (const theme of BUILTIN_THEME_LIST) {
+      expect(theme.typography?.fontSerifDisplay).toBeUndefined()
+    }
   })
 })

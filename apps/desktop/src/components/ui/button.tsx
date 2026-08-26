@@ -2,16 +2,18 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { Slot } from 'radix-ui'
 import * as React from 'react'
 
+import { Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 // Text+icon actions underline the label on hover, not the glyph.
 const TEXT_ACTION_ICON = '[&_.codicon]:no-underline [&_svg]:no-underline'
 
-// Text buttons are square (no radius) and sized by padding + line-height — no
-// fixed heights — so they stay snug and scale with content. Only icon buttons
-// (inherently square) carry the shared 4px radius.
+// Every boxed button shares the control radius and the control-height ramp
+// (--control-h-*): sm 28 · md 32 (default) · lg 36 · xl 40. Boxless variants
+// (text/link/inline/micro) stay padding-driven. Transitions name their
+// properties — never transition-all — and press feedback is a 1px settle.
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[2.5px] text-xs leading-4 font-medium whitespace-nowrap shadow-none transition-all duration-100 outline-none focus-visible:border-ring focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-default disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-(--radius-control) text-sm leading-4 font-medium whitespace-nowrap shadow-none transition-[background-color,border-color,color,box-shadow,transform] duration-(--dur-micro) outline-none focus-visible:border-ring focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:cursor-default disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
   {
     variants: {
       variant: {
@@ -34,21 +36,23 @@ const buttonVariants = cva(
         textStrong: `font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground ${TEXT_ACTION_ICON}`
       },
       size: {
-        default: 'px-3 py-1.5 has-[>svg]:px-2.5',
-        xs: "gap-1 px-2 py-0.5 text-[0.6875rem] leading-4 has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: 'px-2.5 py-1 has-[>svg]:px-2',
-        lg: 'px-5 py-2 text-sm leading-5 has-[>svg]:px-4',
+        default: 'h-(--control-h-md) px-3.5 has-[>svg]:px-3',
+        xs: "gap-1 px-2 py-0.5 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: 'h-(--control-h-sm) px-3 has-[>svg]:px-2.5',
+        lg: 'h-(--control-h-lg) px-4 text-base has-[>svg]:px-3.5',
+        // Hero CTA — onboarding, the primary action of a large dialog.
+        xl: 'h-(--control-h-xl) px-5 text-base has-[>svg]:px-4',
         // Flush inline text action — no box padding/height. Pair with text/link
         // variants when the button must sit inline in a heading or sentence
         // (replaces ad-hoc `h-auto px-0 py-0` overrides).
         inline: 'h-auto gap-1 p-0 has-[>svg]:px-0',
         // Status-stack headers, table footers — 12px text actions beside a label.
         micro:
-          "h-auto gap-0.5 px-1 py-0 text-xs leading-4 font-normal has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3",
-        icon: 'size-9 rounded-[4px]',
-        'icon-xs': "size-6 rounded-[4px] [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-8 rounded-[4px]',
-        'icon-lg': 'size-10 rounded-[4px]',
+          "h-auto gap-0.5 px-1 py-0 text-xs font-normal has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3",
+        icon: 'size-(--control-h-md)',
+        'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3",
+        'icon-sm': 'size-(--control-h-sm)',
+        'icon-lg': 'size-(--control-h-lg)',
         'icon-titlebar':
           'h-(--titlebar-control-height) w-(--titlebar-control-size) rounded-[4px] [&_.codicon]:text-[0.875rem]'
       }
@@ -59,6 +63,11 @@ const buttonVariants = cva(
       {
         variant: 'textStrong',
         class: 'px-0 has-[>svg]:px-0'
+      },
+      // OS window chrome stays inert: no press-settle on titlebar actions.
+      {
+        size: 'icon-titlebar',
+        class: 'active:translate-y-0'
       }
     ],
     defaultVariants: {
@@ -73,21 +82,47 @@ function Button({
   variant = 'default',
   size = 'default',
   asChild = false,
+  loading = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /**
+     * Busy state: swaps the label for a centered spinner while keeping the
+     * button's width (the label stays in the layout, invisible), so nothing
+     * around it shifts. Ignored with `asChild` — a Slot must receive its
+     * single child untouched.
+     */
+    loading?: boolean
   }) {
   const Comp = asChild ? Slot.Root : 'button'
+  const spinning = loading && !asChild
 
   return (
     <Comp
-      className={cn(buttonVariants({ variant, size }), className)}
+      aria-busy={spinning || undefined}
+      className={cn(buttonVariants({ variant, size }), spinning && 'relative', className)}
       data-size={size}
       data-slot="button"
       data-variant={variant}
+      disabled={spinning ? true : disabled}
       {...props}
-    />
+    >
+      {spinning ? (
+        <>
+          <span aria-hidden className="invisible contents">
+            {children}
+          </span>
+          <span className="absolute inset-0 grid place-items-center">
+            <Loader2 className="animate-spin" />
+          </span>
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   )
 }
 

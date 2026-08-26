@@ -18,8 +18,10 @@ import { onComposerModelMenuRequest } from './focus'
 import { useComposerScope } from './scope'
 import type { ChatBarState } from './types'
 
+// 28px tall (a step below the 32px control row, it's a label-ish affordance),
+// 12px text; radius comes from the Button base.
 const PILL = cn(
-  'h-(--composer-control-size) max-w-40 shrink-0 gap-1 rounded-md px-2 text-xs font-normal',
+  'h-(--control-h-sm) max-w-40 shrink-0 gap-1 px-2 text-xs font-normal',
   'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
 )
 
@@ -116,7 +118,7 @@ export function ModelPill({
   // padding, sized to match the other composer icon buttons.
   const pillClass = compact
     ? cn(
-        'size-(--composer-control-size) shrink-0 justify-center gap-0 rounded-md p-0',
+        'size-(--composer-control-size) shrink-0 justify-center gap-0 p-0',
         'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
       )
     : PILL

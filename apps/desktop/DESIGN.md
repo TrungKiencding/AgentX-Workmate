@@ -101,6 +101,54 @@ for call-site shadow or border inventions.
 
 Never hardcode `border-gray-*`, `bg-white`, `text-black`, etc. The white tile in
 `BrandMark` is the one sanctioned literal (the mark needs a fixed backdrop).
+Light `--theme-*` seeds are stated in OKLCH (exact conversions of the shipped
+hex) so palette tuning happens on perceptual axes.
+
+## Typography
+
+Three faces live in text, all bundled in `src/fonts/` (no CDN fetch at
+runtime); themes may override sans/mono through the existing pipeline:
+
+- **Geist** (`--dt-font-sans`, OFL-1.1) — the UI sans. Variable weight per
+  script subset (latin, latin-ext, vietnamese); other scripts fall back to the
+  system stack.
+- **JetBrains Mono** (`--dt-font-mono`) — the code face everywhere: code, kbd,
+  paths, terminal.
+- **Instrument Serif** (`--dt-font-serif-display`, `font-serif-display`) — the
+  display outlier, allowed in exactly two slots: home greeting and onboarding
+  hero. Roman only — italic display headings are banned. No Vietnamese subset
+  exists; missing glyphs fall back to Georgia.
+
+Neuebit remains the brand plate face (`BrandMark`/About); Collapse stays
+retired from product surfaces. `--dt-font-kbd` keeps the native UI face.
+
+**Type ramp** (`--text-*` in `@theme inline`; these are the app's only font
+sizes — no ad-hoc `text-[…]`):
+
+| Utility | Size | Use |
+| --- | --- | --- |
+| `text-2xs` | 11px | statusbar, badges, timestamps |
+| `text-xs` | 12px | caption, meta, keybind hints |
+| `text-sm` | 13px | **default UI chrome**: buttons, menus, sidebar, tabs |
+| `text-base` | 14px | row content: settings labels, secondary card titles |
+| `text-md` | 15px | chat prose default (`--conversation-text-font-size`) |
+| `text-lg` | 18px | in-page section titles |
+| `text-xl` | 22px | overlay/page titles |
+| `text-2xl` | 28px | home greeting (serif slot) |
+| `text-3xl` | 36px | onboarding/update hero |
+
+Line-height rides the ramp (chrome 1.4 · content 1.5 · prose 1.6 · display
+1.15–1.3); tracking tightens from 18px (`-0.01em`) and again from 28px
+(`-0.02em`). Floor: nothing under 11px; reading content at 14px+. Columnar
+numbers use `tabular-nums`.
+
+## Control & radius tokens
+
+- `--control-h-sm/md/lg/xl` (28/32/36/40px) — one height ramp for every
+  control; an input and a button on the same row are the same height.
+- `--radius-control` (6px) · `--radius-card` (10px) · `--radius-overlay`
+  (12px) — the corner voice. Fixed values; they do not ride `--radius-scalar`.
+  The composer keeps its own 16px shell.
 
 ## Buttons — one component
 
@@ -113,10 +161,23 @@ fill/shadow), `ghost`, `link`, `text` (boxless quiet inline — "Cancel",
 "Clear"), `textStrong` (bold underlined inline affordance — "Change",
 "Open logs").
 
-**Sizes:** `default`, `xs`, `sm`, `lg`, `inline` (flush, zero box — for buttons
-that sit inside a heading/sentence; replaces `h-auto px-0 py-0`), `micro`
-(status-stack/table-footers), and the icon family `icon` / `icon-xs` /
-`icon-sm` / `icon-lg` / `icon-titlebar`.
+**Sizes** ride the `--control-h-*` ramp at 13px text (`text-sm`):
+
+| Size | Box | Use |
+| --- | --- | --- |
+| `default` | 32px | the standard button |
+| `sm` | 28px | dense rows, secondary actions |
+| `lg` | 36px, 14px text | prominent forms |
+| `xl` | 40px, 14px text | hero CTAs (onboarding, primary dialog action) |
+| `xs` | padding-driven, 12px text | genuinely dense chrome (statusbar) |
+| `inline` | flush, zero box | buttons inside a heading/sentence |
+| `micro` | flush, 12px text | status-stack headers, table footers |
+| `icon` / `icon-sm` / `icon-lg` | 32/28/36px square | icon-only actions |
+| `icon-xs` | 24px square | inline icon actions only |
+| `icon-titlebar` | OS chrome | window controls — untouched by the ramp |
+
+**`loading`** swaps the label for a centered spinner while keeping the
+button's width (no layout shift). Ignored with `asChild`.
 
 **Tooltips only when hover teaches something new.** `<Tip>` is for discovery,
 not a tax on every icon. Ask: does hover reveal something the user cannot
@@ -146,8 +207,13 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
 `useKeybindHint` or `TipKeybindLabel`.
 
 Notes:
-- Text buttons are square (no radius) and sized by padding + line-height (no
-  fixed heights). Only icon buttons carry the shared 4px radius.
+- Every boxed button carries `--radius-control` (6px); boxless variants
+  (text/link/inline/micro) have no box to round. `icon-titlebar` keeps its own
+  4px OS-chrome radius.
+- Transitions name their properties (`background-color`, `border-color`,
+  `color`, `box-shadow`, `transform`) at `--dur-micro` — never
+  `transition-all`. Press feedback is a 1px `active:translate-y-px` settle
+  (suppressed on `icon-titlebar`).
 - SVGs inherit `size-3.5` (`size-3` at `xs`). Don't re-set icon size.
 - Polymorph with `asChild` when the button must render as a link/Slot.
 
@@ -155,13 +221,19 @@ Notes:
 
 - **`controlVariants`** (`src/components/ui/control.ts`) is the shared shape for
   `Input` / `Textarea` / `SelectTrigger`. New text-entry controls compose it.
-- **`SearchField`** — borderless, underline-on-focus, auto-width. The only
-  search input. Don't build boxed search bars; don't wrap it in a bordered tile.
-  Empty lists hide their search field.
+  Same `--control-h-*` ramp and `--radius-control` as buttons; the border is a
+  fixed 1px in every state and focus arrives as a 2px accent outline
+  (offset 1px, never animated) — no layout shift. `Textarea` swaps the fixed
+  height for a min-height so it can grow.
+- **`SearchField`** — borderless, underline-on-focus, auto-width, 13px text at
+  `--control-h-sm`. The only search input. Don't build boxed search bars; don't
+  wrap it in a bordered tile. Empty lists hide their search field.
 - **`SegmentedControl`** — the choice control for small mutually-exclusive sets
   (color mode, tool-call display, usage period). Replaces radio piles and
-  pill rows.
-- **`Switch`** (`size="xs"`) — bare, with `aria-label`. No bordered text wrapper.
+  pill rows. 28px track (`--control-h-sm`), 12px labels.
+- **`Switch`** (`size="xs"`) — bare, with `aria-label`. No bordered text
+  wrapper. The visual track stays compact; an invisible pad extends the hit
+  target to ≥ 24px.
 
 ## Layout
 
@@ -237,6 +309,12 @@ Notes:
 
 ## Motion
 
+- **Tokens only:** durations `--dur-micro` (100ms — press, toggle, color),
+  `--dur-short` (200ms — hover, menu, tooltip), `--dur-long` (320ms — overlay,
+  entrance); curves `--ease-out` (enter), `--ease-in` (exit), `--ease-in-out`
+  (in-place morph). Exits run ≈ 75% of the paired enter. Springs live only on
+  physical interactions (drag release, reaction pop). Focus rings appear
+  instantly — never transitioned.
 - Quick, functional transitions (~100ms on controls). Respect
   `prefers-reduced-motion` for anything beyond a fade.
 - Choreographed exits (e.g. onboarding's "matrix" fade-down) stagger per-element

@@ -1222,19 +1222,10 @@ export function ChatBar({
                         {t.composer.editingQueuedInComposer}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          className="h-6 rounded-md px-2 text-[0.68rem]"
-                          onClick={() => exitQueuedEdit('cancel')}
-                          type="button"
-                          variant="ghost"
-                        >
+                        <Button onClick={() => exitQueuedEdit('cancel')} size="xs" type="button" variant="ghost">
                           {t.common.cancel}
                         </Button>
-                        <Button
-                          className="h-6 rounded-md px-2 text-[0.68rem]"
-                          onClick={() => exitQueuedEdit('save')}
-                          type="button"
-                        >
+                        <Button onClick={() => exitQueuedEdit('save')} size="xs" type="button">
                           {t.common.save}
                         </Button>
                       </div>

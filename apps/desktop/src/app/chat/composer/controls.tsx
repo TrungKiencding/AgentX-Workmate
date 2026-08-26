@@ -24,7 +24,7 @@ import type { ConversationStatus } from './hooks/use-voice-conversation'
 import { ModelPill } from './model-pill'
 import type { ChatBarState, VoiceStatus } from './types'
 
-export const ICON_BTN = 'size-(--composer-control-size) shrink-0 rounded-md'
+export const ICON_BTN = 'size-(--composer-control-size) shrink-0'
 export const GHOST_ICON_BTN = cn(
   ICON_BTN,
   'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
@@ -123,7 +123,7 @@ export function ComposerControls({
             size="icon"
             type="button"
           >
-            <AudioLines className={iconSize.sm} />
+            <AudioLines className={iconSize.md} />
           </Button>
         </Tip>
       ) : (
@@ -153,14 +153,14 @@ export function ComposerControls({
           >
             {busy ? (
               busyAction === 'queue' ? (
-                <Layers3 className={iconSize.sm} />
+                <Layers3 className={iconSize.md} />
               ) : busyAction === 'steer' ? (
-                <SteeringWheel className={iconSize.sm} />
+                <SteeringWheel className={iconSize.md} />
               ) : (
-                <span className="block size-2.5 rounded-[0.1875rem] bg-current" />
+                <span className="block size-3 rounded-[0.1875rem] bg-current" />
               )
             ) : (
-              <Codicon name="arrow-up" size="0.875rem" />
+              <Codicon name="arrow-up" size="1rem" />
             )}
           </Button>
         </Tip>

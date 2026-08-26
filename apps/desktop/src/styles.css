@@ -1,3 +1,4 @@
+/* Hallmark · genre: modern-minimal · design-system: design.md · designed-as-app · uplift-plan: UI-REDESIGN-PLAN.md */
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-shimmer';
@@ -71,6 +72,66 @@
   src: url('./fonts/JetBrainsMono-Italic.woff2') format('woff2');
 }
 
+/* Geist — the default UI sans (OFL-1.1), vendored per script subset so the
+   renderer never fetches a font CDN at runtime. Each file is the variable
+   master (wght 100–900); unicode-range keeps scripts we don't bundle (CJK,
+   Cyrillic, …) on the system fallback stack. */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Geist-Variable-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Geist-Variable-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Geist-Variable-vietnamese.woff2') format('woff2');
+  unicode-range:
+    U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304,
+    U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+/* Instrument Serif — the display-serif outlier (OFL-1.1), reserved for the
+   two sanctioned slots: the home greeting and the onboarding hero. Roman
+   only, on purpose — italic display headings are banned. Google Fonts ships
+   no Vietnamese subset for it; missing glyphs fall back to Georgia. */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/InstrumentSerif-Regular-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/InstrumentSerif-Regular-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @theme inline {
   --color-background: var(--dt-background);
   --color-foreground: var(--dt-foreground);
@@ -97,6 +158,40 @@
 
   --font-sans: var(--dt-font-sans);
   --font-mono: var(--dt-font-mono);
+  /* Display serif — the 2-slot outlier face (home greeting, onboarding hero). */
+  --font-serif-display: var(--dt-font-serif-display);
+
+  /* Type ramp — the app's only font sizes; every text-* utility resolves here.
+     Chrome runs at 1.4 line-height, row content 1.5, prose 1.6, display tighter.
+     Floor: nothing below 11px, reading content at 14px+. */
+  --text-2xs: 0.6875rem; /* 11px — statusbar, badges, timestamps */
+  --text-2xs--line-height: 1.4;
+  --text-xs: 0.75rem; /* 12px — caption, meta, keybind hints */
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem; /* 13px — default UI chrome: buttons, menus, sidebar, tabs */
+  --text-sm--line-height: 1.4;
+  --text-base: 0.875rem; /* 14px — row content: settings labels, secondary card titles */
+  --text-base--line-height: 1.5;
+  --text-md: 0.9375rem; /* 15px — chat prose default (see --conversation-text-font-size) */
+  --text-md--line-height: 1.6;
+  --text-lg: 1.125rem; /* 18px — in-page section titles */
+  --text-lg--line-height: 1.4;
+  --text-lg--letter-spacing: -0.01em;
+  --text-xl: 1.375rem; /* 22px — overlay/page titles (Settings, Command Center, …) */
+  --text-xl--line-height: 1.3;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 1.75rem; /* 28px — home greeting (serif display slot) */
+  --text-2xl--line-height: 1.2;
+  --text-2xl--letter-spacing: -0.02em;
+  --text-3xl: 2.25rem; /* 36px — onboarding/update hero */
+  --text-3xl--line-height: 1.15;
+  --text-3xl--letter-spacing: -0.02em;
+
+  /* Motion easing — the only curves allowed on UI state (physical springs keep
+     their own named tokens). Enter = ease-out, exit = ease-in, morph = in-out. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   --spacing-mul: var(--dt-spacing-mul, 1);
 
@@ -150,20 +245,23 @@
   :root {
     color-scheme: light;
 
-    --theme-foreground: #17171a;
-    --theme-primary: #0053fd;
-    --theme-secondary: color-mix(in srgb, #0053fd 7%, #ffffff);
-    --theme-accent-soft: color-mix(in srgb, #0053fd 10%, #ffffff);
-    --theme-midground: #0053fd;
-    --theme-warm: #cf806d;
-    --theme-background-seed: #f8faff;
-    --theme-sidebar-seed: #f3f7ff;
+    /* Light seeds, stated in OKLCH (exact conversions of the shipped hex —
+       #17171a, #0053fd Nous blue, #cf806d, #f8faff, #f3f7ff, #f3f3f3, #fcfcfc)
+       so future palette tuning happens on perceptual axes, not hex guessing. */
+    --theme-foreground: oklch(20.59% 0.0059 285.9);
+    --theme-primary: oklch(52.79% 0.2594 262.7);
+    --theme-secondary: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 7%, #ffffff);
+    --theme-accent-soft: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 10%, #ffffff);
+    --theme-midground: oklch(52.79% 0.2594 262.7);
+    --theme-warm: oklch(67.88% 0.1026 34.3);
+    --theme-background-seed: oklch(98.5% 0.007 268.5);
+    --theme-sidebar-seed: oklch(97.54% 0.0115 264.5);
     --theme-card-seed: #ffffff;
     --theme-elevated-seed: #ffffff;
-    --theme-bubble-seed: color-mix(in srgb, #0053fd 6%, #ffffff);
-    --theme-neutral-chrome: #f3f3f3;
-    --theme-neutral-sidebar: #f3f3f3;
-    --theme-neutral-card: #fcfcfc;
+    --theme-bubble-seed: color-mix(in srgb, oklch(52.79% 0.2594 262.7) 6%, #ffffff);
+    --theme-neutral-chrome: oklch(96.42% 0 0);
+    --theme-neutral-sidebar: oklch(96.42% 0 0);
+    --theme-neutral-card: oklch(99.11% 0 0);
     --theme-mix-chrome: 92%;
     --theme-mix-sidebar: 100%;
     --theme-mix-card: 22%;
@@ -306,8 +404,10 @@
     );
     --ui-text-primary: color-mix(in srgb, var(--ui-base) 94%, transparent);
     --ui-text-secondary: color-mix(in srgb, var(--ui-base) 74%, transparent);
-    --ui-text-tertiary: color-mix(in srgb, var(--ui-base) 54%, transparent);
-    --ui-text-quaternary: color-mix(in srgb, var(--ui-base) 36%, transparent);
+    /* Tertiary/quaternary raised from 54%/36% — muted text has to stay muted,
+       not vanish on a real monitor. */
+    --ui-text-tertiary: color-mix(in srgb, var(--ui-base) 60%, transparent);
+    --ui-text-quaternary: color-mix(in srgb, var(--ui-base) 44%, transparent);
     /* Transcript scaffolding — thinking headers, settled tool runs, the live
        activity ticker. One colour for all of them (see `ScaffoldRow`), pitched
        between the secondary and tertiary greys those lines used to pick
@@ -325,10 +425,12 @@
       var(--ui-accent) var(--theme-stroke-secondary-accent-mix),
       color-mix(in srgb, var(--ui-base) 7%, transparent)
     );
+    /* Base alpha raised 5% → 8%: the default in-panel hairline must be
+       visible on an ordinary display while staying thin. */
     --ui-stroke-tertiary: color-mix(
       in srgb,
       var(--ui-accent) var(--theme-stroke-tertiary-accent-mix),
-      color-mix(in srgb, var(--ui-base) 5%, transparent)
+      color-mix(in srgb, var(--ui-base) 8%, transparent)
     );
     --ui-stroke-quaternary: color-mix(
       in srgb,
@@ -401,17 +503,23 @@
     --dt-user-bubble: var(--ui-chat-bubble-background);
     --dt-user-bubble-border: var(--ui-stroke-tertiary);
 
+    /* Bundled Geist leads; the old system faces stay as fallbacks for scripts
+       the subset files don't cover (CJK, Cyrillic, …). Keep in sync with
+       DEFAULT_TYPOGRAPHY in themes/presets.ts — applyTheme() repaints these
+       inline on boot. */
     --dt-font-sans:
-      'Segoe WPC', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif,
+      'Geist', 'Segoe WPC', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif,
       'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', emoji;
+    /* Display serif — Instrument Serif, allowed in exactly two slots (home
+       greeting, onboarding hero). Roman only; never italicized. */
+    --dt-font-serif-display: 'Instrument Serif', Georgia, serif;
     /* Key caps always use the native UI face — never theme typography overrides. */
     --dt-font-kbd: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-    /* Menlo/Monaco first — Apple's native monospace faces — so code/diff read
-       in the system mono on macOS, with SF Mono and bundled Courier Prime as
-       fallbacks. */
+    /* Bundled JetBrains Mono is the default code face app-wide (code, kbd,
+       paths, terminal); Menlo/Monaco/SF Mono cover glyphs it lacks. */
     --dt-font-mono:
-      Menlo, Monaco, 'SF Mono', 'Courier Prime', monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-      'Noto Color Emoji', emoji;
+      'JetBrains Mono', Menlo, Monaco, 'SF Mono', monospace, 'Apple Color Emoji', 'Segoe UI Emoji',
+      'Segoe UI Symbol', 'Noto Color Emoji', emoji;
     --dt-base-size: 1rem;
     --dt-line-height: 1.5;
     --dt-letter-spacing: 0;
@@ -424,6 +532,27 @@
        to the value the app actually renders at. */
     --radius-scalar: 0.2;
 
+    /* Control heights — one ramp shared by Button, Input, Select and friends,
+       so controls on the same row always line up. */
+    --control-h-sm: 1.75rem; /* 28px — dense rows, secondary actions */
+    --control-h-md: 2rem; /* 32px — the default control height */
+    --control-h-lg: 2.25rem; /* 36px — prominent form controls */
+    --control-h-xl: 2.5rem; /* 40px — hero CTAs (onboarding, primary dialog action) */
+
+    /* Corner-radius voice — controls 6px · cards/widgets 10px · overlays 12px
+       (the composer keeps its own 16px shell). Fixed on purpose: these rungs do
+       NOT ride --radius-scalar, so the control silhouette stays put when a skin
+       tunes the global roundness. */
+    --radius-control: 0.375rem; /* 6px — buttons, inputs, segmented controls */
+    --radius-card: 0.625rem; /* 10px — cards, inline chat widgets */
+    --radius-overlay: 0.75rem; /* 12px — overlays, popovers, dialogs */
+
+    /* Motion durations — micro: press/toggle/color · short: hover/menu/tooltip
+       · long: overlay/entrance. Exits run ≈ 75% of the paired enter. */
+    --dur-micro: 100ms;
+    --dur-short: 200ms;
+    --dur-long: 320ms;
+
     /* Space under last message vs overlay composer — driven by the measured composer DOCK height (see
        composer/index.tsx), which covers the micro-action strip, the status stack, the composer, and the
        underside strip in one number.
@@ -432,9 +561,12 @@
 
     --composer-shell-pad-block-end: 0.625rem;
     --message-text-indent: 0.75rem;
-    --conversation-text-font-size: 0.8125rem;
-    --conversation-tool-font-size: 0.6875rem;
-    --conversation-caption-font-size: 0.75rem;
+    /* The reading surface: prose 15px, tool/caption a step behind — the chat
+       column is the app's primary content and reads at content size, not
+       chrome size. User-adjustable through the existing pipeline. */
+    --conversation-text-font-size: 0.9375rem;
+    --conversation-tool-font-size: 0.75rem;
+    --conversation-caption-font-size: 0.8125rem;
     --conversation-line-height: 1.125rem;
     --conversation-caption-line-height: 1rem;
     --conversation-turn-gap: 0.375rem;
@@ -459,9 +591,11 @@
     --file-tree-row-height: 1.375rem;
 
     --composer-width: 48.75rem;
-    --composer-control-size: 1.5rem;
-    --composer-control-primary-size: 1.625rem;
-    --composer-control-gap: 0.25rem;
+    /* Composer control row — 32px controls matching --control-h-md, so the
+       send button (the app's most important control) reads as a real target. */
+    --composer-control-size: 2rem;
+    --composer-control-primary-size: 2rem;
+    --composer-control-gap: 0.375rem;
     --composer-row-gap: 0.25rem;
     --composer-ring-strength: 1;
     --composer-surface-pad-x: 0.5rem;
@@ -1120,13 +1254,17 @@ code {
 }
 
 /* `[data-state='open']` keeps the trigger looking focused while its dropdown is
-   open — Radix moves focus into the list, so the trigger itself loses :focus. */
+   open — Radix moves focus into the list, so the trigger itself loses :focus.
+   Focus state: the 1px border never changes weight (no layout shift); the
+   accent arrives as a 2px outline instead. The outline is not in the base
+   transition list, so it appears instantly — focus rings are never animated. */
 .desktop-input-chrome:focus,
 .desktop-input-chrome:focus-within,
 .desktop-input-chrome[data-state='open'] {
-  border-color: var(--dt-composer-ring);
+  border-color: color-mix(in srgb, var(--dt-composer-ring) calc(var(--dt-input-border) * 2), transparent);
   box-shadow: none;
-  outline: none;
+  outline: 2px solid var(--dt-composer-ring);
+  outline-offset: 1px;
 }
 
 .desktop-input-chrome[aria-invalid='true'] {

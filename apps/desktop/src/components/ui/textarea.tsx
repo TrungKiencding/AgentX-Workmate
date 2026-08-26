@@ -12,7 +12,10 @@ function Textarea({ className, size, ...props }: React.ComponentProps<'textarea'
       autoCapitalize="off"
       autoComplete="off"
       autoCorrect="off"
-      className={cn(controlVariants({ size }), 'min-h-16', className)}
+      // Multi-line: the control ramp's fixed height gives way to a min-height
+      // so the field can grow; vertical padding restores the inset the
+      // height-centered single-line controls get for free.
+      className={cn(controlVariants({ size }), 'h-auto min-h-16 py-1.5', className)}
       data-slot="textarea"
       spellCheck={false}
       {...props}

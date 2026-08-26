@@ -15,9 +15,23 @@ const SYSTEM_SANS =
   '"Segoe WPC", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif, ' +
   EMOJI_FALLBACK
 
-const SYSTEM_MONO = 'Menlo, Monaco, "SF Mono", "Courier Prime", monospace, ' + EMOJI_FALLBACK
+const SYSTEM_MONO = 'Menlo, Monaco, "SF Mono", monospace, ' + EMOJI_FALLBACK
 
-export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = { fontSans: SYSTEM_SANS, fontMono: SYSTEM_MONO }
+// Bundled defaults (woff2 vendored in src/fonts/, no CDN fetch at runtime):
+// Geist leads the sans stack with the system faces covering scripts the
+// subset files lack (CJK, Cyrillic); JetBrains Mono is the default code face.
+const GEIST_SANS = '"Geist", ' + SYSTEM_SANS
+const JETBRAINS_MONO = '"JetBrains Mono", ' + SYSTEM_MONO
+
+// Display serif — the sanctioned outlier face, used in exactly two slots
+// (home greeting, onboarding hero). Roman only.
+export const DEFAULT_SERIF_DISPLAY = '"Instrument Serif", Georgia, serif'
+
+export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = {
+  fontSans: GEIST_SANS,
+  fontMono: JETBRAINS_MONO,
+  fontSerifDisplay: DEFAULT_SERIF_DISPLAY
+}
 
 const NOUS_BLUE = '#0053FD'
 const PSYCHE_BLUE = '#1540B1'
@@ -89,10 +103,12 @@ export const nousTheme: DesktopTheme = {
     userBubble: '#143B91',
     userBubbleBorder: '#3A63BD'
   },
+  // The default skin rides DEFAULT_TYPOGRAPHY (bundled Geist + JetBrains
+  // Mono). No fontUrl on purpose: the default theme must never fetch a font
+  // CDN at runtime.
   typography: {
-    fontSans: SYSTEM_SANS,
-    fontMono: SYSTEM_MONO,
-    fontUrl: 'https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap'
+    fontSans: GEIST_SANS,
+    fontMono: JETBRAINS_MONO
   }
 }
 

@@ -73,8 +73,9 @@ export function SearchField({
           // `field-sizing: content` grows the input to fit the placeholder/typed
           // text; min-w-0 lets it shrink back below content size when the
           // context is narrower — long queries scroll inside the field.
-          // text-xs matches the form controls (Input/Select via controlVariants).
-          'h-7 min-w-0 max-w-full bg-transparent text-xs text-foreground [field-sizing:content] placeholder:text-muted-foreground focus:outline-none',
+          // text-sm + --control-h-sm match the form controls (Input/Select via
+          // controlVariants) while the field keeps its borderless language.
+          'h-(--control-h-sm) min-w-0 max-w-full bg-transparent text-sm text-foreground [field-sizing:content] placeholder:text-muted-foreground focus:outline-none',
           inputClassName
         )}
         onChange={event => onChange(event.target.value)}
