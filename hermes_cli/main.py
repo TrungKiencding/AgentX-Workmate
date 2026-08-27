@@ -10725,6 +10725,21 @@ def cmd_dashboard(args):
     if not _headless_backend:
         os.environ.pop("AGENTX_SERVE_HEADLESS", None)
 
+    # ── Don't outlive the desktop app that spawned us ─────────────────
+    # Electron tears this backend down from its before-quit SIGTERM, but every
+    # death that skips before-quit (concurrently -k on the dev script, a crash,
+    # a force-quit) leaves us reparented to init and running forever. That
+    # orphan keeps its stdio MCP children too, and the WebMate bridge server
+    # among them owns a fixed port — so the NEXT launch's bridge server dies on
+    # EADDRINUSE and that session silently has no browser tools. Arm a
+    # parent-death watchdog; it no-ops unless AGENTX_DESKTOP=1 on POSIX.
+    try:
+        from hermes_cli.parent_watchdog import install_parent_death_watchdog
+
+        install_parent_death_watchdog()
+    except Exception:
+        logger.debug("Parent-death watchdog could not be armed", exc_info=True)
+
     # ── Unified profile launch routing ────────────────────────────────
     # The dashboard is a MACHINE management surface: it can read/write any
     # profile via the per-request ?profile= scoping. Running one dashboard
