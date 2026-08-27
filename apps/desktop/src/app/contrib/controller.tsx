@@ -41,6 +41,7 @@ import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
 import { sessionTitle as storedSessionTitle } from '@/lib/chat-runtime'
 import { Download, FileText, LayoutDashboard, PanelBottom, Terminal, Upload, Zap } from '@/lib/icons'
 import { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
+import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { setYoloEnabled } from '@/lib/yolo-session'
 import { pruneComposerPopoutZones } from '@/store/composer-popout'
 import {
@@ -333,6 +334,12 @@ registry.registerMany([
   {
     id: 'profile.import',
     area: PALETTE_AREA,
+    // Adopting a bundle CREATES a profile, which is exactly what
+    // PROFILE_MANAGEMENT_ENABLED stands down. `enabled: false` keeps the row
+    // out of the palette without unregistering it, so the flag is the only
+    // edit needed to bring it back. Export stays: it only bundles the profile
+    // the account already has.
+    enabled: PROFILE_MANAGEMENT_ENABLED,
     data: {
       id: 'profile.import',
       label: 'Import profile…',

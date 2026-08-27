@@ -62,6 +62,7 @@ import {
   Wrench,
   Zap
 } from '@/lib/icons'
+import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { resolveVersionStatus } from '@/lib/version-status'
@@ -815,7 +816,19 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             label: t.shell.statusbar.cron,
             run: go(CRON_ROUTE)
           },
-          { action: 'nav.profiles', icon: Users, id: 'nav-profiles', label: t.profiles.title, run: go(PROFILES_ROUTE) },
+          // The manage-profiles overlay is the create/rename/delete surface, so
+          // it goes with the rest of profile management (PROFILE_MANAGEMENT_ENABLED).
+          ...(PROFILE_MANAGEMENT_ENABLED
+            ? [
+                {
+                  action: 'nav.profiles',
+                  icon: Users,
+                  id: 'nav-profiles',
+                  label: t.profiles.title,
+                  run: go(PROFILES_ROUTE)
+                }
+              ]
+            : []),
           { action: 'nav.agents', icon: Cpu, id: 'nav-agents', label: t.agents.title, run: go(AGENTS_ROUTE) },
           {
             icon: Starmap,

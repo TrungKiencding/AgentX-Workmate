@@ -6,6 +6,7 @@
 // add a hotkey, add a row here and a handler there — nothing else.
 
 import { registry } from '@/contrib/registry'
+import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 
 import { IS_MAC } from './combo'
 
@@ -52,7 +53,7 @@ const SESSION_SLOT_ACTIONS: KeybindActionMeta[] = Array.from({ length: SESSION_S
   defaults: [`ctrl+${i + 1}`]
 }))
 
-export const KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
+const BUILTIN_KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   // ── Composer ─────────────────────────────────────────────────────────────
   // Soft `/` / Enter focus (gated); other printables type-to-focus unbound.
   { id: 'composer.focus', category: 'composer', defaults: ['/', 'enter'] },
@@ -153,6 +154,18 @@ export const KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   { id: 'appearance.toggleMode', category: 'view', defaults: ['shift+x'] },
   { id: 'keybinds.openPanel', category: 'view', defaults: ['mod+/'] }
 ]
+
+// The two hotkeys that CREATE or MANAGE a profile go with the rest of profile
+// management (PROFILE_MANAGEMENT_ENABLED). Dropping them here is the whole
+// job: the dispatch index, the shortcuts panel, and `defaultBindings()` all
+// read this list, so a hidden feature keeps no hotkey door open. The switch
+// hotkeys stay — they only ever reach a profile that already exists, and with
+// one profile per account they are simply no-ops.
+const HIDDEN_PROFILE_ACTION_IDS: ReadonlySet<string> = new Set(['nav.profiles', 'profile.create'])
+
+export const KEYBIND_ACTIONS: readonly KeybindActionMeta[] = PROFILE_MANAGEMENT_ENABLED
+  ? BUILTIN_KEYBIND_ACTIONS
+  : BUILTIN_KEYBIND_ACTIONS.filter(action => !HIDDEN_PROFILE_ACTION_IDS.has(action.id))
 
 export const KEYBIND_ACTION_IDS: readonly string[] = KEYBIND_ACTIONS.map(action => action.id)
 

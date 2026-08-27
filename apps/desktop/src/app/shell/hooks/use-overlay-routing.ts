@@ -10,6 +10,7 @@ import {
   NEW_CHAT_ROUTE,
   STARMAP_ROUTE
 } from '@/app/routes'
+import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 
 const SECTIONS = ['sessions', 'system', 'usage'] as const
 
@@ -23,7 +24,10 @@ export function useOverlayRouting() {
   const agentsOpen = currentView === 'agents'
   const starmapOpen = currentView === 'starmap'
   const cronOpen = currentView === 'cron'
-  const profilesOpen = currentView === 'profiles'
+  // Profile management is hidden (PROFILE_MANAGEMENT_ENABLED), so `/profiles`
+  // has no view left to render. Report it closed — and bounce the route below —
+  // rather than opening an empty overlay card over the chat.
+  const profilesOpen = PROFILE_MANAGEMENT_ENABLED && currentView === 'profiles'
   const webhooksOpen = currentView === 'webhooks'
   const chatOpen = currentView === 'chat'
   const overlayOpen = isOverlayView(currentView)
@@ -57,6 +61,16 @@ export function useOverlayRouting() {
     () => navigate(returnPathRef.current || NEW_CHAT_ROUTE, { replace: true }),
     [navigate]
   )
+
+  // A stale deep link, a restored window, or a bookmark can still name
+  // `/profiles` after the feature was hidden. Send it back where the user came
+  // from (chat on a cold start) so nobody lands on a blank overlay with no
+  // close button to press.
+  useEffect(() => {
+    if (!PROFILE_MANAGEMENT_ENABLED && currentView === 'profiles') {
+      navigate(returnPathRef.current || NEW_CHAT_ROUTE, { replace: true })
+    }
+  }, [currentView, navigate])
 
   const toggleCommandCenter = useCallback(() => {
     if (commandCenterOpen) {

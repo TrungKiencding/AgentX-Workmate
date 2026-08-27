@@ -11,6 +11,21 @@ const startManualProviderOAuth = vi.fn()
 const startManualLocalEndpoint = vi.fn()
 const onboarding = atom({ manual: false })
 
+// The Accounts sub-view is shipped hidden (PROVIDER_ACCOUNTS_ENABLED). Its code
+// is not gone, so neither are its tests: they run with the flag forced on, and
+// the `hidden` block below covers the shipped state. `PROVIDER_VIEWS` /
+// `DEFAULT_PROVIDER_VIEW` are computed at module-eval time, so flipping the flag
+// needs a `vi.resetModules()` before the dynamic import — see renderProvidersSettings.
+const flags = vi.hoisted(() => ({ providerAccounts: true }))
+
+vi.mock('@/lib/product-flags', () => ({
+  BILLING_ENABLED: false,
+  PROFILE_MANAGEMENT_ENABLED: false,
+  get PROVIDER_ACCOUNTS_ENABLED() {
+    return flags.providerAccounts
+  }
+}))
+
 vi.mock('@/hermes', () => ({
   disconnectOAuthProvider: (providerId: string) => disconnectOAuthProvider(providerId),
   getEnvVars: () => getEnvVars(),
@@ -58,6 +73,8 @@ function keyVar(patch: Partial<EnvVarInfo> = {}): EnvVarInfo {
 }
 
 beforeEach(() => {
+  flags.providerAccounts = true
+  vi.resetModules()
   onboarding.set({ manual: false })
   getEnvVars.mockResolvedValue({})
   disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'nous' })
@@ -202,5 +219,36 @@ describe('ProvidersSettings', () => {
     fireEvent.click(row)
 
     await waitFor(() => expect(startManualLocalEndpoint).toHaveBeenCalledWith(null))
+  })
+})
+
+describe('ProvidersSettings with the Accounts sub-view hidden', () => {
+  beforeEach(() => {
+    flags.providerAccounts = false
+    vi.resetModules()
+  })
+
+  it('drops accounts from the sub-view list and lands on API keys', async () => {
+    const { DEFAULT_PROVIDER_VIEW, PROVIDER_VIEWS } = await import('./providers-settings')
+
+    expect(PROVIDER_VIEWS).toEqual(['keys', 'custom-endpoints'])
+    expect(DEFAULT_PROVIDER_VIEW).toBe('keys')
+  })
+
+  it('renders API keys — never the provider sign-in picker — and asks the backend for nothing', async () => {
+    getEnvVars.mockResolvedValue({
+      ACME_API_KEY: keyVar({ provider: 'acme', provider_label: 'Acme' })
+    })
+
+    const { ProvidersSettings } = await import('./providers-settings')
+    await act(async () => {
+      // A stale `?pview=accounts` deep link is the worst case: it must still
+      // land on something, and never on the hidden picker.
+      render(<ProvidersSettings onClose={vi.fn()} onViewChange={vi.fn()} view="accounts" />)
+    })
+
+    expect(await screen.findByText('Acme')).toBeTruthy()
+    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(listOAuthProviders).not.toHaveBeenCalled()
   })
 })

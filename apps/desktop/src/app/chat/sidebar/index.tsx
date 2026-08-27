@@ -26,6 +26,7 @@ import { useContributions } from '@/contrib/react/use-contributions'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { comboTokens } from '@/lib/keybinds/combo'
+import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
 import { sessionMatchesSearch } from '@/lib/session-search'
 import { normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
@@ -1513,9 +1514,15 @@ export function ChatSidebar({
 
         {!showSessionSections && <SidebarBlankState onNewProject={openProjectCreate} />}
 
-        <div className="shrink-0 px-0.5 pb-1 pt-0.5">
-          <ProfileRail />
-        </div>
+        {/* Profiles come with the signed-in account, so there is nothing to
+            create, import, or switch between — the rail (and its padding)
+            stands down as a unit rather than shipping a strip of dead
+            glyphs. See PROFILE_MANAGEMENT_ENABLED. */}
+        {PROFILE_MANAGEMENT_ENABLED && (
+          <div className="shrink-0 px-0.5 pb-1 pt-0.5">
+            <ProfileRail />
+          </div>
+        )}
       </SidebarContent>
       <ProjectDialog />
     </Sidebar>

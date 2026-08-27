@@ -644,6 +644,57 @@ def _migrate_to_33(results: Dict[str, Any], quiet: bool) -> None:
             )
 
 
+def _migrate_to_34(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 33 → 34: relabel the account proxy "LiteLLM" → "AI Gateway" ──
+    # Sign-in writes a ``providers:`` entry for the proxy that serves the
+    # account's models, and it used to label that entry with the name of the
+    # software running it. That name reached every picker — Settings → Model,
+    # the composer's model menu, ``agentx model`` — so people were choosing a
+    # vendor's product name rather than the thing it is to them.
+    #
+    # Only the display label moves. The dict KEY (the provider slug) stays put:
+    # it is what ``model.provider`` pins to and what ``<SLUG>_API_KEY`` is
+    # derived from, so renaming it would strand every saved model choice.
+    #
+    # Matched on the exact old literal, so a label somebody set by hand is left
+    # alone — this rewrites our own past default, nothing else.
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+
+    from hermes_cli.account_provisioning import (
+        LEGACY_PROVIDER_DISPLAY_NAME,
+        PROVIDER_DISPLAY_NAME,
+    )
+
+    config = read_raw_config()
+    providers = config.get("providers")
+    if not isinstance(providers, dict):
+        return
+
+    renamed: List[str] = []
+    for slug, entry in providers.items():
+        if isinstance(entry, dict) and entry.get("name") == LEGACY_PROVIDER_DISPLAY_NAME:
+            entry["name"] = PROVIDER_DISPLAY_NAME
+            renamed.append(str(slug))
+
+    if not renamed:
+        return
+
+    config["providers"] = providers
+    _persist_migration(config)
+    for slug in renamed:
+        results["config_added"].append(
+            f"providers.{slug}.name={PROVIDER_DISPLAY_NAME} "
+            f"(was {LEGACY_PROVIDER_DISPLAY_NAME})"
+        )
+    if not quiet:
+        print(
+            f"  ✓ Renamed {', '.join(renamed)} to "
+            f"“{PROVIDER_DISPLAY_NAME}” in the model picker."
+        )
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -665,6 +716,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (31, _migrate_to_31),
     (32, _migrate_to_32),
     (33, _migrate_to_33),
+    (34, _migrate_to_34),
 )
 
 

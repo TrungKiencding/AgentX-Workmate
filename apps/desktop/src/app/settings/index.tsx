@@ -23,6 +23,7 @@ import {
   Wrench,
   Zap
 } from '@/lib/icons'
+import { BILLING_ENABLED, PROVIDER_ACCOUNTS_ENABLED } from '@/lib/product-flags'
 import { notifyError } from '@/store/notifications'
 
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -42,7 +43,7 @@ import { KeybindSettings } from './keybind-settings'
 import { KEYS_VIEWS, KeysSettings, type KeysView } from './keys-settings'
 import { NotificationsSettings } from './notifications-settings'
 import { PluginsSettings } from './plugins-settings'
-import { PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
+import { DEFAULT_PROVIDER_VIEW, PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
 import { SessionsSettings } from './sessions-settings'
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
 
@@ -54,7 +55,10 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   'keybinds',
   'keys',
   'notifications',
-  'billing',
+  // Off the list while Billing is hidden (BILLING_ENABLED), so a stale
+  // `?tab=billing` deep link coerces to the default view instead of opening a
+  // page with no way to reach it.
+  ...(BILLING_ENABLED ? (['billing'] as const) : []),
   'plugins',
   'sessions',
   'about'
@@ -82,7 +86,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
   // Providers subnav (Accounts vs API keys) lives in its own param so each
   // sub-view is deep-linkable and survives a refresh.
-  const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, 'accounts')
+  const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, DEFAULT_PROVIDER_VIEW)
   const [keysView] = useRouteEnumParam<KeysView>('kview', KEYS_VIEWS, 'tools')
 
   // Jump to a section + its sub-view in one navigate. Two sequential setters
@@ -106,7 +110,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   )
 
   const openProviderView = useCallback(
-    (view: ProviderView) => openSubView('providers', 'pview', view, 'accounts'),
+    (view: ProviderView) => openSubView('providers', 'pview', view, DEFAULT_PROVIDER_VIEW),
     [openSubView]
   )
 
@@ -164,23 +168,33 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         label: t.settings.nav.notifications,
         onSelect: () => setActiveView('notifications')
       },
-      {
-        active: activeView === 'billing',
-        icon: BarChart3,
-        id: 'billing',
-        label: t.settings.nav.billing,
-        onSelect: () => setActiveView('billing')
-      },
+      // Billing is hidden for now — see BILLING_ENABLED.
+      ...(BILLING_ENABLED
+        ? [
+            {
+              active: activeView === 'billing',
+              icon: BarChart3,
+              id: 'billing',
+              label: t.settings.nav.billing,
+              onSelect: () => setActiveView('billing')
+            }
+          ]
+        : []),
       {
         active: activeView === 'providers',
         children: [
-          {
-            active: activeView === 'providers' && providerView === 'accounts',
-            icon: codiconIcon('account'),
-            id: 'pview:accounts',
-            label: t.settings.nav.providerAccounts,
-            onSelect: () => openProviderView('accounts')
-          },
+          // The provider sign-in picker is hidden — see PROVIDER_ACCOUNTS_ENABLED.
+          ...(PROVIDER_ACCOUNTS_ENABLED
+            ? [
+                {
+                  active: activeView === 'providers' && providerView === 'accounts',
+                  icon: codiconIcon('account'),
+                  id: 'pview:accounts',
+                  label: t.settings.nav.providerAccounts,
+                  onSelect: () => openProviderView('accounts')
+                }
+              ]
+            : []),
           {
             active: activeView === 'providers' && providerView === 'keys',
             icon: KeyRound,

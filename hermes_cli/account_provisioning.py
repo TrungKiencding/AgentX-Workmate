@@ -93,6 +93,18 @@ STATE_FILENAME = "litellm-account.json"
 
 _STATE_VERSION = 1
 
+#: What the account's proxy is CALLED in every picker — Settings → Model, the
+#: composer's model menu, ``agentx model``. The slug stays ``litellm`` (it keys
+#: the ``providers:`` entry, the ``model.provider`` pin, and the key env var, so
+#: renaming it would strand every saved choice); only the label people read
+#: changes. Existing configs are relabelled by the v34 config migration, which
+#: matches on the old literal below.
+PROVIDER_DISPLAY_NAME = "AI Gateway"
+
+#: The label this shipped before ``PROVIDER_DISPLAY_NAME``. Kept so the
+#: migration and its test agree on exactly what is being replaced.
+LEGACY_PROVIDER_DISPLAY_NAME = "LiteLLM"
+
 
 class ProvisioningError(RuntimeError):
     """Provisioning could not complete. The message is operator-facing."""
@@ -625,7 +637,7 @@ def _write_provider_config(
 
     existing = providers.get(settings.provider_name)
     entry: dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
-    entry.setdefault("name", "LiteLLM")
+    entry.setdefault("name", PROVIDER_DISPLAY_NAME)
     entry["base_url"] = openai_base_url(base_url)
     entry["key_env"] = key_env
     entry["discover_models"] = settings.discover_models

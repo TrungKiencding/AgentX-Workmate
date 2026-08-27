@@ -19,6 +19,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { disconnectOAuthProvider, listOAuthProviders } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Check, ChevronDown, ChevronRight, KeyRound, Loader2, Terminal, Trash2 } from '@/lib/icons'
+import { PROVIDER_ACCOUNTS_ENABLED } from '@/lib/product-flags'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { notify, notifyError } from '@/store/notifications'
@@ -46,9 +47,20 @@ function GroupLabel({ children }: { children: ReactNode }) {
 }
 
 // Sub-views surfaced as a sidebar subnav: account sign-in vs raw API keys.
-export const PROVIDER_VIEWS = ['accounts', 'keys', 'custom-endpoints'] as const
+const ALL_PROVIDER_VIEWS = ['accounts', 'keys', 'custom-endpoints'] as const
 
-export type ProviderView = (typeof PROVIDER_VIEWS)[number]
+export type ProviderView = (typeof ALL_PROVIDER_VIEWS)[number]
+
+// `accounts` (the OAuth provider sign-in picker) is hidden while models arrive
+// through the account's own gateway key — see PROVIDER_ACCOUNTS_ENABLED. The
+// list must stay a module constant: `useRouteEnumParam` memoises on its
+// identity, so rebuilding it per render would re-run the param read every time.
+export const PROVIDER_VIEWS: readonly ProviderView[] = PROVIDER_ACCOUNTS_ENABLED
+  ? ALL_PROVIDER_VIEWS
+  : ALL_PROVIDER_VIEWS.filter(view => view !== 'accounts')
+
+/** The sub-view a bare `?tab=providers` lands on. */
+export const DEFAULT_PROVIDER_VIEW: ProviderView = PROVIDER_ACCOUNTS_ENABLED ? 'accounts' : 'keys'
 
 // Group the env catalog by provider — one ListRow per vendor plus optional
 // advanced overrides (base URL, region, etc.). Groups without a key field are
@@ -361,7 +373,9 @@ export function ProvidersSettings({
     let cancelled = false
 
     void (async () => {
-      if (onboardingActive) {
+      // Nothing renders these while the Accounts sub-view is hidden, so don't
+      // pay for the round trip every time Providers opens.
+      if (onboardingActive || !PROVIDER_ACCOUNTS_ENABLED) {
         return
       }
 
@@ -437,8 +451,9 @@ export function ProvidersSettings({
 
   const hasOauth = oauthProviders.length > 0
   // The sidebar subnav owns the Accounts/API-keys split now; with no OAuth
-  // providers there's nothing for the "Accounts" view to show, so fall to keys.
-  const showApiKeys = view === 'keys' || (!hasOauth && view !== 'custom-endpoints')
+  // providers — or with the Accounts view hidden entirely
+  // (PROVIDER_ACCOUNTS_ENABLED) — there's nothing for it to show, so fall to keys.
+  const showApiKeys = view === 'keys' || ((!PROVIDER_ACCOUNTS_ENABLED || !hasOauth) && view !== 'custom-endpoints')
 
   const keyGroups = buildProviderKeyGroups(vars)
 
