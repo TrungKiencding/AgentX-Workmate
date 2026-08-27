@@ -1497,6 +1497,11 @@ DEFAULT_CONFIG = {
         # ``AGENTX_DASHBOARD_REQUIRE_AUTH`` overrides all three, in both
         # directions. A non-loopback bind is gated regardless of this setting.
         "require_auth": None,
+        # IP addresses or bounded CIDR networks of reverse proxies allowed to
+        # supply X-Forwarded-Proto / X-Forwarded-For. Loopback remains trusted
+        # automatically. Wildcards and /0 networks are rejected so arbitrary
+        # clients cannot spoof their scheme or source address.
+        "trusted_proxies": [],
         # OAuth gate configuration (engaged when ``--host`` is set and
         # ``--insecure`` is not). The bundled Nous Portal plugin reads
         # both keys at startup; they are the canonical surface for these
