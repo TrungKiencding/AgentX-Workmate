@@ -83,6 +83,15 @@ describe('convertVscodeColorTheme', () => {
     expect(theme.darkColors).toBe(theme.colors)
   })
 
+  it('carries no typography — imports fall back to the bundled faces', () => {
+    const { theme } = convertVscodeColorTheme(dracula)
+
+    // applyTheme merges `{ ...DEFAULT_TYPOGRAPHY, ...theme.typography }`, so an
+    // import without the field (including the newer fontSerifDisplay) inherits
+    // Geist / JetBrains Mono / Instrument Serif instead of breaking.
+    expect(theme.typography).toBeUndefined()
+  })
+
   it('records derived fallbacks for omitted tokens', () => {
     const { derived } = convertVscodeColorTheme({
       name: 'Sparse',

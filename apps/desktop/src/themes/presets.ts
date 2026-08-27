@@ -1,6 +1,12 @@
 /**
  * Built-in desktop themes. Names match the CLI skins / dashboard presets.
  * Add new themes here — no code changes needed elsewhere.
+ *
+ * Every preset carries its axes in a comment (band · display · accent) and is
+ * built on OKLCH values written out as hex (the pipeline in `color.ts` parses
+ * `#rrggbb` only). Values must clear the contrast gate:
+ * `node scripts/check-theme-contrast.mjs` (part of `npm run check`) holds both
+ * variants of every preset to the floors in UI-REDESIGN-PLAN §5.30.
  */
 
 import type { DesktopTheme, DesktopThemeTypography } from './types'
@@ -93,6 +99,10 @@ const nousTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_BLUE} ${
  * Nous — canonical AgentX desktop identity. The palette keeps the current
  * glass geometry neutral, then lets the old bb/gui blue and psyche cream
  * return as accent seeds.
+ *
+ * Axes — band: Paper (light) / Graphite (dark), the hue-262 ladders above ·
+ * display: Geist + JetBrains Mono + the Instrument Serif outlier · accent:
+ * Nous blue oklch(52.8% 0.259 263), lifted per-band for stroke duty.
  */
 export const nousTheme: DesktopTheme = {
   name: 'nous',
@@ -166,6 +176,9 @@ export const nousTheme: DesktopTheme = {
  * Nous Classic — the royal-blue dark AgentX shipped before Graphite, kept whole
  * so nobody loses the palette they chose. Same light side as Nous; only the
  * dark band differs.
+ *
+ * Axes — band: royal blue, bg oklch(34.7% 0.151 264) · display: Geist +
+ * JetBrains Mono · accent: psyche cream oklch(93.8% 0.045 69) on the blue.
  */
 export const nousClassicTheme: DesktopTheme = {
   name: 'nous-classic',
@@ -205,7 +218,13 @@ export const nousClassicTheme: DesktopTheme = {
   }
 }
 
-/** Deep blue-violet with cool accents. Matches the dashboard midnight theme. */
+/**
+ * Midnight — deep blue-violet dark. Matches the dashboard midnight theme.
+ *
+ * Axes — band: violet-navy, bg oklch(14.9% 0.042 280) rising to the popover
+ * rung · display: system sans + JetBrains Mono · accent: periwinkle
+ * oklch(65.6% 0.151 286) carrying ring and focus on the dark band.
+ */
 export const midnightTheme: DesktopTheme = {
   name: 'midnight',
   label: 'Midnight',
@@ -216,7 +235,7 @@ export const midnightTheme: DesktopTheme = {
     card: '#0d0d28',
     cardForeground: '#ddd6ff',
     muted: '#13133a',
-    mutedForeground: '#7c7ab0',
+    mutedForeground: '#8b89c0', // oklch(65.3% 0.081 286) — 6.05:1 on the page
     popover: '#0f0f2e',
     popoverForeground: '#ddd6ff',
     primary: '#ddd6ff',
@@ -232,7 +251,7 @@ export const midnightTheme: DesktopTheme = {
     destructive: '#b03060',
     destructiveForeground: '#fef2f2',
     sidebarBackground: '#06061a',
-    sidebarBorder: '#12123a',
+    sidebarBorder: '#1b1b4e', // oklch(25.7% 0.091 278) — hairline clears the 1.2:1 floor
     userBubble: '#14143a',
     userBubbleBorder: '#242466'
   },
@@ -242,7 +261,12 @@ export const midnightTheme: DesktopTheme = {
   }
 }
 
-/** Warm crimson and bronze — forge vibes. Matches the CLI ares skin. */
+/**
+ * Ember — warm crimson and bronze, forge vibes. Matches the CLI ares skin.
+ *
+ * Axes — band: near-black umber, bg oklch(15.3% 0.035 63) · display: system
+ * sans + IBM Plex Mono · accent: bronze oklch(66% 0.157 55).
+ */
 export const emberTheme: DesktopTheme = {
   name: 'ember',
   label: 'Ember',
@@ -269,7 +293,7 @@ export const emberTheme: DesktopTheme = {
     destructive: '#c43010',
     destructiveForeground: '#fef2f2',
     sidebarBackground: '#100600',
-    sidebarBorder: '#2a1004',
+    sidebarBorder: '#3a1a08', // oklch(26% 0.058 48) — hairline clears the 1.2:1 floor
     userBubble: '#2a1000',
     userBubbleBorder: '#4a2010'
   },
@@ -279,7 +303,13 @@ export const emberTheme: DesktopTheme = {
   }
 }
 
-/** Clean grayscale. Matches the CLI mono skin and dashboard mono theme. */
+/**
+ * Mono — clean grayscale. Matches the CLI mono skin and dashboard mono theme.
+ *
+ * Axes — band: deliberately achromatic (the one preset exempt from the
+ * trace-of-chroma rule — grayscale IS its identity), bg oklch(16.4% 0 0) ·
+ * display: system stacks · accent: silver oklch(68.6% 0 0).
+ */
 export const monoTheme: DesktopTheme = {
   name: 'mono',
   label: 'Mono',
@@ -312,7 +342,14 @@ export const monoTheme: DesktopTheme = {
   }
 }
 
-/** Neon green on black. Matches the CLI cyberpunk skin and dashboard theme. */
+/**
+ * Cyberpunk — neon green on black, matrix terminal. A fun skin: it keeps its
+ * phosphor identity, but every pair still clears the contrast gate.
+ *
+ * Axes — band: black-green, bg oklch(12.5% 0.043 142) · display: Courier all
+ * the way down (terminal cosplay is the point) · accent: phosphor green
+ * oklch(86.9% 0.278 144).
+ */
 export const cyberpunkTheme: DesktopTheme = {
   name: 'cyberpunk',
   label: 'Cyberpunk',
@@ -323,7 +360,7 @@ export const cyberpunkTheme: DesktopTheme = {
     card: '#001200',
     cardForeground: '#00ff41',
     muted: '#001a00',
-    mutedForeground: '#1a8a30',
+    mutedForeground: '#21a83d', // oklch(64.1% 0.184 146) — 6.45:1 on the page (was #1a8a30 at 4.53:1)
     popover: '#001000',
     popoverForeground: '#00ff41',
     primary: '#00ff41',
@@ -336,10 +373,10 @@ export const cyberpunkTheme: DesktopTheme = {
     input: '#003000',
     ring: '#00ff41',
     midground: '#00ff41',
-    destructive: '#ff003c',
-    destructiveForeground: '#000a00',
+    destructive: '#e60036', // oklch(58.4% 0.235 22) — deep enough for a white label
+    destructiveForeground: '#ffffff', // 4.75:1 · Lc 76 (near-black on #ff003c sat at Lc 40)
     sidebarBackground: '#000600',
-    sidebarBorder: '#001800',
+    sidebarBorder: '#002800', // oklch(24% 0.082 142) — hairline clears the 1.2:1 floor
     userBubble: '#001400',
     userBubbleBorder: '#004800'
   },
@@ -349,7 +386,12 @@ export const cyberpunkTheme: DesktopTheme = {
   }
 }
 
-/** Cool slate blue for developers. Matches the CLI slate skin. */
+/**
+ * Slate — cool slate blue for developers. Matches the CLI slate skin.
+ *
+ * Axes — band: blue-grey, bg oklch(17.6% 0.014 258) · display: system sans +
+ * JetBrains Mono · accent: sky oklch(71.5% 0.152 253).
+ */
 export const slateTheme: DesktopTheme = {
   name: 'slate',
   label: 'Slate',
@@ -373,7 +415,7 @@ export const slateTheme: DesktopTheme = {
     input: '#30363d',
     ring: '#58a6ff',
     midground: '#58a6ff',
-    destructive: '#cf4848',
+    destructive: '#c23e3e', // oklch(55.5% 0.169 24) — carries its light label at 4.68:1 (was #cf4848 at 4.11:1)
     destructiveForeground: '#fef2f2',
     sidebarBackground: '#090d13',
     sidebarBorder: '#1c2228',

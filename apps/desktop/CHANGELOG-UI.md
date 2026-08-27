@@ -1,0 +1,103 @@
+# UI Changelog — the 2026-08 uplift
+
+Ten phases, one direction: a quieter ground, larger type where reading happens,
+one clear voice per screen. Everything below is shipped and measured — no
+before/after number here is invented. The full plan and its acceptance gates
+live in [`UI-REDESIGN-PLAN.md`](./UI-REDESIGN-PLAN.md); the resulting system is
+documented in [`design.md`](./design.md).
+
+Acceptance screenshots are captured per release (6 surfaces × 1280×800,
+1512×982 and 900×700 × light + dark, plus the 8-theme grid) and deliberately
+kept out of the repository — regenerate them with the dev app
+(`VITE_PERF_PROBE=1 npm run dev`) and the `__PERF_DRIVE__` state hooks.
+
+## Foundations — type, color, shape (Phases 0–2)
+
+**Before.** The whole app ran at 11–13px: chat prose 13px, tool text 11px,
+~480 uses of 12px chrome and no display sizes above 14px. System fonts only.
+Hairlines at 3–10% alpha and tertiary text at 54% were near-invisible on real
+screens. Default dark was a saturated royal blue.
+
+**After.**
+- Three bundled faces: **Geist** (UI sans), **JetBrains Mono** (all code),
+  **Instrument Serif** in exactly two display slots. No CDN fetch at runtime.
+- A real type ramp, 11 → 36px (`--text-2xs` … `--text-3xl`); chat prose reads
+  at **15px/1.6** on a 72ch measure.
+- **Paper / Graphite** neutral bands on hue 262 — light elevates by shadow +
+  hairline, dark elevates by lightness (+3% per rung, no glows). The old royal
+  blue lives on, whole, as the **Nous Classic** preset.
+- Visibility knobs raised (tertiary text 54→60%, hairline mix 5→8%) so quiet
+  stays *visible*.
+
+## Controls & composer (Phase 1)
+
+**Before.** Default buttons were ~28px tall with 12px labels and 2.5px corners;
+the send button — the most important control in the app — was 24px.
+
+**After.** One control ramp (`--control-h-*`: 28/32/36/40px) shared by buttons
+and inputs, 13px labels, 6px corners, eight real states including `loading`.
+The send button is a 32px primary. Focus is a 2px accent ring that appears in
+the same frame, never animated.
+
+## The home surface (Phase 3)
+
+**Before.** An empty transcript showed a pixel wordmark and one grey line.
+
+**After.** A serif greeting with your name (when the account has one), one
+personality line, and up to four quick-start chips built only from real data —
+your last session, a project you added, two fixed starters. One entrance per
+app launch, settled in 400ms; reduced motion collapses it to a crossfade. The
+composer stays the only CTA.
+
+## Navigation chrome (Phase 4)
+
+Sidebar rows at 32px with 13px titles and tabular-numeral meta; section labels
+in 11px tracked uppercase; the selected row paints a fill **plus** a 2px
+leading accent bar. Statusbar counters tick in place with `tabular-nums`.
+Pane tabs mark active with a 2px seam and semibold, not color alone.
+
+## Overlays & pages (Phase 5)
+
+Every page announces itself through one header block — 22px semibold title
+over a 13px muted line (`OverlayPageHeader`); Settings deliberately keeps its
+rail-led hierarchy instead. Rows are ≥44px, cards carry one border level and
+10px corners, dialogs name themselves at 18px. The command palette opens with
+no entry animation and a selection highlight that slides.
+
+## The transcript (Phase 6)
+
+Prose at 15px/1.6 capped at 72ch; code, tables and diffs bleed to the full
+column. Fenced code rides one `CodeCard` (12.5px mono, copy answers in place —
+never a toast). Tool rows are scaffolding, not cards: one label voice, state
+always a glyph *and* a semantic color. The user bubble is a quiet card; the
+composer carries the transcript's single elevation.
+
+## Motion (Phase 7)
+
+Every duration and curve is a token (`--dur-micro/short/long` + paired exits,
+`--ease-*`, two physical springs). `transition-all` count in `src/`: **0**.
+Menus and the palette open in the frame they're asked for; only closes animate.
+Tooltips: 500ms on hover, 0ms on focus. Success stays silent when the result
+is visible on screen.
+
+## Themes 2.0 (Phase 8)
+
+Seven presets — Nous (Paper/Graphite), Nous Classic, Midnight, Ember, Mono,
+Cyberpunk, Slate — each documented by its axes (band · display · accent) with
+OKLCH beside every tuned hex. A contrast gate now runs in `npm run check`
+(`scripts/check-theme-contrast.mjs`): 154 measured pairs across both variants
+of every preset — body text ≥ 4.5:1, filled primary/destructive labels also
+APCA |Lc| ≥ 60, focus ring ≥ 3:1, hairlines that must actually exist. Fixed by
+the gate: Cyberpunk's muted text (4.53→6.45:1) and destructive label, Slate's
+destructive pair, Midnight's muted text, four vanished sidebar hairlines, and
+the synthesized light variants of dark-only themes (readable muted text, a
+focus ring that clears 3:1, primaries deepened until a white label reads).
+VS Code imports, CLI skins and user themes inherit the bundled faces
+untouched.
+
+## QA pass (Phase 9)
+
+The §5 slop-checklist ran across Home, streaming chat, full sidebar, Settings,
+the palette and onboarding at three window sizes in both modes. Message action
+buttons were raised to the 24px hit-target floor (they measured 14×14).
+Reduced-motion verified: the strongest thing left moving is a 0.01ms fade.

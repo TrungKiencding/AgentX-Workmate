@@ -47,4 +47,13 @@ describe('skinToDesktopTheme', () => {
 
     expect(theme.colors.destructive).toBe(normalizeHex('#ff5566'))
   })
+
+  it('carries no typography — CLI skins fall back to the bundled faces', () => {
+    const theme = withColors('bare', { background: '#101010', banner_text: '#eeeeee' })!
+
+    // Skins are palette-only: applyTheme's `{ ...DEFAULT_TYPOGRAPHY, ... }`
+    // merge supplies sans/mono and the newer fontSerifDisplay, so a skin
+    // authored before those fields existed keeps rendering unchanged.
+    expect(theme.typography).toBeUndefined()
+  })
 })

@@ -18,7 +18,7 @@ import { persistString, persistStringRecord, storedString, storedStringRecord } 
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 
 import { $backendThemes, $pendingSkinApply } from './backend-sync'
-import { hexToRgb, mix, readableOn } from './color'
+import { baseColorsFor, hexToRgb, mix, readableOn } from './color'
 import { BUILTIN_THEME_LIST, DEFAULT_SERIF_DISPLAY, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme } from './presets'
 import type { DesktopTheme, DesktopThemeColors } from './types'
 import { $userThemes, listAllThemes, resolveTheme } from './user-themes'
@@ -75,54 +75,13 @@ const readBootProfileKey = () => normalizeProfileKey(storedString(LAST_PROFILE_K
 const rememberActiveProfileKey = (profile: string) => persistString(LAST_PROFILE_KEY, profile)
 
 // ─── Color math (for synthesised light variants of dark-only skins) ────────
-// hexToRgb / mix / readableOn live in ./color so the VS Code converter shares
-// the exact same math.
-
-function synthLightColors(seed: DesktopTheme): DesktopThemeColors {
-  const accent = seed.colors.ring || seed.colors.primary
-  const soft = mix('#ffffff', accent, 0.1)
-  const softer = mix('#ffffff', accent, 0.06)
-  const border = mix('#ececef', accent, 0.14)
-  const midground = seed.colors.midground ?? accent
-
-  return {
-    background: '#ffffff',
-    foreground: '#161616',
-    card: '#ffffff',
-    cardForeground: '#161616',
-    muted: softer,
-    mutedForeground: mix('#6b6b70', accent, 0.16),
-    popover: '#ffffff',
-    popoverForeground: '#161616',
-    primary: accent,
-    primaryForeground: readableOn(accent),
-    secondary: soft,
-    secondaryForeground: mix('#2a2a2a', accent, 0.34),
-    accent: soft,
-    accentForeground: mix('#2a2a2a', accent, 0.34),
-    border,
-    input: mix('#e2e2e6', accent, 0.18),
-    ring: accent,
-    midground,
-    midgroundForeground: readableOn(midground),
-    destructive: '#b94a3a',
-    destructiveForeground: '#ffffff',
-    sidebarBackground: mix('#fafafa', accent, 0.05),
-    sidebarBorder: border,
-    userBubble: soft,
-    userBubbleBorder: border
-  }
-}
+// The palette derivation (synthLightColors / baseColorsFor) lives in ./color —
+// a leaf module — so the contrast gate script measures the exact variants the
+// app paints, and the VS Code converter shares the same math.
 
 /** Returns the seed palette for a given skin + mode (no overrides applied). */
 export function getBaseColors(skinName: string, mode: 'light' | 'dark'): DesktopThemeColors {
-  const seed = resolveTheme(skinName) ?? nousTheme
-
-  if (mode === 'dark') {
-    return seed.darkColors ?? seed.colors
-  }
-
-  return seed.darkColors ? seed.colors : synthLightColors(seed)
+  return baseColorsFor(resolveTheme(skinName) ?? nousTheme, mode)
 }
 
 function deriveTheme(skinName: string, mode: 'light' | 'dark'): DesktopTheme {

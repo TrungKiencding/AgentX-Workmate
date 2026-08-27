@@ -2181,8 +2181,10 @@ button[data-slot='aui_msg-reactions'] {
   gap: 0;
   height: auto;
   width: auto;
-  min-height: 0;
-  min-width: 0;
+  /* Invisible pad up to the 24px hit-target floor — the glyph stays 14px and
+     the box stays transparent, so the bar reads exactly as before. */
+  min-height: 1.5rem;
+  min-width: 1.5rem;
   flex-shrink: 0;
   cursor: pointer;
   color: var(--color-muted-foreground);

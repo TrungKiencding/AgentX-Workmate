@@ -93,6 +93,18 @@ elevated rung is the one surface that must stay a visible step above the card.
 Graphite is the default dark band. The royal-blue dark that preceded it lives on
 whole as the **Nous Classic** preset — no one loses the palette they picked.
 
+Seven presets ship built in — Nous (Paper light / Graphite dark, the default),
+Nous Classic, Midnight, Ember, Mono, Cyberpunk, Slate. Each preset's header
+comment in `themes/presets.ts` names its axes (band · display · accent) and
+tuned values carry their OKLCH beside the hex. Both variants of every preset —
+including the synthesised light side of dark-only presets (`synthLightColors`
+in `themes/color.ts`, which deepens the primary until a white label reads and
+`ensureContrast`s muted text and the ring) — must clear the contrast gate
+`scripts/check-theme-contrast.mjs` in `npm run check`: text pairs ≥ 4.5:1,
+primary/destructive labels also APCA |Lc| ≥ 60, focus ring ≥ 3:1 against the
+page, hairlines ≥ 1.2:1 (visible, still quiet — the 3:1 boundary rule belongs
+to the ring, not to dividers).
+
 Floating panels (base `Dialog`, route overlays, boot/install/update surfaces,
 model-picker, onboarding, prompt overlays, notifications) use:
 
@@ -433,7 +445,9 @@ so two-line rows still grow), `HUD_HEADING`.
   - **One entrance, once per app launch** — not once per empty state. The
     greeting rises at `--dur-long`; the body and each chip follow on a 40ms
     step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
-    collapses it to a 150ms crossfade with no stagger and no transform.
+    collapses it to an instant crossfade — the app-wide reduced-motion
+    kill-switch (0.01ms, top of `styles.css`) outranks the intro's own fade —
+    with no stagger and no transform.
 - The transcript and composer are built on `@assistant-ui/react`. Extend the
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or

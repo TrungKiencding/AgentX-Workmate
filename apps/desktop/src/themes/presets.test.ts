@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { contrastRatio } from './color'
+import { baseColorsFor, contrastRatio } from './color'
 import {
   BUILTIN_THEME_LIST,
   BUILTIN_THEMES,
@@ -114,6 +114,36 @@ describe('default bands', () => {
     expect(contrastRatio(light.mutedForeground, light.background)).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(light.ring, light.background)).toBeGreaterThanOrEqual(3)
     expect(contrastRatio(light.primaryForeground, light.primary)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  // Phase 8: the full matrix (every preset × both variants × every pair) is
+  // gated by `scripts/check-theme-contrast.mjs` in `npm run check`. These unit
+  // cases pin the two guarantees that script relies on from the code side.
+  it('keeps the synthesised light variant of dark-only presets readable', () => {
+    for (const theme of BUILTIN_THEME_LIST.filter(entry => !entry.darkColors)) {
+      const light = baseColorsFor(theme, 'light')
+
+      // Body text floors (UI-REDESIGN-PLAN §5.30): muted text and the filled
+      // primary's label — `readableOn`'s threshold used to coin-flip both.
+      expect(contrastRatio(light.mutedForeground, light.background), `${theme.name} mutedForeground`).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(light.primaryForeground, light.primary), `${theme.name} primary label`).toBeGreaterThanOrEqual(4.5)
+      // The focus ring is a boundary: 3:1 against the page (neon-green and
+      // mid-grey accents fell to 1.4–2.9:1 before the ensureContrast guard).
+      expect(contrastRatio(light.ring, light.background), `${theme.name} ring`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('keeps the fun skins legible where the plan named failures', () => {
+    const cyberpunk = BUILTIN_THEMES.cyberpunk.colors
+
+    // §Phase 8: cyberpunk mutedForeground was #1a8a30 at 4.53:1 — the lift
+    // must keep real margin, not sit on the floor.
+    expect(contrastRatio(cyberpunk.mutedForeground, cyberpunk.background)).toBeGreaterThanOrEqual(5)
+    expect(contrastRatio(cyberpunk.destructiveForeground, cyberpunk.destructive)).toBeGreaterThanOrEqual(4.5)
+
+    const slate = BUILTIN_THEMES.slate.colors
+
+    expect(contrastRatio(slate.destructiveForeground, slate.destructive)).toBeGreaterThanOrEqual(4.5)
   })
 
   it('ships the royal-blue dark as Nous Classic, sharing the Nous light palette', () => {
