@@ -1046,9 +1046,17 @@
   }
 }
 
+/* `rounded-full` rides --radius-scalar like every other radius, so a flat skin
+   flattens pills too. It must match the utility's OWN class and nothing else:
+   `[class*='rounded-full']` was a substring match on the whole class attribute,
+   so a VARIANT that targets a pseudo-element or a state capsuled the host
+   element instead of its target. The selected sidebar session row carries
+   `before:rounded-full` (its 2px accent bar), so the row itself was silently
+   overridden from `rounded-md` to a capsule — and the running `arc-border`
+   ring, which sizes off --radius-md, no longer traced its corners. Variant
+   forms keep Tailwind's own pill radius, identical at today's scalar. */
 @layer utilities {
-  [class*='rounded-full'],
-  [class*=':rounded-full'] {
+  .rounded-full {
     border-radius: calc(var(--radius-scalar) * 9999rem);
   }
 }
@@ -1235,6 +1243,11 @@
 :root.dark .arc-border.arc-row {
   --arc-standoff: 0rem;
   --arc-c2: color-mix(in srgb, var(--arc-c1) 45%, transparent);
+  /* Flush ring, so the host's own corner IS the right corner — no standoff to
+     grow the radius by. Taking it from the row instead of re-deriving it from
+     a token means the ring can never drift out of shape when the row's radius
+     changes (the caveat in --arc-radius above is about OUTSET rings only). */
+  border-radius: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {
