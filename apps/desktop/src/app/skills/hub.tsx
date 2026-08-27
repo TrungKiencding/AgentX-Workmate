@@ -108,13 +108,13 @@ function HubSkillRow({
     <div className="row-hover flex items-start gap-3 rounded-md px-2 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate text-[0.78rem] font-medium text-foreground/85">{skill.name}</span>
-          <span className={cn('rounded px-1.5 py-0.5 text-[0.6rem]', trustTone(skill.trust_level))}>
+          <span className="truncate text-xs font-medium text-foreground/85">{skill.name}</span>
+          <span className={cn('rounded px-1.5 py-0.5 text-2xs', trustTone(skill.trust_level))}>
             {h.trust[skill.trust_level] ?? skill.trust_level}
           </span>
-          {installed && <span className="text-[0.6rem] text-emerald-400">{h.installed}</span>}
+          {installed && <span className="text-2xs text-emerald-400">{h.installed}</span>}
         </div>
-        <p className="mt-0.5 line-clamp-2 text-[0.68rem] text-muted-foreground/70">{skill.description}</p>
+        <p className="mt-0.5 line-clamp-2 text-2xs text-muted-foreground/70">{skill.description}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button onClick={() => onPreview(skill)} size="xs" variant="text">
@@ -283,7 +283,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Connected hubs — label on its own line, chips below, roomy padding. */}
-      <div className="shrink-0 px-4 pt-5 pb-8 text-[0.68rem] text-(--ui-text-tertiary)">
+      <div className="shrink-0 px-4 pt-5 pb-8 text-2xs text-(--ui-text-tertiary)">
         <span className="mb-1.5 block">{h.connectedHubs}</span>
         <div className="flex flex-wrap items-center gap-1.5">
           {sourcesQuery.isLoading
@@ -296,7 +296,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
                 return (
                   <span
                     className={cn(
-                      'relative rounded px-1.5 py-0.5 text-[0.6rem] transition-opacity',
+                      'relative rounded px-1.5 py-0.5 text-2xs transition-opacity',
                       degraded ? 'bg-amber-500/15 text-amber-400' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)',
                       // While searching, un-hit sources dim so the active ones read clearly.
                       term.length > 0 && !fetching && !state?.failed && 'opacity-55'
@@ -320,7 +320,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
       {/* Result summary (left) + Update installed (right) — only when a results
           table is actually on screen, and update only if something's installed. */}
       {listed.length > 0 && (
-        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-1.5 text-[0.68rem] text-(--ui-text-tertiary)">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-1.5 text-2xs text-(--ui-text-tertiary)">
           <span className="min-w-0 truncate">
             {term.length > 0 ? h.resultCount(results.length, null) : h.featured}
             {anyFetching && results.length > 0 && (
@@ -351,7 +351,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           </div>
         ) : listed.length === 0 ? (
           <div className="grid min-h-40 place-items-center px-6 text-center">
-            <p className="max-w-md text-[0.72rem] text-(--ui-text-tertiary)">
+            <p className="max-w-md text-xs text-(--ui-text-tertiary)">
               {searched ? h.noResults : h.landingHint}
             </p>
           </div>
@@ -380,7 +380,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           id="hub-action-log"
           onClose={closeHubLog}
           title={
-            <span className="flex items-center gap-1.5 text-[0.68rem] font-normal text-muted-foreground/60">
+            <span className="flex items-center gap-1.5 text-2xs font-normal text-muted-foreground/60">
               {h.actionLog}
               {activeLog?.running && <Codicon name="loading" size="0.75rem" spinning />}
             </span>
@@ -420,7 +420,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
                       {scan.findings.length === 0 ? h.noFindings : h.findings(scan.findings.length)}
                     </div>
                     {scan.findings.slice(0, 12).map((finding, index) => (
-                      <div className="mt-1.5 font-mono text-[0.65rem] text-(--ui-text-tertiary)" key={index}>
+                      <div className="mt-1.5 font-mono text-2xs text-(--ui-text-tertiary)" key={index}>
                         [{finding.severity}] {finding.file}
                         {finding.line !== null ? `:${finding.line}` : ''} — {finding.description}
                       </div>
@@ -433,7 +433,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
                 ) : previewQuery.data ? (
                   <>
                     <pre
-                      className="max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3 font-mono text-[0.68rem] leading-relaxed"
+                      className="max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3 font-mono text-2xs leading-relaxed"
                       data-selectable-text="true"
                     >
                       {previewQuery.data.skill_md || h.noReadme}

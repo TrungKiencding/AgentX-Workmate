@@ -105,6 +105,15 @@ primary/destructive labels also APCA |Lc| ≥ 60, focus ring ≥ 3:1 against the
 page, hairlines ≥ 1.2:1 (visible, still quiet — the 3:1 boundary rule belongs
 to the ring, not to dividers).
 
+**Accent picker.** Settings → Appearance can re-seed the Nous preset's accent
+(`ACCENT_PRESETS` · `nousWithAccent` in `themes/presets.ts`): the neutral
+bands, inks and semantic colors stay exactly Paper/Graphite — only what the
+blue carried moves. Fills and strokes re-tint, the primary deepens until its
+white label reads (`labelReadyFill`), stroke duty keeps its per-band contrast
+lift. Stored per profile like skin and mode ('' = Nous blue); every other
+preset keeps its own accent, and the contrast gate walks every curated accent
+in both bands.
+
 Floating panels (base `Dialog`, route overlays, boot/install/update surfaces,
 model-picker, onboarding, prompt overlays, notifications) use:
 
@@ -171,7 +180,9 @@ Neuebit remains the brand plate face (`BrandMark`/About); Collapse stays
 retired from product surfaces. `--dt-font-kbd` keeps the native UI face.
 
 **Type ramp** (`--text-*` in `@theme inline`; these are the app's only font
-sizes — no ad-hoc `text-[…]`):
+sizes — no ad-hoc `text-[…]`. Two sanctioned exceptions size in `em`, not on
+the ramp: inline code at `0.9em` of its sentence — one proportion in every
+renderer — and the onboarding glyph's ASCII art, which is drawing, not text):
 
 | Utility | Size | Use |
 | --- | --- | --- |
@@ -623,9 +634,11 @@ long transcript or a busy terminal.
 
 - Every user-facing string goes through `useI18n()` (`src/i18n/context.tsx`).
   No literals in JSX.
-- **Update all locales together** — `en`, `ja`, `zh`, `zh-hant`. A string change
-  in `en.ts` that skips the others is a regression (drifted punctuation,
-  stale labels). Keep trailing-punctuation and tone consistent across all four.
+- **Update all locales together** — `en`, `ja`, `zh`, `zh-hant`, `ar`. A string
+  change in `en.ts` that skips the others is a regression (drifted punctuation,
+  stale labels). Keep trailing-punctuation and tone consistent across all five
+  (`defineLocale` falls back to English for a missing key, but fallback is a
+  safety net, not a translation).
 
 ## State (TypeScript)
 

@@ -992,7 +992,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
               {(['servers', 'catalog'] as const).map(view => (
                 <TextTab
                   active={leftView === view}
-                  className="h-6 px-0 text-[0.72rem]"
+                  className="h-6 px-0 text-xs"
                   key={view}
                   onClick={() => setLeftView(view)}
                 >
@@ -1067,7 +1067,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
               {(['stdio', 'agent'] as const).map(kind => (
                 <TextTab
                   active={logSource === kind}
-                  className="h-5 px-0.5 text-[0.65rem]"
+                  className="h-5 px-0.5 text-2xs"
                   key={kind}
                   onClick={() => setLogSource(kind)}
                 >
@@ -1079,7 +1079,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
           defaultHeight={176}
           id="mcp-logs"
           title={
-            <span className="text-[0.68rem] font-normal text-muted-foreground/60">
+            <span className="text-2xs font-normal text-muted-foreground/60">
               {selected && savedEntry ? selected : m.allServers}
             </span>
           }
@@ -1165,11 +1165,11 @@ function ServerConfig({
         </Tip>
         <McpAvatar className="mt-2.5" name={name} status={status} />
         <div className="min-w-0 flex-1 pt-1">
-          <h3 className="min-w-0 truncate text-[0.9375rem] font-semibold tracking-tight">{prettyName(name)}</h3>
-          <p className="mt-0.5 truncate text-[0.68rem] text-(--ui-text-tertiary)">
+          <h3 className="min-w-0 truncate text-md font-semibold tracking-tight">{prettyName(name)}</h3>
+          <p className="mt-0.5 truncate text-2xs text-(--ui-text-tertiary)">
             {typeof entry.url === 'string' ? entry.url : [entry.command, ...((entry.args as string[]) ?? [])].join(' ')}
           </p>
-          {summary && <p className="mt-0.5 text-[0.68rem] text-(--ui-text-tertiary)">{summary}</p>}
+          {summary && <p className="mt-0.5 text-2xs text-(--ui-text-tertiary)">{summary}</p>}
         </div>
         {saved && (
           // Direct row children (no wrapper): the icons↔switch gap must be the
@@ -1206,7 +1206,7 @@ function ServerConfig({
           </Button>
         </div>
       )}
-      {!saved && <p className="mt-3 text-[0.68rem] text-muted-foreground/60">{m.unsavedConnect}</p>}
+      {!saved && <p className="mt-3 text-2xs text-muted-foreground/60">{m.unsavedConnect}</p>}
 
       {status === 'probing' && <PageLoader className="min-h-24" label={t.skills.loading} />}
 
@@ -1224,16 +1224,16 @@ function ServerConfig({
 
             return (
               <button
+                aria-label={on ? m.disableTool(tool.name) : m.enableTool(tool.name)}
                 aria-pressed={on}
                 className={cn(
-                  'rounded-md px-1.5 py-0.5 font-mono text-[0.65rem] text-(--ui-text-tertiary) hover:text-foreground',
+                  'rounded-md px-1.5 py-0.5 font-mono text-2xs text-(--ui-text-tertiary) hover:text-foreground',
                   saved ? 'cursor-pointer' : 'cursor-default',
                   on ? 'bg-(--ui-bg-quinary)' : 'line-through opacity-70'
                 )}
                 disabled={!saved}
                 key={tool.name}
                 onClick={() => onToggleTool(tool.name)}
-                title={on ? m.disableTool(tool.name) : m.enableTool(tool.name)}
                 type="button"
               >
                 {tool.name}
@@ -1328,7 +1328,7 @@ function ServerIconActions({
 // catalog's flat row treatment.
 function CatalogTag({ children }: { children: string }) {
   return (
-    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-[0.6rem] text-(--ui-text-secondary)">
+    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
       {children}
     </span>
   )
@@ -1429,7 +1429,7 @@ function McpCatalog({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate text-[0.78rem] font-medium text-foreground/85">
+                  <span className="truncate text-xs font-medium text-foreground/85">
                     {prettyName(entry.name)}
                   </span>
                   <CatalogTag>{entry.transport}</CatalogTag>
@@ -1437,17 +1437,17 @@ function McpCatalog({
                   {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
                   {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
                   {entry.installed && (
-                    <span className="text-[0.6rem] text-emerald-400">
+                    <span className="text-2xs text-emerald-400">
                       {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-[0.68rem] text-muted-foreground/70">{entry.description}</p>
+                <p className="mt-0.5 line-clamp-2 text-2xs text-muted-foreground/70">{entry.description}</p>
                 {envOpenFor === entry.name && entry.required_env.length > 0 && (
                   <div className="mt-2 grid gap-2">
                     {entry.required_env.map(env => (
                       <label className="grid gap-1" key={env.name}>
-                        <span className="text-[0.62rem] text-muted-foreground">
+                        <span className="text-2xs text-muted-foreground">
                           {env.prompt || env.name}
                           {env.required ? ' *' : ''}
                         </span>
@@ -1667,13 +1667,13 @@ function McpRow({
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              'block truncate text-[0.78rem]',
+              'block truncate text-xs',
               enabled ? 'font-medium text-foreground/85' : 'font-normal text-muted-foreground/60'
             )}
           >
             {prettyName(name)}
           </span>
-          <span className="block truncate text-[0.62rem] text-muted-foreground/50">{statusText}</span>
+          <span className="block truncate text-2xs text-muted-foreground/50">{statusText}</span>
         </span>
       </button>
       <ServerIconActions

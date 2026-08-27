@@ -983,7 +983,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                     )
                   }
                   description={
-                    <span className="font-mono text-[0.68rem]">
+                    <span className="font-mono text-2xs">
                       {isAuto ? m.autoUseMain : `${current.provider} · ${current.model || m.providerDefault}`}
                     </span>
                   }
@@ -1189,7 +1189,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                 }
                 className={cn(slot.enabled === false && 'opacity-60')}
                 description={
-                  <span className="font-mono text-[0.68rem]">
+                  <span className="font-mono text-2xs">
                     {slot.provider} · {slot.model || m.model}
                   </span>
                 }
@@ -1266,7 +1266,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                 </div>
               }
               description={
-                <span className="font-mono text-[0.68rem]">
+                <span className="font-mono text-2xs">
                   {currentMoaPreset.aggregator.provider} · {currentMoaPreset.aggregator.model}
                 </span>
               }

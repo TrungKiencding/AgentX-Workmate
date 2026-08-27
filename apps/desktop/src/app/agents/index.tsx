@@ -30,7 +30,7 @@ function statusGlyph(status: SubagentStatus, a: Translations['agents']): ReactNo
     return (
       <GlyphSpinner
         ariaLabel={a.running}
-        className="size-3.5 shrink-0 text-[0.95rem] text-muted-foreground/80"
+        className="size-3.5 shrink-0 text-md text-muted-foreground/80"
         spinner="breathe"
       />
     )
@@ -65,7 +65,7 @@ function streamGlyph(entry: SubagentStreamEntry): ReactNode {
 
   if (entry.kind === 'thinking') {
     return (
-      <span aria-hidden className="font-mono text-[0.7rem] leading-none text-muted-foreground/70">
+      <span aria-hidden className="font-mono text-2xs leading-none text-muted-foreground/70">
         …
       </span>
     )
@@ -224,7 +224,7 @@ function SubagentTree({ tree }: { tree: SubagentNode[] }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
-      <p className="shrink-0 text-[0.7rem] text-muted-foreground/70">{summary.join(' · ')}</p>
+      <p className="shrink-0 text-2xs text-muted-foreground/70">{summary.join(' · ')}</p>
       <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
         <div className="flex min-w-0 flex-col gap-6">
           {groups.map(group => (
@@ -247,7 +247,7 @@ function DelegationGroup({ group, nowMs }: { group: RootGroup; nowMs: number }) 
 
   return (
     <section className="grid min-w-0 gap-3">
-      <p className="text-[0.66rem] font-medium uppercase tracking-wider text-muted-foreground/70">
+      <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/70">
         {group.delegationIndex > 0 ? t.agents.delegation(group.delegationIndex) : ''}{' '}
         <span className="text-muted-foreground/50">·</span> {t.agents.workers(group.nodes.length)}
         {activeWorkers > 0 ? <span className="text-primary/85"> · {t.agents.workersActive(activeWorkers)}</span> : null}
@@ -278,9 +278,9 @@ function StreamLine({
   const tone = entry.isError ? 'text-destructive' : STREAM_TONE[entry.kind]
 
   return (
-    <div className="flex min-w-0 items-baseline gap-2 text-[0.72rem] leading-relaxed" ref={enterRef}>
+    <div className="flex min-w-0 items-baseline gap-2 text-xs leading-relaxed" ref={enterRef}>
       <span className="flex h-[0.95rem] shrink-0 items-center">{streamGlyph(entry)}</span>
-      <span className={cn('min-w-0 flex-1 wrap-anywhere', tone, isMono && 'font-mono text-[0.69rem]')}>
+      <span className={cn('min-w-0 flex-1 wrap-anywhere', tone, isMono && 'font-mono text-2xs')}>
         {entry.text}
         {active ? (
           <GlyphSpinner
@@ -334,19 +334,19 @@ function SubagentRow({ node, depth = 0, nowMs }: { node: SubagentNode; depth?: n
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span
             className={cn(
-              'wrap-anywhere text-[0.82rem] font-medium leading-[1.1rem] text-foreground/90 transition-colors group-hover:text-foreground',
+              'wrap-anywhere text-sm font-medium leading-[1.1rem] text-foreground/90 transition-colors group-hover:text-foreground',
               running && 'shimmer text-foreground/65'
             )}
           >
             {node.goal}
           </span>
           {subtitle.length > 0 ? (
-            <FadeText className="text-[0.66rem] leading-[1.05rem] text-muted-foreground/65">
+            <FadeText className="text-2xs leading-[1.05rem] text-muted-foreground/65">
               {subtitle.join(' · ')}
             </FadeText>
           ) : null}
         </span>
-        {running ? <ActivityTimerText className="mt-1 shrink-0 text-[0.6rem]" seconds={durationSeconds} /> : null}
+        {running ? <ActivityTimerText className="mt-1 shrink-0 text-2xs" seconds={durationSeconds} /> : null}
       </button>
 
       {visibleRows.length > 0 ? (
@@ -365,16 +365,16 @@ function SubagentRow({ node, depth = 0, nowMs }: { node: SubagentNode; depth?: n
 
       {open && fileLines.length > 0 ? (
         <div className="grid min-w-0 gap-0.5 pl-6" data-selectable-text="true">
-          <p className="text-[0.58rem] font-medium tracking-wider text-muted-foreground/60 uppercase">
+          <p className="text-2xs font-medium tracking-wider text-muted-foreground/60 uppercase">
             {t.agents.files}
           </p>
           {fileLines.slice(0, 8).map(line => (
-            <p className="wrap-break-word font-mono text-[0.67rem] leading-relaxed text-muted-foreground/80" key={line}>
+            <p className="wrap-break-word font-mono text-2xs leading-relaxed text-muted-foreground/80" key={line}>
               {line}
             </p>
           ))}
           {fileLines.length > 8 ? (
-            <p className="font-mono text-[0.67rem] leading-relaxed text-muted-foreground/65">
+            <p className="font-mono text-2xs leading-relaxed text-muted-foreground/65">
               {t.agents.moreFiles(fileLines.length - 8)}
             </p>
           ) : null}

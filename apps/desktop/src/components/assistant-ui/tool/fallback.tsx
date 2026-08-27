@@ -189,7 +189,7 @@ function statusGlyph(status: ToolStatus, copy: ToolStatusCopy): ReactNode {
     return (
       <GlyphSpinner
         ariaLabel={copy.statusRunning}
-        className="size-3.5 shrink-0 text-[0.95rem] text-(--ui-text-tertiary)"
+        className="size-3.5 shrink-0 text-md text-(--ui-text-tertiary)"
         spinner="breathe"
       />
     )

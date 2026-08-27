@@ -162,12 +162,12 @@ export function ReviewPane() {
         <div className="flex max-h-[55%] shrink-0 flex-col border-t border-(--ui-stroke-secondary)">
           <div className="flex items-center gap-1 px-2.5 py-1.5" data-suppress-pane-reveal-side="">
             <span
-              className="min-w-0 flex-1 truncate font-mono text-[0.66rem] text-(--ui-text-secondary)"
+              className="min-w-0 flex-1 truncate font-mono text-2xs text-(--ui-text-secondary)"
               title={displayPath(selectedFile.path)}
             >
               {displayPath(selectedFile.path)}
             </span>
-            <DiffCount added={selectedFile.added} className="text-[0.64rem] leading-4" removed={selectedFile.removed} />
+            <DiffCount added={selectedFile.added} className="text-2xs leading-4" removed={selectedFile.removed} />
             <Tip label={selectedFile.staged ? c.unstage : c.stage}>
               <Button
                 aria-label={selectedFile.staged ? c.unstage : c.stage}
@@ -201,7 +201,7 @@ export function ReviewPane() {
             ) : diff ? (
               <FileDiffPanel className="mx-0 mb-0 h-full max-h-none" diff={diff} path={selectedFile.path} virtualized />
             ) : (
-              <div className="py-6 text-center text-[0.66rem] text-muted-foreground/60">{c.noDiff}</div>
+              <div className="py-6 text-center text-2xs text-muted-foreground/60">{c.noDiff}</div>
             )}
           </div>
         </div>
@@ -217,7 +217,7 @@ export function ReviewPane() {
               {revertingAll ? c.revertAllConfirm : c.revertConfirm}
               {!revertingAll && revertTarget?.path && (
                 <span
-                  className="mt-2 block truncate font-mono text-[0.7rem] text-(--ui-text-secondary)"
+                  className="mt-2 block truncate font-mono text-2xs text-(--ui-text-secondary)"
                   title={displayPath(revertTarget.path)}
                 >
                   {displayPath(revertTarget.path)}

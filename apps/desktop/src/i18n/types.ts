@@ -417,9 +417,47 @@ export interface Translations {
     sections: Record<string, string>
     searchPlaceholder: Record<'about' | 'config' | 'gateway' | 'keys' | 'mcp' | 'sessions', string>
     modeOptions: Record<'light' | 'dark' | 'system', ModeOptionCopy>
+    customEndpoints: {
+      title: string
+      loadError: string
+      saved: string
+      saveError: string
+      reachable: string
+      reachableWithModels: (count: number) => string
+      validationFailed: string
+      validateError: string
+      activateError: string
+      deleteConfirm: (name: string) => string
+      deleteError: string
+      active: string
+      apiKeySet: string
+      use: string
+      deleteEndpoint: string
+      emptyTitle: string
+      emptyDesc: string
+      editHeading: string
+      addHeading: string
+      nameLabel: string
+      providerIdLabel: string
+      urlLabel: string
+      modelLabel: string
+      contextLabel: string
+      apiKeyLabel: string
+      keepKeyPlaceholder: string
+      optionalPlaceholder: string
+      autoPlaceholder: string
+      useForNewChats: string
+      discoverModels: string
+      test: string
+      save: string
+      newEndpoint: string
+    }
     appearance: {
       title: string
       intro: string
+      accentTitle: string
+      accentDesc: string
+      accentNames: Record<'nousBlue' | 'violet' | 'magenta' | 'green' | 'amber' | 'teal', string>
       colorMode: string
       colorModeDesc: string
       toolViewTitle: string

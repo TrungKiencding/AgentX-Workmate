@@ -41,17 +41,19 @@ describe('no native title= on button elements', () => {
   // multiple lines).
   it('uses <Tip> instead of native title= on all button elements', () => {
     const violations: string[] = []
-    const srcDir = resolve(__dirname, '../..')
+    // Scan the whole renderer (src/), not just components/ — settings pages
+    // and app surfaces regressed unseen while this pointed at '../..'.
+    const srcDir = resolve(__dirname, '../../..')
 
     for (const filePath of collectTsxFiles(srcDir)) {
       const content = readFileSync(filePath, 'utf-8')
       const relativePath = filePath.replace(srcDir + '/', '')
 
       // Match <Button ...> or <button ...> opening tags (may span multiple lines).
-      // We use a non-greedy match up to the closing > — this won't perfectly
-      // handle every edge case (e.g. > inside a string literal), but it's good
-      // enough for a lint-style guard.
-      const tagPattern = /<(Button|button)\b([^>]*?)>/gsu
+      // `=>` is allowed inside the attribute span so an arrow-function prop
+      // (onClick={() => …}) doesn't end the match early — that blind spot hid
+      // twenty real title= violations. Still a lint-style guard, not a parser.
+      const tagPattern = /<(Button|button)\b((?:=>|[^>])*?)>/gsu
       let match: RegExpExecArray | null
 
       while ((match = tagPattern.exec(content)) !== null) {

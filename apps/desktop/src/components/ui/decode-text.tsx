@@ -106,7 +106,7 @@ export function DecodeText({
   return (
     <span
       className={cn(
-        'inline-flex items-center font-mono text-[0.64rem] font-semibold uppercase tracking-[0.4em] tabular-nums',
+        'inline-flex items-center font-mono text-2xs font-semibold uppercase tracking-[0.4em] tabular-nums',
         className
       )}
       {...props}

@@ -179,13 +179,13 @@ export function ProjectDialog() {
           <div className="flex flex-col gap-1.5">
             <span className="text-2xs font-medium text-(--ui-text-tertiary)">{p.foldersLabel}</span>
             {folders.length === 0 ? (
-              <span className="text-[0.75rem] text-(--ui-text-quaternary)">{p.noFolders}</span>
+              <span className="text-xs text-(--ui-text-quaternary)">{p.noFolders}</span>
             ) : (
               <ul className="flex flex-col gap-1">
                 {folders.map((folder, index) => (
                   <li
                     className={cn(
-                      'flex items-center gap-2 rounded-md bg-(--ui-control-hover-background) px-2 py-1 text-[0.75rem]'
+                      'flex items-center gap-2 rounded-md bg-(--ui-control-hover-background) px-2 py-1 text-xs'
                     )}
                     key={folder}
                   >
@@ -233,7 +233,7 @@ export function ProjectDialog() {
             <span className="text-2xs font-medium text-(--ui-text-tertiary)">{p.ideaLabel}</span>
             <div className="relative">
               <Textarea
-                className="min-h-20 pr-8 text-[0.8125rem]"
+                className="min-h-20 pr-8 text-sm"
                 disabled={submitting}
                 onChange={event => setIdea(event.target.value)}
                 placeholder={p.ideaPlaceholder}

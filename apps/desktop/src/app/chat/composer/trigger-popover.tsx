@@ -49,7 +49,7 @@ const ROW_CLASS = [
 ].join(' ')
 
 const GROUP_HEADER_CLASS =
-  'select-none px-2 pb-0.5 text-[0.625rem] font-semibold uppercase tracking-wider text-(--ui-text-tertiary)'
+  'select-none px-2 pb-0.5 text-2xs font-semibold uppercase tracking-wider text-(--ui-text-tertiary)'
 
 interface ComposerTriggerPopoverProps {
   activeIndex: number

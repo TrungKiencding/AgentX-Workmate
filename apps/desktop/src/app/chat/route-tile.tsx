@@ -67,7 +67,7 @@ function RouteTilePane({ path }: { path: string }) {
   }
 
   return (
-    <div className="grid h-full place-items-center font-mono text-[11px] text-(--ui-text-quaternary)">
+    <div className="grid h-full place-items-center font-mono text-2xs text-(--ui-text-quaternary)">
       no page at {path}
     </div>
   )

@@ -9,6 +9,7 @@
  * variants of every preset to the floors in UI-REDESIGN-PLAN §5.30.
  */
 
+import { ensureContrast, labelReadyFill, mix } from './color'
 import type { DesktopTheme, DesktopThemeTypography } from './types'
 
 // Color-emoji fonts to append to every stack as a last resort. None of the UI
@@ -424,6 +425,75 @@ export const slateTheme: DesktopTheme = {
   },
   typography: {
     fontMono: `"JetBrains Mono", ${SYSTEM_MONO}`
+  }
+}
+
+
+/**
+ * Curated accent seeds for the Nous preset (Settings → Appearance → Accent).
+ * Same construction as Nous blue — mid-lightness, committed chroma — so every
+ * derived pair keeps its floors. The contrast gate walks these too.
+ */
+export const ACCENT_PRESETS = [
+  { name: 'nousBlue', value: NOUS_BLUE }, // oklch(52.8% 0.259 263) — the default
+  { name: 'violet', value: '#7d24d3' }, // oklch(50% 0.24 300)
+  { name: 'magenta', value: '#c11a8e' }, // oklch(55% 0.22 345)
+  { name: 'green', value: '#008a48' }, // oklch(55% 0.15 155)
+  { name: 'amber', value: '#bb6802' }, // oklch(60% 0.14 60)
+  { name: 'teal', value: '#008aa3' } // oklch(58% 0.11 215)
+] as const
+
+export type AccentPresetName = (typeof ACCENT_PRESETS)[number]['name']
+
+/**
+ * Nous, re-seeded on a different accent. The neutral bands, inks and semantic
+ * colors stay exactly Paper/Graphite — only what the blue used to carry moves:
+ * fills and strokes re-tint, the primary deepens until its white label reads
+ * (`labelReadyFill`), and stroke duty gets the same per-band contrast lift as
+ * Nous blue (≥ 3:1 on paper, ≥ 4.5:1 on graphite). The default accent returns
+ * `nousTheme` itself, so "no accent picked" is byte-for-byte the shipped skin.
+ */
+export function nousWithAccent(accent: string): DesktopTheme {
+  if (!/^#[0-9a-f]{6}$/i.test(accent) || accent.toLowerCase() === NOUS_BLUE.toLowerCase()) {
+    return nousTheme
+  }
+
+  const tint = (pct: number) => `color-mix(in srgb, ${accent} ${pct}%, #FFFFFF)`
+  const tintTransparent = (pct: number) => `color-mix(in srgb, ${accent} ${pct}%, transparent)`
+  const lightStroke = ensureContrast(accent, PAPER.page, 3)
+  const lifted = ensureContrast(accent, GRAPHITE.page, 4.5)
+  const primary = labelReadyFill(accent)
+
+  return {
+    ...nousTheme,
+    colors: {
+      ...nousTheme.colors,
+      muted: tint(5),
+      primary,
+      // labelReadyFill targets pure white; the shipped #FCFCFC could sit a
+      // hair under 4.5:1 on a fill that lands exactly on the floor.
+      primaryForeground: '#ffffff',
+      secondary: tint(7),
+      accent: tint(10),
+      border: tintTransparent(22),
+      input: tintTransparent(30),
+      ring: lightStroke,
+      midground: lightStroke,
+      composerRing: lightStroke,
+      sidebarBorder: tintTransparent(18),
+      userBubble: tint(6),
+      userBubbleBorder: tintTransparent(24)
+    },
+    darkColors: {
+      ...nousTheme.darkColors!,
+      primary,
+      accent: mix(GRAPHITE.elevated, accent, 0.1),
+      ring: lifted,
+      midground: lifted,
+      composerRing: lifted,
+      userBubble: mix(GRAPHITE.card, accent, 0.12),
+      userBubbleBorder: mix(GRAPHITE.card, accent, 0.3)
+    }
   }
 }
 

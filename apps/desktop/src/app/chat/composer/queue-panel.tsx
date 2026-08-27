@@ -123,9 +123,9 @@ export function QueuePanel({
             trailingVisible={isEditing}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.73rem] leading-4 text-foreground/92">{entryPreview(entry, c)}</p>
+              <p className="truncate text-xs leading-4 text-foreground/92">{entryPreview(entry, c)}</p>
               {(attachmentsCount > 0 || isEditing) && (
-                <div className="mt-0.5 flex items-center gap-1.5 text-[0.64rem] text-muted-foreground/75">
+                <div className="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground/75">
                   {attachmentsCount > 0 && <span>{c.attachments(attachmentsCount)}</span>}
                   {isEditing && (
                     <span className="text-[color-mix(in_srgb,var(--dt-composer-ring)_78%,var(--muted-foreground))]">

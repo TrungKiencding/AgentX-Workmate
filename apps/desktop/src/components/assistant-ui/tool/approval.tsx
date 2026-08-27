@@ -197,7 +197,7 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
             variant="ghost"
           >
             {submitting === 'once' ? <Loader2 className="size-3 animate-spin" /> : copy.run}
-            {submitting !== 'once' && <span className="text-[0.625rem] text-primary/60">{isMac ? '⌘⏎' : 'Ctrl⏎'}</span>}
+            {submitting !== 'once' && <span className="text-2xs text-primary/60">{isMac ? '⌘⏎' : 'Ctrl⏎'}</span>}
           </Button>
           {hasMoreOptions && <span aria-hidden className="w-px self-stretch bg-primary/20" />}
           {hasMoreOptions && (
@@ -245,7 +245,7 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
           variant="ghost"
         >
           {submitting === 'deny' ? <Loader2 className="size-3 animate-spin" /> : copy.reject}
-          {submitting !== 'deny' && <span className="text-[0.625rem] opacity-55">Esc</span>}
+          {submitting !== 'deny' && <span className="text-2xs opacity-55">Esc</span>}
         </Button>
 
         {hasCommand && (

@@ -15,7 +15,7 @@
  * background luminance, so surface-bound UI matches what's on screen.
  */
 
-import { ensureContrast, luminance, mix, normalizeHex, readableOn } from './color'
+import { bestTextOn, ensureContrast, luminance, mix, normalizeHex } from './color'
 import type { DesktopTerminalPalette, DesktopTheme, DesktopThemeColors } from './types'
 
 // Section headers / sidebar labels render in --theme-primary directly on the
@@ -327,7 +327,7 @@ export function convertVscodeColorTheme(raw: VscodeColorTheme, opts: ConvertOpti
     popover: elevated,
     popoverForeground: foreground,
     primary: accent,
-    primaryForeground: readableOn(accent),
+    primaryForeground: bestTextOn(accent),
     secondary,
     secondaryForeground: foreground,
     accent: accentSoft,
@@ -336,10 +336,10 @@ export function convertVscodeColorTheme(raw: VscodeColorTheme, opts: ConvertOpti
     input,
     ring: accent,
     midground: accent,
-    midgroundForeground: readableOn(accent),
+    midgroundForeground: bestTextOn(accent),
     composerRing: accent,
     destructive,
-    destructiveForeground: readableOn(destructive),
+    destructiveForeground: bestTextOn(destructive),
     sidebarBackground: sidebar,
     sidebarBorder: border,
     userBubble: mix(card, accent, dark ? 0.18 : 0.12),

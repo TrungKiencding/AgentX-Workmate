@@ -331,10 +331,10 @@ export function BootFailureOverlay() {
         <div className="flex items-start gap-3 px-5 py-4">
           <ErrorIcon className="mt-0.5" size="1.25rem" />
           <div>
-            <h2 className="text-[0.9375rem] font-semibold tracking-tight">
+            <h2 className="text-md font-semibold tracking-tight">
               {remoteReauth ? copy.remoteTitle : copy.title}
             </h2>
-            <p className="mt-1 text-[0.8125rem] leading-5 text-(--ui-text-tertiary)">
+            <p className="mt-1 text-sm leading-5 text-(--ui-text-tertiary)">
               {remoteReauth ? copy.remoteDescription : copy.description}
             </p>
           </div>

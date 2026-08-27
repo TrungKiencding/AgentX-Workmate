@@ -101,7 +101,7 @@ function PreviewLoadError({
             {compactUrl(error.url)}
             {error.code ? ` (${error.code})` : ''}
           </a>
-          <div className="mt-1 text-[0.6875rem] text-muted-foreground/70">{error.description}</div>
+          <div className="mt-1 text-2xs text-muted-foreground/70">{error.description}</div>
         </>
       }
       consoleHeight={consoleHeight}

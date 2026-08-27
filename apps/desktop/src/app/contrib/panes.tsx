@@ -58,7 +58,7 @@ export function LogsPane() {
   // No chrome of its own — the zone header (when the user summons it) is the
   // pane's only label. Just the tail.
   return (
-    <pre className="h-full min-h-0 overflow-auto whitespace-pre-wrap break-words p-2.5 font-mono text-[0.66rem] leading-relaxed text-(--ui-text-secondary)">
+    <pre className="h-full min-h-0 overflow-auto whitespace-pre-wrap break-words p-2.5 font-mono text-2xs leading-relaxed text-(--ui-text-secondary)">
       {data.lines.join('\n')}
     </pre>
   )
@@ -81,7 +81,7 @@ export function PreviewRailPane() {
       <div className="grid h-full place-items-center px-4 text-center">
         <div className="flex flex-col items-center gap-1.5">
           <DecodeText className="text-(--ui-text-quaternary)" prefix={1} text="PREVIEW" />
-          <span className="text-[0.68rem] text-(--ui-text-quaternary)">click a file in the files pane</span>
+          <span className="text-2xs text-(--ui-text-quaternary)">click a file in the files pane</span>
         </div>
       </div>
     )

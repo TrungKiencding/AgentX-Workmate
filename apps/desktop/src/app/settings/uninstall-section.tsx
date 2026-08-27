@@ -147,7 +147,7 @@ export function UninstallSection() {
               This removes {pendingOption.consequence}. This can&apos;t be undone.
             </p>
             {summary?.running_app_path && (
-              <p className="mt-1 font-mono text-[0.68rem] text-muted-foreground/60">App: {summary.running_app_path}</p>
+              <p className="mt-1 font-mono text-2xs text-muted-foreground/60">App: {summary.running_app_path}</p>
             )}
             {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
             <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -185,7 +185,7 @@ export function UninstallSection() {
                     <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                       {opt.title}
                       {opt.recommended && (
-                        <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[0.62rem] font-medium tracking-wide text-destructive uppercase">
+                        <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-2xs font-medium tracking-wide text-destructive uppercase">
                           Recommended
                         </span>
                       )}

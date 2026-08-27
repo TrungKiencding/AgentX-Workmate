@@ -26,7 +26,7 @@ export function Field({
       <label className="flex items-baseline gap-2 text-xs font-medium text-foreground" htmlFor={htmlFor}>
         {label}
         {optional && optionalLabel && (
-          <span className="text-[0.65rem] font-normal text-muted-foreground">{optionalLabel}</span>
+          <span className="text-2xs font-normal text-muted-foreground">{optionalLabel}</span>
         )}
       </label>
       {children}
@@ -36,6 +36,6 @@ export function Field({
 
 export function FieldHint({ children, error }: { children: ReactNode; error?: boolean }) {
   return (
-    <p className={cn('text-[0.66rem] leading-4', error ? 'text-destructive' : 'text-muted-foreground')}>{children}</p>
+    <p className={cn('text-2xs leading-4', error ? 'text-destructive' : 'text-muted-foreground')}>{children}</p>
   )
 }

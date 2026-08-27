@@ -126,7 +126,7 @@ export function ReviewShipBar() {
           the whole bar; px-7 reserves the icon's width on both sides. */}
       <div className="relative flex min-w-0 items-center">
         <Button
-          className="min-w-0 flex-1 justify-center px-7 text-[0.7rem] text-muted-foreground/85 hover:text-foreground"
+          className="min-w-0 flex-1 justify-center px-7 text-2xs text-muted-foreground/85 hover:text-foreground"
           disabled={!hasFiles}
           onClick={() => requestComposerSubmit(c.agentShipPrompt, { target: 'main' })}
           size="sm"

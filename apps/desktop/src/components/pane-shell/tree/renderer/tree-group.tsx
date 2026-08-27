@@ -573,7 +573,6 @@ export function TreeGroup({
                     // after the click handler reads the anchor.)
                     noteActiveTreeGroup(node.id)
                   }}
-                  title={t.zones.newSessionTab}
                   type="button"
                 >
                   <Codicon name="add" size="0.8125rem" />
@@ -638,7 +637,7 @@ export function TreeGroup({
                     </PaneGroupContext.Provider>
                   ) : (
                     isActive && (
-                      <div className="p-3 font-mono text-[11px] text-(--ui-text-quaternary)">
+                      <div className="p-3 font-mono text-2xs text-(--ui-text-quaternary)">
                         {t.zones.missingPane(paneId)}
                       </div>
                     )
@@ -671,7 +670,7 @@ export function TreeGroup({
               outlineColor: 'color-mix(in srgb, var(--ui-accent) 55%, transparent)'
             }}
           >
-            <span className="flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) bg-popover px-2 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.16em] text-(--ui-text-secondary)">
+            <span className="flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) bg-popover px-2 py-1 text-2xs font-semibold uppercase tracking-[0.16em] text-(--ui-text-secondary)">
               <Codicon className="shrink-0" name="gripper" size="0.8125rem" />
               <span className="min-w-0 truncate">{active?.title ?? activeId}</span>
             </span>

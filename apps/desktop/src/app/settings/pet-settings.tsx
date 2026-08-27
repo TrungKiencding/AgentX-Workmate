@@ -191,7 +191,7 @@ export function PetSettings() {
                                   {pet.displayName}
                                 </span>
                                 {pet.generated && (
-                                  <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[0.625rem] font-medium text-primary">
+                                  <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-2xs font-medium text-primary">
                                     {copy.generatedTag}
                                   </span>
                                 )}

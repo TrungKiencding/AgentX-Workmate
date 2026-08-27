@@ -238,7 +238,7 @@ function ProfileGlyph({ color, isDefault, name }: { color: null | string; isDefa
   return (
     <span
       aria-hidden="true"
-      className="grid size-4 shrink-0 place-items-center rounded-[3px] text-[0.5rem] font-semibold uppercase leading-none"
+      className="grid size-4 shrink-0 place-items-center rounded-[3px] text-2xs font-semibold uppercase leading-none"
       style={{ backgroundColor: profileColorSoft(hue, 22), color: color ?? undefined }}
     >
       {initial}
@@ -255,12 +255,12 @@ function ProfileDetail({ profile }: { profile: ProfileInfo }) {
       <header className="space-y-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[0.95rem] font-semibold tracking-tight text-foreground">{profile.name}</h3>
+            <h3 className="text-md font-semibold tracking-tight text-foreground">{profile.name}</h3>
             {profile.is_default && <PanelPill tone="good">{p.defaultBadge}</PanelPill>}
             {profile.has_env && <PanelPill tone="muted">.env</PanelPill>}
           </div>
           <p
-            className="mt-1 truncate font-mono text-[0.66rem] text-muted-foreground/55"
+            className="mt-1 truncate font-mono text-2xs text-muted-foreground/55"
             title={displayPath(profile.path)}
           >
             {displayPath(profile.path)}
@@ -349,10 +349,10 @@ function SoulEditor({ profileName }: { profileName: string }) {
     <section className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <PanelSectionLabel className="text-[0.7rem] tracking-[0.14em]">SOUL.md</PanelSectionLabel>
+          <PanelSectionLabel className="text-2xs tracking-[0.14em]">SOUL.md</PanelSectionLabel>
           <p className="text-xs text-muted-foreground">{p.soulDesc}</p>
         </div>
-        {dirty && <span className="text-[0.65rem] text-muted-foreground">{p.unsavedChanges}</span>}
+        {dirty && <span className="text-2xs text-muted-foreground">{p.unsavedChanges}</span>}
       </div>
 
       {loading ? (

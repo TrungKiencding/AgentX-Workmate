@@ -161,7 +161,7 @@ function CardFooter({ arc, task }: { arc: ArcState | null; task: KanbanTask }) {
   const meta = columnMeta(task.status)
 
   return (
-    <div className="flex items-center gap-2 whitespace-nowrap text-[0.625rem] text-(--ui-text-tertiary)">
+    <div className="flex items-center gap-2 whitespace-nowrap text-2xs text-(--ui-text-tertiary)">
       {arc === 'queued' && attached ? (
         // WHO is coming for the card. The arc only animates once the agent is
         // actually working; while queued, the named chip carries "attached".
@@ -293,11 +293,11 @@ function Card({
           {(arc === 'running' || arc === 'stale') && !dragging && !selected && (
             <span aria-hidden className={cn('kanban-arc', arc === 'stale' && 'kanban-arc--stale')} />
           )}
-          <span className="line-clamp-2 text-[0.8125rem] font-medium leading-snug text-foreground">
+          <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
             {task.title || task.id}
           </span>
           {summary && (
-            <span className="line-clamp-2 text-[0.6875rem] leading-snug text-(--ui-text-tertiary)">{summary}</span>
+            <span className="line-clamp-2 text-2xs leading-snug text-(--ui-text-tertiary)">{summary}</span>
           )}
           <CardFooter arc={arc} task={task} />
         </div>
@@ -428,11 +428,11 @@ function Column({
         <span className="grid h-5 shrink-0 place-items-center">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         </span>
-        <span className="text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary) [writing-mode:vertical-rl]">
+        <span className="text-2xs font-medium uppercase tracking-wide text-(--ui-text-tertiary) [writing-mode:vertical-rl]">
           {label}
         </span>
         {column.tasks.length > 0 && (
-          <span className="text-[0.625rem] tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
+          <span className="text-2xs tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
         )}
       </button>
     )
@@ -446,11 +446,11 @@ function Column({
       <header className="mb-1.5 flex h-5 items-center gap-1.5 px-1">
         <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         <Tip label={columnHelp(k, column.name)}>
-          <span className="cursor-help text-[0.6875rem] font-medium uppercase tracking-wide text-(--ui-text-tertiary)">
+          <span className="cursor-help text-2xs font-medium uppercase tracking-wide text-(--ui-text-tertiary)">
             {label}
           </span>
         </Tip>
-        <span className="text-[0.625rem] tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
+        <span className="text-2xs tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
         <button
           aria-label={k.collapse(label)}
           className="ml-auto grid size-5 place-items-center rounded text-(--ui-text-tertiary) opacity-0 transition-opacity hover:bg-(--chrome-action-hover) hover:text-foreground focus-visible:opacity-100 group-hover/col:opacity-100"
@@ -464,7 +464,7 @@ function Column({
         {lanes
           ? lanes.map(([assignee, tasks]) => (
               <div className="flex flex-col gap-2" key={assignee}>
-                <div className="flex items-center gap-1.5 px-1 pt-1 text-[0.625rem] text-(--ui-text-quaternary)">
+                <div className="flex items-center gap-1.5 px-1 pt-1 text-2xs text-(--ui-text-quaternary)">
                   {assignee !== UNASSIGNED_LANE && <Avatar name={assignee} size="0.875rem" />}
                   {assignee}
                   <span className="tabular-nums">{tasks.length}</span>
@@ -509,7 +509,7 @@ function Column({
           </button>
         )}
         {column.tasks.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center text-[0.6875rem] text-(--ui-text-quaternary)">
+          <div className="pointer-events-none absolute inset-0 grid place-items-center text-2xs text-(--ui-text-quaternary)">
             {k.empty}
           </div>
         )}
@@ -725,7 +725,7 @@ function NewTaskDialog({
                 placeholder={boardDefaultDir || k.workspaceInherit}
                 value={workspacePath}
               />
-              <span className="text-[0.625rem] text-(--ui-text-quaternary)">
+              <span className="text-2xs text-(--ui-text-quaternary)">
                 {boardDefaultDir ? k.workspaceInheritDir(boardDefaultDir) : k.workspaceInheritGeneric}
               </span>
             </Field>
@@ -756,7 +756,7 @@ function NewTaskDialog({
 
           <Field label={k.model}>
             <ModelOverrideField onChange={setModelOverride} value={modelOverride} />
-            <span className="text-[0.625rem] text-(--ui-text-quaternary)">{k.modelHint}</span>
+            <span className="text-2xs text-(--ui-text-quaternary)">{k.modelHint}</span>
           </Field>
 
           {parents.length > 0 && (
@@ -777,15 +777,15 @@ function NewTaskDialog({
             </Field>
           )}
 
-          <label className="flex cursor-pointer items-center gap-2 text-[0.75rem] text-(--ui-text-secondary)">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-(--ui-text-secondary)">
             <Switch aria-label={k.goalMode} checked={goalMode} onCheckedChange={setGoalMode} size="xs" />
             {k.goalMode}
           </label>
 
-          {error && <span className="text-[0.75rem] text-destructive">{error}</span>}
+          {error && <span className="text-xs text-destructive">{error}</span>}
         </div>
         <DialogFooter>
-          <div className="mr-auto flex items-center gap-1 text-[0.75rem] text-(--ui-text-tertiary)">
+          <div className="mr-auto flex items-center gap-1 text-xs text-(--ui-text-tertiary)">
             {estimate?.ok ? (
               <>
                 <Tip label={estimate.rationale || k.roughEstimate}>
@@ -850,7 +850,7 @@ function Intro() {
 
   return (
     <div
-      className="mx-4 mb-2 flex flex-col items-start gap-1.5 rounded-lg bg-(--ui-bg-quinary) px-3 py-2.5 text-[0.75rem] leading-relaxed text-(--ui-text-secondary)"
+      className="mx-4 mb-2 flex flex-col items-start gap-1.5 rounded-lg bg-(--ui-bg-quinary) px-3 py-2.5 text-xs leading-relaxed text-(--ui-text-secondary)"
       data-selectable-text="true"
     >
       <p className="min-w-0">{k.introBody}</p>
@@ -1328,7 +1328,7 @@ export function KanbanBoardPage() {
 
       <header className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-2">
         <h1 className="text-sm font-semibold text-foreground">{k.title}</h1>
-        <span className="rounded-full bg-(--ui-bg-quaternary) px-1.5 py-px text-[0.625rem] tabular-nums text-(--ui-text-tertiary)">
+        <span className="rounded-full bg-(--ui-bg-quaternary) px-1.5 py-px text-2xs tabular-nums text-(--ui-text-tertiary)">
           {total}
         </span>
         {board && (

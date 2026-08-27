@@ -161,6 +161,17 @@ export function normalizeHex(input: string | undefined | null, backdrop = '#0000
   ])
 }
 
+/** Deepen a fill until a white label reads on it (≥ 4.5:1). */
+export function labelReadyFill(color: string): string {
+  let fill = color
+
+  for (let step = 0; step < 10 && contrastRatio('#ffffff', fill) < 4.5; step++) {
+    fill = mix(fill, '#000000', 0.12)
+  }
+
+  return fill
+}
+
 // ─── Synthesised light variants ─────────────────────────────────────────────
 
 /**
@@ -182,11 +193,7 @@ export function synthLightColors(seed: DesktopTheme): DesktopThemeColors {
 
   // Every authored preset's primary wears a white label; the synthesised one
   // does too, deepening bright accents (neon green, mid grey) until it reads.
-  let primary = accent
-
-  for (let step = 0; step < 10 && contrastRatio('#ffffff', primary) < 4.5; step++) {
-    primary = mix(primary, '#000000', 0.12)
-  }
+  const primary = labelReadyFill(accent)
 
   return {
     background: '#ffffff',

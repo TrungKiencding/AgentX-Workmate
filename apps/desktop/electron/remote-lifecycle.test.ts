@@ -112,14 +112,18 @@ test('locateHermes falls back to the login-shell command -v probe', async () => 
   assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/agentx')
 })
 
-test('locateHermes canonicalizes an installer wrapper to its executable target', async () => {
+test('locateHermes returns an installer wrapper as-is (never canonicalizes to its exec target)', async () => {
+  // Deliberate: following `exec` wrappers to the python interpreter broke
+  // version checks and capability probes (#74411) — the wrapper forwards
+  // arguments itself, so it IS the executable we want.
   const ssh = fakeSsh([
     [/command -v agentx/, '/home/u/.local/bin/agentx\n'],
     [/\[ -x .*\.local\/bin\/agentx/, 'OK'],
     [/python3 -c/, '/home/u/.agentx/agentx-agent/venv/bin/agentx\n']
   ])
 
-  assert.equal(await locateHermes(ssh, ''), '/home/u/.agentx/agentx-agent/venv/bin/agentx')
+  assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/agentx')
+  assert.ok(!ssh.calls.some(cmd => cmd.includes('python3')), 'must not probe the wrapper target')
 })
 
 test('locateHermes falls back to ~/.local/bin/agentx when the login-shell probe misses', async () => {

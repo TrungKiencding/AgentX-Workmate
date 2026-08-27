@@ -82,7 +82,7 @@ function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.G
 function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
-      className={cn('px-2 py-1.5 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground', className)}
+      className={cn('px-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground', className)}
       data-slot="select-label"
       {...props}
     />

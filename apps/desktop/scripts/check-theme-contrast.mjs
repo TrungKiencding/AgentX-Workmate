@@ -24,8 +24,27 @@
  * Run: node scripts/check-theme-contrast.mjs   (wired into `npm run check`)
  */
 
-import { baseColorsFor, contrastRatio, hexToRgb } from '../src/themes/color.ts'
-import { BUILTIN_THEME_LIST } from '../src/themes/presets.ts'
+import { registerHooks } from 'node:module'
+
+// The theme sources use the app's extensionless relative imports; Node's type
+// stripping doesn't resolve those, so append `.ts` when the bare specifier
+// misses. Registered before the dynamic imports below pull in the graph.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context)
+    } catch (error) {
+      if (specifier.startsWith('.') && !/\.[a-z]+$/.test(specifier)) {
+        return nextResolve(`${specifier}.ts`, context)
+      }
+
+      throw error
+    }
+  }
+})
+
+const { baseColorsFor, contrastRatio, hexToRgb } = await import('../src/themes/color.ts')
+const { ACCENT_PRESETS, BUILTIN_THEME_LIST, nousWithAccent } = await import('../src/themes/presets.ts')
 
 // ─── color-mix() resolution ────────────────────────────────────────────────
 // Presets may express soft fills as `color-mix(in srgb, <hex> N%, <hex|transparent>)`
@@ -130,9 +149,19 @@ const failures = []
 const warnings = []
 const rows = []
 
-for (const theme of BUILTIN_THEME_LIST) {
+// Built-ins, plus the Nous preset re-seeded on every curated accent — the
+// picker's variants hold the same floors as the shipped skin.
+const measured = [
+  ...BUILTIN_THEME_LIST.map(theme => [theme.name, theme]),
+  ...ACCENT_PRESETS.filter(preset => nousWithAccent(preset.value) !== BUILTIN_THEME_LIST[0]).map(preset => [
+    `nous+${preset.name}`,
+    nousWithAccent(preset.value)
+  ])
+]
+
+for (const [label, theme] of measured) {
   for (const mode of ['light', 'dark']) {
-    const variant = `${theme.name}/${mode}${theme.darkColors ? '' : mode === 'light' ? ' (synth)' : ''}`
+    const variant = `${label}/${mode}${theme.darkColors ? '' : mode === 'light' ? ' (synth)' : ''}`
 
     for (const { kind, label, fg, bg } of pairsFor(baseColorsFor(theme, mode))) {
       if (fg === null) {
@@ -178,6 +207,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Theme contrast gate: ${rows.length} pairs across ${BUILTIN_THEME_LIST.length} presets × 2 variants — all clear` +
+  `Theme contrast gate: ${rows.length} pairs across ${measured.length} palettes × 2 variants — all clear` +
     (warnings.length > 0 ? ` (${warnings.length} APCA advisories; --verbose to list)` : '')
 )

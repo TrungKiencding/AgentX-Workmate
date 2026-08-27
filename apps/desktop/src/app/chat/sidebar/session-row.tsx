@@ -236,7 +236,7 @@ function SidebarSessionRowImpl({
           {handoffSource && handoffLabel ? (
             <Tip label={r.handoffOrigin(handoffLabel)}>
               <PlatformAvatar
-                className="size-4 rounded-[4px] text-[0.5rem] [&_svg]:size-2.5"
+                className="size-4 rounded-[4px] text-2xs [&_svg]:size-2.5"
                 platformId={handoffSource}
                 platformName={handoffLabel}
               />

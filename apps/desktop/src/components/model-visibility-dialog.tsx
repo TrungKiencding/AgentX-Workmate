@@ -80,7 +80,7 @@ export function ModelVisibilityDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-xs gap-0 overflow-hidden p-0">
         <DialogHeader className="px-3 pb-1 pt-3">
-          <DialogTitle className="text-[0.8125rem]">{copy.title}</DialogTitle>
+          <DialogTitle className="text-sm">{copy.title}</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-1.5 px-3 py-1.5">

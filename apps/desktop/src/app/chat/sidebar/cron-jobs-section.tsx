@@ -276,7 +276,7 @@ function CronJobSidebarRow({
                   )}
                 />
               </span>
-              <span className="min-w-0 truncate text-[0.8125rem] text-(--ui-text-secondary) group-hover/cron:text-foreground">
+              <span className="min-w-0 truncate text-sm text-(--ui-text-secondary) group-hover/cron:text-foreground">
                 {label}
               </span>
               <DisclosureCaret
@@ -377,7 +377,7 @@ function CronJobSidebarRuns({ jobId, onOpenRun }: { jobId: string; onOpenRun: (s
     <div className="mb-1 ml-[1.375rem] flex flex-col gap-px">
       {runs === null ? (
         <div className="flex items-center gap-1.5 py-1 pl-1 text-2xs text-(--ui-text-tertiary)">
-          <GlyphSpinner ariaLabel={c.loading} className="text-[0.75rem]" />
+          <GlyphSpinner ariaLabel={c.loading} className="text-xs" />
         </div>
       ) : runs.length === 0 ? (
         <div className="py-1 pl-1 text-2xs text-(--ui-text-tertiary)">{c.noRuns}</div>

@@ -125,7 +125,7 @@ export function PreviewEmptyState({
             )}
             {secondaryAction && (
               <button
-                className="text-[0.6875rem] font-medium text-muted-foreground underline decoration-current/20 underline-offset-4 transition-colors hover:text-foreground disabled:cursor-default disabled:text-muted-foreground/55 disabled:no-underline"
+                className="text-2xs font-medium text-muted-foreground underline decoration-current/20 underline-offset-4 transition-colors hover:text-foreground disabled:cursor-default disabled:text-muted-foreground/55 disabled:no-underline"
                 disabled={secondaryAction.disabled}
                 onClick={secondaryAction.onClick}
                 type="button"
@@ -283,7 +283,7 @@ function MarkdownCode({ className, children, ...props }: ComponentProps<'code'>)
     return (
       <code
         className={cn(
-          'rounded bg-muted px-1 py-0.5 font-mono text-[0.86em] text-pink-700 dark:text-pink-300',
+          'rounded bg-muted px-1 py-0.5 font-mono text-[0.9em] text-pink-700 dark:text-pink-300',
           className
         )}
         {...props}
@@ -370,7 +370,7 @@ export function PreviewModeSwitcher({
         modes.map(mode => (
           <button
             className={cn(
-              'text-[0.625rem] font-bold underline-offset-4 transition-colors',
+              'text-2xs font-bold underline-offset-4 transition-colors',
               mode === active
                 ? 'text-foreground underline decoration-current/30'
                 : 'text-muted-foreground hover:text-foreground'
@@ -405,7 +405,7 @@ function EditControls({
   return (
     <>
       <button
-        className="flex items-center gap-1 rounded-md px-1.5 text-[0.625rem] font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="flex items-center gap-1 rounded-md px-1.5 text-2xs font-bold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         onClick={onCancel}
         type="button"
       >
@@ -413,7 +413,7 @@ function EditControls({
         {t.common.cancel}
       </button>
       <button
-        className="flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[0.625rem] font-bold text-primary-foreground shadow-xs transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-2xs font-bold text-primary-foreground shadow-xs transition-opacity hover:opacity-90 disabled:opacity-50"
         disabled={!dirty || saving}
         onClick={onSave}
         type="button"
@@ -523,7 +523,7 @@ export function SourceView({ filePath, language, text }: { filePath?: string; la
 
   return (
     <div className="h-full overflow-auto" onScroll={onScroll} ref={scrollerRef}>
-      <div className="grid min-w-max grid-cols-[auto_minmax(0,1fr)] font-mono text-[0.7rem] leading-relaxed">
+      <div className="grid min-w-max grid-cols-[auto_minmax(0,1fr)] font-mono text-2xs leading-relaxed">
         {beforeRows > 0 && <div aria-hidden className="col-span-2" style={{ height: beforeRows * SOURCE_LINE_PX }} />}
         {visibleChunks.map(chunk => (
           <Fragment key={chunk.start}>
@@ -841,7 +841,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
           trailing={<EditControls dirty={dirty} onCancel={cancelEdit} onSave={() => void saveEdit()} saving={saving} />}
         />
         {conflict && (
-          <div className="shrink-0 border-b border-amber-400/40 bg-amber-50 px-3 py-2 text-[0.7rem] text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
+          <div className="shrink-0 border-b border-amber-400/40 bg-amber-50 px-3 py-2 text-2xs text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
             <div className="font-semibold">{t.preview.diskChangedTitle}</div>
             <div className="mt-0.5 leading-relaxed">{t.preview.diskChangedBody}</div>
             <div className="mt-1.5 flex gap-3">
@@ -863,7 +863,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
           </div>
         )}
         {saveError && (
-          <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[0.7rem] text-destructive">
+          <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-1.5 text-2xs text-destructive">
             {t.preview.saveFailed(saveError)}
           </div>
         )}
@@ -951,7 +951,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
         ref={readViewRef}
       >
         {state.truncated && (
-          <div className="border-b border-border/60 bg-muted/35 px-3 py-1.5 text-[0.68rem] text-muted-foreground">
+          <div className="border-b border-border/60 bg-muted/35 px-3 py-1.5 text-2xs text-muted-foreground">
             {t.preview.truncated}
           </div>
         )}
@@ -963,7 +963,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
             canEdit ? (
               <Tip label={`${t.preview.edit} (e)`}>
                 <button
-                  className="flex items-center gap-1 text-[0.625rem] font-bold text-muted-foreground underline-offset-4 transition-colors hover:text-foreground"
+                  className="flex items-center gap-1 text-2xs font-bold text-muted-foreground underline-offset-4 transition-colors hover:text-foreground"
                   onClick={beginEdit}
                   type="button"
                 >

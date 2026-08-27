@@ -83,7 +83,7 @@ export function ContextUsagePanel({
   const segmentTotal = categories.reduce((sum, category) => sum + category.tokens, 0) || contextUsed || 1
 
   return (
-    <div className="flex w-72 flex-col gap-3 p-3 text-[0.75rem]" data-slot="context-usage-panel">
+    <div className="flex w-72 flex-col gap-3 p-3 text-xs" data-slot="context-usage-panel">
       <div className="flex items-baseline justify-between gap-2">
         <p className="font-medium text-foreground">{copy.title}</p>
 

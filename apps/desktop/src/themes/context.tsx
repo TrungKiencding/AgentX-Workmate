@@ -18,8 +18,8 @@ import { persistString, persistStringRecord, storedString, storedStringRecord } 
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 
 import { $backendThemes, $pendingSkinApply } from './backend-sync'
-import { baseColorsFor, hexToRgb, mix, readableOn } from './color'
-import { BUILTIN_THEME_LIST, DEFAULT_SERIF_DISPLAY, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme } from './presets'
+import { baseColorsFor, bestTextOn, hexToRgb, mix } from './color'
+import { BUILTIN_THEME_LIST, DEFAULT_SERIF_DISPLAY, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme, nousWithAccent } from './presets'
 import type { DesktopTheme, DesktopThemeColors } from './types'
 import { $userThemes, listAllThemes, resolveTheme } from './user-themes'
 
@@ -32,6 +32,10 @@ const MODE_KEY = 'agentx-desktop-mode-v1'
 // profile inherits the global default until it's given its own appearance.
 const PROFILE_SKINS_KEY = 'agentx-desktop-profile-themes-v1'
 const PROFILE_MODES_KEY = 'agentx-desktop-profile-modes-v1'
+// Accent override for the Nous preset ('' = the shipped Nous blue). Same
+// global + per-profile shape as skin/mode.
+const ACCENT_KEY = 'agentx-desktop-accent-v1'
+const PROFILE_ACCENTS_KEY = 'agentx-desktop-profile-accents-v1'
 // Last active profile, recorded so the boot-time paint can pick that profile's
 // theme before the gateway reports which profile actually launched.
 const LAST_PROFILE_KEY = 'agentx-desktop-active-profile-v1'
@@ -49,6 +53,9 @@ const normalizeSkin = (name: string | null): string =>
 
 const normalizeMode = (value: string | null): ThemeMode =>
   value === 'light' || value === 'dark' || value === 'system' ? value : 'light'
+
+const normalizeAccent = (value: string | null): string =>
+  value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : ''
 
 // ─── Per-profile appearance persistence ─────────────────────────────────────
 // Skin and mode are each stored per profile. "default" isn't a real profile —
@@ -68,6 +75,7 @@ const profilePref = <T extends string>(record: string, legacy: string, normalize
 
 export const skinPref = profilePref(PROFILE_SKINS_KEY, SKIN_KEY, normalizeSkin)
 export const modePref = profilePref(PROFILE_MODES_KEY, MODE_KEY, normalizeMode)
+export const accentPref = profilePref(PROFILE_ACCENTS_KEY, ACCENT_KEY, normalizeAccent)
 
 // Last active profile — lets the boot paint pick its appearance before the
 // gateway reports which profile actually launched.
@@ -84,15 +92,18 @@ export function getBaseColors(skinName: string, mode: 'light' | 'dark'): Desktop
   return baseColorsFor(resolveTheme(skinName) ?? nousTheme, mode)
 }
 
-function deriveTheme(skinName: string, mode: 'light' | 'dark'): DesktopTheme {
-  const seed = resolveTheme(skinName) ?? nousTheme
+function deriveTheme(skinName: string, mode: 'light' | 'dark', accent = ''): DesktopTheme {
+  const resolved = resolveTheme(skinName) ?? nousTheme
+  // The accent picker recolors the Nous preset only — every other theme owns
+  // its accent. '' (or the Nous blue itself) resolves to the shipped skin.
+  const seed = accent && skinName === DEFAULT_SKIN_NAME ? nousWithAccent(accent) : resolved
 
   return {
     ...seed,
     name: `${skinName}-${mode}`,
     label: `${seed.label} ${mode === 'light' ? 'Light' : 'Dark'}`,
     description: `${seed.label} ${mode} palette`,
-    colors: getBaseColors(skinName, mode)
+    colors: baseColorsFor(seed, mode)
   }
 }
 
@@ -180,7 +191,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
     '--dt-input': c.input,
     '--dt-ring': c.ring,
     '--dt-muted': c.muted,
-    '--dt-midground-foreground': c.midgroundForeground ?? readableOn(midground),
+    '--dt-midground-foreground': c.midgroundForeground ?? bestTextOn(midground),
     '--dt-composer-ring': c.composerRing ?? midground,
     '--dt-destructive': c.destructive,
     '--dt-destructive-foreground': c.destructiveForeground,
@@ -239,7 +250,7 @@ if (typeof window !== 'undefined') {
   const profile = readBootProfileKey()
   const pref = modePref.resolve(profile)
   const resolved = resolveMode(pref)
-  const theme = deriveTheme(skinPref.resolve(profile), resolved)
+  const theme = deriveTheme(skinPref.resolve(profile), resolved, accentPref.resolve(profile))
   applyTheme(theme, resolved)
   syncNativeTheme(pref, renderedModeFor(theme.colors, resolved))
 }
@@ -260,8 +271,11 @@ interface ThemeContextValue {
    */
   renderedMode: 'light' | 'dark'
   availableThemes: Array<{ name: string; label: string; description: string }>
+  /** Accent override for the Nous preset — '' means the shipped Nous blue. */
+  accent: string
   setTheme: (name: string) => void
   setMode: (mode: ThemeMode) => void
+  setAccent: (hex: string) => void
 }
 
 const SKIN_LIST = BUILTIN_THEME_LIST.map(({ name, label, description }) => ({ name, label, description }))
@@ -273,8 +287,10 @@ const ThemeContext = createContext<ThemeContextValue>({
   resolvedMode: 'light',
   renderedMode: 'light',
   availableThemes: SKIN_LIST,
+  accent: '',
   setTheme: () => {},
-  setMode: () => {}
+  setMode: () => {},
+  setAccent: () => {}
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -310,24 +326,29 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     typeof window === 'undefined' ? 'light' : modePref.resolve(readBootProfileKey())
   )
 
+  const [accent, setAccentState] = useState(() =>
+    typeof window === 'undefined' ? '' : accentPref.resolve(readBootProfileKey())
+  )
+
   // Follow profile switches: paint the profile's assigned skin + mode and
   // remember it for the next boot's first paint.
   useEffect(() => {
     rememberActiveProfileKey(profileKey)
     setThemeNameState(skinPref.resolve(profileKey))
     setModeState(modePref.resolve(profileKey))
+    setAccentState(accentPref.resolve(profileKey))
   }, [profileKey])
 
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
   const resolvedMode = resolveMode(mode, systemDark)
 
   const activeTheme = useMemo(
-    () => deriveTheme(themeName, resolvedMode),
+    () => deriveTheme(themeName, resolvedMode, accent),
     // deriveTheme resolves its seed through the merged registry, so the theme
     // stores are its reactivity too — an in-place palette edit of the ACTIVE
     // skin (live theme authoring) must repaint, not just a name switch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [themeName, resolvedMode, userThemes, backendThemes, registryVersion]
+    [themeName, resolvedMode, accent, userThemes, backendThemes, registryVersion]
   )
 
   // What actually gets painted (matches the `.dark` class applyTheme toggles).
@@ -354,6 +375,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     modePref.assign(liveProfile(), next)
   }, [])
 
+  const setAccent = useCallback((hex: string) => {
+    const next = normalizeAccent(hex)
+    setAccentState(next)
+    accentPref.assign(liveProfile(), next)
+  }, [])
+
   // Drain a backend-driven skin switch (AgentX authoring/activating a skin from a
   // prompt, or `/skin` on another surface). setTheme persists it per profile, so
   // the choice sticks like any manual pick.
@@ -370,8 +397,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // (`appearance.toggleMode`) so it shows up in the hotkey map and is rebindable.
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme: activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, setTheme, setMode }),
-    [activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, setTheme, setMode]
+    () => ({ theme: activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, accent, setTheme, setMode, setAccent }),
+    [activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, accent, setTheme, setMode, setAccent]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

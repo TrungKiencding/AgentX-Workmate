@@ -118,7 +118,7 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
             className="fixed z-50 min-w-36 rounded-lg border border-(--ui-stroke-secondary) bg-[color-mix(in_srgb,var(--ui-bg-elevated)_96%,transparent)] p-1 shadow-md backdrop-blur-md"
             style={{ left: target.x, top: target.y }}
           >
-            <div className="truncate px-2 py-1 text-[0.68rem] text-muted-foreground">{target.label}</div>
+            <div className="truncate px-2 py-1 text-2xs text-muted-foreground">{target.label}</div>
             <button
               className="block w-full cursor-pointer rounded-md px-2 py-1 text-left text-xs hover:bg-(--ui-control-active-background) hover:text-foreground disabled:opacity-50"
               disabled={loading}

@@ -101,3 +101,29 @@ The §5 slop-checklist ran across Home, streaming chat, full sidebar, Settings,
 the palette and onboarding at three window sizes in both modes. Message action
 buttons were raised to the 24px hit-target floor (they measured 14×14).
 Reduced-motion verified: the strongest thing left moving is a 0.01ms fade.
+
+## Debt sweep — after the ten phases
+
+Everything the phases had logged as "known debt" is paid:
+
+- **Accent picker** (Settings → Appearance, Nous theme only): six curated
+  seeds — Nous Blue, Violet, Magenta, Green, Amber, Teal — recolor everything
+  the blue carried: buttons, focus ring, selection, tints. The neutral bands
+  and inks stay Paper/Graphite, the primary deepens until its white label
+  reads, and the contrast gate now walks every accent in both bands
+  (264 measured pairs). Stored per profile; the default is the shipped blue.
+- **Native tooltips, gone for real.** The guard that bans `title=` on buttons
+  couldn't see past arrow-function props and only scanned `components/` — the
+  hardened scan found 20 hidden violations (duplicate `title`s beside
+  `aria-label`s, plus a few real hints now on the themed `Tip`).
+- **306 orphan font sizes onto the ramp.** Every `text-[0.6…rem]`-style
+  literal in the renderer now rides `--text-*`; nothing user-facing sits under
+  the 11px floor any more. Inline code keeps one proportional size (`0.9em` of
+  its sentence) in every renderer, and the fenced block in a user bubble rides
+  the conversation code tokens.
+- **Custom Endpoints speaks every language.** The last hardcoded-English
+  settings page moved onto `useI18n()` across all five locales (`ar` included
+  — the roster grew since the plan was written).
+- Imported skins and VS Code themes pick their label color by measured
+  contrast (`bestTextOn`), so a mid-tone accent no longer coin-flips to
+  white-on-grey.

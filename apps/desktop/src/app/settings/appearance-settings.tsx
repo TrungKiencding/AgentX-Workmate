@@ -21,6 +21,7 @@ import { $translucency, setTranslucency } from '@/store/translucency'
 import { $zoomPercent, setZoomPercent } from '@/store/zoom'
 import { getBaseColors, useTheme } from '@/themes/context'
 import { installVscodeThemeFromMarketplace } from '@/themes/install'
+import { ACCENT_PRESETS, DEFAULT_SKIN_NAME } from '@/themes/presets'
 import type { DesktopTheme } from '@/themes/types'
 import { $marketplaceInstalls, isUserTheme, removeUserTheme } from '@/themes/user-themes'
 
@@ -246,7 +247,7 @@ function MarketplaceThemeResults({
 
 export function AppearanceSettings() {
   const { t, isSavingLocale } = useI18n()
-  const { themeName, mode, resolvedMode, availableThemes, setTheme, setMode } = useTheme()
+  const { themeName, mode, resolvedMode, availableThemes, accent, setTheme, setMode, setAccent } = useTheme()
   const toolViewMode = useStore($toolViewMode)
   const zoomPercent = useStore($zoomPercent)
   const embedMode = useStore($embedMode)
@@ -377,7 +378,6 @@ export function AppearanceSettings() {
                                     setTheme(theme.name)
                                   }
                                 }}
-                                title={a.removeTheme}
                                 type="button"
                               >
                                 <Trash2 className="size-3.5" />
@@ -413,6 +413,43 @@ export function AppearanceSettings() {
             }
             wide
           />
+
+          {/* Accent recolors the Nous preset only — other themes own theirs.
+              Swatch fills are data (the preset seeds), so they ride inline
+              style exactly like ThemePreview above. */}
+          {themeName === DEFAULT_SKIN_NAME && (
+            <ListRow
+              action={
+                <div className="flex items-center gap-2">
+                  {ACCENT_PRESETS.map((preset, index) => {
+                    const selected = index === 0 ? !accent || accent === preset.value : accent === preset.value
+
+                    return (
+                      <button
+                        aria-label={a.accentNames[preset.name]}
+                        aria-pressed={selected}
+                        className={cn(
+                          'size-6 rounded-full outline-offset-2 transition-[outline-color] duration-(--dur-micro)',
+                          selected
+                            ? 'outline-2 outline-(--ui-focus-ring)'
+                            : 'hover:outline-2 hover:outline-(--ui-stroke-secondary)'
+                        )}
+                        key={preset.name}
+                        onClick={() => {
+                          triggerHaptic('crisp')
+                          setAccent(index === 0 ? '' : preset.value)
+                        }}
+                        style={{ backgroundColor: preset.value }}
+                        type="button"
+                      />
+                    )
+                  })}
+                </div>
+              }
+              description={a.accentDesc}
+              title={a.accentTitle}
+            />
+          )}
 
           <ListRow
             action={

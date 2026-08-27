@@ -39,7 +39,7 @@ export function ChatDropOverlay({ kind }: { kind: DragKind }) {
         )}
       />
       {shown && (
-        <span className="relative text-[11px] font-medium uppercase tracking-wide text-foreground">
+        <span className="relative text-2xs font-medium uppercase tracking-wide text-foreground">
           {shown === 'session' ? t.composer.dropSession : t.composer.dropFiles}
         </span>
       )}

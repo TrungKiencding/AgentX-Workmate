@@ -45,7 +45,7 @@ function ClickCounter() {
     <Tip label={`Example plugin — gateway ${gateway}, ${events} events heard`}>
       <button
         className={cn(
-          'inline-flex h-full items-center gap-1 rounded-none px-1.5 text-[0.6875rem] tabular-nums transition-colors',
+          'inline-flex h-full items-center gap-1 rounded-none px-1.5 text-2xs tabular-nums transition-colors',
           'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground',
           count > 0 && 'text-foreground'
         )}

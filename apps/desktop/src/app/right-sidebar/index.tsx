@@ -250,7 +250,7 @@ function FileTreeBody({
         <EmptyState body={r.unreadableBody(error)} title={r.unreadableTitle} />
         {onRetry && (
           <button
-            className="text-[0.68rem] font-medium text-muted-foreground transition hover:text-foreground"
+            className="text-2xs font-medium text-muted-foreground transition hover:text-foreground"
             onClick={onRetry}
             type="button"
           >
@@ -275,7 +275,7 @@ function FileTreeBody({
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
           <EmptyState body={r.treeErrorBody} title={r.treeErrorTitle} />
           <button
-            className="text-[0.68rem] font-medium text-muted-foreground transition hover:text-foreground"
+            className="text-2xs font-medium text-muted-foreground transition hover:text-foreground"
             onClick={reset}
             type="button"
           >
@@ -327,9 +327,9 @@ export function EmptyState({ body, title }: { body: string; title?: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
       {title && (
-        <div className="text-[0.7rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground/75">{title}</div>
+        <div className="text-2xs font-semibold uppercase tracking-[0.07em] text-muted-foreground/75">{title}</div>
       )}
-      <div className="text-[0.68rem] leading-relaxed text-muted-foreground/65">{body}</div>
+      <div className="text-2xs leading-relaxed text-muted-foreground/65">{body}</div>
     </div>
   )
 }
