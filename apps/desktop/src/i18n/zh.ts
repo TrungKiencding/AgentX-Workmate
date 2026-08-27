@@ -570,7 +570,7 @@ export const zh: Translations = {
       translucencyTitle: '窗口透明',
       translucencyDesc: '让整个窗口透出桌面。仅支持 macOS 和 Windows。',
       backdropTitle: '聊天背景',
-      backdropDesc: '对话后方那张淡淡的雕像图片。',
+      backdropDesc: '对话后方淡淡的 AgentX Workmate 图案。',
       reactionsTitle: '消息回应',
       reactionsDesc: 'iMessage 风格的表情回应 — 你可以给消息添加回应，AgentX 也能回应你的消息。',
       embedsTitle: '内嵌预览',

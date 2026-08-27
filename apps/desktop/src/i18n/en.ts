@@ -582,7 +582,7 @@ export const en: Translations = {
       translucencyTitle: 'Window Translucency',
       translucencyDesc: 'See your desktop through the whole window. macOS and Windows only.',
       backdropTitle: 'Chat Backdrop',
-      backdropDesc: 'The faint statue image behind the conversation.',
+      backdropDesc: 'The faint AgentX Workmate pattern behind the conversation.',
       reactionsTitle: 'Message Reactions',
       reactionsDesc: 'iMessage-style emoji tapbacks — react to messages, and AgentX can react to yours.',
       embedsTitle: 'Inline Embeds',

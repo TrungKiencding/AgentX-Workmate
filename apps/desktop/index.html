@@ -19,9 +19,11 @@
         let bg = localStorage.getItem('agentx-boot-background')
         let scheme = localStorage.getItem('agentx-boot-color-scheme')
         if (!bg) {
-          const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
-          bg = dark ? '#111111' : '#f7f7f7'
-          scheme = dark ? 'dark' : 'light'
+          // Nothing cached yet — a fresh install. Paint the shipped default
+          // (Night Owl dark) rather than the OS answer, so the first frame
+          // matches what applyTheme() is about to render.
+          bg = '#011627'
+          scheme = 'dark'
         }
         document.documentElement.style.backgroundColor = bg
         if (scheme === 'dark' || scheme === 'light') {

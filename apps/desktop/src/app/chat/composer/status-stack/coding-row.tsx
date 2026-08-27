@@ -217,7 +217,10 @@ export const CodingStatusRow = memo(function CodingStatusRow({
         <StatusRow
           // The base "where am I working" strip is part of the composer surface
           // itself, so it inherits the composer's width and clipped top radius.
-          className="coding-status-bar min-h-7 rounded-t-[inherit] rounded-b-none border-b border-(--ui-stroke-tertiary) px-3.5 py-1.5 hover:bg-transparent"
+          // The divider under the strip is the INSET hairline drawn by
+          // `.coding-status-bar` in styles.css — not an edge-to-edge border-b,
+          // which read as a toolbar bolted onto the card.
+          className="coding-status-bar min-h-7 rounded-t-[inherit] rounded-b-none px-3.5 py-1.5 hover:bg-transparent"
           // Static branch glyph — never the loading spinner. This row only renders
           // once `status` exists, so a spinner here only ever fired on *refreshes*
           // of an already-loaded repo (window focus, turn settle), reading as an

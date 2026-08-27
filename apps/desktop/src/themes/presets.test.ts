@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { baseColorsFor, contrastRatio } from './color'
 import {
+  ACCENT_SKIN_NAME,
   BUILTIN_THEME_LIST,
   BUILTIN_THEMES,
   DEFAULT_SERIF_DISPLAY,
   DEFAULT_SKIN_NAME,
   DEFAULT_TYPOGRAPHY,
   EMOJI_FALLBACK,
+  nightOwlTheme,
   nousClassicTheme,
   nousTheme
 } from './presets'
@@ -47,7 +49,7 @@ describe('bundled default typography', () => {
     expect(DEFAULT_TYPOGRAPHY.fontSans).toMatch(/^"Geist"/)
     expect(DEFAULT_TYPOGRAPHY.fontMono).toMatch(/^"JetBrains Mono"/)
     // The default skin must not carry a runtime font stylesheet URL.
-    expect(BUILTIN_THEME_LIST.find(theme => theme.name === 'nous')?.typography?.fontUrl).toBeUndefined()
+    expect(BUILTIN_THEMES[DEFAULT_SKIN_NAME].typography?.fontUrl).toBeUndefined()
   })
 
   it('ships a serif-display default; themes may omit the field', () => {
@@ -150,8 +152,24 @@ describe('default bands', () => {
     expect(BUILTIN_THEMES['nous-classic']).toBe(nousClassicTheme)
     expect(nousClassicTheme.colors).toBe(nousTheme.colors)
     expect(nousClassicTheme.darkColors?.background).toBe('#0D2F86')
-    // Retiring nothing: the default skin name still resolves to Nous itself.
-    expect(DEFAULT_SKIN_NAME).toBe('nous')
+    // Retiring nothing: every earlier default is still a skin you can pick.
     expect(BUILTIN_THEME_LIST.map(theme => theme.name)).toContain('nous-classic')
+    expect(BUILTIN_THEME_LIST.map(theme => theme.name)).toContain('nous')
+  })
+
+  it('ships Night Owl as the default, hand-tuned on BOTH bands', () => {
+    expect(DEFAULT_SKIN_NAME).toBe('night-owl')
+    expect(BUILTIN_THEMES[DEFAULT_SKIN_NAME]).toBe(nightOwlTheme)
+    // Both bands are authored: no synth pass runs for the skin every install
+    // lands on, so `colors` is Night Owl Light and `darkColors` the original.
+    expect(nightOwlTheme.darkColors?.background).toBe('#011627')
+    expect(nightOwlTheme.colors.background).toBe('#fbfbfb')
+  })
+
+  it('leaves the accent picker on Nous, not on whatever ships as default', () => {
+    // nousWithAccent rebuilds the NOUS palette around the hue, so aiming this
+    // at the default skin would swap Night Owl's palette out from under it.
+    expect(ACCENT_SKIN_NAME).toBe('nous')
+    expect(ACCENT_SKIN_NAME).not.toBe(DEFAULT_SKIN_NAME)
   })
 })

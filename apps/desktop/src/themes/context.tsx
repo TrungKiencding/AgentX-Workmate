@@ -19,7 +19,15 @@ import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 
 import { $backendThemes, $pendingSkinApply } from './backend-sync'
 import { baseColorsFor, bestTextOn, hexToRgb, mix } from './color'
-import { BUILTIN_THEME_LIST, DEFAULT_SERIF_DISPLAY, DEFAULT_SKIN_NAME, DEFAULT_TYPOGRAPHY, nousTheme, nousWithAccent } from './presets'
+import {
+  ACCENT_SKIN_NAME,
+  BUILTIN_THEME_LIST,
+  DEFAULT_SERIF_DISPLAY,
+  DEFAULT_SKIN_NAME,
+  DEFAULT_TYPOGRAPHY,
+  nightOwlTheme,
+  nousWithAccent
+} from './presets'
 import type { DesktopTheme, DesktopThemeColors } from './types'
 import { $userThemes, listAllThemes, resolveTheme } from './user-themes'
 
@@ -51,8 +59,10 @@ const resolveMode = (mode: ThemeMode, systemDark = matchesQuery('(prefers-color-
 const normalizeSkin = (name: string | null): string =>
   name && resolveTheme(name) && !RETIRED_SKINS.has(name) ? name : DEFAULT_SKIN_NAME
 
+// Nothing stored means a fresh install, and the shipped default is Night Owl —
+// a dark skin, so the mode it ships with is dark rather than the OS's answer.
 const normalizeMode = (value: string | null): ThemeMode =>
-  value === 'light' || value === 'dark' || value === 'system' ? value : 'light'
+  value === 'light' || value === 'dark' || value === 'system' ? value : 'dark'
 
 const normalizeAccent = (value: string | null): string =>
   value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : ''
@@ -89,14 +99,14 @@ const rememberActiveProfileKey = (profile: string) => persistString(LAST_PROFILE
 
 /** Returns the seed palette for a given skin + mode (no overrides applied). */
 export function getBaseColors(skinName: string, mode: 'light' | 'dark'): DesktopThemeColors {
-  return baseColorsFor(resolveTheme(skinName) ?? nousTheme, mode)
+  return baseColorsFor(resolveTheme(skinName) ?? nightOwlTheme, mode)
 }
 
 function deriveTheme(skinName: string, mode: 'light' | 'dark', accent = ''): DesktopTheme {
-  const resolved = resolveTheme(skinName) ?? nousTheme
+  const resolved = resolveTheme(skinName) ?? nightOwlTheme
   // The accent picker recolors the Nous preset only — every other theme owns
   // its accent. '' (or the Nous blue itself) resolves to the shipped skin.
-  const seed = accent && skinName === DEFAULT_SKIN_NAME ? nousWithAccent(accent) : resolved
+  const seed = accent && skinName === ACCENT_SKIN_NAME ? nousWithAccent(accent) : resolved
 
   return {
     ...seed,
@@ -156,7 +166,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
 
   const root = document.documentElement
   const c = theme.colors
-  const typo = { ...DEFAULT_TYPOGRAPHY, ...nousTheme.typography, ...theme.typography }
+  const typo = { ...DEFAULT_TYPOGRAPHY, ...nightOwlTheme.typography, ...theme.typography }
   const rendered = renderedModeFor(c, mode)
   const isDark = rendered === 'dark'
   const midground = c.midground ?? c.ring
@@ -281,11 +291,11 @@ interface ThemeContextValue {
 const SKIN_LIST = BUILTIN_THEME_LIST.map(({ name, label, description }) => ({ name, label, description }))
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: nousTheme,
+  theme: nightOwlTheme,
   themeName: DEFAULT_SKIN_NAME,
-  mode: 'light',
-  resolvedMode: 'light',
-  renderedMode: 'light',
+  mode: 'dark',
+  resolvedMode: 'dark',
+  renderedMode: 'dark',
   availableThemes: SKIN_LIST,
   accent: '',
   setTheme: () => {},
@@ -323,7 +333,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   const [mode, setModeState] = useState<ThemeMode>(() =>
-    typeof window === 'undefined' ? 'light' : modePref.resolve(readBootProfileKey())
+    typeof window === 'undefined' ? 'dark' : modePref.resolve(readBootProfileKey())
   )
 
   const [accent, setAccentState] = useState(() =>

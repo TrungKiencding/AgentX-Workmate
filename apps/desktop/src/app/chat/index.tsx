@@ -10,7 +10,7 @@ import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
-import { Backdrop } from '@/components/Backdrop'
+import { ChatWatermark } from '@/components/chat-watermark'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-shell/tree/store'
@@ -525,7 +525,6 @@ export const ChatView = memo(function ChatView({
       data-composer-target={composerScope.target}
       data-session-anchor={sessionAnchor}
     >
-      <Backdrop />
       {/* Tiles get their chrome from the layout zone (chip strip); the modal
           prompt overlays stay active-session-scoped in the primary surface. */}
       {isPrimary && (
@@ -556,6 +555,9 @@ export const ChatView = memo(function ChatView({
           data-slot="composer-bounds"
           {...dropHandlers}
         >
+          {/* Behind the transcript, inside this wrapper: it paints the opaque
+              surface fill, so a backdrop mounted outside it would be covered. */}
+          <ChatWatermark />
           <Thread
             clampToComposer={showChatBar}
             cwd={currentCwd}

@@ -725,7 +725,9 @@
     --warm-glow: color-mix(in srgb, var(--ui-warm) 32%, color-mix(in srgb, var(--ui-accent) 6%, transparent));
     /* `--noise-opacity-mul` is set per-mode by `applyTheme()`. */
     --noise-opacity-mul: 1;
-    --backdrop-invert-mul: 1;
+    /* The one knob on the brand watermark (`.chat-watermark`). The art carries
+       its own relative weights; this says how loud the whole texture is. */
+    --ui-watermark-strength: 0.115;
   }
 
   :root.dark {
@@ -770,7 +772,8 @@
 
     --sidebar-edge-border: color-mix(in srgb, var(--ui-base) 12%, transparent);
     --composer-ring-strength: 1.3;
-    --backdrop-invert-mul: 0;
+    /* Hairlines lose more to a dark ground than to paper — lift, don't match. */
+    --ui-watermark-strength: 0.16;
     /* Dark mode: a dark card needs a stronger black inset to show the recess. */
     --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 38%, transparent);
     --ui-tab-hover-darken: 6%;
@@ -1653,6 +1656,31 @@ code {
   max-width: min(var(--composer-width), 82vw);
 }
 
+/* The chat backdrop — the AgentX Workmate identity as a repeating hairline
+   texture (see components/chat-watermark.tsx for the tile). It takes its colour
+   from the accent token so every skin gets its own ink, and its loudness from a
+   single per-mode token, so tuning the whisper never means touching the art. */
+.chat-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  color: var(--dt-primary);
+  opacity: var(--ui-watermark-strength);
+  pointer-events: none;
+}
+
+.chat-watermark > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The wordmarks are drawing, not copy: they ride the UI sans, never the ramp. */
+.chat-watermark text {
+  font-family: var(--dt-font-sans);
+}
+
 /* The one "human" moment in the product: a serif line that greets, a muted line
    that says what this surface is for, and a row of ways in. The composer stays
    the only CTA — this block leads the eye down to it. Roman, never italic, and
@@ -1861,6 +1889,24 @@ code {
 [data-slot='composer-rich-input'] {
   color: var(--ui-text-primary);
   font-size: 0.8125rem;
+}
+
+/* Hallmark · component: composer-bar · theme: project tokens · P4 H5 E4 S4 R5 V4
+   The coding-context strip caps the composer card. Its divider is an INSET
+   hairline, padding-matched to the strip's own px-3.5 — a full-bleed rule cut
+   the card into a two-row form; the inset one separates content while the card
+   stays one surface. Same tertiary stroke every in-panel divider uses. */
+.coding-status-bar {
+  position: relative;
+}
+
+.coding-status-bar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.875rem;
+  bottom: 0;
+  height: 1px;
+  background: var(--ui-stroke-tertiary);
 }
 
 [data-slot='composer-rich-input']:is(:empty, [data-empty])::before {

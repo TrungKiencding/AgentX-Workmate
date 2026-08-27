@@ -164,12 +164,138 @@ export const nousTheme: DesktopTheme = {
     userBubble: GRAPHITE.bubble,
     userBubbleBorder: GRAPHITE.bubbleBorder
   },
-  // The default skin rides DEFAULT_TYPOGRAPHY (bundled Geist + JetBrains
-  // Mono). No fontUrl on purpose: the default theme must never fetch a font
-  // CDN at runtime.
+  // Bundled Geist + JetBrains Mono, no fontUrl: Nous was the default skin for
+  // most of the app's life and half the presets inherit its typography, so it
+  // stays CDN-free even now that Night Owl ships first.
   typography: {
     fontSans: GEIST_SANS,
     fontMono: JETBRAINS_MONO
+  }
+}
+
+/**
+ * Night Owl — the shipped default. Sarah Drasner's palette, both halves of it:
+ * the deep-navy original on the dark band, Night Owl Light on the light one, so
+ * the skin keeps its identity whichever way the mode switch goes instead of
+ * having a light variant synthesised for it.
+ *
+ * Two departures from the source theme, both forced by the contrast gate (an
+ * editor theme only has to carry code on one surface; a whole app has to carry
+ * labels on fills too): the comment grey is lifted to clear 4.5:1 as muted body
+ * text, and the semantic fills wear the page colour as their label rather than
+ * white — Night Owl's red and blue are both too light to hold a white one.
+ *
+ * Axes — band: navy, bg oklch(19% 0.05 250) dark / near-white light · display:
+ * Geist + JetBrains Mono (bundled, no CDN — this is the default skin) · accent:
+ * Night Owl periwinkle #82AAFF dark, #4876D6 light.
+ */
+export const nightOwlTheme: DesktopTheme = {
+  name: 'night-owl',
+  label: 'Night Owl',
+  description: 'Deep navy with periwinkle and cyan — the shipped default',
+  colors: {
+    background: '#fbfbfb',
+    foreground: '#403f53',
+    card: '#ffffff',
+    cardForeground: '#403f53',
+    muted: '#f0f0f0',
+    mutedForeground: '#5c6180', // 5.75:1 on the muted rung (source #989fb1 sat at 2.4)
+    popover: '#ffffff',
+    popoverForeground: '#403f53',
+    primary: '#3f68c4', // Night Owl Light blue, deepened until white reads on it
+    primaryForeground: '#ffffff',
+    secondary: '#eceef4',
+    secondaryForeground: '#3c3b50',
+    accent: '#e4ebf8',
+    accentForeground: '#33436b',
+    border: '#d7dbe3',
+    input: '#ccd2dc',
+    ring: '#3f68c4',
+    midground: '#3f68c4',
+    composerRing: '#3f68c4',
+    destructive: '#b8403c', // the source's #c96765 lifted to a white-label fill
+    destructiveForeground: '#ffffff',
+    sidebarBackground: '#f0f0f0',
+    sidebarBorder: '#d0d5de',
+    userBubble: '#eef2fc',
+    userBubbleBorder: '#d5deef'
+  },
+  darkColors: {
+    background: '#011627', // the canonical Night Owl page
+    foreground: '#d6deeb',
+    card: '#0b2942',
+    cardForeground: '#d6deeb',
+    muted: '#0e2c44',
+    mutedForeground: '#93aec4', // 6.1:1 on the page — the source #637777 sat at 3.8
+    popover: '#102a43',
+    popoverForeground: '#d6deeb',
+    // The true Night Owl blue (#82AAFF) stays on the strokes below; a filled
+    // control has to carry a label, and dark-on-#82AAFF lands at Lc 58.
+    primary: '#8fb4ff',
+    primaryForeground: '#011627', // a light fill takes the page as its label
+    secondary: '#1d3b53', // Night Owl's own selection blue, as the raised fill
+    secondaryForeground: '#cbd8e9',
+    accent: '#12283c',
+    accentForeground: '#cbd8ea',
+    border: '#21405a',
+    input: '#1c3348',
+    ring: '#82aaff',
+    midground: '#82aaff',
+    composerRing: '#82aaff',
+    destructive: '#d2423e', // Night Owl's #EF5350, deepened until white reads
+    destructiveForeground: '#ffffff',
+    sidebarBackground: '#010e1a',
+    sidebarBorder: '#173753',
+    userBubble: '#0d2438',
+    userBubbleBorder: '#20455f'
+  },
+  // Bundled faces only, for the same reason Nous carries them: the default skin
+  // must never fetch a font CDN at runtime.
+  typography: {
+    fontSans: GEIST_SANS,
+    fontMono: JETBRAINS_MONO
+  },
+  // Night Owl's own ANSI sets. Without them the integrated terminal keeps the
+  // VS Code default palette, which is the one place the default skin would stop
+  // looking like itself.
+  terminal: {
+    foreground: '#403f53',
+    black: '#403f53',
+    red: '#de3d3b',
+    green: '#08916a',
+    yellow: '#e0af02',
+    blue: '#288ed7',
+    magenta: '#d6438a',
+    cyan: '#2aa298',
+    white: '#93a1a1',
+    brightBlack: '#403f53',
+    brightRed: '#de3d3b',
+    brightGreen: '#08916a',
+    brightYellow: '#daaa01',
+    brightBlue: '#288ed7',
+    brightMagenta: '#d6438a',
+    brightCyan: '#2aa298',
+    brightWhite: '#93a1a1'
+  },
+  darkTerminal: {
+    foreground: '#d6deeb',
+    cursor: '#82aaff',
+    black: '#011627',
+    red: '#ef5350',
+    green: '#22da6e',
+    yellow: '#c5e478',
+    blue: '#82aaff',
+    magenta: '#c792ea',
+    cyan: '#21c7a8',
+    white: '#ffffff',
+    brightBlack: '#637777',
+    brightRed: '#ef5350',
+    brightGreen: '#22da6e',
+    brightYellow: '#ffeb95',
+    brightBlue: '#82aaff',
+    brightMagenta: '#c792ea',
+    brightCyan: '#7fdbca',
+    brightWhite: '#ffffff'
   }
 }
 
@@ -498,6 +624,7 @@ export function nousWithAccent(accent: string): DesktopTheme {
 }
 
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
+  'night-owl': nightOwlTheme,
   nous: nousTheme,
   'nous-classic': nousClassicTheme,
   midnight: midnightTheme,
@@ -510,4 +637,12 @@ export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
 export const BUILTIN_THEME_LIST = Object.values(BUILTIN_THEMES)
 
 /** Skin used when nothing is persisted or the persisted name is retired. */
-export const DEFAULT_SKIN_NAME = 'nous'
+export const DEFAULT_SKIN_NAME = 'night-owl'
+
+/**
+ * The one skin the accent picker recolors. Deliberately NOT the default skin:
+ * `nousWithAccent` rebuilds the Nous palette around the chosen hue, so pointing
+ * this at another skin would silently swap that skin's palette for Nous's. Every
+ * other theme — Night Owl included — owns its accent outright.
+ */
+export const ACCENT_SKIN_NAME = 'nous'

@@ -21,7 +21,7 @@ import { $translucency, setTranslucency } from '@/store/translucency'
 import { $zoomPercent, setZoomPercent } from '@/store/zoom'
 import { getBaseColors, useTheme } from '@/themes/context'
 import { installVscodeThemeFromMarketplace } from '@/themes/install'
-import { ACCENT_PRESETS, DEFAULT_SKIN_NAME } from '@/themes/presets'
+import { ACCENT_PRESETS, ACCENT_SKIN_NAME } from '@/themes/presets'
 import type { DesktopTheme } from '@/themes/types'
 import { $marketplaceInstalls, isUserTheme, removeUserTheme } from '@/themes/user-themes'
 
@@ -417,7 +417,7 @@ export function AppearanceSettings() {
           {/* Accent recolors the Nous preset only — other themes own theirs.
               Swatch fills are data (the preset seeds), so they ride inline
               style exactly like ThemePreview above. */}
-          {themeName === DEFAULT_SKIN_NAME && (
+          {themeName === ACCENT_SKIN_NAME && (
             <ListRow
               action={
                 <div className="flex items-center gap-2">

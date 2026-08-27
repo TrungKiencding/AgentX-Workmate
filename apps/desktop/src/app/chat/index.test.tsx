@@ -34,10 +34,10 @@ vi.mock('@/components/assistant-ui/thread', async () => {
   }
 })
 
-vi.mock('@/components/Backdrop', async () => {
+vi.mock('@/components/chat-watermark', async () => {
   const React = await import('react')
 
-  return { Backdrop: () => React.createElement('div', { 'data-testid': 'backdrop' }) }
+  return { ChatWatermark: () => React.createElement('div', { 'data-testid': 'chat-watermark' }) }
 })
 
 vi.mock('@/components/prompt-overlays', () => ({ PromptOverlays: () => null }))

@@ -29,14 +29,17 @@ export const GHOST_ICON_BTN = cn(
   ICON_BTN,
   'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
 )
-// Send/voice-conversation primary: solid foreground-on-background circle
-// (reads as black-on-white in light mode, white-on-black in dark mode) to
-// match the reference composer's high-contrast CTA. Keeps the pill itself
-// neutral and lets the action visually dominate the row.
+// Send/voice-conversation primary: the ONE accent-filled control in the row.
+// primary/primary-foreground (the contrast-gated pair every skin ships) rather
+// than raw foreground-on-background, so the CTA carries the theme's accent —
+// the same thread as the focus ring, the composer ring, and the voice pill's
+// End button, which already wore bg-primary. Disabled drops to the quiet
+// secondary fill instead of a ghost of the accent: grey reads "not ready",
+// faded blue reads "broken".
 export const PRIMARY_ICON_BTN = cn(
   'size-(--composer-control-primary-size,var(--composer-control-size)) shrink-0 rounded-full p-0',
-  'bg-foreground text-background hover:bg-foreground/90',
-  'disabled:bg-foreground/30 disabled:text-background disabled:opacity-100'
+  'bg-primary text-primary-foreground hover:bg-primary/90',
+  'disabled:bg-(--ui-bg-quaternary) disabled:text-(--ui-text-tertiary) disabled:opacity-100'
 )
 
 interface ConversationProps {
@@ -92,9 +95,14 @@ export function ComposerControls({
   return (
     <div className="ml-auto flex shrink-0 items-center gap-(--composer-control-gap)">
       <ModelPill compact={compactModelPill} disabled={disabled} model={state.model} />
-      <DictationButton disabled={disabled} onToggle={onDictate} state={state.voice} status={voiceStatus} />
-      <AutoSpeakButton active={autoSpeak} disabled={disabled} onToggle={onToggleAutoSpeak} />
-      <WakeWordButton disabled={disabled} />
+      {/* The three voice toggles are one CLUSTER: tight internal gap, the
+          control gap only between clusters, so the row scans as
+          pill · voice · send instead of five equal stops. */}
+      <div className="flex shrink-0 items-center gap-0.5">
+        <DictationButton disabled={disabled} onToggle={onDictate} state={state.voice} status={voiceStatus} />
+        <AutoSpeakButton active={autoSpeak} disabled={disabled} onToggle={onToggleAutoSpeak} />
+        <WakeWordButton disabled={disabled} />
+      </div>
       {busyAction === 'steer' ? (
         <Tip label={<TipKeybindLabel actionId="composer.queue" text={c.queueMessage} />}>
           <Button

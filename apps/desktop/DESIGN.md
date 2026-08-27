@@ -93,10 +93,14 @@ elevated rung is the one surface that must stay a visible step above the card.
 Graphite is the default dark band. The royal-blue dark that preceded it lives on
 whole as the **Nous Classic** preset — no one loses the palette they picked.
 
-Seven presets ship built in — Nous (Paper light / Graphite dark, the default),
-Nous Classic, Midnight, Ember, Mono, Cyberpunk, Slate. Each preset's header
-comment in `themes/presets.ts` names its axes (band · display · accent) and
-tuned values carry their OKLCH beside the hex. Both variants of every preset —
+Eight presets ship built in — **Night Owl** (the shipped default: Sarah
+Drasner's palette with both halves authored, so the skin every install lands on
+never runs through the synth pass), Nous (Paper light / Graphite dark, the
+default before it), Nous Classic, Midnight, Ember, Mono, Cyberpunk, Slate. A
+fresh install also starts in **dark** mode — `normalizeMode`'s fallback — since
+the default skin is a dark one. Each preset's header comment in
+`themes/presets.ts` names its axes (band · display · accent) and tuned values
+carry their OKLCH beside the hex. Both variants of every preset —
 including the synthesised light side of dark-only presets (`synthLightColors`
 in `themes/color.ts`, which deepens the primary until a white label reads and
 `ensureContrast`s muted text and the ring) — must clear the contrast gate
@@ -105,7 +109,9 @@ primary/destructive labels also APCA |Lc| ≥ 60, focus ring ≥ 3:1 against the
 page, hairlines ≥ 1.2:1 (visible, still quiet — the 3:1 boundary rule belongs
 to the ring, not to dividers).
 
-**Accent picker.** Settings → Appearance can re-seed the Nous preset's accent
+**Accent picker.** Settings → Appearance can re-seed the Nous preset's accent —
+`ACCENT_SKIN_NAME`, deliberately not `DEFAULT_SKIN_NAME`, since `nousWithAccent`
+rebuilds the *Nous* palette around the hue
 (`ACCENT_PRESETS` · `nousWithAccent` in `themes/presets.ts`): the neutral
 bands, inks and semantic colors stay exactly Paper/Graphite — only what the
 blue carried moves. Fills and strokes re-tint, the primary deepens until its
@@ -149,6 +155,7 @@ for call-site shadow or border inventions.
 | `--ui-focus-ring`, `--ui-focus-ring-width/-offset` | the one focus indicator |
 | `--ui-scrollbar-thumb*` | scrollbar thumb, per state |
 | `--ui-selection-seed` | the selection amber, one seed at two strengths |
+| `--ui-watermark-strength` | how loud the chat backdrop's brand pattern is, per mode |
 
 The semantic trio is one construction: fixed hue + chroma, lightness pitched per
 mode. Light clears 4.5:1 on paper (`oklch(52% 0.14 155)` · `oklch(55% 0.12 80)`
