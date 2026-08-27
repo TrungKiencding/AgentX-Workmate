@@ -73,7 +73,13 @@ export function ConfigSettings({
   // from — and saved back through — the shared config cache, so edits are visible
   // in the MCP/model surfaces and reopening the page doesn't reload-flash.
   const [config, setConfig] = useState<HermesConfigRecord | null>(null)
-  const { data: loadedConfig, isError: configLoadFailed, refetch: refetchConfig } = useHermesConfigRecord()
+
+  const {
+    data: loadedConfig,
+    dataUpdatedAt: configUpdatedAt,
+    isError: configLoadFailed,
+    refetch: refetchConfig
+  } = useHermesConfigRecord()
 
   const {
     data: schemaResponse,
@@ -92,25 +98,35 @@ export function ConfigSettings({
   const savedDiscoverySignatureRef = useRef<string | undefined>(undefined)
   const [saveVersion, setSaveVersion] = useState(0)
 
-  // Seed the local draft once, the first time the shared record lands.
-  // Background refetches thereafter must not clobber in-progress edits.
-  const configSeeded = useRef(false)
+  // The fetch stamp a profile switch dropped the draft at: re-seeding must wait
+  // for a fetch that completed AFTER the switch, or profile B would inherit A's
+  // still-cached config (and autosave it back). null = nothing to wait for.
+  const awaitedConfigStamp = useRef<null | number>(null)
 
+  // Seed the local draft whenever there ISN'T one — the draft's own existence is
+  // the "already seeded" flag, so a background refetch can never clobber an edit
+  // in progress. Keyed on `dataUpdatedAt`, never on `loadedConfig`'s identity:
+  // React Query's structural sharing hands back the SAME object when a refetch
+  // returns deep-equal data, so an identity-keyed effect never re-runs after the
+  // switch below cleared the draft — the page sat on its skeleton forever.
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
-    if (loadedConfig && !configSeeded.current) {
-      configSeeded.current = true
-      savedDiscoverySignatureRef.current = repoDiscoveryPolicySignature(repoDiscoveryPolicyFromConfig(loadedConfig))
-      setConfig(loadedConfig)
+    if (!loadedConfig || config || awaitedConfigStamp.current === configUpdatedAt) {
+      return
     }
-  }, [loadedConfig])
+
+    awaitedConfigStamp.current = null
+    savedDiscoverySignatureRef.current = repoDiscoveryPolicySignature(repoDiscoveryPolicyFromConfig(loadedConfig))
+    setConfig(loadedConfig)
+  }, [config, configUpdatedAt, loadedConfig])
 
   // A profile switch invalidates (but doesn't clear) the shared config query, so
   // the local draft would otherwise keep profile A's data and autosave it into
-  // B. Drop the seed + draft (re-seeds from B's refetch) and zero saveVersion so
-  // the pending debounced autosave is cancelled by its effect cleanup.
+  // B. Drop the draft, remember the stamp we must move past before re-seeding
+  // (so B never re-seeds from A's cached record), and zero saveVersion so the
+  // pending debounced autosave is cancelled by its effect cleanup.
   useOnProfileSwitch(() => {
-    configSeeded.current = false
+    awaitedConfigStamp.current = configUpdatedAt
     savedDiscoverySignatureRef.current = undefined
     setConfig(null)
     saveVersionRef.current = 0

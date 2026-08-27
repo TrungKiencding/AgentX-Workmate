@@ -308,6 +308,14 @@ Notes:
   `color`, `box-shadow`, `transform`) at `--dur-micro` — never
   `transition-all`. Press feedback is a 1px `active:translate-y-px` settle
   (suppressed on `icon-titlebar`).
+- **The Button owns the only transform on itself.** A call site never passes a
+  positioning `translate-*`: every `translate-x/y-*` utility writes the same
+  `translate` property, so a `-translate-y-1/2` centering is *cancelled* the
+  instant the press rule sets its own — the overlay close X used to drop half
+  its height on every click. Wrap the button in a positioned element and let
+  the wrapper hold the transform;
+  `components/ui/__tests__/no-button-transform.test.ts` fails on any `<Button>`
+  carrying one.
 - SVGs inherit `size-3.5` (`size-3` at `xs`). Don't re-set icon size.
 - Polymorph with `asChild` when the button must render as a link/Slot.
 

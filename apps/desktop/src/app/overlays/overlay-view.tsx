@@ -9,9 +9,9 @@ import { triggerHaptic } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 
 // Shared top clearance for overlay content that sits *beside* the floating
-// close button (which is absolute at `0.1875rem + titlebar/2`, -translate-y-1/2,
-// so it costs no layout space): a Panel's header and the split layout's left
-// sidebar links. They ride up next to the X on the same line across every
+// close button (whose wrapper is absolute at `0.1875rem + titlebar/2`,
+// -translate-y-1/2, so it costs no layout space): a Panel's header and the
+// split layout's left sidebar links. They ride up next to the X on the same line across every
 // overlay (settings, system, agents, cron, …) — change it here, not per-surface.
 // Main content sits *under* the X (top-right) and keeps its own taller pad.
 export const OVERLAY_TOP_CLEARANCE = 'pt-[calc(var(--titlebar-height)/2-0.4375rem)]'
@@ -106,15 +106,22 @@ export function OverlayView({
             </div>
           )}
 
-          <Button
-            aria-label={closeLabel}
-            className="pointer-events-auto absolute right-3 top-[calc(0.1875rem+var(--titlebar-height)/2)] -translate-y-1/2 text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground [-webkit-app-region:no-drag]"
-            onClick={closeOverlay}
-            size="icon-titlebar"
-            variant="ghost"
-          >
-            <Codicon name="close" size="1rem" />
-          </Button>
+          {/* The centering transform lives on this wrapper, never on the
+              Button: `translate-y-*` utilities all write the same `translate`
+              property, so a positioning transform on the control itself is
+              cancelled the moment the button's own `:active` rule sets one —
+              the X visibly dropped half its height on press. */}
+          <span className="pointer-events-auto absolute right-3 top-[calc(0.1875rem+var(--titlebar-height)/2)] flex -translate-y-1/2 [-webkit-app-region:no-drag]">
+            <Button
+              aria-label={closeLabel}
+              className="text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground"
+              onClick={closeOverlay}
+              size="icon-titlebar"
+              variant="ghost"
+            >
+              <Codicon name="close" size="1rem" />
+            </Button>
+          </span>
         </div>
 
         {/* No top padding here: the split-layout columns own their own
