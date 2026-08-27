@@ -247,10 +247,7 @@ function ChatRuntimeBoundary({
 
   const expandWindow = useCallback(() => setWindowPages(pages => pages + 1), [])
 
-  const transcriptWindow = useMemo(
-    () => ({ olderAvailable: windowed, expandWindow }),
-    [expandWindow, windowed]
-  )
+  const transcriptWindow = useMemo(() => ({ olderAvailable: windowed, expandWindow }), [expandWindow, windowed])
 
   const runtime = useIncrementalExternalStoreRuntime<ThreadMessage>({
     messageRepository: runtimeMessageRepository,
@@ -464,7 +461,7 @@ export const ChatView = memo(function ChatView({
       },
       tools: {
         enabled: true,
-        label: 'Add context',
+        label: t.composer.addContext,
         suggestions: contextSuggestions
       },
       voice: {
@@ -472,7 +469,7 @@ export const ChatView = memo(function ChatView({
         active: false
       }
     }),
-    [contextSuggestions, currentModel, currentProvider, gatewayOpen, modelMenuContent, quickModels]
+    [contextSuggestions, currentModel, currentProvider, gatewayOpen, modelMenuContent, quickModels, t]
   )
 
   // Drop files anywhere in the conversation area, not just on the composer

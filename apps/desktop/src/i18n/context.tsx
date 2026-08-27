@@ -4,7 +4,7 @@ import { getHermesConfigRecord, type HermesConfigRecord, saveHermesConfig } from
 
 import { TRANSLATIONS } from './catalog'
 import { DEFAULT_LOCALE, localeConfigValue, normalizeLocale } from './languages'
-import { setRuntimeI18nLocale } from './runtime'
+import { getRuntimeI18nLocale, setRuntimeI18nLocale } from './runtime'
 import type { Locale, Translations } from './types'
 
 export { LOCALE_META } from './languages'
@@ -76,15 +76,38 @@ export interface I18nContextValue {
   t: Translations
 }
 
-const I18nContext = createContext<I18nContextValue>({
-  configLoadError: null,
-  isLoadingConfig: false,
-  isSavingLocale: false,
-  locale: DEFAULT_LOCALE,
-  saveError: null,
-  setLocale: async () => {},
-  t: TRANSLATIONS[DEFAULT_LOCALE]
-})
+// `null` rather than a frozen bundle: a `createContext` default is evaluated
+// once at module load, so baking `DEFAULT_LOCALE` in there would strand any
+// provider-less consumer on the compile-time default even after the user picks
+// another language. `useI18n` synthesizes the value from the live runtime
+// locale instead, which the provider keeps in step with `display.language`.
+const I18nContext = createContext<I18nContextValue | null>(null)
+
+const providerlessValues = new Map<Locale, I18nContextValue>()
+
+/** The value `useI18n()` yields with no `I18nProvider` above it. Cached per
+ *  locale so consumers can keep it in dependency arrays. */
+function providerlessValue(locale: Locale): I18nContextValue {
+  const cached = providerlessValues.get(locale)
+
+  if (cached) {
+    return cached
+  }
+
+  const value: I18nContextValue = {
+    configLoadError: null,
+    isLoadingConfig: false,
+    isSavingLocale: false,
+    locale,
+    saveError: null,
+    setLocale: async () => {},
+    t: TRANSLATIONS[locale]
+  }
+
+  providerlessValues.set(locale, value)
+
+  return value
+}
 
 export interface I18nProviderProps {
   children: ReactNode
@@ -192,5 +215,5 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
 }
 
 export function useI18n(): I18nContextValue {
-  return useContext(I18nContext)
+  return useContext(I18nContext) ?? providerlessValue(getRuntimeI18nLocale())
 }

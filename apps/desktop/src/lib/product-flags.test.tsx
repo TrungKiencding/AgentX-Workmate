@@ -133,6 +133,11 @@ describe('PROFILE_MANAGEMENT_ENABLED — the /profiles deep link', () => {
 // SettingsView mounts every panel, hence the QueryClient + IPC stub above.
 async function renderSettingsAt(search: string) {
   const { SettingsView } = await import('@/app/settings')
+  // Every dynamic import here resolves against whatever `vi.resetModules()` left
+  // behind, which drops the English pin vitest.setup.ts applied — re-apply it on
+  // the fresh graph, or these assertions read the shipped default locale.
+  const { FALLBACK_LOCALE, setRuntimeI18nLocale } = await import('@/i18n')
+  setRuntimeI18nLocale(FALLBACK_LOCALE)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   render(

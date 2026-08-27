@@ -5,7 +5,7 @@
 // partial locales should use `defineLocale()` so missing desktop-only strings
 // fall back to English while new keys remain type-checked.
 
-export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar'
+export type Locale = 'vi' | 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar'
 
 export type ToolTitleKey =
   | 'browser_click'
@@ -1861,6 +1861,7 @@ export interface Translations {
     noMatchingThemes: string
     themeTryPre: string
     themeTryPost: string
+    addContext: string
     attachLabel: string
     files: string
     folder: string

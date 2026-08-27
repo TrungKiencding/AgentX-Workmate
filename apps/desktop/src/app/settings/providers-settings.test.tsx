@@ -72,9 +72,14 @@ function keyVar(patch: Partial<EnvVarInfo> = {}): EnvVarInfo {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   flags.providerAccounts = true
   vi.resetModules()
+  // Every dynamic import here resolves against whatever `vi.resetModules()` left
+  // behind, which drops the English pin vitest.setup.ts applied — re-apply it on
+  // the fresh graph, or these assertions read the shipped default locale.
+  const { FALLBACK_LOCALE, setRuntimeI18nLocale } = await import('@/i18n')
+  setRuntimeI18nLocale(FALLBACK_LOCALE)
   onboarding.set({ manual: false })
   getEnvVars.mockResolvedValue({})
   disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'nous' })
@@ -223,9 +228,11 @@ describe('ProvidersSettings', () => {
 })
 
 describe('ProvidersSettings with the Accounts sub-view hidden', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     flags.providerAccounts = false
     vi.resetModules()
+    const { FALLBACK_LOCALE, setRuntimeI18nLocale } = await import('@/i18n')
+    setRuntimeI18nLocale(FALLBACK_LOCALE)
   })
 
   it('drops accounts from the sub-view list and lands on API keys', async () => {

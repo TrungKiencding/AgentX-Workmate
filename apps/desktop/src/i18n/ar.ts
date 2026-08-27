@@ -124,7 +124,8 @@ export const ar = defineLocale({
       elevenLabsNeedsKey: 'يتطلب ElevenLabs STT المفتاح ELEVENLABS_API_KEY.',
       elevenLabsRejectedKey: 'رفض ElevenLabs مفتاح API (401).',
       diskFull: 'القرص ممتلئ — حرّر مساحة ثم أعد المحاولة.',
-      methodNotAllowed: 'رفضت خلفية سطح المكتب هذا الطلب (405 Method Not Allowed). جرب إعادة تشغيل AgentX Workmate Desktop.',
+      methodNotAllowed:
+        'رفضت خلفية سطح المكتب هذا الطلب (405 Method Not Allowed). جرب إعادة تشغيل AgentX Workmate Desktop.',
       microphonePermission: 'تم رفض إذن الميكروفون.',
       openaiRejectedApiKey: 'رفض OpenAI مفتاح API.',
       openaiRejectedApiKeyWithStatus: status => `رفض OpenAI مفتاح API (${status} invalid_api_key).`,
@@ -346,8 +347,7 @@ export const ar = defineLocale({
       deviceRevoked: 'مسحوب',
       deviceRevoke: 'سحب الجهاز',
       deviceRevokeConfirmTitle: 'هل تريد سحب هذا الجهاز؟',
-      deviceRevokeConfirmDesc: name =>
-        `سيتم تسجيل خروج ${name} من AgentX وسيحتاج إلى تسجيل الدخول مجددًا للعودة.`,
+      deviceRevokeConfirmDesc: name => `سيتم تسجيل خروج ${name} من AgentX وسيحتاج إلى تسجيل الدخول مجددًا للعودة.`,
       deviceRotateKey: 'إصدار مفتاح نماذج جديد أيضًا',
       deviceRotateKeyDesc:
         'تتشارك أجهزتك مفتاح نماذج واحدًا، لذا فإن السحب وحده لا يلغي وصول ذلك الجهاز إلى النماذج. أما بقية أجهزتك فتلتقط المفتاح الجديد من تلقاء نفسها.',
@@ -369,14 +369,12 @@ export const ar = defineLocale({
       syncUpToDate: 'سجلك متوافق مع أجهزتك الأخرى.',
       syncPending: n => `${n} تغيير بانتظار الوصول إلى أجهزتك الأخرى.`,
       syncPendingPill: n => `${n} بالانتظار`,
-      syncOffline:
-        'تعذّر الوصول إلى خدمة حساب AgentX. عملك محفوظ هنا وسيُزامَن تلقائيًا لاحقًا.',
+      syncOffline: 'تعذّر الوصول إلى خدمة حساب AgentX. عملك محفوظ هنا وسيُزامَن تلقائيًا لاحقًا.',
       syncError: 'رفضت الخدمة آخر مزامنة. ستُعاد المحاولة قريبًا.',
       syncReauth: 'لم يعد بإمكان هذا الجهاز المزامنة. سجّل الدخول مرة أخرى للمتابعة.',
       syncSignedOut: 'سجّل الدخول لمزامنة سجلك عبر أجهزتك.',
       syncDisabled: 'مزامنة السجل متوقفة',
-      syncDisabledDesc:
-        'ضُبط هذا الجهاز على عدم مزامنة سجل المحادثات. كل شيء آخر يعمل كالمعتاد.',
+      syncDisabledDesc: 'ضُبط هذا الجهاز على عدم مزامنة سجل المحادثات. كل شيء آخر يعمل كالمعتاد.',
       syncNow: 'زامن الآن',
       syncRunning: 'جارٍ المزامنة…',
       syncNowDone: 'محدّث.',
@@ -1876,6 +1874,7 @@ export const ar = defineLocale({
     noMatchingThemes: 'لا توجد سمات مطابقة.',
     themeTryPre: 'جرّب ',
     themeTryPost: '.',
+    addContext: 'إضافة سياق',
     attachLabel: 'إرفاق',
     files: 'ملفات',
     folder: 'مجلد',

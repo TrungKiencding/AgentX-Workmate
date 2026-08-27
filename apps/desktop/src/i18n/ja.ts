@@ -2045,6 +2045,7 @@ export const ja = defineLocale({
     noMatchingThemes: '一致するテーマがありません。',
     themeTryPre: '試してみる: ',
     themeTryPost: '。',
+    addContext: 'コンテキストを追加',
     attachLabel: '添付',
     files: 'ファイル…',
     folder: 'フォルダー…',

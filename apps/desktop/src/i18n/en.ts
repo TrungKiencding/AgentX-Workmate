@@ -557,7 +557,8 @@ export const en: Translations = {
       title: 'Appearance',
       intro: 'Desktop-only. Mode is brightness; theme is palette and chat chrome.',
       accentTitle: 'Accent',
-      accentDesc: 'Recolors the Nous theme’s blue — buttons, focus ring, selection. Other themes keep their own accent.',
+      accentDesc:
+        'Recolors the Nous theme’s blue — buttons, focus ring, selection. Other themes keep their own accent.',
       accentNames: {
         nousBlue: 'Nous Blue',
         violet: 'Violet',
@@ -2214,6 +2215,7 @@ export const en: Translations = {
     noMatchingThemes: 'No matching themes.',
     themeTryPre: 'Try ',
     themeTryPost: '.',
+    addContext: 'Add context',
     attachLabel: 'Attach',
     files: 'Files…',
     folder: 'Folder…',

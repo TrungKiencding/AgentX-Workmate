@@ -2402,6 +2402,7 @@ export const zh: Translations = {
     noMatchingThemes: '没有匹配的主题。',
     themeTryPre: '试试 ',
     themeTryPost: '。',
+    addContext: '添加上下文',
     attachLabel: '附加',
     files: '文件…',
     folder: '文件夹…',

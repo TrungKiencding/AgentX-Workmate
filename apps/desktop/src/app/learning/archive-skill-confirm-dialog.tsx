@@ -1,6 +1,6 @@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { deleteLearningNode } from '@/hermes'
-import { type Translations, useI18n } from '@/i18n'
+import { translateNow, type Translations, useI18n } from '@/i18n'
 import { notify } from '@/store/notifications'
 
 export const ARCHIVE_SKILL_DESCRIPTION = 'The skill is archived and can be restored with `agentx curator restore`.'
@@ -13,7 +13,7 @@ export async function archiveLearningSkill(id: string): Promise<void> {
   const res = await deleteLearningNode(id)
 
   if (!res.ok) {
-    throw new Error(res.message || 'Archive failed')
+    throw new Error(res.message || translateNow('desktop.archiveFailed'))
   }
 }
 

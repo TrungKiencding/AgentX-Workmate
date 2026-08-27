@@ -620,7 +620,7 @@ export async function applyBackendUpdate(): Promise<DesktopUpdateApplyResult> {
       message: translateNow('updates.applyStatus.failed')
     })
 
-    return { ok: false, error: 'apply-failed', message: 'Backend update failed.' }
+    return { ok: false, error: 'apply-failed', message: translateNow('updates.applyStatus.failed') }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     $backendUpdateApply.set({

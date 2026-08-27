@@ -25,8 +25,8 @@ Language resolution order:
     3. ``display.language`` from config.yaml
     4. ``"en"`` (baseline)
 
-Supported languages: en, zh, zh-hant, ja, de, es, fr, tr, uk, af, ko, it, ga,
-pt, ru, hu, ar.  Unknown values fall back to en.
+Supported languages: en, vi, zh, zh-hant, ja, de, es, fr, tr, uk, af, ko, it,
+ga, pt, ru, hu, ar.  Unknown values fall back to en.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 SUPPORTED_LANGUAGES: tuple[str, ...] = (
-    "en", "zh", "zh-hant", "ja", "de", "es", "fr", "tr", "uk",
+    "en", "vi", "zh", "zh-hant", "ja", "de", "es", "fr", "tr", "uk",
     "af", "ko", "it", "ga", "pt", "ru", "hu", "ar",
 )
 DEFAULT_LANGUAGE = "en"
@@ -50,6 +50,9 @@ DEFAULT_LANGUAGE = "en"
 # get the right catalog instead of silently falling back to English.
 _LANGUAGE_ALIASES: dict[str, str] = {
     "english": "en", "en-us": "en", "en-gb": "en",
+    # Vietnamese -- the desktop app's default UI language, so `display.language:
+    # vi` written from the language picker has to resolve here.
+    "vietnamese": "vi", "tiếng việt": "vi", "tieng viet": "vi", "vi-vn": "vi", "vn": "vi",
     # Simplified Chinese — explicit codes route here; bare "chinese" / "mandarin"
     # also default to Simplified since that's the larger user base.
     "chinese": "zh", "mandarin": "zh", "zh-cn": "zh", "zh-hans": "zh", "zh-sg": "zh",

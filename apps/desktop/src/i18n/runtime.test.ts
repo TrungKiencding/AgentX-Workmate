@@ -28,6 +28,31 @@ describe('desktop i18n runtime translator', () => {
     expect(translateNow('notifications.updateReadyMessage', 2)).toBe('2 new changes available.')
   })
 
+  it('translates the default locale, including interpolated messages', () => {
+    setRuntimeI18nLocale('vi')
+
+    expect(translateNow('boot.ready')).toBe('AgentX Workmate Desktop đã sẵn sàng')
+    expect(translateNow('common.save')).toBe('Lưu')
+    expect(translateNow('settings.nav.notifications')).toBe('Thông báo')
+    expect(translateNow('notifications.updateReadyMessage', 2)).toBe('Có 2 thay đổi mới.')
+  })
+
+  it('resolves a missing key against English, not the default locale', () => {
+    // Plugins are only guaranteed to ship an `en` bundle, so the fallback has to
+    // stay English even though the app now opens in Vietnamese.
+    const vietnamese = TRANSLATIONS.vi.boot as { ready?: string }
+    const originalReady = vietnamese.ready
+
+    try {
+      vietnamese.ready = undefined
+      setRuntimeI18nLocale('vi')
+
+      expect(translateNow('boot.ready')).toBe('AgentX Workmate Desktop is ready')
+    } finally {
+      vietnamese.ready = originalReady
+    }
+  })
+
   it('translates migrated overlap keys for newly supported locales', () => {
     setRuntimeI18nLocale('ja')
     expect(translateNow('common.save')).toBe('保存')

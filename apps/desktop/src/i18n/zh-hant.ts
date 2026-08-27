@@ -1982,6 +1982,7 @@ export const zhHant = defineLocale({
     noMatchingThemes: '沒有相符的主題。',
     themeTryPre: '試試 ',
     themeTryPost: '。',
+    addContext: '加入脈絡',
     attachLabel: '附加',
     files: '檔案…',
     folder: '資料夾…',

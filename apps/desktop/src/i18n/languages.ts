@@ -2,9 +2,26 @@ import { normalize } from '@/lib/text'
 
 import type { Locale } from './types'
 
-export const DEFAULT_LOCALE: Locale = 'en'
+/** What an unset or unrecognized `display.language` resolves to — the locale a
+ *  fresh install opens in. */
+export const DEFAULT_LOCALE: Locale = 'vi'
+
+/** What a key the active locale cannot resolve falls back to, before giving up
+ *  and returning the key itself. This is `en` and NOT `DEFAULT_LOCALE`: `en.ts`
+ *  is the base every `defineLocale()` bundle merges onto and the only bundle a
+ *  third-party plugin is guaranteed to ship, so English is the one language
+ *  always present to fall back to. Routing the fallback through the default
+ *  instead would turn a plugin that ships English-only into raw dot-paths.
+ */
+export const FALLBACK_LOCALE: Locale = 'en'
 
 export const LOCALE_OPTIONS = [
+  {
+    id: 'vi',
+    name: 'Tiếng Việt',
+    englishName: 'Vietnamese',
+    configValue: 'vi'
+  },
   {
     id: 'en',
     name: 'English',
@@ -46,6 +63,13 @@ export const LOCALE_META: Record<Locale, { name: string; englishName: string }> 
 ) as Record<Locale, { name: string; englishName: string }>
 
 const LOCALE_ALIASES: Record<string, Locale> = {
+  vi: 'vi',
+  'vi-vn': 'vi',
+  vi_vn: 'vi',
+  vn: 'vi',
+  vietnamese: 'vi',
+  'tiếng việt': 'vi',
+  'tieng viet': 'vi',
   en: 'en',
   'en-us': 'en',
   en_us: 'en',

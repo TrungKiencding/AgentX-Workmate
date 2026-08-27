@@ -11,6 +11,7 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/hermes'
+import { translateNow } from '@/i18n'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
@@ -757,7 +758,7 @@ export async function saveOnboardingApiKey(
   const trimmed = value.trim()
 
   if (!trimmed) {
-    return { ok: false, message: 'Enter a value first.' }
+    return { ok: false, message: translateNow('settings.credentials.enterValueFirst') }
   }
 
   // The "Local / custom endpoint" option carries a base URL (in `value`) plus
