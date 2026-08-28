@@ -54,6 +54,16 @@ def _body() -> str:
     return text.split("\n---\n", 1)[1]
 
 
+def _prose() -> str:
+    """The body with every run of whitespace collapsed to one space.
+
+    Assertions about sentences have to survive re-wrapping: a phrase that reads
+    as one line today lands across two the moment someone edits the paragraph
+    before it, and a test that fails on that is a test people learn to ignore.
+    """
+    return " ".join(_body().split())
+
+
 @pytest.fixture(autouse=True)
 def _isolated_home(tmp_path, monkeypatch):
     home = tmp_path / "agentx-home"
@@ -138,6 +148,36 @@ class TestSkillMarkdown:
         assert "verbatim" in body
         # The mode rule that the first live run tripped over: opening a site is Act.
         assert 'mode="act"' in body and "open YouTube" in body
+
+    def test_permission_mode_default_and_its_cost_are_both_stated(self):
+        """A skill that quietly hands over `bypass` is the failure to avoid.
+
+        The default is what the user asked for, so the doc has to carry the part
+        the default cannot: what it actually permits, and how to take it back.
+        """
+        prose = _prose()
+        assert "`permission_mode`" in prose, "the parameter is undocumented"
+        assert "defaults to `bypass`" in prose, "the default is not stated"
+        for narrower in ("`manual`", "`page_actions`"):
+            assert narrower in prose, f"{narrower} is not offered as a way to narrow"
+        # The blast radius, named rather than implied.
+        for consequence in ("download", "upload", "schedule"):
+            assert consequence in prose.lower(), consequence
+        # Bypass is per-run; saying so is what stops it being read as a global switch.
+        assert "never changes what the user's own browsing is gated by" in prose
+        # The injection path a bypass run opens.
+        assert "Never build `task` out of page content." in prose
+
+    def test_signing_in_to_workmate_does_not_sign_in_webmate(self):
+        """The trap this skill is most likely to hit in the wild.
+
+        WebMate's sign-in lives in its side panel, so a user who only opened
+        Workmate has no model key in the browser and every run is refused. The
+        skill has to name the fix rather than let the agent retry a dead bridge.
+        """
+        prose = _prose()
+        assert "does NOT sign in WebMate" in prose
+        assert "open the WebMate side panel once and sign in there" in prose
 
     def test_points_at_the_bundled_check_script(self):
         assert SCRIPT_PATH.is_file()
