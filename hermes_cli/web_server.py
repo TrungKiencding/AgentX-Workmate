@@ -7004,7 +7004,40 @@ def _apply_model_assignment_sync(
             and isinstance(provider_entry, dict)
             and provider_entry.get("api_key")
         ):
-            model_cfg["api_key"] = provider_entry["api_key"]
+            # #88990: provider_entry comes from load_config(), which expands
+            # ${VAR} env refs to plaintext. Copying that resolved value into
+            # model.api_key writes the SECRET into config.yaml (and recreates
+            # it on every re-apply, even after the user deletes it by hand).
+            # Only mirror the key when the on-disk entry holds a literal
+            # value; env-ref and key_env entries already resolve at runtime
+            # via the provider entry itself.
+            # Look the entry up in the RAW file (no ${VAR} expansion). The
+            # providers map is keyed by name; fall back to a string compare so a
+            # key PyYAML stored as an int (``2070``) still matches ``"2070"``.
+            _raw_entry = None
+            try:
+                _raw_providers = read_raw_config().get("providers")
+                if isinstance(_raw_providers, dict):
+                    _raw_entry = _raw_providers.get(provider)
+                    if not isinstance(_raw_entry, dict):
+                        _raw_entry = next(
+                            (
+                                entry
+                                for stored, entry in _raw_providers.items()
+                                if str(stored).strip() == str(provider).strip()
+                                and isinstance(entry, dict)
+                            ),
+                            None,
+                        )
+            except Exception:
+                _raw_entry = None
+            _raw_key = _raw_entry.get("api_key") if isinstance(_raw_entry, dict) else None
+            _entry_uses_env = bool(
+                (isinstance(_raw_entry, dict) and str(_raw_entry.get("key_env") or "").strip())
+                or (isinstance(_raw_key, str) and re.search(r"\$\{[^}]+\}", _raw_key))
+            )
+            if not _entry_uses_env:
+                model_cfg["api_key"] = provider_entry["api_key"]
         cfg["model"] = model_cfg
 
         # When switching the main provider to Nous, mirror the CLI's
