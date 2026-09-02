@@ -1760,6 +1760,10 @@ def _setup_worktree(repo_root: str = None, sync_base: bool = True) -> Optional[D
     """
     import subprocess
 
+    from hermes_cli._subprocess_compat import (
+        noninteractive_git_env as _noninteractive_git_env,
+    )
+
     repo_root = repo_root or _git_repo_root()
     if not repo_root:
         print("\033[31m✗ --worktree requires being inside a git repository.\033[0m")
@@ -1809,6 +1813,7 @@ def _setup_worktree(repo_root: str = None, sync_base: bool = True) -> Optional[D
         result = subprocess.run(
             ["git", "worktree", "add", str(wt_path), "-b", branch_name, base_ref],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, cwd=repo_root,
+            stdin=subprocess.DEVNULL, env=_noninteractive_git_env(),
         )
         if result.returncode != 0:
             # If branching from the resolved remote ref failed for any reason
@@ -1823,6 +1828,7 @@ def _setup_worktree(repo_root: str = None, sync_base: bool = True) -> Optional[D
                 result = subprocess.run(
                     ["git", "worktree", "add", str(wt_path), "-b", branch_name, base_ref],
                     capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, cwd=repo_root,
+                    stdin=subprocess.DEVNULL, env=_noninteractive_git_env(),
                 )
             if result.returncode != 0:
                 print(f"\033[31m✗ Failed to create worktree: {result.stderr.strip()}\033[0m")
