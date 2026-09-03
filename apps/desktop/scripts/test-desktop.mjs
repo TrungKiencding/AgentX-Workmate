@@ -108,7 +108,12 @@ function expectedNativeDepPaths() {
 // Anything shaped like a LiteLLM virtual key. The prefix alone is too common
 // to assert on (it appears in prose and in variable names); a prefix followed
 // by a long opaque run is not.
-const LITELLM_KEY_SHAPE = /sk-[A-Za-z0-9_-]{24,}/
+//
+// The lookbehind keeps `sk-` from matching mid-word. Without it the shiki
+// bundle tripped the gate on its emacs-lisp grammar, where the builtin
+// `ask-user-about-supersession-threat` reads as sk- plus a 30-char run. A
+// real key is always at a token boundary: after `=`, a quote, or whitespace.
+const LITELLM_KEY_SHAPE = /(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{24,}/
 
 // Skip files large enough that scanning them costs real time and that could
 // not plausibly be hiding a hand-placed credential.

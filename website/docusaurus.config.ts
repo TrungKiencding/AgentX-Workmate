@@ -7,7 +7,10 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://github.com/TrungKiencding/AgentX-Workmate',
+  // Origin only — Docusaurus rejects a url carrying a sub-path. Point this
+  // at the real docs host once one exists; GitHub Pages is not enabled on
+  // the repo yet, so this is the address a project Pages site would get.
+  url: 'https://trungkiencding.github.io',
   baseUrl: '/docs/',
 
   organizationName: 'AstralX',

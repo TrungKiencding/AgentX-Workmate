@@ -1,9 +1,10 @@
 name: Build Skills Index
 
 on:
-  schedule:
-    # Run twice daily: 6 AM and 6 PM UTC
-    - cron: "0 6,18 * * *"
+  # No cron. The crawl walks ~39k skills (skills.sh + ClawHub) and has never
+  # finished inside timeout-minutes: 15, so every scheduled run was cancelled
+  # mid-flight. Run it by hand when the index actually needs rebuilding, and
+  # raise the timeout first.
   workflow_dispatch: # Manual trigger
   push:
     branches: [main]

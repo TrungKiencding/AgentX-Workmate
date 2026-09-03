@@ -39,6 +39,10 @@ paths = [
     '''(^|/)vendor/''',
     # Redaction code has to contain the shapes it redacts.
     '''^agent/redact\.py$''',
+    # Builds synthetic repos for the tool A/B harness: the "secrets" are the
+    # fixture, planted so a run has something to find. Nothing here is read
+    # from a real credential store.
+    '''^scripts/toolperf_abeval/''',
 ]
 
 # --- Not source ---------------------------------------------------------------

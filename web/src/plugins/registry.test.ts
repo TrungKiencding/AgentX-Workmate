@@ -11,10 +11,26 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { exposePluginSDK } from "./registry";
 
+/** Only the shape these assertions reach for — not the full SDK type. */
+type PluginSdk = {
+  components: Record<string, unknown>;
+  hooks: Record<string, unknown>;
+  sdkVersion: string;
+};
+
+// exposePluginSDK() writes to the global `window`, which this suite runs
+// without. Cast once, here, instead of at four call sites.
+const testGlobal = globalThis as unknown as {
+  window: {
+    __AGENTX_PLUGINS__: unknown;
+    __AGENTX_PLUGIN_SDK__: PluginSdk | undefined;
+  };
+};
+
 describe("plugin SDK dialog/toast surface", () => {
   beforeEach(() => {
     // Reset window between tests so exposePluginSDK() writes fresh.
-    (globalThis as any).window = {
+    testGlobal.window = {
       __AGENTX_PLUGINS__: undefined,
       __AGENTX_PLUGIN_SDK__: undefined,
     };
@@ -22,7 +38,7 @@ describe("plugin SDK dialog/toast surface", () => {
 
   it("exposes Dialog + subcomponents on components", () => {
     exposePluginSDK();
-    const sdk = (globalThis as any).window.__AGENTX_PLUGIN_SDK__;
+    const sdk = testGlobal.window.__AGENTX_PLUGIN_SDK__ as PluginSdk;
     expect(sdk.components.Dialog).toBeDefined();
     expect(sdk.components.DialogContent).toBeDefined();
     expect(sdk.components.DialogHeader).toBeDefined();
@@ -36,7 +52,7 @@ describe("plugin SDK dialog/toast surface", () => {
 
   it("exposes useToast and useConfirmDelete on hooks", () => {
     exposePluginSDK();
-    const sdk = (globalThis as any).window.__AGENTX_PLUGIN_SDK__;
+    const sdk = testGlobal.window.__AGENTX_PLUGIN_SDK__ as PluginSdk;
     expect(typeof sdk.hooks.useToast).toBe("function");
     expect(typeof sdk.hooks.useConfirmDelete).toBe("function");
     // Original React hooks still present (no accidental removal).
@@ -46,7 +62,7 @@ describe("plugin SDK dialog/toast surface", () => {
 
   it("does not bump SDK_CONTRACT_VERSION (additive change)", () => {
     exposePluginSDK();
-    const sdk = (globalThis as any).window.__AGENTX_PLUGIN_SDK__;
+    const sdk = testGlobal.window.__AGENTX_PLUGIN_SDK__ as PluginSdk;
     // Pre-existing version per registry.ts:98. This test fails if a future
     // PR accidentally bumps the major for an additive surface change.
     expect(sdk.sdkVersion).toBe("1.1.0");

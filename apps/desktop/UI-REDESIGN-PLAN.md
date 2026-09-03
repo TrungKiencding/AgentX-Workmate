@@ -328,7 +328,7 @@ Exit ≈ 75% enter. Spring chỉ cho tương tác vật lý (thả drag, reactio
 **Việc chính**
 1. Rebuild presets trên OKLCH + axis metadata (paper-band/display/accent ghi comment từng theme): **Nous** (light, refined — mặc định) · **Graphite** (dark mặc định) · **Nous Classic** (dark royal cũ) · **Midnight** (tím than — tinh chỉnh contrast) · **Slate** · **Mono** · **Ember**, **Cyberpunk** giữ như "fun skins" nhưng sửa các cặp màu fail contrast (cyberpunk mutedForeground 1a8a30 trên 000a00 ≈ quá thấp — nâng).
 2. Script kiểm contrast tự động: node script nhỏ (đặt `scripts/check-theme-contrast.mjs`) tính WCAG/APCA cho các cặp bắt buộc của mọi preset (foreground/background, muted/bg, primary pair, destructive pair, border/bg ≥ 3:1) — chạy trong `npm run check`; fail = build đỏ.
-3. Kiểm VSCode import + user themes + skin CLI parity với field typography/token mới (fallback đủ); cập nhật `hermes-parity`/`skin` tests.
+3. Kiểm VSCode import + user themes + skin CLI parity với field typography/token mới (fallback đủ); cập nhật test `REST parity`/`skin`.
 4. (Stretch — làm nếu còn thời gian) Accent picker: cho phép người dùng đổi accent trên preset Nous/Graphite (cơ chế `--theme-midground`/seed đã sẵn — chỉ thêm UI nhỏ trong Settings → Appearance).
 
 **File:** `themes/*`, `scripts/check-theme-contrast.mjs`, settings appearance page, `design.md`.

@@ -108,7 +108,10 @@ jobs:
             # Empty patch signals "nothing to do" to apply-patch.
             : > js-fix.patch
           else
-            git diff -- . "${EXCLUDES[@]}" > js-fix.patch
+            # --binary: a source file carrying a NUL byte is "binary" to git,
+            # and a plain diff of one is an unappliable "Binary files differ"
+            # stub. Emit the full index line so apply-patch can consume it.
+            git diff --binary -- . "${EXCLUDES[@]}" > js-fix.patch
             echo "has-fixes=true" >> "$GITHUB_OUTPUT"
             echo "Patch size: $(wc -c < js-fix.patch) bytes"
 
