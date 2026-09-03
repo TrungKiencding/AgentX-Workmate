@@ -2148,8 +2148,16 @@ DEFAULT_CONFIG = {
         # optional token is a personal API token from the hub's Settings page
         # (or AGENTX_HUB_TOKEN in the environment) and is only needed to see
         # private/org skills — the public catalog needs none.
-        "hub_url": "https://skills.agentx.astralx.com.vn",
+        "hub_url": "https://skills.dev-server.cloud",
         "hub_token": "",
+        # Phase 3: hold a live connection to the hub (SSE) so an Install
+        # clicked on the web lands here within seconds; off means the
+        # backend only polls when the desktop asks (tab Hub open, 15 s).
+        "hub_realtime": True,
+        # Mirror the organisation's published core skills onto this machine
+        # automatically (plan Phase 3 item 3). Members can turn it off; a
+        # skill the hub yanks is switched off, never deleted.
+        "hub_org_auto_install": True,
         # Substitute ${AGENTX_SKILL_DIR} and ${AGENTX_SESSION_ID} in SKILL.md
         # content with the absolute skill directory and the active session id
         # before the agent sees it.  Lets skill authors reference bundled

@@ -16,12 +16,15 @@ import asyncio  # noqa: F401 — used by handlers
 import logging
 from typing import Optional  # noqa: F401
 
-from fastapi import APIRouter, HTTPException  # noqa: F401
+from fastapi import APIRouter, Body, HTTPException, Request  # noqa: F401
+from starlette.concurrency import run_in_threadpool
 
 from hermes_cli.web_deps import late, LateState
 from hermes_cli.web_models import (
     SkillContentUpdate,
     SkillCreate,
+    SkillHubPublishRequest,
+    SkillHubValidateRequest,
     SkillInstallRequest,
     SkillToggle,
     SkillUninstallRequest,
@@ -423,6 +426,186 @@ async def scan_skill_hub(identifier: str = "", profile: Optional[str] = None):
     if result is None:
         raise HTTPException(status_code=404, detail=f"Skill not found: {ident}")
     return result
+
+
+# ---------------------------------------------------------------------------
+# AgentX Skill Hub, Phase 3: desired-state sync, upload from the desktop.
+#
+# The backend holds no credential of its own; the bearer that authenticated
+# the request (request.state.session, set by the dashboard auth gate) is
+# what the hub gets, and a copy is left in the hub-sync mailbox so the
+# background loop keeps working between ticks — the same rule as
+# web_routers/sync.py.
+# ---------------------------------------------------------------------------
+
+MAX_PUBLISH_BYTES = 5 * 1024 * 1024
+_SKIP_FILE_NAMES = frozenset({".usage.json", ".DS_Store", ".bundled_manifest"})
+
+
+def _hub_credentials_from(request) -> "Optional[object]":
+    """Credentials for a hub call: the request's session first, then whatever
+    the engine can resolve (mailbox, personal token)."""
+    from hermes_cli.hub_sync import HubCredentials, resolve_credentials
+    from hermes_cli.web_routers.accounts import _device_headers
+
+    session = getattr(request.state, "session", None)
+    if session is not None and getattr(session, "access_token", ""):
+        device_id, device_name = _device_headers(request)
+        if not device_id:
+            from hermes_cli.hub_client import install_device_identity
+
+            device_id, fallback = install_device_identity()
+            device_name = device_name or fallback
+        try:
+            expires_at = float(getattr(session, "expires_at", 0) or 0)
+        except (TypeError, ValueError):
+            expires_at = 0.0
+        return HubCredentials(bearer=session.access_token, device_id=device_id, device_name=device_name, expires_at=expires_at, source="session")
+    return resolve_credentials()
+
+
+def _hub_error_body(exc) -> dict:
+    status = "offline" if getattr(exc, "unreachable", False) else "reauth" if getattr(exc, "reauth", False) else "error"
+    return {"ok": False, "status": status, "detail": str(exc), "code": getattr(exc, "code", "") or "", "status_code": getattr(exc, "status_code", None),
+            "error_detail": getattr(exc, "detail", None)}
+
+
+def _local_skill_files(name: str) -> tuple:
+    """``(skill_dir, files)`` for a local skill: text as str, binary as {base64}."""
+    import base64
+
+    from tools.skill_usage import _find_skill_dir
+
+    skill_dir = _find_skill_dir(name)
+    if skill_dir is None or not (skill_dir / "SKILL.md").is_file():
+        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found.")
+    files = {}
+    total = 0
+    for path in sorted(p for p in skill_dir.rglob("*") if p.is_file()):
+        if path.is_symlink() or path.name in _SKIP_FILE_NAMES or any(part.startswith(".") for part in path.relative_to(skill_dir).parts):
+            continue
+        data = path.read_bytes()
+        total += len(data)
+        if total > MAX_PUBLISH_BYTES:
+            raise HTTPException(status_code=413, detail=f"Skill '{name}' is larger than {MAX_PUBLISH_BYTES} bytes.")
+        rel = path.relative_to(skill_dir).as_posix()
+        text = _as_text(data)
+        files[rel] = text if text is not None else {"base64": base64.b64encode(data).decode("ascii")}
+    return skill_dir, files
+
+
+def _as_text(data: bytes) -> "Optional[str]":
+    """The file as text when it is text: valid UTF-8 with no NUL byte."""
+    if b"\x00" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+@hub_router.post("/api/skills/hub/tick")
+async def hub_tick(request: Request, body: dict = Body(default_factory=dict)):
+    """Sync with the hub now, with the bearer this request carried.
+
+    The desktop calls it when the Hub tab opens and on a timer; the bearer
+    is left in the mailbox so the background loop keeps working. Answers 200
+    with a ``status`` the caller renders — ``offline`` is not a failure.
+    """
+    from hermes_cli.hub_sync import engine, mailbox
+
+    credentials = _hub_credentials_from(request)
+    if credentials is None:
+        return {"status": "signed_out", "detail": "Nobody is signed in on this machine."}
+    mailbox().remember(credentials)
+    running = engine()
+    if body.get("reload_settings"):
+        running.reload_settings()
+    outcome = await run_in_threadpool(running.tick)
+    return outcome.to_json()
+
+
+@hub_router.get("/api/skills/hub/changes")
+async def hub_changes(profile: Optional[str] = None):
+    """What the hub wants on this machine and what the engine did about it.
+    No credential, no network call — it answers on a machine where the hub
+    is down, which is the situation it exists for."""
+    from hermes_cli.hub_sync import engine
+
+    return await run_in_threadpool(engine().changes)
+
+
+@hub_router.post("/api/skills/hub/validate")
+async def hub_validate(body: SkillHubValidateRequest, request: Request):
+    """Preview what the hub would make of a local skill (its ``POST /v1/validate``)."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+
+    credentials = _hub_credentials_from(request)
+    with _profile_scope(body.profile):
+        _skill_dir, files = _local_skill_files(body.name)
+
+    def _run():
+        client = HubClient(hub_base_url())
+        return client.validate(files, bearer=credentials.bearer if credentials else "", kind=body.kind or "", visibility=body.visibility or "")
+
+    try:
+        result = await run_in_threadpool(_run)
+    except HubError as exc:
+        return _hub_error_body(exc)
+    return {"ok": True, "status": "ok", "files": sorted(files), "result": result}
+
+
+@hub_router.post("/api/skills/hub/publish")
+async def hub_publish(body: SkillHubPublishRequest, request: Request):
+    """Upload a local skill to the hub as a new (private/org/public) version."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+
+    visibility = (body.visibility or "private").strip().lower()
+    if visibility not in ("private", "org", "public"):
+        raise HTTPException(status_code=400, detail="visibility must be private, org or public")
+    credentials = _hub_credentials_from(request)
+    if credentials is None:
+        return {"ok": False, "status": "signed_out", "detail": "Sign in to upload a skill to the hub."}
+    with _profile_scope(body.profile):
+        _skill_dir, files = _local_skill_files(body.name)
+
+    def _run():
+        client = HubClient(hub_base_url())
+        return client.publish(
+            files, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
+            kind=body.kind or "", visibility=visibility, targets=body.targets or (),
+        )
+
+    try:
+        result = await run_in_threadpool(_run)
+    except HubError as exc:
+        return _hub_error_body(exc)
+    skill = (result or {}).get("skill") or {}
+    version = (result or {}).get("version") or {}
+    base = hub_base_url()
+    return {
+        "ok": True,
+        "status": "ok",
+        "created": bool((result or {}).get("created")),
+        "slug": skill.get("slug"),
+        "visibility": skill.get("visibility"),
+        "version": version.get("version"),
+        "publish_state": version.get("publish_state"),
+        "scan_id": (result or {}).get("scan_id"),
+        "url": f"{base}/skills/{skill.get('slug')}" if skill.get("slug") else base,
+        "scan_url": f"{base}/scans/{(result or {}).get('scan_id')}" if (result or {}).get("scan_id") else None,
+        "warnings": (result or {}).get("warnings") or [],
+        "result": result,
+    }
+
+
+@hub_router.post("/api/skills/hub/propose")
+async def hub_propose(body: SkillHubPublishRequest, request: Request):
+    """Propose a local skill to the organisation: an upload with
+    ``visibility=org`` — the hub's policy publishes it to the org or queues
+    it for an org admin (plan Phase 3 item 3)."""
+    body.visibility = "org"
+    return await hub_publish(body, request)
 
 
 @router.get("/api/skills")

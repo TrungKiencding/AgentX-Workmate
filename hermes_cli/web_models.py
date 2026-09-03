@@ -544,6 +544,27 @@ class SkillsUpdateRequest(BaseModel):
     profile: Optional[str] = None
 
 
+# --- Phase 3 (AgentX Skill Hub): publish / validate / propose a local skill ---
+
+class SkillHubPublishRequest(BaseModel):
+    """Upload a local skill to the AgentX Skill Hub as a new version."""
+
+    name: str
+    visibility: str = "private"
+    kind: Optional[str] = None
+    targets: Optional[List[str]] = None
+    profile: Optional[str] = None
+
+
+class SkillHubValidateRequest(BaseModel):
+    """Preview what the hub would make of a local skill, without uploading."""
+
+    name: str
+    kind: Optional[str] = None
+    visibility: Optional[str] = None
+    profile: Optional[str] = None
+
+
 # --- from web_server.py (originally lines 15116-15166) ---
 
 class ProfileCreate(BaseModel):
