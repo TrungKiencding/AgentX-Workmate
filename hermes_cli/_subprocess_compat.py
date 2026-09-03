@@ -419,7 +419,7 @@ def noninteractive_git_env(
     * isolated git config — inherited ``GIT_CONFIG_*`` overrides, global/system
       config, pagers, editors, fsmonitor, external diff, and hooks are disabled
       for the child process. A user's repo/global config should not be able to
-      hang or mutate Hermes's internal plumbing calls.
+      hang or mutate AgentX's internal plumbing calls.
 
     ``GIT_ASKPASS`` / ``SSH_ASKPASS`` are deliberately left alone: when the
     user has a *working* askpass helper or ssh-agent configured, auth should

@@ -117,7 +117,7 @@ def test_self_hosted_provider_shares_the_classification(empty_jwks_server, monke
 
     provider = object.__new__(sh.SelfHostedOIDCProvider)
     provider._jwks_client = None
-    provider._client_id = "hermes"
+    provider._client_id = "agentx"
     monkeypatch.setattr(
         provider, "_get_discovery",
         lambda: {"jwks_uri": f"{empty_jwks_server}/jwks", "issuer": empty_jwks_server},

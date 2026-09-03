@@ -1428,7 +1428,7 @@ class CredentialPool:
         # Anthropic's OAuth refresh tokens are single-use too (see
         # agent/anthropic_adapter.py::_refresh_oauth_token), so the same
         # cross-process serialization Codex/xAI get is required here.
-        # Previously "anthropic" was excluded from this tuple: two Hermes
+        # Previously "anthropic" was excluded from this tuple: two AgentX
         # processes racing to refresh the same stale token would both POST,
         # the loser got invalid_grant, and — for any source other than
         # "claude_code" (hermes_pkce, dashboard-issued manual entries) —

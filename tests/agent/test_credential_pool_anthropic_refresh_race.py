@@ -4,7 +4,7 @@
 above the ``if self.provider in ("openai-codex", "xai-oauth"):`` branch in
 ``agent/credential_pool.py``) that single-use OAuth refresh tokens require
 the whole sync -> POST -> write-back sequence to be serialized across
-Hermes *processes* via the cross-process ``_auth_store_lock`` flock,
+AgentX *processes* via the cross-process ``_auth_store_lock`` flock,
 otherwise "two processes can both adopt the same on-disk token, both POST
 it, and the loser gets ``refresh_token_reused``".
 
@@ -16,7 +16,7 @@ rotates the pair and invalidates the old refresh token." Yet
 that gets the cross-process flock, and the *only* on-failure recovery path
 (``CredentialPool._sync_anthropic_entry_from_credentials_file``) is
 hard-scoped to ``entry.source == "claude_code"`` -- entries sourced from
-Hermes's own PKCE login (``hermes_pkce`` / ``manual:dashboard_pkce``) get
+AgentX's own PKCE login (``hermes_pkce`` / ``manual:dashboard_pkce``) get
 no recovery at all and are marked exhausted on any lost race, even though
 a fresh, valid token pair exists on disk (written by the winner).
 
@@ -160,7 +160,7 @@ def test_anthropic_refresh_is_protected_by_cross_process_lock(monkeypatch):
 
 
 def test_concurrent_hermes_pkce_refresh_loses_credential_despite_valid_token_on_disk(monkeypatch):
-    """Two 'Hermes processes' race to refresh the same stale hermes_pkce
+    """Two 'AgentX processes' race to refresh the same stale hermes_pkce
     refresh token. The winner gets a valid new pair. The loser -- despite a
     fresh, valid credential now existing -- has no recovery path and is
     marked exhausted, because ``_sync_anthropic_entry_from_credentials_file``
@@ -233,10 +233,10 @@ def test_concurrent_hermes_pkce_refresh_loses_credential_despite_valid_token_on_
     assert loser_entry_after.last_status != STATUS_EXHAUSTED, (
         "regression: the losing process marked its Anthropic hermes_pkce "
         "credential STATUS_EXHAUSTED after a lost refresh race, even "
-        "though the account is not actually exhausted -- a sibling Hermes "
+        "though the account is not actually exhausted -- a sibling AgentX "
         "process holds a perfectly valid rotated token. This causes "
         "spurious 're-authenticate with Anthropic' failures under "
-        "ordinary concurrent Hermes usage (fleet workers, cron jobs, "
+        "ordinary concurrent AgentX usage (fleet workers, cron jobs, "
         "multiple CLI sessions)."
     )
 

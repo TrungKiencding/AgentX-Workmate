@@ -1223,7 +1223,7 @@ def _file_lock(
     # ensure-content check) this write can collide with another holder's
     # msvcrt byte-range lock on the same file and raise PermissionError --
     # uncaught, since it happens before the retry loop below even starts.
-    # A stress test with 20 concurrent Hermes processes reproduced this
+    # A stress test with 20 concurrent AgentX processes reproduced this
     # deterministically on Windows. It's a best-effort convenience write
     # (whoever gets there first wins); losing the race here just means the
     # lock file already has content, so swallow the failure and proceed

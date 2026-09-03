@@ -5,7 +5,7 @@ and ``tests/hermes_cli/test_anthropic_dashboard_pkce_csrf.py``, which prove
 each bug in isolation with two racers. These tests scale the same scenarios
 up to look for bottlenecks and degradation under real concurrency:
 
-1. Many "Hermes processes" (threads, each with its own ``CredentialPool``
+1. Many "AgentX processes" (threads, each with its own ``CredentialPool``
    instance) hammering the same single-use Anthropic refresh token at once,
    against the REAL cross-process file lock (``_auth_store_lock``) and REAL
    credential-pool persistence (not mocked) under a throwaway
@@ -95,7 +95,7 @@ def hermes_home(tmp_path, monkeypatch):
 def test_high_concurrency_anthropic_refresh_no_lost_updates_no_deadlock(
     hermes_home, monkeypatch
 ):
-    """CONCURRENCY 'Hermes processes' race the same stale refresh token
+    """CONCURRENCY 'AgentX processes' race the same stale refresh token
     against the real cross-process lock + real on-disk pool persistence.
 
     Bottleneck check: total wall-clock time must stay close to what a

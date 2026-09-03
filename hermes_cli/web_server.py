@@ -10611,7 +10611,7 @@ def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_a
     # 5) — so without this, a leftover/forgotten API key from an earlier
     # setup makes every subsequent OAuth login through the dashboard silently
     # inert: the user re-authenticates with their Claude Pro/Max plan, but
-    # Hermes keeps billing pay-per-token against the old key. The CLI flow
+    # AgentX keeps billing pay-per-token against the old key. The CLI flow
     # (save_anthropic_oauth_token in hermes_cli/config.py) already clears
     # this slot on OAuth save; this mirrors that for the dashboard flow.
     try:
@@ -10713,7 +10713,7 @@ def _submit_anthropic_pkce(
     # must match the state this session issued. Without this check, an
     # attacker who completes their OWN authorization can get the victim to
     # paste that code/state pair, binding the attacker's Anthropic account
-    # to the victim's Hermes session. Mirrors the CLI flow's
+    # to the victim's AgentX session. Mirrors the CLI flow's
     # "received_state != oauth_state" guard in agent/anthropic_adapter.py.
     if not state_from_callback or state_from_callback != sess["state"]:
         with _oauth_sessions_lock:

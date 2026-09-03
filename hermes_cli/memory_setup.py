@@ -433,12 +433,12 @@ def _write_env_vars(
     through the same input-validation gate as every other ``.env`` writer:
     the ``_ENV_VAR_NAME_RE`` regex (no malformed identifiers), the
     ``_ENV_VAR_NAME_DENYLIST`` (no ``LD_PRELOAD`` / ``PYTHONPATH`` /
-    ``HERMES_HOME`` / etc.), CR/LF stripping on the value, and the atomic
+    ``AGENTX_HOME`` / etc.), CR/LF stripping on the value, and the atomic
     0o600-from-creation write (no TOCTOU permission window). This function
     previously wrote via ``Path.write_text`` directly, bypassing all of
     that: a memory-provider plugin schema declaring ``env_var: "LD_PRELOAD"``
     would land in ``.env`` verbatim and load via the ``env_loader.py``
-    ``.env`` -> ``os.environ`` chain on the next Hermes startup, and the
+    ``.env`` -> ``os.environ`` chain on the next AgentX startup, and the
     file existed at the default umask between the write and the later
     ``chmod`` regardless of key legitimacy.
 
@@ -452,7 +452,7 @@ def _write_env_vars(
 
     ``hermes_home`` may be supplied by plugin ``post_setup`` hooks that
     already received an explicit home directory (e.g. a non-default
-    profile). It is applied through the context-local Hermes home override
+    profile). It is applied through the context-local AgentX home override
     so ``save_env_value`` still owns the validation, sanitization, and
     atomic-write path without mutating global ``os.environ``.
     """

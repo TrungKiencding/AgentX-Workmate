@@ -304,7 +304,7 @@ def test_trusted_container_proxy_controls_https_detection():
             "root_path": "",
             "headers": [(b"x-forwarded-proto", b"https")],
             "client": (peer, 43120),
-            "server": ("hermes", 9119),
+            "server": ("agentx", 9119),
         }
 
         async def receive():
