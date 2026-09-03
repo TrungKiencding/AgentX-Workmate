@@ -1063,6 +1063,67 @@ export interface Translations {
       previewFailed: string
       scanFailed: string
       searchFailed: string
+      fromHub: string
+      hubStatus: Record<'connected' | 'reconnecting' | 'waiting' | 'off', string>
+      signedOut: string
+      offline: string
+      reauth: string
+      unconfigured: string
+      lastSync: (when: string) => string
+      noInstalls: string
+      desired: Record<'installed' | 'removed' | 'disabled', string>
+      reported: Record<'pending' | 'installed' | 'removed' | 'failed' | 'disabled', string>
+      localDisabled: string
+      updatesAvailable: (count: number) => string
+      updateOne: (from: string, to: string) => string
+      syncNow: string
+      syncing: string
+      orgSkills: (count: number) => string
+      history: string
+      historyAction: Record<'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed', string>
+      openHub: string
+    }
+    publish: {
+      upload: string
+      propose: string
+      title: (name: string) => string
+      proposeTitle: (name: string) => string
+      description: string
+      proposeDescription: string
+      visibility: string
+      visibilityOptions: Record<'private' | 'org' | 'public', string>
+      kind: string
+      kindAuto: string
+      kindCore: string
+      kindBrowser: string
+      preview: string
+      previewLoading: string
+      previewValid: string
+      previewInvalid: string
+      previewName: string
+      previewVersion: string
+      previewKind: string
+      previewFiles: string
+      warnings: string
+      submit: string
+      submitting: string
+      close: string
+      done: (slug: string, version: string) => string
+      doneState: Record<'scanning' | 'published' | 'needs_review' | 'rejected', string>
+      unchanged: (version: string) => string
+      openOnHub: string
+      openScan: string
+      failed: string
+      signedOut: string
+      offline: string
+      reauth: string
+      errors: {
+        version_not_newer: (highest: string) => string
+        version_exists: string
+        slug_taken: string
+        rate_limited: string
+        kind_mismatch: string
+      }
     }
   }
 

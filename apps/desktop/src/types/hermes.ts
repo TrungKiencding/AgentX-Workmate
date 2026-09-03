@@ -1433,3 +1433,133 @@ export interface ModelAssignmentResponse {
   stale_aux?: StaleAuxAssignment[]
   tasks?: string[]
 }
+
+// ---------------------------------------------------------------------------
+// AgentX Skill Hub, Phase 3: desired-state sync + upload from the desktop.
+// ---------------------------------------------------------------------------
+
+export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
+export type SkillHubReportedState = 'pending' | 'installed' | 'removed' | 'failed' | 'disabled'
+export type SkillHubSyncStatus = 'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
+
+/** What the local engine knows about a hub skill on this machine. */
+export interface SkillHubLocalState {
+  installed: boolean
+  name: string
+  version: string
+  content_hash: string
+  install_path: string
+  enabled: boolean
+}
+
+/** One desired install the hub holds for this person/product, paired with the local state. */
+export interface SkillHubInstallRow {
+  id: string
+  slug: string
+  name: string
+  kind: string
+  product: string
+  device_id: string | null
+  device_name?: string | null
+  version: string | null
+  latest_version: string | null
+  desired_state: SkillHubDesiredState
+  reported_state: SkillHubReportedState
+  reported_version: string | null
+  error: string
+  reason: string
+  update_available: boolean
+  local: SkillHubLocalState
+}
+
+export interface SkillHubUpdate {
+  install_id: string
+  slug: string
+  name: string
+  current: string | null
+  latest: string | null
+}
+
+export interface SkillHubHistoryEntry {
+  action: 'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed'
+  slug: string
+  version: string | null
+  detail: string
+  at: string
+}
+
+export interface SkillHubOrgSkill {
+  slug: string
+  name: string
+  kind: string
+  version: string | null
+  content_hash: string | null
+}
+
+/** `POST /api/skills/hub/tick` — what one sync did. */
+export interface SkillHubTickResponse {
+  status: SkillHubSyncStatus
+  detail: string
+  installed?: string[]
+  updated?: string[]
+  removed?: string[]
+  disabled?: string[]
+  enabled?: string[]
+  failed?: { slug: string; error: string; blocked?: boolean }[]
+  org_installed?: string[]
+  updates?: SkillHubUpdate[]
+  cursor?: number | null
+  at?: string
+}
+
+/** `GET /api/skills/hub/changes` — the engine's view, no network call. */
+export interface SkillHubChangesResponse {
+  enabled: boolean
+  configured: boolean
+  base_url: string
+  realtime: boolean
+  org_auto_install: boolean
+  credentials: 'session' | 'mailbox' | 'token' | null
+  device_id: string | null
+  stream: 'off' | 'waiting' | 'connected' | 'reconnecting'
+  cursor: number | null
+  revision: number
+  last: SkillHubTickResponse
+  installs: SkillHubInstallRow[]
+  updates: SkillHubUpdate[]
+  org: { org_id: string; skills: SkillHubOrgSkill[] } | null
+  history: SkillHubHistoryEntry[]
+  generated_at: string | null
+}
+
+export interface SkillHubValidateResponse {
+  ok: boolean
+  status: 'ok' | 'offline' | 'reauth' | 'error' | 'signed_out'
+  detail?: string
+  code?: string
+  files?: string[]
+  result?: {
+    ok: boolean
+    error?: { code: string; message: string; detail: unknown }
+    package?: { name: string; kind: string; version: string; files: string[]; has_scripts: boolean; warnings?: string[] }
+    webmate?: { chars: number; max_chars: number } | null
+    warnings?: string[]
+  }
+}
+
+export interface SkillHubPublishResponse {
+  ok: boolean
+  status: 'ok' | 'offline' | 'reauth' | 'error' | 'signed_out'
+  detail?: string
+  code?: string
+  error_detail?: unknown
+  created?: boolean
+  slug?: string
+  visibility?: string
+  version?: string
+  publish_state?: string
+  scan_id?: string | null
+  url?: string
+  scan_url?: string | null
+  warnings?: string[]
+}

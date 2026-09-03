@@ -58,14 +58,14 @@ function toolset(overrides: Record<string, unknown> = {}) {
   }
 }
 
-async function renderSkills() {
+async function renderSkills(tab = 'toolsets') {
   const { SkillsView } = await import('./index')
   let result: ReturnType<typeof render>
   await act(async () => {
     result = render(
       // SkillsView reads skills/toolsets via useQuery, so it needs a provider.
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/skills?tab=toolsets']}>
+        <MemoryRouter initialEntries={[`/skills?tab=${tab}`]}>
           <SkillsView />
         </MemoryRouter>
       </QueryClientProvider>
@@ -153,5 +153,26 @@ describe('SkillsView toolset management', () => {
     // Internal route change into the Models section with the aux slot target —
     // consumed by ModelSettings' deep-link highlight. Never an external URL.
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/settings?tab=config:model&aux=vision'))
+  })
+})
+
+describe('SkillsView hub publishing (Phase 3)', () => {
+  it('offers "Upload to Hub" and "Propose to organisation" for a learned skill, not for a hub one', async () => {
+    getSkills.mockResolvedValue([
+      { name: 'vneb-report', description: 'Reports', category: 'reports', enabled: true, usage: 3, provenance: 'agent' },
+      { name: 'demo-core', description: 'From the hub', category: 'general', enabled: true, usage: 0, provenance: 'hub' }
+    ])
+
+    await renderSkills('skills')
+
+    // The first (most used) skill is auto-selected: the learned one.
+    expect(await screen.findByTestId('skill-upload-hub')).toBeTruthy()
+    expect(screen.getByTestId('skill-propose-org')).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('skill-upload-hub'))
+    })
+
+    expect(await screen.findByText('Upload “vneb-report” to AgentX Hub')).toBeTruthy()
   })
 })

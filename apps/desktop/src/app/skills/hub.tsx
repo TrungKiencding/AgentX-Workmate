@@ -42,6 +42,8 @@ import {
 } from '@/store/hub-actions'
 import { notify, notifyError } from '@/store/notifications'
 
+import { HubStatus } from './hub-status'
+
 // Dedup rank when the same skill surfaces from multiple sources — higher trust
 // wins. Mirrors the backend's unified_search `_TRUST_RANK`.
 const TRUST_RANK: Record<string, number> = { builtin: 2, trusted: 1, community: 0 }
@@ -345,6 +347,9 @@ export function SkillsHub({ query }: SkillsHubProps) {
 
       {/* Scrollable results. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
+        {/* What the hub asked this machine to do (installs from the web, yanks,
+            org skills) — shown on the landing view, not over search results. */}
+        {showLanding && <HubStatus />}
         {searching ? (
           <div className="grid min-h-40 place-items-center">
             <PageLoader label={h.searching} />
