@@ -1278,15 +1278,31 @@
    at a 2px offset. The offset gap is load-bearing — it paints the surface
    behind the control between fill and ring, so the ring reads against the page
    even on a primary button that is the same accent (the two-layer pattern,
-   without needing a second colour). Zero-specificity `:where()`, so a surface
-   with its own focus chrome can still win with a plain class.
+   without needing a second colour). Zero-specificity `:where()` throughout —
+   including the root gate — so a surface with its own focus chrome can still
+   win with a plain class.
+
+   `:focus-visible` ALONE is not "keyboard focus", which is why the root gate is
+   here. Chromium latches into keyboard modality as soon as anything moves focus
+   with a key, and a Radix menu does that to itself: it autofocuses its content
+   on open and focuses the row under the pointer on `pointermove`. From then on
+   a plain mouse click matches `:focus-visible`, so hovering a menu row drew a
+   ring, and the ring Radix restored to the "+" trigger on close outlived the
+   pointer. `lib/input-modality.ts` tracks the real device and mirrors it here —
+   the same qualification `suppressNonKeyboardFocusOpen` applies to tooltips.
+   Written as `:not(…pointer)` rather than `=keyboard` so the ring survives if
+   that script never runs: an unstamped root still gets focus rings.
 
    Excluded on purpose: text-entry controls (`.desktop-input-chrome` and
    `contenteditable` already own an outline matched to their border geometry),
    and menu / option rows, where focus is carried by the selected-row
-   background — an outline on top of that is two indicators for one state.
+   background — an outline on top of that is two indicators for one state, and
+   a row spans its menu edge to edge, so an OUTSET ring lands on the menu's own
+   border. Roving focus makes the active row the tab stop (`tabindex="0"`), so
+   the rows have to be named here; `[data-focus-ring='none']` opts a one-off out.
    Never transitioned: a focus ring has to be there in the frame focus lands. */
-:where(
+:where(html:not([data-input-modality='pointer']))
+  :where(
     a[href],
     button,
     summary,
@@ -1299,7 +1315,17 @@
     [role='radio'],
     [role='slider'],
     [tabindex]:not([tabindex='-1'])
-  ):where(:not([contenteditable], .desktop-input-chrome, [data-focus-ring='none'])):focus-visible {
+  ):where(
+    :not(
+      [contenteditable],
+      .desktop-input-chrome,
+      [data-focus-ring='none'],
+      [role='menuitem'],
+      [role='menuitemcheckbox'],
+      [role='menuitemradio'],
+      [role='option']
+    )
+  ):focus-visible {
   outline: var(--ui-focus-ring-width) solid var(--ui-focus-ring);
   outline-offset: var(--ui-focus-ring-offset);
 }

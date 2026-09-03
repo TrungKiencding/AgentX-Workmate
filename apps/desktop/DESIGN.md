@@ -688,8 +688,19 @@ The detailed state contract lives in the scoped
   between fill and ring, so the ring stays legible on a primary button that is
   the same accent. Never transitioned; it must be there in the frame focus
   lands. Text-entry controls (`.desktop-input-chrome`, `contenteditable`) and
-  menu/option rows opt out: they already carry focus in their own border or
-  selected-row background. `data-focus-ring="none"` opts a one-off out.
+  menu/option rows (`[role=menuitem|menuitemcheckbox|menuitemradio|option]`)
+  opt out: they already carry focus in their own border or selected-row
+  background. `data-focus-ring="none"` opts a one-off out.
+  - **"Keyboard focus" is the root gate, not `:focus-visible`.** Chromium
+    latches into keyboard modality the moment anything moves focus with a key,
+    and a Radix menu does that to itself — so after one menu, plain mouse
+    clicks matched `:focus-visible` and drew rings that outlived the pointer.
+    `lib/input-modality.ts` stamps the real device on `<html>` and the rule
+    only fires under `html:not([data-input-modality='pointer'])` — the CSS
+    twin of `suppressNonKeyboardFocusOpen` in `tooltip.tsx`. Phrase any new
+    rule as `:not(…pointer)`, never `= keyboard`: an unstamped root must still
+    get rings. `focus-ring.test.ts` matches real elements against the real
+    selector; menu rows are the case that regresses.
 - Titlebar actions have no active-background state.
 - `Esc` closes every dismissable overlay/dialog (install/onboarding excluded);
   close is an x-icon, not the word "Close".

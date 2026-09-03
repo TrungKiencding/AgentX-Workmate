@@ -11,12 +11,24 @@
 
 export type InputModality = 'keyboard' | 'pointer'
 
+/** Mirrored onto the document root so CSS can apply the same gate the tooltip
+ *  applies in JS — see the focus-ring rule in `styles.css`. */
+export const MODALITY_ATTR = 'data-input-modality'
+
 let modality: InputModality = 'keyboard'
 
-/** Capture-phase so a `stopPropagation` deeper in the tree can't blind us. */
+const apply = (next: InputModality) => {
+  modality = next
+  document.documentElement.setAttribute(MODALITY_ATTR, next)
+}
+
+/** Capture-phase so a `stopPropagation` deeper in the tree can't blind us, and
+ *  so the root attribute is already updated when the browser runs the event's
+ *  default focus action — the ring is decided in the same frame as the click. */
 if (typeof document !== 'undefined') {
-  document.addEventListener('pointerdown', () => (modality = 'pointer'), { capture: true, passive: true })
-  document.addEventListener('keydown', () => (modality = 'keyboard'), { capture: true, passive: true })
+  apply(modality)
+  document.addEventListener('pointerdown', () => apply('pointer'), { capture: true, passive: true })
+  document.addEventListener('keydown', () => apply('keyboard'), { capture: true, passive: true })
 }
 
 /** The device behind the last pointerdown/keydown. Defaults to `keyboard` so a

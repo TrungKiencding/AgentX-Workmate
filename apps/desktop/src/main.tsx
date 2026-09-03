@@ -1,4 +1,9 @@
 import './styles.css'
+// Side-effect: stamps the input device on the document root. Imported here, not
+// left to whichever component happens to pull it in first, because the focus-ring
+// rule in styles.css reads that attribute — the tracker has to be listening
+// before the first pointerdown or that click gets a keyboard ring.
+import './lib/input-modality'
 // Side-effect: reports in-flight turns to the main process for the quit guard.
 import './store/active-work'
 // Side-effect: mirrors the machine's AC/battery state for poll demotion.
