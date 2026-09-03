@@ -142,6 +142,43 @@ async function transcriptText(page: Page): Promise<string> {
   return page.evaluate(activeViewportText, SURFACE)
 }
 
+/**
+ * The attachment row is a flow sibling BELOW the user bubble's sticky container,
+ * which is an opaque full-bleed mask. A negative top margin used to tuck the row
+ * under that mask, slicing the top off every chip and thumbnail for the whole
+ * turn — not just while scrolling past it. jsdom has no layout, so real geometry
+ * in a real window is the only honest check; the declaration-level guard lives
+ * in `src/components/assistant-ui/thread/user-message-attachments.test.tsx`.
+ */
+async function assertAttachmentsClearTheBubble(page: Page, label: string): Promise<void> {
+  const overlaps = await page.evaluate((surfaceSelector: string) => {
+    const surfaces = document.querySelectorAll(surfaceSelector)
+    const viewport = surfaces[surfaces.length - 1]?.querySelector('[data-slot="aui_thread-viewport"]')
+
+    if (!viewport) {
+      return null
+    }
+
+    // Measure at rest, from the top: a bubble the user has scrolled PAST is
+    // supposed to cover the row — that is what "scrolls away behind it" means.
+    viewport.scrollTop = 0
+
+    return [...viewport.querySelectorAll('[data-slot="aui_user-attachments"]')].map(row => {
+      const mask = row.previousElementSibling
+
+      return mask ? Number((mask.getBoundingClientRect().bottom - row.getBoundingClientRect().top).toFixed(2)) : null
+    })
+  }, SURFACE)
+
+  expect(overlaps, `${label}: the transcript should expose an attachment row to measure`).not.toBeNull()
+  expect(overlaps?.length, `${label}: the attached turn should render an attachment row`).toBeGreaterThan(0)
+
+  for (const overlap of overlaps ?? []) {
+    expect(overlap, `${label}: the attachment row should sit below the bubble, not inside it`).not.toBeNull()
+    expect(overlap ?? 0, `${label}: the bubble overlaps its attachment row by ${overlap}px`).toBeLessThanOrEqual(0)
+  }
+}
+
 async function assertRendersThumbnail(page: Page, label: string): Promise<void> {
   const thumbnail = page.locator('[data-slot="aui_directive-image"] img')
   await expect(thumbnail, `${label}: the attachment should render as an image`).toHaveCount(1)
@@ -154,6 +191,8 @@ async function assertRendersThumbnail(page: Page, label: string): Promise<void> 
   expect(text, `${label}: the raw image path should not leak into the transcript`).not.toContain(IMAGE_NAME)
   expect(text, `${label}: the image directive should not render literally`).not.toContain('@image:')
   expect(text, `${label}: the flattening placeholder should not render`).not.toContain('[screenshot]')
+
+  await assertAttachmentsClearTheBubble(page, label)
 }
 
 test.describe('attached image resume', () => {

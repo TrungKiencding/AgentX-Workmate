@@ -268,8 +268,15 @@ export const UserMessage: FC<{
           // Attachments live BELOW the sticky bubble in normal flow, so they
           // scroll away behind the pinned bubble instead of riding along with
           // it. Image refs render as thumbnails, file refs as chips; no border.
+          //
+          // No negative pull upwards. The bubble's container is an opaque
+          // full-bleed mask (that's what makes scrolling *behind* it read as
+          // "behind"), and while it's pinned it paints --sticky-human-top BELOW
+          // its flow position — so anything closer than that gets its top
+          // sliced off for the whole turn, not just while scrolling. The
+          // parent's --conversation-turn-gap is the clearance; keep it.
           attachmentRefs.length > 0 ? (
-            <div className="flex flex-wrap gap-1 -mt-3 mb-2">
+            <div className="mb-2 flex flex-wrap gap-1" data-slot="aui_user-attachments">
               <DirectiveContent text={attachmentRefs.join(' ')} />
             </div>
           ) : null
