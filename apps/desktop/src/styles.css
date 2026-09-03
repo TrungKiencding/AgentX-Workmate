@@ -108,9 +108,10 @@
 }
 
 /* Instrument Serif — the display-serif outlier (OFL-1.1), reserved for the
-   two sanctioned slots: the home greeting and the onboarding hero. Roman
-   only, on purpose — italic display headings are banned. Google Fonts ships
-   no Vietnamese subset for it; missing glyphs fall back to Georgia. */
+   three sanctioned slots: the connect splash, the home greeting and the
+   onboarding hero. Roman only, on purpose — italic display headings are
+   banned. Google Fonts ships no Vietnamese subset for it; missing glyphs fall
+   back to Georgia. */
 @font-face {
   font-family: 'Instrument Serif';
   font-style: normal;
@@ -158,7 +159,8 @@
 
   --font-sans: var(--dt-font-sans);
   --font-mono: var(--dt-font-mono);
-  /* Display serif — the 2-slot outlier face (home greeting, onboarding hero). */
+  /* Display serif — the 3-slot outlier face (connect splash, home greeting,
+     onboarding hero). */
   --font-serif-display: var(--dt-font-serif-display);
 
   /* Type ramp — the app's only font sizes; every text-* utility resolves here.
@@ -562,8 +564,9 @@
     --dt-font-sans:
       'Geist', 'Segoe WPC', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif,
       'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', emoji;
-    /* Display serif — Instrument Serif, allowed in exactly two slots (home
-       greeting, onboarding hero). Roman only; never italicized. */
+    /* Display serif — Instrument Serif, allowed in exactly three slots
+       (connect splash, home greeting, onboarding hero). Roman only; never
+       italicized. */
     --dt-font-serif-display: 'Instrument Serif', Georgia, serif;
     /* Key caps always use the native UI face — never theme typography overrides. */
     --dt-font-kbd: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;

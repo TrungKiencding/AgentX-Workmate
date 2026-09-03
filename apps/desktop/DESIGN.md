@@ -179,9 +179,9 @@ runtime); themes may override sans/mono through the existing pipeline:
 - **JetBrains Mono** (`--dt-font-mono`) — the code face everywhere: code, kbd,
   paths, terminal.
 - **Instrument Serif** (`--dt-font-serif-display`, `font-serif-display`) — the
-  display outlier, allowed in exactly two slots: home greeting and onboarding
-  hero. Roman only — italic display headings are banned. No Vietnamese subset
-  exists; missing glyphs fall back to Georgia.
+  display outlier, allowed in exactly three slots: the connect splash, the home
+  greeting and the onboarding hero. Roman only — italic display headings are
+  banned. No Vietnamese subset exists; missing glyphs fall back to Georgia.
 
 Neuebit remains the brand plate face (`BrandMark`/About); Collapse stays
 retired from product surfaces. `--dt-font-kbd` keeps the native UI face.
@@ -200,7 +200,7 @@ renderer — and the onboarding glyph's ASCII art, which is drawing, not text):
 | `text-md` | 15px | chat prose default (`--conversation-text-font-size`) |
 | `text-lg` | 18px | in-page section titles |
 | `text-xl` | 22px | overlay/page titles |
-| `text-2xl` | 28px | home greeting (serif slot) |
+| `text-2xl` | 28px | home greeting, connect splash (serif slots) |
 | `text-3xl` | 36px | onboarding/update hero |
 
 Line-height rides the ramp (chrome 1.4 · content 1.5 · prose 1.6 · display
@@ -454,8 +454,8 @@ so two-line rows still grow), `HUD_HEADING`.
 ## Chat, tools & boot surfaces
 
 - **The home surface is the empty transcript** (`components/chat/intro.tsx`):
-  a serif greeting (`font-serif-display`, `text-2xl`, roman — outlier slot 1 of
-  2), one muted 14px line from `intro-copy.jsonl`, then a **quick-start row** of
+  a serif greeting (`font-serif-display`, `text-2xl`, roman — outlier slot 2 of
+  3), one muted 14px line from `intro-copy.jsonl`, then a **quick-start row** of
   at most four `chip` buttons. The composer stays the only CTA; the block leads
   the eye down to it.
   - Every chip is grounded in something the app already knows — the session you
@@ -529,6 +529,12 @@ so two-line rows still grow), `HUD_HEADING`.
   does the talking, and neither property is transitioned.
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
+- **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one
+  centred line — "Connecting to AgentX server" in the display serif
+  (`text-2xl`, outlier slot 1 of 3), the word legible from the first frame
+  while the destination decodes under it, then a fade that hands off to the
+  home greeting in the same face. Cold boot only: a post-boot socket drop
+  reconnects behind the shell, never behind this overlay.
 - Install, onboarding, connecting, boot failure, and reauthentication are
   distinct states with shared visual primitives. Preserve their recovery
   semantics when unifying appearance.

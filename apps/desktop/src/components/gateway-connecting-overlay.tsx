@@ -8,8 +8,10 @@ import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
 // Decode mechanics live in the shared <DecodeText> primitive
-// (components/ui/decode-text.tsx). "CONN" stays legible via prefix={4}.
-const TEXT = 'CONNECTING'
+// (components/ui/decode-text.tsx). The word itself stays legible throughout —
+// only the destination decodes — so the splash always says what it's doing.
+const TEXT = 'Connecting to AgentX server'
+const PREFIX = 'Connecting'.length
 
 // Exit choreography (ms): text fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
@@ -148,11 +150,14 @@ export function GatewayConnectingOverlay() {
       <DecodeText
         active={phase === 'live' && (previewing || connecting)}
         className={cn(
-          'pl-[0.4em] text-(--theme-primary) transition duration-(--dur-long) ease-out',
+          // Display-serif slot 3 of 3 (see DESIGN.md) — the same face and size
+          // as the home greeting, so boot hands off to a room it matches.
+          'font-serif-display text-2xl text-(--theme-primary) transition duration-(--dur-long) ease-out',
           leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
         )}
         cursor
-        prefix={4}
+        mono={false}
+        prefix={PREFIX}
         text={TEXT}
       />
     </div>
