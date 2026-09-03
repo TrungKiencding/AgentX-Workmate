@@ -328,6 +328,8 @@ async def scan_skill_hub(identifier: str = "", profile: Optional[str] = None):
 
         if bundle.source == "official":
             scan_source = "official"
+        elif bundle.source == "agentx-hub":
+            scan_source = bundle.trust_level or "community"
         else:
             scan_source = (
                 getattr(bundle, "identifier", "")

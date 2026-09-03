@@ -2143,6 +2143,13 @@ DEFAULT_CONFIG = {
     # always goes to ~/.agentx/skills/.
     "skills": {
         "external_dirs": [],   # e.g. ["~/.agents/skills", "/shared/team-skills"]
+        # AgentX Skill Hub — the shared registry every AgentX product installs
+        # from (tools/skills_hub.py::AgentXHubSource). The URL is public; the
+        # optional token is a personal API token from the hub's Settings page
+        # (or AGENTX_HUB_TOKEN in the environment) and is only needed to see
+        # private/org skills — the public catalog needs none.
+        "hub_url": "https://skills.agentx.astralx.com.vn",
+        "hub_token": "",
         # Substitute ${AGENTX_SKILL_DIR} and ${AGENTX_SESSION_ID} in SKILL.md
         # content with the absolute skill directory and the active session id
         # before the agent sees it.  Lets skill authors reference bundled

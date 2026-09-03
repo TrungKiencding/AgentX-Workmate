@@ -4016,12 +4016,26 @@ def check_for_skill_updates(
             continue
 
         bundle = None
+        resolved_identifier = identifier
         for src in candidate_sources:
+            # A source that pins installs to a version (the AgentX Hub records
+            # ``agentx-hub/<slug>@<version>``) says which identifier to ask
+            # for when checking for something NEWER; the bundle it returns
+            # then carries the identifier of the version actually fetched.
+            fetch_identifier = identifier
+            hook = getattr(src, "update_identifier", None)
+            if callable(hook):
+                try:
+                    fetch_identifier = hook(identifier) or identifier
+                except Exception:
+                    fetch_identifier = identifier
             try:
-                bundle = src.fetch(identifier)
+                bundle = src.fetch(fetch_identifier)
             except Exception:
                 bundle = None
             if bundle:
+                if callable(hook) and getattr(bundle, "identifier", ""):
+                    resolved_identifier = bundle.identifier
                 break
 
         if not bundle:
@@ -4038,7 +4052,7 @@ def check_for_skill_updates(
         status = "up_to_date" if current_hash == latest_hash else "update_available"
         results.append({
             "name": entry.get("name", ""),
-            "identifier": identifier,
+            "identifier": resolved_identifier if status == "update_available" else identifier,
             "source": source_name,
             "status": status,
             "current_hash": current_hash,
@@ -4059,9 +4073,12 @@ def check_for_skill_updates(
 # stale cache and the bundled sources when it 404s — so a fresh fork gets a
 # working Skills Hub minus the remote index, not an error. Override with
 # AGENTX_SKILLS_INDEX_URL to point at your own deployment.
+#: The AgentX Skill Hub. ``AGENTX_SKILLS_HUB_URL`` or ``skills.hub_url`` in
+#: config.yaml override it (see :func:`agentx_hub_url`).
+DEFAULT_AGENTX_HUB_URL = "https://skills.agentx.astralx.com.vn"
+
 AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
-    "https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate"
-    "/main/website/static/api/skills-index.json"
+    f"{DEFAULT_AGENTX_HUB_URL}/v1/index.json?kind=core"
 )
 AGENTX_INDEX_TTL = 6 * 3600  # 6 hours
 
@@ -4344,6 +4361,297 @@ class HermesIndexSource(SkillSource):
         )
 
 
+# ---------------------------------------------------------------------------
+# AgentX Skill Hub source
+# ---------------------------------------------------------------------------
+
+#: Trust level of a hub bundle whose signature verified. Mapped into
+#: ``tools.skills_guard.INSTALL_POLICY`` like ``trusted``.
+AGENTX_HUB_TRUST_VERIFIED = "agentx-hub-verified"
+_AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-keys"
+_AGENTX_HUB_IDENTIFIER_RE = re.compile(
+    r"^agentx-hub/(?P<slug>[a-z0-9][a-z0-9_-]*(?:/[a-z0-9][a-z0-9_-]*)?)"
+    r"(?:@(?P<version>[0-9A-Za-z.+-]+))?$"
+)
+
+
+def agentx_hub_url() -> str:
+    """The hub base URL: env ``AGENTX_SKILLS_HUB_URL`` > ``skills.hub_url`` > default."""
+    env = (os.environ.get("AGENTX_SKILLS_HUB_URL") or "").strip()
+    if env:
+        return env.rstrip("/")
+    try:
+        from hermes_cli.config import load_config_readonly
+
+        value = ((load_config_readonly().get("skills") or {}).get("hub_url") or "").strip()
+        if value:
+            return value.rstrip("/")
+    except Exception:
+        pass
+    return DEFAULT_AGENTX_HUB_URL
+
+
+def agentx_hub_token() -> str:
+    """A personal hub token: env ``AGENTX_HUB_TOKEN`` > ``skills.hub_token``.
+
+    Only needed for private/org skills; the public catalog needs none.
+    """
+    env = (os.environ.get("AGENTX_HUB_TOKEN") or "").strip()
+    if env:
+        return env
+    try:
+        from hermes_cli.config import load_config_readonly
+
+        return str(((load_config_readonly().get("skills") or {}).get("hub_token") or "")).strip()
+    except Exception:
+        return ""
+
+
+def _hub_canonical_manifest(manifest: Dict[str, Any]) -> bytes:
+    """Byte-for-byte what the hub signs: sorted keys, no whitespace, UTF-8."""
+    fields = ("slug", "version", "content_hash", "kind", "verdict", "scanned_at", "scanner_versions")
+    subset = {key: manifest.get(key) for key in fields}
+    return json.dumps(subset, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def verify_hub_signature(manifest: Dict[str, Any], signature_b64: str, public_key_b64: str) -> bool:
+    """Ed25519-verify a hub manifest. Never raises; False on any failure."""
+    import base64
+
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        def _unb64(text: str) -> bytes:
+            text = (text or "").strip()
+            padded = text + "=" * (-len(text) % 4)
+            return base64.b64decode(padded.replace("-", "+").replace("_", "/"))
+
+        public = Ed25519PublicKey.from_public_bytes(_unb64(public_key_b64))
+        public.verify(_unb64(signature_b64), _hub_canonical_manifest(manifest))
+        return True
+    except Exception:
+        return False
+
+
+class AgentXHubSource(SkillSource):
+    """The AgentX Skill Hub (``skills.agentx.astralx.com.vn``).
+
+    Search and inspect read the hub's public catalog (``/v1/skills``); fetch
+    downloads a signed bundle and verifies the Ed25519 signature against the
+    keys the hub publishes at ``/.well-known/agentx-hub.json`` (cached in the
+    hub index cache, one hour). A bundle that verifies is installed with the
+    trust level ``agentx-hub-verified``; one that does not is treated as
+    ``community`` — the hub's verdict is never trusted without its signature.
+
+    Identifiers: ``agentx-hub/<slug>`` (latest) or ``agentx-hub/<slug>@<version>``.
+    """
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        *,
+        token: Optional[str] = None,
+        transport: Any = None,
+        timeout: int = 20,
+    ):
+        self.base_url = (base_url or agentx_hub_url()).rstrip("/")
+        self._token = token if token is not None else agentx_hub_token()
+        self._transport = transport
+        self._timeout = timeout
+        self._keys: Optional[Dict[str, str]] = None
+        self._trust: Dict[str, str] = {}
+
+    def source_id(self) -> str:
+        return "agentx-hub"
+
+    @property
+    def is_available(self) -> bool:
+        return bool(self.base_url)
+
+    def trust_level_for(self, identifier: str) -> str:
+        return self._trust.get(identifier, "community")
+
+    # -- HTTP ----------------------------------------------------------------
+
+    def _headers(self) -> Dict[str, str]:
+        headers = {"Accept": "application/json", "User-Agent": "agentx-workmate-skills-hub"}
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
+        return headers
+
+    def _get_json(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        url = f"{self.base_url}{path}"
+        try:
+            with httpx.Client(timeout=self._timeout, transport=self._transport, follow_redirects=False) as client:
+                resp = client.get(url, params=params, headers=self._headers())
+        except httpx.HTTPError as exc:
+            logger.debug("AgentX Hub unreachable for %s: %s", path, exc)
+            return None
+        if resp.status_code != 200:
+            logger.debug("AgentX Hub answered %d for %s", resp.status_code, path)
+            return None
+        try:
+            return resp.json()
+        except ValueError:
+            return None
+
+    def _signing_keys(self) -> Dict[str, str]:
+        if self._keys is not None:
+            return self._keys
+        cached = _read_index_cache(_AGENTX_HUB_KEYS_CACHE_KEY)
+        if isinstance(cached, dict) and cached.get("hub_url") == self.base_url and isinstance(cached.get("keys"), dict):
+            self._keys = {str(k): str(v) for k, v in cached["keys"].items()}
+            return self._keys
+        keys: Dict[str, str] = {}
+        data = self._get_json("/.well-known/agentx-hub.json")
+        if isinstance(data, dict):
+            for entry in data.get("signing_keys") or []:
+                if isinstance(entry, dict) and entry.get("kid") and entry.get("ed25519_pub"):
+                    keys[str(entry["kid"])] = str(entry["ed25519_pub"])
+        if keys:
+            _write_index_cache(_AGENTX_HUB_KEYS_CACHE_KEY, {"hub_url": self.base_url, "keys": keys})
+        self._keys = keys
+        return keys
+
+    # -- identifiers -----------------------------------------------------------
+
+    @classmethod
+    def update_identifier(cls, identifier: str) -> Optional[str]:
+        """The identifier ``check_for_skill_updates`` should fetch: the slug
+        without its pinned ``@version``, so the hub answers with ``latest``."""
+        parsed = cls.parse_identifier(identifier)
+        return f"agentx-hub/{parsed[0]}" if parsed else None
+
+    @staticmethod
+    def parse_identifier(identifier: str) -> Optional[Tuple[str, str]]:
+        """``agentx-hub/<slug>[@<version>]`` → ``(slug, version-or-'latest')``."""
+        match = _AGENTX_HUB_IDENTIFIER_RE.match((identifier or "").strip())
+        if not match:
+            return None
+        return match.group("slug"), match.group("version") or "latest"
+
+    def _to_meta(self, item: Dict[str, Any]) -> SkillMeta:
+        scan = item.get("scan") or {}
+        signed = bool(scan.get("signed"))
+        identifier = f"agentx-hub/{item.get('slug', '')}"
+        trust = AGENTX_HUB_TRUST_VERIFIED if signed else "community"
+        self._trust[identifier] = trust
+        owner = item.get("owner") or {}
+        return SkillMeta(
+            name=str(item.get("name") or item.get("slug") or ""),
+            description=str(item.get("description") or ""),
+            source="agentx-hub",
+            identifier=identifier,
+            trust_level=trust,
+            repo=None,
+            path=None,
+            tags=[str(t) for t in (item.get("tags") or [])],
+            extra={
+                "kind": item.get("kind"),
+                "version": item.get("latest_version"),
+                "content_hash": item.get("latest_content_hash"),
+                "downloads": item.get("downloads"),
+                "stars": item.get("stars"),
+                "category": item.get("category"),
+                "targets": item.get("targets") or [],
+                "provider": "AgentX Hub",
+                "verdict": scan.get("verdict"),
+                "owner": owner.get("slug"),
+                "url": f"{self.base_url}/skills/{item.get('slug', '')}",
+            },
+        )
+
+    # -- the adapter -----------------------------------------------------------
+
+    def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
+        params: Dict[str, Any] = {"kind": "core", "limit": max(1, min(int(limit), 100))}
+        if (query or "").strip():
+            params["q"] = query.strip()
+        data = self._get_json("/v1/skills", params)
+        if not isinstance(data, dict):
+            return []
+        return [self._to_meta(item) for item in data.get("skills") or [] if isinstance(item, dict)]
+
+    def inspect(self, identifier: str) -> Optional[SkillMeta]:
+        parsed = self.parse_identifier(identifier)
+        if not parsed:
+            return None
+        slug, _version = parsed
+        data = self._get_json(f"/v1/skills/{slug}")
+        if not isinstance(data, dict) or data.get("kind") not in (None, "core"):
+            return None
+        return self._to_meta(data)
+
+    def fetch(self, identifier: str) -> Optional[SkillBundle]:
+        parsed = self.parse_identifier(identifier)
+        if not parsed:
+            return None
+        slug, version = parsed
+        data = self._get_json(f"/v1/skills/{slug}/versions/{version}/bundle", {"format": "json"})
+        if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
+            return None
+        if data.get("kind") not in (None, "core"):
+            logger.info("AgentX Hub skill %s is a %s skill, not installable in Workmate", slug, data.get("kind"))
+            return None
+
+        import base64
+
+        files: Dict[str, Union[str, bytes]] = {}
+        for rel_path, content in data["files"].items():
+            safe = _validate_bundle_rel_path(str(rel_path))
+            if isinstance(content, str):
+                files[safe] = content
+            elif isinstance(content, dict) and isinstance(content.get("base64"), str):
+                files[safe] = base64.b64decode(content["base64"])
+            else:
+                return None
+        if "SKILL.md" not in files:
+            return None
+
+        manifest = data.get("signed_manifest") or {}
+        signature = str(data.get("signature") or "")
+        kid = str(data.get("kid") or "")
+        verified = False
+        if signature and kid and isinstance(manifest, dict):
+            public = self._signing_keys().get(kid, "")
+            verified = bool(public) and verify_hub_signature(manifest, signature, public)
+            # The signed manifest must describe THESE bytes, not merely be valid.
+            if verified and manifest.get("content_hash") != data.get("content_hash"):
+                verified = False
+            if verified and bundle_content_hash(SkillBundle(name="x", files=files, source="", identifier="", trust_level="")) \
+                    != f"sha256:{str(manifest.get('content_hash', '')).split(':', 1)[-1][:16]}":
+                verified = False
+        trust = AGENTX_HUB_TRUST_VERIFIED if verified else "community"
+        resolved_version = str(data.get("version") or version)
+        canonical = f"agentx-hub/{slug}@{resolved_version}"
+        self._trust[identifier] = trust
+        self._trust[canonical] = trust
+        scan = data.get("scan") or {}
+        return SkillBundle(
+            name=str(data.get("name") or slug.split("/")[-1]),
+            files=files,
+            source="agentx-hub",
+            identifier=canonical,
+            trust_level=trust,
+            metadata={
+                "source_url": f"{self.base_url}/skills/{slug}",
+                "hub_url": self.base_url,
+                "hub_slug": slug,
+                "hub_version": resolved_version,
+                "hub_scan_id": scan.get("id", ""),
+                "signature": signature,
+                "kid": kid,
+                "signature_verified": verified,
+                "content_hash": data.get("content_hash", ""),
+                "verdict": scan.get("verdict") or manifest.get("verdict"),
+                "scanned_at": scan.get("scanned_at") or manifest.get("scanned_at"),
+                "scanner_versions": scan.get("scanner_versions") or manifest.get("scanner_versions") or {},
+                "kind": data.get("kind") or "core",
+                "targets": data.get("targets") or [],
+            },
+        )
+
+
 def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]:
     """
     Create all configured source adapters.
@@ -4356,6 +4664,7 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
     extra_taps = taps_mgr.list_taps()
 
     sources: List[SkillSource] = [
+        AgentXHubSource(),            # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
         OptionalSkillSource(),        # Official optional skills (highest priority)
         HermesIndexSource(auth=auth), # Centralized index (search + resolved install paths)
         SkillsShSource(auth=auth),
