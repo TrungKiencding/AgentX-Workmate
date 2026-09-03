@@ -2191,6 +2191,8 @@ export const zh: Translations = {
       renameTitle: '重命名项目',
       addFolderTitle: '添加文件夹',
       namePlaceholder: '例如 Skunkworks',
+      nameFromFolder: '已按文件夹命名，可随意修改。',
+      nameRequiredMulti: '有多个文件夹时，请为项目命名。',
       foldersLabel: '文件夹',
       ideaLabel: '想法',
       ideaPlaceholder: '这个项目是关于什么的？（保存到 IDEA.md）',

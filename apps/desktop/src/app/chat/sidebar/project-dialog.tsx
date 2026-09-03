@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -11,11 +11,13 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { FieldHint } from '@/components/ui/field'
 import { GenerateButton } from '@/components/ui/generate-button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { pathLeaf } from '@/lib/display-path'
 import { type ProjectIdeaTemplate, randomIdeaTemplates } from '@/lib/project-idea-templates'
 import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
@@ -29,6 +31,10 @@ import {
   renameProject
 } from '@/store/projects'
 
+// The name a new project gets for free: a single folder's own name. With
+// several folders there is no obvious pick, so the person names it.
+const suggestedProjectName = (folders: readonly string[]): string => (folders.length === 1 ? pathLeaf(folders[0]) : '')
+
 // Single dialog mounted once in the sidebar; it renders create / rename /
 // add-folder flows driven by the $projectDialog atom. Folders are chosen via
 // the native directory picker (reused from the default-project-dir setting).
@@ -40,16 +46,22 @@ export function ProjectDialog() {
   const mode = state?.mode ?? 'create'
 
   const [name, setName] = useState('')
+  // While the name is still the dialog's own suggestion (the single folder's
+  // leaf) it follows the folder list; the first keystroke makes it the
+  // person's, and from then on the list can change without touching it.
+  const [nameSuggested, setNameSuggested] = useState(true)
   const [folders, setFolders] = useState<string[]>([])
   const [idea, setIdea] = useState('')
   const [templates, setTemplates] = useState<ProjectIdeaTemplate[]>([])
   const [generatingIdea, setGeneratingIdea] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
+  const nameHintId = useId()
 
   useEffect(() => {
     if (open) {
       setName(state?.name ?? '')
+      setNameSuggested(mode === 'create')
       setFolders([])
       setIdea('')
       setTemplates(randomIdeaTemplates())
@@ -61,6 +73,13 @@ export function ProjectDialog() {
       }
     }
   }, [open, mode, state?.name])
+
+  // The suggestion tracks the folders only while it is still a suggestion.
+  useEffect(() => {
+    if (mode === 'create' && nameSuggested) {
+      setName(suggestedProjectName(folders))
+    }
+  }, [folders, mode, nameSuggested])
 
   const onOpenChange = (next: boolean) => {
     if (!next) {
@@ -109,6 +128,21 @@ export function ProjectDialog() {
     }
   }
 
+  // What the project will actually be called. A cleared field still falls back
+  // to the single folder's name — that default is the point of a one-folder
+  // project — while several folders need a typed name.
+  const suggestion = suggestedProjectName(folders)
+  const effectiveName = name.trim() || suggestion
+
+  const nameHint =
+    mode !== 'create'
+      ? null
+      : folders.length > 1 && !effectiveName
+        ? p.nameRequiredMulti
+        : folders.length === 1 && nameSuggested
+          ? p.nameFromFolder
+          : null
+
   const submit = async () => {
     const trimmed = name.trim()
     const projectId = state?.projectId
@@ -123,8 +157,8 @@ export function ProjectDialog() {
 
     // A project owns sessions by folder (cwd-prefix), so creation requires at
     // least one — a folder-less project couldn't hold a session anyway.
-    if (mode === 'create' && trimmed && folders.length) {
-      await runSubmit(() => createProject({ folders, idea: idea.trim() || undefined, name: trimmed, use: true }))
+    if (mode === 'create' && effectiveName && folders.length) {
+      await runSubmit(() => createProject({ folders, idea: idea.trim() || undefined, name: effectiveName, use: true }))
     }
   }
 
@@ -136,7 +170,7 @@ export function ProjectDialog() {
     setGeneratingIdea(true)
 
     try {
-      const text = await generateProjectIdea(name)
+      const text = await generateProjectIdea(effectiveName)
 
       if (text) {
         setIdea(text)
@@ -148,6 +182,8 @@ export function ProjectDialog() {
 
   const title = mode === 'rename' ? p.renameTitle : mode === 'add-folder' ? p.addFolderTitle : p.createTitle
 
+  const submitDisabled = submitting || (mode === 'rename' ? !name.trim() : !effectiveName || folders.length === 0)
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-md" onInteractOutside={event => event.preventDefault()}>
@@ -157,22 +193,31 @@ export function ProjectDialog() {
         </DialogHeader>
 
         {mode !== 'add-folder' && (
-          <Input
-            autoFocus
-            disabled={submitting}
-            onChange={event => setName(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                void submit()
-              } else if (event.key === 'Escape') {
-                onOpenChange(false)
-              }
-            }}
-            placeholder={p.namePlaceholder}
-            ref={nameRef}
-            value={name}
-          />
+          <div className="flex flex-col gap-1.5">
+            <Input
+              aria-describedby={nameHint ? nameHintId : undefined}
+              autoFocus
+              disabled={submitting}
+              onChange={event => {
+                setName(event.target.value)
+                setNameSuggested(false)
+              }}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void submit()
+                } else if (event.key === 'Escape') {
+                  onOpenChange(false)
+                }
+              }}
+              // A single folder's name stands in for an empty field, so the
+              // hint shows exactly what the project would be called.
+              placeholder={suggestion || p.namePlaceholder}
+              ref={nameRef}
+              value={name}
+            />
+            {nameHint && <FieldHint id={nameHintId}>{nameHint}</FieldHint>}
+          </div>
         )}
 
         {mode === 'create' && (
@@ -194,9 +239,7 @@ export function ProjectDialog() {
                       {folder}
                     </span>
                     {index === 0 && (
-                      <span className="shrink-0 text-2xs uppercase text-(--ui-text-quaternary)">
-                        {p.primaryBadge}
-                      </span>
+                      <span className="shrink-0 text-2xs uppercase text-(--ui-text-quaternary)">{p.primaryBadge}</span>
                     )}
                     <Tip label={p.removeFolder}>
                       <Button
@@ -290,11 +333,7 @@ export function ProjectDialog() {
             <Button disabled={submitting} onClick={() => onOpenChange(false)} type="button" variant="ghost">
               {t.common.cancel}
             </Button>
-            <Button
-              disabled={submitting || !name.trim() || (mode === 'create' && folders.length === 0)}
-              onClick={() => void submit()}
-              type="button"
-            >
+            <Button disabled={submitDisabled} onClick={() => void submit()} type="button">
               {mode === 'rename' ? t.common.save : p.create}
             </Button>
           </DialogFooter>

@@ -137,3 +137,20 @@ Everything the phases had logged as "known debt" is paid:
   from `intro-copy.jsonl`, English in every locale. Neutral copy now lives in
   `assistant.intro.bodyVariants` (five locales); the personality-flavoured
   jsonl is consulted only when the app runs in English.
+
+## Composer voice & project naming (2026-09-03)
+
+**Before.** Outside a git repo the composer's branch strip already stayed
+hidden, but the model pill still read `Qwen3.5 122B A10B FP8 · Med` to someone
+who never chose a quantisation. A new project needed a typed name even when it
+was one folder with an obvious one.
+
+**After.**
+- **A voice that follows the folder.** Inside a git repo: the branch strip and
+  the full model label with its effort. Anywhere else the strip is gone and the
+  pill wears the model's short name (`conciseModelName`: `Qwen3.5`). One probe
+  (`repoStatusForCwd`) decides both. The composer keeps its size and layout.
+- **A single-folder project names itself** after the folder (`pathLeaf`), with
+  the field pre-filled and editable and a hint saying so; several folders ask
+  for a name before Create lights. The ⌘O "open folder as project" path uses
+  the same helper, so both ways in agree on the name.

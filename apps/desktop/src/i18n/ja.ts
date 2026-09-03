@@ -1842,6 +1842,8 @@ export const ja = defineLocale({
       renameTitle: 'プロジェクト名を変更',
       addFolderTitle: 'フォルダを追加',
       namePlaceholder: '例: Skunkworks',
+      nameFromFolder: 'フォルダー名を使っています。必要なら変更してください。',
+      nameRequiredMulti: 'フォルダーが複数あるので、プロジェクト名を付けてください。',
       foldersLabel: 'フォルダ',
       ideaLabel: 'アイデア',
       ideaPlaceholder: 'このプロジェクトは何ですか？（IDEA.md に保存）',

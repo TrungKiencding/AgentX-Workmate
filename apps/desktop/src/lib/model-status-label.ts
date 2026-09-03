@@ -95,6 +95,26 @@ export function displayModelName(model: string): string {
   return modelDisplayParts(model).name
 }
 
+// Words in a display name that describe the BUILD, not the model: parameter
+// counts (122B, 400M), MoE active counts (A10B), quantisation (FP8, BF16, INT4,
+// Q4_K_M), packaging (GGUF, AWQ, GPTQ, MLX, EXL2), context windows (128K) and
+// the instruct / chat / it fine-tune tags. A routing suffix (`:free`, `:nitro`)
+// is shed before the match so `It:free` still reads as the tag it is.
+const BUILD_WORD =
+  /^(\d+(\.\d+)?[bm]|a\d+(\.\d+)?b|(fp|bf|int|q)\d+([_-][a-z0-9]+)*|gguf|awq|gptq|mlx|exl2|instruct|chat|it|\d+k)$/i
+
+/** The model's short name — family + version, nothing about the build and no
+ *  session state (`Qwen3.5 122B A10B FP8` → `Qwen3.5`). The composer wears it
+ *  outside a coding context, where "FP8 · Med" is noise to the person typing;
+ *  the full id stays in the tooltip and the picker. Falls back to the full
+ *  display name when nothing but build words remain. */
+export function conciseModelName(model: string): string {
+  const name = displayModelName(model)
+  const kept = name.split(/\s+/).filter(word => !BUILD_WORD.test(word.replace(/:[a-z0-9-]+$/i, '')))
+
+  return kept.length > 0 ? kept.join(' ') : name
+}
+
 /** Status bar trigger label — model name plus the live session state (effort/fast).
  *  `defaultEffort` is the profile's configured level, used when the surface has
  *  no explicit effort so the label never advertises a default the agent won't use. */

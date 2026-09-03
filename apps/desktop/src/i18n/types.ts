@@ -1684,6 +1684,8 @@ export interface Translations {
       renameTitle: string
       addFolderTitle: string
       namePlaceholder: string
+      nameFromFolder: string
+      nameRequiredMulti: string
       foldersLabel: string
       ideaLabel: string
       ideaPlaceholder: string

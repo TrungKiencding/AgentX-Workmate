@@ -59,6 +59,7 @@ export function ComposerControls({
   busyAction,
   canSubmit,
   compactModelPill = false,
+  conciseModelPill = false,
   conversation,
   disabled,
   hasComposerPayload,
@@ -73,6 +74,8 @@ export function ComposerControls({
   busyAction: 'steer' | 'queue' | 'stop'
   canSubmit: boolean
   compactModelPill?: boolean
+  /** Outside a coding context the pill wears the model's short name only. */
+  conciseModelPill?: boolean
   conversation: ConversationProps
   disabled: boolean
   hasComposerPayload: boolean
@@ -94,7 +97,7 @@ export function ComposerControls({
 
   return (
     <div className="ml-auto flex shrink-0 items-center gap-(--composer-control-gap)">
-      <ModelPill compact={compactModelPill} disabled={disabled} model={state.model} />
+      <ModelPill compact={compactModelPill} concise={conciseModelPill} disabled={disabled} model={state.model} />
       {/* The three voice toggles are one CLUSTER: tight internal gap, the
           control gap only between clusters, so the row scans as
           pill · voice · send instead of five equal stops. */}

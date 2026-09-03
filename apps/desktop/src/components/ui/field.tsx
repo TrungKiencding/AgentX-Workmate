@@ -34,8 +34,12 @@ export function Field({
   )
 }
 
-export function FieldHint({ children, error }: { children: ReactNode; error?: boolean }) {
+// `id` lets the control it explains point at it (`aria-describedby`), so a
+// screen reader announces the hint with the field instead of after the form.
+export function FieldHint({ children, error, id }: { children: ReactNode; error?: boolean; id?: string }) {
   return (
-    <p className={cn('text-2xs leading-4', error ? 'text-destructive' : 'text-muted-foreground')}>{children}</p>
+    <p className={cn('text-2xs leading-4', error ? 'text-destructive' : 'text-muted-foreground')} id={id}>
+      {children}
+    </p>
   )
 }

@@ -12,6 +12,7 @@ import { DATA_IMAGE_URL_RE } from '@/lib/embedded-images'
 import { triggerHaptic } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 import { interceptsTypedVoiceStop } from '@/lib/voice-stop-word'
+import { repoStatusForCwd } from '@/store/coding-status'
 import { sessionCompacting } from '@/store/compaction'
 import { browseBackward, browseForward, deriveUserHistory, isBrowsingHistory } from '@/store/composer-input-history'
 import { POPOUT_WIDTH_REM } from '@/store/composer-popout'
@@ -865,6 +866,14 @@ export function ChatBar({
   const { handleBranchOff, handleConvertBranch, handleListBranches, handleSwitchBranch, openInWorktree } =
     useComposerBranch({ clearDraft, cwd, draftRef })
 
+  // The composer's voice follows the folder. Inside a git repo it is a coding
+  // surface: the branch strip caps the card and the model pill carries the full
+  // label with its effort. Anywhere else — a documents folder, a detached
+  // chat — the developer facts go quiet and the pill wears the model's short
+  // name alone. The same probe that shows or hides the strip decides the
+  // pill, so the two can never disagree.
+  const codingContext = useStore(repoStatusForCwd(cwd)) !== null
+
   // Global Esc-to-cancel when the chat (not the composer input) has focus.
   // Same explicit-halt semantics as the Stop button: park the queue.
   useComposerEscCancel({ awaitingInput, busy, onCancel: haltRun, target: scope.target })
@@ -917,6 +926,7 @@ export function ChatBar({
       busyAction={busyAction}
       canSubmit={canSubmit}
       compactModelPill={poppedOut || compactPill}
+      conciseModelPill={!codingContext}
       conversation={{
         active: voiceConversationActive,
         level: conversation.level,
@@ -1240,7 +1250,15 @@ export function ChatBar({
                         : 'grid-cols-[auto_1fr_auto] items-center gap-(--composer-control-gap) [grid-template-areas:"menu_input_controls"]'
                     )}
                   >
-                    <div className="flex translate-y-[3px] items-start gap-(--composer-control-gap) self-start [grid-area:menu]">
+                    {/* Inline, the attach button hangs off the first text line
+                        (3px settles its glyph on the baseline); stacked, it sits
+                        in the tool row and centres against the send button. */}
+                    <div
+                      className={cn(
+                        'flex items-start gap-(--composer-control-gap) [grid-area:menu]',
+                        stacked ? 'self-center' : 'translate-y-[3px] self-start'
+                      )}
+                    >
                       {contextMenu}
                       <ContribSlot area={COMPOSER_AREAS.leading} />
                     </div>

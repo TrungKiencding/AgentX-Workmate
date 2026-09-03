@@ -7,7 +7,11 @@ import { applyWakeStartResult, applyWakeStatus, resetWakeWordState } from '@/sto
 
 import { ComposerControls } from './controls'
 
-vi.mock('./model-pill', () => ({ ModelPill: () => null }))
+// The pill is rendered for real elsewhere; here it only has to report what
+// the controls hand it.
+const modelPillSpy = vi.hoisted(() => vi.fn((_props: Record<string, unknown>) => null))
+
+vi.mock('./model-pill', () => ({ ModelPill: (props: Record<string, unknown>) => modelPillSpy(props) }))
 
 const state: ChatBarState = {
   model: { canSwitch: false, model: '', provider: '' },
@@ -135,5 +139,19 @@ describe('wake-word ear visibility', () => {
 
     const ear = screen.getByLabelText('Wake word: "hey agentx" — paused during voice chat')
     expect((ear as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('ComposerControls model pill', () => {
+  it('hands the pill its concise voice outside a coding context', () => {
+    renderControls({ conciseModelPill: true })
+
+    expect(modelPillSpy).toHaveBeenLastCalledWith(expect.objectContaining({ compact: false, concise: true }))
+  })
+
+  it('keeps the full label inside a repo', () => {
+    renderControls()
+
+    expect(modelPillSpy).toHaveBeenLastCalledWith(expect.objectContaining({ concise: false }))
   })
 })

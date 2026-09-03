@@ -1703,6 +1703,8 @@ export const ar = defineLocale({
       renameTitle: 'إعادة تسمية المشروع',
       addFolderTitle: 'إضافة مجلد',
       namePlaceholder: 'مثال: Skunkworks',
+      nameFromFolder: 'سُمّي باسم المجلد، ويمكنك تغييره.',
+      nameRequiredMulti: 'مع عدة مجلدات، أعطِ المشروع اسمًا.',
       foldersLabel: 'المجلدات',
       ideaLabel: 'الفكرة',
       ideaPlaceholder: 'ما موضوع هذا المشروع؟ (يُحفظ في IDEA.md)',

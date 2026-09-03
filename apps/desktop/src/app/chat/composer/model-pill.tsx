@@ -10,7 +10,7 @@ import { releaseTypingFocus } from '@/components/ui/keyboard-first'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ChevronDown } from '@/lib/icons'
-import { formatModelStatusLabel } from '@/lib/model-status-label'
+import { conciseModelName, formatModelStatusLabel } from '@/lib/model-status-label'
 import { cn } from '@/lib/utils'
 import { $currentModelSource, $defaultReasoningEffort, setModelPickerOpen } from '@/store/session'
 
@@ -32,13 +32,20 @@ const PILL = cn(
  *
  * Display follows THIS surface's SessionView (primary or tile) — never the
  * primary-only globals — so side-by-side panes each show their own model.
+ *
+ * `concise` is the composer's non-coding voice: outside a git repo the label
+ * is the model's short name alone (`Qwen3.5`, not `Qwen3.5 122B A10B FP8 ·
+ * Med`) — the build and the effort are developer facts, and the tooltip and
+ * the picker still carry them.
  */
 export function ModelPill({
   compact = false,
+  concise = false,
   disabled,
   model
 }: {
   compact?: boolean
+  concise?: boolean
   disabled: boolean
   model: ChatBarState['model']
 }) {
@@ -97,7 +104,9 @@ export function ModelPill({
     <>
       {currentModel.trim() ? (
         <span className="truncate">
-          {formatModelStatusLabel(currentModel, { defaultEffort, fastMode, reasoningEffort })}
+          {concise
+            ? conciseModelName(currentModel)
+            : formatModelStatusLabel(currentModel, { defaultEffort, fastMode, reasoningEffort })}
         </span>
       ) : (
         <GlyphSpinner className="opacity-50" spinner="braille" />

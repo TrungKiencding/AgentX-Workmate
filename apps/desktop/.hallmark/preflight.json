@@ -1,0 +1,16 @@
+{
+  "scanned": "2026-09-03",
+  "designMd": "apps/desktop/DESIGN.md",
+  "fontStack": {
+    "sans": "Geist (src/fonts, --dt-font-sans)",
+    "mono": "JetBrains Mono (--dt-font-mono)",
+    "display": "Newsreader (--dt-font-serif-display, roman only, 3 slots)"
+  },
+  "palette": "OKLCH tokens --ui-* / --theme-* / --dt-* in src/styles.css; presets in src/themes/presets.ts (hex, parsed by themes/color.ts); default skin Night Owl",
+  "motion": "motion-cut: no framer-motion/gsap; WAAPI + --dur-* / --ease-* tokens (src/lib/motion.ts); global reduced-motion kill switch",
+  "spacing": "Tailwind v4 4pt scale; --control-h-sm/md/lg/xl 28/32/36/40; --radius-control/card/overlay 6/10/12; composer keeps its own 16px shell",
+  "framework": "Vite 8 + React 19 + Tailwind v4 + Radix, Electron shell",
+  "genre": "modern-minimal",
+  "preserve": ["font stack", "palette", "spacing", "motion stance", "Button primitive", "focus ring"],
+  "introduce": ["composer stature + hierarchy", "8-state discipline on the send control", "slop-test gates"]
+}

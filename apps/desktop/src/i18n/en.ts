@@ -2003,6 +2003,8 @@ export const en: Translations = {
       renameTitle: 'Rename project',
       addFolderTitle: 'Add folder',
       namePlaceholder: 'e.g. Skunkworks',
+      nameFromFolder: 'Named after the folder. Change it if you like.',
+      nameRequiredMulti: 'With several folders, give the project a name.',
       foldersLabel: 'Folders',
       ideaLabel: 'Idea',
       ideaPlaceholder: "What's this project about? (saved to IDEA.md)",

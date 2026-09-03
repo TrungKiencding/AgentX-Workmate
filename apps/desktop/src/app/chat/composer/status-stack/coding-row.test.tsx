@@ -1,22 +1,33 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { atom } from 'nanostores'
+import type * as Nanostores from 'nanostores'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { $notifications, clearNotifications } from '@/store/notifications'
 
+// The probe result the row reads. A real repo by default; a test can set it to
+// null (the probe's answer for a folder that isn't a git repo) and the
+// afterEach below puts the repo back.
+const { $repoStatus, REPO_STATUS } = vi.hoisted(() => {
+  const { atom } = require('nanostores') as typeof Nanostores
+
+  const REPO_STATUS = {
+    added: 12,
+    ahead: 0,
+    behind: 0,
+    branch: 'bb/hitbox',
+    defaultBranch: 'main',
+    detached: false,
+    removed: 3,
+    untracked: 0
+  }
+
+  return { $repoStatus: atom<typeof REPO_STATUS | null>(REPO_STATUS), REPO_STATUS }
+})
+
 vi.mock('@/store/coding-status', () => ({
   registerRepoStatusCwd: () => undefined,
-  repoStatusForCwd: () =>
-    atom({
-      added: 12,
-      ahead: 0,
-      behind: 0,
-      branch: 'bb/hitbox',
-      defaultBranch: 'main',
-      detached: false,
-      removed: 3,
-      untracked: 0
-    }),
+  repoStatusForCwd: () => $repoStatus,
   repoWorktreesForCwd: () => atom([])
 }))
 
@@ -25,6 +36,16 @@ const { CodingStatusRow } = await import('./coding-row')
 describe('CodingStatusRow', () => {
   afterEach(() => {
     cleanup()
+    $repoStatus.set(REPO_STATUS)
+  })
+
+  it('renders nothing outside a git repo — the branch strip is a coding-only surface', () => {
+    $repoStatus.set(null)
+
+    const { container } = render(<CodingStatusRow onOpen={() => undefined} repoPath="/Users/me/Documents/Báo cáo" />)
+
+    expect(container.querySelector('.coding-status-bar')).toBeNull()
+    expect(container.textContent).toBe('')
   })
 
   it('opens the review pane from the branch and the diff counts, never the bar itself', () => {

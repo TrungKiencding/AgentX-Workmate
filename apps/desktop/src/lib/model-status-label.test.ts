@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentPickerSelection, displayModelName, formatModelStatusLabel } from './model-status-label'
+import {
+  conciseModelName,
+  currentPickerSelection,
+  displayModelName,
+  formatModelStatusLabel
+} from './model-status-label'
 import { reasoningEffortLabel } from './reasoning-effort'
 
 describe('model-status-label', () => {
@@ -69,5 +74,31 @@ describe('model-status-label', () => {
     it('falls back to the store while options are still loading', () => {
       expect(currentPickerSelection(store, undefined)).toEqual(store)
     })
+  })
+})
+
+describe('conciseModelName', () => {
+  it('keeps the family and version, drops the build', () => {
+    expect(conciseModelName('Qwen3.5 122B A10B FP8')).toBe('Qwen3.5')
+    expect(conciseModelName('meta/llama-3.3-70b-instruct')).toBe('Llama 3.3')
+    expect(conciseModelName('qwen2.5-coder-32b-instruct-q4_k_m')).toBe('Qwen2.5 Coder')
+    expect(conciseModelName('google/gemma-4-26b-a4b-it:free')).toBe('Gemma 4')
+    expect(conciseModelName('mistral-small-3.1-24b-instruct-2503')).toBe('Mistral Small 3.1 2503')
+  })
+
+  it('leaves names that carry no build words alone', () => {
+    expect(conciseModelName('anthropic/claude-opus-4.8')).toBe('Opus 4.8')
+    expect(conciseModelName('openai/gpt-5.5')).toBe('GPT-5.5')
+    expect(conciseModelName('deepseek/deepseek-v4-pro-thinking')).toBe('Deepseek V4 Pro')
+  })
+
+  it('never carries session state', () => {
+    // No " · Med" / " · Fast" suffix — that is formatModelStatusLabel's job.
+    expect(conciseModelName('openai/gpt-5.5')).not.toContain('·')
+  })
+
+  it('falls back to the full name when only build words remain', () => {
+    expect(conciseModelName('7b-instruct')).toBe('7b Instruct')
+    expect(conciseModelName('')).toBe('No model')
   })
 })

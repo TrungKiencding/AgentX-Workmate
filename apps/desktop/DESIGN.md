@@ -529,6 +529,13 @@ so two-line rows still grow), `HUD_HEADING`.
   (`--composer-ring-strength`, 1 light / 1.3 dark) and one step up the *same*
   shadow ladder to `--shadow-sm`. No new shadow, no colored glow — the border
   does the talking, and neither property is transitioned.
+- **The composer's voice follows the folder.** Inside a git repo it is a
+  coding surface: the branch strip caps the card and the model pill carries
+  the full label with its effort (`Qwen3.5 122B A10B FP8 · Med`). Anywhere
+  else — a documents folder, a detached chat — the strip is gone and the pill
+  wears the model's short name alone (`conciseModelName`: family + version,
+  no build words, no effort; the tooltip and the picker keep the full id). One
+  probe, `repoStatusForCwd`, decides both, so strip and pill never disagree.
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
 - **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one

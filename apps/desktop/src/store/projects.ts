@@ -10,6 +10,7 @@ import { getHermesConfig, type HermesGateway } from '@/hermes'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'
+import { pathLeaf } from '@/lib/display-path'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { persistentAtom } from '@/lib/persisted'
 import { $gateway, activeGateway, ensureActiveGatewayOpen } from '@/store/gateway'
@@ -1232,11 +1233,9 @@ export async function openFolderAsProject(dir?: string): Promise<void> {
     setSidebarAgentsGrouped(true)
     enterProject(existing)
   } else {
-    const name =
-      target
-        .replace(/[/\\]+$/, '')
-        .split(/[/\\]/)
-        .pop() || target
+    // Named after the folder — the same default the create dialog applies to a
+    // single-folder project, so both ways in agree on what a project is called.
+    const name = pathLeaf(target) || target
 
     try {
       const created = await createProject({ name, folders: [target], primaryPath: target, use: true })

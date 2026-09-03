@@ -114,3 +114,20 @@ describe('ModelPill per-surface model label', () => {
     expect(screen.queryByText(/primary/i)).toBeNull()
   })
 })
+
+// Outside a coding context the pill is the model's short name and nothing
+// else; inside one it keeps the full label with the session's effort.
+describe('ModelPill concise label', () => {
+  it('shows the short name alone when concise', () => {
+    render(<ModelPill concise disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
+
+    expect(screen.getByText('Qwen3.5')).toBeTruthy()
+    expect(screen.queryByText(/Med|FP8/)).toBeNull()
+  })
+
+  it('keeps the full label with effort by default', () => {
+    render(<ModelPill disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
+
+    expect(screen.getByText('Qwen3.5 122B A10B FP8 · Med')).toBeTruthy()
+  })
+})

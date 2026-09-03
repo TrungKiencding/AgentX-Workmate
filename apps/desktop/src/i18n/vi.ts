@@ -2271,6 +2271,8 @@ export const vi: Translations = {
       renameTitle: 'Đổi tên dự án',
       addFolderTitle: 'Thêm thư mục',
       namePlaceholder: 'ví dụ Skunkworks',
+      nameFromFolder: 'Lấy theo tên thư mục, sửa nếu bạn muốn.',
+      nameRequiredMulti: 'Có nhiều thư mục, hãy đặt tên cho dự án.',
       foldersLabel: 'Thư mục',
       ideaLabel: 'Ý tưởng',
       ideaPlaceholder: 'Dự án này về cái gì? (được lưu vào IDEA.md)',
