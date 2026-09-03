@@ -2858,6 +2858,13 @@ export const en: Translations = {
       greetingMorning: name => (name ? `Good morning, ${name}` : 'Good morning'),
       greetingAfternoon: name => (name ? `Good afternoon, ${name}` : 'Good afternoon'),
       greetingEvening: name => (name ? `Good evening, ${name}` : 'Good evening'),
+      bodyVariants: [
+        'Ask a question, paste an error, or point me at a repo. I can read code, run tools, and help you ship.',
+        "Describe the task in your own words. I'll pick the right tools, explain my plan, and check in before risky steps.",
+        "Drop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.",
+        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
+        "Type a task, question, or snippet. I remember the session, cite my sources, and stop to ask when I'm unsure."
+      ],
       quickStart: 'Quick start',
       resume: title => `Resume “${title}”`,
       starterExplainLabel: 'Explain this repo',

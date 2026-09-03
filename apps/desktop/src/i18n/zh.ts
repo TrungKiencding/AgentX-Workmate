@@ -3029,6 +3029,13 @@ export const zh: Translations = {
       greetingMorning: name => (name ? `早上好，${name}` : '早上好'),
       greetingAfternoon: name => (name ? `下午好，${name}` : '下午好'),
       greetingEvening: name => (name ? `晚上好，${name}` : '晚上好'),
+      bodyVariants: [
+        '提个问题、贴一段报错，或者指给我一个仓库。我能读代码、跑工具，帮你把东西交付出去。',
+        '用你自己的话描述任务。我会选对工具、说明计划，并在有风险的步骤前先确认。',
+        '丢来一个文件路径、一段 traceback 或一个粗略的想法。我会先调查，给出下一步建议，并保证一切可以回退。',
+        '搜索仓库、编辑文件、跑测试、开 PR。告诉我目标，机械性的部分交给我。',
+        '输入一个任务、问题或代码片段。我会记住这次会话、注明来源，拿不准时会停下来问你。'
+      ],
       quickStart: '快速开始',
       resume: title => `继续“${title}”`,
       starterExplainLabel: '介绍这个仓库',

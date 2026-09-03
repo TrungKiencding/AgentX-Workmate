@@ -2437,6 +2437,9 @@ export interface Translations {
       greetingMorning: (name?: string) => string
       greetingAfternoon: (name?: string) => string
       greetingEvening: (name?: string) => string
+      /** The line under the greeting; one is picked per mount. English copy
+       *  flavoured per personality lives in intro-copy.jsonl — see intro-copy.ts. */
+      bodyVariants: readonly string[]
       quickStart: string
       resume: (title: string) => string
       starterExplainLabel: string

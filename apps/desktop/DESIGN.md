@@ -178,10 +178,12 @@ runtime); themes may override sans/mono through the existing pipeline:
   system stack.
 - **JetBrains Mono** (`--dt-font-mono`) — the code face everywhere: code, kbd,
   paths, terminal.
-- **Instrument Serif** (`--dt-font-serif-display`, `font-serif-display`) — the
-  display outlier, allowed in exactly three slots: the connect splash, the home
-  greeting and the onboarding hero. Roman only — italic display headings are
-  banned. No Vietnamese subset exists; missing glyphs fall back to Georgia.
+- **Newsreader** (`--dt-font-serif-display`, `font-serif-display`, OFL-1.1) —
+  the display outlier, allowed in exactly three slots: the connect splash, the
+  home greeting and the onboarding hero. A static opsz 72 / wght 400 instance,
+  vendored per script subset (latin, latin-ext, vietnamese) so Vietnamese
+  diacritics never drop to Georgia. Roman only — italic display headings are
+  banned.
 
 Neuebit remains the brand plate face (`BrandMark`/About); Collapse stays
 retired from product surfaces. `--dt-font-kbd` keeps the native UI face.

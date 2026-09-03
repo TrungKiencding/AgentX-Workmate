@@ -54,7 +54,7 @@ describe('bundled default typography', () => {
 
   it('ships a serif-display default; themes may omit the field', () => {
     expect(DEFAULT_TYPOGRAPHY.fontSerifDisplay).toBe(DEFAULT_SERIF_DISPLAY)
-    expect(DEFAULT_SERIF_DISPLAY).toContain('Instrument Serif')
+    expect(DEFAULT_SERIF_DISPLAY).toContain('Newsreader')
 
     // Pre-existing themes never declare it — the merge in applyTheme falls
     // back to the default, so old user themes keep loading unchanged.

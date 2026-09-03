@@ -3127,6 +3127,13 @@ export const vi: Translations = {
       greetingMorning: name => (name ? `Chào buổi sáng, ${name}` : 'Chào buổi sáng'),
       greetingAfternoon: name => (name ? `Chào buổi chiều, ${name}` : 'Chào buổi chiều'),
       greetingEvening: name => (name ? `Chào buổi tối, ${name}` : 'Chào buổi tối'),
+      bodyVariants: [
+        'Đặt câu hỏi, dán lỗi, hoặc chỉ cho tôi một repo. Tôi đọc code, chạy công cụ và cùng bạn đưa việc về đích.',
+        'Mô tả việc cần làm theo cách của bạn. Tôi sẽ chọn đúng công cụ, nói rõ kế hoạch và hỏi lại trước những bước rủi ro.',
+        'Thả vào một đường dẫn tệp, một traceback hay một ý tưởng còn thô. Tôi sẽ tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
+        'Tìm trong repo, sửa tệp, chạy test, mở PR. Bạn nêu mục tiêu, phần việc máy móc để tôi lo.',
+        'Gõ một tác vụ, câu hỏi hay đoạn code. Tôi nhớ phiên làm việc, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
+      ],
       quickStart: 'Bắt đầu nhanh',
       resume: title => `Tiếp tục “${title}”`,
       starterExplainLabel: 'Giải thích repo này',

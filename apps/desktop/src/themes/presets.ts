@@ -32,7 +32,7 @@ const JETBRAINS_MONO = '"JetBrains Mono", ' + SYSTEM_MONO
 
 // Display serif — the sanctioned outlier face, used in exactly two slots
 // (home greeting, onboarding hero). Roman only.
-export const DEFAULT_SERIF_DISPLAY = '"Instrument Serif", Georgia, serif'
+export const DEFAULT_SERIF_DISPLAY = '"Newsreader", Georgia, serif'
 
 export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = {
   fontSans: GEIST_SANS,
@@ -102,7 +102,7 @@ const nousTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_BLUE} ${
  * return as accent seeds.
  *
  * Axes — band: Paper (light) / Graphite (dark), the hue-262 ladders above ·
- * display: Geist + JetBrains Mono + the Instrument Serif outlier · accent:
+ * display: Geist + JetBrains Mono + the Newsreader outlier · accent:
  * Nous blue oklch(52.8% 0.259 263), lifted per-band for stroke duty.
  */
 export const nousTheme: DesktopTheme = {

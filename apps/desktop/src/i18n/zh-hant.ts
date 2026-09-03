@@ -2592,6 +2592,13 @@ export const zhHant = defineLocale({
       greetingMorning: name => (name ? `早安，${name}` : '早安'),
       greetingAfternoon: name => (name ? `午安，${name}` : '午安'),
       greetingEvening: name => (name ? `晚安，${name}` : '晚安'),
+      bodyVariants: [
+        '提個問題、貼一段錯誤訊息，或指給我一個專案。我能讀程式碼、執行工具，幫你把成果交付出去。',
+        '用你自己的話描述任務。我會選對工具、說明計畫，並在有風險的步驟前先確認。',
+        '丟來一個檔案路徑、一段 traceback 或一個粗略的想法。我會先調查、建議下一步，並確保一切都能還原。',
+        '搜尋專案、編輯檔案、跑測試、開 PR。告訴我目標，機械性的部分交給我。',
+        '輸入一個任務、問題或程式碼片段。我會記住這次工作階段、註明來源，拿不準時會停下來問你。'
+      ],
       quickStart: '快速開始',
       resume: title => `繼續「${title}」`,
       starterExplainLabel: '介紹這個專案',

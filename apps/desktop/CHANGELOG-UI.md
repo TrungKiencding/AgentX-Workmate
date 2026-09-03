@@ -127,3 +127,13 @@ Everything the phases had logged as "known debt" is paid:
 - Imported skins and VS Code themes pick their label color by measured
   contrast (`bestTextOn`), so a mid-tone accent no longer coin-flips to
   white-on-grey.
+- **The display serif speaks Vietnamese.** Instrument Serif ships no
+  Vietnamese subset, so in the default locale every stacked diacritic of the
+  home greeting (ổ, ề, ố …) dropped to Georgia mid-word. The three display
+  slots now set **Newsreader** (a static opsz 72 / wght 400 instance, vendored
+  per script subset like Geist); the serif-display token and its default in
+  `presets.ts` moved with it.
+- **The home sub-line reads the catalog.** The line under the greeting came
+  from `intro-copy.jsonl`, English in every locale. Neutral copy now lives in
+  `assistant.intro.bodyVariants` (five locales); the personality-flavoured
+  jsonl is consulted only when the app runs in English.
