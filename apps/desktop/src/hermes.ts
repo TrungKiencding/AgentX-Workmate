@@ -54,10 +54,14 @@ import type {
   SessionInfo,
   SessionMessagesResponse,
   SessionSearchResponse,
+  SkillHubChangesResponse,
   SkillHubPreview,
+  SkillHubPublishResponse,
   SkillHubScanResult,
   SkillHubSearchResponse,
   SkillHubSourcesResponse,
+  SkillHubTickResponse,
+  SkillHubValidateResponse,
   SkillInfo,
   StarmapGraph,
   StatusResponse,
@@ -1696,6 +1700,59 @@ export function updateSkillsFromHub(): Promise<ActionResponse> {
     path: '/api/skills/hub/update',
     method: 'POST',
     body: {}
+  })
+}
+
+// --- AgentX Skill Hub, Phase 3 --------------------------------------------
+// Desired-state sync (the web's Install lands here), upload from the desktop.
+
+export function tickSkillHub(): Promise<SkillHubTickResponse> {
+  return window.agentxDesktop.api<SkillHubTickResponse>({
+    ...profileScoped(),
+    path: '/api/skills/hub/tick',
+    method: 'POST',
+    body: {},
+    timeoutMs: HUB_REQUEST_TIMEOUT_MS
+  })
+}
+
+export function getSkillHubChanges(): Promise<SkillHubChangesResponse> {
+  return window.agentxDesktop.api<SkillHubChangesResponse>({
+    ...profileScoped(),
+    path: '/api/skills/hub/changes'
+  })
+}
+
+export function validateSkillForHub(name: string, options: { kind?: string; visibility?: string } = {}): Promise<SkillHubValidateResponse> {
+  return window.agentxDesktop.api<SkillHubValidateResponse>({
+    ...profileScoped(),
+    path: '/api/skills/hub/validate',
+    method: 'POST',
+    body: { name, kind: options.kind || null, visibility: options.visibility || null },
+    timeoutMs: HUB_REQUEST_TIMEOUT_MS
+  })
+}
+
+export function publishSkillToHub(
+  name: string,
+  options: { visibility: string; kind?: string; targets?: string[] }
+): Promise<SkillHubPublishResponse> {
+  return window.agentxDesktop.api<SkillHubPublishResponse>({
+    ...profileScoped(),
+    path: '/api/skills/hub/publish',
+    method: 'POST',
+    body: { name, visibility: options.visibility, kind: options.kind || null, targets: options.targets || null },
+    timeoutMs: HUB_REQUEST_TIMEOUT_MS
+  })
+}
+
+export function proposeSkillToOrg(name: string, options: { kind?: string } = {}): Promise<SkillHubPublishResponse> {
+  return window.agentxDesktop.api<SkillHubPublishResponse>({
+    ...profileScoped(),
+    path: '/api/skills/hub/propose',
+    method: 'POST',
+    body: { name, visibility: 'org', kind: options.kind || null },
+    timeoutMs: HUB_REQUEST_TIMEOUT_MS
   })
 }
 

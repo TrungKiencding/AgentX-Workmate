@@ -57,6 +57,7 @@ import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { SkillsHub } from './hub'
 import { McpTab } from './mcp-tab'
+import { type PublishMode, PublishSkillDialog } from './publish-dialog'
 import { $skillsSortDesc, $toolsetsSortDesc } from './store'
 
 const SKILLS_MODES = ['skills', 'toolsets', 'mcp', 'hub'] as const
@@ -729,8 +730,10 @@ function DetailHeader({
 function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEdit: () => void; skill: SkillInfo }) {
   const { t } = useI18n()
   // Only learned/local skills are the user's to rewrite or archive — bundled
-  // and hub skills are managed by their sources.
+  // and hub skills are managed by their sources. They are also the ones the
+  // person may upload to the AgentX Skill Hub or propose to the organisation.
   const editable = skill.provenance === 'agent'
+  const [publish, setPublish] = useState<null | PublishMode>(null)
 
   return (
     <>
@@ -756,8 +759,15 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
           <Button className="text-destructive hover:text-destructive" onClick={onArchive} size="xs" variant="text">
             {t.skills.archive}
           </Button>
+          <Button data-testid="skill-upload-hub" onClick={() => setPublish('upload')} size="xs" variant="textStrong">
+            {t.skills.publish.upload}
+          </Button>
+          <Button data-testid="skill-propose-org" onClick={() => setPublish('propose')} size="xs" variant="text">
+            {t.skills.publish.propose}
+          </Button>
         </div>
       )}
+      {publish && <PublishSkillDialog key={`${skill.name}-${publish}`} mode={publish} onClose={() => setPublish(null)} open skill={skill} />}
     </>
   )
 }

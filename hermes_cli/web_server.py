@@ -270,6 +270,12 @@ async def _lifespan(app: "FastAPI"):
     # has not deployed one.
     sync_task = asyncio.create_task(_sync_engine_loop())
 
+    # Keep this machine's skills in step with the AgentX Skill Hub: an
+    # Install clicked on the web lands here, a yanked version is switched
+    # off, the organisation's skills arrive. Idles until a bearer is
+    # delivered (the Hub tab's tick, the sync tick, or skills.hub_token).
+    hub_sync_task = asyncio.create_task(_hub_sync_loop())
+
     try:
         yield
     finally:
@@ -277,8 +283,10 @@ async def _lifespan(app: "FastAPI"):
         selftest_task.cancel()
         auto_archive_task.cancel()
         sync_task.cancel()
+        hub_sync_task.cancel()
         await PTY_REGISTRY.close_all()
         _shutdown_sync_engine()
+        _shutdown_hub_sync()
         if cron_stop is not None:
             cron_stop.set()
 
@@ -302,6 +310,31 @@ async def _sync_engine_loop() -> None:
         raise
     except Exception as exc:  # noqa: BLE001 - must not take the backend down
         _log.warning("sync: engine stopped: %s", exc)
+
+
+async def _hub_sync_loop() -> None:
+    """Run the AgentX Skill Hub sync engine, or return quietly if it is not wanted."""
+    try:
+        from hermes_cli.hub_sync import engine as hub_engine
+    except Exception as exc:  # noqa: BLE001 - optional feature, never fatal
+        _log.debug("hub sync: engine unavailable: %s", exc)
+        return
+
+    try:
+        await hub_engine().run_forever()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - must not take the backend down
+        _log.warning("hub sync: engine stopped: %s", exc)
+
+
+def _shutdown_hub_sync() -> None:
+    try:
+        from hermes_cli.hub_sync import shutdown as hub_shutdown
+
+        hub_shutdown()
+    except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+        _log.debug("hub sync: shutdown failed: %s", exc)
 
 
 def _shutdown_sync_engine() -> None:

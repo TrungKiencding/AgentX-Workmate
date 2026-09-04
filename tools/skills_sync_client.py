@@ -19,7 +19,19 @@ Contract: the Skill Sync wire contract (version 1, frozen
 for Milestone 1). Endpoint shapes, object model, canonicalization, and status
 codes below all trace to that document.
 
---- ACCESS GATE (pre-launch) ---------------------------------------------
+--- TWO SYNC PLANES ---------------------------------------------------------
+The client speaks the same wire contract to either plane:
+
+* the **Nous** plane (default) — bearer = the Nous inference JWT, gated by
+  the pre-launch admin claim described below;
+* the **AgentX Skill Hub** (``sync.provider: agentx-hub``, or a
+  ``sync.base_url`` that IS ``skills.hub_url``) — bearer = the AgentX
+  credential the hub-sync engine already holds (the Keycloak ID token the
+  desktop delivers, or ``skills.hub_token``), owner/org/role from the hub's
+  own ``GET /v1/me``. The hub enforces access itself, so ``sync_allowed`` is
+  always true there. See :func:`resolve_sync_provider` / :func:`_hub_identity`.
+
+--- ACCESS GATE (pre-launch, Nous plane) -------------------------------------
 Client sync is INERT (no push, no pull, no-op) unless the signed-in user is a
 **Nous admin**. We read that off the access token, which rides on the same
 bearer ``resolve_nous_runtime_credentials()`` returns; we decode the JWT
@@ -244,15 +256,21 @@ def _decode_jwt_payload_unverified(token: str) -> Dict[str, Any]:
 
 
 def resolve_identity() -> Dict[str, Any]:
-    """Resolve the Nous bearer + owner + dev-gate flag.
+    """Resolve the bearer + owner + access flag for the configured sync plane.
 
-    Returns a dict: ``{api_key, base_url, owner, nous_admin, claims}``.
-    Raises :class:`SyncInertError` if not logged in / no bearer.
+    Returns a dict: ``{api_key, base_url, owner, provider, sync_allowed,
+    nous_admin, claims}``. Raises :class:`SyncInertError` if not logged in /
+    no bearer.
 
     ``owner`` is the token-verified subject; the server derives the real owner
     from the bearer regardless (contract §0.4), so this is advisory for local
-    ref naming only.
+    ref naming only. ``sync_allowed`` is the one flag the gate-and-swallow
+    entrypoints check: the Nous admin claim on the Nous plane, always true on
+    the AgentX Skill Hub (which enforces access on its side).
     """
+    if resolve_sync_provider() == SYNC_PROVIDER_HUB:
+        return _hub_identity()
+
     try:
         from hermes_cli.auth import resolve_nous_runtime_credentials
 
@@ -276,7 +294,9 @@ def resolve_identity() -> Dict[str, Any]:
         "api_key": api_key,
         "base_url": (creds or {}).get("base_url"),
         "owner": str(owner),
+        "provider": SYNC_PROVIDER_NOUS,
         "nous_admin": nous_admin,
+        "sync_allowed": nous_admin,
         "claims": claims,
     }
 
@@ -284,12 +304,157 @@ def resolve_identity() -> Dict[str, Any]:
 def dev_gate_open() -> bool:
     """Whether the access gate permits sync. Never raises."""
     try:
-        return bool(resolve_identity().get("nous_admin"))
+        return bool(resolve_identity().get("sync_allowed"))
     except SyncInertError:
         return False
     except Exception as e:
         logger.debug("skills_sync_client: dev_gate_open check failed: %s", e)
         return False
+
+
+# ---------------------------------------------------------------------------
+# The AgentX Skill Hub as the sync plane (Skill Hub plan, Phase 3)
+#
+# The hub serves the same wire contract under /v1/sync/. What differs is who
+# vouches for the caller: not a Nous JWT with a portal-admin claim, but the
+# AgentX credential this install already holds for the hub — the Keycloak ID
+# token the desktop delivers to the backend, or a personal hub token — and
+# the hub's own /v1/me for owner, organisation and role. Nothing here writes
+# a credential to disk; the credentials are the hub-sync engine's.
+# ---------------------------------------------------------------------------
+
+SYNC_PROVIDER_NOUS = "nous"
+SYNC_PROVIDER_HUB = "agentx-hub"
+_HUB_PROVIDER_ALIASES = frozenset({"agentx-hub", "hub", "skill-hub", "skills-hub"})
+#: How long one /v1/me answer is reused for the same bearer, so the debounced
+#: push hook and the curator tick do not ask the hub who the caller is on
+#: every call.
+_HUB_ME_TTL_SECONDS = 300.0
+_HUB_ME_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+
+
+def _same_origin(a: str, b: str) -> bool:
+    """Whether two URLs name the same scheme + host (+ port)."""
+    from urllib.parse import urlsplit
+
+    try:
+        pa, pb = urlsplit((a or "").strip()), urlsplit((b or "").strip())
+    except ValueError:
+        return False
+    if not (pa.scheme and pa.netloc and pb.scheme and pb.netloc):
+        return False
+    return pa.scheme.lower() == pb.scheme.lower() and pa.netloc.lower() == pb.netloc.lower()
+
+
+def resolve_sync_provider() -> str:
+    """Which plane ``sync.base_url`` points at: ``agentx-hub`` or ``nous``.
+
+    ``AGENTX_SYNC_PROVIDER`` / config.yaml ``sync.provider`` decide when set
+    (``agentx-hub`` or ``nous``). Otherwise a base URL that is the AgentX Skill
+    Hub (``skills.hub_url`` / ``AGENTX_SKILLS_HUB_URL``) means the hub, and
+    anything else means Nous — so pointing ``sync.base_url`` at the hub is all
+    it takes, exactly as the Skill Hub plan describes.
+    """
+    provider = (os.getenv("AGENTX_SYNC_PROVIDER") or "").strip().lower()
+    if not provider:
+        try:
+            from hermes_cli.config import load_config
+
+            cfg = load_config() or {}
+            provider = str((cfg.get("sync") or {}).get("provider") or "").strip().lower()
+        except Exception as e:
+            logger.debug("skills_sync_client: config sync.provider read failed: %s", e)
+    if provider in _HUB_PROVIDER_ALIASES:
+        return SYNC_PROVIDER_HUB
+    if provider:
+        return SYNC_PROVIDER_NOUS
+    base = resolve_sync_base_url()
+    if not base:
+        return SYNC_PROVIDER_NOUS
+    try:
+        from tools.skills_hub import agentx_hub_url
+
+        return SYNC_PROVIDER_HUB if _same_origin(base, agentx_hub_url()) else SYNC_PROVIDER_NOUS
+    except Exception as e:
+        logger.debug("skills_sync_client: hub url resolution failed: %s", e)
+        return SYNC_PROVIDER_NOUS
+
+
+def _hub_me(base_url: str, credentials: Any) -> Dict[str, Any]:
+    """``GET /v1/me`` on the hub, cached per bearer for a few minutes."""
+    key = hashlib.sha256(credentials.bearer.encode("utf-8")).hexdigest()[:16]
+    now = time.monotonic()
+    cached = _HUB_ME_CACHE.get(key)
+    if cached is not None and now - cached[0] < _HUB_ME_TTL_SECONDS:
+        return cached[1]
+    from hermes_cli.hub_client import HubClient, HubError
+
+    try:
+        me = HubClient(base_url).me(
+            bearer=credentials.bearer,
+            device_id=getattr(credentials, "device_id", "") or "",
+            device_name=getattr(credentials, "device_name", "") or "",
+        )
+    except HubError as e:
+        raise SyncInertError(f"the AgentX Skill Hub could not identify this account: {e}") from e
+    if not isinstance(me, dict) or not me.get("subject"):
+        raise SyncInertError("the AgentX Skill Hub answered /v1/me without a subject")
+    _HUB_ME_CACHE.clear()
+    _HUB_ME_CACHE[key] = (now, me)
+    return me
+
+
+def _hub_identity() -> Dict[str, Any]:
+    """Identity when the sync plane is the AgentX Skill Hub.
+
+    Bearer and device come from ``hermes_cli.hub_sync.resolve_credentials``
+    (the hub-tick / sync-tick mailboxes, else ``skills.hub_token``); owner,
+    organisation and role from the hub's ``/v1/me``. The claims dict is
+    shaped like the Nous one (``sub``, ``org_id``, ``org_role``) so
+    :func:`resolve_org_identity` and the org helpers work unchanged: the hub
+    reports ``org_admin``/``hub_admin`` roles, which become ``org_role =
+    "admin"``; any other member of an organisation is ``"member"``.
+    """
+    try:
+        from hermes_cli.hub_sync import resolve_credentials
+    except Exception as e:  # pragma: no cover - the engine ships with the CLI
+        raise SyncInertError(f"hub sync is unavailable: {e}") from e
+
+    credentials = resolve_credentials()
+    if credentials is None:
+        raise SyncInertError(
+            "not signed in to AgentX (no hub credentials): sign in to Workmate, "
+            "or set skills.hub_token / AGENTX_HUB_TOKEN"
+        )
+    base_url = resolve_sync_base_url() or ""
+    me = _hub_me(base_url, credentials)
+    subject = str(me.get("subject") or "")
+    roles = [str(r) for r in (me.get("roles") or [])]
+    org_id = str(me.get("org_id") or "")
+    org_role: Optional[str] = None
+    if org_id:
+        org_role = "admin" if ("org_admin" in roles or "hub_admin" in roles) else "member"
+    claims = {
+        "sub": subject,
+        "email": me.get("email") or "",
+        "org_id": org_id or None,
+        "org_role": org_role,
+        "roles": roles,
+        "slug": me.get("slug") or "",
+    }
+    return {
+        "api_key": credentials.bearer,
+        "base_url": base_url,
+        "owner": subject,
+        "provider": SYNC_PROVIDER_HUB,
+        # The hub decides access on its side (scopes, org membership, admin
+        # vs member proposals); the client has no second gate to apply.
+        "nous_admin": False,
+        "sync_allowed": True,
+        "credential_source": getattr(credentials, "source", ""),
+        "device_id": getattr(credentials, "device_id", ""),
+        "claims": claims,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1615,8 +1780,8 @@ def maybe_push_skills(*, message: str = "agentx skill sync") -> Optional[Dict[st
     Never raises. Called from the debounced skill_manage push hook."""
     try:
         identity = resolve_identity()
-        if not identity.get("nous_admin"):
-            return None  # access gate: inert unless the user is a Nous admin
+        if not identity.get("sync_allowed"):
+            return None  # access gate: inert unless the plane lets this account sync
         if not sync_feature_enabled():
             return None  # feature off for this instance (AGENTX_SYNC_ENABLED)
         if not resolve_sync_base_url():
@@ -1635,8 +1800,8 @@ def maybe_pull_skills() -> Optional[Dict[str, Any]]:
     + CLI startup)."""
     try:
         identity = resolve_identity()
-        if not identity.get("nous_admin"):
-            return None  # access gate: inert unless the user is a Nous admin
+        if not identity.get("sync_allowed"):
+            return None  # access gate: inert unless the plane lets this account sync
         if not sync_feature_enabled():
             return None  # feature off for this instance (AGENTX_SYNC_ENABLED)
         if not resolve_sync_base_url():
@@ -1650,6 +1815,8 @@ def maybe_pull_skills() -> Optional[Dict[str, Any]]:
 def sync_status() -> Dict[str, Any]:
     """Return a status snapshot for ``agentx sync status``. Never raises."""
     status: Dict[str, Any] = {
+        "provider": resolve_sync_provider(),
+        "sync_allowed": False,
         "nous_admin": False,
         "logged_in": False,
         "feature_enabled": sync_feature_enabled(),
@@ -1673,6 +1840,7 @@ def sync_status() -> Dict[str, Any]:
         status["logged_in"] = True
         status["owner"] = identity.get("owner")
         status["nous_admin"] = bool(identity.get("nous_admin"))
+        status["sync_allowed"] = bool(identity.get("sync_allowed"))
     except SyncInertError:
         pass
     except Exception as e:
