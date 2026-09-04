@@ -4,17 +4,104 @@ import { useId } from 'react'
 import { $backdrop } from '@/store/backdrop'
 
 /**
- * The mark as LINE ART: the medial axis of the shipped ring logo, traced once
- * from `assets/brand/mark-1024.png` (the raster every icon is generated from)
- * and normalised to a 100x100 box — the closed triangle-and-tail loop, plus the
- * short stroke that closes the tail. The ring itself is far too heavy to tile
- * at a whisper; its centreline draws the same glyph as a single hairline.
- * Nothing regenerates these automatically, so retrace if the artwork changes.
+ * The mark as LINE ART: the centreline of the shipped ring logo, drawn as
+ * geometry instead of traced. The ring is a rounded triangle whose right leg
+ * forks — the loop turns in along a wide fillet while the tail carries straight
+ * on, rounds the bottom-right corner and tucks back under the loop. Fitting
+ * that to the medial axis of `assets/brand/mark-1024.png` (the raster every
+ * icon is generated from) gives three sharp vertices, four fillet radii and
+ * the tail's tip, all in a 100x100 box; `buildMark()` turns those into two
+ * paths of straight runs and circular arcs. The earlier skeleton trace put a
+ * kink on every corner and a wobble along the tail, which a hairline at 24px
+ * shows as a shaky hand. Re-fit the numbers if the artwork changes.
  */
-const MARK_LINES = [
-  'M86.48 52.24C86.69 53.79 87.45 58.76 87.70 61.59C87.96 64.41 87.30 66.51 88.01 69.21C88.72 71.90 91.14 75.46 91.97 77.74C92.80 80.03 93.00 81.18 92.99 82.93C92.97 84.67 92.24 87.01 91.87 88.21C91.50 89.41 91.26 89.53 90.75 90.14C90.24 90.75 89.43 91.43 88.82 91.87C88.21 92.31 87.82 92.53 87.09 92.78C86.37 93.04 85.47 93.22 84.45 93.39C83.43 93.56 82.49 93.90 81.00 93.80C79.51 93.70 77.69 93.55 75.51 92.78C73.32 92.02 71.31 89.84 67.89 89.23C64.46 88.62 57.13 89.14 54.98 89.13',
-  'M74.80 42.68C74.46 41.34 74.07 40.02 73.58 38.72C73.09 37.42 73.73 38.86 71.85 34.86C69.97 30.86 64.40 18.95 62.30 14.74C60.20 10.52 60.08 10.70 59.25 9.55C58.42 8.40 57.94 8.27 57.32 7.83C56.69 7.38 56.69 7.22 55.49 6.91C54.29 6.61 51.95 6.00 50.10 6.00C48.26 6.00 45.73 6.55 44.41 6.91C43.09 7.27 42.84 7.66 42.17 8.13C41.51 8.60 41.21 8.69 40.45 9.76C39.68 10.82 42.97 3.39 37.60 14.53C32.23 25.68 13.26 65.74 8.23 76.63C3.20 87.52 7.64 78.69 7.42 79.88C7.20 81.06 6.83 82.38 6.91 83.74C7.00 85.09 7.64 87.04 7.93 88.01C8.21 88.97 8.10 88.87 8.64 89.53C9.18 90.19 10.38 91.40 11.18 91.97C11.97 92.55 12.26 92.68 13.41 92.99C14.57 93.29 16.38 93.80 18.09 93.80C19.80 93.80 16.99 95.80 23.68 92.99C30.37 90.18 51.66 80.06 58.23 76.93C64.80 73.80 61.64 75.17 63.11 74.19C64.58 73.20 65.94 72.09 67.07 71.04C68.21 69.99 69.05 68.99 69.92 67.89C70.78 66.79 71.53 65.75 72.26 64.43C72.98 63.11 73.78 61.37 74.29 59.96C74.80 58.55 75.03 57.49 75.30 56.00C75.58 54.51 75.86 52.56 75.91 51.02C75.97 49.47 75.80 48.14 75.61 46.75C75.42 45.36 75.14 44.02 74.80 42.68Z'
-] as const
+type Point = readonly [number, number]
+
+const APEX: Point = [49.9, -9.6]
+const HEEL: Point = [-6.6, 107.1]
+const ELBOW: Point = [86, 63.9]
+/** Where the tail ends, just under the loop's base — and the heading it arrives on. */
+const TAIL_TIP: Point = [55, 89]
+const TAIL_RETURN: Point = [0.984, 0.178]
+const RADIUS = { apex: 12, elbow: 28, heel: 11.5, tail: 11.5 } as const
+
+function towards(from: Point, to: Point): Point {
+  const dx = to[0] - from[0]
+  const dy = to[1] - from[1]
+  const length = Math.hypot(dx, dy)
+
+  return [dx / length, dy / length]
+}
+
+function along(from: Point, direction: Point, distance: number): Point {
+  return [from[0] + direction[0] * distance, from[1] + direction[1] * distance]
+}
+
+/** Where `from + s·direction` meets `through + t·heading`. */
+function intersect(from: Point, direction: Point, through: Point, heading: Point): Point {
+  const det = direction[0] * -heading[1] - direction[1] * -heading[0]
+  const s = ((through[0] - from[0]) * -heading[1] - (through[1] - from[1]) * -heading[0]) / det
+
+  return along(from, direction, s)
+}
+
+/** Where a fillet of `radius` at `corner` (between the rays toward `a` and `b`) touches each ray. */
+function fillet(corner: Point, a: Point, b: Point, radius: number): readonly [Point, Point] {
+  const u = towards(corner, a)
+  const v = towards(corner, b)
+  const half = Math.acos(u[0] * v[0] + u[1] * v[1]) / 2
+  const reach = radius / Math.tan(half)
+
+  return [along(corner, u, reach), along(corner, v, reach)]
+}
+
+const point = ([x, y]: Point) => `${x.toFixed(2)} ${y.toFixed(2)}`
+const arc = (radius: number, to: Point) => `A${radius} ${radius} 0 0 1 ${point(to)}`
+
+function buildMark(): readonly [loop: string, tail: string] {
+  const [apexLeft, apexRight] = fillet(APEX, HEEL, ELBOW, RADIUS.apex)
+  const [fork, elbowBase] = fillet(ELBOW, APEX, HEEL, RADIUS.elbow)
+  const [heelBase, heelLeft] = fillet(HEEL, ELBOW, APEX, RADIUS.heel)
+
+  const loop = [
+    `M${point(apexRight)}`,
+    `L${point(fork)}`,
+    arc(RADIUS.elbow, elbowBase),
+    `L${point(heelBase)}`,
+    arc(RADIUS.heel, heelLeft),
+    `L${point(apexLeft)}`,
+    `${arc(RADIUS.apex, apexRight)}Z`
+  ].join(' ')
+
+  // The tail leaves the loop at the fork, keeps the right leg's line to where
+  // it meets the return line through the tip, and rounds that corner.
+  const corner = intersect(APEX, towards(APEX, ELBOW), TAIL_TIP, TAIL_RETURN)
+  const [cornerDown, cornerBack] = fillet(corner, APEX, TAIL_TIP, RADIUS.tail)
+  const tail = [`M${point(fork)}`, `L${point(cornerDown)}`, arc(RADIUS.tail, cornerBack), `L${point(TAIL_TIP)}`].join(' ')
+
+  return [loop, tail]
+}
+
+const MARK_LINES = buildMark()
+
+/**
+ * Every mark leans the same few degrees. One shared lean reads as a texture;
+ * a scatter of angles reads as stickers thrown at the wall.
+ */
+const MARK_LEAN = -6
+
+/**
+ * The wordmarks are set, not outlined. Hollow letterforms were the first cut,
+ * and they are what makes a brand watermark look cheap: outlining a heavy face
+ * doubles every contour into bubble lettering, the crossbar of a "t" becomes
+ * a little cross, and tight tracking welds neighbouring outlines together.
+ * Filled Geist at the light end of its axis has stems of 1–2px at these sizes,
+ * so at partial ink the words land in the same register as the 1px marks
+ * instead of shouting over them; a touch of tracking keeps the light face open.
+ */
+const WORD_WEIGHT = 200
+const WORD_INK = 0.7
+const WORD_TRACKING = 0.015
 
 /**
  * One repeat of the pattern, in user units. Items sit on a 5x4 grid of cells
@@ -26,8 +113,10 @@ const MARK_LINES = [
  * Three rules earn their keep here, and a tiled brand pattern looks like cheap
  * wallpaper without them: the tile is wide enough that a normal window shows
  * barely more than one of it; no two wordmarks repeat at the same size (equal
- * twins are what the eye locks onto and reads as a grid); and a few cells are
- * left EMPTY, because the gaps are what make it a texture rather than a sheet.
+ * twins are what the eye locks onto and reads as a grid); and eight of the
+ * twenty cells are left EMPTY, because the gaps are what make it a texture
+ * rather than a sheet. Two kinds of item only — the mark and the two words.
+ * Filler (dot clusters, sparkles) reads as lint at a whisper.
  */
 const TILE_WIDTH = 720
 const TILE_HEIGHT = 520
@@ -41,30 +130,21 @@ type TilePlacement = {
   nudge: readonly [number, number]
 }
 
-type TileItem = TilePlacement &
-  (
-    | { kind: 'mark'; size: number; angle: number }
-    | { kind: 'word'; size: number; text: string }
-    | { kind: 'dots'; count: number; gap: number; radius: number }
-  )
+type TileItem = TilePlacement & ({ kind: 'mark'; size: number } | { kind: 'word'; size: number; text: string })
 
 const TILE: readonly TileItem[] = [
-  { angle: -11, cell: [0, 0], kind: 'mark', nudge: [-0.04, -0.04], size: 44 },
+  { cell: [0, 0], kind: 'mark', nudge: [-0.04, -0.04], size: 44 },
   { cell: [1, 0], kind: 'word', nudge: [0.14, 0.12], size: 38, text: 'AgentX' },
-  { angle: 21, cell: [3, 0], kind: 'mark', nudge: [0.12, -0.16], size: 26 },
-  { cell: [4, 0], count: 3, gap: 11, kind: 'dots', nudge: [-0.06, 0.2], radius: 2.2 },
+  { cell: [3, 0], kind: 'mark', nudge: [0.12, -0.16], size: 26 },
   { cell: [0, 1], kind: 'word', nudge: [0.06, -0.1], size: 26, text: 'Workmate' },
-  { angle: -4, cell: [2, 1], kind: 'mark', nudge: [-0.08, 0.12], size: 68 },
-  { cell: [3, 1], count: 2, gap: 10, kind: 'dots', nudge: [0.16, -0.14], radius: 2 },
-  { angle: 24, cell: [4, 1], kind: 'mark', nudge: [-0.04, 0.06], size: 34 },
-  { angle: -19, cell: [0, 2], kind: 'mark', nudge: [0.16, 0.14], size: 30 },
-  { cell: [1, 2], count: 3, gap: 9, kind: 'dots', nudge: [-0.12, -0.08], radius: 1.9 },
+  { cell: [2, 1], kind: 'mark', nudge: [-0.08, 0.12], size: 68 },
+  { cell: [4, 1], kind: 'mark', nudge: [-0.04, 0.06], size: 34 },
+  { cell: [0, 2], kind: 'mark', nudge: [0.16, 0.14], size: 30 },
   { cell: [2, 2], kind: 'word', nudge: [0.02, 0.16], size: 24, text: 'AgentX' },
-  { angle: 8, cell: [4, 2], kind: 'mark', nudge: [0.06, -0.14], size: 48 },
-  { cell: [0, 3], count: 2, gap: 10, kind: 'dots', nudge: [0.1, 0.12], radius: 2 },
-  { angle: 14, cell: [1, 3], kind: 'mark', nudge: [-0.06, -0.02], size: 36 },
+  { cell: [4, 2], kind: 'mark', nudge: [0.06, -0.14], size: 48 },
+  { cell: [1, 3], kind: 'mark', nudge: [-0.06, -0.02], size: 36 },
   { cell: [3, 3], kind: 'word', nudge: [-0.04, -0.06], size: 34, text: 'Workmate' },
-  { angle: -8, cell: [4, 3], kind: 'mark', nudge: [0.14, 0.16], size: 24 }
+  { cell: [4, 3], kind: 'mark', nudge: [0.14, 0.16], size: 24 }
 ]
 
 /** The tile is stamped nine times so items straddling a seam continue across it. */
@@ -90,7 +170,7 @@ function TileArt({ item }: { item: TileItem }) {
 
     return (
       <g
-        transform={`translate(${cx - half} ${cy - half}) rotate(${item.angle} ${half} ${half}) scale(${item.size / 100})`}
+        transform={`translate(${cx - half} ${cy - half}) rotate(${MARK_LEAN} ${half} ${half}) scale(${item.size / 100})`}
       >
         {MARK_LINES.map(d => (
           <path d={d} key={d} vectorEffect="non-scaling-stroke" />
@@ -99,36 +179,20 @@ function TileArt({ item }: { item: TileItem }) {
     )
   }
 
-  if (item.kind === 'word') {
-    // Hollow letterforms: the wordmark reads as drawn, not typed, and stays a
-    // hairline like everything else in the tile.
-    return (
-      <text
-        fontSize={item.size}
-        fontWeight={800}
-        letterSpacing={-item.size * 0.03}
-        textAnchor="middle"
-        vectorEffect="non-scaling-stroke"
-        x={cx}
-        y={cy}
-      >
-        {item.text}
-      </text>
-    )
-  }
-
   return (
-    <>
-      {Array.from({ length: item.count }, (_, index) => (
-        <circle
-          cx={cx + (index - (item.count - 1) / 2) * item.gap}
-          cy={cy + (index % 2 ? -4 : 0)}
-          key={index}
-          r={item.radius}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-    </>
+    <text
+      fill="currentColor"
+      fillOpacity={WORD_INK}
+      fontSize={item.size}
+      fontWeight={WORD_WEIGHT}
+      letterSpacing={item.size * WORD_TRACKING}
+      stroke="none"
+      textAnchor="middle"
+      x={cx}
+      y={cy}
+    >
+      {item.text}
+    </text>
   )
 }
 
