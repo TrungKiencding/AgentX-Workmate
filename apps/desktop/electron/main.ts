@@ -101,12 +101,7 @@ import {
   uninstallArgsForMode
 } from './desktop-uninstall'
 import { describeDevCdpDecision, resolveDevCdpPort } from './dev-cdp'
-import {
-  deviceHeaders,
-  type DeviceRecord,
-  type DeviceStoreIo,
-  readDeviceRecord
-} from './device-id'
+import { deviceHeaders, type DeviceRecord, type DeviceStoreIo, readDeviceRecord } from './device-id'
 import { installEmbedReferer } from './embed-referer'
 import { createEventDeduper } from './event-dedupe'
 import { findGitBash as _findGitBash } from './find-git-bash'
@@ -9087,9 +9082,7 @@ async function ensureAccountProvisioned(
     // Never fatal. The person is signed in and their state is isolated; what
     // they are missing is a model key, and the next launch retries.
     rememberLog(
-      `[account] could not provision a LiteLLM key: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[account] could not provision a LiteLLM key: ${error instanceof Error ? error.message : String(error)}`
     )
 
     return null
@@ -10837,7 +10830,7 @@ ipcMain.handle('agentx:keycloak:sign-in', async (_event, profile) => {
     // being opened and then simply stop, with the OAuth exchange having plainly
     // succeeded upstream. Sign-in is the one thing standing between the user
     // and the app, so its failures belong in the log.
-    const detail = error instanceof Error ? (error.stack || error.message) : String(error)
+    const detail = error instanceof Error ? error.stack || error.message : String(error)
 
     rememberLog(`[keycloak] sign-in FAILED: ${detail}`)
 
@@ -10881,9 +10874,7 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   } catch (error) {
     // Local state is already cleared, which is the part the user asked for.
     rememberLog(
-      `[keycloak] could not open the Keycloak logout page: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[keycloak] could not open the Keycloak logout page: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 
@@ -10994,9 +10985,7 @@ ipcMain.handle('agentx:account:status', async () => {
   } catch (error) {
     // The panel must render offline; the local half above is enough for that.
     rememberLog(
-      `[account] could not read the backend's account status: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[account] could not read the backend's account status: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 
@@ -11182,9 +11171,7 @@ function stopSyncTicker(): void {
 
 ipcMain.handle('agentx:sync:tick', async () => syncTick('requested'))
 
-ipcMain.handle('agentx:sync:status', async () =>
-  callDeviceRoute('/api/sync/status', { method: 'GET' })
-)
+ipcMain.handle('agentx:sync:status', async () => callDeviceRoute('/api/sync/status', { method: 'GET' }))
 
 ipcMain.handle('agentx:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
 ipcMain.handle('agentx:profile:set', async (_event, name) => {

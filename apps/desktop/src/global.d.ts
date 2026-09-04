@@ -774,15 +774,7 @@ export interface DesktopSyncOutcome {
   // busy          a synchronisation was already running
   // reauth        this device is revoked, or its token was rejected
   // error         the service answered, and refused
-  status:
-    | 'ok'
-    | 'offline'
-    | 'signed_out'
-    | 'unconfigured'
-    | 'disabled'
-    | 'busy'
-    | 'reauth'
-    | 'error'
+  status: 'ok' | 'offline' | 'signed_out' | 'unconfigured' | 'disabled' | 'busy' | 'reauth' | 'error'
   detail?: string
   pushed?: number
   rejected?: number

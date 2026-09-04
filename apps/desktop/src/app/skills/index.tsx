@@ -767,7 +767,15 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
           </Button>
         </div>
       )}
-      {publish && <PublishSkillDialog key={`${skill.name}-${publish}`} mode={publish} onClose={() => setPublish(null)} open skill={skill} />}
+      {publish && (
+        <PublishSkillDialog
+          key={`${skill.name}-${publish}`}
+          mode={publish}
+          onClose={() => setPublish(null)}
+          open
+          skill={skill}
+        />
+      )}
     </>
   )
 }

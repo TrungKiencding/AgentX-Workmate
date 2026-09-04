@@ -143,7 +143,8 @@ export const en: Translations = {
       kinds: {
         timeout: {
           title: 'AgentX is taking longer than usual to start',
-          description: 'The backend launched but did not answer in time. This is common on a first launch or on a busy machine, and nothing is broken.',
+          description:
+            'The backend launched but did not answer in time. This is common on a first launch or on a busy machine, and nothing is broken.',
           steps: [
             'Click Retry — the second attempt usually gets through.',
             'If it keeps happening, close heavy applications and try again.'
@@ -1298,12 +1299,19 @@ export const en: Translations = {
       },
       signedOut: 'Sign in to AgentX to sync with the Hub.',
       offline: 'The Hub cannot be reached — installed skills keep working.',
-      reauth: 'The Hub refused this machine\'s token. Sign in again.',
+      reauth: "The Hub refused this machine's token. Sign in again.",
       unconfigured: 'No Hub address is configured (skills.hub_url).',
       lastSync: when => `Last sync ${when}`,
-      noInstalls: 'Nothing has been requested from the Hub for this machine yet. Click Install on the Hub and it lands here.',
+      noInstalls:
+        'Nothing has been requested from the Hub for this machine yet. Click Install on the Hub and it lands here.',
       desired: { installed: 'To install', removed: 'To remove', disabled: 'To switch off' },
-      reported: { pending: 'Pending', installed: 'Installed', removed: 'Removed', failed: 'Failed', disabled: 'Switched off' },
+      reported: {
+        pending: 'Pending',
+        installed: 'Installed',
+        removed: 'Removed',
+        failed: 'Failed',
+        disabled: 'Switched off'
+      },
       localDisabled: 'switched off on this machine',
       updatesAvailable: count => `${count} update${count === 1 ? '' : 's'} available`,
       updateOne: (from, to) => `${from} → ${to}`,
@@ -1326,8 +1334,9 @@ export const en: Translations = {
       propose: 'Propose to organisation',
       title: name => `Upload “${name}” to AgentX Hub`,
       proposeTitle: name => `Propose “${name}” to your organisation`,
-      description: 'The skill is uploaded as a new version, scanned, then published according to the Hub\'s policy.',
-      proposeDescription: 'The skill is uploaded with “Organisation” visibility: safe ones go live at once, cautious ones wait for an org admin.',
+      description: "The skill is uploaded as a new version, scanned, then published according to the Hub's policy.",
+      proposeDescription:
+        'The skill is uploaded with “Organisation” visibility: safe ones go live at once, cautious ones wait for an org admin.',
       visibility: 'Visibility',
       visibilityOptions: { private: 'Private', org: 'Organisation', public: 'Public' },
       kind: 'Kind',
@@ -1354,7 +1363,7 @@ export const en: Translations = {
       failed: 'Upload failed',
       signedOut: 'Sign in to AgentX to upload to the Hub.',
       offline: 'The Hub cannot be reached. Try again later.',
-      reauth: 'The Hub refused this machine\'s token. Sign in again.',
+      reauth: "The Hub refused this machine's token. Sign in again.",
       errors: {
         version_not_newer: highest => `The version must be above ${highest} — bump metadata.version in SKILL.md.`,
         version_exists: 'This version already exists on the Hub with different content.',
@@ -2601,18 +2610,21 @@ export const en: Translations = {
       listAnd: 'and',
       providerUnresolved: 'Connected, but AgentX still cannot resolve a usable provider.',
       runtimeNotReadyTitle: 'Runtime not ready',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.',
       couldNotStartSignIn: detail => `Could not start sign-in: ${detail}`,
       pollingFailed: detail => `Polling failed: ${detail}`,
       signInStatus: status => `Sign-in ${status}.`,
       tokenExchangeFailed: 'Token exchange failed.',
-      stillCannotReach: (provider, command) => `AgentX still cannot reach ${provider}. Run \`${command}\` in a terminal first.`,
+      stillCannotReach: (provider, command) =>
+        `AgentX still cannot reach ${provider}. Run \`${command}\` in a terminal first.`,
       couldNotSaveProvider: label => `Could not save ${label}`,
       couldNotSaveModel: 'AgentX could not save the selected model.',
       enterEndpointUrl: 'Enter the endpoint URL first.',
       couldNotReachEndpoint: 'Could not reach that endpoint.',
       couldNotReachUrl: url => `Could not reach ${url}.`,
-      noModelsAdvertised: url => `Connected to ${url}, but it advertised no models at /v1/models. Start a model on that endpoint and try again.`,
+      noModelsAdvertised: url =>
+        `Connected to ${url}, but it advertised no models at /v1/models. Start a model on that endpoint and try again.`,
       savedButUnreachable: url => `Saved, but AgentX still cannot reach ${url}.`,
       localEndpointLabel: 'Local / custom endpoint',
       couldNotSaveLocalEndpoint: 'Could not save local endpoint',
@@ -3050,8 +3062,8 @@ export const en: Translations = {
         'Ask a question, paste an error, or point me at a folder. I read documents and code, run tools, and help you get the work done.',
         'Describe the task in your own words: summarise a document, draft an email, fix a piece of code. I pick the right tools and check in before risky steps.',
         'Drop in a file, a spreadsheet, or a rough idea. I investigate, suggest next steps, and keep everything reversible.',
-        'Search the repo, edit files, run tests, open PRs. Tell me the goal and I\'ll handle the mechanical parts.',
-        'From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I\'m unsure.'
+        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
+        "From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I'm unsure."
       ],
       quickStart: 'Quick start',
       resume: title => `Resume “${title}”`,
@@ -3063,9 +3075,11 @@ export const en: Translations = {
       starterExplainFolderLabel: 'Explain this folder',
       starterExplainFolderPrompt: 'Explain what is in the current working folder and how it is organised.',
       starterSummarizeLabel: 'Summarise a document',
-      starterSummarizePrompt: 'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
+      starterSummarizePrompt:
+        'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
       starterDraftLabel: 'Draft an email',
-      starterDraftPrompt: 'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.'
+      starterDraftPrompt:
+        'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.'
     },
     thread: {
       loadingSession: 'Loading session',

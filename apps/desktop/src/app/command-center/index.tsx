@@ -372,9 +372,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                           onClick={() => onOpenSession(session.id)}
                           type="button"
                         >
-                          <div className="truncate text-base font-medium text-foreground">
-                            {sessionTitle(session)}
-                          </div>
+                          <div className="truncate text-base font-medium text-foreground">{sessionTitle(session)}</div>
                           <div className="truncate text-xs tabular-nums text-(--ui-text-tertiary)">
                             {formatTimestamp(session.last_active || session.started_at)}
                           </div>
@@ -659,9 +657,7 @@ function UsageList({
 }) {
   return (
     <section className="min-w-0">
-      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-        {title}
-      </div>
+      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{title}</div>
       {rows.length === 0 ? (
         <div className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
           {emptyLabel}

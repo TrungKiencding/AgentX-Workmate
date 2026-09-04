@@ -66,7 +66,6 @@ describe('SignInOverlay', () => {
 
       expect(container.firstChild).toBeNull()
     })
-
   })
 
   describe('voice', () => {

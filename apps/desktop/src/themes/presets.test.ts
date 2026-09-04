@@ -127,8 +127,14 @@ describe('default bands', () => {
 
       // Body text floors (UI-REDESIGN-PLAN §5.30): muted text and the filled
       // primary's label — `readableOn`'s threshold used to coin-flip both.
-      expect(contrastRatio(light.mutedForeground, light.background), `${theme.name} mutedForeground`).toBeGreaterThanOrEqual(4.5)
-      expect(contrastRatio(light.primaryForeground, light.primary), `${theme.name} primary label`).toBeGreaterThanOrEqual(4.5)
+      expect(
+        contrastRatio(light.mutedForeground, light.background),
+        `${theme.name} mutedForeground`
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(
+        contrastRatio(light.primaryForeground, light.primary),
+        `${theme.name} primary label`
+      ).toBeGreaterThanOrEqual(4.5)
       // The focus ring is a boundary: 3:1 against the page (neon-green and
       // mid-grey accents fell to 1.4–2.9:1 before the ensureContrast guard).
       expect(contrastRatio(light.ring, light.background), `${theme.name} ring`).toBeGreaterThanOrEqual(3)

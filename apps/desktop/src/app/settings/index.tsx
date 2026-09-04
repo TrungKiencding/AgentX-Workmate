@@ -86,7 +86,11 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
   // Providers subnav (Accounts vs API keys) lives in its own param so each
   // sub-view is deep-linkable and survives a refresh.
-  const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, DEFAULT_PROVIDER_VIEW)
+  const [providerView, setProviderView] = useRouteEnumParam<ProviderView>(
+    'pview',
+    PROVIDER_VIEWS,
+    DEFAULT_PROVIDER_VIEW
+  )
   const [keysView] = useRouteEnumParam<KeysView>('kview', KEYS_VIEWS, 'tools')
 
   // Jump to a section + its sub-view in one navigate. Two sequential setters

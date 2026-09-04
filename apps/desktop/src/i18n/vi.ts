@@ -154,7 +154,8 @@ export const vi: Translations = {
       kinds: {
         timeout: {
           title: 'AgentX khởi động lâu hơn bình thường',
-          description: 'Backend đã chạy nhưng chưa kịp phản hồi. Lần mở đầu tiên hoặc lúc máy đang bận thường gặp việc này, không có gì hỏng cả.',
+          description:
+            'Backend đã chạy nhưng chưa kịp phản hồi. Lần mở đầu tiên hoặc lúc máy đang bận thường gặp việc này, không có gì hỏng cả.',
           steps: [
             'Bấm Thử lại — lần thứ hai thường sẽ lên.',
             'Nếu lặp lại nhiều lần, đóng bớt ứng dụng nặng rồi thử lại.'
@@ -180,10 +181,7 @@ export const vi: Translations = {
         websocket: {
           title: 'Kết nối thời gian thực bị từ chối',
           description: 'AgentX trả lời qua HTTP nhưng kênh thời gian thực không nhận phiên đăng nhập.',
-          steps: [
-            'Bấm Thử lại để đăng nhập và kết nối lại.',
-            'Nếu vẫn lỗi, mở Cài đặt gateway và kiểm tra kết nối.'
-          ]
+          steps: ['Bấm Thử lại để đăng nhập và kết nối lại.', 'Nếu vẫn lỗi, mở Cài đặt gateway và kiểm tra kết nối.']
         },
         install: {
           title: 'Bản cài đặt AgentX chưa hoàn tất',
@@ -1590,7 +1588,8 @@ export const vi: Translations = {
       title: name => `Tải “${name}” lên AgentX Hub`,
       proposeTitle: name => `Đề xuất “${name}” cho tổ chức`,
       description: 'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của Hub.',
-      proposeDescription: 'Skill được tải lên với hiển thị “Tổ chức”: an toàn thì lên ngay, cần chú ý thì quản trị tổ chức duyệt.',
+      proposeDescription:
+        'Skill được tải lên với hiển thị “Tổ chức”: an toàn thì lên ngay, cần chú ý thì quản trị tổ chức duyệt.',
       visibility: 'Hiển thị',
       visibilityOptions: { private: 'Riêng tư', org: 'Tổ chức', public: 'Công khai' },
       kind: 'Loại',
@@ -2869,18 +2868,21 @@ export const vi: Translations = {
       listAnd: 'và',
       providerUnresolved: 'Đã kết nối, nhưng AgentX vẫn chưa xác định được nhà cung cấp dùng được.',
       runtimeNotReadyTitle: 'Môi trường chạy chưa sẵn sàng',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop không xác minh được backend đang chạy lúc khởi động. Một số tính năng có thể chưa dùng được cho tới khi kết nối được gateway.',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop không xác minh được backend đang chạy lúc khởi động. Một số tính năng có thể chưa dùng được cho tới khi kết nối được gateway.',
       couldNotStartSignIn: detail => `Không bắt đầu đăng nhập được: ${detail}`,
       pollingFailed: detail => `Kiểm tra trạng thái thất bại: ${detail}`,
       signInStatus: status => `Đăng nhập ${status}.`,
       tokenExchangeFailed: 'Đổi token thất bại.',
-      stillCannotReach: (provider, command) => `AgentX vẫn chưa kết nối được ${provider}. Hãy chạy \`${command}\` trong terminal trước.`,
+      stillCannotReach: (provider, command) =>
+        `AgentX vẫn chưa kết nối được ${provider}. Hãy chạy \`${command}\` trong terminal trước.`,
       couldNotSaveProvider: label => `Không lưu được ${label}`,
       couldNotSaveModel: 'AgentX không lưu được model đã chọn.',
       enterEndpointUrl: 'Hãy nhập URL endpoint trước.',
       couldNotReachEndpoint: 'Không kết nối được tới endpoint đó.',
       couldNotReachUrl: url => `Không kết nối được tới ${url}.`,
-      noModelsAdvertised: url => `Đã kết nối tới ${url}, nhưng nó không công bố model nào ở /v1/models. Hãy khởi động một model trên endpoint đó rồi thử lại.`,
+      noModelsAdvertised: url =>
+        `Đã kết nối tới ${url}, nhưng nó không công bố model nào ở /v1/models. Hãy khởi động một model trên endpoint đó rồi thử lại.`,
       savedButUnreachable: url => `Đã lưu, nhưng AgentX vẫn chưa kết nối được ${url}.`,
       localEndpointLabel: 'Endpoint cục bộ / tự định nghĩa',
       couldNotSaveLocalEndpoint: 'Không lưu được endpoint cục bộ',
@@ -3332,9 +3334,11 @@ export const vi: Translations = {
       starterExplainFolderLabel: 'Giải thích thư mục này',
       starterExplainFolderPrompt: 'Giải thích thư mục làm việc hiện tại chứa gì và được tổ chức ra sao.',
       starterSummarizeLabel: 'Tóm tắt một tài liệu',
-      starterSummarizePrompt: 'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
+      starterSummarizePrompt:
+        'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
       starterDraftLabel: 'Soạn một email',
-      starterDraftPrompt: 'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.'
+      starterDraftPrompt:
+        'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.'
     },
     thread: {
       loadingSession: 'Đang tải phiên',
@@ -3518,7 +3522,8 @@ export const vi: Translations = {
   },
 
   desktop: {
-    runtimeChecksDisagree: 'setup.status báo đã có thông tin đăng nhập, nhưng bước xác định môi trường chạy vẫn thất bại.',
+    runtimeChecksDisagree:
+      'setup.status báo đã có thông tin đăng nhập, nhưng bước xác định môi trường chạy vẫn thất bại.',
     audioReadFailed: 'Không đọc được đoạn âm thanh vừa ghi',
     sessionUnavailable: 'Phiên không khả dụng',
     createSessionFailed: 'Không tạo được phiên mới',

@@ -96,7 +96,9 @@ test('resolveRemovableAppPath returns null for an unrecognized Windows dir', () 
 
 test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
   assert.equal(
-    resolveRemovableAppPath('/tmp/.mount_AgentXXXXX/hermes', 'linux', { APPIMAGE: '/home/x/Apps/AgentX Workmate.AppImage' }),
+    resolveRemovableAppPath('/tmp/.mount_AgentXXXXX/hermes', 'linux', {
+      APPIMAGE: '/home/x/Apps/AgentX Workmate.AppImage'
+    }),
     '/home/x/Apps/AgentX Workmate.AppImage'
   )
 })

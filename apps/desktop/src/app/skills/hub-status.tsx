@@ -144,21 +144,28 @@ export function HubStatus() {
   const updating = actions[UPDATE_ALL_KEY]?.running ?? false
 
   return (
-    <section className="mb-4 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3" data-testid="hub-status">
+    <section
+      className="mb-4 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3"
+      data-testid="hub-status"
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground/85">{h.fromHub}</span>
         {data && (
           <span
             className={cn(
               'rounded px-1.5 py-0.5 text-2xs',
-              data.stream === 'connected' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+              data.stream === 'connected'
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
             )}
             data-testid="hub-stream"
           >
             {h.hubStatus[data.stream] ?? data.stream}
           </span>
         )}
-        {data?.last?.at && <span className="text-2xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>}
+        {data?.last?.at && (
+          <span className="text-2xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           {data?.base_url && (
             <a
@@ -187,7 +194,10 @@ export function HubStatus() {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs" data-testid="hub-updates">
           <span className="font-medium text-foreground/85">{h.updatesAvailable(updates.length)}</span>
           {updates.map(update => (
-            <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)" key={update.install_id}>
+            <span
+              className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)"
+              key={update.install_id}
+            >
               {update.name || update.slug} {h.updateOne(update.current ?? '?', update.latest ?? '?')}
             </span>
           ))}
@@ -208,11 +218,15 @@ export function HubStatus() {
             <li className="flex flex-wrap items-center gap-1.5 text-2xs" data-testid="hub-install" key={row.id}>
               <span className="font-medium text-foreground/85">{row.name || row.slug}</span>
               <span className="text-(--ui-text-quaternary)">{row.version ?? row.latest_version ?? ''}</span>
-              <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)">{h.desired[row.desired_state] ?? row.desired_state}</span>
+              <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)">
+                {h.desired[row.desired_state] ?? row.desired_state}
+              </span>
               <span className={cn('rounded px-1.5 py-0.5', reportedTone(row))} data-testid="hub-reported">
                 {h.reported[row.reported_state] ?? row.reported_state}
               </span>
-              {row.local?.installed && !row.local.enabled && <span className="text-(--ui-text-quaternary)">{h.localDisabled}</span>}
+              {row.local?.installed && !row.local.enabled && (
+                <span className="text-(--ui-text-quaternary)">{h.localDisabled}</span>
+              )}
               {row.reason && <span className="text-(--ui-text-quaternary)">— {row.reason}</span>}
               {row.error && <span className="text-destructive">{row.error}</span>}
             </li>

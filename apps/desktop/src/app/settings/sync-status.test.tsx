@@ -254,9 +254,7 @@ describe('describeSyncState', () => {
   })
 
   it('prefers the backlog over a generic all-clear', () => {
-    expect(describeSyncState({ last: { status: 'ok' }, pending: 4 }, copy)).toBe(
-      copy.syncPending(4)
-    )
+    expect(describeSyncState({ last: { status: 'ok' }, pending: 4 }, copy)).toBe(copy.syncPending(4))
   })
 
   it('falls back to up-to-date when nothing has happened yet', () => {

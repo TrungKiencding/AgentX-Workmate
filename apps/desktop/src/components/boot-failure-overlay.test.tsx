@@ -126,7 +126,8 @@ describe('BootFailureOverlay — explaining the failure', () => {
     const restore = stubDesktop({ mode: 'local' })
     $desktopBoot.set({
       ...$desktopBoot.get(),
-      error: "Error invoking remote method 'agentx:connection': Error: Timed out connecting to AgentX backend after 8000ms",
+      error:
+        "Error invoking remote method 'agentx:connection': Error: Timed out connecting to AgentX backend after 8000ms",
       running: false,
       visible: true
     })

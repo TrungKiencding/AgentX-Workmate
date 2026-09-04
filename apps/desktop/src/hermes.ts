@@ -1723,7 +1723,10 @@ export function getSkillHubChanges(): Promise<SkillHubChangesResponse> {
   })
 }
 
-export function validateSkillForHub(name: string, options: { kind?: string; visibility?: string } = {}): Promise<SkillHubValidateResponse> {
+export function validateSkillForHub(
+  name: string,
+  options: { kind?: string; visibility?: string } = {}
+): Promise<SkillHubValidateResponse> {
   return window.agentxDesktop.api<SkillHubValidateResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/validate',

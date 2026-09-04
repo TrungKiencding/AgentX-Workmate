@@ -35,11 +35,7 @@ function leadingGlyph(item: ComposerStatusItem, s: Translations['statusStack']):
     }
 
     return (
-      <GlyphSpinner
-        ariaLabel={s.running}
-        className="text-base leading-none text-emerald-500/80"
-        spinner="braille"
-      />
+      <GlyphSpinner ariaLabel={s.running} className="text-base leading-none text-emerald-500/80" spinner="braille" />
     )
   }
 
@@ -156,9 +152,7 @@ export const StatusItemRow = memo(function StatusItemRow({ item, onDismiss, onOp
           </span>
         )}
         {item.type === 'goal' && item.currentTool && (
-          <span className="shrink-0 truncate text-2xs leading-4 text-muted-foreground/70">
-            {item.currentTool}
-          </span>
+          <span className="shrink-0 truncate text-2xs leading-4 text-muted-foreground/70">{item.currentTool}</span>
         )}
         {failed && typeof item.exitCode === 'number' && item.exitCode !== 0 && (
           <span className="shrink-0 rounded bg-destructive/15 px-1 text-2xs font-semibold text-destructive tabular-nums">

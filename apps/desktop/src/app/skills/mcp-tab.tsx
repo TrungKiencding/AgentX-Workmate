@@ -1328,9 +1328,7 @@ function ServerIconActions({
 // catalog's flat row treatment.
 function CatalogTag({ children }: { children: string }) {
   return (
-    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
-      {children}
-    </span>
+    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">{children}</span>
   )
 }
 
@@ -1429,9 +1427,7 @@ function McpCatalog({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate text-xs font-medium text-foreground/85">
-                    {prettyName(entry.name)}
-                  </span>
+                  <span className="truncate text-xs font-medium text-foreground/85">{prettyName(entry.name)}</span>
                   <CatalogTag>{entry.transport}</CatalogTag>
                   {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
                   {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}

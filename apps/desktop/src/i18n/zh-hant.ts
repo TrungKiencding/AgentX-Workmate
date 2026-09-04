@@ -134,26 +134,17 @@ export const zhHant = defineLocale({
       hideTechnicalDetails: '隱藏技術細節',
       copyDetails: '複製細節',
       copiedDetails: '已複製',
-      genericSteps: [
-        '點選「重試」。',
-        '若仍然失敗，選擇「修復安裝」，或開啟記錄檔並寄給你的 AgentX 管理員。'
-      ],
+      genericSteps: ['點選「重試」。', '若仍然失敗，選擇「修復安裝」，或開啟記錄檔並寄給你的 AgentX 管理員。'],
       kinds: {
         timeout: {
           title: '啟動 AgentX 比平常慢',
           description: '後端已啟動但未及時回應。首次啟動或機器忙碌時很常見，並沒有什麼壞掉。',
-          steps: [
-            '點選「重試」— 第二次通常就能連上。',
-            '如果反覆發生，關閉佔用較大的應用程式後再試。'
-          ]
+          steps: ['點選「重試」— 第二次通常就能連上。', '如果反覆發生，關閉佔用較大的應用程式後再試。']
         },
         exited: {
           title: 'AgentX 後端在啟動時停止了',
           description: '背景程序在就緒前結束了。',
-          steps: [
-            '點選「重試」。',
-            '若再次停止，選擇「修復安裝」— 它會重新執行安裝程式，並保留你的對話和設定。'
-          ]
+          steps: ['點選「重試」。', '若再次停止，選擇「修復安裝」— 它會重新執行安裝程式，並保留你的對話和設定。']
         },
         port: {
           title: 'AgentX 無法開啟連線',
@@ -167,18 +158,12 @@ export const zhHant = defineLocale({
         websocket: {
           title: '即時連線被拒絕',
           description: 'AgentX 透過 HTTP 有回應，但即時通道拒絕了此工作階段。',
-          steps: [
-            '點選「重試」以重新登入並連線。',
-            '如果反覆發生，開啟閘道設定檢查連線。'
-          ]
+          steps: ['點選「重試」以重新登入並連線。', '如果反覆發生，開啟閘道設定檢查連線。']
         },
         install: {
           title: 'AgentX 安裝尚未完成',
           description: '一次性安裝沒有完成，所以還沒有可啟動的內容。',
-          steps: [
-            '選擇「修復安裝」重新執行安裝程式。',
-            '完成前請保持應用程式開啟 — 可能需要幾分鐘。'
-          ]
+          steps: ['選擇「修復安裝」重新執行安裝程式。', '完成前請保持應用程式開啟 — 可能需要幾分鐘。']
         }
       }
     }
@@ -2290,7 +2275,8 @@ export const zhHant = defineLocale({
       listAnd: '和',
       providerUnresolved: '已連線，但 AgentX 仍無法解析出可用的提供者。',
       runtimeNotReadyTitle: '執行環境尚未就緒',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop 啟動時無法驗證執行中的後端。在閘道可連線之前，部分功能可能無法使用。',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop 啟動時無法驗證執行中的後端。在閘道可連線之前，部分功能可能無法使用。',
       couldNotStartSignIn: detail => `無法開始登入：${detail}`,
       pollingFailed: detail => `輪詢失敗：${detail}`,
       signInStatus: status => `登入${status}。`,

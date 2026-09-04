@@ -24,7 +24,9 @@ describe('nousWithAccent', () => {
         const base = baseColorsFor(nousTheme, mode)
 
         // A filled primary carries its label; stroke duty reads on the page.
-        expect(contrastRatio(c.primaryForeground, c.primary), `${name}/${mode} primary label`).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(c.primaryForeground, c.primary), `${name}/${mode} primary label`).toBeGreaterThanOrEqual(
+          4.5
+        )
         expect(contrastRatio(c.ring, c.background), `${name}/${mode} ring`).toBeGreaterThanOrEqual(3)
         // Only what the blue carried moves — bands and inks stay Paper/Graphite.
         expect(c.background, `${name}/${mode} band`).toBe(base.background)

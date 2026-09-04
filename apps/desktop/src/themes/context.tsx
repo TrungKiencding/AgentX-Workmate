@@ -407,7 +407,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // (`appearance.toggleMode`) so it shows up in the hotkey map and is rebindable.
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme: activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, accent, setTheme, setMode, setAccent }),
+    () => ({
+      theme: activeTheme,
+      themeName,
+      mode,
+      resolvedMode,
+      renderedMode,
+      availableThemes,
+      accent,
+      setTheme,
+      setMode,
+      setAccent
+    }),
     [activeTheme, themeName, mode, resolvedMode, renderedMode, availableThemes, accent, setTheme, setMode, setAccent]
   )
 

@@ -134,26 +134,17 @@ export const zh: Translations = {
       hideTechnicalDetails: '隐藏技术细节',
       copyDetails: '复制细节',
       copiedDetails: '已复制',
-      genericSteps: [
-        '点击“重试”。',
-        '若仍然失败，选择“修复安装”，或打开日志并发给你的 AgentX 管理员。'
-      ],
+      genericSteps: ['点击“重试”。', '若仍然失败，选择“修复安装”，或打开日志并发给你的 AgentX 管理员。'],
       kinds: {
         timeout: {
           title: '启动 AgentX 比平时慢',
           description: '后端已启动但未及时响应。首次启动或机器繁忙时很常见，并没有什么坏掉。',
-          steps: [
-            '点击“重试” — 第二次通常就能连上。',
-            '如果反复出现，关闭占用较大的应用后再试。'
-          ]
+          steps: ['点击“重试” — 第二次通常就能连上。', '如果反复出现，关闭占用较大的应用后再试。']
         },
         exited: {
           title: 'AgentX 后端在启动时停止了',
           description: '后台进程在就绪前退出了。',
-          steps: [
-            '点击“重试”。',
-            '若再次停止，选择“修复安装” — 它会重新运行安装程序，并保留你的聊天和设置。'
-          ]
+          steps: ['点击“重试”。', '若再次停止，选择“修复安装” — 它会重新运行安装程序，并保留你的聊天和设置。']
         },
         port: {
           title: 'AgentX 无法打开连接',
@@ -167,18 +158,12 @@ export const zh: Translations = {
         websocket: {
           title: '实时连接被拒绝',
           description: 'AgentX 通过 HTTP 有响应，但实时通道拒绝了此会话。',
-          steps: [
-            '点击“重试”以重新登录并连接。',
-            '如果反复出现，打开网关设置检查连接。'
-          ]
+          steps: ['点击“重试”以重新登录并连接。', '如果反复出现，打开网关设置检查连接。']
         },
         install: {
           title: 'AgentX 安装尚未完成',
           description: '一次性安装没有完成，所以还没有可启动的内容。',
-          steps: [
-            '选择“修复安装”重新运行安装程序。',
-            '完成前请保持应用打开 — 可能需要几分钟。'
-          ]
+          steps: ['选择“修复安装”重新运行安装程序。', '完成前请保持应用打开 — 可能需要几分钟。']
         }
       }
     }

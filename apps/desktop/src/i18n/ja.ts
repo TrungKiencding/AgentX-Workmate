@@ -145,7 +145,8 @@ export const ja = defineLocale({
       kinds: {
         timeout: {
           title: 'AgentX の起動にいつもより時間がかかっています',
-          description: 'バックエンドは起動しましたが、時間内に応答しませんでした。初回起動時やマシンが混雑しているときによく起こり、壊れているわけではありません。',
+          description:
+            'バックエンドは起動しましたが、時間内に応答しませんでした。初回起動時やマシンが混雑しているときによく起こり、壊れているわけではありません。',
           steps: [
             '「再試行」を押してください — 2 回目でつながることがほとんどです。',
             '繰り返す場合は、重いアプリケーションを閉じてからもう一度試してください。'
@@ -2351,7 +2352,8 @@ export const ja = defineLocale({
       readyTitle: 'AgentX の準備ができました',
       readyBody: provider => `${provider} に接続しました。`,
       toolGatewayTitle: 'Tool Gateway を有効にしました',
-      toolGatewayBody: tools => `${tools} は Nous のサブスクリプション経由で動作するようになりました — 別途 API キーは不要です。`,
+      toolGatewayBody: tools =>
+        `${tools} は Nous のサブスクリプション経由で動作するようになりました — 別途 API キーは不要です。`,
       toolLabels: {
         browser: 'ブラウザ自動操作',
         image_gen: '画像生成',
@@ -2362,18 +2364,21 @@ export const ja = defineLocale({
       listAnd: 'と',
       providerUnresolved: '接続しましたが、AgentX は利用できるプロバイダーをまだ解決できません。',
       runtimeNotReadyTitle: 'ランタイムの準備ができていません',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop は起動時に実行中のバックエンドを確認できませんでした。ゲートウェイに到達できるまで、一部の機能が使えない場合があります。',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop は起動時に実行中のバックエンドを確認できませんでした。ゲートウェイに到達できるまで、一部の機能が使えない場合があります。',
       couldNotStartSignIn: detail => `サインインを開始できませんでした: ${detail}`,
       pollingFailed: detail => `ポーリングに失敗しました: ${detail}`,
       signInStatus: status => `サインイン: ${status}。`,
       tokenExchangeFailed: 'トークン交換に失敗しました。',
-      stillCannotReach: (provider, command) => `AgentX はまだ ${provider} に到達できません。先にターミナルで \`${command}\` を実行してください。`,
+      stillCannotReach: (provider, command) =>
+        `AgentX はまだ ${provider} に到達できません。先にターミナルで \`${command}\` を実行してください。`,
       couldNotSaveProvider: label => `${label} を保存できませんでした`,
       couldNotSaveModel: 'AgentX は選択したモデルを保存できませんでした。',
       enterEndpointUrl: '先にエンドポイントの URL を入力してください。',
       couldNotReachEndpoint: 'そのエンドポイントに到達できませんでした。',
       couldNotReachUrl: url => `${url} に到達できませんでした。`,
-      noModelsAdvertised: url => `${url} に接続しましたが、/v1/models にモデルがありません。そのエンドポイントでモデルを起動してから再試行してください。`,
+      noModelsAdvertised: url =>
+        `${url} に接続しましたが、/v1/models にモデルがありません。そのエンドポイントでモデルを起動してから再試行してください。`,
       savedButUnreachable: url => `保存しましたが、AgentX はまだ ${url} に到達できません。`,
       localEndpointLabel: 'ローカル / カスタムエンドポイント',
       couldNotSaveLocalEndpoint: 'ローカルエンドポイントを保存できませんでした',
@@ -2807,9 +2812,11 @@ export const ja = defineLocale({
       starterExplainFolderLabel: 'このフォルダを説明',
       starterExplainFolderPrompt: '現在の作業フォルダに何があり、どう構成されているかを説明してください。',
       starterSummarizeLabel: 'ドキュメントを要約',
-      starterSummarizePrompt: 'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
+      starterSummarizePrompt:
+        'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
       starterDraftLabel: 'メールを下書き',
-      starterDraftPrompt: 'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。'
+      starterDraftPrompt:
+        'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。'
     },
     thread: {
       loadingSession: 'セッションを読み込み中',

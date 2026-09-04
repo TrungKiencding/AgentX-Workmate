@@ -1440,7 +1440,8 @@ export interface ModelAssignmentResponse {
 
 export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
 export type SkillHubReportedState = 'pending' | 'installed' | 'removed' | 'failed' | 'disabled'
-export type SkillHubSyncStatus = 'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
+export type SkillHubSyncStatus =
+  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
 
 /** What the local engine knows about a hub skill on this machine. */
 export interface SkillHubLocalState {
@@ -1541,7 +1542,14 @@ export interface SkillHubValidateResponse {
   result?: {
     ok: boolean
     error?: { code: string; message: string; detail: unknown }
-    package?: { name: string; kind: string; version: string; files: string[]; has_scripts: boolean; warnings?: string[] }
+    package?: {
+      name: string
+      kind: string
+      version: string
+      files: string[]
+      has_scripts: boolean
+      warnings?: string[]
+    }
     webmate?: { chars: number; max_chars: number } | null
     warnings?: string[]
   }

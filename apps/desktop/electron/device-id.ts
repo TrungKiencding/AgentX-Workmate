@@ -127,11 +127,7 @@ export function readDeviceRecord(io: DeviceStoreIo): DeviceRecord {
   try {
     stored = parseDeviceRecord(io.readText())
   } catch (error) {
-    io.rememberLog?.(
-      `[device] could not read the device id: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    )
+    io.rememberLog?.(`[device] could not read the device id: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   if (stored && stored.name === name) {
@@ -151,9 +147,7 @@ export function readDeviceRecord(io: DeviceStoreIo): DeviceRecord {
     // which shows up as a duplicate row in a device list. Still better than
     // refusing to start.
     io.rememberLog?.(
-      `[device] could not persist the device id: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[device] could not persist the device id: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 

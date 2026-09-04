@@ -56,10 +56,7 @@ const FullEmojiPicker: FC<{ onSelect: (emoji: string) => void }> = ({ onSelect }
         className="select-none pb-1"
         components={{
           CategoryHeader: ({ category, ...props }) => (
-            <div
-              className="bg-(--ui-bg-elevated) px-1.5 pt-2 pb-1 text-2xs text-(--ui-text-tertiary)"
-              {...props}
-            >
+            <div className="bg-(--ui-bg-elevated) px-1.5 pt-2 pb-1 text-2xs text-(--ui-text-tertiary)" {...props}>
               {category.label}
             </div>
           ),
@@ -169,10 +166,7 @@ export const ReactionBadge: FC<{
   }
 
   return (
-    <span
-      className={cn('flex items-center gap-1 text-sm leading-none', className)}
-      data-slot="aui_msg-reactions"
-    >
+    <span className={cn('flex items-center gap-1 text-sm leading-none', className)} data-slot="aui_msg-reactions">
       {reactions.map(reaction =>
         reaction.author === 'user' && onRetract ? (
           <button

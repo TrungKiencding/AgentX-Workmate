@@ -131,7 +131,8 @@ export const ar = defineLocale({
       kinds: {
         timeout: {
           title: 'يستغرق بدء AgentX وقتًا أطول من المعتاد',
-          description: 'بدأت الواجهة الخلفية لكنها لم تستجب في الوقت المناسب. هذا شائع عند التشغيل الأول أو عندما يكون الجهاز مشغولًا، ولا يوجد عطل.',
+          description:
+            'بدأت الواجهة الخلفية لكنها لم تستجب في الوقت المناسب. هذا شائع عند التشغيل الأول أو عندما يكون الجهاز مشغولًا، ولا يوجد عطل.',
           steps: [
             'اضغط "إعادة المحاولة" — المحاولة الثانية تنجح عادةً.',
             'إذا تكرر ذلك، أغلق التطبيقات الثقيلة ثم حاول مجددًا.'
@@ -2143,18 +2144,21 @@ export const ar = defineLocale({
       listAnd: 'و',
       providerUnresolved: 'تم الاتصال، لكن AgentX ما زال غير قادر على تحديد مزوّد صالح.',
       runtimeNotReadyTitle: 'بيئة التشغيل غير جاهزة',
-      runtimeNotReadyBody: 'تعذر على AgentX Workmate Desktop التحقق من الواجهة الخلفية عند البدء. قد تكون بعض الميزات غير متاحة حتى يمكن الوصول إلى البوابة.',
+      runtimeNotReadyBody:
+        'تعذر على AgentX Workmate Desktop التحقق من الواجهة الخلفية عند البدء. قد تكون بعض الميزات غير متاحة حتى يمكن الوصول إلى البوابة.',
       couldNotStartSignIn: detail => `تعذر بدء تسجيل الدخول: ${detail}`,
       pollingFailed: detail => `فشل الاستعلام: ${detail}`,
       signInStatus: status => `تسجيل الدخول: ${status}.`,
       tokenExchangeFailed: 'فشل تبادل الرمز.',
-      stillCannotReach: (provider, command) => `ما زال AgentX غير قادر على الوصول إلى ${provider}. شغّل \`${command}\` في الطرفية أولًا.`,
+      stillCannotReach: (provider, command) =>
+        `ما زال AgentX غير قادر على الوصول إلى ${provider}. شغّل \`${command}\` في الطرفية أولًا.`,
       couldNotSaveProvider: label => `تعذر حفظ ${label}`,
       couldNotSaveModel: 'تعذر على AgentX حفظ النموذج المحدد.',
       enterEndpointUrl: 'أدخل عنوان URL لنقطة النهاية أولًا.',
       couldNotReachEndpoint: 'تعذر الوصول إلى نقطة النهاية تلك.',
       couldNotReachUrl: url => `تعذر الوصول إلى ${url}.`,
-      noModelsAdvertised: url => `تم الاتصال بـ ${url}، لكنها لم تعرض أي نماذج في /v1/models. شغّل نموذجًا على نقطة النهاية تلك ثم حاول مجددًا.`,
+      noModelsAdvertised: url =>
+        `تم الاتصال بـ ${url}، لكنها لم تعرض أي نماذج في /v1/models. شغّل نموذجًا على نقطة النهاية تلك ثم حاول مجددًا.`,
       savedButUnreachable: url => `تم الحفظ، لكن AgentX ما زال غير قادر على الوصول إلى ${url}.`,
       localEndpointLabel: 'نقطة نهاية محلية / مخصصة',
       couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',

@@ -95,9 +95,9 @@ describe('decideInAppAgentUpdate', () => {
     // Ordering is behaviour: a dev run WITH a staged updater must report the
     // updater, not "not packaged", or the reason in the log sends whoever
     // reads it looking at the wrong thing.
-    assert.deepEqual(
-      decideInAppAgentUpdate(context({ hasStagedUpdater: true, isPackaged: false })),
-      { inApp: false, reason: 'has-staged-updater' }
-    )
+    assert.deepEqual(decideInAppAgentUpdate(context({ hasStagedUpdater: true, isPackaged: false })), {
+      inApp: false,
+      reason: 'has-staged-updater'
+    })
   })
 })

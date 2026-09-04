@@ -235,9 +235,7 @@ export function parseKeycloakTokenResponse(body: unknown, nowSeconds: number): N
   const idToken = String(payload.id_token || '')
 
   if (!idToken) {
-    throw new Error(
-      'Keycloak token response carried no id_token — check that the client requests the "openid" scope.'
-    )
+    throw new Error('Keycloak token response carried no id_token — check that the client requests the "openid" scope.')
   }
 
   const claims = decodeJwtPayload(idToken)

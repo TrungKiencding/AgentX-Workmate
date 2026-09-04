@@ -105,6 +105,7 @@ describe('parseDiscovery', () => {
 
   test('allows http on loopback, for a local dev realm', () => {
     const local = 'http://localhost:8080/realms/agent-hub'
+
     const parsed = parseDiscovery(
       {
         issuer: local,
@@ -126,10 +127,7 @@ describe('parseDiscovery', () => {
   })
 
   test('an absent end_session_endpoint is empty, not an error', () => {
-    const parsed = parseDiscovery(
-      { ...DISCOVERY_DOC, end_session_endpoint: undefined },
-      ISSUER
-    )
+    const parsed = parseDiscovery({ ...DISCOVERY_DOC, end_session_endpoint: undefined }, ISSUER)
 
     assert.equal(parsed.endSessionEndpoint, '')
   })
@@ -142,6 +140,7 @@ describe('buildKeycloakAuthorizeUrl', () => {
     redirectUri: 'http://127.0.0.1:47821/callback',
     nonce: 'n0nce'
   })
+
   const params = new URL(url).searchParams
 
   test('requests an authorization code with PKCE S256', () => {
@@ -178,6 +177,7 @@ describe('buildKeycloakAuthorizeUrl', () => {
       CONFIG,
       { codeChallenge: 'c', state: 's', redirectUri: 'http://127.0.0.1:47821/callback', nonce: 'n' }
     )
+
     const q = new URL(withQuery).searchParams
 
     assert.equal(q.get('tab'), '1')
@@ -214,6 +214,7 @@ describe('parseKeycloakTokenResponse', () => {
 
   test('stores the ID token, not the opaque access token', () => {
     const idToken = fakeIdToken({ sub: 'user-1', exp })
+
     const parsed = parseKeycloakTokenResponse(
       { access_token: 'opaque-at', id_token: idToken, refresh_token: 'rt', expires_in: 1800 },
       1_000
@@ -229,10 +230,7 @@ describe('parseKeycloakTokenResponse', () => {
   })
 
   test('takes expiry from the token exp, not from expires_in', () => {
-    const parsed = parseKeycloakTokenResponse(
-      { id_token: fakeIdToken({ sub: 's', exp }), expires_in: 1800 },
-      1_000
-    )
+    const parsed = parseKeycloakTokenResponse({ id_token: fakeIdToken({ sub: 's', exp }), expires_in: 1800 }, 1_000)
 
     // expires_in would have produced 2800 — and drifted against clock skew.
     assert.equal(parsed.expiresAt, exp)
@@ -262,6 +260,7 @@ describe('parseKeycloakTokenResponse', () => {
       name: 'Le Trung Kien',
       preferred_username: 'kienlt1'
     })
+
     const parsed = parseKeycloakTokenResponse({ id_token: idToken }, 0)
 
     assert.equal(parsed.email, 'kienlt1@astralx.com.vn')
@@ -273,6 +272,7 @@ describe('parseKeycloakTokenResponse', () => {
       { id_token: fakeIdToken({ sub: 's', exp, email: 'a@b.c', preferred_username: 'kienlt1' }) },
       0
     )
+
     assert.equal(noName.displayName, 'kienlt1')
 
     const emailOnly = parseKeycloakTokenResponse({ id_token: fakeIdToken({ sub: 's', exp, email: 'a@b.c' }) }, 0)

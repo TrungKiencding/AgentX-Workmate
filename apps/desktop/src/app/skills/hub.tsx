@@ -356,9 +356,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           </div>
         ) : listed.length === 0 ? (
           <div className="grid min-h-40 place-items-center px-6 text-center">
-            <p className="max-w-md text-xs text-(--ui-text-tertiary)">
-              {searched ? h.noResults : h.landingHint}
-            </p>
+            <p className="max-w-md text-xs text-(--ui-text-tertiary)">{searched ? h.noResults : h.landingHint}</p>
           </div>
         ) : (
           <div className="flex flex-col">

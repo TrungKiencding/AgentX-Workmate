@@ -13,10 +13,7 @@ import { describeLastSeen, describeRevokeFailure, DeviceList } from './device-li
 
 const original = window.agentxDesktop
 
-function stubDevices(
-  bridge: Record<string, unknown> | null,
-  rest: Record<string, unknown> = {}
-) {
+function stubDevices(bridge: Record<string, unknown> | null, rest: Record<string, unknown> = {}) {
   Object.defineProperty(window, 'agentxDesktop', {
     configurable: true,
     value: bridge === null ? { ...rest } : { devices: bridge, ...rest }
@@ -130,10 +127,7 @@ describe('DeviceList', () => {
     stubDevices({
       list: async () => ({
         current: 'device-a',
-        devices: [
-          device({ current: true, id: 'device-a' }),
-          device({ id: 'device-b', name: 'Windows desktop' })
-        ],
+        devices: [device({ current: true, id: 'device-a' }), device({ id: 'device-b', name: 'Windows desktop' })],
         status: 'ok'
       }),
       revoke
@@ -275,9 +269,9 @@ describe('describeRevokeFailure', () => {
   })
 
   it('falls back to the service detail when the code is unknown', () => {
-    expect(
-      describeRevokeFailure({ detail: 'something specific', status: 'error' }, englishCopy())
-    ).toBe('something specific')
+    expect(describeRevokeFailure({ detail: 'something specific', status: 'error' }, englishCopy())).toBe(
+      'something specific'
+    )
   })
 
   it('has an answer even with nothing to go on', () => {

@@ -159,8 +159,22 @@ describe('SkillsView toolset management', () => {
 describe('SkillsView hub publishing (Phase 3)', () => {
   it('offers "Upload to Hub" and "Propose to organisation" for a learned skill, not for a hub one', async () => {
     getSkills.mockResolvedValue([
-      { name: 'vneb-report', description: 'Reports', category: 'reports', enabled: true, usage: 3, provenance: 'agent' },
-      { name: 'demo-core', description: 'From the hub', category: 'general', enabled: true, usage: 0, provenance: 'hub' }
+      {
+        name: 'vneb-report',
+        description: 'Reports',
+        category: 'reports',
+        enabled: true,
+        usage: 3,
+        provenance: 'agent'
+      },
+      {
+        name: 'demo-core',
+        description: 'From the hub',
+        category: 'general',
+        enabled: true,
+        usage: 0,
+        provenance: 'hub'
+      }
     ])
 
     await renderSkills('skills')
