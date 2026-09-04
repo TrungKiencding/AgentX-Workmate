@@ -62,6 +62,12 @@ INSTALL_POLICY = {
     # skills.guard_agent_created is enabled (off by default) — see
     # tools/skill_manager_tool.py::_guard_agent_created_enabled.
     "agent-created": ("allow",  "allow",   "ask"),
+    # AgentX Skill Hub bundles whose Ed25519 signature verified against the
+    # hub's published key (tools/skills_hub.py::AgentXHubSource). The hub
+    # already ran this scanner (and more) before publishing, so a caution
+    # verdict is allowed exactly as it is for the trusted vendor repos; a
+    # dangerous verdict is still blocked — the local guard is the second belt.
+    "agentx-hub-verified": ("allow", "allow", "block"),
 }
 
 VERDICT_INDEX = {"safe": 0, "caution": 1, "dangerous": 2}
@@ -1196,6 +1202,11 @@ def _resolve_trust_level(source: str) -> str:
     # Agent-created skills get their own permissive trust level
     if normalized_source == "agent-created":
         return "agent-created"
+    # A hub bundle is scanned with its VERIFIED trust level as the source (see
+    # hermes_cli/skills_hub.py::do_install); an unverified one arrives as
+    # "community" and falls through to the default below.
+    if normalized_source == "agentx-hub-verified":
+        return "agentx-hub-verified"
     # Official optional skills must be identified by source provenance, not by
     # user-controlled GitHub identifiers such as "official/<repo>".
     if normalized_source == "official":

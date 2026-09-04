@@ -13710,6 +13710,7 @@ from hermes_cli.web_routers.skills import (  # noqa: E402,F401 — legacy re-exp
 # Human-readable labels for each hub source id (matches `agentx skills search`
 # provenance).  Keep in sync with create_source_router()'s source list.
 _SKILL_HUB_SOURCE_LABELS = {
+    "agentx-hub": "AgentX Hub",
     "official": "Official (Nous)",
     "agentx-index": "AgentX Index",
     "skills-sh": "skills.sh",

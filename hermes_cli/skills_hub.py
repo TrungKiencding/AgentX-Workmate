@@ -697,6 +697,11 @@ def do_install(identifier: str, category: str = "", force: bool = False,
     c.print("[bold]Running security scan...[/]")
     if bundle.source == "official":
         scan_source = "official"
+    elif bundle.source == "agentx-hub":
+        # The source adapter set trust_level to "agentx-hub-verified" only
+        # after checking the hub's Ed25519 signature; scanning under that
+        # level is what maps it into INSTALL_POLICY (tools/skills_guard.py).
+        scan_source = bundle.trust_level or "community"
     else:
         scan_source = (
             getattr(bundle, "identifier", "")
@@ -777,6 +782,23 @@ def do_install(identifier: str, category: str = "", force: bool = False,
             c.print("[dim]Installation cancelled.[/]\n")
             shutil.rmtree(q_path, ignore_errors=True)
             return
+
+    # Hub provenance travels into lock.json next to the local scan's, so
+    # `agentx skills audit` can show which hub scan and signature vouched
+    # for the files on disk.
+    if bundle.source == "agentx-hub":
+        hub_meta = getattr(bundle, "metadata", {}) or {}
+        scan_provenance = dict(scan_provenance)
+        scan_provenance["hub"] = {
+            "hub_url": hub_meta.get("hub_url", ""),
+            "hub_scan_id": hub_meta.get("hub_scan_id", ""),
+            "signature": hub_meta.get("signature", ""),
+            "kid": hub_meta.get("kid", ""),
+            "signature_verified": bool(hub_meta.get("signature_verified")),
+            "hub_verdict": hub_meta.get("verdict", ""),
+            "content_hash": hub_meta.get("content_hash", ""),
+        }
+        result.scan_provenance = scan_provenance
 
     # Install
     try:

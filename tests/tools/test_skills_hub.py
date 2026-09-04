@@ -1640,3 +1640,209 @@ class TestLoadHermesIndex:
 
         data = hub._load_hermes_index()
         assert data == {"skills": [{"name": "stale"}]}
+
+
+# ---------------------------------------------------------------------------
+# AgentXHubSource — the AgentX Skill Hub adapter
+# ---------------------------------------------------------------------------
+
+
+def _hub_signing_key():
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    private = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+    public_b64 = __import__("base64").b64encode(
+        private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    ).decode()
+    return private, public_b64
+
+
+def _hub_transport(files, *, sign=True, tamper=False, kid="k1", kind="core", wellknown_kid=None):
+    """An httpx.MockTransport that plays a hub with one published skill."""
+    import base64
+    from tools.skills_hub import bundle_content_hash, _hub_canonical_manifest
+
+    private, public_b64 = _hub_signing_key()
+    bundle = SkillBundle(name="demo-core", files=files, source="", identifier="", trust_level="")
+    short = bundle_content_hash(bundle).split(":", 1)[1]
+    content_hash = "sha256:" + short + "0" * 48
+    manifest = {
+        "slug": "demo-core", "version": "1.2.0", "content_hash": content_hash, "kind": kind,
+        "verdict": "safe", "scanned_at": "2026-09-03T00:00:00+00:00", "scanner_versions": {"guard": "skills-guard-v1"},
+    }
+    signature = base64.b64encode(private.sign(_hub_canonical_manifest(manifest))).decode()
+    if tamper:
+        manifest = dict(manifest, verdict="dangerous")
+
+    skill_json = {
+        "slug": "demo-core", "name": "demo-core", "description": "A demo.", "kind": kind, "visibility": "public",
+        "tags": ["Demo"], "targets": ["hermes"], "latest_version": "1.2.0", "latest_content_hash": content_hash,
+        "downloads": 3, "stars": 1, "category": "demo", "owner": {"slug": "agentx"},
+        "scan": {"verdict": "safe", "signed": sign},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/.well-known/agentx-hub.json":
+            return httpx.Response(200, json={"api_version": 1, "signing_keys": [{"kid": wellknown_kid or kid, "alg": "ed25519", "ed25519_pub": public_b64}]})
+        if path == "/v1/skills":
+            q = request.url.params.get("q", "")
+            assert request.url.params.get("kind") == "core"
+            return httpx.Response(200, json={"skills": [skill_json] if (not q or "demo" in q) else [], "next_cursor": None})
+        if path == "/v1/skills/demo-core":
+            return httpx.Response(200, json=skill_json)
+        if path in ("/v1/skills/demo-core/versions/latest/bundle", "/v1/skills/demo-core/versions/1.2.0/bundle"):
+            return httpx.Response(200, json={
+                "slug": "demo-core", "name": "demo-core", "kind": kind, "version": "1.2.0",
+                "content_hash": content_hash, "signature": signature if sign else None, "kid": kid if sign else None,
+                "signed_manifest": manifest, "manifest": {}, "targets": ["hermes"],
+                "files": {p: (c if isinstance(c, str) else {"base64": base64.b64encode(c).decode()}) for p, c in files.items()},
+                "scan": {"id": "scan-1", "verdict": "safe", "scanned_at": manifest["scanned_at"], "scanner_versions": manifest["scanner_versions"]},
+            })
+        return httpx.Response(404, json={"code": "skill_not_found", "message": "no", "detail": None})
+
+    return httpx.MockTransport(handler), content_hash
+
+
+class TestAgentXHubSource:
+    FILES = {"SKILL.md": "---\nname: demo-core\ndescription: A demo.\n---\n# Demo\n", "scripts/run.sh": "#!/bin/sh\necho hi\n", "assets/x.bin": b"\x00\x01"}
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_search_and_inspect_map_the_catalog(self, _r, _w):
+        from tools.skills_hub import AgentXHubSource
+
+        transport, content_hash = _hub_transport(self.FILES)
+        src = AgentXHubSource("https://hub.test", token="", transport=transport)
+        assert src.source_id() == "agentx-hub"
+        hits = src.search("demo", limit=5)
+        assert len(hits) == 1
+        meta = hits[0]
+        assert meta.identifier == "agentx-hub/demo-core"
+        assert meta.source == "agentx-hub"
+        assert meta.trust_level == "agentx-hub-verified"
+        assert meta.extra["version"] == "1.2.0" and meta.extra["content_hash"] == content_hash
+        assert src.search("nothing-here") == []
+        assert src.inspect("agentx-hub/demo-core").name == "demo-core"
+        assert src.inspect("github/x") is None
+        assert src.trust_level_for("agentx-hub/demo-core") == "agentx-hub-verified"
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_fetch_verifies_the_signature_and_records_provenance(self, _r, _w):
+        from tools.skills_hub import AgentXHubSource, bundle_content_hash
+
+        transport, content_hash = _hub_transport(self.FILES)
+        src = AgentXHubSource("https://hub.test", token="", transport=transport)
+        bundle = src.fetch("agentx-hub/demo-core")
+        assert bundle is not None
+        assert bundle.source == "agentx-hub"
+        assert bundle.identifier == "agentx-hub/demo-core@1.2.0"
+        assert bundle.trust_level == "agentx-hub-verified"
+        assert bundle.files["assets/x.bin"] == b"\x00\x01"
+        assert bundle.files["SKILL.md"].startswith("---")
+        assert bundle.metadata["signature_verified"] is True
+        assert bundle.metadata["hub_scan_id"] == "scan-1" and bundle.metadata["kid"] == "k1"
+        assert bundle.metadata["content_hash"] == content_hash
+        assert bundle_content_hash(bundle) == "sha256:" + content_hash.split(":")[1][:16]
+        assert src.trust_level_for("agentx-hub/demo-core@1.2.0") == "agentx-hub-verified"
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_a_bad_signature_downgrades_to_community(self, _r, _w):
+        from tools.skills_hub import AgentXHubSource
+
+        for kwargs in ({"tamper": True}, {"sign": False}, {"kid": "k2", "wellknown_kid": "k1"}):
+            transport, _ = _hub_transport(self.FILES, **kwargs)
+            src = AgentXHubSource("https://hub.test", token="", transport=transport)
+            bundle = src.fetch("agentx-hub/demo-core@1.2.0")
+            assert bundle is not None, kwargs
+            assert bundle.trust_level == "community", kwargs
+            assert bundle.metadata["signature_verified"] is False, kwargs
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_browser_skills_are_not_installable_in_workmate(self, _r, _w):
+        from tools.skills_hub import AgentXHubSource
+
+        transport, _ = _hub_transport({"SKILL.md": "# x\n"}, kind="browser")
+        src = AgentXHubSource("https://hub.test", token="", transport=transport)
+        assert src.fetch("agentx-hub/demo-core") is None
+
+    def test_unreachable_hub_degrades_to_nothing(self):
+        from tools.skills_hub import AgentXHubSource
+
+        def boom(request):
+            raise httpx.ConnectError("no route", request=request)
+
+        src = AgentXHubSource("https://hub.test", token="", transport=httpx.MockTransport(boom))
+        assert src.search("demo") == []
+        assert src.fetch("agentx-hub/demo-core") is None
+
+    def test_identifier_parsing(self):
+        from tools.skills_hub import AgentXHubSource
+
+        assert AgentXHubSource.parse_identifier("agentx-hub/demo-core") == ("demo-core", "latest")
+        assert AgentXHubSource.parse_identifier("agentx-hub/bob/demo-core@1.2.0") == ("bob/demo-core", "1.2.0")
+        assert AgentXHubSource.parse_identifier("agentx-hub/../x") is None
+        assert AgentXHubSource.parse_identifier("clawhub/x") is None
+
+    def test_hub_source_runs_first_in_the_router(self):
+        from tools.skills_hub import AgentXHubSource
+
+        sources = create_source_router(auth=MagicMock(spec=GitHubAuth))
+        assert isinstance(sources[0], AgentXHubSource)
+        assert sources[0].source_id() == "agentx-hub"
+
+    def test_token_travels_as_a_bearer(self):
+        from tools.skills_hub import AgentXHubSource
+
+        seen = {}
+
+        def handler(request):
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(200, json={"skills": []})
+
+        AgentXHubSource("https://hub.test", token="hub_secret", transport=httpx.MockTransport(handler)).search("x")
+        assert seen["auth"] == "Bearer hub_secret"
+
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_update_check_looks_past_the_pinned_version(self, _r, _w):
+        """lock.json pins ``agentx-hub/<slug>@<version>``; the check must ask
+        the hub for the latest version and report its identifier."""
+        from tools.skills_hub import AgentXHubSource, bundle_content_hash
+
+        transport, _ = _hub_transport(self.FILES)  # the hub serves 1.2.0
+        src = AgentXHubSource("https://hub.test", token="", transport=transport)
+        lock = MagicMock()
+        lock.list_installed.return_value = [{
+            "name": "demo-core", "source": "agentx-hub", "identifier": "agentx-hub/demo-core@1.1.0",
+            "content_hash": "sha256:0000000000000000", "install_path": "demo-core",
+        }]
+        results = check_for_skill_updates(lock=lock, sources=[src])
+        assert results[0]["status"] == "update_available"
+        assert results[0]["identifier"] == "agentx-hub/demo-core@1.2.0"
+        assert results[0]["latest_hash"] == bundle_content_hash(results[0]["bundle"])
+
+        # Same content → up to date, and the pinned identifier is kept.
+        lock.list_installed.return_value[0]["content_hash"] = bundle_content_hash(results[0]["bundle"])
+        again = check_for_skill_updates(lock=lock, sources=[src])
+        assert again[0]["status"] == "up_to_date"
+        assert again[0]["identifier"] == "agentx-hub/demo-core@1.1.0"
+
+
+class TestHubVerifiedInstallPolicy:
+    def test_verified_bundles_are_treated_like_trusted(self):
+        from tools.skills_guard import INSTALL_POLICY, _resolve_trust_level, ScanResult, should_allow_install
+
+        assert _resolve_trust_level("agentx-hub-verified") == "agentx-hub-verified"
+        assert _resolve_trust_level("agentx-hub/demo-core@1.0.0") == "community"
+        assert INSTALL_POLICY["agentx-hub-verified"] == ("allow", "allow", "block")
+        allowed, _ = should_allow_install(ScanResult(skill_name="x", source="agentx-hub-verified", trust_level="agentx-hub-verified", verdict="caution"))
+        assert allowed is True
+        blocked, _ = should_allow_install(ScanResult(skill_name="x", source="agentx-hub-verified", trust_level="agentx-hub-verified", verdict="dangerous"))
+        assert blocked is False
+
