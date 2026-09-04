@@ -55,16 +55,27 @@ _SKILL_HUB_SOURCE_LABELS = LateState("_SKILL_HUB_SOURCE_LABELS")
 
 
 @hub_router.post("/api/skills/hub/install")
-async def install_skill_hub(body: SkillInstallRequest, profile: Optional[str] = None):
+async def install_skill_hub(request: Request, body: SkillInstallRequest, profile: Optional[str] = None):
     identifier = (body.identifier or "").strip()
     if not identifier:
         raise HTTPException(status_code=400, detail="identifier is required")
     name = _hub_action_name("install", identifier)
+    args = _profile_cli_args(body.profile or profile) + ["skills", "install", identifier, "--yes"]
+    # A private/org skill is only downloadable with the person's bearer, and
+    # the installer runs in its own process with no session — hand it the
+    # bearer through the env `agentx_hub_token()` already reads. Public skills
+    # (and every other source) need nothing, so nothing is passed.
+    extra_env = {}
+    if identifier.startswith("agentx-hub/"):
+        credentials = _hub_credentials_from(request)
+        bearer = getattr(credentials, "bearer", "") if credentials is not None else ""
+        if bearer:
+            extra_env["AGENTX_HUB_TOKEN"] = bearer
     try:
-        proc = _spawn_hermes_action(
-            _profile_cli_args(body.profile or profile)
-            + ["skills", "install", identifier, "--yes"],
-            name,
+        proc = (
+            _spawn_hermes_action(args, name, extra_env)
+            if extra_env
+            else _spawn_hermes_action(args, name)
         )
     except HTTPException:
         raise
@@ -181,6 +192,50 @@ async def list_skills_hub_sources(profile: Optional[str] = None):
     except Exception as exc:
         _log.exception("skills hub sources listing failed")
         raise HTTPException(status_code=502, detail=f"Hub sources failed: {exc}")
+
+
+@hub_router.get("/api/skills/hub/catalog")
+async def skills_hub_catalog(request: Request, refresh: bool = False, profile: Optional[str] = None):
+    """The AgentX Skill Hub's catalog, as browsable cards — no sign-in needed.
+
+    Public skills always; the caller's own private ones (and their org's) too
+    when the request carries a bearer or this machine holds a personal token.
+    Cached on disk for 30 minutes, which is what makes the desktop's
+    sync-on-open cheap; ``refresh=1`` forces the network sync behind the
+    Sync button. Nothing here installs anything — a card stays metadata until
+    someone presses Install.
+    """
+    credentials = _hub_credentials_from(request)
+    bearer = getattr(credentials, "bearer", "") if credentials is not None else ""
+
+    def _run(token: Optional[str]):
+        from tools.skills_hub import agentx_hub_catalog
+
+        with _config_profile_scope(profile):
+            data = agentx_hub_catalog(token=token, force=bool(refresh))
+            return data, _installed_hub_identifiers(profile)
+
+    try:
+        data, installed = await asyncio.to_thread(_run, bearer or None)
+        # A bearer this hub refuses must not blank the catalog: fall back to
+        # the public view rather than showing an empty catalogue.
+        if bearer and data["error"] and not data["skills"]:
+            data, installed = await asyncio.to_thread(_run, "")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _log.exception("skills hub catalog failed")
+        raise HTTPException(status_code=502, detail=f"Hub catalog failed: {exc}")
+
+    return {
+        "skills": [_skill_meta_to_payload(meta) for meta in data["skills"]],
+        "installed": installed,
+        "fetched_at": data["fetched_at"],
+        "stale": data["stale"],
+        "authenticated": data["authenticated"],
+        "hub_url": data["hub_url"],
+        "error": data["error"],
+    }
 
 
 @hub_router.get("/api/skills/hub/search")

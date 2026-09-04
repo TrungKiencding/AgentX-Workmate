@@ -1060,6 +1060,14 @@ export interface Translations {
       connectedHubs: string
       featured: string
       landingHint: string
+      catalogCount: (count: number) => string
+      catalogEmpty: string
+      catalogOffline: string
+      neverSynced: string
+      storeOnline: string
+      storeOffline: string
+      searchElsewhere: string
+      kind: Record<'core' | 'browser', string>
       noResults: string
       resultCount: (count: number, ms: number | null) => string
       timedOut: (sources: string) => string

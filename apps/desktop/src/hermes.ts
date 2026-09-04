@@ -54,6 +54,7 @@ import type {
   SessionInfo,
   SessionMessagesResponse,
   SessionSearchResponse,
+  SkillHubCatalogResponse,
   SkillHubChangesResponse,
   SkillHubPreview,
   SkillHubPublishResponse,
@@ -208,6 +209,7 @@ export type {
   SessionRuntimeInfo,
   SessionSearchResponse,
   SessionSearchResult,
+  SkillHubCatalogResponse,
   SkillHubInstalledEntry,
   SkillHubPreview,
   SkillHubResult,
@@ -1646,6 +1648,16 @@ export function getSkillHubSources(): Promise<SkillHubSourcesResponse> {
   return window.agentxDesktop.api<SkillHubSourcesResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/sources',
+    timeoutMs: HUB_REQUEST_TIMEOUT_MS
+  })
+}
+
+/** The hub's catalog for the browse cards. Cheap on every open — the backend
+ *  answers from a 30-minute disk cache; `refresh` forces a real sync. */
+export function getSkillHubCatalog(refresh = false): Promise<SkillHubCatalogResponse> {
+  return window.agentxDesktop.api<SkillHubCatalogResponse>({
+    ...profileScoped(),
+    path: `/api/skills/hub/catalog${refresh ? '?refresh=1' : ''}`,
     timeoutMs: HUB_REQUEST_TIMEOUT_MS
   })
 }

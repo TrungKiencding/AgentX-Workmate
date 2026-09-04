@@ -1275,6 +1275,22 @@ export interface SkillHubSource {
   searchable?: boolean
 }
 
+/** The card-worthy metadata a source knows beyond name/description. Every
+ *  field is optional: what a source fills in differs per source. */
+export interface SkillHubResultExtra {
+  kind?: string
+  version?: string
+  downloads?: number
+  stars?: number
+  category?: string
+  verdict?: string
+  owner?: string
+  visibility?: string
+  provider?: string
+  url?: string
+  updated_at?: string
+}
+
 /** A searchable/installable hub skill from `GET /api/skills/hub/search`. */
 export interface SkillHubResult {
   name: string
@@ -1284,6 +1300,7 @@ export interface SkillHubResult {
   trust_level: string
   repo: string | null
   tags: string[]
+  extra?: SkillHubResultExtra
 }
 
 export interface SkillHubInstalledEntry {
@@ -1297,6 +1314,21 @@ export interface SkillHubSourcesResponse {
   index_available: boolean
   featured: SkillHubResult[]
   installed: Record<string, SkillHubInstalledEntry>
+}
+
+/** `GET /api/skills/hub/catalog` — the AgentX Hub's catalog for browsing,
+ *  synced on open and every 30 minutes. Cards only: nothing is installed
+ *  until Install. `fetched_at` is a Unix timestamp in seconds (0 when the
+ *  catalog has never synced), `stale` means the last sync failed and this is
+ *  the previous one. */
+export interface SkillHubCatalogResponse {
+  skills: SkillHubResult[]
+  installed: Record<string, SkillHubInstalledEntry>
+  fetched_at: number
+  stale: boolean
+  authenticated: boolean
+  hub_url: string
+  error: string
 }
 
 export interface SkillHubSearchResponse {

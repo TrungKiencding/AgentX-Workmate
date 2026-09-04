@@ -65,7 +65,12 @@ function when(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString()
 }
 
-export function HubStatus() {
+/** `hideWhenIdle`: render nothing while the hub has asked this machine for
+ *  nothing (no installs, updates or history). Browsing the store needs no
+ *  account, so an empty "sign in to sync" panel is noise above the cards —
+ *  the panel appears the moment the hub actually wants something here. The
+ *  polling/tick effects still run either way. */
+export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } = {}) {
   const { t } = useI18n()
   const h = t.skills.hub
   const queryClient = useQueryClient()
@@ -142,6 +147,10 @@ export function HubStatus() {
   const history = (data?.history ?? []).slice(0, 5)
   const line = data ? statusLine(data, h) : null
   const updating = actions[UPDATE_ALL_KEY]?.running ?? false
+
+  if (hideWhenIdle && installs.length === 0 && updates.length === 0 && history.length === 0) {
+    return null
+  }
 
   return (
     <section className="mb-4 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3" data-testid="hub-status">

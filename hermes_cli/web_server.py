@@ -4213,11 +4213,15 @@ def _dashboard_spawn_executable() -> str:
     return sys.executable
 
 
-def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
+def _spawn_hermes_action(
+    subcommand: List[str], name: str, extra_env: Optional[Dict[str, str]] = None
+) -> subprocess.Popen:
     """Spawn ``agentx <subcommand>`` detached and record the Popen handle.
 
     Uses the running interpreter's ``hermes_cli.main`` module so the action
-    inherits the same venv/PYTHONPATH the web server is using.
+    inherits the same venv/PYTHONPATH the web server is using. ``extra_env``
+    adds variables for this one action only (the hub install path hands the
+    caller's bearer to a CLI that has no session of its own).
     """
     log_file_name = _ACTION_LOG_FILES[name]
     _ACTION_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -4236,6 +4240,8 @@ def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
     # drops it (gateway/run.py); mirror that here (#52470).
     action_env = {**os.environ, "AGENTX_NONINTERACTIVE": "1"}
     action_env.pop("_AGENTX_GATEWAY", None)
+    if extra_env:
+        action_env.update({str(k): str(v) for k, v in extra_env.items()})
 
     popen_kwargs: Dict[str, Any] = {
         "cwd": str(PROJECT_ROOT),
@@ -13756,7 +13762,17 @@ _SKILL_HUB_SOURCE_LABELS = {
 }
 
 
+#: What a browse card may show from a source's free-form ``extra`` — a
+#: whitelist, so an adapter cannot grow the payload (or smuggle content) by
+#: stuffing its own keys in there.
+_SKILL_META_EXTRA_KEYS = (
+    "kind", "version", "downloads", "stars", "category", "verdict",
+    "owner", "visibility", "provider", "url", "updated_at",
+)
+
+
 def _skill_meta_to_payload(m) -> dict:
+    extra = getattr(m, "extra", None) or {}
     return {
         "name": m.name,
         "description": m.description,
@@ -13765,6 +13781,11 @@ def _skill_meta_to_payload(m) -> dict:
         "trust_level": m.trust_level,
         "repo": m.repo,
         "tags": list(m.tags or []),
+        "extra": {
+            key: extra[key]
+            for key in _SKILL_META_EXTRA_KEYS
+            if isinstance(extra, dict) and extra.get(key) not in (None, "")
+        },
     }
 
 
@@ -13788,12 +13809,20 @@ def _installed_hub_identifiers(profile: Optional[str] = None) -> dict:
         out = {}
         for entry in lock.list_installed():
             ident = entry.get("identifier")
-            if ident:
-                out[ident] = {
-                    "name": entry.get("name"),
-                    "trust_level": entry.get("trust_level"),
-                    "scan_verdict": entry.get("scan_verdict"),
-                }
+            if not ident:
+                continue
+            row = {
+                "name": entry.get("name"),
+                "trust_level": entry.get("trust_level"),
+                "scan_verdict": entry.get("scan_verdict"),
+            }
+            out[ident] = row
+            # An AgentX Hub install is locked at the version it resolved to
+            # (``agentx-hub/<slug>@<version>``) while the catalogue and search
+            # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
+            # for a skill that IS installed reads as if it were not.
+            if ident.startswith("agentx-hub/") and "@" in ident:
+                out.setdefault(ident.split("@", 1)[0], row)
         return out
     except Exception:
         return {}

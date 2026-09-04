@@ -202,3 +202,165 @@ class TestPublish:
         assert body["ok"] is True and body["files"] == ["SKILL.md", "assets/logo.bin"] and body["result"]["package"]["name"] == "dashboard-skill"
         assert fake_hub.calls[-1][0] == "validate" and fake_hub.calls[-1][2]["kind"] == "core"
         assert json.dumps(body)  # serialisable
+
+
+class TestCatalog:
+    """``/api/skills/hub/catalog`` — the store front the Hub tab opens on."""
+
+    @pytest.fixture
+    def hub_catalog(self, monkeypatch):
+        """Record the token each sync ran with; answer with one card."""
+        import hermes_cli.web_server as web_server
+        from tools.skills_hub import SkillMeta
+
+        calls: list = []
+
+        def _catalog(*, token=None, force=False, **_kwargs):
+            calls.append({"token": token, "force": force})
+            if token:
+                skills = [_meta("agentx-hub/vneb-report", SkillMeta), _meta("agentx-hub/kien/notes", SkillMeta, visibility="private")]
+            else:
+                skills = [_meta("agentx-hub/vneb-report", SkillMeta)]
+            return {"skills": skills, "fetched_at": 1_780_000_000.0, "stale": False, "cached": not force,
+                    "authenticated": bool(token), "hub_url": "https://hub.test", "error": ""}
+
+        monkeypatch.setattr("tools.skills_hub.agentx_hub_catalog", _catalog)
+        monkeypatch.setattr(web_server, "_config_profile_scope", lambda profile: contextlib.nullcontext())
+        monkeypatch.setattr(web_server, "_installed_hub_identifiers", lambda profile=None: {})
+        return calls
+
+    def test_it_answers_without_anyone_signing_in(self, hub_catalog, monkeypatch):
+        monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: None)
+        client = TestClient(_app(None))
+
+        body = client.get("/api/skills/hub/catalog").json()
+
+        assert [s["identifier"] for s in body["skills"]] == ["agentx-hub/vneb-report"]
+        assert body["authenticated"] is False and body["stale"] is False and body["fetched_at"] > 0
+        # A card carries what it needs to be a card, and nothing was installed.
+        assert body["skills"][0]["extra"]["version"] == "1.0.0"
+        assert body["installed"] == {}
+        assert hub_catalog == [{"token": None, "force": False}]
+
+    def test_a_bearer_widens_the_catalogue_to_personal_skills(self, hub_catalog):
+        client = TestClient(_app(_session("tok-ada")))
+
+        body = client.get("/api/skills/hub/catalog").json()
+
+        assert [s["identifier"] for s in body["skills"]] == ["agentx-hub/vneb-report", "agentx-hub/kien/notes"]
+        assert body["skills"][1]["extra"]["visibility"] == "private"
+        assert body["authenticated"] is True
+        assert hub_catalog[0]["token"] == "tok-ada"
+
+    def test_refresh_forces_the_sync_behind_the_button(self, hub_catalog, monkeypatch):
+        monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: None)
+        client = TestClient(_app(None))
+
+        client.get("/api/skills/hub/catalog?refresh=1")
+
+        assert hub_catalog[-1]["force"] is True
+
+    def test_a_refused_bearer_falls_back_to_the_public_catalogue(self, monkeypatch):
+        import hermes_cli.web_server as web_server
+        from tools.skills_hub import SkillMeta
+
+        seen: list = []
+
+        def _catalog(*, token=None, force=False, **_kwargs):
+            seen.append(token)
+            if token:
+                return {"skills": [], "fetched_at": 0.0, "stale": True, "cached": False,
+                        "authenticated": True, "hub_url": "https://hub.test", "error": "hub refused the bearer"}
+            return {"skills": [_meta("agentx-hub/vneb-report", SkillMeta)], "fetched_at": 1_780_000_000.0, "stale": False,
+                    "cached": False, "authenticated": False, "hub_url": "https://hub.test", "error": ""}
+
+        monkeypatch.setattr("tools.skills_hub.agentx_hub_catalog", _catalog)
+        monkeypatch.setattr(web_server, "_config_profile_scope", lambda profile: contextlib.nullcontext())
+        monkeypatch.setattr(web_server, "_installed_hub_identifiers", lambda profile=None: {})
+        client = TestClient(_app(_session("tok-stale")))
+
+        body = client.get("/api/skills/hub/catalog").json()
+
+        assert seen == ["tok-stale", ""]
+        assert [s["identifier"] for s in body["skills"]] == ["agentx-hub/vneb-report"]
+
+
+class TestInstallCredentials:
+    """A private hub skill installs through a CLI that has no session of its own."""
+
+    @pytest.fixture
+    def spawned(self, monkeypatch):
+        import hermes_cli.web_server as web_server
+
+        class _Proc:
+            pid = 4242
+
+        calls: list = []
+
+        def _spawn(subcommand, name, extra_env=None):
+            calls.append({"args": list(subcommand), "env": extra_env})
+            return _Proc()
+
+        monkeypatch.setattr(web_server, "_spawn_hermes_action", _spawn)
+        monkeypatch.setattr(web_server, "_hub_action_name", lambda kind, ident: f"skills-{kind}")
+        monkeypatch.setattr(web_server, "_profile_cli_args", lambda profile: [])
+        return calls
+
+    def test_the_callers_bearer_reaches_the_installer(self, spawned):
+        client = TestClient(_app(_session("tok-ada")))
+
+        response = client.post("/api/skills/hub/install", headers=HEADERS, json={"identifier": "agentx-hub/kien/notes"})
+
+        assert response.status_code == 200
+        assert spawned[0]["args"] == ["skills", "install", "agentx-hub/kien/notes", "--yes"]
+        assert spawned[0]["env"] == {"AGENTX_HUB_TOKEN": "tok-ada"}
+
+    def test_other_sources_are_spawned_with_nothing_extra(self, spawned, monkeypatch):
+        monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: None)
+        client = TestClient(_app(_session("tok-ada")))
+
+        client.post("/api/skills/hub/install", headers=HEADERS, json={"identifier": "official/demo"})
+
+        assert spawned[0]["env"] is None
+
+
+def _meta(identifier: str, meta_cls, *, visibility: str = "public"):
+    """A hub SkillMeta the way ``AgentXHubSource`` builds one."""
+    return meta_cls(
+        name=identifier.split("/")[-1],
+        description="does a thing",
+        source="agentx-hub",
+        identifier=identifier,
+        trust_level="agentx-hub-verified",
+        tags=[],
+        extra={"kind": "core", "version": "1.0.0", "downloads": 3, "visibility": visibility},
+    )
+
+
+class TestInstalledMap:
+    """What the cards read to know a skill is already here."""
+
+    def test_a_hub_install_is_found_by_its_unpinned_identifier(self, tmp_path):
+        import hermes_cli.web_server as web_server
+        from hermes_constants import get_hermes_home
+        from tools.skills_hub import HubLockFile
+
+        lock = HubLockFile(get_hermes_home() / "skills" / ".hub" / "lock.json")
+        lock.record_install(
+            name="demo-core", source="agentx-hub", identifier="agentx-hub/demo-core@1.2.0",
+            trust_level="agentx-hub-verified", scan_verdict="safe", skill_hash="sha256:abc",
+            install_path="demo-core", files=["SKILL.md"],
+        )
+        lock.record_install(
+            name="gif-search", source="official", identifier="official/gifs/gif-search",
+            trust_level="builtin", scan_verdict="safe", skill_hash="sha256:def",
+            install_path="gif-search", files=["SKILL.md"],
+        )
+
+        installed = web_server._installed_hub_identifiers()
+
+        # The catalogue card speaks the unpinned identifier; the lock pins one.
+        assert installed["agentx-hub/demo-core"]["name"] == "demo-core"
+        assert installed["agentx-hub/demo-core@1.2.0"]["name"] == "demo-core"
+        # Other sources are untouched.
+        assert set(installed) == {"agentx-hub/demo-core", "agentx-hub/demo-core@1.2.0", "official/gifs/gif-search"}

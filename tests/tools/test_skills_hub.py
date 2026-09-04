@@ -31,6 +31,21 @@ from tools.skills_hub import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_leaked_path_overrides():
+    """``tools.skills_hub`` resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… live through
+    PEP 562 ``__getattr__``; a real module attribute of the same name wins.
+    ``monkeypatch.setattr`` on such a name reads the *resolved* value as the
+    "old" one and puts it back as a real attribute on undo — pinning every
+    later test in the process to this test's throwaway home. Drop any such
+    attribute after each test so the resolvers are live again."""
+    yield
+    import tools.skills_hub as hub
+
+    for name in hub._DYNAMIC_PATH_RESOLVERS:
+        hub.__dict__.pop(name, None)
+
+
 # ---------------------------------------------------------------------------
 # GitHubSource._parse_frontmatter_quick
 # ---------------------------------------------------------------------------
@@ -1688,7 +1703,6 @@ def _hub_transport(files, *, sign=True, tamper=False, kid="k1", kind="core", wel
             return httpx.Response(200, json={"api_version": 1, "signing_keys": [{"kid": wellknown_kid or kid, "alg": "ed25519", "ed25519_pub": public_b64}]})
         if path == "/v1/skills":
             q = request.url.params.get("q", "")
-            assert request.url.params.get("kind") == "core"
             return httpx.Response(200, json={"skills": [skill_json] if (not q or "demo" in q) else [], "next_cursor": None})
         if path == "/v1/skills/demo-core":
             return httpx.Response(200, json=skill_json)
@@ -1763,12 +1777,19 @@ class TestAgentXHubSource:
 
     @patch("tools.skills_hub._write_index_cache")
     @patch("tools.skills_hub._read_index_cache", return_value=None)
-    def test_browser_skills_are_not_installable_in_workmate(self, _r, _w):
+    def test_browser_skills_install_like_any_other(self, _r, _w):
+        """A browser skill is a SKILL.md of site instructions the agent can
+        follow with its own browser toolset — it lists, inspects and installs
+        here, and the lock remembers what kind it was."""
         from tools.skills_hub import AgentXHubSource
 
         transport, _ = _hub_transport({"SKILL.md": "# x\n"}, kind="browser")
         src = AgentXHubSource("https://hub.test", token="", transport=transport)
-        assert src.fetch("agentx-hub/demo-core") is None
+        assert [m.extra["kind"] for m in src.search("demo")] == ["browser"]
+        assert src.inspect("agentx-hub/demo-core").extra["kind"] == "browser"
+        bundle = src.fetch("agentx-hub/demo-core")
+        assert bundle is not None and bundle.metadata["kind"] == "browser"
+        assert bundle.trust_level == "agentx-hub-verified"
 
     def test_unreachable_hub_degrades_to_nothing(self):
         from tools.skills_hub import AgentXHubSource
@@ -1807,7 +1828,6 @@ class TestAgentXHubSource:
         AgentXHubSource("https://hub.test", token="hub_secret", transport=httpx.MockTransport(handler)).search("x")
         assert seen["auth"] == "Bearer hub_secret"
 
-
     @patch("tools.skills_hub._write_index_cache")
     @patch("tools.skills_hub._read_index_cache", return_value=None)
     def test_update_check_looks_past_the_pinned_version(self, _r, _w):
@@ -1832,6 +1852,150 @@ class TestAgentXHubSource:
         again = check_for_skill_updates(lock=lock, sources=[src])
         assert again[0]["status"] == "up_to_date"
         assert again[0]["identifier"] == "agentx-hub/demo-core@1.1.0"
+
+
+def _hub_item(slug: str, **overrides) -> dict:
+    """One row of the hub's ``/v1/skills`` answer."""
+    item = {
+        "slug": slug,
+        "name": slug,
+        "description": f"{slug} does a thing",
+        "kind": "core",
+        "visibility": "public",
+        "latest_version": "1.0.0",
+        "latest_content_hash": "sha256:" + slug,
+        "downloads": 3,
+        "stars": 1,
+        "tags": [],
+        "targets": [],
+        "owner": {"slug": "kien"},
+        "updated_at": "2026-09-04T00:00:00Z",
+        "scan": {"verdict": "safe", "signed": True},
+    }
+    item.update(overrides)
+    return item
+
+
+def _catalog_transport(pages: dict, seen: Optional[list] = None) -> httpx.MockTransport:
+    """Serve ``/v1/skills`` from ``{cursor: page}`` ("" is the first page)."""
+
+    def handler(request):
+        if request.url.path != "/v1/skills":
+            return httpx.Response(404, json={})
+        if seen is not None:
+            seen.append(dict(request.url.params))
+        page = pages.get(request.url.params.get("cursor") or "")
+        if page is None:
+            return httpx.Response(500, json={})
+        return httpx.Response(200, json=page)
+
+    return httpx.MockTransport(handler)
+
+
+class TestAgentXHubCatalog:
+    """The browse catalogue: paged, cached for 30 minutes, outage-tolerant."""
+
+    PAGES = {
+        "": {"skills": [_hub_item("alpha")], "next_cursor": "c2"},
+        "c2": {"skills": [_hub_item("beta", visibility="private")], "next_cursor": None},
+    }
+
+    def test_catalog_pages_until_the_cursor_runs_out(self):
+        from tools.skills_hub import AgentXHubSource
+
+        seen: list = []
+        src = AgentXHubSource("https://hub.test", token="", transport=_catalog_transport(self.PAGES, seen))
+        metas = src.catalog(limit=10, page_size=1)
+
+        assert [m.identifier for m in metas] == ["agentx-hub/alpha", "agentx-hub/beta"]
+        # Every kind, most recently changed first.
+        assert "kind" not in seen[0] and seen[0]["sort"] == "updated"
+        assert seen[1]["cursor"] == "c2"
+        # A card can badge a personal skill because visibility rides along.
+        assert metas[1].extra["visibility"] == "private"
+
+    def test_the_limit_caps_one_sync(self):
+        from tools.skills_hub import AgentXHubSource
+
+        src = AgentXHubSource("https://hub.test", token="", transport=_catalog_transport(self.PAGES))
+        assert len(src.catalog(limit=1, page_size=1)) == 1
+
+    def test_an_unreachable_hub_raises_instead_of_reading_as_empty(self):
+        from tools.skills_hub import AgentXHubSource, HubCatalogUnavailable
+
+        def boom(request):
+            raise httpx.ConnectError("no route", request=request)
+
+        src = AgentXHubSource("https://hub.test", token="", transport=httpx.MockTransport(boom))
+        with pytest.raises(HubCatalogUnavailable):
+            src.catalog()
+
+    def test_a_second_open_is_served_from_the_cache_and_an_outage_keeps_the_cards(self):
+        from tools.skills_hub import agentx_hub_catalog
+
+        seen: list = []
+        transport = _catalog_transport(self.PAGES, seen)
+
+        first = agentx_hub_catalog(token="", base_url="https://hub.test", transport=transport)
+        assert [m.name for m in first["skills"]] == ["alpha", "beta"]
+        assert first["cached"] is False and first["stale"] is False and first["fetched_at"] > 0
+        pages_fetched = len(seen)
+
+        # Opening the tab again inside the TTL costs nothing.
+        second = agentx_hub_catalog(token="", base_url="https://hub.test", transport=transport)
+        assert second["cached"] is True and len(seen) == pages_fetched
+        assert [m.name for m in second["skills"]] == ["alpha", "beta"]
+
+        # The Sync button forces the network sync the TTL was suppressing.
+        agentx_hub_catalog(token="", base_url="https://hub.test", transport=transport, force=True)
+        assert len(seen) > pages_fetched
+
+        # …and a hub that has gone away keeps showing the last sync.
+        def boom(request):
+            raise httpx.ConnectError("no route", request=request)
+
+        outage = agentx_hub_catalog(
+            token="", base_url="https://hub.test", transport=httpx.MockTransport(boom), force=True
+        )
+        assert outage["stale"] is True and outage["error"]
+        assert [m.name for m in outage["skills"]] == ["alpha", "beta"]
+
+    def test_an_expired_catalogue_is_re_synced(self):
+        from tools.skills_hub import agentx_hub_catalog
+
+        seen: list = []
+        transport = _catalog_transport(self.PAGES, seen)
+        agentx_hub_catalog(token="", base_url="https://hub.test", transport=transport)
+        pages_fetched = len(seen)
+
+        aged = agentx_hub_catalog(token="", base_url="https://hub.test", transport=transport, ttl=0)
+        assert aged["cached"] is False and len(seen) > pages_fetched
+
+    def test_one_persons_catalogue_is_never_served_to_another(self):
+        from tools.skills_hub import agentx_hub_catalog
+
+        seen: list = []
+        transport = _catalog_transport(self.PAGES, seen)
+        agentx_hub_catalog(token="ada-token", base_url="https://hub.test", transport=transport)
+        pages_fetched = len(seen)
+
+        # A different bearer (and the anonymous view) must not read Ada's rows
+        # out of the cache — the fingerprint misses and it syncs afresh.
+        for token in ("bob-token", ""):
+            other = agentx_hub_catalog(token=token, base_url="https://hub.test", transport=transport)
+            assert other["cached"] is False
+            assert len(seen) > pages_fetched
+            pages_fetched = len(seen)
+
+    def test_no_hub_no_catalogue(self):
+        from tools.skills_hub import agentx_hub_catalog
+
+        def boom(request):
+            raise httpx.ConnectError("no route", request=request)
+
+        out = agentx_hub_catalog(token="", base_url="https://gone.test", transport=httpx.MockTransport(boom))
+        assert out["skills"] == [] and out["stale"] is True and out["error"]
+
 
 
 class TestHubVerifiedInstallPolicy:

@@ -4078,7 +4078,7 @@ def check_for_skill_updates(
 DEFAULT_AGENTX_HUB_URL = "https://skills.dev-server.cloud"
 
 AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
-    f"{DEFAULT_AGENTX_HUB_URL}/v1/index.json?kind=core"
+    f"{DEFAULT_AGENTX_HUB_URL}/v1/index.json"
 )
 AGENTX_INDEX_TTL = 6 * 3600  # 6 hours
 
@@ -4369,6 +4369,18 @@ class HermesIndexSource(SkillSource):
 #: ``tools.skills_guard.INSTALL_POLICY`` like ``trusted``.
 AGENTX_HUB_TRUST_VERIFIED = "agentx-hub-verified"
 _AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-keys"
+_AGENTX_HUB_CATALOG_CACHE_KEY = "agentx-hub-catalog"
+#: How long a synced catalog stays fresh. The desktop asks on every open; this
+#: is what keeps "sync on open" from being a network call every time.
+AGENTX_HUB_CATALOG_TTL = 30 * 60
+#: Ceiling on one sync, so a large hub cannot page forever.
+AGENTX_HUB_CATALOG_MAX = 500
+
+
+class HubCatalogUnavailable(RuntimeError):
+    """The hub could not be reached (or refused us) while listing the catalog."""
+
+
 _AGENTX_HUB_IDENTIFIER_RE = re.compile(
     r"^agentx-hub/(?P<slug>[a-z0-9][a-z0-9_-]*(?:/[a-z0-9][a-z0-9_-]*)?)"
     r"(?:@(?P<version>[0-9A-Za-z.+-]+))?$"
@@ -4442,6 +4454,11 @@ class AgentXHubSource(SkillSource):
     hub index cache, one hour). A bundle that verifies is installed with the
     trust level ``agentx-hub-verified``; one that does not is treated as
     ``community`` — the hub's verdict is never trusted without its signature.
+
+    Both kinds install here: a ``core`` skill is a Workmate skill outright; a
+    ``browser`` skill is a SKILL.md of site instructions that the agent follows
+    with its own browser toolset (WebMate's per-site activation and intents do
+    not apply — it is a skill like any other once installed).
 
     Identifiers: ``agentx-hub/<slug>`` (latest) or ``agentx-hub/<slug>@<version>``.
     """
@@ -4557,6 +4574,10 @@ class AgentXHubSource(SkillSource):
                 "provider": "AgentX Hub",
                 "verdict": scan.get("verdict"),
                 "owner": owner.get("slug"),
+                # The browse cards badge anything that is not public, and show
+                # when a skill last moved.
+                "visibility": item.get("visibility"),
+                "updated_at": item.get("updated_at"),
                 "url": f"{self.base_url}/skills/{item.get('slug', '')}",
             },
         )
@@ -4564,7 +4585,7 @@ class AgentXHubSource(SkillSource):
     # -- the adapter -----------------------------------------------------------
 
     def search(self, query: str, limit: int = 10) -> List[SkillMeta]:
-        params: Dict[str, Any] = {"kind": "core", "limit": max(1, min(int(limit), 100))}
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 100))}
         if (query or "").strip():
             params["q"] = query.strip()
         data = self._get_json("/v1/skills", params)
@@ -4572,13 +4593,45 @@ class AgentXHubSource(SkillSource):
             return []
         return [self._to_meta(item) for item in data.get("skills") or [] if isinstance(item, dict)]
 
+    def catalog(self, *, limit: int = AGENTX_HUB_CATALOG_MAX, page_size: int = 100) -> List[SkillMeta]:
+        """Every skill this caller may see, of either kind, most recently
+        changed first.
+
+        Public rows always; the caller's own private rows and their org's when
+        a token is set — the hub decides what a bearer may see, we just page
+        ``/v1/skills`` until it stops handing back a cursor. Raises
+        :class:`HubCatalogUnavailable` when the hub answers nothing at all, so
+        a caller can tell "the hub is down" from "the hub has no skills".
+        """
+        out: List[SkillMeta] = []
+        cursor: Optional[str] = None
+        page = max(1, min(int(page_size), 100))
+        while len(out) < limit:
+            params: Dict[str, Any] = {
+                "sort": "updated",
+                "limit": min(page, limit - len(out)),
+            }
+            if cursor:
+                params["cursor"] = cursor
+            data = self._get_json("/v1/skills", params)
+            if not isinstance(data, dict):
+                if not out:
+                    raise HubCatalogUnavailable(f"{self.base_url} did not answer with a catalog")
+                break  # a mid-catalog failure keeps the pages we did get
+            items = [item for item in (data.get("skills") or []) if isinstance(item, dict)]
+            out.extend(self._to_meta(item) for item in items)
+            cursor = str(data.get("next_cursor") or "") or None
+            if not cursor or not items:
+                break
+        return out
+
     def inspect(self, identifier: str) -> Optional[SkillMeta]:
         parsed = self.parse_identifier(identifier)
         if not parsed:
             return None
         slug, _version = parsed
         data = self._get_json(f"/v1/skills/{slug}")
-        if not isinstance(data, dict) or data.get("kind") not in (None, "core"):
+        if not isinstance(data, dict):
             return None
         return self._to_meta(data)
 
@@ -4589,9 +4642,6 @@ class AgentXHubSource(SkillSource):
         slug, version = parsed
         data = self._get_json(f"/v1/skills/{slug}/versions/{version}/bundle", {"format": "json"})
         if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
-            return None
-        if data.get("kind") not in (None, "core"):
-            logger.info("AgentX Hub skill %s is a %s skill, not installable in Workmate", slug, data.get("kind"))
             return None
 
         import base64
@@ -4650,6 +4700,105 @@ class AgentXHubSource(SkillSource):
                 "targets": data.get("targets") or [],
             },
         )
+
+
+def _skill_meta_from_dict(data: dict) -> SkillMeta:
+    """The inverse of :func:`_skill_meta_to_dict` (cache read side)."""
+    return SkillMeta(
+        name=str(data.get("name") or ""),
+        description=str(data.get("description") or ""),
+        source=str(data.get("source") or ""),
+        identifier=str(data.get("identifier") or ""),
+        trust_level=str(data.get("trust_level") or "community"),
+        repo=data.get("repo"),
+        path=data.get("path"),
+        tags=[str(t) for t in (data.get("tags") or [])],
+        extra=dict(data.get("extra") or {}),
+    )
+
+
+def _hub_catalog_cache_file() -> Path:
+    return _index_cache_dir() / f"{_AGENTX_HUB_CATALOG_CACHE_KEY}.json"
+
+
+def _catalog_identity(token: str) -> str:
+    """Who the cached catalog belongs to — never the token itself.
+
+    A personal catalog holds private rows; serving it to a different identity
+    (or to nobody) would leak them, so the cache is only reused when this
+    fingerprint matches.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16] if token else ""
+
+
+def _read_hub_catalog_cache(hub_url: str, identity: str) -> Optional[dict]:
+    try:
+        data = json.loads(_hub_catalog_cache_file().read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("skills"), list):
+        return None
+    if data.get("hub_url") != hub_url or data.get("identity") != identity:
+        return None
+    return data
+
+
+def _hub_catalog_result(data: dict, *, hub_url: str, token: str, stale: bool, cached: bool, error: str = "") -> Dict[str, Any]:
+    return {
+        "skills": [_skill_meta_from_dict(entry) for entry in data.get("skills") or []],
+        "fetched_at": float(data.get("fetched_at") or 0.0),
+        "stale": stale,
+        "cached": cached,
+        "authenticated": bool(token),
+        "hub_url": hub_url,
+        "error": error,
+    }
+
+
+def agentx_hub_catalog(
+    *,
+    token: Optional[str] = None,
+    base_url: Optional[str] = None,
+    force: bool = False,
+    ttl: float = AGENTX_HUB_CATALOG_TTL,
+    limit: int = AGENTX_HUB_CATALOG_MAX,
+    transport: Any = None,
+) -> Dict[str, Any]:
+    """The AgentX Hub catalog for browsing, cached on disk for ``ttl`` seconds.
+
+    ``token=None`` uses whatever :func:`agentx_hub_token` resolves (env or
+    ``skills.hub_token``); pass ``""`` to force the anonymous, public-only
+    view. Returns ``{"skills": [SkillMeta], "fetched_at", "stale", "cached",
+    "authenticated", "hub_url", "error"}``. A failed sync falls back to the
+    last cache, flagged ``stale``, so browsing survives a hub outage.
+    """
+    hub_url = (base_url or agentx_hub_url()).rstrip("/")
+    bearer = agentx_hub_token() if token is None else (token or "")
+    identity = _catalog_identity(bearer)
+    cached = _read_hub_catalog_cache(hub_url, identity)
+    now = time.time()
+
+    if cached is not None and not force:
+        age = now - float(cached.get("fetched_at") or 0.0)
+        if 0 <= age < ttl:
+            return _hub_catalog_result(cached, hub_url=hub_url, token=bearer, stale=False, cached=True)
+
+    try:
+        metas = AgentXHubSource(hub_url, token=bearer, transport=transport).catalog(limit=limit)
+    except HubCatalogUnavailable as exc:
+        logger.debug("AgentX Hub catalog sync failed: %s", exc)
+        if cached is not None:
+            return _hub_catalog_result(cached, hub_url=hub_url, token=bearer, stale=True, cached=True, error=str(exc))
+        return _hub_catalog_result({}, hub_url=hub_url, token=bearer, stale=True, cached=False, error=str(exc))
+
+    payload = {
+        "hub_url": hub_url,
+        "identity": identity,
+        "fetched_at": now,
+        "skills": [_skill_meta_to_dict(meta) for meta in metas],
+    }
+    _write_index_cache(_AGENTX_HUB_CATALOG_CACHE_KEY, payload)
+    return _hub_catalog_result(payload, hub_url=hub_url, token=bearer, stale=False, cached=False)
 
 
 def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]:
