@@ -1247,7 +1247,6 @@ export const en: Translations = {
       search: 'Search',
       searching: 'Searching...',
       connectingHubs: 'Connecting to skill hubs...',
-      connectedHubs: 'Connected hubs:',
       featured: 'Featured skills',
       landingHint:
         'Search the hub to browse installable skills from the official index, GitHub, and community sources.',
@@ -1257,7 +1256,6 @@ export const en: Translations = {
       neverSynced: 'Not synced yet',
       storeOnline: 'Connected',
       storeOffline: 'Unreachable',
-      searchElsewhere: 'Also searches:',
       kind: { core: 'Desktop', browser: 'Browser' },
       noResults: 'No matching skills found in the hub.',
       resultCount: (count, ms) => `${count} result${count === 1 ? '' : 's'}${ms !== null ? ` in ${ms}ms` : ''}`,

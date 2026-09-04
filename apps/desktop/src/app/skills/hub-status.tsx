@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 import { cn } from '@/lib/utils'
-import { $hubActions, HUB_SOURCES_KEY, UPDATE_ALL_KEY, updateHubSkills } from '@/store/hub-actions'
+import { $hubActions, HUB_CATALOG_KEY, UPDATE_ALL_KEY, updateHubSkills } from '@/store/hub-actions'
 import { notify, notifyError } from '@/store/notifications'
 import type { SkillHubChangesResponse, SkillHubInstallRow } from '@/types/hermes'
 
@@ -127,7 +127,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
 
     if (seenRevision !== null && seenRevision !== revision) {
       void queryClient.invalidateQueries({ queryKey: SKILLS_LIST_KEY })
-      void queryClient.invalidateQueries({ queryKey: HUB_SOURCES_KEY })
+      void queryClient.invalidateQueries({ queryKey: HUB_CATALOG_KEY })
       invalidateSlashCompletions()
     }
 

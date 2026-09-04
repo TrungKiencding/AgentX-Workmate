@@ -4801,19 +4801,49 @@ def agentx_hub_catalog(
     return _hub_catalog_result(payload, hub_url=hub_url, token=bearer, stale=False, cached=False)
 
 
+def extra_skill_sources_enabled() -> bool:
+    """Whether anything beyond the AgentX Skill Hub is wired up.
+
+    Off by default: the skill store connects to the hub and nothing else, so a
+    skill has one provenance, one signature and one trust story. Machines that
+    still install by a foreign identifier (``github/...``, ``official/...``, a
+    direct SKILL.md URL, a ``skills tap``) turn the rest back on with env
+    ``AGENTX_SKILLS_EXTRA_SOURCES`` or ``skills.extra_sources`` in the config.
+    """
+    env = (os.environ.get("AGENTX_SKILLS_EXTRA_SOURCES") or "").strip().lower()
+    if env:
+        return env not in {"0", "false", "no", "off"}
+    try:
+        from hermes_cli.config import load_config_readonly
+
+        return bool((load_config_readonly().get("skills") or {}).get("extra_sources", False))
+    except Exception:
+        return False
+
+
 def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]:
     """
-    Create all configured source adapters.
-    Returns a list of active sources for search/fetch operations.
+    Create the configured source adapters, in resolution order.
+
+    The AgentX Skill Hub alone by default (see
+    :func:`extra_skill_sources_enabled`); the legacy fan-out is appended after
+    it when the machine has opted back in, so ``agentx-hub/*`` still resolves
+    at the hub either way.
     """
+    sources: List[SkillSource] = [
+        AgentXHubSource(),            # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
+    ]
+
+    if not extra_skill_sources_enabled():
+        return sources
+
     if auth is None:
         auth = GitHubAuth()
 
     taps_mgr = TapsManager()
     extra_taps = taps_mgr.list_taps()
 
-    sources: List[SkillSource] = [
-        AgentXHubSource(),            # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
+    sources += [
         OptionalSkillSource(),        # Official optional skills (highest priority)
         HermesIndexSource(auth=auth), # Centralized index (search + resolved install paths)
         SkillsShSource(auth=auth),

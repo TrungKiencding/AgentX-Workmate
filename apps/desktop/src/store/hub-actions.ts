@@ -8,9 +8,10 @@ import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 
 const POLL_MS = 1200
 
-// Shared with hub.tsx's sources useQuery so a finished action refreshes the
-// installed map.
-export const HUB_SOURCES_KEY = ['skill-hub-sources'] as const
+// Shared with hub.tsx's catalogue useQuery so a finished action refreshes the
+// installed map. The catalogue IS the store — the hub is the only source it
+// reads — so this one key covers every card on the tab.
+export const HUB_CATALOG_KEY = ['skill-hub-catalog'] as const
 // The Capabilities Skills-list query key (see app/skills/index.tsx) — kept in
 // sync here so a hub (un)install updates the Skills tab, not just the hub.
 const SKILLS_LIST_KEY = ['skills-list'] as const
@@ -29,9 +30,9 @@ export interface HubAction {
 // row drives its own button off ITS entry — one install never touches another.
 export const $hubActions = map<Record<string, HubAction | undefined>>({})
 
-// Optimistic installed overrides so a row flips to its resolved state the instant
-// its own action finishes, instead of waiting on (and racing) the sources
-// refetch. install/update → true, uninstall → false; sources reconciles after.
+// Optimistic installed overrides so a card flips to its resolved state the instant
+// its own action finishes, instead of waiting on (and racing) the catalogue
+// refetch. install/update → true, uninstall → false; the catalogue reconciles after.
 export const $hubInstalledOverride = map<Record<string, boolean | undefined>>({})
 
 // The key whose log the bottom pane currently tails (the latest-started action).
@@ -62,7 +63,7 @@ $activeGatewayProfile.subscribe(value => {
 
 // One self-contained task: spawn → tail its own action log into the store →
 // mark resolved. Concurrency-safe: state is per-key, so parallel installs never
-// stomp each other, and the sources query is invalidated once at the end.
+// stomp each other, and the catalogue query is invalidated once at the end.
 async function runHubAction(key: string, kind: HubActionKind, spawn: () => Promise<{ name: string }>): Promise<void> {
   const epoch = _hubEpoch
   const switched = () => _hubEpoch !== epoch
@@ -103,7 +104,7 @@ async function runHubAction(key: string, kind: HubActionKind, spawn: () => Promi
 
     // Refresh the hub's installed map AND the Capabilities Skills list — a hub
     // (un)install adds/removes a skill, so its count/rows must update too.
-    void queryClient.invalidateQueries({ queryKey: HUB_SOURCES_KEY })
+    void queryClient.invalidateQueries({ queryKey: HUB_CATALOG_KEY })
     void queryClient.invalidateQueries({ queryKey: SKILLS_LIST_KEY })
     // …and the composer's `/` list, which caches the command catalog for an
     // hour and would otherwise keep offering the skill we just removed.

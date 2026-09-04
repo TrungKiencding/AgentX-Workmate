@@ -7,7 +7,6 @@ import type * as HermesApi from '@/hermes'
 import type { SkillHubCatalogResponse, SkillHubResult } from '@/types/hermes'
 
 const getSkillHubCatalog = vi.fn()
-const getSkillHubSources = vi.fn()
 const getSkillHubChanges = vi.fn()
 const tickSkillHub = vi.fn()
 const searchSkillsHub = vi.fn()
@@ -19,7 +18,6 @@ vi.mock('@/hermes', async importOriginal => ({
   getActionStatus: (name: string) => getActionStatus(name),
   getSkillHubCatalog: (refresh?: boolean) => getSkillHubCatalog(refresh),
   getSkillHubChanges: () => getSkillHubChanges(),
-  getSkillHubSources: () => getSkillHubSources(),
   installSkillFromHub: (identifier: string) => installSkillFromHub(identifier),
   searchSkillsHub: (query: string, source: string) => searchSkillsHub(query, source),
   tickSkillHub: () => tickSkillHub()
@@ -83,7 +81,6 @@ async function renderHub(query = '') {
 
 beforeEach(() => {
   getSkillHubCatalog.mockResolvedValue(catalog())
-  getSkillHubSources.mockResolvedValue({ sources: [{ id: 'agentx-hub', label: 'AgentX Hub' }], index_available: true, featured: [], installed: {} })
   // Nothing pushed to this machine: the desired-state panel must stay away.
   getSkillHubChanges.mockResolvedValue({ enabled: true, configured: true, base_url: 'https://skills.dev-server.cloud', stream: 'off', revision: 1, last: { status: 'signed_out', detail: '', at: '' }, installs: [], updates: [], history: [], org: null })
   tickSkillHub.mockResolvedValue({ status: 'signed_out', detail: '' })
@@ -155,6 +152,20 @@ describe('SkillsHub — the skill store', () => {
     await screen.findAllByTestId('hub-card')
 
     expect(screen.queryByTestId('hub-status')).toBeNull()
+  })
+
+  it('searches the hub and nowhere else', async () => {
+    await renderHub('report')
+
+    // One search, aimed at the hub — no fan-out to GitHub, ClawHub, skills.sh…
+    await waitFor(() => expect(searchSkillsHub).toHaveBeenCalledWith('report', 'agentx-hub'))
+    expect(searchSkillsHub).toHaveBeenCalledTimes(1)
+    // …and no list of other hubs anywhere on the tab.
+    const bar = screen.getByTestId('hub-catalog-bar').textContent ?? ''
+
+    for (const other of ['GitHub', 'ClawHub', 'LobeHub', 'skills.sh', 'browse.sh', 'Official']) {
+      expect(bar).not.toContain(other)
+    }
   })
 
   it('says so when the hub could not be reached and the cards are the last sync', async () => {

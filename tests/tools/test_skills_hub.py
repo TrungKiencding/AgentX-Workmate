@@ -477,8 +477,35 @@ class TestCheckForSkillUpdates:
 
 class TestCreateSourceRouter:
 
-    def test_url_source_runs_before_github_source(self):
+    def test_the_hub_is_the_only_source_by_default(self, monkeypatch):
+        # The skill store connects to the AgentX Skill Hub and nothing else:
+        # one registry, one signature, one trust story.
+        monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "0")
+        sources = create_source_router(auth=MagicMock(spec=GitHubAuth))
+        assert [src.source_id() for src in sources] == ["agentx-hub"]
+
+    def test_extra_sources_are_opt_in(self, monkeypatch):
+        # A machine that still installs by a foreign identifier turns the
+        # legacy fan-out back on -- behind, never in front of, the hub.
+        monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "1")
+        sources = create_source_router(auth=MagicMock(spec=GitHubAuth))
+        ids = [src.source_id() for src in sources]
+        assert ids[0] == "agentx-hub"
+        assert {"official", "github", "url", "agentx-index"} <= set(ids)
+
+    def test_the_config_key_opts_in_too(self, monkeypatch):
+        monkeypatch.delenv("AGENTX_SKILLS_EXTRA_SOURCES", raising=False)
+        import hermes_cli.config as config_mod
+
+        monkeypatch.setattr(
+            config_mod, "load_config_readonly", lambda: {"skills": {"extra_sources": True}}
+        )
+        ids = [src.source_id() for src in create_source_router(auth=MagicMock(spec=GitHubAuth))]
+        assert "github" in ids
+
+    def test_url_source_runs_before_github_source(self, monkeypatch):
         # UrlSource must win over GitHubSource when both could claim a URL.
+        monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "1")
         sources = create_source_router(auth=MagicMock(spec=GitHubAuth))
         url_idx = next(i for i, src in enumerate(sources) if isinstance(src, UrlSource))
         gh_idx = next(i for i, src in enumerate(sources) if isinstance(src, GitHubSource))

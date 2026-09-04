@@ -1057,7 +1057,6 @@ export interface Translations {
       search: string
       searching: string
       connectingHubs: string
-      connectedHubs: string
       featured: string
       landingHint: string
       catalogCount: (count: number) => string
@@ -1066,7 +1065,6 @@ export interface Translations {
       neverSynced: string
       storeOnline: string
       storeOffline: string
-      searchElsewhere: string
       kind: Record<'core' | 'browser', string>
       noResults: string
       resultCount: (count: number, ms: number | null) => string

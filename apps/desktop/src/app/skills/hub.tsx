@@ -47,6 +47,11 @@ import { notify, notifyError } from '@/store/notifications'
 
 import { HUB_CHANGES_KEY, HubStatus } from './hub-status'
 
+// The only source the store reads. The backend defaults to the same one, so
+// this is belt and braces: a machine that has opted extra sources back in for
+// the CLI still browses a store that is purely the hub.
+const HUB_SOURCE_ID = 'agentx-hub'
+
 // The store is the AgentX Skill Hub and nothing else — one registry, signed
 // bundles, one trust story. The catalogue it opens on is synced from the hub
 // without anyone signing in (public skills always; the person's own once a
@@ -267,7 +272,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
   // Per-item action lifecycle + log live in the store (store/hub-actions): each
   // card reads ITS own entry, so concurrent installs never desync each other,
   // and an optimistic installed-override flips a card the instant its action
-  // resolves rather than racing the sources refetch.
+  // resolves rather than racing the catalogue refetch.
   const actions = useStore($hubActions)
   const overrides = useStore($hubInstalledOverride)
   const activeLogKey = useStore($hubActiveLog)
@@ -331,12 +336,11 @@ export function SkillsHub({ query }: SkillsHubProps) {
     return catalog.filter(skill => haystack(skill).includes(needle))
   }, [catalog, term])
 
-  // Landing: the whole catalogue (the index's featured list only stands in
-  // when the catalogue is empty). Searching: catalogue hits first, then
-  // whatever the other hubs stream in.
+  // Landing: the whole catalogue. Searching: the catalogue's own hits first,
+  // then anything the hub returns that the cached catalogue didn't hold.
   const listed = useMemo(() => {
     if (term.length === 0) {
-      return catalog.length > 0 ? catalog : featured
+      return catalog
     }
 
     const merged = new Map(catalogMatches.map(skill => [skill.identifier, skill]))
@@ -348,42 +352,32 @@ export function SkillsHub({ query }: SkillsHubProps) {
     }
 
     return [...merged.values()]
-  }, [catalog, catalogMatches, featured, results, term])
+  }, [catalog, catalogMatches, results, term])
 
-  // Installed map: the catalogue and sources seed it, search results patch it
-  // (a term can surface installs neither listed); the optimistic override wins
-  // so a just-(un)installed card reflects its own outcome without the refetch race.
-  const installed = { ...(catalogQuery.data?.installed ?? {}), ...(sourcesQuery.data?.installed ?? {}) }
-
-  for (const q of sourceSearches) {
-    Object.assign(installed, q.data?.installed ?? {})
-  }
+  // Installed map: the catalogue seeds it, the search patches it (a term can
+  // surface an install the cached catalogue didn't list); the optimistic
+  // override wins so a just-(un)installed card reflects its own outcome
+  // without the refetch race.
+  const installed = { ...(catalogQuery.data?.installed ?? {}), ...(search.data?.installed ?? {}) }
 
   const isInstalled = (identifier: string) => overrides[identifier] ?? Boolean(installed[identifier])
 
-  const sources = sourcesQuery.data?.sources ?? []
-
-  // Still fetching from at least one source; "done" only once every source has
-  // settled (so "No results" doesn't flash while slower sources are still in).
-  const anyFetching = term.length > 0 && sourceSearches.some(q => q.isFetching)
-  const searched = term.length > 0 && sourceSearches.length > 0 && sourceSearches.every(q => !q.isFetching)
+  const anyFetching = term.length > 0 && search.isFetching
+  const searched = term.length > 0 && !search.isFetching
   const showLanding = term.length === 0
-  // Only block the whole pane on the first landing; after that results stream
-  // in progressively while a subtle footer shows more are coming.
+  // Only block the whole pane when there is nothing to show yet; a search over
+  // the cached catalogue answers instantly while the hub's own reply lands.
   const loading = showLanding ? catalogQuery.isLoading && catalog.length === 0 : anyFetching && listed.length === 0
   const hasInstalled = Object.keys(installed).length > 0
   const offline = Boolean(catalogQuery.data?.stale && catalogQuery.data.error)
   const hubUrl = catalogQuery.data?.hub_url
   const lastSync = catalogQuery.data?.fetched_at ? h.lastSync(syncedAt(catalogQuery.data.fetched_at, locale)) : h.neverSynced
-  // The other hubs a search reaches, with their live search state.
-  const otherSources = sources.filter(source => !STORE_SOURCE_IDS.has(source.id))
   const updatingAll = actions[UPDATE_ALL_KEY]?.running ?? false
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* The store front: which hub this is, whether it answers, what it
-          holds and when it last synced — then the other places a search
-          reaches. */}
+          holds and when it last synced. One hub — nothing else to list. */}
       <div className="shrink-0 px-4 pt-4 pb-3" data-testid="hub-catalog-bar">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -444,40 +438,6 @@ export function SkillsHub({ query }: SkillsHubProps) {
           <p className="mt-1 text-xs text-amber-400" data-testid="hub-catalog-offline">
             {h.catalogOffline}
           </p>
-        )}
-
-        {/* The other hubs a search reaches, each with its own spinner and a
-            degraded tint while a term is out. */}
-        {!sourcesQuery.isLoading && otherSources.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-(--ui-text-tertiary)">
-            <span className="mr-0.5">{h.searchElsewhere}</span>
-            {otherSources.map(source => {
-              const state = searchStateById.get(source.id)
-              const degraded = source.available === false || source.rate_limited === true || state?.failed
-              const fetching = state?.fetching ?? false
-
-              return (
-                <span
-                  className={cn(
-                    'relative rounded-md px-2 py-0.5 text-xs transition-opacity',
-                    degraded ? 'bg-amber-500/15 text-amber-400' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)',
-                    // While searching, un-hit sources dim so the active ones read clearly.
-                    term.length > 0 && !fetching && !state?.failed && 'opacity-55'
-                  )}
-                  key={source.id}
-                >
-                  {/* Spinner overlays the (dimmed) label rather than pushing it,
-                      so a chip never resizes as its search starts/finishes. */}
-                  <span className={cn(fetching && 'opacity-30')}>{source.label}</span>
-                  {fetching && (
-                    <span className="absolute inset-0 grid place-items-center">
-                      <Loader2 className="size-3 animate-spin" />
-                    </span>
-                  )}
-                </span>
-              )
-            })}
-          </div>
         )}
       </div>
 

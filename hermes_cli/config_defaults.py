@@ -2158,6 +2158,14 @@ DEFAULT_CONFIG = {
         # automatically (plan Phase 3 item 3). Members can turn it off; a
         # skill the hub yanks is switched off, never deleted.
         "hub_org_auto_install": True,
+        # Sources beyond the hub (the bundled optional skills, the AgentX
+        # index, skills.sh, well-known, direct URLs, GitHub taps, ClawHub,
+        # LobeHub, browse.sh). Off: the skill store connects to the hub above
+        # and nothing else, so a skill has one provenance and one signature.
+        # Turn on (or set AGENTX_SKILLS_EXTRA_SOURCES=1) to keep installing by
+        # a foreign identifier — `github/owner/repo`, `official/...`, a direct
+        # SKILL.md URL, `agentx skills tap`.
+        "extra_sources": False,
         # Substitute ${AGENTX_SKILL_DIR} and ${AGENTX_SESSION_ID} in SKILL.md
         # content with the absolute skill directory and the active session id
         # before the agent sees it.  Lets skill authors reference bundled
