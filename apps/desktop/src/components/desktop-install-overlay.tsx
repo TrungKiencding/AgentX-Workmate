@@ -14,7 +14,7 @@ import type {
   DesktopBootstrapStageState,
   DesktopBootstrapState
 } from '@/global'
-import { useI18n } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { AlertCircle, ChevronDown, ChevronRight, Globe, iconSize, Loader2, Monitor } from '@/lib/icons'
 import { capitalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
@@ -158,7 +158,7 @@ function StageRow({ descriptor, result, now }: StageRowProps) {
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err || 'Unknown error')
+  return err instanceof Error ? err.message : String(err || translateNow('common.unknownError'))
 }
 
 const EMPTY_STATE: DesktopBootstrapState = {
@@ -668,9 +668,16 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
         {failed && (
           <div className="flex-shrink-0 bg-card p-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">
-                {copy.transcriptSaved}{' '}
-                <code className="font-mono text-(--ui-text-secondary)">%LOCALAPPDATA%\agentx\logs\</code>
+              <span className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                {copy.transcriptSaved}
+                <Button
+                  onClick={() => void window.agentxDesktop?.revealLogs?.().catch(() => undefined)}
+                  size="xs"
+                  type="button"
+                  variant="textStrong"
+                >
+                  {t.boot.failure.openLogs}
+                </Button>
               </span>
               <div className="flex gap-2">
                 <Button

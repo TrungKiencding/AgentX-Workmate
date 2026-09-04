@@ -13,6 +13,7 @@ import type { Translations } from './types'
 // plural inflection, so `n === 1` branches collapse to one form.
 export const vi: Translations = {
   common: {
+    unknownError: 'Lỗi không xác định',
     apply: 'Áp dụng',
     back: 'Quay lại',
     save: 'Lưu',
@@ -73,6 +74,24 @@ export const vi: Translations = {
   boot: {
     ready: 'AgentX Workmate Desktop đã sẵn sàng',
     desktopBootFailedWithMessage: message => `Khởi động desktop thất bại: ${message}`,
+    connecting: { word: 'Đang kết nối', target: ' tới máy chủ AgentX' },
+    phases: {
+      idle: 'Đang chờ khởi động backend AgentX',
+      bootstrapChoice: 'Đang chờ bạn chọn cách thiết lập lần đầu',
+      updateWait: 'Một bản cập nhật đang hoàn tất — AgentX sẽ tự khởi động khi xong',
+      resolve: 'Đang tìm backend AgentX',
+      remote: 'Đang kết nối tới backend AgentX từ xa',
+      runtime: 'Đang kiểm tra môi trường chạy AgentX',
+      runtimeExternal: 'Dùng môi trường AgentX có sẵn',
+      runtimeReady: 'Môi trường chạy AgentX đã sẵn sàng',
+      spawn: 'Đang khởi động backend AgentX',
+      port: 'Đang chờ backend AgentX mở cổng',
+      wait: 'Đang chờ backend AgentX sẵn sàng',
+      warmup: 'Backend AgentX vẫn đang khởi động — chờ thêm một chút',
+      ready: 'Backend AgentX đã sẵn sàng. Đang hoàn tất khởi động',
+      remoteReady: 'Backend AgentX từ xa đã sẵn sàng',
+      restarting: 'Đang khởi động lại kết nối desktop'
+    },
     steps: {
       connectingGateway: 'Đang kết nối gateway desktop',
       loadingSettings: 'Đang tải cài đặt AgentX',
@@ -108,8 +127,6 @@ export const vi: Translations = {
       signOutAndSignIn: 'Đăng xuất & đăng nhập lại',
       remoteFailureHint:
         'Kiểm tra URL gateway và phần đăng nhập trong Cài đặt gateway, hoặc chuyển sang gateway cục bộ.',
-      hideRecentLogs: 'Ẩn log gần đây',
-      showRecentLogs: 'Xem log gần đây',
       signedInTitle: 'Đã đăng nhập',
       signedInMessage: 'Đang kết nối lại gateway từ xa…',
       signInIncompleteTitle: 'Đăng nhập chưa xong',
@@ -124,7 +141,59 @@ export const vi: Translations = {
         'Mở trình duyệt để đăng nhập. Bạn vẫn ở trạng thái đăng nhập cho tới khi phiên AgentX hết hạn.',
       signInWithAgentX: 'Đăng nhập bằng AgentX',
       keycloakSigningIn: 'Đang chờ trình duyệt…',
-      keycloakReconnecting: 'Đã đăng nhập. Đang khởi động AgentX Workmate…'
+      keycloakReconnecting: 'Đã đăng nhập. Đang khởi động AgentX Workmate…',
+      whatToDo: 'Nên làm gì',
+      technicalDetails: 'Chi tiết kỹ thuật',
+      hideTechnicalDetails: 'Ẩn chi tiết kỹ thuật',
+      copyDetails: 'Sao chép chi tiết',
+      copiedDetails: 'Đã sao chép',
+      genericSteps: [
+        'Bấm Thử lại.',
+        'Nếu vẫn lỗi, chọn Sửa bản cài đặt, hoặc mở log và gửi cho người quản trị AgentX.'
+      ],
+      kinds: {
+        timeout: {
+          title: 'AgentX khởi động lâu hơn bình thường',
+          description: 'Backend đã chạy nhưng chưa kịp phản hồi. Lần mở đầu tiên hoặc lúc máy đang bận thường gặp việc này, không có gì hỏng cả.',
+          steps: [
+            'Bấm Thử lại — lần thứ hai thường sẽ lên.',
+            'Nếu lặp lại nhiều lần, đóng bớt ứng dụng nặng rồi thử lại.'
+          ]
+        },
+        exited: {
+          title: 'Backend AgentX đã dừng khi đang khởi động',
+          description: 'Tiến trình nền thoát trước khi sẵn sàng.',
+          steps: [
+            'Bấm Thử lại.',
+            'Nếu lại dừng, chọn Sửa bản cài đặt — trình cài đặt chạy lại và vẫn giữ trò chuyện, cài đặt của bạn.'
+          ]
+        },
+        port: {
+          title: 'AgentX chưa mở được cổng kết nối',
+          description: 'Backend không báo được cổng để ứng dụng kết nối vào.',
+          steps: [
+            'Bấm Thử lại.',
+            'Phần mềm bảo mật có thể chặn bước này — hãy cho phép AgentX nếu được hỏi.',
+            'Nếu vẫn lỗi, chọn Sửa bản cài đặt.'
+          ]
+        },
+        websocket: {
+          title: 'Kết nối thời gian thực bị từ chối',
+          description: 'AgentX trả lời qua HTTP nhưng kênh thời gian thực không nhận phiên đăng nhập.',
+          steps: [
+            'Bấm Thử lại để đăng nhập và kết nối lại.',
+            'Nếu vẫn lỗi, mở Cài đặt gateway và kiểm tra kết nối.'
+          ]
+        },
+        install: {
+          title: 'Bản cài đặt AgentX chưa hoàn tất',
+          description: 'Bước cài đặt một lần chưa xong nên chưa có gì để khởi động.',
+          steps: [
+            'Chọn Sửa bản cài đặt để chạy lại trình cài đặt.',
+            'Giữ ứng dụng mở cho tới khi xong — có thể mất vài phút.'
+          ]
+        }
+      }
     }
   },
 
@@ -2778,13 +2847,46 @@ export const vi: Translations = {
     noOutput: 'Chưa có kết quả nào.',
     cancelling: 'Đang huỷ...',
     cancelInstall: 'Huỷ cài đặt',
-    transcriptSaved: 'Toàn bộ nội dung đã lưu vào',
+    transcriptSaved: 'Toàn bộ nội dung của trình cài đặt đã được lưu vào thư mục log của AgentX.',
     copiedOutput: 'Đã sao chép!',
     copyOutput: 'Sao chép kết quả',
     reloadRetry: 'Tải lại và thử lại'
   },
 
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX đã sẵn sàng',
+      readyBody: provider => `Đã kết nối ${provider}.`,
+      toolGatewayTitle: 'Đã bật Tool Gateway',
+      toolGatewayBody: tools => `${tools} giờ chạy qua gói thuê bao Nous của bạn — không cần API key riêng.`,
+      toolLabels: {
+        browser: 'tự động hoá trình duyệt',
+        image_gen: 'tạo ảnh',
+        tts: 'chuyển văn bản thành giọng nói',
+        video_gen: 'tạo video',
+        web: 'tìm kiếm & trích nội dung web'
+      },
+      listAnd: 'và',
+      providerUnresolved: 'Đã kết nối, nhưng AgentX vẫn chưa xác định được nhà cung cấp dùng được.',
+      runtimeNotReadyTitle: 'Môi trường chạy chưa sẵn sàng',
+      runtimeNotReadyBody: 'AgentX Workmate Desktop không xác minh được backend đang chạy lúc khởi động. Một số tính năng có thể chưa dùng được cho tới khi kết nối được gateway.',
+      couldNotStartSignIn: detail => `Không bắt đầu đăng nhập được: ${detail}`,
+      pollingFailed: detail => `Kiểm tra trạng thái thất bại: ${detail}`,
+      signInStatus: status => `Đăng nhập ${status}.`,
+      tokenExchangeFailed: 'Đổi token thất bại.',
+      stillCannotReach: (provider, command) => `AgentX vẫn chưa kết nối được ${provider}. Hãy chạy \`${command}\` trong terminal trước.`,
+      couldNotSaveProvider: label => `Không lưu được ${label}`,
+      couldNotSaveModel: 'AgentX không lưu được model đã chọn.',
+      enterEndpointUrl: 'Hãy nhập URL endpoint trước.',
+      couldNotReachEndpoint: 'Không kết nối được tới endpoint đó.',
+      couldNotReachUrl: url => `Không kết nối được tới ${url}.`,
+      noModelsAdvertised: url => `Đã kết nối tới ${url}, nhưng nó không công bố model nào ở /v1/models. Hãy khởi động một model trên endpoint đó rồi thử lại.`,
+      savedButUnreachable: url => `Đã lưu, nhưng AgentX vẫn chưa kết nối được ${url}.`,
+      localEndpointLabel: 'Endpoint cục bộ / tự định nghĩa',
+      couldNotSaveLocalEndpoint: 'Không lưu được endpoint cục bộ',
+      couldNotChangeModel: 'Không đổi được model',
+      directApiAccess: name => `Truy cập API trực tiếp tới ${name}.`
+    },
     headerTitle: 'Cùng thiết lập AgentX Workmate cho bạn nào',
     headerDesc: 'Kết nối một nhà cung cấp model để bắt đầu trò chuyện. Phần lớn lựa chọn chỉ mất một cú nhấp.',
     preparingInstall: 'AgentX đang hoàn tất việc cài đặt. Lần chạy đầu thường mất chưa tới một phút.',
@@ -3198,16 +3300,27 @@ export const vi: Translations = {
   },
 
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: 'Đã giao', present: 'Đang giao', noun: _count => 'việc' },
+        edit: { past: 'Đã sửa', present: 'Đang sửa', noun: _count => 'tệp' },
+        explore: { past: 'Đã xem', present: 'Đang xem', noun: _count => 'tệp' },
+        other: { past: 'Đã dùng', present: 'Đang dùng', noun: _count => 'công cụ' },
+        run: { past: 'Đã chạy', present: 'Đang chạy', noun: _count => 'lệnh' }
+      },
+      compacting: 'Đang tóm tắt cuộc trò chuyện',
+      searchResults: 'Kết quả tìm kiếm'
+    },
     intro: {
       greetingMorning: name => (name ? `Chào buổi sáng, ${name}` : 'Chào buổi sáng'),
       greetingAfternoon: name => (name ? `Chào buổi chiều, ${name}` : 'Chào buổi chiều'),
       greetingEvening: name => (name ? `Chào buổi tối, ${name}` : 'Chào buổi tối'),
       bodyVariants: [
-        'Đặt câu hỏi, dán lỗi, hoặc chỉ cho tôi một repo. Tôi đọc code, chạy công cụ và cùng bạn đưa việc về đích.',
-        'Mô tả việc cần làm theo cách của bạn. Tôi sẽ chọn đúng công cụ, nói rõ kế hoạch và hỏi lại trước những bước rủi ro.',
-        'Thả vào một đường dẫn tệp, một traceback hay một ý tưởng còn thô. Tôi sẽ tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
+        'Hỏi một câu, dán một lỗi, hoặc chỉ cho tôi một thư mục. Tôi đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
+        'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. Tôi chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
+        'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. Tôi sẽ tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
         'Tìm trong repo, sửa tệp, chạy test, mở PR. Bạn nêu mục tiêu, phần việc máy móc để tôi lo.',
-        'Gõ một tác vụ, câu hỏi hay đoạn code. Tôi nhớ phiên làm việc, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
+        'Từ báo cáo tuần tới kế hoạch dự án: gõ một tác vụ hay câu hỏi. Tôi nhớ phiên làm việc, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
       ],
       quickStart: 'Bắt đầu nhanh',
       resume: title => `Tiếp tục “${title}”`,
@@ -3215,7 +3328,13 @@ export const vi: Translations = {
       starterExplainPrompt: 'Giải thích repository này làm gì và code được tổ chức ra sao.',
       starterPlanLabel: 'Lên kế hoạch cho một thay đổi',
       starterPlanPrompt:
-        'Tôi muốn thực hiện một thay đổi. Hãy hỏi tôi những gì bạn cần biết, rồi đề xuất kế hoạch trước khi viết code.'
+        'Tôi muốn thực hiện một thay đổi. Hãy hỏi tôi những gì bạn cần biết, rồi đề xuất kế hoạch trước khi viết code.',
+      starterExplainFolderLabel: 'Giải thích thư mục này',
+      starterExplainFolderPrompt: 'Giải thích thư mục làm việc hiện tại chứa gì và được tổ chức ra sao.',
+      starterSummarizeLabel: 'Tóm tắt một tài liệu',
+      starterSummarizePrompt: 'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
+      starterDraftLabel: 'Soạn một email',
+      starterDraftPrompt: 'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.'
     },
     thread: {
       loadingSession: 'Đang tải phiên',
@@ -3399,6 +3518,7 @@ export const vi: Translations = {
   },
 
   desktop: {
+    runtimeChecksDisagree: 'setup.status báo đã có thông tin đăng nhập, nhưng bước xác định môi trường chạy vẫn thất bại.',
     audioReadFailed: 'Không đọc được đoạn âm thanh vừa ghi',
     sessionUnavailable: 'Phiên không khả dụng',
     createSessionFailed: 'Không tạo được phiên mới',

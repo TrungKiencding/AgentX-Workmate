@@ -2,6 +2,7 @@ import { defineLocale } from './define-locale'
 
 export const ar = defineLocale({
   common: {
+    unknownError: 'خطأ غير معروف',
     apply: 'تطبيق',
     back: 'رجوع',
     save: 'حفظ',
@@ -57,6 +58,24 @@ export const ar = defineLocale({
   boot: {
     ready: 'AgentX Workmate Desktop جاهز',
     desktopBootFailedWithMessage: message => `فشل تشغيل سطح المكتب: ${message}`,
+    connecting: { word: 'جارٍ الاتصال', target: ' بخادم AgentX' },
+    phases: {
+      idle: 'في انتظار بدء الواجهة الخلفية لـ AgentX',
+      bootstrapChoice: 'في انتظار اختيار إعداد التشغيل الأول',
+      updateWait: 'يجري إكمال تحديث — سيبدأ AgentX تلقائيًا عند اكتماله',
+      resolve: 'جارٍ البحث عن الواجهة الخلفية لـ AgentX',
+      remote: 'جارٍ الاتصال بالواجهة الخلفية البعيدة لـ AgentX',
+      runtime: 'جارٍ التحقق من بيئة تشغيل AgentX',
+      runtimeExternal: 'استخدام بيئة تشغيل AgentX موجودة',
+      runtimeReady: 'بيئة تشغيل AgentX جاهزة',
+      spawn: 'جارٍ بدء الواجهة الخلفية لـ AgentX',
+      port: 'في انتظار إطلاق الواجهة الخلفية لـ AgentX',
+      wait: 'في انتظار جاهزية الواجهة الخلفية لـ AgentX',
+      warmup: 'ما زالت الواجهة الخلفية لـ AgentX تستعد — ننتظر قليلًا بعد',
+      ready: 'الواجهة الخلفية لـ AgentX جاهزة. جارٍ إنهاء بدء التطبيق',
+      remoteReady: 'الواجهة الخلفية البعيدة لـ AgentX جاهزة',
+      restarting: 'جارٍ إعادة تشغيل اتصال سطح المكتب'
+    },
     steps: {
       connectingGateway: 'جار الاتصال ببوابة سطح المكتب',
       loadingSettings: 'جار تحميل إعدادات AgentX',
@@ -86,8 +105,6 @@ export const ar = defineLocale({
       remoteSignInHint: signInLabel =>
         `يسجّل الخروج من جلسة المتصفح البعيدة المحفوظة، ثم يفتح ${signInLabel}. استخدم البوابة المحلية للتبديل إلى الخلفية المضمنة.`,
       signOutAndSignIn: 'تسجيل الخروج وإعادة تسجيل الدخول',
-      hideRecentLogs: 'إخفاء السجلات الأخيرة',
-      showRecentLogs: 'إظهار السجلات الأخيرة',
       signedInTitle: 'تم تسجيل الدخول',
       signedInMessage: 'جار إعادة الاتصال بالبوابة البعيدة...',
       signInIncompleteTitle: 'تسجيل الدخول غير مكتمل',
@@ -101,7 +118,59 @@ export const ar = defineLocale({
       keycloakSignInHint: 'سيفتح المتصفح لتسجيل الدخول. ستبقى مسجّلاً حتى تنتهي صلاحية جلسة AgentX.',
       signInWithAgentX: 'تسجيل الدخول عبر AgentX',
       keycloakSigningIn: 'في انتظار المتصفح…',
-      keycloakReconnecting: 'تم تسجيل الدخول. جارٍ تشغيل AgentX Workmate…'
+      keycloakReconnecting: 'تم تسجيل الدخول. جارٍ تشغيل AgentX Workmate…',
+      whatToDo: 'ما الذي يمكن فعله',
+      technicalDetails: 'تفاصيل تقنية',
+      hideTechnicalDetails: 'إخفاء التفاصيل التقنية',
+      copyDetails: 'نسخ التفاصيل',
+      copiedDetails: 'تم النسخ',
+      genericSteps: [
+        'اضغط "إعادة المحاولة".',
+        'إذا استمر الفشل، اختر "إصلاح التثبيت" أو افتح السجلات وأرسلها إلى مسؤول AgentX لديك.'
+      ],
+      kinds: {
+        timeout: {
+          title: 'يستغرق بدء AgentX وقتًا أطول من المعتاد',
+          description: 'بدأت الواجهة الخلفية لكنها لم تستجب في الوقت المناسب. هذا شائع عند التشغيل الأول أو عندما يكون الجهاز مشغولًا، ولا يوجد عطل.',
+          steps: [
+            'اضغط "إعادة المحاولة" — المحاولة الثانية تنجح عادةً.',
+            'إذا تكرر ذلك، أغلق التطبيقات الثقيلة ثم حاول مجددًا.'
+          ]
+        },
+        exited: {
+          title: 'توقفت الواجهة الخلفية لـ AgentX أثناء البدء',
+          description: 'خرجت العملية الخلفية قبل أن تصبح جاهزة.',
+          steps: [
+            'اضغط "إعادة المحاولة".',
+            'إذا توقفت مجددًا، اختر "إصلاح التثبيت" — يعيد تشغيل المثبّت ويحتفظ بمحادثاتك وإعداداتك.'
+          ]
+        },
+        port: {
+          title: 'تعذر على AgentX فتح اتصاله',
+          description: 'لم تعلن الواجهة الخلفية عن المنفذ الذي يتصل به التطبيق.',
+          steps: [
+            'اضغط "إعادة المحاولة".',
+            'قد تمنع برامج الحماية هذه الخطوة — اسمح لـ AgentX إذا طُلب منك ذلك.',
+            'إذا تكرر ذلك، اختر "إصلاح التثبيت".'
+          ]
+        },
+        websocket: {
+          title: 'رُفض الاتصال الفوري',
+          description: 'استجاب AgentX عبر HTTP، لكن قناة الوقت الفعلي رفضت الجلسة.',
+          steps: [
+            'اضغط "إعادة المحاولة" لتسجيل الدخول والاتصال مجددًا.',
+            'إذا تكرر ذلك، افتح إعدادات البوابة وتحقق من الاتصال.'
+          ]
+        },
+        install: {
+          title: 'تثبيت AgentX غير مكتمل',
+          description: 'لم يكتمل التثبيت لمرة واحدة، لذا لا يوجد ما يمكن بدؤه بعد.',
+          steps: [
+            'اختر "إصلاح التثبيت" لتشغيل المثبّت مجددًا.',
+            'أبقِ التطبيق مفتوحًا حتى ينتهي — قد يستغرق بضع دقائق.'
+          ]
+        }
+      }
     }
   },
   notifications: {
@@ -2053,12 +2122,45 @@ export const ar = defineLocale({
     noOutput: 'لا توجد مخرجات بعد.',
     cancelling: 'جار الإلغاء...',
     cancelInstall: 'إلغاء التثبيت',
-    transcriptSaved: 'تم حفظ النص الكامل في',
+    transcriptSaved: 'حُفظ سجل المثبّت الكامل في مجلد سجلات AgentX.',
     copiedOutput: 'تم النسخ!',
     copyOutput: 'نسخ المخرجات',
     reloadRetry: 'إعادة التحميل وإعادة المحاولة'
   },
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX جاهز',
+      readyBody: provider => `تم الاتصال بـ ${provider}.`,
+      toolGatewayTitle: 'تم تفعيل Tool Gateway',
+      toolGatewayBody: tools => `${tools} تعمل الآن عبر اشتراكك في Nous — لا حاجة لمفاتيح API منفصلة.`,
+      toolLabels: {
+        browser: 'أتمتة المتصفح',
+        image_gen: 'توليد الصور',
+        tts: 'تحويل النص إلى كلام',
+        video_gen: 'توليد الفيديو',
+        web: 'البحث والاستخراج من الويب'
+      },
+      listAnd: 'و',
+      providerUnresolved: 'تم الاتصال، لكن AgentX ما زال غير قادر على تحديد مزوّد صالح.',
+      runtimeNotReadyTitle: 'بيئة التشغيل غير جاهزة',
+      runtimeNotReadyBody: 'تعذر على AgentX Workmate Desktop التحقق من الواجهة الخلفية عند البدء. قد تكون بعض الميزات غير متاحة حتى يمكن الوصول إلى البوابة.',
+      couldNotStartSignIn: detail => `تعذر بدء تسجيل الدخول: ${detail}`,
+      pollingFailed: detail => `فشل الاستعلام: ${detail}`,
+      signInStatus: status => `تسجيل الدخول: ${status}.`,
+      tokenExchangeFailed: 'فشل تبادل الرمز.',
+      stillCannotReach: (provider, command) => `ما زال AgentX غير قادر على الوصول إلى ${provider}. شغّل \`${command}\` في الطرفية أولًا.`,
+      couldNotSaveProvider: label => `تعذر حفظ ${label}`,
+      couldNotSaveModel: 'تعذر على AgentX حفظ النموذج المحدد.',
+      enterEndpointUrl: 'أدخل عنوان URL لنقطة النهاية أولًا.',
+      couldNotReachEndpoint: 'تعذر الوصول إلى نقطة النهاية تلك.',
+      couldNotReachUrl: url => `تعذر الوصول إلى ${url}.`,
+      noModelsAdvertised: url => `تم الاتصال بـ ${url}، لكنها لم تعرض أي نماذج في /v1/models. شغّل نموذجًا على نقطة النهاية تلك ثم حاول مجددًا.`,
+      savedButUnreachable: url => `تم الحفظ، لكن AgentX ما زال غير قادر على الوصول إلى ${url}.`,
+      localEndpointLabel: 'نقطة نهاية محلية / مخصصة',
+      couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',
+      couldNotChangeModel: 'تعذر تغيير النموذج',
+      directApiAccess: name => `وصول مباشر إلى واجهة برمجة ${name}.`
+    },
     headerTitle: 'لنُعِدّ لك AgentX Workmate',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',
     preparingInstall: 'يُكمل AgentX التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
@@ -2413,6 +2515,17 @@ export const ar = defineLocale({
     tabCount: count => `${count} تبويبات`
   },
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: 'فوّض', present: 'يفوّض', noun: count => (count === 1 ? 'مهمة' : 'مهام') },
+        edit: { past: 'عدّل', present: 'يعدّل', noun: count => (count === 1 ? 'ملف' : 'ملفات') },
+        explore: { past: 'استكشف', present: 'يستكشف', noun: count => (count === 1 ? 'ملف' : 'ملفات') },
+        other: { past: 'استخدم', present: 'يستخدم', noun: count => (count === 1 ? 'أداة' : 'أدوات') },
+        run: { past: 'شغّل', present: 'يشغّل', noun: count => (count === 1 ? 'أمر' : 'أوامر') }
+      },
+      compacting: 'جارٍ تلخيص المحادثة',
+      searchResults: 'نتائج البحث'
+    },
     thread: {
       loadingSession: 'جار تحميل الجلسة...',
       showEarlier: 'عرض الرسائل الأقدم',
@@ -2653,6 +2766,7 @@ export const ar = defineLocale({
     secretPlaceholder: 'القيمة السرية'
   },
   desktop: {
+    runtimeChecksDisagree: 'يفيد setup.status بأن بيانات الاعتماد مضبوطة، لكن تحليل بيئة التشغيل ما زال يفشل.',
     audioReadFailed: 'فشلت قراءة الصوت',
     sessionUnavailable: 'الجلسة غير متاحة',
     createSessionFailed: 'فشل إنشاء الجلسة',

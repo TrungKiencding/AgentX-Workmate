@@ -2,9 +2,15 @@
  * Quick-start chips for the empty chat home surface.
  *
  * Every chip is grounded in something the app already knows — the session the
- * user was last in, a project they already added — plus two fixed starters that
+ * user was last in, a project they already added — plus fixed starters that
  * come from the locale file. Nothing here invents a suggestion: if there is no
  * recent session, there is no resume chip.
+ *
+ * The starters are the one place the home surface takes a side, and it takes
+ * it from the folder: inside a git repository the coding pair leads (explain
+ * the repo, plan a change); anywhere else the office pair leads (summarise a
+ * document, draft an email). Both pairs are always offered — the row is capped,
+ * so the order decides which pair survives next to a resume or project chip.
  *
  * The selection is a pure function so it can be tested without a renderer, and
  * so `Intro` stays a rendering component.
@@ -15,7 +21,7 @@ import { normalizeProfileKey } from '@/store/profile'
 import type { SessionInfo } from '@/types/hermes'
 
 /** Fixed starters, keyed so their label + prompt live in the locale files. */
-export type IntroStarterId = 'explain' | 'plan'
+export type IntroStarterId = 'draft' | 'explain' | 'plan' | 'summarize'
 
 export type IntroChipSource =
   | { kind: 'project'; label: string; path: string }
@@ -25,7 +31,11 @@ export type IntroChipSource =
 /** At most four — past that the row stops reading as "a few ways in". */
 const MAX_CHIPS = 4
 
-const STARTERS: IntroStarterId[] = ['explain', 'plan']
+/** Inside a repository the coding starters lead. */
+const REPO_STARTERS: readonly IntroStarterId[] = ['explain', 'plan', 'summarize', 'draft']
+
+/** Anywhere else the office starters lead. */
+const WORK_STARTERS: readonly IntroStarterId[] = ['summarize', 'draft', 'plan', 'explain']
 
 const trimmed = (value: null | string | undefined): string => value?.trim() ?? ''
 
@@ -46,6 +56,8 @@ export interface IntroChipInput {
   activeCwd?: null | string
   /** False when the surface has no way to open a session: offer no resume chip. */
   canResume?: boolean
+  /** True when `activeCwd` is inside a git repository: the coding starters lead. */
+  cwdIsRepo?: boolean
   /** True while the onboarding overlay owns the screen: show no chips at all. */
   onboardingActive?: boolean
   /** `$profileScope` — the profile whose sessions the sidebar is showing. */
@@ -67,6 +79,7 @@ export interface IntroChipInput {
 export function introChipSources({
   activeCwd,
   canResume = true,
+  cwdIsRepo = false,
   onboardingActive = false,
   profileScope,
   projects = [],
@@ -109,7 +122,7 @@ export function introChipSources({
     chips.push({ kind: 'project', label: project.label, path: trimmed(project.path) })
   }
 
-  for (const starter of STARTERS) {
+  for (const starter of cwdIsRepo ? REPO_STARTERS : WORK_STARTERS) {
     chips.push({ kind: 'starter', starter })
   }
 

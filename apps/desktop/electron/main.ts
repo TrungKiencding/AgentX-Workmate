@@ -57,6 +57,7 @@ import {
 } from './backend-probes'
 import { waitForDashboardPortAnnouncement } from './backend-ready'
 import { shouldLatchBackendStartFailure, shouldLatchRemoteReauthFailure } from './backend-start-failure'
+import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { runBootstrap } from './bootstrap-runner'
@@ -1193,6 +1194,7 @@ let bootProgressState = {
   error: null,
   fakeMode: BOOT_FAKE_MODE,
   message: 'Waiting to start AgentX backend',
+  detail: null,
   phase: 'idle',
   progress: 0,
   running: false,
@@ -1686,6 +1688,10 @@ function getFirstRunSetupGate() {
     firstRunSetupGate = createFirstRunSetupGate({
       hideChoice: hideFirstRunSetupChoice,
       log: rememberLog,
+      // An installer that asks "install, or connect elsewhere?" is a question
+      // most people cannot answer. Packaged builds install; connecting to an
+      // existing gateway lives in Settings → Gateway.
+      promptEnabled: !IS_PACKAGED,
       onStuck: (_backend, stuckAfterMs) => {
         updateBootProgress(
           {
@@ -1709,6 +1715,13 @@ async function waitForFirstRunSetupChoice(backend) {
   const gate = getFirstRunSetupGate()
 
   if (!gate.shouldGate(backend)) {
+    if (backend?.kind === 'bootstrap-needed' && !gate.isLocalBootstrapConfirmed()) {
+      rememberLog(
+        '[bootstrap] packaged build: installing locally without the first-run setup choice ' +
+          '(an existing gateway can be connected from Settings → Gateway)'
+      )
+    }
+
     return 'continue-local'
   }
 
@@ -1755,6 +1768,9 @@ function updateBootProgress(update, options: { allowDecrease?: boolean } = {}) {
   bootProgressState = {
     ...bootProgressState,
     ...update,
+    // The dynamic part of a phase (a URL, a runtime path) belongs to that
+    // phase alone — it must not ride along into the next one.
+    detail: update.detail === undefined ? null : update.detail,
     error: update.error === undefined ? bootProgressState.error : update.error,
     fakeMode: BOOT_FAKE_MODE || Boolean(update.fakeMode),
     progress: nextProgress,
@@ -1768,10 +1784,14 @@ function updateBootProgress(update, options: { allowDecrease?: boolean } = {}) {
   broadcastBootProgress()
 }
 
-async function advanceBootProgress(phase, message, progress) {
+// `message` is the English log line; `detail` is the dynamic part of the
+// phase (a URL, a runtime path). The renderer translates the phase and appends
+// the detail — it never has to parse the message.
+async function advanceBootProgress(phase, message, progress, detail = null) {
   updateBootProgress({
     phase,
     message,
+    detail,
     progress,
     running: true,
     error: null
@@ -4210,7 +4230,7 @@ function resolveHermesBackend(backendArgs) {
 
 async function ensureRuntime(backend) {
   if (!backend.bootstrap) {
-    await advanceBootProgress('runtime.external', `Using ${backend.label}`, 32)
+    await advanceBootProgress('runtime.external', `Using ${backend.label}`, 32, backend.label)
 
     return backend
   }
@@ -6770,16 +6790,32 @@ function keycloakDeps(extra: Partial<KeycloakSessionDeps> = {}): KeycloakSession
 async function resolveLocalBackendAuth(
   baseUrl: string,
   token: string,
-  opts: { label: string; childAlive: () => boolean; interactive?: boolean }
+  opts: { label: string; childAlive: () => boolean; interactive?: boolean; onWarmup?: () => void }
 ): Promise<{ authMode: 'token' | 'oauth'; token: string | null; wsUrl: string }> {
-  const status = await fetchJson(`${baseUrl}/api/status`, token, { timeoutMs: 8_000 }).catch(() => null)
+  // `/api/health` answering only proves the socket is up. On a cold machine
+  // the backend is still importing tools and scanning skills, so its first
+  // real answers can outlast one request's timeout — and a single slow answer
+  // used to become the "Timed out connecting to AgentX backend" boot failure
+  // that a Retry a few seconds later always cleared. Every step below shares
+  // one budget of patience for timeout-shaped failures; anything else still
+  // fails fast.
+  const patience = createBootPatience({
+    log: rememberLog,
+    onRetry: opts.onWarmup
+  })
+
+  const status = await patience
+    .run('/api/status', () => fetchJson(`${baseUrl}/api/status`, token, { timeoutMs: 8_000 }))
+    .catch(() => null)
 
   if (authModeFromStatus(status) !== 'oauth') {
-    const authToken = await adoptServedDashboardToken(baseUrl, token, {
-      childAlive: opts.childAlive,
-      label: opts.label,
-      rememberLog
-    })
+    const authToken = await patience.run('dashboard token', () =>
+      adoptServedDashboardToken(baseUrl, token, {
+        childAlive: opts.childAlive,
+        label: opts.label,
+        rememberLog
+      })
+    )
 
     return {
       authMode: 'token',
@@ -6788,7 +6824,12 @@ async function resolveLocalBackendAuth(
     }
   }
 
-  const config = await discoverKeycloakConfig(baseUrl, keycloakDeps())
+  const config = await discoverKeycloakConfig(
+    baseUrl,
+    keycloakDeps({
+      getJson: (url: string, options?: any) => patience.run('/api/auth/providers', () => keycloakGetJson(url, options))
+    })
+  )
 
   if (!config) {
     throw new Error(
@@ -6823,7 +6864,7 @@ async function resolveLocalBackendAuth(
   // the entry here is the current access token, not the refresh authority.
   _nativeTokens.set(baseUrl, session.tokens)
 
-  const ticket = await mintGatewayWsTicket(baseUrl)
+  const ticket = await patience.run('ws ticket', () => mintGatewayWsTicket(baseUrl))
 
   return {
     authMode: 'oauth',
@@ -8422,7 +8463,7 @@ function resetBootProgressForReconnect() {
     {
       error: null,
       message: 'Restarting desktop connection',
-      phase: 'backend.resolve',
+      phase: 'backend.restart',
       progress: 4,
       running: true
     },
@@ -9125,10 +9166,15 @@ async function startHermes() {
 
   const connectionPromise = (async () => {
     const connectRemote = async remote => {
-      await advanceBootProgress('backend.remote', `Connecting to remote AgentX backend at ${remote.baseUrl}`, 24)
+      await advanceBootProgress(
+        'backend.remote',
+        `Connecting to remote AgentX backend at ${remote.baseUrl}`,
+        24,
+        remote.baseUrl
+      )
       await waitForHermes(remote.baseUrl, remote.token, undefined, remote.authMode)
       updateBootProgress({
-        phase: 'backend.ready',
+        phase: 'backend.remote-ready',
         message: 'Remote AgentX backend is ready',
         progress: 94,
         running: true,
@@ -9212,7 +9258,7 @@ async function startHermes() {
     const webDist = resolveWebDist()
     const readyFile = backend.readyFile ? makeDashboardReadyFile() : null
 
-    await advanceBootProgress('backend.spawn', `Starting AgentX backend via ${backend.label}`, 84)
+    await advanceBootProgress('backend.spawn', `Starting AgentX backend via ${backend.label}`, 84, backend.label)
     rememberLog(`Starting AgentX backend via ${backend.label}`)
 
     const hermesProcess = spawn(
@@ -9337,7 +9383,20 @@ async function startHermes() {
     // sign-in and a bearer + WS ticket. Both end at the same shape.
     const auth = await resolveLocalBackendAuth(baseUrl, token, {
       label: 'Local AgentX backend',
-      childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed
+      childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed,
+      // Tell the splash why it is taking longer instead of sitting frozen at
+      // "become ready" — the renderer translates the phase.
+      onWarmup: () =>
+        updateBootProgress(
+          {
+            phase: 'backend.warmup',
+            message: 'AgentX backend is still warming up — waiting a little longer',
+            progress: 91,
+            running: true,
+            error: null
+          },
+          { allowDecrease: true }
+        )
     })
 
     const authToken = auth.token

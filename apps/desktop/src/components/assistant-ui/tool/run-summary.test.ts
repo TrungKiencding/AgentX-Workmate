@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { summarizeToolRun, type ToolCallLike } from './run-summary'
+import { TRANSLATIONS } from '@/i18n/catalog'
+
+import { summarizeToolRun, type ToolCallLike, toolPresentVerb } from './run-summary'
+
+const en = TRANSLATIONS.en.assistant.toolRun
+const vi = TRANSLATIONS.vi.assistant.toolRun
 
 function tool(toolName: string, args: Record<string, unknown> = {}, result?: unknown): ToolCallLike {
   return { args, result, toolCallId: `${toolName}-${Math.random()}`, toolName }
@@ -10,8 +15,8 @@ const read = (path: string) => tool('read_file', { path }, { content: '' })
 const searched = (query: string) => tool('search_files', { query }, { hits: [] })
 const ran = (command: string) => tool('terminal', { command }, { exit_code: 0 })
 
-const settled = (tools: ToolCallLike[]) => summarizeToolRun(tools, false)
-const running = (tools: ToolCallLike[]) => summarizeToolRun(tools, true)
+const settled = (tools: ToolCallLike[]) => summarizeToolRun(tools, false, en)
+const running = (tools: ToolCallLike[]) => summarizeToolRun(tools, true, en)
 
 // A run only ever holds ephemeral activity: reads, searches, commands. File
 // edits and other cards are split out before a run is summarized, so there is
@@ -56,5 +61,16 @@ describe('summarizeToolRun', () => {
   // or it narrates work that stopped happening and never offers its toggle.
   it('reads a run the turn left unresolved as finished', () => {
     expect(settled([read('a.ts'), tool('search_files', { query: 'toolRuns' })])).toBe('Explored 2 files')
+  })
+
+  it('narrates in the app\'s language, with the catalog owning the nouns', () => {
+    const mcp = (name: string) => tool(name)
+
+    expect(summarizeToolRun([mcp('mcp_webmate_webmate'), mcp('mcp_webmate_search')], true, vi)).toBe(
+      'Đang dùng 2 công cụ'
+    )
+    expect(summarizeToolRun([read('a.ts'), ran('x'), ran('y')], false, vi)).toBe('Đã xem a.ts, đã chạy 2 lệnh')
+    expect(toolPresentVerb('terminal', vi)).toBe('Đang chạy')
+    expect(toolPresentVerb('terminal', en)).toBe('Running')
   })
 })

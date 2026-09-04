@@ -14,11 +14,14 @@ import { cn } from '@/lib/utils'
 //     title text, NOT the full row — and reaches just past the chevron with
 //     `-mx-1.5 px-1.5` so it reads as a soft hit-target rather than a slab
 //     stretching to the message edge.
-//   - `trailing` overlays the right edge (absolute) and must stay
-//     non-interactive (e.g. a duration timer) — an opacity-0-but-clickable
-//     control there steals clicks from the caret. Interactive controls go in
-//     `action`, which lays out *in flow* at the far right so it never sits on
-//     top of the caret's hit-target, no matter how long the title is.
+//   - `trailing` is the far-right, non-interactive slot (a duration timer). It
+//     lays out *in flow*, not as an overlay: an overlay reserved no room, so a
+//     long title ran underneath the timer ("…webmate 34s" printed on top of the
+//     label). In flow, the title column shrinks and truncates first and the
+//     timer keeps its width. It is `pointer-events-none` so it can never steal
+//     a click from the caret. Interactive controls go in `action`, which sits
+//     in the same right-hand group so it never covers the caret's hit-target,
+//     no matter how long the title is.
 export function DisclosureRow({
   action,
   children,
@@ -33,7 +36,7 @@ export function DisclosureRow({
   trailing?: ReactNode
 }) {
   return (
-    <div className="group/disclosure-row relative flex w-full max-w-full min-w-0 text-(--ui-text-tertiary)">
+    <div className="group/disclosure-row flex w-full max-w-full min-w-0 text-(--ui-text-tertiary)">
       <button
         aria-expanded={onToggle ? open : undefined}
         className={cn(
@@ -62,13 +65,11 @@ export function DisclosureRow({
           </span>
         )}
       </button>
-      {action && (
-        <span className="ml-auto flex h-(--conversation-line-height) shrink-0 items-center self-start pl-1.5">
+      {(trailing || action) && (
+        <span className="ml-auto flex h-(--conversation-line-height) shrink-0 items-center gap-1.5 self-start pl-2">
+          {trailing && <span className="pointer-events-none flex items-center pr-1">{trailing}</span>}
           {action}
         </span>
-      )}
-      {trailing && (
-        <span className="absolute right-1 top-0 flex h-(--conversation-line-height) items-center">{trailing}</span>
       )}
     </div>
   )

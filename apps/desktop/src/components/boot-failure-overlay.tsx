@@ -2,16 +2,29 @@ import { useStore } from '@nanostores/react'
 import { type ComponentProps, lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { ErrorIcon } from '@/components/ui/error-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
 import { LogView } from '@/components/ui/log-view'
 import type { DesktopConnectionConfig } from '@/global'
 import { useI18n } from '@/i18n'
-import { ChevronLeft, FileText, Loader2, LogIn, RefreshCw, SlidersHorizontal, Wrench } from '@/lib/icons'
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  iconSize,
+  Loader2,
+  LogIn,
+  RefreshCw,
+  SlidersHorizontal,
+  Wrench
+} from '@/lib/icons'
 import { $desktopBoot } from '@/store/boot'
 import { notify, notifyError } from '@/store/notifications'
 import { $desktopOnboarding } from '@/store/onboarding'
 
+import { classifyBootFailure } from './boot-failure-kind'
 import type { RemoteReauth } from './boot-failure-reauth'
 import {
   deriveProviderShape,
@@ -32,6 +45,8 @@ const GatewaySettings = lazy(() =>
 type BusyAction = 'local' | 'repair' | 'retry' | 'signin' | null
 type RecoveryView = 'connect' | 'recovery'
 
+const COPIED_RESET_MS = 2000
+
 // A remote gateway whose access cookie has lapsed (e.g. the dashboard
 // restarted on the remote box) boots into this overlay with a reauth-shaped
 // error. The local-recovery buttons (Retry resets the local bootstrap latch;
@@ -43,13 +58,21 @@ type RecoveryView = 'connect' | 'recovery'
 // exited during startup, bootstrap latched, …). Without this the app shell
 // renders dead — "gateway offline", no composer, only a toast — with no way
 // to retry, repair the install, switch the gateway, or find the logs.
+//
+// It explains before it acts: a title and one-sentence reason chosen by
+// `classifyBootFailure` (the main process only speaks English), a numbered
+// "what to do" list, the action that actually fixes this kind of failure
+// first, and everything technical — the raw error, recent logs — folded away
+// under "Technical details" so it is there for a support ticket without
+// being the first thing a person reads.
 export function BootFailureOverlay() {
   const boot = useStore($desktopBoot)
   const onboarding = useStore($desktopOnboarding)
   const { t } = useI18n()
   const [busy, setBusy] = useState<BusyAction>(null)
   const [logs, setLogs] = useState<string[]>([])
-  const [showLogs, setShowLogs] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [remoteReauth, setRemoteReauth] = useState<RemoteReauth | null>(null)
   const [connectionConfig, setConnectionConfig] = useState<DesktopConnectionConfig | null>(null)
   // A remote/cloud backend that failed to boot is fixable from gateway settings,
@@ -90,6 +113,7 @@ export function BootFailureOverlay() {
       setConnectionConfig(null)
       setRemoteFailure(false)
       setView('recovery')
+      setShowDetails(false)
 
       return
     }
@@ -220,6 +244,22 @@ export function BootFailureOverlay() {
   const openLogs = () => void window.agentxDesktop?.revealLogs().catch(() => undefined)
   const copy = t.boot.failure
 
+  // The raw error, exactly as the main process raised it — the one thing a
+  // support ticket needs verbatim. SSH failures get their translated shape.
+  const detail = sshFailureMessage(connectionConfig, boot.error, t.settings.gateway)
+
+  const copyDetails = async () => {
+    const text = logs.length > 0 ? `${detail}\n\n${logs.slice(-40).join('')}` : detail
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), COPIED_RESET_MS)
+    } catch {
+      // Some environments forbid clipboard writes; the details stay on screen.
+    }
+  }
+
   const label = signInLabel(remoteReauth, {
     identityProvider: copy.identityProvider,
     remoteGateway: copy.signInToRemoteGateway,
@@ -230,7 +270,7 @@ export function BootFailureOverlay() {
   // button is the one that actually fixes it: Sign in for a lapsed remote
   // session, Connection settings for any other remote failure (local Retry /
   // Repair can't revive a dead remote — Repair is dropped there), Retry for a
-  // local backend. Open logs is always appended.
+  // local backend.
   type RecoveryVariant = ComponentProps<typeof Button>['variant']
   interface RecoveryAction {
     key: string
@@ -265,9 +305,15 @@ export function BootFailureOverlay() {
   }
 
   let actions: RecoveryAction[]
-  let hint: string
+  let title: string
+  let description: string
+  let steps: readonly string[]
+  let hint: null | string = null
 
   if (remoteReauth) {
+    title = copy.remoteTitle
+    description = copy.remoteDescription
+    steps = [copy.remoteSignInHint(label)]
     actions = [
       {
         key: 'signin',
@@ -279,13 +325,23 @@ export function BootFailureOverlay() {
       { ...settingsAction, variant: 'secondary' },
       localAction
     ]
-    hint = copy.remoteSignInHint(label)
   } else if (remoteFailure) {
+    title = copy.title
+    description = copy.description
+    steps = [copy.remoteFailureHint]
     actions = [settingsAction, { ...retryAction, variant: 'secondary' }, localAction]
-    hint = copy.remoteFailureHint
   } else {
-    // Local failure: Use-local is redundant with Retry (both re-target local), so
-    // it's dropped here; keep it for remote failures where it's the fall-back.
+    // Local failure: the kind decides how it is explained; the actions are the
+    // same three because every kind is fixed by the same two moves (retry,
+    // then repair). Use-local is redundant with Retry here (both re-target
+    // local) and is dropped; it stays for remote failures as the fall-back.
+    const kind = classifyBootFailure(boot.error)
+    const explained = kind === 'unknown' ? null : copy.kinds[kind]
+
+    title = explained?.title ?? copy.title
+    description = explained?.description ?? copy.description
+    steps = explained?.steps ?? copy.genericSteps
+    hint = copy.repairHint
     actions = [
       retryAction,
       {
@@ -298,7 +354,6 @@ export function BootFailureOverlay() {
       },
       { ...settingsAction, variant: 'ghost' }
     ]
-    hint = copy.repairHint
   }
 
   if (view === 'connect') {
@@ -327,54 +382,82 @@ export function BootFailureOverlay() {
 
   return (
     <div className="fixed inset-0 z-(--z-setup) flex items-center justify-center bg-(--ui-chat-surface-background) p-6">
-      <div className="w-full max-w-[40rem] overflow-hidden rounded-xl border border-(--stroke-nous) bg-(--ui-chat-bubble-background) shadow-nous">
-        <div className="flex items-start gap-3 px-5 py-4">
-          <ErrorIcon className="mt-0.5" size="1.25rem" />
-          <div>
-            <h2 className="text-md font-semibold tracking-tight">
-              {remoteReauth ? copy.remoteTitle : copy.title}
-            </h2>
-            <p className="mt-1 text-sm leading-5 text-(--ui-text-tertiary)">
-              {remoteReauth ? copy.remoteDescription : copy.description}
-            </p>
-          </div>
-        </div>
+      <div className="max-h-[90vh] w-full max-w-[40rem] overflow-y-auto rounded-xl border border-(--stroke-nous) bg-(--ui-chat-bubble-background) shadow-nous">
+        <div className="grid gap-5 p-6 sm:p-7">
+          {/* The same three beats as every ErrorState: what broke, why, and
+              (below) what to do — the raw message is deliberately not one of
+              them. */}
+          <ErrorState description={description} title={title} />
 
-        <div className="grid gap-4 p-5 pt-0">
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
-            {sshFailureMessage(connectionConfig, boot.error, t.settings.gateway)}
-          </div>
+          <section
+            aria-labelledby="boot-failure-steps"
+            className="rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-tertiary)/40 px-4 py-3"
+          >
+            <h3
+              className="text-2xs font-medium uppercase tracking-[0.06em] text-(--ui-text-tertiary)"
+              id="boot-failure-steps"
+            >
+              {copy.whatToDo}
+            </h3>
+            <ol className="mt-2 grid list-decimal gap-1.5 pl-5 text-sm leading-5 text-(--ui-text-secondary)">
+              {steps.map(step => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
 
           <div className="grid gap-2">
-            <div className="flex flex-wrap gap-2">
-              {actions.map(action => (
-                <Button disabled={Boolean(busy)} key={action.key} onClick={action.onClick} variant={action.variant}>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {actions.map((action, index) => (
+                <Button
+                  disabled={Boolean(busy)}
+                  key={action.key}
+                  onClick={action.onClick}
+                  size={index === 0 ? 'lg' : 'default'}
+                  variant={action.variant}
+                >
                   {action.busy && busy === action.busy ? <Loader2 className="animate-spin" /> : action.icon}
                   {action.label}
                 </Button>
               ))}
-              <Button onClick={openLogs} variant="ghost">
-                <FileText />
-                {copy.openLogs}
-              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{hint}</p>
+            {hint ? <p className="text-center text-xs text-muted-foreground">{hint}</p> : null}
           </div>
 
-          {logs.length > 0 ? (
-            <div className="grid gap-2">
+          {/* Everything a support ticket needs, and nothing a person has to
+              read first: the verbatim error plus the last log lines, one
+              toggle away, with a copy that grabs both. */}
+          <div className="grid gap-2 border-t border-(--ui-stroke-tertiary) pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
-                className="-ml-2 self-start font-medium"
-                onClick={() => setShowLogs(v => !v)}
+                aria-expanded={showDetails}
+                className="-ml-2"
+                onClick={() => setShowDetails(v => !v)}
                 size="xs"
                 type="button"
                 variant="text"
               >
-                {showLogs ? copy.hideRecentLogs : copy.showRecentLogs}
+                {showDetails ? <ChevronDown className={iconSize.sm} /> : <ChevronRight className={iconSize.sm} />}
+                {showDetails ? copy.hideTechnicalDetails : copy.technicalDetails}
               </Button>
-              {showLogs ? <LogView className="max-h-48">{logs.slice(-40).join('')}</LogView> : null}
+              <div className="flex items-center gap-1">
+                <Button onClick={() => void copyDetails()} size="xs" type="button" variant="text">
+                  {copied ? <Check /> : null}
+                  {copied ? copy.copiedDetails : copy.copyDetails}
+                </Button>
+                <Button onClick={openLogs} size="xs" type="button" variant="text">
+                  <FileText />
+                  {copy.openLogs}
+                </Button>
+              </div>
             </div>
-          ) : null}
+            {showDetails ? (
+              <div className="grid gap-2">
+                <LogView className="max-h-32 select-text">{detail}</LogView>
+                {logs.length > 0 ? <LogView className="max-h-48">{logs.slice(-40).join('')}</LogView> : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

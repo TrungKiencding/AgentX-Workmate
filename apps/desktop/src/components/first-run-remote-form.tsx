@@ -4,7 +4,7 @@ import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { DesktopConnectionProbeResult } from '@/global'
-import { useI18n } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { deriveRemoteAuthProviderShape } from '@/lib/desktop-remote-auth'
 import { AlertCircle, Check, Loader2, LogIn } from '@/lib/icons'
 import { coerceRemoteUrlScheme } from '@/lib/remote-url'
@@ -17,7 +17,7 @@ interface FirstRunRemoteFormProps {
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err || 'Unknown error')
+  return err instanceof Error ? err.message : String(err || translateNow('common.unknownError'))
 }
 
 export function FirstRunRemoteForm({ onBack }: FirstRunRemoteFormProps) {

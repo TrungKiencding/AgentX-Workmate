@@ -4,6 +4,7 @@ import type { Translations } from './types'
 
 export const en: Translations = {
   common: {
+    unknownError: 'Unknown error',
     apply: 'Apply',
     back: 'Back',
     save: 'Save',
@@ -64,6 +65,24 @@ export const en: Translations = {
   boot: {
     ready: 'AgentX Workmate Desktop is ready',
     desktopBootFailedWithMessage: message => `Desktop boot failed: ${message}`,
+    connecting: { word: 'Connecting', target: ' to AgentX server' },
+    phases: {
+      idle: 'Waiting to start the AgentX backend',
+      bootstrapChoice: 'Waiting for the first-run setup choice',
+      updateWait: 'An update is finishing — AgentX will start automatically when it completes',
+      resolve: 'Finding the AgentX backend',
+      remote: 'Connecting to the remote AgentX backend',
+      runtime: 'Checking the AgentX runtime',
+      runtimeExternal: 'Using an existing AgentX runtime',
+      runtimeReady: 'AgentX runtime is ready',
+      spawn: 'Starting the AgentX backend',
+      port: 'Waiting for the AgentX backend to launch',
+      wait: 'Waiting for the AgentX backend to become ready',
+      warmup: 'The AgentX backend is still warming up — waiting a little longer',
+      ready: 'AgentX backend is ready. Finishing desktop startup',
+      remoteReady: 'Remote AgentX backend is ready',
+      restarting: 'Restarting the desktop connection'
+    },
     steps: {
       connectingGateway: 'Connecting live desktop gateway',
       loadingSettings: 'Loading AgentX settings',
@@ -98,8 +117,6 @@ export const en: Translations = {
         `Signs out of the saved remote browser session, then opens ${signInLabel}. Use local gateway to switch to the bundled backend instead.`,
       signOutAndSignIn: 'Sign out & sign in',
       remoteFailureHint: 'Check the gateway URL and sign-in under Gateway settings, or switch to the local gateway.',
-      hideRecentLogs: 'Hide recent logs',
-      showRecentLogs: 'Show recent logs',
       signedInTitle: 'Signed in',
       signedInMessage: 'Reconnecting to the remote gateway…',
       signInIncompleteTitle: 'Sign-in incomplete',
@@ -113,7 +130,59 @@ export const en: Translations = {
       keycloakSignInHint: 'Opens your browser to sign in. You stay signed in until your AgentX session expires.',
       signInWithAgentX: 'Sign in with AgentX',
       keycloakSigningIn: 'Waiting for your browser…',
-      keycloakReconnecting: 'Signed in. Starting AgentX Workmate…'
+      keycloakReconnecting: 'Signed in. Starting AgentX Workmate…',
+      whatToDo: 'What to do',
+      technicalDetails: 'Technical details',
+      hideTechnicalDetails: 'Hide technical details',
+      copyDetails: 'Copy details',
+      copiedDetails: 'Copied',
+      genericSteps: [
+        'Click Retry.',
+        'If it keeps failing, choose Repair install, or open the logs and send them to your AgentX administrator.'
+      ],
+      kinds: {
+        timeout: {
+          title: 'AgentX is taking longer than usual to start',
+          description: 'The backend launched but did not answer in time. This is common on a first launch or on a busy machine, and nothing is broken.',
+          steps: [
+            'Click Retry — the second attempt usually gets through.',
+            'If it keeps happening, close heavy applications and try again.'
+          ]
+        },
+        exited: {
+          title: 'The AgentX backend stopped while starting',
+          description: 'The background process quit before it was ready.',
+          steps: [
+            'Click Retry.',
+            'If it stops again, choose Repair install — it re-runs the installer and keeps your chats and settings.'
+          ]
+        },
+        port: {
+          title: 'AgentX could not open its connection',
+          description: 'The backend never announced the port the app connects to.',
+          steps: [
+            'Click Retry.',
+            'Security software can block this step — allow AgentX if you are asked.',
+            'If it keeps happening, choose Repair install.'
+          ]
+        },
+        websocket: {
+          title: 'The live connection was refused',
+          description: 'AgentX answered over HTTP, but the real-time channel rejected the session.',
+          steps: [
+            'Click Retry to sign in and connect again.',
+            'If it keeps happening, open Gateway settings and check the connection.'
+          ]
+        },
+        install: {
+          title: 'The AgentX installation is incomplete',
+          description: 'The one-time install did not finish, so there is nothing to start yet.',
+          steps: [
+            'Choose Repair install to run the installer again.',
+            'Keep the app open until it finishes — it can take a few minutes.'
+          ]
+        }
+      }
     }
   },
 
@@ -2510,13 +2579,46 @@ export const en: Translations = {
     noOutput: 'No output yet.',
     cancelling: 'Cancelling...',
     cancelInstall: 'Cancel install',
-    transcriptSaved: 'Full transcript saved to',
+    transcriptSaved: 'The full installer transcript is saved in the AgentX logs folder.',
     copiedOutput: 'Copied!',
     copyOutput: 'Copy output',
     reloadRetry: 'Reload and retry'
   },
 
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX is ready',
+      readyBody: provider => `${provider} connected.`,
+      toolGatewayTitle: 'Tool Gateway enabled',
+      toolGatewayBody: tools => `${tools} now run through your Nous subscription — no separate API keys needed.`,
+      toolLabels: {
+        browser: 'browser automation',
+        image_gen: 'image generation',
+        tts: 'text-to-speech',
+        video_gen: 'video generation',
+        web: 'web search & extract'
+      },
+      listAnd: 'and',
+      providerUnresolved: 'Connected, but AgentX still cannot resolve a usable provider.',
+      runtimeNotReadyTitle: 'Runtime not ready',
+      runtimeNotReadyBody: 'AgentX Workmate Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.',
+      couldNotStartSignIn: detail => `Could not start sign-in: ${detail}`,
+      pollingFailed: detail => `Polling failed: ${detail}`,
+      signInStatus: status => `Sign-in ${status}.`,
+      tokenExchangeFailed: 'Token exchange failed.',
+      stillCannotReach: (provider, command) => `AgentX still cannot reach ${provider}. Run \`${command}\` in a terminal first.`,
+      couldNotSaveProvider: label => `Could not save ${label}`,
+      couldNotSaveModel: 'AgentX could not save the selected model.',
+      enterEndpointUrl: 'Enter the endpoint URL first.',
+      couldNotReachEndpoint: 'Could not reach that endpoint.',
+      couldNotReachUrl: url => `Could not reach ${url}.`,
+      noModelsAdvertised: url => `Connected to ${url}, but it advertised no models at /v1/models. Start a model on that endpoint and try again.`,
+      savedButUnreachable: url => `Saved, but AgentX still cannot reach ${url}.`,
+      localEndpointLabel: 'Local / custom endpoint',
+      couldNotSaveLocalEndpoint: 'Could not save local endpoint',
+      couldNotChangeModel: 'Could not change model',
+      directApiAccess: name => `Direct API access to ${name}.`
+    },
     headerTitle: 'Let’s get you set up with AgentX Workmate',
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',
     preparingInstall: 'AgentX is finishing install. This usually takes under a minute on first run.',
@@ -2929,16 +3031,27 @@ export const en: Translations = {
   },
 
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: 'Delegated', present: 'Delegating', noun: count => (count === 1 ? 'task' : 'tasks') },
+        edit: { past: 'Edited', present: 'Editing', noun: count => (count === 1 ? 'file' : 'files') },
+        explore: { past: 'Explored', present: 'Exploring', noun: count => (count === 1 ? 'file' : 'files') },
+        other: { past: 'Used', present: 'Using', noun: count => (count === 1 ? 'tool' : 'tools') },
+        run: { past: 'Ran', present: 'Running', noun: count => (count === 1 ? 'command' : 'commands') }
+      },
+      compacting: 'Summarizing thread',
+      searchResults: 'Search results'
+    },
     intro: {
       greetingMorning: name => (name ? `Good morning, ${name}` : 'Good morning'),
       greetingAfternoon: name => (name ? `Good afternoon, ${name}` : 'Good afternoon'),
       greetingEvening: name => (name ? `Good evening, ${name}` : 'Good evening'),
       bodyVariants: [
-        'Ask a question, paste an error, or point me at a repo. I can read code, run tools, and help you ship.',
-        "Describe the task in your own words. I'll pick the right tools, explain my plan, and check in before risky steps.",
-        "Drop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.",
-        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
-        "Type a task, question, or snippet. I remember the session, cite my sources, and stop to ask when I'm unsure."
+        'Ask a question, paste an error, or point me at a folder. I read documents and code, run tools, and help you get the work done.',
+        'Describe the task in your own words: summarise a document, draft an email, fix a piece of code. I pick the right tools and check in before risky steps.',
+        'Drop in a file, a spreadsheet, or a rough idea. I investigate, suggest next steps, and keep everything reversible.',
+        'Search the repo, edit files, run tests, open PRs. Tell me the goal and I\'ll handle the mechanical parts.',
+        'From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I\'m unsure.'
       ],
       quickStart: 'Quick start',
       resume: title => `Resume “${title}”`,
@@ -2946,7 +3059,13 @@ export const en: Translations = {
       starterExplainPrompt: 'Explain what this repository does and how the code is organized.',
       starterPlanLabel: 'Plan a change',
       starterPlanPrompt:
-        'I want to make a change. Ask me what you need to know, then propose a plan before writing code.'
+        'I want to make a change. Ask me what you need to know, then propose a plan before writing code.',
+      starterExplainFolderLabel: 'Explain this folder',
+      starterExplainFolderPrompt: 'Explain what is in the current working folder and how it is organised.',
+      starterSummarizeLabel: 'Summarise a document',
+      starterSummarizePrompt: 'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
+      starterDraftLabel: 'Draft an email',
+      starterDraftPrompt: 'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.'
     },
     thread: {
       loadingSession: 'Loading session',
@@ -3120,6 +3239,7 @@ export const en: Translations = {
   },
 
   desktop: {
+    runtimeChecksDisagree: 'setup.status reports configured credentials, but runtime resolution still failed.',
     audioReadFailed: 'Could not read recorded audio',
     sessionUnavailable: 'Session unavailable',
     createSessionFailed: 'Could not create a new session',

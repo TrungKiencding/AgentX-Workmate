@@ -867,6 +867,9 @@ export interface DesktopBootProgress {
   error: string | null
   fakeMode: boolean
   message: string
+  /** The dynamic part of `phase` (a gateway URL, a runtime path) — the renderer
+   *  translates the phase and appends this, see lib/boot-phase-label.ts. */
+  detail?: null | string
   phase: string
   progress: number
   running: boolean

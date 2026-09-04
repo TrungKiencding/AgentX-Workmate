@@ -131,3 +131,18 @@ test('remote apply without a waiter has no first-run side effects', async () => 
   assert.equal(hidden, 0)
   assert.equal(gate.isLocalBootstrapConfirmed(), true)
 })
+
+test('first-run setup gate installs locally without asking when the prompt is disabled', async () => {
+  const prompts = []
+
+  const gate = createFirstRunSetupGate({
+    promptChoice: backend => prompts.push(backend),
+    promptEnabled: false,
+    stuckAfterMs: 0
+  })
+
+  assert.equal(gate.shouldGate(bootstrapBackend), false)
+  assert.equal(await gate.wait(bootstrapBackend), 'continue-local')
+  assert.deepEqual(prompts, [])
+  assert.equal(gate.hasWaiter(), false)
+})

@@ -51,6 +51,7 @@ interface AuxTaskCopy {
 export interface Translations {
   common: {
     apply: string
+    unknownError: string
     back: string
     save: string
     saving: string
@@ -110,6 +111,26 @@ export interface Translations {
   boot: {
     ready: string
     desktopBootFailedWithMessage: (message: string) => string
+    /** The cold-boot splash line: `word` stays legible while `target` decodes. */
+    connecting: { word: string; target: string }
+    /** Main-process boot phases (see `lib/boot-phase-label.ts`); the dynamic part rides on `detail`. */
+    phases: {
+      idle: string
+      bootstrapChoice: string
+      updateWait: string
+      resolve: string
+      remote: string
+      runtime: string
+      runtimeExternal: string
+      runtimeReady: string
+      spawn: string
+      port: string
+      wait: string
+      warmup: string
+      ready: string
+      remoteReady: string
+      restarting: string
+    }
     steps: {
       connectingGateway: string
       loadingSettings: string
@@ -141,8 +162,6 @@ export interface Translations {
       remoteSignInHint: (signInLabel: string) => string
       signOutAndSignIn: string
       remoteFailureHint: string
-      hideRecentLogs: string
-      showRecentLogs: string
       signedInTitle: string
       signedInMessage: string
       signInIncompleteTitle: string
@@ -157,6 +176,18 @@ export interface Translations {
       signInWithAgentX: string
       keycloakSigningIn: string
       keycloakReconnecting: string
+      whatToDo: string
+      technicalDetails: string
+      hideTechnicalDetails: string
+      copyDetails: string
+      copiedDetails: string
+      /** Recovery steps for a failure no `kinds` entry recognises. */
+      genericSteps: readonly string[]
+      /** Plain-language explanation per classified failure (see `boot-failure-kind.ts`). */
+      kinds: Record<
+        'exited' | 'install' | 'port' | 'timeout' | 'websocket',
+        { title: string; description: string; steps: readonly string[] }
+      >
     }
   }
 
@@ -2124,6 +2155,34 @@ export interface Translations {
     fireworksPitch: string
     openRouterPitch: string
     apiKeyOptions: Record<string, { short: string; description: string }>
+    /** Copy the onboarding store surfaces at runtime (toasts, flow errors). */
+    messages: {
+      readyTitle: string
+      readyBody: (provider: string) => string
+      toolGatewayTitle: string
+      toolGatewayBody: (tools: string) => string
+      toolLabels: Record<string, string>
+      listAnd: string
+      providerUnresolved: string
+      runtimeNotReadyTitle: string
+      runtimeNotReadyBody: string
+      couldNotStartSignIn: (detail: string) => string
+      pollingFailed: (detail: string) => string
+      signInStatus: (status: string) => string
+      tokenExchangeFailed: string
+      stillCannotReach: (provider: string, command: string) => string
+      couldNotSaveProvider: (label: string) => string
+      couldNotSaveModel: string
+      enterEndpointUrl: string
+      couldNotReachEndpoint: string
+      couldNotReachUrl: (url: string) => string
+      noModelsAdvertised: (url: string) => string
+      savedButUnreachable: (url: string) => string
+      localEndpointLabel: string
+      couldNotSaveLocalEndpoint: string
+      couldNotChangeModel: string
+      directApiAccess: (name: string) => string
+    }
     backToSignIn: string
     getKey: string
     replaceCurrent: string
@@ -2495,6 +2554,16 @@ export interface Translations {
   }
 
   assistant: {
+    /** The grey line over a run of tool calls and the wait hint before one
+     *  starts (tool/run-summary.ts): "Edited 2 files, running 1 command". */
+    toolRun: {
+      categories: Record<
+        'delegate' | 'edit' | 'explore' | 'other' | 'run',
+        { past: string; present: string; noun: (count: number) => string }
+      >
+      compacting: string
+      searchResults: string
+    }
     /** The empty chat home surface — greeting + quick-start chips. */
     intro: {
       greetingMorning: (name?: string) => string
@@ -2509,6 +2578,12 @@ export interface Translations {
       starterExplainPrompt: string
       starterPlanLabel: string
       starterPlanPrompt: string
+      starterExplainFolderLabel: string
+      starterExplainFolderPrompt: string
+      starterSummarizeLabel: string
+      starterSummarizePrompt: string
+      starterDraftLabel: string
+      starterDraftPrompt: string
     }
     thread: {
       loadingSession: string
@@ -2647,6 +2722,7 @@ export interface Translations {
     createSessionFailed: string
     promptFailed: string
     providerCredentialRequired: string
+    runtimeChecksDisagree: string
     emptySlashCommand: string
     desktopCommands: string
     skillCommandsAvailable: (count: number) => string

@@ -116,7 +116,7 @@ export function interpretRuntimeReadiness(
     let reason = runtimeFailure ?? defaultReason
 
     if (checksDisagree && setupConfigured) {
-      reason = `${reason} setup.status reports configured credentials, but runtime resolution still failed.`
+      reason = `${reason} ${translateNow('desktop.runtimeChecksDisagree')}`
     }
 
     return {

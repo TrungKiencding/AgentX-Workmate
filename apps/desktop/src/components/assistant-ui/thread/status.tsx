@@ -44,8 +44,6 @@ const StatusRow: FC<{ children: ReactNode; label: string } & React.ComponentProp
 )
 
 // Fixed label while auto-compaction runs — decoupled from backend status text.
-const COMPACTION_LABEL = 'Summarizing thread'
-
 const HintText: FC<{ children: ReactNode }> = ({ children }) => (
   <span className={cn(SCAFFOLD_LABEL_CLASS, 'shimmer min-w-0 truncate')}>{children}</span>
 )
@@ -80,6 +78,7 @@ const DRAFTING_REVEAL_MS = 200
  * it's rarer, slower, and explains a transcript that looks like it reset.
  */
 function useStatusHint(compacting: boolean, drafting: DraftingTool | null): string {
+  const { t } = useI18n()
   const [revealed, setRevealed] = useState(false)
   const name = drafting?.name ?? ''
 
@@ -96,10 +95,10 @@ function useStatusHint(compacting: boolean, drafting: DraftingTool | null): stri
   }, [name])
 
   if (compacting) {
-    return COMPACTION_LABEL
+    return t.assistant.toolRun.compacting
   }
 
-  return revealed && name ? toolPresentVerb(name) : ''
+  return revealed && name ? toolPresentVerb(name, t.assistant.toolRun) : ''
 }
 
 export const CenteredThreadSpinner: FC = () => {

@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { requestComposerFocus, requestComposerInsert } from '@/app/chat/composer/focus'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n/context'
-import { Clock, FolderOpen, NotebookTabs, Search } from '@/lib/icons'
+import { Clock, FileText, FolderOpen, Mail, NotebookTabs, Search } from '@/lib/icons'
 import { $keycloakAccount, refreshKeycloakAccount } from '@/store/account'
+import { $repoStatus } from '@/store/coding-status'
 import { $desktopOnboarding } from '@/store/onboarding'
 import { $profileScope, $showAllProfiles } from '@/store/profile'
 import { $projectTree, requestStartWorkSession } from '@/store/projects'
 import { $currentCwd, $sessions } from '@/store/session'
 
-import { type IntroChipSource, introChipSources, introGreetingSlot } from './intro-chips'
+import { type IntroChipSource, introChipSources, introGreetingSlot, type IntroStarterId } from './intro-chips'
 import { resolveIntroBody } from './intro-copy'
 
 export type IntroProps = {
@@ -33,10 +34,12 @@ let entrancePlayed = false
 
 /** Chip glyphs. Tabler only, one per kind — see design.md § Iconography. */
 const CHIP_ICON = {
+  draft: Mail,
   explain: Search,
   plan: NotebookTabs,
   project: FolderOpen,
-  resume: Clock
+  resume: Clock,
+  summarize: FileText
 } as const
 
 export function Intro({ onResumeSession, personality, seed }: IntroProps) {
@@ -51,6 +54,9 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
   const profileScope = useStore($profileScope)
   const showAllProfiles = useStore($showAllProfiles)
   const activeCwd = useStore($currentCwd)
+  // Null off a repository — the composer's coding rail runs the same probe, so
+  // the chips and the branch strip never disagree about what the folder is.
+  const cwdIsRepo = useStore($repoStatus) !== null
 
   useEffect(() => {
     entrancePlayed = true
@@ -74,13 +80,14 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
       introChipSources({
         activeCwd,
         canResume: Boolean(onResumeSession),
+        cwdIsRepo,
         onboardingActive,
         profileScope,
         projects,
         sessions,
         showAllProfiles
       }),
-    [activeCwd, onResumeSession, onboardingActive, profileScope, projects, sessions, showAllProfiles]
+    [activeCwd, cwdIsRepo, onResumeSession, onboardingActive, profileScope, projects, sessions, showAllProfiles]
   )
 
   const intro = t.assistant.intro
@@ -102,6 +109,26 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
         ? intro.greetingAfternoon(name || undefined)
         : intro.greetingEvening(name || undefined)
 
+  // Label + prompt per starter. "Explain" speaks of the repo inside one and of
+  // the folder anywhere else — the same folder probe the chip order uses.
+  const starterCopy = (starter: IntroStarterId): { label: string; prompt: string } => {
+    switch (starter) {
+      case 'explain':
+        return cwdIsRepo
+          ? { label: intro.starterExplainLabel, prompt: intro.starterExplainPrompt }
+          : { label: intro.starterExplainFolderLabel, prompt: intro.starterExplainFolderPrompt }
+
+      case 'plan':
+        return { label: intro.starterPlanLabel, prompt: intro.starterPlanPrompt }
+
+      case 'summarize':
+        return { label: intro.starterSummarizeLabel, prompt: intro.starterSummarizePrompt }
+
+      case 'draft':
+        return { label: intro.starterDraftLabel, prompt: intro.starterDraftPrompt }
+    }
+  }
+
   const chipLabel = (chip: IntroChipSource): string => {
     if (chip.kind === 'resume') {
       return intro.resume(chip.title)
@@ -111,7 +138,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
       return t.sidebar.newSessionIn(chip.label)
     }
 
-    return chip.starter === 'explain' ? intro.starterExplainLabel : intro.starterPlanLabel
+    return starterCopy(chip.starter).label
   }
 
   // One existing action per chip — nothing here is a new navigation path.
@@ -128,9 +155,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
       return
     }
 
-    requestComposerInsert(chip.starter === 'explain' ? intro.starterExplainPrompt : intro.starterPlanPrompt, {
-      target: 'main'
-    })
+    requestComposerInsert(starterCopy(chip.starter).prompt, { target: 'main' })
     requestComposerFocus('main')
   }
 

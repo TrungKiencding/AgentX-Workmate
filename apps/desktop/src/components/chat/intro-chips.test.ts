@@ -42,7 +42,39 @@ describe('introGreetingSlot', () => {
 
 describe('introChipSources', () => {
   it('offers only the starters when there is no history', () => {
-    expect(kinds(introChipSources({ showAllProfiles: true }))).toEqual(['starter', 'starter'])
+    expect(kinds(introChipSources({ showAllProfiles: true }))).toEqual(['starter', 'starter', 'starter', 'starter'])
+  })
+
+  it('leads with the coding pair inside a repository and the office pair anywhere else', () => {
+    const starters = (chips: ReturnType<typeof introChipSources>) =>
+      chips.map(chip => (chip.kind === 'starter' ? chip.starter : chip.kind))
+
+    expect(starters(introChipSources({ cwdIsRepo: true, showAllProfiles: true }))).toEqual([
+      'explain',
+      'plan',
+      'summarize',
+      'draft'
+    ])
+    expect(starters(introChipSources({ cwdIsRepo: false, showAllProfiles: true }))).toEqual([
+      'summarize',
+      'draft',
+      'plan',
+      'explain'
+    ])
+  })
+
+  it('keeps the leading pair of the folder when history takes the other two slots', () => {
+    const history = {
+      projects: [project({ id: 'p_a', lastActive: 5 })],
+      sessions: [session({ id: 's1', last_active: 5 })],
+      showAllProfiles: true
+    }
+
+    const starters = (chips: ReturnType<typeof introChipSources>) =>
+      chips.filter(chip => chip.kind === 'starter').map(chip => (chip.kind === 'starter' ? chip.starter : ''))
+
+    expect(starters(introChipSources({ ...history, cwdIsRepo: true }))).toEqual(['explain', 'plan'])
+    expect(starters(introChipSources({ ...history }))).toEqual(['summarize', 'draft'])
   })
 
   it('shows nothing at all while onboarding owns the screen', () => {
@@ -83,7 +115,7 @@ describe('introChipSources', () => {
 
     expect(
       kinds(introChipSources({ sessions: [session({ id: 's1', title: '  ', preview: null })], showAllProfiles: true }))
-    ).toEqual(['starter', 'starter'])
+    ).toEqual(['starter', 'starter', 'starter', 'starter'])
   })
 
   it('honours the sidebar profile scope', () => {

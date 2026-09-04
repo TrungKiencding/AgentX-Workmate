@@ -2,16 +2,16 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { DecodeText } from '@/components/ui/decode-text'
+import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { $desktopBoot } from '@/store/boot'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
 // Decode mechanics live in the shared <DecodeText> primitive
-// (components/ui/decode-text.tsx). The word itself stays legible throughout —
-// only the destination decodes — so the splash always says what it's doing.
-const TEXT = 'Connecting to AgentX server'
-const PREFIX = 'Connecting'.length
+// (components/ui/decode-text.tsx). The line comes from the catalog
+// (`boot.connecting`): its `word` stays legible throughout — only the `target`
+// decodes — so the splash always says what it's doing, in the app's language.
 
 // Exit choreography (ms): text fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
@@ -45,6 +45,9 @@ export function GatewayConnectingOverlay() {
   const gatewayState = useStore($gatewayState)
   const boot = useStore($desktopBoot)
   const gatewaySwitching = useStore($gatewaySwitching)
+  const { t } = useI18n()
+  const text = `${t.boot.connecting.word}${t.boot.connecting.target}`
+  const prefix = t.boot.connecting.word.length
   const [previewing] = useState(forcedPreview)
   const reduce = prefersReducedMotion()
   // Under reduced motion, skip the multi-phase exit choreography (text-out →
@@ -157,8 +160,8 @@ export function GatewayConnectingOverlay() {
         )}
         cursor
         mono={false}
-        prefix={PREFIX}
-        text={TEXT}
+        prefix={prefix}
+        text={text}
       />
     </div>
   )

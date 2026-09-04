@@ -120,3 +120,44 @@ describe('BootFailureOverlay', () => {
     expect(container.firstChild).toBeNull()
   })
 })
+
+describe('BootFailureOverlay — explaining the failure', () => {
+  it('names a slow first answer as a slow start and folds the raw error under technical details', async () => {
+    const restore = stubDesktop({ mode: 'local' })
+    $desktopBoot.set({
+      ...$desktopBoot.get(),
+      error: "Error invoking remote method 'agentx:connection': Error: Timed out connecting to AgentX backend after 8000ms",
+      running: false,
+      visible: true
+    })
+
+    try {
+      render(<BootFailureOverlay />)
+
+      expect(screen.getByText('AgentX is taking longer than usual to start')).toBeTruthy()
+      expect(screen.getByText('What to do')).toBeTruthy()
+      // The verbatim error is for the support ticket, not the first read.
+      expect(screen.queryByText(/Timed out connecting to AgentX backend/)).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: /technical details/i }))
+
+      expect(await screen.findByText(/Timed out connecting to AgentX backend/)).toBeTruthy()
+      expect(screen.getByRole('button', { name: /hide technical details/i })).toBeTruthy()
+    } finally {
+      restore()
+    }
+  })
+
+  it('keeps the generic title and steps for a failure it cannot classify', () => {
+    const restore = stubDesktop({ mode: 'local' })
+
+    try {
+      render(<BootFailureOverlay />)
+
+      expect(screen.getByText("AgentX couldn't start")).toBeTruthy()
+      expect(screen.getByText('Click Retry.')).toBeTruthy()
+    } finally {
+      restore()
+    }
+  })
+})

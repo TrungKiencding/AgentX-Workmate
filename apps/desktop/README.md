@@ -30,7 +30,7 @@ Already have the AgentX CLI? Just run:
 agentx desktop
 ```
 
-It builds and launches the GUI against your existing install — same config, keys, sessions, and skills. If Desktop cannot find a usable runtime or saved remote connection, first launch lets you connect to an existing AgentX gateway or install AgentX locally. Local onboarding then walks you through choosing a provider and model.
+It builds and launches the GUI against your existing install — same config, keys, sessions, and skills. If Desktop cannot find a usable runtime or saved remote connection, a packaged build installs AgentX locally on first launch (a source-tree run still offers to connect to an existing AgentX gateway instead). Sign in with your AgentX account and the model key is provisioned for you; an existing gateway can be connected any time from Settings → Gateway.
 
 ### Prebuilt installers
 
@@ -134,14 +134,16 @@ Desktop supports a managed local backend, explicit remote gateways, and AgentX
 Cloud connections. Remote and cloud modes use the same remote-capability path;
 authentication and discovery differ, not the renderer feature model.
 
-When no usable local runtime or saved remote connection exists, the first-run
-screen offers **Connect to existing AgentX** before starting the local installer.
-Desktop probes the gateway to discover token or OAuth authentication, requires a
-successful HTTP and WebSocket connection test, and saves the connection using
-the same encrypted Desktop configuration used by Settings. A saved remote
-connection bypasses this choice on later launches. The regular Desktop build
-still includes the local-install option; this is a remote operating mode, not a
-separate client-only application.
+When no usable local runtime or saved remote connection exists, a packaged
+build starts the local installer straight away; only a source-tree run
+(`npm run dev`, sandboxes) pauses on a **Connect to existing AgentX** choice
+first. Either way, Settings → Gateway is where an existing gateway is
+connected: Desktop probes it to discover token or OAuth authentication,
+requires a successful HTTP and WebSocket connection test, and saves the
+connection using the same encrypted Desktop configuration. A saved remote
+connection is used on later launches. The regular Desktop build still includes
+the local-install option; remote is an operating mode, not a separate
+client-only application.
 
 In remote mode the gateway host is the execution boundary: agent tools,
 terminal commands, and file operations run against the remote AgentX host, not

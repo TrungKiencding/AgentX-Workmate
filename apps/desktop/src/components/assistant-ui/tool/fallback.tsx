@@ -298,6 +298,9 @@ function ToolTitle({
     <FadeText
       className={cn(
         SCAFFOLD_LABEL_CLASS,
+        // The title gives way first: with the timer and dismiss control in
+        // flow at the right edge, a long MCP tool name ellipsizes here.
+        'min-w-0 truncate',
         isPending && 'text-(--conversation-scaffold-meta)',
         status === 'error' && 'text-destructive',
         status === 'warning' && 'text-(--ui-yellow)',
@@ -452,7 +455,7 @@ function ToolEntry({ part }: ToolEntryProps) {
     (part.toolName === 'terminal' || part.toolName === 'execute_code' || part.toolName === 'read_file')
 
   const hasSearchHits = Boolean(view.searchHits?.length)
-  const searchResultsLabel = part.toolName === 'web_search' ? 'Search results' : view.detailLabel
+  const searchResultsLabel = part.toolName === 'web_search' ? t.assistant.toolRun.searchResults : view.detailLabel
 
   const hasExpandableContent = Boolean(
     view.imageUrl ||
@@ -837,6 +840,8 @@ interface ToolRunState {
 // when a call arrives or one finishes; cache on exactly that.
 function useToolRun(startIndex: number, endIndex: number): ToolRunState {
   const cache = useRef<null | { signature: string; value: ToolRunState }>(null)
+  const { locale, t } = useI18n()
+  const runCopy = t.assistant.toolRun
 
   return useAuiState(state => {
     const parts = state.message.parts
@@ -852,9 +857,11 @@ function useToolRun(startIndex: number, endIndex: number): ToolRunState {
     // that moves on to later parts, leaves the run settled and collapsible.
     const live = selectMessageRunning(state) && endIndex >= parts.length - 1
 
+    // The locale is part of the signature: a language switch has to re-read
+    // the summary, and nothing else about the run changes when it happens.
     const signature = tools
       .map(tool => `${tool.toolCallId}:${tool.result === undefined ? 0 : 1}`)
-      .concat(String(live))
+      .concat(String(live), locale)
       .join('|')
 
     if (cache.current?.signature !== signature) {
@@ -866,7 +873,7 @@ function useToolRun(startIndex: number, endIndex: number): ToolRunState {
           key: tools[0]?.toolCallId ?? '',
           live,
           pendingApprovalTool: tools.some(tool => tool.result === undefined && APPROVAL_TOOLS.has(tool.toolName)),
-          summary: summarizeToolRun(tools, live)
+          summary: summarizeToolRun(tools, live, runCopy)
         }
       }
     }

@@ -122,6 +122,24 @@ class TestSupportsVisionOverride:
         cfg = {"model": {"supports_vision": False}}
         assert _supports_vision_override(cfg, "custom", "my-llava") is False
 
+    def test_providers_map_written_by_account_provisioning(self):
+        """The shape hermes_cli.account_provisioning writes for the AI Gateway
+        account provider: every granted model flagged, so whichever of them a
+        session is on reads images itself instead of via a pinned aux model."""
+        cfg = {
+            "model": {"provider": "litellm", "default": "Qwen/Qwen3.6-35B-A3B-FP8"},
+            "providers": {
+                "litellm": {
+                    "models": {
+                        "Qwen/Qwen3.6-35B-A3B-FP8": {"supports_vision": True},
+                        "MiniMax-M3": {"supports_vision": True},
+                    }
+                }
+            },
+        }
+        assert _supports_vision_override(cfg, "litellm", "Qwen/Qwen3.6-35B-A3B-FP8") is True
+        assert _supports_vision_override(cfg, "litellm", "MiniMax-M3") is True
+
 
 
 

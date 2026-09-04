@@ -8,6 +8,7 @@ export interface DesktopBootState extends DesktopBootProgress {
 }
 
 const INITIAL_BOOT_STATE: DesktopBootState = {
+  detail: null,
   error: null,
   fakeMode: false,
   message: translateNow('boot.steps.startingAgentxDesktop'),
@@ -56,6 +57,7 @@ export function setDesktopBootStep(step: {
 }) {
   const current = $desktopBoot.get()
   applyDesktopBootProgress({
+    detail: null,
     error: step.error ?? null,
     fakeMode: step.fakeMode ?? current.fakeMode,
     message: step.message,
@@ -70,6 +72,7 @@ export function completeDesktopBoot(message = translateNow('boot.ready')) {
   const current = $desktopBoot.get()
   $desktopBoot.set({
     ...current,
+    detail: null,
     error: null,
     message,
     phase: 'renderer.ready',

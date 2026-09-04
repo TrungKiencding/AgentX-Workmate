@@ -4,6 +4,7 @@ import type { Translations } from './types'
 
 export const zh: Translations = {
   common: {
+    unknownError: '未知错误',
     apply: '应用',
     back: '返回',
     save: '保存',
@@ -64,6 +65,24 @@ export const zh: Translations = {
   boot: {
     ready: 'AgentX 桌面版已就绪',
     desktopBootFailedWithMessage: message => `桌面启动失败：${message}`,
+    connecting: { word: '正在连接', target: ' AgentX 服务器' },
+    phases: {
+      idle: '正在等待启动 AgentX 后端',
+      bootstrapChoice: '正在等待首次运行的安装选择',
+      updateWait: '更新即将完成 — 完成后 AgentX 会自动启动',
+      resolve: '正在查找 AgentX 后端',
+      remote: '正在连接远程 AgentX 后端',
+      runtime: '正在检查 AgentX 运行环境',
+      runtimeExternal: '使用已有的 AgentX 运行环境',
+      runtimeReady: 'AgentX 运行环境已就绪',
+      spawn: '正在启动 AgentX 后端',
+      port: '正在等待 AgentX 后端开放端口',
+      wait: '正在等待 AgentX 后端就绪',
+      warmup: 'AgentX 后端仍在预热 — 再稍等片刻',
+      ready: 'AgentX 后端已就绪，正在完成桌面启动',
+      remoteReady: '远程 AgentX 后端已就绪',
+      restarting: '正在重启桌面连接'
+    },
     steps: {
       connectingGateway: '正在连接桌面网关',
       loadingSettings: '正在加载 AgentX 设置',
@@ -96,8 +115,6 @@ export const zh: Translations = {
         `先退出已保存的远程浏览器会话，然后打开${signInLabel}。也可以使用本地网关切换到随应用提供的后端。`,
       signOutAndSignIn: '退出并重新登录',
       remoteFailureHint: '在“网关设置”中检查网关 URL 和登录，或切换到本地网关。',
-      hideRecentLogs: '隐藏最近日志',
-      showRecentLogs: '显示最近日志',
       signedInTitle: '已登录',
       signedInMessage: '正在重新连接远程网关…',
       signInIncompleteTitle: '登录未完成',
@@ -111,7 +128,59 @@ export const zh: Translations = {
       keycloakSignInHint: '会打开浏览器完成登录。在 AgentX 会话过期之前都无需重新登录。',
       signInWithAgentX: '使用 AgentX 登录',
       keycloakSigningIn: '正在等待浏览器…',
-      keycloakReconnecting: '已登录，正在启动 AgentX Workmate…'
+      keycloakReconnecting: '已登录，正在启动 AgentX Workmate…',
+      whatToDo: '可以这样做',
+      technicalDetails: '技术细节',
+      hideTechnicalDetails: '隐藏技术细节',
+      copyDetails: '复制细节',
+      copiedDetails: '已复制',
+      genericSteps: [
+        '点击“重试”。',
+        '若仍然失败，选择“修复安装”，或打开日志并发给你的 AgentX 管理员。'
+      ],
+      kinds: {
+        timeout: {
+          title: '启动 AgentX 比平时慢',
+          description: '后端已启动但未及时响应。首次启动或机器繁忙时很常见，并没有什么坏掉。',
+          steps: [
+            '点击“重试” — 第二次通常就能连上。',
+            '如果反复出现，关闭占用较大的应用后再试。'
+          ]
+        },
+        exited: {
+          title: 'AgentX 后端在启动时停止了',
+          description: '后台进程在就绪前退出了。',
+          steps: [
+            '点击“重试”。',
+            '若再次停止，选择“修复安装” — 它会重新运行安装程序，并保留你的聊天和设置。'
+          ]
+        },
+        port: {
+          title: 'AgentX 无法打开连接',
+          description: '后端始终没有告知应用应连接的端口。',
+          steps: [
+            '点击“重试”。',
+            '安全软件可能会拦截这一步 — 若被询问，请允许 AgentX。',
+            '如果反复出现，选择“修复安装”。'
+          ]
+        },
+        websocket: {
+          title: '实时连接被拒绝',
+          description: 'AgentX 通过 HTTP 有响应，但实时通道拒绝了此会话。',
+          steps: [
+            '点击“重试”以重新登录并连接。',
+            '如果反复出现，打开网关设置检查连接。'
+          ]
+        },
+        install: {
+          title: 'AgentX 安装尚未完成',
+          description: '一次性安装没有完成，所以还没有可启动的内容。',
+          steps: [
+            '选择“修复安装”重新运行安装程序。',
+            '完成前请保持应用打开 — 可能需要几分钟。'
+          ]
+        }
+      }
     }
   },
 
@@ -2692,13 +2761,46 @@ export const zh: Translations = {
     noOutput: '暂无输出。',
     cancelling: '取消中...',
     cancelInstall: '取消安装',
-    transcriptSaved: '完整记录已保存到',
+    transcriptSaved: '安装程序的完整记录已保存到 AgentX 的日志文件夹。',
     copiedOutput: '已复制！',
     copyOutput: '复制输出',
     reloadRetry: '重新加载并重试'
   },
 
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX 已就绪',
+      readyBody: provider => `${provider} 已连接。`,
+      toolGatewayTitle: '已启用 Tool Gateway',
+      toolGatewayBody: tools => `${tools} 现在通过你的 Nous 订阅运行 — 无需单独的 API key。`,
+      toolLabels: {
+        browser: '浏览器自动化',
+        image_gen: '图片生成',
+        tts: '文字转语音',
+        video_gen: '视频生成',
+        web: '网页搜索与提取'
+      },
+      listAnd: '和',
+      providerUnresolved: '已连接，但 AgentX 仍无法解析出可用的提供商。',
+      runtimeNotReadyTitle: '运行环境尚未就绪',
+      runtimeNotReadyBody: 'AgentX Workmate Desktop 启动时无法验证正在运行的后端。在网关可达之前，部分功能可能不可用。',
+      couldNotStartSignIn: detail => `无法开始登录：${detail}`,
+      pollingFailed: detail => `轮询失败：${detail}`,
+      signInStatus: status => `登录${status}。`,
+      tokenExchangeFailed: '令牌交换失败。',
+      stillCannotReach: (provider, command) => `AgentX 仍无法连接 ${provider}。请先在终端运行 \`${command}\`。`,
+      couldNotSaveProvider: label => `无法保存 ${label}`,
+      couldNotSaveModel: 'AgentX 无法保存所选模型。',
+      enterEndpointUrl: '请先输入端点 URL。',
+      couldNotReachEndpoint: '无法连接到该端点。',
+      couldNotReachUrl: url => `无法连接 ${url}。`,
+      noModelsAdvertised: url => `已连接 ${url}，但它在 /v1/models 未提供任何模型。请在该端点上启动一个模型后重试。`,
+      savedButUnreachable: url => `已保存，但 AgentX 仍无法连接 ${url}。`,
+      localEndpointLabel: '本地 / 自定义端点',
+      couldNotSaveLocalEndpoint: '无法保存本地端点',
+      couldNotChangeModel: '无法更改模型',
+      directApiAccess: name => `直接访问 ${name} 的 API。`
+    },
     headerTitle: '开始设置 AgentX Workmate',
     headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',
     preparingInstall: 'AgentX 正在完成安装。首次运行通常不到一分钟。',
@@ -3100,23 +3202,40 @@ export const zh: Translations = {
   },
 
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: '已委派', present: '正在委派', noun: _count => '个任务' },
+        edit: { past: '已编辑', present: '正在编辑', noun: _count => '个文件' },
+        explore: { past: '已查看', present: '正在查看', noun: _count => '个文件' },
+        other: { past: '已使用', present: '正在使用', noun: _count => '个工具' },
+        run: { past: '已运行', present: '正在运行', noun: _count => '条命令' }
+      },
+      compacting: '正在总结对话',
+      searchResults: '搜索结果'
+    },
     intro: {
       greetingMorning: name => (name ? `早上好，${name}` : '早上好'),
       greetingAfternoon: name => (name ? `下午好，${name}` : '下午好'),
       greetingEvening: name => (name ? `晚上好，${name}` : '晚上好'),
       bodyVariants: [
-        '提个问题、贴一段报错，或者指给我一个仓库。我能读代码、跑工具，帮你把东西交付出去。',
-        '用你自己的话描述任务。我会选对工具、说明计划，并在有风险的步骤前先确认。',
-        '丢来一个文件路径、一段 traceback 或一个粗略的想法。我会先调查，给出下一步建议，并保证一切可以回退。',
+        '提个问题、贴一段报错，或者指给我一个文件夹。我能读文档和代码、跑工具，帮你把事情做完。',
+        '用你自己的话描述任务：总结一份文档、起草一封邮件、修一段代码。我会选对工具，并在有风险的步骤前先确认。',
+        '丢来一个文件、一张表格或一个粗略的想法。我会先调查，给出下一步建议，并保证一切可以回退。',
         '搜索仓库、编辑文件、跑测试、开 PR。告诉我目标，机械性的部分交给我。',
-        '输入一个任务、问题或代码片段。我会记住这次会话、注明来源，拿不准时会停下来问你。'
+        '从周报到项目计划：输入一个任务或问题。我会记住这次会话、注明来源，拿不准时会停下来问你。'
       ],
       quickStart: '快速开始',
       resume: title => `继续“${title}”`,
       starterExplainLabel: '介绍这个仓库',
       starterExplainPrompt: '请说明这个仓库是做什么的，代码又是如何组织的。',
       starterPlanLabel: '规划一项改动',
-      starterPlanPrompt: '我想改一个地方。先问清楚你需要知道的信息，再给出方案，然后再写代码。'
+      starterPlanPrompt: '我想改一个地方。先问清楚你需要知道的信息，再给出方案，然后再写代码。',
+      starterExplainFolderLabel: '介绍这个文件夹',
+      starterExplainFolderPrompt: '请说明当前工作文件夹里有什么，以及是如何组织的。',
+      starterSummarizeLabel: '总结一份文档',
+      starterSummarizePrompt: '我想总结一份文档。先向我要文件或文本，然后给出要点和我需要处理的事项。',
+      starterDraftLabel: '起草一封邮件',
+      starterDraftPrompt: '帮我起草一封邮件。先问我收件人、要表达的内容和语气，然后写出一版可以直接发送的邮件。'
     },
     thread: {
       loadingSession: '正在加载会话',
@@ -3275,6 +3394,7 @@ export const zh: Translations = {
   },
 
   desktop: {
+    runtimeChecksDisagree: 'setup.status 报告凭据已配置，但运行时解析仍然失败。',
     audioReadFailed: '无法读取录制的音频',
     sessionUnavailable: '会话不可用',
     createSessionFailed: '无法创建新会话',

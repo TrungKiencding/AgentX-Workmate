@@ -665,6 +665,7 @@ def _write_provider_config(
             current = model_map.get(model_id)
             model_map[model_id] = dict(current) if isinstance(current, dict) else {}
         entry["models"] = model_map
+        _mark_models_vision_capable(entry, models)
 
     providers[settings.provider_name] = entry
     cfg["providers"] = providers
@@ -718,6 +719,87 @@ def _write_provider_config(
     # migrations take (see ``_persist_migration``'s docstring).
     if retired_models:
         _drop_provider_models(settings.provider_name, retired_models)
+
+    _release_vision_pin(settings.provider_name)
+
+
+def _mark_models_vision_capable(entry: dict[str, Any], models: tuple[str, ...]) -> bool:
+    """Flag every model we placed in ``entry["models"]`` as able to read images.
+
+    The proxy grants multimodal models only, so image routing can go native:
+    whatever model the person is on reads the picture itself, and the
+    ``auxiliary.vision`` slot no longer has to name a second model (see
+    ``agent.image_routing._supports_vision_override``, which reads exactly
+    this flag). A value somebody wrote by hand — ``false`` for a model they
+    know is text-only, or the ``vision`` alias — stands; only an unset flag is
+    filled in. Returns whether anything changed.
+    """
+    model_map = entry.get("models")
+    if not isinstance(model_map, dict):
+        return False
+    changed = False
+    for model_id in models:
+        current = model_map.get(model_id)
+        if not isinstance(current, dict):
+            continue
+        if "supports_vision" in current or "vision" in current:
+            continue
+        current["supports_vision"] = True
+        changed = True
+    return changed
+
+
+def _release_vision_pin(provider_name: str) -> bool:
+    """Drop an ``auxiliary.vision`` pin that names this account's proxy.
+
+    Every model on the proxy reads images natively (see
+    ``_mark_models_vision_capable``), so a pin at the proxy only makes
+    Settings → Model show a "vision model" nobody is using — the pixels
+    already go to the main model — and it would keep naming that one id after
+    the person switched models. Resetting the slot to ``auto`` is what makes
+    image reading follow the model in use. A pin at any *other* provider is
+    somebody's deliberate fallback for a text-only main model and is left
+    alone.
+
+    A full-document write, like ``_drop_provider_models``: ``merge_existing``
+    would put the endpoint fields straight back.
+    """
+    from hermes_cli.config import read_raw_config, save_config
+
+    raw = read_raw_config()
+    aux = raw.get("auxiliary")
+    vision = aux.get("vision") if isinstance(aux, dict) else None
+    if not isinstance(vision, dict):
+        return False
+    if str(vision.get("provider") or "").strip().lower() != provider_name.lower():
+        return False
+
+    vision["provider"] = "auto"
+    vision["model"] = ""
+    for key in ("base_url", "api_key", "api_mode"):
+        vision.pop(key, None)
+    save_config(raw)
+    return True
+
+
+def _ensure_vision_follows_main(
+    settings: LiteLLMAccountSettings, models: tuple[str, ...]
+) -> None:
+    """Apply the vision policy to an account whose key is simply reused.
+
+    The reuse path writes nothing else, but an account provisioned before this
+    policy existed still carries an unflagged model map and, often, a vision
+    pin at the proxy. Cheap and idempotent: one config read, and a write only
+    when something actually changes.
+    """
+    from hermes_cli.config import load_config, save_config
+
+    cfg = load_config()
+    providers = cfg.get("providers")
+    entry = providers.get(settings.provider_name) if isinstance(providers, dict) else None
+    if isinstance(entry, dict) and _mark_models_vision_capable(entry, models):
+        save_config(cfg, merge_existing=True)
+    _release_vision_pin(settings.provider_name)
 
 
 def _drop_provider_models(provider_name: str, retired: tuple[str, ...]) -> None:
@@ -833,6 +915,9 @@ def ensure_account_key(
             )
         probe = _probe_client(settings, base_url, client)
         if probe is None or probe.key_is_live(stored_key):
+            _ensure_vision_follows_main(
+                settings, tuple(str(m) for m in (state.get("models") or ()))
+            )
             return ProvisionResult(
                 status="reused",
                 detail="the key already on this account is still valid.",

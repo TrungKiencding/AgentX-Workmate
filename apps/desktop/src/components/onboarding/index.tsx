@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { getGlobalModelOptions } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { bootPhaseLabel } from '@/lib/boot-phase-label'
 import { Check, ChevronDown, ChevronLeft, KeyRound, Loader2 } from '@/lib/icons'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { cn } from '@/lib/utils'
@@ -114,6 +115,7 @@ const API_KEY_OPTIONS: ApiKeyOption[] = [
 // OAuth / external providers are intentionally excluded here — they go through
 // the OAuth picker / sign-in flow, not a pasted key.
 function useApiKeyCatalog(): ApiKeyOption[] {
+  const { t } = useI18n()
   const [rows, setRows] = useState<ModelOptionProvider[]>([])
 
   useEffect(() => {
@@ -161,7 +163,7 @@ function useApiKeyCatalog(): ApiKeyOption[] {
         id: row.slug,
         name: row.name,
         envKey,
-        description: `Direct API access to ${row.name}.`,
+        description: t.onboarding.messages.directApiAccess(row.name),
         docsUrl: ''
       })
     }
@@ -170,8 +172,14 @@ function useApiKeyCatalog(): ApiKeyOption[] {
     // long tail is scannable.
     derived.sort((a, b) => a.name.localeCompare(b.name))
 
-    return [...API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)), ...derived]
-  }, [rows])
+    // The curated rows are brand names, which no locale renames — except the
+    // local endpoint, which is a description and reads in the app's language.
+    const curated = API_KEY_OPTIONS.filter(o => curatedByEnv.has(o.envKey)).map(o =>
+      o.id === 'local' ? { ...o, name: t.onboarding.messages.localEndpointLabel } : o
+    )
+
+    return [...curated, ...derived]
+  }, [rows, t])
 }
 
 // Exit choreography, mirroring the gateway "connecting" overlay's timing:
@@ -380,7 +388,7 @@ function Preparing({ boot }: { boot: DesktopBootState }) {
         value={progress / 100}
       />
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span className="truncate">{boot.message}</span>
+        <span className="truncate">{bootPhaseLabel(t, boot)}</span>
         <span>{progress}%</span>
       </div>
       {hasError ? <p className="text-xs text-destructive">{boot.error}</p> : null}

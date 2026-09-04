@@ -461,11 +461,17 @@ so two-line rows still grow), `HUD_HEADING`.
   at most four `chip` buttons. The composer stays the only CTA; the block leads
   the eye down to it.
   - Every chip is grounded in something the app already knows — the session you
-    were last in, a project you already added — plus two fixed starters whose
-    label *and* prompt live in the locale files. **Nothing here invents a
-    suggestion**: no recent session, no resume chip. The selection rule is the
-    pure `introChipSources()` in `intro-chips.ts`, so it is testable without a
-    renderer; `Intro` only renders. Clicking a chip runs one *existing* action
+    were last in, a project you already added — plus four fixed starters whose
+    label *and* prompt live in the locale files. **The starters take the
+    folder's side**: inside a git repository the coding pair leads (explain the
+    repo, plan a change), anywhere else the office pair leads (summarise a
+    document, draft an email), and the explain chip speaks of "this folder"
+    rather than "this repo" off a repository. The same `repoStatusForCwd` probe
+    the composer's coding rail uses decides it, so chips and branch strip never
+    disagree. **Nothing here invents a suggestion**: no recent session, no
+    resume chip. The selection rule is the pure `introChipSources()` in
+    `intro-chips.ts`, so it is testable without a renderer; `Intro` only
+    renders. Clicking a chip runs one *existing* action
     (`openSession`, `requestStartWorkSession`, `requestComposerInsert`) — the
     home surface owns no navigation of its own.
   - The greeting names the user only when the account store actually has a
@@ -539,14 +545,26 @@ so two-line rows still grow), `HUD_HEADING`.
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
 - **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one
-  centred line — "Connecting to AgentX server" in the display serif
-  (`text-2xl`, outlier slot 1 of 3), the word legible from the first frame
-  while the destination decodes under it, then a fade that hands off to the
-  home greeting in the same face. Cold boot only: a post-boot socket drop
+  centred line — the catalog's `boot.connecting` ("Connecting to AgentX
+  server" in English) in the display serif (`text-2xl`, outlier slot 1 of 3),
+  its `word` legible from the first frame while the `target` decodes under it,
+  then a fade that hands off to the home greeting in the same face. Cold boot only: a post-boot socket drop
   reconnects behind the shell, never behind this overlay.
 - Install, onboarding, connecting, boot failure, and reauthentication are
   distinct states with shared visual primitives. Preserve their recovery
   semantics when unifying appearance.
+- **Boot surfaces speak the app's language, never the main process's.** The
+  main process reports progress and failures as English log lines. The
+  renderer translates by *phase* (`lib/boot-phase-label.ts`, with the dynamic
+  part — a URL, a path — carried separately as `detail`) and by *failure kind*
+  (`components/boot-failure-kind.ts`), never by parsing prose. A new phase or
+  failure shape gets a catalog entry, not a string match in a component.
+- **The boot-failure overlay explains, then acts.** An `ErrorState` title and
+  one-sentence reason chosen by the failure kind, a numbered "what to do" list,
+  the action that fixes *this* kind first (`size="lg"`), and everything
+  technical — the verbatim error, recent logs, a copy that grabs both — folded
+  under "Technical details". The raw message is for the support ticket; it is
+  never the first thing a person reads.
 - Respect `AppShell` overlay ownership. Persistent terminal/content layers,
   route overlays, dialogs, and boot surfaces must not compete through ad-hoc
   z-index literals. Pick a rung of the ladder in `styles.css` instead —

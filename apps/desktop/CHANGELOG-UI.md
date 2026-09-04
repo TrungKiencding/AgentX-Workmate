@@ -154,3 +154,36 @@ was one folder with an obvious one.
   the field pre-filled and editable and a hint saying so; several folders ask
   for a name before Create lights. The ⌘O "open folder as project" path uses
   the same helper, so both ways in agree on the name.
+
+## 2026-09 — the first launch, for people who did not install it themselves
+
+**Before.** Boot spoke English whatever the app's language: the splash said
+"Connecting to AgentX server", the progress line echoed main-process log
+lines, and a slow first answer from a freshly started backend became a
+recovery dialog titled "AgentX không khởi động được" with a raw
+`Timed out connecting to AgentX backend after 8000ms` and four technical
+buttons — on a machine where nothing was wrong. Packaged builds opened on
+"connect to an existing AgentX, or install locally?", a question most people
+cannot answer. The home greeting only talked about repos, tests and PRs.
+
+**After.**
+- **Boot patience** (`electron/boot-patience.ts`): the first requests to a
+  backend that just announced its port share one minute of tolerance for
+  timeout-shaped failures, and the splash says "still warming up" while it
+  waits. Real failures (401, dead process) still fail fast.
+- **Boot surfaces are translated by phase and by kind** — `bootPhaseLabel`
+  for progress, `classifyBootFailure` for failures — with the dynamic part of
+  a phase carried as `detail`. The connect splash, every onboarding toast and
+  flow error, and the installer's "unknown error" go through the catalog in
+  all six locales.
+- **The boot-failure overlay redesigned**: a plain-language title and reason
+  per failure kind (slow start, backend stopped, no port, live channel
+  refused, install incomplete), a numbered "what to do", the fixing action
+  first and larger, and the verbatim error + recent logs folded under
+  "Technical details" with one copy for both.
+- **Packaged builds install without asking.** The first-run choice is a
+  source-tree affordance now; connecting to an existing gateway lives in
+  Settings → Gateway.
+- **Home starters take the folder's side**: four starters, the coding pair
+  leading inside a repository, the office pair (summarise a document, draft an
+  email) leading anywhere else; the body line mixes both worlds.

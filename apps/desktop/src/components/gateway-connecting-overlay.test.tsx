@@ -56,8 +56,11 @@ afterEach(cleanup)
 // recovery overlay's "Lost connection…" copy doesn't read as a false positive.
 const isConnectingShown = () => screen.queryAllByText('Connecting to AgentX server').length > 0
 
+// The recovery overlay names its actions in both the buttons and the "what to
+// do" steps, so a single-match query would throw on the duplicate; presence is
+// all this helper needs.
 const isRecoveryShown = () =>
-  Boolean(screen.queryByText(/use local gateway/i) || screen.queryByText(/retry/i) || screen.queryByText(/sign in/i))
+  [/use local gateway/i, /retry/i, /sign in/i].some(pattern => screen.queryAllByText(pattern).length > 0)
 
 describe('connecting overlay vs recovery surface', () => {
   it('hard initial-boot failure surfaces the recovery overlay (the working path)', async () => {

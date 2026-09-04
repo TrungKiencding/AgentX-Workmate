@@ -4,6 +4,7 @@ import { defineLocale } from './define-locale'
 
 export const zhHant = defineLocale({
   common: {
+    unknownError: '未知錯誤',
     apply: '套用',
     back: '返回',
     save: '儲存',
@@ -64,6 +65,24 @@ export const zhHant = defineLocale({
   boot: {
     ready: 'AgentX Workmate Desktop 已就緒',
     desktopBootFailedWithMessage: message => `桌面啟動失敗：${message}`,
+    connecting: { word: '正在連線', target: ' AgentX 伺服器' },
+    phases: {
+      idle: '正在等待啟動 AgentX 後端',
+      bootstrapChoice: '正在等待首次執行的安裝選擇',
+      updateWait: '更新即將完成 — 完成後 AgentX 會自動啟動',
+      resolve: '正在尋找 AgentX 後端',
+      remote: '正在連線遠端 AgentX 後端',
+      runtime: '正在檢查 AgentX 執行環境',
+      runtimeExternal: '使用既有的 AgentX 執行環境',
+      runtimeReady: 'AgentX 執行環境已就緒',
+      spawn: '正在啟動 AgentX 後端',
+      port: '正在等待 AgentX 後端開放連接埠',
+      wait: '正在等待 AgentX 後端就緒',
+      warmup: 'AgentX 後端仍在暖機 — 再稍等片刻',
+      ready: 'AgentX 後端已就緒，正在完成桌面啟動',
+      remoteReady: '遠端 AgentX 後端已就緒',
+      restarting: '正在重新啟動桌面連線'
+    },
     steps: {
       connectingGateway: '正在連線桌面閘道',
       loadingSettings: '正在載入 AgentX 設定',
@@ -96,8 +115,6 @@ export const zhHant = defineLocale({
         `先登出已儲存的遠端瀏覽器工作階段，然後開啟${signInLabel}。使用本機閘道可切換至內建後端。`,
       signOutAndSignIn: '登出並重新登入',
       remoteFailureHint: '在「閘道設定」中檢查閘道 URL 與登入，或切換至本機閘道。',
-      hideRecentLogs: '隱藏最近記錄',
-      showRecentLogs: '顯示最近記錄',
       signedInTitle: '已登入',
       signedInMessage: '正在重新連線至遠端閘道…',
       signInIncompleteTitle: '登入未完成',
@@ -111,7 +128,59 @@ export const zhHant = defineLocale({
       keycloakSignInHint: '會開啟瀏覽器完成登入。在 AgentX 工作階段到期前都不需要重新登入。',
       signInWithAgentX: '使用 AgentX 登入',
       keycloakSigningIn: '正在等待瀏覽器…',
-      keycloakReconnecting: '已登入，正在啟動 AgentX Workmate…'
+      keycloakReconnecting: '已登入，正在啟動 AgentX Workmate…',
+      whatToDo: '可以這樣做',
+      technicalDetails: '技術細節',
+      hideTechnicalDetails: '隱藏技術細節',
+      copyDetails: '複製細節',
+      copiedDetails: '已複製',
+      genericSteps: [
+        '點選「重試」。',
+        '若仍然失敗，選擇「修復安裝」，或開啟記錄檔並寄給你的 AgentX 管理員。'
+      ],
+      kinds: {
+        timeout: {
+          title: '啟動 AgentX 比平常慢',
+          description: '後端已啟動但未及時回應。首次啟動或機器忙碌時很常見，並沒有什麼壞掉。',
+          steps: [
+            '點選「重試」— 第二次通常就能連上。',
+            '如果反覆發生，關閉佔用較大的應用程式後再試。'
+          ]
+        },
+        exited: {
+          title: 'AgentX 後端在啟動時停止了',
+          description: '背景程序在就緒前結束了。',
+          steps: [
+            '點選「重試」。',
+            '若再次停止，選擇「修復安裝」— 它會重新執行安裝程式，並保留你的對話和設定。'
+          ]
+        },
+        port: {
+          title: 'AgentX 無法開啟連線',
+          description: '後端始終沒有告知應用程式該連接的連接埠。',
+          steps: [
+            '點選「重試」。',
+            '安全性軟體可能會攔截這一步 — 若被詢問，請允許 AgentX。',
+            '如果反覆發生，選擇「修復安裝」。'
+          ]
+        },
+        websocket: {
+          title: '即時連線被拒絕',
+          description: 'AgentX 透過 HTTP 有回應，但即時通道拒絕了此工作階段。',
+          steps: [
+            '點選「重試」以重新登入並連線。',
+            '如果反覆發生，開啟閘道設定檢查連線。'
+          ]
+        },
+        install: {
+          title: 'AgentX 安裝尚未完成',
+          description: '一次性安裝沒有完成，所以還沒有可啟動的內容。',
+          steps: [
+            '選擇「修復安裝」重新執行安裝程式。',
+            '完成前請保持應用程式開啟 — 可能需要幾分鐘。'
+          ]
+        }
+      }
     }
   },
 
@@ -2199,13 +2268,46 @@ export const zhHant = defineLocale({
     noOutput: '暫無輸出。',
     cancelling: '取消中...',
     cancelInstall: '取消安裝',
-    transcriptSaved: '完整記錄已儲存至',
+    transcriptSaved: '安裝程式的完整記錄已儲存到 AgentX 的記錄資料夾。',
     copiedOutput: '已複製！',
     copyOutput: '複製輸出',
     reloadRetry: '重新載入並重試'
   },
 
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX 已就緒',
+      readyBody: provider => `${provider} 已連線。`,
+      toolGatewayTitle: '已啟用 Tool Gateway',
+      toolGatewayBody: tools => `${tools} 現在透過你的 Nous 訂閱執行 — 不需要另外的 API key。`,
+      toolLabels: {
+        browser: '瀏覽器自動化',
+        image_gen: '圖片生成',
+        tts: '文字轉語音',
+        video_gen: '影片生成',
+        web: '網頁搜尋與擷取'
+      },
+      listAnd: '和',
+      providerUnresolved: '已連線，但 AgentX 仍無法解析出可用的提供者。',
+      runtimeNotReadyTitle: '執行環境尚未就緒',
+      runtimeNotReadyBody: 'AgentX Workmate Desktop 啟動時無法驗證執行中的後端。在閘道可連線之前，部分功能可能無法使用。',
+      couldNotStartSignIn: detail => `無法開始登入：${detail}`,
+      pollingFailed: detail => `輪詢失敗：${detail}`,
+      signInStatus: status => `登入${status}。`,
+      tokenExchangeFailed: '權杖交換失敗。',
+      stillCannotReach: (provider, command) => `AgentX 仍無法連線 ${provider}。請先在終端機執行 \`${command}\`。`,
+      couldNotSaveProvider: label => `無法儲存 ${label}`,
+      couldNotSaveModel: 'AgentX 無法儲存所選模型。',
+      enterEndpointUrl: '請先輸入端點 URL。',
+      couldNotReachEndpoint: '無法連線到該端點。',
+      couldNotReachUrl: url => `無法連線 ${url}。`,
+      noModelsAdvertised: url => `已連線 ${url}，但它在 /v1/models 未提供任何模型。請在該端點上啟動一個模型後再試。`,
+      savedButUnreachable: url => `已儲存，但 AgentX 仍無法連線 ${url}。`,
+      localEndpointLabel: '本機 / 自訂端點',
+      couldNotSaveLocalEndpoint: '無法儲存本機端點',
+      couldNotChangeModel: '無法變更模型',
+      directApiAccess: name => `直接存取 ${name} 的 API。`
+    },
     headerTitle: '開始設定 AgentX Workmate',
     headerDesc: '連線模型提供方即可開始聊天。大多數選項只需一次點擊。',
     preparingInstall: 'AgentX 正在完成安裝。首次執行通常不到一分鐘。',
@@ -2590,23 +2692,40 @@ export const zhHant = defineLocale({
   },
 
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: '已委派', present: '正在委派', noun: _count => '個任務' },
+        edit: { past: '已編輯', present: '正在編輯', noun: _count => '個檔案' },
+        explore: { past: '已查看', present: '正在查看', noun: _count => '個檔案' },
+        other: { past: '已使用', present: '正在使用', noun: _count => '個工具' },
+        run: { past: '已執行', present: '正在執行', noun: _count => '個命令' }
+      },
+      compacting: '正在總結對話',
+      searchResults: '搜尋結果'
+    },
     intro: {
       greetingMorning: name => (name ? `早安，${name}` : '早安'),
       greetingAfternoon: name => (name ? `午安，${name}` : '午安'),
       greetingEvening: name => (name ? `晚安，${name}` : '晚安'),
       bodyVariants: [
-        '提個問題、貼一段錯誤訊息，或指給我一個專案。我能讀程式碼、執行工具，幫你把成果交付出去。',
-        '用你自己的話描述任務。我會選對工具、說明計畫，並在有風險的步驟前先確認。',
-        '丟來一個檔案路徑、一段 traceback 或一個粗略的想法。我會先調查、建議下一步，並確保一切都能還原。',
+        '提個問題、貼一段錯誤訊息，或指給我一個資料夾。我能讀文件和程式碼、執行工具，幫你把事情做完。',
+        '用你自己的話描述任務：摘要一份文件、草擬一封郵件、修一段程式碼。我會選對工具，並在有風險的步驟前先確認。',
+        '丟來一個檔案、一張表格或一個粗略的想法。我會先調查、建議下一步，並確保一切都能還原。',
         '搜尋專案、編輯檔案、跑測試、開 PR。告訴我目標，機械性的部分交給我。',
-        '輸入一個任務、問題或程式碼片段。我會記住這次工作階段、註明來源，拿不準時會停下來問你。'
+        '從週報到專案計畫：輸入一個任務或問題。我會記住這次工作階段、註明來源，拿不準時會停下來問你。'
       ],
       quickStart: '快速開始',
       resume: title => `繼續「${title}」`,
       starterExplainLabel: '介紹這個專案',
       starterExplainPrompt: '請說明這個專案是做什麼的，程式碼又是如何組織的。',
       starterPlanLabel: '規劃一項變更',
-      starterPlanPrompt: '我想改一個地方。先問清楚你需要知道的資訊，再提出方案，然後再寫程式碼。'
+      starterPlanPrompt: '我想改一個地方。先問清楚你需要知道的資訊，再提出方案，然後再寫程式碼。',
+      starterExplainFolderLabel: '介紹這個資料夾',
+      starterExplainFolderPrompt: '請說明目前工作資料夾裡有什麼，以及是如何組織的。',
+      starterSummarizeLabel: '摘要一份文件',
+      starterSummarizePrompt: '我想摘要一份文件。先向我要檔案或文字，然後給出重點和我需要處理的事項。',
+      starterDraftLabel: '草擬一封郵件',
+      starterDraftPrompt: '幫我草擬一封郵件。先問我收件人、要表達的內容和語氣，然後寫出一版可以直接寄出的郵件。'
     },
     thread: {
       loadingSession: '正在載入工作階段',
@@ -2767,6 +2886,7 @@ export const zhHant = defineLocale({
   },
 
   desktop: {
+    runtimeChecksDisagree: 'setup.status 回報憑證已設定，但執行階段解析仍然失敗。',
     audioReadFailed: '無法讀取錄製的音訊',
     sessionUnavailable: '工作階段不可用',
     createSessionFailed: '無法建立新工作階段',

@@ -1853,3 +1853,114 @@ class TestDefaultModelPinning:
         assert entry["extra_headers"] == {"X-Team": "platform"}
         assert entry["enabled"] is False
         assert entry["base_url"] == f"{PROXY_URL}/v1"
+
+
+# ===========================================================================
+# Image reading follows the model in use
+# ===========================================================================
+
+
+class TestVisionFollowsTheModelInUse:
+    """Every model the proxy grants reads images itself, so nothing should route
+    pictures to a second, pinned model — and Settings should not name one."""
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def test_every_granted_model_is_marked_vision_capable(self, account, brain):
+        brain.grants = ["chat-a", "chat-b"]
+        self._provision(account, brain)
+
+        models = raw_config(account.home)["providers"]["litellm"]["models"]
+        assert {m: models[m].get("supports_vision") for m in ("chat-a", "chat-b")} == {
+            "chat-a": True,
+            "chat-b": True,
+        }
+
+    def test_the_flag_makes_image_routing_go_native_for_the_model_in_use(self, account, brain):
+        from agent.image_routing import _supports_vision_override
+        from hermes_cli.config import load_config
+
+        brain.grants = ["chat-a", "chat-b"]
+        self._provision(account, brain)
+
+        cfg = load_config()
+        # Whichever of the granted models a session is on, the answer is the same.
+        assert _supports_vision_override(cfg, "litellm", "chat-a") is True
+        assert _supports_vision_override(cfg, "litellm", "chat-b") is True
+
+    def test_a_flag_somebody_wrote_by_hand_stands(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        brain.grants = ["chat-a"]
+        self._provision(account, brain)
+
+        cfg = load_config()
+        cfg["providers"]["litellm"]["models"]["chat-a"]["supports_vision"] = False
+        save_config(cfg, merge_existing=True)
+
+        self._provision(account, brain, force_rotate=True)
+
+        assert (
+            raw_config(account.home)["providers"]["litellm"]["models"]["chat-a"]["supports_vision"]
+            is False
+        )
+
+    def test_a_vision_pin_at_the_proxy_is_released_even_on_the_reuse_path(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        brain.grants = ["chat-a", "chat-b"]
+        self._provision(account, brain)
+
+        # What an older install, or a Settings → Model "Change" on the vision
+        # slot, leaves behind: the slot naming one id on the proxy.
+        cfg = load_config()
+        cfg["auxiliary"] = {
+            "vision": {"provider": "litellm", "model": "chat-a", "base_url": PROXY_URL + "/v1"}
+        }
+        save_config(cfg, merge_existing=True)
+
+        result = self._provision(account, brain)
+
+        assert result.status == "reused"
+        vision = raw_config(account.home)["auxiliary"]["vision"]
+        assert vision["provider"] == "auto"
+        assert vision["model"] == ""
+        assert "base_url" not in vision
+
+    def test_an_unflagged_map_from_an_older_install_is_flagged_on_the_reuse_path(
+        self, account, brain
+    ):
+        from hermes_cli.config import load_config, save_config
+
+        brain.grants = ["chat-a"]
+        self._provision(account, brain)
+
+        cfg = load_config()
+        del cfg["providers"]["litellm"]["models"]["chat-a"]["supports_vision"]
+        save_config(cfg)
+
+        assert self._provision(account, brain).status == "reused"
+        assert raw_config(account.home)["providers"]["litellm"]["models"]["chat-a"] == {
+            "supports_vision": True
+        }
+
+    def test_a_vision_pin_at_another_provider_is_left_alone(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        brain.grants = ["chat-a"]
+        self._provision(account, brain)
+
+        cfg = load_config()
+        cfg["auxiliary"] = {"vision": {"provider": "openrouter", "model": "google/gemini-3-flash"}}
+        save_config(cfg, merge_existing=True)
+
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["auxiliary"]["vision"] == {
+            "provider": "openrouter",
+            "model": "google/gemini-3-flash",
+        }

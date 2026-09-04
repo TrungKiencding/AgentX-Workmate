@@ -9,6 +9,15 @@ interface FirstRunSetupGateOptions {
   log?: (message: string) => void
   onStuck?: (backend: FirstRunSetupBackend, stuckAfterMs: number) => void
   promptChoice?: (backend: FirstRunSetupBackend) => void
+  /**
+   * Whether a bootstrap-needed backend pauses boot on the "connect to an
+   * existing AgentX / install locally" choice at all. A packaged build turns
+   * this off: someone who double-clicked an installer expects it to install,
+   * and "which gateway" is a question for Settings → Gateway, not a gate in
+   * front of the first launch. Defaults to true (source-tree runs keep the
+   * choice, which is how a developer points a sandbox at a remote backend).
+   */
+  promptEnabled?: boolean
   stuckAfterMs?: number
 }
 
@@ -19,6 +28,7 @@ export function createFirstRunSetupGate({
   log,
   onStuck,
   promptChoice,
+  promptEnabled = true,
   stuckAfterMs = 120000
 }: FirstRunSetupGateOptions = {}) {
   let localBootstrapConfirmed = false
@@ -58,7 +68,7 @@ export function createFirstRunSetupGate({
   }
 
   const shouldGate = (backend?: FirstRunSetupBackend | null) =>
-    Boolean(backend && backend.kind === 'bootstrap-needed' && !localBootstrapConfirmed)
+    promptEnabled && Boolean(backend && backend.kind === 'bootstrap-needed' && !localBootstrapConfirmed)
 
   const wait = async (backend?: FirstRunSetupBackend | null) => {
     if (!shouldGate(backend)) {

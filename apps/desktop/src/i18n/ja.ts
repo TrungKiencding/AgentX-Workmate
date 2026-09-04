@@ -4,6 +4,7 @@ import { defineLocale } from './define-locale'
 
 export const ja = defineLocale({
   common: {
+    unknownError: '不明なエラー',
     apply: '適用',
     back: '戻る',
     save: '保存',
@@ -64,6 +65,24 @@ export const ja = defineLocale({
   boot: {
     ready: 'AgentX Workmate Desktop の準備ができました',
     desktopBootFailedWithMessage: message => `デスクトップの起動に失敗しました: ${message}`,
+    connecting: { word: 'AgentX サーバー', target: 'に接続しています' },
+    phases: {
+      idle: 'AgentX バックエンドの起動を待っています',
+      bootstrapChoice: '初回セットアップの選択を待っています',
+      updateWait: 'アップデートを完了しています — 完了すると AgentX は自動的に起動します',
+      resolve: 'AgentX バックエンドを探しています',
+      remote: 'リモートの AgentX バックエンドに接続しています',
+      runtime: 'AgentX ランタイムを確認しています',
+      runtimeExternal: '既存の AgentX ランタイムを使用します',
+      runtimeReady: 'AgentX ランタイムの準備ができました',
+      spawn: 'AgentX バックエンドを起動しています',
+      port: 'AgentX バックエンドの起動を待っています',
+      wait: 'AgentX バックエンドの準備を待っています',
+      warmup: 'AgentX バックエンドはまだウォームアップ中です — もう少しお待ちください',
+      ready: 'AgentX バックエンドの準備ができました。デスクトップの起動を完了しています',
+      remoteReady: 'リモートの AgentX バックエンドの準備ができました',
+      restarting: 'デスクトップ接続を再起動しています'
+    },
     steps: {
       connectingGateway: 'ライブデスクトップゲートウェイに接続中',
       loadingSettings: 'AgentX の設定を読み込み中',
@@ -99,8 +118,6 @@ export const ja = defineLocale({
       signOutAndSignIn: 'サインアウトして再サインイン',
       remoteFailureHint:
         '「ゲートウェイ設定」でゲートウェイの URL とサインインを確認するか、ローカルゲートウェイに切り替えてください。',
-      hideRecentLogs: '最近のログを非表示',
-      showRecentLogs: '最近のログを表示',
       signedInTitle: 'サインインしました',
       signedInMessage: 'リモートゲートウェイに再接続中…',
       signInIncompleteTitle: 'サインインが完了していません',
@@ -115,7 +132,59 @@ export const ja = defineLocale({
         'ブラウザーが開いてサインインします。AgentX のセッションが期限切れになるまでサインインしたままになります。',
       signInWithAgentX: 'AgentX でサインイン',
       keycloakSigningIn: 'ブラウザーの操作を待っています…',
-      keycloakReconnecting: 'サインインしました。AgentX Workmate を起動しています…'
+      keycloakReconnecting: 'サインインしました。AgentX Workmate を起動しています…',
+      whatToDo: '対処方法',
+      technicalDetails: '技術的な詳細',
+      hideTechnicalDetails: '技術的な詳細を隠す',
+      copyDetails: '詳細をコピー',
+      copiedDetails: 'コピーしました',
+      genericSteps: [
+        '「再試行」を押してください。',
+        'それでも失敗する場合は「インストールを修復」を選ぶか、ログを開いて AgentX 管理者に送ってください。'
+      ],
+      kinds: {
+        timeout: {
+          title: 'AgentX の起動にいつもより時間がかかっています',
+          description: 'バックエンドは起動しましたが、時間内に応答しませんでした。初回起動時やマシンが混雑しているときによく起こり、壊れているわけではありません。',
+          steps: [
+            '「再試行」を押してください — 2 回目でつながることがほとんどです。',
+            '繰り返す場合は、重いアプリケーションを閉じてからもう一度試してください。'
+          ]
+        },
+        exited: {
+          title: 'AgentX バックエンドが起動中に停止しました',
+          description: 'バックグラウンドプロセスが準備完了前に終了しました。',
+          steps: [
+            '「再試行」を押してください。',
+            '再び停止する場合は「インストールを修復」を選んでください — インストーラーを再実行し、チャットと設定は保持されます。'
+          ]
+        },
+        port: {
+          title: 'AgentX が接続を開けませんでした',
+          description: 'バックエンドがアプリの接続先ポートを通知しませんでした。',
+          steps: [
+            '「再試行」を押してください。',
+            'セキュリティソフトがこの手順をブロックすることがあります — 確認が出たら AgentX を許可してください。',
+            '繰り返す場合は「インストールを修復」を選んでください。'
+          ]
+        },
+        websocket: {
+          title: 'リアルタイム接続が拒否されました',
+          description: 'AgentX は HTTP では応答しましたが、リアルタイムチャネルがセッションを拒否しました。',
+          steps: [
+            '「再試行」を押して、再度サインインして接続してください。',
+            '繰り返す場合はゲートウェイ設定を開いて接続を確認してください。'
+          ]
+        },
+        install: {
+          title: 'AgentX のインストールが完了していません',
+          description: '初回インストールが完了していないため、まだ起動できるものがありません。',
+          steps: [
+            '「インストールを修復」を選んでインストーラーを再実行してください。',
+            '完了するまでアプリを開いたままにしてください — 数分かかることがあります。'
+          ]
+        }
+      }
     }
   },
 
@@ -2271,13 +2340,46 @@ export const ja = defineLocale({
     noOutput: 'まだ出力がありません。',
     cancelling: 'キャンセル中...',
     cancelInstall: 'インストールをキャンセル',
-    transcriptSaved: 'フルトランスクリプトを保存しました:',
+    transcriptSaved: 'インストーラーの完全な記録は AgentX のログフォルダーに保存されています。',
     copiedOutput: 'コピーしました！',
     copyOutput: '出力をコピー',
     reloadRetry: '再読み込みして再試行'
   },
 
   onboarding: {
+    messages: {
+      readyTitle: 'AgentX の準備ができました',
+      readyBody: provider => `${provider} に接続しました。`,
+      toolGatewayTitle: 'Tool Gateway を有効にしました',
+      toolGatewayBody: tools => `${tools} は Nous のサブスクリプション経由で動作するようになりました — 別途 API キーは不要です。`,
+      toolLabels: {
+        browser: 'ブラウザ自動操作',
+        image_gen: '画像生成',
+        tts: '音声合成',
+        video_gen: '動画生成',
+        web: 'ウェブ検索と抽出'
+      },
+      listAnd: 'と',
+      providerUnresolved: '接続しましたが、AgentX は利用できるプロバイダーをまだ解決できません。',
+      runtimeNotReadyTitle: 'ランタイムの準備ができていません',
+      runtimeNotReadyBody: 'AgentX Workmate Desktop は起動時に実行中のバックエンドを確認できませんでした。ゲートウェイに到達できるまで、一部の機能が使えない場合があります。',
+      couldNotStartSignIn: detail => `サインインを開始できませんでした: ${detail}`,
+      pollingFailed: detail => `ポーリングに失敗しました: ${detail}`,
+      signInStatus: status => `サインイン: ${status}。`,
+      tokenExchangeFailed: 'トークン交換に失敗しました。',
+      stillCannotReach: (provider, command) => `AgentX はまだ ${provider} に到達できません。先にターミナルで \`${command}\` を実行してください。`,
+      couldNotSaveProvider: label => `${label} を保存できませんでした`,
+      couldNotSaveModel: 'AgentX は選択したモデルを保存できませんでした。',
+      enterEndpointUrl: '先にエンドポイントの URL を入力してください。',
+      couldNotReachEndpoint: 'そのエンドポイントに到達できませんでした。',
+      couldNotReachUrl: url => `${url} に到達できませんでした。`,
+      noModelsAdvertised: url => `${url} に接続しましたが、/v1/models にモデルがありません。そのエンドポイントでモデルを起動してから再試行してください。`,
+      savedButUnreachable: url => `保存しましたが、AgentX はまだ ${url} に到達できません。`,
+      localEndpointLabel: 'ローカル / カスタムエンドポイント',
+      couldNotSaveLocalEndpoint: 'ローカルエンドポイントを保存できませんでした',
+      couldNotChangeModel: 'モデルを変更できませんでした',
+      directApiAccess: name => `${name} の API に直接アクセスします。`
+    },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
     headerDesc: 'チャットを始めるにはモデルプロバイダーを接続してください。ほとんどのオプションはワンクリックです。',
     preparingInstall: 'AgentX はインストールを完了中です。初回実行では通常 1 分以内に完了します。',
@@ -2674,23 +2776,40 @@ export const ja = defineLocale({
   },
 
   assistant: {
+    toolRun: {
+      categories: {
+        delegate: { past: '委任済み', present: '委任中', noun: _count => '件のタスク' },
+        edit: { past: '編集済み', present: '編集中', noun: _count => '件のファイル' },
+        explore: { past: '確認済み', present: '確認中', noun: _count => '件のファイル' },
+        other: { past: '使用済み', present: '使用中', noun: _count => '件のツール' },
+        run: { past: '実行済み', present: '実行中', noun: _count => '件のコマンド' }
+      },
+      compacting: 'スレッドを要約中',
+      searchResults: '検索結果'
+    },
     intro: {
       greetingMorning: name => (name ? `おはようございます、${name}さん` : 'おはようございます'),
       greetingAfternoon: name => (name ? `こんにちは、${name}さん` : 'こんにちは'),
       greetingEvening: name => (name ? `こんばんは、${name}さん` : 'こんばんは'),
       bodyVariants: [
-        '質問する、エラーを貼り付ける、リポジトリを指定する。コードを読み、ツールを実行し、リリースまでお手伝いします。',
-        'やりたいことを自分の言葉で説明してください。適切なツールを選び、計画を説明し、リスクのある手順の前には確認します。',
-        'ファイルパス、トレースバック、大まかなアイデアを投げてください。調査して次の一手を提案し、いつでも元に戻せるように進めます。',
+        '質問する、エラーを貼り付ける、フォルダを指定する。ドキュメントもコードも読み、ツールを実行して、仕事を最後までお手伝いします。',
+        'やりたいことを自分の言葉で説明してください。ドキュメントの要約、メールの下書き、コードの修正。適切なツールを選び、リスクのある手順の前には確認します。',
+        'ファイル、表計算、大まかなアイデアを投げてください。調査して次の一手を提案し、いつでも元に戻せるように進めます。',
         'リポジトリ検索、ファイル編集、テスト実行、PR 作成。ゴールを伝えてもらえれば、機械的な部分は引き受けます。',
-        'タスク、質問、コード片を入力してください。セッションを記憶し、出典を示し、確信が持てないときは立ち止まって確認します。'
+        '週報からプロジェクト計画まで。タスクや質問を入力してください。セッションを記憶し、出典を示し、確信が持てないときは立ち止まって確認します。'
       ],
       quickStart: 'すぐはじめる',
       resume: title => `「${title}」を再開`,
       starterExplainLabel: 'このリポジトリを説明',
       starterExplainPrompt: 'このリポジトリが何をするものか、コードがどう構成されているかを説明してください。',
       starterPlanLabel: '変更を計画',
-      starterPlanPrompt: '変更を加えたいです。必要なことを質問してから、コードを書く前に計画を提案してください。'
+      starterPlanPrompt: '変更を加えたいです。必要なことを質問してから、コードを書く前に計画を提案してください。',
+      starterExplainFolderLabel: 'このフォルダを説明',
+      starterExplainFolderPrompt: '現在の作業フォルダに何があり、どう構成されているかを説明してください。',
+      starterSummarizeLabel: 'ドキュメントを要約',
+      starterSummarizePrompt: 'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
+      starterDraftLabel: 'メールを下書き',
+      starterDraftPrompt: 'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。'
     },
     thread: {
       loadingSession: 'セッションを読み込み中',
@@ -2882,6 +3001,7 @@ export const ja = defineLocale({
   },
 
   desktop: {
+    runtimeChecksDisagree: 'setup.status は資格情報が設定済みと報告していますが、ランタイムの解決は失敗したままです。',
     audioReadFailed: '録音した音声を読み取れませんでした',
     sessionUnavailable: 'セッションが利用できません',
     createSessionFailed: '新しいセッションを作成できませんでした',
