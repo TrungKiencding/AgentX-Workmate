@@ -133,7 +133,7 @@ export const nousTheme: DesktopTheme = {
     destructiveForeground: '#FFFFFF',
     sidebarBackground: PAPER.sidebar,
     sidebarBorder: nousTintTransparent(18),
-    userBubble: nousTint(6),
+    userBubble: nousTint(10),
     userBubbleBorder: nousTintTransparent(24)
   },
   /** Graphite — the default dark band. Quiet ground, elevation by lightness. */
@@ -217,7 +217,7 @@ export const nightOwlTheme: DesktopTheme = {
     destructiveForeground: '#ffffff',
     sidebarBackground: '#f0f0f0',
     sidebarBorder: '#d0d5de',
-    userBubble: '#eef2fc',
+    userBubble: '#e5ecfa',
     userBubbleBorder: '#d5deef'
   },
   darkColors: {
@@ -607,7 +607,7 @@ export function nousWithAccent(accent: string): DesktopTheme {
       midground: lightStroke,
       composerRing: lightStroke,
       sidebarBorder: tintTransparent(18),
-      userBubble: tint(6),
+      userBubble: tint(10),
       userBubbleBorder: tintTransparent(24)
     },
     darkColors: {

@@ -89,6 +89,11 @@ surface mixes toward, pinned to that surface's own rung, so the default skin
 paints its band exactly and a tinted skin is pulled toward the band rather than
 toward near-black. `--theme-mix-elevated` is **100%** in both modes: the
 elevated rung is the one surface that must stay a visible step above the card.
+`--theme-mix-bubble` is **100%** too — the user bubble paints the skin's own
+`userBubble`, because every preset already places it a visible step off its own
+page, and pulling it back toward the neutral card is exactly what made a sent
+prompt disappear into the paper. Both bands' knobs live twice — `styles.css`
+and `mixesFor()` in `themes/context.tsx` — and must agree.
 
 Graphite is the default dark band. The royal-blue dark that preceded it lives on
 whole as the **Nous Classic** preset — no one loses the palette they picked.
@@ -243,12 +248,14 @@ belong to `OverlayPageHeader` and the home greeting.
   band's own two heights. A sidebar row matches `--control-h-md`, so a row and
   a button on the same rail line up; the statusbar keeps its shorter band.
 - `--radius-control` (6px) · `--radius-card` (10px) · `--radius-overlay`
-  (12px) — the corner voice. Fixed values; they do not ride `--radius-scalar`.
-  The composer keeps its own 16px shell. In the transcript that means:
-  `--radius-card` for the user bubble, the code card and `WIDGET_SHELL_CLASS`;
-  `--radius-control` for what sits *inside* them (an expanded tool shell, a
-  choice row, a fence inside a bubble) so a nested surface reads one rung
-  tighter than its host. `rounded-md`/`rounded-xl` are `--radius-scalar`-driven
+  (12px) · `--radius-bubble` (14px) — the corner voice. Fixed values; they do
+  not ride `--radius-scalar`. The composer keeps its own 16px shell. In the
+  transcript that means: `--radius-card` for the code card and
+  `WIDGET_SHELL_CLASS`, `--radius-bubble` for the user bubble alone (the one
+  surface that is *spoken* rather than shown, so it rounds a rung past the
+  panels it sits among); `--radius-control` for what sits *inside* them (an
+  expanded tool shell, a choice row, a fence inside a bubble) so a nested
+  surface reads one rung tighter than its host. `rounded-md`/`rounded-xl` are `--radius-scalar`-driven
   and land near 2–3px — they are the menu vocabulary, not the card one.
 
 ## Buttons — one component
@@ -491,10 +498,24 @@ so two-line rows still grow), `HUD_HEADING`.
   the full column and bleed past it. A figure may run wider than the measure, a
   sentence may not. The cap is one rule in `styles.css` — don't re-cap a block
   at its call site.
-- **The user bubble** is a card: `--radius-card`, 14×10px padding, the
-  `--dt-user-bubble` fill and a `--ui-stroke-tertiary` hairline that warms to
-  secondary on hover. Its meta (process notices, checkpoints, timestamps) sits
-  at `text-2xs` — the ramp floor, never below it.
+- **The user bubble is speech, not a panel.** It hugs its own text and parks
+  against the right edge of the column — `USER_BUBBLE_RAIL_CLASS` (`ml-auto`,
+  capped at `--user-bubble-max-width`, about three quarters of the measure) —
+  so a turn reads as a dialogue: mine on the right, the reply full width on the
+  left. Attachments, reactions and the checkpoint strip follow it right; the
+  inline edit composer fills the same rail (a field you can't see the end of is
+  worse than a slightly wider silhouette). `--radius-bubble`, 14×10px padding,
+  the `--dt-user-bubble` fill, a `--dt-user-bubble-border` hairline, and
+  `--dt-user-bubble-hover` on hover — at pill size the fill *is* the shape, so
+  "click to edit" has to be a fill move, not a border move. **Nothing is
+  reserved inside it**: stop and restore hang off the rail to its left, on
+  hover, so a two-word prompt is a two-word pill. Its meta (process notices,
+  checkpoints, timestamps) sits at `text-2xs` — the ramp floor, never below it.
+- **A long prompt clamps, and the fade is a promise.** `.sticky-human-clamp`
+  cuts the body at four lines; the soft bottom mask paints *only* when
+  something is genuinely hidden behind it, measured against that clamp's own
+  resolved max-height rather than a line count re-derived in JS (the two drifted
+  — a three-line prompt used to fade with nothing under it).
 - **Inline widgets** — a tool result that renders as a panel the user reads or
   acts on (clarify, artifact card) wears `WIDGET_SHELL_CLASS`
   (`src/components/chat/widget-shell.ts`): `--radius-card`, the

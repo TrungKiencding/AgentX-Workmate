@@ -303,7 +303,10 @@
        above the card, so a popover / menu / dialog paints the skin's own
        elevated colour instead of being pulled back down into the card. */
     --theme-mix-elevated: 100%;
-    --theme-mix-bubble: 0%;
+    /* 100%, like the elevated rung: the bubble paints the skin's OWN colour.
+       Pulling it toward the neutral card is what made a sent prompt vanish —
+       every preset already places its bubble a visible step off its page. */
+    --theme-mix-bubble: 100%;
     --theme-fill-primary-accent-mix: 16%;
     --theme-fill-secondary-accent-mix: 11%;
     --theme-fill-tertiary-accent-mix: 8%;
@@ -569,6 +572,11 @@
     --dt-sidebar-border: var(--ui-stroke-secondary);
     --dt-user-bubble: var(--ui-chat-bubble-background);
     --dt-user-bubble-border: var(--ui-stroke-tertiary);
+    /* Hover on a bubble is a FILL move, not a border move: at pill size the
+       hairline disappears under the fill, and "click to edit" still has to be
+       felt. Ink over the bubble darkens it on paper and lifts it on graphite —
+       one declaration, both bands. */
+    --dt-user-bubble-hover: color-mix(in srgb, var(--ui-base) 6%, var(--dt-user-bubble));
 
     /* Bundled Geist leads; the old system faces stay as fallbacks for scripts
        the subset files don't cover (CJK, Cyrillic, …). Keep in sync with
@@ -629,6 +637,10 @@
     --radius-control: 0.375rem; /* 6px — buttons, inputs, segmented controls */
     --radius-card: 0.625rem; /* 10px — cards, inline chat widgets */
     --radius-overlay: 0.75rem; /* 12px — overlays, popovers, dialogs */
+    /* The user bubble is the one surface in the transcript that is *spoken*
+       rather than shown — a rung rounder than a card so it reads as a line of
+       speech parked on the right, not as another panel. */
+    --radius-bubble: 0.875rem; /* 14px — the user bubble */
 
     /* Motion durations — micro: press/toggle/color · short: hover/menu/tooltip
        · long: overlay/entrance. Exits run ≈ 75% of the paired enter. */
@@ -691,6 +703,10 @@
        freely. */
     --paragraph-gap: 0.75rem;
     --sticky-human-top: 0.23rem;
+    /* The user bubble hugs its text and stops here: about three quarters of the
+       column, so even a long prompt leaves the left edge open and the turn
+       still reads as a dialogue — mine on the right, the reply full width. */
+    --user-bubble-max-width: min(85%, 34rem);
     --file-tree-row-height: 1.375rem;
 
     --composer-width: 48.75rem;
@@ -752,7 +768,7 @@
     --theme-mix-chrome: 74%;
     --theme-mix-card: 38%;
     --theme-mix-elevated: 100%;
-    --theme-mix-bubble: 46%;
+    --theme-mix-bubble: 100%;
     /* Graphite — the dark neutral voice. One ladder on hue 262 at 0.012 chroma,
        +3% OKLCH lightness per rung: sidebar 15% → page 17% → card 20% →
        elevated 23%. Elevation is LIGHTNESS, never a glow. These are the neutral
@@ -1679,8 +1695,8 @@ code {
 }
 
 .sticky-human-clamp[data-clamped='true'] {
-  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
 }
 
 /* Stick-to-bottom owns scrollTop while following. Once escaped, native anchoring

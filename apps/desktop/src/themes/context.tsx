@@ -156,7 +156,10 @@ const mixesFor = (isDark: boolean): Record<string, string> => ({
   // surface that must stay a visible step above the card, so it paints the
   // skin's own elevated colour instead of being pulled back into the card.
   '--theme-mix-elevated': '100%',
-  '--theme-mix-bubble': isDark ? '46%' : '0%'
+  // 100% in both modes, like the elevated rung: the user bubble paints the
+  // skin's own colour instead of being pulled back toward the neutral card,
+  // where a sent prompt used to disappear into the page it sits on.
+  '--theme-mix-bubble': '100%'
 })
 
 function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {

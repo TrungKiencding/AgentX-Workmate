@@ -61,7 +61,8 @@ import {
   StopGlyph,
   USER_ACTION_ICON_BUTTON_CLASS,
   USER_ACTION_ICON_SIZE,
-  USER_BUBBLE_BASE_CLASS
+  USER_BUBBLE_BASE_CLASS,
+  USER_BUBBLE_RAIL_CLASS
 } from '@/components/assistant-ui/thread/user-message'
 import { Codicon } from '@/components/ui/codicon'
 import type { HermesGateway } from '@/hermes'
@@ -739,7 +740,10 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
     <ComposerPrimitive.Root className="contents" data-slot="aui_edit-composer-root">
       <StickyHumanMessageContainer>
         <div
-          className="composer-human-message-container human-execution-message-top relative flex w-full items-start rounded-md bg-(--ui-chat-surface-background)"
+          className={cn(
+            USER_BUBBLE_RAIL_CLASS,
+            'composer-human-message-container human-execution-message-top flex w-full items-start rounded-md bg-(--ui-chat-surface-background)'
+          )}
           onBlur={handleEditBlur}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}

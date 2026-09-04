@@ -54,8 +54,9 @@ export function StickyHumanMessageContainer({
 
 // Shared "user bubble" base. Both the read-only message and the inline
 // edit composer render the same bubble surface (rounded glass card);
-// they only differ in border weight, cursor, and padding-right (the
-// read-only view reserves room for the restore icon).
+// they only differ in border weight and cursor. Nothing is reserved inside
+// the fill — stop / restore hang off the rail to the bubble's left — so a
+// two-word prompt renders as a two-word pill.
 //
 // no-drag: sticky bubbles park at --sticky-human-top (~4px), sliding under the
 // titlebar's [-webkit-app-region:drag] strips (app-shell.tsx). Electron resolves
@@ -63,7 +64,14 @@ export function StickyHumanMessageContainer({
 // so without the carve-out, clicking a stuck bubble drags the window instead of
 // opening the edit composer.
 export const USER_BUBBLE_BASE_CLASS =
-  'composer-human-message standalone-glass relative flex w-full min-w-0 max-w-full flex-col gap-1.5 overflow-y-auto rounded-(--radius-card) border bg-(--dt-user-bubble) px-3.5 py-2.5 text-left [-webkit-app-region:no-drag]'
+  'composer-human-message standalone-glass relative flex w-full min-w-0 max-w-full flex-col gap-1.5 overflow-y-auto rounded-(--radius-bubble) border bg-(--dt-user-bubble) px-3.5 py-2.5 text-left [-webkit-app-region:no-drag]'
+
+// The bubble hugs its text and parks against the right edge of the column, so
+// a prompt reads as *sent* at a glance instead of as one more full-width panel
+// in the transcript. Both the read-only bubble and the edit composer sit in
+// this rail; the composer fills it (a text field you can't see the end of is
+// worse than a slightly wider silhouette), the bubble shrinks to fit.
+export const USER_BUBBLE_RAIL_CLASS = 'relative ml-auto min-w-0 max-w-(--user-bubble-max-width)'
 
 export const USER_ACTION_ICON_BUTTON_CLASS =
   'grid place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-secondary) transition-colors hover:bg-(--ui-control-active-background) hover:text-foreground disabled:cursor-default disabled:text-(--ui-text-quaternary) disabled:opacity-70'
@@ -165,7 +173,7 @@ export const UserMessage: FC<{
     [react]
   )
 
-  // Sticky human bubbles clamp to ~2 lines with a soft fade so a long prompt
+  // Sticky human bubbles clamp to a few lines with a soft fade so a long prompt
   // doesn't dominate the viewport while the response streams underneath; the
   // clamp lifts on hover / focus (see styles.css). We measure the *unclamped*
   // inner wrapper so the ResizeObserver only fires on real content / width
@@ -173,7 +181,7 @@ export const UserMessage: FC<{
   const clampInnerRef = useRef<HTMLDivElement | null>(null)
   const [bodyClamped, setBodyClamped] = useState(false)
   const lastClampHeightRef = useRef(-1)
-  const lineHeightRef = useRef(0)
+  const clampMaxRef = useRef(0)
 
   // Watch windows spectate a subagent run driven elsewhere — prompts can't be
   // edited, restored, or stopped from here. The bubble stays a button that
@@ -203,15 +211,21 @@ export const UserMessage: FC<{
 
     lastClampHeightRef.current = fullHeight
 
-    // Line-height is stable for the life of the bubble (font settings don't
-    // change under it) — resolve the computed style once.
-    if (!lineHeightRef.current) {
-      const styles = getComputedStyle(inner)
-      lineHeightRef.current = parseFloat(styles.lineHeight) || 1.5 * parseFloat(styles.fontSize) || 20
+    // The fade means "there is more text under here", so the only honest test
+    // is against the height the clamp actually allows — `.sticky-human-clamp`'s
+    // own max-height, resolved once (it's a token expression, stable for the
+    // life of the bubble). Re-deriving the line count in JS let the two drift:
+    // a 3-line prompt used to fade with nothing hidden behind it. Cached from
+    // the first measurement, which always runs with the clamp on, so the
+    // read-only expand toggle keeps working after the class comes off.
+    const max = parseFloat(getComputedStyle(outer).maxHeight)
+
+    if (Number.isFinite(max)) {
+      clampMaxRef.current = max
     }
 
     outer.style.setProperty('--human-msg-full', `${fullHeight}px`)
-    setBodyClamped(fullHeight > lineHeightRef.current * 2 + 1)
+    setBodyClamped(clampMaxRef.current > 0 && fullHeight > clampMaxRef.current + 1)
   }, [])
 
   useResizeObserver(measureClamp, clampInnerRef)
@@ -240,8 +254,8 @@ export const UserMessage: FC<{
 
   const bubbleClassName = cn(
     USER_BUBBLE_BASE_CLASS,
-    'cursor-pointer pr-9 text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground/95 transition-colors',
-    'border-(--ui-stroke-tertiary) hover:border-(--ui-stroke-secondary)'
+    'cursor-pointer text-[length:var(--conversation-text-font-size)] leading-(--dt-line-height) text-foreground/95 transition-colors',
+    'border-(--dt-user-bubble-border) hover:border-(--ui-stroke-secondary) hover:bg-(--dt-user-bubble-hover)'
   )
 
   const bubbleContent = hasBody && (
@@ -276,7 +290,7 @@ export const UserMessage: FC<{
           // sliced off for the whole turn, not just while scrolling. The
           // parent's --conversation-turn-gap is the clearance; keep it.
           attachmentRefs.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-1" data-slot="aui_user-attachments">
+            <div className="mb-2 flex flex-wrap justify-end gap-1" data-slot="aui_user-attachments">
               <DirectiveContent text={attachmentRefs.join(' ')} />
             </div>
           ) : null
@@ -292,7 +306,7 @@ export const UserMessage: FC<{
               selected={shownReactions.find(reaction => reaction.author === 'user')?.emoji}
             >
               <div
-                className="relative w-full"
+                className={cn(USER_BUBBLE_RAIL_CLASS, 'w-fit')}
                 onContextMenu={
                   // Right-click is the desktop stand-in for iOS touch-and-hold —
                   // but only when there's nothing selected. A live highlight
@@ -362,7 +376,7 @@ export const UserMessage: FC<{
                   </ActionBarPrimitive.Edit>
                 )}
                 {(showStop || showRestore) && (
-                  <div className="pointer-events-none absolute right-2 bottom-2 z-10 flex items-center justify-center opacity-0 transition-opacity group-hover/user-message:opacity-100 group-focus-within/user-message:opacity-100">
+                  <div className="pointer-events-none absolute top-1/2 right-full z-10 mr-1 flex -translate-y-1/2 items-center justify-center opacity-0 transition-opacity group-hover/user-message:opacity-100 group-focus-within/user-message:opacity-100">
                     {showStop ? (
                       <button
                         aria-label={copy.stop}
@@ -414,7 +428,7 @@ export const UserMessage: FC<{
             />
             <BranchPickerPrimitive.Root
               className={cn(
-                'checkpoint-container flex items-center gap-1 pb-0 pt-1 pl-1.5 text-xs leading-none text-(--ui-text-tertiary)',
+                'checkpoint-container flex items-center justify-end gap-1 pb-0 pt-1 pr-1.5 text-xs leading-none text-(--ui-text-tertiary)',
                 readOnly && 'hidden'
               )}
               hideWhenSingleBranch
