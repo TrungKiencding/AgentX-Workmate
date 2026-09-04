@@ -4887,8 +4887,15 @@ def cmd_sync(args):
                 file=sys.stderr,
             )
         if not status.get("logged_in"):
-            print("\nNot logged into Nous Portal — sync is inert.", file=sys.stderr)
-        elif not status.get("nous_admin"):
+            if status.get("provider") == "agentx-hub":
+                print(
+                    "\nNot signed in to AgentX — sync with the AgentX Skill Hub is "
+                    "inert. Sign in to Workmate, or set skills.hub_token.",
+                    file=sys.stderr,
+                )
+            else:
+                print("\nNot logged into Nous Portal — sync is inert.", file=sys.stderr)
+        elif not status.get("sync_allowed", status.get("nous_admin")):
             print(
                 "\nSync is not enabled for your account yet.",
                 file=sys.stderr,
