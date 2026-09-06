@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
-import { Codicon } from '@/components/ui/codicon'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar'
 import { Tip } from '@/components/ui/tooltip'
 import { deleteCronJob, getCronJobRuns, pauseCronJob, resumeCronJob, type SessionInfo } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { Clock, Zap } from '@/lib/icons'
 import { fmtDayTime, relativeTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { updateCronJobs } from '@/store/cron'
@@ -138,7 +138,7 @@ export function SidebarCronJobsSection({
     <SidebarGroup className="shrink-0 p-0 pb-1">
       <div className="group/section flex shrink-0 items-center justify-between pb-1 pt-1.5">
         <button
-          className="group/section-label flex w-fit min-w-0 items-center gap-1 bg-transparent text-left leading-none"
+          className="group/section-label -my-1.5 flex w-fit min-w-0 items-center gap-1 bg-transparent py-1.5 text-left leading-none"
           onClick={onToggle}
           type="button"
         >
@@ -295,21 +295,21 @@ function CronJobSidebarRow({
               <Tip label={c.triggerNow}>
                 <button
                   aria-label={c.triggerNow}
-                  className="grid size-5 place-items-center rounded-sm text-(--ui-text-tertiary) hover:bg-(--ui-control-hover-background) hover:text-foreground"
+                  className="grid size-6 place-items-center rounded-(--radius-control) text-(--ui-text-tertiary) hover:bg-(--ui-control-hover-background) hover:text-foreground"
                   onClick={onTrigger}
                   type="button"
                 >
-                  <Codicon name="zap" size="0.75rem" />
+                  <Zap className="size-3.5" />
                 </button>
               </Tip>
               <Tip label={c.manage}>
                 <button
                   aria-label={c.manage}
-                  className="grid size-5 place-items-center rounded-sm text-(--ui-text-tertiary) hover:bg-(--ui-control-hover-background) hover:text-foreground"
+                  className="grid size-6 place-items-center rounded-(--radius-control) text-(--ui-text-tertiary) hover:bg-(--ui-control-hover-background) hover:text-foreground"
                   onClick={onManage}
                   type="button"
                 >
-                  <Codicon name="watch" size="0.75rem" />
+                  <Clock className="size-3.5" />
                 </button>
               </Tip>
             </div>

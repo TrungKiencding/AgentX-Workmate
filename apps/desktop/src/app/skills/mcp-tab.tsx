@@ -19,12 +19,7 @@ import { JsonDocumentEditor } from '@/components/chat/json-document-editor'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { StatusPill } from '@/components/ui/status-pill'
@@ -919,7 +914,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
         <ErrorBanner className="max-w-sm">
           <span className="flex flex-col gap-2">
             {configError instanceof Error ? configError.message : m.failedLoad}
-            <Button className="self-start" onClick={() => void refetchConfig()} size="xs" variant="text">
+            <Button className="self-start" onClick={() => void refetchConfig()} size="sm" variant="text">
               {m.reload}
             </Button>
           </span>
@@ -1082,7 +1077,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
           onSave={() => void saveDoc()}
           remountKey={docVersion}
           trailing={
-            <Button disabled={saving || !dirty} onClick={() => void saveDoc()} size="xs">
+            <Button disabled={saving || !dirty} onClick={() => void saveDoc()} size="sm">
               {saving ? t.common.saving : t.common.save}
             </Button>
           }
@@ -1094,7 +1089,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
             {(['stdio', 'agent'] as const).map(kind => (
               <TextTab
                 active={logSource === kind}
-                className="h-5 px-0.5 text-2xs"
+                className="h-6 px-1 text-xs"
                 key={kind}
                 onClick={() => setLogSource(kind)}
               >
@@ -1107,7 +1102,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
         defaultHeight={176}
         id="mcp-logs"
         title={
-          <span className="text-2xs font-normal text-muted-foreground/60">
+          <span className="text-xs font-normal text-muted-foreground/60">
             {m.logsTitle}
             {selected && savedEntry ? ` · ${selected}` : ''}
           </span>

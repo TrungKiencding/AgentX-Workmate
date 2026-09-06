@@ -187,3 +187,81 @@ cannot answer. The home greeting only talked about repos, tests and PRs.
 - **Home starters take the folder's side**: four starters, the coding pair
   leading inside a repository, the office pair (summarise a document, draft an
   email) leading anywhere else; the body line mixes both worlds.
+
+## The 2026-09 friendly pass (UI v2, Phases 1–5)
+
+One direction, five phases: the same palette and the same three faces, but a
+softer shape, a rounder icon set, larger type where people read, and copy that
+speaks to an office worker instead of a developer. The plan and its gates live
+in [`UI-REDESIGN-PLAN-V2.md`](./UI-REDESIGN-PLAN-V2.md); every number below is
+a `git grep` over `src/app` + `src/components` (Settings and the terminal's
+ANSI palette excluded) at the commit before the pass (`c02bfa7bed`) and after
+it.
+
+**Before.** Corners at 6/10/12/14px and 32px sidebar rows. The four
+destinations were Codicon glyphs (a *robot* for a new chat); 47 more Codicons
+sat in page chrome (37 in the sidebar's tree and menus, 10 in the master-detail
+/ hub / MCP chrome). 64 lines of raw Tailwind colour (`emerald-*`, `amber-*`,
+`sky-*`…) that never followed the theme, 4 `tracking-[…]` literals, 51 uses of
+11px type and 20 `size="xs"` buttons across the Tiện ích / Tin nhắn / Artifact
+pages. Eighty-four kebab-case skill names, 19 English platform guides
+hard-coded in a component, and 64 user-visible Vietnamese strings that said
+"phiên", "Gateway", "bộ công cụ", "repo" or "⌘" in the product's own pages.
+Japanese, Traditional Chinese and Arabic fell back to English for 355 / 355 /
+304 of the strings on those pages. Month dividers and "2 min ago" followed the
+OS locale, so a Vietnamese app labelled a shelf "August". The page loader was
+a rose curve; two pixel `@font-face`s and a pixel heart survived from the
+Hermes era.
+
+**After.**
+- **Shape and chrome.** `--radius-control/card/overlay/bubble` = 8/12/14/18px;
+  nav and conversation rows share one 36px silhouette; Tiện ích rows 48px,
+  Artifact rows 52px. Tabler is the only page-chrome icon set — the sidebar's
+  four destinations, its tree buttons, dialogs, branch pickers and menus, the
+  titlebar, tabs and page buttons. Codicon remains where it is vocabulary:
+  transcript, terminal, editor, file tree, and the projects tree's lead column
+  (a project's icon is a Codicon name the user picked).
+- **Primitives, not call-site chrome.** `StatusPill` (dot + word, five tones
+  from the semantic tokens, contrast-gated on every preset), `TagChip`,
+  `PillTabs` with one sliding highlight, `EmptyFigure` (four monoline
+  drawings), `BrandGlyph` heading each reply, `DisclosureRow` for the
+  technical tail, `Switch size="md"`, `Loader variant="ring"` for every
+  page load, `Button variant="card"` for the home surface's task cards.
+  Menu rows read at 13px like the rest of the chrome. Pane-header and
+  hover-revealed buttons are 24px squares — the hit-target floor.
+- **Colour that follows the theme.** Raw ramps in `src/app` + `src/components`
+  went from 64 lines to 0; status dots, badges, markdown alerts, the review
+  file tree, console levels and the emoji picker's tints all draw from
+  `--ui-green / -yellow / -red / -info / -purple`. The sixteen ANSI colours
+  in `lib/ansi.ts` stay: a terminal's palette is not a status.
+- **Three pages that explain themselves.** Tiện ích reads like a store (a
+  title and a one-line "what this does", grouped by what it is for, a real
+  "Thử ngay" button, an "Cài" button with a box, the MCP editor folded under
+  "Cấu hình nâng cao"). Tin nhắn is a three-step guide per app with a
+  hand-written Vietnamese intro for all 19 platforms and a banner — not a
+  number — when someone is waiting to be allowed in. Artifact is a library
+  grouped by day with a description line that says what an artifact is.
+- **Copy in the product's own words.** The glossary (`UI-REDESIGN-PLAN-V2.md`
+  §2.7) is enforced: "cuộc trò chuyện" / "Trò chuyện mới", "Tiện ích",
+  "công cụ", "AgentX" or "dịch vụ nền AgentX" for the gateway, "khoá API",
+  spelled-out hints instead of `⌘` in a sentence. Banned-word hits in the
+  in-scope `vi.ts` blocks: 64 → 0 (the remaining three matches are the
+  parameter named `key` in a template, not a word anyone sees). Every
+  changed string was carried to all six locales, and the three locales that
+  leaned on English now translate all 355 / 355 / 304 in-scope keys by hand
+  (skill-store strings, 46 tool labels and descriptions, the 19 platform
+  guides and taglines, the keyboard-shortcut panel).
+- **Dates and ages follow the language.** `lib/time.ts` formatters rebuild on
+  `setTimeFormatLocale`, which the i18n runtime calls with the BCP-47 tag —
+  the sidebar's month dividers, the Artifact shelves and every "x phút trước"
+  render in the app's locale, and unit tests keep the runtime's own.
+- **Measured, not asserted.** On the seven surfaces at 1280×800 a probe
+  over every visible control (`getBoundingClientRect`, counting the invisible
+  `::after` pads) finds no hit target under 24px — the titlebar controls
+  (20×22 → 24×24), the sidebar section labels, the coding strip's copy /
+  branch buttons and the hub's host link were the last ones — and no text
+  under 12px except the two `⌘` `N` keybind chips; the contrast gate
+  (`npm run check:contrast`) clears 560 pairs across 14 palettes × 2 bands.
+  Five first-time tasks done by mouse alone take 3 · 3 · 3 · 3 · 2 clicks
+  from the home surface (start and send a chat · enable a skill and try it ·
+  reach step 2 of Telegram · find and open a generated image · pin a chat).

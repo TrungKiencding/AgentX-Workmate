@@ -372,9 +372,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                           onClick={() => onOpenSession(session.id)}
                           type="button"
                         >
-                          <div className="truncate text-base font-medium text-foreground">
-                            {sessionTitle(session)}
-                          </div>
+                          <div className="truncate text-base font-medium text-foreground">{sessionTitle(session)}</div>
                           <div className="truncate text-xs tabular-nums text-(--ui-text-tertiary)">
                             {formatTimestamp(session.last_active || session.started_at)}
                           </div>
@@ -427,7 +425,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                           <span
                             className={cn(
                               'size-2 shrink-0 rounded-full',
-                              status.gateway_running ? 'bg-emerald-500' : 'bg-amber-500'
+                              status.gateway_running ? 'bg-(--ui-green)' : 'bg-(--ui-yellow)'
                             )}
                           />
                           <span className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
@@ -609,7 +607,7 @@ function UsagePanel({ error, loading, onRefresh, period, usage }: UsagePanelProp
                       style={{ height: Math.max(inputH, entry.input_tokens > 0 ? 1 : 0) }}
                     />
                     <div
-                      className="w-full bg-emerald-500/60"
+                      className="w-full bg-(--ui-green)/60"
                       style={{ height: Math.max(outputH, entry.output_tokens > 0 ? 1 : 0) }}
                     />
                   </div>
@@ -659,9 +657,7 @@ function UsageList({
 }) {
   return (
     <section className="min-w-0">
-      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-        {title}
-      </div>
+      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{title}</div>
       {rows.length === 0 ? (
         <div className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
           {emptyLabel}

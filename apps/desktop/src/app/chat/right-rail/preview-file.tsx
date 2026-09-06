@@ -50,9 +50,8 @@ const TONE_STYLES: Record<EmptyStateTone, { cube: string; primary: string }> = {
     primary: 'border-border bg-background text-foreground hover:bg-accent'
   },
   warning: {
-    cube: 'text-amber-500/70 dark:text-amber-300/70',
-    primary:
-      'border-amber-400/40 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-300/30 dark:bg-amber-300/15 dark:text-amber-100 dark:hover:bg-amber-300/20'
+    cube: 'text-(--ui-yellow)/70',
+    primary: 'border-(--ui-yellow)/40 bg-(--ui-yellow)/10 text-foreground hover:bg-(--ui-yellow)/20'
   }
 }
 
@@ -281,13 +280,7 @@ function MarkdownCode({ className, children, ...props }: ComponentProps<'code'>)
 
   if (!language) {
     return (
-      <code
-        className={cn(
-          'rounded bg-muted px-1 py-0.5 font-mono text-[0.9em] text-pink-700 dark:text-pink-300',
-          className
-        )}
-        {...props}
-      >
+      <code className={cn('rounded bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground', className)} {...props}>
         {children}
       </code>
     )
@@ -537,9 +530,7 @@ export function SourceView({ filePath, language, text }: { filePath?: string; la
                     className={cn(
                       'h-5 w-9 pr-2 leading-5 tabular-nums transition-colors',
                       filePath && 'cursor-pointer',
-                      selected
-                        ? 'bg-amber-200/45 text-amber-900 dark:bg-amber-300/20 dark:text-amber-100'
-                        : filePath && 'hover:text-foreground'
+                      selected ? 'bg-(--ui-selection-background) text-foreground' : filePath && 'hover:text-foreground'
                     )}
                     draggable={Boolean(filePath)}
                     key={line}
@@ -841,7 +832,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
           trailing={<EditControls dirty={dirty} onCancel={cancelEdit} onSave={() => void saveEdit()} saving={saving} />}
         />
         {conflict && (
-          <div className="shrink-0 border-b border-amber-400/40 bg-amber-50 px-3 py-2 text-2xs text-amber-900 dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100">
+          <div className="shrink-0 border-b border-(--ui-yellow)/40 bg-(--ui-yellow)/10 px-3 py-2 text-xs text-foreground">
             <div className="font-semibold">{t.preview.diskChangedTitle}</div>
             <div className="mt-0.5 leading-relaxed">{t.preview.diskChangedBody}</div>
             <div className="mt-1.5 flex gap-3">

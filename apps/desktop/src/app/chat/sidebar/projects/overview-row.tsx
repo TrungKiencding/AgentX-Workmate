@@ -6,6 +6,7 @@ import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { Tip } from '@/components/ui/tooltip'
 import type { SessionInfo } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { ArrowLeft } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import {
@@ -53,7 +54,7 @@ export function ProjectBackRow({ label, onClick }: { label: string; onClick: () 
       >
         <SidebarRowLead>
           <SidebarRowLeadGlyph>
-            <Codicon name="arrow-left" size={SIDEBAR_LEAD_ICON_SIZE} />
+            <ArrowLeft className="size-3.5" />
           </SidebarRowLeadGlyph>
         </SidebarRowLead>
         <SidebarRowLabel className="text-xs underline-offset-4 group-hover/back:underline">{label}</SidebarRowLabel>

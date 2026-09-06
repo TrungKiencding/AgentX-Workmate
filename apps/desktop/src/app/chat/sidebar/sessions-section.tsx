@@ -66,7 +66,7 @@ function SidebarSectionHeader({
         <button
           // min-w-0 lets the label truncate at narrow sidebar widths instead of
           // pushing the header's trailing action icons out of view.
-          className="group/section-label flex w-fit min-w-0 items-center gap-1 bg-transparent text-left leading-none"
+          className="group/section-label -my-1.5 flex w-fit min-w-0 items-center gap-1 bg-transparent py-1.5 text-left leading-none"
           onClick={onToggle}
           type="button"
         >

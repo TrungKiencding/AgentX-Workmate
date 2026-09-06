@@ -1,5 +1,7 @@
+import { setTimeFormatLocale } from '@/lib/time'
+
 import { TRANSLATIONS } from './catalog'
-import { DEFAULT_LOCALE, FALLBACK_LOCALE } from './languages'
+import { DEFAULT_LOCALE, FALLBACK_LOCALE, localeToBcp47 } from './languages'
 import type { Locale } from './types'
 
 let runtimeLocale: Locale = DEFAULT_LOCALE
@@ -53,6 +55,9 @@ export function translateFrom(
 
 export function setRuntimeI18nLocale(locale: Locale) {
   runtimeLocale = locale
+  // Dates and relative times follow the display language too — one call site
+  // owns both, so a month name and the string beside it never disagree.
+  setTimeFormatLocale(localeToBcp47(locale))
 }
 
 /** The locale module-level translators resolve against (the app's active

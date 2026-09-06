@@ -9,7 +9,6 @@ import {
   type MenuKit,
   renderActionItem
 } from '@/components/ui/actions-menu'
-import { Codicon } from '@/components/ui/codicon'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
@@ -20,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useI18n } from '@/i18n'
+import { MoreVertical, Palette } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $panesFlipped, dismissAutoProject } from '@/store/layout'
 import {
@@ -186,7 +186,7 @@ export function ProjectMenu({
   // (where selecting adopts the repo as a real project so the look sticks).
   const appearanceItem = (
     <DropdownMenuItem onSelect={() => setAppearanceOpen(true)}>
-      <Codicon name="symbol-color" size="0.875rem" />
+      <Palette />
       <span>{p.menuAppearance}</span>
     </DropdownMenuItem>
   )
@@ -199,7 +199,7 @@ export function ProjectMenu({
       <button
         aria-label={p.menu}
         className={cn(
-          'grid size-4 shrink-0 place-items-center rounded-sm bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground data-[state=open]:opacity-100',
+          'grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground data-[state=open]:opacity-100',
           // In the project header reveal on the whole header hover; in overview
           // rows reveal on the row hover.
           scoped ? 'group-hover/section:opacity-100' : 'group-hover/workspace:opacity-100'
@@ -207,7 +207,7 @@ export function ProjectMenu({
         onClick={event => event.stopPropagation()}
         type="button"
       >
-        <Codicon name="kebab-vertical" size="0.75rem" />
+        <MoreVertical className="size-3.5" />
       </button>
     </DropdownMenuTrigger>
   )
@@ -313,7 +313,7 @@ export function ProjectContextMenu({
       {canTheme && (
         <kit.Sub>
           <kit.SubTrigger>
-            <Codicon name="symbol-color" size="0.875rem" />
+            <Palette />
             <span>{p.menuAppearance}</span>
           </kit.SubTrigger>
           <kit.SubContent className="w-auto p-2">

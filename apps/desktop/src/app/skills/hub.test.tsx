@@ -82,7 +82,18 @@ async function renderHub(query = '') {
 beforeEach(() => {
   getSkillHubCatalog.mockResolvedValue(catalog())
   // Nothing pushed to this machine: the desired-state panel must stay away.
-  getSkillHubChanges.mockResolvedValue({ enabled: true, configured: true, base_url: 'https://skills.dev-server.cloud', stream: 'off', revision: 1, last: { status: 'signed_out', detail: '', at: '' }, installs: [], updates: [], history: [], org: null })
+  getSkillHubChanges.mockResolvedValue({
+    enabled: true,
+    configured: true,
+    base_url: 'https://skills.dev-server.cloud',
+    stream: 'off',
+    revision: 1,
+    last: { status: 'signed_out', detail: '', at: '' },
+    installs: [],
+    updates: [],
+    history: [],
+    org: null
+  })
   tickSkillHub.mockResolvedValue({ status: 'signed_out', detail: '' })
   searchSkillsHub.mockResolvedValue({ results: [], source_counts: {}, timed_out: [], installed: {} })
   installSkillFromHub.mockResolvedValue({ ok: true, pid: 1, name: 'skills-install-vneb-report' })
@@ -169,7 +180,9 @@ describe('SkillsHub — the skill store', () => {
   })
 
   it('says so when the hub could not be reached and the cards are the last sync', async () => {
-    getSkillHubCatalog.mockResolvedValue(catalog({ error: 'https://skills.dev-server.cloud did not answer with a catalog', stale: true }))
+    getSkillHubCatalog.mockResolvedValue(
+      catalog({ error: 'https://skills.dev-server.cloud did not answer with a catalog', stale: true })
+    )
 
     await renderHub()
 

@@ -165,12 +165,12 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
           </StatusPill>
         )}
         {data?.last?.at && (
-          <span className="text-2xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
+          <span className="text-xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
         )}
         <span className="ml-auto flex items-center gap-1">
           {data?.base_url && (
             <a
-              className="text-2xs text-muted-foreground underline-offset-4 hover:underline"
+              className="inline-flex min-h-6 items-center text-xs text-muted-foreground underline-offset-4 hover:underline"
               href={data.base_url}
               rel="noreferrer"
               target="_blank"
@@ -178,7 +178,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
               {h.openHub}
             </a>
           )}
-          <Button disabled={ticking} onClick={() => void tick(true)} size="xs" variant="textStrong">
+          <Button disabled={ticking} onClick={() => void tick(true)} size="sm" variant="outline">
             {ticking && <Loader2 className="size-3 animate-spin" />}
             {ticking ? h.syncing : h.syncNow}
           </Button>
@@ -186,13 +186,13 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       </div>
 
       {line && (
-        <p className="mt-1.5 text-2xs text-(--ui-yellow)" data-testid="hub-status-line">
+        <p className="mt-1.5 text-sm text-(--ui-yellow)" data-testid="hub-status-line">
           {line}
         </p>
       )}
 
       {updates.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs" data-testid="hub-updates">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" data-testid="hub-updates">
           <span className="font-medium text-foreground/85">{h.updatesAvailable(updates.length)}</span>
           {updates.map(update => (
             <span
@@ -202,7 +202,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
               {update.name || update.slug} {h.updateOne(update.current ?? '?', update.latest ?? '?')}
             </span>
           ))}
-          <Button className="ml-auto" disabled={updating} onClick={updateAll} size="xs" variant="textStrong">
+          <Button className="ml-auto" disabled={updating} onClick={updateAll} size="sm" variant="secondary">
             {updating && <Loader2 className="size-3 animate-spin" />}
             {updating ? h.updating : h.updateAll}
           </Button>
@@ -210,13 +210,13 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       )}
 
       {changes.isLoading ? (
-        <p className="mt-2 text-2xs text-(--ui-text-tertiary)">{h.searching}</p>
+        <p className="mt-2 text-sm text-(--ui-text-tertiary)">{h.searching}</p>
       ) : installs.length === 0 ? (
-        <p className="mt-2 text-2xs text-(--ui-text-tertiary)">{h.noInstalls}</p>
+        <p className="mt-2 text-sm text-(--ui-text-tertiary)">{h.noInstalls}</p>
       ) : (
         <ul className="mt-2 flex flex-col gap-1" data-testid="hub-installs">
           {installs.map(row => (
-            <li className="flex flex-wrap items-center gap-1.5 text-2xs" data-testid="hub-install" key={row.id}>
+            <li className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="hub-install" key={row.id}>
               <span className="font-medium text-foreground/85">{row.name || row.slug}</span>
               <span className="text-(--ui-text-quaternary)">{row.version ?? row.latest_version ?? ''}</span>
               <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)">
@@ -236,11 +236,11 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       )}
 
       {data?.org && data.org.skills.length > 0 && (
-        <p className="mt-2 text-2xs text-(--ui-text-tertiary)">{h.orgSkills(data.org.skills.length)}</p>
+        <p className="mt-2 text-sm text-(--ui-text-tertiary)">{h.orgSkills(data.org.skills.length)}</p>
       )}
 
       {history.length > 0 && (
-        <div className="mt-2 text-2xs text-(--ui-text-tertiary)" data-testid="hub-history">
+        <div className="mt-2 text-xs text-(--ui-text-tertiary)" data-testid="hub-history">
           <span className="mb-0.5 block">{h.history}</span>
           {history.map(entry => (
             <div key={`${entry.at}-${entry.slug}-${entry.action}`}>

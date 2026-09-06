@@ -53,7 +53,16 @@ function formatAge(seconds: number, r: Translations['sidebar']['row']): string {
   const { unit, value } = coarseElapsed(Date.now() - seconds * 1000)
 
   // Under a minute reads as "now" — the sidebar never shows a seconds tick.
-  return unit === 'second' ? r.ageNow : `${value}${r[AGE_KEY[unit]]}`
+  if (unit === 'second') {
+    return r.ageNow
+  }
+
+  // "4m" and "4分" glue to the number; a spelled-out word ("phút", "دقيقة")
+  // is a word and takes the space its language puts between number and noun.
+  const label = r[AGE_KEY[unit]]
+  const glued = label.length === 1 || /^[\u3000-\u9fff\uf900-\ufaff]+$/.test(label)
+
+  return glued ? `${value}${label}` : `${value} ${label}`
 }
 
 function SidebarSessionRowImpl({

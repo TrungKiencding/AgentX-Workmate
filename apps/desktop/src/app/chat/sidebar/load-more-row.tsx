@@ -1,7 +1,7 @@
-import { Codicon } from '@/components/ui/codicon'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { MoreHorizontal } from '@/lib/icons'
 
 interface SidebarLoadMoreRowProps {
   step: number
@@ -20,16 +20,12 @@ export function SidebarLoadMoreRow({ step, onClick, loading = false }: SidebarLo
     <Tip label={label}>
       <button
         aria-label={label}
-        className="ml-auto grid size-5 place-items-center rounded-sm bg-transparent text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-control-hover-background) hover:text-foreground disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-(--ui-text-tertiary)"
+        className="ml-auto grid size-6 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-control-hover-background) hover:text-foreground disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-(--ui-text-tertiary)"
         disabled={loading}
         onClick={onClick}
         type="button"
       >
-        {loading ? (
-          <GlyphSpinner ariaLabel={label} className="text-xs" />
-        ) : (
-          <Codicon name="ellipsis" size="0.75rem" />
-        )}
+        {loading ? <GlyphSpinner ariaLabel={label} className="text-xs" /> : <MoreHorizontal className="size-3.5" />}
       </button>
     </Tip>
   )

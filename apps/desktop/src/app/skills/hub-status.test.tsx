@@ -51,7 +51,14 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
         error: '',
         reason: '',
         update_available: true,
-        local: { installed: true, name: 'vneb-report', version: '1.0.0', content_hash: 'sha256:abc', install_path: 'vneb-report', enabled: true }
+        local: {
+          installed: true,
+          name: 'vneb-report',
+          version: '1.0.0',
+          content_hash: 'sha256:abc',
+          install_path: 'vneb-report',
+          enabled: true
+        }
       },
       {
         id: 'inst-2',
@@ -68,11 +75,21 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
         error: '',
         reason: 'leaks the reactor code',
         update_available: false,
-        local: { installed: true, name: 'leaky', version: '1.0.0', content_hash: 'sha256:def', install_path: 'leaky', enabled: false }
+        local: {
+          installed: true,
+          name: 'leaky',
+          version: '1.0.0',
+          content_hash: 'sha256:def',
+          install_path: 'leaky',
+          enabled: false
+        }
       }
     ],
     updates: [{ install_id: 'inst-1', slug: 'vneb-report', name: 'vneb-report', current: '1.0.0', latest: '1.1.0' }],
-    org: { org_id: 'astralx', skills: [{ slug: 'team-notes', name: 'team-notes', kind: 'core', version: '1.0.0', content_hash: null }] },
+    org: {
+      org_id: 'astralx',
+      skills: [{ slug: 'team-notes', name: 'team-notes', kind: 'core', version: '1.0.0', content_hash: null }]
+    },
     history: [{ action: 'installed', slug: 'vneb-report', version: '1.0.0', detail: '', at: '2026-09-03T09:59:00Z' }],
     generated_at: '2026-09-03T10:00:00Z',
     ...overrides
@@ -128,11 +145,22 @@ describe('HubStatus', () => {
   })
 
   it('says why nothing syncs when the backend is offline or signed out', async () => {
-    getSkillHubChanges.mockResolvedValue(changes({ stream: 'waiting', last: { status: 'offline', detail: 'x' }, installs: [], updates: [], history: [], org: null }))
+    getSkillHubChanges.mockResolvedValue(
+      changes({
+        stream: 'waiting',
+        last: { status: 'offline', detail: 'x' },
+        installs: [],
+        updates: [],
+        history: [],
+        org: null
+      })
+    )
 
     await renderStatus()
 
-    expect((await screen.findByTestId('hub-status-line')).textContent).toBe('The Hub cannot be reached — installed skills keep working.')
+    expect((await screen.findByTestId('hub-status-line')).textContent).toBe(
+      'The Hub cannot be reached — installed skills keep working.'
+    )
     expect(screen.getByText(/Nothing has been requested from the Hub/)).toBeTruthy()
     getSkillHubChanges.mockResolvedValue(changes({ last: { status: 'signed_out', detail: '' }, installs: [] }))
   })

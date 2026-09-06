@@ -138,7 +138,9 @@ Don't add per-overlay `shadow-[…]` or `border-(--ui-stroke-secondary)`
 one-offs; if elevation needs to change, change the token.
 
 Menus and popovers use their own shared `shadow-md` +
-`--ui-stroke-secondary` primitive treatment. Drag affordances may use tokenized
+`--ui-stroke-secondary` primitive treatment; their rows read at `text-sm`
+(13px) like every other piece of chrome — a menu is used at speed and gets no
+discount. Drag affordances may use tokenized
 dashed targets and local blur. These are semantic surface classes, not licenses
 for call-site shadow or border inventions.
 
@@ -321,8 +323,8 @@ surface's ways in; pair it with `size="card"`).
 | `chip` | 36px pill, 13px text, 16px icon | the `chip` variant's size |
 | `card` | padding-driven, 56px floor, left-aligned, 20px icon | the `card` variant's size |
 | `icon` / `icon-sm` / `icon-lg` | 32/28/36px square | icon-only actions |
-| `icon-xs` | 24px square | inline icon actions only |
-| `icon-titlebar` | OS chrome | window controls — untouched by the ramp |
+| `icon-xs` | 24px square | inline icon actions and pane-header chrome (`ICON_BUTTON` in `master-detail.tsx` pairs with it) — the hit-target floor |
+| `icon-titlebar` | 24px (`--titlebar-control-size` / `-height`) | the titlebar's own controls — off the ramp, but never under the 24px hit-target floor |
 
 **`loading`** swaps the label for a centered spinner while keeping the
 button's width (no layout shift). Ignored with `asChild`.
@@ -355,7 +357,7 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
 `useKeybindHint` or `TipKeybindLabel`.
 
 Notes:
-- Every boxed button carries `--radius-control` (6px); boxless variants
+- Every boxed button carries `--radius-control` (8px); boxless variants
   (text/link/inline/micro) have no box to round. `icon-titlebar` keeps its own
   4px OS-chrome radius.
 - Transitions name their properties (`background-color`, `border-color`,
@@ -422,7 +424,16 @@ running — while staying quieter than the content they frame.
   tabular-nums` in tertiary. Hover-revealed row actions use `size="icon-xs"`
   (24px) — the hit-target floor. The pinned section's empty line invites
   ("Ghim những cuộc trò chuyện bạn hay quay lại.") — pin lives in the row's ⋯
-  menu, and Shift-click is a shortcut, never the only way.
+  menu, and Shift-click is a shortcut, never the only way. That menu's
+  "Mở ở khung chia đôi" submenu speaks the catalog (`sidebar.row.split*`), never
+  a literal. Every hover-revealed control in the sidebar — the projects tree's
+  add / ⋯ / new-worktree buttons, "load more", the cron row's actions — is a
+  24px square (`size-6`) at `--radius-control`, whatever glyph it carries.
+- **The projects tree keeps Codicon only for data.** A project's icon is a
+  Codicon name the user picked, and the tree's lead glyphs (home, branch,
+  kanban, repo) share that column, so they stay Codicon as file-tree
+  vocabulary. Everything the tree *does* — its buttons, dialogs, branch
+  pickers and menus — is Tabler like the rest of the sidebar.
 - **Titlebar:** Tabler at 16px. The right cluster is layout · ⋯ · settings ·
   right-sidebar toggle; the ⋯ (`titlebar.moreTools`) holds sound and the
   keyboard-shortcut panel. Both keep their shortcuts — the menu is only where
@@ -473,7 +484,8 @@ running — while staying quieter than the content they frame.
   `dayGroup` (`lib/time.ts`) buckets rows into Hôm nay · Hôm qua · 7 ngày qua ·
   then months (plain calendar days — no 4 AM rollover here; that belongs to
   the session sidebar), with a 12px semibold sentence-case header per shelf and
-  month names formatted in the app locale, not the OS locale.
+  month names formatted in the app locale, not the OS locale (the shared
+  `fmtMonth` / `fmtMonthYear` do that for every surface — see § i18n).
 - **Overlay nav rows** (`OverlayNavItem`, settings `NavLink`) are controls:
   `--control-h-md` at `text-sm`, `--radius-control`.
 - **Rows:** `ListRow` (settings `primitives.tsx`) for label/description/action
@@ -658,7 +670,12 @@ so two-line rows still grow), `HUD_HEADING`.
   is the breathing spinner, error `destructive`, recovered `--ui-yellow`,
   delegate-done `--ui-green`, diff counts `--ui-diff-add-foreground` /
   `--ui-diff-remove-foreground`. Never a raw Tailwind ramp (`amber-600`,
-  `emerald-400`) — those don't move with the theme.
+  `emerald-400`) — those don't move with the theme. The same trio (plus
+  `--ui-info` and `--ui-purple`) colours the markdown alert embeds
+  (note · tip · important · warning · caution), the status-stack rows, the
+  review file tree, the console levels and the emoji picker's cell tints;
+  the only fixed hues left in `src/` are the sixteen ANSI colours in
+  `lib/ansi.ts`, which are a terminal's own palette, not a status.
 - Bordered surfaces in the transcript (tables, fences, callouts, attachments)
   use `--ui-stroke-tertiary`. Not `border-border` — that's the app-wide
   default and reads too hot against the thread.
@@ -853,6 +870,21 @@ long transcript or a busy terminal.
   stale labels). Keep trailing-punctuation and tone consistent across all six
   (`defineLocale` falls back to English for a missing key, but fallback is a
   safety net, not a translation).
+- **The glossary is law in the product's own pages.** In the sidebar, the
+  home surface, the composer, Tiện ích, Tin nhắn and Artifact a user-visible
+  Vietnamese string never says `phiên` (a chat is "cuộc trò chuyện"),
+  `gateway` ("AgentX" or "dịch vụ nền AgentX"), `toolset` ("công cụ"),
+  `repo` ("thư mục mã nguồn"), `key` for an API key ("khoá API"), nor a
+  `Shift` / `⌘` gesture inside a sentence — a shortcut is a hint in a
+  keybind label, never the instruction. "Phiên bản" (a version) and proper
+  nouns (a Twilio "Auth Token", a `agentx gateway` command) are not the
+  banned words.
+- **Dates and ages follow the language.** `lib/time.ts` formatters
+  (`fmtClock`, `fmtDayTime`, `fmtMonth`, `relativeTime`…) rebuild on
+  `setTimeFormatLocale`, which `setRuntimeI18nLocale` calls with the
+  BCP-47 tag (`localeToBcp47`) — so a Vietnamese app never labels a month
+  "August" because the Mac is set to English, and unit tests (no locale set)
+  keep the runtime's own.
 
 ## State (TypeScript)
 

@@ -108,11 +108,11 @@ function SwitcherDot({ attention, working, unread }: { attention: boolean; worki
       className={cn(
         'size-1 shrink-0 rounded-full',
         attention
-          ? 'bg-amber-400'
+          ? 'bg-(--ui-yellow)'
           : working
             ? 'animate-pulse bg-(--ui-accent)'
             : unread
-              ? 'bg-emerald-500'
+              ? 'bg-(--ui-green)'
               : 'bg-(--ui-text-quaternary)/50'
       )}
     />

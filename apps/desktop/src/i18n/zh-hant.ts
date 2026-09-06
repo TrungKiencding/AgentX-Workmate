@@ -190,7 +190,7 @@ export const zhHant = defineLocale({
       elevenLabsNeedsKey: 'ElevenLabs STT 需要 ELEVENLABS_API_KEY。',
       elevenLabsRejectedKey: 'ElevenLabs 拒絕了該 API 金鑰 (401)。',
       diskFull: '磁碟已滿 — 請騰出一些空間後再試。',
-      gatewayAuthFailed: '閘道認證失敗 — 請檢查你的 API_SERVER_KEY。',
+      gatewayAuthFailed: 'AgentX 背景服務認證失敗 — 請檢查你的 API_SERVER_KEY。',
       methodNotAllowed: '桌面後端拒絕了該請求 (405 Method Not Allowed)。請嘗試重新啟動 AgentX Workmate Desktop。',
       microphonePermission: '麥克風權限已被拒絕。',
       openaiRejectedApiKey: 'OpenAI 拒絕了該 API 金鑰。',
@@ -199,7 +199,7 @@ export const zhHant = defineLocale({
     },
     voice: {
       configureSpeechToText: '設定語音轉文字後即可使用語音模式。',
-      couldNotStartSession: '無法啟動語音工作階段',
+      couldNotStartSession: '無法啟動語音對話',
       microphoneAccessDenied: '麥克風存取被拒絕。',
       microphoneConstraintsUnsupported: '此裝置不支援目前的麥克風限制條件。',
       microphoneFailed: '麥克風發生錯誤',
@@ -249,7 +249,7 @@ export const zhHant = defineLocale({
     hideSidebar: '隱藏側邊欄',
     showSidebar: '顯示側邊欄',
     search: '搜尋',
-    searchTitle: '搜尋工作階段、檢視和動作',
+    searchTitle: '搜尋對話、檢視和動作',
     swapSidebarSides: '交換側邊欄位置',
     hideRightSidebar: '隱藏右側邊欄',
     showRightSidebar: '顯示右側邊欄',
@@ -257,7 +257,10 @@ export const zhHant = defineLocale({
     unmuteHaptics: '開啟觸感回饋',
     openSettings: '開啟設定',
     openStarmap: '開啟記憶圖譜',
-    moreTools: '更多'
+    moreTools: '更多',
+    openKeybinds: '鍵盤快捷鍵',
+    layoutEditor: '版面編輯器',
+    layoutEditorTitle: '版面編輯器'
   },
 
   language: {
@@ -1210,22 +1213,22 @@ export const zhHant = defineLocale({
     loading: '正在載入功能…',
     noSkillsTitle: '找不到技能',
     noSkillsDesc: '請嘗試更廣泛的搜尋或不同類別。',
-    noToolsetsTitle: '找不到工具集',
+    noToolsetsTitle: '找不到工具',
     noToolsetsDesc: '請嘗試更廣泛的搜尋詞。',
     noDescription: '無可用描述。',
     configured: '已設定',
-    needsKeys: '需要金鑰',
+    needsKeys: '需要設定',
     visionModelHint: '視覺功能使用你的輔助模型設定——支援影像的模型在那裡選擇，而不是在此處按供應商選擇。',
     visionModelLink: '在 設定 → 模型 中選擇視覺模型',
-    toolsetsEnabled: (enabled, total) => `已啟用 ${enabled}/${total} 個工具集`,
+    toolsetsEnabled: (enabled, total) => `已啟用 ${enabled}/${total} 個工具`,
     configureToolset: label => `設定 ${label}`,
-    toggleToolset: (label, enabled) => `${enabled ? '開啟' : '關閉'} ${label} 工具集`,
+    toggleToolset: (label, enabled) => `${enabled ? '開啟' : '關閉'} ${label}`,
     skillsLoadFailed: '技能載入失敗',
-    toolsetsRefreshFailed: '工具集重新整理失敗',
+    toolsetsRefreshFailed: '工具重新整理失敗',
     skillEnabled: '技能已啟用',
     skillDisabled: '技能已停用',
-    toolsetEnabled: '工具集已啟用',
-    toolsetDisabled: '工具集已停用',
+    toolsetEnabled: '工具已啟用',
+    toolsetDisabled: '工具已停用',
     appliesToNewSessions: name => `${name} 將套用至新工作階段。`,
     failedToUpdate: name => `更新 ${name} 失敗`,
     sortMostUsed: '最常用',
@@ -1251,7 +1254,255 @@ export const zhHant = defineLocale({
     edit: '編輯',
     archive: '封存',
     skillArchivedTitle: '技能已封存',
-    skillArchivedMessage: '可透過 agentx curator restore 還原。'
+    skillArchivedMessage: '可透過 agentx curator restore 還原。',
+    toolsets: {
+      web: {
+        label: '網頁搜尋',
+        description: '為你搜尋並閱讀網頁內容。'
+      },
+      browser: {
+        label: '瀏覽器操作',
+        description: '替你開啟網頁、按下按鈕、填寫表單。'
+      },
+      terminal: {
+        label: '命令列',
+        description: '在這台電腦上執行指令、管理執行中的程式。'
+      },
+      file: {
+        label: '本機檔案',
+        description: '讀取、寫入並搜尋你的檔案。'
+      },
+      code_execution: {
+        label: '執行程式碼',
+        description: '執行程式碼片段來計算和處理資料。'
+      },
+      vision: {
+        label: '看圖片',
+        description: '查看並描述圖片內容。'
+      },
+      video: {
+        label: '看影片',
+        description: '觀看並摘要影片內容。'
+      },
+      image_gen: {
+        label: '產生圖片',
+        description: '依你的描述繪製新圖片。'
+      },
+      video_gen: {
+        label: '產生影片',
+        description: '根據描述或圖片製作影片。'
+      },
+      bfl: {
+        label: 'FLUX 影片',
+        description: '透過 BFL FLUX 服務產生影片。'
+      },
+      x_search: {
+        label: '搜尋 X（Twitter）',
+        description: '在 X 上尋找貼文。需要 xAI 帳號。'
+      },
+      tts: {
+        label: '朗讀',
+        description: '把回覆轉成語音。'
+      },
+      stt: {
+        label: '聽寫',
+        description: '把你說的話轉成文字。'
+      },
+      skills: {
+        label: '管理技能',
+        description: '查看並使用已安裝的技能。'
+      },
+      todo: {
+        label: '規劃任務',
+        description: '把大工作拆成一步一步的清單。'
+      },
+      memory: {
+        label: '記憶',
+        description: '在多次對話之間記住重要資訊。'
+      },
+      session_search: {
+        label: '搜尋過去的對話',
+        description: '找回先前對話中說過的內容。'
+      },
+      clarify: {
+        label: '追問釐清',
+        description: '需求不清楚時向你確認。'
+      },
+      delegation: {
+        label: '分派給助手',
+        description: '把大工作分給多個助手同時進行。'
+      },
+      cronjob: {
+        label: '排程工作',
+        description: '依你設定的時間自動執行。'
+      },
+      homeassistant: {
+        label: '智慧家庭',
+        description: '透過 Home Assistant 控制裝置。'
+      },
+      spotify: {
+        label: 'Spotify',
+        description: '播放音樂、搜尋歌曲、管理播放清單。'
+      },
+      computer_use: {
+        label: '操控電腦',
+        description: '在背景替你操作螢幕。'
+      }
+    },
+    hub: {
+      storeTitle: 'AgentX 實用工具商店',
+      actions: '動作',
+      searchPlaceholder: '搜尋實用工具商店',
+      search: '搜尋',
+      searching: '搜尋中…',
+      connectingHubs: '正在連線到實用工具商店…',
+      featured: '精選',
+      landingHint: '搜尋商店，看看有哪些實用工具可以加裝到 AgentX。',
+      catalogCount: count => `來自 Hub 的 ${count} 個實用工具`,
+      catalogEmpty: '尚未從 Hub 同步到任何實用工具。',
+      catalogEmptyDesc: '按「立即同步」從 Hub 取得目錄。',
+      searchEmptyDesc: '換個關鍵字，或清除搜尋以瀏覽整個商店。',
+      catalogOffline: '無法連線到 Hub — 顯示上次同步的內容。',
+      neverSynced: '尚未同步',
+      storeOnline: '已連線',
+      storeOffline: '無法連線',
+      kind: {
+        core: 'Desktop',
+        browser: '瀏覽器'
+      },
+      noResults: '商店裡沒有相符的實用工具。',
+      resultCount: (count, ms) => `${count} 個結果${ms !== null ? `（${ms} ms）` : ''}`,
+      timedOut: sources => `逾時：${sources}`,
+      installed: '已安裝',
+      install: '安裝',
+      installing: '安裝中…',
+      uninstall: '移除',
+      uninstalling: '移除中…',
+      updateAll: '更新已安裝的項目',
+      updating: '更新中…',
+      preview: '預覽',
+      scan: '掃描',
+      scanning: '掃描中…',
+      close: '關閉',
+      files: '檔案',
+      noReadme: '這個技能沒有 SKILL.md 預覽。',
+      trust: {
+        'agentx-hub-verified': '已驗證',
+        verified: '已驗證',
+        builtin: '內建',
+        trusted: '可信任',
+        community: '社群'
+      },
+      verdictSafe: '安全',
+      verdictCaution: '需留意',
+      verdictDangerous: '危險',
+      policyAllow: '允許安裝',
+      policyAsk: '安裝前請仔細檢查',
+      policyBlock: '政策不允許安裝',
+      findings: count => `${count} 項發現`,
+      noFindings: '沒有發現安全問題。',
+      installStarted: name => `正在安裝 ${name}…`,
+      uninstallStarted: name => `正在移除 ${name}…`,
+      updateStarted: '正在更新已安裝的技能…',
+      actionFailed: '技能操作失敗',
+      actionLog: '操作記錄',
+      loadFailed: 'AgentX Hub 載入失敗',
+      previewFailed: '技能預覽失敗',
+      scanFailed: '安全掃描失敗',
+      searchFailed: 'AgentX Hub 搜尋失敗',
+      fromHub: '來自 AgentX Hub',
+      hubStatus: {
+        connected: '即時連線',
+        reconnecting: '正在重新連線…',
+        waiting: '等待登入',
+        off: '未即時追蹤'
+      },
+      signedOut: '登入 AgentX 即可與 Hub 同步。',
+      offline: '無法連線到 Hub — 已安裝的技能仍可正常使用。',
+      reauth: 'Hub 不接受這台電腦的登入憑證，請重新登入。',
+      unconfigured: '尚未設定 Hub 位址（skills.hub_url）。',
+      lastSync: when => `上次同步：${when}`,
+      noInstalls: '這台電腦還沒有從 Hub 收到任何安裝要求。在 Hub 上按「安裝」，技能就會送到這裡。',
+      desired: {
+        installed: '待安裝',
+        removed: '待移除',
+        disabled: '待關閉'
+      },
+      reported: {
+        pending: '等待中',
+        installed: '已安裝',
+        removed: '已移除',
+        failed: '失敗',
+        disabled: '已關閉'
+      },
+      localDisabled: '已在這台電腦上關閉',
+      updatesAvailable: count => `${count} 個可用更新`,
+      updateOne: (from, to) => `${from} → ${to}`,
+      syncNow: '立即同步',
+      syncing: '同步中…',
+      orgSkills: count => `${count} 個組織技能`,
+      history: '最近活動',
+      historyAction: {
+        installed: '已安裝',
+        updated: '已更新',
+        removed: '已移除',
+        disabled: '已關閉',
+        enabled: '已重新開啟',
+        failed: '失敗'
+      },
+      openHub: '開啟 AgentX Hub'
+    },
+    publish: {
+      upload: '上傳到 Hub',
+      propose: '提交給組織',
+      title: name => `將「${name}」上傳到 AgentX Hub`,
+      proposeTitle: name => `將「${name}」提交給組織`,
+      description: '技能會以新版本上傳，經安全掃描後，依 Hub 的政策發布。',
+      proposeDescription: '技能會以「組織」可見範圍上傳：安全的立即發布，需留意的則由組織管理員審核。',
+      visibility: '可見範圍',
+      visibilityOptions: {
+        private: '私人',
+        org: '組織',
+        public: '公開'
+      },
+      kind: '類型',
+      kindAuto: '自動偵測',
+      kindCore: 'Core（Workmate、Claude Code…）',
+      kindBrowser: 'Browser（WebMate…）',
+      preview: '預覽 Hub 讀取到的內容',
+      previewLoading: '正在向 Hub 確認…',
+      previewValid: '套件有效',
+      previewInvalid: '套件尚未符合要求',
+      previewName: '名稱',
+      previewVersion: '版本',
+      previewKind: '類型',
+      previewFiles: '檔案',
+      warnings: '警告',
+      submit: '上傳',
+      submitting: '上傳中…',
+      close: '關閉',
+      done: (slug, version) => `已上傳 ${slug}@${version}，Hub 正在掃描。`,
+      doneState: {
+        scanning: '掃描中',
+        published: '已發布',
+        needs_review: '待審核',
+        rejected: '已拒絕'
+      },
+      unchanged: version => `這份內容已存在於版本 ${version}。`,
+      openOnHub: '在 Hub 上開啟',
+      openScan: '查看掃描報告',
+      failed: '上傳失敗',
+      signedOut: '登入 AgentX 即可上傳到 Hub。',
+      offline: '無法連線到 Hub，請稍後再試。',
+      reauth: 'Hub 不接受這台電腦的登入憑證，請重新登入。',
+      errors: {
+        version_not_newer: highest => `版本必須高於 ${highest} — 請修改 SKILL.md 中的 metadata.version。`,
+        version_exists: '這個版本已存在於 Hub，但內容不同。',
+        slug_taken: '這個技能名稱在 Hub 上已屬於其他人。',
+        rate_limited: '上傳太頻繁，請稍後再試。',
+        kind_mismatch: 'Hub 上同名的技能屬於另一種類型。'
+      }
+    }
   },
 
   starmap: {
@@ -1469,10 +1720,7 @@ export const zhHant = defineLocale({
     credentialsSet: '憑證已設定',
     needsSetup: '需要設定',
     gatewayStopped: '訊息閘道已停止',
-    getCredentials: '取得您的憑證',
     openSetupGuide: '開啟設定指南',
-    required: '必填',
-    recommended: '建議',
     advanced: count => `進階 (${count})`,
     noTokenNeeded: '此平台不需要在此填寫 Token。請按照上方設定指南操作，然後在下方啟用。',
     enabled: '已啟用',
@@ -1504,12 +1752,14 @@ export const zhHant = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '允許的 Telegram 使用者 ID',
-        help: '建議設定。來自 @userinfobot 的逗號分隔數字 ID。不設定則任何人都能私訊您的機器人。'
+        help: '建議設定。來自 @userinfobot 的逗號分隔數字 ID。不設定則任何人都能私訊您的機器人。',
+        placeholder: '例如：12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: '代理 URL', help: '僅在 Telegram 被封鎖的網路中需要。' },
       DISCORD_BOT_TOKEN: {
         label: 'Bot Token',
-        help: '在 Discord 開發者入口網站建立應用程式，新增機器人，然後貼上其 Token。'
+        help: '在 Discord 開發者入口網站建立應用程式，新增機器人，然後貼上其 Token。',
+        placeholder: '貼上 Discord 機器人權杖'
       },
       DISCORD_ALLOWED_USERS: { label: '允許的 Discord 使用者 ID', help: '建議設定。逗號分隔的 Discord 使用者 ID。' },
       DISCORD_REPLY_TO_MODE: { label: '回覆方式', help: 'first、all 或 off。' },
@@ -1543,10 +1793,10 @@ export const zhHant = defineLocale({
       },
       SLACK_ALLOWED_USERS: { label: '允許的 Slack 使用者 ID', help: '建議設定。逗號分隔的 Slack 使用者 ID。' },
       MATTERMOST_URL: { label: '伺服器 URL', placeholder: 'https://mattermost.example.com' },
-      MATTERMOST_TOKEN: { label: 'Bot Token' },
+      MATTERMOST_TOKEN: { label: 'Bot Token', placeholder: '貼上 Mattermost 機器人權杖' },
       MATTERMOST_ALLOWED_USERS: { label: '允許的使用者 ID', help: '建議設定。逗號分隔的 Mattermost 使用者 ID。' },
       MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
-      MATRIX_ACCESS_TOKEN: { label: '存取 Token' },
+      MATRIX_ACCESS_TOKEN: { label: '存取 Token', placeholder: '貼上機器人帳號的存取權杖' },
       MATRIX_USER_ID: { label: 'Bot 使用者 ID', placeholder: '@agentx:example.org' },
       MATRIX_ALLOWED_USERS: {
         label: '允許的 Matrix 使用者 ID',
@@ -1569,7 +1819,71 @@ export const zhHant = defineLocale({
         help: '建議設定。逗號分隔的電話號碼或 WhatsApp ID。'
       }
     },
-    platformIntro: {}
+    platformIntro: {
+      telegram:
+        '在 Telegram 裡找到 @BotFather，傳送 /newbot 指令建立機器人，然後複製它給你的機器人權杖。想知道自己的 ID 號碼，可以傳訊息給 @userinfobot。',
+      discord:
+        '開啟 Discord Developer Portal，建立一個應用程式並新增 Bot，然後複製機器人權杖。記得以足夠的權限把機器人邀請進你的伺服器。',
+      slack: '建立一個 Slack 應用程式，開啟 Socket Mode，安裝到你的工作區，然後複製機器人權杖和應用程式層級權杖。',
+      mattermost: '在你的 Mattermost 伺服器上建立機器人帳號或個人存取權杖，然後把伺服器位址和權杖貼到這裡。',
+      matrix: '用機器人帳號登入 homeserver，然後複製存取權杖、帳號 ID 和 homeserver 位址。',
+      signal: '在可連線到的地方執行 signal-cli REST 橋接，然後把該位址和已註冊的電話號碼告訴 AgentX。',
+      whatsapp: '啟動 AgentX 內附的 WhatsApp 橋接，第一次執行時掃描 QR Code，然後開啟這個連接。',
+      bluebubbles: '在一台有 iMessage 的 Mac 上執行 BlueBubbles Server，開放它的 API，然後把位址和伺服器密碼貼到這裡。',
+      homeassistant:
+        '在 Home Assistant 裡開啟你的個人資料頁面，建立一個長期存取權杖。把該權杖和 Home Assistant 位址貼到這裡。',
+      email:
+        '為 AgentX 準備一個專用信箱。若使用 Gmail/Workspace，請建立應用程式密碼，並使用 imap.gmail.com / smtp.gmail.com。',
+      sms: '從 Twilio 主控台取得 Account SID 和 Auth Token，以及一個可以傳送簡訊的電話號碼。',
+      dingtalk: '在 DingTalk 開發者頁面建立一個應用程式，然後把 Client ID（App key）和 Client Secret 複製到這裡。',
+      feishu: '建立一個 Feishu / Lark 應用程式，開啟機器人功能，然後複製 App ID、App secret 和事件加密金鑰。',
+      wecom:
+        '在 WeCom 裡新增一個群組機器人，把它的 webhook 金鑰複製到 WECOM_BOT_ID 欄位。這個管道只能單向傳送 — 想雙向對話，請改用「WeCom（應用程式）」選項。',
+      wecom_callback:
+        '建立一個 WeCom 自建應用程式，開放它的 callback 位址，然後填入 corp ID、secret、agent ID 和 AES 金鑰。',
+      weixin:
+        '執行 agentx gateway setup 指令，選擇 Weixin，然後用個人 WeChat 帳號掃描並確認 QR Code。AgentX 會透過 Tencent 的 iLink Bot API 連線，並自動儲存憑證。',
+      qqbot: '在 QQ Open Platform（q.qq.com）註冊一個應用程式，然後把 App ID 和 Client Secret 複製到這裡。',
+      api_server:
+        '把 AgentX 開放成相容 OpenAI 的 API。設定一組驗證金鑰，然後把 Open WebUI / LobeChat 等指向 host:port 位址。',
+      webhook: '執行一個 HTTP 伺服器，讓其他工具（GitHub、GitLab、你的應用程式）把事件送過來，並用祕密金鑰驗證簽章。'
+    },
+    platformTagline: {
+      telegram: '透過你自己的 Telegram 機器人傳訊息給 AgentX。',
+      discord: '把 AgentX 帶進你的 Discord 伺服器。',
+      slack: '直接在 Slack 裡和 AgentX 對話。',
+      mattermost: '把 AgentX 連接到你的 Mattermost 伺服器。',
+      matrix: '透過 Matrix 網路和 AgentX 對話。',
+      signal: '透過 Signal 傳訊息給 AgentX。',
+      whatsapp: '從 WhatsApp 傳訊息給 AgentX。',
+      bluebubbles: '透過 BlueBubbles 用 iMessage 傳訊息給 AgentX。',
+      homeassistant: '讓 AgentX 透過 Home Assistant 控制你的智慧家庭。',
+      email: '寄電子郵件給 AgentX，並收到回信。',
+      sms: '透過 Twilio 和 AgentX 收發簡訊。',
+      dingtalk: '在 DingTalk 裡和 AgentX 對話。',
+      feishu: '在 Feishu / Lark 裡和 AgentX 對話。',
+      wecom: '在 WeCom 群組裡接收 AgentX 的訊息。',
+      wecom_callback: '在 WeCom 裡與 AgentX 雙向對話。',
+      weixin: '用你的 WeChat 帳號傳訊息給 AgentX。',
+      qqbot: '透過 QQ 機器人和 AgentX 對話。',
+      api_server: '讓其他應用程式把 AgentX 當作 API 呼叫。',
+      webhook: '讓其他服務用 HTTP 事件喚醒 AgentX。'
+    },
+    pendingAria: count => `${count} 個待處理的配對要求`,
+    approvedUsers: count => `已核准的使用者（${count}）`,
+    approving: '核准中…',
+    revoke: '撤銷',
+    revoking: '撤銷中…',
+    revokeAria: name => `撤銷 ${name}`,
+    revokeTitle: '撤銷存取權',
+    revokeDesc: (name: string) => `${name} 將失去存取權，從下一則訊息起不再被辨識。`,
+    approvedUser: name => `已核准 ${name}`,
+    approvedHint: '從下一則訊息起會自動辨識對方。',
+    revokedUser: name => `已撤銷 ${name}`,
+    failedApprove: name => `核准 ${name} 失敗`,
+    failedRevoke: name => `撤銷 ${name} 失敗`,
+    pairingLockedOut: '核准失敗次數過多 — 這個平台已被暫時鎖定，請稍後再試。',
+    waitingSince: minutes => (minutes < 1 ? '剛剛' : `${minutes} 分鐘前`)
   },
 
   profiles: {
@@ -1862,31 +2176,31 @@ export const zhHant = defineLocale({
       messaging: '訊息平台',
       artifacts: '成品'
     },
-    searchAria: '搜尋工作階段',
-    searchPlaceholder: '搜尋工作階段…',
+    searchAria: '搜尋對話',
+    searchPlaceholder: '搜尋對話…',
     clearSearch: '清除搜尋',
-    noMatch: query => `沒有工作階段符合「${query}」。`,
+    noMatch: query => `沒有對話符合「${query}」。`,
     results: '結果',
     pinned: '已釘選',
     sessions: '最近',
     cronJobs: '排程任務',
-    groupAriaGrouped: '以單一清單顯示工作階段',
-    groupAriaUngrouped: '依工作區分組工作階段',
+    groupAriaGrouped: '以單一清單顯示對話',
+    groupAriaUngrouped: '依專案分組對話',
     showProjects: '顯示專案',
-    showSessions: '顯示工作階段',
+    showSessions: '顯示對話',
     groupTitleGrouped: '取消分組',
-    groupTitleUngrouped: '依工作區分組',
+    groupTitleUngrouped: '依專案分組',
     allPinned: '這裡的全部已釘選。取消釘選某個聊天即可在最近中顯示。',
     shiftClickHint: '把常回來看的對話釘選起來。',
-    noWorkspace: '無工作區',
-    projectEmpty: '尚無工作階段',
-    noSessions: '尚無工作階段',
+    noWorkspace: '不屬於任何專案',
+    projectEmpty: '尚無對話',
+    noSessions: '尚無對話',
     projects: {
       sectionLabel: '專案',
       home: '主頁',
       newButton: '新增專案',
       createTitle: '新增專案',
-      createDesc: '為工作區命名並新增一個或多個資料夾。',
+      createDesc: '為專案命名並新增一個或多個資料夾。',
       renameTitle: '重新命名專案',
       addFolderTitle: '新增資料夾',
       namePlaceholder: '例如 Skunkworks',
@@ -1915,7 +2229,7 @@ export const zhHant = defineLocale({
       removeFromSidebar: '從側邊欄移除',
       createFailed: '無法建立專案',
       staleBackend: '請更新 AgentX 後端以建立專案——目前後端比桌面應用舊（設定 → 更新 → 後端）。',
-      deleteConfirm: '這會從 AgentX 中移除已儲存的專案。檔案、git 儲存庫和工作樹維持不變。',
+      deleteConfirm: '這會從 AgentX 中移除已儲存的專案。檔案、程式碼資料夾和工作樹維持不變。',
       startWork: '新增工作樹',
       newWorktreeTitle: '新增工作樹',
       newWorktreeDesc: '為這個工作樹命名分支。',
@@ -1940,7 +2254,15 @@ export const zhHant = defineLocale({
         '從 git 中移除（刪除工作樹目錄，但保留分支），或僅從側邊欄隱藏該軌道並將工作樹保留在磁碟上。',
       removeWorktreeDirty: '此工作樹有未提交的變更。強制移除（捨棄這些變更），或僅隱藏軌道並保留在磁碟上。',
       forceRemove: '強制移除',
-      enter: label => `開啟 ${label}`
+      enter: label => `開啟 ${label}`,
+      moveToProject: '移至專案',
+      movedTo: name => `已移至 ${name}`,
+      moveFailed: '無法移動對話',
+      moveNoFolder: '那個專案沒有可移入的資料夾',
+      moveNoProjects: '沒有其他專案',
+      reorder: label => `重新排序 ${label}`,
+      toggle: (label, open) => `${open ? '顯示' : '隱藏'}「${label}」的對話`,
+      back: '全部專案'
     },
     newSessionIn: label => `在 ${label} 中新建對話`,
     showMoreIn: (count, label) => `在 ${label} 中再顯示 ${count} 個`,
@@ -1956,10 +2278,10 @@ export const zhHant = defineLocale({
       rename: '重新命名',
       archive: '封存',
       newWindow: '新視窗',
-      copyIdFailed: '無法複製工作階段 ID',
+      copyIdFailed: '無法複製對話 ID',
 
-      sessionActions: '工作階段動作',
-      sessionRunning: '工作階段執行中',
+      sessionActions: '對話動作',
+      sessionRunning: '對話執行中',
       needsInput: '需要您的輸入',
       waitingForAnswer: '等待您的回答',
       finishedUnread: '已完成 — 未讀',
@@ -1968,14 +2290,21 @@ export const zhHant = defineLocale({
       ownedByProfile: profile => `設定檔：${profile}`,
       renamed: '已重新命名',
       renameFailed: '重新命名失敗',
-      renameTitle: '重新命名工作階段',
+      renameTitle: '重新命名對話',
       renameDesc: '留空則清除。',
-      untitledPlaceholder: '未命名工作階段',
+      untitledPlaceholder: '未命名對話',
       untitledChat: id => `工作階段 ${id}`,
       ageNow: '剛才',
       ageDay: '天',
       ageHour: '時',
-      ageMin: '分'
+      ageMin: '分',
+      splitRight: '右側',
+      splitDown: '下方',
+      splitLeft: '左側',
+      splitUp: '上方',
+      hideTabBar: '隱藏分頁列',
+      openInNewTab: '在新分頁中開啟',
+      openInSplit: '在分割畫面中開啟'
     },
     dateDivider: {
       today: '今天',
@@ -2037,8 +2366,8 @@ export const zhHant = defineLocale({
     helpFooter: '開啟完整面板 · 退格鍵關閉',
     commandDescs: {
       '/help': '指令與快捷鍵的完整清單',
-      '/clear': '開始新工作階段',
-      '/resume': '繼續之前的工作階段',
+      '/clear': '開始新對話',
+      '/resume': '繼續之前的對話',
       '/details': '控制對話記錄的詳細程度',
       '/copy': '複製所選內容或最後一條助手訊息',
       '/quit': '結束 agentx'
@@ -2115,7 +2444,8 @@ export const zhHant = defineLocale({
         description: '說明所選程式碼的運作方式，並連結到關鍵檔案。',
         text: '請解釋這是如何運作的，並告訴我關鍵檔案在哪裡。'
       }
-    }
+    },
+    steer: '引導目前執行中的回合'
   },
 
   statusStack: {
@@ -2694,7 +3024,7 @@ export const zhHant = defineLocale({
     closeOthers: '關閉其他',
     closeToRight: '關閉右側',
     closeAll: '全部關閉',
-    newSessionTab: '新增工作階段分頁',
+    newSessionTab: '新增對話分頁',
     pluginDisabled: pluginId => `外掛「${pluginId}」已停用`,
     pluginDisabledBody: '在 設定 → 外掛 中重新啟用即可恢復面板。',
     missingPane: paneId => `缺少面板：${paneId}`,
@@ -2721,7 +3051,11 @@ export const zhHant = defineLocale({
     saveApply: '儲存並套用',
     notExpressible: '此排列互相咬合（風車形）——暫時無法表示為巢狀分割',
     zoneCount: count => `${count} 個區域`,
-    tabCount: count => `${count} 個分頁`
+    tabCount: count => `${count} 個分頁`,
+    closeRunningTitle: '要關閉執行中的分頁嗎？',
+    closeRunningBody:
+      '這個對話仍在進行中（或正在等你輸入）。關閉分頁只是把它隱藏起來 — 對話會保留進度，隨時可以從側邊欄重新開啟。',
+    closeRunningConfirm: '關閉分頁'
   },
 
   assistant: {
@@ -2771,7 +3105,7 @@ export const zhHant = defineLocale({
       projectDesc: '在這個專案的資料夾裡開始'
     },
     thread: {
-      loadingSession: '正在載入工作階段',
+      loadingSession: '正在載入對話',
       showEarlier: '顯示較早的訊息',
       loadingResponse: 'AgentX 正在載入回覆',
       resumeWhenBackgroundDone: count =>
@@ -2805,26 +3139,28 @@ export const zhHant = defineLocale({
       restoreNext: '還原至下一個檢查點',
       goForward: '前進',
       sendEdited: '傳送編輯後的訊息',
-      attachingFile: '正在附加…'
+      attachingFile: '正在附加…',
+      expandMessage: '展開訊息',
+      scrollToBottom: '捲動到底部'
     },
     approval: {
-      gatewayDisconnected: 'AgentX 閘道未連線',
+      gatewayDisconnected: 'AgentX 未連線',
       sendFailed: '無法傳送核准回應',
       run: '執行',
       command: '指令',
       moreOptions: '更多核准選項',
-      allowSession: '允許本工作階段',
+      allowSession: '允許本對話',
       alwaysAllowMenu: '一律允許…',
       jumpToApproval: '需要核准',
       reject: '拒絕',
       alwaysTitle: '一律允許此指令？',
       alwaysDescription: pattern =>
-        `這會將「${pattern}」模式加入永久允許清單（~/.agentx/config.yaml）。AgentX 對類似指令將不再詢問，包括目前工作階段和未來工作階段。`,
+        `這會將「${pattern}」模式加入永久允許清單（~/.agentx/config.yaml）。AgentX 對類似指令將不再詢問，包括目前對話和未來對話。`,
       alwaysAllow: '一律允許'
     },
     clarify: {
       notReady: '澄清請求尚未就緒',
-      gatewayDisconnected: 'AgentX 閘道未連線',
+      gatewayDisconnected: 'AgentX 未連線',
       sendFailed: '無法傳送澄清回應',
       loadingQuestion: '正在載入問題…',
       other: '其他（輸入您的答案）',
@@ -2902,8 +3238,8 @@ export const zhHant = defineLocale({
         read_file: { done: '已讀取檔案', pending: '正在讀取檔案', pendingAction: '正在讀取' },
         search_files: { done: '已搜尋檔案', pending: '正在搜尋檔案', pendingAction: '正在搜尋' },
         session_search_recall: {
-          done: '已搜尋工作階段歷史',
-          pending: '正在搜尋工作階段歷史',
+          done: '已搜尋之前的對話',
+          pending: '正在搜尋之前的對話',
           pendingAction: '正在搜尋'
         },
         terminal: { done: '已執行指令', pending: '正在執行指令', pendingAction: '正在執行' },
@@ -2931,8 +3267,8 @@ export const zhHant = defineLocale({
   desktop: {
     runtimeChecksDisagree: 'setup.status 回報憑證已設定，但執行階段解析仍然失敗。',
     audioReadFailed: '無法讀取錄製的音訊',
-    sessionUnavailable: '工作階段不可用',
-    createSessionFailed: '無法建立新工作階段',
+    sessionUnavailable: '對話不可用',
+    createSessionFailed: '無法建立新對話',
     promptFailed: '提示詞傳送失敗',
     providerCredentialRequired: '傳送第一則訊息前請先新增提供方憑證。',
     emptySlashCommand: '空的斜線指令',
@@ -2941,10 +3277,10 @@ export const zhHant = defineLocale({
     warningLine: message => `警告：${message}`,
     yoloArmed: '此聊天已啟用 YOLO',
     yoloOff: 'YOLO 已關閉',
-    yoloSystem: active => `此工作階段 YOLO ${active ? '已開啟' : '已關閉'}`,
+    yoloSystem: active => `此對話 YOLO ${active ? '已開啟' : '已關閉'}`,
     yoloTitle: 'YOLO',
     yoloToggleFailed: '無法切換 YOLO',
-    profileStatus: current => `設定檔：${current}。使用 /profile <name> 或「新工作階段」選擇器在其他設定檔中開始聊天。`,
+    profileStatus: current => `設定檔：${current}。使用 /profile <name> 或「新對話」選擇器在其他設定檔中開始對話。`,
     unknownProfile: '未知設定檔',
     noProfileNamed: (target, available) => `沒有名為「${target}」的設定檔。可用的：${available}`,
     newChatsProfile: name => `新聊天將使用設定檔 ${name}。`,
@@ -2953,13 +3289,13 @@ export const zhHant = defineLocale({
     stopFailed: '停止失敗',
     regenerateFailed: '重新生成失敗',
     editFailed: '編輯失敗',
-    resumeFailed: '繼續失敗',
-    resumeStrandedTitle: '無法載入此工作階段',
-    resumeStrandedBody: '與此工作階段的連線失敗，自動重試已停止。請確認閘道正在執行，然後重試。',
+    resumeFailed: '無法繼續對話',
+    resumeStrandedTitle: '無法載入此對話',
+    resumeStrandedBody: '與此對話的連線失敗，自動重試已停止。請確認 AgentX 背景服務正在執行，然後重試。',
     resumeRetry: '重試',
     nothingToBranch: '沒有可分支的內容',
     branchNeedsChat: '分支前請先開始或繼續一個聊天。',
-    sessionBusy: '工作階段忙碌中',
+    sessionBusy: '對話忙碌中',
     branchStopCurrent: '分支此聊天前請先停止目前回合。',
     branchNoText: '此訊息沒有可用於分支的文字。',
     branchTitle: n => `草稿：分支 #${n}`,
@@ -2969,10 +3305,10 @@ export const zhHant = defineLocale({
     archiveFailed: '封存失敗',
     cwdChangeFailed: '工作目錄變更失敗',
     cwdStagedTitle: '工作目錄已暫存',
-    cwdStagedMessage: '重新啟動桌面後端後，工作目錄變更才會套用至此作用中工作階段。',
+    cwdStagedMessage: '重新啟動桌面後端後，新的工作資料夾才會套用至目前開啟的對話。',
     modelSwitchFailed: '模型切換失敗',
-    sessionExported: '工作階段已匯出',
-    sessionExportFailed: '無法匯出工作階段',
+    sessionExported: '對話已匯出',
+    sessionExportFailed: '無法匯出對話',
     imageSaved: '圖片已儲存',
     downloadStarted: '下載已開始',
     restartToUseSaveImage: '重新啟動 AgentX Workmate Desktop 後可使用儲存圖片。',
@@ -2995,7 +3331,7 @@ export const zhHant = defineLocale({
       success: platform => `已移交到 ${platform}。隨時可在此處恢復。`,
       systemNote: platform => `↻ 已移交到 ${platform} — 隨時可在此處恢復。`,
       failed: error => `移交失敗：${error}`,
-      timedOut: '等待閘道逾時。`agentx gateway` 是否正在執行？'
+      timedOut: '等待 AgentX 背景服務逾時。`agentx gateway` 是否正在執行？'
     }
   },
 
@@ -3023,5 +3359,113 @@ export const zhHant = defineLocale({
       description: '顯示行動裝置側邊欄。',
       toggle: open => `${open ? '顯示' : '隱藏'}側邊欄`
     }
+  },
+  keybinds: {
+    title: '鍵盤快捷鍵',
+    subtitle: open => `點選快捷鍵即可重新指派 · ${open} 可重新開啟此面板。`,
+    search: '搜尋快捷鍵…',
+    rebind: '重新指派',
+    reset: '重設為預設值',
+    resetAll: '全部重設',
+    pressKey: '請按下按鍵…',
+    set: '已指派',
+    conflictWith: label => `與「${label}」重複`,
+    categories: {
+      composer: '輸入框',
+      profiles: '設定檔',
+      session: '對話',
+      navigation: '導覽',
+      view: '檢視'
+    },
+    actions: {
+      'keybinds.openPanel': '開啟鍵盤快捷鍵',
+      'nav.commandPalette': '開啟命令面板',
+      'nav.commandCenter': '開啟命令中心',
+      'nav.settings': '開啟設定',
+      'nav.profiles': '開啟設定檔',
+      'nav.skills': '開啟實用工具',
+      'nav.messaging': '開啟訊息',
+      'nav.artifacts': '開啟 Artifact',
+      'nav.cron': '開啟排程工作',
+      'nav.agents': '開啟代理',
+      'session.new': '新對話',
+      'session.newTab': '新增對話分頁',
+      'session.newWindow': '新增視窗',
+      'session.next': '下一個對話',
+      'session.prev': '上一個對話',
+      'session.slot.1': '切換到最近對話 1',
+      'session.slot.2': '切換到最近對話 2',
+      'session.slot.3': '切換到最近對話 3',
+      'session.slot.4': '切換到最近對話 4',
+      'session.slot.5': '切換到最近對話 5',
+      'session.slot.6': '切換到最近對話 6',
+      'session.slot.7': '切換到最近對話 7',
+      'session.slot.8': '切換到最近對話 8',
+      'session.slot.9': '切換到最近對話 9',
+      'session.focusSearch': '搜尋對話',
+      'session.togglePin': '釘選 / 取消釘選目前對話',
+      'workspace.newWorktree': '新增工作樹',
+      'workspace.openFolder': '將資料夾開啟為專案',
+      'composer.focus': '將游標移至輸入框',
+      'composer.modelPicker': '開啟模型選擇器',
+      'composer.voice': '開始 / 停止語音對話',
+      'view.toggleSidebar': '顯示 / 隱藏對話側邊欄',
+      'view.toggleRightSidebar': '顯示 / 隱藏檔案瀏覽器',
+      'view.toggleReview': '顯示 / 隱藏審查面板',
+      'view.toggleStatusbar': '顯示 / 隱藏狀態列',
+      'view.showFiles': '顯示檔案瀏覽器',
+      'view.showTerminal': '顯示 / 隱藏終端機',
+      'view.newTerminal': '新增終端機',
+      'view.nextTerminal': '下一個終端機',
+      'view.prevTerminal': '上一個終端機',
+      'view.closeTerminal': '關閉終端機',
+      'view.terminalSelection': '將終端機選取內容傳送到輸入框',
+      'view.terminalCopy': '複製終端機選取內容',
+      'view.terminalPaste': '貼上到終端機',
+      'view.closeTab': '關閉分頁',
+      'view.reopenTab': '重新開啟已關閉的分頁',
+      'view.flipPanes': '交換側邊欄位置',
+      'view.findInPage': '在頁面中尋找',
+      'view.findNext': '尋找下一個',
+      'view.findPrevious': '尋找上一個',
+      'appearance.toggleMode': '切換淺色 / 深色',
+      'profile.default': '切換到預設設定檔',
+      'profile.switch.1': '切換到設定檔 1',
+      'profile.switch.2': '切換到設定檔 2',
+      'profile.switch.3': '切換到設定檔 3',
+      'profile.switch.4': '切換到設定檔 4',
+      'profile.switch.5': '切換到設定檔 5',
+      'profile.switch.6': '切換到設定檔 6',
+      'profile.switch.7': '切換到設定檔 7',
+      'profile.switch.8': '切換到設定檔 8',
+      'profile.switch.9': '切換到設定檔 9',
+      'profile.switch.10': '切換到設定檔 10',
+      'profile.switch.11': '切換到設定檔 11',
+      'profile.switch.12': '切換到設定檔 12',
+      'profile.switch.13': '切換到設定檔 13',
+      'profile.switch.14': '切換到設定檔 14',
+      'profile.switch.15': '切換到設定檔 15',
+      'profile.switch.16': '切換到設定檔 16',
+      'profile.switch.17': '切換到設定檔 17',
+      'profile.switch.18': '切換到設定檔 18',
+      'profile.next': '下一個設定檔',
+      'profile.prev': '上一個設定檔',
+      'profile.toggleAll': '切換「全部設定檔」檢視',
+      'profile.create': '建立設定檔',
+      'composer.send': '傳送訊息',
+      'composer.newline': '插入換行',
+      'composer.steer': '引導執行中的回合',
+      'composer.queue': '將訊息排入佇列',
+      'composer.sendQueued': '傳送佇列中的下一個回合',
+      'composer.mention': '參照檔案、資料夾、URL',
+      'composer.slash': '斜線指令面板',
+      'composer.help': '快速說明',
+      'composer.history': '循環彈出視窗 / 歷史記錄',
+      'composer.cancel': '關閉彈出視窗 · 取消執行'
+    }
+  },
+  findInPage: {
+    next: '下一個相符項目',
+    previous: '上一個相符項目'
   }
 })

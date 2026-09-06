@@ -211,7 +211,7 @@ export const ja = defineLocale({
       elevenLabsNeedsKey: 'ElevenLabs STT には ELEVENLABS_API_KEY が必要です。',
       elevenLabsRejectedKey: 'ElevenLabs が API キーを拒否しました (401)。',
       diskFull: 'ディスク容量不足です — 空きを作ってからもう一度お試しください。',
-      gatewayAuthFailed: 'ゲートウェイ認証に失敗しました — API_SERVER_KEY を確認してください。',
+      gatewayAuthFailed: 'AgentX バックグラウンドサービスの認証に失敗しました — API_SERVER_KEY を確認してください。',
       methodNotAllowed:
         'デスクトップバックエンドがそのリクエストを拒否しました (405 Method Not Allowed)。AgentX Workmate Desktop を再起動してください。',
       microphonePermission: 'マイクのアクセス許可が拒否されました。',
@@ -221,7 +221,7 @@ export const ja = defineLocale({
     },
     voice: {
       configureSpeechToText: '音声モードを使用するには音声認識を設定してください。',
-      couldNotStartSession: '音声セッションを開始できませんでした',
+      couldNotStartSession: '音声チャットを開始できませんでした',
       microphoneAccessDenied: 'マイクへのアクセスが拒否されました。',
       microphoneConstraintsUnsupported: 'このデバイスはマイクの制約をサポートしていません。',
       microphoneFailed: 'マイクが失敗しました',
@@ -272,7 +272,7 @@ export const ja = defineLocale({
     hideSidebar: 'サイドバーを非表示',
     showSidebar: 'サイドバーを表示',
     search: '検索',
-    searchTitle: 'セッション、ビュー、アクションを検索',
+    searchTitle: 'チャット、ビュー、アクションを検索',
     swapSidebarSides: 'サイドバーの向きを切り替え',
     hideRightSidebar: '右サイドバーを非表示',
     showRightSidebar: '右サイドバーを表示',
@@ -280,7 +280,10 @@ export const ja = defineLocale({
     unmuteHaptics: '触覚フィードバックをオン',
     openSettings: '設定を開く',
     moreTools: 'その他',
-    openStarmap: 'メモリグラフを開く'
+    openStarmap: 'メモリグラフを開く',
+    openKeybinds: 'キーボードショートカット',
+    layoutEditor: 'レイアウトエディター',
+    layoutEditorTitle: 'レイアウトエディター'
   },
 
   language: {
@@ -1264,23 +1267,23 @@ export const ja = defineLocale({
     loading: '機能を読み込み中...',
     noSkillsTitle: 'スキルが見つかりません',
     noSkillsDesc: '検索を広げるか、別のカテゴリーを試してください。',
-    noToolsetsTitle: 'ツールセットが見つかりません',
+    noToolsetsTitle: 'ツールが見つかりません',
     noToolsetsDesc: '検索キーワードを広げてください。',
     noDescription: '説明はありません。',
     configured: '設定済み',
-    needsKeys: 'キーが必要',
+    needsKeys: '設定が必要',
     visionModelHint:
       'ビジョンは補助モデル設定を使用します。画像対応モデルはそこで選択され、ここでプロバイダーごとに選ぶものではありません。',
     visionModelLink: '設定 → モデル でビジョンモデルを選択',
-    toolsetsEnabled: (enabled, total) => `${enabled}/${total} ツールセットが有効`,
+    toolsetsEnabled: (enabled, total) => `${enabled}/${total} ツールが有効`,
     configureToolset: label => `${label} を設定`,
-    toggleToolset: (label, enabled) => `${label} ツールセットを${enabled ? 'オン' : 'オフ'}にする`,
+    toggleToolset: (label, enabled) => `${label} を${enabled ? 'オン' : 'オフ'}にする`,
     skillsLoadFailed: 'スキルの読み込みに失敗しました',
-    toolsetsRefreshFailed: 'ツールセットの更新に失敗しました',
+    toolsetsRefreshFailed: 'ツールの更新に失敗しました',
     skillEnabled: 'スキルを有効にしました',
     skillDisabled: 'スキルを無効にしました',
-    toolsetEnabled: 'ツールセットを有効にしました',
-    toolsetDisabled: 'ツールセットを無効にしました',
+    toolsetEnabled: 'ツールを有効にしました',
+    toolsetDisabled: 'ツールを無効にしました',
     appliesToNewSessions: name => `${name} は新しいセッションに適用されます。`,
     failedToUpdate: name => `${name} の更新に失敗しました`,
     sortMostUsed: '使用頻度順',
@@ -1306,7 +1309,259 @@ export const ja = defineLocale({
     edit: '編集',
     archive: 'アーカイブ',
     skillArchivedTitle: 'スキルをアーカイブしました',
-    skillArchivedMessage: 'agentx curator restore で復元できます。'
+    skillArchivedMessage: 'agentx curator restore で復元できます。',
+    toolsets: {
+      web: {
+        label: 'ウェブ検索',
+        description: 'ウェブを検索して、ページの内容を読み取ります。'
+      },
+      browser: {
+        label: 'ブラウザ操作',
+        description: 'あなたの代わりにページを開き、ボタンを押し、フォームに入力します。'
+      },
+      terminal: {
+        label: 'コマンドライン',
+        description: 'このパソコンでコマンドを実行し、プロセスを管理します。'
+      },
+      file: {
+        label: 'このパソコンのファイル',
+        description: 'あなたのファイルを読み書きし、検索します。'
+      },
+      code_execution: {
+        label: 'コードを実行',
+        description: 'コードを実行して、計算やデータ処理を行います。'
+      },
+      vision: {
+        label: '画像を見る',
+        description: '画像を見て、写っている内容を説明します。'
+      },
+      video: {
+        label: '動画を見る',
+        description: '動画を見て、内容を要約します。'
+      },
+      image_gen: {
+        label: '画像を作成',
+        description: 'あなたの説明をもとに新しい画像を描きます。'
+      },
+      video_gen: {
+        label: '動画を作成',
+        description: '説明文や画像から動画を作ります。'
+      },
+      bfl: {
+        label: 'FLUX 動画',
+        description: 'BFL FLUX サービスで動画を生成します。'
+      },
+      x_search: {
+        label: 'X (Twitter) を検索',
+        description: 'X の投稿を検索します。xAI アカウントが必要です。'
+      },
+      tts: {
+        label: '読み上げ',
+        description: '返答を音声で読み上げます。'
+      },
+      stt: {
+        label: '音声を聞き取る',
+        description: 'あなたの話した言葉を文字に変換します。'
+      },
+      skills: {
+        label: 'スキルを管理',
+        description: 'インストール済みのスキルを表示して使います。'
+      },
+      todo: {
+        label: 'タスクを計画',
+        description: '大きな仕事を手順ごとのリストに分けます。'
+      },
+      memory: {
+        label: '記憶',
+        description: '大事な情報をチャットをまたいで覚えておきます。'
+      },
+      session_search: {
+        label: '過去のチャットを検索',
+        description: '以前のチャットで話した内容を探し出します。'
+      },
+      clarify: {
+        label: '確認の質問',
+        description: '依頼があいまいなときに、あなたに質問します。'
+      },
+      delegation: {
+        label: 'サブアシスタントに任せる',
+        description: '大きな仕事を複数のアシスタントに分けて、同時に進めます。'
+      },
+      cronjob: {
+        label: 'タスクをスケジュール',
+        description: 'あなたが決めたスケジュールで作業を自動実行します。'
+      },
+      homeassistant: {
+        label: 'スマートホーム',
+        description: 'Home Assistant を通じて家の機器を操作します。'
+      },
+      spotify: {
+        label: 'Spotify',
+        description: '音楽を再生し、曲を検索し、プレイリストを管理します。'
+      },
+      computer_use: {
+        label: 'パソコンを操作',
+        description: 'バックグラウンドであなたの代わりに画面を操作します。'
+      }
+    },
+    hub: {
+      storeTitle: 'AgentX Hub',
+      actions: '操作',
+      searchPlaceholder: 'AgentX Hub を検索',
+      search: '検索',
+      searching: '検索中...',
+      connectingHubs: 'AgentX Hub に接続中...',
+      featured: 'おすすめ',
+      landingHint: 'AgentX Hub を検索して、AgentX に追加できるユーティリティを探せます。',
+      catalogCount: count => `Hub から ${count} 個のユーティリティ`,
+      catalogEmpty: 'まだ Hub から同期されたユーティリティはありません。',
+      catalogEmptyDesc: '「今すぐ同期」を押して、Hub からカタログを取得してください。',
+      searchEmptyDesc: '別のキーワードを試すか、検索をクリアして Hub 全体を見てみてください。',
+      catalogOffline: 'Hub に接続できません — 最後に同期した内容を表示しています。',
+      neverSynced: '未同期',
+      storeOnline: '接続済み',
+      storeOffline: '接続できません',
+      kind: {
+        core: 'デスクトップ',
+        browser: 'ブラウザ'
+      },
+      noResults: 'Hub に一致するユーティリティはありません。',
+      resultCount: (count, ms) => `${count} 件の結果${ms !== null ? `（${ms} ms）` : ''}`,
+      timedOut: sources => `タイムアウト: ${sources}`,
+      installed: 'インストール済み',
+      install: 'インストール',
+      installing: 'インストール中...',
+      uninstall: 'アンインストール',
+      uninstalling: 'アンインストール中...',
+      updateAll: 'インストール済みを更新',
+      updating: '更新中...',
+      preview: 'プレビュー',
+      scan: 'スキャン',
+      scanning: 'スキャン中...',
+      close: '閉じる',
+      files: 'ファイル',
+      noReadme: 'このスキルには SKILL.md のプレビューがありません。',
+      trust: {
+        'agentx-hub-verified': '認証済み',
+        verified: '認証済み',
+        builtin: '組み込み',
+        trusted: '信頼済み',
+        community: 'コミュニティ'
+      },
+      verdictSafe: '安全',
+      verdictCaution: '注意',
+      verdictDangerous: '危険',
+      policyAllow: 'インストール可能',
+      policyAsk: 'インストール前に確認',
+      policyBlock: 'ポリシーによりインストール不可',
+      findings: count => `${count} 件の検出項目`,
+      noFindings: 'セキュリティ上の問題は見つかりませんでした。',
+      installStarted: name => `${name} をインストール中...`,
+      uninstallStarted: name => `${name} をアンインストール中...`,
+      updateStarted: 'インストール済みのスキルを更新中...',
+      actionFailed: 'スキルの操作に失敗しました',
+      actionLog: '操作ログ',
+      loadFailed: 'AgentX Hub の読み込みに失敗しました',
+      previewFailed: 'スキルのプレビューに失敗しました',
+      scanFailed: 'セキュリティスキャンに失敗しました',
+      searchFailed: 'Hub の検索に失敗しました',
+      fromHub: 'AgentX Hub から',
+      hubStatus: {
+        connected: 'リアルタイム接続',
+        reconnecting: '再接続中…',
+        waiting: 'サインイン待ち',
+        off: 'リアルタイム更新はオフ'
+      },
+      signedOut: 'Hub と同期するには AgentX にサインインしてください。',
+      offline: 'Hub に接続できません — インストール済みのスキルはそのまま使えます。',
+      reauth: 'Hub がこのパソコンのサインインを受け付けませんでした。もう一度サインインしてください。',
+      unconfigured: 'Hub のアドレスが設定されていません (skills.hub_url)。',
+      lastSync: when => `最終同期: ${when}`,
+      noInstalls:
+        'このパソコンには、まだ Hub からのインストール依頼がありません。Hub で「インストール」を押すと、ここに届きます。',
+      desired: {
+        installed: 'インストール予定',
+        removed: '削除予定',
+        disabled: 'オフにする予定'
+      },
+      reported: {
+        pending: '待機中',
+        installed: 'インストール済み',
+        removed: '削除済み',
+        failed: '失敗',
+        disabled: 'オフ'
+      },
+      localDisabled: 'このパソコンではオフ',
+      updatesAvailable: count => `${count} 件の更新があります`,
+      updateOne: (from, to) => `${from} → ${to}`,
+      syncNow: '今すぐ同期',
+      syncing: '同期中…',
+      orgSkills: count => `組織のスキル ${count} 件`,
+      history: '最近のアクティビティ',
+      historyAction: {
+        installed: 'インストール済み',
+        updated: '更新済み',
+        removed: '削除済み',
+        disabled: 'オフ',
+        enabled: '再びオン',
+        failed: '失敗'
+      },
+      openHub: 'AgentX Hub を開く'
+    },
+    publish: {
+      upload: 'Hub にアップロード',
+      propose: '組織に提案',
+      title: name => `「${name}」を AgentX Hub にアップロード`,
+      proposeTitle: name => `「${name}」を組織に提案`,
+      description:
+        'スキルは新しいバージョンとしてアップロードされ、セキュリティスキャンを経て、Hub のポリシーに従って公開されます。',
+      proposeDescription:
+        'スキルは公開範囲「組織」でアップロードされます。安全なものはすぐに公開され、注意が必要なものは組織の管理者が確認します。',
+      visibility: '公開範囲',
+      visibilityOptions: {
+        private: '非公開',
+        org: '組織',
+        public: '公開'
+      },
+      kind: '種類',
+      kindAuto: '自動判別',
+      kindCore: 'Core (Workmate、Claude Code…)',
+      kindBrowser: 'Browser (WebMate…)',
+      preview: 'Hub が読み取る形でプレビュー',
+      previewLoading: 'Hub で確認中…',
+      previewValid: 'パッケージは有効です',
+      previewInvalid: 'パッケージはまだ有効ではありません',
+      previewName: '名前',
+      previewVersion: 'バージョン',
+      previewKind: '種類',
+      previewFiles: 'ファイル',
+      warnings: '警告',
+      submit: 'アップロード',
+      submitting: 'アップロード中…',
+      close: '閉じる',
+      done: (slug, version) => `${slug}@${version} をアップロードしました。Hub がスキャン中です。`,
+      doneState: {
+        scanning: 'スキャン中',
+        published: '公開済み',
+        needs_review: '審査待ち',
+        rejected: '却下'
+      },
+      unchanged: version => `この内容はすでにバージョン ${version} として存在します。`,
+      openOnHub: 'Hub で開く',
+      openScan: 'スキャン結果を見る',
+      failed: 'アップロードに失敗しました',
+      signedOut: 'Hub にアップロードするには AgentX にサインインしてください。',
+      offline: 'Hub に接続できません。後でもう一度お試しください。',
+      reauth: 'Hub がこのパソコンのサインインを受け付けませんでした。もう一度サインインしてください。',
+      errors: {
+        version_not_newer: highest =>
+          `バージョンは ${highest} より新しくする必要があります — SKILL.md の metadata.version を上げてください。`,
+        version_exists: 'このバージョンは、別の内容で Hub にすでに存在します。',
+        slug_taken: 'このスキル名は、Hub で別の人が使っています。',
+        rate_limited: 'アップロードの間隔が短すぎます。しばらくしてからもう一度お試しください。',
+        kind_mismatch: 'Hub にある同名のスキルは別の種類です。'
+      }
+    }
   },
 
   starmap: {
@@ -1524,10 +1779,7 @@ export const ja = defineLocale({
     credentialsSet: '認証情報を設定しました',
     needsSetup: '設定が必要',
     gatewayStopped: 'メッセージングゲートウェイが停止中',
-    getCredentials: '認証情報を取得',
     openSetupGuide: 'セットアップガイドを開く',
-    required: '必須',
-    recommended: '推奨',
     advanced: count => `詳細設定 (${count})`,
     noTokenNeeded:
       'このプラットフォームはここでトークンが必要ありません。上のセットアップガイドを使用してから、以下で有効にしてください。',
@@ -1560,12 +1812,14 @@ export const ja = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '許可する Telegram ユーザー ID',
-        help: '推奨。@userinfobot の数値 ID をカンマ区切りで。設定しないと誰でもボットに DM できます。'
+        help: '推奨。@userinfobot の数値 ID をカンマ区切りで。設定しないと誰でもボットに DM できます。',
+        placeholder: '例: 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: 'プロキシ URL', help: 'Telegram がブロックされているネットワークでのみ必要です。' },
       DISCORD_BOT_TOKEN: {
         label: 'ボットトークン',
-        help: 'Discord Developer Portal でアプリケーションを作成し、ボットを追加してからトークンを貼り付けてください。'
+        help: 'Discord Developer Portal でアプリケーションを作成し、ボットを追加してからトークンを貼り付けてください。',
+        placeholder: 'Discord ボットトークンを貼り付け'
       },
       DISCORD_ALLOWED_USERS: {
         label: '許可する Discord ユーザー ID',
@@ -1608,13 +1862,13 @@ export const ja = defineLocale({
         help: '推奨。カンマ区切りの Slack ユーザー ID。'
       },
       MATTERMOST_URL: { label: 'サーバー URL', placeholder: 'https://mattermost.example.com' },
-      MATTERMOST_TOKEN: { label: 'ボットトークン' },
+      MATTERMOST_TOKEN: { label: 'ボットトークン', placeholder: 'Mattermost ボットトークンを貼り付け' },
       MATTERMOST_ALLOWED_USERS: {
         label: '許可するユーザー ID',
         help: '推奨。カンマ区切りの Mattermost ユーザー ID。'
       },
       MATRIX_HOMESERVER: { label: 'ホームサーバー URL', placeholder: 'https://matrix.org' },
-      MATRIX_ACCESS_TOKEN: { label: 'アクセストークン' },
+      MATRIX_ACCESS_TOKEN: { label: 'アクセストークン', placeholder: 'ボットアカウントのアクセストークンを貼り付け' },
       MATRIX_USER_ID: { label: 'ボットユーザー ID', placeholder: '@agentx:example.org' },
       MATRIX_ALLOWED_USERS: {
         label: '許可する Matrix ユーザー ID',
@@ -1640,7 +1894,81 @@ export const ja = defineLocale({
         help: '推奨。カンマ区切りの電話番号または WhatsApp ID。'
       }
     },
-    platformIntro: {}
+    platformIntro: {
+      telegram:
+        'Telegram で @BotFather を開き、/newbot コマンドを送ってボットを作成し、表示されたボットトークンをコピーします。自分の ID 番号は、@userinfobot にメッセージを送ると確認できます。',
+      discord:
+        'Discord Developer Portal を開いてアプリケーションを作成し、Bot を追加してからボットトークンをコピーします。必要な権限を付けて、ボットをあなたのサーバーに招待するのも忘れずに。',
+      slack:
+        'Slack アプリを作成して Socket Mode を有効にし、ワークスペースにインストールしてから、ボットトークンとアプリレベルトークンをコピーします。',
+      mattermost:
+        'あなたの Mattermost サーバーでボットアカウントまたは個人アクセストークンを作成し、サーバーのアドレスとトークンをここに貼り付けます。',
+      matrix:
+        'ボットアカウントでホームサーバーにサインインし、アクセストークン、アカウント ID、ホームサーバーの URL をコピーします。',
+      signal:
+        'アクセスできる場所で signal-cli REST ブリッジを動かし、そのアドレスと登録済みの電話番号を AgentX に教えます。',
+      whatsapp:
+        'AgentX に付属の WhatsApp ブリッジを起動し、初回起動時に QR コードをスキャンしてから、この連携をオンにします。',
+      bluebubbles:
+        'iMessage が使える Mac で BlueBubbles Server を動かして API を公開し、そのアドレスとサーバーのパスワードをここに貼り付けます。',
+      homeassistant:
+        'Home Assistant で自分のプロフィールページを開き、長期アクセストークンを作成します。そのトークンと Home Assistant のアドレスをここに貼り付けます。',
+      email:
+        'AgentX 専用のメールボックスを使ってください。Gmail / Workspace の場合は、アプリパスワードを作成し、imap.gmail.com / smtp.gmail.com を使います。',
+      sms: 'Twilio コンソールで Account SID と Auth Token、そして SMS を送信できる電話番号を用意します。',
+      dingtalk:
+        'DingTalk の開発者向けページでアプリを作成し、Client ID (App key) と Client Secret をここにコピーします。',
+      feishu:
+        'Feishu / Lark アプリを作成してボット機能を有効にし、App ID、App secret、イベント暗号化キーをコピーします。',
+      wecom:
+        'WeCom でグループロボットを追加し、その webhook キーを WECOM_BOT_ID の欄にコピーします。この連携は送信専用です — 双方向でチャットするには「WeCom (アプリ)」の選択肢を使ってください。',
+      wecom_callback:
+        'WeCom の自作アプリを用意してコールバックアドレスを公開し、corp ID、secret、agent ID、AES キーを入力します。',
+      weixin:
+        'agentx gateway setup コマンドを実行して Weixin を選び、個人の WeChat アカウントで QR コードをスキャンして確認します。AgentX は Tencent の iLink Bot API を通じて接続し、認証情報を自動で保存します。',
+      qqbot: 'QQ Open Platform (q.qq.com) でアプリを登録し、App ID と Client Secret をここにコピーします。',
+      api_server:
+        'AgentX を OpenAI 互換の API として公開します。認証キーを設定してから、Open WebUI や LobeChat などを host:port のアドレスに向けます。',
+      webhook:
+        'ほかのツール (GitHub、GitLab、あなたのアプリなど) がイベントを送れる HTTP サーバーを動かします。シークレットキーで署名を検証します。'
+    },
+    platformTagline: {
+      telegram: '自分の Telegram ボットから AgentX にメッセージを送れます。',
+      discord: 'あなたの Discord サーバーに AgentX を招待できます。',
+      slack: 'Slack の中で AgentX とチャットできます。',
+      mattermost: 'あなたの Mattermost サーバーに AgentX をつなげます。',
+      matrix: 'Matrix ネットワーク経由で AgentX とチャットできます。',
+      signal: 'Signal で AgentX にメッセージを送れます。',
+      whatsapp: 'WhatsApp から AgentX にメッセージを送れます。',
+      bluebubbles: 'BlueBubbles を使って iMessage から AgentX にメッセージを送れます。',
+      homeassistant: 'Home Assistant を通じて AgentX にスマートホームを任せられます。',
+      email: 'AgentX にメールを送ると、返信が届きます。',
+      sms: 'Twilio 経由の SMS で AgentX とやり取りできます。',
+      dingtalk: 'DingTalk の中で AgentX とチャットできます。',
+      feishu: 'Feishu / Lark の中で AgentX とチャットできます。',
+      wecom: 'WeCom のグループで AgentX からのお知らせを受け取れます。',
+      wecom_callback: 'WeCom で AgentX と双方向にチャットできます。',
+      weixin: 'WeChat アカウントから AgentX にメッセージを送れます。',
+      qqbot: 'QQ ボット経由で AgentX とチャットできます。',
+      api_server: 'ほかのアプリから AgentX を API として呼び出せます。',
+      webhook: 'ほかのサービスが HTTP イベントで AgentX を呼び起こせます。'
+    },
+    pendingAria: count => `${count} 件のペアリングリクエストが保留中`,
+    approvedUsers: count => `承認済みユーザー (${count})`,
+    approving: '承認中...',
+    revoke: '取り消す',
+    revoking: '取り消し中...',
+    revokeAria: name => `${name} の承認を取り消す`,
+    revokeTitle: 'アクセスを取り消す',
+    revokeDesc: (name: string) => `${name} はアクセスできなくなり、次のメッセージからは認識されなくなります。`,
+    approvedUser: name => `${name} を承認しました`,
+    approvedHint: '次のメッセージから自動的に認識されます。',
+    revokedUser: name => `${name} の承認を取り消しました`,
+    failedApprove: name => `${name} の承認に失敗しました`,
+    failedRevoke: name => `${name} の取り消しに失敗しました`,
+    pairingLockedOut:
+      '承認の失敗が続いたため、このプラットフォームは一時的にロックされています。しばらくしてからもう一度お試しください。',
+    waitingSince: minutes => (minutes < 1 ? 'たった今' : `${minutes} 分前`)
   },
 
   profiles: {
@@ -1937,31 +2265,31 @@ export const ja = defineLocale({
       messaging: 'メッセージング',
       artifacts: 'アーティファクト'
     },
-    searchAria: 'セッションを検索',
-    searchPlaceholder: 'セッションを検索…',
+    searchAria: 'チャットを検索',
+    searchPlaceholder: 'チャットを検索…',
     clearSearch: '検索をクリア',
-    noMatch: query => `"${query}" に一致するセッションがありません。`,
+    noMatch: query => `"${query}" に一致するチャットがありません。`,
     results: '結果',
     pinned: 'ピン留め',
     sessions: '最近',
     cronJobs: 'Cronジョブ',
-    groupAriaGrouped: 'セッションを単一リストとして表示',
-    groupAriaUngrouped: 'ワークスペースごとにセッションをグループ化',
+    groupAriaGrouped: 'チャットを単一リストとして表示',
+    groupAriaUngrouped: 'プロジェクトごとにチャットをグループ化',
     showProjects: 'プロジェクトを表示',
-    showSessions: 'セッションを表示',
-    groupTitleGrouped: 'セッションのグループ化を解除',
-    groupTitleUngrouped: 'ワークスペースでグループ化',
+    showSessions: 'チャットを表示',
+    groupTitleGrouped: 'チャットのグループ化を解除',
+    groupTitleUngrouped: 'プロジェクトでグループ化',
     allPinned: 'ここにあるものはすべてピン留めされています。チャットのピン留めを解除すると最近のものに表示されます。',
     shiftClickHint: 'よく戻ってくるチャットをピン留めしましょう。',
-    noWorkspace: 'ワークスペースなし',
-    projectEmpty: 'セッションはまだありません',
-    noSessions: 'セッションはまだありません',
+    noWorkspace: 'プロジェクトなし',
+    projectEmpty: 'チャットはまだありません',
+    noSessions: 'チャットはまだありません',
     projects: {
       sectionLabel: 'プロジェクト',
       home: 'ホーム',
       newButton: '新規プロジェクト',
       createTitle: '新規プロジェクト',
-      createDesc: 'ワークスペースに名前を付け、1つ以上のフォルダを追加します。',
+      createDesc: 'プロジェクトに名前を付け、1つ以上のフォルダを追加します。',
       renameTitle: 'プロジェクト名を変更',
       addFolderTitle: 'フォルダを追加',
       namePlaceholder: '例: Skunkworks',
@@ -1992,7 +2320,7 @@ export const ja = defineLocale({
       staleBackend:
         'プロジェクトを作成するには AgentX バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
       deleteConfirm:
-        'AgentX から保存済みプロジェクトを削除します。ファイル・git リポジトリ・ワークツリーはそのまま残ります。',
+        'AgentX から保存済みプロジェクトを削除します。ファイル・コードフォルダ・ワークツリーはそのまま残ります。',
       startWork: '新しいワークツリー',
       newWorktreeTitle: '新しいワークツリー',
       newWorktreeDesc: 'このワークツリーのブランチ名を入力してください。',
@@ -2018,7 +2346,15 @@ export const ja = defineLocale({
       removeWorktreeDirty:
         'このワークツリーにはコミットされていない変更があります。強制削除（変更を破棄）するか、レーンを隠してディスク上に残します。',
       forceRemove: '強制削除',
-      enter: label => `${label} を開く`
+      enter: label => `${label} を開く`,
+      moveToProject: 'プロジェクトに移動',
+      movedTo: name => `${name} に移動しました`,
+      moveFailed: 'チャットを移動できませんでした',
+      moveNoFolder: 'そのプロジェクトには移動先のフォルダがありません',
+      moveNoProjects: 'ほかのプロジェクトはありません',
+      reorder: label => `${label} を並べ替え`,
+      toggle: (label, open) => `${label} のチャットを${open ? '表示' : '非表示'}`,
+      back: 'すべてのプロジェクト'
     },
     newSessionIn: label => `${label} で新しいチャット`,
     showMoreIn: (count, label) => `${label} でさらに ${count} 件を表示`,
@@ -2034,10 +2370,10 @@ export const ja = defineLocale({
       rename: '名前を変更',
       archive: 'アーカイブ',
       newWindow: '新しいウィンドウ',
-      copyIdFailed: 'セッション ID をコピーできませんでした',
+      copyIdFailed: 'チャット ID をコピーできませんでした',
 
-      sessionActions: 'セッションアクション',
-      sessionRunning: 'セッション実行中',
+      sessionActions: 'チャットの操作',
+      sessionRunning: 'チャット実行中',
       needsInput: '入力が必要です',
       waitingForAnswer: '回答を待っています',
       finishedUnread: '完了 — 未読',
@@ -2046,14 +2382,21 @@ export const ja = defineLocale({
       ownedByProfile: profile => `プロファイル: ${profile}`,
       renamed: '名前を変更しました',
       renameFailed: '名前の変更に失敗しました',
-      renameTitle: 'セッションの名前を変更',
+      renameTitle: 'チャットの名前を変更',
       renameDesc: '空欄にするとクリアされます。',
-      untitledPlaceholder: '無題のセッション',
+      untitledPlaceholder: '無題のチャット',
       untitledChat: id => `セッション ${id}`,
       ageNow: 'たった今',
       ageDay: '日',
       ageHour: '時間',
-      ageMin: '分'
+      ageMin: '分',
+      splitRight: '右',
+      splitDown: '下',
+      splitLeft: '左',
+      splitUp: '上',
+      hideTabBar: 'タブバーを隠す',
+      openInNewTab: '新しいタブで開く',
+      openInSplit: '分割表示で開く'
     },
     dateDivider: {
       today: '今日',
@@ -2115,8 +2458,8 @@ export const ja = defineLocale({
     helpFooter: 'フルパネルを開く · Backspace で閉じる',
     commandDescs: {
       '/help': 'コマンドとホットキーの全リスト',
-      '/clear': '新しいセッションを開始',
-      '/resume': '以前のセッションを再開',
+      '/clear': '新しいチャットを開始',
+      '/resume': '以前のチャットを再開',
       '/details': 'トランスクリプトの詳細レベルを制御',
       '/copy': '選択または最後のアシスタントメッセージをコピー',
       '/quit': 'agentx を終了'
@@ -2194,7 +2537,8 @@ export const ja = defineLocale({
         description: '選択したコードがどのように機能するかを説明し、主要なファイルにリンクします。',
         text: 'これがどのように機能するか説明し、主要なファイルを教えてください。'
       }
-    }
+    },
+    steer: '現在の実行に指示を追加'
   },
 
   statusStack: {
@@ -2797,7 +3141,7 @@ export const ja = defineLocale({
     closeOthers: '他を閉じる',
     closeToRight: '右側を閉じる',
     closeAll: 'すべて閉じる',
-    newSessionTab: '新しいセッションタブ',
+    newSessionTab: '新しいチャットタブ',
     pluginDisabled: pluginId => `プラグイン「${pluginId}」を無効化しました`,
     pluginDisabledBody: '設定 → プラグイン で再有効化するとペインが戻ります。',
     missingPane: paneId => `ペインが見つかりません: ${paneId}`,
@@ -2824,7 +3168,11 @@ export const ja = defineLocale({
     saveApply: '保存して適用',
     notExpressible: 'この配置は互いに噛み合っています（風車型）— 入れ子の分割では表現できません',
     zoneCount: count => `${count} ゾーン`,
-    tabCount: count => `${count} 個のタブ`
+    tabCount: count => `${count} 個のタブ`,
+    closeRunningTitle: '実行中のタブを閉じますか？',
+    closeRunningBody:
+      'このチャットはまだ作業中（またはあなたの入力待ち）です。タブを閉じても非表示になるだけで、チャットの進行状況はそのまま残り、サイドバーからいつでも開き直せます。',
+    closeRunningConfirm: 'タブを閉じる'
   },
 
   assistant: {
@@ -2877,7 +3225,7 @@ export const ja = defineLocale({
       projectDesc: 'このプロジェクトのフォルダで始める'
     },
     thread: {
-      loadingSession: 'セッションを読み込み中',
+      loadingSession: 'チャットを読み込み中',
       showEarlier: '以前のメッセージを表示',
       loadingResponse: 'AgentX が応答を読み込み中',
       resumeWhenBackgroundDone: count =>
@@ -2913,26 +3261,28 @@ export const ja = defineLocale({
       restoreNext: '次のチェックポイントに戻す',
       goForward: '進む',
       sendEdited: '編集済みメッセージを送信',
-      attachingFile: '添付中…'
+      attachingFile: '添付中…',
+      expandMessage: 'メッセージを展開',
+      scrollToBottom: '一番下へスクロール'
     },
     approval: {
-      gatewayDisconnected: 'AgentX ゲートウェイが接続されていません',
+      gatewayDisconnected: 'AgentX が接続されていません',
       sendFailed: '承認応答を送信できませんでした',
       run: '実行',
       command: 'コマンド',
       moreOptions: 'その他の承認オプション',
-      allowSession: 'このセッションで許可',
+      allowSession: 'このチャットで許可',
       alwaysAllowMenu: '常に許可…',
       jumpToApproval: '承認が必要',
       reject: '拒否',
       alwaysTitle: 'このコマンドを常に許可しますか？',
       alwaysDescription: pattern =>
-        `これにより "${pattern}" パターンが永続的な許可リスト (~/.agentx/config.yaml) に追加されます。AgentX はこのセッションや将来のセッションで、このようなコマンドについて再度尋ねません。`,
+        `これにより "${pattern}" パターンが永続的な許可リスト (~/.agentx/config.yaml) に追加されます。AgentX はこのチャットや将来のチャットで、このようなコマンドについて再度尋ねません。`,
       alwaysAllow: '常に許可'
     },
     clarify: {
       notReady: '明確化リクエストはまだ準備できていません',
-      gatewayDisconnected: 'AgentX ゲートウェイが接続されていません',
+      gatewayDisconnected: 'AgentX が接続されていません',
       sendFailed: '明確化応答を送信できませんでした',
       loadingQuestion: '質問を読み込み中…',
       other: 'その他（回答を入力）',
@@ -3034,8 +3384,8 @@ export const ja = defineLocale({
         read_file: { done: 'ファイルを読み取りました', pending: 'ファイルを読み取り中', pendingAction: '読み取り中' },
         search_files: { done: 'ファイルを検索しました', pending: 'ファイルを検索中', pendingAction: '検索中' },
         session_search_recall: {
-          done: 'セッション履歴を検索しました',
-          pending: 'セッション履歴を検索中',
+          done: '以前のチャットを検索しました',
+          pending: '以前のチャットを検索中',
           pendingAction: '検索中'
         },
         terminal: { done: 'コマンドを実行しました', pending: 'コマンドを実行中', pendingAction: '実行中' },
@@ -3068,8 +3418,8 @@ export const ja = defineLocale({
   desktop: {
     runtimeChecksDisagree: 'setup.status は資格情報が設定済みと報告していますが、ランタイムの解決は失敗したままです。',
     audioReadFailed: '録音した音声を読み取れませんでした',
-    sessionUnavailable: 'セッションが利用できません',
-    createSessionFailed: '新しいセッションを作成できませんでした',
+    sessionUnavailable: 'チャットが利用できません',
+    createSessionFailed: '新しいチャットを作成できませんでした',
     promptFailed: 'プロンプトに失敗しました',
     providerCredentialRequired: '最初のメッセージを送信する前にプロバイダー認証情報を追加してください。',
     emptySlashCommand: '空のスラッシュコマンド',
@@ -3078,11 +3428,11 @@ export const ja = defineLocale({
     warningLine: message => `警告: ${message}`,
     yoloArmed: 'このチャットでは YOLO が有効になっています',
     yoloOff: 'YOLO オフ',
-    yoloSystem: active => `このセッションの YOLO ${active ? 'オン' : 'オフ'}`,
+    yoloSystem: active => `このチャットの YOLO ${active ? 'オン' : 'オフ'}`,
     yoloTitle: 'YOLO',
     yoloToggleFailed: 'YOLO を切り替えられませんでした',
     profileStatus: current =>
-      `プロファイル: ${current}。/profile <name> または「新しいセッション」ピッカーを使って別のプロファイルでチャットを始めてください。`,
+      `プロファイル: ${current}。/profile <name> または「新しいチャット」ピッカーを使って別のプロファイルでチャットを始めてください。`,
     unknownProfile: '不明なプロファイル',
     noProfileNamed: (target, available) => `"${target}" という名前のプロファイルはありません。利用可能: ${available}`,
     newChatsProfile: name => `新しいチャットはプロファイル ${name} を使用します。`,
@@ -3091,14 +3441,14 @@ export const ja = defineLocale({
     stopFailed: '停止に失敗しました',
     regenerateFailed: '再生成に失敗しました',
     editFailed: '編集に失敗しました',
-    resumeFailed: '再開に失敗しました',
-    resumeStrandedTitle: 'このセッションを読み込めませんでした',
+    resumeFailed: 'チャットを再開できませんでした',
+    resumeStrandedTitle: 'このチャットを読み込めませんでした',
     resumeStrandedBody:
-      'このセッションへの接続に失敗し、自動再試行も停止しました。ゲートウェイが実行中か確認してから、もう一度お試しください。',
+      'このチャットへの接続に失敗し、自動再試行も停止しました。AgentX のバックグラウンドサービスが実行中か確認してから、もう一度お試しください。',
     resumeRetry: '再試行',
     nothingToBranch: 'ブランチするものがありません',
     branchNeedsChat: 'ブランチする前にチャットを開始または再開してください。',
-    sessionBusy: 'セッションが使用中',
+    sessionBusy: 'チャットが使用中',
     branchStopCurrent: 'このチャットをブランチする前に現在のターンを停止してください。',
     branchNoText: 'このメッセージにはブランチするテキストがありません。',
     branchTitle: n => `下書き: ブランチ #${n}`,
@@ -3109,10 +3459,10 @@ export const ja = defineLocale({
     cwdChangeFailed: '作業ディレクトリの変更に失敗しました',
     cwdStagedTitle: '作業ディレクトリがステージングされました',
     cwdStagedMessage:
-      'このアクティブなセッションへの cwd の変更を適用するにはデスクトップバックエンドを再起動してください。',
+      'この開いているチャットに新しい作業フォルダを適用するには、デスクトップバックエンドを再起動してください。',
     modelSwitchFailed: 'モデルの切り替えに失敗しました',
-    sessionExported: 'セッションをエクスポートしました',
-    sessionExportFailed: 'セッションをエクスポートできませんでした',
+    sessionExported: 'チャットをエクスポートしました',
+    sessionExportFailed: 'チャットをエクスポートできませんでした',
     imageSaved: '画像を保存しました',
     downloadStarted: 'ダウンロードを開始しました',
     restartToUseSaveImage: '画像を保存するには AgentX Workmate Desktop を再起動してください。',
@@ -3135,7 +3485,7 @@ export const ja = defineLocale({
       success: platform => `${platform} に引き継ぎました。いつでもここで再開できます。`,
       systemNote: platform => `↻ ${platform} に引き継ぎました — いつでもここで再開できます。`,
       failed: error => `引き継ぎに失敗しました: ${error}`,
-      timedOut: 'ゲートウェイの待機がタイムアウトしました。`agentx gateway` は起動していますか？'
+      timedOut: 'AgentX バックグラウンドサービスの待機がタイムアウトしました。`agentx gateway` は起動していますか？'
     }
   },
 
@@ -3163,5 +3513,113 @@ export const ja = defineLocale({
       description: 'モバイルサイドバーを表示します。',
       toggle: open => `サイドバーを${open ? '表示' : '非表示'}`
     }
+  },
+  keybinds: {
+    title: 'キーボードショートカット',
+    subtitle: open => `ショートカットをクリックすると割り当てを変更できます · ${open} でこのパネルを再び開けます。`,
+    search: 'ショートカットを検索…',
+    rebind: '割り当てを変更',
+    reset: 'デフォルトに戻す',
+    resetAll: 'すべてリセット',
+    pressKey: 'キーを押してください…',
+    set: '割り当て済み',
+    conflictWith: label => `「${label}」にも割り当てられています`,
+    categories: {
+      composer: 'コンポーザー',
+      profiles: 'プロファイル',
+      session: 'チャット',
+      navigation: 'ナビゲーション',
+      view: '表示'
+    },
+    actions: {
+      'keybinds.openPanel': 'キーボードショートカットを開く',
+      'nav.commandPalette': 'コマンドパレットを開く',
+      'nav.commandCenter': 'コマンドセンターを開く',
+      'nav.settings': '設定を開く',
+      'nav.profiles': 'プロファイルを開く',
+      'nav.skills': 'ユーティリティを開く',
+      'nav.messaging': 'メッセージを開く',
+      'nav.artifacts': 'アーティファクトを開く',
+      'nav.cron': 'スケジュール済みジョブを開く',
+      'nav.agents': 'エージェントを開く',
+      'session.new': '新しいチャット',
+      'session.newTab': '新しいチャットタブ',
+      'session.newWindow': '新しいウィンドウ',
+      'session.next': '次のチャット',
+      'session.prev': '前のチャット',
+      'session.slot.1': '最近のチャット 1 に切り替え',
+      'session.slot.2': '最近のチャット 2 に切り替え',
+      'session.slot.3': '最近のチャット 3 に切り替え',
+      'session.slot.4': '最近のチャット 4 に切り替え',
+      'session.slot.5': '最近のチャット 5 に切り替え',
+      'session.slot.6': '最近のチャット 6 に切り替え',
+      'session.slot.7': '最近のチャット 7 に切り替え',
+      'session.slot.8': '最近のチャット 8 に切り替え',
+      'session.slot.9': '最近のチャット 9 に切り替え',
+      'session.focusSearch': 'チャットを検索',
+      'session.togglePin': '現在のチャットをピン留め / 解除',
+      'workspace.newWorktree': '新しいワークツリー',
+      'workspace.openFolder': 'フォルダをプロジェクトとして開く',
+      'composer.focus': 'コンポーザーにフォーカス',
+      'composer.modelPicker': 'モデル選択を開く',
+      'composer.voice': '音声会話を開始 / 停止',
+      'view.toggleSidebar': 'チャットサイドバーの表示を切り替え',
+      'view.toggleRightSidebar': 'ファイルブラウザの表示を切り替え',
+      'view.toggleReview': 'レビューペインの表示を切り替え',
+      'view.toggleStatusbar': 'ステータスバーの表示を切り替え',
+      'view.showFiles': 'ファイルブラウザを表示',
+      'view.showTerminal': 'ターミナルの表示を切り替え',
+      'view.newTerminal': '新しいターミナル',
+      'view.nextTerminal': '次のターミナル',
+      'view.prevTerminal': '前のターミナル',
+      'view.closeTerminal': 'ターミナルを閉じる',
+      'view.terminalSelection': 'ターミナルの選択範囲をコンポーザーに送る',
+      'view.terminalCopy': 'ターミナルの選択範囲をコピー',
+      'view.terminalPaste': 'ターミナルに貼り付け',
+      'view.closeTab': 'タブを閉じる',
+      'view.reopenTab': '閉じたタブを再び開く',
+      'view.flipPanes': 'サイドバーの左右を入れ替え',
+      'view.findInPage': 'ページ内を検索',
+      'view.findNext': '次の結果に移動',
+      'view.findPrevious': '前の結果に移動',
+      'appearance.toggleMode': 'ライト / ダークを切り替え',
+      'profile.default': 'デフォルトのプロファイルに切り替え',
+      'profile.switch.1': 'プロファイル 1 に切り替え',
+      'profile.switch.2': 'プロファイル 2 に切り替え',
+      'profile.switch.3': 'プロファイル 3 に切り替え',
+      'profile.switch.4': 'プロファイル 4 に切り替え',
+      'profile.switch.5': 'プロファイル 5 に切り替え',
+      'profile.switch.6': 'プロファイル 6 に切り替え',
+      'profile.switch.7': 'プロファイル 7 に切り替え',
+      'profile.switch.8': 'プロファイル 8 に切り替え',
+      'profile.switch.9': 'プロファイル 9 に切り替え',
+      'profile.switch.10': 'プロファイル 10 に切り替え',
+      'profile.switch.11': 'プロファイル 11 に切り替え',
+      'profile.switch.12': 'プロファイル 12 に切り替え',
+      'profile.switch.13': 'プロファイル 13 に切り替え',
+      'profile.switch.14': 'プロファイル 14 に切り替え',
+      'profile.switch.15': 'プロファイル 15 に切り替え',
+      'profile.switch.16': 'プロファイル 16 に切り替え',
+      'profile.switch.17': 'プロファイル 17 に切り替え',
+      'profile.switch.18': 'プロファイル 18 に切り替え',
+      'profile.next': '次のプロファイル',
+      'profile.prev': '前のプロファイル',
+      'profile.toggleAll': '「すべてのプロファイル」ビューを切り替え',
+      'profile.create': 'プロファイルを作成',
+      'composer.send': 'メッセージを送信',
+      'composer.newline': '改行を挿入',
+      'composer.steer': '実行中のターンに指示を追加',
+      'composer.queue': 'メッセージをキューに入れる',
+      'composer.sendQueued': '次のキュー済みターンを送信',
+      'composer.mention': 'ファイル、フォルダ、URL を参照',
+      'composer.slash': 'スラッシュコマンドパレット',
+      'composer.help': 'クイックヘルプ',
+      'composer.history': 'ポップオーバー / 履歴を切り替え',
+      'composer.cancel': 'ポップオーバーを閉じる · 実行をキャンセル'
+    }
+  },
+  findInPage: {
+    next: '次の結果',
+    previous: '前の結果'
   }
 })

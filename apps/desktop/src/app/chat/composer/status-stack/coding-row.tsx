@@ -22,7 +22,7 @@ import { notifyError } from '@/store/notifications'
 import { $newWorktreeRequest } from '@/store/projects'
 
 // Tiny uppercase section header, matching the composer "+" menu's labels.
-const MENU_SECTION = 'text-2xs font-semibold uppercase tracking-wider text-(--ui-text-tertiary)'
+const MENU_SECTION = 'text-xs font-semibold text-(--ui-text-tertiary)'
 
 interface CodingStatusRowProps {
   /** Branch the current draft off into a fresh worktree + session, based on
@@ -226,9 +226,14 @@ export const CodingStatusRow = memo(function CodingStatusRow({
           // of an already-loaded repo (window focus, turn settle), reading as an
           // annoying icon "blip" with no first-load value. Refreshes are silent.
           // It's a button (not the whole row) so the glyph opens the review pane
-          // while the strip around it stays inert; size-3.5 fills the slot exactly.
+          // while the strip around it stays inert; size-3.5 fills the slot exactly and
+          // an invisible ::after pad lifts the hit target to the 24px floor.
           leading={
-            <button className="flex size-3.5 items-center justify-center" onClick={onOpen} type="button">
+            <button
+              className="relative flex size-3.5 items-center justify-center after:absolute after:-inset-1.5 after:content-['']"
+              onClick={onOpen}
+              type="button"
+            >
               <Codicon className="text-(--ui-green)" name="git-branch" size="0.8rem" />
             </button>
           }
@@ -254,7 +259,7 @@ export const CodingStatusRow = memo(function CodingStatusRow({
             {resolvedRepoPath && (
               <div className="flex min-w-0 flex-1 items-center gap-0.5 opacity-0 transition-opacity group-hover/status-row:opacity-100 group-focus-within/status-row:opacity-100">
                 <span
-                  className="min-w-0 truncate font-mono text-2xs leading-4 text-muted-foreground/50"
+                  className="min-w-0 truncate font-mono text-xs leading-4 text-muted-foreground/50"
                   data-slot="coding-status-cwd"
                 >
                   {displayPath(resolvedRepoPath)}
@@ -262,7 +267,7 @@ export const CodingStatusRow = memo(function CodingStatusRow({
                 <CopyButton
                   appearance="icon"
                   buttonSize="icon-xs"
-                  className="pointer-events-none size-4 shrink-0 text-muted-foreground/50 hover:text-foreground group-hover/status-row:pointer-events-auto group-focus-within/status-row:pointer-events-auto"
+                  className="pointer-events-none -my-1 shrink-0 text-muted-foreground/50 hover:text-foreground group-hover/status-row:pointer-events-auto group-focus-within/status-row:pointer-events-auto"
                   iconClassName="size-3"
                   label={fileMenu.copyPath}
                   side="top"
@@ -287,7 +292,7 @@ export const CodingStatusRow = memo(function CodingStatusRow({
               >
                 <Button
                   aria-label={s.newBranch}
-                  className="pointer-events-none size-4 shrink-0 text-muted-foreground/60 opacity-0 transition hover:text-foreground group-hover/status-row:pointer-events-auto group-hover/status-row:opacity-100 group-focus-within/status-row:pointer-events-auto group-focus-within/status-row:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
+                  className="pointer-events-none -my-1 shrink-0 text-muted-foreground/60 opacity-0 transition hover:text-foreground group-hover/status-row:pointer-events-auto group-hover/status-row:opacity-100 group-focus-within/status-row:pointer-events-auto group-focus-within/status-row:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
                   size="icon-xs"
                   variant="ghost"
                 >
@@ -303,7 +308,7 @@ export const CodingStatusRow = memo(function CodingStatusRow({
           {(status.ahead > 0 || status.behind > 0 || hasLineDelta || untrackedOnly) && (
             <button className="contents" onClick={onOpen} type="button">
               {(status.ahead > 0 || status.behind > 0) && (
-                <span className="ml-auto flex shrink-0 items-center gap-1.5 text-2xs leading-4 text-muted-foreground/75 tabular-nums">
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground/75 tabular-nums">
                   {status.ahead > 0 && (
                     <span className="flex items-center gap-0.5" title={s.ahead(status.ahead)}>
                       <span aria-hidden>↑</span>
@@ -327,7 +332,7 @@ export const CodingStatusRow = memo(function CodingStatusRow({
                 />
               ) : untrackedOnly ? (
                 <span
-                  className={`shrink-0 text-xs leading-4 text-amber-500/90 ${status.ahead === 0 && status.behind === 0 ? 'ml-auto' : ''}`}
+                  className={`shrink-0 text-xs leading-4 text-(--ui-yellow) ${status.ahead === 0 && status.behind === 0 ? 'ml-auto' : ''}`}
                 >
                   {s.changed(status.untracked)}
                 </span>

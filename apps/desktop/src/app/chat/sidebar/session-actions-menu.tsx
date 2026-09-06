@@ -18,7 +18,6 @@ import {
   renderActionItem
 } from '@/components/ui/actions-menu'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { ColorSwatches } from '@/components/ui/color-swatches'
 import { CopyButton } from '@/components/ui/copy-button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -26,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { renameSession } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
+import { Folder, Palette } from '@/lib/icons'
 import { PROFILE_SWATCHES } from '@/lib/profile-color'
 import { exportSession } from '@/lib/session-export'
 import { activeGateway } from '@/store/gateway'
@@ -375,7 +375,7 @@ function useSessionActions({
       {identityItems.map(item => renderActionItem(kit, item))}
       <kit.Sub>
         <kit.SubTrigger disabled={!sessionId}>
-          <Codicon name="symbol-color" size="0.875rem" />
+          <Palette />
           <span>{t.sidebar.projects.menuAppearance}</span>
         </kit.SubTrigger>
         <kit.SubContent className="p-2">
@@ -396,7 +396,7 @@ function useSessionActions({
       {workItems.map(item => renderActionItem(kit, item))}
       <kit.Sub>
         <kit.SubTrigger disabled={!sessionId}>
-          <Codicon name="folder" size="0.875rem" />
+          <Folder />
           <span>{t.sidebar.projects.moveToProject}</span>
         </kit.SubTrigger>
         <kit.SubContent>

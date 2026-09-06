@@ -19,7 +19,7 @@ const toolLabel = (name: string) => name.split('_').filter(Boolean).map(capitali
 // the in-progress item.
 const TODO_GLYPHS: Record<Exclude<TodoStatus, 'in_progress' | 'pending'>, { icon: string; tone: string }> = {
   cancelled: { icon: 'circle-slash', tone: 'text-muted-foreground/45' },
-  completed: { icon: 'pass-filled', tone: 'text-emerald-500/80' }
+  completed: { icon: 'pass-filled', tone: 'text-(--ui-green)' }
 }
 
 // Left slot: braille spinner while running, otherwise a small status dot
@@ -31,16 +31,10 @@ function leadingGlyph(item: ComposerStatusItem, s: Translations['statusStack']):
     }
 
     if (item.goalStatus === 'done') {
-      return <Codicon className="text-emerald-500/80" name="pass-filled" size="0.8rem" />
+      return <Codicon className="text-(--ui-green)" name="pass-filled" size="0.8rem" />
     }
 
-    return (
-      <GlyphSpinner
-        ariaLabel={s.running}
-        className="text-base leading-none text-emerald-500/80"
-        spinner="braille"
-      />
-    )
+    return <GlyphSpinner ariaLabel={s.running} className="text-base leading-none text-(--ui-green)" spinner="braille" />
   }
 
   if (item.todoStatus === 'pending') {
@@ -71,7 +65,7 @@ function leadingGlyph(item: ComposerStatusItem, s: Translations['statusStack']):
   return (
     <span
       aria-hidden
-      className={cn('size-1.5 rounded-full', item.state === 'failed' ? 'bg-destructive/80' : 'bg-emerald-500/70')}
+      className={cn('size-1.5 rounded-full', item.state === 'failed' ? 'bg-destructive/80' : 'bg-(--ui-green)')}
     />
   )
 }
@@ -151,14 +145,12 @@ export const StatusItemRow = memo(function StatusItemRow({ item, onDismiss, onOp
           {item.title}
         </span>
         {item.type === 'subagent' && item.currentTool && (
-          <span className="shrink-0 truncate text-2xs leading-4 text-muted-foreground/70">
+          <span className="shrink-0 truncate text-xs leading-4 text-muted-foreground/70">
             {toolLabel(item.currentTool)}
           </span>
         )}
         {item.type === 'goal' && item.currentTool && (
-          <span className="shrink-0 truncate text-2xs leading-4 text-muted-foreground/70">
-            {item.currentTool}
-          </span>
+          <span className="shrink-0 truncate text-xs leading-4 text-muted-foreground/70">{item.currentTool}</span>
         )}
         {failed && typeof item.exitCode === 'number' && item.exitCode !== 0 && (
           <span className="shrink-0 rounded bg-destructive/15 px-1 text-2xs font-semibold text-destructive tabular-nums">

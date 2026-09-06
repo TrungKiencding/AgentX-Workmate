@@ -17,12 +17,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
 import { TagChip } from '@/components/ui/tag-chip'
 import {
@@ -423,7 +418,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
             </StatusPill>
             {hubUrl && (
               <a
-                className="flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="flex min-h-6 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 href={hubUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -511,7 +506,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           id="hub-action-log"
           onClose={closeHubLog}
           title={
-            <span className="flex items-center gap-1.5 text-2xs font-normal text-muted-foreground/60">
+            <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground/60">
               {h.actionLog}
               {activeLog?.running && <Loader2 className="size-3 animate-spin" />}
             </span>
@@ -549,7 +544,11 @@ export function SkillsHub({ query }: SkillsHubProps) {
                             : h.verdictCaution}
                       </StatusPill>
                       <span className={cn('font-medium', verdictTone(scan.policy))}>
-                        {scan.policy === 'allow' ? h.policyAllow : scan.policy === 'block' ? h.policyBlock : h.policyAsk}
+                        {scan.policy === 'allow'
+                          ? h.policyAllow
+                          : scan.policy === 'block'
+                            ? h.policyBlock
+                            : h.policyAsk}
                       </span>
                     </div>
                     <div className="mt-1.5 text-(--ui-text-tertiary)">

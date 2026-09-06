@@ -114,6 +114,19 @@ export async function artifactImageSrc(value: string, href = artifactHref(value)
 }
 
 function artifactLabel(value: string): string {
+  // An inline image (a data URL) has no file name; "image.png" reads as one
+  // instead of the base64 tail the URL parser would otherwise hand back.
+  const inline = /^data:image\/([a-z0-9.+-]+)/i.exec(value)
+
+  if (inline) {
+    const ext = inline[1]
+      .toLowerCase()
+      .replace(/^svg\+xml$/, 'svg')
+      .replace(/^jpeg$/, 'jpg')
+
+    return `image.${ext}`
+  }
+
   try {
     const url = new URL(value)
     const item = url.pathname.split('/').filter(Boolean).pop()

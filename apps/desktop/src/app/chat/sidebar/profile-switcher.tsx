@@ -24,7 +24,6 @@ import { useNavigate } from 'react-router'
 
 import { CodeEditor } from '@/components/chat/code-editor'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { ColorSwatches } from '@/components/ui/color-swatches'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -34,6 +33,18 @@ import { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@
 import { getProfileSoul, updateProfileSoul } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
+import {
+  CloudDownload,
+  CursorText,
+  Home,
+  MoreHorizontal,
+  Package,
+  Palette,
+  Pencil,
+  Plus,
+  Stack2,
+  Trash2
+} from '@/lib/icons'
 import { PROFILE_SWATCHES, profileColorSoft, resolveProfileColor } from '@/lib/profile-color'
 import {
   REORDER_DRAG_TRANSITION_CSS,
@@ -434,7 +445,7 @@ function AddProfileButton({ label, onClick }: { label: string; onClick: () => vo
         type="button"
         variant="ghost"
       >
-        <Codicon name="add" size="0.875rem" />
+        <Plus />
       </Button>
     </Tip>
   )
@@ -454,7 +465,7 @@ function ImportProfileButton({ label }: { label: string }) {
         type="button"
         variant="ghost"
       >
-        <Codicon name="cloud-download" size="0.875rem" />
+        <CloudDownload />
       </Button>
     </Tip>
   )
@@ -522,12 +533,23 @@ function ProfileDropdownItem({ color, name }: { color: null | string; name: stri
 interface ProfilePillProps {
   active: boolean
   // home / All / Manage are glyph action buttons (navigation, not identity).
-  glyph: string
+  glyph: ProfilePillGlyph
   label: string
   onSelect: () => void
 }
 
+// The three navigation pills' glyphs — Tabler, like the rest of the sidebar chrome.
+type ProfilePillGlyph = 'ellipsis' | 'home' | 'layers'
+
+const PILL_GLYPHS: Record<ProfilePillGlyph, typeof Home> = {
+  ellipsis: MoreHorizontal,
+  home: Home,
+  layers: Stack2
+}
+
 function ProfilePill({ active, glyph, label, onSelect }: ProfilePillProps) {
+  const Glyph = PILL_GLYPHS[glyph]
+
   return (
     <Tip label={label}>
       <Button
@@ -542,7 +564,7 @@ function ProfilePill({ active, glyph, label, onSelect }: ProfilePillProps) {
         type="button"
         variant="ghost"
       >
-        <Codicon name={glyph} size="0.875rem" />
+        <Glyph />
       </Button>
     </Tip>
   )
@@ -706,19 +728,19 @@ function ProfileSquare({
           onCloseAutoFocus={event => event.preventDefault()}
         >
           <ContextMenuItem onSelect={() => setPickerOpen(true)}>
-            <Codicon name="symbol-color" size="0.875rem" />
+            <Palette />
             <span>{p.color}</span>
           </ContextMenuItem>
           <ContextMenuItem onSelect={onRename}>
-            <Codicon name="text-size" size="0.875rem" />
+            <CursorText />
             <span>{p.renameMenu}</span>
           </ContextMenuItem>
           <ContextMenuItem onSelect={onEditSoul}>
-            <Codicon name="edit" size="0.875rem" />
+            <Pencil />
             <span>{p.editSoul}</span>
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => void runExportProfileFlow(label)}>
-            <Codicon name="package" size="0.875rem" />
+            <Package />
             <span>{p.exportProfile}</span>
           </ContextMenuItem>
           <ContextMenuItem
@@ -726,7 +748,7 @@ function ProfileSquare({
             onSelect={onDelete}
             variant="destructive"
           >
-            <Codicon name="trash" size="0.875rem" />
+            <Trash2 />
             <span>{t.common.delete}</span>
           </ContextMenuItem>
         </ContextMenuContent>

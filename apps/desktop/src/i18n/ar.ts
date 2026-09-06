@@ -38,7 +38,10 @@ export const ar = defineLocale({
     skip: 'تخطي',
     update: 'تحديث',
     on: 'مفعل',
-    off: 'معطل'
+    off: 'معطل',
+    expand: 'توسيع',
+    formatJson: 'تنسيق JSON',
+    tryHint: term => `جرّب «${term}»`
   },
   fileMenu: {
     revealFinder: 'إظهار في Finder',
@@ -199,11 +202,12 @@ export const ar = defineLocale({
       microphonePermission: 'تم رفض إذن الميكروفون.',
       openaiRejectedApiKey: 'رفض OpenAI مفتاح API.',
       openaiRejectedApiKeyWithStatus: status => `رفض OpenAI مفتاح API (${status} invalid_api_key).`,
-      openaiTtsNeedsKey: 'يتطلب OpenAI TTS المفتاح VOICE_TOOLS_OPENAI_KEY أو OPENAI_API_KEY.'
+      openaiTtsNeedsKey: 'يتطلب OpenAI TTS المفتاح VOICE_TOOLS_OPENAI_KEY أو OPENAI_API_KEY.',
+      gatewayAuthFailed: 'فشلت المصادقة مع خدمة AgentX الخلفية — تحقق من API_SERVER_KEY.'
     },
     voice: {
       configureSpeechToText: 'اضبط تحويل الكلام إلى نص لاستخدام وضع الصوت.',
-      couldNotStartSession: 'تعذر بدء جلسة الصوت',
+      couldNotStartSession: 'تعذر بدء محادثة صوتية',
       microphoneAccessDenied: 'تم رفض الوصول إلى الميكروفون.',
       microphoneConstraintsUnsupported: 'قيود الميكروفون غير مدعومة على هذا الجهاز.',
       microphoneFailed: 'فشل الميكروفون',
@@ -231,8 +235,10 @@ export const ar = defineLocale({
       turnDoneBody: '',
       turnErrorTitle: 'فشلت الجولة',
       backgroundDoneTitle: 'انتهت المهمة في الخلفية',
-      backgroundFailedTitle: 'فشلت المهمة في الخلفية'
-    }
+      backgroundFailedTitle: 'فشلت المهمة في الخلفية',
+      creditsTitle: 'الرصيد'
+    },
+    installMethodUnsupportedTitle: 'طريقة تثبيت غير مدعومة'
   },
   remoteDisplayBanner: {
     message: reason => `العرض البرمجي نشط — تم اكتشاف شاشة بعيدة (${reason}). تم تعطيل تسريع GPU لمنع الوميض.`
@@ -241,7 +247,7 @@ export const ar = defineLocale({
     hideSidebar: 'إخفاء الشريط الجانبي',
     showSidebar: 'إظهار الشريط الجانبي',
     search: 'بحث',
-    searchTitle: 'البحث في الجلسات والعروض والإجراءات',
+    searchTitle: 'البحث في المحادثات والعروض والإجراءات',
     swapSidebarSides: 'تبديل جانبي الأشرطة',
     hideRightSidebar: 'إخفاء الشريط الأيمن',
     showRightSidebar: 'إظهار الشريط الأيمن',
@@ -251,7 +257,7 @@ export const ar = defineLocale({
     openStarmap: 'فتح خريطة الذاكرة',
     openKeybinds: 'اختصارات لوحة المفاتيح',
     layoutEditor: 'محرر التخطيط',
-    layoutEditorTitle: 'محرر التخطيط — انقر مع ⌘ لإعادة ضبط التخطيط',
+    layoutEditorTitle: 'محرر التخطيط',
     moreTools: 'المزيد'
   },
   keybinds: {
@@ -267,7 +273,7 @@ export const ar = defineLocale({
     categories: {
       composer: 'المحرّر',
       profiles: 'الملفات الشخصية',
-      session: 'الجلسة',
+      session: 'المحادثة',
       navigation: 'التنقل',
       view: 'العرض'
     },
@@ -283,27 +289,27 @@ export const ar = defineLocale({
       'nav.cron': 'فتح المهام المجدولة',
       'nav.agents': 'فتح الوكلاء',
       'session.new': 'محادثة جديدة',
-      'session.newTab': 'علامة تبويب جلسة جديدة',
+      'session.newTab': 'علامة تبويب محادثة جديدة',
       'session.newWindow': 'جلسة جديدة في نافذة',
-      'session.next': 'الجلسة التالية',
-      'session.prev': 'الجلسة السابقة',
-      'session.slot.1': 'الانتقال إلى الجلسة الأخيرة 1',
-      'session.slot.2': 'الانتقال إلى الجلسة الأخيرة 2',
-      'session.slot.3': 'الانتقال إلى الجلسة الأخيرة 3',
-      'session.slot.4': 'الانتقال إلى الجلسة الأخيرة 4',
-      'session.slot.5': 'الانتقال إلى الجلسة الأخيرة 5',
-      'session.slot.6': 'الانتقال إلى الجلسة الأخيرة 6',
-      'session.slot.7': 'الانتقال إلى الجلسة الأخيرة 7',
-      'session.slot.8': 'الانتقال إلى الجلسة الأخيرة 8',
-      'session.slot.9': 'الانتقال إلى الجلسة الأخيرة 9',
-      'session.focusSearch': 'البحث في الجلسات',
-      'session.togglePin': 'تثبيت / إلغاء تثبيت الجلسة الحالية',
+      'session.next': 'المحادثة التالية',
+      'session.prev': 'المحادثة السابقة',
+      'session.slot.1': 'الانتقال إلى المحادثة الأخيرة 1',
+      'session.slot.2': 'الانتقال إلى المحادثة الأخيرة 2',
+      'session.slot.3': 'الانتقال إلى المحادثة الأخيرة 3',
+      'session.slot.4': 'الانتقال إلى المحادثة الأخيرة 4',
+      'session.slot.5': 'الانتقال إلى المحادثة الأخيرة 5',
+      'session.slot.6': 'الانتقال إلى المحادثة الأخيرة 6',
+      'session.slot.7': 'الانتقال إلى المحادثة الأخيرة 7',
+      'session.slot.8': 'الانتقال إلى المحادثة الأخيرة 8',
+      'session.slot.9': 'الانتقال إلى المحادثة الأخيرة 9',
+      'session.focusSearch': 'البحث في المحادثات',
+      'session.togglePin': 'تثبيت / إلغاء تثبيت المحادثة الحالية',
       'workspace.newWorktree': 'worktree جديد',
       'workspace.openFolder': 'فتح مجلد كمشروع',
       'composer.focus': 'التركيز على المحرّر',
       'composer.modelPicker': 'فتح منتقي النموذج',
       'composer.voice': 'بدء / إيقاف المحادثة الصوتية',
-      'view.toggleSidebar': 'تبديل الشريط الجانبي للجلسات',
+      'view.toggleSidebar': 'تبديل الشريط الجانبي للمحادثات',
       'view.toggleRightSidebar': 'تبديل متصفح الملفات',
       'view.toggleReview': 'تبديل لوحة المراجعة',
       'view.showFiles': 'إظهار متصفح الملفات',
@@ -347,7 +353,16 @@ export const ar = defineLocale({
       'composer.slash': 'لوحة الأوامر المائلة',
       'composer.help': 'مساعدة سريعة',
       'composer.history': 'التنقل في النافذة المنبثقة / السجل',
-      'composer.cancel': 'إغلاق النافذة المنبثقة · إلغاء التشغيل'
+      'composer.cancel': 'إغلاق النافذة المنبثقة · إلغاء التشغيل',
+      'view.toggleStatusbar': 'إظهار/إخفاء شريط الحالة',
+      'view.newTerminal': 'طرفية جديدة',
+      'view.nextTerminal': 'الطرفية التالية',
+      'view.prevTerminal': 'الطرفية السابقة',
+      'view.closeTerminal': 'إغلاق الطرفية',
+      'view.findInPage': 'البحث في الصفحة',
+      'view.findNext': 'النتيجة التالية',
+      'view.findPrevious': 'النتيجة السابقة',
+      'composer.queue': 'إضافة الرسالة إلى قائمة الانتظار'
     }
   },
   language: {
@@ -1142,22 +1157,299 @@ export const ar = defineLocale({
     loading: 'جار التحميل...',
     noSkillsTitle: 'لا توجد مهارات',
     noSkillsDesc: 'ستظهر المهارات المثبتة هنا.',
-    noToolsetsTitle: 'لا توجد مجموعات أدوات',
+    noToolsetsTitle: 'لا توجد أدوات',
     noToolsetsDesc: 'ستظهر مجموعات الأدوات المتاحة هنا.',
     noDescription: 'لا يوجد وصف',
     configured: 'مضبوط',
-    needsKeys: 'يحتاج مفاتيح',
-    toolsetsEnabled: (enabled, total) => `${enabled} من ${total} مفعلة`,
+    needsKeys: 'يحتاج إلى إعداد',
+    toolsetsEnabled: (enabled, total) => `${enabled} من ${total} أدوات مفعّلة`,
     configureToolset: label => `ضبط ${label}`,
     toggleToolset: (label, enabled) => `${enabled ? 'تشغيل' : 'إيقاف'} ${label}`,
     skillsLoadFailed: 'فشل تحميل المهارات',
-    toolsetsRefreshFailed: 'فشل تحديث مجموعات الأدوات',
+    toolsetsRefreshFailed: 'فشل تحديث الأدوات',
     skillEnabled: 'تم تفعيل المهارة',
     skillDisabled: 'تم تعطيل المهارة',
-    toolsetEnabled: 'تم تفعيل مجموعة الأدوات',
-    toolsetDisabled: 'تم تعطيل مجموعة الأدوات',
+    toolsetEnabled: 'تم تفعيل الأداة',
+    toolsetDisabled: 'تم تعطيل الأداة',
     appliesToNewSessions: name => `ينطبق على الجلسات الجديدة في ${name}`,
-    failedToUpdate: name => `فشل تحديث ${name}`
+    failedToUpdate: name => `فشل تحديث ${name}`,
+    toolsets: {
+      web: {
+        label: 'البحث في الويب',
+        description: 'يبحث في الويب ويقرأ الصفحات نيابةً عنك.'
+      },
+      browser: {
+        label: 'التحكم في المتصفح',
+        description: 'يفتح الصفحات وينقر الأزرار ويملأ النماذج بدلًا منك.'
+      },
+      terminal: {
+        label: 'سطر الأوامر',
+        description: 'يشغّل الأوامر ويدير العمليات على هذا الجهاز.'
+      },
+      file: {
+        label: 'الملفات على هذا الجهاز',
+        description: 'يقرأ ملفاتك ويكتب فيها ويبحث داخلها.'
+      },
+      code_execution: {
+        label: 'تشغيل الكود',
+        description: 'يشغّل مقاطع من الكود لإجراء الحسابات ومعالجة البيانات.'
+      },
+      vision: {
+        label: 'رؤية الصور',
+        description: 'يطّلع على الصور ويصف ما فيها.'
+      },
+      video: {
+        label: 'مشاهدة الفيديو',
+        description: 'يشاهد مقاطع الفيديو ويلخّص محتواها.'
+      },
+      image_gen: {
+        label: 'إنشاء الصور',
+        description: 'يرسم صورًا جديدة بحسب وصفك.'
+      },
+      video_gen: {
+        label: 'إنشاء الفيديو',
+        description: 'ينشئ مقاطع فيديو من وصف أو صور.'
+      },
+      bfl: {
+        label: 'فيديو FLUX',
+        description: 'ينشئ مقاطع فيديو عبر خدمة BFL FLUX.'
+      },
+      x_search: {
+        label: 'البحث في X (Twitter)',
+        description: 'يبحث عن المنشورات على X. يتطلب حسابًا في xAI.'
+      },
+      tts: {
+        label: 'القراءة بصوت عالٍ',
+        description: 'يحوّل الردود إلى صوت منطوق.'
+      },
+      stt: {
+        label: 'الاستماع',
+        description: 'يحوّل كلامك إلى نص.'
+      },
+      skills: {
+        label: 'إدارة المهارات',
+        description: 'يعرض المهارات المثبّتة ويستخدمها.'
+      },
+      todo: {
+        label: 'تخطيط المهام',
+        description: 'يقسّم الأعمال الكبيرة إلى قوائم خطوة بخطوة.'
+      },
+      memory: {
+        label: 'الذاكرة',
+        description: 'يحتفظ بالمعلومات المهمة عبر المحادثات.'
+      },
+      session_search: {
+        label: 'البحث في المحادثات السابقة',
+        description: 'يعثر على ما قيل في محادثات سابقة.'
+      },
+      clarify: {
+        label: 'طلب التوضيح',
+        description: 'يطرح عليك سؤالًا عندما يكون الطلب غير واضح.'
+      },
+      delegation: {
+        label: 'التفويض إلى مساعدين',
+        description: 'يوزّع الأعمال الكبيرة على عدة مساعدين يعملون بالتوازي.'
+      },
+      cronjob: {
+        label: 'المهام المجدولة',
+        description: 'ينفّذ الأعمال تلقائيًا وفق الجدول الذي تحدده.'
+      },
+      homeassistant: {
+        label: 'المنزل الذكي',
+        description: 'يتحكم في الأجهزة عبر Home Assistant.'
+      },
+      spotify: {
+        label: 'Spotify',
+        description: 'يشغّل الموسيقى ويبحث عن الأغاني ويدير قوائم التشغيل.'
+      },
+      computer_use: {
+        label: 'التحكم في الكمبيوتر',
+        description: 'يتحكم في الشاشة في الخلفية نيابةً عنك.'
+      }
+    },
+    visionModelHint:
+      'تعتمد ميزة الرؤية على إعدادات النموذج المساعد لديك — يُختار النموذج القادر على معالجة الصور هناك، لا لكل مزوّد على حدة هنا.',
+    visionModelLink: 'اختر نموذج الرؤية من الإعدادات ← النماذج',
+    sortMostUsed: 'الأكثر استخدامًا',
+    sortAlpha: 'أبجديًا',
+    sortMostUsedDesc: 'الأكثر استخدامًا',
+    sortLeastUsedAsc: 'الأقل استخدامًا',
+    enableAll: 'تشغيل الكل',
+    disableAll: 'إيقاف الكل',
+    disableUnused: 'إيقاف غير المستخدم',
+    bulkUpdated: count => `تم تحديث ${count} ${count === 1 ? 'عنصر' : 'عناصر'} للمحادثات الجديدة.`,
+    bulkNoChange: 'لا شيء لتغييره.',
+    usageCount: count => `استُخدم ${count} مرة`,
+    provenance: {
+      agent: 'مكتسبة',
+      bundled: 'مضمّنة',
+      hub: 'من Hub'
+    },
+    emptyNoneFound: noun => `لم يُعثر على أي ${noun}`,
+    emptyNothingMatches: query => `لا شيء يطابق «${query}».`,
+    emptyNoneAvailable: noun => `لا توجد ${noun} بعد.`,
+    changesApplyNewSessions: 'تسري التغييرات على المحادثات الجديدة.',
+    skillUpdated: 'تم تحديث المهارة',
+    edit: 'تعديل',
+    archive: 'أرشفة',
+    skillArchivedTitle: 'تمت أرشفة المهارة',
+    skillArchivedMessage: 'يمكن استعادتها بالأمر agentx curator restore.',
+    hub: {
+      storeTitle: 'متجر AgentX للأدوات المساعدة',
+      actions: 'الإجراءات',
+      searchPlaceholder: 'ابحث في متجر الأدوات المساعدة',
+      search: 'بحث',
+      searching: 'جارٍ البحث...',
+      connectingHubs: 'جارٍ الاتصال بمتجر الأدوات المساعدة...',
+      featured: 'الأبرز',
+      landingHint: 'ابحث في المتجر لاستعراض الأدوات المساعدة التي يمكنك إضافتها إلى AgentX.',
+      catalogCount: count => `${count} ${count === 1 ? 'أداة مساعدة' : 'أدوات مساعدة'} من Hub`,
+      catalogEmpty: 'لم تتم مزامنة أي شيء من Hub بعد.',
+      catalogEmptyDesc: 'اضغط «مزامنة الآن» لجلب الكتالوج من Hub.',
+      searchEmptyDesc: 'جرّب كلمة أخرى، أو امسح البحث لاستعراض المتجر كله.',
+      catalogOffline: 'تعذّر الوصول إلى Hub — يُعرض آخر ما تمت مزامنته.',
+      neverSynced: 'لم تتم المزامنة بعد',
+      storeOnline: 'متصل',
+      storeOffline: 'تعذّر الوصول',
+      kind: {
+        core: 'سطح المكتب',
+        browser: 'المتصفح'
+      },
+      noResults: 'لم يُعثر على أدوات مساعدة مطابقة في المتجر.',
+      resultCount: (count, ms) =>
+        `${count} ${count === 1 ? 'نتيجة' : 'نتائج'}${ms !== null ? ` خلال ${ms} مللي ثانية` : ''}`,
+      timedOut: sources => `انتهت مهلة الانتظار: ${sources}`,
+      installed: 'مثبّتة',
+      install: 'تثبيت',
+      installing: 'جارٍ التثبيت...',
+      uninstall: 'إزالة',
+      uninstalling: 'جارٍ الإزالة...',
+      updateAll: 'تحديث ما تم تثبيته',
+      updating: 'جارٍ التحديث...',
+      preview: 'معاينة',
+      scan: 'فحص',
+      scanning: 'جارٍ الفحص...',
+      close: 'إغلاق',
+      files: 'الملفات',
+      noReadme: 'لا تتوفر معاينة SKILL.md لهذه المهارة.',
+      trust: {
+        'agentx-hub-verified': 'موثّقة',
+        verified: 'موثّقة',
+        builtin: 'مضمّنة',
+        trusted: 'موثوقة',
+        community: 'من المجتمع'
+      },
+      verdictSafe: 'آمنة',
+      verdictCaution: 'تستدعي الحذر',
+      verdictDangerous: 'خطيرة',
+      policyAllow: 'التثبيت مسموح',
+      policyAsk: 'راجعها قبل التثبيت',
+      policyBlock: 'التثبيت محظور بموجب السياسة',
+      findings: count => `${count} ${count === 1 ? 'ملاحظة' : 'ملاحظات'}`,
+      noFindings: 'لا توجد ملاحظات أمنية.',
+      installStarted: name => `جارٍ تثبيت ${name}...`,
+      uninstallStarted: name => `جارٍ إزالة ${name}...`,
+      updateStarted: 'جارٍ تحديث المهارات المثبّتة...',
+      actionFailed: 'فشل الإجراء على المهارة',
+      actionLog: 'سجل الإجراءات',
+      loadFailed: 'تعذّر تحميل AgentX Hub',
+      previewFailed: 'فشلت معاينة المهارة',
+      scanFailed: 'فشل الفحص الأمني',
+      searchFailed: 'فشل البحث في Hub',
+      fromHub: 'من AgentX Hub',
+      hubStatus: {
+        connected: 'اتصال مباشر',
+        reconnecting: 'جارٍ إعادة الاتصال…',
+        waiting: 'بانتظار تسجيل الدخول',
+        off: 'المتابعة المباشرة متوقفة'
+      },
+      signedOut: 'سجّل الدخول إلى AgentX للمزامنة مع Hub.',
+      offline: 'تعذّر الوصول إلى Hub — المهارات المثبّتة تعمل كالمعتاد.',
+      reauth: 'رفض Hub رمز الدخول الخاص بهذا الجهاز. سجّل الدخول مجددًا.',
+      unconfigured: 'لم يُضبط عنوان Hub بعد (skills.hub_url).',
+      lastSync: when => `آخر مزامنة ${when}`,
+      noInstalls: 'لم يُطلب تثبيت أي مهارة من Hub لهذا الجهاز بعد. اضغط «تثبيت» على Hub وستصل إلى هنا.',
+      desired: {
+        installed: 'للتثبيت',
+        removed: 'للإزالة',
+        disabled: 'للإيقاف'
+      },
+      reported: {
+        pending: 'قيد الانتظار',
+        installed: 'تم التثبيت',
+        removed: 'تمت الإزالة',
+        failed: 'فشل',
+        disabled: 'تم الإيقاف'
+      },
+      localDisabled: 'متوقفة على هذا الجهاز',
+      updatesAvailable: count => `${count} ${count === 1 ? 'تحديث متاح' : 'تحديثات متاحة'}`,
+      updateOne: (from, to) => `${from} ← ${to}`,
+      syncNow: 'مزامنة الآن',
+      syncing: 'جارٍ المزامنة…',
+      orgSkills: count => `${count} ${count === 1 ? 'مهارة' : 'مهارات'} من المؤسسة`,
+      history: 'النشاط الأخير',
+      historyAction: {
+        installed: 'تم التثبيت',
+        updated: 'تم التحديث',
+        removed: 'تمت الإزالة',
+        disabled: 'تم الإيقاف',
+        enabled: 'تم التشغيل مجددًا',
+        failed: 'فشل'
+      },
+      openHub: 'فتح AgentX Hub'
+    },
+    publish: {
+      upload: 'رفع إلى Hub',
+      propose: 'اقتراح للمؤسسة',
+      title: name => `رفع «${name}» إلى AgentX Hub`,
+      proposeTitle: name => `اقتراح «${name}» لمؤسستك`,
+      description: 'تُرفع المهارة كإصدار جديد، ثم تُفحص، ثم تُنشر وفق سياسة Hub.',
+      proposeDescription:
+        'تُرفع المهارة بظهور «المؤسسة»: الآمنة تُنشر فورًا، وما يستدعي الحذر ينتظر موافقة مسؤول المؤسسة.',
+      visibility: 'الظهور',
+      visibilityOptions: {
+        private: 'خاص',
+        org: 'المؤسسة',
+        public: 'عام'
+      },
+      kind: 'النوع',
+      kindAuto: 'تحديد تلقائي',
+      kindCore: 'Core (Workmate, Claude Code…)',
+      kindBrowser: 'Browser (WebMate…)',
+      preview: 'معاينة كما يقرؤها Hub',
+      previewLoading: 'جارٍ التحقق مع Hub…',
+      previewValid: 'الحزمة صالحة',
+      previewInvalid: 'الحزمة غير صالحة بعد',
+      previewName: 'الاسم',
+      previewVersion: 'الإصدار',
+      previewKind: 'النوع',
+      previewFiles: 'الملفات',
+      warnings: 'تحذيرات',
+      submit: 'رفع',
+      submitting: 'جارٍ الرفع…',
+      close: 'إغلاق',
+      done: (slug, version) => `تم رفع ${slug}@${version}، ويقوم Hub بفحصه الآن.`,
+      doneState: {
+        scanning: 'قيد الفحص',
+        published: 'منشورة',
+        needs_review: 'بانتظار المراجعة',
+        rejected: 'مرفوضة'
+      },
+      unchanged: version => `هذا المحتوى موجود بالفعل في الإصدار ${version}.`,
+      openOnHub: 'فتح على Hub',
+      openScan: 'عرض تقرير الفحص',
+      failed: 'فشل الرفع',
+      signedOut: 'سجّل الدخول إلى AgentX للرفع إلى Hub.',
+      offline: 'تعذّر الوصول إلى Hub. حاول مجددًا لاحقًا.',
+      reauth: 'رفض Hub رمز الدخول الخاص بهذا الجهاز. سجّل الدخول مجددًا.',
+      errors: {
+        version_not_newer: highest => `يجب أن يكون الإصدار أعلى من ${highest} — عدّل metadata.version في SKILL.md.`,
+        version_exists: 'هذا الإصدار موجود بالفعل على Hub بمحتوى مختلف.',
+        slug_taken: 'اسم المهارة هذا يخص شخصًا آخر على Hub.',
+        rate_limited: 'أنت ترفع بسرعة كبيرة؛ حاول مجددًا لاحقًا.',
+        kind_mismatch: 'المهارة التي تحمل هذا الاسم على Hub من نوع آخر.'
+      }
+    }
   },
   agents: {
     close: 'إغلاق الوكلاء',
@@ -1384,10 +1676,7 @@ export const ar = defineLocale({
     credentialsSet: 'بيانات الاعتماد مضبوطة',
     needsSetup: 'يحتاج إعدادا',
     gatewayStopped: 'البوابة متوقفة',
-    getCredentials: 'الحصول على بيانات الاعتماد',
     openSetupGuide: 'فتح دليل الإعداد',
-    required: 'مطلوب',
-    recommended: 'موصى به',
     advanced: count => `${count} إعدادات متقدمة`,
     noTokenNeeded: 'لا يحتاج رمز',
     enabled: 'مفعل',
@@ -1419,7 +1708,8 @@ export const ar = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: 'معرّفات مستخدمي Telegram المسموح بهم',
-        help: 'موصى به. معرّفات رقمية مفصولة بفواصل من @userinfobot. بدون ذلك، يمكن لأي شخص مراسلة بوتك مباشرة.'
+        help: 'موصى به. معرّفات رقمية مفصولة بفواصل من @userinfobot. بدون ذلك، يمكن لأي شخص مراسلة بوتك مباشرة.',
+        placeholder: 'مثال: 12345678، 87654321'
       },
       TELEGRAM_PROXY: {
         label: 'رابط الـ Proxy',
@@ -1427,7 +1717,8 @@ export const ar = defineLocale({
       },
       DISCORD_BOT_TOKEN: {
         label: 'رمز البوت (token)',
-        help: 'أنشئ تطبيقا في Discord Developer Portal، وأضف بوتا، ثم الصق رمزه.'
+        help: 'أنشئ تطبيقا في Discord Developer Portal، وأضف بوتا، ثم الصق رمزه.',
+        placeholder: 'الصق رمز بوت Discord'
       },
       DISCORD_ALLOWED_USERS: {
         label: 'معرّفات مستخدمي Discord المسموح بهم',
@@ -1488,7 +1779,8 @@ export const ar = defineLocale({
         placeholder: 'https://mattermost.example.com'
       },
       MATTERMOST_TOKEN: {
-        label: 'رمز البوت (token)'
+        label: 'رمز البوت (token)',
+        placeholder: 'الصق رمز بوت Mattermost'
       },
       MATTERMOST_ALLOWED_USERS: {
         label: 'معرّفات المستخدمين المسموح بهم',
@@ -1499,7 +1791,8 @@ export const ar = defineLocale({
         placeholder: 'https://matrix.org'
       },
       MATRIX_ACCESS_TOKEN: {
-        label: 'رمز الوصول'
+        label: 'رمز الوصول',
+        placeholder: 'الصق رمز الوصول الخاص بحساب البوت'
       },
       MATRIX_USER_ID: {
         label: 'معرّف مستخدم البوت',
@@ -1534,7 +1827,74 @@ export const ar = defineLocale({
         help: 'موصى به. أرقام هواتف أو معرّفات WhatsApp مفصولة بفواصل.'
       }
     },
-    platformIntro: {}
+    platformIntro: {
+      telegram:
+        'في Telegram، ابحث عن @BotFather وأرسل الأمر /newbot لإنشاء بوت، ثم انسخ رمز البوت الذي يعطيك إياه. ولمعرفة معرّفك الرقمي، راسل @userinfobot.',
+      discord:
+        'افتح Discord Developer Portal، وأنشئ تطبيقًا وأضف إليه Bot، ثم انسخ رمز البوت. لا تنسَ دعوة البوت إلى خادمك بالصلاحيات المناسبة.',
+      slack: 'أنشئ تطبيق Slack، وفعّل Socket Mode، وثبّته في مساحة العمل، ثم انسخ رمز البوت ورمز مستوى التطبيق.',
+      mattermost: 'على خادم Mattermost الخاص بك، أنشئ حساب بوت أو رمز وصول شخصيًا، ثم الصق عنوان الخادم والرمز هنا.',
+      matrix:
+        'سجّل الدخول إلى الخادم الرئيسي (homeserver) بحساب البوت، ثم انسخ رمز الوصول ومعرّف المستخدم وعنوان الخادم الرئيسي.',
+      signal: 'شغّل جسر signal-cli REST في مكان يمكن الوصول إليه، ثم زوّد AgentX بعنوانه ورقم الهاتف المسجّل.',
+      whatsapp: 'شغّل جسر WhatsApp المرفق مع AgentX، وامسح رمز QR عند التشغيل الأول، ثم فعّل هذا الاتصال.',
+      bluebubbles:
+        'شغّل BlueBubbles Server على جهاز Mac مفعّل فيه iMessage، وافتح واجهة API الخاصة به، ثم الصق العنوان وكلمة مرور الخادم هنا.',
+      homeassistant:
+        'في Home Assistant، افتح صفحة ملفك الشخصي وأنشئ رمز وصول طويل الأمد. الصق الرمز هنا مع عنوان Home Assistant.',
+      email:
+        'استخدم صندوق بريد مخصصًا لـ AgentX. مع Gmail/Workspace، أنشئ كلمة مرور للتطبيق واستخدم imap.gmail.com / smtp.gmail.com.',
+      sms: 'احصل على Account SID وAuth Token من لوحة تحكم Twilio، مع رقم هاتف يمكنه إرسال رسائل SMS.',
+      dingtalk: 'أنشئ تطبيق DingTalk في لوحة المطوّرين، ثم انسخ Client ID (App key) وClient Secret إلى هنا.',
+      feishu: 'أنشئ تطبيق Feishu / Lark، وفعّل ميزة البوت، ثم انسخ App ID وApp secret ومفاتيح تشفير الأحداث.',
+      wecom:
+        'أضف روبوت مجموعة في WeCom وانسخ مفتاح webhook الخاص به في حقل WECOM_BOT_ID. هذه القناة للإرسال فقط — للمحادثة في الاتجاهين، استخدم خيار WeCom (التطبيق).',
+      wecom_callback:
+        'أنشئ تطبيق WeCom ذاتي البناء، وافتح عنوان callback الخاص به، ثم أدخل corp ID وsecret وagent ID ومفتاح AES.',
+      weixin:
+        'شغّل الأمر agentx gateway setup، واختر Weixin، ثم امسح رمز QR وأكّده بحساب WeChat شخصي. يتصل AgentX عبر iLink Bot API من Tencent ويحفظ بيانات الاعتماد تلقائيًا.',
+      qqbot: 'سجّل تطبيقًا على QQ Open Platform (q.qq.com) ثم انسخ App ID وClient Secret إلى هنا.',
+      api_server:
+        'اجعل AgentX متاحًا كواجهة API متوافقة مع OpenAI. عيّن مفتاح مصادقة، ثم وجّه Open WebUI / LobeChat… إلى عنوان host:port.',
+      webhook:
+        'شغّل خادم HTTP لتُرسل إليه الأدوات الأخرى (GitHub وGitLab وتطبيقاتك) أحداثها. استخدم المفتاح السري للتحقق من التوقيعات.'
+    },
+    platformTagline: {
+      telegram: 'راسل AgentX عبر بوت Telegram الخاص بك.',
+      discord: 'أضف AgentX إلى خادم Discord الخاص بك.',
+      slack: 'تحدّث مع AgentX مباشرة داخل Slack.',
+      mattermost: 'اربط AgentX بخادم Mattermost الخاص بك.',
+      matrix: 'تحدّث مع AgentX عبر شبكة Matrix.',
+      signal: 'راسل AgentX عبر Signal.',
+      whatsapp: 'راسل AgentX من WhatsApp.',
+      bluebubbles: 'راسل AgentX عبر iMessage باستخدام BlueBubbles.',
+      homeassistant: 'دع AgentX يدير منزلك الذكي عبر Home Assistant.',
+      email: 'أرسل بريدًا إلكترونيًا إلى AgentX واحصل على الردود.',
+      sms: 'راسل AgentX برسائل SMS عبر Twilio.',
+      dingtalk: 'تحدّث مع AgentX داخل DingTalk.',
+      feishu: 'تحدّث مع AgentX داخل Feishu / Lark.',
+      wecom: 'استقبل تحديثات AgentX في مجموعة WeCom.',
+      wecom_callback: 'تحدّث مع AgentX في الاتجاهين داخل WeCom.',
+      weixin: 'راسل AgentX بحساب WeChat الخاص بك.',
+      qqbot: 'تحدّث مع AgentX عبر بوت QQ.',
+      api_server: 'دع التطبيقات الأخرى تستدعي AgentX كواجهة API.',
+      webhook: 'دع الخدمات الأخرى توقظ AgentX بأحداث HTTP.'
+    },
+    pendingAria: count => `${count} ${count === 1 ? 'طلب اقتران' : 'طلبات اقتران'} قيد الانتظار`,
+    approvedUsers: count => `المستخدمون المعتمدون (${count})`,
+    approving: 'جارٍ الاعتماد...',
+    revoke: 'إلغاء الوصول',
+    revoking: 'جارٍ إلغاء الوصول...',
+    revokeAria: name => `إلغاء وصول ${name}`,
+    revokeTitle: 'إلغاء الوصول',
+    revokeDesc: (name: string) => `سيفقد ${name} إمكانية الوصول ولن يتم التعرف عليه بدءًا من رسالته التالية.`,
+    approvedUser: name => `تم اعتماد ${name}`,
+    approvedHint: 'سيتم التعرف عليهم تلقائيًا بدءًا من رسالتهم التالية.',
+    revokedUser: name => `تم إلغاء وصول ${name}`,
+    failedApprove: name => `تعذّر اعتماد ${name}`,
+    failedRevoke: name => `تعذّر إلغاء وصول ${name}`,
+    pairingLockedOut: 'كثرت محاولات الاعتماد الفاشلة — هذه المنصة مقفلة مؤقتًا. حاول مجددًا لاحقًا.',
+    waitingSince: minutes => (minutes < 1 ? 'للتو' : `منذ ${minutes} د`)
   },
   profiles: {
     close: 'إغلاق',
@@ -1799,20 +2159,20 @@ export const ar = defineLocale({
       cron: 'المهام المجدولة',
       agents: 'الوكلاء'
     },
-    searchAria: 'البحث في الجلسات',
-    searchPlaceholder: 'البحث في الجلسات...',
+    searchAria: 'البحث في المحادثات',
+    searchPlaceholder: 'البحث في المحادثات…',
     clearSearch: 'مسح البحث',
-    noMatch: query => `لا توجد جلسات تطابق "${query}"`,
+    noMatch: query => `لا توجد محادثات تطابق "${query}".`,
     results: 'النتائج',
     pinned: 'المثبتة',
     sessions: 'الأخيرة',
     cronJobs: 'المهام المجدولة',
-    groupAriaGrouped: 'الجلسات مجمعة حسب مساحة العمل',
-    groupAriaUngrouped: 'الجلسات غير مجمعة',
+    groupAriaGrouped: 'عرض المحادثات في قائمة واحدة',
+    groupAriaUngrouped: 'تجميع المحادثات حسب المشروع',
     showProjects: 'عرض المشاريع',
-    showSessions: 'عرض الجلسات',
-    groupTitleGrouped: 'مجمعة حسب مساحة العمل',
-    groupTitleUngrouped: 'كل الجلسات',
+    showSessions: 'عرض المحادثات',
+    groupTitleGrouped: 'إلغاء تجميع المحادثات',
+    groupTitleUngrouped: 'التجميع حسب المشروع',
     allPinned: 'كل الجلسات مثبتة',
     shiftClickHint: 'ثبّت المحادثات التي تعود إليها كثيرًا.',
     dateDivider: {
@@ -1822,15 +2182,15 @@ export const ar = defineLocale({
       lastWeek: 'الأسبوع الماضي',
       thisMonth: 'هذا الشهر'
     },
-    noWorkspace: 'بدون مساحة عمل',
-    projectEmpty: 'لا توجد جلسات بعد',
-    noSessions: 'لا توجد جلسات بعد',
+    noWorkspace: 'خارج أي مشروع',
+    projectEmpty: 'لا توجد محادثات بعد',
+    noSessions: 'لا توجد محادثات بعد',
     projects: {
       sectionLabel: 'المشاريع',
       home: 'الرئيسية',
       newButton: 'مشروع جديد',
       createTitle: 'مشروع جديد',
-      createDesc: 'سمِّ مساحة العمل وأضف مجلدا أو أكثر.',
+      createDesc: 'سمِّ المشروع وأضف مجلدًا أو أكثر.',
       renameTitle: 'إعادة تسمية المشروع',
       addFolderTitle: 'إضافة مجلد',
       namePlaceholder: 'مثال: Skunkworks',
@@ -1858,7 +2218,7 @@ export const ar = defineLocale({
       copyPath: 'نسخ المسار',
       removeFromSidebar: 'إخفاء من الشريط الجانبي',
       createFailed: 'تعذّر إنشاء المشروع',
-      deleteConfirm: 'هذا يزيل المشروع المحفوظ من AgentX. تبقى الملفات ومستودعات git وأشجار العمل دون تغيير.',
+      deleteConfirm: 'هذا يزيل المشروع المحفوظ من AgentX. تبقى الملفات ومجلدات الشيفرة وأشجار العمل دون تغيير.',
       startWork: 'شجرة عمل جديدة',
       newWorktreeTitle: 'شجرة عمل جديدة',
       newWorktreeDesc: 'سمِّ الفرع لشجرة العمل هذه.',
@@ -1883,8 +2243,18 @@ export const ar = defineLocale({
       forceRemove: 'إزالة بالقوة',
       enter: label => `فتح ${label}`,
       reorder: label => `إعادة ترتيب ${label}`,
-      toggle: (label, open) => `${open ? 'إظهار' : 'إخفاء'} جلسات ${label}`,
-      back: 'كل المشاريع'
+      toggle: (label, open) => `${open ? 'إظهار' : 'إخفاء'} محادثات ${label}`,
+      back: 'كل المشاريع',
+      moveToProject: 'نقل إلى مشروع',
+      movedTo: name => `تم النقل إلى ${name}`,
+      moveFailed: 'تعذّر نقل المحادثة',
+      moveNoFolder: 'ليس في ذلك المشروع مجلد يمكن النقل إليه',
+      moveNoProjects: 'لا توجد مشاريع أخرى',
+      staleBackend:
+        'حدّث الواجهة الخلفية لـ AgentX لتتمكن من إنشاء المشاريع — فالواجهة الخلفية لديك أقدم من تطبيق سطح المكتب هذا (الإعدادات ← التحديثات ← الواجهة الخلفية).',
+      branchOff: () => ({ after: '', before: 'تفريع من ' }),
+      baseBranchPlaceholder: 'ابحث في الفروع…',
+      baseBranchNone: 'لم يُعثر على فروع'
     },
     newSessionIn: label => `محادثة جديدة في ${label}`,
     showMoreIn: (count, label) => `إظهار ${count} أخرى في ${label}`,
@@ -1900,10 +2270,10 @@ export const ar = defineLocale({
       rename: 'إعادة تسمية',
       archive: 'أرشفة',
       newWindow: 'فتح في نافذة جديدة',
-      copyIdFailed: 'فشل نسخ المعرف',
+      copyIdFailed: 'تعذر نسخ معرّف المحادثة',
 
-      sessionActions: 'إجراءات الجلسة',
-      sessionRunning: 'الجلسة تعمل',
+      sessionActions: 'إجراءات المحادثة',
+      sessionRunning: 'المحادثة قيد التشغيل',
       needsInput: 'تحتاج إدخالا',
       waitingForAnswer: 'بانتظار إجابة',
       backgroundRunning: 'تعمل في الخلفية',
@@ -1916,13 +2286,17 @@ export const ar = defineLocale({
       handoffOrigin: platform => `قادمة من ${platform}`,
       renamed: 'تمت إعادة التسمية',
       renameFailed: 'فشلت إعادة التسمية',
-      renameTitle: 'إعادة تسمية الجلسة',
+      renameTitle: 'إعادة تسمية المحادثة',
       renameDesc: '',
-      untitledPlaceholder: 'جلسة بلا عنوان',
+      untitledPlaceholder: 'محادثة بلا عنوان',
       ageNow: 'الآن',
       ageDay: 'يوم',
       ageHour: 'ساعة',
-      ageMin: 'دقيقة'
+      ageMin: 'دقيقة',
+      splitRight: 'يمين',
+      splitDown: 'أسفل',
+      splitLeft: 'يسار',
+      splitUp: 'أعلى'
     }
   },
   composer: {
@@ -1964,8 +2338,8 @@ export const ar = defineLocale({
     helpFooter: 'استخدم الأسهم للتنقل و Enter للاختيار.',
     commandDescs: {
       '/help': 'قائمة كاملة بالأوامر + اختصارات لوحة المفاتيح',
-      '/clear': 'بدء جلسة جديدة',
-      '/resume': 'استئناف جلسة سابقة',
+      '/clear': 'بدء محادثة جديدة',
+      '/resume': 'استئناف محادثة سابقة',
       '/details': 'التحكم في مستوى تفاصيل النص',
       '/copy': 'نسخ التحديد أو آخر رسالة من المساعد',
       '/quit': 'الخروج من agentx'
@@ -2039,7 +2413,15 @@ export const ar = defineLocale({
         description: 'اشرح كيفية عمل الكود المحدد واربطه بالملفات الرئيسية.',
         text: 'يرجى شرح كيفية عمل هذا وإرشادي إلى الملفات الرئيسية.'
       }
-    }
+    },
+    speakReplies: 'قراءة الردود بصوت عالٍ',
+    stopSpeakingReplies: 'إيقاف قراءة الردود بصوت عالٍ',
+    wakeWordListening: phrase => `كلمة التنبيه: «${phrase}» — قيد الاستماع`,
+    wakeWordOff: phrase => `كلمة التنبيه: «${phrase}» — متوقفة`,
+    wakeWordPausedVoice: phrase => `كلمة التنبيه: «${phrase}» — متوقفة مؤقتًا أثناء المحادثة الصوتية`,
+    queuedPaused: count => `${count} في قائمة الانتظار — متوقف مؤقتًا`,
+    queueResume: 'استئناف',
+    queueResumeTip: 'توقف مؤقتًا بسبب الضغط على «إيقاف» — استأنف إرسال الرسائل التي في قائمة الانتظار'
   },
   statusStack: {
     agents: 'الوكلاء',
@@ -2093,7 +2475,11 @@ export const ar = defineLocale({
       switchTo: branch => `التبديل إلى ${branch}`,
       switchFailed: branch => `تعذّر التبديل إلى ${branch}`,
       worktrees: 'أشجار العمل'
-    }
+    },
+    goalActive: 'الهدف قيد التنفيذ',
+    goalDone: 'اكتمل الهدف',
+    goalPaused: 'الهدف متوقف مؤقتًا',
+    goalWaiting: 'الهدف في الانتظار'
   },
   updates: {
     stages: {
@@ -2547,7 +2933,7 @@ export const ar = defineLocale({
     restore: 'استعادة',
     closeRunningTitle: 'إغلاق تبويب يعمل؟',
     closeRunningBody:
-      'هذه المحادثة ما زالت تعمل (أو تنتظر إدخالك). إغلاق التبويب يخفيها فقط — ستحتفظ الجلسة بتقدمها ويمكن إعادة فتحها من الشريط الجانبي.',
+      'هذه المحادثة ما زالت تعمل (أو تنتظر إدخالك). إغلاق التبويب يخفيها فقط — ستحتفظ المحادثة بتقدمها ويمكن إعادة فتحها من الشريط الجانبي.',
     closeRunningConfirm: 'إغلاق التبويب',
     reload: 'إعادة التحميل',
     closeOthers: 'إغلاق الأخرى',
@@ -2579,7 +2965,8 @@ export const ar = defineLocale({
     saveApply: 'حفظ وتطبيق',
     notExpressible: 'هذا الترتيب متشابك — لا يمكن تمثيله كتقسيمات متداخلة بعد',
     zoneCount: count => `${count} مناطق`,
-    tabCount: count => `${count} تبويبات`
+    tabCount: count => `${count} تبويبات`,
+    newSessionTab: 'علامة تبويب محادثة جديدة'
   },
   assistant: {
     intro: {
@@ -2631,7 +3018,7 @@ export const ar = defineLocale({
       searchResults: 'نتائج البحث'
     },
     thread: {
-      loadingSession: 'جار تحميل الجلسة...',
+      loadingSession: 'جارٍ تحميل المحادثة…',
       showEarlier: 'عرض الرسائل الأقدم',
       loadingResponse: 'جار تحميل الرد...',
       resumeWhenBackgroundDone: count =>
@@ -2666,15 +3053,16 @@ export const ar = defineLocale({
       restoreNext: 'استعادة التالي',
       goForward: 'تقدم',
       sendEdited: 'إرسال التعديل',
-      attachingFile: 'جار إرفاق الملف'
+      attachingFile: 'جار إرفاق الملف',
+      expandMessage: 'توسيع الرسالة'
     },
     approval: {
-      gatewayDisconnected: 'البوابة غير متصلة',
+      gatewayDisconnected: 'AgentX غير متصل',
       sendFailed: 'فشل الإرسال',
       run: 'تشغيل',
       command: 'الأمر',
       moreOptions: 'خيارات إضافية',
-      allowSession: 'السماح لهذه الجلسة',
+      allowSession: 'السماح في هذه المحادثة',
       alwaysAllowMenu: 'السماح دائما',
       jumpToApproval: 'الموافقة مطلوبة',
       reject: 'رفض',
@@ -2684,13 +3072,17 @@ export const ar = defineLocale({
     },
     clarify: {
       notReady: 'غير جاهز',
-      gatewayDisconnected: 'البوابة غير متصلة',
+      gatewayDisconnected: 'AgentX غير متصل',
       sendFailed: 'فشل الإرسال',
       loadingQuestion: 'جار تحميل السؤال...',
       other: 'غير ذلك',
       placeholder: 'اكتب إجابتك...',
       skip: 'تخطي',
-      continueLabel: 'متابعة'
+      continueLabel: 'متابعة',
+      skipped: 'تم التخطي',
+      lateAnswer: (question, choice) => `بخصوص «${question}» — إجابتي: ${choice}`,
+      lateAnswerTip: 'صياغة هذه الإجابة كرسالة متابعة',
+      lateAnswerHint: 'لم يعد هذا السؤال في الانتظار. اختر خيارًا لصياغته كرسالة متابعة.'
     },
     tool: {
       copyCode: 'نسخ الكود',
@@ -2725,7 +3117,8 @@ export const ar = defineLocale({
         ran: 'تم التشغيل',
         running: 'جار التشغيل',
         ranCode: 'تم تشغيل الكود',
-        runningCode: 'جار البرمجة'
+        runningCode: 'جار البرمجة',
+        failedToOpen: 'تعذّر الفتح'
       },
       prefixes: {
         browser: 'المتصفح',
@@ -2821,8 +3214,8 @@ export const ar = defineLocale({
           pendingAction: 'جار البحث'
         },
         session_search_recall: {
-          done: 'تم البحث في سجل الجلسة',
-          pending: 'جار البحث في سجل الجلسة',
+          done: 'تم البحث في المحادثات السابقة',
+          pending: 'جارٍ البحث في المحادثات السابقة',
           pendingAction: 'جار البحث'
         },
         terminal: {
@@ -2872,8 +3265,8 @@ export const ar = defineLocale({
   desktop: {
     runtimeChecksDisagree: 'يفيد setup.status بأن بيانات الاعتماد مضبوطة، لكن تحليل بيئة التشغيل ما زال يفشل.',
     audioReadFailed: 'فشلت قراءة الصوت',
-    sessionUnavailable: 'الجلسة غير متاحة',
-    createSessionFailed: 'فشل إنشاء الجلسة',
+    sessionUnavailable: 'المحادثة غير متاحة',
+    createSessionFailed: 'تعذر إنشاء محادثة جديدة',
     promptFailed: 'فشل إرسال الرسالة',
     providerCredentialRequired: 'مطلوب اعتماد المزود',
     emptySlashCommand: 'أمر slash فارغ',
@@ -2882,10 +3275,11 @@ export const ar = defineLocale({
     warningLine: message => `تحذير: ${message}`,
     yoloArmed: 'YOLO مفعل',
     yoloOff: 'YOLO معطل',
-    yoloSystem: active => (active ? 'YOLO مفعل للنظام' : 'YOLO معطل للنظام'),
+    yoloSystem: active => `YOLO ${active ? 'مفعّل' : 'معطّل'} لهذه المحادثة`,
     yoloTitle: 'وضع YOLO',
     yoloToggleFailed: 'فشل تبديل YOLO',
-    profileStatus: current => `الملف الحالي: ${current}`,
+    profileStatus: current =>
+      `الملف الحالي: ${current}. استخدم /profile <name> أو منتقي «محادثة جديدة» لبدء محادثة في ملف آخر.`,
     unknownProfile: 'ملف شخصي غير معروف',
     noProfileNamed: (target, available) => `لا يوجد ملف باسم ${target}. المتاح: ${available}`,
     newChatsProfile: name => `المحادثات الجديدة تستخدم ${name}`,
@@ -2894,14 +3288,14 @@ export const ar = defineLocale({
     stopFailed: 'فشل الإيقاف',
     regenerateFailed: 'فشلت إعادة التوليد',
     editFailed: 'فشل التحرير',
-    resumeFailed: 'فشل الاستئناف',
-    resumeStrandedTitle: 'تعذّر تحميل هذه الجلسة',
+    resumeFailed: 'تعذر استئناف المحادثة',
+    resumeStrandedTitle: 'تعذّر تحميل هذه المحادثة',
     resumeStrandedBody:
-      'فشل الاتصال بهذه الجلسة وتوقفت إعادة المحاولة التلقائية. تأكد من تشغيل البوابة، ثم حاول مجددا.',
+      'فشل الاتصال بهذه المحادثة وتوقفت إعادة المحاولة التلقائية. تأكد من تشغيل خدمة AgentX الخلفية، ثم حاول مجددًا.',
     resumeRetry: 'إعادة المحاولة',
     nothingToBranch: 'لا يوجد ما يمكن تفريعه',
     branchNeedsChat: 'يحتاج التفريع إلى محادثة',
-    sessionBusy: 'الجلسة مشغولة',
+    sessionBusy: 'المحادثة مشغولة',
     branchStopCurrent: 'أوقف الدور الحالي قبل التفريع',
     branchNoText: 'لا يوجد نص للتفريع',
     branchTitle: n => `مسودة: تفريع #${n}`,
@@ -2911,10 +3305,10 @@ export const ar = defineLocale({
     archiveFailed: 'فشلت الأرشفة',
     cwdChangeFailed: 'فشل تغيير مجلد العمل',
     cwdStagedTitle: 'تم تجهيز مجلد العمل',
-    cwdStagedMessage: 'سيطبق مجلد العمل على الرسالة التالية.',
+    cwdStagedMessage: 'أعد تشغيل خلفية سطح المكتب لتطبيق مجلد العمل الجديد على هذه المحادثة المفتوحة.',
     modelSwitchFailed: 'فشل تبديل النموذج',
-    sessionExported: 'تم تصدير الجلسة',
-    sessionExportFailed: 'فشل تصدير الجلسة',
+    sessionExported: 'تم تصدير المحادثة',
+    sessionExportFailed: 'تعذر تصدير المحادثة',
     imageSaved: 'تم حفظ الصورة',
     downloadStarted: 'بدأ التنزيل',
     restartToUseSaveImage: 'أعد التشغيل لاستخدام حفظ الصور',
@@ -2937,7 +3331,7 @@ export const ar = defineLocale({
       success: platform => `تم التسليم إلى ${platform}. استأنف هنا في أي وقت.`,
       systemNote: platform => `↻ تم التسليم إلى ${platform} — استأنف هنا في أي وقت.`,
       failed: error => `فشل التسليم: ${error}`,
-      timedOut: 'انتهت المهلة في انتظار البوابة. هل `agentx gateway` قيد التشغيل؟'
+      timedOut: 'انتهت المهلة في انتظار خدمة AgentX الخلفية. هل `agentx gateway` قيد التشغيل؟'
     }
   },
   errors: {
@@ -2963,5 +3357,9 @@ export const ar = defineLocale({
       description: 'تنقل التطبيق',
       toggle: open => `${open ? 'إظهار' : 'إخفاء'} الشريط الجانبي`
     }
+  },
+  findInPage: {
+    next: 'النتيجة التالية',
+    previous: 'النتيجة السابقة'
   }
 })

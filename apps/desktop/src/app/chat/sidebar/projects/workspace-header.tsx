@@ -2,10 +2,10 @@ import type * as React from 'react'
 import { useState } from 'react'
 
 import { ActionsContextMenu, ActionsMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
-import { Codicon } from '@/components/ui/codicon'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { GitBranch, MoreHorizontal, MoreVertical, Plus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { copyPath, revealPath } from '@/store/projects'
 
@@ -39,11 +39,11 @@ export function WorkspaceAddButton({ label, onClick }: { label: string; onClick:
     <Tip label={label}>
       <button
         aria-label={label}
-        className="grid size-4 shrink-0 place-items-center rounded-sm bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/workspace:opacity-100"
+        className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/workspace:opacity-100"
         onClick={onClick}
         type="button"
       >
-        <Codicon name="add" size="0.75rem" />
+        <Plus className="size-3.5" />
       </button>
     </Tip>
   )
@@ -66,11 +66,11 @@ export function WorkspaceShowMoreButton({
     <Tip label={text}>
       <button
         aria-label={text}
-        className="ml-auto grid size-5 place-items-center rounded-sm bg-transparent text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-control-hover-background) hover:text-foreground"
+        className="ml-auto grid size-6 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-tertiary) transition-colors hover:bg-(--ui-control-hover-background) hover:text-foreground"
         onClick={onClick}
         type="button"
       >
-        <Codicon name="ellipsis" size="0.75rem" />
+        <MoreHorizontal className="size-3.5" />
       </button>
     </Tip>
   )
@@ -121,11 +121,11 @@ export function WorkspaceMenu({ path, onRemove }: { path: null | string; onRemov
     <ActionsMenu ariaLabel={p.menu} contentClassName="w-48" items={items}>
       <button
         aria-label={p.menu}
-        className="grid size-4 shrink-0 place-items-center rounded-sm bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/workspace:opacity-100 data-[state=open]:opacity-100"
+        className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/workspace:opacity-100 data-[state=open]:opacity-100"
         onClick={event => event.stopPropagation()}
         type="button"
       >
-        <Codicon name="kebab-vertical" size="0.75rem" />
+        <MoreVertical className="size-3.5" />
       </button>
     </ActionsMenu>
   )
@@ -168,11 +168,11 @@ export function StartWorkButton({ repoPath, onStarted }: { repoPath: string; onS
       <Tip label={p.startWork}>
         <button
           aria-label={p.startWork}
-          className="grid size-4 shrink-0 place-items-center rounded-sm bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/section:opacity-100 focus-visible:opacity-100"
+          className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-transparent text-(--ui-text-quaternary) opacity-0 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground group-hover/section:opacity-100 focus-visible:opacity-100"
           onClick={() => setOpen(true)}
           type="button"
         >
-          <Codicon name="git-branch" size="0.75rem" />
+          <GitBranch className="size-3.5" />
         </button>
       </Tip>
       <WorktreeDialog onOpenChange={setOpen} onStarted={onStarted} open={open} repoPath={repoPath} />

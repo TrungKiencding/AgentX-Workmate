@@ -9,12 +9,7 @@ import { CodeEditor } from '@/components/chat/code-editor'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { DisclosureRow } from '@/components/ui/disclosure-row'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { CountSkeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/ui/status-pill'
 import { TagChip } from '@/components/ui/tag-chip'
@@ -600,13 +595,13 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   const skillEditorPane = skillEditor && (
     <DetailPane
       actions={
-        <Button disabled={skillSaving} onClick={() => void saveSkillEdit()} size="xs">
+        <Button disabled={skillSaving} onClick={() => void saveSkillEdit()} size="sm">
           {skillSaving ? t.common.saving : t.common.save}
         </Button>
       }
       id="skill-editor"
       onClose={() => setSkillEditor(null)}
-      title={<span className="text-2xs font-normal text-muted-foreground/60">{skillEditor.name}/SKILL.md</span>}
+      title={<span className="text-xs font-normal text-muted-foreground/60">{skillEditor.name}/SKILL.md</span>}
     >
       <CodeEditor
         filePath="SKILL.md"
@@ -902,12 +897,7 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
             <Button data-testid="skill-propose-org" onClick={() => setPublish('propose')} size="sm" variant="outline">
               {t.skills.publish.propose}
             </Button>
-            <Button
-              className="text-destructive hover:text-destructive"
-              onClick={onArchive}
-              size="sm"
-              variant="outline"
-            >
+            <Button className="text-destructive hover:text-destructive" onClick={onArchive} size="sm" variant="outline">
               {t.skills.archive}
             </Button>
           </>
@@ -920,7 +910,15 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
           value={skill.provenance ? t.skills.provenance[skill.provenance] : t.skills.provenance.bundled}
         />
       </TechnicalDetails>
-      {publish && <PublishSkillDialog key={`${skill.name}-${publish}`} mode={publish} onClose={() => setPublish(null)} open skill={skill} />}
+      {publish && (
+        <PublishSkillDialog
+          key={`${skill.name}-${publish}`}
+          mode={publish}
+          onClose={() => setPublish(null)}
+          open
+          skill={skill}
+        />
+      )}
     </>
   )
 }

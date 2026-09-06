@@ -40,7 +40,7 @@ function statusGlyph(status: SubagentStatus, a: Translations['agents']): ReactNo
     return <AlertCircle aria-label={a.failed} className="size-3.5 shrink-0 text-destructive" />
   }
 
-  return <CheckCircle2 aria-label={a.done} className="size-3.5 shrink-0 text-emerald-600/85 dark:text-emerald-400/85" />
+  return <CheckCircle2 aria-label={a.done} className="size-3.5 shrink-0 text-(--ui-green)" />
 }
 
 const STREAM_TONE: Record<SubagentStreamEntry['kind'], string> = {
@@ -60,7 +60,7 @@ function streamGlyph(entry: SubagentStreamEntry): ReactNode {
   }
 
   if (entry.kind === 'summary') {
-    return <CheckCircle2 aria-hidden className="mt-0.5 size-3 shrink-0 text-emerald-600/85 dark:text-emerald-400/85" />
+    return <CheckCircle2 aria-hidden className="mt-0.5 size-3 shrink-0 text-(--ui-green)" />
   }
 
   if (entry.kind === 'thinking') {
@@ -341,9 +341,7 @@ function SubagentRow({ node, depth = 0, nowMs }: { node: SubagentNode; depth?: n
             {node.goal}
           </span>
           {subtitle.length > 0 ? (
-            <FadeText className="text-2xs leading-[1.05rem] text-muted-foreground/65">
-              {subtitle.join(' · ')}
-            </FadeText>
+            <FadeText className="text-2xs leading-[1.05rem] text-muted-foreground/65">{subtitle.join(' · ')}</FadeText>
           ) : null}
         </span>
         {running ? <ActivityTimerText className="mt-1 shrink-0 text-2xs" seconds={durationSeconds} /> : null}
@@ -365,9 +363,7 @@ function SubagentRow({ node, depth = 0, nowMs }: { node: SubagentNode; depth?: n
 
       {open && fileLines.length > 0 ? (
         <div className="grid min-w-0 gap-0.5 pl-6" data-selectable-text="true">
-          <p className="text-2xs font-medium tracking-wider text-muted-foreground/60 uppercase">
-            {t.agents.files}
-          </p>
+          <p className="text-2xs font-medium tracking-wider text-muted-foreground/60 uppercase">{t.agents.files}</p>
           {fileLines.slice(0, 8).map(line => (
             <p className="wrap-break-word font-mono text-2xs leading-relaxed text-muted-foreground/80" key={line}>
               {line}

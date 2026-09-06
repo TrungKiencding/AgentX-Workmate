@@ -90,7 +90,7 @@ export function DetailColumn({
         <div className="mx-auto max-w-2xl space-y-5 px-5 py-4">{children}</div>
       </div>
       {footer && (
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pb-3 pt-1.5 text-right text-2xs text-muted-foreground/50">
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pb-3 pt-1.5 text-right text-xs text-muted-foreground/50">
           {footer}
         </div>
       )}
@@ -112,14 +112,12 @@ const DETAIL_PANE_DEFAULT_BODY_PX = 288
 const DETAIL_PANE_MAX_VH = 0.7
 const DETAIL_PANE_COLLAPSED_PX = 4
 
-// Ghost icon-button on the kebab-trigger scale (pane headers, list-strip menu,
-// per-server MCP actions, JSON editor format button). MUST stay a class string
-// (not a CSS @utility): the leading `size-5` is what tailwind-merge uses to
-// strip <Button size="icon">'s larger built-in size — a custom utility class
-// isn't size-merge-aware, so Button's icon size would leak and blow it up.
-// Compose extra state (data-[state=open], hover:text-destructive) with cn().
-export const ICON_BUTTON =
-  'size-5 cursor-pointer rounded-[4px] text-muted-foreground/70 hover:bg-(--ui-control-active-background) hover:text-foreground'
+// Quiet icon-button chrome for pane headers, the list-strip menu, per-server
+// MCP actions and the JSON editor's format button. Pair it with
+// `size="icon-xs"` — the 24px square is the hit-target floor — so the class
+// only carries colour; the Button owns the box and the radius. Compose extra
+// state (data-[state=open], hover:text-destructive) with cn().
+export const ICON_BUTTON = 'text-muted-foreground/70 hover:bg-(--ui-control-active-background) hover:text-foreground'
 
 export function DetailPane({
   actions,
@@ -203,14 +201,20 @@ export function DetailPane({
               aria-label={collapsed ? t.common.expand : t.common.collapse}
               className={ICON_BUTTON}
               onClick={() => setPaneHeightOverride(id, collapsed ? undefined : 0)}
-              size="icon"
+              size="icon-xs"
               variant="ghost"
             >
               {collapsed ? <ChevronUp /> : <ChevronDown />}
             </Button>
           </Tip>
           {onClose && (
-            <Button aria-label={t.common.close} className={ICON_BUTTON} onClick={onClose} size="icon" variant="ghost">
+            <Button
+              aria-label={t.common.close}
+              className={ICON_BUTTON}
+              onClick={onClose}
+              size="icon-xs"
+              variant="ghost"
+            >
               <X />
             </Button>
           )}
@@ -269,7 +273,7 @@ export function ListStripMenu({
             ICON_BUTTON,
             'data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground'
           )}
-          size="icon"
+          size="icon-xs"
           variant="ghost"
         >
           <MoreVertical />
@@ -301,32 +305,6 @@ export function ListStripMenu({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-export function ListStripButton({
-  active,
-  children,
-  disabled,
-  onClick
-}: {
-  active?: boolean
-  children: ReactNode
-  disabled?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={cn(
-        'cursor-pointer text-2xs font-medium transition-colors disabled:opacity-40',
-        active ? 'text-foreground' : 'text-muted-foreground/70 hover:text-foreground'
-      )}
-      disabled={disabled}
-      onClick={onClick}
-      type="button"
-    >
-      {children}
-    </button>
   )
 }
 
@@ -401,9 +379,7 @@ export function CapRow({
             </span>
           )}
         </span>
-        {meta != null && (
-          <span className="shrink-0 text-xs tabular-nums text-(--ui-text-tertiary)">{meta}</span>
-        )}
+        {meta != null && <span className="shrink-0 text-xs tabular-nums text-(--ui-text-tertiary)">{meta}</span>}
       </RowButton>
       <Switch
         aria-label={toggleLabel}

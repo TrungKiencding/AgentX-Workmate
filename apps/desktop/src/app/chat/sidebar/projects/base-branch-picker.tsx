@@ -2,11 +2,11 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { HermesGitBaseBranch } from '@/global'
 import { useI18n } from '@/i18n'
+import { Check, ChevronDown, FolderCode, GitBranch } from '@/lib/icons'
 import { $repoStatus } from '@/store/coding-status'
 import { listBaseBranches } from '@/store/projects'
 
@@ -110,12 +110,12 @@ export function BaseBranchPicker({
             size="inline"
             variant="text"
           >
-            <Codicon className="shrink-0 text-(--ui-text-tertiary)" name="git-branch" size="0.8rem" />
+            <GitBranch className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
             <span className="shrink-0">{parts.before}</span>
             <span className="shrink-0 text-primary underline-offset-4 decoration-current/20 group-hover:underline">
               {loading ? '...' : value}
             </span>
-            <Codicon className="shrink-0 text-(--ui-text-tertiary)" name="chevron-down" size="0.75rem" />
+            <ChevronDown className="size-3 shrink-0 text-(--ui-text-tertiary)" />
             <span className="shrink-0">{parts.after}</span>
           </Button>
         </PopoverTrigger>
@@ -135,18 +135,16 @@ export function BaseBranchPicker({
                     value={branch.name}
                   >
                     <div className="flex items-center justify-start gap-1.5">
-                      <Codicon
-                        className="shrink-0 text-(--ui-text-tertiary)"
-                        name={branch.isRemote ? 'repo' : 'git-branch'}
-                        size="0.8rem"
-                      />
+                      {branch.isRemote ? (
+                        <FolderCode className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
+                      ) : (
+                        <GitBranch className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
+                      )}
                       {branch.isDefault && (
                         <span className="ml-auto shrink-0 text-2xs text-(--ui-text-tertiary)">★</span>
                       )}
                       <span className="truncate">{branch.name}</span>
-                      {value === branch.name && (
-                        <Codicon className="ml-auto shrink-0 text-(--ui-accent)" name="check" size="0.8rem" />
-                      )}
+                      {value === branch.name && <Check className="ml-auto size-3.5 shrink-0 text-(--ui-accent)" />}
                     </div>
                   </CommandItem>
                 ))}

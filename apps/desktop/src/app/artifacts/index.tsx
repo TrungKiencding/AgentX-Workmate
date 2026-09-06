@@ -5,12 +5,7 @@ import { useNavigate } from 'react-router'
 import { ZoomableImage } from '@/components/chat/zoomable-image'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FileTypeIcon } from '@/components/ui/file-type-icon'
 import {
@@ -27,17 +22,11 @@ import { Tip } from '@/components/ui/tooltip'
 import { getSessionMessages, listAllProfileSessions } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { resolveBrandIcon } from '@/lib/brand-icon'
-import {
-  ExternalLink,
-  hostPathLabel,
-  shortHostLabel,
-  urlSlugTitleLabel,
-  useLinkTitle
-} from '@/lib/external-link'
+import { ExternalLink, hostPathLabel, shortHostLabel, urlSlugTitleLabel, useLinkTitle } from '@/lib/external-link'
 import { Link2, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
 import { downloadGatewayMediaFile, isRemoteGateway } from '@/lib/media'
 import { normalize } from '@/lib/text'
-import { type DayGroup, dayGroup, fmtClock, fmtDayTime } from '@/lib/time'
+import { type DayGroup, dayGroup, fmtClock, fmtDayTime, fmtMonth, fmtMonthYear } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
 
@@ -63,9 +52,6 @@ function rowTime(timestamp: number, group: DayGroup): string {
     ? fmtClock.format(new Date(timestamp))
     : fmtDayTime.format(new Date(timestamp))
 }
-
-// App-locale month formatting for group headers (the OS locale may differ).
-const BCP47: Record<string, string> = { 'zh-hant': 'zh-Hant' }
 
 function pageRangeLabel(total: number, page: number, pageSize: number, a: Translations['artifacts']): string {
   if (total === 0) {
@@ -218,12 +204,10 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   )
 
   // Drive-style recency shelves: rows stay in newest-first order; a header is
-  // emitted whenever the day group changes. Month headers format in the APP
-  // locale (the shared Intl instances follow the OS locale instead).
+  // emitted whenever the day group changes. The shared formatters follow the
+  // app locale; `locale` stays in the deps so the labels re-render when it
+  // changes.
   const fileGroups = useMemo(() => {
-    const month = new Intl.DateTimeFormat(BCP47[locale] ?? locale, { month: 'long' })
-    const monthYear = new Intl.DateTimeFormat(BCP47[locale] ?? locale, { month: 'long', year: 'numeric' })
-
     const label = (group: DayGroup) => {
       switch (group.kind) {
         case 'today':
@@ -236,10 +220,10 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
           return a.groupLast7Days
 
         case 'month':
-          return month.format(group.at)
+          return fmtMonth.format(group.at)
 
         case 'monthYear':
-          return monthYear.format(group.at)
+          return fmtMonthYear.format(group.at)
       }
     }
 
@@ -257,6 +241,9 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     }
 
     return groups
+    // `locale` is read by the shared formatters, not here — it stays in the
+    // list so the month shelves re-label when the language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [a, locale, pagedFileArtifacts])
 
   // Rotating placeholder nudges from real data — search matches file paths and
@@ -354,7 +341,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
             className="text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground"
             disabled={refreshing}
             onClick={() => void refreshArtifacts()}
-            size="icon-titlebar"
+            size="icon-sm"
             variant="ghost"
           >
             {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}

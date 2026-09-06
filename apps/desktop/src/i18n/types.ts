@@ -1450,10 +1450,7 @@ export interface Translations {
     credentialsSet: string
     needsSetup: string
     gatewayStopped: string
-    getCredentials: string
     openSetupGuide: string
-    required: string
-    recommended: string
     advanced: (count: number) => string
     noTokenNeeded: string
     enabled: string
@@ -1477,10 +1474,8 @@ export interface Translations {
     failedUpdate: (name: string) => string
     failedSave: (name: string) => string
     failedClear: (key: string) => string
-    pendingRequests: (count: number) => string
     pendingAria: (count: number) => string
     approvedUsers: (count: number) => string
-    approve: string
     approving: string
     revoke: string
     revoking: string
@@ -1905,6 +1900,10 @@ export interface Translations {
       hideTabBar: string
       openInNewTab: string
       openInSplit: string
+      splitRight: string
+      splitDown: string
+      splitLeft: string
+      splitUp: string
       copyIdFailed: string
       sessionActions: string
       sessionRunning: string

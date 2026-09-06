@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 /** The muted slot beside a section label (loading glyph, status hint). */
 export function SidebarSectionMeta({ children }: { children: React.ReactNode }) {
-  return <span className="shrink-0 text-2xs font-medium text-(--ui-text-quaternary)">{children}</span>
+  return <span className="shrink-0 text-xs font-medium text-(--ui-text-quaternary)">{children}</span>
 }
 
 // ── Row geometry (session row is canonical — everything composes these) ─────

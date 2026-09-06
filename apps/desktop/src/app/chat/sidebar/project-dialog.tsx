@@ -2,7 +2,6 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import {
   Dialog,
   DialogContent,
@@ -18,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { pathLeaf } from '@/lib/display-path'
+import { Folder, FolderOpen, Plus, RefreshCw, X } from '@/lib/icons'
 import { type ProjectIdeaTemplate, randomIdeaTemplates } from '@/lib/project-idea-templates'
 import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
@@ -234,7 +234,7 @@ export function ProjectDialog() {
                     )}
                     key={folder}
                   >
-                    <Codicon className="shrink-0 text-(--ui-text-tertiary)" name="folder" size="0.75rem" />
+                    <Folder className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
                     <span className="min-w-0 flex-1 truncate" title={folder}>
                       {folder}
                     </span>
@@ -250,7 +250,7 @@ export function ProjectDialog() {
                         type="button"
                         variant="ghost"
                       >
-                        <Codicon name="close" size="0.75rem" />
+                        <X />
                       </Button>
                     </Tip>
                   </li>
@@ -265,7 +265,7 @@ export function ProjectDialog() {
               type="button"
               variant="ghost"
             >
-              <Codicon name="add" size="0.75rem" />
+              <Plus />
               {p.addFolder}
             </Button>
           </div>
@@ -314,7 +314,7 @@ export function ProjectDialog() {
                   type="button"
                   variant="ghost"
                 >
-                  <Codicon name="refresh" size="0.75rem" />
+                  <RefreshCw />
                 </Button>
               </Tip>
             </div>
@@ -323,7 +323,7 @@ export function ProjectDialog() {
 
         {mode === 'add-folder' && (
           <Button disabled={submitting} onClick={() => void pickFolder()} type="button">
-            <Codicon name="folder-opened" size="0.875rem" />
+            <FolderOpen />
             {p.addFolder}
           </Button>
         )}

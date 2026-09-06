@@ -125,3 +125,9 @@ export function isSupportedLocaleValue(value: unknown): boolean {
 export function localeConfigValue(locale: Locale): string {
   return LOCALE_OPTIONS.find(item => item.id === locale)?.configValue ?? DEFAULT_LOCALE
 }
+
+/** The IETF tag `Intl` wants for one of our locale ids — ours are lower-case
+ *  (`zh-hant`), the platform wants `zh-Hant`; every other id is already a tag. */
+export function localeToBcp47(locale: Locale): string {
+  return locale === 'zh-hant' ? 'zh-Hant' : locale
+}

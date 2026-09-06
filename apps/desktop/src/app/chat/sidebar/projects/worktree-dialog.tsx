@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
   Dialog,
@@ -14,6 +13,7 @@ import {
 import { SanitizedInput } from '@/components/ui/sanitized-input'
 import type { HermesGitBranch } from '@/global'
 import { useI18n } from '@/i18n'
+import { GitBranch } from '@/lib/icons'
 import { gitRef } from '@/lib/sanitize'
 import { notifyError } from '@/store/notifications'
 import { listRepoBranches, startWorkInRepo, switchBranchInRepo } from '@/store/projects'
@@ -178,7 +178,7 @@ export function WorktreeDialog({ repoPath, onStarted, open, onOpenChange, initia
                     onSelect={() => void convert(branch)}
                     value={branch.name}
                   >
-                    <Codicon className="shrink-0 text-(--ui-text-tertiary)" name="git-branch" size="0.8rem" />
+                    <GitBranch className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
                     <span className="truncate">{branch.name}</span>
                     <span className="ml-auto shrink-0 text-2xs text-(--ui-text-tertiary)">
                       {branchActionLabel(branch, p)}
