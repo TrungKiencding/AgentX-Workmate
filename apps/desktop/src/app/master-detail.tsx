@@ -3,7 +3,6 @@ import { type ReactNode, type PointerEvent as ReactPointerEvent, useEffect, useS
 
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { RowButton } from '@/components/ui/row-button'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -25,20 +24,15 @@ export function ToolChip({ children, title }: { children: ReactNode; title?: str
 }
 
 // Master–detail page scaffolding (14rem rail, p-2, centered max-w-2xl detail):
-// dense uniform rows on the left, roomy inspector on the right. Shared by the
-// Capabilities and Messaging pages — pages bring their own row/detail content
-// (CapRow here is the toggle-row flavor; Messaging has its own avatar rows).
+// dense uniform rows on the left, roomy inspector on the right. Messaging rides
+// it with its own avatar rows; the Tiện ích tabs moved onto card grids
+// (`StoreCard`) and keep only the strip, the menu and the docked pane from here.
 
 // `pane` docks a full-bleed work surface (editor, log viewer, terminal) below
 // the whole master–detail grid — the app's bottom-pane pattern, page-local.
-// The wide-rail track shared by every Capabilities tab (skills/tools/mcp) so
-// the three read as one page. Exported for pages that build their own grid
-// (the MCP tab's cursor-driven layout) but must stay in step.
-export const MASTER_DETAIL_WIDE_COLS = 'sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]'
-
 // `split="wide"` gives list-heavy pages a rail that shares the page with a
-// sparse detail (skills/tools/mcp); the default 14rem rail suits pages whose
-// detail carries the weight (messaging).
+// sparse detail; the default 14rem rail suits pages whose detail carries the
+// weight (messaging).
 export function MasterDetail({
   children,
   pane,
@@ -53,7 +47,7 @@ export function MasterDetail({
       <div
         className={cn(
           'grid min-h-0 flex-1 grid-cols-1',
-          split === 'wide' ? MASTER_DETAIL_WIDE_COLS : 'sm:grid-cols-[14rem_minmax(0,1fr)]'
+          split === 'wide' ? 'sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1fr)]' : 'sm:grid-cols-[14rem_minmax(0,1fr)]'
         )}
       >
         {children}
@@ -227,9 +221,10 @@ export function DetailPane({
   )
 }
 
-// One-line control strip pinned above the list: sort/primary action on the
-// left, overflow kebab on the right. Tall enough for a real 28px button —
-// list-wide actions are boxed controls, not bare 11px text.
+// One-line control strip pinned above a list or a card grid: sort/primary
+// action on the left, a note and the overflow kebab on the right. Tall enough
+// for a real 28px button — list-wide actions are boxed controls, not bare
+// 11px text.
 export function ListStrip({ left, right }: { left?: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-1 flex h-8 shrink-0 items-center justify-between gap-2 pl-1 pr-1">
@@ -305,91 +300,5 @@ export function ListStripMenu({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-interface CapRowProps {
-  active: boolean
-  busy?: boolean
-  enabled: boolean
-  /** Leading 20px Tabler glyph (a skill's category icon). */
-  icon?: ReactNode
-  meta?: ReactNode
-  onSelect: () => void
-  onToggle: (checked: boolean) => void
-  /** A StatusPill beside the title (learned/hub provenance). */
-  pill?: ReactNode
-  rowId?: string
-  /** Second line under the name (one-line description). */
-  subtitle?: ReactNode
-  title: string
-  toggleLabel: string
-}
-
-// The one row used by the Tiện ích lists: 48px (`--cap-row-height`), a 14px
-// title over a 13px one-line description, and a real `md` switch — state
-// reads from the switch + dimmed title, toggling never requires selecting
-// first. Off rows dim; the switch itself dims when off.
-export function CapRow({
-  active,
-  busy,
-  enabled,
-  icon,
-  meta,
-  onSelect,
-  onToggle,
-  pill,
-  rowId,
-  subtitle,
-  title,
-  toggleLabel
-}: CapRowProps) {
-  return (
-    <div
-      className={cn(
-        'group/row row-hover flex h-(--cap-row-height) w-full shrink-0 items-center rounded-(--radius-control) hover:text-foreground',
-        active ? 'bg-(--ui-row-active-background) text-foreground' : 'text-(--ui-text-secondary)'
-      )}
-      id={rowId}
-    >
-      <RowButton
-        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-(--radius-control) pl-2.5 pr-1.5 text-left"
-        onClick={onSelect}
-      >
-        {icon != null && (
-          <span aria-hidden className="shrink-0 text-(--ui-text-tertiary) [&>svg]:size-5">
-            {icon}
-          </span>
-        )}
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span
-              className={cn(
-                'truncate text-base',
-                enabled ? 'font-medium text-foreground/90' : 'font-normal text-muted-foreground/70'
-              )}
-            >
-              {title}
-            </span>
-            {pill}
-          </span>
-          {subtitle != null && (
-            <span className="flex min-w-0 items-center gap-1 text-sm text-(--ui-text-tertiary)">
-              {typeof subtitle === 'string' ? <span className="truncate">{subtitle}</span> : subtitle}
-            </span>
-          )}
-        </span>
-        {meta != null && <span className="shrink-0 text-xs tabular-nums text-(--ui-text-tertiary)">{meta}</span>}
-      </RowButton>
-      <Switch
-        aria-label={toggleLabel}
-        checked={enabled}
-        className={cn('mr-2 shrink-0 cursor-pointer', !enabled && 'opacity-60')}
-        disabled={busy}
-        onCheckedChange={onToggle}
-        size="md"
-        title={toggleLabel}
-      />
-    </div>
   )
 }

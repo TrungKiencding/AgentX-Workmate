@@ -270,3 +270,38 @@ Hermes era.
   Five first-time tasks done by mouse alone take 3 · 3 · 3 · 3 · 2 clicks
   from the home surface (start and send a chat · enable a skill and try it ·
   reach step 2 of Telegram · find and open a generated image · pin a chat).
+
+## The 2026-09 store pass — Tiện ích as one grid of cards
+
+**Before.** "Kỹ năng" listed 84 rows in a master–detail split — the skills
+that ship with AgentX and the ones installed from the store, side by side —
+with a right-hand inspector that carried the raw slug, the source, and the
+edit / share / archive row for every selection. "Cài thêm" sat third, after
+"Công cụ". The tools tab was the same split, its inspector holding the whole
+provider matrix, including rows that only work through a Nous subscription
+and a Nous Portal sign-in flow behind them.
+
+**After.**
+- **One tile, four surfaces.** `StoreCard` (`components/ui/store-card.tsx`)
+  is the tile the skill store already drew, now shared by Kỹ năng sẵn có,
+  Kho kỹ năng, Công cụ and the MCP catalog: a 32px glyph, a 14px name, at
+  most one pill, the `md` switch, two lines of description, and a footer with
+  the way into the detail on the left and the one verb on the right. The
+  master–detail split and its 48px `CapRow` are gone from the page; the
+  detail is a dialog opened from "Chi tiết", so the grid stays readable.
+- **The tabs say what they hold.** Kỹ năng sẵn có · Kho kỹ năng · Công cụ ·
+  Kết nối nâng cao, in that order — the store sits beside the skills it adds
+  to. Kỹ năng sẵn có counts and lists only what came with AgentX or was learned
+  here; a skill added from the store lives on its store card, which grows the
+  same switch and "Thử ngay" the moment it is installed. The store's verbs
+  are sentences: "Thêm kỹ năng này", "Gỡ kỹ năng này", "Đã thêm".
+- **Tools you configure yourself.** The tool card leads with "Thiết lập" and a
+  "Cần thiết lập" pill only while a tool still needs keys; the dialog behind
+  it holds the provider picker, API keys, model catalogue and the tool's own
+  machine-side checks. Provider rows that only work through a Nous
+  subscription are not rendered, and the Nous Portal sign-in flow, its seven
+  strings and its response fields are removed from the renderer.
+- **Kept honest.** Provider config is fetched when a tool's detail opens, not
+  once per card; the 16 orphaned `skills.*` locale keys the old page had left
+  behind are gone from the contract and all six locales; every new string is
+  hand-translated in vi · en · ja · zh · zh-hant · ar.

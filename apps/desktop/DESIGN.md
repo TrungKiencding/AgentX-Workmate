@@ -275,11 +275,12 @@ belong to `OverlayPageHeader` and the home greeting.
   and a conversation row share one 36px silhouette (`--control-h-lg`), so the
   sidebar reads as a list of conversations rather than a file tree; the
   statusbar keeps its shorter band.
-- `--cap-row-height` (48px) — the Tiện ích lists (skills · tools · advanced
-  connections): a 14px title over a 13px one-line description with an `md`
-  switch. `--artifact-row-height` (52px) — the Artifact library's file/link
-  rows, roomy enough for a 24px type icon plus two lines. Both deliberately
-  sit above the sidebar's 36px: these rows carry controls, not just a title.
+- `--cap-row-height` (48px) — the advanced-connections rows on the Tiện ích
+  page: a 14px title over a 13px one-line status with an `md` switch (the
+  skills and tools tabs are card grids, see `StoreCard` under § Layout).
+  `--artifact-row-height` (52px) — the Artifact library's file/link rows,
+  roomy enough for a 24px type icon plus two lines. Both deliberately sit
+  above the sidebar's 36px: these rows carry controls, not just a title.
 - `--switch-md-track-width/-height` (38×22px) · `--switch-md-thumb` (18px) —
   the `md` Switch. `--status-pill-h-sm/-md` (24/28px) — the `StatusPill`.
   `--intro-card-min-height` (56px) — the home surface's task card.
@@ -509,9 +510,26 @@ running — while staying quieter than the content they frame.
   `DetailPane` that starts collapsed ("Cấu hình nâng cao (mcp.json)" ·
   "Nhật ký"). The panes stay mounted while collapsed, so cursor-driven
   selection and "Dán cấu hình" (which expands the editor pane before seeding
-  the starter entry) keep working. Store-style installs (hub cards, the MCP
-  catalog) share one card treatment: `--radius-card`, quinary fill, p-4, the
-  §Motion card-hover recipe, an `auto-fill minmax(18rem,1fr)` grid.
+  the starter entry) keep working.
+- **Tiện ích is a store, and every tile is a `StoreCard`**
+  (`components/ui/store-card.tsx`). The four store surfaces — Kỹ năng sẵn có,
+  Kho kỹ năng, Công cụ and the MCP catalog — lay the same card on the same
+  `StoreCardGrid` (`auto-fill minmax(18rem,1fr)`, gap 12): `--radius-card`,
+  quinary fill, p-4, the §Motion card-hover recipe. A card is glanceable, not
+  exhaustive, and reads top to bottom in one order: `StoreCardHeader` (a
+  32px `StoreCardGlyph` tile · 14px semibold name · at most one pill beside it
+  — "Tự học", a version, "Cần thiết lập" · the `md` switch), a two-line
+  `StoreCardDescription`, an optional `StoreCardTags` row, and a
+  `StoreCardFooter` whose left is the way into the detail ("Chi tiết" · "Xem
+  trước" · a boxed "Thiết lập" when the tool needs keys) and whose right is a
+  quiet `StoreCardMeta` figure plus the card's one verb ("Thử ngay" · "Thêm
+  kỹ năng này" · "Cài"). A switched-off card dims its title to the tertiary
+  ink. Everything else — the raw slug, the source, provider keys and models,
+  the function list, edit/share/archive for a learned skill — lives in the
+  card's detail `Dialog`, never on the tile. Skills installed from the store
+  appear only in Kho kỹ năng, where the same card carries their switch and
+  "Thử ngay"; the Công cụ tab offers only providers the person configures
+  themselves (subscription-only rows are not rendered).
 
 ## Feedback & empty/error/loading states
 

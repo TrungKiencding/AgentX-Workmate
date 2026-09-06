@@ -1,31 +1,52 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
+import type * as ReactRouterDom from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
-import type { SkillHubCatalogResponse, SkillHubResult } from '@/types/hermes'
+import { queryClient } from '@/lib/query-client'
+import type { SkillHubCatalogResponse, SkillHubResult, SkillInfo } from '@/types/hermes'
 
 const getSkillHubCatalog = vi.fn()
 const getSkillHubChanges = vi.fn()
+const getSkills = vi.fn()
 const tickSkillHub = vi.fn()
 const searchSkillsHub = vi.fn()
 const installSkillFromHub = vi.fn()
+const uninstallSkillFromHub = vi.fn()
+const setSkillEnabled = vi.fn()
 const getActionStatus = vi.fn()
+const requestComposerInsert = vi.fn()
 
 vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<typeof HermesApi>()),
   getActionStatus: (name: string) => getActionStatus(name),
   getSkillHubCatalog: (refresh?: boolean) => getSkillHubCatalog(refresh),
   getSkillHubChanges: () => getSkillHubChanges(),
+  getSkills: () => getSkills(),
   installSkillFromHub: (identifier: string) => installSkillFromHub(identifier),
   searchSkillsHub: (query: string, source: string) => searchSkillsHub(query, source),
-  tickSkillHub: () => tickSkillHub()
+  setSkillEnabled: (name: string, enabled: boolean) => setSkillEnabled(name, enabled),
+  tickSkillHub: () => tickSkillHub(),
+  uninstallSkillFromHub: (name: string) => uninstallSkillFromHub(name)
 }))
 
 vi.mock('@/store/notifications', () => ({
   notify: vi.fn(),
   notifyError: vi.fn()
+}))
+
+vi.mock('@/app/chat/composer/focus', () => ({
+  requestComposerInsert: (text: string, options: unknown) => requestComposerInsert(text, options)
+}))
+
+const navigateSpy = vi.fn()
+
+vi.mock('react-router', async importOriginal => ({
+  ...(await importOriginal<typeof ReactRouterDom>()),
+  useNavigate: () => navigateSpy
 }))
 
 function skill(overrides: Partial<SkillHubResult> = {}): SkillHubResult {
@@ -38,6 +59,18 @@ function skill(overrides: Partial<SkillHubResult> = {}): SkillHubResult {
     repo: null,
     tags: ['report'],
     extra: { downloads: 12, kind: 'core', version: '1.1.0', visibility: 'public' },
+    ...overrides
+  }
+}
+
+function localSkill(overrides: Partial<SkillInfo> = {}): SkillInfo {
+  return {
+    name: 'vneb-report',
+    description: 'Weekly report for VNEB.',
+    category: 'productivity',
+    enabled: true,
+    usage: 0,
+    provenance: 'hub',
     ...overrides
   }
 }
@@ -64,23 +97,38 @@ function catalog(overrides: Partial<SkillHubCatalogResponse> = {}): SkillHubCata
   }
 }
 
+// The catalogue's `installed` map for the first skill, as the backend writes it.
+const INSTALLED_REPORT = {
+  'agentx-hub/vneb-report': { name: 'vneb-report', trust_level: 'agentx-hub-verified', scan_verdict: 'safe' }
+}
+
 async function renderHub(query = '') {
   const { SkillsHub } = await import('./hub')
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   let result: ReturnType<typeof render>
   await act(async () => {
     result = render(
-      <QueryClientProvider client={client}>
-        <SkillsHub query={query} />
+      // The app's own QueryClient: the store's switch writes the skills list
+      // through the shared optimistic cache (`skills-data.ts`), so the test
+      // must read from the same client to see the card repaint.
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <SkillsHub query={query} />
+        </MemoryRouter>
       </QueryClientProvider>
     )
   })
 
-  return { client, result: result! }
+  return result!
 }
 
 beforeEach(() => {
+  // Radix menus call these on open; jsdom implements neither.
+  Element.prototype.scrollIntoView = vi.fn()
+  Element.prototype.hasPointerCapture = vi.fn(() => false)
+  Element.prototype.releasePointerCapture = vi.fn()
+
   getSkillHubCatalog.mockResolvedValue(catalog())
+  getSkills.mockResolvedValue([])
   // Nothing pushed to this machine: the desired-state panel must stay away.
   getSkillHubChanges.mockResolvedValue({
     enabled: true,
@@ -97,12 +145,16 @@ beforeEach(() => {
   tickSkillHub.mockResolvedValue({ status: 'signed_out', detail: '' })
   searchSkillsHub.mockResolvedValue({ results: [], source_counts: {}, timed_out: [], installed: {} })
   installSkillFromHub.mockResolvedValue({ ok: true, pid: 1, name: 'skills-install-vneb-report' })
+  uninstallSkillFromHub.mockResolvedValue({ ok: true, pid: 2, name: 'skills-uninstall-vneb-report' })
+  setSkillEnabled.mockResolvedValue({ ok: true, name: 'vneb-report', enabled: false })
   getActionStatus.mockResolvedValue({ name: 'skills-install-vneb-report', running: false, exit_code: 0, lines: [] })
 })
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  // Shared singleton client — drop the cached catalogue/skills between tests.
+  queryClient.clear()
 })
 
 describe('SkillsHub — the skill store', () => {
@@ -125,24 +177,68 @@ describe('SkillsHub — the skill store', () => {
     expect(cards[1].textContent).toContain('Browser')
     // The store front: the hub, its state, what it holds, when it synced.
     const bar = screen.getByTestId('hub-catalog-bar').textContent ?? ''
-    expect(bar).toContain('AgentX utility store')
+    expect(bar).toContain('AgentX skill store')
     expect(bar).toContain('skills.dev-server.cloud')
-    expect(bar).toContain('2 utilities from the Hub')
+    expect(bar).toContain('2 skills from the Hub')
     expect(screen.getByTestId('hub-store-state').textContent).toBe('Connected')
   })
 
-  it('a card is metadata until Install is pressed', async () => {
+  it('a card is metadata until "Add this skill" is pressed', async () => {
     await renderHub()
     const cards = await screen.findAllByTestId('hub-card')
 
     expect(installSkillFromHub).not.toHaveBeenCalled()
+    // Nothing to switch or try before the skill is on this machine.
+    expect(screen.queryByTestId('hub-card-switch')).toBeNull()
+    expect(screen.queryByTestId('hub-card-try-now')).toBeNull()
 
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: 'Install' })[0])
+      fireEvent.click(screen.getAllByRole('button', { name: 'Add this skill' })[0])
     })
 
     await waitFor(() => expect(installSkillFromHub).toHaveBeenCalledWith('agentx-hub/vneb-report'))
     expect(cards).toHaveLength(2)
+  })
+
+  it('an added skill is managed from its card: switch, "Try now", and "Remove this skill"', async () => {
+    getSkillHubCatalog.mockResolvedValue(catalog({ installed: INSTALLED_REPORT }))
+    getSkills.mockResolvedValue([localSkill()])
+
+    await renderHub()
+
+    const card = (await screen.findAllByTestId('hub-card'))[0]
+    expect(within(card).getByTestId('hub-card-installed').textContent).toBe('Added')
+    expect(within(card).queryByRole('button', { name: 'Add this skill' })).toBeNull()
+
+    // "Try now" is the same gesture as on a skill you already had.
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('hub-card-try-now'))
+    })
+
+    expect(navigateSpy).toHaveBeenCalledWith('/')
+    expect(requestComposerInsert).toHaveBeenCalledWith('/vneb-report ', { mode: 'inline', target: 'main' })
+
+    // The switch flips the backend's own row for the installed copy…
+    const sw = within(card).getByRole('switch', { name: 'Turn vneb-report off' })
+    expect(sw.getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => {
+      fireEvent.click(sw)
+    })
+
+    await waitFor(() => expect(setSkillEnabled).toHaveBeenCalledWith('vneb-report', false))
+    // …and a switched-off skill has nothing to try.
+    await waitFor(() => expect(within(card).queryByTestId('hub-card-try-now')).toBeNull())
+
+    // Removal lives behind the card's ⋯ menu, named in full.
+    const trigger = within(card).getByRole('button', { name: 'Actions' })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove this skill' }))
+    })
+
+    await waitFor(() => expect(uninstallSkillFromHub).toHaveBeenCalledWith('vneb-report'))
   })
 
   it('"Sync now" forces a fresh sync instead of the cache', async () => {

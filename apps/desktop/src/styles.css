@@ -642,7 +642,7 @@
        library's file rows at 52px so a 24px type icon plus two lines still
        breathe. Both sit above the sidebar's 36px conversation rows on purpose:
        these rows carry a switch or a hover action, not just a title. */
-    --cap-row-height: 3rem; /* 48px — Tiện ích list rows */
+    --cap-row-height: 3rem; /* 48px — Tiện ích connection rows (the skill/tool tabs are StoreCard grids) */
     --artifact-row-height: 3.25rem; /* 52px — Artifact file/link rows */
 
     /* Corner-radius voice — controls 8px · cards/widgets 12px · overlays 14px

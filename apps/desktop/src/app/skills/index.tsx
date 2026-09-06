@@ -2,81 +2,64 @@ import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
 
 import { ArchiveSkillConfirmDialog } from '@/app/learning/archive-skill-confirm-dialog'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import { DisclosureRow } from '@/components/ui/disclosure-row'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { CountSkeleton } from '@/components/ui/skeleton'
-import { StatusPill } from '@/components/ui/status-pill'
-import { TagChip } from '@/components/ui/tag-chip'
-import {
-  editLearningNode,
-  getLearningNode,
-  getSkills,
-  getToolsets,
-  getUsageAnalytics,
-  setSkillEnabled,
-  setToolsetEnabled
-} from '@/hermes'
+import { StoreCardGrid } from '@/components/ui/store-card'
+import { editLearningNode, getLearningNode, getUsageAnalytics, setSkillEnabled, setToolsetEnabled } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { isDesktopToolsetVisible } from '@/lib/desktop-toolsets'
-import { compactNumber } from '@/lib/format'
-import { queryClient, writeCache } from '@/lib/query-client'
-import { skillCategoryIcon, skillCategoryKey, skillDisplayName } from '@/lib/skill-categories'
+import { queryClient } from '@/lib/query-client'
+import { skillCategoryKey, skillDisplayName } from '@/lib/skill-categories'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
-import { normalize } from '@/lib/text'
+import { asText, normalize } from '@/lib/text'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { $gateway } from '@/store/gateway'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import type { SkillInfo, ToolsetInfo } from '@/types/hermes'
 
-import { requestComposerInsert } from '../chat/composer/focus'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
-import {
-  CapRow,
-  DetailColumn,
-  DetailPane,
-  ListColumn,
-  ListStrip,
-  ListStripMenu,
-  type ListStripMenuToggle,
-  MasterDetail,
-  ToolChip
-} from '../master-detail'
+import { DetailPane, ListStrip, ListStripMenu, type ListStripMenuToggle } from '../master-detail'
 import { PanelEmpty } from '../overlays/panel'
 import { PageSearchShell } from '../page-search-shell'
-import { NEW_CHAT_ROUTE, SETTINGS_ROUTE } from '../routes'
-import { ComputerUsePanel } from '../settings/computer-use-panel'
-import { asText, includesQuery, prettyName, toolNames, toolsetDisplayLabel } from '../settings/helpers'
-import { TerminalBackendPanel } from '../settings/terminal-backend-panel'
-import { ToolsetConfigPanel } from '../settings/toolset-config-panel'
+import { includesQuery, toolNames, toolsetDisplayLabel } from '../settings/helpers'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { SkillsHub } from './hub'
 import { McpTab } from './mcp-tab'
 import { type PublishMode, PublishSkillDialog } from './publish-dialog'
+import { SkillCard } from './skill-card'
+import { SkillDetailDialog } from './skill-detail-dialog'
+import {
+  categoryFor,
+  categoryLabel,
+  isHubSkill,
+  setSkills,
+  setToolsets,
+  SKILLS_QUERY_KEY,
+  skillsQueryOptions,
+  toggleSkillEnabled,
+  toggleToolsetEnabled,
+  toolsetCalls,
+  toolsetCopy,
+  TOOLSETS_QUERY_KEY,
+  toolsetsQueryOptions,
+  usageOf
+} from './skills-data'
 import { $skillsSortDesc, $toolsetsSortDesc } from './store'
+import { ToolsetCard } from './toolset-card'
+import { ToolsetDetailDialog } from './toolset-detail-dialog'
+import { useTrySkill } from './use-try-skill'
 
-const SKILLS_MODES = ['skills', 'toolsets', 'mcp', 'hub'] as const
-
-// Skills + toolsets live in the RQ cache so switching tabs/pages paints the
-// cached lists instantly (no reload flash) and mount only fires a deduped
-// background refetch. A profile swap globally invalidates (see store/profile),
-// so these plain keys refetch against the new backend automatically.
-const SKILLS_QUERY_KEY = ['skills-list'] as const
-const TOOLSETS_QUERY_KEY = ['toolsets-list'] as const
-
-// Optimistic write-through: toggles/bulk/archive repaint instantly; the next
-// background refetch reconciles with the backend.
-const setSkills = writeCache<SkillInfo[]>(SKILLS_QUERY_KEY)
-const setToolsets = writeCache<ToolsetInfo[]>(TOOLSETS_QUERY_KEY)
+// Display order: the skills you have, the store that adds more, the tools, and
+// the technical connections last. The ids are the `?tab=` deep links and stay.
+const SKILLS_MODES = ['skills', 'hub', 'toolsets', 'mcp'] as const
 
 // Per-tool call counts come from a 365-day message scan — heavy, and purely
 // cosmetic (Toolsets usage badges). Cache the result module-wide with a TTL so
@@ -110,38 +93,6 @@ async function loadToolCalls(force = false): Promise<Record<string, number>> {
 // Highlight the active order inside the sort menu.
 const cnActive = (active: boolean) => (active ? 'font-medium text-foreground' : undefined)
 
-const usageOf = (skill: SkillInfo): number => (typeof skill.usage === 'number' ? skill.usage : 0)
-
-const categoryFor = (skill: SkillInfo): string => asText(skill.category) || 'general'
-
-// Localized group label: the hand-written table first, a prettied slug for a
-// category the table doesn't know.
-function categoryLabel(raw: string, t: Translations): string {
-  return t.skills.category[skillCategoryKey(raw)] ?? prettyName(raw)
-}
-
-// Learned/hub origins earn a quiet pill beside the title; bundled is the
-// resting state and stays unmarked.
-function provenancePill(skill: SkillInfo, t: Translations): React.ReactNode {
-  if (skill.provenance !== 'agent' && skill.provenance !== 'hub') {
-    return null
-  }
-
-  return <StatusPill tone="muted">{t.skills.provenance[skill.provenance]}</StatusPill>
-}
-
-// The hand-written Vietnamese-first copy layer for a toolset: a job-focused
-// label and description keyed by the toolset's internal name; the backend's
-// English label/description stay the fallback for one we haven't written.
-function toolsetCopy(toolset: ToolsetInfo, t: Translations): { description: string; label: string } {
-  const copy = t.skills.toolsets[toolset.name]
-
-  return {
-    label: copy?.label || toolsetDisplayLabel(toolset),
-    description: copy?.description || asText(toolset.description)
-  }
-}
-
 function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Translations): SkillInfo[] {
   const q = normalize(query)
   const sign = desc ? 1 : -1
@@ -158,9 +109,6 @@ function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Tr
     )
     .sort((a, b) => sign * (usageOf(b) - usageOf(a)) || asText(a.name).localeCompare(asText(b.name)))
 }
-
-const toolsetCalls = (toolset: ToolsetInfo, toolCalls: Record<string, number>): number =>
-  toolNames(toolset).reduce((sum, name) => sum + (toolCalls[name] ?? 0), 0)
 
 function filteredToolsets(
   toolsets: ToolsetInfo[],
@@ -200,8 +148,6 @@ function filteredToolsets(
     )
 }
 
-const visibleToolsetCount = (toolsets: ToolsetInfo[]) => toolsets.filter(ts => isDesktopToolsetVisible(ts.name)).length
-
 interface SkillsViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
 }
@@ -212,24 +158,17 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   // $gateway only feeds the MCP tab — gate the subscription so Skills/Toolsets/Hub
   // tabs don't re-render on connect/disconnect/reconnect.
   const gateway = useStoreSelector($gateway, g => (mode === 'mcp' ? g : null))
+  const trySkill = useTrySkill()
 
   const [query, setQuery] = useState('')
 
-  const {
-    data: skills,
-    isError: skillsFailed,
-    error: skillsError
-  } = useQuery({
-    queryKey: SKILLS_QUERY_KEY,
-    queryFn: getSkills,
-    staleTime: 0
-  })
+  const { data: skills, isError: skillsFailed, error: skillsError } = useQuery(skillsQueryOptions)
+  const { data: toolsets, isError: toolsetsFailed } = useQuery(toolsetsQueryOptions)
 
-  const { data: toolsets, isError: toolsetsFailed } = useQuery({
-    queryKey: TOOLSETS_QUERY_KEY,
-    queryFn: getToolsets,
-    staleTime: 0
-  })
+  // "Kỹ năng sẵn có" is what came with AgentX or what it learned here; a skill
+  // installed from the store belongs to the store tab, where its card carries
+  // the switch — listing it twice would make one skill look like two.
+  const ownSkills = useMemo(() => (skills ?? []).filter(skill => !isHubSkill(skill)), [skills])
 
   // tool name -> call count over the analytics window. null = still loading
   // (badges show skeletons); {} = loaded empty / unavailable backend.
@@ -240,8 +179,11 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   const skillsSortDesc = useStore($skillsSortDesc)
   const toolsetsSortDesc = useStore($toolsetsSortDesc)
   const [bulkBusy, setBulkBusy] = useState(false)
-  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
-  const [selectedToolset, setSelectedToolset] = useState<string | null>(null)
+  // The open detail dialogs, by name — the live row is looked up on every
+  // render so a toggle made inside the dialog repaints it too.
+  const [detailSkillName, setDetailSkillName] = useState<string | null>(null)
+  const [detailToolsetName, setDetailToolsetName] = useState<string | null>(null)
+  const [publish, setPublish] = useState<null | { mode: PublishMode; skill: SkillInfo }>(null)
 
   const refreshCapabilities = useCallback(async () => {
     await Promise.all([
@@ -297,14 +239,18 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   // toolCalls state isn't — leaving it non-null would keep the lazy effect from
   // ever re-running, so badges/sort would show the previous profile's counts.
   // Reset to null so the next Toolsets view reloads for the active profile.
+  // The open dialogs describe profile A's rows, so they close too.
   useOnProfileSwitch(() => {
     toolCallsEpoch.current += 1
     setToolCalls(null)
+    setDetailSkillName(null)
+    setDetailToolsetName(null)
+    setPublish(null)
   })
 
   const visibleSkills = useMemo(
-    () => (skills ? filteredSkills(skills, query, skillsSortDesc, t) : []),
-    [query, skills, skillsSortDesc, t]
+    () => filteredSkills(ownSkills, query, skillsSortDesc, t),
+    [ownSkills, query, skillsSortDesc, t]
   )
 
   const visibleToolsets = useMemo(
@@ -312,8 +258,8 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     [query, t, toolCalls, toolsets, toolsetsSortDesc]
   )
 
-  // Browsing (no search) groups skills by category so 84 rows read as a dozen
-  // named shelves; a search flattens back to one relevance list. Groups order
+  // Browsing (no search) groups skills by category so 80 cards read as a dozen
+  // named shelves; a search flattens back to one relevance grid. Groups order
   // by how much the person actually uses them, so the busiest shelf leads.
   const groupedSkills = useMemo(() => {
     if (query.trim()) {
@@ -338,16 +284,16 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   // Bulk actions ("All" master switch, "Disable unused") and the master-switch
   // state target the WHOLE tab, never the search-filtered view — a tab-wide
   // control that silently scoped to the current query would be a lie.
-  const bulkSkills = skills ?? []
+  const bulkSkills = ownSkills
   const bulkToolsets = useMemo(() => (toolsets ?? []).filter(ts => isDesktopToolsetVisible(ts.name)), [toolsets])
 
   // Rotating placeholder nudges from the user's own data — teach that search
   // understands categories and tool names, not just titles.
   const searchHints = useMemo(() => {
-    if (mode === 'skills' && skills?.length) {
+    if (mode === 'skills' && ownSkills.length) {
       const counts = new Map<string, number>()
 
-      for (const skill of skills) {
+      for (const skill of ownSkills) {
         const key = categoryFor(skill)
         counts.set(key, (counts.get(key) || 0) + 1)
       }
@@ -366,56 +312,23 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     }
 
     return undefined
-  }, [mode, skills, toolsets, t])
+  }, [mode, ownSkills, toolsets, t])
 
-  // Keep a valid selection: fall back to the first visible row when the
-  // current selection is filtered out (or nothing is selected yet).
-  const activeSkill = useMemo(
-    () => visibleSkills.find(s => s.name === selectedSkill) ?? visibleSkills[0] ?? null,
-    [selectedSkill, visibleSkills]
+  const detailSkill = useMemo(
+    () => (detailSkillName ? (ownSkills.find(skill => skill.name === detailSkillName) ?? null) : null),
+    [detailSkillName, ownSkills]
   )
 
-  const activeToolset = useMemo(
-    () => visibleToolsets.find(ts => ts.name === selectedToolset) ?? visibleToolsets[0] ?? null,
-    [selectedToolset, visibleToolsets]
+  const detailToolset = useMemo(
+    () => (detailToolsetName ? (bulkToolsets.find(ts => ts.name === detailToolsetName) ?? null) : null),
+    [bulkToolsets, detailToolsetName]
   )
 
-  // Single toggles are optimistic and silent on success (the row repaints
-  // immediately — a toast per flip would spam rapid customization). Errors
-  // revert and notify.
-  async function handleToggleSkill(skill: SkillInfo, enabled: boolean) {
-    setSkills(current => current?.map(row => (row.name === skill.name ? { ...row, enabled } : row)) ?? current)
+  const handleToggleSkill = (skill: SkillInfo, enabled: boolean) =>
+    toggleSkillEnabled(skill, enabled, t.skills.failedToUpdate(skillDisplayName(skill.name)))
 
-    try {
-      await setSkillEnabled(skill.name, enabled)
-      // A disabled skill loses its `/name` command, so the composer's cached
-      // `/` list has to be dropped along with the row repaint.
-      invalidateSlashCompletions()
-    } catch (err) {
-      setSkills(
-        current => current?.map(row => (row.name === skill.name ? { ...row, enabled: !enabled } : row)) ?? current
-      )
-      notifyError(err, t.skills.failedToUpdate(skill.name))
-    }
-  }
-
-  async function handleToggleToolset(toolset: ToolsetInfo, enabled: boolean) {
-    setToolsets(
-      current =>
-        current?.map(row => (row.name === toolset.name ? { ...row, enabled, available: enabled } : row)) ?? current
-    )
-
-    try {
-      await setToolsetEnabled(toolset.name, enabled)
-    } catch (err) {
-      setToolsets(
-        current =>
-          current?.map(row => (row.name === toolset.name ? { ...row, enabled: !enabled, available: !enabled } : row)) ??
-          current
-      )
-      notifyError(err, t.skills.failedToUpdate(toolsetDisplayLabel(toolset)))
-    }
-  }
+  const handleToggleToolset = (toolset: ToolsetInfo, enabled: boolean) =>
+    toggleToolsetEnabled(toolset, enabled, t.skills.failedToUpdate(toolsetCopy(toolset, t).label))
 
   // Sequential on purpose: each toggle is a config read-modify-write on the
   // backend; parallel calls would race the disabled-list save.
@@ -483,8 +396,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   const allSkillsEnabled = bulkSkills.length > 0 && bulkSkills.every(s => s.enabled)
   const allToolsetsEnabled = bulkToolsets.length > 0 && bulkToolsets.every(ts => ts.enabled)
 
-  // "Sắp xếp" — a real 28px control opening the two orders, instead of the old
-  // bare 11px arrow-text toggle.
+  // "Sắp xếp" — a real 28px control opening the two orders.
   const sortButton = (desc: boolean, set: (next: boolean) => void) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -503,9 +415,26 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     </DropdownMenu>
   )
 
-  // Full-bleed empty state, matching the connections tab (spans both columns,
-  // not a cramped note in the left rail). Query-aware; three beats and one
-  // action that resolves it.
+  // The one-line strip above a card grid: sort on the left; on the right the
+  // note that switches apply to new chats, then the tab-wide ⋯ menu.
+  const gridStrip = (left: React.ReactNode, menu: React.ReactNode) => (
+    <div className="shrink-0 px-4 pt-3">
+      <ListStrip
+        left={left}
+        right={
+          <>
+            <span className="hidden text-xs text-(--ui-text-tertiary) sm:inline">
+              {t.skills.changesApplyNewSessions}
+            </span>
+            {menu}
+          </>
+        }
+      />
+    </div>
+  )
+
+  // Full-bleed empty state, matching the connections tab. Query-aware; three
+  // beats and one action that resolves it.
   const capabilityEmpty = (noun: string) => {
     const q = query.trim()
 
@@ -614,6 +543,77 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     </DetailPane>
   )
 
+  // Both dialogs hand off to another surface (the editor pane, the archive
+  // confirm, the publish dialog, a new chat): close first so two modal layers
+  // never stack.
+  const tryNow = (skill: SkillInfo) => {
+    setDetailSkillName(null)
+    trySkill(skill.name)
+  }
+
+  const skillsGrid = (
+    <div className="flex h-full min-h-0 flex-col">
+      {gridStrip(
+        sortButton(skillsSortDesc, next => $skillsSortDesc.set(next)),
+        <ListStripMenu
+          items={[{ disabled: bulkBusy, label: t.skills.disableUnused, onSelect: () => void disableUnused() }]}
+          label={t.skills.tabSkills}
+          toggle={bulkSwitch(allSkillsEnabled)}
+        />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
+        <div className="grid gap-5">
+          {(groupedSkills ?? [{ key: 'all', label: '', rows: visibleSkills, usage: 0 }]).map(group => (
+            <section key={group.key}>
+              {group.label && (
+                <div className="mb-2 flex items-baseline gap-1.5 px-0.5">
+                  <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{group.label}</h3>
+                  <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{group.rows.length}</span>
+                </div>
+              )}
+              <StoreCardGrid>
+                {group.rows.map(skill => (
+                  <SkillCard
+                    busy={bulkBusy}
+                    key={skill.name}
+                    onDetails={() => setDetailSkillName(skill.name)}
+                    onToggle={enabled => void handleToggleSkill(skill, enabled)}
+                    onTryNow={() => tryNow(skill)}
+                    skill={skill}
+                  />
+                ))}
+              </StoreCardGrid>
+            </section>
+          ))}
+        </div>
+      </div>
+      {skillEditorPane}
+    </div>
+  )
+
+  const toolsetsGrid = (
+    <div className="flex h-full min-h-0 flex-col">
+      {gridStrip(
+        sortButton(toolsetsSortDesc, next => $toolsetsSortDesc.set(next)),
+        <ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled)} />
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
+        <StoreCardGrid>
+          {visibleToolsets.map(toolset => (
+            <ToolsetCard
+              busy={bulkBusy}
+              calls={toolCalls ? toolsetCalls(toolset, toolCalls) : null}
+              key={toolset.name}
+              onOpen={() => setDetailToolsetName(toolset.name)}
+              onToggle={enabled => void handleToggleToolset(toolset, enabled)}
+              toolset={toolset}
+            />
+          ))}
+        </StoreCardGrid>
+      </div>
+    </div>
+  )
+
   return (
     <PageSearchShell
       {...props}
@@ -633,13 +633,15 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
             : t.skills.searchToolsets
       }
       searchValue={query}
-      // Display order only — ids keep the ?tab= deep links stable.
-      tabs={[
-        { id: 'skills', label: t.skills.tabSkills, meta: skills?.length ?? null },
-        { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null },
-        { id: 'hub', label: t.skills.tabHub },
-        { id: 'mcp', label: t.skills.tabMcp }
-      ]}
+      tabs={SKILLS_MODES.map(id =>
+        id === 'skills'
+          ? { id, label: t.skills.tabSkills, meta: skills ? ownSkills.length : null }
+          : id === 'hub'
+            ? { id, label: t.skills.tabHub }
+            : id === 'toolsets'
+              ? { id, label: t.skills.tabToolsets, meta: toolsets ? bulkToolsets.length : null }
+              : { id, label: t.skills.tabMcp }
+      )}
       title={t.skills.pageTitle}
     >
       {mode === 'hub' ? (
@@ -663,107 +665,48 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
         visibleSkills.length === 0 ? (
           capabilityEmpty(t.skills.nounSkills)
         ) : (
-          <MasterDetail pane={skillEditorPane} split="wide">
-            <ListColumn
-              header={
-                <ListStrip
-                  left={sortButton(skillsSortDesc, next => $skillsSortDesc.set(next))}
-                  right={
-                    <ListStripMenu
-                      items={[
-                        { disabled: bulkBusy, label: t.skills.disableUnused, onSelect: () => void disableUnused() }
-                      ]}
-                      label={t.skills.tabSkills}
-                      toggle={bulkSwitch(allSkillsEnabled)}
-                    />
-                  }
-                />
-              }
-            >
-              {(groupedSkills ?? [{ key: 'all', label: '', rows: visibleSkills, usage: 0 }]).map(group => (
-                <div key={group.key}>
-                  {group.label && (
-                    <div className="flex items-baseline gap-1.5 px-2.5 pb-1 pt-3 first:pt-1">
-                      <span className="text-sm font-semibold text-(--ui-text-tertiary)">{group.label}</span>
-                      <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{group.rows.length}</span>
-                    </div>
-                  )}
-                  {group.rows.map(skill => (
-                    <CapRow
-                      active={activeSkill?.name === skill.name}
-                      busy={bulkBusy}
-                      enabled={skill.enabled}
-                      icon={<SkillCategoryGlyph category={categoryFor(skill)} />}
-                      key={skill.name}
-                      meta={usageOf(skill) > 0 ? t.skills.usageCount(compactNumber(usageOf(skill))) : undefined}
-                      onSelect={() => setSelectedSkill(skill.name)}
-                      onToggle={enabled => void handleToggleSkill(skill, enabled)}
-                      pill={provenancePill(skill, t)}
-                      subtitle={asText(skill.description) || categoryLabel(categoryFor(skill), t)}
-                      title={skillDisplayName(skill.name)}
-                      toggleLabel={skill.name}
-                    />
-                  ))}
-                </div>
-              ))}
-            </ListColumn>
-            <DetailColumn footer={t.skills.changesApplyNewSessions}>
-              {activeSkill && (
-                <SkillDetail
-                  onArchive={() => setArchiveTarget(activeSkill.name)}
-                  onEdit={() => void openSkillEditor(activeSkill.name)}
-                  skill={activeSkill}
-                />
-              )}
-            </DetailColumn>
-          </MasterDetail>
+          skillsGrid
         )
       ) : visibleToolsets.length === 0 ? (
         capabilityEmpty(t.skills.nounTools)
       ) : (
-        <MasterDetail split="wide">
-          <ListColumn
-            header={
-              <ListStrip
-                left={sortButton(toolsetsSortDesc, next => $toolsetsSortDesc.set(next))}
-                right={<ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled)} />}
-              />
-            }
-          >
-            {visibleToolsets.map(toolset => {
-              const copy = toolsetCopy(toolset, t)
-              const calls = toolCalls ? toolsetCalls(toolset, toolCalls) : null
-
-              return (
-                <CapRow
-                  active={activeToolset?.name === toolset.name}
-                  busy={bulkBusy}
-                  enabled={toolset.enabled}
-                  key={toolset.name}
-                  meta={
-                    calls === null ? (
-                      <CountSkeleton />
-                    ) : calls > 0 ? (
-                      t.skills.usageCount(compactNumber(calls))
-                    ) : (
-                      t.skills.toolsetFunctions(toolNames(toolset).length)
-                    )
-                  }
-                  onSelect={() => setSelectedToolset(toolset.name)}
-                  onToggle={checked => void handleToggleToolset(toolset, checked)}
-                  subtitle={copy.description}
-                  title={copy.label}
-                  toggleLabel={t.skills.toggleToolset(copy.label, !toolset.enabled)}
-                />
-              )
-            })}
-          </ListColumn>
-          <DetailColumn footer={t.skills.changesApplyNewSessions}>
-            {activeToolset && (
-              <ToolsetDetail onConfiguredChange={refreshToolsets} toolCalls={toolCalls ?? {}} toolset={activeToolset} />
-            )}
-          </DetailColumn>
-        </MasterDetail>
+        toolsetsGrid
+      )}
+      <SkillDetailDialog
+        busy={bulkBusy}
+        onArchive={skill => {
+          setDetailSkillName(null)
+          setArchiveTarget(skill.name)
+        }}
+        onClose={() => setDetailSkillName(null)}
+        onEdit={skill => {
+          setDetailSkillName(null)
+          void openSkillEditor(skill.name)
+        }}
+        onPublish={(skill, publishMode) => {
+          setDetailSkillName(null)
+          setPublish({ mode: publishMode, skill })
+        }}
+        onToggle={(skill, enabled) => void handleToggleSkill(skill, enabled)}
+        onTryNow={tryNow}
+        skill={detailSkill}
+      />
+      <ToolsetDetailDialog
+        busy={bulkBusy}
+        onClose={() => setDetailToolsetName(null)}
+        onConfiguredChange={refreshToolsets}
+        onToggle={(toolset, enabled) => void handleToggleToolset(toolset, enabled)}
+        toolCalls={toolCalls ?? {}}
+        toolset={detailToolset}
+      />
+      {publish && (
+        <PublishSkillDialog
+          key={`${publish.skill.name}-${publish.mode}`}
+          mode={publish.mode}
+          onClose={() => setPublish(null)}
+          open
+          skill={publish.skill}
+        />
       )}
       {archiveTarget && (
         <ArchiveSkillConfirmDialog
@@ -788,220 +731,5 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
         />
       )}
     </PageSearchShell>
-  )
-}
-
-// The skill's category glyph, sized by CapRow's icon slot.
-function SkillCategoryGlyph({ category }: { category: string }) {
-  const Icon = skillCategoryIcon(category)
-
-  return <Icon />
-}
-
-// Shared inspector header — mirrors Messaging's PlatformDetail so Skills and
-// Tools share one title/description block and tab switches don't jump. A
-// detail names itself at 18px over 14px reading copy.
-function DetailHeader({
-  description,
-  pills,
-  title
-}: {
-  description: React.ReactNode
-  pills?: React.ReactNode
-  title: string
-}) {
-  return (
-    <header>
-      <div className="flex min-h-6 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 truncate text-lg font-semibold tracking-tight">{title}</h3>
-        {pills}
-      </div>
-      <p className="mt-1 max-w-prose text-base text-(--ui-text-tertiary)">{description}</p>
-    </header>
-  )
-}
-
-// The folded technical tail every detail carries: raw ids, provenance, mono
-// chips — everything a curious admin needs and nobody else has to read.
-function TechnicalDetails({ children }: { children: React.ReactNode }) {
-  const { t } = useI18n()
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div>
-      <DisclosureRow onToggle={() => setOpen(value => !value)} open={open}>
-        {t.skills.technicalDetails}
-      </DisclosureRow>
-      {open && <div className="mt-1.5 grid gap-2 pl-5">{children}</div>}
-    </div>
-  )
-}
-
-function TechnicalDetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-      <span className="text-(--ui-text-tertiary)">{label}</span>
-      <span className="min-w-0 text-foreground/85">{value}</span>
-    </div>
-  )
-}
-
-function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEdit: () => void; skill: SkillInfo }) {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  // Only learned/local skills are the user's to rewrite or archive — bundled
-  // and hub skills are managed by their sources. They are also the ones the
-  // person may upload to the AgentX Skill Hub or share with a workspace.
-  const editable = skill.provenance === 'agent'
-  const [publish, setPublish] = useState<null | PublishMode>(null)
-
-  // "Thử ngay": land on a fresh chat and pre-type the skill's slash command.
-  // Both are existing actions — navigation to the new-chat route, then the
-  // composer-insert bus (its dispatch defers a macrotask, so the main composer
-  // is mounted by the time the event fires).
-  const tryNow = () => {
-    navigate(NEW_CHAT_ROUTE)
-    requestComposerInsert(`/${skill.name} `, { mode: 'inline', target: 'main' })
-  }
-
-  return (
-    <>
-      <DetailHeader
-        description={asText(skill.description) || t.skills.noDescription}
-        pills={
-          <>
-            <TagChip>{categoryLabel(categoryFor(skill), t)}</TagChip>
-            {skill.provenance && skill.provenance !== 'bundled' && (
-              <StatusPill tone={skill.provenance === 'agent' ? 'good' : 'muted'}>
-                {t.skills.provenance[skill.provenance]}
-              </StatusPill>
-            )}
-          </>
-        }
-        title={skillDisplayName(skill.name)}
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        {skill.enabled && (
-          <Button data-testid="skill-try-now" onClick={tryNow}>
-            {t.skills.tryNow}
-          </Button>
-        )}
-        {editable && (
-          <>
-            <Button onClick={onEdit} size="sm" variant="secondary">
-              {t.skills.edit}
-            </Button>
-            <Button data-testid="skill-upload-hub" onClick={() => setPublish('upload')} size="sm" variant="secondary">
-              {t.skills.publish.upload}
-            </Button>
-            <Button
-              data-testid="skill-propose-workspace"
-              onClick={() => setPublish('propose')}
-              size="sm"
-              variant="outline"
-            >
-              {t.skills.publish.propose}
-            </Button>
-            <Button className="text-destructive hover:text-destructive" onClick={onArchive} size="sm" variant="outline">
-              {t.skills.archive}
-            </Button>
-          </>
-        )}
-      </div>
-      <TechnicalDetails>
-        <TechnicalDetailRow label={t.skills.originalName} value={<span className="font-mono">{skill.name}</span>} />
-        <TechnicalDetailRow
-          label={t.skills.sourceLabel}
-          value={skill.provenance ? t.skills.provenance[skill.provenance] : t.skills.provenance.bundled}
-        />
-      </TechnicalDetails>
-      {publish && (
-        <PublishSkillDialog
-          key={`${skill.name}-${publish}`}
-          mode={publish}
-          onClose={() => setPublish(null)}
-          open
-          skill={skill}
-        />
-      )}
-    </>
-  )
-}
-
-function ToolsetDetail({
-  toolset,
-  toolCalls,
-  onConfiguredChange
-}: {
-  toolset: ToolsetInfo
-  toolCalls: Record<string, number>
-  onConfiguredChange: () => void
-}) {
-  const { t } = useI18n()
-  const navigate = useNavigate()
-  const tools = toolNames(toolset)
-  const copy = toolsetCopy(toolset, t)
-  const configRef = useRef<HTMLDivElement | null>(null)
-
-  return (
-    <>
-      {/* "Configured" as a resting state is noise — only the warn state earns a pill. */}
-      <DetailHeader
-        description={copy.description || t.skills.noDescription}
-        pills={!toolset.configured && <StatusPill tone="warn">{t.skills.needsKeys}</StatusPill>}
-        title={copy.label}
-      />
-      {!toolset.configured && (
-        <div>
-          <Button
-            onClick={() => configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            size="sm"
-            variant="secondary"
-          >
-            {t.skills.setUp}
-          </Button>
-        </div>
-      )}
-      {toolset.name === 'vision' && (
-        // Vision has no provider matrix — model resolution runs through the
-        // auxiliary model config. Point at the actual home (Settings → Models,
-        // aux "vision" row) via an internal deep link instead of leaving the
-        // detail pane empty.
-        <div className="grid gap-1.5">
-          <p className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-            {t.skills.visionModelHint}
-          </p>
-          <div>
-            <Button
-              onClick={() => navigate(`${SETTINGS_ROUTE}?tab=config:model&aux=vision`)}
-              size="sm"
-              variant="textStrong"
-            >
-              {t.skills.visionModelLink}
-            </Button>
-          </div>
-        </div>
-      )}
-      {toolset.name === 'computer_use' && <ComputerUsePanel onConfiguredChange={onConfiguredChange} />}
-      {toolset.name === 'terminal' && <TerminalBackendPanel onConfiguredChange={onConfiguredChange} />}
-      <div ref={configRef}>
-        <ToolsetConfigPanel key={toolset.name} onConfiguredChange={onConfiguredChange} toolset={toolset.name} />
-      </div>
-      <TechnicalDetails>
-        <TechnicalDetailRow label={t.skills.originalName} value={<span className="font-mono">{toolset.name}</span>} />
-        {tools.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {tools.map(name => (
-              <ToolChip key={name}>
-                {name}
-                {(toolCalls[name] ?? 0) > 0 && (
-                  <span className="ml-1 text-(--ui-text-quaternary)">×{compactNumber(toolCalls[name])}</span>
-                )}
-              </ToolChip>
-            ))}
-          </div>
-        )}
-      </TechnicalDetails>
-    </>
   )
 }

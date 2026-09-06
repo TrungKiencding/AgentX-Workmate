@@ -23,6 +23,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { StatusPill } from '@/components/ui/status-pill'
+import {
+  StoreCard,
+  StoreCardDescription,
+  StoreCardFooter,
+  StoreCardGrid,
+  StoreCardHeader,
+  StoreCardTags
+} from '@/components/ui/store-card'
 import { Switch } from '@/components/ui/switch'
 import { TagChip } from '@/components/ui/tag-chip'
 import { TextTab } from '@/components/ui/text-tab'
@@ -1402,30 +1410,27 @@ function McpCatalog({
   }
 
   return (
-    // The store-card treatment the Cài thêm tab uses, so "install a curated
-    // connection" reads exactly like "install a skill".
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
+    // The same StoreCard the skill store uses, so "install a curated
+    // connection" reads exactly like "add a skill".
+    <StoreCardGrid>
       {entries.map(entry => {
         const draft = envDrafts[entry.name] ?? {}
 
         return (
-          <article
-            className="flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 shadow-xs transition-[background-color,border-color,box-shadow] duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--ui-bg-quaternary) hover:shadow-sm"
-            key={entry.name}
-          >
-            <div className="flex items-center gap-2.5">
-              <McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />
-              <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
-                {prettyName(entry.name)}
-              </span>
-            </div>
-            <p className="line-clamp-2 text-sm text-(--ui-text-tertiary)">{entry.description}</p>
-            <div className="flex flex-wrap items-center gap-1.5">
+          <StoreCard key={entry.name}>
+            <StoreCardHeader
+              glyph={
+                <McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />
+              }
+              title={prettyName(entry.name)}
+            />
+            <StoreCardDescription>{entry.description}</StoreCardDescription>
+            <StoreCardTags>
               <CatalogTag>{entry.transport}</CatalogTag>
               {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
               {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
               {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
-            </div>
+            </StoreCardTags>
             {envOpenFor === entry.name && entry.required_env.length > 0 && (
               <div className="grid gap-2">
                 {entry.required_env.map(env => (
@@ -1449,26 +1454,28 @@ function McpCatalog({
                 ))}
               </div>
             )}
-            <div className="mt-auto flex items-center justify-end pt-1">
-              {entry.installed ? (
-                <StatusPill size="md" tone="good">
-                  {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
-                </StatusPill>
-              ) : (
-                <Button
-                  disabled={installing !== null}
-                  loading={installing === entry.name}
-                  onClick={() => void install(entry)}
-                  size="sm"
-                >
-                  {m.catalogInstall}
-                </Button>
-              )}
-            </div>
-          </article>
+            <StoreCardFooter
+              end={
+                entry.installed ? (
+                  <StatusPill size="md" tone="good">
+                    {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
+                  </StatusPill>
+                ) : (
+                  <Button
+                    disabled={installing !== null}
+                    loading={installing === entry.name}
+                    onClick={() => void install(entry)}
+                    size="sm"
+                  >
+                    {m.catalogInstall}
+                  </Button>
+                )
+              }
+            />
+          </StoreCard>
         )
       })}
-    </div>
+    </StoreCardGrid>
   )
 }
 

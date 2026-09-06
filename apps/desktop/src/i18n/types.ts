@@ -956,13 +956,6 @@ export interface Translations {
       activeBackend: string
       activeBackendHint: string
       useBackend: string
-      nousIncluded: string
-      nousAuthNeededTitle: string
-      nousAuthNeededMessage: (provider: string) => string
-      nousAuthSignIn: string
-      nousAuthDoneTitle: string
-      nousAuthDoneMessage: string
-      nousAuthFailed: string
       noApiKeyRequired: string
       postSetupHint: (step: string) => string
       postSetupInstalledHint: string
@@ -1021,13 +1014,14 @@ export interface Translations {
     searchSkills: string
     searchToolsets: string
     refresh: string
-    refreshing: string
     loading: string
     nounSkills: string
     nounTools: string
     clearSearch: string
     sortLabel: string
     tryNow: string
+    /** The way into a card's detail dialog. */
+    details: string
     technicalDetails: string
     originalName: string
     sourceLabel: string
@@ -1037,35 +1031,24 @@ export interface Translations {
     /** Hand-written toolset copy, keyed by toolset name; backend text is the fallback. */
     toolsets: Record<string, { description: string; label: string }>
     toolsetFunctions: (count: number) => string
-    noSkillsTitle: string
-    noSkillsDesc: string
-    noToolsetsTitle: string
-    noToolsetsDesc: string
     noDescription: string
-    configured: string
     needsKeys: string
     visionModelHint: string
     visionModelLink: string
-    toolsetsEnabled: (enabled: number, total: number) => string
-    configureToolset: (label: string) => string
     toggleToolset: (label: string, enabled: boolean) => string
+    /** Accessible name of a skill card's switch: "Turn <name> on/off". */
+    toggleSkill: (name: string, enabled: boolean) => string
     skillsLoadFailed: string
-    toolsetsRefreshFailed: string
     skillEnabled: string
     skillDisabled: string
     toolsetEnabled: string
     toolsetDisabled: string
     appliesToNewSessions: (name: string) => string
     failedToUpdate: (name: string) => string
-    sortMostUsed: string
-    sortAlpha: string
     sortMostUsedDesc: string
     sortLeastUsedAsc: string
-    enableAll: string
-    disableAll: string
     disableUnused: string
     bulkUpdated: (count: number) => string
-    bulkNoChange: string
     usageCount: (count: number | string) => string
     provenance: Record<'agent' | 'bundled' | 'hub', string>
     emptyNoneFound: (noun: string) => string
@@ -1081,11 +1064,7 @@ export interface Translations {
       storeTitle: string
       actions: string
       searchPlaceholder: string
-      search: string
       searching: string
-      connectingHubs: string
-      featured: string
-      landingHint: string
       catalogCount: (count: number) => string
       catalogEmpty: string
       catalogEmptyDesc: string
@@ -1097,10 +1076,8 @@ export interface Translations {
       kind: Record<'core' | 'browser', string>
       noResults: string
       resultCount: (count: number, ms: number | null) => string
-      timedOut: (sources: string) => string
       installed: string
       install: string
-      installing: string
       uninstall: string
       uninstalling: string
       updateAll: string
@@ -1108,7 +1085,6 @@ export interface Translations {
       preview: string
       scan: string
       scanning: string
-      close: string
       files: string
       noReadme: string
       trust: Record<string, string>
@@ -1126,9 +1102,7 @@ export interface Translations {
       actionFailed: string
       actionLog: string
       loadFailed: string
-      previewFailed: string
       scanFailed: string
-      searchFailed: string
       fromHub: string
       hubStatus: Record<'connected' | 'reconnecting' | 'waiting' | 'off', string>
       signedOut: string

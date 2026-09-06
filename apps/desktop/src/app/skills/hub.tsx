@@ -19,6 +19,16 @@ import {
 } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
+import {
+  StoreCard,
+  StoreCardDescription,
+  StoreCardFooter,
+  StoreCardGrid,
+  StoreCardHeader,
+  StoreCardMeta,
+  StoreCardTags
+} from '@/components/ui/store-card'
+import { Switch } from '@/components/ui/switch'
 import { TagChip } from '@/components/ui/tag-chip'
 import {
   getSkillHubCatalog,
@@ -47,8 +57,11 @@ import {
   updateHubSkills
 } from '@/store/hub-actions'
 import { notify, notifyError } from '@/store/notifications'
+import type { SkillInfo } from '@/types/hermes'
 
 import { HUB_CHANGES_KEY, HubStatus } from './hub-status'
+import { skillsQueryOptions, toggleSkillEnabled } from './skills-data'
+import { useTrySkill } from './use-try-skill'
 
 // The only source the store reads. The backend defaults to the same one, so
 // this is belt and braces: a machine that has opted extra sources back in for
@@ -138,16 +151,26 @@ function haystack(skill: SkillHubResult): string {
 // One catalogue card — a self-contained tile that installs/uninstalls ITSELF
 // and reads its own action status from the store, so parallel installs never
 // desync. A card is metadata only: nothing reaches the skills tree until
-// Install runs. `rawInstalled` is the sources/catalog truth; the store's
-// optimistic override wins so the card flips the instant its action resolves.
+// "Thêm kỹ năng này" runs. `rawInstalled` is the sources/catalog truth; the
+// store's optimistic override wins so the card flips the instant its action
+// resolves. Once added, the card is also where the skill is managed —
+// installed hub skills are not listed under "Kỹ năng sẵn có" — so it grows
+// the same switch and "Thử ngay" a skill card has; `localSkill` is the
+// backend's row for it (enabled state), when the skills list has loaded.
 function HubSkillCard({
   installedName,
+  localSkill,
   onPreview,
+  onToggle,
+  onTryNow,
   rawInstalled,
   skill
 }: {
   installedName: null | string
+  localSkill: null | SkillInfo
   onPreview: (skill: SkillHubResult) => void
+  onToggle: (skill: SkillInfo, enabled: boolean) => void
+  onTryNow: (skillName: string) => void
   rawInstalled: boolean
   skill: SkillHubResult
 }) {
@@ -161,6 +184,9 @@ function HubSkillCard({
   const visibility = extra.visibility === 'workspace' || extra.visibility === 'private' ? extra.visibility : null
   const kind = extra.kind === 'browser' || extra.kind === 'core' ? extra.kind : null
   const downloads = Number(extra.downloads ?? 0)
+  // The switch needs the backend's own row for the installed copy; until the
+  // skills list has it (or it was removed underneath us), the card is metadata.
+  const managed = installed ? localSkill : null
 
   const doInstall = () => {
     notify({ kind: 'success', title: h.installStarted(skill.name), message: h.actionLog })
@@ -173,60 +199,86 @@ function HubSkillCard({
   }
 
   return (
-    <article
-      // The store-card hover recipe: background, border and shadow move
-      // together at --dur-short — never a translate, never a scale.
-      className="flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 shadow-xs transition-[background-color,border-color,box-shadow] duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--ui-bg-quaternary) hover:shadow-sm"
-      data-testid="hub-card"
-    >
-      <div className="flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{skill.name}</span>
-        {extra.version && <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)">{extra.version}</span>}
-      </div>
+    <StoreCard data-testid="hub-card">
+      <StoreCardHeader
+        control={
+          managed && (
+            <Switch
+              aria-label={t.skills.toggleSkill(skill.name, !managed.enabled)}
+              checked={managed.enabled}
+              className={cn('cursor-pointer', !managed.enabled && 'opacity-60')}
+              data-testid="hub-card-switch"
+              disabled={running}
+              onCheckedChange={enabled => onToggle(managed, enabled)}
+              size="md"
+            />
+          )
+        }
+        dimmed={managed ? !managed.enabled : false}
+        meta={
+          extra.version && <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)">{extra.version}</span>
+        }
+        title={skill.name}
+      />
 
-      <p className="line-clamp-2 text-sm text-(--ui-text-tertiary)">{skill.description || t.skills.noDescription}</p>
+      <StoreCardDescription>{skill.description || t.skills.noDescription}</StoreCardDescription>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <StoreCardTags>
         {kind && <TagChip>{h.kind[kind]}</TagChip>}
         <StatusPill tone={trustTone(skill.trust_level)}>{h.trust[skill.trust_level] ?? skill.trust_level}</StatusPill>
         {visibility && <TagChip>{t.skills.publish.visibilityOptions[visibility]}</TagChip>}
         {downloads > 0 && (
-          <span className="flex items-center gap-1 text-xs tabular-nums text-(--ui-text-tertiary)">
+          <StoreCardMeta className="flex items-center gap-1">
             <CloudDownload className="size-3.5" />
             {compactNumber(downloads)}
-          </span>
+          </StoreCardMeta>
         )}
-      </div>
+        {installed && (
+          <StatusPill data-testid="hub-card-installed" tone="good">
+            {h.installed}
+          </StatusPill>
+        )}
+      </StoreCardTags>
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+      <StoreCardFooter
+        end={
+          installed ? (
+            <>
+              {managed?.enabled && (
+                <Button
+                  data-testid="hub-card-try-now"
+                  onClick={() => onTryNow(managed.name)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {t.skills.tryNow}
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-label={h.actions} size="icon-sm" variant="ghost">
+                    <MoreVertical />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4}>
+                  <DropdownMenuItem disabled={running} onSelect={doUninstall} variant="destructive">
+                    {running ? h.uninstalling : h.uninstall}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <Button disabled={running} loading={running} onClick={doInstall} size="sm">
+              {h.install}
+            </Button>
+          )
+        }
+      >
         <Button onClick={() => onPreview(skill)} size="sm" variant="text">
           {h.preview}
         </Button>
-        {installed ? (
-          <span className="flex items-center gap-1">
-            <StatusPill size="md" tone="good">
-              {h.installed}
-            </StatusPill>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button aria-label={h.actions} size="icon-sm" variant="ghost">
-                  <MoreVertical />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={4}>
-                <DropdownMenuItem disabled={running} onSelect={doUninstall} variant="destructive">
-                  {running ? h.uninstalling : h.uninstall}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </span>
-        ) : (
-          <Button disabled={running} loading={running} onClick={doInstall} size="sm">
-            {h.install}
-          </Button>
-        )}
-      </div>
-    </article>
+      </StoreCardFooter>
+    </StoreCard>
   )
 }
 
@@ -238,6 +290,20 @@ export function SkillsHub({ query }: SkillsHubProps) {
   const { locale, t } = useI18n()
   const h = t.skills.hub
   const queryClient = useQueryClient()
+  const trySkill = useTrySkill()
+
+  // The backend's own rows for the skills on this machine (the same cache the
+  // "Kỹ năng sẵn có" tab reads): an installed card finds its enabled state
+  // here by the local name the catalogue's `installed` map gives it.
+  const { data: localSkills } = useQuery(skillsQueryOptions)
+
+  const localByName = useMemo(() => new Map((localSkills ?? []).map(skill => [skill.name, skill])), [localSkills])
+
+  const toggleLocal = useCallback(
+    (skill: SkillInfo, enabled: boolean) =>
+      void toggleSkillEnabled(skill, enabled, t.skills.failedToUpdate(skill.name)),
+    [t]
+  )
 
   // The store front: the hub's catalog, synced on every open and every 30
   // minutes after that. No sign-in — the public catalogue answers anonymously,
@@ -482,17 +548,24 @@ export function SkillsHub({ query }: SkillsHubProps) {
             title={searched ? h.noResults : h.catalogEmpty}
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
-            {listed.map(skill => (
-              <HubSkillCard
-                installedName={installed[skill.identifier]?.name ?? null}
-                key={skill.identifier}
-                onPreview={openDetail}
-                rawInstalled={Boolean(installed[skill.identifier])}
-                skill={skill}
-              />
-            ))}
-          </div>
+          <StoreCardGrid>
+            {listed.map(skill => {
+              const localName = installed[skill.identifier]?.name ?? null
+
+              return (
+                <HubSkillCard
+                  installedName={localName}
+                  key={skill.identifier}
+                  localSkill={localByName.get(localName ?? skill.name) ?? null}
+                  onPreview={openDetail}
+                  onToggle={toggleLocal}
+                  onTryNow={trySkill}
+                  rawInstalled={Boolean(installed[skill.identifier])}
+                  skill={skill}
+                />
+              )
+            })}
+          </StoreCardGrid>
         )}
       </div>
 
@@ -587,12 +660,18 @@ export function SkillsHub({ query }: SkillsHubProps) {
                 <Button disabled={scanning} onClick={() => runScan(detail.identifier)} size="sm" variant="text">
                   {scanning ? h.scanning : h.scan}
                 </Button>
-                <Button
-                  disabled={actions[detail.identifier]?.running || isInstalled(detail.identifier)}
-                  onClick={() => install(detail.identifier, detail.name)}
-                >
-                  {isInstalled(detail.identifier) ? h.installed : h.install}
-                </Button>
+                {isInstalled(detail.identifier) ? (
+                  <StatusPill size="md" tone="good">
+                    {h.installed}
+                  </StatusPill>
+                ) : (
+                  <Button
+                    disabled={actions[detail.identifier]?.running}
+                    onClick={() => install(detail.identifier, detail.name)}
+                  >
+                    {h.install}
+                  </Button>
+                )}
               </DialogFooter>
             </>
           )}
