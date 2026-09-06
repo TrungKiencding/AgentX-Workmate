@@ -134,26 +134,17 @@ export const zh: Translations = {
       hideTechnicalDetails: '隐藏技术细节',
       copyDetails: '复制细节',
       copiedDetails: '已复制',
-      genericSteps: [
-        '点击“重试”。',
-        '若仍然失败，选择“修复安装”，或打开日志并发给你的 AgentX 管理员。'
-      ],
+      genericSteps: ['点击“重试”。', '若仍然失败，选择“修复安装”，或打开日志并发给你的 AgentX 管理员。'],
       kinds: {
         timeout: {
           title: '启动 AgentX 比平时慢',
           description: '后端已启动但未及时响应。首次启动或机器繁忙时很常见，并没有什么坏掉。',
-          steps: [
-            '点击“重试” — 第二次通常就能连上。',
-            '如果反复出现，关闭占用较大的应用后再试。'
-          ]
+          steps: ['点击“重试” — 第二次通常就能连上。', '如果反复出现，关闭占用较大的应用后再试。']
         },
         exited: {
           title: 'AgentX 后端在启动时停止了',
           description: '后台进程在就绪前退出了。',
-          steps: [
-            '点击“重试”。',
-            '若再次停止，选择“修复安装” — 它会重新运行安装程序，并保留你的聊天和设置。'
-          ]
+          steps: ['点击“重试”。', '若再次停止，选择“修复安装” — 它会重新运行安装程序，并保留你的聊天和设置。']
         },
         port: {
           title: 'AgentX 无法打开连接',
@@ -167,18 +158,12 @@ export const zh: Translations = {
         websocket: {
           title: '实时连接被拒绝',
           description: 'AgentX 通过 HTTP 有响应，但实时通道拒绝了此会话。',
-          steps: [
-            '点击“重试”以重新登录并连接。',
-            '如果反复出现，打开网关设置检查连接。'
-          ]
+          steps: ['点击“重试”以重新登录并连接。', '如果反复出现，打开网关设置检查连接。']
         },
         install: {
           title: 'AgentX 安装尚未完成',
           description: '一次性安装没有完成，所以还没有可启动的内容。',
-          steps: [
-            '选择“修复安装”重新运行安装程序。',
-            '完成前请保持应用打开 — 可能需要几分钟。'
-          ]
+          steps: ['选择“修复安装”重新运行安装程序。', '完成前请保持应用打开 — 可能需要几分钟。']
         }
       }
     }
@@ -274,7 +259,8 @@ export const zh: Translations = {
     openStarmap: '打开记忆图谱',
     openKeybinds: '键盘快捷键',
     layoutEditor: '布局编辑器',
-    layoutEditorTitle: '布局编辑器 — ⌘ 点击重置布局'
+    layoutEditorTitle: '布局编辑器 — ⌘ 点击重置布局',
+    moreTools: '更多'
   },
 
   keybinds: {
@@ -300,12 +286,12 @@ export const zh: Translations = {
       'nav.commandCenter': '打开命令中心',
       'nav.settings': '打开设置',
       'nav.profiles': '打开配置',
-      'nav.skills': '打开技能',
+      'nav.skills': '打开实用工具',
       'nav.messaging': '打开消息',
       'nav.artifacts': '打开制品',
       'nav.cron': '打开定时任务',
       'nav.agents': '打开智能体',
-      'session.new': '新建会话',
+      'session.new': '新对话',
       'session.newTab': '新建会话标签',
       'session.newWindow': '新建窗口',
       'session.next': '下一个会话',
@@ -1708,9 +1694,9 @@ export const zh: Translations = {
       usage: '一段时间内的词元、成本与技能活动'
     },
     nav: {
-      newChat: { title: '新建会话', detail: '开始一个新会话' },
+      newChat: { title: '新对话', detail: '开始一个新对话' },
       settings: { title: '设置', detail: '配置 AgentX 桌面端' },
-      skills: { title: '技能与工具', detail: '启用技能、工具集与提供方' },
+      skills: { title: '实用工具', detail: '技能、工具与高级连接' },
       messaging: { title: '消息平台', detail: '配置 Telegram、Slack、Discord 等' },
       artifacts: { title: '产物', detail: '浏览生成的输出' }
     },
@@ -2306,8 +2292,8 @@ export const zh: Translations = {
 
   sidebar: {
     nav: {
-      'new-session': '新建会话',
-      skills: '技能与工具',
+      'new-session': '新对话',
+      skills: '实用工具',
       messaging: '消息平台',
       artifacts: '产物'
     },
@@ -2317,7 +2303,7 @@ export const zh: Translations = {
     noMatch: query => `没有会话匹配"${query}"。`,
     results: '结果',
     pinned: '已置顶',
-    sessions: '会话',
+    sessions: '最近',
     cronJobs: '定时任务',
     groupAriaGrouped: '以单一列表显示会话',
     groupAriaUngrouped: '按工作区分组会话',
@@ -2326,7 +2312,7 @@ export const zh: Translations = {
     groupTitleGrouped: '取消分组',
     groupTitleUngrouped: '按工作区分组',
     allPinned: '这里的全部已置顶。取消置顶某个对话即可在最近中显示。',
-    shiftClickHint: 'Shift+ 单击对话以置顶 · 拖动以重新排序',
+    shiftClickHint: '把常回来看的对话置顶。',
     noWorkspace: '无工作区',
     projectEmpty: '暂无会话',
     noSessions: '暂无会话',
@@ -2399,7 +2385,7 @@ export const zh: Translations = {
       toggle: (label, open) => `${open ? '展开' : '收起'} ${label} 会话`,
       back: '全部项目'
     },
-    newSessionIn: label => `在 ${label} 中新建会话`,
+    newSessionIn: label => `在 ${label} 中新建对话`,
     showMoreIn: (count, label) => `在 ${label} 中再显示 ${count} 个`,
     loading: '加载中…',
     loadMore: '加载更多',
@@ -2438,7 +2424,7 @@ export const zh: Translations = {
       ageMin: '分'
     },
     dateDivider: {
-      today: '今天早些时候',
+      today: '今天',
       yesterday: '昨天',
       thisWeek: '本周',
       lastWeek: '上周',
@@ -2452,15 +2438,8 @@ export const zh: Translations = {
     placeholderStarting: '正在启动 AgentX…',
     placeholderReconnecting: '正在重新连接 AgentX…',
     placeholderFollowUp: '发送后续消息',
-    newSessionPlaceholders: [
-      '我们要构建什么？',
-      '给 AgentX 一个任务',
-      '你在想什么？',
-      '描述你需要什么',
-      '我们该处理什么？',
-      '随便问点什么',
-      '从一个目标开始'
-    ],
+    newSessionPlaceholders: ['今天需要做什么？'],
+    newSessionPlaceholdersRepo: ['问问代码，或交代一件事…'],
     followUpPlaceholders: [
       '发送后续消息',
       '补充更多上下文',
@@ -2471,6 +2450,7 @@ export const zh: Translations = {
       '调整或继续'
     ],
     startVoice: '开始语音对话',
+    voiceMenu: '语音',
     openDirective: '打开',
     queueMessage: '排队消息',
     steer: '引导当前运行',
@@ -2552,7 +2532,7 @@ export const zh: Translations = {
     noMatchingThemes: '没有匹配的主题。',
     themeTryPre: '试试 ',
     themeTryPost: '。',
-    addContext: '添加上下文',
+    addContext: '附加文件、图片或文件夹',
     attachLabel: '附加',
     files: '文件…',
     folder: '文件夹…',
@@ -3232,8 +3212,8 @@ export const zh: Translations = {
       ],
       quickStart: '快速开始',
       resume: title => `继续“${title}”`,
-      starterExplainLabel: '介绍这个仓库',
-      starterExplainPrompt: '请说明这个仓库是做什么的，代码又是如何组织的。',
+      starterExplainLabel: '介绍这个代码文件夹',
+      starterExplainPrompt: '请说明这个代码文件夹是做什么的，代码又是如何组织的。',
       starterPlanLabel: '规划一项改动',
       starterPlanPrompt: '我想改一个地方。先问清楚你需要知道的信息，再给出方案，然后再写代码。',
       starterExplainFolderLabel: '介绍这个文件夹',
@@ -3241,7 +3221,17 @@ export const zh: Translations = {
       starterSummarizeLabel: '总结一份文档',
       starterSummarizePrompt: '我想总结一份文档。先向我要文件或文本，然后给出要点和我需要处理的事项。',
       starterDraftLabel: '起草一封邮件',
-      starterDraftPrompt: '帮我起草一封邮件。先问我收件人、要表达的内容和语气，然后写出一版可以直接发送的邮件。'
+      starterDraftPrompt: '帮我起草一封邮件。先问我收件人、要表达的内容和语气，然后写出一版可以直接发送的邮件。',
+      starterPlanWeekLabel: '规划本周',
+      starterPlanWeekPrompt: '帮我规划这一周。先问我手头有哪些事和截止时间，然后按天排好，重要的事放在前面。',
+      starterExplainDesc: '这里的代码做什么、怎么组织',
+      starterExplainFolderDesc: '这个文件夹里有什么',
+      starterPlanDesc: '先问清楚，再提出做法',
+      starterPlanWeekDesc: '把一周的事按天排好',
+      starterSummarizeDesc: '从文件或段落里提炼要点',
+      starterDraftDesc: '从几条笔记到可直接发送的邮件',
+      resumeDesc: '接着上一次的对话',
+      projectDesc: '在这个项目的文件夹里开始'
     },
     thread: {
       loadingSession: '正在加载会话',

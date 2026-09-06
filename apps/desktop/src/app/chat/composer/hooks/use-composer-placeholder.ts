@@ -6,6 +6,8 @@ import { resetBrowseState } from '@/store/composer-input-history'
 import { pickPlaceholder } from '../composer-utils'
 
 interface UseComposerPlaceholderOptions {
+  /** Inside a git repository the starter speaks the coding voice. */
+  codingContext?: boolean
   disabled: boolean
   reconnecting: boolean
   sessionId: null | string | undefined
@@ -18,9 +20,20 @@ interface UseComposerPlaceholderOptions {
  * keeps its starter so the text doesn't flip mid-stream. While the transport is
  * down, it swaps to a reconnecting / starting message instead.
  */
-export function useComposerPlaceholder({ disabled, reconnecting, sessionId }: UseComposerPlaceholderOptions): string {
+export function useComposerPlaceholder({
+  codingContext = false,
+  disabled,
+  reconnecting,
+  sessionId
+}: UseComposerPlaceholderOptions): string {
   const { t } = useI18n()
-  const newSessionPlaceholders = t.composer.newSessionPlaceholders
+
+  // The starter follows the folder — the same probe that decides the branch
+  // strip and the model pill, so the three never disagree about what this is.
+  const newSessionPlaceholders = codingContext
+    ? t.composer.newSessionPlaceholdersRepo
+    : t.composer.newSessionPlaceholders
+
   const followUpPlaceholders = t.composer.followUpPlaceholders
 
   const [restingPlaceholder, setRestingPlaceholder] = useState(() =>

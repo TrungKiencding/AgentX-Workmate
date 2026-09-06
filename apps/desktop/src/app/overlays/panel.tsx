@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ActionsContextMenu, ActionsMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
+import { EmptyFigure, type EmptyFigureKind } from '@/components/ui/empty-figure'
 import { RowButton } from '@/components/ui/row-button'
 import { SearchField } from '@/components/ui/search-field'
 import { Tip } from '@/components/ui/tooltip'
@@ -144,7 +145,7 @@ export function PanelList({
 
 interface PanelListRowProps {
   active: boolean
-  // Leading status dot color class (e.g. 'bg-emerald-500'); omit for none.
+  // Leading status dot color class (e.g. 'bg-(--ui-green)'); omit for none.
   dotClassName?: string
   // Leading codicon glyph name (used when there's no lead/dot).
   icon?: string
@@ -288,6 +289,8 @@ export function PanelDetail({ children, className }: { children: ReactNode; clas
 interface PanelEmptyProps {
   action?: ReactNode
   description?: ReactNode
+  /** One of the four drawn figures (see EmptyFigure). Wins over `icon`. */
+  figure?: EmptyFigureKind
   // Codicon glyph name (e.g. 'hubot', 'warning', 'loading~spin').
   icon?: string
   title?: ReactNode
@@ -296,11 +299,15 @@ interface PanelEmptyProps {
 // Three beats, always in this order: the name of what's missing (14px medium),
 // why it's missing (13px muted), and one action that fixes it. Shared with
 // EmptyState (components/ui/empty-state) — same rhythm, different container.
-export function PanelEmpty({ action, description, icon = 'inbox', title }: PanelEmptyProps) {
+export function PanelEmpty({ action, description, figure, icon = 'inbox', title }: PanelEmptyProps) {
   return (
     <div className="grid flex-1 place-items-center px-6 py-10 text-center">
       <div className="flex flex-col items-center gap-2">
-        <Codicon className="text-(--ui-text-quaternary)" name={icon} size="1.25rem" />
+        {figure ? (
+          <EmptyFigure className="mb-1" figure={figure} />
+        ) : (
+          <Codicon className="text-(--ui-text-quaternary)" name={icon} size="1.25rem" />
+        )}
         {title ? <p className="text-base font-medium text-foreground">{title}</p> : null}
         {description ? <p className="max-w-sm text-sm text-(--ui-text-tertiary)">{description}</p> : null}
         {action ? <div className="mt-2">{action}</div> : null}
@@ -309,12 +316,10 @@ export function PanelEmpty({ action, description, icon = 'inbox', title }: Panel
   )
 }
 
+// A section label is a sentence, not a stamp: 12px semibold in the tertiary
+// ink, its own casing, no tracking — the same voice as SidebarPanelLabel.
 export function PanelSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)', className)}>
-      {children}
-    </div>
-  )
+  return <div className={cn('text-xs font-semibold text-(--ui-text-tertiary)', className)}>{children}</div>
 }
 
 // Inspector-style key/value grid (mirrors the trace span inspector's <dl>).

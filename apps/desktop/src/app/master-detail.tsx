@@ -2,12 +2,12 @@ import { useStore } from '@nanostores/react'
 import { type ReactNode, type PointerEvent as ReactPointerEvent, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { RowButton } from '@/components/ui/row-button'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { ChevronDown, ChevronUp, MoreVertical, X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $paneHeightOverride, $paneState, setPaneHeightOverride } from '@/store/panes'
 
@@ -206,12 +206,12 @@ export function DetailPane({
               size="icon"
               variant="ghost"
             >
-              <Codicon name={collapsed ? 'chevron-up' : 'chevron-down'} size="0.8125rem" />
+              {collapsed ? <ChevronUp /> : <ChevronDown />}
             </Button>
           </Tip>
           {onClose && (
             <Button aria-label={t.common.close} className={ICON_BUTTON} onClick={onClose} size="icon" variant="ghost">
-              <Codicon name="close" size="0.8125rem" />
+              <X />
             </Button>
           )}
         </div>
@@ -271,7 +271,7 @@ export function ListStripMenu({
           size="icon"
           variant="ghost"
         >
-          <Codicon name="kebab-vertical" size="0.8125rem" />
+          <MoreVertical />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44" sideOffset={6}>

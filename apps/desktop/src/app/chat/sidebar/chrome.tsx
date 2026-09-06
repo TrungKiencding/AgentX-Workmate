@@ -1,7 +1,7 @@
 import type * as React from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
 import { RowButton } from '@/components/ui/row-button'
+import { GripVertical } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 // Shared, content-agnostic sidebar chrome — used by both the flat session
@@ -24,7 +24,9 @@ const rowPadX = 'pl-2 pr-1'
 const rowGap = 'gap-1.5'
 const rowLead = 'grid size-3.5 shrink-0 place-items-center'
 const rowInset = cn(rowPadX, rowGap, 'flex h-full min-w-0 items-center self-stretch py-0.5')
-const rowLabel = 'min-w-0 truncate text-sm leading-none text-(--ui-text-secondary)'
+// A conversation title reads at 14px — the row is a list of conversations,
+// not a file tree, so it takes the content size rather than the chrome size.
+const rowLabel = 'min-w-0 truncate text-base leading-none text-(--ui-text-secondary)'
 
 /** Codicon size in sidebar row leads — matches the file tree (`tree.tsx`). */
 export const SIDEBAR_LEAD_ICON_SIZE = '0.875rem' as const
@@ -47,9 +49,7 @@ export function SidebarRowNest({ className, ...props }: React.ComponentProps<'di
 export function SidebarDateDivider({ className, label, ...props }: React.ComponentProps<'div'> & { label: string }) {
   return (
     <div className={cn('flex select-none items-center gap-2 px-2 pb-0.5 pt-2', className)} {...props}>
-      <span className="shrink-0 text-2xs font-medium uppercase tracking-label text-(--ui-text-quaternary)">
-        {label}
-      </span>
+      <span className="shrink-0 text-xs font-semibold text-(--ui-text-tertiary)">{label}</span>
       <span aria-hidden="true" className="h-px flex-1 bg-(--ui-stroke-tertiary)" />
     </div>
   )
@@ -135,13 +135,11 @@ export function SidebarRowGrab({
       <span className="grid size-full place-items-center transition-opacity group-hover/handle:opacity-0 group-focus-within/handle:opacity-0">
         {children}
       </span>
-      <Codicon
+      <GripVertical
         className={cn(
-          'absolute text-(--ui-text-quaternary) opacity-0 transition-opacity group-hover/handle:opacity-80 group-focus-within/handle:opacity-80 hover:text-(--ui-text-secondary)',
+          'absolute size-3 text-(--ui-text-quaternary) opacity-0 transition-opacity group-hover/handle:opacity-80 group-focus-within/handle:opacity-80 hover:text-(--ui-text-secondary)',
           dragging && 'text-(--ui-text-secondary) opacity-100'
         )}
-        name="grabber"
-        size="0.75rem"
       />
     </SidebarRowLead>
   )

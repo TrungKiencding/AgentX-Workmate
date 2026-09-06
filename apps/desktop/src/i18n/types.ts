@@ -284,6 +284,8 @@ export interface Translations {
     openKeybinds: string
     layoutEditor: string
     layoutEditorTitle: string
+    /** The ⋯ menu beside Settings that holds the rarely-used titlebar tools. */
+    moreTools: string
   }
 
   keybinds: {
@@ -1894,8 +1896,12 @@ export interface Translations {
     placeholderReconnecting: string
     placeholderFollowUp: string
     newSessionPlaceholders: readonly string[]
+    /** The resting placeholder inside a git repository (the coding voice). */
+    newSessionPlaceholdersRepo: readonly string[]
     followUpPlaceholders: readonly string[]
     startVoice: string
+    /** The ⋯ menu that holds the voice toggles while voice is enabled. */
+    voiceMenu: string
     openDirective: string
     queueMessage: string
     steer: string
@@ -2590,6 +2596,18 @@ export interface Translations {
       starterSummarizePrompt: string
       starterDraftLabel: string
       starterDraftPrompt: string
+      /** The office-context plan starter ("Plan my week"); `starterPlan*` is the coding one. */
+      starterPlanWeekLabel: string
+      starterPlanWeekPrompt: string
+      /** One-line descriptions under each task card on the home surface. */
+      starterExplainDesc: string
+      starterExplainFolderDesc: string
+      starterPlanDesc: string
+      starterPlanWeekDesc: string
+      starterSummarizeDesc: string
+      starterDraftDesc: string
+      resumeDesc: string
+      projectDesc: string
     }
     thread: {
       loadingSession: string

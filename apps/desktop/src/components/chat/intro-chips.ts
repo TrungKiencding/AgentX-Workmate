@@ -31,6 +31,16 @@ export type IntroChipSource =
 /** At most four — past that the row stops reading as "a few ways in". */
 const MAX_CHIPS = 4
 
+/**
+ * How many columns of the two-column card row a chip takes. The resume card —
+ * the one that names something of *yours* — is the widest and comes first,
+ * an asymmetry on purpose: the row reads "carry on, or start one of these".
+ * Everything else is a single tile.
+ */
+export function introCardSpan(chip: IntroChipSource): 1 | 2 {
+  return chip.kind === 'resume' ? 2 : 1
+}
+
 /** Inside a repository the coding starters lead. */
 const REPO_STARTERS: readonly IntroStarterId[] = ['explain', 'plan', 'summarize', 'draft']
 

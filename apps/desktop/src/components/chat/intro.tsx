@@ -12,14 +12,20 @@ import { $profileScope, $showAllProfiles } from '@/store/profile'
 import { $projectTree, requestStartWorkSession } from '@/store/projects'
 import { $currentCwd, $sessions } from '@/store/session'
 
-import { type IntroChipSource, introChipSources, introGreetingSlot, type IntroStarterId } from './intro-chips'
+import {
+  introCardSpan,
+  type IntroChipSource,
+  introChipSources,
+  introGreetingSlot,
+  type IntroStarterId
+} from './intro-chips'
 import { resolveIntroBody } from './intro-copy'
 
 export type IntroProps = {
   /**
    * Open an existing session. Navigation belongs to the route that owns this
-   * surface, so the resume chip is handed the action rather than reaching for
-   * a router from inside a presentational component. Without it the chip is
+   * surface, so the resume card is handed the action rather than reaching for
+   * a router from inside a presentational component. Without it the card is
    * simply not offered.
    */
   onResumeSession?: (sessionId: string) => void
@@ -32,8 +38,8 @@ export type IntroProps = {
 // exactly the lifetime we want — it resets when the window reloads.
 let entrancePlayed = false
 
-/** Chip glyphs. Tabler only, one per kind — see design.md § Iconography. */
-const CHIP_ICON = {
+/** Card glyphs. Tabler only, one per kind — see design.md § Iconography. */
+const CARD_ICON = {
   draft: Mail,
   explain: Search,
   plan: NotebookTabs,
@@ -41,6 +47,9 @@ const CHIP_ICON = {
   resume: Clock,
   summarize: FileText
 } as const
+
+/** What a card says: a title (a verb), one line under it, and the prompt it inserts. */
+type CardCopy = { desc: string; prompt?: string; title: string }
 
 export function Intro({ onResumeSession, personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
@@ -55,7 +64,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
   const showAllProfiles = useStore($showAllProfiles)
   const activeCwd = useStore($currentCwd)
   // Null off a repository — the composer's coding rail runs the same probe, so
-  // the chips and the branch strip never disagree about what the folder is.
+  // the cards and the branch strip never disagree about what the folder is.
   const cwdIsRepo = useStore($repoStatus) !== null
 
   useEffect(() => {
@@ -72,7 +81,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
 
   // Onboarding owns the screen while it's up; and `configured === null` just
   // means the first runtime check hasn't answered yet, so hold the row back
-  // rather than flash chips and pull them away.
+  // rather than flash cards and pull them away.
   const onboardingActive = onboarding.manual || onboarding.configured !== true
 
   const chips = useMemo(
@@ -109,39 +118,51 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
         ? intro.greetingAfternoon(name || undefined)
         : intro.greetingEvening(name || undefined)
 
-  // Label + prompt per starter. "Explain" speaks of the repo inside one and of
-  // the folder anywhere else — the same folder probe the chip order uses.
-  const starterCopy = (starter: IntroStarterId): { label: string; prompt: string } => {
+  // Title, description and prompt per starter. The starters take the folder's
+  // side: inside a repository "explain" speaks of the code folder and "plan"
+  // plans a change; anywhere else "explain" speaks of the folder and "plan"
+  // plans the week — the same folder probe the card order uses.
+  const starterCopy = (starter: IntroStarterId): CardCopy => {
     switch (starter) {
       case 'explain':
         return cwdIsRepo
-          ? { label: intro.starterExplainLabel, prompt: intro.starterExplainPrompt }
-          : { label: intro.starterExplainFolderLabel, prompt: intro.starterExplainFolderPrompt }
+          ? { desc: intro.starterExplainDesc, prompt: intro.starterExplainPrompt, title: intro.starterExplainLabel }
+          : {
+              desc: intro.starterExplainFolderDesc,
+              prompt: intro.starterExplainFolderPrompt,
+              title: intro.starterExplainFolderLabel
+            }
 
       case 'plan':
-        return { label: intro.starterPlanLabel, prompt: intro.starterPlanPrompt }
+        return cwdIsRepo
+          ? { desc: intro.starterPlanDesc, prompt: intro.starterPlanPrompt, title: intro.starterPlanLabel }
+          : { desc: intro.starterPlanWeekDesc, prompt: intro.starterPlanWeekPrompt, title: intro.starterPlanWeekLabel }
 
       case 'summarize':
-        return { label: intro.starterSummarizeLabel, prompt: intro.starterSummarizePrompt }
+        return {
+          desc: intro.starterSummarizeDesc,
+          prompt: intro.starterSummarizePrompt,
+          title: intro.starterSummarizeLabel
+        }
 
       case 'draft':
-        return { label: intro.starterDraftLabel, prompt: intro.starterDraftPrompt }
+        return { desc: intro.starterDraftDesc, prompt: intro.starterDraftPrompt, title: intro.starterDraftLabel }
     }
   }
 
-  const chipLabel = (chip: IntroChipSource): string => {
+  const cardCopy = (chip: IntroChipSource): CardCopy => {
     if (chip.kind === 'resume') {
-      return intro.resume(chip.title)
+      return { desc: intro.resumeDesc, title: intro.resume(chip.title) }
     }
 
     if (chip.kind === 'project') {
-      return t.sidebar.newSessionIn(chip.label)
+      return { desc: intro.projectDesc, title: t.sidebar.newSessionIn(chip.label) }
     }
 
-    return starterCopy(chip.starter).label
+    return starterCopy(chip.starter)
   }
 
-  // One existing action per chip — nothing here is a new navigation path.
+  // One existing action per card — nothing here is a new navigation path.
   const runChip = (chip: IntroChipSource) => {
     if (chip.kind === 'resume') {
       onResumeSession?.(chip.sessionId)
@@ -155,7 +176,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
       return
     }
 
-    requestComposerInsert(starterCopy(chip.starter).prompt, { target: 'main' })
+    requestComposerInsert(starterCopy(chip.starter).prompt ?? '', { target: 'main' })
     requestComposerFocus('main')
   }
 
@@ -173,21 +194,26 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
         </p>
 
         {chips.length > 0 && (
-          <div aria-label={intro.quickStart} className="intro-chips pointer-events-auto" role="group">
+          <div aria-label={intro.quickStart} className="intro-cards pointer-events-auto" role="group">
             {chips.map((chip, index) => {
-              const Icon = CHIP_ICON[chip.kind === 'starter' ? chip.starter : chip.kind]
+              const Icon = CARD_ICON[chip.kind === 'starter' ? chip.starter : chip.kind]
+              const copy = cardCopy(chip)
 
               return (
                 <Button
-                  className="intro-enter max-w-full"
-                  key={chip.kind === 'starter' ? chip.starter : `${chip.kind}:${chipLabel(chip)}`}
+                  className="intro-enter"
+                  data-span={introCardSpan(chip)}
+                  key={chip.kind === 'starter' ? chip.starter : `${chip.kind}:${copy.title}`}
                   onClick={() => runChip(chip)}
-                  size="chip"
+                  size="card"
                   style={{ '--intro-step': index + 2 } as React.CSSProperties}
-                  variant="chip"
+                  variant="card"
                 >
-                  <Icon />
-                  <span className="truncate">{chipLabel(chip)}</span>
+                  <Icon className="text-(--ui-text-tertiary)" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-base font-medium">{copy.title}</span>
+                    <span className="truncate text-sm font-normal text-(--ui-text-tertiary)">{copy.desc}</span>
+                  </span>
                 </Button>
               )
             })}

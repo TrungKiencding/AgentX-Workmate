@@ -341,7 +341,9 @@ export function ChatBar({
 
   // Resting / reconnecting / starting placeholder text, re-rolled only on a real
   // conversation change.
-  const placeholder = useComposerPlaceholder({ disabled, reconnecting, sessionId })
+  // One folder probe (shared with the branch strip and the model pill).
+  const codingContext = useStore(repoStatusForCwd(cwd)) !== null
+  const placeholder = useComposerPlaceholder({ codingContext, disabled, reconnecting, sessionId })
 
   // Trigger / completion engine: @// detection, the adapter-driven item list,
   // popover selection, and chip insertion. The keydown nav block below consumes
@@ -872,8 +874,6 @@ export function ChatBar({
   // chat — the developer facts go quiet and the pill wears the model's short
   // name alone. The same probe that shows or hides the strip decides the
   // pill, so the two can never disagree.
-  const codingContext = useStore(repoStatusForCwd(cwd)) !== null
-
   // Global Esc-to-cancel when the chat (not the composer input) has focus.
   // Same explicit-halt semantics as the Stop button: park the queue.
   useComposerEscCancel({ awaitingInput, busy, onCancel: haltRun, target: scope.target })

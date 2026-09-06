@@ -21,6 +21,7 @@ import { ResponseLoadingIndicator, StreamStallIndicator } from '@/components/ass
 import { formatMessageTimestamp } from '@/components/assistant-ui/thread/timestamp'
 import { useMessageReactions, useTapbackDoubleClick } from '@/components/assistant-ui/thread/use-message-reactions'
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button'
+import { BrandGlyph } from '@/components/brand-glyph'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
 import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -78,6 +79,14 @@ export const AssistantMessage: FC<{
   // across token flushes, so this selector adds no streaming re-renders.
   const isLastMessage = useAuiState(s => s.thread.messages[s.thread.messages.length - 1]?.id === s.message.id)
 
+  // "AgentX is speaking": the mark heads the FIRST assistant message of a
+  // turn — the one right after the user's — and nothing else in the turn, so a
+  // tool-heavy reply that seals several interim messages still wears one mark.
+  // A boolean, stable across token flushes.
+  const leadsTurn = useAuiState(
+    s => s.message.index <= 0 || s.thread.messages[s.message.index - 1]?.role !== 'assistant'
+  )
+
   // Preview targets only materialize once the turn completes — while running
   // the selector returns '' (stable), so per-token flushes skip the regex
   // scan and the re-render it would cause.
@@ -125,6 +134,11 @@ export const AssistantMessage: FC<{
       onDoubleClick={onDoubleClick}
       ref={enterRef}
     >
+      {leadsTurn && (
+        <div aria-hidden className="mb-2 flex pl-(--message-text-indent)" data-slot="aui_assistant-turn-mark">
+          <BrandGlyph className="text-(--ui-text-tertiary)" />
+        </div>
+      )}
       <div
         className="wrap-anywhere min-w-0 max-w-full overflow-hidden text-pretty text-[length:var(--conversation-text-font-size)] leading-(--conversation-prose-line-height) text-foreground"
         data-slot="aui_assistant-message-content"

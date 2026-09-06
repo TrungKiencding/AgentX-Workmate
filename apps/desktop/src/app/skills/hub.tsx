@@ -6,9 +6,7 @@ import { useDebounced } from '@/app/hooks/use-debounced'
 import { DetailPane } from '@/app/master-detail'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
 import {
   getSkillHubCatalog,
   previewSkillHub,
@@ -29,7 +28,7 @@ import {
 import { useI18n } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
 import { compactNumber } from '@/lib/format'
-import { Loader2 } from '@/lib/icons'
+import { CloudDownload, ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import {
@@ -63,29 +62,31 @@ export const HUB_CATALOG_REFRESH_MS = 30 * 60_000
 // Stable empty arrays — a fresh `[]` per render would re-run every memo below.
 const NO_SKILLS: SkillHubResult[] = []
 
-function trustTone(level: string): string {
+// Trust and scan verdicts paint from the semantic tokens through StatusPill,
+// so the pill follows the skin on both bands instead of a fixed Tailwind ramp.
+function trustTone(level: string): StatusPillTone {
   switch (level) {
     case 'builtin':
-      return 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+      return 'muted'
 
     case 'trusted':
-      return 'bg-emerald-500/15 text-emerald-400'
+      return 'good'
 
     default:
-      return 'bg-amber-500/15 text-amber-400'
+      return 'warn'
   }
 }
 
 function verdictTone(policy: string): string {
   switch (policy) {
     case 'allow':
-      return 'text-emerald-400'
+      return 'text-(--ui-green)'
 
     case 'block':
       return 'text-destructive'
 
     default:
-      return 'text-amber-400'
+      return 'text-(--ui-yellow)'
   }
 }
 
@@ -170,27 +171,29 @@ function HubSkillCard({
     >
       <div className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{skill.name}</span>
-        {extra.version && <span className="shrink-0 font-mono text-2xs text-(--ui-text-quaternary)">{extra.version}</span>}
+        {extra.version && (
+          <span className="shrink-0 font-mono text-2xs text-(--ui-text-quaternary)">{extra.version}</span>
+        )}
       </div>
 
       <p className="line-clamp-3 text-xs text-muted-foreground/80">{skill.description || t.skills.noDescription}</p>
 
       <div className="flex flex-wrap items-center gap-1.5">
         {kind && (
-          <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">{h.kind[kind]}</span>
+          <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
+            {h.kind[kind]}
+          </span>
         )}
-        <span className={cn('rounded px-1.5 py-0.5 text-2xs', trustTone(skill.trust_level))}>
-          {h.trust[skill.trust_level] ?? skill.trust_level}
-        </span>
+        <StatusPill tone={trustTone(skill.trust_level)}>{h.trust[skill.trust_level] ?? skill.trust_level}</StatusPill>
         {visibility && (
           <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
             {t.skills.publish.visibilityOptions[visibility]}
           </span>
         )}
-        {installed && <span className="text-2xs text-emerald-400">{h.installed}</span>}
+        {installed && <StatusPill tone="good">{h.installed}</StatusPill>}
         {downloads > 0 && (
           <span className="flex items-center gap-1 text-2xs text-(--ui-text-quaternary)">
-            <Codicon name="cloud-download" size="0.7rem" />
+            <CloudDownload className="size-3" />
             {compactNumber(downloads)}
           </span>
         )}
@@ -371,7 +374,11 @@ export function SkillsHub({ query }: SkillsHubProps) {
   const hasInstalled = Object.keys(installed).length > 0
   const offline = Boolean(catalogQuery.data?.stale && catalogQuery.data.error)
   const hubUrl = catalogQuery.data?.hub_url
-  const lastSync = catalogQuery.data?.fetched_at ? h.lastSync(syncedAt(catalogQuery.data.fetched_at, locale)) : h.neverSynced
+
+  const lastSync = catalogQuery.data?.fetched_at
+    ? h.lastSync(syncedAt(catalogQuery.data.fetched_at, locale))
+    : h.neverSynced
+
   const updatingAll = actions[UPDATE_ALL_KEY]?.running ?? false
 
   return (
@@ -382,23 +389,22 @@ export function SkillsHub({ query }: SkillsHubProps) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-foreground">AgentX Hub</span>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-2xs font-medium',
-                offline || (catalogQuery.data && !catalogQuery.data.fetched_at)
-                  ? 'bg-amber-500/15 text-amber-400'
-                  : catalogQuery.data
-                    ? 'bg-emerald-500/15 text-emerald-400'
-                    : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
-              )}
+            <StatusPill
               data-testid="hub-store-state"
+              tone={
+                offline || (catalogQuery.data && !catalogQuery.data.fetched_at)
+                  ? 'warn'
+                  : catalogQuery.data
+                    ? 'good'
+                    : 'info'
+              }
             >
               {offline || (catalogQuery.data && !catalogQuery.data.fetched_at)
                 ? h.storeOffline
                 : catalogQuery.data
                   ? h.storeOnline
                   : h.syncing}
-            </span>
+            </StatusPill>
             {hubUrl && (
               <a
                 className="flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -408,7 +414,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
                 title={h.openHub}
               >
                 {hubHost(hubUrl)}
-                <Codicon name="link-external" size="0.7rem" />
+                <ExternalLink className="size-3" />
               </a>
             )}
           </div>
@@ -421,7 +427,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
               </Button>
             )}
             <Button data-testid="hub-sync" disabled={syncing} onClick={syncNow} size="sm" variant="outline">
-              {syncing ? <Loader2 className="size-3.5 animate-spin" /> : <Codicon name="sync" size="0.8rem" />}
+              {syncing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw />}
               {syncing ? h.syncing : h.syncNow}
             </Button>
           </div>
@@ -435,7 +441,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
         </p>
 
         {offline && (
-          <p className="mt-1 text-xs text-amber-400" data-testid="hub-catalog-offline">
+          <p className="mt-1 text-xs text-(--ui-yellow)" data-testid="hub-catalog-offline">
             {h.catalogOffline}
           </p>
         )}
@@ -485,7 +491,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           title={
             <span className="flex items-center gap-1.5 text-2xs font-normal text-muted-foreground/60">
               {h.actionLog}
-              {activeLog?.running && <Codicon name="loading" size="0.75rem" spinning />}
+              {activeLog?.running && <Loader2 className="size-3 animate-spin" />}
             </span>
           }
         >
@@ -500,9 +506,9 @@ export function SkillsHub({ query }: SkillsHubProps) {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <span className="truncate">{detail.name}</span>
-                  <Badge className={trustTone(detail.trust_level)}>
+                  <StatusPill tone={trustTone(detail.trust_level)}>
                     {h.trust[detail.trust_level] ?? detail.trust_level}
-                  </Badge>
+                  </StatusPill>
                 </DialogTitle>
                 <DialogDescription className="truncate">{detail.identifier}</DialogDescription>
               </DialogHeader>

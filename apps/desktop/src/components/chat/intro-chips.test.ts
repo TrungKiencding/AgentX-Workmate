@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { SessionInfo } from '@/types/hermes'
 
-import { introChipSources, introGreetingSlot } from './intro-chips'
+import { introCardSpan, introChipSources, introGreetingSlot } from './intro-chips'
 
 const session = (over: Partial<SessionInfo> & { id: string }): SessionInfo =>
   ({
@@ -145,6 +145,18 @@ describe('introChipSources', () => {
     expect(introChipSources({ activeCwd: '/repo/b', projects, showAllProfiles: true })[0]).toMatchObject({
       label: 'Alpha'
     })
+  })
+
+  it('gives the resume card the wide slot and every other card a single one', () => {
+    const chips = introChipSources({
+      projects: [project({ id: 'p_a', lastActive: 5 })],
+      sessions: [session({ id: 's1', last_active: 5 })],
+      showAllProfiles: true
+    })
+
+    expect(chips.map(introCardSpan)).toEqual([2, 1, 1, 1])
+    // No history → no wide card: four equal tiles.
+    expect(introChipSources({ showAllProfiles: true }).map(introCardSpan)).toEqual([1, 1, 1, 1])
   })
 
   it('caps the row at four, resume first then project then starters', () => {

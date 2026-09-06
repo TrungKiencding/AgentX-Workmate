@@ -5,8 +5,8 @@ import { $petActive, flashPetActivity } from '@/store/pet'
 import { $petOverlayActive, forwardPetReaction } from '@/store/pet-overlay'
 
 /**
- * TikTok-style floating hearts — a thin skin over {@link ParticleField} (pixel
- * heart glyph + pink). Placed two ways: rising from the composer when no pet is
+ * TikTok-style floating hearts — a thin skin over {@link ParticleField} (the
+ * Tabler heart, filled, in pink). Placed two ways: rising from the composer when no pet is
  * out, or from the pet when one is. Fired by the core `reaction` event (affection
  * in a user message) via {@link burstVibeHearts}.
  */
@@ -34,13 +34,12 @@ const PET_HEART_CONFIG: Partial<ParticleFieldConfig> = {
   bank: [6, 14]
 }
 
-// Pixel-art heart from @nous-research/ui (14×12), crisp + `currentColor`.
+// The Tabler heart (`IconHeart`'s path), filled so it still reads at 6–13px,
+// in `currentColor` so the field's pink applies. A drawn heart, not a sprite:
+// the pixel glyph that sat here was the last of the 8-bit register.
 const HEART_GLYPH = (
-  <svg fill="none" shapeRendering="crispEdges" viewBox="0 0 14 12" xmlns="http://www.w3.org/2000/svg">
-    <path
-      d="M13.2 0v5.65714h-1.8857v1.88572H9.42857v1.88571H7.54286v1.88573H5.65714V9.42857H3.77143V7.54286H1.88571V5.65714H0V0h5.65714v1.88571h1.88572V0z"
-      fill="currentColor"
-    />
+  <svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19.5 12.572 12 20l-7.5-7.428A5 5 0 1 1 12 6.006a5 5 0 1 1 7.5 6.572Z" />
   </svg>
 )
 

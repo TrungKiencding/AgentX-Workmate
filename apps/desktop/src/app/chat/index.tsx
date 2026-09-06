@@ -404,17 +404,6 @@ export const ChatView = memo(function ChatView({
     [navigate]
   )
 
-  // The compact new-session pop-out skips the greeting/quick-start intro — it's
-  // a scratch window, not the full-height empty state.
-  const showIntro =
-    isPrimary &&
-    !isSecondaryWindow() &&
-    freshDraftReady &&
-    !isRoutedSessionView &&
-    !selectedSessionId &&
-    !activeSessionId &&
-    messagesEmpty
-
   // Session is still loading if the route references a session we haven't
   // resumed yet. Once `activeSessionId` is set (runtime has resumed), the
   // session exists — even if it has zero messages (a brand-new routed
@@ -430,6 +419,26 @@ export const ChatView = memo(function ChatView({
 
   const loadingSession =
     !resumeExhausted && isRoutedSessionView && (routeSessionMismatch || (messagesEmpty && !activeSessionId))
+
+  // The greeting fronts every empty chat: the fresh draft (no session yet) AND
+  // a routed conversation that exists but has no messages — a "new chat in a
+  // project" lands here — as long as it has actually resumed, nothing is
+  // running, and the route isn't mid-swap. Display only: the runtime, the
+  // resume path and the composer are untouched, and the once-per-launch
+  // entrance latch lives in the Intro itself. The compact new-session pop-out
+  // skips it — that's a scratch window, not the full-height empty state.
+  const freshDraftEmpty = freshDraftReady && !isRoutedSessionView && !selectedSessionId && !activeSessionId
+
+  const routedChatEmpty =
+    isRoutedSessionView &&
+    !routeSessionMismatch &&
+    !loadingSession &&
+    !resumeExhausted &&
+    Boolean(activeSessionId) &&
+    !busy &&
+    !awaitingResponse
+
+  const showIntro = isPrimary && !isSecondaryWindow() && messagesEmpty && (freshDraftEmpty || routedChatEmpty)
 
   const threadLoading = threadLoadingState(loadingSession, busy, awaitingResponse, lastVisibleIsUser)
   // Hide the composer in the exhausted error state too: there's no live runtime

@@ -554,7 +554,9 @@ function ToolEntry({ part }: ToolEntryProps) {
         >
           <span
             className="flex min-w-0 items-center gap-1.5"
-            title={isFileEdit && view.subtitle ? view.subtitle : undefined}
+            // The row reads in plain words ("Đã đọc tệp"); the tool's real
+            // name is one hover away for anyone who wants it.
+            title={isFileEdit && view.subtitle ? view.subtitle : view.title === toolName ? undefined : toolName}
           >
             <ToolGlyph
               copy={copy}

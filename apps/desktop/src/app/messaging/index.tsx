@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
+import { StatusPill } from '@/components/ui/status-pill'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import {
@@ -45,13 +46,6 @@ interface MessagingViewProps extends React.ComponentProps<'section'> {
 }
 
 type EditMap = Record<string, Record<string, string>>
-
-const PILL_TONE: Record<StatusTone, string> = {
-  good: 'bg-primary/10 text-primary',
-  muted: 'bg-muted text-muted-foreground',
-  warn: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-  bad: 'bg-destructive/10 text-destructive'
-}
 
 const stateLabel = (state: null | string | undefined, m: Translations['messaging']) =>
   state ? m.states[state] || state.replace(/_/g, ' ') : m.unknown
@@ -512,10 +506,9 @@ function PlatformRow({
           {pendingCount > 0 && (
             <span
               aria-label={t.messaging.pendingAria(pendingCount)}
-              className={cn(
-                'inline-flex min-w-4 items-center justify-center rounded-full px-1 text-2xs font-medium tabular-nums',
-                PILL_TONE.warn
-              )}
+              // A count, not a status — no dot — but the same soft tint as a
+              // warn StatusPill, from the token, so it follows the skin.
+              className="inline-flex min-w-4 items-center justify-center rounded-full px-1 text-2xs font-medium tabular-nums text-(--ui-yellow) [background:color-mix(in_srgb,var(--ui-yellow)_var(--status-pill-tint),transparent)]"
             >
               {pendingCount}
             </span>
@@ -566,10 +559,10 @@ function PlatformDetail({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="min-w-0 truncate text-md font-semibold tracking-tight">{platform.name}</h3>
-            <StatePill tone={stateTone(platform)}>{stateLabel(platform.state, m)}</StatePill>
+            <StatusPill tone={stateTone(platform)}>{stateLabel(platform.state, m)}</StatusPill>
             {/* Resting states earn no pill — only actionable ones. */}
-            {!platform.configured && <SetupPill active={false}>{m.needsSetup}</SetupPill>}
-            {!platform.gateway_running && <SetupPill active={false}>{m.gatewayStopped}</SetupPill>}
+            {!platform.configured && <StatusPill tone="muted">{m.needsSetup}</StatusPill>}
+            {!platform.gateway_running && <StatusPill tone="muted">{m.gatewayStopped}</StatusPill>}
           </div>
           <p className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
             {platform.description}
@@ -884,8 +877,10 @@ function MessagingField({
   )
 }
 
+// A section title is a sentence, not a stamp — 12px semibold, its own casing,
+// no tracking (the same voice as PanelSectionLabel).
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h4 className="text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{children}</h4>
+  return <h4 className="text-xs font-semibold text-(--ui-text-tertiary)">{children}</h4>
 }
 
 function PlatformHint({ platform }: { platform: MessagingPlatformInfo }) {
@@ -903,31 +898,4 @@ function PlatformHint({ platform }: { platform: MessagingPlatformInfo }) {
         : t.messaging.hintGatewayStopped
 
   return hint ? <p className="mt-2 text-xs leading-5 text-muted-foreground">{hint}</p> : null
-}
-
-function StatePill({ children, tone }: { children: string; tone: StatusTone }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-2xs font-medium',
-        PILL_TONE[tone]
-      )}
-    >
-      <StatusDot tone={tone} />
-      {children}
-    </span>
-  )
-}
-
-function SetupPill({ active, children }: { active: boolean; children: string }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium',
-        PILL_TONE[active ? 'good' : 'muted']
-      )}
-    >
-      {children}
-    </span>
-  )
 }

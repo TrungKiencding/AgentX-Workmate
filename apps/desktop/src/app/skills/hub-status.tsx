@@ -3,11 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
 import { getSkillHubChanges, tickSkillHub } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
-import { cn } from '@/lib/utils'
 import { $hubActions, HUB_CATALOG_KEY, UPDATE_ALL_KEY, updateHubSkills } from '@/store/hub-actions'
 import { notify, notifyError } from '@/store/notifications'
 import type { SkillHubChangesResponse, SkillHubInstallRow } from '@/types/hermes'
@@ -20,20 +20,20 @@ const SKILLS_LIST_KEY = ['skills-list'] as const
 export const HUB_CHANGES_POLL_MS = 15_000
 export const HUB_TICK_MS = 60_000
 
-function reportedTone(row: SkillHubInstallRow): string {
+function reportedTone(row: SkillHubInstallRow): StatusPillTone {
   if (row.reported_state === 'failed') {
-    return 'bg-destructive/15 text-destructive'
+    return 'bad'
   }
 
   if (row.reported_state === 'installed') {
-    return 'bg-emerald-500/15 text-emerald-400'
+    return 'good'
   }
 
   if (row.reported_state === 'disabled' || row.reported_state === 'removed') {
-    return 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+    return 'muted'
   }
 
-  return 'bg-amber-500/15 text-amber-400'
+  return 'warn'
 }
 
 function statusLine(data: SkillHubChangesResponse, h: ReturnType<typeof useI18n>['t']['skills']['hub']): string | null {
@@ -153,21 +153,20 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
   }
 
   return (
-    <section className="mb-4 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3" data-testid="hub-status">
+    <section
+      className="mb-4 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3"
+      data-testid="hub-status"
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-foreground/85">{h.fromHub}</span>
         {data && (
-          <span
-            className={cn(
-              'rounded px-1.5 py-0.5 text-2xs',
-              data.stream === 'connected' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
-            )}
-            data-testid="hub-stream"
-          >
+          <StatusPill data-testid="hub-stream" tone={data.stream === 'connected' ? 'good' : 'muted'}>
             {h.hubStatus[data.stream] ?? data.stream}
-          </span>
+          </StatusPill>
         )}
-        {data?.last?.at && <span className="text-2xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>}
+        {data?.last?.at && (
+          <span className="text-2xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           {data?.base_url && (
             <a
@@ -187,7 +186,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       </div>
 
       {line && (
-        <p className="mt-1.5 text-2xs text-amber-400" data-testid="hub-status-line">
+        <p className="mt-1.5 text-2xs text-(--ui-yellow)" data-testid="hub-status-line">
           {line}
         </p>
       )}
@@ -196,7 +195,10 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
         <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs" data-testid="hub-updates">
           <span className="font-medium text-foreground/85">{h.updatesAvailable(updates.length)}</span>
           {updates.map(update => (
-            <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)" key={update.install_id}>
+            <span
+              className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)"
+              key={update.install_id}
+            >
               {update.name || update.slug} {h.updateOne(update.current ?? '?', update.latest ?? '?')}
             </span>
           ))}
@@ -217,11 +219,15 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
             <li className="flex flex-wrap items-center gap-1.5 text-2xs" data-testid="hub-install" key={row.id}>
               <span className="font-medium text-foreground/85">{row.name || row.slug}</span>
               <span className="text-(--ui-text-quaternary)">{row.version ?? row.latest_version ?? ''}</span>
-              <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)">{h.desired[row.desired_state] ?? row.desired_state}</span>
-              <span className={cn('rounded px-1.5 py-0.5', reportedTone(row))} data-testid="hub-reported">
-                {h.reported[row.reported_state] ?? row.reported_state}
+              <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)">
+                {h.desired[row.desired_state] ?? row.desired_state}
               </span>
-              {row.local?.installed && !row.local.enabled && <span className="text-(--ui-text-quaternary)">{h.localDisabled}</span>}
+              <StatusPill data-testid="hub-reported" tone={reportedTone(row)}>
+                {h.reported[row.reported_state] ?? row.reported_state}
+              </StatusPill>
+              {row.local?.installed && !row.local.enabled && (
+                <span className="text-(--ui-text-quaternary)">{h.localDisabled}</span>
+              )}
               {row.reason && <span className="text-(--ui-text-quaternary)">— {row.reason}</span>}
               {row.error && <span className="text-destructive">{row.error}</span>}
             </li>

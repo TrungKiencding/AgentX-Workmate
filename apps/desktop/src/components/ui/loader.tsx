@@ -50,6 +50,14 @@ interface LoaderProps extends Omit<ComponentProps<'div'>, 'children'> {
   pathSteps?: number
   strokeScale?: number
   type?: LoaderType
+  /**
+   * `curve` (default) is the animated math curve — the transcript's thinking
+   * indicator and long operations. `ring` is a plain 20px ring turning on
+   * `transform`: the page loader and every in-page loading state, where a
+   * decorative curve reads as a puzzle to someone who just wants the list.
+   * Under reduced motion the ring simply stands still.
+   */
+  variant?: 'curve' | 'ring'
 }
 
 interface BaseCurveOptions extends Pick<
@@ -322,8 +330,48 @@ export function Loader({
   role = 'status',
   strokeScale = 1,
   type = 'rose-curve',
+  variant = 'curve',
   ...props
 }: LoaderProps) {
+  if (variant === 'ring') {
+    return <RingLoader {...props} aria-label={props['aria-label'] ?? label} className={className} role={role} />
+  }
+
+  return (
+    <CurveLoader
+      {...props}
+      aria-label={props['aria-label'] ?? label}
+      className={className}
+      pathSteps={pathSteps}
+      role={role}
+      strokeScale={strokeScale}
+      type={type}
+    />
+  )
+}
+
+// The soft ring: a track at low alpha and a quarter arc that turns. Tailwind's
+// `animate-spin` is a transform-only rotation, so it costs no layout and the
+// global reduced-motion rule freezes it in place.
+function RingLoader({ className, ...props }: Omit<ComponentProps<'div'>, 'children'>) {
+  return (
+    <div {...props} className={cn('inline-grid size-5 place-items-center text-(--ui-text-tertiary)', className)}>
+      <svg aria-hidden="true" className="size-full animate-spin" fill="none" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" opacity="0.25" r="8" stroke="currentColor" strokeWidth="2" />
+        <path d="M18 10a8 8 0 0 0-8-8" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+      </svg>
+    </div>
+  )
+}
+
+function CurveLoader({
+  className,
+  pathSteps = 240,
+  role = 'status',
+  strokeScale = 1,
+  type = 'rose-curve',
+  ...props
+}: Omit<LoaderProps, 'label' | 'variant'>) {
   const config = LOADER_CURVES[type]
   const groupRef = useRef<SVGGElement | null>(null)
   const particleRefs = useRef<Array<SVGCircleElement | null>>([])
@@ -365,12 +413,7 @@ export function Loader({
   }, [config, pathSteps, strokeScale])
 
   return (
-    <div
-      {...props}
-      aria-label={props['aria-label'] ?? label}
-      className={cn('inline-grid size-10 place-items-center text-primary', className)}
-      role={role}
-    >
+    <div {...props} className={cn('inline-grid size-10 place-items-center text-primary', className)} role={role}>
       <svg aria-hidden="true" className="size-full overflow-visible" fill="none" viewBox="0 0 100 100">
         <g ref={groupRef}>
           <path

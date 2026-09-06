@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { EmptyFigure, type EmptyFigureKind } from '@/components/ui/empty-figure'
 import { cn } from '@/lib/utils'
 
 // Canonical centered empty state. Three beats, always in this order: the NAME of
@@ -12,12 +13,15 @@ import { cn } from '@/lib/utils'
 // state is its own deliberately-distinct treatment.
 export function EmptyState({
   action,
+  figure,
   title,
   description,
   className
 }: {
   /** One action that resolves the emptiness — a Button, labelled with a verb. */
   action?: ReactNode
+  /** One of the four drawn figures (see EmptyFigure) above the three beats. */
+  figure?: EmptyFigureKind
   title: string
   description?: string
   className?: string
@@ -25,6 +29,7 @@ export function EmptyState({
   return (
     <div className={cn('grid min-h-48 place-items-center text-center', className)}>
       <div className="flex flex-col items-center gap-2">
+        {figure && <EmptyFigure className="mb-1" figure={figure} />}
         <div className="text-base font-medium text-foreground">{title}</div>
         {description && <div className="max-w-sm text-sm text-(--ui-text-tertiary)">{description}</div>}
         {action && <div className="mt-2">{action}</div>}

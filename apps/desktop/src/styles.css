@@ -1,4 +1,4 @@
-/* Hallmark · genre: modern-minimal · design-system: design.md · designed-as-app · uplift-plan: UI-REDESIGN-PLAN.md */
+/* Hallmark · genre: playful-soft (shape · icon · copy; palette + type unchanged) · design-system: design.md · designed-as-app · uplift-plan: UI-REDESIGN-PLAN-V2.md */
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-shimmer';
@@ -25,28 +25,6 @@
 /* Sidebar sections: tall viewports give each its own scroller; compact ones
    (this variant) flatten everything into one shared scroll. See ChatSidebar. */
 @custom-variant compact (@media (max-height: 768px));
-
-@font-face {
-  font-family: 'Collapse';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('../../../node_modules/@nous-research/ui/dist/fonts/Collapse-Bold.woff2') format('woff2');
-}
-
-/* Neuebit — the wordmark face. Collapse draws its capital A with the left
-   diagonal reduced to a hairline and a triangular notch cut out of the lower
-   left; that is the typeface's design, not a rendering fault, and it read as
-   a broken glyph once A became the first letter of the product name. Neuebit
-   is a pixel face, which also lines the desktop wordmark up with the 8-bit
-   banner the CLI draws in hermes_cli/banner.py. */
-@font-face {
-  font-family: 'Neuebit';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('../../../node_modules/@nous-research/ui/dist/fonts/Neuebit-Bold.woff2') format('woff2');
-}
 
 /* JetBrains Mono — bundled terminal font (Apache-2.0) so bold/italic share the
    regular face's metrics instead of squeezing against a system fallback. */
@@ -339,6 +317,21 @@
     --ui-red-foreground: oklch(99.36% 0.0017 247.8);
     --ui-yellow-foreground: oklch(99.36% 0.0017 247.8);
     --ui-green-foreground: oklch(99.36% 0.0017 247.8);
+    /* The fourth status tone — "in progress" (connecting, syncing). Not a new
+       hue: it is the accent itself, so it follows the skin and the accent
+       picker, and its label colour is the accent's own label pair. */
+    --ui-info: var(--ui-accent);
+    --ui-info-foreground: var(--dt-primary-foreground);
+    /* The StatusPill: one soft fill for every tone (the tone mixed over the
+       surface at --status-pill-tint) and a label that is the tone pulled
+       toward the page's own ink (--status-pill-ink is the share the tone
+       keeps) — the same construction as --ui-diff-add-foreground. The pull is
+       what lets the label clear 4.5:1 on a tint of its own hue on every
+       preset in both modes (55% is the largest share that does; the gate
+       script reads both knobs and fails below the floor). The dot keeps the
+       pure tone, so the hue still reads at a glance. */
+    --status-pill-tint: 12%;
+    --status-pill-ink: 55%;
     --ui-cyan: #4c7f8c;
     --ui-blue: #0053fd;
     --ui-purple: #9e94d5;
@@ -624,23 +617,40 @@
     --control-h-lg: 2.25rem; /* 36px — prominent form controls */
     --control-h-xl: 2.5rem; /* 40px — hero CTAs (onboarding, primary dialog action) */
 
-    /* Chrome row heights — the navigation band's own ramp. The sidebar row is a
-       real 32px target (it matches --control-h-md, so a row and a button on the
-       same rail line up); the statusbar keeps its own shorter band. */
-    --sidebar-row-height: 2rem; /* 32px — sidebar session / project rows */
+    /* Chrome row heights — the navigation band's own ramp. A sidebar row is a
+       36px target (it matches --control-h-lg, the same height as a prominent
+       control) so a conversation list reads like a list of conversations, not
+       a file tree; the nav rows at the top share that height; the statusbar
+       keeps its own shorter band. */
+    --sidebar-nav-row-height: 2.25rem; /* 36px — the four nav rows at the top of the sidebar */
+    --sidebar-row-height: 2.25rem; /* 36px — sidebar session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
+    /* StatusPill heights — sm sits under the control ramp (a pill beside a
+       row title), md rides --control-h-sm so it lines up with a small button. */
+    --status-pill-h-sm: 1.5rem; /* 24px */
+    --status-pill-h-md: var(--control-h-sm); /* 28px */
+    /* Switch md — the default toggle for every enable/disable row in a page:
+       a 22×38 track with an 18px thumb. (xs stays for menus and dense rows.) */
+    --switch-md-track-width: 2.375rem; /* 38px */
+    --switch-md-track-height: 1.375rem; /* 22px */
+    --switch-md-thumb: 1.125rem; /* 18px */
+    /* Home-surface task cards: the minimum height of one card, so a row of
+       cards with and without a description still lines up. */
+    --intro-card-min-height: 3.5rem; /* 56px */
 
-    /* Corner-radius voice — controls 6px · cards/widgets 10px · overlays 12px
+    /* Corner-radius voice — controls 8px · cards/widgets 12px · overlays 14px
        (the composer keeps its own 16px shell). Fixed on purpose: these rungs do
        NOT ride --radius-scalar, so the control silhouette stays put when a skin
-       tunes the global roundness. */
-    --radius-control: 0.375rem; /* 6px — buttons, inputs, segmented controls */
-    --radius-card: 0.625rem; /* 10px — cards, inline chat widgets */
-    --radius-overlay: 0.75rem; /* 12px — overlays, popovers, dialogs */
+       tunes the global roundness. Softened one step across the board in the
+       2026-09 friendly pass; the "inside rounds one rung tighter than its
+       shell" rule in the transcript still holds. */
+    --radius-control: 0.5rem; /* 8px — buttons, inputs, segmented controls */
+    --radius-card: 0.75rem; /* 12px — cards, inline chat widgets */
+    --radius-overlay: 0.875rem; /* 14px — overlays, popovers, dialogs */
     /* The user bubble is the one surface in the transcript that is *spoken*
        rather than shown — a rung rounder than a card so it reads as a line of
        speech parked on the right, not as another panel. */
-    --radius-bubble: 0.875rem; /* 14px — the user bubble */
+    --radius-bubble: 1.125rem; /* 18px — the user bubble */
 
     /* Motion durations — micro: press/toggle/color · short: hover/menu/tooltip
        · long: overlay/entrance. Exits run ≈ 75% of the paired enter. */
@@ -788,6 +798,8 @@
     --ui-red-foreground: oklch(16.91% 0.013 270.5);
     --ui-yellow-foreground: oklch(16.91% 0.013 270.5);
     --ui-green-foreground: oklch(16.91% 0.013 270.5);
+    --ui-info: var(--ui-accent);
+    --ui-info-foreground: var(--dt-primary-foreground);
     --ui-cyan: #6f9ba6;
     /* A 4px thumb at 18% accent disappears on graphite — match the visibility
        the light thumb has on paper rather than its alpha. */
@@ -1148,21 +1160,22 @@
   --arc-c1: var(--dt-foreground);
 }
 
-/* Quest-style "needs you" pulse for a clarify-blocked session's dot —
-   a soft amber glow that breathes so the row draws the eye without a toast. */
+/* "Needs you" pulse for a clarify-blocked session's dot — a soft breathing
+   glow in the warning tone (the semantic token, so it follows the skin) that
+   draws the eye to the row without a toast. */
 @keyframes quest-glow {
   0%,
   100% {
     transform: scale(1);
     box-shadow:
-      0 0 0.1875rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 70%, transparent),
-      0 0 0.5rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 45%, transparent);
+      0 0 0.1875rem color-mix(in srgb, var(--ui-yellow) 70%, transparent),
+      0 0 0.5rem color-mix(in srgb, var(--ui-yellow) 45%, transparent);
   }
   50% {
     transform: scale(1.18);
     box-shadow:
-      0 0 0.3125rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 90%, transparent),
-      0 0 0.875rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 65%, transparent);
+      0 0 0.3125rem color-mix(in srgb, var(--ui-yellow) 90%, transparent),
+      0 0 0.875rem color-mix(in srgb, var(--ui-yellow) 65%, transparent);
   }
 }
 
@@ -1197,8 +1210,8 @@
   .quest-glow {
     animation: none;
     box-shadow:
-      0 0 0.25rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 80%, transparent),
-      0 0 0.625rem color-mix(in srgb, var(--color-amber-500, #f59e0b) 55%, transparent);
+      0 0 0.25rem color-mix(in srgb, var(--ui-yellow) 80%, transparent),
+      0 0 0.625rem color-mix(in srgb, var(--ui-yellow) 55%, transparent);
   }
 }
 
@@ -1765,16 +1778,41 @@ code {
   max-width: 34rem;
   margin: 0.5rem auto 0;
   color: var(--ui-text-tertiary);
-  font-size: var(--text-base);
-  line-height: 1.45;
+  font-size: var(--text-md);
+  line-height: 1.5;
 }
 
-.intro-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+/* The intro measures its own column (tiles can be narrow while the window is
+   wide), so the card grid folds on the surface's width, not the viewport's. */
+[data-slot='aui_intro'] {
+  container-type: inline-size;
+}
+
+/* The ways in: at most four task cards on a two-column grid. A card that
+   names something of yours (resume) spans both columns and leads — see
+   introCardSpan() — so the row is asymmetric on purpose. Below ~30rem the
+   grid folds to one column and every card is the same width. */
+.intro-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-top: 1.25rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 1.25rem auto 0;
+}
+
+.intro-cards > [data-span='2'] {
+  grid-column: span 2;
+}
+
+@container (max-width: 30rem) {
+  .intro-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .intro-cards > [data-span='2'] {
+    grid-column: auto;
+  }
 }
 
 /* ONE entrance, once per app launch (the component owns the `data-entrance`

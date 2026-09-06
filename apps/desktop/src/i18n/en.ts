@@ -143,7 +143,8 @@ export const en: Translations = {
       kinds: {
         timeout: {
           title: 'AgentX is taking longer than usual to start',
-          description: 'The backend launched but did not answer in time. This is common on a first launch or on a busy machine, and nothing is broken.',
+          description:
+            'The backend launched but did not answer in time. This is common on a first launch or on a busy machine, and nothing is broken.',
           steps: [
             'Click Retry — the second attempt usually gets through.',
             'If it keeps happening, close heavy applications and try again.'
@@ -279,7 +280,8 @@ export const en: Translations = {
     openStarmap: 'Open memory graph',
     openKeybinds: 'Keyboard shortcuts',
     layoutEditor: 'Layout editor',
-    layoutEditorTitle: 'Layout editor — ⌘-click resets the layout'
+    layoutEditorTitle: 'Layout editor — ⌘-click resets the layout',
+    moreTools: 'More'
   },
 
   keybinds: {
@@ -305,12 +307,12 @@ export const en: Translations = {
       'nav.commandCenter': 'Open command center',
       'nav.settings': 'Open settings',
       'nav.profiles': 'Open profiles',
-      'nav.skills': 'Open skills',
+      'nav.skills': 'Open utilities',
       'nav.messaging': 'Open messaging',
       'nav.artifacts': 'Open artifacts',
       'nav.cron': 'Open scheduled jobs',
       'nav.agents': 'Open agents',
-      'session.new': 'New session',
+      'session.new': 'New chat',
       'session.newTab': 'New session tab',
       'session.newWindow': 'New window',
       'session.next': 'Next session',
@@ -1304,12 +1306,19 @@ export const en: Translations = {
       },
       signedOut: 'Sign in to AgentX to sync with the Hub.',
       offline: 'The Hub cannot be reached — installed skills keep working.',
-      reauth: 'The Hub refused this machine\'s token. Sign in again.',
+      reauth: "The Hub refused this machine's token. Sign in again.",
       unconfigured: 'No Hub address is configured (skills.hub_url).',
       lastSync: when => `Last sync ${when}`,
-      noInstalls: 'Nothing has been requested from the Hub for this machine yet. Click Install on the Hub and it lands here.',
+      noInstalls:
+        'Nothing has been requested from the Hub for this machine yet. Click Install on the Hub and it lands here.',
       desired: { installed: 'To install', removed: 'To remove', disabled: 'To switch off' },
-      reported: { pending: 'Pending', installed: 'Installed', removed: 'Removed', failed: 'Failed', disabled: 'Switched off' },
+      reported: {
+        pending: 'Pending',
+        installed: 'Installed',
+        removed: 'Removed',
+        failed: 'Failed',
+        disabled: 'Switched off'
+      },
       localDisabled: 'switched off on this machine',
       updatesAvailable: count => `${count} update${count === 1 ? '' : 's'} available`,
       updateOne: (from, to) => `${from} → ${to}`,
@@ -1332,8 +1341,9 @@ export const en: Translations = {
       propose: 'Propose to organisation',
       title: name => `Upload “${name}” to AgentX Hub`,
       proposeTitle: name => `Propose “${name}” to your organisation`,
-      description: 'The skill is uploaded as a new version, scanned, then published according to the Hub\'s policy.',
-      proposeDescription: 'The skill is uploaded with “Organisation” visibility: safe ones go live at once, cautious ones wait for an org admin.',
+      description: "The skill is uploaded as a new version, scanned, then published according to the Hub's policy.",
+      proposeDescription:
+        'The skill is uploaded with “Organisation” visibility: safe ones go live at once, cautious ones wait for an org admin.',
       visibility: 'Visibility',
       visibilityOptions: { private: 'Private', org: 'Organisation', public: 'Public' },
       kind: 'Kind',
@@ -1360,7 +1370,7 @@ export const en: Translations = {
       failed: 'Upload failed',
       signedOut: 'Sign in to AgentX to upload to the Hub.',
       offline: 'The Hub cannot be reached. Try again later.',
-      reauth: 'The Hub refused this machine\'s token. Sign in again.',
+      reauth: "The Hub refused this machine's token. Sign in again.",
       errors: {
         version_not_newer: highest => `The version must be above ${highest} — bump metadata.version in SKILL.md.`,
         version_exists: 'This version already exists on the Hub with different content.',
@@ -1517,9 +1527,9 @@ export const en: Translations = {
       usage: 'Token, cost, and skill activity over time'
     },
     nav: {
-      newChat: { title: 'New session', detail: 'Start a fresh session' },
+      newChat: { title: 'New chat', detail: 'Start a new chat' },
       settings: { title: 'Settings', detail: 'Configure AgentX desktop' },
-      skills: { title: 'Capabilities', detail: 'Skills, tools, and MCP servers' },
+      skills: { title: 'Utilities', detail: 'Skills, tools and advanced connections' },
       messaging: { title: 'Messaging', detail: 'Set up Telegram, Slack, Discord, and more' },
       artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' }
     },
@@ -2118,8 +2128,8 @@ export const en: Translations = {
 
   sidebar: {
     nav: {
-      'new-session': 'New session',
-      skills: 'Capabilities',
+      'new-session': 'New chat',
+      skills: 'Utilities',
       messaging: 'Messaging',
       artifacts: 'Artifacts'
     },
@@ -2129,7 +2139,7 @@ export const en: Translations = {
     noMatch: query => `No sessions match “${query}”.`,
     results: 'Results',
     pinned: 'Pinned',
-    sessions: 'Sessions',
+    sessions: 'Recent',
     cronJobs: 'Cron jobs',
     groupAriaGrouped: 'Show sessions as a single list',
     groupAriaUngrouped: 'Group sessions by workspace',
@@ -2138,7 +2148,7 @@ export const en: Translations = {
     groupTitleGrouped: 'Ungroup sessions',
     groupTitleUngrouped: 'Group by workspace',
     allPinned: 'Everything here is pinned. Unpin a chat to show it in recents.',
-    shiftClickHint: 'Shift-click a chat to pin',
+    shiftClickHint: 'Pin the chats you keep coming back to.',
     noWorkspace: 'No workspace',
     projectEmpty: 'No sessions yet',
     noSessions: 'No sessions yet',
@@ -2213,7 +2223,7 @@ export const en: Translations = {
       toggle: (label, open) => `${open ? 'Show' : 'Hide'} ${label} sessions`,
       back: 'All projects'
     },
-    newSessionIn: label => `New session in ${label}`,
+    newSessionIn: label => `New chat in ${label}`,
     showMoreIn: (count, label) => `Show ${count} more in ${label}`,
     loading: 'Loading…',
     loadMore: 'Load more',
@@ -2251,11 +2261,11 @@ export const en: Translations = {
       ageMin: 'm'
     },
     dateDivider: {
-      today: 'Earlier today',
+      today: 'Today',
       yesterday: 'Yesterday',
-      thisWeek: 'Earlier this week',
+      thisWeek: 'This week',
       lastWeek: 'Last week',
-      thisMonth: 'Earlier this month'
+      thisMonth: 'This month'
     }
   },
 
@@ -2265,15 +2275,8 @@ export const en: Translations = {
     placeholderStarting: 'Starting AgentX...',
     placeholderReconnecting: 'Reconnecting to AgentX…',
     placeholderFollowUp: 'Send follow-up',
-    newSessionPlaceholders: [
-      'What are we building?',
-      'Give AgentX a task',
-      "What's on your mind?",
-      'Describe what you need',
-      'What should we tackle?',
-      'Ask anything',
-      'Start with a goal'
-    ],
+    newSessionPlaceholders: ['What do you need today?'],
+    newSessionPlaceholdersRepo: ['Ask about the code or hand over a task…'],
     followUpPlaceholders: [
       'Send a follow-up',
       'Add more context',
@@ -2284,6 +2287,7 @@ export const en: Translations = {
       'Adjust or continue'
     ],
     startVoice: 'Start voice conversation',
+    voiceMenu: 'Voice',
     openDirective: 'Open',
     queueMessage: 'Queue message',
     steer: 'Steer the current run',
@@ -2365,7 +2369,7 @@ export const en: Translations = {
     noMatchingThemes: 'No matching themes.',
     themeTryPre: 'Try ',
     themeTryPost: '.',
-    addContext: 'Add context',
+    addContext: 'Attach a file, image or folder',
     attachLabel: 'Attach',
     files: 'Files…',
     folder: 'Folder…',
@@ -2607,18 +2611,21 @@ export const en: Translations = {
       listAnd: 'and',
       providerUnresolved: 'Connected, but AgentX still cannot resolve a usable provider.',
       runtimeNotReadyTitle: 'Runtime not ready',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.',
       couldNotStartSignIn: detail => `Could not start sign-in: ${detail}`,
       pollingFailed: detail => `Polling failed: ${detail}`,
       signInStatus: status => `Sign-in ${status}.`,
       tokenExchangeFailed: 'Token exchange failed.',
-      stillCannotReach: (provider, command) => `AgentX still cannot reach ${provider}. Run \`${command}\` in a terminal first.`,
+      stillCannotReach: (provider, command) =>
+        `AgentX still cannot reach ${provider}. Run \`${command}\` in a terminal first.`,
       couldNotSaveProvider: label => `Could not save ${label}`,
       couldNotSaveModel: 'AgentX could not save the selected model.',
       enterEndpointUrl: 'Enter the endpoint URL first.',
       couldNotReachEndpoint: 'Could not reach that endpoint.',
       couldNotReachUrl: url => `Could not reach ${url}.`,
-      noModelsAdvertised: url => `Connected to ${url}, but it advertised no models at /v1/models. Start a model on that endpoint and try again.`,
+      noModelsAdvertised: url =>
+        `Connected to ${url}, but it advertised no models at /v1/models. Start a model on that endpoint and try again.`,
       savedButUnreachable: url => `Saved, but AgentX still cannot reach ${url}.`,
       localEndpointLabel: 'Local / custom endpoint',
       couldNotSaveLocalEndpoint: 'Could not save local endpoint',
@@ -3056,22 +3063,35 @@ export const en: Translations = {
         'Ask a question, paste an error, or point me at a folder. I read documents and code, run tools, and help you get the work done.',
         'Describe the task in your own words: summarise a document, draft an email, fix a piece of code. I pick the right tools and check in before risky steps.',
         'Drop in a file, a spreadsheet, or a rough idea. I investigate, suggest next steps, and keep everything reversible.',
-        'Search the repo, edit files, run tests, open PRs. Tell me the goal and I\'ll handle the mechanical parts.',
-        'From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I\'m unsure.'
+        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
+        "From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I'm unsure."
       ],
       quickStart: 'Quick start',
       resume: title => `Resume “${title}”`,
-      starterExplainLabel: 'Explain this repo',
-      starterExplainPrompt: 'Explain what this repository does and how the code is organized.',
+      starterExplainLabel: 'Explain this code folder',
+      starterExplainPrompt: 'Explain what this code folder does and how the code is organised.',
       starterPlanLabel: 'Plan a change',
       starterPlanPrompt:
         'I want to make a change. Ask me what you need to know, then propose a plan before writing code.',
       starterExplainFolderLabel: 'Explain this folder',
       starterExplainFolderPrompt: 'Explain what is in the current working folder and how it is organised.',
       starterSummarizeLabel: 'Summarise a document',
-      starterSummarizePrompt: 'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
+      starterSummarizePrompt:
+        'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
       starterDraftLabel: 'Draft an email',
-      starterDraftPrompt: 'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.'
+      starterDraftPrompt:
+        'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.',
+      starterPlanWeekLabel: 'Plan my week',
+      starterPlanWeekPrompt:
+        'Help me plan this week. Ask me what is on my plate and the deadlines, then lay it out day by day with the most important work first.',
+      starterExplainDesc: 'What the code here does and how it is laid out',
+      starterExplainFolderDesc: 'What is in this folder',
+      starterPlanDesc: 'Ask first, then propose an approach',
+      starterPlanWeekDesc: 'Lay the week out day by day',
+      starterSummarizeDesc: 'Pull the key points from a file or a passage',
+      starterDraftDesc: 'From a few notes to something you can send',
+      resumeDesc: 'Pick up your latest chat',
+      projectDesc: 'Start in this project’s folder'
     },
     thread: {
       loadingSession: 'Loading session',

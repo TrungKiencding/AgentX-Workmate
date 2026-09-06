@@ -80,7 +80,7 @@ async function startTurnAndSwitchAway(page: import('@playwright/test').Page) {
 
   // Switch to a new session — session A is no longer $selectedStoredSessionId.
   // This is required: openSessionTile bails if the session is already selected.
-  await page.locator('button:has-text("New session")').first().click()
+  await page.locator('button:has-text("New chat")').first().click()
   await page.waitForTimeout(2000)
 }
 

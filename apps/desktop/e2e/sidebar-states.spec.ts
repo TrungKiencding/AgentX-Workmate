@@ -236,8 +236,8 @@ test.describe('sidebar states — cross-session dot transition', () => {
     // background process hasn't exited yet.
     await page.screenshot({ path: 'test-results/cross-session-bg-dot-before-switch.png' })
 
-    // Create a new session (click "New session" button).
-    await page.locator('button:has-text("New session")').first().click()
+    // Create a new session (click "New chat" button).
+    await page.locator('button:has-text("New chat")').first().click()
     await page.waitForTimeout(2000)
 
     // Now let the background process finish. The session A dot should

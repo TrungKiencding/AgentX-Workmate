@@ -25,6 +25,7 @@ import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { Files, Folders, List, MessageCircle, MessagePlus, Plus, Puzzle } from '@/lib/icons'
 import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
@@ -142,32 +143,34 @@ import { CONTEXT_SPLIT_KIT, SplitSubmenu } from './split-submenu'
 const NON_SESSION_INITIAL_ROWS = 3
 const NON_SESSION_LOAD_STEP = 10
 
+// Nav glyphs are Tabler — the page chrome's one icon set. Codicon stays in the
+// transcript, terminal, editor and file tree, where it is the tool vocabulary.
 const SIDEBAR_NAV: SidebarNavItem[] = [
   {
     id: 'new-session',
     label: '',
-    icon: props => <Codicon name="robot" {...props} />,
+    icon: props => <MessagePlus {...props} />,
     action: 'new-session',
     keybindActionId: 'session.new'
   },
   {
     id: 'skills',
     label: '',
-    icon: props => <Codicon name="symbol-misc" {...props} />,
+    icon: props => <Puzzle {...props} />,
     route: SKILLS_ROUTE,
     keybindActionId: 'nav.skills'
   },
   {
     id: 'messaging',
     label: '',
-    icon: props => <Codicon name="comment" {...props} />,
+    icon: props => <MessageCircle {...props} />,
     route: MESSAGING_ROUTE,
     keybindActionId: 'nav.messaging'
   },
   {
     id: 'artifacts',
     label: '',
-    icon: props => <Codicon name="files" {...props} />,
+    icon: props => <Files {...props} />,
     route: ARTIFACTS_ROUTE,
     keybindActionId: 'nav.artifacts'
   }
@@ -1151,11 +1154,16 @@ export function ChatSidebar({
                       // resolved region has been observed to swallow clicks on the
                       // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
                       // thread.tsx.
-                      'flex h-(--sidebar-row-height) w-full justify-start gap-2 rounded-md border border-transparent px-2 text-left text-sm font-medium text-(--ui-text-secondary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
+                      //
+                      // A nav row is a 36px, 14px-medium destination — the same
+                      // silhouette as a conversation row, one step bolder — and
+                      // "selected" is the sidebar's own selected treatment: the
+                      // tinted row fill PLUS the 2px accent bar on the leading
+                      // edge, drawn in the row's padding so it costs no layout.
+                      'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-base font-medium text-(--ui-text-secondary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
                       active &&
-                        'border-(--ui-stroke-tertiary) bg-(--ui-control-active-background) text-foreground shadow-none hover:border-(--ui-stroke-tertiary)!',
-                      !isInteractive &&
-                        'cursor-default hover:border-transparent hover:bg-transparent hover:text-inherit'
+                        'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)',
+                      !isInteractive && 'cursor-default hover:bg-transparent hover:text-inherit'
                     )}
                     onClick={() => {
                       // A plain new session lands in whatever profile the live
@@ -1179,11 +1187,17 @@ export function ChatSidebar({
                     }
                     type="button"
                   >
-                    <item.icon className="size-4 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
+                    <item.icon className="size-4.5 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
-                    {isNewSession && (
+                    {/* The shortcut is a hint for people who want one, not a label
+                        everyone reads: it shows on hover or keyboard focus (and
+                        for a beat when the shortcut itself was just pressed). */}
+                    {isNewSession && newSessionKbd.length > 0 && (
                       <KbdGroup
-                        className={cn('ml-auto opacity-55', newSessionKbdFlash && 'opacity-100!')}
+                        className={cn(
+                          'ml-auto opacity-0 transition-opacity duration-(--dur-micro) group-hover/nav:opacity-70 group-focus-within/nav:opacity-70',
+                          newSessionKbdFlash && 'opacity-100!'
+                        )}
                         keys={newSessionKbd}
                         size="sm"
                       />
@@ -1359,7 +1373,7 @@ export function ChatSidebar({
                             size="icon-xs"
                             variant="ghost"
                           >
-                            <Codicon name="list-unordered" size="0.75rem" />
+                            <List className="size-3" />
                           </Button>
                         </Tip>
                       </div>
@@ -1383,7 +1397,7 @@ export function ChatSidebar({
                             size="icon-xs"
                             variant="ghost"
                           >
-                            <Codicon name="add" size="0.75rem" />
+                            <Plus className="size-3" />
                           </Button>
                         </Tip>
                       ) : null}
@@ -1404,7 +1418,7 @@ export function ChatSidebar({
                               size="icon-xs"
                               variant="ghost"
                             >
-                              <Codicon name={agentsGrouped ? 'list-unordered' : 'root-folder'} size="0.75rem" />
+                              {agentsGrouped ? <List className="size-3" /> : <Folders className="size-3" />}
                             </Button>
                           </Tip>
                         ) : null}

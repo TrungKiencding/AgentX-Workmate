@@ -30,11 +30,12 @@ type DotVariant = {
 const DOT_BASE = 'relative size-1.5 rounded-full'
 
 const DOT_VARIANTS: Record<SessionDotState, DotVariant> = {
-  // Amber steady — a clarify/approval is blocking the turn. Steady (not
-  // pulsing) reads as "your turn", distinct from the accent pulse of a turn.
+  // Warning-yellow steady — a clarify/approval is blocking the turn. Steady
+  // (not pulsing) reads as "your turn", distinct from the accent pulse of a
+  // turn. The semantic token, so it follows the skin.
   'needs-input': {
     ariaLabel: r => r.needsInput,
-    className: `${DOT_BASE} quest-glow bg-amber-500`,
+    className: `${DOT_BASE} quest-glow bg-(--ui-yellow)`,
     role: 'status',
     title: r => r.waitingForAnswer
   },
@@ -77,7 +78,7 @@ const DOT_VARIANTS: Record<SessionDotState, DotVariant> = {
   // opened it since. "Something new here, go look."
   unread: {
     ariaLabel: r => r.finishedUnread,
-    className: `${DOT_BASE} bg-emerald-500`,
+    className: `${DOT_BASE} bg-(--ui-green)`,
     role: 'status',
     title: r => r.finishedUnread
   },

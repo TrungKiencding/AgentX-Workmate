@@ -134,26 +134,17 @@ export const zhHant = defineLocale({
       hideTechnicalDetails: '隱藏技術細節',
       copyDetails: '複製細節',
       copiedDetails: '已複製',
-      genericSteps: [
-        '點選「重試」。',
-        '若仍然失敗，選擇「修復安裝」，或開啟記錄檔並寄給你的 AgentX 管理員。'
-      ],
+      genericSteps: ['點選「重試」。', '若仍然失敗，選擇「修復安裝」，或開啟記錄檔並寄給你的 AgentX 管理員。'],
       kinds: {
         timeout: {
           title: '啟動 AgentX 比平常慢',
           description: '後端已啟動但未及時回應。首次啟動或機器忙碌時很常見，並沒有什麼壞掉。',
-          steps: [
-            '點選「重試」— 第二次通常就能連上。',
-            '如果反覆發生，關閉佔用較大的應用程式後再試。'
-          ]
+          steps: ['點選「重試」— 第二次通常就能連上。', '如果反覆發生，關閉佔用較大的應用程式後再試。']
         },
         exited: {
           title: 'AgentX 後端在啟動時停止了',
           description: '背景程序在就緒前結束了。',
-          steps: [
-            '點選「重試」。',
-            '若再次停止，選擇「修復安裝」— 它會重新執行安裝程式，並保留你的對話和設定。'
-          ]
+          steps: ['點選「重試」。', '若再次停止，選擇「修復安裝」— 它會重新執行安裝程式，並保留你的對話和設定。']
         },
         port: {
           title: 'AgentX 無法開啟連線',
@@ -167,18 +158,12 @@ export const zhHant = defineLocale({
         websocket: {
           title: '即時連線被拒絕',
           description: 'AgentX 透過 HTTP 有回應，但即時通道拒絕了此工作階段。',
-          steps: [
-            '點選「重試」以重新登入並連線。',
-            '如果反覆發生，開啟閘道設定檢查連線。'
-          ]
+          steps: ['點選「重試」以重新登入並連線。', '如果反覆發生，開啟閘道設定檢查連線。']
         },
         install: {
           title: 'AgentX 安裝尚未完成',
           description: '一次性安裝沒有完成，所以還沒有可啟動的內容。',
-          steps: [
-            '選擇「修復安裝」重新執行安裝程式。',
-            '完成前請保持應用程式開啟 — 可能需要幾分鐘。'
-          ]
+          steps: ['選擇「修復安裝」重新執行安裝程式。', '完成前請保持應用程式開啟 — 可能需要幾分鐘。']
         }
       }
     }
@@ -271,7 +256,8 @@ export const zhHant = defineLocale({
     muteHaptics: '靜音觸感回饋',
     unmuteHaptics: '開啟觸感回饋',
     openSettings: '開啟設定',
-    openStarmap: '開啟記憶圖譜'
+    openStarmap: '開啟記憶圖譜',
+    moreTools: '更多'
   },
 
   language: {
@@ -1358,9 +1344,9 @@ export const zhHant = defineLocale({
       usage: '一段時間內的詞元、費用和技能活動'
     },
     nav: {
-      newChat: { title: '新工作階段', detail: '開始新的工作階段' },
+      newChat: { title: '新對話', detail: '開始新的對話' },
       settings: { title: '設定', detail: '設定 AgentX 桌面端' },
-      skills: { title: '技能與工具', detail: '啟用技能、工具集和提供方' },
+      skills: { title: '實用工具', detail: '技能、工具與進階連線' },
       messaging: { title: '訊息平台', detail: '設定 Telegram、Slack、Discord 等' },
       artifacts: { title: '成品', detail: '瀏覽產生的輸出' }
     },
@@ -1819,8 +1805,8 @@ export const zhHant = defineLocale({
 
   sidebar: {
     nav: {
-      'new-session': '新工作階段',
-      skills: '技能與工具',
+      'new-session': '新對話',
+      skills: '實用工具',
       messaging: '訊息平台',
       artifacts: '成品'
     },
@@ -1830,7 +1816,7 @@ export const zhHant = defineLocale({
     noMatch: query => `沒有工作階段符合「${query}」。`,
     results: '結果',
     pinned: '已釘選',
-    sessions: '工作階段',
+    sessions: '最近',
     cronJobs: '排程任務',
     groupAriaGrouped: '以單一清單顯示工作階段',
     groupAriaUngrouped: '依工作區分組工作階段',
@@ -1839,7 +1825,7 @@ export const zhHant = defineLocale({
     groupTitleGrouped: '取消分組',
     groupTitleUngrouped: '依工作區分組',
     allPinned: '這裡的全部已釘選。取消釘選某個聊天即可在最近中顯示。',
-    shiftClickHint: 'Shift + 點擊聊天以釘選 · 拖曳以重新排序',
+    shiftClickHint: '把常回來看的對話釘選起來。',
     noWorkspace: '無工作區',
     projectEmpty: '尚無工作階段',
     noSessions: '尚無工作階段',
@@ -1904,7 +1890,7 @@ export const zhHant = defineLocale({
       forceRemove: '強制移除',
       enter: label => `開啟 ${label}`
     },
-    newSessionIn: label => `在 ${label} 中新建工作階段`,
+    newSessionIn: label => `在 ${label} 中新建對話`,
     showMoreIn: (count, label) => `在 ${label} 中再顯示 ${count} 個`,
     loading: '載入中…',
     loadMore: '載入更多',
@@ -1940,7 +1926,7 @@ export const zhHant = defineLocale({
       ageMin: '分'
     },
     dateDivider: {
-      today: '今天稍早',
+      today: '今天',
       yesterday: '昨天',
       thisWeek: '本週',
       lastWeek: '上週',
@@ -1954,15 +1940,8 @@ export const zhHant = defineLocale({
     placeholderStarting: '正在啟動 AgentX...',
     placeholderReconnecting: '正在重新連線至 AgentX…',
     placeholderFollowUp: '傳送後續訊息',
-    newSessionPlaceholders: [
-      '我們要建立什麼？',
-      '給 AgentX 一個任務',
-      '您在想什麼？',
-      '描述您需要什麼',
-      '我們該處理什麼？',
-      '盡管問',
-      '從一個目標開始'
-    ],
+    newSessionPlaceholders: ['今天需要做什麼？'],
+    newSessionPlaceholdersRepo: ['問問程式碼，或交辦一件事…'],
     followUpPlaceholders: [
       '傳送後續訊息',
       '補充更多脈絡',
@@ -1973,6 +1952,7 @@ export const zhHant = defineLocale({
       '調整或繼續'
     ],
     startVoice: '開始語音對話',
+    voiceMenu: '語音',
     openDirective: '開啟',
     queueMessage: '排隊訊息',
     stop: '停止',
@@ -2053,7 +2033,7 @@ export const zhHant = defineLocale({
     noMatchingThemes: '沒有相符的主題。',
     themeTryPre: '試試 ',
     themeTryPost: '。',
-    addContext: '加入脈絡',
+    addContext: '附加檔案、圖片或資料夾',
     attachLabel: '附加',
     files: '檔案…',
     folder: '資料夾…',
@@ -2290,7 +2270,8 @@ export const zhHant = defineLocale({
       listAnd: '和',
       providerUnresolved: '已連線，但 AgentX 仍無法解析出可用的提供者。',
       runtimeNotReadyTitle: '執行環境尚未就緒',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop 啟動時無法驗證執行中的後端。在閘道可連線之前，部分功能可能無法使用。',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop 啟動時無法驗證執行中的後端。在閘道可連線之前，部分功能可能無法使用。',
       couldNotStartSignIn: detail => `無法開始登入：${detail}`,
       pollingFailed: detail => `輪詢失敗：${detail}`,
       signInStatus: status => `登入${status}。`,
@@ -2716,8 +2697,8 @@ export const zhHant = defineLocale({
       ],
       quickStart: '快速開始',
       resume: title => `繼續「${title}」`,
-      starterExplainLabel: '介紹這個專案',
-      starterExplainPrompt: '請說明這個專案是做什麼的，程式碼又是如何組織的。',
+      starterExplainLabel: '介紹這個程式碼資料夾',
+      starterExplainPrompt: '請說明這個程式碼資料夾是做什麼的，程式碼又是如何組織的。',
       starterPlanLabel: '規劃一項變更',
       starterPlanPrompt: '我想改一個地方。先問清楚你需要知道的資訊，再提出方案，然後再寫程式碼。',
       starterExplainFolderLabel: '介紹這個資料夾',
@@ -2725,7 +2706,17 @@ export const zhHant = defineLocale({
       starterSummarizeLabel: '摘要一份文件',
       starterSummarizePrompt: '我想摘要一份文件。先向我要檔案或文字，然後給出重點和我需要處理的事項。',
       starterDraftLabel: '草擬一封郵件',
-      starterDraftPrompt: '幫我草擬一封郵件。先問我收件人、要表達的內容和語氣，然後寫出一版可以直接寄出的郵件。'
+      starterDraftPrompt: '幫我草擬一封郵件。先問我收件人、要表達的內容和語氣，然後寫出一版可以直接寄出的郵件。',
+      starterPlanWeekLabel: '規劃本週',
+      starterPlanWeekPrompt: '幫我規劃這一週。先問我手上有哪些事和截止日期，然後按天排好，重要的事放前面。',
+      starterExplainDesc: '這裡的程式碼做什麼、怎麼組織',
+      starterExplainFolderDesc: '這個資料夾裡有什麼',
+      starterPlanDesc: '先問清楚，再提出做法',
+      starterPlanWeekDesc: '把一週的事按天排好',
+      starterSummarizeDesc: '從檔案或段落裡整理重點',
+      starterDraftDesc: '從幾條筆記到可直接寄出的郵件',
+      resumeDesc: '接續上一次的對話',
+      projectDesc: '在這個專案的資料夾裡開始'
     },
     thread: {
       loadingSession: '正在載入工作階段',

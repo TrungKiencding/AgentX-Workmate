@@ -37,7 +37,14 @@ const buttonVariants = cva(
         // Pill affordance for an optional way in — the home surface's
         // quick-start row. Hairline at rest so the row stays quiet against the
         // greeting; the border firms up and the fill arrives on hover.
-        chip: 'rounded-full border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-secondary) hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)'
+        chip: 'rounded-full border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-secondary) hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)',
+        // A task card — the home surface's "things you can do" tiles. A quiet
+        // hairline tile on --shadow-xs at rest that firms up and lifts one
+        // shadow rung on hover — the card-hover recipe in design.md § Motion:
+        // background, border and shadow at --dur-short, never a translate or a
+        // scale. Pair it with `size="card"`; the card's title/description
+        // stack is the caller's children, left-aligned.
+        card: 'rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-primary) shadow-xs duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:shadow-sm'
       },
       size: {
         default: 'h-(--control-h-md) px-3.5 has-[>svg]:px-3',
@@ -55,6 +62,9 @@ const buttonVariants = cva(
         // Pairs with the `chip` variant: 36px pill at chrome text size, with a
         // little more air than a boxed button of the same height.
         chip: "h-(--control-h-lg) gap-2 rounded-full px-4 [&_svg:not([class*='size-'])]:size-4",
+        // Pairs with the `card` variant: a padded, left-aligned, min-height
+        // tile whose leading glyph is the list-row icon size (20px).
+        card: "h-auto min-h-(--intro-card-min-height) items-center justify-start gap-3 px-3.5 py-2.5 text-left whitespace-normal [&_svg:not([class*='size-'])]:size-5",
         icon: 'size-(--control-h-md)',
         'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3",
         'icon-sm': 'size-(--control-h-sm)',

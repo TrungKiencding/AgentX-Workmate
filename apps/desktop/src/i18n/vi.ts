@@ -154,7 +154,8 @@ export const vi: Translations = {
       kinds: {
         timeout: {
           title: 'AgentX khởi động lâu hơn bình thường',
-          description: 'Backend đã chạy nhưng chưa kịp phản hồi. Lần mở đầu tiên hoặc lúc máy đang bận thường gặp việc này, không có gì hỏng cả.',
+          description:
+            'Backend đã chạy nhưng chưa kịp phản hồi. Lần mở đầu tiên hoặc lúc máy đang bận thường gặp việc này, không có gì hỏng cả.',
           steps: [
             'Bấm Thử lại — lần thứ hai thường sẽ lên.',
             'Nếu lặp lại nhiều lần, đóng bớt ứng dụng nặng rồi thử lại.'
@@ -180,10 +181,7 @@ export const vi: Translations = {
         websocket: {
           title: 'Kết nối thời gian thực bị từ chối',
           description: 'AgentX trả lời qua HTTP nhưng kênh thời gian thực không nhận phiên đăng nhập.',
-          steps: [
-            'Bấm Thử lại để đăng nhập và kết nối lại.',
-            'Nếu vẫn lỗi, mở Cài đặt gateway và kiểm tra kết nối.'
-          ]
+          steps: ['Bấm Thử lại để đăng nhập và kết nối lại.', 'Nếu vẫn lỗi, mở Cài đặt gateway và kiểm tra kết nối.']
         },
         install: {
           title: 'Bản cài đặt AgentX chưa hoàn tất',
@@ -290,7 +288,8 @@ export const vi: Translations = {
     openStarmap: 'Mở đồ thị bộ nhớ',
     openKeybinds: 'Phím tắt',
     layoutEditor: 'Trình sắp bố cục',
-    layoutEditorTitle: 'Trình sắp bố cục — ⌘-nhấp để đặt lại bố cục'
+    layoutEditorTitle: 'Trình sắp bố cục — ⌘-nhấp để đặt lại bố cục',
+    moreTools: 'Thêm'
   },
 
   keybinds: {
@@ -316,12 +315,12 @@ export const vi: Translations = {
       'nav.commandCenter': 'Mở trung tâm điều khiển',
       'nav.settings': 'Mở cài đặt',
       'nav.profiles': 'Mở hồ sơ',
-      'nav.skills': 'Mở kỹ năng',
+      'nav.skills': 'Mở tiện ích',
       'nav.messaging': 'Mở tin nhắn',
       'nav.artifacts': 'Mở artifact',
       'nav.cron': 'Mở tác vụ hẹn giờ',
       'nav.agents': 'Mở agent',
-      'session.new': 'Phiên mới',
+      'session.new': 'Trò chuyện mới',
       'session.newTab': 'Tab phiên mới',
       'session.newWindow': 'Cửa sổ mới',
       'session.next': 'Phiên kế tiếp',
@@ -1596,7 +1595,8 @@ export const vi: Translations = {
       title: name => `Tải “${name}” lên AgentX Hub`,
       proposeTitle: name => `Đề xuất “${name}” cho tổ chức`,
       description: 'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của Hub.',
-      proposeDescription: 'Skill được tải lên với hiển thị “Tổ chức”: an toàn thì lên ngay, cần chú ý thì quản trị tổ chức duyệt.',
+      proposeDescription:
+        'Skill được tải lên với hiển thị “Tổ chức”: an toàn thì lên ngay, cần chú ý thì quản trị tổ chức duyệt.',
       visibility: 'Hiển thị',
       visibilityOptions: { private: 'Riêng tư', org: 'Tổ chức', public: 'Công khai' },
       kind: 'Loại',
@@ -1779,9 +1779,9 @@ export const vi: Translations = {
       usage: 'Token, chi phí và hoạt động kỹ năng theo thời gian'
     },
     nav: {
-      newChat: { title: 'Phiên mới', detail: 'Bắt đầu một phiên mới' },
+      newChat: { title: 'Trò chuyện mới', detail: 'Bắt đầu một cuộc trò chuyện mới' },
       settings: { title: 'Cài đặt', detail: 'Cấu hình AgentX desktop' },
-      skills: { title: 'Năng lực', detail: 'Kỹ năng, công cụ và MCP server' },
+      skills: { title: 'Tiện ích', detail: 'Kỹ năng, công cụ và kết nối nâng cao' },
       messaging: { title: 'Tin nhắn', detail: 'Thiết lập Telegram, Slack, Discord và hơn thế' },
       artifacts: { title: 'Artifact', detail: 'Duyệt các kết quả đã tạo' }
     },
@@ -2386,8 +2386,8 @@ export const vi: Translations = {
 
   sidebar: {
     nav: {
-      'new-session': 'Phiên mới',
-      skills: 'Năng lực',
+      'new-session': 'Trò chuyện mới',
+      skills: 'Tiện ích',
       messaging: 'Tin nhắn',
       artifacts: 'Artifact'
     },
@@ -2397,7 +2397,7 @@ export const vi: Translations = {
     noMatch: query => `Không có phiên nào khớp với “${query}”.`,
     results: 'Kết quả',
     pinned: 'Đã ghim',
-    sessions: 'Phiên',
+    sessions: 'Gần đây',
     cronJobs: 'Tác vụ cron',
     groupAriaGrouped: 'Hiện các phiên thành một danh sách duy nhất',
     groupAriaUngrouped: 'Nhóm các phiên theo workspace',
@@ -2406,7 +2406,7 @@ export const vi: Translations = {
     groupTitleGrouped: 'Bỏ nhóm các phiên',
     groupTitleUngrouped: 'Nhóm theo workspace',
     allPinned: 'Mọi mục ở đây đều đã ghim. Bỏ ghim một cuộc trò chuyện để nó hiện trong phần gần đây.',
-    shiftClickHint: 'Shift-nhấp vào một cuộc trò chuyện để ghim',
+    shiftClickHint: 'Ghim những cuộc trò chuyện bạn hay quay lại.',
     noWorkspace: 'Không có workspace',
     projectEmpty: 'Chưa có phiên nào',
     noSessions: 'Chưa có phiên nào',
@@ -2481,7 +2481,7 @@ export const vi: Translations = {
       toggle: (label, open) => `${open ? 'Hiện' : 'Ẩn'} các phiên của ${label}`,
       back: 'Tất cả dự án'
     },
-    newSessionIn: label => `Phiên mới trong ${label}`,
+    newSessionIn: label => `Trò chuyện mới trong ${label}`,
     showMoreIn: (count, label) => `Xem thêm ${count} mục trong ${label}`,
     loading: 'Đang tải…',
     loadMore: 'Tải thêm',
@@ -2519,11 +2519,11 @@ export const vi: Translations = {
       ageMin: 'phút'
     },
     dateDivider: {
-      today: 'Sớm hơn hôm nay',
+      today: 'Hôm nay',
       yesterday: 'Hôm qua',
-      thisWeek: 'Sớm hơn trong tuần này',
+      thisWeek: 'Tuần này',
       lastWeek: 'Tuần trước',
-      thisMonth: 'Sớm hơn trong tháng này'
+      thisMonth: 'Tháng này'
     }
   },
 
@@ -2533,15 +2533,8 @@ export const vi: Translations = {
     placeholderStarting: 'Đang khởi động AgentX...',
     placeholderReconnecting: 'Đang kết nối lại AgentX…',
     placeholderFollowUp: 'Gửi tiếp',
-    newSessionPlaceholders: [
-      'Mình làm gì hôm nay?',
-      'Giao việc cho AgentX',
-      'Bạn đang nghĩ gì?',
-      'Mô tả việc bạn cần',
-      'Bắt đầu từ đâu nhỉ?',
-      'Hỏi gì cũng được',
-      'Bắt đầu bằng một mục tiêu'
-    ],
+    newSessionPlaceholders: ['Bạn cần làm gì hôm nay?'],
+    newSessionPlaceholdersRepo: ['Hỏi về mã nguồn hoặc giao việc…'],
     followUpPlaceholders: [
       'Gửi tiếp một tin',
       'Bổ sung ngữ cảnh',
@@ -2552,6 +2545,7 @@ export const vi: Translations = {
       'Điều chỉnh hoặc tiếp tục'
     ],
     startVoice: 'Bắt đầu trò chuyện bằng giọng nói',
+    voiceMenu: 'Giọng nói',
     openDirective: 'Mở',
     queueMessage: 'Xếp tin nhắn vào hàng chờ',
     steer: 'Lái lượt chạy hiện tại',
@@ -2633,7 +2627,7 @@ export const vi: Translations = {
     noMatchingThemes: 'Không có theme nào khớp.',
     themeTryPre: 'Thử ',
     themeTryPost: '.',
-    addContext: 'Thêm ngữ cảnh',
+    addContext: 'Đính kèm tệp, ảnh hoặc thư mục',
     attachLabel: 'Đính kèm',
     files: 'Tệp…',
     folder: 'Thư mục…',
@@ -2875,18 +2869,21 @@ export const vi: Translations = {
       listAnd: 'và',
       providerUnresolved: 'Đã kết nối, nhưng AgentX vẫn chưa xác định được nhà cung cấp dùng được.',
       runtimeNotReadyTitle: 'Môi trường chạy chưa sẵn sàng',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop không xác minh được backend đang chạy lúc khởi động. Một số tính năng có thể chưa dùng được cho tới khi kết nối được gateway.',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop không xác minh được backend đang chạy lúc khởi động. Một số tính năng có thể chưa dùng được cho tới khi kết nối được gateway.',
       couldNotStartSignIn: detail => `Không bắt đầu đăng nhập được: ${detail}`,
       pollingFailed: detail => `Kiểm tra trạng thái thất bại: ${detail}`,
       signInStatus: status => `Đăng nhập ${status}.`,
       tokenExchangeFailed: 'Đổi token thất bại.',
-      stillCannotReach: (provider, command) => `AgentX vẫn chưa kết nối được ${provider}. Hãy chạy \`${command}\` trong terminal trước.`,
+      stillCannotReach: (provider, command) =>
+        `AgentX vẫn chưa kết nối được ${provider}. Hãy chạy \`${command}\` trong terminal trước.`,
       couldNotSaveProvider: label => `Không lưu được ${label}`,
       couldNotSaveModel: 'AgentX không lưu được model đã chọn.',
       enterEndpointUrl: 'Hãy nhập URL endpoint trước.',
       couldNotReachEndpoint: 'Không kết nối được tới endpoint đó.',
       couldNotReachUrl: url => `Không kết nối được tới ${url}.`,
-      noModelsAdvertised: url => `Đã kết nối tới ${url}, nhưng nó không công bố model nào ở /v1/models. Hãy khởi động một model trên endpoint đó rồi thử lại.`,
+      noModelsAdvertised: url =>
+        `Đã kết nối tới ${url}, nhưng nó không công bố model nào ở /v1/models. Hãy khởi động một model trên endpoint đó rồi thử lại.`,
       savedButUnreachable: url => `Đã lưu, nhưng AgentX vẫn chưa kết nối được ${url}.`,
       localEndpointLabel: 'Endpoint cục bộ / tự định nghĩa',
       couldNotSaveLocalEndpoint: 'Không lưu được endpoint cục bộ',
@@ -3325,22 +3322,35 @@ export const vi: Translations = {
         'Hỏi một câu, dán một lỗi, hoặc chỉ cho tôi một thư mục. Tôi đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
         'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. Tôi chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
         'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. Tôi sẽ tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
-        'Tìm trong repo, sửa tệp, chạy test, mở PR. Bạn nêu mục tiêu, phần việc máy móc để tôi lo.',
-        'Từ báo cáo tuần tới kế hoạch dự án: gõ một tác vụ hay câu hỏi. Tôi nhớ phiên làm việc, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
+        'Tìm trong thư mục mã nguồn, sửa tệp, chạy kiểm thử. Bạn nêu mục tiêu, phần việc máy móc để tôi lo.',
+        'Từ báo cáo tuần tới kế hoạch dự án: gõ một việc hay một câu hỏi. Tôi nhớ cuộc trò chuyện, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
       ],
       quickStart: 'Bắt đầu nhanh',
       resume: title => `Tiếp tục “${title}”`,
-      starterExplainLabel: 'Giải thích repo này',
-      starterExplainPrompt: 'Giải thích repository này làm gì và code được tổ chức ra sao.',
+      starterExplainLabel: 'Giải thích thư mục mã nguồn này',
+      starterExplainPrompt: 'Giải thích thư mục mã nguồn này làm gì và mã được tổ chức ra sao.',
       starterPlanLabel: 'Lên kế hoạch cho một thay đổi',
       starterPlanPrompt:
         'Tôi muốn thực hiện một thay đổi. Hãy hỏi tôi những gì bạn cần biết, rồi đề xuất kế hoạch trước khi viết code.',
       starterExplainFolderLabel: 'Giải thích thư mục này',
       starterExplainFolderPrompt: 'Giải thích thư mục làm việc hiện tại chứa gì và được tổ chức ra sao.',
       starterSummarizeLabel: 'Tóm tắt một tài liệu',
-      starterSummarizePrompt: 'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
+      starterSummarizePrompt:
+        'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
       starterDraftLabel: 'Soạn một email',
-      starterDraftPrompt: 'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.'
+      starterDraftPrompt:
+        'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.',
+      starterPlanWeekLabel: 'Lập kế hoạch tuần',
+      starterPlanWeekPrompt:
+        'Giúp tôi lập kế hoạch cho tuần này. Hãy hỏi tôi những việc đang có và thời hạn, rồi xếp thành lịch theo ngày, việc quan trọng nhất lên trước.',
+      starterExplainDesc: 'Mã ở đây làm gì và sắp xếp ra sao',
+      starterExplainFolderDesc: 'Trong thư mục này có gì',
+      starterPlanDesc: 'Hỏi rõ trước, rồi mới đề xuất cách làm',
+      starterPlanWeekDesc: 'Xếp việc trong tuần theo từng ngày',
+      starterSummarizeDesc: 'Rút ý chính từ một tệp hay đoạn văn',
+      starterDraftDesc: 'Từ vài ý thành bản gửi được ngay',
+      resumeDesc: 'Mở lại cuộc trò chuyện gần nhất của bạn',
+      projectDesc: 'Bắt đầu trong thư mục của dự án này'
     },
     thread: {
       loadingSession: 'Đang tải phiên',
@@ -3524,7 +3534,8 @@ export const vi: Translations = {
   },
 
   desktop: {
-    runtimeChecksDisagree: 'setup.status báo đã có thông tin đăng nhập, nhưng bước xác định môi trường chạy vẫn thất bại.',
+    runtimeChecksDisagree:
+      'setup.status báo đã có thông tin đăng nhập, nhưng bước xác định môi trường chạy vẫn thất bại.',
     audioReadFailed: 'Không đọc được đoạn âm thanh vừa ghi',
     sessionUnavailable: 'Phiên không khả dụng',
     createSessionFailed: 'Không tạo được phiên mới',

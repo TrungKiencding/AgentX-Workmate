@@ -157,6 +157,8 @@ for call-site shadow or border inventions.
 | `--theme-primary`, `--ui-accent` | brand/accent |
 | `--ui-green / --ui-yellow / --ui-red` | success · warning · danger |
 | `--ui-*-foreground` (green/yellow/red) | text/glyph placed **on** that fill |
+| `--ui-info` · `--ui-info-foreground` | the fourth status tone, "in progress" (connecting, syncing) — the accent itself, no new hue |
+| `--status-pill-tint` · `--status-pill-ink` | the `StatusPill`'s soft fill (12% of the tone) and how much of the tone its label keeps (55%, the rest is the page ink) — both read by the contrast gate |
 | `--ui-focus-ring`, `--ui-focus-ring-width/-offset` | the one focus indicator |
 | `--ui-scrollbar-thumb*` | scrollbar thumb, per state |
 | `--ui-selection-seed` | the selection amber, one seed at two strengths |
@@ -167,6 +169,17 @@ mode. Light clears 4.5:1 on paper (`oklch(52% 0.14 155)` · `oklch(55% 0.12 80)`
 · `oklch(56.59% 0.1967 12.3)`), `.dark` lifts all three onto graphite
 (`64%` · `75%` · `68%`). That means a semantic color can carry *text*, not only
 a dot — but a status still needs a glyph as well as a hue.
+
+**`StatusPill`** (`components/ui/status-pill.tsx`) is the one status pill: a
+dot and a word. `tone` = `good | warn | bad | info | muted`, `size` = `sm`
+(24px, 12px text — beside a row title) or `md` (28px, 13px — level with a
+`size="sm"` button). The fill is the tone at `--status-pill-tint`; the label is
+the tone pulled toward the page ink by `--status-pill-ink` so it clears 4.5:1
+on that tint on every preset in both modes (the gate measures exactly this
+pair); the dot keeps the pure hue. Never a raw Tailwind ramp
+(`emerald-*`/`amber-*` are gone from the pages), never a hue without its dot.
+`StatusDot` (`components/status-dot.tsx`) is the bare dot for a row, on the
+same tones.
 
 Never hardcode `border-gray-*`, `bg-white`, `text-black`, etc. The white tile in
 `BrandMark` is the one sanctioned literal (the mark needs a fixed backdrop).
@@ -190,8 +203,10 @@ runtime); themes may override sans/mono through the existing pipeline:
   diacritics never drop to Georgia. Roman only — italic display headings are
   banned.
 
-Neuebit remains the brand plate face (`BrandMark`/About); Collapse stays
-retired from product surfaces. `--dt-font-kbd` keeps the native UI face.
+No pixel face survives in the app: the Neuebit and Collapse `@font-face`s
+(once loaded from `@nous-research/ui`, which is no longer a dependency) are
+gone, and `BrandMark` is a bitmap plate, not type. `--dt-font-kbd` keeps the
+native UI face.
 
 **Type ramp** (`--text-*` in `@theme inline`; these are the app's only font
 sizes — no ad-hoc `text-[…]`. Two sanctioned exceptions size in `em`, not on
@@ -216,10 +231,13 @@ Line-height rides the ramp (chrome 1.4 · content 1.5 · prose 1.6 · display
 numbers use `tabular-nums` — every counter in the statusbar, every stat tile,
 every timestamp in a list.
 
-`--tracking-label` (0.06em, utility `tracking-label`) is the app's **only**
-widened tracking, and it belongs to exactly one species: the 11px uppercase
-section label (sidebar sections, date dividers, palette group headings, panel
-section labels, stat-tile captions). Nothing else tracks out.
+**Group labels are sentences, not stamps.** `SidebarPanelLabel`,
+`SidebarDateDivider`, `PanelSectionLabel` and Messaging's section titles are
+one look: `text-xs` (12px) semibold in `--ui-text-tertiary`, their own casing,
+no tracking. `--tracking-label` (0.06em, utility `tracking-label`) survives
+only where the 11px uppercase caption still lives — the statusbar, Settings and
+the palette's group headings — and nothing new may adopt it; a `tracking-[…]`
+literal is a bug.
 
 **The transcript reads on its own scale.** A reply is read in paragraphs, so
 the chat column has a second, narrower set of tokens layered on the ramp —
@@ -244,11 +262,17 @@ belong to `OverlayPageHeader` and the home greeting.
 
 - `--control-h-sm/md/lg/xl` (28/32/36/40px) — one height ramp for every
   control; an input and a button on the same row are the same height.
-- `--sidebar-row-height` (32px) · `--statusbar-height` (26px) — the navigation
-  band's own two heights. A sidebar row matches `--control-h-md`, so a row and
-  a button on the same rail line up; the statusbar keeps its shorter band.
-- `--radius-control` (6px) · `--radius-card` (10px) · `--radius-overlay`
-  (12px) · `--radius-bubble` (14px) — the corner voice. Fixed values; they do
+- `--sidebar-nav-row-height` (36px) · `--sidebar-row-height` (36px) ·
+  `--statusbar-height` (26px) — the navigation band's own heights. A nav row
+  and a conversation row share one 36px silhouette (`--control-h-lg`), so the
+  sidebar reads as a list of conversations rather than a file tree; the
+  statusbar keeps its shorter band.
+- `--switch-md-track-width/-height` (38×22px) · `--switch-md-thumb` (18px) —
+  the `md` Switch. `--status-pill-h-sm/-md` (24/28px) — the `StatusPill`.
+  `--intro-card-min-height` (56px) — the home surface's task card.
+- `--radius-control` (8px) · `--radius-card` (12px) · `--radius-overlay`
+  (14px) · `--radius-bubble` (18px) — the corner voice, softened one step in
+  the 2026-09 friendly pass. Fixed values; they do
   not ride `--radius-scalar`. The composer keeps its own 16px shell. In the
   transcript that means: `--radius-card` for the code card and
   `WIDGET_SHELL_CLASS`, `--radius-bubble` for the user bubble alone (the one
@@ -267,8 +291,10 @@ do **not** pass `h-*`, `px-*`, `py-*`, or icon-size overrides.
 the default non-primary look), `outline` (transparent + 1px inset ring, no
 fill/shadow), `ghost`, `link`, `text` (boxless quiet inline — "Cancel",
 "Clear"), `textStrong` (bold underlined inline affordance — "Change",
-"Open logs"), `chip` (hairline pill for an *optional* way in — the home
-surface's quick-start row; pair it with `size="chip"`).
+"Open logs"), `chip` (hairline pill for an *optional* way in; pair it with
+`size="chip"`), `card` (a task tile — hairline on `--shadow-xs` at rest, a
+firmer border and `--shadow-sm` on hover, never a translate; the home
+surface's ways in; pair it with `size="card"`).
 
 **Sizes** ride the `--control-h-*` ramp at 13px text (`text-sm`):
 
@@ -282,6 +308,7 @@ surface's quick-start row; pair it with `size="chip"`).
 | `inline` | flush, zero box | buttons inside a heading/sentence |
 | `micro` | flush, 12px text | status-stack headers, table footers |
 | `chip` | 36px pill, 13px text, 16px icon | the `chip` variant's size |
+| `card` | padding-driven, 56px floor, left-aligned, 20px icon | the `card` variant's size |
 | `icon` / `icon-sm` / `icon-lg` | 32/28/36px square | icon-only actions |
 | `icon-xs` | 24px square | inline icon actions only |
 | `icon-titlebar` | OS chrome | window controls — untouched by the ramp |
@@ -349,9 +376,17 @@ Notes:
 - **`SegmentedControl`** — the choice control for small mutually-exclusive sets
   (color mode, tool-call display, usage period). Replaces radio piles and
   pill rows. 28px track (`--control-h-sm`), 12px labels.
-- **`Switch`** (`size="xs"`) — bare, with `aria-label`. No bordered text
-  wrapper. The visual track stays compact; an invisible pad extends the hit
-  target to ≥ 24px.
+- **`Switch`** — bare, with `aria-label`, no bordered text wrapper.
+  `size="md"` (22×38 track, 18px thumb) is the toggle for every enable/disable
+  row in a page; `xs` stays for menus and dense rows. An invisible pad extends
+  the hit target to ≥ 24px on every size.
+- **`PillTabs`** (`components/ui/pill-tabs.tsx`) — the page-level tab row: a
+  32px soft track, 13px medium labels, 12px tabular counts, and ONE highlight
+  pill that slides to the active tab (a MutationObserver on `data-active`,
+  like `CommandSelectionIndicator`; `transform` is the only property that
+  animates, the pill's size snaps). `ResponsiveTabs variant="pill"` renders it
+  on wide viewports and still folds into `TabDropdown` when the header is
+  narrow. `SegmentedControl` stays the choice control for small in-form sets.
 
 ## Navigation chrome
 
@@ -360,14 +395,27 @@ read as structure at a glance — what is a group, what is selected, what is
 running — while staying quieter than the content they frame.
 
 - **Section labels** (`SidebarPanelLabel`, `SidebarDateDivider`,
-  `PanelSectionLabel`, cmdk group headings) are one look: `text-2xs`,
-  `font-medium`, `uppercase`, `tracking-label`, `--ui-text-tertiary`. Visible
-  enough to group the rows under them, never a headline. Not brand-tinted —
-  accent is for state, not for labelling.
+  `PanelSectionLabel`) are one look: `text-xs` semibold, sentence case, no
+  tracking, `--ui-text-tertiary` (see § Typography). Visible enough to group
+  the rows under them, never a headline. Not brand-tinted — accent is for
+  state, not for labelling. The palette's cmdk headings keep their own look.
+- **Nav rows** — the four destinations at the top of the sidebar (Trò chuyện
+  mới · Tiện ích · Tin nhắn · Artifact, Tabler glyphs at 18px) — are
+  `--sidebar-nav-row-height` at `text-base font-medium`. Selected is the same
+  treatment as a selected conversation: `--ui-row-active-background` **and**
+  the 2px `--ui-row-active-bar`. The `⌘N` chip shows on hover / focus-within
+  only — a hint for people who want one, not a label everyone reads.
 - **Sidebar rows** own their height only on `SidebarRowShell`
-  (`--sidebar-row-height`). Session title `text-sm font-medium`; meta and
-  timestamps `text-2xs tabular-nums` in tertiary. Hover-revealed row actions use
-  `size="icon-xs"` (24px) — the hit-target floor.
+  (`--sidebar-row-height`). Session title `text-base font-medium` (14px — a
+  row is a conversation, not a file); meta and timestamps `text-xs
+  tabular-nums` in tertiary. Hover-revealed row actions use `size="icon-xs"`
+  (24px) — the hit-target floor. The pinned section's empty line invites
+  ("Ghim những cuộc trò chuyện bạn hay quay lại.") — pin lives in the row's ⋯
+  menu, and Shift-click is a shortcut, never the only way.
+- **Titlebar:** Tabler at 16px. The right cluster is layout · ⋯ · settings ·
+  right-sidebar toggle; the ⋯ (`titlebar.moreTools`) holds sound and the
+  keyboard-shortcut panel. Both keep their shortcuts — the menu is only where
+  their buttons live.
 - **Selected is fill *plus* bar.** A selected sidebar row paints
   `--ui-row-active-background` **and** a 2px `--ui-row-active-bar` on its
   leading edge, drawn as a `::before` inside the row's own padding so it costs
@@ -423,9 +471,12 @@ running — while staying quieter than the content they frame.
 
 ## Feedback & empty/error/loading states
 
-- **Loading:** `Loader` (`src/components/ui/loader.tsx`) — animated math/ascii
-  curves (`lemniscate-bloom` for long ops). Never ship the literal text
-  "Loading…".
+- **Loading:** `Loader` (`src/components/ui/loader.tsx`). `variant="ring"` —
+  a plain 20px ring turning on `transform`, still under reduced motion — is
+  what `PageLoader` and every in-page loading state show. The math curves
+  (`type="…"`, `lemniscate-bloom` for long ops) stay in the transcript and the
+  boot/onboarding surfaces, where thinking is the point. Never ship the
+  literal text "Loading…".
 - **Errors:** `ErrorState` + the canonical `ErrorIcon` (no bg chip). One look
   for the React boundary, in-dialog errors, and the boot-failure banner. Pass
   nodes for title/description so Radix `DialogTitle`/`Description` can flow
@@ -433,8 +484,13 @@ running — while staying quieter than the content they frame.
 - **Logs:** `LogView` — no bg, hairline border, tight padding, small mono.
   Every place we surface raw logs uses it.
 - **Empty:** `EmptyState` for plain page bodies; `PanelEmpty` for overlay
-  master/detail empties with a leading icon. Don't hand-roll a third centered
-  empty.
+  master/detail empties. Don't hand-roll a third centered empty.
+- **`EmptyFigure`** (`components/ui/empty-figure.tsx`) — the only illustration
+  an empty surface may carry: four 96px monoline figures (`chat` · `folder` ·
+  `plug` · `box`), each the mark beside one object, `currentColor` at the
+  quaternary ink, `aria-hidden`, no animation. `EmptyState` and `PanelEmpty`
+  take it as `figure`; nothing else draws a picture (no stock characters,
+  blobs, Lottie, generated art).
 - **Three beats.** `EmptyState`, `PanelEmpty`, and `ErrorState` all say the same
   three things in the same order: the **name** of what is missing or broken
   (`text-base` medium — `text-xl` for `ErrorState`, which owns a whole surface),
@@ -464,27 +520,32 @@ so two-line rows still grow), `HUD_HEADING`.
 
 - **The home surface is the empty transcript** (`components/chat/intro.tsx`):
   a serif greeting (`font-serif-display`, `text-2xl`, roman — outlier slot 2 of
-  3), one muted 14px line from `intro-copy.jsonl`, then a **quick-start row** of
-  at most four `chip` buttons. The composer stays the only CTA; the block leads
-  the eye down to it.
-  - Every chip is grounded in something the app already knows — the session you
+  3), one muted 15px line (the catalog's `bodyVariants`; `intro-copy.jsonl`
+  only in English with a personality), then **at most four task cards**
+  (`Button variant="card"` on the `.intro-cards` two-column grid): a 20px
+  Tabler glyph before a 14px title over a 13px one-line description. The
+  composer stays the only CTA; the block leads the eye down to it. It fronts
+  the fresh draft *and* a routed conversation that exists but has no messages
+  yet (a new chat in a project) once it has resumed and nothing is running.
+  - Every card is grounded in something the app already knows — the session you
     were last in, a project you already added — plus four fixed starters whose
-    label *and* prompt live in the locale files. **The starters take the
-    folder's side**: inside a git repository the coding pair leads (explain the
-    repo, plan a change), anywhere else the office pair leads (summarise a
-    document, draft an email), and the explain chip speaks of "this folder"
-    rather than "this repo" off a repository. The same `repoStatusForCwd` probe
-    the composer's coding rail uses decides it, so chips and branch strip never
+    title, description *and* prompt live in the locale files. **The starters
+    take the folder's side**: inside a git repository the coding pair leads
+    (explain the code folder, plan a change), anywhere else the office pair
+    leads (summarise a document, draft an email, then plan the week and
+    explain "this folder"). The same `repoStatusForCwd` probe the composer's
+    coding rail uses decides it, so cards, placeholder and branch strip never
     disagree. **Nothing here invents a suggestion**: no recent session, no
-    resume chip. The selection rule is the pure `introChipSources()` in
-    `intro-chips.ts`, so it is testable without a renderer; `Intro` only
-    renders. Clicking a chip runs one *existing* action
-    (`openSession`, `requestStartWorkSession`, `requestComposerInsert`) — the
-    home surface owns no navigation of its own.
+    resume card. The selection rule is the pure `introChipSources()` in
+    `intro-chips.ts` and the wide slot is `introCardSpan()` (the resume card
+    spans both columns and leads — the row is asymmetric on purpose), so both
+    are testable without a renderer; `Intro` only renders. Clicking a card runs
+    one *existing* action (`openSession`, `requestStartWorkSession`,
+    `requestComposerInsert`) — the home surface owns no navigation of its own.
   - The greeting names the user only when the account store actually has a
     display name. No name, no comma, no invented placeholder.
   - **One entrance, once per app launch** — not once per empty state. The
-    greeting rises at `--dur-long`; the body and each chip follow on a 40ms
+    greeting rises at `--dur-long`; the body and each card follow on a 40ms
     step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
     collapses it to an instant crossfade — the app-wide reduced-motion
     kill-switch (0.01ms, top of `styles.css`) outranks the intro's own fade —
@@ -536,12 +597,18 @@ so two-line rows still grow), `HUD_HEADING`.
   rises into place at `--dur-short-exit`, and its body carries a soft bottom
   mask. No pulsing halo — a coloured glow around a card is banned on any
   surface, and a second loop would compete with the text actually arriving.
+- **A reply says who is speaking, once.** `BrandGlyph` (20px, the
+  watermark's own geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
+  the first assistant message of a turn on the prose column's left edge;
+  interim messages in the same turn wear none, and it never sits in a bubble.
 - **Tool rows are scaffolding, not cards.** They stay transparent and faded
   (`data-conversation-scaffold`) so the prose column reads first. One voice
   for all of them: `SCAFFOLD_LABEL_CLASS` (13px medium at
   `--conversation-scaffold-text`) for the name, `SCAFFOLD_META_CLASS`
-  (`text-2xs tabular-nums`) for counts, durations and diff stats. Do not box a
-  tool row into a widget shell.
+  (`text-2xs tabular-nums`) for counts, durations and diff stats. The name is
+  the human one from the catalog's `assistant.tool.titles` ("Đã đọc tệp",
+  "Đang tìm trên web"); the tool's real name rides the row's hover. Do not box
+  a tool row into a widget shell.
 - **Tool state is a glyph *and* a colour, from the semantic tokens.** Running
   is the breathing spinner, error `destructive`, recovered `--ui-yellow`,
   delegate-done `--ui-green`, diff counts `--ui-diff-add-foreground` /
@@ -557,12 +624,22 @@ so two-line rows still grow), `HUD_HEADING`.
   shadow ladder to `--shadow-sm`. No new shadow, no colored glow — the border
   does the talking, and neither property is transitioned.
 - **The composer's voice follows the folder.** Inside a git repo it is a
-  coding surface: the branch strip caps the card and the model pill carries
-  the full label with its effort (`Qwen3.5 122B A10B FP8 · Med`). Anywhere
-  else — a documents folder, a detached chat — the strip is gone and the pill
+  coding surface: the branch strip caps the card, the model pill carries
+  the full label with its effort (`Qwen3.5 122B A10B FP8 · Med`) and the
+  placeholder asks about the code (`newSessionPlaceholdersRepo`). Anywhere
+  else — a documents folder, a detached chat — the strip is gone, the pill
   wears the model's short name alone (`conciseModelName`: family + version,
-  no build words, no effort; the tooltip and the picker keep the full id). One
-  probe, `repoStatusForCwd`, decides both, so strip and pill never disagree.
+  no build words, no effort; the tooltip and the picker keep the full id) and
+  the placeholder asks what you need today (`newSessionPlaceholders`). One
+  probe, `repoStatusForCwd`, decides all three, so they never disagree.
+- **The control row is three stops** — model pill · voice ⋯ · send. The send
+  slot is a round 32px primary that says one of two things: an up arrow when
+  there is something to send, a microphone (start a voice conversation) when
+  the box is empty. Dictation, read-replies-aloud and the wake word sit behind
+  the ⋯ (`composer.voiceMenu`) while voice is enabled — the resting row is
+  never a strip of crossed-out icons — and a dictation in progress puts its
+  stop control in that slot instead. The `+` says what it does: "Đính kèm tệp,
+  ảnh hoặc thư mục".
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
 - **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one
@@ -597,19 +674,28 @@ so two-line rows still grow), `HUD_HEADING`.
 
 ## Iconography & brand
 
-- **Tabler** is the default component/chrome set. Import its curated aliases and
-  `iconSize` scale from `src/lib/icons.ts`; do not import icon packages directly
-  in feature code.
-- **`Codicon`** is the compact editor/tool/status vocabulary. Use
-  `src/components/ui/codicon.tsx`, including `codiconIcon()` where a
-  Tabler-shaped component is required.
+- **Tabler** is the page chrome's only icon set — sidebar nav and rows,
+  titlebar, tabs, page buttons, empty states, the master/detail chrome. Import
+  its curated aliases and `iconSize` scale from `src/lib/icons.ts`; do not
+  import icon packages directly in feature code. Nav glyphs sit at 18px
+  (`size-4.5`), buttons at 16px, list-row leads at 20px (`iconSize.lg`).
+- **`Codicon`** is the compact editor/tool/status vocabulary, and it is allowed
+  only in the transcript, terminal, editor and file tree (plus an icon name a
+  plugin contributes as data). Use `src/components/ui/codicon.tsx`, including
+  `codiconIcon()` where a Tabler-shaped component is required. A Codicon in
+  page chrome is a bug.
 - Pick the vocabulary by semantic context and reuse the existing icon for an
   action. Do not introduce a third icon set or mix styles within one control
   group.
-- **`BrandMark`** (`src/components/brand-mark.tsx`) is the brand glyph — the
-  the 8-bit AgentX mascot on its own dark plate, softly rounded, identical in light/dark.
-  It replaced scattered Sparkles glyphs in updates / onboarding / about. Use it
-  for hero/brand moments; don't reintroduce decorative star/sparkle icons.
+- **`BrandMark`** (`src/components/brand-mark.tsx`) is the brand plate — the
+  AgentX mark (the geometric ring logo) on its own dark tile, softly rounded,
+  identical in light/dark. It replaced scattered Sparkles glyphs in updates /
+  onboarding / about. Use it for hero/brand moments; don't reintroduce
+  decorative star/sparkle icons.
+- **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
+  `currentColor` line-art glyph, built from `lib/brand-mark-path.ts` — the
+  same geometry the chat watermark tiles and the `EmptyFigure`s carry. Three
+  drawings, one path: re-fit the numbers there and all three follow.
 
 ## Motion
 
@@ -641,6 +727,8 @@ so two-line rows still grow), `HUD_HEADING`.
 | Overlay / boot surface arriving | `opacity` (+ the surface's own stagger) | `--dur-long` · `--ease-out` |
 | Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` |
+| Tab pill sliding to the active tab (`PillTabs`) | `transform` (the pill's size snaps) | `--dur-short-exit` · `--ease-out`; reduced motion → a jump |
+| Card hover (`Button variant="card"`, store/artifact cards) | `background-color`, `border-color`, `box-shadow` (`--shadow-xs` → `--shadow-sm`) | `--dur-short` · `--ease-out` — never translate, never scale |
 
 - **Menus, popovers, dialogs and the palette open in the frame they are asked
   for** — no entry animation at all. Only their *close* is animated, and only
@@ -703,9 +791,14 @@ long transcript or a busy terminal.
 
 - Every user-facing string goes through `useI18n()` (`src/i18n/context.tsx`).
   No literals in JSX.
-- **Update all locales together** — `en`, `ja`, `zh`, `zh-hant`, `ar`. A string
-  change in `en.ts` that skips the others is a regression (drifted punctuation,
-  stale labels). Keep trailing-punctuation and tone consistent across all five
+- **Vietnamese is the source.** `vi.ts` is a full `Translations` (the
+  compiler refuses a missing key) and the default locale; write a new string
+  there first, in the product's own words (see the glossary in
+  `UI-REDESIGN-PLAN-V2.md` §2.7 — "Trò chuyện mới", "Tiện ích", "Artifact"),
+  then translate.
+- **Update all locales together** — `vi`, `en`, `ja`, `zh`, `zh-hant`, `ar`. A
+  string change that skips the others is a regression (drifted punctuation,
+  stale labels). Keep trailing-punctuation and tone consistent across all six
   (`defineLocale` falls back to English for a missing key, but fallback is a
   safety net, not a translation).
 
@@ -756,7 +849,8 @@ The detailed state contract lives in the scoped
 ## Before you add something — checklist
 
 - [ ] Reuse a primitive (`Button`, `SearchField`, `SegmentedControl`,
-      `ListRow`, `Loader`, `ErrorState`, `LogView`) instead of forking one?
+      `PillTabs`, `StatusPill`, `ListRow`, `Loader`, `ErrorState`, `LogView`,
+      `EmptyFigure`) instead of forking one?
 - [ ] Tokens (`--ui-*`, `shadow-nous`, `--stroke-nous`) — zero raw colors /
       one-off shadows?
 - [ ] No `className` overriding a primitive's padding / size / radius / chrome?
@@ -772,7 +866,7 @@ The detailed state contract lives in the scoped
 - [ ] Hot interactions avoid broad subscriptions, layout thrash, and
       `transition-all`?
 - [ ] Keyboard ownership and single-action `Esc` behavior are correct?
-- [ ] All four locales updated for any new/changed string?
+- [ ] All six locales updated for any new/changed string, Vietnamese first?
 - [ ] `cursor-pointer`, focus ring, and `Esc`-to-close behave?
 - [ ] Touched a primitive, token, or variant? Its named-contract entry in this
       file is updated in the same change.

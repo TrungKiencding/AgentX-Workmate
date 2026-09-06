@@ -3,13 +3,16 @@ import { memo } from 'react'
 
 import { cn } from '@/lib/utils'
 
-export type StatusTone = 'good' | 'muted' | 'warn' | 'bad'
+export type StatusTone = 'good' | 'muted' | 'warn' | 'bad' | 'info'
 
+// Every tone paints from a token, so the dot moves with the skin — the raw
+// amber ramp that once sat here failed contrast on the light band.
 const TONE_BG: Record<StatusTone, string> = {
   good: 'bg-primary',
   muted: 'bg-muted-foreground/40',
-  warn: 'bg-amber-500',
-  bad: 'bg-destructive'
+  warn: 'bg-(--ui-yellow)',
+  bad: 'bg-destructive',
+  info: 'bg-(--ui-info)'
 }
 
 interface StatusDotProps extends ComponentProps<'span'> {

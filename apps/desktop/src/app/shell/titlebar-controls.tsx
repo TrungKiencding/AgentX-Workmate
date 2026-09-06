@@ -1,14 +1,33 @@
 import { useStore } from '@nanostores/react'
-import { type ComponentProps, type MouseEvent, type ReactNode, useEffect, useState } from 'react'
+import { type ComponentProps, Fragment, type MouseEvent, type ReactNode, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { toggleLayoutEditMode } from '@/components/pane-shell/edit-mode'
 import { resetLayoutTree } from '@/components/pane-shell/tree/store'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
+import {
+  ArrowsExchange,
+  Keyboard,
+  Layout,
+  MoreHorizontal,
+  PanelLeftIcon,
+  PanelRightIcon,
+  RefreshCw,
+  Settings,
+  Volume2,
+  VolumeX
+} from '@/lib/icons'
+import { useKeybindHint } from '@/lib/keybinds/use-keybind-hint'
 import { cn } from '@/lib/utils'
 import { $hapticsMuted, toggleHapticsMuted } from '@/store/haptics'
 import {
@@ -59,17 +78,20 @@ function LayoutGlyph({ modHeld }: { modHeld: boolean }) {
   return (
     <>
       <span className={cn('inline-flex', modHeld && 'group-hover/tool:hidden')}>
-        <Codicon name="layout" />
+        <Layout className={TITLEBAR_GLYPH} />
       </span>
       <span className={cn('relative hidden', modHeld && 'group-hover/tool:inline-flex')}>
-        <Codicon name="layout" />
+        <Layout className={TITLEBAR_GLYPH} />
         <span className="absolute -bottom-1 -right-1.5 grid place-items-center rounded-full bg-(--ui-bg-chrome) p-px">
-          <Codicon className="-scale-x-100" name="refresh" size="0.5625rem" />
+          <RefreshCw className="size-2.5 -scale-x-100" />
         </span>
       </span>
     </>
   )
 }
+
+/** Titlebar glyphs sit at 16px — Tabler, like the rest of the page chrome. */
+const TITLEBAR_GLYPH = 'size-4'
 
 /** Live ⌘/Ctrl tracking — mod-click affordances telegraph themselves (the
  *  layout button morphs into its reset form while the modifier is down). */
@@ -126,7 +148,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   const leftToolbarTools: TitlebarTool[] = [
     {
       actionId: 'view.toggleSidebar',
-      icon: <Codicon name="layout-sidebar-left" />,
+      icon: <PanelLeftIcon className={TITLEBAR_GLYPH} />,
       id: 'sidebar',
       label: leftEdge.open ? t.titlebar.hideSidebar : t.titlebar.showSidebar,
       onSelect: () => {
@@ -136,7 +158,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
     },
     {
       actionId: 'view.flipPanes',
-      icon: <Codicon name="arrow-swap" />,
+      icon: <ArrowsExchange className={TITLEBAR_GLYPH} />,
       id: 'flip-panes',
       label: t.titlebar.swapSidebarSides,
       onSelect: () => {
@@ -149,7 +171,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
 
   const rightSidebarTool: TitlebarTool = {
     actionId: 'view.toggleRightSidebar',
-    icon: <Codicon name="layout-sidebar-right" />,
+    icon: <PanelRightIcon className={TITLEBAR_GLYPH} />,
     id: 'right-sidebar',
     label: rightEdge.open ? t.titlebar.hideRightSidebar : t.titlebar.showRightSidebar,
     onSelect: () => {
@@ -158,7 +180,10 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
     }
   }
 
-  // Static system tools — always pinned to the screen's right edge.
+  // Static system tools — always pinned to the screen's right edge. Layout,
+  // then a ⋯ menu holding the two tools a newcomer never needs at a glance
+  // (sound, keyboard shortcuts), then Settings. The shortcuts behind them are
+  // untouched; the menu is only where the two buttons now live.
   const systemTools: TitlebarTool[] = [
     {
       className: 'group/tool',
@@ -181,25 +206,8 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
       title: t.titlebar.layoutEditorTitle
     },
     {
-      active: hapticsMuted,
-      icon: <Codicon name={hapticsMuted ? 'mute' : 'unmute'} />,
-      id: 'haptics',
-      label: hapticsMuted ? t.titlebar.unmuteHaptics : t.titlebar.muteHaptics,
-      onSelect: toggleHaptics
-    },
-    {
-      actionId: 'keybinds.openPanel',
-      icon: <Codicon name="keyboard" />,
-      id: 'keybinds',
-      label: t.titlebar.openKeybinds,
-      onSelect: () => {
-        triggerHaptic('open')
-        navigate(`${SETTINGS_ROUTE}?tab=keybinds`)
-      }
-    },
-    {
       actionId: 'nav.settings',
-      icon: <Codicon name="settings-gear" />,
+      icon: <Settings className={TITLEBAR_GLYPH} />,
       id: 'settings',
       label: t.titlebar.openSettings,
       onSelect: () => {
@@ -257,11 +265,74 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
         className="fixed right-(--titlebar-tools-right) top-(--titlebar-controls-top) z-70 flex flex-row items-center justify-end gap-x-1 pointer-events-auto select-none [-webkit-app-region:no-drag]"
       >
         {visibleSystemTools.map(tool => (
-          <TitlebarToolButton key={tool.id} navigate={navigate} tool={tool} />
+          <Fragment key={tool.id}>
+            {tool.id === 'settings' && (
+              <TitlebarOverflowMenu
+                hapticsMuted={hapticsMuted}
+                onOpenKeybinds={() => {
+                  triggerHaptic('open')
+                  navigate(`${SETTINGS_ROUTE}?tab=keybinds`)
+                }}
+                onToggleHaptics={toggleHaptics}
+              />
+            )}
+            <TitlebarToolButton navigate={navigate} tool={tool} />
+          </Fragment>
         ))}
         <TitlebarToolButton navigate={navigate} tool={rightSidebarTool} />
       </div>
     </>
+  )
+}
+
+/**
+ * The ⋯ beside Settings: sound (haptics) and the keyboard-shortcut panel.
+ * Both keep their shortcuts and their Settings homes; this is a quieter front
+ * door than two permanent icons for tools most people open once.
+ */
+function TitlebarOverflowMenu({
+  hapticsMuted,
+  onOpenKeybinds,
+  onToggleHaptics
+}: {
+  hapticsMuted: boolean
+  onOpenKeybinds: () => void
+  onToggleHaptics: () => void
+}) {
+  const { t } = useI18n()
+  const keybindsHint = useKeybindHint('keybinds.openPanel')
+  const className = cn(titlebarButtonClass, 'bg-transparent select-none data-[state=open]:text-foreground')
+
+  return (
+    <DropdownMenu>
+      <Tip label={t.titlebar.moreTools}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={t.titlebar.moreTools}
+            className={className}
+            onPointerDown={event => event.stopPropagation()}
+            size="icon-titlebar"
+            type="button"
+            variant="ghost"
+          >
+            <MoreHorizontal className={TITLEBAR_GLYPH} />
+          </Button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-56" sideOffset={6}>
+        <DropdownMenuItem onSelect={onToggleHaptics}>
+          {hapticsMuted ? <VolumeX /> : <Volume2 />}
+          <span className="min-w-0 flex-1 truncate">
+            {hapticsMuted ? t.titlebar.unmuteHaptics : t.titlebar.muteHaptics}
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onOpenKeybinds}>
+          <Keyboard />
+          <span className="min-w-0 flex-1 truncate">{t.titlebar.openKeybinds}</span>
+          {keybindsHint && <DropdownMenuShortcut>{keybindsHint}</DropdownMenuShortcut>}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

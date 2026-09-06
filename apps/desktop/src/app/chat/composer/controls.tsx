@@ -1,17 +1,26 @@
 import { useStore } from '@nanostores/react'
 
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
-  AudioLines,
+  ArrowUp,
   Ear,
   EarOff,
   iconSize,
   Layers3,
   Loader2,
+  Mic,
+  MicOff,
+  MoreHorizontal,
   Square,
   SteeringWheel,
   Volume2,
@@ -53,6 +62,14 @@ interface ConversationProps {
   onToggleMute: () => void
 }
 
+/**
+ * The control row reads as three stops — model · voice · send — and the send
+ * slot says one of two things: an up arrow when there is something to send,
+ * a microphone when the box is empty ("or just talk"). The voice toggles
+ * (dictation, read replies aloud, the wake word) sit behind one ⋯ menu while
+ * voice is enabled, so the resting row is never a strip of crossed-out icons;
+ * a dictation in progress surfaces its stop control in that slot instead.
+ */
 export function ComposerControls({
   autoSpeak,
   busy,
@@ -94,18 +111,22 @@ export function ComposerControls({
 
   const showVoicePrimary = !busy && !hasComposerPayload
   const busyLabel = busyAction === 'queue' ? c.queueMessage : busyAction === 'steer' ? c.steer : c.stop
+  const dictating = state.voice.active || voiceStatus !== 'idle'
 
   return (
     <div className="ml-auto flex shrink-0 items-center gap-(--composer-control-gap)">
       <ModelPill compact={compactModelPill} concise={conciseModelPill} disabled={disabled} model={state.model} />
-      {/* The three voice toggles are one CLUSTER: tight internal gap, the
-          control gap only between clusters, so the row scans as
-          pill · voice · send instead of five equal stops. */}
-      <div className="flex shrink-0 items-center gap-0.5">
-        <DictationButton disabled={disabled} onToggle={onDictate} state={state.voice} status={voiceStatus} />
-        <AutoSpeakButton active={autoSpeak} disabled={disabled} onToggle={onToggleAutoSpeak} />
-        <WakeWordButton disabled={disabled} />
-      </div>
+      {state.voice.enabled &&
+        (dictating ? (
+          <DictationButton disabled={disabled} onToggle={onDictate} state={state.voice} status={voiceStatus} />
+        ) : (
+          <VoiceMenu
+            autoSpeak={autoSpeak}
+            disabled={disabled}
+            onDictate={onDictate}
+            onToggleAutoSpeak={onToggleAutoSpeak}
+          />
+        ))}
       {busyAction === 'steer' ? (
         <Tip label={<TipKeybindLabel actionId="composer.queue" text={c.queueMessage} />}>
           <Button
@@ -134,7 +155,7 @@ export function ComposerControls({
             size="icon"
             type="button"
           >
-            <AudioLines className={iconSize.md} />
+            <Mic className={iconSize.md} />
           </Button>
         </Tip>
       ) : (
@@ -171,12 +192,99 @@ export function ComposerControls({
                 <span className="block size-3 rounded-[0.1875rem] bg-current" />
               )
             ) : (
-              <Codicon name="arrow-up" size="1rem" />
+              <ArrowUp className={iconSize.md} />
             )}
           </Button>
         </Tip>
       )}
     </div>
+  )
+}
+
+/**
+ * One ⋯ for the voice toggles. Dictation is an action (it starts and the row
+ * swaps to its stop control); reading replies aloud and the wake word are
+ * checkboxes that show their state. Toggling keeps the menu open so the check
+ * is seen landing; dictation closes it.
+ */
+function VoiceMenu({
+  autoSpeak,
+  disabled,
+  onDictate,
+  onToggleAutoSpeak
+}: {
+  autoSpeak: boolean
+  disabled: boolean
+  onDictate: () => void
+  onToggleAutoSpeak: () => void
+}) {
+  const { t } = useI18n()
+  const c = t.composer
+  const wake = useStore($wakeWord)
+  const phrase = wake.phrase || 'hey agentx'
+  const wakeLabel = wake.listening ? c.wakeWordListening(phrase) : c.wakeWordOff(phrase)
+  // Something is on: the trigger wears the accent so the state is not hidden
+  // behind the menu.
+  const anyOn = autoSpeak || wake.listening
+
+  return (
+    <DropdownMenu>
+      <Tip label={c.voiceMenu}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={c.voiceMenu}
+            className={cn(
+              GHOST_ICON_BTN,
+              'p-0 data-[state=open]:bg-(--chrome-action-hover) data-[state=open]:text-foreground',
+              anyOn && 'text-primary hover:text-primary'
+            )}
+            disabled={disabled}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <MoreHorizontal className={iconSize.md} />
+          </Button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="end" className="w-72" side="top" sideOffset={6}>
+        <DropdownMenuItem
+          onSelect={() => {
+            triggerHaptic('open')
+            onDictate()
+          }}
+        >
+          <Mic />
+          <span className="min-w-0 flex-1 truncate">{c.voiceDictation}</span>
+        </DropdownMenuItem>
+        <DropdownMenuCheckboxItem
+          checked={autoSpeak}
+          onSelect={event => {
+            event.preventDefault()
+            triggerHaptic(autoSpeak ? 'close' : 'open')
+            onToggleAutoSpeak()
+          }}
+        >
+          {autoSpeak ? <Volume2 /> : <VolumeX />}
+          <span className="min-w-0 flex-1 truncate">{c.speakReplies}</span>
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={wake.listening}
+          disabled={wake.pending}
+          onSelect={event => {
+            event.preventDefault()
+            triggerHaptic(wake.listening ? 'close' : 'open')
+            void toggleWakeWord()
+          }}
+        >
+          {wake.listening ? <Ear /> : <EarOff />}
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate">{wakeLabel}</span>
+            {wake.notice && <span className="truncate text-2xs text-(--ui-text-tertiary)">{wake.notice}</span>}
+          </span>
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -224,7 +332,7 @@ function ConversationPill({
           type="button"
           variant="ghost"
         >
-          <Codicon name={muted ? 'mic-off' : 'mic'} size="1rem" />
+          {muted ? <MicOff className={iconSize.md} /> : <Mic className={iconSize.md} />}
         </Button>
       </Tip>
       {listening && (
@@ -290,48 +398,11 @@ function ConversationIndicator({
   )
 }
 
-// Pure-TTS toggle: type normally, but have every assistant reply read aloud —
-// no dictation, no full conversation loop. Filled/accent when on, mirroring the
-// muted-mic pressed state above. Driven by (and persisted to) `voice.auto_tts`.
-function AutoSpeakButton({ active, disabled, onToggle }: { active: boolean; disabled: boolean; onToggle: () => void }) {
-  const { t } = useI18n()
-  const c = t.composer
-  const label = active ? c.stopSpeakingReplies : c.speakReplies
-
-  return (
-    <Tip label={label}>
-      <Button
-        aria-label={label}
-        aria-pressed={active}
-        className={cn(
-          GHOST_ICON_BTN,
-          'p-0',
-          active && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
-        )}
-        disabled={disabled}
-        onClick={() => {
-          triggerHaptic(active ? 'close' : 'open')
-          onToggle()
-        }}
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        {active ? <Volume2 className={iconSize.sm} /> : <VolumeX className={iconSize.sm} />}
-      </Button>
-    </Tip>
-  )
-}
-
-// "Hey AgentX" wake-word toggle. ALWAYS rendered — the ear never hides. A
-// user must always be able to click it to turn passive listening on; if the
-// backend can't start (missing STT/TTS, deps still installing, no mic
-// permission, etc.) the click surfaces the reason in the tooltip and the
-// toggle stays off. States: listening (accent-highlighted), off (muted
-// ear-off), and paused-for-voice (disabled while a voice conversation holds
-// the mic — the one time wake genuinely must not listen). Backend refusals
-// ({started:false, reason}) keep the toggle off and put the reason/hint in
-// the tooltip.
+// "Hey AgentX" wake-word toggle, as a standalone button. At rest it lives in
+// the voice ⋯ menu; here it stays visible during a voice conversation — shown
+// paused, since the conversation holds the mic (the one time wake genuinely
+// must not listen). Backend refusals ({started:false, reason}) keep the toggle
+// off and put the reason/hint in the tooltip.
 function WakeWordButton({ disabled, pausedForVoice = false }: { disabled: boolean; pausedForVoice?: boolean }) {
   const { t } = useI18n()
   const c = t.composer
@@ -372,6 +443,9 @@ function WakeWordButton({ disabled, pausedForVoice = false }: { disabled: boolea
   )
 }
 
+// The dictation control while a dictation is in flight: a stop square while
+// recording, a spinner while the audio is being transcribed. At rest dictation
+// is started from the voice ⋯ menu instead.
 function DictationButton({
   disabled,
   state,
@@ -417,7 +491,7 @@ function DictationButton({
         ) : status === 'transcribing' ? (
           <Loader2 className={cn('animate-spin', iconSize.sm)} />
         ) : (
-          <Codicon name="mic" size="0.875rem" />
+          <Mic className={iconSize.sm} />
         )}
       </Button>
     </Tip>

@@ -1,6 +1,5 @@
 import { Fragment } from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,10 +7,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { PillTabs } from '@/components/ui/pill-tabs'
 import { CountSkeleton } from '@/components/ui/skeleton'
 import { TextTab, TextTabMeta } from '@/components/ui/text-tab'
 import { compactNumber } from '@/lib/format'
-import type { IconComponent } from '@/lib/icons'
+import { ChevronDown, type IconComponent } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 // A count badge beside a tab label. `null` = still loading (pulsing chip, not a
@@ -63,7 +63,7 @@ export function TabDropdown({
           {active?.icon && <TabDropdownIcon icon={active.icon} indent={active.indent} />}
           <span className="min-w-0 truncate">{active?.label}</span>
           {active?.meta !== undefined && <TextTabMeta>{tabMetaContent(active.meta)}</TextTabMeta>}
-          <Codicon className="text-muted-foreground" name="chevron-down" size="0.75rem" />
+          <ChevronDown className="size-3 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className={cn('w-44', className)} sideOffset={6}>
@@ -101,25 +101,34 @@ export function ResponsiveTabs({
   onChange,
   tabs,
   value,
+  variant = 'text',
   wideClassName
 }: {
   align?: 'center' | 'end' | 'start'
   onChange: (id: string) => void
   tabs: ResponsiveTab[]
   value: string
-  /** Extra classes for the wide `TextTab` row (e.g. `justify-center`). */
+  /** `text` = the underlined TextTab row; `pill` = the PillTabs track. Both collapse to the dropdown when narrow. */
+  variant?: 'pill' | 'text'
+  /** Extra classes for the wide row (e.g. `justify-center`). */
   wideClassName?: string
 }) {
   return (
     <>
-      <div className={cn('hidden min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex', wideClassName)}>
-        {tabs.map(tab => (
-          <TextTab active={tab.id === value} key={tab.id} onClick={() => onChange(tab.id)}>
-            {tab.label}
-            {tab.meta !== undefined && <TextTabMeta>{tabMetaContent(tab.meta)}</TextTabMeta>}
-          </TextTab>
-        ))}
-      </div>
+      {variant === 'pill' ? (
+        <div className={cn('hidden min-w-0 items-center md:flex', wideClassName)}>
+          <PillTabs onChange={onChange} tabs={tabs} value={value} />
+        </div>
+      ) : (
+        <div className={cn('hidden min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex', wideClassName)}>
+          {tabs.map(tab => (
+            <TextTab active={tab.id === value} key={tab.id} onClick={() => onChange(tab.id)}>
+              {tab.label}
+              {tab.meta !== undefined && <TextTabMeta>{tabMetaContent(tab.meta)}</TextTabMeta>}
+            </TextTab>
+          ))}
+        </div>
+      )}
       <div className="md:hidden">
         <TabDropdown
           align={align}

@@ -7,12 +7,12 @@ import { startSessionDrag } from '@/app/chat/session-drag'
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { openSession } from '@/app/open-session'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
 import type { SessionInfo } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import { triggerHaptic } from '@/lib/haptics'
+import { MoreVertical } from '@/lib/icons'
 import { middleClickHandlers } from '@/lib/middle-click'
 import { handoffOriginSource, sessionSourceLabel } from '@/lib/session-source'
 import { coarseElapsed } from '@/lib/time'
@@ -105,7 +105,7 @@ function SidebarSessionRowImpl({
         actions={
           <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
             {!isWorking && (
-              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 text-right text-2xs leading-none tabular-nums text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 text-right text-xs leading-none tabular-nums text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
                 {age}
               </span>
             )}
@@ -125,7 +125,7 @@ function SidebarSessionRowImpl({
                 size="icon-xs"
                 variant="ghost"
               >
-                <Codicon name="kebab-vertical" size="0.875rem" />
+                <MoreVertical />
               </Button>
             </SessionActionsMenu>
           </div>

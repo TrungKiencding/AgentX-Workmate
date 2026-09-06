@@ -131,7 +131,8 @@ export const ar = defineLocale({
       kinds: {
         timeout: {
           title: 'يستغرق بدء AgentX وقتًا أطول من المعتاد',
-          description: 'بدأت الواجهة الخلفية لكنها لم تستجب في الوقت المناسب. هذا شائع عند التشغيل الأول أو عندما يكون الجهاز مشغولًا، ولا يوجد عطل.',
+          description:
+            'بدأت الواجهة الخلفية لكنها لم تستجب في الوقت المناسب. هذا شائع عند التشغيل الأول أو عندما يكون الجهاز مشغولًا، ولا يوجد عطل.',
           steps: [
             'اضغط "إعادة المحاولة" — المحاولة الثانية تنجح عادةً.',
             'إذا تكرر ذلك، أغلق التطبيقات الثقيلة ثم حاول مجددًا.'
@@ -250,7 +251,8 @@ export const ar = defineLocale({
     openStarmap: 'فتح خريطة الذاكرة',
     openKeybinds: 'اختصارات لوحة المفاتيح',
     layoutEditor: 'محرر التخطيط',
-    layoutEditorTitle: 'محرر التخطيط — انقر مع ⌘ لإعادة ضبط التخطيط'
+    layoutEditorTitle: 'محرر التخطيط — انقر مع ⌘ لإعادة ضبط التخطيط',
+    moreTools: 'المزيد'
   },
   keybinds: {
     title: 'اختصارات لوحة المفاتيح',
@@ -275,12 +277,12 @@ export const ar = defineLocale({
       'nav.commandCenter': 'فتح مركز الأوامر',
       'nav.settings': 'فتح الإعدادات',
       'nav.profiles': 'فتح الملفات الشخصية',
-      'nav.skills': 'فتح المهارات',
+      'nav.skills': 'فتح الأدوات المساعدة',
       'nav.messaging': 'فتح المراسلة',
       'nav.artifacts': 'فتح العناصر',
       'nav.cron': 'فتح المهام المجدولة',
       'nav.agents': 'فتح الوكلاء',
-      'session.new': 'جلسة جديدة',
+      'session.new': 'محادثة جديدة',
       'session.newTab': 'علامة تبويب جلسة جديدة',
       'session.newWindow': 'جلسة جديدة في نافذة',
       'session.next': 'الجلسة التالية',
@@ -1234,8 +1236,8 @@ export const ar = defineLocale({
     },
     nav: {
       newChat: {
-        title: 'جلسة جديدة',
-        detail: 'بدء جلسة جديدة'
+        title: 'محادثة جديدة',
+        detail: 'بدء محادثة جديدة'
       },
       settings: {
         title: 'الإعدادات',
@@ -1735,8 +1737,8 @@ export const ar = defineLocale({
   },
   sidebar: {
     nav: {
-      'new-session': 'جلسة جديدة',
-      skills: 'المهارات',
+      'new-session': 'محادثة جديدة',
+      skills: 'الأدوات المساعدة',
       messaging: 'المراسلة',
       artifacts: 'العناصر',
       chat: 'المحادثة',
@@ -1750,7 +1752,7 @@ export const ar = defineLocale({
     noMatch: query => `لا توجد جلسات تطابق "${query}"`,
     results: 'النتائج',
     pinned: 'المثبتة',
-    sessions: 'الجلسات',
+    sessions: 'الأخيرة',
     cronJobs: 'المهام المجدولة',
     groupAriaGrouped: 'الجلسات مجمعة حسب مساحة العمل',
     groupAriaUngrouped: 'الجلسات غير مجمعة',
@@ -1759,7 +1761,14 @@ export const ar = defineLocale({
     groupTitleGrouped: 'مجمعة حسب مساحة العمل',
     groupTitleUngrouped: 'كل الجلسات',
     allPinned: 'كل الجلسات مثبتة',
-    shiftClickHint: 'استخدم Shift للتحديد المتعدد',
+    shiftClickHint: 'ثبّت المحادثات التي تعود إليها كثيرًا.',
+    dateDivider: {
+      today: 'اليوم',
+      yesterday: 'أمس',
+      thisWeek: 'هذا الأسبوع',
+      lastWeek: 'الأسبوع الماضي',
+      thisMonth: 'هذا الشهر'
+    },
     noWorkspace: 'بدون مساحة عمل',
     projectEmpty: 'لا توجد جلسات بعد',
     noSessions: 'لا توجد جلسات بعد',
@@ -1824,7 +1833,7 @@ export const ar = defineLocale({
       toggle: (label, open) => `${open ? 'إظهار' : 'إخفاء'} جلسات ${label}`,
       back: 'كل المشاريع'
     },
-    newSessionIn: label => `جلسة جديدة في ${label}`,
+    newSessionIn: label => `محادثة جديدة في ${label}`,
     showMoreIn: (count, label) => `إظهار ${count} أخرى في ${label}`,
     loading: 'جار التحميل...',
     loadMore: 'تحميل المزيد',
@@ -1869,9 +1878,11 @@ export const ar = defineLocale({
     placeholderStarting: 'جار بدء AgentX...',
     placeholderReconnecting: 'جار إعادة الاتصال...',
     placeholderFollowUp: 'اكتب متابعة...',
-    newSessionPlaceholders: ['اسأل AgentX عن شيء...', 'اطلب من AgentX تنفيذ مهمة...', 'ابدأ محادثة جديدة...'],
+    newSessionPlaceholders: ['ماذا تحتاج اليوم؟'],
+    newSessionPlaceholdersRepo: ['اسأل عن الكود أو أسند مهمة…'],
     followUpPlaceholders: ['اكتب متابعة...', 'أضف توجيها...', 'اسأل سؤالا آخر...'],
     startVoice: 'بدء الصوت',
+    voiceMenu: 'الصوت',
     openDirective: 'فتح',
     queueMessage: 'إضافة الرسالة للطابور',
     steer: 'توجيه',
@@ -1945,7 +1956,7 @@ export const ar = defineLocale({
     noMatchingThemes: 'لا توجد سمات مطابقة.',
     themeTryPre: 'جرّب ',
     themeTryPost: '.',
-    addContext: 'إضافة سياق',
+    addContext: 'إرفاق ملف أو صورة أو مجلد',
     attachLabel: 'إرفاق',
     files: 'ملفات',
     folder: 'مجلد',
@@ -2143,18 +2154,21 @@ export const ar = defineLocale({
       listAnd: 'و',
       providerUnresolved: 'تم الاتصال، لكن AgentX ما زال غير قادر على تحديد مزوّد صالح.',
       runtimeNotReadyTitle: 'بيئة التشغيل غير جاهزة',
-      runtimeNotReadyBody: 'تعذر على AgentX Workmate Desktop التحقق من الواجهة الخلفية عند البدء. قد تكون بعض الميزات غير متاحة حتى يمكن الوصول إلى البوابة.',
+      runtimeNotReadyBody:
+        'تعذر على AgentX Workmate Desktop التحقق من الواجهة الخلفية عند البدء. قد تكون بعض الميزات غير متاحة حتى يمكن الوصول إلى البوابة.',
       couldNotStartSignIn: detail => `تعذر بدء تسجيل الدخول: ${detail}`,
       pollingFailed: detail => `فشل الاستعلام: ${detail}`,
       signInStatus: status => `تسجيل الدخول: ${status}.`,
       tokenExchangeFailed: 'فشل تبادل الرمز.',
-      stillCannotReach: (provider, command) => `ما زال AgentX غير قادر على الوصول إلى ${provider}. شغّل \`${command}\` في الطرفية أولًا.`,
+      stillCannotReach: (provider, command) =>
+        `ما زال AgentX غير قادر على الوصول إلى ${provider}. شغّل \`${command}\` في الطرفية أولًا.`,
       couldNotSaveProvider: label => `تعذر حفظ ${label}`,
       couldNotSaveModel: 'تعذر على AgentX حفظ النموذج المحدد.',
       enterEndpointUrl: 'أدخل عنوان URL لنقطة النهاية أولًا.',
       couldNotReachEndpoint: 'تعذر الوصول إلى نقطة النهاية تلك.',
       couldNotReachUrl: url => `تعذر الوصول إلى ${url}.`,
-      noModelsAdvertised: url => `تم الاتصال بـ ${url}، لكنها لم تعرض أي نماذج في /v1/models. شغّل نموذجًا على نقطة النهاية تلك ثم حاول مجددًا.`,
+      noModelsAdvertised: url =>
+        `تم الاتصال بـ ${url}، لكنها لم تعرض أي نماذج في /v1/models. شغّل نموذجًا على نقطة النهاية تلك ثم حاول مجددًا.`,
       savedButUnreachable: url => `تم الحفظ، لكن AgentX ما زال غير قادر على الوصول إلى ${url}.`,
       localEndpointLabel: 'نقطة نهاية محلية / مخصصة',
       couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',
@@ -2515,6 +2529,43 @@ export const ar = defineLocale({
     tabCount: count => `${count} تبويبات`
   },
   assistant: {
+    intro: {
+      greetingMorning: name => (name ? `صباح الخير، ${name}` : 'صباح الخير'),
+      greetingAfternoon: name => (name ? `نهارك سعيد، ${name}` : 'نهارك سعيد'),
+      greetingEvening: name => (name ? `مساء الخير، ${name}` : 'مساء الخير'),
+      bodyVariants: [
+        'اطرح سؤالًا، أو الصق خطأ، أو أرشدني إلى مجلد. أقرأ المستندات والكود، وأشغّل الأدوات، وأساعدك على إنهاء العمل.',
+        'صف المهمة بكلماتك: لخّص مستندًا، أو صِغ بريدًا، أو أصلح جزءًا من الكود. أختار الأداة المناسبة وأستأذنك قبل الخطوات الحساسة.',
+        'أضف ملفًا أو جدولًا أو فكرة أولية. أبحث، وأقترح الخطوة التالية، وأبقي كل شيء قابلًا للتراجع.',
+        'ابحث في مجلد الكود، وعدّل الملفات، وشغّل الاختبارات. حدّد الهدف وسأتولى الجزء الآلي.',
+        'من التقرير الأسبوعي إلى خطة المشروع: اكتب مهمة أو سؤالًا. أتذكر المحادثة، وأذكر المصادر، وأتوقف لأسأل عندما لا أكون متأكدًا.'
+      ],
+      quickStart: 'ابدأ بسرعة',
+      resume: title => `متابعة «${title}»`,
+      starterExplainLabel: 'اشرح مجلد الكود هذا',
+      starterExplainPrompt: 'اشرح ما يفعله مجلد الكود هذا وكيف نُظّم الكود فيه.',
+      starterPlanLabel: 'خطّط لتغيير',
+      starterPlanPrompt: 'أريد إجراء تغيير. اسألني عما تحتاج معرفته، ثم اقترح خطة قبل كتابة الكود.',
+      starterExplainFolderLabel: 'اشرح هذا المجلد',
+      starterExplainFolderPrompt: 'اشرح ما يوجد في مجلد العمل الحالي وكيف هو منظم.',
+      starterSummarizeLabel: 'لخّص مستندًا',
+      starterSummarizePrompt:
+        'أريد تلخيص مستند. اطلب مني الملف أو النص، ثم أعطني النقاط الرئيسية وما يجب أن أتصرف بشأنه.',
+      starterDraftLabel: 'صِغ بريدًا إلكترونيًا',
+      starterDraftPrompt:
+        'ساعدني في صياغة بريد إلكتروني. اسألني لمن هو، وماذا يجب أن يقول، وبأي نبرة، ثم اكتب نسخة يمكنني إرسالها.',
+      starterPlanWeekLabel: 'خطّط لأسبوعي',
+      starterPlanWeekPrompt:
+        'ساعدني في التخطيط لهذا الأسبوع. اسألني عن مهامي ومواعيدها النهائية، ثم رتّبها يومًا بيوم مع أهم الأعمال أولًا.',
+      starterExplainDesc: 'ماذا يفعل الكود هنا وكيف هو مرتّب',
+      starterExplainFolderDesc: 'ما الذي يوجد في هذا المجلد',
+      starterPlanDesc: 'اسأل أولًا، ثم اقترح طريقة العمل',
+      starterPlanWeekDesc: 'رتّب الأسبوع يومًا بيوم',
+      starterSummarizeDesc: 'استخرج النقاط الرئيسية من ملف أو فقرة',
+      starterDraftDesc: 'من بضع ملاحظات إلى بريد جاهز للإرسال',
+      resumeDesc: 'تابع آخر محادثة لك',
+      projectDesc: 'ابدأ في مجلد هذا المشروع'
+    },
     toolRun: {
       categories: {
         delegate: { past: 'فوّض', present: 'يفوّض', noun: count => (count === 1 ? 'مهمة' : 'مهام') },

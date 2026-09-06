@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useI18n } from '@/i18n'
+import { Folders, Pin, Plus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 export function SidebarSessionSkeletons() {
@@ -27,10 +27,10 @@ export function SidebarBlankState({ onNewProject }: { onNewProject: () => void }
   return (
     <div className="grid min-h-0 flex-1 place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-2">
-        <Codicon className="text-(--ui-text-quaternary)" name="root-folder" size="1.25rem" />
+        <Folders className="size-5 text-(--ui-text-quaternary)" />
         <p className="text-xs text-(--ui-text-tertiary)">{s.noSessions}</p>
         <Button className="mt-0.5 text-(--ui-text-secondary)" onClick={onNewProject} size="sm" variant="ghost">
-          <Codicon name="add" size="0.75rem" />
+          <Plus />
           {s.projects.newButton}
         </Button>
       </div>
@@ -44,7 +44,7 @@ export function SidebarPinnedEmptyState() {
   return (
     <div className="flex min-h-(--sidebar-row-height) items-center gap-1.5 rounded-lg pl-2 text-xs text-(--ui-text-tertiary)">
       <span className="grid w-3.5 shrink-0 place-items-center text-(--ui-text-quaternary)">
-        <Codicon name="pin" size="0.75rem" />
+        <Pin className="size-3" />
       </span>
       <span>{t.sidebar.shiftClickHint}</span>
     </div>

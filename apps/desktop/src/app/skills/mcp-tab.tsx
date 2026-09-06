@@ -19,9 +19,9 @@ import { JsonDocumentEditor } from '@/components/chat/json-document-editor'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
+import { StatusPill } from '@/components/ui/status-pill'
 import { Switch } from '@/components/ui/switch'
 import { TextTab } from '@/components/ui/text-tab'
 import { Tip } from '@/components/ui/tooltip'
@@ -39,6 +39,7 @@ import {
   testMcpServer
 } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
+import { ChevronLeft, RefreshCw, Trash2 } from '@/lib/icons'
 import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import { countEnabledTools, isToolEnabled, toggleToolInServer } from '@/lib/mcp-tool-filter'
 import { cn } from '@/lib/utils'
@@ -158,10 +159,11 @@ function statusOf(server: Record<string, unknown>, probe: Probe | undefined): Se
   return NEEDS_AUTH_RE.test(probe.error ?? '') ? 'needs-auth' : 'error'
 }
 
+// Status dots paint from the semantic tokens so they follow the skin.
 const STATUS_DOT: Record<ServerStatus, string> = {
-  ok: 'bg-emerald-500',
-  error: 'bg-red-500',
-  'needs-auth': 'bg-amber-500',
+  ok: 'bg-(--ui-green)',
+  error: 'bg-(--ui-red)',
+  'needs-auth': 'bg-(--ui-yellow)',
   probing: 'animate-pulse bg-foreground/40',
   off: 'bg-foreground/20',
   unknown: 'bg-foreground/20'
@@ -1160,7 +1162,7 @@ function ServerConfig({
             size="icon"
             variant="ghost"
           >
-            <Codicon name="chevron-left" size="0.8125rem" />
+            <ChevronLeft />
           </Button>
         </Tip>
         <McpAvatar className="mt-2.5" name={name} status={status} />
@@ -1305,7 +1307,7 @@ function ServerIconActions({
           size="icon"
           variant="ghost"
         >
-          <Codicon name="refresh" size="0.8125rem" spinning={probing} />
+          <RefreshCw className={cn(probing && 'animate-spin')} />
         </Button>
       </Tip>
       <Tip label={m.remove}>
@@ -1317,7 +1319,7 @@ function ServerIconActions({
           size="icon"
           variant="ghost"
         >
-          <Codicon name="trash" size="0.8125rem" />
+          <Trash2 />
         </Button>
       </Tip>
     </span>
@@ -1328,9 +1330,7 @@ function ServerIconActions({
 // catalog's flat row treatment.
 function CatalogTag({ children }: { children: string }) {
   return (
-    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
-      {children}
-    </span>
+    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">{children}</span>
   )
 }
 
@@ -1429,17 +1429,13 @@ function McpCatalog({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate text-xs font-medium text-foreground/85">
-                    {prettyName(entry.name)}
-                  </span>
+                  <span className="truncate text-xs font-medium text-foreground/85">{prettyName(entry.name)}</span>
                   <CatalogTag>{entry.transport}</CatalogTag>
                   {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
                   {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
                   {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
                   {entry.installed && (
-                    <span className="text-2xs text-emerald-400">
-                      {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
-                    </span>
+                    <StatusPill tone="good">{entry.enabled ? m.catalogEnabled : m.catalogInstalled}</StatusPill>
                   )}
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-2xs text-muted-foreground/70">{entry.description}</p>

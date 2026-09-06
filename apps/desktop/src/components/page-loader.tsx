@@ -21,14 +21,9 @@ export function PageLoader({
       className={cn('grid h-full place-items-center', className)}
       role={role}
     >
-      <Loader
-        aria-hidden="true"
-        className="size-10 text-primary/70"
-        pathSteps={220}
-        role="presentation"
-        strokeScale={0.72}
-        type="rose-curve"
-      />
+      {/* A page that is loading shows a plain ring, not a math curve: the
+          curve stays in the transcript, where thinking is the point. */}
+      <Loader aria-hidden="true" role="presentation" variant="ring" />
     </div>
   )
 }

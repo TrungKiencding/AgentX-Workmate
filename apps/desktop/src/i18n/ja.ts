@@ -145,7 +145,8 @@ export const ja = defineLocale({
       kinds: {
         timeout: {
           title: 'AgentX の起動にいつもより時間がかかっています',
-          description: 'バックエンドは起動しましたが、時間内に応答しませんでした。初回起動時やマシンが混雑しているときによく起こり、壊れているわけではありません。',
+          description:
+            'バックエンドは起動しましたが、時間内に応答しませんでした。初回起動時やマシンが混雑しているときによく起こり、壊れているわけではありません。',
           steps: [
             '「再試行」を押してください — 2 回目でつながることがほとんどです。',
             '繰り返す場合は、重いアプリケーションを閉じてからもう一度試してください。'
@@ -278,6 +279,7 @@ export const ja = defineLocale({
     muteHaptics: '触覚フィードバックをオフ',
     unmuteHaptics: '触覚フィードバックをオン',
     openSettings: '設定を開く',
+    moreTools: 'その他',
     openStarmap: 'メモリグラフを開く'
   },
 
@@ -1397,9 +1399,9 @@ export const ja = defineLocale({
       usage: 'トークン、コスト、スキルの活動履歴'
     },
     nav: {
-      newChat: { title: '新しいセッション', detail: '新しいセッションを開始' },
+      newChat: { title: '新しいチャット', detail: '新しいチャットを開始' },
       settings: { title: '設定', detail: 'AgentX デスクトップを設定' },
-      skills: { title: 'スキルとツール', detail: 'スキル、ツールセット、プロバイダーを有効化' },
+      skills: { title: 'ユーティリティ', detail: 'スキル、ツール、高度な接続' },
       messaging: { title: 'メッセージング', detail: 'Telegram、Slack、Discord などを設定' },
       artifacts: { title: 'アーティファクト', detail: '生成された出力を閲覧' }
     },
@@ -1878,8 +1880,8 @@ export const ja = defineLocale({
 
   sidebar: {
     nav: {
-      'new-session': '新しいセッション',
-      skills: 'スキルとツール',
+      'new-session': '新しいチャット',
+      skills: 'ユーティリティ',
       messaging: 'メッセージング',
       artifacts: 'アーティファクト'
     },
@@ -1889,7 +1891,7 @@ export const ja = defineLocale({
     noMatch: query => `"${query}" に一致するセッションがありません。`,
     results: '結果',
     pinned: 'ピン留め',
-    sessions: 'セッション',
+    sessions: '最近',
     cronJobs: 'Cronジョブ',
     groupAriaGrouped: 'セッションを単一リストとして表示',
     groupAriaUngrouped: 'ワークスペースごとにセッションをグループ化',
@@ -1898,7 +1900,7 @@ export const ja = defineLocale({
     groupTitleGrouped: 'セッションのグループ化を解除',
     groupTitleUngrouped: 'ワークスペースでグループ化',
     allPinned: 'ここにあるものはすべてピン留めされています。チャットのピン留めを解除すると最近のものに表示されます。',
-    shiftClickHint: 'Shift クリックでピン留め · ドラッグで並べ替え',
+    shiftClickHint: 'よく戻ってくるチャットをピン留めしましょう。',
     noWorkspace: 'ワークスペースなし',
     projectEmpty: 'セッションはまだありません',
     noSessions: 'セッションはまだありません',
@@ -1966,7 +1968,7 @@ export const ja = defineLocale({
       forceRemove: '強制削除',
       enter: label => `${label} を開く`
     },
-    newSessionIn: label => `${label} で新しいセッション`,
+    newSessionIn: label => `${label} で新しいチャット`,
     showMoreIn: (count, label) => `${label} でさらに ${count} 件を表示`,
     loading: '読み込み中…',
     loadMore: 'さらに読み込む',
@@ -2002,7 +2004,7 @@ export const ja = defineLocale({
       ageMin: '分'
     },
     dateDivider: {
-      today: '今日の早い時間',
+      today: '今日',
       yesterday: '昨日',
       thisWeek: '今週',
       lastWeek: '先週',
@@ -2016,15 +2018,8 @@ export const ja = defineLocale({
     placeholderStarting: 'AgentX を起動中...',
     placeholderReconnecting: 'AgentX に再接続中…',
     placeholderFollowUp: 'フォローアップを送信',
-    newSessionPlaceholders: [
-      '何を作りますか？',
-      'AgentX にタスクを与える',
-      '何か考えていることはありますか？',
-      '必要なことを説明してください',
-      '何に取り組みますか？',
-      '何でも聞いてください',
-      '目標から始める'
-    ],
+    newSessionPlaceholders: ['今日は何をしましょうか？'],
+    newSessionPlaceholdersRepo: ['コードについて質問するか、仕事を任せてください…'],
     followUpPlaceholders: [
       'フォローアップを送信',
       'さらにコンテキストを追加',
@@ -2035,6 +2030,7 @@ export const ja = defineLocale({
       '調整または続行'
     ],
     startVoice: '音声会話を開始',
+    voiceMenu: '音声',
     openDirective: '開く',
     queueMessage: 'メッセージをキューに入れる',
     stop: '停止',
@@ -2116,7 +2112,7 @@ export const ja = defineLocale({
     noMatchingThemes: '一致するテーマがありません。',
     themeTryPre: '試してみる: ',
     themeTryPost: '。',
-    addContext: 'コンテキストを追加',
+    addContext: 'ファイル、画像、フォルダを添付',
     attachLabel: '添付',
     files: 'ファイル…',
     folder: 'フォルダー…',
@@ -2351,7 +2347,8 @@ export const ja = defineLocale({
       readyTitle: 'AgentX の準備ができました',
       readyBody: provider => `${provider} に接続しました。`,
       toolGatewayTitle: 'Tool Gateway を有効にしました',
-      toolGatewayBody: tools => `${tools} は Nous のサブスクリプション経由で動作するようになりました — 別途 API キーは不要です。`,
+      toolGatewayBody: tools =>
+        `${tools} は Nous のサブスクリプション経由で動作するようになりました — 別途 API キーは不要です。`,
       toolLabels: {
         browser: 'ブラウザ自動操作',
         image_gen: '画像生成',
@@ -2362,18 +2359,21 @@ export const ja = defineLocale({
       listAnd: 'と',
       providerUnresolved: '接続しましたが、AgentX は利用できるプロバイダーをまだ解決できません。',
       runtimeNotReadyTitle: 'ランタイムの準備ができていません',
-      runtimeNotReadyBody: 'AgentX Workmate Desktop は起動時に実行中のバックエンドを確認できませんでした。ゲートウェイに到達できるまで、一部の機能が使えない場合があります。',
+      runtimeNotReadyBody:
+        'AgentX Workmate Desktop は起動時に実行中のバックエンドを確認できませんでした。ゲートウェイに到達できるまで、一部の機能が使えない場合があります。',
       couldNotStartSignIn: detail => `サインインを開始できませんでした: ${detail}`,
       pollingFailed: detail => `ポーリングに失敗しました: ${detail}`,
       signInStatus: status => `サインイン: ${status}。`,
       tokenExchangeFailed: 'トークン交換に失敗しました。',
-      stillCannotReach: (provider, command) => `AgentX はまだ ${provider} に到達できません。先にターミナルで \`${command}\` を実行してください。`,
+      stillCannotReach: (provider, command) =>
+        `AgentX はまだ ${provider} に到達できません。先にターミナルで \`${command}\` を実行してください。`,
       couldNotSaveProvider: label => `${label} を保存できませんでした`,
       couldNotSaveModel: 'AgentX は選択したモデルを保存できませんでした。',
       enterEndpointUrl: '先にエンドポイントの URL を入力してください。',
       couldNotReachEndpoint: 'そのエンドポイントに到達できませんでした。',
       couldNotReachUrl: url => `${url} に到達できませんでした。`,
-      noModelsAdvertised: url => `${url} に接続しましたが、/v1/models にモデルがありません。そのエンドポイントでモデルを起動してから再試行してください。`,
+      noModelsAdvertised: url =>
+        `${url} に接続しましたが、/v1/models にモデルがありません。そのエンドポイントでモデルを起動してから再試行してください。`,
       savedButUnreachable: url => `保存しましたが、AgentX はまだ ${url} に到達できません。`,
       localEndpointLabel: 'ローカル / カスタムエンドポイント',
       couldNotSaveLocalEndpoint: 'ローカルエンドポイントを保存できませんでした',
@@ -2800,16 +2800,29 @@ export const ja = defineLocale({
       ],
       quickStart: 'すぐはじめる',
       resume: title => `「${title}」を再開`,
-      starterExplainLabel: 'このリポジトリを説明',
-      starterExplainPrompt: 'このリポジトリが何をするものか、コードがどう構成されているかを説明してください。',
+      starterExplainLabel: 'このコードフォルダを説明',
+      starterExplainPrompt: 'このコードフォルダが何をするものか、コードがどう構成されているかを説明してください。',
       starterPlanLabel: '変更を計画',
       starterPlanPrompt: '変更を加えたいです。必要なことを質問してから、コードを書く前に計画を提案してください。',
       starterExplainFolderLabel: 'このフォルダを説明',
       starterExplainFolderPrompt: '現在の作業フォルダに何があり、どう構成されているかを説明してください。',
       starterSummarizeLabel: 'ドキュメントを要約',
-      starterSummarizePrompt: 'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
+      starterSummarizePrompt:
+        'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
       starterDraftLabel: 'メールを下書き',
-      starterDraftPrompt: 'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。'
+      starterDraftPrompt:
+        'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。',
+      starterPlanWeekLabel: '今週の計画を立てる',
+      starterPlanWeekPrompt:
+        '今週の計画を手伝ってください。抱えている仕事と期限を尋ねてから、重要なものを先に、日ごとに並べてください。',
+      starterExplainDesc: 'ここのコードが何をし、どう配置されているか',
+      starterExplainFolderDesc: 'このフォルダに何があるか',
+      starterPlanDesc: 'まず質問し、それから進め方を提案',
+      starterPlanWeekDesc: '一週間の仕事を日ごとに並べる',
+      starterSummarizeDesc: 'ファイルや文章から要点を抜き出す',
+      starterDraftDesc: 'メモ数行から、そのまま送れる文面へ',
+      resumeDesc: '最近のチャットを再開',
+      projectDesc: 'このプロジェクトのフォルダで始める'
     },
     thread: {
       loadingSession: 'セッションを読み込み中',
