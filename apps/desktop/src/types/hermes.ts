@@ -1472,7 +1472,8 @@ export interface ModelAssignmentResponse {
 
 export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
 export type SkillHubReportedState = 'pending' | 'installed' | 'removed' | 'failed' | 'disabled'
-export type SkillHubSyncStatus = 'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
+export type SkillHubSyncStatus =
+  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
 
 /** What the local engine knows about a hub skill on this machine. */
 export interface SkillHubLocalState {
@@ -1520,12 +1521,21 @@ export interface SkillHubHistoryEntry {
   at: string
 }
 
-export interface SkillHubOrgSkill {
+export interface SkillHubWorkspaceSkill {
   slug: string
   name: string
   kind: string
   version: string | null
   content_hash: string | null
+}
+
+/** One workspace the person belongs to, with the skills it shares (hub decision §8 #11). */
+export interface SkillHubWorkspace {
+  id: string
+  slug: string
+  name: string
+  role: 'owner' | 'member' | null
+  skills: SkillHubWorkspaceSkill[]
 }
 
 /** `POST /api/skills/hub/tick` — what one sync did. */
@@ -1538,7 +1548,6 @@ export interface SkillHubTickResponse {
   disabled?: string[]
   enabled?: string[]
   failed?: { slug: string; error: string; blocked?: boolean }[]
-  org_installed?: string[]
   updates?: SkillHubUpdate[]
   cursor?: number | null
   at?: string
@@ -1550,7 +1559,6 @@ export interface SkillHubChangesResponse {
   configured: boolean
   base_url: string
   realtime: boolean
-  org_auto_install: boolean
   credentials: 'session' | 'mailbox' | 'token' | null
   device_id: string | null
   stream: 'off' | 'waiting' | 'connected' | 'reconnecting'
@@ -1559,7 +1567,7 @@ export interface SkillHubChangesResponse {
   last: SkillHubTickResponse
   installs: SkillHubInstallRow[]
   updates: SkillHubUpdate[]
-  org: { org_id: string; skills: SkillHubOrgSkill[] } | null
+  workspaces: SkillHubWorkspace[]
   history: SkillHubHistoryEntry[]
   generated_at: string | null
 }
@@ -1573,7 +1581,14 @@ export interface SkillHubValidateResponse {
   result?: {
     ok: boolean
     error?: { code: string; message: string; detail: unknown }
-    package?: { name: string; kind: string; version: string; files: string[]; has_scripts: boolean; warnings?: string[] }
+    package?: {
+      name: string
+      kind: string
+      version: string
+      files: string[]
+      has_scripts: boolean
+      warnings?: string[]
+    }
     webmate?: { chars: number; max_chars: number } | null
     warnings?: string[]
   }
@@ -1588,6 +1603,7 @@ export interface SkillHubPublishResponse {
   created?: boolean
   slug?: string
   visibility?: string
+  workspace?: string | null
   version?: string
   publish_state?: string
   scan_id?: string | null

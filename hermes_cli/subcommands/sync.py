@@ -14,8 +14,8 @@ Skill Sync covers two surfaces, both under this one command for launch:
     agentx sync disable <skill>        opt a skill out of sync
     agentx sync device [--name]        show or set this device's label
 
-  Organisation — skills shared with your team:
-    agentx sync propose <skill>        share a skill with your organisation
+  Workspaces — skills shared with your team:
+    agentx sync propose <skill> [--workspace W]   share a skill into a workspace
 
 Sync is INERT unless the resolved Nous token carries the access-gate claim
 AND a sync base URL is configured. The commands report that state rather than
@@ -35,16 +35,16 @@ def build_sync_parser(subparsers, *, cmd_sync: Callable) -> None:
         help="Skill Sync — sync your skills across devices and with your team",
         description=(
             "Skill Sync keeps your skills with you. Personal sync moves your "
-            "own skills between your devices; if you belong to an "
-            "organisation, you also get its shared skills and can propose "
-            "your own back to the team."
+            "own skills between your devices; if you belong to workspaces, "
+            "you also get their shared skills and can propose your own back "
+            "to the team."
         ),
         epilog=(
             "Examples:\n"
             "  agentx sync status            what is synced, and from where\n"
             "  agentx sync enable my-skill   include a skill in your sync\n"
             "  agentx sync now               pull, then push\n"
-            "  agentx sync propose my-skill  share a skill with your team\n"
+            "  agentx sync propose my-skill --workspace doi-dev  share a skill with your team\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -52,7 +52,7 @@ def build_sync_parser(subparsers, *, cmd_sync: Callable) -> None:
 
     sync_sub.add_parser("status", help="Show what is synced, and from where")
     sync_sub.add_parser(
-        "pull", help="Pull your synced skills (and your organisation's)"
+        "pull", help="Pull your synced skills (and your workspaces')"
     )
     sync_sub.add_parser("push", help="Push your opted-in skills")
     sync_sub.add_parser("now", help="Reconcile now: pull then push")
@@ -75,20 +75,26 @@ def build_sync_parser(subparsers, *, cmd_sync: Callable) -> None:
         "Omit to print the current label.",
     )
 
-    # Org-shared skills. A member's submission becomes a proposal an admin
-    # reviews; an admin's merges straight into the shared set. Accounts that
-    # aren't in a shared organisation are told so plainly.
+    # Workspace-shared skills. A member's submission becomes a proposal the
+    # workspace owner reviews; the owner's merges straight into the shared
+    # set. Accounts in no workspace are told so plainly.
     propose = sync_sub.add_parser(
         "propose",
-        help="Share a skill with your organisation",
+        help="Share a skill with a workspace",
         description=(
-            "Submit one of your skills to your organisation's shared set. If "
-            "you are an admin it is added directly; otherwise it becomes a "
-            "proposal for an admin to review. Accounts that aren't part of a "
-            "shared organisation don't have this workflow."
+            "Submit one of your skills to a workspace's shared set. If you own "
+            "the workspace it is added directly; otherwise it becomes a "
+            "proposal for the owner to review. Accounts that are in no "
+            "workspace don't have this workflow."
         ),
     )
     propose.add_argument("name", help="Skill name to share")
+    propose.add_argument(
+        "-w",
+        "--workspace",
+        default=None,
+        help="Workspace to share into (id or slug); optional when you belong to exactly one",
+    )
     propose.add_argument(
         "-m",
         "--message",

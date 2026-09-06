@@ -235,8 +235,13 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
         </ul>
       )}
 
-      {data?.org && data.org.skills.length > 0 && (
-        <p className="mt-2 text-sm text-(--ui-text-tertiary)">{h.orgSkills(data.org.skills.length)}</p>
+      {data && data.workspaces.length > 0 && (
+        <p className="mt-2 text-sm text-(--ui-text-tertiary)" data-testid="hub-workspaces">
+          {h.workspaceSkills(
+            data.workspaces.reduce((n, w) => n + w.skills.length, 0),
+            data.workspaces.length
+          )}
+        </p>
       )}
 
       {history.length > 0 && (

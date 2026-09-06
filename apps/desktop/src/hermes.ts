@@ -1735,7 +1735,10 @@ export function getSkillHubChanges(): Promise<SkillHubChangesResponse> {
   })
 }
 
-export function validateSkillForHub(name: string, options: { kind?: string; visibility?: string } = {}): Promise<SkillHubValidateResponse> {
+export function validateSkillForHub(
+  name: string,
+  options: { kind?: string; visibility?: string } = {}
+): Promise<SkillHubValidateResponse> {
   return window.agentxDesktop.api<SkillHubValidateResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/validate',
@@ -1747,23 +1750,33 @@ export function validateSkillForHub(name: string, options: { kind?: string; visi
 
 export function publishSkillToHub(
   name: string,
-  options: { visibility: string; kind?: string; targets?: string[] }
+  options: { visibility: string; workspace?: string; kind?: string; targets?: string[] }
 ): Promise<SkillHubPublishResponse> {
   return window.agentxDesktop.api<SkillHubPublishResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/publish',
     method: 'POST',
-    body: { name, visibility: options.visibility, kind: options.kind || null, targets: options.targets || null },
+    body: {
+      name,
+      visibility: options.visibility,
+      workspace: options.workspace || null,
+      kind: options.kind || null,
+      targets: options.targets || null
+    },
     timeoutMs: HUB_REQUEST_TIMEOUT_MS
   })
 }
 
-export function proposeSkillToOrg(name: string, options: { kind?: string } = {}): Promise<SkillHubPublishResponse> {
+/** Share a local skill into a workspace (hub decision §8 #11): an upload with workspace visibility. */
+export function proposeSkillToWorkspace(
+  name: string,
+  options: { workspace: string; kind?: string }
+): Promise<SkillHubPublishResponse> {
   return window.agentxDesktop.api<SkillHubPublishResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/propose',
     method: 'POST',
-    body: { name, visibility: 'org', kind: options.kind || null },
+    body: { name, visibility: 'workspace', workspace: options.workspace, kind: options.kind || null },
     timeoutMs: HUB_REQUEST_TIMEOUT_MS
   })
 }

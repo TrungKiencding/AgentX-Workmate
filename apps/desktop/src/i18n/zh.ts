@@ -1560,7 +1560,7 @@ export const zh: Translations = {
       updateOne: (from, to) => `${from} → ${to}`,
       syncNow: '立即同步',
       syncing: '正在同步…',
-      orgSkills: count => `${count} 个组织技能`,
+      workspaceSkills: (count, workspaces) => `${workspaces} 个工作区共享 ${count} 个技能`,
       history: '最近活动',
       historyAction: {
         installed: '已安装',
@@ -1574,13 +1574,15 @@ export const zh: Translations = {
     },
     publish: {
       upload: '上传到 Hub',
-      propose: '提交给组织',
+      propose: '分享到工作区',
       title: name => `将“${name}”上传到 AgentX Hub`,
-      proposeTitle: name => `将“${name}”提交给组织`,
+      proposeTitle: name => `将“${name}”分享到工作区`,
       description: '技能将作为新版本上传，经安全扫描后按 Hub 的策略发布。',
-      proposeDescription: '技能以“组织”可见性上传：安全的立即发布，需注意的等待组织管理员审核。',
+      proposeDescription: '技能以“工作区”可见性上传：仅其成员可见，并由 Hub 管理员审核后发布。',
       visibility: '可见性',
-      visibilityOptions: { private: '私有', org: '组织', public: '公开' },
+      visibilityOptions: { private: '私有', workspace: '工作区', public: '公开' },
+      workspace: '工作区',
+      noWorkspace: '你尚未加入 Hub 上的任何工作区 —— 请在 Hub 的工作区页面创建一个。',
       kind: '类型',
       kindAuto: '自动识别',
       kindCore: 'Core（Workmate、Claude Code…）',
@@ -1611,7 +1613,8 @@ export const zh: Translations = {
         version_exists: '该版本已在 Hub 上存在且内容不同。',
         slug_taken: '此技能名称在 Hub 上已属于他人。',
         rate_limited: '上传过于频繁，请稍后再试。',
-        kind_mismatch: 'Hub 上同名技能属于另一种类型。'
+        kind_mismatch: 'Hub 上同名技能属于另一种类型。',
+        workspace: 'Hub 未接受该工作区 —— 你已不是成员，或尚未选择工作区。'
       }
     }
   },

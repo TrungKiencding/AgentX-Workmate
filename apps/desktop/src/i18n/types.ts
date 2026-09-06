@@ -1144,7 +1144,7 @@ export interface Translations {
       updateOne: (from: string, to: string) => string
       syncNow: string
       syncing: string
-      orgSkills: (count: number) => string
+      workspaceSkills: (count: number, workspaces: number) => string
       history: string
       historyAction: Record<'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed', string>
       openHub: string
@@ -1157,7 +1157,9 @@ export interface Translations {
       description: string
       proposeDescription: string
       visibility: string
-      visibilityOptions: Record<'private' | 'org' | 'public', string>
+      visibilityOptions: Record<'private' | 'workspace' | 'public', string>
+      workspace: string
+      noWorkspace: string
       kind: string
       kindAuto: string
       kindCore: string
@@ -1189,6 +1191,7 @@ export interface Translations {
         slug_taken: string
         rate_limited: string
         kind_mismatch: string
+        workspace: string
       }
     }
   }

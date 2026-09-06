@@ -409,11 +409,11 @@ def _hub_identity() -> Dict[str, Any]:
 
     Bearer and device come from ``hermes_cli.hub_sync.resolve_credentials``
     (the hub-tick / sync-tick mailboxes, else ``skills.hub_token``); owner,
-    organisation and role from the hub's ``/v1/me``. The claims dict is
-    shaped like the Nous one (``sub``, ``org_id``, ``org_role``) so
-    :func:`resolve_org_identity` and the org helpers work unchanged: the hub
-    reports ``org_admin``/``hub_admin`` roles, which become ``org_role =
-    "admin"``; any other member of an organisation is ``"member"``.
+    organisation (the tenant) and the person's workspaces from the hub's
+    ``/v1/me``. The claims dict is shaped like the Nous one (``sub``,
+    ``org_id``) plus ``workspaces`` — the list :func:`resolve_workspace_identity`
+    and the workspace helpers read (hub decision §8 #11: sharing happens in
+    workspaces, the organisation is only a boundary).
     """
     try:
         from hermes_cli.hub_sync import resolve_credentials
@@ -431,16 +431,18 @@ def _hub_identity() -> Dict[str, Any]:
     subject = str(me.get("subject") or "")
     roles = [str(r) for r in (me.get("roles") or [])]
     org_id = str(me.get("org_id") or "")
-    org_role: Optional[str] = None
-    if org_id:
-        org_role = "admin" if ("org_admin" in roles or "hub_admin" in roles) else "member"
+    workspaces = [
+        {"id": str(w.get("id")), "slug": str(w.get("slug") or ""), "name": str(w.get("name") or ""), "role": str(w.get("role") or "member")}
+        for w in (me.get("workspaces") or [])
+        if isinstance(w, dict) and w.get("id")
+    ]
     claims = {
         "sub": subject,
         "email": me.get("email") or "",
         "org_id": org_id or None,
-        "org_role": org_role,
         "roles": roles,
         "slug": me.get("slug") or "",
+        "workspaces": workspaces,
     }
     return {
         "api_key": credentials.bearer,
@@ -565,22 +567,22 @@ def sync_feature_enabled() -> bool:
     return _sync_config_bool("AGENTX_SYNC_ENABLED", "enabled", default=False)
 
 
-def sync_org_auto_propose() -> bool:
-    """Whether an agent/user edit to an org skill is proposed automatically.
+def sync_workspace_auto_propose() -> bool:
+    """Whether an agent/user edit to a workspace skill is proposed automatically.
 
-    ``AGENTX_SYNC_ORG_AUTO_PROPOSE`` -> ``sync.org_auto_propose`` -> False.
+    ``AGENTX_SYNC_WORKSPACE_AUTO_PROPOSE`` -> ``sync.workspace_auto_propose`` -> False.
 
-    False (default): edits to an org-shared skill stay LOCAL until the user
-    runs ``agentx sync propose <skill>``. The skill keeps working with the
-    edit applied; the organisation just doesn't see it yet.
+    False (default): edits to a workspace-shared skill stay LOCAL until the
+    user runs ``agentx sync propose <skill> --workspace <slug>``. The skill
+    keeps working with the edit applied; the workspace just doesn't see it yet.
 
-    True: every local edit to an org skill is submitted to the org as a
-    proposal right away (an admin still approves it, unless the editor is an
-    admin). Suits a small, high-trust team that wants improvements to flow
-    back without anyone remembering to push them.
+    True: every local edit to a workspace skill is submitted as a proposal
+    right away (the owner still approves it, unless the editor is the owner).
+    Suits a small, high-trust team that wants improvements to flow back
+    without anyone remembering to push them.
     """
     return _sync_config_bool(
-        "AGENTX_SYNC_ORG_AUTO_PROPOSE", "org_auto_propose", default=False
+        "AGENTX_SYNC_WORKSPACE_AUTO_PROPOSE", "workspace_auto_propose", default=False
     )
 
 
@@ -618,10 +620,10 @@ def is_sync_eligible(skill_name: str) -> bool:
     """Whether *skill_name* is a candidate for sync (before the opt-in check).
 
     Eligible = present locally under ~/.agentx/skills/, NOT bundled, NOT
-    hub-installed, NOT an external-dir skill, and NOT under the org mirror
-    (``_org/`` — enterprise-managed content pulls from the org HEAD and must
-    never ride a personal push; the sync contract / the design notes). Mirrors the
-    exclusion logic used by the curator (tools/skill_usage.py).
+    hub-installed, NOT an external-dir skill, and NOT under a workspace mirror
+    (``_workspaces/`` — shared content pulls from the workspace HEAD and must
+    never ride a personal push). Mirrors the exclusion logic used by the
+    curator (tools/skill_usage.py).
     """
     try:
         from tools.skill_usage import is_bundled, is_hub_installed, _find_skill_dir
@@ -637,7 +639,7 @@ def is_sync_eligible(skill_name: str) -> bool:
         return False
     try:
         rel = skill_dir.resolve().relative_to(_skills_dir().resolve())
-        if rel.parts and rel.parts[0] == ORG_DIR_NAME:
+        if rel.parts and rel.parts[0] == WORKSPACES_DIR_NAME:
             return False
     except (OSError, ValueError):
         pass
@@ -954,38 +956,37 @@ class SyncClient:
             raise SyncError(f"capabilities failed: {r.status_code}", status=r.status_code)
         return r.json()
 
-    def get_refs(self, prefix: str, *, org_scope: bool = False) -> List[Dict[str, str]]:
-        """GET /v1/sync/refs?prefix=... (or the org route when ``org_scope``).
+    def get_refs(self, prefix: str, *, workspace: Optional[str] = None) -> List[Dict[str, str]]:
+        """GET /v1/sync/refs?prefix=... (or the workspace route when ``workspace``).
 
-        Org refs live behind a SEPARATE endpoint, not behind a prefix filter on
-        the personal one: the personal route is hard-scoped to the token's own
-        owner, so asking it for ``refs/org/<id>/`` silently returns the
-        caller's personal refs instead of an error. Callers reading an org ref
-        MUST pass ``org_scope=True``.
+        Workspace refs live behind a SEPARATE endpoint, not behind a prefix
+        filter on the personal one: the personal route is hard-scoped to the
+        token's own owner, so asking it for ``refs/workspace/<id>/`` silently
+        returns the caller's personal refs instead of an error. Callers reading
+        a workspace ref MUST pass ``workspace=<id>``.
         """
-        path = "org/refs" if org_scope else "refs"
-        params = None if org_scope else {"prefix": prefix}
+        path = f"workspaces/{workspace}/refs" if workspace else "refs"
+        params = {"prefix": prefix}
         r = self._session.get(self._url(path), params=params, timeout=self.timeout)
         if r.status_code != 200:
             raise SyncError(f"get_refs failed: {r.status_code}", status=r.status_code)
         refs = (r.json() or {}).get("refs", [])
-        if org_scope:
-            # The org route returns the org's refs unfiltered; apply the
-            # prefix client-side so both modes have the same contract.
+        if workspace:
+            # Apply the prefix client-side too so both modes have the same contract.
             refs = [r_ for r_ in refs if str(r_.get("name", "")).startswith(prefix)]
         return refs
 
-    def get_object(self, obj_hash: str, *, org_scope: bool = False) -> Tuple[str, bytes]:
-        """GET /v1/sync/objects/:hash (or the org route when ``org_scope``).
+    def get_object(self, obj_hash: str, *, workspace: Optional[str] = None) -> Tuple[str, bytes]:
+        """GET /v1/sync/objects/:hash (or the workspace route when ``workspace``).
 
         Kind comes from the object-type response header for tree/commit; a blob
         (application/octet-stream) is returned as ``blob``.
 
-        Org objects are stored under the ``org:<org_id>`` scope key and are NOT
-        readable through the personal route (it scopes to the token's owner),
-        so walking an org commit requires ``org_scope=True`` on every hop.
+        Workspace objects are stored under the ``workspace:<id>`` scope key and
+        are NOT readable through the personal route (it scopes to the token's
+        owner), so walking a workspace commit needs ``workspace=<id>`` on every hop.
         """
-        path = f"org/objects/{obj_hash}" if org_scope else f"objects/{obj_hash}"
+        path = f"workspaces/{workspace}/objects/{obj_hash}" if workspace else f"objects/{obj_hash}"
         r = self._session.get(self._url(path), timeout=self.timeout)
         if r.status_code == 404:
             raise SyncError(f"object {obj_hash} not found", status=404)
@@ -997,19 +998,19 @@ class SyncClient:
         return kind, r.content
 
     def get_commit_json(
-        self, commit_hash: str, *, org_scope: bool = False
+        self, commit_hash: str, *, workspace: Optional[str] = None
     ) -> Dict[str, Any]:
         """Fetch a commit object and parse its canonical JSON."""
-        kind, data = self.get_object(commit_hash, org_scope=org_scope)
+        kind, data = self.get_object(commit_hash, workspace=workspace)
         if kind != KIND_COMMIT:
             raise SyncError(f"{commit_hash} is {kind}, expected commit")
         return json.loads(data.decode("utf-8"))
 
     def get_tree_json(
-        self, tree_hash: str, *, org_scope: bool = False
+        self, tree_hash: str, *, workspace: Optional[str] = None
     ) -> Dict[str, Any]:
         """Fetch a tree object and parse its canonical JSON."""
-        kind, data = self.get_object(tree_hash, org_scope=org_scope)
+        kind, data = self.get_object(tree_hash, workspace=workspace)
         if kind != KIND_TREE:
             raise SyncError(f"{tree_hash} is {kind}, expected tree")
         return json.loads(data.decode("utf-8"))
@@ -1020,7 +1021,7 @@ class SyncClient:
         self,
         objects: Dict[str, Tuple[str, bytes]],
         *,
-        org_scope: bool = False,
+        workspace: Optional[str] = None,
     ) -> Dict[str, Any]:
         """POST /v1/sync/objects (sync contract). Batch multi-object upload.
 
@@ -1033,9 +1034,9 @@ class SyncClient:
         the received bytes and rejects the whole batch with 422 on mismatch.
         Idempotent: a known hash is a no-op ``already_present``.
 
-        M2 (contract §11.5): ``org_scope=True`` adds ``?scope=org`` so the
-        objects land in the ORG scope (org-readable; required before an org
-        CAS/propose). Gated server-side on the token's org_role claim.
+        Contract §11.5: ``workspace=<id>`` adds ``?scope=workspace&workspace=<id>``
+        so the objects land in that WORKSPACE scope (member-readable; required
+        before a workspace CAS/propose). Membership is checked server-side.
 
         NOTE (framing choice within contract latitude): §4.2 says "length-
         prefixed OR multipart"; this picks multipart/form-data with
@@ -1050,7 +1051,7 @@ class SyncClient:
         r = self._session.post(
             self._url("objects"),
             files=files,
-            params={"scope": "org"} if org_scope else None,
+            params={"scope": "workspace", "workspace": workspace} if workspace else None,
             timeout=self.timeout,
         )
         if r.status_code == 413:
@@ -1066,8 +1067,8 @@ class SyncClient:
 
         Raises :class:`SyncConflict` (carrying the actual head) on 409.
 
-        M2 (contract §11.5): a non-admin member's CAS on an org HEAD is never
-        rejected — the server converts it to a proposal and returns
+        Contract §11.5: a member's CAS on a workspace HEAD is never rejected —
+        the owner's lands; a member's is converted to a proposal and returns
         ``202 {proposal_id, ref}``. Surfaced as
         ``{"proposal_pending": True, ...}`` so callers can tell "merged" (200)
         from "proposed, awaiting review" (202) without exceptions — a 202 is a
@@ -1184,7 +1185,7 @@ def write_sync_state(data: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def materialize_tree(
-    client: SyncClient, tree_hash: str, dest: Path, *, org_scope: bool = False
+    client: SyncClient, tree_hash: str, dest: Path, *, workspace: Optional[str] = None
 ) -> None:
     """Write the tree at *tree_hash* into *dest* (created if needed).
 
@@ -1193,7 +1194,7 @@ def materialize_tree(
     caller decides removal semantics. Refuses path traversal via entry names.
     """
     dest.mkdir(parents=True, exist_ok=True)
-    tree = client.get_tree_json(tree_hash, org_scope=org_scope)
+    tree = client.get_tree_json(tree_hash, workspace=workspace)
     for entry in tree.get("entries", []):
         name = entry.get("name", "")
         if not name or "/" in name or name in (".", ".."):
@@ -1202,9 +1203,9 @@ def materialize_tree(
         target = dest / name
         kind = entry.get("kind")
         if kind == KIND_TREE:
-            materialize_tree(client, entry["hash"], target, org_scope=org_scope)
+            materialize_tree(client, entry["hash"], target, workspace=workspace)
         elif kind == KIND_BLOB:
-            _, data = client.get_object(entry["hash"], org_scope=org_scope)
+            _, data = client.get_object(entry["hash"], workspace=workspace)
             target.write_bytes(data)
             if entry.get("mode") == MODE_EXEC:
                 try:
@@ -1343,14 +1344,14 @@ def user_conflict_ref(owner: str, n: int) -> str:
 
 
 def _root_tree_of_commit(
-    client: "SyncClient", commit_hash: str, *, org_scope: bool = False
+    client: "SyncClient", commit_hash: str, *, workspace: Optional[str] = None
 ) -> str:
     """Return the tree hash referenced by a commit."""
-    return client.get_commit_json(commit_hash, org_scope=org_scope)["tree"]
+    return client.get_commit_json(commit_hash, workspace=workspace)["tree"]
 
 
 def _skill_trees_of_root(
-    client: "SyncClient", root_tree_hash: str, *, org_scope: bool = False
+    client: "SyncClient", root_tree_hash: str, *, workspace: Optional[str] = None
 ) -> Dict[str, str]:
     """Flatten a profile-root tree into ``{posix_rel_path: skill_tree_hash}``.
 
@@ -1361,7 +1362,7 @@ def _skill_trees_of_root(
     result: Dict[str, str] = {}
 
     def _walk(tree_hash: str, prefix: str) -> None:
-        tree = client.get_tree_json(tree_hash, org_scope=org_scope)
+        tree = client.get_tree_json(tree_hash, workspace=workspace)
         entries = tree.get("entries", [])
         has_skill_md = any(
             e.get("name") == "SKILL.md" and e.get("kind") == KIND_BLOB for e in entries
@@ -1825,15 +1826,14 @@ def sync_status() -> Dict[str, Any]:
         "opted_in_skills": [],
         "local_head": None,
         "owner": None,
-        # Org-shared skills. `org_available` is False for an account that
-        # isn't in a shared organisation — the org workflow does not apply,
-        # which is different from it being broken or misconfigured.
-        "org_available": False,
-        "org_id": None,
-        "org_role": None,
-        "org_skills": [],
-        # Org skills edited locally and not yet shared back.
-        "org_skills_modified": [],
+        # Workspace-shared skills. `workspaces_available` is False for an
+        # account in no workspace — the workflow does not apply, which is
+        # different from it being broken or misconfigured.
+        "workspaces_available": False,
+        "workspaces": [],
+        "workspace_skills": {},
+        # Workspace skills edited locally and not yet shared back.
+        "workspace_skills_modified": [],
     }
     try:
         identity = resolve_identity()
@@ -1851,142 +1851,141 @@ def sync_status() -> Dict[str, Any]:
     except Exception:
         pass
     try:
-        org_identity = resolve_org_identity()
-        status["org_available"] = True
-        status["org_id"] = org_identity.get("org_id")
-        status["org_role"] = org_identity.get("org_role")
-        status["org_skills"] = list_org_skill_names()
-        status["org_skills_modified"] = list_locally_modified_org_skills(
-            status["org_id"]
-        )
+        workspaces = _workspaces_of_identity(resolve_identity())
+        status["workspaces_available"] = bool(workspaces)
+        status["workspaces"] = workspaces
+        status["workspace_skills"] = list_workspace_skill_names()
+        status["workspace_skills_modified"] = list_locally_modified_workspace_skills()
     except SyncInertError:
         pass
     except Exception as e:
-        logger.debug("skills_sync_client: sync_status org lookup failed: %s", e)
+        logger.debug("skills_sync_client: sync_status workspace lookup failed: %s", e)
     return status
 
 
-def list_org_skill_names() -> List[str]:
-    """Skill names present in the local org mirror (empty when none pulled)."""
-    names: List[str] = []
-    try:
-        from agent.skill_utils import read_active_org_id
-
-        org_id = read_active_org_id(_skills_dir())
-        if not org_id:
-            return names
-        root = _org_dir() / org_id
-        if not root.is_dir():
-            return names
-        for skill_md in root.rglob("SKILL.md"):
-            rel = skill_md.parent.relative_to(root)
-            if rel.parts:
-                names.append(str(rel).replace("\\", "/"))
-    except Exception as e:
-        logger.debug("skills_sync_client: org skill listing failed: %s", e)
-    return sorted(names)
-
-
 # ---------------------------------------------------------------------------
-# Org-shared skills (sync contract) — org pull + propose.
+# Workspace-shared skills (sync contract; hub decision §8 #11) — pull + propose.
 #
-# Org skills live under a DISTINCT local namespace, ~/.agentx/skills/_org/
-# (the design notes: enterprise-managed skills are read-only to the runtime; a
-# local edit is a personal fork of record until proposed). The org canonical
-# set is `refs/org/<org_id>/HEAD` — the SAME object model as personal sync.
+# Workspace skills live under a DISTINCT local namespace,
+# ~/.agentx/skills/_workspaces/<workspace_id>/ (shared content is a mirror of
+# the workspace HEAD; a local edit is a personal fork of record until it is
+# proposed). Each workspace's canonical set is `refs/workspace/<id>/HEAD` —
+# the SAME object model as personal sync.
 #
-# PERSONAL-ORG GATE (the sync contract REFINED, Ben 2026-07-23): a personal org
-# has NO org workflow. The discriminator travels in the token: NAS stamps the
-# `org_role` claim ONLY for multi-member orgs. No claim ⇒ every org helper
-# here is inert (org_sync_available() False; pull/propose raise SyncInertError)
-# and the personal personal sync experience is untouched.
+# GATE: the hub's `/v1/me` names the workspaces this person belongs to (with
+# their role). No workspaces ⇒ every helper here is inert
+# (workspace_sync_available() False; pull/propose raise SyncInertError) and the
+# personal sync experience is untouched. The Nous plane has no workspaces.
 #
-# `agentx sync propose` is the org sharing surface; proposal is
-# intended to become largely automated later (curator/background hooks driving
-# the same propose_skill() path). Keep this callable non-interactive.
+# `agentx sync propose <skill> --workspace <slug>` is the sharing surface: the
+# workspace owner's CAS lands directly; a member's becomes a proposal the owner
+# (or a hub admin) decides on the hub's workspace page. Keep this callable
+# non-interactive.
 # ---------------------------------------------------------------------------
 
-ORG_DIR_NAME = "_org"
+WORKSPACES_DIR_NAME = "_workspaces"
 
 
-def resolve_org_identity() -> Dict[str, Any]:
-    """Resolve identity + org context for org-skill operations.
+def _workspaces_of_identity(identity: Dict[str, Any]) -> List[Dict[str, Any]]:
+    claims = identity.get("claims") or {}
+    found = claims.get("workspaces") or []
+    return [w for w in found if isinstance(w, dict) and w.get("id")]
 
-    Returns ``resolve_identity()``'s dict extended with ``org_id`` and
-    ``org_role``. Raises :class:`SyncInertError` when the token carries no
-    ``org_role`` claim (personal org / issuer predates org support) — the
-    caller should treat org sync as unavailable, NOT as an error.
+
+def _pick_workspace(workspaces: List[Dict[str, Any]], wanted: Optional[str]) -> Dict[str, Any]:
+    """The workspace *wanted* names (id or slug); the only one when unnamed."""
+    if wanted:
+        wanted = str(wanted).strip()
+        for w in workspaces:
+            if wanted in (str(w.get("id") or ""), str(w.get("slug") or "")):
+                return w
+        raise SyncInertError(
+            f"you are not a member of a workspace called '{wanted}' "
+            f"(yours: {', '.join(str(w.get('slug') or w.get('id')) for w in workspaces) or 'none'})"
+        )
+    if len(workspaces) == 1:
+        return workspaces[0]
+    if not workspaces:
+        raise SyncInertError("this account is not in any workspace")
+    raise SyncInertError(
+        "you belong to several workspaces; name one with --workspace "
+        f"({', '.join(str(w.get('slug') or w.get('id')) for w in workspaces)})"
+    )
+
+
+def resolve_workspace_identity(workspace: Optional[str] = None) -> Dict[str, Any]:
+    """Resolve identity + workspace context for workspace-skill operations.
+
+    Returns ``resolve_identity()``'s dict extended with ``workspaces`` (every
+    workspace this person belongs to) and ``workspace`` (the one *workspace*
+    names — id or slug — or the only one). Raises :class:`SyncInertError`
+    when the account is in no workspace, or when several exist and none was
+    named — the caller should treat that as "does not apply", not as an error.
     """
     identity = resolve_identity()
-    claims = identity.get("claims") or {}
-    org_id = claims.get("org_id")
-    org_role = claims.get("org_role")
-    if not org_id:
-        raise SyncInertError("no organisation associated with this account")
-    if not isinstance(org_role, str) or not org_role:
-        raise SyncInertError(
-            "this account isn't a member of a shared organisation"
-        )
-    identity["org_id"] = str(org_id)
-    identity["org_role"] = org_role
+    workspaces = _workspaces_of_identity(identity)
+    if not workspaces:
+        raise SyncInertError("this account is not in any workspace")
+    identity["workspaces"] = workspaces
+    identity["workspace"] = _pick_workspace(workspaces, workspace)
     return identity
 
 
-def org_sync_available() -> bool:
-    """True iff this token can see the org-skill surface (multi-member org)."""
+def workspace_sync_available() -> bool:
+    """True iff this account belongs to at least one workspace."""
     try:
-        resolve_org_identity()
-        return True
+        return bool(_workspaces_of_identity(resolve_identity()))
     except Exception:
         return False
 
 
-# How many times a propose will re-splice onto a moved org HEAD before giving
-# up. Small: contention means other members are actively proposing, and an
-# unbounded loop would spin.
-_ORG_CAS_MAX_ATTEMPTS = 5
+# How many times a propose will re-splice onto a moved workspace HEAD before
+# giving up. Small: contention means other members are actively proposing,
+# and an unbounded loop would spin.
+_WORKSPACE_CAS_MAX_ATTEMPTS = 5
 
 
-def _read_org_head(client: "SyncClient", org_id: str) -> Optional[str]:
-    """Current ``refs/org/<org_id>/HEAD``, or None if the org has no content.
+def workspace_head_ref(workspace_id: str) -> str:
+    return f"refs/workspace/{workspace_id}/HEAD"
 
-    Reads through the ORG endpoint. The personal refs route is scoped to the
-    caller's own owner and answers an ``refs/org/...`` prefix with the caller's
-    PERSONAL refs, so a personal-route read here silently reports "no org head"
-    and every subsequent CAS races against a head it never saw.
+
+def _read_workspace_head(client: "SyncClient", workspace_id: str) -> Optional[str]:
+    """Current ``refs/workspace/<id>/HEAD``, or None if the workspace has no content.
+
+    Reads through the WORKSPACE endpoint. The personal refs route is scoped to
+    the caller's own owner and answers a ``refs/workspace/...`` prefix with the
+    caller's PERSONAL refs, so a personal-route read here silently reports
+    "no head" and every subsequent CAS races against a head it never saw.
     """
-    refs = client.get_refs(f"refs/org/{org_id}/", org_scope=True)
+    refs = client.get_refs(f"refs/workspace/{workspace_id}/", workspace=workspace_id)
     return next(
-        (r["hash"] for r in refs if r.get("name") == org_head_ref(org_id)), None
+        (r["hash"] for r in refs if r.get("name") == workspace_head_ref(workspace_id)), None
     )
 
 
-def org_head_ref(org_id: str) -> str:
-    return f"refs/org/{org_id}/HEAD"
+def _workspaces_dir() -> Path:
+    """Local mirror root for workspace skills."""
+    return _skills_dir() / WORKSPACES_DIR_NAME
 
 
-def _org_dir() -> Path:
-    """Local mirror root for org skills (read-only by convention )."""
-    return _skills_dir() / ORG_DIR_NAME
-
-
-def pull_org_skills(
+def pull_workspace_skills(
     client: Optional["SyncClient"] = None,
     *,
     identity: Optional[Dict[str, Any]] = None,
+    workspace: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Pull the org canonical set into ``~/.agentx/skills/_org/<org_id>/``.
+    """Pull one workspace's canonical set into ``_workspaces/<id>/``.
 
-    Fast-forward only (design.md §2.6: no client merge on the org path): the
-    mirror is replaced with the org HEAD's content. Local edits under _org/
-    are NOT merged — they are overwritten on pull; a member's change of record
-    is `propose_skill` (the fork lives in their personal skills, not _org/).
-    Returns {ok, org_id, head, updated} (updated = skill rel-paths written).
+    Fast-forward only (no client merge on the shared path): the mirror is
+    replaced with the workspace HEAD's content. Locally edited skills are NOT
+    overwritten — they are reported as ``conflicted`` when upstream moved too.
+    Returns {ok, workspace_id, head, updated, conflicted}.
     """
-    identity = identity or resolve_org_identity()
-    if "org_id" not in identity:
-        raise SyncInertError("no organisation context available")
-    org_id = identity["org_id"]
+    identity = identity or resolve_workspace_identity(workspace)
+    chosen = identity.get("workspace")
+    if not isinstance(chosen, dict) or not chosen.get("id"):
+        chosen = _pick_workspace(_workspaces_of_identity(identity) or identity.get("workspaces") or [], workspace)
+    workspace_id = str(chosen["id"])
     if client is None:
         base_url = resolve_sync_base_url()
         if not base_url:
@@ -1995,29 +1994,21 @@ def pull_org_skills(
 
     caps = client.capabilities()
     _check_version(caps)
-    if "org" not in (caps.get("features") or []):
-        raise SyncInertError("this server does not support org-shared skills")
+    if "workspace" not in (caps.get("features") or []):
+        raise SyncInertError("this server does not support workspace-shared skills")
 
-    head = _read_org_head(client, org_id)
-    # TOKEN-GATED resolution marker (agent/skill_utils.read_active_org_id):
-    # written HERE because this function only runs after resolve_org_identity
-    # verified the token's org_id + org_role. Discovery scans only the marked
-    # org's mirror, so a stale mirror from a previous org stops resolving the
-    # moment a pull runs under a different org — no manual cleanup.
-    _write_active_org_marker(org_id)
+    head = _read_workspace_head(client, workspace_id)
     if not head:
-        return {"ok": True, "org_id": org_id, "head": None, "updated": []}
+        return {"ok": True, "workspace_id": workspace_id, "head": None, "updated": [], "conflicted": []}
 
-    head_commit = client.get_commit_json(head, org_scope=True)
+    head_commit = client.get_commit_json(head, workspace=workspace_id)
     root_tree = head_commit["tree"]
-    skill_trees = _skill_trees_of_root(client, root_tree, org_scope=True)
+    skill_trees = _skill_trees_of_root(client, root_tree, workspace=workspace_id)
 
-    dest_root = _org_dir() / org_id
+    dest_root = _workspaces_dir() / workspace_id
     updated: List[str] = []
-    # Skills the user/agent has edited locally and upstream also changed.
-    # We do NOT overwrite them — the local work wins until the user resolves.
     conflicted: List[str] = []
-    baseline = _read_org_baseline(org_id)
+    baseline = _read_workspace_baseline(workspace_id)
     for rel_path, tree_hash in sorted(skill_trees.items()):
         dest = dest_root / PurePosixPath(rel_path)
         try:
@@ -2026,10 +2017,8 @@ def pull_org_skills(
                 # agent did in place. Skip the update and report it so they
                 # can resolve deliberately (propose the local version, or
                 # discard it and re-pull).
-                if org_skill_is_locally_modified(rel_path, org_id):
+                if workspace_skill_is_locally_modified(rel_path, workspace_id):
                     prev = baseline.get(rel_path) or {}
-                    # Upstream also moved on => a real conflict the user must
-                    # resolve. Upstream unchanged => their edit simply stands.
                     if prev.get("tree") != tree_hash:
                         conflicted.append(rel_path)
                     continue
@@ -2037,7 +2026,7 @@ def pull_org_skills(
 
                 shutil.rmtree(dest)
             dest.mkdir(parents=True, exist_ok=True)
-            materialize_tree(client, tree_hash, dest, org_scope=True)
+            materialize_tree(client, tree_hash, dest, workspace=workspace_id)
             baseline[rel_path] = {
                 "fingerprint": _skill_dir_fingerprint(dest),
                 "tree": tree_hash,
@@ -2045,17 +2034,16 @@ def pull_org_skills(
             updated.append(rel_path)
         except Exception as e:
             logger.warning(
-                "skills_sync_client: org skill materialize failed for %s: %s",
+                "skills_sync_client: workspace skill materialize failed for %s: %s",
                 rel_path,
                 e,
             )
-    # Provenance sidecar for the load-time header (skill_view): the HEAD
-    # commit's author is TOKEN-VERIFIED at push time by the plane
-    # (author_mismatch guard, the sync plane) — trustworthy to display.
-    _write_org_provenance(
-        org_id,
+    _write_workspace_provenance(
+        workspace_id,
         {
-            "org_id": org_id,
+            "workspace_id": workspace_id,
+            "workspace": chosen.get("slug") or workspace_id,
+            "workspace_name": chosen.get("name") or "",
             "head": head,
             "author_user_id": (head_commit.get("author") or {}).get("owner", ""),
             "author_device": (head_commit.get("author") or {}).get("device", ""),
@@ -2063,29 +2051,55 @@ def pull_org_skills(
             "skills": updated,
         },
     )
-    _write_org_baseline(org_id, baseline)
+    _write_workspace_baseline(workspace_id, baseline)
     if conflicted:
         logger.warning(
-            "skills_sync_client: %d org skill(s) have local edits AND upstream "
+            "skills_sync_client: %d workspace skill(s) have local edits AND upstream "
             "changes; left untouched: %s",
             len(conflicted),
             ", ".join(conflicted),
         )
     return {
         "ok": True,
-        "org_id": org_id,
+        "workspace_id": workspace_id,
         "head": head,
         "updated": updated,
         "conflicted": conflicted,
     }
 
 
+def pull_all_workspace_skills(
+    client: Optional["SyncClient"] = None, *, identity: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Pull every workspace this person belongs to; the active marker lists
+    exactly those, so a mirror of a workspace they left stops resolving."""
+    identity = identity or resolve_identity()
+    workspaces = _workspaces_of_identity(identity)
+    _write_active_workspaces_marker([str(w["id"]) for w in workspaces])
+    if not workspaces:
+        raise SyncInertError("this account is not in any workspace")
+    if client is None:
+        base_url = resolve_sync_base_url()
+        if not base_url:
+            raise SyncInertError("no sync base URL configured")
+        client = SyncClient(base_url, identity["api_key"])
+    results: Dict[str, Any] = {}
+    for w in workspaces:
+        chosen_identity = {**identity, "workspaces": workspaces, "workspace": w}
+        try:
+            results[str(w["id"])] = pull_workspace_skills(client, identity=chosen_identity)
+        except Exception as e:  # one workspace must not stop the others
+            logger.warning("skills_sync_client: workspace %s pull failed: %s", w.get("slug") or w.get("id"), e)
+            results[str(w["id"])] = {"ok": False, "workspace_id": str(w["id"]), "error": str(e)}
+    return {"ok": True, "workspaces": results}
+
+
 def _skill_dir_fingerprint(path: Path) -> str:
     """Stable content hash of a materialized skill directory.
 
-    Used to tell "the user/agent edited this org skill" from "this is exactly
-    what upstream shipped". Hashes every file's relative path + bytes, sorted,
-    so it is independent of filesystem ordering and mtimes.
+    Used to tell "the user/agent edited this shared skill" from "this is
+    exactly what upstream shipped". Hashes every file's relative path + bytes,
+    sorted, so it is independent of filesystem ordering and mtimes.
     """
     h = hashlib.sha256()
     try:
@@ -2100,35 +2114,35 @@ def _skill_dir_fingerprint(path: Path) -> str:
     return h.hexdigest()
 
 
-def _org_baseline_path(org_id: str) -> Path:
+def _workspace_baseline_path(workspace_id: str) -> Path:
     """Sidecar recording the upstream fingerprint of each mirrored skill."""
-    from agent.skill_utils import ORG_BASELINE_FILE
+    from agent.skill_utils import WORKSPACE_BASELINE_FILE
 
-    return _org_dir() / org_id / ORG_BASELINE_FILE
+    return _workspaces_dir() / workspace_id / WORKSPACE_BASELINE_FILE
 
 
-def _read_org_baseline(org_id: str) -> Dict[str, Any]:
+def _read_workspace_baseline(workspace_id: str) -> Dict[str, Any]:
     try:
-        return json.loads(_org_baseline_path(org_id).read_text(encoding="utf-8"))
+        return json.loads(_workspace_baseline_path(workspace_id).read_text(encoding="utf-8"))
     except Exception:
         return {}
 
 
-def _write_org_baseline(org_id: str, baseline: Dict[str, Any]) -> None:
+def _write_workspace_baseline(workspace_id: str, baseline: Dict[str, Any]) -> None:
     try:
-        p = _org_baseline_path(org_id)
+        p = _workspace_baseline_path(workspace_id)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(baseline, indent=2, sort_keys=True), encoding="utf-8")
     except Exception as e:
         logger.debug("skills_sync_client: baseline write failed: %s", e)
 
 
-def org_skill_is_locally_modified(skill_rel_path: str, org_id: str) -> bool:
-    """True when the local copy of an org skill differs from what upstream sent."""
-    dest = _org_dir() / org_id / PurePosixPath(skill_rel_path)
+def workspace_skill_is_locally_modified(skill_rel_path: str, workspace_id: str) -> bool:
+    """True when the local copy of a workspace skill differs from what upstream sent."""
+    dest = _workspaces_dir() / workspace_id / PurePosixPath(skill_rel_path)
     if not dest.is_dir():
         return False
-    entry = _read_org_baseline(org_id).get(skill_rel_path) or {}
+    entry = _read_workspace_baseline(workspace_id).get(skill_rel_path) or {}
     recorded = entry.get("fingerprint") if isinstance(entry, dict) else entry
     if not recorded:
         # No baseline recorded (pre-existing mirror) — treat as unmodified so
@@ -2137,47 +2151,76 @@ def org_skill_is_locally_modified(skill_rel_path: str, org_id: str) -> bool:
     return _skill_dir_fingerprint(dest) != recorded
 
 
-def list_locally_modified_org_skills(org_id: Optional[str] = None) -> List[str]:
-    """Org skills with local edits that upstream has not seen."""
+def list_locally_modified_workspace_skills(workspace_id: Optional[str] = None) -> List[str]:
+    """Workspace skills with local edits that upstream has not seen
+    (across every active workspace when *workspace_id* is None)."""
     try:
-        from agent.skill_utils import read_active_org_id
+        from agent.skill_utils import read_active_workspace_ids
 
-        org_id = org_id or read_active_org_id(_skills_dir())
-        if not org_id:
-            return []
-        baseline = _read_org_baseline(org_id)
-        return sorted(
-            rel for rel in baseline if org_skill_is_locally_modified(rel, org_id)
-        )
+        ids = [workspace_id] if workspace_id else read_active_workspace_ids(_skills_dir())
+        out: List[str] = []
+        for wid in ids:
+            baseline = _read_workspace_baseline(wid)
+            out.extend(
+                f"{wid}/{rel}" if not workspace_id else rel
+                for rel in sorted(baseline)
+                if workspace_skill_is_locally_modified(rel, wid)
+            )
+        return out
     except Exception as e:
         logger.debug("skills_sync_client: modified-scan failed: %s", e)
         return []
 
 
-def _write_active_org_marker(org_id: str) -> None:
-    """Record which org's mirror may resolve (best-effort, never raises)."""
+def list_workspace_skill_names(workspace_id: Optional[str] = None) -> Dict[str, List[str]]:
+    """``{workspace_id: [skill rel paths]}`` present in the local mirrors of
+    the active workspaces (empty when none pulled)."""
+    names: Dict[str, List[str]] = {}
     try:
-        from agent.skill_utils import ORG_ACTIVE_MARKER
+        from agent.skill_utils import read_active_workspace_ids
 
-        root = _org_dir()
-        root.mkdir(parents=True, exist_ok=True)
-        (root / ORG_ACTIVE_MARKER).write_text(org_id, encoding="utf-8")
+        ids = [workspace_id] if workspace_id else read_active_workspace_ids(_skills_dir())
+        for wid in ids:
+            root = _workspaces_dir() / wid
+            if not root.is_dir():
+                continue
+            found: List[str] = []
+            for skill_md in root.rglob("SKILL.md"):
+                rel = skill_md.parent.relative_to(root)
+                if rel.parts:
+                    found.append(str(rel).replace("\\", "/"))
+            names[wid] = sorted(found)
     except Exception as e:
-        logger.debug("skills_sync_client: active-org marker write failed: %s", e)
+        logger.debug("skills_sync_client: workspace skill listing failed: %s", e)
+    return names
 
 
-def _write_org_provenance(org_id: str, data: Dict[str, Any]) -> None:
-    """Persist the org HEAD provenance sidecar (best-effort, never raises)."""
+def _write_active_workspaces_marker(workspace_ids: List[str]) -> None:
+    """Record which workspaces' mirrors may resolve (best-effort, never raises)."""
     try:
-        from agent.skill_utils import ORG_PROVENANCE_FILE
+        from agent.skill_utils import WORKSPACE_ACTIVE_MARKER
 
-        dest = _org_dir() / org_id
+        root = _workspaces_dir()
+        root.mkdir(parents=True, exist_ok=True)
+        (root / WORKSPACE_ACTIVE_MARKER).write_text(
+            json.dumps(sorted(set(str(w) for w in workspace_ids))), encoding="utf-8"
+        )
+    except Exception as e:
+        logger.debug("skills_sync_client: active-workspaces marker write failed: %s", e)
+
+
+def _write_workspace_provenance(workspace_id: str, data: Dict[str, Any]) -> None:
+    """Persist the workspace HEAD provenance sidecar (best-effort, never raises)."""
+    try:
+        from agent.skill_utils import WORKSPACE_PROVENANCE_FILE
+
+        dest = _workspaces_dir() / workspace_id
         dest.mkdir(parents=True, exist_ok=True)
-        (dest / ORG_PROVENANCE_FILE).write_text(
+        (dest / WORKSPACE_PROVENANCE_FILE).write_text(
             json.dumps(data, indent=2), encoding="utf-8"
         )
     except Exception as e:
-        logger.debug("skills_sync_client: org provenance write failed: %s", e)
+        logger.debug("skills_sync_client: workspace provenance write failed: %s", e)
 
 
 def propose_skill(
@@ -2186,24 +2229,29 @@ def propose_skill(
     *,
     identity: Optional[Dict[str, Any]] = None,
     message: Optional[str] = None,
+    workspace: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Propose a local skill's current content to the org canonical set.
+    """Propose a local skill's current content to a workspace's canonical set.
 
-    Snapshots the LOCAL (personal) skill directory as an org-scoped commit
-    layered on the current org HEAD tree (splice/replace that one skill
-    subtree), uploads the objects with ``?scope=org``, then CAS-es the org
-    HEAD (contract §11.5):
+    Snapshots the LOCAL (personal) skill directory as a workspace-scoped
+    commit layered on the current workspace HEAD tree (splice/replace that one
+    skill subtree), uploads the objects with ``?scope=workspace``, then CAS-es
+    the workspace HEAD (contract §11.5):
 
-    - ADMIN/OWNER token → the server merges directly → ``{ok, merged: True}``.
-    - MEMBER token → the server converts to a proposal (202) →
+    - the workspace OWNER (or a hub admin) → the server merges directly →
+      ``{ok, merged: True}``.
+    - a MEMBER → the server converts to a proposal (202) →
       ``{ok, proposal_pending: True, proposal_id, ref}``. NEVER presented as
       live/merged.
 
-    Non-interactive by design — an automated submitter (curator hook) drives
-    this exact function later (Ben's automation trajectory).
+    *workspace* is the id or slug; the only workspace the person belongs to
+    when omitted. Non-interactive by design.
     """
-    identity = identity or resolve_org_identity()
-    org_id = identity["org_id"]
+    identity = identity or resolve_workspace_identity(workspace)
+    chosen = identity.get("workspace")
+    if not isinstance(chosen, dict) or not chosen.get("id"):
+        chosen = _pick_workspace(_workspaces_of_identity(identity) or identity.get("workspaces") or [], workspace)
+    workspace_id = str(chosen["id"])
     if client is None:
         base_url = resolve_sync_base_url()
         if not base_url:
@@ -2212,11 +2260,11 @@ def propose_skill(
 
     caps = client.capabilities()
     _check_version(caps)
-    if "org" not in (caps.get("features") or []):
-        raise SyncInertError("this server does not support org-shared skills")
+    if "workspace" not in (caps.get("features") or []):
+        raise SyncInertError("this server does not support workspace-shared skills")
     max_bytes = int(caps.get("max_object_bytes") or DEFAULT_MAX_OBJECT_BYTES)
 
-    # Locate the local skill directory (personal namespace, NOT _org/).
+    # Locate the local skill directory (personal namespace, NOT _workspaces/).
     rel = _skill_rel_path(skill_name)
     if rel is None:
         raise SyncError(f"skill '{skill_name}' not found under the skills dir")
@@ -2224,26 +2272,22 @@ def propose_skill(
     if not (skill_dir / "SKILL.md").exists():
         raise SyncError(f"skill '{skill_name}' has no SKILL.md")
 
-    # Build the proposed skill tree.
     objects = ObjectSet()
     skill_tree = build_tree(skill_dir, objects, max_object_bytes=max_bytes)
 
-    # Base = current org HEAD (None for the org's first content). The proposed
+    # Base = current workspace HEAD (None for the first content). The proposed
     # root is HEAD's skill-tree map with this one skill spliced in — proposals
-    # are per-skill deltas, never a wholesale replace of the org set.
-    #
-    # Wrapped in a bounded retry: between reading HEAD and the CAS, another
-    # member's propose (or an admin merge) can advance it. The server answers
-    # 409 with the new head; we re-splice this one skill onto THAT head and try
-    # again rather than surfacing a raw conflict. Re-splicing (not replaying
-    # the old root) is what keeps the other member's skill from being dropped.
+    # are per-skill deltas, never a wholesale replace of the shared set.
+    # Bounded retry: between reading HEAD and the CAS another member's
+    # propose (or the owner's merge) can advance it; we re-splice onto the new
+    # head rather than surfacing a raw conflict.
     attempts = 0
     while True:
         attempts += 1
-        base_head = _read_org_head(client, org_id)
+        base_head = _read_workspace_head(client, workspace_id)
         if base_head:
-            base_root = _root_tree_of_commit(client, base_head, org_scope=True)
-            skill_map = _skill_trees_of_root(client, base_root, org_scope=True)
+            base_root = _root_tree_of_commit(client, base_head, workspace=workspace_id)
+            skill_map = _skill_trees_of_root(client, base_root, workspace=workspace_id)
         else:
             skill_map = {}
         skill_map[str(rel)] = skill_tree
@@ -2258,20 +2302,20 @@ def propose_skill(
             objects=objects,
         )
 
-        client.put_objects(objects.objects, org_scope=True)
+        client.put_objects(objects.objects, workspace=workspace_id)
         try:
-            result = client.cas_ref(org_head_ref(org_id), base_head, commit_hash)
+            result = client.cas_ref(workspace_head_ref(workspace_id), base_head, commit_hash)
             break
         except SyncConflict as conflict:
-            if attempts >= _ORG_CAS_MAX_ATTEMPTS:
+            if attempts >= _WORKSPACE_CAS_MAX_ATTEMPTS:
                 raise SyncError(
-                    "the organisation's skills changed while this was being "
+                    "the workspace's skills changed while this was being "
                     f"proposed, and {attempts} attempts to catch up all lost "
                     "the race — run the command again",
                     status=409,
                 ) from conflict
             logger.debug(
-                "propose_skill: org HEAD moved (actual=%r), re-splicing (attempt %d)",
+                "propose_skill: workspace HEAD moved (actual=%r), re-splicing (attempt %d)",
                 conflict.actual,
                 attempts,
             )
@@ -2284,72 +2328,63 @@ def propose_skill(
             "proposal_id": result.get("proposal_id"),
             "ref": result.get("ref"),
             "commit": commit_hash,
-            "org_id": org_id,
+            "workspace_id": workspace_id,
+            "workspace": chosen.get("slug") or workspace_id,
         }
     return {
         "ok": True,
         "merged": True,
         "head": result.get("hash", commit_hash),
         "commit": commit_hash,
-        "org_id": org_id,
+        "workspace_id": workspace_id,
+        "workspace": chosen.get("slug") or workspace_id,
     }
 
 
-def maybe_pull_org_skills() -> Optional[Dict[str, Any]]:
-    """Best-effort org pull if all gates pass. Never raises; None when inert.
+def maybe_pull_workspace_skills() -> Optional[Dict[str, Any]]:
+    """Best-effort pull of every workspace if all gates pass. Never raises;
+    None when inert.
 
-    Gates (all must hold): logged in, org_role claim present (multi-member
-    org), feature enabled, base URL configured. Personal orgs are inert here
-    by construction — resolve_org_identity raises SyncInertError without the
-    claim.
+    Gates (all must hold): signed in on the hub plane, member of at least one
+    workspace, feature enabled, base URL configured.
 
-    Marker hygiene: when the token VERIFIABLY lacks the org claim (logged in,
-    personal org / left the org), the active-org marker is cleared so
-    previously-mirrored org skills stop resolving. When we simply cannot
-    resolve identity (offline, logged out), the marker is left alone —
-    offline grace keeps already-pulled org skills working.
+    Marker hygiene: when the account VERIFIABLY belongs to no workspace, the
+    active-workspaces marker is cleared so previously mirrored skills stop
+    resolving. When identity cannot be resolved (offline, signed out), the
+    marker is left alone — offline grace keeps pulled skills working.
     """
     try:
-        identity = resolve_org_identity()
-    except SyncInertError:
-        # Distinguish "verifiably personal/left-org" from "can't tell".
-        try:
-            base_identity = resolve_identity()
-            claims = base_identity.get("claims") or {}
-            if not claims.get("org_role"):
-                _clear_active_org_marker()
-        except Exception:
-            pass  # offline/logged out — keep offline grace
-        return None
+        identity = resolve_identity()
     except Exception as e:
-        logger.debug(
-            "skills_sync_client: maybe_pull_org_skills inert/failed: %s", e
-        )
+        logger.debug("skills_sync_client: maybe_pull_workspace_skills inert: %s", e)
+        return None
+    if not _workspaces_of_identity(identity):
+        _clear_active_workspaces_marker()
         return None
     try:
         if not sync_feature_enabled():
             return None
         if not resolve_sync_base_url():
             return None
-        return pull_org_skills(identity=identity)
+        return pull_all_workspace_skills(identity=identity)
     except Exception as e:
         logger.debug(
-            "skills_sync_client: maybe_pull_org_skills inert/failed: %s", e
+            "skills_sync_client: maybe_pull_workspace_skills inert/failed: %s", e
         )
         return None
 
 
-def _clear_active_org_marker() -> None:
-    """Remove the active-org marker (org skills stop resolving)."""
+def _clear_active_workspaces_marker() -> None:
+    """Remove the active-workspaces marker (workspace skills stop resolving)."""
     try:
-        from agent.skill_utils import ORG_ACTIVE_MARKER
+        from agent.skill_utils import WORKSPACE_ACTIVE_MARKER
 
-        marker = _org_dir() / ORG_ACTIVE_MARKER
+        marker = _workspaces_dir() / WORKSPACE_ACTIVE_MARKER
         if marker.exists():
             marker.unlink()
             logger.info(
-                "skills_sync_client: cleared active-org marker "
-                "(token has no org workflow); org skills no longer resolve"
+                "skills_sync_client: cleared active-workspaces marker "
+                "(this account is in no workspace); shared skills no longer resolve"
             )
     except Exception as e:
         logger.debug("skills_sync_client: marker clear failed: %s", e)

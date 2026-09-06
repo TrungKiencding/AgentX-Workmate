@@ -1646,7 +1646,7 @@ export const vi: Translations = {
       updateOne: (from, to) => `${from} → ${to}`,
       syncNow: 'Đồng bộ ngay',
       syncing: 'Đang đồng bộ…',
-      orgSkills: count => `${count} skill của tổ chức`,
+      workspaceSkills: (count, workspaces) => `${count} skill dùng chung trong ${workspaces} workspace`,
       history: 'Hoạt động gần đây',
       historyAction: {
         installed: 'đã cài',
@@ -1660,14 +1660,16 @@ export const vi: Translations = {
     },
     publish: {
       upload: 'Tải lên Hub',
-      propose: 'Đề xuất cho tổ chức',
+      propose: 'Chia sẻ vào workspace',
       title: name => `Tải “${name}” lên AgentX Hub`,
-      proposeTitle: name => `Đề xuất “${name}” cho tổ chức`,
+      proposeTitle: name => `Chia sẻ “${name}” vào workspace`,
       description: 'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của Hub.',
       proposeDescription:
-        'Skill được tải lên với hiển thị “Tổ chức”: an toàn thì lên ngay, cần chú ý thì quản trị tổ chức duyệt.',
+        'Skill được tải lên với phạm vi “Workspace”: chỉ thành viên workspace thấy, và quản trị Hub duyệt trước khi xuất bản.',
       visibility: 'Hiển thị',
-      visibilityOptions: { private: 'Riêng tư', org: 'Tổ chức', public: 'Công khai' },
+      visibilityOptions: { private: 'Riêng tư', workspace: 'Workspace', public: 'Công khai' },
+      workspace: 'Workspace',
+      noWorkspace: 'Bạn chưa thuộc workspace nào trên Hub — tạo một cái ở trang Workspace của Hub.',
       kind: 'Loại',
       kindAuto: 'Tự nhận diện',
       kindCore: 'Core (Workmate, Claude Code…)',
@@ -1698,7 +1700,8 @@ export const vi: Translations = {
         version_exists: 'Phiên bản này đã tồn tại trên Hub với nội dung khác.',
         slug_taken: 'Tên skill này đã thuộc về người khác trên Hub.',
         rate_limited: 'Bạn tải lên quá nhanh; thử lại sau.',
-        kind_mismatch: 'Skill cùng tên trên Hub thuộc loại khác.'
+        kind_mismatch: 'Skill cùng tên trên Hub thuộc loại khác.',
+        workspace: 'Hub không nhận workspace này — bạn không còn là thành viên, hoặc chưa chọn workspace.'
       }
     }
   },

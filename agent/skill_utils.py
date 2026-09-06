@@ -51,52 +51,58 @@ EXCLUDED_SKILL_DIRS = frozenset(
 # archive workflow preserves a complete old skill package under references/.
 SKILL_SUPPORT_DIRS = frozenset(("references", "templates", "assets", "scripts"))
 
-# ── Org-shared skills (sync contract) ───────────────────────────
-# Org mirrors live under ~/.agentx/skills/_org/<org_id>/. Resolution is
-# TOKEN-GATED via a marker file the sync client writes after verifying the
-# token (skills_sync_client.pull_org_skills): only the marked org's mirror is
-# scanned. No marker ⇒ no org skills load. The marker is plain data (org_id
-# string) so this module stays import-light; the VERIFICATION lives in the
-# sync client, which is the only writer. Offline grace: the marker persists,
-# so already-pulled org skills keep working without connectivity; a VERIFIED
-# org change (or personal-org token) rewrites/removes it.
+# ── Workspace-shared skills (sync contract; hub decision §8 #11) ───────
+# Workspace mirrors live under ~/.agentx/skills/_workspaces/<workspace_id>/.
+# Resolution is GATED via a marker file the sync client writes after the hub
+# named the person's workspaces (skills_sync_client.pull_all_workspace_skills):
+# only the listed workspaces' mirrors are scanned. No marker ⇒ no shared
+# skills load. The marker is plain data (a JSON list of ids) so this module
+# stays import-light; the VERIFICATION lives in the sync client, which is the
+# only writer. Offline grace: the marker persists, so already-pulled skills
+# keep working without connectivity; a verified change rewrites/removes it.
 
-ORG_MIRROR_DIR_NAME = "_org"
-ORG_ACTIVE_MARKER = ".active_org"
-ORG_PROVENANCE_FILE = ".org-provenance.json"
+WORKSPACE_MIRROR_DIR_NAME = "_workspaces"
+WORKSPACE_ACTIVE_MARKER = ".active_workspaces"
+WORKSPACE_PROVENANCE_FILE = ".workspace-provenance.json"
 # Records the fingerprint of each skill exactly as upstream sent it, so a
-# later local edit is detectable and an org pull can refuse to clobber it.
-ORG_BASELINE_FILE = ".org-baseline.json"
+# later local edit is detectable and a pull can refuse to clobber it.
+WORKSPACE_BASELINE_FILE = ".workspace-baseline.json"
 
 
-def read_active_org_id(skills_dir: Path) -> Optional[str]:
-    """The org id whose mirror may resolve, or None (no org skills load)."""
+def read_active_workspace_ids(skills_dir: Path) -> list[str]:
+    """The workspace ids whose mirrors may resolve (empty: none load)."""
     try:
-        marker = skills_dir / ORG_MIRROR_DIR_NAME / ORG_ACTIVE_MARKER
+        marker = skills_dir / WORKSPACE_MIRROR_DIR_NAME / WORKSPACE_ACTIVE_MARKER
         if not marker.exists():
-            return None
-        val = marker.read_text(encoding="utf-8").strip()
-        return val or None
-    except OSError:
-        return None
+            return []
+        raw = marker.read_text(encoding="utf-8").strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            import json as _json
+
+            return [str(v) for v in _json.loads(raw) if str(v).strip()]
+        return [raw]
+    except (OSError, ValueError):
+        return []
 
 
-def is_org_mirror_path(path, skills_dir: Path) -> bool:
-    """True when *path* is inside the org mirror (``_org/``)."""
+def is_workspace_mirror_path(path, skills_dir: Path) -> bool:
+    """True when *path* is inside a workspace mirror (``_workspaces/``)."""
     try:
         rel = Path(path).resolve().relative_to(Path(skills_dir).resolve())
     except (OSError, ValueError):
         return False
-    return bool(rel.parts) and rel.parts[0] == ORG_MIRROR_DIR_NAME
+    return bool(rel.parts) and rel.parts[0] == WORKSPACE_MIRROR_DIR_NAME
 
 
-def org_id_of_path(path, skills_dir: Path) -> Optional[str]:
-    """The ``<org_id>`` segment for a path under ``_org/<org_id>/...``."""
+def workspace_id_of_path(path, skills_dir: Path) -> Optional[str]:
+    """The ``<workspace_id>`` segment for a path under ``_workspaces/<id>/...``."""
     try:
         rel = Path(path).resolve().relative_to(Path(skills_dir).resolve())
     except (OSError, ValueError):
         return None
-    if len(rel.parts) >= 2 and rel.parts[0] == ORG_MIRROR_DIR_NAME:
+    if len(rel.parts) >= 2 and rel.parts[0] == WORKSPACE_MIRROR_DIR_NAME:
         return rel.parts[1]
     return None
 
@@ -891,23 +897,23 @@ def iter_skill_index_files(skills_dir: Path, filename: str):
     ``SKILL.md`` files, but they are progressive-disclosure data loaded through
     ``skill_view(..., file_path=...)`` rather than active skill roots.
 
-    M2 org mirrors (``_org/``): TOKEN-GATED resolution. Only the active org's
-    subdir (per the sync-client-written ``.active_org`` marker) is walked;
-    every other ``_org/<id>/`` (stale mirror from a previous org, or no
-    marker at all) is pruned — leave an org and its skills stop resolving,
-    without any manual cleanup.
+    Workspace mirrors (``_workspaces/``): GATED resolution. Only the active
+    workspaces' subdirs (per the sync-client-written ``.active_workspaces``
+    marker) are walked; every other ``_workspaces/<id>/`` (a mirror of a
+    workspace the person left, or no marker at all) is pruned — leave a
+    workspace and its skills stop resolving, without any manual cleanup.
     """
     skills_dir_str = str(skills_dir)
-    active_org = read_active_org_id(skills_dir)
-    org_root = os.path.join(skills_dir_str, ORG_MIRROR_DIR_NAME)
+    active = set(read_active_workspace_ids(skills_dir))
+    mirror_root = os.path.join(skills_dir_str, WORKSPACE_MIRROR_DIR_NAME)
     matches: list[str] = []
     for root, dirs, files in os.walk(skills_dir_str, followlinks=True):
         has_skill_md = "SKILL.md" in files
-        if root == skills_dir_str and ORG_MIRROR_DIR_NAME in dirs and active_org is None:
-            dirs.remove(ORG_MIRROR_DIR_NAME)
-        elif root == org_root:
-            # Inside _org/: descend ONLY into the active org's mirror.
-            dirs[:] = [d for d in dirs if d == active_org]
+        if root == skills_dir_str and WORKSPACE_MIRROR_DIR_NAME in dirs and not active:
+            dirs.remove(WORKSPACE_MIRROR_DIR_NAME)
+        elif root == mirror_root:
+            # Inside _workspaces/: descend ONLY into the active workspaces' mirrors.
+            dirs[:] = [d for d in dirs if d in active]
         dirs[:] = [
             d
             for d in dirs

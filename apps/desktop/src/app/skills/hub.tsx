@@ -158,7 +158,7 @@ function HubSkillCard({
   const installed = override ?? rawInstalled
   const running = action?.running ?? false
   const extra = skill.extra ?? {}
-  const visibility = extra.visibility === 'org' || extra.visibility === 'private' ? extra.visibility : null
+  const visibility = extra.visibility === 'workspace' || extra.visibility === 'private' ? extra.visibility : null
   const kind = extra.kind === 'browser' || extra.kind === 'core' ? extra.kind : null
   const downloads = Number(extra.downloads ?? 0)
 
@@ -242,7 +242,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
   // The store front: the hub's catalog, synced on every open and every 30
   // minutes after that. No sign-in — the public catalogue answers anonymously,
   // and a bearer (when this machine has one) simply widens it to the person's
-  // own and their organisation's skills.
+  // own skills, their workspaces' and their organisation's public ones.
   const catalogQuery = useQuery({
     queryKey: HUB_CATALOG_KEY,
     queryFn: () => getSkillHubCatalog(),
@@ -461,7 +461,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
       {/* Scrollable cards. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
         {/* What the hub asked this machine to do (installs from the web, yanks,
-            org skills) — on the landing view, and only when there is something
+            workspace skills) — on the landing view, and only when there is something
             to say: browsing the store needs no account. */}
         {showLanding && <HubStatus hideWhenIdle />}
         {loading ? (

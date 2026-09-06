@@ -77,7 +77,8 @@ class _FakeHubClient:
         _FakeHubClient.calls.append(("publish", files, kwargs))
         if _FakeHubClient.fail:
             raise _FakeHubClient.fail
-        return {"skill": {"slug": "dashboard-skill", "visibility": kwargs.get("visibility")}, "version": {"version": "1.0.0", "publish_state": "scanning"},
+        workspace = {"id": "w1", "slug": kwargs["workspace"], "name": "Team"} if kwargs.get("workspace") else None
+        return {"skill": {"slug": "dashboard-skill", "visibility": kwargs.get("visibility"), "workspace": workspace}, "version": {"version": "1.0.0", "publish_state": "scanning"},
                 "scan_id": "scan-9", "created": True, "warnings": []}
 
 
@@ -170,11 +171,15 @@ class TestPublish:
         assert files["assets/logo.bin"] == {"base64": "AAH/"} and files["SKILL.md"].startswith("---")
         assert kwargs["bearer"] == "tok-ada" and kwargs["device_id"] == DEVICE_ID and kwargs["visibility"] == "private"
 
-    def test_propose_is_an_org_upload(self, fake_hub, local_skill):
+    def test_propose_is_a_workspace_upload(self, fake_hub, local_skill):
         client = TestClient(_app(_session()))
-        response = client.post("/api/skills/hub/propose", headers=HEADERS, json={"name": "dashboard-skill", "visibility": "public"})
-        assert response.status_code == 200 and response.json()["visibility"] == "org"
-        assert fake_hub.calls[-1][2]["visibility"] == "org"
+        response = client.post("/api/skills/hub/propose", headers=HEADERS, json={"name": "dashboard-skill", "visibility": "public", "workspace": "team"})
+        assert response.status_code == 200 and response.json()["visibility"] == "workspace" and response.json()["workspace"] == "team"
+        assert fake_hub.calls[-1][2]["visibility"] == "workspace" and fake_hub.calls[-1][2]["workspace"] == "team"
+        # Sharing without naming the workspace is refused up front; a plain upload never sends one.
+        assert client.post("/api/skills/hub/propose", headers=HEADERS, json={"name": "dashboard-skill"}).status_code == 400
+        client.post("/api/skills/hub/publish", headers=HEADERS, json={"name": "dashboard-skill", "visibility": "public", "workspace": "team"})
+        assert fake_hub.calls[-1][2]["workspace"] == ""
 
     def test_unknown_skill_is_404_and_bad_visibility_400(self, fake_hub, local_skill):
         client = TestClient(_app(_session()))

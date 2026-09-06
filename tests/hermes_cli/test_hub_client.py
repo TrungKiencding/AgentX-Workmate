@@ -44,7 +44,7 @@ class _FakeHub:
             return httpx.Response(200, json={"subject": "kc-ada", "device_id": request.headers.get("X-AgentX-Device")})
         if path == "/v1/me/changes":
             return httpx.Response(200, json={"cursor": 42, "product": request.url.params.get("product"), "device_id": request.url.params.get("device_id"),
-                                             "events": [], "installs": [], "updates": [], "org": None})
+                                             "events": [], "installs": [], "updates": [], "workspaces": []})
         if path == "/v1/installs" and request.method == "POST":
             body = json.loads(request.content)
             self.installs.append(body)
@@ -108,9 +108,10 @@ class TestCalls:
     def test_validate_and_publish(self, client, hub):
         assert client.validate({"SKILL.md": "# x"}, kind="core")["ok"] is True
         assert json.loads(hub.requests[-1].content) == {"files": {"SKILL.md": "# x"}, "kind": "core"}
-        published = client.publish({"SKILL.md": "# x", "assets/a.bin": {"base64": "AAE="}}, bearer="tok", visibility="org", targets=["hermes"])
-        assert published["skill"]["visibility"] == "org" and published["scan_id"] == "scan-1"
-        assert json.loads(hub.requests[-1].content)["targets"] == ["hermes"]
+        published = client.publish({"SKILL.md": "# x", "assets/a.bin": {"base64": "AAE="}}, bearer="tok", visibility="workspace", workspace="team", targets=["hermes"])
+        assert published["skill"]["visibility"] == "workspace" and published["scan_id"] == "scan-1"
+        sent = json.loads(hub.requests[-1].content)
+        assert sent["targets"] == ["hermes"] and sent["workspace"] == "team"
 
     def test_one_retry_on_a_transient_answer(self, client, hub):
         hub.flaky_once = True

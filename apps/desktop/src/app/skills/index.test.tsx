@@ -159,7 +159,7 @@ describe('SkillsView toolset management', () => {
 })
 
 describe('SkillsView hub publishing (Phase 3)', () => {
-  it('offers "Upload to Hub" and "Propose to organisation" for a learned skill, not for a hub one', async () => {
+  it('offers "Upload to Hub" and "Share with a workspace" for a learned skill, not for a hub one', async () => {
     getSkills.mockResolvedValue([
       {
         name: 'vneb-report',
@@ -183,7 +183,7 @@ describe('SkillsView hub publishing (Phase 3)', () => {
 
     // The first (most used) skill is auto-selected: the learned one.
     expect(await screen.findByTestId('skill-upload-hub')).toBeTruthy()
-    expect(screen.getByTestId('skill-propose-org')).toBeTruthy()
+    expect(screen.getByTestId('skill-propose-workspace')).toBeTruthy()
 
     await act(async () => {
       fireEvent.click(screen.getByTestId('skill-upload-hub'))

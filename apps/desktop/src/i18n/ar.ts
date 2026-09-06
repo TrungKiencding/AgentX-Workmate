@@ -1386,7 +1386,8 @@ export const ar = defineLocale({
       updateOne: (from, to) => `${from} ← ${to}`,
       syncNow: 'مزامنة الآن',
       syncing: 'جارٍ المزامنة…',
-      orgSkills: count => `${count} ${count === 1 ? 'مهارة' : 'مهارات'} من المؤسسة`,
+      workspaceSkills: (count, workspaces) =>
+        `${count} ${count === 1 ? 'مهارة مشتركة' : 'مهارات مشتركة'} في ${workspaces} ${workspaces === 1 ? 'مساحة عمل' : 'مساحات عمل'}`,
       history: 'النشاط الأخير',
       historyAction: {
         installed: 'تم التثبيت',
@@ -1400,18 +1401,19 @@ export const ar = defineLocale({
     },
     publish: {
       upload: 'رفع إلى Hub',
-      propose: 'اقتراح للمؤسسة',
+      propose: 'مشاركة مع مساحة عمل',
       title: name => `رفع «${name}» إلى AgentX Hub`,
-      proposeTitle: name => `اقتراح «${name}» لمؤسستك`,
+      proposeTitle: name => `مشاركة «${name}» مع مساحة عمل`,
       description: 'تُرفع المهارة كإصدار جديد، ثم تُفحص، ثم تُنشر وفق سياسة Hub.',
-      proposeDescription:
-        'تُرفع المهارة بظهور «المؤسسة»: الآمنة تُنشر فورًا، وما يستدعي الحذر ينتظر موافقة مسؤول المؤسسة.',
+      proposeDescription: 'تُرفع المهارة بظهور «مساحة العمل»: يراها أعضاؤها فقط، ويوافق عليها مسؤول Hub قبل نشرها.',
       visibility: 'الظهور',
       visibilityOptions: {
         private: 'خاص',
-        org: 'المؤسسة',
+        workspace: 'مساحة عمل',
         public: 'عام'
       },
+      workspace: 'مساحة العمل',
+      noWorkspace: 'لست عضوًا في أي مساحة عمل على Hub — أنشئ واحدة من صفحة مساحات العمل في Hub.',
       kind: 'النوع',
       kindAuto: 'تحديد تلقائي',
       kindCore: 'Core (Workmate, Claude Code…)',
@@ -1447,7 +1449,8 @@ export const ar = defineLocale({
         version_exists: 'هذا الإصدار موجود بالفعل على Hub بمحتوى مختلف.',
         slug_taken: 'اسم المهارة هذا يخص شخصًا آخر على Hub.',
         rate_limited: 'أنت ترفع بسرعة كبيرة؛ حاول مجددًا لاحقًا.',
-        kind_mismatch: 'المهارة التي تحمل هذا الاسم على Hub من نوع آخر.'
+        kind_mismatch: 'المهارة التي تحمل هذا الاسم على Hub من نوع آخر.',
+        workspace: 'لم يقبل Hub مساحة العمل هذه — لم تعد عضوًا فيها، أو لم تُختر مساحة عمل.'
       }
     }
   },

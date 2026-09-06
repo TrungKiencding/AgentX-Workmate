@@ -458,9 +458,9 @@ def is_curation_eligible(skill_name: str, skill_path: Optional[Path] = None) -> 
     Agent-created skills are always eligible. Bundled built-ins become eligible
     only when ``curator.prune_builtins`` is enabled. Hub-installed and external
     skill-dir skills are NEVER eligible — they have an external upstream owner.
-    Org-shared skills ARE eligible for improvement (the curator may patch them
+    Workspace-shared skills ARE eligible for improvement (the curator may patch them
     like any other skill; edits stay local until proposed) but are protected
-    from ARCHIVE/DELETE elsewhere — removing a shared skill is an org-admin
+    from ARCHIVE/DELETE elsewhere — removing a shared skill is a workspace-owner
     action, not a local curation decision.
     Protected built-ins (``PROTECTED_BUILTIN_SKILLS``) are NEVER eligible
     regardless of any flag — they back load-bearing UX and must never be
@@ -1018,8 +1018,8 @@ def _find_skill_dir(skill_name: str) -> Optional[Path]:
 
     Handles both flat (~/.agentx/skills/<skill>/SKILL.md) and category-nested
     (~/.agentx/skills/<category>/<skill>/SKILL.md) layouts. Uses the gated
-    index iterator so M2 org mirrors resolve ONLY for the active org
-    (stale ``_org/<other>/`` trees never match).
+    index iterator so workspace mirrors resolve ONLY for the active
+    workspaces (stale ``_workspaces/<other>/`` trees never match).
     """
     base = _skills_dir()
     if not base.exists():

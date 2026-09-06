@@ -20,18 +20,18 @@ from typing import Optional
 from agent.runtime_cwd import resolve_agent_cwd
 from agent.skill_utils import (
     EXCLUDED_SKILL_DIRS,
-    ORG_ACTIVE_MARKER,
-    ORG_MIRROR_DIR_NAME,
-    ORG_PROVENANCE_FILE,
+    WORKSPACE_ACTIVE_MARKER,
+    WORKSPACE_MIRROR_DIR_NAME,
+    WORKSPACE_PROVENANCE_FILE,
     SKILL_SUPPORT_DIRS,
     extract_skill_conditions,
     extract_skill_description,
     get_all_skills_dirs,
     get_disabled_skill_names,
     iter_skill_index_files,
-    org_id_of_path,
+    workspace_id_of_path,
     parse_frontmatter,
-    read_active_org_id,
+    read_active_workspace_ids,
     skill_matches_environment,
     skill_matches_platform,
     skill_matches_platform_list,
@@ -1411,8 +1411,8 @@ def drain_truncation_warnings() -> list:
 _SKILLS_PROMPT_CACHE_MAX = 8
 _SKILLS_PROMPT_CACHE: OrderedDict[tuple, str] = OrderedDict()
 _SKILLS_PROMPT_CACHE_LOCK = threading.Lock()
-# v2: entries gained org provenance fields (org_id/org_author/rel_dir) for M2
-# org-shared skills; older snapshots are discarded and rebuilt.
+# v2: entries gained provenance fields for shared skills (org, then
+# workspace_id/workspace_author); older snapshots are discarded and rebuilt.
 _SKILLS_SNAPSHOT_VERSION = 2
 
 
@@ -1434,30 +1434,30 @@ def clear_skills_system_prompt_cache(*, clear_snapshot: bool = False) -> None:
 def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
     """Build an mtime/size manifest of all SKILL.md and DESCRIPTION.md files.
 
-    Org mirrors (M2): only the ACTIVE org's mirror participates, and the
-    ``.active_org`` marker itself is included — so switching/leaving an org
-    invalidates the snapshot even when no SKILL.md changed.
+    Workspace mirrors: only the ACTIVE workspaces' mirrors participate, and
+    the ``.active_workspaces`` marker itself is included — so joining or
+    leaving a workspace invalidates the snapshot even when no SKILL.md changed.
     """
     manifest: dict[str, list[int]] = {}
     skills_dir_str = str(skills_dir)
     base = os.path.join(skills_dir_str, "")
     prefix_len = len(base)
-    active_org = read_active_org_id(skills_dir)
-    org_root = os.path.join(skills_dir_str, ORG_MIRROR_DIR_NAME)
-    marker_path = os.path.join(org_root, ORG_ACTIVE_MARKER)
+    active = set(read_active_workspace_ids(skills_dir))
+    mirror_root = os.path.join(skills_dir_str, WORKSPACE_MIRROR_DIR_NAME)
+    marker_path = os.path.join(mirror_root, WORKSPACE_ACTIVE_MARKER)
     try:
         st = os.stat(marker_path)
-        manifest[ORG_MIRROR_DIR_NAME + "/" + ORG_ACTIVE_MARKER] = [
+        manifest[WORKSPACE_MIRROR_DIR_NAME + "/" + WORKSPACE_ACTIVE_MARKER] = [
             int(st.st_mtime), int(st.st_size),
         ]
     except OSError:
         pass
     for root, dirs, files in os.walk(skills_dir_str, followlinks=True):
         has_skill_md = "SKILL.md" in files
-        if root == skills_dir_str and ORG_MIRROR_DIR_NAME in dirs and active_org is None:
-            dirs.remove(ORG_MIRROR_DIR_NAME)
-        elif root == org_root:
-            dirs[:] = [d for d in dirs if d == active_org]
+        if root == skills_dir_str and WORKSPACE_MIRROR_DIR_NAME in dirs and not active:
+            dirs.remove(WORKSPACE_MIRROR_DIR_NAME)
+        elif root == mirror_root:
+            dirs[:] = [d for d in dirs if d in active]
         dirs[:] = [
             d
             for d in dirs
@@ -1523,12 +1523,12 @@ def _build_snapshot_entry(
     rel_path = skill_file.relative_to(skills_dir)
     parts = rel_path.parts
 
-    # M2 org mirror: strip the `_org/<org_id>/` prefix so category/name derive
-    # from the path WITHIN the mirror (same shape the org tree was built
-    # from), and record provenance for labeling + fail-loud collisions.
-    org_id: str | None = None
-    if len(parts) >= 3 and parts[0] == ORG_MIRROR_DIR_NAME:
-        org_id = parts[1]
+    # Workspace mirror: strip the `_workspaces/<id>/` prefix so category/name
+    # derive from the path WITHIN the mirror (same shape the workspace tree
+    # was built from), and record provenance for labeling + fail-loud collisions.
+    workspace_id: str | None = None
+    if len(parts) >= 3 and parts[0] == WORKSPACE_MIRROR_DIR_NAME:
+        workspace_id = parts[1]
         parts = parts[2:]
 
     if len(parts) >= 2:
@@ -1550,21 +1550,23 @@ def _build_snapshot_entry(
         "platforms": [str(p).strip() for p in platforms if str(p).strip()],
         "conditions": extract_skill_conditions(frontmatter),
     }
-    if org_id:
-        entry["org_id"] = org_id
-        # Author from the pull-time provenance sidecar (token-verified at
-        # push by the plane's author_mismatch guard). Best-effort.
+    if workspace_id:
+        entry["workspace_id"] = workspace_id
+        # Author and workspace name from the pull-time provenance sidecar
+        # (the plane verified the author at push). Best-effort.
         try:
             import json as _json
 
             prov_path = (
-                skills_dir / ORG_MIRROR_DIR_NAME / org_id / ORG_PROVENANCE_FILE
+                skills_dir / WORKSPACE_MIRROR_DIR_NAME / workspace_id / WORKSPACE_PROVENANCE_FILE
             )
             prov = _json.loads(prov_path.read_text(encoding="utf-8"))
             device = str(prov.get("author_device") or "")
-            entry["org_author"] = device or str(prov.get("author_user_id") or "")
+            entry["workspace_author"] = device or str(prov.get("author_user_id") or "")
+            entry["workspace_slug"] = str(prov.get("workspace") or "")
         except Exception:
-            entry["org_author"] = ""
+            entry["workspace_author"] = ""
+            entry["workspace_slug"] = ""
     return entry
 
 
@@ -1748,32 +1750,30 @@ def build_skills_system_prompt(
                 continue
             visible_entries.append(entry)
 
-    # ── M2 org labeling + FAIL-LOUD collisions ─────────────────────────
-    # An org skill lists with an explicit provenance tag. When a personal and
-    # an org skill share a name, NEITHER silently wins: both list qualified
-    # (personal keeps the bare name is the wrong default — silent divergence
-    # from the org set; org winning silently shadows the user's own work) —
-    # so both entries carry a [name collision] flag and skill_view refuses
+    # ── Workspace labeling + FAIL-LOUD collisions ─────────────────────
+    # A workspace skill lists with an explicit provenance tag. When a personal
+    # and a shared skill share a name, NEITHER silently wins: both list
+    # qualified, both carry a [name collision] flag, and skill_view refuses
     # the ambiguous bare name (its existing multi-candidate guard).
     name_owners: dict[str, set[str]] = {}
     for entry in visible_entries:
         fm = entry.get("frontmatter_name") or entry.get("skill_name") or ""
-        kind = "org" if entry.get("org_id") else "personal"
+        kind = f"workspace:{entry.get('workspace_id')}" if entry.get("workspace_id") else "personal"
         name_owners.setdefault(fm, set()).add(kind)
     for entry in visible_entries:
         fm = entry.get("frontmatter_name") or entry.get("skill_name") or ""
         desc = entry.get("description", "")
-        org_id = entry.get("org_id")
+        workspace_id = entry.get("workspace_id")
         collided = len(name_owners.get(fm, set())) > 1
-        if org_id:
-            author = entry.get("org_author") or ""
-            tag = f"[org-shared{': by ' + author if author else ''}]"
+        if workspace_id:
+            author = entry.get("workspace_author") or ""
+            tag = f"[workspace-shared{': by ' + author if author else ''}]"
             desc = f"{tag} {desc}".strip()
-            category = f"org:{org_id}"
+            category = f"workspace:{entry.get('workspace_slug') or workspace_id}"
         else:
             category = entry.get("category") or "general"
         if collided:
-            desc = f"[name collision — also exists {'personally' if org_id else 'in your org'}; load via category path] {desc}".strip()
+            desc = f"[name collision — also exists {'personally' if workspace_id else 'in a workspace'}; load via category path] {desc}".strip()
         skills_by_category.setdefault(category, []).append((fm, desc))
 
     if snapshot is None:

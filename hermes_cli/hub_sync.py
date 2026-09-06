@@ -3,7 +3,7 @@ Skill Hub for (plan Phase 3, items 5–7).
 
 The hub holds the *desired* state: "this person wants skill X on this
 Workmate", "switch version 1.2 of Y off everywhere it was installed",
-"the organisation published Z". This engine makes the disk agree and
+"a workspace published Z". This engine makes the disk agree and
 reports back, so the web can say "installed on máy A".
 
 Four rules, inherited from :mod:`hermes_cli.sync_engine`:
@@ -49,7 +49,7 @@ HISTORY_SIZE = 30
 PRODUCT = "workmate"
 SOURCE = "agentx-hub"
 #: Events on the stream that mean "something on this machine may need to change".
-NUDGE_EVENTS = ("install.desired", "install.update_available", "org.skill.published", "catalog.version.yanked", "catalog.version.demoted")
+NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted")
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,6 @@ class HubSyncOutcome:
     disabled: List[str] = field(default_factory=list)
     enabled: List[str] = field(default_factory=list)
     failed: List[Dict[str, Any]] = field(default_factory=list)
-    org_installed: List[str] = field(default_factory=list)
     updates: List[Dict[str, Any]] = field(default_factory=list)
     cursor: Optional[int] = None
     at: str = ""
@@ -101,7 +100,7 @@ class HubSyncOutcome:
 
     @property
     def changed(self) -> bool:
-        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled or self.org_installed)
+        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled)
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -113,7 +112,6 @@ class HubSyncOutcome:
             "disabled": list(self.disabled),
             "enabled": list(self.enabled),
             "failed": list(self.failed),
-            "org_installed": list(self.org_installed),
             "updates": list(self.updates),
             "cursor": self.cursor,
             "at": self.at,
@@ -130,7 +128,6 @@ class HubSyncSettings:
     base_url: str = ""
     enabled: bool = True
     realtime: bool = True
-    org_auto_install: bool = True
     interval_seconds: float = DEFAULT_INTERVAL_SECONDS
     request_timeout_seconds: float = 20.0
 
@@ -177,7 +174,6 @@ def load_hub_sync_settings() -> HubSyncSettings:
         base_url=base_url,
         enabled=_as_bool(section.get("hub_sync_enabled"), True),
         realtime=_as_bool(section.get("hub_realtime"), True),
-        org_auto_install=_as_bool(section.get("hub_org_auto_install"), True),
         interval_seconds=interval if interval > 0 else DEFAULT_INTERVAL_SECONDS,
     )
 
@@ -536,8 +532,9 @@ class HubSyncEngine:
             {"install_id": u.get("id"), "slug": u.get("slug"), "name": u.get("name"), "current": u.get("reported_version"), "latest": u.get("latest_version")}
             for u in snapshot.get("updates") or []
         ]
-        if self._settings.org_auto_install:
-            self._mirror_org(snapshot.get("org") or {}, credentials, client, outcome)
+        # Workspace skills are listed (``snapshot["workspaces"]``) for the Hub
+        # tab to show; nothing is installed until the person asks (hub
+        # decision §8 #11 — no automatic mirror).
 
     def _apply(self, install: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
         slug = str(install.get("slug") or "")
@@ -596,34 +593,6 @@ class HubSyncEngine:
             outcome.disabled.append(slug)
             self._remember("disabled", slug, local["version"], str(install.get("reason") or ""))
 
-    def _mirror_org(self, org: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
-        """Bring the organisation's published core skills onto this machine
-        (plan Phase 3 item 3). Each becomes an install row of this device so
-        the hub can later disable or update it like any other."""
-        installs = {str(i.get("slug")): i for i in (self._last_snapshot.get("installs") or [])}
-        for skill in org.get("skills") or []:
-            slug = str(skill.get("slug") or "")
-            if not slug or skill.get("kind") not in (None, "core"):
-                continue
-            if slug in installs:
-                continue  # the install row (this device or "anywhere") is handled by _apply
-            local = self._installer.local_state(slug)
-            if local["installed"] and local["content_hash"] == _short_hash(str(skill.get("content_hash") or "")):
-                continue
-            try:
-                row = client.create_install(
-                    slug, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
-                    reason="organisation skill mirrored automatically",
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("hub sync: could not register org skill %s: %s", slug, exc)
-                outcome.failed.append({"slug": slug, "error": str(exc)})
-                continue
-            before = len(outcome.installed) + len(outcome.updated)
-            self._apply(row, credentials, client, outcome)
-            if len(outcome.installed) + len(outcome.updated) > before:
-                outcome.org_installed.append(slug)
-
     def _reporter(self, client: Any, credentials: HubCredentials, install_id: str) -> Callable[..., None]:
         def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
             if not install_id:
@@ -665,7 +634,6 @@ class HubSyncEngine:
             "configured": self._settings.configured,
             "base_url": self._settings.base_url,
             "realtime": self._settings.realtime,
-            "org_auto_install": self._settings.org_auto_install,
             "interval_seconds": self._settings.interval_seconds,
             "credentials": credentials.source if credentials else None,
             "device_id": credentials.device_id if credentials else None,
@@ -686,7 +654,7 @@ class HubSyncEngine:
             **self.status(),
             "installs": installs,
             "updates": list(self._last.updates),
-            "org": self._last_snapshot.get("org"),
+            "workspaces": list(self._last_snapshot.get("workspaces") or []),
             "history": list(self._history),
             "generated_at": self._last_snapshot.get("generated_at"),
         }

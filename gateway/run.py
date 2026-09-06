@@ -27710,13 +27710,14 @@ def _start_gateway_housekeeping(stop_event: threading.Event, adapters=None, loop
             except Exception as e:
                 logger.debug("Sync pull tick error: %s", e)
 
-            # Org-shared skills. Gated on real org membership (the token must
-            # carry an org role), so a solo account never reaches the network.
+            # Workspace-shared skills: refresh the mirrors of every workspace
+            # this account belongs to. Inert without the sync gate, without a
+            # signed-in hub identity, or when the hub lists no workspaces.
             try:
-                from tools.skills_sync_client import maybe_pull_org_skills
-                maybe_pull_org_skills()
+                from tools.skills_sync_client import maybe_pull_workspace_skills
+                maybe_pull_workspace_skills()
             except Exception as e:
-                logger.debug("Org sync pull tick error: %s", e)
+                logger.debug("Workspace sync pull tick error: %s", e)
 
         # Stale-session auto-archive — a live timer, so gateways that stay up
         # for weeks keep sweeping on schedule (the startup hook fires once).

@@ -1440,7 +1440,7 @@ export const zhHant = defineLocale({
       updateOne: (from, to) => `${from} → ${to}`,
       syncNow: '立即同步',
       syncing: '同步中…',
-      orgSkills: count => `${count} 個組織技能`,
+      workspaceSkills: (count, workspaces) => `${workspaces} 個工作區共享 ${count} 個技能`,
       history: '最近活動',
       historyAction: {
         installed: '已安裝',
@@ -1454,17 +1454,19 @@ export const zhHant = defineLocale({
     },
     publish: {
       upload: '上傳到 Hub',
-      propose: '提交給組織',
+      propose: '分享到工作區',
       title: name => `將「${name}」上傳到 AgentX Hub`,
-      proposeTitle: name => `將「${name}」提交給組織`,
+      proposeTitle: name => `將「${name}」分享到工作區`,
       description: '技能會以新版本上傳，經安全掃描後，依 Hub 的政策發布。',
-      proposeDescription: '技能會以「組織」可見範圍上傳：安全的立即發布，需留意的則由組織管理員審核。',
+      proposeDescription: '技能會以「工作區」可見範圍上傳：僅其成員可見，並由 Hub 管理員審核後發布。',
       visibility: '可見範圍',
       visibilityOptions: {
         private: '私人',
-        org: '組織',
+        workspace: '工作區',
         public: '公開'
       },
+      workspace: '工作區',
+      noWorkspace: '你尚未加入 Hub 上的任何工作區 —— 請在 Hub 的工作區頁面建立一個。',
       kind: '類型',
       kindAuto: '自動偵測',
       kindCore: 'Core（Workmate、Claude Code…）',
@@ -1500,7 +1502,8 @@ export const zhHant = defineLocale({
         version_exists: '這個版本已存在於 Hub，但內容不同。',
         slug_taken: '這個技能名稱在 Hub 上已屬於其他人。',
         rate_limited: '上傳太頻繁，請稍後再試。',
-        kind_mismatch: 'Hub 上同名的技能屬於另一種類型。'
+        kind_mismatch: 'Hub 上同名的技能屬於另一種類型。',
+        workspace: 'Hub 未接受此工作區 —— 你已不是成員，或尚未選擇工作區。'
       }
     }
   },

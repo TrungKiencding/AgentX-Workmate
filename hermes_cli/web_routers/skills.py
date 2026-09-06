@@ -61,7 +61,7 @@ async def install_skill_hub(request: Request, body: SkillInstallRequest, profile
         raise HTTPException(status_code=400, detail="identifier is required")
     name = _hub_action_name("install", identifier)
     args = _profile_cli_args(body.profile or profile) + ["skills", "install", identifier, "--yes"]
-    # A private/org skill is only downloadable with the person's bearer, and
+    # A private/workspace skill is only downloadable with the person's bearer, and
     # the installer runs in its own process with no session — hand it the
     # bearer through the env `agentx_hub_token()` already reads. Public skills
     # (and every other source) need nothing, so nothing is passed.
@@ -198,7 +198,7 @@ async def list_skills_hub_sources(profile: Optional[str] = None):
 async def skills_hub_catalog(request: Request, refresh: bool = False, profile: Optional[str] = None):
     """The AgentX Skill Hub's catalog, as browsable cards — no sign-in needed.
 
-    Public skills always; the caller's own private ones (and their org's) too
+    Public skills always; the caller's own private ones (and their workspaces') too
     when the request carries a bearer or this machine holds a personal token.
     Cached on disk for 30 minutes, which is what makes the desktop's
     sync-on-open cheap; ``refresh=1`` forces the network sync behind the
@@ -612,12 +612,15 @@ async def hub_validate(body: SkillHubValidateRequest, request: Request):
 
 @hub_router.post("/api/skills/hub/publish")
 async def hub_publish(body: SkillHubPublishRequest, request: Request):
-    """Upload a local skill to the hub as a new (private/org/public) version."""
+    """Upload a local skill to the hub as a new (private/workspace/public) version."""
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
 
     visibility = (body.visibility or "private").strip().lower()
-    if visibility not in ("private", "org", "public"):
-        raise HTTPException(status_code=400, detail="visibility must be private, org or public")
+    if visibility not in ("private", "workspace", "public"):
+        raise HTTPException(status_code=400, detail="visibility must be private, workspace or public")
+    workspace = (body.workspace or "").strip()
+    if visibility == "workspace" and not workspace:
+        raise HTTPException(status_code=400, detail="a workspace visibility needs the workspace (id or slug)")
     credentials = _hub_credentials_from(request)
     if credentials is None:
         return {"ok": False, "status": "signed_out", "detail": "Sign in to upload a skill to the hub."}
@@ -628,7 +631,7 @@ async def hub_publish(body: SkillHubPublishRequest, request: Request):
         client = HubClient(hub_base_url())
         return client.publish(
             files, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
-            kind=body.kind or "", visibility=visibility, targets=body.targets or (),
+            kind=body.kind or "", visibility=visibility, workspace=workspace if visibility == "workspace" else "", targets=body.targets or (),
         )
 
     try:
@@ -644,6 +647,7 @@ async def hub_publish(body: SkillHubPublishRequest, request: Request):
         "created": bool((result or {}).get("created")),
         "slug": skill.get("slug"),
         "visibility": skill.get("visibility"),
+        "workspace": (skill.get("workspace") or {}).get("slug") if isinstance(skill.get("workspace"), dict) else None,
         "version": version.get("version"),
         "publish_state": version.get("publish_state"),
         "scan_id": (result or {}).get("scan_id"),
@@ -656,10 +660,10 @@ async def hub_publish(body: SkillHubPublishRequest, request: Request):
 
 @hub_router.post("/api/skills/hub/propose")
 async def hub_propose(body: SkillHubPublishRequest, request: Request):
-    """Propose a local skill to the organisation: an upload with
-    ``visibility=org`` — the hub's policy publishes it to the org or queues
-    it for an org admin (plan Phase 3 item 3)."""
-    body.visibility = "org"
+    """Share a local skill into a workspace: an upload with
+    ``visibility=workspace`` and the workspace named — the hub's policy queues
+    it for a hub admin (decision §8 #11), members see it once approved."""
+    body.visibility = "workspace"
     return await hub_publish(body, request)
 
 

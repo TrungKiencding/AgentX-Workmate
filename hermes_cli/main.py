@@ -4774,7 +4774,7 @@ def cmd_cron(args):
 
 
 def cmd_sync(args):
-    """Skill Sync — personal sync across devices, plus sharing with your org."""
+    """Skill Sync — personal sync across devices, plus sharing with your workspaces."""
     import json as _json
 
     sub = getattr(args, "sync_command", None)
@@ -4794,7 +4794,7 @@ def cmd_sync(args):
             "  device [--name N] Show or set this device's label\n"
             "\n"
             "Shared with your team:\n"
-            "  propose <skill>   Share a skill with your organisation",
+            "  propose <skill> [--workspace W]   Share a skill with a workspace",
             file=sys.stderr,
         )
         return 1
@@ -4825,21 +4825,22 @@ def cmd_sync(args):
 
         name = args.name
         try:
-            result = ssc.propose_skill(name, message=args.message)
+            result = ssc.propose_skill(name, message=args.message, workspace=getattr(args, "workspace", None))
         except ssc.SyncInertError as e:
             print(f"cannot share this skill: {e}", file=sys.stderr)
             return 1
         except ssc.SyncError as e:
             print(f"could not share '{name}': {e}", file=sys.stderr)
             return 1
+        where = result.get("workspace") or result.get("workspace_id")
         if result.get("proposal_pending"):
             print(
-                f"Shared '{name}' with your organisation — an admin needs to "
+                f"Shared '{name}' with the workspace '{where}' — its owner needs to "
                 f"approve it (proposal #{result.get('proposal_id')}). It is "
                 f"not live for the team until then."
             )
         else:
-            print(f"Added '{name}' to your organisation's shared skills.")
+            print(f"Added '{name}' to the shared skills of the workspace '{where}'.")
         return 0
 
     if sub in {"enable", "disable"}:
@@ -4863,27 +4864,28 @@ def cmd_sync(args):
     if sub == "status":
         status = ssc.sync_status()
         print(_json.dumps(status, indent=2, ensure_ascii=False))
-        if status.get("org_available"):
-            n = len(status.get("org_skills") or [])
-            modified = status.get("org_skills_modified") or []
+        if status.get("workspaces_available"):
+            names = ", ".join(f"{w.get('slug') or w.get('id')} ({w.get('role')})" for w in status.get("workspaces") or [])
+            n = sum(len(v) for v in (status.get("workspace_skills") or {}).values())
+            modified = status.get("workspace_skills_modified") or []
             print(
-                f"\nOrg skills: {n} shared skill(s) from your organisation "
-                f"(your role: {status.get('org_role')}). They load alongside "
-                f"your own, labeled by origin, and you can edit them.",
+                f"\nWorkspace skills: {n} shared skill(s) from your workspaces "
+                f"({names}). They load alongside your own, labeled by origin, "
+                f"and you can edit them.",
                 file=sys.stderr,
             )
             if modified:
                 print(
                     f"  {len(modified)} with local edits not yet shared: "
                     f"{', '.join(modified)}\n"
-                    f"  Share them back with `agentx sync propose <skill>`. "
-                    f"Org updates will not overwrite them.",
+                    f"  Share them back with `agentx sync propose <skill> --workspace <slug>`. "
+                    f"Workspace updates will not overwrite them.",
                     file=sys.stderr,
                 )
         elif status.get("logged_in"):
             print(
-                "\nOrg skills: not applicable — this account isn't a member "
-                "of a shared organisation.",
+                "\nWorkspace skills: not applicable — this account is not "
+                "in any workspace.",
                 file=sys.stderr,
             )
         if not status.get("logged_in"):
@@ -4937,25 +4939,26 @@ def cmd_sync(args):
     try:
         if sub == "pull":
             result = ssc.pull_skills(identity=identity)
-            # Refresh the org mirror too when this account belongs to an
-            # organisation (no-op otherwise), so one pull covers both.
-            org_result = ssc.maybe_pull_org_skills()
-            if org_result:
-                n = len(org_result.get("updated") or [])
+            # Refresh the workspace mirrors too when this account belongs to
+            # workspaces (no-op otherwise), so one pull covers both.
+            ws_result = ssc.maybe_pull_workspace_skills()
+            if ws_result:
+                pulled = [r for r in (ws_result.get("workspaces") or {}).values() if isinstance(r, dict)]
+                n = sum(len(r.get("updated") or []) for r in pulled)
                 print(
-                    f"org: refreshed {n} shared skill(s) from your "
-                    f"organisation.",
+                    f"workspaces: refreshed {n} shared skill(s) from "
+                    f"{len(pulled)} workspace(s).",
                     file=sys.stderr,
                 )
-                clashes = org_result.get("conflicted") or []
+                clashes = [f"{r.get('workspace_id')}/{c}" for r in pulled for c in (r.get("conflicted") or [])]
                 if clashes:
                     print(
-                        f"org: {len(clashes)} skill(s) have BOTH local edits "
-                        f"and org updates, so they were left as-is: "
+                        f"workspaces: {len(clashes)} skill(s) have BOTH local edits "
+                        f"and workspace updates, so they were left as-is: "
                         f"{', '.join(clashes)}\n"
                         f"     Your local version is intact. Review it, then "
                         f"either propose it or delete the local copy and pull "
-                        f"again to take the org version.",
+                        f"again to take the workspace version.",
                         file=sys.stderr,
                     )
         elif sub == "push":

@@ -28,7 +28,6 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
     configured: true,
     base_url: 'https://skills.dev-server.cloud',
     realtime: true,
-    org_auto_install: true,
     credentials: 'mailbox',
     device_id: '11111111-2222-3333-4444-555555555555',
     stream: 'connected',
@@ -86,10 +85,15 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
       }
     ],
     updates: [{ install_id: 'inst-1', slug: 'vneb-report', name: 'vneb-report', current: '1.0.0', latest: '1.1.0' }],
-    org: {
-      org_id: 'astralx',
-      skills: [{ slug: 'team-notes', name: 'team-notes', kind: 'core', version: '1.0.0', content_hash: null }]
-    },
+    workspaces: [
+      {
+        id: 'w1',
+        slug: 'doi-dev',
+        name: 'Đội Dev',
+        role: 'member',
+        skills: [{ slug: 'team-notes', name: 'team-notes', kind: 'core', version: '1.0.0', content_hash: null }]
+      }
+    ],
     history: [{ action: 'installed', slug: 'vneb-report', version: '1.0.0', detail: '', at: '2026-09-03T09:59:00Z' }],
     generated_at: '2026-09-03T10:00:00Z',
     ...overrides
@@ -139,7 +143,7 @@ describe('HubStatus', () => {
     // Updates are offered, with the fleet-wide update action.
     expect(screen.getByTestId('hub-updates').textContent).toContain('1 update available')
     expect(screen.getByTestId('hub-updates').textContent).toContain('1.0.0 → 1.1.0')
-    expect(screen.getByText('1 organisation skill')).toBeTruthy()
+    expect(screen.getByText('1 shared skill in 1 workspace')).toBeTruthy()
     expect(screen.getByTestId('hub-history').textContent).toContain('vneb-report@1.0.0 installed')
     expect(screen.queryByTestId('hub-status-line')).toBeNull()
   })
@@ -152,7 +156,7 @@ describe('HubStatus', () => {
         installs: [],
         updates: [],
         history: [],
-        org: null
+        workspaces: []
       })
     )
 

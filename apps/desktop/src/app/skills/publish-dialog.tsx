@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -10,15 +10,17 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { proposeSkillToOrg, publishSkillToHub, validateSkillForHub } from '@/hermes'
+import { getSkillHubChanges, proposeSkillToWorkspace, publishSkillToHub, validateSkillForHub } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import type { SkillHubPublishResponse, SkillInfo } from '@/types/hermes'
 
+import { HUB_CHANGES_KEY } from './hub-status'
+
 export type PublishMode = 'upload' | 'propose'
 
-type Visibility = 'private' | 'org' | 'public'
+type Visibility = 'private' | 'workspace' | 'public'
 
 const SELECT_CLASS =
   'h-7 rounded-(--radius-control) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-2 text-xs text-foreground outline-none focus-visible:border-ring'
@@ -37,6 +39,11 @@ function errorText(result: SkillHubPublishResponse, p: ReturnType<typeof useI18n
   }
 
   const detail = (result.error_detail ?? {}) as { highest?: string }
+
+  // The three ways a workspace upload is refused all mean the same thing to the person.
+  if (result.code === 'not_a_member' || result.code === 'workspace_not_found' || result.code === 'workspace_required') {
+    return p.errors.workspace
+  }
 
   switch (result.code) {
     case 'version_not_newer':
@@ -59,9 +66,11 @@ function errorText(result: SkillHubPublishResponse, p: ReturnType<typeof useI18n
   }
 }
 
-// "Upload to Hub" / "Propose to organisation" for a local skill: pick the
-// visibility (propose pins it to org), preview what the hub would make of
-// the files, upload, and show where it went.
+// "Upload to Hub" / "Share with a workspace" for a local skill: pick the
+// visibility (share pins it to workspace) and, for a workspace, which one;
+// preview what the hub would make of the files, upload, and show where it
+// went. The workspaces come from the hub engine's last snapshot (no extra
+// network call); with none, the workspace option explains itself.
 export function PublishSkillDialog({
   mode,
   onClose,
@@ -75,11 +84,25 @@ export function PublishSkillDialog({
 }) {
   const { t } = useI18n()
   const p = t.skills.publish
-  const [visibility, setVisibility] = useState<Visibility>(mode === 'propose' ? 'org' : 'private')
+  const [visibility, setVisibility] = useState<Visibility>(mode === 'propose' ? 'workspace' : 'private')
+  const [workspace, setWorkspace] = useState('')
   const [kind, setKind] = useState<'' | 'core' | 'browser'>('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<null | SkillHubPublishResponse>(null)
-  const effectiveVisibility: Visibility = mode === 'propose' ? 'org' : visibility
+  const effectiveVisibility: Visibility = mode === 'propose' ? 'workspace' : visibility
+
+  const changes = useQuery({ queryKey: HUB_CHANGES_KEY, queryFn: getSkillHubChanges, enabled: open, staleTime: 30_000 })
+  const workspaces = useMemo(() => changes.data?.workspaces ?? [], [changes.data])
+  const wantsWorkspace = effectiveVisibility === 'workspace'
+  const chosen = workspaces.find(w => w.slug === workspace || w.id === workspace) ?? null
+
+  // A workspace choice without a workspace named takes the first one the
+  // person belongs to, so the dialog is never submitted half-filled.
+  useEffect(() => {
+    if (wantsWorkspace && !chosen && workspaces.length > 0) {
+      setWorkspace(workspaces[0].slug)
+    }
+  }, [wantsWorkspace, chosen, workspaces])
 
   const preview = useQuery({
     queryKey: ['skill-hub-validate', skill.name, kind, effectiveVisibility],
@@ -93,6 +116,7 @@ export function PublishSkillDialog({
   const previewError = preview.data?.result?.error
   const previewOk = preview.data?.ok === true && preview.data.result?.ok === true
   const warnings = [...(pkg?.warnings ?? []), ...(preview.data?.result?.warnings ?? [])]
+  const missingWorkspace = wantsWorkspace && !chosen
 
   const submit = async () => {
     setSubmitting(true)
@@ -100,8 +124,12 @@ export function PublishSkillDialog({
     try {
       const answer =
         mode === 'propose'
-          ? await proposeSkillToOrg(skill.name, { kind: kind || undefined })
-          : await publishSkillToHub(skill.name, { visibility: effectiveVisibility, kind: kind || undefined })
+          ? await proposeSkillToWorkspace(skill.name, { workspace: chosen?.slug ?? workspace, kind: kind || undefined })
+          : await publishSkillToHub(skill.name, {
+              visibility: effectiveVisibility,
+              workspace: wantsWorkspace ? (chosen?.slug ?? workspace) : undefined,
+              kind: kind || undefined
+            })
 
       setResult(answer)
     } catch (err) {
@@ -131,6 +159,7 @@ export function PublishSkillDialog({
                 {p.doneState[result.publish_state as keyof typeof p.doneState] ?? result.publish_state}
                 {' · '}
                 {p.visibilityOptions[(result.visibility as Visibility) ?? effectiveVisibility]}
+                {result.workspace ? ` · ${result.workspace}` : ''}
               </p>
             )}
             {(result.warnings ?? []).length > 0 && (
@@ -164,10 +193,32 @@ export function PublishSkillDialog({
                   value={effectiveVisibility}
                 >
                   <option value="private">{p.visibilityOptions.private}</option>
-                  <option value="org">{p.visibilityOptions.org}</option>
+                  <option value="workspace">{p.visibilityOptions.workspace}</option>
                   <option value="public">{p.visibilityOptions.public}</option>
                 </select>
               </label>
+              {wantsWorkspace && workspaces.length > 0 && (
+                <label className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">{p.workspace}</span>
+                  <select
+                    className={SELECT_CLASS}
+                    data-testid="publish-workspace"
+                    onChange={event => setWorkspace(event.target.value)}
+                    value={chosen?.slug ?? ''}
+                  >
+                    {workspaces.map(w => (
+                      <option key={w.id} value={w.slug}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {wantsWorkspace && changes.isSuccess && workspaces.length === 0 && (
+                <span className="text-amber-400" data-testid="publish-no-workspace">
+                  {p.noWorkspace}
+                </span>
+              )}
               <label className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">{p.kind}</span>
                 <select
@@ -240,7 +291,7 @@ export function PublishSkillDialog({
           {!result?.ok && (
             <Button
               data-testid="publish-submit"
-              disabled={submitting || !previewOk}
+              disabled={submitting || !previewOk || missingWorkspace}
               onClick={() => void submit()}
               size="sm"
             >

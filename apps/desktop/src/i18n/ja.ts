@@ -1496,7 +1496,7 @@ export const ja = defineLocale({
       updateOne: (from, to) => `${from} → ${to}`,
       syncNow: '今すぐ同期',
       syncing: '同期中…',
-      orgSkills: count => `組織のスキル ${count} 件`,
+      workspaceSkills: (count, workspaces) => `${workspaces} 件のワークスペースで共有中のスキル ${count} 件`,
       history: '最近のアクティビティ',
       historyAction: {
         installed: 'インストール済み',
@@ -1510,19 +1510,21 @@ export const ja = defineLocale({
     },
     publish: {
       upload: 'Hub にアップロード',
-      propose: '組織に提案',
+      propose: 'ワークスペースに共有',
       title: name => `「${name}」を AgentX Hub にアップロード`,
-      proposeTitle: name => `「${name}」を組織に提案`,
+      proposeTitle: name => `「${name}」をワークスペースに共有`,
       description:
         'スキルは新しいバージョンとしてアップロードされ、セキュリティスキャンを経て、Hub のポリシーに従って公開されます。',
       proposeDescription:
-        'スキルは公開範囲「組織」でアップロードされます。安全なものはすぐに公開され、注意が必要なものは組織の管理者が確認します。',
+        'スキルは公開範囲「ワークスペース」でアップロードされます。メンバーだけが閲覧でき、公開前に Hub の管理者が承認します。',
       visibility: '公開範囲',
       visibilityOptions: {
         private: '非公開',
-        org: '組織',
+        workspace: 'ワークスペース',
         public: '公開'
       },
+      workspace: 'ワークスペース',
+      noWorkspace: 'Hub 上のどのワークスペースにも参加していません。Hub のワークスペースページで作成してください。',
       kind: '種類',
       kindAuto: '自動判別',
       kindCore: 'Core (Workmate、Claude Code…)',
@@ -1559,7 +1561,9 @@ export const ja = defineLocale({
         version_exists: 'このバージョンは、別の内容で Hub にすでに存在します。',
         slug_taken: 'このスキル名は、Hub で別の人が使っています。',
         rate_limited: 'アップロードの間隔が短すぎます。しばらくしてからもう一度お試しください。',
-        kind_mismatch: 'Hub にある同名のスキルは別の種類です。'
+        kind_mismatch: 'Hub にある同名のスキルは別の種類です。',
+        workspace:
+          'Hub がこのワークスペースを受け付けませんでした。メンバーではなくなったか、ワークスペースが選択されていません。'
       }
     }
   },

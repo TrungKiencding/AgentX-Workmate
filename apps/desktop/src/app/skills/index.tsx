@@ -851,7 +851,7 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
   const navigate = useNavigate()
   // Only learned/local skills are the user's to rewrite or archive — bundled
   // and hub skills are managed by their sources. They are also the ones the
-  // person may upload to the AgentX Skill Hub or propose to the organisation.
+  // person may upload to the AgentX Skill Hub or share with a workspace.
   const editable = skill.provenance === 'agent'
   const [publish, setPublish] = useState<null | PublishMode>(null)
 
@@ -894,7 +894,12 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
             <Button data-testid="skill-upload-hub" onClick={() => setPublish('upload')} size="sm" variant="secondary">
               {t.skills.publish.upload}
             </Button>
-            <Button data-testid="skill-propose-org" onClick={() => setPublish('propose')} size="sm" variant="outline">
+            <Button
+              data-testid="skill-propose-workspace"
+              onClick={() => setPublish('propose')}
+              size="sm"
+              variant="outline"
+            >
               {t.skills.publish.propose}
             </Button>
             <Button className="text-destructive hover:text-destructive" onClick={onArchive} size="sm" variant="outline">

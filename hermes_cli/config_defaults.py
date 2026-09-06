@@ -2147,17 +2147,14 @@ DEFAULT_CONFIG = {
         # from (tools/skills_hub.py::AgentXHubSource). The URL is public; the
         # optional token is a personal API token from the hub's Settings page
         # (or AGENTX_HUB_TOKEN in the environment) and is only needed to see
-        # private/org skills — the public catalog needs none.
+        # private/workspace skills (and your organisation's public ones) — the
+        # hub-wide catalog needs none.
         "hub_url": "https://skills.dev-server.cloud",
         "hub_token": "",
         # Phase 3: hold a live connection to the hub (SSE) so an Install
         # clicked on the web lands here within seconds; off means the
         # backend only polls when the desktop asks (tab Hub open, 15 s).
         "hub_realtime": True,
-        # Mirror the organisation's published core skills onto this machine
-        # automatically (plan Phase 3 item 3). Members can turn it off; a
-        # skill the hub yanks is switched off, never deleted.
-        "hub_org_auto_install": True,
         # Sources beyond the hub (the bundled optional skills, the AgentX
         # index, skills.sh, well-known, direct URLs, GitHub taps, ClawHub,
         # LobeHub, browse.sh). Off: the skill store connects to the hub above
