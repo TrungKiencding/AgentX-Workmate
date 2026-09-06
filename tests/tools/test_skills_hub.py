@@ -503,6 +503,19 @@ class TestCreateSourceRouter:
         ids = [src.source_id() for src in create_source_router(auth=MagicMock(spec=GitHubAuth))]
         assert "github" in ids
 
+    def test_a_callers_bearer_is_handed_to_the_hub_source(self, monkeypatch):
+        # A dashboard request's bearer is what lets the hub answer for the
+        # person's private and org skills; without one the source falls back
+        # to the machine's personal token, exactly as before.
+        from tools.skills_hub import AgentXHubSource
+
+        monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "0")
+        monkeypatch.setenv("AGENTX_HUB_TOKEN", "machine-token")
+        with_bearer = create_source_router(auth=MagicMock(spec=GitHubAuth), hub_token="tok-ada")
+        without = create_source_router(auth=MagicMock(spec=GitHubAuth))
+        assert isinstance(with_bearer[0], AgentXHubSource) and with_bearer[0]._token == "tok-ada"
+        assert without[0]._token == "machine-token"
+
     def test_url_source_runs_before_github_source(self, monkeypatch):
         # UrlSource must win over GitHubSource when both could claim a URL.
         monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "1")

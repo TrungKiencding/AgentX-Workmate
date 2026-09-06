@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
 import { queryClient } from '@/lib/query-client'
+import type * as Notifications from '@/store/notifications'
 
 const getSkills = vi.fn()
 const getToolsets = vi.fn()
@@ -31,8 +32,10 @@ vi.mock('@/hermes', async importOriginal => ({
   getUsageAnalytics: (days: number) => getUsageAnalytics(days)
 }))
 
-// Notifications hit nanostores/timers we don't care about here.
-vi.mock('@/store/notifications', () => ({
+// Toasts hit nanostores/timers we don't care about here; the pure
+// `readableError` stays real so an inline error reads like the toast would.
+vi.mock('@/store/notifications', async importOriginal => ({
+  ...(await importOriginal<typeof Notifications>()),
   notify: vi.fn(),
   notifyError: vi.fn()
 }))

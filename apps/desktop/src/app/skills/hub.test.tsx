@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
 import { queryClient } from '@/lib/query-client'
+import type * as Notifications from '@/store/notifications'
 import type { SkillHubCatalogResponse, SkillHubResult, SkillInfo } from '@/types/hermes'
 
 const getSkillHubCatalog = vi.fn()
@@ -15,6 +16,7 @@ const getSkills = vi.fn()
 const tickSkillHub = vi.fn()
 const searchSkillsHub = vi.fn()
 const installSkillFromHub = vi.fn()
+const previewSkillHub = vi.fn()
 const uninstallSkillFromHub = vi.fn()
 const setSkillEnabled = vi.fn()
 const getActionStatus = vi.fn()
@@ -27,13 +29,17 @@ vi.mock('@/hermes', async importOriginal => ({
   getSkillHubChanges: () => getSkillHubChanges(),
   getSkills: () => getSkills(),
   installSkillFromHub: (identifier: string) => installSkillFromHub(identifier),
+  previewSkillHub: (identifier: string) => previewSkillHub(identifier),
   searchSkillsHub: (query: string, source: string) => searchSkillsHub(query, source),
   setSkillEnabled: (name: string, enabled: boolean) => setSkillEnabled(name, enabled),
   tickSkillHub: () => tickSkillHub(),
   uninstallSkillFromHub: (name: string) => uninstallSkillFromHub(name)
 }))
 
-vi.mock('@/store/notifications', () => ({
+// Toasts hit nanostores/timers we don't care about here; the pure
+// `readableError` stays real so an inline error reads like the toast would.
+vi.mock('@/store/notifications', async importOriginal => ({
+  ...(await importOriginal<typeof Notifications>()),
   notify: vi.fn(),
   notifyError: vi.fn()
 }))
@@ -97,6 +103,19 @@ function catalog(overrides: Partial<SkillHubCatalogResponse> = {}): SkillHubCata
   }
 }
 
+// A resolved preview — the SKILL.md the hub hands back for the first skill.
+const PREVIEW = {
+  name: 'vneb-report',
+  description: 'Weekly report for VNEB.',
+  source: 'agentx-hub',
+  identifier: 'agentx-hub/vneb-report',
+  trust_level: 'agentx-hub-verified',
+  repo: null,
+  tags: [],
+  skill_md: '# Weekly VNEB report\n\nOpens the portal and files the report.',
+  files: ['SKILL.md']
+}
+
 // The catalogue's `installed` map for the first skill, as the backend writes it.
 const INSTALLED_REPORT = {
   'agentx-hub/vneb-report': { name: 'vneb-report', trust_level: 'agentx-hub-verified', scan_verdict: 'safe' }
@@ -145,6 +164,7 @@ beforeEach(() => {
   tickSkillHub.mockResolvedValue({ status: 'signed_out', detail: '' })
   searchSkillsHub.mockResolvedValue({ results: [], source_counts: {}, timed_out: [], installed: {} })
   installSkillFromHub.mockResolvedValue({ ok: true, pid: 1, name: 'skills-install-vneb-report' })
+  previewSkillHub.mockResolvedValue(PREVIEW)
   uninstallSkillFromHub.mockResolvedValue({ ok: true, pid: 2, name: 'skills-uninstall-vneb-report' })
   setSkillEnabled.mockResolvedValue({ ok: true, name: 'vneb-report', enabled: false })
   getActionStatus.mockResolvedValue({ name: 'skills-install-vneb-report', running: false, exit_code: 0, lines: [] })
@@ -239,6 +259,38 @@ describe('SkillsHub — the skill store', () => {
     })
 
     await waitFor(() => expect(uninstallSkillFromHub).toHaveBeenCalledWith('vneb-report'))
+  })
+
+  it('"Preview" shows the SKILL.md, and a refused preview says so instead of going blank', async () => {
+    // The bug: a private skill the catalogue listed answered 404 on preview,
+    // and the dialog showed a spinner that ended in an empty pane.
+    previewSkillHub.mockRejectedValue(
+      new Error(
+        'Error invoking remote method \'agentx:api\': Error: 404: {"detail":"Skill not found: agentx-hub/vneb-report"}'
+      )
+    )
+
+    await renderHub()
+    const card = (await screen.findAllByTestId('hub-card'))[0]
+
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: 'Preview' }))
+    })
+
+    // One retry, then the failure is a sentence with the hub's reason and a way back.
+    const banner = await screen.findByTestId('hub-preview-error', {}, { timeout: 4000 })
+    expect(banner.textContent).toContain('Skill preview failed')
+    expect(banner.textContent).toContain('Skill not found: agentx-hub/vneb-report')
+    expect(previewSkillHub).toHaveBeenCalledTimes(2)
+
+    previewSkillHub.mockResolvedValue(PREVIEW)
+
+    await act(async () => {
+      fireEvent.click(within(banner).getByRole('button', { name: 'Retry' }))
+    })
+
+    expect(await screen.findByText('Opens the portal and files the report.')).toBeTruthy()
+    expect(screen.queryByTestId('hub-preview-error')).toBeNull()
   })
 
   it('"Sync now" forces a fresh sync instead of the cache', async () => {

@@ -1381,6 +1381,7 @@ export const zhHant = defineLocale({
       actionFailed: '技能操作失敗',
       actionLog: '操作記錄',
       loadFailed: 'AgentX Hub 載入失敗',
+      previewFailed: '技能預覽失敗',
       scanFailed: '安全掃描失敗',
       fromHub: '來自 AgentX Hub',
       hubStatus: {

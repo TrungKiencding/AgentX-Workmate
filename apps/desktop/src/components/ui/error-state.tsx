@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 import { Codicon } from '@/components/ui/codicon'
 import { AlertTriangle } from '@/lib/icons'
@@ -14,13 +14,15 @@ export function ErrorIcon({ className, size = '1.75rem' }: { className?: string;
 // Inline error banner for detail panes (born in Messaging's platform error,
 // now shared with the MCP config pane): warn glyph + tinted rounded box.
 // For centered full-surface failures use ErrorState below instead.
-export function ErrorBanner({ children, className }: { children: ReactNode; className?: string }) {
+export function ErrorBanner({ children, className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       className={cn(
         'flex items-start gap-2 rounded-(--radius-card) border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive',
         className
       )}
+      role="alert"
+      {...props}
     >
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
       <span className="min-w-0 whitespace-pre-wrap break-words">{children}</span>

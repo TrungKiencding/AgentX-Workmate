@@ -1597,6 +1597,7 @@ export const vi: Translations = {
       actionFailed: 'Thao tác với kỹ năng thất bại',
       actionLog: 'Nhật ký thao tác',
       loadFailed: 'Tải kho kỹ năng thất bại',
+      previewFailed: 'Xem trước kỹ năng thất bại',
       scanFailed: 'Quét bảo mật thất bại',
       fromHub: 'Từ AgentX Hub',
       hubStatus: {

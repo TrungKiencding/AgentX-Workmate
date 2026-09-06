@@ -4821,7 +4821,9 @@ def extra_skill_sources_enabled() -> bool:
         return False
 
 
-def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]:
+def create_source_router(
+    auth: Optional[GitHubAuth] = None, *, hub_token: Optional[str] = None
+) -> List[SkillSource]:
     """
     Create the configured source adapters, in resolution order.
 
@@ -4829,9 +4831,15 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
     :func:`extra_skill_sources_enabled`); the legacy fan-out is appended after
     it when the machine has opted back in, so ``agentx-hub/*`` still resolves
     at the hub either way.
+
+    ``hub_token`` is the bearer the hub source sends: the person's own when a
+    dashboard request carried one (their private and org skills resolve only
+    with it), else ``None`` to fall back to the machine's personal token
+    (``agentx_hub_token()``) — the same rule the catalog and the installer
+    follow, so a skill a card can show is a skill preview and scan can read.
     """
     sources: List[SkillSource] = [
-        AgentXHubSource(),            # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
+        AgentXHubSource(token=hub_token),  # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
     ]
 
     if not extra_skill_sources_enabled():

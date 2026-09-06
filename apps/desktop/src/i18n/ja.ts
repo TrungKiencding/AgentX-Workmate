@@ -1435,6 +1435,7 @@ export const ja = defineLocale({
       actionFailed: 'スキルの操作に失敗しました',
       actionLog: '操作ログ',
       loadFailed: 'AgentX Hub の読み込みに失敗しました',
+      previewFailed: 'スキルのプレビューに失敗しました',
       scanFailed: 'セキュリティスキャンに失敗しました',
       fromHub: 'AgentX Hub から',
       hubStatus: {

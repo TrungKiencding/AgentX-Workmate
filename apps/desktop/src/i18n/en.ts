@@ -1333,6 +1333,7 @@ export const en: Translations = {
       actionFailed: 'Skill action failed',
       actionLog: 'Action log',
       loadFailed: 'Skill hub failed to load',
+      previewFailed: 'Skill preview failed',
       scanFailed: 'Security scan failed',
       fromHub: 'From AgentX Hub',
       hubStatus: {

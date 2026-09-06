@@ -329,6 +329,59 @@ class TestInstallCredentials:
         assert spawned[0]["env"] is None
 
 
+class TestPreviewAndScanCredentials:
+    """Reading a private skill before installing it needs the same bearer the
+    catalog listed it with — a card the store can show must preview and scan
+    instead of answering "Skill not found"."""
+
+    @pytest.fixture
+    def router_tokens(self, monkeypatch):
+        import hermes_cli.web_server as web_server
+
+        seen: list = []
+
+        def _router(auth=None, *, hub_token=None):
+            seen.append(hub_token)
+            return []
+
+        monkeypatch.setattr("tools.skills_hub.create_source_router", _router)
+        monkeypatch.setattr(web_server, "_config_profile_scope", lambda profile: contextlib.nullcontext())
+        return seen
+
+    def test_preview_resolves_with_the_callers_bearer(self, router_tokens, monkeypatch):
+        from tools.skills_hub import SkillBundle
+
+        bundle = SkillBundle(name="notes", files={"SKILL.md": "# notes"}, source="agentx-hub",
+                             identifier="agentx-hub/kien/notes", trust_level="agentx-hub-verified")
+        monkeypatch.setattr("hermes_cli.skills_hub._resolve_source_meta_and_bundle", lambda ident, sources: (None, bundle, None))
+        client = TestClient(_app(_session("tok-ada")))
+
+        response = client.get("/api/skills/hub/preview", params={"identifier": "agentx-hub/kien/notes"}, headers=HEADERS)
+
+        assert response.status_code == 200
+        assert response.json()["skill_md"] == "# notes"
+        assert router_tokens == ["tok-ada"]
+
+    def test_scan_resolves_with_the_callers_bearer(self, router_tokens, monkeypatch):
+        monkeypatch.setattr("hermes_cli.skills_hub._resolve_source_meta_and_bundle", lambda ident, sources: (None, None, None))
+        client = TestClient(_app(_session("tok-ada")))
+
+        response = client.get("/api/skills/hub/scan", params={"identifier": "agentx-hub/kien/notes"}, headers=HEADERS)
+
+        assert response.status_code == 404
+        assert router_tokens == ["tok-ada"]
+
+    def test_without_a_session_the_hub_source_keeps_its_own_token(self, router_tokens, monkeypatch):
+        monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: None)
+        monkeypatch.setattr("hermes_cli.skills_hub._resolve_source_meta_and_bundle", lambda ident, sources: (None, None, None))
+        client = TestClient(_app(None))
+
+        client.get("/api/skills/hub/preview", params={"identifier": "agentx-hub/demo"})
+
+        # `None` means "no request bearer": the source falls back to agentx_hub_token().
+        assert router_tokens == [None]
+
+
 def _meta(identifier: str, meta_cls, *, visibility: str = "public"):
     """A hub SkillMeta the way ``AgentXHubSource`` builds one."""
     return meta_cls(

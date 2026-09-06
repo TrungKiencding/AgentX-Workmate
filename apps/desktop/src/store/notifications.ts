@@ -142,7 +142,10 @@ function summarizeErrorMessage(message: string, fallback: string) {
   return message.length > 180 ? fallback : message || fallback
 }
 
-function readableError(error: unknown, fallback: string): { message: string; detail?: string } {
+/** An error as a person can read it: the IPC wrapper stripped, the API's
+ *  `detail` pulled out of its JSON, and a summary for the well-known cases.
+ *  `notifyError` toasts this; an inline error surface renders the same pair. */
+export function readableError(error: unknown, fallback: string): { message: string; detail?: string } {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
   const unwrapped = raw.match(/Error invoking remote method '[^']+': Error: (.+)$/)?.[1] ?? raw
   const cleaned = cleanErrorText(unwrapped)

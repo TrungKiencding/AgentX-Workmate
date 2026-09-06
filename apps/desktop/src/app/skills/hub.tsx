@@ -18,6 +18,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ErrorBanner } from '@/components/ui/error-state'
 import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
 import {
   StoreCard,
@@ -56,11 +57,11 @@ import {
   UPDATE_ALL_KEY,
   updateHubSkills
 } from '@/store/hub-actions'
-import { notify, notifyError } from '@/store/notifications'
+import { notify, notifyError, readableError } from '@/store/notifications'
 import type { SkillInfo } from '@/types/hermes'
 
 import { HUB_CHANGES_KEY, HubStatus } from './hub-status'
-import { skillsQueryOptions, toggleSkillEnabled } from './skills-data'
+import { skillMarkdownBody, skillsQueryOptions, toggleSkillEnabled } from './skills-data'
 import { useTrySkill } from './use-try-skill'
 
 // The only source the store reads. The backend defaults to the same one, so
@@ -364,10 +365,14 @@ export function SkillsHub({ query }: SkillsHubProps) {
   const [scan, setScan] = useState<null | SkillHubScanResult>(null)
   const [scanning, setScanning] = useState(false)
 
+  // One quick retry, then the dialog says what went wrong: a skill the hub
+  // refuses to hand over (404 / 403) will not turn up on the third attempt,
+  // and a spinner that ends in a blank pane is the worst of both.
   const previewQuery = useQuery({
     queryKey: ['skill-hub-preview', detail?.identifier],
     queryFn: () => previewSkillHub(detail!.identifier),
     enabled: detail !== null,
+    retry: 1,
     staleTime: 5 * 60_000
   })
 
@@ -638,11 +643,29 @@ export function SkillsHub({ query }: SkillsHubProps) {
 
                 {previewQuery.isLoading ? (
                   <PageLoader className="min-h-32" label={h.searching} />
+                ) : previewQuery.isError ? (
+                  <ErrorBanner data-testid="hub-preview-error">
+                    <span className="flex flex-col gap-1.5">
+                      <span className="font-medium">{h.previewFailed}</span>
+                      <span className="text-foreground/80">
+                        {readableError(previewQuery.error, h.previewFailed).message}
+                      </span>
+                      <Button
+                        className="self-start"
+                        disabled={previewQuery.isFetching}
+                        onClick={() => void previewQuery.refetch()}
+                        size="sm"
+                        variant="text"
+                      >
+                        {t.common.retry}
+                      </Button>
+                    </span>
+                  </ErrorBanner>
                 ) : previewQuery.data ? (
                   <>
-                    {previewQuery.data.skill_md ? (
+                    {skillMarkdownBody(previewQuery.data.skill_md) ? (
                       <div className="max-h-72 overflow-auto rounded-(--radius-card) bg-(--ui-bg-quinary) p-3">
-                        <CompactMarkdown className="text-sm" text={previewQuery.data.skill_md} />
+                        <CompactMarkdown className="text-sm" text={skillMarkdownBody(previewQuery.data.skill_md)} />
                       </div>
                     ) : (
                       <p className="text-sm text-(--ui-text-tertiary)">{h.noReadme}</p>

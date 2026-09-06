@@ -1102,6 +1102,7 @@ export interface Translations {
       actionFailed: string
       actionLog: string
       loadFailed: string
+      previewFailed: string
       scanFailed: string
       fromHub: string
       hubStatus: Record<'connected' | 'reconnecting' | 'waiting' | 'off', string>

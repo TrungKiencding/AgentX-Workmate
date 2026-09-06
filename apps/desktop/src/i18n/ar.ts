@@ -1333,6 +1333,7 @@ export const ar = defineLocale({
       actionFailed: 'فشل الإجراء على المهارة',
       actionLog: 'سجل الإجراءات',
       loadFailed: 'تعذّر تحميل AgentX Hub',
+      previewFailed: 'فشلت معاينة المهارة',
       scanFailed: 'فشل الفحص الأمني',
       fromHub: 'من AgentX Hub',
       hubStatus: {

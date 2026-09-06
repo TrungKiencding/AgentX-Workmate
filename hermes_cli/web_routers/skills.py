@@ -67,8 +67,7 @@ async def install_skill_hub(request: Request, body: SkillInstallRequest, profile
     # (and every other source) need nothing, so nothing is passed.
     extra_env = {}
     if identifier.startswith("agentx-hub/"):
-        credentials = _hub_credentials_from(request)
-        bearer = getattr(credentials, "bearer", "") if credentials is not None else ""
+        bearer = _hub_bearer_from(request)
         if bearer:
             extra_env["AGENTX_HUB_TOKEN"] = bearer
     try:
@@ -205,8 +204,7 @@ async def skills_hub_catalog(request: Request, refresh: bool = False, profile: O
     Sync button. Nothing here installs anything — a card stays metadata until
     someone presses Install.
     """
-    credentials = _hub_credentials_from(request)
-    bearer = getattr(credentials, "bearer", "") if credentials is not None else ""
+    bearer = _hub_bearer_from(request)
 
     def _run(token: Optional[str]):
         from tools.skills_hub import agentx_hub_catalog
@@ -290,7 +288,7 @@ async def search_skills_hub(
 
 
 @hub_router.get("/api/skills/hub/preview")
-async def preview_skill_hub(identifier: str = "", profile: Optional[str] = None):
+async def preview_skill_hub(request: Request, identifier: str = "", profile: Optional[str] = None):
     """Fetch a hub skill's SKILL.md content + metadata for in-dashboard reading.
 
     Resolves the identifier across configured sources (same path the CLI
@@ -299,18 +297,22 @@ async def preview_skill_hub(identifier: str = "", profile: Optional[str] = None)
     before installing' affordance the Browse-hub tab was missing.
 
     Scoped to ``profile`` so a non-default profile with different hub taps
-    resolves against ITS source router, not the default profile's.
+    resolves against ITS source router, not the default profile's. The
+    caller's bearer travels to the hub source the way it does for the catalog
+    and the installer: a private or org skill the catalog listed for this
+    person would otherwise answer 404 here.
     """
     ident = (identifier or "").strip()
     if not ident:
         raise HTTPException(status_code=400, detail="identifier is required")
+    bearer = _hub_bearer_from(request)
 
     def _run():
         from hermes_cli.skills_hub import _resolve_source_meta_and_bundle
         from tools.skills_hub import create_source_router
 
         with _config_profile_scope(profile):
-            sources = create_source_router()
+            sources = create_source_router(hub_token=bearer or None)
             meta, bundle, _src = _resolve_source_meta_and_bundle(ident, sources)
         if not bundle and not meta:
             return None
@@ -355,7 +357,7 @@ async def preview_skill_hub(identifier: str = "", profile: Optional[str] = None)
 
 
 @hub_router.get("/api/skills/hub/scan")
-async def scan_skill_hub(identifier: str = "", profile: Optional[str] = None):
+async def scan_skill_hub(request: Request, identifier: str = "", profile: Optional[str] = None):
     """Run the install-time security scan on a hub skill WITHOUT installing it.
 
     Fetches the bundle, quarantines it, and runs the same `scan_skill` /
@@ -365,11 +367,13 @@ async def scan_skill_hub(identifier: str = "", profile: Optional[str] = None):
     on demand (the 'scan' button the Browse-hub tab was missing).
 
     Scoped to ``profile`` so the bundle resolves against that profile's hub
-    source router, matching where an install would pull it from.
+    source router, matching where an install would pull it from — with the
+    caller's bearer, so a private skill scans as readily as it installs.
     """
     ident = (identifier or "").strip()
     if not ident:
         raise HTTPException(status_code=400, detail="identifier is required")
+    bearer = _hub_bearer_from(request)
 
     def _run():
         import shutil as _shutil
@@ -379,7 +383,7 @@ async def scan_skill_hub(identifier: str = "", profile: Optional[str] = None):
         from tools.skills_guard import scan_skill, should_allow_install
 
         with _config_profile_scope(profile):
-            sources = create_source_router()
+            sources = create_source_router(hub_token=bearer or None)
             meta, bundle, _src = _resolve_source_meta_and_bundle(ident, sources)
         if not bundle:
             return None
@@ -517,6 +521,13 @@ def _hub_credentials_from(request) -> "Optional[object]":
             expires_at = 0.0
         return HubCredentials(bearer=session.access_token, device_id=device_id, device_name=device_name, expires_at=expires_at, source="session")
     return resolve_credentials()
+
+
+def _hub_bearer_from(request) -> str:
+    """The bearer a hub call should carry for this request, or ``""``: the
+    request's own session first, then the engine's stored credentials."""
+    credentials = _hub_credentials_from(request)
+    return str(getattr(credentials, "bearer", "") or "") if credentials is not None else ""
 
 
 def _hub_error_body(exc) -> dict:

@@ -98,3 +98,11 @@ export function toolsetCopy(toolset: ToolsetInfo, t: Translations): { descriptio
 /** Calls over the analytics window, summed across the toolset's functions. */
 export const toolsetCalls = (toolset: ToolsetInfo, toolCalls: Record<string, number>): number =>
   toolNames(toolset).reduce((sum, name) => sum + (toolCalls[name] ?? 0), 0)
+
+// A SKILL.md opens with a YAML frontmatter block (name, description, version,
+// kind, visibility…). The preview dialog already says all of that in its
+// title, tags and description, so the reading pane starts at the prose;
+// rendered as markdown the block would come out as one run-on paragraph.
+const FRONTMATTER_RE = /^\uFEFF?---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/
+
+export const skillMarkdownBody = (skillMd: string): string => skillMd.replace(FRONTMATTER_RE, '').trim()

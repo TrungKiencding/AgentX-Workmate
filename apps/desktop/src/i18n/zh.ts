@@ -1511,6 +1511,7 @@ export const zh: Translations = {
       actionFailed: '技能操作失败',
       actionLog: '操作日志',
       loadFailed: '技能中心加载失败',
+      previewFailed: '技能预览失败',
       scanFailed: '安全扫描失败',
       fromHub: '来自 AgentX Hub',
       hubStatus: {
