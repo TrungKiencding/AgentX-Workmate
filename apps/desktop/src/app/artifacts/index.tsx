@@ -1,11 +1,18 @@
 import type * as React from 'react'
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { ZoomableImage } from '@/components/chat/zoomable-image'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import { CopyButton } from '@/components/ui/copy-button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FileTypeIcon } from '@/components/ui/file-type-icon'
 import {
   Pagination,
   PaginationButton,
@@ -22,16 +29,15 @@ import { type Translations, useI18n } from '@/i18n'
 import { resolveBrandIcon } from '@/lib/brand-icon'
 import {
   ExternalLink,
-  ExternalLinkIcon,
   hostPathLabel,
   shortHostLabel,
   urlSlugTitleLabel,
   useLinkTitle
 } from '@/lib/external-link'
-import { FileImage, FileText, FolderOpen, Link2, Loader2, RefreshCw } from '@/lib/icons'
+import { Link2, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
 import { downloadGatewayMediaFile, isRemoteGateway } from '@/lib/media'
 import { normalize } from '@/lib/text'
-import { fmtDayTime } from '@/lib/time'
+import { type DayGroup, dayGroup, fmtClock, fmtDayTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
 
@@ -39,6 +45,7 @@ import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
 import { openSession } from '../open-session'
 import { PageSearchShell } from '../page-search-shell'
+import { NEW_CHAT_ROUTE } from '../routes'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import {
@@ -49,9 +56,16 @@ import {
   collectArtifactsForSession
 } from './artifact-utils'
 
-function formatArtifactTime(timestamp: number): string {
-  return fmtDayTime.format(new Date(timestamp))
+// A row inside a day group shows the clock alone; the group header carries the
+// date, so repeating "6 Sep" on every line would be noise.
+function rowTime(timestamp: number, group: DayGroup): string {
+  return group.kind === 'today' || group.kind === 'yesterday'
+    ? fmtClock.format(new Date(timestamp))
+    : fmtDayTime.format(new Date(timestamp))
 }
+
+// App-locale month formatting for group headers (the OS locale may differ).
+const BCP47: Record<string, string> = { 'zh-hant': 'zh-Hant' }
 
 function pageRangeLabel(total: number, page: number, pageSize: number, a: Translations['artifacts']): string {
   if (total === 0) {
@@ -95,14 +109,6 @@ type CellCtx = {
   onOpenChat: (sessionId: string) => void
 }
 
-interface ArtifactColumn {
-  Cell: React.ComponentType<{ artifact: ArtifactRecord; ctx: CellCtx }>
-  bodyClassName: string
-  header: (filter: ArtifactFilter, a: Translations['artifacts']) => string
-  id: 'location' | 'primary' | 'session'
-  width: (filter: ArtifactFilter) => string
-}
-
 const itemsLabel = (f: ArtifactFilter, a: Translations['artifacts']) =>
   f === 'link' ? a.itemsLink : f === 'file' ? a.itemsFile : a.itemsGeneric
 
@@ -111,7 +117,7 @@ interface ArtifactsViewProps extends React.ComponentProps<'section'> {
 }
 
 export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...props }: ArtifactsViewProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const a = t.artifacts
   const navigate = useNavigate()
   const [artifacts, setArtifacts] = useState<ArtifactRecord[] | null>(null)
@@ -211,6 +217,48 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     [currentFilePage, visibleFileArtifacts]
   )
 
+  // Drive-style recency shelves: rows stay in newest-first order; a header is
+  // emitted whenever the day group changes. Month headers format in the APP
+  // locale (the shared Intl instances follow the OS locale instead).
+  const fileGroups = useMemo(() => {
+    const month = new Intl.DateTimeFormat(BCP47[locale] ?? locale, { month: 'long' })
+    const monthYear = new Intl.DateTimeFormat(BCP47[locale] ?? locale, { month: 'long', year: 'numeric' })
+
+    const label = (group: DayGroup) => {
+      switch (group.kind) {
+        case 'today':
+          return a.groupToday
+
+        case 'yesterday':
+          return a.groupYesterday
+
+        case 'last7days':
+          return a.groupLast7Days
+
+        case 'month':
+          return month.format(group.at)
+
+        case 'monthYear':
+          return monthYear.format(group.at)
+      }
+    }
+
+    const groups: { group: DayGroup; label: string; rows: ArtifactRecord[] }[] = []
+
+    for (const artifact of pagedFileArtifacts) {
+      const group = dayGroup(artifact.timestamp)
+      const last = groups[groups.length - 1]
+
+      if (last && last.group.key === group.key) {
+        last.rows.push(artifact)
+      } else {
+        groups.push({ group, label: label(group), rows: [artifact] })
+      }
+    }
+
+    return groups
+  }, [a, locale, pagedFileArtifacts])
+
   // Rotating placeholder nudges from real data — search matches file paths and
   // session titles, not just labels; show it.
   const searchHints = useMemo(() => {
@@ -285,10 +333,15 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   const openChat = useCallback((sessionId: string) => openSession(sessionId, navigate), [navigate])
   const cellCtx: CellCtx = useMemo(() => ({ onOpen: openArtifact, onOpenChat: openChat }), [openArtifact, openChat])
 
+  // The tab row only exists once there is something to filter — four zeros in
+  // a row is not information.
+  const hasAny = (artifacts?.length ?? 0) > 0
+
   return (
     <PageSearchShell
       {...props}
       activeTab={kindFilter}
+      description={a.pageDescription}
       onSearchChange={setQuery}
       onTabChange={id => setKindFilter(id as typeof kindFilter)}
       searchHidden={counts.all === 0}
@@ -309,25 +362,49 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         </Tip>
       }
       searchValue={query}
-      tabs={[
-        { id: 'all', label: a.tabAll, meta: artifacts ? counts.all : null },
-        { id: 'image', label: a.tabImages, meta: artifacts ? counts.image : null },
-        { id: 'file', label: a.tabFiles, meta: artifacts ? counts.file : null },
-        { id: 'link', label: a.tabLinks, meta: artifacts ? counts.link : null }
-      ]}
+      tabs={
+        hasAny
+          ? [
+              { id: 'all', label: a.tabAll, meta: counts.all },
+              { id: 'image', label: a.tabImages, meta: counts.image },
+              { id: 'file', label: a.tabFiles, meta: counts.file },
+              { id: 'link', label: a.tabLinks, meta: counts.link }
+            ]
+          : undefined
+      }
+      title={a.pageTitle}
     >
       {!artifacts ? (
         <PageLoader label={a.indexing} />
+      ) : counts.all === 0 ? (
+        <EmptyState
+          action={<Button onClick={() => navigate(NEW_CHAT_ROUTE)}>{a.emptyAction}</Button>}
+          className="h-full"
+          description={a.emptyDesc}
+          figure="box"
+          title={a.emptyTitle}
+        />
       ) : visibleArtifacts.length === 0 ? (
-        <div className="grid h-full place-items-center px-6 text-center">
-          <div>
-            <div className="text-sm font-medium">{a.noArtifactsTitle}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{a.noArtifactsDesc}</div>
-          </div>
-        </div>
+        <EmptyState
+          action={
+            query.trim() ? (
+              <Button onClick={() => setQuery('')} size="sm" variant="secondary">
+                {a.clearSearch}
+              </Button>
+            ) : (
+              <Button onClick={() => setKindFilter('all')} size="sm" variant="secondary">
+                {a.showAll}
+              </Button>
+            )
+          }
+          className="h-full"
+          description={a.noResultsDesc}
+          figure="box"
+          title={a.noResultsTitle}
+        />
       ) : (
         <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
-          <div className="flex flex-col gap-3 px-3 pb-2">
+          <div className="flex flex-col gap-3 px-3 pb-3">
             {visibleImageArtifacts.length > 0 && (
               <section className="flex flex-col">
                 <div className="sticky top-0 z-10 -mx-3 flex h-7 items-center gap-3 overflow-x-auto bg-background px-3">
@@ -340,14 +417,14 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                     total={visibleImageArtifacts.length}
                   />
                 </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] items-start gap-2 pt-1.5">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] items-start gap-3 pt-1.5">
                   {pagedImageArtifacts.map(artifact => (
                     <ArtifactImageCard
                       artifact={artifact}
+                      ctx={cellCtx}
                       failedImage={failedImageIds.has(artifact.id)}
                       key={artifact.id}
                       onImageError={markImageFailed}
-                      onOpenChat={sessionId => openSession(sessionId, navigate)}
                     />
                   ))}
                 </div>
@@ -366,9 +443,16 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                     total={visibleFileArtifacts.length}
                   />
                 </div>
-                <div className="overflow-x-auto rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background)">
-                  <ArtifactTable artifacts={pagedFileArtifacts} ctx={cellCtx} filter={kindFilter} />
-                </div>
+                {fileGroups.map(({ group, label, rows }) => (
+                  <Fragment key={group.key}>
+                    <div className="px-2 pb-1 pt-3 text-xs font-semibold text-(--ui-text-tertiary) first:pt-1.5">
+                      {label}
+                    </div>
+                    {rows.map(artifact => (
+                      <ArtifactListRow artifact={artifact} ctx={cellCtx} group={group} key={artifact.id} />
+                    ))}
+                  </Fragment>
+                ))}
               </section>
             )}
           </div>
@@ -394,7 +478,7 @@ function ArtifactsPagination({ className, itemLabel, onPageChange, page, pageSiz
 
   return (
     <div className={cn('flex h-6 items-center justify-between gap-2 px-1', className)}>
-      <div className="shrink-0 text-2xs text-muted-foreground">
+      <div className="shrink-0 text-xs tabular-nums text-muted-foreground">
         {pageRangeLabel(total, page, pageSize, a)} {itemLabel}
       </div>
       {pageCount > 1 && (
@@ -433,15 +517,14 @@ function ArtifactsPagination({ className, itemLabel, onPageChange, page, pageSiz
 
 interface ArtifactImageCardProps {
   artifact: ArtifactRecord
+  ctx: CellCtx
   failedImage: boolean
   onImageError: (id: string) => void
-  onOpenChat: (sessionId: string) => void
 }
 
-function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: ArtifactImageCardProps) {
+function ArtifactImageCard({ artifact, ctx, failedImage, onImageError }: ArtifactImageCardProps) {
   const { t } = useI18n()
   const a = t.artifacts
-  const kindLabel = artifact.kind === 'image' ? a.kindImage : artifact.kind === 'file' ? a.kindFile : a.kindLink
   const [src, setSrc] = useState('')
 
   useEffect(() => {
@@ -467,17 +550,12 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
 
   return (
     <article className="group/artifact overflow-hidden rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-chat-bubble-background)">
-      <div
-        className={cn(
-          'relative flex h-40 w-full items-center justify-center overflow-hidden border-b border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-1.5',
-          failedImage && 'cursor-default'
-        )}
-      >
+      <div className={cn('relative h-40 w-full overflow-hidden bg-(--ui-bg-quinary)', failedImage && 'cursor-default')}>
         {!failedImage && src && (
           <ZoomableImage
             alt={artifact.label}
-            className="max-h-40 max-w-full cursor-zoom-in rounded-md object-contain"
-            containerClassName="max-h-full"
+            className="h-40 w-full cursor-zoom-in object-cover"
+            containerClassName="h-full w-full"
             decoding="async"
             loading="lazy"
             onError={() => onImageError(artifact.id)}
@@ -487,26 +565,17 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
         )}
       </div>
 
-      <div className="space-y-1.5 p-2">
-        <div className="min-w-0">
-          <div className="mb-0.5 flex items-center gap-1 text-2xs uppercase tracking-[0.08em] text-(--ui-text-tertiary)">
-            <FileImage className="size-3" />
-            {kindLabel}
-          </div>
-          <div className="truncate text-[length:var(--conversation-caption-font-size)] font-medium">
-            {artifact.label}
-          </div>
-          <div className="mt-0.5 truncate text-2xs text-(--ui-text-tertiary)">{artifact.value}</div>
+      <div className="space-y-1 p-2.5">
+        <div className="truncate text-base font-medium text-foreground">{artifact.label}</div>
+        <div className="truncate text-xs text-(--ui-text-tertiary)">
+          «{artifact.sessionTitle}» · {fmtDayTime.format(new Date(artifact.timestamp))}
         </div>
-
-        <div className="truncate text-2xs text-(--ui-text-tertiary)">
-          {artifact.sessionTitle} · {formatArtifactTime(artifact.timestamp)}
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          <Button onClick={() => onOpenChat(artifact.sessionId)} size="xs" type="button" variant="textStrong">
-            <FolderOpen className="size-3" />
-            {a.chat}
+        <div className="flex flex-wrap gap-1.5 pt-1 opacity-0 transition-opacity duration-(--dur-short) focus-within:opacity-100 group-hover/artifact:opacity-100">
+          <Button onClick={() => void ctx.onOpen(artifact.href)} size="sm" variant="secondary">
+            {a.open}
+          </Button>
+          <Button onClick={() => ctx.onOpenChat(artifact.sessionId)} size="sm" variant="text">
+            {a.viewChat}
           </Button>
         </div>
       </div>
@@ -514,174 +583,104 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
   )
 }
 
-// Single click target for any row cell. External URLs render as <ExternalLink>;
-// local actions render as <button>. Padding lives here, NOT on the <td>, so
-// the entire cell area is hoverable and clickable in both branches.
-function ArtifactCellAction({
-  children,
-  href,
-  onClick,
-  title
+// One library row: type icon · name over its place · which chat made it, when,
+// and the quiet actions. Memoized because link rows fetch their titles
+// asynchronously and must not re-render the whole page as results land.
+const ArtifactListRow = memo(function ArtifactListRow({
+  artifact,
+  ctx,
+  group
 }: {
-  children: React.ReactNode
-  href?: string
-  onClick?: () => void
-  title?: string
+  artifact: ArtifactRecord
+  ctx: CellCtx
+  group: DayGroup
 }) {
-  if (href) {
-    return (
-      <ExternalLink
-        className="flex h-full w-full min-w-0 items-center gap-2 px-2.5 py-1.5 text-left text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) font-normal text-(--ui-text-secondary) no-underline underline-offset-4 decoration-current/20 transition-colors hover:text-foreground hover:underline"
-        href={href}
-        showExternalIcon={false}
-        title={title}
-      >
-        {children}
-      </ExternalLink>
-    )
-  }
-
-  return (
-    <RowButton
-      className="flex h-full w-full min-w-0 items-center gap-2 px-2.5 py-1.5 text-left text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) font-normal text-(--ui-text-secondary) no-underline underline-offset-4 decoration-current/20 transition-colors hover:text-foreground hover:underline"
-      onClick={onClick}
-    >
-      {children}
-    </RowButton>
-  )
-}
-
-const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: ArtifactRecord; ctx: CellCtx }) {
+  const { t } = useI18n()
+  const a = t.artifacts
   const isLink = artifact.kind === 'link'
-  const brand = isLink ? resolveBrandIcon(shortHostLabel(artifact.href)) : null
-  const Icon = brand ?? (isLink ? Link2 : FileText)
+  const Brand = isLink ? resolveBrandIcon(shortHostLabel(artifact.href)) : null
   const fetchedTitle = useLinkTitle(isLink ? artifact.href : null)
   const label = isLink ? fetchedTitle || urlSlugTitleLabel(artifact.href) : artifact.label
+  const place = isLink ? hostPathLabel(artifact.value) : artifact.value
+  const copyLabel = isLink ? a.copyUrl : a.copyPath
 
-  return (
-    <ArtifactCellAction
-      href={isLink ? artifact.href : undefined}
-      onClick={isLink ? undefined : () => void ctx.onOpen(artifact.href)}
-      title={label}
-    >
-      <span className="mt-0.5 grid size-6 shrink-0 place-items-center self-start rounded-md bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
-        <Icon className="size-3.5" />
+  const copyValue = () => {
+    if (window.agentxDesktop?.writeClipboard) {
+      void window.agentxDesktop.writeClipboard(artifact.value)
+    } else {
+      void navigator.clipboard?.writeText(artifact.value)
+    }
+  }
+
+  const body = (
+    <>
+      <span className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
+        {isLink ? (
+          Brand ? (
+            <Brand className="size-3.5" />
+          ) : (
+            <Link2 className="size-3.5" />
+          )
+        ) : (
+          <FileTypeIcon path={artifact.value} size="0.875rem" />
+        )}
       </span>
-      <span className={cn('min-w-0 flex-1', isLink ? 'wrap-anywhere' : 'truncate')}>
-        {label}
-        {isLink && <ExternalLinkIcon />}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base font-medium text-foreground/90">{label}</span>
+        <Tip label={artifact.value}>
+          <span className={cn('block truncate text-xs text-(--ui-text-tertiary)', !isLink && 'font-mono')}>
+            {place}
+          </span>
+        </Tip>
       </span>
-    </ArtifactCellAction>
+    </>
   )
-})
-
-const LocationCell = memo(function LocationCell({ artifact }: { artifact: ArtifactRecord; ctx: CellCtx }) {
-  const { t } = useI18n()
-  const isLink = artifact.kind === 'link'
-  const value = isLink ? hostPathLabel(artifact.value) : artifact.value
-  const copyLabel = isLink ? t.artifacts.copyUrl : t.artifacts.copyPath
 
   return (
-    <div className="group/location flex min-w-0 items-center gap-1.5">
-      <Tip label={artifact.value}>
-        <div
-          className={cn(
-            'min-w-0 flex-1 truncate text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)',
-            isLink ? 'font-normal' : 'font-mono'
-          )}
+    <div className="group/row row-hover flex h-(--artifact-row-height) w-full items-center gap-3 rounded-(--radius-control) px-2 text-(--ui-text-secondary) hover:text-foreground">
+      {isLink ? (
+        <ExternalLink
+          className="flex h-full min-w-0 flex-1 items-center gap-3 text-left no-underline"
+          href={artifact.href}
+          showExternalIcon={false}
+          title={label}
         >
-          {value}
-        </div>
-      </Tip>
-      <CopyButton
-        appearance="icon"
-        buttonSize="icon-xs"
-        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/location:opacity-100"
-        iconClassName="size-3.5"
-        label={copyLabel}
-        text={artifact.value}
-        title={copyLabel}
-      />
+          {body}
+        </ExternalLink>
+      ) : (
+        <RowButton
+          className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+          onClick={() => void ctx.onOpen(artifact.href)}
+        >
+          {body}
+        </RowButton>
+      )}
+      <span className="flex shrink-0 items-center gap-2">
+        <button
+          className="max-w-40 cursor-pointer truncate text-xs text-(--ui-text-tertiary) hover:text-foreground hover:underline"
+          onClick={() => ctx.onOpenChat(artifact.sessionId)}
+          type="button"
+        >
+          {artifact.sessionTitle}
+        </button>
+        <span className="text-xs tabular-nums text-(--ui-text-tertiary)">{rowTime(artifact.timestamp, group)}</span>
+        <span className="flex items-center gap-1 opacity-0 transition-opacity duration-(--dur-short) focus-within:opacity-100 group-hover/row:opacity-100">
+          <Button onClick={() => void ctx.onOpen(artifact.href)} size="sm" variant="secondary">
+            {a.open}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button aria-label={a.rowActions} size="icon-sm" variant="ghost">
+                <MoreVertical />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={4}>
+              <DropdownMenuItem onSelect={copyValue}>{copyLabel}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => ctx.onOpenChat(artifact.sessionId)}>{a.viewChat}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      </span>
     </div>
   )
 })
-
-const SessionCell = memo(function SessionCell({ artifact, ctx }: { artifact: ArtifactRecord; ctx: CellCtx }) {
-  return (
-    <ArtifactCellAction onClick={() => ctx.onOpenChat(artifact.sessionId)} title={artifact.sessionTitle}>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate">{artifact.sessionTitle}</span>
-        <span className="truncate text-2xs font-normal text-(--ui-text-tertiary)">
-          {formatArtifactTime(artifact.timestamp)}
-        </span>
-      </span>
-    </ArtifactCellAction>
-  )
-})
-
-const ARTIFACT_COLUMNS: readonly ArtifactColumn[] = [
-  {
-    Cell: PrimaryCell,
-    bodyClassName: 'p-0',
-    header: (filter, a) =>
-      filter === 'link' ? a.colTitleLink : filter === 'file' ? a.colTitleFile : a.colTitleDefault,
-    id: 'primary',
-    width: filter => (filter === 'link' ? 'w-[50%]' : 'w-[35%]')
-  },
-  {
-    Cell: LocationCell,
-    bodyClassName: 'px-2.5 py-1.5',
-    header: (filter, a) =>
-      filter === 'link' ? a.colLocationLink : filter === 'file' ? a.colLocationFile : a.colLocationDefault,
-    id: 'location',
-    width: filter => (filter === 'link' ? 'w-[30%]' : 'w-[41%]')
-  },
-  {
-    Cell: SessionCell,
-    bodyClassName: 'p-0',
-    header: (_filter, a) => a.colSession,
-    id: 'session',
-    width: filter => (filter === 'link' ? 'w-[20%]' : 'w-[24%]')
-  }
-]
-
-function ArtifactTable({
-  artifacts,
-  ctx,
-  filter
-}: {
-  artifacts: readonly ArtifactRecord[]
-  ctx: CellCtx
-  filter: ArtifactFilter
-}) {
-  const { t } = useI18n()
-
-  return (
-    <table className="w-full min-w-176 table-fixed text-left text-[length:var(--conversation-caption-font-size)]">
-      <thead className="border-b border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) text-2xs uppercase tracking-[0.08em] text-(--ui-text-tertiary)">
-        <tr>
-          {ARTIFACT_COLUMNS.map(col => (
-            <th className={cn(col.width(filter), 'px-2.5 py-1.5 font-medium')} key={col.id}>
-              {col.header(filter, t.artifacts)}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {artifacts.map(artifact => (
-          <tr className="group/artifact" key={artifact.id}>
-            {ARTIFACT_COLUMNS.map(col => {
-              const Cell = col.Cell
-
-              return (
-                <td className={cn('align-middle', col.bodyClassName)} key={col.id}>
-                  <Cell artifact={artifact} ctx={ctx} />
-                </td>
-              )
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}

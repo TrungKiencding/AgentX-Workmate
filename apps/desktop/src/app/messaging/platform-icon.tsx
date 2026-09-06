@@ -72,9 +72,18 @@ const PLATFORM_ICONS: Record<string, PlatformIconSpec> = {
   yuanbao: { Icon: SiBilibili, color: '#FB7299', kind: 'brand' }
 }
 
+// The avatar's three jobs: `sm` (24px) rides sidebar rows and MCP references,
+// `md` (28px) the Messaging list rows, `lg` (40px) heads a platform's own page.
+const AVATAR_SIZE = {
+  sm: { box: 'size-6 text-[length:var(--conversation-caption-font-size)]', glyph: 'size-3.5' },
+  md: { box: 'size-7 text-sm', glyph: 'size-4' },
+  lg: { box: 'size-10 text-md', glyph: 'size-5' }
+} as const
+
 interface PlatformAvatarProps extends Omit<ComponentPropsWithoutRef<'span'>, 'children'> {
   platformId: string
   platformName: string
+  size?: keyof typeof AVATAR_SIZE
 }
 
 // forwardRef + spreading ...rest is required so a wrapping <Tip> (Radix
@@ -84,13 +93,15 @@ interface PlatformAvatarProps extends Omit<ComponentPropsWithoutRef<'span'>, 'ch
 // silently — the tooltip renders but never opens (#67500).
 export const PlatformAvatar = memo(
   forwardRef<HTMLSpanElement, PlatformAvatarProps>(function PlatformAvatar(
-    { className, platformId, platformName, style, ...rest },
+    { className, platformId, platformName, size = 'sm', style, ...rest },
     ref
   ) {
     const spec = PLATFORM_ICONS[platformId]
+    const metrics = AVATAR_SIZE[size]
 
     const baseClass = cn(
-      'inline-grid size-6 shrink-0 place-items-center rounded-md text-[length:var(--conversation-caption-font-size)] font-medium',
+      'inline-grid shrink-0 place-items-center rounded-md font-medium',
+      metrics.box,
       className
     )
 
@@ -124,7 +135,7 @@ export const PlatformAvatar = memo(
         }}
         {...rest}
       >
-        {Icon ? <Icon className="size-3.5" /> : spec.monogram || platformName.charAt(0).toUpperCase()}
+        {Icon ? <Icon className={metrics.glyph} /> : spec.monogram || platformName.charAt(0).toUpperCase()}
       </span>
     )
   })

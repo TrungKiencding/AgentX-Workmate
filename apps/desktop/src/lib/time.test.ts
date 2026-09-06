@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { calendarBucket, DAY, fmtMonth, fmtMonthYear, formatAgo, HOUR, MINUTE, nominalDayStart, SECOND, sessionBucketLabel } from './time'
+import { calendarBucket, DAY, dayGroup, fmtMonth, fmtMonthYear, formatAgo, HOUR, MINUTE, nominalDayStart, SECOND, sessionBucketLabel } from './time'
 
 const labels = {
   ageNow: 'now',
@@ -130,5 +130,34 @@ describe('sessionBucketLabel', () => {
 
     if (monthYearBucket.kind !== 'monthYear') {throw new Error(`expected monthYear bucket, got ${monthYearBucket.kind}`)}
     expect(sessionBucketLabel(monthYearBucket, labels)).toBe(fmtMonthYear.format(monthYearBucket.at))
+  })
+})
+
+describe('dayGroup', () => {
+  // Wednesday 2026-09-09 12:00 local.
+  const NOW = new Date(2026, 8, 9, 12, 0).getTime()
+  const at = (y: number, m: number, d: number, h = 12) => new Date(y, m, d, h).getTime()
+
+  it('groups by plain calendar day — today, yesterday, then a rolling 7-day window', () => {
+    expect(dayGroup(at(2026, 8, 9, 0), NOW).kind).toBe('today')
+    // No 4 AM rollover here: 1 AM today is still "today" in a file library.
+    expect(dayGroup(at(2026, 8, 9, 1), NOW).kind).toBe('today')
+    expect(dayGroup(at(2026, 8, 8), NOW).kind).toBe('yesterday')
+    expect(dayGroup(at(2026, 8, 7), NOW).kind).toBe('last7days')
+    expect(dayGroup(at(2026, 8, 2), NOW).kind).toBe('last7days')
+  })
+
+  it('falls to month groups past the window, and month-year across years', () => {
+    const august = dayGroup(at(2026, 7, 20), NOW)
+    expect(august.kind).toBe('month')
+    expect(august.key).toBe('m-2026-7')
+
+    const lastYear = dayGroup(at(2025, 10, 3), NOW)
+    expect(lastYear.kind).toBe('monthYear')
+    expect(lastYear.key).toBe('my-2025-10')
+  })
+
+  it('keys equal-month items into one group', () => {
+    expect(dayGroup(at(2026, 7, 2), NOW).key).toBe(dayGroup(at(2026, 7, 28), NOW).key)
   })
 })

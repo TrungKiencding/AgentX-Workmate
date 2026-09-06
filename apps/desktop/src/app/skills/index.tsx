@@ -7,9 +7,17 @@ import { useNavigate } from 'react-router'
 import { ArchiveSkillConfirmDialog } from '@/app/learning/archive-skill-confirm-dialog'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { PageLoader } from '@/components/page-loader'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DisclosureRow } from '@/components/ui/disclosure-row'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { CountSkeleton } from '@/components/ui/skeleton'
+import { StatusPill } from '@/components/ui/status-pill'
+import { TagChip } from '@/components/ui/tag-chip'
 import {
   editLearningNode,
   getLearningNode,
@@ -19,10 +27,11 @@ import {
   setSkillEnabled,
   setToolsetEnabled
 } from '@/hermes'
-import { useI18n } from '@/i18n'
+import { type Translations, useI18n } from '@/i18n'
 import { isDesktopToolsetVisible } from '@/lib/desktop-toolsets'
 import { compactNumber } from '@/lib/format'
 import { queryClient, writeCache } from '@/lib/query-client'
+import { skillCategoryIcon, skillCategoryKey, skillDisplayName } from '@/lib/skill-categories'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 import { normalize } from '@/lib/text'
 import { useStoreSelector } from '@/lib/use-session-slice'
@@ -31,6 +40,7 @@ import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import type { SkillInfo, ToolsetInfo } from '@/types/hermes'
 
+import { requestComposerInsert } from '../chat/composer/focus'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -40,15 +50,14 @@ import {
   DetailPane,
   ListColumn,
   ListStrip,
-  ListStripButton,
   ListStripMenu,
   type ListStripMenuToggle,
   MasterDetail,
   ToolChip
 } from '../master-detail'
-import { PanelEmpty, PanelPill } from '../overlays/panel'
+import { PanelEmpty } from '../overlays/panel'
 import { PageSearchShell } from '../page-search-shell'
-import { SETTINGS_ROUTE } from '../routes'
+import { NEW_CHAT_ROUTE, SETTINGS_ROUTE } from '../routes'
 import { ComputerUsePanel } from '../settings/computer-use-panel'
 import { asText, includesQuery, prettyName, toolNames, toolsetDisplayLabel } from '../settings/helpers'
 import { TerminalBackendPanel } from '../settings/terminal-backend-panel'
@@ -103,40 +112,54 @@ async function loadToolCalls(force = false): Promise<Record<string, number>> {
   return value
 }
 
+// Highlight the active order inside the sort menu.
+const cnActive = (active: boolean) => (active ? 'font-medium text-foreground' : undefined)
+
 const usageOf = (skill: SkillInfo): number => (typeof skill.usage === 'number' ? skill.usage : 0)
 
 const categoryFor = (skill: SkillInfo): string => asText(skill.category) || 'general'
 
-// Row subtitle: category, with non-default origins badged.
-function skillSubtitle(skill: SkillInfo): React.ReactNode {
-  const category = prettyName(categoryFor(skill))
-  const provenance = skill.provenance
-
-  return (
-    <>
-      <span className="truncate">{category}</span>
-      {provenance === 'agent' && (
-        <Badge className="shrink-0 normal-case" variant="default">
-          learned
-        </Badge>
-      )}
-      {provenance === 'hub' && (
-        <Badge className="shrink-0 normal-case" variant="muted">
-          hub
-        </Badge>
-      )}
-    </>
-  )
+// Localized group label: the hand-written table first, a prettied slug for a
+// category the table doesn't know.
+function categoryLabel(raw: string, t: Translations): string {
+  return t.skills.category[skillCategoryKey(raw)] ?? prettyName(raw)
 }
 
-function filteredSkills(skills: SkillInfo[], query: string, desc: boolean): SkillInfo[] {
+// Learned/hub origins earn a quiet pill beside the title; bundled is the
+// resting state and stays unmarked.
+function provenancePill(skill: SkillInfo, t: Translations): React.ReactNode {
+  if (skill.provenance !== 'agent' && skill.provenance !== 'hub') {
+    return null
+  }
+
+  return <StatusPill tone="muted">{t.skills.provenance[skill.provenance]}</StatusPill>
+}
+
+// The hand-written Vietnamese-first copy layer for a toolset: a job-focused
+// label and description keyed by the toolset's internal name; the backend's
+// English label/description stay the fallback for one we haven't written.
+function toolsetCopy(toolset: ToolsetInfo, t: Translations): { description: string; label: string } {
+  const copy = t.skills.toolsets[toolset.name]
+
+  return {
+    label: copy?.label || toolsetDisplayLabel(toolset),
+    description: copy?.description || asText(toolset.description)
+  }
+}
+
+function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Translations): SkillInfo[] {
   const q = normalize(query)
   const sign = desc ? 1 : -1
 
   return skills
     .filter(
       skill =>
-        !q || includesQuery(skill.name, q) || includesQuery(skill.description, q) || includesQuery(skill.category, q)
+        !q ||
+        includesQuery(skill.name, q) ||
+        includesQuery(skillDisplayName(skill.name), q) ||
+        includesQuery(skill.description, q) ||
+        includesQuery(skill.category, q) ||
+        includesQuery(categoryLabel(categoryFor(skill), t), q)
     )
     .sort((a, b) => sign * (usageOf(b) - usageOf(a)) || asText(a.name).localeCompare(asText(b.name)))
 }
@@ -148,7 +171,8 @@ function filteredToolsets(
   toolsets: ToolsetInfo[],
   query: string,
   toolCalls: Record<string, number>,
-  desc: boolean
+  desc: boolean,
+  t: Translations
 ): ToolsetInfo[] {
   const q = normalize(query)
   const sign = desc ? 1 : -1
@@ -163,9 +187,13 @@ function filteredToolsets(
         return true
       }
 
+      const copy = toolsetCopy(toolset, t)
+
       return (
         includesQuery(toolset.name, q) ||
         includesQuery(toolsetDisplayLabel(toolset), q) ||
+        includesQuery(copy.label, q) ||
+        includesQuery(copy.description, q) ||
         includesQuery(toolset.description, q) ||
         toolNames(toolset).some(name => includesQuery(name, q))
       )
@@ -173,7 +201,7 @@ function filteredToolsets(
     .sort(
       (a, b) =>
         sign * (toolsetCalls(b, toolCalls) - toolsetCalls(a, toolCalls)) ||
-        toolsetDisplayLabel(a).localeCompare(toolsetDisplayLabel(b))
+        toolsetCopy(a, t).label.localeCompare(toolsetCopy(b, t).label)
     )
 }
 
@@ -280,14 +308,37 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   })
 
   const visibleSkills = useMemo(
-    () => (skills ? filteredSkills(skills, query, skillsSortDesc) : []),
-    [query, skills, skillsSortDesc]
+    () => (skills ? filteredSkills(skills, query, skillsSortDesc, t) : []),
+    [query, skills, skillsSortDesc, t]
   )
 
   const visibleToolsets = useMemo(
-    () => (toolsets ? filteredToolsets(toolsets, query, toolCalls ?? {}, toolsetsSortDesc) : []),
-    [query, toolCalls, toolsets, toolsetsSortDesc]
+    () => (toolsets ? filteredToolsets(toolsets, query, toolCalls ?? {}, toolsetsSortDesc, t) : []),
+    [query, t, toolCalls, toolsets, toolsetsSortDesc]
   )
+
+  // Browsing (no search) groups skills by category so 84 rows read as a dozen
+  // named shelves; a search flattens back to one relevance list. Groups order
+  // by how much the person actually uses them, so the busiest shelf leads.
+  const groupedSkills = useMemo(() => {
+    if (query.trim()) {
+      return null
+    }
+
+    const byKey = new Map<string, { label: string; rows: SkillInfo[]; usage: number }>()
+
+    for (const skill of visibleSkills) {
+      const key = skillCategoryKey(categoryFor(skill))
+      const group = byKey.get(key) ?? { label: categoryLabel(categoryFor(skill), t), rows: [], usage: 0 }
+      group.rows.push(skill)
+      group.usage += usageOf(skill)
+      byKey.set(key, group)
+    }
+
+    return [...byKey.entries()]
+      .map(([key, group]) => ({ key, ...group }))
+      .sort((a, b) => b.usage - a.usage || a.label.localeCompare(b.label))
+  }, [query, t, visibleSkills])
 
   // Bulk actions ("All" master switch, "Disable unused") and the master-switch
   // state target the WHOLE tab, never the search-filtered view — a tab-wide
@@ -309,7 +360,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
       return [...counts.entries()]
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
-        .map(([category]) => t.common.tryHint(category.toLowerCase()))
+        .map(([category]) => t.common.tryHint(categoryLabel(category, t).toLowerCase()))
     }
 
     if (mode === 'toolsets' && toolsets?.length) {
@@ -437,21 +488,48 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   const allSkillsEnabled = bulkSkills.length > 0 && bulkSkills.every(s => s.enabled)
   const allToolsetsEnabled = bulkToolsets.length > 0 && bulkToolsets.every(ts => ts.enabled)
 
-  const sortButton = (desc: boolean, flip: () => void) => (
-    <ListStripButton onClick={flip}>{desc ? t.skills.sortMostUsedDesc : t.skills.sortLeastUsedAsc}</ListStripButton>
+  // "Sắp xếp" — a real 28px control opening the two orders, instead of the old
+  // bare 11px arrow-text toggle.
+  const sortButton = (desc: boolean, set: (next: boolean) => void) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="ghost">
+          {t.skills.sortLabel}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={4}>
+        <DropdownMenuItem className={cnActive(desc)} onSelect={() => set(true)}>
+          {t.skills.sortMostUsedDesc}
+        </DropdownMenuItem>
+        <DropdownMenuItem className={cnActive(!desc)} onSelect={() => set(false)}>
+          {t.skills.sortLeastUsedAsc}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 
-  // Full-bleed empty state, matching the MCP tab (spans both columns, not a
-  // cramped note in the left rail). Query-aware, and says "tools" not the
-  // internal "toolsets".
+  // Full-bleed empty state, matching the connections tab (spans both columns,
+  // not a cramped note in the left rail). Query-aware; three beats and one
+  // action that resolves it.
   const capabilityEmpty = (noun: string) => {
     const q = query.trim()
 
     return (
       <div className="flex h-full min-h-0 flex-1">
         <PanelEmpty
+          action={
+            q ? (
+              <Button onClick={() => setQuery('')} size="sm" variant="secondary">
+                {t.skills.clearSearch}
+              </Button>
+            ) : (
+              <Button onClick={() => void refreshCapabilities()} size="sm" variant="secondary">
+                {t.skills.refresh}
+              </Button>
+            )
+          }
           description={q ? t.skills.emptyNothingMatches(q) : t.skills.emptyNoneAvailable(noun)}
-          icon="search"
+          figure="box"
           title={t.skills.emptyNoneFound(noun)}
         />
       </div>
@@ -545,10 +623,11 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     <PageSearchShell
       {...props}
       activeTab={mode}
+      description={t.skills.pageDescription}
       onSearchChange={setQuery}
       onTabChange={id => setMode(id as (typeof SKILLS_MODES)[number])}
-      // MCP manages a handful of entries with the editor right there —
-      // searching it is noise.
+      // The connections tab manages a handful of entries with the editor right
+      // there — searching it is noise.
       searchHidden={mode === 'mcp'}
       searchHints={searchHints}
       searchPlaceholder={
@@ -559,12 +638,14 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
             : t.skills.searchToolsets
       }
       searchValue={query}
+      // Display order only — ids keep the ?tab= deep links stable.
       tabs={[
         { id: 'skills', label: t.skills.tabSkills, meta: skills?.length ?? null },
         { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null },
-        { id: 'mcp', label: t.skills.tabMcp },
-        { id: 'hub', label: t.skills.tabHub }
+        { id: 'hub', label: t.skills.tabHub },
+        { id: 'mcp', label: t.skills.tabMcp }
       ]}
+      title={t.skills.pageTitle}
     >
       {mode === 'hub' ? (
         <SkillsHub query={query} />
@@ -585,13 +666,13 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
         <PageLoader label={t.skills.loading} />
       ) : mode === 'skills' ? (
         visibleSkills.length === 0 ? (
-          capabilityEmpty('skills')
+          capabilityEmpty(t.skills.nounSkills)
         ) : (
           <MasterDetail pane={skillEditorPane} split="wide">
             <ListColumn
               header={
                 <ListStrip
-                  left={sortButton(skillsSortDesc, () => $skillsSortDesc.set(!$skillsSortDesc.get()))}
+                  left={sortButton(skillsSortDesc, next => $skillsSortDesc.set(next))}
                   right={
                     <ListStripMenu
                       items={[
@@ -604,19 +685,31 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
                 />
               }
             >
-              {visibleSkills.map(skill => (
-                <CapRow
-                  active={activeSkill?.name === skill.name}
-                  busy={bulkBusy}
-                  enabled={skill.enabled}
-                  key={skill.name}
-                  meta={usageOf(skill) > 0 ? `×${compactNumber(usageOf(skill))}` : undefined}
-                  onSelect={() => setSelectedSkill(skill.name)}
-                  onToggle={enabled => void handleToggleSkill(skill, enabled)}
-                  subtitle={skillSubtitle(skill)}
-                  title={skill.name}
-                  toggleLabel={skill.name}
-                />
+              {(groupedSkills ?? [{ key: 'all', label: '', rows: visibleSkills, usage: 0 }]).map(group => (
+                <div key={group.key}>
+                  {group.label && (
+                    <div className="flex items-baseline gap-1.5 px-2.5 pb-1 pt-3 first:pt-1">
+                      <span className="text-sm font-semibold text-(--ui-text-tertiary)">{group.label}</span>
+                      <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{group.rows.length}</span>
+                    </div>
+                  )}
+                  {group.rows.map(skill => (
+                    <CapRow
+                      active={activeSkill?.name === skill.name}
+                      busy={bulkBusy}
+                      enabled={skill.enabled}
+                      icon={<SkillCategoryGlyph category={categoryFor(skill)} />}
+                      key={skill.name}
+                      meta={usageOf(skill) > 0 ? t.skills.usageCount(compactNumber(usageOf(skill))) : undefined}
+                      onSelect={() => setSelectedSkill(skill.name)}
+                      onToggle={enabled => void handleToggleSkill(skill, enabled)}
+                      pill={provenancePill(skill, t)}
+                      subtitle={asText(skill.description) || categoryLabel(categoryFor(skill), t)}
+                      title={skillDisplayName(skill.name)}
+                      toggleLabel={skill.name}
+                    />
+                  ))}
+                </div>
               ))}
             </ListColumn>
             <DetailColumn footer={t.skills.changesApplyNewSessions}>
@@ -631,19 +724,19 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
           </MasterDetail>
         )
       ) : visibleToolsets.length === 0 ? (
-        capabilityEmpty('tools')
+        capabilityEmpty(t.skills.nounTools)
       ) : (
         <MasterDetail split="wide">
           <ListColumn
             header={
               <ListStrip
-                left={sortButton(toolsetsSortDesc, () => $toolsetsSortDesc.set(!$toolsetsSortDesc.get()))}
+                left={sortButton(toolsetsSortDesc, next => $toolsetsSortDesc.set(next))}
                 right={<ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled)} />}
               />
             }
           >
             {visibleToolsets.map(toolset => {
-              const label = toolsetDisplayLabel(toolset)
+              const copy = toolsetCopy(toolset, t)
               const calls = toolCalls ? toolsetCalls(toolset, toolCalls) : null
 
               return (
@@ -656,16 +749,16 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
                     calls === null ? (
                       <CountSkeleton />
                     ) : calls > 0 ? (
-                      `×${compactNumber(calls)}`
+                      t.skills.usageCount(compactNumber(calls))
                     ) : (
-                      `${toolNames(toolset).length} tools`
+                      t.skills.toolsetFunctions(toolNames(toolset).length)
                     )
                   }
                   onSelect={() => setSelectedToolset(toolset.name)}
                   onToggle={checked => void handleToggleToolset(toolset, checked)}
-                  subtitle={asText(toolset.description)}
-                  title={label}
-                  toggleLabel={t.skills.toggleToolset(label, !toolset.enabled)}
+                  subtitle={copy.description}
+                  title={copy.label}
+                  toggleLabel={t.skills.toggleToolset(copy.label, !toolset.enabled)}
                 />
               )
             })}
@@ -703,8 +796,16 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   )
 }
 
+// The skill's category glyph, sized by CapRow's icon slot.
+function SkillCategoryGlyph({ category }: { category: string }) {
+  const Icon = skillCategoryIcon(category)
+
+  return <Icon />
+}
+
 // Shared inspector header — mirrors Messaging's PlatformDetail so Skills and
-// Tools share one title/description block and tab switches don't jump.
+// Tools share one title/description block and tab switches don't jump. A
+// detail names itself at 18px over 14px reading copy.
 function DetailHeader({
   description,
   pills,
@@ -717,23 +818,56 @@ function DetailHeader({
   return (
     <header>
       <div className="flex min-h-6 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 truncate text-md font-semibold tracking-tight">{title}</h3>
+        <h3 className="min-w-0 truncate text-lg font-semibold tracking-tight">{title}</h3>
         {pills}
       </div>
-      <p className="mt-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-        {description}
-      </p>
+      <p className="mt-1 max-w-prose text-base text-(--ui-text-tertiary)">{description}</p>
     </header>
+  )
+}
+
+// The folded technical tail every detail carries: raw ids, provenance, mono
+// chips — everything a curious admin needs and nobody else has to read.
+function TechnicalDetails({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div>
+      <DisclosureRow onToggle={() => setOpen(value => !value)} open={open}>
+        {t.skills.technicalDetails}
+      </DisclosureRow>
+      {open && <div className="mt-1.5 grid gap-2 pl-5">{children}</div>}
+    </div>
+  )
+}
+
+function TechnicalDetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+      <span className="text-(--ui-text-tertiary)">{label}</span>
+      <span className="min-w-0 text-foreground/85">{value}</span>
+    </div>
   )
 }
 
 function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEdit: () => void; skill: SkillInfo }) {
   const { t } = useI18n()
+  const navigate = useNavigate()
   // Only learned/local skills are the user's to rewrite or archive — bundled
   // and hub skills are managed by their sources. They are also the ones the
   // person may upload to the AgentX Skill Hub or propose to the organisation.
   const editable = skill.provenance === 'agent'
   const [publish, setPublish] = useState<null | PublishMode>(null)
+
+  // "Thử ngay": land on a fresh chat and pre-type the skill's slash command.
+  // Both are existing actions — navigation to the new-chat route, then the
+  // composer-insert bus (its dispatch defers a macrotask, so the main composer
+  // is mounted by the time the event fires).
+  const tryNow = () => {
+    navigate(NEW_CHAT_ROUTE)
+    requestComposerInsert(`/${skill.name} `, { mode: 'inline', target: 'main' })
+  }
 
   return (
     <>
@@ -741,32 +875,51 @@ function SkillDetail({ onArchive, onEdit, skill }: { onArchive: () => void; onEd
         description={asText(skill.description) || t.skills.noDescription}
         pills={
           <>
-            <PanelPill>{prettyName(categoryFor(skill))}</PanelPill>
+            <TagChip>{categoryLabel(categoryFor(skill), t)}</TagChip>
             {skill.provenance && skill.provenance !== 'bundled' && (
-              <PanelPill tone={skill.provenance === 'agent' ? 'good' : 'muted'}>
+              <StatusPill tone={skill.provenance === 'agent' ? 'good' : 'muted'}>
                 {t.skills.provenance[skill.provenance]}
-              </PanelPill>
+              </StatusPill>
             )}
           </>
         }
-        title={skill.name}
+        title={skillDisplayName(skill.name)}
       />
-      {editable && (
-        <div className="flex items-center gap-2">
-          <Button onClick={onEdit} size="xs" variant="text">
-            {t.skills.edit}
+      <div className="flex flex-wrap items-center gap-2">
+        {skill.enabled && (
+          <Button data-testid="skill-try-now" onClick={tryNow}>
+            {t.skills.tryNow}
           </Button>
-          <Button className="text-destructive hover:text-destructive" onClick={onArchive} size="xs" variant="text">
-            {t.skills.archive}
-          </Button>
-          <Button data-testid="skill-upload-hub" onClick={() => setPublish('upload')} size="xs" variant="textStrong">
-            {t.skills.publish.upload}
-          </Button>
-          <Button data-testid="skill-propose-org" onClick={() => setPublish('propose')} size="xs" variant="text">
-            {t.skills.publish.propose}
-          </Button>
-        </div>
-      )}
+        )}
+        {editable && (
+          <>
+            <Button onClick={onEdit} size="sm" variant="secondary">
+              {t.skills.edit}
+            </Button>
+            <Button data-testid="skill-upload-hub" onClick={() => setPublish('upload')} size="sm" variant="secondary">
+              {t.skills.publish.upload}
+            </Button>
+            <Button data-testid="skill-propose-org" onClick={() => setPublish('propose')} size="sm" variant="outline">
+              {t.skills.publish.propose}
+            </Button>
+            <Button
+              className="text-destructive hover:text-destructive"
+              onClick={onArchive}
+              size="sm"
+              variant="outline"
+            >
+              {t.skills.archive}
+            </Button>
+          </>
+        )}
+      </div>
+      <TechnicalDetails>
+        <TechnicalDetailRow label={t.skills.originalName} value={<span className="font-mono">{skill.name}</span>} />
+        <TechnicalDetailRow
+          label={t.skills.sourceLabel}
+          value={skill.provenance ? t.skills.provenance[skill.provenance] : t.skills.provenance.bundled}
+        />
+      </TechnicalDetails>
       {publish && <PublishSkillDialog key={`${skill.name}-${publish}`} mode={publish} onClose={() => setPublish(null)} open skill={skill} />}
     </>
   )
@@ -784,26 +937,26 @@ function ToolsetDetail({
   const { t } = useI18n()
   const navigate = useNavigate()
   const tools = toolNames(toolset)
-  const label = toolsetDisplayLabel(toolset)
+  const copy = toolsetCopy(toolset, t)
+  const configRef = useRef<HTMLDivElement | null>(null)
 
   return (
     <>
       {/* "Configured" as a resting state is noise — only the warn state earns a pill. */}
       <DetailHeader
-        description={asText(toolset.description) || t.skills.noDescription}
-        pills={!toolset.configured && <PanelPill tone="warn">{t.skills.needsKeys}</PanelPill>}
-        title={label}
+        description={copy.description || t.skills.noDescription}
+        pills={!toolset.configured && <StatusPill tone="warn">{t.skills.needsKeys}</StatusPill>}
+        title={copy.label}
       />
-      {tools.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {tools.map(name => (
-            <ToolChip key={name}>
-              {name}
-              {(toolCalls[name] ?? 0) > 0 && (
-                <span className="ml-1 text-(--ui-text-quaternary)">×{compactNumber(toolCalls[name])}</span>
-              )}
-            </ToolChip>
-          ))}
+      {!toolset.configured && (
+        <div>
+          <Button
+            onClick={() => configRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            size="sm"
+            variant="secondary"
+          >
+            {t.skills.setUp}
+          </Button>
         </div>
       )}
       {toolset.name === 'vision' && (
@@ -818,7 +971,7 @@ function ToolsetDetail({
           <div>
             <Button
               onClick={() => navigate(`${SETTINGS_ROUTE}?tab=config:model&aux=vision`)}
-              size="xs"
+              size="sm"
               variant="textStrong"
             >
               {t.skills.visionModelLink}
@@ -828,7 +981,24 @@ function ToolsetDetail({
       )}
       {toolset.name === 'computer_use' && <ComputerUsePanel onConfiguredChange={onConfiguredChange} />}
       {toolset.name === 'terminal' && <TerminalBackendPanel onConfiguredChange={onConfiguredChange} />}
-      <ToolsetConfigPanel key={toolset.name} onConfiguredChange={onConfiguredChange} toolset={toolset.name} />
+      <div ref={configRef}>
+        <ToolsetConfigPanel key={toolset.name} onConfiguredChange={onConfiguredChange} toolset={toolset.name} />
+      </div>
+      <TechnicalDetails>
+        <TechnicalDetailRow label={t.skills.originalName} value={<span className="font-mono">{toolset.name}</span>} />
+        {tools.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {tools.map(name => (
+              <ToolChip key={name}>
+                {name}
+                {(toolCalls[name] ?? 0) > 0 && (
+                  <span className="ml-1 text-(--ui-text-quaternary)">×{compactNumber(toolCalls[name])}</span>
+                )}
+              </ToolChip>
+            ))}
+          </div>
+        )}
+      </TechnicalDetails>
     </>
   )
 }

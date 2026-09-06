@@ -65,6 +65,7 @@ import {
   toggleSidebarMessagingOpen,
   unpinSession
 } from '@/store/layout'
+import { $pendingPairingCount } from '@/store/pairing'
 import { $newChatProfile, $profiles, $profileScope, ALL_PROFILES, normalizeProfileKey } from '@/store/profile'
 import {
   $activeProjectId,
@@ -333,6 +334,10 @@ export function ChatSidebar({
   const dismissedAutoProjects = useStore($dismissedAutoProjectIds)
   const newSessionCombo = useStore($bindings)['session.new']?.[0]
   const newSessionKbd = newSessionCombo ? comboTokens(newSessionCombo) : []
+  // Someone is waiting to message the bot — surface the count on the nav row
+  // so the request is visible without opening the page (fed by Messaging's own
+  // pairing fetch; see store/pairing).
+  const pendingPairingCount = useStore($pendingPairingCount)
   const [searchQuery, setSearchQuery] = useState('')
   const [serverMatches, setServerMatches] = useState<SessionSearchResult[]>([])
   const [searchPending, setSearchPending] = useState(false)
@@ -1189,6 +1194,14 @@ export function ChatSidebar({
                   >
                     <item.icon className="size-4.5 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
+                    {item.id === 'messaging' && pendingPairingCount > 0 && (
+                      <span
+                        aria-label={t.messaging.pendingAria(pendingPairingCount)}
+                        className="ml-auto inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums text-[color-mix(in_srgb,var(--ui-red)_var(--status-pill-ink),var(--dt-foreground))] [background:color-mix(in_srgb,var(--ui-red)_var(--status-pill-tint),transparent)]"
+                      >
+                        {pendingPairingCount}
+                      </span>
+                    )}
                     {/* The shortcut is a hint for people who want one, not a label
                         everyone reads: it shows on hover or keyboard focus (and
                         for a beat when the shortcut itself was just pressed). */}

@@ -782,6 +782,13 @@ export interface Translations {
       empty: string
     }
     mcp: {
+      mcpIntro: string
+      addConnection: string
+      addFromCatalog: string
+      addPasteConfig: string
+      advancedConfig: string
+      backToConnections: string
+      logsTitle: string
       loading: string
       failedLoad: string
       nameRequiredTitle: string
@@ -1004,6 +1011,8 @@ export interface Translations {
   }
 
   skills: {
+    pageTitle: string
+    pageDescription: string
     tabSkills: string
     tabToolsets: string
     tabMcp: string
@@ -1014,6 +1023,20 @@ export interface Translations {
     refresh: string
     refreshing: string
     loading: string
+    nounSkills: string
+    nounTools: string
+    clearSearch: string
+    sortLabel: string
+    tryNow: string
+    technicalDetails: string
+    originalName: string
+    sourceLabel: string
+    setUp: string
+    /** Localized skill-category labels, keyed by normalized category slug. */
+    category: Record<string, string>
+    /** Hand-written toolset copy, keyed by toolset name; backend text is the fallback. */
+    toolsets: Record<string, { description: string; label: string }>
+    toolsetFunctions: (count: number) => string
     noSkillsTitle: string
     noSkillsDesc: string
     noToolsetsTitle: string
@@ -1055,6 +1078,8 @@ export interface Translations {
     skillArchivedTitle: string
     skillArchivedMessage: string
     hub: {
+      storeTitle: string
+      actions: string
       searchPlaceholder: string
       search: string
       searching: string
@@ -1063,6 +1088,8 @@ export interface Translations {
       landingHint: string
       catalogCount: (count: number) => string
       catalogEmpty: string
+      catalogEmptyDesc: string
+      searchEmptyDesc: string
       catalogOffline: string
       neverSynced: string
       storeOnline: string
@@ -1397,11 +1424,27 @@ export interface Translations {
   }
 
   messaging: {
+    pageTitle: string
+    pageDescription: string
     search: string
     loading: string
     loadFailed: string
     states: Record<string, string>
     unknown: string
+    groupInUse: string
+    groupAvailable: string
+    showMorePlatforms: (count: number) => string
+    step1Title: string
+    step2Title: string
+    step3Title: string
+    step3Enable: (name: string) => string
+    stepDone: string
+    restartNow: string
+    recommendedCount: (count: number) => string
+    wantsToMessage: (name: string, platform: string) => string
+    allow: string
+    /** Hand-written one-line taglines per platform id; backend description is the fallback. */
+    platformTagline: Record<string, string>
     hintPendingRestart: string
     hintGatewayStopped: string
     credentialsSet: string
@@ -1700,6 +1743,8 @@ export interface Translations {
   }
 
   artifacts: {
+    pageTitle: string
+    pageDescription: string
     search: string
     refresh: string
     refreshing: string
@@ -1708,8 +1753,13 @@ export interface Translations {
     tabImages: string
     tabFiles: string
     tabLinks: string
-    noArtifactsTitle: string
-    noArtifactsDesc: string
+    emptyTitle: string
+    emptyDesc: string
+    emptyAction: string
+    noResultsTitle: string
+    noResultsDesc: string
+    clearSearch: string
+    showAll: string
     failedLoad: string
     openFailed: string
     itemsImage: string
@@ -1719,17 +1769,12 @@ export interface Translations {
     zero: string
     rangeOf: (start: number, end: number, total: number) => string
     goToPage: (itemLabel: string, page: number) => string
-    colTitleLink: string
-    colTitleFile: string
-    colTitleDefault: string
-    colLocationLink: string
-    colLocationFile: string
-    colLocationDefault: string
-    colSession: string
-    kindImage: string
-    kindFile: string
-    kindLink: string
-    chat: string
+    groupToday: string
+    groupYesterday: string
+    groupLast7Days: string
+    open: string
+    viewChat: string
+    rowActions: string
     copyUrl: string
     copyPath: string
   }

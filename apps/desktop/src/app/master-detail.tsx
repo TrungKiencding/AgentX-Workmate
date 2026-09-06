@@ -224,10 +224,11 @@ export function DetailPane({
 }
 
 // One-line control strip pinned above the list: sort/primary action on the
-// left, overflow kebab on the right.
+// left, overflow kebab on the right. Tall enough for a real 28px button —
+// list-wide actions are boxed controls, not bare 11px text.
 export function ListStrip({ left, right }: { left?: ReactNode; right?: ReactNode }) {
   return (
-    <div className="mb-1 flex h-6 shrink-0 items-center justify-between gap-2 pl-2 pr-1">
+    <div className="mb-1 flex h-8 shrink-0 items-center justify-between gap-2 pl-1 pr-1">
       <div className="flex min-w-0 items-center gap-1.5">{left}</div>
       <div className="flex shrink-0 items-center gap-1.5">{right}</div>
     </div>
@@ -333,26 +334,33 @@ interface CapRowProps {
   active: boolean
   busy?: boolean
   enabled: boolean
+  /** Leading 20px Tabler glyph (a skill's category icon). */
+  icon?: ReactNode
   meta?: ReactNode
   onSelect: () => void
   onToggle: (checked: boolean) => void
+  /** A StatusPill beside the title (learned/hub provenance). */
+  pill?: ReactNode
   rowId?: string
-  /** Second line under the name (category, description, status). Rows grow to h-11. */
+  /** Second line under the name (one-line description). */
   subtitle?: ReactNode
   title: string
   toggleLabel: string
 }
 
-// The one row used by all three lists. Fixed height, always-visible switch —
-// state reads from the switch + dimmed title, toggling never requires
-// selecting first. Off rows dim; the switch itself dims when off.
+// The one row used by the Tiện ích lists: 48px (`--cap-row-height`), a 14px
+// title over a 13px one-line description, and a real `md` switch — state
+// reads from the switch + dimmed title, toggling never requires selecting
+// first. Off rows dim; the switch itself dims when off.
 export function CapRow({
   active,
   busy,
   enabled,
+  icon,
   meta,
   onSelect,
   onToggle,
+  pill,
   rowId,
   subtitle,
   title,
@@ -361,44 +369,49 @@ export function CapRow({
   return (
     <div
       className={cn(
-        'group/row row-hover flex w-full shrink-0 items-center rounded-md hover:text-foreground',
-        subtitle ? 'h-11' : 'h-8',
+        'group/row row-hover flex h-(--cap-row-height) w-full shrink-0 items-center rounded-(--radius-control) hover:text-foreground',
         active ? 'bg-(--ui-row-active-background) text-foreground' : 'text-(--ui-text-secondary)'
       )}
       id={rowId}
     >
       <RowButton
-        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md pl-2 pr-1.5 text-left"
+        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-(--radius-control) pl-2.5 pr-1.5 text-left"
         onClick={onSelect}
       >
+        {icon != null && (
+          <span aria-hidden className="shrink-0 text-(--ui-text-tertiary) [&>svg]:size-5">
+            {icon}
+          </span>
+        )}
         <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              'block truncate text-xs',
-              enabled ? 'font-medium text-foreground/85' : 'font-normal text-muted-foreground/60'
-            )}
-          >
-            {title}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={cn(
+                'truncate text-base',
+                enabled ? 'font-medium text-foreground/90' : 'font-normal text-muted-foreground/70'
+              )}
+            >
+              {title}
+            </span>
+            {pill}
           </span>
           {subtitle != null && (
-            <span className="flex min-w-0 items-center gap-1 text-2xs text-muted-foreground/50">
+            <span className="flex min-w-0 items-center gap-1 text-sm text-(--ui-text-tertiary)">
               {typeof subtitle === 'string' ? <span className="truncate">{subtitle}</span> : subtitle}
             </span>
           )}
         </span>
         {meta != null && (
-          <span className="shrink-0 rounded bg-(--ui-bg-quinary) px-1 py-px text-2xs tabular-nums leading-3.5 text-(--ui-text-tertiary)">
-            {meta}
-          </span>
+          <span className="shrink-0 text-xs tabular-nums text-(--ui-text-tertiary)">{meta}</span>
         )}
       </RowButton>
       <Switch
         aria-label={toggleLabel}
         checked={enabled}
-        className={cn('mr-1.5 shrink-0 cursor-pointer', !enabled && 'opacity-60')}
+        className={cn('mr-2 shrink-0 cursor-pointer', !enabled && 'opacity-60')}
         disabled={busy}
         onCheckedChange={onToggle}
-        size="xs"
+        size="md"
         title={toggleLabel}
       />
     </div>

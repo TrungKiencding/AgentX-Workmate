@@ -19,10 +19,17 @@ import { JsonDocumentEditor } from '@/components/chat/json-document-editor'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
 import { StatusPill } from '@/components/ui/status-pill'
 import { Switch } from '@/components/ui/switch'
+import { TagChip } from '@/components/ui/tag-chip'
 import { TextTab } from '@/components/ui/text-tab'
 import { Tip } from '@/components/ui/tooltip'
 import {
@@ -44,14 +51,15 @@ import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import { countEnabledTools, isToolEnabled, toggleToolInServer } from '@/lib/mcp-tool-filter'
 import { cn } from '@/lib/utils'
 import { notify, notifyError } from '@/store/notifications'
+import { setPaneHeightOverride } from '@/store/panes'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $activeSessionId } from '@/store/session'
 import type { HermesConfigRecord } from '@/types/hermes'
 
 import { setHermesConfigCache, useHermesConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
-import { DetailPane, ICON_BUTTON, MASTER_DETAIL_WIDE_COLS } from '../master-detail'
-import { PanelAddButton, PanelEmpty } from '../overlays/panel'
+import { DetailPane } from '../master-detail'
+import { PanelEmpty } from '../overlays/panel'
 import { prettyName } from '../settings/helpers'
 import { useDeepLinkHighlight } from '../settings/use-deep-link-highlight'
 
@@ -924,6 +932,14 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
     return <PageLoader className="min-h-24" label={configLoading ? m.loading : t.skills.loading} />
   }
 
+  // "Dán cấu hình" seeds a starter entry AND opens the advanced pane — the
+  // editor is collapsed by default, so adding into a closed pane would look
+  // like nothing happened.
+  const pasteConfig = () => {
+    setPaneHeightOverride('mcp-editor', undefined)
+    addServer()
+  }
+
   // Zero servers and a pristine doc: one centered invitation — with a path into
   // the catalog (kept out when the user is already browsing it).
   if (Object.keys(servers).length === 0 && !dirty && leftView === 'servers') {
@@ -932,16 +948,16 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
         <PanelEmpty
           action={
             <span className="flex items-center gap-2">
-              <Button onClick={addServer} size="sm">
-                {m.newServer}
+              <Button onClick={() => setLeftView('catalog')} size="sm">
+                {m.addFromCatalog}
               </Button>
-              <Button onClick={() => setLeftView('catalog')} size="sm" variant="text">
-                {m.tabCatalog}
+              <Button onClick={pasteConfig} size="sm" variant="secondary">
+                {m.addPasteConfig}
               </Button>
             </span>
           }
           description={m.emptyDesc}
-          icon="plug"
+          figure="plug"
           title={m.emptyTitle}
         />
       </div>
@@ -967,86 +983,94 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
   const activeEntry = savedEntry ?? draftEntry
 
   return (
-    <div className={cn('grid h-full min-h-0 grid-cols-1', MASTER_DETAIL_WIDE_COLS)}>
-      {/* LEFT: the focused block's server config, or the fleet list / catalog. */}
-      <aside className="flex min-h-0 flex-col overflow-hidden border-r border-(--ui-stroke-quaternary)">
-        {leftView === 'servers' && selected && activeEntry ? (
-          <ServerConfig
-            authing={authing === selected}
-            description={descriptionFor(selected, activeEntry)}
-            entry={activeEntry}
-            name={selected}
-            onAuthenticate={() => void authenticate(selected)}
-            onBack={() => setCursor(0)}
-            onProbe={() => void runProbe(selected)}
-            onRemove={() => void removeServer(selected)}
-            onToggle={checked => void setServerEnabled(selected, checked)}
-            onToggleTool={toolName => void toggleTool(selected, toolName)}
-            probe={probes[selected]}
-            saved={savedEntry !== undefined}
-            saving={saving}
-          />
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col p-2">
-            {/* Geometry mirrors ListStrip (mb-1 h-6 pl-2) so these tabs land on
-                the exact line the sort link occupies in the Skills/Tools views. */}
-            <div className="mb-1 flex h-6 shrink-0 items-center gap-3 pl-2 pr-1">
-              {(['servers', 'catalog'] as const).map(view => (
-                <TextTab
-                  active={leftView === view}
-                  className="h-6 px-0 text-xs"
-                  key={view}
-                  onClick={() => setLeftView(view)}
-                >
-                  {view === 'servers' ? m.tabServers : m.tabCatalog}
-                </TextTab>
-              ))}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-              {leftView === 'catalog' ? (
-                <McpCatalog entries={catalog} loading={catalogQuery.isLoading} onInstalled={onCatalogInstalled} />
-              ) : (
-                <>
-                  {names.map(serverName => {
-                    const server = servers[serverName]
-                    const status = statusOf(server, probes[serverName])
+    <div className="flex h-full min-h-0 flex-col">
+      {/* MAIN: the fleet list, the catalog, or one connection's config. The
+          technical surfaces (mcp.json editor, logs) live in the collapsed
+          panes below — present, never the first thing a person reads. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+        <div className="mx-auto w-full max-w-2xl px-5 py-4">
+          {leftView === 'servers' && selected && activeEntry ? (
+            <ServerConfig
+              authing={authing === selected}
+              description={descriptionFor(selected, activeEntry)}
+              entry={activeEntry}
+              name={selected}
+              onAuthenticate={() => void authenticate(selected)}
+              onBack={() => setCursor(0)}
+              onProbe={() => void runProbe(selected)}
+              onRemove={() => void removeServer(selected)}
+              onToggle={checked => void setServerEnabled(selected, checked)}
+              onToggleTool={toolName => void toggleTool(selected, toolName)}
+              probe={probes[selected]}
+              saved={savedEntry !== undefined}
+              saving={saving}
+            />
+          ) : leftView === 'catalog' ? (
+            <>
+              <div className="mb-2">
+                <Button onClick={() => setLeftView('servers')} size="sm" variant="text">
+                  <ChevronLeft />
+                  {m.backToConnections}
+                </Button>
+              </div>
+              <McpCatalog entries={catalog} loading={catalogQuery.isLoading} onInstalled={onCatalogInstalled} />
+            </>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-(--ui-text-tertiary)">{m.mcpIntro}</p>
+              {names.map(serverName => {
+                const server = servers[serverName]
+                const status = statusOf(server, probes[serverName])
 
-                    return (
-                      <McpRow
-                        active={false}
-                        busy={saving}
-                        enabled={serverEnabled(server)}
-                        key={serverName}
-                        name={serverName}
-                        onProbe={() => void runProbe(serverName)}
-                        onRemove={() => void removeServer(serverName)}
-                        onSelect={() => focusServer(serverName)}
-                        onToggle={checked => void setServerEnabled(serverName, checked)}
-                        status={status}
-                        statusText={statusLine(m, status, probes[serverName], server)}
-                      />
-                    )
-                  })}
-                  <PanelAddButton label={m.newServer} onClick={addServer} />
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </aside>
+                return (
+                  <McpRow
+                    active={false}
+                    busy={saving}
+                    enabled={serverEnabled(server)}
+                    key={serverName}
+                    name={serverName}
+                    onProbe={() => void runProbe(serverName)}
+                    onRemove={() => void removeServer(serverName)}
+                    onSelect={() => focusServer(serverName)}
+                    onToggle={checked => void setServerEnabled(serverName, checked)}
+                    status={status}
+                    statusText={statusLine(m, status, probes[serverName], server)}
+                  />
+                )
+              })}
+              <div className="mt-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>{m.addConnection}</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" sideOffset={4}>
+                    <DropdownMenuItem onSelect={() => setLeftView('catalog')}>{m.addFromCatalog}</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={pasteConfig}>{m.addPasteConfig}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
-      {/* RIGHT: the mcp.json editor, logs hard-pinned below. */}
-      <main className="flex min-h-0 flex-col overflow-hidden">
+      {/* Advanced pane: the mcp.json document, collapsed by default. The
+          editor stays mounted while collapsed, so cursor-driven selection and
+          "paste config" keep working; parse/save are untouched. */}
+      <DetailPane
+        defaultCollapsed
+        id="mcp-editor"
+        title={
+          <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground/60">
+            {m.advancedConfig}
+            {dirty && <span aria-hidden className="size-1.5 rounded-full bg-current/60" />}
+          </span>
+        }
+      >
         <JsonDocumentEditor
           apiRef={editorApi}
           disabled={saving}
           filePath="mcp.json"
-          header={
-            <>
-              mcp.json
-              {dirty && <span aria-hidden className="size-1.5 rounded-full bg-current/60" />}
-            </>
-          }
           highlight={activeBlock ? { from: activeBlock.from, to: activeBlock.to } : null}
           initialValue={draft}
           onChange={next => {
@@ -1063,32 +1087,34 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
             </Button>
           }
         />
-        <DetailPane
-          actions={
-            <span className="flex items-center gap-1.5">
-              {(['stdio', 'agent'] as const).map(kind => (
-                <TextTab
-                  active={logSource === kind}
-                  className="h-5 px-0.5 text-2xs"
-                  key={kind}
-                  onClick={() => setLogSource(kind)}
-                >
-                  {kind}
-                </TextTab>
-              ))}
-            </span>
-          }
-          defaultHeight={176}
-          id="mcp-logs"
-          title={
-            <span className="text-2xs font-normal text-muted-foreground/60">
-              {selected && savedEntry ? selected : m.allServers}
-            </span>
-          }
-        >
-          <McpLogs emptyLabel={m.noOutput} server={selected && savedEntry ? selected : null} source={logSource} />
-        </DetailPane>
-      </main>
+      </DetailPane>
+      <DetailPane
+        actions={
+          <span className="flex items-center gap-1.5">
+            {(['stdio', 'agent'] as const).map(kind => (
+              <TextTab
+                active={logSource === kind}
+                className="h-5 px-0.5 text-2xs"
+                key={kind}
+                onClick={() => setLogSource(kind)}
+              >
+                {kind}
+              </TextTab>
+            ))}
+          </span>
+        }
+        defaultCollapsed
+        defaultHeight={176}
+        id="mcp-logs"
+        title={
+          <span className="text-2xs font-normal text-muted-foreground/60">
+            {m.logsTitle}
+            {selected && savedEntry ? ` · ${selected}` : ''}
+          </span>
+        }
+      >
+        <McpLogs emptyLabel={m.noOutput} server={selected && savedEntry ? selected : null} source={logSource} />
+      </DetailPane>
     </div>
   )
 }
@@ -1146,69 +1172,40 @@ function ServerConfig({
   const summary = probe && probe !== 'probing' && probe.ok ? capabilitySummary(m, probe, entry) : null
 
   return (
-    // p-2 matches the list view's container so flipping list ⇄ config keeps
-    // content anchored at the same origin.
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 [scrollbar-gutter:stable]">
-      {/* Geometry cloned from McpRow so nothing jumps when flipping list ⇄
-          config: items-start with per-element top margins that reproduce the
-          row's h-11 centering exactly (h-5 controls → mt-3, size-6 avatar →
-          mt-2.5, h-4 switch → mt-3.5) no matter how tall the text column gets. */}
-      <div className="flex items-start gap-2 pr-1.5">
-        <Tip label={m.allServers}>
-          <Button
-            aria-label={m.allServers}
-            className={cn('mt-3', ICON_BUTTON)}
-            onClick={onBack}
-            size="icon"
-            variant="ghost"
-          >
-            <ChevronLeft />
-          </Button>
-        </Tip>
-        <McpAvatar className="mt-2.5" name={name} status={status} />
-        <div className="min-w-0 flex-1 pt-1">
-          <h3 className="min-w-0 truncate text-md font-semibold tracking-tight">{prettyName(name)}</h3>
-          <p className="mt-0.5 truncate text-2xs text-(--ui-text-tertiary)">
+    <div>
+      <div className="mb-2">
+        <Button onClick={onBack} size="sm" variant="text">
+          <ChevronLeft />
+          {m.backToConnections}
+        </Button>
+      </div>
+      <div className="flex items-start gap-3 pr-1.5">
+        <McpAvatar name={name} size="lg" status={status} />
+        <div className="min-w-0 flex-1">
+          <h3 className="min-w-0 truncate text-lg font-semibold tracking-tight">{prettyName(name)}</h3>
+          <p className="mt-0.5 truncate font-mono text-xs text-(--ui-text-tertiary)">
             {typeof entry.url === 'string' ? entry.url : [entry.command, ...((entry.args as string[]) ?? [])].join(' ')}
           </p>
-          {summary && <p className="mt-0.5 text-2xs text-(--ui-text-tertiary)">{summary}</p>}
+          {summary && <p className="mt-0.5 text-sm text-(--ui-text-tertiary)">{summary}</p>}
         </div>
         {saved && (
-          // Direct row children (no wrapper): the icons↔switch gap must be the
-          // row's own gap-2, byte-identical to McpRow.
-          <>
-            <ServerIconActions
-              className="mt-3"
-              onProbe={onProbe}
-              onRemove={onRemove}
-              probing={probe === 'probing'}
-              saving={saving}
-            />
-            <ServerSwitch
-              className="mt-3.5"
-              disabled={saving}
-              enabled={serverEnabled(entry)}
-              name={name}
-              onToggle={onToggle}
-            />
-          </>
+          <span className="flex items-center gap-2 pt-1">
+            <ServerIconActions onProbe={onProbe} onRemove={onRemove} probing={probe === 'probing'} saving={saving} />
+            <ServerSwitch disabled={saving} enabled={serverEnabled(entry)} name={name} onToggle={onToggle} />
+          </span>
         )}
       </div>
 
-      {description && (
-        <p className="mt-2 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-          {description}
-        </p>
-      )}
+      {description && <p className="mt-2 max-w-prose text-base text-(--ui-text-tertiary)">{description}</p>}
 
       {canAuth && saved && (
-        <div className="mt-3 flex justify-end">
-          <Button disabled={authing} onClick={onAuthenticate} size="xs">
+        <div className="mt-3">
+          <Button disabled={authing} onClick={onAuthenticate} size="sm">
             {authing ? m.waitingForBrowser : m.authenticate}
           </Button>
         </div>
       )}
-      {!saved && <p className="mt-3 text-2xs text-muted-foreground/60">{m.unsavedConnect}</p>}
+      {!saved && <p className="mt-3 text-sm text-(--ui-text-tertiary)">{m.unsavedConnect}</p>}
 
       {status === 'probing' && <PageLoader className="min-h-24" label={t.skills.loading} />}
 
@@ -1217,7 +1214,7 @@ function ServerConfig({
           (and the console). A big red block here just shouts the same thing. */}
 
       {probe && probe !== 'probing' && probe.ok && probe.tools.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className="mt-4 flex flex-wrap gap-1">
           {/* Chip = a discovered tool; click to include/exclude it (struck
               through when excluded, so it won't register). The probe always
               lists every tool regardless of the filter. */}
@@ -1229,7 +1226,7 @@ function ServerConfig({
                 aria-label={on ? m.disableTool(tool.name) : m.enableTool(tool.name)}
                 aria-pressed={on}
                 className={cn(
-                  'rounded-md px-1.5 py-0.5 font-mono text-2xs text-(--ui-text-tertiary) hover:text-foreground',
+                  'rounded-md px-1.5 py-1 font-mono text-xs text-(--ui-text-tertiary) hover:text-foreground',
                   saved ? 'cursor-pointer' : 'cursor-default',
                   on ? 'bg-(--ui-bg-quinary)' : 'line-through opacity-70'
                 )}
@@ -1273,7 +1270,7 @@ function ServerSwitch({
       className={cn('shrink-0 cursor-pointer', !enabled && 'opacity-60', className)}
       disabled={disabled}
       onCheckedChange={onToggle}
-      size="xs"
+      size="md"
       title={name}
     />
   )
@@ -1301,10 +1298,10 @@ function ServerIconActions({
       <Tip label={m.reload}>
         <Button
           aria-label={m.reload}
-          className={ICON_BUTTON}
+          className="text-muted-foreground/70 hover:text-foreground"
           disabled={probing}
           onClick={onProbe}
-          size="icon"
+          size="icon-xs"
           variant="ghost"
         >
           <RefreshCw className={cn(probing && 'animate-spin')} />
@@ -1313,10 +1310,10 @@ function ServerIconActions({
       <Tip label={m.remove}>
         <Button
           aria-label={m.remove}
-          className={cn(ICON_BUTTON, 'hover:text-destructive')}
+          className="text-muted-foreground/70 hover:text-destructive"
           disabled={saving}
           onClick={onRemove}
-          size="icon"
+          size="icon-xs"
           variant="ghost"
         >
           <Trash2 />
@@ -1326,12 +1323,9 @@ function ServerIconActions({
   )
 }
 
-// Small gray attribute chip (transport / auth / needs-build), matching the
-// catalog's flat row treatment.
+// Small attribute chip (transport / auth / needs-build) — the shared TagChip.
 function CatalogTag({ children }: { children: string }) {
-  return (
-    <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">{children}</span>
-  )
+  return <TagChip>{children}</TagChip>
 }
 
 // The Nous-approved MCP catalog: one-click installs of curated servers, with an
@@ -1409,75 +1403,74 @@ function McpCatalog({
   }
 
   if (entries.length === 0) {
-    return <PanelEmpty description={m.catalogEmpty} icon="plug" title={m.tabCatalog} />
+    return <PanelEmpty description={m.catalogEmpty} figure="plug" title={m.tabCatalog} />
   }
 
   return (
-    <div className="flex flex-col">
+    // The store-card treatment the Cài thêm tab uses, so "install a curated
+    // connection" reads exactly like "install a skill".
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
       {entries.map(entry => {
         const draft = envDrafts[entry.name] ?? {}
 
         return (
-          <div className="rounded-md px-2 py-2" key={entry.name}>
-            <div className="flex items-start gap-2">
-              {/* 2px nudge so the start-aligned avatar sits where McpRow's
-                  center-aligned one does — no jump when flipping Servers⇄Catalog. */}
-              <McpAvatar
-                className="mt-0.5"
-                name={entry.name}
-                status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate text-xs font-medium text-foreground/85">{prettyName(entry.name)}</span>
-                  <CatalogTag>{entry.transport}</CatalogTag>
-                  {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
-                  {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
-                  {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
-                  {entry.installed && (
-                    <StatusPill tone="good">{entry.enabled ? m.catalogEnabled : m.catalogInstalled}</StatusPill>
-                  )}
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-2xs text-muted-foreground/70">{entry.description}</p>
-                {envOpenFor === entry.name && entry.required_env.length > 0 && (
-                  <div className="mt-2 grid gap-2">
-                    {entry.required_env.map(env => (
-                      <label className="grid gap-1" key={env.name}>
-                        <span className="text-2xs text-muted-foreground">
-                          {env.prompt || env.name}
-                          {env.required ? ' *' : ''}
-                        </span>
-                        <Input
-                          className="h-7 text-xs"
-                          onChange={event =>
-                            setEnvDrafts(prev => ({
-                              ...prev,
-                              [entry.name]: { ...prev[entry.name], [env.name]: event.currentTarget.value }
-                            }))
-                          }
-                          type="password"
-                          value={draft[env.name] ?? ''}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <Button
-                className="mt-0.5 shrink-0"
-                disabled={entry.installed || installing !== null}
-                onClick={() => void install(entry)}
-                size="xs"
-                variant="text"
-              >
-                {installing === entry.name
-                  ? m.catalogInstalling
-                  : entry.installed
-                    ? m.catalogInstalled
-                    : m.catalogInstall}
-              </Button>
+          <article
+            className="flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 shadow-xs transition-[background-color,border-color,box-shadow] duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--ui-bg-quaternary) hover:shadow-sm"
+            key={entry.name}
+          >
+            <div className="flex items-center gap-2.5">
+              <McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />
+              <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+                {prettyName(entry.name)}
+              </span>
             </div>
-          </div>
+            <p className="line-clamp-2 text-sm text-(--ui-text-tertiary)">{entry.description}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <CatalogTag>{entry.transport}</CatalogTag>
+              {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
+              {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
+              {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
+            </div>
+            {envOpenFor === entry.name && entry.required_env.length > 0 && (
+              <div className="grid gap-2">
+                {entry.required_env.map(env => (
+                  <label className="grid gap-1" key={env.name}>
+                    <span className="text-xs text-(--ui-text-tertiary)">
+                      {env.prompt || env.name}
+                      {env.required ? ' *' : ''}
+                    </span>
+                    <Input
+                      onChange={event =>
+                        setEnvDrafts(prev => ({
+                          ...prev,
+                          [entry.name]: { ...prev[entry.name], [env.name]: event.currentTarget.value }
+                        }))
+                      }
+                      size="sm"
+                      type="password"
+                      value={draft[env.name] ?? ''}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="mt-auto flex items-center justify-end pt-1">
+              {entry.installed ? (
+                <StatusPill size="md" tone="good">
+                  {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
+                </StatusPill>
+              ) : (
+                <Button
+                  disabled={installing !== null}
+                  loading={installing === entry.name}
+                  onClick={() => void install(entry)}
+                  size="sm"
+                >
+                  {m.catalogInstall}
+                </Button>
+              )}
+            </div>
+          </article>
         )
       })}
     </div>
@@ -1590,25 +1583,43 @@ const brandFor = (name: string) => {
   return MCP_BRAND_ICONS[lower] ?? Object.entries(MCP_BRAND_ICONS).find(([key]) => lower.includes(key))?.[1] ?? null
 }
 
-// PlatformAvatar (messaging), copied 1:1 — same size, radius, type scale, and
-// brand-tint treatment — plus a status dot overlay. Identity ladder: curated
-// brand glyph → letter monogram. We deliberately do NOT fetch remote favicons:
-// a configured MCP URL can be a private/internal host, and hitting Google's
+// PlatformAvatar (messaging), same radius, type scale and brand-tint
+// treatment — plus a status dot overlay. `md` (32px) is the list-row size,
+// `lg` (40px) heads the connection's own page. Identity ladder: curated brand
+// glyph → letter monogram. We deliberately do NOT fetch remote favicons: a
+// configured MCP URL can be a private/internal host, and hitting Google's
 // favicon service for it would leak that hostname off-box.
-function McpAvatar({ className, name, status }: { className?: string; name: string; status: ServerStatus }) {
+const MCP_AVATAR_SIZE = {
+  md: { box: 'size-8 text-base', glyph: 'size-4' },
+  lg: { box: 'size-10 text-md', glyph: 'size-5' }
+} as const
+
+function McpAvatar({
+  className,
+  name,
+  size = 'md',
+  status
+}: {
+  className?: string
+  name: string
+  size?: keyof typeof MCP_AVATAR_SIZE
+  status: ServerStatus
+}) {
   const brand = brandFor(name)
+  const metrics = MCP_AVATAR_SIZE[size]
 
   return (
     <span
       className={cn(
-        'relative inline-grid size-6 shrink-0 place-items-center rounded-md text-[length:var(--conversation-caption-font-size)] font-medium',
+        'relative inline-grid shrink-0 place-items-center rounded-md font-medium',
+        metrics.box,
         !brand && 'bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)',
         className
       )}
       style={brand ? { backgroundColor: `color-mix(in srgb, ${brand.color} 16%, transparent)` } : undefined}
     >
       {brand ? (
-        <brand.Icon aria-hidden className="size-3.5" style={{ color: brand.color }} />
+        <brand.Icon aria-hidden className={metrics.glyph} style={{ color: brand.color }} />
       ) : (
         name.charAt(0).toUpperCase()
       )}
@@ -1649,13 +1660,13 @@ function McpRow({
   return (
     <div
       className={cn(
-        'group/row row-hover flex h-11 w-full shrink-0 items-center gap-2 rounded-md pl-2 pr-1.5 hover:text-foreground',
+        'group/row row-hover flex h-(--cap-row-height) w-full shrink-0 items-center gap-2.5 rounded-(--radius-control) pl-2 pr-1.5 hover:text-foreground',
         active ? 'bg-(--ui-row-active-background) text-foreground' : 'text-(--ui-text-secondary)'
       )}
       id={`mcp-server-${name}`}
     >
       <button
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
         onClick={onSelect}
         type="button"
       >
@@ -1663,13 +1674,13 @@ function McpRow({
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              'block truncate text-xs',
-              enabled ? 'font-medium text-foreground/85' : 'font-normal text-muted-foreground/60'
+              'block truncate text-base',
+              enabled ? 'font-medium text-foreground/90' : 'font-normal text-muted-foreground/70'
             )}
           >
             {prettyName(name)}
           </span>
-          <span className="block truncate text-2xs text-muted-foreground/50">{statusText}</span>
+          {statusText && <span className="block truncate text-xs text-(--ui-text-tertiary)">{statusText}</span>}
         </span>
       </button>
       <ServerIconActions

@@ -1209,8 +1209,15 @@ export const vi: Translations = {
       empty: 'Chưa cấu hình gì trong nhóm này.'
     },
     mcp: {
-      loading: 'Đang tải các MCP server...',
-      failedLoad: 'Tải cấu hình MCP thất bại',
+      mcpIntro: 'Kết nối AgentX với phần mềm khác qua chuẩn MCP. Dành cho người quản trị.',
+      addConnection: 'Thêm kết nối',
+      addFromCatalog: 'Từ danh mục',
+      addPasteConfig: 'Dán cấu hình',
+      advancedConfig: 'Cấu hình nâng cao (mcp.json)',
+      backToConnections: 'Tất cả kết nối',
+      logsTitle: 'Nhật ký',
+      loading: 'Đang tải các kết nối...',
+      failedLoad: 'Tải cấu hình kết nối thất bại',
       nameRequiredTitle: 'Cần có tên',
       nameRequiredMessage: 'Hãy đặt một khoá cấu hình cho MCP server này.',
       objectRequired: 'Cấu hình server phải là một object JSON',
@@ -1224,11 +1231,11 @@ export const vi: Translations = {
       reloadFailed: 'Nạp lại MCP thất bại',
       savedTitle: 'Đã lưu MCP server',
       savedMessage: name => `${name} sẽ có hiệu lực sau khi nạp lại MCP.`,
-      newServer: 'Server mới',
-      reload: 'Nạp lại MCP',
+      newServer: 'Kết nối mới',
+      reload: 'Kiểm tra lại kết nối',
       reloading: 'Đang nạp lại...',
-      emptyTitle: 'Chưa có MCP server',
-      emptyDesc: 'Thêm một server stdio hoặc HTTP để cung cấp công cụ MCP.',
+      emptyTitle: 'Chưa có kết nối nào',
+      emptyDesc: 'Kết nối AgentX với phần mềm khác qua chuẩn MCP. Dành cho người quản trị.',
       disabled: 'đã tắt',
       editServer: 'Sửa server',
       name: 'Tên',
@@ -1450,23 +1457,76 @@ export const vi: Translations = {
   },
 
   skills: {
+    pageTitle: 'Tiện ích',
+    pageDescription: 'Những việc AgentX làm được cho bạn. Bật thứ bạn cần, tắt thứ không dùng.',
     tabSkills: 'Kỹ năng',
     tabToolsets: 'Công cụ',
-    tabMcp: 'MCP',
-    tabHub: 'Kho kỹ năng',
+    tabMcp: 'Kết nối nâng cao',
+    tabHub: 'Cài thêm',
     all: 'Tất cả',
     searchSkills: 'Tìm kỹ năng...',
     searchToolsets: 'Tìm công cụ...',
-    refresh: 'Làm mới kỹ năng',
-    refreshing: 'Đang làm mới kỹ năng',
-    loading: 'Đang tải các năng lực...',
+    refresh: 'Làm mới',
+    refreshing: 'Đang làm mới',
+    loading: 'Đang tải các tiện ích...',
+    nounSkills: 'kỹ năng',
+    nounTools: 'công cụ',
+    clearSearch: 'Xoá tìm kiếm',
+    sortLabel: 'Sắp xếp',
+    tryNow: 'Thử ngay',
+    technicalDetails: 'Chi tiết kỹ thuật',
+    originalName: 'Tên gốc',
+    sourceLabel: 'Nguồn',
+    setUp: 'Thiết lập',
+    category: {
+      apple: 'Apple',
+      'autonomous-ai-agents': 'Trợ lý tự động',
+      creative: 'Sáng tạo',
+      email: 'Email',
+      general: 'Chung',
+      github: 'GitHub',
+      media: 'Ảnh và video',
+      mlops: 'MLOps',
+      'note-taking': 'Ghi chú',
+      productivity: 'Văn phòng',
+      research: 'Nghiên cứu',
+      'smart-home': 'Nhà thông minh',
+      'social-media': 'Mạng xã hội',
+      'software-development': 'Phát triển phần mềm'
+    },
+    toolsets: {
+      web: { label: 'Tìm trên web', description: 'Tìm kiếm và đọc nội dung trang web cho bạn.' },
+      browser: { label: 'Điều khiển trình duyệt', description: 'Mở trang, bấm nút và điền biểu mẫu thay bạn.' },
+      terminal: { label: 'Dòng lệnh', description: 'Chạy lệnh và quản lý tiến trình trên máy này.' },
+      file: { label: 'Tệp trên máy', description: 'Đọc, ghi và tìm trong tệp của bạn.' },
+      code_execution: { label: 'Chạy mã', description: 'Chạy các đoạn mã để tính toán và xử lý dữ liệu.' },
+      vision: { label: 'Nhìn ảnh', description: 'Xem và mô tả nội dung hình ảnh.' },
+      video: { label: 'Xem video', description: 'Xem và tóm tắt nội dung video.' },
+      image_gen: { label: 'Tạo ảnh', description: 'Vẽ ảnh mới theo mô tả của bạn.' },
+      video_gen: { label: 'Tạo video', description: 'Dựng video từ mô tả hoặc hình ảnh.' },
+      bfl: { label: 'Video FLUX', description: 'Tạo video bằng dịch vụ BFL FLUX.' },
+      x_search: { label: 'Tìm trên X (Twitter)', description: 'Tìm bài đăng trên X. Cần tài khoản xAI.' },
+      tts: { label: 'Đọc thành tiếng', description: 'Chuyển câu trả lời thành giọng nói.' },
+      stt: { label: 'Nghe giọng nói', description: 'Chuyển lời nói của bạn thành chữ.' },
+      skills: { label: 'Quản lý kỹ năng', description: 'Xem và dùng các kỹ năng đã cài.' },
+      todo: { label: 'Lập việc cần làm', description: 'Chia việc lớn thành danh sách từng bước.' },
+      memory: { label: 'Ghi nhớ', description: 'Nhớ thông tin quan trọng giữa các cuộc trò chuyện.' },
+      session_search: { label: 'Tìm cuộc trò chuyện cũ', description: 'Tìm lại nội dung trong các cuộc trò chuyện trước.' },
+      clarify: { label: 'Hỏi lại cho rõ', description: 'Hỏi bạn thêm khi yêu cầu chưa rõ.' },
+      delegation: { label: 'Giao việc cho trợ lý con', description: 'Chia việc lớn cho nhiều trợ lý làm song song.' },
+      cronjob: { label: 'Hẹn giờ tác vụ', description: 'Tự chạy việc theo lịch bạn đặt.' },
+      homeassistant: { label: 'Nhà thông minh', description: 'Điều khiển thiết bị qua Home Assistant.' },
+      spotify: { label: 'Spotify', description: 'Phát nhạc, tìm bài hát và quản lý danh sách phát.' },
+      computer_use: { label: 'Điều khiển máy tính', description: 'Thao tác màn hình ở chế độ nền thay bạn.' }
+    },
+    toolsetFunctions: count => `${count} chức năng`,
     noSkillsTitle: 'Không tìm thấy kỹ năng nào',
     noSkillsDesc: 'Hãy tìm với từ khoá rộng hơn hoặc đổi nhóm.',
     noToolsetsTitle: 'Không tìm thấy bộ công cụ nào',
     noToolsetsDesc: 'Hãy thử từ khoá rộng hơn.',
     noDescription: 'Không có mô tả.',
-    configured: 'Đã cấu hình',
-    needsKeys: 'Cần key',
+    configured: 'Đã thiết lập',
+    needsKeys: 'Cần thiết lập',
     visionModelHint:
       'Thị giác dùng theo cấu hình model phụ trợ của bạn — model xử lý ảnh được chọn ở đó, không phải theo từng nhà cung cấp tại đây.',
     visionModelLink: 'Chọn model thị giác trong Cài đặt → Model',
@@ -1479,47 +1539,51 @@ export const vi: Translations = {
     skillDisabled: 'Đã tắt kỹ năng',
     toolsetEnabled: 'Đã bật bộ công cụ',
     toolsetDisabled: 'Đã tắt bộ công cụ',
-    appliesToNewSessions: name => `${name} sẽ áp dụng cho các phiên mới.`,
+    appliesToNewSessions: name => `${name} sẽ áp dụng cho các cuộc trò chuyện mới.`,
     failedToUpdate: name => `Cập nhật ${name} thất bại`,
     sortMostUsed: 'Dùng nhiều nhất',
     sortAlpha: 'A–Z',
-    sortMostUsedDesc: '↓ Dùng nhiều nhất',
-    sortLeastUsedAsc: '↑ Dùng ít nhất',
+    sortMostUsedDesc: 'Dùng nhiều nhất',
+    sortLeastUsedAsc: 'Dùng ít nhất',
     enableAll: 'Bật tất cả',
     disableAll: 'Tắt tất cả',
     disableUnused: 'Tắt những mục không dùng',
-    bulkUpdated: count => `Đã cập nhật ${count} mục cho các phiên mới.`,
+    bulkUpdated: count => `Đã cập nhật ${count} mục cho các cuộc trò chuyện mới.`,
     bulkNoChange: 'Không có gì để thay đổi.',
-    usageCount: count => `đã dùng ${count} lần`,
+    usageCount: count => `Dùng ${count} lần`,
     provenance: {
       agent: 'Tự học',
       bundled: 'Có sẵn',
-      hub: 'Hub'
+      hub: 'Từ kho'
     },
     emptyNoneFound: noun => `Không tìm thấy ${noun} nào`,
     emptyNothingMatches: query => `Không có gì khớp với “${query}”.`,
     emptyNoneAvailable: noun => `Chưa có ${noun} nào.`,
-    changesApplyNewSessions: 'Các thay đổi áp dụng cho phiên mới.',
+    changesApplyNewSessions: 'Các thay đổi áp dụng cho cuộc trò chuyện mới.',
     skillUpdated: 'Đã cập nhật kỹ năng',
     edit: 'Sửa',
     archive: 'Lưu trữ',
     skillArchivedTitle: 'Đã lưu trữ kỹ năng',
     skillArchivedMessage: 'Có thể khôi phục bằng lệnh agentx curator restore.',
     hub: {
-      searchPlaceholder: 'Tìm trong kho kỹ năng',
+      storeTitle: 'Kho tiện ích AgentX',
+      actions: 'Thao tác',
+      searchPlaceholder: 'Tìm trong kho tiện ích',
       search: 'Tìm',
       searching: 'Đang tìm...',
-      connectingHubs: 'Đang kết nối tới các hub kỹ năng...',
-      featured: 'Kỹ năng nổi bật',
-      landingHint: 'Tìm trong hub để duyệt các kỹ năng cài được từ chỉ mục chính thức, GitHub và các nguồn cộng đồng.',
-      catalogCount: count => `${count} kỹ năng từ Hub`,
-      catalogEmpty: 'Chưa đồng bộ được kỹ năng nào từ Hub.',
+      connectingHubs: 'Đang kết nối tới kho tiện ích...',
+      featured: 'Nổi bật',
+      landingHint: 'Tìm trong kho để xem những tiện ích cài thêm được cho AgentX.',
+      catalogCount: count => `${count} tiện ích từ Hub`,
+      catalogEmpty: 'Chưa đồng bộ được tiện ích nào từ Hub.',
+      catalogEmptyDesc: 'Bấm “Đồng bộ ngay” để tải danh mục từ Hub.',
+      searchEmptyDesc: 'Thử một từ khoá khác, hoặc xoá tìm kiếm để xem cả kho.',
       catalogOffline: 'Không tới được Hub — đang hiển thị bản đồng bộ gần nhất.',
       neverSynced: 'Chưa đồng bộ',
       storeOnline: 'Đã kết nối',
       storeOffline: 'Không tới được',
-      kind: { core: 'Desktop', browser: 'Browser' },
-      noResults: 'Không tìm thấy kỹ năng nào khớp trong hub.',
+      kind: { core: 'Desktop', browser: 'Trình duyệt' },
+      noResults: 'Không tìm thấy tiện ích nào khớp trong kho.',
       resultCount: (count, ms) => `${count} kết quả${ms !== null ? ` trong ${ms}ms` : ''}`,
       timedOut: sources => `Hết thời gian chờ: ${sources}`,
       installed: 'Đã cài',
@@ -1536,9 +1600,11 @@ export const vi: Translations = {
       files: 'Tệp',
       noReadme: 'Kỹ năng này không có bản xem trước SKILL.md.',
       trust: {
-        builtin: 'có sẵn',
-        trusted: 'tin cậy',
-        community: 'cộng đồng'
+        'agentx-hub-verified': 'Đã xác minh',
+        verified: 'Đã xác minh',
+        builtin: 'Có sẵn',
+        trusted: 'Tin cậy',
+        community: 'Cộng đồng'
       },
       verdictSafe: 'An toàn',
       verdictCaution: 'Cần cân nhắc',
@@ -1566,7 +1632,7 @@ export const vi: Translations = {
       },
       signedOut: 'Đăng nhập AgentX để đồng bộ với Hub.',
       offline: 'Không tới được Hub — skill đã cài vẫn dùng bình thường.',
-      reauth: 'Hub từ chối token của máy này. Hãy đăng nhập lại.',
+      reauth: 'Hub từ chối quyền đăng nhập của máy này. Hãy đăng nhập lại.',
       unconfigured: 'Chưa cấu hình địa chỉ Hub (skills.hub_url).',
       lastSync: when => `Đồng bộ lần cuối ${when}`,
       noInstalls: 'Chưa có skill nào được yêu cầu cài từ Hub cho máy này. Bấm Install trên Hub là skill về đây.',
@@ -1623,7 +1689,7 @@ export const vi: Translations = {
       failed: 'Tải lên thất bại',
       signedOut: 'Đăng nhập AgentX để tải lên Hub.',
       offline: 'Không tới được Hub. Thử lại sau.',
-      reauth: 'Hub từ chối token của máy này. Hãy đăng nhập lại.',
+      reauth: 'Hub từ chối quyền đăng nhập của máy này. Hãy đăng nhập lại.',
       errors: {
         version_not_newer: highest => `Phiên bản phải lớn hơn ${highest} — sửa metadata.version trong SKILL.md.`,
         version_exists: 'Phiên bản này đã tồn tại trên Hub với nội dung khác.',
@@ -1881,6 +1947,8 @@ export const vi: Translations = {
   },
 
   messaging: {
+    pageTitle: 'Tin nhắn',
+    pageDescription: 'Nhắn cho AgentX từ ứng dụng bạn đang dùng.',
     search: 'Tìm trong phần tin nhắn...',
     loading: 'Đang tải các nền tảng nhắn tin...',
     loadFailed: 'Tải các nền tảng nhắn tin thất bại',
@@ -1889,25 +1957,57 @@ export const vi: Translations = {
       connecting: 'Đang kết nối',
       disabled: 'Đã tắt',
       fatal: 'Lỗi',
-      gateway_stopped: 'Gateway tin nhắn đã dừng',
+      gateway_stopped: 'AgentX đang tắt kết nối tin nhắn',
       not_configured: 'Cần thiết lập',
       pending_restart: 'Cần khởi động lại',
       retrying: 'Đang thử lại',
       startup_failed: 'Khởi động thất bại'
     },
     unknown: 'Không rõ',
-    hintPendingRestart: 'Hãy khởi động lại gateway từ thanh trạng thái để áp dụng thay đổi này.',
-    hintGatewayStopped: 'Hãy khởi động gateway từ thanh trạng thái để kết nối.',
+    groupInUse: 'Đang dùng',
+    groupAvailable: 'Có thể kết nối',
+    showMorePlatforms: count => `Xem thêm ${count} nền tảng`,
+    step1Title: 'Tạo bot và lấy quyền',
+    step2Title: 'Dán mã',
+    step3Title: 'Bật kết nối',
+    step3Enable: name => `Bật để AgentX bắt đầu nhận tin nhắn từ ${name}.`,
+    stepDone: 'Đã xong',
+    restartNow: 'Khởi động lại AgentX',
+    recommendedCount: count => `Nên có (${count})`,
+    wantsToMessage: (name, platform) => `«${name}» muốn nhắn với AgentX qua ${platform}`,
+    allow: 'Cho phép',
+    platformTagline: {
+      telegram: 'Nhắn cho AgentX qua bot Telegram của riêng bạn.',
+      discord: 'Đưa AgentX vào máy chủ Discord của bạn.',
+      slack: 'Trò chuyện với AgentX ngay trong Slack.',
+      mattermost: 'Kết nối AgentX với máy chủ Mattermost của bạn.',
+      matrix: 'Trò chuyện với AgentX qua mạng Matrix.',
+      signal: 'Nhắn cho AgentX qua Signal.',
+      whatsapp: 'Nhắn cho AgentX từ WhatsApp.',
+      bluebubbles: 'Nhắn cho AgentX qua iMessage bằng BlueBubbles.',
+      homeassistant: 'Cho AgentX điều khiển nhà thông minh qua Home Assistant.',
+      email: 'Gửi email cho AgentX và nhận thư trả lời.',
+      sms: 'Nhắn tin SMS với AgentX qua Twilio.',
+      dingtalk: 'Trò chuyện với AgentX trong DingTalk.',
+      feishu: 'Trò chuyện với AgentX trong Feishu / Lark.',
+      wecom: 'Nhận tin từ AgentX trong nhóm WeCom.',
+      wecom_callback: 'Trò chuyện hai chiều với AgentX trong WeCom.',
+      weixin: 'Nhắn cho AgentX bằng tài khoản WeChat.',
+      qqbot: 'Trò chuyện với AgentX qua bot QQ.',
+      api_server: 'Cho ứng dụng khác gọi AgentX như một API.',
+      webhook: 'Cho dịch vụ khác đánh thức AgentX bằng sự kiện HTTP.'
+    },
+    hintPendingRestart: 'Bấm “Khởi động lại AgentX” ở bước 3 để áp dụng thay đổi.',
+    hintGatewayStopped: 'AgentX đang tắt kết nối tin nhắn. Hãy khởi động lại AgentX để kết nối.',
     credentialsSet: 'Đã đặt thông tin đăng nhập',
     needsSetup: 'Cần thiết lập',
-    gatewayStopped: 'Gateway tin nhắn đã dừng',
+    gatewayStopped: 'AgentX đang tắt kết nối tin nhắn',
     getCredentials: 'Lấy thông tin đăng nhập',
     openSetupGuide: 'Mở hướng dẫn thiết lập',
     required: 'Bắt buộc',
     recommended: 'Nên có',
     advanced: count => `Nâng cao (${count})`,
-    noTokenNeeded:
-      'Nền tảng này không cần token ở đây. Hãy làm theo hướng dẫn thiết lập bên trên, rồi bật nó ở bên dưới.',
+    noTokenNeeded: 'Nền tảng này không cần dán mã ở đây. Hãy làm theo hướng dẫn ở bước 1, rồi bật ở bước 3.',
     enabled: 'Đang bật',
     disabled: 'Đang tắt',
     unsavedChanges: 'Có thay đổi chưa lưu',
@@ -1921,9 +2021,9 @@ export const vi: Translations = {
     disableAria: name => `Tắt ${name}`,
     platformEnabled: name => `Đã bật ${name}`,
     platformDisabled: name => `Đã tắt ${name}`,
-    restartToApply: 'Thay đổi này chỉ có hiệu lực sau khi khởi động lại gateway.',
+    restartToApply: 'Thay đổi có hiệu lực sau khi khởi động lại AgentX.',
     setupSaved: name => `Đã lưu thiết lập ${name}`,
-    restartToReconnect: 'Thông tin đăng nhập mới chỉ có hiệu lực sau khi khởi động lại gateway.',
+    restartToReconnect: 'Thông tin mới có hiệu lực sau khi khởi động lại AgentX.',
     keyCleared: key => `Đã xoá ${key}`,
     setupUpdated: name => `Đã cập nhật thiết lập ${name}.`,
     failedUpdate: name => `Cập nhật ${name} thất bại`,
@@ -1948,35 +2048,37 @@ export const vi: Translations = {
     waitingSince: minutes => (minutes < 1 ? 'vừa xong' : `${minutes} phút trước`),
     fieldCopy: {
       TELEGRAM_BOT_TOKEN: {
-        label: 'Bot token',
-        help: 'Tạo một bot với @BotFather rồi dán token nó đưa cho bạn vào đây.',
-        placeholder: 'Dán bot token của Telegram'
+        label: 'Mã bot',
+        help: 'Tạo một bot với @BotFather rồi dán mã nó đưa cho bạn vào đây.',
+        placeholder: 'Dán mã bot từ @BotFather'
       },
       TELEGRAM_ALLOWED_USERS: {
-        label: 'ID người dùng Telegram được phép',
-        help: 'Nên đặt. Các ID dạng số, cách nhau bằng dấu phẩy, lấy từ @userinfobot. Không có mục này thì ai cũng nhắn riêng được cho bot của bạn.'
+        label: 'Ai được phép nhắn cho bot',
+        help: 'Nên đặt. Các số ID cách nhau bằng dấu phẩy, lấy từ @userinfobot. Bỏ trống thì ai cũng nhắn riêng được cho bot của bạn.',
+        placeholder: 'Ví dụ: 12345678, 87654321'
       },
-      TELEGRAM_PROXY: { label: 'URL proxy', help: 'Chỉ cần khi mạng của bạn chặn Telegram.' },
+      TELEGRAM_PROXY: { label: 'Địa chỉ proxy', help: 'Chỉ cần khi mạng của bạn chặn Telegram.' },
       DISCORD_BOT_TOKEN: {
-        label: 'Bot token',
-        help: 'Tạo một application trong Discord Developer Portal, thêm bot rồi dán token của nó vào đây.'
+        label: 'Mã bot',
+        help: 'Tạo một ứng dụng trong Discord Developer Portal, thêm bot rồi dán mã của nó vào đây.',
+        placeholder: 'Dán mã bot của Discord'
       },
       DISCORD_ALLOWED_USERS: {
-        label: 'ID người dùng Discord được phép',
+        label: 'Ai được phép nhắn cho bot',
         help: 'Nên đặt. Các ID người dùng Discord, cách nhau bằng dấu phẩy.'
       },
       DISCORD_REPLY_TO_MODE: { label: 'Kiểu trả lời', help: 'first, all hoặc off.' },
       DISCORD_ALLOW_ALL_USERS: {
         label: 'Cho phép mọi người dùng Discord',
-        help: 'Chỉ dùng khi phát triển. Đặt true thì ai cũng nhắn riêng được cho bot mà không cần danh sách cho phép.'
+        help: 'Chỉ dùng khi thử nghiệm. Đặt true thì ai cũng nhắn riêng được cho bot mà không cần danh sách cho phép.'
       },
       DISCORD_HOME_CHANNEL: {
         label: 'ID kênh chính',
-        help: 'Kênh mà bot chủ động gửi tin (kết quả cron, lời nhắc).'
+        help: 'Kênh mà bot chủ động gửi tin (kết quả hẹn giờ, lời nhắc).'
       },
       DISCORD_HOME_CHANNEL_NAME: {
         label: 'Tên kênh chính',
-        help: 'Tên hiển thị của kênh chính trong log và các bản tin trạng thái.'
+        help: 'Tên hiển thị của kênh chính trong nhật ký và các bản tin trạng thái.'
       },
       BLUEBUBBLES_ALLOW_ALL_USERS: {
         label: 'Cho phép mọi người dùng iMessage',
@@ -1985,56 +2087,91 @@ export const vi: Translations = {
       MATTERMOST_ALLOW_ALL_USERS: { label: 'Cho phép mọi người dùng Mattermost' },
       MATTERMOST_HOME_CHANNEL: { label: 'Kênh chính' },
       QQ_ALLOW_ALL_USERS: { label: 'Cho phép mọi người dùng QQ' },
-      QQBOT_HOME_CHANNEL: { label: 'Kênh chính của QQ', help: 'Kênh hoặc nhóm mặc định để gửi kết quả cron.' },
+      QQBOT_HOME_CHANNEL: { label: 'Kênh chính của QQ', help: 'Kênh hoặc nhóm mặc định để gửi kết quả hẹn giờ.' },
       QQBOT_HOME_CHANNEL_NAME: { label: 'Tên kênh chính của QQ' },
       SLACK_BOT_TOKEN: {
-        label: 'Bot token của Slack',
-        help: 'Dùng bot token trong mục OAuth & Permissions sau khi cài Slack app của bạn.',
-        placeholder: 'Dán bot token của Slack'
+        label: 'Mã bot của Slack',
+        help: 'Lấy trong mục OAuth & Permissions sau khi cài ứng dụng Slack của bạn.',
+        placeholder: 'Dán mã bot của Slack'
       },
       SLACK_APP_TOKEN: {
-        label: 'App token của Slack',
-        help: 'Dùng token cấp app, bắt buộc cho Socket Mode.',
-        placeholder: 'Dán app token của Slack'
+        label: 'Mã cấp ứng dụng của Slack',
+        help: 'Mã cấp ứng dụng (app-level), bắt buộc cho Socket Mode.',
+        placeholder: 'Dán mã cấp ứng dụng của Slack'
       },
       SLACK_ALLOWED_USERS: {
-        label: 'ID người dùng Slack được phép',
+        label: 'Ai được phép nhắn cho bot',
         help: 'Nên đặt. Các ID người dùng Slack, cách nhau bằng dấu phẩy.'
       },
-      MATTERMOST_URL: { label: 'URL máy chủ', placeholder: 'https://mattermost.example.com' },
-      MATTERMOST_TOKEN: { label: 'Bot token' },
+      MATTERMOST_URL: { label: 'Địa chỉ máy chủ', placeholder: 'https://mattermost.example.com' },
+      MATTERMOST_TOKEN: { label: 'Mã bot', placeholder: 'Dán mã bot của Mattermost' },
       MATTERMOST_ALLOWED_USERS: {
-        label: 'ID người dùng được phép',
+        label: 'Ai được phép nhắn cho bot',
         help: 'Nên đặt. Các ID người dùng Mattermost, cách nhau bằng dấu phẩy.'
       },
-      MATRIX_HOMESERVER: { label: 'URL homeserver', placeholder: 'https://matrix.org' },
-      MATRIX_ACCESS_TOKEN: { label: 'Access token' },
-      MATRIX_USER_ID: { label: 'User ID của bot', placeholder: '@agentx:example.org' },
+      MATRIX_HOMESERVER: { label: 'Địa chỉ homeserver', placeholder: 'https://matrix.org' },
+      MATRIX_ACCESS_TOKEN: { label: 'Mã truy cập', placeholder: 'Dán mã truy cập của tài khoản bot' },
+      MATRIX_USER_ID: { label: 'ID tài khoản bot', placeholder: '@agentx:example.org' },
       MATRIX_ALLOWED_USERS: {
-        label: 'ID người dùng Matrix được phép',
-        help: 'Nên đặt. Các user ID theo dạng @user:server, cách nhau bằng dấu phẩy.'
+        label: 'Ai được phép nhắn cho bot',
+        help: 'Nên đặt. Các ID theo dạng @user:server, cách nhau bằng dấu phẩy.'
       },
       SIGNAL_HTTP_URL: {
-        label: 'URL cầu nối Signal',
+        label: 'Địa chỉ cầu nối Signal',
         placeholder: 'http://127.0.0.1:8080',
-        help: 'URL của một cầu nối REST signal-cli đang chạy.'
+        help: 'Địa chỉ của một cầu nối REST signal-cli đang chạy.'
       },
       SIGNAL_ACCOUNT: { label: 'Số điện thoại', help: 'Số đã đăng ký với cầu nối signal-cli của bạn.' },
       SIGNAL_ALLOWED_USERS: {
-        label: 'Người dùng Signal được phép',
+        label: 'Ai được phép nhắn cho bot',
         help: 'Nên đặt. Các định danh Signal, cách nhau bằng dấu phẩy.'
       },
       WHATSAPP_ENABLED: {
         label: 'Bật cầu nối WhatsApp',
-        help: 'Được đặt tự động bởi công tắc bên dưới. Đừng sửa tay trừ khi bạn biết chắc mình cần.'
+        help: 'Được đặt tự động bởi công tắc ở bước 3. Đừng sửa tay trừ khi bạn biết chắc mình cần.'
       },
       WHATSAPP_MODE: { label: 'Chế độ cầu nối' },
       WHATSAPP_ALLOWED_USERS: {
-        label: 'Người dùng WhatsApp được phép',
+        label: 'Ai được phép nhắn cho bot',
         help: 'Nên đặt. Các số điện thoại hoặc WhatsApp ID, cách nhau bằng dấu phẩy.'
       }
     },
-    platformIntro: {}
+    platformIntro: {
+      telegram:
+        'Trong Telegram, tìm @BotFather và gửi lệnh /newbot để tạo bot, rồi sao chép mã bot nó đưa cho bạn. Muốn biết số ID của mình, nhắn cho @userinfobot.',
+      discord:
+        'Mở Discord Developer Portal, tạo một ứng dụng và thêm Bot, rồi sao chép mã bot. Nhớ mời bot vào máy chủ của bạn với đủ quyền.',
+      slack:
+        'Tạo một ứng dụng Slack, bật Socket Mode, cài vào không gian làm việc, rồi sao chép mã bot và mã cấp ứng dụng.',
+      mattermost:
+        'Trên máy chủ Mattermost của bạn, tạo tài khoản bot hoặc mã truy cập cá nhân, rồi dán địa chỉ máy chủ và mã vào đây.',
+      matrix: 'Đăng nhập homeserver bằng tài khoản bot, rồi sao chép mã truy cập, ID tài khoản và địa chỉ homeserver.',
+      signal:
+        'Chạy một cầu nối signal-cli REST ở nơi truy cập được, rồi cho AgentX biết địa chỉ đó và số điện thoại đã đăng ký.',
+      whatsapp: 'Khởi động cầu nối WhatsApp đi kèm AgentX, quét mã QR ở lần chạy đầu, rồi bật kết nối này.',
+      bluebubbles:
+        'Chạy BlueBubbles Server trên một máy Mac có iMessage, mở API của nó, rồi dán địa chỉ cùng mật khẩu máy chủ vào đây.',
+      homeassistant:
+        'Trong Home Assistant, mở trang hồ sơ của bạn và tạo một mã truy cập dài hạn. Dán mã đó cùng địa chỉ Home Assistant vào đây.',
+      email:
+        'Dùng một hộp thư riêng cho AgentX. Với Gmail/Workspace, tạo mật khẩu ứng dụng và dùng imap.gmail.com / smtp.gmail.com.',
+      sms: 'Lấy Account SID và Auth Token trong bảng điều khiển Twilio, cùng một số điện thoại gửi được SMS.',
+      dingtalk:
+        'Tạo một ứng dụng DingTalk trong trang dành cho nhà phát triển, rồi sao chép Client ID (App key) và Client Secret vào đây.',
+      feishu:
+        'Tạo một ứng dụng Feishu / Lark, bật tính năng bot, rồi sao chép App ID, App secret và các khoá mã hoá sự kiện.',
+      wecom:
+        'Thêm một robot nhóm trong WeCom và sao chép khoá webhook của nó vào ô WECOM_BOT_ID. Kênh này chỉ gửi đi — muốn trò chuyện hai chiều, dùng lựa chọn WeCom (ứng dụng).',
+      wecom_callback:
+        'Dựng một ứng dụng WeCom tự tạo, mở địa chỉ callback của nó, rồi điền corp ID, secret, agent ID và khoá AES.',
+      weixin:
+        'Chạy lệnh agentx gateway setup, chọn Weixin, rồi quét và xác nhận mã QR bằng tài khoản WeChat cá nhân. AgentX kết nối qua iLink Bot API của Tencent và tự lưu thông tin.',
+      qqbot: 'Đăng ký một ứng dụng trên QQ Open Platform (q.qq.com) rồi sao chép App ID và Client Secret vào đây.',
+      api_server:
+        'Mở AgentX thành một API tương thích OpenAI. Đặt một khoá xác thực, rồi trỏ Open WebUI / LobeChat… tới địa chỉ host:port.',
+      webhook:
+        'Chạy một máy chủ HTTP để các công cụ khác (GitHub, GitLab, ứng dụng của bạn) gửi sự kiện tới. Dùng khoá bí mật để xác minh chữ ký.'
+    }
   },
 
   webhooks: {
@@ -2330,16 +2467,23 @@ export const vi: Translations = {
   },
 
   artifacts: {
+    pageTitle: 'Artifact',
+    pageDescription: 'Ảnh, tệp và liên kết AgentX đã tạo trong các cuộc trò chuyện.',
     search: 'Tìm artifact...',
-    refresh: 'Làm mới artifact',
-    refreshing: 'Đang làm mới artifact',
-    indexing: 'Đang lập chỉ mục artifact của các phiên gần đây',
+    refresh: 'Làm mới',
+    refreshing: 'Đang làm mới',
+    indexing: 'Đang tìm artifact trong các cuộc trò chuyện gần đây',
     tabAll: 'Tất cả',
     tabImages: 'Ảnh',
     tabFiles: 'Tệp',
     tabLinks: 'Liên kết',
-    noArtifactsTitle: 'Không tìm thấy artifact nào',
-    noArtifactsDesc: 'Ảnh và tệp do các phiên tạo ra sẽ xuất hiện tại đây.',
+    emptyTitle: 'Chưa có artifact nào',
+    emptyDesc: 'Khi AgentX tạo ảnh hay tệp cho bạn, chúng sẽ nằm ở đây.',
+    emptyAction: 'Bắt đầu trò chuyện',
+    noResultsTitle: 'Không có kết quả',
+    noResultsDesc: 'Không có artifact nào khớp với bộ lọc hiện tại.',
+    clearSearch: 'Xoá tìm kiếm',
+    showAll: 'Xem tất cả',
     failedLoad: 'Tải artifact thất bại',
     openFailed: 'Mở thất bại',
     itemsImage: 'ảnh',
@@ -2349,17 +2493,12 @@ export const vi: Translations = {
     zero: '0',
     rangeOf: (start, end, total) => `${start}-${end} trên ${total}`,
     goToPage: (itemLabel, page) => `Tới trang ${page} của ${itemLabel}`,
-    colTitleLink: 'Tiêu đề liên kết',
-    colTitleFile: 'Tên',
-    colTitleDefault: 'Tiêu đề / tên',
-    colLocationLink: 'URL',
-    colLocationFile: 'Đường dẫn',
-    colLocationDefault: 'Vị trí',
-    colSession: 'Phiên',
-    kindImage: 'ảnh',
-    kindFile: 'tệp',
-    kindLink: 'liên kết',
-    chat: 'Trò chuyện',
+    groupToday: 'Hôm nay',
+    groupYesterday: 'Hôm qua',
+    groupLast7Days: '7 ngày qua',
+    open: 'Mở',
+    viewChat: 'Xem cuộc trò chuyện',
+    rowActions: 'Thao tác khác',
     copyUrl: 'Sao chép URL',
     copyPath: 'Sao chép đường dẫn'
   },

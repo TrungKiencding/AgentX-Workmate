@@ -4,8 +4,10 @@ import { SearchField } from '@/components/ui/search-field'
 import { ResponsiveTabs } from '@/components/ui/tab-dropdown'
 import { cn } from '@/lib/utils'
 
+import { OverlayPageHeader } from './overlays/overlay-split-layout'
+
 // Tabs are data, not nodes: the shell owns their presentation so every page
-// gets the same behavior — a centered TextTab row on wide viewports that
+// gets the same behavior — a centered PillTabs track on wide viewports that
 // collapses into a dropdown when the header can't fit both search and tabs.
 export interface PageShellTab {
   id: string
@@ -14,8 +16,13 @@ export interface PageShellTab {
   meta?: string | number | null
 }
 
-interface PageSearchShellProps extends React.ComponentProps<'section'> {
+interface PageSearchShellProps extends Omit<React.ComponentProps<'section'>, 'title'> {
   children: ReactNode
+  /** Page title (22px) rendered through OverlayPageHeader above the search/tab
+   *  row, so a full page announces itself the way an overlay pane does. */
+  title?: ReactNode
+  /** One 13px line under the title that says what the page is for. */
+  description?: ReactNode
   tabs?: PageShellTab[]
   activeTab?: string
   onTabChange?: (id: string) => void
@@ -47,6 +54,7 @@ function ShellTabs({
       onChange={id => onTabChange?.(id)}
       tabs={tabs}
       value={activeTab ?? tabs[0]?.id ?? ''}
+      variant="pill"
       wideClassName="justify-center"
     />
   )
@@ -55,6 +63,8 @@ function ShellTabs({
 export function PageSearchShell({
   children,
   className,
+  title,
+  description,
   tabs,
   activeTab,
   onTabChange,
@@ -77,8 +87,9 @@ export function PageSearchShell({
       {/*
         Header lives in the page body, below the window chrome (the shell floats
         traffic lights over the top titlebar-height strip, which the `pt` clears
-        and leaves draggable). Search left, tabs centered on the page via the
-        1fr/auto/1fr grid; the trailing 1fr keeps the center honest.
+        and leaves draggable). The title block leads; then search left, tabs
+        centered on the page via the 1fr/auto/1fr grid; the trailing 1fr keeps
+        the center honest.
       */}
       {/*
         IMPORTANT: do NOT put `-webkit-app-region: drag` on this header. It spans
@@ -89,9 +100,10 @@ export function PageSearchShell({
         draggable titlebar strip that is `calc()`'d around the icon clusters
         (see app-shell.tsx), so window dragging still works here.
       */}
-      <div className="shrink-0">
+      <div className="shrink-0 pt-[calc(var(--titlebar-height)+0.5rem)]">
+        {title != null && <OverlayPageHeader className="mb-2 px-4" description={description} title={title} />}
         {(hasTabs || !searchHidden) && (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 pb-2 pt-[calc(var(--titlebar-height)+0.5rem)]">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 pb-2">
             <div className="flex min-w-0 items-center justify-start">
               {!searchHidden && (
                 <SearchField

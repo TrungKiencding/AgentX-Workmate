@@ -191,6 +191,48 @@ export function sessionBucketLabel(bucket: SessionBucket, labels: SessionBucketL
   }
 }
 
+// ── Library day groups ─────────────────────────────────────────────────────
+// The Artifact library groups its file/link rows the way Drive's "Recent"
+// does: Today · Yesterday · Last 7 days · then one group per month. Plain
+// calendar days (no 4 AM rollover — a file list follows the clock, not the
+// sleep cycle), and "last 7 days" is a rolling window on purpose: unlike the
+// sidebar's calendar buckets, a library is scanned by recency, not by week.
+export type DayGroupKind = 'last7days' | 'month' | 'monthYear' | 'today' | 'yesterday'
+
+export interface DayGroup {
+  /** Start of the group's representative day (ms) — for month formatting. */
+  at: number
+  key: string
+  kind: DayGroupKind
+}
+
+/** Coarse recency group for a millisecond timestamp. */
+export function dayGroup(ms: number, nowMs = Date.now()): DayGroup {
+  const day = startOfLocalDay(ms)
+  const today = startOfLocalDay(nowMs)
+  const dayDiff = Math.round((today - day) / DAY)
+
+  if (dayDiff <= 0) {
+    return { at: day, key: 'today', kind: 'today' }
+  }
+
+  if (dayDiff === 1) {
+    return { at: day, key: 'yesterday', kind: 'yesterday' }
+  }
+
+  if (dayDiff <= 7) {
+    return { at: day, key: 'last-7-days', kind: 'last7days' }
+  }
+
+  const d = new Date(day)
+  const now = new Date(today)
+  const ym = `${d.getFullYear()}-${d.getMonth()}`
+
+  return d.getFullYear() === now.getFullYear()
+    ? { at: day, key: `m-${ym}`, kind: 'month' }
+    : { at: day, key: `my-${ym}`, kind: 'monthYear' }
+}
+
 export type ElapsedUnit = 'day' | 'hour' | 'minute' | 'second'
 
 // Coarsest elapsed bucket for a (clamped-nonnegative) duration, floored. The

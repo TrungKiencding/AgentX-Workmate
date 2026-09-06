@@ -637,6 +637,13 @@
     /* Home-surface task cards: the minimum height of one card, so a row of
        cards with and without a description still lines up. */
     --intro-card-min-height: 3.5rem; /* 56px */
+    /* Page list rows — the Tiện ích lists (skills / tools / connections) read
+       at 48px so a two-line row is a comfortable target, and the Artifact
+       library's file rows at 52px so a 24px type icon plus two lines still
+       breathe. Both sit above the sidebar's 36px conversation rows on purpose:
+       these rows carry a switch or a hover action, not just a title. */
+    --cap-row-height: 3rem; /* 48px — Tiện ích list rows */
+    --artifact-row-height: 3.25rem; /* 52px — Artifact file/link rows */
 
     /* Corner-radius voice — controls 8px · cards/widgets 12px · overlays 14px
        (the composer keeps its own 16px shell). Fixed on purpose: these rungs do

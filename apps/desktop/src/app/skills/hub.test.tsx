@@ -114,9 +114,9 @@ describe('SkillsHub — the skill store', () => {
     expect(cards[1].textContent).toContain('Browser')
     // The store front: the hub, its state, what it holds, when it synced.
     const bar = screen.getByTestId('hub-catalog-bar').textContent ?? ''
-    expect(bar).toContain('AgentX Hub')
+    expect(bar).toContain('AgentX utility store')
     expect(bar).toContain('skills.dev-server.cloud')
-    expect(bar).toContain('2 skills from the Hub')
+    expect(bar).toContain('2 utilities from the Hub')
     expect(screen.getByTestId('hub-store-state').textContent).toBe('Connected')
   })
 

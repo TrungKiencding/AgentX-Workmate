@@ -114,7 +114,7 @@ export function PublishSkillDialog({
 
         {result?.ok ? (
           <div className="space-y-2 text-xs" data-testid="publish-done">
-            <p className="font-medium text-emerald-400">
+            <p className="font-medium text-(--ui-green)">
               {result.created === false && result.version ? p.unchanged(result.version) : p.done(result.slug ?? skill.name, result.version ?? '')}
             </p>
             {result.publish_state && (
@@ -125,7 +125,7 @@ export function PublishSkillDialog({
               </p>
             )}
             {(result.warnings ?? []).length > 0 && (
-              <p className="text-amber-400">
+              <p className="text-(--ui-yellow)">
                 {p.warnings}: {(result.warnings ?? []).join('; ')}
               </p>
             )}
@@ -182,12 +182,12 @@ export function PublishSkillDialog({
                     <Loader2 className="size-3 animate-spin" /> {p.previewLoading}
                   </span>
                 ) : preview.data ? (
-                  <span className={cn('font-medium', previewOk ? 'text-emerald-400' : 'text-destructive')} data-testid="publish-preview-status">
+                  <span className={cn('font-medium', previewOk ? 'text-(--ui-green)' : 'text-destructive')} data-testid="publish-preview-status">
                     {previewOk ? p.previewValid : p.previewInvalid}
                   </span>
                 ) : null}
               </div>
-              {preview.data && !preview.data.ok && <p className="text-amber-400">{preview.data.detail || preview.data.status}</p>}
+              {preview.data && !preview.data.ok && <p className="text-(--ui-yellow)">{preview.data.detail || preview.data.status}</p>}
               {previewError && <p className="text-destructive">{previewError.message || previewError.code}</p>}
               {pkg && (
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-2xs">
@@ -202,7 +202,7 @@ export function PublishSkillDialog({
                 </dl>
               )}
               {warnings.length > 0 && (
-                <p className="mt-1 text-amber-400">
+                <p className="mt-1 text-(--ui-yellow)">
                   {p.warnings}: {warnings.join('; ')}
                 </p>
               )}

@@ -170,6 +170,12 @@ mode. Light clears 4.5:1 on paper (`oklch(52% 0.14 155)` · `oklch(55% 0.12 80)`
 (`64%` · `75%` · `68%`). That means a semantic color can carry *text*, not only
 a dot — but a status still needs a glyph as well as a hue.
 
+**`TagChip`** (`components/ui/tag-chip.tsx`) is the quiet metadata tag the
+store surfaces share — a category on a skill detail, "Desktop / Trình duyệt"
+on a store card, a transport on a catalog entry: a 12px full pill on the
+tertiary fill, sentence case as written. It labels; it never signals state —
+state belongs to `StatusPill`, which always brings its dot.
+
 **`StatusPill`** (`components/ui/status-pill.tsx`) is the one status pill: a
 dot and a word. `tone` = `good | warn | bad | info | muted`, `size` = `sm`
 (24px, 12px text — beside a row title) or `md` (28px, 13px — level with a
@@ -267,6 +273,11 @@ belong to `OverlayPageHeader` and the home greeting.
   and a conversation row share one 36px silhouette (`--control-h-lg`), so the
   sidebar reads as a list of conversations rather than a file tree; the
   statusbar keeps its shorter band.
+- `--cap-row-height` (48px) — the Tiện ích lists (skills · tools · advanced
+  connections): a 14px title over a 13px one-line description with an `md`
+  switch. `--artifact-row-height` (52px) — the Artifact library's file/link
+  rows, roomy enough for a 24px type icon plus two lines. Both deliberately
+  sit above the sidebar's 36px: these rows carry controls, not just a title.
 - `--switch-md-track-width/-height` (38×22px) · `--switch-md-thumb` (18px) —
   the `md` Switch. `--status-pill-h-sm/-md` (24/28px) — the `StatusPill`.
   `--intro-card-min-height` (56px) — the home surface's task card.
@@ -444,13 +455,25 @@ running — while staying quieter than the content they frame.
   shell.
 - **Page titles:** `OverlayPageHeader` (`overlays/overlay-split-layout.tsx`) is
   the one page-title block — `text-xl` (22px) semibold over a `text-sm` muted
-  line, actions right. Command Center and every `Panel` (`PanelHeader` composes
-  it) announce themselves through it. No rule under it; the gap is the
-  separation. A pane that must hide the title at a breakpoint targets
-  `[data-slot=overlay-page-title]`, not a DOM position. **Settings is the
-  deliberate exception** — its left rail already names the page, so it takes
-  its hierarchy from `SectionHeading` over `ListRow` instead of repeating the
-  rail at 22px.
+  line, actions right. Command Center, every `Panel` (`PanelHeader` composes
+  it), **and the full pages** — `PageSearchShell` takes `title`/`description`
+  and renders them through it, so Tiện ích, Tin nhắn and Artifact announce
+  themselves the way an overlay pane does (the description is where a page
+  explains itself: "Ảnh, tệp và liên kết AgentX đã tạo…"). No rule under it;
+  the gap is the separation. A pane that must hide the title at a breakpoint
+  targets `[data-slot=overlay-page-title]`, not a DOM position. **Settings is
+  the deliberate exception** — its left rail already names the page, so it
+  takes its hierarchy from `SectionHeading` over `ListRow` instead of
+  repeating the rail at 22px.
+- **Page tab rows are `PillTabs`.** `PageSearchShell` renders its tabs through
+  `ResponsiveTabs variant="pill"` — the soft track with the sliding highlight
+  and 12px tabular counts — centered between the search field and the trailing
+  action. `TextTab` remains the in-pane tab (log sources, editor panes).
+- **Library rows group by recency.** The Artifact list is Drive's "Recent":
+  `dayGroup` (`lib/time.ts`) buckets rows into Hôm nay · Hôm qua · 7 ngày qua ·
+  then months (plain calendar days — no 4 AM rollover here; that belongs to
+  the session sidebar), with a 12px semibold sentence-case header per shelf and
+  month names formatted in the app locale, not the OS locale.
 - **Overlay nav rows** (`OverlayNavItem`, settings `NavLink`) are controls:
   `--control-h-md` at `text-sm`, `--radius-control`.
 - **Rows:** `ListRow` (settings `primitives.tsx`) for label/description/action
@@ -468,6 +491,15 @@ running — while staying quieter than the content they frame.
   `size="lg"`/`"xl"` with its Cancel matched.
 - **No dividers between rows** unless the list genuinely needs them; prefer
   spacing. When you do need one, it's a single `--ui-stroke-tertiary` hairline.
+- **The technical surface folds under the page.** The advanced-connections tab
+  is a single column — a 13px intro line, 48px connection rows, one "Thêm kết
+  nối" button — with the mcp.json editor and the logs each in a
+  `DetailPane` that starts collapsed ("Cấu hình nâng cao (mcp.json)" ·
+  "Nhật ký"). The panes stay mounted while collapsed, so cursor-driven
+  selection and "Dán cấu hình" (which expands the editor pane before seeding
+  the starter entry) keep working. Store-style installs (hub cards, the MCP
+  catalog) share one card treatment: `--radius-card`, quinary fill, p-4, the
+  §Motion card-hover recipe, an `auto-fill minmax(18rem,1fr)` grid.
 
 ## Feedback & empty/error/loading states
 
@@ -485,6 +517,19 @@ running — while staying quieter than the content they frame.
   Every place we surface raw logs uses it.
 - **Empty:** `EmptyState` for plain page bodies; `PanelEmpty` for overlay
   master/detail empties. Don't hand-roll a third centered empty.
+- **`DisclosureRow`** (`components/ui/disclosure-row.tsx`) — the page-chrome
+  disclosure: one sentence-case 13px medium row with a Tabler caret that
+  rotates in place ("Chi tiết kỹ thuật", "Nâng cao (3)", "Xem thêm 8 nền
+  tảng"). It is how a page folds its technical tail behind one click; the
+  content renders under it when open, indented `pl-5`. The transcript keeps
+  its own `DisclosureCaret` (Codicon) — that one is tool-row vocabulary.
+- **A waiting person is a banner, not a number.** A pairing request renders as
+  `PairingBanner` (messaging): one card (`--radius-card`, quinary fill, one
+  hairline), one sentence — «Tên» muốn nhắn với AgentX qua … — and one primary
+  verb ("Cho phép"). It sits at the top of the platform's detail, compact
+  copies surface above the list for other platforms, and the sidebar's
+  "Tin nhắn" nav row carries the count as a red-tinted badge (fed by
+  `store/pairing`, written by the page's own fetch — no extra polling).
 - **`EmptyFigure`** (`components/ui/empty-figure.tsx`) — the only illustration
   an empty surface may carry: four 96px monoline figures (`chat` · `folder` ·
   `plug` · `box`), each the mark beside one object, `currentColor` at the
@@ -683,7 +728,14 @@ so two-line rows still grow), `HUD_HEADING`.
   only in the transcript, terminal, editor and file tree (plus an icon name a
   plugin contributes as data). Use `src/components/ui/codicon.tsx`, including
   `codiconIcon()` where a Tabler-shaped component is required. A Codicon in
-  page chrome is a bug.
+  page chrome is a bug. **One sanctioned extension:** the Artifact library's
+  file rows lead with `FileTypeIcon` — a file-type icon is the file-tree
+  vocabulary, and a per-extension Tabler duplicate would fork the mapping.
+- **Skill categories have one glyph table.** `lib/skill-categories.ts` maps a
+  normalized category slug to a Tabler icon and an i18n label
+  (`skills.category.*`); `skillDisplayName` turns a kebab slug into the
+  human name (the raw slug stays under "Chi tiết kỹ thuật"). Unknown
+  categories fall back to the "general" box + `prettyName`.
 - Pick the vocabulary by semantic context and reuse the existing icon for an
   action. Do not introduce a third icon set or mix styles within one control
   group.

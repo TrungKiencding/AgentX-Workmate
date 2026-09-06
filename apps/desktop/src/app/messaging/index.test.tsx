@@ -120,7 +120,7 @@ describe('MessagingView pairing', () => {
 
     await renderMessaging()
 
-    const approve = await screen.findByRole('button', { name: 'Approve' })
+    const approve = await screen.findByRole('button', { name: 'Allow' })
     await act(async () => {
       fireEvent.click(approve)
     })
@@ -138,11 +138,12 @@ describe('MessagingView pairing', () => {
     await renderMessaging()
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Approve' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Allow' }))
     })
 
-    expect(await screen.findByRole('button', { name: 'Approve' })).toBeTruthy()
-    expect(screen.getByText('Bee')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Allow' })).toBeTruthy()
+    // The banner phrases the request as one sentence, so match by substring.
+    expect(screen.getAllByText(/Bee/).length).toBeGreaterThan(0)
   })
 
   it('shows no pairing affordance when nobody is waiting', async () => {
@@ -154,7 +155,7 @@ describe('MessagingView pairing', () => {
     await renderMessaging()
 
     expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
     expect(screen.queryByText(/Pending requests/)).toBeNull()
   })
 
@@ -166,7 +167,7 @@ describe('MessagingView pairing', () => {
     await renderMessaging()
 
     expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
   })
 
   it('refetches pending rows on pairing.changed, not on platforms.changed', async () => {
@@ -192,7 +193,7 @@ describe('MessagingView pairing', () => {
     })
 
     await waitFor(() => expect(getPairing).toHaveBeenCalled())
-    expect(await screen.findByRole('button', { name: 'Approve' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Allow' })).toBeTruthy()
 
     // A platform health tick alone must not be what fetches pairing.
     getPairing.mockClear()

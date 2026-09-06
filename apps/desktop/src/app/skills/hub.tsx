@@ -4,6 +4,8 @@ import { useCallback, useMemo, useState } from 'react'
 
 import { useDebounced } from '@/app/hooks/use-debounced'
 import { DetailPane } from '@/app/master-detail'
+import { PanelEmpty } from '@/app/overlays/panel'
+import { CompactMarkdown } from '@/components/chat/compact-markdown'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
@@ -15,7 +17,14 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
+import { TagChip } from '@/components/ui/tag-chip'
 import {
   getSkillHubCatalog,
   previewSkillHub,
@@ -28,7 +37,7 @@ import {
 import { useI18n } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
 import { compactNumber } from '@/lib/format'
-import { CloudDownload, ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
+import { CloudDownload, ExternalLink, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import {
@@ -69,7 +78,11 @@ function trustTone(level: string): StatusPillTone {
     case 'builtin':
       return 'muted'
 
+    case 'agentx-hub-verified':
+
     case 'trusted':
+
+    case 'verified':
       return 'good'
 
     default:
@@ -166,52 +179,55 @@ function HubSkillCard({
 
   return (
     <article
-      className="flex min-w-0 flex-col gap-2 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3.5 transition-colors hover:border-(--ui-stroke-secondary)"
+      // The store-card hover recipe: background, border and shadow move
+      // together at --dur-short — never a translate, never a scale.
+      className="flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 shadow-xs transition-[background-color,border-color,box-shadow] duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--ui-bg-quaternary) hover:shadow-sm"
       data-testid="hub-card"
     >
       <div className="flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{skill.name}</span>
-        {extra.version && (
-          <span className="shrink-0 font-mono text-2xs text-(--ui-text-quaternary)">{extra.version}</span>
-        )}
+        <span className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{skill.name}</span>
+        {extra.version && <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)">{extra.version}</span>}
       </div>
 
-      <p className="line-clamp-3 text-xs text-muted-foreground/80">{skill.description || t.skills.noDescription}</p>
+      <p className="line-clamp-2 text-sm text-(--ui-text-tertiary)">{skill.description || t.skills.noDescription}</p>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {kind && (
-          <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
-            {h.kind[kind]}
-          </span>
-        )}
+        {kind && <TagChip>{h.kind[kind]}</TagChip>}
         <StatusPill tone={trustTone(skill.trust_level)}>{h.trust[skill.trust_level] ?? skill.trust_level}</StatusPill>
-        {visibility && (
-          <span className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-2xs text-(--ui-text-secondary)">
-            {t.skills.publish.visibilityOptions[visibility]}
-          </span>
-        )}
-        {installed && <StatusPill tone="good">{h.installed}</StatusPill>}
+        {visibility && <TagChip>{t.skills.publish.visibilityOptions[visibility]}</TagChip>}
         {downloads > 0 && (
-          <span className="flex items-center gap-1 text-2xs text-(--ui-text-quaternary)">
-            <CloudDownload className="size-3" />
+          <span className="flex items-center gap-1 text-xs tabular-nums text-(--ui-text-tertiary)">
+            <CloudDownload className="size-3.5" />
             {compactNumber(downloads)}
           </span>
         )}
       </div>
 
-      <div className="mt-auto flex items-center justify-end gap-1">
-        <Button onClick={() => onPreview(skill)} size="xs" variant="text">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+        <Button onClick={() => onPreview(skill)} size="sm" variant="text">
           {h.preview}
         </Button>
         {installed ? (
-          <Button className="hover:text-destructive" disabled={running} onClick={doUninstall} size="xs" variant="text">
-            {running && <Loader2 className="size-3 animate-spin" />}
-            {running ? h.uninstalling : h.uninstall}
-          </Button>
+          <span className="flex items-center gap-1">
+            <StatusPill size="md" tone="good">
+              {h.installed}
+            </StatusPill>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button aria-label={h.actions} size="icon-sm" variant="ghost">
+                  <MoreVertical />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={4}>
+                <DropdownMenuItem disabled={running} onSelect={doUninstall} variant="destructive">
+                  {running ? h.uninstalling : h.uninstall}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
         ) : (
-          <Button disabled={running} onClick={doInstall} size="xs" variant="textStrong">
-            {running && <Loader2 className="size-3 animate-spin" />}
-            {running ? h.installing : h.install}
+          <Button disabled={running} loading={running} onClick={doInstall} size="sm">
+            {h.install}
           </Button>
         )}
       </div>
@@ -388,7 +404,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
       <div className="shrink-0 px-4 pt-4 pb-3" data-testid="hub-catalog-bar">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">AgentX Hub</span>
+            <span className="text-md font-semibold text-foreground">{h.storeTitle}</span>
             <StatusPill
               data-testid="hub-store-state"
               tone={
@@ -433,7 +449,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
           </div>
         </div>
 
-        <p className="mt-1.5 text-xs text-(--ui-text-secondary)">
+        <p className="mt-1.5 text-sm text-(--ui-text-secondary)">
           {term.length > 0 ? h.resultCount(listed.length, null) : h.catalogCount(listed.length)}
           <span className="text-(--ui-text-quaternary)"> · </span>
           {lastSync}
@@ -441,7 +457,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
         </p>
 
         {offline && (
-          <p className="mt-1 text-xs text-(--ui-yellow)" data-testid="hub-catalog-offline">
+          <p className="mt-1 text-sm text-(--ui-yellow)" data-testid="hub-catalog-offline">
             {h.catalogOffline}
           </p>
         )}
@@ -458,14 +474,20 @@ export function SkillsHub({ query }: SkillsHubProps) {
             <PageLoader label={h.searching} />
           </div>
         ) : listed.length === 0 ? (
-          <div className="grid min-h-40 place-items-center px-6 text-center">
-            <p className="max-w-md text-sm text-(--ui-text-secondary)">
-              {searched ? h.noResults : h.catalogEmpty}
-              {showLanding && <span className="mt-1.5 block text-xs text-(--ui-text-quaternary)">{h.landingHint}</span>}
-            </p>
-          </div>
+          <PanelEmpty
+            action={
+              searched ? null : (
+                <Button disabled={syncing} onClick={syncNow} size="sm" variant="secondary">
+                  {h.syncNow}
+                </Button>
+              )
+            }
+            description={searched ? h.searchEmptyDesc : h.catalogEmptyDesc}
+            figure="box"
+            title={searched ? h.noResults : h.catalogEmpty}
+          />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
             {listed.map(skill => (
               <HubSkillCard
                 installedName={installed[skill.identifier]?.name ?? null}
@@ -515,21 +537,26 @@ export function SkillsHub({ query }: SkillsHubProps) {
 
               <div className="min-h-0 space-y-3 overflow-y-auto">
                 {scan && (
-                  <div className="rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3 text-xs">
-                    <div className={cn('font-medium', verdictTone(scan.policy))}>
-                      {scan.policy === 'allow' ? h.policyAllow : scan.policy === 'block' ? h.policyBlock : h.policyAsk}
-                      {' · '}
-                      {scan.verdict === 'safe'
-                        ? h.verdictSafe
-                        : scan.verdict === 'dangerous'
-                          ? h.verdictDangerous
-                          : h.verdictCaution}
+                  <div className="rounded-(--radius-card) bg-(--ui-bg-quinary) p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusPill
+                        tone={scan.verdict === 'safe' ? 'good' : scan.verdict === 'dangerous' ? 'bad' : 'warn'}
+                      >
+                        {scan.verdict === 'safe'
+                          ? h.verdictSafe
+                          : scan.verdict === 'dangerous'
+                            ? h.verdictDangerous
+                            : h.verdictCaution}
+                      </StatusPill>
+                      <span className={cn('font-medium', verdictTone(scan.policy))}>
+                        {scan.policy === 'allow' ? h.policyAllow : scan.policy === 'block' ? h.policyBlock : h.policyAsk}
+                      </span>
                     </div>
-                    <div className="mt-1 text-muted-foreground">
+                    <div className="mt-1.5 text-(--ui-text-tertiary)">
                       {scan.findings.length === 0 ? h.noFindings : h.findings(scan.findings.length)}
                     </div>
                     {scan.findings.slice(0, 12).map((finding, index) => (
-                      <div className="mt-1.5 font-mono text-2xs text-(--ui-text-tertiary)" key={index}>
+                      <div className="mt-1.5 font-mono text-xs text-(--ui-text-tertiary)" key={index}>
                         [{finding.severity}] {finding.file}
                         {finding.line !== null ? `:${finding.line}` : ''} — {finding.description}
                       </div>
@@ -541,14 +568,15 @@ export function SkillsHub({ query }: SkillsHubProps) {
                   <PageLoader className="min-h-32" label={h.searching} />
                 ) : previewQuery.data ? (
                   <>
-                    <pre
-                      className="max-h-72 overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3 font-mono text-2xs leading-relaxed"
-                      data-selectable-text="true"
-                    >
-                      {previewQuery.data.skill_md || h.noReadme}
-                    </pre>
+                    {previewQuery.data.skill_md ? (
+                      <div className="max-h-72 overflow-auto rounded-(--radius-card) bg-(--ui-bg-quinary) p-3">
+                        <CompactMarkdown className="text-sm" text={previewQuery.data.skill_md} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-(--ui-text-tertiary)">{h.noReadme}</p>
+                    )}
                     {previewQuery.data.files.length > 0 && (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-sm text-(--ui-text-tertiary)">
                         <span className="font-medium">{h.files}:</span> {previewQuery.data.files.join(', ')}
                       </div>
                     )}
@@ -563,7 +591,6 @@ export function SkillsHub({ query }: SkillsHubProps) {
                 <Button
                   disabled={actions[detail.identifier]?.running || isInstalled(detail.identifier)}
                   onClick={() => install(detail.identifier, detail.name)}
-                  size="sm"
                 >
                   {isInstalled(detail.identifier) ? h.installed : h.install}
                 </Button>
