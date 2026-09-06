@@ -658,6 +658,17 @@ so two-line rows still grow), `HUD_HEADING`.
   watermark's own geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
   the first assistant message of a turn on the prose column's left edge;
   interim messages in the same turn wear none, and it never sits in a bubble.
+- **A wait is the mark breathing.** Before the first token the thinking row
+  *is* the reply's head: the same `BrandGlyph` (`size="md"`, 20px, in the
+  head's own spot — the steady head is held back until content exists, so
+  one mark is on screen at a time) inside a `StatusPulse` — one opacity beat,
+  the renderer sleeping between beats, still under reduced motion — beside a
+  plain 13px "Đang nghĩ" (`assistant.thread.thinking`, or the named wait when
+  there is one) and the elapsed timer. When the stream goes quiet mid-turn
+  the same row returns at the tail a rung smaller (`size="sm"`, 14px) under
+  the prose. No dither block, no spinner: the mark that heads the reply is the
+  mark that waits for it. `.dither` survives only as the sidebar label dot
+  and the timeline's idle dots.
 - **Tool rows are scaffolding, not cards.** They stay transparent and faded
   (`data-conversation-scaffold`) so the prose column reads first. One voice
   for all of them: `SCAFFOLD_LABEL_CLASS` (13px medium at
@@ -762,7 +773,8 @@ so two-line rows still grow), `HUD_HEADING`.
   onboarding / about. Use it for hero/brand moments; don't reintroduce
   decorative star/sparkle icons.
 - **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
-  `currentColor` line-art glyph, built from `lib/brand-mark-path.ts` — the
+  (`size="md"`, the reply head and the empty figures) or 14px (`size="sm"`,
+  the thinking row) `currentColor` line-art glyph, built from `lib/brand-mark-path.ts` — the
   same geometry the chat watermark tiles and the `EmptyFigure`s carry. Three
   drawings, one path: re-fit the numbers there and all three follow.
 

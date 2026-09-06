@@ -1,4 +1,4 @@
-// The thinking indicator (dither block) may only ever render at the TAIL of
+// The thinking indicator (the breathing brand glyph) may only ever render at the TAIL of
 // the thread. A message stuck status:running mid-transcript — however it got
 // there (missed settle event, steer race, upstream state bug) — must render
 // its content with no spinner: a live indicator above a later user message

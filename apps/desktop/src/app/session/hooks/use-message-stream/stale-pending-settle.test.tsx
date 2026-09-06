@@ -1,7 +1,7 @@
 // A turn that ends WITHOUT its message.complete (turn crash, reconnect gap,
 // steer race) used to leave its streaming bubble pending:true forever. The
 // next user message then landed after it, stranding a live thinking indicator
-// mid-transcript — the dither block anywhere but the tail. session.info
+// mid-transcript — the thinking glyph anywhere but the tail. session.info
 // running=false is the turn's finally-block signal and the only settle edge
 // those paths still emit, so it must finalize the bubble.
 import { QueryClient } from '@tanstack/react-query'

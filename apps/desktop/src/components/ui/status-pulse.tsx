@@ -80,7 +80,9 @@ const subscribePulse = (subscriber: PulseSubscriber): (() => void) => {
   }
 }
 
-export interface StatusPulseProps extends Omit<ComponentProps<'span'>, 'children' | 'ref'> {
+// Children ride the pulse: the thinking row puts the brand glyph inside so the
+// mark itself breathes while AgentX works.
+export interface StatusPulseProps extends Omit<ComponentProps<'span'>, 'ref'> {
   kind: 'opacity' | 'ping'
   opacity?: number
 }

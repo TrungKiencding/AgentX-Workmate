@@ -251,6 +251,11 @@ Hermes era.
   leaned on English now translate all 355 / 355 / 304 in-scope keys by hand
   (skill-store strings, 46 tool labels and descriptions, the 19 platform
   guides and taglines, the keyboard-shortcut panel).
+- **A wait is the mark breathing.** The transcript's thinking row — the last
+  pixel texture in the app, a dithered square beside a timer — is now the
+  brand glyph at 14px pulsing inside `StatusPulse`, with a visible "Đang nghĩ"
+  (or the named wait) and the timer; its stall fallback label is translated
+  instead of hard-coded English.
 - **Dates and ages follow the language.** `lib/time.ts` formatters rebuild on
   `setTimeFormatLocale`, which the i18n runtime calls with the BCP-47 tag —
   the sidebar's month dividers, the Artifact shelves and every "x phút trước"

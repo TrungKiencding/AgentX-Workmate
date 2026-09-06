@@ -11,11 +11,19 @@ import { cn } from '@/lib/utils'
  * carries no colour of its own. For the brand *plate* (a filled tile for hero
  * and About moments) use `BrandMark` instead.
  */
-export function BrandGlyph({ className, ...props }: React.ComponentProps<'svg'>) {
+// `md` (20px) heads a reply and anchors the empty figures; `sm` (14px) is the
+// thinking row's mark beside the timer — the same drawing, one rung smaller.
+const GLYPH_SIZE = { md: 'size-5', sm: 'size-3.5' } as const
+
+interface BrandGlyphProps extends React.ComponentProps<'svg'> {
+  size?: keyof typeof GLYPH_SIZE
+}
+
+export function BrandGlyph({ className, size = 'md', ...props }: BrandGlyphProps) {
   return (
     <svg
       aria-hidden="true"
-      className={cn('size-5 shrink-0', className)}
+      className={cn(GLYPH_SIZE[size], 'shrink-0', className)}
       data-slot="brand-glyph"
       fill="none"
       stroke="currentColor"

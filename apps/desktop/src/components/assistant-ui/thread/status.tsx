@@ -4,6 +4,7 @@ import { type FC, type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { toolPresentVerb } from '@/components/assistant-ui/tool/run-summary'
+import { BrandGlyph } from '@/components/brand-glyph'
 import { useElapsedSeconds } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { SCAFFOLD_LABEL_CLASS } from '@/components/chat/scaffold-row'
@@ -46,6 +47,12 @@ const StatusRow: FC<{ children: ReactNode; label: string } & React.ComponentProp
 // Fixed label while auto-compaction runs — decoupled from backend status text.
 const HintText: FC<{ children: ReactNode }> = ({ children }) => (
   <span className={cn(SCAFFOLD_LABEL_CLASS, 'shimmer min-w-0 truncate')}>{children}</span>
+)
+
+// The plain "Đang nghĩ" beside the breathing mark — no shimmer, the glyph is
+// the one thing that moves on this row.
+const ThinkingText: FC<{ children: ReactNode }> = ({ children }) => (
+  <span className={cn(SCAFFOLD_LABEL_CLASS, 'min-w-0 truncate')}>{children}</span>
 )
 
 /** These indicators render inside whichever transcript mounted them, so every
@@ -130,12 +137,12 @@ export const ResponseLoadingIndicator: FC = () => {
 
   return (
     <StatusRow data-slot="aui_response-loading" label={hint || t.assistant.thread.loadingResponse}>
-      <StatusPulse
-        aria-hidden="true"
-        className="dither inline-block size-3 rounded-[2px] text-midground/80"
-        kind="opacity"
-      />
-      {hint && <HintText>{hint}</HintText>}
+      {/* Head position: this is the reply's own mark, breathing until the first
+          token lands and the steady head takes over — same size, same spot. */}
+      <StatusPulse aria-hidden="true" className="inline-flex shrink-0 text-midground/80" kind="opacity">
+        <BrandGlyph size="md" />
+      </StatusPulse>
+      {hint ? <HintText>{hint}</HintText> : <ThinkingText>{t.assistant.thread.thinking}</ThinkingText>}
       <ActivityTimerText seconds={elapsed} />
     </StatusRow>
   )
@@ -179,7 +186,7 @@ const STREAM_STALL_S = 2
 // text flows, but if the stream then goes quiet mid-turn (tool think-time,
 // provider stall) nothing signals that work continues. Watch a per-flush
 // activity signal; when it hasn't changed for STREAM_STALL_S, re-show the
-// dither + a timer counting from the last activity.
+// breathing mark + a timer counting from the last activity.
 //
 // Subscribes to the activity signal ITSELF (rather than taking it as a prop)
 // so that per-token updates re-render only this leaf, not the whole
@@ -206,6 +213,7 @@ export const StreamStallIndicator: FC = () => {
   const [quietSince, setQuietSince] = useState<number | undefined>(undefined)
   const { awaitingInput, compacting, drafting, turnTimerKey } = useThreadSessionStatus()
   const hint = useStatusHint(compacting, drafting)
+  const { t } = useI18n()
 
   // A tool run at the tail already narrates the wait — its summary counts the
   // calls, its ticker names the current one, and it carries its own timer. A
@@ -239,13 +247,11 @@ export const StreamStallIndicator: FC = () => {
   }
 
   return (
-    <StatusRow data-slot="aui_stream-stall" label={hint || 'AgentX is thinking'}>
-      <StatusPulse
-        aria-hidden="true"
-        className="dither inline-block size-3 rounded-[2px] text-midground/80"
-        kind="opacity"
-      />
-      {hint && <HintText>{hint}</HintText>}
+    <StatusRow data-slot="aui_stream-stall" label={hint || t.assistant.thread.thinking}>
+      <StatusPulse aria-hidden="true" className="inline-flex shrink-0 text-midground/80" kind="opacity">
+        <BrandGlyph size="sm" />
+      </StatusPulse>
+      {hint ? <HintText>{hint}</HintText> : <ThinkingText>{t.assistant.thread.thinking}</ThinkingText>}
       <ActivityTimerText seconds={elapsed} />
     </StatusRow>
   )

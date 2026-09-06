@@ -134,7 +134,10 @@ export const AssistantMessage: FC<{
       onDoubleClick={onDoubleClick}
       ref={enterRef}
     >
-      {leadsTurn && (
+      {/* While the reply is still a placeholder the thinking row below carries
+          the mark (breathing, in this same spot), so the head waits for the
+          first token — one mark on screen at a time. */}
+      {leadsTurn && !isPlaceholder && (
         <div aria-hidden className="mb-2 flex pl-(--message-text-indent)" data-slot="aui_assistant-turn-mark">
           <BrandGlyph className="text-(--ui-text-tertiary)" />
         </div>
