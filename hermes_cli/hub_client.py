@@ -269,13 +269,17 @@ class HubClient:
         device_name: str = "",
         kind: str = "",
         visibility: str = "private",
+        workspace: str = "",
         targets: Iterable[str] = (),
         slug: str = "",
         version: str = "",
     ) -> Dict[str, Any]:
         """Upload a package as a new version (``202 {skill, version, scan_id}``).
-        Text files go as strings, binary files as ``{"base64": ...}``."""
+        Text files go as strings, binary files as ``{"base64": ...}``. A
+        ``workspace`` visibility names the workspace (id or slug) it is shared into."""
         body: Dict[str, Any] = {"files": dict(files), "visibility": visibility}
+        if workspace:
+            body["workspace"] = workspace
         if kind:
             body["kind"] = kind
         if list(targets):

@@ -1,7 +1,7 @@
 """The hub sync engine: desired state in, disk and reports out.
 
 Two layers. The reconcile logic runs against a fake installer (no disk) so
-every branch — install, update, remove, disable, re-enable, org mirror,
+every branch — install, update, remove, disable, re-enable, workspaces,
 offline, refused token — is pinned. Then the real ``LocalInstaller`` runs
 against a fake hub (signed bundle, the real quarantine → skills_guard →
 lock-file path) inside the per-test AGENTX_HOME, which is the acceptance
@@ -57,7 +57,7 @@ class FakeHub:
 
         self.private, self.public_b64 = _signing_key()
         self.installs: list[dict] = []
-        self.org: dict | None = None
+        self.workspaces: list = []
         self.reports: list[tuple[str, dict]] = []
         self.created: list[dict] = []
         self.requests: list[httpx.Request] = []
@@ -102,7 +102,7 @@ class FakeHub:
             return httpx.Response(401, json={"code": "invalid_token", "message": "no", "detail": None})
         if path == "/v1/me/changes":
             return httpx.Response(200, json={"cursor": 10, "product": "workmate", "device_id": DEVICE, "events": [], "installs": list(self.installs),
-                                             "updates": [i for i in self.installs if i.get("update_available")], "org": self.org,
+                                             "updates": [i for i in self.installs if i.get("update_available")], "workspaces": self.workspaces,
                                              "generated_at": "2026-09-03T00:00:00+00:00"})
         if path == "/v1/installs" and request.method == "POST":
             body = json.loads(request.content)
@@ -269,27 +269,17 @@ class TestReconcile:
         assert engine.changes()["updates"] == outcome.updates
         assert engine.changes()["installs"][0]["local"]["version"] == "1.0.0"
 
-    def test_org_skills_are_mirrored_when_enabled(self, hub):
+    def test_workspace_skills_are_listed_but_never_installed_on_their_own(self, hub):
+        """Hub decision §8 #11: a workspace's skills are shown, not mirrored."""
         hash_value = hub.add_skill("team-notes", SAFE_FILES)
-        hub.org = {"org_id": "astralx", "skills": [{"slug": "team-notes", "name": "team-notes", "kind": "core", "version": "1.0.0", "content_hash": hash_value},
-                                                   {"slug": "site-thing", "name": "site-thing", "kind": "browser", "version": "1.0.0", "content_hash": "sha256:" + "b" * 64}]}
+        hub.workspaces = [{"id": "w1", "slug": "doi-dev", "name": "Đội Dev", "role": "member",
+                           "skills": [{"slug": "team-notes", "name": "team-notes", "kind": "core", "version": "1.0.0", "content_hash": hash_value}]}]
         installer = FakeInstaller()
-        installer.install_result = InstallResult(ok=True, name="team-notes", version="1.0.0", content_hash="sha256:" + hash_value.split(":")[1][:16])
         engine = _engine(hub, installer)
         outcome = engine.tick()
-        assert outcome.org_installed == ["team-notes"] and outcome.installed == ["team-notes"]
-        assert hub.created == [{"slug": "team-notes", "product": "workmate", "reason": "organisation skill mirrored automatically"}]
-        assert installer.calls == [("install", "agentx-hub/team-notes", "tok")]
-        assert hub.reports[-1][1]["state"] == "installed"
-        # Already mirrored (same content hash) → nothing more; the browser skill is never Workmate's.
-        again = engine.tick()
-        assert again.changed is False and len(hub.created) == 1
-        # Off by config → not mirrored.
-        hub.created.clear()
-        hub.installs.clear()
-        installer.state.clear()
-        quiet = _engine(hub, installer, settings=HubSyncSettings(base_url=HUB, realtime=False, org_auto_install=False)).tick()
-        assert quiet.changed is False and hub.created == []
+        assert outcome.changed is False and outcome.installed == [] and hub.created == [] and installer.calls == []
+        assert engine.changes()["workspaces"] == hub.workspaces
+        assert "workspace.skill.published" in __import__("hermes_cli.hub_sync", fromlist=["NUDGE_EVENTS"]).NUDGE_EVENTS
 
     def test_browser_installs_are_ignored_by_workmate(self, hub):
         hub.add_skill("site", {"SKILL.md": "# x\n"}, kind="browser")

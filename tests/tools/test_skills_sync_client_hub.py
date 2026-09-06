@@ -3,7 +3,7 @@
 Pointing ``sync.base_url`` at the hub must be all it takes: identity comes
 from the credentials the hub-sync engine holds and the hub's ``/v1/me``,
 the pre-launch Nous gate does not apply, and every wire call
-(``push_skills``, ``propose_skill``, ``pull_org_skills``) runs unchanged
+(``push_skills``, ``propose_skill``, ``pull_workspace_skills``) runs unchanged
 against a server speaking the contract. The Nous plane keeps behaving
 exactly as before when it is the one configured.
 """
@@ -22,9 +22,10 @@ from hermes_cli.hub_sync import HubCredentials
 from tests.tools.test_skills_sync_client import _MockState, _jwt, _make_handler, _write_skill
 
 DEVICE = "8f2b1c3d-0000-4000-8000-000000000001"
-ME_ADMIN = {"subject": "kc-ada", "slug": "ada", "email": "ada@corp.test", "org_id": "org-1", "roles": ["user", "org_admin"]}
-ME_MEMBER = {"subject": "kc-bob", "slug": "bob", "email": "bob@corp.test", "org_id": "org-1", "roles": ["user"]}
-ME_SOLO = {"subject": "kc-solo", "slug": "solo", "email": "", "org_id": "", "roles": ["user"]}
+WS = {"id": "ws-1", "slug": "team", "name": "Team"}
+ME_ADMIN = {"subject": "kc-ada", "slug": "ada", "email": "ada@corp.test", "org_id": "org-1", "roles": ["user"], "workspaces": [{**WS, "role": "owner"}]}
+ME_MEMBER = {"subject": "kc-bob", "slug": "bob", "email": "bob@corp.test", "org_id": "org-1", "roles": ["user"], "workspaces": [{**WS, "role": "member"}]}
+ME_SOLO = {"subject": "kc-solo", "slug": "solo", "email": "", "org_id": "", "roles": ["user"], "workspaces": []}
 
 
 @pytest.fixture
@@ -119,23 +120,24 @@ class TestHubIdentity:
         assert identity["provider"] == "agentx-hub" and identity["sync_allowed"] is True and identity["nous_admin"] is False
         assert identity["api_key"] == "id-token" and identity["owner"] == "kc-ada" and identity["base_url"] == base
         assert identity["credential_source"] == "mailbox" and identity["device_id"] == DEVICE
-        assert identity["claims"] == {"sub": "kc-ada", "email": "ada@corp.test", "org_id": "org-1", "org_role": "admin", "roles": ["user", "org_admin"], "slug": "ada"}
+        assert identity["claims"] == {"sub": "kc-ada", "email": "ada@corp.test", "org_id": "org-1", "roles": ["user"], "slug": "ada",
+                                      "workspaces": [{"id": "ws-1", "slug": "team", "name": "Team", "role": "owner"}]}
         assert calls["last_bearer"] == "id-token" and calls["last_device"] == DEVICE
         assert ssc.dev_gate_open() is True
-        org = ssc.resolve_org_identity()
-        assert org["org_id"] == "org-1" and org["org_role"] == "admin"
-        assert ssc.org_sync_available() is True
+        shared = ssc.resolve_workspace_identity()
+        assert shared["workspace"]["id"] == "ws-1" and shared["workspace"]["role"] == "owner"
+        assert ssc.workspace_sync_available() is True
 
-    def test_a_member_and_a_person_without_an_org(self, hub_plane):
+    def test_a_member_and_a_person_in_no_workspace(self, hub_plane):
         _base, _state, calls = hub_plane
         calls["answer"] = dict(ME_MEMBER)
-        assert ssc.resolve_identity()["claims"]["org_role"] == "member"
+        assert ssc.resolve_identity()["claims"]["workspaces"][0]["role"] == "member"
         calls["answer"] = dict(ME_SOLO)
         ssc._HUB_ME_CACHE.clear()
-        assert ssc.resolve_identity()["claims"]["org_role"] is None
+        assert ssc.resolve_identity()["claims"]["workspaces"] == []
         with pytest.raises(ssc.SyncInertError):
-            ssc.resolve_org_identity()
-        assert ssc.org_sync_available() is False
+            ssc.resolve_workspace_identity()
+        assert ssc.workspace_sync_available() is False
 
     def test_me_is_cached_per_bearer(self, hub_plane):
         _base, _state, calls = hub_plane
@@ -152,7 +154,7 @@ class TestHubIdentity:
             ssc.resolve_identity()
         assert "sign in" in str(inert.value)
         assert ssc.dev_gate_open() is False
-        assert ssc.maybe_push_skills() is None and ssc.maybe_pull_skills() is None and ssc.maybe_pull_org_skills() is None
+        assert ssc.maybe_push_skills() is None and ssc.maybe_pull_skills() is None and ssc.maybe_pull_workspace_skills() is None
         status = ssc.sync_status()
         assert status["provider"] == "agentx-hub" and status["logged_in"] is False and status["sync_allowed"] is False
 
@@ -166,7 +168,8 @@ class TestHubIdentity:
     def test_status_names_the_plane(self, hub_plane):
         status = ssc.sync_status()
         assert status["provider"] == "agentx-hub" and status["logged_in"] is True and status["sync_allowed"] is True
-        assert status["nous_admin"] is False and status["owner"] == "kc-ada" and status["org_available"] is True
+        assert status["nous_admin"] is False and status["owner"] == "kc-ada" and status["workspaces_available"] is True
+        assert [w["slug"] for w in status["workspaces"]] == ["team"]
 
 
 class TestNousPlaneUnchanged:
@@ -191,19 +194,21 @@ class TestHubPlaneEndToEnd:
         head = state.refs["refs/user/kc-ada/HEAD"]
         assert head == pushed["head"]
         assert state.objects[head][0] == "commit"
-        # propose as the org admin: merges directly into the org HEAD
+        # propose as the workspace owner: merges directly into the workspace HEAD
         proposed = ssc.propose_skill("alpha")
-        assert proposed["ok"] is True and proposed.get("merged") is True
-        assert state.refs["refs/org/org-1/HEAD"] == proposed["head"]
+        assert proposed["ok"] is True and proposed.get("merged") is True and proposed["workspace"] == "team"
+        assert state.refs["refs/workspace/ws-1/HEAD"] == proposed["head"]
         # a member's proposal is parked as a 202 proposal
-        state.org_role_admin = False
+        state.workspace_owner = False
         calls["answer"] = dict(ME_MEMBER)
         calls["credentials"] = HubCredentials(bearer="bob-token", device_id=DEVICE, source="token")
         (skills / "devops" / "beta" / "SKILL.md").write_text("---\nname: beta\n---\nbeta v2\n", encoding="utf-8")
-        member = ssc.propose_skill("beta")
+        member = ssc.propose_skill("beta", workspace="team")
         assert member["ok"] is True and member.get("proposal_pending") is True and member["proposal_id"] == 1
-        assert state.refs["refs/org/org-1/proposals/1"] == member["commit"]
-        # pull of the org mirror sees the admin's HEAD
-        pulled = ssc.pull_org_skills()
+        assert state.refs["refs/workspace/ws-1/proposals/1"] == member["commit"]
+        # pull of the workspace mirror sees the owner's HEAD
+        pulled = ssc.pull_workspace_skills()
         assert pulled["ok"] is True and pulled["head"] == proposed["head"] and "alpha" in pulled["updated"]
-        assert (skills / "_org" / "org-1" / "alpha" / "SKILL.md").exists()
+        assert (skills / "_workspaces" / "ws-1" / "alpha" / "SKILL.md").exists()
+        everything = ssc.maybe_pull_workspace_skills()
+        assert everything["ok"] is True and list(everything["workspaces"]) == ["ws-1"]

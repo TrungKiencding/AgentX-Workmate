@@ -8,13 +8,15 @@ import type { SkillInfo } from '@/types/hermes'
 
 const validateSkillForHub = vi.fn()
 const publishSkillToHub = vi.fn()
-const proposeSkillToOrg = vi.fn()
+const proposeSkillToWorkspace = vi.fn()
+const getSkillHubChanges = vi.fn()
 
 vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<typeof HermesApi>()),
   validateSkillForHub: (name: string, options: unknown) => validateSkillForHub(name, options),
   publishSkillToHub: (name: string, options: unknown) => publishSkillToHub(name, options),
-  proposeSkillToOrg: (name: string, options: unknown) => proposeSkillToOrg(name, options)
+  proposeSkillToWorkspace: (name: string, options: unknown) => proposeSkillToWorkspace(name, options),
+  getSkillHubChanges: () => getSkillHubChanges()
 }))
 
 const SKILL: SkillInfo = { name: 'vneb-report', description: 'Reports', category: 'reports', enabled: true, provenance: 'agent' }
@@ -40,8 +42,9 @@ beforeEach(() => {
     files: ['SKILL.md'],
     result: { ok: true, package: { name: 'vneb-report', kind: 'core', version: '1.0.0', files: ['SKILL.md'], has_scripts: false, warnings: [] } }
   })
-  publishSkillToHub.mockResolvedValue({ ok: true, status: 'ok', created: true, slug: 'vneb-report', visibility: 'org', version: '1.0.0', publish_state: 'scanning', scan_id: 's1', url: 'https://hub/skills/vneb-report', scan_url: 'https://hub/scans/s1' })
-  proposeSkillToOrg.mockResolvedValue({ ok: true, status: 'ok', created: true, slug: 'vneb-report', visibility: 'org', version: '1.0.0', publish_state: 'published' })
+  publishSkillToHub.mockResolvedValue({ ok: true, status: 'ok', created: true, slug: 'vneb-report', visibility: 'workspace', workspace: 'doi-dev', version: '1.0.0', publish_state: 'scanning', scan_id: 's1', url: 'https://hub/skills/vneb-report', scan_url: 'https://hub/scans/s1' })
+  proposeSkillToWorkspace.mockResolvedValue({ ok: true, status: 'ok', created: true, slug: 'vneb-report', visibility: 'workspace', workspace: 'doi-dev', version: '1.0.0', publish_state: 'needs_review' })
+  getSkillHubChanges.mockResolvedValue({ workspaces: [{ id: 'w1', slug: 'doi-dev', name: 'Đội Dev', role: 'member', skills: [] }, { id: 'w2', slug: 'qa', name: 'QA', role: 'owner', skills: [] }] })
 })
 
 afterEach(() => {
@@ -58,33 +61,47 @@ describe('PublishSkillDialog', () => {
     expect(validateSkillForHub).toHaveBeenCalledWith('vneb-report', { kind: undefined, visibility: 'private' })
 
     await act(async () => {
-      fireEvent.change(screen.getByTestId('publish-visibility'), { target: { value: 'org' } })
+      fireEvent.change(screen.getByTestId('publish-visibility'), { target: { value: 'workspace' } })
     })
-    await waitFor(() => expect(validateSkillForHub).toHaveBeenCalledWith('vneb-report', { kind: undefined, visibility: 'org' }))
+    await waitFor(() => expect(validateSkillForHub).toHaveBeenCalledWith('vneb-report', { kind: undefined, visibility: 'workspace' }))
+    // The workspace picker appears with the person's workspaces; the second one is chosen.
+    await waitFor(() => expect((screen.getByTestId('publish-workspace') as HTMLSelectElement).value).toBe('doi-dev'))
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('publish-workspace'), { target: { value: 'qa' } })
+    })
     await waitFor(() => expect((screen.getByTestId('publish-submit') as HTMLButtonElement).disabled).toBe(false))
     await act(async () => {
       fireEvent.click(screen.getByTestId('publish-submit'))
     })
 
-    await waitFor(() => expect(publishSkillToHub).toHaveBeenCalledWith('vneb-report', { visibility: 'org', kind: undefined }))
+    await waitFor(() => expect(publishSkillToHub).toHaveBeenCalledWith('vneb-report', { visibility: 'workspace', workspace: 'qa', kind: undefined }))
     const done = await screen.findByTestId('publish-done')
     expect(done.textContent).toContain('Uploaded vneb-report@1.0.0')
-    expect(done.textContent).toContain('Scanning · Organisation')
+    expect(done.textContent).toContain('Scanning · Workspace · doi-dev')
     expect(screen.getByRole('link', { name: 'View scan report' }).getAttribute('href')).toBe('https://hub/scans/s1')
   })
 
-  it('proposing pins the visibility to the organisation', async () => {
+  it('sharing pins the visibility to a workspace and names the one chosen', async () => {
     await renderDialog('propose')
     await screen.findByTestId('publish-preview-status')
     expect((screen.getByTestId('publish-visibility') as HTMLSelectElement).disabled).toBe(true)
-    expect((screen.getByTestId('publish-visibility') as HTMLSelectElement).value).toBe('org')
+    expect((screen.getByTestId('publish-visibility') as HTMLSelectElement).value).toBe('workspace')
+    await waitFor(() => expect((screen.getByTestId('publish-workspace') as HTMLSelectElement).value).toBe('doi-dev'))
 
     await act(async () => {
       fireEvent.click(screen.getByTestId('publish-submit'))
     })
 
-    await waitFor(() => expect(proposeSkillToOrg).toHaveBeenCalledWith('vneb-report', { kind: undefined }))
-    expect((await screen.findByTestId('publish-done')).textContent).toContain('Published')
+    await waitFor(() => expect(proposeSkillToWorkspace).toHaveBeenCalledWith('vneb-report', { workspace: 'doi-dev', kind: undefined }))
+    expect((await screen.findByTestId('publish-done')).textContent).toContain('Needs review')
+  })
+
+  it('with no workspace to share into, the button stays off and says why', async () => {
+    getSkillHubChanges.mockResolvedValue({ workspaces: [] })
+    await renderDialog('propose')
+    await screen.findByTestId('publish-preview-status')
+    expect((await screen.findByTestId('publish-no-workspace')).textContent).toContain('not in any workspace')
+    expect((screen.getByTestId('publish-submit') as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('an invalid package cannot be uploaded and a hub refusal is translated', async () => {

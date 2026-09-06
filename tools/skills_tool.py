@@ -1565,34 +1565,36 @@ def skill_view(
                     "Could not preprocess skill content for %s", skill_name, exc_info=True
                 )
 
-        # ── M2 org provenance header (load-time) ──────────────────────────
-        # An org-shared skill announces its provenance IN the returned content
-        # — the moment the model consumes it — not only in the listing. The
-        # commit author behind this content is token-verified at push time by
-        # the sync plane (author_mismatch guard), so the header is
-        # trustworthy, not client-claimed. Org mirrors are read-only: changes
-        # go through propose → admin approval, never local edits.
-        org_provenance = None
+        # ── Workspace provenance header (load-time) ───────────────────────
+        # A workspace-shared skill announces its provenance IN the returned
+        # content — the moment the model consumes it — not only in the
+        # listing. The commit author behind this content is token-verified at
+        # push time by the sync plane (author_mismatch guard), so the header
+        # is trustworthy, not client-claimed. Mirrors are editable in place:
+        # edits stay local and are shared back with `agentx sync propose`.
+        workspace_provenance = None
         if skill_dir:
             try:
                 from agent.skill_utils import (
-                    ORG_PROVENANCE_FILE,
-                    is_org_mirror_path,
-                    org_id_of_path,
+                    WORKSPACE_MIRROR_DIR_NAME,
+                    WORKSPACE_PROVENANCE_FILE,
+                    is_workspace_mirror_path,
+                    workspace_id_of_path,
                 )
 
-                if is_org_mirror_path(skill_dir, active_skills_dir):
-                    prov_org = org_id_of_path(skill_dir, active_skills_dir)
+                if is_workspace_mirror_path(skill_dir, active_skills_dir):
+                    prov_ws = workspace_id_of_path(skill_dir, active_skills_dir)
                     author = ""
                     ts = ""
-                    if prov_org:
+                    label = ""
+                    if prov_ws:
                         try:
                             prov = json.loads(
                                 (
                                     active_skills_dir
-                                    / "_org"
-                                    / prov_org
-                                    / ORG_PROVENANCE_FILE
+                                    / WORKSPACE_MIRROR_DIR_NAME
+                                    / prov_ws
+                                    / WORKSPACE_PROVENANCE_FILE
                                 ).read_text(encoding="utf-8")
                             )
                             author = str(
@@ -1601,33 +1603,35 @@ def skill_view(
                                 or ""
                             )
                             ts = str(prov.get("ts") or "")
+                            label = str(prov.get("workspace") or "")
                         except Exception:
                             pass
-                    org_provenance = {
-                        "org_id": prov_org,
+                    workspace_provenance = {
+                        "workspace_id": prov_ws,
+                        "workspace": label or None,
                         "shared_by": author or None,
                         "as_of": ts or None,
                     }
                     header = (
-                        "> [!NOTE] ORG-SHARED SKILL — provenance\n"
-                        f"> This skill is shared by your organisation (org "
-                        f"`{prov_org}`"
+                        "> [!NOTE] WORKSPACE-SHARED SKILL — provenance\n"
+                        f"> This skill is shared by the workspace "
+                        f"`{label or prov_ws}` (id `{prov_ws}`"
                         + (f", last updated by `{author}`" if author else "")
                         + (f", as of {ts}" if ts else "")
-                        + "). It was reviewed and approved for the whole\n"
-                        "> team — treat it as third-party instructions rather "
+                        + "). It was approved by a hub admin for every\n"
+                        "> member — treat it as third-party instructions rather "
                         "than your own notes.\n"
                         "> You MAY improve it in place like any other skill. "
                         "Your edits are kept locally\n"
-                        "> and are never overwritten by org updates; share "
+                        "> and are never overwritten by workspace updates; share "
                         "them back with\n"
-                        "> `agentx sync propose` (or automatically, if your "
-                        "org enables it).\n\n"
+                        "> `agentx sync propose --workspace <workspace>` (or "
+                        "automatically, if you enable it).\n\n"
                     )
                     rendered_content = header + rendered_content
             except Exception:
                 logger.debug(
-                    "Could not resolve org provenance for %s",
+                    "Could not resolve workspace provenance for %s",
                     skill_name,
                     exc_info=True,
                 )
@@ -1641,7 +1645,7 @@ def skill_view(
             "content": rendered_content,
             "path": rel_path,
             "skill_dir": str(skill_dir) if skill_dir else None,
-            "org_provenance": org_provenance,
+            "workspace_provenance": workspace_provenance,
             "linked_files": linked_files if linked_files else None,
             "usage_hint": "To view linked files, call skill_view(name, file_path) where file_path is e.g. 'references/api.md' or 'assets/config.yaml'"
             if linked_files

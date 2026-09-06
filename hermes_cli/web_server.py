@@ -272,7 +272,7 @@ async def _lifespan(app: "FastAPI"):
 
     # Keep this machine's skills in step with the AgentX Skill Hub: an
     # Install clicked on the web lands here, a yanked version is switched
-    # off, the organisation's skills arrive. Idles until a bearer is
+    # off, the workspaces' shared skills are listed. Idles until a bearer is
     # delivered (the Hub tab's tick, the sync tick, or skills.hub_token).
     hub_sync_task = asyncio.create_task(_hub_sync_loop())
 

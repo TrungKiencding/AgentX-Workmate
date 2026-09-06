@@ -21,6 +21,11 @@ from pathlib import Path
 
 import pytest
 
+# Imported at module load ON PURPOSE: ``tools.skill_usage`` binds
+# ``get_hermes_home`` at import time, so importing it for the first time
+# inside a fixture that has monkeypatched the home would pin that fixture's
+# tempdir into the module for the rest of the session.
+import tools.skill_usage as su
 import tools.skills_sync_client as ssc
 
 
@@ -35,16 +40,18 @@ class _MockState:
         self.hsp_version = "1"
         self.max_object_bytes = 26214400
         self.force_conflict_once = False  # inject a 409 on the next CAS
-        # M2 org behavior (contract §11): advertise the "org" feature and,
-        # when org_role_admin is False, convert org-HEAD CAS to 202 proposals.
-        self.org_feature = True
-        self.org_role_admin = True
-        self.org_role_present = True
-        # Org objects live in a SEPARATE scope from personal ones, mirroring
-        # production's `org:<org_id>` scope key. Keeping them in a distinct
-        # dict is what makes a personal-route read of org content 404 in tests
-        # exactly as it does against the real plane.
-        self.org_objects = {}
+        # Workspace behaviour (contract §11.5, hub decision §8 #11): advertise
+        # the "workspace" feature and, when workspace_owner is False, convert
+        # a workspace-HEAD CAS to a 202 proposal. workspace_member False
+        # answers the workspace routes with 403 not_a_member.
+        self.workspace_feature = True
+        self.workspace_owner = True
+        self.workspace_member = True
+        # Workspace objects live in a SEPARATE scope from personal ones,
+        # mirroring production's `workspace:<id>` scope key. Keeping them in a
+        # distinct dict is what makes a personal-route read of shared content
+        # 404 in tests exactly as it does against the real plane.
+        self.workspace_objects = {}
         self.proposals = []  # [{n, to, base}]
 
 
@@ -70,7 +77,7 @@ def _make_handler(state: _MockState):
                 query = self.path.split("?", 1)[1]
 
             if path == "/v1/sync/capabilities":
-                features = ["personal"] + (["org"] if state.org_feature else [])
+                features = ["personal"] + (["workspace", "proposals"] if state.workspace_feature else [])
                 return self._json(200, {
                     "hsp_version": state.hsp_version,
                     "features": features,
@@ -86,41 +93,41 @@ def _make_handler(state: _MockState):
                         from urllib.parse import unquote
                         prefix = unquote(part[len("prefix="):])
                 # FAITHFUL TO PRODUCTION: the personal refs route is scoped to
-                # the caller's own owner and does NOT serve org refs. Asking it
-                # for an `refs/org/...` prefix yields the caller's personal
-                # refs, not an error — the exact trap that let a broken client
-                # look healthy against an over-permissive mock.
+                # the caller's own owner and does NOT serve workspace refs.
+                # Asking it for a `refs/workspace/...` prefix yields the
+                # caller's personal refs, not an error — the exact trap that
+                # let a broken client look healthy against a permissive mock.
                 refs = [
                     {"name": n, "hash": h}
                     for n, h in state.refs.items()
-                    if n.startswith(prefix) and not n.startswith("refs/org/")
+                    if n.startswith(prefix) and not n.startswith("refs/workspace/")
                 ]
                 return self._json(200, {"refs": refs})
 
-            if path == "/v1/sync/org/refs":
-                if not state.org_feature:
+            if path.startswith("/v1/sync/workspaces/") and path.endswith("/refs"):
+                if not state.workspace_feature:
                     return self._json(404, {"error": "unknown"})
-                if not state.org_role_present:
-                    return self._json(403, {"error": "org_workflow_unavailable"})
+                if not state.workspace_member:
+                    return self._json(403, {"code": "not_a_member"})
                 refs = [
                     {"name": n, "hash": h}
                     for n, h in state.refs.items()
-                    if n.startswith("refs/org/")
+                    if n.startswith("refs/workspace/")
                 ]
                 return self._json(200, {"refs": refs})
 
-            if path.startswith("/v1/sync/org/objects/"):
-                if not state.org_role_present:
-                    return self._json(403, {"error": "org_workflow_unavailable"})
-                obj_hash = path[len("/v1/sync/org/objects/"):]
-                if obj_hash not in state.org_objects:
+            if path.startswith("/v1/sync/workspaces/") and "/objects/" in path:
+                if not state.workspace_member:
+                    return self._json(403, {"code": "not_a_member"})
+                obj_hash = path.rsplit("/objects/", 1)[1]
+                if obj_hash not in state.workspace_objects:
                     return self._json(404, {"error": "not_found"})
-                return self._send_object(*state.org_objects[obj_hash])
+                return self._send_object(*state.workspace_objects[obj_hash])
 
             if path.startswith("/v1/sync/objects/"):
                 obj_hash = path[len("/v1/sync/objects/"):]
-                # Org-scoped objects are NOT readable through the personal
-                # route (production scopes it to the token owner).
+                # Workspace-scoped objects are NOT readable through the
+                # personal route (production scopes it to the token owner).
                 if obj_hash not in state.objects:
                     return self._json(404, {"error": "not_found"})
                 return self._send_object(*state.objects[obj_hash])
@@ -142,17 +149,17 @@ def _make_handler(state: _MockState):
         def do_POST(self):
             length = int(self.headers.get("Content-Length", 0))
             raw = self.rfile.read(length) if length else b""
-            path = self.path.split("?", 1)[0]  # e.g. /v1/sync/objects?scope=org
+            path = self.path.split("?", 1)[0]  # e.g. /v1/sync/objects?scope=workspace&workspace=ws-1
 
             if path == "/v1/sync/objects":
-                return self._handle_put_objects(raw, org="scope=org" in self.path)
+                return self._handle_put_objects(raw, workspace="scope=workspace" in self.path)
 
             if path.startswith("/v1/sync/refs/"):
                 return self._handle_cas(raw)
 
             self._json(404, {"error": "unknown"})
 
-        def _handle_put_objects(self, raw, org=False):
+        def _handle_put_objects(self, raw, workspace=False):
             # multipart/form-data: parse parts (field=hash, filename=type,
             # body=raw bytes). The server recomputes each hash and 422s on
             # mismatch (contract §4.2).
@@ -193,7 +200,7 @@ def _make_handler(state: _MockState):
                     return self._json(422, {
                         "error": "hash_mismatch", "claimed": claimed_hash,
                     })
-                store = state.org_objects if org else state.objects
+                store = state.workspace_objects if workspace else state.objects
                 if claimed_hash in store:
                     already.append(claimed_hash)
                 else:
@@ -207,13 +214,13 @@ def _make_handler(state: _MockState):
             body = json.loads(raw.decode("utf-8")) if raw else {}
             frm = body.get("from")
             to = body.get("to")
-            # M2 (contract §11.5): a non-admin member's CAS on an org HEAD is
+            # Contract §11.5: a member's CAS on a workspace HEAD is
             # accept-always converted to a proposal → 202.
-            if name.startswith("refs/org/") and not state.org_role_admin:
+            if name.startswith("refs/workspace/") and not state.workspace_owner:
                 n = len(state.proposals) + 1
                 state.proposals.append({"n": n, "to": to, "base": frm})
-                org = name.split("/")[2]
-                prop_ref = f"refs/org/{org}/proposals/{n}"
+                ws = name.split("/")[2]
+                prop_ref = f"refs/workspace/{ws}/proposals/{n}"
                 state.refs[prop_ref] = to
                 return self._json(202, {"proposal_id": n, "ref": prop_ref})
             if state.force_conflict_once:
@@ -455,11 +462,14 @@ class TestMergeDecision:
 @pytest.fixture
 def synced_env(tmp_path, monkeypatch):
     """A AGENTX_HOME with two opted-in skills + a token-carrying identity."""
-    import hermes_constants
     home = tmp_path / "agentx"
     skills = home / "skills"
     skills.mkdir(parents=True)
-    monkeypatch.setattr(hermes_constants, "get_hermes_home", lambda: home)
+    # Redirect the home through the environment (what the hermetic autouse
+    # fixture does) rather than by replacing ``get_hermes_home`` on the
+    # module: a replaced function leaks into every module first imported
+    # while the patch is active, and lives on after the fixture is torn down.
+    monkeypatch.setenv("AGENTX_HOME", str(home))
     monkeypatch.setattr(ssc, "_skills_dir", lambda: skills)
 
     _write_skill(skills, "alpha", body="alpha v1\n")
@@ -479,7 +489,6 @@ def synced_env(tmp_path, monkeypatch):
         return {"alpha": skills / "alpha",
                 "beta": skills / "devops" / "beta"}.get(name)
 
-    import tools.skill_usage as su
     monkeypatch.setattr(su, "_find_skill_dir", _find)
 
     token = _jwt({"sub": "owner1", "tool_gateway_admin": True})
@@ -860,93 +869,98 @@ class TestDeviceName:
 
 
 # ---------------------------------------------------------------------------
-# M2 org-shared skills (contract §11): identity gate, pull, propose (202/merge)
+# Workspace-shared skills (contract §11.5): identity gate, pull, propose (202/merge)
 # ---------------------------------------------------------------------------
 
-def _org_identity(role=None, org_id="org-1", owner="owner1"):
-    claims = {"sub": owner, "org_id": org_id, "tool_gateway_admin": True}
-    if role is not None:
-        claims["org_role"] = role
-    token = _jwt(claims)
-    return {"api_key": token, "base_url": "http://x", "owner": owner,
-            "nous_admin": True, "claims": claims,
-            **({"org_id": org_id, "org_role": role} if role else {})}
+WS_OWNER = {"id": "ws-1", "slug": "team", "name": "Team", "role": "owner"}
+WS_MEMBER = {**WS_OWNER, "role": "member"}
 
 
-class TestOrgIdentityGate:
-    def test_org_identity_requires_role_claim(self, monkeypatch):
-        # Personal org: NAS stamps NO org_role -> inert, not an error path.
+def _with_workspace(identity, workspace=WS_OWNER, *workspaces):
+    """*identity* as the hub would describe it: a member of *workspace* (and *workspaces*)."""
+    every = [workspace, *workspaces]
+    claims = {**(identity.get("claims") or {}), "workspaces": every}
+    return {**identity, "claims": claims, "workspaces": every, "workspace": workspace}
+
+
+class TestWorkspaceIdentityGate:
+    def test_identity_without_workspaces_is_inert(self, monkeypatch):
+        # The Nous plane knows no workspaces; a hub account in none is the same.
         token = _jwt({"sub": "u", "org_id": "org-1"})
         import hermes_cli.auth as auth_mod
         monkeypatch.setattr(auth_mod, "resolve_nous_runtime_credentials",
                             lambda **kw: {"api_key": token, "base_url": "https://x"})
         with pytest.raises(ssc.SyncInertError):
-            ssc.resolve_org_identity()
-        assert ssc.org_sync_available() is False
+            ssc.resolve_workspace_identity()
+        assert ssc.workspace_sync_available() is False
 
-    def test_org_identity_with_role(self, monkeypatch):
-        token = _jwt({"sub": "u", "org_id": "org-9", "org_role": "MEMBER"})
-        import hermes_cli.auth as auth_mod
-        monkeypatch.setattr(auth_mod, "resolve_nous_runtime_credentials",
-                            lambda **kw: {"api_key": token, "base_url": "https://x"})
-        ident = ssc.resolve_org_identity()
-        assert ident["org_id"] == "org-9"
-        assert ident["org_role"] == "MEMBER"
-        assert ssc.org_sync_available() is True
+    def test_the_only_workspace_is_picked_and_a_named_one_must_exist(self, monkeypatch):
+        base = {"api_key": "t", "base_url": "https://x", "owner": "u", "claims": {"sub": "u"}}
+        monkeypatch.setattr(ssc, "resolve_identity", lambda: _with_workspace(dict(base), WS_MEMBER))
+        ident = ssc.resolve_workspace_identity()
+        assert ident["workspace"]["id"] == "ws-1" and ident["workspace"]["role"] == "member"
+        assert ssc.resolve_workspace_identity("team")["workspace"]["id"] == "ws-1"
+        assert ssc.workspace_sync_available() is True
+        with pytest.raises(ssc.SyncInertError) as unknown:
+            ssc.resolve_workspace_identity("nope")
+        assert "not a member" in str(unknown.value)
+        # Several workspaces: one must be named.
+        two = _with_workspace(dict(base), WS_OWNER, {"id": "ws-2", "slug": "qa", "name": "QA", "role": "member"})
+        monkeypatch.setattr(ssc, "resolve_identity", lambda: two)
+        with pytest.raises(ssc.SyncInertError) as ambiguous:
+            ssc.resolve_workspace_identity()
+        assert "--workspace" in str(ambiguous.value)
+        assert ssc.resolve_workspace_identity("qa")["workspace"]["id"] == "ws-2"
 
-    def test_org_mirror_excluded_from_personal_sync(self, tmp_path, monkeypatch):
-        # A skill under _org/<id>/ must never be personal-sync eligible.
+    def test_workspace_mirror_excluded_from_personal_sync(self, tmp_path, monkeypatch):
+        # A skill under _workspaces/<id>/ must never be personal-sync eligible.
         skills = tmp_path / "skills"
-        org_skill = skills / "_org" / "org-1" / "shared-x"
-        org_skill.mkdir(parents=True)
-        (org_skill / "SKILL.md").write_text("---\nname: shared-x\n---\n")
+        shared = skills / "_workspaces" / "ws-1" / "shared-x"
+        shared.mkdir(parents=True)
+        (shared / "SKILL.md").write_text("---\nname: shared-x\n---\n")
         monkeypatch.setattr(ssc, "_skills_dir", lambda: skills)
         import tools.skill_usage as su
         monkeypatch.setattr(su, "is_bundled", lambda n: False)
         monkeypatch.setattr(su, "is_hub_installed", lambda n: False)
-        monkeypatch.setattr(su, "_find_skill_dir", lambda n: org_skill)
+        monkeypatch.setattr(su, "_find_skill_dir", lambda n: shared)
         import agent.skill_utils as sku
         monkeypatch.setattr(sku, "is_external_skill_path", lambda p: False)
         assert ssc.is_sync_eligible("shared-x") is False
 
 
-class TestOrgEndToEnd:
-    def test_admin_propose_merges_directly(self, mock_server, synced_env):
+class TestWorkspaceEndToEnd:
+    def test_owner_propose_merges_directly(self, mock_server, synced_env):
         base, state = mock_server
         home, skills, identity = synced_env
-        identity = {**identity, "org_id": "org-1", "org_role": "ADMIN"}
+        owner = _with_workspace(identity, WS_OWNER)
         client = ssc.SyncClient(base, identity["api_key"])
-        result = ssc.propose_skill("alpha", client, identity=identity)
-        assert result["ok"] is True
-        assert result.get("merged") is True
-        head = state.refs["refs/org/org-1/HEAD"]
+        result = ssc.propose_skill("alpha", client, identity=owner)
+        assert result["ok"] is True and result.get("merged") is True
+        assert result["workspace_id"] == "ws-1" and result["workspace"] == "team"
+        head = state.refs["refs/workspace/ws-1/HEAD"]
         assert head == result["head"]
-        # Org content lands in the ORG object scope, not the personal one.
-        assert head not in state.objects, "org commit must not be personal-scoped"
-        commit = json.loads(state.org_objects[head][1])
-        assert commit["parents"] == []  # first org commit
+        # Shared content lands in the WORKSPACE object scope, not the personal one.
+        assert head not in state.objects, "workspace commit must not be personal-scoped"
+        commit = json.loads(state.workspace_objects[head][1])
+        assert commit["parents"] == []  # first commit of the workspace
 
     def test_member_propose_becomes_202_proposal(self, mock_server, synced_env):
         base, state = mock_server
         home, skills, identity = synced_env
-        # Seed an org HEAD as admin first.
-        admin_ident = {**identity, "org_id": "org-1", "org_role": "ADMIN"}
         client = ssc.SyncClient(base, identity["api_key"])
-        seeded = ssc.propose_skill("alpha", client, identity=admin_ident)
+        seeded = ssc.propose_skill("alpha", client, identity=_with_workspace(identity, WS_OWNER))
 
-        # Member edits beta and proposes: server converts to 202.
-        state.org_role_admin = False
+        # A member edits beta and proposes: the server converts to 202.
+        state.workspace_owner = False
         (skills / "devops" / "beta" / "SKILL.md").write_text(
             "---\nname: beta\n---\nbeta v2 member edit\n", encoding="utf-8"
         )
-        member_ident = {**identity, "org_id": "org-1", "org_role": "MEMBER"}
-        result = ssc.propose_skill("beta", client, identity=member_ident)
-        assert result["ok"] is True
-        assert result.get("proposal_pending") is True
+        result = ssc.propose_skill("beta", client, identity=_with_workspace(identity, WS_MEMBER))
+        assert result["ok"] is True and result.get("proposal_pending") is True
         assert result["proposal_id"] == 1
         # HEAD untouched; proposal ref parked at the member's commit.
-        assert state.refs["refs/org/org-1/HEAD"] == seeded["head"]
-        assert state.refs["refs/org/org-1/proposals/1"] == result["commit"]
+        assert state.refs["refs/workspace/ws-1/HEAD"] == seeded["head"]
+        assert state.refs["refs/workspace/ws-1/proposals/1"] == result["commit"]
         # NEVER reported as merged.
         assert "merged" not in result
 
@@ -955,135 +969,123 @@ class TestOrgEndToEnd:
         # delta, not a wholesale replace).
         base, state = mock_server
         home, skills, identity = synced_env
-        admin_ident = {**identity, "org_id": "org-1", "org_role": "ADMIN"}
+        owner = _with_workspace(identity, WS_OWNER)
         client = ssc.SyncClient(base, identity["api_key"])
-        ssc.propose_skill("alpha", client, identity=admin_ident)
-        ssc.propose_skill("beta", client, identity=admin_ident)
+        ssc.propose_skill("alpha", client, identity=owner)
+        ssc.propose_skill("beta", client, identity=owner)
 
-        state.org_role_admin = False
-        member_ident = {**identity, "org_id": "org-1", "org_role": "MEMBER"}
-        result = ssc.propose_skill("alpha", client, identity=member_ident)
-        # Walk the proposed commit's root: both skills present.
-        commit = json.loads(state.org_objects[result["commit"]][1])
-        root = json.loads(state.org_objects[commit["tree"]][1])
+        state.workspace_owner = False
+        result = ssc.propose_skill("alpha", client, identity=_with_workspace(identity, WS_MEMBER))
+        commit = json.loads(state.workspace_objects[result["commit"]][1])
+        root = json.loads(state.workspace_objects[commit["tree"]][1])
         names = {e["name"] for e in root["entries"]}
         assert "alpha" in names and "devops" in names
 
-    def test_pull_org_skills_materializes_mirror(self, mock_server, synced_env):
+    def test_pull_workspace_skills_materializes_mirror(self, mock_server, synced_env):
         base, state = mock_server
         home, skills, identity = synced_env
-        admin_ident = {**identity, "org_id": "org-1", "org_role": "ADMIN"}
+        owner = _with_workspace(identity, WS_OWNER)
         client = ssc.SyncClient(base, identity["api_key"])
-        ssc.propose_skill("alpha", client, identity=admin_ident)
+        ssc.propose_skill("alpha", client, identity=owner)
 
-        result = ssc.pull_org_skills(client, identity=admin_ident)
-        assert result["ok"] is True
+        result = ssc.pull_workspace_skills(client, identity=owner)
+        assert result["ok"] is True and result["workspace_id"] == "ws-1"
         assert "alpha" in result["updated"]
-        mirrored = skills / "_org" / "org-1" / "alpha" / "SKILL.md"
+        mirrored = skills / "_workspaces" / "ws-1" / "alpha" / "SKILL.md"
         assert mirrored.exists()
         assert mirrored.read_text().endswith("alpha v1\n")
+        # pull_all covers every workspace and writes the marker that gates resolution.
+        everything = ssc.pull_all_workspace_skills(client, identity=owner)
+        assert everything["ok"] is True and everything["workspaces"]["ws-1"]["head"] == state.refs["refs/workspace/ws-1/HEAD"]
+        from agent.skill_utils import read_active_workspace_ids
 
-    def test_pull_org_noop_when_no_head(self, mock_server, synced_env):
+        assert read_active_workspace_ids(skills) == ["ws-1"]
+
+    def test_pull_noop_when_no_head(self, mock_server, synced_env):
         base, state = mock_server
         home, skills, identity = synced_env
-        ident = {**identity, "org_id": "org-1", "org_role": "MEMBER"}
         client = ssc.SyncClient(base, identity["api_key"])
-        result = ssc.pull_org_skills(client, identity=ident)
-        assert result["ok"] is True
-        assert result["head"] is None
-        assert result["updated"] == []
+        result = ssc.pull_workspace_skills(client, identity=_with_workspace(identity, WS_MEMBER))
+        assert result["ok"] is True and result["head"] is None and result["updated"] == []
 
-    def test_propose_requires_org_feature(self, mock_server, synced_env):
+    def test_propose_requires_the_workspace_feature(self, mock_server, synced_env):
         base, state = mock_server
         home, skills, identity = synced_env
-        state.org_feature = False
-        ident = {**identity, "org_id": "org-1", "org_role": "ADMIN"}
+        state.workspace_feature = False
         client = ssc.SyncClient(base, identity["api_key"])
         with pytest.raises(ssc.SyncInertError):
-            ssc.propose_skill("alpha", client, identity=ident)
+            ssc.propose_skill("alpha", client, identity=_with_workspace(identity, WS_OWNER))
 
-    def test_maybe_pull_org_inert_without_role(self, monkeypatch):
-        # Personal org: no org_role claim -> None, never raises.
+    def test_maybe_pull_inert_without_workspaces(self, monkeypatch):
+        # An account in no workspace: None, never raises.
         token = _jwt({"sub": "u", "org_id": "org-1"})
         import hermes_cli.auth as auth_mod
         monkeypatch.setattr(auth_mod, "resolve_nous_runtime_credentials",
                             lambda **kw: {"api_key": token})
-        assert ssc.maybe_pull_org_skills() is None
+        assert ssc.maybe_pull_workspace_skills() is None
 
 
-class TestOrgEndpointScoping:
-    """Org reads must use the ORG endpoints, not the personal ones.
+class TestWorkspaceEndpointScoping:
+    """Workspace reads must use the WORKSPACE endpoints, not the personal ones.
 
-    The personal refs route is scoped to the caller's own owner: asked for an
-    ``refs/org/...`` prefix it returns the caller's PERSONAL refs rather than
-    erroring. A client reading org state through it therefore concludes "this
-    org has no content" and every subsequent CAS races a head it never saw —
-    which is exactly how a second propose used to die on a raw SyncConflict.
+    The personal refs route is scoped to the caller's own owner: asked for a
+    ``refs/workspace/...`` prefix it returns the caller's PERSONAL refs rather
+    than erroring. A client reading shared state through it therefore
+    concludes "this workspace has no content" and every subsequent CAS races a
+    head it never saw.
     """
 
-    def _admin(self, identity):
-        return {**identity, "org_id": "org-1", "org_role": "ADMIN"}
-
-    def test_org_head_is_not_visible_on_the_personal_route(
+    def test_workspace_head_is_not_visible_on_the_personal_route(
         self, mock_server, synced_env
     ):
         base, state = mock_server
         home, skills, identity = synced_env
-        state.refs["refs/org/org-1/HEAD"] = "sha256:" + "a" * 64
+        state.refs["refs/workspace/ws-1/HEAD"] = "sha256:" + "a" * 64
         client = ssc.SyncClient(base, identity["api_key"])
 
-        personal = client.get_refs("refs/org/org-1/")
+        personal = client.get_refs("refs/workspace/ws-1/")
         assert personal == [], (
-            "the personal refs route must not serve org refs — if it does, "
+            "the personal refs route must not serve workspace refs — if it does, "
             "the mock is more permissive than production and will hide bugs"
         )
-        org = client.get_refs("refs/org/org-1/", org_scope=True)
-        assert [r["name"] for r in org] == ["refs/org/org-1/HEAD"]
+        shared = client.get_refs("refs/workspace/ws-1/", workspace="ws-1")
+        assert [r["name"] for r in shared] == ["refs/workspace/ws-1/HEAD"]
 
-    def test_second_propose_splices_onto_the_existing_org_head(
+    def test_second_propose_splices_onto_the_existing_head(
         self, mock_server, synced_env
     ):
         """The regression: propose #1 works, propose #2 used to raise."""
         base, state = mock_server
         home, skills, identity = synced_env
-        admin = self._admin(identity)
+        owner = _with_workspace(identity, WS_OWNER)
         client = ssc.SyncClient(base, identity["api_key"])
 
-        # `synced_env` already seeds alpha and beta (beta under devops/).
-        first = ssc.propose_skill("alpha", client, identity=admin)
+        first = ssc.propose_skill("alpha", client, identity=owner)
         assert first["ok"] is True
-
-        # Previously: base_head read as None -> CAS from None -> 409 ->
-        # SyncConflict escaped to the caller.
-        second = ssc.propose_skill("beta", client, identity=admin)
+        second = ssc.propose_skill("beta", client, identity=owner)
         assert second["ok"] is True
 
-        # And the splice preserved the first skill rather than replacing it.
-        head = state.refs["refs/org/org-1/HEAD"]
-        commit = json.loads(state.org_objects[head][1])
-        root = json.loads(state.org_objects[commit["tree"]][1])
+        head = state.refs["refs/workspace/ws-1/HEAD"]
+        commit = json.loads(state.workspace_objects[head][1])
+        root = json.loads(state.workspace_objects[commit["tree"]][1])
         names = {e["name"] for e in root["entries"]}
-        # beta is seeded under the devops/ category, so it appears as that
-        # category tree at the root.
         assert "alpha" in names and "devops" in names
         assert commit["parents"], "second commit must descend from the first"
 
-    def test_pull_org_skills_sees_an_existing_org_head(
-        self, mock_server, synced_env
-    ):
-        """pull_org_skills used to report head=None for a populated org."""
+    def test_pull_sees_an_existing_head(self, mock_server, synced_env):
+        """pull used to report head=None for a populated workspace."""
         base, state = mock_server
         home, skills, identity = synced_env
-        admin = self._admin(identity)
+        owner = _with_workspace(identity, WS_OWNER)
         client = ssc.SyncClient(base, identity["api_key"])
-        ssc.propose_skill("alpha", client, identity=admin)
+        ssc.propose_skill("alpha", client, identity=owner)
 
-        result = ssc.pull_org_skills(client=client, identity=admin)
+        result = ssc.pull_workspace_skills(client=client, identity=owner)
         assert result["ok"] is True
-        assert result["head"] == state.refs["refs/org/org-1/HEAD"], (
-            "pull must resolve the real org HEAD, not None"
+        assert result["head"] == state.refs["refs/workspace/ws-1/HEAD"], (
+            "pull must resolve the real workspace HEAD, not None"
         )
-        assert result["updated"], "the org's skill must materialize"
+        assert result["updated"], "the workspace's skill must materialize"
 
 
 class TestEmptyActualConflict:

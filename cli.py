@@ -16312,14 +16312,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         except Exception:
             pass
 
-        # Org-shared skills — pull the organisation's approved set into the
-        # read-only mirror. Gated on real org membership: resolve_org_identity
-        # requires an org role on the token, which is only issued for
-        # multi-member organisations, so a solo account never reaches the
-        # network here. Fail-quiet, exactly like the personal pull above.
+        # Workspace-shared skills — pull each workspace's shared set into its
+        # mirror. Gated on membership: the hub's /v1/me names the workspaces,
+        # so an account in none never reaches the network here. Fail-quiet,
+        # exactly like the personal pull above.
         try:
-            from tools.skills_sync_client import maybe_pull_org_skills
-            maybe_pull_org_skills()
+            from tools.skills_sync_client import maybe_pull_workspace_skills
+            maybe_pull_workspace_skills()
         except Exception:
             pass
         if self.preloaded_skills and not self._startup_skills_line_shown:

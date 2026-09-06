@@ -551,6 +551,8 @@ class SkillHubPublishRequest(BaseModel):
 
     name: str
     visibility: str = "private"
+    #: The workspace (id or slug) a ``workspace`` visibility shares into.
+    workspace: Optional[str] = None
     kind: Optional[str] = None
     targets: Optional[List[str]] = None
     profile: Optional[str] = None

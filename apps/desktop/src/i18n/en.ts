@@ -1315,7 +1315,7 @@ export const en: Translations = {
       updateOne: (from, to) => `${from} → ${to}`,
       syncNow: 'Sync now',
       syncing: 'Syncing…',
-      orgSkills: count => `${count} organisation skill${count === 1 ? '' : 's'}`,
+      workspaceSkills: (count, workspaces) => `${count} shared skill${count === 1 ? '' : 's'} in ${workspaces} workspace${workspaces === 1 ? '' : 's'}`,
       history: 'Recent activity',
       historyAction: {
         installed: 'installed',
@@ -1329,13 +1329,15 @@ export const en: Translations = {
     },
     publish: {
       upload: 'Upload to Hub',
-      propose: 'Propose to organisation',
+      propose: 'Share with a workspace',
       title: name => `Upload “${name}” to AgentX Hub`,
-      proposeTitle: name => `Propose “${name}” to your organisation`,
+      proposeTitle: name => `Share “${name}” with a workspace`,
       description: 'The skill is uploaded as a new version, scanned, then published according to the Hub\'s policy.',
-      proposeDescription: 'The skill is uploaded with “Organisation” visibility: safe ones go live at once, cautious ones wait for an org admin.',
+      proposeDescription: 'The skill is uploaded with “Workspace” visibility: only its members see it, and a Hub admin approves it before it is published.',
       visibility: 'Visibility',
-      visibilityOptions: { private: 'Private', org: 'Organisation', public: 'Public' },
+      visibilityOptions: { private: 'Private', workspace: 'Workspace', public: 'Public' },
+      workspace: 'Workspace',
+      noWorkspace: 'You are not in any workspace on the Hub — create one on the Hub\'s Workspaces page.',
       kind: 'Kind',
       kindAuto: 'Detect automatically',
       kindCore: 'Core (Workmate, Claude Code…)',
@@ -1366,7 +1368,8 @@ export const en: Translations = {
         version_exists: 'This version already exists on the Hub with different content.',
         slug_taken: 'This skill name belongs to somebody else on the Hub.',
         rate_limited: 'You are uploading too fast; try again later.',
-        kind_mismatch: 'The skill of this name on the Hub is of another kind.'
+        kind_mismatch: 'The skill of this name on the Hub is of another kind.',
+        workspace: 'The Hub did not accept this workspace — you are no longer a member, or none was chosen.'
       }
     }
   },

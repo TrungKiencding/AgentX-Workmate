@@ -662,78 +662,72 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _maybe_auto_propose_org_edit(name: str, skill_path: Path) -> Optional[str]:
-    """Submit an org-skill edit upstream when `sync.org_auto_propose` is on.
+def _maybe_auto_propose_workspace_edit(name: str, skill_path: Path) -> Optional[str]:
+    """Submit a workspace-skill edit upstream when `sync.workspace_auto_propose` is on.
 
     Returns a short note for the tool result, or None when nothing happened.
     Never raises: an offline/failed submission must not fail the edit itself —
     the change is already saved locally and can be proposed later.
     """
     try:
-        from agent.skill_utils import is_org_mirror_path
+        from agent.skill_utils import is_workspace_mirror_path, workspace_id_of_path
         from tools import skills_sync_client as ssc
 
-        if not is_org_mirror_path(skill_path, _skills_dir()):
+        if not is_workspace_mirror_path(skill_path, _skills_dir()):
             return None
-        if not ssc.sync_org_auto_propose():
+        workspace_id = workspace_id_of_path(skill_path, _skills_dir())
+        if not ssc.sync_workspace_auto_propose():
             return (
-                f"This skill is shared by your organisation. Your edit is "
-                f"saved locally and will not be overwritten by org updates. "
-                f"Run `agentx sync propose {name}` to share it back."
+                f"This skill is shared by a workspace. Your edit is saved "
+                f"locally and will not be overwritten by workspace updates. "
+                f"Run `agentx sync propose {name} --workspace {workspace_id}` to share it back."
             )
-        result = ssc.propose_skill(name)
+        result = ssc.propose_skill(name, workspace=workspace_id)
         if result.get("proposal_pending"):
             return (
-                f"Auto-proposed to your organisation as proposal "
-                f"#{result.get('proposal_id')} (pending admin review)."
+                f"Auto-proposed to the workspace as proposal "
+                f"#{result.get('proposal_id')} (pending the owner's review)."
             )
-        return "Auto-proposed to your organisation (merged into the shared set)."
+        return "Auto-proposed to the workspace (merged into the shared set)."
     except Exception as e:
         logger.debug("auto-propose skipped for %s: %s", name, e)
         return (
-            f"Edit saved locally. Could not submit it to your organisation "
+            f"Edit saved locally. Could not submit it to the workspace "
             f"right now — run `agentx sync propose {name}` to retry."
         )
 
 
-def _org_mirror_write_guard(name: str, skill_path: Path, action: str) -> Optional[Dict[str, Any]]:
-    """Org-shared skills are EDITABLE IN PLACE — this only blocks deletion.
+def _workspace_mirror_write_guard(name: str, skill_path: Path, action: str) -> Optional[Dict[str, Any]]:
+    """Workspace-shared skills are EDITABLE IN PLACE — this only blocks deletion.
 
-    Earlier versions refused every write to `_org/`, which broke the learning
-    loop exactly where it matters most: the agent is told to patch a skill the
-    moment it finds a gap, and shared skills are the ones the most people use.
-    Blocking that froze org skills while personal ones kept improving, and the
-    "fork it into a personal skill" alternative is not something an agent does
-    mid-task — so improvements were simply lost.
+    An edit lands in the mirror and is protected from being overwritten by
+    the next pull (see the baseline sidecar in skills_sync_client). It reaches
+    the workspace when the user runs `agentx sync propose`, or immediately if
+    `sync.workspace_auto_propose` is on.
 
-    Now an edit lands in the mirror and is protected from being overwritten by
-    the next org pull (see the baseline sidecar in skills_sync_client). It
-    reaches the organisation when the user runs `agentx sync propose`, or
-    immediately if `sync.org_auto_propose` is on.
-
-    Deletion is still refused: the mirror is a materialized view of the org
+    Deletion is refused: the mirror is a materialized view of the workspace
     HEAD, so a local delete is meaningless (the next pull restores it) and
-    removing a skill for the organisation is an admin action, not a local one.
+    removing a skill for the workspace is its owner's action, not a local one.
     """
     if action not in {"delete", "remove_file"}:
         return None
     try:
-        from agent.skill_utils import is_org_mirror_path
+        from agent.skill_utils import is_workspace_mirror_path
 
-        if is_org_mirror_path(skill_path, _skills_dir()):
+        if is_workspace_mirror_path(skill_path, _skills_dir()):
             return {
                 "success": False,
                 "error": (
-                    f"Cannot {action} '{name}' locally: it is shared by your "
-                    "organisation, so a local delete would just come back on "
-                    "the next sync. Ask an org admin to remove it for "
+                    f"Cannot {action} '{name}' locally: it is shared by a "
+                    "workspace, so a local delete would just come back on "
+                    "the next sync. Ask the workspace owner to remove it for "
                     "everyone. (Editing it IS allowed — your changes are kept "
                     "and can be proposed back with `agentx sync propose "
                     f"{name}`.)"
                 ),
             }
     except Exception:
-        logger.debug("org mirror guard lookup failed for %s", name, exc_info=True)
+        logger.debug("workspace mirror guard lookup failed for %s", name, exc_info=True)
     return None
 
 
@@ -1017,7 +1011,7 @@ def _edit_skill(name: str, content: str) -> Dict[str, Any]:
     existing = _find_skill(name)
     if not existing:
         return {"success": False, "error": _skill_not_found_error(name)}
-    org_guard = _org_mirror_write_guard(name, existing["path"], "edit")
+    org_guard = _workspace_mirror_write_guard(name, existing["path"], "edit")
     if org_guard:
         return org_guard
     guard = _background_review_write_guard(name, existing["path"], "edit")
@@ -1058,9 +1052,9 @@ def _edit_skill(name: str, content: str) -> Dict[str, Any]:
         "path": str(existing["path"]),
         "_change": {"description": _desc},
     }
-    org_note = _maybe_auto_propose_org_edit(name, existing["path"])
+    org_note = _maybe_auto_propose_workspace_edit(name, existing["path"])
     if org_note:
-        result["org_sharing"] = org_note
+        result["workspace_sharing"] = org_note
         result["message"] = f"{result['message']} {org_note}"
     _add_description_prompt_preview(result, content)
     return result
@@ -1088,7 +1082,7 @@ def _patch_skill(
         return {"success": False, "error": _skill_not_found_error(name)}
 
     skill_dir = existing["path"]
-    org_guard = _org_mirror_write_guard(name, skill_dir, "patch")
+    org_guard = _workspace_mirror_write_guard(name, skill_dir, "patch")
     if org_guard:
         return org_guard
     guard = _background_review_write_guard(name, skill_dir, "patch")
@@ -1179,9 +1173,9 @@ def _patch_skill(
         "old": old_string[:200] + ("…" if len(old_string) > 200 else ""),
         "new": new_string[:200] + ("…" if len(new_string) > 200 else ""),
     }
-    org_note = _maybe_auto_propose_org_edit(name, skill_dir)
+    org_note = _maybe_auto_propose_workspace_edit(name, skill_dir)
     if org_note:
-        result["org_sharing"] = org_note
+        result["workspace_sharing"] = org_note
         result["message"] = f"{result['message']} {org_note}"
     return result
 
@@ -1201,7 +1195,7 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
     existing = _find_skill(name)
     if not existing:
         return {"success": False, "error": _skill_not_found_error(name)}
-    org_guard = _org_mirror_write_guard(name, existing["path"], "delete")
+    org_guard = _workspace_mirror_write_guard(name, existing["path"], "delete")
     if org_guard:
         return org_guard
     guard = _background_review_write_guard(name, existing["path"], "delete")
@@ -1321,7 +1315,7 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
     existing = _find_skill(name)
     if not existing:
         return {"success": False, "error": _skill_not_found_error(name, " Create it first with action='create'.")}
-    org_guard = _org_mirror_write_guard(name, existing["path"], "write_file")
+    org_guard = _workspace_mirror_write_guard(name, existing["path"], "write_file")
     if org_guard:
         return org_guard
     guard = _background_review_write_guard(name, existing["path"], "write_file")
@@ -1357,9 +1351,9 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
         "message": f"File '{file_path}' written to skill '{name}'.",
         "path": str(target),
     }
-    org_note = _maybe_auto_propose_org_edit(name, existing["path"])
+    org_note = _maybe_auto_propose_workspace_edit(name, existing["path"])
     if org_note:
-        result["org_sharing"] = org_note
+        result["workspace_sharing"] = org_note
         result["message"] = f"{result['message']} {org_note}"
     return result
 
