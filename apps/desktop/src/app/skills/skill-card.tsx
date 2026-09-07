@@ -13,7 +13,6 @@ import { useI18n } from '@/i18n'
 import { compactNumber } from '@/lib/format'
 import { skillCategoryIcon, skillDisplayName } from '@/lib/skill-categories'
 import { asText } from '@/lib/text'
-import { cn } from '@/lib/utils'
 import type { SkillInfo } from '@/types/hermes'
 
 import { categoryFor, usageOf } from './skills-data'
@@ -50,7 +49,7 @@ export function SkillCard({
           <Switch
             aria-label={t.skills.toggleSkill(name, !skill.enabled)}
             checked={skill.enabled}
-            className={cn('cursor-pointer', !skill.enabled && 'opacity-60')}
+            className="cursor-pointer"
             disabled={busy}
             onCheckedChange={onToggle}
             size="md"
@@ -62,9 +61,20 @@ export function SkillCard({
             <Icon />
           </StoreCardGlyph>
         }
-        // Learned skills earn a quiet pill beside the name; bundled is the
-        // resting state and stays unmarked.
-        meta={skill.provenance === 'agent' && <StatusPill tone="muted">{t.skills.provenance.agent}</StatusPill>}
+        // Still one pill — a second one eats the title at the 18rem column width
+        // before truncation ever kicks in. Off outranks provenance: it is the
+        // thing that changes what this card does, and until now it was carried
+        // by colour alone (a dimmed title, a grey switch track), the channel a
+        // person scanning eighty cards is least likely to read. Where AgentX
+        // learned the skill itself keeps the slot the rest of the time;
+        // bundled is the resting state and stays unmarked.
+        meta={
+          !skill.enabled ? (
+            <StatusPill tone="muted">{t.skills.switchedOff}</StatusPill>
+          ) : (
+            skill.provenance === 'agent' && <StatusPill tone="muted">{t.skills.provenance.agent}</StatusPill>
+          )
+        }
         title={name}
       />
       <StoreCardDescription>{asText(skill.description) || t.skills.noDescription}</StoreCardDescription>

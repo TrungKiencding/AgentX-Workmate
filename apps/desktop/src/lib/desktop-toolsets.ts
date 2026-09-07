@@ -17,6 +17,15 @@ const DESKTOP_HIDDEN_TOOLSETS = new Set([
   // Internal plumbing, not a user capability toggle.
   'context_engine',
   'moa'
+  // NOT hidden, though it was tempting: `skills`. It ships
+  // `skills_list`/`skill_view`/`skill_manage`, and `agent/system_prompt.py`
+  // builds no skill index without them — so switching that one card off stops
+  // AgentX choosing skills for itself, and the "Kỹ năng sẵn có" tab two clicks
+  // away goes quiet while all its switches still read as on. Hiding the card
+  // would not have fixed that: hiding removes the row, never the setting
+  // (see above), so anyone who had already switched it off would lose their
+  // only way back. It stays visible — on the "Cách trợ lý làm việc" shelf, with
+  // copy that finally says what it does (`skills.toolsets.skills`).
 ])
 
 export function isDesktopToolsetVisible(name: string): boolean {

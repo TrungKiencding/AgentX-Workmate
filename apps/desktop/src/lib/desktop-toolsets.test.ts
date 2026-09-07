@@ -14,4 +14,12 @@ describe('isDesktopToolsetVisible', () => {
       expect(isDesktopToolsetVisible(name)).toBe(true)
     }
   })
+
+  it('keeps the skill-index toolset visible', () => {
+    // `skills` is plumbing for the "Kỹ năng sẵn có" tab and switching it off has
+    // consequences a tab away — but hiding a row never re-enables the setting
+    // behind it, so hiding this one would strand whoever already switched it
+    // off. It stays, on the machinery shelf, with copy that names the cost.
+    expect(isDesktopToolsetVisible('skills')).toBe(true)
+  })
 })

@@ -1456,7 +1456,6 @@ export const vi: Translations = {
     tabToolsets: 'Công cụ',
     tabMcp: 'Kết nối nâng cao',
     tabHub: 'Kho kỹ năng',
-    all: 'Tất cả',
     searchSkills: 'Tìm kỹ năng...',
     searchToolsets: 'Tìm công cụ...',
     refresh: 'Làm mới',
@@ -1488,6 +1487,7 @@ export const vi: Translations = {
       'software-development': 'Phát triển phần mềm'
     },
     toolsets: {
+      a2a: { label: 'Nối với trợ lý khác', description: 'Trao đổi việc với trợ lý AI khác theo chuẩn A2A.' },
       web: { label: 'Tìm trên web', description: 'Tìm kiếm và đọc nội dung trang web cho bạn.' },
       browser: { label: 'Điều khiển trình duyệt', description: 'Mở trang, bấm nút và điền biểu mẫu thay bạn.' },
       terminal: { label: 'Dòng lệnh', description: 'Chạy lệnh và quản lý tiến trình trên máy này.' },
@@ -1501,7 +1501,10 @@ export const vi: Translations = {
       x_search: { label: 'Tìm trên X (Twitter)', description: 'Tìm bài đăng trên X. Cần tài khoản xAI.' },
       tts: { label: 'Đọc thành tiếng', description: 'Chuyển câu trả lời thành giọng nói.' },
       stt: { label: 'Nghe giọng nói', description: 'Chuyển lời nói của bạn thành chữ.' },
-      skills: { label: 'Quản lý kỹ năng', description: 'Xem và dùng các kỹ năng đã cài.' },
+      skills: {
+        label: 'Tự chọn kỹ năng',
+        description: 'Cho AgentX tự tìm kỹ năng hợp với việc bạn nhờ. Tắt đi thì bạn phải tự gõ /tên-kỹ-năng.'
+      },
       todo: { label: 'Lập việc cần làm', description: 'Chia việc lớn thành danh sách từng bước.' },
       memory: { label: 'Ghi nhớ', description: 'Nhớ thông tin quan trọng giữa các cuộc trò chuyện.' },
       session_search: {
@@ -1514,6 +1517,26 @@ export const vi: Translations = {
       homeassistant: { label: 'Nhà thông minh', description: 'Điều khiển thiết bị qua Home Assistant.' },
       spotify: { label: 'Spotify', description: 'Phát nhạc, tìm bài hát và quản lý danh sách phát.' },
       computer_use: { label: 'Điều khiển máy tính', description: 'Thao tác màn hình ở chế độ nền thay bạn.' }
+    },
+    allCount: count => `Tất cả ${count} mục`,
+    tabDescription: {
+      skills: 'Cách làm mà AgentX đã biết. Tắt một mục, AgentX vẫn làm được việc đó — chỉ là không theo cách này nữa.',
+      hub: 'Kho cách làm dùng chung. Thêm vào đây thì AgentX biết thêm cách làm, chứ không có thêm quyền.',
+      toolsets: 'Những việc AgentX được phép làm. Tắt một mục, AgentX sẽ không làm được — kể cả khi bạn yêu cầu.',
+      mcp: 'Nối AgentX với phần mềm khác qua chuẩn MCP. Mỗi kết nối là một nhóm công cụ do bên đó cung cấp.'
+    },
+    switchedOff: 'Đang tắt',
+    toolsetGroup: {
+      web: 'Tìm và đọc trên mạng',
+      computer: 'Máy tính của bạn',
+      media: 'Ảnh, video và giọng nói',
+      apps: 'Ứng dụng và thiết bị của bạn',
+      agent: 'Cách trợ lý làm việc',
+      other: 'Khác'
+    },
+    toolsetGroupNote: {
+      computer: 'AgentX đọc, ghi và chạy lệnh ngay trên máy này.',
+      agent: 'Những mục này giúp AgentX tự xoay xở. Để nguyên là hợp lý — tắt đi thường làm hỏng một thứ khác.'
     },
     toolsetFunctions: count => `${count} chức năng`,
     noDescription: 'Không có mô tả.',
@@ -1540,6 +1563,8 @@ export const vi: Translations = {
       bundled: 'Có sẵn',
       hub: 'Từ kho'
     },
+    emptyOpenStore: 'Mở Kho kỹ năng',
+    emptyAllInStore: count => `Cả ${count} kỹ năng của bạn đều đến từ kho, nên chúng nằm ở tab Kho kỹ năng.`,
     emptyNoneFound: noun => `Không tìm thấy ${noun} nào`,
     emptyNothingMatches: query => `Không có gì khớp với “${query}”.`,
     emptyNoneAvailable: noun => `Chưa có ${noun} nào.`,

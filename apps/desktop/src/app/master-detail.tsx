@@ -285,12 +285,7 @@ export function ListStripMenu({
             }}
           >
             <span className="min-w-0 flex-1 truncate">{toggle.label}</span>
-            <Switch
-              checked={toggle.checked}
-              className={cn('pointer-events-none shrink-0', !toggle.checked && 'opacity-60')}
-              size="xs"
-              tabIndex={-1}
-            />
+            <Switch checked={toggle.checked} className="pointer-events-none shrink-0" size="xs" tabIndex={-1} />
           </DropdownMenuItem>
         )}
         {items.map(item => (

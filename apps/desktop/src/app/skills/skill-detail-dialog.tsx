@@ -13,7 +13,6 @@ import { TagChip } from '@/components/ui/tag-chip'
 import { useI18n } from '@/i18n'
 import { skillDisplayName } from '@/lib/skill-categories'
 import { asText } from '@/lib/text'
-import { cn } from '@/lib/utils'
 import type { SkillInfo } from '@/types/hermes'
 
 import type { PublishMode } from './publish-dialog'
@@ -115,7 +114,7 @@ export function SkillDetailDialog({
                 <Switch
                   aria-label={t.skills.toggleSkill(skillDisplayName(skill.name), !skill.enabled)}
                   checked={skill.enabled}
-                  className={cn('cursor-pointer', !skill.enabled && 'opacity-60')}
+                  className="cursor-pointer"
                   disabled={busy}
                   onCheckedChange={enabled => onToggle(skill, enabled)}
                   size="md"

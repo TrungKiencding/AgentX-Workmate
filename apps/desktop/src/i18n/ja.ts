@@ -1235,6 +1235,26 @@ export const ja = defineLocale({
     originalName: '内部名',
     sourceLabel: '提供元',
     setUp: '設定する',
+    allCount: count => `${count} 件すべて`,
+    tabDescription: {
+      skills: 'AgentX がすでに知っているやり方です。オフにしてもその仕事はできます。このやり方を使わなくなるだけです。',
+      hub: 'みんなで使うやり方の置き場です。追加してもやり方が増えるだけで、できることの範囲は変わりません。',
+      toolsets: 'AgentX に許可した行為です。オフにすると、どう頼んでもその行為はできません。',
+      mcp: 'MCP で AgentX を他のソフトにつなぎます。つなぎ先ごとに、そのソフトが提供する道具一式が増えます。'
+    },
+    switchedOff: 'オフ',
+    toolsetGroup: {
+      web: 'ウェブを調べて読む',
+      computer: 'あなたのパソコン',
+      media: '画像・動画・音声',
+      apps: 'あなたのアプリと機器',
+      other: 'その他',
+      agent: 'アシスタントの動き方'
+    },
+    toolsetGroupNote: {
+      computer: 'AgentX がこのパソコン上で直接読み書きし、コマンドを実行します。',
+      agent: 'これらは AgentX が自力で動くための仕組みです。オンのままが無難で、切ると別のところが壊れがちです。'
+    },
     toolsetFunctions: count => `${count} 個の機能`,
     category: {
       apple: 'Apple',
@@ -1252,7 +1272,6 @@ export const ja = defineLocale({
       'social-media': 'ソーシャルメディア',
       'software-development': 'ソフトウェア開発'
     },
-    all: 'すべて',
     searchSkills: 'スキルを検索...',
     searchToolsets: 'ツールセットを検索...',
     refresh: 'スキルを更新',
@@ -1281,6 +1300,8 @@ export const ja = defineLocale({
       bundled: '組み込み',
       hub: 'ハブ'
     },
+    emptyOpenStore: 'スキルストアを開く',
+    emptyAllInStore: count => `${count} 件のスキルはすべてストア由来なので、ストアのタブにあります。`,
     emptyNoneFound: noun => `${noun} が見つかりません`,
     emptyNothingMatches: query => `「${query}」に一致するものはありません。`,
     emptyNoneAvailable: noun => `利用可能な ${noun} はまだありません。`,
@@ -1291,6 +1312,10 @@ export const ja = defineLocale({
     skillArchivedTitle: 'スキルをアーカイブしました',
     skillArchivedMessage: 'agentx curator restore で復元できます。',
     toolsets: {
+      a2a: {
+        label: '他のアシスタントと連携',
+        description: 'A2A 規格で他の AI アシスタントに仕事を渡し、受け取ります。'
+      },
       web: {
         label: 'ウェブ検索',
         description: 'ウェブを検索して、ページの内容を読み取ります。'

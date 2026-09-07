@@ -13,7 +13,6 @@ import { StatusPill } from '@/components/ui/status-pill'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { compactNumber } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import type { ToolsetInfo } from '@/types/hermes'
 
 import { ToolChip } from '../master-detail'
@@ -96,15 +95,24 @@ export function ToolsetDetailDialog({
                   value={<span className="font-mono">{toolset.name}</span>}
                 />
                 {toolNames(toolset).length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {toolNames(toolset).map(name => (
-                      <ToolChip key={name}>
-                        {name}
-                        {(toolCalls[name] ?? 0) > 0 && (
-                          <span className="ml-1 text-(--ui-text-quaternary)">×{compactNumber(toolCalls[name])}</span>
-                        )}
-                      </ToolChip>
-                    ))}
+                  // The count leads the chips: "14 chức năng" is the sentence a
+                  // person reads, the mono names under it are for whoever needs
+                  // them. It used to sit on the card, where nobody could act on
+                  // it; here it labels the list it describes.
+                  <div className="grid gap-1">
+                    <span className="text-sm text-(--ui-text-tertiary)">
+                      {t.skills.toolsetFunctions(toolNames(toolset).length)}
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {toolNames(toolset).map(name => (
+                        <ToolChip key={name}>
+                          {name}
+                          {(toolCalls[name] ?? 0) > 0 && (
+                            <span className="ml-1 text-(--ui-text-quaternary)">×{compactNumber(toolCalls[name])}</span>
+                          )}
+                        </ToolChip>
+                      ))}
+                    </div>
                   </div>
                 )}
               </TechnicalDetails>
@@ -115,7 +123,7 @@ export function ToolsetDetailDialog({
                 <Switch
                   aria-label={t.skills.toggleToolset(toolsetCopy(toolset, t).label, !toolset.enabled)}
                   checked={toolset.enabled}
-                  className={cn('cursor-pointer', !toolset.enabled && 'opacity-60')}
+                  className="cursor-pointer"
                   disabled={busy}
                   onCheckedChange={enabled => onToggle(toolset, enabled)}
                   size="md"

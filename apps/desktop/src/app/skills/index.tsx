@@ -16,6 +16,7 @@ import { queryClient } from '@/lib/query-client'
 import { skillCategoryKey, skillDisplayName } from '@/lib/skill-categories'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 import { asText, normalize } from '@/lib/text'
+import { TOOLSET_GROUP_IDS, toolsetGroup, type ToolsetGroupId } from '@/lib/toolset-groups'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { $gateway } from '@/store/gateway'
 import { notify, notifyError } from '@/store/notifications'
@@ -52,7 +53,7 @@ import {
   toolsetsQueryOptions,
   usageOf
 } from './skills-data'
-import { $skillsSortDesc, $toolsetsSortDesc } from './store'
+import { $skillsSortDesc } from './store'
 import { ToolsetCard } from './toolset-card'
 import { ToolsetDetailDialog } from './toolset-detail-dialog'
 import { useTrySkill } from './use-try-skill'
@@ -93,6 +94,37 @@ async function loadToolCalls(force = false): Promise<Record<string, number>> {
 // Highlight the active order inside the sort menu.
 const cnActive = (active: boolean) => (active ? 'font-medium text-foreground' : undefined)
 
+// One named shelf inside a card grid — the heading a person scans instead of
+// reading every card: the group's name, how many cards it holds, and (only
+// where a shelf earns one) a line saying what this whole shelf means. An
+// unnamed shelf renders as a bare grid, which is what a search result is.
+function CardShelf({
+  children,
+  count,
+  label,
+  note
+}: {
+  children: React.ReactNode
+  count: number
+  label?: string
+  note?: string
+}) {
+  return (
+    <section>
+      {label && (
+        <div className="mb-2 px-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{label}</h3>
+            <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{count}</span>
+          </div>
+          {note && <p className="mt-0.5 max-w-[60ch] text-xs text-(--ui-text-quaternary)">{note}</p>}
+        </div>
+      )}
+      <StoreCardGrid>{children}</StoreCardGrid>
+    </section>
+  )
+}
+
 function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Translations): SkillInfo[] {
   const q = normalize(query)
   const sign = desc ? 1 : -1
@@ -110,15 +142,12 @@ function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Tr
     .sort((a, b) => sign * (usageOf(b) - usageOf(a)) || asText(a.name).localeCompare(asText(b.name)))
 }
 
-function filteredToolsets(
-  toolsets: ToolsetInfo[],
-  query: string,
-  toolCalls: Record<string, number>,
-  desc: boolean,
-  t: Translations
-): ToolsetInfo[] {
+// Tools come back in one stable A-Z order inside their shelf. They used to be
+// sorted by call count, which meant the grid rearranged itself as a person used
+// AgentX — and the shelves already answer the question that sort was for
+// ("where is the thing that searches the web?") far better than a ranking can.
+function filteredToolsets(toolsets: ToolsetInfo[], query: string, t: Translations): ToolsetInfo[] {
   const q = normalize(query)
-  const sign = desc ? 1 : -1
 
   return toolsets
     .filter(toolset => {
@@ -141,11 +170,7 @@ function filteredToolsets(
         toolNames(toolset).some(name => includesQuery(name, q))
       )
     })
-    .sort(
-      (a, b) =>
-        sign * (toolsetCalls(b, toolCalls) - toolsetCalls(a, toolCalls)) ||
-        toolsetCopy(a, t).label.localeCompare(toolsetCopy(b, t).label)
-    )
+    .sort((a, b) => toolsetCopy(a, t).label.localeCompare(toolsetCopy(b, t).label))
 }
 
 interface SkillsViewProps extends React.ComponentProps<'section'> {
@@ -177,7 +202,6 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   // toolCalls after the user moved to B.
   const toolCallsEpoch = useRef(0)
   const skillsSortDesc = useStore($skillsSortDesc)
-  const toolsetsSortDesc = useStore($toolsetsSortDesc)
   const [bulkBusy, setBulkBusy] = useState(false)
   // The open detail dialogs, by name — the live row is looked up on every
   // render so a toggle made inside the dialog repaints it too.
@@ -253,10 +277,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     [ownSkills, query, skillsSortDesc, t]
   )
 
-  const visibleToolsets = useMemo(
-    () => (toolsets ? filteredToolsets(toolsets, query, toolCalls ?? {}, toolsetsSortDesc, t) : []),
-    [query, t, toolCalls, toolsets, toolsetsSortDesc]
-  )
+  const visibleToolsets = useMemo(() => (toolsets ? filteredToolsets(toolsets, query, t) : []), [query, t, toolsets])
 
   // Browsing (no search) groups skills by category so 80 cards read as a dozen
   // named shelves; a search flattens back to one relevance grid. Groups order
@@ -280,6 +301,30 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
       .map(([key, group]) => ({ key, ...group }))
       .sort((a, b) => b.usage - a.usage || a.label.localeCompare(b.label))
   }, [query, t, visibleSkills])
+
+  // Tools shelve by the job they do, and — unlike skills — in a fixed teaching
+  // order, not a popularity one: what AgentX reads, what it touches on this
+  // machine, what it makes, whose account it reaches, and last the machinery
+  // that runs the assistant itself. A search flattens back to one grid.
+  const groupedToolsets = useMemo(() => {
+    if (query.trim()) {
+      return null
+    }
+
+    const byKey = new Map<ToolsetGroupId, ToolsetInfo[]>()
+
+    for (const toolset of visibleToolsets) {
+      const key = toolsetGroup(toolset.name)
+      byKey.set(key, [...(byKey.get(key) ?? []), toolset])
+    }
+
+    return TOOLSET_GROUP_IDS.filter(id => byKey.has(id)).map(id => ({
+      key: id,
+      label: t.skills.toolsetGroup[id] ?? id,
+      note: t.skills.toolsetGroupNote[id],
+      rows: byKey.get(id) ?? []
+    }))
+  }, [query, t, visibleToolsets])
 
   // Bulk actions ("All" master switch, "Disable unused") and the master-switch
   // state target the WHOLE tab, never the search-filtered view — a tab-wide
@@ -386,10 +431,14 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     )
 
   // One switch line covering enable-all/disable-all.
-  const bulkSwitch = (allEnabled: boolean): ListStripMenuToggle => ({
+  // The master switch carries its own count because its scope is NOT "every
+  // skill you own": hub-installed skills live on the store tab and are left
+  // alone. A bare "Tất cả" over a list that excludes some of them is a lie the
+  // number quietly corrects — 83 here is the same 83 on the tab's badge.
+  const bulkSwitch = (allEnabled: boolean, count: number): ListStripMenuToggle => ({
     checked: allEnabled,
     disabled: bulkBusy,
-    label: t.skills.all,
+    label: t.skills.allCount(count),
     onToggle: checked => void bulkToggle(checked)
   })
 
@@ -433,6 +482,12 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     </div>
   )
 
+  // Every skill this install has came from the store: this tab excludes them by
+  // design, so it is empty while the person plainly owns skills. "Làm mới" can
+  // never resolve that — the skills are one tab over, and that is where the
+  // button has to point.
+  const skillsAllInStore = mode === 'skills' && !query.trim() && ownSkills.length === 0 && (skills?.length ?? 0) > 0
+
   // Full-bleed empty state, matching the connections tab. Query-aware; three
   // beats and one action that resolves it.
   const capabilityEmpty = (noun: string) => {
@@ -446,13 +501,23 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
               <Button onClick={() => setQuery('')} size="sm" variant="secondary">
                 {t.skills.clearSearch}
               </Button>
+            ) : skillsAllInStore ? (
+              <Button onClick={() => setMode('hub')} size="sm" variant="secondary">
+                {t.skills.emptyOpenStore}
+              </Button>
             ) : (
               <Button onClick={() => void refreshCapabilities()} size="sm" variant="secondary">
                 {t.skills.refresh}
               </Button>
             )
           }
-          description={q ? t.skills.emptyNothingMatches(q) : t.skills.emptyNoneAvailable(noun)}
+          description={
+            q
+              ? t.skills.emptyNothingMatches(q)
+              : skillsAllInStore
+                ? t.skills.emptyAllInStore(skills?.length ?? 0)
+                : t.skills.emptyNoneAvailable(noun)
+          }
           figure="box"
           title={t.skills.emptyNoneFound(noun)}
         />
@@ -558,32 +623,24 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
         <ListStripMenu
           items={[{ disabled: bulkBusy, label: t.skills.disableUnused, onSelect: () => void disableUnused() }]}
           label={t.skills.tabSkills}
-          toggle={bulkSwitch(allSkillsEnabled)}
+          toggle={bulkSwitch(allSkillsEnabled, bulkSkills.length)}
         />
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
         <div className="grid gap-5">
           {(groupedSkills ?? [{ key: 'all', label: '', rows: visibleSkills, usage: 0 }]).map(group => (
-            <section key={group.key}>
-              {group.label && (
-                <div className="mb-2 flex items-baseline gap-1.5 px-0.5">
-                  <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{group.label}</h3>
-                  <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{group.rows.length}</span>
-                </div>
-              )}
-              <StoreCardGrid>
-                {group.rows.map(skill => (
-                  <SkillCard
-                    busy={bulkBusy}
-                    key={skill.name}
-                    onDetails={() => setDetailSkillName(skill.name)}
-                    onToggle={enabled => void handleToggleSkill(skill, enabled)}
-                    onTryNow={() => tryNow(skill)}
-                    skill={skill}
-                  />
-                ))}
-              </StoreCardGrid>
-            </section>
+            <CardShelf count={group.rows.length} key={group.key} label={group.label}>
+              {group.rows.map(skill => (
+                <SkillCard
+                  busy={bulkBusy}
+                  key={skill.name}
+                  onDetails={() => setDetailSkillName(skill.name)}
+                  onToggle={enabled => void handleToggleSkill(skill, enabled)}
+                  onTryNow={() => tryNow(skill)}
+                  skill={skill}
+                />
+              ))}
+            </CardShelf>
           ))}
         </div>
       </div>
@@ -594,22 +651,27 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   const toolsetsGrid = (
     <div className="flex h-full min-h-0 flex-col">
       {gridStrip(
-        sortButton(toolsetsSortDesc, next => $toolsetsSortDesc.set(next)),
-        <ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled)} />
+        // No sort control here: the shelves are the order, and A-Z inside one.
+        null,
+        <ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled, bulkToolsets.length)} />
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
-        <StoreCardGrid>
-          {visibleToolsets.map(toolset => (
-            <ToolsetCard
-              busy={bulkBusy}
-              calls={toolCalls ? toolsetCalls(toolset, toolCalls) : null}
-              key={toolset.name}
-              onOpen={() => setDetailToolsetName(toolset.name)}
-              onToggle={enabled => void handleToggleToolset(toolset, enabled)}
-              toolset={toolset}
-            />
+        <div className="grid gap-5">
+          {(groupedToolsets ?? [{ key: 'all', label: '', note: undefined, rows: visibleToolsets }]).map(group => (
+            <CardShelf count={group.rows.length} key={group.key} label={group.label} note={group.note}>
+              {group.rows.map(toolset => (
+                <ToolsetCard
+                  busy={bulkBusy}
+                  calls={toolCalls ? toolsetCalls(toolset, toolCalls) : null}
+                  key={toolset.name}
+                  onOpen={() => setDetailToolsetName(toolset.name)}
+                  onToggle={enabled => void handleToggleToolset(toolset, enabled)}
+                  toolset={toolset}
+                />
+              ))}
+            </CardShelf>
           ))}
-        </StoreCardGrid>
+        </div>
       </div>
     </div>
   )
@@ -618,9 +680,20 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     <PageSearchShell
       {...props}
       activeTab={mode}
-      description={t.skills.pageDescription}
+      // The page's one description line is per tab on purpose: this is the only
+      // place the app ever says what separates a skill from a tool, and the
+      // sentence has to be there while the person is looking at that tab's
+      // switches. A single page-wide line ("bật thứ bạn cần") taught neither.
+      description={t.skills.tabDescription[mode]}
       onSearchChange={setQuery}
-      onTabChange={id => setMode(id as (typeof SKILLS_MODES)[number])}
+      // One box, four tabs that mean different things by it — on the store it is
+      // a network search, on the connections tab it is hidden but still applied.
+      // Leaving a query behind meant arriving at a tab already filtered by words
+      // typed about something else, with the box that explains it out of sight.
+      onTabChange={id => {
+        setQuery('')
+        setMode(id as (typeof SKILLS_MODES)[number])
+      }}
       // The connections tab manages a handful of entries with the editor right
       // there — searching it is noise.
       searchHidden={mode === 'mcp'}

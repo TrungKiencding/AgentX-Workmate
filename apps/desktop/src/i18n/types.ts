@@ -1010,7 +1010,6 @@ export interface Translations {
     tabToolsets: string
     tabMcp: string
     tabHub: string
-    all: string
     searchSkills: string
     searchToolsets: string
     refresh: string
@@ -1030,6 +1029,17 @@ export interface Translations {
     category: Record<string, string>
     /** Hand-written toolset copy, keyed by toolset name; backend text is the fallback. */
     toolsets: Record<string, { description: string; label: string }>
+    /** Master-switch label that names how many rows it really covers. */
+    allCount: (count: number) => string
+    /** The one line under the page title, per tab — where the difference between
+     *  a skill and a tool is actually taught. Keyed by `?tab=` id. */
+    tabDescription: Record<'skills' | 'hub' | 'toolsets' | 'mcp', string>
+    /** Word for the off state, so a dimmed card says so rather than only looking so. */
+    switchedOff: string
+    /** Job-based shelf headings for the tools grid, keyed by `ToolsetGroupId`. */
+    toolsetGroup: Record<string, string>
+    /** The one caution line a shelf carries; only some shelves have one. */
+    toolsetGroupNote: Record<string, string>
     toolsetFunctions: (count: number) => string
     noDescription: string
     needsKeys: string
@@ -1051,6 +1061,8 @@ export interface Translations {
     bulkUpdated: (count: number) => string
     usageCount: (count: number | string) => string
     provenance: Record<'agent' | 'bundled' | 'hub', string>
+    emptyOpenStore: string
+    emptyAllInStore: (count: number) => string
     emptyNoneFound: (noun: string) => string
     emptyNothingMatches: (query: string) => string
     emptyNoneAvailable: (noun: string) => string

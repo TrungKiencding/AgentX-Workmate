@@ -1,6 +1,7 @@
 import { Codecs, persistentAtom } from '@/lib/persisted'
 
-// Per-view sort direction for the Capabilities lists — persisted so each tab
-// remembers most/least-used across navigations and restarts.
+// Sort direction for the "Kỹ năng sẵn có" grid — persisted so the tab remembers
+// most/least-used across navigations and restarts. The tools tab has no
+// equivalent: its cards sit on fixed job shelves, A-Z inside each, so there is
+// no order left to choose (see `filteredToolsets`).
 export const $skillsSortDesc = persistentAtom('agentx.desktop.capabilities.skillsSortDesc', true, Codecs.bool)
-export const $toolsetsSortDesc = persistentAtom('agentx.desktop.capabilities.toolsetsSortDesc', true, Codecs.bool)

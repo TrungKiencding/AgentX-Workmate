@@ -15,6 +15,7 @@ import {
   MessageQuestion,
   Mic,
   Monitor,
+  Plug,
   Puzzle,
   Search,
   Terminal,
@@ -29,6 +30,7 @@ import {
 // so a tool's picture, name and sentence come from one row of the table. A
 // toolset the table does not know keeps the generic wrench.
 const TOOLSET_ICONS: Record<string, IconComponent> = {
+  a2a: Plug,
   bfl: Video,
   browser: AppWindow,
   clarify: MessageQuestion,

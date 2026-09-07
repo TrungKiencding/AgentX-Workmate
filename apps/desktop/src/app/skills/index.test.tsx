@@ -278,8 +278,10 @@ describe('SkillsView toolset management', () => {
 
     await renderSkills()
 
+    // Vision's way in is "Set up", not "Details": the model it needs is chosen
+    // elsewhere, so `configured: true` from the key check means nothing here.
     await act(async () => {
-      fireEvent.click(await screen.findByTestId('toolset-details'))
+      fireEvent.click(await screen.findByTestId('toolset-set-up'))
     })
 
     expect(await screen.findByText(/auxiliary model configuration/)).toBeTruthy()
@@ -292,5 +294,50 @@ describe('SkillsView toolset management', () => {
     // Internal route change into the Models section with the aux slot target —
     // consumed by ModelSettings' deep-link highlight. Never an external URL.
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/settings?tab=config:model&aux=vision'))
+  })
+  it('shelves the tools by the job they do, with the assistant machinery last', async () => {
+    getToolsets.mockResolvedValue([
+      toolset({ name: 'memory', label: 'Memory', tools: ['memory'] }),
+      toolset({ name: 'web', label: 'Web Search', tools: ['web_search'] }),
+      toolset({ name: 'file', label: 'File Operations', tools: ['read'] })
+    ])
+
+    await renderSkills()
+
+    const headings = await screen.findAllByRole('heading', { level: 3 })
+
+    expect(headings.map(h => h.textContent)).toEqual(['Reading the web', 'Your computer', 'How the assistant works'])
+  })
+
+  it('keeps the skill-index tool visible, on the machinery shelf, saying what turning it off costs', async () => {
+    // Hiding it would have been the tidy move and the wrong one: hiding a row
+    // never re-enables the setting, so anyone who had already switched it off
+    // would lose their way back.
+    getToolsets.mockResolvedValue([toolset({ name: 'skills', label: 'Skills', tools: ['skills_list'] })])
+
+    await renderSkills()
+
+    expect(await screen.findByText('Pick skills on its own')).toBeTruthy()
+    expect(screen.getByText(/you type \/skill-name yourself/)).toBeTruthy()
+  })
+
+  it('leads with "Set up" for a tool whose real setup the key check cannot see', async () => {
+    // spotify declares no env vars, so the backend always calls it configured —
+    // while the OAuth login it actually needs is still missing.
+    getToolsets.mockResolvedValue([toolset({ name: 'spotify', label: 'Spotify', configured: true, tools: ['play'] })])
+
+    await renderSkills()
+
+    expect(await screen.findByTestId('toolset-set-up')).toBeTruthy()
+    expect(screen.queryByTestId('toolset-details')).toBeNull()
+  })
+
+  it('says what a tool switch costs, in a line that differs from the skills tab', async () => {
+    await renderSkills('toolsets')
+    expect(await screen.findByText(/cannot do that at all/)).toBeTruthy()
+
+    cleanup()
+    await renderSkills('skills')
+    expect(await screen.findByText(/it can still do the job/)).toBeTruthy()
   })
 })

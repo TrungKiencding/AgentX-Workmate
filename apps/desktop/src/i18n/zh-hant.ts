@@ -1182,6 +1182,26 @@ export const zhHant = defineLocale({
     originalName: '內部名稱',
     sourceLabel: '來源',
     setUp: '設定',
+    allCount: count => `全部 ${count} 項`,
+    tabDescription: {
+      skills: 'AgentX 已經會的做法。關掉其中一項，它照樣做得到這件事，只是不再用這個做法。',
+      hub: '共用的做法庫。加入一項只是讓 AgentX 多學一種做法，並不會多出權限。',
+      toolsets: 'AgentX 被允許做的事。關掉其中一項，它就完全做不到——不管你怎麼要求。',
+      mcp: '透過 MCP 把 AgentX 連到其他軟體。每個連線都是那個軟體提供的一組工具。'
+    },
+    switchedOff: '已關閉',
+    toolsetGroup: {
+      web: '上網尋找與閱讀',
+      computer: '你的電腦',
+      media: '圖片、影片與語音',
+      apps: '你的應用程式與裝置',
+      other: '其他',
+      agent: '助理的運作方式'
+    },
+    toolsetGroupNote: {
+      computer: 'AgentX 會直接在這台電腦上讀取、寫入並執行指令。',
+      agent: '這些讓 AgentX 能自行運作。保持開啟是穩妥的預設——關掉通常會讓別處出問題。'
+    },
     toolsetFunctions: count => `${count} 項功能`,
     category: {
       apple: 'Apple',
@@ -1199,7 +1219,6 @@ export const zhHant = defineLocale({
       'social-media': '社群媒體',
       'software-development': '軟體開發'
     },
-    all: '全部',
     searchSkills: '搜尋技能...',
     searchToolsets: '搜尋工具集...',
     refresh: '重新整理技能',
@@ -1227,6 +1246,8 @@ export const zhHant = defineLocale({
       bundled: '內建',
       hub: '技能中心'
     },
+    emptyOpenStore: '開啟技能庫',
+    emptyAllInStore: count => `你的 ${count} 個技能都來自技能庫，所以它們在技能庫分頁裡。`,
     emptyNoneFound: noun => `找不到${noun}`,
     emptyNothingMatches: query => `沒有符合「${query}」的內容。`,
     emptyNoneAvailable: noun => `尚無可用的${noun}。`,
@@ -1237,6 +1258,7 @@ export const zhHant = defineLocale({
     skillArchivedTitle: '技能已封存',
     skillArchivedMessage: '可透過 agentx curator restore 還原。',
     toolsets: {
+      a2a: { label: '與其他助理協作', description: '依 A2A 標準與其他 AI 助理互相交付工作。' },
       web: {
         label: '網頁搜尋',
         description: '為你搜尋並閱讀網頁內容。'

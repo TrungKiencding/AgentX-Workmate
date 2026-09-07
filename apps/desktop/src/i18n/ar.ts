@@ -1132,6 +1132,27 @@ export const ar = defineLocale({
     originalName: 'الاسم الداخلي',
     sourceLabel: 'المصدر',
     setUp: 'إعداد',
+    allCount: count => `الكل (${count})`,
+    tabDescription: {
+      skills: 'طرق عمل يعرفها AgentX بالفعل. إيقاف إحداها لا يمنعه من إنجاز المهمة — يتوقّف فقط عن اتّباع هذه الطريقة.',
+      hub: 'مكتبة طرق العمل المشتركة. إضافة واحدة تُعلّم AgentX طريقة أخرى، ولا تمنحه أي صلاحية جديدة.',
+      toolsets: 'ما يُسمح لـ AgentX بفعله. إيقاف أحدها يجعله عاجزًا عن ذلك تمامًا — مهما طلبت.',
+      mcp: 'اربط AgentX ببرامج أخرى عبر MCP. كل اتصال هو مجموعة أدوات يوفّرها ذلك البرنامج.'
+    },
+    switchedOff: 'مُطفأ',
+    toolsetGroup: {
+      web: 'البحث والقراءة على الإنترنت',
+      computer: 'حاسوبك',
+      media: 'الصور والفيديو والصوت',
+      apps: 'تطبيقاتك وأجهزتك',
+      other: 'أخرى',
+      agent: 'طريقة عمل المساعد'
+    },
+    toolsetGroupNote: {
+      computer: 'يقرأ AgentX ويكتب وينفّذ الأوامر مباشرة على هذا الجهاز.',
+      agent:
+        'هذه العناصر تُبقي AgentX يعمل من تلقاء نفسه. إبقاؤها مفعّلة هو الخيار الآمن — إيقاف أحدها عادةً يُعطّل شيئًا آخر.'
+    },
     toolsetFunctions: count => `${count} وظيفة`,
     category: {
       apple: 'Apple',
@@ -1149,7 +1170,6 @@ export const ar = defineLocale({
       'social-media': 'وسائل التواصل',
       'software-development': 'تطوير البرمجيات'
     },
-    all: 'الكل',
     searchSkills: 'البحث في المهارات',
     searchToolsets: 'البحث في مجموعات الأدوات',
     refresh: 'تحديث',
@@ -1166,6 +1186,10 @@ export const ar = defineLocale({
     appliesToNewSessions: name => `ينطبق على الجلسات الجديدة في ${name}`,
     failedToUpdate: name => `فشل تحديث ${name}`,
     toolsets: {
+      a2a: {
+        label: 'العمل مع مساعدين آخرين',
+        description: 'تسليم المهام إلى مساعدي ذكاء اصطناعي آخرين واستلامها منهم عبر معيار A2A.'
+      },
       web: {
         label: 'البحث في الويب',
         description: 'يبحث في الويب ويقرأ الصفحات نيابةً عنك.'
@@ -1272,6 +1296,8 @@ export const ar = defineLocale({
       bundled: 'مضمّنة',
       hub: 'من Hub'
     },
+    emptyOpenStore: 'افتح متجر المهارات',
+    emptyAllInStore: count => `مهاراتك الـ ${count} جميعها من المتجر، لذا تجدها في تبويب المتجر.`,
     emptyNoneFound: noun => `لم يُعثر على أي ${noun}`,
     emptyNothingMatches: query => `لا شيء يطابق «${query}».`,
     emptyNoneAvailable: noun => `لا توجد ${noun} بعد.`,

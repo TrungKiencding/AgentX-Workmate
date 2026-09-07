@@ -1195,7 +1195,6 @@ export const en: Translations = {
     tabToolsets: 'Tools',
     tabMcp: 'Advanced connections',
     tabHub: 'Skill store',
-    all: 'All',
     searchSkills: 'Search skills...',
     searchToolsets: 'Search tools...',
     refresh: 'Refresh',
@@ -1227,6 +1226,10 @@ export const en: Translations = {
       'software-development': 'Software development'
     },
     toolsets: {
+      a2a: {
+        label: 'Work with other assistants',
+        description: 'Hand work to, and take work from, other AI assistants over the A2A standard.'
+      },
       web: { label: 'Web search', description: 'Search the web and read pages for you.' },
       browser: { label: 'Browser control', description: 'Open pages, click buttons and fill forms for you.' },
       terminal: { label: 'Command line', description: 'Run commands and manage processes on this machine.' },
@@ -1240,7 +1243,10 @@ export const en: Translations = {
       x_search: { label: 'Search X (Twitter)', description: 'Find posts on X. Needs an xAI account.' },
       tts: { label: 'Read aloud', description: 'Turn replies into spoken audio.' },
       stt: { label: 'Listen', description: 'Turn your speech into text.' },
-      skills: { label: 'Manage skills', description: 'List and use the installed skills.' },
+      skills: {
+        label: 'Pick skills on its own',
+        description: 'Lets AgentX find the right skill for what you asked. Off, you type /skill-name yourself.'
+      },
       todo: { label: 'Plan tasks', description: 'Break big jobs into step-by-step lists.' },
       memory: { label: 'Remember', description: 'Keep important facts across conversations.' },
       session_search: { label: 'Search past chats', description: 'Find things said in earlier conversations.' },
@@ -1250,6 +1256,27 @@ export const en: Translations = {
       homeassistant: { label: 'Smart home', description: 'Control devices through Home Assistant.' },
       spotify: { label: 'Spotify', description: 'Play music, search songs and manage playlists.' },
       computer_use: { label: 'Computer control', description: 'Drive the screen in the background for you.' }
+    },
+    allCount: count => `All ${count}`,
+    tabDescription: {
+      skills: 'Ways of working AgentX already knows. Turn one off and it can still do the job — just not this way.',
+      hub: 'The shared library of ways to work. Adding one teaches AgentX another approach; it grants no new powers.',
+      toolsets: 'What AgentX is allowed to do. Turn one off and it cannot do that at all — however you ask.',
+      mcp: 'Connect AgentX to other software over MCP. Each connection is a set of tools that software provides.'
+    },
+    switchedOff: 'Off',
+    toolsetGroup: {
+      web: 'Reading the web',
+      computer: 'Your computer',
+      media: 'Pictures, video and voice',
+      apps: 'Your apps and devices',
+      agent: 'How the assistant works',
+      other: 'Other'
+    },
+    toolsetGroupNote: {
+      computer: 'AgentX reads, writes and runs commands right on this machine.',
+      agent:
+        'These keep AgentX running on its own. Leaving them on is the sane default — turning one off usually breaks something else.'
     },
     toolsetFunctions: count => `${count} ${count === 1 ? 'function' : 'functions'}`,
     noDescription: 'No description.',
@@ -1276,6 +1303,8 @@ export const en: Translations = {
       bundled: 'Built-in',
       hub: 'From the Hub'
     },
+    emptyOpenStore: 'Open the skill store',
+    emptyAllInStore: count => `All ${count} of your skills came from the store, so they live on the store tab.`,
     emptyNoneFound: noun => `No ${noun} found`,
     emptyNothingMatches: query => `Nothing matches “${query}”.`,
     emptyNoneAvailable: noun => `No ${noun} available yet.`,

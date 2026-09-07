@@ -1374,7 +1374,6 @@ export const zh: Translations = {
     tabToolsets: '工具',
     tabMcp: '高级连接',
     tabHub: '技能商店',
-    all: '全部',
     searchSkills: '搜索技能…',
     searchToolsets: '搜索工具…',
     refresh: '刷新',
@@ -1406,6 +1405,7 @@ export const zh: Translations = {
       'software-development': '软件开发'
     },
     toolsets: {
+      a2a: { label: '与其他助手协作', description: '按 A2A 标准与其他 AI 助手互相交付任务。' },
       web: { label: '网页搜索', description: '为你搜索并阅读网页内容。' },
       browser: { label: '浏览器操作', description: '替你打开页面、点击按钮、填写表单。' },
       terminal: { label: '命令行', description: '在这台电脑上运行命令、管理进程。' },
@@ -1419,7 +1419,10 @@ export const zh: Translations = {
       x_search: { label: '搜索 X（Twitter）', description: '在 X 上查找帖子。需要 xAI 账号。' },
       tts: { label: '朗读', description: '把回复转成语音。' },
       stt: { label: '听写', description: '把你的语音转成文字。' },
-      skills: { label: '管理技能', description: '查看并使用已安装的技能。' },
+      skills: {
+        label: '自行挑选技能',
+        description: '让 AgentX 自己找出适合这件事的技能。关掉后，需要你自己输入 /技能名。'
+      },
       todo: { label: '任务规划', description: '把大任务拆成分步清单。' },
       memory: { label: '记忆', description: '在多次对话间记住重要信息。' },
       session_search: { label: '搜索历史对话', description: '找回以前对话里说过的内容。' },
@@ -1429,6 +1432,26 @@ export const zh: Translations = {
       homeassistant: { label: '智能家居', description: '通过 Home Assistant 控制设备。' },
       spotify: { label: 'Spotify', description: '播放音乐、搜索歌曲、管理歌单。' },
       computer_use: { label: '操控电脑', description: '在后台替你操作屏幕。' }
+    },
+    allCount: count => `全部 ${count} 项`,
+    tabDescription: {
+      skills: 'AgentX 已经掌握的做法。关掉其中一项，它照样能完成这件事，只是不再用这种做法。',
+      hub: '共享的做法库。添加一项只是让 AgentX 多学一种做法，并不会多出权限。',
+      toolsets: 'AgentX 被允许做的事。关掉其中一项，它就完全做不到——无论你怎么要求。',
+      mcp: '通过 MCP 把 AgentX 连到其他软件。每个连接都是那个软件提供的一组工具。'
+    },
+    switchedOff: '已关闭',
+    toolsetGroup: {
+      web: '上网查找与阅读',
+      computer: '你的电脑',
+      media: '图片、视频与语音',
+      apps: '你的应用与设备',
+      other: '其他',
+      agent: '助手的工作方式'
+    },
+    toolsetGroupNote: {
+      computer: 'AgentX 会直接在这台电脑上读取、写入和执行命令。',
+      agent: '这些让 AgentX 能自己运转。保持开启是稳妥的默认——关掉通常会让别处出问题。'
     },
     toolsetFunctions: count => `${count} 项功能`,
     noDescription: '暂无描述。',
@@ -1454,6 +1477,8 @@ export const zh: Translations = {
       bundled: '内置',
       hub: '来自商店'
     },
+    emptyOpenStore: '打开技能库',
+    emptyAllInStore: count => `你的 ${count} 个技能都来自技能库，所以它们在技能库标签页里。`,
     emptyNoneFound: noun => `未找到${noun}`,
     emptyNothingMatches: query => `没有匹配“${query}”的内容。`,
     emptyNoneAvailable: noun => `暂无可用的${noun}。`,

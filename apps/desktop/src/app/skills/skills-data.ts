@@ -95,6 +95,29 @@ export function toolsetCopy(toolset: ToolsetInfo, t: Translations): { descriptio
   }
 }
 
+// Tools whose real setup the backend cannot see. `_toolset_has_keys` answers
+// exactly one question — "are the API keys this tool declared present?" — and
+// each of these declares none, so it returns true and the tool reports itself
+// configured while nothing works. What they actually need is a macOS
+// permission plus a driver binary (computer_use), an OAuth login (spotify), or
+// a model chosen over in Cài đặt → Model (vision).
+//
+// We cannot assert the opposite either — the client has no way to know a
+// permission was granted or an account linked — so this does not raise a
+// "Cần thiết lập" pill that would then never go away. It only picks the verb:
+// the way in is called "Thiết lập", because there IS something to do in there,
+// rather than "Chi tiết", which promises there is nothing.
+//
+// `bfl` and `video` have the same lying `configured` flag and are deliberately
+// NOT here: they have no provider category, so their dialog renders empty
+// (`toolset-config-panel.tsx` bails on `has_category: false`). Sending someone
+// to an empty dialog is worse than saying nothing. Their fix is backend-side.
+const SETUP_BEYOND_KEYS = new Set(['computer_use', 'spotify', 'vision'])
+
+/** Whether a tool's card should lead with "Thiết lập" instead of "Chi tiết". */
+export const toolsetSetupLed = (toolset: ToolsetInfo): boolean =>
+  !toolset.configured || SETUP_BEYOND_KEYS.has(toolset.name)
+
 /** Calls over the analytics window, summed across the toolset's functions. */
 export const toolsetCalls = (toolset: ToolsetInfo, toolCalls: Record<string, number>): number =>
   toolNames(toolset).reduce((sum, name) => sum + (toolCalls[name] ?? 0), 0)
