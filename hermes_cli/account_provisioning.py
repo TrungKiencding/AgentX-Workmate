@@ -97,13 +97,18 @@ _STATE_VERSION = 1
 #: composer's model menu, ``agentx model``. The slug stays ``litellm`` (it keys
 #: the ``providers:`` entry, the ``model.provider`` pin, and the key env var, so
 #: renaming it would strand every saved choice); only the label people read
-#: changes. Existing configs are relabelled by the v34 config migration, which
-#: matches on the old literal below.
-PROVIDER_DISPLAY_NAME = "AI Gateway"
+#: changes. Existing configs are relabelled by the v34/v35 config migrations,
+#: which match on the old literals below.
+#:
+#: The product name is part of the label on purpose: ``ai-gateway`` is already
+#: taken in the picker by Vercel's AI Gateway, and two rows both reading
+#: "AI Gateway" is worse than the vendor name we started from.
+PROVIDER_DISPLAY_NAME = "AgentX AI Gateway"
 
-#: The label this shipped before ``PROVIDER_DISPLAY_NAME``. Kept so the
-#: migration and its test agree on exactly what is being replaced.
-LEGACY_PROVIDER_DISPLAY_NAME = "LiteLLM"
+#: Labels this shipped BEFORE the current one, oldest first. An entry wearing
+#: any of them is wearing a default WE wrote, so it is ours to relabel; any
+#: other name was set by hand and is left alone.
+LEGACY_PROVIDER_DISPLAY_NAMES: tuple[str, ...] = ("LiteLLM", "AI Gateway")
 
 
 class ProvisioningError(RuntimeError):
@@ -637,7 +642,7 @@ def _write_provider_config(
 
     existing = providers.get(settings.provider_name)
     entry: dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
-    entry.setdefault("name", PROVIDER_DISPLAY_NAME)
+    _upgrade_stale_label(entry)
     entry["base_url"] = openai_base_url(base_url)
     entry["key_env"] = key_env
     entry["discover_models"] = settings.discover_models
@@ -782,23 +787,44 @@ def _release_vision_pin(provider_name: str) -> bool:
     return True
 
 
+def _upgrade_stale_label(entry: dict[str, Any]) -> bool:
+    """Bring a provider entry's picker label up to the current default, in place.
+
+    Returns True when the entry changed. The label follows the default only
+    while it still IS a default of ours: a name the user typed is theirs and
+    survives every sign-in, while a name an older build wrote is ours to
+    update — so a rename reaches a machine on its next sign-in rather than
+    waiting for the config-migration ladder to get there.
+    """
+    if str(entry.get("name") or "").strip() not in ("", *LEGACY_PROVIDER_DISPLAY_NAMES):
+        return False
+    if entry.get("name") == PROVIDER_DISPLAY_NAME:
+        return False
+    entry["name"] = PROVIDER_DISPLAY_NAME
+    return True
+
+
 def _ensure_vision_follows_main(
     settings: LiteLLMAccountSettings, models: tuple[str, ...]
 ) -> None:
-    """Apply the vision policy to an account whose key is simply reused.
+    """Tidy an account whose key is simply reused: vision policy, and the label.
 
     The reuse path writes nothing else, but an account provisioned before this
     policy existed still carries an unflagged model map and, often, a vision
-    pin at the proxy. Cheap and idempotent: one config read, and a write only
-    when something actually changes.
+    pin at the proxy — and one provisioned before the last rename still wears
+    an old label in every picker. Cheap and idempotent: one config read, and a
+    write only when something actually changes.
     """
     from hermes_cli.config import load_config, save_config
 
     cfg = load_config()
     providers = cfg.get("providers")
     entry = providers.get(settings.provider_name) if isinstance(providers, dict) else None
-    if isinstance(entry, dict) and _mark_models_vision_capable(entry, models):
-        save_config(cfg, merge_existing=True)
+    if isinstance(entry, dict):
+        vision_changed = _mark_models_vision_capable(entry, models)
+        label_changed = _upgrade_stale_label(entry)
+        if vision_changed or label_changed:
+            save_config(cfg, merge_existing=True)
     _release_vision_pin(settings.provider_name)
 
 

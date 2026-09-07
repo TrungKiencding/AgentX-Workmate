@@ -644,26 +644,29 @@ def _migrate_to_33(results: Dict[str, Any], quiet: bool) -> None:
             )
 
 
-def _migrate_to_34(results: Dict[str, Any], quiet: bool) -> None:
-    # ── Version 33 → 34: relabel the account proxy "LiteLLM" → "AI Gateway" ──
-    # Sign-in writes a ``providers:`` entry for the proxy that serves the
-    # account's models, and it used to label that entry with the name of the
-    # software running it. That name reached every picker — Settings → Model,
-    # the composer's model menu, ``agentx model`` — so people were choosing a
-    # vendor's product name rather than the thing it is to them.
-    #
-    # Only the display label moves. The dict KEY (the provider slug) stays put:
-    # it is what ``model.provider`` pins to and what ``<SLUG>_API_KEY`` is
-    # derived from, so renaming it would strand every saved model choice.
-    #
-    # Matched on the exact old literal, so a label somebody set by hand is left
-    # alone — this rewrites our own past default, nothing else.
+def _relabel_account_proxy(results: Dict[str, Any], quiet: bool) -> None:
+    """Bring the account proxy's picker label up to the current default.
+
+    Sign-in writes a ``providers:`` entry for the proxy that serves the
+    account's models, and that entry's ``name`` reaches every picker — Settings
+    → Model, the composer's model menu, ``agentx model``. Builds that labelled
+    it with the name of the software running the proxy, or with a bare
+    "AI Gateway" that collides with Vercel's row of the same name, left people
+    picking from a label that names neither the product nor the account.
+
+    Only the display label moves. The dict KEY (the provider slug) stays put:
+    it is what ``model.provider`` pins to and what ``<SLUG>_API_KEY`` is
+    derived from, so renaming it would strand every saved model choice.
+
+    Matched on the exact literals we have shipped, so a label somebody set by
+    hand is left alone — this rewrites our own past defaults, nothing else.
+    """
     _c = _cfg()
     read_raw_config = _c.read_raw_config
     _persist_migration = _c._persist_migration
 
     from hermes_cli.account_provisioning import (
-        LEGACY_PROVIDER_DISPLAY_NAME,
+        LEGACY_PROVIDER_DISPLAY_NAMES,
         PROVIDER_DISPLAY_NAME,
     )
 
@@ -672,27 +675,45 @@ def _migrate_to_34(results: Dict[str, Any], quiet: bool) -> None:
     if not isinstance(providers, dict):
         return
 
-    renamed: List[str] = []
+    renamed: List[Tuple[str, str]] = []
     for slug, entry in providers.items():
-        if isinstance(entry, dict) and entry.get("name") == LEGACY_PROVIDER_DISPLAY_NAME:
+        if not isinstance(entry, dict):
+            continue
+        was = entry.get("name")
+        if was in LEGACY_PROVIDER_DISPLAY_NAMES:
             entry["name"] = PROVIDER_DISPLAY_NAME
-            renamed.append(str(slug))
+            renamed.append((str(slug), str(was)))
 
     if not renamed:
         return
 
     config["providers"] = providers
     _persist_migration(config)
-    for slug in renamed:
+    for slug, was in renamed:
         results["config_added"].append(
-            f"providers.{slug}.name={PROVIDER_DISPLAY_NAME} "
-            f"(was {LEGACY_PROVIDER_DISPLAY_NAME})"
+            f"providers.{slug}.name={PROVIDER_DISPLAY_NAME} (was {was})"
         )
     if not quiet:
         print(
-            f"  ✓ Renamed {', '.join(renamed)} to "
+            f"  ✓ Renamed {', '.join(slug for slug, _ in renamed)} to "
             f"“{PROVIDER_DISPLAY_NAME}” in the model picker."
         )
+
+
+def _migrate_to_34(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 33 → 34: the account proxy stops being called "LiteLLM" ──
+    # Relabels a proxy entry still wearing the name of the software running it.
+    _relabel_account_proxy(results, quiet)
+
+
+def _migrate_to_35(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 34 → 35: "AI Gateway" → "AgentX AI Gateway" ──
+    # v34 moved the label off the vendor's name and onto a bare "AI Gateway",
+    # which reads as Vercel's AI Gateway — already a row in the same picker.
+    # Configs that took the v34 label get the product-qualified one here; a
+    # config arriving from below 34 was already relabelled by v34 above and
+    # finds nothing left to do.
+    _relabel_account_proxy(results, quiet)
 
 
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
@@ -717,6 +738,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (32, _migrate_to_32),
     (33, _migrate_to_33),
     (34, _migrate_to_34),
+    (35, _migrate_to_35),
 )
 
 
