@@ -39,8 +39,12 @@ export function StickyHumanMessageContainer({
     // and attachments are flow siblings so the bubble pins against the scroller
     // while attachments below it scroll away.
     <>
+      {/* Paint (the gradient fill) and block padding come from the
+          `aui_user-message-root` rule in styles.css — the mask is solid across
+          the bubble and dissolves through its bottom padding, which no utility
+          can express. Layout stays here. */}
       <div
-        className="group/user-message sticky z-40 -mx-4 flex w-[calc(100%+2rem)] min-w-0 max-w-none flex-col items-stretch gap-0 self-end overflow-visible bg-(--ui-chat-surface-background) px-4 pb-(--conversation-turn-gap) pt-1"
+        className="group/user-message sticky z-40 -mx-4 flex w-[calc(100%+2rem)] min-w-0 max-w-none flex-col items-stretch gap-0 self-end overflow-visible px-4"
         data-message-id={messageId}
         data-role="user"
         data-slot="aui_user-message-root"
@@ -58,8 +62,9 @@ export function StickyHumanMessageContainer({
 // the fill — stop / restore hang off the rail to the bubble's left — so a
 // two-word prompt renders as a two-word pill.
 //
-// no-drag: sticky bubbles park at --sticky-human-top (~4px), sliding under the
-// titlebar's [-webkit-app-region:drag] strips (app-shell.tsx). Electron resolves
+// no-drag: sticky bubbles park at --sticky-human-top — the scrollport's own top
+// edge — sliding under the titlebar's [-webkit-app-region:drag] strips
+// (app-shell.tsx). Electron resolves
 // drag regions at the compositor level — z-index and pointer-events don't help —
 // so without the carve-out, clicking a stuck bubble drags the window instead of
 // opening the edit composer.
@@ -283,12 +288,14 @@ export const UserMessage: FC<{
           // scroll away behind the pinned bubble instead of riding along with
           // it. Image refs render as thumbnails, file refs as chips; no border.
           //
-          // No negative pull upwards. The bubble's container is an opaque
-          // full-bleed mask (that's what makes scrolling *behind* it read as
-          // "behind"), and while it's pinned it paints --sticky-human-top BELOW
-          // its flow position — so anything closer than that gets its top
-          // sliced off for the whole turn, not just while scrolling. The
-          // parent's --conversation-turn-gap is the clearance; keep it.
+          // No negative pull upwards. The bubble's container is a full-bleed
+          // mask (that's what makes scrolling *behind* it read as "behind"),
+          // and while it's pinned it paints --sticky-human-top below its flow
+          // position — so anything closer than that gets its top sliced off for
+          // the whole turn, not just while scrolling. That offset is 0 in the
+          // main window now, but secondary windows still push the mask down to
+          // clear their titlebar; the parent's --conversation-turn-gap is the
+          // clearance either way. Keep it.
           attachmentRefs.length > 0 ? (
             <div className="mb-2 flex flex-wrap justify-end gap-1" data-slot="aui_user-attachments">
               <DirectiveContent text={attachmentRefs.join(' ')} />

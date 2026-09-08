@@ -1083,6 +1083,15 @@ export function ChatBar({
               : undefined
           }
         >
+          {/* The transcript runs on behind this dock and is cut off dead
+              straight at its top edge — a reply mid-sentence used to sit there
+              sliced through the middle of its glyphs. Same dissolve the
+              transcript's own top edge uses, mirrored. Out of flow, so it costs
+              the dock measurement nothing; anchored to `bottom: 100%`, so it
+              tracks the dock's real top whether or not the strips and the status
+              stack are carrying anything. Not while popped out — the dock is
+              floating over its own scrim then, with no transcript behind it. */}
+          {!poppedOut && <div aria-hidden="true" data-slot="composer-edge-fade" />}
           {/* Aligned to the composer SURFACE, which sits inside the composer's
               5px transparent grab margin — so both strips carry the same inset
               and share one left edge with it. */}

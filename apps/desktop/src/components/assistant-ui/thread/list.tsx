@@ -369,13 +369,18 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   // assigned verbatim to the --sticky-human-top inline style below (it does not
   // go through Tailwind, which would auto-space it), so the spaces are load-
   // bearing — without them the declaration is invalid, gets dropped, and the
-  // sticky user bubble falls back to its ~4px default and slides under the OS
+  // sticky user bubble falls back to its 0 default and slides under the OS
   // traffic lights.
   const secondaryTitlebarGap = 'calc(var(--titlebar-height) + 0.75rem)'
 
+  // Enough room that the first turn of a conversation never comes to rest
+  // inside the top edge fade — it would read as a half-rendered message rather
+  // than as a dissolve. The main window's --titlebar-height is 0 (the shell
+  // owns that strip), which made the old expression a negative padding and so
+  // no padding at all; the floor is what actually holds the gap open there.
   const threadContentTopPad = secondaryWindow
-    ? 'pt-[calc(var(--titlebar-height)+0.75rem)]'
-    : 'pt-[calc(var(--titlebar-height)-0.5rem)]'
+    ? 'pt-[calc(var(--titlebar-height)+0.75rem+var(--transcript-edge-fade))]'
+    : 'pt-[max(var(--transcript-edge-fade),calc(var(--titlebar-height)-0.5rem))]'
 
   useEffect(() => setThreadAtBottom(isAtBottom), [isAtBottom])
   useEffect(() => () => resetThreadScroll(), [])
@@ -568,7 +573,17 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
       style={
         {
           height: clampToComposer ? 'var(--thread-viewport-height)' : '100%',
-          ...(secondaryWindow ? { '--sticky-human-top': secondaryTitlebarGap } : {})
+          // The prompt mask parks flush against whatever edge already clips —
+          // the scrollport's own top here, the drag strip's bottom in a
+          // secondary window. The fade below picks up from that same line, so
+          // the two never leave a slot for content to show through.
+          ...(secondaryWindow
+            ? {
+                '--sticky-human-top': secondaryTitlebarGap,
+                '--thread-edge-fade-top': 'var(--titlebar-height)',
+                '--thread-edge-fade-solid': '0.75rem'
+              }
+            : {})
         } as CSSProperties
       }
     >
@@ -624,6 +639,9 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
           </div>
         )}
       </div>
+      {/* Last, and outside the scroller: it has to paint over the transcript
+          without scrolling with it. Everything it does is in the stylesheet. */}
+      <div aria-hidden="true" data-slot="aui_thread-edge-fade" />
     </div>
   )
 }

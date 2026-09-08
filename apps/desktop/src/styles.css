@@ -622,7 +622,11 @@
        control) so a conversation list reads like a list of conversations, not
        a file tree; the nav rows at the top share that height; the statusbar
        keeps its own shorter band. */
-    --sidebar-nav-row-height: 2.25rem; /* 36px — the four nav rows at the top of the sidebar */
+    /* The four nav rows sit a rung ABOVE a conversation row on purpose: they
+       are the app's destinations, not list entries, and at a matched 36px the
+       whole sidebar read as one undifferentiated column. 40px is the hero rung
+       (--control-h-xl), which is the weight this band should carry. */
+    --sidebar-nav-row-height: 2.5rem; /* 40px — the four nav rows at the top of the sidebar */
     --sidebar-row-height: 2.25rem; /* 36px — sidebar session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
@@ -719,7 +723,25 @@
        markdown block and between consecutive prose parts. Single knob; tweak
        freely. */
     --paragraph-gap: 0.75rem;
-    --sticky-human-top: 0.23rem;
+    /* Where a pinned prompt parks against the scrollport. ZERO on purpose, and
+       load-bearing: the mask's top edge is hard (it has to be — a fade there
+       would let the text behind it ghost through), so it is only invisible when
+       it coincides with an edge that already clips. At 0 it lands exactly on
+       the scroller's own top edge; the old 0.23rem left a ~4px slot above it
+       through which the previous turn scrolled past sliced in half. Secondary
+       windows override this inline to clear their titlebar strip, and pair it
+       with a matching solid run on the edge fade below. */
+    --sticky-human-top: 0rem;
+    /* The mask's bottom is the opposite case: nothing clips there, so it
+       dissolves instead of cutting. Lives entirely inside the mask's own
+       padding-bottom, so at rest it is empty space and changes nothing — it
+       only reads while a prompt is pinned and the reply slides underneath. */
+    --sticky-human-fade: 0.75rem;
+    /* Same dissolve for everything that is NOT a pinned prompt — assistant
+       prose, tool rows, thinking headers — as it leaves the top of the
+       transcript. The thread's top padding is held at or above this so the
+       first turn of a conversation never rests inside the fade. */
+    --transcript-edge-fade: 1.25rem;
     /* The user bubble hugs its text and stops here: about three quarters of the
        column, so even a long prompt leaves the left edge open and the turn
        still reads as a dialogue — mine on the right, the reply full width. */
@@ -1686,8 +1708,20 @@ code {
   text-align: left;
 }
 
+/* The pinned-prompt mask. Geometry and paint live here rather than in the
+   utility list because the fill is a gradient: solid across the bubble, then
+   dissolving through the bottom padding so the reply scrolling underneath
+   fades out instead of being cut off at a hard line. The top stays solid —
+   see --sticky-human-top for why that edge is safe. */
 [data-slot='aui_user-message-root'] {
   top: var(--sticky-human-top);
+  padding-top: 0.5rem;
+  padding-bottom: var(--sticky-human-fade);
+  background: linear-gradient(
+    to bottom,
+    var(--ui-chat-surface-background) 0 calc(100% - var(--sticky-human-fade)),
+    transparent 100%
+  );
 }
 
 [data-slot='aui_user-message-root'],
@@ -1729,6 +1763,47 @@ code {
 [data-slot='aui_thread-viewport'][data-following='false'],
 [data-slot='aui_thread-viewport'][data-editing='true'] {
   overflow-anchor: auto;
+}
+
+/* Top-edge dissolve for the transcript. A scroller's own edge is a guillotine:
+   a line of prose leaving the viewport used to be sliced through the middle of
+   its glyphs and sit there, half-rendered, until it scrolled clear. This lays
+   the surface colour over the last stretch of it so the text thins out instead.
+   z-20 is the whole trick: above the in-flow transcript (which carries no
+   z-index of its own), below the pinned prompt mask at z-40, so a pinned bubble
+   stays crisp while everything travelling past it fades.
+   --thread-edge-fade-solid is an opaque run BEFORE the dissolve starts, used by
+   secondary windows to bridge the gap between their titlebar strip and the
+   lower point their prompt mask parks at; it is 0 in the main window.
+   Stops short of the 0.25rem scrollbar so the thumb is never washed out — the
+   transcript column is inset far further than that, so nothing is missed. */
+[data-slot='aui_thread-edge-fade'] {
+  position: absolute;
+  left: 0;
+  right: 0.25rem;
+  top: var(--thread-edge-fade-top, 0px);
+  z-index: 20;
+  height: calc(var(--thread-edge-fade-solid, 0px) + var(--transcript-edge-fade));
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--ui-chat-surface-background) 0 var(--thread-edge-fade-solid, 0px),
+    transparent 100%
+  );
+}
+
+/* The same dissolve at the other end of the transcript, mirrored. The composer
+   dock is bottom-anchored and grows upward, so this rides `bottom: 100%` and
+   stays glued to whatever the dock's top edge currently is — the composer
+   alone, or the status stack and action strip above it. It needs no z-index of
+   its own: the dock already carries z-30, over the thread. */
+[data-slot='composer-edge-fade'] {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--transcript-edge-fade);
+  pointer-events: none;
+  background: linear-gradient(to top, var(--ui-chat-surface-background) 0, transparent 100%);
 }
 
 [data-slot='aui_thread-content'] {

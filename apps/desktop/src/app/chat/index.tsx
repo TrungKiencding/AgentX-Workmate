@@ -48,7 +48,7 @@ import { isSecondaryWindow, isWatchWindow } from '@/store/windows'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
 import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
-import { titlebarHeaderBaseClass, titlebarHeaderShadowClass, titlebarHeaderTitleClass } from '../shell/titlebar'
+import { titlebarHeaderBaseClass, titlebarHeaderTitleClass } from '../shell/titlebar'
 
 import { ChatDropOverlay } from './chat-drop-overlay'
 import { ChatSwapOverlay } from './chat-swap-overlay'
@@ -141,7 +141,11 @@ function ChatHeader({
   }
 
   return (
-    <header className={cn(titlebarHeaderBaseClass, isRoutedSessionView && titlebarHeaderShadowClass)}>
+    // The transcript's own top-edge fade (aui_thread-edge-fade) softens content
+    // leaving the scroller. This header used to carry a second one as an
+    // `after:` gradient, which its own `overflow-hidden` clipped away — it never
+    // painted a pixel.
+    <header className={titlebarHeaderBaseClass}>
       <div
         className={cn(titlebarHeaderTitleClass, showProfileTag && 'flex items-center')}
         style={{

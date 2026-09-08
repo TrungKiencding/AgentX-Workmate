@@ -24,9 +24,6 @@ export const titlebarHeaderBaseClass =
 // Title row inside the header — must stay in the flex truncate chain.
 export const titlebarHeaderTitleClass = 'min-w-0 flex-1 overflow-hidden'
 
-export const titlebarHeaderShadowClass =
-  "after:pointer-events-none after:absolute after:left-0 after:right-0 after:top-full after:h-4 after:bg-linear-to-b after:from-(--ui-chat-surface-background) after:to-transparent after:content-['']"
-
 export function titlebarControlsPosition(
   windowButtonPosition: HermesConnection['windowButtonPosition'] | undefined,
   isFullscreen = false
