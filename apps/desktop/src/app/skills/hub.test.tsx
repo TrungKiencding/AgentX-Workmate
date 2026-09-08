@@ -97,7 +97,7 @@ function catalog(overrides: Partial<SkillHubCatalogResponse> = {}): SkillHubCata
     fetched_at: 1_780_000_000,
     stale: false,
     authenticated: false,
-    hub_url: 'https://skills.dev-server.cloud',
+    hub_url: 'https://skills.astralx.com.vn',
     error: '',
     ...overrides
   }
@@ -152,7 +152,7 @@ beforeEach(() => {
   getSkillHubChanges.mockResolvedValue({
     enabled: true,
     configured: true,
-    base_url: 'https://skills.dev-server.cloud',
+    base_url: 'https://skills.astralx.com.vn',
     stream: 'off',
     revision: 1,
     last: { status: 'signed_out', detail: '', at: '' },
@@ -198,7 +198,7 @@ describe('SkillsHub — the skill store', () => {
     // The store front: the hub, its state, what it holds, when it synced.
     const bar = screen.getByTestId('hub-catalog-bar').textContent ?? ''
     expect(bar).toContain('AgentX skill store')
-    expect(bar).toContain('skills.dev-server.cloud')
+    expect(bar).toContain('skills.astralx.com.vn')
     expect(bar).toContain('2 skills from the Hub')
     expect(screen.getByTestId('hub-store-state').textContent).toBe('Connected')
   })
@@ -329,7 +329,7 @@ describe('SkillsHub — the skill store', () => {
 
   it('says so when the hub could not be reached and the cards are the last sync', async () => {
     getSkillHubCatalog.mockResolvedValue(
-      catalog({ error: 'https://skills.dev-server.cloud did not answer with a catalog', stale: true })
+      catalog({ error: 'https://skills.astralx.com.vn did not answer with a catalog', stale: true })
     )
 
     await renderHub()

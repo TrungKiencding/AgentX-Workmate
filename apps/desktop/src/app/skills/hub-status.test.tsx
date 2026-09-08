@@ -26,7 +26,7 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
   return {
     enabled: true,
     configured: true,
-    base_url: 'https://skills.dev-server.cloud',
+    base_url: 'https://skills.astralx.com.vn',
     realtime: true,
     credentials: 'mailbox',
     device_id: '11111111-2222-3333-4444-555555555555',

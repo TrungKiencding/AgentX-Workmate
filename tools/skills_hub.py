@@ -4075,7 +4075,7 @@ def check_for_skill_updates(
 # AGENTX_SKILLS_INDEX_URL to point at your own deployment.
 #: The AgentX Skill Hub. ``AGENTX_SKILLS_HUB_URL`` or ``skills.hub_url`` in
 #: config.yaml override it (see :func:`agentx_hub_url`).
-DEFAULT_AGENTX_HUB_URL = "https://skills.dev-server.cloud"
+DEFAULT_AGENTX_HUB_URL = "https://skills.astralx.com.vn"
 
 AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
     f"{DEFAULT_AGENTX_HUB_URL}/v1/index.json"
@@ -4446,7 +4446,7 @@ def verify_hub_signature(manifest: Dict[str, Any], signature_b64: str, public_ke
 
 
 class AgentXHubSource(SkillSource):
-    """The AgentX Skill Hub (``skills.dev-server.cloud``).
+    """The AgentX Skill Hub (``skills.astralx.com.vn``).
 
     Search and inspect read the hub's public catalog (``/v1/skills``); fetch
     downloads a signed bundle and verifies the Ed25519 signature against the

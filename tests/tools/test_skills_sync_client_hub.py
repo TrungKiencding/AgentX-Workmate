@@ -87,15 +87,15 @@ def skills_home(tmp_path, monkeypatch):
 
 class TestProvider:
     def test_base_url_equal_to_the_hub_selects_the_hub(self, monkeypatch):
-        monkeypatch.setenv("AGENTX_SYNC_BASE_URL", "https://skills.dev-server.cloud/")
-        monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", "https://skills.dev-server.cloud")
+        monkeypatch.setenv("AGENTX_SYNC_BASE_URL", "https://skills.astralx.com.vn/")
+        monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", "https://skills.astralx.com.vn")
         assert ssc.resolve_sync_provider() == "agentx-hub"
         monkeypatch.setenv("AGENTX_SYNC_BASE_URL", "https://gateway-gateway.nousresearch.com")
         assert ssc.resolve_sync_provider() == "nous"
 
     def test_explicit_provider_wins(self, monkeypatch):
-        monkeypatch.setenv("AGENTX_SYNC_BASE_URL", "https://skills.dev-server.cloud")
-        monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", "https://skills.dev-server.cloud")
+        monkeypatch.setenv("AGENTX_SYNC_BASE_URL", "https://skills.astralx.com.vn")
+        monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", "https://skills.astralx.com.vn")
         monkeypatch.setenv("AGENTX_SYNC_PROVIDER", "nous")
         assert ssc.resolve_sync_provider() == "nous"
         monkeypatch.setenv("AGENTX_SYNC_PROVIDER", "hub")

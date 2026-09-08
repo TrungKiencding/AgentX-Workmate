@@ -2149,7 +2149,7 @@ DEFAULT_CONFIG = {
         # (or AGENTX_HUB_TOKEN in the environment) and is only needed to see
         # private/workspace skills (and your organisation's public ones) — the
         # hub-wide catalog needs none.
-        "hub_url": "https://skills.dev-server.cloud",
+        "hub_url": "https://skills.astralx.com.vn",
         "hub_token": "",
         # Phase 3: hold a live connection to the hub (SSE) so an Install
         # clicked on the web lands here within seconds; off means the
