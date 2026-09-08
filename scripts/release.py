@@ -18,6 +18,9 @@ Usage:
 
     # Override CalVer date (e.g. for a belated release)
     python scripts/release.py --bump minor --publish --date 2026.3.15
+
+    # Re-align every other manifest with hermes_cli/__init__.py (no bump, no tag)
+    python scripts/release.py --sync-versions
 """
 
 import argparse
@@ -33,6 +36,41 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "hermes_cli" / "__init__.py"
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
+
+# Every other manifest that carries the product version. `agentx --version` and
+# the desktop About panel read hermes_cli/__init__.py, but installer file names,
+# exe metadata and the npm/Cargo workspaces read these — so a bump has to land
+# in all of them or the numbers drift apart (the desktop shell sat at 0.19.1
+# while the CLI said 0.20.0). Paths are relative to the repo root; a manifest
+# absent from a checkout is skipped, one that exists without a version field is
+# an error.
+JSON_VERSION_MANIFESTS = (
+    "package.json",
+    "apps/desktop/package.json",
+    "apps/shared/package.json",
+    "apps/bootstrap-installer/package.json",
+    "apps/bootstrap-installer/src-tauri/tauri.conf.json",
+    "ui-tui/package.json",
+    "ui-tui/packages/hermes-ink/package.json",
+    "web/package.json",
+    "website/package.json",
+)
+CARGO_VERSION_MANIFESTS = ("apps/bootstrap-installer/src-tauri/Cargo.toml",)
+# npm lockfiles repeat the version of the root package and of every workspace
+# package, and the next `npm install` rewrites any entry that disagrees with
+# its package.json — so move the lockfile entries together with the manifests
+# instead of leaving that churn to some unrelated change.
+NPM_LOCKFILE_WORKSPACES = {
+    "package-lock.json": (
+        "apps/desktop",
+        "apps/shared",
+        "apps/bootstrap-installer",
+        "ui-tui",
+        "ui-tui/packages/hermes-ink",
+        "web",
+    ),
+    "website/package-lock.json": (),
+}
 
 # ──────────────────────────────────────────────────────────────────────
 # Git email → GitHub username mapping
@@ -2157,6 +2195,13 @@ def get_current_version():
     return match.group(1) if match else "0.0.0"
 
 
+def get_current_release_date():
+    """Read the current CalVer release date from __init__.py ("" when absent)."""
+    content = VERSION_FILE.read_text(encoding="utf-8")
+    match = re.search(r'__release_date__\s*=\s*"([^"]+)"', content)
+    return match.group(1) if match else ""
+
+
 def bump_version(current: str, part: str) -> str:
     """Bump a semver version string."""
     parts = current.split(".")
@@ -2179,10 +2224,75 @@ def bump_version(current: str, part: str) -> str:
     return f"{major}.{minor}.{patch}"
 
 
-def update_version_files(semver: str, calver_date: str):
-    """Update version strings in source files."""
+class VersionFieldMissing(RuntimeError):
+    """A manifest that should carry the product version has no version field."""
+
+
+def _sub_version_once(pattern: str, replacement: str, text: str, path: Path, flags: int = 0) -> str:
+    new_text, count = re.subn(pattern, replacement, text, count=1, flags=flags)
+    if count != 1:
+        raise VersionFieldMissing(f"{path}: no version field matched {pattern!r}")
+    return new_text
+
+
+def _bump_json_manifest(path: Path, semver: str) -> None:
+    """Rewrite the first "version" field of a package.json / tauri.conf.json."""
+    text = path.read_bytes().decode("utf-8")
+    text = _sub_version_once(r'("version"\s*:\s*)"[^"]+"', r'\g<1>"' + semver + '"', text, path)
+    path.write_bytes(text.encode("utf-8"))
+
+
+def _bump_cargo_manifest(path: Path, semver: str) -> None:
+    """Rewrite the [package] version of a Cargo.toml — the first line-leading one."""
+    text = path.read_bytes().decode("utf-8")
+    text = _sub_version_once(
+        r'^(version\s*=\s*)"[^"]+"', r'\g<1>"' + semver + '"', text, path, flags=re.MULTILINE
+    )
+    path.write_bytes(text.encode("utf-8"))
+
+
+def _bump_npm_lockfile(path: Path, semver: str, workspaces) -> None:
+    """Rewrite the root and workspace version entries of an npm lockfile.
+
+    Edits the text instead of round-tripping the JSON so the file keeps npm's
+    exact formatting and the diff stays at one line per entry.
+    """
+    nl = r"\r?\n"
+    replacement = r"\g<1>" + semver + r"\g<2>"
+    text = path.read_bytes().decode("utf-8")
+    # The root version is written twice: the top-level header and the "" entry.
+    text = _sub_version_once(
+        r'(\A\{' + nl + r'  "name": "[^"]*",' + nl + r'  "version": ")[^"]+(")',
+        replacement, text, path,
+    )
+    text = _sub_version_once(
+        r'(' + nl + r'    "": \{' + nl + r'      "name": "[^"]*",' + nl + r'      "version": ")[^"]+(")',
+        replacement, text, path,
+    )
+    for workspace in workspaces:
+        # npm writes "name" only when it differs from the folder name.
+        text = _sub_version_once(
+            r'(' + nl + r'    "' + re.escape(workspace) + r'": \{' + nl
+            + r'(?:      "name": "[^"]*",' + nl + r')?      "version": ")[^"]+(")',
+            replacement, text, path,
+        )
+    path.write_bytes(text.encode("utf-8"))
+
+
+def update_version_files(semver: str, calver_date: str, root: Path = REPO_ROOT) -> list:
+    """Write ``semver`` into every manifest that carries the product version.
+
+    ``hermes_cli/__init__.py`` (which also takes ``calver_date``) and
+    ``pyproject.toml`` are what ``agentx --version`` and the desktop About panel
+    report; the npm, Tauri and Cargo manifests plus their lockfile entries are
+    what installers and packaging metadata report. Returns the files that were
+    rewritten so the caller can stage exactly those.
+    """
+    touched = []
+
     # Update __init__.py
-    content = VERSION_FILE.read_text(encoding="utf-8")
+    version_file = root / "hermes_cli" / "__init__.py"
+    content = version_file.read_text(encoding="utf-8")
     content = re.sub(
         r'__version__\s*=\s*"[^"]+"',
         f'__version__ = "{semver}"',
@@ -2193,32 +2303,45 @@ def update_version_files(semver: str, calver_date: str):
         f'__release_date__ = "{calver_date}"',
         content,
     )
-    VERSION_FILE.write_text(content, encoding="utf-8")
+    version_file.write_text(content, encoding="utf-8")
+    touched.append(version_file)
 
     # Update pyproject.toml
-    pyproject = PYPROJECT_FILE.read_text(encoding="utf-8")
+    pyproject_file = root / "pyproject.toml"
+    pyproject = pyproject_file.read_text(encoding="utf-8")
+    # Only the [project] table's version, which comes first; a later
+    # `version =` under some [tool.*] table must not move with it.
     pyproject = re.sub(
         r'^version\s*=\s*"[^"]+"',
         f'version = "{semver}"',
         pyproject,
+        count=1,
         flags=re.MULTILINE,
     )
-    PYPROJECT_FILE.write_text(pyproject, encoding="utf-8")
+    pyproject_file.write_text(pyproject, encoding="utf-8")
+    touched.append(pyproject_file)
 
-    # Keep the desktop Electron app's package.json version in lockstep with the
-    # Python package version. The desktop About panel reads the live AgentX
-    # version at runtime, but app.getVersion()/packaging metadata still come
-    # from this field, so it must track pyproject to avoid drift.
-    desktop_pkg = REPO_ROOT / "apps" / "desktop" / "package.json"
-    if desktop_pkg.exists():
-        pkg_text = desktop_pkg.read_text(encoding="utf-8")
-        pkg_text = re.sub(
-            r'("version"\s*:\s*)"[^"]+"',
-            rf'\g<1>"{semver}"',
-            pkg_text,
-            count=1,
-        )
-        desktop_pkg.write_text(pkg_text, encoding="utf-8")
+    # Keep the npm / Tauri / Cargo manifests in lockstep with the Python package
+    # version. The desktop About panel reads the live AgentX version at runtime,
+    # but app.getVersion(), installer file names and exe metadata come from these.
+    for relative in JSON_VERSION_MANIFESTS:
+        manifest = root / relative
+        if manifest.exists():
+            _bump_json_manifest(manifest, semver)
+            touched.append(manifest)
+    for relative in CARGO_VERSION_MANIFESTS:
+        manifest = root / relative
+        if manifest.exists():
+            _bump_cargo_manifest(manifest, semver)
+            touched.append(manifest)
+    for relative, workspaces in NPM_LOCKFILE_WORKSPACES.items():
+        lockfile = root / relative
+        if lockfile.exists():
+            present = [ws for ws in workspaces if (root / ws / "package.json").exists()]
+            _bump_npm_lockfile(lockfile, semver, present)
+            touched.append(lockfile)
+
+    return touched
 
 
 def resolve_author(name: str, email: str) -> str:
@@ -2486,7 +2609,19 @@ def main():
                         help="Mark as first release (no previous tag expected)")
     parser.add_argument("--output", type=str,
                         help="Write changelog to file instead of stdout")
+    parser.add_argument("--sync-versions", action="store_true",
+                        help="Write the version in hermes_cli/__init__.py into every other "
+                             "manifest (package.json files, lockfiles, Tauri/Cargo) and exit "
+                             "— no bump, tag, or release")
     args = parser.parse_args()
+
+    if args.sync_versions:
+        current_version = get_current_version()
+        touched = update_version_files(current_version, get_current_release_date())
+        print(f"Synced {len(touched)} files to v{current_version}:")
+        for touched_path in touched:
+            print(f"  {touched_path.relative_to(REPO_ROOT)}")
+        return
 
     # Determine CalVer date
     if args.date:
@@ -2554,12 +2689,11 @@ def main():
 
         # Update version files
         if args.bump:
-            update_version_files(new_version, calver_date)
-            print(f"  ✓ Updated version files to v{new_version} ({calver_date})")
+            touched = update_version_files(new_version, calver_date)
+            print(f"  ✓ Updated {len(touched)} version files to v{new_version} ({calver_date})")
 
             # Commit version bump
-            add_files = [str(VERSION_FILE), str(PYPROJECT_FILE)]
-            add_result = git_result("add", *add_files)
+            add_result = git_result("add", *[str(touched_path) for touched_path in touched])
             if add_result.returncode != 0:
                 print(f"  ✗ Failed to stage version files: {add_result.stderr.strip()}")
                 return
