@@ -71,6 +71,10 @@ NPM_LOCKFILE_WORKSPACES = {
     ),
     "website/package-lock.json": (),
 }
+# uv.lock records the project's own version next to its editable source entry;
+# `uv sync --locked` refuses to run while it disagrees with pyproject.toml.
+UV_LOCKFILE = "uv.lock"
+UV_PROJECT_NAME = "agentx-workmate"
 
 # ──────────────────────────────────────────────────────────────────────
 # Git email → GitHub username mapping
@@ -2279,6 +2283,18 @@ def _bump_npm_lockfile(path: Path, semver: str, workspaces) -> None:
     path.write_bytes(text.encode("utf-8"))
 
 
+def _bump_uv_lockfile(path: Path, semver: str) -> None:
+    """Rewrite the project's own version entry in uv.lock, nothing else."""
+    nl = r"\r?\n"
+    text = path.read_bytes().decode("utf-8")
+    text = _sub_version_once(
+        r'(\[\[package\]\]' + nl + r'name = "' + re.escape(UV_PROJECT_NAME) + r'"' + nl
+        + r'version = ")[^"]+(")',
+        r"\g<1>" + semver + r"\g<2>", text, path,
+    )
+    path.write_bytes(text.encode("utf-8"))
+
+
 def update_version_files(semver: str, calver_date: str, root: Path = REPO_ROOT) -> list:
     """Write ``semver`` into every manifest that carries the product version.
 
@@ -2340,6 +2356,10 @@ def update_version_files(semver: str, calver_date: str, root: Path = REPO_ROOT) 
             present = [ws for ws in workspaces if (root / ws / "package.json").exists()]
             _bump_npm_lockfile(lockfile, semver, present)
             touched.append(lockfile)
+    uv_lock = root / UV_LOCKFILE
+    if uv_lock.exists():
+        _bump_uv_lockfile(uv_lock, semver)
+        touched.append(uv_lock)
 
     return touched
 

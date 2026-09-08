@@ -32,6 +32,23 @@ CARGO_TOML = (
 )
 
 
+UV_LOCK = (
+    'version = 1\n'
+    'revision = 3\n'
+    'requires-python = ">=3.11, <3.14"\n'
+    '\n'
+    '[[package]]\n'
+    'name = "agentx-workmate"\n'
+    'version = "0.1.0"\n'
+    'source = { editable = "." }\n'
+    '\n'
+    '[[package]]\n'
+    'name = "anyio"\n'
+    'version = "4.9.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+)
+
+
 def _write(root: Path, relative: str, text: str) -> Path:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,6 +93,7 @@ def fake_repo(tmp_path: Path) -> Path:
         "web": (None, "0.0.0"),  # npm omits "name" when it equals the folder
     }))
     _write(tmp_path, "website/package-lock.json", _lockfile("website", "0.0.0", {}))
+    _write(tmp_path, "uv.lock", UV_LOCK)
     return tmp_path
 
 
@@ -109,12 +127,17 @@ def test_update_version_files_moves_every_manifest_together(fake_repo: Path):
     assert site_lock["version"] == "1.2.3"
     assert site_lock["packages"][""]["version"] == "1.2.3"
 
+    uv_lock = (fake_repo / "uv.lock").read_text(encoding="utf-8")
+    assert uv_lock == UV_LOCK.replace('version = "0.1.0"', 'version = "1.2.3"', 1)
+    assert 'version = "1"\n' not in uv_lock and 'version = "4.9.0"' in uv_lock
+
     expected = {
         fake_repo / "hermes_cli/__init__.py",
         fake_repo / "pyproject.toml",
         *(fake_repo / relative for relative in release.JSON_VERSION_MANIFESTS),
         *(fake_repo / relative for relative in release.CARGO_VERSION_MANIFESTS),
         *(fake_repo / relative for relative in release.NPM_LOCKFILE_WORKSPACES),
+        fake_repo / release.UV_LOCKFILE,
     }
     assert set(touched) == expected
 
@@ -186,6 +209,12 @@ def test_checked_in_manifests_agree_with_the_cli_version():
             found = tomllib.loads(path.read_text(encoding="utf-8"))["package"]["version"]
             if found != expected:
                 mismatched[relative] = found
+
+    uv_lock = REPO_ROOT / release.UV_LOCKFILE
+    if uv_lock.exists():
+        for package in tomllib.loads(uv_lock.read_text(encoding="utf-8")).get("package", []):
+            if package.get("name") == release.UV_PROJECT_NAME and package.get("version") != expected:
+                mismatched["uv.lock"] = package.get("version")
 
     for relative, workspaces in release.NPM_LOCKFILE_WORKSPACES.items():
         path = REPO_ROOT / relative
