@@ -472,7 +472,7 @@ class TestSyncBackWindowsHost:
         def download(dest: Path) -> None:
             buf = io.BytesIO()
             with tarfile.open(fileobj=buf, mode="w") as tar:
-                info = tarfile.TarInfo(name="root/.hermes/skill.py")
+                info = tarfile.TarInfo(name="root/.agentx/skill.py")
                 info.size = 2
                 tar.addfile(info, io.BytesIO(b"v2"))
             with open(dest, "wb") as fh:  # the SSH/Modal backends write exactly like this
@@ -481,9 +481,9 @@ class TestSyncBackWindowsHost:
 
         host_file = tmp_path / "host" / "skill.py"
         _write_file(host_file, b"v1")
-        mgr = _make_manager(tmp_path, [(str(host_file), "/root/.hermes/skill.py")], bulk_download_fn=download)
-        mgr._pushed_hashes["/root/.hermes/skill.py"] = _sha256_bytes(b"v1")
-        mgr.sync_back(hermes_home=tmp_path / ".hermes")
+        mgr = _make_manager(tmp_path, [(str(host_file), "/root/.agentx/skill.py")], bulk_download_fn=download)
+        mgr._pushed_hashes["/root/.agentx/skill.py"] = _sha256_bytes(b"v1")
+        mgr.sync_back(hermes_home=tmp_path / ".agentx")
         assert host_file.read_bytes() == b"v2"
         assert not seen["dest"].exists()  # staging tar removed after use
 
@@ -491,10 +491,10 @@ class TestSyncBackWindowsHost:
     def test_posix_remote_keys_match_on_windows(self, tmp_path):
         host_file = tmp_path / "host" / "skill.py"
         _write_file(host_file, b"v1")
-        mapping = [(str(host_file), "/root/.hermes/skills/a/skill.py")]
+        mapping = [(str(host_file), "/root/.agentx/skills/a/skill.py")]
         mgr = _make_manager(tmp_path, mapping, bulk_download_fn=_make_download_fn({
-            "root/.hermes/skills/a/skill.py": b"v2", "root/.hermes/skills/a/new.md": b"new"}))
-        mgr._pushed_hashes["/root/.hermes/skills/a/skill.py"] = _sha256_bytes(b"v1")
-        mgr.sync_back(hermes_home=tmp_path / ".hermes")
-        assert host_file.read_bytes() == b"v2"  # relpath key was 'root\\.hermes\\...' → skipped
+            "root/.agentx/skills/a/skill.py": b"v2", "root/.agentx/skills/a/new.md": b"new"}))
+        mgr._pushed_hashes["/root/.agentx/skills/a/skill.py"] = _sha256_bytes(b"v1")
+        mgr.sync_back(hermes_home=tmp_path / ".agentx")
+        assert host_file.read_bytes() == b"v2"  # relpath key was 'root\\.agentx\\...' → skipped
         assert (tmp_path / "host" / "new.md").read_bytes() == b"new"  # _infer_host_path parent match

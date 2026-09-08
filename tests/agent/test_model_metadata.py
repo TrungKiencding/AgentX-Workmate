@@ -311,7 +311,7 @@ class TestDefaultContextLengths:
     ])
     def test_muse_spark_resolves_1m_without_network(self, model, provider, base_url):
         """Muse Spark is 1,048,576 on every host even when models.dev and the
-        live /models probe are unavailable (fresh HERMES_HOME, offline)."""
+        live /models probe are unavailable (fresh AGENTX_HOME, offline)."""
         with patch("agent.model_metadata.get_cached_context_length", return_value=None), \
              patch("agent.model_metadata._query_ollama_api_show", return_value=None), \
              patch("agent.model_metadata.fetch_endpoint_model_metadata", return_value={}), \
