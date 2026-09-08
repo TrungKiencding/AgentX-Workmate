@@ -94,6 +94,7 @@ export function useComposerQueue({
   const prevQueueKeyRef = useRef(activeQueueSessionKey)
   const drainingQueueRef = useRef(false)
   const drainFailuresRef = useRef(new Map<string, number>())
+  const [drainRetryTick, setDrainRetryTick] = useState(0)
 
   const beginQueuedEdit = (entry: QueuedPromptEntry) => {
     if (!activeQueueSessionKey || queueEdit) {
@@ -298,7 +299,11 @@ export function useComposerQueue({
       return
     }
 
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+
     const onFail = () => {
+      if (cancelled) {return}
       const fails = (drainFailuresRef.current.get(entry.id) ?? 0) + 1
       drainFailuresRef.current.set(entry.id, fails)
 
@@ -309,6 +314,8 @@ export function useComposerQueue({
           title: t.composer.queueStuckTitle,
           message: t.composer.queueStuckBody
         })
+      } else {
+        retryTimer = setTimeout(() => setDrainRetryTick(tick => tick + 1), 750 * fails)
       }
     }
 
@@ -319,6 +326,13 @@ export function useComposerQueue({
         }
       })
       .catch(onFail)
+
+    // A pending rejection must not schedule into a different session, a parked
+    // queue, or an unmounted composer.
+    return () => {
+      cancelled = true
+      clearTimeout(retryTimer)
+    }
   }, [activeQueueSessionKey, busy, pickDrainHead, queueParked, queuedPrompts, runDrain, t])
 
   // Re-key on a runtime session-id change. A stable stored id (queueSessionKey)
@@ -343,9 +357,9 @@ export function useComposerQueue({
   // for the user. To cancel queued turns, the user deletes them from the panel.
   useEffect(() => {
     if (shouldAutoDrain({ isBusy: busy, parked: queueParked, queueLength: queuedPrompts.length })) {
-      autoDrainNext()
+      return autoDrainNext()
     }
-  }, [autoDrainNext, busy, queueParked, queuedPrompts.length])
+  }, [autoDrainNext, busy, drainRetryTick, queueParked, queuedPrompts.length])
 
   // Queue-edit cleanup: on session swap the scope effect already stashed the
   // edit snapshot; only restore into the composer when still on the same scope.
