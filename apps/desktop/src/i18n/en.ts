@@ -1601,7 +1601,7 @@ export const en: Translations = {
       newChat: { title: 'New chat', detail: 'Start a new chat' },
       settings: { title: 'Settings', detail: 'Configure AgentX desktop' },
       skills: { title: 'Utilities', detail: 'Skills, tools and advanced connections' },
-      messaging: { title: 'Messaging', detail: 'Set up Telegram, Slack, Discord, and more' },
+      messaging: { title: 'Message channels', detail: 'Set up Telegram, Slack, Discord, and more' },
       artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' }
     },
     sectionEntries: {
@@ -1700,7 +1700,7 @@ export const en: Translations = {
   },
 
   messaging: {
-    pageTitle: 'Messages',
+    pageTitle: 'Message channels',
     pageDescription: 'Message AgentX from the apps you already use.',
     search: 'Search messaging...',
     loading: 'Loading messaging platforms...',
@@ -2272,7 +2272,7 @@ export const en: Translations = {
     nav: {
       'new-session': 'New chat',
       skills: 'Utilities',
-      messaging: 'Messaging',
+      messaging: 'Message channels',
       artifacts: 'Artifacts'
     },
     searchAria: 'Search chats',

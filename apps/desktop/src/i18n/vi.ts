@@ -1852,7 +1852,7 @@ export const vi: Translations = {
       newChat: { title: 'Trò chuyện mới', detail: 'Bắt đầu một cuộc trò chuyện mới' },
       settings: { title: 'Cài đặt', detail: 'Cấu hình AgentX desktop' },
       skills: { title: 'Tiện ích', detail: 'Kỹ năng, công cụ và kết nối nâng cao' },
-      messaging: { title: 'Tin nhắn', detail: 'Thiết lập Telegram, Slack, Discord và hơn thế' },
+      messaging: { title: 'Kênh tin nhắn', detail: 'Thiết lập Telegram, Slack, Discord và hơn thế' },
       artifacts: { title: 'Artifact', detail: 'Duyệt các kết quả đã tạo' }
     },
     sectionEntries: {
@@ -1951,7 +1951,7 @@ export const vi: Translations = {
   },
 
   messaging: {
-    pageTitle: 'Tin nhắn',
+    pageTitle: 'Kênh tin nhắn',
     pageDescription: 'Nhắn cho AgentX từ ứng dụng bạn đang dùng.',
     search: 'Tìm trong phần tin nhắn...',
     loading: 'Đang tải các nền tảng nhắn tin...',
@@ -2526,7 +2526,7 @@ export const vi: Translations = {
     nav: {
       'new-session': 'Trò chuyện mới',
       skills: 'Tiện ích',
-      messaging: 'Tin nhắn',
+      messaging: 'Kênh tin nhắn',
       artifacts: 'Artifact'
     },
     searchAria: 'Tìm trong các cuộc trò chuyện',

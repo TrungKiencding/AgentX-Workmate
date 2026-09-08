@@ -1650,7 +1650,7 @@ export const ar = defineLocale({
     actions: count => `${count} إجراء`
   },
   messaging: {
-    pageTitle: 'الرسائل',
+    pageTitle: 'قنوات المراسلة',
     pageDescription: 'راسل AgentX من التطبيقات التي تستخدمها بالفعل.',
     groupInUse: 'قيد الاستخدام',
     groupAvailable: 'يمكن الاتصال بها',
@@ -2160,7 +2160,7 @@ export const ar = defineLocale({
     nav: {
       'new-session': 'محادثة جديدة',
       skills: 'الأدوات المساعدة',
-      messaging: 'المراسلة',
+      messaging: 'قنوات المراسلة',
       artifacts: 'العناصر',
       chat: 'المحادثة',
       settings: 'الإعدادات',

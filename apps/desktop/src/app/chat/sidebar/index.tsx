@@ -1135,7 +1135,9 @@ export function ChatSidebar({
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-px">
+            {/* A hair of daylight between the rows: at gap-px four 40px rows
+                fused into one slab and the hover fill had no edge to land on. */}
+            <SidebarMenu className="gap-0.5">
               {[...SIDEBAR_NAV, ...contributedNav].map(item => {
                 const isInteractive = Boolean(item.action) || Boolean(item.route)
 
@@ -1160,12 +1162,21 @@ export function ChatSidebar({
                       // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
                       // thread.tsx.
                       //
-                      // A nav row is a 36px, 14px-medium destination — the same
-                      // silhouette as a conversation row, one step bolder — and
-                      // "selected" is the sidebar's own selected treatment: the
-                      // tinted row fill PLUS the 2px accent bar on the leading
-                      // edge, drawn in the row's padding so it costs no layout.
-                      'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-base font-medium text-(--ui-text-secondary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
+                      // A nav row is a 40px, 15px-medium destination in the
+                      // app's primary ink — deliberately a rung above the
+                      // conversation rows below it, which are 36px of secondary
+                      // ink, so the band reads as "where you can go" rather than
+                      // as the top of one long list. "Selected" is the sidebar's
+                      // own selected treatment: the tinted row fill PLUS the 2px
+                      // accent bar on the leading edge, drawn in the row's
+                      // padding so it costs no layout.
+                      //
+                      // The glyph size has to be set from HERE. SidebarMenuButton's
+                      // base carries `[&>svg]:size-4`, and a `size-*` on the icon
+                      // itself loses to it on specificity — the `size-4.5` that
+                      // used to sit down there never rendered a single pixel
+                      // wider than 16px.
+                      'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-md font-medium text-(--ui-text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
                       active &&
                         'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)',
                       !isInteractive && 'cursor-default hover:bg-transparent hover:text-inherit'
@@ -1192,7 +1203,12 @@ export function ChatSidebar({
                     }
                     type="button"
                   >
-                    <item.icon className="size-4.5 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
+                    {/* Ink only — size and shrink come from the button, which
+                        outranks anything set here. Held just under the label's
+                        ink so the word still leads the row, but only just: at
+                        72% these outline glyphs washed out into the sidebar fill
+                        and the row lost its anchor. */}
+                    <item.icon className="text-[color-mix(in_srgb,currentColor_88%,transparent)]" />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
                     {item.id === 'messaging' && pendingPairingCount > 0 && (
                       <span

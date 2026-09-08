@@ -1694,7 +1694,7 @@ export const ja = defineLocale({
       newChat: { title: '新しいチャット', detail: '新しいチャットを開始' },
       settings: { title: '設定', detail: 'AgentX デスクトップを設定' },
       skills: { title: 'ユーティリティ', detail: 'スキル、ツール、高度な接続' },
-      messaging: { title: 'メッセージング', detail: 'Telegram、Slack、Discord などを設定' },
+      messaging: { title: 'メッセージチャンネル', detail: 'Telegram、Slack、Discord などを設定' },
       artifacts: { title: 'アーティファクト', detail: '生成された出力を閲覧' }
     },
     sectionEntries: {
@@ -1746,7 +1746,7 @@ export const ja = defineLocale({
   },
 
   messaging: {
-    pageTitle: 'メッセージ',
+    pageTitle: 'メッセージチャンネル',
     pageDescription: 'いつも使うアプリから AgentX にメッセージを送れます。',
     groupInUse: '使用中',
     groupAvailable: '接続できるアプリ',
@@ -2263,7 +2263,7 @@ export const ja = defineLocale({
     nav: {
       'new-session': '新しいチャット',
       skills: 'ユーティリティ',
-      messaging: 'メッセージング',
+      messaging: 'メッセージチャンネル',
       artifacts: 'アーティファクト'
     },
     searchAria: 'チャットを検索',
