@@ -1,0 +1,3 @@
+1.1.0
+source: https://github.com/astralxkienlt/agentx-webmate/tree/d9686bed9e8cbe6a8833561a5425f91dfe32059c/mcp-server
+built: 2026-09-09T03:01:53Z with `npm run build:skill` (esbuild single-file ESM bundle, Node >= 20)
