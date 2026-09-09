@@ -2460,11 +2460,16 @@ def get_commits(since_tag=None):
     else:
         range_spec = "HEAD"
 
-    # Format: hash<US>author_name<US>author_email<US>subject\0body
-    # Using %x1f (unit separator) to avoid conflict with | in author names
+    # Format: hash<US>author_name<US>author_email<US>subject\0body<RS>
+    # Using %x1f (unit separator) to avoid conflict with | in author names.
+    # %x1e (record separator) terminates each record. The old "%b%x00" only
+    # produced a double NUL when the body was empty; a commit with a body
+    # (every one carrying a Co-Authored-By trailer) ends with \0 + newline +
+    # the next header, so splitting on "\0\0" folded the commits after it
+    # into its body and they vanished from the changelog.
     log = git(
         "log", range_spec,
-        "--format=%H%x1f%an%x1f%ae%x1f%s%x00%b%x00",
+        "--format=%H%x1f%an%x1f%ae%x1f%s%x00%b%x1e",
         "--no-merges",
     )
 
@@ -2472,9 +2477,9 @@ def get_commits(since_tag=None):
         return []
 
     commits = []
-    # Split on double-null to get each commit entry, since body ends with \0
-    # and format ends with \0, each record ends with \0\0 between entries
-    for entry in log.split("\0\0"):
+    # One record per %x1e; git still separates records with a newline,
+    # which strip() removes.
+    for entry in log.split("\x1e"):
         entry = entry.strip()
         if not entry:
             continue
