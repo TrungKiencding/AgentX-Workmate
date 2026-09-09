@@ -20,6 +20,7 @@ import {
 
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
+import { WebmateUpdateCard } from './webmate-update-card'
 
 const RELEASE_NOTES_URL = 'https://github.com/TrungKiencding/AgentX-Workmate/releases'
 
@@ -175,6 +176,10 @@ export function AboutSettings() {
           hint={a.branchCommit(status?.branch ?? 'unknown', status?.currentSha?.slice(0, 7) ?? 'unknown')}
           title={a.automaticUpdates}
         />
+
+        {/* The browser extension updates on its own feed; it reads like the app's card above. */}
+        <SectionHeading icon={RefreshCw} title={t.webmate.update.heading} />
+        <WebmateUpdateCard />
 
         <UninstallSection />
       </div>

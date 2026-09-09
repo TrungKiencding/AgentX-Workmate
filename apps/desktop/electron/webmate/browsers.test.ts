@@ -304,6 +304,7 @@ describe('scanBrowsers on macOS', () => {
         [WEBMATE_EXTENSION_ID]: { location: 4, path: INSTALL_MAC, disable_reasons: [] },
         other: { location: 5, path: 'x' }
       }),
+      [`${chromeData}/SingletonLock`]: 'kien-mbp-4242',
       [`${chromeData}/Profile 2/Secure Preferences`]: securePrefs({
         [WEBMATE_EXTENSION_ID]: {
           location: 4,
@@ -359,11 +360,14 @@ describe('scanBrowsers on macOS', () => {
       ]
     )
     assert.equal(chrome.profiles[0].lastActive, 1787574339590)
+    // Chrome holds its SingletonLock; Edge (ran before, not now) does not.
+    assert.equal(chrome.running, true)
 
     const edge = browsers.find(b => b.id === 'edge')!
 
     assert.equal(edge.version, '152.0.4191.66')
     assert.equal(edge.extensionsUrl, 'edge://extensions')
+    assert.equal(edge.running, false)
     assert.deepEqual(
       edge.profiles.map(p => [p.dir, p.displayName, p.webmate.installed]),
       [['Default', 'Default', false]]
@@ -401,6 +405,7 @@ describe('scanBrowsers on macOS', () => {
     const edge = (await scanBrowsers(INSTALL_MAC, fakeIo(m))).find(b => b.id === 'edge')!
 
     assert.equal(edge.dataDir, null)
+    assert.equal(edge.running, null)
     assert.deepEqual(edge.profiles, [])
   })
 })
@@ -433,7 +438,8 @@ describe('scanBrowsers on Windows', () => {
       [`${chromeData}\\Default\\Secure Preferences`]: securePrefs({
         [WEBMATE_EXTENSION_ID]: { location: 4, path: 'c:\\users\\k\\appdata\\local\\agentx\\webmate\\AgentX WebMate' }
       }),
-      [`${braveData}\\Default\\Secure Preferences`]: securePrefs({})
+      [`${braveData}\\Default\\Secure Preferences`]: securePrefs({}),
+      [`${braveData}\\lockfile`]: ''
     },
     exec: {
       'reg query HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice /v ProgId':
@@ -475,6 +481,8 @@ describe('scanBrowsers on Windows', () => {
     // No App Paths key and no BLBeacon: found through the default install dirs, version unknown.
     assert.equal(brave.executable, braveExe)
     assert.equal(brave.version, null)
+    assert.equal(brave.running, true)
+    assert.equal(chrome.running, false)
     assert.deepEqual(
       brave.profiles.map(p => [p.dir, p.webmate.installed]),
       [['Default', false]]

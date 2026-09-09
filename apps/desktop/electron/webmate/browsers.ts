@@ -62,6 +62,12 @@ export interface BrowserInfo {
   extensionsUrl: string
   /** Opera keeps one profile in the data dir itself; `--profile-directory` does not apply. */
   singleProfile: boolean
+  /**
+   * Whether the browser holds its profile lock right now (Chromium's
+   * `SingletonLock` symlink on macOS/Linux, `lockfile` on Windows). Null when
+   * it cannot be told — no data dir yet, or a fork that locks elsewhere.
+   */
+  running: boolean | null
   profiles: BrowserProfile[]
 }
 
@@ -71,6 +77,8 @@ export interface BrowserScanIo {
   env: NodeJS.ProcessEnv
   pathModule: typeof nodePath
   exists(path: string): boolean
+  /** Like `exists` but true for a dangling symlink too (Chromium's SingletonLock points at "host-pid"). Defaults to `exists`. */
+  lexists?(path: string): boolean
   readText(path: string): string | null
   /** stdout of a short helper (`plutil`, `reg`, `xdg-settings`). Rejects on failure. */
   exec(file: string, args: string[]): Promise<string>
@@ -319,6 +327,15 @@ export function defaultBrowserScanIo(): BrowserScanIo {
     env: process.env,
     pathModule: nodePath,
     exists: p => fs.existsSync(p),
+    lexists: p => {
+      try {
+        fs.lstatSync(p)
+
+        return true
+      } catch {
+        return false
+      }
+    },
     readText: p => {
       try {
         return fs.readFileSync(p, 'utf8')
@@ -857,6 +874,26 @@ function dataDirFor(io: BrowserScanIo, spec: BrowserSpec): string | null {
   return spec.linux.dataDir ? io.pathModule.join(io.homeDir, '.config', ...spec.linux.dataDir.split('/')) : null
 }
 
+/**
+ * Chromium keeps a process-wide lock in the user-data dir while it runs:
+ * `SingletonLock` (a symlink to "hostname-pid") on macOS/Linux, `lockfile` on
+ * Windows. Read-only, best effort — a crash can leave the Windows lockfile
+ * behind, so callers treat `true` as "probably running".
+ */
+export function browserRunning(io: BrowserScanIo, dataDir: string | null): boolean | null {
+  if (!dataDir || !io.exists(dataDir)) {
+    return null
+  }
+
+  const lexists = io.lexists ?? io.exists
+
+  if (io.platform === 'win32') {
+    return io.exists(io.pathModule.join(dataDir, 'lockfile'))
+  }
+
+  return lexists(io.pathModule.join(dataDir, 'SingletonLock'))
+}
+
 function readProfileWebmate(io: BrowserScanIo, profileDir: string, installDir: string): BrowserProfileWebmate {
   // Secure Preferences holds extension settings in current Chromium; older
   // builds (and some forks) still use Preferences. A file the browser is
@@ -976,6 +1013,7 @@ export async function scanBrowsers(
       dataDir: dataDir && io.exists(dataDir) ? dataDir : null,
       extensionsUrl: spec.extensionsUrl,
       singleProfile: Boolean(spec.singleProfile),
+      running: spec.supported ? browserRunning(io, dataDir) : null,
       profiles: spec.supported ? readProfiles(io, spec, dataDir, installDir) : []
     })
   })

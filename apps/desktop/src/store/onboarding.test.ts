@@ -5,6 +5,8 @@ import type { OAuthProvider } from '@/types/hermes'
 
 import {
   $desktopOnboarding,
+  advanceFromModelConfirm,
+  completeBrowserStep,
   type DesktopOnboardingState,
   type OnboardingContext,
   refreshOnboarding,
@@ -423,12 +425,15 @@ describe('OAuth onboarding', () => {
       if (path === '/api/providers/oauth/nous/submit') {
         return { ok: true, status: 'approved' }
       }
+
       if (path.startsWith('/api/model/options')) {
         return { providers: [{ name: 'Nous Portal', slug: 'nous', models: [model] }] }
       }
+
       if (path.startsWith('/api/model/recommended-default?')) {
         return { provider: 'nous', model, free_tier: false }
       }
+
       if (path === '/api/model/set') {
         return {
           ok: false,
@@ -449,6 +454,7 @@ describe('OAuth onboarding', () => {
 
       throw new Error(`unexpected gateway method: ${method}`)
     })
+
     const requestGateway = requestGatewayMock as OnboardingContext['requestGateway']
     $desktopOnboarding.set(
       baseState({
@@ -647,5 +653,80 @@ describe('saveOnboardingLocalEndpoint', () => {
     expect(result.ok).toBe(false)
     expect(result.message).toContain('No provider can serve the selected model.')
     expect($desktopOnboarding.get().configured).not.toBe(true)
+  })
+})
+
+describe('the browser step after the model card', () => {
+  const confirming = (): DesktopOnboardingState =>
+    baseState({
+      flow: { status: 'confirming_model', providerSlug: 'nous', currentModel: 'm', label: 'Nous', saving: false }
+    })
+
+  function installWebmateBridge(overrides: Record<string, unknown> = {}) {
+    const setPrefs = vi.fn(async (patch: Record<string, unknown>) => ({ ...patch }))
+
+    Object.defineProperty(window, 'agentxDesktop', {
+      configurable: true,
+      value: {
+        api: vi.fn(async () => ({})),
+        webmate: {
+          status: vi.fn(async () => ({ connected: false, installType: null, prefs: { prompt: null } })),
+          getPrefs: vi.fn(async () => ({ prompt: null })),
+          setPrefs,
+          scan: vi.fn(async () => []),
+          ...overrides
+        }
+      }
+    })
+
+    return { setPrefs }
+  }
+
+  it('moves to connecting_browser when the desktop can offer it', async () => {
+    installWebmateBridge()
+    $desktopOnboarding.set(confirming())
+
+    expect(await advanceFromModelConfirm()).toBe('browser')
+    expect($desktopOnboarding.get().flow.status).toBe('connecting_browser')
+  })
+
+  it('finishes straight away without a desktop bridge, after "never", when already connected, or in manual mode', async () => {
+    Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: undefined })
+    $desktopOnboarding.set(confirming())
+    expect(await advanceFromModelConfirm()).toBe('done')
+    expect($desktopOnboarding.get().flow).toMatchObject({ status: 'confirming_model', saving: false })
+
+    installWebmateBridge({ getPrefs: vi.fn(async () => ({ prompt: 'never' })) })
+    $desktopOnboarding.set(confirming())
+    expect(await advanceFromModelConfirm()).toBe('done')
+
+    installWebmateBridge({ status: vi.fn(async () => ({ connected: true, installType: 'workmate', prefs: { prompt: null } })) })
+    $desktopOnboarding.set(confirming())
+    expect(await advanceFromModelConfirm()).toBe('done')
+
+    installWebmateBridge()
+    $desktopOnboarding.set({ ...confirming(), manual: true })
+    expect(await advanceFromModelConfirm()).toBe('done')
+  })
+
+  it('completeBrowserStep records the choice and completes onboarding', () => {
+    const { setPrefs } = installWebmateBridge()
+    const onCompleted = vi.fn()
+    const ctx: OnboardingContext = { requestGateway: async () => undefined as never, onCompleted }
+
+    $desktopOnboarding.set(baseState({ flow: { status: 'connecting_browser' } }))
+    completeBrowserStep(ctx, 'later')
+    expect(setPrefs).toHaveBeenLastCalledWith({ prompt: 'later' })
+    expect($desktopOnboarding.get().configured).toBe(true)
+    expect(onCompleted).toHaveBeenCalledTimes(1)
+
+    $desktopOnboarding.set(baseState({ flow: { status: 'connecting_browser' } }))
+    completeBrowserStep(ctx, 'connected')
+    expect(setPrefs).toHaveBeenLastCalledWith({ prompt: null, mode: 'browser' })
+
+    // Not on this step → no-op.
+    $desktopOnboarding.set(confirming())
+    completeBrowserStep(ctx, 'never')
+    expect(onCompleted).toHaveBeenCalledTimes(2)
   })
 })

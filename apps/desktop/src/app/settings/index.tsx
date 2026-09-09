@@ -7,6 +7,7 @@ import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
+  AppWindow,
   Archive,
   BarChart3,
   Bell,
@@ -36,6 +37,7 @@ import { AboutSettings } from './about-settings'
 import { AccountSettings } from './account-settings'
 import { AppearanceSettings } from './appearance-settings'
 import { BillingSettings } from './billing'
+import { BrowserSettings } from './browser-settings'
 import { ConfigSettings } from './config-settings'
 import { SECTIONS } from './constants'
 import { GatewaySettings } from './gateway-settings'
@@ -55,6 +57,7 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   'keybinds',
   'keys',
   'notifications',
+  'browser',
   // Off the list while Billing is hidden (BILLING_ENABLED), so a stale
   // `?tab=billing` deep link coerces to the default view instead of opening a
   // page with no way to reach it.
@@ -167,6 +170,14 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         id: 'notifications',
         label: t.settings.nav.notifications,
         onSelect: () => setActiveView('notifications')
+      },
+      // AgentX WebMate — the browser extension (apps/desktop/WEBMATE-INTEGRATION-PLAN.md §5).
+      {
+        active: activeView === 'browser',
+        icon: AppWindow,
+        id: 'browser',
+        label: t.settings.nav.browser,
+        onSelect: () => setActiveView('browser')
       },
       // Billing is hidden for now — see BILLING_ENABLED.
       ...(BILLING_ENABLED
@@ -352,6 +363,8 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             <KeysSettings view={keysView} />
           ) : activeView === 'notifications' ? (
             <NotificationsSettings />
+          ) : activeView === 'browser' ? (
+            <BrowserSettings />
           ) : activeView === 'billing' ? (
             <BillingSettings />
           ) : activeView === 'plugins' ? (
