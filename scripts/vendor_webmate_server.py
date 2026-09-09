@@ -39,7 +39,12 @@ MANIFEST = ENTRY_DIR / "manifest.yaml"
 
 
 def _run(cmd: list[str], cwd: Path) -> str:
-    proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=False)
+    proc = subprocess.run(
+        cmd,
+        cwd=str(cwd),
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        check=False,
+    )
     if proc.returncode != 0:
         raise SystemExit(f"{' '.join(cmd)} failed in {cwd}:\n{proc.stderr or proc.stdout}")
     return proc.stdout.strip()
