@@ -2286,6 +2286,8 @@ export interface Translations {
       install: string
       stepsTitle: (browser: string) => string
       steps: { devMode: string; drag: string; done: string }
+      /** Edge words and places the same two controls differently (toggle bottom-left, "Load unpacked" in the toolbar). */
+      stepsEdge: { devMode: string; drag: string }
       reopenPage: string
       showFolder: string
       copyPath: string

@@ -125,6 +125,7 @@ export function parseUpdateCheck(text: string | null): UpdateCheckFile {
   const record = raw as Record<string, unknown>
   const feed = record.feed && typeof record.feed === 'object' ? (record.feed as Record<string, unknown>) : null
   const chrome = feed?.chrome && typeof feed.chrome === 'object' ? (feed.chrome as Record<string, unknown>) : null
+
   const lastApply =
     record.lastApply && typeof record.lastApply === 'object' ? (record.lastApply as Record<string, unknown>) : null
 

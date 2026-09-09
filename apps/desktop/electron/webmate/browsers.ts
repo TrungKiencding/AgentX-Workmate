@@ -784,6 +784,7 @@ async function locateWindows(io: BrowserScanIo, spec: BrowserSpec): Promise<Loca
           io,
           `${hive}\\SOFTWARE\\Clients\\StartMenuInternet\\${name}\\shell\\open\\command`
         )
+
         const candidate = command ? executableFromCommand(command) : null
 
         if (candidate && io.exists(candidate)) {

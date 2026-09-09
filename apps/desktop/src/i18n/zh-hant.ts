@@ -2763,6 +2763,10 @@ export const zhHant = defineLocale({
         drag: '把剛彈出的資料夾視窗中的「AgentX WebMate」資料夾拖到該頁面上。或點選「載入未封裝項目」，選擇這個資料夾。',
         done: '完成。WebMate 一連線 Workmate 就會自動辨識，無需再點任何按鈕。'
       },
+      stepsEdge: {
+        devMode: '在剛開啟頁面的左下角開啟「開發人員模式」。',
+        drag: '把剛彈出的資料夾視窗中的「AgentX WebMate」資料夾拖到該頁面上。或點選「載入解壓縮的擴充功能」，選擇這個資料夾。'
+      },
       reopenPage: '重新開啟擴充功能頁面',
       showFolder: '開啟資料夾',
       copyPath: '複製路徑',

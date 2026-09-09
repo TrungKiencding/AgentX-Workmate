@@ -2882,6 +2882,10 @@ export const en: Translations = {
         drag: 'Drag the “AgentX WebMate” folder from the folder window that just opened onto that page. Or click “Load unpacked” and pick this folder.',
         done: 'That is it. Workmate notices the moment WebMate connects; there is nothing else to click.'
       },
+      stepsEdge: {
+        devMode: 'Turn on “Developer mode” in the bottom-left corner of the page that just opened.',
+        drag: 'Drag the “AgentX WebMate” folder from the folder window that just opened onto that page. Or click “Load unpacked” and pick this folder.'
+      },
       reopenPage: 'Open the extensions page again',
       showFolder: 'Show folder',
       copyPath: 'Copy path',
@@ -2891,7 +2895,7 @@ export const en: Translations = {
       connectedHint: 'From now on Workmate can use this browser when you ask it to.',
       slowTitle: 'WebMate has not connected yet. The usual reasons:',
       slowReasons: [
-        'Developer mode is still off in the top-right corner of the extensions page.',
+        'Developer mode is still off on the extensions page.',
         'The wrong folder was dragged: it has to be the “AgentX WebMate” folder itself, not its parent.',
         'This browser is managed by an organisation that blocks Developer mode.'
       ],

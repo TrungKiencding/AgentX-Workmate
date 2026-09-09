@@ -339,6 +339,7 @@ export class WebmateService {
     }
 
     const fetchImpl = this.deps.fetchImpl ?? fetch
+
     const response = await fetchImpl(url, {
       cache: 'no-store',
       redirect: 'follow',

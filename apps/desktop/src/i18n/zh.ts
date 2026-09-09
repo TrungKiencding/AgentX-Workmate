@@ -2985,6 +2985,10 @@ export const zh: Translations = {
         drag: '把刚弹出的文件夹窗口中的“AgentX WebMate”文件夹拖到该页面上。或点击“加载已解压的扩展程序”，选择这个文件夹。',
         done: '完成。WebMate 一连接 Workmate 就会自动识别，无需再点击任何按钮。'
       },
+      stepsEdge: {
+        devMode: '在刚打开页面的左下角开启“开发人员模式”。',
+        drag: '把刚弹出的文件夹窗口中的“AgentX WebMate”文件夹拖到该页面上。或点击“加载解压缩的扩展”，选择这个文件夹。'
+      },
       reopenPage: '重新打开扩展页面',
       showFolder: '打开文件夹',
       copyPath: '复制路径',

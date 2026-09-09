@@ -37,7 +37,13 @@ export type BrowserStepChoice = 'connected' | 'later' | 'never'
  * driven by the status the main process pushes. No "I'm done" button: the
  * extension's hello is what flips the screen.
  */
-export function BrowserStepPanel({ leaving, onFinish }: { leaving: boolean; onFinish: (choice: BrowserStepChoice) => void }) {
+export function BrowserStepPanel({
+  leaving,
+  onFinish
+}: {
+  leaving: boolean
+  onFinish: (choice: BrowserStepChoice) => void
+}) {
   const { t } = useI18n()
   const copy = t.webmate.onboarding
   const browsers = useStore($webmateBrowsers)
@@ -110,7 +116,9 @@ function BrowserPicker({
               key={browser.id}
             >
               <span className="text-[length:var(--conversation-text-font-size)] font-semibold">{browser.name}</span>
-              <TagChip>{browser.unsupportedReason === 'safari' ? copy.unsupported.safari : copy.unsupported.firefox}</TagChip>
+              <TagChip>
+                {browser.unsupportedReason === 'safari' ? copy.unsupported.safari : copy.unsupported.firefox}
+              </TagChip>
             </div>
           ))}
         </div>
@@ -124,7 +132,9 @@ function BrowserPicker({
         <div className="flex min-w-0 items-center gap-2.5">
           <AppWindow className="size-4.5 shrink-0 text-(--ui-text-tertiary)" />
           <div className="min-w-0">
-            <span className="text-[length:var(--conversation-text-font-size)] font-semibold">{copy.workmateWindow.title}</span>
+            <span className="text-[length:var(--conversation-text-font-size)] font-semibold">
+              {copy.workmateWindow.title}
+            </span>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{copy.workmateWindow.description}</p>
           </div>
         </div>
@@ -143,7 +153,13 @@ function BrowserPicker({
   )
 }
 
-function BrowserRow({ browser, profile }: { browser: DesktopWebmateBrowser; profile: DesktopWebmateBrowserProfile | null }) {
+function BrowserRow({
+  browser,
+  profile
+}: {
+  browser: DesktopWebmateBrowser
+  profile: DesktopWebmateBrowserProfile | null
+}) {
   const { t } = useI18n()
   const copy = t.webmate.onboarding
   const installed = Boolean(profile?.webmate.installed)
@@ -164,7 +180,9 @@ function BrowserRow({ browser, profile }: { browser: DesktopWebmateBrowser; prof
           </span>
           {browser.isDefault ? <TagChip>{copy.defaultBadge}</TagChip> : null}
           {installed ? (
-            <StatusPill tone={disabled ? 'warn' : 'good'}>{disabled ? copy.disabledBadge : copy.installedBadge}</StatusPill>
+            <StatusPill tone={disabled ? 'warn' : 'good'}>
+              {disabled ? copy.disabledBadge : copy.installedBadge}
+            </StatusPill>
           ) : elsewhere ? (
             <TagChip>{copy.elsewhereBadge}</TagChip>
           ) : null}
@@ -206,25 +224,36 @@ export function WebmateGuideSteps({
   const connected = Boolean(status?.connected && status.installType === 'workmate')
   const slow = !connected && !guide.preparing && now - guide.startedAt > SLOW_AFTER_MS
   const image = webmateGuideImage(guide.browserId, locale)
+  // Edge words and places the same two controls differently.
+  const steps = guide.browserId === 'edge' ? copy.stepsEdge : copy.steps
   const installDir = status?.paths.installDir ?? ''
 
   return (
     <div className="grid gap-4">
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-sm font-semibold">{copy.stepsTitle(guide.browserName)}</h4>
-        <Button className="font-medium" disabled={connected} onClick={() => clearWebmateGuide()} size="xs" type="button" variant="text">
+        <Button
+          className="font-medium"
+          disabled={connected}
+          onClick={() => clearWebmateGuide()}
+          size="xs"
+          type="button"
+          variant="text"
+        >
           <ChevronLeft className="size-3" />
           {copy.back}
         </Button>
       </div>
 
       {guide.serverError ? <p className="text-xs text-destructive">{copy.serverError}</p> : null}
-      {guide.openError && !guide.preparing ? <p className="text-xs text-destructive">{copy.openFailed(guide.browserName)}</p> : null}
+      {guide.openError && !guide.preparing ? (
+        <p className="text-xs text-destructive">{copy.openFailed(guide.browserName)}</p>
+      ) : null}
 
       <div className={cn('grid gap-4', image ? 'sm:grid-cols-[minmax(0,1fr)_16rem]' : '')}>
         <ol className="grid list-decimal gap-2.5 pl-5 text-sm leading-6 text-(--ui-text-secondary)">
-          <li>{copy.steps.devMode}</li>
-          <li>{copy.steps.drag}</li>
+          <li>{steps.devMode}</li>
+          <li>{steps.drag}</li>
           <li>{copy.steps.done}</li>
         </ol>
         {image ? (
@@ -251,7 +280,9 @@ export function WebmateGuideSteps({
         </Button>
       </div>
       {installDir ? (
-        <code className="truncate rounded-md border border-(--stroke-nous) px-3 py-1.5 font-mono text-xs text-muted-foreground">{installDir}</code>
+        <code className="truncate rounded-md border border-(--stroke-nous) px-3 py-1.5 font-mono text-xs text-muted-foreground">
+          {installDir}
+        </code>
       ) : null}
 
       <div
@@ -298,7 +329,11 @@ export function WebmateGuideSteps({
 
       {surface === 'settings' ? (
         <div className="flex items-center justify-end gap-3 pt-1">
-          <Button onClick={() => onFinish(connected ? 'connected' : 'later')} size="sm" variant={connected ? 'default' : 'outline'}>
+          <Button
+            onClick={() => onFinish(connected ? 'connected' : 'later')}
+            size="sm"
+            variant={connected ? 'default' : 'outline'}
+          >
             {connected ? t.common.done : t.common.close}
           </Button>
         </div>

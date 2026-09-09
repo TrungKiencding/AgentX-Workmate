@@ -84,6 +84,7 @@ const PAIRING: PairingFile = {
   installId: 'install-1',
   createdAt: '2026-09-09T00:00:00.000Z'
 }
+
 const PAIRING_OPTIONS = { port: 17374, workmateVersion: '0.21.0' }
 
 async function installFolder(root: string, version: string) {
@@ -329,6 +330,7 @@ describe('checkWebmateUpdate', () => {
     assert.match(wrongKey.error ?? '', /signature/)
 
     const tampered = { ...feed, version: '9.9.9' }
+
     const bad = await checkWebmateUpdate({
       paths,
       appVersion: '0.21.0',

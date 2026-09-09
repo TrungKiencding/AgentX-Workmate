@@ -3133,9 +3133,13 @@ export const vi: Translations = {
       install: 'Cài vào trình duyệt này',
       stepsTitle: browser => `Làm ba bước trong ${browser}`,
       steps: {
-        devMode: 'Bật “Chế độ nhà phát triển” (Developer mode) ở góc trên bên phải trang vừa mở.',
+        devMode: 'Bật “Chế độ dành cho nhà phát triển” ở góc trên bên phải trang vừa mở.',
         drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải tiện ích đã giải nén” (Load unpacked) rồi chọn thư mục này.',
         done: 'Xong. Workmate tự nhận ra khi WebMate kết nối, bạn không cần bấm gì thêm.'
+      },
+      stepsEdge: {
+        devMode: 'Bật “Chế độ nhà phát triển” ở góc dưới bên trái trang vừa mở.',
+        drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải phần mở rộng đã giải nén” rồi chọn thư mục này.'
       },
       reopenPage: 'Mở lại trang tiện ích',
       showFolder: 'Mở thư mục',
@@ -3146,9 +3150,9 @@ export const vi: Translations = {
       connectedHint: 'Từ giờ Workmate có thể dùng trình duyệt này khi bạn nhờ.',
       slowTitle: 'Vẫn chưa thấy WebMate kết nối. Vài nguyên nhân thường gặp:',
       slowReasons: [
-        'Chế độ nhà phát triển chưa được bật ở góc trên bên phải trang tiện ích.',
+        '“Chế độ dành cho nhà phát triển” trên trang tiện ích chưa được bật.',
         'Kéo nhầm thư mục: cần đúng thư mục “AgentX WebMate”, không phải thư mục cha.',
-        'Trình duyệt do công ty quản lý và đã chặn chế độ nhà phát triển.'
+        'Trình duyệt do công ty quản lý và đã chặn chế độ dành cho nhà phát triển.'
       ],
       useWindow: 'Dùng cửa sổ riêng',
       later: 'Để sau',

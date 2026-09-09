@@ -142,6 +142,7 @@ describe('extension store', () => {
     const logs: string[] = []
     const zip = extensionZip('1.0.4')
     const bundled = await bundleDir(dir, '1.0.4', { zip, release: releaseFor(zip, '1.0.4') })
+
     const first = await ensureExtensionFolder(paths, locateBundledExtension([bundled])!, {
       isPackaged: false,
       log: m => logs.push(m)
@@ -165,6 +166,7 @@ describe('extension store', () => {
     // A newer bundle replaces the folder; the old one is parked for rollback.
     const zip2 = extensionZip('1.0.5')
     const bundled2 = await bundleDir(path.join(dir, 'two'), '1.0.5', { zip: zip2, release: releaseFor(zip2, '1.0.5') })
+
     const updated = await ensureExtensionFolder(paths, locateBundledExtension([bundled2])!, {
       isPackaged: false,
       log: m => logs.push(m)
@@ -199,11 +201,14 @@ describe('extension store', () => {
 
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
     const strangerKey = privateKey.export({ type: 'pkcs8', format: 'pem' })
+
     const strangerSpki = generateKeyPairSync('rsa', { modulusLength: 2048 })
       .publicKey.export({ type: 'spki', format: 'der' })
       .toString('base64')
+
     void strangerKey
     const wrongKeyZip = extensionZip('1.0.4', strangerSpki)
+
     const wrongKey = await bundleDir(path.join(dir, 'k'), '1.0.4', {
       zip: wrongKeyZip,
       release: releaseFor(wrongKeyZip, '1.0.4')
@@ -216,6 +221,7 @@ describe('extension store', () => {
     assert.equal(fs.existsSync(path.join(paths.versionsDir, '1.0.4')), false, 'a refused stage is removed')
 
     const lyingZip = extensionZip('9.9.9')
+
     const lying = await bundleDir(path.join(dir, 'l'), '1.0.4', {
       zip: lyingZip,
       release: releaseFor(lyingZip, '1.0.4')

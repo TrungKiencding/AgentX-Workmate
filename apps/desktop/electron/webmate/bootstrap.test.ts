@@ -120,6 +120,7 @@ describe('bootstrapWebmate', () => {
     const dir = await tempDir()
     const appRoot = path.join(dir, 'app')
     const home = path.join(dir, 'home')
+
     const result = await bootstrapWebmate({
       agentxHome: home,
       resourcesPath: path.join(dir, 'resources'),
