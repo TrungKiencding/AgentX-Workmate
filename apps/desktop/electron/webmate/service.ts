@@ -673,13 +673,18 @@ export class WebmateService {
     // 4. open again and wait for the new version to say hello.
     this.progress('confirm', version, version)
 
+    let reopenError: string | null = null
+
     try {
       await this.window.open(options)
     } catch (error) {
-      this.log(`[webmate] window: reopen failed after swap: ${error instanceof Error ? error.message : String(error)}`)
+      reopenError = error instanceof Error ? error.message : String(error)
+      this.log(`[webmate] window: reopen failed after swap: ${reopenError}`)
     }
 
-    const deadline = Date.now() + 60_000
+    // A browser that refused the new folder outright will never say hello — roll back at once
+    // instead of making the person watch a closed window for a minute.
+    const deadline = reopenError ? 0 : Date.now() + 60_000
     let confirmed = false
 
     while (Date.now() < deadline) {
@@ -702,6 +707,8 @@ export class WebmateService {
     }
 
     // 5. no hello: back to the previous folder, window opened once more.
+    const failure = reopenError ? `browser refused the new version: ${reopenError}` : 'no hello from the new version'
+
     this.progress('rollback', version, version)
     await this.window.close()
     const rolledBack = await restorePrevious(this.paths, version).catch(() => false)
@@ -724,12 +731,12 @@ export class WebmateService {
         version,
         ok: false,
         at: new Date().toISOString(),
-        error: 'no hello from the new version',
+        error: failure,
         rolledBack
       }
     })
 
-    return fail('rollback', 'no hello from the new version', { rolledBack })
+    return fail('rollback', failure, { rolledBack })
   }
 
   private progress(stage: ApplyStage, message: string, version: string): void {
