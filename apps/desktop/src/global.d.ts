@@ -458,6 +458,7 @@ export interface DesktopWebmateBrowser {
   dataDir: string | null
   extensionsUrl: string
   singleProfile: boolean
+  running: boolean | null
   profiles: DesktopWebmateBrowserProfile[]
 }
 

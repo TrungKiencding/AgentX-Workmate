@@ -73,7 +73,8 @@ import type {
   WebhookCreatePayload,
   WebhookCreateResponse,
   WebhookEnableResponse,
-  WebhooksResponse
+  WebhooksResponse,
+  WebmateBackendStatus
 } from '@/types/hermes'
 
 // Desktop startup fires a burst of read-only data calls (config, profiles,
@@ -229,7 +230,8 @@ export type {
   WebhookCreateResponse,
   WebhookEnableResponse,
   WebhookRoute,
-  WebhooksResponse
+  WebhooksResponse,
+  WebmateBackendStatus
 } from '@/types/hermes'
 
 export class HermesGateway extends JsonRpcGatewayClient {
@@ -1892,5 +1894,17 @@ export function runDebugShare(): Promise<DebugShareResponse> {
     body: {},
     // Synchronous upload of report + logs to the paste service.
     timeoutMs: 120_000
+  })
+}
+
+// ---------------------------------------------------------------------------
+// AgentX WebMate — the backend's view (server registration + enabled flag,
+// bridge state.json, cached update check). apps/desktop/WEBMATE-INTEGRATION-PLAN.md.
+// ---------------------------------------------------------------------------
+
+export function getWebmateStatus(): Promise<WebmateBackendStatus> {
+  return window.agentxDesktop.api<WebmateBackendStatus>({
+    ...profileScoped(),
+    path: '/api/webmate/status'
   })
 }
