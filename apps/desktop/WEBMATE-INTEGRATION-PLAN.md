@@ -296,7 +296,7 @@ trình duyệt" trong Cài đặt, mở đăng nhập Workmate trong trình duy�
 | Giai đoạn | Trạng thái | Ghi chú |
 |---|---|---|
 | 0 · WebMate gói cài được | **Xong** (09/09/2026) | Nhánh `feat/workmate-install` kho WebMate, 4 commit. `npm test` xanh trừ 1 test CHANGELOG đã đỏ sẵn trên `main` (thiếu mục 1.0.3); mcp-server 73/73; e2e Chrome thật 6/6. Chưa có GitHub Release 1.0.4 (cần chủ dự án chạy workflow với secret `WEBMATE_RELEASE_SIGNING_KEY`). |
-| 1 · Workmate hết lỗi máy sạch | Đang làm | Nhánh `webmate-install/phase-1`. |
-| 2 · UX cài, Cài đặt, bản mới | Chưa | |
+| 1 · Workmate hết lỗi máy sạch | **Xong** (09/09/2026) | Nhánh `webmate-install/phase-1`. Catalog `bundled` + `${NODE}`/`${AGENTX_ROOT}`, `agentx mcp install webmate [--dev]`, `GET /api/webmate/status`, `electron/webmate/{paths,zip,release-feed,pairing,extension-store,bootstrap}.ts` chạy khi app khởi động, `scripts/fetch-webmate.mjs` + `extraResources` `build/webmate`, skill/`check_bridge.py` cập nhật. Nghiệm thu tại máy: bootstrap thật tạo `AgentX WebMate/` 1.0.3 (bản build tại máy, ký bằng khoá thật), `pairing.json` 0600, `workmate.json`; server bundled từ chối token sai và ghi `state.json` khi nối. `webmate.lock.json` còn `sha256: null` cho tới khi WebMate 1.0.4 được phát hành (`node scripts/fetch-webmate.mjs --pin 1.0.4`). Chưa kiểm trên Windows thật. |
+| 2 · UX cài, Cài đặt, bản mới | Chưa | Việc kế tiếp. Lưu ý từ giai đoạn 1: dev muốn dùng bản `brand-dist/chrome` với Workmate đã ghép đôi thì chép `~/.agentx/webmate/AgentX WebMate/workmate.json` vào `brand-dist/chrome/` (brand:build giữ lại, build:zip từ chối đóng gói). |
 | 3 · Cửa sổ trình duyệt Workmate | Chưa | |
 | 4 · Liền mạch | Chưa | |
