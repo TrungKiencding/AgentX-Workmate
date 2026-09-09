@@ -2409,6 +2409,33 @@ export interface Translations {
       updateRelaunch: string
       onboardingHint: string
     }
+    sso: {
+      heading: string
+      browserLabel: string
+      browserDesc: string
+      browserSystem: string
+      browserOption: (browser: string, profile: string) => string
+      autoSignIn: string
+      autoSignInDesc: string
+      signIn: string
+      signingIn: string
+      signInDesc: string
+      attached: (count: number) => string
+      connectionSignedIn: string
+      connectionNotSignedIn: string
+      connectionActive: string
+      signedIn: string
+      signedInAs: (email: string) => string
+      loginRequired: string
+      unsupported: string
+      notConnected: string
+      noAnswer: string
+      nothingToDo: string
+      failed: (reason: string) => string
+      onboardingWaiting: string
+      onboardingSignedIn: string
+      onboardingManual: string
+    }
     prompt: {
       title: string
       body: {

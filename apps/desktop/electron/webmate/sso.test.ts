@@ -132,6 +132,7 @@ describe('chooseLoginTarget', () => {
     const target = chooseLoginTarget({ mode: 'browser', browser: { ...chosen, profileDir: 'Profile 9' } }, false, [browser()])
 
     assert.equal(target.kind === 'browser' && target.profileDir, null)
+
     const single = chooseLoginTarget({ mode: 'browser', browser: { ...chosen, id: 'opera' } }, false, [
       browser({ id: 'opera', name: 'Opera', singleProfile: true })
     ])

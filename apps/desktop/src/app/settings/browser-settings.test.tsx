@@ -35,6 +35,8 @@ function status(overrides: Partial<DesktopWebmateStatus> = {}): DesktopWebmateSt
     installType: null,
     signedIn: null,
     protocolVersion: null,
+    instanceId: null,
+    connections: [],
     lastCommand: null,
     error: null,
     prefs: {
@@ -47,6 +49,7 @@ function status(overrides: Partial<DesktopWebmateStatus> = {}): DesktopWebmateSt
       connectedAt: null,
       cardSnoozedUntil: null,
       updateToastSnoozedUntil: null,
+      ssoAutoSignIn: true,
       updatedAt: ''
     },
     update: null,
@@ -229,6 +232,137 @@ describe('BrowserSettings', () => {
     expect(
       screen.getByText('The WebMate in your browser is too old for this Workmate. Update it to use the browser again.')
     ).toBeTruthy()
+  })
+})
+
+describe('signed in together (phase 4)', () => {
+  it('offers the browser choice, the auto sign-in switch and a sign-in button that follows the attached browsers', async () => {
+    const signIn = vi.fn(async () => ({
+      ok: true,
+      sent: true,
+      commandId: 'c1',
+      result: {
+        id: 'c1',
+        action: 'auth_open',
+        ok: true,
+        startedAt: '',
+        finishedAt: '',
+        signedIn: true,
+        results: [{ instanceId: 'own', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true }]
+      },
+      error: null
+    }))
+
+    const chooseBrowser = vi.fn(async () => ({ id: 'chrome', name: 'Google Chrome', profileDir: 'Default', profileName: 'Kiên' }))
+
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => backend(true)),
+      webmate: {
+        status: vi.fn(async () => status()),
+        scan: vi.fn(async () => [browser()]),
+        setPrefs: vi.fn(async (patch: Record<string, unknown>) => ({ ...status().prefs, ...patch })),
+        checkUpdate: vi.fn(async () => null),
+        signIn,
+        chooseBrowser
+      }
+    } as unknown as Window['agentxDesktop']
+    $webmateStatus.set(
+      status({
+        connected: true,
+        browser: 'Chrome 152',
+        installType: 'workmate',
+        signedIn: false,
+        connections: [
+          {
+            instanceId: 'own',
+            browser: 'Chrome 152',
+            extensionVersion: '1.0.5',
+            installType: 'workmate',
+            signedIn: false,
+            protocolVersion: 3,
+            lastHelloAt: null,
+            paired: true,
+            active: true
+          },
+          {
+            instanceId: 'window',
+            browser: 'Chrome 152',
+            extensionVersion: '1.0.5',
+            installType: 'workmate',
+            signedIn: true,
+            protocolVersion: 3,
+            lastHelloAt: null,
+            paired: true,
+            active: false
+          }
+        ]
+      })
+    )
+    render(<BrowserSettings />)
+
+    expect(screen.getByText('Signed in together')).toBeTruthy()
+    expect(screen.getByText('Browser for signing in and for WebMate')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Sign WebMate in with my Workmate account' })).toBeTruthy()
+    expect(screen.getByText('2 browsers connected')).toBeTruthy()
+    expect(screen.getByText(/Chrome 152 · not signed in · in use/)).toBeTruthy()
+    expect(screen.getByText(/Chrome 152 · signed in/)).toBeTruthy()
+
+    const [signInButton] = screen.getAllByRole('button', { name: 'Sign in WebMate' })
+
+    fireEvent.click(signInButton)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(signIn).toHaveBeenCalledWith({})
+  })
+
+  it('a browser card nobody is signed in to gets its own sign-in action, aimed at that copy', async () => {
+    const signIn = vi.fn(async () => ({ ok: false, sent: true, commandId: 'c2', result: null, error: 'no-answer' }))
+
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => backend(true)),
+      webmate: {
+        status: vi.fn(async () => status()),
+        scan: vi.fn(async () => [browser()]),
+        setPrefs: vi.fn(async (patch: Record<string, unknown>) => ({ ...status().prefs, ...patch })),
+        checkUpdate: vi.fn(async () => null),
+        signIn
+      }
+    } as unknown as Window['agentxDesktop']
+    $webmateStatus.set(
+      status({
+        connected: true,
+        browser: 'Chrome 152',
+        installType: 'workmate',
+        signedIn: false,
+        connections: [
+          {
+            instanceId: 'own',
+            browser: 'Chrome 152',
+            extensionVersion: '1.0.5',
+            installType: 'workmate',
+            signedIn: false,
+            protocolVersion: 3,
+            lastHelloAt: null,
+            paired: true,
+            active: true
+          }
+        ]
+      })
+    )
+    render(<BrowserSettings />)
+
+    // The heading pill and the card pill both read it.
+    expect(screen.getAllByText('Connected · not signed in').length).toBeGreaterThanOrEqual(1)
+    const buttons = screen.getAllByRole('button', { name: 'Sign in WebMate' })
+
+    // The section's button and the card's button.
+    expect(buttons.length).toBe(2)
+    fireEvent.click(buttons[1])
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(signIn).toHaveBeenCalledWith({ instanceId: 'own' })
   })
 })
 

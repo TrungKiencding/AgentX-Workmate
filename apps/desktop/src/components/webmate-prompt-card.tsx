@@ -10,7 +10,8 @@ import {
   applyWebmateUpdate,
   dismissWebmatePrompt,
   hasChromiumBrowser,
-  openWebmateWindow
+  openWebmateWindow,
+  signInWebmate
 } from '@/store/webmate'
 
 import { SETTINGS_ROUTE } from '../app/routes'
@@ -35,13 +36,26 @@ export function WebmatePromptCard() {
   const code = prompt.code
 
   const primaryLabel =
-    code === 'WEBMATE_NOT_INSTALLED' ? copy.install : code === 'WEBMATE_OUTDATED' ? t.webmate.update.install : copy.open
+    code === 'WEBMATE_NOT_INSTALLED'
+      ? copy.install
+      : code === 'WEBMATE_OUTDATED'
+        ? t.webmate.update.install
+        : code === 'WEBMATE_NOT_SIGNED_IN'
+          ? t.webmate.sso.signIn
+          : copy.open
 
   const primary = () => {
     dismissWebmatePrompt('acted')
 
     if (code === 'WEBMATE_OUTDATED') {
       void applyWebmateUpdate()
+
+      return
+    }
+
+    if (code === 'WEBMATE_NOT_SIGNED_IN') {
+      // Phase 4: open the AgentX sign-in in the browser WebMate runs in, account pre-filled.
+      void signInWebmate()
 
       return
     }

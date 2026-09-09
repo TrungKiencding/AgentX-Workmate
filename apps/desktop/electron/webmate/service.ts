@@ -520,6 +520,7 @@ export class WebmateService {
       ...(request.instanceId ? { instanceId: request.instanceId } : {}),
       ...(request.interactive === false ? { force: true } : {})
     }
+
     const action: WebmateCommandAction = request.interactive === false ? 'auth_hint' : 'auth_open'
     const id = this.sendCommand(action, payload)
 

@@ -14,6 +14,7 @@ import {
   $webmateBrowsers,
   $webmateGuide,
   $webmateScanning,
+  $webmateSigningIn,
   $webmateStatus,
   clearWebmateGuide,
   closeWebmateWindow,
@@ -23,6 +24,7 @@ import {
   reopenWebmateGuide,
   revealWebmateFolder,
   scanWebmateBrowsers,
+  signInWebmate,
   startWebmateGuide
 } from '@/store/webmate'
 
@@ -40,6 +42,74 @@ function extensionsUrlFor(browserId: string): string {
 /** After this long without a hello, show the usual reasons and the way out. */
 const SLOW_AFTER_MS = 120_000
 const TICK_MS = 5_000
+/** After a hello, how long the silent sign-in gets before the step offers the button instead. */
+const SSO_GRACE_MS = 25_000
+
+/**
+ * The line under "Đã kết nối": signed in (nothing to do), being signed in by
+ * Workmate (the silent hint runs in the main process right after the hello),
+ * or — once that had its chance — a button for the interactive sign-in.
+ */
+export function SignInLine({ connectedAt }: { connectedAt: number | null }) {
+  const { t } = useI18n()
+  const copy = t.webmate.sso
+  const status = useStore($webmateStatus)
+  const signingIn = useStore($webmateSigningIn)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 2_000)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const signedIn = status?.signedIn ?? null
+
+  if (signedIn === true) {
+    return (
+      <p className="text-xs text-muted-foreground" data-slot="webmate-sso-line">
+        {copy.onboardingSignedIn}
+      </p>
+    )
+  }
+
+  if (signedIn !== false) {
+    return null
+  }
+
+  const waiting = (status?.prefs.ssoAutoSignIn ?? true) && connectedAt !== null && now - connectedAt < SSO_GRACE_MS
+
+  if (waiting || signingIn) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground" data-slot="webmate-sso-line">
+        <Loader className="size-5" type="lemniscate-bloom" />
+        {signingIn ? copy.signingIn : copy.onboardingWaiting}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-slot="webmate-sso-line">
+      <p className="text-xs text-muted-foreground">{copy.onboardingManual}</p>
+      <Button onClick={() => void signInWebmate()} size="xs" variant="outline">
+        {copy.signIn}
+      </Button>
+    </div>
+  )
+}
+
+/** The moment `connected` first became true in this component's life, for the sign-in grace. */
+function useConnectedAt(connected: boolean): number | null {
+  const [connectedAt, setConnectedAt] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (connected && connectedAt === null) {
+      setConnectedAt(Date.now())
+    }
+  }, [connected, connectedAt])
+
+  return connectedAt
+}
 
 export type BrowserStepChoice = 'connected' | 'later' | 'never'
 
@@ -244,15 +314,26 @@ export function WebmateGuideSteps({
     return () => window.clearInterval(timer)
   }, [])
 
+  const connected = Boolean(status?.connected && status.installType === 'workmate')
+  const connectedAt = useConnectedAt(connected)
+
   if (!guide) {
     return null
   }
 
-  const connected = Boolean(status?.connected && status.installType === 'workmate')
   const slow = !connected && !guide.preparing && now - guide.startedAt > SLOW_AFTER_MS
 
   if (guide.kind === 'window') {
-    return <WindowSteps connected={connected} guide={guide} onFinish={onFinish} slow={slow} surface={surface} />
+    return (
+      <WindowSteps
+        connected={connected}
+        connectedAt={connectedAt}
+        guide={guide}
+        onFinish={onFinish}
+        slow={slow}
+        surface={surface}
+      />
+    )
   }
 
   const image = webmateGuideImage(guide.browserId, locale)
@@ -334,6 +415,7 @@ export function WebmateGuideSteps({
               </StatusPill>
             </div>
             <p className="text-xs text-muted-foreground">{copy.connectedHint}</p>
+            <SignInLine connectedAt={connectedAt} />
           </div>
         ) : (
           <div className="grid gap-2">
@@ -399,12 +481,14 @@ export function WebmateGuideSteps({
  */
 function WindowSteps({
   connected,
+  connectedAt,
   guide,
   onFinish,
   slow,
   surface
 }: {
   connected: boolean
+  connectedAt: number | null
   guide: { browserName: string; preparing: boolean; openError: string | null; serverError: string | null }
   onFinish: (choice: BrowserStepChoice) => void
   slow: boolean
@@ -457,6 +541,7 @@ function WindowSteps({
               </StatusPill>
             </div>
             <p className="text-xs text-muted-foreground">{onboarding.connectedHint}</p>
+            <SignInLine connectedAt={connectedAt} />
           </div>
         ) : (
           <div className="grid gap-2">

@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   DesktopWebmateBrowser,
+  DesktopWebmateConnection,
   DesktopWebmatePrefs,
+  DesktopWebmateSignInOutcome,
   DesktopWebmateStatus,
   DesktopWebmateUpdateCheck
 } from '@/global'
@@ -14,15 +16,20 @@ import {
   $webmatePrompt,
   $webmateStatus,
   browserIdFromBridgeLabel,
+  connectionsForBrowser,
+  connectionsNotSignedIn,
   dismissWebmatePrompt,
   ensureWebmateServer,
   maybeNotifyWebmateUpdate,
   reportWebmateToolCode,
   reportWebmateToolPayload,
   resetWebmatePromptSession,
+  signInWebmate,
   startWebmateGuide,
   webmateCodeFromToolPayload,
-  webmateReadiness
+  webmateConnections,
+  webmateReadiness,
+  webmateSignInOutcomeCopy
 } from './webmate'
 
 const desktopWindow = window as unknown as { agentxDesktop?: Window['agentxDesktop'] }
@@ -39,6 +46,7 @@ function prefs(overrides: Partial<DesktopWebmatePrefs> = {}): DesktopWebmatePref
     connectedAt: null,
     cardSnoozedUntil: null,
     updateToastSnoozedUntil: null,
+      ssoAutoSignIn: true,
     updatedAt: '2026-09-09T00:00:00.000Z',
     ...overrides
   }
@@ -69,6 +77,8 @@ function status(overrides: Partial<DesktopWebmateStatus> = {}): DesktopWebmateSt
     installType: null,
     signedIn: null,
     protocolVersion: null,
+    instanceId: null,
+    connections: [],
     lastCommand: null,
     error: null,
     prefs: prefs(),
@@ -273,6 +283,134 @@ describe('webmateReadiness', () => {
         profile: profile(true)
       })
     ).toBe('installedNotConnected')
+  })
+})
+
+const connection = (overrides: Partial<DesktopWebmateConnection> = {}): DesktopWebmateConnection => ({
+  instanceId: 'inst-1',
+  browser: 'Chrome 152',
+  extensionVersion: '1.0.5',
+  installType: 'workmate',
+  signedIn: true,
+  protocolVersion: 3,
+  lastHelloAt: null,
+  paired: true,
+  active: true,
+  ...overrides
+})
+
+describe('several browsers at once (phase 4)', () => {
+  it('lists the server’s connections, or synthesises one from the older fields', () => {
+    expect(webmateConnections(status())).toEqual([])
+    expect(webmateConnections(status({ connected: true, browser: 'Edge 152', signedIn: false, installType: 'workmate' }))).toEqual([
+      expect.objectContaining({ instanceId: '', browser: 'Edge 152', signedIn: false, active: true })
+    ])
+
+    const two = status({
+      connected: true,
+      browser: 'Chrome 152',
+      connections: [connection({ instanceId: 'a', signedIn: false, active: false }), connection({ instanceId: 'b' })]
+    })
+
+    expect(webmateConnections(two).map(c => c.instanceId)).toEqual(['a', 'b'])
+    expect(connectionsNotSignedIn(two).map(c => c.instanceId)).toEqual(['a'])
+    expect(connectionsForBrowser(two, 'chrome').map(c => c.instanceId)).toEqual(['b', 'a'])
+    expect(connectionsForBrowser(two, 'edge')).toEqual([])
+  })
+
+  it('a browser with one signed-in copy is ready even while another copy in it is not', () => {
+    const chrome = browser({ profiles: [profile(true)] })
+
+    const both = status({
+      connected: true,
+      browser: 'Chrome 152',
+      signedIn: false,
+      installType: 'workmate',
+      connections: [
+        connection({ instanceId: 'own', signedIn: false, active: false }),
+        connection({ instanceId: 'window', signedIn: true })
+      ]
+    })
+
+    expect(webmateReadiness({ status: both, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('ready')
+    expect(webmateReadiness({ status: both, backend: backend() })).toBe('ready')
+
+    const nobody = status({
+      connected: true,
+      browser: 'Chrome 152',
+      signedIn: false,
+      installType: 'workmate',
+      connections: [connection({ instanceId: 'own', signedIn: false })]
+    })
+
+    expect(webmateReadiness({ status: nobody, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('notSignedIn')
+    // A browser the server does not list is "not connected" even while another browser is.
+    const edge = browser({ id: 'edge', name: 'Microsoft Edge', profiles: [profile(true)] })
+
+    expect(webmateReadiness({ status: nobody, backend: backend(), browser: edge, profile: edge.profiles[0] })).toBe(
+      'installedNotConnected'
+    )
+  })
+
+  it('turns a sign-in outcome into the one toast that matters', () => {
+    const outcome = (result: Partial<NonNullable<DesktopWebmateSignInOutcome['result']>> | null, extra = {}) => ({
+      ok: true,
+      sent: true,
+      commandId: 'c',
+      result: result ? { id: 'c', action: 'auth_open', ok: true, startedAt: '', finishedAt: '', ...result } : null,
+      error: null,
+      ...extra
+    })
+
+    expect(webmateSignInOutcomeCopy(outcome(null, { sent: false }))).toEqual({
+      kind: 'warning',
+      message: 'WebMate is not connected, so there is nothing to sign in.'
+    })
+    expect(webmateSignInOutcomeCopy(outcome(null))?.message).toBe('WebMate did not answer in time.')
+    expect(
+      webmateSignInOutcomeCopy(
+        outcome({ results: [{ instanceId: 'a', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true, email: 'kien@example.test' }] })
+      )
+    ).toEqual({ kind: 'success', message: 'WebMate is signed in as kien@example.test.' })
+    expect(
+      webmateSignInOutcomeCopy(
+        outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'login-required', signedIn: false }] })
+      )?.kind
+    ).toBe('info')
+    expect(
+      webmateSignInOutcomeCopy(
+        outcome({ ok: false, results: [{ instanceId: 'a', browser: null, ok: false, outcome: 'error', signedIn: false, message: 'offline' }] }, { ok: false })
+      )
+    ).toEqual({ kind: 'error', message: 'Could not sign in WebMate: offline' })
+    expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe('Every connected WebMate is already signed in.')
+  })
+
+  it('signInWebmate asks the bridge and toasts the outcome', async () => {
+    const signIn = vi.fn(async () => ({
+      ok: true,
+      sent: true,
+      commandId: 'c1',
+      result: {
+        id: 'c1',
+        action: 'auth_open',
+        ok: true,
+        startedAt: '',
+        finishedAt: '',
+        signedIn: true,
+        results: [{ instanceId: 'a', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true }]
+      },
+      error: null
+    }))
+
+    desktopWindow.agentxDesktop = {
+      webmate: { signIn, status: vi.fn(async () => status()) }
+    } as unknown as Window['agentxDesktop']
+
+    const outcome = await signInWebmate({ instanceId: 'a' })
+
+    expect(signIn).toHaveBeenCalledWith({ instanceId: 'a' })
+    expect(outcome?.ok).toBe(true)
+    expect(notifications.$notifications.get().map(n => [n.kind, n.message])).toEqual([['success', 'WebMate is signed in.']])
   })
 })
 

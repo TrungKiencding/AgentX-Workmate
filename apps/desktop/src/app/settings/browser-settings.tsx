@@ -25,11 +25,14 @@ import {
   $webmateBrowsers,
   $webmateGuide,
   $webmateScanning,
+  $webmateSigningIn,
   $webmateStatus,
   $webmateUpdate,
   applyWebmateUpdate,
+  chooseWebmateBrowser,
   clearWebmateGuide,
   closeWebmateWindow,
+  connectionsForBrowser,
   copyWebmatePath,
   hasChromiumBrowser,
   openWebmateWindow,
@@ -41,7 +44,9 @@ import {
   setWebmateEnabled,
   setWebmateMode,
   setWebmatePrefs,
+  signInWebmate,
   startWebmateGuide,
+  webmateConnections,
   webmateEnabled,
   type WebmateReadiness,
   webmateReadiness
@@ -98,6 +103,49 @@ export function BrowserSettings() {
   const windowState = status?.window ?? null
   const supported = (browsers ?? []).filter(b => b.supported)
   const prefs = status?.prefs
+  const signingIn = useStore($webmateSigningIn)
+  const connections = webmateConnections(status)
+  const anyNotSignedIn = connections.some(connection => connection.signedIn === false)
+  const SYSTEM_BROWSER = 'system'
+  const chosenValue = prefs?.browser ? `${prefs.browser.id}::${prefs.browser.profileDir ?? ''}` : SYSTEM_BROWSER
+
+  const browserChoices = supported.flatMap(browser =>
+    (browser.profiles.length ? browser.profiles : [null]).map(profile => ({
+      value: `${browser.id}::${profile?.dir ?? ''}`,
+      label:
+        browser.profiles.length > 1 && profile
+          ? t.webmate.sso.browserOption(browser.name, profile.displayName)
+          : browser.name
+    }))
+  )
+
+  // The remembered choice may name a profile the scan no longer lists; keep it selectable so the row never lies.
+  const choices =
+    chosenValue !== SYSTEM_BROWSER && !browserChoices.some(choice => choice.value === chosenValue) && prefs?.browser
+      ? [
+          ...browserChoices,
+          {
+            value: chosenValue,
+            label: prefs.browser.profileName
+              ? t.webmate.sso.browserOption(prefs.browser.name, prefs.browser.profileName)
+              : prefs.browser.name
+          }
+        ]
+      : browserChoices
+
+  const chooseBrowser = (value: string) => {
+    triggerHaptic('selection')
+
+    if (value === SYSTEM_BROWSER) {
+      void setWebmatePrefs({ browser: null })
+
+      return
+    }
+
+    const [browserId, profileDir] = value.split('::')
+
+    void chooseWebmateBrowser(browserId, profileDir || null)
+  }
 
   const toggle = async (on: boolean) => {
     setToggling(true)
@@ -192,6 +240,71 @@ export function BrowserSettings() {
         }
         title={t.webmate.window.title}
       />
+
+      <SettingsSection icon={Globe} title={t.webmate.sso.heading}>
+        <ListRow
+          action={
+            <Select onValueChange={chooseBrowser} value={chosenValue}>
+              <SelectTrigger className={cn('min-w-56', CONTROL_TEXT)}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SYSTEM_BROWSER}>{t.webmate.sso.browserSystem}</SelectItem>
+                {choices.map(choice => (
+                  <SelectItem key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+          description={t.webmate.sso.browserDesc}
+          title={t.webmate.sso.browserLabel}
+        />
+        <ToggleRow
+          checked={prefs?.ssoAutoSignIn ?? true}
+          description={t.webmate.sso.autoSignInDesc}
+          label={t.webmate.sso.autoSignIn}
+          onChange={on => void setWebmatePrefs({ ssoAutoSignIn: on })}
+        />
+        <ListRow
+          action={
+            <Button
+              disabled={!status?.connected || signingIn || !enabled}
+              onClick={() => void signInWebmate()}
+              size="sm"
+              variant={anyNotSignedIn ? 'default' : 'outline'}
+            >
+              {signingIn ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              {signingIn ? t.webmate.sso.signingIn : t.webmate.sso.signIn}
+            </Button>
+          }
+          description={t.webmate.sso.signInDesc}
+          hint={
+            connections.length ? (
+              <span className="flex flex-wrap items-center gap-1.5" data-slot="webmate-connections">
+                <span>{t.webmate.sso.attached(connections.length)}</span>
+                {connections.map(connection => (
+                  <StatusPill
+                    key={connection.instanceId}
+                    tone={connection.signedIn === true ? 'good' : connection.signedIn === false ? 'warn' : 'muted'}
+                  >
+                    {connection.browser ?? connection.instanceId}
+                    {' · '}
+                    {connection.signedIn === false
+                      ? t.webmate.sso.connectionNotSignedIn
+                      : connection.signedIn === true
+                        ? t.webmate.sso.connectionSignedIn
+                        : ''}
+                    {connection.active && connections.length > 1 ? ` · ${t.webmate.sso.connectionActive}` : ''}
+                  </StatusPill>
+                ))}
+              </span>
+            ) : undefined
+          }
+          title={t.webmate.sso.signIn}
+        />
+      </SettingsSection>
 
       <SettingsSection
         aside={
@@ -316,6 +429,8 @@ function BrowserCard({
   const { t } = useI18n()
   const copy = t.webmate.settings
   const update = useStore($webmateUpdate)
+  const status = useStore($webmateStatus)
+  const signingIn = useStore($webmateSigningIn)
   const title = browser.profiles.length > 1 && profile ? `${browser.name} · ${profile.displayName}` : browser.name
   const elsewhere = profile?.webmate.elsewhere && !profile.webmate.installed ? profile.webmate.path : null
 
@@ -342,6 +457,19 @@ function BrowserCard({
       action = (
         <Button disabled={update.applying} onClick={() => void applyWebmateUpdate()} size="sm">
           {t.webmate.update.install}
+        </Button>
+      )
+    } else if (readiness === 'notSignedIn') {
+      // The first copy in this browser nobody is signed in to; the server picks when none is named.
+      const target = connectionsForBrowser(status, browser.id).find(connection => connection.signedIn === false)
+
+      action = (
+        <Button
+          disabled={signingIn}
+          onClick={() => void signInWebmate({ instanceId: target?.instanceId ?? null })}
+          size="sm"
+        >
+          {signingIn ? t.webmate.sso.signingIn : t.webmate.sso.signIn}
         </Button>
       )
     }

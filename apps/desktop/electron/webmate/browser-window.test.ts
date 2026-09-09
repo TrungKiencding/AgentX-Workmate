@@ -269,6 +269,7 @@ describe('WorkmateBrowserWindow', () => {
 describe('WorkmateBrowserWindow.openUrl', () => {
   test('opens an http(s) page as a new tab over the pipe, and refuses anything else', async () => {
     const created: Array<Record<string, unknown>> = []
+
     const browser = new FakeBrowser((method, params) => {
       if (method === 'Target.createTarget') {
         created.push(params)
@@ -278,6 +279,7 @@ describe('WorkmateBrowserWindow.openUrl', () => {
 
       return wellBehaved(method)
     })
+
     const window = new WorkmateBrowserWindow({ spawn: () => browser, sleep: async () => undefined })
 
     assert.deepEqual(await window.openUrl('https://id.example.test/auth'), {
@@ -303,6 +305,7 @@ describe('WorkmateBrowserWindow.openUrl', () => {
     const browser = new FakeBrowser(method =>
       method === 'Target.createTarget' ? { error: { code: -32000, message: 'no window' } } : wellBehaved(method)
     )
+
     const window = new WorkmateBrowserWindow({ spawn: () => browser, sleep: async () => undefined })
 
     await window.open(OPTIONS)

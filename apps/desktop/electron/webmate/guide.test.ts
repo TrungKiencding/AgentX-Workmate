@@ -266,6 +266,7 @@ describe('planUrlLaunch', () => {
 describe('openUrlInBrowser', () => {
   test('runs the plan and reports the command; a refusal is reported, not thrown', async () => {
     const ran: string[][] = []
+
     const ok = await openUrlInBrowser({ browser: chromeMac, profileDir: 'Default' }, 'https://x.test/a', 'darwin', {
       run: async (file, args) => void ran.push([file, ...args])
     })

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DesktopWebmateBrowser, DesktopWebmateStatus } from '@/global'
 import { $webmateBrowsers, $webmateGuide, $webmateScanning, $webmateStatus } from '@/store/webmate'
 
-import { BrowserStepPanel } from './browser-step'
+import { BrowserStepPanel, WebmateGuideSteps } from './browser-step'
 
 const desktopWindow = window as unknown as { agentxDesktop?: Window['agentxDesktop'] }
 const initialAgentxDesktop = desktopWindow.agentxDesktop
@@ -61,6 +61,8 @@ function status(overrides: Partial<DesktopWebmateStatus> = {}): DesktopWebmateSt
     installType: null,
     signedIn: null,
     protocolVersion: null,
+    instanceId: null,
+    connections: [],
     lastCommand: null,
     error: null,
     prefs: {
@@ -73,6 +75,7 @@ function status(overrides: Partial<DesktopWebmateStatus> = {}): DesktopWebmateSt
       connectedAt: null,
       cardSnoozedUntil: null,
       updateToastSnoozedUntil: null,
+      ssoAutoSignIn: true,
       updatedAt: ''
     },
     update: null,
@@ -263,6 +266,54 @@ describe('BrowserStepPanel', () => {
     expect(screen.getByText(/Developer mode is still off/)).toBeTruthy()
     expect(screen.getByText(/Microsoft Edge could not be opened/)).toBeTruthy()
     expect((screen.getByRole('button', { name: /Use a separate window/ }) as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
+describe('signed in together (phase 4)', () => {
+  const connectedGuide = () => ({
+    kind: 'browser' as const,
+    browserId: 'chrome',
+    browserName: 'Google Chrome',
+    profileDir: 'Default',
+    profileName: 'Kiên',
+    startedAt: Date.now(),
+    opened: true,
+    navigated: true,
+    openError: null,
+    folderOpened: true,
+    copied: false,
+    serverError: null,
+    preparing: false
+  })
+
+  it('says WebMate is signed in once the hello reports it', () => {
+    $webmateGuide.set(connectedGuide())
+    $webmateStatus.set(status({ connected: true, browser: 'Chrome 152', installType: 'workmate', signedIn: true }))
+    render(<WebmateGuideSteps onFinish={() => undefined} />)
+
+    expect(screen.getByText('WebMate is signed in with your Workmate account. Nothing else to do.')).toBeTruthy()
+  })
+
+  it('shows the quiet sign-in as in progress right after the hello, then offers the button', () => {
+    vi.useFakeTimers()
+
+    try {
+      $webmateGuide.set(connectedGuide())
+      $webmateStatus.set(status({ connected: true, browser: 'Chrome 152', installType: 'workmate', signedIn: false }))
+      render(<WebmateGuideSteps onFinish={() => undefined} />)
+
+      expect(screen.getByText('Signing WebMate in with your account…')).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Sign in WebMate' })).toBeNull()
+
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
+
+      expect(screen.getByText('WebMate is connected but not signed in yet.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Sign in WebMate' })).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
