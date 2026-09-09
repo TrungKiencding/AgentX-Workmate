@@ -26,7 +26,8 @@ export const WEBMATE_RELEASE_PUBLIC_KEY = [
   ''
 ].join('\n')
 
-export const WEBMATE_RELEASE_FEED_URL = 'https://raw.githubusercontent.com/astralxkienlt/agentx-webmate/main/release.json'
+export const WEBMATE_RELEASE_FEED_URL =
+  'https://raw.githubusercontent.com/astralxkienlt/agentx-webmate/main/release.json'
 export const WEBMATE_REPOSITORY_URL = 'https://github.com/astralxkienlt/agentx-webmate'
 
 const SIGNATURE_PREFIX = 'ed25519:'
@@ -74,8 +75,17 @@ export function sha256Hex(buffer: Buffer | Uint8Array): string {
   return createHash('sha256').update(buffer).digest('hex')
 }
 
+export interface ParseReleaseOptions {
+  /**
+   * Accept `file:` package URLs. Only a development build passes this, to run
+   * the whole download → verify → swap → rollback path against a local zip;
+   * a packaged app never does (constraint 5: signed https releases only).
+   */
+  allowFileUrls?: boolean
+}
+
 /** Structural check. Throws ReleaseManifestError naming the first problem. */
-export function parseReleaseManifest(raw: unknown): ReleaseManifest {
+export function parseReleaseManifest(raw: unknown, options: ParseReleaseOptions = {}): ReleaseManifest {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ReleaseManifestError('release manifest must be an object')
   }
@@ -108,7 +118,7 @@ export function parseReleaseManifest(raw: unknown): ReleaseManifest {
     throw new ReleaseManifestError('release manifest chrome.url is not a URL')
   }
 
-  if (url.protocol !== 'https:') {
+  if (url.protocol !== 'https:' && !(options.allowFileUrls && url.protocol === 'file:')) {
     throw new ReleaseManifestError('release manifest chrome.url must be https')
   }
 
@@ -160,9 +170,13 @@ export function signingPayload(manifest: Record<string, unknown>): Buffer {
  * true only for a well-formed manifest whose Ed25519 signature verifies under
  * `publicKeyPem`. Never throws: a broken feed is "no feed".
  */
-export function verifyReleaseManifest(raw: unknown, publicKeyPem: string = WEBMATE_RELEASE_PUBLIC_KEY): boolean {
+export function verifyReleaseManifest(
+  raw: unknown,
+  publicKeyPem: string = WEBMATE_RELEASE_PUBLIC_KEY,
+  options: ParseReleaseOptions = {}
+): boolean {
   try {
-    const manifest = parseReleaseManifest(raw)
+    const manifest = parseReleaseManifest(raw, options)
     const signature = String(manifest.signature || '')
 
     if (!signature.startsWith(SIGNATURE_PREFIX)) {

@@ -178,7 +178,9 @@ export function parseUpdateCheckSummary(text: string | null): WebmateUpdateCheck
     blockedByMinWorkmate: raw.blockedByMinWorkmate === true,
     belowMinProtocol: raw.belowMinProtocol === true,
     pendingVersion: str(raw.pendingVersion),
-    failedVersions: Array.isArray(raw.failedVersions) ? raw.failedVersions.filter((v): v is string => typeof v === 'string') : [],
+    failedVersions: Array.isArray(raw.failedVersions)
+      ? raw.failedVersions.filter((v): v is string => typeof v === 'string')
+      : [],
     notes: Object.fromEntries(Object.entries(notes).filter(([, v]) => typeof v === 'string')) as Record<string, string>,
     minProtocol: num(feed?.minProtocol)
   }
@@ -219,7 +221,9 @@ function readInstalledVersionWith(installDir: string, io: StatusIo): string | nu
 
   // Fall back to the fs-backed reader only when the io is the real one and
   // the manifest exists but is being rewritten (a torn read).
-  return version ?? (io.exists(io.pathModule.join(installDir, 'manifest.json')) ? readInstalledVersion(installDir) : null)
+  return (
+    version ?? (io.exists(io.pathModule.join(installDir, 'manifest.json')) ? readInstalledVersion(installDir) : null)
+  )
 }
 
 /** What changed between two reads matters to the UI; everything else is noise. */

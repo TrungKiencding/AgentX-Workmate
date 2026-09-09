@@ -8,6 +8,7 @@ import { defaultPrefs, isSnoozed, parsePrefs, prefsFile, type PrefsIo, readPrefs
 
 function memoryIo(initial: Record<string, string> = {}): PrefsIo & { files: Map<string, string>; writes: number } {
   const files = new Map(Object.entries(initial))
+
   const io = {
     files,
     writes: 0,
@@ -57,7 +58,12 @@ describe('prefs', () => {
     // A non-boolean keeps the default rather than becoming truthy garbage.
     assert.equal(parsed.askWhenNotReady, true)
     assert.equal(parsed.mode, 'window')
-    assert.deepEqual(parsed.browser, { id: 'chrome', name: 'Google Chrome', profileDir: 'Default', profileName: 'Kiên' })
+    assert.deepEqual(parsed.browser, {
+      id: 'chrome',
+      name: 'Google Chrome',
+      profileDir: 'Default',
+      profileName: 'Kiên'
+    })
     assert.equal(parsed.connectedAt, null)
     assert.equal(parsed.cardSnoozedUntil, '2026-09-10T00:00:00.000Z')
     assert.equal(parsed.updatedAt, '2026-09-08T00:00:00.000Z')
@@ -77,7 +83,11 @@ describe('prefs', () => {
     assert.equal(io.writes, 1)
 
     // Another field merges without touching the first.
-    const second = writePrefs(FILE, { autoUpdate: false, browser: { id: 'edge', name: 'Microsoft Edge', profileDir: null, profileName: null } }, io)
+    const second = writePrefs(
+      FILE,
+      { autoUpdate: false, browser: { id: 'edge', name: 'Microsoft Edge', profileDir: null, profileName: null } },
+      io
+    )
 
     assert.equal(second.prompt, 'later')
     assert.equal(second.autoUpdate, false)

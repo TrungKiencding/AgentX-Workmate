@@ -74,10 +74,17 @@ function releaseFor(zip: Buffer, version: string, privatePem?: string) {
     return manifest
   }
 
-  return { ...manifest, signature: `ed25519:${sign(null, signingPayload(manifest), createPrivateKey(privatePem)).toString('base64')}` }
+  return {
+    ...manifest,
+    signature: `ed25519:${sign(null, signingPayload(manifest), createPrivateKey(privatePem)).toString('base64')}`
+  }
 }
 
-async function bundleDir(dir: string, version: string, { zip, release }: { zip: Buffer; release?: Record<string, unknown> | null }) {
+async function bundleDir(
+  dir: string,
+  version: string,
+  { zip, release }: { zip: Buffer; release?: Record<string, unknown> | null }
+) {
   const bundled = path.join(dir, 'bundled')
 
   await fsp.mkdir(bundled, { recursive: true })
@@ -135,14 +142,21 @@ describe('extension store', () => {
     const logs: string[] = []
     const zip = extensionZip('1.0.4')
     const bundled = await bundleDir(dir, '1.0.4', { zip, release: releaseFor(zip, '1.0.4') })
-    const first = await ensureExtensionFolder(paths, locateBundledExtension([bundled])!, { isPackaged: false, log: m => logs.push(m) })
+    const first = await ensureExtensionFolder(paths, locateBundledExtension([bundled])!, {
+      isPackaged: false,
+      log: m => logs.push(m)
+    })
 
     assert.equal(first.action, 'installed')
     assert.equal(first.installedVersion, '1.0.4')
     assert.deepEqual(first.verified, { sha256: true, signature: 'unsigned' })
     assert.equal(readInstalledVersion(paths.installDir), '1.0.4')
     assert.equal(await fsp.readFile(path.join(paths.installDir, 'src', 'background.js'), 'utf8'), '// 1.0.4')
-    assert.equal(fs.existsSync(path.join(paths.versionsDir, '1.0.4')), false, 'the staged folder was renamed, not copied')
+    assert.equal(
+      fs.existsSync(path.join(paths.versionsDir, '1.0.4')),
+      false,
+      'the staged folder was renamed, not copied'
+    )
 
     const again = await ensureExtensionFolder(paths, locateBundledExtension([bundled])!, { isPackaged: false })
 
@@ -151,7 +165,10 @@ describe('extension store', () => {
     // A newer bundle replaces the folder; the old one is parked for rollback.
     const zip2 = extensionZip('1.0.5')
     const bundled2 = await bundleDir(path.join(dir, 'two'), '1.0.5', { zip: zip2, release: releaseFor(zip2, '1.0.5') })
-    const updated = await ensureExtensionFolder(paths, locateBundledExtension([bundled2])!, { isPackaged: false, log: m => logs.push(m) })
+    const updated = await ensureExtensionFolder(paths, locateBundledExtension([bundled2])!, {
+      isPackaged: false,
+      log: m => logs.push(m)
+    })
 
     assert.equal(updated.action, 'updated')
     assert.equal(readInstalledVersion(paths.installDir), '1.0.5')
@@ -170,28 +187,51 @@ describe('extension store', () => {
     const paths = webmatePaths(path.join(dir, 'root'))
     const zip = extensionZip('1.0.4')
 
-    const mismatched = await bundleDir(path.join(dir, 'm'), '1.0.4', { zip, release: releaseFor(extensionZip('1.0.4', 'AAAA'), '1.0.4') })
+    const mismatched = await bundleDir(path.join(dir, 'm'), '1.0.4', {
+      zip,
+      release: releaseFor(extensionZip('1.0.4', 'AAAA'), '1.0.4')
+    })
 
-    await assert.rejects(() => ensureExtensionFolder(paths, locateBundledExtension([mismatched])!, { isPackaged: false }), /sha256/)
+    await assert.rejects(
+      () => ensureExtensionFolder(paths, locateBundledExtension([mismatched])!, { isPackaged: false }),
+      /sha256/
+    )
 
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
     const strangerKey = privateKey.export({ type: 'pkcs8', format: 'pem' })
-    const strangerSpki = generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ type: 'spki', format: 'der' }).toString('base64')
+    const strangerSpki = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .publicKey.export({ type: 'spki', format: 'der' })
+      .toString('base64')
     void strangerKey
     const wrongKeyZip = extensionZip('1.0.4', strangerSpki)
-    const wrongKey = await bundleDir(path.join(dir, 'k'), '1.0.4', { zip: wrongKeyZip, release: releaseFor(wrongKeyZip, '1.0.4') })
+    const wrongKey = await bundleDir(path.join(dir, 'k'), '1.0.4', {
+      zip: wrongKeyZip,
+      release: releaseFor(wrongKeyZip, '1.0.4')
+    })
 
-    await assert.rejects(() => ensureExtensionFolder(paths, locateBundledExtension([wrongKey])!, { isPackaged: false }), /expected extension ID/)
+    await assert.rejects(
+      () => ensureExtensionFolder(paths, locateBundledExtension([wrongKey])!, { isPackaged: false }),
+      /expected extension ID/
+    )
     assert.equal(fs.existsSync(path.join(paths.versionsDir, '1.0.4')), false, 'a refused stage is removed')
 
     const lyingZip = extensionZip('9.9.9')
-    const lying = await bundleDir(path.join(dir, 'l'), '1.0.4', { zip: lyingZip, release: releaseFor(lyingZip, '1.0.4') })
+    const lying = await bundleDir(path.join(dir, 'l'), '1.0.4', {
+      zip: lyingZip,
+      release: releaseFor(lyingZip, '1.0.4')
+    })
 
-    await assert.rejects(() => ensureExtensionFolder(paths, locateBundledExtension([lying])!, { isPackaged: false }), /version 9\.9\.9, expected 1\.0\.4/)
+    await assert.rejects(
+      () => ensureExtensionFolder(paths, locateBundledExtension([lying])!, { isPackaged: false }),
+      /version 9\.9\.9, expected 1\.0\.4/
+    )
 
     const unsignedInPackagedApp = await bundleDir(path.join(dir, 'u'), '1.0.4', { zip, release: null })
 
-    await assert.rejects(() => ensureExtensionFolder(paths, locateBundledExtension([unsignedInPackagedApp])!, { isPackaged: true }), /no release.json/)
+    await assert.rejects(
+      () => ensureExtensionFolder(paths, locateBundledExtension([unsignedInPackagedApp])!, { isPackaged: true }),
+      /no release.json/
+    )
     assert.equal(fs.existsSync(paths.installDir), false)
   })
 
@@ -202,7 +242,11 @@ describe('extension store', () => {
     const bundled = await bundleDir(dir, '1.0.4', { zip, release: releaseFor(zip, '1.0.4', keys.privatePem) })
     const located = locateBundledExtension([bundled])!
 
-    await assert.rejects(() => verifyBundledPackage(located, zip, { isPackaged: false }), /signature does not verify/, 'a present-but-foreign signature is refused even in a source build')
+    await assert.rejects(
+      () => verifyBundledPackage(located, zip, { isPackaged: false }),
+      /signature does not verify/,
+      'a present-but-foreign signature is refused even in a source build'
+    )
     const unsigned = await bundleDir(path.join(dir, 'x'), '1.0.4', { zip, release: releaseFor(zip, '1.0.4') })
     const result = await verifyBundledPackage(locateBundledExtension([unsigned])!, zip, { isPackaged: false })
 
@@ -225,6 +269,10 @@ describe('extension store', () => {
     await fsp.mkdir(path.join(dir, 'a'))
     await renameWithRetry(path.join(dir, 'a'), path.join(dir, 'b'), 2, 1)
     assert.equal(fs.existsSync(path.join(dir, 'b')), true)
-    await assert.rejects(() => renameWithRetry(path.join(dir, 'nope'), path.join(dir, 'c'), 2, 1), /ENOENT/, 'non-busy errors surface at once')
+    await assert.rejects(
+      () => renameWithRetry(path.join(dir, 'nope'), path.join(dir, 'c'), 2, 1),
+      /ENOENT/,
+      'non-busy errors surface at once'
+    )
   })
 })

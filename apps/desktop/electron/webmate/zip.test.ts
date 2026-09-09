@@ -104,7 +104,10 @@ describe('zip reader', () => {
     ])
 
     await assert.rejects(() => extractZip(hostile, path.join(dir, 'hostile')), /unsafe entry name/)
-    await assert.rejects(() => fsp.stat(path.join(dir, 'hostile', 'ok.txt')), 'nothing may be written from a refused archive')
+    await assert.rejects(
+      () => fsp.stat(path.join(dir, 'hostile', 'ok.txt')),
+      'nothing may be written from a refused archive'
+    )
     await assert.rejects(() => fsp.stat(path.join(dir, 'escape.txt')))
   })
 })

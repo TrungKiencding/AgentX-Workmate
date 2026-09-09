@@ -49,7 +49,10 @@ export function listZipEntries(archive: Buffer): ZipEntry[] {
   let eocd = -1
 
   for (let offset = archive.length - 22; offset >= earliest; offset -= 1) {
-    if (archive.readUInt32LE(offset) === EOCD_SIGNATURE && offset + 22 + archive.readUInt16LE(offset + 20) === archive.length) {
+    if (
+      archive.readUInt32LE(offset) === EOCD_SIGNATURE &&
+      offset + 22 + archive.readUInt16LE(offset + 20) === archive.length
+    ) {
       eocd = offset
 
       break

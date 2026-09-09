@@ -27,7 +27,10 @@ describe('sendWebmateCommand', () => {
     assert.equal(id, 'cmd-1')
     assert.deepEqual(dirs, ['/home/k/.agentx/webmate/commands'])
     assert.deepEqual([...files.keys()], ['/home/k/.agentx/webmate/commands/cmd-1.json'])
-    assert.deepEqual(JSON.parse(files.get('/home/k/.agentx/webmate/commands/cmd-1.json')!), { id: 'cmd-1', action: 'prepare_update' })
+    assert.deepEqual(JSON.parse(files.get('/home/k/.agentx/webmate/commands/cmd-1.json')!), {
+      id: 'cmd-1',
+      action: 'prepare_update'
+    })
   })
 })
 
@@ -88,6 +91,9 @@ describe('parseLastCommand', () => {
       startedAt: 's',
       finishedAt: 'f'
     })
-    assert.equal(parseLastCommand({ id: 'a', action: 'prepare_update', ok: false, busy: 2, error: 'still 2 run(s) busy' })?.busy, 2)
+    assert.equal(
+      parseLastCommand({ id: 'a', action: 'prepare_update', ok: false, busy: 2, error: 'still 2 run(s) busy' })?.busy,
+      2
+    )
   })
 })

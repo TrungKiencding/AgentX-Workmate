@@ -6,10 +6,19 @@ import path from 'node:path'
 
 import { afterEach, describe, test } from 'vitest'
 
-import { buildWorkmateJson, defaultPairingIo, ensurePairing, type PairingIo, parsePairingFile, writeWorkmateJsonInto } from './pairing'
+import {
+  buildWorkmateJson,
+  defaultPairingIo,
+  ensurePairing,
+  type PairingIo,
+  parsePairingFile,
+  writeWorkmateJsonInto
+} from './pairing'
 import { webmatePaths } from './paths'
 
-function memoryIo(initial: Record<string, string> = {}): PairingIo & { files: Map<string, string>; modes: Map<string, number>; writes: string[] } {
+function memoryIo(
+  initial: Record<string, string> = {}
+): PairingIo & { files: Map<string, string>; modes: Map<string, number>; writes: string[] } {
   const files = new Map(Object.entries(initial))
   const modes = new Map<string, number>()
   const writes: string[] = []
@@ -43,11 +52,20 @@ const paths = webmatePaths('/home/k/.agentx', path.posix)
 
 describe('parsePairingFile', () => {
   test('accepts a Workmate file and rejects every broken shape', () => {
-    const good = parsePairingFile(JSON.stringify({ schema: 1, token: 'a'.repeat(44), port: 17374, installId: 'i', createdAt: 't' }))
+    const good = parsePairingFile(
+      JSON.stringify({ schema: 1, token: 'a'.repeat(44), port: 17374, installId: 'i', createdAt: 't' })
+    )
 
     assert.deepEqual(good, { schema: 1, token: 'a'.repeat(44), port: 17374, installId: 'i', createdAt: 't' })
 
-    for (const bad of [null, '', '{', '[]', JSON.stringify({ schema: 2, token: 'a'.repeat(44) }), JSON.stringify({ schema: 1, token: 'short' })]) {
+    for (const bad of [
+      null,
+      '',
+      '{',
+      '[]',
+      JSON.stringify({ schema: 2, token: 'a'.repeat(44) }),
+      JSON.stringify({ schema: 1, token: 'short' })
+    ]) {
       assert.equal(parsePairingFile(bad), null, JSON.stringify(bad))
     }
   })
@@ -64,7 +82,13 @@ describe('ensurePairing', () => {
     assert.equal(io.modes.get(paths.pairingFile), 0o600)
     const written = JSON.parse(io.files.get(paths.pairingFile)!)
 
-    assert.deepEqual(written, { schema: 1, token: first.pairing.token, port: 17374, installId: 'uuid-1', createdAt: '2026-09-09T00:00:00.000Z' })
+    assert.deepEqual(written, {
+      schema: 1,
+      token: first.pairing.token,
+      port: 17374,
+      installId: 'uuid-1',
+      createdAt: '2026-09-09T00:00:00.000Z'
+    })
     assert.ok(first.pairing.token.length >= 32)
 
     // Second boot: nothing changes, nothing is rewritten.
@@ -119,7 +143,11 @@ describe('ensurePairing', () => {
 
     assert.equal(rotated.pairingWritten, true)
     assert.notEqual(rotated.pairing.token, first.pairing.token)
-    assert.equal(rotated.pairing.installId, first.pairing.installId, 'the install keeps its identity across token resets')
+    assert.equal(
+      rotated.pairing.installId,
+      first.pairing.installId,
+      'the install keeps its identity across token resets'
+    )
     assert.equal(JSON.parse(io.files.get(paths.workmateJson)!).token, rotated.pairing.token)
     assert.equal(JSON.parse(io.files.get(paths.pairingFile)!).token, rotated.pairing.token)
   })

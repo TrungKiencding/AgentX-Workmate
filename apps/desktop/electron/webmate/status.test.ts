@@ -4,7 +4,14 @@ import path from 'node:path'
 import { describe, test } from 'vitest'
 
 import { webmatePaths } from './paths'
-import { parseBridgeState, parseUpdateCheckSummary, readWebmateStatus, type StatusIo, statusSignature, WebmateStatusWatcher } from './status'
+import {
+  parseBridgeState,
+  parseUpdateCheckSummary,
+  readWebmateStatus,
+  type StatusIo,
+  statusSignature,
+  WebmateStatusWatcher
+} from './status'
 
 const paths = webmatePaths('/home/k/.agentx', path.posix)
 

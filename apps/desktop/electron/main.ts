@@ -236,7 +236,8 @@ import {
 import { formatBlockerMessage, formatProbeFailedMessage, scanVenvBlockers } from './venv-blocker-scan'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
-import { bootstrapWebmate, readLocalWebmateStatus } from './webmate/bootstrap'
+import { readLocalWebmateStatus } from './webmate/bootstrap'
+import { WebmateService } from './webmate/service'
 import {
   computeWindowOptions,
   debounce,
@@ -12637,35 +12638,43 @@ ipcMain.handle('agentx:updates:branch:get', async () => readDesktopUpdateConfig(
 
 // ===========================================================================
 // AgentX WebMate — the browser extension Workmate installs from a folder it
-// owns (apps/desktop/WEBMATE-INTEGRATION-PLAN.md). Phase 1 wires the two
-// idempotent steps every launch runs (extension folder from the bundled
-// package, pairing files) and a local status read; the guided install,
-// Settings view and updater arrive with phase 2. Logic lives in
-// electron/webmate/*; only the IPC registration is here.
+// owns (apps/desktop/WEBMATE-INTEGRATION-PLAN.md). Every launch runs the two
+// idempotent steps (extension folder from the bundled package, pairing files);
+// the guided install, the status watcher, prefs and the signed-feed updater
+// live in electron/webmate/service.ts. Only the IPC registration is here.
 // ===========================================================================
 
-function webmateBootstrapOptions() {
-  return {
-    agentxHome: AGENTX_HOME,
-    resourcesPath: IS_PACKAGED && process.resourcesPath ? process.resourcesPath : null,
-    appRoot: APP_ROOT,
-    appVersion: resolveHermesVersion(),
-    isPackaged: IS_PACKAGED,
-    log: (message: string) => rememberLog(message)
-  }
-}
+let webmateServiceInstance: WebmateService | null = null
 
-let webmateBootstrapInFlight: Promise<Awaited<ReturnType<typeof bootstrapWebmate>>> | null = null
-
-function runWebmateBootstrap() {
-  if (!webmateBootstrapInFlight) {
-    webmateBootstrapInFlight = bootstrapWebmate(webmateBootstrapOptions()).finally(() => {
-      webmateBootstrapInFlight = null
+function webmateService(): WebmateService {
+  if (!webmateServiceInstance) {
+    webmateServiceInstance = new WebmateService({
+      agentxHome: AGENTX_HOME,
+      resourcesPath: IS_PACKAGED && process.resourcesPath ? process.resourcesPath : null,
+      appRoot: APP_ROOT,
+      appVersion: resolveHermesVersion(),
+      isPackaged: IS_PACKAGED,
+      log: (message: string) => rememberLog(message),
+      broadcast: (channel, payload) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) {
+            window.webContents.send(channel, payload)
+          }
+        }
+      },
+      openPath: dir => shell.openPath(path.normalize(dir)),
+      writeClipboard: text => clipboard.writeText(text)
     })
   }
 
-  return webmateBootstrapInFlight
+  return webmateServiceInstance
 }
+
+function runWebmateBootstrap() {
+  return webmateService().bootstrap()
+}
+
+const webmateFailure = (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) })
 
 ipcMain.handle('agentx:webmate:bootstrap', async () =>
   runWebmateBootstrap().catch(error => ({
@@ -12679,6 +12688,28 @@ ipcMain.handle('agentx:webmate:bootstrap', async () =>
 )
 
 ipcMain.handle('agentx:webmate:local-status', async () => readLocalWebmateStatus(AGENTX_HOME))
+ipcMain.handle('agentx:webmate:status', async () => webmateService().status())
+ipcMain.handle('agentx:webmate:scan', async (_event, options) => webmateService().scan(Boolean(options?.force)))
+ipcMain.handle('agentx:webmate:prepare', async () => runWebmateBootstrap())
+
+ipcMain.handle('agentx:webmate:open-guide', async (_event, request) =>
+  webmateService()
+    .openGuide({ browserId: String(request?.browserId || ''), profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null })
+    .catch(error => ({ ...webmateFailure(error), command: null, folderOpened: false, folderError: null, browser: null }))
+)
+
+ipcMain.handle('agentx:webmate:reveal-folder', async () => {
+  const error = await webmateService().revealFolder()
+
+  return error ? { ok: false, error } : { ok: true, error: null }
+})
+
+ipcMain.handle('agentx:webmate:copy-path', async () => webmateService().copyPath())
+ipcMain.handle('agentx:webmate:prefs:get', async () => webmateService().getPrefs())
+ipcMain.handle('agentx:webmate:prefs:set', async (_event, patch) => webmateService().setPrefs(patch && typeof patch === 'object' ? patch : {}))
+ipcMain.handle('agentx:webmate:reset-token', async () => webmateService().resetToken())
+ipcMain.handle('agentx:webmate:update:check', async () => webmateService().checkUpdate())
+ipcMain.handle('agentx:webmate:update:apply', async () => webmateService().applyUpdate())
 
 ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
@@ -13127,6 +13158,8 @@ app.whenReady().then(() => {
 
   // Prepare the WebMate folder and pairing off the critical path: a broken
   // bundle is logged and shown in Settings, never allowed to stall the boot.
+  // The status watcher then follows state.json so the renderer learns about
+  // the extension connecting without polling.
   runWebmateBootstrap()
     .then(result => {
       if (result.error) {
@@ -13136,6 +13169,7 @@ app.whenReady().then(() => {
       }
     })
     .catch(error => rememberLog(`[webmate] bootstrap failed: ${error?.message || String(error)}`))
+    .finally(() => webmateService().start())
 
   // Win/Linux cold start: the launching agentx:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)

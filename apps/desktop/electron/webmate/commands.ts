@@ -68,7 +68,10 @@ export interface WaitForCommandOptions {
  * running, or it is wedged; callers decide (an update falls back to swapping
  * the folder without draining).
  */
-export async function waitForCommandResult(id: string, options: WaitForCommandOptions): Promise<WebmateLastCommand | null> {
+export async function waitForCommandResult(
+  id: string,
+  options: WaitForCommandOptions
+): Promise<WebmateLastCommand | null> {
   const pollMs = options.pollMs ?? 250
   const sleep = options.sleep ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)))
   const now = options.now ?? Date.now

@@ -10,7 +10,9 @@ import { bootstrapWebmate, readLocalWebmateStatus } from './bootstrap'
 import { sha256Hex } from './release-feed'
 import { buildZip } from './zip-writer.test-helper'
 
-const REAL_KEY = fs.readFileSync(path.join(__dirname, 'extension-store.test.ts'), 'utf8').match(/const REAL_KEY =\s*\n\s*'([^']+)'/)![1]
+const REAL_KEY = fs
+  .readFileSync(path.join(__dirname, 'extension-store.test.ts'), 'utf8')
+  .match(/const REAL_KEY =\s*\n\s*'([^']+)'/)![1]
 
 const dirs: string[] = []
 
@@ -28,7 +30,10 @@ afterEach(async () => {
 
 async function stageBundle(appRoot: string, version: string) {
   const zip = buildZip([
-    { name: 'manifest.json', data: JSON.stringify({ manifest_version: 3, name: 'AgentX WebMate', version, key: REAL_KEY }) },
+    {
+      name: 'manifest.json',
+      data: JSON.stringify({ manifest_version: 3, name: 'AgentX WebMate', version, key: REAL_KEY })
+    },
     { name: 'src/background.js', data: '// bg' }
   ])
 
@@ -42,7 +47,11 @@ async function stageBundle(appRoot: string, version: string) {
       schema: 1,
       version,
       publishedAt: '2026-09-09T00:00:00.000Z',
-      chrome: { url: `https://github.com/astralxkienlt/agentx-webmate/releases/download/v${version}/agentx-webmate-chrome-${version}.zip`, sha256: sha256Hex(zip), bytes: zip.length },
+      chrome: {
+        url: `https://github.com/astralxkienlt/agentx-webmate/releases/download/v${version}/agentx-webmate-chrome-${version}.zip`,
+        sha256: sha256Hex(zip),
+        bytes: zip.length
+      },
       minWorkmate: '0.21.0',
       minProtocol: 3,
       notes: { vi: 'x', en: 'x' }
@@ -59,14 +68,25 @@ describe('bootstrapWebmate', () => {
 
     await stageBundle(appRoot, '1.0.4')
 
-    const first = await bootstrapWebmate({ agentxHome: home, resourcesPath: null, appRoot, appVersion: '0.21.0', isPackaged: false, log: m => logs.push(m) })
+    const first = await bootstrapWebmate({
+      agentxHome: home,
+      resourcesPath: null,
+      appRoot,
+      appVersion: '0.21.0',
+      isPackaged: false,
+      log: m => logs.push(m)
+    })
 
     assert.equal(first.error, null)
     assert.equal(first.bundledVersion, '1.0.4')
     assert.equal(first.extension?.action, 'installed')
     assert.equal(first.installedVersion, '1.0.4')
     assert.deepEqual(first.pairing, { pairingWritten: true, workmateJsonWritten: true, extensionPresent: true })
-    assert.equal(first.paths.root, path.join(dir, 'home', '.agentx', 'webmate'), 'anchored at the install root, not the account home')
+    assert.equal(
+      first.paths.root,
+      path.join(dir, 'home', '.agentx', 'webmate'),
+      'anchored at the install root, not the account home'
+    )
 
     const workmate = JSON.parse(await fsp.readFile(first.paths.workmateJson, 'utf8'))
     const pairing = JSON.parse(await fsp.readFile(first.paths.pairingFile, 'utf8'))
@@ -77,7 +97,13 @@ describe('bootstrapWebmate', () => {
     assert.equal(workmate.minServerVersion, '1.1.0')
     assert.equal(pairing.port, 17374)
 
-    const second = await bootstrapWebmate({ agentxHome: home, resourcesPath: null, appRoot, appVersion: '0.21.0', isPackaged: false })
+    const second = await bootstrapWebmate({
+      agentxHome: home,
+      resourcesPath: null,
+      appRoot,
+      appVersion: '0.21.0',
+      isPackaged: false
+    })
 
     assert.equal(second.extension?.action, 'kept')
     assert.deepEqual(second.pairing, { pairingWritten: false, workmateJsonWritten: false, extensionPresent: true })
@@ -94,7 +120,13 @@ describe('bootstrapWebmate', () => {
     const dir = await tempDir()
     const appRoot = path.join(dir, 'app')
     const home = path.join(dir, 'home')
-    const result = await bootstrapWebmate({ agentxHome: home, resourcesPath: path.join(dir, 'resources'), appRoot, appVersion: '0.21.0', isPackaged: true })
+    const result = await bootstrapWebmate({
+      agentxHome: home,
+      resourcesPath: path.join(dir, 'resources'),
+      appRoot,
+      appVersion: '0.21.0',
+      isPackaged: true
+    })
 
     assert.equal(result.error, null)
     assert.equal(result.bundledVersion, null)
@@ -113,7 +145,13 @@ describe('bootstrapWebmate', () => {
     await fsp.mkdir(path.join(resources, 'webmate'), { recursive: true })
     await fsp.cp(path.join(appRoot, 'build', 'webmate'), path.join(resources, 'webmate'), { recursive: true })
 
-    const result = await bootstrapWebmate({ agentxHome: path.join(dir, 'home'), resourcesPath: resources, appRoot: path.join(dir, 'elsewhere'), appVersion: '0.21.0', isPackaged: true })
+    const result = await bootstrapWebmate({
+      agentxHome: path.join(dir, 'home'),
+      resourcesPath: resources,
+      appRoot: path.join(dir, 'elsewhere'),
+      appVersion: '0.21.0',
+      isPackaged: true
+    })
 
     assert.match(String(result.error), /unsigned/)
     assert.equal(result.installedVersion, null)

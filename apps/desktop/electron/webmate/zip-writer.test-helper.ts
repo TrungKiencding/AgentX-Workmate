@@ -28,7 +28,11 @@ export function buildZip(inputs: ZipInput[]): Buffer {
 
   for (const input of inputs) {
     const isDirectory = input.name.endsWith('/')
-    const data = isDirectory ? Buffer.alloc(0) : Buffer.isBuffer(input.data) ? input.data : Buffer.from(input.data ?? '', 'utf8')
+    const data = isDirectory
+      ? Buffer.alloc(0)
+      : Buffer.isBuffer(input.data)
+        ? input.data
+        : Buffer.from(input.data ?? '', 'utf8')
     const method = isDirectory || input.store ? 0 : 8
     const payload = method === 8 ? deflateRawSync(data) : data
     const name = Buffer.from(input.name, 'utf8')

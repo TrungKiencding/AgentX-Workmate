@@ -67,7 +67,11 @@ export function planExtensionsPageLaunch(target: GuideTarget, platform: NodeJS.P
     return null
   }
 
-  return { file: browser.executable, args: browserArgs, command: [quote(browser.executable), ...browserArgs.map(quote)].join(' ') }
+  return {
+    file: browser.executable,
+    args: browserArgs,
+    command: [quote(browser.executable), ...browserArgs.map(quote)].join(' ')
+  }
 }
 
 export type SpawnDetached = (file: string, args: string[]) => Promise<void>

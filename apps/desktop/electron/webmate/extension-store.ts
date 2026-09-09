@@ -22,7 +22,13 @@ import { promises as fsp } from 'node:fs'
 import nodePath from 'node:path'
 
 import { WEBMATE_EXTENSION_ID, type WebmatePaths } from './paths'
-import { compareVersions, parseReleaseManifest, type ReleaseManifest, sha256Hex, verifyReleaseManifest } from './release-feed'
+import {
+  compareVersions,
+  parseReleaseManifest,
+  type ReleaseManifest,
+  sha256Hex,
+  verifyReleaseManifest
+} from './release-feed'
 import { extractZip } from './zip'
 
 /** Chrome's ID for a manifest `key`: SHA-256 of the SPKI, first 16 bytes, nibbles a–p. */
@@ -171,7 +177,9 @@ export async function verifyBundledPackage(
   }
 
   if (release.chrome.sha256 !== digest) {
-    throw new Error(`bundled zip sha256 ${digest.slice(0, 12)}… does not match release.json ${release.chrome.sha256.slice(0, 12)}…`)
+    throw new Error(
+      `bundled zip sha256 ${digest.slice(0, 12)}… does not match release.json ${release.chrome.sha256.slice(0, 12)}…`
+    )
   }
 
   const signed = verifyReleaseManifest(raw)
@@ -196,18 +204,32 @@ export async function verifyBundledPackage(
  * Install or update the extension folder from the bundled package.
  * Idempotent; never removes a working folder without a verified replacement.
  */
-export async function ensureExtensionFolder(paths: WebmatePaths, bundled: BundledExtension | null, options: EnsureOptions): Promise<InstallOutcome> {
+export async function ensureExtensionFolder(
+  paths: WebmatePaths,
+  bundled: BundledExtension | null,
+  options: EnsureOptions
+): Promise<InstallOutcome> {
   const log = options.log ?? (() => {})
   const expectedId = options.expectedExtensionId ?? WEBMATE_EXTENSION_ID
   const installedVersion = readInstalledVersion(paths.installDir)
   const base = { installedVersion, bundledVersion: bundled?.version ?? null }
 
   if (!bundled) {
-    return { ...base, action: installedVersion ? 'kept' : 'skipped', reason: 'no bundled package', verified: { sha256: false, signature: 'unsigned' } }
+    return {
+      ...base,
+      action: installedVersion ? 'kept' : 'skipped',
+      reason: 'no bundled package',
+      verified: { sha256: false, signature: 'unsigned' }
+    }
   }
 
   if (installedVersion && compareVersions(installedVersion, bundled.version) >= 0) {
-    return { ...base, action: 'kept', reason: `installed ${installedVersion} is not older than bundled ${bundled.version}`, verified: { sha256: false, signature: 'unsigned' } }
+    return {
+      ...base,
+      action: 'kept',
+      reason: `installed ${installedVersion} is not older than bundled ${bundled.version}`,
+      verified: { sha256: false, signature: 'unsigned' }
+    }
   }
 
   const zip = await fsp.readFile(bundled.zipPath)
@@ -260,7 +282,9 @@ export async function ensureExtensionFolder(paths: WebmatePaths, bundled: Bundle
     return { ...base, action: 'skipped', reason: `folder busy: ${message}`, stagedDir, verified }
   }
 
-  log(`[webmate] ${installedVersion ? `updated ${installedVersion} →` : 'installed'} ${bundled.version} at ${paths.installDir}`)
+  log(
+    `[webmate] ${installedVersion ? `updated ${installedVersion} →` : 'installed'} ${bundled.version} at ${paths.installDir}`
+  )
 
   return { ...base, action: installedVersion ? 'updated' : 'installed', installedVersion: bundled.version, verified }
 }

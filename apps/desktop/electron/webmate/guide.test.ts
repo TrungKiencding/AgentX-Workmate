@@ -28,9 +28,18 @@ describe('planExtensionsPageLaunch', () => {
   test('macOS goes through `open -na <app> --args` so the chosen browser and profile receive the URL', () => {
     const plan = planExtensionsPageLaunch({ browser: chromeMac, profileDir: 'Profile 2' }, 'darwin')
 
-    assert.deepEqual(plan?.args, ['-na', '/Applications/Google Chrome.app', '--args', '--profile-directory=Profile 2', 'chrome://extensions'])
+    assert.deepEqual(plan?.args, [
+      '-na',
+      '/Applications/Google Chrome.app',
+      '--args',
+      '--profile-directory=Profile 2',
+      'chrome://extensions'
+    ])
     assert.equal(plan?.file, 'open')
-    assert.equal(plan?.command, 'open -na "/Applications/Google Chrome.app" --args "--profile-directory=Profile 2" chrome://extensions')
+    assert.equal(
+      plan?.command,
+      'open -na "/Applications/Google Chrome.app" --args "--profile-directory=Profile 2" chrome://extensions'
+    )
   })
 
   test('Windows launches the executable directly with the profile switch', () => {
@@ -41,16 +50,38 @@ describe('planExtensionsPageLaunch', () => {
   })
 
   test('single-profile browsers and missing profiles omit --profile-directory', () => {
-    const opera = { ...edgeWin, id: 'opera' as const, name: 'Opera', singleProfile: true, extensionsUrl: 'chrome://extensions' }
+    const opera = {
+      ...edgeWin,
+      id: 'opera' as const,
+      name: 'Opera',
+      singleProfile: true,
+      extensionsUrl: 'chrome://extensions'
+    }
 
-    assert.deepEqual(planExtensionsPageLaunch({ browser: opera, profileDir: 'Default' }, 'win32')?.args, ['chrome://extensions'])
-    assert.deepEqual(planExtensionsPageLaunch({ browser: edgeWin, profileDir: null }, 'win32')?.args, ['edge://extensions'])
+    assert.deepEqual(planExtensionsPageLaunch({ browser: opera, profileDir: 'Default' }, 'win32')?.args, [
+      'chrome://extensions'
+    ])
+    assert.deepEqual(planExtensionsPageLaunch({ browser: edgeWin, profileDir: null }, 'win32')?.args, [
+      'edge://extensions'
+    ])
   })
 
   test('unsupported browsers and browsers without a binary cannot be planned', () => {
-    assert.equal(planExtensionsPageLaunch({ browser: { ...chromeMac, supported: false }, profileDir: null }, 'darwin'), null)
-    assert.equal(planExtensionsPageLaunch({ browser: { ...edgeWin, executable: null }, profileDir: null }, 'win32'), null)
-    assert.equal(planExtensionsPageLaunch({ browser: { ...chromeMac, appPath: null, executable: null }, profileDir: null }, 'darwin'), null)
+    assert.equal(
+      planExtensionsPageLaunch({ browser: { ...chromeMac, supported: false }, profileDir: null }, 'darwin'),
+      null
+    )
+    assert.equal(
+      planExtensionsPageLaunch({ browser: { ...edgeWin, executable: null }, profileDir: null }, 'win32'),
+      null
+    )
+    assert.equal(
+      planExtensionsPageLaunch(
+        { browser: { ...chromeMac, appPath: null, executable: null }, profileDir: null },
+        'darwin'
+      ),
+      null
+    )
   })
 })
 
@@ -73,7 +104,10 @@ describe('openExtensionsPage', () => {
     assert.equal(failed.error, 'ENOENT')
     assert.ok(failed.command)
 
-    const unplannable = await openExtensionsPage({ browser: { ...edgeWin, executable: null }, profileDir: null }, 'win32')
+    const unplannable = await openExtensionsPage(
+      { browser: { ...edgeWin, executable: null }, profileDir: null },
+      'win32'
+    )
 
     assert.deepEqual(unplannable, { ok: false, command: null, error: 'browser-not-launchable' })
   })

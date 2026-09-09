@@ -160,7 +160,11 @@ const stringify = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`
  * Make sure a pairing exists and the extension folder (if present) carries it.
  * Safe to call on every boot and after every folder swap.
  */
-export function ensurePairing(paths: WebmatePaths, options: PairingOptions, io: PairingIo = defaultPairingIo()): PairingOutcome {
+export function ensurePairing(
+  paths: WebmatePaths,
+  options: PairingOptions,
+  io: PairingIo = defaultPairingIo()
+): PairingOutcome {
   io.mkdirp(paths.root)
 
   let pairing = parsePairingFile(io.readText(paths.pairingFile))
@@ -173,7 +177,8 @@ export function ensurePairing(paths: WebmatePaths, options: PairingOptions, io: 
       token: options.rotate || pairing === null ? io.randomToken() : pairing.token,
       port: options.port,
       installId: pairing?.installId || io.uuid(),
-      createdAt: options.rotate || pairing === null ? io.now().toISOString() : pairing.createdAt || io.now().toISOString()
+      createdAt:
+        options.rotate || pairing === null ? io.now().toISOString() : pairing.createdAt || io.now().toISOString()
     }
     io.writeTextAtomic(paths.pairingFile, stringify(pairing), 0o600)
     pairingWritten = true
@@ -195,6 +200,11 @@ export function ensurePairing(paths: WebmatePaths, options: PairingOptions, io: 
 }
 
 /** Write workmate.json into an arbitrary staged folder (a version about to be swapped in). */
-export function writeWorkmateJsonInto(folder: string, pairing: PairingFile, options: PairingOptions, io: PairingIo = defaultPairingIo()): void {
+export function writeWorkmateJsonInto(
+  folder: string,
+  pairing: PairingFile,
+  options: PairingOptions,
+  io: PairingIo = defaultPairingIo()
+): void {
   io.writeTextAtomic(nodePath.join(folder, 'workmate.json'), stringify(buildWorkmateJson(pairing, options)))
 }

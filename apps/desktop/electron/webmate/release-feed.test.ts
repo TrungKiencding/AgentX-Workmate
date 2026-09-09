@@ -49,7 +49,10 @@ function sampleManifest() {
 describe('release feed', () => {
   test('canonical JSON matches the WebMate signer byte for byte', () => {
     // Same vector as test/workmate-install.test.mjs in the WebMate repo.
-    assert.equal(canonicalJson({ b: 1, a: { d: [3, { z: 1, y: 2 }], c: null }, u: undefined }), '{"a":{"c":null,"d":[3,{"y":2,"z":1}]},"b":1}')
+    assert.equal(
+      canonicalJson({ b: 1, a: { d: [3, { z: 1, y: 2 }], c: null }, u: undefined }),
+      '{"a":{"c":null,"d":[3,{"y":2,"z":1}]},"b":1}'
+    )
     assert.equal(canonicalJson([undefined]), '[null]')
     assert.equal(canonicalJson('x'), '"x"')
   })
@@ -138,7 +141,10 @@ describe('release feed', () => {
   })
 
   test('the embedded public key is a usable Ed25519 key that does not accept a stranger', () => {
-    assert.match(WEBMATE_RELEASE_PUBLIC_KEY, /^-----BEGIN PUBLIC KEY-----\n[A-Za-z0-9+/=]+\n-----END PUBLIC KEY-----\n$/)
+    assert.match(
+      WEBMATE_RELEASE_PUBLIC_KEY,
+      /^-----BEGIN PUBLIC KEY-----\n[A-Za-z0-9+/=]+\n-----END PUBLIC KEY-----\n$/
+    )
     const stranger = keyPair()
     const signed = signManifest(sampleManifest(), stranger.privatePem)
 

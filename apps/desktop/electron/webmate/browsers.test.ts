@@ -112,7 +112,10 @@ describe('pure helpers', () => {
   })
 
   test('executableFromCommand strips the quoted program from a shell open command', () => {
-    assert.equal(executableFromCommand('"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -- "%1"'), 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+    assert.equal(
+      executableFromCommand('"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -- "%1"'),
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    )
     assert.equal(executableFromCommand('C:\\Tools\\brave.exe --flag'), 'C:\\Tools\\brave.exe')
     assert.equal(executableFromCommand('   '), null)
   })
@@ -140,7 +143,12 @@ describe('pure helpers', () => {
     })
 
     assert.equal(httpsHandlerFromLaunchServices(json), 'com.microsoft.edgemac')
-    assert.equal(httpsHandlerFromLaunchServices(JSON.stringify({ LSHandlers: [{ LSHandlerURLScheme: 'http', LSHandlerRoleAll: 'com.brave.browser' }] })), 'com.brave.browser')
+    assert.equal(
+      httpsHandlerFromLaunchServices(
+        JSON.stringify({ LSHandlers: [{ LSHandlerURLScheme: 'http', LSHandlerRoleAll: 'com.brave.browser' }] })
+      ),
+      'com.brave.browser'
+    )
     assert.equal(httpsHandlerFromLaunchServices('{}'), null)
     assert.equal(httpsHandlerFromLaunchServices('not json'), null)
   })
@@ -152,14 +160,25 @@ describe('pure helpers', () => {
   })
 
   test('expandEnv resolves %VAR% and ~, and reports a missing variable as null', () => {
-    assert.equal(expandEnv('%LOCALAPPDATA%\\Google', { LOCALAPPDATA: 'C:\\Users\\k\\AppData\\Local' }, 'C:\\Users\\k'), 'C:\\Users\\k\\AppData\\Local\\Google')
+    assert.equal(
+      expandEnv('%LOCALAPPDATA%\\Google', { LOCALAPPDATA: 'C:\\Users\\k\\AppData\\Local' }, 'C:\\Users\\k'),
+      'C:\\Users\\k\\AppData\\Local\\Google'
+    )
     assert.equal(expandEnv('%ProgramFiles(x86)%\\Edge', {}, 'C:\\Users\\k'), null)
     assert.equal(expandEnv('~/Library', {}, '/Users/k'), '/Users/k/Library')
   })
 
   test('samePath ignores case and trailing separators where the filesystem does', () => {
     assert.equal(samePath('C:\\A\\AgentX WebMate\\', 'c:\\a\\agentx webmate', path.win32, 'win32'), true)
-    assert.equal(samePath('/Users/k/.agentx/webmate/AgentX WebMate', '/Users/k/.agentx/webmate/agentx webmate/', path.posix, 'darwin'), true)
+    assert.equal(
+      samePath(
+        '/Users/k/.agentx/webmate/AgentX WebMate',
+        '/Users/k/.agentx/webmate/agentx webmate/',
+        path.posix,
+        'darwin'
+      ),
+      true
+    )
     assert.equal(samePath('/a/b', '/a/B', path.posix, 'linux'), false)
   })
 
@@ -177,10 +196,13 @@ describe('pure helpers', () => {
     )
 
     assert.equal(parsed.lastUsed, 'Profile 2')
-    assert.deepEqual(parsed.entries.map(e => [e.dir, e.name, e.gaiaName, e.usingDefaultName, e.activeTime]), [
-      ['Default', 'Kiên', 'Kiên Trung', false, 1787574339.5],
-      ['Profile 2', 'Profile 2', 'Work Me', true, null]
-    ])
+    assert.deepEqual(
+      parsed.entries.map(e => [e.dir, e.name, e.gaiaName, e.usingDefaultName, e.activeTime]),
+      [
+        ['Default', 'Kiên', 'Kiên Trung', false, 1787574339.5],
+        ['Profile 2', 'Profile 2', 'Work Me', true, null]
+      ]
+    )
     assert.deepEqual(parseLocalState('garbage'), { lastUsed: null, entries: [] })
   })
 
@@ -196,12 +218,29 @@ describe('pure helpers', () => {
     })
 
     // Chrome ≥ 130: a list of reasons. Older: a bitmask or state 0.
-    assert.equal(webmateStateFromRecord({ ...ours, disable_reasons: [1] }, INSTALL_MAC, path.posix, 'darwin').disabled, true)
-    assert.equal(webmateStateFromRecord({ ...ours, disable_reasons: 1 }, INSTALL_MAC, path.posix, 'darwin').disabled, true)
-    assert.equal(webmateStateFromRecord({ ...ours, disable_reasons: [] , state: 0 }, INSTALL_MAC, path.posix, 'darwin').disabled, true)
-    assert.equal(webmateStateFromRecord({ ...ours, disable_reasons: [] }, INSTALL_MAC, path.posix, 'darwin').disabled, false)
+    assert.equal(
+      webmateStateFromRecord({ ...ours, disable_reasons: [1] }, INSTALL_MAC, path.posix, 'darwin').disabled,
+      true
+    )
+    assert.equal(
+      webmateStateFromRecord({ ...ours, disable_reasons: 1 }, INSTALL_MAC, path.posix, 'darwin').disabled,
+      true
+    )
+    assert.equal(
+      webmateStateFromRecord({ ...ours, disable_reasons: [], state: 0 }, INSTALL_MAC, path.posix, 'darwin').disabled,
+      true
+    )
+    assert.equal(
+      webmateStateFromRecord({ ...ours, disable_reasons: [] }, INSTALL_MAC, path.posix, 'darwin').disabled,
+      false
+    )
 
-    const dev = webmateStateFromRecord({ location: 4, path: '/Users/k/Desktop/AgentX-WebMate/brand-dist/chrome' }, INSTALL_MAC, path.posix, 'darwin')
+    const dev = webmateStateFromRecord(
+      { location: 4, path: '/Users/k/Desktop/AgentX-WebMate/brand-dist/chrome' },
+      INSTALL_MAC,
+      path.posix,
+      'darwin'
+    )
 
     assert.equal(dev.installed, false)
     assert.equal(dev.elsewhere, true)
@@ -213,11 +252,18 @@ describe('pure helpers', () => {
     assert.equal(webmateStateFromRecord(null, INSTALL_MAC, path.posix, 'darwin').installed, false)
 
     // Windows: Chrome writes backslashes; our path came from path.join too.
-    assert.equal(webmateStateFromRecord({ location: 4, path: INSTALL_WIN.toUpperCase() }, INSTALL_WIN, path.win32, 'win32').installed, true)
+    assert.equal(
+      webmateStateFromRecord({ location: 4, path: INSTALL_WIN.toUpperCase() }, INSTALL_WIN, path.win32, 'win32')
+        .installed,
+      true
+    )
   })
 
   test('extensionRecordFromPreferences distinguishes "not present" from "could not parse"', () => {
-    assert.deepEqual(extensionRecordFromPreferences(securePrefs({}), WEBMATE_EXTENSION_ID), { ok: true, record: undefined })
+    assert.deepEqual(extensionRecordFromPreferences(securePrefs({}), WEBMATE_EXTENSION_ID), {
+      ok: true,
+      record: undefined
+    })
     assert.equal(extensionRecordFromPreferences('{"extensions": {"settings": {', WEBMATE_EXTENSION_ID).ok, false)
     assert.equal(extensionRecordFromPreferences(null, WEBMATE_EXTENSION_ID).ok, false)
   })
@@ -244,7 +290,12 @@ describe('scanBrowsers on macOS', () => {
         profile: {
           info_cache: {
             Default: { name: 'Kiên', active_time: 1787574339.59, is_using_default_name: false },
-            'Profile 2': { name: 'Person 2', gaia_name: 'Work Kiên', is_using_default_name: true, active_time: 1787000000 }
+            'Profile 2': {
+              name: 'Person 2',
+              gaia_name: 'Work Kiên',
+              is_using_default_name: true,
+              active_time: 1787000000
+            }
           },
           last_active_profiles: ['Default']
         }
@@ -254,7 +305,11 @@ describe('scanBrowsers on macOS', () => {
         other: { location: 5, path: 'x' }
       }),
       [`${chromeData}/Profile 2/Secure Preferences`]: securePrefs({
-        [WEBMATE_EXTENSION_ID]: { location: 4, path: '/Users/k/Desktop/AgentX-WebMate/brand-dist/chrome', disable_reasons: [1] }
+        [WEBMATE_EXTENSION_ID]: {
+          location: 4,
+          path: '/Users/k/Desktop/AgentX-WebMate/brand-dist/chrome',
+          disable_reasons: [1]
+        }
       }),
       // Edge has run but its Local State is being rewritten — profiles fall back to Default.
       [`${edgeData}/Default/Preferences`]: securePrefs({}),
@@ -290,7 +345,14 @@ describe('scanBrowsers on macOS', () => {
     assert.equal(chrome.dataDir, chromeData)
     assert.equal(chrome.extensionsUrl, 'chrome://extensions')
     assert.deepEqual(
-      chrome.profiles.map(p => [p.dir, p.displayName, p.isLastUsed, p.webmate.installed, p.webmate.disabled, p.webmate.elsewhere]),
+      chrome.profiles.map(p => [
+        p.dir,
+        p.displayName,
+        p.isLastUsed,
+        p.webmate.installed,
+        p.webmate.disabled,
+        p.webmate.elsewhere
+      ]),
       [
         ['Default', 'Kiên', true, true, false, false],
         ['Profile 2', 'Work Kiên', false, false, true, true]
@@ -302,7 +364,10 @@ describe('scanBrowsers on macOS', () => {
 
     assert.equal(edge.version, '152.0.4191.66')
     assert.equal(edge.extensionsUrl, 'edge://extensions')
-    assert.deepEqual(edge.profiles.map(p => [p.dir, p.displayName, p.webmate.installed]), [['Default', 'Default', false]])
+    assert.deepEqual(
+      edge.profiles.map(p => [p.dir, p.displayName, p.webmate.installed]),
+      [['Default', 'Default', false]]
+    )
 
     const firefox = browsers.find(b => b.id === 'firefox')!
 
@@ -353,19 +418,31 @@ describe('scanBrowsers on Windows', () => {
   const machine = (): FakeMachine => ({
     platform: 'win32',
     homeDir: home,
-    env: { LOCALAPPDATA: local, ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', APPDATA: `${home}\\AppData\\Roaming` },
+    env: {
+      LOCALAPPDATA: local,
+      ProgramFiles: 'C:\\Program Files',
+      'ProgramFiles(x86)': 'C:\\Program Files (x86)',
+      APPDATA: `${home}\\AppData\\Roaming`
+    },
     files: {
       [chromeExe]: 'MZ',
       [braveExe]: 'MZ',
-      [`${chromeData}\\Local State`]: JSON.stringify({ profile: { info_cache: { Default: { name: 'Person 1' } }, last_used: 'Default' } }),
+      [`${chromeData}\\Local State`]: JSON.stringify({
+        profile: { info_cache: { Default: { name: 'Person 1' } }, last_used: 'Default' }
+      }),
       [`${chromeData}\\Default\\Secure Preferences`]: securePrefs({
         [WEBMATE_EXTENSION_ID]: { location: 4, path: 'c:\\users\\k\\appdata\\local\\agentx\\webmate\\AgentX WebMate' }
       }),
       [`${braveData}\\Default\\Secure Preferences`]: securePrefs({})
     },
     exec: {
-      'reg query HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice /v ProgId': reg('HKEY', 'ProgId', 'BraveHTML'),
-      'reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe /ve': reg('HKEY', '(Default)', chromeExe),
+      'reg query HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice /v ProgId':
+        reg('HKEY', 'ProgId', 'BraveHTML'),
+      'reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe /ve': reg(
+        'HKEY',
+        '(Default)',
+        chromeExe
+      ),
       'reg query HKCU\\Software\\Google\\Chrome\\BLBeacon /v version': reg('HKEY', 'version', '152.0.7977.83')
     }
   })
@@ -388,14 +465,20 @@ describe('scanBrowsers on Windows', () => {
     assert.equal(chrome.version, '152.0.7977.83')
     assert.equal(chrome.appPath, null)
     assert.equal(chrome.dataDir, chromeData)
-    assert.deepEqual(chrome.profiles.map(p => [p.dir, p.displayName, p.isLastUsed, p.webmate.installed]), [['Default', 'Person 1', true, true]])
+    assert.deepEqual(
+      chrome.profiles.map(p => [p.dir, p.displayName, p.isLastUsed, p.webmate.installed]),
+      [['Default', 'Person 1', true, true]]
+    )
 
     const brave = browsers.find(b => b.id === 'brave')!
 
     // No App Paths key and no BLBeacon: found through the default install dirs, version unknown.
     assert.equal(brave.executable, braveExe)
     assert.equal(brave.version, null)
-    assert.deepEqual(brave.profiles.map(p => [p.dir, p.webmate.installed]), [['Default', false]])
+    assert.deepEqual(
+      brave.profiles.map(p => [p.dir, p.webmate.installed]),
+      [['Default', false]]
+    )
 
     // Registry misses never surface as errors.
     assert.ok(io.execCalls.some(call => call.includes('App Paths\\msedge.exe')))
@@ -406,7 +489,11 @@ describe('scanBrowsers on Windows', () => {
     const edgeExe = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 
     m.files[edgeExe] = 'MZ'
-    m.exec['reg query HKLM\\SOFTWARE\\Clients\\StartMenuInternet\\Microsoft Edge\\shell\\open\\command /ve'] = reg('HKEY', '(Default)', `"${edgeExe}"`)
+    m.exec['reg query HKLM\\SOFTWARE\\Clients\\StartMenuInternet\\Microsoft Edge\\shell\\open\\command /ve'] = reg(
+      'HKEY',
+      '(Default)',
+      `"${edgeExe}"`
+    )
     const edge = (await scanBrowsers(INSTALL_WIN, fakeIo(m))).find(b => b.id === 'edge')
 
     assert.equal(edge?.executable, edgeExe)

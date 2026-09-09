@@ -16,7 +16,12 @@
 import fs from 'node:fs'
 import nodePath from 'node:path'
 
-import { ensureExtensionFolder, type InstallOutcome, locateBundledExtension, readInstalledVersion } from './extension-store'
+import {
+  ensureExtensionFolder,
+  type InstallOutcome,
+  locateBundledExtension,
+  readInstalledVersion
+} from './extension-store'
 import { ensurePairing, type PairingOutcome } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
 
