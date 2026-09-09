@@ -3130,6 +3130,7 @@ export const zh: Translations = {
       connectionActive: '使用中',
       signedIn: 'WebMate 已登录。',
       signedInAs: email => `WebMate 已以 ${email} 登录。`,
+      opened: 'AgentX 登录页面已在装有 WebMate 的浏览器中打开。请在那里完成登录，Workmate 会自动识别。',
       loginRequired: '该浏览器还没有可复用的 AgentX 会话。请从该浏览器登录一次 Workmate，或点击“登录 WebMate”。',
       unsupported: '这个 WebMate 无法从这里登录。请在浏览器中打开 WebMate 并在那里登录。',
       notConnected: 'WebMate 未连接，没有可登录的对象。',

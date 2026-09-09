@@ -383,6 +383,12 @@ describe('several browsers at once (phase 4)', () => {
       )
     ).toEqual({ kind: 'error', message: 'Could not sign in WebMate: offline' })
     expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe('Every connected WebMate is already signed in.')
+    expect(
+      webmateSignInOutcomeCopy(outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'opened', signedIn: false }] }))
+    ).toEqual({
+      kind: 'info',
+      message: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.'
+    })
   })
 
   it('signInWebmate asks the bridge and toasts the outcome', async () => {

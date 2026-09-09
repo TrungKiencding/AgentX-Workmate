@@ -735,6 +735,10 @@ export function webmateSignInOutcomeCopy(
     }
   }
 
+  if (results.some(entry => entry.outcome === 'opened' || entry.outcome === 'in-progress')) {
+    return { kind: 'info', message: translateNow('webmate.sso.opened') }
+  }
+
   if (results.some(entry => entry.outcome === 'login-required')) {
     return { kind: 'info', message: translateNow('webmate.sso.loginRequired') }
   }

@@ -3034,6 +3034,7 @@ export const ja = defineLocale({
       connectionActive: '使用中',
       signedIn: 'WebMate はサインインしました。',
       signedInAs: email => `WebMate は ${email} としてサインインしました。`,
+      opened: 'WebMate のあるブラウザで AgentX のサインインを開きました。そこで完了してください。Workmate が自動的に検知します。',
       loginRequired: 'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
       unsupported: 'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
       notConnected: 'WebMate が接続されていないため、サインインするものがありません。',

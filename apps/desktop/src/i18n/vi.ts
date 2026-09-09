@@ -3290,6 +3290,7 @@ export const vi: Translations = {
       connectionActive: 'đang dùng',
       signedIn: 'WebMate đã đăng nhập.',
       signedInAs: email => `WebMate đã đăng nhập bằng ${email}.`,
+      opened: 'Trang đăng nhập AgentX đã mở trong trình duyệt có WebMate. Hoàn tất ở đó; Workmate sẽ tự nhận ra.',
       loginRequired:
         'Trình duyệt đó chưa có phiên AgentX để dùng lại. Đăng nhập Workmate từ trình duyệt đó một lần, hoặc bấm “Đăng nhập WebMate”.',
       unsupported: 'Bản WebMate này không đăng nhập từ đây được. Mở WebMate trong trình duyệt và đăng nhập ở đó.',

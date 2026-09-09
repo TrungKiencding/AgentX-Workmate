@@ -3037,6 +3037,7 @@ export const en: Translations = {
       connectionActive: 'in use',
       signedIn: 'WebMate is signed in.',
       signedInAs: email => `WebMate is signed in as ${email}.`,
+      opened: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.',
       loginRequired:
         'That browser has no AgentX session to reuse yet. Sign in to Workmate from that browser once, or use “Sign in WebMate”.',
       unsupported: 'This copy of WebMate cannot be signed in from here. Open WebMate in the browser and sign in there.',

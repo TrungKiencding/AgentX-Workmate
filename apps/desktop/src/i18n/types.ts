@@ -2426,6 +2426,7 @@ export interface Translations {
       connectionActive: string
       signedIn: string
       signedInAs: (email: string) => string
+      opened: string
       loginRequired: string
       unsupported: string
       notConnected: string
