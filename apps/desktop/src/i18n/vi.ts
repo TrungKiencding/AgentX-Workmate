@@ -3271,6 +3271,36 @@ export const vi: Translations = {
       updateRelaunch: 'Cửa sổ riêng sẽ đóng và mở lại để cập nhật WebMate.',
       onboardingHint: 'Chọn cách này nếu bạn không muốn đụng vào trình duyệt đang dùng.'
     },
+    sso: {
+      heading: 'Đăng nhập chung',
+      browserLabel: 'Trình duyệt để đăng nhập và dùng WebMate',
+      browserDesc:
+        'Workmate mở trang đăng nhập trong trình duyệt này, nên WebMate ở đó tự đăng nhập bằng cùng tài khoản.',
+      browserSystem: 'Trình duyệt mặc định của máy',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'Tự đăng nhập WebMate bằng tài khoản Workmate',
+      autoSignInDesc:
+        'Khi WebMate kết nối mà chưa đăng nhập, Workmate lặng lẽ đăng nhập cho nó bằng tài khoản bạn đang dùng ở đây.',
+      signIn: 'Đăng nhập WebMate',
+      signingIn: 'Đang đăng nhập WebMate…',
+      signInDesc: 'Mở trang đăng nhập AgentX trong trình duyệt có WebMate, đã điền sẵn tài khoản của bạn.',
+      attached: count => (count === 1 ? '1 trình duyệt đang kết nối' : `${count} trình duyệt đang kết nối`),
+      connectionSignedIn: 'đã đăng nhập',
+      connectionNotSignedIn: 'chưa đăng nhập',
+      connectionActive: 'đang dùng',
+      signedIn: 'WebMate đã đăng nhập.',
+      signedInAs: email => `WebMate đã đăng nhập bằng ${email}.`,
+      loginRequired:
+        'Trình duyệt đó chưa có phiên AgentX để dùng lại. Đăng nhập Workmate từ trình duyệt đó một lần, hoặc bấm “Đăng nhập WebMate”.',
+      unsupported: 'Bản WebMate này không đăng nhập từ đây được. Mở WebMate trong trình duyệt và đăng nhập ở đó.',
+      notConnected: 'WebMate chưa kết nối nên chưa có gì để đăng nhập.',
+      noAnswer: 'WebMate không trả lời kịp.',
+      nothingToDo: 'Mọi WebMate đang kết nối đều đã đăng nhập.',
+      failed: reason => `Không đăng nhập được WebMate: ${reason}`,
+      onboardingWaiting: 'Đang đăng nhập WebMate bằng tài khoản của bạn…',
+      onboardingSignedIn: 'WebMate đã đăng nhập bằng tài khoản Workmate của bạn. Không cần làm gì thêm.',
+      onboardingManual: 'WebMate đã kết nối nhưng chưa đăng nhập.'
+    },
     prompt: {
       title: 'Workmate muốn dùng trình duyệt của bạn',
       body: {

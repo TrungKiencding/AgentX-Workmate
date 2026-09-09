@@ -3017,6 +3017,33 @@ export const ja = defineLocale({
       updateRelaunch: 'WebMate を更新するため、専用ウィンドウは閉じてから開き直します。',
       onboardingHint: '普段使うブラウザーに手を加えたくないときはこちらを選んでください。'
     },
+    sso: {
+      heading: 'まとめてサインイン',
+      browserLabel: 'サインインと WebMate に使うブラウザ',
+      browserDesc: 'Workmate はこのブラウザでサインインページを開くため、そこにある WebMate は同じアカウントで自動的にサインインします。',
+      browserSystem: 'パソコンの既定のブラウザ',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: '自分の Workmate アカウントで WebMate にサインインする',
+      autoSignInDesc: 'WebMate がサインインしていない状態で接続したとき、ここで使っているアカウントで Workmate が静かにサインインします。',
+      signIn: 'WebMate にサインイン',
+      signingIn: 'WebMate にサインイン中…',
+      signInDesc: 'WebMate のあるブラウザで、アカウントを入力済みの AgentX サインインを開きます。',
+      attached: count => `${count} 個のブラウザが接続中`,
+      connectionSignedIn: 'サインイン済み',
+      connectionNotSignedIn: '未サインイン',
+      connectionActive: '使用中',
+      signedIn: 'WebMate はサインインしました。',
+      signedInAs: email => `WebMate は ${email} としてサインインしました。`,
+      loginRequired: 'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
+      unsupported: 'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
+      notConnected: 'WebMate が接続されていないため、サインインするものがありません。',
+      noAnswer: 'WebMate が時間内に応答しませんでした。',
+      nothingToDo: '接続中の WebMate はすべてサインイン済みです。',
+      failed: reason => `WebMate にサインインできませんでした: ${reason}`,
+      onboardingWaiting: 'あなたのアカウントで WebMate にサインインしています…',
+      onboardingSignedIn: 'WebMate は Workmate アカウントでサインインしました。ほかにすることはありません。',
+      onboardingManual: 'WebMate は接続しましたが、まだサインインしていません。'
+    },
     prompt: {
       title: 'Workmate がブラウザーを使いたがっています',
       body: {

@@ -3018,6 +3018,36 @@ export const en: Translations = {
       updateRelaunch: 'The separate window closes and opens again to update WebMate.',
       onboardingHint: 'Pick this if you would rather not touch the browser you use every day.'
     },
+    sso: {
+      heading: 'Signed in together',
+      browserLabel: 'Browser for signing in and for WebMate',
+      browserDesc:
+        'Workmate opens its sign-in page in this browser, so the WebMate there is signed in with the same account by itself.',
+      browserSystem: 'The computer’s default browser',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'Sign WebMate in with my Workmate account',
+      autoSignInDesc:
+        'When WebMate connects without being signed in, Workmate signs it in quietly with the account you use here.',
+      signIn: 'Sign in WebMate',
+      signingIn: 'Signing in WebMate…',
+      signInDesc: 'Opens the AgentX sign-in in the browser that has WebMate, with your account filled in.',
+      attached: count => (count === 1 ? '1 browser connected' : `${count} browsers connected`),
+      connectionSignedIn: 'signed in',
+      connectionNotSignedIn: 'not signed in',
+      connectionActive: 'in use',
+      signedIn: 'WebMate is signed in.',
+      signedInAs: email => `WebMate is signed in as ${email}.`,
+      loginRequired:
+        'That browser has no AgentX session to reuse yet. Sign in to Workmate from that browser once, or use “Sign in WebMate”.',
+      unsupported: 'This copy of WebMate cannot be signed in from here. Open WebMate in the browser and sign in there.',
+      notConnected: 'WebMate is not connected, so there is nothing to sign in.',
+      noAnswer: 'WebMate did not answer in time.',
+      nothingToDo: 'Every connected WebMate is already signed in.',
+      failed: reason => `Could not sign in WebMate: ${reason}`,
+      onboardingWaiting: 'Signing WebMate in with your account…',
+      onboardingSignedIn: 'WebMate is signed in with your Workmate account. Nothing else to do.',
+      onboardingManual: 'WebMate is connected but not signed in yet.'
+    },
     prompt: {
       title: 'Workmate wants to use your browser',
       body: {

@@ -3113,6 +3113,33 @@ export const zh: Translations = {
       updateRelaunch: '专用窗口将关闭并重新打开以更新 WebMate。',
       onboardingHint: '如果不想改动日常使用的浏览器，请选择这种方式。'
     },
+    sso: {
+      heading: '一起登录',
+      browserLabel: '用于登录和 WebMate 的浏览器',
+      browserDesc: 'Workmate 会在此浏览器中打开登录页面，因此那里的 WebMate 会自动用同一账号登录。',
+      browserSystem: '电脑的默认浏览器',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: '用我的 Workmate 账号登录 WebMate',
+      autoSignInDesc: '当 WebMate 连接但尚未登录时，Workmate 会用你在这里使用的账号悄悄为它登录。',
+      signIn: '登录 WebMate',
+      signingIn: '正在登录 WebMate…',
+      signInDesc: '在装有 WebMate 的浏览器中打开 AgentX 登录页面，并填好你的账号。',
+      attached: count => `${count} 个浏览器已连接`,
+      connectionSignedIn: '已登录',
+      connectionNotSignedIn: '未登录',
+      connectionActive: '使用中',
+      signedIn: 'WebMate 已登录。',
+      signedInAs: email => `WebMate 已以 ${email} 登录。`,
+      loginRequired: '该浏览器还没有可复用的 AgentX 会话。请从该浏览器登录一次 Workmate，或点击“登录 WebMate”。',
+      unsupported: '这个 WebMate 无法从这里登录。请在浏览器中打开 WebMate 并在那里登录。',
+      notConnected: 'WebMate 未连接，没有可登录的对象。',
+      noAnswer: 'WebMate 未及时响应。',
+      nothingToDo: '所有已连接的 WebMate 都已登录。',
+      failed: reason => `无法登录 WebMate：${reason}`,
+      onboardingWaiting: '正在用你的账号登录 WebMate…',
+      onboardingSignedIn: 'WebMate 已用你的 Workmate 账号登录，无需再做任何事。',
+      onboardingManual: 'WebMate 已连接，但尚未登录。'
+    },
     prompt: {
       title: 'Workmate 想使用你的浏览器',
       body: {

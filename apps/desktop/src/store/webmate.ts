@@ -17,9 +17,11 @@ import type {
   DesktopWebmateApplyOutcome,
   DesktopWebmateBrowser,
   DesktopWebmateBrowserProfile,
+  DesktopWebmateConnection,
   DesktopWebmateOpenGuideResult,
   DesktopWebmateOpenWindowResult,
   DesktopWebmatePrefs,
+  DesktopWebmateSignInOutcome,
   DesktopWebmateStatus,
   DesktopWebmateUpdateCheck,
   DesktopWebmateUpdateProgress,
@@ -218,6 +220,54 @@ export interface ReadinessInput {
   profile?: DesktopWebmateBrowserProfile | null
 }
 
+/**
+ * The attached extensions a status describes: the server's list when it has
+ * one (1.2.0: several browsers at once), else the single connection the
+ * older fields describe. Empty when nothing is attached.
+ */
+export function webmateConnections(status: DesktopWebmateStatus | null): DesktopWebmateConnection[] {
+  if (!status?.connected) {
+    return []
+  }
+
+  if (status.connections?.length) {
+    return status.connections
+  }
+
+  return [
+    {
+      instanceId: status.instanceId ?? '',
+      browser: status.browser,
+      extensionVersion: status.extensionVersion,
+      installType: status.installType,
+      signedIn: status.signedIn,
+      protocolVersion: status.protocolVersion,
+      lastHelloAt: null,
+      paired: true,
+      active: true
+    }
+  ]
+}
+
+/** The attached extensions that run in this browser (by the bridge's label), active one first. */
+export function connectionsForBrowser(
+  status: DesktopWebmateStatus | null,
+  browserId: DesktopWebmateBrowser['id']
+): DesktopWebmateConnection[] {
+  return webmateConnections(status)
+    .filter(connection => {
+      const id = browserIdFromBridgeLabel(connection.browser)
+
+      return id === null || id === browserId
+    })
+    .sort((a, b) => Number(b.active) - Number(a.active))
+}
+
+/** The attached browsers nobody is signed in to — the ones "Đăng nhập WebMate" would act on. */
+export function connectionsNotSignedIn(status: DesktopWebmateStatus | null): DesktopWebmateConnection[] {
+  return webmateConnections(status).filter(connection => connection.signedIn === false)
+}
+
 /** Is the MCP server switched on? Unknown (backend unreachable) counts as on so the UI never shows a false "off". */
 export function webmateEnabled(backend: WebmateBackendStatus | null): boolean {
   return backend?.server ? backend.server.registered && backend.server.enabled : true
@@ -236,12 +286,16 @@ export function webmateReadiness({ status, backend, browser, profile }: Readines
   const connectedBrowserId = browserIdFromBridgeLabel(status?.browser)
   const minProtocol = status?.update?.minProtocol ?? null
 
+  // Which attached extension(s) this card is about: the ones in this browser,
+  // else (no browser given) every attached one.
+  const mine = browser ? connectionsForBrowser(status, browser.id) : webmateConnections(status)
+
   if (browser && profile) {
     if (!profile.webmate.installed) {
       return 'notInstalled'
     }
 
-    const thisOne = connected && (connectedBrowserId === null || connectedBrowserId === browser.id)
+    const thisOne = connected && (mine.length > 0 || connectedBrowserId === null || connectedBrowserId === browser.id)
 
     if (!thisOne) {
       if (profile.webmate.disabled) {
@@ -260,14 +314,19 @@ export function webmateReadiness({ status, backend, browser, profile }: Readines
     }
   }
 
-  if (
-    status?.update?.belowMinProtocol ||
-    (minProtocol !== null && status?.protocolVersion !== null && (status?.protocolVersion ?? 0) < minProtocol)
-  ) {
+  const protocol = mine.length ? Math.max(...mine.map(c => c.protocolVersion ?? 0)) : (status?.protocolVersion ?? null)
+
+  if (status?.update?.belowMinProtocol || (minProtocol !== null && protocol !== null && protocol < minProtocol)) {
     return 'outdated'
   }
 
-  if (status?.signedIn === false) {
+  // Several copies can run in one browser (the person's profile and the
+  // Workmate window): one signed in is enough for that browser to be usable.
+  const signedIn = mine.length
+    ? mine.some(c => c.signedIn === true) || !mine.some(c => c.signedIn === false)
+    : status?.signedIn !== false
+
+  if (!signedIn) {
     return 'notSignedIn'
   }
 
@@ -606,6 +665,122 @@ export async function resetWebmateToken(): Promise<boolean> {
     notify({ kind: 'error', message: errMessage(error) })
 
     return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Signed in together (phase 4)
+// ---------------------------------------------------------------------------
+
+export const $webmateSigningIn = atom<boolean>(false)
+
+/**
+ * "Đăng nhập WebMate bằng tài khoản này": the main process asks the attached
+ * browser(s) — interactively by default (a Keycloak tab in that browser with
+ * the account pre-filled), silently when `interactive` is false. The status
+ * push flips the cards to "Sẵn sàng"; this only reports the outcome.
+ */
+export async function signInWebmate(
+  request: { instanceId?: string | null; interactive?: boolean } = {}
+): Promise<DesktopWebmateSignInOutcome | null> {
+  const api = bridge()
+
+  if (!api?.signIn || $webmateSigningIn.get()) {
+    return null
+  }
+
+  $webmateSigningIn.set(true)
+
+  try {
+    const outcome = await api.signIn(request)
+    const copy = webmateSignInOutcomeCopy(outcome)
+
+    if (copy) {
+      notify({ kind: copy.kind, message: copy.message })
+    }
+
+    void refreshWebmateStatus()
+
+    return outcome
+  } catch (error) {
+    notify({ kind: 'error', message: translateNow('webmate.sso.failed', errMessage(error)) })
+
+    return null
+  } finally {
+    $webmateSigningIn.set(false)
+  }
+}
+
+/** The toast for a sign-in outcome; null when the status push says everything already. */
+export function webmateSignInOutcomeCopy(
+  outcome: DesktopWebmateSignInOutcome
+): { kind: 'success' | 'info' | 'warning' | 'error'; message: string } | null {
+  if (!outcome.sent) {
+    return { kind: 'warning', message: translateNow('webmate.sso.notConnected') }
+  }
+
+  if (!outcome.result) {
+    return { kind: 'warning', message: translateNow('webmate.sso.noAnswer') }
+  }
+
+  const results = outcome.result.results ?? []
+  const signedIn = results.find(entry => entry.signedIn)
+
+  if (signedIn) {
+    return {
+      kind: 'success',
+      message: signedIn.email
+        ? translateNow('webmate.sso.signedInAs', signedIn.email)
+        : translateNow('webmate.sso.signedIn')
+    }
+  }
+
+  if (results.some(entry => entry.outcome === 'login-required')) {
+    return { kind: 'info', message: translateNow('webmate.sso.loginRequired') }
+  }
+
+  if (results.some(entry => entry.outcome === 'unsupported')) {
+    return { kind: 'warning', message: translateNow('webmate.sso.unsupported') }
+  }
+
+  if (!outcome.ok) {
+    const failed = results.find(entry => !entry.ok)
+
+    return {
+      kind: 'error',
+      message: translateNow(
+        'webmate.sso.failed',
+        failed?.message ?? outcome.error ?? translateNow('webmate.sso.noAnswer')
+      )
+    }
+  }
+
+  if (!results.length) {
+    return { kind: 'info', message: translateNow('webmate.sso.nothingToDo') }
+  }
+
+  return null
+}
+
+/** Settings → "Trình duyệt để đăng nhập": remembered by the main process; the guided install uses the same choice. */
+export async function chooseWebmateBrowser(
+  browserId: string,
+  profileDir: string | null
+): Promise<DesktopWebmatePrefs['browser']> {
+  const api = bridge()
+
+  if (!api?.chooseBrowser) {
+    return null
+  }
+
+  try {
+    const chosen = await api.chooseBrowser({ browserId, profileDir })
+
+    void refreshWebmateStatus()
+
+    return chosen
+  } catch {
+    return null
   }
 }
 

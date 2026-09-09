@@ -2891,6 +2891,33 @@ export const zhHant = defineLocale({
       updateRelaunch: '專用視窗將關閉並重新開啟以更新 WebMate。',
       onboardingHint: '如果不想更動日常使用的瀏覽器，請選擇這種方式。'
     },
+    sso: {
+      heading: '一起登入',
+      browserLabel: '用於登入和 WebMate 的瀏覽器',
+      browserDesc: 'Workmate 會在此瀏覽器開啟登入頁面，因此那裡的 WebMate 會自動用同一帳號登入。',
+      browserSystem: '電腦的預設瀏覽器',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: '用我的 Workmate 帳號登入 WebMate',
+      autoSignInDesc: '當 WebMate 連線但尚未登入時，Workmate 會用你在這裡使用的帳號悄悄為它登入。',
+      signIn: '登入 WebMate',
+      signingIn: '正在登入 WebMate…',
+      signInDesc: '在裝有 WebMate 的瀏覽器開啟 AgentX 登入頁面，並填好你的帳號。',
+      attached: count => `${count} 個瀏覽器已連線`,
+      connectionSignedIn: '已登入',
+      connectionNotSignedIn: '未登入',
+      connectionActive: '使用中',
+      signedIn: 'WebMate 已登入。',
+      signedInAs: email => `WebMate 已以 ${email} 登入。`,
+      loginRequired: '該瀏覽器還沒有可重複使用的 AgentX 工作階段。請從該瀏覽器登入一次 Workmate，或點選「登入 WebMate」。',
+      unsupported: '這個 WebMate 無法從這裡登入。請在瀏覽器開啟 WebMate 並在那裡登入。',
+      notConnected: 'WebMate 未連線，沒有可登入的對象。',
+      noAnswer: 'WebMate 未及時回應。',
+      nothingToDo: '所有已連線的 WebMate 都已登入。',
+      failed: reason => `無法登入 WebMate：${reason}`,
+      onboardingWaiting: '正在用你的帳號登入 WebMate…',
+      onboardingSignedIn: 'WebMate 已用你的 Workmate 帳號登入，無需再做任何事。',
+      onboardingManual: 'WebMate 已連線，但尚未登入。'
+    },
     prompt: {
       title: 'Workmate 想使用你的瀏覽器',
       body: {

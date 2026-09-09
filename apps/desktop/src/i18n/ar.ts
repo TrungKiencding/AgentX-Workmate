@@ -2864,6 +2864,33 @@ export const ar = defineLocale({
       updateRelaunch: 'ستُغلق النافذة المستقلة وتُفتح مجددًا لتحديث WebMate.',
       onboardingHint: 'اختر هذا إذا كنت تفضّل عدم المساس بالمتصفح الذي تستخدمه يوميًا.'
     },
+    sso: {
+      heading: 'تسجيل دخول مشترك',
+      browserLabel: 'المتصفح المستخدم لتسجيل الدخول ولـ WebMate',
+      browserDesc: 'يفتح Workmate صفحة تسجيل الدخول في هذا المتصفح، فيسجّل WebMate هناك دخوله بنفس الحساب تلقائيًا.',
+      browserSystem: 'المتصفح الافتراضي للجهاز',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'تسجيل دخول WebMate بحساب Workmate الخاص بي',
+      autoSignInDesc: 'عندما يتصل WebMate دون تسجيل دخول، يسجّل Workmate دخوله بهدوء بالحساب الذي تستخدمه هنا.',
+      signIn: 'تسجيل دخول WebMate',
+      signingIn: 'جارٍ تسجيل دخول WebMate…',
+      signInDesc: 'يفتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate، مع تعبئة حسابك.',
+      attached: count => `${count} متصفح متصل`,
+      connectionSignedIn: 'مسجّل الدخول',
+      connectionNotSignedIn: 'غير مسجّل الدخول',
+      connectionActive: 'قيد الاستخدام',
+      signedIn: 'تم تسجيل دخول WebMate.',
+      signedInAs: email => `تم تسجيل دخول WebMate بالحساب ${email}.`,
+      loginRequired: 'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
+      unsupported: 'لا يمكن تسجيل دخول نسخة WebMate هذه من هنا. افتح WebMate في المتصفح وسجّل الدخول هناك.',
+      notConnected: 'WebMate غير متصل، فلا يوجد ما يمكن تسجيل دخوله.',
+      noAnswer: 'لم يجب WebMate في الوقت المناسب.',
+      nothingToDo: 'كل نسخ WebMate المتصلة مسجّلة الدخول بالفعل.',
+      failed: reason => `تعذّر تسجيل دخول WebMate: ${reason}`,
+      onboardingWaiting: 'جارٍ تسجيل دخول WebMate بحسابك…',
+      onboardingSignedIn: 'تم تسجيل دخول WebMate بحساب Workmate الخاص بك. لا شيء آخر مطلوب.',
+      onboardingManual: 'WebMate متصل لكنه لم يسجّل الدخول بعد.'
+    },
     prompt: {
       title: 'يريد Workmate استخدام متصفحك',
       body: {
