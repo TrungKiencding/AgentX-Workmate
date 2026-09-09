@@ -122,7 +122,12 @@ export function WebmateUpdateCard() {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-4">
-        <Button disabled={update.checking || update.applying} onClick={() => void checkWebmateUpdate()} size="sm" variant="textStrong">
+        <Button
+          disabled={update.checking || update.applying}
+          onClick={() => void checkWebmateUpdate()}
+          size="sm"
+          variant="textStrong"
+        >
           {update.checking ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
           {update.checking ? copy.checking : copy.checkNow}
         </Button>
@@ -136,12 +141,18 @@ export function WebmateUpdateCard() {
         {update.applying ? <span className="text-xs text-muted-foreground">{copy.installing}</span> : null}
       </div>
 
+      {canInstall && status?.prefs.mode === 'window' ? (
+        <p className="mt-2 text-xs text-muted-foreground">{t.webmate.window.updateRelaunch}</p>
+      ) : null}
+
       {note && feedVersion && (available || mandatory) ? (
         <div className="mt-3">
           <DisclosureRow onToggle={() => setNotesOpen(open => !open)} open={notesOpen}>
             {copy.notes}
           </DisclosureRow>
-          {notesOpen ? <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{note}</p> : null}
+          {notesOpen ? (
+            <p className="mt-2 whitespace-pre-line text-xs leading-5 text-muted-foreground">{note}</p>
+          ) : null}
         </div>
       ) : null}
     </div>

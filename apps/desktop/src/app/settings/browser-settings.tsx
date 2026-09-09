@@ -5,7 +5,15 @@ import { WebmateGuideSteps } from '@/components/onboarding/browser-step'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusPill, type StatusPillTone } from '@/components/ui/status-pill'
-import { StoreCard, StoreCardDescription, StoreCardFooter, StoreCardGlyph, StoreCardGrid, StoreCardHeader, StoreCardMeta } from '@/components/ui/store-card'
+import {
+  StoreCard,
+  StoreCardDescription,
+  StoreCardFooter,
+  StoreCardGlyph,
+  StoreCardGrid,
+  StoreCardHeader,
+  StoreCardMeta
+} from '@/components/ui/store-card'
 import { TagChip } from '@/components/ui/tag-chip'
 import type { DesktopWebmateBrowser, DesktopWebmateBrowserProfile } from '@/global'
 import { useI18n } from '@/i18n'
@@ -21,13 +29,17 @@ import {
   $webmateUpdate,
   applyWebmateUpdate,
   clearWebmateGuide,
+  closeWebmateWindow,
   copyWebmatePath,
+  hasChromiumBrowser,
+  openWebmateWindow,
   refreshWebmateBackend,
   refreshWebmateStatus,
   resetWebmateToken,
   revealWebmateFolder,
   scanWebmateBrowsers,
   setWebmateEnabled,
+  setWebmateMode,
   setWebmatePrefs,
   startWebmateGuide,
   webmateEnabled,
@@ -83,6 +95,7 @@ export function BrowserSettings() {
 
   const enabled = webmateEnabled(backend)
   const overall = webmateReadiness({ status, backend })
+  const windowState = status?.window ?? null
   const supported = (browsers ?? []).filter(b => b.supported)
   const prefs = status?.prefs
 
@@ -116,7 +129,69 @@ export function BrowserSettings() {
       />
       <Caption className="mb-2 leading-(--conversation-caption-line-height)">{copy.intro}</Caption>
 
-      <ToggleRow checked={enabled} description={copy.enableDesc} disabled={toggling} label={copy.enable} onChange={on => void toggle(on)} />
+      <ToggleRow
+        checked={enabled}
+        description={copy.enableDesc}
+        disabled={toggling}
+        label={copy.enable}
+        onChange={on => void toggle(on)}
+      />
+
+      <ListRow
+        action={
+          <Select
+            onValueChange={value => {
+              triggerHaptic('selection')
+              void setWebmateMode(value === 'window' ? 'window' : 'browser')
+            }}
+            value={prefs?.mode === 'window' ? 'window' : 'browser'}
+          >
+            <SelectTrigger className={cn('min-w-56', CONTROL_TEXT)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="browser">{t.webmate.window.modeBrowser}</SelectItem>
+              <SelectItem value="window">{t.webmate.window.modeWindow}</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+        description={t.webmate.window.modeDesc}
+        title={t.webmate.window.modeLabel}
+      />
+
+      <ListRow
+        action={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatusPill tone={windowState?.open ? 'good' : 'muted'}>
+              {windowState?.open ? t.webmate.window.stateOpen : t.webmate.window.stateClosed}
+            </StatusPill>
+            {windowState?.open ? (
+              <Button onClick={() => void closeWebmateWindow()} size="sm" variant="outline">
+                {t.webmate.window.close}
+              </Button>
+            ) : (
+              <Button
+                disabled={hasChromiumBrowser(browsers) === false || windowState?.phase === 'starting'}
+                onClick={() => void openWebmateWindow()}
+                size="sm"
+                variant="outline"
+              >
+                <AppWindow className="size-3.5" />
+                {windowState?.phase === 'starting' ? t.webmate.window.opening : t.webmate.window.open}
+              </Button>
+            )}
+          </div>
+        }
+        description={t.webmate.window.signInNote}
+        hint={
+          hasChromiumBrowser(browsers) === false
+            ? t.webmate.window.noChromium
+            : windowState?.open && windowState.browserName
+              ? t.webmate.window.using(windowState.browserName)
+              : (windowState?.error ?? undefined)
+        }
+        title={t.webmate.window.title}
+      />
 
       <SettingsSection
         aside={
@@ -253,7 +328,11 @@ function BrowserCard({
           {t.webmate.onboarding.install}
         </Button>
       )
-    } else if (readiness === 'installedClosed' || readiness === 'installedNotConnected' || readiness === 'installedDisabled') {
+    } else if (
+      readiness === 'installedClosed' ||
+      readiness === 'installedNotConnected' ||
+      readiness === 'installedDisabled'
+    ) {
       action = (
         <Button onClick={() => void startWebmateGuide(browser, profile)} size="sm" variant="outline">
           {copy.reconnect}

@@ -17,6 +17,7 @@ import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/run
 import { setMainModelAssignment } from '@/store/cron-model-impact'
 import { notify, notifyError } from '@/store/notifications'
 import {
+  $webmateGuide,
   clearWebmateGuide,
   isWebmateAvailable,
   loadWebmatePrefs,
@@ -1033,8 +1034,16 @@ export function completeBrowserStep(ctx: OnboardingContext, choice: 'connected' 
     return
   }
 
+  // A window flow that ended connected records mode 'window' so Settings and
+  // the next launch know which door the person took.
+  const windowFlow = $webmateGuide.get()?.kind === 'window'
+
   void setWebmatePrefs(
-    choice === 'later' ? { prompt: 'later' } : choice === 'never' ? { prompt: 'never' } : { prompt: null, mode: 'browser' }
+    choice === 'later'
+      ? { prompt: 'later' }
+      : choice === 'never'
+        ? { prompt: 'never' }
+        : { prompt: null, mode: windowFlow ? 'window' : 'browser' }
   )
   clearWebmateGuide()
   completeDesktopOnboarding()

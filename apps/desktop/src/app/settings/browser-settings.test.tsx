@@ -178,6 +178,7 @@ describe('BrowserSettings', () => {
 
     act(() => {
       $webmateGuide.set({
+        kind: 'browser',
         browserId: 'chrome',
         browserName: 'Google Chrome',
         profileDir: 'Default',
@@ -228,5 +229,57 @@ describe('BrowserSettings', () => {
     expect(
       screen.getByText('The WebMate in your browser is too old for this Workmate. Update it to use the browser again.')
     ).toBeTruthy()
+  })
+})
+
+describe('the Workmate window in Settings', () => {
+  const openStatus = {
+    open: true,
+    phase: 'open' as const,
+    pid: 1,
+    browserId: 'chrome',
+    browserName: 'Google Chrome',
+    extensionId: 'x',
+    startedAt: 1,
+    error: null,
+    exitCode: null
+  }
+
+  it('shows the mode choice and opens / closes the window through the bridge', async () => {
+    const openWindow = vi.fn(async () => ({ ok: true, error: null, window: openStatus }))
+    const closeWindow = vi.fn(async () => ({ ...openStatus, open: false, phase: 'closed' as const }))
+
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => backend(true)),
+      webmate: {
+        status: vi.fn(async () => status()),
+        scan: vi.fn(async () => [browser()]),
+        setPrefs: vi.fn(async (p: unknown) => p),
+        checkUpdate: vi.fn(async () => null),
+        openWindow,
+        closeWindow
+      }
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+
+    $gateway.set({ request: vi.fn(async () => ({ status: 'reloaded' })) } as never)
+
+    render(<BrowserSettings />)
+
+    expect(screen.getByText('Which browser Workmate works in')).toBeTruthy()
+    expect(screen.getByText('Closed')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Open the separate window/ }))
+    await vi.waitFor(() => expect(openWindow).toHaveBeenCalledTimes(1))
+    cleanup()
+
+    // The click above started a window flow (guide panel); clear it so only the row is on screen.
+    $webmateGuide.set(null)
+    $webmateStatus.set(status({ window: openStatus }))
+    render(<BrowserSettings />)
+    expect(screen.getByText('Open')).toBeTruthy()
+    expect(screen.getByText('Using Google Chrome')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close the separate window' }))
+    await vi.waitFor(() => expect(closeWindow).toHaveBeenCalledTimes(1))
+    $gateway.set(null)
   })
 })

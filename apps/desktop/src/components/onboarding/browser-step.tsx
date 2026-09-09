@@ -16,7 +16,10 @@ import {
   $webmateScanning,
   $webmateStatus,
   clearWebmateGuide,
+  closeWebmateWindow,
   copyWebmatePath,
+  hasChromiumBrowser,
+  openWebmateWindow,
   reopenWebmateGuide,
   revealWebmateFolder,
   scanWebmateBrowsers,
@@ -133,22 +136,7 @@ function BrowserPicker({
         </div>
       )}
 
-      {/* Phase 3 lights this up; until then it is there so the choice reads as three doors. */}
-      <div
-        aria-disabled
-        className="flex w-full items-center justify-between gap-3 rounded-(--radius-card) border border-dashed border-(--ui-stroke-tertiary) px-3 py-2.5 text-left opacity-60"
-      >
-        <div className="flex min-w-0 items-center gap-2.5">
-          <AppWindow className="size-4.5 shrink-0 text-(--ui-text-tertiary)" />
-          <div className="min-w-0">
-            <span className="text-[length:var(--conversation-text-font-size)] font-semibold">
-              {copy.workmateWindow.title}
-            </span>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{copy.workmateWindow.description}</p>
-          </div>
-        </div>
-        <TagChip>{copy.workmateWindow.comingSoon}</TagChip>
-      </div>
+      <WindowDoor browsers={browsers} />
 
       <div className="flex items-center justify-between gap-3 pt-1">
         <Button className="font-medium" onClick={() => onFinish('never')} size="xs" type="button" variant="text">
@@ -158,6 +146,36 @@ function BrowserPicker({
           {copy.later}
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** The third door: Workmate's own browser window. Active when a Chromium-based browser exists. */
+function WindowDoor({ browsers }: { browsers: DesktopWebmateBrowser[] | null }) {
+  const { t } = useI18n()
+  const copy = t.webmate.window
+  const available = hasChromiumBrowser(browsers)
+
+  return (
+    <div className="grid gap-1">
+      <RowButton
+        className={cn(
+          'group flex w-full items-center justify-between gap-3 rounded-(--radius-card) border border-dashed border-(--ui-stroke-tertiary) px-3 py-2.5 text-left transition-colors',
+          available === false ? 'opacity-60' : 'hover:bg-(--ui-control-hover-background)'
+        )}
+        disabled={available === false}
+        onClick={() => void openWebmateWindow()}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <AppWindow className="size-4.5 shrink-0 text-(--ui-text-tertiary)" />
+          <div className="min-w-0">
+            <span className="text-[length:var(--conversation-text-font-size)] font-semibold">{copy.title}</span>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{copy.description}</p>
+          </div>
+        </div>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-foreground" />
+      </RowButton>
+      {available === false ? <p className="px-3 text-xs text-muted-foreground">{copy.noChromium}</p> : null}
     </div>
   )
 }
@@ -232,6 +250,11 @@ export function WebmateGuideSteps({
 
   const connected = Boolean(status?.connected && status.installType === 'workmate')
   const slow = !connected && !guide.preparing && now - guide.startedAt > SLOW_AFTER_MS
+
+  if (guide.kind === 'window') {
+    return <WindowSteps connected={connected} guide={guide} onFinish={onFinish} slow={slow} surface={surface} />
+  }
+
   const image = webmateGuideImage(guide.browserId, locale)
   // Edge words and places the same two controls differently.
   const steps = guide.browserId === 'edge' ? copy.stepsEdge : copy.steps
@@ -327,7 +350,7 @@ export function WebmateGuideSteps({
                   ))}
                 </ul>
                 <div>
-                  <Button disabled size="xs" title={copy.workmateWindow.comingSoon} variant="outline">
+                  <Button onClick={() => void openWebmateWindow(guide.browserId)} size="xs" variant="outline">
                     <AppWindow className="size-3" />
                     {copy.useWindow}
                   </Button>
@@ -360,6 +383,121 @@ export function WebmateGuideSteps({
           ) : (
             <Button onClick={() => onFinish('later')} size="sm" variant="outline">
               {copy.later}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The window variant of the steps: nothing to drag. Workmate is opening (or
+ * has opened) its own browser window with the extension inside; the line
+ * below flips to connected on the extension's hello, exactly as for the
+ * guided install. The person is told to sign in to their sites again there.
+ */
+function WindowSteps({
+  connected,
+  guide,
+  onFinish,
+  slow,
+  surface
+}: {
+  connected: boolean
+  guide: { browserName: string; preparing: boolean; openError: string | null; serverError: string | null }
+  onFinish: (choice: BrowserStepChoice) => void
+  slow: boolean
+  surface: 'onboarding' | 'settings'
+}) {
+  const { t } = useI18n()
+  const copy = t.webmate.window
+  const onboarding = t.webmate.onboarding
+  const status = useStore($webmateStatus)
+  const windowState = status?.window ?? null
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold">{copy.title}</h4>
+        <Button
+          className="font-medium"
+          disabled={connected}
+          onClick={() => {
+            void closeWebmateWindow()
+            clearWebmateGuide()
+          }}
+          size="xs"
+          type="button"
+          variant="text"
+        >
+          <ChevronLeft className="size-3" />
+          {onboarding.back}
+        </Button>
+      </div>
+
+      <p className="text-sm leading-6 text-(--ui-text-secondary)">{copy.signInNote}</p>
+      {guide.serverError ? <p className="text-xs text-destructive">{onboarding.serverError}</p> : null}
+      {guide.openError && !guide.preparing ? (
+        <p className="text-xs text-destructive">{copy.failed(guide.openError)}</p>
+      ) : null}
+
+      <div
+        className={cn(
+          'rounded-(--radius-card) border px-4 py-3',
+          connected ? 'border-(--ui-green)/40 bg-(--ui-green)/10' : 'border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary)'
+        )}
+        role="status"
+      >
+        {connected ? (
+          <div className="grid gap-1">
+            <div className="flex items-center gap-2">
+              <StatusPill size="md" tone="good">
+                {onboarding.connected(status?.browser ?? guide.browserName)}
+              </StatusPill>
+            </div>
+            <p className="text-xs text-muted-foreground">{onboarding.connectedHint}</p>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+              <Loader className="size-6" type="lemniscate-bloom" />
+              {guide.preparing || windowState?.phase === 'starting'
+                ? copy.opening
+                : guide.openError
+                  ? copy.failed(guide.openError)
+                  : onboarding.waiting}
+            </div>
+            {windowState?.browserName ? (
+              <p className="text-xs text-muted-foreground">{copy.using(windowState.browserName)}</p>
+            ) : null}
+            {slow ? <p className="text-xs text-(--ui-text-secondary)">{onboarding.slowTitle}</p> : null}
+          </div>
+        )}
+      </div>
+
+      {surface === 'settings' ? (
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button
+            onClick={() => onFinish(connected ? 'connected' : 'later')}
+            size="sm"
+            variant={connected ? 'default' : 'outline'}
+          >
+            {connected ? t.common.done : t.common.close}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <Button className="font-medium" onClick={() => onFinish('never')} size="xs" type="button" variant="text">
+            {onboarding.never}
+          </Button>
+          {connected ? (
+            <Button onClick={() => onFinish('connected')} size="lg">
+              {onboarding.start}
+            </Button>
+          ) : (
+            <Button onClick={() => onFinish('later')} size="sm" variant="outline">
+              {onboarding.later}
             </Button>
           )}
         </div>

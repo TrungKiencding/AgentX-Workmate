@@ -112,9 +112,9 @@ describe('BrowserStepPanel', () => {
     // Firefox is shown, not clickable, with the reason.
     expect(screen.queryByRole('button', { name: /Firefox/ })).toBeNull()
     expect(screen.getByText('Firefox is not supported yet')).toBeTruthy()
-    // The phase-3 door is visible but marked as coming.
-    expect(screen.getByText('A separate Workmate browser window')).toBeTruthy()
-    expect(screen.getByText('Coming soon')).toBeTruthy()
+    // The third door: Workmate's own window, live now that a Chromium browser exists.
+    expect(screen.getByRole('button', { name: /A separate Workmate browser window/ })).toBeTruthy()
+    expect(screen.queryByText(/No Chromium-based browser/)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Later' }))
     expect(onFinish).toHaveBeenCalledWith('later')
@@ -153,7 +153,7 @@ describe('BrowserStepPanel', () => {
     render(<BrowserStepPanel leaving={false} onFinish={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: /Kiên/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Work/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Google Chrome\s*·\s*Work/ })).toBeTruthy()
     expect(screen.getByText('WebMate added')).toBeTruthy()
   })
 
@@ -180,6 +180,7 @@ describe('BrowserStepPanel', () => {
 
     $webmateBrowsers.set([browser()])
     $webmateGuide.set({
+      kind: 'browser',
       browserId: 'chrome',
       browserName: 'Google Chrome',
       profileDir: 'Default',
@@ -217,6 +218,7 @@ describe('BrowserStepPanel', () => {
 
   it('a developer copy that connects does not count as the Workmate install', () => {
     $webmateGuide.set({
+      kind: 'browser',
       browserId: 'chrome',
       browserName: 'Google Chrome',
       profileDir: 'Default',
@@ -240,6 +242,7 @@ describe('BrowserStepPanel', () => {
 
   it('after two minutes without a hello it lists the usual reasons', () => {
     $webmateGuide.set({
+      kind: 'browser',
       browserId: 'edge',
       browserName: 'Microsoft Edge',
       profileDir: null,
@@ -259,6 +262,69 @@ describe('BrowserStepPanel', () => {
     expect(screen.getByText(/WebMate has not connected yet/)).toBeTruthy()
     expect(screen.getByText(/Developer mode is still off/)).toBeTruthy()
     expect(screen.getByText(/Microsoft Edge could not be opened/)).toBeTruthy()
-    expect((screen.getByRole('button', { name: /Use a separate window/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /Use a separate window/ }) as HTMLButtonElement).disabled).toBe(false)
+  })
+})
+
+describe('the Workmate window door', () => {
+  it('opens the window through the bridge and shows the window steps, connected on the hello', async () => {
+    const openWindow = vi.fn(async () => ({
+      ok: true,
+      error: null,
+      window: {
+        open: true,
+        phase: 'open',
+        pid: 1,
+        browserId: 'edge',
+        browserName: 'Microsoft Edge',
+        extensionId: 'x',
+        startedAt: Date.now(),
+        error: null,
+        exitCode: null
+      }
+    }))
+
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => ({
+        schema: 1,
+        server: { registered: true, enabled: true, command: 'node', args: [], bundled: true },
+        connected: false,
+        code: null
+      })),
+      webmate: { openWindow, status: vi.fn(async () => status()), setPrefs: vi.fn(async (p: unknown) => p) }
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+
+    $gateway.set({ request: vi.fn(async () => ({ status: 'reloaded' })) } as never)
+    $webmateBrowsers.set([browser({ id: 'edge', name: 'Microsoft Edge', isDefault: true })])
+    const onFinish = vi.fn()
+
+    render(<BrowserStepPanel leaving={false} onFinish={onFinish} />)
+    fireEvent.click(screen.getByRole('button', { name: /A separate Workmate browser window/ }))
+
+    expect(await screen.findByText(/sign in again to the sites/)).toBeTruthy()
+    await vi.waitFor(() => expect(openWindow).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
+
+    act(() => {
+      $webmateStatus.set(status({ connected: true, browser: 'Microsoft Edge 152', installType: 'workmate' }))
+    })
+    expect(screen.getByText('Connected · Microsoft Edge 152')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(onFinish).toHaveBeenCalledWith('connected')
+    $gateway.set(null)
+  })
+
+  it('is greyed out with the reason when no Chromium-based browser exists', () => {
+    $webmateBrowsers.set([
+      browser({ id: 'firefox', name: 'Firefox', supported: false, unsupportedReason: 'firefox', profiles: [] })
+    ])
+
+    render(<BrowserStepPanel leaving={false} onFinish={vi.fn()} />)
+
+    expect(
+      (screen.getByRole('button', { name: /A separate Workmate browser window/ }) as HTMLButtonElement).disabled
+    ).toBe(true)
+    expect(screen.getByText(/No Chromium-based browser/)).toBeTruthy()
   })
 })

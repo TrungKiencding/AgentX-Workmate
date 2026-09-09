@@ -4,7 +4,14 @@ import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { AppWindow } from '@/lib/icons'
-import { $webmatePrompt, applyWebmateUpdate, dismissWebmatePrompt } from '@/store/webmate'
+import {
+  $webmateBrowsers,
+  $webmatePrompt,
+  applyWebmateUpdate,
+  dismissWebmatePrompt,
+  hasChromiumBrowser,
+  openWebmateWindow
+} from '@/store/webmate'
 
 import { SETTINGS_ROUTE } from '../app/routes'
 
@@ -17,6 +24,7 @@ import { SETTINGS_ROUTE } from '../app/routes'
 export function WebmatePromptCard() {
   const { t } = useI18n()
   const prompt = useStore($webmatePrompt)
+  const browsers = useStore($webmateBrowsers)
   const navigate = useNavigate()
 
   if (!prompt) {
@@ -25,7 +33,9 @@ export function WebmatePromptCard() {
 
   const copy = t.webmate.prompt
   const code = prompt.code
-  const primaryLabel = code === 'WEBMATE_NOT_INSTALLED' ? copy.install : code === 'WEBMATE_OUTDATED' ? t.webmate.update.install : copy.open
+
+  const primaryLabel =
+    code === 'WEBMATE_NOT_INSTALLED' ? copy.install : code === 'WEBMATE_OUTDATED' ? t.webmate.update.install : copy.open
 
   const primary = () => {
     dismissWebmatePrompt('acted')
@@ -61,6 +71,19 @@ export function WebmatePromptCard() {
         <Button onClick={() => dismissWebmatePrompt('notNow')} size="sm" variant="outline">
           {copy.notNow}
         </Button>
+        {code !== 'WEBMATE_PORT_IN_USE' && code !== 'WEBMATE_OUTDATED' && hasChromiumBrowser(browsers) !== false ? (
+          <Button
+            onClick={() => {
+              dismissWebmatePrompt('acted')
+              void openWebmateWindow()
+              navigate(`${SETTINGS_ROUTE}?tab=browser`)
+            }}
+            size="sm"
+            variant="outline"
+          >
+            {t.webmate.window.open}
+          </Button>
+        ) : null}
         {code === 'WEBMATE_PORT_IN_USE' ? null : (
           <Button onClick={primary} size="sm">
             {primaryLabel}

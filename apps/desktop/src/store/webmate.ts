@@ -18,10 +18,12 @@ import type {
   DesktopWebmateBrowser,
   DesktopWebmateBrowserProfile,
   DesktopWebmateOpenGuideResult,
+  DesktopWebmateOpenWindowResult,
   DesktopWebmatePrefs,
   DesktopWebmateStatus,
   DesktopWebmateUpdateCheck,
-  DesktopWebmateUpdateProgress
+  DesktopWebmateUpdateProgress,
+  DesktopWebmateWindowStatus
 } from '@/global'
 import { getMcpCatalog, getWebmateStatus, installMcpCatalogEntry, setMcpServerEnabled, setSkillEnabled } from '@/hermes'
 import { translateNow } from '@/i18n'
@@ -63,6 +65,8 @@ export const $webmateBrowsers = atom<DesktopWebmateBrowser[] | null>(null)
 export const $webmateScanning = atom<boolean>(false)
 
 export interface WebmateGuideState {
+  /** 'browser' = the guided install into the person's browser; 'window' = the Workmate browser window (phase 3). */
+  kind: 'browser' | 'window'
   browserId: string
   browserName: string
   profileDir: string | null
@@ -471,6 +475,7 @@ export async function startWebmateGuide(
   const api = bridge()
 
   const state: WebmateGuideState = {
+    kind: 'browser',
     browserId: browser.id,
     browserName: browser.name,
     profileDir: profile?.dir ?? null,
@@ -601,6 +606,113 @@ export async function resetWebmateToken(): Promise<boolean> {
     notify({ kind: 'error', message: errMessage(error) })
 
     return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The Workmate browser window (phase 3)
+// ---------------------------------------------------------------------------
+
+/** Whether any Chromium-based browser Workmate could run was found (null = not scanned yet). */
+export function hasChromiumBrowser(browsers: DesktopWebmateBrowser[] | null): boolean | null {
+  if (browsers === null) {
+    return null
+  }
+
+  return browsers.some(browser => browser.supported && browser.executable)
+}
+
+/**
+ * "Dùng cửa sổ riêng": make sure the bridge server is up, ask the main process
+ * to start the window with the extension loaded, and show the same waiting →
+ * connected panel the guided install uses (kind 'window').
+ */
+export async function openWebmateWindow(browserId?: string | null): Promise<DesktopWebmateOpenWindowResult> {
+  const api = bridge()
+
+  if (!api?.openWindow) {
+    return { ok: false, error: 'unavailable', window: closedWindow() }
+  }
+
+  const startedAt = Date.now()
+
+  $webmateGuide.set({
+    kind: 'window',
+    browserId: browserId ?? '',
+    browserName: '',
+    profileDir: null,
+    profileName: null,
+    startedAt,
+    opened: false,
+    navigated: false,
+    openError: null,
+    folderOpened: false,
+    copied: false,
+    serverError: null,
+    preparing: true
+  })
+
+  const server = await ensureWebmateServer()
+  let result: DesktopWebmateOpenWindowResult
+
+  try {
+    result = await api.openWindow({ browserId: browserId ?? null })
+  } catch (error) {
+    result = { ok: false, error: errMessage(error), window: closedWindow() }
+  }
+
+  const current = $webmateGuide.get()
+
+  if (current?.kind === 'window' && current.startedAt === startedAt) {
+    $webmateGuide.set({
+      ...current,
+      preparing: false,
+      browserId: result.window.browserId ?? current.browserId,
+      browserName: result.window.browserName ?? '',
+      opened: result.ok,
+      navigated: result.ok,
+      openError: result.ok ? null : (result.error ?? 'open-failed'),
+      serverError: server.ok ? null : server.error
+    })
+  }
+
+  void refreshWebmateStatus()
+
+  return result
+}
+
+export async function closeWebmateWindow(): Promise<DesktopWebmateWindowStatus | null> {
+  try {
+    const status = (await bridge()?.closeWindow?.()) ?? null
+
+    void refreshWebmateStatus()
+
+    return status
+  } catch {
+    return null
+  }
+}
+
+/** Settings → "Workmate làm việc trong trình duyệt nào". Switching away from the window closes it. */
+export async function setWebmateMode(mode: 'browser' | 'window'): Promise<void> {
+  await setWebmatePrefs({ mode })
+
+  if (mode === 'browser' && $webmateStatus.get()?.window?.open) {
+    await closeWebmateWindow()
+  }
+}
+
+function closedWindow(): DesktopWebmateWindowStatus {
+  return {
+    open: false,
+    phase: 'closed',
+    pid: null,
+    browserId: null,
+    browserName: null,
+    extensionId: null,
+    startedAt: null,
+    error: null,
+    exitCode: null
   }
 }
 

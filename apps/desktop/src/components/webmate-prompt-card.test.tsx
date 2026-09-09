@@ -71,7 +71,8 @@ describe('WebmatePromptCard', () => {
   })
 
   it('"Not now" and "Don’t ask again" close it and record the choice', () => {
-    const setPrefs = (desktopWindow.agentxDesktop as unknown as { webmate: { setPrefs: ReturnType<typeof vi.fn> } }).webmate.setPrefs
+    const setPrefs = (desktopWindow.agentxDesktop as unknown as { webmate: { setPrefs: ReturnType<typeof vi.fn> } })
+      .webmate.setPrefs
 
     renderCard()
     act(() => $webmatePrompt.set({ code: 'WEBMATE_NOT_CONNECTED', at: Date.now() }))
@@ -84,5 +85,47 @@ describe('WebmatePromptCard', () => {
     expect(screen.queryByRole('button', { name: 'Open Settings' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Don’t ask again' }))
     expect(setPrefs).toHaveBeenLastCalledWith({ askWhenNotReady: false })
+  })
+})
+
+describe('the separate-window door on the card', () => {
+  it('opens the window, closes the card and lands on Settings → Browser', async () => {
+    const openWindow = vi.fn(async () => ({
+      ok: true,
+      error: null,
+      window: {
+        open: true,
+        phase: 'open',
+        pid: 1,
+        browserId: 'chrome',
+        browserName: 'Google Chrome',
+        extensionId: 'x',
+        startedAt: 1,
+        error: null,
+        exitCode: null
+      }
+    }))
+
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => ({
+        schema: 1,
+        server: { registered: true, enabled: true, command: 'node', args: [], bundled: true },
+        connected: false,
+        code: null
+      })),
+      webmate: { setPrefs: vi.fn(async (p: unknown) => p), openWindow, status: vi.fn(async () => null) }
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+
+    $gateway.set({ request: vi.fn(async () => ({ status: 'reloaded' })) } as never)
+    renderCard()
+    act(() => $webmatePrompt.set({ code: 'WEBMATE_NOT_INSTALLED', at: Date.now() }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open the separate window' }))
+
+    expect($webmatePrompt.get()).toBeNull()
+    expect(screen.getByTestId('location').textContent).toBe('/settings?tab=browser')
+    await vi.waitFor(() => expect(openWindow).toHaveBeenCalledTimes(1))
+    $gateway.set(null)
   })
 })
