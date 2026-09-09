@@ -33,8 +33,15 @@ export interface WebmatePrefs {
   askWhenNotReady: boolean
   /** 'browser' = the person's own browser (guided install), 'window' = the Workmate browser window (phase 3). */
   mode: WebmateMode
-  /** The browser and profile picked in the guided step; null until then. */
+  /** The browser and profile picked in the guided step or in Settings ("Chọn trình duyệt"); null until then. */
   browser: WebmateChosenBrowser | null
+  /**
+   * Phase 4: sign WebMate in with the Workmate account by itself (an
+   * `auth_hint` after every hello from a browser nobody is signed in to), and
+   * open Workmate's own sign-in in the chosen browser so the SSO cookie lands
+   * where WebMate is.
+   */
+  ssoAutoSignIn: boolean
   /** ISO time the extension first connected as a Workmate install; null until then. */
   connectedAt: string | null
   /** ISO time until which the "wants to use your browser" card stays quiet ("Không phải bây giờ"). */
@@ -56,6 +63,7 @@ export function defaultPrefs(now: Date = new Date()): WebmatePrefs {
     askWhenNotReady: true,
     mode: null,
     browser: null,
+    ssoAutoSignIn: true,
     connectedAt: null,
     cardSnoozedUntil: null,
     updateToastSnoozedUntil: null,
@@ -113,6 +121,7 @@ export function parsePrefs(text: string | null, now: Date = new Date()): Webmate
     askWhenNotReady: typeof record.askWhenNotReady === 'boolean' ? record.askWhenNotReady : defaults.askWhenNotReady,
     mode: record.mode === 'browser' || record.mode === 'window' ? record.mode : null,
     browser: parseBrowser(record.browser),
+    ssoAutoSignIn: typeof record.ssoAutoSignIn === 'boolean' ? record.ssoAutoSignIn : defaults.ssoAutoSignIn,
     connectedAt: isIso(record.connectedAt) ? record.connectedAt : null,
     cardSnoozedUntil: isIso(record.cardSnoozedUntil) ? record.cardSnoozedUntil : null,
     updateToastSnoozedUntil: isIso(record.updateToastSnoozedUntil) ? record.updateToastSnoozedUntil : null,

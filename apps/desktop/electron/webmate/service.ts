@@ -24,12 +24,26 @@ import {
   sendWebmateCommand,
   waitForCommandResult,
   type WebmateCommandAction,
+  type WebmateCommandPayload,
   type WebmateLastCommand
 } from './commands'
-import { type ExecCapture, openExtensionsPage, type OpenGuideResult, type SpawnDetached } from './guide'
+import {
+  type ExecCapture,
+  openExtensionsPage,
+  type OpenGuideResult,
+  openUrlInBrowser,
+  type SpawnDetached
+} from './guide'
 import { defaultPairingIo, ensurePairing, type PairingFile, type PairingOptions, parsePairingFile } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
-import { prefsFile, readPrefs, type WebmatePrefs, type WebmatePrefsPatch, writePrefs } from './prefs'
+import {
+  prefsFile,
+  readPrefs,
+  type WebmateChosenBrowser,
+  type WebmatePrefs,
+  type WebmatePrefsPatch,
+  writePrefs
+} from './prefs'
 import {
   parseReleaseManifest,
   type ParseReleaseOptions,
@@ -37,6 +51,7 @@ import {
   WEBMATE_RELEASE_FEED_URL,
   WEBMATE_RELEASE_PUBLIC_KEY
 } from './release-feed'
+import { chooseLoginTarget, chosenBrowserFrom, planAuthHints } from './sso'
 import { readWebmateStatus, type WebmateLocalStatus, WebmateStatusWatcher } from './status'
 import {
   type ApplyOutcome,
@@ -75,6 +90,13 @@ export interface WebmateServiceDeps {
   scanIo?: BrowserScanIo
   fetchImpl?: typeof fetch
   platform?: NodeJS.Platform
+  /**
+   * Phase 4: the email of the AgentX account Workmate is signed in as (null
+   * when signed out). It is the login_hint every `auth_hint` carries.
+   */
+  accountEmail?: () => string | null
+  /** shell.openExternal — the fallback when no chosen browser can take a URL. */
+  openExternal?: (url: string) => Promise<void>
 }
 
 export interface UpdateProgressPayload {
@@ -106,6 +128,26 @@ export interface OpenWindowOutcome {
   window: WindowStatus
 }
 
+/** The answer to "sign WebMate in with my account" (Settings, the prompt card, the onboarding step). */
+export interface SignInOutcome {
+  ok: boolean
+  /** Whether the server was even asked (false: no browser attached). */
+  sent: boolean
+  commandId: string | null
+  result: WebmateLastCommand | null
+  error: string | null
+}
+
+export interface OpenLoginOutcome {
+  /** Where the page went. */
+  target: 'window' | 'browser' | 'system'
+  ok: boolean
+  error: string | null
+}
+
+/** How long to wait for the server's answer to a sign-in command (its own per-browser deadline is 90 s). */
+const AUTH_COMMAND_WAIT_MS = 100_000
+
 export class WebmateService {
   readonly paths: WebmatePaths
   private watcher: WebmateStatusWatcher | null = null
@@ -121,6 +163,9 @@ export class WebmateService {
   /** The Workmate browser window (phase 3): the person's Chromium binary on our own profile. */
   private readonly window: WorkmateBrowserWindow
   private windowOptions: WindowLaunchOptions | null = null
+  /** Phase 4: when each attached browser was last told to sign in silently (per instance id, this session). */
+  private readonly lastHintAt = new Map<string, number>()
+  private hintInFlight: Promise<void> | null = null
 
   constructor(private readonly deps: WebmateServiceDeps) {
     this.paths = webmatePaths(deps.agentxHome)
@@ -146,6 +191,7 @@ export class WebmateService {
         this.broadcastStatus(status)
         void this.rememberConnection(status)
         void this.applyPendingIfIdle(status)
+        void this.maybeHintSignIn(status)
       }
     })
     this.watcher.start()
@@ -408,10 +454,168 @@ export class WebmateService {
     return { ok: outcome.pairingWritten, reloaded }
   }
 
+  // -- sign-in (phase 4) ----------------------------------------------------
+
+  /**
+   * A browser just reported "connected · not signed in" (or a new one
+   * attached): ask the server to sign it in silently with the account
+   * Workmate is signed in as. Once per browser per cooldown; nothing when
+   * the person switched the preference off or Workmate itself is signed out.
+   */
+  private async maybeHintSignIn(status: WebmateLocalStatus): Promise<void> {
+    if (this.hintInFlight) {
+      return
+    }
+
+    const email = this.deps.accountEmail?.() ?? null
+    const decision = planAuthHints(status.connections, status.prefs, email, this.lastHintAt, Date.now())
+
+    if (!decision.instanceIds.length || !email) {
+      return
+    }
+
+    const now = Date.now()
+
+    for (const instanceId of decision.instanceIds) {
+      this.lastHintAt.set(instanceId, now)
+    }
+
+    this.hintInFlight = (async () => {
+      const id = this.sendCommand('auth_hint', { loginHint: email })
+
+      this.log(`[webmate] sign-in hint for ${decision.instanceIds.length} browser(s) as ${email} (command ${id})`)
+
+      const result = await waitForCommandResult(id, {
+        timeoutMs: AUTH_COMMAND_WAIT_MS,
+        readLastCommand: () => this.readLastCommand()
+      })
+
+      this.log(`[webmate] sign-in hint ${id}: ${describeAuthResult(result)}`)
+    })()
+      .catch(error => {
+        this.log(`[webmate] sign-in hint failed: ${error instanceof Error ? error.message : String(error)}`)
+      })
+      .finally(() => {
+        this.hintInFlight = null
+      })
+
+    await this.hintInFlight
+  }
+
+  /**
+   * "Đăng nhập WebMate bằng tài khoản này": interactive by default (a tab on
+   * Keycloak in the browser WebMate runs in, account pre-filled); silent when
+   * asked (the hint, re-sent by hand). Waits for the server's answer.
+   */
+  async signInExtension(request: { instanceId?: string | null; interactive?: boolean } = {}): Promise<SignInOutcome> {
+    const email = this.deps.accountEmail?.() ?? null
+    const status = this.status()
+
+    if (!status.connected) {
+      return { ok: false, sent: false, commandId: null, result: null, error: 'not-connected' }
+    }
+
+    const payload: WebmateCommandPayload = {
+      ...(email ? { loginHint: email } : {}),
+      ...(request.instanceId ? { instanceId: request.instanceId } : {}),
+      ...(request.interactive === false ? { force: true } : {})
+    }
+    const action: WebmateCommandAction = request.interactive === false ? 'auth_hint' : 'auth_open'
+    const id = this.sendCommand(action, payload)
+
+    this.log(`[webmate] ${action} requested (command ${id}${email ? `, ${email}` : ''})`)
+
+    const result = await waitForCommandResult(id, {
+      timeoutMs: AUTH_COMMAND_WAIT_MS,
+      readLastCommand: () => this.readLastCommand()
+    })
+
+    this.log(`[webmate] ${action} ${id}: ${describeAuthResult(result)}`)
+    this.status()
+
+    if (!result) {
+      return { ok: false, sent: true, commandId: id, result: null, error: 'no-answer' }
+    }
+
+    return { ok: result.ok, sent: true, commandId: id, result, error: result.ok ? null : (result.error ?? 'failed') }
+  }
+
+  /**
+   * Where Workmate's own sign-in page opens (main.ts hands every Keycloak
+   * URL here): the Workmate browser window when that mode is on and open, the
+   * browser/profile the person chose for WebMate, else the system browser as
+   * before. Landing the SSO cookie in the browser WebMate lives in is what
+   * lets the silent sign-in there succeed.
+   */
+  async openLoginUrl(url: string): Promise<OpenLoginOutcome> {
+    const prefs = this.getPrefs()
+    const browsers = this.browsers ?? (await this.scan())
+    const target = chooseLoginTarget(prefs, this.window.isOpen(), browsers)
+
+    if (target.kind === 'window') {
+      const opened = await this.window.openUrl(url)
+
+      if (opened.ok) {
+        this.log('[webmate] sign-in page opened in the Workmate browser window')
+
+        return { target: 'window', ok: true, error: null }
+      }
+
+      this.log(`[webmate] sign-in page: the window refused (${opened.error}); using the system browser`)
+    } else if (target.kind === 'browser') {
+      const opened = await openUrlInBrowser(
+        { browser: target.browser, profileDir: target.profileDir },
+        url,
+        this.platform,
+        { run: this.deps.spawnDetached }
+      )
+
+      if (opened.ok) {
+        this.log(
+          `[webmate] sign-in page opened in ${target.browser.name}${target.profileDir ? ` (${target.profileDir})` : ''} — ${opened.command}`
+        )
+
+        return { target: 'browser', ok: true, error: null }
+      }
+
+      this.log(`[webmate] sign-in page: ${target.browser.name} refused (${opened.error}); using the system browser`)
+    } else {
+      this.log(`[webmate] sign-in page: system browser (${target.reason})`)
+    }
+
+    if (!this.deps.openExternal) {
+      return { target: 'system', ok: false, error: 'no-opener' }
+    }
+
+    try {
+      await this.deps.openExternal(url)
+
+      return { target: 'system', ok: true, error: null }
+    } catch (error) {
+      return { target: 'system', ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** Settings → "Chọn trình duyệt": remember which browser/profile Workmate signs in with and installs into. */
+  async chooseBrowser(request: { browserId: string; profileDir: string | null }): Promise<WebmateChosenBrowser | null> {
+    const browsers = await this.scan()
+    const browser = browsers.find(candidate => candidate.id === request.browserId && candidate.supported)
+
+    if (!browser) {
+      return null
+    }
+
+    const chosen = chosenBrowserFrom(browser, request.profileDir)
+
+    this.setPrefs({ browser: chosen, mode: 'browser' })
+
+    return chosen
+  }
+
   // -- commands -------------------------------------------------------------
 
-  private sendCommand(action: WebmateCommandAction): string {
-    return sendWebmateCommand(this.paths, action)
+  private sendCommand(action: WebmateCommandAction, payload?: WebmateCommandPayload): string {
+    return sendWebmateCommand(this.paths, action, undefined, undefined, payload)
   }
 
   private readLastCommand(): WebmateLastCommand | null {
@@ -765,4 +969,18 @@ export class WebmateService {
       this.status()
     }
   }
+}
+
+/** One line for the log about a sign-in command's outcome. */
+function describeAuthResult(result: WebmateLastCommand | null): string {
+  if (!result) {
+    return 'no answer from the server'
+  }
+
+  const parts = (result.results ?? []).map(
+    entry =>
+      `${entry.browser ?? entry.instanceId}: ${entry.outcome || (entry.ok ? 'ok' : 'failed')}${entry.email ? ` (${entry.email})` : ''}${entry.message && !entry.ok ? ` — ${entry.message}` : ''}`
+  )
+
+  return `${result.ok ? 'ok' : `failed${result.error ? ` (${result.error})` : ''}`}${parts.length ? `; ${parts.join('; ')}` : ''}`
 }

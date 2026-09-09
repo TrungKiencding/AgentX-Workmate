@@ -153,6 +153,92 @@ export function planExtensionsPageLaunch(target: GuideTarget, platform: NodeJS.P
   return planWindowLaunch(target, platform)
 }
 
+/**
+ * Open an ordinary web page in the chosen browser profile (phase 4: Workmate's
+ * own Keycloak sign-in, so the SSO cookie lands in the browser WebMate lives
+ * in and `auth_hint` can reuse it). Unlike `chrome://` pages, an http(s) URL
+ * on the command line is honoured — it opens as a tab in that profile's
+ * window, or a new window when none is open. Only http(s) is ever launched.
+ */
+export function planUrlLaunch(target: GuideTarget, url: string, platform: NodeJS.Platform): GuideLaunch | null {
+  const { browser, profileDir } = target
+
+  if (!browser.supported) {
+    return null
+  }
+
+  let parsed: URL
+
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null
+  }
+
+  const browserArgs: string[] = []
+
+  if (!browser.singleProfile && profileDir) {
+    browserArgs.push(`--profile-directory=${profileDir}`)
+  }
+
+  browserArgs.push(parsed.toString())
+
+  if (platform === 'darwin') {
+    const app = browser.appPath ?? browser.executable
+
+    if (!app) {
+      return null
+    }
+
+    const args = ['-na', app, '--args', ...browserArgs]
+
+    return { file: 'open', args, command: ['open', ...args.map(quote)].join(' ') }
+  }
+
+  if (!browser.executable) {
+    return null
+  }
+
+  return {
+    file: browser.executable,
+    args: browserArgs,
+    command: [quote(browser.executable), ...browserArgs.map(quote)].join(' ')
+  }
+}
+
+export interface OpenUrlResult {
+  ok: boolean
+  command: string | null
+  error: string | null
+}
+
+/** Run `planUrlLaunch`. Errors are reported, never thrown; the caller falls back to the system browser. */
+export async function openUrlInBrowser(
+  target: GuideTarget,
+  url: string,
+  platform: NodeJS.Platform,
+  deps: Pick<GuideDeps, 'run'> = {}
+): Promise<OpenUrlResult> {
+  const run = deps.run ?? spawnDetached
+  const launch = planUrlLaunch(target, url, platform)
+
+  if (!launch) {
+    return { ok: false, command: null, error: 'browser-not-launchable' }
+  }
+
+  try {
+    await run(launch.file, launch.args)
+
+    return { ok: true, command: launch.command, error: null }
+  } catch (error) {
+    return { ok: false, command: launch.command, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 export type SpawnDetached = (file: string, args: string[]) => Promise<void>
 export type ExecCapture = (file: string, args: string[]) => Promise<string>
 

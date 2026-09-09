@@ -6758,6 +6758,30 @@ function keycloakFormPost(url: string, form: Record<string, string>, options: an
   })
 }
 
+/**
+ * Open a Keycloak page (sign-in, sign-out) where the WebMate integration
+ * wants it — the chosen browser profile or the Workmate browser window — and
+ * fall back to the system browser on any refusal, so sign-in never depends
+ * on the extension being set up.
+ */
+async function openKeycloakPage(url: string): Promise<void> {
+  try {
+    const outcome = await webmateService().openLoginUrl(url)
+
+    if (outcome.ok) {
+      return
+    }
+
+    rememberLog(`[keycloak] could not open the page in the chosen browser (${outcome.error}); using the system browser`)
+  } catch (error) {
+    rememberLog(
+      `[keycloak] browser routing failed (${error instanceof Error ? error.message : String(error)}); using the system browser`
+    )
+  }
+
+  await shell.openExternal(url)
+}
+
 // GET JSON with no auth — discovery and the backend's public provider list.
 function keycloakGetJson(url: string, options: any = {}): Promise<any> {
   return fetchJson(url, null, { timeoutMs: DEFAULT_FETCH_TIMEOUT_MS, ...options })
@@ -6765,10 +6789,12 @@ function keycloakGetJson(url: string, options: any = {}): Promise<any> {
 
 function keycloakDeps(extra: Partial<KeycloakSessionDeps> = {}): KeycloakSessionDeps {
   return {
-    // System browser, never a BrowserWindow (RFC 8252 BCP) — it is also what
+    // A real browser, never a BrowserWindow (RFC 8252 BCP) — it is also what
     // lets someone already signed in to AgentX in that browser pass straight
-    // through on the existing Keycloak SSO cookie.
-    openExternal: (url: string) => shell.openExternal(url),
+    // through on the existing Keycloak SSO cookie. Which browser: the one
+    // WebMate runs in when the person has picked one (phase 4, so the same
+    // cookie lets the extension sign in silently), else the system default.
+    openExternal: (url: string) => openKeycloakPage(url),
     getJson: keycloakGetJson,
     postForm: keycloakFormPost,
     store: _nativeTokenStoreIo(),
@@ -10878,7 +10904,8 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
     const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
 
     if (url) {
-      await shell.openExternal(url)
+      // Same browser the sign-in went to, so the SSO session there ends too.
+      await openKeycloakPage(url)
     }
   } catch (error) {
     // Local state is already cleared, which is the part the user asked for.
@@ -12663,7 +12690,19 @@ function webmateService(): WebmateService {
         }
       },
       openPath: dir => shell.openPath(path.normalize(dir)),
-      writeClipboard: text => clipboard.writeText(text)
+      writeClipboard: text => clipboard.writeText(text),
+      openExternal: url => shell.openExternal(url),
+      // The account WebMate should sign in as: read off the stored Keycloak
+      // session, so it answers with no network and is null when signed out.
+      accountEmail: () => {
+        const config = keycloakConfigForProfile()
+
+        if (!config) {
+          return null
+        }
+
+        return loadKeycloakSession(config, _nativeTokenStoreIo())?.email || null
+      }
     })
   }
 
@@ -12726,6 +12765,21 @@ ipcMain.handle('agentx:webmate:window:open', async (_event, request) =>
 )
 ipcMain.handle('agentx:webmate:window:close', async () => webmateService().closeWindow())
 ipcMain.handle('agentx:webmate:window:status', async () => webmateService().windowStatus())
+// Phase 4 — sign WebMate in with the Workmate account, and the browser Workmate signs in through.
+ipcMain.handle('agentx:webmate:auth:sign-in', async (_event, request) =>
+  webmateService()
+    .signInExtension({
+      instanceId: typeof request?.instanceId === 'string' ? request.instanceId : null,
+      interactive: request?.interactive !== false
+    })
+    .catch(error => ({ ...webmateFailure(error), sent: false, commandId: null, result: null }))
+)
+ipcMain.handle('agentx:webmate:choose-browser', async (_event, request) =>
+  webmateService().chooseBrowser({
+    browserId: String(request?.browserId || ''),
+    profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null
+  })
+)
 
 ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH

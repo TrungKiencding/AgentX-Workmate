@@ -342,6 +342,10 @@ declare global {
         openWindow: (request?: { browserId?: string | null }) => Promise<DesktopWebmateOpenWindowResult>
         closeWindow: () => Promise<DesktopWebmateWindowStatus>
         windowStatus: () => Promise<DesktopWebmateWindowStatus>
+        /** Phase 4 — sign WebMate in with the Workmate account (interactive by default; `interactive: false` re-sends the silent hint). */
+        signIn: (request?: { instanceId?: string | null; interactive?: boolean }) => Promise<DesktopWebmateSignInOutcome>
+        /** Phase 4 — the browser/profile Workmate signs in through and installs WebMate into. */
+        chooseBrowser: (request: { browserId: string; profileDir: string | null }) => Promise<DesktopWebmatePrefs['browser']>
       }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
@@ -473,10 +477,25 @@ export interface DesktopWebmatePrefs {
   askWhenNotReady: boolean
   mode: null | 'browser' | 'window'
   browser: { id: string; name: string; profileDir: string | null; profileName: string | null } | null
+  /** Sign WebMate in with the Workmate account by itself, and open Workmate's sign-in in the chosen browser. */
+  ssoAutoSignIn: boolean
   connectedAt: string | null
   cardSnoozedUntil: string | null
   updateToastSnoozedUntil: string | null
   updatedAt: string
+}
+
+/** One browser's answer to a sign-in command (auth_hint / auth_open). */
+export interface DesktopWebmateAuthResult {
+  instanceId: string
+  browser: string | null
+  ok: boolean
+  /** 'signed-in' | 'already-signed-in' | 'login-required' | 'unsupported' | 'error' | '' */
+  outcome: string
+  signedIn: boolean
+  email?: string
+  error?: string
+  message?: string
 }
 
 export interface DesktopWebmateLastCommand {
@@ -485,8 +504,31 @@ export interface DesktopWebmateLastCommand {
   ok: boolean
   busy?: number
   error?: string | null
+  results?: DesktopWebmateAuthResult[]
+  signedIn?: boolean
   startedAt: string
   finishedAt: string
+}
+
+/** One attached extension (phase 4: several browsers can be attached at once). */
+export interface DesktopWebmateConnection {
+  instanceId: string
+  browser: string | null
+  extensionVersion: string | null
+  installType: 'workmate' | 'dev' | null
+  signedIn: boolean | null
+  protocolVersion: number | null
+  lastHelloAt: string | null
+  paired: boolean
+  active: boolean
+}
+
+export interface DesktopWebmateSignInOutcome {
+  ok: boolean
+  sent: boolean
+  commandId: string | null
+  result: DesktopWebmateLastCommand | null
+  error: string | null
 }
 
 export interface DesktopWebmateBridgeState {
@@ -503,6 +545,8 @@ export interface DesktopWebmateBridgeState {
   signedIn: boolean | null
   protocolVersion: number | null
   lastHelloAt: string | null
+  instanceId: string | null
+  connections: DesktopWebmateConnection[]
   error: string | null
   lastCommand: DesktopWebmateLastCommand | null
   updatedAt: string | null
@@ -555,6 +599,9 @@ export interface DesktopWebmateStatus {
   installType: 'workmate' | 'dev' | null
   signedIn: boolean | null
   protocolVersion: number | null
+  instanceId: string | null
+  /** Every attached browser while the server is live; [] otherwise. */
+  connections: DesktopWebmateConnection[]
   lastCommand: DesktopWebmateLastCommand | null
   error: string | null
   prefs: DesktopWebmatePrefs

@@ -19,6 +19,20 @@ import { readInstalledVersion } from './extension-store'
 import type { WebmatePaths } from './paths'
 import { parsePrefs, prefsFile, type WebmatePrefs } from './prefs'
 
+/** One attached extension, as the server lists it under `state.json.connections` (phase 4). */
+export interface WebmateConnection {
+  instanceId: string
+  browser: string | null
+  extensionVersion: string | null
+  installType: 'workmate' | 'dev' | null
+  signedIn: boolean | null
+  protocolVersion: number | null
+  lastHelloAt: string | null
+  paired: boolean
+  /** The one commands go to when nothing names a browser (signed in first, then newest). */
+  active: boolean
+}
+
 export interface WebmateBridgeState {
   schema: number
   pid: number | null
@@ -27,12 +41,16 @@ export interface WebmateBridgeState {
   listening: boolean
   connected: boolean
   pairingRequired: boolean
+  // The active connection, for readers that know one extension…
   browser: string | null
   extensionVersion: string | null
   installType: 'workmate' | 'dev' | null
   signedIn: boolean | null
   protocolVersion: number | null
   lastHelloAt: string | null
+  instanceId: string | null
+  // …and every attached one (empty from a server older than 1.2.0).
+  connections: WebmateConnection[]
   error: string | null
   lastCommand: WebmateLastCommand | null
   updatedAt: string | null
@@ -67,6 +85,9 @@ export interface WebmateLocalStatus {
   installType: 'workmate' | 'dev' | null
   signedIn: boolean | null
   protocolVersion: number | null
+  instanceId: string | null
+  /** Every attached browser while the server is live; [] otherwise. */
+  connections: WebmateConnection[]
   lastCommand: WebmateLastCommand | null
   error: string | null
   prefs: WebmatePrefs
@@ -141,6 +162,8 @@ export function parseBridgeState(text: string | null): WebmateBridgeState | null
 
   return {
     schema: num(raw.schema) ?? 1,
+    instanceId: str(raw.instanceId),
+    connections: parseConnections(raw.connections),
     pid: num(raw.pid),
     port: num(raw.port),
     serverVersion: str(raw.serverVersion),
@@ -157,6 +180,41 @@ export function parseBridgeState(text: string | null): WebmateBridgeState | null
     lastCommand: parseLastCommand(raw.lastCommand),
     updatedAt: str(raw.updatedAt)
   }
+}
+
+function parseConnections(value: unknown): WebmateConnection[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const out: WebmateConnection[] = []
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      continue
+    }
+
+    const record = entry as Record<string, unknown>
+    const instanceId = str(record.instanceId)
+
+    if (!instanceId) {
+      continue
+    }
+
+    out.push({
+      instanceId,
+      browser: str(record.browser),
+      extensionVersion: str(record.extensionVersion),
+      installType: record.installType === 'workmate' || record.installType === 'dev' ? record.installType : null,
+      signedIn: bool(record.signedIn),
+      protocolVersion: num(record.protocolVersion),
+      lastHelloAt: str(record.lastHelloAt),
+      paired: record.paired === true,
+      active: record.active === true
+    })
+  }
+
+  return out
 }
 
 export function parseUpdateCheckSummary(text: string | null): WebmateUpdateCheckSummary | null {
@@ -207,6 +265,8 @@ export function readWebmateStatus(paths: WebmatePaths, io: StatusIo = defaultSta
     installType: connected ? bridge.installType : null,
     signedIn: connected ? bridge.signedIn : null,
     protocolVersion: connected ? bridge.protocolVersion : null,
+    instanceId: connected ? bridge.instanceId : null,
+    connections: connected ? bridge.connections : [],
     lastCommand: live ? bridge.lastCommand : null,
     error: live ? bridge.error : null,
     prefs: parsePrefs(io.readText(prefsFile(paths, io.pathModule)), io.now()),

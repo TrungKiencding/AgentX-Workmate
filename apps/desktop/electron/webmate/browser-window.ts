@@ -338,6 +338,45 @@ export class WorkmateBrowserWindow {
 
     return this.open(options)
   }
+
+  /**
+   * Open a page as a new tab in the window (phase 4: Workmate's own sign-in,
+   * so the Keycloak cookie lands in this profile and the extension here can
+   * sign in silently). Only http(s); never navigates an existing tab.
+   */
+  async openUrl(url: string): Promise<{ ok: boolean; targetId: string | null; error: string | null }> {
+    let parsed: URL
+
+    try {
+      parsed = new URL(url)
+    } catch {
+      return { ok: false, targetId: null, error: 'not a URL' }
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { ok: false, targetId: null, error: 'only http(s) pages can be opened' }
+    }
+
+    const cdp = this.cdp
+
+    if (!this.status.open || !cdp || cdp.isClosed) {
+      return { ok: false, targetId: null, error: 'window is not open' }
+    }
+
+    try {
+      const created = await cdp.send<{ targetId?: string }>('Target.createTarget', { url: parsed.toString() })
+
+      this.log(`[webmate] window: opened ${parsed.origin} as tab ${created.targetId ?? '?'}`)
+
+      return { ok: true, targetId: created.targetId ?? null, error: null }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      this.log(`[webmate] window: could not open ${parsed.origin} — ${message}`)
+
+      return { ok: false, targetId: null, error: message }
+    }
+  }
 }
 
 /** Pick the browser the window runs: the remembered one, else the default, else the first Chromium-based one. */

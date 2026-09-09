@@ -55,9 +55,37 @@ describe('parseBridgeState', () => {
     assert.equal(state?.browser, 'Chrome 152')
     assert.equal(state?.installType, 'workmate')
     assert.equal(state?.lastCommand?.id, 'c1')
+    assert.equal(state?.instanceId, null, 'a 1.1.0 server names no instance')
+    assert.deepEqual(state?.connections, [], 'and lists no connections')
     assert.equal(parseBridgeState(null), null)
     assert.equal(parseBridgeState('nope'), null)
     assert.equal(parseBridgeState(JSON.stringify({ installType: 'store', browser: 7 }))?.installType, null)
+  })
+
+  test('reads the attached browsers a 1.2.0 server lists, skipping entries without an instance id', () => {
+    const state = parseBridgeState(
+      JSON.stringify({
+        schema: 1,
+        listening: true,
+        connected: true,
+        instanceId: 'inst-b',
+        connections: [
+          { instanceId: 'inst-a', browser: 'Chrome 152', extensionVersion: '1.0.5', installType: 'workmate', signedIn: false, protocolVersion: 3, lastHelloAt: 't', paired: true, active: false },
+          { instanceId: 'inst-b', browser: 'Chrome 152', signedIn: true, active: true, installType: 'workmate' },
+          { browser: 'nameless' },
+          null
+        ]
+      })
+    )
+
+    assert.equal(state?.instanceId, 'inst-b')
+    assert.deepEqual(
+      state?.connections.map(c => [c.instanceId, c.signedIn, c.active, c.paired, c.extensionVersion]),
+      [
+        ['inst-a', false, false, true, '1.0.5'],
+        ['inst-b', true, true, false, null]
+      ]
+    )
   })
 })
 
@@ -78,6 +106,8 @@ describe('readWebmateStatus', () => {
     assert.equal(status.pairingPresent, true)
     assert.equal(status.stale, false)
     assert.equal(status.serverRunning, true)
+    assert.deepEqual(status.connections, [])
+    assert.equal(status.instanceId, null)
     assert.equal(status.connected, true)
     assert.equal(status.browser, 'Chrome 152')
     assert.equal(status.extensionVersion, '1.0.4')

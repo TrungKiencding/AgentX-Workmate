@@ -6,7 +6,9 @@ import {
   appleScriptAppName,
   GUIDE_MARKER_URL,
   openExtensionsPage,
+  openUrlInBrowser,
   planAppleScriptNavigate,
+  planUrlLaunch,
   planWindowLaunch,
   planWindowsNavigate
 } from './guide'
@@ -229,5 +231,61 @@ describe('openExtensionsPage', () => {
       command: null,
       error: 'browser-not-launchable'
     })
+  })
+})
+
+describe('planUrlLaunch', () => {
+  test('macOS hands an https page to the profile through `open -na <app> --args`', () => {
+    const plan = planUrlLaunch({ browser: chromeMac, profileDir: 'Profile 2' }, 'https://id.example.test/auth?x=1', 'darwin')
+
+    assert.deepEqual(plan?.args, [
+      '-na',
+      '/Applications/Google Chrome.app',
+      '--args',
+      '--profile-directory=Profile 2',
+      'https://id.example.test/auth?x=1'
+    ])
+    assert.equal(plan?.file, 'open')
+  })
+
+  test('Windows launches the executable with the profile switch and the page', () => {
+    const plan = planUrlLaunch({ browser: edgeWin, profileDir: 'Default' }, 'https://id.example.test/auth', 'win32')
+
+    assert.equal(plan?.file, edgeWin.executable)
+    assert.deepEqual(plan?.args, ['--profile-directory=Default', 'https://id.example.test/auth'])
+  })
+
+  test('only http(s) pages are ever launched, and unsupported browsers refuse', () => {
+    assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'chrome://settings', 'darwin'), null)
+    assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'file:///etc/passwd', 'darwin'), null)
+    assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'not a url', 'darwin'), null)
+    assert.equal(planUrlLaunch({ browser: { ...chromeMac, supported: false }, profileDir: null }, 'https://x.test', 'darwin'), null)
+  })
+})
+
+describe('openUrlInBrowser', () => {
+  test('runs the plan and reports the command; a refusal is reported, not thrown', async () => {
+    const ran: string[][] = []
+    const ok = await openUrlInBrowser({ browser: chromeMac, profileDir: 'Default' }, 'https://x.test/a', 'darwin', {
+      run: async (file, args) => void ran.push([file, ...args])
+    })
+
+    assert.equal(ok.ok, true)
+    assert.deepEqual(ran, [['open', '-na', '/Applications/Google Chrome.app', '--args', '--profile-directory=Default', 'https://x.test/a']])
+
+    const refused = await openUrlInBrowser({ browser: chromeMac, profileDir: null }, 'https://x.test/a', 'darwin', {
+      run: async () => {
+        throw new Error('spawn ENOENT')
+      }
+    })
+
+    assert.equal(refused.ok, false)
+    assert.match(refused.error ?? '', /ENOENT/)
+
+    const unlaunchable = await openUrlInBrowser({ browser: chromeMac, profileDir: null }, 'chrome://x', 'darwin', {
+      run: async () => undefined
+    })
+
+    assert.deepEqual(unlaunchable, { ok: false, command: null, error: 'browser-not-launchable' })
   })
 })

@@ -390,6 +390,8 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     openWindow: request => ipcRenderer.invoke('agentx:webmate:window:open', request),
     closeWindow: () => ipcRenderer.invoke('agentx:webmate:window:close'),
     windowStatus: () => ipcRenderer.invoke('agentx:webmate:window:status'),
+    signIn: request => ipcRenderer.invoke('agentx:webmate:auth:sign-in', request),
+    chooseBrowser: request => ipcRenderer.invoke('agentx:webmate:choose-browser', request),
     onUpdateProgress: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('agentx:webmate:update:progress', listener)

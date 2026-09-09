@@ -266,6 +266,54 @@ describe('WorkmateBrowserWindow', () => {
   })
 })
 
+describe('WorkmateBrowserWindow.openUrl', () => {
+  test('opens an http(s) page as a new tab over the pipe, and refuses anything else', async () => {
+    const created: Array<Record<string, unknown>> = []
+    const browser = new FakeBrowser((method, params) => {
+      if (method === 'Target.createTarget') {
+        created.push(params)
+
+        return { result: { targetId: 'T1' } }
+      }
+
+      return wellBehaved(method)
+    })
+    const window = new WorkmateBrowserWindow({ spawn: () => browser, sleep: async () => undefined })
+
+    assert.deepEqual(await window.openUrl('https://id.example.test/auth'), {
+      ok: false,
+      targetId: null,
+      error: 'window is not open'
+    })
+
+    await window.open(OPTIONS)
+    const opened = await window.openUrl('https://id.example.test/auth?x=1')
+
+    assert.deepEqual(opened, { ok: true, targetId: 'T1', error: null })
+    assert.deepEqual(created, [{ url: 'https://id.example.test/auth?x=1' }])
+    assert.equal((await window.openUrl('chrome://settings')).ok, false)
+    assert.equal((await window.openUrl('file:///etc/hosts')).ok, false)
+    assert.equal((await window.openUrl('nope')).ok, false)
+    assert.equal(created.length, 1, 'nothing but http(s) reaches the browser')
+
+    await window.close()
+  })
+
+  test('a browser that rejects the tab reports the error instead of throwing', async () => {
+    const browser = new FakeBrowser(method =>
+      method === 'Target.createTarget' ? { error: { code: -32000, message: 'no window' } } : wellBehaved(method)
+    )
+    const window = new WorkmateBrowserWindow({ spawn: () => browser, sleep: async () => undefined })
+
+    await window.open(OPTIONS)
+    const opened = await window.openUrl('https://id.example.test/')
+
+    assert.equal(opened.ok, false)
+    assert.match(opened.error ?? '', /no window/)
+    await window.close()
+  })
+})
+
 describe('chooseWindowBrowser', () => {
   const browser = (id: BrowserInfo['id'], isDefault = false, supported = true): BrowserInfo => ({
     id,
