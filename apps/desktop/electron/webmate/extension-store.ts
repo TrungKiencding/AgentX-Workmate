@@ -22,7 +22,7 @@ import { promises as fsp } from 'node:fs'
 import nodePath from 'node:path'
 
 import { WEBMATE_EXTENSION_ID, type WebmatePaths } from './paths'
-import { compareVersions, parseReleaseManifest, sha256Hex, verifyReleaseManifest, type ReleaseManifest } from './release-feed'
+import { compareVersions, parseReleaseManifest, type ReleaseManifest, sha256Hex, verifyReleaseManifest } from './release-feed'
 import { extractZip } from './zip'
 
 /** Chrome's ID for a manifest `key`: SHA-256 of the SPKI, first 16 bytes, nibbles a–p. */

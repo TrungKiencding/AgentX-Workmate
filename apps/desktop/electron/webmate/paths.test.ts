@@ -4,9 +4,9 @@ import path from 'node:path'
 import { describe, test } from 'vitest'
 
 import {
+  stripHomeScopingSegments,
   WEBMATE_EXTENSION_ID,
   WEBMATE_INSTALL_DIR_NAME,
-  stripHomeScopingSegments,
   webmateBridgeUrl,
   webmatePaths
 } from './paths'

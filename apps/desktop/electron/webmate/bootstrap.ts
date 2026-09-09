@@ -13,9 +13,12 @@
  * from starting, and the status endpoint / Settings surface the reason.
  */
 
-import { ensureExtensionFolder, locateBundledExtension, readInstalledVersion, type InstallOutcome } from './extension-store'
+import fs from 'node:fs'
+import nodePath from 'node:path'
+
+import { ensureExtensionFolder, type InstallOutcome, locateBundledExtension, readInstalledVersion } from './extension-store'
 import { ensurePairing, type PairingOutcome } from './pairing'
-import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, webmatePaths, type WebmatePaths } from './paths'
+import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
 
 export interface BootstrapOptions {
   /** The AgentX install root (or any AGENTX_HOME under it). */
@@ -29,7 +32,7 @@ export interface BootstrapOptions {
   bridgePort?: number
   log?: (message: string) => void
   /** Injected for tests. */
-  pathModule?: typeof import('node:path')
+  pathModule?: typeof nodePath
 }
 
 export interface BootstrapResult {
@@ -43,12 +46,14 @@ export interface BootstrapResult {
 
 export async function bootstrapWebmate(options: BootstrapOptions): Promise<BootstrapResult> {
   const log = options.log ?? (() => {})
-  const pathModule = options.pathModule ?? (await import('node:path')).default
+  const pathModule = options.pathModule ?? nodePath
   const paths = webmatePaths(options.agentxHome, pathModule)
+
   const bundled = locateBundledExtension([
     options.resourcesPath ? pathModule.join(options.resourcesPath, 'webmate') : null,
     pathModule.join(options.appRoot, 'build', 'webmate')
   ])
+
   const result: BootstrapResult = {
     paths,
     bundledVersion: bundled?.version ?? null,
@@ -102,9 +107,9 @@ export interface LocalWebmateStatus {
 }
 
 /** The facts the desktop can read without the backend: folder, pairing, state.json. */
-export function readLocalWebmateStatus(agentxHome: string, pathModule?: typeof import('node:path')): LocalWebmateStatus {
+export function readLocalWebmateStatus(agentxHome: string, pathModule: typeof nodePath = nodePath): LocalWebmateStatus {
   const paths = webmatePaths(agentxHome, pathModule)
-  const fs = require('node:fs') as typeof import('node:fs')
+
   const readJson = (file: string): Record<string, unknown> | null => {
     try {
       const raw = JSON.parse(fs.readFileSync(file, 'utf8'))

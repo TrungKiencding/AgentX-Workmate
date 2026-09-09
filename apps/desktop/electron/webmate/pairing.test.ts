@@ -6,7 +6,7 @@ import path from 'node:path'
 
 import { afterEach, describe, test } from 'vitest'
 
-import { buildWorkmateJson, defaultPairingIo, ensurePairing, parsePairingFile, type PairingIo, writeWorkmateJsonInto } from './pairing'
+import { buildWorkmateJson, defaultPairingIo, ensurePairing, type PairingIo, parsePairingFile, writeWorkmateJsonInto } from './pairing'
 import { webmatePaths } from './paths'
 
 function memoryIo(initial: Record<string, string> = {}): PairingIo & { files: Map<string, string>; modes: Map<string, number>; writes: string[] } {
@@ -23,7 +23,11 @@ function memoryIo(initial: Record<string, string> = {}): PairingIo & { files: Ma
     readText: p => files.get(p) ?? null,
     writeTextAtomic: (p, text, mode) => {
       files.set(p, text)
-      if (mode !== undefined) modes.set(p, mode)
+
+      if (mode !== undefined) {
+        modes.set(p, mode)
+      }
+
       writes.push(p)
     },
     exists: p => files.has(p),

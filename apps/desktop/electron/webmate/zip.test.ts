@@ -5,7 +5,7 @@ import path from 'node:path'
 
 import { afterEach, describe, test } from 'vitest'
 
-import { ZipError, crc32, extractZip, listZipEntries, readZipEntry, safeEntryPath } from './zip'
+import { crc32, extractZip, listZipEntries, readZipEntry, safeEntryPath, ZipError } from './zip'
 import { buildZip } from './zip-writer.test-helper'
 
 const tempDirs: string[] = []
@@ -30,12 +30,14 @@ describe('zip reader', () => {
 
   test('lists and reads store and deflate entries', () => {
     const big = Buffer.alloc(20_000, 'a')
+
     const archive = buildZip([
       { name: 'manifest.json', data: '{"version":"1.0.4"}' },
       { name: 'icons/', data: '' },
       { name: 'icons/icon16.png', data: Buffer.from([0x89, 0x50, 0x4e, 0x47]), store: true },
       { name: 'src/big.js', data: big }
     ])
+
     const entries = listZipEntries(archive)
 
     assert.deepEqual(
@@ -83,11 +85,13 @@ describe('zip reader', () => {
 
   test('extractZip writes the tree and refuses a hostile archive before touching disk', async () => {
     const dir = await tempDir()
+
     const archive = buildZip([
       { name: 'manifest.json', data: '{"version":"1.0.4"}' },
       { name: 'src/', data: '' },
       { name: 'src/background.js', data: 'console.log(1)' }
     ])
+
     const result = await extractZip(archive, path.join(dir, 'out'))
 
     assert.deepEqual(result, { files: 2, bytes: '{"version":"1.0.4"}'.length + 'console.log(1)'.length })

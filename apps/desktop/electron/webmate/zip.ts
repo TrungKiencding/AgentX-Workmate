@@ -51,6 +51,7 @@ export function listZipEntries(archive: Buffer): ZipEntry[] {
   for (let offset = archive.length - 22; offset >= earliest; offset -= 1) {
     if (archive.readUInt32LE(offset) === EOCD_SIGNATURE && offset + 22 + archive.readUInt16LE(offset + 20) === archive.length) {
       eocd = offset
+
       break
     }
   }
@@ -231,6 +232,7 @@ export async function extractZip(archive: Buffer, destDir: string): Promise<Extr
   for (const { entry, target } of planned) {
     if (entry.isDirectory) {
       await fsp.mkdir(target, { recursive: true })
+
       continue
     }
 

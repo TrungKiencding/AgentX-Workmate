@@ -4,13 +4,13 @@ import { createPrivateKey, generateKeyPairSync, sign } from 'node:crypto'
 import { describe, test } from 'vitest'
 
 import {
-  WEBMATE_RELEASE_PUBLIC_KEY,
   canonicalJson,
   compareVersions,
   parseReleaseManifest,
   sha256Hex,
   signingPayload,
-  verifyReleaseManifest
+  verifyReleaseManifest,
+  WEBMATE_RELEASE_PUBLIC_KEY
 } from './release-feed'
 
 function keyPair() {
@@ -23,7 +23,7 @@ function keyPair() {
 }
 
 /** Sign the way WebMate's scripts/sign-release.mjs does. */
-function signManifest(manifest: Record<string, unknown>, privatePem: string) {
+function signManifest(manifest: Record<string, any>, privatePem: string): Record<string, any> {
   const { signature: _old, ...rest } = manifest
   const signature = sign(null, signingPayload(rest), createPrivateKey(privatePem)).toString('base64')
 

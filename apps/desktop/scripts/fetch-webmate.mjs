@@ -67,7 +67,9 @@ export function verifyReleaseSignature(manifest, publicKeyPem) {
     const bytes = Buffer.from(signature.slice('ed25519:'.length), 'base64')
 
     if (bytes.length !== 64) return false
-    const { signature: _s, ...rest } = manifest
+    const rest = { ...manifest }
+
+    delete rest.signature
 
     return cryptoVerify(null, Buffer.from(canonicalJson(rest), 'utf8'), createPublicKey(publicKeyPem), bytes)
   } catch {

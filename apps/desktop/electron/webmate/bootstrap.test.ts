@@ -31,6 +31,7 @@ async function stageBundle(appRoot: string, version: string) {
     { name: 'manifest.json', data: JSON.stringify({ manifest_version: 3, name: 'AgentX WebMate', version, key: REAL_KEY }) },
     { name: 'src/background.js', data: '// bg' }
   ])
+
   const dir = path.join(appRoot, 'build', 'webmate')
 
   await fsp.mkdir(dir, { recursive: true })

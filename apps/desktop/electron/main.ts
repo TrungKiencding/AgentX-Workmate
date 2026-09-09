@@ -236,6 +236,7 @@ import {
 import { formatBlockerMessage, formatProbeFailedMessage, scanVenvBlockers } from './venv-blocker-scan'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
+import { bootstrapWebmate, readLocalWebmateStatus } from './webmate/bootstrap'
 import {
   computeWindowOptions,
   debounce,
@@ -243,7 +244,6 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
-import { bootstrapWebmate, readLocalWebmateStatus } from './webmate/bootstrap'
 import { decideInAppAgentUpdate } from './windows-agent-update'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 import {

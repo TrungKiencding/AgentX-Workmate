@@ -62,6 +62,7 @@ export function canonicalJson(value: unknown): string {
   }
 
   const record = value as Record<string, unknown>
+
   const keys = Object.keys(record)
     .filter(key => record[key] !== undefined)
     .sort()
