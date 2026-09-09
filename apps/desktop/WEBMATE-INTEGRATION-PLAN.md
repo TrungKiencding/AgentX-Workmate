@@ -186,10 +186,18 @@ webmate: { installed, path, disabled, disableReasons } }] }`.
 
 ### 2.4 Mở trang extension và dẫn cài (`electron/webmate/guide.ts`)
 
-- macOS: `open -na "<Tên app>" --args --profile-directory="<dir>" chrome://extensions` (Edge:
-  `edge://extensions`, Brave: `brave://extensions`, Vivaldi/Opera/Arc: thử `chrome://extensions`,
-  ghi nhận kết quả). Windows: `"<exe>" --profile-directory="<dir>" chrome://extensions` qua
-  `spawn` detached. Không dùng `shell.openExternal`.
+- **Đo thật trên Chrome 152 macOS (09/09/2026): URL `chrome://…` truyền qua dòng lệnh bị Chrome
+  bỏ qua** — cả khởi động lạnh lẫn khi Chrome đang chạy, `chrome://extensions` và
+  `chrome://settings` đều chỉ ra cửa sổ New Tab. Vì vậy `guide.ts` đi hai bước: (1) mở cửa sổ
+  mới cho đúng profile trên một trang dòng lệnh chấp nhận, `--profile-directory="<dir>"
+  --new-window about:blank` (macOS `open -na "<App>.app" --args …`, Windows/Linux chạy binary
+  detached); (2) lái cửa sổ đó tới trang tiện ích từ ngoài dòng lệnh: macOS AppleScript
+  `tell application "<App>" to set URL of active tab of front window to "chrome://extensions"`
+  (đường Apple Event coi URL là tin cậy; đã kiểm với Chrome và Edge), Windows gõ địa chỉ bằng
+  `WScript.Shell` (`AppActivate('about:blank')` → Ctrl+L → URL → Enter; chưa kiểm trên máy
+  thật). Bước 2 chỉ chạm cửa sổ có tab đang mở là about:blank / New Tab / What's New của mình,
+  không bao giờ đụng tab người dùng đang mở; không lái được thì panel bảo người dùng gõ địa chỉ.
+  Không dùng `shell.openExternal`.
 - Đồng thời `shell.openPath(<~/.agentx/webmate>)` để thư mục `AgentX WebMate` hiện ra kéo thả
   được; nút "Sao chép đường dẫn" ghi đường dẫn tuyệt đối vào clipboard cho "Load unpacked".
 - Phát hiện thành công: `state.json` chuyển `connected: true` với `browser` khớp lựa chọn. Không
@@ -297,6 +305,15 @@ trình duyệt" trong Cài đặt, mở đăng nhập Workmate trong trình duy�
 |---|---|---|
 | 0 · WebMate gói cài được | **Xong** (09/09/2026) | Nhánh `feat/workmate-install` kho WebMate, 4 commit. `npm test` xanh trừ 1 test CHANGELOG đã đỏ sẵn trên `main` (thiếu mục 1.0.3); mcp-server 73/73; e2e Chrome thật 6/6. Chưa có GitHub Release 1.0.4 (cần chủ dự án chạy workflow với secret `WEBMATE_RELEASE_SIGNING_KEY`). |
 | 1 · Workmate hết lỗi máy sạch | **Xong** (09/09/2026) | Nhánh `webmate-install/phase-1`. Catalog `bundled` + `${NODE}`/`${AGENTX_ROOT}`, `agentx mcp install webmate [--dev]`, `GET /api/webmate/status`, `electron/webmate/{paths,zip,release-feed,pairing,extension-store,bootstrap}.ts` chạy khi app khởi động, `scripts/fetch-webmate.mjs` + `extraResources` `build/webmate`, skill/`check_bridge.py` cập nhật. Nghiệm thu tại máy: bootstrap thật tạo `AgentX WebMate/` 1.0.3 (bản build tại máy, ký bằng khoá thật), `pairing.json` 0600, `workmate.json`; server bundled từ chối token sai và ghi `state.json` khi nối. `webmate.lock.json` còn `sha256: null` cho tới khi WebMate 1.0.4 được phát hành (`node scripts/fetch-webmate.mjs --pin 1.0.4`). Chưa kiểm trên Windows thật. |
-| 2 · UX cài, Cài đặt, bản mới | Chưa | Việc kế tiếp. Lưu ý từ giai đoạn 1: dev muốn dùng bản `brand-dist/chrome` với Workmate đã ghép đôi thì chép `~/.agentx/webmate/AgentX WebMate/workmate.json` vào `brand-dist/chrome/` (brand:build giữ lại, build:zip từ chối đóng gói). |
-| 3 · Cửa sổ trình duyệt Workmate | Chưa | |
+| 2 · UX cài, Cài đặt, bản mới | **Xong** (09/09/2026) | Nhánh `webmate-install/phase-2`. `electron/webmate/{browsers,guide,status,prefs,commands,updater,service}.ts` + IPC `agentx:webmate:*`; store `src/store/webmate.ts`; bước onboarding `connecting_browser` (`components/onboarding/browser-step.tsx`, ảnh chụp thật Chrome/Edge vi+en); Settings → Trình duyệt (`app/settings/browser-settings.tsx`), thẻ cập nhật chung với Giới thiệu, thẻ nhắc `WEBMATE_*` (`components/webmate-prompt-card.tsx`); i18n 6 ngôn ngữ. Nghiệm thu tại máy: quét ra Edge (mặc định) + Chrome + Safari (chưa hỗ trợ); nút cài mở Finder tại `~/.agentx/webmate` và cửa sổ Chrome mới trên `chrome://extensions` đúng profile qua hai bước; nạp chính thư mục `AgentX WebMate` vào một Chrome profile tạm (CDP `Extensions.loadUnpacked`) → server thật chấp nhận hello v3 có token → bước onboarding chuyển "Đã kết nối · Chrome 152" không cần bấm; feed `release.json` cục bộ ký khoá thử (chỉ dev, `AGENTX_WEBMATE_FEED_URL`/`AGENTX_WEBMATE_FEED_PUBLIC_KEY`) chạy trọn tải → sha256 → giải nén → kiểm key → hoán đổi hai lần (1.0.3→1.0.4 tự động, 1.0.4→1.0.5→1.0.6 bằng nút). **Chưa kiểm sống:** nhánh drain → reload → rollback (chỉ có unit test) vì bản dev `brand-dist/chrome` trong Chrome của chủ dự án còn nói v2 và mỗi lần quay số lại "supersede" socket đã ghép đôi khiến `connected` nhấp nháy 1–3 s (xem ghi chú dưới bảng); Windows/Brave chưa có máy thật. |
+| 3 · Cửa sổ trình duyệt Workmate | Đang làm | Nhánh `webmate-install/phase-3`. |
 | 4 · Liền mạch | Chưa | |
+
+**Ghi chú sau giai đoạn 2 (việc cần làm ở kho WebMate trước khi nghiệm thu giai đoạn 3):**
+`bridge.ts` hiện "kết nối mới nhất thắng" **trước** khi kiểm `hello`: một bản extension khác cùng
+quay số 17374 (bản dev `brand-dist/chrome`, bản cài từ store, hay bản trong Chrome của người dùng
+khi đã có cửa sổ riêng) sẽ đóng socket đã ghép đôi rồi mới bị từ chối (v2 / sai token), làm
+`state.json.connected` nhấp nháy và bộ cập nhật đọc nhầm "trình duyệt đang đóng". Sửa: chỉ
+thay socket hiện tại sau khi `hello` của kết nối mới được chấp nhận; kết nối bị từ chối không
+được đụng tới socket đang dùng. Trên máy này, tạm thời chủ dự án nên Reload (hoặc tắt) bản dev
+trong `chrome://extensions` trước khi thử cài bản Workmate quản lý.
