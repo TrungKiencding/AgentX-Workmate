@@ -298,11 +298,13 @@ def run_picker() -> None:
         _handle_row(rows[idx])
 
 
-def install_by_name(identifier: str) -> int:
+def install_by_name(identifier: str, *, dev: bool = False) -> int:
     """`agentx mcp install <name>` — non-interactive entry-point.
 
-    Returns 0 on success, non-zero on failure (so the CLI can propagate
-    exit codes).
+    ``official/<name>`` is accepted as an alias of ``<name>``. ``dev`` builds a
+    bundled entry from its pinned ``install.dev`` checkout instead of using the
+    shipped server file. Returns 0 on success, non-zero on failure (so the CLI
+    can propagate exit codes).
     """
     from hermes_cli.mcp_catalog import get_entry
 
@@ -315,7 +317,7 @@ def install_by_name(identifier: str) -> int:
         ))
         return 1
     try:
-        install_entry(entry, enable=True)
+        install_entry(entry, enable=True, dev=dev)
     except CatalogError as exc:
         print(color(f"  ✗ install failed: {exc}", Colors.RED))
         return 1

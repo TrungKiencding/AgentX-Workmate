@@ -8,35 +8,48 @@ description: >-
   the WebMate extension (stdio bridge on 127.0.0.1:17374, Chromium only).
 source: https://github.com/astralxkienlt/agentx-webmate/tree/main/mcp-server
 
-# The server lives in the WebMate monorepo under mcp-server/. The catalog clones
-# the repo at a pinned commit and builds only that package; ${INSTALL_DIR} is
-# the clone root, so the launch path points into mcp-server/dist/.
+# The MCP server ships with AgentX as ONE file next to this manifest
+# (server/agentx-webmate-mcp.mjs, built in the WebMate repo with
+# `npm --prefix mcp-server run build:skill`; see server/VERSION). Nothing is
+# cloned or built on the user's machine. ${INSTALL_DIR} is this directory,
+# ${NODE} the Node.js AgentX manages (falls back to `node` on PATH), and
+# ${AGENTX_ROOT} the install root where Workmate keeps the extension folder
+# (~/.agentx/webmate, %LOCALAPPDATA%\agentx\webmate) — the server reads
+# pairing.json there and writes state.json for the desktop app.
 transport:
   type: stdio
-  command: node
+  command: "${NODE}"
   args:
-    - "${INSTALL_DIR}/mcp-server/dist/index.js"
+    - "${INSTALL_DIR}/server/agentx-webmate-mcp.mjs"
+  env:
+    WEBMATE_DIR: "${AGENTX_ROOT}/webmate"
 
 install:
-  type: git
-  url: https://github.com/astralxkienlt/agentx-webmate.git
-  # Pinned per catalog dependency policy: a full commit SHA, never a branch.
-  # Pinned to origin/main as pushed on 2026-08-22 ("keep angle brackets out of SKILL.md").
-  # Bumping the pin is a PR to this manifest; users re-run
-  # `agentx mcp install official/webmate`.
-  ref: 083f7dfb400d0ddc125c193e66dc673fba0f6bcc
-  bootstrap:
-    - "npm --prefix mcp-server ci --no-audit --no-fund"
-    - "npm --prefix mcp-server run build"
+  type: bundled
+  bundle: server/agentx-webmate-mcp.mjs
+  # SHA-256 of server/agentx-webmate-mcp.mjs (also in server/SHA256SUMS).
+  # Refresh both with `python scripts/vendor_webmate_server.py --from <webmate checkout>`.
+  sha256: 2ddc2237002e66ebbae130ec615ec6b1361119717ffcb885acdcb722535bb678
+  # `agentx mcp install webmate --dev` builds from this pinned checkout instead
+  # of using the bundled file (needs git + npm). Full commit SHA, never a branch.
+  dev:
+    type: git
+    url: https://github.com/astralxkienlt/agentx-webmate.git
+    ref: d9686bed9e8cbe6a8833561a5425f91dfe32059c
+    entry: mcp-server/dist/index.js
+    bootstrap:
+      - "npm --prefix mcp-server ci --no-audit --no-fund"
+      - "npm --prefix mcp-server run build"
 
 # No credentials: the extension runs inside the user's already-authenticated
-# browser session and the bridge is loopback-only. The trust boundary is the
-# in-browser permission gate, not a token.
+# browser session and the bridge is loopback-only. A Workmate-managed install
+# adds a pairing token (pairing.json ↔ workmate.json) so only the extension
+# Workmate installed can be driven from this port.
 auth:
   type: none
 
 # All six tools are task-level (no raw click/type primitives), so the full
-# surface is the safe default. webmate_run still starts in read-only Ask mode.
+# surface is the safe default. Runs default to permission_mode 'bypass'.
 tools:
   default_enabled:
     - webmate_connection
@@ -48,17 +61,19 @@ tools:
 
 post_install: |
   Connect the browser (Chromium only — Chrome, Edge, Brave):
-    1. Install the AgentX WebMate extension and open it.
-    2. Settings → General → Advanced → Cloud bridge:
-         URL  ws://127.0.0.1:17374/extension   → enable.
-    3. Start a new AgentX session, then ask it to call webmate_connection.
+    - AgentX Workmate desktop: the extension folder is installed automatically
+      and Workmate → Settings → Browser walks you through loading it into your
+      browser (Developer mode → drag the "AgentX WebMate" folder onto
+      chrome://extensions). Once it connects, nothing else to configure.
+    - Other hosts: load a WebMate build unpacked and check Settings → General →
+      Advanced → Cloud bridge shows ws://127.0.0.1:17374/extension, enabled.
+  Then start a new AgentX session and ask it to call webmate_connection.
 
   The extension holds ONE bridge socket at a time: 17373 (WebMate Cloud),
   17374 (this server), 17375 (LM Studio plugin). The bridge is loopback-only,
   so AgentX must run on the same machine as the browser (or forward the port
   over SSH: `ssh -L 17374:127.0.0.1:17374 <host>` from the browser machine).
 
-  webmate_run defaults to read-only Ask mode. Act mode can navigate, click and
-  type; each consequential action pauses the run with a permission request that
-  AgentX answers with exactly once / always / deny. The bundled `webmate` skill
-  handles this and explains when to prefer these tools over browser_*.
+  Failures come back with a code the desktop app understands:
+  WEBMATE_NOT_INSTALLED, WEBMATE_NOT_CONNECTED, WEBMATE_NOT_SIGNED_IN,
+  WEBMATE_OUTDATED, WEBMATE_PORT_IN_USE.

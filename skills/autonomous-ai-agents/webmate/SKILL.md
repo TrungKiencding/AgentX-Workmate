@@ -40,25 +40,27 @@ Do **not** use it when:
 
 ## Prerequisites
 
-1. **MCP server installed** (one of):
-   - Catalog: `agentx mcp install official/webmate` — clones the WebMate repo
-     into `~/.agentx/mcp-installs/webmate`, builds `mcp-server/`, writes
-     `mcp_servers.webmate` into `config.yaml`.
-   - Checkout: `cd <agentx-webmate>/mcp-server && npm ci && npm run build`, then
-     `agentx mcp add webmate --command node --args "$PWD/dist/index.js"`.
-   Node.js ≥ 20 must be on `PATH`. Start a new session or `/reload-mcp`.
-2. **Extension attached.** In a Chromium browser with AgentX WebMate installed:
-   **Settings → General → Advanced → Cloud bridge**, URL
-   `ws://127.0.0.1:17374/extension`, toggle on. The status line shows
-   **Connected** while an AgentX session (which hosts the MCP server) is running.
+1. **MCP server installed.** The server ships with AgentX as one file
+   (`optional-mcps/webmate/server/agentx-webmate-mcp.mjs`, launched with the
+   Node.js AgentX manages): `agentx mcp install webmate` writes
+   `mcp_servers.webmate` into `config.yaml` — no clone, no npm.
+   (`agentx mcp install webmate --dev` builds from a pinned WebMate checkout
+   instead.) Start a new session or `/reload-mcp`.
+2. **Extension attached.** AgentX Workmate desktop installs the extension
+   folder (`~/.agentx/webmate/AgentX WebMate`) itself and **Workmate →
+   Settings → Browser** walks the user through loading it into their Chromium
+   browser (Chrome, Edge, Brave); once loaded it connects on its own and stays
+   paired to this machine's Workmate. Without the desktop app, load a WebMate
+   build unpacked and check **Settings → General → Advanced → Cloud bridge**
+   shows `ws://127.0.0.1:17374/extension`, enabled.
 3. **Same machine.** The bridge is loopback-only on both ends. If AgentX runs on
    a VPS, forward the port from the laptop: `ssh -L 17374:127.0.0.1:17374 <vps>`.
-4. **WebMate is signed in.** WebMate runs its own LLM loop (AgentX Cloud after
-   signing in, or any provider configured in its Settings) — AgentX's model
-   choice does not apply to the browser side. Signing in to AgentX Workmate does
-   NOT sign in WebMate: open the WebMate side panel once and sign in there. A
-   run started before that is refused up front with *"has no model / API key
-   yet … sign in"*; relay that and stop rather than retrying.
+4. **WebMate has its own model.** WebMate runs its own LLM loop (AgentX Cloud
+   after signing in, or any provider configured in its Settings) — AgentX's
+   model choice does not apply to the browser side. A run refused with
+   `WEBMATE_NOT_SIGNED_IN` means nobody is signed in to the extension in that
+   browser yet: relay the tool's message (it names the browser and the fix)
+   and stop rather than retrying.
 5. Only **one bridge at a time**: 17373 (WebMate Cloud), 17374 (this MCP
    server), 17375 (LM Studio plugin).
 
@@ -95,12 +97,27 @@ python "${AGENTX_HOME:-$HOME/.agentx}/skills/autonomous-ai-agents/webmate/script
 
 Statuses: `running`, `needs_user_input`, `completed`, `failed`, `aborted`.
 
+Every failing tool result starts with a structured code and repeats it as
+`structuredContent.code`; Workmate turns these into a card for the user, so
+relay the sentence that follows the code once and stop:
+
+| Code | Meaning | What to tell the user |
+|---|---|---|
+| `WEBMATE_NOT_INSTALLED` | Workmate manages WebMate here but no extension folder exists | Install WebMate from Workmate → Settings → Browser |
+| `WEBMATE_NOT_CONNECTED` | No browser with the extension is attached | Open the browser WebMate is installed into (or enable it under chrome://extensions) |
+| `WEBMATE_NOT_SIGNED_IN` | Attached, but nobody is signed in to WebMate there | Open the WebMate side panel in that browser and sign in, then retry once |
+| `WEBMATE_OUTDATED` | The extension speaks a bridge protocol too old for this server | Update WebMate from Workmate → Settings → Browser |
+| `WEBMATE_PORT_IN_USE` | Another process holds port 17374 | Quit the process the message names (usually a leftover MCP server) |
+| `WEBMATE_DISABLED` | Workmate has the browser feature switched off | Turn it on in Workmate → Settings → Browser |
+
 ## Procedure
 
-1. **Check the connection once per session.** Call `webmate_connection`. If it
-   says *Not connected*, relay its instructions to the user verbatim (open
-   Chrome, enable the Cloud bridge on port 17374) and stop. Do not retry the
-   task in a loop.
+1. **Check the connection once per session.** Call `webmate_connection`. It
+   reports the extension's version, browser and sign-in state when attached;
+   otherwise it starts with a `WEBMATE_*` code — relay its instructions to the
+   user verbatim (open the browser WebMate is installed into, or install it
+   from Workmate → Settings → Browser) and stop. Do not retry the task in a
+   loop.
 2. **Pick the mode from the verb in the task.** `mode="ask"` reads, extracts
    and summarises the page that is already open; it cannot navigate, click,
    type or submit. Use `mode="act"` the moment the task opens a site, searches
@@ -208,6 +225,10 @@ When such a skill is loaded for the site the task is about:
 - **The server lives only while a session is running.** The MCP host starts
   it on demand, so the extension shows *Reconnecting…* between sessions. That
   is normal.
+- **Do not tell the user to change the Cloud bridge URL or reinstall by
+  hand** when Workmate manages the extension: the pairing token and socket
+  URL live in `workmate.json` inside the folder Workmate wrote, and Workmate →
+  Settings → Browser is where installing, reconnecting and updating happen.
 
 ## Verification
 
@@ -215,12 +236,15 @@ When such a skill is loaded for the site the task is about:
 python "${AGENTX_HOME:-$HOME/.agentx}/skills/autonomous-ai-agents/webmate/scripts/check_bridge.py"
 ```
 
-Expected: `config OK`, `server build OK`, `node OK`, and `bridge port …
-listening` while a session is open (or *not listening* between sessions,
+Expected: `config OK`, `server_build OK` (the bundled `.mjs`), `node OK`,
+an `extension` line naming the installed version, a `bridge_state` line from
+the server's `state.json` (connected · browser · signed in), and `bridge_port
+… listening` while a session is open (or *not listening* between sessions,
 which the script explains). Then, in a session:
 
 1. `mcp__webmate__webmate_connection()` → `Connected. Listening on
-   ws://127.0.0.1:17374/extension.`
+   ws://127.0.0.1:17374/extension.` followed by `Extension: AgentX WebMate
+   1.0.4 · Chrome 152 · installed by Workmate · bridge protocol v3 · signed in`.
 2. `mcp__webmate__webmate_run(task="read the title and first paragraph of the
    active tab", mode="ask")` → `status: completed` with the page text.
 3. `mcp__webmate__webmate_run(task="open youtube.com and read the first video
