@@ -12,6 +12,12 @@ import { promises as fsp } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { type BootstrapResult, bootstrapWebmate } from './bootstrap'
+import {
+  chooseWindowBrowser,
+  type WindowLaunchOptions,
+  type WindowStatus,
+  WorkmateBrowserWindow
+} from './browser-window'
 import { type BrowserInfo, type BrowserScanIo, defaultBrowserScanIo, scanBrowsers } from './browsers'
 import {
   parseLastCommand,
@@ -21,12 +27,13 @@ import {
   type WebmateLastCommand
 } from './commands'
 import { type ExecCapture, openExtensionsPage, type OpenGuideResult, type SpawnDetached } from './guide'
-import { defaultPairingIo, ensurePairing, parsePairingFile } from './pairing'
+import { defaultPairingIo, ensurePairing, type PairingFile, type PairingOptions, parsePairingFile } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
 import { prefsFile, readPrefs, type WebmatePrefs, type WebmatePrefsPatch, writePrefs } from './prefs'
 import {
   parseReleaseManifest,
   type ParseReleaseOptions,
+  type ReleaseManifest,
   WEBMATE_RELEASE_FEED_URL,
   WEBMATE_RELEASE_PUBLIC_KEY
 } from './release-feed'
@@ -38,7 +45,9 @@ import {
   applyWebmateUpdate,
   checkWebmateUpdate,
   readUpdateCheck,
-  type UpdateCheckFile
+  restorePrevious,
+  type UpdateCheckFile,
+  writeUpdateCheck
 } from './updater'
 
 export const WEBMATE_STATUS_CHANNEL = 'agentx:webmate:status'
@@ -86,6 +95,17 @@ export interface OpenGuideOutcome extends OpenGuideResult {
   browser: string | null
 }
 
+/** What the renderer receives: the file-based status plus the Workmate browser window's state. */
+export interface WebmateServiceStatus extends WebmateLocalStatus {
+  window: WindowStatus
+}
+
+export interface OpenWindowOutcome {
+  ok: boolean
+  error: string | null
+  window: WindowStatus
+}
+
 export class WebmateService {
   readonly paths: WebmatePaths
   private watcher: WebmateStatusWatcher | null = null
@@ -98,12 +118,19 @@ export class WebmateService {
   private readonly log: (message: string) => void
   private readonly env: NodeJS.ProcessEnv
   private readonly platform: NodeJS.Platform
+  /** The Workmate browser window (phase 3): the person's Chromium binary on our own profile. */
+  private readonly window: WorkmateBrowserWindow
+  private windowOptions: WindowLaunchOptions | null = null
 
   constructor(private readonly deps: WebmateServiceDeps) {
     this.paths = webmatePaths(deps.agentxHome)
     this.log = deps.log ?? (() => {})
     this.env = deps.env ?? process.env
     this.platform = deps.platform ?? process.platform
+    this.window = new WorkmateBrowserWindow({
+      log: this.log,
+      onChange: () => this.broadcastStatus()
+    })
   }
 
   // -- lifecycle ------------------------------------------------------------
@@ -116,7 +143,7 @@ export class WebmateService {
     this.watcher = new WebmateStatusWatcher({
       paths: this.paths,
       onChange: status => {
-        this.deps.broadcast(WEBMATE_STATUS_CHANNEL, status)
+        this.broadcastStatus(status)
         void this.rememberConnection(status)
         void this.applyPendingIfIdle(status)
       }
@@ -124,14 +151,87 @@ export class WebmateService {
     this.watcher.start()
   }
 
-  stop(): void {
+  /** On quit: stop watching and close the Workmate browser window (Browser.close, then kill). */
+  stop(): Promise<void> {
     this.watcher?.stop()
     this.watcher = null
+
+    return this.window.close()
   }
 
-  /** A fresh read (and a broadcast if anything changed). */
-  status(): WebmateLocalStatus {
-    return this.watcher ? this.watcher.refresh() : readWebmateStatus(this.paths)
+  private decorate(status: WebmateLocalStatus): WebmateServiceStatus {
+    return { ...status, window: this.window.current() }
+  }
+
+  private broadcastStatus(status?: WebmateLocalStatus): void {
+    const base = status ?? (this.watcher ? this.watcher.current() : readWebmateStatus(this.paths))
+
+    this.deps.broadcast(WEBMATE_STATUS_CHANNEL, this.decorate(base))
+  }
+
+  /** A fresh read (and a broadcast if anything changed), with the window's state attached. */
+  status(): WebmateServiceStatus {
+    return this.decorate(this.watcher ? this.watcher.refresh() : readWebmateStatus(this.paths))
+  }
+
+  // -- the Workmate browser window ------------------------------------------
+
+  windowStatus(): WindowStatus {
+    return this.window.current()
+  }
+
+  /**
+   * Open the Workmate browser window: the remembered (or default, or first)
+   * Chromium-based browser on `<webmate>/profile` with the extension folder
+   * loaded over the CDP pipe. The hello follows through state.json.
+   */
+  async openWindow(request: { browserId?: string | null } = {}): Promise<OpenWindowOutcome> {
+    await this.bootstrap()
+    const browsers = await this.scan()
+    const browser = chooseWindowBrowser(browsers, request.browserId ?? this.getPrefs().browser?.id ?? null)
+
+    if (!browser) {
+      return { ok: false, error: 'no-chromium-browser', window: this.window.current() }
+    }
+
+    const server = await this.ensureServerForWindow()
+
+    if (server) {
+      this.log(`[webmate] window: bridge server not confirmed (${server}); opening anyway`)
+    }
+
+    this.setPrefs({
+      mode: 'window',
+      browser: { id: browser.id, name: browser.name, profileDir: null, profileName: null }
+    })
+
+    const options: WindowLaunchOptions = {
+      browser,
+      profileDir: this.paths.profileDir,
+      installDir: this.paths.installDir
+    }
+
+    try {
+      await fsp.mkdir(this.paths.profileDir, { recursive: true })
+      const status = await this.window.open(options)
+
+      this.windowOptions = options
+
+      return { ok: true, error: null, window: status }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error), window: this.window.current() }
+    }
+  }
+
+  /** The renderer owns registering/enabling the MCP server (REST + reload.mcp); nothing to do here yet. */
+  private async ensureServerForWindow(): Promise<string | null> {
+    return this.status().serverRunning ? null : 'bridge server is not listening'
+  }
+
+  async closeWindow(): Promise<WindowStatus> {
+    await this.window.close()
+
+    return this.window.current()
   }
 
   // -- folder + pairing (phase 1, re-exposed) --------------------------------
@@ -471,15 +571,21 @@ export class WebmateService {
       return failed(`cached release is unusable: ${error instanceof Error ? error.message : String(error)}`)
     }
 
+    const pairingOptions = {
+      port: WEBMATE_BRIDGE_PORT,
+      workmateVersion: this.deps.appVersion,
+      minServerVersion: WEBMATE_MIN_SERVER_VERSION
+    }
+
+    if (this.window.isOpen() && this.windowOptions) {
+      return this.runApplyViaWindow(release, ensured, pairingOptions, this.windowOptions)
+    }
+
     return applyWebmateUpdate({
       paths: this.paths,
       release,
       pairing: ensured,
-      pairingOptions: {
-        port: WEBMATE_BRIDGE_PORT,
-        workmateVersion: this.deps.appVersion,
-        minServerVersion: WEBMATE_MIN_SERVER_VERSION
-      },
+      pairingOptions,
       download: url => this.fetchBytes(url),
       readStatus: () => this.status(),
       sendCommand: action => this.sendCommand(action),
@@ -488,6 +594,142 @@ export class WebmateService {
       onProgress: (stage, message) => this.progress(stage, message, release.version),
       log: this.log
     })
+  }
+
+  /**
+   * Update while the Workmate browser window is open. chrome.runtime.reload()
+   * on a CDP-loaded extension unloads it for good, so instead: drain, close
+   * the window, swap the folder (the closed-browser path of the updater), open
+   * the window again, and wait for the new version's hello; no hello means the
+   * previous folder comes back and the window is opened once more.
+   */
+  private async runApplyViaWindow(
+    release: ReleaseManifest,
+    pairing: PairingFile,
+    pairingOptions: PairingOptions,
+    options: WindowLaunchOptions
+  ): Promise<ApplyOutcome> {
+    const version = release.version
+
+    const fail = (stage: ApplyStage, error: string, extra: Partial<ApplyOutcome> = {}): ApplyOutcome => {
+      this.progress('error', error, version)
+
+      return { ok: false, version, stage, error, rolledBack: false, pending: false, live: true, ...extra }
+    }
+
+    // 1. drain — the extension stops taking new runs and tells us when it is idle.
+    if (this.status().connected) {
+      this.progress('drain', version, version)
+      const id = this.sendCommand('prepare_update')
+
+      const result = await waitForCommandResult(id, {
+        timeoutMs: 65_000,
+        readLastCommand: () => this.readLastCommand()
+      })
+
+      if (result && !result.ok && (result.busy ?? 0) > 0) {
+        this.sendCommand('resume')
+
+        return fail('drain', result.error || `browser still busy (${result.busy} run(s))`)
+      }
+    }
+
+    // 2. close the window so nothing holds the folder.
+    this.progress('reload', version, version)
+    await this.window.close()
+
+    // 3. swap through the updater's closed-browser path.
+    const swapped = await applyWebmateUpdate({
+      paths: this.paths,
+      release,
+      pairing,
+      pairingOptions,
+      download: url => this.fetchBytes(url),
+      readStatus: () => ({ ...this.status(), connected: false }),
+      sendCommand: action => this.sendCommand(action),
+      waitForCommand: (id, timeoutMs) =>
+        waitForCommandResult(id, { timeoutMs, readLastCommand: () => this.readLastCommand() }),
+      onProgress: (stage, message) => {
+        if (stage !== 'done') {
+          this.progress(stage, message, version)
+        }
+      },
+      log: this.log
+    })
+
+    if (!swapped.ok) {
+      // Nothing changed on disk; give the person their window back.
+      await this.window
+        .open(options)
+        .catch(error =>
+          this.log(
+            `[webmate] window: reopen after failed swap: ${error instanceof Error ? error.message : String(error)}`
+          )
+        )
+
+      return { ...swapped, live: true }
+    }
+
+    // 4. open again and wait for the new version to say hello.
+    this.progress('confirm', version, version)
+
+    try {
+      await this.window.open(options)
+    } catch (error) {
+      this.log(`[webmate] window: reopen failed after swap: ${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    const deadline = Date.now() + 60_000
+    let confirmed = false
+
+    while (Date.now() < deadline) {
+      const status = this.status()
+
+      if (status.connected && status.extensionVersion === version) {
+        confirmed = true
+
+        break
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
+    if (confirmed) {
+      this.progress('done', version, version)
+      this.log(`[webmate] updated to ${version} in the Workmate browser window`)
+
+      return { ok: true, version, stage: 'done', error: null, rolledBack: false, pending: false, live: true }
+    }
+
+    // 5. no hello: back to the previous folder, window opened once more.
+    this.progress('rollback', version, version)
+    await this.window.close()
+    const rolledBack = await restorePrevious(this.paths, version).catch(() => false)
+
+    await this.window
+      .open(options)
+      .catch(error =>
+        this.log(`[webmate] window: reopen after rollback: ${error instanceof Error ? error.message : String(error)}`)
+      )
+
+    const check = readUpdateCheck(this.paths)
+
+    writeUpdateCheck(this.paths, {
+      installedVersion: readWebmateStatus(this.paths).installedVersion,
+      available: false,
+      failedVersions: check.failedVersions.includes(version)
+        ? check.failedVersions
+        : [...check.failedVersions, version],
+      lastApply: {
+        version,
+        ok: false,
+        at: new Date().toISOString(),
+        error: 'no hello from the new version',
+        rolledBack
+      }
+    })
+
+    return fail('rollback', 'no hello from the new version', { rolledBack })
   }
 
   private progress(stage: ApplyStage, message: string, version: string): void {

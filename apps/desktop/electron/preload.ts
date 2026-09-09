@@ -387,6 +387,9 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     resetToken: () => ipcRenderer.invoke('agentx:webmate:reset-token'),
     checkUpdate: () => ipcRenderer.invoke('agentx:webmate:update:check'),
     applyUpdate: () => ipcRenderer.invoke('agentx:webmate:update:apply'),
+    openWindow: request => ipcRenderer.invoke('agentx:webmate:window:open', request),
+    closeWindow: () => ipcRenderer.invoke('agentx:webmate:window:close'),
+    windowStatus: () => ipcRenderer.invoke('agentx:webmate:window:status'),
     onUpdateProgress: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('agentx:webmate:update:progress', listener)

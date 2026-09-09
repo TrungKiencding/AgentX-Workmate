@@ -2995,6 +2995,28 @@ export const ja = defineLocale({
       doneToast: version => `WebMate ${version} の準備ができました。`,
       failedToast: reason => `WebMate の更新が完了しませんでした: ${reason}`
     },
+    window: {
+      title: 'Workmate 専用のブラウザーウィンドウ',
+      description: 'Workmate が WebMate 入りの専用 Chrome/Edge ウィンドウを開きます。ドラッグは不要です。',
+      open: '専用ウィンドウを開く',
+      close: '専用ウィンドウを閉じる',
+      opening: '専用ウィンドウを開いています…',
+      stateOpen: '開いています',
+      stateClosed: '閉じています',
+      using: browser => `${browser} を使用`,
+      signInNote:
+        'このウィンドウは Workmate 専用のプロファイルを使うため、Workmate に作業させたいサイトへはもう一度サインインしてください。',
+      noChromium:
+        'このパソコンに Chromium 系ブラウザー（Chrome、Edge、Brave など）がありません。ひとつインストールしてからやり直してください。',
+      failed: reason => `専用ウィンドウを開けませんでした: ${reason}`,
+      modeLabel: 'Workmate が作業するブラウザー',
+      modeDesc:
+        '自分のブラウザーには WebMate を一度追加する必要があります。専用ウィンドウは Workmate が用意しますが、サイトへのサインインは改めて必要です。',
+      modeBrowser: '自分のブラウザー',
+      modeWindow: 'Workmate 専用ウィンドウ',
+      updateRelaunch: 'WebMate を更新するため、専用ウィンドウは閉じてから開き直します。',
+      onboardingHint: '普段使うブラウザーに手を加えたくないときはこちらを選んでください。'
+    },
     prompt: {
       title: 'Workmate がブラウザーを使いたがっています',
       body: {

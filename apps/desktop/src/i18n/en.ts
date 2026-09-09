@@ -2996,6 +2996,28 @@ export const en: Translations = {
       doneToast: version => `WebMate ${version} is ready.`,
       failedToast: reason => `The WebMate update did not finish: ${reason}`
     },
+    window: {
+      title: 'A separate Workmate browser window',
+      description: 'Workmate opens its own Chrome/Edge window with WebMate already in it. Nothing to drag.',
+      open: 'Open the separate window',
+      close: 'Close the separate window',
+      opening: 'Opening the separate window…',
+      stateOpen: 'Open',
+      stateClosed: 'Closed',
+      using: browser => `Using ${browser}`,
+      signInNote:
+        'This window uses Workmate’s own profile, so sign in again to the sites you want Workmate to work on.',
+      noChromium:
+        'No Chromium-based browser (Chrome, Edge, Brave…) was found on this computer. Install one and try again.',
+      failed: reason => `The separate window could not be opened: ${reason}`,
+      modeLabel: 'Which browser Workmate works in',
+      modeDesc:
+        'Your own browser needs WebMate added once; the separate window is set up by Workmate but you sign in to sites again.',
+      modeBrowser: 'My browser',
+      modeWindow: 'Workmate’s separate window',
+      updateRelaunch: 'The separate window closes and opens again to update WebMate.',
+      onboardingHint: 'Pick this if you would rather not touch the browser you use every day.'
+    },
     prompt: {
       title: 'Workmate wants to use your browser',
       body: {

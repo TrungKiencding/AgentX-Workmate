@@ -3250,6 +3250,27 @@ export const vi: Translations = {
       doneToast: version => `WebMate ${version} đã sẵn sàng.`,
       failedToast: reason => `Cập nhật WebMate chưa xong: ${reason}`
     },
+    window: {
+      title: 'Cửa sổ trình duyệt riêng của Workmate',
+      description: 'Workmate mở một cửa sổ Chrome/Edge riêng với WebMate cài sẵn. Không phải kéo thả gì.',
+      open: 'Mở cửa sổ riêng',
+      close: 'Đóng cửa sổ riêng',
+      opening: 'Đang mở cửa sổ riêng…',
+      stateOpen: 'Đang mở',
+      stateClosed: 'Đang đóng',
+      using: browser => `Dùng ${browser}`,
+      signInNote:
+        'Cửa sổ này dùng hồ sơ riêng của Workmate, nên bạn cần đăng nhập lại các trang muốn Workmate làm việc trên đó.',
+      noChromium: 'Máy chưa có trình duyệt gốc Chromium (Chrome, Edge, Brave…). Cài một trong số đó rồi thử lại.',
+      failed: reason => `Không mở được cửa sổ riêng: ${reason}`,
+      modeLabel: 'Workmate làm việc trong trình duyệt nào',
+      modeDesc:
+        'Trình duyệt của bạn cần cài WebMate một lần; cửa sổ riêng thì Workmate tự lo nhưng bạn phải đăng nhập lại các trang.',
+      modeBrowser: 'Trình duyệt của tôi',
+      modeWindow: 'Cửa sổ riêng của Workmate',
+      updateRelaunch: 'Cửa sổ riêng sẽ đóng và mở lại để cập nhật WebMate.',
+      onboardingHint: 'Chọn cách này nếu bạn không muốn đụng vào trình duyệt đang dùng.'
+    },
     prompt: {
       title: 'Workmate muốn dùng trình duyệt của bạn',
       body: {

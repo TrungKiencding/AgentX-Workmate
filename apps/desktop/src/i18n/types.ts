@@ -2390,6 +2390,25 @@ export interface Translations {
       doneToast: (version: string) => string
       failedToast: (reason: string) => string
     }
+    window: {
+      title: string
+      description: string
+      open: string
+      close: string
+      opening: string
+      stateOpen: string
+      stateClosed: string
+      using: (browser: string) => string
+      signInNote: string
+      noChromium: string
+      failed: (reason: string) => string
+      modeLabel: string
+      modeDesc: string
+      modeBrowser: string
+      modeWindow: string
+      updateRelaunch: string
+      onboardingHint: string
+    }
     prompt: {
       title: string
       body: {

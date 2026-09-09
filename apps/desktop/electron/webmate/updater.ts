@@ -677,6 +677,34 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
 }
 
 /**
+ * Put `versions/prev` back in place after a swapped-in version failed to come
+ * up, parking the failed folder under `versions/<failedVersion>`. Used by the
+ * Workmate browser window's relaunch-based update. false when there is no
+ * previous folder to go back to.
+ */
+export async function restorePrevious(
+  paths: WebmatePaths,
+  failedVersion: string,
+  options: { renameRetries?: number; renameRetryDelayMs?: number } = {}
+): Promise<boolean> {
+  if (!fs.existsSync(paths.prevDir)) {
+    return false
+  }
+
+  const retries = options.renameRetries ?? 5
+  const delay = options.renameRetryDelayMs ?? 2_000
+  const parked = nodePath.join(paths.versionsDir, failedVersion)
+
+  if (fs.existsSync(paths.installDir)) {
+    await replaceDir(paths.installDir, parked, retries, delay)
+  }
+
+  await renameWithRetry(paths.prevDir, paths.installDir, retries, delay)
+
+  return true
+}
+
+/**
  * Finish a swap that was deferred because the browser held the folder. Runs
  * when the extension is no longer attached; the staged folder must still be
  * there. Returns null when there is nothing pending.

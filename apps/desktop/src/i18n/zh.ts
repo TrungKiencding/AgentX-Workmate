@@ -3094,6 +3094,25 @@ export const zh: Translations = {
       doneToast: version => `WebMate ${version} 已就绪。`,
       failedToast: reason => `WebMate 更新未完成：${reason}`
     },
+    window: {
+      title: 'Workmate 专用浏览器窗口',
+      description: 'Workmate 会打开自己的 Chrome/Edge 窗口并预装 WebMate，无需拖放。',
+      open: '打开专用窗口',
+      close: '关闭专用窗口',
+      opening: '正在打开专用窗口…',
+      stateOpen: '已打开',
+      stateClosed: '已关闭',
+      using: browser => `使用 ${browser}`,
+      signInNote: '该窗口使用 Workmate 的独立配置文件，因此需要重新登录希望 Workmate 操作的网站。',
+      noChromium: '这台电脑上没有基于 Chromium 的浏览器（Chrome、Edge、Brave…）。请安装一个后重试。',
+      failed: reason => `无法打开专用窗口：${reason}`,
+      modeLabel: 'Workmate 在哪个浏览器中工作',
+      modeDesc: '使用自己的浏览器需添加一次 WebMate；专用窗口由 Workmate 自动设置，但需要重新登录网站。',
+      modeBrowser: '我的浏览器',
+      modeWindow: 'Workmate 专用窗口',
+      updateRelaunch: '专用窗口将关闭并重新打开以更新 WebMate。',
+      onboardingHint: '如果不想改动日常使用的浏览器，请选择这种方式。'
+    },
     prompt: {
       title: 'Workmate 想使用你的浏览器',
       body: {

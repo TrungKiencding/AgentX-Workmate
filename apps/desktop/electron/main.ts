@@ -12718,6 +12718,14 @@ ipcMain.handle('agentx:webmate:prefs:set', async (_event, patch) => webmateServi
 ipcMain.handle('agentx:webmate:reset-token', async () => webmateService().resetToken())
 ipcMain.handle('agentx:webmate:update:check', async () => webmateService().checkUpdate())
 ipcMain.handle('agentx:webmate:update:apply', async () => webmateService().applyUpdate())
+// Phase 3 — the Workmate browser window (own profile, extension loaded over the CDP pipe).
+ipcMain.handle('agentx:webmate:window:open', async (_event, request) =>
+  webmateService()
+    .openWindow({ browserId: typeof request?.browserId === 'string' ? request.browserId : null })
+    .catch(error => ({ ...webmateFailure(error), window: webmateService().windowStatus() }))
+)
+ipcMain.handle('agentx:webmate:window:close', async () => webmateService().closeWindow())
+ipcMain.handle('agentx:webmate:window:status', async () => webmateService().windowStatus())
 
 ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
@@ -13274,6 +13282,10 @@ app.on('before-quit', event => {
   }
 
   stopSyncTicker()
+
+  // The Workmate browser window lives only as long as Workmate does: send it
+  // Browser.close now (its process exits on its own; a lingering one is killed).
+  void webmateServiceInstance?.stop()
 
   if ((sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) && !sshQuitTeardownDone) {
     event.preventDefault()

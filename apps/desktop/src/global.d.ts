@@ -338,6 +338,10 @@ declare global {
         checkUpdate: () => Promise<DesktopWebmateUpdateCheck>
         applyUpdate: () => Promise<DesktopWebmateApplyOutcome>
         onUpdateProgress: (callback: (payload: DesktopWebmateUpdateProgress) => void) => () => void
+        /** Phase 3 — the Workmate browser window. */
+        openWindow: (request?: { browserId?: string | null }) => Promise<DesktopWebmateOpenWindowResult>
+        closeWindow: () => Promise<DesktopWebmateWindowStatus>
+        windowStatus: () => Promise<DesktopWebmateWindowStatus>
       }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
@@ -518,6 +522,25 @@ export interface DesktopWebmateUpdateSummary {
   minProtocol: number | null
 }
 
+/** The Workmate browser window (phase 3): a Chromium the app runs on its own profile. */
+export interface DesktopWebmateWindowStatus {
+  open: boolean
+  phase: 'closed' | 'starting' | 'open' | 'closing'
+  pid: number | null
+  browserId: string | null
+  browserName: string | null
+  extensionId: string | null
+  startedAt: number | null
+  error: string | null
+  exitCode: number | null
+}
+
+export interface DesktopWebmateOpenWindowResult {
+  ok: boolean
+  error: string | null
+  window: DesktopWebmateWindowStatus
+}
+
 /** The merged view of <webmate>/ the main process pushes on every change. */
 export interface DesktopWebmateStatus {
   paths: DesktopWebmatePaths
@@ -537,6 +560,8 @@ export interface DesktopWebmateStatus {
   prefs: DesktopWebmatePrefs
   update: DesktopWebmateUpdateSummary | null
   readAt: number
+  /** Absent on the pre-phase-3 `local-status` read; present on every pushed/`status()` snapshot. */
+  window?: DesktopWebmateWindowStatus
 }
 
 export interface DesktopWebmateOpenGuideResult {

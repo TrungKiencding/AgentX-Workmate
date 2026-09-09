@@ -2872,6 +2872,25 @@ export const zhHant = defineLocale({
       doneToast: version => `WebMate ${version} 已就緒。`,
       failedToast: reason => `WebMate 更新未完成：${reason}`
     },
+    window: {
+      title: 'Workmate 專用瀏覽器視窗',
+      description: 'Workmate 會開啟自己的 Chrome/Edge 視窗並預先裝好 WebMate，無需拖放。',
+      open: '開啟專用視窗',
+      close: '關閉專用視窗',
+      opening: '正在開啟專用視窗…',
+      stateOpen: '已開啟',
+      stateClosed: '已關閉',
+      using: browser => `使用 ${browser}`,
+      signInNote: '這個視窗使用 Workmate 的獨立設定檔，因此需要重新登入希望 Workmate 操作的網站。',
+      noChromium: '這台電腦上沒有基於 Chromium 的瀏覽器（Chrome、Edge、Brave…）。請安裝一個後重試。',
+      failed: reason => `無法開啟專用視窗：${reason}`,
+      modeLabel: 'Workmate 在哪個瀏覽器中工作',
+      modeDesc: '使用自己的瀏覽器需加入一次 WebMate；專用視窗由 Workmate 自動設定，但需要重新登入網站。',
+      modeBrowser: '我的瀏覽器',
+      modeWindow: 'Workmate 專用視窗',
+      updateRelaunch: '專用視窗將關閉並重新開啟以更新 WebMate。',
+      onboardingHint: '如果不想更動日常使用的瀏覽器，請選擇這種方式。'
+    },
     prompt: {
       title: 'Workmate 想使用你的瀏覽器',
       body: {

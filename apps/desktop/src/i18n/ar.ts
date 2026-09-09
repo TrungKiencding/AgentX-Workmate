@@ -2842,6 +2842,28 @@ export const ar = defineLocale({
       doneToast: version => `WebMate ${version} جاهز.`,
       failedToast: reason => `لم يكتمل تحديث WebMate: ${reason}`
     },
+    window: {
+      title: 'نافذة متصفح مستقلة لـ Workmate',
+      description: 'يفتح Workmate نافذة Chrome/Edge خاصة به مع WebMate مثبّتًا فيها. لا شيء تسحبه.',
+      open: 'افتح النافذة المستقلة',
+      close: 'أغلق النافذة المستقلة',
+      opening: 'جارٍ فتح النافذة المستقلة…',
+      stateOpen: 'مفتوحة',
+      stateClosed: 'مغلقة',
+      using: browser => `باستخدام ${browser}`,
+      signInNote:
+        'تستخدم هذه النافذة ملف Workmate الشخصي المستقل، لذا سجّل الدخول مرة أخرى إلى المواقع التي تريد أن يعمل Workmate عليها.',
+      noChromium:
+        'لم يُعثر على متصفح مبني على Chromium (Chrome أو Edge أو Brave…) على هذا الجهاز. ثبّت واحدًا ثم أعد المحاولة.',
+      failed: reason => `تعذّر فتح النافذة المستقلة: ${reason}`,
+      modeLabel: 'في أي متصفح يعمل Workmate',
+      modeDesc:
+        'متصفحك يحتاج إلى إضافة WebMate مرة واحدة؛ أما النافذة المستقلة فيجهّزها Workmate لكن عليك تسجيل الدخول إلى المواقع مجددًا.',
+      modeBrowser: 'متصفحي',
+      modeWindow: 'نافذة Workmate المستقلة',
+      updateRelaunch: 'ستُغلق النافذة المستقلة وتُفتح مجددًا لتحديث WebMate.',
+      onboardingHint: 'اختر هذا إذا كنت تفضّل عدم المساس بالمتصفح الذي تستخدمه يوميًا.'
+    },
     prompt: {
       title: 'يريد Workmate استخدام متصفحك',
       body: {
