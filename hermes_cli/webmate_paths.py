@@ -106,17 +106,25 @@ def read_bridge_state(root: Optional[Path] = None) -> Optional[Dict[str, Any]]:
 
 
 def _pid_alive(pid: int) -> bool:
+    """True when a process with ``pid`` currently exists.
+
+    Delegates to :func:`gateway.status._pid_exists`, the project's no-kill
+    probe (psutil, with a ctypes / POSIX fallback). Never ``os.kill(pid, 0)``
+    here: on Windows that is not a no-op — CPython routes ``sig=0`` to
+    ``GenerateConsoleCtrlEvent``, which Ctrl+C's the target's whole console
+    process group (bpo-14484) — so asking "is the bridge still up?" would have
+    shut the bridge down. A pid we cannot evaluate counts as dead, so an
+    unreadable probe degrades to "not running" rather than to a phantom
+    "connected".
+    """
     if pid == os.getpid():
         return True
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        from gateway.status import _pid_exists
+
+        return bool(_pid_exists(pid))
+    except Exception:
         return False
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
 
 
 def read_pairing_summary(root: Optional[Path] = None) -> Dict[str, Any]:
