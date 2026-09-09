@@ -342,6 +342,7 @@ export interface Translations {
       about: string
       billing: string
       notifications: string
+      browser: string
       plugins: string
     }
     account: {
@@ -2266,6 +2267,140 @@ export interface Translations {
     change: string
     startChatting: string
     docs: (provider: string) => string
+  }
+
+  webmate: {
+    name: string
+    onboarding: {
+      title: string
+      intro: string
+      scanning: string
+      noBrowsers: string
+      pickBrowser: string
+      defaultBadge: string
+      installedBadge: string
+      disabledBadge: string
+      elsewhereBadge: string
+      unsupported: { firefox: string; safari: string }
+      workmateWindow: { title: string; description: string; comingSoon: string }
+      install: string
+      stepsTitle: (browser: string) => string
+      steps: { devMode: string; drag: string; done: string }
+      reopenPage: string
+      showFolder: string
+      copyPath: string
+      pathCopied: string
+      waiting: string
+      connected: (browser: string) => string
+      connectedHint: string
+      slowTitle: string
+      slowReasons: readonly string[]
+      useWindow: string
+      later: string
+      never: string
+      start: string
+      back: string
+      serverStarting: string
+      serverError: string
+      openFailed: (browser: string) => string
+    }
+    settings: {
+      title: string
+      intro: string
+      enable: string
+      enableDesc: string
+      browsersHeading: string
+      installOther: string
+      reconnect: string
+      resetToken: string
+      resetTokenDesc: string
+      resetTokenDone: string
+      rescan: string
+      askWhenNotReady: string
+      askMe: string
+      dontAsk: string
+      autoUpdate: string
+      autoUpdateDesc: string
+      version: (version: string) => string
+      running: (version: string) => string
+      profile: (name: string) => string
+      states: {
+        off: string
+        notInstalled: string
+        installedClosed: string
+        installedDisabled: string
+        installedNotConnected: string
+        outdated: string
+        notSignedIn: string
+        ready: string
+      }
+      hints: {
+        off: string
+        notInstalled: string
+        installedClosed: string
+        installedDisabled: string
+        installedNotConnected: string
+        outdated: string
+        notSignedIn: string
+        ready: string
+      }
+      elsewhere: (path: string) => string
+      folderTitle: string
+      folderDesc: string
+      serverStopped: string
+      toggleFailed: string
+    }
+    update: {
+      toastTitle: string
+      toastBody: (version: string) => string
+      toastAction: string
+      mandatoryTitle: string
+      mandatoryBody: string
+      heading: string
+      upToDate: string
+      available: (version: string) => string
+      blocked: string
+      pending: (version: string) => string
+      failed: (version: string) => string
+      neverChecked: string
+      checkError: string
+      lastChecked: (age: string) => string
+      checkNow: string
+      checking: string
+      install: string
+      installing: string
+      notes: string
+      stages: {
+        download: string
+        verify: string
+        extract: string
+        drain: string
+        swap: string
+        reload: string
+        confirm: string
+        rollback: string
+        done: string
+        pending: string
+        error: string
+      }
+      doneToast: (version: string) => string
+      failedToast: (reason: string) => string
+    }
+    prompt: {
+      title: string
+      body: {
+        WEBMATE_DISABLED: string
+        WEBMATE_NOT_INSTALLED: string
+        WEBMATE_NOT_CONNECTED: string
+        WEBMATE_OUTDATED: string
+        WEBMATE_NOT_SIGNED_IN: string
+        WEBMATE_PORT_IN_USE: string
+      }
+      install: string
+      open: string
+      notNow: string
+      never: string
+    }
   }
 
   modelPicker: {

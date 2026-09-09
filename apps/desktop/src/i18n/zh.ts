@@ -403,6 +403,7 @@ export const zh: Translations = {
       about: '关于',
       billing: '账单',
       notifications: '通知',
+      browser: '浏览器',
       plugins: '插件'
     },
     account: {
@@ -2956,6 +2957,153 @@ export const zh: Translations = {
     change: '更改',
     startChatting: '开始',
     docs: provider => `${provider} 文档`
+  },
+
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: '连接你的浏览器',
+      intro:
+        '当 Workmate 能看到你已登录的浏览器时，它能做更多事：读取页面、填写表单、从各种面板汇总数据。这一切通过 AgentX WebMate 扩展完成，只需三步即可添加到浏览器。',
+      scanning: '正在查找这台电脑上的浏览器…',
+      noBrowsers: '没有找到可用的浏览器（Chrome、Edge、Brave…）。你可以稍后在“设置 → 浏览器”中完成。',
+      pickBrowser: '选择要添加 WebMate 的浏览器',
+      defaultBadge: '默认',
+      installedBadge: '已添加 WebMate',
+      disabledBadge: 'WebMate 已关闭',
+      elsewhereBadge: '其他副本',
+      unsupported: { firefox: '暂不支持 Firefox', safari: '暂不支持 Safari' },
+      workmateWindow: {
+        title: 'Workmate 专用浏览器窗口',
+        description: '无需手动操作：Workmate 会打开自己的浏览器窗口并自动添加 WebMate。',
+        comingSoon: '即将推出'
+      },
+      install: '添加到这个浏览器',
+      stepsTitle: browser => `在 ${browser} 中完成三步`,
+      steps: {
+        devMode: '在刚打开页面的右上角开启“开发者模式”。',
+        drag: '把刚弹出的文件夹窗口中的“AgentX WebMate”文件夹拖到该页面上。或点击“加载已解压的扩展程序”，选择这个文件夹。',
+        done: '完成。WebMate 一连接 Workmate 就会自动识别，无需再点击任何按钮。'
+      },
+      reopenPage: '重新打开扩展页面',
+      showFolder: '打开文件夹',
+      copyPath: '复制路径',
+      pathCopied: '已复制',
+      waiting: '正在等待 WebMate 连接…',
+      connected: browser => `已连接 · ${browser}`,
+      connectedHint: '从现在起，当你需要时 Workmate 就能使用这个浏览器。',
+      slowTitle: 'WebMate 还没有连接。常见原因：',
+      slowReasons: [
+        '扩展页面右上角的开发者模式还没有开启。',
+        '拖错了文件夹：必须是“AgentX WebMate”文件夹本身，而不是它的上级目录。',
+        '这个浏览器由组织管理，禁止了开发者模式。'
+      ],
+      useWindow: '使用独立窗口',
+      later: '稍后',
+      never: '不再询问',
+      start: '开始',
+      back: '选择其他浏览器',
+      serverStarting: '正在开启浏览器连接…',
+      serverError: '无法开启浏览器连接。你可以稍后在“设置 → 浏览器”中重试。',
+      openFailed: browser => `无法打开 ${browser}。请自行打开它，在地址栏输入 chrome://extensions，然后继续以下步骤。`
+    },
+    settings: {
+      title: '浏览器',
+      intro: 'WebMate 是安装在你浏览器里的扩展，让 Workmate 能读取页面、填写表单，并在你已登录的网站上工作。',
+      enable: 'WebMate 控制浏览器',
+      enableDesc: '关闭后 Workmate 不再使用你的浏览器。扩展仍保留在浏览器中。',
+      browsersHeading: '这台电脑上的浏览器',
+      installOther: '添加到其他浏览器…',
+      reconnect: '重新连接',
+      resetToken: '重置令牌',
+      resetTokenDesc: '为 Workmate 与 WebMate 生成新的配对码。当你怀疑有其他程序在冒充 Workmate 时使用。',
+      resetTokenDone: '已重置。WebMate 会自动重新连接。',
+      rescan: '重新扫描',
+      askWhenNotReady: '当智能体需要浏览器而 WebMate 尚未就绪时',
+      askMe: '询问我',
+      dontAsk: '不询问',
+      autoUpdate: '自动更新 WebMate',
+      autoUpdateDesc: '有新版本时立即安装，无需询问。',
+      version: version => `版本 ${version}`,
+      running: version => `运行中 ${version}`,
+      profile: name => `配置文件 ${name}`,
+      states: {
+        off: '已关闭',
+        notInstalled: '未添加',
+        installedClosed: '已添加 · 浏览器已关闭',
+        installedDisabled: '已添加 · 扩展已关闭',
+        installedNotConnected: '已添加 · 未连接',
+        outdated: '已连接 · 版本过旧',
+        notSignedIn: '已连接 · 未登录',
+        ready: '就绪'
+      },
+      hints: {
+        off: '打开上方的开关，Workmate 才能再次使用浏览器。',
+        notInstalled: 'WebMate 尚未添加到这个浏览器。',
+        installedClosed: '打开浏览器后 WebMate 会自动连接。',
+        installedDisabled: '打开浏览器的扩展页面并重新启用 AgentX WebMate。',
+        installedNotConnected: '浏览器已打开但 WebMate 未连接。请在扩展页面重新加载该扩展。',
+        outdated: '这个 WebMate 版本对 Workmate 来说太旧了，请更新。',
+        notSignedIn: '在浏览器中打开 WebMate 并登录你的 AgentX 账户。',
+        ready: 'Workmate 可以使用这个浏览器。'
+      },
+      elsewhere: path => `这个浏览器加载的是来自 ${path} 的另一个 WebMate 副本。`,
+      folderTitle: '扩展文件夹',
+      folderDesc: '浏览器从这个文件夹加载 WebMate。请勿重命名或移动它。',
+      serverStopped: '浏览器连接在本会话中尚未运行。',
+      toggleFailed: '无法更改 WebMate 设置。'
+    },
+    update: {
+      toastTitle: 'WebMate 有新版本',
+      toastBody: version => `WebMate ${version} 已可安装。`,
+      toastAction: '更新 WebMate',
+      mandatoryTitle: 'WebMate 需要更新',
+      mandatoryBody: '浏览器中的 WebMate 对这个 Workmate 来说太旧了。请更新后再使用浏览器。',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate 已是最新版本。',
+      available: version => `WebMate ${version} 已可用。`,
+      blocked: '新版 WebMate 需要更新的 Workmate。请先更新 Workmate。',
+      pending: version => `关闭浏览器后将安装 WebMate ${version}。`,
+      failed: version => `WebMate ${version} 未能启动，已恢复到之前的版本。`,
+      neverChecked: '尚未检查。',
+      checkError: '无法检查 WebMate 新版本。',
+      lastChecked: age => `上次检查 ${age}`,
+      checkNow: '立即检查',
+      checking: '正在检查…',
+      install: '更新 WebMate',
+      installing: '正在更新…',
+      notes: '更新内容',
+      stages: {
+        download: '正在下载 WebMate…',
+        verify: '正在校验安装包…',
+        extract: '正在准备…',
+        drain: '正在等待浏览器完成当前任务…',
+        swap: '正在切换到新版本…',
+        reload: '正在重新加载扩展…',
+        confirm: '正在等待 WebMate 重新连接…',
+        rollback: '正在恢复到之前的版本…',
+        done: 'WebMate 已更新',
+        pending: '将在浏览器关闭后安装',
+        error: '更新未完成'
+      },
+      doneToast: version => `WebMate ${version} 已就绪。`,
+      failedToast: reason => `WebMate 更新未完成：${reason}`
+    },
+    prompt: {
+      title: 'Workmate 想使用你的浏览器',
+      body: {
+        WEBMATE_DISABLED: 'WebMate 已在设置中关闭。重新开启后 Workmate 才能在浏览器中工作。',
+        WEBMATE_NOT_INSTALLED: '这项任务需要 WebMate，即让 Workmate 在你浏览器中工作的扩展。添加只需一分钟。',
+        WEBMATE_NOT_CONNECTED: 'WebMate 已添加但未连接。请打开装有 WebMate 的浏览器，或重新启用该扩展。',
+        WEBMATE_OUTDATED: '浏览器中的 WebMate 太旧了。请更新，Workmate 才能再次使用浏览器。',
+        WEBMATE_NOT_SIGNED_IN: '浏览器中的 WebMate 尚未登录你的 AgentX 账户。',
+        WEBMATE_PORT_IN_USE: '另一个程序占用了 WebMate 的连接端口（17374）。请关闭它后重试。'
+      },
+      install: '添加 WebMate',
+      open: '打开设置',
+      notNow: '暂不',
+      never: '不再询问'
+    }
   },
 
   modelPicker: {

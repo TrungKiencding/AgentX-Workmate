@@ -296,7 +296,8 @@ export const zhHant = defineLocale({
       archivedChats: '已封存聊天',
       about: '關於',
       billing: '帳單',
-      notifications: '通知'
+      notifications: '通知',
+      browser: '瀏覽器'
     },
     account: {
       title: 'AgentX 帳號',
@@ -2734,6 +2735,153 @@ export const zhHant = defineLocale({
     change: '變更',
     startChatting: '開始',
     docs: provider => `${provider} 文件`
+  },
+
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: '連接你的瀏覽器',
+      intro:
+        '當 Workmate 能看到你已登入的瀏覽器時，它能做更多事：閱讀網頁、填寫表單、從各種儀表板彙整數據。這一切透過 AgentX WebMate 擴充功能完成，只需三步即可加入瀏覽器。',
+      scanning: '正在尋找這台電腦上的瀏覽器…',
+      noBrowsers: '找不到可用的瀏覽器（Chrome、Edge、Brave…）。你可以稍後在「設定 → 瀏覽器」中完成。',
+      pickBrowser: '選擇要加入 WebMate 的瀏覽器',
+      defaultBadge: '預設',
+      installedBadge: '已加入 WebMate',
+      disabledBadge: 'WebMate 已關閉',
+      elsewhereBadge: '其他副本',
+      unsupported: { firefox: '尚不支援 Firefox', safari: '尚不支援 Safari' },
+      workmateWindow: {
+        title: 'Workmate 專用瀏覽器視窗',
+        description: '無需手動操作：Workmate 會開啟自己的瀏覽器視窗並自動加入 WebMate。',
+        comingSoon: '即將推出'
+      },
+      install: '加入這個瀏覽器',
+      stepsTitle: browser => `在 ${browser} 中完成三步`,
+      steps: {
+        devMode: '在剛開啟頁面的右上角開啟「開發人員模式」。',
+        drag: '把剛彈出的資料夾視窗中的「AgentX WebMate」資料夾拖到該頁面上。或點選「載入未封裝項目」，選擇這個資料夾。',
+        done: '完成。WebMate 一連線 Workmate 就會自動辨識，無需再點任何按鈕。'
+      },
+      reopenPage: '重新開啟擴充功能頁面',
+      showFolder: '開啟資料夾',
+      copyPath: '複製路徑',
+      pathCopied: '已複製',
+      waiting: '正在等待 WebMate 連線…',
+      connected: browser => `已連線 · ${browser}`,
+      connectedHint: '從現在起，當你需要時 Workmate 就能使用這個瀏覽器。',
+      slowTitle: 'WebMate 還沒有連線。常見原因：',
+      slowReasons: [
+        '擴充功能頁面右上角的開發人員模式還沒有開啟。',
+        '拖錯了資料夾：必須是「AgentX WebMate」資料夾本身，而不是它的上層目錄。',
+        '這個瀏覽器由組織管理，已封鎖開發人員模式。'
+      ],
+      useWindow: '使用獨立視窗',
+      later: '稍後',
+      never: '不再詢問',
+      start: '開始',
+      back: '選擇其他瀏覽器',
+      serverStarting: '正在開啟瀏覽器連線…',
+      serverError: '無法開啟瀏覽器連線。你可以稍後在「設定 → 瀏覽器」中重試。',
+      openFailed: browser => `無法開啟 ${browser}。請自行開啟它，在網址列輸入 chrome://extensions，然後繼續以下步驟。`
+    },
+    settings: {
+      title: '瀏覽器',
+      intro: 'WebMate 是安裝在你瀏覽器裡的擴充功能，讓 Workmate 能閱讀網頁、填寫表單，並在你已登入的網站上工作。',
+      enable: 'WebMate 控制瀏覽器',
+      enableDesc: '關閉後 Workmate 不再使用你的瀏覽器。擴充功能仍保留在瀏覽器中。',
+      browsersHeading: '這台電腦上的瀏覽器',
+      installOther: '加入其他瀏覽器…',
+      reconnect: '重新連線',
+      resetToken: '重設權杖',
+      resetTokenDesc: '為 Workmate 與 WebMate 產生新的配對碼。當你懷疑有其他程式在冒充 Workmate 時使用。',
+      resetTokenDone: '已重設。WebMate 會自動重新連線。',
+      rescan: '重新掃描',
+      askWhenNotReady: '當代理需要瀏覽器而 WebMate 尚未就緒時',
+      askMe: '詢問我',
+      dontAsk: '不詢問',
+      autoUpdate: '自動更新 WebMate',
+      autoUpdateDesc: '有新版本時立即安裝，無需詢問。',
+      version: version => `版本 ${version}`,
+      running: version => `執行中 ${version}`,
+      profile: name => `設定檔 ${name}`,
+      states: {
+        off: '已關閉',
+        notInstalled: '未加入',
+        installedClosed: '已加入 · 瀏覽器已關閉',
+        installedDisabled: '已加入 · 擴充功能已關閉',
+        installedNotConnected: '已加入 · 未連線',
+        outdated: '已連線 · 版本過舊',
+        notSignedIn: '已連線 · 未登入',
+        ready: '就緒'
+      },
+      hints: {
+        off: '開啟上方的開關，Workmate 才能再次使用瀏覽器。',
+        notInstalled: 'WebMate 尚未加入這個瀏覽器。',
+        installedClosed: '開啟瀏覽器後 WebMate 會自動連線。',
+        installedDisabled: '開啟瀏覽器的擴充功能頁面並重新啟用 AgentX WebMate。',
+        installedNotConnected: '瀏覽器已開啟但 WebMate 未連線。請在擴充功能頁面重新載入該擴充功能。',
+        outdated: '這個 WebMate 版本對 Workmate 來說太舊了，請更新。',
+        notSignedIn: '在瀏覽器中開啟 WebMate 並登入你的 AgentX 帳戶。',
+        ready: 'Workmate 可以使用這個瀏覽器。'
+      },
+      elsewhere: path => `這個瀏覽器載入的是來自 ${path} 的另一個 WebMate 副本。`,
+      folderTitle: '擴充功能資料夾',
+      folderDesc: '瀏覽器從這個資料夾載入 WebMate。請勿重新命名或移動它。',
+      serverStopped: '瀏覽器連線在本次工作階段中尚未執行。',
+      toggleFailed: '無法變更 WebMate 設定。'
+    },
+    update: {
+      toastTitle: 'WebMate 有新版本',
+      toastBody: version => `WebMate ${version} 已可安裝。`,
+      toastAction: '更新 WebMate',
+      mandatoryTitle: 'WebMate 需要更新',
+      mandatoryBody: '瀏覽器中的 WebMate 對這個 Workmate 來說太舊了。請更新後再使用瀏覽器。',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate 已是最新版本。',
+      available: version => `WebMate ${version} 已可用。`,
+      blocked: '新版 WebMate 需要更新的 Workmate。請先更新 Workmate。',
+      pending: version => `關閉瀏覽器後將安裝 WebMate ${version}。`,
+      failed: version => `WebMate ${version} 無法啟動，已恢復到先前的版本。`,
+      neverChecked: '尚未檢查。',
+      checkError: '無法檢查 WebMate 新版本。',
+      lastChecked: age => `上次檢查 ${age}`,
+      checkNow: '立即檢查',
+      checking: '正在檢查…',
+      install: '更新 WebMate',
+      installing: '正在更新…',
+      notes: '更新內容',
+      stages: {
+        download: '正在下載 WebMate…',
+        verify: '正在驗證安裝包…',
+        extract: '正在準備…',
+        drain: '正在等待瀏覽器完成目前工作…',
+        swap: '正在切換到新版本…',
+        reload: '正在重新載入擴充功能…',
+        confirm: '正在等待 WebMate 重新連線…',
+        rollback: '正在恢復到先前的版本…',
+        done: 'WebMate 已更新',
+        pending: '將在瀏覽器關閉後安裝',
+        error: '更新未完成'
+      },
+      doneToast: version => `WebMate ${version} 已就緒。`,
+      failedToast: reason => `WebMate 更新未完成：${reason}`
+    },
+    prompt: {
+      title: 'Workmate 想使用你的瀏覽器',
+      body: {
+        WEBMATE_DISABLED: 'WebMate 已在設定中關閉。重新開啟後 Workmate 才能在瀏覽器中工作。',
+        WEBMATE_NOT_INSTALLED: '這項任務需要 WebMate，即讓 Workmate 在你瀏覽器中工作的擴充功能。加入只需一分鐘。',
+        WEBMATE_NOT_CONNECTED: 'WebMate 已加入但未連線。請開啟裝有 WebMate 的瀏覽器，或重新啟用該擴充功能。',
+        WEBMATE_OUTDATED: '瀏覽器中的 WebMate 太舊了。請更新，Workmate 才能再次使用瀏覽器。',
+        WEBMATE_NOT_SIGNED_IN: '瀏覽器中的 WebMate 尚未登入你的 AgentX 帳戶。',
+        WEBMATE_PORT_IN_USE: '另一個程式佔用了 WebMate 的連線連接埠（17374）。請關閉它後重試。'
+      },
+      install: '加入 WebMate',
+      open: '開啟設定',
+      notNow: '暫不',
+      never: '不再詢問'
+    }
   },
 
   modelPicker: {

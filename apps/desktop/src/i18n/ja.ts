@@ -319,7 +319,8 @@ export const ja = defineLocale({
       archivedChats: 'アーカイブ済みチャット',
       about: '情報',
       billing: '請求',
-      notifications: '通知'
+      notifications: '通知',
+      browser: 'ブラウザー'
     },
     account: {
       title: 'AgentX アカウント',
@@ -2851,6 +2852,161 @@ export const ja = defineLocale({
     change: '変更',
     startChatting: '始める',
     docs: provider => `${provider} ドキュメント`
+  },
+
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: 'ブラウザーを接続する',
+      intro:
+        'ログイン済みのブラウザーが見えると、Workmate はもっと多くのことができます。ページを読む、フォームに入力する、ダッシュボードから数字を集める。これらは AgentX WebMate 拡張機能を通じて動きます。3 つのステップでブラウザーに追加できます。',
+      scanning: 'このパソコンのブラウザーを探しています…',
+      noBrowsers:
+        '対応するブラウザー（Chrome、Edge、Brave など）が見つかりません。あとで「設定 → ブラウザー」から設定できます。',
+      pickBrowser: 'WebMate を追加するブラウザーを選ぶ',
+      defaultBadge: '既定',
+      installedBadge: 'WebMate 追加済み',
+      disabledBadge: 'WebMate はオフ',
+      elsewhereBadge: '別のコピー',
+      unsupported: { firefox: 'Firefox はまだ対応していません', safari: 'Safari はまだ対応していません' },
+      workmateWindow: {
+        title: 'Workmate 専用のブラウザーウィンドウ',
+        description: '手作業は不要です。Workmate が専用のブラウザーウィンドウを開き、WebMate を自動で追加します。',
+        comingSoon: '近日公開'
+      },
+      install: 'このブラウザーに追加',
+      stepsTitle: browser => `${browser} で 3 ステップ`,
+      steps: {
+        devMode: '開いたページの右上で「デベロッパーモード」をオンにします。',
+        drag: '表示されたフォルダーウィンドウから「AgentX WebMate」フォルダーをそのページにドラッグします。または「パッケージ化されていない拡張機能を読み込む」を押してこのフォルダーを選びます。',
+        done: '以上です。WebMate が接続すると Workmate が自動で認識します。ほかに押すものはありません。'
+      },
+      reopenPage: '拡張機能ページをもう一度開く',
+      showFolder: 'フォルダーを開く',
+      copyPath: 'パスをコピー',
+      pathCopied: 'コピーしました',
+      waiting: 'WebMate の接続を待っています…',
+      connected: browser => `接続済み · ${browser}`,
+      connectedHint: 'これから Workmate は、頼まれたときにこのブラウザーを使えます。',
+      slowTitle: 'WebMate がまだ接続していません。よくある原因:',
+      slowReasons: [
+        '拡張機能ページ右上のデベロッパーモードがまだオフになっている。',
+        '違うフォルダーをドラッグした。親フォルダーではなく「AgentX WebMate」フォルダーそのものが必要です。',
+        'このブラウザーは組織が管理していて、デベロッパーモードがブロックされている。'
+      ],
+      useWindow: '専用ウィンドウを使う',
+      later: 'あとで',
+      never: '今後表示しない',
+      start: '始める',
+      back: '別のブラウザーを選ぶ',
+      serverStarting: 'ブラウザー接続をオンにしています…',
+      serverError: 'ブラウザー接続をオンにできませんでした。「設定 → ブラウザー」からやり直せます。',
+      openFailed: browser =>
+        `${browser} を開けませんでした。手動で開き、アドレスバーに chrome://extensions と入力して、続きのステップを進めてください。`
+    },
+    settings: {
+      title: 'ブラウザー',
+      intro:
+        'WebMate はブラウザーに入れる拡張機能です。Workmate がページを読み、フォームに入力し、ログイン済みのサイトで作業できるようにします。',
+      enable: 'WebMate がブラウザーを操作する',
+      enableDesc: 'オフにすると Workmate はブラウザーを使わなくなります。拡張機能はブラウザーに残ります。',
+      browsersHeading: 'このパソコンのブラウザー',
+      installOther: '別のブラウザーに追加…',
+      reconnect: '再接続',
+      resetToken: 'トークンをリセット',
+      resetTokenDesc:
+        'Workmate と WebMate の新しいペアリングコードを作ります。別のプログラムが Workmate を装っていると疑うときに使います。',
+      resetTokenDone: 'リセットしました。WebMate は自動で再接続します。',
+      rescan: '再スキャン',
+      askWhenNotReady: 'エージェントがブラウザーを必要としているのに WebMate の準備ができていないとき',
+      askMe: '確認する',
+      dontAsk: '確認しない',
+      autoUpdate: 'WebMate を自動更新する',
+      autoUpdateDesc: '新しい WebMate が出たらすぐに、確認なしでインストールします。',
+      version: version => `バージョン ${version}`,
+      running: version => `実行中 ${version}`,
+      profile: name => `プロファイル ${name}`,
+      states: {
+        off: 'オフ',
+        notInstalled: '未追加',
+        installedClosed: '追加済み · ブラウザーは閉じています',
+        installedDisabled: '追加済み · 拡張機能はオフ',
+        installedNotConnected: '追加済み · 未接続',
+        outdated: '接続済み · 古いバージョン',
+        notSignedIn: '接続済み · 未サインイン',
+        ready: '準備完了'
+      },
+      hints: {
+        off: '上のスイッチをオンにすると、Workmate がまたブラウザーを使えます。',
+        notInstalled: 'このブラウザーには WebMate がまだ追加されていません。',
+        installedClosed: 'ブラウザーを開くと WebMate が自動で接続します。',
+        installedDisabled: 'ブラウザーの拡張機能ページで AgentX WebMate をもう一度オンにしてください。',
+        installedNotConnected:
+          'ブラウザーは開いていますが WebMate が接続していません。拡張機能ページで再読み込みしてみてください。',
+        outdated: 'この WebMate は Workmate に対して古すぎます。更新してください。',
+        notSignedIn: 'ブラウザーで WebMate を開き、AgentX アカウントにサインインしてください。',
+        ready: 'Workmate はこのブラウザーを使えます。'
+      },
+      elsewhere: path => `このブラウザーは ${path} から別の WebMate を読み込んでいます。`,
+      folderTitle: '拡張機能フォルダー',
+      folderDesc: 'ブラウザーはこのフォルダーから WebMate を読み込みます。名前を変えたり移動したりしないでください。',
+      serverStopped: 'このセッションではブラウザー接続がまだ動いていません。',
+      toggleFailed: 'WebMate の設定を変更できませんでした。'
+    },
+    update: {
+      toastTitle: '新しい WebMate があります',
+      toastBody: version => `WebMate ${version} をインストールできます。`,
+      toastAction: 'WebMate を更新',
+      mandatoryTitle: 'WebMate の更新が必要です',
+      mandatoryBody: 'ブラウザーの WebMate はこの Workmate に対して古すぎます。更新するとブラウザーをまた使えます。',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate は最新です。',
+      available: version => `WebMate ${version} が利用できます。`,
+      blocked: '新しい WebMate にはより新しい Workmate が必要です。先に Workmate を更新してください。',
+      pending: version => `ブラウザーを閉じると WebMate ${version} がインストールされます。`,
+      failed: version => `WebMate ${version} が起動しなかったため、前のバージョンに戻しました。`,
+      neverChecked: 'まだ確認していません。',
+      checkError: '新しい WebMate を確認できませんでした。',
+      lastChecked: age => `最終確認 ${age}`,
+      checkNow: '今すぐ確認',
+      checking: '確認中…',
+      install: 'WebMate を更新',
+      installing: '更新中…',
+      notes: '新機能',
+      stages: {
+        download: 'WebMate をダウンロード中…',
+        verify: 'パッケージを確認中…',
+        extract: '準備中…',
+        drain: 'ブラウザーの作業終了を待っています…',
+        swap: '新しいバージョンに切り替え中…',
+        reload: '拡張機能を再読み込み中…',
+        confirm: 'WebMate の再接続を待っています…',
+        rollback: '前のバージョンに戻しています…',
+        done: 'WebMate を更新しました',
+        pending: 'ブラウザーを閉じるとインストールされます',
+        error: '更新が完了しませんでした'
+      },
+      doneToast: version => `WebMate ${version} の準備ができました。`,
+      failedToast: reason => `WebMate の更新が完了しませんでした: ${reason}`
+    },
+    prompt: {
+      title: 'Workmate がブラウザーを使いたがっています',
+      body: {
+        WEBMATE_DISABLED: 'WebMate は設定でオフになっています。オンに戻すと Workmate がブラウザーで作業できます。',
+        WEBMATE_NOT_INSTALLED:
+          'この作業には WebMate が必要です。Workmate がブラウザーで作業するための拡張機能で、追加は 1 分で終わります。',
+        WEBMATE_NOT_CONNECTED:
+          'WebMate は追加済みですが接続していません。WebMate の入ったブラウザーを開くか、拡張機能をオンに戻してください。',
+        WEBMATE_OUTDATED: 'ブラウザーの WebMate が古すぎます。更新すると Workmate がまたブラウザーを使えます。',
+        WEBMATE_NOT_SIGNED_IN: 'ブラウザーの WebMate が AgentX アカウントにサインインしていません。',
+        WEBMATE_PORT_IN_USE:
+          '別のプログラムが WebMate の接続ポート（17374）を使っています。閉じてからやり直してください。'
+      },
+      install: 'WebMate を追加',
+      open: '設定を開く',
+      notNow: '今はしない',
+      never: '今後表示しない'
+    }
   },
 
   modelPicker: {
