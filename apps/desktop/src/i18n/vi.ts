@@ -436,6 +436,7 @@ export const vi: Translations = {
       about: 'Giới thiệu',
       billing: 'Thanh toán',
       notifications: 'Thông báo',
+      browser: 'Trình duyệt',
       plugins: 'Plugin'
     },
     account: {
@@ -3107,6 +3108,217 @@ export const vi: Translations = {
     change: 'Đổi',
     startChatting: 'Bắt đầu',
     docs: provider => `Tài liệu ${provider}`
+  },
+
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: 'Kết nối trình duyệt của bạn',
+      intro:
+        'Workmate làm được nhiều việc hơn khi thấy trình duyệt bạn đang đăng nhập: đọc trang, điền biểu mẫu, gom số liệu từ các bảng điều khiển. Việc này chạy qua tiện ích AgentX WebMate, cài vào trình duyệt của bạn trong ba bước.',
+      scanning: 'Đang tìm trình duyệt trên máy…',
+      noBrowsers:
+        'Không tìm thấy trình duyệt nào dùng được (Chrome, Edge, Brave…). Bạn có thể cài sau trong Cài đặt → Trình duyệt.',
+      pickBrowser: 'Chọn trình duyệt để cài WebMate',
+      defaultBadge: 'Mặc định',
+      installedBadge: 'Đã có WebMate',
+      disabledBadge: 'WebMate đang tắt',
+      elsewhereBadge: 'Bản khác',
+      unsupported: { firefox: 'Chưa hỗ trợ Firefox', safari: 'Chưa hỗ trợ Safari' },
+      workmateWindow: {
+        title: 'Cửa sổ trình duyệt riêng của Workmate',
+        description: 'Không cần thao tác gì: Workmate mở một cửa sổ trình duyệt riêng và tự cài WebMate vào đó.',
+        comingSoon: 'Sắp có'
+      },
+      install: 'Cài vào trình duyệt này',
+      stepsTitle: browser => `Làm ba bước trong ${browser}`,
+      steps: {
+        devMode: 'Bật “Chế độ dành cho nhà phát triển” (Developer mode) ở góc trên bên phải trang vừa mở.',
+        drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải tiện ích đã giải nén” (Load unpacked) rồi chọn thư mục này.',
+        done: 'Xong. Workmate tự nhận ra khi WebMate kết nối, bạn không cần bấm gì thêm.'
+      },
+      stepsEdge: {
+        devMode: 'Bật “Chế độ nhà phát triển” (Developer mode) ở góc dưới bên trái trang vừa mở.',
+        drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải phần mở rộng đã giải nén” (Load unpacked) rồi chọn thư mục này.'
+      },
+      reopenPage: 'Mở lại trang tiện ích',
+      showFolder: 'Mở thư mục',
+      copyPath: 'Sao chép đường dẫn',
+      pathCopied: 'Đã sao chép',
+      waiting: 'Đang chờ WebMate kết nối…',
+      connected: browser => `Đã kết nối · ${browser}`,
+      connectedHint: 'Từ giờ Workmate có thể dùng trình duyệt này khi bạn nhờ.',
+      slowTitle: 'Vẫn chưa thấy WebMate kết nối. Vài nguyên nhân thường gặp:',
+      slowReasons: [
+        '“Chế độ dành cho nhà phát triển” trên trang tiện ích chưa được bật.',
+        'Kéo nhầm thư mục: cần đúng thư mục “AgentX WebMate”, không phải thư mục cha.',
+        'Trình duyệt do công ty quản lý và đã chặn chế độ dành cho nhà phát triển.'
+      ],
+      useWindow: 'Dùng cửa sổ riêng',
+      later: 'Để sau',
+      never: 'Đừng hỏi lại',
+      start: 'Bắt đầu',
+      back: 'Chọn trình duyệt khác',
+      serverStarting: 'Đang bật kết nối trình duyệt…',
+      serverError: 'Không bật được kết nối trình duyệt. Bạn vẫn có thể thử lại trong Cài đặt → Trình duyệt.',
+      openFailed: browser =>
+        `Không mở được ${browser}. Hãy mở trình duyệt, gõ chrome://extensions vào thanh địa chỉ rồi làm tiếp các bước.`,
+      typeAddress: url => `Nếu trang tiện ích chưa hiện, hãy gõ ${url} vào thanh địa chỉ của cửa sổ vừa mở.`
+    },
+    settings: {
+      title: 'Trình duyệt',
+      intro:
+        'WebMate là tiện ích cài trong trình duyệt của bạn để Workmate đọc trang, điền biểu mẫu và làm việc trên các trang bạn đã đăng nhập.',
+      enable: 'WebMate điều khiển trình duyệt',
+      enableDesc: 'Tắt thì Workmate không dùng trình duyệt của bạn nữa. Tiện ích vẫn còn trong trình duyệt.',
+      browsersHeading: 'Trình duyệt trên máy này',
+      installOther: 'Cài vào trình duyệt khác…',
+      reconnect: 'Kết nối lại',
+      resetToken: 'Đặt lại token',
+      resetTokenDesc:
+        'Tạo mã ghép đôi mới giữa Workmate và WebMate. Dùng khi bạn nghi có phần mềm khác đang giả làm Workmate.',
+      resetTokenDone: 'Đã đặt lại. WebMate sẽ tự kết nối lại.',
+      rescan: 'Quét lại',
+      askWhenNotReady: 'Khi agent cần trình duyệt mà WebMate chưa sẵn sàng',
+      askMe: 'Hỏi tôi',
+      dontAsk: 'Không hỏi',
+      autoUpdate: 'Tự cập nhật WebMate',
+      autoUpdateDesc: 'Cài bản WebMate mới ngay khi có, không cần hỏi.',
+      version: version => `Phiên bản ${version}`,
+      running: version => `đang chạy ${version}`,
+      profile: name => `Hồ sơ ${name}`,
+      states: {
+        off: 'Đang tắt',
+        notInstalled: 'Chưa cài',
+        installedClosed: 'Đã cài · trình duyệt đang đóng',
+        installedDisabled: 'Đã cài · tiện ích đang tắt',
+        installedNotConnected: 'Đã cài · chưa kết nối',
+        outdated: 'Đã kết nối · bản cũ',
+        notSignedIn: 'Đã kết nối · chưa đăng nhập',
+        ready: 'Sẵn sàng'
+      },
+      hints: {
+        off: 'Bật công tắc phía trên để Workmate dùng lại trình duyệt.',
+        notInstalled: 'Chưa cài WebMate vào trình duyệt này.',
+        installedClosed: 'Mở trình duyệt là WebMate tự kết nối.',
+        installedDisabled: 'Vào trang tiện ích của trình duyệt và bật lại AgentX WebMate.',
+        installedNotConnected:
+          'Trình duyệt đang mở nhưng WebMate chưa kết nối. Thử nạp lại tiện ích trong trang tiện ích.',
+        outdated: 'Bản WebMate này quá cũ so với Workmate. Hãy cập nhật.',
+        notSignedIn: 'Mở WebMate trong trình duyệt và đăng nhập tài khoản AgentX của bạn.',
+        ready: 'Workmate có thể dùng trình duyệt này.'
+      },
+      elsewhere: path => `Trình duyệt này đang nạp một bản WebMate khác từ ${path}.`,
+      folderTitle: 'Thư mục tiện ích',
+      folderDesc: 'Trình duyệt nạp WebMate từ thư mục này. Đừng đổi tên hay di chuyển nó.',
+      serverStopped: 'Kết nối trình duyệt chưa chạy trong phiên này.',
+      toggleFailed: 'Không đổi được cài đặt WebMate.'
+    },
+    update: {
+      toastTitle: 'Có bản WebMate mới',
+      toastBody: version => `WebMate ${version} đã sẵn sàng để cài.`,
+      toastAction: 'Cập nhật WebMate',
+      mandatoryTitle: 'Cần cập nhật WebMate',
+      mandatoryBody: 'Bản WebMate trong trình duyệt quá cũ so với Workmate. Cập nhật để dùng lại trình duyệt.',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate đang ở bản mới nhất.',
+      available: version => `Đã có WebMate ${version}.`,
+      blocked: 'Bản WebMate mới cần phiên bản Workmate mới hơn. Hãy cập nhật Workmate trước.',
+      pending: version => `WebMate ${version} sẽ được cài khi bạn đóng trình duyệt.`,
+      failed: version => `WebMate ${version} không khởi động được nên đã quay về bản cũ.`,
+      neverChecked: 'Chưa kiểm tra bản mới.',
+      checkError: 'Không kiểm tra được bản WebMate mới.',
+      lastChecked: age => `Kiểm tra lần cuối ${age}`,
+      checkNow: 'Kiểm tra ngay',
+      checking: 'Đang kiểm tra…',
+      install: 'Cập nhật WebMate',
+      installing: 'Đang cập nhật…',
+      notes: 'Có gì mới',
+      stages: {
+        download: 'Đang tải WebMate…',
+        verify: 'Đang kiểm tra gói…',
+        extract: 'Đang chuẩn bị…',
+        drain: 'Đang chờ trình duyệt xong việc…',
+        swap: 'Đang thay bản mới…',
+        reload: 'Đang nạp lại tiện ích…',
+        confirm: 'Đang chờ WebMate kết nối lại…',
+        rollback: 'Đang quay về bản cũ…',
+        done: 'Đã cập nhật WebMate',
+        pending: 'Sẽ cài khi trình duyệt đóng',
+        error: 'Cập nhật chưa xong'
+      },
+      doneToast: version => `WebMate ${version} đã sẵn sàng.`,
+      failedToast: reason => `Cập nhật WebMate chưa xong: ${reason}`
+    },
+    window: {
+      title: 'Cửa sổ trình duyệt riêng của Workmate',
+      description: 'Workmate mở một cửa sổ Chrome/Edge riêng với WebMate cài sẵn. Không phải kéo thả gì.',
+      open: 'Mở cửa sổ riêng',
+      close: 'Đóng cửa sổ riêng',
+      opening: 'Đang mở cửa sổ riêng…',
+      stateOpen: 'Đang mở',
+      stateClosed: 'Đang đóng',
+      using: browser => `Dùng ${browser}`,
+      signInNote:
+        'Cửa sổ này dùng hồ sơ riêng của Workmate, nên bạn cần đăng nhập lại các trang muốn Workmate làm việc trên đó.',
+      noChromium: 'Máy chưa có trình duyệt gốc Chromium (Chrome, Edge, Brave…). Cài một trong số đó rồi thử lại.',
+      failed: reason => `Không mở được cửa sổ riêng: ${reason}`,
+      modeLabel: 'Workmate làm việc trong trình duyệt nào',
+      modeDesc:
+        'Trình duyệt của bạn cần cài WebMate một lần; cửa sổ riêng thì Workmate tự lo nhưng bạn phải đăng nhập lại các trang.',
+      modeBrowser: 'Trình duyệt của tôi',
+      modeWindow: 'Cửa sổ riêng của Workmate',
+      updateRelaunch: 'Cửa sổ riêng sẽ đóng và mở lại để cập nhật WebMate.',
+      onboardingHint: 'Chọn cách này nếu bạn không muốn đụng vào trình duyệt đang dùng.'
+    },
+    sso: {
+      heading: 'Đăng nhập chung',
+      browserLabel: 'Trình duyệt để đăng nhập và dùng WebMate',
+      browserDesc:
+        'Workmate mở trang đăng nhập trong trình duyệt này, nên WebMate ở đó tự đăng nhập bằng cùng tài khoản.',
+      browserSystem: 'Trình duyệt mặc định của máy',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'Tự đăng nhập WebMate bằng tài khoản Workmate',
+      autoSignInDesc:
+        'Khi WebMate kết nối mà chưa đăng nhập, Workmate lặng lẽ đăng nhập cho nó bằng tài khoản bạn đang dùng ở đây.',
+      signIn: 'Đăng nhập WebMate',
+      signingIn: 'Đang đăng nhập WebMate…',
+      signInDesc: 'Mở trang đăng nhập AgentX trong trình duyệt có WebMate, đã điền sẵn tài khoản của bạn.',
+      attached: count => (count === 1 ? '1 trình duyệt đang kết nối' : `${count} trình duyệt đang kết nối`),
+      connectionSignedIn: 'đã đăng nhập',
+      connectionNotSignedIn: 'chưa đăng nhập',
+      connectionActive: 'đang dùng',
+      signedIn: 'WebMate đã đăng nhập.',
+      signedInAs: email => `WebMate đã đăng nhập bằng ${email}.`,
+      opened: 'Trang đăng nhập AgentX đã mở trong trình duyệt có WebMate. Hoàn tất ở đó; Workmate sẽ tự nhận ra.',
+      loginRequired:
+        'Trình duyệt đó chưa có phiên AgentX để dùng lại. Đăng nhập Workmate từ trình duyệt đó một lần, hoặc bấm “Đăng nhập WebMate”.',
+      unsupported: 'Bản WebMate này không đăng nhập từ đây được. Mở WebMate trong trình duyệt và đăng nhập ở đó.',
+      notConnected: 'WebMate chưa kết nối nên chưa có gì để đăng nhập.',
+      noAnswer: 'WebMate không trả lời kịp.',
+      nothingToDo: 'Mọi WebMate đang kết nối đều đã đăng nhập.',
+      failed: reason => `Không đăng nhập được WebMate: ${reason}`,
+      onboardingWaiting: 'Đang đăng nhập WebMate bằng tài khoản của bạn…',
+      onboardingSignedIn: 'WebMate đã đăng nhập bằng tài khoản Workmate của bạn. Không cần làm gì thêm.',
+      onboardingManual: 'WebMate đã kết nối nhưng chưa đăng nhập.'
+    },
+    prompt: {
+      title: 'Workmate muốn dùng trình duyệt của bạn',
+      body: {
+        WEBMATE_DISABLED: 'WebMate đang tắt trong Cài đặt. Bật lại để Workmate làm việc trong trình duyệt.',
+        WEBMATE_NOT_INSTALLED:
+          'Việc này cần WebMate, tiện ích để Workmate làm việc trong trình duyệt của bạn. Cài chỉ mất một phút.',
+        WEBMATE_NOT_CONNECTED:
+          'WebMate đã cài nhưng chưa kết nối. Hãy mở trình duyệt có WebMate hoặc bật lại tiện ích.',
+        WEBMATE_OUTDATED: 'Bản WebMate trong trình duyệt quá cũ. Cập nhật để Workmate dùng lại trình duyệt.',
+        WEBMATE_NOT_SIGNED_IN: 'WebMate chưa đăng nhập tài khoản AgentX trong trình duyệt.',
+        WEBMATE_PORT_IN_USE: 'Một chương trình khác đang giữ cổng kết nối của WebMate (17374). Đóng nó rồi thử lại.'
+      },
+      install: 'Cài WebMate',
+      open: 'Mở Cài đặt',
+      notNow: 'Không phải bây giờ',
+      never: 'Đừng hỏi lại'
+    }
   },
 
   modelPicker: {

@@ -1611,3 +1611,34 @@ export interface SkillHubPublishResponse {
   scan_url?: string | null
   warnings?: string[]
 }
+
+/** `GET /api/webmate/status` — the backend's view of AgentX WebMate. */
+export interface WebmateBackendStatus {
+  schema: 1
+  error?: string
+  webmateDir?: string
+  extensionId?: string
+  bridgePort?: number
+  server?: {
+    registered: boolean
+    enabled: boolean
+    command: string | null
+    args: string[]
+    bundled: boolean
+  }
+  extension?: {
+    present: boolean
+    installedVersion: string | null
+    installDir: string
+    runningVersion: string | null
+  }
+  pairing?: { present: boolean; installId: string | null; port: number | null; createdAt: string | null }
+  connected: boolean
+  browser?: string | null
+  installType?: 'workmate' | 'dev' | null
+  signedIn?: boolean | null
+  protocolVersion?: number | null
+  serverRunning?: boolean
+  pendingVersion?: string | null
+  code: string | null
+}

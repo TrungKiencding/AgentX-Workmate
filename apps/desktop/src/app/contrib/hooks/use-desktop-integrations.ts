@@ -16,6 +16,7 @@ import {
 } from '@/store/session'
 import { onSessionsChanged } from '@/store/session-sync'
 import { openUpdatesWindow, startUpdatePoller, stopUpdatePoller } from '@/store/updates'
+import { startWebmateWatcher, stopWebmateWatcher } from '@/store/webmate'
 import { isSecondaryWindow } from '@/store/windows'
 
 import { requestComposerFocus, requestComposerInsert } from '../../chat/composer/focus'
@@ -51,12 +52,16 @@ export function useDesktopIntegrations({
   // statusbar version pill and the update toasts. Also honors the main
   // process's "open updates" menu request.
   useEffect(() => {
+    // WebMate first: the update poller's first pass also checks the WebMate
+    // feed, and the watcher must hold the status (prefs) that check reads.
+    startWebmateWatcher()
     startUpdatePoller()
     const unsubscribe = window.agentxDesktop?.onOpenUpdatesRequested?.(() => openUpdatesWindow())
 
     return () => {
       unsubscribe?.()
       stopUpdatePoller()
+      stopWebmateWatcher()
     }
   }, [])
 

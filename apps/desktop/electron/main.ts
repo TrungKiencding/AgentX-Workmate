@@ -236,6 +236,8 @@ import {
 import { formatBlockerMessage, formatProbeFailedMessage, scanVenvBlockers } from './venv-blocker-scan'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
+import { readLocalWebmateStatus } from './webmate/bootstrap'
+import { WebmateService } from './webmate/service'
 import {
   computeWindowOptions,
   debounce,
@@ -6756,6 +6758,30 @@ function keycloakFormPost(url: string, form: Record<string, string>, options: an
   })
 }
 
+/**
+ * Open a Keycloak page (sign-in, sign-out) where the WebMate integration
+ * wants it — the chosen browser profile or the Workmate browser window — and
+ * fall back to the system browser on any refusal, so sign-in never depends
+ * on the extension being set up.
+ */
+async function openKeycloakPage(url: string): Promise<void> {
+  try {
+    const outcome = await webmateService().openLoginUrl(url)
+
+    if (outcome.ok) {
+      return
+    }
+
+    rememberLog(`[keycloak] could not open the page in the chosen browser (${outcome.error}); using the system browser`)
+  } catch (error) {
+    rememberLog(
+      `[keycloak] browser routing failed (${error instanceof Error ? error.message : String(error)}); using the system browser`
+    )
+  }
+
+  await shell.openExternal(url)
+}
+
 // GET JSON with no auth — discovery and the backend's public provider list.
 function keycloakGetJson(url: string, options: any = {}): Promise<any> {
   return fetchJson(url, null, { timeoutMs: DEFAULT_FETCH_TIMEOUT_MS, ...options })
@@ -6763,10 +6789,12 @@ function keycloakGetJson(url: string, options: any = {}): Promise<any> {
 
 function keycloakDeps(extra: Partial<KeycloakSessionDeps> = {}): KeycloakSessionDeps {
   return {
-    // System browser, never a BrowserWindow (RFC 8252 BCP) — it is also what
+    // A real browser, never a BrowserWindow (RFC 8252 BCP) — it is also what
     // lets someone already signed in to AgentX in that browser pass straight
-    // through on the existing Keycloak SSO cookie.
-    openExternal: (url: string) => shell.openExternal(url),
+    // through on the existing Keycloak SSO cookie. Which browser: the one
+    // WebMate runs in when the person has picked one (phase 4, so the same
+    // cookie lets the extension sign in silently), else the system default.
+    openExternal: (url: string) => openKeycloakPage(url),
     getJson: keycloakGetJson,
     postForm: keycloakFormPost,
     store: _nativeTokenStoreIo(),
@@ -10876,7 +10904,8 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
     const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
 
     if (url) {
-      await shell.openExternal(url)
+      // Same browser the sign-in went to, so the SSO session there ends too.
+      await openKeycloakPage(url)
     }
   } catch (error) {
     // Local state is already cleared, which is the part the user asked for.
@@ -12634,6 +12663,124 @@ ipcMain.handle('agentx:updates:apply', async (_event, payload) =>
 
 ipcMain.handle('agentx:updates:branch:get', async () => readDesktopUpdateConfig())
 
+// ===========================================================================
+// AgentX WebMate — the browser extension Workmate installs from a folder it
+// owns (apps/desktop/WEBMATE-INTEGRATION-PLAN.md). Every launch runs the two
+// idempotent steps (extension folder from the bundled package, pairing files);
+// the guided install, the status watcher, prefs and the signed-feed updater
+// live in electron/webmate/service.ts. Only the IPC registration is here.
+// ===========================================================================
+
+let webmateServiceInstance: WebmateService | null = null
+
+function webmateService(): WebmateService {
+  if (!webmateServiceInstance) {
+    webmateServiceInstance = new WebmateService({
+      agentxHome: AGENTX_HOME,
+      resourcesPath: IS_PACKAGED && process.resourcesPath ? process.resourcesPath : null,
+      appRoot: APP_ROOT,
+      appVersion: resolveHermesVersion(),
+      isPackaged: IS_PACKAGED,
+      log: (message: string) => rememberLog(message),
+      broadcast: (channel, payload) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) {
+            window.webContents.send(channel, payload)
+          }
+        }
+      },
+      openPath: dir => shell.openPath(path.normalize(dir)),
+      writeClipboard: text => clipboard.writeText(text),
+      openExternal: url => shell.openExternal(url),
+      // The account WebMate should sign in as: read off the stored Keycloak
+      // session, so it answers with no network and is null when signed out.
+      accountEmail: () => {
+        const config = keycloakConfigForProfile()
+
+        if (!config) {
+          return null
+        }
+
+        return loadKeycloakSession(config, _nativeTokenStoreIo())?.email || null
+      }
+    })
+  }
+
+  return webmateServiceInstance
+}
+
+function runWebmateBootstrap() {
+  return webmateService().bootstrap()
+}
+
+const webmateFailure = (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) })
+
+ipcMain.handle('agentx:webmate:bootstrap', async () =>
+  runWebmateBootstrap().catch(error => ({
+    paths: null,
+    bundledVersion: null,
+    extension: null,
+    pairing: null,
+    installedVersion: null,
+    error: error?.message || String(error)
+  }))
+)
+
+ipcMain.handle('agentx:webmate:local-status', async () => readLocalWebmateStatus(AGENTX_HOME))
+ipcMain.handle('agentx:webmate:status', async () => webmateService().status())
+ipcMain.handle('agentx:webmate:scan', async (_event, options) => webmateService().scan(Boolean(options?.force)))
+ipcMain.handle('agentx:webmate:prepare', async () => runWebmateBootstrap())
+
+ipcMain.handle('agentx:webmate:open-guide', async (_event, request) =>
+  webmateService()
+    .openGuide({ browserId: String(request?.browserId || ''), profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null })
+    .catch(error => ({
+      ...webmateFailure(error),
+      windowOpened: false,
+      navigated: false,
+      command: null,
+      folderOpened: false,
+      folderError: null,
+      browser: null
+    }))
+)
+
+ipcMain.handle('agentx:webmate:reveal-folder', async () => {
+  const error = await webmateService().revealFolder()
+
+  return error ? { ok: false, error } : { ok: true, error: null }
+})
+
+ipcMain.handle('agentx:webmate:copy-path', async () => webmateService().copyPath())
+ipcMain.handle('agentx:webmate:prefs:get', async () => webmateService().getPrefs())
+ipcMain.handle('agentx:webmate:prefs:set', async (_event, patch) => webmateService().setPrefs(patch && typeof patch === 'object' ? patch : {}))
+ipcMain.handle('agentx:webmate:reset-token', async () => webmateService().resetToken())
+ipcMain.handle('agentx:webmate:update:check', async () => webmateService().checkUpdate())
+ipcMain.handle('agentx:webmate:update:apply', async () => webmateService().applyUpdate())
+// Phase 3 — the Workmate browser window (own profile, extension loaded over the CDP pipe).
+ipcMain.handle('agentx:webmate:window:open', async (_event, request) =>
+  webmateService()
+    .openWindow({ browserId: typeof request?.browserId === 'string' ? request.browserId : null })
+    .catch(error => ({ ...webmateFailure(error), window: webmateService().windowStatus() }))
+)
+ipcMain.handle('agentx:webmate:window:close', async () => webmateService().closeWindow())
+ipcMain.handle('agentx:webmate:window:status', async () => webmateService().windowStatus())
+// Phase 4 — sign WebMate in with the Workmate account, and the browser Workmate signs in through.
+ipcMain.handle('agentx:webmate:auth:sign-in', async (_event, request) =>
+  webmateService()
+    .signInExtension({
+      instanceId: typeof request?.instanceId === 'string' ? request.instanceId : null,
+      interactive: request?.interactive !== false
+    })
+    .catch(error => ({ ...webmateFailure(error), sent: false, commandId: null, result: null }))
+)
+ipcMain.handle('agentx:webmate:choose-browser', async (_event, request) =>
+  webmateService().chooseBrowser({
+    browserId: String(request?.browserId || ''),
+    profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null
+  })
+)
+
 ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
   writeDesktopUpdateConfig({ branch })
@@ -13079,6 +13226,21 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // Prepare the WebMate folder and pairing off the critical path: a broken
+  // bundle is logged and shown in Settings, never allowed to stall the boot.
+  // The status watcher then follows state.json so the renderer learns about
+  // the extension connecting without polling.
+  runWebmateBootstrap()
+    .then(result => {
+      if (result.error) {
+        rememberLog(`[webmate] bootstrap finished with a problem: ${result.error}`)
+      } else if (result.extension && result.extension.action !== 'kept') {
+        rememberLog(`[webmate] extension folder: ${result.extension.action} (${result.installedVersion || 'none'})`)
+      }
+    })
+    .catch(error => rememberLog(`[webmate] bootstrap failed: ${error?.message || String(error)}`))
+    .finally(() => webmateService().start())
+
   // Win/Linux cold start: the launching agentx:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)
 
@@ -13174,6 +13336,10 @@ app.on('before-quit', event => {
   }
 
   stopSyncTicker()
+
+  // The Workmate browser window lives only as long as Workmate does: send it
+  // Browser.close now (its process exits on its own; a lingering one is killed).
+  void webmateServiceInstance?.stop()
 
   if ((sshConnections.size > 0 || sshBootstrapCoordinator.promises().length > 0) && !sshQuitTeardownDone) {
     event.preventDefault()

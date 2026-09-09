@@ -318,6 +318,35 @@ declare global {
         setBranch: (name: string) => Promise<{ branch: string }>
         onProgress: (callback: (payload: DesktopUpdateProgress) => void) => () => void
       }
+      // AgentX WebMate — see apps/desktop/WEBMATE-INTEGRATION-PLAN.md. The
+      // idempotent bootstrap (extension folder + pairing files), the merged
+      // local status (pushed whenever <webmate>/ changes), the browser scan
+      // and guided install, prefs, pairing reset and the signed-feed updater.
+      webmate: {
+        bootstrap: () => Promise<DesktopWebmateBootstrapResult>
+        localStatus: () => Promise<DesktopWebmateLocalStatus>
+        status: () => Promise<DesktopWebmateStatus>
+        subscribe: (callback: (status: DesktopWebmateStatus) => void) => () => void
+        scan: (options?: { force?: boolean }) => Promise<DesktopWebmateBrowser[]>
+        prepare: () => Promise<DesktopWebmateBootstrapResult>
+        openGuide: (request: { browserId: string; profileDir: string | null }) => Promise<DesktopWebmateOpenGuideResult>
+        revealFolder: () => Promise<{ ok: boolean; error: string | null }>
+        copyPath: () => Promise<{ ok: boolean; path: string }>
+        getPrefs: () => Promise<DesktopWebmatePrefs>
+        setPrefs: (patch: Partial<Omit<DesktopWebmatePrefs, 'schema' | 'updatedAt'>>) => Promise<DesktopWebmatePrefs>
+        resetToken: () => Promise<{ ok: boolean; reloaded: boolean }>
+        checkUpdate: () => Promise<DesktopWebmateUpdateCheck>
+        applyUpdate: () => Promise<DesktopWebmateApplyOutcome>
+        onUpdateProgress: (callback: (payload: DesktopWebmateUpdateProgress) => void) => () => void
+        /** Phase 3 — the Workmate browser window. */
+        openWindow: (request?: { browserId?: string | null }) => Promise<DesktopWebmateOpenWindowResult>
+        closeWindow: () => Promise<DesktopWebmateWindowStatus>
+        windowStatus: () => Promise<DesktopWebmateWindowStatus>
+        /** Phase 4 — sign WebMate in with the Workmate account (interactive by default; `interactive: false` re-sends the silent hint). */
+        signIn: (request?: { instanceId?: string | null; interactive?: boolean }) => Promise<DesktopWebmateSignInOutcome>
+        /** Phase 4 — the browser/profile Workmate signs in through and installs WebMate into. */
+        chooseBrowser: (request: { browserId: string; profileDir: string | null }) => Promise<DesktopWebmatePrefs['browser']>
+      }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
         run: (mode: DesktopUninstallMode) => Promise<DesktopUninstallResult>
@@ -373,6 +402,278 @@ export interface HermesTerminalSession {
 export interface HermesTerminalExit {
   code: number | null
   signal: string | null
+}
+
+export interface DesktopWebmatePaths {
+  root: string
+  installDir: string
+  workmateJson: string
+  pairingFile: string
+  stateFile: string
+  commandsDir: string
+  versionsDir: string
+  prevDir: string
+  updateCheckFile: string
+  profileDir: string
+}
+
+export interface DesktopWebmateBootstrapResult {
+  paths: DesktopWebmatePaths | null
+  bundledVersion: string | null
+  extension: {
+    action: 'installed' | 'updated' | 'kept' | 'skipped'
+    installedVersion: string | null
+    bundledVersion: string | null
+    reason?: string
+    stagedDir?: string
+    verified: { sha256: boolean; signature: boolean | 'unsigned' }
+  } | null
+  pairing: { pairingWritten: boolean; workmateJsonWritten: boolean; extensionPresent: boolean } | null
+  installedVersion: string | null
+  error: string | null
+}
+
+export interface DesktopWebmateLocalStatus {
+  paths: DesktopWebmatePaths
+  installedVersion: string | null
+  pairingPresent: boolean
+  /** state.json as the WebMate MCP server wrote it, or null before it has run. */
+  bridge: Record<string, unknown> | null
+}
+
+// Mirrors electron/webmate/{browsers,prefs,status,updater,service}.ts. Kept
+// inline like the other Desktop* types so the renderer build never reaches
+// into the electron tree.
+export type DesktopWebmateBrowserId = 'chrome' | 'edge' | 'brave' | 'vivaldi' | 'opera' | 'arc' | 'chromium' | 'firefox' | 'safari'
+
+export interface DesktopWebmateBrowserProfile {
+  dir: string
+  displayName: string
+  lastActive: number | null
+  isLastUsed: boolean
+  webmate: { installed: boolean; path: string | null; disabled: boolean; disableReasons: number[]; elsewhere: boolean }
+}
+
+export interface DesktopWebmateBrowser {
+  id: DesktopWebmateBrowserId
+  name: string
+  executable: string | null
+  appPath: string | null
+  version: string | null
+  isDefault: boolean
+  supported: boolean
+  unsupportedReason: 'firefox' | 'safari' | null
+  dataDir: string | null
+  extensionsUrl: string
+  singleProfile: boolean
+  running: boolean | null
+  profiles: DesktopWebmateBrowserProfile[]
+}
+
+export interface DesktopWebmatePrefs {
+  schema: 1
+  prompt: null | 'later' | 'never'
+  autoUpdate: boolean
+  askWhenNotReady: boolean
+  mode: null | 'browser' | 'window'
+  browser: { id: string; name: string; profileDir: string | null; profileName: string | null } | null
+  /** Sign WebMate in with the Workmate account by itself, and open Workmate's sign-in in the chosen browser. */
+  ssoAutoSignIn: boolean
+  connectedAt: string | null
+  cardSnoozedUntil: string | null
+  updateToastSnoozedUntil: string | null
+  updatedAt: string
+}
+
+/** One browser's answer to a sign-in command (auth_hint / auth_open). */
+export interface DesktopWebmateAuthResult {
+  instanceId: string
+  browser: string | null
+  ok: boolean
+  /** 'signed-in' | 'already-signed-in' | 'login-required' | 'unsupported' | 'error' | '' */
+  outcome: string
+  signedIn: boolean
+  email?: string
+  error?: string
+  message?: string
+}
+
+export interface DesktopWebmateLastCommand {
+  id: string
+  action: string
+  ok: boolean
+  busy?: number
+  error?: string | null
+  results?: DesktopWebmateAuthResult[]
+  signedIn?: boolean
+  startedAt: string
+  finishedAt: string
+}
+
+/** One attached extension (phase 4: several browsers can be attached at once). */
+export interface DesktopWebmateConnection {
+  instanceId: string
+  browser: string | null
+  extensionVersion: string | null
+  installType: 'workmate' | 'dev' | null
+  signedIn: boolean | null
+  protocolVersion: number | null
+  lastHelloAt: string | null
+  paired: boolean
+  active: boolean
+}
+
+export interface DesktopWebmateSignInOutcome {
+  ok: boolean
+  sent: boolean
+  commandId: string | null
+  result: DesktopWebmateLastCommand | null
+  error: string | null
+}
+
+export interface DesktopWebmateBridgeState {
+  schema: number
+  pid: number | null
+  port: number | null
+  serverVersion: string | null
+  listening: boolean
+  connected: boolean
+  pairingRequired: boolean
+  browser: string | null
+  extensionVersion: string | null
+  installType: 'workmate' | 'dev' | null
+  signedIn: boolean | null
+  protocolVersion: number | null
+  lastHelloAt: string | null
+  instanceId: string | null
+  connections: DesktopWebmateConnection[]
+  error: string | null
+  lastCommand: DesktopWebmateLastCommand | null
+  updatedAt: string | null
+}
+
+export interface DesktopWebmateUpdateSummary {
+  checkedAt: string | null
+  ok: boolean
+  error: string | null
+  feedVersion: string | null
+  available: boolean
+  blockedByMinWorkmate: boolean
+  belowMinProtocol: boolean
+  pendingVersion: string | null
+  failedVersions: string[]
+  notes: Record<string, string>
+  minProtocol: number | null
+}
+
+/** The Workmate browser window (phase 3): a Chromium the app runs on its own profile. */
+export interface DesktopWebmateWindowStatus {
+  open: boolean
+  phase: 'closed' | 'starting' | 'open' | 'closing'
+  pid: number | null
+  browserId: string | null
+  browserName: string | null
+  extensionId: string | null
+  startedAt: number | null
+  error: string | null
+  exitCode: number | null
+}
+
+export interface DesktopWebmateOpenWindowResult {
+  ok: boolean
+  error: string | null
+  window: DesktopWebmateWindowStatus
+}
+
+/** The merged view of <webmate>/ the main process pushes on every change. */
+export interface DesktopWebmateStatus {
+  paths: DesktopWebmatePaths
+  installedVersion: string | null
+  pairingPresent: boolean
+  bridge: DesktopWebmateBridgeState | null
+  stale: boolean
+  serverRunning: boolean
+  connected: boolean
+  browser: string | null
+  extensionVersion: string | null
+  installType: 'workmate' | 'dev' | null
+  signedIn: boolean | null
+  protocolVersion: number | null
+  instanceId: string | null
+  /** Every attached browser while the server is live; [] otherwise. */
+  connections: DesktopWebmateConnection[]
+  lastCommand: DesktopWebmateLastCommand | null
+  error: string | null
+  prefs: DesktopWebmatePrefs
+  update: DesktopWebmateUpdateSummary | null
+  readAt: number
+  /** Absent on the pre-phase-3 `local-status` read; present on every pushed/`status()` snapshot. */
+  window?: DesktopWebmateWindowStatus
+}
+
+export interface DesktopWebmateOpenGuideResult {
+  ok: boolean
+  /** A window for the chosen profile opened. */
+  windowOpened: boolean
+  /** That window was steered to the extensions page; false → the person types the address. */
+  navigated: boolean
+  command: string | null
+  error: string | null
+  folderOpened: boolean
+  folderError: string | null
+  browser: string | null
+}
+
+export interface DesktopWebmateUpdateCheck {
+  schema: 1
+  checkedAt: string | null
+  ok: boolean
+  error: string | null
+  feed: {
+    version: string
+    publishedAt: string
+    minWorkmate: string
+    minProtocol: number
+    notes: Record<string, string>
+    chrome: { url: string; sha256: string; bytes: number }
+  } | null
+  installedVersion: string | null
+  available: boolean
+  blockedByMinWorkmate: boolean
+  belowMinProtocol: boolean
+  pendingVersion: string | null
+  failedVersions: string[]
+  lastApply: { version: string; ok: boolean; at: string; error: string | null; rolledBack: boolean } | null
+}
+
+export type DesktopWebmateApplyStage =
+  | 'download'
+  | 'verify'
+  | 'extract'
+  | 'drain'
+  | 'swap'
+  | 'reload'
+  | 'confirm'
+  | 'rollback'
+  | 'done'
+  | 'pending'
+  | 'error'
+
+export interface DesktopWebmateApplyOutcome {
+  ok: boolean
+  version: string
+  stage: DesktopWebmateApplyStage
+  error: string | null
+  rolledBack: boolean
+  pending: boolean
+  live: boolean
+}
+
+export interface DesktopWebmateUpdateProgress {
+  stage: DesktopWebmateApplyStage
+  message: string
+  version: string
+  at: number
 }
 
 export interface DesktopVersionInfo {

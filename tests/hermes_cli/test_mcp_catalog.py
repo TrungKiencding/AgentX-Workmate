@@ -608,7 +608,24 @@ class TestShippedCatalog:
         for m in root.glob("*/manifest.yaml"):
             entry = _parse_manifest(m)
 
-            if entry.install is not None:
+            if entry.install is not None and entry.install.type == "bundled":
+                # A bundled server is pinned by content, and its optional dev
+                # checkout by commit — nothing here may float either.
+                if not re.fullmatch(r"[0-9a-f]{64}", entry.install.sha256 or ""):
+                    problems.append(
+                        f"{entry.name}: install.sha256 is not a 64-hex SHA-256 "
+                        "(bundled servers must pin the shipped file)"
+                    )
+                elif not (m.parent / entry.install.bundle).is_file():
+                    problems.append(f"{entry.name}: install.bundle {entry.install.bundle!r} is missing")
+                if entry.install.dev is not None and not re.fullmatch(
+                    r"[0-9a-f]{40}", entry.install.dev.ref
+                ):
+                    problems.append(
+                        f"{entry.name}: install.dev.ref {entry.install.dev.ref!r} is not "
+                        "a full 40-char commit SHA"
+                    )
+            elif entry.install is not None:
                 if not re.fullmatch(r"[0-9a-f]{40}", entry.install.ref):
                     problems.append(
                         f"{entry.name}: install.ref {entry.install.ref!r} is not "
@@ -636,3 +653,233 @@ class TestShippedCatalog:
                     )
 
         assert not problems, "unpinned catalog entries:\n" + "\n".join(problems)
+
+
+# ---------------------------------------------------------------------------
+# Bundled installs (install.type: bundled) — the WebMate shape
+# ---------------------------------------------------------------------------
+
+
+def _bundled_manifest(name: str = "bundledemo", **overrides) -> dict:
+    body = _basic_manifest(
+        name,
+        transport={
+            "type": "stdio",
+            "command": "${NODE}",
+            "args": ["${INSTALL_DIR}/server/demo-mcp.mjs"],
+            "env": {"DEMO_DIR": "${AGENTX_ROOT}/demo"},
+        },
+        install={
+            "type": "bundled",
+            "bundle": "server/demo-mcp.mjs",
+            "dev": {
+                "type": "git",
+                "url": "https://example.com/demo.git",
+                "ref": "a" * 40,
+                "entry": "mcp-server/dist/index.js",
+                "bootstrap": ["npm ci"],
+            },
+        },
+    )
+    body.update(overrides)
+    return body
+
+
+def _write_bundle(catalog_dir: Path, name: str, content: bytes = b"console.log('demo');\n") -> Path:
+    import hashlib
+
+    server_dir = catalog_dir / name / "server"
+    server_dir.mkdir(parents=True, exist_ok=True)
+    bundle = server_dir / "demo-mcp.mjs"
+    bundle.write_bytes(content)
+    return bundle
+
+
+class TestBundledInstall:
+    def test_parse_bundled_with_dev_fallback(self, catalog_dir):
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest())
+        e = _entry("bundledemo")
+        assert e.install is not None
+        assert e.install.type == "bundled"
+        assert e.install.bundle == "server/demo-mcp.mjs"
+        assert e.install.sha256 == ""
+        assert e.install.dev is not None and e.install.dev.type == "git"
+        assert e.install.dev.ref == "a" * 40
+        assert e.install.dev.entry == "mcp-server/dist/index.js"
+
+    def test_bundled_rejects_traversal_and_bad_sha(self, catalog_dir):
+        from hermes_cli.mcp_catalog import CatalogError, _parse_manifest
+
+        bad_path = _write_manifest(
+            catalog_dir, "bad1", _bundled_manifest("bad1", install={"type": "bundled", "bundle": "../x.mjs"})
+        )
+        with pytest.raises(CatalogError, match="relative path"):
+            _parse_manifest(bad_path)
+
+        bad_sha = _write_manifest(
+            catalog_dir,
+            "bad2",
+            _bundled_manifest("bad2", install={"type": "bundled", "bundle": "s.mjs", "sha256": "nothex"}),
+        )
+        with pytest.raises(CatalogError, match="SHA-256"):
+            _parse_manifest(bad_sha)
+
+        missing_bundle = _write_manifest(
+            catalog_dir, "bad3", _bundled_manifest("bad3", install={"type": "bundled"})
+        )
+        with pytest.raises(CatalogError, match="install.bundle is required"):
+            _parse_manifest(missing_bundle)
+
+        nested_bundled = _write_manifest(
+            catalog_dir,
+            "bad4",
+            _bundled_manifest(
+                "bad4",
+                install={"type": "bundled", "bundle": "s.mjs", "dev": {"type": "bundled", "bundle": "t.mjs"}},
+            ),
+        )
+        with pytest.raises(CatalogError, match="install.dev.type must be 'git'"):
+            _parse_manifest(nested_bundled)
+
+        unknown = _write_manifest(catalog_dir, "bad5", _bundled_manifest("bad5", install={"type": "pip"}))
+        with pytest.raises(CatalogError, match="'git' or 'bundled'"):
+            _parse_manifest(unknown)
+
+    def test_install_points_at_the_shipped_file_with_managed_node(
+        self, catalog_dir, _isolate_hermes_home, monkeypatch
+    ):
+        """No clone, no npm: the config launches the bundled file next to the
+        manifest with the Node AgentX manages, and ${AGENTX_ROOT} lands in env."""
+        import hashlib
+        import subprocess as _sp
+
+        bundle = _write_bundle(catalog_dir, "bundledemo")
+        digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+        body = _bundled_manifest()
+        body["install"]["sha256"] = digest
+        _write_manifest(catalog_dir, "bundledemo", body)
+
+        # A managed Node under the install root, the way install.sh lays it out.
+        import hermes_cli.mcp_catalog as mc
+
+        node_dir = _isolate_hermes_home / "node" / "bin"
+        node_dir.mkdir(parents=True)
+        node_bin = node_dir / "node"
+        node_bin.write_text("#!/bin/sh\n")
+        monkeypatch.setattr(mc, "get_default_hermes_root", lambda: _isolate_hermes_home)
+        monkeypatch.setattr(mc, "iter_hermes_node_dirs", lambda root=None: [node_dir, _isolate_hermes_home / "node"])
+        monkeypatch.setattr(mc.sys, "platform", "darwin")
+
+        calls: list = []
+        monkeypatch.setattr(_sp, "run", lambda *a, **k: calls.append(a) or pytest.fail("bundled installs must not shell out"))
+
+        from hermes_cli.mcp_catalog import install_entry, installed_servers
+
+        install_entry(_entry("bundledemo"), enable=True)
+
+        cfg = installed_servers()["bundledemo"]
+        assert cfg["command"] == str(node_bin)
+        assert cfg["args"] == [str(catalog_dir / "bundledemo" / "server" / "demo-mcp.mjs")]
+        assert cfg["env"] == {"DEMO_DIR": str(_isolate_hermes_home / "demo")}
+        assert cfg["enabled"] is True
+        assert not (_isolate_hermes_home / "mcp-installs" / "bundledemo").exists(), "nothing is cloned or copied"
+
+    def test_install_falls_back_to_bare_node_without_a_managed_runtime(self, catalog_dir, _isolate_hermes_home, monkeypatch):
+        _write_bundle(catalog_dir, "bundledemo")
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest())
+        import hermes_cli.mcp_catalog as mc
+
+        monkeypatch.setattr(mc, "iter_hermes_node_dirs", lambda root=None: [_isolate_hermes_home / "node" / "bin"])
+        from hermes_cli.mcp_catalog import install_entry, installed_servers
+
+        install_entry(_entry("bundledemo"), enable=False)
+        cfg = installed_servers()["bundledemo"]
+        assert cfg["command"] == "node", "a bare name lets the gateway PATH decide"
+        assert cfg["enabled"] is False
+
+    def test_install_refuses_a_bundle_that_does_not_match_its_pin(self, catalog_dir, _isolate_hermes_home):
+        _write_bundle(catalog_dir, "bundledemo", b"tampered\n")
+        body = _bundled_manifest()
+        body["install"]["sha256"] = "0" * 64
+        _write_manifest(catalog_dir, "bundledemo", body)
+        from hermes_cli.mcp_catalog import CatalogError, install_entry, installed_servers
+
+        with pytest.raises(CatalogError, match="does not match the manifest sha256"):
+            install_entry(_entry("bundledemo"), enable=True)
+        assert "bundledemo" not in installed_servers()
+
+    def test_install_refuses_a_missing_bundle_and_names_the_dev_way_out(self, catalog_dir, _isolate_hermes_home):
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest())
+        from hermes_cli.mcp_catalog import CatalogError, install_entry
+
+        with pytest.raises(CatalogError, match="--dev"):
+            install_entry(_entry("bundledemo"), enable=True)
+
+    def test_dev_install_clones_and_launches_the_checkout_entry(self, catalog_dir, _isolate_hermes_home, monkeypatch):
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest())
+        import hermes_cli.mcp_catalog as mc
+
+        cloned: list = []
+
+        def fake_git_install(entry, install=None):
+            cloned.append((entry.name, install.type, install.ref))
+            dest = _isolate_hermes_home / "mcp-installs" / entry.name
+            dest.mkdir(parents=True, exist_ok=True)
+            return dest
+
+        monkeypatch.setattr(mc, "_do_git_install", fake_git_install)
+        monkeypatch.setattr(mc, "iter_hermes_node_dirs", lambda root=None: [])
+        from hermes_cli.mcp_catalog import install_entry, installed_servers
+
+        install_entry(_entry("bundledemo"), enable=True, dev=True)
+        assert cloned == [("bundledemo", "git", "a" * 40)]
+        cfg = installed_servers()["bundledemo"]
+        assert cfg["args"] == [str(_isolate_hermes_home / "mcp-installs" / "bundledemo" / "mcp-server" / "dist" / "index.js")]
+
+    def test_dev_install_without_a_dev_block_is_refused(self, catalog_dir, _isolate_hermes_home):
+        _write_bundle(catalog_dir, "bundledemo")
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest(install={"type": "bundled", "bundle": "server/demo-mcp.mjs"}))
+        from hermes_cli.mcp_catalog import CatalogError, install_entry
+
+        with pytest.raises(CatalogError, match="install.dev"):
+            install_entry(_entry("bundledemo"), enable=True, dev=True)
+
+    def test_picker_install_by_name_accepts_the_official_alias(self, catalog_dir, _isolate_hermes_home, monkeypatch):
+        _write_bundle(catalog_dir, "bundledemo")
+        _write_manifest(catalog_dir, "bundledemo", _bundled_manifest())
+        import hermes_cli.mcp_catalog as mc
+
+        monkeypatch.setattr(mc, "iter_hermes_node_dirs", lambda root=None: [])
+        from hermes_cli.mcp_picker import install_by_name
+        from hermes_cli.mcp_catalog import installed_servers
+
+        assert install_by_name("official/bundledemo") == 0
+        assert "bundledemo" in installed_servers()
+
+    def test_shipped_webmate_entry_is_bundled_and_pinned(self, monkeypatch):
+        """The real optional-mcps/webmate manifest: bundled, sha256 matches the
+        shipped file, dev checkout pinned, six tools, WEBMATE_DIR anchored at
+        the install root."""
+        import hashlib
+
+        monkeypatch.delenv("AGENTX_OPTIONAL_MCPS", raising=False)
+        from hermes_cli.mcp_catalog import _catalog_root, _parse_manifest
+
+        manifest = _catalog_root() / "webmate" / "manifest.yaml"
+        if not manifest.is_file():
+            pytest.skip("optional-mcps/webmate not present in this checkout")
+        e = _parse_manifest(manifest)
+        assert e.install is not None and e.install.type == "bundled"
+        bundle = manifest.parent / e.install.bundle
+        assert bundle.is_file()
+        assert hashlib.sha256(bundle.read_bytes()).hexdigest() == e.install.sha256
+        sums = (manifest.parent / "server" / "SHA256SUMS").read_text().split()[0]
+        assert sums == e.install.sha256, "server/SHA256SUMS must match the manifest pin"
+        assert e.install.dev is not None and re.fullmatch(r"[0-9a-f]{40}", e.install.dev.ref)
+        assert e.transport.command == "${NODE}"
+        assert e.transport.args == ["${INSTALL_DIR}/server/agentx-webmate-mcp.mjs"]
+        assert e.transport.env == {"WEBMATE_DIR": "${AGENTX_ROOT}/webmate"}
+        assert e.tools.default_enabled == [
+            "webmate_connection", "webmate_run", "webmate_extract",
+            "webmate_status", "webmate_respond", "webmate_abort",
+        ]

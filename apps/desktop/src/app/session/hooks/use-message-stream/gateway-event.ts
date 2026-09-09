@@ -71,6 +71,7 @@ import { clearActiveSessionTodos } from '@/store/todos'
 import { recordToolDiff } from '@/store/tool-diffs'
 import { setSessionDraftingTool } from '@/store/tool-drafting'
 import { reportInstallMethodWarning } from '@/store/updates'
+import { reportWebmateToolPayload } from '@/store/webmate'
 import { notifyWorkspaceChanged, toolChangedPath, toolMayMutateFiles } from '@/store/workspace-events'
 // Leaf import (not the `@/themes` barrel) to avoid pulling the ThemeProvider
 // module graph into the gateway event hot path.
@@ -279,6 +280,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
       const isActiveEvent = !!sessionId && sessionId === activeSessionIdRef.current
 
       const replaySessionId = approvalReplaySessionId(event.type, activeSessionIdRef.current, sessionId)
+
       if (replaySessionId) {
         void replayPendingApproval($gateway.get(), replaySessionId).catch(() => undefined)
       }
@@ -839,6 +841,11 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             void refreshBackgroundProcesses(sessionId)
           }
         }
+
+        // A webmate_* tool that failed with a WEBMATE_* code means the browser
+        // side is not ready; the store turns it into the "Workmate wants to use
+        // your browser" card (once per session, snoozable).
+        reportWebmateToolPayload(payload)
 
         // The agent just created/deleted/renamed a skill, which adds or removes
         // its `/name` command. Drop the composer's cached `/` list so the new

@@ -465,7 +465,9 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
     # Git-bootstrap entries can take a while to clone — run via the background
     # action path so the request returns immediately and the UI can tail logs.
     # The -p subprocess rebinds AGENTX_HOME-derived paths in the child.
-    if entry.install is not None:
+    # Bundled entries need no clone — they point at a file shipped with AgentX —
+    # so they take the synchronous path below like any launcher entry.
+    if entry.install is not None and entry.install.type == "git":
         # Unique per-entry action name: a shared "mcp-install" would let a
         # re-click (or a second entry) overwrite the tracked process/log while
         # the first clone is still running.

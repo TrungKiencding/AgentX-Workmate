@@ -27,16 +27,23 @@ See references/mcp-catalog.md (this repo's skill) for the manifest schema.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 
-from hermes_constants import get_hermes_home, get_optional_mcps_dir
+from hermes_constants import (
+    get_default_hermes_root,
+    get_hermes_home,
+    get_optional_mcps_dir,
+    iter_hermes_node_dirs,
+)
 from hermes_cli._subprocess_compat import noninteractive_git_env
 from hermes_cli.colors import Colors, color
 from hermes_cli.config import (
@@ -49,8 +56,16 @@ from hermes_cli.cli_output import prompt as _prompt_input
 
 _MANIFEST_VERSION = 1
 
-# Substituted at install time inside `transport.command` / `transport.args`.
+# Substituted at install time inside `transport.command` / `transport.args` /
+# `transport.env`.
 _INSTALL_DIR_VAR = "${INSTALL_DIR}"
+# The Node.js AgentX manages (install.sh / install.ps1 unpack it under the
+# install root), falling back to `node` on PATH. Bundled JavaScript servers use
+# it so a user machine needs no Node of its own.
+_NODE_VAR = "${NODE}"
+# The AgentX install root (above accounts/<slug> and profiles/<name>), for
+# machine-level state such as the WebMate folder.
+_AGENTX_ROOT_VAR = "${AGENTX_ROOT}"
 
 
 # ─── Data classes ────────────────────────────────────────────────────────────
@@ -93,11 +108,27 @@ class InstallSpec:
     """Optional bootstrap step (git clone + dep install).
 
     Omit for one-shot launchable servers (npx, uvx).
+
+    Two kinds:
+
+    * ``git`` — clone ``url`` at ``ref`` into ``~/.agentx/mcp-installs/<name>``
+      and run ``bootstrap``; ``${INSTALL_DIR}`` is the clone.
+    * ``bundled`` — the server ships inside the catalog entry's own directory
+      (``bundle``, relative to the manifest; ``sha256`` pins it). Nothing is
+      cloned or built on the user's machine and ``${INSTALL_DIR}`` is the
+      entry directory itself, so an AgentX update refreshes the server too.
+      ``dev`` is an optional ``git`` spec for ``agentx mcp install <name>
+      --dev`` (build from a pinned checkout); ``entry`` names the launch
+      script inside that clone.
     """
-    type: str  # "git"
-    url: str
-    ref: str  # commit/tag/branch — pinned, never floats
+    type: str  # "git" | "bundled"
+    url: str = ""
+    ref: str = ""  # commit/tag/branch — pinned, never floats
     bootstrap: List[str] = field(default_factory=list)
+    bundle: str = ""
+    sha256: str = ""
+    entry: str = ""
+    dev: Optional["InstallSpec"] = None
 
 
 @dataclass
@@ -262,24 +293,7 @@ def _parse_manifest(path: Path) -> CatalogEntry:
     install: Optional[InstallSpec] = None
     install_raw = data.get("install")
     if install_raw is not None:
-        if not isinstance(install_raw, dict):
-            raise CatalogError(f"{path}: 'install' must be a mapping")
-        i_type = install_raw.get("type")
-        if i_type != "git":
-            raise CatalogError(f"{path}: install.type must be 'git' (got {i_type!r})")
-        url = install_raw.get("url") or ""
-        ref = install_raw.get("ref") or ""
-        if not url or not ref:
-            raise CatalogError(f"{path}: install.url and install.ref are required")
-        bootstrap = install_raw.get("bootstrap") or []
-        if not isinstance(bootstrap, list):
-            raise CatalogError(f"{path}: install.bootstrap must be a list")
-        install = InstallSpec(
-            type=i_type,
-            url=url,
-            ref=ref,
-            bootstrap=[str(c) for c in bootstrap],
-        )
+        install = _parse_install_spec(install_raw, path, key="install", allow_dev=True)
 
     return CatalogEntry(
         name=name,
@@ -292,6 +306,47 @@ def _parse_manifest(path: Path) -> CatalogEntry:
         post_install=str(data.get("post_install") or ""),
         manifest_path=path,
     )
+
+
+def _parse_install_spec(raw: Any, path: Path, *, key: str, allow_dev: bool) -> InstallSpec:
+    if not isinstance(raw, dict):
+        raise CatalogError(f"{path}: '{key}' must be a mapping")
+    i_type = raw.get("type")
+    if i_type == "git":
+        url = raw.get("url") or ""
+        ref = raw.get("ref") or ""
+        if not url or not ref:
+            raise CatalogError(f"{path}: {key}.url and {key}.ref are required")
+        bootstrap = raw.get("bootstrap") or []
+        if not isinstance(bootstrap, list):
+            raise CatalogError(f"{path}: {key}.bootstrap must be a list")
+        entry = str(raw.get("entry") or "").strip()
+        if entry and (Path(entry).is_absolute() or ".." in Path(entry).parts):
+            raise CatalogError(f"{path}: {key}.entry must be a relative path inside the clone")
+        return InstallSpec(
+            type="git",
+            url=str(url),
+            ref=str(ref),
+            bootstrap=[str(c) for c in bootstrap],
+            entry=entry,
+        )
+    if i_type == "bundled":
+        if not allow_dev:
+            raise CatalogError(f"{path}: {key}.type must be 'git'")
+        bundle = str(raw.get("bundle") or "").strip()
+        if not bundle:
+            raise CatalogError(f"{path}: {key}.bundle is required for install.type 'bundled'")
+        parts = Path(bundle).parts
+        if Path(bundle).is_absolute() or ".." in parts or not parts:
+            raise CatalogError(f"{path}: {key}.bundle must be a relative path inside the entry directory")
+        sha256 = str(raw.get("sha256") or "").strip().lower()
+        if sha256 and not re.fullmatch(r"[0-9a-f]{64}", sha256):
+            raise CatalogError(f"{path}: {key}.sha256 must be a 64-hex SHA-256")
+        dev = None
+        if raw.get("dev") is not None:
+            dev = _parse_install_spec(raw["dev"], path, key=f"{key}.dev", allow_dev=False)
+        return InstallSpec(type="bundled", bundle=bundle, sha256=sha256, dev=dev)
+    raise CatalogError(f"{path}: {key}.type must be 'git' or 'bundled' (got {i_type!r})")
 
 
 def list_catalog() -> List[CatalogEntry]:
@@ -403,11 +458,14 @@ def _run_bootstrap(cwd: Path, commands: List[str]) -> None:
             )
 
 
-def _do_git_install(entry: CatalogEntry) -> Path:
+def _do_git_install(entry: CatalogEntry, install: Optional[InstallSpec] = None) -> Path:
     """Clone the entry's repo into ``~/.agentx/mcp-installs/<name>`` and run
-    bootstrap commands. Returns the install directory."""
-    assert entry.install is not None and entry.install.type == "git"
-    install = entry.install
+    bootstrap commands. Returns the install directory.
+
+    *install* defaults to the entry's own spec; a bundled entry passes its
+    ``install.dev`` spec here for ``--dev`` installs."""
+    install = install or entry.install
+    assert install is not None and install.type == "git"
     dest = _install_root() / entry.name
 
     git = shutil.which("git")
@@ -470,7 +528,56 @@ def _do_git_install(entry: CatalogEntry) -> Path:
     return dest
 
 
+def _do_bundled_install(entry: CatalogEntry) -> Path:
+    """Check the server file that ships next to the manifest and return the
+    entry directory as ``${INSTALL_DIR}``.
+
+    Nothing is cloned or copied: pointing at the shipped file means an AgentX
+    update (which replaces the whole checkout) refreshes the server in the
+    same step, and there is no second copy to go stale. The sha256 pin turns a
+    corrupted or hand-edited bundle into a refusal instead of a mystery."""
+    install = entry.install
+    assert install is not None and install.type == "bundled"
+    entry_dir = entry.manifest_path.parent
+    bundle = entry_dir / install.bundle
+    if not bundle.is_file():
+        raise CatalogError(
+            f"bundled server file is missing: {bundle} — reinstall AgentX or run "
+            f"`agentx mcp install {entry.name} --dev` to build from source"
+        )
+    if install.sha256:
+        digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+        if digest != install.sha256:
+            raise CatalogError(
+                f"bundled server file {bundle.name} does not match the manifest "
+                f"sha256 (file {digest[:12]}…, manifest {install.sha256[:12]}…)"
+            )
+    print(color(f"  Using the bundled server {bundle}", Colors.DIM))
+    return entry_dir
+
+
+def _managed_node_command() -> str:
+    """Absolute path of the Node.js AgentX manages, else ``node`` (PATH).
+
+    Node lives under the install root (``<root>/node/bin/node`` on POSIX,
+    ``<root>\\node\\node.exe`` on Windows — see ``iter_hermes_node_dirs``), the
+    same place the desktop app puts first on the backend PATH. The literal
+    ``node`` fallback stays a bare name on purpose so the gateway's PATH, not a
+    path captured at install time, decides which Node runs."""
+    names = ["node.exe", "node"] if sys.platform == "win32" else ["node"]
+    for directory in iter_hermes_node_dirs(get_default_hermes_root()):
+        for name in names:
+            candidate = directory / name
+            if candidate.is_file():
+                return str(candidate)
+    return "node"
+
+
 def _expand_install_dir(value: str, install_dir: Optional[Path]) -> str:
+    if _NODE_VAR in value:
+        value = value.replace(_NODE_VAR, _managed_node_command())
+    if _AGENTX_ROOT_VAR in value:
+        value = value.replace(_AGENTX_ROOT_VAR, str(get_default_hermes_root()))
     if _INSTALL_DIR_VAR not in value:
         return value
     if install_dir is None:
@@ -505,18 +612,25 @@ def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
 
 
 def _build_server_config(
-    entry: CatalogEntry, install_dir: Optional[Path]
+    entry: CatalogEntry, install_dir: Optional[Path], *, dev: bool = False
 ) -> dict:
     """Translate a manifest into the ``mcp_servers.<name>`` block format used
-    by hermes_cli/mcp_config.py."""
+    by hermes_cli/mcp_config.py.
+
+    ``dev`` (bundled entries installed from their ``install.dev`` clone) swaps
+    the bundled launch script for ``install.dev.entry`` inside the clone."""
     cfg: dict = {}
     t = entry.transport
     if t.type == "stdio":
         cfg["command"] = _expand_install_dir(t.command or "", install_dir)
-        if t.args:
-            cfg["args"] = [_expand_install_dir(a, install_dir) for a in t.args]
+        args = list(t.args)
+        dev_spec = entry.install.dev if (dev and entry.install is not None) else None
+        if dev_spec is not None and dev_spec.entry:
+            args = [f"{_INSTALL_DIR_VAR}/{dev_spec.entry}"]
+        if args:
+            cfg["args"] = [_expand_install_dir(a, install_dir) for a in args]
         if t.env:
-            cfg["env"] = dict(t.env)
+            cfg["env"] = {k: _expand_install_dir(v, install_dir) for k, v in t.env.items()}
     elif t.type == "http":
         cfg["url"] = t.url
         if entry.auth.type == "oauth":
@@ -719,11 +833,13 @@ def _apply_tool_selection(
     ))
 
 
-def install_entry(entry: CatalogEntry, *, enable: bool = True) -> None:
+def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False) -> None:
     """Install a catalog entry end-to-end.
 
     Steps:
-        1. If ``install.type == git``, clone + run bootstrap commands.
+        1. If ``install.type == git``, clone + run bootstrap commands. If
+           ``bundled``, check the shipped server file (no clone, no build);
+           with ``dev=True`` clone ``install.dev`` instead.
         2. If ``auth.type == api_key``, prompt for env vars, save to .env.
         3. If ``auth.type == oauth`` (remote MCP / case 1), write the
            ``auth: oauth`` marker (MCP client handles browser on first connect
@@ -745,8 +861,19 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True) -> None:
     print()
 
     install_dir: Optional[Path] = None
+    use_dev_clone = False
     if entry.install is not None:
-        install_dir = _do_git_install(entry)
+        if entry.install.type == "bundled" and not dev:
+            install_dir = _do_bundled_install(entry)
+        elif entry.install.type == "bundled":
+            if entry.install.dev is None:
+                raise CatalogError(
+                    f"'{entry.name}' has no install.dev block, so there is nothing to build with --dev"
+                )
+            install_dir = _do_git_install(entry, entry.install.dev)
+            use_dev_clone = True
+        else:
+            install_dir = _do_git_install(entry)
 
     # Auth
     if entry.auth.type == "api_key":
@@ -780,7 +907,7 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True) -> None:
 
     # Build and write the mcp_servers entry (without tools filter yet;
     # _apply_tool_selection() finalizes it below).
-    server_cfg = _build_server_config(entry, install_dir)
+    server_cfg = _build_server_config(entry, install_dir, dev=use_dev_clone)
     server_cfg["enabled"] = enable
 
     from hermes_cli.mcp_config import _save_mcp_server

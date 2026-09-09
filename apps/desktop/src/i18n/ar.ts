@@ -396,7 +396,8 @@ export const ar = defineLocale({
       about: 'حول',
       notifications: 'الإشعارات',
       keybinds: 'اختصارات لوحة المفاتيح',
-      plugins: 'الإضافات'
+      plugins: 'الإضافات',
+      browser: 'المتصفح'
     },
     account: {
       title: 'حساب AgentX',
@@ -2703,6 +2704,212 @@ export const ar = defineLocale({
     startChatting: 'ابدأ',
     docs: provider => `وثائق ${provider}`
   },
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: 'اربط متصفحك',
+      intro:
+        'يستطيع Workmate فعل المزيد عندما يرى المتصفح الذي سجّلت الدخول فيه: قراءة الصفحات، تعبئة النماذج، وجمع الأرقام من لوحات التحكم. يجري ذلك عبر إضافة AgentX WebMate التي تضيفها إلى متصفحك في ثلاث خطوات.',
+      scanning: 'جارٍ البحث عن المتصفحات على هذا الجهاز…',
+      noBrowsers: 'لم يُعثر على متصفح مدعوم (Chrome أو Edge أو Brave…). يمكنك إعداد ذلك لاحقًا من الإعدادات ← المتصفح.',
+      pickBrowser: 'اختر المتصفح الذي تريد إضافة WebMate إليه',
+      defaultBadge: 'الافتراضي',
+      installedBadge: 'تمت إضافة WebMate',
+      disabledBadge: 'WebMate متوقف',
+      elsewhereBadge: 'نسخة أخرى',
+      unsupported: { firefox: 'Firefox غير مدعوم بعد', safari: 'Safari غير مدعوم بعد' },
+      workmateWindow: {
+        title: 'نافذة متصفح مستقلة لـ Workmate',
+        description: 'لا شيء تفعله يدويًا: يفتح Workmate نافذة متصفح خاصة به ويضيف WebMate إليها.',
+        comingSoon: 'قريبًا'
+      },
+      install: 'أضِف إلى هذا المتصفح',
+      stepsTitle: browser => `ثلاث خطوات في ${browser}`,
+      steps: {
+        devMode: 'فعّل «وضع المطوّر» في الزاوية العلوية من الصفحة التي فُتحت للتو.',
+        drag: 'اسحب مجلد «AgentX WebMate» من نافذة المجلد التي ظهرت إلى تلك الصفحة. أو اضغط «تحميل إضافة غير مضغوطة» واختر هذا المجلد.',
+        done: 'انتهى. يلاحظ Workmate اتصال WebMate فور حدوثه، ولا شيء آخر تضغطه.'
+      },
+      stepsEdge: {
+        devMode: 'فعّل «وضع المطوّر» في الزاوية السفلية اليسرى من الصفحة التي فُتحت للتو.',
+        drag: 'اسحب مجلد «AgentX WebMate» من نافذة المجلد التي ظهرت إلى تلك الصفحة. أو اضغط «تحميل ملحق غير مضغوط» واختر هذا المجلد.'
+      },
+      reopenPage: 'افتح صفحة الإضافات مرة أخرى',
+      showFolder: 'إظهار المجلد',
+      copyPath: 'نسخ المسار',
+      pathCopied: 'تم النسخ',
+      waiting: 'في انتظار اتصال WebMate…',
+      connected: browser => `متصل · ${browser}`,
+      connectedHint: 'من الآن يستطيع Workmate استخدام هذا المتصفح عندما تطلب منه ذلك.',
+      slowTitle: 'لم يتصل WebMate بعد. الأسباب المعتادة:',
+      slowReasons: [
+        'وضع المطوّر ما زال متوقفًا في الزاوية العلوية من صفحة الإضافات.',
+        'سُحب المجلد الخطأ: يجب أن يكون مجلد «AgentX WebMate» نفسه وليس المجلد الأب.',
+        'هذا المتصفح تديره مؤسسة تمنع وضع المطوّر.'
+      ],
+      useWindow: 'استخدام نافذة مستقلة',
+      later: 'لاحقًا',
+      never: 'لا تسأل مرة أخرى',
+      start: 'ابدأ',
+      back: 'اختر متصفحًا آخر',
+      serverStarting: 'جارٍ تشغيل اتصال المتصفح…',
+      serverError: 'تعذّر تشغيل اتصال المتصفح. يمكنك المحاولة مجددًا من الإعدادات ← المتصفح.',
+      openFailed: browser =>
+        `تعذّر فتح ${browser}. افتحه بنفسك، واكتب chrome://extensions في شريط العناوين، ثم تابع الخطوات.`,
+      typeAddress: url => `إذا لم تظهر صفحة الإضافات، اكتب ${url} في شريط عناوين النافذة التي فُتحت للتو.`
+    },
+    settings: {
+      title: 'المتصفح',
+      intro:
+        'WebMate هو الإضافة في متصفحك التي تتيح لـ Workmate قراءة الصفحات وتعبئة النماذج والعمل على المواقع التي سجّلت الدخول إليها.',
+      enable: 'WebMate يتحكم في المتصفح',
+      enableDesc: 'عند إيقافه يتوقف Workmate عن استخدام متصفحك. تبقى الإضافة في المتصفح.',
+      browsersHeading: 'المتصفحات على هذا الجهاز',
+      installOther: 'أضِف إلى متصفح آخر…',
+      reconnect: 'إعادة الاتصال',
+      resetToken: 'إعادة تعيين الرمز',
+      resetTokenDesc:
+        'أنشئ رمز إقران جديدًا بين Workmate و WebMate. استخدمه إذا شككت في أن برنامجًا آخر يتظاهر بأنه Workmate.',
+      resetTokenDone: 'تمت إعادة التعيين. سيعيد WebMate الاتصال من تلقاء نفسه.',
+      rescan: 'إعادة الفحص',
+      askWhenNotReady: 'عندما يحتاج الوكيل إلى المتصفح ولكن WebMate غير جاهز',
+      askMe: 'اسألني',
+      dontAsk: 'لا تسأل',
+      autoUpdate: 'تحديث WebMate تلقائيًا',
+      autoUpdateDesc: 'ثبّت إصدار WebMate الجديد فور توفره دون سؤال.',
+      version: version => `الإصدار ${version}`,
+      running: version => `يعمل ${version}`,
+      profile: name => `الملف الشخصي ${name}`,
+      states: {
+        off: 'متوقف',
+        notInstalled: 'غير مُضاف',
+        installedClosed: 'مُضاف · المتصفح مغلق',
+        installedDisabled: 'مُضاف · الإضافة متوقفة',
+        installedNotConnected: 'مُضاف · غير متصل',
+        outdated: 'متصل · إصدار قديم',
+        notSignedIn: 'متصل · لم يسجّل الدخول',
+        ready: 'جاهز'
+      },
+      hints: {
+        off: 'فعّل المفتاح أعلاه ليستطيع Workmate استخدام المتصفح مجددًا.',
+        notInstalled: 'لم يُضَف WebMate إلى هذا المتصفح بعد.',
+        installedClosed: 'افتح المتصفح وسيتصل WebMate من تلقاء نفسه.',
+        installedDisabled: 'افتح صفحة الإضافات في المتصفح وأعد تفعيل AgentX WebMate.',
+        installedNotConnected: 'المتصفح مفتوح لكن WebMate لم يتصل. جرّب إعادة تحميل الإضافة من صفحة الإضافات.',
+        outdated: 'هذه النسخة من WebMate قديمة جدًا بالنسبة إلى Workmate. يرجى تحديثها.',
+        notSignedIn: 'افتح WebMate في المتصفح وسجّل الدخول إلى حساب AgentX الخاص بك.',
+        ready: 'يستطيع Workmate استخدام هذا المتصفح.'
+      },
+      elsewhere: path => `يحمّل هذا المتصفح نسخة أخرى من WebMate من ${path}.`,
+      folderTitle: 'مجلد الإضافة',
+      folderDesc: 'يحمّل المتصفح WebMate من هذا المجلد. لا تُعِد تسميته ولا تنقله.',
+      serverStopped: 'اتصال المتصفح لا يعمل في هذه الجلسة.',
+      toggleFailed: 'تعذّر تغيير إعداد WebMate.'
+    },
+    update: {
+      toastTitle: 'يتوفر إصدار جديد من WebMate',
+      toastBody: version => `WebMate ${version} جاهز للتثبيت.`,
+      toastAction: 'تحديث WebMate',
+      mandatoryTitle: 'يحتاج WebMate إلى تحديث',
+      mandatoryBody: 'إصدار WebMate في متصفحك قديم جدًا بالنسبة إلى Workmate هذا. حدّثه لاستخدام المتصفح مجددًا.',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate محدّث.',
+      available: version => `WebMate ${version} متاح.`,
+      blocked: 'يحتاج WebMate الجديد إلى إصدار أحدث من Workmate. حدّث Workmate أولًا.',
+      pending: version => `سيُثبَّت WebMate ${version} عندما تغلق المتصفح.`,
+      failed: version => `لم يبدأ WebMate ${version}، لذا عاد الإصدار السابق.`,
+      neverChecked: 'لم يُفحص بعد.',
+      checkError: 'تعذّر التحقق من وجود إصدار جديد من WebMate.',
+      lastChecked: age => `آخر فحص ${age}`,
+      checkNow: 'افحص الآن',
+      checking: 'جارٍ الفحص…',
+      install: 'تحديث WebMate',
+      installing: 'جارٍ التحديث…',
+      notes: 'ما الجديد',
+      stages: {
+        download: 'جارٍ تنزيل WebMate…',
+        verify: 'جارٍ التحقق من الحزمة…',
+        extract: 'جارٍ التحضير…',
+        drain: 'في انتظار انتهاء المتصفح…',
+        swap: 'جارٍ التبديل إلى الإصدار الجديد…',
+        reload: 'جارٍ إعادة تحميل الإضافة…',
+        confirm: 'في انتظار إعادة اتصال WebMate…',
+        rollback: 'جارٍ العودة إلى الإصدار السابق…',
+        done: 'تم تحديث WebMate',
+        pending: 'سيُثبَّت عند إغلاق المتصفح',
+        error: 'لم يكتمل التحديث'
+      },
+      doneToast: version => `WebMate ${version} جاهز.`,
+      failedToast: reason => `لم يكتمل تحديث WebMate: ${reason}`
+    },
+    window: {
+      title: 'نافذة متصفح مستقلة لـ Workmate',
+      description: 'يفتح Workmate نافذة Chrome/Edge خاصة به مع WebMate مثبّتًا فيها. لا شيء تسحبه.',
+      open: 'افتح النافذة المستقلة',
+      close: 'أغلق النافذة المستقلة',
+      opening: 'جارٍ فتح النافذة المستقلة…',
+      stateOpen: 'مفتوحة',
+      stateClosed: 'مغلقة',
+      using: browser => `باستخدام ${browser}`,
+      signInNote:
+        'تستخدم هذه النافذة ملف Workmate الشخصي المستقل، لذا سجّل الدخول مرة أخرى إلى المواقع التي تريد أن يعمل Workmate عليها.',
+      noChromium:
+        'لم يُعثر على متصفح مبني على Chromium (Chrome أو Edge أو Brave…) على هذا الجهاز. ثبّت واحدًا ثم أعد المحاولة.',
+      failed: reason => `تعذّر فتح النافذة المستقلة: ${reason}`,
+      modeLabel: 'في أي متصفح يعمل Workmate',
+      modeDesc:
+        'متصفحك يحتاج إلى إضافة WebMate مرة واحدة؛ أما النافذة المستقلة فيجهّزها Workmate لكن عليك تسجيل الدخول إلى المواقع مجددًا.',
+      modeBrowser: 'متصفحي',
+      modeWindow: 'نافذة Workmate المستقلة',
+      updateRelaunch: 'ستُغلق النافذة المستقلة وتُفتح مجددًا لتحديث WebMate.',
+      onboardingHint: 'اختر هذا إذا كنت تفضّل عدم المساس بالمتصفح الذي تستخدمه يوميًا.'
+    },
+    sso: {
+      heading: 'تسجيل دخول مشترك',
+      browserLabel: 'المتصفح المستخدم لتسجيل الدخول ولـ WebMate',
+      browserDesc: 'يفتح Workmate صفحة تسجيل الدخول في هذا المتصفح، فيسجّل WebMate هناك دخوله بنفس الحساب تلقائيًا.',
+      browserSystem: 'المتصفح الافتراضي للجهاز',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'تسجيل دخول WebMate بحساب Workmate الخاص بي',
+      autoSignInDesc: 'عندما يتصل WebMate دون تسجيل دخول، يسجّل Workmate دخوله بهدوء بالحساب الذي تستخدمه هنا.',
+      signIn: 'تسجيل دخول WebMate',
+      signingIn: 'جارٍ تسجيل دخول WebMate…',
+      signInDesc: 'يفتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate، مع تعبئة حسابك.',
+      attached: count => `${count} متصفح متصل`,
+      connectionSignedIn: 'مسجّل الدخول',
+      connectionNotSignedIn: 'غير مسجّل الدخول',
+      connectionActive: 'قيد الاستخدام',
+      signedIn: 'تم تسجيل دخول WebMate.',
+      signedInAs: email => `تم تسجيل دخول WebMate بالحساب ${email}.`,
+      opened: 'تم فتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate. أكمل التسجيل هناك وسيلاحظ Workmate ذلك تلقائيًا.',
+      loginRequired: 'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
+      unsupported: 'لا يمكن تسجيل دخول نسخة WebMate هذه من هنا. افتح WebMate في المتصفح وسجّل الدخول هناك.',
+      notConnected: 'WebMate غير متصل، فلا يوجد ما يمكن تسجيل دخوله.',
+      noAnswer: 'لم يجب WebMate في الوقت المناسب.',
+      nothingToDo: 'كل نسخ WebMate المتصلة مسجّلة الدخول بالفعل.',
+      failed: reason => `تعذّر تسجيل دخول WebMate: ${reason}`,
+      onboardingWaiting: 'جارٍ تسجيل دخول WebMate بحسابك…',
+      onboardingSignedIn: 'تم تسجيل دخول WebMate بحساب Workmate الخاص بك. لا شيء آخر مطلوب.',
+      onboardingManual: 'WebMate متصل لكنه لم يسجّل الدخول بعد.'
+    },
+    prompt: {
+      title: 'يريد Workmate استخدام متصفحك',
+      body: {
+        WEBMATE_DISABLED: 'WebMate متوقف في الإعدادات. أعد تفعيله ليعمل Workmate في المتصفح.',
+        WEBMATE_NOT_INSTALLED:
+          'تحتاج هذه المهمة إلى WebMate، الإضافة التي تتيح لـ Workmate العمل في متصفحك. إضافتها تستغرق دقيقة.',
+        WEBMATE_NOT_CONNECTED: 'WebMate مُضاف لكنه غير متصل. افتح المتصفح الذي فيه WebMate أو أعد تفعيل الإضافة.',
+        WEBMATE_OUTDATED: 'إصدار WebMate في متصفحك قديم جدًا. حدّثه ليستطيع Workmate استخدام المتصفح مجددًا.',
+        WEBMATE_NOT_SIGNED_IN: 'لم يسجّل WebMate الدخول إلى حساب AgentX الخاص بك في المتصفح.',
+        WEBMATE_PORT_IN_USE: 'برنامج آخر يشغل منفذ اتصال WebMate (17374). أغلقه ثم أعد المحاولة.'
+      },
+      install: 'أضِف WebMate',
+      open: 'افتح الإعدادات',
+      notNow: 'ليس الآن',
+      never: 'لا تسأل مرة أخرى'
+    }
+  },
+
   modelPicker: {
     title: 'اختيار النموذج',
     current: 'الحالي',

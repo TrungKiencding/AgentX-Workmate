@@ -428,6 +428,7 @@ export const en: Translations = {
       about: 'About',
       billing: 'Billing',
       notifications: 'Notifications',
+      browser: 'Browser',
       plugins: 'Plugins'
     },
     account: {
@@ -2852,6 +2853,219 @@ export const en: Translations = {
     change: 'Change',
     startChatting: 'Begin',
     docs: provider => `${provider} docs`
+  },
+
+  webmate: {
+    name: 'AgentX WebMate',
+    onboarding: {
+      title: 'Connect your browser',
+      intro:
+        'Workmate can do more when it can see the browser you are signed in to: read pages, fill in forms, pull numbers from dashboards. That runs through the AgentX WebMate extension, which you add to your browser in three steps.',
+      scanning: 'Looking for browsers on this computer…',
+      noBrowsers:
+        'No supported browser was found (Chrome, Edge, Brave…). You can set this up later in Settings → Browser.',
+      pickBrowser: 'Choose the browser to add WebMate to',
+      defaultBadge: 'Default',
+      installedBadge: 'WebMate added',
+      disabledBadge: 'WebMate turned off',
+      elsewhereBadge: 'Other copy',
+      unsupported: { firefox: 'Firefox is not supported yet', safari: 'Safari is not supported yet' },
+      workmateWindow: {
+        title: 'A separate Workmate browser window',
+        description: 'Nothing to do by hand: Workmate opens its own browser window and adds WebMate to it.',
+        comingSoon: 'Coming soon'
+      },
+      install: 'Add to this browser',
+      stepsTitle: browser => `Three steps in ${browser}`,
+      steps: {
+        devMode: 'Turn on “Developer mode” in the top-right corner of the page that just opened.',
+        drag: 'Drag the “AgentX WebMate” folder from the folder window that just opened onto that page. Or click “Load unpacked” and pick this folder.',
+        done: 'That is it. Workmate notices the moment WebMate connects; there is nothing else to click.'
+      },
+      stepsEdge: {
+        devMode: 'Turn on “Developer mode” in the bottom-left corner of the page that just opened.',
+        drag: 'Drag the “AgentX WebMate” folder from the folder window that just opened onto that page. Or click “Load unpacked” and pick this folder.'
+      },
+      reopenPage: 'Open the extensions page again',
+      showFolder: 'Show folder',
+      copyPath: 'Copy path',
+      pathCopied: 'Copied',
+      waiting: 'Waiting for WebMate to connect…',
+      connected: browser => `Connected · ${browser}`,
+      connectedHint: 'From now on Workmate can use this browser when you ask it to.',
+      slowTitle: 'WebMate has not connected yet. The usual reasons:',
+      slowReasons: [
+        'Developer mode is still off on the extensions page.',
+        'The wrong folder was dragged: it has to be the “AgentX WebMate” folder itself, not its parent.',
+        'This browser is managed by an organisation that blocks Developer mode.'
+      ],
+      useWindow: 'Use a separate window',
+      later: 'Later',
+      never: 'Don’t ask again',
+      start: 'Start',
+      back: 'Pick another browser',
+      serverStarting: 'Turning on the browser connection…',
+      serverError: 'The browser connection could not be turned on. You can try again in Settings → Browser.',
+      openFailed: browser =>
+        `${browser} could not be opened. Open it yourself, type chrome://extensions in the address bar and continue with the steps.`,
+      typeAddress: url =>
+        `If the extensions page did not appear, type ${url} into the address bar of the window that just opened.`
+    },
+    settings: {
+      title: 'Browser',
+      intro:
+        'WebMate is the extension in your browser that lets Workmate read pages, fill in forms and work on sites you are already signed in to.',
+      enable: 'WebMate controls the browser',
+      enableDesc: 'When off, Workmate stops using your browser. The extension stays in the browser.',
+      browsersHeading: 'Browsers on this computer',
+      installOther: 'Add to another browser…',
+      reconnect: 'Reconnect',
+      resetToken: 'Reset token',
+      resetTokenDesc:
+        'Make a new pairing code between Workmate and WebMate. Use it if you suspect another program is posing as Workmate.',
+      resetTokenDone: 'Reset. WebMate will reconnect on its own.',
+      rescan: 'Scan again',
+      askWhenNotReady: 'When the agent needs the browser but WebMate is not ready',
+      askMe: 'Ask me',
+      dontAsk: 'Don’t ask',
+      autoUpdate: 'Update WebMate automatically',
+      autoUpdateDesc: 'Install a new WebMate release as soon as it is available, without asking.',
+      version: version => `Version ${version}`,
+      running: version => `running ${version}`,
+      profile: name => `Profile ${name}`,
+      states: {
+        off: 'Off',
+        notInstalled: 'Not added',
+        installedClosed: 'Added · browser closed',
+        installedDisabled: 'Added · extension turned off',
+        installedNotConnected: 'Added · not connected',
+        outdated: 'Connected · old version',
+        notSignedIn: 'Connected · not signed in',
+        ready: 'Ready'
+      },
+      hints: {
+        off: 'Turn the switch above on so Workmate can use the browser again.',
+        notInstalled: 'WebMate has not been added to this browser.',
+        installedClosed: 'Open the browser and WebMate connects on its own.',
+        installedDisabled: 'Open the browser’s extensions page and turn AgentX WebMate back on.',
+        installedNotConnected:
+          'The browser is open but WebMate has not connected. Try reloading the extension on the extensions page.',
+        outdated: 'This copy of WebMate is too old for Workmate. Please update it.',
+        notSignedIn: 'Open WebMate in the browser and sign in to your AgentX account.',
+        ready: 'Workmate can use this browser.'
+      },
+      elsewhere: path => `This browser loads a different copy of WebMate from ${path}.`,
+      folderTitle: 'Extension folder',
+      folderDesc: 'The browser loads WebMate from this folder. Do not rename or move it.',
+      serverStopped: 'The browser connection is not running in this session.',
+      toggleFailed: 'The WebMate setting could not be changed.'
+    },
+    update: {
+      toastTitle: 'A new WebMate is available',
+      toastBody: version => `WebMate ${version} is ready to install.`,
+      toastAction: 'Update WebMate',
+      mandatoryTitle: 'WebMate needs an update',
+      mandatoryBody: 'The WebMate in your browser is too old for this Workmate. Update it to use the browser again.',
+      heading: 'AgentX WebMate',
+      upToDate: 'WebMate is up to date.',
+      available: version => `WebMate ${version} is available.`,
+      blocked: 'The new WebMate needs a newer Workmate. Update Workmate first.',
+      pending: version => `WebMate ${version} will be installed when you close the browser.`,
+      failed: version => `WebMate ${version} did not start, so the previous version is back.`,
+      neverChecked: 'Not checked yet.',
+      checkError: 'Could not check for a new WebMate.',
+      lastChecked: age => `Last checked ${age}`,
+      checkNow: 'Check now',
+      checking: 'Checking…',
+      install: 'Update WebMate',
+      installing: 'Updating…',
+      notes: 'What’s new',
+      stages: {
+        download: 'Downloading WebMate…',
+        verify: 'Checking the package…',
+        extract: 'Preparing…',
+        drain: 'Waiting for the browser to finish…',
+        swap: 'Switching to the new version…',
+        reload: 'Reloading the extension…',
+        confirm: 'Waiting for WebMate to reconnect…',
+        rollback: 'Going back to the previous version…',
+        done: 'WebMate updated',
+        pending: 'Will install when the browser closes',
+        error: 'Update did not finish'
+      },
+      doneToast: version => `WebMate ${version} is ready.`,
+      failedToast: reason => `The WebMate update did not finish: ${reason}`
+    },
+    window: {
+      title: 'A separate Workmate browser window',
+      description: 'Workmate opens its own Chrome/Edge window with WebMate already in it. Nothing to drag.',
+      open: 'Open the separate window',
+      close: 'Close the separate window',
+      opening: 'Opening the separate window…',
+      stateOpen: 'Open',
+      stateClosed: 'Closed',
+      using: browser => `Using ${browser}`,
+      signInNote:
+        'This window uses Workmate’s own profile, so sign in again to the sites you want Workmate to work on.',
+      noChromium:
+        'No Chromium-based browser (Chrome, Edge, Brave…) was found on this computer. Install one and try again.',
+      failed: reason => `The separate window could not be opened: ${reason}`,
+      modeLabel: 'Which browser Workmate works in',
+      modeDesc:
+        'Your own browser needs WebMate added once; the separate window is set up by Workmate but you sign in to sites again.',
+      modeBrowser: 'My browser',
+      modeWindow: 'Workmate’s separate window',
+      updateRelaunch: 'The separate window closes and opens again to update WebMate.',
+      onboardingHint: 'Pick this if you would rather not touch the browser you use every day.'
+    },
+    sso: {
+      heading: 'Signed in together',
+      browserLabel: 'Browser for signing in and for WebMate',
+      browserDesc:
+        'Workmate opens its sign-in page in this browser, so the WebMate there is signed in with the same account by itself.',
+      browserSystem: 'The computer’s default browser',
+      browserOption: (browser, profile) => `${browser} · ${profile}`,
+      autoSignIn: 'Sign WebMate in with my Workmate account',
+      autoSignInDesc:
+        'When WebMate connects without being signed in, Workmate signs it in quietly with the account you use here.',
+      signIn: 'Sign in WebMate',
+      signingIn: 'Signing in WebMate…',
+      signInDesc: 'Opens the AgentX sign-in in the browser that has WebMate, with your account filled in.',
+      attached: count => (count === 1 ? '1 browser connected' : `${count} browsers connected`),
+      connectionSignedIn: 'signed in',
+      connectionNotSignedIn: 'not signed in',
+      connectionActive: 'in use',
+      signedIn: 'WebMate is signed in.',
+      signedInAs: email => `WebMate is signed in as ${email}.`,
+      opened: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.',
+      loginRequired:
+        'That browser has no AgentX session to reuse yet. Sign in to Workmate from that browser once, or use “Sign in WebMate”.',
+      unsupported: 'This copy of WebMate cannot be signed in from here. Open WebMate in the browser and sign in there.',
+      notConnected: 'WebMate is not connected, so there is nothing to sign in.',
+      noAnswer: 'WebMate did not answer in time.',
+      nothingToDo: 'Every connected WebMate is already signed in.',
+      failed: reason => `Could not sign in WebMate: ${reason}`,
+      onboardingWaiting: 'Signing WebMate in with your account…',
+      onboardingSignedIn: 'WebMate is signed in with your Workmate account. Nothing else to do.',
+      onboardingManual: 'WebMate is connected but not signed in yet.'
+    },
+    prompt: {
+      title: 'Workmate wants to use your browser',
+      body: {
+        WEBMATE_DISABLED: 'WebMate is turned off in Settings. Turn it back on so Workmate can work in the browser.',
+        WEBMATE_NOT_INSTALLED:
+          'This needs WebMate, the extension that lets Workmate work in your browser. Adding it takes a minute.',
+        WEBMATE_NOT_CONNECTED:
+          'WebMate is added but not connected. Open the browser that has WebMate, or turn the extension back on.',
+        WEBMATE_OUTDATED: 'The WebMate in your browser is too old. Update it so Workmate can use the browser again.',
+        WEBMATE_NOT_SIGNED_IN: 'WebMate is not signed in to your AgentX account in the browser.',
+        WEBMATE_PORT_IN_USE: 'Another program is holding WebMate’s connection port (17374). Close it and try again.'
+      },
+      install: 'Add WebMate',
+      open: 'Open Settings',
+      notNow: 'Not now',
+      never: 'Don’t ask again'
+    }
   },
 
   modelPicker: {

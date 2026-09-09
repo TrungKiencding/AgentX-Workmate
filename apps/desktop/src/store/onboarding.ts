@@ -16,6 +16,15 @@ import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
 import { notify, notifyError } from '@/store/notifications'
+import {
+  $webmateGuide,
+  clearWebmateGuide,
+  isWebmateAvailable,
+  loadWebmatePrefs,
+  refreshWebmateStatus,
+  scanWebmateBrowsers,
+  setWebmatePrefs
+} from '@/store/webmate'
 import type { ModelOptionProvider, OAuthProvider, OAuthStartResponse } from '@/types/hermes'
 
 type PkceStart = Extract<OAuthStartResponse, { flow: 'pkce' }>
@@ -44,6 +53,14 @@ export type OnboardingFlow =
       providerSlug: string
       saving: boolean
       status: 'confirming_model'
+    }
+  | {
+      // The "Kết nối trình duyệt" step right after the model card: scan the
+      // machine's browsers, walk the person through loading the AgentX WebMate
+      // folder, and finish on its own when the extension connects. The step's
+      // own state (browsers, chosen profile, live connection) lives in
+      // store/webmate.ts; this entry only marks where the flow stands.
+      status: 'connecting_browser'
     }
   | { message: string; provider?: OAuthProvider; start?: OAuthStartResponse; status: 'error' }
 
@@ -941,6 +958,94 @@ export function confirmOnboardingModel(ctx: OnboardingContext) {
   // No success toast here: the confirm-model screen already showed "<provider>
   // connected." notifyReady is reserved for completion paths that SKIP this
   // screen (no-default fallthrough, local endpoint) so feedback isn't lost.
+  completeDesktopOnboarding()
+  ctx.onCompleted?.()
+}
+
+// Whether the first-run flow should show the "Kết nối trình duyệt" step after
+// the model card. Not on the web dashboard (no desktop bridge), not for someone
+// who chose "Đừng hỏi lại", not when a Workmate-installed extension is already
+// connected, and never in the manual add-a-provider flow of a configured app.
+export async function shouldOfferBrowserStep(): Promise<boolean> {
+  if ($desktopOnboarding.get().manual || !isWebmateAvailable()) {
+    return false
+  }
+
+  const prefs = await loadWebmatePrefs()
+
+  if (prefs?.prompt === 'never') {
+    return false
+  }
+
+  const status = await refreshWebmateStatus()
+
+  return !(status?.connected && status.installType === 'workmate')
+}
+
+// "Bắt đầu" on the model card. Either moves on to the browser step (and kicks
+// off the scan so the list is ready when the panel paints) or reports 'done'
+// so the caller can finish onboarding with its exit choreography. The card's
+// button is held while the decision is made so a double click cannot advance
+// twice.
+export async function advanceFromModelConfirm(): Promise<'browser' | 'done'> {
+  const { flow } = $desktopOnboarding.get()
+
+  if (flow.status !== 'confirming_model' || flow.saving) {
+    return 'done'
+  }
+
+  setFlow({ ...flow, saving: true })
+
+  let offer = false
+
+  try {
+    offer = await shouldOfferBrowserStep()
+  } catch {
+    offer = false
+  }
+
+  const current = $desktopOnboarding.get().flow
+
+  if (current.status !== 'confirming_model') {
+    return 'done'
+  }
+
+  if (!offer) {
+    setFlow({ ...current, saving: false })
+
+    return 'done'
+  }
+
+  setFlow({ status: 'connecting_browser' })
+  void scanWebmateBrowsers()
+
+  return 'browser'
+}
+
+// Leaving the browser step, whichever way: the person connected a browser,
+// deferred ("Để sau" — asked again next time the card comes up), or opted out
+// ("Đừng hỏi lại"). The choice is remembered in the machine-level prefs the
+// main process keeps; onboarding itself completes exactly as after the model
+// card.
+export function completeBrowserStep(ctx: OnboardingContext, choice: 'connected' | 'later' | 'never') {
+  const { flow } = $desktopOnboarding.get()
+
+  if (flow.status !== 'connecting_browser') {
+    return
+  }
+
+  // A window flow that ended connected records mode 'window' so Settings and
+  // the next launch know which door the person took.
+  const windowFlow = $webmateGuide.get()?.kind === 'window'
+
+  void setWebmatePrefs(
+    choice === 'later'
+      ? { prompt: 'later' }
+      : choice === 'never'
+        ? { prompt: 'never' }
+        : { prompt: null, mode: windowFlow ? 'window' : 'browser' }
+  )
+  clearWebmateGuide()
   completeDesktopOnboarding()
   ctx.onCompleted?.()
 }

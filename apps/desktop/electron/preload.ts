@@ -363,6 +363,42 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
       return () => ipcRenderer.removeListener('agentx:updates:progress', listener)
     }
   },
+  // AgentX WebMate (browser extension Workmate installs from its own folder).
+  // Folder/pairing bootstrap, the merged local status (pushed on change),
+  // the browser scan + guided install, prefs, pairing reset and the
+  // signed-feed updater — see apps/desktop/WEBMATE-INTEGRATION-PLAN.md.
+  webmate: {
+    bootstrap: () => ipcRenderer.invoke('agentx:webmate:bootstrap'),
+    localStatus: () => ipcRenderer.invoke('agentx:webmate:local-status'),
+    status: () => ipcRenderer.invoke('agentx:webmate:status'),
+    subscribe: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('agentx:webmate:status', listener)
+
+      return () => ipcRenderer.removeListener('agentx:webmate:status', listener)
+    },
+    scan: options => ipcRenderer.invoke('agentx:webmate:scan', options),
+    prepare: () => ipcRenderer.invoke('agentx:webmate:prepare'),
+    openGuide: request => ipcRenderer.invoke('agentx:webmate:open-guide', request),
+    revealFolder: () => ipcRenderer.invoke('agentx:webmate:reveal-folder'),
+    copyPath: () => ipcRenderer.invoke('agentx:webmate:copy-path'),
+    getPrefs: () => ipcRenderer.invoke('agentx:webmate:prefs:get'),
+    setPrefs: patch => ipcRenderer.invoke('agentx:webmate:prefs:set', patch),
+    resetToken: () => ipcRenderer.invoke('agentx:webmate:reset-token'),
+    checkUpdate: () => ipcRenderer.invoke('agentx:webmate:update:check'),
+    applyUpdate: () => ipcRenderer.invoke('agentx:webmate:update:apply'),
+    openWindow: request => ipcRenderer.invoke('agentx:webmate:window:open', request),
+    closeWindow: () => ipcRenderer.invoke('agentx:webmate:window:close'),
+    windowStatus: () => ipcRenderer.invoke('agentx:webmate:window:status'),
+    signIn: request => ipcRenderer.invoke('agentx:webmate:auth:sign-in', request),
+    chooseBrowser: request => ipcRenderer.invoke('agentx:webmate:choose-browser', request),
+    onUpdateProgress: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('agentx:webmate:update:progress', listener)
+
+      return () => ipcRenderer.removeListener('agentx:webmate:update:progress', listener)
+    }
+  },
   themes: {
     fetchMarketplace: id => ipcRenderer.invoke('agentx:vscode-theme:fetch', id),
     searchMarketplace: query => ipcRenderer.invoke('agentx:vscode-theme:search', query)

@@ -18,6 +18,7 @@ import { translateNow } from '@/i18n'
 import { persistString, storedString } from '@/lib/storage'
 import { dismissNotification, notify } from '@/store/notifications'
 import { $connection } from '@/store/session'
+import { checkWebmateUpdate } from '@/store/webmate'
 import type { BackendUpdateCheckResponse } from '@/types/hermes'
 
 export interface UpdateApplyState {
@@ -680,6 +681,8 @@ export function startUpdatePoller(): void {
   pollerStarted = true
   void checkUpdates()
   void checkBackendUpdates()
+  // WebMate rides the same cadence as the app's own update check (plan §2.5).
+  void checkWebmateUpdate()
   void refreshDesktopVersion()
   bridge.onProgress(ingestProgress)
 
@@ -703,6 +706,7 @@ export function startUpdatePoller(): void {
     () => {
       void checkUpdates()
       void checkBackendUpdates()
+      void checkWebmateUpdate()
     },
     30 * 60 * 1000
   )
@@ -731,5 +735,6 @@ function onFocus() {
   lastFocusAt = now
   void checkUpdates()
   void checkBackendUpdates()
+  void checkWebmateUpdate()
   void refreshDesktopVersion()
 }

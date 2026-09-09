@@ -12603,6 +12603,11 @@ def _mcp_server_summary(name: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
 from hermes_cli.web_routers import mcp as _mcp_routes  # noqa: E402
 
 app.include_router(_mcp_routes.router)
+
+# AgentX WebMate status (browser-extension connection) for the desktop app.
+from hermes_cli.web_routers import webmate as _webmate_routes  # noqa: E402
+
+app.include_router(_webmate_routes.router)
 from hermes_cli.web_routers.mcp import (  # noqa: E402,F401 — legacy re-exports; tests call these via web_server.<name>
     list_mcp_servers,
     add_mcp_server,

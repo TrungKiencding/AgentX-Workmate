@@ -14,8 +14,10 @@ import { cn } from '@/lib/utils'
 import { $desktopBoot, type DesktopBootState } from '@/store/boot'
 import {
   $desktopOnboarding,
+  advanceFromModelConfirm,
   clearPendingProviderOAuth,
   closeManualOnboarding,
+  completeBrowserStep,
   confirmOnboardingModel,
   DEFAULT_MANUAL_ONBOARDING_REASON,
   DEFAULT_ONBOARDING_REASON,
@@ -29,6 +31,7 @@ import {
 } from '@/store/onboarding'
 import type { ModelOptionProvider, OAuthProvider } from '@/types/hermes'
 
+import { BrowserStepPanel } from './browser-step'
 import { DocsLink, FlowPanel, Status } from './flow'
 import {
   FeaturedProviderRow,
@@ -210,12 +213,13 @@ export function DesktopOnboardingOverlay({
     []
   )
 
-  // Cinematic exit on "Begin": dissolve the panel + overlay (revealing the chat
-  // behind), THEN finalize so the unmount lands after the fade — mirrors the
-  // connecting overlay's exit choreography instead of cutting instantly.
+  // Cinematic exit: dissolve the panel + overlay (revealing the chat behind),
+  // THEN finalize so the unmount lands after the fade — mirrors the connecting
+  // overlay's exit choreography instead of cutting instantly. `complete` is
+  // whichever store action ends the flow from the step we are leaving.
   const [leaving, setLeaving] = useState(false)
 
-  const finalizeOnboarding = () => {
+  const leaveThen = (complete: () => void) => {
     if (leaving) {
       return
     }
@@ -223,14 +227,27 @@ export function DesktopOnboardingOverlay({
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
     if (reduce) {
-      confirmOnboardingModel(ctx)
+      complete()
 
       return
     }
 
     setLeaving(true)
-    window.setTimeout(() => confirmOnboardingModel(ctx), ONBOARDING_EXIT_MS)
+    window.setTimeout(complete, ONBOARDING_EXIT_MS)
   }
+
+  // "Bắt đầu" on the model card: on to the browser step when this desktop can
+  // offer it (the card stays put — no exit choreography between two steps),
+  // otherwise finish the way the model card always did.
+  const beginFromModel = () => {
+    void advanceFromModelConfirm().then(next => {
+      if (next === 'done') {
+        leaveThen(() => confirmOnboardingModel(ctx))
+      }
+    })
+  }
+
+  const finishBrowserStep = (choice: 'connected' | 'later' | 'never') => leaveThen(() => completeBrowserStep(ctx, choice))
 
   useEffect(() => {
     if (enabled || onboarding.requested) {
@@ -347,8 +364,10 @@ export function DesktopOnboardingOverlay({
           {ready ? (
             showPicker ? (
               <Picker ctx={ctx} />
+            ) : flow.status === 'connecting_browser' ? (
+              <BrowserStepPanel leaving={leaving} onFinish={finishBrowserStep} />
             ) : (
-              <FlowPanel ctx={ctx} flow={flow} leaving={leaving} onBegin={finalizeOnboarding} />
+              <FlowPanel ctx={ctx} flow={flow} leaving={leaving} onBegin={beginFromModel} />
             )
           ) : (
             <Preparing boot={boot} />
