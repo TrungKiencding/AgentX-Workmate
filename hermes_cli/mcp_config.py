@@ -1092,7 +1092,10 @@ def mcp_command(args):
     if action == "install":
         from hermes_cli.mcp_picker import install_by_name
         import sys as _sys
-        rc = install_by_name(getattr(args, "identifier", "") or "")
+        rc = install_by_name(
+            getattr(args, "identifier", "") or "",
+            dev=bool(getattr(args, "dev", False)),
+        )
         if rc:
             _sys.exit(rc)
         return

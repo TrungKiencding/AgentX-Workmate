@@ -121,6 +121,14 @@ def build_mcp_parser(subparsers, *, cmd_mcp: Callable) -> None:
         "identifier",
         help="Catalog entry name (or `official/<name>`)",
     )
+    mcp_install_p.add_argument(
+        "--dev",
+        action="store_true",
+        help=(
+            "For entries that ship a bundled server (install.type: bundled), "
+            "build from the pinned install.dev checkout instead (needs git + npm)"
+        ),
+    )
 
     add_accept_hooks_flag(mcp_parser)
     mcp_parser.set_defaults(func=cmd_mcp)

@@ -318,6 +318,13 @@ declare global {
         setBranch: (name: string) => Promise<{ branch: string }>
         onProgress: (callback: (payload: DesktopUpdateProgress) => void) => () => void
       }
+      // AgentX WebMate — see apps/desktop/WEBMATE-INTEGRATION-PLAN.md. Phase 1
+      // exposes the idempotent bootstrap (extension folder + pairing files) and
+      // a local status read; the guided install and updater follow in phase 2.
+      webmate: {
+        bootstrap: () => Promise<DesktopWebmateBootstrapResult>
+        localStatus: () => Promise<DesktopWebmateLocalStatus>
+      }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
         run: (mode: DesktopUninstallMode) => Promise<DesktopUninstallResult>
@@ -373,6 +380,43 @@ export interface HermesTerminalSession {
 export interface HermesTerminalExit {
   code: number | null
   signal: string | null
+}
+
+export interface DesktopWebmatePaths {
+  root: string
+  installDir: string
+  workmateJson: string
+  pairingFile: string
+  stateFile: string
+  commandsDir: string
+  versionsDir: string
+  prevDir: string
+  updateCheckFile: string
+  profileDir: string
+}
+
+export interface DesktopWebmateBootstrapResult {
+  paths: DesktopWebmatePaths | null
+  bundledVersion: string | null
+  extension: {
+    action: 'installed' | 'updated' | 'kept' | 'skipped'
+    installedVersion: string | null
+    bundledVersion: string | null
+    reason?: string
+    stagedDir?: string
+    verified: { sha256: boolean; signature: boolean | 'unsigned' }
+  } | null
+  pairing: { pairingWritten: boolean; workmateJsonWritten: boolean; extensionPresent: boolean } | null
+  installedVersion: string | null
+  error: string | null
+}
+
+export interface DesktopWebmateLocalStatus {
+  paths: DesktopWebmatePaths
+  installedVersion: string | null
+  pairingPresent: boolean
+  /** state.json as the WebMate MCP server wrote it, or null before it has run. */
+  bridge: Record<string, unknown> | null
 }
 
 export interface DesktopVersionInfo {

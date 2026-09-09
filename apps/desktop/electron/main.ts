@@ -243,6 +243,7 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
+import { bootstrapWebmate, readLocalWebmateStatus } from './webmate/bootstrap'
 import { decideInAppAgentUpdate } from './windows-agent-update'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
@@ -12634,6 +12635,51 @@ ipcMain.handle('agentx:updates:apply', async (_event, payload) =>
 
 ipcMain.handle('agentx:updates:branch:get', async () => readDesktopUpdateConfig())
 
+// ===========================================================================
+// AgentX WebMate — the browser extension Workmate installs from a folder it
+// owns (apps/desktop/WEBMATE-INTEGRATION-PLAN.md). Phase 1 wires the two
+// idempotent steps every launch runs (extension folder from the bundled
+// package, pairing files) and a local status read; the guided install,
+// Settings view and updater arrive with phase 2. Logic lives in
+// electron/webmate/*; only the IPC registration is here.
+// ===========================================================================
+
+function webmateBootstrapOptions() {
+  return {
+    agentxHome: AGENTX_HOME,
+    resourcesPath: IS_PACKAGED && process.resourcesPath ? process.resourcesPath : null,
+    appRoot: APP_ROOT,
+    appVersion: resolveHermesVersion(),
+    isPackaged: IS_PACKAGED,
+    log: (message: string) => rememberLog(message)
+  }
+}
+
+let webmateBootstrapInFlight: Promise<Awaited<ReturnType<typeof bootstrapWebmate>>> | null = null
+
+function runWebmateBootstrap() {
+  if (!webmateBootstrapInFlight) {
+    webmateBootstrapInFlight = bootstrapWebmate(webmateBootstrapOptions()).finally(() => {
+      webmateBootstrapInFlight = null
+    })
+  }
+
+  return webmateBootstrapInFlight
+}
+
+ipcMain.handle('agentx:webmate:bootstrap', async () =>
+  runWebmateBootstrap().catch(error => ({
+    paths: null,
+    bundledVersion: null,
+    extension: null,
+    pairing: null,
+    installedVersion: null,
+    error: error?.message || String(error)
+  }))
+)
+
+ipcMain.handle('agentx:webmate:local-status', async () => readLocalWebmateStatus(AGENTX_HOME))
+
 ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
   writeDesktopUpdateConfig({ branch })
@@ -13078,6 +13124,18 @@ app.whenReady().then(() => {
   }
 
   createWindow()
+
+  // Prepare the WebMate folder and pairing off the critical path: a broken
+  // bundle is logged and shown in Settings, never allowed to stall the boot.
+  runWebmateBootstrap()
+    .then(result => {
+      if (result.error) {
+        rememberLog(`[webmate] bootstrap finished with a problem: ${result.error}`)
+      } else if (result.extension && result.extension.action !== 'kept') {
+        rememberLog(`[webmate] extension folder: ${result.extension.action} (${result.installedVersion || 'none'})`)
+      }
+    })
+    .catch(error => rememberLog(`[webmate] bootstrap failed: ${error?.message || String(error)}`))
 
   // Win/Linux cold start: the launching agentx:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)

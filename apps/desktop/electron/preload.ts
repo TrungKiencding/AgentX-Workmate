@@ -363,6 +363,13 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
       return () => ipcRenderer.removeListener('agentx:updates:progress', listener)
     }
   },
+  // AgentX WebMate (browser extension Workmate installs from its own folder).
+  // Phase 1: re-run the idempotent folder/pairing bootstrap and read the local
+  // facts (installed version, pairing, the MCP server's state.json).
+  webmate: {
+    bootstrap: () => ipcRenderer.invoke('agentx:webmate:bootstrap'),
+    localStatus: () => ipcRenderer.invoke('agentx:webmate:local-status')
+  },
   themes: {
     fetchMarketplace: id => ipcRenderer.invoke('agentx:vscode-theme:fetch', id),
     searchMarketplace: query => ipcRenderer.invoke('agentx:vscode-theme:search', query)
