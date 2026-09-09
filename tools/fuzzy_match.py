@@ -133,15 +133,21 @@ def fuzzy_find_and_replace(content: str, old_string: str, new_string: str,
         - If failed: (original_content, 0, None, error_description)
     """
     if not old_string:
-        return content, 0, None, "old_string cannot be empty"
-
+        # Actionable recovery text: a terse "cannot be empty" leaves the model
+        # re-sending the identical call until the loop detector kills the run
+        # (upstream report: cline/cline#13970 — Kimi K3 looped on old_text: null).
+        return content, 0, None, (
+            "old_string is empty — nothing to match. Set old_string to the exact "
+            "existing text the replacement should replace (read the file first if "
+            "unsure). To create a new file or fully rewrite one, use write_file "
+            "instead. Do not re-send this call unchanged.")
     if not old_string.strip():
-        # A whitespace-only old_string matches trivially (a blank line, run of
-        # spaces, etc.) and, when it recurs, either mass-replaces under
-        # replace_all or raises a hard-to-diagnose ambiguity error. It's never
-        # a meaningful anchor — reject it so the caller provides real context.
-        return content, 0, None, "old_string is only whitespace — provide non-blank text to match"
-
+        # Whitespace-only anchors match trivially and mass-replace or
+        # ambiguity-error; never meaningful.
+        return content, 0, None, (
+            "old_string is only whitespace — provide non-blank text to match. Set it "
+            "to the exact existing text the replacement should replace (read the file "
+            "first if unsure). Do not re-send this call unchanged.")
     if old_string == new_string:
         return content, 0, None, (
             "No edit was applied because old_string and new_string are identical. "
