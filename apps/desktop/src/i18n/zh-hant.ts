@@ -2787,7 +2787,8 @@ export const zhHant = defineLocale({
       back: '選擇其他瀏覽器',
       serverStarting: '正在開啟瀏覽器連線…',
       serverError: '無法開啟瀏覽器連線。你可以稍後在「設定 → 瀏覽器」中重試。',
-      openFailed: browser => `無法開啟 ${browser}。請自行開啟它，在網址列輸入 chrome://extensions，然後繼續以下步驟。`
+      openFailed: browser => `無法開啟 ${browser}。請自行開啟它，在網址列輸入 chrome://extensions，然後繼續以下步驟。`,
+      typeAddress: url => `如果擴充功能頁面沒有出現，請在剛開啟視窗的網址列中輸入 ${url}。`
     },
     settings: {
       title: '瀏覽器',

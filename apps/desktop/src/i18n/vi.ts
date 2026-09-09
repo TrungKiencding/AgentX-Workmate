@@ -3133,13 +3133,13 @@ export const vi: Translations = {
       install: 'Cài vào trình duyệt này',
       stepsTitle: browser => `Làm ba bước trong ${browser}`,
       steps: {
-        devMode: 'Bật “Chế độ dành cho nhà phát triển” ở góc trên bên phải trang vừa mở.',
+        devMode: 'Bật “Chế độ dành cho nhà phát triển” (Developer mode) ở góc trên bên phải trang vừa mở.',
         drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải tiện ích đã giải nén” (Load unpacked) rồi chọn thư mục này.',
         done: 'Xong. Workmate tự nhận ra khi WebMate kết nối, bạn không cần bấm gì thêm.'
       },
       stepsEdge: {
-        devMode: 'Bật “Chế độ nhà phát triển” ở góc dưới bên trái trang vừa mở.',
-        drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải phần mở rộng đã giải nén” rồi chọn thư mục này.'
+        devMode: 'Bật “Chế độ nhà phát triển” (Developer mode) ở góc dưới bên trái trang vừa mở.',
+        drag: 'Kéo thư mục “AgentX WebMate” từ cửa sổ thư mục vừa hiện vào trang đó. Hoặc bấm “Tải phần mở rộng đã giải nén” (Load unpacked) rồi chọn thư mục này.'
       },
       reopenPage: 'Mở lại trang tiện ích',
       showFolder: 'Mở thư mục',
@@ -3162,7 +3162,8 @@ export const vi: Translations = {
       serverStarting: 'Đang bật kết nối trình duyệt…',
       serverError: 'Không bật được kết nối trình duyệt. Bạn vẫn có thể thử lại trong Cài đặt → Trình duyệt.',
       openFailed: browser =>
-        `Không mở được ${browser}. Hãy mở trình duyệt, gõ chrome://extensions vào thanh địa chỉ rồi làm tiếp các bước.`
+        `Không mở được ${browser}. Hãy mở trình duyệt, gõ chrome://extensions vào thanh địa chỉ rồi làm tiếp các bước.`,
+      typeAddress: url => `Nếu trang tiện ích chưa hiện, hãy gõ ${url} vào thanh địa chỉ của cửa sổ vừa mở.`
     },
     settings: {
       title: 'Trình duyệt',

@@ -3009,7 +3009,8 @@ export const zh: Translations = {
       back: '选择其他浏览器',
       serverStarting: '正在开启浏览器连接…',
       serverError: '无法开启浏览器连接。你可以稍后在“设置 → 浏览器”中重试。',
-      openFailed: browser => `无法打开 ${browser}。请自行打开它，在地址栏输入 chrome://extensions，然后继续以下步骤。`
+      openFailed: browser => `无法打开 ${browser}。请自行打开它，在地址栏输入 chrome://extensions，然后继续以下步骤。`,
+      typeAddress: url => `如果扩展页面没有出现，请在刚打开窗口的地址栏中输入 ${url}。`
     },
     settings: {
       title: '浏览器',

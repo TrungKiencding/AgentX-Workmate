@@ -84,7 +84,13 @@ function browser(overrides: Partial<DesktopWebmateBrowser> = {}): DesktopWebmate
         displayName: 'Kiên',
         lastActive: null,
         isLastUsed: true,
-        webmate: { installed: true, path: '/Users/k/.agentx/webmate/AgentX WebMate', disabled: false, disableReasons: [], elsewhere: false }
+        webmate: {
+          installed: true,
+          path: '/Users/k/.agentx/webmate/AgentX WebMate',
+          disabled: false,
+          disableReasons: [],
+          elsewhere: false
+        }
       }
     ],
     ...overrides
@@ -137,7 +143,15 @@ describe('BrowserSettings', () => {
     cleanup()
 
     $webmateBackend.set(backend(true))
-    $webmateStatus.set(status({ connected: true, browser: 'Chrome 152', installType: 'workmate', signedIn: true, extensionVersion: '1.0.4' }))
+    $webmateStatus.set(
+      status({
+        connected: true,
+        browser: 'Chrome 152',
+        installType: 'workmate',
+        signedIn: true,
+        extensionVersion: '1.0.4'
+      })
+    )
     render(<BrowserSettings />)
     expect(screen.getAllByText('Ready').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Workmate can use this browser.')).toBeTruthy()
@@ -170,6 +184,7 @@ describe('BrowserSettings', () => {
         profileName: 'Kiên',
         startedAt: Date.now(),
         opened: true,
+        navigated: true,
         openError: null,
         folderOpened: true,
         copied: false,
@@ -210,6 +225,8 @@ describe('BrowserSettings', () => {
 
     expect(screen.getAllByText('Connected · old version').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByRole('button', { name: 'Update WebMate' }).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('The WebMate in your browser is too old for this Workmate. Update it to use the browser again.')).toBeTruthy()
+    expect(
+      screen.getByText('The WebMate in your browser is too old for this Workmate. Update it to use the browser again.')
+    ).toBeTruthy()
   })
 })

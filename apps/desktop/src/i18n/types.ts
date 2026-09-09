@@ -2305,6 +2305,8 @@ export interface Translations {
       serverStarting: string
       serverError: string
       openFailed: (browser: string) => string
+      /** The window opened but Workmate could not steer it to the extensions page. */
+      typeAddress: (url: string) => string
     }
     settings: {
       title: string

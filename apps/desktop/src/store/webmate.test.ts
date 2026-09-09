@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DesktopWebmateBrowser, DesktopWebmatePrefs, DesktopWebmateStatus, DesktopWebmateUpdateCheck } from '@/global'
+import type {
+  DesktopWebmateBrowser,
+  DesktopWebmatePrefs,
+  DesktopWebmateStatus,
+  DesktopWebmateUpdateCheck
+} from '@/global'
 import * as notifications from '@/store/notifications'
 import type { WebmateBackendStatus } from '@/types/hermes'
 
@@ -107,7 +112,13 @@ const profile = (installed: boolean, disabled = false) => ({
   displayName: 'Kiên',
   lastActive: null,
   isLastUsed: true,
-  webmate: { installed, path: installed ? '/r/AgentX WebMate' : null, disabled, disableReasons: disabled ? [1] : [], elsewhere: false }
+  webmate: {
+    installed,
+    path: installed ? '/r/AgentX WebMate' : null,
+    disabled,
+    disableReasons: disabled ? [1] : [],
+    elsewhere: false
+  }
 })
 
 beforeEach(() => {
@@ -124,14 +135,20 @@ afterEach(() => {
 
 describe('webmateCodeFromToolPayload', () => {
   it('finds the code in the wrapped error, the raw text and structuredContent — for webmate tools only', () => {
-    expect(webmateCodeFromToolPayload({ name: 'webmate_run', result: { error: 'WEBMATE_NOT_CONNECTED: no browser attached' } })).toBe(
-      'WEBMATE_NOT_CONNECTED'
-    )
-    expect(webmateCodeFromToolPayload({ name: 'mcp_webmate_webmate_status', result: 'WEBMATE_NOT_SIGNED_IN: sign in first' })).toBe(
-      'WEBMATE_NOT_SIGNED_IN'
-    )
     expect(
-      webmateCodeFromToolPayload({ name: 'webmate_extract', result: { result: 'failed', structuredContent: { code: 'WEBMATE_OUTDATED' } } })
+      webmateCodeFromToolPayload({
+        name: 'webmate_run',
+        result: { error: 'WEBMATE_NOT_CONNECTED: no browser attached' }
+      })
+    ).toBe('WEBMATE_NOT_CONNECTED')
+    expect(
+      webmateCodeFromToolPayload({ name: 'mcp_webmate_webmate_status', result: 'WEBMATE_NOT_SIGNED_IN: sign in first' })
+    ).toBe('WEBMATE_NOT_SIGNED_IN')
+    expect(
+      webmateCodeFromToolPayload({
+        name: 'webmate_extract',
+        result: { result: 'failed', structuredContent: { code: 'WEBMATE_OUTDATED' } }
+      })
     ).toBe('WEBMATE_OUTDATED')
     expect(webmateCodeFromToolPayload({ name: 'webmate_run', result: { result: 'Done. Page read.' } })).toBeNull()
     // Another tool quoting the code is not a WebMate failure.
@@ -152,12 +169,18 @@ describe('browserIdFromBridgeLabel', () => {
 
 describe('webmateReadiness', () => {
   it('reports off before anything else', () => {
-    expect(webmateReadiness({ status: status({ connected: true }), backend: backend({ server: { registered: true, enabled: false, command: null, args: [], bundled: true } }) })).toBe(
-      'off'
-    )
-    expect(webmateReadiness({ status: status(), backend: backend({ server: { registered: false, enabled: false, command: null, args: [], bundled: false } }) })).toBe(
-      'off'
-    )
+    expect(
+      webmateReadiness({
+        status: status({ connected: true }),
+        backend: backend({ server: { registered: true, enabled: false, command: null, args: [], bundled: true } })
+      })
+    ).toBe('off')
+    expect(
+      webmateReadiness({
+        status: status(),
+        backend: backend({ server: { registered: false, enabled: false, command: null, args: [], bundled: false } })
+      })
+    ).toBe('off')
   })
 
   it('walks the overall states: not installed → not connected → outdated → not signed in → ready', () => {
@@ -169,37 +192,87 @@ describe('webmateReadiness', () => {
           connected: true,
           browser: 'Chrome 152',
           protocolVersion: 2,
-          update: { checkedAt: null, ok: true, error: null, feedVersion: '1.0.5', available: false, blockedByMinWorkmate: false, belowMinProtocol: true, pendingVersion: null, failedVersions: [], notes: {}, minProtocol: 3 }
+          update: {
+            checkedAt: null,
+            ok: true,
+            error: null,
+            feedVersion: '1.0.5',
+            available: false,
+            blockedByMinWorkmate: false,
+            belowMinProtocol: true,
+            pendingVersion: null,
+            failedVersions: [],
+            notes: {},
+            minProtocol: 3
+          }
         }),
         backend: backend()
       })
     ).toBe('outdated')
-    expect(webmateReadiness({ status: status({ connected: true, browser: 'Chrome 152', signedIn: false }), backend: backend() })).toBe('notSignedIn')
-    expect(webmateReadiness({ status: status({ connected: true, browser: 'Chrome 152', signedIn: true }), backend: backend() })).toBe('ready')
+    expect(
+      webmateReadiness({
+        status: status({ connected: true, browser: 'Chrome 152', signedIn: false }),
+        backend: backend()
+      })
+    ).toBe('notSignedIn')
+    expect(
+      webmateReadiness({
+        status: status({ connected: true, browser: 'Chrome 152', signedIn: true }),
+        backend: backend()
+      })
+    ).toBe('ready')
     // Unknown backend (unreachable) never paints a false "off".
-    expect(webmateReadiness({ status: status({ connected: true, browser: 'Chrome 152', signedIn: true }), backend: null })).toBe('ready')
+    expect(
+      webmateReadiness({ status: status({ connected: true, browser: 'Chrome 152', signedIn: true }), backend: null })
+    ).toBe('ready')
   })
 
   it('tells a closed browser from a disabled extension per profile', () => {
     const chrome = browser({ running: false })
 
-    expect(webmateReadiness({ status: status(), backend: backend(), browser: chrome, profile: profile(false) })).toBe('notInstalled')
-    expect(webmateReadiness({ status: status(), backend: backend(), browser: chrome, profile: profile(true) })).toBe('installedClosed')
-    expect(webmateReadiness({ status: status(), backend: backend(), browser: browser({ running: true }), profile: profile(true) })).toBe(
-      'installedNotConnected'
+    expect(webmateReadiness({ status: status(), backend: backend(), browser: chrome, profile: profile(false) })).toBe(
+      'notInstalled'
     )
-    expect(webmateReadiness({ status: status(), backend: backend(), browser: browser({ running: true }), profile: profile(true, true) })).toBe(
-      'installedDisabled'
+    expect(webmateReadiness({ status: status(), backend: backend(), browser: chrome, profile: profile(true) })).toBe(
+      'installedClosed'
     )
+    expect(
+      webmateReadiness({
+        status: status(),
+        backend: backend(),
+        browser: browser({ running: true }),
+        profile: profile(true)
+      })
+    ).toBe('installedNotConnected')
+    expect(
+      webmateReadiness({
+        status: status(),
+        backend: backend(),
+        browser: browser({ running: true }),
+        profile: profile(true, true)
+      })
+    ).toBe('installedDisabled')
   })
 
   it('attributes a connection to the browser the bridge names', () => {
     const connected = status({ connected: true, browser: 'Microsoft Edge 152', signedIn: true })
 
-    expect(webmateReadiness({ status: connected, backend: backend(), browser: browser({ id: 'edge', name: 'Microsoft Edge' }), profile: profile(true) })).toBe('ready')
-    expect(webmateReadiness({ status: connected, backend: backend(), browser: browser({ id: 'chrome', running: true }), profile: profile(true) })).toBe(
-      'installedNotConnected'
-    )
+    expect(
+      webmateReadiness({
+        status: connected,
+        backend: backend(),
+        browser: browser({ id: 'edge', name: 'Microsoft Edge' }),
+        profile: profile(true)
+      })
+    ).toBe('ready')
+    expect(
+      webmateReadiness({
+        status: connected,
+        backend: backend(),
+        browser: browser({ id: 'chrome', running: true }),
+        profile: profile(true)
+      })
+    ).toBe('installedNotConnected')
   })
 })
 
@@ -223,7 +296,9 @@ describe('the "wants to use your browser" card', () => {
     expect($webmatePrompt.get()).toBeNull()
 
     $webmateStatus.set(status())
-    expect(reportWebmateToolPayload({ name: 'webmate_run', result: { error: 'WEBMATE_DISABLED: off' } })).toBe('WEBMATE_DISABLED')
+    expect(reportWebmateToolPayload({ name: 'webmate_run', result: { error: 'WEBMATE_DISABLED: off' } })).toBe(
+      'WEBMATE_DISABLED'
+    )
     expect($webmatePrompt.get()?.code).toBe('WEBMATE_DISABLED')
   })
 
@@ -280,12 +355,18 @@ describe('maybeNotifyWebmateUpdate', () => {
     expect(notifications.$notifications.get().map(n => n.id)).toEqual(['webmate-update-available'])
 
     notifications.clearNotifications()
-    $webmateStatus.set(status({ prefs: prefs({ autoUpdate: false, updateToastSnoozedUntil: new Date(Date.now() + 60_000).toISOString() }) }))
+    $webmateStatus.set(
+      status({
+        prefs: prefs({ autoUpdate: false, updateToastSnoozedUntil: new Date(Date.now() + 60_000).toISOString() })
+      })
+    )
     maybeNotifyWebmateUpdate(check())
     expect(notifications.$notifications.get()).toHaveLength(0)
 
     maybeNotifyWebmateUpdate(check({ belowMinProtocol: true, available: true }))
-    expect(notifications.$notifications.get().map(n => [n.id, n.kind])).toEqual([['webmate-update-required', 'warning']])
+    expect(notifications.$notifications.get().map(n => [n.id, n.kind])).toEqual([
+      ['webmate-update-required', 'warning']
+    ])
 
     // Resolved on the next check.
     maybeNotifyWebmateUpdate(check({ available: false, belowMinProtocol: false }))
@@ -311,7 +392,17 @@ describe('ensureWebmateServer + startWebmateGuide', () => {
       return { ok: true }
     })
 
-    const openGuide = vi.fn(async () => ({ ok: true, command: 'open …', error: null, folderOpened: true, folderError: null, browser: 'Google Chrome' }))
+    const openGuide = vi.fn(async () => ({
+      ok: true,
+      windowOpened: true,
+      navigated: true,
+      command: 'open …',
+      error: null,
+      folderOpened: true,
+      folderError: null,
+      browser: 'Google Chrome'
+    }))
+
     const setPrefs = vi.fn(async (patch: Partial<DesktopWebmatePrefs>) => prefs(patch))
 
     desktopWindow.agentxDesktop = {

@@ -2907,7 +2907,9 @@ export const en: Translations = {
       serverStarting: 'Turning on the browser connection…',
       serverError: 'The browser connection could not be turned on. You can try again in Settings → Browser.',
       openFailed: browser =>
-        `${browser} could not be opened. Open it yourself, type chrome://extensions in the address bar and continue with the steps.`
+        `${browser} could not be opened. Open it yourself, type chrome://extensions in the address bar and continue with the steps.`,
+      typeAddress: url =>
+        `If the extensions page did not appear, type ${url} into the address bar of the window that just opened.`
     },
     settings: {
       title: 'Browser',

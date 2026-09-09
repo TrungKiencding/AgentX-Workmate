@@ -2906,7 +2906,9 @@ export const ja = defineLocale({
       serverStarting: 'ブラウザー接続をオンにしています…',
       serverError: 'ブラウザー接続をオンにできませんでした。「設定 → ブラウザー」からやり直せます。',
       openFailed: browser =>
-        `${browser} を開けませんでした。手動で開き、アドレスバーに chrome://extensions と入力して、続きのステップを進めてください。`
+        `${browser} を開けませんでした。手動で開き、アドレスバーに chrome://extensions と入力して、続きのステップを進めてください。`,
+      typeAddress: url =>
+        `拡張機能ページが表示されない場合は、開いたウィンドウのアドレスバーに ${url} と入力してください。`
     },
     settings: {
       title: 'ブラウザー',

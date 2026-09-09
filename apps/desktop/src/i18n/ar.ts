@@ -2755,7 +2755,8 @@ export const ar = defineLocale({
       serverStarting: 'جارٍ تشغيل اتصال المتصفح…',
       serverError: 'تعذّر تشغيل اتصال المتصفح. يمكنك المحاولة مجددًا من الإعدادات ← المتصفح.',
       openFailed: browser =>
-        `تعذّر فتح ${browser}. افتحه بنفسك، واكتب chrome://extensions في شريط العناوين، ثم تابع الخطوات.`
+        `تعذّر فتح ${browser}. افتحه بنفسك، واكتب chrome://extensions في شريط العناوين، ثم تابع الخطوات.`,
+      typeAddress: url => `إذا لم تظهر صفحة الإضافات، اكتب ${url} في شريط عناوين النافذة التي فُتحت للتو.`
     },
     settings: {
       title: 'المتصفح',

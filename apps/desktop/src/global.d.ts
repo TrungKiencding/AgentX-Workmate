@@ -541,6 +541,10 @@ export interface DesktopWebmateStatus {
 
 export interface DesktopWebmateOpenGuideResult {
   ok: boolean
+  /** A window for the chosen profile opened. */
+  windowOpened: boolean
+  /** That window was steered to the extensions page; false → the person types the address. */
+  navigated: boolean
   command: string | null
   error: string | null
   folderOpened: boolean

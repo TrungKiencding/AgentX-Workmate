@@ -12695,7 +12695,15 @@ ipcMain.handle('agentx:webmate:prepare', async () => runWebmateBootstrap())
 ipcMain.handle('agentx:webmate:open-guide', async (_event, request) =>
   webmateService()
     .openGuide({ browserId: String(request?.browserId || ''), profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null })
-    .catch(error => ({ ...webmateFailure(error), command: null, folderOpened: false, folderError: null, browser: null }))
+    .catch(error => ({
+      ...webmateFailure(error),
+      windowOpened: false,
+      navigated: false,
+      command: null,
+      folderOpened: false,
+      folderError: null,
+      browser: null
+    }))
 )
 
 ipcMain.handle('agentx:webmate:reveal-folder', async () => {

@@ -25,6 +25,15 @@ import {
 
 import { webmateGuideImage } from './webmate-guide-images'
 
+/** The address to type when the window opened but could not be steered to the page. */
+function extensionsUrlFor(browserId: string): string {
+  return browserId === 'edge'
+    ? 'edge://extensions'
+    : browserId === 'brave'
+      ? 'brave://extensions'
+      : 'chrome://extensions'
+}
+
 /** After this long without a hello, show the usual reasons and the way out. */
 const SLOW_AFTER_MS = 120_000
 const TICK_MS = 5_000
@@ -248,6 +257,8 @@ export function WebmateGuideSteps({
       {guide.serverError ? <p className="text-xs text-destructive">{copy.serverError}</p> : null}
       {guide.openError && !guide.preparing ? (
         <p className="text-xs text-destructive">{copy.openFailed(guide.browserName)}</p>
+      ) : guide.opened && !guide.navigated && !guide.preparing ? (
+        <p className="text-xs text-(--ui-text-secondary)">{copy.typeAddress(extensionsUrlFor(guide.browserId))}</p>
       ) : null}
 
       <div className={cn('grid gap-4', image ? 'sm:grid-cols-[minmax(0,1fr)_16rem]' : '')}>

@@ -20,7 +20,7 @@ import {
   type WebmateCommandAction,
   type WebmateLastCommand
 } from './commands'
-import { openExtensionsPage, type OpenGuideResult, type SpawnDetached } from './guide'
+import { type ExecCapture, openExtensionsPage, type OpenGuideResult, type SpawnDetached } from './guide'
 import { defaultPairingIo, ensurePairing, parsePairingFile } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
 import { prefsFile, readPrefs, type WebmatePrefs, type WebmatePrefsPatch, writePrefs } from './prefs'
@@ -61,6 +61,8 @@ export interface WebmateServiceDeps {
   openPath: (dir: string) => Promise<string>
   writeClipboard: (text: string) => void
   spawnDetached?: SpawnDetached
+  /** Runs osascript / powershell for the second move of the guide. */
+  execCapture?: ExecCapture
   scanIo?: BrowserScanIo
   fetchImpl?: typeof fetch
   platform?: NodeJS.Platform
@@ -194,6 +196,8 @@ export class WebmateService {
     if (!browser) {
       return {
         ok: false,
+        windowOpened: false,
+        navigated: false,
         command: null,
         error: 'browser-not-found',
         folderOpened: false,
@@ -217,12 +221,15 @@ export class WebmateService {
     const opened = await openExtensionsPage(
       { browser, profileDir: profile?.dir ?? request.profileDir },
       this.platform,
-      this.deps.spawnDetached
+      {
+        run: this.deps.spawnDetached,
+        exec: this.deps.execCapture
+      }
     )
 
-    if (opened.command) {
-      this.log(`[webmate] opened extensions page: ${opened.command}`)
-    }
+    this.log(
+      `[webmate] guide for ${browser.name}: window ${opened.windowOpened ? 'opened' : 'NOT opened'}, extensions page ${opened.navigated ? 'reached' : 'not reached'}${opened.error ? ` (${opened.error})` : ''}${opened.command ? ` — ${opened.command}` : ''}`
+    )
 
     const folderError = await this.revealFolder()
 

@@ -131,7 +131,13 @@ describe('BrowserStepPanel', () => {
             displayName: 'Kiên',
             lastActive: null,
             isLastUsed: true,
-            webmate: { installed: true, path: '/Users/k/.agentx/webmate/AgentX WebMate', disabled: false, disableReasons: [], elsewhere: false }
+            webmate: {
+              installed: true,
+              path: '/Users/k/.agentx/webmate/AgentX WebMate',
+              disabled: false,
+              disableReasons: [],
+              elsewhere: false
+            }
           },
           {
             dir: 'Profile 2',
@@ -180,6 +186,7 @@ describe('BrowserStepPanel', () => {
       profileName: 'Kiên',
       startedAt: Date.now(),
       opened: true,
+      navigated: true,
       openError: null,
       folderOpened: true,
       copied: false,
@@ -197,7 +204,9 @@ describe('BrowserStepPanel', () => {
 
     // The extension dials in: the main process pushes a connected status.
     act(() => {
-      $webmateStatus.set(status({ connected: true, browser: 'Chrome 152', installType: 'workmate', extensionVersion: '1.0.4' }))
+      $webmateStatus.set(
+        status({ connected: true, browser: 'Chrome 152', installType: 'workmate', extensionVersion: '1.0.4' })
+      )
     })
 
     expect(screen.getByText('Connected · Chrome 152')).toBeTruthy()
@@ -214,6 +223,7 @@ describe('BrowserStepPanel', () => {
       profileName: null,
       startedAt: Date.now(),
       opened: true,
+      navigated: true,
       openError: null,
       folderOpened: true,
       copied: false,
@@ -236,6 +246,7 @@ describe('BrowserStepPanel', () => {
       profileName: null,
       startedAt: Date.now() - 130_000,
       opened: false,
+      navigated: false,
       openError: 'ENOENT',
       folderOpened: false,
       copied: false,

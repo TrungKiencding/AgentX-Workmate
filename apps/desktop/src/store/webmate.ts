@@ -69,7 +69,10 @@ export interface WebmateGuideState {
   profileName: string | null
   startedAt: number
   /** The command Workmate ran to open the extensions page, for the "reopen" affordance. */
+  /** A window for the profile opened. */
   opened: boolean
+  /** That window reached the extensions page; false means "type the address into the new window". */
+  navigated: boolean
   openError: string | null
   folderOpened: boolean
   copied: boolean
@@ -253,7 +256,10 @@ export function webmateReadiness({ status, backend, browser, profile }: Readines
     }
   }
 
-  if (status?.update?.belowMinProtocol || (minProtocol !== null && status?.protocolVersion !== null && (status?.protocolVersion ?? 0) < minProtocol)) {
+  if (
+    status?.update?.belowMinProtocol ||
+    (minProtocol !== null && status?.protocolVersion !== null && (status?.protocolVersion ?? 0) < minProtocol)
+  ) {
     return 'outdated'
   }
 
@@ -458,7 +464,10 @@ export async function setWebmateEnabled(enabled: boolean): Promise<boolean> {
  * open the extensions page for that profile and show the folder. From here on
  * the status watcher does the rest — connected flips the panel.
  */
-export async function startWebmateGuide(browser: DesktopWebmateBrowser, profile: DesktopWebmateBrowserProfile | null): Promise<WebmateGuideState> {
+export async function startWebmateGuide(
+  browser: DesktopWebmateBrowser,
+  profile: DesktopWebmateBrowserProfile | null
+): Promise<WebmateGuideState> {
   const api = bridge()
 
   const state: WebmateGuideState = {
@@ -468,6 +477,7 @@ export async function startWebmateGuide(browser: DesktopWebmateBrowser, profile:
     profileName: profile?.displayName ?? null,
     startedAt: Date.now(),
     opened: false,
+    navigated: false,
     openError: null,
     folderOpened: false,
     copied: false,
@@ -488,14 +498,24 @@ export async function startWebmateGuide(browser: DesktopWebmateBrowser, profile:
   try {
     opened = (await api?.openGuide?.({ browserId: browser.id, profileDir: profile?.dir ?? null })) ?? null
   } catch (error) {
-    opened = { ok: false, command: null, error: errMessage(error), folderOpened: false, folderError: null, browser: null }
+    opened = {
+      ok: false,
+      windowOpened: false,
+      navigated: false,
+      command: null,
+      error: errMessage(error),
+      folderOpened: false,
+      folderError: null,
+      browser: null
+    }
   }
 
   const next: WebmateGuideState = {
     ...state,
     preparing: false,
-    opened: Boolean(opened?.ok),
-    openError: opened && !opened.ok ? (opened.error ?? 'open-failed') : null,
+    opened: Boolean(opened?.windowOpened),
+    navigated: Boolean(opened?.navigated),
+    openError: opened && !opened.windowOpened ? (opened.error ?? 'open-failed') : null,
     folderOpened: Boolean(opened?.folderOpened)
   }
 
@@ -517,9 +537,14 @@ export async function reopenWebmateGuide(): Promise<void> {
   try {
     const opened = await api?.openGuide?.({ browserId: guide.browserId, profileDir: guide.profileDir })
 
-    $webmateGuide.set({ ...guide, opened: Boolean(opened?.ok), openError: opened && !opened.ok ? (opened.error ?? 'open-failed') : null })
+    $webmateGuide.set({
+      ...guide,
+      opened: Boolean(opened?.windowOpened),
+      navigated: Boolean(opened?.navigated),
+      openError: opened && !opened.windowOpened ? (opened.error ?? 'open-failed') : null
+    })
   } catch (error) {
-    $webmateGuide.set({ ...guide, opened: false, openError: errMessage(error) })
+    $webmateGuide.set({ ...guide, opened: false, navigated: false, openError: errMessage(error) })
   }
 }
 
@@ -696,11 +721,18 @@ export async function applyWebmateUpdate(): Promise<DesktopWebmateApplyOutcome |
 
     if (outcome.ok) {
       dismissNotification(MANDATORY_TOAST_ID)
-      notify({ kind: 'success', message: translateNow('webmate.update.doneToast', outcome.version), placement: 'default' })
+      notify({
+        kind: 'success',
+        message: translateNow('webmate.update.doneToast', outcome.version),
+        placement: 'default'
+      })
     } else if (!outcome.pending) {
       notify({
         kind: 'error',
-        message: translateNow('webmate.update.failedToast', outcome.error ?? translateNow('webmate.update.stages.error'))
+        message: translateNow(
+          'webmate.update.failedToast',
+          outcome.error ?? translateNow('webmate.update.stages.error')
+        )
       })
     }
 
