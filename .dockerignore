@@ -37,9 +37,17 @@ ui-tui/packages/hermes-ink/dist/
 # CI/CD
 .github
 
-# Environment files
+# Environment files — at ANY depth. A bare `.env` pattern only matches the
+# context root; without the `**/` forms, a nested one such as
+# deploy/second-brain/.env would be copied into an image by `COPY . /src`.
 .env
 .env.*
+**/.env
+**/.env.*
+
+# Local agent tooling: Claude Code settings and its git worktrees, which are
+# whole checkouts of this repository. Never part of an image.
+.claude/
 
 # IDE
 .vscode/
