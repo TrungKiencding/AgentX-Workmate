@@ -3010,6 +3010,8 @@ def _plugin_web_search_providers() -> list[dict]:
         # Optional pass-through fields the schema can opt into.
         if schema.get("post_setup"):
             row["post_setup"] = schema["post_setup"]
+        if schema.get("requires_account_sign_in"):
+            row["requires_account_sign_in"] = True
         rows.append(row)
     return rows
 
@@ -3369,8 +3371,9 @@ def provider_readiness_status(
     - ``"ready"``       — usable as-is (keys set / entitled / installed).
     - ``"needs_keys"``  — declares env vars and at least one is unset.
     - ``"needs_auth"``  — needs a sign-in: Nous Portal login/entitlement for
-      managed Tool Gateway rows, or xAI Grok OAuth / XAI_API_KEY for
-      ``post_setup: "xai_grok"`` rows.
+      managed Tool Gateway rows, xAI Grok OAuth / XAI_API_KEY for
+      ``post_setup: "xai_grok"`` rows, or an AgentX account for
+      ``requires_account_sign_in`` rows.
     - ``"needs_setup"`` — keyless row whose ``post_setup`` install hook has
       verifiably not run yet (see ``_POST_SETUP_READY``).
 
@@ -3414,6 +3417,17 @@ def provider_readiness_status(
         # Signed in and entitled — fall through: a managed row may still
         # carry a local install hook (e.g. the managed browser row needs
         # the agent-browser CLI on this machine).
+
+    if provider.get("requires_account_sign_in"):
+        # Keyless because signing in supplies the key, not because none is
+        # needed (the AgentX AI Gateway row): ready once this account holds one.
+        try:
+            from tools.web_tools import _is_backend_available
+
+            usable = _is_backend_available(str(provider.get("web_backend") or ""))
+        except Exception:
+            usable = False
+        return "ready" if usable else "needs_auth"
 
     post_setup = provider.get("post_setup")
     if post_setup:

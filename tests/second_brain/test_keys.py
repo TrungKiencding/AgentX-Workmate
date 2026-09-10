@@ -873,3 +873,250 @@ class TestGrantedModels:
         assert response.status_code == 502
         assert response.json()["error"] == "no_grantable_models"
         assert only_embeddings.paths_hit("/key/generate") == 0
+
+
+# ===========================================================================
+# Web search
+# ===========================================================================
+
+SEARCH_MODEL = "perplexity/preset/pro-search"
+
+SEARCH_CATALOG = {
+    "Qwen/Qwen3.6-35B-A3B-FP8": "chat",
+    "BAAI/bge-m3": "embedding",
+    SEARCH_MODEL: "responses",
+}
+
+
+@pytest.fixture
+def search_proxy() -> FakeLiteLLM:
+    """A proxy serving a chat model beside a Perplexity search preset."""
+    return FakeLiteLLM(catalog=tuple(SEARCH_CATALOG), modes=SEARCH_CATALOG)
+
+
+def _proxy_client(proxy: FakeLiteLLM) -> LiteLLMAdminClient:
+    return LiteLLMAdminClient(
+        PROXY_URL, proxy.admin_key, transport=proxy.transport, sleep=lambda _s: None
+    )
+
+
+def _settings_for(brain_settings, proxy: FakeLiteLLM, **overrides):
+    import dataclasses
+
+    return dataclasses.replace(
+        brain_settings,
+        litellm_base_url=PROXY_URL,
+        litellm_admin_key=proxy.admin_key,
+        **overrides,
+    )
+
+
+async def _collect(app, headers) -> dict:
+    async with brain_client(app) as vault:
+        response = await vault.post("/v1/model-key", headers=headers, json={})
+    assert response.status_code == 200
+    return response.json()
+
+
+class TestWebSearchGrant:
+    async def test_a_new_key_can_search_but_the_picker_never_offers_it(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        app = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy),
+        )
+
+        body = await _collect(app, two_devices["laptop"])
+
+        assert body["web_search_model"] == SEARCH_MODEL
+        # A search preset is nothing anybody can talk to: not in the picker,
+        # and never the model an account opens on.
+        assert body["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8"]
+        assert body["default_model"] == "Qwen/Qwen3.6-35B-A3B-FP8"
+        # Enforced by the proxy against the key itself.
+        (record,) = search_proxy.records.values()
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8", SEARCH_MODEL]
+
+    async def test_a_model_the_proxy_does_not_serve_is_not_granted(
+        self, build_brain, brain_settings, two_devices
+    ):
+        chat_only = FakeLiteLLM(
+            catalog=("Qwen/Qwen3.6-35B-A3B-FP8",),
+            modes={"Qwen/Qwen3.6-35B-A3B-FP8": "chat"},
+        )
+        app = build_brain(
+            litellm=_proxy_client(chat_only), settings=_settings_for(brain_settings, chat_only)
+        )
+
+        body = await _collect(app, two_devices["laptop"])
+
+        # Somebody still gets their key; they just get no web search with it.
+        assert body["web_search_model"] == ""
+        (record,) = chat_only.records.values()
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8"]
+
+    async def test_turned_off_it_grants_nothing(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        app = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy, web_search_model=""),
+        )
+
+        body = await _collect(app, two_devices["laptop"])
+
+        assert body["web_search_model"] == ""
+        (record,) = search_proxy.records.values()
+        assert SEARCH_MODEL not in record["models"]
+
+    async def test_a_rotated_key_keeps_web_search(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        app = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy),
+        )
+        async with brain_client(app) as vault:
+            await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+            rotated = await vault.post(
+                "/v1/model-key", headers=two_devices["laptop"], json={"rotate": True}
+            )
+
+        assert rotated.json()["web_search_model"] == SEARCH_MODEL
+        (record,) = search_proxy.records.values()
+        assert SEARCH_MODEL in record["models"]
+
+
+class TestWebSearchGrantPass:
+    """Keys issued before web search, or before its model changed, catch up by themselves."""
+
+    async def test_a_key_issued_before_web_search_gets_it_without_anyone_signing_in(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        from second_brain.keys import reconcile_web_search_grants
+
+        before = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy, web_search_model=""),
+        )
+        issued = await _collect(before, two_devices["laptop"])
+        assert issued["web_search_model"] == ""
+
+        now = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy),
+        )
+        assert await reconcile_web_search_grants(now.state.brain) == 1
+
+        (record,) = search_proxy.records.values()
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8", SEARCH_MODEL]
+        collected = await _collect(now, two_devices["desktop"])
+        # The same key, now reaching web search — nothing was minted again.
+        assert collected["key"] == issued["key"]
+        assert collected["web_search_model"] == SEARCH_MODEL
+        assert search_proxy.paths_hit("/key/generate") == 1
+
+        # Nothing left to do, and a pass with nothing to do sends no update.
+        updates = search_proxy.paths_hit("/key/update")
+        assert await reconcile_web_search_grants(now.state.brain) == 0
+        assert search_proxy.paths_hit("/key/update") == updates
+
+    async def test_changing_the_model_moves_every_key_across(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_web_search_grants
+
+        catalog = {
+            "chat-a": "chat",
+            SEARCH_MODEL: "responses",
+            "perplexity/preset/fast-search": "responses",
+        }
+        proxy = FakeLiteLLM(catalog=tuple(catalog), modes=catalog)
+        await _collect(
+            build_brain(litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)),
+            two_devices["laptop"],
+        )
+
+        faster = build_brain(
+            litellm=_proxy_client(proxy),
+            settings=_settings_for(
+                brain_settings, proxy, web_search_model="perplexity/preset/fast-search"
+            ),
+        )
+        assert await reconcile_web_search_grants(faster.state.brain) == 1
+
+        (record,) = proxy.records.values()
+        assert record["models"] == ["chat-a", "perplexity/preset/fast-search"]
+        collected = await _collect(faster, two_devices["desktop"])
+        assert collected["web_search_model"] == "perplexity/preset/fast-search"
+
+    async def test_turning_it_off_withdraws_it(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        from second_brain.keys import reconcile_web_search_grants
+
+        await _collect(
+            build_brain(
+                litellm=_proxy_client(search_proxy),
+                settings=_settings_for(brain_settings, search_proxy),
+            ),
+            two_devices["laptop"],
+        )
+
+        off = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy, web_search_model=""),
+        )
+        assert await reconcile_web_search_grants(off.state.brain) == 1
+
+        (record,) = search_proxy.records.values()
+        # Withdrawn, with the chat grant left exactly as it was — never an empty
+        # list, which LiteLLM would read as "every model".
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8"]
+        assert (await _collect(off, two_devices["desktop"]))["web_search_model"] == ""
+
+    async def test_a_model_the_proxy_stops_serving_leaves_existing_grants_alone(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        from second_brain.keys import reconcile_web_search_grants
+
+        def app():
+            return build_brain(
+                litellm=_proxy_client(search_proxy),
+                settings=_settings_for(brain_settings, search_proxy),
+            )
+
+        await _collect(app(), two_devices["laptop"])
+
+        # A proxy in the middle of a reload, briefly not listing the preset.
+        del search_proxy.modes[SEARCH_MODEL]
+        assert await reconcile_web_search_grants(app().state.brain) == 0
+
+        assert search_proxy.paths_hit("/key/update") == 0
+        assert (await _collect(app(), two_devices["desktop"]))["web_search_model"] == SEARCH_MODEL
+
+    async def test_an_unreachable_proxy_changes_nothing(
+        self, build_brain, brain_settings, search_proxy, two_devices
+    ):
+        from hermes_cli.litellm_admin import LiteLLMError
+        from second_brain.keys import reconcile_web_search_grants
+
+        await _collect(
+            build_brain(
+                litellm=_proxy_client(search_proxy),
+                settings=_settings_for(brain_settings, search_proxy, web_search_model=""),
+            ),
+            two_devices["laptop"],
+        )
+
+        search_proxy.fault = "connect"
+        app = build_brain(
+            litellm=_proxy_client(search_proxy),
+            settings=_settings_for(brain_settings, search_proxy),
+        )
+        with pytest.raises(LiteLLMError):
+            await reconcile_web_search_grants(app.state.brain)
+
+        (record,) = search_proxy.records.values()
+        assert SEARCH_MODEL not in record["models"]

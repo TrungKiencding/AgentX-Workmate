@@ -27,6 +27,7 @@ from second_brain.errors import BrainConfigError
 from second_brain.settings import (
     DATABASE_URL_ENV_VAR,
     KEK_ENV_VAR,
+    WEB_SEARCH_MODEL_ENV_VAR,
     BrainSettings,
     decode_kek,
     load_settings,
@@ -114,6 +115,19 @@ class TestSettings:
         # The device registry mints nothing, so a Phase 1 deployment is
         # allowed to omit the proxy entirely.
         assert not settings.litellm_configured
+
+    async def test_keys_are_granted_web_search_unless_told_otherwise(self):
+        base = {DATABASE_URL_ENV_VAR: "postgresql://brain@db/brain", KEK_ENV_VAR: TEST_KEK}
+
+        assert load_settings(base).web_search_model == "perplexity/preset/pro-search"
+        named = load_settings({**base, WEB_SEARCH_MODEL_ENV_VAR: " perplexity/preset/fast-search "})
+        assert named.web_search_model == "perplexity/preset/fast-search"
+        for off in ("off", "OFF", "none"):
+            assert load_settings({**base, WEB_SEARCH_MODEL_ENV_VAR: off}).web_search_model == ""
+        # Cleared is not off. A variable somebody emptied must not quietly take
+        # web search away from everyone.
+        cleared = load_settings({**base, WEB_SEARCH_MODEL_ENV_VAR: ""})
+        assert cleared.web_search_model == "perplexity/preset/pro-search"
 
 
 class TestBuildApp:

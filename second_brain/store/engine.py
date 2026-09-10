@@ -96,6 +96,10 @@ class ModelKeyRow:
     models: tuple[str, ...]
     created_at: datetime
     rotated_at: datetime | None
+    #: The web search model the key may call on top of ``models``, or ``""``.
+    #: Its own column rather than an entry in ``models``, because that list is
+    #: the picker and its first entry the account's default.
+    web_search_model: str = ""
 
 
 @dataclass(frozen=True)
@@ -162,6 +166,7 @@ def _model_key_row(record: Any) -> ModelKeyRow:
         models=tuple(str(m) for m in (models or ())),
         created_at=record["created_at"],
         rotated_at=record["rotated_at"],
+        web_search_model=str(record["web_search_model"] or ""),
     )
 
 
@@ -553,6 +558,7 @@ class Store:
         kek_id: str,
         base_url: str = "",
         models: Sequence[str] = (),
+        web_search_model: str = "",
     ) -> ModelKeyRow:
         """Store this person's wrapped key, replacing any already there.
 
@@ -567,8 +573,8 @@ class Store:
             """
             INSERT INTO model_keys (
                 subject, key_alias, litellm_token, ciphertext, nonce, kek_id,
-                base_url, models
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+                base_url, models, web_search_model
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
             ON CONFLICT (subject) DO UPDATE
                SET key_alias     = EXCLUDED.key_alias,
                    litellm_token = EXCLUDED.litellm_token,
@@ -577,6 +583,7 @@ class Store:
                    kek_id        = EXCLUDED.kek_id,
                    base_url      = EXCLUDED.base_url,
                    models        = EXCLUDED.models,
+                   web_search_model = EXCLUDED.web_search_model,
                    rotated_at    = now()
             RETURNING *
             """,
@@ -588,6 +595,7 @@ class Store:
             kek_id,
             base_url,
             json.dumps([str(m) for m in (models or ())]),
+            web_search_model or "",
         )
         return _model_key_row(record)
 
@@ -624,6 +632,42 @@ class Store:
             from_kek_id,
         )
         return str(result or "").strip() != "UPDATE 0"
+
+    async def set_web_search_grant(
+        self, subject: str, *, litellm_token: str, web_search_model: str
+    ) -> ModelKeyRow | None:
+        """Record which web search model this person's key now reaches.
+
+        Guarded on ``litellm_token``, as ``rewrap_model_key`` is guarded on the
+        KEK: a rotation that landed while the grant was being changed upstream
+        stored a different key with a grant of its own, and must not be
+        overwritten with what was true of the key it replaced. Returns the
+        updated row, or None when the guard did not match.
+        """
+        record = await self._fetchrow(
+            """
+            UPDATE model_keys
+               SET web_search_model = $3
+             WHERE subject = $1 AND litellm_token = $2
+            RETURNING *
+            """,
+            subject,
+            litellm_token,
+            web_search_model or "",
+        )
+        return _model_key_row(record) if record else None
+
+    async def stale_web_search_grants(self, current: Sequence[str]) -> list[ModelKeyRow]:
+        """Every stored key whose web search grant is not one of *current*.
+
+        Across every account, like ``sweep_tombstones``: it feeds the service's
+        own reconciliation pass rather than a request anybody made.
+        """
+        records = await self._fetch(
+            "SELECT * FROM model_keys WHERE NOT (web_search_model = ANY($1::text[]))",
+            [str(value) for value in current],
+        )
+        return [_model_key_row(record) for record in records]
 
     # -- documents --------------------------------------------------------
 
