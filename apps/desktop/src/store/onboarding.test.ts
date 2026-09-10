@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { DesktopAccountLiteLlm, DesktopAccountProvisionResult } from '@/global'
 import * as notifications from '@/store/notifications'
 import type { OAuthProvider } from '@/types/hermes'
 
 import {
   $desktopOnboarding,
   advanceFromModelConfirm,
+  cancelOnboardingFlow,
   completeBrowserStep,
+  connectAgentxGateway,
   type DesktopOnboardingState,
   type OnboardingContext,
   refreshOnboarding,
@@ -728,5 +731,272 @@ describe('the browser step after the model card', () => {
     $desktopOnboarding.set(confirming())
     completeBrowserStep(ctx, 'never')
     expect(onCompleted).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('AgentX AI Gateway onboarding', () => {
+  const grantedKey = (patch: Partial<DesktopAccountLiteLlm> = {}): DesktopAccountLiteLlm => ({
+    base_url: 'https://gateway.example',
+    detail: 'the key already on this account is still valid.',
+    key_alias: 'second-brain-someone',
+    masked_key: 'sk-…abcd',
+    // Chat-first, the order the service grants in.
+    models: ['Qwen/Qwen3.6-35B', 'MiniMax/MiniMax-M3'],
+    ok: true,
+    provider: 'litellm',
+    status: 'reused',
+    ...patch
+  })
+
+  function installGatewayBridge(
+    provision: () => Promise<DesktopAccountProvisionResult>,
+    api: (request: { body?: unknown; path: string }) => Promise<unknown> = async ({ path }) => {
+      throw new Error(`unexpected api path: ${path}`)
+    }
+  ) {
+    const provisionMock = vi.fn(provision)
+
+    Object.defineProperty(window, 'agentxDesktop', {
+      configurable: true,
+      value: { account: { provision: provisionMock, status: vi.fn() }, api }
+    })
+
+    return provisionMock
+  }
+
+  function gatewayReadyRuntime(): OnboardingContext['requestGateway'] {
+    return async (method, params) => {
+      if (method === 'reload.env') {
+        return {} as never
+      }
+
+      if (method === 'setup.status') {
+        return { provider_configured: true } as never
+      }
+
+      if (method === 'setup.runtime_check') {
+        // The bare `providers:` key — what model.provider holds once assigned.
+        expect(params).toEqual({ provider: 'litellm' })
+
+        return { ok: true } as never
+      }
+
+      throw new Error(`unexpected gateway method: ${method}`)
+    }
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    $desktopOnboarding.set(baseState())
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
+    $desktopOnboarding.set(baseState())
+    Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: undefined })
+    vi.restoreAllMocks()
+  })
+
+  it('moves the main model onto the gateway key and shows the model card', async () => {
+    const calls: { body?: unknown; path: string }[] = []
+
+    const provision = installGatewayBridge(
+      async () => ({ ok: true, litellm: grantedKey() }),
+      async ({ body, path }) => {
+        calls.push({ body, path })
+
+        if (path.startsWith('/api/model/options')) {
+          // The person was on another provider, and the gateway row lists its
+          // models in another order: the key's chat-first order decides.
+          return {
+            provider: 'nous',
+            model: 'Hermes-4-405B',
+            providers: [
+              { name: 'Nous Portal', slug: 'nous', models: ['Hermes-4-405B'] },
+              { name: 'AgentX AI Gateway', slug: 'litellm', models: ['MiniMax/MiniMax-M3', 'Qwen/Qwen3.6-35B'] }
+            ]
+          }
+        }
+
+        if (path === '/api/model/set') {
+          return { ok: true, provider: 'litellm', model: 'Qwen/Qwen3.6-35B' }
+        }
+
+        throw new Error(`unexpected api path: ${path}`)
+      }
+    )
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    // No `rotate`: picking the card must never retire the key another of this
+    // person's machines holds.
+    expect(provision).toHaveBeenCalledWith()
+    expect(calls.find(c => c.path === '/api/model/set')?.body).toMatchObject({
+      scope: 'main',
+      provider: 'litellm',
+      model: 'Qwen/Qwen3.6-35B'
+    })
+    expect(calls.some(c => c.path.startsWith('/api/model/recommended-default'))).toBe(false)
+    expect($desktopOnboarding.get().flow).toMatchObject({
+      status: 'confirming_model',
+      label: 'AgentX AI Gateway',
+      providerSlug: 'litellm',
+      currentModel: 'Qwen/Qwen3.6-35B'
+    })
+  })
+
+  it('keeps a main model the account already runs on the gateway', async () => {
+    const calls: { body?: unknown; path: string }[] = []
+
+    installGatewayBridge(
+      async () => ({ ok: true, litellm: grantedKey() }),
+      async ({ body, path }) => {
+        calls.push({ body, path })
+
+        if (path.startsWith('/api/model/options')) {
+          return {
+            provider: 'litellm',
+            model: 'MiniMax/MiniMax-M3',
+            providers: [
+              { name: 'AgentX AI Gateway', slug: 'litellm', models: ['Qwen/Qwen3.6-35B', 'MiniMax/MiniMax-M3'] }
+            ]
+          }
+        }
+
+        if (path === '/api/model/set') {
+          return { ok: true, provider: 'litellm', model: 'MiniMax/MiniMax-M3' }
+        }
+
+        throw new Error(`unexpected api path: ${path}`)
+      }
+    )
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    expect(calls.find(c => c.path === '/api/model/set')?.body).toMatchObject({ model: 'MiniMax/MiniMax-M3' })
+    expect($desktopOnboarding.get().flow).toMatchObject({
+      status: 'confirming_model',
+      currentModel: 'MiniMax/MiniMax-M3'
+    })
+  })
+
+  it('never lands on another provider when the gateway row is missing', async () => {
+    const calls: string[] = []
+
+    installGatewayBridge(
+      async () => ({ ok: true, litellm: grantedKey() }),
+      async ({ path }) => {
+        calls.push(path)
+
+        if (path.startsWith('/api/model/options')) {
+          return { providers: [{ name: 'Nous Portal', slug: 'nous', models: ['Hermes-4-405B'] }] }
+        }
+
+        throw new Error(`unexpected api path: ${path}`)
+      }
+    )
+
+    const requestGateway: OnboardingContext['requestGateway'] = async method => {
+      if (method === 'reload.env') {
+        return {} as never
+      }
+
+      if (method === 'setup.status') {
+        return { provider_configured: true } as never
+      }
+
+      if (method === 'setup.runtime_check') {
+        return { ok: false, error: 'No usable credentials found for nous.' } as never
+      }
+
+      throw new Error(`unexpected gateway method: ${method}`)
+    }
+
+    await connectAgentxGateway(onboardingContext(requestGateway))
+
+    expect(calls).not.toContain('/api/model/set')
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status).toBe('error')
+    expect(flow.status === 'error' ? flow.message : '').toContain('No usable credentials found for nous.')
+  })
+
+  it.each([
+    ['offline', 'Could not reach AgentX AI Gateway'],
+    ['unconfigured', 'not set up on this install'],
+    ['disabled', 'not set up on this install'],
+    ['revoked', 'This device has been revoked'],
+    ['error', 'could not issue a model key: the service rejected the sign-in']
+  ])('explains a %s key and leaves the model alone', async (status, sentence) => {
+    const api = vi.fn(async () => ({}))
+
+    installGatewayBridge(
+      async () => ({
+        ok: false,
+        litellm: grantedKey({ detail: 'the service rejected the sign-in', models: [], ok: false, status })
+      }),
+      api
+    )
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    expect(api).not.toHaveBeenCalled()
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status).toBe('error')
+    expect(flow.status === 'error' ? flow.message : '').toContain(sentence)
+  })
+
+  it('asks the person to check their sign-in when the desktop gets no answer', async () => {
+    installGatewayBridge(async () => ({ ok: false, error: 'Sign in first — there is no account to provision.' }))
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status).toBe('error')
+    expect(flow.status === 'error' ? flow.message : '').toContain('signed in to AgentX')
+  })
+
+  it('leaves a cancelled flow alone when the key arrives late', async () => {
+    let deliver!: (result: DesktopAccountProvisionResult) => void
+    const api = vi.fn(async () => ({}))
+
+    installGatewayBridge(
+      () =>
+        new Promise(resolve => {
+          deliver = resolve
+        }),
+      api
+    )
+
+    const pending = connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    expect($desktopOnboarding.get().flow.status).toBe('connecting_gateway')
+
+    cancelOnboardingFlow()
+    deliver({ ok: true, litellm: grantedKey() })
+    await pending
+
+    expect($desktopOnboarding.get().flow.status).toBe('idle')
+    expect(api).not.toHaveBeenCalled()
+  })
+
+  it('keeps the picker, not the key form, when only the gateway is on offer', async () => {
+    installGatewayBridge(
+      async () => ({ ok: false }),
+      async ({ path }) => {
+        if (path === '/api/providers/oauth') {
+          return { providers: [] }
+        }
+
+        throw new Error(`unexpected api path: ${path}`)
+      }
+    )
+
+    $desktopOnboarding.set(baseState({ requested: true }))
+
+    await refreshOnboarding(onboardingContext(emptyOpenRouterGateway()))
+
+    expect($desktopOnboarding.get()).toMatchObject({ mode: 'oauth', providers: [] })
   })
 })

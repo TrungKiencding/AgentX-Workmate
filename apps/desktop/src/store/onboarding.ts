@@ -1,5 +1,6 @@
 import { atom } from 'nanostores'
 
+import type { DesktopAccountProvisionResult } from '@/global'
 import {
   cancelOAuthSession,
   getGlobalModelOptions,
@@ -61,6 +62,12 @@ export type OnboardingFlow =
       // own state (browsers, chosen profile, live connection) lives in
       // store/webmate.ts; this entry only marks where the flow stands.
       status: 'connecting_browser'
+    }
+  | {
+      // "AgentX AI Gateway" was picked: the main process is asking the backend
+      // for this account's gateway key — the same provisioning sign-in runs.
+      // No OAuthProvider rides along; the gateway is not a sign-in it lists.
+      status: 'connecting_gateway'
     }
   | { message: string; provider?: OAuthProvider; start?: OAuthStartResponse; status: 'error' }
 
@@ -261,7 +268,10 @@ function notifyGatewayTools(tools: string[] | undefined) {
 // we had before, which works but is surprising. The confirm step is
 // opportunistic polish, not a hard requirement for onboarding.
 async function fetchProviderDefaultModel(
-  preferredSlugs: string[]
+  preferredSlugs: string[],
+  // Set for the account's own AgentX AI Gateway; `model` is the first model
+  // its key grants. See the branch below for what changes.
+  accountGateway?: { model?: string }
 ): Promise<null | { providerSlug: string; defaultModel: string }> {
   let options
 
@@ -279,13 +289,32 @@ async function fetchProviderDefaultModel(
 
   // Try each preferred slug (lowercased), fall back to the first provider
   // returned (model.options orders by recency / authenticated state, so
-  // the just-authenticated provider is usually first anyway).
+  // the just-authenticated provider is usually first anyway). The account
+  // gateway gets no fallback: a first row that is some other provider would
+  // put the person on a model their gateway key never granted.
   const lower = preferredSlugs.map(s => s.toLowerCase())
 
   const matched =
-    providers.find((p: ModelOptionProvider) => lower.includes(String(p.slug).toLowerCase())) ?? providers[0]
+    providers.find((p: ModelOptionProvider) => lower.includes(String(p.slug).toLowerCase())) ??
+    (accountGateway ? undefined : providers[0])
+
+  if (!matched) {
+    return null
+  }
 
   const models = matched.models ?? []
+
+  if (accountGateway) {
+    // A main model already on the gateway stays — provisioning pinned it, or
+    // the person picked it — so choosing the card again never resets it.
+    // Otherwise the key decides: the service grants chat models first, which
+    // is more than a curated recommendation knows about this proxy.
+    const current = String(options.provider ?? '').toLowerCase()
+    const kept = current && lower.includes(current) ? (options.model ?? '').trim() : ''
+    const defaultModel = kept || accountGateway.model?.trim() || String(models[0] ?? '')
+
+    return defaultModel ? { providerSlug: String(matched.slug), defaultModel } : null
+  }
 
   if (models.length === 0) {
     return null
@@ -330,14 +359,21 @@ async function completeWithModelConfirm(
   providerLabel: string,
   preferredSlugs: string[],
   onFail: (reason: null | string) => void,
-  // When true, a failing runtime check no longer blocks progression — the
-  // user is allowed through onboarding regardless. Used by the API-key path,
-  // where we intentionally don't validate the key (it blocked too many users).
-  ignoreRuntimeGate = false
+  {
+    accountGateway,
+    ignoreRuntimeGate = false
+  }: {
+    // The provider is the account's AgentX AI Gateway — see fetchProviderDefaultModel.
+    accountGateway?: { model?: string }
+    // When true, a failing runtime check no longer blocks progression — the
+    // user is allowed through onboarding regardless. Used by the API-key path,
+    // where we intentionally don't validate the key (it blocked too many users).
+    ignoreRuntimeGate?: boolean
+  } = {}
 ) {
   await ctx.requestGateway('reload.env').catch(() => undefined)
 
-  const defaults = await fetchProviderDefaultModel(preferredSlugs)
+  const defaults = await fetchProviderDefaultModel(preferredSlugs, accountGateway)
 
   if (defaults) {
     // Persist the chosen provider/model before the runtime gate so a stale
@@ -398,11 +434,15 @@ async function refreshProviders() {
   }
 
   providersRefreshPromise = (async () => {
+    // The AgentX AI Gateway card is a choice of its own, so the picker stays up
+    // even when the backend lists no sign-in providers (or cannot list them).
+    const fallbackMode: OnboardingMode = isAgentxGatewayAvailable() ? 'oauth' : 'apikey'
+
     try {
       const { providers } = await listOAuthProviders()
-      patch({ mode: providers.length > 0 ? 'oauth' : 'apikey', providers })
+      patch({ mode: providers.length > 0 ? 'oauth' : fallbackMode, providers })
     } catch {
-      patch({ mode: 'apikey', providers: [] })
+      patch({ mode: fallbackMode, providers: [] })
     } finally {
       providersRefreshPromise = null
     }
@@ -786,6 +826,94 @@ export async function recheckExternalSignin(ctx: OnboardingContext) {
   )
 }
 
+/** What the account's own model proxy is called in every picker. Mirrors
+ *  PROVIDER_DISPLAY_NAME in hermes_cli/account_provisioning.py — the backend
+ *  writes that label into providers.<slug>.name, so the two must agree. */
+export const AGENTX_GATEWAY_LABEL = 'AgentX AI Gateway'
+
+// The `providers:` key provisioning writes (the accounts.litellm.provider_name
+// default), for a result that does not name one.
+const AGENTX_GATEWAY_PROVIDER = 'litellm'
+
+/** Whether this surface can offer the gateway: only the desktop app's main
+ *  process can ask the backend for the signed-in account's key. */
+export function isAgentxGatewayAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof window.agentxDesktop?.account?.provision === 'function'
+}
+
+// Product language for a key the backend could not hand over — table-driven
+// over the provisioning status, like Settings → Account's describeKey. `detail`
+// is operator prose that names a config setting, so it only surfaces for the
+// statuses nobody wrote a sentence for.
+const GATEWAY_FAILURE_COPY: Record<string, string> = {
+  disabled: 'onboarding.messages.gatewayNotSetUp',
+  offline: 'onboarding.messages.gatewayOffline',
+  revoked: 'onboarding.messages.gatewayRevoked',
+  unconfigured: 'onboarding.messages.gatewayNotSetUp'
+}
+
+function gatewayFailureMessage(result: DesktopAccountProvisionResult | null): string {
+  const litellm = result?.litellm
+
+  if (!litellm) {
+    // No answer at all: nobody signed in, a lapsed session, or a backend that
+    // timed out — the main process reports all three the same way.
+    return translateNow('onboarding.messages.gatewayNoAnswer')
+  }
+
+  const key = GATEWAY_FAILURE_COPY[litellm.status]
+
+  if (key) {
+    return translateNow(key)
+  }
+
+  return translateNow('onboarding.messages.gatewayFailed', litellm.detail.trim() || litellm.status)
+}
+
+// "AgentX AI Gateway" on the picker: run on the models that come with the
+// signed-in AgentX account. Provisioning is the call sign-in already makes — it
+// reuses a live key or collects this account's key from the service, and writes
+// providers.<slug> — so picking the card is safe to repeat, and it never
+// rotates. What provisioning leaves alone is a main model already set on some
+// other provider; moving that onto the gateway is the choice made here.
+export async function connectAgentxGateway(ctx: OnboardingContext) {
+  clearPoll()
+  setFlow({ status: 'connecting_gateway' })
+
+  let result: DesktopAccountProvisionResult | null = null
+
+  try {
+    result = (await window.agentxDesktop?.account?.provision()) ?? null
+  } catch {
+    result = null
+  }
+
+  // Closed or cancelled while the key was on its way: the person has moved on.
+  if ($desktopOnboarding.get().flow.status !== 'connecting_gateway') {
+    return
+  }
+
+  const litellm = result?.litellm
+
+  if (!result?.ok || !litellm?.ok) {
+    setFlow({ status: 'error', message: gatewayFailureMessage(result) })
+
+    return
+  }
+
+  const provider = litellm.provider.trim() || AGENTX_GATEWAY_PROVIDER
+
+  await completeWithModelConfirm(
+    ctx,
+    AGENTX_GATEWAY_LABEL,
+    // The picker lists a `providers:` entry under its bare key; the durable
+    // `custom:` form is what grouped custom-endpoint rows carry.
+    [provider, `custom:${provider}`],
+    reason => setFlow({ status: 'error', message: providerResolutionFailure(reason) }),
+    { accountGateway: { model: litellm.models[0] } }
+  )
+}
+
 export async function saveOnboardingApiKey(
   envKey: string,
   value: string,
@@ -825,7 +953,7 @@ export async function saveOnboardingApiKey(
     // provider returned by /api/model/options if none match.
     const slugCandidates = [envKey.replace(/_API_KEY$/, '').toLowerCase(), label.toLowerCase()]
     // ignoreRuntimeGate=true: never block onboarding on the runtime check.
-    await completeWithModelConfirm(ctx, label, slugCandidates, () => undefined, true)
+    await completeWithModelConfirm(ctx, label, slugCandidates, () => undefined, { ignoreRuntimeGate: true })
 
     return { ok: true }
   } catch (error) {

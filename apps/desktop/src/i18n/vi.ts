@@ -3031,7 +3031,14 @@ export const vi: Translations = {
       localEndpointLabel: 'Endpoint cục bộ / tự định nghĩa',
       couldNotSaveLocalEndpoint: 'Không lưu được endpoint cục bộ',
       couldNotChangeModel: 'Không đổi được model',
-      directApiAccess: name => `Truy cập API trực tiếp tới ${name}.`
+      directApiAccess: name => `Truy cập API trực tiếp tới ${name}.`,
+      gatewayNoAnswer:
+        'AgentX chưa lấy được key model cho tài khoản của bạn. Hãy kiểm tra bạn đã đăng nhập AgentX và đang có mạng, rồi thử lại.',
+      gatewayNotSetUp:
+        'Bản cài này chưa được thiết lập AgentX AI Gateway. Hãy hỏi người quản lý AgentX, hoặc chọn nhà cung cấp khác.',
+      gatewayOffline: 'Không kết nối được tới AgentX AI Gateway. Hãy kiểm tra mạng rồi thử lại.',
+      gatewayRevoked: 'Thiết bị này đã bị thu hồi. Hãy đăng nhập lại AgentX để dùng AgentX AI Gateway.',
+      gatewayFailed: detail => `AgentX AI Gateway không cấp được key model: ${detail}`
     },
     headerTitle: 'Cùng thiết lập AgentX Workmate cho bạn nào',
     headerDesc: 'Kết nối một nhà cung cấp model để bắt đầu trò chuyện. Phần lớn lựa chọn chỉ mất một cú nhấp.',
@@ -3044,7 +3051,8 @@ export const vi: Translations = {
     chooseLater: 'Để sau tôi chọn nhà cung cấp',
     recommended: 'Nên dùng',
     connected: 'Đã kết nối',
-    featuredPitch: 'Một gói thuê bao, hơn 300 model hàng đầu — cách chạy AgentX được khuyên dùng',
+    gatewayPitch: 'Model đi kèm tài khoản AgentX của bạn — không cần API key',
+    gatewayConnecting: 'Đang kết nối AgentX AI Gateway…',
     fireworksPitch: 'API model trực tiếp — các model hàng đầu do Fireworks vận hành',
     openRouterPitch: 'Một key, hàng trăm model — lựa chọn mặc định đáng tin',
     apiKeyOptions: {

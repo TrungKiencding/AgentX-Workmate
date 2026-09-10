@@ -2668,7 +2668,12 @@ export const zhHant = defineLocale({
       localEndpointLabel: '本機 / 自訂端點',
       couldNotSaveLocalEndpoint: '無法儲存本機端點',
       couldNotChangeModel: '無法變更模型',
-      directApiAccess: name => `直接存取 ${name} 的 API。`
+      directApiAccess: name => `直接存取 ${name} 的 API。`,
+      gatewayNoAnswer: 'AgentX 無法為你的帳戶取得模型金鑰。請確認已登入 AgentX 且網路正常，然後再試一次。',
+      gatewayNotSetUp: '此安裝尚未設定 AgentX AI Gateway。請聯絡 AgentX 管理員，或選擇其他提供方。',
+      gatewayOffline: '無法連線到 AgentX AI Gateway。請檢查網路後再試一次。',
+      gatewayRevoked: '此裝置已被撤銷。請重新登入 AgentX 以使用 AgentX AI Gateway。',
+      gatewayFailed: detail => `AgentX AI Gateway 無法核發模型金鑰：${detail}`
     },
     headerTitle: '開始設定 AgentX Workmate',
     headerDesc: '連線模型提供方即可開始聊天。大多數選項只需一次點擊。',
@@ -2681,7 +2686,8 @@ export const zhHant = defineLocale({
     chooseLater: '稍後再選擇提供方',
     recommended: '建議',
     connected: '已連線',
-    featuredPitch: '一個訂閱，300+ 前沿模型 — 執行 AgentX 的建議方式',
+    gatewayPitch: '隨 AgentX 帳戶提供的模型 — 無需 API 金鑰',
+    gatewayConnecting: '正在連線 AgentX AI Gateway…',
     fireworksPitch: '直接模型 API — Fireworks 託管的前沿模型',
     openRouterPitch: '一個金鑰，數百個模型 — 穩定的預設選擇',
     apiKeyOptions: {

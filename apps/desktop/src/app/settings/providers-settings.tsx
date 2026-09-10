@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { runInTerminal } from '@/app/right-sidebar/store'
 import {
-  FEATURED_ID,
-  FeaturedProviderRow,
   FireworksProviderRow,
   OpenRouterProviderRow,
+  pickerProviders,
   ProviderRow,
-  providerTitle,
-  sortProviders
+  providerTitle
 } from '@/components/onboarding'
 import { Button } from '@/components/ui/button'
 import { RowButton } from '@/components/ui/row-button'
@@ -128,14 +126,15 @@ function buildProviderKeyGroups(vars: Record<string, EnvVarInfo>): ProviderKeyGr
 }
 
 // Deliberately a near-1:1 replica of the first-run onboarding picker
-// (`Picker` in desktop-onboarding-overlay): same recommended card, same
-// Fireworks #2 quick-key row, same provider rows, same "Other providers"
-// disclosure, same OpenRouter quick-key row, and the same bottom-right
-// "I have an API key" affordance. The leaf cards are the exact shared
-// components, so the two surfaces stay visually identical. Selecting a
-// provider hands off to the shared onboarding overlay, which runs that
-// provider's real sign-in flow; the key affordances open the API-key
-// catalog below.
+// (`Picker` in desktop-onboarding-overlay): same Fireworks quick-key row,
+// same provider rows, same "Other providers" disclosure, same OpenRouter
+// quick-key row, and the same bottom-right "I have an API key" affordance.
+// The one card it leaves out is onboarding's AgentX AI Gateway row — that is
+// the account's own key, which Settings → Account shows and rotates. The leaf
+// cards are the exact shared components, so the two surfaces stay visually
+// identical. Selecting a provider hands off to the shared onboarding overlay,
+// which runs that provider's real sign-in flow; the key affordances open the
+// API-key catalog below.
 function OAuthPicker({
   disconnecting,
   onDisconnect,
@@ -152,7 +151,7 @@ function OAuthPicker({
   const { t } = useI18n()
   const p = t.settings.providers
   const [showAll, setShowAll] = useState(false)
-  const ordered = useMemo(() => sortProviders(providers), [providers])
+  const ordered = useMemo(() => pickerProviders(providers), [providers])
 
   if (ordered.length === 0) {
     return null
@@ -160,13 +159,11 @@ function OAuthPicker({
 
   const select = (p: OAuthProvider) => startManualProviderOAuth(p.id)
 
-  const featured = ordered.find(p => p.id === FEATURED_ID && !p.status?.logged_in) ?? null
-  const rest = featured ? ordered.filter(p => p.id !== FEATURED_ID) : ordered
   // Keep connected accounts grouped and always visible; only the unconnected
   // providers hide behind the disclosure, so the page leads with what's set up.
-  // Both lists preserve `sortProviders` order (curated priority, then name).
-  const connected = rest.filter(p => p.status?.logged_in)
-  const others = rest.filter(p => !p.status?.logged_in)
+  // Both lists preserve `pickerProviders` order (curated priority, then name).
+  const connected = ordered.filter(p => p.status?.logged_in)
+  const others = ordered.filter(p => !p.status?.logged_in)
   const collapsible = others.length > 0
   const showOthers = !collapsible || showAll
 
@@ -187,8 +184,7 @@ function OAuthPicker({
       <p className="-mt-2 mb-1 text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
         {p.intro}
       </p>
-      {featured && <FeaturedProviderRow onSelect={select} provider={featured} />}
-      {/* Slot #2 — always visible, matching onboarding / CANONICAL_PROVIDERS. */}
+      {/* Always visible, as in onboarding (where it follows the gateway card). */}
       <FireworksProviderRow onClick={onWantApiKey} />
       {connected.length > 0 && (
         <>

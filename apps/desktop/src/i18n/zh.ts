@@ -2889,7 +2889,12 @@ export const zh: Translations = {
       localEndpointLabel: '本地 / 自定义端点',
       couldNotSaveLocalEndpoint: '无法保存本地端点',
       couldNotChangeModel: '无法更改模型',
-      directApiAccess: name => `直接访问 ${name} 的 API。`
+      directApiAccess: name => `直接访问 ${name} 的 API。`,
+      gatewayNoAnswer: 'AgentX 未能为你的账户获取模型密钥。请确认已登录 AgentX 且网络正常，然后重试。',
+      gatewayNotSetUp: '此安装尚未配置 AgentX AI Gateway。请联系 AgentX 管理员，或选择其他提供方。',
+      gatewayOffline: '无法连接到 AgentX AI Gateway。请检查网络后重试。',
+      gatewayRevoked: '此设备已被吊销。请重新登录 AgentX 以使用 AgentX AI Gateway。',
+      gatewayFailed: detail => `AgentX AI Gateway 未能签发模型密钥：${detail}`
     },
     headerTitle: '开始设置 AgentX Workmate',
     headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',
@@ -2902,7 +2907,8 @@ export const zh: Translations = {
     chooseLater: '稍后再选择提供方',
     recommended: '推荐',
     connected: '已连接',
-    featuredPitch: '一个订阅，300+ 前沿模型 — 运行 AgentX 的推荐方式',
+    gatewayPitch: '随 AgentX 账户提供的模型 — 无需 API 密钥',
+    gatewayConnecting: '正在连接 AgentX AI Gateway…',
     fireworksPitch: '直接模型 API — Fireworks 托管的前沿模型',
     openRouterPitch: '一个密钥，数百个模型 — 稳妥的默认选择',
     apiKeyOptions: {

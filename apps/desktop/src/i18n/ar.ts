@@ -2621,7 +2621,13 @@ export const ar = defineLocale({
       localEndpointLabel: 'نقطة نهاية محلية / مخصصة',
       couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',
       couldNotChangeModel: 'تعذر تغيير النموذج',
-      directApiAccess: name => `وصول مباشر إلى واجهة برمجة ${name}.`
+      directApiAccess: name => `وصول مباشر إلى واجهة برمجة ${name}.`,
+      gatewayNoAnswer:
+        'تعذّر على AgentX الحصول على مفتاح نموذج لحسابك. تأكد من تسجيل الدخول إلى AgentX ومن اتصالك بالإنترنت، ثم حاول مجددًا.',
+      gatewayNotSetUp: 'لم يُعدّ AgentX AI Gateway في هذا التثبيت. تواصل مع مسؤول AgentX، أو اختر مزوّدًا آخر.',
+      gatewayOffline: 'تعذّر الوصول إلى AgentX AI Gateway. تحقّق من اتصالك ثم حاول مجددًا.',
+      gatewayRevoked: 'تم إبطال هذا الجهاز. سجّل الدخول إلى AgentX مرة أخرى لاستخدام AgentX AI Gateway.',
+      gatewayFailed: detail => `تعذّر على AgentX AI Gateway إصدار مفتاح نموذج: ${detail}`
     },
     headerTitle: 'لنُعِدّ لك AgentX Workmate',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',
@@ -2634,7 +2640,8 @@ export const ar = defineLocale({
     chooseLater: 'سأختار مزوّدا لاحقا',
     recommended: 'موصى به',
     connected: 'متصل',
-    featuredPitch: 'اشتراك واحد، أكثر من 300 نموذج متقدم — الطريقة الموصى بها لتشغيل AgentX',
+    gatewayPitch: 'نماذج مرفقة بحساب AgentX الخاص بك — دون الحاجة إلى مفتاح API',
+    gatewayConnecting: 'جار الاتصال بـ AgentX AI Gateway...',
     fireworksPitch: 'نماذج مفتوحة سريعة مع استضافة Fireworks.',
     openRouterPitch: 'مفتاح واحد لمئات النماذج — خيار افتراضي جيد',
     apiKeyOptions: {
