@@ -63,3 +63,11 @@ await build({
   logLevel: 'info',
 })
 console.log(`bundled ${preloadOut}${isDev ? ' (dev)' : ''}`)
+
+// `electron .` resolves node-pty from dist/node_modules/ before the hoisted
+// copy, and a pack for another platform leaves that copy staged for its own
+// target (see restageForeignNodePty).
+if (isDev) {
+  const { restageForeignNodePty } = await import('./stage-native-deps.mjs')
+  restageForeignNodePty()
+}

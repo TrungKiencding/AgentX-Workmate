@@ -7,7 +7,8 @@ import { test } from 'vitest'
 
 import {
   stageNodePtyInto,
-  classifyNativeBinary
+  classifyNativeBinary,
+  restageForeignNodePtyInto
 } from '../scripts/stage-native-deps.mjs'
 
 const { join } = path
@@ -353,6 +354,55 @@ test('validation rejects a staged binary with the wrong platform magic', () => {
       () => stageNodePtyInto(srcRoot, destRoot, { platform: 'linux', arch: 'x64' }),
       /platform mismatch/i
     )
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+// ─── dev re-stage after a pack for another target ───────────────────
+//
+// before-pack.mjs leaves dist/node_modules/node-pty staged for whatever it
+// packed last, and a dev run resolves node-pty there before the hoisted copy.
+
+test('dev: a tree staged for another target is re-staged for the host', () => {
+  const tmp = fs.mkdtempSync(join(os.tmpdir(), 'agentx-stage-'))
+  try {
+    const srcRoot = join(tmp, 'node-pty')
+    const destRoot = join(tmp, 'dest')
+    const foreignPlatform = process.platform === 'win32' ? 'darwin' : 'win32'
+    const hostPrebuild = join('prebuilds', `${process.platform}-${process.arch}`, 'pty.node')
+
+    // The Windows-pack-on-a-Mac case: both prebuilds in the source, only the
+    // foreign one staged.
+    makeFakeNodePty(srcRoot, { prebuildPlatform: foreignPlatform, prebuildArch: 'x64' })
+    makeFakeNode(join(srcRoot, hostPrebuild), process.platform)
+    stageNodePtyInto(srcRoot, destRoot, { platform: foreignPlatform, arch: 'x64' })
+
+    assert.equal(restageForeignNodePtyInto(srcRoot, destRoot), true)
+    assert.equal(existsSync(join(destRoot, hostPrebuild)), true, 'host prebuild must be staged')
+    assert.equal(
+      existsSync(join(destRoot, 'prebuilds', `${foreignPlatform}-x64`)),
+      false,
+      'the foreign prebuild must be gone'
+    )
+
+    // It fits now, so the next dev run leaves it alone.
+    assert.equal(restageForeignNodePtyInto(srcRoot, destRoot), false)
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('dev: no staged tree means nothing to re-stage', () => {
+  const tmp = fs.mkdtempSync(join(os.tmpdir(), 'agentx-stage-'))
+  try {
+    const srcRoot = join(tmp, 'node-pty')
+    const destRoot = join(tmp, 'dest')
+    makeFakeNodePty(srcRoot, { prebuildPlatform: process.platform, prebuildArch: process.arch })
+
+    // Without a build, dev resolves the hoisted node-pty; don't create a copy.
+    assert.equal(restageForeignNodePtyInto(srcRoot, destRoot), false)
+    assert.equal(existsSync(destRoot), false)
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
   }

@@ -289,16 +289,7 @@ export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platfor
   }
 
   // Check whether a native binary for this target was staged.
-  const stagedDirs = [
-    join(destRoot, 'prebuilds', `${platform}-${arch}`),
-    join(destRoot, 'build/Release')
-  ]
-  const hasNativeBinary = stagedDirs.some((dir) => {
-    if (!existsSync(dir)) return false
-    return readdirSync(dir, { recursive: true }).some((name) => String(name).endsWith('.node'))
-  })
-
-  if (!hasNativeBinary) {
+  if (!hasNativeBinaryFor(destRoot, { platform, arch })) {
     if (platform !== process.platform) {
       throw new Error(
         `[stage-native-deps] no prebuilt binary for ${platform}-${arch} and ` +
@@ -343,10 +334,62 @@ export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platfor
   return destRoot
 }
 
+const stagedNodePtyRoot = resolve(projectRoot, 'dist/node_modules/node-pty')
+
 export function stageNodePty({ platform = process.platform, arch = process.arch } = {}) {
   const srcRoot = resolveNodePtyRoot()
-  const destRoot = resolve(projectRoot, 'dist/node_modules/node-pty')
-  return stageNodePtyInto(srcRoot, destRoot, { platform, arch })
+  return stageNodePtyInto(srcRoot, stagedNodePtyRoot, { platform, arch })
+}
+
+/**
+ * True when `destRoot` holds a `.node` for `platform`-`arch` in one of the
+ * places node-pty's loader looks (prebuilds/<platform>-<arch>/ or
+ * build/Release/).
+ */
+function hasNativeBinaryFor(destRoot, { platform, arch }) {
+  const stagedDirs = [
+    join(destRoot, 'prebuilds', `${platform}-${arch}`),
+    join(destRoot, 'build/Release')
+  ]
+  return stagedDirs.some((dir) => {
+    if (!existsSync(dir)) return false
+    return readdirSync(dir, { recursive: true }).some((name) => String(name).endsWith('.node'))
+  })
+}
+
+/**
+ * Re-stage `destRoot` for `platform`-`arch` if it holds a node-pty staged for
+ * another target. Leaves it alone when it already fits or does not exist, and
+ * returns whether it re-staged.
+ *
+ * Exported separately from `restageForeignNodePty` so tests can supply a fake
+ * node-pty source tree, as with `stageNodePtyInto`.
+ */
+export function restageForeignNodePtyInto(
+  srcRoot,
+  destRoot,
+  { platform = process.platform, arch = process.arch } = {}
+) {
+  if (!existsSync(destRoot) || hasNativeBinaryFor(destRoot, { platform, arch })) {
+    return false
+  }
+  console.log(
+    `[stage-native-deps] ${destRoot} has no native binary for ${platform}-${arch}; ` +
+      're-staging it'
+  )
+  stageNodePtyInto(srcRoot, destRoot, { platform, arch })
+  return true
+}
+
+/**
+ * For dev runs, which load dist/electron-main.mjs and so resolve node-pty
+ * from dist/node_modules/ before the hoisted package. before-pack.mjs
+ * re-stages that directory for every pack target, so packing Windows on a
+ * Mac leaves a win32-only copy behind and the next `npm run dev` dies with
+ * "Failed to load native module: pty.node".
+ */
+export function restageForeignNodePty() {
+  return restageForeignNodePtyInto(resolveNodePtyRoot(), stagedNodePtyRoot)
 }
 
 // Allow direct CLI invocation: node scripts/stage-native-deps.mjs [platform] [arch]
