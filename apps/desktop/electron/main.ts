@@ -5758,6 +5758,7 @@ function installPreviewShortcut(window) {
 import {
   applyZoomLevel,
   DEFAULT_ZOOM_LEVEL,
+  installZoomReassertOnNavigation,
   installZoomReassertOnWindowEvents,
   percentToZoomLevel,
   ZOOM_STEP,
@@ -5799,6 +5800,17 @@ function restorePersistedZoomLevel(window) {
   const saved = readZoomState()
 
   if (saved != null) {
+    // Drift-guard: skip when this window already shows the persisted level.
+    // Re-asserts fire on every in-page route change and window transition;
+    // blindly re-applying would rewrite the route's zoom record and resend
+    // 'agentx:zoom:changed' each time for no gain. getZoomLevel() reports the
+    // current route's own record, so a genuine drop still re-applies.
+    const current = window.webContents?.getZoomLevel?.()
+
+    if (current != null && Math.abs(current - saved) < 1e-9) {
+      return
+    }
+
     applyZoomLevel(window.webContents, saved)
 
     return
@@ -9549,13 +9561,15 @@ function wireCommonWindowHandlers(win, { zoom = true }: { zoom?: boolean } = {})
   if (zoom) {
     installZoomShortcuts(win)
     // Re-apply persisted zoom on show/restore/resize/cross-display move
-    // (Chromium can drop webContents zoom after these window transitions) and
-    // on EVERY full load — not once. The crash-recovery path calls
-    // webContents.reload(), which fires did-finish-load again after a `once`
-    // listener is spent, so zoom was silently lost on renderer crash
-    // recovery and any in-place reload/navigation (#46429).
-    installZoomReassertOnWindowEvents(win, () => restorePersistedZoomLevel(win))
-    win.webContents.on('did-finish-load', () => restorePersistedZoomLevel(win))
+    // (Chromium can drop webContents zoom after these window transitions), on
+    // EVERY full load — not once, since crash recovery reloads and would
+    // outlive a spent `once` listener (#46429) — and after in-page navigation,
+    // where Chromium applies the target hash route's own per-URL zoom record
+    // (see installZoomReassertOnNavigation).
+    const reassertZoom = () => restorePersistedZoomLevel(win)
+
+    installZoomReassertOnWindowEvents(win, reassertZoom)
+    installZoomReassertOnNavigation(win.webContents, reassertZoom)
   }
 
   installContextMenu(win)
