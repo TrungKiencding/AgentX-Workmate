@@ -35,9 +35,7 @@ services:
       AGENTX_DASHBOARD_KEYCLOAK_BASE_URL: ${AGENTX_DASHBOARD_KEYCLOAK_BASE_URL:?set the realm in .env}
       AGENTX_DASHBOARD_KEYCLOAK_REALM: ${AGENTX_DASHBOARD_KEYCLOAK_REALM:?set the realm in .env}
       AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID: ${AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID:?set the realm in .env}
-      # The service is a server, not somebody's install. Point AGENTX_HOME at
-      # a writable path inside the container so nothing tries to create one in
-      # a read-only home directory.
+      AGENTX_BRAIN_WEB_SEARCH_MODEL: ${AGENTX_BRAIN_WEB_SEARCH_MODEL:-}
       AGENTX_HOME: /tmp/agentx
 
   caddy:

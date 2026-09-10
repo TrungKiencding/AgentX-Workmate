@@ -19,9 +19,11 @@ import {
   closeManualOnboarding,
   completeBrowserStep,
   confirmOnboardingModel,
+  connectAgentxGateway,
   DEFAULT_MANUAL_ONBOARDING_REASON,
   DEFAULT_ONBOARDING_REASON,
   dismissFirstRunOnboarding,
+  isAgentxGatewayAvailable,
   type OnboardingContext,
   peekPendingProviderOAuth,
   refreshOnboarding,
@@ -34,21 +36,21 @@ import type { ModelOptionProvider, OAuthProvider } from '@/types/hermes'
 import { BrowserStepPanel } from './browser-step'
 import { DocsLink, FlowPanel, Status } from './flow'
 import {
-  FeaturedProviderRow,
   FireworksProviderRow,
+  GatewayProviderRow,
   OpenRouterProviderRow,
-  ProviderRow,
-  sortProviders
+  pickerProviders,
+  ProviderRow
 } from './providers'
 
 export {
-  FeaturedProviderRow,
   FireworksProviderRow,
+  GatewayProviderRow,
   KeyProviderRow,
   OpenRouterProviderRow,
+  pickerProviders,
   ProviderRow,
-  providerTitle,
-  sortProviders
+  providerTitle
 } from './providers'
 
 interface DesktopOnboardingOverlayProps {
@@ -68,8 +70,8 @@ export interface ApiKeyOption {
   short?: string
 }
 
-// Curated order mirrors CANONICAL_PROVIDERS: Fireworks sits #2 overall (after
-// Nous Portal OAuth), ahead of OpenRouter and the rest of the key catalog.
+// Curated order: Fireworks sits #2 overall (after the AgentX AI Gateway card),
+// ahead of OpenRouter and the rest of the key catalog.
 const API_KEY_OPTIONS: ApiKeyOption[] = [
   {
     id: 'fireworks',
@@ -428,7 +430,6 @@ function Header() {
   )
 }
 
-export const FEATURED_ID = 'nous'
 const SHOW_ALL_KEY = 'agentx-onboarding-show-all-v1'
 
 const readShowAll = () => {
@@ -462,19 +463,22 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
     setOnboardingMode('apikey')
   }
 
-  const ordered = useMemo(() => (providers ? sortProviders(providers) : []), [providers])
-  const hasOauth = ordered.length > 0
+  const ordered = useMemo(() => (providers ? pickerProviders(providers) : []), [providers])
+  // The account's AgentX AI Gateway card anchors the picker wherever the
+  // desktop can provision its key; the web dashboard gets sign-ins only.
+  const gateway = isAgentxGatewayAvailable()
+  const hasChoices = gateway || ordered.length > 0
   const apiKeyOptions = useApiKeyCatalog()
 
   // localEndpoint forces the key form regardless of `mode` (which a manual
   // provider refresh may flip back to 'oauth'); it preselects the local option
   // and hides the "back to sign in" link since the user came specifically to
   // configure a custom endpoint.
-  if (localEndpoint || mode === 'apikey' || !hasOauth) {
+  if (localEndpoint || mode === 'apikey' || !hasChoices) {
     return (
       <div className="grid gap-3">
         <ApiKeyForm
-          canGoBack={hasOauth && !localEndpoint}
+          canGoBack={hasChoices && !localEndpoint}
           initialEnvKey={localEndpoint ? 'OPENAI_BASE_URL' : apiKeyInitialEnv}
           onBack={() => setOnboardingMode('oauth')}
           onSave={(envKey, value, name, apiKey) => saveOnboardingApiKey(envKey, value, name, ctx, apiKey)}
@@ -494,22 +498,20 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   }
 
   const select = (p: OAuthProvider) => void startProviderOAuth(p, ctx)
-  const featured = ordered.find(p => p.id === FEATURED_ID) ?? null
-  const rest = featured ? ordered.filter(p => p.id !== FEATURED_ID) : ordered
-  // Collapse the secondary providers behind a disclosure only when Nous
-  // Portal is present to anchor the choice — otherwise show the full list.
-  const collapsible = Boolean(featured) && rest.length > 0
+  // Collapse the sign-in providers behind a disclosure only when the gateway
+  // card is there to anchor the choice — otherwise show the full list.
+  const collapsible = gateway && ordered.length > 0
   const showRest = !collapsible || showAll
 
   return (
     <div className="grid gap-2">
       <div className="grid max-h-[60dvh] gap-2 overflow-y-auto p-1">
-        {featured ? <FeaturedProviderRow onSelect={select} provider={featured} /> : null}
-        {/* Slot #2 — always visible, matching CANONICAL_PROVIDERS (Nous → Fireworks). */}
+        {gateway ? <GatewayProviderRow onSelect={() => void connectAgentxGateway(ctx)} /> : null}
+        {/* Slot #2 — always visible, right after the gateway card. */}
         <FireworksProviderRow onClick={() => openKeyForm('FIREWORKS_API_KEY')} />
         {showRest ? (
           <>
-            {rest.map(p => (
+            {ordered.map(p => (
               <ProviderRow key={p.id} onSelect={select} provider={p} />
             ))}
             <OpenRouterProviderRow onClick={() => openKeyForm('OPENROUTER_API_KEY')} />

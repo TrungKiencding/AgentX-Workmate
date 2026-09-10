@@ -45,7 +45,7 @@ function provider(id: string, loggedIn: boolean, patch: Partial<OAuthProvider> =
     docs_url: '',
     flow: 'device_code',
     id,
-    name: id === 'nous' ? 'Nous Portal' : 'MiniMax',
+    name: id === 'openai-codex' ? 'OpenAI Codex' : 'MiniMax',
     status: {
       logged_in: loggedIn
     },
@@ -82,9 +82,9 @@ beforeEach(async () => {
   setRuntimeI18nLocale(FALLBACK_LOCALE)
   onboarding.set({ manual: false })
   getEnvVars.mockResolvedValue({})
-  disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'nous' })
+  disconnectOAuthProvider.mockResolvedValue({ ok: true, provider: 'openai-codex' })
   listOAuthProviders.mockResolvedValue({
-    providers: [provider('nous', true), provider('minimax-oauth', false)]
+    providers: [provider('openai-codex', true), provider('minimax-oauth', false)]
   })
   vi.spyOn(window, 'confirm').mockReturnValue(true)
 })
@@ -109,12 +109,12 @@ describe('ProvidersSettings', () => {
   it('disconnects a connected provider account and refreshes the accounts list', async () => {
     await renderProvidersSettings()
 
-    const remove = await screen.findByRole('button', { name: 'Remove Nous Portal' })
+    const remove = await screen.findByRole('button', { name: 'Remove ChatGPT or Codex Subscription' })
     await act(async () => {
       fireEvent.click(remove)
     })
 
-    await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('nous'))
+    await waitFor(() => expect(disconnectOAuthProvider).toHaveBeenCalledWith('openai-codex'))
     expect(listOAuthProviders).toHaveBeenCalledTimes(2)
   })
 
@@ -122,11 +122,27 @@ describe('ProvidersSettings', () => {
     await renderProvidersSettings()
 
     await act(async () => {
-      fireEvent.click(await screen.findByText('Nous Portal'))
+      fireEvent.click(await screen.findByText('ChatGPT or Codex Subscription'))
     })
 
-    expect(startManualProviderOAuth).toHaveBeenCalledWith('nous')
+    expect(startManualProviderOAuth).toHaveBeenCalledWith('openai-codex')
     expect(disconnectOAuthProvider).not.toHaveBeenCalled()
+  })
+
+  it('never lists Nous Portal, connected or not', async () => {
+    listOAuthProviders.mockResolvedValue({
+      providers: [provider('nous', true, { name: 'Nous Portal' }), provider('minimax-oauth', false)]
+    })
+
+    await renderProvidersSettings()
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Other providers' }))
+    })
+
+    expect(screen.getByText('MiniMax')).toBeTruthy()
+    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remove Nous Portal' })).toBeNull()
   })
 
   it('does not offer removal for externally managed providers', async () => {
@@ -255,7 +271,7 @@ describe('ProvidersSettings with the Accounts sub-view hidden', () => {
     })
 
     expect(await screen.findByText('Acme')).toBeTruthy()
-    expect(screen.queryByText('Nous Portal')).toBeNull()
+    expect(screen.queryByText('ChatGPT or Codex Subscription')).toBeNull()
     expect(listOAuthProviders).not.toHaveBeenCalled()
   })
 })

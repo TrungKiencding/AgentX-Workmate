@@ -43,6 +43,10 @@ export function FlowPanel({
     return <Status>{t.onboarding.startingSignIn(title)}</Status>
   }
 
+  if (flow.status === 'connecting_gateway') {
+    return <Status>{t.onboarding.gatewayConnecting}</Status>
+  }
+
   if (flow.status === 'submitting') {
     return <Status>{t.onboarding.verifyingCode(title)}</Status>
   }

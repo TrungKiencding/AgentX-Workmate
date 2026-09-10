@@ -248,7 +248,26 @@ async def _rewrap(ctx: BrainContext, subject: str, row: ModelKeyRow, plaintext: 
 # ---------------------------------------------------------------------------
 
 
-async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
+async def _proxy_modes(client: Any) -> dict[str, str]:
+    """``{model: mode}`` for everything the proxy serves, or the refusal saying why not.
+
+    Raises rather than falling back to an unrestricted key when the proxy
+    cannot say what it serves. Falling back is how the admin key came to
+    travel inside every installer; the same instinct here would hand out
+    embedding models to everyone the first time one endpoint hiccuped.
+    """
+    from hermes_cli.litellm_admin import LiteLLMError
+
+    from starlette.concurrency import run_in_threadpool
+
+    try:
+        return await run_in_threadpool(client.model_modes)
+    except LiteLLMError as exc:
+        logger.error("second_brain: could not read the proxy's model list: %s", exc)
+        raise _litellm_failed(exc) from exc
+
+
+def _grantable_models(modes: dict[str, str], settings: Any) -> tuple[str, ...]:
     """Return the models a key may reach, in the order modes were configured.
 
     A proxy serves more than the things a person talks to. Embedding and
@@ -265,25 +284,10 @@ async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
     ``accounts.litellm.models`` still wins when an operator set it, but only as
     an additional allow-list intersected with the mode filter — it must not
     bypass embedding/rerank exclusion.
-
-    Raises rather than falling back to an unrestricted key when the proxy
-    cannot say what it serves. Falling back is how the admin key came to
-    travel inside every installer; the same instinct here would hand out
-    embedding models to everyone the first time one endpoint hiccuped.
     """
-    from hermes_cli.litellm_admin import LiteLLMError
-
-    from starlette.concurrency import run_in_threadpool
-
     wanted = tuple(
         mode for mode in settings.key_model_modes if mode not in _EXCLUDED_KEY_MODES
     )
-
-    try:
-        modes = await run_in_threadpool(client.model_modes)
-    except LiteLLMError as exc:
-        logger.error("second_brain: could not read the proxy's model list: %s", exc)
-        raise _litellm_failed(exc) from exc
 
     mode_filtered = [
         model
@@ -316,6 +320,41 @@ async def _grantable_models(client: Any, settings: Any) -> tuple[str, ...]:
     return tuple(granted)
 
 
+def _web_search_grant(modes: dict[str, str], settings: Any) -> str:
+    """The web search model a key is granted beside its chat models, or ``""``.
+
+    Perplexity's search presets are ``responses``-mode models, which the mode
+    filter above rightly never grants — nobody can talk to one. The agent's
+    web search tool calls one instead, so it is granted by name
+    (``AGENTX_BRAIN_WEB_SEARCH_MODEL``) and kept out of the key's ``models``:
+    it must not show up in the picker, and must never become the model an
+    account opens on.
+
+    Only a model the proxy actually serves is granted. Naming one it does not
+    is a configuration mistake worth a log line, not a reason to refuse
+    somebody their key.
+    """
+    wanted = (getattr(settings, "web_search_model", "") or "").strip()
+    if not wanted:
+        return ""
+    if wanted not in modes:
+        logger.warning(
+            "second_brain: web search model %r is not served by the proxy, so "
+            "keys carry no web search grant. Check AGENTX_BRAIN_WEB_SEARCH_MODEL "
+            "against /model/info.",
+            wanted,
+        )
+        return ""
+    return wanted
+
+
+def _key_models(models: tuple[str, ...], web_search_model: str) -> tuple[str, ...]:
+    """What a key is scoped to: its chat grant, then the web search model."""
+    if web_search_model and web_search_model not in models:
+        return (*models, web_search_model)
+    return tuple(models)
+
+
 async def _mint_and_store(
     ctx: BrainContext,
     subject: str,
@@ -339,13 +378,15 @@ async def _mint_and_store(
     client = _litellm_or_503(ctx)
     settings = ctx.settings
 
-    granted = await _grantable_models(client, settings)
+    modes = await _proxy_modes(client)
+    granted = _grantable_models(modes, settings)
+    web_search = _web_search_grant(modes, settings)
 
     def _mint():
         return client.generate_key(
             key_alias=alias,
             user_id=subject,
-            models=granted,
+            models=_key_models(granted, web_search),
             max_budget=settings.key_max_budget or None,
             budget_duration=settings.key_budget_duration,
             tpm_limit=settings.key_tpm_limit or None,
@@ -379,6 +420,7 @@ async def _mint_and_store(
         # which is what picks the account's default model — instead of
         # inheriting whatever order the echo happens to have.
         models=granted or minted.models,
+        web_search_model=web_search,
     )
 
     if existing is not None and existing.litellm_token and existing.litellm_token != minted.token:
@@ -431,6 +473,10 @@ def _body(row: ModelKeyRow, plaintext: str, *, status: str, account: str = "") -
         # the key cannot grant what the proxy does not serve, so the default
         # cannot name it either.
         "default_model": (list(row.models) or [""])[0],
+        # What the agent's web search tool may call with this key, or "" for
+        # nothing. Beside `models` rather than in it: that list is the picker,
+        # and a search preset is not something anybody can talk to.
+        "web_search_model": row.web_search_model,
         "status": status,
         "account": account,
         "created_at": row.created_at.isoformat(),
@@ -542,3 +588,110 @@ def rotation_hook(ctx: BrainContext) -> Callable[[str], Awaitable[str]]:
         return "rotated"
 
     return rotate
+
+
+# ---------------------------------------------------------------------------
+# Web search grants
+# ---------------------------------------------------------------------------
+
+#: How long the grant pass waits after startup, and then between passes. The
+#: first wait keeps a rolling deploy from having every instance reach for the
+#: proxy at once; the interval bounds how long a model an operator adds to the
+#: proxy takes to reach keys that already exist.
+_GRANT_FIRST_PASS_SECONDS = 60
+_GRANT_PASS_SECONDS = 60 * 60
+
+
+async def reconcile_web_search_grants(ctx: BrainContext) -> int:
+    """Bring every stored key's web search grant in line with this deploy.
+
+    A grant is decided when a key is minted, and a key is minted once per
+    person — so without this, every key issued before web search existed, or
+    before an operator changed its model, would keep what it was born with for
+    life. Waiting for laptops to ask again does not work either: one holding a
+    working key never does.
+
+    Returns how many keys changed. A proxy that cannot say what it serves
+    raises, and so does one that stops answering part-way; a single key the
+    proxy refuses to update is logged and skipped, so one bad row cannot hold
+    up everybody else's.
+    """
+    from hermes_cli.litellm_admin import LiteLLMError
+
+    from starlette.concurrency import run_in_threadpool
+
+    client = ctx.litellm
+    if client is None:
+        return 0
+
+    modes = await run_in_threadpool(client.model_modes)
+    target = _web_search_grant(modes, ctx.settings)
+    # A configured model the proxy has stopped serving — for an afternoon, or
+    # while somebody reloads its config — leaves the grants it already has
+    # alone, rather than taking web search from everyone and handing it back an
+    # hour later. Grants of any other model are still withdrawn.
+    current = (target,) if target else ("", ctx.settings.web_search_model)
+
+    changed = 0
+    for stale in await ctx.store.stale_web_search_grants(current):
+        async with ctx.store.issuance_lock(stale.subject):
+            row = await ctx.store.model_key(stale.subject)
+            if row is None or row.web_search_model in current:
+                continue
+            if not (row.litellm_token and row.models):
+                # Nothing safe to send: replacing the model list of a key that
+                # records none would narrow it to web search alone.
+                logger.warning(
+                    "second_brain: %s's model key records no token or model list; "
+                    "leaving its web search grant as it is.",
+                    row.subject,
+                )
+                continue
+            try:
+                await run_in_threadpool(
+                    client.update_key_models,
+                    row.litellm_token,
+                    _key_models(row.models, target),
+                )
+            except LiteLLMError as exc:
+                if exc.unreachable:
+                    raise
+                logger.warning(
+                    "second_brain: could not change the web search grant on %s's "
+                    "model key: %s",
+                    row.subject,
+                    exc,
+                )
+                continue
+            if await ctx.store.set_web_search_grant(
+                row.subject, litellm_token=row.litellm_token, web_search_model=target
+            ):
+                changed += 1
+    return changed
+
+
+async def reconcile_web_search_grants_forever(ctx: BrainContext) -> None:
+    """Run :func:`reconcile_web_search_grants` on an interval, forever.
+
+    Started by the app when a proxy is configured. Sleeps before its first
+    pass, like the tombstone sweeper, so a short-lived app — every app the
+    tests build — never reaches for the proxy. Never raises: a pass that fails
+    is logged and tried again on the next interval.
+    """
+    import asyncio
+
+    delay = _GRANT_FIRST_PASS_SECONDS
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = _GRANT_PASS_SECONDS
+            changed = await reconcile_web_search_grants(ctx)
+            if changed:
+                logger.info(
+                    "second_brain: changed the web search grant on %d model key(s)",
+                    changed,
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - a failed pass must not end the loop
+            logger.warning("second_brain: web search grant pass failed: %s", exc)

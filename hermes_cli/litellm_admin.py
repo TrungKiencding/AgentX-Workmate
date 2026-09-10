@@ -1,9 +1,10 @@
 """A small, honest client for LiteLLM's virtual-key admin API.
 
-Only the four calls per-account provisioning needs, and nothing else:
+Only the calls per-account provisioning needs, and nothing else:
 
     /key/list?key_alias=…   find the key we minted for this person last time
     /key/generate           mint one
+    /key/update             change which models a key reaches (the second brain)
     /key/delete             retire the old one
     /v1/models              prove a key still works, and list what it reaches
 
@@ -74,6 +75,9 @@ class MintedKey:
     token: str
     key_alias: str
     models: tuple[str, ...] = ()
+    #: The web search model the issuer granted beside ``models``, or ``""``.
+    #: Only the second brain grants one.
+    web_search_model: str = ""
 
     @property
     def masked(self) -> str:
@@ -294,6 +298,23 @@ class LiteLLMAdminClient:
         payload = self._request("POST", "/key/delete", json_body={"keys": wanted})
         deleted = payload.get("deleted_keys") if isinstance(payload, dict) else None
         return [str(t) for t in (deleted or ())]
+
+    def update_key_models(self, token: str, models: Sequence[str]) -> None:
+        """Replace the models the key with hash *token* may reach.
+
+        LiteLLM reads ``models`` on ``/key/update`` as the whole list, not an
+        addition, so the caller passes everything the key should keep. An empty
+        list is refused here rather than sent: to LiteLLM it means "every
+        model", which would turn a scoped key into an unscoped one.
+        """
+        wanted = [str(m) for m in (models or ()) if str(m).strip()]
+        if not (token or "").strip():
+            raise LiteLLMError("cannot update a key without its token")
+        if not wanted:
+            raise LiteLLMError("refusing to clear a key's model list; that would unscope it")
+        self._request(
+            "POST", "/key/update", json_body={"key": token.strip(), "models": wanted}
+        )
 
     def list_models(self, api_key: str | None = None) -> list[str]:
         """Return the model ids reachable with *api_key* (admin key by default).

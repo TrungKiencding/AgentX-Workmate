@@ -170,6 +170,15 @@ def build_app(
         # app the tests build — never sweeps at all.
         sweeper = asyncio.create_task(sync_module.sweep_tombstones_forever(ctx))
 
+        # Keys minted before web search existed, or before an operator changed
+        # its model, have their grant brought up to date without anybody
+        # signing in again. With no proxy there is nothing to grant against.
+        grants = (
+            asyncio.create_task(keys_module.reconcile_web_search_grants_forever(ctx))
+            if ctx.litellm is not None
+            else None
+        )
+
         # Best-effort by design: the socket is a shortcut in front of polling,
         # so a service that cannot open a listening connection still works —
         # every device simply finds its changes on the next tick instead of
@@ -188,14 +197,17 @@ def build_app(
             yield
         finally:
             await ctx.notifier.stop()
-            sweeper.cancel()
+            background = [task for task in (sweeper, grants) if task is not None]
+            for task in background:
+                task.cancel()
             # Awaited rather than merely cancelled: an un-awaited cancelled
             # task is what produces "Task exception was never retrieved" in an
             # operator's log during an otherwise clean shutdown.
-            try:
-                await sweeper
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                pass
+            for task in background:
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                    pass
             if owns_store:
                 await ctx.store.close()
 

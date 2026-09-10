@@ -243,6 +243,11 @@ def _get_backend() -> str:
         ("exa", _has_env("EXA_API_KEY")),
         ("parallel", _has_env("PARALLEL_API_KEY")),
         ("firecrawl", _has_env("FIRECRAWL_API_KEY") or _has_env("FIRECRAWL_API_URL")),
+        # Signed in with an AgentX account whose key carries a web search
+        # grant. Behind the paid backends somebody set a key for on purpose,
+        # ahead of the managed Nous gateway and everything keyless or
+        # self-hosted below it: it is the search the account came with.
+        ("agentx-gateway", _registered_web_provider_available("agentx-gateway") is True),
         ("firecrawl", _is_tool_gateway_ready()),
         ("searxng", _has_env("SEARXNG_URL")),
         ("brave-free", _has_env("BRAVE_SEARCH_API_KEY")),
@@ -1091,6 +1096,33 @@ def check_web_api_key() -> bool:
         return False
 
 
+def check_web_extract_api_key() -> bool:
+    """Check whether ``web_extract`` has a backend that can actually extract.
+
+    ``check_web_api_key`` answers "does any web backend work" — the right gate
+    for ``web_search`` and the wrong one here. A search-only backend
+    (brave-free, ddgs, searxng, xai, agentx-gateway) would light
+    ``web_extract`` up only for every call to come back "is a search-only
+    backend", and the agent burns a turn learning that instead of reaching for
+    the browser. Resolved the way ``web_extract_tool`` resolves its backend, so
+    the tool is offered exactly when a call to it could work.
+    """
+    if not check_web_api_key():
+        return False
+    try:
+        _ensure_web_plugins_loaded()
+        from agent.web_search_registry import get_active_extract_provider, get_provider
+
+        backend = _get_extract_backend()
+        provider = get_provider(backend) if backend else None
+        if provider is None:
+            return get_active_extract_provider() is not None
+        return bool(provider.supports_extract()) and _is_backend_available(backend)
+    except Exception as exc:  # noqa: BLE001 — a failed lookup must not hide the tool
+        logger.debug("web extract availability check failed: %s", exc)
+        return True
+
+
 if __name__ == "__main__":
     """
     Simple test/demo when run directly
@@ -1236,7 +1268,7 @@ registry.register(
         "markdown",
         char_limit=args.get("char_limit"),
     ),
-    check_fn=check_web_api_key,
+    check_fn=check_web_extract_api_key,
     requires_env=_web_requires_env(),
     is_async=True,
     emoji="📄",

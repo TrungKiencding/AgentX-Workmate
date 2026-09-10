@@ -521,6 +521,7 @@ def _key_from_second_brain(
         token=str(payload.get("token") or ""),
         key_alias=str(payload.get("key_alias") or alias),
         models=tuple(str(m) for m in (payload.get("models") or ())),
+        web_search_model=str(payload.get("web_search_model") or "").strip(),
     )
     base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
     return minted, base_url, str(payload.get("status") or "issued")
@@ -939,8 +940,24 @@ def ensure_account_key(
                 brain_transport=brain_transport, device_id=device_id,
                 device_name=device_name, reason="no base URL on record",
             )
-        probe = _probe_client(settings, base_url, client)
-        if probe is None or probe.key_is_live(stored_key):
+        live, reachable = _probe_key(_probe_client(settings, base_url, client), stored_key)
+        if live:
+            if _reach_changed(settings, state, reachable):
+                # The proxy says this key reaches something other than what was
+                # recorded — most often a web search model the second brain has
+                # since granted to keys that already existed. Ask the service
+                # what the grant now is; the key itself stays the same.
+                collected = _rotate(
+                    settings, identity, account_slug, alias, key_env, home, bearer,
+                    client=client, broker_transport=broker_transport,
+                    brain_transport=brain_transport, device_id=device_id,
+                    device_name=device_name, reachable=reachable,
+                    reason="the models this account's key reaches have changed",
+                )
+                if collected.ok or collected.status == "revoked":
+                    return collected
+                # Offline, or nothing to ask with: the key still works, so this
+                # launch keeps it and the next one asks again.
             _ensure_vision_follows_main(
                 settings, tuple(str(m) for m in (state.get("models") or ()))
             )
@@ -1032,6 +1049,51 @@ def _probe_client(
         return None
 
 
+def _probe_key(
+    probe: LiteLLMAdminClient | None, key: str
+) -> tuple[bool, tuple[str, ...] | None]:
+    """Whether *key* is still accepted, and the models it reaches when that is known.
+
+    Liveness follows ``LiteLLMAdminClient.key_is_live`` exactly — a proxy that
+    could not be asked counts as live, or every offline launch would replace a
+    perfectly good key. The model list comes from the same single
+    ``/v1/models`` call, and is None whenever the proxy gave no answer to read.
+    """
+    if probe is None:
+        return True, None
+    try:
+        return True, tuple(probe.list_models(api_key=key))
+    except LiteLLMError as exc:
+        return exc.status_code not in (401, 403), None
+
+
+def _reach_changed(
+    settings: LiteLLMAccountSettings,
+    state: Mapping[str, Any],
+    reachable: tuple[str, ...] | None,
+) -> bool:
+    """True when the proxy says this key reaches something other than was recorded.
+
+    The second brain can change what an existing key reaches — it grants a web
+    search model to keys issued before there was one, and withdraws it when an
+    operator turns it off — but a laptop holding a working key never asks it
+    for the key again. The reuse path's ``/v1/models`` call already lists what
+    the key reaches, so comparing that with what was recorded is how the laptop
+    notices, at no cost when nothing changed.
+
+    A sidecar written before ``reachable_models`` existed counts as changed,
+    once: that is how an install that predates web search learns its model
+    without its owner signing in again. Only the second brain grants anything,
+    so the deprecated modes never ask.
+    """
+    if settings.mode != "second_brain" or reachable is None:
+        return False
+    recorded = state.get("reachable_models")
+    if not isinstance(recorded, list):
+        return True
+    return set(reachable) != {str(model) for model in recorded}
+
+
 def _rotate(
     settings: LiteLLMAccountSettings,
     identity: AccountIdentity,
@@ -1048,12 +1110,15 @@ def _rotate(
     device_id: str = "",
     device_name: str = "",
     rotate: bool = False,
+    reachable: tuple[str, ...] | None = None,
 ) -> ProvisionResult:
     """Get this account a working key and wire it in.
 
     In ``second_brain`` mode this usually mints nothing: the service already
     holds this person's key and answers with it. ``rotate`` is the only thing
-    that asks for a new one.
+    that asks for a new one. ``reachable`` is what the proxy just said the key
+    reaches, when the caller asked it; it is recorded for the next launch to
+    compare against (see ``_reach_changed``).
     """
     state = read_state(home)
     had_key = bool(state.get("key_alias"))
@@ -1180,6 +1245,14 @@ def _rotate(
         previous_models=tuple(str(m) for m in (state.get("models") or ())),
     )
 
+    # The model the web search tool calls with this key: granted by the second
+    # brain beside ``models``, never among them, and recorded here rather than
+    # in config because nobody picks it — ``plugins/web/agentx_gateway`` reads
+    # it from this file.
+    web_search_model = minted.web_search_model
+    if reachable is None:
+        reachable = (*models, web_search_model) if web_search_model else tuple(models)
+
     write_state(
         home,
         {
@@ -1192,6 +1265,8 @@ def _rotate(
             "account": account_slug,
             "mode": settings.mode,
             "models": list(models),
+            "web_search_model": web_search_model,
+            "reachable_models": sorted(set(reachable)),
         },
     )
 

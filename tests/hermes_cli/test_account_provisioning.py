@@ -189,6 +189,20 @@ class FakeLiteLLM:
                 },
             )
 
+        if method == "POST" and path == "/key/update":
+            # Like the real proxy: `key` may be the hash or the plaintext, and
+            # `models` replaces the list rather than adding to it.
+            body = json.loads(request.content or b"{}")
+            wanted = str(body.get("key") or "")
+            record = self.records.get(wanted) or next(
+                (r for r in self.records.values() if r["key"] == wanted), None
+            )
+            if record is None:
+                return httpx.Response(404, json={"error": {"message": "key not found"}})
+            if "models" in body:
+                record["models"] = [str(m) for m in (body.get("models") or ())]
+            return httpx.Response(200, json=self._listed(record))
+
         if method == "POST" and path == "/key/delete":
             body = json.loads(request.content or b"{}")
             deleted = [t for t in (body.get("keys") or []) if self.records.pop(t, None)]
@@ -836,6 +850,10 @@ class FakeSecondBrain:
         # time — which is the whole reason the laptop has to be able to take a
         # model back out of the picker, not just add to it.
         self.grants: list[str] = []
+        # The web search model the NEXT issued key carries beside `grants`.
+        # None stands for a service that predates web search and says nothing
+        # about it; "" for one that grants none.
+        self.web_search_model: str | None = None
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -859,6 +877,17 @@ class FakeSecondBrain:
             "token": record["token"],
         }
         return self.keys[subject]
+
+    def grant_web_search(self, subject: str, model: str) -> None:
+        """What the service's grant pass does to a key somebody already holds.
+
+        The key and its token stay the same; only what the proxy lets it reach
+        changes, and what the service will say about it next time it is asked.
+        """
+        held = self.keys[subject]
+        record = self.proxy.records[held["token"]]
+        record["models"] = [*held["models"], model] if model else list(held["models"])
+        held["web_search_model"] = model
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -893,7 +922,10 @@ class FakeSecondBrain:
             return httpx.Response(200, json={**held, "status": "reused"})
 
         alias = LiteLLMAccountSettings().alias_for(subject)
-        record = self.proxy.mint(alias, user_id=subject)
+        # Scoped the way the real service scopes a key: the grant, then web
+        # search. An empty scope is LiteLLM's "everything", as before.
+        search = [self.web_search_model] if self.web_search_model else []
+        record = self.proxy.mint(alias, models=[*self.grants, *search], user_id=subject)
         if held is not None:
             # Exactly the previously stored token, and never by alias.
             self.proxy.records.pop(held["token"], None)
@@ -905,6 +937,8 @@ class FakeSecondBrain:
             "base_url": self.base_url,
             "models": list(self.grants),
         }
+        if self.web_search_model is not None:
+            issued["web_search_model"] = self.web_search_model
         self.keys[subject] = issued
         return httpx.Response(
             200, json={**issued, "status": "rotated" if held is not None else "issued"}
@@ -1457,6 +1491,148 @@ class TestModelListFollowsTheKey:
 
         # We only ever take back a pin we made ourselves.
         assert raw_config(account.home)["model"]["default"] == "something-i-picked"
+
+
+class TestWebSearchFollowsTheGrant:
+    """The web search model rides on the key, and reaches laptops that hold one.
+
+    The second brain grants it beside ``models`` — never among them — and keeps
+    existing keys' grants current by itself. A laptop with a working key never
+    asks for the key again, so what it has to get right is noticing: the reuse
+    path's ``/v1/models`` answer changing is its cue to ask, once.
+    """
+
+    SEARCH = "perplexity/preset/pro-search"
+
+    def _sign_in(self, account, brain, fake_proxy, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=make_client(fake_proxy), **kwargs,
+        )
+
+    def test_the_granted_model_is_recorded_and_kept_out_of_the_picker(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a"]
+        brain.web_search_model = self.SEARCH
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "provisioned"
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+        # Searching is a tool, not somebody to talk to: never offered in the
+        # picker, never the model the account opens on.
+        config = raw_config(account.home)
+        assert set(config["providers"]["litellm"]["models"]) == {"chat-a"}
+        assert config["model"]["default"] == "chat-a"
+
+    def test_a_service_that_says_nothing_about_web_search_grants_none(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a"]
+
+        self._sign_in(account, brain, fake_proxy)
+
+        assert read_state(account.home)["web_search_model"] == ""
+
+    def test_nothing_changed_costs_the_service_nothing(self, account, brain, fake_proxy):
+        brain.grants = ["chat-a"]
+        brain.web_search_model = self.SEARCH
+        self._sign_in(account, brain, fake_proxy)
+        brain.requests.clear()
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "reused"
+        assert brain.requests == []
+
+    def test_a_grant_added_to_a_key_already_held_is_learned_on_the_next_launch(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a"]
+        self._sign_in(account, brain, fake_proxy)
+        key_env = provider_key_env("litellm")
+        held = env_value(key_env)
+
+        # The service's grant pass reaches the key this laptop already holds.
+        brain.grant_web_search("tok", self.SEARCH)
+        brain.requests.clear()
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.ok is True
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert json.loads(brain.requests[0].content)["rotate"] is False
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+        # Learning about the grant is not a new key.
+        assert env_value(key_env) == held
+
+        brain.requests.clear()
+        assert self._sign_in(account, brain, fake_proxy).status == "reused"
+        assert brain.requests == []
+
+    def test_a_withdrawn_grant_is_forgotten(self, account, brain, fake_proxy):
+        brain.grants = ["chat-a"]
+        brain.web_search_model = self.SEARCH
+        self._sign_in(account, brain, fake_proxy)
+
+        brain.grant_web_search("tok", "")
+        self._sign_in(account, brain, fake_proxy)
+
+        assert read_state(account.home)["web_search_model"] == ""
+
+    def test_a_sidecar_from_before_web_search_asks_once(self, account, brain, fake_proxy):
+        from hermes_cli.account_provisioning import write_state
+
+        brain.grants = ["chat-a"]
+        brain.web_search_model = self.SEARCH
+        self._sign_in(account, brain, fake_proxy)
+        state = read_state(account.home)
+        state.pop("web_search_model")
+        state.pop("reachable_models")
+        write_state(account.home, state)
+        brain.requests.clear()
+
+        self._sign_in(account, brain, fake_proxy)
+
+        assert len(brain.requests) == 1
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+
+        brain.requests.clear()
+        self._sign_in(account, brain, fake_proxy)
+        assert brain.requests == []
+
+    def test_an_unreachable_service_keeps_the_key_and_asks_on_the_next_launch(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a"]
+        self._sign_in(account, brain, fake_proxy)
+        brain.grant_web_search("tok", self.SEARCH)
+
+        brain.unreachable = True
+        result = self._sign_in(account, brain, fake_proxy)
+
+        # The key still works. Being unable to ask about the grant is no reason
+        # to report this launch as anything but a reuse.
+        assert result.status == "reused"
+        assert read_state(account.home)["web_search_model"] == ""
+
+        brain.unreachable = False
+        self._sign_in(account, brain, fake_proxy)
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+
+    def test_a_proxy_that_cannot_be_asked_changes_nothing(self, account, brain, fake_proxy):
+        brain.grants = ["chat-a"]
+        self._sign_in(account, brain, fake_proxy)
+        brain.grant_web_search("tok", self.SEARCH)
+        brain.requests.clear()
+
+        fake_proxy.fault = "connect"
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "reused"
+        assert brain.requests == []
 
 
 class TestBrokerMode:

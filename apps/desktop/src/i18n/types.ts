@@ -2198,7 +2198,10 @@ export interface Translations {
     chooseLater: string
     recommended: string
     connected: string
-    featuredPitch: string
+    /** The AgentX AI Gateway card: the model access that comes with the account. */
+    gatewayPitch: string
+    /** Status line while the account's gateway key is being fetched. */
+    gatewayConnecting: string
     fireworksPitch: string
     openRouterPitch: string
     apiKeyOptions: Record<string, { short: string; description: string }>
@@ -2229,6 +2232,12 @@ export interface Translations {
       couldNotSaveLocalEndpoint: string
       couldNotChangeModel: string
       directApiAccess: (name: string) => string
+      /** Why the AgentX AI Gateway card could not connect, by provisioning outcome. */
+      gatewayNoAnswer: string
+      gatewayNotSetUp: string
+      gatewayOffline: string
+      gatewayRevoked: string
+      gatewayFailed: (detail: string) => string
     }
     backToSignIn: string
     getKey: string

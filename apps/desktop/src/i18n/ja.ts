@@ -2776,7 +2776,14 @@ export const ja = defineLocale({
       localEndpointLabel: 'ローカル / カスタムエンドポイント',
       couldNotSaveLocalEndpoint: 'ローカルエンドポイントを保存できませんでした',
       couldNotChangeModel: 'モデルを変更できませんでした',
-      directApiAccess: name => `${name} の API に直接アクセスします。`
+      directApiAccess: name => `${name} の API に直接アクセスします。`,
+      gatewayNoAnswer:
+        'アカウントのモデルキーを取得できませんでした。AgentX にサインインしていて、オンラインであることを確認してから再試行してください。',
+      gatewayNotSetUp:
+        'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。',
+      gatewayOffline: 'AgentX AI Gateway に接続できませんでした。接続を確認してから再試行してください。',
+      gatewayRevoked: 'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
+      gatewayFailed: detail => `AgentX AI Gateway がモデルキーを発行できませんでした: ${detail}`
     },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
     headerDesc: 'チャットを始めるにはモデルプロバイダーを接続してください。ほとんどのオプションはワンクリックです。',
@@ -2789,7 +2796,8 @@ export const ja = defineLocale({
     chooseLater: '後でプロバイダーを選択します',
     recommended: '推奨',
     connected: '接続済み',
-    featuredPitch: '1 つのサブスクリプションで 300 以上の最先端モデル — AgentX を実行するための推奨方法',
+    gatewayPitch: 'AgentX アカウントに付属するモデル — API キーは不要',
+    gatewayConnecting: 'AgentX AI Gateway に接続中…',
     fireworksPitch: '直接モデル API — Fireworks がホストする最先端モデル',
     openRouterPitch: '1 つのキーで数百のモデル — 堅実なデフォルト',
     apiKeyOptions: {

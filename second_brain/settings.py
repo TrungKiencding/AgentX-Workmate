@@ -74,6 +74,16 @@ KEY_ALIAS_PREFIX_ENV_VAR = "AGENTX_BRAIN_KEY_ALIAS_PREFIX"
 #: image for.
 KEY_MODEL_MODES_ENV_VAR = "AGENTX_BRAIN_KEY_MODEL_MODES"
 
+#: The model a person's key may call for web search, granted on top of the
+#: modes above; ``off`` grants none.
+#:
+#: Perplexity's search presets are ``responses``-mode models, so the mode list
+#: never grants one — rightly, since nobody can chat with one. The desktop
+#: app's web search tool calls it instead, which is why it is granted by name
+#: and kept out of the key's model list: it must not appear in the picker, and
+#: it must never become the model an account opens on.
+WEB_SEARCH_MODEL_ENV_VAR = "AGENTX_BRAIN_WEB_SEARCH_MODEL"
+
 #: Connection-pool bounds. The service is small; the defaults are sized for a
 #: few hundred devices polling on a 30-second tick, not for a fleet.
 POOL_MIN_ENV_VAR = "AGENTX_BRAIN_POOL_MIN"
@@ -119,6 +129,13 @@ _DEFAULT_KEY_ALIAS_PREFIX = "second-brain"
 #: default model. Chat leads because that is what opening the app does.
 _DEFAULT_KEY_MODEL_MODES = ("chat", "completion", "image_generation", "video_generation")
 
+#: The web search model a deploy grants unless told otherwise: the Perplexity
+#: preset the AgentX gateway serves for search.
+_DEFAULT_WEB_SEARCH_MODEL = "perplexity/preset/pro-search"
+
+#: Values of ``AGENTX_BRAIN_WEB_SEARCH_MODEL`` that turn web search off.
+_WEB_SEARCH_OFF = frozenset({"off", "none"})
+
 #: How long a call to LiteLLM may take before the caller is told the proxy is
 #: unreachable. Matches the laptop-side default in ``litellm_admin`` — the
 #: reasoning is the same, since a wedged proxy must not hold up a sign-in.
@@ -153,6 +170,9 @@ class BrainSettings:
     key_alias_prefix: str = _DEFAULT_KEY_ALIAS_PREFIX
     key_models: tuple[str, ...] = ()
     key_model_modes: tuple[str, ...] = _DEFAULT_KEY_MODEL_MODES
+    #: Granted on every key besides ``key_model_modes``, ``""`` for none. Never
+    #: part of the key's ``models``; see ``WEB_SEARCH_MODEL_ENV_VAR``.
+    web_search_model: str = _DEFAULT_WEB_SEARCH_MODEL
     key_max_budget: float = 0.0
     key_budget_duration: str = ""
     key_tpm_limit: int = 0
@@ -289,6 +309,21 @@ def _mode_list(raw: str | None) -> tuple[str, ...]:
     return parts or _DEFAULT_KEY_MODEL_MODES
 
 
+def _web_search_model(raw: str | None) -> str:
+    """Parse ``AGENTX_BRAIN_WEB_SEARCH_MODEL``: a model id, or ``""`` for off.
+
+    Empty means the default, as it does for the mode list: a variable somebody
+    cleared must not quietly take web search away from everyone. Turning it
+    off is a word, not an absence.
+    """
+    value = (raw or "").strip()
+    if not value:
+        return _DEFAULT_WEB_SEARCH_MODEL
+    if value.lower() in _WEB_SEARCH_OFF:
+        return ""
+    return value
+
+
 def _int_env(source, name: str, fallback: int) -> int:
     try:
         value = int((source.get(name) or "").strip() or fallback)
@@ -375,6 +410,7 @@ def load_settings(env: dict[str, str] | None = None) -> BrainSettings:
         key_alias_prefix=alias_prefix,
         key_models=tuple(getattr(policy, "models", ()) or ()),
         key_model_modes=_mode_list(source.get(KEY_MODEL_MODES_ENV_VAR)),
+        web_search_model=_web_search_model(source.get(WEB_SEARCH_MODEL_ENV_VAR)),
         key_max_budget=float(getattr(policy, "max_budget", 0.0) or 0.0),
         key_budget_duration=str(getattr(policy, "budget_duration", "") or ""),
         key_tpm_limit=int(getattr(policy, "tpm_limit", 0) or 0),

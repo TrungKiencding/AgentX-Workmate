@@ -2777,7 +2777,14 @@ export const en: Translations = {
       localEndpointLabel: 'Local / custom endpoint',
       couldNotSaveLocalEndpoint: 'Could not save local endpoint',
       couldNotChangeModel: 'Could not change model',
-      directApiAccess: name => `Direct API access to ${name}.`
+      directApiAccess: name => `Direct API access to ${name}.`,
+      gatewayNoAnswer:
+        'AgentX could not get a model key for your account. Make sure you are signed in to AgentX and online, then try again.',
+      gatewayNotSetUp:
+        'AgentX AI Gateway is not set up on this install. Ask whoever manages AgentX, or pick a different provider.',
+      gatewayOffline: 'Could not reach AgentX AI Gateway. Check your connection and try again.',
+      gatewayRevoked: 'This device has been revoked. Sign in to AgentX again to use AgentX AI Gateway.',
+      gatewayFailed: detail => `AgentX AI Gateway could not issue a model key: ${detail}`
     },
     headerTitle: 'Let’s get you set up with AgentX Workmate',
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',
@@ -2790,7 +2797,8 @@ export const en: Translations = {
     chooseLater: "I'll choose a provider later",
     recommended: 'Recommended',
     connected: 'Connected',
-    featuredPitch: 'One subscription, 300+ frontier models — the recommended way to run AgentX',
+    gatewayPitch: 'Models that come with your AgentX account — no API key needed',
+    gatewayConnecting: 'Connecting to AgentX AI Gateway…',
     fireworksPitch: 'Direct model API — Fireworks-hosted frontier models',
     openRouterPitch: 'One key, hundreds of models — a solid default',
     apiKeyOptions: {

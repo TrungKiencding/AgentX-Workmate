@@ -1,6 +1,6 @@
 [package]
 name = "agentx-bootstrap"
-version = "1.0.0"
+version = "1.0.1"
 description = "AgentX Setup — signed installer that drives scripts/install.ps1"
 authors = ["AstralX Technology <kien.le@astralx.com.vn>"]
 edition = "2021"
