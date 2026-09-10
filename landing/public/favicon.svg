@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- The AgentX mark, stroked on the Night Owl page colour. Geometry is the
+       output of buildMark() in src/lib/brand-mark-path.ts, scaled into a 128px
+       plate with a 14px margin so the ring survives a 16px tab icon. -->
+  <rect width="128" height="128" rx="26" fill="#011627"/>
+  <g transform="translate(19 19) scale(0.9)" fill="none" stroke="#8fb4ff" stroke-width="8"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M60.75 12.49 L73.41 38.26 A28 28 0 0 1 60.11 75.98 L22.70 93.43 A11.5 11.5 0 0 1 7.49 78.00 L39.18 12.55 A12 12 0 0 1 60.75 12.49Z"/>
+    <path d="M73.41 38.26 L92.51 77.16 A11.5 11.5 0 0 1 80.14 93.55 L55.00 89.00"/>
+  </g>
+</svg>

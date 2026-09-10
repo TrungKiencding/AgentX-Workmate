@@ -1,0 +1,27 @@
+{
+  "name": "agentx-workmate-landing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing landing page for AgentX Workmate.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5180",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5181",
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false"
+  },
+  "dependencies": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "^5.1.2",
+    "typescript": "5.9.3",
+    "vite": "^7.3.6"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

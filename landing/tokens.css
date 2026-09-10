@@ -1,0 +1,121 @@
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R4 V5
+ *
+ * AgentX Workmate — design tokens.
+ *
+ * The palette is NOT invented here: it is the shipped Night Owl dark theme from
+ * `apps/desktop/src/themes/presets.ts` (`nightOwlTheme.darkColors`), converted
+ * hex → OKLCH so tints stay perceptually even. Anchor hue 248 is the Night Owl
+ * navy/periwinkle axis; every neutral carries a trace of it, which is why the
+ * greys read cool rather than dead.
+ *
+ * Two accents, both from the same theme: periwinkle (#8fb4ff) carries links,
+ * focus and the primary fill; cyan (#7fdbca) is the secondary, used only on the
+ * canvas bloom and the learning-loop diagram. Nothing else gets a colour.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Paper & ink · Night Owl dark ------------------------------------ */
+  --color-paper: oklch(19.3% 0.045 248); /* #011627 — the canonical page */
+  --color-paper-2: oklch(23.5% 0.05 248); /* raised: strips, inset rows */
+  --color-paper-3: oklch(27.5% 0.055 248); /* cards, popovers, nav pill */
+  --color-paper-4: oklch(32% 0.056 248); /* hover on a card */
+  --color-rule: oklch(35% 0.045 248); /* hairline */
+  --color-rule-strong: oklch(44% 0.05 248); /* hairline that must be seen */
+  /* The edge of a control, which WCAG 1.4.11 holds to 3:1. `rule-strong` is
+     2.4:1 — fine for a divider, not for the outline of a button. */
+  --color-control-edge: oklch(56% 0.05 248);
+  /* 66%, not the 58% this started at: `neutral` carries real body copy
+     (notes, requirements, the DIY column) and 58% landed at 3.9:1 on the
+     raised surface. 66% clears 4.5:1 on paper, paper-2 and paper-3. */
+  --color-neutral: oklch(66% 0.04 248);
+  --color-muted: oklch(74% 0.044 246); /* #93aec4 — 6.1:1 on paper */
+  --color-ink: oklch(89.8% 0.02 260); /* #d6deeb */
+  --color-ink-strong: oklch(96% 0.012 260);
+
+  /* ---- Accents · one primary, one secondary ---------------------------- */
+  --color-accent: oklch(77.2% 0.115 264); /* #8fb4ff periwinkle */
+  --color-accent-soft: oklch(45% 0.09 264); /* accent at rule strength */
+  --color-accent-ink: oklch(19.3% 0.045 248); /* label on an accent fill */
+  --color-accent-2: oklch(82.9% 0.092 181); /* #7fdbca Night Owl cyan */
+  --color-focus: oklch(84% 0.12 264);
+
+  /* Bloom stops. Alpha is a modifier here, not a palette entry. */
+  --bloom-a: oklch(60% 0.16 264 / 0.28);
+  --bloom-b: oklch(62% 0.13 181 / 0.16);
+
+  /* ---- Type ------------------------------------------------------------ */
+  /* Two families. Geist carries display + body; JetBrains Mono is the
+   * outlier register and appears in exactly two roles — technical labels
+   * and literal commands. CJK falls through to the platform face because
+   * neither vendored font ships those glyphs. */
+  --font-display: 'Geist', 'PingFang SC', 'Hiragino Sans', 'Noto Sans CJK SC', ui-sans-serif, system-ui,
+    sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Major third, 1.25, from a 16px body. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+  --text-3xl: 2.875rem;
+  --text-display: clamp(2.75rem, 5vw + 1rem, 5.25rem);
+  --text-display-s: clamp(2.25rem, 3.4vw + 1rem, 3.5rem);
+
+  /* ---- Space · 4pt, nine steps ----------------------------------------- */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+  --space-4xl: 9rem;
+
+  /* Control internals. Named rather than typed inline, and every one a
+     multiple of 4px, so a button's padding is a system decision. */
+  --control-pad-block: 0.75rem; /* 12px */
+  --control-pad-inline: 1.25rem; /* 20px */
+  --control-pad-block-sm: 0.5rem; /* 8px */
+  --control-pad-inline-sm: 1rem; /* 16px */
+
+  --page-gutter: clamp(1.125rem, 4vw, 3.5rem);
+  --page-max: 74rem;
+  --measure: 62ch;
+
+  /* ---- Rules, radii, elevation ----------------------------------------- */
+  --rule-hair: 1px;
+  --rule-thick: 2px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* On a dark page elevation is lightness, not shadow. The one shadow here
+   * is tight and dark — it seats the floating pill, it does not glow. */
+  --shadow-seat: 0 10px 30px -18px oklch(8% 0.03 248 / 0.9);
+
+  /* ---- Motion ---------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  /* ---- Stacking · six named levels ------------------------------------- */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}
