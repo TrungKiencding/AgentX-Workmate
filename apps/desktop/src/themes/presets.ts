@@ -554,7 +554,6 @@ export const slateTheme: DesktopTheme = {
   }
 }
 
-
 /**
  * Curated accent seeds for the Nous preset (Settings → Appearance → Accent).
  * Same construction as Nous blue — mid-lightness, committed chroma — so every

@@ -2888,8 +2888,10 @@ export const ar = defineLocale({
       connectionActive: 'قيد الاستخدام',
       signedIn: 'تم تسجيل دخول WebMate.',
       signedInAs: email => `تم تسجيل دخول WebMate بالحساب ${email}.`,
-      opened: 'تم فتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate. أكمل التسجيل هناك وسيلاحظ Workmate ذلك تلقائيًا.',
-      loginRequired: 'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
+      opened:
+        'تم فتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate. أكمل التسجيل هناك وسيلاحظ Workmate ذلك تلقائيًا.',
+      loginRequired:
+        'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
       unsupported: 'لا يمكن تسجيل دخول نسخة WebMate هذه من هنا. افتح WebMate في المتصفح وسجّل الدخول هناك.',
       notConnected: 'WebMate غير متصل، فلا يوجد ما يمكن تسجيل دخوله.',
       noAnswer: 'لم يجب WebMate في الوقت المناسب.',

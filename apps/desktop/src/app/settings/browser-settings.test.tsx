@@ -253,7 +253,12 @@ describe('signed in together (phase 4)', () => {
       error: null
     }))
 
-    const chooseBrowser = vi.fn(async () => ({ id: 'chrome', name: 'Google Chrome', profileDir: 'Default', profileName: 'Kiên' }))
+    const chooseBrowser = vi.fn(async () => ({
+      id: 'chrome',
+      name: 'Google Chrome',
+      profileDir: 'Default',
+      profileName: 'Kiên'
+    }))
 
     desktopWindow.agentxDesktop = {
       api: vi.fn(async () => backend(true)),

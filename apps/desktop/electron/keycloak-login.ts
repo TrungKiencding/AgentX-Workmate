@@ -134,10 +134,7 @@ function listenOnFirstFreePort(
  * The code is single-use and Keycloak burns it on the first attempt, so a
  * failed exchange must restart the whole flow rather than retry the POST.
  */
-export async function runKeycloakLogin(
-  config: KeycloakOidcConfig,
-  deps: KeycloakLoginDeps
-): Promise<NativeTokenSet> {
+export async function runKeycloakLogin(config: KeycloakOidcConfig, deps: KeycloakLoginDeps): Promise<NativeTokenSet> {
   const createServer = deps.createServer || http.createServer
   const timeoutMs = deps.timeoutMs ?? KEYCLOAK_LOGIN_TIMEOUT_MS
   const now = deps.now || (() => Math.floor(Date.now() / 1000))
@@ -235,9 +232,7 @@ export async function runKeycloakLogin(
 
         timer = setTimeout(() => {
           fail(
-            new Error(
-              'Sign-in timed out. The browser window may not have finished signing in to AgentX; try again.'
-            )
+            new Error('Sign-in timed out. The browser window may not have finished signing in to AgentX; try again.')
           )
         }, timeoutMs)
 
@@ -275,6 +270,7 @@ export async function refreshKeycloakSession(
 
   const now = deps.now || (() => Math.floor(Date.now() / 1000))
   const endpoints = await fetchKeycloakEndpoints(config, deps)
+
   const body = await deps.postForm(endpoints.tokenEndpoint, buildKeycloakRefreshBody(config, refreshToken), {
     timeoutMs: 15_000
   })

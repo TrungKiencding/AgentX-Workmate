@@ -703,7 +703,9 @@ describe('the browser step after the model card', () => {
     $desktopOnboarding.set(confirming())
     expect(await advanceFromModelConfirm()).toBe('done')
 
-    installWebmateBridge({ status: vi.fn(async () => ({ connected: true, installType: 'workmate', prefs: { prompt: null } })) })
+    installWebmateBridge({
+      status: vi.fn(async () => ({ connected: true, installType: 'workmate', prefs: { prompt: null } }))
+    })
     $desktopOnboarding.set(confirming())
     expect(await advanceFromModelConfirm()).toBe('done')
 

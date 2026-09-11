@@ -293,12 +293,8 @@ function Card({
           {(arc === 'running' || arc === 'stale') && !dragging && !selected && (
             <span aria-hidden className={cn('kanban-arc', arc === 'stale' && 'kanban-arc--stale')} />
           )}
-          <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
-            {task.title || task.id}
-          </span>
-          {summary && (
-            <span className="line-clamp-2 text-2xs leading-snug text-(--ui-text-tertiary)">{summary}</span>
-          )}
+          <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{task.title || task.id}</span>
+          {summary && <span className="line-clamp-2 text-2xs leading-snug text-(--ui-text-tertiary)">{summary}</span>}
           <CardFooter arc={arc} task={task} />
         </div>
       </ContextMenuTrigger>

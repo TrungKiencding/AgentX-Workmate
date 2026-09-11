@@ -53,9 +53,7 @@ function TreeThumbnail({ node }: { node: LayoutNode }) {
 /** Small-caps section heading — the app's SidebarPanelLabel voice. */
 function PickerSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-2xs font-semibold uppercase tracking-[0.16em] text-(--ui-text-quaternary)">
-      {children}
-    </span>
+    <span className="text-2xs font-semibold uppercase tracking-[0.16em] text-(--ui-text-quaternary)">{children}</span>
   )
 }
 
@@ -85,9 +83,7 @@ function PresetCard({ preset }: { preset: Contribution }) {
         <div className="flex h-12 w-full">
           <TreeThumbnail node={tree} />
         </div>
-        <span
-          className={cn('truncate text-2xs font-medium', active ? 'text-foreground' : 'text-muted-foreground/80')}
-        >
+        <span className={cn('truncate text-2xs font-medium', active ? 'text-foreground' : 'text-muted-foreground/80')}>
           {preset.title ?? preset.id}
         </span>
       </button>

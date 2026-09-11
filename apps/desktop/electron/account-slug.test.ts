@@ -21,12 +21,7 @@ const ACCOUNT_SLUG_VECTORS: Array<[string, string, string, string]> = [
   ['f81d4fae-7dec-11d0-a765-00a0c91e6bf6', '', 'kien.le@astralx.vn', 'kien-le-30a5154b'],
   ['00000000-0000-0000-0000-000000000001', '', '', 'u-7ac1b8d7'],
   ['subject-with-unicode', 'Nguyễn Văn A', 'nva@astralx.vn', 'nguy-n-v-n-a-ab1c1834'],
-  [
-    'longname',
-    'a-very-long-username-that-exceeds-the-label-budget-by-a-lot',
-    '',
-    'a-very-long-username-tha-7dc98c29'
-  ],
+  ['longname', 'a-very-long-username-that-exceeds-the-label-budget-by-a-lot', '', 'a-very-long-username-tha-7dc98c29'],
   ['f81d4fae-7dec-11d0-a765-00a0c91e6bf6', '  ', '  KIEN.LE@Astralx.VN ', 'kien-le-30a5154b'],
   ['other-subject', 'Kien Le', 'kien.le@astralx.vn', 'kien-le-9fe36593']
 ]

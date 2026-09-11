@@ -385,9 +385,7 @@ async function resolveInstallScript({
     // a commit only that machine has. write-build-stamp.mjs records the root
     // for local builds precisely so this path can read the installer off disk.
     const fromBuildRoot =
-      installStamp && installStamp.source === 'local'
-        ? resolveLocalInstallScript(installStamp.repoRoot)
-        : null
+      installStamp && installStamp.source === 'local' ? resolveLocalInstallScript(installStamp.repoRoot) : null
 
     const installed = fromBuildRoot || installedAgentInstallScript(hermesHome)
     const fallbackSource = fromBuildRoot ? 'build-checkout' : 'installed-agent'
@@ -720,7 +718,16 @@ function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = t
   return args
 }
 
-async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit, repoUrl }) {
+async function fetchManifest({
+  scriptPath,
+  installerKind,
+  emit,
+  hermesHome,
+  activeRoot,
+  installStamp,
+  pinCommit,
+  repoUrl
+}) {
   const isPosix = installerKind === 'posix'
 
   const args = isPosix

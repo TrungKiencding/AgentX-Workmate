@@ -70,7 +70,17 @@ describe('parseBridgeState', () => {
         connected: true,
         instanceId: 'inst-b',
         connections: [
-          { instanceId: 'inst-a', browser: 'Chrome 152', extensionVersion: '1.0.5', installType: 'workmate', signedIn: false, protocolVersion: 3, lastHelloAt: 't', paired: true, active: false },
+          {
+            instanceId: 'inst-a',
+            browser: 'Chrome 152',
+            extensionVersion: '1.0.5',
+            installType: 'workmate',
+            signedIn: false,
+            protocolVersion: 3,
+            lastHelloAt: 't',
+            paired: true,
+            active: false
+          },
           { instanceId: 'inst-b', browser: 'Chrome 152', signedIn: true, active: true, installType: 'workmate' },
           { browser: 'nameless' },
           null

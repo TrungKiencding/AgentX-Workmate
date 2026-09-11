@@ -2782,7 +2782,8 @@ export const ja = defineLocale({
       gatewayNotSetUp:
         'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。',
       gatewayOffline: 'AgentX AI Gateway に接続できませんでした。接続を確認してから再試行してください。',
-      gatewayRevoked: 'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
+      gatewayRevoked:
+        'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
       gatewayFailed: detail => `AgentX AI Gateway がモデルキーを発行できませんでした: ${detail}`
     },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
@@ -3028,11 +3029,13 @@ export const ja = defineLocale({
     sso: {
       heading: 'まとめてサインイン',
       browserLabel: 'サインインと WebMate に使うブラウザ',
-      browserDesc: 'Workmate はこのブラウザでサインインページを開くため、そこにある WebMate は同じアカウントで自動的にサインインします。',
+      browserDesc:
+        'Workmate はこのブラウザでサインインページを開くため、そこにある WebMate は同じアカウントで自動的にサインインします。',
       browserSystem: 'パソコンの既定のブラウザ',
       browserOption: (browser, profile) => `${browser} · ${profile}`,
       autoSignIn: '自分の Workmate アカウントで WebMate にサインインする',
-      autoSignInDesc: 'WebMate がサインインしていない状態で接続したとき、ここで使っているアカウントで Workmate が静かにサインインします。',
+      autoSignInDesc:
+        'WebMate がサインインしていない状態で接続したとき、ここで使っているアカウントで Workmate が静かにサインインします。',
       signIn: 'WebMate にサインイン',
       signingIn: 'WebMate にサインイン中…',
       signInDesc: 'WebMate のあるブラウザで、アカウントを入力済みの AgentX サインインを開きます。',
@@ -3042,9 +3045,12 @@ export const ja = defineLocale({
       connectionActive: '使用中',
       signedIn: 'WebMate はサインインしました。',
       signedInAs: email => `WebMate は ${email} としてサインインしました。`,
-      opened: 'WebMate のあるブラウザで AgentX のサインインを開きました。そこで完了してください。Workmate が自動的に検知します。',
-      loginRequired: 'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
-      unsupported: 'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
+      opened:
+        'WebMate のあるブラウザで AgentX のサインインを開きました。そこで完了してください。Workmate が自動的に検知します。',
+      loginRequired:
+        'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
+      unsupported:
+        'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
       notConnected: 'WebMate が接続されていないため、サインインするものがありません。',
       noAnswer: 'WebMate が時間内に応答しませんでした。',
       nothingToDo: '接続中の WebMate はすべてサインイン済みです。',

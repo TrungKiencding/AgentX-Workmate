@@ -99,11 +99,7 @@ export const PlatformAvatar = memo(
     const spec = PLATFORM_ICONS[platformId]
     const metrics = AVATAR_SIZE[size]
 
-    const baseClass = cn(
-      'inline-grid shrink-0 place-items-center rounded-md font-medium',
-      metrics.box,
-      className
-    )
+    const baseClass = cn('inline-grid shrink-0 place-items-center rounded-md font-medium', metrics.box, className)
 
     if (!spec) {
       return (

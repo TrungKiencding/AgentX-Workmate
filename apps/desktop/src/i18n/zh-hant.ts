@@ -2915,7 +2915,8 @@ export const zhHant = defineLocale({
       signedIn: 'WebMate 已登入。',
       signedInAs: email => `WebMate 已以 ${email} 登入。`,
       opened: 'AgentX 登入頁面已在裝有 WebMate 的瀏覽器中開啟。請在那裡完成登入，Workmate 會自動察覺。',
-      loginRequired: '該瀏覽器還沒有可重複使用的 AgentX 工作階段。請從該瀏覽器登入一次 Workmate，或點選「登入 WebMate」。',
+      loginRequired:
+        '該瀏覽器還沒有可重複使用的 AgentX 工作階段。請從該瀏覽器登入一次 Workmate，或點選「登入 WebMate」。',
       unsupported: '這個 WebMate 無法從這裡登入。請在瀏覽器開啟 WebMate 並在那裡登入。',
       notConnected: 'WebMate 未連線，沒有可登入的對象。',
       noAnswer: 'WebMate 未及時回應。',

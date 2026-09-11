@@ -101,10 +101,7 @@ describe('describeKey', () => {
   }
 
   it('shows the key and where it points once there is one', () => {
-    const line = describeKey(
-      state({ base_url: 'https://proxy.test', masked_key: 'sk-…4Bqf', ok: true }),
-      copy
-    )
+    const line = describeKey(state({ base_url: 'https://proxy.test', masked_key: 'sk-…4Bqf', ok: true }), copy)
 
     expect(line).toBe('sk-…4Bqf · https://proxy.test')
   })

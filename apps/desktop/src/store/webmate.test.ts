@@ -46,7 +46,7 @@ function prefs(overrides: Partial<DesktopWebmatePrefs> = {}): DesktopWebmatePref
     connectedAt: null,
     cardSnoozedUntil: null,
     updateToastSnoozedUntil: null,
-      ssoAutoSignIn: true,
+    ssoAutoSignIn: true,
     updatedAt: '2026-09-09T00:00:00.000Z',
     ...overrides
   }
@@ -302,9 +302,9 @@ const connection = (overrides: Partial<DesktopWebmateConnection> = {}): DesktopW
 describe('several browsers at once (phase 4)', () => {
   it('lists the server’s connections, or synthesises one from the older fields', () => {
     expect(webmateConnections(status())).toEqual([])
-    expect(webmateConnections(status({ connected: true, browser: 'Edge 152', signedIn: false, installType: 'workmate' }))).toEqual([
-      expect.objectContaining({ instanceId: '', browser: 'Edge 152', signedIn: false, active: true })
-    ])
+    expect(
+      webmateConnections(status({ connected: true, browser: 'Edge 152', signedIn: false, installType: 'workmate' }))
+    ).toEqual([expect.objectContaining({ instanceId: '', browser: 'Edge 152', signedIn: false, active: true })])
 
     const two = status({
       connected: true,
@@ -332,7 +332,9 @@ describe('several browsers at once (phase 4)', () => {
       ]
     })
 
-    expect(webmateReadiness({ status: both, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('ready')
+    expect(webmateReadiness({ status: both, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe(
+      'ready'
+    )
     expect(webmateReadiness({ status: both, backend: backend() })).toBe('ready')
 
     const nobody = status({
@@ -343,7 +345,9 @@ describe('several browsers at once (phase 4)', () => {
       connections: [connection({ instanceId: 'own', signedIn: false })]
     })
 
-    expect(webmateReadiness({ status: nobody, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('notSignedIn')
+    expect(webmateReadiness({ status: nobody, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe(
+      'notSignedIn'
+    )
     // A browser the server does not list is "not connected" even while another browser is.
     const edge = browser({ id: 'edge', name: 'Microsoft Edge', profiles: [profile(true)] })
 
@@ -369,7 +373,18 @@ describe('several browsers at once (phase 4)', () => {
     expect(webmateSignInOutcomeCopy(outcome(null))?.message).toBe('WebMate did not answer in time.')
     expect(
       webmateSignInOutcomeCopy(
-        outcome({ results: [{ instanceId: 'a', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true, email: 'kien@example.test' }] })
+        outcome({
+          results: [
+            {
+              instanceId: 'a',
+              browser: 'Chrome 152',
+              ok: true,
+              outcome: 'signed-in',
+              signedIn: true,
+              email: 'kien@example.test'
+            }
+          ]
+        })
       )
     ).toEqual({ kind: 'success', message: 'WebMate is signed in as kien@example.test.' })
     expect(
@@ -379,15 +394,28 @@ describe('several browsers at once (phase 4)', () => {
     ).toBe('info')
     expect(
       webmateSignInOutcomeCopy(
-        outcome({ ok: false, results: [{ instanceId: 'a', browser: null, ok: false, outcome: 'error', signedIn: false, message: 'offline' }] }, { ok: false })
+        outcome(
+          {
+            ok: false,
+            results: [
+              { instanceId: 'a', browser: null, ok: false, outcome: 'error', signedIn: false, message: 'offline' }
+            ]
+          },
+          { ok: false }
+        )
       )
     ).toEqual({ kind: 'error', message: 'Could not sign in WebMate: offline' })
-    expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe('Every connected WebMate is already signed in.')
+    expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe(
+      'Every connected WebMate is already signed in.'
+    )
     expect(
-      webmateSignInOutcomeCopy(outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'opened', signedIn: false }] }))
+      webmateSignInOutcomeCopy(
+        outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'opened', signedIn: false }] })
+      )
     ).toEqual({
       kind: 'info',
-      message: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.'
+      message:
+        'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.'
     })
   })
 
@@ -416,7 +444,9 @@ describe('several browsers at once (phase 4)', () => {
 
     expect(signIn).toHaveBeenCalledWith({ instanceId: 'a' })
     expect(outcome?.ok).toBe(true)
-    expect(notifications.$notifications.get().map(n => [n.kind, n.message])).toEqual([['success', 'WebMate is signed in.']])
+    expect(notifications.$notifications.get().map(n => [n.kind, n.message])).toEqual([
+      ['success', 'WebMate is signed in.']
+    ])
   })
 })
 

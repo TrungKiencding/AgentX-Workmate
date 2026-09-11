@@ -343,9 +343,15 @@ declare global {
         closeWindow: () => Promise<DesktopWebmateWindowStatus>
         windowStatus: () => Promise<DesktopWebmateWindowStatus>
         /** Phase 4 — sign WebMate in with the Workmate account (interactive by default; `interactive: false` re-sends the silent hint). */
-        signIn: (request?: { instanceId?: string | null; interactive?: boolean }) => Promise<DesktopWebmateSignInOutcome>
+        signIn: (request?: {
+          instanceId?: string | null
+          interactive?: boolean
+        }) => Promise<DesktopWebmateSignInOutcome>
         /** Phase 4 — the browser/profile Workmate signs in through and installs WebMate into. */
-        chooseBrowser: (request: { browserId: string; profileDir: string | null }) => Promise<DesktopWebmatePrefs['browser']>
+        chooseBrowser: (request: {
+          browserId: string
+          profileDir: string | null
+        }) => Promise<DesktopWebmatePrefs['browser']>
       }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
@@ -444,7 +450,8 @@ export interface DesktopWebmateLocalStatus {
 // Mirrors electron/webmate/{browsers,prefs,status,updater,service}.ts. Kept
 // inline like the other Desktop* types so the renderer build never reaches
 // into the electron tree.
-export type DesktopWebmateBrowserId = 'chrome' | 'edge' | 'brave' | 'vivaldi' | 'opera' | 'arc' | 'chromium' | 'firefox' | 'safari'
+export type DesktopWebmateBrowserId =
+  'chrome' | 'edge' | 'brave' | 'vivaldi' | 'opera' | 'arc' | 'chromium' | 'firefox' | 'safari'
 
 export interface DesktopWebmateBrowserProfile {
   dir: string
@@ -1075,15 +1082,7 @@ export interface DesktopSyncOutcome {
   // busy          a synchronisation was already running
   // reauth        this device is revoked, or its token was rejected
   // error         the service answered, and refused
-  status:
-    | 'ok'
-    | 'offline'
-    | 'signed_out'
-    | 'unconfigured'
-    | 'disabled'
-    | 'busy'
-    | 'reauth'
-    | 'error'
+  status: 'ok' | 'offline' | 'signed_out' | 'unconfigured' | 'disabled' | 'busy' | 'reauth' | 'error'
   detail?: string
   pushed?: number
   rejected?: number
