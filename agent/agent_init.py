@@ -1326,7 +1326,10 @@ def init_agent(
         # Bedrock GPT-5.5 uses Bedrock Mantle's OpenAI Responses endpoint.
         # Runtime resolution uses api_key="aws-sdk" as the IAM-auth sentinel;
         # attach an httpx client that SigV4-signs every OpenAI SDK request.
-        if "client_kwargs" in locals():
+        # Check the URL before importing: bedrock_adapter lazy-installs boto3 at
+        # import, so every other provider paid a pip install on its first turn
+        # (minutes when another lazy install already held uv's venv lock).
+        if "client_kwargs" in locals() and "bedrock-mantle." in str(client_kwargs.get("base_url") or "").lower():
             try:
                 from agent.bedrock_adapter import configure_bedrock_openai_client_kwargs
                 configure_bedrock_openai_client_kwargs(

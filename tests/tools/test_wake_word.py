@@ -146,6 +146,58 @@ def test_tts_ready_is_a_probe_never_an_installer(monkeypatch):
     assert ww._tts_ready() is True
 
 
+def test_stt_ready_is_a_probe_never_an_installer(monkeypatch):
+    """_stt_ready must NOT trigger the faster-whisper lazy install either.
+
+    Regression: _get_provider → _try_lazy_install_stt → lazy_deps.ensure ran
+    uv inside wake.status on every desktop connect. The onnxruntime download
+    held uv's venv lock for minutes and the first chat turn's own lazy
+    installs queued behind it, so a fresh install showed no reply at all.
+    """
+    import types as _types
+
+    def _installing_get_provider(cfg):
+        raise AssertionError("_get_provider must not run while faster-whisper is missing")
+
+    fake_stt = _types.SimpleNamespace(
+        _get_provider=_installing_get_provider,
+        _load_stt_config=lambda: {"enabled": True},
+        is_stt_enabled=lambda cfg: cfg.get("enabled", True),
+    )
+    monkeypatch.setitem(sys.modules, "tools.transcription_tools", fake_stt)
+
+    # Auto-detect tries local first: deps missing + lazy installs allowed → ready.
+    monkeypatch.setattr("tools.lazy_deps.is_available", lambda f: False)
+    monkeypatch.setattr("tools.lazy_deps._allow_lazy_installs", lambda: True)
+    assert ww._stt_ready() is True
+
+    # Explicit local (the default config) behaves the same.
+    fake_stt._load_stt_config = lambda: {"enabled": True, "provider": "local"}
+    assert ww._stt_ready() is True
+
+    # Lazy installs disabled → the real resolution decides (ensure refuses
+    # without running uv).
+    monkeypatch.setattr("tools.lazy_deps._allow_lazy_installs", lambda: False)
+    fake_stt._get_provider = lambda cfg: "none"
+    assert ww._stt_ready() is False
+
+    # Deps present → resolves normally.
+    monkeypatch.setattr("tools.lazy_deps.is_available", lambda f: True)
+    fake_stt._get_provider = lambda cfg: "local"
+    assert ww._stt_ready() is True
+
+    # A cloud provider never lazy-installs faster-whisper.
+    monkeypatch.setattr("tools.lazy_deps.is_available", lambda f: False)
+    monkeypatch.setattr("tools.lazy_deps._allow_lazy_installs", lambda: True)
+    fake_stt._load_stt_config = lambda: {"enabled": True, "provider": "groq"}
+    fake_stt._get_provider = lambda cfg: "groq"
+    assert ww._stt_ready() is True
+
+    # STT disabled → not ready.
+    fake_stt._load_stt_config = lambda: {"enabled": False}
+    assert ww._stt_ready() is False
+
+
 def test_requirements_fresh_install_lazy_allowed(monkeypatch):
     """Deps missing + lazy installs allowed → available, so /wake on can
     reach the engine constructor's ``lazy_deps.ensure()`` call.
