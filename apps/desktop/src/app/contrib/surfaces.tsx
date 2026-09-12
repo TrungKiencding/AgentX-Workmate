@@ -115,8 +115,8 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
 }) {
   const activeGatewayProfile = useStore($activeGatewayProfile)
   const gatewayState = useStore($gatewayState)
-  useContributions(ROUTES_AREA)
-  const routeContributions = contributedRoutes()
+  const routeSnapshot = useContributions(ROUTES_AREA)
+  const routeContributions = contributedRoutes(routeSnapshot)
 
   // Recapture the live gateway instance whenever the connection state flips.
   // getGateway reads a controller ref, so gatewayState is the intentional
