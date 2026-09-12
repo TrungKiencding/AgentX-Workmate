@@ -10057,8 +10057,20 @@ class TelegramAdapter(BasePlatformAdapter):
     # ── Message reactions (processing lifecycle) ──────────────────────────
 
     def _reactions_enabled(self) -> bool:
-        """Check if message reactions are enabled via config/env."""
-        return os.getenv("TELEGRAM_REACTIONS", "false").lower() not in {"false", "0", "no"}
+        """Reactions enabled via TELEGRAM_REACTIONS or ``extra.reactions`` (YAML, per profile).
+
+        An explicitly set env var wins over YAML — the same rule ``yaml_env_setter`` documents for
+        the YAML→env bridge — so the stock ``reactions: false`` every install materializes cannot
+        silently kill a documented ``TELEGRAM_REACTIONS=true`` (#109032). Under multiplex a scoped
+        miss returns the default instead of another profile's process-env value (#72348), so only
+        a scoped/env hit counts as explicit; otherwise the profile's own YAML decides.
+        """
+        configured = _scoped_gate_env("TELEGRAM_REACTIONS", "")
+        if not configured:
+            configured = self.config.extra.get("reactions")
+        if configured is None:
+            return False
+        return str(configured).lower() not in {"false", "0", "no"}
 
     async def _set_reaction(self, chat_id: str, message_id: str, emoji: str) -> bool:
         """Set a single emoji reaction on a Telegram message."""
