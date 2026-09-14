@@ -75,11 +75,11 @@ BEDROCK_OPENAI_RESPONSES_MODEL_IDS: Tuple[str, ...] = (
     "openai.gpt-5.6-terra",
     "openai.gpt-5.6-luna",
 )
-_BEDROCK_OPENAI_HOST_RE = re.compile(
-    r"^bedrock-mantle\.([a-z0-9-]+)\.api\.aws$", re.IGNORECASE
-)
-
-
+_BEDROCK_OPENAI_HOST_RE = re.compile(r"^bedrock-mantle\.([a-z0-9-]+)\.api\.aws$", re.IGNORECASE)
+# Bedrock-hosted xAI Grok (any regional inference-profile prefix) rejects temperature/topP in Converse
+# with a hard 400 ("This model doesn't support the temperature field"); reasoning-first, same
+# restriction as Claude Opus 4.6+ but _forbids_sampling_params is Claude-only, so it needs its own gate.
+_BEDROCK_XAI_GROK_NO_SAMPLING_RE = re.compile(r"^(?:[a-z]+\.)?xai\.grok", re.IGNORECASE)
 _MIN_BOTO3_VERSION = (1, 34, 59)
 
 
@@ -1213,14 +1213,8 @@ def build_converse_kwargs(
         kwargs["system"] = system_prompt
 
     from agent.anthropic_adapter import _forbids_sampling_params
-
-    if not _forbids_sampling_params(model):
-        if temperature is not None:
-            kwargs["inferenceConfig"]["temperature"] = temperature
-
-        if top_p is not None:
-            kwargs["inferenceConfig"]["topP"] = top_p
-
+    if not _forbids_sampling_params(model) and not _BEDROCK_XAI_GROK_NO_SAMPLING_RE.match(model or ""):
+        inference_config.update({k: v for k, v in (("temperature", temperature), ("topP", top_p)) if v is not None})
     if stop_sequences:
         kwargs["inferenceConfig"]["stopSequences"] = stop_sequences
 
