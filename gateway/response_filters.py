@@ -10,18 +10,32 @@ from __future__ import annotations
 import unicodedata
 from typing import Any
 
-# Canonical model-emitted control token for intentional silence.
-SILENT_REPLY_TOKEN = "NO_REPLY"
-
-# Exact whole-response markers that mean "the agent intentionally chose not to
-# reply".  Keep this list small and explicit; arbitrary empty output remains an
-# error/empty-response path, not silence.
+# Exact whole-response markers meaning "the agent intentionally chose not to
+# reply". Keep small and explicit; arbitrary empty output remains an
+# error/empty-response path, not silence. A lane that does not think in English
+# translates the sentinel rather than dropping it, and the whole control token
+# then reaches the user as content, so the translated forms are carried here
+# too. zh-Hans is the only non-English locale this project ships documentation
+# for, which is where the list stops.
 LIVE_GATEWAY_SILENT_MARKERS = frozenset({
-    "[SILENT]",
-    "SILENT",
-    "NO_REPLY",
-    "NO REPLY",
+    "[SILENT]", "SILENT", "NO_REPLY", "NO REPLY",
+    "[静默]", "静默", "[沉默]", "沉默",
 })
+
+# Bracketed markers drive the autonomous lane's prefix rule ("[SILENT] nothing
+# new this tick"). Derived from the set above so a new marker cannot be added to
+# one rule and forgotten in the other.
+_BRACKETED_SILENCE_MARKERS = tuple(
+    sorted(m for m in LIVE_GATEWAY_SILENT_MARKERS if m.startswith("["))
+)
+
+# The persisted user-row kind of a self-injected MessageEvent(internal=True) turn — the only
+# machinery kind the gateway produces; only these may vanish on a bare silence marker.
+INTERNAL_NOTIFICATION_DISPLAY_KIND = "internal_notification"
+MACHINERY_DISPLAY_KINDS = frozenset({INTERNAL_NOTIFICATION_DISPLAY_KIND})
+
+# Longer than any marker could plausibly be, even with stray punctuation.
+_MARKER_LENGTH_CAP = 64
 
 
 def _canonical_silence_candidate(text: str) -> str:
@@ -101,14 +115,10 @@ def is_autonomous_silence_response(response: Any) -> bool:
     # Marker on its own first or last line (leading/trailing note on a
     # separate line — e.g. "2 deals filtered\n\n[SILENT]").
     lines = [ln for ln in stripped.splitlines() if ln.strip()]
-    if lines and (_is_token(lines[0]) or _is_token(lines[-1])):
-        return True
-    # Bracketed sentinel used as a same-line prefix — the documented pattern
-    # "[SILENT] No changes detected".  Restricted to the bracketed form so a
-    # bare word like "Silent retry succeeded" is NOT swallowed.
-    if stripped.upper().startswith("[SILENT]"):
-        return True
-    return False
+    # Bracketed form only for the prefix rule, so a bare "Silent retry succeeded" is NOT swallowed.
+    return stripped.upper().startswith(_BRACKETED_SILENCE_MARKERS) or any(
+        _canonical_silence_candidate(c) in LIVE_GATEWAY_SILENT_MARKERS for c in (stripped, lines[0], lines[-1])
+    )
 
 
 def is_intentional_silence_agent_result(agent_result: dict | None, response: Any) -> bool:
