@@ -18,7 +18,8 @@ import { useSessionListActions } from './use-session-list-actions'
 // Sidebar refresh hygiene: a content-identical refresh (turn complete,
 // cross-window broadcast, reconnect) must not replace $sessions' array
 // identity — that identity is the dependency for every sidebar memo — and
-// must not flicker the loading flag over an already-populated list.
+// must not flicker the loading flag once the list has resolved, whether it
+// came back populated or empty.
 
 const row = (id: string, over: Partial<SessionInfo> = {}): SessionInfo =>
   ({
@@ -171,7 +172,32 @@ describe('refreshSessions identity + loading hygiene', () => {
     expect($sessions.get().map(s => s.id)).toEqual(['a'])
   })
 
-  it('still shows loading for the initial (empty-list) fetch', async () => {
+  it('does not flicker the loading flag over a list that came back empty', async () => {
+    // A new account has no conversations, so every background refresh returns
+    // an empty page — and sessions.changed fires one each time second-brain
+    // sync stamps state.db, every 30s. Re-arming the flag on an empty list
+    // swapped the sidebar's blank state for skeletons and back on each one.
+    setSessionsLoading(true)
+    listSidebarSessions.mockResolvedValue(sidebar({ sessions: [] }))
+    const { result } = renderHook(() => useSessionListActions({ profileScope: 'default' }))
+
+    await act(async () => {
+      await result.current.refreshSessions()
+    })
+
+    const loadingStates: boolean[] = []
+    const off = $sessionsLoading.subscribe(value => loadingStates.push(value))
+
+    await act(async () => {
+      await result.current.refreshSessions()
+    })
+
+    off()
+    expect(loadingStates).toEqual([false])
+  })
+
+  it('settles the loading flag that startup or a gateway wipe armed', async () => {
+    setSessionsLoading(true)
     listSidebarSessions.mockResolvedValue(sidebar({ sessions: [row('a')] }))
     const { result } = renderHook(() => useSessionListActions({ profileScope: 'default' }))
 
@@ -183,7 +209,19 @@ describe('refreshSessions identity + loading hygiene', () => {
     })
 
     off()
-    expect(loadingStates).toEqual([false, true, false])
+    expect(loadingStates).toEqual([true, false])
+  })
+
+  it('settles the armed flag even when the fetch fails, so skeletons never stick', async () => {
+    setSessionsLoading(true)
+    listSidebarSessions.mockRejectedValue(new Error('offline'))
+    const { result } = renderHook(() => useSessionListActions({ profileScope: 'default' }))
+
+    await act(async () => {
+      await result.current.refreshSessions().catch(() => undefined)
+    })
+
+    expect($sessionsLoading.get()).toBe(false)
   })
 })
 

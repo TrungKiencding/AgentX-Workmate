@@ -16,6 +16,7 @@ import {
   $messagingSessions,
   $selectedStoredSessionId,
   $sessions,
+  $sessionsLoading,
   CRON_SECTION_LIMIT,
   mergeSessionPage,
   MESSAGING_SECTION_LIMIT,
@@ -141,15 +142,6 @@ export function useSessionListActions({ profileScope }: UseSessionListActionsArg
   const refreshSessions = useCallback(async () => {
     const requestId = refreshSessionsRequestRef.current + 1
     refreshSessionsRequestRef.current = requestId
-    // The loading flag exists to drive the initial skeletons (they only render
-    // while the list is empty). Turn-complete / reconnect refreshes over a
-    // populated list used to flip it true→false anyway, churning every
-    // $sessionsLoading subscriber twice per turn for no visible change.
-    const showLoading = $sessions.get().length === 0
-
-    if (showLoading) {
-      setSessionsLoading(true)
-    }
 
     try {
       const limit = $sessionsLimit.get()
@@ -230,7 +222,14 @@ export function useSessionListActions({ profileScope }: UseSessionListActionsArg
         setMessagingTruncated(result.messaging.sessions.length >= MESSAGING_SECTION_LIMIT)
       }
     } finally {
-      if (showLoading && refreshSessionsRequestRef.current === requestId) {
+      // The loading flag means "the list hasn't resolved yet" and drives the
+      // initial skeletons. Startup and a gateway wipe arm it; the latest
+      // refresh settles it, failures included, so skeletons never stick. A
+      // refresh never re-arms it: an empty list isn't an unloaded one (a new
+      // account has no chats), and re-arming on an empty list swapped the
+      // sidebar's blank state for skeletons and back on every background
+      // refresh — sessions.changed fires each time sync stamps state.db.
+      if (refreshSessionsRequestRef.current === requestId && $sessionsLoading.get()) {
         setSessionsLoading(false)
       }
     }
