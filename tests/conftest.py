@@ -461,6 +461,11 @@ def _hermetic_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("LANG", "C.UTF-8")
     monkeypatch.setenv("LC_ALL", "C.UTF-8")
     monkeypatch.setenv("PYTHONHASHSEED", "0")
+    # Static user-facing messages (agent.i18n) render in English. The shipped
+    # display.language default is "vi" to match the desktop app, and every
+    # test's empty AGENTX_HOME would otherwise inherit it through
+    # load_config(). Tests of language resolution delete this var themselves.
+    monkeypatch.setenv("AGENTX_LANGUAGE", "en")
 
     # 4b. Disable AWS IMDS lookups. Without this, any test that ends up
     #     calling has_aws_credentials() / resolve_aws_auth_env_var()

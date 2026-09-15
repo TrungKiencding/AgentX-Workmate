@@ -1318,8 +1318,12 @@ DEFAULT_CONFIG = {
         # UI language for static user-facing messages (approval prompts, a
         # handful of gateway slash-command replies).  Does NOT affect agent
         # responses, log lines, tool outputs, or slash-command descriptions.
-        # Supported: en, zh, ja, de, es, fr, tr, uk.  Unknown values fall back to en.
-        "language": "en",
+        # The desktop app reads this key as its interface language too, so it
+        # ships as Vietnamese to match the desktop's DEFAULT_LOCALE — otherwise
+        # /api/config hands a fresh install "en" and the app flips to English.
+        # Supported codes: agent/i18n.py SUPPORTED_LANGUAGES.  Unknown values
+        # fall back to en.
+        "language": "vi",
         # TUI busy indicator style: kaomoji (default), emoji, unicode (braille
         # spinner), or ascii.  Live-swappable via `/indicator <style>`.
         "tui_status_indicator": "kaomoji",

@@ -93,6 +93,21 @@ def test_default_when_nothing_set(monkeypatch):
     assert i18n.get_language() == "en"
 
 
+def test_shipped_default_is_vietnamese(monkeypatch):
+    """A fresh install (no config.yaml, no env override) resolves to Vietnamese.
+
+    DEFAULT_CONFIG ships ``display.language: vi`` to match the desktop app's
+    DEFAULT_LOCALE; load_config() merges it in, so the desktop keeps Vietnamese
+    instead of flipping to English once /api/config answers.
+    """
+    monkeypatch.delenv("AGENTX_LANGUAGE", raising=False)
+    i18n.reset_language_cache()
+    try:
+        assert i18n.get_language() == "vi"
+    finally:
+        i18n.reset_language_cache()
+
+
 # ---------------------------------------------------------------------------
 # t() semantics
 # ---------------------------------------------------------------------------
