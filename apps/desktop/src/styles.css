@@ -622,11 +622,12 @@
        control) so a conversation list reads like a list of conversations, not
        a file tree; the nav rows at the top share that height; the statusbar
        keeps its own shorter band. */
-    /* The four nav rows sit a rung ABOVE a conversation row on purpose: they
-       are the app's destinations, not list entries, and at a matched 36px the
+    /* The nav rows sit a rung ABOVE a conversation row on purpose: they are
+       the app's destinations, not list entries, and at a matched 36px the
        whole sidebar read as one undifferentiated column. 40px is the hero rung
-       (--control-h-xl), which is the weight this band should carry. */
-    --sidebar-nav-row-height: 2.5rem; /* 40px — the four nav rows at the top of the sidebar */
+       (--control-h-xl), which is the weight this band should carry — and the
+       height of the raised new-chat button that heads it. */
+    --sidebar-nav-row-height: 2.5rem; /* 40px — the new-chat button and the nav rows under it */
     --sidebar-row-height: 2.25rem; /* 36px — sidebar session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
@@ -1525,6 +1526,15 @@ code {
 
 .desktop-input-chrome[aria-invalid='true'] {
   border-color: var(--dt-destructive);
+}
+
+/* SearchField variant="field" — a list's standing finder (the chat sidebar's)
+   wears the chrome above as-is, plus one thing in dark: the chrome's 4% hairline
+   all but vanishes against the sidebar, the darkest rung, and a finder has to
+   read as a field before anyone reaches for it. A faint lift of the ink gives
+   the well an edge without turning it into a lit panel. */
+:root.dark .desktop-input-chrome[data-slot='search-field'] {
+  background: color-mix(in srgb, var(--ui-base) 3.5%, transparent);
 }
 
 @layer components {

@@ -384,9 +384,16 @@ Notes:
   fixed 1px in every state and focus arrives as a 2px accent outline
   (offset 1px, never animated) — no layout shift. `Textarea` swaps the fixed
   height for a min-height so it can grow.
-- **`SearchField`** — borderless, underline-on-focus, auto-width, 13px text at
-  `--control-h-sm`. The only search input. Don't build boxed search bars; don't
-  wrap it in a bordered tile. Empty lists hide their search field.
+- **`SearchField`** — the only search input. The default `inline` variant is
+  borderless, underline-on-focus, auto-width, 13px text at `--control-h-sm` —
+  the filter beside a page or overlay title. `variant="field"` is the one boxed
+  search: a list's standing finder (the chat sidebar's), which has to read as a
+  place to type at rest — full width at `--control-h-lg`, 14px text, the shared
+  `desktop-input-chrome` (plus a faint lift of the ink in dark, where the 4%
+  hairline vanishes against the sidebar), the whole well a `<label>`. Don't
+  build other boxed search bars; don't wrap either variant in a bordered tile.
+  Escape clears a query, then lets go of focus. Empty lists hide their search
+  field.
 - **`SegmentedControl`** — the choice control for small mutually-exclusive sets
   (color mode, tool-call display, usage period). Replaces radio piles and
   pill rows. 28px track (`--control-h-sm`), 12px labels.
@@ -413,12 +420,21 @@ running — while staying quieter than the content they frame.
   tracking, `--ui-text-tertiary` (see § Typography). Visible enough to group
   the rows under them, never a headline. Not brand-tinted — accent is for
   state, not for labelling. The palette's cmdk headings keep their own look.
-- **Nav rows** — the four destinations at the top of the sidebar (Trò chuyện
-  mới · Tiện ích · Tin nhắn · Artifact, Tabler glyphs at 18px) — are
-  `--sidebar-nav-row-height` at `text-base font-medium`. Selected is the same
-  treatment as a selected conversation: `--ui-row-active-background` **and**
-  the 2px `--ui-row-active-bar`. The `⌘N` chip shows on hover / focus-within
-  only — a hint for people who want one, not a label everyone reads.
+- **"Trò chuyện mới" is an action, not a nav row.** It stands alone above the
+  destinations, 12px clear of them, as the sidebar's one raised control: the
+  task-card recipe at `--sidebar-nav-row-height` — `--ui-bg-elevated` on a
+  `--ui-stroke-secondary` hairline with `--shadow-xs`; hover firms the
+  hairline, takes `--shadow-sm` and moves the fill a step toward the ink (the
+  lift that still reads in dark). It leads with the composer's primary mark, a
+  22px `bg-primary` circle holding a plus, and keeps the nav rows' 15px medium
+  label on their text column. The `⌘N` chip shows on hover / focus-within only
+  — a hint for people who want one, not a label everyone reads. Right-click
+  still opens "Mở ở khung chia đôi".
+- **Nav rows** — the destinations under it (Tiện ích · Kênh tin nhắn ·
+  Artifact, Tabler glyphs at 20px) — are `--sidebar-nav-row-height` at
+  `text-md font-medium`. Selected is the same treatment as a selected
+  conversation: `--ui-row-active-background` **and** the 2px
+  `--ui-row-active-bar`.
 - **Sidebar rows** own their height only on `SidebarRowShell`
   (`--sidebar-row-height`). Session title `text-base font-medium` (14px — a
   row is a conversation, not a file); meta and timestamps `text-xs

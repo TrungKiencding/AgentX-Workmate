@@ -25,7 +25,7 @@ import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { Files, Folders, List, MessageCircle, MessagePlus, Plus, Puzzle } from '@/lib/icons'
+import { Files, Folders, List, MessageCircle, Plus, Puzzle } from '@/lib/icons'
 import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
@@ -146,14 +146,32 @@ const NON_SESSION_LOAD_STEP = 10
 
 // Nav glyphs are Tabler — the page chrome's one icon set. Codicon stays in the
 // transcript, terminal, editor and file tree, where it is the tool vocabulary.
+//
+// "New chat" is not one of the destinations: it is the one thing to DO in this
+// band, so it stands on its own above them instead of heading the list.
+const NEW_SESSION_NAV: SidebarNavItem = {
+  id: 'new-session',
+  label: '',
+  icon: props => <Plus {...props} />,
+  action: 'new-session',
+  keybindActionId: 'session.new'
+}
+
+// The sidebar's one raised control — the task-card recipe (Button
+// variant="card") at nav-row height. At rest the elevated fill sits on a
+// hairline with the contact shadow; hover firms the hairline, takes one shadow
+// rung and moves the fill a step toward the ink (the lift that still reads in
+// dark, where a shadow can't); pressed settles 1px. Height, radius and the 15px
+// medium label match the nav rows below, so only the treatment sets it apart.
+const NEW_CHAT_BUTTON = cn(
+  'group/new-chat flex h-(--sidebar-nav-row-height) w-full items-center gap-2 rounded-(--radius-control) border pl-1.75 pr-2.5 text-left text-md font-medium',
+  'border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) text-(--ui-text-primary) shadow-xs',
+  'transition-[background-color,border-color,box-shadow,transform] duration-(--dur-micro) ease-out [-webkit-app-region:no-drag]',
+  'hover:border-(--ui-stroke-primary) hover:bg-[color-mix(in_srgb,var(--ui-bg-elevated)_94%,var(--ui-base))] hover:shadow-sm',
+  'data-[state=open]:border-(--ui-stroke-primary) data-[state=open]:shadow-sm active:translate-y-px active:shadow-xs'
+)
+
 const SIDEBAR_NAV: SidebarNavItem[] = [
-  {
-    id: 'new-session',
-    label: '',
-    icon: props => <MessagePlus {...props} />,
-    action: 'new-session',
-    keybindActionId: 'session.new'
-  },
   {
     id: 'skills',
     label: '',
@@ -1135,9 +1153,55 @@ export function ChatSidebar({
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
-            {/* A hair of daylight between the rows: at gap-px four 40px rows
+            {/* Right-click offers the same "Open in split" submenu as the page
+                rows below — a new chat can start in a split, too. */}
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <button
+                  className={NEW_CHAT_BUTTON}
+                  onClick={() => {
+                    // A plain new session lands in whatever profile the live
+                    // gateway is on (= the active switcher context). null →
+                    // no swap. The switcher header is the single place to
+                    // change which profile that is.
+                    $newChatProfile.set(null)
+                    onNavigate(NEW_SESSION_NAV)
+                  }}
+                  type="button"
+                >
+                  {/* The composer's primary-control mark — the filled accent
+                      circle send wears — so the button reads as "start" at a
+                      glance without the whole slab turning accent. */}
+                  <span
+                    aria-hidden="true"
+                    className="grid size-5.5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors duration-(--dur-micro) group-hover/new-chat:bg-primary/90"
+                  >
+                    <NEW_SESSION_NAV.icon className="size-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{s.nav['new-session']}</span>
+                  {/* The shortcut is a hint for people who want one, not a label
+                      everyone reads: it shows on hover or keyboard focus (and
+                      for a beat when the shortcut itself was just pressed). */}
+                  {newSessionKbd.length > 0 && (
+                    <KbdGroup
+                      className={cn(
+                        'opacity-0 transition-opacity duration-(--dur-micro) group-hover/new-chat:opacity-70 group-focus-within/new-chat:opacity-70',
+                        newSessionKbdFlash && 'opacity-100!'
+                      )}
+                      keys={newSessionKbd}
+                      size="sm"
+                    />
+                  )}
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent aria-label={s.nav['new-session']}>
+                <SplitSubmenu kit={CONTEXT_SPLIT_KIT} label={s.row.openInSplit} onSplit={onNewSessionSplit} />
+              </ContextMenuContent>
+            </ContextMenu>
+
+            {/* A hair of daylight between the rows: at gap-px the 40px rows
                 fused into one slab and the hover fill had no edge to land on. */}
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="mt-3 gap-0.5">
               {[...SIDEBAR_NAV, ...contributedNav].map(item => {
                 const isInteractive = Boolean(item.action) || Boolean(item.route)
 
@@ -1147,8 +1211,6 @@ export function ChatSidebar({
                   (item.id === 'artifacts' && currentView === 'artifacts') ||
                   // Contributed rows light up at their own route.
                   (Boolean(item.route) && pathname === item.route)
-
-                const isNewSession = item.id === 'new-session'
 
                 const button = (
                   <SidebarMenuButton
@@ -1181,17 +1243,7 @@ export function ChatSidebar({
                         'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)',
                       !isInteractive && 'cursor-default hover:bg-transparent hover:text-inherit'
                     )}
-                    onClick={() => {
-                      // A plain new session lands in whatever profile the live
-                      // gateway is on (= the active switcher context). null →
-                      // no swap. The switcher header is the single place to
-                      // change which profile that is.
-                      if (isNewSession) {
-                        $newChatProfile.set(null)
-                      }
-
-                      onNavigate(item)
-                    }}
+                    onClick={() => onNavigate(item)}
                     tooltip={
                       item.keybindActionId
                         ? {
@@ -1218,27 +1270,14 @@ export function ChatSidebar({
                         {pendingPairingCount}
                       </span>
                     )}
-                    {/* The shortcut is a hint for people who want one, not a label
-                        everyone reads: it shows on hover or keyboard focus (and
-                        for a beat when the shortcut itself was just pressed). */}
-                    {isNewSession && newSessionKbd.length > 0 && (
-                      <KbdGroup
-                        className={cn(
-                          'ml-auto opacity-0 transition-opacity duration-(--dur-micro) group-hover/nav:opacity-70 group-focus-within/nav:opacity-70',
-                          newSessionKbdFlash && 'opacity-100!'
-                        )}
-                        keys={newSessionKbd}
-                        size="sm"
-                      />
-                    )}
                   </SidebarMenuButton>
                 )
 
-                // New session + route-backed pages can open in a split —
-                // right-click for the directional "Open in split" submenu.
+                // Route-backed pages can open in a split — right-click for the
+                // directional "Open in split" submenu.
                 return (
                   <SidebarMenuItem key={item.id}>
-                    {isNewSession || item.route ? (
+                    {item.route ? (
                       <ContextMenu>
                         <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
                         <ContextMenuContent aria-label={s.nav[item.id] ?? item.label}>
@@ -1246,9 +1285,7 @@ export function ChatSidebar({
                             kit={CONTEXT_SPLIT_KIT}
                             label={s.row.openInSplit}
                             onSplit={dir => {
-                              if (isNewSession) {
-                                onNewSessionSplit(dir)
-                              } else if (item.route) {
+                              if (item.route) {
                                 openRouteTile(item.route, dir)
                               }
                             }}
@@ -1266,13 +1303,14 @@ export function ChatSidebar({
         </SidebarGroup>
 
         {showSessionSections && (
-          <div className="shrink-0 px-2 pb-1 pt-1">
+          <div className="shrink-0 pb-2 pt-1">
             <SearchField
               aria-label={s.searchAria}
               inputRef={searchInputRef}
               onChange={setSearchQuery}
               placeholder={s.searchPlaceholder}
               value={searchQuery}
+              variant="field"
             />
           </div>
         )}
