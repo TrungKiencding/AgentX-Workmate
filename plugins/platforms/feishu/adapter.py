@@ -58,6 +58,7 @@ import logging
 import mimetypes
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -5591,7 +5592,7 @@ def _qr_register_inner(
         print(f"\n  Scan the QR code above, or open this URL directly:\n  {qr_url}")
     else:
         print(f"  Open this URL in Feishu / Lark on your phone:\n\n  {qr_url}\n")
-        print("  Tip: pip install qrcode  to display a scannable QR code here next time")
+        print(f"  Tip: {sys.executable} -m pip install qrcode  to display a scannable QR code here next time")
     print()
 
     result = _poll_registration(
