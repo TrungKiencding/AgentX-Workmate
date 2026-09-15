@@ -6,6 +6,9 @@ reached via the late-binding seam in :mod:`hermes_cli.web_deps`, so
 ``monkeypatch.setattr(web_server, ...)`` keeps working.
 """
 
+import asyncio
+import shutil
+import time
 from typing import Optional
 
 from fastapi import APIRouter
