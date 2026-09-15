@@ -784,10 +784,12 @@ function readPersistedThemeSource() {
       return parsed.themeSource
     }
   } catch {
-    // Missing / malformed → follow the OS like a fresh install.
+    // Missing / malformed → a fresh install, which opens light (the renderer's
+    // default mode). Pin that now rather than following the OS, so a dark-mode
+    // Mac does not paint a dark window for the light app to cover.
   }
 
-  return 'system'
+  return 'light'
 }
 
 function writePersistedThemeSource(mode) {

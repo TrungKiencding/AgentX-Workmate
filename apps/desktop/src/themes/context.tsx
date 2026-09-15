@@ -59,10 +59,11 @@ const resolveMode = (mode: ThemeMode, systemDark = matchesQuery('(prefers-color-
 const normalizeSkin = (name: string | null): string =>
   name && resolveTheme(name) && !RETIRED_SKINS.has(name) ? name : DEFAULT_SKIN_NAME
 
-// Nothing stored means a fresh install, and the shipped default is Night Owl —
-// a dark skin, so the mode it ships with is dark rather than the OS's answer.
+// Nothing stored means a fresh install, which opens on Night Owl Light — a
+// fixed pick rather than the OS's answer, so the first frame (index.html) and
+// the native window (electron/main.ts) can paint it before this module runs.
 const normalizeMode = (value: string | null): ThemeMode =>
-  value === 'light' || value === 'dark' || value === 'system' ? value : 'dark'
+  value === 'light' || value === 'dark' || value === 'system' ? value : 'light'
 
 const normalizeAccent = (value: string | null): string =>
   value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : ''
@@ -86,6 +87,29 @@ const profilePref = <T extends string>(record: string, legacy: string, normalize
 export const skinPref = profilePref(PROFILE_SKINS_KEY, SKIN_KEY, normalizeSkin)
 export const modePref = profilePref(PROFILE_MODES_KEY, MODE_KEY, normalizeMode)
 export const accentPref = profilePref(PROFILE_ACCENTS_KEY, ACCENT_KEY, normalizeAccent)
+
+// The shipped mode used to be dark. An install that already opened on it has a
+// cached boot background (applyTheme writes one on every paint), and if nobody
+// there ever picked a mode it has been dark all along — pin that, so only fresh
+// installs meet the light default. The marker makes this one-shot: without it,
+// a fresh install's own second launch would look like an old one and turn dark.
+const LIGHT_DEFAULT_MIGRATION_KEY = 'agentx-desktop-light-default-v1'
+
+export function keepDarkForInstallsThatShippedDark(): void {
+  if (storedString(LIGHT_DEFAULT_MIGRATION_KEY) !== null) {
+    return
+  }
+
+  if (storedString(MODE_KEY) === null && storedString('agentx-boot-background') !== null) {
+    persistString(MODE_KEY, 'dark')
+  }
+
+  persistString(LIGHT_DEFAULT_MIGRATION_KEY, '1')
+}
+
+if (typeof window !== 'undefined') {
+  keepDarkForInstallsThatShippedDark()
+}
 
 // Last active profile — lets the boot paint pick its appearance before the
 // gateway reports which profile actually launched.

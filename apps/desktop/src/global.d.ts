@@ -993,6 +993,10 @@ export interface DesktopAccountLiteLlm {
   masked_key: string
   base_url: string
   models: string[]
+  // The model a fresh account opens on: the deployment's preferred model when
+  // this key reaches it, otherwise the first one granted. Absent from backends
+  // that predate the field.
+  default_model?: string
 }
 
 export interface DesktopAccountStatus {

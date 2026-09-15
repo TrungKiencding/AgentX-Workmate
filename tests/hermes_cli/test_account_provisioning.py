@@ -1492,6 +1492,76 @@ class TestModelListFollowsTheKey:
         # We only ever take back a pin we made ourselves.
         assert raw_config(account.home)["model"]["default"] == "something-i-picked"
 
+    def test_a_fresh_account_opens_on_the_preferred_model_its_key_reaches(
+        self, account, brain
+    ):
+        brain.grants = ["chat-a", "MiniMax/MiniMax-M3"]
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        # The service still leads with chat-a; the preference only chooses among
+        # what the key was granted.
+        assert raw_config(account.home)["model"]["default"] == "MiniMax/MiniMax-M3"
+        assert result.to_json()["default_model"] == "MiniMax/MiniMax-M3"
+
+    def test_the_preferred_model_matches_another_proxys_spelling(self, account, brain):
+        brain.grants = ["chat-a", "minimax-m3"]
+
+        ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        assert raw_config(account.home)["model"]["default"] == "minimax-m3"
+
+    def test_a_key_without_the_preferred_model_opens_on_its_first_grant(
+        self, account, brain
+    ):
+        brain.grants = ["chat-a", "chat-b"]
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        assert raw_config(account.home)["model"]["default"] == "chat-a"
+        assert result.default_model == "chat-a"
+
+    def test_the_preferred_model_never_moves_an_account_that_has_a_default(
+        self, account, brain
+    ):
+        settings = brain_settings(preferred_default_model="MiniMax/MiniMax-M3")
+        brain.grants = ["chat-a"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        brain.grants = ["chat-a", "MiniMax/MiniMax-M3"]
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", force_rotate=True,
+            brain_transport=brain.transport,
+        )
+
+        # The preference is for fresh accounts; this one keeps what it opens on.
+        assert raw_config(account.home)["model"]["default"] == "chat-a"
+
+
+def test_the_shipped_deployment_prefers_minimax_m3():
+    settings = load_settings({"accounts": DEFAULT_CONFIG["accounts"]})
+
+    assert settings.preferred_default_model == "MiniMax/MiniMax-M3"
+
 
 class TestWebSearchFollowsTheGrant:
     """The web search model rides on the key, and reaches laptops that hold one.

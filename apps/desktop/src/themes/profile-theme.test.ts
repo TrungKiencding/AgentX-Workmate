@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { modePref, skinPref } from './context'
+import { keepDarkForInstallsThatShippedDark, modePref, skinPref } from './context'
 import { DEFAULT_SKIN_NAME } from './presets'
 
 // Skin and mode share one per-profile contract, so assert it once over both.
@@ -18,8 +18,8 @@ const cases = [
     b: 'midnight',
     junk: 'nope'
   },
-  // Fallback is 'dark': the shipped default skin (Night Owl) is a dark one.
-  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'dark', a: 'light', b: 'system', junk: 'dusk' }
+  // Fallback is 'light': a fresh install opens on Night Owl Light.
+  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'light', a: 'dark', b: 'system', junk: 'dusk' }
 ]
 
 describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
@@ -45,5 +45,35 @@ describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
   it('normalizes an unknown stored value back to the default', () => {
     pref.assign('work', junk)
     expect(pref.resolve('work')).toBe(fallback)
+  })
+})
+
+describe('the light default reaches fresh installs only', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('keeps a fresh install light, launch after launch', () => {
+    keepDarkForInstallsThatShippedDark()
+    // The first launch paints, which caches a boot background…
+    window.localStorage.setItem('agentx-boot-background', '#fbfbfb')
+    // …and the next launch must not mistake that for an install that shipped dark.
+    keepDarkForInstallsThatShippedDark()
+
+    expect(modePref.resolve('default')).toBe('light')
+  })
+
+  it('keeps an install that already ran on the dark default dark', () => {
+    window.localStorage.setItem('agentx-boot-background', '#011627')
+    keepDarkForInstallsThatShippedDark()
+
+    expect(modePref.resolve('default')).toBe('dark')
+    expect(modePref.resolve('never-themed')).toBe('dark')
+  })
+
+  it('never touches a mode somebody picked', () => {
+    window.localStorage.setItem('agentx-boot-background', '#011627')
+    modePref.assign('default', 'system')
+    keepDarkForInstallsThatShippedDark()
+
+    expect(modePref.resolve('default')).toBe('system')
   })
 })

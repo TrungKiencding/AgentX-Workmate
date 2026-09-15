@@ -269,8 +269,8 @@ function notifyGatewayTools(tools: string[] | undefined) {
 // opportunistic polish, not a hard requirement for onboarding.
 async function fetchProviderDefaultModel(
   preferredSlugs: string[],
-  // Set for the account's own AgentX AI Gateway; `model` is the first model
-  // its key grants. See the branch below for what changes.
+  // Set for the account's own AgentX AI Gateway; `model` is the one
+  // provisioning opens a fresh account on. See the branch below for what changes.
   accountGateway?: { model?: string }
 ): Promise<null | { providerSlug: string; defaultModel: string }> {
   let options
@@ -910,7 +910,9 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
     // `custom:` form is what grouped custom-endpoint rows carry.
     [provider, `custom:${provider}`],
     reason => setFlow({ status: 'error', message: providerResolutionFailure(reason) }),
-    { accountGateway: { model: litellm.models[0] } }
+    // Same pick provisioning makes for a fresh account; an older backend sends
+    // no default_model, and the first granted model stands in.
+    { accountGateway: { model: litellm.default_model || litellm.models[0] } }
   )
 }
 

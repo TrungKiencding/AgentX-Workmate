@@ -54,6 +54,17 @@ DEPLOYMENT_LITELLM_BASE_URL = "https://vtn-4000.wondertek.space"
 #: where nothing upstream vouches for the model list.
 DEPLOYMENT_LITELLM_DEFAULT_MODEL = ""
 
+#: The model a fresh account opens on, when its key reaches it.
+#:
+#: Not the constant warned about above: this one only ever CHOOSES among the
+#: models the minted key was granted. When the proxy retires it, or an operator
+#: does not grant it, provisioning falls back to the first granted model, so the
+#: key still decides what exists. Matched case-insensitively by full id or by
+#: the part after the last "/" — "minimax/minimax-m3" on another proxy counts.
+#: Only ``mode: "second_brain"`` reads it, and an account that already has a
+#: default model keeps it.
+DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL = "MiniMax/MiniMax-M3"
+
 #: The second-brain service: one model key per person, the devices they hold
 #: it on, and (later) the change feed their history syncs through. Public — it
 #: is a URL, and every route behind it verifies a Keycloak bearer.
@@ -1693,6 +1704,10 @@ DEFAULT_CONFIG = {
             # Model to pin as the account's default the first time its key is
             # minted. Blank leaves model selection alone.
             "default_model": DEPLOYMENT_LITELLM_DEFAULT_MODEL,
+            # Under mode "second_brain": the model a fresh account opens on when
+            # its key was granted it (matched loosely, see the constant). Blank,
+            # or not granted, opens on the first model granted.
+            "preferred_default_model": DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL,
             # Ask the proxy for its model list after provisioning so the model
             # picker is populated without the user typing ids.
             "discover_models": True,

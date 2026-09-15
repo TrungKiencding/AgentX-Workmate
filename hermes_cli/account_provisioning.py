@@ -135,6 +135,9 @@ class LiteLLMAccountSettings:
     tpm_limit: int = 0
     rpm_limit: int = 0
     default_model: str = ""
+    #: Under ``second_brain``: the model a fresh account opens on when its key
+    #: was granted it. See ``choose_default_model``.
+    preferred_default_model: str = ""
     discover_models: bool = True
     request_timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 
@@ -203,6 +206,9 @@ class ProvisionResult:
     masked_key: str = ""
     base_url: str = ""
     models: tuple[str, ...] = ()
+    #: The model a fresh account opens on (``choose_default_model``), so the
+    #: desktop's gateway card makes the same pick provisioning does.
+    default_model: str = ""
 
     @property
     def ok(self) -> bool:
@@ -217,6 +223,7 @@ class ProvisionResult:
             "masked_key": self.masked_key,
             "base_url": self.base_url,
             "models": list(self.models),
+            "default_model": self.default_model,
             "ok": self.ok,
         }
 
@@ -310,6 +317,7 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
         tpm_limit=_int("tpm_limit"),
         rpm_limit=_int("rpm_limit"),
         default_model=_str("default_model"),
+        preferred_default_model=_str("preferred_default_model"),
         discover_models=bool(section.get("discover_models", True)),
         request_timeout_seconds=_float("request_timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
         or DEFAULT_TIMEOUT_SECONDS,
@@ -682,7 +690,8 @@ def _write_provider_config(
     #
     # ``default_model`` comes from the key, not from a constant: the service
     # sorts what it grants so a chat model leads, and the caller hands us the
-    # first entry. A shipped constant is how an installer came to pin
+    # deployment's preferred model when the key was granted it, else the first
+    # entry (``choose_default_model``). A shipped constant is how an installer came to pin
     # ``Qwen3.5-35B`` at a proxy that had moved to 3.6 — the app then opened on
     # a model group that did not exist, and the error named the model rather
     # than the stale default that chose it.
@@ -852,6 +861,38 @@ def _drop_provider_models(provider_name: str, retired: tuple[str, ...]) -> None:
     save_config(raw)
 
 
+def choose_default_model(
+    models: tuple[str, ...], settings: LiteLLMAccountSettings
+) -> str:
+    """The model a freshly provisioned account opens on.
+
+    Only the second brain vouches for the order of ``models`` — it sorts by
+    configured mode so a chat model leads — so the deprecated modes keep
+    whatever the operator configured rather than opening on whichever id
+    ``/v1/models`` returned first, which may well be an embedding model.
+
+    Under the second brain the deployment's preferred model wins when the key
+    was granted it, and the first granted model otherwise. The preference only
+    chooses among what the key reaches: a proxy that retires the model, or an
+    operator who never grants it, falls back instead of opening the app on a
+    model group that does not exist. It matches loosely — case-insensitive, by
+    full id or by the part after the last "/" — because proxies spell the same
+    model differently (``MiniMax/MiniMax-M3``, ``minimax-m3``).
+    """
+    if settings.mode != "second_brain" or not models:
+        return settings.default_model
+
+    preferred = settings.preferred_default_model.strip().lower()
+    if preferred:
+        preferred_name = preferred.rsplit("/", 1)[-1]
+        for model_id in models:
+            candidate = str(model_id).strip().lower()
+            if candidate == preferred or candidate.rsplit("/", 1)[-1] == preferred_name:
+                return str(model_id)
+
+    return str(models[0])
+
+
 def provider_key_env(provider_name: str) -> str:
     """Return the env var holding this provider's per-account key."""
     from hermes_cli.config import custom_endpoint_key_env
@@ -969,6 +1010,9 @@ def ensure_account_key(
                 masked_key=mask_key(stored_key),
                 base_url=base_url,
                 models=tuple(state.get("models") or ()),
+                default_model=choose_default_model(
+                    tuple(str(m) for m in (state.get("models") or ())), settings
+                ),
             )
 
     # 2. Fetch, mint, or re-mint.
@@ -1225,14 +1269,9 @@ def _rotate(
     if settings.discover_models and not models:
         models = tuple(_discover_models(settings, base_url, minted.key))
 
-    # The account's default model is the first one its key can reach. Only the
-    # second brain vouches for that order — it sorts by configured mode so a
-    # chat model leads — so the deprecated modes keep whatever the operator
-    # configured rather than opening on whichever id `/v1/models` returned
-    # first, which may well be an embedding model.
-    default_model = (
-        models[0] if settings.mode == "second_brain" and models else settings.default_model
-    )
+    # What a fresh account opens on; an account that already has a default
+    # model keeps it (see _write_provider_config).
+    default_model = choose_default_model(models, settings)
 
     _write_provider_config(
         settings,
@@ -1300,6 +1339,7 @@ def _rotate(
         masked_key=minted.masked,
         base_url=base_url,
         models=models,
+        default_model=default_model,
     )
 
 
