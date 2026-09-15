@@ -11,6 +11,8 @@ import time
 
 import pytest
 
+from hermes_cli.sync_engine import SyncCredentials, SyncEngine, SyncSettings
+from hermes_state import SessionDB
 from tui_gateway import server
 
 
@@ -190,4 +192,86 @@ def test_broken_probe_never_kills_the_pass(watcher_home, monkeypatch):
     server._broadcast_watched_changes(now=10.0)
 
     # The broken cron probe is skipped; sessions still broadcasts.
+    assert ("sessions.changed", {}) in events
+
+
+class _Feed:
+    """A second brain serving whatever is queued in ``pages``, then nothing."""
+
+    def __init__(self):
+        self.pages = []
+
+    def changes(self, *, since=0, **_):
+        if self.pages:
+            return self.pages.pop(0)
+        return {"documents": [], "cursor": since, "has_more": False}
+
+
+@pytest.fixture()
+def synced_db(watcher_home):
+    """The watched state.db, and a sync engine that has already pulled once."""
+    home, _events = watcher_home
+    database = SessionDB(home / "state.db")
+    feed = _Feed()
+    engine = SyncEngine(
+        credentials=lambda: SyncCredentials(bearer="tok", device_id="device-1"),
+        settings=SyncSettings(base_url="https://brain.test"),
+        open_db=lambda: database,
+        client=feed,
+        sources=[],
+    )
+    try:
+        engine.tick()  # this machine's first pull is stamped, as it should be
+        server._broadcast_watched_changes(now=0.0)
+        time.sleep(0.02)  # past a coarse mtime tick, so a write would show
+        yield database, engine, feed
+    finally:
+        database.close()
+
+
+def test_idle_sync_ticks_do_not_broadcast_sessions_changed(watcher_home, synced_db):
+    """The sync engine ticks every 30s, from its own loop and from the
+    desktop's timer, and almost always finds nothing. Each tick used to
+    restamp sync_state.last_pull_at, which moved state.db-wal like a real
+    write — so every open window refreshed its sidebar for no change."""
+    _home, events = watcher_home
+    _database, engine, _feed = synced_db
+
+    for _ in range(4):
+        assert engine.tick().status == "ok"
+    server._broadcast_watched_changes(now=10.0)
+
+    assert ("sessions.changed", {}) not in events
+
+
+def test_a_local_turn_between_idle_sync_ticks_still_broadcasts(watcher_home, synced_db):
+    _home, events = watcher_home
+    database, engine, _feed = synced_db
+
+    engine.tick()
+    database.create_session("s1", "cli", model="m1")
+    database.append_message("s1", "user", "hello")
+    server._broadcast_watched_changes(now=10.0)
+
+    assert ("sessions.changed", {}) in events
+
+
+def test_a_pulled_session_after_idle_sync_ticks_still_broadcasts(
+    watcher_home, synced_db, tmp_path_factory
+):
+    _home, events = watcher_home
+    database, engine, feed = synced_db
+    elsewhere = SessionDB(tmp_path_factory.mktemp("laptop") / "state.db")
+    try:
+        elsewhere.create_session("s1", "cli", model="m1")
+        document = elsewhere.export_document("session", "s1")
+    finally:
+        elsewhere.close()
+
+    engine.tick()
+    feed.pages.append({"documents": [{**document, "seq": 1}], "cursor": 1, "has_more": False})
+    assert engine.tick().applied == 1
+    server._broadcast_watched_changes(now=10.0)
+
+    assert database.get_session("s1") is not None
     assert ("sessions.changed", {}) in events

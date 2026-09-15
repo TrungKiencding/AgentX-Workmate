@@ -14,10 +14,19 @@ ones a retry cannot repair — an outbox row cleared before it was acknowledged
 is a record nobody has any more.
 """
 
+import contextlib
+import sqlite3
+import time
+
 import pytest
 
 from hermes_cli.second_brain_client import SecondBrainError
-from hermes_cli.sync_engine import SyncCredentials, SyncEngine, SyncSettings
+from hermes_cli.sync_engine import (
+    PULL_STAMP_SECONDS,
+    SyncCredentials,
+    SyncEngine,
+    SyncSettings,
+)
 from hermes_state import SessionDB
 
 
@@ -153,6 +162,36 @@ def seed_session(database, session_id="s1", messages=("hello", "hi there")):
     return session_id
 
 
+@contextlib.contextmanager
+def watching(database):
+    """Yield a check for "has anything been committed to *database* since?".
+
+    Asked through a second connection, because ``PRAGMA data_version`` only
+    moves when ANOTHER connection commits. That is what the gateway's change
+    watcher notices too: any write at all, not just the ones a test thought to
+    look for.
+    """
+    observer = sqlite3.connect(str(database.db_path))
+    try:
+        before = observer.execute("PRAGMA data_version").fetchone()[0]
+        yield lambda: observer.execute("PRAGMA data_version").fetchone()[0] != before
+    finally:
+        observer.close()
+
+
+def age_pull_stamp(database, seconds):
+    """Move ``last_pull_at`` on disk back by *seconds*, as time passing would."""
+    observer = sqlite3.connect(str(database.db_path))
+    try:
+        with observer:
+            observer.execute(
+                "UPDATE sync_state SET last_pull_at = last_pull_at - ? WHERE id = 1",
+                (seconds,),
+            )
+    finally:
+        observer.close()
+
+
 class TestTick:
     def test_a_tick_pushes_the_outbox_and_clears_it(self, laptop):
         seed_session(laptop)
@@ -222,6 +261,49 @@ class TestTick:
         # "Last synchronised" has to mean "we reached the service", not
         # "something happened to change".
         assert laptop.sync_status()["last_pull_at"] is not None
+
+    def test_an_idle_tick_writes_nothing_while_the_stamp_is_fresh(self, laptop):
+        engine = engine_for(laptop, FakeBrain())
+        engine.tick()
+
+        with watching(laptop) as committed:
+            outcome = engine.tick()
+            wrote = committed()
+
+        assert outcome.status == "ok"
+        # Every write to state.db reaches each open window as sessions.changed.
+        # An idle tick that restamped refreshed every sidebar on every tick,
+        # while nothing had changed.
+        assert not wrote
+
+    def test_an_idle_tick_restamps_once_the_stamp_is_old(self, laptop):
+        engine = engine_for(laptop, FakeBrain())
+        engine.tick()
+        age_pull_stamp(laptop, PULL_STAMP_SECONDS + 60)
+
+        engine.tick()
+
+        # So a reader in another process — `agentx second-brain status` over
+        # SSH — is never more than PULL_STAMP_SECONDS behind.
+        assert time.time() - laptop.sync_status()["last_pull_at"] < 60
+
+    def test_a_pulled_page_is_written_even_while_the_stamp_is_fresh(
+        self, laptop, desktop
+    ):
+        brain = FakeBrain()
+        pulling = engine_for(desktop, brain)
+        pulling.tick()
+        seed_session(laptop)
+        engine_for(laptop, brain).tick()
+
+        with watching(desktop) as committed:
+            outcome = pulling.tick()
+            wrote = committed()
+
+        # That write is the sessions.changed the sidebar needs.
+        assert outcome.applied > 0
+        assert wrote
+        assert desktop.sync_cursor() == brain.seq
 
 
 class TestPushDurability:
@@ -414,6 +496,37 @@ class TestDegradation:
         engine.tick()
 
         assert laptop.sync_status()["last_error"] is None
+
+    def test_recovering_clears_the_error_even_while_the_stamp_is_fresh(self, laptop):
+        brain = FakeBrain()
+        engine = engine_for(laptop, brain)
+        engine.tick()
+        brain.changes_error = SecondBrainError("boom", status_code=500)
+        engine.tick()
+
+        engine.tick()
+
+        # No new stamp is due yet, but the row still says the last attempt
+        # failed, and Settings would go on showing that failure.
+        assert laptop.sync_status()["last_error"] is None
+
+    def test_a_service_that_stays_down_leaves_state_db_untouched(self, laptop):
+        brain = FakeBrain()
+        engine = engine_for(laptop, brain)
+        brain.changes_error = SecondBrainError("could not reach the second brain")
+        engine.tick()
+
+        brain.changes_error = SecondBrainError("could not reach the second brain")
+        with watching(laptop) as committed:
+            outcome = engine.tick()
+            wrote = committed()
+
+        assert outcome.status == "offline"
+        # An hour offline is a hundred and twenty ticks. Recording the same
+        # failure again must leave state.db untouched, or each of them is a
+        # sessions.changed broadcast to every open window.
+        assert not wrote
+        assert "could not reach" in laptop.sync_status()["last_error"]
 
     def test_no_service_configured_does_nothing_quietly(self, laptop):
         outcome = engine_for(laptop, FakeBrain(), base_url="").tick()
@@ -661,6 +774,19 @@ class TestStatus:
         assert status["pending"] == 0
         assert status["cursor"] > 0
         assert status["last"]["status"] == "ok"
+
+    def test_status_reports_a_pull_the_row_was_not_rewritten_for(self, laptop):
+        engine = engine_for(laptop, FakeBrain())
+        engine.tick()
+        # Older on disk, but not yet old enough to be written again.
+        age_pull_stamp(laptop, 120)
+
+        engine.tick()
+
+        # Settings asks this process, which reached the service just now; the
+        # row alone would have it say two minutes ago.
+        assert time.time() - laptop.sync_status()["last_pull_at"] >= 120
+        assert time.time() - engine.status()["last_pull_at"] < 60
 
     def test_status_on_an_unconfigured_machine_says_so_without_touching_state(self):
         engine = SyncEngine(

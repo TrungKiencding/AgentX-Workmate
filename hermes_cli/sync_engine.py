@@ -83,6 +83,17 @@ STREAM_PING_SECONDS = 30.0
 #: is correctly saying no.
 REAUTH_BACKOFF_SECONDS = 300.0
 
+#: How old ``last_pull_at`` in ``state.db`` may get before a pull that found
+#: nothing new writes it again. A write to ``state.db`` is how every open
+#: window learns that conversations changed — the gateway's change watcher
+#: watches the file and cannot tell this stamp from a new message — so an idle
+#: tick that restamped sent the whole app to re-read its sidebar on every tick,
+#: while nothing had changed. This process keeps the exact time in memory for
+#: :meth:`SyncEngine.status`; the stamp on disk is for a reader in another
+#: process, and ``agentx second-brain status`` answers "is it still reaching
+#: the service?" just as well to within ten minutes.
+PULL_STAMP_SECONDS = 600.0
+
 
 @dataclass(frozen=True)
 class SyncCredentials:
@@ -341,6 +352,10 @@ class SyncEngine:
         self._db_lock = threading.Lock()
         self._owns_db = open_db is None
         self._last: SyncOutcome = SyncOutcome(status="idle")
+        # When this engine last reached the service, by the wall clock. Ahead
+        # of ``last_pull_at`` on disk whenever an idle pull did not rewrite it
+        # (see ``_record_pull``); ``status`` reports whichever is newer.
+        self._pulled_at = 0.0
         self._blocked_until = 0.0
         self._wake: Any | None = None
         self._loop: Any | None = None
@@ -658,7 +673,7 @@ class SyncEngine:
                 # Still a completed pull: stamping it is what makes "last
                 # synchronised" mean "we reached the service", rather than
                 # "something happened to change".
-                database.set_sync_cursor(cursor)
+                self._record_pull(database, cursor)
                 return
 
             outcome.pulled += len(documents)
@@ -668,11 +683,38 @@ class SyncEngine:
             # Advanced only after the page it covers has been applied. A crash
             # between the two replays the page, which is free.
             database.set_sync_cursor(cursor)
+            self._pulled_at = time.time()
 
             if not page.get("has_more"):
                 return
 
         logger.info("sync: feed still has pages after a full tick; continuing next tick")
+
+    def _record_pull(self, database: Any, cursor: int) -> None:
+        """Stamp a pull that found nothing new, rewriting ``state.db`` only when due.
+
+        The time is always kept, in memory, where :meth:`status` reads it. The
+        row is rewritten only when it would otherwise tell a reader something
+        wrong: a different cursor, an error that this tick has recovered from,
+        or a stamp more than ``PULL_STAMP_SECONDS`` old. Anything else is a
+        write for its own sake, and every write to ``state.db`` is a
+        ``sessions.changed`` broadcast that sends each open window to re-read
+        its sidebar.
+        """
+        now = time.time()
+        stored = _safely(database.sync_status, {})
+        stamped = stored.get("last_pull_at")
+        due = (
+            int(stored.get("cursor") or 0) != cursor
+            or bool(stored.get("last_error"))
+            or stamped is None
+            # Negative counts as due: a clock set backwards must not keep a
+            # stamp from the future in place until it catches up.
+            or not 0 <= now - float(stamped) < PULL_STAMP_SECONDS
+        )
+        if due:
+            database.set_sync_cursor(cursor)
+        self._pulled_at = now
 
     def _apply_page(
         self, database: Any, documents: List[Dict[str, Any]], outcome: SyncOutcome
@@ -779,7 +821,11 @@ class SyncEngine:
 
         Reads the database rather than the last outcome wherever it can, so
         ``agentx sync status`` over SSH answers about the machine and not
-        about whether this particular process has ticked yet.
+        about whether this particular process has ticked yet. The one
+        exception is ``last_pull_at``, which is the newer of the row and this
+        process's own last pull: an idle pull rewrites the row only every
+        ``PULL_STAMP_SECONDS`` (see ``_record_pull``), and Settings asks this
+        process, which knows the exact time.
         """
         body: Dict[str, Any] = {
             "enabled": self._settings.enabled,
@@ -795,6 +841,8 @@ class SyncEngine:
             body.update(self._database().sync_status())
         except Exception as exc:  # noqa: BLE001 - status must always answer
             body["detail"] = f"could not read the local sync state: {exc}"
+        if self._pulled_at > (body.get("last_pull_at") or 0):
+            body["last_pull_at"] = self._pulled_at
         return body
 
     def reset_cursor(self) -> Dict[str, Any]:
