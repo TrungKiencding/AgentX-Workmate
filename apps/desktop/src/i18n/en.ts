@@ -458,6 +458,7 @@ export const en: Translations = {
       keyRotate: 'Issue a new key',
       keyRotateDesc: 'Retires the current key and issues a fresh one. Use this if the key has leaked.',
       keyRotating: 'Issuing…',
+      keyRotateFailed: detail => `Could not issue a new key: ${detail}`,
       keyModels: n => `${n} model${n === 1 ? '' : 's'} available`,
       devicesTitle: 'Your devices',
       devicesEmpty: 'No devices recorded yet',

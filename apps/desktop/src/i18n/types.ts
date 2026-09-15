@@ -370,6 +370,7 @@ export interface Translations {
       keyRotate: string
       keyRotateDesc: string
       keyRotating: string
+      keyRotateFailed: (detail: string) => string
       keyModels: (n: number) => string
       devicesTitle: string
       devicesEmpty: string

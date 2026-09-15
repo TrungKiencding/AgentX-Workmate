@@ -74,8 +74,15 @@ LITELLM_UNCONFIGURED = "litellm_unconfigured"
 LITELLM_UNAVAILABLE = "litellm_unavailable"
 
 #: The proxy answered, and refused. Distinct from the above because only this
-#: one means the request itself is the problem.
+#: one means the request itself is the problem. Answered as 424 (Failed
+#: Dependency), never 502: a CDN in front of this service replaces an
+#: origin's 502 with its own error page, and the laptop then reports "the
+#: second brain is overloaded" for what was in fact LiteLLM saying no — with
+#: the reason, which is the one thing an operator needs, thrown away.
 LITELLM_REFUSED = "litellm_refused"
+#: The proxy serves nothing this deployment is allowed to hand out. Same
+#: status as a refusal, for the same reason.
+NO_GRANTABLE_MODELS = "no_grantable_models"
 
 #: A key is stored for this person and the service cannot open it — the KEK it
 #: was wrapped with is not one this process holds. Never a 401: the caller is

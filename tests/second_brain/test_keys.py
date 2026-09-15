@@ -178,6 +178,32 @@ class TestOneKeyPerPerson:
         assert body["rotated_at"] is None
         assert body["created_at"]
 
+    async def test_a_stored_key_is_answered_with_the_proxy_the_service_fronts_now(
+        self, build_brain, vault_settings, admin_client, two_devices
+    ):
+        """The row records where the key was minted. When the proxy moves and
+        its keys move with it, every laptop has to learn the new address from
+        the one place that knows it — not keep the hostname the row remembers."""
+        import dataclasses
+
+        async with brain_client(
+            build_brain(litellm=admin_client, settings=vault_settings)
+        ) as vault:
+            first = (
+                await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+            ).json()
+        assert first["base_url"] == PROXY_URL
+
+        moved = dataclasses.replace(vault_settings, litellm_base_url="https://moved.test")
+        async with brain_client(build_brain(litellm=admin_client, settings=moved)) as vault:
+            again = (
+                await vault.post("/v1/model-key", headers=two_devices["desktop"], json={})
+            ).json()
+
+        assert again["status"] == "reused"
+        assert again["key"] == first["key"]
+        assert again["base_url"] == "https://moved.test"
+
     async def test_a_missing_body_is_the_same_as_an_empty_one(self, vault, two_devices):
         response = await vault.post("/v1/model-key", headers=two_devices["laptop"])
 
@@ -299,7 +325,10 @@ class TestRotation:
         assert body["rotated_at"] is None
         assert proxy.paths_hit("/key/delete") == 0
 
-    async def test_the_alias_survives_rotation(self, vault, two_devices):
+    async def test_rotation_mints_under_a_fresh_label(self, vault, proxy, two_devices):
+        """The proxy refuses a second key under a label it already holds, and
+        the key being replaced holds the person's label until it is retired
+        AFTER the replacement is stored — so the replacement steps off it."""
         first = (
             await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
         ).json()
@@ -309,7 +338,35 @@ class TestRotation:
             )
         ).json()
 
-        assert rotated["key_alias"] == first["key_alias"]
+        assert rotated["key_alias"] != first["key_alias"]
+        assert rotated["key_alias"].startswith(first["key_alias"] + "-")
+        # Still one key per person: the old one is gone, by token.
+        assert not proxy.holds_token(first["token"])
+        assert len(proxy.records) == 1
+
+    async def test_a_label_the_proxy_already_holds_is_stepped_around(
+        self, vault, proxy, two_devices
+    ):
+        """A key nobody stored can wear the person's label — a database this
+        service lost, a delete that failed halfway. It must cost them a
+        suffix, not their sign-in, and it must not be deleted by alias."""
+        from hermes_cli.account_provisioning import LiteLLMAccountSettings
+
+        alias = LiteLLMAccountSettings().alias_for(
+            "", subject="person-a", username="Person A", display_name="Person A",
+            email="a@test",
+        )
+        orphan = proxy.mint(alias, user_id="person-a")
+
+        body = (
+            await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+        ).json()
+
+        assert body["status"] == "issued"
+        assert body["key_alias"] != alias
+        assert body["key_alias"].startswith(alias + "-")
+        assert proxy.holds_token(orphan["token"])
+        assert proxy.holds_token(body["token"])
 
     async def test_a_proxy_that_cannot_delete_still_completes_the_rotation(
         self, build_brain, proxy, vault_settings, two_devices
@@ -546,15 +603,26 @@ class TestKekRotation:
         # change, only the wrapping did.
         assert row.rotated_at is None
 
-    async def test_a_kek_that_was_dropped_too_early_is_503_not_500(
-        self, build_brain, vault_settings, admin_client, two_devices
+    async def test_a_kek_that_was_dropped_too_early_issues_a_replacement(
+        self, build_brain, vault_settings, admin_client, proxy, store, two_devices
     ):
+        """A row this service cannot open is a key nobody can be handed.
+
+        Answering 503 for it left every NEW machine of that person with no
+        model key until an operator noticed, while their old machines kept
+        working on the plaintext they already held. Issuing a replacement is
+        the same self-healing rotation a revoked device triggers: the old key
+        is retired by token, and the other machines collect the new one on
+        their next call because the proxy stops accepting the old.
+        """
         import dataclasses
 
         async with brain_client(
             build_brain(litellm=admin_client, settings=vault_settings)
         ) as vault:
-            await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+            first = (
+                await vault.post("/v1/model-key", headers=two_devices["laptop"], json={})
+            ).json()
 
         # Rolled without keeping the old KEK around — the mistake the README
         # warns about.
@@ -567,12 +635,23 @@ class TestKekRotation:
             response = await vault.post(
                 "/v1/model-key", headers=two_devices["laptop"], json={}
             )
+            again = (
+                await vault.post("/v1/model-key", headers=two_devices["desktop"], json={})
+            ).json()
 
-        # 503, so the laptop keeps the key it holds while somebody restores
-        # the KEK. A 401 or a fresh mint would both be worse than waiting.
-        assert response.status_code == 503
-        assert response.json()["error"] == "key_unreadable"
-        assert "key" not in response.json()
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "rotated"
+        assert body["key"] != first["key"]
+        # Retired by token, never by alias; exactly one key per person survives.
+        assert not proxy.holds_token(first["token"])
+        assert proxy.holds_token(body["token"])
+        assert len(proxy.records) == 1
+        # The replacement is wrapped under the KEK this service holds, so the
+        # other machine reads it — no operator, no window.
+        assert again["key"] == body["key"]
+        assert again["status"] == "reused"
+        assert (await store.model_key("person-a")).kek_id == "test-2"
 
 
 # ===========================================================================
@@ -596,11 +675,14 @@ class TestDegradation:
         # recovery.
         assert await store.model_key("person-a") is None
 
-    async def test_a_proxy_that_refuses_is_502_not_503(
+    async def test_a_proxy_that_refuses_is_424_not_503_and_not_502(
         self, build_brain, proxy, vault_settings, store, two_devices
     ):
         # An admin key the fake does not recognise: the proxy answers, and
         # says no. That is not an outage and must not be reported as one.
+        # Nor as 502: a CDN in front of this service replaces an origin's 502
+        # with its own page, and the reason — the only thing an operator
+        # needs — never reached a laptop.
         client = LiteLLMAdminClient(
             PROXY_URL, "sk-wrong-admin", transport=proxy.transport, sleep=lambda _d: None
         )
@@ -612,8 +694,9 @@ class TestDegradation:
                 "/v1/model-key", headers=two_devices["laptop"], json={}
             )
 
-        assert response.status_code == 502
+        assert response.status_code == 424
         assert response.json()["error"] == "litellm_refused"
+        assert "admin key required" in response.json()["detail"]
         assert await store.model_key("person-a") is None
 
     async def test_a_deploy_with_no_proxy_answers_503_and_names_the_problem(
@@ -870,7 +953,7 @@ class TestGrantedModels:
 
         # Refusing beats minting an unrestricted key. Falling back is how the
         # admin key came to travel inside every installer.
-        assert response.status_code == 502
+        assert response.status_code == 424
         assert response.json()["error"] == "no_grantable_models"
         assert only_embeddings.paths_hit("/key/generate") == 0
 
@@ -986,6 +1069,72 @@ class TestWebSearchGrant:
         assert rotated.json()["web_search_model"] == SEARCH_MODEL
         (record,) = search_proxy.records.values()
         assert SEARCH_MODEL in record["models"]
+
+
+class TestSearchPresetDeclaredChat:
+    """LiteLLM declares Perplexity's search presets ``mode: chat``.
+
+    Trusting that put "Pro Search" in every picker as something to talk to,
+    and the grant pass then spread it to every existing key within the hour.
+    The web search model is granted by name beside the chat grant and is
+    never part of it, whatever mode the proxy declares for it.
+    """
+
+    CATALOG = {"Qwen/Qwen3.6-35B-A3B-FP8": "chat", SEARCH_MODEL: "chat"}
+
+    @pytest.fixture
+    def chatty_proxy(self) -> FakeLiteLLM:
+        return FakeLiteLLM(catalog=tuple(self.CATALOG), modes=self.CATALOG)
+
+    async def test_a_new_key_keeps_the_preset_out_of_the_model_list(
+        self, build_brain, brain_settings, chatty_proxy, two_devices
+    ):
+        app = build_brain(
+            litellm=_proxy_client(chatty_proxy),
+            settings=_settings_for(brain_settings, chatty_proxy),
+        )
+
+        body = await _collect(app, two_devices["laptop"])
+
+        assert body["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8"]
+        assert body["default_model"] == "Qwen/Qwen3.6-35B-A3B-FP8"
+        assert body["web_search_model"] == SEARCH_MODEL
+        # Still reachable by the key: the search tool calls it by name.
+        (record,) = chatty_proxy.records.values()
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8", SEARCH_MODEL]
+
+    async def test_the_grant_pass_takes_the_preset_back_out_of_existing_keys(
+        self, build_brain, brain_settings, chatty_proxy, store, two_devices
+    ):
+        """A row an older service wrote with the preset among the models is
+        corrected by the next pass, and the key keeps reaching the preset."""
+        from second_brain.keys import reconcile_model_grants
+
+        app = build_brain(
+            litellm=_proxy_client(chatty_proxy),
+            settings=_settings_for(brain_settings, chatty_proxy),
+        )
+        issued = await _collect(app, two_devices["laptop"])
+        row = await store.model_key("person-a")
+        assert await store.set_model_grants(
+            "person-a",
+            litellm_token=row.litellm_token,
+            models=[SEARCH_MODEL, "Qwen/Qwen3.6-35B-A3B-FP8"],
+            web_search_model=SEARCH_MODEL,
+        )
+
+        assert await reconcile_model_grants(app.state.brain) == 1
+
+        corrected = await store.model_key("person-a")
+        assert corrected.models == ("Qwen/Qwen3.6-35B-A3B-FP8",)
+        assert corrected.web_search_model == SEARCH_MODEL
+        (record,) = chatty_proxy.records.values()
+        assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8", SEARCH_MODEL]
+        # And the laptop that asks next is told the corrected list.
+        again = await _collect(app, two_devices["desktop"])
+        assert again["key"] == issued["key"]
+        assert again["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8"]
+        assert await reconcile_model_grants(app.state.brain) == 0
 
 
 class TestWebSearchGrantPass:

@@ -348,6 +348,7 @@ export const ja = defineLocale({
       keyRotate: '新しいキーを発行',
       keyRotateDesc: '現在のキーを失効させ、新しいキーを発行します。キーが漏れた場合に使用してください。',
       keyRotating: '発行中…',
+      keyRotateFailed: detail => `新しいキーを発行できませんでした: ${detail}`,
       keyModels: n => `${n} 個のモデルが利用可能`,
       devicesTitle: 'あなたのデバイス',
       devicesEmpty: 'まだデバイスは記録されていません',

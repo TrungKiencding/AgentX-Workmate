@@ -325,6 +325,7 @@ export const zhHant = defineLocale({
       keyRotate: '簽發新金鑰',
       keyRotateDesc: '停用目前的金鑰並簽發新的一把。金鑰外洩時使用。',
       keyRotating: '簽發中…',
+      keyRotateFailed: detail => `無法簽發新金鑰：${detail}`,
       keyModels: n => `${n} 個可用模型`,
       devicesTitle: '你的裝置',
       devicesEmpty: '尚未記錄任何裝置',

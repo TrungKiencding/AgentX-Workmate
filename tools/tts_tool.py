@@ -116,6 +116,26 @@ def _import_edge_tts():
     import edge_tts
     return edge_tts
 
+
+def _edge_tts_importable() -> bool:
+    """Whether ``edge_tts`` is already installed. Never installs anything."""
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("edge_tts") is not None
+    except Exception:
+        return False
+
+
+def _lazy_installs_allowed() -> bool:
+    """Whether a missing TTS package may be installed at first use."""
+    try:
+        from tools.lazy_deps import _allow_lazy_installs
+
+        return bool(_allow_lazy_installs())
+    except Exception:
+        return False
+
 def _import_elevenlabs():
     """Lazy import ElevenLabs client. Returns the class or raises ImportError.
 
@@ -3174,11 +3194,17 @@ def check_tts_requirements() -> bool:
         return True
 
     if provider == "edge":
-        try:
-            _import_edge_tts()
+        # Importable, or installable on first use — but never installed from
+        # HERE. This check runs inside every agent build (and again whenever
+        # the registry's cache expires), so a lazy install placed in it ran
+        # `uv pip install` in the middle of a fresh install's first turn: on a
+        # slow or filtered network that is minutes of silence before the
+        # first reply, and it looked exactly like a hung chat. Registering the
+        # tool and letting `text_to_speech_tool` install on the first call
+        # moves the same install to a moment the model asked for it.
+        if _edge_tts_importable() or _lazy_installs_allowed():
             return True
-        except ImportError:
-            return _check_neutts_available()
+        return _check_neutts_available()
     if provider == "elevenlabs":
         try:
             _import_elevenlabs()

@@ -2322,6 +2322,20 @@ def update_version_files(semver: str, calver_date: str, root: Path = REPO_ROOT) 
     version_file.write_text(content, encoding="utf-8")
     touched.append(version_file)
 
+    # The second-brain service reports its own __version__ on /health, and an
+    # operator reads it to tell which image a deploy is running. It has to move
+    # with the product version or /health names a release that is not there.
+    brain_version_file = root / "second_brain" / "__init__.py"
+    if brain_version_file.exists():
+        brain_content = brain_version_file.read_text(encoding="utf-8")
+        brain_content = re.sub(
+            r'__version__\s*=\s*"[^"]+"',
+            f'__version__ = "{semver}"',
+            brain_content,
+        )
+        brain_version_file.write_text(brain_content, encoding="utf-8")
+        touched.append(brain_version_file)
+
     # Update pyproject.toml
     pyproject_file = root / "pyproject.toml"
     pyproject = pyproject_file.read_text(encoding="utf-8")

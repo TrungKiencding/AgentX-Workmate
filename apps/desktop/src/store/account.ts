@@ -1,6 +1,7 @@
 import { atom } from 'nanostores'
 
 import type {
+  DesktopAccountProvisionResult,
   DesktopAccountStatus,
   DesktopDeviceList,
   DesktopDeviceRevokeResult,
@@ -136,11 +137,19 @@ export async function refreshAccountIsolation(): Promise<AccountIsolationState> 
  * The user-facing reason to do this is a leaked key. It is not a repair
  * button: a key that merely stopped working is replaced automatically on the
  * next launch.
+ *
+ * Returns what provisioning answered rather than only the refreshed state:
+ * a rotation the service refused leaves the current key in place, so the
+ * refreshed state reads exactly as it did before the click — and a button
+ * that does nothing visible on failure is a button that "does not work".
+ * The caller shows the answer.
  */
-export async function rotateAccountKey(): Promise<AccountIsolationState> {
-  await window.agentxDesktop?.account?.provision({ rotate: true }).catch(() => undefined)
+export async function rotateAccountKey(): Promise<DesktopAccountProvisionResult> {
+  const result = await window.agentxDesktop?.account?.provision({ rotate: true }).catch(() => null)
 
-  return refreshAccountIsolation()
+  await refreshAccountIsolation()
+
+  return result ?? { ok: false, error: 'The backend did not answer the provisioning request.' }
 }
 
 /**

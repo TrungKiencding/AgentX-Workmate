@@ -35,6 +35,7 @@ from hermes_cli.accounts import (
     AccountIdentity,
     account_slug_for_identity,
     ensure_account_home,
+    litellm_key_alias_for_identity,
 )
 from hermes_cli.dashboard_auth.base import ProviderError, Session
 from hermes_cli.litellm_admin import LiteLLMAdminClient
@@ -517,6 +518,18 @@ def ada() -> Session:
     return _session("kc-ada", "ada@corp.test", "Ada Lovelace", "tok-ada")
 
 
+def _ada_alias() -> str:
+    """The label Ada's key wears at the proxy: readable name plus her subject
+    digest, so nobody whose name sanitizes to ``adalovelace`` can collide."""
+    return litellm_key_alias_for_identity(
+        "agentx-workmate",
+        subject="kc-ada",
+        username="Ada Lovelace",
+        display_name="Ada Lovelace",
+        email="ada@corp.test",
+    )
+
+
 @pytest.mark.parametrize(
     "method,path",
     [("get", "/api/account"), ("post", "/api/account/provision")],
@@ -637,7 +650,7 @@ def test_provision_direct_mode_lands_the_key_in_the_account_env(
     tmp_path, monkeypatch, proxy, ada
 ):
     home, slug = _provisioning_home(tmp_path, monkeypatch, proxy, ada)
-    alias = "agentx-workmate-adalovelace"
+    alias = _ada_alias()
 
     with TestClient(_account_app(ada)) as client:
         response = client.post("/api/account/provision")
@@ -673,7 +686,7 @@ def test_provision_is_idempotent_until_rotation_is_asked_for(
     tmp_path, monkeypatch, proxy, ada
 ):
     home, slug = _provisioning_home(tmp_path, monkeypatch, proxy, ada)
-    alias = "agentx-workmate-adalovelace"
+    alias = _ada_alias()
 
     with TestClient(_account_app(ada)) as client:
         first = client.post("/api/account/provision").json()["litellm"]
@@ -714,7 +727,7 @@ def test_provision_ignores_an_account_named_in_the_body(
             json={"account": other_slug, "subject": "kc-grace", "slug": other_slug},
         ).json()
 
-    expected_alias = "agentx-workmate-adalovelace"
+    expected_alias = _ada_alias()
     assert body["account"] == slug
     assert body["litellm"]["key_alias"] == expected_alias
     assert proxy.aliases() == {expected_alias}
@@ -746,7 +759,7 @@ def test_get_account_reports_the_key_after_provisioning(
 
     assert before["status"] == "missing"
     assert after["status"] == "reused"
-    expected_alias = "agentx-workmate-adalovelace"
+    expected_alias = _ada_alias()
     assert after["key_alias"] == expected_alias
     assert after["masked_key"].endswith(proxy.key_for(expected_alias)[-4:])
     assert Path(home / "litellm-account.json").is_file()

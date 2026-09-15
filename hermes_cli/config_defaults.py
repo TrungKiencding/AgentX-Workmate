@@ -37,7 +37,13 @@ DEPLOYMENT_KEYCLOAK_REALM = "agent-hub"
 DEPLOYMENT_KEYCLOAK_CLIENT_ID = "agentx-workmate"
 
 #: LiteLLM proxy each signed-in account is given its own virtual key on.
-DEPLOYMENT_LITELLM_BASE_URL = "https://vtn-4000.wondertek.space"
+#:
+#: A fallback, not the authority: under ``mode: "second_brain"`` every key
+#: arrives with the proxy URL the service currently names, and that wins. It
+#: still has to be a live host — it is what a laptop probes before it has
+#: collected a key, and what Settings reports — so update it when the proxy
+#: moves (``vtn-4000.wondertek.space`` stopped answering in September 2026).
+DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.dev-server.cloud"
 
 #: Model pinned as an account's default the first time its key is minted.
 #:

@@ -432,6 +432,7 @@ export const zh: Translations = {
       keyRotate: '签发新密钥',
       keyRotateDesc: '停用当前密钥并签发一把新的。密钥泄露时使用。',
       keyRotating: '签发中…',
+      keyRotateFailed: detail => `无法签发新密钥：${detail}`,
       keyModels: n => `${n} 个可用模型`,
       devicesTitle: '你的设备',
       devicesEmpty: '还没有记录任何设备',

@@ -172,6 +172,27 @@ class FakeLiteLLM:
 
         if method == "POST" and path == "/key/generate":
             body = json.loads(request.content or b"{}")
+            # Like the real proxy since LiteLLM 1.55: an alias is unique
+            # across every key, and minting under one that exists is a 400
+            # rather than a second key. A rotation that mints before it
+            # deletes — the only safe order — therefore cannot reuse the
+            # label of the key it is replacing.
+            wanted_alias = str(body.get("key_alias") or "")
+            if wanted_alias and self.records_for_alias(wanted_alias):
+                return httpx.Response(
+                    400,
+                    json={
+                        "error": {
+                            "message": (
+                                "Unique key aliases across all keys are required. "
+                                f"Key alias '{wanted_alias}' already exists."
+                            ),
+                            "type": "bad_request_error",
+                            "param": "key_alias",
+                            "code": "400",
+                        }
+                    },
+                )
             record = self.mint(
                 str(body.get("key_alias") or ""),
                 models=body.get("models") or (),
@@ -623,6 +644,10 @@ class TestDirectProvisioning:
 
         The cost of the fix is an orphan in the proxy that an operator can see
         and remove. The cost of the bug was somebody's other laptop.
+
+        The proxy will not mint a second key under a label it holds, so the
+        one this machine mints wears the label with a suffix — a label, and
+        nothing more.
         """
         settings = direct_settings()
         alias = alias_for_account(settings, account)
@@ -635,12 +660,16 @@ class TestDirectProvisioning:
 
         assert result.status == "provisioned"
         assert fake_proxy.holds_token(theirs["token"]) is True
-        assert len(fake_proxy.records_for_alias(alias)) == 2
+        assert len(fake_proxy.records_for_alias(alias)) == 1
+        assert len(fake_proxy.records) == 2
 
         # And this machine holds the one it just minted, not the other one.
         held = env_value(provider_key_env(settings.provider_name))
         assert held != theirs["key"]
-        assert fake_proxy.holds_token(read_state(account.home)["token"])
+        mine = read_state(account.home)
+        assert fake_proxy.holds_token(mine["token"])
+        assert mine["key_alias"] != alias
+        assert mine["key_alias"].startswith(alias + "-")
 
     def test_the_alias_is_never_looked_up(self, account, fake_proxy):
         # Looking a key up by alias is the first half of delete-by-alias, and
@@ -930,7 +959,11 @@ class FakeSecondBrain:
         held = self.keys.get(subject)
 
         if held is not None and not body.get("rotate"):
-            return httpx.Response(200, json={**held, "status": "reused"})
+            # The proxy the service fronts NOW, not the one recorded at mint:
+            # that is how a laptop learns the proxy moved.
+            return httpx.Response(
+                200, json={**held, "base_url": self.base_url, "status": "reused"}
+            )
 
         alias = LiteLLMAccountSettings().alias_for(subject)
         # Scoped the way the real service scopes a key: the grant, then web
@@ -1351,24 +1384,124 @@ class TestUpgradingOntoTheSecondBrain:
         assert read_state(account.home)["mode"] == "second_brain"
 
     def test_a_key_the_brain_issued_is_still_reused_without_asking_again(
-        self, account, brain
+        self, account, brain, fake_proxy
     ):
         """The common path must stay free. Re-checking the mode on every launch
         is only worth it if it costs nothing when nothing has changed."""
         settings = brain_settings()
+        brain.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
         )
         brain.requests.clear()
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
         )
 
         assert result.status == "reused"
         assert brain.requests == []
+
+    def test_a_proxy_that_cannot_be_reached_asks_the_service_where_it_is(
+        self, account, brain, fake_proxy
+    ):
+        """A dead proxy hostname must not be forever.
+
+        The proxy moved once and every laptop that had collected a key before
+        the move kept the old hostname: the liveness probe could not reach it,
+        "could not ask" counts as "still valid", and nothing ever asked the
+        service for the new URL — so every chat failed with a TLS error while
+        Settings said the key was fine. Now a probe with no answer at all
+        asks the service, which names the proxy it currently fronts.
+        """
+        settings = brain_settings()
+        brain.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        first = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+        brain.requests.clear()
+        brain.base_url = "https://moved-proxy.test"
+
+        fake_proxy.fault = "connect"
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+
+        # Asked once, minted nothing: the key is the same one.
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert json.loads(brain.requests[0].content or b"{}").get("rotate") is not True
+        assert result.status == "reused"
+        assert result.masked_key == first.masked_key
+        assert result.base_url == "https://moved-proxy.test"
+        assert read_state(account.home)["base_url"] == "https://moved-proxy.test"
+        entry = raw_config(account.home)["providers"]["litellm"]
+        assert entry["base_url"] == "https://moved-proxy.test/v1"
+
+    def test_a_key_the_proxy_rejects_and_the_service_still_holds_is_replaced(
+        self, account, brain, fake_proxy
+    ):
+        """A 401 means the key is dead for everybody — the service's copy is
+        the same key. Collecting it again on every launch would heal nothing."""
+        settings = brain_settings()
+        brain.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        first = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+        # Retired upstream by hand: the proxy no longer knows the key, the
+        # service still does.
+        fake_proxy.records.pop(read_state(account.home)["token"])
+        brain.requests.clear()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in brain.requests]
+        assert asked == [None, True] or asked == [False, True]
+        assert result.status == "rotated"
+        assert result.masked_key != first.masked_key
+        assert fake_proxy.holds_token(read_state(account.home)["token"])
+
+    def test_a_proxy_and_a_service_both_out_of_reach_keep_the_key(
+        self, account, brain, fake_proxy
+    ):
+        """On a train nothing answers, and that is not a reason to change anything."""
+        settings = brain_settings()
+        brain.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        first = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+        before = read_state(account.home)
+
+        fake_proxy.fault = "connect"
+        brain.unreachable = True
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=client,
+        )
+
+        assert result.status == "reused"
+        assert result.masked_key == first.masked_key
+        assert read_state(account.home) == before
 
     def test_a_deprecated_mode_never_re_mints_over_a_brain_issued_key(
         self, account, fake_proxy, brain, monkeypatch
@@ -1796,16 +1929,78 @@ class TestWebSearchFollowsTheGrant:
         self._sign_in(account, brain, fake_proxy)
         assert read_state(account.home)["web_search_model"] == self.SEARCH
 
-    def test_a_proxy_that_cannot_be_asked_changes_nothing(self, account, brain, fake_proxy):
+    def test_a_proxy_that_cannot_be_asked_is_asked_about_at_the_service(
+        self, account, brain, fake_proxy
+    ):
+        """No answer from the proxy is what a proxy that moved looks like, so
+        the service is asked where it is — once, and for the same key."""
         brain.grants = ["chat-a"]
         self._sign_in(account, brain, fake_proxy)
         brain.grant_web_search("tok", self.SEARCH)
         brain.requests.clear()
+        minted_before = len(fake_proxy.records)
 
         fake_proxy.fault = "connect"
         result = self._sign_in(account, brain, fake_proxy)
 
         assert result.status == "reused"
+        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert len(fake_proxy.records) == minted_before
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+
+    def test_a_service_that_lists_the_search_preset_among_the_models_is_corrected(
+        self, account, brain, fake_proxy
+    ):
+        """A proxy declares Perplexity's presets ``mode: chat``, and a service
+        that trusted that put "Pro Search" in every picker. The laptop keeps
+        it out regardless of what the service says."""
+        brain.grants = ["chat-a", self.SEARCH]
+        brain.web_search_model = self.SEARCH
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "provisioned"
+        assert result.models == ("chat-a",)
+        assert result.default_model == "chat-a"
+        config = raw_config(account.home)
+        assert set(config["providers"]["litellm"]["models"]) == {"chat-a"}
+        assert config["model"]["default"] == "chat-a"
+        assert read_state(account.home)["models"] == ["chat-a"]
+        assert read_state(account.home)["web_search_model"] == self.SEARCH
+
+    def test_a_search_preset_that_leaked_into_the_picker_is_taken_back_out_on_reuse(
+        self, account, brain, fake_proxy
+    ):
+        """A sidecar written from an older service's answer — and the config
+        it wrote — is corrected on the next launch, without asking anybody."""
+        from hermes_cli.account_provisioning import write_state
+        from hermes_cli.config import read_raw_config, save_config
+
+        brain.grants = ["chat-a"]
+        brain.web_search_model = self.SEARCH
+        self._sign_in(account, brain, fake_proxy)
+
+        # What an older provisioning run left behind: the preset in the
+        # picker, leading the list, and pinned as the account's default.
+        state = read_state(account.home)
+        write_state(account.home, {**state, "models": [self.SEARCH, "chat-a"]})
+        raw = read_raw_config()
+        raw["providers"]["litellm"]["models"][self.SEARCH] = {}
+        raw["model"]["default"] = self.SEARCH
+        save_config(raw)
+        brain.requests.clear()
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "reused"
+        assert brain.requests == []
+        assert result.models == ("chat-a",)
+        config = raw_config(account.home)
+        assert set(config["providers"]["litellm"]["models"]) == {"chat-a"}
+        assert config["model"]["default"] == "chat-a"
+        assert read_state(account.home)["models"] == ["chat-a"]
+        # Once: the sidecar is rewritten, so the next launch has nothing to do.
+        assert self._sign_in(account, brain, fake_proxy).status == "reused"
         assert brain.requests == []
 
 
@@ -2065,6 +2260,8 @@ class TestLoadSettings:
         assert LiteLLMAccountSettings(enabled=False, mode="direct", base_url=PROXY_URL).configured is False
 
     def test_the_alias_is_per_account(self):
+        import hashlib
+
         settings = LiteLLMAccountSettings(key_alias_prefix="acme")
         kien = settings.alias_for(
             subject="sub-kien", username="Kien Le", display_name="Kien Le"
@@ -2072,8 +2269,28 @@ class TestLoadSettings:
         mai = settings.alias_for(
             subject="sub-mai", username="Mai Tran", display_name="Mai Tran"
         )
-        assert kien == "acme-kienle"
+        digest = hashlib.sha256(b"sub-kien").hexdigest()[:8]
+        assert kien == f"acme-kienle-{digest}"
         assert kien != mai
+
+    def test_two_people_whose_names_sanitize_alike_get_different_aliases(self):
+        """LiteLLM refuses to mint under an alias that exists, so a label built
+        from the readable name alone locked the second Hùng/Hưng out of a key."""
+        settings = LiteLLMAccountSettings(key_alias_prefix="acme")
+        hung = settings.alias_for(subject="sub-1", display_name="Trần Văn Hùng")
+        hung2 = settings.alias_for(subject="sub-2", display_name="Trần Văn Hưng")
+
+        assert hung.startswith("acme-tranvanhung-")
+        assert hung2.startswith("acme-tranvanhung-")
+        assert hung != hung2
+
+    def test_a_nameless_identity_does_not_carry_the_digest_twice(self):
+        settings = LiteLLMAccountSettings(key_alias_prefix="acme")
+
+        alias = settings.alias_for(subject="sub-x")
+
+        assert alias.count(alias.rsplit("-", 1)[-1]) == 1
+        assert alias.startswith("acme-u")
 
     def test_settings_come_from_the_machine_config_not_the_accounts_own(self, account):
         """``accounts.litellm`` is operator policy, read at the install root.
