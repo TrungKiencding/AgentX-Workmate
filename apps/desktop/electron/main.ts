@@ -9613,6 +9613,33 @@ function focusWindow(win) {
   win.focus()
 }
 
+// After a system-browser sign-in round trip the browser holds the OS focus and
+// the app may be minimized or buried under it. Bring Workmate back in front so
+// finishing in the browser lands the user in the app, not on the leftover
+// callback tab (which the browser may refuse to let close itself). macOS
+// ignores cross-app activation unless the steal is explicit, and Windows'
+// foreground lock tends to downgrade focus() to a taskbar flash unless the
+// window is momentarily always-on-top.
+function refocusAppAfterBrowserSignIn() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
+  if (IS_WINDOWS) {
+    mainWindow.setAlwaysOnTop(true)
+    focusWindow(mainWindow)
+    mainWindow.setAlwaysOnTop(false)
+
+    return
+  }
+
+  focusWindow(mainWindow)
+
+  if (IS_MAC) {
+    app.focus({ steal: true })
+  }
+}
+
 function spawnSecondaryWindow({ sessionId, watch }: { sessionId?: string; watch?: boolean } = {}) {
   const icon = getAppIconPath()
 
@@ -10748,6 +10775,8 @@ ipcMain.handle('agentx:connection-config:oauth-login', async (_event, rawUrl) =>
       // startHermes() re-dials instead of replaying the stale rejection.
       remoteReauthFailure = null
 
+      refocusAppAfterBrowserSignIn()
+
       return { ok: true, baseUrl, connected: true }
     } catch (error) {
       rememberLog(
@@ -10873,6 +10902,13 @@ ipcMain.handle('agentx:keycloak:sign-in', async (_event, profile) => {
     const session = await ensureKeycloakSession(config, keycloakDeps({ interactive: true }))
 
     rememberLog(`[keycloak] sign-in finished (outcome=${session.outcome}, tokens=${!!session.tokens})`)
+
+    // Only 'signed-in' means a browser actually opened and took the focus;
+    // 'stored'/'refreshed' never left the app, and a failure should leave the
+    // browser in front for the user to read what went wrong.
+    if (session.tokens && session.outcome === 'signed-in') {
+      refocusAppAfterBrowserSignIn()
+    }
 
     return { ok: !!session.tokens, outcome: session.outcome }
   } catch (error) {

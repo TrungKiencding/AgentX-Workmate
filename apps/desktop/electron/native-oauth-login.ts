@@ -49,8 +49,12 @@ const DONE_HTML =
   '<!doctype html><meta charset="utf-8"><title>Signed in</title>' +
   '<body style="font:15px system-ui;margin:3rem;text-align:center">' +
   '<h2>&#10003; Signed in to AgentX</h2>' +
-  '<p>You can close this window and return to the app.</p>' +
-  '<script>setTimeout(()=>window.close(),800)</script>'
+  '<p id="hint" hidden>You can close this window and return to the app.</p>' +
+  // Same close dance as keycloak-login.ts: the browser refuses window.close()
+  // once the tab's history has more than the callback document, so retry a
+  // few times and only then reveal the manual hint.
+  '<script>window.close();var n=0,t=setInterval(function(){window.close();' +
+  'if(++n>=3){clearInterval(t);document.getElementById("hint").hidden=false}},300)</script>'
 
 export interface NativeLoginDeps {
   /** Open a URL in the user's system browser (shell.openExternal). */

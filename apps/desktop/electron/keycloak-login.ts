@@ -38,12 +38,19 @@ import {
 } from './keycloak-oidc'
 import { generatePkcePair, generateState, type NativeTokenSet, parseLoopbackCallback } from './native-oauth'
 
+// The tab was opened by the OS (shell.openExternal), not by a script, so the
+// browser honors window.close() only while the tab's history holds a single
+// document — true for a silent-SSO 302 chain, false once the user typed into
+// the Keycloak form (the POST commits a second entry and every close attempt
+// is refused). Retry a few times, then reveal the manual hint only for the
+// tabs that genuinely cannot close themselves.
 const DONE_HTML =
   '<!doctype html><meta charset="utf-8"><title>Signed in</title>' +
   '<body style="font:15px system-ui;margin:3rem;text-align:center">' +
   '<h2>&#10003; Signed in to AgentX Workmate</h2>' +
-  '<p>You can close this window and return to the app.</p>' +
-  '<script>setTimeout(()=>window.close(),800)</script>'
+  '<p id="hint" hidden>You can close this window and return to the app.</p>' +
+  '<script>window.close();var n=0,t=setInterval(function(){window.close();' +
+  'if(++n>=3){clearInterval(t);document.getElementById("hint").hidden=false}},300)</script>'
 
 export interface KeycloakLoginDeps {
   /** Open a URL in the user's system browser (shell.openExternal). */
