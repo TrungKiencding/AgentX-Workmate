@@ -3469,15 +3469,12 @@ def _build_codex_client(model: str) -> Tuple[Optional[Any], Optional[str]]:
         )
         return None, None
     pool_present, entry = _select_pool_entry("openai-codex")
-    if pool_present:
-        codex_token = _pool_runtime_api_key(entry)
-        if codex_token:
-            base_url = _pool_runtime_base_url(entry, _CODEX_AUX_BASE_URL) or _CODEX_AUX_BASE_URL
-        else:
-            codex_token = _read_codex_access_token()
-            if not codex_token:
-                return None, None
-            base_url = _CODEX_AUX_BASE_URL
+    codex_token = _pool_runtime_api_key(entry) if pool_present else None
+    # Same profile-scoped read as the API-key env vars: under a multiplexer the routed profile's
+    # .env decides the endpoint, never a sibling profile's process env.
+    codex_override = _scoped_key_env("HERMES_CODEX_BASE_URL").rstrip("/")
+    if codex_token:
+        base_url = codex_override or _pool_runtime_base_url(entry, _CODEX_AUX_BASE_URL) or _CODEX_AUX_BASE_URL
     else:
         codex_token = _read_codex_access_token()
         if not codex_token:
