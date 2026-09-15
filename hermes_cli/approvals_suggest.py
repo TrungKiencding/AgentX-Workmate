@@ -314,6 +314,8 @@ def build_proposals(
     ``[a]lways`` answer persists) for compound commands where no safe glob
     can be derived.
     """
+    from agent.redact import redact_sensitive_text
+
     existing = existing or set()
     by_pattern: dict[tuple[str, str], Proposal] = {}
 
@@ -324,8 +326,6 @@ def build_proposals(
         # env assignments, bearer tokens). Patterns and examples are echoed to the
         # operator and can be persisted to config.yaml, so mask them like every
         # other display boundary — classification above still sees the raw command.
-        from agent.redact import redact_sensitive_text
-
         normalized = redact_sensitive_text(normalize_command(command), force=True)
         glob = derive_glob(normalized)
         if glob is not None:
