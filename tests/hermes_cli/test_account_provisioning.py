@@ -889,6 +889,17 @@ class FakeSecondBrain:
         record["models"] = [*held["models"], model] if model else list(held["models"])
         held["web_search_model"] = model
 
+    def retire_model(self, subject: str, model: str) -> None:
+        """What the service's grant pass does when the proxy retires a model.
+
+        The key and its token stay the same; the model leaves the key's
+        allowlist at the proxy and what the service will answer from now on.
+        """
+        held = self.keys[subject]
+        record = self.proxy.records[held["token"]]
+        held["models"] = [m for m in held["models"] if m != model]
+        record["models"] = [m for m in record["models"] if m != model]
+
     def _handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
 
@@ -1491,6 +1502,99 @@ class TestModelListFollowsTheKey:
 
         # We only ever take back a pin we made ourselves.
         assert raw_config(account.home)["model"]["default"] == "something-i-picked"
+
+
+class TestModelListFollowsTheProxy:
+    """A model the proxy retires leaves this machine without a rotation.
+
+    The service's grant pass prunes the key's allowlist and its own stored
+    row; this machine notices on its next launch, because the reuse path's
+    ``/v1/models`` answer — the allowlist, echoed verbatim — no longer matches
+    what was recorded. What these tests pin is the landing: the retired id
+    leaves the picker and the default pin, on the SAME key, with nothing
+    minted or rotated.
+    """
+
+    def _sign_in(self, account, brain, fake_proxy, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            client=make_client(fake_proxy), **kwargs,
+        )
+
+    def test_a_model_the_service_retires_leaves_the_picker_on_the_next_launch(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, brain, fake_proxy)
+        key_env = provider_key_env("litellm")
+        held = env_value(key_env)
+
+        # The proxy retired chat-b, and the service's grant pass has already
+        # reached the key this laptop holds: allowlist and answer both shrank.
+        brain.retire_model("tok", "chat-b")
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.ok is True
+        assert read_state(account.home)["models"] == ["chat-a"]
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"chat-a"}
+        # Learning that a model left is not a new key.
+        assert env_value(key_env) == held
+
+        brain.requests.clear()
+        assert self._sign_in(account, brain, fake_proxy).status == "reused"
+        assert brain.requests == []
+
+    def test_the_default_pin_moves_off_the_retired_model_without_a_rotation(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-b", "chat-a"]
+        self._sign_in(account, brain, fake_proxy)
+        assert raw_config(account.home)["model"]["default"] == "chat-b"
+
+        brain.retire_model("tok", "chat-b")
+        self._sign_in(account, brain, fake_proxy)
+
+        # Left pinned, chat-b would open the app on a dead model group on
+        # every launch, and the first message's error would name the model
+        # rather than the stale pin that chose it.
+        assert raw_config(account.home)["model"]["default"] == "chat-a"
+
+    def test_a_service_answer_behind_the_allowlist_is_narrowed_to_it(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, brain, fake_proxy)
+
+        # The allowlist was pruned upstream but the service's answer is
+        # behind — a row write that lost a race, or an older service. Writing
+        # its list unfiltered would put chat-b straight back into the picker.
+        token = read_state(account.home)["token"]
+        fake_proxy.records[token]["models"] = ["chat-a"]
+
+        self._sign_in(account, brain, fake_proxy)
+
+        assert read_state(account.home)["models"] == ["chat-a"]
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"chat-a"}
+
+    def test_an_answer_reaching_nothing_recorded_changes_nothing(
+        self, account, brain, fake_proxy
+    ):
+        brain.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, brain, fake_proxy)
+
+        # A probe that answers something unusable — here, ids naming nothing
+        # the service granted — is not evidence that the key reaches nothing.
+        token = read_state(account.home)["token"]
+        fake_proxy.records[token]["models"] = ["nothing-granted"]
+
+        self._sign_in(account, brain, fake_proxy)
+
+        assert read_state(account.home)["models"] == ["chat-a", "chat-b"]
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "chat-a", "chat-b",
+        }
 
     def test_a_fresh_account_opens_on_the_preferred_model_its_key_reaches(
         self, account, brain

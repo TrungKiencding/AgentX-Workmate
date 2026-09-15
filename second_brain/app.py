@@ -170,11 +170,12 @@ def build_app(
         # app the tests build — never sweeps at all.
         sweeper = asyncio.create_task(sync_module.sweep_tombstones_forever(ctx))
 
-        # Keys minted before web search existed, or before an operator changed
-        # its model, have their grant brought up to date without anybody
-        # signing in again. With no proxy there is nothing to grant against.
+        # Keys minted against a catalog the proxy has since changed — a model
+        # retired or added, web search granted or moved — are brought up to
+        # date without anybody signing in again. With no proxy there is
+        # nothing to reconcile against.
         grants = (
-            asyncio.create_task(keys_module.reconcile_web_search_grants_forever(ctx))
+            asyncio.create_task(keys_module.reconcile_model_grants_forever(ctx))
             if ctx.litellm is not None
             else None
         )

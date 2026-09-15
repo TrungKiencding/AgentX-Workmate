@@ -985,9 +985,10 @@ def ensure_account_key(
         if live:
             if _reach_changed(settings, state, reachable):
                 # The proxy says this key reaches something other than what was
-                # recorded — most often a web search model the second brain has
-                # since granted to keys that already existed. Ask the service
-                # what the grant now is; the key itself stays the same.
+                # recorded — the second brain's grant pass retired a model the
+                # proxy stopped serving, added one, or moved the web search
+                # grant. Ask the service what the grant now is; the key itself
+                # stays the same.
                 collected = _rotate(
                     settings, identity, account_slug, alias, key_env, home, bearer,
                     client=client, broker_transport=broker_transport,
@@ -1118,12 +1119,12 @@ def _reach_changed(
 ) -> bool:
     """True when the proxy says this key reaches something other than was recorded.
 
-    The second brain can change what an existing key reaches — it grants a web
-    search model to keys issued before there was one, and withdraws it when an
-    operator turns it off — but a laptop holding a working key never asks it
-    for the key again. The reuse path's ``/v1/models`` call already lists what
-    the key reaches, so comparing that with what was recorded is how the laptop
-    notices, at no cost when nothing changed.
+    The second brain can change what an existing key reaches — its grant pass
+    retires models the proxy stops serving, adds ones an operator brings up,
+    and moves the web search grant — but a laptop holding a working key never
+    asks it for the key again. The reuse path's ``/v1/models`` call already
+    lists what the key reaches, so comparing that with what was recorded is
+    how the laptop notices, at no cost when nothing changed.
 
     A sidecar written before ``reachable_models`` existed counts as changed,
     once: that is how an install that predates web search learns its model
@@ -1266,6 +1267,21 @@ def _rotate(
     save_provider_env_credential(key_env, minted.key)
 
     models = minted.models
+    if reachable is not None and models:
+        # `reachable` is what `/v1/models` answered for this very key, moments
+        # ago. LiteLLM answers a scoped key with its allowlist verbatim, so
+        # this usually restates the service's list and the intersection below
+        # changes nothing. It bites when the two disagree: the service's grant
+        # pass pruned the key's allowlist but its answer is behind — a row
+        # write that lost a race, or an older service — and writing its list
+        # unfiltered would put the just-retired models straight back into the
+        # picker this launch was told they left. An empty intersection is a
+        # probe that answered nothing usable, not a key that reaches nothing,
+        # and keeps the service's list.
+        served = {str(model) for model in reachable}
+        narrowed = tuple(model for model in models if model in served)
+        if narrowed:
+            models = narrowed
     if settings.discover_models and not models:
         models = tuple(_discover_models(settings, base_url, minted.key))
 

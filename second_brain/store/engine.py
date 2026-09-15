@@ -633,39 +633,67 @@ class Store:
         )
         return str(result or "").strip() != "UPDATE 0"
 
-    async def set_web_search_grant(
-        self, subject: str, *, litellm_token: str, web_search_model: str
+    async def set_model_grants(
+        self,
+        subject: str,
+        *,
+        litellm_token: str,
+        models: Sequence[str],
+        web_search_model: str,
     ) -> ModelKeyRow | None:
-        """Record which web search model this person's key now reaches.
+        """Record what this person's key now reaches: its models and web search.
+
+        Not a rotation — the key itself is unchanged, so ``rotated_at`` is
+        deliberately left alone, exactly as ``rewrap_model_key`` leaves it.
 
         Guarded on ``litellm_token``, as ``rewrap_model_key`` is guarded on the
-        KEK: a rotation that landed while the grant was being changed upstream
-        stored a different key with a grant of its own, and must not be
+        KEK: a rotation that landed while the grants were being changed
+        upstream stored a different key with grants of its own, and must not be
         overwritten with what was true of the key it replaced. Returns the
         updated row, or None when the guard did not match.
         """
+        import json
+
         record = await self._fetchrow(
             """
             UPDATE model_keys
-               SET web_search_model = $3
+               SET models = $3::jsonb, web_search_model = $4
              WHERE subject = $1 AND litellm_token = $2
             RETURNING *
             """,
             subject,
             litellm_token,
+            json.dumps([str(m) for m in (models or ())]),
             web_search_model or "",
         )
         return _model_key_row(record) if record else None
 
-    async def stale_web_search_grants(self, current: Sequence[str]) -> list[ModelKeyRow]:
-        """Every stored key whose web search grant is not one of *current*.
+    async def stale_grants(
+        self, *, models: Sequence[str], web_search: Sequence[str]
+    ) -> list[ModelKeyRow]:
+        """Every stored key granted other than *models*, or web search outside
+        *web_search*.
 
         Across every account, like ``sweep_tombstones``: it feeds the service's
         own reconciliation pass rather than a request anybody made.
+
+        The model comparison is two-way JSONB containment, which for the
+        duplicate-free lists ``_grantable_models`` builds is set equality. As
+        sets on purpose: a row's ORDER is the account's default model and is
+        owned by the row, so a proxy that merely enumerates the same catalog
+        differently between passes must not read as every key having changed.
         """
+        import json
+
+        wanted = json.dumps([str(m) for m in (models or ())])
         records = await self._fetch(
-            "SELECT * FROM model_keys WHERE NOT (web_search_model = ANY($1::text[]))",
-            [str(value) for value in current],
+            """
+            SELECT * FROM model_keys
+             WHERE NOT (web_search_model = ANY($2::text[]))
+                OR NOT (models @> $1::jsonb AND models <@ $1::jsonb)
+            """,
+            wanted,
+            [str(value) for value in web_search],
         )
         return [_model_key_row(record) for record in records]
 

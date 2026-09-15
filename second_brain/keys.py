@@ -591,24 +591,53 @@ def rotation_hook(ctx: BrainContext) -> Callable[[str], Awaitable[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Web search grants
+# Grant reconciliation
 # ---------------------------------------------------------------------------
 
 #: How long the grant pass waits after startup, and then between passes. The
 #: first wait keeps a rolling deploy from having every instance reach for the
-#: proxy at once; the interval bounds how long a model an operator adds to the
-#: proxy takes to reach keys that already exist.
+#: proxy at once; the interval bounds how long a change to the proxy's catalog
+#: takes to reach keys that already exist.
 _GRANT_FIRST_PASS_SECONDS = 60
 _GRANT_PASS_SECONDS = 60 * 60
 
 
-async def reconcile_web_search_grants(ctx: BrainContext) -> int:
-    """Bring every stored key's web search grant in line with this deploy.
+def _reconciled_models(
+    row: ModelKeyRow, target: tuple[str, ...]
+) -> tuple[str, ...] | None:
+    """What *row*'s model list should be under *target*, or None for no change.
 
-    A grant is decided when a key is minted, and a key is minted once per
-    person — so without this, every key issued before web search existed, or
-    before an operator changed its model, would keep what it was born with for
-    life. Waiting for laptops to ask again does not work either: one holding a
+    Equality is set equality: the row's ORDER is the account's default model,
+    chosen at mint time, so a proxy that merely enumerates the same catalog
+    differently between passes must not read as a change. When the sets do
+    differ, the surviving models keep the row's order — the account's default
+    moves only when the model it names is itself retired, in which case the
+    next survivor leads — and additions follow in the target's order, which
+    ``_grantable_models`` sorted chat-first.
+    """
+    wanted = set(target)
+    held = set(row.models)
+    if held == wanted:
+        return None
+    survivors = tuple(model for model in row.models if model in wanted)
+    return survivors + tuple(model for model in target if model not in held)
+
+
+async def reconcile_model_grants(ctx: BrainContext) -> int:
+    """Bring every stored key's grants in line with what the proxy serves.
+
+    A key's model list and its web search grant are decided when the key is
+    minted, and a key is minted once per person — so without this, a model an
+    operator retires from the proxy would stay on every existing key for the
+    life of the account: in the stored row, in the key's own allowlist, and
+    therefore in every laptop's picker, failing only when somebody sends a
+    message with it. The laptops cannot correct themselves: ``/v1/models``
+    answers a scoped key with its allowlist verbatim, deployed or not, so they
+    echo whatever this service last granted. This pass is where the proxy's
+    catalog re-enters the system — and the web search grant rides in the same
+    pass, because two loops editing one key's allowlist would race each other.
+
+    Waiting for laptops to ask again does not work either: one holding a
     working key never does.
 
     Returns how many keys changed. A proxy that cannot say what it serves
@@ -625,53 +654,87 @@ async def reconcile_web_search_grants(ctx: BrainContext) -> int:
         return 0
 
     modes = await run_in_threadpool(client.model_modes)
-    target = _web_search_grant(modes, ctx.settings)
-    # A configured model the proxy has stopped serving — for an afternoon, or
-    # while somebody reloads its config — leaves the grants it already has
-    # alone, rather than taking web search from everyone and handing it back an
-    # hour later. Grants of any other model are still withdrawn.
-    current = (target,) if target else ("", ctx.settings.web_search_model)
+
+    # The list a key minted this instant would be granted. A proxy that
+    # declares nothing grantable — mid-reload, or misconfigured — makes
+    # minting refuse; here it leaves every key exactly as it is, because
+    # stripping the whole fleet's model access on that evidence would turn a
+    # blip into an outage. Retiring SOME of the catalog is taken at its word:
+    # a model the proxy does not serve fails whoever calls it either way, and
+    # the next pass restores anything that was only gone for an afternoon.
+    try:
+        target_models = _grantable_models(modes, ctx.settings)
+    except BrainHTTPError:
+        logger.warning(
+            "second_brain: the proxy declares nothing grantable right now; "
+            "leaving every key's grants as they are."
+        )
+        return 0
+
+    target_web = _web_search_grant(modes, ctx.settings)
+    # A configured web search model the proxy has stopped serving — for an
+    # afternoon, or while somebody reloads its config — leaves the grants it
+    # already has alone, rather than taking web search from everyone and
+    # handing it back an hour later. Grants of any other model are still
+    # withdrawn.
+    acceptable_web = (target_web,) if target_web else ("", ctx.settings.web_search_model)
 
     changed = 0
-    for stale in await ctx.store.stale_web_search_grants(current):
+    for stale in await ctx.store.stale_grants(
+        models=target_models, web_search=acceptable_web
+    ):
         async with ctx.store.issuance_lock(stale.subject):
+            # Re-read under the lock: a rotation that landed while this pass
+            # waited already carries a fresh grant, and must not be judged by
+            # the row it replaced.
             row = await ctx.store.model_key(stale.subject)
-            if row is None or row.web_search_model in current:
+            if row is None:
                 continue
             if not (row.litellm_token and row.models):
                 # Nothing safe to send: replacing the model list of a key that
-                # records none would narrow it to web search alone.
+                # records none would narrow it to whatever this pass grants.
                 logger.warning(
-                    "second_brain: %s's model key records no token or model list; "
-                    "leaving its web search grant as it is.",
+                    "second_brain: %s's model key records no token or model "
+                    "list; leaving its grants as they are.",
                     row.subject,
                 )
                 continue
+
+            new_models = _reconciled_models(row, target_models)
+            web_stale = row.web_search_model not in acceptable_web
+            if new_models is None and not web_stale:
+                continue
+
+            keep_models = new_models if new_models is not None else row.models
+            keep_web = target_web if web_stale else row.web_search_model
             try:
                 await run_in_threadpool(
                     client.update_key_models,
                     row.litellm_token,
-                    _key_models(row.models, target),
+                    _key_models(keep_models, keep_web),
                 )
             except LiteLLMError as exc:
                 if exc.unreachable:
                     raise
                 logger.warning(
-                    "second_brain: could not change the web search grant on %s's "
-                    "model key: %s",
+                    "second_brain: could not change the grants on %s's model "
+                    "key: %s",
                     row.subject,
                     exc,
                 )
                 continue
-            if await ctx.store.set_web_search_grant(
-                row.subject, litellm_token=row.litellm_token, web_search_model=target
+            if await ctx.store.set_model_grants(
+                row.subject,
+                litellm_token=row.litellm_token,
+                models=keep_models,
+                web_search_model=keep_web,
             ):
                 changed += 1
     return changed
 
 
-async def reconcile_web_search_grants_forever(ctx: BrainContext) -> None:
-    """Run :func:`reconcile_web_search_grants` on an interval, forever.
+async def reconcile_model_grants_forever(ctx: BrainContext) -> None:
+    """Run :func:`reconcile_model_grants` on an interval, forever.
 
     Started by the app when a proxy is configured. Sleeps before its first
     pass, like the tombstone sweeper, so a short-lived app — every app the
@@ -685,13 +748,12 @@ async def reconcile_web_search_grants_forever(ctx: BrainContext) -> None:
         try:
             await asyncio.sleep(delay)
             delay = _GRANT_PASS_SECONDS
-            changed = await reconcile_web_search_grants(ctx)
+            changed = await reconcile_model_grants(ctx)
             if changed:
                 logger.info(
-                    "second_brain: changed the web search grant on %d model key(s)",
-                    changed,
+                    "second_brain: changed the grants on %d model key(s)", changed
                 )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - a failed pass must not end the loop
-            logger.warning("second_brain: web search grant pass failed: %s", exc)
+            logger.warning("second_brain: model grant pass failed: %s", exc)

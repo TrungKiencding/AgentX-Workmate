@@ -994,7 +994,7 @@ class TestWebSearchGrantPass:
     async def test_a_key_issued_before_web_search_gets_it_without_anyone_signing_in(
         self, build_brain, brain_settings, search_proxy, two_devices
     ):
-        from second_brain.keys import reconcile_web_search_grants
+        from second_brain.keys import reconcile_model_grants
 
         before = build_brain(
             litellm=_proxy_client(search_proxy),
@@ -1007,7 +1007,7 @@ class TestWebSearchGrantPass:
             litellm=_proxy_client(search_proxy),
             settings=_settings_for(brain_settings, search_proxy),
         )
-        assert await reconcile_web_search_grants(now.state.brain) == 1
+        assert await reconcile_model_grants(now.state.brain) == 1
 
         (record,) = search_proxy.records.values()
         assert record["models"] == ["Qwen/Qwen3.6-35B-A3B-FP8", SEARCH_MODEL]
@@ -1019,13 +1019,13 @@ class TestWebSearchGrantPass:
 
         # Nothing left to do, and a pass with nothing to do sends no update.
         updates = search_proxy.paths_hit("/key/update")
-        assert await reconcile_web_search_grants(now.state.brain) == 0
+        assert await reconcile_model_grants(now.state.brain) == 0
         assert search_proxy.paths_hit("/key/update") == updates
 
     async def test_changing_the_model_moves_every_key_across(
         self, build_brain, brain_settings, two_devices
     ):
-        from second_brain.keys import reconcile_web_search_grants
+        from second_brain.keys import reconcile_model_grants
 
         catalog = {
             "chat-a": "chat",
@@ -1044,7 +1044,7 @@ class TestWebSearchGrantPass:
                 brain_settings, proxy, web_search_model="perplexity/preset/fast-search"
             ),
         )
-        assert await reconcile_web_search_grants(faster.state.brain) == 1
+        assert await reconcile_model_grants(faster.state.brain) == 1
 
         (record,) = proxy.records.values()
         assert record["models"] == ["chat-a", "perplexity/preset/fast-search"]
@@ -1054,7 +1054,7 @@ class TestWebSearchGrantPass:
     async def test_turning_it_off_withdraws_it(
         self, build_brain, brain_settings, search_proxy, two_devices
     ):
-        from second_brain.keys import reconcile_web_search_grants
+        from second_brain.keys import reconcile_model_grants
 
         await _collect(
             build_brain(
@@ -1068,7 +1068,7 @@ class TestWebSearchGrantPass:
             litellm=_proxy_client(search_proxy),
             settings=_settings_for(brain_settings, search_proxy, web_search_model=""),
         )
-        assert await reconcile_web_search_grants(off.state.brain) == 1
+        assert await reconcile_model_grants(off.state.brain) == 1
 
         (record,) = search_proxy.records.values()
         # Withdrawn, with the chat grant left exactly as it was — never an empty
@@ -1079,7 +1079,7 @@ class TestWebSearchGrantPass:
     async def test_a_model_the_proxy_stops_serving_leaves_existing_grants_alone(
         self, build_brain, brain_settings, search_proxy, two_devices
     ):
-        from second_brain.keys import reconcile_web_search_grants
+        from second_brain.keys import reconcile_model_grants
 
         def app():
             return build_brain(
@@ -1091,7 +1091,7 @@ class TestWebSearchGrantPass:
 
         # A proxy in the middle of a reload, briefly not listing the preset.
         del search_proxy.modes[SEARCH_MODEL]
-        assert await reconcile_web_search_grants(app().state.brain) == 0
+        assert await reconcile_model_grants(app().state.brain) == 0
 
         assert search_proxy.paths_hit("/key/update") == 0
         assert (await _collect(app(), two_devices["desktop"]))["web_search_model"] == SEARCH_MODEL
@@ -1100,7 +1100,7 @@ class TestWebSearchGrantPass:
         self, build_brain, brain_settings, search_proxy, two_devices
     ):
         from hermes_cli.litellm_admin import LiteLLMError
-        from second_brain.keys import reconcile_web_search_grants
+        from second_brain.keys import reconcile_model_grants
 
         await _collect(
             build_brain(
@@ -1116,7 +1116,203 @@ class TestWebSearchGrantPass:
             settings=_settings_for(brain_settings, search_proxy),
         )
         with pytest.raises(LiteLLMError):
-            await reconcile_web_search_grants(app.state.brain)
+            await reconcile_model_grants(app.state.brain)
 
         (record,) = search_proxy.records.values()
         assert SEARCH_MODEL not in record["models"]
+
+
+class TestModelGrantPass:
+    """Keys issued against a catalog the proxy has since changed catch up too.
+
+    The laptops cannot do this for themselves: ``/v1/models`` answers a scoped
+    key with its allowlist verbatim, deployed or not, so every picker echoes
+    whatever this service last granted. Until this pass runs, a retired model
+    is still offered everywhere and fails only when somebody sends a message
+    with it.
+    """
+
+    CATALOG = {"chat-a": "chat", "chat-b": "chat", SEARCH_MODEL: "responses"}
+
+    def _two_chat_proxy(self) -> FakeLiteLLM:
+        return FakeLiteLLM(catalog=tuple(self.CATALOG), modes=dict(self.CATALOG))
+
+    async def test_a_model_the_proxy_retires_leaves_the_row_and_the_key(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_model_grants
+
+        proxy = self._two_chat_proxy()
+        issued = await _collect(
+            build_brain(
+                litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+            ),
+            two_devices["laptop"],
+        )
+        assert issued["models"] == ["chat-a", "chat-b"]
+
+        del proxy.modes["chat-b"]
+        after = build_brain(
+            litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+        )
+        assert await reconcile_model_grants(after.state.brain) == 1
+
+        # The proxy's own allowlist no longer names the retired model, the web
+        # search grant rides across untouched...
+        (record,) = proxy.records.values()
+        assert record["models"] == ["chat-a", SEARCH_MODEL]
+        # ...and neither does what any device is told from now on — same key,
+        # nothing minted again.
+        collected = await _collect(after, two_devices["desktop"])
+        assert collected["key"] == issued["key"]
+        assert collected["models"] == ["chat-a"]
+        assert collected["web_search_model"] == SEARCH_MODEL
+        assert proxy.paths_hit("/key/generate") == 1
+
+        # Nothing left to do, and a pass with nothing to do sends no update.
+        updates = proxy.paths_hit("/key/update")
+        assert await reconcile_model_grants(after.state.brain) == 0
+        assert proxy.paths_hit("/key/update") == updates
+
+    async def test_the_default_moves_to_the_next_survivor_when_its_model_retires(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_model_grants
+
+        proxy = self._two_chat_proxy()
+        issued = await _collect(
+            build_brain(
+                litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+            ),
+            two_devices["laptop"],
+        )
+        assert issued["default_model"] == "chat-a"
+
+        del proxy.modes["chat-a"]
+        after = build_brain(
+            litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+        )
+        assert await reconcile_model_grants(after.state.brain) == 1
+
+        collected = await _collect(after, two_devices["desktop"])
+        assert collected["models"] == ["chat-b"]
+        # The account no longer opens on a model group that does not exist.
+        assert collected["default_model"] == "chat-b"
+
+    async def test_a_model_the_operator_adds_reaches_existing_keys(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_model_grants
+
+        proxy = FakeLiteLLM(catalog=("chat-b",), modes={"chat-b": "chat"})
+        issued = await _collect(
+            build_brain(
+                litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+            ),
+            two_devices["laptop"],
+        )
+        assert issued["default_model"] == "chat-b"
+
+        # The addition enumerates FIRST in the proxy's catalog. If the pass
+        # adopted the catalog's order, every account's default would jump to
+        # the new model; the survivors keeping their order is what pins it.
+        proxy.modes = {"chat-a": "chat", "chat-b": "chat"}
+        after = build_brain(
+            litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+        )
+        assert await reconcile_model_grants(after.state.brain) == 1
+
+        collected = await _collect(after, two_devices["desktop"])
+        assert collected["models"] == ["chat-b", "chat-a"]
+        assert collected["default_model"] == "chat-b"
+
+    async def test_a_reordered_catalog_changes_nothing(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_model_grants
+
+        proxy = self._two_chat_proxy()
+        await _collect(
+            build_brain(
+                litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+            ),
+            two_devices["laptop"],
+        )
+
+        # The same catalog, enumerated differently — which /model/info is free
+        # to do between any two passes. A row's order is the account's default
+        # model; churning it over enumeration order would move everybody's.
+        proxy.modes = {"chat-b": "chat", "chat-a": "chat", SEARCH_MODEL: "responses"}
+        after = build_brain(
+            litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+        )
+        assert await reconcile_model_grants(after.state.brain) == 0
+        assert proxy.paths_hit("/key/update") == 0
+
+    async def test_a_proxy_declaring_nothing_grantable_leaves_every_key_alone(
+        self, build_brain, brain_settings, two_devices
+    ):
+        from second_brain.keys import reconcile_model_grants
+
+        proxy = self._two_chat_proxy()
+        issued = await _collect(
+            build_brain(
+                litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+            ),
+            two_devices["laptop"],
+        )
+
+        # Mid-reload, or misconfigured: the same state in which minting
+        # refuses. Stripping the fleet's grants on that evidence would turn a
+        # blip into an outage, so the pass declines to conclude anything.
+        proxy.modes = {"BAAI/bge-m3": "embedding"}
+        after = build_brain(
+            litellm=_proxy_client(proxy), settings=_settings_for(brain_settings, proxy)
+        )
+        assert await reconcile_model_grants(after.state.brain) == 0
+        assert proxy.paths_hit("/key/update") == 0
+
+        collected = await _collect(after, two_devices["desktop"])
+        assert collected["models"] == issued["models"]
+
+    async def test_a_key_the_proxy_refuses_to_update_does_not_hold_up_the_rest(
+        self, build_brain, brain_settings, realm
+    ):
+        from hermes_cli.litellm_admin import LiteLLMError
+        from second_brain.keys import reconcile_model_grants
+
+        realm.add("tok-a", subject="person-a", email="a@test", display_name="Person A")
+        realm.add("tok-b", subject="person-b", email="b@test", display_name="Person B")
+        proxy = self._two_chat_proxy()
+        settings = _settings_for(brain_settings, proxy)
+
+        minted = build_brain(litellm=_proxy_client(proxy), settings=settings)
+        held_a = await _collect(minted, auth_headers("tok-a", new_device_id(), "A"))
+        await _collect(minted, auth_headers("tok-b", new_device_id(), "B"))
+        refused_token = next(
+            token for token, record in proxy.records.items() if record["key"] == held_a["key"]
+        )
+
+        class _RefusesOne(LiteLLMAdminClient):
+            def update_key_models(self, token, models):
+                if token == refused_token:
+                    raise LiteLLMError("update refused for this key", status_code=400)
+                return super().update_key_models(token, models)
+
+        del proxy.modes["chat-b"]
+        after = build_brain(
+            litellm=_RefusesOne(
+                PROXY_URL, proxy.admin_key, transport=proxy.transport, sleep=lambda _s: None
+            ),
+            settings=settings,
+        )
+        assert await reconcile_model_grants(after.state.brain) == 1
+
+        # The refused row keeps what it had — allowlist and stored grant agree
+        # with each other — and the other person's key was still corrected.
+        by_token = {token: record["models"] for token, record in proxy.records.items()}
+        assert by_token[refused_token] == ["chat-a", "chat-b", SEARCH_MODEL]
+        collected_a = await _collect(after, auth_headers("tok-a", new_device_id(), "A2"))
+        assert collected_a["models"] == ["chat-a", "chat-b"]
+        collected_b = await _collect(after, auth_headers("tok-b", new_device_id(), "B2"))
+        assert collected_b["models"] == ["chat-a"]
