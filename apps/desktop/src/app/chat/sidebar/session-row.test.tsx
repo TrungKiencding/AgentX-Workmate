@@ -184,4 +184,23 @@ describe('SidebarSessionRow', () => {
     expect(avatar).toBeTruthy()
     expect(tipTrigger(avatar as HTMLElement)).toBeTruthy()
   })
+
+  it('keeps the hover age label on one line', () => {
+    // The label lives in the 24px actions column; without nowrap a spelled-out
+    // unit ("47 phút") broke at its space and stacked "47" over "phút".
+    render(
+      <SidebarSessionRow
+        isPinned={false}
+        isSelected={false}
+        isWorking={false}
+        onArchive={noop}
+        onDelete={noop}
+        onPin={noop}
+        onResume={noop}
+        session={makeSession({ title: 'Weekly report' })}
+      />
+    )
+
+    expect(screen.getByText('5m').className).toContain('whitespace-nowrap')
+  })
 })

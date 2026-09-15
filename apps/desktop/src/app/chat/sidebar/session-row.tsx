@@ -114,7 +114,10 @@ function SidebarSessionRowImpl({
         actions={
           <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
             {!isWorking && (
-              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 text-right text-xs leading-none tabular-nums text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
+              // nowrap is load-bearing: this box sits in the 24px actions
+              // column, so a label with a space in it ("47 phút", "vừa xong")
+              // broke at every space and stacked into two lines.
+              <span className="pointer-events-none absolute right-6 top-1/2 min-w-6 -translate-y-1/2 whitespace-nowrap text-right text-xs leading-none tabular-nums text-(--ui-text-tertiary) opacity-0 transition-opacity group-hover:opacity-100">
                 {age}
               </span>
             )}
@@ -181,7 +184,16 @@ function SidebarSessionRowImpl({
           <span aria-hidden="true" className="arc-border arc-row" />
         )}
         <SidebarRowBody
-          className={cn('z-0 group-hover:pr-12', branchStem && 'pl-3.5')}
+          className={cn(
+            'z-0',
+            // The hover age label is drawn over this padding (pointer-events
+            // off, so a click on it still resumes). The lane fits the longest
+            // label a row shows — "365 ngày" is ~52px at 12px — plus 8px of air
+            // before the truncated title. A working row shows no age, so it
+            // keeps its whole title.
+            !isWorking && 'group-hover:pr-15',
+            branchStem && 'pl-3.5'
+          )}
           // Middle-click = open in a new tab (browser muscle memory).
           {...middleClickHandlers(() => {
             triggerHaptic('selection')
