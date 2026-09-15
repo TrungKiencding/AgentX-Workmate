@@ -3555,21 +3555,10 @@ def _get_channel_override(
 
 
 def _resolve_hermes_bin() -> Optional[list[str]]:
-    """Resolve the AgentX update command as argv parts.
-
-    Tries in order:
-    1. ``shutil.which("agentx")`` — standard PATH lookup
-    2. ``sys.executable -m hermes_cli.main`` — fallback when AgentX is running
-       from a venv/module invocation and the ``agentx`` shim is not on PATH
-
-    Returns argv parts ready for quoting/joining, or ``None`` if neither works.
-    """
-    import shutil
-
-    hermes_bin = shutil.which("agentx")
-    if hermes_bin:
-        return [hermes_bin]
-
+    """Hermes update/restart argv: the running interpreter's ``python -m hermes_cli.main``
+    (exactly this install), else ``hermes`` on PATH, else None. The module argv must win: a
+    PATH-first lookup lets an attacker-planted ``hermes`` shadow the running install when
+    /update or /restart re-execs it (#111569)."""
     try:
         import importlib.util
 
@@ -3577,7 +3566,10 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
             return [sys.executable, "-m", "hermes_cli.main"]
     except Exception:
         pass
-
+    import shutil
+    hermes_bin = shutil.which("hermes")
+    if hermes_bin:
+        return [hermes_bin]
     return None
 
 
