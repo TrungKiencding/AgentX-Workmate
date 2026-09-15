@@ -8,6 +8,13 @@ their respective plugin subsystems (``plugins/image_gen/deepinfra`` and
 the TTS/STT dispatchers in ``tools/``).
 """
 
+from typing import Any
+
+from agent.reasoning_effort import (
+    OPENAI_COMPAT_WIRE_EFFORTS,
+    clamp_effort,
+    requested_effort,
+)
 from providers import register_provider
 from providers.base import ProviderProfile
 
@@ -20,6 +27,29 @@ class _DeepInfraProfile(ProviderProfile):
     ``default_vision_model()`` hook call instead of an ``if provider ==
     "deepinfra"`` branch reaching into the catalog helpers).
     """
+
+    def build_api_kwargs_extras(
+        self, *, reasoning_config: dict | None = None, **context: Any
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Map Hermes reasoning controls to DeepInfra's top-level wire field.
+
+        DeepInfra applies a per-model default when the field is absent, while
+        ``none`` is its explicit off switch. This route does not advertise a
+        reasoning capability to the shared transport, so it must not be gated
+        on ``supports_reasoning``.
+        """
+        if (
+            isinstance(reasoning_config, dict)
+            and reasoning_config.get("enabled") is False
+        ):
+            return {}, {"reasoning_effort": "none"}
+        effort = requested_effort(reasoning_config)
+        clamped = clamp_effort(effort, OPENAI_COMPAT_WIRE_EFFORTS)
+        return (
+            ({}, {"reasoning_effort": clamped})
+            if clamped in OPENAI_COMPAT_WIRE_EFFORTS
+            else ({}, {})
+        )
 
     def default_vision_model(self):  # type: ignore[override]
         """First vision-capable *chat* model from the live catalog, or None.
@@ -35,6 +65,7 @@ class _DeepInfraProfile(ProviderProfile):
             return None
         try:
             from hermes_cli.models import _fetch_deepinfra_models_by_tag
+
             items = _fetch_deepinfra_models_by_tag("chat")
         except Exception:
             return None
