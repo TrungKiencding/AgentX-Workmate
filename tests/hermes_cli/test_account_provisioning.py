@@ -2531,3 +2531,68 @@ class TestVisionFollowsTheModelInUse:
             "provider": "openrouter",
             "model": "google/gemini-3-flash",
         }
+
+
+class TestStaleDeprecatedModes:
+    """A ``mode`` the installer wrote, on a machine that never got its credential.
+
+    Until 2026-08-13 the shipped default was ``direct`` and the admin key was
+    supposed to arrive baked into the desktop build. Machines set up then and
+    upgraded since still carry the literal — and no admin key. They must sign
+    in through the account service like everybody else, not fail forever.
+    """
+
+    def test_direct_without_an_admin_key_signs_in_through_the_service(
+        self, account, fake_proxy, brain, monkeypatch
+    ):
+        monkeypatch.delenv(ADMIN_KEY_ENV_VAR, raising=False)
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=direct_settings(second_brain_url=BRAIN_URL), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+        )
+
+        assert result.ok, result.detail
+        assert env_value(provider_key_env("litellm"))
+        assert read_state(account.home)["mode"] == "second_brain"
+        # The admin API was never touched: nothing minted or deleted from here.
+        assert fake_proxy.paths_hit("/key/delete") == 0
+
+    def test_direct_with_the_admin_key_is_a_choice_and_stays_direct(
+        self, account, fake_proxy, monkeypatch
+    ):
+        monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
+
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=direct_settings(second_brain_url=BRAIN_URL), home=account.home,
+            client=make_client(fake_proxy),
+        )
+
+        assert result.ok, result.detail
+        assert read_state(account.home)["mode"] == "direct"
+
+    def test_direct_without_a_service_to_fall_back_on_still_says_what_is_missing(
+        self, account, monkeypatch
+    ):
+        monkeypatch.delenv(ADMIN_KEY_ENV_VAR, raising=False)
+        monkeypatch.setattr(httpx, "Client", ExplodingClient)
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=direct_settings(), home=account.home,
+        )
+
+        assert result.status == "error"
+        assert ADMIN_KEY_ENV_VAR in result.detail
+
+    def test_broker_without_a_url_signs_in_through_the_service(self, account, brain):
+        result = ensure_account_key(
+            account.identity, account.slug,
+            settings=broker_settings(broker_url="", second_brain_url=BRAIN_URL),
+            home=account.home, bearer="tok", device_id="dev-a",
+            brain_transport=brain.transport,
+        )
+
+        assert result.ok, result.detail
+        assert read_state(account.home)["mode"] == "second_brain"

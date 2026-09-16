@@ -190,6 +190,14 @@ function buildPosixCleanupScript({ desktopPid, pythonExe, pythonPath, agentRoot,
  *
  * Removal: even after the desktop PID is gone, Windows releases directory
  * handles lazily, so a single `rmdir /s /q` can half-fail — retry up to 10x.
+ *
+ * Working directory: NOT the checkout. Windows will not delete a directory
+ * that is some process's current directory, and the python this script runs
+ * (and the deferred cleanup that python spawns) inherit theirs from here. The
+ * script used to `cd` into the checkout so `-m hermes_cli.uninstall` would
+ * resolve, which left `agentx-agent` — and with it %LOCALAPPDATA%\agentx — on
+ * disk after every "remove everything". It runs from %TEMP% now and puts the
+ * checkout on PYTHONPATH instead, whichever interpreter drives it.
  */
 function buildWindowsCleanupScript({
   desktopPid,
@@ -213,9 +221,9 @@ function buildWindowsCleanupScript({
     `set "PID=${pid}"`
   ]
 
-  if (pythonPath) {
-    lines.push(`set "PYTHONPATH=${String(pythonPath).replace(/"/g, '')};%PYTHONPATH%"`)
-  }
+  // Always: the script no longer runs from inside the checkout (see the
+  // header), so `import hermes_cli` has to resolve from source either way.
+  lines.push(`set "PYTHONPATH=${String(pythonPath || agentRoot).replace(/"/g, '')};%PYTHONPATH%"`)
 
   lines.push(
     'set /a waited=0',
@@ -231,7 +239,7 @@ function buildWindowsCleanupScript({
     'timeout /t 1 /nobreak >nul',
     'goto waitloop',
     ':waited_done',
-    `cd /d ${q(agentRoot)}`,
+    'cd /d "%TEMP%"',
     `${q(pythonExe)} ${uninstallArgs.map(q).join(' ')}`
   )
 

@@ -669,6 +669,10 @@ def spawn_detached_cleanup(targets: "list[Path]") -> "Path | None":
             ["cmd.exe", "/c", str(script)],
             creationflags=creationflags,
             close_fds=True,
+            # Not from inside a tree it is about to delete: a process's current
+            # directory cannot be removed on Windows, and this child would
+            # otherwise inherit ours (see _step_out_of).
+            cwd=tempfile.gettempdir(),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -1049,6 +1053,46 @@ def _print_uninstall_dry_run(*, project_root: Path, hermes_home: Path, full_unin
     print()
 
 
+def _step_out_of(trees: "list[Path]") -> "Path | None":
+    """Move the working directory out of every tree about to be deleted.
+
+    Windows refuses to delete a directory that is some process's current
+    directory, and it refuses quietly: ``rmtree`` reports the top directory
+    as busy and the deferred cleanup — which inherits the same cwd — retries
+    ten times and gives up. The desktop's cleanup script used to ``cd`` into
+    the checkout before running this module, so "remove everything" left
+    ``agentx-agent`` and with it ``%LOCALAPPDATA%\\agentx`` on every machine.
+    Returns the directory moved to, or None when nothing had to move.
+    """
+    try:
+        cwd: "Path | None" = Path.cwd().resolve()
+    except OSError:
+        cwd = None  # already deleted from under us: anywhere else is better
+
+    inside = cwd is None
+    for tree in trees:
+        try:
+            root = Path(tree).resolve()
+        except OSError:
+            continue
+        if cwd is not None and (cwd == root or root in cwd.parents):
+            inside = True
+            break
+
+    if not inside:
+        return None
+
+    import tempfile
+
+    for candidate in (Path(tempfile.gettempdir()), Path.home()):
+        try:
+            os.chdir(candidate)
+            return candidate
+        except OSError:
+            continue
+    return None
+
+
 def _perform_uninstall(
     *,
     project_root: Path,
@@ -1068,7 +1112,11 @@ def _perform_uninstall(
     print()
     print(color("Uninstalling...", Colors.CYAN, Colors.BOLD))
     print()
-    
+
+    moved_to = _step_out_of([project_root, hermes_home])
+    if moved_to is not None:
+        log_info(f"Working from {moved_to} so the install tree can be removed")
+
     # 1. Stop and uninstall gateway service + kill standalone processes
     log_info("Checking for running gateway...")
     if not uninstall_gateway_service():

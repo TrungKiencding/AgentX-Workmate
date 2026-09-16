@@ -716,6 +716,58 @@ def _migrate_to_35(results: Dict[str, Any], quiet: bool) -> None:
     _relabel_account_proxy(results, quiet)
 
 
+def _migrate_to_36(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 35 → 36: a stale ``accounts.litellm.mode`` moves to the service ──
+    # Until 2026-08-13 AgentX shipped ``mode: "direct"`` — each laptop minting
+    # its own key with an admin credential the installer carried — and the
+    # example config recommended ``"broker"``. Both are deprecated; the key
+    # vault (``second_brain``) is the default now. A config still pinning one
+    # of them on a machine that holds NEITHER the admin key (direct) NOR a
+    # broker URL (broker) cannot sign in at all: every launch ends on
+    # "AGENTX_LITELLM_ADMIN_KEY is not set", which is exactly what an install
+    # upgraded from an August build looked like. The literal was ours, not a
+    # choice anyone made, so it is rewritten to the default. A machine that
+    # does hold the credential its mode needs is left exactly as it is.
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+
+    config = read_raw_config()
+    accounts = config.get("accounts")
+    if not isinstance(accounts, dict):
+        return
+    litellm = accounts.get("litellm")
+    if not isinstance(litellm, dict):
+        return
+
+    mode = str(litellm.get("mode") or "").strip().lower()
+    if mode == "direct":
+        from hermes_cli.account_provisioning import ADMIN_KEY_ENV_VAR
+
+        if (_c.get_env_value_prefer_dotenv(ADMIN_KEY_ENV_VAR) or "").strip():
+            return
+        reason = f"{ADMIN_KEY_ENV_VAR} is not set"
+    elif mode == "broker":
+        if str(litellm.get("broker_url") or "").strip():
+            return
+        reason = "accounts.litellm.broker_url is empty"
+    else:
+        return
+
+    litellm["mode"] = "second_brain"
+    accounts["litellm"] = litellm
+    config["accounts"] = accounts
+    _persist_migration(config)
+    results["config_added"].append(
+        f"accounts.litellm.mode=second_brain (was {mode}; {reason})"
+    )
+    if not quiet:
+        print(
+            f"  ✓ Moved accounts.litellm.mode from {mode} to second_brain ({reason}): "
+            "this machine gets its model key from the account service."
+        )
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -739,6 +791,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (33, _migrate_to_33),
     (34, _migrate_to_34),
     (35, _migrate_to_35),
+    (36, _migrate_to_36),
 )
 
 

@@ -61,7 +61,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { runBootstrap } from './bootstrap-runner'
-import { defaultExecGit, probeCheckoutPin } from './checkout-pin'
+import { defaultExecGit, probeCheckoutPin, readCheckoutVersion, relateByVersion } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
   authModeFromStatus,
@@ -3841,12 +3841,40 @@ function activeRuntimeState() {
 
 // Where ACTIVE_AGENTX_ROOT stands against this build's install stamp. Two
 // quick git calls at most, none without a real stamp (dev, fallback builds).
+// When git cannot describe the checkout at all (no repository metadata, no
+// git binary), the version the checkout declares in pyproject.toml stands in:
+// the release process keeps it in step with the desktop's own, so a lower one
+// is an older agent. Every answer is logged — it is the first thing to read
+// when a machine keeps running an agent it should have moved off.
 function checkoutPinRelation() {
   if (!INSTALL_STAMP) {
     return { relation: 'unpinned' as const, headSha: null }
   }
 
-  return probeCheckoutPin(ACTIVE_AGENTX_ROOT, INSTALL_STAMP.commit, defaultExecGit(resolveGitBinary(), IS_WINDOWS))
+  const byGit = probeCheckoutPin(
+    ACTIVE_AGENTX_ROOT,
+    INSTALL_STAMP.commit,
+    defaultExecGit(resolveGitBinary(), IS_WINDOWS)
+  )
+
+  if (byGit.relation !== 'unknown') {
+    rememberLog(
+      `[bootstrap] checkout pin: HEAD ${shortSha(byGit.headSha)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${byGit.relation}`
+    )
+
+    return byGit
+  }
+
+  const checkoutVersion = readCheckoutVersion(ACTIVE_AGENTX_ROOT)
+  const shellVersion = app.getVersion()
+  const byVersion = relateByVersion({ checkoutVersion, shellVersion })
+
+  rememberLog(
+    `[bootstrap] checkout pin: git could not describe ${ACTIVE_AGENTX_ROOT} (git: ${resolveGitBinary()}); ` +
+      `declared version ${checkoutVersion || '<none>'} vs desktop ${shellVersion} → ${byVersion}`
+  )
+
+  return { relation: byVersion, headSha: null }
 }
 
 function shortSha(sha) {

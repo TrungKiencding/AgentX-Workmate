@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict'
+import path from 'node:path'
 
 import { test } from 'vitest'
 
-import { defaultExecGit, isRealPin, probeCheckoutPin, relateCheckoutToPin } from './checkout-pin'
+import {
+  compareVersions,
+  defaultExecGit,
+  isRealPin,
+  parseVersion,
+  probeCheckoutPin,
+  readCheckoutVersion,
+  relateByVersion,
+  relateCheckoutToPin
+} from './checkout-pin'
 
 const PIN = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'
 const OTHER = 'ffffffffffffffffffffffffffffffffffffffff'
@@ -126,4 +136,71 @@ test('defaultExecGit answers from a real repository when one is available', () =
 
   assert.match(head.stdout.trim(), /^[0-9a-f]{40}$/)
   assert.equal(probeCheckoutPin(process.cwd(), head.stdout.trim(), run).relation, 'at-pin')
+})
+
+test('parseVersion / compareVersions order numeric components and reject junk', () => {
+  assert.deepEqual(parseVersion('1.0.1'), [1, 0, 1])
+  assert.deepEqual(parseVersion('v0.20.0-beta'), [0, 20, 0])
+  assert.equal(parseVersion('main'), null)
+  assert.equal(parseVersion(null), null)
+
+  assert.equal(compareVersions('0.20.0', '1.0.1'), -1)
+  assert.equal(compareVersions('1.0.1', '0.20.0'), 1)
+  assert.equal(compareVersions('1.0', '1.0.0'), 0)
+  assert.equal(compareVersions('1.0.10', '1.0.9'), 1)
+  assert.equal(compareVersions('x', '1.0.1'), null)
+})
+
+test('relateByVersion: only a LOWER declared version proves the checkout is older', () => {
+  // The August install: pyproject said 0.20.0 while the desktop shipping over it said 1.0.1.
+  assert.equal(relateByVersion({ checkoutVersion: '0.20.0', shellVersion: '1.0.1' }), 'behind')
+  // Equal or newer says nothing about commits; never claim more than we know.
+  assert.equal(relateByVersion({ checkoutVersion: '1.0.1', shellVersion: '1.0.1' }), 'unknown')
+  assert.equal(relateByVersion({ checkoutVersion: '1.1.0', shellVersion: '1.0.1' }), 'unknown')
+  assert.equal(relateByVersion({ checkoutVersion: null, shellVersion: '1.0.1' }), 'unknown')
+})
+
+test('readCheckoutVersion reads the [project] version and ignores other tables', () => {
+  const pyproject = [
+    '[tool.something]',
+    'version = "9.9.9"',
+    '',
+    '[project]',
+    'name = "agentx-workmate"',
+    "version = '0.20.0'",
+    ''
+  ].join('\n')
+
+  const seen: string[] = []
+
+  const readFile = (file: string) => {
+    seen.push(file)
+
+    return pyproject
+  }
+
+  assert.equal(readCheckoutVersion('/x/agentx-agent', readFile), '0.20.0')
+  assert.match(seen[0], /agentx-agent[\\/]pyproject\.toml$/)
+  assert.equal(
+    readCheckoutVersion('/x/agentx-agent', () => 'name = "no version here"'),
+    null
+  )
+  assert.equal(
+    readCheckoutVersion('/x/agentx-agent', () => {
+      throw new Error('ENOENT')
+    }),
+    null
+  )
+  assert.equal(readCheckoutVersion(null, readFile), null)
+})
+
+test("readCheckoutVersion reads this repository's own pyproject when run from the checkout", () => {
+  const repoRoot = path.resolve(process.cwd(), '..', '..')
+  const version = readCheckoutVersion(repoRoot)
+
+  if (version === null) {
+    return // not running inside the source tree
+  }
+
+  assert.match(version, /^\d+\.\d+/)
 })

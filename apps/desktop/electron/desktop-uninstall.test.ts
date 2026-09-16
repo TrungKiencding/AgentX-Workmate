@@ -96,7 +96,9 @@ test('resolveRemovableAppPath returns null for an unrecognized Windows dir', () 
 
 test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
   assert.equal(
-    resolveRemovableAppPath('/tmp/.mount_AgentXXXXX/hermes', 'linux', { APPIMAGE: '/home/x/Apps/AgentX Workmate.AppImage' }),
+    resolveRemovableAppPath('/tmp/.mount_AgentXXXXX/hermes', 'linux', {
+      APPIMAGE: '/home/x/Apps/AgentX Workmate.AppImage'
+    }),
     '/home/x/Apps/AgentX Workmate.AppImage'
   )
 })
@@ -224,6 +226,10 @@ test('buildWindowsCleanupScript waits (bounded) for PID, runs uninstall, rmdir b
   // PYTHONPATH set so a system python can import hermes_cli from source.
   assert.match(script, /set "PYTHONPATH=C:\\agentx;%PYTHONPATH%"/)
   assert.match(script, /"C:\\Python313\\python.exe" "-m" "hermes_cli\.uninstall" "--mode" "full"/)
+  // Never from inside the checkout: a process's cwd cannot be deleted on
+  // Windows, which is how "remove everything" used to leave agentx-agent behind.
+  assert.match(script, /cd \/d "%TEMP%"/)
+  assert.doesNotMatch(script, /cd \/d "C:\\agentx"/)
   // Bounded wait-loop (no infinite loop), whole-token PID match (no substring).
   assert.match(script, /if %waited% geq 60 goto waited_done/)
   assert.match(script, /findstr \/r \/c:" %PID% "/)
@@ -247,5 +253,8 @@ test('buildWindowsCleanupScript omits PYTHONPATH + rmdir when not needed (gui, n
   })
 
   assert.doesNotMatch(script, /rmdir/)
-  assert.doesNotMatch(script, /set "PYTHONPATH=/)
+  // The checkout still goes on PYTHONPATH: the script runs from %TEMP%, so
+  // `-m hermes_cli.uninstall` cannot rely on the cwd to find the source.
+  assert.match(script, /set "PYTHONPATH=C:\\h;%PYTHONPATH%"/)
+  assert.match(script, /cd \/d "%TEMP%"/)
 })
