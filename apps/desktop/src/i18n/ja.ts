@@ -70,6 +70,7 @@ export const ja = defineLocale({
       idle: 'AgentX バックエンドの起動を待っています',
       bootstrapChoice: '初回セットアップの選択を待っています',
       updateWait: 'アップデートを完了しています — 完了すると AgentX は自動的に起動します',
+      repin: 'AgentX のインストールをこのデスクトップ版に合わせたバージョンに更新しています',
       resolve: 'AgentX バックエンドを探しています',
       remote: 'リモートの AgentX バックエンドに接続しています',
       runtime: 'AgentX ランタイムを確認しています',
@@ -2749,6 +2750,9 @@ export const ja = defineLocale({
       'インストール手順のいずれかが失敗しました。Windows では、別の AgentX CLI またはデスクトップインスタンスが実行中の場合に発生することがあります。実行中の AgentX インスタンスをすべて停止してから再試行してください。詳細は以下またはデスクトップログで確認できます。',
     activeDesc:
       'これは一回限りのセットアップです。AgentX インストーラーが依存関係をダウンロードしてマシンを設定しています。以降の起動ではこの手順はスキップされます。',
+    updatingTitle: 'AgentX Workmate を更新中',
+    updatingDesc:
+      'このデスクトップ版は、このコンピューターにインストールされている AgentX エージェントより新しいものです。インストーラーがエージェントを対応するバージョンに更新しています。設定、会話、モデルキーはそのまま保持されます。',
     progress: (completed, total) => `${total} ステップ中 ${completed} 完了`,
     currentStage: stage => ` — 現在: ${stage}`,
     fetchingManifest: 'インストーラーマニフェストを取得中...',

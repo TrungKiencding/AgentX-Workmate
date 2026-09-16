@@ -574,3 +574,54 @@ describe('DesktopInstallOverlay first-run setup', () => {
     expect(screen.queryByText('AgentX needs a one-time install')).toBeNull()
   })
 })
+
+describe('DesktopInstallOverlay bringing an existing install forward', () => {
+  it('says the agent is being updated, not installed, while a re-pin runs', async () => {
+    const desktop = installDesktopMock(
+      bootstrapState({
+        active: true,
+        manifest: { type: 'manifest', stages: [], protocolVersion: null, mode: 'repin' }
+      })
+    )
+
+    render(<DesktopInstallOverlay />)
+
+    expect(await whenPresent('Updating AgentX Workmate')).toBeTruthy()
+    expect(screen.queryByText('Setting up AgentX Workmate')).toBeNull()
+    expect(screen.getByText(/your settings, conversations and model key stay as they are/i)).toBeTruthy()
+
+    // The runner's real manifest arrives tagged the same way and keeps the copy.
+    act(() => {
+      desktop.emitBootstrapEvent({ type: 'manifest', protocolVersion: 1, stages: [], mode: 'repin' })
+    })
+
+    expect(screen.getByText('Updating AgentX Workmate')).toBeTruthy()
+
+    // A manifest without the tag is a first-run install and keeps the one-time-setup copy.
+    act(() => {
+      desktop.emitBootstrapEvent({ type: 'manifest', protocolVersion: 1, stages: [] })
+    })
+
+    await waitFor(() => expect(screen.queryByText('Updating AgentX Workmate')).toBeNull())
+    expect(screen.getByText('Setting up AgentX Workmate')).toBeTruthy()
+  })
+
+  it('goes away when the main process falls back to the install already there', async () => {
+    const desktop = installDesktopMock(
+      bootstrapState({
+        active: true,
+        manifest: { type: 'manifest', stages: [], protocolVersion: null, mode: 'repin' }
+      })
+    )
+
+    render(<DesktopInstallOverlay />)
+    await whenPresent('Updating AgentX Workmate')
+
+    act(() => {
+      desktop.emitBootstrapEvent({ type: 'dismissed' })
+    })
+
+    await waitFor(() => expect(screen.queryByText('Updating AgentX Workmate')).toBeNull())
+    expect(screen.queryByText(/Installation failed/i)).toBeNull()
+  })
+})

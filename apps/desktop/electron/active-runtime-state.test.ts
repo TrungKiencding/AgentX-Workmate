@@ -23,7 +23,8 @@ test('classifyActiveRuntime uses a healthy active runtime even when the bootstra
   assert.deepEqual(classifyActiveRuntime(null, 1, true), {
     hasValidMarker: false,
     shouldUseActiveRuntime: true,
-    usabilityReason: 'usable'
+    usabilityReason: 'usable',
+    pinRelation: 'unknown'
   })
 })
 
@@ -31,7 +32,8 @@ test('classifyActiveRuntime uses a healthy active runtime even when the marker i
   assert.deepEqual(classifyActiveRuntime({ schemaVersion: 999, pinnedCommit: 'abc1234' }, 1, true), {
     hasValidMarker: false,
     shouldUseActiveRuntime: true,
-    usabilityReason: 'usable'
+    usabilityReason: 'usable',
+    pinRelation: 'unknown'
   })
 })
 
@@ -39,8 +41,36 @@ test('classifyActiveRuntime refuses an unusable runtime even if a valid marker e
   assert.deepEqual(classifyActiveRuntime(VALID_MARKER, 1, false), {
     hasValidMarker: true,
     shouldUseActiveRuntime: false,
-    usabilityReason: 'unusable'
+    usabilityReason: 'unusable',
+    pinRelation: 'unknown'
   })
+})
+
+test('a usable checkout BEHIND the packaged install stamp is stale, not launched as is', () => {
+  // The reported fault: a new installer over a machine whose agent checkout
+  // dated from a month earlier kept running the old agent, because usability
+  // alone decided the launch. The install must be brought forward first.
+  assert.deepEqual(classifyActiveRuntime(VALID_MARKER, 1, true, 'behind'), {
+    hasValidMarker: true,
+    shouldUseActiveRuntime: false,
+    usabilityReason: 'stale',
+    pinRelation: 'behind'
+  })
+})
+
+test('a checkout at or ahead of the stamp, or one git cannot describe, launches untouched', () => {
+  for (const relation of ['at-pin', 'ahead', 'unknown', 'unpinned'] as const) {
+    const state = classifyActiveRuntime(VALID_MARKER, 1, true, relation)
+
+    assert.equal(state.shouldUseActiveRuntime, true, `${relation} must launch`)
+    assert.equal(state.usabilityReason, 'usable', `${relation} is not stale`)
+    assert.equal(state.pinRelation, relation)
+  }
+})
+
+test('an unusable runtime stays unusable regardless of where its checkout stands', () => {
+  assert.equal(classifyActiveRuntime(VALID_MARKER, 1, false, 'behind').usabilityReason, 'unusable')
+  assert.equal(classifyActiveRuntime(VALID_MARKER, 1, false, 'ahead').usabilityReason, 'unusable')
 })
 
 test('a CLI-installed runtime with no marker launches instead of re-running bootstrap', () => {

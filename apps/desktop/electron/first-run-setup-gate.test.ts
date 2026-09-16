@@ -146,3 +146,15 @@ test('first-run setup gate installs locally without asking when the prompt is di
   assert.deepEqual(prompts, [])
   assert.equal(gate.hasWaiter(), false)
 })
+
+test('bringing an existing install forward never asks the first-run question', async () => {
+  const prompts = []
+  const gate = createFirstRunSetupGate({ promptChoice: backend => prompts.push(backend), stuckAfterMs: 0 })
+  const repinBackend = { ...bootstrapBackend, repin: { headSha: 'a'.repeat(40), pinnedCommit: 'b'.repeat(40) } }
+
+  assert.equal(gate.shouldGate(repinBackend), false)
+  assert.equal(await gate.wait(repinBackend), 'continue-local')
+  assert.deepEqual(prompts, [])
+  // A genuine first install on the same gate still asks.
+  assert.equal(gate.shouldGate(bootstrapBackend), true)
+})

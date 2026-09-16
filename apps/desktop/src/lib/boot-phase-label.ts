@@ -18,6 +18,7 @@ const PHASE_KEYS: Readonly<Record<string, PhaseKey>> = {
   idle: 'idle',
   'bootstrap.choice': 'bootstrapChoice',
   'backend.update-wait': 'updateWait',
+  'backend.repin': 'repin',
   'backend.resolve': 'resolve',
   'backend.restart': 'restarting',
   'backend.remote': 'remote',

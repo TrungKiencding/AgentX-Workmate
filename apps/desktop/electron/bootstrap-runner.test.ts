@@ -9,6 +9,7 @@ import {
   buildPinArgs,
   buildPosixPinArgs,
   cachedScriptPath,
+  decidePinCommit,
   hasExistingGitCheckout,
   installedAgentInstallScript,
   installRefForStamp,
@@ -108,6 +109,14 @@ test('existing-checkout bootstrap args keep branch but skip the packaged commit 
     }),
     ['--dir', '/tmp/agentx-agent', '--agentx-home', '/tmp/agentx', '--branch', 'main']
   )
+})
+
+test('decidePinCommit pins a fresh clone, follows the branch on an existing checkout, and pins it when asked to move forward', () => {
+  assert.equal(decidePinCommit({ existingCheckout: false }), true)
+  assert.equal(decidePinCommit({ existingCheckout: true }), false)
+  // A checkout behind the packaged stamp (checkout-pin.ts) is brought forward;
+  // install.ps1/sh still skip a pin that is already an ancestor of HEAD.
+  assert.equal(decidePinCommit({ existingCheckout: true, pinExistingCheckout: true }), true)
 })
 
 test('fallback install stamps use an unpinned branch ref', () => {

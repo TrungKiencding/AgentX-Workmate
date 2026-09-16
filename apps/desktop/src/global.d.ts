@@ -1221,7 +1221,13 @@ export interface DesktopBootstrapSetupChoice {
 
 export interface DesktopBootstrapState {
   active: boolean
-  manifest: { type: 'manifest'; stages: DesktopBootstrapStageDescriptor[]; protocolVersion: number | null } | null
+  manifest: {
+    type: 'manifest'
+    stages: DesktopBootstrapStageDescriptor[]
+    protocolVersion: number | null
+    /** 'repin' when an existing install is being brought forward to this build's commit rather than installed from scratch. */
+    mode?: 'repin' | null
+  } | null
   stages: Record<string, DesktopBootstrapStageResult>
   error: string | null
   log: Array<{ ts: number; stage: string | null; line: string; stream?: 'stdout' | 'stderr' }>
@@ -1239,7 +1245,12 @@ export type DesktopBootstrapEvent =
       platform?: string
       activeRoot?: string
     }
-  | { type: 'manifest'; stages: DesktopBootstrapStageDescriptor[]; protocolVersion: number | null }
+  | {
+      type: 'manifest'
+      stages: DesktopBootstrapStageDescriptor[]
+      protocolVersion: number | null
+      mode?: 'repin' | null
+    }
   | {
       type: 'stage'
       name: string

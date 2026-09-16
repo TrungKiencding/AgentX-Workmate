@@ -70,6 +70,7 @@ export const en: Translations = {
       idle: 'Waiting to start the AgentX backend',
       bootstrapChoice: 'Waiting for the first-run setup choice',
       updateWait: 'An update is finishing — AgentX will start automatically when it completes',
+      repin: 'Bringing the AgentX install up to the version this desktop build ships',
       resolve: 'Finding the AgentX backend',
       remote: 'Connecting to the remote AgentX backend',
       runtime: 'Checking the AgentX runtime',
@@ -2751,6 +2752,9 @@ export const en: Translations = {
       'One of the install steps failed. On Windows, this can happen if another AgentX CLI or desktop instance is running. Stop any running AgentX instances, then retry. Check the details below or the desktop log for the full transcript.',
     activeDesc:
       'This is a one-time setup. The AgentX installer is downloading dependencies and configuring your machine. Subsequent launches will skip this step.',
+    updatingTitle: 'Updating AgentX Workmate',
+    updatingDesc:
+      'This desktop build is newer than the AgentX agent installed on this computer. The installer is bringing the agent up to the matching version; your settings, conversations and model key stay as they are.',
     progress: (completed, total) => `${completed} of ${total} steps complete`,
     currentStage: stage => ` -- now: ${stage}`,
     fetchingManifest: 'Fetching installer manifest...',

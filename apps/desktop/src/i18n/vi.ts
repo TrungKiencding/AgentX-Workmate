@@ -79,6 +79,7 @@ export const vi: Translations = {
       idle: 'Đang chờ khởi động backend AgentX',
       bootstrapChoice: 'Đang chờ bạn chọn cách thiết lập lần đầu',
       updateWait: 'Một bản cập nhật đang hoàn tất — AgentX sẽ tự khởi động khi xong',
+      repin: 'Đang đưa bản cài AgentX lên đúng phiên bản đi kèm bộ cài này',
       resolve: 'Đang tìm backend AgentX',
       remote: 'Đang kết nối tới backend AgentX từ xa',
       runtime: 'Đang kiểm tra môi trường chạy AgentX',
@@ -3005,6 +3006,9 @@ export const vi: Translations = {
       'Một trong các bước cài đặt đã thất bại. Trên Windows, việc này có thể xảy ra khi còn một AgentX CLI hoặc bản desktop khác đang chạy. Hãy dừng mọi tiến trình AgentX rồi thử lại. Xem chi tiết bên dưới hoặc log của desktop để có toàn bộ nội dung.',
     activeDesc:
       'Đây là bước thiết lập chỉ chạy một lần. Trình cài đặt AgentX đang tải các thành phần phụ thuộc và cấu hình máy của bạn. Những lần mở sau sẽ bỏ qua bước này.',
+    updatingTitle: 'Đang cập nhật AgentX Workmate',
+    updatingDesc:
+      'Bản desktop này mới hơn phần agent AgentX đang cài trên máy. Trình cài đặt đang đưa agent lên đúng phiên bản tương ứng; cài đặt, cuộc trò chuyện và khoá model của bạn được giữ nguyên.',
     progress: (completed, total) => `Đã xong ${completed} / ${total} bước`,
     currentStage: stage => ` -- đang: ${stage}`,
     fetchingManifest: 'Đang lấy manifest của trình cài đặt...',
