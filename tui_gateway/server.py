@@ -6389,6 +6389,7 @@ def _make_agent(
         return synthetic
 
     from run_agent import AIAgent
+    from tools.lazy_deps import installs_deferred
 
     # MCP tool discovery runs in a background daemon thread at startup so a
     # dead server can't freeze the shell.  The agent snapshots its tool list
@@ -6506,7 +6507,12 @@ def _make_agent(
                 raise RuntimeError("Auth fallback resolved without a model")
             model = resolution.selected_model
     _pr = _load_provider_routing()
-    return AIAgent(
+    # Building the agent must never pip: a lazy install reached from here ran
+    # in the middle of a fresh install's first turn and read as a hung chat.
+    # Under this context `tools.lazy_deps.ensure` installs in the background
+    # and the feature reads as unavailable until it lands.
+    with installs_deferred("agent build"):
+        return AIAgent(
         model=model,
         max_iterations=_cfg_max_turns(cfg, 500),
         provider=runtime.get("provider"),
