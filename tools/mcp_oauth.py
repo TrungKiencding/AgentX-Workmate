@@ -262,18 +262,22 @@ def _cached_redirect_port(storage: "HermesTokenStorage | None") -> int | None:
     if not data:
         return None
 
-    for uri in data.get("redirect_uris") or []:
+    uris = data.get("redirect_uris")
+    if not isinstance(uris, (list, tuple)):
+        return None
+    for uri in uris:
         try:
             parsed = urlparse(str(uri))
+            port = parsed.port
         except (TypeError, ValueError):
             continue
         if (
             parsed.scheme == "http"
             and parsed.hostname in {"127.0.0.1", "localhost"}
             and parsed.path == "/callback"
-            and parsed.port is not None
+            and port is not None
         ):
-            return int(parsed.port)
+            return port
     return None
 
 
@@ -285,7 +289,10 @@ def _cached_redirect_uri(storage: "HermesTokenStorage | None") -> str | None:
         data = _read_json(storage._client_info_path())
     except (AttributeError, TypeError, ValueError):
         return None
-    for uri in (data or {}).get("redirect_uris") or []:
+    uris = (data or {}).get("redirect_uris")
+    if not isinstance(uris, (list, tuple)):
+        return None
+    for uri in uris:
         try:
             parsed = urlparse(str(uri))
         except (TypeError, ValueError):
@@ -378,7 +385,11 @@ def _read_json(path: Path) -> dict | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            logger.warning("Invalid OAuth cache %s: expected a JSON object", path)
+            return None
+        return data
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to read %s: %s", path, exc)
         return None

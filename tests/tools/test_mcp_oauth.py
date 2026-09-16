@@ -1105,3 +1105,46 @@ def test_humanize_non_registration_403_passthrough():
         )
         is None
     )
+
+
+@pytest.mark.parametrize("payload", [["not", "an", "object"], "string", 123, None])
+@pytest.mark.parametrize("kind", ["client", "tokens", "metadata"])
+def test_non_object_oauth_cache_is_treated_as_corrupt(tmp_path, payload, kind):
+    from tools.mcp_oauth import _cached_redirect_port, _cached_redirect_uri
+
+    storage = HermesTokenStorage("srv", hermes_home=tmp_path)
+    path = {"client": storage._client_info_path, "tokens": storage._tokens_path,
+            "metadata": storage._meta_path}[kind]()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    if kind == "client":
+        assert _cached_redirect_port(storage) is None
+        assert _cached_redirect_uri(storage) is None
+        assert asyncio.run(storage.get_client_info()) is None
+    elif kind == "tokens":
+        assert asyncio.run(storage.get_tokens()) is None
+    else:
+        assert storage.get_oauth_metadata() is None
+
+
+@pytest.mark.parametrize("uris", [123, {"a": 1}, None])
+def test_cached_redirect_ignores_non_list_uris(tmp_path, uris):
+    from tools.mcp_oauth import _cached_redirect_port, _cached_redirect_uri
+
+    storage = HermesTokenStorage("srv", hermes_home=tmp_path)
+    path = storage._client_info_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"redirect_uris": uris}), encoding="utf-8")
+    assert _cached_redirect_port(storage) is None
+    assert _cached_redirect_uri(storage) is None
+
+
+@pytest.mark.parametrize("bad_uri", ["http://127.0.0.1:abc/callback", "http://127.0.0.1:99999/callback", "http://[bad/callback"])
+def test_cached_redirect_skips_invalid_ports(tmp_path, bad_uri):
+    from tools.mcp_oauth import _cached_redirect_port
+
+    storage = HermesTokenStorage("srv", hermes_home=tmp_path)
+    path = storage._client_info_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"redirect_uris": [bad_uri, "http://127.0.0.1:1455/callback"]}), encoding="utf-8")
+    assert _cached_redirect_port(storage) == 1455
