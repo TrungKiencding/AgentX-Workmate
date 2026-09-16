@@ -170,6 +170,10 @@ Read [forms.md](forms.md) first — it distinguishes fillable (AcroForm) PDFs fr
 2. Re-extract text from the output (`pdftotext` or pdfplumber) and confirm the content you added is present.
 3. For anything visual (watermarks, filled forms, created reports): `pdftoppm -jpeg -r 100 output.pdf page` and inspect the images with `vision_analyze`.
 
+## Hand it over
+
+When the deliverable is written and verified, give it to the user through the platform's file channel instead of only quoting its path: call `deliver_file` with the absolute path when that tool is available (AgentX desktop — the file shows up as a card with preview and download), otherwise put `MEDIA:/absolute/path/to/file` in your reply so messaging platforms attach it. One call or tag per file, then describe the content in a sentence.
+
 ## Related skills
 
 `ocr-and-documents` (scanned-document text extraction), `nano-pdf` (NL text edits in place), `docx` (Word), `xlsx` (spreadsheets), `powerpoint` (decks).
