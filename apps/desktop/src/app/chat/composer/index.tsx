@@ -1259,15 +1259,13 @@ export function ChatBar({
                         : 'grid-cols-[auto_1fr_auto] items-center gap-(--composer-control-gap) [grid-template-areas:"menu_input_controls"]'
                     )}
                   >
-                    {/* Inline, the attach button hangs off the first text line
-                        (3px settles its glyph on the baseline); stacked, it sits
-                        in the tool row and centres against the send button. */}
-                    <div
-                      className={cn(
-                        'flex items-start gap-(--composer-control-gap) [grid-area:menu]',
-                        stacked ? 'self-center' : 'translate-y-[3px] self-start'
-                      )}
-                    >
+                    {/* The attach button sits on the row's centre line, inline
+                        and stacked alike — it is one of the row's 32px controls,
+                        so it centres against the send button rather than hanging
+                        off the first text line. (It used to be nudged 3px down to
+                        meet that baseline; since inline means exactly one line,
+                        that only read as a control sagging below its own row.) */}
+                    <div className="flex items-center gap-(--composer-control-gap) self-center [grid-area:menu]">
                       {contextMenu}
                       <ContribSlot area={COMPOSER_AREAS.leading} />
                     </div>
