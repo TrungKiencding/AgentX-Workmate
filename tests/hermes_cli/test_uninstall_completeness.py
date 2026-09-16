@@ -408,6 +408,12 @@ class TestPerformUninstall:
         assert not install.home.exists()
 
     def test_keep_data_keeps_the_data_and_only_the_data(self, install):
+        # An older checkout the desktop moved aside when it replaced it, and
+        # then could not delete: it goes with the code, not with the data.
+        leftover = install.home / "agentx-agent.stale-1700000000000"
+        (leftover / "venv").mkdir(parents=True)
+        (leftover / "venv" / "python.exe").write_text("old", encoding="utf-8")
+
         uninstall._perform_uninstall(
             project_root=install.project,
             hermes_home=install.home,
@@ -417,6 +423,7 @@ class TestPerformUninstall:
         )
 
         assert not install.project.exists()
+        assert not leftover.exists()
         assert (install.home / "config.yaml").exists()
         assert (install.home / ".env").exists()
 
