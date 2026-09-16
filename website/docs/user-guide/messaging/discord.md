@@ -84,7 +84,7 @@ This guide walks you through the full setup process — from creating your bot o
 
 ### Gateway WebSocket health
 
-Discord REST and the Gateway WebSocket are separate transports. A successful REST response (including `fetch_user()` returning HTTP 200) does not prove that the bot can still receive Gateway events. Hermes therefore combines the ready state, client/socket closure state, socket openness, heartbeat ACK age, finite heartbeat latency, and **frame recency** — the time since the last raw Gateway frame of any kind (heartbeats and ACKs count, so a legitimately quiet server is not flagged).
+Discord REST and the Gateway WebSocket are separate transports. A successful REST response (including `fetch_user()` returning HTTP 200) does not prove that the bot can still receive Gateway events. AgentX therefore combines the ready state, client/socket closure state, socket openness, heartbeat ACK age, finite heartbeat latency, and **frame recency** — the time since the last raw Gateway frame of any kind (heartbeats and ACKs count, so a legitimately quiet server is not flagged).
 
 After the configured number of consecutive unhealthy samples, the adapter emits one retryable fatal event. The existing gateway reconnect watcher creates a fresh adapter; the Discord adapter does not start a second unbounded reconnect loop.
 

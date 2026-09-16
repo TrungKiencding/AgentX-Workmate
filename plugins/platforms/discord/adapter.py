@@ -10001,8 +10001,8 @@ _YAML_BOOL_ENV_KEYS = (
 )
 # (public websocket_* key, legacy liveness_* alias, env bridge var)
 _YAML_WEBSOCKET_LIVENESS_KEYS = (
-    ("websocket_liveness_interval_seconds", "liveness_interval_seconds", "HERMES_DISCORD_LIVENESS_INTERVAL_SECONDS"),
-    ("websocket_liveness_failure_threshold", "liveness_failure_threshold", "HERMES_DISCORD_LIVENESS_FAILURE_THRESHOLD"),
+    ("websocket_liveness_interval_seconds", "liveness_interval_seconds", "AGENTX_DISCORD_LIVENESS_INTERVAL_SECONDS"),
+    ("websocket_liveness_failure_threshold", "liveness_failure_threshold", "AGENTX_DISCORD_LIVENESS_FAILURE_THRESHOLD"),
     ("websocket_heartbeat_ack_max_age_seconds", None, None),
     ("websocket_max_latency_seconds", None, None),
     ("websocket_event_max_silence_seconds", None, None),

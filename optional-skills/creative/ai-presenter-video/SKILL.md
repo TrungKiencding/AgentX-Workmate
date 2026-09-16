@@ -2,7 +2,7 @@
 name: ai-presenter-video
 description: "Make a verified AI presenter video from script + image."
 version: 1.0.0
-author: cclank (https://github.com/cclank/lanshu-create-ai-presenter-video), ported by Hermes Agent
+author: cclank (https://github.com/cclank/lanshu-create-ai-presenter-video), ported by AgentX Workmate
 license: MIT
 platforms: [linux, macos]
 required_commands: [ffmpeg, ffprobe, python3]
@@ -29,16 +29,16 @@ is actually available in the session (FAL video/image models via
 the whisper/STT tooling, ffmpeg for everything deterministic).
 
 > Ported from cclank/lanshu-create-ai-presenter-video (MIT). Upstream body
-> kept substantively verbatim in `references/`; Hermes adaptations live in
+> kept substantively verbatim in `references/`; AgentX adaptations live in
 > this hub file. Scripts are deterministic (no network, no credentials).
 
-## Hermes adaptations (read first)
+## AgentX adaptations (read first)
 
 - **Skill dir resolution** — upstream hardcoded `~/.codex/skills/...`. In
-  Hermes resolve it once per session:
+  AgentX resolve it once per session:
 
   ```bash
-  SKILL_DIR="$(dirname "$(find ~/.hermes/skills ~/.hermes/hermes-agent/optional-skills -path '*/ai-presenter-video/SKILL.md' 2>/dev/null | head -1)")"
+  SKILL_DIR="$(dirname "$(find ~/.agentx/skills ~/.agentx/agentx-agent/optional-skills -path '*/ai-presenter-video/SKILL.md' 2>/dev/null | head -1)")"
   [ -f "$SKILL_DIR/SKILL.md" ] || echo "skill dir not found — locate ai-presenter-video/SKILL.md manually and set SKILL_DIR to its directory"
   ```
 

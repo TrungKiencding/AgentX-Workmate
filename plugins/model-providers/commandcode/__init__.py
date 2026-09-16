@@ -105,7 +105,7 @@ class CommandCodeProfile(ProviderProfile):
         CommandCode fronts DeepSeek with vendor-prefixed ids
         (``deepseek/deepseek-v4-flash``). DeepSeek V4+ defaults to thinking
         mode when the ``thinking`` field is omitted, so without an explicit
-        wire control a Hermes ``/reasoning none`` changes the session state
+        wire control a AgentX ``/reasoning none`` changes the session state
         but not the actual request — the turn sits in
         ``reflecting.../brainstorming...`` for minutes (#95232). Strip the
         vendor prefix and delegate to the native DeepSeek profile's logic

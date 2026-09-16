@@ -31,7 +31,7 @@ class _DeepInfraProfile(ProviderProfile):
     def build_api_kwargs_extras(
         self, *, reasoning_config: dict | None = None, **context: Any
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Map Hermes reasoning controls to DeepInfra's top-level wire field.
+        """Map AgentX reasoning controls to DeepInfra's top-level wire field.
 
         DeepInfra applies a per-model default when the field is absent, while
         ``none`` is its explicit off switch. This route does not advertise a

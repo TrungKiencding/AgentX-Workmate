@@ -1,13 +1,13 @@
-"""Flat-install runtime state must be gitignored so ``hermes update``'s untracked
+"""Flat-install runtime state must be gitignored so ``agentx update``'s untracked
 autostash cannot sweep the live state.db (#110648).
 
-On a flat install (checkout root == $HERMES_HOME) the profile's runtime files
+On a flat install (checkout root == $AGENTX_HOME) the profile's runtime files
 live inside the repo as untracked paths. ``git stash push --include-untracked``
 (hermes_cli/update_cmd_stash.py) moves the whole untracked set into the stash and
 unlinks it from the working tree under the running gateway, silently stranding
 every transcript when the restore is declined or fails its health check. The
 tracked .gitignore must cover the runtime state set, mirroring the
-.hermes-bootstrap-complete / .install_method precedent (#38529 / #66189).
+.agentx-bootstrap-complete / .install_method precedent (#38529 / #66189).
 """
 import shutil
 import subprocess
@@ -17,8 +17,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Runtime state that lives at $HERMES_HOME's root on a flat install, exactly as
-# ``hermes update`` would sweep it: the session store plus its SQLite sidecars
+# Runtime state that lives at $AGENTX_HOME's root on a flat install, exactly as
+# ``agentx update`` would sweep it: the session store plus its SQLite sidecars
 # (gateway/platforms/base.py _ROOT_CREDENTIAL_PATHS enumerates the same set) and
 # retired-WAL capture dirs, quick snapshots, the legacy transcript dir, the
 # default kanban board, the cron executions ledger, gateway lock/pid files and
@@ -54,7 +54,7 @@ def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess:
 def flat_install_repo(tmp_path: Path) -> Path:
     """A real git repo standing in for a flat install, with the tracked .gitignore.
 
-    Built in a subdirectory of tmp_path: the suite-wide HERMES_HOME isolation
+    Built in a subdirectory of tmp_path: the suite-wide AGENTX_HOME isolation
     fixture (tests/conftest.py) materialises its own ``hermes_test/`` tree in
     tmp_path itself, which is not part of this repo's story.
     """
@@ -62,7 +62,7 @@ def flat_install_repo(tmp_path: Path) -> Path:
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     shutil.copyfile(REPO_ROOT / ".gitignore", repo / ".gitignore")
-    (repo / "app.py").write_text("print('hermes')\n")
+    (repo / "app.py").write_text("print('agentx')\n")
     _run_git(repo, "add", ".gitignore", "app.py")
     _run_git(
         repo,
@@ -78,7 +78,7 @@ def flat_install_repo(tmp_path: Path) -> Path:
 
 def test_flat_install_runtime_state_is_ignored(flat_install_repo):
     """`git status --porcelain` must stay empty with the full runtime state present,
-    so `hermes update` never enters its stash step for runtime state alone."""
+    so `agentx update` never enters its stash step for runtime state alone."""
     status = _run_git(
         flat_install_repo, "status", "--porcelain", "--untracked-files=all"
     )
@@ -93,9 +93,9 @@ def test_untracked_autostash_cannot_sweep_runtime_state(flat_install_repo):
     (flat_install_repo / "app.py").write_text("print('changed')\n")
     _run_git(
         flat_install_repo,
-        "stash", "push", "--include-untracked", "-m", "hermes-update-autostash",
+        "stash", "push", "--include-untracked", "-m", "agentx-update-autostash",
     )
-    assert (flat_install_repo / "app.py").read_text() == "print('hermes')\n"
+    assert (flat_install_repo / "app.py").read_text() == "print('agentx')\n"
     missing = [
         rel
         for rel in FLAT_INSTALL_RUNTIME_STATE

@@ -3555,9 +3555,9 @@ def _get_channel_override(
 
 
 def _resolve_hermes_bin() -> Optional[list[str]]:
-    """Hermes update/restart argv: the running interpreter's ``python -m hermes_cli.main``
-    (exactly this install), else ``hermes`` on PATH, else None. The module argv must win: a
-    PATH-first lookup lets an attacker-planted ``hermes`` shadow the running install when
+    """AgentX update/restart argv: the running interpreter's ``python -m hermes_cli.main``
+    (exactly this install), else ``agentx`` on PATH, else None. The module argv must win: a
+    PATH-first lookup lets an attacker-planted ``agentx`` shadow the running install when
     /update or /restart re-execs it (#111569)."""
     try:
         import importlib.util
@@ -3567,7 +3567,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     except Exception:
         pass
     import shutil
-    hermes_bin = shutil.which("hermes")
+    hermes_bin = shutil.which("agentx")
     if hermes_bin:
         return [hermes_bin]
     return None

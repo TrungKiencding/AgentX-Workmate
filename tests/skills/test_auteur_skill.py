@@ -75,11 +75,11 @@ def test_no_claude_residue():
 
 def test_related_skills_resolve():
     fm = _frontmatter()
-    related = (fm.get("metadata") or {}).get("hermes", {}).get("related_skills", [])
+    related = (fm.get("metadata") or {}).get("agentx", {}).get("related_skills", [])
     if not related:
         return  # empty list is allowed
     staging_root = Path(__file__).resolve().parents[2]
-    repo_root = Path.home() / ".hermes" / "hermes-agent"
+    repo_root = Path.home() / ".agentx" / "agentx-agent"
     roots = [
         staging_root / "skills",
         staging_root / "optional-skills",

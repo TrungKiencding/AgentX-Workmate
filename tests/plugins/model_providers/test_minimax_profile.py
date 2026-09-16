@@ -194,7 +194,7 @@ class TestMinimaxOauthAliases:
         - ``minimax-global``
         - ``minimax_oauth`` (underscore form)
 
-    The provider profile must register each one so ``hermes --provider
+    The provider profile must register each one so ``agentx --provider
     minimax-portal`` (and the global variant) actually resolve instead of
     failing with "unknown provider". Pinning the alias set in this test keeps
     docs and code from drifting back out of sync.
@@ -214,7 +214,7 @@ class TestMinimaxOauthAliases:
             assert alias in registered, (
                 f"docs promise '{alias}' as a resolvable provider id for "
                 "minimax-oauth, but the profile only registers "
-                f"{registered!r} — run `hermes --provider {alias}` and it "
+                f"{registered!r} — run `agentx --provider {alias}` and it "
                 "fails with 'unknown provider'"
             )
 

@@ -4786,7 +4786,7 @@ def refresh_launchd_plist_if_needed() -> bool:
             _launchd_reload_log_path(),
         )
         return False
-    print("↻ Updated gateway launchd service definition to match the current Hermes install")
+    print("↻ Updated gateway launchd service definition to match the current AgentX install")
     return True
 
 
@@ -4804,7 +4804,7 @@ def launchd_install(force: bool = False):
                 from hermes_constants import display_hermes_home
                 print(
                     "⚠ Service definition could not be reloaded with launchd. "
-                    "Run 'hermes gateway install --force' or check "
+                    "Run 'agentx gateway install --force' or check "
                     f"{display_hermes_home()}/logs/launchd-reload.log for details."
                 )
             return
@@ -7148,7 +7148,7 @@ def _dispatch_via_service_manager_if_s6(
         getattr(mgr, action)(f"gateway-{profile}")
     except GatewayNotRegisteredError as exc:
         # A profile directory can exist without a slot: it was created against a bind-mounted
-        # HERMES_HOME from outside the container, where `profile create` cannot reach
+        # AGENTX_HOME from outside the container, where `profile create` cannot reach
         # /run/service. Register it here instead of making the operator restart the container
         # to let the boot reconciler notice — which is what profiles._maybe_register_gateway_service
         # already promises. Anything else stays an actionable error.

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 
 /**
- * Range-aware responses for local audio/video served through `hermes-media://stream/…`.
+ * Range-aware responses for local audio/video served through `agentx-media://stream/…`.
  *
  * The media protocol used to delegate local files to `net.fetch(file://…)` and forward the
  * renderer's `Range` header, expecting a `206 Partial Content` back. In practice Electron's

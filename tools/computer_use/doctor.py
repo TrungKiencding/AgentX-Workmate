@@ -880,10 +880,10 @@ def run_doctor(
         # The spawn itself failed (Windows: a venv interpreter denied `CreateProcess` on a binary under
         # `C:\Program Files\WindowsApps`, WinError 5). A traceback here hides the one fact the user needs.
         print(f"cua-driver could not be started from {binary!r}: {e}\n"
-              "  The Hermes runtime interpreter cannot execute this binary; the tool may still work because the\n"
+              "  The AgentX runtime interpreter cannot execute this binary; the tool may still work because the\n"
               "  shell resolves a different copy on PATH. Fix: install cua-driver outside the protected directory\n"
-              "  (e.g. the upstream installer's default under your user profile) or point HERMES_CUA_DRIVER_CMD at\n"
-              "  a copy the runtime can execute, then re-run `hermes computer-use doctor`.", file=sys.stderr)
+              "  (e.g. the upstream installer's default under your user profile) or point AGENTX_CUA_DRIVER_CMD at\n"
+              "  a copy the runtime can execute, then re-run `agentx computer-use doctor`.", file=sys.stderr)
         return 2
     except RuntimeError as e:
         print(f"cua-driver health_report failed: {e}", file=sys.stderr)

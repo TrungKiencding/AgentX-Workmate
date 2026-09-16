@@ -82,7 +82,7 @@ class TestQRCode:
 
     def test_print_qr_code_tip_targets_active_interpreter(self, capsys):
         # Regression for #111695: a bare `pip install` targets the wrong
-        # environment when Hermes runs in an isolated venv. The fallback tip
+        # environment when AgentX runs in an isolated venv. The fallback tip
         # must name the interpreter that is actually running.
         import sys
 
