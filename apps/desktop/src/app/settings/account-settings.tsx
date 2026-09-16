@@ -65,6 +65,10 @@ export function AccountSettings() {
   const isolation = useStore($accountIsolation)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [rotating, setRotating] = useState(false)
+  // Why the last rotation did not happen, in the service's words. Cleared on
+  // the next attempt; a refresh alone cannot clear it, because a refused
+  // rotation leaves the key state exactly as it was.
+  const [rotateError, setRotateError] = useState('')
   const copy = t.settings.account
 
   // Re-read on mount rather than trusting a boot-time snapshot: the main
@@ -159,9 +163,18 @@ export function AccountSettings() {
                   disabled={rotating}
                   onClick={async () => {
                     setRotating(true)
+                    setRotateError('')
 
                     try {
-                      await rotateAccountKey()
+                      const result = await rotateAccountKey()
+
+                      if (!result.ok) {
+                        setRotateError(
+                          copy.keyRotateFailed(
+                            result.litellm?.detail?.trim() || result.error || result.litellm?.status || ''
+                          )
+                        )
+                      }
                     } finally {
                       setRotating(false)
                     }
@@ -170,6 +183,13 @@ export function AccountSettings() {
                 >
                   {rotating ? copy.keyRotating : copy.keyRotate}
                 </Button>
+              ) : undefined
+            }
+            below={
+              rotateError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {rotateError}
+                </p>
               ) : undefined
             }
             description={describeKey(isolation.litellm, copy)}

@@ -176,14 +176,34 @@ def litellm_key_alias_for_identity(
     display_name: str = "",
     email: str = "",
 ) -> str:
-    """Build ``{prefix}-{username}``, e.g. ``second-brain-letrungkien``."""
+    """Build ``{prefix}-{username}-{digest}``, e.g. ``second-brain-letrungkien-8c5f68bd``.
+
+    The digest is the same eight characters of the subject that end the
+    account slug, and it is what makes the alias one person's and nobody
+    else's. LiteLLM refuses to mint a second key under an alias that already
+    exists, and the readable half alone collides as soon as two people's
+    names sanitize to the same ASCII — ``Hùng`` and ``Hưng`` are both
+    ``hung`` — which left the second of them unable to get a key at all.
+    """
     label = litellm_key_alias_label(
         username=username,
         display_name=display_name,
         email=email,
         subject=subject,
     )
+    digest = _subject_digest(subject)
+    if digest and not label.endswith(digest):
+        # A label that had to fall back to the subject already carries it.
+        return f"{prefix}-{label}-{digest}"
     return f"{prefix}-{label}"
+
+
+def _subject_digest(subject: str) -> str:
+    """The short, stable digest of an IdP subject that slugs and aliases end in."""
+    subject = (subject or "").strip()
+    if not subject:
+        return ""
+    return hashlib.sha256(subject.encode("utf-8")).hexdigest()[:_SLUG_DIGEST_CHARS]
 
 
 def _slug_label(username: str, email: str) -> str:

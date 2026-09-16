@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { en } from '../../i18n/en'
@@ -77,6 +77,73 @@ describe('AccountSettings', () => {
     render(<AccountSettings />)
 
     expect(await screen.findByText(/no agentx account on this install/i)).toBeTruthy()
+  })
+})
+
+// "Issue a new key" used to be a button that did nothing visible when the
+// service refused: the refreshed state read exactly as before the click. The
+// refusal now reaches the screen in the service's own words.
+describe('rotating the key', () => {
+  it('shows why a refused rotation did not happen', async () => {
+    const litellm = {
+      base_url: 'https://proxy.test',
+      detail: '',
+      key_alias: 'second-brain-kien-8c5f68bd',
+      masked_key: 'sk-…4Bqf',
+      models: ['chat-a'],
+      ok: true,
+      provider: 'litellm',
+      status: 'reused'
+    }
+
+    Object.defineProperty(window, 'agentxDesktop', {
+      configurable: true,
+      value: {
+        account: {
+          provision: async () => ({
+            litellm: {
+              ...litellm,
+              detail: 'the second brain could not issue a key: LiteLLM returned HTTP 400: alias exists',
+              ok: false,
+              status: 'error'
+            },
+            ok: false
+          }),
+          status: async () => ({
+            account: 'le-trung-kien-8c5f68bd',
+            home: '/home/kien/.agentx/accounts/le-trung-kien-8c5f68bd',
+            isolated: true,
+            litellm,
+            signedIn: true
+          })
+        },
+        keycloak: {
+          status: async () => ({
+            clientId: 'agentx-workmate',
+            configured: true,
+            displayName: 'Le Trung Kien',
+            email: 'kienlt1@astralx.com.vn',
+            issuer: 'https://sso.example.com/realms/agent-hub',
+            signedIn: true,
+            userId: 'kc-sub-1'
+          })
+        }
+      }
+    })
+
+    render(<AccountSettings />)
+
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.keyRotate }))
+
+    const alert = await screen.findByRole('alert')
+
+    expect(alert.textContent).toBe(
+      en.settings.account.keyRotateFailed(
+        'the second brain could not issue a key: LiteLLM returned HTTP 400: alias exists'
+      )
+    )
+    // The key it still holds is still described as working — nothing was lost.
+    expect(screen.getByText('sk-…4Bqf · https://proxy.test')).toBeTruthy()
   })
 })
 

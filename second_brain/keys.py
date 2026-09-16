@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from fastapi import APIRouter, Body, Depends, Request
@@ -51,6 +52,7 @@ from second_brain.errors import (
     LITELLM_REFUSED,
     LITELLM_UNAVAILABLE,
     LITELLM_UNCONFIGURED,
+    NO_GRANTABLE_MODELS,
     STORE_UNAVAILABLE,
     BrainHTTPError,
 )
@@ -67,6 +69,18 @@ NONCE_BYTES = 12
 
 #: LiteLLM model modes that must never appear on a person-scoped key.
 _EXCLUDED_KEY_MODES = frozenset({"embedding", "embeddings", "rerank", "reranking"})
+
+#: How many labels a mint tries before giving up. LiteLLM refuses to mint a
+#: second key under an alias that already exists, so a label the proxy holds
+#: — the key a rotation is about to retire, or one left behind by a database
+#: the service lost — is answered by minting under a fresh one, not by
+#: failing the person's sign-in. Three is one retry past "the first random
+#: suffix collided too", which does not happen.
+_ALIAS_ATTEMPTS = 3
+
+#: Failed Dependency. The status for "the proxy said no", chosen because a
+#: CDN passes it through untouched where it replaces a 502 with its own page.
+_LITELLM_REFUSED_STATUS = 424
 
 router = APIRouter(prefix=API_PREFIX)
 
@@ -154,10 +168,26 @@ def _litellm_failed(exc: Exception) -> BrainHTTPError:
             "changed; try again shortly.",
         )
     return BrainHTTPError(
-        502,
+        _LITELLM_REFUSED_STATUS,
         LITELLM_REFUSED,
         f"The model proxy refused to issue a key ({exc}).",
     )
+
+
+def _alias_taken(exc: Exception) -> bool:
+    """True when the proxy refused a mint because the alias already exists.
+
+    LiteLLM answers that with a 400 whose message names the alias
+    ("Unique key aliases across all keys are required. Key alias '…' already
+    exists."). Matched loosely on purpose: the wording has changed between
+    releases and the status has not.
+    """
+    return getattr(exc, "status_code", None) == 400 and "alias" in str(exc).lower()
+
+
+def _fresh_alias(base: str) -> str:
+    """A label for a key minted while *base* is still worn by another key."""
+    return f"{base}-{secrets.token_hex(2)}"
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +326,15 @@ def _grantable_models(modes: dict[str, str], settings: Any) -> tuple[str, ...]:
         if declared == mode
     ]
 
+    # The web search model is granted by name beside this list (see
+    # ``_web_search_grant``) and must never be in it. LiteLLM declares
+    # Perplexity's search presets ``mode: chat``, so without this the preset
+    # lands in every picker as "Pro Search" — where choosing it fails with a
+    # 400 the moment the agent sends its tool list.
+    search = (getattr(settings, "web_search_model", "") or "").strip()
+    if search:
+        mode_filtered = [model for model in mode_filtered if model != search]
+
     if settings.key_models:
         allowed = set(settings.key_models)
         granted = [model for model in mode_filtered if model in allowed]
@@ -310,8 +349,8 @@ def _grantable_models(modes: dict[str, str], settings: Any) -> tuple[str, ...]:
             ", ".join(skipped),
         )
         raise BrainHTTPError(
-            502,
-            "no_grantable_models",
+            _LITELLM_REFUSED_STATUS,
+            NO_GRANTABLE_MODELS,
             "the model proxy serves nothing this deployment is allowed to hand "
             "out. Check AGENTX_BRAIN_KEY_MODEL_MODES against the modes the "
             "proxy declares in /model/info.",
@@ -382,9 +421,9 @@ async def _mint_and_store(
     granted = _grantable_models(modes, settings)
     web_search = _web_search_grant(modes, settings)
 
-    def _mint():
+    def _mint(label: str):
         return client.generate_key(
-            key_alias=alias,
+            key_alias=label,
             user_id=subject,
             models=_key_models(granted, web_search),
             max_budget=settings.key_max_budget or None,
@@ -399,16 +438,40 @@ async def _mint_and_store(
             },
         )
 
-    try:
-        minted = await run_in_threadpool(_mint)
-    except LiteLLMError as exc:
-        logger.error("second_brain: LiteLLM refused to mint for %s: %s", alias, exc)
-        raise _litellm_failed(exc) from exc
+    label = alias
+    if existing is not None and existing.key_alias == label:
+        # The key being replaced wears this label until it is retired below,
+        # and the proxy will not mint a second key under a label it holds.
+        # Minting first is not negotiable — a failed mint must cost nobody
+        # their key — so it is the replacement that takes a fresh label.
+        label = _fresh_alias(alias)
+
+    for attempt in range(_ALIAS_ATTEMPTS):
+        try:
+            minted = await run_in_threadpool(_mint, label)
+            break
+        except LiteLLMError as exc:
+            if _alias_taken(exc) and attempt + 1 < _ALIAS_ATTEMPTS:
+                # A key nobody stored still wears the label: a database this
+                # service lost, a delete that failed halfway, or a colleague
+                # whose name sanitizes to the same ASCII on a row written
+                # before aliases carried the subject digest. None of those is
+                # a reason to refuse this person a key.
+                logger.warning(
+                    "second_brain: the proxy already holds a key labelled %r; "
+                    "minting %s's key under a fresh label",
+                    label,
+                    subject,
+                )
+                label = _fresh_alias(alias)
+                continue
+            logger.error("second_brain: LiteLLM refused to mint for %s: %s", label, exc)
+            raise _litellm_failed(exc) from exc
 
     ciphertext, nonce = encrypt_key(minted.key, kek=settings.kek, subject=subject)
     row = await ctx.store.save_model_key(
         subject,
-        key_alias=minted.key_alias or alias,
+        key_alias=minted.key_alias or label,
         litellm_token=minted.token,
         ciphertext=ciphertext,
         nonce=nonce,
@@ -429,7 +492,7 @@ async def _mint_and_store(
     logger.info(
         "second_brain: %s model key for %s (%s)",
         "rotated" if existing is not None else "issued",
-        alias,
+        row.key_alias,
         mask_key(minted.key),
     )
     return row, minted.key
@@ -456,14 +519,27 @@ async def _retire(ctx: BrainContext, subject: str, token: str) -> None:
         )
 
 
-def _body(row: ModelKeyRow, plaintext: str, *, status: str, account: str = "") -> dict[str, Any]:
+def _body(
+    row: ModelKeyRow,
+    plaintext: str,
+    *,
+    status: str,
+    account: str = "",
+    base_url: str = "",
+) -> dict[str, Any]:
     """The wire shape. Deliberately the broker's, so the laptop's two mint
-    paths stay one shape apart from the URL they call."""
+    paths stay one shape apart from the URL they call.
+
+    ``base_url`` is the proxy this service fronts NOW. The row records where
+    the key was minted, and answering with that pinned every laptop to a
+    hostname the proxy had left: the key kept working at the new address,
+    the row kept naming the old one, and nothing ever corrected it.
+    """
     return {
         "key": plaintext,
         "key_alias": row.key_alias,
         "token": row.litellm_token,
-        "base_url": row.base_url,
+        "base_url": base_url or row.base_url,
         "models": list(row.models),
         # The account's default model, and the only place one is decided.
         # It is the first model the key can reach, which — because the list is
@@ -512,8 +588,9 @@ async def model_key(
         if not rotate:
             existing = await ctx.store.model_key(principal.subject)
             if existing is not None:
-                plaintext = await open_stored_key(ctx, principal.subject, existing)
-                return _body(existing, plaintext, status="reused", account=principal.slug)
+                served = await _serve_stored(ctx, principal, existing)
+                if served is not None:
+                    return served
 
         # Everything below this line can mint, so it happens under the lock
         # that makes minting once-per-person true even when two devices arrive
@@ -523,23 +600,23 @@ async def model_key(
             if existing is not None and not rotate:
                 # Another device minted while this one waited for the lock.
                 # Serving its key is the entire point of the service.
-                plaintext = await open_stored_key(ctx, principal.subject, existing)
-                return _body(existing, plaintext, status="reused", account=principal.slug)
+                served = await _serve_stored(ctx, principal, existing)
+                if served is not None:
+                    return served
 
-            alias = (
-                existing.key_alias
-                if existing
-                else ctx.settings.alias_for_identity(
+            # Always the identity's own label, never the stored row's: a row
+            # written before aliases carried the subject digest keeps its old
+            # label on the key it names, and the replacement gets the current
+            # form. `_mint_and_store` moves off a label the proxy still holds.
+            row, plaintext = await _mint_and_store(
+                ctx,
+                principal.subject,
+                alias=ctx.settings.alias_for_identity(
                     subject=principal.subject,
                     username=principal.display_name,
                     display_name=principal.display_name,
                     email=principal.email,
-                )
-            )
-            row, plaintext = await _mint_and_store(
-                ctx,
-                principal.subject,
-                alias=alias,
+                ),
                 existing=existing,
                 email=principal.email,
                 issuer=principal.issuer,
@@ -552,6 +629,46 @@ async def model_key(
         plaintext,
         status="rotated" if existing is not None else "issued",
         account=principal.slug,
+        base_url=ctx.settings.litellm_base_url,
+    )
+
+
+async def _serve_stored(
+    ctx: BrainContext, principal: Principal, row: ModelKeyRow
+) -> dict[str, Any] | None:
+    """The stored key as a response, or None when this service cannot open it.
+
+    None tells the route to mint a replacement. A row that fails to open —
+    wrapped under a KEK this process was not given, or one that no longer
+    authenticates — is a key nobody can be handed, and answering 503 for it
+    left every NEW machine of that person with no model key until an operator
+    noticed, while their old machines kept working on the plaintext they
+    already held. Minting a replacement is the same self-healing rotation a
+    revoked device triggers: the old key is retired by token, and every other
+    machine collects the new one on its next call because the proxy stops
+    accepting the old. The row is not silently discarded, either — the
+    service says so at ERROR, because the usual cause is a KEK roll made
+    without ``AGENTX_BRAIN_KEK_PREVIOUS``, and that is worth fixing before it
+    rotates everybody.
+    """
+    try:
+        plaintext = await open_stored_key(ctx, principal.subject, row)
+    except BrainHTTPError as exc:
+        if exc.code != KEY_UNREADABLE:
+            raise
+        logger.error(
+            "second_brain: %s's stored model key cannot be opened (%s); "
+            "issuing a replacement so their devices are not locked out.",
+            principal.subject,
+            exc.detail,
+        )
+        return None
+    return _body(
+        row,
+        plaintext,
+        status="reused",
+        account=principal.slug,
+        base_url=ctx.settings.litellm_base_url,
     )
 
 

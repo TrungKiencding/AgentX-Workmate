@@ -446,21 +446,44 @@ def _mint_direct(
     if previous_token:
         client.delete_keys([previous_token])
 
-    return client.generate_key(
-        key_alias=alias,
-        user_id=identity.subject,
-        models=settings.models,
-        max_budget=settings.max_budget or None,
-        budget_duration=settings.budget_duration,
-        tpm_limit=settings.tpm_limit or None,
-        rpm_limit=settings.rpm_limit or None,
-        metadata={
-            "source": "agentx-workmate",
-            "email": identity.email,
-            "username": identity.username,
-            "issuer": identity.issuer,
-        },
-    )
+    def _mint(label: str) -> MintedKey:
+        return client.generate_key(
+            key_alias=label,
+            user_id=identity.subject,
+            models=settings.models,
+            max_budget=settings.max_budget or None,
+            budget_duration=settings.budget_duration,
+            tpm_limit=settings.tpm_limit or None,
+            rpm_limit=settings.rpm_limit or None,
+            metadata={
+                "source": "agentx-workmate",
+                "email": identity.email,
+                "username": identity.username,
+                "issuer": identity.issuer,
+            },
+        )
+
+    try:
+        return _mint(alias)
+    except LiteLLMError as exc:
+        if not _alias_taken(exc):
+            raise
+        # The proxy will not mint under a label it already holds — the key
+        # this person's other machine is using. Same rule as the second
+        # brain: that costs a suffix, never a delete-by-alias.
+        return _mint(_fresh_alias(alias))
+
+
+def _alias_taken(exc: Exception) -> bool:
+    """True when the proxy refused a mint because the alias already exists."""
+    return getattr(exc, "status_code", None) == 400 and "alias" in str(exc).lower()
+
+
+def _fresh_alias(base: str) -> str:
+    """A label for a key minted while *base* is worn by another key."""
+    import secrets
+
+    return f"{base}-{secrets.token_hex(2)}"
 
 
 def _key_from_second_brain(
@@ -838,6 +861,65 @@ def _ensure_vision_follows_main(
     _release_vision_pin(settings.provider_name)
 
 
+def _tidy_reused_account(
+    settings: LiteLLMAccountSettings, state: Mapping[str, Any], home: Path
+) -> tuple[str, ...]:
+    """Bring an account whose key is simply reused up to current policy.
+
+    Returns the models the picker may show. The reuse path writes nothing
+    else, so this is where corrections an older provisioning run left behind
+    are made: the vision policy and the provider label
+    (``_ensure_vision_follows_main``), and the web search model — a sidecar
+    written from a service answer that listed the search preset among the
+    chat models has it in the picker and, when it led the list, as the
+    account's default model. Both are taken back out, and the sidecar is
+    rewritten so this runs once rather than on every launch.
+    """
+    search = str(state.get("web_search_model") or "").strip()
+    recorded = tuple(str(m) for m in (state.get("models") or ()))
+    models = _chat_models(recorded, search)
+
+    _ensure_vision_follows_main(settings, models)
+
+    if search and search in recorded:
+        _drop_provider_models(settings.provider_name, (search,))
+        _repin_default_model_away_from(settings, search, models)
+        write_state(home, {**state, "models": list(models)})
+
+    return models
+
+
+def _repin_default_model_away_from(
+    settings: LiteLLMAccountSettings, retired: str, models: tuple[str, ...]
+) -> bool:
+    """Move ``model.default`` off *retired* when it is pinned there at this proxy.
+
+    A full-document write, like ``_drop_provider_models``: ``merge_existing``
+    cannot express "this value is wrong", only "here is another one", and the
+    replacement has to be chosen the same way a fresh account's default is.
+    Returns whether anything changed.
+    """
+    from hermes_cli.config import read_raw_config, save_config
+
+    replacement = choose_default_model(models, settings)
+    if not replacement:
+        return False
+
+    raw = read_raw_config()
+    model_cfg = raw.get("model")
+    if not isinstance(model_cfg, dict):
+        return False
+    if str(model_cfg.get("default") or "").strip() != retired:
+        return False
+    provider = str(model_cfg.get("provider") or "").strip().lower()
+    if provider and provider != settings.provider_name.lower():
+        return False
+
+    model_cfg["default"] = replacement
+    save_config(raw)
+    return True
+
+
 def _drop_provider_models(provider_name: str, retired: tuple[str, ...]) -> None:
     """Delete ``retired`` model ids from a provider's entry in config.yaml."""
     from hermes_cli.config import read_raw_config, save_config
@@ -969,7 +1051,7 @@ def ensure_account_key(
     if (
         stored_key
         and not force_rotate
-        and state.get("key_alias") == alias
+        and _key_belongs_to(state, identity, alias)
         and _key_came_from_the_current_authority(state, settings)
     ):
         if not base_url:
@@ -981,9 +1063,31 @@ def ensure_account_key(
                 brain_transport=brain_transport, device_id=device_id,
                 device_name=device_name, reason="no base URL on record",
             )
-        live, reachable = _probe_key(_probe_client(settings, base_url, client), stored_key)
+        live, reachable, proxy_unreachable = _probe_key(
+            _probe_client(settings, base_url, client), stored_key
+        )
         if live:
-            if _reach_changed(settings, state, reachable):
+            if proxy_unreachable and settings.mode == "second_brain":
+                # No answer at all from the recorded proxy URL — not a 401,
+                # nothing. That is what a proxy that MOVED looks like from
+                # here, and it is indistinguishable from being offline until
+                # the service is asked: it names the proxy's current URL with
+                # every key it hands out. The key itself is unchanged, so this
+                # mints nothing; a laptop pinned to a retired hostname learns
+                # the new one instead of failing every chat with a TLS error
+                # for as long as the old key keeps "working".
+                collected = _rotate(
+                    settings, identity, account_slug, alias, key_env, home, bearer,
+                    client=client, broker_transport=broker_transport,
+                    brain_transport=brain_transport, device_id=device_id,
+                    device_name=device_name,
+                    reason=f"the proxy at {base_url} could not be reached",
+                )
+                if collected.ok or collected.status == "revoked":
+                    return collected
+                # The service is unreachable too — a train, not a move. Keep
+                # the key; the next launch asks again.
+            elif _reach_changed(settings, state, reachable):
                 # The proxy says this key reaches something other than what was
                 # recorded — the second brain's grant pass retired a model the
                 # proxy stopped serving, added one, or moved the web search
@@ -1000,20 +1104,16 @@ def ensure_account_key(
                     return collected
                 # Offline, or nothing to ask with: the key still works, so this
                 # launch keeps it and the next one asks again.
-            _ensure_vision_follows_main(
-                settings, tuple(str(m) for m in (state.get("models") or ()))
-            )
+            models = _tidy_reused_account(settings, state, home)
             return ProvisionResult(
                 status="reused",
                 detail="the key already on this account is still valid.",
                 provider=settings.provider_name,
-                key_alias=alias,
+                key_alias=str(state.get("key_alias") or alias),
                 masked_key=mask_key(stored_key),
                 base_url=base_url,
-                models=tuple(state.get("models") or ()),
-                default_model=choose_default_model(
-                    tuple(str(m) for m in (state.get("models") or ())), settings
-                ),
+                models=models,
+                default_model=choose_default_model(models, settings),
             )
 
     # 2. Fetch, mint, or re-mint.
@@ -1023,6 +1123,7 @@ def ensure_account_key(
     # machine, and the right answer to that is to collect what they rotated
     # to — not to rotate again and take their key in turn, which is the
     # ping-pong this whole project exists to end.
+    rejected_key = ""
     if force_rotate:
         reason = "rotation requested"
     elif not stored_key:
@@ -1031,13 +1132,50 @@ def ensure_account_key(
         reason = "this account's key predates the second brain"
     else:
         reason = "the proxy no longer accepts the stored key"
+        rejected_key = stored_key
 
     return _rotate(
         settings, identity, account_slug, alias, key_env, home, bearer,
         client=client, broker_transport=broker_transport,
         brain_transport=brain_transport, device_id=device_id,
         device_name=device_name, rotate=force_rotate, reason=reason,
+        rejected_key=rejected_key,
     )
+
+
+def _key_belongs_to(
+    state: Mapping[str, Any], identity: AccountIdentity, alias: str
+) -> bool:
+    """True when the key this account holds was provisioned for *identity*.
+
+    The sidecar records the subject the key was collected for, and that is
+    the test. A subject is immutable where an alias is a label: the service
+    mints under a suffixed alias when the proxy already holds the plain one,
+    and the label format itself has changed once already — comparing labels
+    would have every such laptop discard a working key on its next launch and
+    ask for it again. A sidecar with no subject recorded falls back to the
+    alias it did record.
+    """
+    recorded = str(state.get("subject") or "").strip()
+    if recorded:
+        return recorded == identity.subject
+    return state.get("key_alias") == alias
+
+
+def _chat_models(models: Any, web_search_model: str) -> tuple[str, ...]:
+    """*models* without the web search grant — what the picker may show.
+
+    The service keeps the two apart, but a row it wrote before it did, or a
+    proxy that declares the search preset ``mode: chat``, has put the preset
+    in the model list before — and every laptop then offered "Pro Search" as
+    something to talk to, which fails the moment the agent sends its tools.
+    Filtering here means no version of the service can put it back.
+    """
+    search = (web_search_model or "").strip()
+    listed = tuple(str(m) for m in (models or ()) if str(m).strip())
+    if not search:
+        return listed
+    return tuple(m for m in listed if m != search)
 
 
 def _key_came_from_the_current_authority(
@@ -1096,20 +1234,24 @@ def _probe_client(
 
 def _probe_key(
     probe: LiteLLMAdminClient | None, key: str
-) -> tuple[bool, tuple[str, ...] | None]:
-    """Whether *key* is still accepted, and the models it reaches when that is known.
+) -> tuple[bool, tuple[str, ...] | None, bool]:
+    """Whether *key* is still accepted, the models it reaches, and whether
+    the proxy could be asked at all.
 
     Liveness follows ``LiteLLMAdminClient.key_is_live`` exactly — a proxy that
     could not be asked counts as live, or every offline launch would replace a
     perfectly good key. The model list comes from the same single
     ``/v1/models`` call, and is None whenever the proxy gave no answer to read.
+    The third value is True only when there was no HTTP answer at all (DNS,
+    TLS, connect): the caller uses it to tell "the proxy moved" from "the
+    proxy said something other than 401".
     """
     if probe is None:
-        return True, None
+        return True, None, False
     try:
-        return True, tuple(probe.list_models(api_key=key))
+        return True, tuple(probe.list_models(api_key=key)), False
     except LiteLLMError as exc:
-        return exc.status_code not in (401, 403), None
+        return exc.status_code not in (401, 403), None, exc.unreachable
 
 
 def _reach_changed(
@@ -1156,6 +1298,7 @@ def _rotate(
     device_name: str = "",
     rotate: bool = False,
     reachable: tuple[str, ...] | None = None,
+    rejected_key: str = "",
 ) -> ProvisionResult:
     """Get this account a working key and wire it in.
 
@@ -1163,7 +1306,9 @@ def _rotate(
     holds this person's key and answers with it. ``rotate`` is the only thing
     that asks for a new one. ``reachable`` is what the proxy just said the key
     reaches, when the caller asked it; it is recorded for the next launch to
-    compare against (see ``_reach_changed``).
+    compare against (see ``_reach_changed``). ``rejected_key`` is a key the
+    proxy just refused with a 401: if the service hands that same key back,
+    it is dead for every device and a replacement is asked for.
     """
     state = read_state(home)
     had_key = bool(state.get("key_alias"))
@@ -1176,6 +1321,22 @@ def _rotate(
                 device_id=device_id, device_name=device_name,
                 rotate=rotate, transport=brain_transport,
             )
+            if rejected_key and not rotate and minted.key == rejected_key:
+                # The proxy refused exactly this key moments ago, and the
+                # service has no other: it was retired upstream by hand, or
+                # the proxy's own store lost it. Collecting it again on every
+                # launch heals nothing — only a replacement does, and every
+                # other device collects that on its next call.
+                logger.warning(
+                    "the proxy rejects the key the second brain holds for %s; "
+                    "asking for a replacement",
+                    alias,
+                )
+                minted, base_url, service_status = _key_from_second_brain(
+                    settings, identity, alias, bearer,
+                    device_id=device_id, device_name=device_name,
+                    rotate=True, transport=brain_transport,
+                )
         elif settings.mode == "broker":
             minted, base_url = _mint_via_broker(
                 settings, identity, alias, bearer, transport=broker_transport
@@ -1230,6 +1391,21 @@ def _rotate(
                 key_alias=alias,
                 base_url=settings.base_url,
             )
+        if exc.status_code == 424:
+            # The service reached LiteLLM and LiteLLM refused: an alias it
+            # already holds, a catalog with nothing grantable, a budget rule.
+            # Nothing was minted and the person keeps whatever key they have,
+            # exactly as with an outage — but this is not one, and the reason
+            # the proxy gave is the one thing an operator needs to see, so it
+            # is reported as an error with that reason rather than as
+            # "offline, try later".
+            return ProvisionResult(
+                status="error",
+                detail=f"the second brain could not issue a key: {exc}",
+                provider=settings.provider_name,
+                key_alias=alias,
+                base_url=settings.base_url,
+            )
         return ProvisionResult(
             status="error",
             detail=str(exc),
@@ -1266,7 +1442,8 @@ def _rotate(
 
     save_provider_env_credential(key_env, minted.key)
 
-    models = minted.models
+    # The picker's list: the chat grant, never the web search model beside it.
+    models = _chat_models(minted.models, minted.web_search_model)
     if reachable is not None and models:
         # `reachable` is what `/v1/models` answered for this very key, moments
         # ago. LiteLLM answers a scoped key with its allowlist verbatim, so
@@ -1308,10 +1485,14 @@ def _rotate(
     if reachable is None:
         reachable = (*models, web_search_model) if web_search_model else tuple(models)
 
+    # What the key actually wears at the proxy — a suffixed label when the
+    # plain one was taken — not what this machine would have called it.
+    worn_alias = minted.key_alias or alias
+
     write_state(
         home,
         {
-            "key_alias": alias,
+            "key_alias": worn_alias,
             "token": minted.token,
             "base_url": base_url,
             "key_env": key_env,
@@ -1351,7 +1532,7 @@ def _rotate(
         status=status,
         detail=detail,
         provider=settings.provider_name,
-        key_alias=alias,
+        key_alias=worn_alias,
         masked_key=minted.masked,
         base_url=base_url,
         models=models,

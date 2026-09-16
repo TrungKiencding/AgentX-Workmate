@@ -75,6 +75,8 @@ import site
 import subprocess
 import sys
 import sysconfig
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -842,6 +844,133 @@ def feature_missing(feature: str) -> tuple[str, ...]:
     return tuple(s for s in feature_specs(feature) if not _is_satisfied(s))
 
 
+# =============================================================================
+# Deferring installs off the turn path
+# =============================================================================
+#
+# A lazy install is a network round trip that can take minutes on a slow or
+# filtered connection, and it has been reached from the middle of a chat turn
+# three times now: a wake-word status probe, a provider adapter imported while
+# the agent was being built, and the TTS availability check. Each time the
+# symptom was the same — the first message on a fresh install "sends" and then
+# nothing happens, for as long as pip takes to give up.
+#
+# The rule that ends the class: while an agent is being built, or a tool's
+# availability is being checked, ``ensure()`` never installs in the calling
+# thread. It starts the install in the background (once per feature, with a
+# cooldown after a failure) and reports the feature unavailable *for now*; the
+# next turn finds it installed. Installs requested while a tool actually runs
+# — the model asked to read a PDF, say — are unaffected, because there the wait
+# is visible as a tool call and the person asked for it.
+
+#: Thread-local flag: set while ``installs_deferred`` is active on this thread.
+_deferral = threading.local()
+
+#: Features whose background install is running, and when a failed one may
+#: be retried. Both guarded by ``_background_lock``.
+_background_in_flight: set[str] = set()
+_background_failed_at: dict[str, float] = {}
+_background_lock = threading.Lock()
+
+#: How long a failed background install waits before it is retried by the
+#: next build that needs the feature. Long enough that a filtered network does
+#: not burn a pip timeout per turn; short enough that plugging the network back
+#: in is noticed within a session.
+_BACKGROUND_RETRY_SECONDS = 600.0
+
+
+class installs_deferred:
+    """Context manager: on this thread, ``ensure()`` installs in the background.
+
+    ``reason`` names the caller in the log line ("agent build", "tool
+    availability check"). Re-entrant: nesting keeps the outermost state.
+    """
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        self._previous: Optional[str] = None
+
+    def __enter__(self) -> "installs_deferred":
+        self._previous = getattr(_deferral, "reason", None)
+        _deferral.reason = self.reason
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        _deferral.reason = self._previous
+
+
+def installs_are_deferred() -> Optional[str]:
+    """The reason installs are deferred on this thread, or None when they are not."""
+    return getattr(_deferral, "reason", None)
+
+
+def _spawn_install_thread(feature: str, missing: tuple[str, ...]) -> None:
+    """Start the background install of *missing* for *feature*. Tests replace this."""
+    thread = threading.Thread(
+        target=_run_background_install,
+        args=(feature, missing),
+        name=f"lazy-install:{feature}",
+        daemon=True,
+    )
+    thread.start()
+
+
+def _run_background_install(feature: str, missing: tuple[str, ...]) -> None:
+    """The background thread's body: one install, its outcome logged, the slot freed."""
+    try:
+        result = _venv_pip_install(missing)
+        if result.success:
+            try:
+                import importlib.metadata as _md
+
+                if hasattr(_md, "_cache_clear"):
+                    _md._cache_clear()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            logger.info("Background lazy install complete for feature %r", feature)
+        else:
+            snippet = (result.stderr or result.stdout or "").strip()[-500:]
+            logger.warning(
+                "Background lazy install failed for feature %r: %s",
+                feature,
+                snippet or "no error output",
+            )
+    except Exception as exc:
+        result = None
+        logger.warning("Background lazy install crashed for feature %r: %s", feature, exc)
+    finally:
+        with _background_lock:
+            _background_in_flight.discard(feature)
+            if result is None or not result.success:
+                _background_failed_at[feature] = time.monotonic()
+
+
+def _schedule_background_install(feature: str, missing: tuple[str, ...]) -> bool:
+    """Start the install of *feature* off this thread, unless one is running
+    or one failed recently. Returns whether a new install was started."""
+    with _background_lock:
+        if feature in _background_in_flight:
+            return False
+        failed_at = _background_failed_at.get(feature)
+        if failed_at is not None and time.monotonic() - failed_at < _BACKGROUND_RETRY_SECONDS:
+            return False
+        _background_in_flight.add(feature)
+        _background_failed_at.pop(feature, None)
+    logger.info(
+        "Lazy install of %s for feature %r deferred to the background (%s)",
+        " ".join(missing),
+        feature,
+        installs_are_deferred() or "deferred",
+    )
+    try:
+        _spawn_install_thread(feature, missing)
+    except Exception:
+        with _background_lock:
+            _background_in_flight.discard(feature)
+        raise
+    return True
+
+
 def ensure(feature: str, *, prompt: bool = True) -> None:
     """Make sure all packages for ``feature`` are importable.
 
@@ -909,6 +1038,18 @@ def ensure(feature: str, *, prompt: bool = True) -> None:
         raise FeatureUnavailable(
             feature, missing,
             "lazy installs disabled (security.allow_lazy_installs=false)"
+        )
+
+    deferred_for = installs_are_deferred()
+    if deferred_for:
+        # Never pip on the turn path. The install proceeds in the background
+        # and the feature reads as unavailable until it lands — which the
+        # next tool-availability check (30 s cache) or the next build sees.
+        _schedule_background_install(feature, missing)
+        raise FeatureUnavailable(
+            feature, missing,
+            f"install deferred to the background during {deferred_for}; "
+            "available on a later turn once it completes"
         )
 
     # Only show the interactive confirmation when we own a TTY and

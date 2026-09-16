@@ -72,6 +72,35 @@ Rotation — `{"rotate": true}`, or `DELETE /v1/devices/{id}?rotate_key=true` �
 is therefore self-healing. Other devices are not broken by it; they collect the
 new key the next time they call.
 
+### What a key is called at the proxy
+
+A key's alias is `second-brain-<name>-<digest>`, e.g.
+`second-brain-letrungkien-8c5f68bd`: the person's name with accents and spaces
+stripped, then the same eight characters of their Keycloak `sub` that end
+their account slug. The digest is not decoration. LiteLLM (1.55 and later)
+refuses to mint a second key under an alias that already exists, and a label
+built from the name alone collided the moment two people's names sanitized to
+the same ASCII — `Hùng` and `Hưng` are both `hung` — which left the second of
+them with no key on any machine. Aliases are labels only; nothing looks a key
+up by one.
+
+Rotation mints the replacement first and retires the old key afterwards, so
+the replacement cannot wear the label the old key still holds: it gets a
+short suffix (`…-8c5f68bd-3f2a`). The same happens when a key nobody stored
+already wears the person's label — a database this service lost, a delete
+that failed halfway. The service steps around it rather than refusing, and
+never deletes it, because it cannot know whose it is.
+
+### When the proxy says no
+
+A refusal from LiteLLM (a budget rule, an alias it will not issue, a catalog
+with nothing grantable) is answered as **`424 litellm_refused`** carrying the
+proxy's own message, not as 502. This matters behind Cloudflare, which
+replaces an origin's 502 with its own error page: the laptop then reported
+"the second brain is overloaded" for what was in fact the proxy saying no,
+and the reason never reached anybody. A proxy that cannot be reached at all
+is still `503 litellm_unavailable`.
+
 ### Auditing what the proxy puts on a new key
 
 Worth doing once, when you first stand this up. A LiteLLM proxy can attach
@@ -125,9 +154,13 @@ background job rather than an outage.
    ```
 
 Drop the old KEK before that query is down to one row and the people still on
-it get `503 key_unreadable` — the service says it cannot open their key rather
-than minting them a new one, so putting the KEK back is all the recovery
-needed.
+it are issued a **replacement key** the next time one of their devices asks:
+the service logs `stored model key cannot be opened … issuing a replacement`
+at ERROR, retires the old key at the proxy by token, and every other device
+of theirs collects the new one on its next call because the proxy stops
+accepting the old. Nobody is locked out, but every affected person's key
+rotates once, so put the previous KEK back as soon as you notice the log
+line — rows still on it then re-wrap instead.
 
 Rotate the KEK if it has been exposed, and on whatever schedule your policy
 says. Rotating it is unrelated to rotating anybody's *model* key, which is
@@ -137,8 +170,10 @@ says. Rotating it is unrelated to rotating anybody's *model* key, which is
 
 The encrypted rows remain and nothing can open them. There is no recovery
 beyond minting everyone a new model key, which is what the service does for
-each person on their next request once their row is deleted. Back the KEK up
-off this host.
+each person on their next request — a row it cannot open is replaced, not
+served, and the old key is retired at the proxy. Back the KEK up off this
+host anyway: the replacement costs every person one rotation, and it costs
+you the ERROR log line per person that says it happened.
 
 ---
 

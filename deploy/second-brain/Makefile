@@ -6,7 +6,7 @@
 COMPOSE ?= docker compose
 SERVICE ?= brain
 # Override when publishing: make image-push IMAGE=you/agentx-second-brain:2026-08-18
-IMAGE ?= letrungkien/agentx-second-brain:latest
+IMAGE ?= trungkienai/agentx-second-brain:latest
 DOCKERFILE ?= deploy/second-brain/Dockerfile
 REPO_ROOT := $(abspath ../..)
 

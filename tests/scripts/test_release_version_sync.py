@@ -8,6 +8,7 @@ and the checked-in tree has to already agree.
 """
 
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -78,6 +79,8 @@ def _lockfile(name: str, version: str, workspaces: dict) -> str:
 def fake_repo(tmp_path: Path) -> Path:
     _write(tmp_path, "hermes_cli/__init__.py",
            '"""pkg"""\n\n__version__ = "0.1.0"\n__release_date__ = "2026.1.1"\n')
+    _write(tmp_path, "second_brain/__init__.py",
+           '"""brain"""\n\nAPI_PREFIX = "/v1"\n__version__ = "0.1.0"\n')
     _write(tmp_path, "pyproject.toml",
            '[project]\nname = "agentx-workmate"\nversion = "0.1.0"\n\n[tool.other]\nversion = "9.9.9"\n')
     for relative in release.JSON_VERSION_MANIFESTS:
@@ -103,6 +106,11 @@ def test_update_version_files_moves_every_manifest_together(fake_repo: Path):
     init = (fake_repo / "hermes_cli/__init__.py").read_text(encoding="utf-8")
     assert '__version__ = "1.2.3"' in init
     assert '__release_date__ = "2026.9.8"' in init
+
+    # The service reports its own __version__ on /health; it has to move too.
+    brain = (fake_repo / "second_brain/__init__.py").read_text(encoding="utf-8")
+    assert '__version__ = "1.2.3"' in brain
+    assert 'API_PREFIX = "/v1"' in brain
 
     pyproject = tomllib.loads((fake_repo / "pyproject.toml").read_text(encoding="utf-8"))
     assert pyproject["project"]["version"] == "1.2.3"
@@ -133,6 +141,7 @@ def test_update_version_files_moves_every_manifest_together(fake_repo: Path):
 
     expected = {
         fake_repo / "hermes_cli/__init__.py",
+        fake_repo / "second_brain/__init__.py",
         fake_repo / "pyproject.toml",
         *(fake_repo / relative for relative in release.JSON_VERSION_MANIFESTS),
         *(fake_repo / relative for relative in release.CARGO_VERSION_MANIFESTS),
@@ -215,6 +224,12 @@ def test_checked_in_manifests_agree_with_the_cli_version():
         for package in tomllib.loads(uv_lock.read_text(encoding="utf-8")).get("package", []):
             if package.get("name") == release.UV_PROJECT_NAME and package.get("version") != expected:
                 mismatched["uv.lock"] = package.get("version")
+
+    brain_init = REPO_ROOT / "second_brain" / "__init__.py"
+    if brain_init.exists():
+        found = re.search(r'__version__\s*=\s*"([^"]+)"', brain_init.read_text(encoding="utf-8"))
+        if found is None or found.group(1) != expected:
+            mismatched["second_brain/__init__.py"] = found.group(1) if found else None
 
     for relative, workspaces in release.NPM_LOCKFILE_WORKSPACES.items():
         path = REPO_ROOT / relative

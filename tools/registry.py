@@ -320,9 +320,16 @@ def _check_fn_cached(fn: Callable) -> bool:
     """
     now = time.monotonic()
     scope = check_fn_cache_scope()
+    # An availability check must never pip: a lazy install reached from here
+    # ran in the middle of a fresh install's first turn and read as a hung
+    # chat. Under this context ``tools.lazy_deps.ensure`` installs in the
+    # background and reports the feature unavailable until it lands.
+    from tools.lazy_deps import installs_deferred
+
     if scope == CHECK_FN_CACHE_BYPASS:
         try:
-            return bool(fn())
+            with installs_deferred("tool availability check"):
+                return bool(fn())
         except Exception:
             logger.warning(
                 "check_fn %s raised while profile cache scope was unresolved; "
@@ -342,7 +349,8 @@ def _check_fn_cached(fn: Callable) -> bool:
 
     raised = False
     try:
-        value = bool(fn())
+        with installs_deferred("tool availability check"):
+            value = bool(fn())
     except Exception:
         value = False
         raised = True

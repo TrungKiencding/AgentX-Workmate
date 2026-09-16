@@ -466,6 +466,7 @@ export const vi: Translations = {
       keyRotate: 'Cấp key mới',
       keyRotateDesc: 'Thu hồi key hiện tại và cấp một key mới. Dùng khi key đã bị lộ.',
       keyRotating: 'Đang cấp…',
+      keyRotateFailed: detail => `Không cấp được key mới: ${detail}`,
       keyModels: n => `Có ${n} model khả dụng`,
       devicesTitle: 'Thiết bị của bạn',
       devicesEmpty: 'Chưa ghi nhận thiết bị nào',

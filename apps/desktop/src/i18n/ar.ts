@@ -425,6 +425,7 @@ export const ar = defineLocale({
       keyRotate: 'إصدار مفتاح جديد',
       keyRotateDesc: 'يسحب المفتاح الحالي ويُصدر مفتاحًا جديدًا. استخدمه إذا تسرّب المفتاح.',
       keyRotating: 'جارٍ الإصدار…',
+      keyRotateFailed: detail => `تعذّر إصدار مفتاح جديد: ${detail}`,
       keyModels: n => `${n} نموذج متاح`,
       devicesTitle: 'أجهزتك',
       devicesEmpty: 'لم تُسجَّل أي أجهزة بعد',

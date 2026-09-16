@@ -232,10 +232,15 @@ class TestAccountSlugDerivation:
 
 class TestLitellmKeyAlias:
     def test_vietnamese_display_name_becomes_ascii_username(self):
+        import hashlib
+
         assert litellm_key_alias_label(display_name="Lê Trung Kiên") == "letrungkien"
+        # The readable half, then the same subject digest the account slug
+        # ends in — what keeps `Hùng` and `Hưng` from wearing one alias.
+        digest = hashlib.sha256(b"sub-1").hexdigest()[:8]
         assert litellm_key_alias_for_identity(
             "second-brain", subject="sub-1", display_name="Lê Trung Kiên"
-        ) == "second-brain-letrungkien"
+        ) == f"second-brain-letrungkien-{digest}"
 
     def test_username_beats_display_name(self):
         assert litellm_key_alias_label(username="kien", display_name="Kien Le") == "kien"
