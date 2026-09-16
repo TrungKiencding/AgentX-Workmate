@@ -1525,6 +1525,115 @@ def test_load_pool_gh_cli_suppression_does_not_block_env_tokens(tmp_path, monkey
     assert [e.source for e in pool.entries()] == ["env:GH_TOKEN"]
 
 
+def test_copilot_exchange_deferred_when_provider_not_configured(tmp_path, monkeypatch):
+    """No configured Copilot provider + no cached JWT → seed the raw token,
+    never the network exchange.
+
+    Pool loads run inside the deferred agent build (provider discovery,
+    auxiliary autodetect, credential status), so for a user whose gh CLI is
+    logged in but who never picked Copilot, the exchange (3x10s retries +
+    backoff when the endpoint hangs) used to be able to stall the first
+    message of a session.
+    """
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    _write_auth_store(tmp_path, {"version": 1, "credential_pool": {}})
+
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.resolve_copilot_token",
+        lambda: ("gho_fake_token_abc123", "gh auth token"),
+    )
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.peek_cached_exchanged_token",
+        lambda token: None,
+    )
+    monkeypatch.setattr(
+        "hermes_cli.auth.is_provider_explicitly_configured",
+        lambda pid: False,
+    )
+
+    def _boom(token):
+        raise AssertionError("token exchange must not run when Copilot is not configured")
+
+    monkeypatch.setattr("hermes_cli.copilot_auth.get_copilot_api_token", _boom)
+
+    from agent.credential_pool import load_pool
+    pool = load_pool("copilot")
+
+    entries = pool.entries()
+    assert len(entries) == 1
+    assert entries[0].access_token == "gho_fake_token_abc123"
+    assert entries[0].base_url == "https://api.githubcopilot.com"
+
+
+def test_copilot_deferred_exchange_reuses_cached_jwt_without_network(tmp_path, monkeypatch):
+    """A still-fresh cached exchanged JWT is used even when Copilot isn't the
+    configured provider — both cache tiers are local reads, no network."""
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    _write_auth_store(tmp_path, {"version": 1, "credential_pool": {}})
+
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.resolve_copilot_token",
+        lambda: ("gho_fake_token_abc123", "gh auth token"),
+    )
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.peek_cached_exchanged_token",
+        lambda token: ("capi_cached_jwt", "https://api.enterprise.example"),
+    )
+    monkeypatch.setattr(
+        "hermes_cli.auth.is_provider_explicitly_configured",
+        lambda pid: False,
+    )
+
+    def _boom(token):
+        raise AssertionError("cached JWT present — the exchange must not run")
+
+    monkeypatch.setattr("hermes_cli.copilot_auth.get_copilot_api_token", _boom)
+
+    from agent.credential_pool import load_pool
+    pool = load_pool("copilot")
+
+    entries = pool.entries()
+    assert len(entries) == 1
+    assert entries[0].access_token == "capi_cached_jwt"
+    assert entries[0].base_url == "https://api.enterprise.example"
+
+
+def test_copilot_exchange_runs_when_provider_explicitly_configured(tmp_path, monkeypatch):
+    """With Copilot explicitly configured, the exchange path is unchanged."""
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path / "agentx"))
+    _write_auth_store(tmp_path, {"version": 1, "credential_pool": {}})
+
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.resolve_copilot_token",
+        lambda: ("gho_fake_token_abc123", "gh auth token"),
+    )
+    monkeypatch.setattr(
+        "hermes_cli.copilot_auth.peek_cached_exchanged_token",
+        lambda token: None,
+    )
+    monkeypatch.setattr(
+        "hermes_cli.auth.is_provider_explicitly_configured",
+        lambda pid: pid == "copilot",
+    )
+
+    exchanged = {"n": 0}
+
+    def _exchange(token):
+        exchanged["n"] += 1
+        return "capi_exchanged_token", "https://api.enterprise.example"
+
+    monkeypatch.setattr("hermes_cli.copilot_auth.get_copilot_api_token", _exchange)
+
+    from agent.credential_pool import load_pool
+    pool = load_pool("copilot")
+
+    assert exchanged["n"] == 1
+    entries = pool.entries()
+    assert len(entries) == 1
+    assert entries[0].access_token == "capi_exchanged_token"
+    assert entries[0].base_url == "https://api.enterprise.example"
+
+
 def test_load_pool_skips_resolve_when_all_copilot_sources_suppressed(tmp_path, monkeypatch):
     """With every copilot source suppressed, resolve_copilot_token (which
     shells out to ``gh auth token``) must not run at all."""

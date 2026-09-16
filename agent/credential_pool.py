@@ -2642,6 +2642,29 @@ def _normalize_pool_priorities(provider: str, entries: List[PooledCredential]) -
     return changed
 
 
+def _copilot_explicitly_configured() -> bool:
+    """True when the user has explicitly configured GitHub Copilot as a provider.
+
+    Wraps ``is_provider_explicitly_configured`` over Copilot's accepted
+    aliases (config.yaml may hold the alias the user typed, not the canonical
+    slug). Fails OPEN (True) when the check itself is unavailable, so an
+    import problem degrades to today's always-exchange behavior rather than
+    silently disabling the exchange for real Copilot users.
+    """
+    try:
+        from hermes_cli.auth import is_provider_explicitly_configured
+    except ImportError:
+        return True
+    for provider_id in ("copilot", "github", "github-copilot", "github-model", "github-models"):
+        try:
+            if is_provider_explicitly_configured(provider_id):
+                return True
+        except Exception:
+            # A broken alias lookup must not veto the canonical one.
+            continue
+    return False
+
+
 def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tuple[bool, Set[str]]:
     changed = False
     active_sources: Set[str] = set()
@@ -2803,6 +2826,7 @@ def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tup
                 COPILOT_ENV_VARS,
                 resolve_copilot_token,
                 get_copilot_api_token,
+                peek_cached_exchanged_token,
             )
             # All-sources suppression gate BEFORE any work — including the
             # `gh auth token` subprocess spawn.  resolve_copilot_token()
@@ -2834,21 +2858,42 @@ def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tup
                 # singleton branch uses.
                 if _is_suppressed(provider, source_name):
                     return changed, active_sources
-                api_token, enterprise_base_url = get_copilot_api_token(token)
-                # Observability: get_copilot_api_token falls back to returning
-                # the RAW token when the exchange fails. A raw ~40-char token
-                # sent to the Copilot API is routed to the fallback
-                # "copilot-language-server" integrator, whose allowlist omits
-                # enterprise-only models (claude-opus-4.8) → HTTP 400 on every
-                # turn. exchange_copilot_token now retries + reuses a persisted
-                # JWT, so this should be rare; surface it at WARNING so a
-                # recurrence is visible in logs instead of failing silently.
-                if api_token == token and not enterprise_base_url:
-                    logger.warning(
-                        "Copilot token exchange degraded to RAW token (exchange "
-                        "unavailable); enterprise-only models may 400 with "
-                        "model_not_available_for_integrator until exchange recovers."
-                    )
+                # The token exchange is a network round-trip (3x10s retries +
+                # backoff when the endpoint hangs), and pool loads run inside
+                # the deferred agent build and on every provider-discovery
+                # scan (model picker, auxiliary autodetect, credential
+                # status). A user whose gh CLI happens to be logged in but who
+                # never configured Copilot must not pay for — or have their
+                # first message stalled by — an exchange they'll never use.
+                # Gate it the way the anthropic branch gates auto-discovery:
+                # exchange only when Copilot is explicitly configured, else
+                # reuse a still-fresh cached JWT (both tiers, no network), and
+                # otherwise seed the raw token unexchanged. Switching the
+                # session to Copilot reloads the pool with the provider
+                # explicitly configured, which restores the full exchange.
+                cached_exchange = peek_cached_exchanged_token(token)
+                if cached_exchange is not None:
+                    api_token, enterprise_base_url = cached_exchange
+                elif not _copilot_explicitly_configured():
+                    api_token, enterprise_base_url = token, None
+                else:
+                    api_token, enterprise_base_url = get_copilot_api_token(token)
+                    # Observability: get_copilot_api_token falls back to
+                    # returning the RAW token when the exchange fails. A raw
+                    # ~40-char token sent to the Copilot API is routed to the
+                    # fallback "copilot-language-server" integrator, whose
+                    # allowlist omits enterprise-only models
+                    # (claude-opus-4.8) → HTTP 400 on every turn.
+                    # exchange_copilot_token retries + reuses a persisted JWT,
+                    # so this should be rare; surface it at WARNING so a
+                    # recurrence is visible in logs instead of failing
+                    # silently.
+                    if api_token == token and not enterprise_base_url:
+                        logger.warning(
+                            "Copilot token exchange degraded to RAW token (exchange "
+                            "unavailable); enterprise-only models may 400 with "
+                            "model_not_available_for_integrator until exchange recovers."
+                        )
                 active_sources.add(source_name)
                 pconfig = PROVIDER_REGISTRY.get(provider)
                 # Use enterprise base URL from token exchange if available,

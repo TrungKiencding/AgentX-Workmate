@@ -10397,6 +10397,83 @@ def test_slow_agent_build_emits_keyed_progress_notice(monkeypatch):
         server._sessions.pop("sid", None)
 
 
+def test_cancelled_wait_clears_slow_build_notice(monkeypatch):
+    """A cancel that lands mid-build must retire the slow-build notice on its
+    way out. The notice is sticky (ttl_ms=None) and the desktop keys its
+    localized "starting the assistant" transcript line off the matching
+    notification.clear — the cancel/timeout/dead-build exits used to return
+    without clearing, leaving both up forever."""
+    threads = []
+    emitted = []
+    calls = {"run_prompt": 0}
+
+    class _FakeThread:
+        def __init__(self, target=None, daemon=None):
+            self.target = target
+            threads.append(self)
+
+        def start(self):
+            return None
+
+        def is_alive(self):
+            return True
+
+    ready = threading.Event()
+    session = _session(agent_ready=ready)
+    session["agent"] = None
+    server._sessions["sid"] = session
+
+    slices = {"n": 0}
+
+    class _NeverReady:
+        def wait(self, timeout=None):
+            slices["n"] += 1
+            if slices["n"] >= 2:
+                # Cancel arrives after the slow notice went out.
+                session["_turn_cancel_requested"] = True
+            return False
+
+        def is_set(self):
+            return False
+
+    session["agent_ready"] = _NeverReady()
+
+    try:
+        monkeypatch.setattr(server.threading, "Thread", _FakeThread)
+        monkeypatch.setattr(server, "_AGENT_BUILD_SLOW_NOTICE_AFTER", 0.0)
+        monkeypatch.setattr(server, "_emit", lambda *args, **kwargs: emitted.append(args))
+        monkeypatch.setattr(server, "_ensure_session_db_row", lambda session: None)
+        monkeypatch.setattr(server, "_persist_branch_seed", lambda session: None)
+        monkeypatch.setattr(server, "_start_agent_build", lambda sid, session: None)
+        monkeypatch.setattr(
+            server,
+            "_run_prompt_submit",
+            lambda *args, **kwargs: calls.__setitem__(
+                "run_prompt", calls["run_prompt"] + 1
+            ),
+        )
+
+        submit = server.handle_request(
+            {
+                "id": "1",
+                "method": "prompt.submit",
+                "params": {"session_id": "sid", "text": "first message"},
+            }
+        )
+        assert submit.get("result"), f"got error: {submit.get('error')}"
+
+        threads[0].target()
+
+        # Cancelled before the agent was ready — the prompt never ran.
+        assert calls["run_prompt"] == 0
+        shows = [e for e in emitted if e and e[0] == "notification.show" and e[1] == "sid"]
+        clears = [e for e in emitted if e and e[0] == "notification.clear" and e[1] == "sid"]
+        assert len(shows) == 1, f"expected one slow-build notice, got: {shows}"
+        assert len(clears) == 1 and clears[0][2].get("key") == server._AGENT_BUILD_SLOW_NOTICE_KEY
+    finally:
+        server._sessions.pop("sid", None)
+
+
 def test_agent_build_failure_surfaces_error_and_drops_turn(monkeypatch):
     """When the build itself FAILS (agent_error set when ready fires), the
     prompt must not run and the failure must reach the client as a visible

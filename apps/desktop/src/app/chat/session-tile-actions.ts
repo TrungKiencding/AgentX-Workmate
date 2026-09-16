@@ -219,7 +219,8 @@ export function useSessionTileActions({ runtimeId, scope, storedSessionId }: Ses
       // the primary view atoms must never see a tile turn.
       setAwaitingResponse: () => undefined,
       setBusy: () => undefined,
-      setMessages: () => undefined
+      setMessages: () => undefined,
+      setTurnStartedAt: () => undefined
     }
   })
 

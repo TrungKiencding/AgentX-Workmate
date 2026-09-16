@@ -92,18 +92,32 @@ export function rehydrateLiveSessionStatuses(
 
     const existing = $sessionStates.get()[runtimeSessionId]
 
+    // "starting" is the deferred agent build. With a submit already seeded
+    // (busy + awaitingResponse, no assistant payload yet), the message is
+    // queued behind that build server-side — a live turn from the user's
+    // perspective, though the snapshot won't say "working" until the build
+    // lands. Writing busy:false here blanked the transcript's waiting
+    // indicator for the whole build (the "sent a message and nothing
+    // happened" report; same guard as session.info's running:false edge).
+    // A "starting" session with no queued submit (open-chat pre-warm) keeps
+    // idle exactly as before.
+    const keepSubmitSeededBusy =
+      session.status === 'starting' && !!existing?.busy && existing.awaitingResponse && !existing.sawAssistantPayload
+
+    const busy = working || keepSubmitSeededBusy
+
     // Avoid re-arming the watchdog on every poll. Publish only when the
     // authoritative live snapshot differs from the renderer mirror; normal
     // gateway events continue to own subsequent transitions.
     if (
       !existing ||
       existing.storedSessionId !== storedSessionId ||
-      existing.busy !== working ||
+      existing.busy !== busy ||
       existing.needsInput !== needsInput
     ) {
       publishSessionState(runtimeSessionId, {
         ...(existing ?? createClientSessionState(storedSessionId)),
-        busy: working,
+        busy,
         needsInput,
         storedSessionId
       })

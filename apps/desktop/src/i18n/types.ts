@@ -2845,6 +2845,9 @@ export interface Translations {
       loadingResponse: string
       resumeWhenBackgroundDone: (count: number) => string
       thinking: string
+      /** Waiting label while the backend is still building the session's agent
+       *  (keyed off the gateway's `agent-build-slow` notice). */
+      startingAgent: string
       thought: string
       thoughtBriefly: string
       thoughtFor: (duration: string) => string

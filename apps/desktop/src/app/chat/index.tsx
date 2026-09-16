@@ -64,7 +64,6 @@ import { useRuntimeMessageRepository } from './runtime-repository'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { useSessionView } from './session-view'
 import { SessionActionsMenu } from './sidebar/session-actions-menu'
-import { threadLoadingState } from './thread-loading'
 import { selectTranscriptWindow } from './transcript-window'
 
 interface ChatViewProps extends Omit<React.ComponentProps<'div'>, 'onSubmit'> {
@@ -343,7 +342,6 @@ export const ChatView = memo(function ChatView({
   // ChatRuntimeBoundary below; this component only needs streaming-stable
   // derivations.
   const messagesEmpty = useStore(view.$messagesEmpty)
-  const lastVisibleIsUser = useStore(view.$lastVisibleIsUser)
   const selectedSessionId = useStore(view.$storedId)
   const sessions = useStore($sessions)
   const resumeExhaustedSessionId = useStore($resumeExhaustedSessionId)
@@ -412,7 +410,8 @@ export const ChatView = memo(function ChatView({
   // resumed yet. Once `activeSessionId` is set (runtime has resumed), the
   // session exists — even if it has zero messages (a brand-new routed
   // session). The flicker where `busy` flips true briefly during hydrate
-  // is handled by `threadLoadingState`'s last-visible-user gate.
+  // only synthesizes a placeholder under the last user message, so it
+  // cannot put a spinner beneath someone else's reply.
   //
   // resumeExhausted: the bounded auto-retry in use-route-resume gave up on this
   // routed session (gateway RPC + REST fallback failed through every attempt).
@@ -444,7 +443,6 @@ export const ChatView = memo(function ChatView({
 
   const showIntro = isPrimary && !isSecondaryWindow() && messagesEmpty && (freshDraftEmpty || routedChatEmpty)
 
-  const threadLoading = threadLoadingState(loadingSession, busy, awaitingResponse, lastVisibleIsUser)
   // Hide the composer in the exhausted error state too: there's no live runtime
   // to send to until a retry rebinds one. Watch windows are pure spectators of a
   // subagent run driven elsewhere — no composer, transcript is read-only.
@@ -577,7 +575,7 @@ export const ChatView = memo(function ChatView({
                 ? { onResumeSession: resumeFromIntro, personality: introPersonality, seed: introSeed }
                 : undefined
             }
-            loading={threadLoading}
+            loading={loadingSession ? 'session' : undefined}
             onBranchInNewChat={onBranchInNewChat}
             onCancel={haltRun}
             onDismissError={onDismissError}

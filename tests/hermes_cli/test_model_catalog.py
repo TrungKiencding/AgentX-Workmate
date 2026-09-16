@@ -71,11 +71,23 @@ class TestValidation:
         assert _validate_manifest(m) is False
 
 
+def _config_with_url(url: str = "https://catalog.example.com/model-catalog.json") -> dict:
+    """A catalog config block with an operator-supplied manifest URL.
+
+    ``get_catalog`` only touches the network when a URL is configured — the
+    empty default means "no fetch" (see DEFAULT_CATALOG_URL) — so fetch-path
+    tests must opt into one explicitly.
+    """
+    return {"enabled": True, "url": url, "ttl_hours": 1.0, "providers": {}}
+
+
 class TestFetchSuccess:
     def test_fetch_and_cache_writes_disk(self, isolated_home):
         from hermes_cli import model_catalog
         manifest = _valid_manifest()
         with patch.object(
+            model_catalog, "_load_catalog_config", return_value=_config_with_url()
+        ), patch.object(
             model_catalog, "_fetch_manifest", return_value=manifest
         ) as fetch:
             result = model_catalog.get_catalog(force_refresh=True)
@@ -113,13 +125,16 @@ class TestFetchFailure:
         from hermes_cli import model_catalog
         # Prime disk cache with a fresh copy.
         manifest = _valid_manifest()
-        with patch.object(model_catalog, "_fetch_manifest", return_value=manifest):
-            model_catalog.get_catalog(force_refresh=True)
+        with patch.object(
+            model_catalog, "_load_catalog_config", return_value=_config_with_url()
+        ):
+            with patch.object(model_catalog, "_fetch_manifest", return_value=manifest):
+                model_catalog.get_catalog(force_refresh=True)
 
-        # Now wipe in-process cache and simulate network failure on refetch.
-        model_catalog.reset_cache()
-        with patch.object(model_catalog, "_fetch_manifest", return_value=None):
-            result = model_catalog.get_catalog(force_refresh=True)
+            # Now wipe in-process cache and simulate network failure on refetch.
+            model_catalog.reset_cache()
+            with patch.object(model_catalog, "_fetch_manifest", return_value=None):
+                result = model_catalog.get_catalog(force_refresh=True)
 
         assert result == manifest
 
@@ -140,6 +155,75 @@ class TestFetchFailure:
 
         # Stale cache is better than nothing.
         assert result == manifest
+
+
+class TestEmptyUrlNeverFetches:
+    """With no catalog URL configured (the shipped default), ``get_catalog``
+    must never touch the network. Regression: the TTL/SWR branches used to run
+    with ``url=""`` — once the seeded cache aged past ``ttl_hours``, every call
+    spawned a refresh thread that died on ``urlopen("")`` ("unknown url type:
+    ''"), spamming an INFO log per agent build / picker open, forever.
+    """
+
+    def _write_stale_cache(self, model_catalog, manifest, age_seconds=30 * 24 * 3600):
+        cache = model_catalog._cache_path()
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        with open(cache, "w") as fh:
+            json.dump(manifest, fh)
+        old = time.time() - age_seconds
+        os.utime(cache, (old, old))
+
+    def test_stale_cache_is_served_without_fetch_or_swr(self, isolated_home):
+        from hermes_cli import model_catalog
+        manifest = _valid_manifest()
+        self._write_stale_cache(model_catalog, manifest)
+
+        with patch.object(
+            model_catalog, "_fetch_manifest",
+            side_effect=AssertionError("network fetch with empty catalog URL"),
+        ), patch.object(model_catalog, "_spawn_catalog_swr_refresh") as swr:
+            result = model_catalog.get_catalog()
+
+        assert result == manifest
+        swr.assert_not_called()
+
+    def test_force_refresh_reseeds_from_installed_tree_not_network(self, isolated_home):
+        from hermes_cli import model_catalog
+        manifest = _valid_manifest()
+        self._write_stale_cache(model_catalog, manifest)
+
+        def reseed():
+            # Simulate `agentx update` shipping a newer manifest.
+            newer = _valid_manifest()
+            newer["metadata"]["source"] = "reseeded"
+            model_catalog._write_disk_cache(newer)
+            model_catalog.reset_cache()
+            return True
+
+        with patch.object(
+            model_catalog, "_fetch_manifest",
+            side_effect=AssertionError("network fetch with empty catalog URL"),
+        ), patch.object(
+            model_catalog, "_seed_from_installed_tree", side_effect=reseed
+        ) as seed:
+            result = model_catalog.get_catalog(force_refresh=True)
+
+        seed.assert_called_once()
+        assert result["metadata"]["source"] == "reseeded"
+
+    def test_fallback_walker_skips_empty_primary_url(self, isolated_home):
+        from hermes_cli import model_catalog
+        calls: list[str] = []
+
+        def fake_fetch(url, timeout):
+            calls.append(url)
+            return None
+
+        with patch.object(model_catalog, "_fetch_manifest", side_effect=fake_fetch):
+            result = model_catalog._fetch_manifest_with_fallback("", 5.0, ())
+
+        assert result is None
+        assert calls == [], "urlopen('') raises; an empty primary must be skipped"
 
 
 class TestFallbackChain:

@@ -13,6 +13,7 @@ import { Loader } from '@/components/ui/loader'
 import { StatusPulse } from '@/components/ui/status-pulse'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { sessionAgentStarting } from '@/store/agent-starting'
 import { $backgroundResume } from '@/store/background-delegation'
 import { sessionCompacting } from '@/store/compaction'
 import { sessionAwaitingInput } from '@/store/prompts'
@@ -131,9 +132,17 @@ export const CenteredThreadSpinner: FC = () => {
 
 export const ResponseLoadingIndicator: FC = () => {
   const { t } = useI18n()
+  const sessionId = useStore(useSessionView().$runtimeId)
   const { compacting, drafting, turnTimerKey } = useThreadSessionStatus()
   const elapsed = useElapsedSeconds(true, turnTimerKey)
-  const hint = useStatusHint(compacting, drafting)
+  // While the gateway reports this session's deferred agent build is still
+  // running with the message queued behind it (the keyed `agent-build-slow`
+  // notice → `sessionAgentStarting`), name that wait instead of "thinking".
+  // It outranks the tool hints: there is no turn yet, so a drafting or
+  // compaction hint cannot be real in that window.
+  const agentStarting = useStore(useMemo(() => sessionAgentStarting(sessionId), [sessionId]))
+  const internalHint = useStatusHint(compacting, drafting)
+  const hint = agentStarting ? t.assistant.thread.startingAgent : internalHint
 
   return (
     <StatusRow data-slot="aui_response-loading" label={hint || t.assistant.thread.loadingResponse}>

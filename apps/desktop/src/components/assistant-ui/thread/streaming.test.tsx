@@ -324,7 +324,7 @@ function StreamingHarness({ onControls }: { onControls?: (controls: StreamingCon
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <Thread loading={isRunning && messages.at(-1)?.role !== 'assistant' ? 'response' : undefined} />
+      <Thread />
     </AssistantRuntimeProvider>
   )
 }
