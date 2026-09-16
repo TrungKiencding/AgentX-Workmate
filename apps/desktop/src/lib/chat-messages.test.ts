@@ -17,6 +17,54 @@ import {
 } from './chat-messages'
 
 describe('toChatMessages', () => {
+  it('rehydrates the files a turn produced from the reply row metadata', () => {
+    const messages = toChatMessages([
+      { role: 'user', content: 'make a report', timestamp: 1 },
+      {
+        role: 'assistant',
+        content: 'Done.',
+        timestamp: 2,
+        display_metadata: {
+          files_created: [{ path: '/tmp/report.docx', name: 'report.docx', size_bytes: 12, mime_type: 'x/y' }]
+        }
+      }
+    ])
+
+    expect(messages[1].createdFiles).toEqual([
+      { mimeType: 'x/y', modifiedMs: undefined, name: 'report.docx', path: '/tmp/report.docx', sizeBytes: 12 }
+    ])
+  })
+
+  it('keeps created files when their row folds into an earlier bubble', () => {
+    const messages = toChatMessages([
+      { role: 'assistant', content: 'Working.', timestamp: 1 },
+      {
+        role: 'assistant',
+        content: '',
+        timestamp: 2,
+        tool_calls: [{ id: 'tc', function: { name: 'terminal', arguments: '{}' } }]
+      },
+      {
+        role: 'assistant',
+        content: 'Here it is.',
+        timestamp: 3,
+        display_metadata: JSON.stringify({ files_created: [{ path: '/tmp/a.pdf' }] })
+      }
+    ])
+
+    expect(messages).toHaveLength(1)
+    expect(messages[0].createdFiles?.map(file => file.path)).toEqual(['/tmp/a.pdf'])
+  })
+
+  it('ignores metadata without files and non-assistant rows', () => {
+    const messages = toChatMessages([
+      { role: 'user', content: 'hi', timestamp: 1, display_metadata: { files_created: [{ path: '/tmp/x.pdf' }] } },
+      { role: 'assistant', content: 'yo', timestamp: 2, display_metadata: { reactions: [] } }
+    ])
+
+    expect(messages.every(message => message.createdFiles === undefined)).toBe(true)
+  })
+
   it('keeps a turn with interleaved tool-only rows in a single bubble', () => {
     const messages = toChatMessages([
       { role: 'assistant', content: 'Planning.', timestamp: 1 },

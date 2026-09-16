@@ -1,5 +1,6 @@
 import { normalizeMathDelimiters } from '@assistant-ui/react-streamdown'
 
+import { linkifyDeliverablePaths } from '@/lib/deliverables'
 import { isLikelyProseFence, sanitizeLanguageTag } from '@/lib/markdown-code'
 import { stripPreviewTargets } from '@/lib/preview-targets'
 import { linkifySessionRefs } from '@/lib/session-refs'
@@ -144,15 +145,21 @@ function autoLinkRawUrls(text: string): string {
   })
 }
 
+// Prose only — inline code is split out here, fenced code by the caller. A
+// bare deliverable path ("saved to /tmp/report.docx") becomes a file chip;
+// URLs are auto-linked first so a path-shaped URL tail is already a link and
+// the path pass leaves it alone.
 function normalizeVisibleProse(text: string): string {
   return text
     .split(INLINE_CODE_SPLIT_RE)
     .map(part =>
       part.startsWith('`')
         ? part
-        : linkifySessionRefs(
-            autoLinkRawUrls(
-              part.replace(/`{3,}/g, '').replace(LOCAL_PREVIEW_URL_RE, '$1').replace(CITATION_MARKER_RE, '')
+        : linkifyDeliverablePaths(
+            linkifySessionRefs(
+              autoLinkRawUrls(
+                part.replace(/`{3,}/g, '').replace(LOCAL_PREVIEW_URL_RE, '$1').replace(CITATION_MARKER_RE, '')
+              )
             )
           )
     )

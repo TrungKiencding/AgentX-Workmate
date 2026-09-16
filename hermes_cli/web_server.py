@@ -2093,6 +2093,13 @@ _FS_MIME_TYPES = {
     ".wav": "audio/wav",
     ".webm": "video/webm",
     ".webp": "image/webp",
+    ".csv": "text/csv",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".zip": "application/zip",
 }
 
 
@@ -2896,6 +2903,40 @@ async def fs_read_data_url(path: str):
     except OSError as exc:
         raise HTTPException(status_code=400, detail=str(exc) or "File read failed")
     return {"dataUrl": f"data:{_fs_mime_type(target)};base64,{encoded}"}
+
+
+@app.get("/api/fs/stat")
+async def fs_stat(path: str):
+    """File identity for a desktop file card over a remote gateway.
+
+    Mirrors Electron's ``agentx:fs:stat``: a missing file is a normal answer
+    (``exists: false``), so the card can say "not found" instead of failing.
+    """
+    target = _fs_path(path)
+    mime_type = _fs_mime_type(target)
+    try:
+        st = target.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return {
+            "byteSize": 0,
+            "exists": False,
+            "isFile": False,
+            "mimeType": mime_type,
+            "modifiedMs": 0,
+            "path": str(target),
+        }
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="File is not readable")
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Invalid path")
+    return {
+        "byteSize": st.st_size,
+        "exists": True,
+        "isFile": stat.S_ISREG(st.st_mode),
+        "mimeType": mime_type,
+        "modifiedMs": st.st_mtime * 1000,
+        "path": str(target),
+    }
 
 
 @app.get("/api/fs/git-root")

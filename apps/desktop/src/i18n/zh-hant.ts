@@ -2156,6 +2156,30 @@ export const zhHant = defineLocale({
     open: '開啟'
   },
 
+  fileCard: {
+    open: '開啟',
+    download: '下載',
+    downloadFailed: '無法儲存檔案',
+    saved: name => `已儲存 ${name}`,
+    openWith: '用應用程式開啟',
+    quickLook: '快速查看',
+    missing: '找不到檔案',
+    missingBody: '檔案已被移動或刪除。',
+    kinds: {
+      document: '文件',
+      spreadsheet: '試算表',
+      presentation: '簡報',
+      pdf: 'PDF',
+      archive: '壓縮檔',
+      image: '圖片',
+      audio: '音訊',
+      video: '影片',
+      data: '資料',
+      text: '文字',
+      file: '檔案'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `第 ${current}/${total} 版`,
     olderVersion: '較舊版本',
@@ -2916,7 +2940,8 @@ export const zhHant = defineLocale({
       signedIn: 'WebMate 已登入。',
       signedInAs: email => `WebMate 已以 ${email} 登入。`,
       opened: 'AgentX 登入頁面已在裝有 WebMate 的瀏覽器中開啟。請在那裡完成登入，Workmate 會自動察覺。',
-      loginRequired: '該瀏覽器還沒有可重複使用的 AgentX 工作階段。請從該瀏覽器登入一次 Workmate，或點選「登入 WebMate」。',
+      loginRequired:
+        '該瀏覽器還沒有可重複使用的 AgentX 工作階段。請從該瀏覽器登入一次 Workmate，或點選「登入 WebMate」。',
       unsupported: '這個 WebMate 無法從這裡登入。請在瀏覽器開啟 WebMate 並在那裡登入。',
       notConnected: 'WebMate 未連線，沒有可登入的對象。',
       noAnswer: 'WebMate 未及時回應。',
@@ -3163,6 +3188,13 @@ export const zhHant = defineLocale({
     diskChangedBody: '此檔案自開啟以來已變更。用你的版本覆寫，還是放棄你的編輯並重新載入？',
     overwrite: '覆寫',
     discardReload: '放棄並重新載入',
+    documentLoading: '正在開啟文件',
+    documentFailedTitle: '無法開啟此文件',
+    documentFailedBody: message => `無法讀取內容：${message}`,
+    documentUnsupportedTitle: '尚不支援預覽此檔案類型',
+    documentUnsupportedBody: '用本機應用程式開啟，或下載後檢視。',
+    sheetTruncated: rows => `僅顯示前 ${rows} 列。`,
+    sheetEmpty: '空白工作表',
     console: {
       deselect: '取消選取項目',
       select: '選取項目',
@@ -3330,6 +3362,7 @@ export const zhHant = defineLocale({
       dismissError: '关闭错误',
       filesChanged: count => `${count} 個檔案已變更`,
       reviewChanges: '檢視',
+      createdFiles: count => `本輪已建立 ${count} 個檔案`,
       readAloudFailed: '朗讀失敗',
       preparingAudio: '正在準備音訊...',
       stopReading: '停止朗讀',
@@ -3435,6 +3468,7 @@ export const zhHant = defineLocale({
         browser_type: { done: '已在頁面輸入', pending: '正在頁面輸入', pendingAction: '正在輸入' },
         clarify: { done: '已提問', pending: '正在提問', pendingAction: '正在提問' },
         cronjob: { done: 'Cron 工作', pending: '正在安排 Cron 工作', pendingAction: '正在安排' },
+        deliver_file: { done: '已傳送檔案', pending: '正在傳送檔案', pendingAction: '正在傳送' },
         edit_file: { done: '已編輯檔案', pending: '正在編輯檔案', pendingAction: '正在編輯' },
         execute_code: { done: '已執行程式碼', pending: '正在撰寫腳本', pendingAction: '正在撰寫腳本' },
         image_generate: { done: '已生成圖片', pending: '正在生成圖片', pendingAction: '正在生成' },

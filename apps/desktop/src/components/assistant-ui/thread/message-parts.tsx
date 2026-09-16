@@ -12,9 +12,11 @@ import { DelegateTool } from '@/components/assistant-ui/tool/delegate'
 import { ToolFallback, ToolGroupSlot } from '@/components/assistant-ui/tool/fallback'
 import { formatElapsed, useElapsedSeconds, useMeasuredDuration } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
+import { FileCard } from '@/components/chat/file-card'
 import { GeneratedImage } from '@/components/chat/generated-image-result'
 import { SCAFFOLD_LABEL_CLASS, SCAFFOLD_META_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
 import { useI18n } from '@/i18n'
+import { deliveredFileFromResult } from '@/lib/delivered-file'
 import { generatedImageFromResult } from '@/lib/generated-images'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
@@ -35,6 +37,19 @@ const ImageGenerateTool: FC<ToolCallMessagePartProps> = props => {
       <GeneratedImage aspectRatio={aspectRatio} result={result} />
     </div>
   )
+}
+
+// `deliver_file` is the agent handing a produced file over. A successful call
+// owns the file card; a pending or failed one keeps the normal tool row so
+// the error text stays readable and debuggable.
+const DeliverFileTool: FC<ToolCallMessagePartProps> = props => {
+  const file = props.result === undefined ? null : deliveredFileFromResult(props.result)
+
+  if (!file) {
+    return <ToolFallback {...props} />
+  }
+
+  return <FileCard file={file} />
 }
 
 const DelegateToolPart: FC<ToolCallMessagePartProps> = props => {
@@ -66,6 +81,10 @@ const ChainToolFallback: FC<ToolCallMessagePartProps> = props => {
 
   if (props.toolName === 'image_generate') {
     return <ImageGenerateTool {...props} />
+  }
+
+  if (props.toolName === 'deliver_file') {
+    return <DeliverFileTool {...props} />
   }
 
   if (props.toolName === 'clarify') {

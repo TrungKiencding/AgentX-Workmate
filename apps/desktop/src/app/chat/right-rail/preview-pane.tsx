@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SetTitlebarToolGroup, TitlebarTool } from '@/app/shell/titlebar-controls'
 import { Tip } from '@/components/ui/tooltip'
 import { type Translations, useI18n } from '@/i18n'
-import { isDesktopFsRemoteMode } from '@/lib/desktop-fs'
+import { isDesktopFsRemoteMode, readDesktopFileDataUrl } from '@/lib/desktop-fs'
 import { Bug } from '@/lib/icons'
 import { rafCoalesce } from '@/lib/raf-coalesce'
 import { cn } from '@/lib/utils'
@@ -149,10 +149,13 @@ export function PreviewPane({
   const [localReloadKey, setLocalReloadKey] = useState(0)
 
   // Artifacts have no URL to load — they render from the registry, never in a
-  // webview.
+  // webview. A PDF does: Chromium's own viewer paints it inside the guest
+  // (the `plugins` attribute below turns that viewer on for the frame).
+  const isPdfPreview = target.kind === 'file' && target.previewKind === 'pdf'
+
   const isWebPreview =
     target.kind !== 'artifact' &&
-    (target.kind === 'url' || (target.previewKind === 'html' && target.renderMode !== 'source'))
+    (target.kind === 'url' || isPdfPreview || (target.previewKind === 'html' && target.renderMode !== 'source'))
 
   const currentLabel = compactUrl(currentUrl)
 
@@ -300,8 +303,10 @@ export function PreviewPane({
       return
     }
 
+    // The console and DevTools are for a page under development; a PDF is a
+    // document, and offers neither.
     const tools: TitlebarTool[] = [
-      ...(isWebPreview
+      ...(isWebPreview && !isPdfPreview
         ? [
             {
               active: consoleOpen,
@@ -324,7 +329,7 @@ export function PreviewPane({
     setTitlebarToolGroup(TITLEBAR_GROUP_ID, tools)
 
     return () => setTitlebarToolGroup(TITLEBAR_GROUP_ID, [])
-  }, [consoleOpen, consoleState, copy, devtoolsOpen, isWebPreview, setTitlebarToolGroup, toggleDevTools])
+  }, [consoleOpen, consoleState, copy, devtoolsOpen, isPdfPreview, isWebPreview, setTitlebarToolGroup, toggleDevTools])
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
@@ -533,8 +538,36 @@ export function PreviewPane({
     const webview = document.createElement('webview') as PreviewWebview
     webview.className = 'flex h-full w-full flex-1 bg-transparent'
     webview.setAttribute('partition', 'persist:agentx-preview')
-    webview.setAttribute('src', target.url)
     webview.setAttribute('webpreferences', 'contextIsolation=yes,nodeIntegration=no,sandbox=yes')
+
+    if (isPdfPreview) {
+      // The PDF viewer is a plugin as far as the guest is concerned.
+      webview.setAttribute('plugins', 'true')
+    }
+
+    let cancelled = false
+
+    // A gateway-side PDF is not on this disk: fetch its bytes over the fs
+    // bridge (same cap as image previews) and hand the viewer a data URL.
+    if (isPdfPreview && isDesktopFsRemoteMode() && target.path) {
+      void readDesktopFileDataUrl(target.path)
+        .then(dataUrl => {
+          if (!cancelled) {
+            webview.setAttribute('src', dataUrl)
+          }
+        })
+        .catch(error => {
+          if (!cancelled) {
+            setLoadError({
+              description: error instanceof Error ? error.message : String(error),
+              url: target.url
+            })
+            setLoading(false)
+          }
+        })
+    } else {
+      webview.setAttribute('src', target.url)
+    }
 
     const onConsole = (event: Event) => {
       const detail = event as Event & {
@@ -609,6 +642,7 @@ export function PreviewPane({
     webviewRef.current = webview
 
     return () => {
+      cancelled = true
       webview.removeEventListener('console-message', onConsole)
       webview.removeEventListener('did-fail-load', onFail)
       webview.removeEventListener('did-navigate', onNavigate)
@@ -617,7 +651,7 @@ export function PreviewPane({
       webview.removeEventListener('did-stop-loading', onStop)
       webview.remove()
     }
-  }, [appendConsoleEntry, consoleState, copy, isWebPreview, target.url])
+  }, [appendConsoleEntry, consoleState, copy, isPdfPreview, isWebPreview, target.path, target.url])
 
   return (
     <aside className="relative flex h-full w-full min-w-0 flex-col overflow-hidden bg-transparent text-muted-foreground">
@@ -666,7 +700,7 @@ export function PreviewPane({
             />
           )}
 
-          {isWebPreview && consoleOpen && (
+          {isWebPreview && !isPdfPreview && consoleOpen && (
             <PreviewConsolePanel
               consoleBodyRef={consoleBodyRef}
               consoleShouldStickRef={consoleShouldStickRef}

@@ -15,6 +15,7 @@ import {
   renderMediaTags,
   upsertToolPart
 } from '@/lib/chat-messages'
+import type { DeliverableFile } from '@/lib/deliverables'
 import {
   dedupeGeneratedImageEchoesInParts,
   generatedImageEchoSources,
@@ -536,8 +537,15 @@ export function useMessageStream({
   )
 
   const completeAssistantMessage = useCallback(
-    (sessionId: string, text: string, responsePreviewed?: boolean, failure?: { error: string; partial: boolean }) => {
+    (
+      sessionId: string,
+      text: string,
+      responsePreviewed?: boolean,
+      failure?: { error: string; partial: boolean },
+      createdFiles?: DeliverableFile[]
+    ) => {
       let shouldHydrate = false
+      const createdFilesPatch = createdFiles?.length ? { createdFiles } : {}
 
       const completedState = updateSessionState(sessionId, state => {
         // Late completion from an already-cancelled turn: cancelRun has
@@ -576,7 +584,7 @@ export function useMessageStream({
         // Settling the final response onto a bubble makes it the turn's real
         // reply — clear `interim` so it regains the action footer.
         const completeMessage = (message: ChatMessage): ChatMessage => {
-          const settled = { ...message, pending: false, interim: false }
+          const settled = { ...message, pending: false, interim: false, ...createdFilesPatch }
 
           if (completionError && !keepFailedPartialText) {
             return { ...settled, error: completionError, parts: message.parts.filter(part => part.type !== 'text') }
@@ -594,6 +602,7 @@ export function useMessageStream({
           role: 'assistant',
           parts: completionError && !keepFailedPartialText ? [] : [assistantTextPart(finalText)],
           branchGroupId: state.pendingBranchGroup ?? undefined,
+          ...createdFilesPatch,
           ...(completionError && { error: completionError })
         })
 

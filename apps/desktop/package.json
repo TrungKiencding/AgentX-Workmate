@@ -66,6 +66,7 @@
     "test:e2e:update-snapshots": "npm run build && WLR_BACKENDS=headless WLR_NO_HARDWARE_CURSORS=1 cage -- npx playwright test e2e/ --reporter=list --update-snapshots"
   },
   "dependencies": {
+    "@agentx/shared": "file:../shared",
     "@assistant-ui/core": "0.2.23",
     "@assistant-ui/react": "0.14.24",
     "@assistant-ui/react-streamdown": "0.3.5",
@@ -79,7 +80,6 @@
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
-    "@agentx/shared": "file:../shared",
     "@icons-pack/react-simple-icons": "13.11.1",
     "@lezer/highlight": "1.2.3",
     "@nanostores/react": "1.1.0",
@@ -109,6 +109,7 @@
     "hast-util-to-text": "4.0.2",
     "ignore": "7.0.6",
     "katex": "0.16.47",
+    "mammoth": "1.12.2",
     "mermaid": "11.16.1",
     "motion": "12.42.2",
     "nanostores": "1.4.0",

@@ -305,3 +305,42 @@ and a Nous Portal sign-in flow behind them.
   once per card; the 16 orphaned `skills.*` locale keys the old page had left
   behind are gone from the contract and all six locales; every new string is
   hand-translated in vi · en · ja · zh · zh-hant · ar.
+
+## 2026-09 — a file the agent makes is a card, not a path
+
+**Before.** A document the agent produced — a Word report, a PDF, a
+spreadsheet — reached the transcript as its path in a sentence. When the model
+remembered the `MEDIA:` tag, a non-media file rendered as a bare "Open
+report.docx" link that handed the file to the OS; when it did not, nothing was
+clickable at all, and the preview rail refused every office file and PDF as
+"binary". The person went looking for the file in Finder.
+
+**After.**
+- **The hand-over is structured.** A new desktop-only `deliver_file` tool
+  (gated like `open_preview`) validates the file and returns its identity; the
+  desktop hint tells the model to call it after every deliverable, and the
+  document skills end with a "Hand it over" step. `MEDIA:` stays as the
+  fallback.
+- **`FileCard`.** One `WIDGET_SHELL_CLASS` row per delivered file — type icon,
+  name, "Tài liệu · 24 KB", the agent's caption — opening the preview rail on
+  click; "Tải xuống" and "Hiện trong Finder" as 28px buttons under it; open
+  with the OS app, Quick Look and copy-path on right-click. A missing file
+  says "Không tìm thấy tệp" on the card instead of failing on click. On a
+  remote gateway the card keeps download and copy-path and hides the rest.
+- **`FileChip`.** A deliverable path the reply merely mentions becomes an
+  inline reference in the sentence — icon, name, full path on hover, the same
+  click and menu — so "đã lưu tại /…/bao-cao.docx" is one click from the file.
+- **`CreatedFilesCard`.** The gateway now reports the deliverable files a turn
+  produced (paths seen in tool calls, results and the reply, stat'ed against
+  the turn's window, plus a bounded walk of an explicit workspace), pins them
+  to the reply row, and the turn closes on a row per file that the reply did
+  not already hand over — save on hover, open on click. It survives a reload.
+- **The rail reads documents.** PDFs open in Chromium's own viewer inside the
+  preview webview; .docx renders as sanitised HTML in a frame that can only
+  paint; .xlsx as a table per sheet with a sheet strip and a row cap; audio
+  and video get the transcript's seekable player; archives and formats without
+  a renderer (.pptx) offer Quick Look, the OS app and a saved copy.
+- **Kept honest.** `formatByteSize` is now the one size formatter; the
+  deliverable-extension table lives in three places by necessity (renderer,
+  Electron, Python) with tests pinning the same fixtures on each; every new
+  string is hand-translated in vi · en · ja · zh · zh-hant · ar.

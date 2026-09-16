@@ -2248,6 +2248,30 @@ export const ja = defineLocale({
     open: '開く'
   },
 
+  fileCard: {
+    open: '開く',
+    download: 'ダウンロード',
+    downloadFailed: 'ファイルを保存できませんでした',
+    saved: name => `${name} を保存しました`,
+    openWith: 'アプリで開く',
+    quickLook: 'クイックルック',
+    missing: 'ファイルが見つかりません',
+    missingBody: 'ファイルは移動または削除されました。',
+    kinds: {
+      document: '文書',
+      spreadsheet: 'スプレッドシート',
+      presentation: 'プレゼンテーション',
+      pdf: 'PDF',
+      archive: 'アーカイブ',
+      image: '画像',
+      audio: '音声',
+      video: '動画',
+      data: 'データ',
+      text: 'テキスト',
+      file: 'ファイル'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `${total} 中 v${current}`,
     olderVersion: '前のバージョン',
@@ -2783,7 +2807,8 @@ export const ja = defineLocale({
       gatewayNotSetUp:
         'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。',
       gatewayOffline: 'AgentX AI Gateway に接続できませんでした。接続を確認してから再試行してください。',
-      gatewayRevoked: 'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
+      gatewayRevoked:
+        'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
       gatewayFailed: detail => `AgentX AI Gateway がモデルキーを発行できませんでした: ${detail}`
     },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
@@ -3029,11 +3054,13 @@ export const ja = defineLocale({
     sso: {
       heading: 'まとめてサインイン',
       browserLabel: 'サインインと WebMate に使うブラウザ',
-      browserDesc: 'Workmate はこのブラウザでサインインページを開くため、そこにある WebMate は同じアカウントで自動的にサインインします。',
+      browserDesc:
+        'Workmate はこのブラウザでサインインページを開くため、そこにある WebMate は同じアカウントで自動的にサインインします。',
       browserSystem: 'パソコンの既定のブラウザ',
       browserOption: (browser, profile) => `${browser} · ${profile}`,
       autoSignIn: '自分の Workmate アカウントで WebMate にサインインする',
-      autoSignInDesc: 'WebMate がサインインしていない状態で接続したとき、ここで使っているアカウントで Workmate が静かにサインインします。',
+      autoSignInDesc:
+        'WebMate がサインインしていない状態で接続したとき、ここで使っているアカウントで Workmate が静かにサインインします。',
       signIn: 'WebMate にサインイン',
       signingIn: 'WebMate にサインイン中…',
       signInDesc: 'WebMate のあるブラウザで、アカウントを入力済みの AgentX サインインを開きます。',
@@ -3043,9 +3070,12 @@ export const ja = defineLocale({
       connectionActive: '使用中',
       signedIn: 'WebMate はサインインしました。',
       signedInAs: email => `WebMate は ${email} としてサインインしました。`,
-      opened: 'WebMate のあるブラウザで AgentX のサインインを開きました。そこで完了してください。Workmate が自動的に検知します。',
-      loginRequired: 'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
-      unsupported: 'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
+      opened:
+        'WebMate のあるブラウザで AgentX のサインインを開きました。そこで完了してください。Workmate が自動的に検知します。',
+      loginRequired:
+        'そのブラウザにはまだ再利用できる AgentX セッションがありません。そのブラウザから一度 Workmate にサインインするか、「WebMate にサインイン」を押してください。',
+      unsupported:
+        'この WebMate はここからサインインできません。ブラウザで WebMate を開いてそこでサインインしてください。',
       notConnected: 'WebMate が接続されていないため、サインインするものがありません。',
       noAnswer: 'WebMate が時間内に応答しませんでした。',
       nothingToDo: '接続中の WebMate はすべてサインイン済みです。',
@@ -3295,6 +3325,13 @@ export const ja = defineLocale({
       'このファイルは開いてから変更されています。あなたの版で上書きするか、編集を破棄して再読み込みしますか？',
     overwrite: '上書き',
     discardReload: '破棄して再読み込み',
+    documentLoading: '文書を開いています',
+    documentFailedTitle: 'この文書を開けませんでした',
+    documentFailedBody: message => `内容を読み取れませんでした: ${message}`,
+    documentUnsupportedTitle: 'このファイル形式はまだプレビューできません',
+    documentUnsupportedBody: 'このコンピューターのアプリで開くか、ダウンロードして表示してください。',
+    sheetTruncated: rows => `最初の ${rows} 行を表示しています。`,
+    sheetEmpty: '空のシート',
     console: {
       deselect: 'エントリーの選択を解除',
       select: 'エントリーを選択',
@@ -3469,6 +3506,7 @@ export const ja = defineLocale({
       dismissError: 'エラーを閉じる',
       filesChanged: count => `${count} 件のファイルを変更`,
       reviewChanges: 'レビュー',
+      createdFiles: count => `このターンで ${count} 件のファイルを作成`,
       readAloudFailed: '読み上げに失敗しました',
       preparingAudio: '音声を準備中...',
       stopReading: '読み上げを停止',
@@ -3586,6 +3624,7 @@ export const ja = defineLocale({
         browser_type: { done: 'ページに入力しました', pending: 'ページに入力中', pendingAction: '入力中' },
         clarify: { done: '質問しました', pending: '質問中', pendingAction: '質問中' },
         cronjob: { done: 'Cron ジョブ', pending: 'Cron ジョブをスケジュール中', pendingAction: 'スケジュール中' },
+        deliver_file: { done: 'ファイルを送りました', pending: 'ファイルを送信中', pendingAction: '送信中' },
         edit_file: { done: 'ファイルを編集しました', pending: 'ファイルを編集中', pendingAction: '編集中' },
         execute_code: { done: 'コードを実行しました', pending: 'スクリプト作成中', pendingAction: 'スクリプト作成中' },
         image_generate: { done: '画像を生成しました', pending: '画像を生成中', pendingAction: '生成中' },

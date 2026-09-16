@@ -2511,6 +2511,30 @@ export const vi: Translations = {
     open: 'Mở'
   },
 
+  fileCard: {
+    open: 'Xem',
+    download: 'Tải xuống',
+    downloadFailed: 'Không lưu được tệp',
+    saved: name => `Đã lưu ${name}`,
+    openWith: 'Mở bằng ứng dụng',
+    quickLook: 'Xem nhanh',
+    missing: 'Không tìm thấy tệp',
+    missingBody: 'Tệp đã bị di chuyển hoặc xoá.',
+    kinds: {
+      document: 'Tài liệu',
+      spreadsheet: 'Bảng tính',
+      presentation: 'Bài trình bày',
+      pdf: 'PDF',
+      archive: 'Tệp nén',
+      image: 'Ảnh',
+      audio: 'Âm thanh',
+      video: 'Video',
+      data: 'Dữ liệu',
+      text: 'Văn bản',
+      file: 'Tệp'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `v${current} / ${total}`,
     olderVersion: 'Phiên bản cũ hơn',
@@ -3563,6 +3587,13 @@ export const vi: Translations = {
     diskChangedBody: 'Tệp này đã thay đổi kể từ lúc bạn mở. Ghi đè bằng bản của bạn, hay bỏ phần bạn sửa và tải lại?',
     overwrite: 'Ghi đè',
     discardReload: 'Bỏ & tải lại',
+    documentLoading: 'Đang mở tài liệu',
+    documentFailedTitle: 'Không mở được tài liệu này',
+    documentFailedBody: message => `Không đọc được nội dung: ${message}`,
+    documentUnsupportedTitle: 'Chưa xem trước được loại tệp này',
+    documentUnsupportedBody: 'Mở bằng ứng dụng trên máy, hoặc tải xuống để xem.',
+    sheetTruncated: rows => `Đang hiện ${rows} dòng đầu tiên.`,
+    sheetEmpty: 'Trang tính trống',
     console: {
       deselect: 'Bỏ chọn mục',
       select: 'Chọn mục',
@@ -3736,6 +3767,7 @@ export const vi: Translations = {
       dismissError: 'Bỏ qua lỗi',
       filesChanged: count => `${count} tệp thay đổi`,
       reviewChanges: 'Xem lại',
+      createdFiles: count => `${count} tệp đã tạo trong lượt này`,
       readAloudFailed: 'Đọc to thất bại',
       preparingAudio: 'Đang chuẩn bị âm thanh...',
       stopReading: 'Ngừng đọc',
@@ -3857,6 +3889,7 @@ export const vi: Translations = {
         browser_type: { done: 'Đã gõ trên trang', pending: 'Đang gõ trên trang', pendingAction: 'Đang gõ' },
         clarify: { done: 'Đã hỏi một câu', pending: 'Đang hỏi một câu', pendingAction: 'Đang hỏi' },
         cronjob: { done: 'Tác vụ cron', pending: 'Đang hẹn giờ tác vụ cron', pendingAction: 'Đang hẹn giờ' },
+        deliver_file: { done: 'Đã gửi tệp', pending: 'Đang gửi tệp', pendingAction: 'Đang gửi' },
         edit_file: { done: 'Đã sửa tệp', pending: 'Đang sửa tệp', pendingAction: 'Đang sửa' },
         execute_code: { done: 'Đã chạy mã', pending: 'Đang chạy mã', pendingAction: 'Đang chạy' },
         image_generate: { done: 'Đã tạo ảnh', pending: 'Đang tạo ảnh', pendingAction: 'Đang tạo' },

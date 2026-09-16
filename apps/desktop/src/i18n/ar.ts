@@ -2146,6 +2146,30 @@ export const ar = defineLocale({
     open: 'فتح'
   },
 
+  fileCard: {
+    open: 'فتح',
+    download: 'تنزيل',
+    downloadFailed: 'تعذر حفظ الملف',
+    saved: name => `تم حفظ ${name}`,
+    openWith: 'فتح بالتطبيق الافتراضي',
+    quickLook: 'نظرة سريعة',
+    missing: 'الملف غير موجود',
+    missingBody: 'تم نقل الملف أو حذفه.',
+    kinds: {
+      document: 'مستند',
+      spreadsheet: 'جدول بيانات',
+      presentation: 'عرض تقديمي',
+      pdf: 'PDF',
+      archive: 'أرشيف',
+      image: 'صورة',
+      audio: 'صوت',
+      video: 'فيديو',
+      data: 'بيانات',
+      text: 'نص',
+      file: 'ملف'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `الإصدار ${current} من ${total}`,
     olderVersion: 'إصدار أقدم',
@@ -2889,8 +2913,10 @@ export const ar = defineLocale({
       connectionActive: 'قيد الاستخدام',
       signedIn: 'تم تسجيل دخول WebMate.',
       signedInAs: email => `تم تسجيل دخول WebMate بالحساب ${email}.`,
-      opened: 'تم فتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate. أكمل التسجيل هناك وسيلاحظ Workmate ذلك تلقائيًا.',
-      loginRequired: 'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
+      opened:
+        'تم فتح صفحة تسجيل الدخول إلى AgentX في المتصفح الذي يحتوي على WebMate. أكمل التسجيل هناك وسيلاحظ Workmate ذلك تلقائيًا.',
+      loginRequired:
+        'لا توجد بعد جلسة AgentX في ذلك المتصفح لإعادة استخدامها. سجّل الدخول إلى Workmate من ذلك المتصفح مرة واحدة، أو اضغط "تسجيل دخول WebMate".',
       unsupported: 'لا يمكن تسجيل دخول نسخة WebMate هذه من هنا. افتح WebMate في المتصفح وسجّل الدخول هناك.',
       notConnected: 'WebMate غير متصل، فلا يوجد ما يمكن تسجيل دخوله.',
       noAnswer: 'لم يجب WebMate في الوقت المناسب.',
@@ -3092,6 +3118,13 @@ export const ar = defineLocale({
     diskChangedBody: 'تغيّر هذا الملف منذ أن فتحته. هل تريد الكتابة فوقه بنسختك، أم تجاهل تعديلاتك وإعادة التحميل؟',
     overwrite: 'الكتابة فوقه',
     discardReload: 'تجاهل وإعادة التحميل',
+    documentLoading: 'جارٍ فتح المستند',
+    documentFailedTitle: 'تعذر فتح هذا المستند',
+    documentFailedBody: message => `تعذر قراءة المحتوى: ${message}`,
+    documentUnsupportedTitle: 'لا تتوفر معاينة لهذا النوع من الملفات بعد',
+    documentUnsupportedBody: 'افتحه بتطبيق على هذا الجهاز، أو نزّله لعرضه.',
+    sheetTruncated: rows => `يتم عرض أول ${rows} صفًا.`,
+    sheetEmpty: 'ورقة فارغة',
     console: {
       deselect: 'إلغاء تحديد الإدخال',
       select: 'تحديد الإدخال',
@@ -3261,6 +3294,7 @@ export const ar = defineLocale({
       dismissError: 'تجاهل الخطأ',
       filesChanged: count => `${count} ملفات تم تغييرها`,
       reviewChanges: 'مراجعة',
+      createdFiles: count => `${count} ملفات تم إنشاؤها في هذه الجولة`,
       readAloudFailed: 'فشلت القراءة بصوت عال',
       preparingAudio: 'جار تجهيز الصوت',
       stopReading: 'إيقاف القراءة',
@@ -3396,6 +3430,11 @@ export const ar = defineLocale({
           done: 'مهمة مجدولة',
           pending: 'جار جدولة المهمة',
           pendingAction: 'جار الجدولة'
+        },
+        deliver_file: {
+          done: 'تم إرسال الملف',
+          pending: 'جارٍ إرسال الملف',
+          pendingAction: 'جارٍ الإرسال'
         },
         edit_file: {
           done: 'تم تحرير الملف',

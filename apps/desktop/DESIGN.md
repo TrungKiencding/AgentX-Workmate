@@ -749,6 +749,33 @@ so two-line rows still grow), `HUD_HEADING`.
   ảnh hoặc thư mục".
 - A tool result may expose an inline action that opens a preview. It must not
   open the rail automatically.
+- **A file the agent made is a card, not a path.** `FileCard`
+  (`components/chat/file-card.tsx`) is the hand-over: one `WIDGET_SHELL_CLASS`
+  row — the file-tree's `FileTypeIcon` in a 32px tile, the name at `text-sm`
+  medium, "Tài liệu · 24 KB" under it in the tool size, the agent's caption
+  if it gave one — that opens the preview rail on click, with the two everyday
+  verbs as real `size="sm"` buttons under the panel ("Tải xuống" secondary,
+  "Hiện trong Finder" ghost) and the rest (open with the OS app, Quick Look,
+  copy path) on right-click through `DeliverableContextMenu`. It appears for
+  a `deliver_file` tool result and for a `MEDIA:` tag naming a non-media file;
+  images, audio and video keep rendering in place. A file that is no longer on
+  disk says so on the card (`--ui-yellow` plus the warning glyph, actions
+  hidden) instead of failing on click. A path the reply merely *mentions*
+  ("đã lưu tại /…/bao-cao.docx") is `FileChip` — the same icon and name as an
+  inline `.ref` in the sentence, the full path on hover, the same click and
+  menu — so prose keeps its flow. The files a turn produced without handing
+  over (a script's stdout named them) close the turn as `CreatedFilesCard`,
+  the changed-files card's sibling: one row per file, open on click, save on
+  the hover control, and it stays with its turn. All three share one action
+  home, `store/deliverables.ts`; none of them opens the rail on arrival.
+- **The rail shows documents, not bytes.** A file target's `previewKind`
+  now routes `pdf` to Chromium's own viewer in the preview webview, `document`
+  to `preview-document.tsx` (a .docx as sanitised HTML in a frame that can
+  only paint, an .xlsx as one table per sheet with a sheet strip; anything
+  else in the family offers Quick Look / the OS app / a saved copy), and
+  `media` to the same seekable player the transcript uses. `binary` is what is
+  left — an archive — and it offers the same ways out rather than "preview
+  anyway".
 - **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one
   centred line — the catalog's `boot.connecting` ("Connecting to AgentX
   server" in English) in the display serif (`text-2xl`, outlier slot 1 of 3),

@@ -172,6 +172,7 @@ const TOOL_META: Record<ToolTitleKey, ToolMetaSpec> = {
     icon: 'watch',
     tone: 'agent'
   },
+  deliver_file: { icon: 'file', tone: 'file' },
   edit_file: { icon: 'edit', tone: 'file' },
   execute_code: {
     icon: 'terminal',

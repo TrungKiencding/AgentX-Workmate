@@ -22,3 +22,26 @@ export function compactNumber(value: null | number | undefined): string {
 
   return `${Math.round(num)}`
 }
+
+// THE byte-size formatter for anything the user reads as a file size — the
+// preview rail's "this file is large" notice, a file card's meta line. Binary
+// units, one decimal under 10, none above: 512 → "512 B", 1536 → "1.5 KB",
+// 10_485_760 → "10 MB". `unknownLabel` is what a missing size reads as.
+export function formatByteSize(bytes: null | number | undefined, unknownLabel = ''): string {
+  const size = Number(bytes ?? 0)
+
+  if (!Number.isFinite(size) || size <= 0) {
+    return unknownLabel
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = size
+  let unit = 0
+
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+
+  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
+}
