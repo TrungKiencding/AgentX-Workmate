@@ -10,4 +10,3 @@ export function lastVisibleMessageIsUser(messages: ChatMessage[]): boolean {
 
   return false
 }
-

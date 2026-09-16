@@ -77,7 +77,10 @@ function stateTone({ enabled, state }: MessagingPlatformInfo): StatusTone {
 // ONE summary pill per platform, by priority: error › restart needed ›
 // connecting › connected › needs setup › off. Everything else the old three
 // pills said becomes a quiet line under the name.
-function summaryOf(platform: MessagingPlatformInfo, m: Translations['messaging']): { label: string; tone: StatusPillTone } {
+function summaryOf(
+  platform: MessagingPlatformInfo,
+  m: Translations['messaging']
+): { label: string; tone: StatusPillTone } {
   const state = platform.state ?? ''
 
   if (platform.enabled && (state === 'fatal' || state === 'startup_failed')) {
@@ -710,9 +713,7 @@ function Step({
         aria-label={done ? t.messaging.stepDone : undefined}
         className={cn(
           'mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums',
-          done
-            ? 'bg-(--ui-green) text-(--ui-green-foreground)'
-            : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+          done ? 'bg-(--ui-green) text-(--ui-green-foreground)' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
         )}
       >
         {done ? <Check aria-hidden className="size-3.5" /> : index}
