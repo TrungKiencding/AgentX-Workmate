@@ -10,6 +10,7 @@ import {
   parseVersion,
   probeCheckoutPin,
   readCheckoutVersion,
+  relateByMarker,
   relateByVersion,
   relateCheckoutToPin
 } from './checkout-pin'
@@ -203,4 +204,14 @@ test("readCheckoutVersion reads this repository's own pyproject when run from th
   }
 
   assert.match(version, /^\d+\.\d+/)
+})
+
+test('relateByMarker: without git, a marker pinned elsewhere is an older build; the same pin is at-pin', () => {
+  assert.equal(relateByMarker({ markerPinnedCommit: PIN, stampCommit: PIN }), 'at-pin')
+  assert.equal(relateByMarker({ markerPinnedCommit: PIN.slice(0, 12), stampCommit: PIN }), 'at-pin')
+  assert.equal(relateByMarker({ markerPinnedCommit: OTHER, stampCommit: PIN }), 'behind')
+  // No marker, a fallback marker, or no real stamp: nothing to say.
+  assert.equal(relateByMarker({ markerPinnedCommit: null, stampCommit: PIN }), 'unknown')
+  assert.equal(relateByMarker({ markerPinnedCommit: '0'.repeat(40), stampCommit: PIN }), 'unknown')
+  assert.equal(relateByMarker({ markerPinnedCommit: OTHER, stampCommit: '0'.repeat(40) }), 'unknown')
 })

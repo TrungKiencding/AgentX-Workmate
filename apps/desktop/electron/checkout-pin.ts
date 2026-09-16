@@ -258,3 +258,31 @@ export function relateByVersion({
 
   return order !== null && order < 0 ? 'behind' : 'unknown'
 }
+
+// ---------------------------------------------------------------------------
+// Git-free fallback, first opinion: the bootstrap marker
+// ---------------------------------------------------------------------------
+//
+// `.agentx-bootstrap-complete` inside the checkout records the commit the
+// last desktop-driven bootstrap installed. When git cannot describe the
+// checkout, a marker pinned to a DIFFERENT commit than this build's stamp is
+// a different build, and is treated as older: the paths that move a checkout
+// forward (in-app update, `agentx update`) all need git, so a checkout that
+// is genuinely newer never has to be judged here.
+
+export function relateByMarker({
+  markerPinnedCommit,
+  stampCommit
+}: {
+  markerPinnedCommit: unknown
+  stampCommit: unknown
+}): CheckoutPinRelation {
+  if (!isRealPin(markerPinnedCommit) || !isRealPin(stampCommit)) {
+    return 'unknown'
+  }
+
+  const marker = markerPinnedCommit.toLowerCase()
+  const stamp = stampCommit.toLowerCase()
+
+  return marker === stamp || marker.startsWith(stamp) || stamp.startsWith(marker) ? 'at-pin' : 'behind'
+}

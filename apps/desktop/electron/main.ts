@@ -61,7 +61,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { runBootstrap } from './bootstrap-runner'
-import { defaultExecGit, probeCheckoutPin, readCheckoutVersion, relateByVersion } from './checkout-pin'
+import { defaultExecGit, probeCheckoutPin, readCheckoutVersion, relateByMarker, relateByVersion } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
   authModeFromStatus,
@@ -209,6 +209,12 @@ import {
   redactSecrets,
   SshConnection
 } from './ssh-connection'
+import {
+  discardStaleCheckout,
+  restoreStaleCheckout,
+  setAsideStaleCheckout,
+  sweepStaleCheckouts
+} from './stale-checkout'
 import { createStreamThrottle } from './stream-throttle'
 import { nativeOverlayWidth as computeNativeOverlayWidth, macTitleBarOverlayHeight } from './titlebar-overlay-width'
 import { resolveBehindCount, shouldCountCommits } from './update-count'
@@ -3865,6 +3871,18 @@ function checkoutPinRelation() {
     return byGit
   }
 
+  const marker = readBootstrapMarker()
+  const byMarker = relateByMarker({ markerPinnedCommit: marker?.pinnedCommit, stampCommit: INSTALL_STAMP.commit })
+
+  if (byMarker !== 'unknown') {
+    rememberLog(
+      `[bootstrap] checkout pin: git could not describe ${ACTIVE_AGENTX_ROOT} (git: ${resolveGitBinary()}); ` +
+        `bootstrap marker pin ${shortSha(marker?.pinnedCommit)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${byMarker}`
+    )
+
+    return { relation: byMarker, headSha: null }
+  }
+
   const checkoutVersion = readCheckoutVersion(ACTIVE_AGENTX_ROOT)
   const shellVersion = app.getVersion()
   const byVersion = relateByVersion({ checkoutVersion, shellVersion })
@@ -4146,6 +4164,16 @@ function resolveHermesBackend(backendArgs) {
   //    builds could leave a healthy install behind without the marker. If the
   //    active runtime is usable, launch it directly; only fall through to
   //    bootstrap when the runtime itself is unusable.
+  // Leftovers of an earlier replacement (stale-checkout.ts) that Windows
+  // would not let go of at the time.
+  const swept = sweepStaleCheckouts(ACTIVE_AGENTX_ROOT)
+
+  if (swept.removed.length || swept.kept.length) {
+    rememberLog(
+      `[bootstrap] old checkout leftovers next to ${ACTIVE_AGENTX_ROOT}: removed ${swept.removed.length}, still held open ${swept.kept.length}`
+    )
+  }
+
   const activeRuntime = activeRuntimeState()
   const staleButUsable = activeRuntime.usabilityReason === 'stale'
 
@@ -4349,7 +4377,7 @@ async function ensureRuntime(backend) {
     if (repin) {
       staleRuntimeRepinAttempted = true
       rememberLog(
-        `[bootstrap] AgentX install at ${backend.activeRoot} is behind this desktop build (${shortSha(repin.headSha)} → ${shortSha(repin.pinnedCommit)}); running the installer to bring it forward. Settings, sessions and keys are untouched.`
+        `[bootstrap] AgentX install at ${backend.activeRoot} is older than this desktop build (${shortSha(repin.headSha)} → ${shortSha(repin.pinnedCommit)}); replacing it with a fresh install. Settings, sessions and keys are untouched.`
       )
 
       // Windows mandatory locks: a stray agentx.exe (a crashed instance's
@@ -4369,7 +4397,7 @@ async function ensureRuntime(backend) {
 
       await advanceBootProgress(
         'backend.repin',
-        'Bringing the AgentX install forward to the version this desktop build ships',
+        'Replacing the AgentX install with the version this desktop build ships',
         20,
         `${shortSha(repin.headSha)} → ${shortSha(repin.pinnedCommit)}`
       )
@@ -4422,6 +4450,23 @@ async function ensureRuntime(backend) {
     bootstrapRepairRequested = false
     bootstrapRepairAttempt = 0
 
+    // An older checkout is REPLACED, not patched: moved aside so the
+    // bootstrap clones and builds a fresh one exactly as on an empty machine,
+    // discarded once that succeeded, put back if it did not
+    // (stale-checkout.ts). Only when the rename itself is refused — a file
+    // inside still open, which Windows reports and POSIX never does — is the
+    // checkout brought forward in place instead.
+    let asideCheckout = null
+
+    if (repin) {
+      asideCheckout = setAsideStaleCheckout(backend.activeRoot)
+      rememberLog(
+        asideCheckout
+          ? `[bootstrap] moved the old checkout aside to ${asideCheckout.asidePath}; installing a fresh one at ${backend.activeRoot}`
+          : `[bootstrap] could not move the old checkout at ${backend.activeRoot} aside (a file in it is still open); bringing it forward in place instead`
+      )
+    }
+
     const bootstrapResult = await runBootstrap({
       installStamp: backend.installStamp,
       activeRoot: backend.activeRoot,
@@ -4458,19 +4503,36 @@ async function ensureRuntime(backend) {
 
     bootstrapAbortController = null
 
+    if (asideCheckout) {
+      if (bootstrapResult.ok) {
+        rememberLog(
+          discardStaleCheckout(asideCheckout)
+            ? `[bootstrap] removed the old checkout at ${asideCheckout.asidePath}`
+            : `[bootstrap] the old checkout at ${asideCheckout.asidePath} is still held open; a later launch removes it`
+        )
+      } else {
+        rememberLog(
+          restoreStaleCheckout(asideCheckout)
+            ? `[bootstrap] the fresh install did not complete; the old checkout is back at ${backend.activeRoot}`
+            : `[bootstrap] the fresh install did not complete and the old checkout could not be put back from ${asideCheckout.asidePath}`
+        )
+      }
+    }
+
     if (repin && !bootstrapResult.ok) {
-      // Which way did it go? If the checkout never moved (offline fetch, a
-      // pin GitHub does not have, a cancel before the repository stage), the
-      // older agent is intact and launches — staleRuntimeRepinAttempted keeps
-      // the next resolve from asking again this session. If the checkout DID
-      // move and a later stage failed (venv sync, native deps), launching it
-      // would mean new code on an old environment, so that is a real install
-      // failure and takes the ordinary latch + overlay path below.
+      // Which way did it go? If the older agent is intact — put back from
+      // aside, or never moved because an offline fetch or a cancel stopped
+      // the in-place path before its repository stage — it launches, and
+      // staleRuntimeRepinAttempted keeps the next resolve from asking again
+      // this session. If it is not (the in-place path moved the checkout and
+      // a later stage failed, or the old checkout could not be put back),
+      // that is a real install failure and takes the ordinary latch +
+      // overlay path below.
       const after = activeRuntimeState()
 
       if (after.usabilityReason === 'stale') {
         rememberLog(
-          `[bootstrap] bringing the install forward ${bootstrapResult.cancelled ? 'was cancelled' : `failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ${bootstrapResult.error || 'unknown error'}`}; launching the AgentX runtime already at ${backend.activeRoot}`
+          `[bootstrap] replacing the install ${bootstrapResult.cancelled ? 'was cancelled' : `failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ${bootstrapResult.error || 'unknown error'}`}; launching the AgentX runtime already at ${backend.activeRoot}`
         )
         broadcastBootstrapEvent({ type: 'dismissed' })
 
@@ -4478,7 +4540,7 @@ async function ensureRuntime(backend) {
       }
 
       rememberLog(
-        `[bootstrap] bringing the install forward did not finish but the checkout at ${backend.activeRoot} already moved; treating it as an install failure`
+        `[bootstrap] replacing the install did not finish and no usable older checkout is left at ${backend.activeRoot}; treating it as an install failure`
       )
 
       if (heldRepinFailure) {

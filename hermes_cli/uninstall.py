@@ -1216,6 +1216,15 @@ def _perform_uninstall(
         else:
             pending.append(project_root)
 
+    # 4a. Leftovers of the desktop replacing an older checkout: it moves the
+    #     old one to ``<checkout>.stale-<ts>`` before installing a fresh one,
+    #     and Windows sometimes will not let it delete that afterwards.
+    for leftover in sorted(project_root.parent.glob(project_root.name + ".stale-*")):
+        if _remove_tree(leftover):
+            log_success(f"Removed {leftover}")
+        else:
+            pending.append(leftover)
+
     # 4b. Remove Windows-only installer artifacts that are NOT user data:
     #     PortableGit, bundled Node, gateway-service dir.  Installer put them
     #     under AGENTX_HOME but they're install tooling, not config — safe to
