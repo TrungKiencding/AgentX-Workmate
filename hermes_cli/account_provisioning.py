@@ -48,7 +48,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -982,6 +982,42 @@ def provider_key_env(provider_name: str) -> str:
     return custom_endpoint_key_env(provider_name)
 
 
+def _effective_settings(settings: LiteLLMAccountSettings) -> LiteLLMAccountSettings:
+    """The mode this machine can actually run, given what it holds.
+
+    A config that still says ``mode: direct`` (what AgentX shipped until
+    2026-08-13) or ``mode: broker`` (the example config's recommendation of
+    the same era) is not a choice anyone made: an installer wrote it, and the
+    credential those modes need was never placed on the machine — ``direct``
+    wants the LiteLLM admin key in ``.env``, ``broker`` wants a
+    ``broker_url``. Failing every sign-in over that stale literal, on a
+    machine that knows the account service, is what an install upgraded from
+    an August build looked like: the same "AGENTX_LITELLM_ADMIN_KEY is not
+    set" card on every launch. So when the mode's own prerequisite is missing
+    and the service is configured, the sign-in goes through the service. A
+    machine that does hold the credential its mode needs (a self-hosted
+    install that chose ``direct`` on purpose) is left exactly as configured.
+    The config migration to v36 rewrites the file itself; this covers the
+    launch that runs before it, and any file written back by hand.
+    """
+    if settings.mode == "direct" and settings.second_brain_url and not _admin_key():
+        reason = f"{ADMIN_KEY_ENV_VAR} is not set"
+    elif settings.mode == "broker" and settings.second_brain_url and not settings.broker_url:
+        reason = "accounts.litellm.broker_url is empty"
+    else:
+        return settings
+
+    logger.warning(
+        "accounts.litellm.mode is '%s' but %s; signing in through the account "
+        "service at %s instead (mode 'second_brain'). Set the mode to "
+        "'second_brain' in config.yaml, or remove it, to silence this.",
+        settings.mode,
+        reason,
+        settings.second_brain_url,
+    )
+    return replace(settings, mode="second_brain")
+
+
 # ---------------------------------------------------------------------------
 # The entry point
 # ---------------------------------------------------------------------------
@@ -1018,7 +1054,7 @@ def ensure_account_key(
     """
     from hermes_constants import get_hermes_home
 
-    settings = settings or load_settings()
+    settings = _effective_settings(settings or load_settings())
     home = home or get_hermes_home()
 
     if not settings.enabled:

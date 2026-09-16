@@ -222,6 +222,11 @@ class TestSpawnDetachedCleanup:
         # Detached and in its own process group, or closing the terminal that
         # ran the uninstall kills the thing finishing it.
         assert started[0]["kwargs"]["creationflags"] == 0x00000008 | 0x00000200
+        # And parked OUTSIDE the tree it deletes: Windows cannot remove a
+        # process's current directory, and the child inherits ours.
+        cleanup_cwd = Path(started[0]["kwargs"]["cwd"])
+        assert cleanup_cwd == script.parent
+        assert cleanup_cwd != target and target not in cleanup_cwd.parents
 
     def test_a_failed_spawn_reports_failure_rather_than_pretending(self, tmp_path, monkeypatch):
         monkeypatch.setattr(uninstall, "_is_windows", lambda: True)
@@ -380,6 +385,26 @@ class TestPerformUninstall:
 
         # Including the .env with the model key in it — the file whose survival
         # made a reinstall silently adopt the old key.
+        assert not install.home.exists()
+
+    def test_the_working_directory_is_moved_out_of_the_tree_first(self, install, monkeypatch):
+        """The desktop's cleanup script used to run this from inside the checkout.
+
+        On Windows that alone kept ``agentx-agent`` — and so the whole of
+        ``%LOCALAPPDATA%\\agentx`` — on disk after "remove everything".
+        """
+        monkeypatch.chdir(install.project)
+
+        uninstall._perform_uninstall(
+            project_root=install.project,
+            hermes_home=install.home,
+            full_uninstall=True,
+            remove_profiles=False,
+            named_profiles=[],
+        )
+
+        cwd = Path.cwd().resolve()
+        assert cwd != install.home.resolve() and install.home.resolve() not in cwd.parents
         assert not install.home.exists()
 
     def test_keep_data_keeps_the_data_and_only_the_data(self, install):

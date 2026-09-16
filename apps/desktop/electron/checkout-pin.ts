@@ -30,6 +30,8 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import { hiddenWindowsChildOptions } from './windows-child-options'
 
@@ -178,4 +180,81 @@ export function probeCheckoutPin(
   }
 
   return { relation: relateCheckoutToPin({ pinnedCommit, headSha, pinIsAncestorOfHead }), headSha }
+}
+
+// ---------------------------------------------------------------------------
+// Git-free fallback: the version the checkout declares for itself
+// ---------------------------------------------------------------------------
+//
+// A checkout git cannot describe (no repository metadata, no git binary on
+// the machine) still carries pyproject.toml, and the release process keeps
+// its version in step with the desktop's own. A LOWER version there is an
+// older agent, so it is 'behind'. Anything else says nothing about commits
+// — equal versions can differ by weeks of main — and stays 'unknown'.
+
+/** The numeric components of a version string; null when it has none. */
+export function parseVersion(value: unknown): number[] | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const match = value.trim().match(/^v?(\d+(?:\.\d+)*)/)
+
+  return match ? match[1].split('.').map(part => Number.parseInt(part, 10)) : null
+}
+
+/** -1, 0 or 1 comparing the numeric components; null when either is not a version. */
+export function compareVersions(a: unknown, b: unknown): number | null {
+  const left = parseVersion(a)
+  const right = parseVersion(b)
+
+  if (!left || !right) {
+    return null
+  }
+
+  const width = Math.max(left.length, right.length)
+
+  for (let i = 0; i < width; i++) {
+    const x = left[i] ?? 0
+    const y = right[i] ?? 0
+
+    if (x !== y) {
+      return x < y ? -1 : 1
+    }
+  }
+
+  return 0
+}
+
+/** `version = "..."` under `[project]` in the checkout's pyproject.toml, or null. */
+export function readCheckoutVersion(
+  activeRoot: string | null | undefined,
+  readFile: (file: string) => string = file => fs.readFileSync(file, 'utf8')
+): string | null {
+  if (!activeRoot) {
+    return null
+  }
+
+  try {
+    const text = readFile(path.join(activeRoot, 'pyproject.toml'))
+    const start = text.indexOf('[project]')
+    const section = start >= 0 ? text.slice(start) : text
+    const match = section.match(/^\s*version\s*=\s*["']([^"']+)["']/m)
+
+    return match ? match[1].trim() : null
+  } catch {
+    return null
+  }
+}
+
+export function relateByVersion({
+  checkoutVersion,
+  shellVersion
+}: {
+  checkoutVersion: string | null
+  shellVersion: string | null
+}): CheckoutPinRelation {
+  const order = compareVersions(checkoutVersion, shellVersion)
+
+  return order !== null && order < 0 ? 'behind' : 'unknown'
 }
