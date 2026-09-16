@@ -70,6 +70,7 @@ export const zhHant = defineLocale({
       idle: '正在等待啟動 AgentX 後端',
       bootstrapChoice: '正在等待首次執行的安裝選擇',
       updateWait: '更新即將完成 — 完成後 AgentX 會自動啟動',
+      repin: '正在將 AgentX 安裝更新到此桌面版本所附帶的版本',
       resolve: '正在尋找 AgentX 後端',
       remote: '正在連線遠端 AgentX 後端',
       runtime: '正在檢查 AgentX 執行環境',
@@ -2644,6 +2645,9 @@ export const zhHant = defineLocale({
     failedDesc:
       '某個安裝步驟失敗。在 Windows 上，如果另一個 AgentX CLI 或桌面執行個體正在執行，可能會出現這種情況。請停止正在執行的 AgentX 執行個體後重試。可查看下方的詳細資訊或 desktop 記錄中的完整記錄。',
     activeDesc: '這是一次性設定。AgentX 安裝程式正在下載相依套件並設定您的電腦。之後啟動會略過此步驟。',
+    updatingTitle: '正在更新 AgentX Workmate',
+    updatingDesc:
+      '此桌面版本比這台電腦上安裝的 AgentX 代理程式更新。安裝程式正在將代理程式更新到對應版本；您的設定、對話和模型金鑰保持不變。',
     progress: (completed, total) => `${completed}/${total} 個步驟已完成`,
     currentStage: stage => ` -- 目前：${stage}`,
     fetchingManifest: '正在取得安裝程式 manifest...',

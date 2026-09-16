@@ -61,6 +61,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { runBootstrap } from './bootstrap-runner'
+import { defaultExecGit, probeCheckoutPin } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
   authModeFromStatus,
@@ -1180,6 +1181,14 @@ let bootstrapRepairRequested = false
 // looping the user through a destructive venv reinstall.
 let bootstrapRepairAttempt = 0
 const MAX_BOOTSTRAP_REPAIR_SOFT_ATTEMPTS = 3
+// One attempt per process at bringing a stale active runtime forward.
+// resolveHermesBackend() hands a checkout that is BEHIND the packaged install
+// stamp to the bootstrap so install.ps1/sh move it to the stamped commit
+// before launch. If that cannot complete (offline, a locally built desktop
+// whose commit was never pushed) the launch must still go ahead on the older
+// agent rather than loop the installer, so the attempt is remembered here and
+// the next resolve in this process launches what is there.
+let staleRuntimeRepinAttempted = false
 let connectionConfigCache = null
 let connectionConfigCacheMtime = null
 const hermesLog = []
@@ -3811,12 +3820,37 @@ function isActiveRuntimeUsable() {
 }
 
 function activeRuntimeState() {
-  // We DELIBERATELY do NOT verify that the checkout is currently at the
-  // pinned commit -- users update via the in-app update path or `agentx
-  // update`, which moves HEAD legitimately. The marker only attests "a
-  // desktop-managed bootstrap ran here at least once"; runtime usability is
-  // what decides whether we can actually launch.
-  return classifyActiveRuntime(readBootstrapMarker(), BOOTSTRAP_MARKER_SCHEMA_VERSION, isActiveRuntimeUsable())
+  // Runtime usability decides whether we CAN launch; the marker only attests
+  // "a desktop-managed bootstrap ran here at least once". The checkout's
+  // position against the packaged install stamp is checked in ONE direction:
+  // a checkout BEHIND the stamp comes back 'stale' so resolveHermesBackend()
+  // brings it forward first, while a checkout AT or AHEAD of it launches as
+  // is — the in-app update path and `agentx update` move HEAD legitimately,
+  // and an installer built months ago must never rewind them. Before this
+  // check an installer only ever replaced the shell: an older agent under
+  // AGENTX_HOME kept running, with defaults the account service had long
+  // moved past (the `accounts.litellm.mode: direct` fault).
+  const usable = isActiveRuntimeUsable()
+  const pin = usable ? checkoutPinRelation() : { relation: 'unknown' as const, headSha: null }
+
+  return {
+    ...classifyActiveRuntime(readBootstrapMarker(), BOOTSTRAP_MARKER_SCHEMA_VERSION, usable, pin.relation),
+    headSha: pin.headSha
+  }
+}
+
+// Where ACTIVE_AGENTX_ROOT stands against this build's install stamp. Two
+// quick git calls at most, none without a real stamp (dev, fallback builds).
+function checkoutPinRelation() {
+  if (!INSTALL_STAMP) {
+    return { relation: 'unpinned' as const, headSha: null }
+  }
+
+  return probeCheckoutPin(ACTIVE_AGENTX_ROOT, INSTALL_STAMP.commit, defaultExecGit(resolveGitBinary(), IS_WINDOWS))
+}
+
+function shortSha(sha) {
+  return typeof sha === 'string' && sha ? sha.slice(0, 12) : '<unknown>'
 }
 
 function writeBootstrapMarker(payload) {
@@ -4085,8 +4119,32 @@ function resolveHermesBackend(backendArgs) {
   //    active runtime is usable, launch it directly; only fall through to
   //    bootstrap when the runtime itself is unusable.
   const activeRuntime = activeRuntimeState()
+  const staleButUsable = activeRuntime.usabilityReason === 'stale'
 
-  if (activeRuntime.shouldUseActiveRuntime && !bootstrapRepairRequested) {
+  // A usable checkout that is BEHIND this build's install stamp is not
+  // launched as is: it goes through the bootstrap once so install.ps1/sh
+  // bring it forward (checkout-pin.ts). The runner leaves settings, sessions
+  // and keys alone — only the checkout and its venv move. Falling through to
+  // steps 4/5 instead would re-find the same venv on PATH, so this returns
+  // the bootstrap sentinel directly.
+  if (staleButUsable && !staleRuntimeRepinAttempted && !bootstrapRepairRequested) {
+    rememberLog(
+      `[bootstrap] Active AgentX runtime at ${ACTIVE_AGENTX_ROOT} is at ${shortSha(activeRuntime.headSha)} but this desktop build ships ${shortSha(INSTALL_STAMP && INSTALL_STAMP.commit)}; bringing the install forward before launch.`
+    )
+
+    return bootstrapNeeded(backendArgs, {
+      label: 'AgentX install is behind this desktop build; bringing it forward before launch',
+      repin: { headSha: activeRuntime.headSha, pinnedCommit: INSTALL_STAMP ? INSTALL_STAMP.commit : null }
+    })
+  }
+
+  if ((activeRuntime.shouldUseActiveRuntime || staleButUsable) && !bootstrapRepairRequested) {
+    if (staleButUsable) {
+      rememberLog(
+        `[bootstrap] launching the older AgentX runtime at ${ACTIVE_AGENTX_ROOT} as is; bringing it forward did not complete in this session (the in-app update can still move it).`
+      )
+    }
+
     if (!activeRuntime.hasValidMarker) {
       rememberLog(
         `[bootstrap] Active AgentX runtime at ${ACTIVE_AGENTX_ROOT} is usable but the bootstrap marker is missing or stale; skipping first-run bootstrap.`
@@ -4212,9 +4270,21 @@ function resolveHermesBackend(backendArgs) {
   //    resolveHermesBackend was the old "no payload" path and forced the
   //    user into a dead end. With the bootstrap protocol, "no install yet"
   //    is a recoverable state the GUI can drive through.
+  return bootstrapNeeded(backendArgs)
+}
+
+// The sentinel resolveHermesBackend() hands ensureRuntime() for the bootstrap
+// runner. `repin` marks the variant where an install already exists but sits
+// behind the packaged install stamp: the same runner brings it forward, the
+// overlay says "updating" rather than "installing", and a failure falls back
+// to the install that is already there instead of a dead end.
+function bootstrapNeeded(
+  backendArgs,
+  extra: { label?: string; repin?: { headSha: string | null; pinnedCommit: string | null } } = {}
+) {
   return {
     kind: 'bootstrap-needed',
-    label: 'AgentX Workmate not installed yet; bootstrap required',
+    label: extra.label || 'AgentX Workmate not installed yet; bootstrap required',
     command: null,
     args: backendArgs,
     bootstrap: true,
@@ -4224,7 +4294,8 @@ function resolveHermesBackend(backendArgs) {
     activeRoot: ACTIVE_AGENTX_ROOT,
     installStamp: INSTALL_STAMP, // may be null in dev
     isPackaged: IS_PACKAGED,
-    platform: process.platform
+    platform: process.platform,
+    repin: extra.repin || null
   }
 }
 
@@ -4245,9 +4316,44 @@ async function ensureRuntime(backend) {
   // will rewire startup to spawn the window first and route bootstrap events
   // to a renderer-side install overlay.
   if (backend.kind === 'bootstrap-needed') {
-    rememberLog('[bootstrap] no AgentX install found; starting first-launch bootstrap')
+    const repin = backend.repin || null
 
-    if (await handOffWindowsBootstrapRecovery('bootstrap-needed')) {
+    if (repin) {
+      staleRuntimeRepinAttempted = true
+      rememberLog(
+        `[bootstrap] AgentX install at ${backend.activeRoot} is behind this desktop build (${shortSha(repin.headSha)} → ${shortSha(repin.pinnedCommit)}); running the installer to bring it forward. Settings, sessions and keys are untouched.`
+      )
+
+      // Windows mandatory locks: a stray agentx.exe (a crashed instance's
+      // backend, a terminal running the CLI) would make the venv stage
+      // half-fail after the checkout had already moved. Same wait the in-app
+      // update uses; no-op off Windows. If the shim stays held, launch what
+      // is there and let the in-app update move it later.
+      const lock = await releaseBackendLockForUpdate(backend.activeRoot)
+
+      if (!lock.unlocked) {
+        rememberLog(
+          `[bootstrap] the AgentX install at ${backend.activeRoot} is held open by another process; launching it as is instead of bringing it forward`
+        )
+
+        return ensureRuntime(resolveHermesBackend(backend.args))
+      }
+
+      await advanceBootProgress(
+        'backend.repin',
+        'Bringing the AgentX install forward to the version this desktop build ships',
+        20,
+        `${shortSha(repin.headSha)} → ${shortSha(repin.pinnedCommit)}`
+      )
+    } else {
+      rememberLog('[bootstrap] no AgentX install found; starting first-launch bootstrap')
+    }
+
+    // The staged Windows recovery updater reinstalls on its own terms (its
+    // own baked pin, its own branch). Bringing an install forward wants
+    // exactly the packaged commit and has a working install to fall back on,
+    // so it never hands off.
+    if (!repin && (await handOffWindowsBootstrapRecovery('bootstrap-needed'))) {
       const handoffError: Error & { isBootstrapFailure?: boolean; bootstrapHandedOff?: boolean } = new Error(
         'AgentX recovery was handed off to AgentX Setup. The desktop will restart when recovery completes.'
       )
@@ -4268,13 +4374,20 @@ async function ensureRuntime(backend) {
       broadcastBootstrapEvent({
         type: 'manifest',
         stages: [],
-        protocolVersion: null
+        protocolVersion: null,
+        mode: repin ? 'repin' : null
       })
     } catch {
       void 0
     }
 
     bootstrapAbortController = new AbortController()
+
+    // A failed re-pin is not the renderer's problem when the install already
+    // there still launches: the overlay is dismissed instead of parked on an
+    // error nobody can act on. The failure is held back until we know which
+    // way it went (see below).
+    let heldRepinFailure = null
 
     // The repair request has been honoured by reaching the installer; clear it
     // so a later boot isn't forced through bootstrap again.
@@ -4288,6 +4401,7 @@ async function ensureRuntime(backend) {
       hermesHome: AGENTX_HOME,
       logRoot: path.join(AGENTX_HOME, 'logs'),
       abortSignal: bootstrapAbortController.signal,
+      pinExistingCheckout: Boolean(repin),
       onEvent: ev => {
         // Tee every bootstrap event to (a) the desktop log for forensics
         // and (b) the renderer for live progress UI. Either may be absent;
@@ -4300,7 +4414,13 @@ async function ensureRuntime(backend) {
         }
 
         try {
-          broadcastBootstrapEvent(ev)
+          if (repin && ev.type === 'failed') {
+            heldRepinFailure = ev
+          } else if (repin && ev.type === 'manifest') {
+            broadcastBootstrapEvent({ ...ev, mode: 'repin' })
+          } else {
+            broadcastBootstrapEvent(ev)
+          }
         } catch {
           void 0
         }
@@ -4309,6 +4429,34 @@ async function ensureRuntime(backend) {
     })
 
     bootstrapAbortController = null
+
+    if (repin && !bootstrapResult.ok) {
+      // Which way did it go? If the checkout never moved (offline fetch, a
+      // pin GitHub does not have, a cancel before the repository stage), the
+      // older agent is intact and launches — staleRuntimeRepinAttempted keeps
+      // the next resolve from asking again this session. If the checkout DID
+      // move and a later stage failed (venv sync, native deps), launching it
+      // would mean new code on an old environment, so that is a real install
+      // failure and takes the ordinary latch + overlay path below.
+      const after = activeRuntimeState()
+
+      if (after.usabilityReason === 'stale') {
+        rememberLog(
+          `[bootstrap] bringing the install forward ${bootstrapResult.cancelled ? 'was cancelled' : `failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ${bootstrapResult.error || 'unknown error'}`}; launching the AgentX runtime already at ${backend.activeRoot}`
+        )
+        broadcastBootstrapEvent({ type: 'dismissed' })
+
+        return ensureRuntime(resolveHermesBackend(backend.args))
+      }
+
+      rememberLog(
+        `[bootstrap] bringing the install forward did not finish but the checkout at ${backend.activeRoot} already moved; treating it as an install failure`
+      )
+
+      if (heldRepinFailure) {
+        broadcastBootstrapEvent(heldRepinFailure)
+      }
+    }
 
     if (bootstrapResult.cancelled) {
       const cancelledError = new Error('AgentX install was cancelled.') as any

@@ -119,6 +119,7 @@ export interface Translations {
       idle: string
       bootstrapChoice: string
       updateWait: string
+      repin: string
       resolve: string
       remote: string
       runtime: string
@@ -2197,6 +2198,8 @@ export interface Translations {
     finishingTitle: string
     failedDesc: string
     activeDesc: string
+    updatingTitle: string
+    updatingDesc: string
     progress: (completed: number, total: number) => string
     currentStage: (stage: string) => string
     fetchingManifest: string

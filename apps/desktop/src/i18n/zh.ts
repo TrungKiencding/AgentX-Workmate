@@ -70,6 +70,7 @@ export const zh: Translations = {
       idle: '正在等待启动 AgentX 后端',
       bootstrapChoice: '正在等待首次运行的安装选择',
       updateWait: '更新即将完成 — 完成后 AgentX 会自动启动',
+      repin: '正在把 AgentX 安装更新到此桌面版本所附带的版本',
       resolve: '正在查找 AgentX 后端',
       remote: '正在连接远程 AgentX 后端',
       runtime: '正在检查 AgentX 运行环境',
@@ -2866,6 +2867,9 @@ export const zh: Translations = {
     failedDesc:
       '某个安装步骤失败。在 Windows 上，如果另一个 AgentX CLI 或桌面实例正在运行，可能会出现这种情况。请停止正在运行的 AgentX 实例后重试。可查看下面的详情或 desktop 日志中的完整记录。',
     activeDesc: '这是一次性设置。AgentX 安装器正在下载依赖并配置你的机器。之后启动会跳过此步骤。',
+    updatingTitle: '正在更新 AgentX Workmate',
+    updatingDesc:
+      '此桌面版本比这台电脑上安装的 AgentX 代理更新。安装器正在把代理更新到对应版本；你的设置、对话和模型密钥保持不变。',
     progress: (completed, total) => `${completed}/${total} 个步骤已完成`,
     currentStage: stage => ` -- 当前：${stage}`,
     fetchingManifest: '正在获取安装器 manifest...',

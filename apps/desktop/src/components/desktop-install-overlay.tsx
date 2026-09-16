@@ -205,7 +205,7 @@ function applyEvent(state: DesktopBootstrapState, ev: DesktopBootstrapEvent): De
     return {
       ...state,
       active: true,
-      manifest: { type: 'manifest', stages: ev.stages, protocolVersion: ev.protocolVersion },
+      manifest: { type: 'manifest', stages: ev.stages, protocolVersion: ev.protocolVersion, mode: ev.mode ?? null },
       stages,
       error: null,
       setupChoice: null,
@@ -538,6 +538,10 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
 
   const totalCount = stages.length
   const failed = Boolean(state.error)
+  // An install that exists but sits behind this build's commit is brought
+  // forward by the same runner; the copy must not promise a "one-time setup"
+  // or hint that anything of the user's is being replaced.
+  const updating = state.manifest?.mode === 'repin'
   // Count the running stage as half-done so the bar advances *during* a long
   // stage instead of sitting frozen at the last completed step while its logs
   // stream (e.g. "0 of 2" pinned at 0% for the whole first stage).
@@ -554,9 +558,17 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
           {!failed && <BrandMark className="size-11 shrink-0" />}
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight">
-              {failed ? copy.failedTitle : state.active ? copy.settingUpTitle : copy.finishingTitle}
+              {failed
+                ? copy.failedTitle
+                : state.active
+                  ? updating
+                    ? copy.updatingTitle
+                    : copy.settingUpTitle
+                  : copy.finishingTitle}
             </h2>
-            <p className="mt-1.5 text-sm text-muted-foreground">{failed ? copy.failedDesc : copy.activeDesc}</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {failed ? copy.failedDesc : updating ? copy.updatingDesc : copy.activeDesc}
+            </p>
           </div>
         </div>
 

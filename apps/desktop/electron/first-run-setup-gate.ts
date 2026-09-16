@@ -2,6 +2,12 @@ interface FirstRunSetupBackend {
   activeRoot?: string
   kind?: string
   platform?: string
+  /**
+   * Set when an install already exists and is only being brought forward to
+   * this build's commit (main.ts bootstrapNeeded with `repin`). There is
+   * nothing to choose there — the machine is already set up locally.
+   */
+  repin?: unknown
 }
 
 interface FirstRunSetupGateOptions {
@@ -68,7 +74,8 @@ export function createFirstRunSetupGate({
   }
 
   const shouldGate = (backend?: FirstRunSetupBackend | null) =>
-    promptEnabled && Boolean(backend && backend.kind === 'bootstrap-needed' && !localBootstrapConfirmed)
+    promptEnabled &&
+    Boolean(backend && backend.kind === 'bootstrap-needed' && !backend.repin && !localBootstrapConfirmed)
 
   const wait = async (backend?: FirstRunSetupBackend | null) => {
     if (!shouldGate(backend)) {

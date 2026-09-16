@@ -889,6 +889,22 @@ function openRunLog(logRoot) {
 // Public entrypoint
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether a run passes the packaged commit pin (`-Commit` / `--commit`) to the
+ * install script.
+ *
+ * A fresh clone always pins: that is what makes an installer reproducible. An
+ * existing checkout is normally left on its branch — the in-app update path
+ * moves it, not the installer — EXCEPT when the caller has established that
+ * the checkout is BEHIND the packaged pin (checkout-pin.ts) and asks for it
+ * to be brought forward. The scripts still refuse to roll a newer checkout
+ * back (the pin is skipped when it is already an ancestor of HEAD), so
+ * pinning an existing tree can only ever move it forward.
+ */
+function decidePinCommit({ existingCheckout, pinExistingCheckout = false }) {
+  return !existingCheckout || Boolean(pinExistingCheckout)
+}
+
 async function runBootstrap(opts) {
   const {
     installStamp,
@@ -898,6 +914,10 @@ async function runBootstrap(opts) {
     logRoot,
     onEvent,
     abortSignal,
+    // Bring an existing checkout forward to the packaged pin instead of
+    // following its branch. Set by main.ts when the checkout is behind the
+    // install stamp; see decidePinCommit.
+    pinExistingCheckout = false,
     writeMarker // callback to write the bootstrap-complete marker; main.ts provides
   } = opts
 
@@ -948,14 +968,17 @@ async function runBootstrap(opts) {
 
   try {
     const existingCheckout = hasExistingGitCheckout(activeRoot)
-    const pinCommit = !existingCheckout
+    const pinCommit = decidePinCommit({ existingCheckout, pinExistingCheckout })
 
     if (existingCheckout && installStamp && installStamp.commit) {
       emit({
         type: 'log',
-        line:
-          `[bootstrap] existing checkout detected at ${activeRoot}; ` +
-          `not pinning to packaged install stamp ${installStamp.commit.slice(0, 12)}`
+        line: pinCommit
+          ? `[bootstrap] existing checkout detected at ${activeRoot}; ` +
+            `bringing it forward to packaged install stamp ${installStamp.commit.slice(0, 12)} ` +
+            '(the installer keeps a checkout that is already newer)'
+          : `[bootstrap] existing checkout detected at ${activeRoot}; ` +
+            `not pinning to packaged install stamp ${installStamp.commit.slice(0, 12)}`
       })
     }
 
@@ -1058,6 +1081,7 @@ export {
   buildPinArgs,
   buildPosixPinArgs,
   cachedScriptPath,
+  decidePinCommit,
   hasExistingGitCheckout,
   installedAgentInstallScript,
   installRefForStamp,
