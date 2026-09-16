@@ -745,13 +745,14 @@ function TerminalTranscript({ command, exitCode }: TerminalTranscriptProps) {
 //   - File edits are the deliverable, not scaffolding. The diff is what the
 //     user reviews, so it stays visible at its place in the turn, live and
 //     settled, the way a PR shows its changes.
-//   - `clarify`, `image_generate` and `delegate_task` bypass ToolEntry to
-//     render their own markup: a question the user has to answer, an image
-//     they asked for, the several agents a fan-out is running.
+//   - `clarify`, `image_generate`, `deliver_file` and `delegate_task` bypass
+//     ToolEntry to render their own markup: a question the user has to answer,
+//     an image they asked for, a file handed over as a card, the several
+//     agents a fan-out is running.
 //
 // Everything else is ephemeral activity — reads, searches, commands — which is
 // what a run summarizes and what the live ticker cycles through.
-const CARD_TOOLS = new Set(['clarify', 'delegate_task', 'image_generate'])
+const CARD_TOOLS = new Set(['clarify', 'delegate_task', 'deliver_file', 'image_generate'])
 
 export function isCardTool(toolName: string): boolean {
   return CARD_TOOLS.has(toolName) || isFileEditTool(toolName)

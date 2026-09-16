@@ -380,6 +380,9 @@ TOOLSETS = {
         "tools": [
             "web_search", "web_extract",
             "terminal", "process", "read_terminal", "close_terminal",
+            # Hand a produced file to the desktop chat as a card; gated on
+            # AGENTX_DESKTOP via check_fn like the two pane tools above.
+            "deliver_file",
             "read_file", "write_file", "patch", "search_files",
             "vision_analyze",
             "skills_list", "skill_view", "skill_manage",

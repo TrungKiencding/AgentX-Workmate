@@ -344,3 +344,12 @@ class TestResolveToolsetMemo:
         assert first == second
         assert first  # non-empty sanity
 
+
+
+def test_coding_posture_offers_deliver_file():
+    """A code workspace is where documents get produced by scripts, so the
+    posture toolset must carry the desktop hand-over tool (its check_fn still
+    hides it outside the GUI)."""
+    from toolsets import TOOLSETS
+
+    assert "deliver_file" in TOOLSETS["coding"]["tools"]
