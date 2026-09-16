@@ -1994,8 +1994,15 @@ def _wait_agent(session: dict, rid: str, timeout: float = 30.0) -> dict | None:
 
 # The deferred prompt path waits in short slices so a cancel is honored
 # promptly and a slow build can be reported to the client exactly once.
-_AGENT_BUILD_WAIT_SLICE = 5.0
-_AGENT_BUILD_SLOW_NOTICE_AFTER = 30.0
+# The notice fires after 5s, not 30: the transcript shows no assistant
+# activity at all until the turn actually starts, so a cold build (MCP
+# discovery, model metadata, skills scan) left the user staring at their own
+# message with zero feedback for the old threshold's full 30 seconds
+# (observed: the "app sent my message and nothing happened" report). The
+# desktop renders the keyed notice as a localized in-transcript status line;
+# the TUI keeps showing the English text in its status bar.
+_AGENT_BUILD_WAIT_SLICE = 1.0
+_AGENT_BUILD_SLOW_NOTICE_AFTER = 5.0
 _AGENT_BUILD_SLOW_NOTICE_KEY = "agent-build-slow"
 
 
@@ -2051,6 +2058,15 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
     start = time.monotonic()
     cap = _agent_build_wait_cap()
     notified_slow = False
+
+    def _clear_slow_notice() -> None:
+        # Every exit must retire the sticky notice (ttl_ms=None) once shown —
+        # cancel/timeout/dead-build exits used to leave it up forever, and the
+        # desktop keys its "starting the assistant" transcript line off this
+        # clear too.
+        if notified_slow:
+            _emit("notification.clear", sid, {"key": _AGENT_BUILD_SLOW_NOTICE_KEY})
+
     while not ready.wait(timeout=_AGENT_BUILD_WAIT_SLICE):
         with session["history_lock"]:
             cancelled = session.get("_turn_cancel_requested") or not session.get(
@@ -2059,9 +2075,11 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
         if cancelled:
             # The caller's cancel/not-running branch emits the user-visible
             # event for this — bail without an error of our own.
+            _clear_slow_notice()
             return None
         waited = time.monotonic() - start
         if waited >= cap:
+            _clear_slow_notice()
             return _err(
                 rid,
                 5032,
@@ -2077,6 +2095,7 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
             # _build's ``finally`` guarantees ready.set(); a dead thread with
             # ready still unset means the build died hard (interpreter-level
             # kill) — don't wait on a corpse for the rest of the cap.
+            _clear_slow_notice()
             return _err(
                 rid,
                 5032,
@@ -2084,9 +2103,12 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
                 or "agent initialization failed before completing",
             )
         if not notified_slow and waited >= _AGENT_BUILD_SLOW_NOTICE_AFTER:
-            # One keyed, replace-in-place notice: the desktop shows it as a
-            # toast, the TUI in its status bar. Without this the extended wait
-            # would be exactly the silent hang this function exists to fix.
+            # One keyed, replace-in-place notice: the desktop renders it as a
+            # localized status line in the transcript (keyed off
+            # _AGENT_BUILD_SLOW_NOTICE_KEY, see the renderer's agent-starting
+            # store), the TUI shows the text in its status bar. Without this
+            # the extended wait would be exactly the silent hang this function
+            # exists to fix.
             notified_slow = True
             _emit(
                 "notification.show",
@@ -2104,8 +2126,7 @@ def _wait_agent_for_prompt(session: dict, rid: str, sid: str) -> dict | None:
                     "id": _AGENT_BUILD_SLOW_NOTICE_KEY,
                 },
             )
-    if notified_slow:
-        _emit("notification.clear", sid, {"key": _AGENT_BUILD_SLOW_NOTICE_KEY})
+    _clear_slow_notice()
     err = session.get("agent_error")
     return _err(rid, 5032, err) if err else None
 

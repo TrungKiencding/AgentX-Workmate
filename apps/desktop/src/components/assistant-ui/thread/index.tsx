@@ -14,14 +14,16 @@ import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 
-type ThreadLoadingState = 'response' | 'session'
-
 interface ThreadProps {
   clampToComposer?: boolean
   cwd?: string | null
   gateway?: HermesGateway | null
   intro?: IntroProps
-  loading?: ThreadLoadingState
+  /** 'session' overlays the centered spinner while a routed session hydrates.
+   *  The awaiting-a-response state needs no prop: while the session is busy
+   *  with no reply yet, the runtime synthesizes a running placeholder message
+   *  whose ResponseLoadingIndicator carries the wait. */
+  loading?: 'session'
   onBranchInNewChat?: (messageId: string) => void
   onCancel?: () => Promise<void> | void
   onDismissError?: (messageId: string) => void

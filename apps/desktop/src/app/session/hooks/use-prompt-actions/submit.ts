@@ -26,6 +26,7 @@ import {
   setAwaitingResponse,
   setBusy,
   setMessages,
+  setTurnStartedAt,
   touchSessionActivity
 } from '@/store/session'
 import { $sessionStates } from '@/store/session-states'
@@ -78,6 +79,7 @@ interface SubmitPromptDeps {
     setAwaitingResponse: (awaiting: boolean) => void
     setBusy: (busy: boolean) => void
     setMessages: (updater: (current: ChatMessage[]) => ChatMessage[]) => void
+    setTurnStartedAt: (at: null | number) => void
   }
 }
 
@@ -88,7 +90,8 @@ const MAIN_SUBMIT_SCOPE: NonNullable<SubmitPromptDeps['scope']> = {
   readAttachments: () => $composerAttachments.get(),
   setAwaitingResponse,
   setBusy,
-  setMessages
+  setMessages,
+  setTurnStartedAt
 }
 
 /** The prompt submit pipeline, extracted from usePromptActions. */
@@ -310,6 +313,13 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
 
       const optimisticId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
+      // The turn's timer origin is the SEND, not the backend's message.start:
+      // the transcript's waiting indicator starts counting here, and the
+      // message.start handler keeps this stamp (see gateway-event.ts) so the
+      // timer doesn't reset to 0 when the turn actually starts — a deferred
+      // agent build can hold that gap open for tens of seconds.
+      const submitStartedAt = Date.now()
+
       // What the bubble shows. A `/skill` send carries the whole expanded
       // skill body as its text — model-facing scaffolding — so the dispatcher
       // hands us the invocation to render instead. Everything else shows what
@@ -357,6 +367,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
               : [...finalizeInterruptedMessages(state.messages, state.streamId), buildUserMessage()],
             busy: true,
             awaitingResponse: true,
+            turnStartedAt: submitStartedAt,
             pendingBranchGroup: null,
             sawAssistantPayload: false,
             streamId: null,
@@ -416,6 +427,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
         setMutableRef(busyRef, true)
         scope.setBusy(true)
         scope.setAwaitingResponse(true)
+        scope.setTurnStartedAt(submitStartedAt)
         clearNotifications()
       }
 

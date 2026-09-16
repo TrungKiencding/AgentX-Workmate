@@ -3316,6 +3316,7 @@ export const zhHant = defineLocale({
       resumeWhenBackgroundDone: count =>
         count === 1 ? '背景工作完成後將自動繼續' : `${count} 個背景工作完成後將自動繼續`,
       thinking: '思考中',
+      startingAgent: '正在啟動助理',
       thought: '已思考',
       thoughtBriefly: '思考了片刻',
       thoughtFor: duration => `思考了 ${duration}`,

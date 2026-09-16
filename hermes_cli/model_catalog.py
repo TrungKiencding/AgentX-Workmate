@@ -165,7 +165,9 @@ def _fetch_manifest_with_fallback(
     # default and tests (and any future runtime override) need to substitute it.
     if fallback_urls is None:
         fallback_urls = DEFAULT_CATALOG_FALLBACK_URLS
-    data = _fetch_manifest(primary_url, timeout)
+    # An empty primary URL means "no remote catalog" — never hand it to
+    # urlopen (which raises "unknown url type: ''" on every call).
+    data = _fetch_manifest(primary_url, timeout) if primary_url else None
     if data is not None:
         return data
     for url in fallback_urls:
@@ -282,10 +284,22 @@ def get_catalog(*, force_refresh: bool = False) -> dict[str, Any]:
         return {}
 
     # With no catalog URL configured (the default), the shipped manifest is the
-    # only source. Seed it once so the picker has curated lists on a fresh
-    # install that has never run `agentx update`.
-    if not cfg["url"] and _read_disk_cache()[0] is None:
-        _seed_from_installed_tree()
+    # only source and there is nothing to fetch or revalidate: "an empty URL
+    # simply means 'no fetch'" (see DEFAULT_CATALOG_URL). Before this early
+    # return, the TTL branches below still ran with url="" — every call after
+    # the seeded cache aged past ttl_hours spawned an SWR refresh that died on
+    # `urlopen("")` ("unknown url type: ''"), once per agent build / picker
+    # open / credential scan, forever. Serve the seeded copy regardless of age;
+    # force_refresh re-copies the shipped manifest (its only source of truth).
+    if not cfg["url"]:
+        if force_refresh or _read_disk_cache()[0] is None:
+            _seed_from_installed_tree()
+        disk_data, disk_mtime = _read_disk_cache()
+        if disk_data is None:
+            return {}
+        _catalog_cache = disk_data
+        _catalog_cache_source_mtime = disk_mtime
+        return disk_data
 
     ttl_seconds = max(0.0, cfg["ttl_hours"] * 3600.0)
 

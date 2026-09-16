@@ -3471,6 +3471,7 @@ export const en: Translations = {
           ? 'Will resume when the background task finishes'
           : `Will resume when ${count} background tasks finish`,
       thinking: 'Thinking',
+      startingAgent: 'Starting the assistant',
       thought: 'Thought',
       thoughtBriefly: 'Thought briefly',
       thoughtFor: duration => `Thought for ${duration}`,

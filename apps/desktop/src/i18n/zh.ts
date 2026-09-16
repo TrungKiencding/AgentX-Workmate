@@ -3550,6 +3550,7 @@ export const zh: Translations = {
       resumeWhenBackgroundDone: count =>
         count === 1 ? '后台任务完成后将自动继续' : `${count} 个后台任务完成后将自动继续`,
       thinking: '思考中',
+      startingAgent: '正在启动助手',
       thought: '已思考',
       thoughtBriefly: '思考了片刻',
       thoughtFor: duration => `思考了 ${duration}`,

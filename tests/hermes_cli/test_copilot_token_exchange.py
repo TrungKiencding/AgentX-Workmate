@@ -68,6 +68,53 @@ class TestExchangeCopilotToken:
             exchange_copilot_token("gho_test123")
 
 
+class TestPeekCachedExchangedToken:
+    """peek_cached_exchanged_token() — cache-tier reads with zero network."""
+
+    def test_returns_none_when_nothing_cached(self):
+        import hermes_cli.copilot_auth as mod
+
+        with patch.object(mod, "_load_jwt_from_disk", return_value=None):
+            assert mod.peek_cached_exchanged_token("gho_test123") is None
+
+    def test_returns_none_for_empty_token(self):
+        from hermes_cli.copilot_auth import peek_cached_exchanged_token
+
+        assert peek_cached_exchanged_token("") is None
+
+    def test_serves_fresh_in_process_entry(self):
+        import hermes_cli.copilot_auth as mod
+
+        fp = mod._token_fingerprint("gho_test123")
+        mod._jwt_cache[fp] = ("capi_jwt", time.time() + 1800, "https://api.example")
+
+        with patch("urllib.request.urlopen", side_effect=AssertionError("no network")):
+            assert mod.peek_cached_exchanged_token("gho_test123") == ("capi_jwt", "https://api.example")
+
+    def test_expired_entry_is_not_served(self):
+        import hermes_cli.copilot_auth as mod
+
+        fp = mod._token_fingerprint("gho_test123")
+        # Inside the refresh margin — exchange_copilot_token would re-fetch, so
+        # the peek must not serve it either.
+        mod._jwt_cache[fp] = ("capi_jwt", time.time() + 30, None)
+
+        with patch.object(mod, "_load_jwt_from_disk", return_value=None):
+            assert mod.peek_cached_exchanged_token("gho_test123") is None
+
+    def test_promotes_fresh_disk_entry_to_memory(self):
+        import hermes_cli.copilot_auth as mod
+
+        expires = time.time() + 1800
+        with patch.object(
+            mod, "_load_jwt_from_disk", return_value=("capi_disk_jwt", expires, None)
+        ):
+            assert mod.peek_cached_exchanged_token("gho_test123") == ("capi_disk_jwt", None)
+
+        fp = mod._token_fingerprint("gho_test123")
+        assert mod._jwt_cache[fp] == ("capi_disk_jwt", expires, None)
+
+
 class TestGetCopilotApiToken:
     """Tests for get_copilot_api_token() — the fallback wrapper."""
 

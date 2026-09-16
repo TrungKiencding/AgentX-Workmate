@@ -476,6 +476,33 @@ def _save_jwt_to_disk(
         logger.debug("Failed to persist Copilot JWT: %s", exc)
 
 
+def peek_cached_exchanged_token(raw_token: str) -> Optional[tuple[str, Optional[str]]]:
+    """Return a still-fresh cached exchanged token without any network I/O.
+
+    Checks the same two cache tiers ``exchange_copilot_token`` consults (the
+    in-process map, then the persisted store) and returns ``(api_token,
+    base_url)`` when a JWT is still comfortably before expiry, else ``None``.
+    Exists for callers that must never block on the exchange round-trip —
+    credential-pool loads run inside the deferred agent build, where a hung
+    exchange (retries + backoff) stalls the user's first message.
+    """
+    if not raw_token:
+        return None
+    fp = _token_fingerprint(raw_token)
+    cached = _jwt_cache.get(fp)
+    if cached:
+        api_token, expires_at, base_url = cached
+        if time.time() < expires_at - _JWT_REFRESH_MARGIN_SECONDS:
+            return api_token, base_url
+    disk_cached = _load_jwt_from_disk(fp)
+    if disk_cached:
+        api_token, expires_at, base_url = disk_cached
+        if time.time() < expires_at - _JWT_REFRESH_MARGIN_SECONDS:
+            _jwt_cache[fp] = (api_token, expires_at, base_url)
+            return api_token, base_url
+    return None
+
+
 def exchange_copilot_token(raw_token: str, *, timeout: float = 10.0) -> tuple[str, float, Optional[str]]:
     """Exchange a raw GitHub token for a short-lived Copilot API token.
 

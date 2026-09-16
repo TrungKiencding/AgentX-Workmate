@@ -3722,6 +3722,7 @@ export const vi: Translations = {
       resumeWhenBackgroundDone: count =>
         count === 1 ? 'Sẽ tiếp tục khi tác vụ nền chạy xong' : `Sẽ tiếp tục khi ${count} tác vụ nền chạy xong`,
       thinking: 'Đang nghĩ',
+      startingAgent: 'Đang khởi động trợ lý',
       thought: 'Đã nghĩ',
       thoughtBriefly: 'Nghĩ một lát',
       thoughtFor: duration => `Đã nghĩ trong ${duration}`,

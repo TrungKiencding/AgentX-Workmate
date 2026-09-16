@@ -17,6 +17,7 @@ import { modelOptionsQueryKey } from '@/lib/model-options'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 import { type AgentNoticePayload, clearAgentNotice, nativeNoticeInput, showAgentNotice } from '@/store/agent-notices'
+import { AGENT_BUILD_SLOW_NOTICE_KEY, clearAllAgentStarting, setSessionAgentStarting } from '@/store/agent-starting'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
 import { billingCtaLabel, clearBillingBlock, runBillingRecovery, setBillingBlock } from '@/store/billing-block'
 import { clearClarifyRequest, normalizeChoices, setClarifyRequest, warnDroppedChoices } from '@/store/clarify'
@@ -556,6 +557,10 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         setSessionCompacting(sessionId, false)
         compactedTurnRef.current.delete(sessionId)
         nativeSubagentSessionsRef.current.delete(sessionId)
+        // The agent build is over the moment a turn starts — retire the
+        // "starting the assistant" label even if the gateway's keyed
+        // notification.clear was lost to a reconnect.
+        setSessionAgentStarting(sessionId, false)
         // A fresh turn on this session optimistically clears its billing wall;
         // if credits are still exhausted the next failure re-raises it.
         clearBillingBlock(sessionId)
@@ -563,6 +568,14 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         if (isActiveEvent) {
           triggerHaptic('streamStart')
         }
+
+        // The turn's timer origin. A user submit already stamped it (the
+        // transcript's waiting indicator counts from the SEND, through a
+        // possibly long deferred agent build) — keep that stamp so the timer
+        // doesn't reset to 0 when the backend's turn actually starts. Backend-
+        // initiated turns (goal follow-ups, crash-resume continues) have no
+        // waiting submit, so they start their clock here as before.
+        let turnStartedAt = Date.now()
 
         updateSessionState(sessionId, state => {
           // If the user clicked Stop (cancelRun set interrupted=true), don't
@@ -576,6 +589,10 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             return state
           }
 
+          if (state.awaitingResponse && state.turnStartedAt) {
+            turnStartedAt = state.turnStartedAt
+          }
+
           return {
             ...state,
             busy: true,
@@ -583,12 +600,12 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             sawAssistantPayload: false,
             interrupted: false,
             interimBoundaryPending: false,
-            turnStartedAt: Date.now()
+            turnStartedAt
           }
         })
 
         if (isActiveEvent) {
-          setTurnStartedAt(Date.now())
+          setTurnStartedAt(turnStartedAt)
         }
       } else if (event.type === 'message.delta') {
         if (sessionId) {
@@ -724,6 +741,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         // last item stuck pending/in_progress. Finished lists keep their linger.
         clearActiveSessionTodos(sessionId)
         setSessionCompacting(sessionId, false)
+        setSessionAgentStarting(sessionId, false)
 
         flushQueuedDeltas(sessionId)
 
@@ -1140,6 +1158,17 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         // which session is focused.
         const notice = event.payload as AgentNoticePayload | undefined
 
+        // One exception: the gateway's slow-agent-build notice is session
+        // state, not an account-wide toast. The transcript's waiting indicator
+        // renders it localized under the queued message ("starting the
+        // assistant"); the matching keyed notification.clear — emitted on
+        // every build exit — retires it below.
+        if (notice?.key === AGENT_BUILD_SLOW_NOTICE_KEY && sessionId) {
+          setSessionAgentStarting(sessionId, true)
+
+          return
+        }
+
         showAgentNotice(notice)
 
         // The urgent pair (access paused / restored) also breaks through as a
@@ -1161,7 +1190,19 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         // Key-matched dismissal (e.g. credits restored clears the depleted
         // notice). notify() keys the toast by the notice key, so this maps
         // straight to dismissNotification(key).
-        clearAgentNotice((event.payload as AgentNoticePayload | undefined)?.key)
+        const clearedKey = (event.payload as AgentNoticePayload | undefined)?.key
+
+        if (clearedKey === AGENT_BUILD_SLOW_NOTICE_KEY) {
+          // The agent build finished (or its wait was cancelled) — retire the
+          // transcript's "starting the assistant" label.
+          if (sessionId) {
+            setSessionAgentStarting(sessionId, false)
+          } else {
+            clearAllAgentStarting()
+          }
+        }
+
+        clearAgentNotice(clearedKey)
       } else if (event.type === 'error') {
         const errorMessage = payload?.message || 'AgentX reported an error'
         const looksLikeProviderSetup = isProviderSetupErrorMessage(errorMessage)
@@ -1174,6 +1215,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
           clearClarifyRequest(undefined, sessionId)
           clearActiveSessionTodos(sessionId)
           setSessionCompacting(sessionId, false)
+          setSessionAgentStarting(sessionId, false)
           compactedTurnRef.current.delete(sessionId)
         }
 
