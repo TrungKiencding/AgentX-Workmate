@@ -340,6 +340,11 @@ clickable at all, and the preview rail refused every office file and PDF as
   paint; .xlsx as a table per sheet with a sheet strip and a row cap; audio
   and video get the transcript's seekable player; archives and formats without
   a renderer (.pptx) offer Quick Look, the OS app and a saved copy.
+- **A document is not code.** `FileTypeIcon` (the file-tree mapping in
+  `lib/markdown-code.ts`) now gives each deliverable kind its own glyph —
+  `file-text`, `table`, `file-pdf`, `file-zip`, `file-media`, `music`,
+  `device-camera-video` — instead of the code bracket every unknown
+  extension used to wear.
 - **Kept honest.** `formatByteSize` is now the one size formatter; the
   deliverable-extension table lives in three places by necessity (renderer,
   Electron, Python) with tests pinning the same fixtures on each; every new

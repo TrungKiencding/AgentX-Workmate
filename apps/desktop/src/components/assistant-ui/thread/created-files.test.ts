@@ -40,10 +40,18 @@ describe('pathsShownInParts', () => {
         result: JSON.stringify({ success: true, path: '/tmp/stored.pdf' })
       },
       { type: 'tool-call', toolName: 'terminal', result: { path: '/tmp/not-a-card.csv' } },
-      { type: 'text', text: 'See [chart.png](#file:%2Ftmp%2Fchart.png) and [File: x](#media:%2Ftmp%2Fx.zip).' }
+      { type: 'text', text: 'See [chart.png](#file:%2Ftmp%2Fchart.png) and [File: x](#media:%2Ftmp%2Fx.zip).' },
+      // A bare path in stored prose renders as a chip, so it counts as shown too.
+      { type: 'text', text: 'The summary is at /tmp/summary.pdf.' }
     ])
 
-    expect([...shown].sort()).toEqual(['/tmp/chart.png', '/tmp/report.docx', '/tmp/stored.pdf', '/tmp/x.zip'])
+    expect([...shown].sort()).toEqual([
+      '/tmp/chart.png',
+      '/tmp/report.docx',
+      '/tmp/stored.pdf',
+      '/tmp/summary.pdf',
+      '/tmp/x.zip'
+    ])
   })
 })
 

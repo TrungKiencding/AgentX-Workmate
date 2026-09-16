@@ -166,7 +166,7 @@ function WorkbookView({ workbook }: { workbook: WorkbookPreview }) {
 }
 
 /** The "no renderer for this one" state, with every way out on the control ramp. */
-export function UnsupportedDocument({ path }: { path: string }) {
+export function UnsupportedDocument({ onPreviewAnyway, path }: { onPreviewAnyway?: () => void; path: string }) {
   const { t } = useI18n()
   const actions = useDeliverableActions(path)
 
@@ -189,6 +189,7 @@ export function UnsupportedDocument({ path }: { path: string }) {
           </Button>
         </div>
       }
+      secondaryAction={onPreviewAnyway ? { label: t.preview.previewAnyway, onClick: onPreviewAnyway } : undefined}
       title={t.preview.documentUnsupportedTitle}
     />
   )

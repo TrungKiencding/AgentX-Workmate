@@ -74,6 +74,23 @@ class TestPathsInText:
 
 
 class TestCollect:
+    def test_reads_file_names_out_of_a_json_tool_result(self, tmp_path):
+        """A terminal result is a JSON string whose output carries escaped
+        newlines; every name on every line must still resolve."""
+        started = time.time() - 5
+        names = ["a.pdf", "b.xlsx", "c.docx"]
+        for name in names:
+            _touch(tmp_path / name, b"x")
+        listing = "\n".join(f"-rw-r--r--  1 me  staff  1 Sep 16 10:00 {name}" for name in names)
+        messages = [
+            _assistant_with_tool("terminal", {"command": "ls -l"}),
+            {"role": "tool", "name": "terminal", "content": json.dumps({"output": listing, "exit_code": 0})},
+        ]
+
+        records = d.collect_turn_deliverables(messages, cwd=str(tmp_path), started_at=started)
+
+        assert sorted(r["name"] for r in records) == names
+
     def test_reports_files_the_turn_mentioned_and_produced(self, tmp_path):
         started = time.time() - 30
         fresh = _touch(tmp_path / "report.docx", b"PK" * 10)

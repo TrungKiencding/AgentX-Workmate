@@ -942,11 +942,11 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     return <PreviewEmptyState body={state.error} title={t.preview.unavailable} />
   }
 
-  // Archives and other opaque files: nothing to paint, so offer the ways out
-  // (Quick Look, the OS app, a saved copy) instead of a "preview anyway"
-  // that would only show noise.
-  if (!isImage && !forcePreview && target.binary && !isText) {
-    return <UnsupportedDocument path={filePath} />
+  // Archives and other opaque files: nothing to paint, so lead with the ways
+  // out (Quick Look, the OS app, a saved copy). "Preview anyway" stays as the
+  // quiet escape hatch for a file the byte sniff misjudged.
+  if (!isImage && !forcePreview && (target.previewKind === 'binary' || (target.binary && !isText))) {
+    return <UnsupportedDocument onPreviewAnyway={() => setForcePreview(true)} path={filePath} />
   }
 
   if (

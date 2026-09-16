@@ -87,7 +87,7 @@ _EXT_ALTERNATION = "|".join(
 _ABSOLUTE_PATH_RE = re.compile(
     r"(?<![\w:/\\.-])"
     r"((?:~|/|[A-Za-z]:[\\/])[^\s\"'`<>|*?\[\]{}]*?\.(?:" + _EXT_ALTERNATION + r"))"
-    r"(?=[\s\"'`<>|,;:)\]}]|\.(?:\s|$)|$)",
+    r"(?=[\s\"'`<>|,;:)\]}\\]|\.(?:\s|$)|$)",
     re.IGNORECASE,
 )
 
@@ -97,7 +97,7 @@ _ABSOLUTE_PATH_RE = re.compile(
 _RELATIVE_PATH_RE = re.compile(
     r"(?<![\w/\\.~:-])"
     r"((?:[\w\-][\w.\-]*[\\/])*[\w\-][\w.\-]*\.(?:" + _EXT_ALTERNATION + r"))"
-    r"(?=[\s\"'`<>|,;:)\]}]|\.(?:\s|$)|$)",
+    r"(?=[\s\"'`<>|,;:)\]}\\]|\.(?:\s|$)|$)",
     re.IGNORECASE,
 )
 
@@ -194,10 +194,25 @@ def _resolve_candidate(token: str, cwd: str) -> Optional[str]:
 
 
 def _iter_text_fragments(value: Any, depth: int = 0) -> Iterable[str]:
-    """Every string reachable inside a message field, bounded in depth."""
+    """Every string reachable inside a message field, bounded in depth.
+
+    Tool results arrive as JSON *strings* (``{"output": "…\\n…"}``): scanned
+    raw, every newline is the two characters ``\\n`` and a file name at the
+    end of a line is glued to a backslash. A string that parses as JSON is
+    therefore walked as the structure it encodes.
+    """
     if depth > 4:
         return
     if isinstance(value, str):
+        stripped = value.lstrip()
+        if stripped[:1] in "{[":
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, (dict, list)):
+                yield from _iter_text_fragments(parsed, depth + 1)
+                return
         yield value
     elif isinstance(value, dict):
         for child in value.values():

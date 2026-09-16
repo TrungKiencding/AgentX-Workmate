@@ -2,7 +2,7 @@
 // deliverables the backend saw the turn produce, minus the ones the transcript
 // already shows as cards. No React/DOM.
 
-import { linkedFilePaths } from '@/lib/deliverables'
+import { linkedFilePaths, linkifyDeliverablePaths } from '@/lib/deliverables'
 import type { DeliverableFile } from '@/store/deliverables'
 
 interface PartLike {
@@ -41,7 +41,12 @@ export function createdFilesFromPayload(value: unknown): DeliverableFile[] {
   }))
 }
 
-/** Paths a message already renders as a card: `deliver_file` results and `#media:` / `#file:` links. */
+/**
+ * Paths a message already shows as a card or chip: `deliver_file` results,
+ * `#media:` / `#file:` links, and the bare paths the markdown pass turns into
+ * chips at render time (the stored text still carries them bare, so the same
+ * linkifier runs here to see what the reader sees).
+ */
 export function pathsShownInParts(parts: readonly unknown[]): Set<string> {
   const shown = new Set<string>()
 
@@ -56,7 +61,7 @@ export function pathsShownInParts(parts: readonly unknown[]): Set<string> {
         shown.add(path)
       }
     } else if (part.type === 'text' && typeof part.text === 'string') {
-      for (const path of linkedFilePaths(part.text)) {
+      for (const path of linkedFilePaths(linkifyDeliverablePaths(part.text))) {
         shown.add(path)
       }
     }
