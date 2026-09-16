@@ -2257,6 +2257,30 @@ export const en: Translations = {
     open: 'Open'
   },
 
+  fileCard: {
+    open: 'Open',
+    download: 'Download',
+    downloadFailed: 'Could not save the file',
+    saved: name => `Saved ${name}`,
+    openWith: 'Open with default app',
+    quickLook: 'Quick Look',
+    missing: 'File not found',
+    missingBody: 'The file was moved or deleted.',
+    kinds: {
+      document: 'Document',
+      spreadsheet: 'Spreadsheet',
+      presentation: 'Presentation',
+      pdf: 'PDF',
+      archive: 'Archive',
+      image: 'Image',
+      audio: 'Audio',
+      video: 'Video',
+      data: 'Data',
+      text: 'Text',
+      file: 'File'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `v${current} of ${total}`,
     olderVersion: 'Older version',
@@ -3046,7 +3070,8 @@ export const en: Translations = {
       connectionActive: 'in use',
       signedIn: 'WebMate is signed in.',
       signedInAs: email => `WebMate is signed in as ${email}.`,
-      opened: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.',
+      opened:
+        'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.',
       loginRequired:
         'That browser has no AgentX session to reuse yet. Sign in to Workmate from that browser once, or use “Sign in WebMate”.',
       unsupported: 'This copy of WebMate cannot be signed in from here. Open WebMate in the browser and sign in there.',
@@ -3311,6 +3336,13 @@ export const en: Translations = {
       'This file changed since you opened it. Overwrite it with your version, or discard your edits and reload?',
     overwrite: 'Overwrite',
     discardReload: 'Discard & reload',
+    documentLoading: 'Opening document',
+    documentFailedTitle: "Couldn't open this document",
+    documentFailedBody: message => `Could not read its content: ${message}`,
+    documentUnsupportedTitle: 'No preview for this file type yet',
+    documentUnsupportedBody: 'Open it with an app on this computer, or download it to view.',
+    sheetTruncated: rows => `Showing the first ${rows} rows.`,
+    sheetEmpty: 'Empty sheet',
     console: {
       deselect: 'Deselect entry',
       select: 'Select entry',
@@ -3485,6 +3517,7 @@ export const en: Translations = {
       dismissError: 'Dismiss error',
       filesChanged: count => (count === 1 ? '1 file changed' : `${count} files changed`),
       reviewChanges: 'Review',
+      createdFiles: count => (count === 1 ? '1 file created in this turn' : `${count} files created in this turn`),
       readAloudFailed: 'Read aloud failed',
       preparingAudio: 'Preparing audio...',
       stopReading: 'Stop reading',
@@ -3599,6 +3632,7 @@ export const en: Translations = {
         browser_type: { done: 'Typed on page', pending: 'Typing on page', pendingAction: 'Typing' },
         clarify: { done: 'Asked a question', pending: 'Asking a question', pendingAction: 'Asking' },
         cronjob: { done: 'Cron job', pending: 'Scheduling cron job', pendingAction: 'Scheduling' },
+        deliver_file: { done: 'Delivered file', pending: 'Delivering file', pendingAction: 'Delivering' },
         edit_file: { done: 'Edited file', pending: 'Editing file', pendingAction: 'Editing' },
         execute_code: { done: 'Ran code', pending: 'Scripting', pendingAction: 'Scripting' },
         image_generate: { done: 'Generated image', pending: 'Generating image', pendingAction: 'Generating' },

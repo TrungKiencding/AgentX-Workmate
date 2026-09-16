@@ -1,3 +1,4 @@
+import { type DeliverableKind, deliverableKind, fileExtension } from '@/lib/deliverables'
 import { normalize } from '@/lib/text'
 
 const VALID_LANGUAGE_RE = /^[a-z0-9][a-z0-9+#-]*$/i
@@ -143,14 +144,44 @@ const LANGUAGE_BY_EXTENSION: Record<string, string> = {
   zsh: 'zsh'
 }
 
+// A file people hand each other — a document, a spreadsheet, an archive —
+// is not code and must not wear the code glyph: these are the file-tree
+// glyphs for each deliverable kind (see `lib/deliverables.ts`). Text formats
+// with their own language glyph (markdown, html) keep it via the language map.
+const CODICON_BY_DELIVERABLE_KIND: Record<DeliverableKind, string> = {
+  archive: 'file-zip',
+  audio: 'music',
+  data: 'table',
+  document: 'file-text',
+  image: 'file-media',
+  pdf: 'file-pdf',
+  presentation: 'window',
+  spreadsheet: 'table',
+  text: 'note',
+  video: 'device-camera-video'
+}
+
+const CODICON_BY_DELIVERABLE_EXT: Record<string, string> = {
+  ics: 'calendar',
+  vcf: 'person'
+}
+
 // Pick an icon for a file path by its extension (or bare name like
 // `Dockerfile`), reusing the language→codicon map so file-edit rows and code
-// blocks share one visual vocabulary. Unknown / generic code files get `code`.
+// blocks share one visual vocabulary. Deliverable kinds (documents, media,
+// archives) have their own glyphs; unknown / generic code files get `code`.
 export function codiconForFilename(path: string | undefined): string {
   const token = filenameExtToken(path)
   const language = LANGUAGE_BY_EXTENSION[token] || token
 
-  return codiconForLanguage(language)
+  if (language in LANGUAGE_BY_EXTENSION || CODICON_BY_LANGUAGE[language]) {
+    return codiconForLanguage(language)
+  }
+
+  const ext = fileExtension(path || '')
+  const kind = deliverableKind(path || '')
+
+  return CODICON_BY_DELIVERABLE_EXT[ext] || (kind ? CODICON_BY_DELIVERABLE_KIND[kind] : codiconForLanguage(language))
 }
 
 // Last path segment's extension (or the bare lowercased name for `Dockerfile`,

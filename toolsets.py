@@ -38,6 +38,8 @@ _AGENTX_CORE_TOOLS = [
     # pane, and react to a message with an emoji (all gated on AGENTX_DESKTOP
     # via check_fn — hidden outside the GUI).
     "read_terminal", "close_terminal", "open_preview", "focus_pane", "react_to_message",
+    # Hand a produced file to the desktop chat as a file card (gated the same way).
+    "deliver_file",
     # File manipulation
     "read_file", "write_file", "patch", "search_files",
     # Vision + image generation

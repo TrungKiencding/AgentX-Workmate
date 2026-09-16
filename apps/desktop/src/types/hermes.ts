@@ -517,6 +517,7 @@ export interface SessionInfo {
 }
 
 export type TimelineDisplayMetadata =
+  | { files_created: CreatedFileRecord[] }
   | { model: string; provider?: string }
   | {
       delegation_id: string
@@ -526,6 +527,17 @@ export type TimelineDisplayMetadata =
       duration_seconds?: number
     }
   | { reactions: MessageReaction[] }
+
+/** A file a turn produced, as `message.complete` and `display_metadata` ship it. */
+export interface CreatedFileRecord {
+  kind?: string
+  mime_type?: string
+  /** Epoch seconds. */
+  modified_at?: number
+  name?: string
+  path: string
+  size_bytes?: number
+}
 
 /** One emoji reaction on a message. One per author, iOS-Tapback style. */
 export interface MessageReaction {

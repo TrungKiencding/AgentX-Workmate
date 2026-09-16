@@ -2378,6 +2378,30 @@ export const zh: Translations = {
     open: '打开'
   },
 
+  fileCard: {
+    open: '打开',
+    download: '下载',
+    downloadFailed: '无法保存文件',
+    saved: name => `已保存 ${name}`,
+    openWith: '用应用打开',
+    quickLook: '快速查看',
+    missing: '找不到文件',
+    missingBody: '文件已被移动或删除。',
+    kinds: {
+      document: '文档',
+      spreadsheet: '电子表格',
+      presentation: '演示文稿',
+      pdf: 'PDF',
+      archive: '压缩包',
+      image: '图片',
+      audio: '音频',
+      video: '视频',
+      data: '数据',
+      text: '文本',
+      file: '文件'
+    }
+  },
+
   artifactPreview: {
     versionOf: (current, total) => `第 ${current}/${total} 版`,
     olderVersion: '较旧版本',
@@ -3398,6 +3422,13 @@ export const zh: Translations = {
     diskChangedBody: '此文件自打开以来已更改。用你的版本覆盖，还是放弃你的编辑并重新加载？',
     overwrite: '覆盖',
     discardReload: '放弃并重新加载',
+    documentLoading: '正在打开文档',
+    documentFailedTitle: '无法打开此文档',
+    documentFailedBody: message => `无法读取内容：${message}`,
+    documentUnsupportedTitle: '暂不支持预览此文件类型',
+    documentUnsupportedBody: '用本机应用打开，或下载后查看。',
+    sheetTruncated: rows => `仅显示前 ${rows} 行。`,
+    sheetEmpty: '空工作表',
     console: {
       deselect: '取消选择条目',
       select: '选择条目',
@@ -3564,6 +3595,7 @@ export const zh: Translations = {
       dismissError: '关闭错误',
       filesChanged: count => `${count} 个文件已更改`,
       reviewChanges: '查看',
+      createdFiles: count => `本轮已创建 ${count} 个文件`,
       readAloudFailed: '朗读失败',
       preparingAudio: '正在准备音频...',
       stopReading: '停止朗读',
@@ -3669,6 +3701,7 @@ export const zh: Translations = {
         browser_type: { done: '已在页面输入', pending: '正在页面输入', pendingAction: '正在输入' },
         clarify: { done: '已提问', pending: '正在提问', pendingAction: '正在提问' },
         cronjob: { done: 'Cron 任务', pending: '正在安排 Cron 任务', pendingAction: '正在安排' },
+        deliver_file: { done: '已发送文件', pending: '正在发送文件', pendingAction: '正在发送' },
         edit_file: { done: '已编辑文件', pending: '正在编辑文件', pendingAction: '正在编辑' },
         execute_code: { done: '已运行代码', pending: '正在编写脚本', pendingAction: '正在编写脚本' },
         image_generate: { done: '已生成图片', pending: '正在生成图片', pendingAction: '正在生成' },

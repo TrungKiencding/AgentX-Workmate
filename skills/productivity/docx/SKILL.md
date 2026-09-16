@@ -122,6 +122,10 @@ The script writes `comments.xml`, `commentsExtended.xml`, `commentsIds.xml`, `co
 1. `python scripts/office/validate.py out.docx --original in.docx` — schema, relationship, and content-type checks; every failure names its fix.
 2. Render to PDF → images (see "Verify the output") and inspect each page with `vision_analyze` — look for broken tables, missing images, spacing artifacts, leftover placeholder text.
 
+## Hand it over
+
+When the deliverable is written and verified, give it to the user through the platform's file channel instead of only quoting its path: call `deliver_file` with the absolute path when that tool is available (AgentX desktop — the file shows up as a card with preview and download), otherwise put `MEDIA:/absolute/path/to/file` in your reply so messaging platforms attach it. One call or tag per file, then describe the content in a sentence.
+
 ## Related skills
 
 `pdf` (PDF work), `xlsx` (spreadsheets), `powerpoint` (decks), `ocr-and-documents` (scanned input extraction).

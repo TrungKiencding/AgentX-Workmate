@@ -9601,6 +9601,54 @@ def _start_notification_poller(sid: str, session: dict) -> threading.Event:
     return stop
 
 
+def _turn_files_created(
+    session: dict, history: list, result: Any, final_text: Any, started_at: float
+) -> list[dict]:
+    """Deliverable files this turn produced, or ``[]`` — never raises.
+
+    Only the rows the turn appended are inspected (``result["messages"]``
+    past the turn-start snapshot). The bounded workspace walk runs only for a
+    session whose cwd the user picked explicitly: a desktop session's default
+    cwd is a launch directory such as ``$HOME``, and nothing that other apps
+    drop there during a turn is this turn's output.
+    """
+    try:
+        from tui_gateway.deliverables import collect_turn_deliverables
+
+        new_messages: list = []
+        if isinstance(result, dict) and isinstance(result.get("messages"), list):
+            messages = result["messages"]
+            new_messages = messages[len(history):] if len(messages) > len(history) else list(messages)
+        cwd = _session_cwd(session)
+        workspace_root = cwd if session.get("explicit_cwd") else None
+        excluded_roots = [str(get_hermes_home()), str(_session_home(session))]
+        return collect_turn_deliverables(
+            new_messages,
+            cwd=cwd,
+            started_at=started_at,
+            workspace_root=workspace_root,
+            excluded_roots=excluded_roots,
+            final_text=final_text if isinstance(final_text, str) else "",
+        )
+    except Exception:
+        logger.debug("turn deliverables collection failed", exc_info=True)
+        return []
+
+
+def _persist_turn_files_created(agent, session: dict, files: list[dict]) -> None:
+    """Pin ``files_created`` to the turn's reply row (best effort, presentation only)."""
+    db = getattr(agent, "_session_db", None)
+    if db is None or not files:
+        return
+    session_id = getattr(agent, "session_id", None) or session.get("session_key")
+    try:
+        row_id = db.latest_message_row_id(session_id, role="assistant", require_text=False)
+        if row_id is not None:
+            db.merge_message_display_metadata(session_id, row_id, {"files_created": files})
+    except Exception:
+        logger.debug("failed to persist turn deliverables", exc_info=True)
+
+
 def _run_prompt_submit(
     rid,
     sid: str,
@@ -9644,6 +9692,9 @@ def _run_prompt_submit(
     # muted window was structurally indistinguishable from a request that
     # never arrived. No prompt content is logged.
     _turn_started_monotonic = time.monotonic()
+    # Wall clock, for the deliverables scan: a file counts as this turn's
+    # output when its mtime is at or after this instant.
+    _turn_started_wall = time.time()
     logger.info(
         "tui prompt accepted: ui_session=%s session_key=%s agent_session_id=%s "
         "kind=%s chars=%s images=%d",
@@ -10107,6 +10158,14 @@ def _run_prompt_submit(
                 payload["reasoning"] = last_reasoning
             if status_note:
                 payload["warning"] = status_note
+            # The deliverable files this turn produced (documents, images,
+            # archives…) ride the terminal frame so the desktop can render
+            # them as file cards, and are pinned to the reply row so a
+            # rehydrated transcript shows the same cards.
+            files_created = _turn_files_created(session, history, result, raw, _turn_started_wall)
+            if files_created:
+                payload["files_created"] = files_created
+                _persist_turn_files_created(agent, session, files_created)
             if result.get("response_previewed"):
                 payload["response_previewed"] = True
             # Forward the structured billing-wall descriptor (provider,

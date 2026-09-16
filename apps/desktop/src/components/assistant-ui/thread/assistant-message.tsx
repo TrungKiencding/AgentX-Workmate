@@ -15,6 +15,7 @@ import {
   messageContentText,
   pickPrimaryPreviewTarget
 } from '@/components/assistant-ui/thread/content'
+import { CreatedFilesCard } from '@/components/assistant-ui/thread/created-files-card'
 import { MESSAGE_PARTS_COMPONENTS } from '@/components/assistant-ui/thread/message-parts'
 import { ReactionPicker } from '@/components/assistant-ui/thread/message-reactions'
 import { ResponseLoadingIndicator, StreamStallIndicator } from '@/components/assistant-ui/thread/status'
@@ -26,6 +27,7 @@ import { PreviewAttachment } from '@/components/chat/preview-attachment'
 import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
+import type { DeliverableFile } from '@/lib/deliverables'
 import { triggerHaptic } from '@/lib/haptics'
 import { AudioLines, GitForkIcon, Loader2Icon, RefreshCwIcon, SmilePlusIcon, VolumeXIcon, XIcon } from '@/lib/icons'
 import { extractPreviewTargets } from '@/lib/preview-targets'
@@ -39,6 +41,7 @@ import { $voicePlayback } from '@/store/voice-playback'
 // Stable empty identity for the settled-parts selector — a fresh [] per render
 // would re-derive the changed-files card on every message re-render.
 const EMPTY_PARTS: readonly unknown[] = []
+const EMPTY_FILES: readonly DeliverableFile[] = []
 
 interface MessageActionProps {
   messageId: string
@@ -119,6 +122,19 @@ export const AssistantMessage: FC<{
     return s.message.status?.type === 'running' || !isLastMessage ? EMPTY_PARTS : s.message.parts
   })
 
+  // The files this turn produced ride the message's metadata (live from
+  // message.complete, rehydrated from the reply row). Unlike the changed-files
+  // card they stay with their turn: a produced document is still worth
+  // opening three replies later. Parts are read only once the turn settles so
+  // the dedupe against cards/chips never runs per token.
+  const createdFiles = useAuiState(
+    s => (s.message.metadata?.custom?.createdFiles as DeliverableFile[] | undefined) ?? EMPTY_FILES
+  )
+
+  const createdFilesParts = useAuiState(s =>
+    s.message.status?.type === 'running' || createdFiles.length === 0 ? EMPTY_PARTS : s.message.parts
+  )
+
   const enterRef = useEnterAnimation(isRunning, `assistant-message:${messageId}`)
 
   // Double-click the reply to heart it (iMessage). Undefined while reactions
@@ -180,6 +196,7 @@ export const AssistantMessage: FC<{
       )}
       {/* Last thing in the turn — under the action bar, the way Cursor ends a
           turn on its summary rather than burying it above the controls. */}
+      <CreatedFilesCard files={createdFiles} parts={createdFilesParts} />
       <ChangedFilesCard parts={settledParts} />
     </MessagePrimitive.Root>
   )

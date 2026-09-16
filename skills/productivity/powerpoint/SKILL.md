@@ -251,6 +251,10 @@ ls -1 "$PWD"/slide-*.jpg
 
 **After fixes, rerun all four commands above** — the PDF must be regenerated from the edited `.pptx` before `pdftoppm` can reflect your changes.
 
+## Hand it over
+
+When the deliverable is written and verified, give it to the user through the platform's file channel instead of only quoting its path: call `deliver_file` with the absolute path when that tool is available (AgentX desktop — the file shows up as a card with preview and download), otherwise put `MEDIA:/absolute/path/to/file` in your reply so messaging platforms attach it. One call or tag per file, then describe the content in a sentence.
+
 ## Related skills
 
 `docx` (Word documents), `xlsx` (spreadsheets), `pdf` (PDF work), optional `pptx-author` (finance-grade model-backed decks).

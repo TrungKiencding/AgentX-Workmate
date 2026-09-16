@@ -36,7 +36,9 @@ export interface PreviewTarget {
   language?: string
   mimeType?: string
   path?: string
-  previewKind?: 'binary' | 'html' | 'image' | 'text'
+  /** `pdf`, `document` (office files) and `media` (audio/video) have their own
+   * viewers in the rail; `binary` is what is left when none applies. */
+  previewKind?: 'binary' | 'document' | 'html' | 'image' | 'media' | 'pdf' | 'text'
   renderMode?: 'preview' | 'source'
   source: string
   url: string

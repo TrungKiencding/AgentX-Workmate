@@ -16,6 +16,7 @@ export type ToolTitleKey =
   | 'browser_type'
   | 'clarify'
   | 'cronjob'
+  | 'deliver_file'
   | 'edit_file'
   | 'execute_code'
   | 'image_generate'
@@ -1773,6 +1774,31 @@ export interface Translations {
     open: string
   }
 
+  fileCard: {
+    open: string
+    download: string
+    downloadFailed: string
+    saved: (name: string) => string
+    openWith: string
+    quickLook: string
+    missing: string
+    missingBody: string
+    kinds: Record<
+      | 'archive'
+      | 'audio'
+      | 'data'
+      | 'document'
+      | 'file'
+      | 'image'
+      | 'pdf'
+      | 'presentation'
+      | 'spreadsheet'
+      | 'text'
+      | 'video',
+      string
+    >
+  }
+
   artifactPreview: {
     versionOf: (current: number, total: number) => string
     olderVersion: string
@@ -2697,6 +2723,13 @@ export interface Translations {
     diskChangedBody: string
     overwrite: string
     discardReload: string
+    documentLoading: string
+    documentFailedTitle: string
+    documentFailedBody: (message: string) => string
+    documentUnsupportedTitle: string
+    documentUnsupportedBody: string
+    sheetTruncated: (rows: number) => string
+    sheetEmpty: string
     console: {
       deselect: string
       select: string
@@ -2861,6 +2894,7 @@ export interface Translations {
       dismissError: string
       filesChanged: (count: number) => string
       reviewChanges: string
+      createdFiles: (count: number) => string
       readAloudFailed: string
       preparingAudio: string
       stopReading: string

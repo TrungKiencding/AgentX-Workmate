@@ -1,5 +1,6 @@
 import type {
   HermesConnection,
+  HermesFileStat,
   HermesReadDirResult,
   HermesReadFileTextResult,
   HermesSelectPathsOptions
@@ -130,6 +131,42 @@ export async function desktopDefaultCwd(): Promise<{ branch: string; cwd: string
 // Reveal a path in the OS file manager (Finder / Explorer / Files). Local only.
 export async function revealDesktopPath(path: string): Promise<void> {
   await bridge().revealPath?.(path)
+}
+
+// File identity (exists / size / type) for a chat file card, on whichever
+// machine holds the file. `null` when neither transport can answer (an older
+// Electron shell) — the card then renders without size or a missing badge.
+export async function statDesktopFile(path: string): Promise<HermesFileStat | null> {
+  if (!isDesktopFsRemoteMode()) {
+    const desktop = bridge()
+
+    return desktop.statPath ? desktop.statPath(path) : null
+  }
+
+  try {
+    return await remoteFsApi<HermesFileStat>(fsPath('stat', path))
+  } catch {
+    return null
+  }
+}
+
+// "Save a copy" through the native save dialog. Local only: a gateway-side
+// file is fetched and downloaded by the caller instead.
+export async function saveDesktopFileCopy(path: string): Promise<{ canceled?: boolean; ok: boolean; path?: string }> {
+  const desktop = bridge()
+
+  if (!desktop.saveFileCopy) {
+    throw new Error('Saving a copy is not available')
+  }
+
+  return desktop.saveFileCopy(path)
+}
+
+// macOS Quick Look; resolves false where unavailable so callers can hide it.
+export async function quickLookDesktopFile(path: string): Promise<boolean> {
+  const desktop = bridge()
+
+  return desktop.quickLookPath ? desktop.quickLookPath(path) : false
 }
 
 // Rename a file/folder in place; returns the new absolute path. Local only.

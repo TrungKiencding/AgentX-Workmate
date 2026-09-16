@@ -8574,6 +8574,42 @@ class SessionDB(
 
         return self._execute_write(_do)
 
+    def merge_message_display_metadata(
+        self, session_id: str, message_row_id: int, patch: Dict[str, Any]
+    ) -> bool:
+        """Merge *patch* into one message's ``display_metadata`` (presentation only).
+
+        The channel the desktop uses to pin per-message extras that are not
+        model context — the files a turn produced, for instance — onto the
+        row that will be rehydrated later. Existing keys not in *patch*
+        (reactions, model-switch markers) are kept; a key set to ``None``
+        in *patch* is removed. Returns ``False`` when the row is not part of
+        *session_id*.
+        """
+        if not session_id or message_row_id is None or not isinstance(patch, dict):
+            return False
+
+        def _do(conn):
+            row = conn.execute(
+                "SELECT display_metadata FROM messages WHERE id = ? AND session_id = ?",
+                (message_row_id, session_id),
+            ).fetchone()
+            if row is None:
+                return False
+            meta = self._decode_display_metadata(row[0]) or {}
+            for key, value in patch.items():
+                if value is None:
+                    meta.pop(key, None)
+                else:
+                    meta[key] = value
+            conn.execute(
+                "UPDATE messages SET display_metadata = ? WHERE id = ?",
+                (self._encode_display_metadata(meta) if meta else None, message_row_id),
+            )
+            return True
+
+        return bool(self._execute_write(_do))
+
     def get_message_reactions(
         self, session_id: str, message_row_id: int
     ) -> List[Dict[str, Any]]:

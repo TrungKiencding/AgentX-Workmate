@@ -11,11 +11,14 @@ import type { code as streamdownCode } from '@streamdown/code'
 import { type ComponentProps, memo, useEffect, useMemo, useState } from 'react'
 
 import { ExpandableBlock } from '@/components/chat/expandable-block'
+import { FileCard } from '@/components/chat/file-card'
+import { FileChip } from '@/components/chat/file-chip'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
-import { TranscriptVideo } from '@/components/chat/transcript-video'
 import { chunkByLines, SyntaxHighlighter } from '@/components/chat/shiki-highlighter'
+import { TranscriptVideo } from '@/components/chat/transcript-video'
 import { ZoomableImage } from '@/components/chat/zoomable-image'
 import { detectArtifact } from '@/lib/artifact-detect'
+import { filePathFromMarkdownHref } from '@/lib/deliverables'
 import { normalizeExternalUrl, openExternalLink, PrettyLink } from '@/lib/external-link'
 import { createMemoizedMathPlugin } from '@/lib/katex-memo'
 import { parseMarkdownIntoBlocksCached } from '@/lib/markdown-blocks'
@@ -139,7 +142,22 @@ function OpenMediaButton({ kind, path }: { kind: 'audio' | 'video'; path: string
   )
 }
 
+// A MEDIA: tag names a file the agent hands over. Images, audio and video
+// render in place; anything else — a document, a spreadsheet, an archive — is
+// the file card: preview, save, reveal, instead of a bare "Open" link.
 function MediaAttachment({ path }: { path: string }) {
+  if (mediaKind(path) === 'file') {
+    return (
+      <span className="block">
+        <FileCard file={{ name: mediaName(path), path }} />
+      </span>
+    )
+  }
+
+  return <PlayableMediaAttachment path={path} />
+}
+
+function PlayableMediaAttachment({ path }: { path: string }) {
   const [src, setSrc] = useState('')
   const [failed, setFailed] = useState(false)
   const { open, openFailed } = useOpenMediaFile(path)
@@ -152,14 +170,6 @@ function MediaAttachment({ path }: { path: string }) {
 
     setFailed(false)
     setSrc('')
-
-    if (kind === 'file') {
-      setFailed(true)
-
-      return () => {
-        cancelled = true
-      }
-    }
 
     void resolveMediaPlaybackSrc(path)
       .then(value => {
@@ -255,6 +265,12 @@ function MarkdownLink({ children, className, href, ...props }: ComponentProps<'a
 
   if (mediaPath) {
     return <MediaAttachment path={mediaPath} />
+  }
+
+  const filePath = filePathFromMarkdownHref(href)
+
+  if (filePath) {
+    return <FileChip path={filePath} />
   }
 
   const previewTarget = previewTargetFromMarkdownHref(href)

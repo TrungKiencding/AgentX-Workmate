@@ -1,8 +1,15 @@
+import { DELIVERABLE_KINDS, deliverableKind } from '@/lib/deliverables'
 import { isDesktopFsRemoteMode, readDesktopFileText } from '@/lib/desktop-fs'
 import type { PreviewTarget } from '@/store/preview'
 
 const HTML_EXTENSIONS = new Set(['.htm', '.html'])
 const IMAGE_EXTENSIONS = new Set(['.bmp', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+
+const OFFICE_EXTENSIONS = new Set(
+  [...DELIVERABLE_KINDS.document, ...DELIVERABLE_KINDS.spreadsheet, ...DELIVERABLE_KINDS.presentation].map(
+    ext => `.${ext}`
+  )
+)
 
 const LANGUAGE_BY_EXT: Record<string, string> = {
   '.c': 'c',
@@ -91,25 +98,60 @@ export function localPreviewTarget(rawTarget: string, cwd?: string | null): Prev
   }
 
   const ext = extension(path)
-  const isHtml = HTML_EXTENSIONS.has(ext)
-  const isImage = IMAGE_EXTENSIONS.has(ext)
 
   return {
     kind: 'file',
     label: basename(path),
     language: LANGUAGE_BY_EXT[ext] || 'text',
     path,
-    // Renderer fallback can't stat/sniff without reading; assume text unless
-    // image/html extension says otherwise. LocalFilePreview still guards
-    // binary/large files when readFileText/readFileDataUrl returns metadata.
-    previewKind: isHtml ? 'html' : isImage ? 'image' : 'text',
+    // Renderer fallback can't stat/sniff without reading; classify by the
+    // extension alone (the same routing Electron's normalizer applies) and
+    // assume text otherwise. LocalFilePreview still guards binary/large files
+    // when readFileText/readFileDataUrl returns metadata.
+    previewKind: previewKindForExtension(ext),
     source: raw,
     url: pathToFileUrl(path)
   }
 }
 
+/** Mirrors `previewKindForFile` in electron/deliverables.ts, minus the byte sniff. */
+export function previewKindForExtension(ext: string): NonNullable<PreviewTarget['previewKind']> {
+  if (HTML_EXTENSIONS.has(ext)) {
+    return 'html'
+  }
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return 'image'
+  }
+
+  if (ext === '.pdf') {
+    return 'pdf'
+  }
+
+  if (OFFICE_EXTENSIONS.has(ext)) {
+    return 'document'
+  }
+
+  const kind = deliverableKind(`x${ext}`)
+
+  if (kind === 'audio' || kind === 'video') {
+    return 'media'
+  }
+
+  return 'text'
+}
+
+// Viewer kinds carry their own bytes path (data URL / stream); only text-ish
+// targets need the remote read-text probe for binary/size metadata.
+const SELF_LOADING_PREVIEW_KINDS = new Set<PreviewTarget['previewKind']>(['document', 'image', 'media', 'pdf'])
+
 async function enrichPreviewTarget(target: PreviewTarget | null): Promise<PreviewTarget | null> {
-  if (!isDesktopFsRemoteMode() || !target || target.kind !== 'file' || target.previewKind === 'image') {
+  if (
+    !isDesktopFsRemoteMode() ||
+    !target ||
+    target.kind !== 'file' ||
+    SELF_LOADING_PREVIEW_KINDS.has(target.previewKind)
+  ) {
     return target
   }
 

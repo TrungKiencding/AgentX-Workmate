@@ -136,7 +136,17 @@ const _chatMessageFieldsExhaustive: {
   [K in Exclude<keyof ChatMessage, (typeof COMPARED_FIELDS)[number] | (typeof IGNORED_FIELDS)[number]>]: never
 } = {}
 
-const COMPARED_FIELDS = ['id', 'role', 'pending', 'error', 'hidden', 'branchGroupId', 'interim', 'reactions'] as const
+const COMPARED_FIELDS = [
+  'id',
+  'role',
+  'pending',
+  'error',
+  'hidden',
+  'branchGroupId',
+  'interim',
+  'reactions',
+  'createdFiles'
+] as const
 
 const IGNORED_FIELDS = ['timestamp', 'attachmentRefs', 'parts', 'rowId'] as const
 
@@ -225,6 +235,20 @@ export function chatReactionsEquivalent(a: ChatMessage['reactions'], b: ChatMess
   )
 }
 
+/** The created-files card repaints when the set of paths changes; sizes and
+ *  captions are read from the file itself, so a stat refresh never re-renders
+ *  the transcript. */
+export function chatCreatedFilesEquivalent(a: ChatMessage['createdFiles'], b: ChatMessage['createdFiles']): boolean {
+  const aList = a ?? []
+  const bList = b ?? []
+
+  if (aList === bList) {
+    return true
+  }
+
+  return aList.length === bList.length && aList.every((file, index) => file.path === bList[index].path)
+}
+
 export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean {
   if (
     a.id !== b.id ||
@@ -236,7 +260,8 @@ export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean 
     // Interim gates the action footer, so flipping it must repaint (e.g. a
     // previewed final settling onto a sealed interim bubble restores the bar).
     (a.interim ?? false) !== (b.interim ?? false) ||
-    !chatReactionsEquivalent(a.reactions, b.reactions)
+    !chatReactionsEquivalent(a.reactions, b.reactions) ||
+    !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles)
   ) {
     return false
   }

@@ -1,6 +1,8 @@
 import { type BillingBlock, skillInvocationText } from '@agentx/shared'
 import type { ThreadMessageLike } from '@assistant-ui/react'
 
+import { createdFilesFromPayload } from '@/components/assistant-ui/thread/created-files'
+import type { DeliverableFile } from '@/lib/deliverables'
 import { extractImageRefs } from '@/lib/embedded-images'
 import { dedupeGeneratedImageEchoesInParts } from '@/lib/generated-images'
 import { mediaDisplayLabel, mediaMarkdownHref } from '@/lib/media'
@@ -29,6 +31,10 @@ export type ChatMessage = {
   rowId?: number
   /** Emoji reactions on this message — one per author (see MessageReaction). */
   reactions?: MessageReaction[]
+  /** Deliverable files the turn produced (documents, images, archives…), for
+   *  the created-files card. Live from `message.complete`, rehydrated from
+   *  the reply row's `display_metadata.files_created`. */
+  createdFiles?: DeliverableFile[]
 }
 
 export type GatewayEventPayload = {
@@ -122,6 +128,8 @@ export type GatewayEventPayload = {
   // with FailoverReason.billing (shape mirrors @agentx/shared BillingBlock).
   billing?: BillingBlock
   failure_reason?: string
+  // message.complete — the deliverable files this turn produced.
+  files_created?: unknown
 }
 
 export function textPart(text: string): ChatMessagePart {
@@ -374,6 +382,10 @@ export function messageReactions(metadata: SessionMessage['display_metadata']): 
   return reactions.filter(
     (r): r is MessageReaction => Boolean(r) && typeof r === 'object' && typeof (r as MessageReaction).emoji === 'string'
   )
+}
+
+export function messageCreatedFiles(metadata: SessionMessage['display_metadata']): DeliverableFile[] {
+  return createdFilesFromPayload(parseDisplayMetadata(metadata)?.files_created)
 }
 
 function timelineDisplayContent(message: SessionMessage, content: string): string {
@@ -1060,6 +1072,13 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
         activeAssistant.parts = [...activeAssistant.parts, ...parts]
         activeAssistant.timestamp = message.timestamp ?? activeAssistant.timestamp
 
+        // A row folded into an earlier bubble still owns its created files.
+        const folded = messageCreatedFiles(message.display_metadata)
+
+        if (folded.length) {
+          activeAssistant.createdFiles = [...(activeAssistant.createdFiles ?? []), ...folded]
+        }
+
         return
       }
     } else {
@@ -1067,6 +1086,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     }
 
     const reactions = messageReactions(message.display_metadata)
+    const createdFiles = message.role === 'assistant' ? messageCreatedFiles(message.display_metadata) : []
     // Gateway resume names the durable row id `row_id`; the REST transcript
     // prefetch ships the same messages.id as a numeric `id`. Either one lets
     // reactions address this exact row later.
@@ -1079,6 +1099,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
       timestamp: message.timestamp,
       ...(rowId !== undefined ? { rowId } : {}),
       ...(reactions.length ? { reactions } : {}),
+      ...(createdFiles.length ? { createdFiles } : {}),
       ...(extractedAttachmentRefs ? { attachmentRefs: extractedAttachmentRefs } : {})
     })
 

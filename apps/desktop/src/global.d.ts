@@ -206,6 +206,12 @@ declare global {
       gitRoot?: (path: string) => Promise<string | null>
       // Reveal a path in the OS file manager (Finder / Explorer).
       revealPath?: (path: string) => Promise<boolean>
+      // File identity for a chat file card (exists / size / type). Local only.
+      statPath?: (path: string) => Promise<HermesFileStat>
+      // "Save a copy" dialog seeded with the file's name; copies the bytes.
+      saveFileCopy?: (path: string) => Promise<{ canceled?: boolean; ok: boolean; path?: string }>
+      // macOS Quick Look; false where the platform has no equivalent.
+      quickLookPath?: (path: string) => Promise<boolean>
       // Open a DIRECTORY (created if missing) in the OS file manager.
       openDir?: (path: string) => Promise<{ ok: boolean; error?: string }>
       // Local Desktop runtime-plugin root (<AGENTX_HOME>/desktop-plugins),
@@ -343,9 +349,15 @@ declare global {
         closeWindow: () => Promise<DesktopWebmateWindowStatus>
         windowStatus: () => Promise<DesktopWebmateWindowStatus>
         /** Phase 4 — sign WebMate in with the Workmate account (interactive by default; `interactive: false` re-sends the silent hint). */
-        signIn: (request?: { instanceId?: string | null; interactive?: boolean }) => Promise<DesktopWebmateSignInOutcome>
+        signIn: (request?: {
+          instanceId?: string | null
+          interactive?: boolean
+        }) => Promise<DesktopWebmateSignInOutcome>
         /** Phase 4 — the browser/profile Workmate signs in through and installs WebMate into. */
-        chooseBrowser: (request: { browserId: string; profileDir: string | null }) => Promise<DesktopWebmatePrefs['browser']>
+        chooseBrowser: (request: {
+          browserId: string
+          profileDir: string | null
+        }) => Promise<DesktopWebmatePrefs['browser']>
       }
       uninstall: {
         summary: () => Promise<DesktopUninstallSummary>
@@ -444,7 +456,8 @@ export interface DesktopWebmateLocalStatus {
 // Mirrors electron/webmate/{browsers,prefs,status,updater,service}.ts. Kept
 // inline like the other Desktop* types so the renderer build never reaches
 // into the electron tree.
-export type DesktopWebmateBrowserId = 'chrome' | 'edge' | 'brave' | 'vivaldi' | 'opera' | 'arc' | 'chromium' | 'firefox' | 'safari'
+export type DesktopWebmateBrowserId =
+  'chrome' | 'edge' | 'brave' | 'vivaldi' | 'opera' | 'arc' | 'chromium' | 'firefox' | 'safari'
 
 export interface DesktopWebmateBrowserProfile {
   dir: string
@@ -1079,15 +1092,7 @@ export interface DesktopSyncOutcome {
   // busy          a synchronisation was already running
   // reauth        this device is revoked, or its token was rejected
   // error         the service answered, and refused
-  status:
-    | 'ok'
-    | 'offline'
-    | 'signed_out'
-    | 'unconfigured'
-    | 'disabled'
-    | 'busy'
-    | 'reauth'
-    | 'error'
+  status: 'ok' | 'offline' | 'signed_out' | 'unconfigured' | 'disabled' | 'busy' | 'reauth' | 'error'
   detail?: string
   pushed?: number
   rejected?: number
@@ -1289,10 +1294,21 @@ export interface HermesPreviewTarget {
   language?: string
   mimeType?: string
   path?: string
-  previewKind?: 'binary' | 'html' | 'image' | 'text'
+  previewKind?: 'binary' | 'document' | 'html' | 'image' | 'media' | 'pdf' | 'text'
   renderMode?: 'preview' | 'source'
   source: string
   url: string
+}
+
+/** File identity for a chat file card. A missing file answers `exists: false`. */
+export interface HermesFileStat {
+  byteSize: number
+  exists: boolean
+  isFile: boolean
+  mimeType: string
+  /** Epoch milliseconds; 0 when the file does not exist. */
+  modifiedMs: number
+  path: string
 }
 
 export interface HermesReadFileTextResult {

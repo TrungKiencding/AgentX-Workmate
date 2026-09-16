@@ -6,11 +6,13 @@ import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { writeAgentTerminalChunk } from '@/app/right-sidebar/terminal/agent-terminal-stream'
 import { readActiveTerminal } from '@/app/right-sidebar/terminal/buffer'
 import { closeAgentTerminalByProc } from '@/app/right-sidebar/terminal/terminals'
+import { createdFilesFromPayload } from '@/components/assistant-ui/thread/created-files'
 import { burstVibeHearts } from '@/components/chat/vibe-hearts'
 import { translateNow } from '@/i18n'
 import { type GatewayEventPayload, textPart } from '@/lib/chat-messages'
 import { coerceGatewayText, coerceThinkingText, normalizePersonalityValue } from '@/lib/chat-runtime'
 import { playCompletionSound } from '@/lib/completion-sound'
+import type { DeliverableFile } from '@/lib/deliverables'
 import { approvalReplaySessionId, resolveGatewayEventSessionId } from '@/lib/gateway-events'
 import { triggerHaptic } from '@/lib/haptics'
 import { modelOptionsQueryKey } from '@/lib/model-options'
@@ -178,7 +180,8 @@ interface GatewayEventDeps {
     sessionId: string,
     text: string,
     responsePreviewed?: boolean,
-    failure?: { error: string; partial: boolean }
+    failure?: { error: string; partial: boolean },
+    createdFiles?: DeliverableFile[]
   ) => void
   failAssistantMessage: (sessionId: string, errorMessage: string) => void
   flushQueuedDeltas: (sessionId?: string) => void
@@ -761,7 +764,13 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
               }
             : undefined
 
-        completeAssistantMessage(sessionId, finalText, payload?.response_previewed, failure)
+        completeAssistantMessage(
+          sessionId,
+          finalText,
+          payload?.response_previewed,
+          failure,
+          createdFilesFromPayload(payload?.files_created)
+        )
 
         // Structured billing wall forwarded by the gateway (out of credits /
         // payment required) — cache it + raise a billing-specific toast.

@@ -12,12 +12,14 @@ import { Streamdown } from 'streamdown'
 import { requestComposerFocus, requestComposerInsertRefs } from '@/app/chat/composer/focus'
 import { droppedFileInlineRef } from '@/app/chat/composer/inline-refs'
 import { AGENTX_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
+import { DocumentPreview, UnsupportedDocument } from '@/app/chat/right-rail/preview-document'
 import { isAddSelectionShortcut } from '@/app/right-sidebar/terminal/selection'
 import { RichCodeBlock } from '@/components/assistant-ui/embeds'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { FileDiffPanel } from '@/components/chat/diff-lines'
 import { chunkTextLines, useFixedRowWindow } from '@/components/chat/fixed-row-window'
 import { LazyShiki as ShikiHighlighter } from '@/components/chat/shiki-highlighter'
+import { TranscriptVideo } from '@/components/chat/transcript-video'
 import { PageLoader } from '@/components/page-loader'
 import { Tip } from '@/components/ui/tooltip'
 import { translateNow, useI18n } from '@/i18n'
@@ -28,8 +30,10 @@ import {
   readDesktopFileText,
   writeDesktopFileText
 } from '@/lib/desktop-fs'
+import { formatByteSize } from '@/lib/format'
 import { Check, Pencil, X } from '@/lib/icons'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
+import { mediaKind, resolveMediaPlaybackSrc } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import type { PreviewTarget } from '@/store/preview'
 import { setPreviewDirty } from '@/store/preview-edit'
@@ -180,20 +184,47 @@ function filePathForTarget(target: PreviewTarget) {
 }
 
 function formatBytes(bytes: number | undefined) {
-  if (!bytes) {
-    return translateNow('preview.unknownSize')
+  return formatByteSize(bytes, translateNow('preview.unknownSize'))
+}
+
+/** Audio / video from the rail: the same seekable source the transcript plays. */
+function MediaFilePreview({ path }: { path: string }) {
+  const { t } = useI18n()
+  const [src, setSrc] = useState('')
+  const [failed, setFailed] = useState(false)
+  const kind = mediaKind(path)
+
+  useEffect(() => {
+    let cancelled = false
+    setSrc('')
+    setFailed(false)
+
+    void resolveMediaPlaybackSrc(path)
+      .then(value => !cancelled && setSrc(value))
+      .catch(() => !cancelled && setFailed(true))
+
+    return () => {
+      cancelled = true
+    }
+  }, [path])
+
+  if (failed) {
+    return <PreviewEmptyState title={t.preview.unavailable} />
   }
 
-  const units = ['B', 'KB', 'MB', 'GB']
-  let value = bytes
-  let unit = 0
-
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
+  if (!src) {
+    return <PageLoader label={t.preview.loading} />
   }
 
-  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`
+  return (
+    <div className="flex h-full w-full items-center justify-center overflow-auto bg-transparent p-4">
+      {kind === 'audio' ? (
+        <audio className="w-full max-w-xl" controls preload="metadata" src={src} />
+      ) : (
+        <TranscriptVideo className="max-h-full max-w-full rounded-lg bg-black" controls src={src} />
+      )}
+    </div>
+  )
 }
 
 function looksBinaryBytes(bytes: Uint8Array) {
@@ -593,6 +624,12 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
   const hoverRef = useRef(false)
   const filePath = filePathForTarget(target)
   const isImage = target.previewKind === 'image'
+  // Documents and media have their own viewers below; they never take the
+  // text path and are never "blocked" for being binary — being binary is
+  // what they are.
+  const isDocument = target.previewKind === 'document'
+  const isMedia = target.previewKind === 'media'
+  const isViewerKind = isDocument || isMedia
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
@@ -611,7 +648,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
   // when the file is forcibly previewed past the binary refusal screen.
   const isText = target.previewKind === 'text' || target.previewKind === 'binary' || target.previewKind === 'html'
 
-  const blockedByTarget = !isImage && !forcePreview && (target.binary || target.large)
+  const blockedByTarget = !isImage && !isViewerKind && !forcePreview && (target.binary || target.large)
 
   useEffect(() => {
     let active = true
@@ -624,6 +661,12 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
       }
 
       if (!isImage && !isText) {
+        setState({ loading: false })
+
+        return
+      }
+
+      if (isViewerKind) {
         setState({ loading: false })
 
         return
@@ -689,7 +732,18 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     return () => {
       active = false
     }
-  }, [blockedByTarget, filePath, forcePreview, isImage, isText, reloadKey, selfReload, target.dataUrl, target.language])
+  }, [
+    blockedByTarget,
+    filePath,
+    forcePreview,
+    isImage,
+    isText,
+    isViewerKind,
+    reloadKey,
+    selfReload,
+    target.dataUrl,
+    target.language
+  ])
 
   // Editing is only offered for whole, readable text — never images, binaries,
   // or files we only loaded the first 512 KB of (saving would drop the tail).
@@ -872,12 +926,27 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     )
   }
 
+  if (isDocument) {
+    return <DocumentPreview reloadKey={reloadKey + selfReload} target={target} />
+  }
+
+  if (isMedia) {
+    return <MediaFilePreview path={filePath} />
+  }
+
   if (state.loading) {
     return <PageLoader label={t.preview.loading} />
   }
 
   if (state.error) {
     return <PreviewEmptyState body={state.error} title={t.preview.unavailable} />
+  }
+
+  // Archives and other opaque files: nothing to paint, so lead with the ways
+  // out (Quick Look, the OS app, a saved copy). "Preview anyway" stays as the
+  // quiet escape hatch for a file the byte sniff misjudged.
+  if (!isImage && !forcePreview && (target.previewKind === 'binary' || (target.binary && !isText))) {
+    return <UnsupportedDocument onPreviewAnyway={() => setForcePreview(true)} path={filePath} />
   }
 
   if (

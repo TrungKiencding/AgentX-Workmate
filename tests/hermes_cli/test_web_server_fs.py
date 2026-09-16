@@ -67,3 +67,36 @@ def test_fs_endpoints_require_auth(tmp_path):
     assert list_response.status_code == 401
     assert read_response.status_code == 401
     assert default_response.status_code == 401
+
+
+def test_fs_stat_describes_a_file_and_reports_missing_ones(client, tmp_path):
+    target = tmp_path / "report.docx"
+    target.write_bytes(b"PK" * 8)
+
+    present = client.get("/api/fs/stat", params={"path": str(target)})
+    missing = client.get("/api/fs/stat", params={"path": str(tmp_path / "nope.pdf")})
+
+    assert present.status_code == 200
+    body = present.json()
+    assert body["exists"] is True
+    assert body["isFile"] is True
+    assert body["byteSize"] == 16
+    assert body["mimeType"].endswith("wordprocessingml.document")
+    assert body["modifiedMs"] == pytest.approx(target.stat().st_mtime * 1000, rel=1e-6)
+    assert body["path"] == str(target)
+
+    assert missing.status_code == 200
+    assert missing.json() == {
+        "byteSize": 0,
+        "exists": False,
+        "isFile": False,
+        "mimeType": "application/pdf",
+        "modifiedMs": 0,
+        "path": str(tmp_path / "nope.pdf"),
+    }
+
+
+def test_fs_stat_requires_auth(tmp_path):
+    response = TestClient(web_server.app).get("/api/fs/stat", params={"path": str(tmp_path)})
+
+    assert response.status_code == 401

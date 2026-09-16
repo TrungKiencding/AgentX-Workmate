@@ -90,6 +90,7 @@ import {
 } from './connection-config'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
 import { adoptServedDashboardToken } from './dashboard-token'
+import { DOCUMENT_MIME_TYPES, previewKindForFile } from './deliverables'
 import { loadOrCreateInstallationId, sshOwnershipId } from './desktop-installation'
 import {
   buildPosixCleanupScript,
@@ -101,12 +102,7 @@ import {
   uninstallArgsForMode
 } from './desktop-uninstall'
 import { describeDevCdpDecision, resolveDevCdpPort } from './dev-cdp'
-import {
-  deviceHeaders,
-  type DeviceRecord,
-  type DeviceStoreIo,
-  readDeviceRecord
-} from './device-id'
+import { deviceHeaders, type DeviceRecord, type DeviceStoreIo, readDeviceRecord } from './device-id'
 import { installEmbedReferer } from './embed-referer'
 import { createEventDeduper } from './event-dedupe'
 import { findGitBash as _findGitBash } from './find-git-bash'
@@ -4613,7 +4609,7 @@ function fetchPublicJson(url, options: any = {}) {
 function mimeTypeForPath(filePath) {
   const ext = path.extname(filePath || '').toLowerCase()
 
-  return MEDIA_MIME_TYPES[ext] || 'application/octet-stream'
+  return MEDIA_MIME_TYPES[ext] || DOCUMENT_MIME_TYPES[ext] || 'application/octet-stream'
 }
 
 function extensionForMimeType(mimeType) {
@@ -5033,6 +5029,65 @@ async function saveImageFromUrl(rawUrl) {
   return true
 }
 
+async function statPathForIpc(targetPath) {
+  const resolvedPath = resolveRequestedPathForIpc(targetPath, { purpose: 'File info' })
+  const mimeType = mimeTypeForPath(resolvedPath)
+
+  try {
+    const stat = await fs.promises.stat(resolvedPath)
+
+    return {
+      byteSize: stat.size,
+      exists: true,
+      isFile: stat.isFile(),
+      mimeType,
+      modifiedMs: stat.mtimeMs,
+      path: resolvedPath
+    }
+  } catch (error) {
+    const code = error && typeof error === 'object' ? error.code : ''
+
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      return { byteSize: 0, exists: false, isFile: false, mimeType, modifiedMs: 0, path: resolvedPath }
+    }
+
+    throw error
+  }
+}
+
+async function saveFileCopy(targetPath, ownerWindow) {
+  const { resolvedPath } = await resolveReadableFileForIpc(targetPath, { purpose: 'Save a copy' })
+
+  const result = await dialog.showSaveDialog(ownerWindow, {
+    defaultPath: path.basename(resolvedPath),
+    title: 'Save a copy'
+  })
+
+  if (result.canceled || !result.filePath) {
+    return { canceled: true, ok: false }
+  }
+
+  const destination = path.resolve(result.filePath)
+
+  // Choosing the original in the dialog is a no-op, not a self-copy.
+  if (destination !== resolvedPath) {
+    await fs.promises.copyFile(resolvedPath, destination)
+  }
+
+  return { ok: true, path: destination }
+}
+
+async function quickLookPath(targetPath, ownerWindow) {
+  if (!IS_MAC || !ownerWindow || typeof ownerWindow.previewFile !== 'function') {
+    return false
+  }
+
+  const { resolvedPath } = await resolveReadableFileForIpc(targetPath, { purpose: 'Quick Look' })
+  ownerWindow.previewFile(resolvedPath, path.basename(resolvedPath))
+
+  return true
+}
+
 async function writeComposerImage(buffer, ext = '.png') {
   const rawExt = String(ext || '.png')
     .trim()
@@ -5091,9 +5146,7 @@ async function previewFileTarget(rawTarget, baseDir) {
 
   const mimeType = mimeTypeForPath(resolved)
   const metadata = previewFileMetadata(resolved, mimeType)
-  const isHtml = PREVIEW_HTML_EXTENSIONS.has(ext)
-  const isImage = mimeType.startsWith('image/')
-  const previewKind = isHtml ? 'html' : isImage ? 'image' : metadata.binary ? 'binary' : 'text'
+  const previewKind = previewKindForFile({ binary: metadata.binary, ext, mimeType })
 
   return {
     binary: metadata.binary,
@@ -9129,9 +9182,7 @@ async function ensureAccountProvisioned(
     // Never fatal. The person is signed in and their state is isolated; what
     // they are missing is a model key, and the next launch retries.
     rememberLog(
-      `[account] could not provision a LiteLLM key: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[account] could not provision a LiteLLM key: ${error instanceof Error ? error.message : String(error)}`
     )
 
     return null
@@ -10917,7 +10968,7 @@ ipcMain.handle('agentx:keycloak:sign-in', async (_event, profile) => {
     // being opened and then simply stop, with the OAuth exchange having plainly
     // succeeded upstream. Sign-in is the one thing standing between the user
     // and the app, so its failures belong in the log.
-    const detail = error instanceof Error ? (error.stack || error.message) : String(error)
+    const detail = error instanceof Error ? error.stack || error.message : String(error)
 
     rememberLog(`[keycloak] sign-in FAILED: ${detail}`)
 
@@ -10962,9 +11013,7 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   } catch (error) {
     // Local state is already cleared, which is the part the user asked for.
     rememberLog(
-      `[keycloak] could not open the Keycloak logout page: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[keycloak] could not open the Keycloak logout page: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 
@@ -11075,9 +11124,7 @@ ipcMain.handle('agentx:account:status', async () => {
   } catch (error) {
     // The panel must render offline; the local half above is enough for that.
     rememberLog(
-      `[account] could not read the backend's account status: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[account] could not read the backend's account status: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 
@@ -11263,9 +11310,7 @@ function stopSyncTicker(): void {
 
 ipcMain.handle('agentx:sync:tick', async () => syncTick('requested'))
 
-ipcMain.handle('agentx:sync:status', async () =>
-  callDeviceRoute('/api/sync/status', { method: 'GET' })
-)
+ipcMain.handle('agentx:sync:status', async () => callDeviceRoute('/api/sync/status', { method: 'GET' }))
 
 ipcMain.handle('agentx:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
 ipcMain.handle('agentx:profile:set', async (_event, name) => {
@@ -12362,6 +12407,23 @@ ipcMain.handle('agentx:fs:readDir', async (_event, dirPath) => readDirForIpc(dir
 
 ipcMain.handle('agentx:fs:gitRoot', async (_event, startPath) => gitRootForIpc(startPath))
 
+// File identity for a chat file card: exists / size / type / mtime. A missing
+// file is a normal answer (`exists: false`), not an error — the card renders
+// it as "not found" instead of failing to mount.
+ipcMain.handle('agentx:fs:stat', async (_event, targetPath) => statPathForIpc(targetPath))
+
+// "Save a copy" for a file the agent produced: native save dialog seeded with
+// the file's own name, then a byte copy. Never moves the original.
+ipcMain.handle('agentx:fs:saveCopy', async (event, targetPath) =>
+  saveFileCopy(targetPath, BrowserWindow.fromWebContents(event.sender) || mainWindow)
+)
+
+// macOS Quick Look — the one viewer that already handles every office format.
+// Resolves false elsewhere so the renderer can hide the affordance.
+ipcMain.handle('agentx:fs:quickLook', async (event, targetPath) =>
+  quickLookPath(targetPath, BrowserWindow.fromWebContents(event.sender) || mainWindow)
+)
+
 // Reveal a path in the OS file manager (Finder / Explorer / Files).
 ipcMain.handle('agentx:fs:reveal', async (_event, targetPath) => {
   const target = String(targetPath || '').trim()
@@ -12765,7 +12827,10 @@ function runWebmateBootstrap() {
   return webmateService().bootstrap()
 }
 
-const webmateFailure = (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) })
+const webmateFailure = (error: unknown) => ({
+  ok: false,
+  error: error instanceof Error ? error.message : String(error)
+})
 
 ipcMain.handle('agentx:webmate:bootstrap', async () =>
   runWebmateBootstrap().catch(error => ({
@@ -12785,7 +12850,10 @@ ipcMain.handle('agentx:webmate:prepare', async () => runWebmateBootstrap())
 
 ipcMain.handle('agentx:webmate:open-guide', async (_event, request) =>
   webmateService()
-    .openGuide({ browserId: String(request?.browserId || ''), profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null })
+    .openGuide({
+      browserId: String(request?.browserId || ''),
+      profileDir: typeof request?.profileDir === 'string' ? request.profileDir : null
+    })
     .catch(error => ({
       ...webmateFailure(error),
       windowOpened: false,
@@ -12805,7 +12873,9 @@ ipcMain.handle('agentx:webmate:reveal-folder', async () => {
 
 ipcMain.handle('agentx:webmate:copy-path', async () => webmateService().copyPath())
 ipcMain.handle('agentx:webmate:prefs:get', async () => webmateService().getPrefs())
-ipcMain.handle('agentx:webmate:prefs:set', async (_event, patch) => webmateService().setPrefs(patch && typeof patch === 'object' ? patch : {}))
+ipcMain.handle('agentx:webmate:prefs:set', async (_event, patch) =>
+  webmateService().setPrefs(patch && typeof patch === 'object' ? patch : {})
+)
 ipcMain.handle('agentx:webmate:reset-token', async () => webmateService().resetToken())
 ipcMain.handle('agentx:webmate:update:check', async () => webmateService().checkUpdate())
 ipcMain.handle('agentx:webmate:update:apply', async () => webmateService().applyUpdate())
