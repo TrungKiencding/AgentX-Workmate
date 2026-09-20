@@ -958,6 +958,9 @@ def run_compress_context_with_progress_timeout(
                 handled_exit = True
                 return result
             except concurrent.futures.TimeoutError:
+                # A completed worker may have raised TimeoutError itself.
+                if future.done():
+                    break
                 waited = time.monotonic() - wait_started
                 since_progress = fence.seconds_since_progress()
                 if since_progress < idle and waited < ceiling:
@@ -1048,6 +1051,8 @@ def run_compress_context_with_progress_timeout(
                     handled_exit = True
                     return result
                 except concurrent.futures.TimeoutError:
+                    if future.done():
+                        return future.result()
                     # Fence progress (commit-phase touch_progress) is
                     # informative only — the commit must complete regardless;
                     # loop and re-report with the updated overrun window.

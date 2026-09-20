@@ -821,6 +821,9 @@ def _run_sequential_tool_execution_middleware(
             try:
                 return future.result(timeout=min(5.0, remaining))
             except concurrent.futures.TimeoutError:
+                # Preserve worker errors instead of re-polling a settled future.
+                if future.done():
+                    return future.result()
                 elapsed = int(time.monotonic() - started)
                 if elapsed > 0 and elapsed % 30 < 5:
                     agent._touch_activity(
