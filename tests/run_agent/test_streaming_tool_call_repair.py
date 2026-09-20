@@ -13,7 +13,49 @@ unclosed brackets, Python None) don't kill the session.
 
 import json
 
-from run_agent import _repair_tool_call_arguments
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from run_agent import AIAgent, _repair_tool_call_arguments
+
+
+@pytest.mark.parametrize("raw, repaired", [
+    ('{"edits": [{"path": "a.py", "mode": "w"}, {"path": "b.py", "mode": "w"}}', True),
+    ('{"q": "unterminated string', False),
+])
+def test_streaming_assembly_repairs_structure_without_guessing_string_content(raw, repaired):
+    tool_delta = SimpleNamespace(
+        index=0, id="call_1", type="function",
+        function=SimpleNamespace(name="edit", arguments=raw),
+    )
+    chunk = SimpleNamespace(
+        choices=[SimpleNamespace(
+            index=0,
+            delta=SimpleNamespace(content=None, tool_calls=[tool_delta],
+                                  reasoning_content=None, reasoning=None),
+            finish_reason="tool_calls",
+        )], model="test/model", usage=None,
+    )
+    client = MagicMock()
+    client.chat.completions.create.return_value = iter([chunk])
+    agent = AIAgent(api_key="test-key", base_url="https://openrouter.ai/api/v1",
+                    model="test/model", quiet_mode=True,
+                    skip_context_files=True, skip_memory=True)
+    agent.api_mode = "chat_completions"
+    with patch.object(agent, "_create_request_openai_client", return_value=client), \
+            patch.object(agent, "_close_request_openai_client"):
+        response = agent._interruptible_streaming_api_call({})
+    call = response.choices[0].message.tool_calls[0]
+    if repaired:
+        assert response.choices[0].finish_reason == "tool_calls"
+        assert json.loads(call.function.arguments) == {
+            "edits": [{"path": "a.py", "mode": "w"}, {"path": "b.py", "mode": "w"}],
+        }
+    else:
+        assert response.choices[0].finish_reason == "length"
+        assert call.function.arguments == raw
 
 
 class TestStreamingAssemblyRepair:
