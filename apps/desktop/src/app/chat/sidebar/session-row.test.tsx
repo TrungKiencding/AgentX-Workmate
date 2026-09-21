@@ -45,6 +45,8 @@ vi.mock('@/lib/chat-runtime', () => ({ sessionTitle: (s: SessionInfo) => (s as u
 vi.mock('@/lib/haptics', () => ({ triggerHaptic: vi.fn() }))
 vi.mock('@/lib/session-source', () => ({
   handoffOriginSource: (state?: string, platform?: string) => (state && platform ? platform : null),
+  isMessagingSource: (source?: string) => source === 'telegram',
+  normalizeSessionSource: (source?: string) => source || null,
   sessionSourceLabel: (source: string) => source
 }))
 vi.mock('@/lib/time', () => ({ coarseElapsed: () => ({ unit: 'minute' as const, value: 5 }) }))
@@ -183,6 +185,24 @@ describe('SidebarSessionRow', () => {
     const avatar = container.querySelector('span[aria-hidden="true"]')
     expect(avatar).toBeTruthy()
     expect(tipTrigger(avatar as HTMLElement)).toBeTruthy()
+  })
+
+  it('shows the source avatar on a direct messaging conversation', () => {
+    const { container } = render(
+      <SidebarSessionRow
+        isPinned={false}
+        isSelected={false}
+        isWorking={false}
+        onArchive={noop}
+        onDelete={noop}
+        onPin={noop}
+        onResume={noop}
+        session={makeSession({ source: 'telegram', title: 'Telegram conversation' })}
+      />
+    )
+
+    expect(container.querySelector('span[aria-hidden="true"]')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Session actions' })).toBeNull()
   })
 
   it('keeps the hover age label on one line', () => {

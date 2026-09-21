@@ -1445,6 +1445,12 @@ export interface Translations {
     needsSetup: string
     gatewayStopped: string
     openSetupGuide: string
+    destinationTitle: string
+    destinationUnavailable: string
+    openDestination: string
+    viewOnly: string
+    viewOnlyTitle: (platform: string) => string
+    viewOnlyHint: (platform: string) => string
     advanced: (count: number) => string
     noTokenNeeded: string
     enabled: string
@@ -1822,6 +1828,7 @@ export interface Translations {
     results: string
     pinned: string
     sessions: string
+    connectedChannels: string
     cronJobs: string
     groupAriaGrouped: string
     groupAriaUngrouped: string

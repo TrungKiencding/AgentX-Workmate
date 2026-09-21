@@ -128,6 +128,56 @@ class TestProfileRuntimeStatus:
             {"platform": "reviewer:discord", "platform_state": "fatal"}
         ]
 
+    def test_mark_connected_writes_public_destination_for_profile_adapter(
+        self, monkeypatch
+    ):
+        from gateway.platforms.base import BasePlatformAdapter
+
+        class _ConcreteAdapter(BasePlatformAdapter):
+            async def connect(self):
+                return True
+
+            async def disconnect(self):
+                return None
+
+            async def send(self, *_args, **_kwargs):
+                return None
+
+            async def get_chat_info(self, *_args, **_kwargs):
+                return None
+
+            def public_destination(self):
+                return {
+                    "kind": "bot",
+                    "label": "@reviewer_bot",
+                    "url": "https://t.me/reviewer_bot",
+                }
+
+        adapter = _ConcreteAdapter.__new__(_ConcreteAdapter)
+        adapter.platform = Platform.TELEGRAM
+        adapter._runtime_status_platform_key = "reviewer:telegram"
+        writes = []
+        monkeypatch.setattr(
+            "gateway.status.write_runtime_status",
+            lambda **kwargs: writes.append(kwargs),
+        )
+
+        adapter._mark_connected()
+
+        assert writes == [
+            {
+                "platform": "reviewer:telegram",
+                "platform_state": "connected",
+                "error_code": None,
+                "error_message": None,
+                "public_destination": {
+                    "kind": "bot",
+                    "label": "@reviewer_bot",
+                    "url": "https://t.me/reviewer_bot",
+                },
+            }
+        ]
+
 
 class _SecondaryRecoveryAdapter:
     platform = Platform.DISCORD
@@ -618,5 +668,4 @@ class TestFeishuPortBindingConditional:
 
         connected = await runner._start_one_profile_adapters("reviewer", "/tmp/x", {})
         assert connected == 0  # no error, just nothing connected
-
 

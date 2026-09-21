@@ -218,6 +218,12 @@ export interface MessagingHomeChannel {
   thread_id?: string
 }
 
+export interface MessagingPlatformDestination {
+  kind?: string
+  label: string
+  url?: null | string
+}
+
 export interface MessagingPlatformInfo {
   configured: boolean
   description: string
@@ -228,6 +234,7 @@ export interface MessagingPlatformInfo {
   error_message?: null | string
   gateway_running: boolean
   home_channel?: MessagingHomeChannel | null
+  destination?: MessagingPlatformDestination | null
   id: string
   name: string
   state?: null | string

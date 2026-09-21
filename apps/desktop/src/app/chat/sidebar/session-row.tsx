@@ -14,7 +14,12 @@ import { sessionTitle } from '@/lib/chat-runtime'
 import { triggerHaptic } from '@/lib/haptics'
 import { MoreVertical } from '@/lib/icons'
 import { middleClickHandlers } from '@/lib/middle-click'
-import { handoffOriginSource, sessionSourceLabel } from '@/lib/session-source'
+import {
+  handoffOriginSource,
+  isMessagingSource,
+  normalizeSessionSource,
+  sessionSourceLabel
+} from '@/lib/session-source'
 import { coarseElapsed } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { $attentionSessionIds } from '@/store/session-states'
@@ -95,23 +100,16 @@ function SidebarSessionRowImpl({
   // messaging platform — surface that origin as a small badge so e.g. a
   // Telegram thread continued here still reads as Telegram.
   const handoffSource = handoffOriginSource(session.handoff_state, session.handoff_platform)
-  const handoffLabel = handoffSource ? (sessionSourceLabel(handoffSource) ?? handoffSource) : null
+  const directMessagingSource = isMessagingSource(session.source) ? normalizeSessionSource(session.source) : null
+  const platformSource = handoffSource || directMessagingSource
+  const platformLabel = platformSource ? (sessionSourceLabel(platformSource) ?? platformSource) : null
   // True when a clarify prompt in this session is waiting on the user.
   const needsInput = useStore($attentionSessionIds).includes(session.id)
 
-  return (
-    <SessionContextMenu
-      onArchive={onArchive}
-      onBranch={onBranch}
-      onDelete={onDelete}
-      onPin={onPin}
-      pinned={isPinned}
-      profile={session.profile}
-      sessionId={session.id}
-      title={title}
-    >
-      <SidebarRowShell
-        actions={
+  const row = (
+    <SidebarRowShell
+      actions={
+        directMessagingSource ? null : (
           <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
             {!isWorking && (
               // nowrap is load-bearing: this box sits in the 24px actions
@@ -141,134 +139,157 @@ function SidebarSessionRowImpl({
               </Button>
             </SessionActionsMenu>
           </div>
+        )
+      }
+      className={cn(
+        'group row-hover relative',
+        // Selected reads at a glance: the tinted row fill PLUS a 2px accent
+        // bar on the leading edge (drawn in the row's own padding, so it
+        // costs no layout and never nudges the label).
+        isSelected &&
+          'bg-(--ui-row-active-background) before:absolute before:inset-y-1 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]',
+        isWorking && 'text-foreground',
+        // Opaque surface while lifted so the dragged row erases what's under
+        // it (translucency let the rows below bleed through).
+        dragging && 'z-10 cursor-grabbing bg-(--ui-sidebar-surface-background)',
+        className
+      )}
+      data-working={isWorking ? 'true' : undefined}
+      onPointerDown={event => {
+        if (directMessagingSource) {
+          return
         }
+
+        // Reorder drags belong to dnd-kit (the grab handle); the ⋯ actions
+        // cluster keeps its own gestures. Everything else on the row —
+        // including the row-body BUTTON, the natural grab surface — is a
+        // session drag source: a POINTER drag on the shared drag session
+        // (never native HTML5 DnD: no macOS snap-back, Esc aborts
+        // instantly). Sub-threshold releases stay ordinary clicks, so
+        // resume / pin / open-in-window are untouched.
+        if ((event.target as HTMLElement).closest('[data-reorder-handle], [data-row-actions]')) {
+          return
+        }
+
+        startSessionDrag({ id: session.id, profile: session.profile || 'default', title }, event)
+      }}
+      // Hovering a row from another profile (the all-profiles view) telegraphs
+      // a cross-profile resume — start that backend's spawn now so the click
+      // doesn't pay the full cold boot. Same-profile rows no-op inside
+      // prewarmProfileBackend.
+      onPointerEnter={startPrewarm}
+      onPointerLeave={cancelPrewarm}
+      ref={ref}
+      style={style}
+      {...rest}
+    >
+      {sessionShowsRunningArc({ isWorking, needsInput }) && <span aria-hidden="true" className="arc-border arc-row" />}
+      <SidebarRowBody
         className={cn(
-          'group row-hover relative',
-          // Selected reads at a glance: the tinted row fill PLUS a 2px accent
-          // bar on the leading edge (drawn in the row's own padding, so it
-          // costs no layout and never nudges the label).
-          isSelected &&
-            'bg-(--ui-row-active-background) before:absolute before:inset-y-1 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]',
-          isWorking && 'text-foreground',
-          // Opaque surface while lifted so the dragged row erases what's under
-          // it (translucency let the rows below bleed through).
-          dragging && 'z-10 cursor-grabbing bg-(--ui-sidebar-surface-background)',
-          className
+          'z-0',
+          // The hover age label is drawn over this padding (pointer-events
+          // off, so a click on it still resumes). The lane fits the longest
+          // label a row shows — "365 ngày" is ~52px at 12px — plus 8px of air
+          // before the truncated title. A working row shows no age, so it
+          // keeps its whole title.
+          !isWorking && 'group-hover:pr-15',
+          branchStem && 'pl-3.5'
         )}
-        data-working={isWorking ? 'true' : undefined}
-        onPointerDown={event => {
-          // Reorder drags belong to dnd-kit (the grab handle); the ⋯ actions
-          // cluster keeps its own gestures. Everything else on the row —
-          // including the row-body BUTTON, the natural grab surface — is a
-          // session drag source: a POINTER drag on the shared drag session
-          // (never native HTML5 DnD: no macOS snap-back, Esc aborts
-          // instantly). Sub-threshold releases stay ordinary clicks, so
-          // resume / pin / open-in-window are untouched.
-          if ((event.target as HTMLElement).closest('[data-reorder-handle], [data-row-actions]')) {
+        // Middle-click = open in a new tab (browser muscle memory).
+        {...middleClickHandlers(() => {
+          triggerHaptic('selection')
+          openSession(session.id, () => undefined, 'tab')
+        })}
+        onClick={event => {
+          const mod = event.metaKey || event.ctrlKey
+
+          // ⇧⌘-click → pop into its own window (needs standalone windows).
+          if (mod && event.shiftKey) {
+            event.preventDefault()
+            event.stopPropagation()
+            triggerHaptic('selection')
+            openSession(session.id, () => undefined, 'window')
+
             return
           }
 
-          startSessionDrag({ id: session.id, profile: session.profile || 'default', title }, event)
-        }}
-        // Hovering a row from another profile (the all-profiles view) telegraphs
-        // a cross-profile resume — start that backend's spawn now so the click
-        // doesn't pay the full cold boot. Same-profile rows no-op inside
-        // prewarmProfileBackend.
-        onPointerEnter={startPrewarm}
-        onPointerLeave={cancelPrewarm}
-        ref={ref}
-        style={style}
-        {...rest}
-      >
-        {sessionShowsRunningArc({ isWorking, needsInput }) && (
-          <span aria-hidden="true" className="arc-border arc-row" />
-        )}
-        <SidebarRowBody
-          className={cn(
-            'z-0',
-            // The hover age label is drawn over this padding (pointer-events
-            // off, so a click on it still resumes). The lane fits the longest
-            // label a row shows — "365 ngày" is ~52px at 12px — plus 8px of air
-            // before the truncated title. A working row shows no age, so it
-            // keeps its whole title.
-            !isWorking && 'group-hover:pr-15',
-            branchStem && 'pl-3.5'
-          )}
-          // Middle-click = open in a new tab (browser muscle memory).
-          {...middleClickHandlers(() => {
+          // ⌘/⌃-click → open in a new tab (stack into main).
+          if (mod) {
+            event.preventDefault()
+            event.stopPropagation()
             triggerHaptic('selection')
             openSession(session.id, () => undefined, 'tab')
-          })}
-          onClick={event => {
-            const mod = event.metaKey || event.ctrlKey
 
-            // ⇧⌘-click → pop into its own window (needs standalone windows).
-            if (mod && event.shiftKey) {
-              event.preventDefault()
-              event.stopPropagation()
-              triggerHaptic('selection')
-              openSession(session.id, () => undefined, 'window')
+            return
+          }
 
-              return
-            }
+          // ⇧-click → pin.
+          if (event.shiftKey && !directMessagingSource) {
+            event.preventDefault()
+            event.stopPropagation()
+            triggerHaptic('selection')
+            onPin()
 
-            // ⌘/⌃-click → open in a new tab (stack into main).
-            if (mod) {
-              event.preventDefault()
-              event.stopPropagation()
-              triggerHaptic('selection')
-              openSession(session.id, () => undefined, 'tab')
+            return
+          }
 
-              return
-            }
+          onResume()
+        }}
+      >
+        {reorderable ? (
+          <SidebarRowGrab
+            ariaLabel={handleLabel}
+            dragging={dragging}
+            dragHandleProps={dragHandleProps}
+            leadClassName={needsInput ? 'overflow-visible' : undefined}
+          >
+            <SessionStatusDot
+              branchStem={branchStem}
+              className="transition-opacity group-hover/handle:opacity-0 group-focus-within/handle:opacity-0"
+              session={session}
+              storedSessionId={session.id}
+            />
+          </SidebarRowGrab>
+        ) : (
+          <SidebarRowLead className={needsInput ? 'overflow-visible' : 'overflow-hidden'}>
+            <SessionStatusDot branchStem={branchStem} session={session} storedSessionId={session.id} />
+          </SidebarRowLead>
+        )}
+        {platformSource && platformLabel ? (
+          <Tip label={handoffSource ? r.handoffOrigin(platformLabel) : platformLabel}>
+            <PlatformAvatar
+              className="size-4 rounded-[4px] text-2xs [&_svg]:size-2.5"
+              platformId={platformSource}
+              platformName={platformLabel}
+            />
+          </Tip>
+        ) : null}
+        <SidebarRowLabel className="flex-1 font-medium group-hover:text-foreground group-data-[working=true]:text-foreground/90">
+          {title}
+        </SidebarRowLabel>
+        {showProfile && <ProfileTag profile={session.profile} />}
+      </SidebarRowBody>
+    </SidebarRowShell>
+  )
 
-            // ⇧-click → pin.
-            if (event.shiftKey) {
-              event.preventDefault()
-              event.stopPropagation()
-              triggerHaptic('selection')
-              onPin()
+  // A platform-owned transcript is a monitor, not an editable Workmate chat.
+  // Keep navigation and reading, but remove the mutation menu and drag surface.
+  if (directMessagingSource) {
+    return row
+  }
 
-              return
-            }
-
-            onResume()
-          }}
-        >
-          {reorderable ? (
-            <SidebarRowGrab
-              ariaLabel={handleLabel}
-              dragging={dragging}
-              dragHandleProps={dragHandleProps}
-              leadClassName={needsInput ? 'overflow-visible' : undefined}
-            >
-              <SessionStatusDot
-                branchStem={branchStem}
-                className="transition-opacity group-hover/handle:opacity-0 group-focus-within/handle:opacity-0"
-                session={session}
-                storedSessionId={session.id}
-              />
-            </SidebarRowGrab>
-          ) : (
-            <SidebarRowLead className={needsInput ? 'overflow-visible' : 'overflow-hidden'}>
-              <SessionStatusDot branchStem={branchStem} session={session} storedSessionId={session.id} />
-            </SidebarRowLead>
-          )}
-          {handoffSource && handoffLabel ? (
-            <Tip label={r.handoffOrigin(handoffLabel)}>
-              <PlatformAvatar
-                className="size-4 rounded-[4px] text-2xs [&_svg]:size-2.5"
-                platformId={handoffSource}
-                platformName={handoffLabel}
-              />
-            </Tip>
-          ) : null}
-          <SidebarRowLabel className="flex-1 font-medium group-hover:text-foreground group-data-[working=true]:text-foreground/90">
-            {title}
-          </SidebarRowLabel>
-          {showProfile && <ProfileTag profile={session.profile} />}
-        </SidebarRowBody>
-      </SidebarRowShell>
+  return (
+    <SessionContextMenu
+      onArchive={onArchive}
+      onBranch={onBranch}
+      onDelete={onDelete}
+      onPin={onPin}
+      pinned={isPinned}
+      profile={session.profile}
+      sessionId={session.id}
+      title={title}
+    >
+      {row}
     </SessionContextMenu>
   )
 }

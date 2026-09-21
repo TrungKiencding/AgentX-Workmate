@@ -517,6 +517,47 @@ class TestWebServerEndpoints:
         assert seen["status_path"] == worker_home / "gateway_state.json"
         assert seen["expected_home"] == worker_home
 
+    def test_messaging_platforms_exposes_safe_public_destination(self, monkeypatch):
+        import hermes_cli.web_server as web_server
+
+        runtime = {
+            "gateway_state": "running",
+            "platforms": {
+                "telegram": {
+                    "state": "connected",
+                    "public_destination": {
+                        "kind": "bot",
+                        "label": "@agentx_bot",
+                        "url": "https://t.me/agentx_bot",
+                    },
+                },
+                "discord": {
+                    "state": "connected",
+                    "public_destination": {
+                        "label": "unsafe",
+                        "url": "javascript:alert(1)",
+                    },
+                },
+            },
+        }
+        monkeypatch.setattr(web_server, "read_runtime_status", lambda path=None: runtime)
+        monkeypatch.setattr(
+            web_server,
+            "resolve_gateway_liveness",
+            lambda **kwargs: SimpleNamespace(running=True),
+        )
+
+        response = self.client.get("/api/messaging/platforms")
+
+        assert response.status_code == 200
+        platforms = {row["id"]: row for row in response.json()["platforms"]}
+        assert platforms["telegram"]["destination"] == {
+            "kind": "bot",
+            "label": "@agentx_bot",
+            "url": "https://t.me/agentx_bot",
+        }
+        assert platforms["discord"]["destination"]["url"] is None
+
 
 
 

@@ -17,6 +17,7 @@ vi.mock('@/hermes', () => ({
   getMessagingPlatforms: () => getMessagingPlatforms(),
   getPairing: () => getPairing(),
   revokePairing: (platformId: string, userId: string) => revokePairing(platformId, userId),
+  setApiRequestProfile: vi.fn(),
   updateMessagingPlatform: (id: string, body: unknown) => updateMessagingPlatform(id, body)
 }))
 
@@ -73,6 +74,28 @@ async function renderMessaging() {
 }
 
 describe('MessagingView setup-guide link', () => {
+  it('shows and opens the connected bot destination', async () => {
+    const botUrl = 'https://t.me/agentx_bot'
+    getMessagingPlatforms.mockResolvedValue({
+      platforms: [
+        platform({
+          configured: true,
+          destination: { kind: 'bot', label: '@agentx_bot', url: botUrl },
+          enabled: true,
+          id: 'telegram',
+          name: 'Telegram',
+          state: 'connected'
+        })
+      ]
+    })
+
+    await renderMessaging()
+
+    expect(await screen.findByText('@agentx_bot')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open in app' }))
+    await waitFor(() => expect(openExternalLink).toHaveBeenCalledWith(botUrl))
+  })
+
   it('hides the setup-guide button for a plugin platform with no docs URL', async () => {
     // Teams (and other plugin platforms) ship an empty docs_url. Rendering an
     // anchor with href="" let Electron resolve it to the app's own packaged
@@ -87,7 +110,9 @@ describe('MessagingView setup-guide link', () => {
   })
 
   it('opens a real docs URL through the validated external opener', async () => {
-    const docsUrl = 'https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/teams.md'
+    const docsUrl =
+      'https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/teams.md'
+
     getMessagingPlatforms.mockResolvedValue({ platforms: [platform({ docs_url: docsUrl })] })
 
     await renderMessaging()

@@ -14,7 +14,6 @@ import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import {
   approvePairing,
-  getMessagingPlatforms,
   getPairing,
   type MessagingEnvVarInfo,
   type MessagingPlatformInfo,
@@ -28,8 +27,10 @@ import { Check, ExternalLink, Save, Trash2 } from '@/lib/icons'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { $changeEventsAvailable, $pairingChangeTick, $platformsChangeTick } from '@/store/live-sync'
+import { $messagingPlatforms, refreshMessagingPlatforms, updateMessagingPlatforms } from '@/store/messaging'
 import { notify, notifyError } from '@/store/notifications'
 import { setPendingPairingCount } from '@/store/pairing'
+import { $activeGatewayProfile } from '@/store/profile'
 import { runGatewayRestart } from '@/store/system-actions'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
@@ -77,7 +78,10 @@ function stateTone({ enabled, state }: MessagingPlatformInfo): StatusTone {
 // ONE summary pill per platform, by priority: error › restart needed ›
 // connecting › connected › needs setup › off. Everything else the old three
 // pills said becomes a quiet line under the name.
-function summaryOf(platform: MessagingPlatformInfo, m: Translations['messaging']): { label: string; tone: StatusPillTone } {
+function summaryOf(
+  platform: MessagingPlatformInfo,
+  m: Translations['messaging']
+): { label: string; tone: StatusPillTone } {
   const state = platform.state ?? ''
 
   if (platform.enabled && (state === 'fatal' || state === 'startup_failed')) {
@@ -168,7 +172,8 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   const m = t.messaging
   // Both save/toggle toasts offer the same one-click restart.
   const restartGatewayAction = { label: m.restartNow, onClick: () => void runGatewayRestart() }
-  const [platforms, setPlatforms] = useState<MessagingPlatformInfo[] | null>(null)
+  const platforms = useStore($messagingPlatforms)
+  const activeGatewayProfile = useStore($activeGatewayProfile)
 
   const [pairing, setPairing] = useState<{ approved: PairingUser[]; pending: PairingUser[] }>({
     approved: [],
@@ -197,8 +202,7 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       }
 
       try {
-        const result = await getMessagingPlatforms()
-        setPlatforms(result.platforms)
+        await refreshMessagingPlatforms(activeGatewayProfile || 'default')
       } catch (err) {
         if (!silent) {
           notifyError(err, m.loadFailed)
@@ -209,7 +213,7 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         }
       }
     },
-    [m]
+    [activeGatewayProfile, m]
   )
 
   // Pairing has its own signal. platforms.changed tracks connect/disconnect
@@ -348,7 +352,7 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
 
     try {
       await updateMessagingPlatform(platform.id, { enabled })
-      setPlatforms(
+      updateMessagingPlatforms(
         current =>
           current?.map(row =>
             row.id === platform.id
@@ -760,6 +764,11 @@ function PlatformDetail({
   const advancedFields = platform.env_vars.filter(field => !field.required && fieldCopy(field, m).advanced)
   const summary = summaryOf(platform, m)
 
+  const destinationLabel =
+    platform.destination?.label || platform.home_channel?.name || platform.home_channel?.chat_id || null
+
+  const destinationUrl = platform.destination?.url || null
+
   const fieldRows = (fields: MessagingEnvVarInfo[]) =>
     fields.map(field => (
       <MessagingField edits={edits} field={field} key={field.key} onClear={onClear} onEdit={onEdit} saving={saving} />
@@ -782,6 +791,24 @@ function PlatformDetail({
       </header>
 
       {platform.error_message && <ErrorBanner>{platform.error_message}</ErrorBanner>}
+
+      {platform.enabled && platform.state === 'connected' && (
+        <div className="border-y border-(--ui-stroke-tertiary)">
+          <ListRow
+            action={
+              destinationUrl ? (
+                <Button onClick={() => openExternalLink(destinationUrl)} size="sm" type="button" variant="outline">
+                  {m.openDestination}
+                  <ExternalLink className="size-3.5" />
+                </Button>
+              ) : undefined
+            }
+            description={destinationLabel ? destinationUrl || platform.name : m.destinationUnavailable}
+            hint={destinationLabel || undefined}
+            title={m.destinationTitle}
+          />
+        </div>
+      )}
 
       {/* Pending pairing requests. Rendered only when someone is actually
           waiting — an empty-state card here would be permanent chrome on a

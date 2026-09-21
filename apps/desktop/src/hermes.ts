@@ -1156,6 +1156,7 @@ export function grantComputerUsePermissions(): Promise<ActionResponse> {
 
 export function getMessagingPlatforms(): Promise<MessagingPlatformsResponse> {
   return window.agentxDesktop.api<MessagingPlatformsResponse>({
+    ...profileScoped(),
     path: '/api/messaging/platforms'
   })
 }
@@ -1165,6 +1166,7 @@ export function updateMessagingPlatform(
   body: MessagingPlatformUpdate
 ): Promise<{ ok: boolean; platform: string }> {
   return window.agentxDesktop.api<{ ok: boolean; platform: string }>({
+    ...profileScoped(),
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}`,
     method: 'PUT',
     body
@@ -1173,6 +1175,7 @@ export function updateMessagingPlatform(
 
 export function testMessagingPlatform(platformId: string): Promise<MessagingPlatformTestResponse> {
   return window.agentxDesktop.api<MessagingPlatformTestResponse>({
+    ...profileScoped(),
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}/test`,
     method: 'POST'
   })

@@ -8897,6 +8897,22 @@ def _messaging_platform_payload(
         error_code = error_code or "startup_failed"
         error_message = error_message or runtime_gateway_error
 
+    public_destination = None
+    if isinstance(runtime_platform, dict):
+        raw_destination = runtime_platform.get("public_destination")
+        if isinstance(raw_destination, dict):
+            label = str(raw_destination.get("label") or "").strip()
+            kind = str(raw_destination.get("kind") or "").strip()
+            url = str(raw_destination.get("url") or "").strip()
+            if url and not re.match(r"^https?://", url, re.IGNORECASE):
+                url = ""
+            if label:
+                public_destination = {
+                    "label": label,
+                    "kind": kind or "channel",
+                    "url": url or None,
+                }
+
     whatsapp_setup = None
     if platform_id == "whatsapp":
         whatsapp_mode = (
@@ -8930,6 +8946,7 @@ def _messaging_platform_payload(
             else None
         ),
         "home_channel": home_channel,
+        "destination": public_destination,
         "env_vars": env_vars,
     }
     if whatsapp_setup is not None:

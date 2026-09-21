@@ -345,6 +345,11 @@ class TestGatewayRuntimeStatus:
             platform_state="fatal",
             error_code="discord_timeout",
             error_message="stale platform error",
+            public_destination={
+                "kind": "bot",
+                "label": "@old_bot",
+                "url": "https://t.me/old_bot",
+            },
         )
 
         status.write_runtime_status(
@@ -354,6 +359,7 @@ class TestGatewayRuntimeStatus:
             platform_state="connected",
             error_code=None,
             error_message=None,
+            public_destination=None,
         )
 
         payload = status.read_runtime_status()
@@ -362,6 +368,24 @@ class TestGatewayRuntimeStatus:
         assert payload["platforms"]["discord"]["state"] == "connected"
         assert payload["platforms"]["discord"]["error_code"] is None
         assert payload["platforms"]["discord"]["error_message"] is None
+        assert payload["platforms"]["discord"]["public_destination"] is None
+
+    def test_runtime_status_preserves_public_destination_when_omitted(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+        destination = {
+            "kind": "bot",
+            "label": "@agentx_bot",
+            "url": "https://t.me/agentx_bot",
+        }
+
+        status.write_runtime_status(
+            platform="telegram",
+            platform_state="connected",
+            public_destination=destination,
+        )
+        status.write_runtime_status(platform="telegram", error_code=None)
+
+        assert status.read_runtime_status()["platforms"]["telegram"]["public_destination"] == destination
 
 
 class TestGetProcessStartTime:
@@ -1294,4 +1318,3 @@ class TestResolveGatewayLiveness:
         # expected_home is what stops a recycled PID belonging to another
         # profile's live gateway from being reported as this profile's.
         assert seen["expected_home"] == profile_dir
-

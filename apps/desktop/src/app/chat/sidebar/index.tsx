@@ -30,7 +30,7 @@ import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
 import { sessionMatchesSearch } from '@/lib/session-search'
-import { normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
+import { isMessagingSource, normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
 import { cn } from '@/lib/utils'
 import { $cronJobs } from '@/store/cron'
 import { $bindings } from '@/store/keybinds'
@@ -40,7 +40,7 @@ import {
   $pinnedSessionIds,
   $sidebarAgentsGrouped,
   $sidebarCronOpen,
-  $sidebarMessagingOpenIds,
+  $sidebarMessagingClosedIds,
   $sidebarPinsOpen,
   $sidebarProjectOrderIds,
   $sidebarRecentsOpen,
@@ -65,8 +65,17 @@ import {
   toggleSidebarMessagingOpen,
   unpinSession
 } from '@/store/layout'
+import { $platformsChangeTick } from '@/store/live-sync'
+import { $messagingPlatforms, refreshMessagingPlatforms } from '@/store/messaging'
 import { $pendingPairingCount } from '@/store/pairing'
-import { $newChatProfile, $profiles, $profileScope, ALL_PROFILES, normalizeProfileKey } from '@/store/profile'
+import {
+  $activeGatewayProfile,
+  $newChatProfile,
+  $profiles,
+  $profileScope,
+  ALL_PROFILES,
+  normalizeProfileKey
+} from '@/store/profile'
 import {
   $activeProjectId,
   $projects,
@@ -111,6 +120,7 @@ import {
 } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
+import { ConnectedChannels } from './connected-channels'
 import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarLoadMoreRow } from './load-more-row'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
@@ -280,7 +290,7 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const { t } = useI18n()
   const s = t.sidebar
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // Contributed nav rows (plugins pairing a page with a sidebar entry) render
   // below the built-ins with the same chrome; active = at their route.
   const navContributions = useContributions(SIDEBAR_NAV_AREA)
@@ -321,6 +331,9 @@ export function ChatSidebar({
   const cronSessions = useStore($cronSessions)
   const cronJobs = useStore($cronJobs)
   const messagingSessions = useStore($messagingSessions)
+  const messagingPlatforms = useStore($messagingPlatforms)
+  const activeGatewayProfile = useStore($activeGatewayProfile)
+  const platformsChangeTick = useStore($platformsChangeTick)
   const messagingPlatformTotals = useStore($messagingPlatformTotals)
   const messagingTruncated = useStore($messagingTruncated)
   const sessionsLoading = useStore($sessionsLoading)
@@ -363,7 +376,32 @@ export function ChatSidebar({
   const [profileLoadMorePending, setProfileLoadMorePending] = useState<Record<string, boolean>>({})
   const [messagingLoadMorePending, setMessagingLoadMorePending] = useState<Record<string, boolean>>({})
   const [recentsLoadMorePending, setRecentsLoadMorePending] = useState(false)
-  const messagingOpenIds = useStore($sidebarMessagingOpenIds)
+
+  useEffect(() => {
+    void refreshMessagingPlatforms(activeGatewayProfile || 'default').catch(() => undefined)
+  }, [activeGatewayProfile, platformsChangeTick])
+
+  const activeMessagingPlatform = useMemo(() => {
+    if (pathname !== MESSAGING_ROUTE) {
+      return null
+    }
+
+    return new URLSearchParams(search).get('platform')
+  }, [pathname, search])
+
+  const openConnectedChannel = useCallback(
+    (platformId: string) => {
+      onNavigate({
+        id: `messaging:${platformId}`,
+        icon: MessageCircle,
+        label: '',
+        route: `${MESSAGING_ROUTE}?platform=${encodeURIComponent(platformId)}`
+      })
+    },
+    [onNavigate]
+  )
+
+  const messagingClosedIds = useStore($sidebarMessagingClosedIds)
   // Per-platform count of rows currently revealed (starts at NON_SESSION_INITIAL_ROWS).
   const [messagingVisible, setMessagingVisible] = useState<Record<string, number>>({})
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -409,7 +447,12 @@ export function ChatSidebar({
   // profile in, grouped by profile below. Single-profile users land here with
   // scope === their only profile, so nothing is filtered out.
   const visibleSessions = useMemo(
-    () => (showAllProfiles ? sessions : sessions.filter(s => normalizeProfileKey(s.profile) === profileScope)),
+    () =>
+      sessions.filter(
+        session =>
+          !isMessagingSource(session.source) &&
+          (showAllProfiles || normalizeProfileKey(session.profile) === profileScope)
+      ),
     [sessions, showAllProfiles, profileScope]
   )
 
@@ -1114,7 +1157,11 @@ export function ChatSidebar({
 
   const showSessionSkeletons = sessionsLoading && sortedSessions.length === 0
 
-  const showSessionSections = showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0
+  const showSessionSections =
+    showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0 || messagingGroups.length > 0
+
+  const showAgentSessionsSection =
+    showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0 || messagingGroups.length === 0
 
   // Each reorderable list reports its OWN new id order; persisting is a direct,
   // typed write — no id-prefix sniffing to figure out which level moved.
@@ -1299,6 +1346,12 @@ export function ChatSidebar({
                 )
               })}
             </SidebarMenu>
+            <ConnectedChannels
+              activePlatformId={activeMessagingPlatform}
+              label={s.connectedChannels}
+              onOpen={openConnectedChannel}
+              platforms={messagingPlatforms}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -1370,7 +1423,7 @@ export function ChatSidebar({
               />
             )}
 
-            {!trimmedQuery && (
+            {!trimmedQuery && showAgentSessionsSection && (
               <SidebarSessionsSection
                 activeProjectId={activeProjectId}
                 activeSessionId={activeSidebarSessionId}
@@ -1570,7 +1623,7 @@ export function ChatSidebar({
                     onResumeSession={onResumeSession}
                     onToggle={() => toggleSidebarMessagingOpen(group.sourceId)}
                     onTogglePin={pinSession}
-                    open={messagingOpenIds.includes(group.sourceId)}
+                    open={!messagingClosedIds.includes(group.sourceId)}
                     pinned={false}
                     rootClassName="shrink-0 p-0"
                     sessions={shownSessions}

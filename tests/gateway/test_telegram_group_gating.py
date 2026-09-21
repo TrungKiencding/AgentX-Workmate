@@ -846,6 +846,20 @@ def test_bot_never_adopts_another_accounts_username():
     assert adapter._current_bot_username() == "agentx_bot"
 
 
+def test_public_destination_follows_current_bot_username():
+    adapter = _make_adapter(require_mention=True)
+    adapter._bot = _IdentityBot(cached="agentx_bot")
+
+    assert adapter.public_destination() == {
+        "kind": "bot",
+        "label": "@agentx_bot",
+        "url": "https://t.me/agentx_bot",
+    }
+
+    adapter._note_bot_username("renamed_helper")
+    assert adapter.public_destination()["url"] == "https://t.me/renamed_helper"
+
+
 def test_collectible_username_not_suppressed_by_other_bot_mention():
     """@jarvis + @other_bot in one message must still reach @jarvis."""
     adapter = _make_adapter(
