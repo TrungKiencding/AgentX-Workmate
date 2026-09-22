@@ -2408,6 +2408,7 @@ export const ja = defineLocale({
       copyIdFailed: 'チャット ID をコピーできませんでした',
 
       sessionActions: 'チャットの操作',
+      deleteWorkmateCopy: 'Workmate から削除',
       sessionRunning: 'チャット実行中',
       needsInput: '入力が必要です',
       waitingForAnswer: '回答を待っています',

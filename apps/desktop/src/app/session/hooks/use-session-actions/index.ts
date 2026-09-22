@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n'
 import { type ChatMessage, preserveLocalAssistantErrors, toChatMessages } from '@/lib/chat-messages'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { recoverInFlightTurnJournal } from '@/lib/inflight-turn-journal'
+import { normalizeSessionSource } from '@/lib/session-source'
 import { setSessionYolo } from '@/lib/yolo-session'
 import { migrateSessionDraft } from '@/store/composer'
 import { clearQueuedPrompts, migrateQueuedPrompts } from '@/store/composer-queue'
@@ -29,6 +30,8 @@ import {
   $currentProvider,
   $currentReasoningEffort,
   $messages,
+  $messagingPlatformTotals,
+  $messagingSessions,
   $newChatWorkspaceTarget,
   $sessions,
   $yoloActive,
@@ -47,6 +50,8 @@ import {
   setFreshDraftReady,
   setIntroSeed,
   setMessages,
+  setMessagingPlatformTotals,
+  setMessagingSessions,
   setNewChatWorkspaceTarget,
   setResumeExhaustedSessionId,
   setResumeFailedSessionId,
@@ -131,6 +136,14 @@ function applyStoredUsage(stored: { input_tokens?: number | null; output_tokens?
   const output = stored.output_tokens || 0
 
   setCurrentUsage(current => ({ ...current, input, output, total: input + output }))
+}
+
+// Nudge a messaging platform's resolved conversation total (which drives that
+// section's "load more" row). Unresolved platforms stay unresolved.
+function shiftMessagingPlatformTotal(platform: string, delta: number) {
+  setMessagingPlatformTotals(prev =>
+    Object.hasOwn(prev, platform) ? { ...prev, [platform]: Math.max(0, prev[platform] + delta) } : prev
+  )
 }
 
 function reconcileAuthoritativeMessages(
@@ -1309,8 +1322,21 @@ export function useSessionActions({
     async (storedSessionId: string) => {
       clearNotifications()
 
-      const removed = $sessions.get().find(session => sessionMatchesStoredId(session, storedSessionId))
-      const wasSelected = selectedStoredSessionId === storedSessionId
+      const removedLocal = $sessions.get().find(session => sessionMatchesStoredId(session, storedSessionId))
+
+      const removedMessaging = $messagingSessions
+        .get()
+        .find(session => sessionMatchesStoredId(session, storedSessionId))
+
+      const removed = removedLocal ?? removedMessaging
+      // After compression the row is the projected tip while the selection can
+      // still hold the lineage root (or vice versa), so match across lineage.
+      const previousSelectedId = selectedStoredSessionId
+
+      const wasSelected =
+        !!previousSelectedId &&
+        (previousSelectedId === storedSessionId || (!!removed && sessionMatchesStoredId(removed, previousSelectedId)))
+
       const closingRuntimeId = wasSelected ? activeSessionId : null
       const previousMessages = $messages.get()
       const previousPinned = $pinnedSessionIds.get()
@@ -1318,8 +1344,17 @@ export function useSessionActions({
       // live tip after compression. Drop both so the pin can't linger.
       const removedPinId = removed ? sessionPinId(removed) : storedSessionId
       const removedIds = [storedSessionId, removed?.id, removed?._lineage_root_id]
+      const removedPlatform = removedMessaging ? normalizeSessionSource(removedMessaging.source) : null
+
+      const countedInPlatformTotal = !!removedPlatform && Object.hasOwn($messagingPlatformTotals.get(), removedPlatform)
 
       setSessions(prev => prev.filter(session => !sessionMatchesStoredId(session, storedSessionId)))
+      setMessagingSessions(prev => prev.filter(session => !sessionMatchesStoredId(session, storedSessionId)))
+
+      if (countedInPlatformTotal) {
+        shiftMessagingPlatformTotal(removedPlatform, -1)
+      }
+
       // Evict from the project tree's optimistic layer too (the backend snapshot
       // still lists it until its next refresh), so grouped + flat views drop the
       // row in lockstep. Pin the tombstone against the projects.tree prune while
@@ -1358,8 +1393,16 @@ export function useSessionActions({
           dropSessionState(tiledRuntimeId)
         }
       } catch (err) {
-        if (removed) {
-          setSessions(prev => [removed, ...prev])
+        if (removedLocal) {
+          setSessions(prev => [removedLocal, ...prev])
+        }
+
+        if (removedMessaging) {
+          setMessagingSessions(prev => [removedMessaging, ...prev])
+        }
+
+        if (countedInPlatformTotal) {
+          shiftMessagingPlatformTotal(removedPlatform, 1)
         }
 
         untombstoneSessions(removedIds)
@@ -1367,16 +1410,19 @@ export function useSessionActions({
 
         if (wasSelected) {
           setFreshDraftReady(false)
-          setSelectedStoredSessionId(storedSessionId)
-          selectedStoredSessionIdRef.current = storedSessionId
-          const stored = $sessions.get().find(session => sessionMatchesStoredId(session, storedSessionId))
+          setSelectedStoredSessionId(previousSelectedId)
+          selectedStoredSessionIdRef.current = previousSelectedId
+
+          const stored = [...$sessions.get(), ...$messagingSessions.get()].find(session =>
+            sessionMatchesStoredId(session, previousSelectedId)
+          )
 
           if (stored) {
             applyStoredUsage(stored)
           }
 
           setMessages(previousMessages)
-          navigate(sessionRoute(storedSessionId), { replace: true })
+          navigate(sessionRoute(previousSelectedId), { replace: true })
 
           if (closingRuntimeId) {
             setActiveSessionId(closingRuntimeId)

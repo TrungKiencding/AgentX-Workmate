@@ -4432,6 +4432,10 @@ class SessionDB(
         without a recoverable routing mapping (#59527).
         """
         def _do(conn):
+            if conn.execute(
+                "SELECT 1 FROM deleted_gateway_sessions WHERE session_id = ?", (session_id,)
+            ).fetchone():
+                return
             system_prompt_hash = self._store_system_prompt(conn, system_prompt)
             conn.execute(
                 """INSERT INTO sessions (
@@ -4614,6 +4618,10 @@ class SessionDB(
             return
 
         def _do(conn):
+            if conn.execute(
+                "SELECT 1 FROM deleted_gateway_sessions WHERE session_id = ?", (session_id,)
+            ).fetchone():
+                return
             lineage_cte = ""
             target_clause = "WHERE id = ?"
             query_params = []
@@ -10131,6 +10139,20 @@ class SessionDB(
             delegate_ids = _collect_delegate_child_ids(self._conn, [session_id])
         return [session_id, *sorted(delegate_ids)]
 
+    def is_deleted_gateway_session(self, session_id: str) -> bool:
+        """Whether a user removed a gateway transcript while its route may live."""
+        if not session_id:
+            return False
+        with self._lock:
+            try:
+                return self._conn.execute(
+                    "SELECT 1 FROM deleted_gateway_sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone() is not None
+            except sqlite3.OperationalError:
+                # A read-only old store may not have run schema reconciliation.
+                return False
+
     def delete_session(
         self,
         session_id: str,
@@ -10159,10 +10181,10 @@ class SessionDB(
         )
 
         def _do(conn):
-            cursor = conn.execute(
-                "SELECT 1 FROM sessions WHERE id = ? LIMIT 1", (session_id,)
-            )
-            if cursor.fetchone() is None:
+            row = conn.execute(
+                "SELECT session_key FROM sessions WHERE id = ? LIMIT 1", (session_id,)
+            ).fetchone()
+            if row is None:
                 return False
             if expected_ids is not None:
                 actual_ids = {
@@ -10172,6 +10194,11 @@ class SessionDB(
                 if actual_ids != expected_ids:
                     return False
             removed_delegate_ids.extend(_delete_delegate_children(conn, [session_id]))
+            if row["session_key"]:
+                conn.execute(
+                    "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
+                    (session_id,),
+                )
             # Orphan remaining child sessions (branches, etc.) so FK is satisfied.
             conn.execute(
                 "UPDATE sessions SET parent_session_id = NULL "
@@ -10280,12 +10307,18 @@ class SessionDB(
             # First, filter to IDs that actually exist — we want to
             # return the real deleted count, not the input length.
             cursor = conn.execute(
-                f"SELECT id FROM sessions WHERE id IN ({placeholders})",
+                f"SELECT id, session_key FROM sessions WHERE id IN ({placeholders})",
                 unique_ids,
             )
-            existing = [row["id"] for row in cursor.fetchall()]
+            existing_rows = cursor.fetchall()
+            existing = [row["id"] for row in existing_rows]
             if not existing:
                 return 0
+
+            conn.executemany(
+                "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
+                [(row["id"],) for row in existing_rows if row["session_key"]],
+            )
 
             existing_placeholders = ",".join("?" * len(existing))
             removed_delegate_ids.extend(_delete_delegate_children(conn, existing))

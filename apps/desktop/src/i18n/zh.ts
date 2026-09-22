@@ -2538,6 +2538,7 @@ export const zh: Translations = {
       copyIdFailed: '无法复制对话 ID',
 
       sessionActions: '对话操作',
+      deleteWorkmateCopy: '从 Workmate 删除',
       sessionRunning: '对话运行中',
       needsInput: '需要你输入',
       waitingForAnswer: '正在等待你的回答',

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { atom } from 'nanostores'
 import type * as React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -92,11 +92,30 @@ vi.mock('@/store/windows', async importOriginal => {
 
 // SessionActionsMenu open behavior is covered in session-actions-menu.test.tsx
 // against the real component. Stub it here so this file stays focused on the
-// row chrome (handoff avatar tip, etc.).
-vi.mock('./session-actions-menu', () => ({
-  SessionActionsMenu: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SessionContextMenu: ({ children }: { children: React.ReactNode }) => <>{children}</>
-}))
+// row chrome (handoff avatar tip, etc.). Each stub wraps its children in its
+// own test id and records its props, so a platform transcript that fell back
+// to the full menus (or lost its Unpin wiring) fails here instead of passing
+// through an identical stand-in.
+const menuProps = vi.hoisted(() => new Map<string, Record<string, unknown>>())
+
+afterEach(() => menuProps.clear())
+
+vi.mock('./session-actions-menu', () => {
+  const stub =
+    (testId: string) =>
+    ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => {
+      menuProps.set(testId, props)
+
+      return <div data-testid={testId}>{children}</div>
+    }
+
+  return {
+    MessagingSessionActionsMenu: stub('messaging-actions-menu'),
+    MessagingSessionContextMenu: stub('messaging-context-menu'),
+    SessionActionsMenu: stub('session-actions-menu'),
+    SessionContextMenu: stub('session-context-menu')
+  }
+})
 
 vi.mock('./use-profile-prewarm', () => ({
   useProfilePrewarm: () => ({ cancelPrewarm: vi.fn(), startPrewarm: vi.fn() })
@@ -202,7 +221,80 @@ describe('SidebarSessionRow', () => {
     )
 
     expect(container.querySelector('span[aria-hidden="true"]')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Session actions' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Session actions' })).toBeTruthy()
+  })
+
+  it('gives a platform transcript only the read-only menus', () => {
+    const onDelete = vi.fn()
+    const onPin = vi.fn()
+
+    render(
+      <SidebarSessionRow
+        isPinned={false}
+        isSelected={false}
+        isWorking={false}
+        onArchive={noop}
+        onDelete={onDelete}
+        onPin={onPin}
+        onResume={noop}
+        session={makeSession({ source: 'telegram', title: 'Telegram conversation' })}
+      />
+    )
+
+    const kebabMenu = screen.getByTestId('messaging-actions-menu')
+
+    expect(within(kebabMenu).getByRole('button', { name: 'Session actions' })).toBeTruthy()
+    expect(screen.getByTestId('messaging-context-menu')).toBeTruthy()
+    expect(screen.queryByTestId('session-actions-menu')).toBeNull()
+    expect(screen.queryByTestId('session-context-menu')).toBeNull()
+
+    for (const menu of ['messaging-actions-menu', 'messaging-context-menu']) {
+      expect(menuProps.get(menu)?.onDelete).toBe(onDelete)
+      // Unpin only belongs on a row that is actually pinned.
+      expect(menuProps.get(menu)?.onUnpin).toBeUndefined()
+    }
+  })
+
+  it('lets a pinned platform transcript undo its pin from both menus', () => {
+    const onPin = vi.fn()
+
+    render(
+      <SidebarSessionRow
+        isPinned
+        isSelected={false}
+        isWorking={false}
+        onArchive={noop}
+        onDelete={noop}
+        onPin={onPin}
+        onResume={noop}
+        session={makeSession({ source: 'telegram', title: 'Pinned Telegram conversation' })}
+      />
+    )
+
+    expect(menuProps.get('messaging-actions-menu')?.onUnpin).toBe(onPin)
+    expect(menuProps.get('messaging-context-menu')?.onUnpin).toBe(onPin)
+  })
+
+  it('gives a local chat the full session menus', () => {
+    render(
+      <SidebarSessionRow
+        isPinned={false}
+        isSelected={false}
+        isWorking={false}
+        onArchive={noop}
+        onDelete={noop}
+        onPin={noop}
+        onResume={noop}
+        session={makeSession({ source: 'desktop', title: 'Desktop chat' })}
+      />
+    )
+
+    const kebabMenu = screen.getByTestId('session-actions-menu')
+
+    expect(within(kebabMenu).getByRole('button', { name: 'Session actions' })).toBeTruthy()
+    expect(screen.getByTestId('session-context-menu')).toBeTruthy()
+    expect(screen.queryByTestId('messaging-actions-menu')).toBeNull()
+    expect(screen.queryByTestId('messaging-context-menu')).toBeNull()
   })
 
   it('keeps the hover age label on one line', () => {

@@ -1434,6 +1434,11 @@ class SessionStore:
         try:
             for key, entry in self._entries.items():
                 row = db.get_session(entry.session_id)
+                # Explicitly deleted rows are stale even though their DB row
+                # is gone. Other missing rows are legacy/unpersisted — keep.
+                if row is None and getattr(db, "is_deleted_gateway_session", lambda _sid: False)(entry.session_id):
+                    stale_keys.append(key)
+                    continue
                 # row is None        -> not in DB (legacy / pre-SQLite) — keep
                 # end_reason is None  -> session alive — keep
                 # end_reason not None -> session ended — prune
@@ -2278,11 +2283,11 @@ class SessionStore:
             return False
 
     def _is_session_ended_in_db(self, session_id: str) -> bool:
-        """Return True iff state.db has this session with a non-null end_reason.
+        """Return True when a gateway session ended or was explicitly deleted.
 
         Mirrors the staleness test in ``_prune_stale_sessions_locked``:
           - no DB handle / no session_id -> False (can't tell — keep)
-          - row absent (legacy / not yet persisted) -> False (keep)
+          - row absent (legacy / not yet persisted) -> False unless deleted
           - end_reason is None -> False (alive — keep)
           - end_reason not None -> True (ended — stale)
 
@@ -2301,7 +2306,15 @@ class SessionStore:
             row = db.get_session(session_id)
         except Exception:
             return False
-        return bool(row is not None and row.get("end_reason") is not None)
+        if row is None:
+            checker = getattr(db, "is_deleted_gateway_session", None)
+            if callable(checker):
+                try:
+                    return bool(checker(session_id))
+                except Exception:
+                    return False
+            return False
+        return row.get("end_reason") is not None
 
     def _should_reset(self, entry: SessionEntry, source: SessionSource) -> Optional[str]:
         """

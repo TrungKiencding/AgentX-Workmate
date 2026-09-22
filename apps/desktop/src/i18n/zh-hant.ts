@@ -2313,6 +2313,7 @@ export const zhHant = defineLocale({
       copyIdFailed: '無法複製對話 ID',
 
       sessionActions: '對話動作',
+      deleteWorkmateCopy: '從 Workmate 刪除',
       sessionRunning: '對話執行中',
       needsInput: '需要您的輸入',
       waitingForAnswer: '等待您的回答',

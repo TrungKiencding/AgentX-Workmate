@@ -2315,6 +2315,7 @@ export const ar = defineLocale({
       copyIdFailed: 'تعذر نسخ معرّف المحادثة',
 
       sessionActions: 'إجراءات المحادثة',
+      deleteWorkmateCopy: 'حذف من Workmate',
       sessionRunning: 'المحادثة قيد التشغيل',
       needsInput: 'تحتاج إدخالا',
       waitingForAnswer: 'بانتظار إجابة',

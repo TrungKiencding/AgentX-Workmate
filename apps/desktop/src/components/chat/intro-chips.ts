@@ -17,6 +17,7 @@
  */
 
 import { sessionRecency, type SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
+import { isMessagingSource } from '@/lib/session-source'
 import { normalizeProfileKey } from '@/store/profile'
 import type { SessionInfo } from '@/types/hermes'
 
@@ -81,10 +82,13 @@ export interface IntroChipInput {
 /**
  * Resume → project → starters, capped at {@link MAX_CHIPS}.
  *
- * The resume chip mirrors the sidebar's own view (profile scope, archived
- * excluded, most recent first) so "Resume X" always names a row the user can
- * also see. The project chip skips the project the surface is already sitting
- * in — offering to open where you already are is noise.
+ * The resume chip mirrors the sidebar's own recents (profile scope, archived
+ * and messaging-platform transcripts excluded, most recent first) so "Resume
+ * X" always names a chat the user can also see there — and can carry on: a
+ * Telegram or Slack transcript is read-only, and only reaches `sessions`
+ * because opening one caches the row. The project chip skips the project the
+ * surface is already sitting in — offering to open where you already are is
+ * noise.
  */
 export function introChipSources({
   activeCwd,
@@ -107,7 +111,7 @@ export function introChipSources({
     : sessions.filter(session => normalizeProfileKey(session.profile) === profileScope)
 
   const recent = inScope
-    .filter(session => Boolean(trimmed(session.id)) && !session.archived)
+    .filter(session => Boolean(trimmed(session.id)) && !session.archived && !isMessagingSource(session.source))
     .reduce<null | SessionInfo>(
       (best, session) => (!best || sessionRecency(session) > sessionRecency(best) ? session : best),
       null

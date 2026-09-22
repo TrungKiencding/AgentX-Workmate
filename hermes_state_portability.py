@@ -42,22 +42,31 @@ class SessionPortabilityMixin:
             )
         return cls._session_compact_cols_sql
 
-    def distinct_session_cwds(self, include_archived: bool = False) -> List[Dict[str, Any]]:
+    def distinct_session_cwds(
+        self, include_archived: bool = False, exclude_sources: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
         """Distinct non-empty session cwds with usage stats, for repo discovery.
 
         Aggregates across ALL session history (not a single page), so the desktop
         can surface every git repo the user has worked in — not just the repos
         that happen to be in the currently-loaded recents. Children/branches
-        count: a worktree session is still a real workspace signal.
+        count: a worktree session is still a real workspace signal. Callers can
+        exclude sources that have their own sidebar sections.
         """
         where = "cwd IS NOT NULL AND TRIM(cwd) != ''"
         if not include_archived:
             where += " AND archived = 0"
+        excluded = [source for source in (exclude_sources or []) if source]
+        params: list[str] = []
+        if excluded:
+            where += f" AND source NOT IN ({','.join('?' for _ in excluded)})"
+            params.extend(excluded)
         with self._lock:
             rows = self._conn.execute(
                 "SELECT cwd AS cwd, COUNT(*) AS sessions, "
                 "MAX(COALESCE(ended_at, started_at, 0)) AS last_active "
-                f"FROM sessions WHERE {where} GROUP BY cwd"
+                f"FROM sessions WHERE {where} GROUP BY cwd",
+                params,
             ).fetchall()
         return [
             {

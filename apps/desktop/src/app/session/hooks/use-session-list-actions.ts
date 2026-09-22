@@ -89,7 +89,14 @@ export function useSessionListActions({ profileScope }: UseSessionListActionsArg
 
       // Drop any non-messaging source the broad exclude didn't catch (custom
       // sources) — those stay in local recents, not a platform section.
-      const rows = result.sessions.filter(s => isMessagingSource(s.source))
+      const tombstones = $removedSessionIds.get()
+
+      const rows = result.sessions.filter(
+        s =>
+          isMessagingSource(s.source) &&
+          !tombstones.has(s.id) &&
+          !(s._lineage_root_id && tombstones.has(s._lineage_root_id))
+      )
 
       setMessagingSessions(prev => (sameCronSignature(prev, rows) ? prev : rows))
       // Hit the cap → at least one platform may have more on disk than loaded,
@@ -111,7 +118,14 @@ export function useSessionListActions({ profileScope }: UseSessionListActionsArg
       source: platform
     })
 
-    const incoming = result.sessions.filter(s => normalizeSessionSource(s.source) === platform)
+    const tombstones = $removedSessionIds.get()
+
+    const incoming = result.sessions.filter(
+      s =>
+        normalizeSessionSource(s.source) === platform &&
+        !tombstones.has(s.id) &&
+        !(s._lineage_root_id && tombstones.has(s._lineage_root_id))
+    )
 
     setMessagingSessions(prev => [
       ...prev.filter(s => !inPlatform(s)),
@@ -215,7 +229,12 @@ export function useSessionListActions({ profileScope }: UseSessionListActionsArg
         // Messaging sections: drop any non-messaging source the broad exclude
         // didn't catch (custom sources stay in local recents), then split per
         // platform in the UI.
-        const messagingRows = result.messaging.sessions.filter(s => isMessagingSource(s.source))
+        const messagingRows = result.messaging.sessions.filter(
+          s =>
+            isMessagingSource(s.source) &&
+            !tombstones.has(s.id) &&
+            !(s._lineage_root_id && tombstones.has(s._lineage_root_id))
+        )
 
         setMessagingSessions(prev => (sameCronSignature(prev, messagingRows) ? prev : messagingRows))
         // Hit the cap → at least one platform may have more on disk than loaded.

@@ -47,6 +47,27 @@ _session_latest_descendant = late("_session_latest_descendant")
 _strip_session_list_rows = late("_strip_session_list_rows")
 
 
+def _messaging_conversation_rows(db, session_id: str) -> Optional[List[str]]:
+    """Every stored row of the platform conversation *session_id* belongs to.
+
+    Returns ``None`` for a row that is not a messaging conversation, which
+    callers delete on its own. A gateway conversation may have compressed
+    into several stored rows, and deleting just the selected root or tip
+    leaves the others visible as a ghost conversation. Synced copies on
+    another device carry no session_key, so the messaging source is what
+    identifies them there.
+    """
+    from gateway.config import MESSAGING_SESSION_SOURCE_VALUES
+
+    row = db.get_session(session_id)
+    if not row:
+        return None
+    source = str(row.get("source") or "").strip().lower()
+    if row.get("session_key") or source in MESSAGING_SESSION_SOURCE_VALUES:
+        return db.get_compression_lineage(session_id)
+    return None
+
+
 @list_router.get("/api/sessions")
 def get_sessions(
     # ``le=100`` caps the page size (idea from #39200): an unbounded limit
@@ -411,15 +432,20 @@ async def bulk_delete_sessions_endpoint(body: BulkDeleteSessions):
     * Active and archived sessions ARE deleted when explicitly
       selected — unlike ``DELETE /api/sessions/empty``, the user
       hand-picked the rows so we trust the selection.
-    * Like the other session-delete endpoints, this does NOT pass a
-      ``sessions_dir`` through; on-disk transcript / request-dump
-      cleanup runs at the CLI/agent layer on the next prune pass.
+    * A selected messaging-platform conversation takes its whole
+      compression lineage with it, like ``DELETE /api/sessions/{id}``:
+      the list shows one row per conversation, and leaving its other
+      stored rows behind would resurface them as a ghost conversation.
+      Other sessions are deleted one row per selected ID.
+    * On-disk transcript / request-dump files are removed with each row.
 
     The response carries the actual deleted count, so the dashboard
-    can surface it in a toast. The IDs that were removed are not
-    echoed back because the client already knows what it asked to
-    delete (unknown IDs are silently skipped — see contract above)
-    and can prune its in-memory list directly from the request.
+    can surface it in a toast. It counts stored rows, so it can exceed
+    ``len(ids)`` when a selected conversation had compressed into
+    several rows. The IDs that were removed are not echoed back
+    because the client already knows what it asked to delete (unknown
+    IDs are silently skipped — see contract above) and can prune its
+    in-memory list directly from the request.
     """
     # Enforce a hard cap so a runaway/typo'd selection can't lock the
     # DB writer for an extended window. The dashboard pages 20 rows
@@ -434,7 +460,13 @@ async def bulk_delete_sessions_endpoint(body: BulkDeleteSessions):
     def _delete() -> int:
         db = _open_session_db_for_profile(body.profile, read_only=False)
         try:
-            return db.delete_sessions(body.ids)
+            targets: List[str] = []
+            for sid in body.ids:
+                targets.extend(_messaging_conversation_rows(db, sid) or [sid])
+            return db.delete_sessions(
+                list(dict.fromkeys(targets)),
+                sessions_dir=db.db_path.parent / "sessions",
+            )
         finally:
             db.close()
 
@@ -650,7 +682,15 @@ async def delete_session_endpoint(session_id: str, profile: Optional[str] = None
             sid = db.resolve_session_id(session_id)
             if not sid:
                 return {"ok": True, "already_absent": True}
-            db.delete_session(sid)
+            # Gateway transcripts also live under <profile>/sessions. Leaving
+            # them behind lets a later inbound platform message reload text
+            # the user explicitly deleted from Workmate.
+            sessions_dir = db.db_path.parent / "sessions"
+            conversation = _messaging_conversation_rows(db, sid)
+            if conversation:
+                db.delete_sessions(conversation, sessions_dir=sessions_dir)
+            else:
+                db.delete_session(sid, sessions_dir=sessions_dir)
             return {"ok": True}
         finally:
             db.close()

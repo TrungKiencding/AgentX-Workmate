@@ -2672,6 +2672,7 @@ export const vi: Translations = {
       openInSplit: 'Mở ở khung chia đôi',
       copyIdFailed: 'Không sao chép được ID cuộc trò chuyện',
       sessionActions: 'Thao tác với cuộc trò chuyện',
+      deleteWorkmateCopy: 'Xoá khỏi Workmate',
       sessionRunning: 'Cuộc trò chuyện đang chạy',
       needsInput: 'Cần bạn nhập thêm',
       waitingForAnswer: 'Đang chờ bạn trả lời',

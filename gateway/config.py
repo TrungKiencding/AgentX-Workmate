@@ -381,6 +381,53 @@ class Platform(Enum):
 _BUILTIN_PLATFORM_VALUES = frozenset(m.value for m in Platform.__members__.values())
 
 
+# Session ``source`` values written by messaging platforms: every built-in
+# Platform member except ``local``, plus every bundled plugin platform under
+# plugins/platforms/. Their conversations belong to a chat surface, not to a
+# project. Single source of truth for the TUI project tree's exclusion
+# (tui_gateway/server.py) and the dashboard's gateway-conversation delete
+# (hermes_cli/web_routers/sessions.py); the desktop mirrors it as
+# MESSAGING_SESSION_SOURCE_IDS in apps/desktop/src/lib/session-source.ts.
+# A static literal rather than a scan so packaged builds cannot drift with
+# the plugin directory; tests/gateway/test_messaging_session_sources.py
+# pins it to the enum, the bundled plugins, and the desktop list.
+MESSAGING_SESSION_SOURCE_VALUES = frozenset({
+    "telegram",
+    "discord",
+    "slack",
+    "mattermost",
+    "matrix",
+    "signal",
+    "whatsapp",
+    "whatsapp_cloud",
+    "bluebubbles",
+    "photon",
+    "homeassistant",
+    "email",
+    "sms",
+    "webhook",
+    "msgraph_webhook",
+    "api_server",
+    "weixin",
+    "wecom",
+    "wecom_callback",
+    "qqbot",
+    "yuanbao",
+    "dingtalk",
+    "feishu",
+    "relay",
+    "a2a",
+    "buzz",
+    "google_chat",
+    "irc",
+    "line",
+    "ntfy",
+    "raft",
+    "simplex",
+    "teams",
+})
+
+
 # Platforms that bind a host TCP port (HTTP/webhook listeners). In a profile
 # multiplexer the default profile owns the single shared listener and serves
 # every profile through the /p/<profile>/ URL prefix, so a SECONDARY profile

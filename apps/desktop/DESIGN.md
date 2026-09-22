@@ -739,12 +739,19 @@ so two-line rows still grow), `HUD_HEADING`.
 - **External messaging transcripts are live, branded, and read-only.** Their
   sidebar conversation row carries the platform avatar; a visible header above
   the transcript pairs its title with a quiet, logo-bearing platform `TagChip`.
-  The transcript continues to stream through
-  the normal session runtime, but composer, prompt overlays, edit/restore,
-  retry, reactions, branching, file/session drops, and session actions are
-  absent. A flat footer names the source and tells the user to reply in that
-  platform. Copy and read-aloud remain available because they do not mutate the
-  conversation.
+  The transcript continues to stream through the normal session runtime, but
+  composer, prompt overlays, edit/restore, retry, reactions, branching,
+  file/session drops, dragging the session onto the composer or a tile,
+  rename, pin and project moves are absent (a pinned transcript still
+  reorders within Pinned). The row's ⋮ and right-click menus, and the context
+  menu of a tab showing the transcript, hold one destructive item, "Delete
+  from Workmate" ("Xoá khỏi Workmate"): it removes Workmate's local copy — the
+  row, its compression lineage and the on-disk transcript — never the
+  messages on the platform. A row pinned before its platform became read-only
+  also offers Unpin, so the pin is never stranded. These transcripts sit in
+  their platform section (or Pinned), never in Home or a project group. A flat
+  footer names the source and tells the user to reply in that platform. Copy
+  and read-aloud remain available because they do not mutate the conversation.
 - **The composer's voice follows the folder.** Inside a git repo it is a
   coding surface: the branch strip caps the card, the model pill carries
   the full label with its effort (`Qwen3.5 122B A10B FP8 · Med`) and the
