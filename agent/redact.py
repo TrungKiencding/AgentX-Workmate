@@ -417,11 +417,9 @@ _SECRET_HEADER_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Telegram bot tokens: bot<digits>:<token> or <digits>:<token>,
-# where token part is restricted to [-A-Za-z0-9_] and length >= 30
-_TELEGRAM_RE = re.compile(
-    r"(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})",
-)
+# Anchor the bot id at the start of its digit run so large numeric tool output
+# cannot trigger quadratic backtracking while redacting Telegram tokens.
+_TELEGRAM_RE = re.compile(r"(?<!\d)(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})")
 
 # Private key blocks: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----
 _PRIVATE_KEY_RE = re.compile(
