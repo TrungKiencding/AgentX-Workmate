@@ -1157,11 +1157,39 @@ export function ChatSidebar({
 
   const showSessionSkeletons = sessionsLoading && sortedSessions.length === 0
 
+  // Pinned counts too: platform sections skip pinned rows, so a user whose only
+  // chats are pinned transcripts would otherwise lose the Pinned section (and
+  // its Unpin) to the blank state.
   const showSessionSections =
-    showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0 || messagingGroups.length > 0
+    showSessionSkeletons ||
+    sortedSessions.length > 0 ||
+    projectModel.length > 0 ||
+    messagingGroups.length > 0 ||
+    pinnedSessions.length > 0
 
+  // Grouped mode always keeps the Projects section: it renders its own empty
+  // state and holds the only "New project" action, which a user whose chats
+  // are all messaging transcripts would otherwise lose.
   const showAgentSessionsSection =
-    showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0 || messagingGroups.length === 0
+    worktreeGroupingActive ||
+    showSessionSkeletons ||
+    sortedSessions.length > 0 ||
+    projectModel.length > 0 ||
+    messagingGroups.length === 0
+
+  // ...but with every chat a platform transcript, it keeps only its header: an
+  // empty body would claim "no chats" above those transcripts and, at flex-1,
+  // push their sections to the bottom of the sidebar.
+  const agentSessionsHeaderOnly =
+    worktreeGroupingActive &&
+    !inProject &&
+    !showSessionSkeletons &&
+    sortedSessions.length === 0 &&
+    projectModel.length === 0 &&
+    messagingGroups.length > 0
+
+  // The "all pinned" hint points at recents, which only local chats return to.
+  const localSessionPinned = pinnedSessions.some(session => !isMessagingSource(session.source))
 
   // Each reorderable list reports its OWN new id order; persisting is a direct,
   // typed write — no id-prefix sniffing to figure out which level moved.
@@ -1443,9 +1471,9 @@ export function ChatSidebar({
                 emptyState={
                   showSessionSkeletons ? (
                     <SidebarSessionSkeletons />
-                  ) : (
+                  ) : agentSessionsHeaderOnly ? null : (
                     <div className="grid min-h-16 place-items-center rounded-lg px-2 text-center text-xs text-(--ui-text-tertiary)">
-                      {inProject ? s.projectEmpty : pinnedSessions.length > 0 ? s.allPinned : s.noSessions}
+                      {inProject ? s.projectEmpty : localSessionPinned ? s.allPinned : s.noSessions}
                     </div>
                   )
                 }
@@ -1574,12 +1602,19 @@ export function ChatSidebar({
                 projectOverview={projectOverview}
                 projectOverviewPreviews={overviewPreviews}
                 projectRepoWorktrees={inProject ? scopedRepoWorktrees : undefined}
-                projectsLoading={worktreeGroupingActive ? projectTreeLoading : false}
+                // A header-only section has no rows to stand in for; skeletons
+                // there would flash on every focus refresh and shove the
+                // platform sections below it down and back up.
+                projectsLoading={worktreeGroupingActive && !agentSessionsHeaderOnly ? projectTreeLoading : false}
                 removedSessionIds={inProject ? removedSessionIds : undefined}
-                rootClassName={cn(
-                  'min-h-32 flex-1 overflow-hidden p-0',
-                  !recentsVirtualizes && 'compact:min-h-0 compact:flex-none compact:overflow-visible'
-                )}
+                rootClassName={
+                  agentSessionsHeaderOnly
+                    ? 'shrink-0 p-0'
+                    : cn(
+                        'min-h-32 flex-1 overflow-hidden p-0',
+                        !recentsVirtualizes && 'compact:min-h-0 compact:flex-none compact:overflow-visible'
+                      )
+                }
                 sessions={displayAgentSessions}
                 sortable={!showAllProfiles && agentSessions.length > 1}
                 workingSessionIdSet={workingSessionIdSet}
@@ -1587,7 +1622,6 @@ export function ChatSidebar({
             )}
 
             {!trimmedQuery &&
-              !worktreeGroupingActive &&
               messagingGroups.map(group => {
                 const visible = messagingVisible[group.sourceId] ?? NON_SESSION_INITIAL_ROWS
                 const shownSessions = group.sessions.slice(0, visible)

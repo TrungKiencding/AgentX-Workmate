@@ -205,6 +205,53 @@ def test_tree_build_warms_every_path_it_will_resolve(monkeypatch, tmp_path):
     assert str(repo) in warmed
 
 
+def test_messaging_sessions_stay_out_of_project_tree_and_repo_discovery(tmp_path):
+    """Platform chats belong to their own sidebar section, even with a cwd."""
+    db = server._get_db()
+    repo = tmp_path / "shared-repo"
+    (repo / ".git").mkdir(parents=True)
+    telegram_only_repo = tmp_path / "telegram-only-repo"
+    (telegram_only_repo / ".git").mkdir(parents=True)
+    cron_repo = tmp_path / "cron-repo"
+    (cron_repo / ".git").mkdir(parents=True)
+    project_id = _call("projects.create", {"name": "Workspace", "folders": [str(repo)]})["project"]["id"]
+
+    db.create_session("local-home", "desktop")
+    db.append_message("local-home", "user", "Local home chat")
+    db.create_session("local-project", "desktop", cwd=str(repo))
+    db.append_message("local-project", "user", "Local project chat")
+    db.create_session("telegram-home", "telegram")
+    db.append_message("telegram-home", "user", "Telegram home chat")
+    db.create_session("telegram-project", "telegram", cwd=str(repo))
+    db.append_message("telegram-project", "user", "Telegram project chat")
+    db.create_session("telegram-only", "telegram", cwd=str(telegram_only_repo))
+    db.append_message("telegram-only", "user", "Telegram-only repo chat")
+    db.create_session("cron-only", "cron", cwd=str(cron_repo))
+    db.append_message("cron-only", "user", "Scheduled repo task")
+
+    tree = _call("projects.tree")
+    home = next(project for project in tree["projects"] if project["isNoProject"])
+    project = next(project for project in tree["projects"] if project["id"] == project_id)
+
+    assert [row["id"] for row in home["previewSessions"]] == ["local-home"]
+    assert home["sessionCount"] == 1
+    assert project["sessionCount"] == 1
+    assert set(tree["scoped_session_ids"]) == {"local-home", "local-project"}
+    hydrated = _call("projects.project_sessions", {"project_id": project_id})["project"]
+    hydrated_ids = [
+        session["id"]
+        for repo in hydrated["repos"]
+        for group in repo["groups"]
+        for session in group["sessions"]
+    ]
+    assert hydrated_ids == ["local-project"]
+
+    discovered = {row["root"]: row for row in _call("projects.discover_repos")["repos"]}
+    assert discovered[str(repo)]["sessions"] == 1
+    assert str(telegram_only_repo) not in discovered
+    assert discovered[str(cron_repo)]["sessions"] == 1
+
+
 def test_create_list_roundtrip(tmp_path):
     created = _call("projects.create", {"name": "Demo", "folders": [str(tmp_path)], "use": True})
     assert created["project"]["slug"] == "demo"
@@ -436,5 +483,3 @@ def test_nondefault_policy_rejects_stale_or_legacy_results(monkeypatch, tmp_path
     assert stale["accepted"] is False
     assert accepted["accepted"] is True
     assert any(item["root"] == str(root) for item in accepted["repos"])
-
-

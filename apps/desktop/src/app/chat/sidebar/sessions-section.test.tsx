@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import type * as React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -37,8 +37,10 @@ vi.mock('./virtual-session-list', () => ({
 }))
 
 vi.mock('./session-row', () => ({
-  SidebarSessionRow: ({ session }: { session: SessionInfo }) => (
-    <div data-testid={`session-row-${session.id}`}>{session.id}</div>
+  SidebarSessionRow: ({ isSelected, session }: { isSelected: boolean; session: SessionInfo }) => (
+    <div data-selected={isSelected} data-testid={`session-row-${session.id}`}>
+      {session.id}
+    </div>
   )
 }))
 
@@ -180,5 +182,37 @@ describe('SidebarSessionsSection memoization & virtualizer stability', () => {
 
     const thirdRowsRef = mockVirtualListPropsHistory[2].rows
     expect(thirdRowsRef).not.toBe(secondRowsRef)
+  })
+})
+
+describe('SidebarSessionsSection active row', () => {
+  it.each(['root-R', 'mid-M', 'tip-T'])('highlights the compressed row while %s is selected', selected => {
+    // A platform chat opened as mid-M keeps that id after the gateway compresses
+    // it again; the listed row is the tip, whose chain still names mid-M.
+    const tip = {
+      ...makeSession('tip-T'),
+      _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+      _lineage_root_id: 'root-R'
+    }
+
+    render(
+      <SidebarSessionsSection
+        activeSessionId={selected}
+        emptyState={<div>Empty</div>}
+        label="Sessions"
+        onArchiveSession={noop}
+        onDeleteSession={noop}
+        onResumeSession={noop}
+        onToggle={noop}
+        onTogglePin={noop}
+        open={true}
+        pinned={false}
+        sessions={[tip, makeSession('other', 900)]}
+        workingSessionIdSet={new Set()}
+      />
+    )
+
+    expect(screen.getByTestId('session-row-tip-T').dataset.selected).toBe('true')
+    expect(screen.getByTestId('session-row-other').dataset.selected).toBe('false')
   })
 })

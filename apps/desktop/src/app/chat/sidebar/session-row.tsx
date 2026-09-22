@@ -27,7 +27,12 @@ import { $attentionSessionIds } from '@/store/session-states'
 import { SessionStatusDot } from '../session-status-dot'
 
 import { SidebarRowBody, SidebarRowGrab, SidebarRowLabel, SidebarRowLead, SidebarRowShell } from './chrome'
-import { SessionActionsMenu, SessionContextMenu } from './session-actions-menu'
+import {
+  MessagingSessionActionsMenu,
+  MessagingSessionContextMenu,
+  SessionActionsMenu,
+  SessionContextMenu
+} from './session-actions-menu'
 import { sessionShowsRunningArc } from './session-row-state'
 import { useProfilePrewarm } from './use-profile-prewarm'
 
@@ -109,7 +114,20 @@ function SidebarSessionRowImpl({
   const row = (
     <SidebarRowShell
       actions={
-        directMessagingSource ? null : (
+        directMessagingSource ? (
+          <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
+            <MessagingSessionActionsMenu onDelete={onDelete} onUnpin={isPinned ? onPin : undefined}>
+              <Button
+                aria-label={r.sessionActions}
+                className="bg-transparent text-transparent hover:bg-(--ui-control-active-background) hover:text-foreground focus-visible:bg-(--ui-control-active-background) focus-visible:text-foreground data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground group-hover:text-(--ui-text-tertiary)"
+                size="icon-xs"
+                variant="ghost"
+              >
+                <MoreVertical />
+              </Button>
+            </MessagingSessionActionsMenu>
+          </div>
+        ) : (
           <div className="relative z-2 grid w-6 place-items-center" data-row-actions>
             {!isWorking && (
               // nowrap is load-bearing: this box sits in the 24px actions
@@ -272,10 +290,17 @@ function SidebarSessionRowImpl({
     </SidebarRowShell>
   )
 
-  // A platform-owned transcript is a monitor, not an editable Workmate chat.
-  // Keep navigation and reading, but remove the mutation menu and drag surface.
+  // A platform-owned transcript is a monitor. Only the locally saved copy may
+  // be deleted (and an old pin undone); the regular rename/pin/project actions
+  // and the session drag (onto a composer or into a tile, see onPointerDown)
+  // stay disabled. A pinned transcript still reorders within Pinned by its
+  // grab handle: that only reorders the local pin list.
   if (directMessagingSource) {
-    return row
+    return (
+      <MessagingSessionContextMenu onDelete={onDelete} onUnpin={isPinned ? onPin : undefined}>
+        {row}
+      </MessagingSessionContextMenu>
+    )
   }
 
   return (

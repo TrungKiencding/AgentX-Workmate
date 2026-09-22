@@ -127,6 +127,14 @@ describe('sessionMatchesStoredId', () => {
     expect(sessionMatchesStoredId(session({ id: 'live', _lineage_root_id: 'root' }), 'root')).toBe(true)
     expect(sessionMatchesStoredId(session({ id: 'a' }), 'b')).toBe(false)
   })
+
+  it('matches a middle segment only through the listed chain', () => {
+    const tip = session({ _lineage_ids: ['root-R', 'mid-M', 'tip-T'], _lineage_root_id: 'root-R', id: 'tip-T' })
+
+    expect(sessionMatchesStoredId(tip, 'mid-M')).toBe(true)
+    // An older backend lists no chain, so the middle stays unknown.
+    expect(sessionMatchesStoredId(session({ _lineage_root_id: 'root-R', id: 'tip-T' }), 'mid-M')).toBe(false)
+  })
 })
 
 describe('sessionShouldHaveTranscript', () => {

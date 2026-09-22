@@ -34,6 +34,7 @@ import { transcribeAudio } from '@/hermes'
 import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { sessionTitle } from '@/lib/chat-runtime'
+import { isMessagingSource } from '@/lib/session-source'
 import { createComposerAttachmentScope } from '@/store/composer'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -41,6 +42,7 @@ import { $projectTree } from '@/store/projects'
 import { sessionAwaitingInput } from '@/store/prompts'
 import {
   $gatewayState,
+  $messagingSessions,
   $selectedStoredSessionId,
   $sessions,
   sessionMatchesStoredId,
@@ -65,7 +67,7 @@ import { startSessionDrag } from './session-drag'
 import { SessionStatusDot } from './session-status-dot'
 import { useSessionTileActions } from './session-tile-actions'
 import { type SessionView, SessionViewProvider } from './session-view'
-import { SessionContextMenu } from './sidebar/session-actions-menu'
+import { MessagingSessionContextMenu, SessionContextMenu } from './sidebar/session-actions-menu'
 import { lastVisibleMessageIsUser } from './thread-loading'
 
 import { ChatView } from '.'
@@ -452,34 +454,50 @@ export function stackSessionTilesIntoMain(): void {
   }
 }
 
-/** The three scalars the tab menu actually renders, derived from the stored
- *  row. Subscribing to `$sessions` + `$projectTree` wholesale re-rendered
- *  every tab's menu wrapper on ANY session-list or tree churn (polls, title
- *  updates in other sessions) — for a context menu that's almost never open.
- *  Same class as the TreeGroup fix (#72245): derive narrowly, bail out unless
- *  the derived values change. */
-function useTileMenuRow(storedSessionId: string): { pinId: string; profile?: string; title: string } {
-  const cache = useRef<{ key: string; value: { pinId: string; profile?: string; title: string } } | null>(null)
+interface TileMenuRow {
+  /** A platform transcript (Telegram, Slack, …): read-only, so its tab gets
+   *  the delete-only menu instead of the full session verbs. */
+  messaging: boolean
+  pinId: string
+  profile?: string
+  title: string
+}
+
+/** The scalars the tab menu actually renders, derived from the stored row.
+ *  Subscribing to `$sessions` + `$projectTree` wholesale re-rendered every
+ *  tab's menu wrapper on ANY session-list or tree churn (polls, title updates
+ *  in other sessions) — for a context menu that's almost never open. Same
+ *  class as the TreeGroup fix (#72245): derive narrowly, bail out unless the
+ *  derived values change. A platform transcript lives in its own
+ *  `$messagingSessions` slice (recents exclude it), so that is checked first —
+ *  the same order the chat view uses to decide it renders read-only. */
+function useTileMenuRow(storedSessionId: string): TileMenuRow {
+  const cache = useRef<{ key: string; value: TileMenuRow } | null>(null)
 
   const subscribe = useCallback((onChange: () => void) => {
     const offSessions = $sessions.listen(onChange)
+    const offMessaging = $messagingSessions.listen(onChange)
     const offTree = $projectTree.listen(onChange)
 
     return () => {
       offSessions()
+      offMessaging()
       offTree()
     }
   }, [])
 
   return useSyncExternalStore(subscribe, () => {
-    const stored = tileStoredRow(storedSessionId)
+    const stored =
+      $messagingSessions.get().find(s => sessionMatchesStoredId(s, storedSessionId)) ?? tileStoredRow(storedSessionId)
+
+    const messaging = isMessagingSource(stored?.source)
     const pinId = stored ? sessionPinId(stored) : storedSessionId
     const title = tileTitle(storedSessionId)
     const profile = stored?.profile
-    const key = `${pinId}\u0000${title}\u0000${profile ?? ''}`
+    const key = `${messaging ? 1 : 0}\u0000${pinId}\u0000${title}\u0000${profile ?? ''}`
 
     if (cache.current?.key !== key) {
-      cache.current = { key, value: { pinId, profile, title } }
+      cache.current = { key, value: { messaging, pinId, profile, title } }
     }
 
     return cache.current.value
@@ -489,7 +507,10 @@ function useTileMenuRow(storedSessionId: string): { pinId: string; profile?: str
 /** A session TAB's context menu: the full session verb set (pin, copy id, new
  *  window, branch, rename, archive, delete) — the SAME menu a sidebar row
  *  gets, targeted through the tile delegate (whose verbs are generic over
- *  stored ids, primary included). The wrapper stops the contextmenu from also
+ *  stored ids, primary included). A platform transcript's tab (opened by
+ *  middle- or ⌘/⌃-click on its row) gets the SAME read-only menu its row
+ *  gets instead — Delete from Workmate, plus Unpin when pinned — alongside
+ *  the tab's own strip verbs. The wrapper stops the contextmenu from also
  *  opening the zone strip's menu. Shared by tile tabs AND the main tab. */
 export function SessionTabMenu({
   children,
@@ -507,9 +528,26 @@ export function SessionTabMenu({
   /** Layout-tree pane id — powers the Close-others/right/all verbs. */
   tabPaneId: string
 }) {
-  const { pinId, profile, title } = useTileMenuRow(storedSessionId)
+  const { messaging, pinId, profile, title } = useTileMenuRow(storedSessionId)
   const pinnedSessionIds = useStore($pinnedSessionIds)
   const pinned = pinnedSessionIds.includes(pinId)
+  const onDelete = () => void sessionTileDelegate()?.deleteSession(storedSessionId)
+
+  if (messaging) {
+    return (
+      <span className="contents" onContextMenu={event => event.stopPropagation()}>
+        <MessagingSessionContextMenu
+          onClose={onClose}
+          onDelete={onDelete}
+          onHideTabBar={onHideTabBar}
+          onUnpin={pinned ? () => unpinSession(pinId) : undefined}
+          tabPaneId={tabPaneId}
+        >
+          {children}
+        </MessagingSessionContextMenu>
+      </span>
+    )
+  }
 
   return (
     <span className="contents" onContextMenu={event => event.stopPropagation()}>
@@ -517,7 +555,7 @@ export function SessionTabMenu({
         onArchive={() => void sessionTileDelegate()?.archiveSession(storedSessionId)}
         onBranch={() => void sessionTileDelegate()?.branchSession(storedSessionId)}
         onClose={onClose}
-        onDelete={() => void sessionTileDelegate()?.deleteSession(storedSessionId)}
+        onDelete={onDelete}
         onHideTabBar={onHideTabBar}
         onPin={() => (pinned ? unpinSession(pinId) : pinSession(pinId))}
         pinned={pinned}
@@ -534,10 +572,11 @@ export function SessionTabMenu({
 }
 
 /** The MAIN tab's menu: the same session verbs targeting the primary's loaded
- *  session, plus Close (the tab empties to a fresh draft — the workspace pane
- *  itself never leaves the tree) and the bar's off switch (the bar sticky-shows
- *  once a tab is ever gained; this is the explicit way back). A fresh draft has
- *  no session — no menu. */
+ *  session (the read-only set when that is a platform transcript — see
+ *  SessionTabMenu), plus Close (the tab empties to a fresh draft — the
+ *  workspace pane itself never leaves the tree) and the bar's off switch (the
+ *  bar sticky-shows once a tab is ever gained; this is the explicit way back).
+ *  A fresh draft has no session — no menu. */
 export function WorkspaceTabMenu({ children }: { children: React.ReactElement }) {
   const selected = useStore($selectedStoredSessionId)
 

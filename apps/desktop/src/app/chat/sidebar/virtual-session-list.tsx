@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n'
 import { type SidebarListRow } from '@/lib/session-date-groups'
 import { sessionBucketLabel } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { sessionPinId } from '@/store/session'
+import { sessionMatchesStoredId, sessionPinId } from '@/store/session'
 
 import { SidebarDateDivider } from './chrome'
 import { SidebarSessionRow } from './session-row'
@@ -107,7 +107,7 @@ export const VirtualSessionList: FC<VirtualSessionListProps> = ({
     const commonProps: SessionRowCommonProps = {
       branchStem,
       isPinned: pinned,
-      isSelected: session.id === activeSessionId,
+      isSelected: !!activeSessionId && sessionMatchesStoredId(session, activeSessionId),
       isWorking: workingSessionIdSet.has(session.id),
       onArchive: () => onArchiveSession(session.id),
       onBranch: onBranchSession ? () => onBranchSession(session.id, session.profile) : undefined,

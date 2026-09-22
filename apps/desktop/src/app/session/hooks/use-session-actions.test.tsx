@@ -4,11 +4,11 @@ import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
-import { getSession, getSessionMessages, type SessionInfo } from '@/hermes'
+import { deleteSession, getSession, getSessionMessages, type SessionInfo } from '@/hermes'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { clearSessionDraft, stashSessionDraft, takeSessionDraft } from '@/store/composer'
 import { $activeGatewayProfile, $newChatProfile, ensureGatewayProfile } from '@/store/profile'
-import { $projectScope, $projectTree, ALL_PROJECTS } from '@/store/projects'
+import { $projectScope, $projectTree, $removedSessionIds, ALL_PROJECTS } from '@/store/projects'
 import {
   $activeSessionId,
   $activeSessionStoredIdRotation,
@@ -18,9 +18,12 @@ import {
   $currentProvider,
   $currentReasoningEffort,
   $messages,
+  $messagingPlatformTotals,
+  $messagingSessions,
   $newChatWorkspaceTarget,
   $resumeFailedSessionId,
   $selectedStoredSessionId,
+  $sessions,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setCurrentCwd,
@@ -29,6 +32,8 @@ import {
   setCurrentProvider,
   setCurrentReasoningEffort,
   setMessages,
+  setMessagingPlatformTotals,
+  setMessagingSessions,
   setNewChatWorkspaceTarget,
   setResumeFailedSessionId,
   setSelectedStoredSessionId,
@@ -36,7 +41,7 @@ import {
 } from '@/store/session'
 import { $sessionTiles } from '@/store/session-states'
 
-import { sessionRoute } from '../../routes'
+import { NEW_CHAT_ROUTE, sessionRoute } from '../../routes'
 import type { ClientSessionState } from '../../types'
 
 import { useSessionActions } from './use-session-actions'
@@ -66,17 +71,19 @@ const RUNTIME_SESSION_ID = 'rt-new-001'
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason: unknown) => void
 
-  const promise = new Promise<T>(done => {
+  const promise = new Promise<T>((done, fail) => {
     resolve = done
+    reject = fail
   })
 
-  return { promise, resolve }
+  return { promise, reject, resolve }
 }
 
 type HarnessHandle = Pick<
   ReturnType<typeof useSessionActions>,
-  'createBackendSessionForSend' | 'selectSidebarItem' | 'startFreshSessionDraft'
+  'createBackendSessionForSend' | 'removeSession' | 'selectSidebarItem' | 'startFreshSessionDraft'
 >
 
 function storedSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
@@ -99,19 +106,23 @@ function storedSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
 }
 
 function Harness({
+  activeSessionId = null,
   navigate = vi.fn(),
   onReady,
-  requestGateway
+  requestGateway,
+  selectedStoredSessionId = null
 }: {
+  activeSessionId?: string | null
   navigate?: ReturnType<typeof vi.fn>
   onReady: (handle: HarnessHandle) => void
   requestGateway: <T>(method: string, params?: Record<string, unknown>) => Promise<T>
+  selectedStoredSessionId?: string | null
 }) {
   const ref = <T,>(value: T): MutableRefObject<T> => ({ current: value })
 
   const actions = useSessionActions({
-    activeSessionId: null,
-    activeSessionIdRef: ref<string | null>(null),
+    activeSessionId,
+    activeSessionIdRef: ref<string | null>(activeSessionId),
     busyRef: ref(false),
     creatingSessionRef: ref(false),
     ensureSessionState: () => ({}) as ClientSessionState,
@@ -121,8 +132,8 @@ function Harness({
     requestGateway,
     resetViewSync: vi.fn(),
     runtimeIdByStoredSessionIdRef: ref(new Map<string, string>()),
-    selectedStoredSessionId: null,
-    selectedStoredSessionIdRef: ref<string | null>(null),
+    selectedStoredSessionId,
+    selectedStoredSessionIdRef: ref<string | null>(selectedStoredSessionId),
     sessionStateByRuntimeIdRef: ref(new Map<string, ClientSessionState>()),
     syncSessionStateToView: vi.fn(),
     updateSessionState: () => ({}) as ClientSessionState
@@ -1682,5 +1693,402 @@ describe('selectSidebarItem', () => {
     expect(navigate).toHaveBeenCalledWith('/skills', undefined)
     expect(noteActiveTreeGroup).toHaveBeenCalledWith(null)
     expect(revealTreePane).toHaveBeenCalledWith('workspace')
+  })
+})
+
+describe('removeSession messaging transcripts', () => {
+  afterEach(() => {
+    cleanup()
+    setActiveSessionId(null)
+    setMessages([])
+    setMessagingPlatformTotals({})
+    setMessagingSessions([])
+    setSelectedStoredSessionId(null)
+    setSessions([])
+    $sessionTiles.set([])
+    $removedSessionIds.set(new Set())
+    vi.mocked(deleteSession).mockReset()
+  })
+
+  it('removes the Telegram row and sends its owning profile to the delete API', async () => {
+    const row = storedSession({ id: 'telegram-1', profile: 'work', source: 'telegram' })
+    setMessagingSessions([row])
+    const deleting = deferred<{ ok: boolean }>()
+    vi.mocked(deleteSession).mockReturnValue(deleting.promise)
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    let operation!: Promise<void>
+    act(() => {
+      operation = handle!.removeSession(row.id)
+    })
+    expect($messagingSessions.get()).toEqual([])
+    expect(deleteSession).toHaveBeenCalledWith(row.id, 'work')
+
+    await act(async () => {
+      deleting.resolve({ ok: true })
+      await operation
+    })
+    expect($messagingSessions.get()).toEqual([])
+  })
+
+  it('restores the Telegram row when deletion fails', async () => {
+    const row = storedSession({ id: 'telegram-2', profile: 'work', source: 'telegram' })
+    setMessagingSessions([row])
+    vi.mocked(deleteSession).mockRejectedValue(new Error('network unavailable'))
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession(row.id)
+    })
+    expect($messagingSessions.get()).toEqual([row])
+  })
+
+  it('closes the open chat when its compressed tip row is deleted while the lineage root is selected', async () => {
+    const tip = storedSession({ _lineage_root_id: 'root-R', id: 'tip-T', profile: 'work', source: 'telegram' })
+    setMessagingSessions([tip])
+    setSelectedStoredSessionId('root-R')
+    setActiveSessionId('rt-telegram')
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-telegram"
+        navigate={navigate}
+        onReady={value => (handle = value)}
+        requestGateway={requestGateway}
+        selectedStoredSessionId="root-R"
+      />
+    )
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession('tip-T')
+    })
+
+    expect(navigate).toHaveBeenCalledWith(NEW_CHAT_ROUTE, { replace: true })
+    expect(requestGateway).toHaveBeenCalledWith('session.close', { session_id: 'rt-telegram' })
+    expect($selectedStoredSessionId.get()).toBeNull()
+    expect($activeSessionId.get()).toBeNull()
+    expect(deleteSession).toHaveBeenCalledWith('tip-T', 'work')
+  })
+
+  it('closes the open chat when the gateway compressed it past the middle segment it was opened as', async () => {
+    // Opened as mid-M; the gateway compressed again, so the listed row is now
+    // tip-T and only its chain still names mid-M. The raw mid-M row the open
+    // cached in $sessions belongs to the same conversation.
+    const tip = storedSession({
+      _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+      _lineage_root_id: 'root-R',
+      id: 'tip-T',
+      profile: 'work',
+      source: 'telegram'
+    })
+
+    const cachedMiddle = storedSession({
+      _lineage_ids: ['root-R', 'mid-M'],
+      _lineage_root_id: 'root-R',
+      id: 'mid-M',
+      profile: 'work',
+      source: 'telegram'
+    })
+
+    setMessagingSessions([tip])
+    setSessions([cachedMiddle])
+    setSelectedStoredSessionId('mid-M')
+    setActiveSessionId('rt-telegram')
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-telegram"
+        navigate={navigate}
+        onReady={value => (handle = value)}
+        requestGateway={requestGateway}
+        selectedStoredSessionId="mid-M"
+      />
+    )
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession('tip-T')
+    })
+
+    expect(navigate).toHaveBeenCalledWith(NEW_CHAT_ROUTE, { replace: true })
+    expect(requestGateway).toHaveBeenCalledWith('session.close', { session_id: 'rt-telegram' })
+    expect($selectedStoredSessionId.get()).toBeNull()
+    expect($messagingSessions.get()).toEqual([])
+    expect($sessions.get()).toEqual([])
+    expect(deleteSession).toHaveBeenCalledWith('tip-T', 'work')
+  })
+
+  // Each clause of the removed-conversation match gets a case only it can pass.
+  function renderMessagingHarness(selected: string) {
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-telegram"
+        navigate={navigate}
+        onReady={value => (handle = value)}
+        requestGateway={requestGateway}
+        selectedStoredSessionId={selected}
+      />
+    )
+
+    return { handle: () => handle, navigate, requestGateway }
+  }
+
+  it('closes a chat opened on a stale sibling that only shares the lineage root', async () => {
+    // A sibling continuation off the projected path: the tip row's chain never
+    // names it, so only the shared lineage root ties the cached row to it.
+    setMessagingSessions([
+      storedSession({
+        _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+        _lineage_root_id: 'root-R',
+        id: 'tip-T',
+        profile: 'work',
+        source: 'telegram'
+      })
+    ])
+    setSessions([
+      storedSession({
+        _lineage_ids: ['root-R', 'stale-S'],
+        _lineage_root_id: 'root-R',
+        id: 'stale-S',
+        profile: 'work',
+        source: 'telegram'
+      })
+    ])
+    setSelectedStoredSessionId('stale-S')
+    setActiveSessionId('rt-telegram')
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    const harness = renderMessagingHarness('stale-S')
+    await waitFor(() => expect(harness.handle()).not.toBeNull())
+
+    await act(async () => {
+      await harness.handle()!.removeSession('tip-T')
+    })
+
+    expect(harness.navigate).toHaveBeenCalledWith(NEW_CHAT_ROUTE, { replace: true })
+    expect(harness.requestGateway).toHaveBeenCalledWith('session.close', { session_id: 'rt-telegram' })
+    expect($sessions.get()).toEqual([])
+  })
+
+  it("drops an old backend's unstamped segment row that the tip's chain names", async () => {
+    // No lineage root on the cached row, so only the removed row's chain
+    // recognises it.
+    setMessagingSessions([
+      storedSession({
+        _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+        _lineage_root_id: 'root-R',
+        id: 'tip-T',
+        profile: 'work',
+        source: 'telegram'
+      })
+    ])
+    setSessions([storedSession({ id: 'mid-M', profile: 'work', source: 'telegram' })])
+    setSelectedStoredSessionId('mid-M')
+    setActiveSessionId('rt-telegram')
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    const harness = renderMessagingHarness('mid-M')
+    await waitFor(() => expect(harness.handle()).not.toBeNull())
+
+    await act(async () => {
+      await harness.handle()!.removeSession('tip-T')
+    })
+
+    expect($sessions.get()).toEqual([])
+    expect(harness.navigate).toHaveBeenCalledWith(NEW_CHAT_ROUTE, { replace: true })
+  })
+
+  it('counts a platform row dropped through the shared lineage root off its total', async () => {
+    // Deleting the cached stale-sibling row (a tab delete) drops the listed
+    // tip row only through the shared root; the total must follow.
+    setMessagingSessions([
+      storedSession({
+        _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+        _lineage_root_id: 'root-R',
+        id: 'tip-T',
+        profile: 'work',
+        source: 'telegram'
+      })
+    ])
+    setSessions([storedSession({ _lineage_root_id: 'root-R', id: 'stale-S', profile: 'work', source: 'telegram' })])
+    setMessagingPlatformTotals({ telegram: 3 })
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    const harness = renderMessagingHarness('stale-S')
+    await waitFor(() => expect(harness.handle()).not.toBeNull())
+
+    await act(async () => {
+      await harness.handle()!.removeSession('stale-S')
+    })
+
+    expect($messagingSessions.get()).toEqual([])
+    expect($messagingPlatformTotals.get()).toEqual({ telegram: 2 })
+  })
+
+  it('closes a chat on a middle segment once the backend reports the ids it deleted', async () => {
+    // An older list backend sends no chain, so nothing ties mid-M to the tip
+    // row before the request. The DELETE response names every removed id.
+    const tip = storedSession({ _lineage_root_id: 'root-R', id: 'tip-T', profile: 'work', source: 'telegram' })
+    const cachedMiddle = storedSession({ id: 'mid-M', profile: 'work', source: 'telegram' })
+    setMessagingSessions([tip])
+    setSessions([cachedMiddle])
+    setSelectedStoredSessionId('mid-M')
+    setActiveSessionId('rt-telegram')
+    const deleting = deferred<{ deleted_ids?: string[]; ok: boolean }>()
+    vi.mocked(deleteSession).mockReturnValue(deleting.promise)
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-telegram"
+        navigate={navigate}
+        onReady={value => (handle = value)}
+        requestGateway={requestGateway}
+        selectedStoredSessionId="mid-M"
+      />
+    )
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    let operation!: Promise<void>
+    act(() => {
+      operation = handle!.removeSession('tip-T')
+    })
+    expect(navigate).not.toHaveBeenCalled()
+    expect($selectedStoredSessionId.get()).toBe('mid-M')
+
+    await act(async () => {
+      deleting.resolve({ deleted_ids: ['root-R', 'mid-M', 'tip-T'], ok: true })
+      await operation
+    })
+
+    expect(navigate).toHaveBeenCalledWith(NEW_CHAT_ROUTE, { replace: true })
+    expect(requestGateway).toHaveBeenCalledWith('session.close', { session_id: 'rt-telegram' })
+    expect($selectedStoredSessionId.get()).toBeNull()
+    expect($activeSessionId.get()).toBeNull()
+    expect($sessions.get()).toEqual([])
+    expect([...$removedSessionIds.get()]).toEqual(expect.arrayContaining(['root-R', 'mid-M', 'tip-T']))
+  })
+
+  it("drops the platform row a tab's middle-segment delete could not name beforehand", async () => {
+    // Deleting from the tab passes the tab's own (middle) id; without a listed
+    // chain the tip row only goes once the backend reports it deleted.
+    const tip = storedSession({ _lineage_root_id: 'root-R', id: 'tip-T', profile: 'work', source: 'telegram' })
+    setMessagingSessions([tip])
+    setSessions([storedSession({ id: 'mid-M', profile: 'work', source: 'telegram' })])
+    setMessagingPlatformTotals({ telegram: 3 })
+    $sessionTiles.set([{ storedSessionId: 'tip-T' }])
+    vi.mocked(deleteSession).mockResolvedValue({ deleted_ids: ['root-R', 'mid-M', 'tip-T'], ok: true })
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession('mid-M')
+    })
+
+    expect(deleteSession).toHaveBeenCalledWith('mid-M', 'work')
+    expect($messagingSessions.get()).toEqual([])
+    expect($sessions.get()).toEqual([])
+    expect($messagingPlatformTotals.get()).toEqual({ telegram: 2 })
+    expect($sessionTiles.get()).toEqual([])
+  })
+
+  it('reopens the lineage root, not the tip, when deleting the selected compressed row fails', async () => {
+    const tip = storedSession({ _lineage_root_id: 'root-R', id: 'tip-T', profile: 'work', source: 'telegram' })
+    setMessagingSessions([tip])
+    vi.mocked(deleteSession).mockRejectedValue(new Error('network unavailable'))
+    const navigate = vi.fn()
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-telegram"
+        navigate={navigate}
+        onReady={value => (handle = value)}
+        requestGateway={async () => ({}) as never}
+        selectedStoredSessionId="root-R"
+      />
+    )
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession('tip-T')
+    })
+
+    expect(navigate).toHaveBeenLastCalledWith(sessionRoute('root-R'), { replace: true })
+    expect($selectedStoredSessionId.get()).toBe('root-R')
+    expect($activeSessionId.get()).toBe('rt-telegram')
+    expect($messagingSessions.get()).toEqual([tip])
+  })
+
+  it('keeps a resolved platform total in step with the deletion', async () => {
+    const row = storedSession({ id: 'telegram-3', profile: 'work', source: 'telegram' })
+    setMessagingSessions([row, storedSession({ id: 'discord-1', source: 'discord' })])
+    setMessagingPlatformTotals({ discord: 5, telegram: 3 })
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession(row.id)
+    })
+
+    expect($messagingPlatformTotals.get()).toEqual({ discord: 5, telegram: 2 })
+  })
+
+  it('leaves an unresolved platform total unresolved', async () => {
+    const row = storedSession({ id: 'telegram-4', profile: 'work', source: 'telegram' })
+    setMessagingSessions([row])
+    setMessagingPlatformTotals({ discord: 5 })
+    vi.mocked(deleteSession).mockResolvedValue({ ok: true })
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession(row.id)
+    })
+
+    expect($messagingPlatformTotals.get()).toEqual({ discord: 5 })
+  })
+
+  it('restores the platform total when deletion fails', async () => {
+    const row = storedSession({ id: 'telegram-5', profile: 'work', source: 'telegram' })
+    setMessagingSessions([row])
+    setMessagingPlatformTotals({ telegram: 3 })
+    const deleting = deferred<{ ok: boolean }>()
+    vi.mocked(deleteSession).mockReturnValue(deleting.promise)
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={async () => ({}) as never} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    let operation!: Promise<void>
+    act(() => {
+      operation = handle!.removeSession(row.id)
+    })
+    expect($messagingPlatformTotals.get()).toEqual({ telegram: 2 })
+
+    await act(async () => {
+      deleting.reject(new Error('network unavailable'))
+      await operation
+    })
+    expect($messagingPlatformTotals.get()).toEqual({ telegram: 3 })
   })
 })

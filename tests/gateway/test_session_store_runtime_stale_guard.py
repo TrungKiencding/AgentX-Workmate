@@ -53,6 +53,7 @@ def _db_returning(rows: dict) -> MagicMock:
     # mirroring the real SessionDB.get_compression_tip. Without this a bare Mock
     # would return a Mock the routing heal then assigns as session_id.
     db.get_compression_tip.side_effect = lambda sid: sid
+    db.is_deleted_gateway_session.return_value = False
     return db
 
 
@@ -81,6 +82,14 @@ def _source() -> SessionSource:
 # ---------------------------------------------------------------------------
 
 class TestIsSessionEndedInDb:
+    def test_deleted_row_is_stale_but_unpersisted_row_is_not(self, tmp_path):
+        db = _db_returning({})
+        db.is_deleted_gateway_session.side_effect = lambda sid: sid == "deleted"
+        store = _make_store_with_db(tmp_path, db)
+
+        assert store._is_session_ended_in_db("deleted") is True
+        assert store._is_session_ended_in_db("unpersisted") is False
+
     def test_ended_row_is_stale(self, tmp_path):
         db = _db_returning({"sid": {"end_reason": "agent_close", "id": "sid"}})
         store = _make_store_with_db(tmp_path, db)
@@ -312,5 +321,3 @@ class TestAdvanceCompressionSession:
         assert result is not None
         assert result.updated_at == idle
         assert store.suspend_recently_active(max_age_seconds=120) == 0
-
-

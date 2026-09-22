@@ -1932,6 +1932,7 @@ export interface Translations {
       splitUp: string
       copyIdFailed: string
       sessionActions: string
+      deleteWorkmateCopy: string
       sessionRunning: string
       needsInput: string
       waitingForAnswer: string

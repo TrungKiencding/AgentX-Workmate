@@ -723,4 +723,66 @@ def test_partial_recovery_clears_only_unreadable_system_prompt_refs(
         conn.close()
 
 
+def test_recovery_keeps_deleted_gateway_session_tombstones(tmp_path: Path) -> None:
+    """A recovered gateway_routing entry can still name a transcript the user
+    deleted. Without its tombstone, the gateway's next peer refresh would
+    recreate that conversation in the recovered database."""
+    source = tmp_path / "tombstone-state.db"
+    output = tmp_path / "tombstone-recovered.db"
+    _make_source(source)
 
+    db = SessionDB(db_path=source)
+    try:
+        db.create_session(
+            "deleted-telegram",
+            "telegram",
+            session_key="telegram:user-1:chat-1",
+        )
+        assert db.delete_session("deleted-telegram")
+        assert db.is_deleted_gateway_session("deleted-telegram")
+    finally:
+        db.close()
+
+    report = recover_session_database(source, output, work_dir=tmp_path)
+
+    assert report["complete"] is True
+    assert report["copy"]["deleted_gateway_sessions"]["status"] == "complete"
+    assert report["copy"]["deleted_gateway_sessions"]["copied_rows"] == 1
+    assert report["verification"]["table_counts"]["deleted_gateway_sessions"] == 1
+
+    db = SessionDB(db_path=output)
+    try:
+        assert db.is_deleted_gateway_session("deleted-telegram")
+        db.record_gateway_session_peer(
+            "deleted-telegram",
+            source="telegram",
+            session_key="telegram:user-1:chat-1",
+            chat_id="chat-1",
+        )
+        assert db.get_session("deleted-telegram") is None
+    finally:
+        db.close()
+
+
+def test_recovery_tolerates_a_source_without_the_tombstone_table(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "pre-tombstone-state.db"
+    output = tmp_path / "pre-tombstone-recovered.db"
+    expected = _make_source(source)
+
+    conn = sqlite3.connect(str(source), isolation_level=None)
+    try:
+        conn.execute("DROP TABLE deleted_gateway_sessions")
+    finally:
+        conn.close()
+
+    report = recover_session_database(source, output, work_dir=tmp_path)
+
+    assert report["complete"] is True
+    assert report["copy"]["deleted_gateway_sessions"]["status"] == "missing"
+    counts = report["verification"]["table_counts"]
+    assert counts["sessions"] == expected["sessions"]
+    assert counts["messages"] == expected["messages"]
+    # The fresh destination still owns an (empty) tombstone table.
+    assert counts["deleted_gateway_sessions"] == 0

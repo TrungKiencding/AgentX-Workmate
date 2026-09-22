@@ -224,4 +224,63 @@ describe('ChatView render isolation', () => {
     expect(screen.queryByTestId('prompt-overlays')).toBeNull()
     expect(lastThreadProps.current.readOnly).toBe(true)
   })
+
+  it('stays read-only when the gateway compressed the transcript past the segment it was opened as', () => {
+    // Opened as mid-M, then compressed again by the messaging gateway: the
+    // listed row is now tip-T and only its chain still names mid-M. No cached
+    // mid-M row is left in $sessions (a tile, or after a list wipe).
+    $sessions.set([])
+    $selectedStoredSessionId.set('mid-M')
+    $activeSessionId.set('rt-telegram')
+    $messagingSessions.set([
+      {
+        _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+        _lineage_root_id: 'root-R',
+        id: 'tip-T',
+        source: 'telegram',
+        title: 'Design review, continued',
+        message_count: 4,
+        last_active: 2,
+        started_at: 1
+      } as never
+    ])
+
+    const props = {
+      gateway: null,
+      onAddContextRef: vi.fn(),
+      onAddUrl: vi.fn(),
+      onAttachDroppedItems: vi.fn(),
+      onAttachImageBlob: vi.fn(),
+      onCancel: vi.fn(),
+      onDeleteSelectedSession: vi.fn(),
+      onEdit: vi.fn(),
+      onPasteClipboardImage: vi.fn(),
+      onPickFiles: vi.fn(),
+      onPickFolders: vi.fn(),
+      onPickImages: vi.fn(),
+      onReload: vi.fn(),
+      onRemoveAttachment: vi.fn(),
+      onRetryResume: vi.fn(),
+      onSteer: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadMessagesChange: vi.fn(),
+      onToggleSelectedPin: vi.fn()
+    }
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/mid-M']}>
+          <ChatView {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByText('Design review, continued')).toBeTruthy()
+    expect(screen.getByTestId('messaging-read-only-bar')).toBeTruthy()
+    expect(screen.queryByTestId('chat-bar')).toBeNull()
+    expect(screen.queryByTestId('prompt-overlays')).toBeNull()
+    expect(lastThreadProps.current.readOnly).toBe(true)
+  })
 })

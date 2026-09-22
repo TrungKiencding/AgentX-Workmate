@@ -2418,6 +2418,7 @@ export const en: Translations = {
       openInSplit: 'Open in split',
       copyIdFailed: 'Could not copy chat ID',
       sessionActions: 'Chat actions',
+      deleteWorkmateCopy: 'Delete from Workmate',
       sessionRunning: 'Chat running',
       needsInput: 'Needs your input',
       waitingForAnswer: 'Waiting for your answer',
