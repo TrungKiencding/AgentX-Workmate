@@ -7688,8 +7688,18 @@ class SessionDB(
         Returns the latest continuation tip, or the input id when no
         continuation exists.
         """
-        current = session_id
-        seen = {current} if current else set()
+        return self.get_compression_path(session_id)[-1]
+
+    def get_compression_path(self, session_id: str) -> List[str]:
+        """Return *session_id* and each continuation up to its tip, in order.
+
+        Every hop takes the child :meth:`get_compression_tip` describes, so the
+        last entry is that tip. List projection keeps the whole path because
+        a client can still hold a middle id from before a later compression,
+        and no list row names that id otherwise.
+        """
+        path = [session_id]
+        seen = {session_id} if session_id else set()
         # Bound the walk defensively — compression chains this deep are
         # pathological and shouldn't happen in practice. 100 = plenty.
         for _ in range(100):
@@ -7715,17 +7725,17 @@ class SessionDB(
                       child.id DESC
                     LIMIT 1
                     """,
-                    (current,),
+                    (path[-1],),
                 )
                 row = cursor.fetchone()
             if row is None:
-                return current
+                return path
             child_id = row["id"]
             if not child_id or child_id in seen:
-                return current
+                return path
             seen.add(child_id)
-            current = child_id
-        return current
+            path.append(child_id)
+        return path
 
     # Columns excluded from compact_rows projections: only the payload-heavy
     # blob no list consumer renders. Everything else — including gateway
@@ -8065,18 +8075,21 @@ class SessionDB(
         # as the live conversation. Keep the root's started_at to preserve
         # chronological ordering by original conversation start.
         if project_compression_tips and not include_children:
-            # get_compression_tip() walks each root's chain individually (it's
+            # get_compression_path() walks each root's chain individually (it's
             # a per-session graph walk, not batchable in one query), but the
             # tip *row* fetch afterward was previously one _get_session_rich_row()
             # call per compression root. Batch that half instead: resolve
             # every tip id first, then fetch all tip rows in a single query.
             tip_ids_by_root: Dict[str, str] = {}
+            lineage_by_root: Dict[str, List[str]] = {}
             for s in sessions:
                 if s.get("end_reason") != "compression":
                     continue
-                tip_id = self.get_compression_tip(s["id"])
+                lineage = self.get_compression_path(s["id"])
+                tip_id = lineage[-1]
                 if tip_id != s["id"]:
                     tip_ids_by_root[s["id"]] = tip_id
+                    lineage_by_root[s["id"]] = lineage
 
             tip_rows = (
                 self._get_session_rich_rows_batch(
@@ -8104,6 +8117,9 @@ class SessionDB(
                     if key in tip_row:
                         merged[key] = tip_row[key]
                 merged["_lineage_root_id"] = s["id"]
+                # Root first, tip last: a client still holding a middle id
+                # (opened before a later compression) finds its row here.
+                merged["_lineage_ids"] = lineage_by_root[s["id"]]
                 projected.append(merged)
             sessions = projected
 
@@ -10038,20 +10054,107 @@ class SessionDB(
         parent = self.get_session(parent_id)
         return bool(parent and parent.get("end_reason") == "compression")
 
+    @staticmethod
+    def _is_reset_continuation_row(session: Dict[str, Any]) -> bool:
+        raw = session.get("model_config")
+        if not raw:
+            return False
+        try:
+            cfg = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, json.JSONDecodeError):
+            return False
+        return isinstance(cfg, dict) and cfg.get("_reset_from") is not None
+
+    def _compression_root_row(self, session: Dict[str, Any]) -> Dict[str, Any]:
+        """Walk *session*'s compression parents back to the chain's root row."""
+        return self._compression_ancestor_rows(session)[0]
+
+    def _compression_ancestor_rows(
+        self, session: Dict[str, Any], *, stop_at_reset: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Return ``[root, ..., session]`` along *session*'s compression parents.
+
+        With *stop_at_reset*, a ``_reset_from`` continuation counts as its own
+        root: the list shows it as a separate conversation even when a stale
+        reset left its parent ended as 'compression'.
+        """
+        chain = [session]
+        ancestors = {session["id"]}
+        while self._is_compression_child_row(chain[0]):
+            if stop_at_reset and self._is_reset_continuation_row(chain[0]):
+                break
+            parent = self.get_session(chain[0]["parent_session_id"])
+            if not parent or parent["id"] in ancestors:
+                break
+            chain.insert(0, parent)
+            ancestors.add(parent["id"])
+        return chain
+
+    def get_projected_compression_lineage(self, session_id: str) -> List[str]:
+        """Return the ids of the list row *session_id* is folded into.
+
+        ``list_sessions_rich`` projects a compressed root to its tip along
+        :meth:`get_compression_path`, so every member of that path, including
+        a middle id no list row names, maps to the same ``[root, ..., tip]``.
+        A stale sibling off the path gets its own ``[root, ..., session_id]``
+        ancestry, which still starts at the root the list row reports.
+        Returns ``[session_id]`` for an uncompressed session and ``[]`` when
+        it does not exist.
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return []
+        ancestry = [row["id"] for row in self._compression_ancestor_rows(session, stop_at_reset=True)]
+        path = self.get_compression_path(ancestry[0])
+        return path if session_id in path else ancestry
+
+    def get_compression_family(self, session_id: str) -> List[str]:
+        """Return the chain root of *session_id* and every compression descendant.
+
+        Unlike :meth:`get_compression_lineage`, which follows one child per
+        hop, this keeps stale sibling continuations too: it follows every
+        child the list query's chain CTE follows. Deleting a conversation by
+        this set leaves no continuation behind to resurface as a ghost row.
+        A ``_reset_from`` continuation is a separate listed conversation, so
+        the family neither climbs out of one nor descends into one.
+        Returns ``[]`` when *session_id* does not exist.
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return []
+        family = [self._compression_ancestor_rows(session, stop_at_reset=True)[0]["id"]]
+        seen = set(family)
+        frontier = list(family)
+        while frontier:
+            placeholders = ",".join("?" * len(frontier))
+            with self._lock:
+                rows = self._conn.execute(
+                    f"""
+                    SELECT child.id
+                    FROM sessions parent
+                    JOIN sessions child ON child.parent_session_id = parent.id
+                    WHERE parent.id IN ({placeholders})
+                      AND parent.end_reason = 'compression'
+                      AND json_extract(COALESCE(child.model_config, '{{}}'), '$._branched_from') IS NULL
+                      AND json_extract(COALESCE(child.model_config, '{{}}'), '$._delegate_from') IS NULL
+                      AND json_extract(COALESCE(child.model_config, '{{}}'), '$._reset_from') IS NULL
+                      AND COALESCE(child.source, '') != 'tool'
+                    ORDER BY child.started_at, child.id
+                    """,
+                    frontier,
+                ).fetchall()
+            frontier = [row["id"] for row in rows if row["id"] not in seen]
+            seen.update(frontier)
+            family.extend(frontier)
+        return family
+
     def get_compression_lineage(self, session_id: str) -> List[str]:
         """Return compression ancestors through tip in chronological order."""
         session = self.get_session(session_id)
         if not session or self._is_explicit_fork_child_row(session):
             return [session_id] if session else []
 
-        root = session
-        ancestors = {root["id"]}
-        while self._is_compression_child_row(root):
-            parent = self.get_session(root["parent_session_id"])
-            if not parent or parent["id"] in ancestors:
-                break
-            root = parent
-            ancestors.add(root["id"])
+        root = self._compression_root_row(session)
 
         lineage = [root["id"]]
         seen = {root["id"]}

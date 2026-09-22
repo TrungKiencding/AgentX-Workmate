@@ -3139,6 +3139,7 @@ class TestDeleteSessionEndpoint:
         resp = self.auth_client.delete("/api/sessions/never_existed")
         assert resp.status_code == 200
         assert resp.json().get("ok") is True
+        assert resp.json()["deleted_ids"] == []
 
     def test_delete_gateway_session_removes_files_and_blocks_stale_peer_repair(self):
         from hermes_constants import get_hermes_home
@@ -3216,6 +3217,7 @@ class TestDeleteSessionEndpoint:
 
         resp = self.auth_client.delete("/api/sessions/telegram_tip")
         assert resp.status_code == 200
+        assert resp.json()["deleted_ids"] == ["telegram_root", "telegram_tip"]
 
         db = SessionDB()
         try:
@@ -3225,6 +3227,67 @@ class TestDeleteSessionEndpoint:
             assert db.is_deleted_gateway_session("telegram_tip")
         finally:
             db.close()
+
+    def test_delete_gateway_tip_takes_stale_sibling_continuation(self):
+        """A stale closed sibling off the root-to-tip path belongs to the same
+        conversation. Leaving it behind resurfaced it as a ghost row."""
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="stale_root", source="telegram")
+            db.end_session("stale_root", "compression")
+            db.create_session(
+                session_id="stale_sibling",
+                source="telegram",
+                parent_session_id="stale_root",
+            )
+            db.end_session("stale_sibling", "ws_orphan_reap")
+            db.create_session(
+                session_id="stale_tip",
+                source="telegram",
+                parent_session_id="stale_root",
+            )
+            for offset, sid in enumerate(("stale_root", "stale_sibling", "stale_tip")):
+                db._conn.execute(
+                    "UPDATE sessions SET started_at=? WHERE id=?",
+                    (1_000_000.0 + offset, sid),
+                )
+            db._conn.commit()
+            assert db.get_compression_tip("stale_root") == "stale_tip"
+        finally:
+            db.close()
+
+        resp = self.auth_client.delete("/api/sessions/stale_tip")
+        assert resp.status_code == 200
+        assert resp.json()["deleted_ids"] == ["stale_root", "stale_sibling", "stale_tip"]
+
+        db = SessionDB()
+        try:
+            for sid in ("stale_root", "stale_sibling", "stale_tip"):
+                assert db.get_session(sid) is None
+        finally:
+            db.close()
+
+    def test_delete_echoes_cascaded_delegate_children(self):
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="with_delegate", source="desktop")
+            db.create_session(
+                session_id="its_delegate",
+                source="delegate",
+                parent_session_id="with_delegate",
+                model_config={"_delegate_from": "with_delegate"},
+            )
+        finally:
+            db.close()
+
+        resp = self.auth_client.delete("/api/sessions/with_delegate")
+        assert resp.status_code == 200
+        assert resp.json()["deleted_ids"] == ["with_delegate", "its_delegate"]
+        assert not self._exists("its_delegate")
 
     def test_delete_synced_messaging_copy_removes_compression_lineage(self):
         """A second device's synced copy has no session_key; its source still
@@ -3274,6 +3337,7 @@ class TestDeleteSessionEndpoint:
 
         resp = self.auth_client.delete("/api/sessions/desktop_tip")
         assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "deleted_ids": ["desktop_tip"]}
 
         db = SessionDB()
         try:
@@ -3282,6 +3346,82 @@ class TestDeleteSessionEndpoint:
             assert not db.is_deleted_gateway_session("desktop_tip")
         finally:
             db.close()
+
+
+class TestSessionDetailLineage:
+    """``GET /api/sessions/{id}`` names the compression chain a row belongs to.
+
+    The messaging gateway can compress a platform chat again after the
+    desktop opened it, so the desktop may hold a middle id that no list row
+    names. The detail row carries the chain so it can still find that row.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup_test_client(self, monkeypatch, _isolate_hermes_home):
+        try:
+            from starlette.testclient import TestClient
+        except ImportError:
+            pytest.skip("fastapi/starlette not installed")
+
+        import hermes_state
+        from hermes_constants import get_hermes_home
+        from hermes_cli.web_server import app, _SESSION_HEADER_NAME, _SESSION_TOKEN
+
+        monkeypatch.setattr(
+            hermes_state, "DEFAULT_DB_PATH", get_hermes_home() / "state.db"
+        )
+
+        self.auth_client = TestClient(app)
+        self.auth_client.headers[_SESSION_HEADER_NAME] = _SESSION_TOKEN
+
+    def test_middle_segment_names_its_chain(self):
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(
+                session_id="root-R", source="telegram", session_key="telegram:dm:peer"
+            )
+            db.end_session("root-R", "compression")
+            db.create_session(
+                session_id="mid-M",
+                source="telegram",
+                session_key="telegram:dm:peer",
+                parent_session_id="root-R",
+            )
+            db.end_session("mid-M", "compression")
+            db.create_session(
+                session_id="tip-T",
+                source="telegram",
+                session_key="telegram:dm:peer",
+                parent_session_id="mid-M",
+            )
+        finally:
+            db.close()
+
+        resp = self.auth_client.get("/api/sessions/mid-M")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == "mid-M"
+        assert body["_lineage_root_id"] == "root-R"
+        assert body["_lineage_ids"] == ["root-R", "mid-M", "tip-T"]
+        assert body["profile"] == "default"
+
+    def test_uncompressed_session_has_no_lineage_keys(self):
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="plain", source="telegram")
+        finally:
+            db.close()
+
+        resp = self.auth_client.get("/api/sessions/plain")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == "plain"
+        assert "_lineage_root_id" not in body
+        assert "_lineage_ids" not in body
 
 
 class TestBulkDeleteSessionsEndpoint:
@@ -3419,6 +3559,45 @@ class TestBulkDeleteSessionsEndpoint:
             assert db.is_deleted_gateway_session("telegram_root")
             assert db.is_deleted_gateway_session("telegram_tip")
             assert db.get_session("bystander") is not None
+        finally:
+            db.close()
+
+    def test_bulk_delete_gateway_tip_counts_stale_sibling_continuation(self):
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="stale_root", source="telegram")
+            db.end_session("stale_root", "compression")
+            db.create_session(
+                session_id="stale_sibling",
+                source="telegram",
+                parent_session_id="stale_root",
+            )
+            db.end_session("stale_sibling", "ws_orphan_reap")
+            db.create_session(
+                session_id="stale_tip",
+                source="telegram",
+                parent_session_id="stale_root",
+            )
+            for offset, sid in enumerate(("stale_root", "stale_sibling", "stale_tip")):
+                db._conn.execute(
+                    "UPDATE sessions SET started_at=? WHERE id=?",
+                    (1_000_000.0 + offset, sid),
+                )
+            db._conn.commit()
+        finally:
+            db.close()
+
+        resp = self.auth_client.post(
+            "/api/sessions/bulk-delete", json={"ids": ["stale_tip"]}
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "deleted": 3}
+
+        db = SessionDB()
+        try:
+            assert db.get_session("stale_sibling") is None
         finally:
             db.close()
 

@@ -185,19 +185,23 @@ function updateAtom<T>(store: AppAtom<T>, next: Updater<T>) {
 export const sessionPinId = (session: Pick<SessionInfo, '_lineage_root_id' | 'id'>): string =>
   session._lineage_root_id ?? session.id
 
-/** True when a stored/lineage id resolves to this session — it matches either
- *  the live id or the stable lineage root (see sessionPinId). The one place the
- *  "same conversation across compression" test lives. */
+/** True when a stored/lineage id resolves to this session — it matches the live
+ *  id, the stable lineage root (see sessionPinId), or any middle segment of the
+ *  chain (a selection opened before another process compressed it again). The
+ *  one place the "same conversation across compression" test lives. */
 export const sessionMatchesStoredId = (
-  session: Pick<SessionInfo, '_lineage_root_id' | 'id'>,
+  session: Pick<SessionInfo, '_lineage_ids' | '_lineage_root_id' | 'id'>,
   storedSessionId: string
-): boolean => session.id === storedSessionId || session._lineage_root_id === storedSessionId
+): boolean =>
+  session.id === storedSessionId ||
+  session._lineage_root_id === storedSessionId ||
+  (session._lineage_ids?.includes(storedSessionId) ?? false)
 
 /** True when two ids name the same conversation across compression tip rotation. */
 export function idsShareLineage(
   a: string,
   b: string,
-  sessions: readonly Pick<SessionInfo, '_lineage_root_id' | 'id'>[]
+  sessions: readonly Pick<SessionInfo, '_lineage_ids' | '_lineage_root_id' | 'id'>[]
 ): boolean {
   if (a === b) {
     return true
@@ -217,7 +221,7 @@ export function idsShareLineage(
 export function shouldMigrateComposerScope(
   fromKey: string | null | undefined,
   toKey: string | null | undefined,
-  sessions: readonly Pick<SessionInfo, '_lineage_root_id' | 'id'>[]
+  sessions: readonly Pick<SessionInfo, '_lineage_ids' | '_lineage_root_id' | 'id'>[]
 ): boolean {
   const from = fromKey?.trim()
   const to = toKey?.trim()
@@ -239,7 +243,7 @@ export function shouldMigrateComposerScope(
  */
 export function resolveComposerSessionKey(
   selectedSessionId: string | null | undefined,
-  sessions: readonly Pick<SessionInfo, '_lineage_root_id' | 'id'>[]
+  sessions: readonly Pick<SessionInfo, '_lineage_ids' | '_lineage_root_id' | 'id'>[]
 ): string | null {
   if (!selectedSessionId) {
     return null

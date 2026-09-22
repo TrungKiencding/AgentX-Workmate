@@ -172,6 +172,33 @@ describe('session tab menus on a platform transcript', () => {
     }
   })
 
+  it("keeps the main tab's transcript read-only after the chain rotates past its middle segment", async () => {
+    // The main tab was opened as mid-M; the gateway compressed again, so the
+    // listed row is tip-T and only its chain still names mid-M.
+    $messagingSessions.set([
+      { ...row('tip-T', 'telegram'), _lineage_ids: ['root-R', 'mid-M', 'tip-T'], _lineage_root_id: 'root-R' }
+    ])
+    $selectedStoredSessionId.set('mid-M')
+    $pinnedSessionIds.set(['root-R'])
+
+    render(
+      <WorkspaceTabMenu>
+        <button type="button">Main</button>
+      </WorkspaceTabMenu>
+    )
+
+    const items = await openMenuOn('Main')
+
+    expect(items).toEqual(expect.arrayContaining(['Delete from Workmate', 'Unpin']))
+
+    for (const verb of EDITING_VERBS) {
+      expect(items).not.toContain(verb)
+    }
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unpin' }))
+    expect($pinnedSessionIds.get()).not.toContain('root-R')
+  })
+
   it('keeps the full session menu on a local chat tab', async () => {
     $sessions.set([row(LOCAL_ID, 'desktop')])
     renderTileTab(LOCAL_ID)
