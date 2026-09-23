@@ -118,17 +118,12 @@ class TestIgnoreFileWritten:
     """_write_index_cache should create .ignore in .hub/ directory."""
 
     def test_write_index_cache_creates_ignore_file(self, tmp_path, monkeypatch):
+        # tools.skills_hub resolves its paths from AGENTX_HOME on every call.
+        # Pinning them with monkeypatch.setattr would outlive this test: the
+        # undo puts the resolved path back as a real module attribute.
         monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
 
-        # Patch module-level paths
         import tools.skills_hub as hub_mod
-        monkeypatch.setattr(hub_mod, "AGENTX_HOME", tmp_path)
-        monkeypatch.setattr(hub_mod, "SKILLS_DIR", tmp_path / "skills")
-        monkeypatch.setattr(hub_mod, "HUB_DIR", tmp_path / "skills" / ".hub")
-        monkeypatch.setattr(
-            hub_mod, "INDEX_CACHE_DIR",
-            tmp_path / "skills" / ".hub" / "index-cache",
-        )
 
         hub_mod._write_index_cache("test_key", {"data": "test"})
 
@@ -143,13 +138,6 @@ class TestIgnoreFileWritten:
         monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
 
         import tools.skills_hub as hub_mod
-        monkeypatch.setattr(hub_mod, "AGENTX_HOME", tmp_path)
-        monkeypatch.setattr(hub_mod, "SKILLS_DIR", tmp_path / "skills")
-        monkeypatch.setattr(hub_mod, "HUB_DIR", tmp_path / "skills" / ".hub")
-        monkeypatch.setattr(
-            hub_mod, "INDEX_CACHE_DIR",
-            tmp_path / "skills" / ".hub" / "index-cache",
-        )
 
         hub_dir = tmp_path / "skills" / ".hub"
         hub_dir.mkdir(parents=True)

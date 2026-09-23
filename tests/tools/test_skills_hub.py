@@ -31,21 +31,6 @@ from tools.skills_hub import (
 )
 
 
-@pytest.fixture(autouse=True)
-def _no_leaked_path_overrides():
-    """``tools.skills_hub`` resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… live through
-    PEP 562 ``__getattr__``; a real module attribute of the same name wins.
-    ``monkeypatch.setattr`` on such a name reads the *resolved* value as the
-    "old" one and puts it back as a real attribute on undo — pinning every
-    later test in the process to this test's throwaway home. Drop any such
-    attribute after each test so the resolvers are live again."""
-    yield
-    import tools.skills_hub as hub
-
-    for name in hub._DYNAMIC_PATH_RESOLVERS:
-        hub.__dict__.pop(name, None)
-
-
 # ---------------------------------------------------------------------------
 # GitHubSource._parse_frontmatter_quick
 # ---------------------------------------------------------------------------
@@ -1091,9 +1076,12 @@ class TestInstallPathSafety:
 
     @pytest.fixture
     def isolated_skills_dir(self, tmp_path, monkeypatch):
+        # SKILLS_DIR resolves from AGENTX_HOME on every call (PEP 562). Don't
+        # pin it with monkeypatch.setattr: the undo puts the resolved path back
+        # as a real module attribute, pinning every later test in the process.
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
-        monkeypatch.setattr("tools.skills_hub.SKILLS_DIR", skills_dir)
         return skills_dir
 
     @pytest.fixture

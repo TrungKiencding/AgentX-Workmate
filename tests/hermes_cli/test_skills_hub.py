@@ -18,19 +18,16 @@ class _DummyLockFile:
 
 @pytest.fixture()
 def hub_env(monkeypatch, tmp_path):
-    """Set up isolated hub directory paths and return (monkeypatch, tmp_path)."""
-    import tools.skills_hub as hub
+    """Give the hub its own AGENTX_HOME under tmp_path; return its .hub dir.
 
-    hub_dir = tmp_path / "skills" / ".hub"
-    monkeypatch.setattr(hub, "SKILLS_DIR", tmp_path / "skills")
-    monkeypatch.setattr(hub, "HUB_DIR", hub_dir)
-    monkeypatch.setattr(hub, "LOCK_FILE", hub_dir / "lock.json")
-    monkeypatch.setattr(hub, "QUARANTINE_DIR", hub_dir / "quarantine")
-    monkeypatch.setattr(hub, "AUDIT_LOG", hub_dir / "audit.log")
-    monkeypatch.setattr(hub, "TAPS_FILE", hub_dir / "taps.json")
-    monkeypatch.setattr(hub, "INDEX_CACHE_DIR", hub_dir / "index-cache")
-
-    return hub_dir
+    ``tools.skills_hub`` resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… from the home
+    on every call (PEP 562 ``__getattr__``), so moving the home moves them all.
+    Don't ``monkeypatch.setattr`` those names: monkeypatch saves the resolved
+    path as the "old" value and puts it back as a real module attribute on
+    undo, pinning every later test in the process to this test's home.
+    """
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    return tmp_path / "skills" / ".hub"
 
 
 # ---------------------------------------------------------------------------

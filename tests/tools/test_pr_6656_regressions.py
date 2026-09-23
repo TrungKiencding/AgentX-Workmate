@@ -50,11 +50,11 @@ class TestUninstallPathTraversal:
     def hub_setup(self, tmp_path, monkeypatch):
         """Build a hub directory tree with a malicious lock.json entry.
 
-        ``HubLockFile`` binds its default ``path`` argument at def time
-        against the module-level ``LOCK_FILE`` constant, so monkey-patching
-        ``LOCK_FILE`` alone is not enough — we also need to rebind the
-        function default. Patching ``HubLockFile.__init__.__defaults__``
-        is the standard tool for this.
+        The tree sits in this test's own AGENTX_HOME, where ``tools.skills_hub``
+        resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… on every call. Don't
+        ``monkeypatch.setattr`` those names: the undo puts the resolved path
+        back as a real module attribute, pinning later tests in the process
+        to this tmp_path.
         """
         import tools.skills_hub as hub
         skills_dir = tmp_path / "skills"
@@ -62,10 +62,7 @@ class TestUninstallPathTraversal:
         hub_dir.mkdir(parents=True)
         lock_path = hub_dir / "lock.json"
 
-        monkeypatch.setattr(hub, "SKILLS_DIR", skills_dir)
-        monkeypatch.setattr(hub, "HUB_DIR", hub_dir)
-        monkeypatch.setattr(hub, "LOCK_FILE", lock_path)
-        monkeypatch.setattr(hub, "AUDIT_LOG", hub_dir / "audit.log")
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         # Rebind HubLockFile.__init__'s default `path=` arg so
         # `HubLockFile()` (no args) picks up the new lock path.
         monkeypatch.setattr(
