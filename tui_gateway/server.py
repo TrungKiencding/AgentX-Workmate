@@ -11023,7 +11023,9 @@ def _respond(rid, params, key, *, allow_expired=False):
 def _(rid, params: dict) -> dict:
     key, value = params.get("key", ""), params.get("value", "")
     session = _sessions.get(params.get("session_id", ""))
-    if (session is None and params.get("session_id") and key in {"fast", "yolo"}
+    # A stale runtime id must never fall through to the profile/process-wide setters.
+    # 4001 lets Desktop recover its durable session before retrying the change.
+    if (session is None and params.get("session_id") and key in {"model", "fast", "yolo", "reasoning"}
             and str(params.get("scope") or "").strip().lower() != "global"):
         return _err(rid, 4001, "session not found")
 
