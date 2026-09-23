@@ -54,7 +54,7 @@ from __future__ import annotations
 # Bumped when the wire contract changes in a way a client can observe. The
 # route prefix (/v1) is the compatibility promise; this is for /health, so an
 # operator can tell which build answered.
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 API_PREFIX = "/v1"
 
