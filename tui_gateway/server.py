@@ -4899,6 +4899,8 @@ def _compress_session_history(
     # auto-compaction runs inside the agent loop, not here. Manual
     # compaction bypasses the summary-failure cooldown, matching the CLI
     # and gateway handlers.
+    # Manual RPC compression rebuilds the prompt for the session workspace.
+    tokens = _set_session_context(session.get("session_key") or "", cwd=_session_cwd(session))
     try:
         compressed, _ = agent._compress_context(
             head,
@@ -4917,6 +4919,8 @@ def _compress_session_history(
             committed=False,
         )
         raise
+    finally:
+        _clear_session_context(tokens)
     # If _compress_context returned unchanged because a concurrent
     # compression lock is held, raise so callers can surface a clear
     # message instead of the misleading "No changes from compression" text.

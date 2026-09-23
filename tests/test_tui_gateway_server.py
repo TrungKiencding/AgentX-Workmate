@@ -16858,3 +16858,33 @@ def test_stale_session_settings_leave_profile_and_process_unchanged(tmp_path, mo
     assert response["error"]["code"] == 4001
     assert config.read_bytes() == before
     assert dict(os.environ) == env_before
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_manual_compression_uses_session_workspace_and_clears_context(tmp_path, monkeypatch, fails):
+    from agent.runtime_cwd import resolve_agent_cwd
+
+    launch = tmp_path / "launch"
+    workspace = tmp_path / "workspace"
+    launch.mkdir()
+    workspace.mkdir()
+    monkeypatch.setenv("TERMINAL_CWD", str(launch))
+    agent = MagicMock()
+    agent.context_compressor = None
+    agent._compression_skipped_due_to_lock = False
+    history = [{"role": "user", "content": "one"}, {"role": "assistant", "content": "two"}]
+
+    def compress(*args, **kwargs):
+        assert resolve_agent_cwd() == workspace
+        if fails:
+            raise RuntimeError("summary failed")
+        return ([{"role": "user", "content": "summary"}], "")
+
+    agent._compress_context.side_effect = compress
+    session = _session(agent=agent, history=history, cwd=str(workspace))
+    if fails:
+        with pytest.raises(RuntimeError, match="summary failed"):
+            server._compress_session_history(session)
+    else:
+        server._compress_session_history(session)
+    assert resolve_agent_cwd() == launch
