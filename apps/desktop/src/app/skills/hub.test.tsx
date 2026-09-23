@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
 import { queryClient } from '@/lib/query-client'
+import { $hubActions, $hubInstalledOverride } from '@/store/hub-actions'
 import type * as Notifications from '@/store/notifications'
 import type { SkillHubCatalogResponse, SkillHubResult, SkillInfo } from '@/types/hermes'
 
@@ -18,6 +19,7 @@ const searchSkillsHub = vi.fn()
 const installSkillFromHub = vi.fn()
 const previewSkillHub = vi.fn()
 const uninstallSkillFromHub = vi.fn()
+const updateSkillsFromHub = vi.fn()
 const setSkillEnabled = vi.fn()
 const getActionStatus = vi.fn()
 const requestComposerInsert = vi.fn()
@@ -33,7 +35,8 @@ vi.mock('@/hermes', async importOriginal => ({
   searchSkillsHub: (query: string, source: string) => searchSkillsHub(query, source),
   setSkillEnabled: (name: string, enabled: boolean) => setSkillEnabled(name, enabled),
   tickSkillHub: () => tickSkillHub(),
-  uninstallSkillFromHub: (name: string) => uninstallSkillFromHub(name)
+  uninstallSkillFromHub: (name: string) => uninstallSkillFromHub(name),
+  updateSkillsFromHub: (options?: unknown) => updateSkillsFromHub(options)
 }))
 
 // Toasts hit nanostores/timers we don't care about here; the pure
@@ -140,6 +143,15 @@ async function renderHub(query = '') {
   return result!
 }
 
+/** The first card once it shows *version* as the one installed here. */
+async function cardShowing(version: string): Promise<HTMLElement> {
+  await waitFor(() =>
+    expect(within(screen.getAllByTestId('hub-card')[0]).getByTestId('hub-card-version').textContent).toBe(version)
+  )
+
+  return screen.getAllByTestId('hub-card')[0]
+}
+
 beforeEach(() => {
   // Radix menus call these on open; jsdom implements neither.
   Element.prototype.scrollIntoView = vi.fn()
@@ -166,6 +178,7 @@ beforeEach(() => {
   installSkillFromHub.mockResolvedValue({ ok: true, pid: 1, name: 'skills-install-vneb-report' })
   previewSkillHub.mockResolvedValue(PREVIEW)
   uninstallSkillFromHub.mockResolvedValue({ ok: true, pid: 2, name: 'skills-uninstall-vneb-report' })
+  updateSkillsFromHub.mockResolvedValue({ ok: true, pid: 3, name: 'skills-update-vneb-report' })
   setSkillEnabled.mockResolvedValue({ ok: true, name: 'vneb-report', enabled: false })
   getActionStatus.mockResolvedValue({ name: 'skills-install-vneb-report', running: false, exit_code: 0, lines: [] })
 })
@@ -175,6 +188,10 @@ afterEach(() => {
   vi.clearAllMocks()
   // Shared singleton client — drop the cached catalogue/skills between tests.
   queryClient.clear()
+  // The per-card action state and optimistic overrides are module singletons
+  // too: an earlier test's "removed" override would read as "not installed".
+  $hubActions.set({})
+  $hubInstalledOverride.set({})
 })
 
 describe('SkillsHub — the skill store', () => {
@@ -336,5 +353,84 @@ describe('SkillsHub — the skill store', () => {
 
     expect((await screen.findByTestId('hub-catalog-offline')).textContent).toContain('cannot be reached')
     expect(screen.getByTestId('hub-store-state').textContent).toBe('Unreachable')
+  })
+
+  it('offers the newer Hub version on the card, updates that skill alone, and tells the hub right after', async () => {
+    getSkillHubCatalog.mockResolvedValue(
+      catalog({
+        installed: {
+          'agentx-hub/vneb-report': { ...INSTALLED_REPORT['agentx-hub/vneb-report'], version: '1.0.0', modified: false }
+        }
+      })
+    )
+    getSkills.mockResolvedValue([localSkill()])
+    await renderHub()
+
+    // The version this machine runs, and the newer one waiting (a catalogue a
+    // previous render left in the shared cache repaints once this one lands).
+    const card = await cardShowing('1.0.0')
+    expect(within(card).getByTestId('hub-card-update-available').textContent).toBe('Update 1.1.0 available')
+    expect(within(card).queryByTestId('hub-card-edited')).toBeNull()
+    expect(screen.getByTestId('hub-update-all').textContent).toBe('Update all (1)')
+    await waitFor(() => expect(tickSkillHub).toHaveBeenCalled())
+    const ticks = tickSkillHub.mock.calls.length
+
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('hub-card-update'))
+    })
+
+    await waitFor(() =>
+      expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: undefined })
+    )
+    // The CLI moved the disk: a tick tells the hub now, not in a minute.
+    await waitFor(() => expect(tickSkillHub.mock.calls.length).toBeGreaterThan(ticks))
+  })
+
+  it('does not call a withdrawn version an update', async () => {
+    getSkillHubCatalog.mockResolvedValue(
+      catalog({
+        installed: {
+          'agentx-hub/vneb-report': { ...INSTALLED_REPORT['agentx-hub/vneb-report'], version: '1.2.0', modified: false }
+        }
+      })
+    )
+    await renderHub()
+
+    const card = await cardShowing('1.2.0')
+    expect(within(card).queryByTestId('hub-card-update-available')).toBeNull()
+    expect(within(card).queryByTestId('hub-card-update')).toBeNull()
+    expect(screen.getByTestId('hub-update-all').textContent).toBe('Update installed')
+  })
+
+  it('keeps a skill edited here out of "Update all" and replaces it only after a confirmation', async () => {
+    getSkillHubCatalog.mockResolvedValue(
+      catalog({
+        installed: {
+          'agentx-hub/vneb-report': { ...INSTALLED_REPORT['agentx-hub/vneb-report'], version: '1.0.0', modified: true }
+        }
+      })
+    )
+    await renderHub()
+
+    const card = await cardShowing('1.0.0')
+    expect(within(card).getByTestId('hub-card-edited').textContent).toBe('Edited here')
+    expect(within(card).queryByTestId('hub-card-update')).toBeNull()
+    expect(screen.getByTestId('hub-update-all').textContent).toBe('Update installed')
+    expect(screen.getByTestId('hub-edited-note').textContent).toContain('keeps the 1 skill you edited on this machine')
+
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('hub-card-replace'))
+    })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Replace vneb-report with the Hub version?')).toBeTruthy()
+    expect(dialog.textContent).toContain('Version 1.1.0 from the Hub replaces it')
+    expect(updateSkillsFromHub).not.toHaveBeenCalled()
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back up and replace' }))
+    })
+
+    await waitFor(() => expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: true }))
   })
 })

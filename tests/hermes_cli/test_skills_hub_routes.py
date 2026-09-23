@@ -357,6 +357,73 @@ class TestInstallCredentials:
         assert spawned[0]["env"] is None
 
 
+class TestUpdate:
+    """"Update" reaches the CLI with the person's bearer (a private skill updates
+    only with it), one skill or all, and replaces an edited copy only when asked."""
+
+    @pytest.fixture
+    def spawned(self, monkeypatch):
+        import hermes_cli.web_server as web_server
+
+        class _Proc:
+            pid = 4343
+
+        calls: list = []
+
+        def _spawn(subcommand, name, extra_env=None):
+            calls.append({"args": list(subcommand), "name": name, "env": extra_env})
+            return _Proc()
+
+        monkeypatch.setattr(web_server, "_spawn_hermes_action", _spawn)
+        monkeypatch.setattr(web_server, "_hub_action_name", lambda kind, key: f"skills-{kind}-{key}")
+        monkeypatch.setattr(web_server, "_profile_cli_args", lambda profile: [])
+        return calls
+
+    def test_update_all_carries_the_bearer(self, spawned):
+        response = TestClient(_app(_session("tok-ada"))).post("/api/skills/hub/update", headers=HEADERS, json={})
+        assert response.status_code == 200 and response.json()["name"] == "skills-update"
+        assert spawned == [{"args": ["skills", "update"], "name": "skills-update", "env": {"AGENTX_HUB_TOKEN": "tok-ada"}}]
+
+    def test_one_skill_and_the_replacement_of_an_edited_copy(self, spawned):
+        client = TestClient(_app(_session("tok-ada")))
+        client.post("/api/skills/hub/update", headers=HEADERS, json={"name": "demo-core"})
+        client.post("/api/skills/hub/update", headers=HEADERS, json={"name": "demo-core", "overwrite_local": True})
+        assert [c["args"] for c in spawned] == [["skills", "update", "demo-core"], ["skills", "update", "demo-core", "--overwrite-local"]]
+        # Its own action (and log), so two rows never share one.
+        assert {c["name"] for c in spawned} == {"skills-update-demo-core"}
+
+    def test_without_any_credential_nothing_extra_is_passed(self, spawned, monkeypatch):
+        monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: None)
+        TestClient(_app(None)).post("/api/skills/hub/update", json={})
+        assert spawned[0]["env"] is None
+
+
+class TestBumpVersion:
+    """"Upload to Hub" refused for its version: the number the hub named goes into SKILL.md."""
+
+    @pytest.fixture
+    def scoped(self, monkeypatch):
+        monkeypatch.setattr(skills_routes, "_profile_scope", lambda profile: contextlib.nullcontext())
+
+    def test_it_writes_the_version_through_the_editor_path(self, scoped, local_skill):
+        from agent.skill_utils import parse_frontmatter
+
+        client = TestClient(_app(_session()))
+        response = client.post("/api/skills/hub/bump-version", json={"name": "dashboard-skill", "version": "1.0.1"})
+        assert response.status_code == 200, response.text
+        assert response.json() == {"ok": True, "name": "dashboard-skill", "version": "1.0.1", "changed": True}
+        text = (local_skill / "SKILL.md").read_text(encoding="utf-8")
+        assert parse_frontmatter(text)[0]["version"] == "1.0.1" and text.endswith("# Dashboard\n")
+        # Again: nothing to write.
+        assert client.post("/api/skills/hub/bump-version", json={"name": "dashboard-skill", "version": "1.0.1"}).json()["changed"] is False
+
+    def test_a_bad_number_or_an_unknown_skill_is_refused(self, scoped, local_skill):
+        client = TestClient(_app(_session()))
+        assert client.post("/api/skills/hub/bump-version", json={"name": "dashboard-skill", "version": "1.0"}).status_code == 400
+        assert client.post("/api/skills/hub/bump-version", json={"name": "nope", "version": "1.0.1"}).status_code == 404
+        assert "version:" not in (local_skill / "SKILL.md").read_text(encoding="utf-8")
+
+
 class TestPreviewAndScanCredentials:
     """Reading a private skill before installing it needs the same bearer the
     catalog listed it with — a card the store can show must preview and scan
@@ -450,3 +517,23 @@ class TestInstalledMap:
         assert installed["agentx-hub/demo-core@1.2.0"]["name"] == "demo-core"
         # Other sources are untouched.
         assert set(installed) == {"agentx-hub/demo-core", "agentx-hub/demo-core@1.2.0", "official/gifs/gif-search"}
+        # The version this machine runs, for the card to hold against the catalogue's.
+        assert installed["agentx-hub/demo-core"]["version"] == "1.2.0" and installed["official/gifs/gif-search"]["version"] == ""
+
+    def test_a_hub_skill_edited_here_is_marked(self):
+        import hermes_cli.web_server as web_server
+        from hermes_constants import get_hermes_home
+        from tools.skills_guard import content_hash
+        from tools.skills_hub import HubLockFile
+
+        skill_dir = get_hermes_home() / "skills" / "demo-core"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: demo-core\n---\n# Demo\n", encoding="utf-8")
+        HubLockFile(get_hermes_home() / "skills" / ".hub" / "lock.json").record_install(
+            name="demo-core", source="agentx-hub", identifier="agentx-hub/demo-core@1.2.0", trust_level="agentx-hub-verified",
+            scan_verdict="safe", skill_hash=content_hash(skill_dir), install_path="demo-core", files=["SKILL.md"],
+            metadata={"hub_version": "1.2.0"},
+        )
+        assert web_server._installed_hub_identifiers()["agentx-hub/demo-core"]["modified"] is False
+        (skill_dir / "SKILL.md").write_text("---\nname: demo-core\n---\n# Demo, edited\n", encoding="utf-8")
+        assert web_server._installed_hub_identifiers()["agentx-hub/demo-core"]["modified"] is True

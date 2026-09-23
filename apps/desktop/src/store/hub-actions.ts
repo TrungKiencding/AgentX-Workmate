@@ -1,6 +1,12 @@
 import { atom, map } from 'nanostores'
 
-import { getActionStatus, installSkillFromHub, uninstallSkillFromHub, updateSkillsFromHub } from '@/hermes'
+import {
+  getActionStatus,
+  installSkillFromHub,
+  tickSkillHub,
+  uninstallSkillFromHub,
+  updateSkillsFromHub
+} from '@/hermes'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
 import { upsertDesktopActionTask } from '@/store/activity'
@@ -17,6 +23,10 @@ export const HUB_CATALOG_KEY = ['skill-hub-catalog'] as const
 const SKILLS_LIST_KEY = ['skills-list'] as const
 // Non-identifier key for the fleet-wide "Update installed" action.
 export const UPDATE_ALL_KEY = '__update_all__'
+// What the hub wants on this machine and what the engine did about it — the
+// Hub tab's status panel polls it (hub-status.tsx), the publish dialog reads
+// its workspaces. Here so a finished action can refresh it without a cycle.
+export const HUB_CHANGES_KEY = ['skill-hub-changes'] as const
 
 export type HubActionKind = 'install' | 'uninstall' | 'update'
 
@@ -106,6 +116,12 @@ async function runHubAction(key: string, kind: HubActionKind, spawn: () => Promi
     // (un)install adds/removes a skill, so its count/rows must update too.
     void queryClient.invalidateQueries({ queryKey: HUB_CATALOG_KEY })
     void queryClient.invalidateQueries({ queryKey: SKILLS_LIST_KEY })
+    // The CLI changed the disk behind the sync engine's back: a tick now tells
+    // the hub (an update stops being offered, here and on the web) instead of
+    // at the next minute.
+    void tickSkillHub()
+      .catch(() => undefined)
+      .finally(() => void queryClient.invalidateQueries({ queryKey: HUB_CHANGES_KEY }))
     // …and the composer's `/` list, which caches the command catalog for an
     // hour and would otherwise keep offering the skill we just removed.
     invalidateSlashCompletions()
@@ -140,6 +156,16 @@ export function uninstallHubSkill(identifier: string, name: string): Promise<voi
 
 export function updateHubSkills(): Promise<void> {
   return runHubAction(UPDATE_ALL_KEY, 'update', () => updateSkillsFromHub())
+}
+
+/** One skill's update, on its own row; `overwriteLocal` replaces a copy edited
+ *  on this machine (the backend backs the edit up first). */
+export function updateHubSkill(
+  identifier: string,
+  name: string,
+  options: { overwriteLocal?: boolean } = {}
+): Promise<void> {
+  return runHubAction(identifier, 'update', () => updateSkillsFromHub({ name, overwriteLocal: options.overwriteLocal }))
 }
 
 export function closeHubLog(): void {

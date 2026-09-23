@@ -310,3 +310,89 @@ def test_do_search_json_flag_emits_full_identifiers(capsys):
     # Table render must be suppressed — sink should be empty (no "Searching for:" header).
     assert "Searching for:" not in sink.getvalue()
 
+
+
+# ---------------------------------------------------------------------------
+# Updates never replace an edit made on this machine silently (AgentX Skill Hub §8 #20)
+# ---------------------------------------------------------------------------
+
+
+def _update_result(name: str, *, modified: bool = False) -> dict:
+    return {"name": name, "identifier": f"agentx-hub/{name}@1.1.0", "source": "agentx-hub", "status": "update_available",
+            "current_hash": f"sha256:{name}-old", "latest_hash": f"sha256:{name}-new", "locally_modified": modified}
+
+
+def _run_update(monkeypatch, results, *, fail=(), overwrite_local=False):
+    """do_update against an in-memory lock that a successful install rewrites, like the real one."""
+    import tools.skills_hub as hub
+    import hermes_cli.skills_hub as cli_hub
+
+    entries = {r["name"]: {"install_path": f"category/{r['name']}", "content_hash": r["current_hash"]} for r in results}
+    installs, backups = [], []
+
+    class _Lock:
+        def get_installed(self, name):
+            return entries.get(name)
+
+    def _install(identifier, category="", force=False, console=None, source_id=None):
+        name = identifier.split("/", 1)[1].split("@")[0]
+        installs.append((name, category, force, source_id))
+        if name not in fail:
+            entries[name]["content_hash"] = f"sha256:{name}-new"
+
+    def _backup(entry):
+        backups.append(entry)
+        return f"/home/.agentx/skills/.hub/backups/{entry['name']}/20260923T000000Z"
+
+    monkeypatch.setattr(hub, "check_for_skill_updates", lambda **_kwargs: results)
+    monkeypatch.setattr(hub, "HubLockFile", _Lock)
+    monkeypatch.setattr(hub, "backup_hub_skill", _backup)
+    monkeypatch.setattr(cli_hub, "do_install", _install)
+    sink = StringIO()
+    summary = do_update(console=Console(file=sink, force_terminal=False, color_system=None, width=240), overwrite_local=overwrite_local)
+    return summary, sink.getvalue(), installs, backups
+
+
+def test_update_keeps_a_skill_edited_here_and_says_how_to_take_the_update(monkeypatch):
+    summary, out, installs, backups = _run_update(monkeypatch, [_update_result("plain"), _update_result("tuned", modified=True)])
+    assert [i[0] for i in installs] == ["plain"] and installs[0][1:] == ("category", True, "agentx-hub")
+    assert summary.updated == ["plain"] and summary.kept == ["tuned"] and summary.failed == [] and backups == []
+    assert "Updated 1 skill(s)." in out
+    assert "Kept 1 skill(s) you edited on this machine: tuned." in out and "--overwrite-local" in out
+
+
+def test_overwrite_local_backs_the_edit_up_then_updates(monkeypatch):
+    summary, out, installs, backups = _run_update(monkeypatch, [_update_result("tuned", modified=True)], overwrite_local=True)
+    assert [i[0] for i in installs] == ["tuned"] and summary.updated == ["tuned"] and summary.kept == []
+    assert [b["name"] for b in backups] == ["tuned"] and backups[0]["install_path"] == "category/tuned"
+    assert summary.backups == {"tuned": "/home/.agentx/skills/.hub/backups/tuned/20260923T000000Z"}
+    assert "Your edited copy of tuned is kept in /home/.agentx/skills/.hub/backups/tuned/20260923T000000Z" in out
+
+
+def test_a_refused_update_is_named_and_fails_the_command(monkeypatch):
+    import hermes_cli.skills_hub as cli_hub
+
+    summary, out, _installs, _backups = _run_update(monkeypatch, [_update_result("plain"), _update_result("blocked")], fail={"blocked"})
+    assert summary.updated == ["plain"] and summary.failed == ["blocked"]
+    assert "Could not update 1 skill(s): blocked" in out
+    monkeypatch.setattr(cli_hub, "do_update", lambda **_kwargs: summary)
+    with pytest.raises(SystemExit) as exit_info:
+        cli_hub.skills_command(type("Args", (), {"skills_action": "update", "name": None, "overwrite_local": False})())
+    assert exit_info.value.code == 1
+
+
+def test_the_check_marks_a_skill_edited_here(monkeypatch):
+    out = _capture_check(monkeypatch, [{"name": "tuned", "source": "agentx-hub", "status": "update_available", "locally_modified": True},
+                                       {"name": "plain", "source": "agentx-hub", "status": "up_to_date", "locally_modified": False}])
+    assert "update_available · edited here" in out
+    assert "up_to_date · edited here" not in out
+
+
+def test_the_slash_command_passes_the_overwrite_flag(monkeypatch):
+    import hermes_cli.skills_hub as cli_hub
+
+    seen = []
+    monkeypatch.setattr(cli_hub, "do_update", lambda name=None, console=None, overwrite_local=False: seen.append((name, overwrite_local)))
+    handle_skills_slash("/skills update tuned --overwrite-local", console=Console(file=StringIO()))
+    handle_skills_slash("/skills update", console=Console(file=StringIO()))
+    assert seen == [("tuned", True), (None, False)]

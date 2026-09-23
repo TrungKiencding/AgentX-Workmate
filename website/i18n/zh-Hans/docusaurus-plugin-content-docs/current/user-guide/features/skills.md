@@ -583,9 +583,12 @@ hub 现在跟踪足够的来源信息以重新检查已安装 skills 的上游�
 agentx skills check          # Report which installed hub skills changed upstream
 agentx skills update         # Reinstall only the skills with updates available
 agentx skills update react   # Update one specific installed hub skill
+agentx skills update react --overwrite-local   # 即使你在本机改过 react 也更新
 ```
 
 这使用存储的来源标识符加上当前上游捆绑包内容哈希来检测漂移。
+
+安装后在本机改过的 hub skill 绝不会被静默替换：`check` 会标出 `edited here`，`update` 保留原样并列出它的名字。`--overwrite-local` 仍然更新，但会先把你改过的版本复制到 `~/.agentx/skills/.hub/backups/<name>/<time>/`。仅由运行 skill 产生的文件（`__pycache__`、`node_modules`、`.DS_Store` 等）不算修改。
 
 :::tip GitHub 速率限制
 Skills hub 操作使用 GitHub API，未认证用户的速率限制为每小时 60 次请求。如果在安装或搜索时看到速率限制错误，请在 `.env` 文件中设置 `GITHUB_TOKEN` 以将限制提高到每小时 5,000 次请求。发生此情况时，错误消息会包含可操作的提示。

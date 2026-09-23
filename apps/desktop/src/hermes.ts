@@ -1707,12 +1707,29 @@ export function uninstallSkillFromHub(name: string): Promise<ActionResponse> {
   })
 }
 
-export function updateSkillsFromHub(): Promise<ActionResponse> {
+/** Update every hub skill with an update, or `name` alone. A skill edited on
+ *  this machine is kept unless `overwriteLocal` (the edit is backed up first). */
+export function updateSkillsFromHub(
+  options: { name?: string; overwriteLocal?: boolean } = {}
+): Promise<ActionResponse> {
   return window.agentxDesktop.api<ActionResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/update',
     method: 'POST',
-    body: {}
+    body: { name: options.name ?? null, overwrite_local: Boolean(options.overwriteLocal) }
+  })
+}
+
+/** Write the version the hub named into a local skill's SKILL.md (before uploading again). */
+export function bumpSkillVersion(
+  name: string,
+  version: string
+): Promise<{ ok: boolean; name: string; version: string; changed: boolean }> {
+  return window.agentxDesktop.api<{ ok: boolean; name: string; version: string; changed: boolean }>({
+    ...profileScoped(),
+    path: '/api/skills/hub/bump-version',
+    method: 'POST',
+    body: { name, version }
   })
 }
 

@@ -1657,7 +1657,20 @@ export const vi: Translations = {
         enabled: 'đã bật lại',
         failed: 'lỗi'
       },
-      openHub: 'Mở AgentX Hub'
+      openHub: 'Mở AgentX Hub',
+      editedHere: 'Đã sửa trên máy',
+      updateTo: version => `Có bản mới ${version}`,
+      updateThis: 'Cập nhật',
+      updateAllCount: count => `Cập nhật tất cả (${count})`,
+      updateOneStarted: name => `Đang cập nhật ${name}`,
+      keptOnUpdateAll: count =>
+        `“Cập nhật tất cả” giữ nguyên ${count} skill bạn đã sửa trên máy — mở từng skill để thay bằng bản Hub.`,
+      replaceWithHub: 'Thay bằng bản Hub…',
+      replaceTitle: name => `Thay ${name} bằng bản trên Hub?`,
+      replaceDescription: version =>
+        `Bạn đã sửa skill này trên máy này. Bản ${version} từ Hub sẽ thay thế nó; bản bạn sửa được sao lưu trước vào ~/.agentx/skills/.hub/backups/.`,
+      replaceConfirm: 'Sao lưu rồi thay',
+      replaceStarted: name => `Đang thay ${name} bằng bản Hub (đã sao lưu bản của bạn)`
     },
     publish: {
       upload: 'Tải lên Hub',
@@ -1696,6 +1709,8 @@ export const vi: Translations = {
       signedOut: 'Đăng nhập AgentX để tải lên Hub.',
       offline: 'Không tới được Hub. Thử lại sau.',
       reauth: 'Hub từ chối quyền đăng nhập của máy này. Hãy đăng nhập lại.',
+      bumpAndRetry: version => `Tăng lên ${version} rồi tải lên`,
+      bumping: 'Đang tăng phiên bản…',
       errors: {
         version_not_newer: highest => `Phiên bản phải lớn hơn ${highest} — sửa metadata.version trong SKILL.md.`,
         version_exists: 'Phiên bản này đã tồn tại trên Hub với nội dung khác.',

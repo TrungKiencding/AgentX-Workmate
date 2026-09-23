@@ -511,6 +511,29 @@ def _isolate_hermes_home(_hermetic_environment):
     return None
 
 
+def _drop_leaked_skills_hub_paths() -> None:
+    hub = sys.modules.get("tools.skills_hub")
+    if hub is not None:
+        for name in getattr(hub, "_DYNAMIC_PATH_RESOLVERS", {}):
+            hub.__dict__.pop(name, None)
+
+
+@pytest.fixture(autouse=True)
+def _no_leaked_skills_hub_paths():
+    """``tools.skills_hub`` resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… live through
+    PEP 562 ``__getattr__``, per AGENTX_HOME; a real module attribute of the
+    same name wins. ``monkeypatch.setattr`` on such a name reads the
+    *resolved* value as the "old" one and puts it back as a real attribute on
+    undo — pinning every later test in the process, in any module, to that
+    test's throwaway home (a lock file nobody writes, an empty installed map).
+    The undo runs after this fixture's teardown (``monkeypatch`` is set up
+    first), so the leak is dropped when the next test starts; ``unittest.mock
+    .patch`` needs neither — it deletes what it did not find in the module."""
+    _drop_leaked_skills_hub_paths()
+    yield
+    _drop_leaked_skills_hub_paths()
+
+
 @pytest.fixture(autouse=True)
 def _neutralize_webbrowser(monkeypatch):
     """Record browser-open attempts instead of opening real browser windows."""

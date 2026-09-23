@@ -23,6 +23,7 @@ from hermes_cli.web_deps import late, LateState
 from hermes_cli.web_models import (
     SkillContentUpdate,
     SkillCreate,
+    SkillHubBumpVersionRequest,
     SkillHubPublishRequest,
     SkillHubValidateRequest,
     SkillInstallRequest,
@@ -105,19 +106,28 @@ async def uninstall_skill_hub(body: SkillUninstallRequest, profile: Optional[str
 
 @hub_router.post("/api/skills/hub/update")
 async def update_skills_hub(
-    body: Optional[SkillsUpdateRequest] = None, profile: Optional[str] = None
+    request: Request, body: Optional[SkillsUpdateRequest] = None, profile: Optional[str] = None
 ):
+    """Update hub skills: every one with an update, or ``name`` alone. A skill
+    edited on this machine is kept unless ``overwrite_local`` (backed up first)."""
+    effective = (body.profile if body else None) or profile
+    skill = ((body.name if body else None) or "").strip()
+    args = _profile_cli_args(effective) + ["skills", "update"] + ([skill] if skill else [])
+    if body is not None and body.overwrite_local:
+        args.append("--overwrite-local")
+    # A private/workspace skill downloads only with the person's bearer — the
+    # same hand-over as Install (the CLI process has no session of its own).
+    bearer = _hub_bearer_from(request)
+    extra_env = {"AGENTX_HUB_TOKEN": bearer} if bearer else {}
+    name = _hub_action_name("update", skill) if skill else "skills-update"
     try:
-        effective = (body.profile if body else None) or profile
-        proc = _spawn_hermes_action(
-            _profile_cli_args(effective) + ["skills", "update"], "skills-update"
-        )
+        proc = _spawn_hermes_action(args, name, extra_env) if extra_env else _spawn_hermes_action(args, name)
     except HTTPException:
         raise
     except Exception as exc:
         _log.exception("Failed to spawn skills update")
         raise HTTPException(status_code=500, detail=f"Failed to update skills: {exc}")
-    return {"ok": True, "pid": proc.pid, "name": "skills-update"}
+    return {"ok": True, "pid": proc.pid, "name": name}
 
 
 @hub_router.get("/api/skills/hub/sources")
@@ -697,6 +707,32 @@ async def hub_propose(body: SkillHubPublishRequest, request: Request):
     it for a hub admin (decision §8 #11), members see it once approved."""
     body.visibility = "workspace"
     return await hub_publish(body, request)
+
+
+@hub_router.post("/api/skills/hub/bump-version")
+async def hub_bump_version(body: SkillHubBumpVersionRequest):
+    """Write a new version into a local skill's SKILL.md — the number the hub
+    named when it refused an upload for its version — through the validated
+    write the skill editor uses, so "Upload to Hub" can go again in one press."""
+    from tools.skill_manager_tool import _edit_skill, _find_skill
+    from tools.skills_hub import HUB_SEMVER_RE, set_skill_version
+
+    version = (body.version or "").strip()
+    if not HUB_SEMVER_RE.match(version):
+        raise HTTPException(status_code=400, detail="version must be semver (MAJOR.MINOR.PATCH)")
+    with _profile_scope(body.profile):
+        existing = _find_skill(body.name)
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Skill '{body.name}' not found.")
+        current = (existing["path"] / "SKILL.md").read_text(encoding="utf-8")
+        updated = set_skill_version(current, version)
+        if updated == current:
+            return {"ok": True, "name": body.name, "version": version, "changed": False}
+        result = _edit_skill(body.name, updated)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Could not update the skill."))
+    _clear_skills_prompt_cache()
+    return {"ok": True, "name": body.name, "version": version, "changed": True}
 
 
 @router.get("/api/skills")

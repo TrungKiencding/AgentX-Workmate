@@ -1139,6 +1139,18 @@ export interface Translations {
       history: string
       historyAction: Record<'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed', string>
       openHub: string
+      /** A hub skill edited on this machine: "Update all" keeps it, replacing it backs the edit up (hub §8 #20). */
+      editedHere: string
+      updateTo: (version: string) => string
+      updateThis: string
+      updateAllCount: (count: number) => string
+      updateOneStarted: (name: string) => string
+      keptOnUpdateAll: (count: number) => string
+      replaceWithHub: string
+      replaceTitle: (name: string) => string
+      replaceDescription: (version: string) => string
+      replaceConfirm: string
+      replaceStarted: (name: string) => string
     }
     publish: {
       upload: string
@@ -1176,6 +1188,9 @@ export interface Translations {
       signedOut: string
       offline: string
       reauth: string
+      /** The hub refused the version and named the next free one: write it into SKILL.md and upload again. */
+      bumpAndRetry: (version: string) => string
+      bumping: string
       errors: {
         version_not_newer: (highest: string) => string
         version_exists: string

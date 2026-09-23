@@ -1331,6 +1331,10 @@ export interface SkillHubInstalledEntry {
   name: string | null
   trust_level: string | null
   scan_verdict: string | null
+  /** The AgentX Hub version this machine runs ('' for other sources). */
+  version?: string
+  /** An AgentX Hub skill edited on this machine since it was installed. */
+  modified?: boolean
 }
 
 export interface SkillHubSourcesResponse {
@@ -1507,6 +1511,8 @@ export interface SkillHubLocalState {
   content_hash: string
   install_path: string
   enabled: boolean
+  /** Edited on this machine since it was installed: an update would replace the edit. */
+  modified?: boolean
 }
 
 /** One desired install the hub holds for this person/product, paired with the local state. */
@@ -1535,6 +1541,8 @@ export interface SkillHubUpdate {
   name: string
   current: string | null
   latest: string | null
+  /** Edited on this machine: "Update all" keeps it; replacing it backs the edit up. */
+  modified?: boolean
 }
 
 export interface SkillHubHistoryEntry {
