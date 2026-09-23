@@ -1643,6 +1643,11 @@ def _emit(event: str, sid: str, payload: dict | None = None):
 # is how such events reach WS clients at all. See _broadcast_global_event.
 _live_transports: set[Transport] = set()
 _live_transports_lock = threading.Lock()
+# True only when real stdout IS the JSON-RPC client channel (``tui_gateway.entry.main``, the stdio TUI).
+# `agentx serve` / dashboard processes speak JSON-RPC over WS only: their stdout is captured into
+# desktop.log, so a peer-less global broadcast (the change watcher keeps ticking after the last WS client
+# leaves, the orphan reaper announces session.reclaimed) must be dropped there, not printed.
+_stdio_is_rpc_channel = False
 
 
 def register_live_transport(transport: Transport | None) -> None:
@@ -1663,14 +1668,18 @@ def _broadcast_global_event(event: str, payload: dict | None = None) -> None:
     """Fan a session-less, surface-global event (``skin.changed``) to every
     connected client. Emitters like the skin watcher run on background threads
     where ``write_json``'s ladder bottoms out at stdio and WS peers never see
-    the frame. No registered transports (stdio TUI, tests) → plain ``_emit``,
-    which that path already tees where it needs to go.
+    the frame. No registered transports → plain ``_emit`` when stdout is the
+    stdio TUI's JSON-RPC channel; otherwise nobody is listening (stdout is a
+    log sink) and the frame is dropped — clients re-pull state on connect.
     """
     with _live_transports_lock:
         targets = list(_live_transports)
 
     if not targets:
-        _emit(event, "", payload)
+        if _stdio_is_rpc_channel:
+            _emit(event, "", payload)
+        else:
+            logger.debug("global-event broadcast dropped (no connected client) type=%s", event)
         return
 
     frame = _event_frame(event, "", payload)

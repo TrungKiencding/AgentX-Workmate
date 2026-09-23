@@ -428,6 +428,8 @@ def ensure_mcp_discovery_started() -> None:
 
 
 def main():
+    # stdout is this process's JSON-RPC client channel: peer-less global broadcasts belong on it.
+    server._stdio_is_rpc_channel = True
     _install_sidecar_publisher()
 
     # MCP tool discovery — backgrounded so a slow or unreachable MCP server
