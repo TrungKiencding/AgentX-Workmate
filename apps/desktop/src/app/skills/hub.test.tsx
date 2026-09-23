@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
 import { queryClient } from '@/lib/query-client'
-import { $hubActions, $hubInstalledOverride } from '@/store/hub-actions'
+import { $hubActions, $hubInstalledOverride, HUB_CHANGES_KEY } from '@/store/hub-actions'
 import type * as Notifications from '@/store/notifications'
-import type { SkillHubCatalogResponse, SkillHubResult, SkillInfo } from '@/types/hermes'
+import type { SkillHubCatalogResponse, SkillHubResult, SkillHubSearchResponse, SkillInfo } from '@/types/hermes'
 
 const getSkillHubCatalog = vi.fn()
 const getSkillHubChanges = vi.fn()
@@ -124,6 +124,34 @@ const INSTALLED_REPORT = {
   'agentx-hub/vneb-report': { name: 'vneb-report', trust_level: 'agentx-hub-verified', scan_verdict: 'safe' }
 }
 
+// Nothing pushed to this machine: the desired-state panel stays away. The
+// revision is the backend's "files moved" counter the tab watches.
+function changes(revision = 1) {
+  return {
+    enabled: true,
+    configured: true,
+    base_url: 'https://skills.astralx.com.vn',
+    stream: 'off',
+    revision,
+    last: { status: 'signed_out', detail: '', at: '' },
+    installs: [],
+    updates: [],
+    history: [],
+    org: null
+  }
+}
+
+/** An answer the test holds back until it settles it. */
+function deferred<T>() {
+  let resolve!: (value: T) => void
+
+  const promise = new Promise<T>(res => {
+    resolve = res
+  })
+
+  return { promise, resolve }
+}
+
 async function renderHub(query = '') {
   const { SkillsHub } = await import('./hub')
   let result: ReturnType<typeof render>
@@ -160,19 +188,7 @@ beforeEach(() => {
 
   getSkillHubCatalog.mockResolvedValue(catalog())
   getSkills.mockResolvedValue([])
-  // Nothing pushed to this machine: the desired-state panel must stay away.
-  getSkillHubChanges.mockResolvedValue({
-    enabled: true,
-    configured: true,
-    base_url: 'https://skills.astralx.com.vn',
-    stream: 'off',
-    revision: 1,
-    last: { status: 'signed_out', detail: '', at: '' },
-    installs: [],
-    updates: [],
-    history: [],
-    org: null
-  })
+  getSkillHubChanges.mockResolvedValue(changes())
   tickSkillHub.mockResolvedValue({ status: 'signed_out', detail: '' })
   searchSkillsHub.mockResolvedValue({ results: [], source_counts: {}, timed_out: [], installed: {} })
   installSkillFromHub.mockResolvedValue({ ok: true, pid: 1, name: 'skills-install-vneb-report' })
@@ -278,6 +294,47 @@ describe('SkillsHub — the skill store', () => {
     await waitFor(() => expect(uninstallSkillFromHub).toHaveBeenCalledWith('vneb-report'))
   })
 
+  it('flips a removed card at once, then follows the catalogue: installed again elsewhere, it reads as added', async () => {
+    getSkillHubCatalog.mockResolvedValue(catalog({ installed: INSTALLED_REPORT }))
+    getSkills.mockResolvedValue([localSkill()])
+    await renderHub()
+
+    const card = (await screen.findAllByTestId('hub-card'))[0]
+    expect(within(card).getByTestId('hub-card-installed').textContent).toBe('Added')
+
+    // Hold the catalogue's next answer: until it lands, the cached one still
+    // lists the skill and only the card's own flip says it is gone.
+    const answer = deferred<SkillHubCatalogResponse>()
+    getSkillHubCatalog.mockReturnValueOnce(answer.promise)
+
+    const trigger = within(card).getByRole('button', { name: 'Actions' })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove this skill' }))
+    })
+
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Add this skill' })).toBeTruthy())
+    expect(within(card).queryByTestId('hub-card-installed')).toBeNull()
+    expect(getSkillHubCatalog).toHaveBeenCalledTimes(2)
+
+    // The catalogue answers (removed): from here on it, not the flip, is the truth…
+    await act(async () => answer.resolve(catalog()))
+    await waitFor(() => expect($hubInstalledOverride.get()).toEqual({}))
+    expect(within(card).queryByTestId('hub-card-installed')).toBeNull()
+
+    // …so when the hub's sync engine installs it again (a web install row),
+    // the backend's revision moves, the tab asks the catalogue again, and the
+    // card follows that answer instead of its old flip.
+    getSkillHubCatalog.mockResolvedValue(catalog({ installed: INSTALLED_REPORT }))
+    getSkillHubChanges.mockResolvedValue(changes(2))
+
+    // The tab's next poll of what the hub wants here.
+    await act(() => queryClient.invalidateQueries({ queryKey: HUB_CHANGES_KEY }))
+
+    await waitFor(() => expect(within(card).getByTestId('hub-card-installed').textContent).toBe('Added'))
+  })
+
   it('"Preview" shows the SKILL.md, and a refused preview says so instead of going blank', async () => {
     // The bug: a private skill the catalogue listed answered 404 on preview,
     // and the dialog showed a spinner that ended in an empty pane.
@@ -342,6 +399,37 @@ describe('SkillsHub — the skill store', () => {
     for (const other of ['GitHub', 'ClawHub', 'LobeHub', 'skills.sh', 'browse.sh', 'Official']) {
       expect(bar).not.toContain(other)
     }
+  })
+
+  it('while searching, the newer answer says what is installed: an older search does not outvote the catalogue', async () => {
+    // Installed from a terminal since the catalogue last answered: the search,
+    // answering after it, is the one that knows.
+    const searched = deferred<SkillHubSearchResponse>()
+    searchSkillsHub.mockReturnValue(searched.promise)
+    getSkills.mockResolvedValue([localSkill()])
+    await renderHub('vneb')
+
+    const card = (await screen.findAllByTestId('hub-card'))[0]
+    expect(within(card).queryByTestId('hub-card-installed')).toBeNull()
+
+    await act(async () => {
+      // A moment after the catalogue, so the search's is the newer answer.
+      await new Promise(resolve => setTimeout(resolve, 5))
+      searched.resolve({ results: [], source_counts: {}, timed_out: [], installed: INSTALLED_REPORT })
+    })
+
+    await waitFor(() => expect(within(card).getByTestId('hub-card-installed').textContent).toBe('Added'))
+
+    // Removed from the terminal again: "Sync now" brings a catalogue answer
+    // newer than that search, and the card follows it — the older search that
+    // still lists the skill must not bring it back.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('hub-sync'))
+    })
+
+    await waitFor(() => expect(getSkillHubCatalog).toHaveBeenCalledWith(true))
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Add this skill' })).toBeTruthy())
+    expect(within(card).queryByTestId('hub-card-installed')).toBeNull()
   })
 
   it('says so when the hub could not be reached and the cards are the last sync', async () => {
