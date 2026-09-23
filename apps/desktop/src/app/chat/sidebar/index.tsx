@@ -30,7 +30,7 @@ import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
 import { sessionMatchesSearch } from '@/lib/session-search'
-import { normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
+import { isMessagingSource, normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
 import { cn } from '@/lib/utils'
 import { $cronJobs } from '@/store/cron'
 import { $bindings } from '@/store/keybinds'
@@ -40,7 +40,7 @@ import {
   $pinnedSessionIds,
   $sidebarAgentsGrouped,
   $sidebarCronOpen,
-  $sidebarMessagingOpenIds,
+  $sidebarMessagingClosedIds,
   $sidebarPinsOpen,
   $sidebarProjectOrderIds,
   $sidebarRecentsOpen,
@@ -65,8 +65,17 @@ import {
   toggleSidebarMessagingOpen,
   unpinSession
 } from '@/store/layout'
+import { $platformsChangeTick } from '@/store/live-sync'
+import { $messagingPlatforms, refreshMessagingPlatforms } from '@/store/messaging'
 import { $pendingPairingCount } from '@/store/pairing'
-import { $newChatProfile, $profiles, $profileScope, ALL_PROFILES, normalizeProfileKey } from '@/store/profile'
+import {
+  $activeGatewayProfile,
+  $newChatProfile,
+  $profiles,
+  $profileScope,
+  ALL_PROFILES,
+  normalizeProfileKey
+} from '@/store/profile'
 import {
   $activeProjectId,
   $projects,
@@ -111,6 +120,7 @@ import {
 } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
+import { ConnectedChannels } from './connected-channels'
 import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarLoadMoreRow } from './load-more-row'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
@@ -280,7 +290,7 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const { t } = useI18n()
   const s = t.sidebar
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // Contributed nav rows (plugins pairing a page with a sidebar entry) render
   // below the built-ins with the same chrome; active = at their route.
   const navContributions = useContributions(SIDEBAR_NAV_AREA)
@@ -321,6 +331,9 @@ export function ChatSidebar({
   const cronSessions = useStore($cronSessions)
   const cronJobs = useStore($cronJobs)
   const messagingSessions = useStore($messagingSessions)
+  const messagingPlatforms = useStore($messagingPlatforms)
+  const activeGatewayProfile = useStore($activeGatewayProfile)
+  const platformsChangeTick = useStore($platformsChangeTick)
   const messagingPlatformTotals = useStore($messagingPlatformTotals)
   const messagingTruncated = useStore($messagingTruncated)
   const sessionsLoading = useStore($sessionsLoading)
@@ -363,7 +376,32 @@ export function ChatSidebar({
   const [profileLoadMorePending, setProfileLoadMorePending] = useState<Record<string, boolean>>({})
   const [messagingLoadMorePending, setMessagingLoadMorePending] = useState<Record<string, boolean>>({})
   const [recentsLoadMorePending, setRecentsLoadMorePending] = useState(false)
-  const messagingOpenIds = useStore($sidebarMessagingOpenIds)
+
+  useEffect(() => {
+    void refreshMessagingPlatforms(activeGatewayProfile || 'default').catch(() => undefined)
+  }, [activeGatewayProfile, platformsChangeTick])
+
+  const activeMessagingPlatform = useMemo(() => {
+    if (pathname !== MESSAGING_ROUTE) {
+      return null
+    }
+
+    return new URLSearchParams(search).get('platform')
+  }, [pathname, search])
+
+  const openConnectedChannel = useCallback(
+    (platformId: string) => {
+      onNavigate({
+        id: `messaging:${platformId}`,
+        icon: MessageCircle,
+        label: '',
+        route: `${MESSAGING_ROUTE}?platform=${encodeURIComponent(platformId)}`
+      })
+    },
+    [onNavigate]
+  )
+
+  const messagingClosedIds = useStore($sidebarMessagingClosedIds)
   // Per-platform count of rows currently revealed (starts at NON_SESSION_INITIAL_ROWS).
   const [messagingVisible, setMessagingVisible] = useState<Record<string, number>>({})
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -409,7 +447,12 @@ export function ChatSidebar({
   // profile in, grouped by profile below. Single-profile users land here with
   // scope === their only profile, so nothing is filtered out.
   const visibleSessions = useMemo(
-    () => (showAllProfiles ? sessions : sessions.filter(s => normalizeProfileKey(s.profile) === profileScope)),
+    () =>
+      sessions.filter(
+        session =>
+          !isMessagingSource(session.source) &&
+          (showAllProfiles || normalizeProfileKey(session.profile) === profileScope)
+      ),
     [sessions, showAllProfiles, profileScope]
   )
 
@@ -1114,7 +1157,39 @@ export function ChatSidebar({
 
   const showSessionSkeletons = sessionsLoading && sortedSessions.length === 0
 
-  const showSessionSections = showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0
+  // Pinned counts too: platform sections skip pinned rows, so a user whose only
+  // chats are pinned transcripts would otherwise lose the Pinned section (and
+  // its Unpin) to the blank state.
+  const showSessionSections =
+    showSessionSkeletons ||
+    sortedSessions.length > 0 ||
+    projectModel.length > 0 ||
+    messagingGroups.length > 0 ||
+    pinnedSessions.length > 0
+
+  // Grouped mode always keeps the Projects section: it renders its own empty
+  // state and holds the only "New project" action, which a user whose chats
+  // are all messaging transcripts would otherwise lose.
+  const showAgentSessionsSection =
+    worktreeGroupingActive ||
+    showSessionSkeletons ||
+    sortedSessions.length > 0 ||
+    projectModel.length > 0 ||
+    messagingGroups.length === 0
+
+  // ...but with every chat a platform transcript, it keeps only its header: an
+  // empty body would claim "no chats" above those transcripts and, at flex-1,
+  // push their sections to the bottom of the sidebar.
+  const agentSessionsHeaderOnly =
+    worktreeGroupingActive &&
+    !inProject &&
+    !showSessionSkeletons &&
+    sortedSessions.length === 0 &&
+    projectModel.length === 0 &&
+    messagingGroups.length > 0
+
+  // The "all pinned" hint points at recents, which only local chats return to.
+  const localSessionPinned = pinnedSessions.some(session => !isMessagingSource(session.source))
 
   // Each reorderable list reports its OWN new id order; persisting is a direct,
   // typed write — no id-prefix sniffing to figure out which level moved.
@@ -1299,6 +1374,12 @@ export function ChatSidebar({
                 )
               })}
             </SidebarMenu>
+            <ConnectedChannels
+              activePlatformId={activeMessagingPlatform}
+              label={s.connectedChannels}
+              onOpen={openConnectedChannel}
+              platforms={messagingPlatforms}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -1370,7 +1451,7 @@ export function ChatSidebar({
               />
             )}
 
-            {!trimmedQuery && (
+            {!trimmedQuery && showAgentSessionsSection && (
               <SidebarSessionsSection
                 activeProjectId={activeProjectId}
                 activeSessionId={activeSidebarSessionId}
@@ -1390,9 +1471,9 @@ export function ChatSidebar({
                 emptyState={
                   showSessionSkeletons ? (
                     <SidebarSessionSkeletons />
-                  ) : (
+                  ) : agentSessionsHeaderOnly ? null : (
                     <div className="grid min-h-16 place-items-center rounded-lg px-2 text-center text-xs text-(--ui-text-tertiary)">
-                      {inProject ? s.projectEmpty : pinnedSessions.length > 0 ? s.allPinned : s.noSessions}
+                      {inProject ? s.projectEmpty : localSessionPinned ? s.allPinned : s.noSessions}
                     </div>
                   )
                 }
@@ -1521,12 +1602,19 @@ export function ChatSidebar({
                 projectOverview={projectOverview}
                 projectOverviewPreviews={overviewPreviews}
                 projectRepoWorktrees={inProject ? scopedRepoWorktrees : undefined}
-                projectsLoading={worktreeGroupingActive ? projectTreeLoading : false}
+                // A header-only section has no rows to stand in for; skeletons
+                // there would flash on every focus refresh and shove the
+                // platform sections below it down and back up.
+                projectsLoading={worktreeGroupingActive && !agentSessionsHeaderOnly ? projectTreeLoading : false}
                 removedSessionIds={inProject ? removedSessionIds : undefined}
-                rootClassName={cn(
-                  'min-h-32 flex-1 overflow-hidden p-0',
-                  !recentsVirtualizes && 'compact:min-h-0 compact:flex-none compact:overflow-visible'
-                )}
+                rootClassName={
+                  agentSessionsHeaderOnly
+                    ? 'shrink-0 p-0'
+                    : cn(
+                        'min-h-32 flex-1 overflow-hidden p-0',
+                        !recentsVirtualizes && 'compact:min-h-0 compact:flex-none compact:overflow-visible'
+                      )
+                }
                 sessions={displayAgentSessions}
                 sortable={!showAllProfiles && agentSessions.length > 1}
                 workingSessionIdSet={workingSessionIdSet}
@@ -1534,7 +1622,6 @@ export function ChatSidebar({
             )}
 
             {!trimmedQuery &&
-              !worktreeGroupingActive &&
               messagingGroups.map(group => {
                 const visible = messagingVisible[group.sourceId] ?? NON_SESSION_INITIAL_ROWS
                 const shownSessions = group.sessions.slice(0, visible)
@@ -1570,7 +1657,7 @@ export function ChatSidebar({
                     onResumeSession={onResumeSession}
                     onToggle={() => toggleSidebarMessagingOpen(group.sourceId)}
                     onTogglePin={pinSession}
-                    open={messagingOpenIds.includes(group.sourceId)}
+                    open={!messagingClosedIds.includes(group.sourceId)}
                     pinned={false}
                     rootClassName="shrink-0 p-0"
                     sessions={shownSessions}

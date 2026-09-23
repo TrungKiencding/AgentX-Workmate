@@ -23,7 +23,7 @@ import { CopyButton } from '@/components/ui/copy-button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { renameSession } from '@/hermes'
-import { useI18n } from '@/i18n'
+import { type Translations, useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { Folder, Palette } from '@/lib/icons'
 import { PROFILE_SWATCHES } from '@/lib/profile-color'
@@ -111,6 +111,90 @@ interface SessionActions {
   /** The MAIN tab's escape hatch: hide the zone's tab bar (it sticky-shows
    *  once a tab is ever gained; this is the explicit off switch). */
   onHideTabBar?: () => void
+}
+
+/** The verbs a TAB surface adds on top of the session's own actions. */
+type TabVerbs = Pick<SessionActions, 'onClose' | 'onHideTabBar' | 'tabPaneId'>
+
+// TAB — verbs that act on the strip (tabs only; a row isn't a tab). Shared by
+// the full session menu and the read-only platform-transcript menu, so a
+// transcript's tab reloads and closes exactly like every other tab.
+function tabActionItems(t: Translations, { onClose, tabPaneId }: Pick<TabVerbs, 'onClose' | 'tabPaneId'>) {
+  const closeTargets = tabPaneId ? treeTabCloseTargets(tabPaneId) : null
+
+  const items: ActionItemSpec[] = [
+    ...(tabPaneId
+      ? [
+          {
+            icon: 'refresh',
+            label: t.zones.reload,
+            onSelect: () => {
+              triggerHaptic('selection')
+              reloadTreePane(tabPaneId)
+            }
+          }
+        ]
+      : []),
+    ...(onClose
+      ? [
+          {
+            disabled: false,
+            icon: 'close',
+            label: t.common.close,
+            onSelect: () => {
+              triggerHaptic('selection')
+              onClose()
+            }
+          }
+        ]
+      : []),
+    ...(tabPaneId
+      ? [
+          {
+            disabled: !closeTargets?.others,
+            icon: 'close-all',
+            label: t.zones.closeOthers,
+            onSelect: () => {
+              triggerHaptic('selection')
+              closeOtherTreeTabs(tabPaneId)
+            }
+          },
+          {
+            disabled: !closeTargets?.right,
+            icon: 'arrow-right',
+            label: t.zones.closeToRight,
+            onSelect: () => {
+              triggerHaptic('selection')
+              closeTreeTabsToRight(tabPaneId)
+            }
+          },
+          {
+            disabled: !closeTargets?.all,
+            icon: 'clear-all',
+            label: t.zones.closeAll,
+            onSelect: () => {
+              triggerHaptic('selection')
+              closeAllTreeTabs(tabPaneId)
+            }
+          }
+        ]
+      : [])
+  ]
+
+  return items
+}
+
+/** The main tab's tab-bar off switch; menus render it last, after delete. */
+function hideTabBarItem(t: Translations, onHideTabBar: () => void): ActionItemSpec {
+  return {
+    disabled: false,
+    icon: 'eye-closed',
+    label: t.sidebar.row.hideTabBar,
+    onSelect: () => {
+      triggerHaptic('selection')
+      onHideTabBar()
+    }
+  }
 }
 
 // The color picker inside the session menu's Appearance submenu. Its own
@@ -280,69 +364,7 @@ function useSessionActions({
   ]
 
   // TAB — verbs that act on the strip (tabs only; a row isn't a tab).
-  const closeTargets = surface === 'tab' && tabPaneId ? treeTabCloseTargets(tabPaneId) : null
-
-  const tabItems: ActionItemSpec[] =
-    surface === 'tab'
-      ? [
-          ...(tabPaneId
-            ? [
-                spec({
-                  icon: 'refresh',
-                  label: t.zones.reload,
-                  onSelect: () => {
-                    triggerHaptic('selection')
-                    reloadTreePane(tabPaneId)
-                  }
-                })
-              ]
-            : []),
-          ...(onClose
-            ? [
-                spec({
-                  disabled: false,
-                  icon: 'close',
-                  label: t.common.close,
-                  onSelect: () => {
-                    triggerHaptic('selection')
-                    onClose()
-                  }
-                })
-              ]
-            : []),
-          ...(tabPaneId
-            ? [
-                spec({
-                  disabled: !closeTargets?.others,
-                  icon: 'close-all',
-                  label: t.zones.closeOthers,
-                  onSelect: () => {
-                    triggerHaptic('selection')
-                    closeOtherTreeTabs(tabPaneId)
-                  }
-                }),
-                spec({
-                  disabled: !closeTargets?.right,
-                  icon: 'arrow-right',
-                  label: t.zones.closeToRight,
-                  onSelect: () => {
-                    triggerHaptic('selection')
-                    closeTreeTabsToRight(tabPaneId)
-                  }
-                }),
-                spec({
-                  disabled: !closeTargets?.all,
-                  icon: 'clear-all',
-                  label: t.zones.closeAll,
-                  onSelect: () => {
-                    triggerHaptic('selection')
-                    closeAllTreeTabs(tabPaneId)
-                  }
-                })
-              ]
-            : [])
-        ]
-      : []
+  const tabItems: ActionItemSpec[] = surface === 'tab' ? tabActionItems(t, { onClose, tabPaneId }) : []
 
   // DANGER — put it away / destroy it (delete stays last, destructive-red).
   const dangerItems: ActionItemSpec[] = [
@@ -414,15 +436,7 @@ function useSessionActions({
       {onHideTabBar && (
         <>
           <kit.Separator />
-          {renderActionItem(kit, {
-            disabled: false,
-            icon: 'eye-closed',
-            label: r.hideTabBar,
-            onSelect: () => {
-              triggerHaptic('selection')
-              onHideTabBar()
-            }
-          })}
+          {renderActionItem(kit, hideTabBarItem(t, onHideTabBar))}
         </>
       )}
     </>
@@ -463,6 +477,95 @@ export function SessionActionsMenu({ children, align = 'end', sideOffset = 6, ..
       </ActionsMenu>
       {renameDialog}
     </>
+  )
+}
+
+/** Platform transcripts can only be removed from Workmate. Keep their menu
+ * limited to that one local action; the regular session menu also offers
+ * rename, pin, project moves, and other actions that do not belong here. A row
+ * pinned before its platform became read-only also gets Unpin, so the pin can
+ * never be stranded in the Pinned section. A transcript opened as a TAB also
+ * keeps the strip's own verbs (Reload, Close, Close others/right/all, and the
+ * main tab's Hide tab bar): they act on the tab, never on the transcript. */
+function messagingItems(
+  kit: MenuKit,
+  t: Translations,
+  { onClose, onDelete, onHideTabBar, onUnpin, tabPaneId }: Omit<MessagingSessionContextMenuProps, 'children'>
+) {
+  const r = t.sidebar.row
+  const tabItems = tabActionItems(t, { onClose, tabPaneId })
+
+  return (
+    <>
+      {onUnpin && (
+        <>
+          {renderActionItem(kit, {
+            icon: 'pin',
+            label: r.unpin,
+            onSelect: () => {
+              triggerHaptic('selection')
+              onUnpin()
+            }
+          })}
+          <kit.Separator />
+        </>
+      )}
+      {tabItems.length > 0 && (
+        <>
+          {tabItems.map(item => renderActionItem(kit, item))}
+          <kit.Separator />
+        </>
+      )}
+      {renderActionItem(kit, {
+        className: 'text-destructive focus:text-destructive',
+        icon: 'trash',
+        label: r.deleteWorkmateCopy,
+        onSelect: () => {
+          triggerHaptic('warning')
+          onDelete()
+        },
+        variant: 'destructive'
+      })}
+      {onHideTabBar && (
+        <>
+          <kit.Separator />
+          {renderActionItem(kit, hideTabBarItem(t, onHideTabBar))}
+        </>
+      )}
+    </>
+  )
+}
+
+interface MessagingSessionMenuProps {
+  children: React.ReactNode
+  onDelete: () => void
+  /** Only for a pinned row. */
+  onUnpin?: () => void
+}
+
+/** A tab surface (tile tab or the main tab) passes its strip verbs; sidebar
+ *  rows pass none and get the row menu unchanged. */
+interface MessagingSessionContextMenuProps extends MessagingSessionMenuProps, TabVerbs {}
+
+export function MessagingSessionActionsMenu({ children, onDelete, onUnpin }: MessagingSessionMenuProps) {
+  const { t } = useI18n()
+  const items = (kit: MenuKit) => messagingItems(kit, t, { onDelete, onUnpin })
+
+  return (
+    <ActionsMenu ariaLabel={t.sidebar.row.sessionActions} contentClassName="w-48" items={items}>
+      {children}
+    </ActionsMenu>
+  )
+}
+
+export function MessagingSessionContextMenu({ children, ...actions }: MessagingSessionContextMenuProps) {
+  const { t } = useI18n()
+  const items = (kit: MenuKit) => messagingItems(kit, t, actions)
+
+  return (
+    <ActionsContextMenu ariaLabel={t.sidebar.row.sessionActions} contentClassName="w-48" items={items}>
+      {children}
+    </ActionsContextMenu>
   )
 }
 

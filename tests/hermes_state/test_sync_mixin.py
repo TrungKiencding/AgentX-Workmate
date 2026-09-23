@@ -392,6 +392,62 @@ class TestApply:
         assert bob.get_session("child") is not None
         assert bob.get_session("child")["parent_session_id"] is None
 
+    def test_a_tombstone_on_the_gateway_host_blocks_its_route_and_reimport(
+        self, alice, bob
+    ):
+        """Bob hosts the gateway; alice holds a synced copy without a route.
+
+        Bob's sessions.json can still map the chat to this id, so the delete
+        must leave the same tombstone a local delete would — and an upsert
+        from a device that had not seen it must not bring the row back.
+        """
+        bob.create_session("g1", "telegram", session_key="agent:main:telegram:dm:1")
+        bob.append_message("g1", "user", "hello")
+        _push(bob, alice)
+        assert alice.get_session("g1")["session_key"] is None
+        late = alice.export_document("session", "g1")
+
+        alice.delete_session("g1")
+        _push(alice, bob)
+
+        assert bob.get_session("g1") is None
+        assert bob.is_deleted_gateway_session("g1")
+
+        result = bob.apply_remote_documents([late])
+
+        assert result["skipped"] == 1
+        assert result["applied"] == 0
+        assert bob.get_session("g1") is None
+        assert bob.get_messages("g1") == []
+
+    def test_a_late_upsert_does_not_reimport_a_locally_deleted_gateway_session(
+        self, alice, bob
+    ):
+        bob.create_session("g1", "telegram", session_key="agent:main:telegram:dm:1")
+        bob.append_message("g1", "user", "hello")
+        _push(bob, alice)
+
+        bob.delete_session("g1")
+        alice.set_session_title("g1", "renamed before the delete arrived")
+        result = _push(alice, bob)
+
+        assert result["skipped"] == 1
+        assert result["applied"] == 0
+        assert bob.get_session("g1") is None
+        assert bob.get_messages("g1") == []
+
+    def test_a_tombstone_without_a_route_records_no_gateway_tombstone(
+        self, alice, bob
+    ):
+        _seed_session(alice, messages=("one",))
+        _push(alice, bob)
+
+        alice.delete_session("s1")
+        _push(alice, bob)
+
+        assert bob.get_session("s1") is None
+        assert not bob.is_deleted_gateway_session("s1")
+
     def test_an_unknown_kind_is_skipped_not_rejected(self, bob):
         """``kind`` is opaque end to end so new types need no schema change."""
         result = bob.apply_remote_documents(

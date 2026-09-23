@@ -58,7 +58,13 @@ function assistantMessage(): ThreadMessage {
   } as ThreadMessage
 }
 
-function Harness({ onBranchInNewChat }: { onBranchInNewChat?: (messageId: string) => void }) {
+function Harness({
+  onBranchInNewChat,
+  readOnly = false
+}: {
+  onBranchInNewChat?: (messageId: string) => void
+  readOnly?: boolean
+}) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [userMessage(), assistantMessage()],
     isRunning: false,
@@ -67,7 +73,7 @@ function Harness({ onBranchInNewChat }: { onBranchInNewChat?: (messageId: string
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <Thread onBranchInNewChat={onBranchInNewChat} />
+      <Thread onBranchInNewChat={onBranchInNewChat} readOnly={readOnly} />
     </AssistantRuntimeProvider>
   )
 }
@@ -88,5 +94,16 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
     await screen.findByText('done')
 
     expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
+  })
+
+  it('keeps copy/read-aloud but hides mutating actions in a read-only messaging transcript', async () => {
+    render(<Harness onBranchInNewChat={() => undefined} readOnly />)
+
+    await screen.findByText('done')
+
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'React' })).toBeNull()
   })
 })

@@ -17,6 +17,7 @@ import {
   mergeSessionPage,
   rememberedSessionProfile,
   resolveComposerSessionKey,
+  sessionMatchesStoredId,
   sessionPinId,
   setCurrentCwd,
   setRememberedRoute,
@@ -92,6 +93,25 @@ describe('sessionPinId', () => {
     // After auto-compression the entry surfaces under a fresh tip id but keeps
     // the original root — pinning on the root keeps the pin stable.
     expect(sessionPinId(session({ id: 'tip', _lineage_root_id: 'root' }))).toBe('root')
+  })
+})
+
+describe('sessionMatchesStoredId', () => {
+  // Another process compressed the chat again after it was opened as mid-M:
+  // the listed row now surfaces the new tip, and only its chain names mid-M.
+  const tip = session({ _lineage_ids: ['root-R', 'mid-M', 'tip-T'], _lineage_root_id: 'root-R', id: 'tip-T' })
+
+  it('matches the live id, the lineage root and a middle segment', () => {
+    expect(sessionMatchesStoredId(tip, 'tip-T')).toBe(true)
+    expect(sessionMatchesStoredId(tip, 'root-R')).toBe(true)
+    expect(sessionMatchesStoredId(tip, 'mid-M')).toBe(true)
+    expect(sessionMatchesStoredId(tip, 'other')).toBe(false)
+  })
+
+  it('keeps the composer scope and lineage checks on the root for a middle selection', () => {
+    expect(resolveComposerSessionKey('mid-M', [tip])).toBe('root-R')
+    expect(shouldMigrateComposerScope('mid-M', 'root-R', [tip])).toBe(true)
+    expect(shouldMigrateComposerScope('mid-M', 'root-B', [tip, session({ id: 'root-B' })])).toBe(false)
   })
 })
 

@@ -35,6 +35,8 @@ export interface RealSessionTurn {
 }
 
 export interface RealSessionSpec {
+  /** Surface that owns the durable session (for example `telegram`). */
+  source?: string
   /** Session label. The durable row stores no title, so clients fall back to
    * the preview (the first 60 characters of the first user message). */
   title: string
@@ -108,7 +110,7 @@ export class RealSessionBuilder {
     const created = await this.request<CreatedSession>('session.create', {
       cols: 120,
       cwd: REPO_ROOT,
-      source: 'desktop',
+      source: spec.source || 'desktop',
       title: spec.title,
     })
     const runtimeId = requireString(created, 'session_id')

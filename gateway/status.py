@@ -1045,6 +1045,7 @@ def write_runtime_status(
     platform_state: Any = _UNSET,
     error_code: Any = _UNSET,
     error_message: Any = _UNSET,
+    public_destination: Any = _UNSET,
     served_profiles: Any = _UNSET,
     clear_profile_platforms: bool = False,
 ) -> None:
@@ -1096,6 +1097,8 @@ def write_runtime_status(
             platform_payload["error_code"] = error_code
         if error_message is not _UNSET:
             platform_payload["error_message"] = error_message
+        if public_destination is not _UNSET:
+            platform_payload["public_destination"] = public_destination
         platform_payload["updated_at"] = _utc_now_iso()
         # Writer identity: which PROCESS wrote this entry.  The top-level
         # pid/start_time are refreshed on every write, so they only identify

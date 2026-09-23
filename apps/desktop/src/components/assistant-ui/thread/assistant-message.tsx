@@ -51,12 +51,14 @@ interface MessageActionProps {
    *  was a large slice of per-token script time on long transcripts. */
   getMessageText: () => string
   onBranchInNewChat?: (messageId: string) => void
+  readOnly?: boolean
 }
 
 export const AssistantMessage: FC<{
   onBranchInNewChat?: (messageId: string) => void
   onDismissError?: (messageId: string) => void
-}> = ({ onBranchInNewChat, onDismissError }) => {
+  readOnly?: boolean
+}> = ({ onBranchInNewChat, onDismissError, readOnly = false }) => {
   const messageId = useAuiState(s => s.message.id)
   const messageRuntime = useMessageRuntime()
   const { t } = useI18n()
@@ -147,7 +149,7 @@ export const AssistantMessage: FC<{
       data-role="assistant"
       data-slot="aui_assistant-message-root"
       data-streaming={isRunning ? 'true' : undefined}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={readOnly ? undefined : onDoubleClick}
       ref={enterRef}
     >
       {/* While the reply is still a placeholder the thinking row below carries
@@ -192,7 +194,12 @@ export const AssistantMessage: FC<{
         </MessagePrimitive.Error>
       </div>
       {hasVisibleText && !isInterim && (
-        <AssistantFooter getMessageText={getMessageText} messageId={messageId} onBranchInNewChat={onBranchInNewChat} />
+        <AssistantFooter
+          getMessageText={getMessageText}
+          messageId={messageId}
+          onBranchInNewChat={onBranchInNewChat}
+          readOnly={readOnly}
+        />
       )}
       {/* Last thing in the turn — under the action bar, the way Cursor ends a
           turn on its summary rather than burying it above the controls. */}
@@ -202,7 +209,12 @@ export const AssistantMessage: FC<{
   )
 }
 
-const AssistantActionBar: FC<MessageActionProps> = ({ messageId, getMessageText, onBranchInNewChat }) => {
+const AssistantActionBar: FC<MessageActionProps> = ({
+  messageId,
+  getMessageText,
+  onBranchInNewChat,
+  readOnly = false
+}) => {
   const { t } = useI18n()
   const copy = t.assistant.thread
 
@@ -233,7 +245,7 @@ const AssistantActionBar: FC<MessageActionProps> = ({ messageId, getMessageText,
         data-slot="aui_msg-actions"
       >
         <MessageAge />
-        {onBranchInNewChat && (
+        {!readOnly && onBranchInNewChat && (
           <TooltipIconButton
             onClick={() => {
               triggerHaptic('selection')
@@ -246,11 +258,13 @@ const AssistantActionBar: FC<MessageActionProps> = ({ messageId, getMessageText,
         )}
         <CopyButton appearance="icon" buttonSize="icon" label={copy.copy} text={getMessageText} />
         <ReadAloudButton getText={getMessageText} messageId={messageId} />
-        <ActionBarPrimitive.Reload asChild>
-          <TooltipIconButton onClick={() => triggerHaptic('submit')} tooltip={copy.refresh}>
-            <RefreshCwIcon className="size-3.5" />
-          </TooltipIconButton>
-        </ActionBarPrimitive.Reload>
+        {!readOnly && (
+          <ActionBarPrimitive.Reload asChild>
+            <TooltipIconButton onClick={() => triggerHaptic('submit')} tooltip={copy.refresh}>
+              <RefreshCwIcon className="size-3.5" />
+            </TooltipIconButton>
+          </ActionBarPrimitive.Reload>
+        )}
       </ActionBarPrimitive.Root>
       {/* ONE slot, Slack-style: the picker trigger and the landed reaction are
           the same element, so reacting never shifts layout. Empty → ☺, hidden
@@ -260,7 +274,7 @@ const AssistantActionBar: FC<MessageActionProps> = ({ messageId, getMessageText,
           clicking it reopens the picker to switch or retract. Outside
           ActionBarPrimitive.Root so a landed reaction doesn't ride the bar's
           hover opacity. */}
-      {(reactionsEnabled || shownReactions.length > 0) && (
+      {!readOnly && (reactionsEnabled || shownReactions.length > 0) && (
         <ReactionPicker
           onOpenChange={setPickerOpen}
           onSelect={pickEmoji}
@@ -356,20 +370,22 @@ const MessageAge: FC = () => {
 
 const AssistantFooter: FC<MessageActionProps> = props => (
   <div className="flex min-h-6 flex-col items-end gap-1 pr-(--message-text-indent) pl-(--message-text-indent)">
-    <BranchPickerPrimitive.Root
-      className="inline-flex h-6 items-center gap-1 text-xs text-muted-foreground"
-      hideWhenSingleBranch
-    >
-      <BranchPickerPrimitive.Previous className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-35">
-        <Codicon name="chevron-left" size="0.875rem" />
-      </BranchPickerPrimitive.Previous>
-      <span className="tabular-nums">
-        <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
-      </span>
-      <BranchPickerPrimitive.Next className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-35">
-        <Codicon name="chevron-right" size="0.875rem" />
-      </BranchPickerPrimitive.Next>
-    </BranchPickerPrimitive.Root>
+    {!props.readOnly && (
+      <BranchPickerPrimitive.Root
+        className="inline-flex h-6 items-center gap-1 text-xs text-muted-foreground"
+        hideWhenSingleBranch
+      >
+        <BranchPickerPrimitive.Previous className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-35">
+          <Codicon name="chevron-left" size="0.875rem" />
+        </BranchPickerPrimitive.Previous>
+        <span className="tabular-nums">
+          <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
+        </span>
+        <BranchPickerPrimitive.Next className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-35">
+          <Codicon name="chevron-right" size="0.875rem" />
+        </BranchPickerPrimitive.Next>
+      </BranchPickerPrimitive.Root>
+    )}
     <AssistantActionBar {...props} />
   </div>
 )

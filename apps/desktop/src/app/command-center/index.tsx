@@ -24,6 +24,7 @@ import {
   Wrench
 } from '@/lib/icons'
 import { exportSession } from '@/lib/session-export'
+import { isMessagingSource } from '@/lib/session-source'
 import { fmtDateTime } from '@/lib/time'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
@@ -160,12 +161,18 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
   const debouncedQuery = useDebouncedValue(query.trim(), 180)
 
   const filteredSessions = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) => {
-      const left = a.last_active || a.started_at || 0
-      const right = b.last_active || b.started_at || 0
+    // Messaging-platform transcripts are read-only and live in their own
+    // sidebar sections; one only lands in $sessions because opening it caches
+    // the row. Keep them out, as the sidebar's recents do, so none is listed
+    // here as an ordinary chat with pin/export/delete.
+    const sorted = sessions
+      .filter(session => !isMessagingSource(session.source))
+      .sort((a, b) => {
+        const left = a.last_active || a.started_at || 0
+        const right = b.last_active || b.started_at || 0
 
-      return right - left
-    })
+        return right - left
+      })
 
     const needle = debouncedQuery.toLowerCase()
 

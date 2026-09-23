@@ -2975,6 +2975,15 @@ class BasePlatformAdapter(ABC):
     # site.
     interactive_resume: bool = True
 
+    def public_destination(self) -> Optional[Dict[str, str]]:
+        """Return a user-facing address for reaching this connected adapter.
+
+        Most platforms cannot derive a stable public link from credentials
+        alone. Adapters that can do so expose a small, display-only identity;
+        the gateway persists it with runtime health for desktop clients.
+        """
+        return None
+
     # Back-reference to the running ``GatewayRunner``, injected by
     # ``gateway/run.py`` after the adapter is created. Adapters consume it via
     # ``getattr(self, "gateway_runner", None)`` for cross-platform delivery and
@@ -3405,7 +3414,22 @@ class BasePlatformAdapter(ABC):
         self._fatal_error_code = None
         self._fatal_error_message = None
         self._fatal_error_retryable = True
-        self._write_runtime_status_safe("connected", platform_state="connected", error_code=None, error_message=None)
+        try:
+            public_destination = self.public_destination()
+        except Exception:
+            logger.debug(
+                "Could not resolve public messaging destination for %s",
+                self.platform.value,
+                exc_info=True,
+            )
+            public_destination = None
+        self._write_runtime_status_safe(
+            "connected",
+            platform_state="connected",
+            error_code=None,
+            error_message=None,
+            public_destination=public_destination,
+        )
 
     def _mark_disconnected(self) -> None:
         self._running = False

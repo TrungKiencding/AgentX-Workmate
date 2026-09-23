@@ -28,6 +28,7 @@ interface ThreadProps {
   onCancel?: () => Promise<void> | void
   onDismissError?: (messageId: string) => void
   onRestoreToMessage?: (messageId: string, target?: RestoreMessageTarget) => Promise<void> | void
+  readOnly?: boolean
   sessionId?: string | null
   sessionKey?: string | null
 }
@@ -49,6 +50,7 @@ export const Thread = memo(function Thread({
   onCancel,
   onDismissError,
   onRestoreToMessage,
+  readOnly = false,
   sessionId = null,
   sessionKey
 }: ThreadProps) {
@@ -113,9 +115,14 @@ export const Thread = memo(function Thread({
       AssistantMessage: () => (
         <AssistantMessage
           onBranchInNewChat={
-            hasBranchInNewChat ? messageId => callbacksRef.current.onBranchInNewChat?.(messageId) : undefined
+            !readOnly && hasBranchInNewChat
+              ? messageId => callbacksRef.current.onBranchInNewChat?.(messageId)
+              : undefined
           }
-          onDismissError={hasDismissError ? messageId => callbacksRef.current.onDismissError?.(messageId) : undefined}
+          onDismissError={
+            !readOnly && hasDismissError ? messageId => callbacksRef.current.onDismissError?.(messageId) : undefined
+          }
+          readOnly={readOnly}
         />
       ),
       SystemMessage,
@@ -128,10 +135,11 @@ export const Thread = memo(function Thread({
         <UserMessage
           onCancel={hasCancel ? () => callbacksRef.current.onCancel?.() : undefined}
           onRequestRestoreConfirm={hasRestoreToMessage ? requestRestoreConfirm : undefined}
+          readOnly={readOnly}
         />
       )
     }),
-    [hasBranchInNewChat, hasCancel, hasDismissError, hasRestoreToMessage, requestRestoreConfirm]
+    [hasBranchInNewChat, hasCancel, hasDismissError, hasRestoreToMessage, readOnly, requestRestoreConfirm]
   )
 
   const emptyPlaceholder = intro ? (
@@ -158,15 +166,17 @@ export const Thread = memo(function Thread({
       />
       {loading === 'session' && <CenteredThreadSpinner />}
       <ThreadTimeline />
-      <ConfirmDialog
-        confirmLabel={copy.restoreConfirm}
-        description={copy.restoreBody}
-        destructive
-        onClose={closeRestoreConfirm}
-        onConfirm={confirmRestore}
-        open={Boolean(restoreConfirmTarget)}
-        title={copy.restoreTitle}
-      />
+      {!readOnly && (
+        <ConfirmDialog
+          confirmLabel={copy.restoreConfirm}
+          description={copy.restoreBody}
+          destructive
+          onClose={closeRestoreConfirm}
+          onConfirm={confirmRestore}
+          open={Boolean(restoreConfirmTarget)}
+          title={copy.restoreTitle}
+        />
+      )}
     </div>
   )
 })

@@ -101,6 +101,27 @@ describe('introChipSources', () => {
     expect(chips[0]).toEqual({ kind: 'resume', sessionId: 'newest', title: 'Ship the migration' })
   })
 
+  it('never resumes a read-only messaging transcript, which the sidebar keeps out of recents too', () => {
+    // Opening a Telegram transcript caches its row in $sessions; it must not
+    // become "Resume …" even when it is the newest thing there.
+    const local = session({ id: 'local', last_active: 10, source: 'desktop', title: 'Draft the brief' })
+    const telegram = session({ id: 'tg', last_active: 99, source: 'telegram', title: 'Chat with Lan' })
+    const slack = session({ id: 'sl', last_active: 98, source: ' Slack ', title: 'Standup' })
+
+    expect(introChipSources({ sessions: [local, telegram, slack], showAllProfiles: true })[0]).toEqual({
+      kind: 'resume',
+      sessionId: 'local',
+      title: 'Draft the brief'
+    })
+
+    expect(kinds(introChipSources({ sessions: [telegram, slack], showAllProfiles: true }))).toEqual([
+      'starter',
+      'starter',
+      'starter',
+      'starter'
+    ])
+  })
+
   it('falls back to the preview when a session has no title, and skips it when it has neither', () => {
     expect(
       introChipSources({

@@ -6,6 +6,7 @@ import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
+import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import { Thread } from '@/components/assistant-ui/thread'
@@ -17,6 +18,7 @@ import { $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-s
 import { PromptOverlays } from '@/components/prompt-overlays'
 import { Button } from '@/components/ui/button'
 import { ErrorState } from '@/components/ui/error-state'
+import { TagChip } from '@/components/ui/tag-chip'
 import { TitleMenuTrigger } from '@/components/ui/title-menu-trigger'
 import { type HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -24,6 +26,7 @@ import type { ChatMessage } from '@/lib/chat-messages'
 import { quickModelOptions, sessionTitle } from '@/lib/chat-runtime'
 import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-store-runtime'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import { isMessagingSource, normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
 import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
@@ -37,6 +40,7 @@ import {
   $gatewayState,
   $introPersonality,
   $introSeed,
+  $messagingSessions,
   $resumeExhaustedSessionId,
   $sessions,
   resolveComposerSessionKey,
@@ -176,6 +180,7 @@ interface ChatRuntimeBoundaryProps {
   onEdit: (message: AppendMessage) => Promise<void>
   onReload: (parentId: string | null) => Promise<void>
   onThreadMessagesChange: (messages: readonly ThreadMessage[]) => void
+  readOnly: boolean
   /** Route points at an unloaded session — render empty until resume swaps in
    *  the new transcript, so the previous session's messages don't linger. */
   suppressMessages: boolean
@@ -224,6 +229,7 @@ function ChatRuntimeBoundary({
   onEdit,
   onReload,
   onThreadMessagesChange,
+  readOnly,
   suppressMessages
 }: ChatRuntimeBoundaryProps) {
   const view = useSessionView()
@@ -260,15 +266,57 @@ function ChatRuntimeBoundary({
       // Submission is handled explicitly by ChatBar.
       // Keeping this no-op avoids duplicate prompt.submit calls.
     },
-    onEdit,
-    onCancel: async () => onCancel(),
-    onReload
+    onEdit: readOnly ? async () => undefined : onEdit,
+    onCancel: readOnly ? async () => undefined : async () => onCancel(),
+    onReload: readOnly ? async () => undefined : onReload
   })
 
   return (
     <TranscriptWindowProvider value={transcriptWindow}>
       <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
     </TranscriptWindowProvider>
+  )
+}
+
+function MessagingConversationHeader({
+  platformId,
+  platformName,
+  title
+}: {
+  platformId: string
+  platformName: string
+  title: string
+}) {
+  return (
+    <div className="flex min-h-12 shrink-0 items-center gap-2.5 border-b border-(--ui-stroke-tertiary) bg-(--ui-chat-surface-background) px-5">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{title}</span>
+      <TagChip className="shrink-0" data-testid="messaging-header-tag">
+        <PlatformAvatar
+          className="size-4 rounded-[4px] text-2xs [&_svg]:size-2.5"
+          platformId={platformId}
+          platformName={platformName}
+        />
+        {platformName}
+      </TagChip>
+    </div>
+  )
+}
+
+function MessagingReadOnlyBar({ platformId, platformName }: { platformId: string; platformName: string }) {
+  const { t } = useI18n()
+
+  return (
+    <div
+      className="flex shrink-0 items-center gap-3 border-t border-(--ui-stroke-tertiary) bg-(--ui-chat-surface-background) px-5 py-3"
+      data-testid="messaging-read-only-bar"
+    >
+      <PlatformAvatar platformId={platformId} platformName={platformName} size="md" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-foreground">{t.messaging.viewOnlyTitle(platformName)}</div>
+        <div className="truncate text-xs text-(--ui-text-tertiary)">{t.messaging.viewOnlyHint(platformName)}</div>
+      </div>
+      <TagChip>{t.messaging.viewOnly}</TagChip>
+    </div>
   )
 }
 
@@ -344,7 +392,23 @@ export const ChatView = memo(function ChatView({
   const messagesEmpty = useStore(view.$messagesEmpty)
   const selectedSessionId = useStore(view.$storedId)
   const sessions = useStore($sessions)
+  const messagingSessions = useStore($messagingSessions)
   const resumeExhaustedSessionId = useStore($resumeExhaustedSessionId)
+
+  const externalSession = selectedSessionId
+    ? messagingSessions.find(session => sessionMatchesStoredId(session, selectedSessionId)) ||
+      sessions.find(
+        session => isMessagingSource(session.source) && sessionMatchesStoredId(session, selectedSessionId)
+      ) ||
+      null
+    : null
+
+  const messagingSourceId = isMessagingSource(externalSession?.source)
+    ? normalizeSessionSource(externalSession?.source)
+    : null
+
+  const messagingSourceLabel = messagingSourceId ? sessionSourceLabel(messagingSourceId) || messagingSourceId : null
+  const isMessagingConversation = Boolean(messagingSourceId && externalSession)
 
   // Durable composer/queue scope (lineage root) so auto-compression tip rotation
   // does not wipe an in-progress draft or orphan /queue entries. For the
@@ -441,18 +505,23 @@ export const ChatView = memo(function ChatView({
     !busy &&
     !awaitingResponse
 
-  const showIntro = isPrimary && !isSecondaryWindow() && messagesEmpty && (freshDraftEmpty || routedChatEmpty)
+  const showIntro =
+    !isMessagingConversation &&
+    isPrimary &&
+    !isSecondaryWindow() &&
+    messagesEmpty &&
+    (freshDraftEmpty || routedChatEmpty)
 
   // Hide the composer in the exhausted error state too: there's no live runtime
   // to send to until a retry rebinds one. Watch windows are pure spectators of a
   // subagent run driven elsewhere — no composer, transcript is read-only.
-  const showChatBar = !loadingSession && !resumeExhausted && !isWatchWindow()
+  const showChatBar = !isMessagingConversation && !loadingSession && !resumeExhausted && !isWatchWindow()
   const threadKey = selectedSessionId || activeSessionId || (isRoutedSessionView ? location.pathname : 'new')
 
   const modelOptionsQuery = useQuery<ModelOptionsResponse>({
     queryKey: modelOptionsQueryKey(activeGatewayProfile, activeSessionId),
     queryFn: () => requestModelOptions({ gateway: gateway || undefined, sessionId: activeSessionId }),
-    enabled: gatewayOpen
+    enabled: gatewayOpen && !isMessagingConversation
   })
 
   const quickModels = useMemo(
@@ -530,12 +599,12 @@ export const ChatView = memo(function ChatView({
         className
       )}
       data-chat-surface=""
-      data-composer-target={composerScope.target}
+      data-composer-target={isMessagingConversation ? undefined : composerScope.target}
       data-session-anchor={sessionAnchor}
     >
       {/* Tiles get their chrome from the layout zone (chip strip); the modal
           prompt overlays stay active-session-scoped in the primary surface. */}
-      {isPrimary && (
+      {isPrimary && !isMessagingConversation && (
         <ChatHeader
           activeSessionId={activeSessionId}
           isRoutedSessionView={isRoutedSessionView}
@@ -544,11 +613,18 @@ export const ChatView = memo(function ChatView({
           selectedSessionId={selectedSessionId}
         />
       )}
+      {isMessagingConversation && externalSession && messagingSourceId && messagingSourceLabel && (
+        <MessagingConversationHeader
+          platformId={messagingSourceId}
+          platformName={messagingSourceLabel}
+          title={sessionTitle(externalSession)}
+        />
+      )}
 
       {/* Mounted for the primary AND every tile, each scoped to its own session
           so a tiled/background session's blocking prompt surfaces instead of
           stalling to timeout. */}
-      <PromptOverlays sessionId={activeSessionId} />
+      {!isMessagingConversation && <PromptOverlays sessionId={activeSessionId} />}
 
       <ChatRuntimeBoundary
         busy={busy}
@@ -556,6 +632,7 @@ export const ChatView = memo(function ChatView({
         onEdit={onEdit}
         onReload={onReload}
         onThreadMessagesChange={onThreadMessagesChange}
+        readOnly={isMessagingConversation}
         suppressMessages={routeSessionMismatch}
       >
         <div
@@ -580,6 +657,7 @@ export const ChatView = memo(function ChatView({
             onCancel={haltRun}
             onDismissError={onDismissError}
             onRestoreToMessage={onRestoreToMessage}
+            readOnly={isMessagingConversation}
             sessionId={activeSessionId}
             sessionKey={threadKey}
           />
@@ -601,7 +679,7 @@ export const ChatView = memo(function ChatView({
           {showChatBar && <ScrollToBottomButton />}
           {/* Vibe hearts rise from the composer only when no pet is out (else
               they play on the pet). Fired by the core `reaction` event. */}
-          {!petPresent && (
+          {!isMessagingConversation && !petPresent && (
             <HeartField
               className="absolute inset-x-0 z-30"
               config={COMPOSER_HEART_CONFIG}
@@ -613,8 +691,8 @@ export const ChatView = memo(function ChatView({
           )}
           {/* A session drag hovering an EDGE hands the visual to the zone
               target; the link overlay shows only for the center region. */}
-          <ChatDropOverlay kind={overlayKind} />
-          <ChatSwapOverlay profile={gatewaySwapTarget} />
+          <ChatDropOverlay kind={isMessagingConversation ? null : overlayKind} />
+          {!isMessagingConversation && <ChatSwapOverlay profile={gatewaySwapTarget} />}
         </div>
         {/* Composer renders OUTSIDE the contain:[layout paint] wrapper above:
             that wrapper is a containing block for — and clips — position:fixed
@@ -651,6 +729,9 @@ export const ChatView = memo(function ChatView({
               state={chatBarState}
             />
           </Suspense>
+        )}
+        {isMessagingConversation && messagingSourceId && messagingSourceLabel && (
+          <MessagingReadOnlyBar platformId={messagingSourceId} platformName={messagingSourceLabel} />
         )}
       </ChatRuntimeBoundary>
     </div>

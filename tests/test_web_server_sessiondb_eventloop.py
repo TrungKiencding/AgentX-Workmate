@@ -94,9 +94,18 @@ def test_bulk_delete_sessiondb_work_runs_off_event_loop(monkeypatch):
     db_modes: list[bool] = []
 
     class _DB:
-        def delete_sessions(self, ids):
+        db_path = Path("state.db")
+
+        def get_session(self, session_id):
+            # Plain rows: no session_key or messaging source, so no lineage
+            # expansion and the ids reach delete_sessions unchanged.
+            db_threads.append(threading.get_ident())
+            return None
+
+        def delete_sessions(self, ids, sessions_dir=None):
             db_threads.append(threading.get_ident())
             assert ids == ["one", "two"]
+            assert sessions_dir == Path("sessions")
             return 2
 
         def close(self):

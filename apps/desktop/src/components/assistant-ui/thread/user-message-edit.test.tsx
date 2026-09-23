@@ -96,7 +96,7 @@ function assistantMessage(): ThreadMessage {
 }
 
 // Mirrors chat/index.tsx: incremental runtime + messageRepository + onEdit.
-function IncrementalHarness({ onEdit }: { onEdit: () => Promise<void> }) {
+function IncrementalHarness({ onEdit, readOnly = false }: { onEdit: () => Promise<void>; readOnly?: boolean }) {
   const repository = ExportedMessageRepository.fromArray([userMessage(), assistantMessage()])
 
   const runtime = useIncrementalExternalStoreRuntime<ThreadMessage>({
@@ -111,7 +111,7 @@ function IncrementalHarness({ onEdit }: { onEdit: () => Promise<void> }) {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <Thread />
+      <Thread readOnly={readOnly} />
     </AssistantRuntimeProvider>
   )
 }
@@ -182,5 +182,15 @@ describe('click-to-edit user message', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-slot="aui_edit-composer-root"]')).toBeTruthy()
     })
+  })
+
+  it('never exposes edit mode in a read-only messaging transcript', async () => {
+    const { container } = render(<IncrementalHarness onEdit={async () => {}} readOnly />)
+
+    const bubble = await screen.findByRole('button', { name: 'edit me please' })
+    fireEvent.click(bubble)
+
+    expect(screen.queryByRole('button', { name: 'Edit message' })).toBeNull()
+    expect(container.querySelector('[data-slot="aui_edit-composer-root"]')).toBeNull()
   })
 })

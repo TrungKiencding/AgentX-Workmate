@@ -172,6 +172,24 @@ describe('refreshSessions identity + loading hygiene', () => {
     expect($sessions.get().map(s => s.id)).toEqual(['a'])
   })
 
+  it('keeps a deleted Telegram row out of both messaging refresh paths', async () => {
+    removed.ids = new Set(['deleted'])
+    const telegramRows = [row('deleted', { source: 'telegram' }), row('kept', { source: 'telegram' })]
+    listSidebarSessions.mockResolvedValue(sidebar({ sessions: [] }, [], telegramRows))
+    listAllProfileSessions.mockResolvedValue({ sessions: telegramRows })
+    const { result } = renderHook(() => useSessionListActions({ profileScope: 'default' }))
+
+    await act(async () => {
+      await result.current.refreshSessions()
+    })
+    expect($messagingSessions.get().map(s => s.id)).toEqual(['kept'])
+
+    await act(async () => {
+      await result.current.refreshMessagingSessions()
+    })
+    expect($messagingSessions.get().map(s => s.id)).toEqual(['kept'])
+  })
+
   it('does not flicker the loading flag over a list that came back empty', async () => {
     // A new account has no conversations, so every background refresh returns
     // an empty page — and sessions.changed fires one each time second-brain

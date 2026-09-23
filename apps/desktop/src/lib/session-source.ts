@@ -1,28 +1,41 @@
 import { normalize } from '@/lib/text'
 
 const SOURCE_LABELS: Record<string, string> = {
+  a2a: 'A2A',
   api_server: 'API',
   bluebubbles: 'iMessage',
   cli: 'CLI',
   codex: 'Codex',
   desktop: 'Desktop',
+  dingtalk: 'DingTalk',
   discord: 'Discord',
   email: 'Email',
   gateway: 'Gateway',
+  google_chat: 'Google Chat',
+  homeassistant: 'Home Assistant',
+  irc: 'IRC',
   kanban: 'Kanban',
+  line: 'LINE',
   local: 'Local',
   matrix: 'Matrix',
   mattermost: 'Mattermost',
+  msgraph_webhook: 'Microsoft Graph',
+  ntfy: 'ntfy',
   photon: 'Photon',
   qqbot: 'QQ',
   signal: 'Signal',
+  simplex: 'SimpleX',
   slack: 'Slack',
   sms: 'SMS',
+  teams: 'Microsoft Teams',
   telegram: 'Telegram',
   tui: 'TUI',
   webhook: 'Webhook',
+  wecom: 'WeCom',
+  wecom_callback: 'WeCom (app)',
   weixin: 'WeChat',
   whatsapp: 'WhatsApp',
+  whatsapp_cloud: 'WhatsApp Cloud',
   yuanbao: 'Yuanbao'
 }
 
@@ -47,8 +60,13 @@ export const LOCAL_SESSION_SOURCE_IDS = ['cli', 'codex', 'desktop', 'gateway', '
 const LOCAL_SOURCE_IDS = new Set(LOCAL_SESSION_SOURCE_IDS)
 
 // External messaging platforms that each get their own self-managed sidebar
-// section (fetched separately from local recents). Mirrors the gateway platform
-// adapters; keep in sync with PLATFORM_ICONS in app/messaging/platform-icon.tsx.
+// section (fetched separately from local recents) and a read-only transcript.
+// Must match MESSAGING_SESSION_SOURCE_VALUES in gateway/config.py (every
+// gateway Platform except local, plus every bundled plugin platform);
+// tests/gateway/test_messaging_session_sources.py parses this array, so keep it
+// one single-quoted id per line. New ids also want a SOURCE_LABELS entry above
+// and, when a glyph exists, a PLATFORM_ICONS entry in
+// app/messaging/platform-icon.tsx (without one the avatar is a letter).
 export const MESSAGING_SESSION_SOURCE_IDS = [
   'telegram',
   'discord',
@@ -69,7 +87,20 @@ export const MESSAGING_SESSION_SOURCE_IDS = [
   'qqbot',
   'yuanbao',
   'dingtalk',
-  'feishu'
+  'feishu',
+  'whatsapp_cloud',
+  'msgraph_webhook',
+  'wecom_callback',
+  'relay',
+  'a2a',
+  'buzz',
+  'google_chat',
+  'irc',
+  'line',
+  'ntfy',
+  'raft',
+  'simplex',
+  'teams'
 ]
 const MESSAGING_SOURCE_IDS = new Set(MESSAGING_SESSION_SOURCE_IDS)
 

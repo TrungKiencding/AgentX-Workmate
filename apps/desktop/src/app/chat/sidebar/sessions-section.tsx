@@ -12,7 +12,7 @@ import { flattenSessionsWithBranches } from '@/lib/session-branch-tree'
 import { groupEntriesByRecency, type SidebarListRow, toSessionRows } from '@/lib/session-date-groups'
 import { sessionBucketLabel } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { sessionPinId } from '@/store/session'
+import { sessionMatchesStoredId, sessionPinId } from '@/store/session'
 
 import { SidebarDateDivider, SidebarSectionMeta } from './chrome'
 import {
@@ -230,7 +230,7 @@ export function SidebarSessionsSection({
       const rowProps = {
         branchStem,
         isPinned: pinned,
-        isSelected: session.id === activeSessionId,
+        isSelected: !!activeSessionId && sessionMatchesStoredId(session, activeSessionId),
         isWorking: workingSessionIdSet.has(session.id),
         onArchive: () => onArchiveSession(session.id),
         onBranch: onBranchSession ? () => onBranchSession(session.id, session.profile) : undefined,

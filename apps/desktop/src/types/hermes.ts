@@ -218,6 +218,12 @@ export interface MessagingHomeChannel {
   thread_id?: string
 }
 
+export interface MessagingPlatformDestination {
+  kind?: string
+  label: string
+  url?: null | string
+}
+
 export interface MessagingPlatformInfo {
   configured: boolean
   description: string
@@ -228,6 +234,7 @@ export interface MessagingPlatformInfo {
   error_message?: null | string
   gateway_running: boolean
   home_channel?: MessagingHomeChannel | null
+  destination?: MessagingPlatformDestination | null
   id: string
   name: string
   state?: null | string
@@ -476,6 +483,11 @@ export interface SessionInfo {
   git_repo_root?: null | string
   ended_at: null | number
   id: string
+  /** Every stored id of the compression chain, ordered root -> tip, when this
+   *  entry belongs to one. A selection opened on a middle segment keeps that id
+   *  after the chain rotates past it; matching against this list keeps it
+   *  pointed at the same conversation. Older backends omit it. */
+  _lineage_ids?: null | string[]
   /** Original root id of a compression chain, when this entry is a projected
    *  continuation tip. Stable across compressions — used as the durable id for
    *  pins so a pinned conversation survives auto-compression. */

@@ -650,8 +650,10 @@ export function getSessionMessages(id: string, profile?: string | null): Promise
   })
 }
 
-export function deleteSession(id: string, profile?: string | null): Promise<{ ok: boolean }> {
-  return window.agentxDesktop.api<{ ok: boolean }>({
+// `deleted_ids` lists every stored id the backend removed (a platform
+// conversation takes its whole compression chain). Older backends omit it.
+export function deleteSession(id: string, profile?: string | null): Promise<{ deleted_ids?: string[]; ok: boolean }> {
+  return window.agentxDesktop.api<{ deleted_ids?: string[]; ok: boolean }>({
     ...(profile ? { profile } : {}),
     path: `/api/sessions/${encodeURIComponent(id)}`,
     method: 'DELETE'
@@ -1156,6 +1158,7 @@ export function grantComputerUsePermissions(): Promise<ActionResponse> {
 
 export function getMessagingPlatforms(): Promise<MessagingPlatformsResponse> {
   return window.agentxDesktop.api<MessagingPlatformsResponse>({
+    ...profileScoped(),
     path: '/api/messaging/platforms'
   })
 }
@@ -1165,6 +1168,7 @@ export function updateMessagingPlatform(
   body: MessagingPlatformUpdate
 ): Promise<{ ok: boolean; platform: string }> {
   return window.agentxDesktop.api<{ ok: boolean; platform: string }>({
+    ...profileScoped(),
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}`,
     method: 'PUT',
     body
@@ -1173,6 +1177,7 @@ export function updateMessagingPlatform(
 
 export function testMessagingPlatform(platformId: string): Promise<MessagingPlatformTestResponse> {
   return window.agentxDesktop.api<MessagingPlatformTestResponse>({
+    ...profileScoped(),
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}/test`,
     method: 'POST'
   })

@@ -8390,6 +8390,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         platform_state: Optional[str] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
+        public_destination=None,
     ) -> None:
         try:
             from gateway.status import write_runtime_status
@@ -8398,9 +8399,21 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 platform_state=platform_state,
                 error_code=error_code,
                 error_message=error_message,
+                public_destination=public_destination,
             )
         except Exception:
             pass
+
+    @staticmethod
+    def _adapter_public_destination(adapter):
+        """Read optional adapter identity without making connection success fragile."""
+        try:
+            resolve = getattr(adapter, "public_destination", None)
+            destination = resolve() if callable(resolve) else None
+            return destination if isinstance(destination, dict) else None
+        except Exception:
+            logger.debug("Could not resolve public messaging destination", exc_info=True)
+            return None
 
     # ------------------------------------------------------------------
     # Per-platform circuit breaker (pause/resume) — used by the reconnect
@@ -11896,6 +11909,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                         platform_state="connected",
                         error_code=None,
                         error_message=None,
+                        public_destination=self._adapter_public_destination(adapter),
                     )
                     logger.info("✓ %s connected", platform.value)
                 else:
@@ -13420,6 +13434,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                             platform_state="connected",
                             error_code=None,
                             error_message=None,
+                            public_destination=self._adapter_public_destination(adapter),
                         )
                         logger.info("✓ %s reconnected successfully", platform.value)
 

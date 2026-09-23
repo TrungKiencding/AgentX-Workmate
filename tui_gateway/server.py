@@ -3,6 +3,7 @@ import concurrent.futures
 import contextlib
 import contextvars
 import copy
+import functools
 import hashlib
 import inspect
 import json
@@ -11803,7 +11804,7 @@ def _discover_repos_payload(
 
     # Session-derived roots (common repo root, folding worktrees; cached) +
     # backfill the column so persisted git_repo_root matches the tree grouping.
-    cwd_rows = list(db.distinct_session_cwds())
+    cwd_rows = list(db.distinct_session_cwds(exclude_sources=list(_project_tree_messaging_sources())))
     # Warm the per-cwd git probes in parallel so a cold first paint doesn't
     # serialize one subprocess per distinct cwd before this loop reads the cache.
     git_probe.warm_roots(str(r.get("cwd") or "") for r in cwd_rows)
@@ -11870,11 +11871,29 @@ def _discover_repos_payload(
     return out
 
 
-# Sources excluded from the project tree: cron runs, and kanban dispatcher
-# workers, are not user conversations. Subagent/compression children are
-# already dropped by list_sessions_rich(include_children=False); cron has its
-# own section, and kanban runs are read on the board.
-_PROJECT_TREE_EXCLUDED_SOURCES = ["cron", "kanban"]
+@functools.cache
+def _project_tree_messaging_sources() -> tuple[str, ...]:
+    """Platform chats have their own sidebar sections, so they stay out of both
+    project sessions and session-derived repo discovery, even when a gateway
+    chat has a cwd. The shared list matches the desktop's messaging sources;
+    custom sources remain eligible for project grouping. Sorted so the SQL
+    params stay stable; imported lazily like the file's other gateway imports.
+    """
+    from gateway.config import MESSAGING_SESSION_SOURCE_VALUES
+
+    return tuple(sorted(MESSAGING_SESSION_SOURCE_VALUES))
+
+
+def _project_tree_excluded_sources() -> list[str]:
+    """Sources excluded from project conversation rows.
+
+    Cron runs and kanban dispatcher workers are not user conversations: cron has
+    its own section, and kanban runs are read on the board. Subagent/compression
+    children are already dropped by list_sessions_rich(include_children=False).
+    Repo discovery excludes only messaging sources, so cron and kanban cwds still
+    count as workspace signals there.
+    """
+    return ["cron", "kanban", *_project_tree_messaging_sources()]
 
 
 def _project_tree_row(r: dict) -> dict:
@@ -11926,7 +11945,7 @@ def _project_tree_inputs(
         order_by_last_active=True,
         min_message_count=1,
         include_children=False,
-        exclude_sources=_PROJECT_TREE_EXCLUDED_SOURCES,
+        exclude_sources=_project_tree_excluded_sources(),
         include_archived=False,
         # `_project_tree_row` keeps ~18 fields and drops the rest, so selecting
         # the system-prompt blob only to discard it costs tens of MB of B-tree

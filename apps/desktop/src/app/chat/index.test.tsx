@@ -16,18 +16,21 @@ import {
   $freshDraftReady,
   $gatewayState,
   $messages,
+  $messagingSessions,
   $selectedStoredSessionId,
   $sessions
 } from '@/store/session'
 
 const threadRenderCount = vi.hoisted(() => ({ current: 0 }))
+const lastThreadProps = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 
 vi.mock('@/components/assistant-ui/thread', async () => {
   const React = await import('react')
 
   return {
-    Thread: () => {
+    Thread: (props: Record<string, unknown>) => {
       threadRenderCount.current += 1
+      lastThreadProps.current = props
 
       return React.createElement('div', { 'data-testid': 'thread' })
     }
@@ -40,7 +43,9 @@ vi.mock('@/components/chat-watermark', async () => {
   return { ChatWatermark: () => React.createElement('div', { 'data-testid': 'chat-watermark' }) }
 })
 
-vi.mock('@/components/prompt-overlays', () => ({ PromptOverlays: () => null }))
+vi.mock('@/components/prompt-overlays', () => ({
+  PromptOverlays: () => <div data-testid="prompt-overlays" />
+}))
 vi.mock('@/components/chat/vibe-hearts', () => ({ COMPOSER_HEART_CONFIG: {}, HeartField: () => null }))
 vi.mock('@/lib/model-options', () => ({
   modelOptionsQueryKey: (...parts: unknown[]) => ['model-options', ...parts],
@@ -48,7 +53,7 @@ vi.mock('@/lib/model-options', () => ({
 }))
 vi.mock('./chat-drop-overlay', () => ({ ChatDropOverlay: () => null }))
 vi.mock('./chat-swap-overlay', () => ({ ChatSwapOverlay: () => null }))
-vi.mock('./composer', () => ({ ChatBar: () => null, ChatBarFallback: () => null }))
+vi.mock('./composer', () => ({ ChatBar: () => <div data-testid="chat-bar" />, ChatBarFallback: () => null }))
 vi.mock('./hooks/use-file-drop-zone', () => ({
   useFileDropZone: () => ({ dragKind: null, dropHandlers: {} })
 }))
@@ -74,6 +79,7 @@ function assistantMessage(id: string, text: string): ChatMessage {
 describe('ChatView render isolation', () => {
   beforeEach(() => {
     threadRenderCount.current = 0
+    lastThreadProps.current = {}
     $activeSessionId.set('runtime-1')
     $awaitingResponse.set(false)
     $busy.set(false)
@@ -84,6 +90,7 @@ describe('ChatView render isolation', () => {
     $freshDraftReady.set(false)
     $gatewayState.set('closed')
     $messages.set([assistantMessage('assistant-1', 'Stable historical answer')])
+    $messagingSessions.set([])
     $selectedStoredSessionId.set('stored-1')
     $sessions.set([{ id: 'stored-1', message_count: 1, title: 'Stable chat' } as never])
   })
@@ -101,6 +108,7 @@ describe('ChatView render isolation', () => {
     $freshDraftReady.set(false)
     $gatewayState.set('idle')
     $messages.set([])
+    $messagingSessions.set([])
     $selectedStoredSessionId.set(null)
     $sessions.set([])
   })
@@ -160,5 +168,119 @@ describe('ChatView render isolation', () => {
     // memo(ChatView) with stable props must absorb the parent's idle tick —
     // the transcript (Thread) must not re-render. This is PR #38470's contract.
     expect(threadRenderCount.current).toBe(1)
+  })
+
+  it('renders messaging conversations as a branded read-only live transcript', () => {
+    $sessions.set([])
+    $selectedStoredSessionId.set('telegram-session')
+    $activeSessionId.set('telegram-session')
+    $messagingSessions.set([
+      {
+        id: 'telegram-session',
+        source: 'telegram',
+        title: 'Design review with Linh',
+        message_count: 2,
+        last_active: 1,
+        started_at: 1
+      } as never
+    ])
+
+    const props = {
+      gateway: null,
+      onAddContextRef: vi.fn(),
+      onAddUrl: vi.fn(),
+      onAttachDroppedItems: vi.fn(),
+      onAttachImageBlob: vi.fn(),
+      onCancel: vi.fn(),
+      onDeleteSelectedSession: vi.fn(),
+      onEdit: vi.fn(),
+      onPasteClipboardImage: vi.fn(),
+      onPickFiles: vi.fn(),
+      onPickFolders: vi.fn(),
+      onPickImages: vi.fn(),
+      onReload: vi.fn(),
+      onRemoveAttachment: vi.fn(),
+      onRetryResume: vi.fn(),
+      onSteer: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadMessagesChange: vi.fn(),
+      onToggleSelectedPin: vi.fn()
+    }
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/telegram-session']}>
+          <ChatView {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByText('Design review with Linh')).toBeTruthy()
+    expect(screen.getAllByText('Telegram').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('messaging-read-only-bar')).toBeTruthy()
+    expect(screen.queryByTestId('chat-bar')).toBeNull()
+    expect(screen.queryByTestId('prompt-overlays')).toBeNull()
+    expect(lastThreadProps.current.readOnly).toBe(true)
+  })
+
+  it('stays read-only when the gateway compressed the transcript past the segment it was opened as', () => {
+    // Opened as mid-M, then compressed again by the messaging gateway: the
+    // listed row is now tip-T and only its chain still names mid-M. No cached
+    // mid-M row is left in $sessions (a tile, or after a list wipe).
+    $sessions.set([])
+    $selectedStoredSessionId.set('mid-M')
+    $activeSessionId.set('rt-telegram')
+    $messagingSessions.set([
+      {
+        _lineage_ids: ['root-R', 'mid-M', 'tip-T'],
+        _lineage_root_id: 'root-R',
+        id: 'tip-T',
+        source: 'telegram',
+        title: 'Design review, continued',
+        message_count: 4,
+        last_active: 2,
+        started_at: 1
+      } as never
+    ])
+
+    const props = {
+      gateway: null,
+      onAddContextRef: vi.fn(),
+      onAddUrl: vi.fn(),
+      onAttachDroppedItems: vi.fn(),
+      onAttachImageBlob: vi.fn(),
+      onCancel: vi.fn(),
+      onDeleteSelectedSession: vi.fn(),
+      onEdit: vi.fn(),
+      onPasteClipboardImage: vi.fn(),
+      onPickFiles: vi.fn(),
+      onPickFolders: vi.fn(),
+      onPickImages: vi.fn(),
+      onReload: vi.fn(),
+      onRemoveAttachment: vi.fn(),
+      onRetryResume: vi.fn(),
+      onSteer: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadMessagesChange: vi.fn(),
+      onToggleSelectedPin: vi.fn()
+    }
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/mid-M']}>
+          <ChatView {...props} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByText('Design review, continued')).toBeTruthy()
+    expect(screen.getByTestId('messaging-read-only-bar')).toBeTruthy()
+    expect(screen.queryByTestId('chat-bar')).toBeNull()
+    expect(screen.queryByTestId('prompt-overlays')).toBeNull()
+    expect(lastThreadProps.current.readOnly).toBe(true)
   })
 })

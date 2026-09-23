@@ -337,6 +337,12 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (system_prompt_hash) REFERENCES system_prompts(hash)
 );
 
+-- Explicitly deleted gateway sessions must never be repaired from a stale
+-- sessions.json routing entry after their transcript is removed.
+CREATE TABLE IF NOT EXISTS deleted_gateway_sessions (
+    session_id TEXT PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL REFERENCES sessions(id),

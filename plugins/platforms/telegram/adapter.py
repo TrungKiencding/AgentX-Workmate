@@ -8266,6 +8266,17 @@ class TelegramAdapter(BasePlatformAdapter):
             return observed
         return (getattr(self._bot, "username", None) or "").lstrip("@").lower()
 
+    def public_destination(self) -> Optional[Dict[str, str]]:
+        """Public Telegram bot identity shown by connected-channel surfaces."""
+        username = self._current_bot_username()
+        if not username:
+            return None
+        return {
+            "kind": "bot",
+            "label": f"@{username}",
+            "url": f"https://t.me/{username}",
+        }
+
     def _note_bot_username(self, username: Optional[str]) -> None:
         """Record the bot's current @username, logging real renames."""
         handle = (username or "").lstrip("@").lower()

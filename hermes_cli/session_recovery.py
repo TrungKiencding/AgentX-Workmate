@@ -37,6 +37,11 @@ _CANONICAL_TABLES = (
     "session_model_usage",
     "compression_locks",
     "gateway_routing",
+    # User intent, not derived state: a recovered gateway_routing entry can
+    # still name a transcript the user deleted, and only these tombstones
+    # stop the gateway from recreating it. Stores that predate the table
+    # copy as "missing", like any other table the source lacks.
+    "deleted_gateway_sessions",
     "async_delegations",
 )
 
