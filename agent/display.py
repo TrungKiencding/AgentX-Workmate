@@ -507,11 +507,13 @@ def build_tool_preview(tool_name: str, args: dict, max_len: int | None = None) -
         return " ".join(parts) if parts else None
 
     if tool_name == "todo":
+        from tools.todo_tool import is_status_update
+
         todos_arg = args.get("todos")
         merge = args.get("merge", False)
         if todos_arg is None:
             return "reading task list"
-        elif merge:
+        elif merge or is_status_update(todos_arg):
             return f"updating {len(todos_arg)} task(s)"
         else:
             return f"planning {len(todos_arg)} task(s)"
@@ -1469,6 +1471,8 @@ def _get_cute_tool_message(
     if tool_name == "browser_vision":
         return _wrap(f"┊ 👁️  vision    analyzing page  {dur}")
     if tool_name == "todo":
+        from tools.todo_tool import is_status_update
+
         todos_arg = args.get("todos")
         merge = args.get("merge", False)
         # Parse result for completion progress
@@ -1487,7 +1491,7 @@ def _get_cute_tool_message(
             if total > 0:
                 return _wrap(f"┊ 📋 plan      {done}/{total} task(s)  {dur}")
             return _wrap(f"┊ 📋 plan      reading tasks  {dur}")
-        elif merge:
+        elif merge or is_status_update(todos_arg):
             if total > 0 and done > 0:
                 return _wrap(f"┊ 📋 plan      update {done}/{total} ✓  {dur}")
             return _wrap(f"┊ 📋 plan      update {len(todos_arg)} task(s)  {dur}")

@@ -94,6 +94,16 @@ class TestTodoUpdate:
 
 
 
+    def test_status_only_write_without_merge_reads_as_update(self):
+        """Items with no content only flip statuses — label it an update
+        even when the model left out merge=true."""
+        msg = get_cute_tool_message("todo",
+                                    {"todos": [{"id": "a", "status": "completed"},
+                                               {"id": "b", "status": "in_progress"}]},
+                                    0.4,
+                                    result=_todo_result(3, 1))
+        assert "update 1/3" in msg
+
     def test_update_total_not_in_summary(self):
         """Result summary missing total key."""
         msg = get_cute_tool_message("todo",

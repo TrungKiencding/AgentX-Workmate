@@ -123,6 +123,154 @@ class TestMergeMode:
         ]
 
 
+class TestStatusOnlyUpdates:
+    """A write that carries no content only flips statuses — some models send
+    it as `{id, status}` items with no `merge` flag. It must never wipe the
+    descriptions or drop the items it didn't mention."""
+
+    PLAN = [
+        {"id": "1", "content": "Shrink the CTA", "status": "in_progress"},
+        {"id": "2", "content": "Drop the nav item", "status": "pending"},
+        {"id": "3", "content": "Scroll spy", "status": "pending"},
+    ]
+
+    def _store(self):
+        store = TodoStore()
+        store.write(self.PLAN)
+        return store
+
+    def test_status_only_list_without_merge_keeps_descriptions(self):
+        store = self._store()
+        result = json.loads(todo_tool(
+            todos=[
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "completed"},
+                {"id": "3", "status": "completed"},
+            ],
+            store=store,
+        ))
+        assert result["todos"] == [
+            {"id": "1", "content": "Shrink the CTA", "status": "completed"},
+            {"id": "2", "content": "Drop the nav item", "status": "completed"},
+            {"id": "3", "content": "Scroll spy", "status": "completed"},
+        ]
+
+    def test_partial_status_update_without_merge_keeps_other_items(self):
+        store = self._store()
+        result = json.loads(todo_tool(
+            todos=[
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "in_progress"},
+            ],
+            store=store,
+        ))
+        assert result["todos"] == [
+            {"id": "1", "content": "Shrink the CTA", "status": "completed"},
+            {"id": "2", "content": "Drop the nav item", "status": "in_progress"},
+            {"id": "3", "content": "Scroll spy", "status": "pending"},
+        ]
+        assert result["summary"]["completed"] == 1
+
+    def test_null_content_counts_as_missing(self):
+        store = self._store()
+        result = store.write([
+            {"id": "1", "content": None, "status": "completed"},
+            {"id": "2", "content": "Drop the nav item", "status": "in_progress"},
+        ])
+        assert result[0] == {
+            "id": "1", "content": "Shrink the CTA", "status": "completed",
+        }
+
+    def test_replace_keeps_description_of_listed_item_sent_without_one(self):
+        store = self._store()
+        result = store.write([
+            {"id": "1", "status": "completed"},
+            {"id": "4", "content": "Revised step", "status": "in_progress"},
+        ])
+        assert result == [
+            {"id": "1", "content": "Shrink the CTA", "status": "completed"},
+            {"id": "4", "content": "Revised step", "status": "in_progress"},
+        ]
+
+    def test_empty_list_still_clears(self):
+        store = self._store()
+        result = json.loads(todo_tool(todos=[], store=store))
+        assert result["todos"] == []
+
+
+class TestUndescribedNewItems:
+    """A new item with no content has nothing to show but a placeholder, so
+    the call is refused (and changes nothing) instead of storing one."""
+
+    def test_new_item_without_content_is_rejected(self):
+        store = TodoStore()
+        store.write([{"id": "1", "content": "Shrink the CTA", "status": "pending"}])
+        before = store.read()
+        result = json.loads(todo_tool(
+            todos=[
+                {"id": "1", "status": "completed"},
+                {"id": "2", "status": "in_progress"},
+            ],
+            merge=True,
+            store=store,
+        ))
+        assert "error" in result
+        assert "'2'" in result["error"]
+        assert "'1'" not in result["error"]
+        assert store.read() == before
+
+    def test_status_only_write_to_empty_list_is_rejected(self):
+        store = TodoStore()
+        result = json.loads(todo_tool(
+            todos=[{"id": "1", "status": "completed"}],
+            store=store,
+        ))
+        assert "error" in result
+        assert store.read() == []
+
+    def test_described_new_item_is_accepted(self):
+        store = TodoStore()
+        result = json.loads(todo_tool(
+            todos=[{"id": "1", "content": "Shrink the CTA", "status": "pending"}],
+            store=store,
+        ))
+        assert "error" not in result
+        assert result["todos"][0]["content"] == "Shrink the CTA"
+
+
+class TestNextStepReminder:
+    """While an item is open the result says what the list needs next, so a
+    model that read the schema once still ticks items off as it goes."""
+
+    def _write(self, statuses):
+        store = TodoStore()
+        return json.loads(todo_tool(
+            todos=[
+                {"id": str(i), "content": f"step {i}", "status": status}
+                for i, status in enumerate(statuses, 1)
+            ],
+            store=store,
+        ))
+
+    def test_active_item_with_more_to_come(self):
+        result = self._write(["completed", "in_progress", "pending"])
+        assert result["next"].startswith("Item 2 is in progress.")
+        assert "next item in_progress" in result["next"]
+
+    def test_active_last_item_only_needs_completing(self):
+        result = self._write(["completed", "in_progress"])
+        assert result["next"].startswith("Item 2 is in progress.")
+        assert "next item" not in result["next"]
+
+    def test_pending_items_without_an_active_one(self):
+        result = self._write(["completed", "pending"])
+        assert result["next"] == "Mark the next item in_progress before you start on it."
+
+    def test_finished_list_has_no_reminder(self):
+        result = self._write(["completed", "cancelled"])
+        assert "next" not in result
+
+
 class TestTodoToolFunction:
     def test_read_mode(self):
         store = TodoStore()
