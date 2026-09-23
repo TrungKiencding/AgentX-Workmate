@@ -165,6 +165,15 @@ class HubClient:
     def me(self, *, bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, Any]:
         return self._request("GET", "/v1/me", bearer=bearer, device_id=device_id, device_name=device_name)
 
+    # -- what the hub accepts ------------------------------------------------
+
+    def max_bundle_bytes(self, *, bearer: str = "") -> Optional[int]:
+        """The unpacked size the hub accepts for one skill (``limits.max_bundle_bytes``
+        of ``/.well-known/agentx-hub.json``), or ``None`` from a hub that does not say."""
+        body = self._request("GET", "/.well-known/agentx-hub.json", bearer=bearer)
+        value = ((body or {}).get("limits") or {}).get("max_bundle_bytes")
+        return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
     # -- the change feed ---------------------------------------------------
 
     def changes(
