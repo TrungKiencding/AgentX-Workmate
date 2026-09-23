@@ -189,6 +189,7 @@ export function FloatingPet() {
         // re-sent over the WebSocket on every backstop refresh.
         const held = $petInfo.get()
         const knownRevision = held.enabled && held.spritesheetBase64 ? held.spritesheetRevision : undefined
+
         const next = await requestGateway<PetInfo & { spritesheetUnchanged?: boolean }>('pet.info', {
           knownRevision,
           profile: petProfile()

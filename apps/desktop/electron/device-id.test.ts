@@ -69,10 +69,7 @@ describe('parseDeviceRecord', () => {
   })
 
   test('rejects an uppercase uuid so one machine cannot look like two', () => {
-    assert.equal(
-      parseDeviceRecord('{"id": "6D1B0A3E-1F2C-4B8A-9C7D-5E4F3A2B1C0D"}'),
-      null
-    )
+    assert.equal(parseDeviceRecord('{"id": "6D1B0A3E-1F2C-4B8A-9C7D-5E4F3A2B1C0D"}'), null)
   })
 })
 
@@ -216,10 +213,7 @@ describe('deviceHeaders', () => {
     // The service answers a MISSING device header with a clear 400. A
     // malformed one is a case nobody has thought about.
     assert.deepEqual(deviceHeaders(null), {})
-    assert.deepEqual(
-      deviceHeaders({ id: 'not-a-uuid', name: 'x', createdAt: '' }),
-      {}
-    )
+    assert.deepEqual(deviceHeaders({ id: 'not-a-uuid', name: 'x', createdAt: '' }), {})
   })
 
   test('re-sanitizes the stored name on the way out', () => {

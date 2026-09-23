@@ -50,9 +50,7 @@ export function describeLastSeen(iso: string, copy: AccountCopy, now = Date.now(
 function describeDevice(device: DesktopDevice, copy: AccountCopy): string {
   const parts = [device.platform, device.app_version].filter(Boolean)
 
-  const when = device.revoked
-    ? copy.deviceRevoked
-    : describeLastSeen(device.last_seen_at, copy)
+  const when = device.revoked ? copy.deviceRevoked : describeLastSeen(device.last_seen_at, copy)
 
   return [parts.join(' · '), when].filter(Boolean).join(' — ')
 }
@@ -138,9 +136,7 @@ export function DeviceList() {
       <div className="grid gap-1">
         {unreachable ? (
           <ListRow
-            description={
-              devices.status === 'revoked' ? copy.deviceRevokedSelf : copy.deviceOffline
-            }
+            description={devices.status === 'revoked' ? copy.deviceRevokedSelf : copy.deviceOffline}
             title={copy.devicesTitle}
           />
         ) : null}
@@ -220,9 +216,7 @@ export function DeviceList() {
             throw new Error(describeRevokeFailure(result, copy))
           }
 
-          setOutcome(
-            result.key_rotated ? copy.deviceRevokedWithKey : copy.deviceRevokedWithoutKey
-          )
+          setOutcome(result.key_rotated ? copy.deviceRevokedWithKey : copy.deviceRevokedWithoutKey)
         }}
         open={target !== null}
         title={copy.deviceRevokeConfirmTitle}
