@@ -184,10 +184,8 @@ export function useGatewayBoot({
 
         reconnectAttempt = 0
         reconnectFailingSince = null
-        // The backend parked every session of the dropped socket on a drop
-        // transport (and a respawned backend has none of them): each tile
-        // re-attaches its runtime to this socket, or rebinds a fresh one.
-        invalidateTileRuntimeBindings()
+        // Tiles re-attach through the registry's onActiveGatewayReopened, which
+        // fires for every reopen of this socket, not only this loop's.
         // Resync state that may have moved on the backend while we were asleep.
         await callbacksRef.current.refreshHermesConfig().catch(() => undefined)
         await callbacksRef.current.refreshSessions().catch(() => undefined)
@@ -383,7 +381,13 @@ export function useGatewayBoot({
     callbacksRef.current.onGatewayReady(gateway)
     setPrimaryGateway(gateway, survivor?.profile ?? normalizeProfileKey($activeGatewayProfile.get()))
     // Secondary (background-profile) sockets funnel into the same handler.
-    configureGatewayRegistry({ onEvent: event => callbacksRef.current.handleGatewayEvent(event) })
+    configureGatewayRegistry({
+      onEvent: event => callbacksRef.current.handleGatewayEvent(event),
+      // The backend parked every session of the dropped connection on a drop
+      // transport (and a respawned backend has none of them): each tile
+      // re-attaches its runtime to the new socket, or rebinds a fresh one.
+      onActiveGatewayReopened: invalidateTileRuntimeBindings
+    })
 
     const offState = gateway.onState(st => {
       // Mirror to the composer only while the primary is the active profile —

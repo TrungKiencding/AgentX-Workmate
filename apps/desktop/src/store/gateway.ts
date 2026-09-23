@@ -24,6 +24,17 @@ const isOpen = (gateway: HermesGateway | null): boolean => gateway?.connectionSt
 
 interface RegistryConfig {
   onEvent: (event: GatewayEvent) => void
+  /** The socket this window talks through opened AGAIN (see noteSocketState):
+   *  the backend parked every session bound to its previous connection, so
+   *  whatever rides it has to re-attach. Never called for a socket's first open. */
+  onActiveGatewayReopened?: () => void
+}
+
+// What a socket has reported so far: whether it has ever been open, and the
+// state it reported last.
+interface SocketHistory {
+  opened: boolean
+  state: ConnectionState
 }
 
 // ── Secondary (pool) backends ──────────────────────────────────────────────
@@ -58,6 +69,9 @@ interface GatewayRegistryState {
   activeKey: string
   secondaries: Map<string, Secondary>
   $gateway: ReturnType<typeof atom<HermesGateway | null>>
+  // Optional so a container parked by an older build of this module (HMR)
+  // picks it up lazily — see socketHistory().
+  socketHistory?: WeakMap<HermesGateway, SocketHistory>
 }
 
 const STATE_KEY = Symbol.for('agentx.desktop.gatewayRegistryState')
@@ -137,7 +151,7 @@ export function activeGateway(): HermesGateway | null {
 // when that backend is the one the user is currently looking at. Lets the
 // composer reflect the active profile's socket without a background reconnect
 // flipping the foreground enabled/disabled state.
-function reportGatewayState(profile: string, state: ConnectionState): void {
+function reportGatewayState(profile: string, gateway: HermesGateway | null, state: ConnectionState): void {
   // Any socket opening replays parked prompts; hold OS notifications so a
   // launch/reconnect doesn't alert about state that already existed.
   if (state === 'open') {
@@ -147,10 +161,34 @@ function reportGatewayState(profile: string, state: ConnectionState): void {
   if (normKey(profile) === g.activeKey) {
     setGatewayState(state)
   }
+
+  if (gateway) {
+    noteSocketState(gateway, state)
+  }
+}
+
+const socketHistory = (): WeakMap<HermesGateway, SocketHistory> =>
+  (g.socketHistory ??= new WeakMap<HermesGateway, SocketHistory>())
+
+// A socket that opens AGAIN — the boot loop's reconnect, a request re-dialling
+// on "connection closed", a secondary's backoff, a connection switch — left
+// every session bound to its previous connection parked on the backend's drop
+// transport. When it is the socket this window talks through, whatever rides it
+// must re-attach. Tracked per socket rather than per profile: the primary keeps
+// its socket across a connection switch that renames its profile. A re-report of
+// an unchanged state (HMR adoption mirrors 'open' again) is not a reopen.
+function noteSocketState(gateway: HermesGateway, state: ConnectionState): void {
+  const history = socketHistory()
+  const previous = history.get(gateway)
+  history.set(gateway, { opened: Boolean(previous?.opened) || state === 'open', state })
+
+  if (state === 'open' && previous?.opened && previous.state !== 'open' && gateway === activeGateway()) {
+    g.config?.onActiveGatewayReopened?.()
+  }
 }
 
 export function reportPrimaryGatewayState(state: ConnectionState): void {
-  reportGatewayState(g.primaryProfile, state)
+  reportGatewayState(g.primaryProfile, g.primaryGateway, state)
 }
 
 function setActive(profile: string): void {
@@ -232,7 +270,7 @@ function createSecondary(profile: string): Secondary {
 
   entry.offEvent = gateway.onEvent(event => g.config?.onEvent({ ...event, profile }))
   entry.offState = gateway.onState(state => {
-    reportGatewayState(profile, state)
+    reportGatewayState(profile, gateway, state)
 
     if (state === 'open') {
       entry.reconnectAttempt = 0
