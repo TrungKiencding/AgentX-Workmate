@@ -982,9 +982,19 @@ def _ws_session_is_orphaned(session: dict | None) -> bool:
     ``_detached_ws_transport``. A session left on that transport (and not
     mid-turn) is genuinely orphaned and safe to reap.
     """
-    if not session or session.get("_finalized"):
+    if not _ws_session_is_detached(session):
         return False
-    if session.get("running"):
+    return not session.get("running")
+
+
+def _ws_session_is_detached(session: dict | None) -> bool:
+    """True if a live WS session is parked on the drop sentinel.
+
+    Unlike :func:`_ws_session_is_orphaned` this holds mid-turn too: a session
+    that was streaming when its client dropped is still detached — every event
+    it emits is discarded — it just cannot be reaped until the turn ends.
+    """
+    if not session or session.get("_finalized"):
         return False
     return session.get("transport") is _detached_ws_transport
 
@@ -1089,9 +1099,15 @@ def _schedule_ws_orphan_reap(sid: str) -> None:
         session = None
         with _session_resume_lock:
             current = _sessions.get(sid)
-            if not _ws_session_is_orphaned(current):
+            if not _ws_session_is_detached(current):
+                # Gone, finalized, or a client re-attached it — nothing to reap.
                 return
-            if _session_has_active_delegations(sid, current):
+            if current.get("running") or _session_has_active_delegations(sid, current):
+                # Still working with nobody listening. Keep watching instead of
+                # giving up: a one-shot check here left a session that was
+                # mid-turn at disconnect parked on the drop sentinel for the
+                # hours-scale idle TTL — its reply and every later event
+                # discarded, and its client never told (no session.reclaimed).
                 reschedule = True
             else:
                 session = _pop_session_by_id(sid)
@@ -1174,6 +1190,22 @@ def _transport_is_dead(transport) -> bool:
     return getattr(transport, "_closed", None) is True
 
 
+def _bind_session_transport(session: dict, transport) -> bool:
+    """Route ``session``'s events to ``transport`` unless that socket is gone.
+
+    A resume/activate/submit can reach us after its socket already closed (it
+    was in flight when the client dropped), and a queued prompt carries the
+    transport it was typed on. Binding either would park the session on a
+    closed socket: every event silently dropped, and the orphan reaper — which
+    only recognises the detached sentinel — never reclaims it. Keeping the
+    current transport leaves the reap armed for a client that is not back.
+    """
+    if _transport_is_dead(transport):
+        return False
+    session["transport"] = transport
+    return True
+
+
 def _session_is_evictable(sid: str, session: dict, now: float) -> bool:
     if session.get("running") or _session_pending_kind(sid):
         return False
@@ -1191,7 +1223,32 @@ def _session_is_evictable(sid: str, session: dict, now: float) -> bool:
     return (now - last_active) > _SESSION_TTL_S and (now - created_at) > _SESSION_TTL_S
 
 
+def _detach_sessions_on_closed_sockets() -> None:
+    """Hand sessions still pointing at a closed socket to the WS-orphan reaper.
+
+    The disconnect sweep (``_close_sessions_for_transport``) only sees sessions
+    bound to the socket at that moment. A session.create/resume that was in
+    flight when the client dropped registers its record against the already
+    closed socket afterwards, so nothing ever detaches it: its events go
+    nowhere and it waits out the hours-scale idle TTL. Re-running the detach
+    here puts it back on the grace-windowed path a quick reconnect can cancel.
+    """
+    with _sessions_lock:
+        stranded = [
+            (sid, s)
+            for sid, s in _sessions.items()
+            if not s.get("_finalized")
+            and s.get("transport") is not _detached_ws_transport
+            and _transport_is_dead(s.get("transport"))
+        ]
+        for _sid, session in stranded:
+            session["transport"] = _detached_ws_transport
+    for sid, _session in stranded:
+        _schedule_ws_orphan_reap(sid)
+
+
 def _reap_idle_sessions() -> None:
+    _detach_sessions_on_closed_sockets()
     now = time.time()
     with _sessions_lock:
         victims = [sid for sid, s in _sessions.items() if _session_is_evictable(sid, s, now)]
@@ -7704,7 +7761,9 @@ def _drain_queued_prompt(rid, sid: str, session: dict) -> bool:
             session.pop("queued_prompts", None)
         session["running"] = True
         if queued.get("transport") is not None:
-            session["transport"] = queued["transport"]
+            # The socket the prompt was typed on may have closed since; the
+            # session then stays on whatever transport it has now.
+            _bind_session_transport(session, queued["transport"])
     use_compute_host = _session_uses_compute_host(session)
     with session["history_lock"]:
         if int(session.get("_queued_prompt_generation", 0)) != queue_generation:
@@ -7989,6 +8048,34 @@ def _session_pending_kind(sid: str) -> str:
     return ""
 
 
+# Blocking prompts that wait on a person. terminal.read is answered by the
+# renderer itself within seconds, so it has nothing to hand back.
+_REPLAYABLE_PROMPT_EVENTS = frozenset({"clarify.request", "secret.request", "sudo.request"})
+
+
+def _pending_prompt_snapshot(sid: str) -> list[dict]:
+    """The questions ``sid`` is blocked on, oldest first, as the events that asked them.
+
+    ``*.request`` is a one-shot event. A client that was disconnected (or
+    watching another chat) when it fired never renders the question, while the
+    sidebar — fed by ``session.active_list`` — says the chat is waiting on the
+    user, and the agent sits out the whole prompt timeout before carrying on
+    without an answer. Clients that (re)attach replay these instead.
+    """
+    with _prompt_lock:
+        owned = [rid for rid, (owner_sid, _ev) in _pending.items() if owner_sid == sid]
+        entries = [(rid, _pending_prompt_payloads.get(rid)) for rid in owned]
+    prompts: list[dict] = []
+    for rid, entry in entries:
+        if entry is None:
+            continue
+        event, payload = entry
+        if event not in _REPLAYABLE_PROMPT_EVENTS:
+            continue
+        prompts.append({"event": event, "payload": {**payload, "request_id": rid}})
+    return prompts
+
+
 def _session_live_status(sid: str, session: dict) -> str:
     if _session_pending_kind(sid):
         return "waiting"
@@ -8174,7 +8261,7 @@ def _live_session_payload(
         if cols is not None:
             session["cols"] = cols
         if transport is not None:
-            session["transport"] = transport
+            _bind_session_transport(session, transport)
         if touch:
             session["last_active"] = time.time()
         in_memory_history = list(session.get("display_history_prefix") or []) + list(
@@ -8211,6 +8298,8 @@ def _live_session_payload(
         payload["inflight"] = inflight
     if queued:
         payload["queued"] = queued
+    if prompts := _pending_prompt_snapshot(sid):
+        payload["pending_prompts"] = prompts
     return payload
 
 
