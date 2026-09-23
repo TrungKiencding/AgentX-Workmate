@@ -2342,3 +2342,53 @@ class TestSystemdCgroupIsolation:
         )
 
         assert pr._stop_systemd_unit("agentx-worker-gone.scope") is True
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signal/grace behavior")
+@pytest.mark.timeout(10)
+def test_tree_kill_includes_child_spawned_during_term_grace(tmp_path, monkeypatch):
+    import psutil
+
+    marker = tmp_path / "child.pid"
+    script = """
+import signal, subprocess, sys, time
+from pathlib import Path
+
+def spawn_after_term(signum, frame):
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+    Path(sys.argv[1]).write_text(str(child.pid))
+
+signal.signal(signal.SIGTERM, spawn_after_term)
+print('ready', flush=True)
+while True:
+    time.sleep(0.02)
+"""
+    monkeypatch.setattr(ProcessRegistry, "_daemon_term_grace_seconds", staticmethod(lambda: 0.3))
+    parent = subprocess.Popen([sys.executable, "-c", script, str(marker)], stdout=subprocess.PIPE, text=True)
+    child = None
+    try:
+        assert parent.stdout.readline().strip() == "ready"
+        ProcessRegistry._terminate_host_pid(parent.pid)
+        parent.wait(timeout=2)
+        assert marker.exists(), "the parent must spawn after the first tree snapshot"
+        try:
+            child = psutil.Process(int(marker.read_text()))
+        except psutil.NoSuchProcess:
+            return
+        deadline = time.monotonic() + 2
+        while ProcessRegistry._proc_alive(child) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not ProcessRegistry._proc_alive(child), "new descendant survived the tree kill"
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+        parent.wait(timeout=2)
+        parent.stdout.close()
+        if child is None and marker.exists():
+            try:
+                child = psutil.Process(int(marker.read_text()))
+            except psutil.NoSuchProcess:
+                pass
+        if child is not None and ProcessRegistry._proc_alive(child):
+            child.kill()

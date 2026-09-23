@@ -988,6 +988,15 @@ class ProcessRegistry:
             if not any(cls._proc_alive(_p) for _p in targets):
                 break
             time.sleep(0.05)
+        # A TERM-ignoring parent can spawn more children during the grace window.
+        # Find them before killing the parent, while their ancestry is still intact.
+        try:
+            if cls._proc_alive(parent):
+                known = {proc.pid for proc in targets}
+                new_children = [p for p in parent.children(recursive=True) if p.pid not in known]
+                targets = targets[:-1] + new_children + [parent]
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            pass
         for proc in targets:
             try:
                 if not cls._proc_alive(proc):
