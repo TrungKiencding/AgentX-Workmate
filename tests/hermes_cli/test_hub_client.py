@@ -22,6 +22,7 @@ class _FakeHub:
         self.flaky_once = False
         self.installs: list[dict] = []
         self.reports: list[dict] = []
+        self.max_bundle_bytes: int | None = 25 * 1024 * 1024
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -55,6 +56,9 @@ class _FakeHub:
             return httpx.Response(200, json={"id": "inst-1", "reported_state": body["state"]})
         if path == "/v1/validate":
             return httpx.Response(200, json={"ok": True, "package": {"name": "x"}})
+        if path == "/.well-known/agentx-hub.json":
+            limits = {"limits": {"max_bundle_bytes": self.max_bundle_bytes}} if self.max_bundle_bytes is not None else {}
+            return httpx.Response(200, json={"api_version": 1, **limits})
         if path == "/v1/skills" and request.method == "POST":
             body = json.loads(request.content)
             return httpx.Response(202, json={"skill": {"slug": "x", "visibility": body.get("visibility")}, "version": {"version": "1.0.0"}, "scan_id": "scan-1", "created": True})
@@ -89,6 +93,12 @@ class TestCalls:
         sent = hub.requests[-1]
         assert sent.headers["Authorization"] == "Bearer tok"
         assert sent.headers["X-AgentX-Device"] == DEVICE and sent.headers["X-AgentX-Device-Name"] == "Ada's laptop"
+
+    def test_max_bundle_bytes_is_what_the_hub_announces(self, client, hub):
+        assert client.max_bundle_bytes(bearer="tok") == 25 * 1024 * 1024
+        assert hub.requests[-1].url.path == "/.well-known/agentx-hub.json"
+        hub.max_bundle_bytes = None  # a hub from before the limit was announced
+        assert client.max_bundle_bytes(bearer="tok") is None
 
     def test_changes_asks_for_the_product_and_device(self, client, hub):
         page = client.changes(bearer="tok", device_id=DEVICE, product="workmate", cursor=None)

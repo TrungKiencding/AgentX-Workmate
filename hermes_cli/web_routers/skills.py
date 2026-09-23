@@ -497,8 +497,14 @@ async def scan_skill_hub(request: Request, identifier: str = "", profile: Option
 # web_routers/sync.py.
 # ---------------------------------------------------------------------------
 
-MAX_PUBLISH_BYTES = 5 * 1024 * 1024
-_SKIP_FILE_NAMES = frozenset({".usage.json", ".DS_Store", ".bundled_manifest"})
+#: What a skill may weigh unpacked when the hub does not say (its well-known
+#: ``limits.max_bundle_bytes``; hubs before 2026-09-23 do not): the hub default.
+DEFAULT_PUBLISH_BYTES = 25 * 1024 * 1024
+_SKIP_FILE_NAMES = frozenset({".usage.json", ".DS_Store", ".bundled_manifest", "Thumbs.db", "desktop.ini"})
+#: Directories the hub refuses in a package (its decision §8 #15): the skill
+#: keeps them to run here, the upload leaves them out. Dot-directories
+#: (.git, .venv, tool caches) are left out by the dot rule already.
+_SKIP_DIR_NAMES = frozenset({"node_modules", "__pycache__", "venv"})
 
 
 def _hub_credentials_from(request) -> "Optional[object]":
@@ -536,7 +542,18 @@ def _hub_error_body(exc) -> dict:
             "error_detail": getattr(exc, "detail", None)}
 
 
-def _local_skill_files(name: str) -> tuple:
+def _publish_limit(bearer: str) -> int:
+    """The unpacked size the hub accepts, so the refusal comes before the upload."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+
+    try:
+        return HubClient(hub_base_url()).max_bundle_bytes(bearer=bearer) or DEFAULT_PUBLISH_BYTES
+    except HubError:
+        # The upload that follows reports an unreachable hub on its own.
+        return DEFAULT_PUBLISH_BYTES
+
+
+def _local_skill_files(name: str, *, max_bytes: int = DEFAULT_PUBLISH_BYTES) -> tuple:
     """``(skill_dir, files)`` for a local skill: text as str, binary as {base64}."""
     import base64
 
@@ -548,12 +565,14 @@ def _local_skill_files(name: str) -> tuple:
     files = {}
     total = 0
     for path in sorted(p for p in skill_dir.rglob("*") if p.is_file()):
-        if path.is_symlink() or path.name in _SKIP_FILE_NAMES or any(part.startswith(".") for part in path.relative_to(skill_dir).parts):
+        parts = path.relative_to(skill_dir).parts
+        if path.is_symlink() or path.name in _SKIP_FILE_NAMES or any(part.startswith(".") for part in parts) \
+                or any(part in _SKIP_DIR_NAMES for part in parts[:-1]):
             continue
         data = path.read_bytes()
         total += len(data)
-        if total > MAX_PUBLISH_BYTES:
-            raise HTTPException(status_code=413, detail=f"Skill '{name}' is larger than {MAX_PUBLISH_BYTES} bytes.")
+        if total > max_bytes:
+            raise HTTPException(status_code=413, detail=f"Skill '{name}' is larger than {max_bytes} bytes, the most the hub accepts.")
         rel = path.relative_to(skill_dir).as_posix()
         text = _as_text(data)
         files[rel] = text if text is not None else {"base64": base64.b64encode(data).decode("ascii")}
@@ -607,8 +626,9 @@ async def hub_validate(body: SkillHubValidateRequest, request: Request):
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
 
     credentials = _hub_credentials_from(request)
+    limit = await run_in_threadpool(_publish_limit, credentials.bearer if credentials else "")
     with _profile_scope(body.profile):
-        _skill_dir, files = _local_skill_files(body.name)
+        _skill_dir, files = _local_skill_files(body.name, max_bytes=limit)
 
     def _run():
         client = HubClient(hub_base_url())
@@ -635,8 +655,9 @@ async def hub_publish(body: SkillHubPublishRequest, request: Request):
     credentials = _hub_credentials_from(request)
     if credentials is None:
         return {"ok": False, "status": "signed_out", "detail": "Sign in to upload a skill to the hub."}
+    limit = await run_in_threadpool(_publish_limit, credentials.bearer)
     with _profile_scope(body.profile):
-        _skill_dir, files = _local_skill_files(body.name)
+        _skill_dir, files = _local_skill_files(body.name, max_bytes=limit)
 
     def _run():
         client = HubClient(hub_base_url())

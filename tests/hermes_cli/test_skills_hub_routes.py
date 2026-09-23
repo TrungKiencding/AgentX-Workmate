@@ -63,9 +63,14 @@ class _FakeEngine:
 class _FakeHubClient:
     calls: list = []
     fail: HubError | None = None
+    max_bytes: int | None = None
 
     def __init__(self, base_url: str, **_kwargs) -> None:
         self.base_url = base_url
+
+    def max_bundle_bytes(self, **kwargs):
+        _FakeHubClient.calls.append(("max_bundle_bytes", None, kwargs))
+        return _FakeHubClient.max_bytes
 
     def validate(self, files, **kwargs):
         _FakeHubClient.calls.append(("validate", files, kwargs))
@@ -102,6 +107,7 @@ def fake_hub(monkeypatch):
 
     _FakeHubClient.calls = []
     _FakeHubClient.fail = None
+    _FakeHubClient.max_bytes = None
     monkeypatch.setattr(hub_client, "HubClient", _FakeHubClient)
     monkeypatch.setattr(hub_client, "hub_base_url", lambda: "https://hub.test")
     monkeypatch.setattr(skills_routes, "_profile_scope", lambda profile: contextlib.nullcontext())
@@ -170,6 +176,28 @@ class TestPublish:
         assert kind == "publish" and set(files) == {"SKILL.md", "assets/logo.bin"}
         assert files["assets/logo.bin"] == {"base64": "AAH/"} and files["SKILL.md"].startswith("---")
         assert kwargs["bearer"] == "tok-ada" and kwargs["device_id"] == DEVICE_ID and kwargs["visibility"] == "private"
+
+    def test_dependencies_and_caches_stay_home(self, fake_hub, local_skill):
+        for rel in ("node_modules/left-pad/index.js", "scripts/__pycache__/run.cpython-311.pyc", "venv/bin/python", ".venv/bin/python", ".git/HEAD"):
+            (local_skill / rel).parent.mkdir(parents=True, exist_ok=True)
+            (local_skill / rel).write_bytes(b"x")
+        (local_skill / "src").mkdir()
+        (local_skill / "src" / "main.py").write_text("print(1)\n", encoding="utf-8")
+        (local_skill / "src" / "venv").write_text("a file, not the directory\n", encoding="utf-8")
+        client = TestClient(_app(_session()))
+        assert client.post("/api/skills/hub/publish", headers=HEADERS, json={"name": "dashboard-skill"}).json()["ok"] is True
+        assert set(fake_hub.calls[-1][1]) == {"SKILL.md", "assets/logo.bin", "src/main.py", "src/venv"}
+
+    def test_the_size_limit_is_the_hubs(self, fake_hub, local_skill):
+        client = TestClient(_app(_session("tok-ada")))
+        (local_skill / "assets" / "big.pdf").write_bytes(b"%PDF" + b"x" * (6 * 1024 * 1024))
+        # A hub that does not say is taken at the hub default (25 MiB): 6 MiB goes through, where 5 MiB used to stop it.
+        assert client.post("/api/skills/hub/publish", headers=HEADERS, json={"name": "dashboard-skill"}).json()["ok"] is True
+        assert ("max_bundle_bytes", None, {"bearer": "tok-ada"}) in fake_hub.calls
+        fake_hub.max_bytes = 1024 * 1024
+        response = client.post("/api/skills/hub/publish", headers=HEADERS, json={"name": "dashboard-skill"})
+        assert response.status_code == 413 and str(1024 * 1024) in response.json()["detail"]
+        assert client.post("/api/skills/hub/validate", headers=HEADERS, json={"name": "dashboard-skill"}).status_code == 413
 
     def test_propose_is_a_workspace_upload(self, fake_hub, local_skill):
         client = TestClient(_app(_session()))
