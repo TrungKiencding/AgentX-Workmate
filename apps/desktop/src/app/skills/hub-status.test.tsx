@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
@@ -14,7 +14,7 @@ vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<typeof HermesApi>()),
   getSkillHubChanges: () => getSkillHubChanges(),
   tickSkillHub: () => tickSkillHub(),
-  updateSkillsFromHub: () => updateSkillsFromHub()
+  updateSkillsFromHub: (options?: unknown) => updateSkillsFromHub(options)
 }))
 
 vi.mock('@/store/notifications', () => ({
@@ -192,5 +192,57 @@ describe('HubStatus', () => {
     })
 
     await waitFor(() => expect(updateSkillsFromHub).toHaveBeenCalledTimes(1))
+  })
+
+  it('updates one skill from its own row', async () => {
+    await renderStatus()
+    const row = await screen.findByTestId('hub-update')
+    expect(row.getAttribute('data-modified')).toBe('false')
+
+    await act(async () => {
+      fireEvent.click(within(row).getByRole('button', { name: 'Update' }))
+    })
+
+    await waitFor(() =>
+      expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: undefined })
+    )
+  })
+
+  it('keeps a copy edited here out of "Update installed" and replaces it only after a confirmation', async () => {
+    getSkillHubChanges.mockResolvedValue(
+      changes({
+        updates: [
+          {
+            install_id: 'inst-1',
+            slug: 'vneb-report',
+            name: 'vneb-report',
+            current: '1.0.0',
+            latest: '1.1.0',
+            modified: true
+          }
+        ]
+      })
+    )
+    await renderStatus()
+    const row = await screen.findByTestId('hub-update')
+
+    expect(row.getAttribute('data-modified')).toBe('true')
+    expect(row.textContent).toContain('Edited here')
+    // Every update left is an edited copy: "Update all" would change nothing.
+    expect(screen.getByRole('button', { name: 'Update installed' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('hub-updates-kept').textContent).toContain('keeps the 1 skill you edited on this machine')
+
+    await act(async () => {
+      fireEvent.click(within(row).getByRole('button', { name: 'Replace with the Hub version…' }))
+    })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.textContent).toContain('Version 1.1.0 from the Hub replaces it')
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back up and replace' }))
+    })
+
+    await waitFor(() => expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: true }))
   })
 })

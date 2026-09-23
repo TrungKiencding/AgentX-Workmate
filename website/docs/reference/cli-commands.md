@@ -1162,6 +1162,7 @@ agentx skills install https://sharethis.chat/SKILL.md                     # Dire
 agentx skills install https://example.com/SKILL.md --name my-skill        # Override name when frontmatter has none
 agentx skills check
 agentx skills update
+agentx skills update my-skill --overwrite-local   # also when you edited it here (backed up first)
 agentx skills config
 agentx skills reset google-workspace
 agentx skills reset google-workspace --restore --yes

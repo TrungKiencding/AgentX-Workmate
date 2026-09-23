@@ -776,9 +776,12 @@ The hub now tracks enough provenance to re-check upstream copies of installed sk
 agentx skills check          # Report which installed hub skills changed upstream
 agentx skills update         # Reinstall only the skills with updates available
 agentx skills update react   # Update one specific installed hub skill
+agentx skills update react --overwrite-local   # Take the update even though you edited react here
 ```
 
 This uses the stored source identifier plus the current upstream bundle content hash to detect drift.
+
+A hub skill you edited on this machine since it was installed is never replaced silently: `check` marks it `edited here`, and `update` keeps it as it is and names it. `--overwrite-local` takes the update anyway, after copying your edited version to `~/.agentx/skills/.hub/backups/<name>/<time>/`. Changes that are only what running a skill leaves behind (`__pycache__`, `node_modules`, `.DS_Store`, …) do not count as edits.
 
 :::tip GitHub rate limits
 Skills hub operations use the GitHub API, which has a rate limit of 60 requests/hour for unauthenticated users. If you see rate-limit errors during install or search, set `GITHUB_TOKEN` in your `.env` file to increase the limit to 5,000 requests/hour. The error message includes an actionable hint when this happens.

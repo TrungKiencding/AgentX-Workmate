@@ -50,6 +50,8 @@ PRODUCT = "workmate"
 SOURCE = "agentx-hub"
 #: Events on the stream that mean "something on this machine may need to change".
 NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted")
+#: Why a skill the hub wants replaced stays as it is (reported as ``failed``).
+LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the Hub tab (the edit is backed up first) or keep it"
 
 
 @dataclass(frozen=True)
@@ -271,8 +273,9 @@ class LocalInstaller:
     # -- reads --------------------------------------------------------------
 
     def local_state(self, slug: str) -> Dict[str, Any]:
-        """What the lock file says about *slug*: installed?, version, hash, enabled?."""
-        from tools.skills_hub import HubLockFile
+        """What the lock file says about *slug*: installed?, version, hash,
+        enabled?, and whether the copy was edited on this machine since."""
+        from tools.skills_hub import HubLockFile, hub_skill_local_changes
 
         prefix = f"{SOURCE}/{slug}"
         for entry in HubLockFile().list_installed():
@@ -287,8 +290,9 @@ class LocalInstaller:
                 "content_hash": str(entry.get("content_hash") or ""),
                 "install_path": entry.get("install_path", ""),
                 "enabled": entry.get("name", "") not in self._disabled(),
+                "modified": hub_skill_local_changes(entry),
             }
-        return {"installed": False, "name": "", "version": "", "content_hash": "", "install_path": "", "enabled": False}
+        return {"installed": False, "name": "", "version": "", "content_hash": "", "install_path": "", "enabled": False, "modified": False}
 
     def _disabled(self) -> set:
         from hermes_cli.config import load_config
@@ -372,12 +376,20 @@ class LocalInstaller:
         )
 
     def uninstall(self, name: str) -> tuple[bool, str]:
-        from tools.skills_hub import uninstall_skill
+        """Remove a hub skill because the hub asked. A copy edited on this
+        machine is copied aside first: the removal came from elsewhere."""
+        from tools.skills_hub import HubLockFile, backup_hub_skill, hub_skill_local_changes, uninstall_skill
 
+        entry = HubLockFile().get_installed(name)
+        backup = None
+        if entry is not None and hub_skill_local_changes({**entry, "name": name}):
+            backup = backup_hub_skill({**entry, "name": name})
         ok, message = uninstall_skill(name)
         if ok:
             self.enable(name)  # a stale entry in skills.disabled would shadow a later reinstall
             self._clear_prompt_cache()
+            if backup is not None:
+                message = f"{message}; the copy edited on this machine is kept in {backup}"
         return ok, message
 
     def disable(self, name: str) -> bool:
@@ -528,10 +540,18 @@ class HubSyncEngine:
             except Exception as exc:  # noqa: BLE001 - one skill must not stop the others
                 logger.warning("hub sync: %s: %s", install.get("slug"), exc)
                 outcome.failed.append({"slug": install.get("slug"), "error": str(exc)})
-        outcome.updates = [
-            {"install_id": u.get("id"), "slug": u.get("slug"), "name": u.get("name"), "current": u.get("reported_version"), "latest": u.get("latest_version")}
-            for u in snapshot.get("updates") or []
-        ]
+        outcome.updates = []
+        for u in snapshot.get("updates") or []:
+            local = self._installer.local_state(str(u.get("slug") or ""))
+            # The snapshot was read before this tick reported: a skill updated on
+            # this machine meanwhile is no longer an update to offer.
+            if local["installed"] and local["version"] and local["version"] == str(u.get("latest_version") or ""):
+                continue
+            outcome.updates.append({
+                "install_id": u.get("id"), "slug": u.get("slug"), "name": u.get("name"),
+                "current": local["version"] or u.get("reported_version"), "latest": u.get("latest_version"),
+                "modified": bool(local.get("modified")),
+            })
         # Workspace skills are listed (``snapshot["workspaces"]``) for the Hub
         # tab to show; nothing is installed until the person asks (hub
         # decision §8 #11 — no automatic mirror).
@@ -550,9 +570,13 @@ class HubSyncEngine:
 
         if desired == "installed":
             if reported == "installed" and local["installed"] and (not pinned or local["version"] == wanted_version):
-                if not local["enabled"]:
-                    # Switched off locally while the hub still wants it: leave the person's choice alone.
-                    return
+                # Switched off locally while the hub still wants it: the person's choice stands.
+                if local["version"] and local["version"] != str(install.get("reported_version") or ""):
+                    # Updated on this machine since the last report (the Update
+                    # button, `agentx skills update`): say so, or the hub keeps
+                    # offering an update this machine already has.
+                    report("installed", version=local["version"])
+                    self._remember("updated", slug, local["version"])
                 return
             if local["installed"] and (not pinned or local["version"] == wanted_version) and reported in ("pending", "disabled"):
                 # The hub re-enabled (or never heard back): make sure it is on and say so.
@@ -560,6 +584,15 @@ class HubSyncEngine:
                 report("installed", version=local["version"] or wanted_version)
                 outcome.enabled.append(slug)
                 self._remember("enabled", slug, local["version"])
+                return
+            if local["installed"] and local.get("modified"):
+                # Edited on this machine: never replaced behind the person's
+                # back. They choose in the Hub tab, and replacing backs the edit
+                # up first. Said once, not every tick.
+                if reported != "failed" or str(install.get("error") or "") != LOCAL_CHANGES:
+                    report("failed", version=local["version"] or None, error=LOCAL_CHANGES)
+                    outcome.failed.append({"slug": slug, "error": LOCAL_CHANGES, "blocked": True})
+                    self._remember("failed", slug, wanted_version, LOCAL_CHANGES)
                 return
             identifier = f"{SOURCE}/{slug}@{wanted_version}" if pinned and wanted_version else f"{SOURCE}/{slug}"
             result = self._installer.install(identifier, base_url=self._settings.base_url, token=credentials.bearer)
@@ -574,6 +607,7 @@ class HubSyncEngine:
         elif desired == "removed":
             if reported == "removed":
                 return
+            detail = ""
             if local["installed"]:
                 ok, message = self._installer.uninstall(local["name"])
                 if not ok:
@@ -581,9 +615,11 @@ class HubSyncEngine:
                     outcome.failed.append({"slug": slug, "error": message})
                     self._remember("failed", slug, local["version"], message)
                     return
+                # An edited copy was backed up first: the history says where.
+                detail = message if local.get("modified") else ""
             report("removed")
             outcome.removed.append(slug)
-            self._remember("removed", slug, local["version"])
+            self._remember("removed", slug, local["version"], detail)
         elif desired == "disabled":
             if reported == "disabled":
                 return

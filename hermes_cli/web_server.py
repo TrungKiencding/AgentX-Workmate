@@ -13869,23 +13869,32 @@ def _installed_hub_identifiers(profile: Optional[str] = None) -> dict:
             lock = HubLockFile(profile_dir / "skills" / ".hub" / "lock.json")
         else:
             lock = HubLockFile()
+        from tools.skills_hub import hub_skill_local_changes
+
         out = {}
-        for entry in lock.list_installed():
-            ident = entry.get("identifier")
-            if not ident:
-                continue
-            row = {
-                "name": entry.get("name"),
-                "trust_level": entry.get("trust_level"),
-                "scan_verdict": entry.get("scan_verdict"),
-            }
-            out[ident] = row
-            # An AgentX Hub install is locked at the version it resolved to
-            # (``agentx-hub/<slug>@<version>``) while the catalogue and search
-            # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
-            # for a skill that IS installed reads as if it were not.
-            if ident.startswith("agentx-hub/") and "@" in ident:
-                out.setdefault(ident.split("@", 1)[0], row)
+        # The local-edit check reads the skill directories: the profile's own.
+        with _config_profile_scope(profile):
+            for entry in lock.list_installed():
+                ident = entry.get("identifier")
+                if not ident:
+                    continue
+                hub = ident.startswith("agentx-hub/")
+                row = {
+                    "name": entry.get("name"),
+                    "trust_level": entry.get("trust_level"),
+                    "scan_verdict": entry.get("scan_verdict"),
+                    # What this machine runs, against the catalogue's latest: the
+                    # card offers the update, or its replacement when edited here.
+                    "version": str((entry.get("metadata") or {}).get("hub_version") or ident.partition("@")[2]) if hub else "",
+                    "modified": hub and hub_skill_local_changes(entry),
+                }
+                out[ident] = row
+                # An AgentX Hub install is locked at the version it resolved to
+                # (``agentx-hub/<slug>@<version>``) while the catalogue and search
+                # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
+                # for a skill that IS installed reads as if it were not.
+                if ident.startswith("agentx-hub/") and "@" in ident:
+                    out.setdefault(ident.split("@", 1)[0], row)
         return out
     except Exception:
         return {}

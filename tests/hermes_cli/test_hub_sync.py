@@ -251,11 +251,21 @@ class TestReconcile:
 
     def test_a_locally_disabled_skill_is_left_alone(self, hub):
         hub.add_skill("demo-core", SAFE_FILES)
-        hub.install_row("demo-core", reported="installed")
+        hub.install_row("demo-core", reported="installed").update(reported_version="1.0.0")
         installer = FakeInstaller()
         installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.0.0", "content_hash": "", "install_path": "demo-core", "enabled": False}
         outcome = _engine(hub, installer).tick()
         assert outcome.changed is False and installer.calls == [] and hub.reports == []
+
+    def test_a_version_the_hub_never_heard_is_reported_even_when_switched_off_here(self, hub):
+        """Without a reported version the hub counts the install as outdated forever."""
+        hub.add_skill("demo-core", SAFE_FILES)
+        hub.install_row("demo-core", reported="installed")
+        installer = FakeInstaller()
+        installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.0.0", "content_hash": "", "install_path": "demo-core", "enabled": False}
+        outcome = _engine(hub, installer).tick()
+        assert hub.reports == [("inst-demo-core", {"state": "installed", "version": "1.0.0", "device_name": "Ada's laptop"})]
+        assert installer.calls == [] and outcome.changed is False  # still off: the person's choice
 
     def test_updates_are_offered_not_forced(self, hub):
         hub.add_skill("demo-core", SAFE_FILES, version="1.1.0")
@@ -265,9 +275,57 @@ class TestReconcile:
         installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.0.0", "content_hash": "", "install_path": "demo-core", "enabled": True}
         engine = _engine(hub, installer)
         outcome = engine.tick()
-        assert installer.calls == [] and outcome.updates == [{"install_id": "inst-demo-core", "slug": "demo-core", "name": "demo-core", "current": "1.0.0", "latest": "1.1.0"}]
+        assert installer.calls == [] and outcome.updates == [{"install_id": "inst-demo-core", "slug": "demo-core", "name": "demo-core", "current": "1.0.0", "latest": "1.1.0", "modified": False}]
         assert engine.changes()["updates"] == outcome.updates
         assert engine.changes()["installs"][0]["local"]["version"] == "1.0.0"
+
+    def test_an_update_made_on_this_machine_is_reported_and_no_longer_offered(self, hub):
+        """"Update all" ran `agentx skills update` (outside the engine): the next tick
+        tells the hub, or the hub offers the same update forever."""
+        hub.add_skill("demo-core", SAFE_FILES, version="1.1.0")
+        row = hub.install_row("demo-core", reported="installed")
+        row.update(reported_version="1.0.0", update_available=True)
+        installer = FakeInstaller()
+        installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.1.0", "content_hash": "", "install_path": "demo-core", "enabled": True}
+        engine = _engine(hub, installer)
+        outcome = engine.tick()
+        assert installer.calls == []
+        assert hub.reports == [("inst-demo-core", {"state": "installed", "version": "1.1.0", "device_name": "Ada's laptop"})]
+        # The snapshot still listed it (read before the report); it is not offered again.
+        assert outcome.updates == [] and engine.changes()["updates"] == []
+        assert engine.changes()["history"][0]["action"] == "updated" and engine.changes()["history"][0]["version"] == "1.1.0"
+        # Reported once: the next tick has nothing to say.
+        row.update(update_available=False)
+        assert engine.tick().changed is False and len(hub.reports) == 1
+
+    def test_an_update_offered_for_a_copy_edited_here_says_so(self, hub):
+        hub.add_skill("demo-core", SAFE_FILES, version="1.1.0")
+        row = hub.install_row("demo-core", reported="installed")
+        row.update(reported_version="1.0.0", update_available=True)
+        installer = FakeInstaller()
+        installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.0.0", "content_hash": "", "install_path": "demo-core", "enabled": True, "modified": True}
+        outcome = _engine(hub, installer).tick()
+        assert outcome.updates[0]["modified"] is True and installer.calls == []
+
+    def test_a_copy_edited_here_is_never_reinstalled_behind_the_persons_back(self, hub):
+        """A pinned version the machine does not run would be installed over the
+        edit: it is reported as failed instead, once, and the files stay."""
+        from hermes_cli.hub_sync import LOCAL_CHANGES
+
+        hub.add_skill("demo-core", SAFE_FILES, version="1.2.0")
+        row = hub.install_row("demo-core", version="1.2.0", reported="installed")
+        installer = FakeInstaller()
+        installer.state["demo-core"] = {"installed": True, "name": "demo-core", "version": "1.1.0", "content_hash": "", "install_path": "demo-core", "enabled": True, "modified": True}
+        engine = _engine(hub, installer)
+        outcome = engine.tick()
+        assert installer.calls == []
+        assert hub.reports == [("inst-demo-core", {"state": "failed", "version": "1.1.0", "error": LOCAL_CHANGES, "device_name": "Ada's laptop"})]
+        assert outcome.failed == [{"slug": "demo-core", "error": LOCAL_CHANGES, "blocked": True}]
+        assert engine.changes()["history"][0]["action"] == "failed"
+        # The hub now holds that answer: later ticks do not repeat it.
+        row.update(error=LOCAL_CHANGES)
+        again = engine.tick()
+        assert installer.calls == [] and len(hub.reports) == 1 and again.failed == [] and again.changed is False
 
     def test_workspace_skills_are_listed_but_never_installed_on_their_own(self, hub):
         """Hub decision §8 #11: a workspace's skills are shown, not mirrored."""
@@ -411,6 +469,37 @@ class TestLocalInstaller:
         assert [f["slug"] for f in outcome.failed] == ["leaky"] and outcome.failed[0]["blocked"] is True
         assert HubLockFile().get_installed("leaky") is None
         assert [r for r in hub.reports if r[0] == "inst-leaky"][-1][1]["state"] == "failed"
+
+    def test_an_edit_on_this_machine_is_seen_and_backed_up_before_a_removal_from_the_hub(self, hub):
+        from hermes_constants import get_hermes_home
+
+        hub.add_skill("demo-core", SAFE_FILES)
+        hub.install_row("demo-core")
+        installer = LocalInstaller(transport=hub.transport)
+        engine = _engine(hub, installer)
+        assert engine.tick().installed == ["demo-core"]
+        skill_dir = get_hermes_home() / "skills" / "demo-core"
+        assert installer.local_state("demo-core")["modified"] is False
+        # Running the skill leaves bytecode and OS litter behind: not an edit.
+        (skill_dir / "scripts" / "__pycache__").mkdir()
+        (skill_dir / "scripts" / "__pycache__" / "run.cpython-311.pyc").write_bytes(b"\x00bytecode")
+        (skill_dir / ".DS_Store").write_bytes(b"\x00")
+        assert installer.local_state("demo-core")["modified"] is False
+        # A person edits the steps.
+        edited = SAFE_FILES["SKILL.md"].replace("Say hello.", "Say hello, then goodbye.")
+        (skill_dir / "SKILL.md").write_text(edited, encoding="utf-8")
+        assert installer.local_state("demo-core")["modified"] is True
+        assert engine.changes()["installs"][0]["local"]["modified"] is True
+
+        # Removed from the hub (another device, the web): the edit is copied aside first.
+        hub.installs[0].update(desired_state="removed", reported_state="installed")
+        outcome = engine.tick()
+        assert outcome.removed == ["demo-core"] and not skill_dir.exists()
+        [backup] = list((get_hermes_home() / "skills" / ".hub" / "backups" / "demo-core").iterdir())
+        assert (backup / "SKILL.md").read_text(encoding="utf-8") == edited
+        assert (backup / "scripts" / "run.sh").exists()
+        # The Hub tab's history says where the edit went.
+        assert engine.changes()["history"][0]["action"] == "removed" and str(backup) in engine.changes()["history"][0]["detail"]
 
     def test_an_unreachable_hub_leaves_installed_skills_alone(self, hub):
         from hermes_constants import get_hermes_home

@@ -1405,7 +1405,20 @@ export const en: Translations = {
         enabled: 'switched back on',
         failed: 'failed'
       },
-      openHub: 'Open AgentX Hub'
+      openHub: 'Open AgentX Hub',
+      editedHere: 'Edited here',
+      updateTo: version => `Update ${version} available`,
+      updateThis: 'Update',
+      updateAllCount: count => `Update all (${count})`,
+      updateOneStarted: name => `Updating ${name}`,
+      keptOnUpdateAll: count =>
+        `“Update all” keeps the ${count} skill${count === 1 ? '' : 's'} you edited on this machine — replace one with the Hub version from its row.`,
+      replaceWithHub: 'Replace with the Hub version…',
+      replaceTitle: name => `Replace ${name} with the Hub version?`,
+      replaceDescription: version =>
+        `You edited this skill on this machine. Version ${version} from the Hub replaces it; your edited copy is backed up first to ~/.agentx/skills/.hub/backups/.`,
+      replaceConfirm: 'Back up and replace',
+      replaceStarted: name => `Replacing ${name} with the Hub version (your copy is backed up)`
     },
     publish: {
       upload: 'Upload to Hub',
@@ -1444,6 +1457,8 @@ export const en: Translations = {
       signedOut: 'Sign in to AgentX to upload to the Hub.',
       offline: 'The Hub cannot be reached. Try again later.',
       reauth: "The Hub refused this machine's token. Sign in again.",
+      bumpAndRetry: version => `Bump to ${version} and upload`,
+      bumping: 'Bumping the version…',
       errors: {
         version_not_newer: highest => `The version must be above ${highest} — bump metadata.version in SKILL.md.`,
         version_exists: 'This version already exists on the Hub with different content.',

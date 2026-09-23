@@ -1571,7 +1571,19 @@ export const zh: Translations = {
         enabled: '已重新启用',
         failed: '失败'
       },
-      openHub: '打开 AgentX Hub'
+      openHub: '打开 AgentX Hub',
+      editedHere: '已在本机修改',
+      updateTo: version => `有新版本 ${version}`,
+      updateThis: '更新',
+      updateAllCount: count => `全部更新（${count}）`,
+      updateOneStarted: name => `正在更新 ${name}`,
+      keptOnUpdateAll: count => `“全部更新”会保留你在本机修改过的 ${count} 个 skill —— 可在其所在行改用 Hub 版本。`,
+      replaceWithHub: '用 Hub 版本替换…',
+      replaceTitle: name => `用 Hub 上的版本替换 ${name}？`,
+      replaceDescription: version =>
+        `你在本机修改过这个 skill。Hub 上的 ${version} 版本将替换它；替换前会先把你修改的版本备份到 ~/.agentx/skills/.hub/backups/。`,
+      replaceConfirm: '备份并替换',
+      replaceStarted: name => `正在用 Hub 版本替换 ${name}（已备份你的版本）`
     },
     publish: {
       upload: '上传到 Hub',
@@ -1609,6 +1621,8 @@ export const zh: Translations = {
       signedOut: '登录 AgentX 以上传到 Hub。',
       offline: '无法连接 Hub，请稍后重试。',
       reauth: 'Hub 拒绝了本机的令牌，请重新登录。',
+      bumpAndRetry: version => `升级到 ${version} 并上传`,
+      bumping: '正在升级版本…',
       errors: {
         version_not_newer: highest => `版本必须高于 ${highest} —— 请修改 SKILL.md 中的 metadata.version。`,
         version_exists: '该版本已在 Hub 上存在且内容不同。',
