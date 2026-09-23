@@ -11,6 +11,7 @@ import type { RpcEvent, SessionMessage, SessionResumeResponse } from '@/types/he
 import type { ClientSessionState } from '../../types'
 import { replayPendingPrompts } from '../pending-prompts'
 
+import { isSubmitInFlight } from './use-prompt-actions/utils'
 import {
   applyRuntimeInfo,
   isSessionGoneError,
@@ -100,13 +101,22 @@ export function useSessionRuntimeRecovery({
   // The runtime's facts (model, cwd, …) for its own state only — a tile or a
   // background send must never repaint the main pane's composer.
   const applyAttached = useCallback(
-    (runtimeId: string, attached: SessionResumeResponse, persisted: null | SessionMessage[]) => {
+    (
+      runtimeId: string,
+      attached: SessionResumeResponse,
+      persisted: null | SessionMessage[],
+      requestedStoredSessionId: string
+    ) => {
       const runtimeInfo = applyRuntimeInfo(attached.info, { foreground: false })
+      const storedSessionId = liveStoredSessionId(attached)
 
       updateSessionState(
         runtimeId,
-        state => reattachedSessionState(state, attached, persisted, runtimeInfo),
-        liveStoredSessionId(attached) || undefined
+        state =>
+          reattachedSessionState(state, attached, persisted, runtimeInfo, {
+            sendInFlight: isSubmitInFlight(requestedStoredSessionId, storedSessionId, runtimeId)
+          }),
+        storedSessionId || undefined
       )
       replayPendingPrompts(runtimeId, attached.pending_prompts, replayGatewayEvent)
 
@@ -174,7 +184,8 @@ export function useSessionRuntimeRecovery({
           applyAttached(
             cachedRuntimeId,
             { ...activated, session_key: activated.session_key || storedSessionId },
-            matchingTranscript(await persistedPromise, activated)
+            matchingTranscript(await persistedPromise, activated),
+            storedSessionId
           )
 
           return cachedRuntimeId
@@ -202,7 +213,8 @@ export function useSessionRuntimeRecovery({
       applyAttached(
         runtimeId,
         { ...resumed, session_key: liveStoredSessionId(resumed, storedSessionId) },
-        matchingTranscript(await persistedPromise, resumed)
+        matchingTranscript(await persistedPromise, resumed),
+        storedSessionId
       )
 
       return runtimeId

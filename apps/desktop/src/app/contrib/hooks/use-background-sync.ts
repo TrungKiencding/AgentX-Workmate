@@ -15,6 +15,7 @@ import {
 } from '@/store/session-states'
 
 import { finalizeInterruptedMessages } from '../../session/hooks/use-prompt-actions/rewind'
+import { isSubmitInFlight } from '../../session/hooks/use-prompt-actions/utils'
 import type { GatewayRequester } from '../types'
 
 // Cron sessions are written by a background scheduler tick, messaging turns by
@@ -126,9 +127,13 @@ export function rehydrateLiveSessionStatuses(
     // indicator for the whole build (the "sent a message and nothing
     // happened" report; same guard as session.info's running:false edge).
     // A "starting" session with no queued submit (open-chat pre-warm) keeps
-    // idle exactly as before.
+    // idle exactly as before. Likewise a send still on its way (staging its
+    // attachments, prompt.submit unanswered): the backend has no turn to report
+    // yet, and the submit settles the one on screen itself.
     const keepSubmitSeededBusy =
-      session.status === 'starting' && !!existing?.busy && existing.awaitingResponse && !existing.sawAssistantPayload
+      !!existing?.busy &&
+      ((session.status === 'starting' && existing.awaitingResponse && !existing.sawAssistantPayload) ||
+        isSubmitInFlight(storedSessionId, runtimeSessionId))
 
     const busy = working || keepSubmitSeededBusy
 
@@ -177,8 +182,12 @@ export function rehydrateLiveSessionStatuses(
 
       const existing = $sessionStates.get()[runtimeSessionId]
 
-      if (existing !== stateAtRequest[runtimeSessionId]) {
-        // Newer than the snapshot — let a later poll judge it.
+      if (
+        existing !== stateAtRequest[runtimeSessionId] ||
+        isSubmitInFlight(existing?.storedSessionId, runtimeSessionId)
+      ) {
+        // Newer than the snapshot (or a send of ours is still landing, and its
+        // own failure path settles it) — let a later poll judge it.
         seen.add(runtimeSessionId)
 
         continue

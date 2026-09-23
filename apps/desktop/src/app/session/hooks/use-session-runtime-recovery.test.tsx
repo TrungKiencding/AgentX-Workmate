@@ -19,6 +19,7 @@ import type { RpcEvent, SessionInfo } from '@/types/hermes'
 
 import type { ClientSessionState } from '../../types'
 
+import { _submitInFlight } from './use-prompt-actions/utils'
 import { useSessionRuntimeRecovery } from './use-session-runtime-recovery'
 import { useSessionStateCache } from './use-session-state-cache'
 
@@ -204,6 +205,40 @@ describe('attachSessionRuntime — a tile re-attaching after a reconnect', () =>
     expect(texts(state)).toEqual(['user:hi', 'assistant:hello', 'user:long task', 'assistant:the final answer'])
     expect(state).toMatchObject({ awaitingResponse: false, busy: false, needsInput: false, streamId: null })
     expect($sessionStates.get()['rt-1']?.busy).toBe(false)
+  })
+
+  it('leaves a send still staging its attachments to its own submit', async () => {
+    // The reconnect re-attach answers between image.attach and prompt.submit:
+    // the backend has no turn yet, but the one on screen is real.
+    const requestGateway = vi.fn(async () => ({
+      messages: [],
+      messages_omitted: true,
+      running: false,
+      session_id: 'rt-1',
+      session_key: 'stored-1'
+    }))
+
+    const { cache, recovery } = await mount(requestGateway)
+    seedRuntime(cache, 'rt-1', 'stored-1', {
+      awaitingResponse: true,
+      busy: true,
+      messages: [user('u1', 'hi'), assistant('a1', 'hello'), user('user-opt', 'Kho lạnh')],
+      turnStartedAt: 7
+    })
+
+    _submitInFlight.add('stored-1')
+
+    try {
+      await act(async () => {
+        await recovery.attachSessionRuntime('stored-1')
+      })
+    } finally {
+      _submitInFlight.delete('stored-1')
+    }
+
+    const state = cache.sessionStateByRuntimeIdRef.current.get('rt-1')
+    expect(state).toMatchObject({ awaitingResponse: true, busy: true, turnStartedAt: 7 })
+    expect(texts(state).at(-1)).toBe('user:Kho lạnh')
   })
 
   it('keeps the whole conversation when the re-attached turn is still running', async () => {

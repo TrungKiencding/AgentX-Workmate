@@ -45,6 +45,7 @@ import type { RpcEvent } from '@/types/hermes'
 import { NEW_CHAT_ROUTE, sessionRoute } from '../../routes'
 import type { ClientSessionState } from '../../types'
 
+import { _submitInFlight } from './use-prompt-actions/utils'
 import { useSessionActions } from './use-session-actions'
 
 vi.mock('@/hermes', async importOriginal => ({
@@ -1745,6 +1746,70 @@ describe('resumeSession onto a session that is still running', () => {
         type: 'clarify.request'
       }
     ])
+  })
+
+  it('a resume that lands while a send is still staging leaves that send its turn', async () => {
+    // A reconnect re-activates the open chat between image.attach and
+    // prompt.submit: "not running" is older than the turn the user just sent.
+    const runtimeIdByStoredSessionIdRef: MutableRefObject<Map<string, string>> = {
+      current: new Map([['stored-A', 'rt-A']])
+    }
+
+    const cached = clientState('stored-A')
+    cached.busy = true
+    cached.awaitingResponse = true
+    cached.turnStartedAt = 7
+    cached.messages = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'first question' }] },
+      { id: 'm2', role: 'assistant', parts: [{ type: 'text', text: 'first answer' }] },
+      { id: 'user-sending', role: 'user', parts: [{ type: 'text', text: 'Kho lạnh' }] }
+    ]
+
+    const sessionStateByRuntimeIdRef: MutableRefObject<Map<string, ClientSessionState>> = {
+      current: new Map([['rt-A', cached]])
+    }
+
+    vi.mocked(getSessionMessages).mockResolvedValue({
+      ...storedHistory,
+      messages: storedHistory.messages.slice(0, 2)
+    } as never)
+
+    const requestGateway = vi.fn(async (method: string) =>
+      method === 'session.activate'
+        ? ({
+            messages: [],
+            messages_omitted: true,
+            running: false,
+            session_id: 'rt-A',
+            session_key: 'stored-A'
+          } as never)
+        : ({} as never)
+    )
+
+    let resumedState: ClientSessionState | undefined
+    let resume: ((storedSessionId: string, replaceRoute?: boolean) => Promise<unknown>) | null = null
+
+    render(
+      <ResumeHarness
+        onReady={ready => (resume = ready)}
+        onStateUpdate={(_sessionId, next) => (resumedState = next)}
+        requestGateway={requestGateway}
+        runtimeIdByStoredSessionIdRef={runtimeIdByStoredSessionIdRef}
+        sessionStateByRuntimeIdRef={sessionStateByRuntimeIdRef}
+      />
+    )
+    await waitFor(() => expect(resume).not.toBeNull())
+
+    _submitInFlight.add('stored-A')
+
+    try {
+      await resume!('stored-A', true)
+    } finally {
+      _submitInFlight.delete('stored-A')
+    }
+
+    expect(resumedState).toMatchObject({ awaitingResponse: true, busy: true, turnStartedAt: 7 })
+    expect(texts(resumedState)).toEqual(['user:first question', 'assistant:first answer', 'user:Kho lạnh'])
   })
 
   it('a cold resume onto a running chat grafts the live turn onto the stored transcript', async () => {

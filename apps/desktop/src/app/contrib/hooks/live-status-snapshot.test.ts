@@ -5,6 +5,8 @@ import { createClientSessionState } from '@/lib/chat-runtime'
 import { $selectedStoredSessionId, $unreadFinishedSessionIds } from '@/store/session'
 import { $sessionStates, $workingSessionIds, clearAllSessionStates, publishSessionState } from '@/store/session-states'
 
+import { _submitInFlight } from '../../session/hooks/use-prompt-actions/utils'
+
 import {
   type LiveSessionStateCommit,
   rehydrateLiveSessionStatuses,
@@ -129,5 +131,38 @@ describe('rehydrateLiveSessionStatuses — snapshot ordering and the cache', () 
     rehydrateLiveSessionStatuses({ sessions: [] })
 
     expect($sessionStates.get()['rt-a']?.awaitingResponse).toBe(false)
+  })
+
+  describe('while a send is still on its way to the backend', () => {
+    // Four images uploading before prompt.submit: the backend truthfully has
+    // no turn, and the submit settles the one on screen either way.
+    const sending = (): ClientSessionState => ({ ...running(), awaitingResponse: true })
+
+    afterEach(() => {
+      _submitInFlight.clear()
+    })
+
+    it('an idle row does not blank its thinking indicator', () => {
+      publishSessionState('rt-a', sending())
+      _submitInFlight.add('stored-a')
+
+      rehydrateLiveSessionStatuses({ sessions: [{ id: 'rt-a', session_key: 'stored-a', status: 'idle' }] })
+
+      expect($sessionStates.get()['rt-a']).toMatchObject({ awaitingResponse: true, busy: true })
+    })
+
+    it('a runtime missing from the snapshot is not settled under it', () => {
+      publishSessionState('rt-a', sending())
+      rehydrateLiveSessionStatuses({ sessions: [{ id: 'rt-a', session_key: 'stored-a', status: 'working' }] })
+      _submitInFlight.add('stored-a')
+
+      rehydrateLiveSessionStatuses({ sessions: [] })
+      expect($sessionStates.get()['rt-a']).toMatchObject({ awaitingResponse: true, busy: true })
+
+      // Once the send has landed the next snapshot judges it as usual.
+      _submitInFlight.delete('stored-a')
+      rehydrateLiveSessionStatuses({ sessions: [] })
+      expect($sessionStates.get()['rt-a']?.busy).toBe(false)
+    })
   })
 })

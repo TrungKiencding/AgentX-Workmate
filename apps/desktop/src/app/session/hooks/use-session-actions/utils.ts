@@ -891,7 +891,8 @@ export function reattachedSessionState(
   state: ClientSessionState,
   attached: ReattachPayload,
   persisted: null | SessionMessage[],
-  runtimeInfo?: null | SessionRuntimeStatePatch
+  runtimeInfo?: null | SessionRuntimeStatePatch,
+  { sendInFlight = false }: { sendInFlight?: boolean } = {}
 ): ClientSessionState {
   // A Stop the backend has not finished unwinding still wins, exactly as it
   // does against a late message.start: the user asked for this turn to end.
@@ -915,6 +916,13 @@ export function reattachedSessionState(
       adoptedRunningTurn: true,
       turnStartedAt: state.turnStartedAt ?? Date.now()
     }
+  }
+
+  // A send of ours the backend has not started yet (see isSubmitInFlight): its
+  // "not running" predates the turn on screen. Tearing that turn down blinked
+  // the busy state and reset the thinking timer until message.start re-armed it.
+  if (sendInFlight) {
+    return { ...state, ...(runtimeInfo ?? {}), messages }
   }
 
   return {

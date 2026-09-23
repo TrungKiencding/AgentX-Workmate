@@ -85,6 +85,7 @@ import { navigateToWorkspacePage, NEW_CHAT_ROUTE, sessionRoute, SETTINGS_ROUTE }
 import type { ClientSessionState, SidebarNavItem } from '../../../types'
 import { replayPendingPrompts } from '../../pending-prompts'
 import { sessionContextDrift } from '../session-context-drift'
+import { isSubmitInFlight } from '../use-prompt-actions/utils'
 
 import {
   applyRuntimeInfo,
@@ -786,7 +787,10 @@ export function useSessionActions({
               // that landed while the RPCs were in flight must not be rewound.
               const activatedState = updateSessionState(
                 cachedRuntimeId,
-                state => reattachedSessionState(state, activated, persistedMessages, runtimeInfo),
+                state =>
+                  reattachedSessionState(state, activated, persistedMessages, runtimeInfo, {
+                    sendInFlight: isSubmitInFlight(storedSessionId, cachedRuntimeId)
+                  }),
                 storedSessionId
               )
 

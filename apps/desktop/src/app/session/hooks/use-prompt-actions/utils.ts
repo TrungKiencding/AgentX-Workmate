@@ -131,6 +131,16 @@ export async function withSessionBusyRetry<T>(call: () => Promise<T>): Promise<T
 // at once (the "message stacked 5×" bug). Keyed by stored/active session id.
 export const _submitInFlight = new Set<string>()
 
+/** Is a send for this conversation still on its way to the backend — staging
+ *  its attachments, or its prompt.submit not answered yet? Until it lands, the
+ *  backend's view of the session (a re-attach, a live-status poll) predates the
+ *  turn on screen, and the submit settles that turn itself: it lands, or its
+ *  failure path rolls the optimistic turn back. Pass every id the send may be
+ *  locked under (stored and runtime). */
+export function isSubmitInFlight(...keys: Array<null | string | undefined>): boolean {
+  return keys.some(key => Boolean(key) && _submitInFlight.has(key as string))
+}
+
 export function base64FromDataUrl(dataUrl: string): string {
   const comma = dataUrl.indexOf(',')
 

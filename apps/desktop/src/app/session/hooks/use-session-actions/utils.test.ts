@@ -1313,6 +1313,29 @@ describe('re-attaching to a live runtime', () => {
       })
     })
 
+    it('leaves a send the backend has not started yet to its submit', () => {
+      // Sent with attachments: image.attach is still uploading when the
+      // re-attach answers, so the backend truthfully reports "not running".
+      const state = {
+        ...createClientSessionState('stored-1'),
+        awaitingResponse: true,
+        busy: true,
+        messages: [msg('user-17', 'user', 'Kho lạnh')],
+        turnStartedAt: 5
+      }
+
+      const next = reattachedSessionState(state, { ...omitted, running: false }, stored, null, { sendInFlight: true })
+
+      expect(next).toMatchObject({ awaitingResponse: true, busy: true, turnStartedAt: 5 })
+      // The stored transcript still comes in; the optimistic prompt stays on top.
+      expect(texts(next.messages)).toEqual([
+        'user:first question',
+        'assistant:first answer',
+        'user:long task',
+        'user:Kho lạnh'
+      ])
+    })
+
     it('a Stop the backend has not finished unwinding is not re-armed', () => {
       const state = { ...createClientSessionState('stored-1'), interrupted: true }
 
