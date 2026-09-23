@@ -1,3 +1,4 @@
+import { matchQuery } from '@tanstack/react-query'
 import { atom, map } from 'nanostores'
 
 import {
@@ -42,7 +43,9 @@ export const $hubActions = map<Record<string, HubAction | undefined>>({})
 
 // Optimistic installed overrides so a card flips to its resolved state the instant
 // its own action finishes, instead of waiting on (and racing) the catalogue
-// refetch. install/update → true, uninstall → false; the catalogue reconciles after.
+// refetch. install/update → true, uninstall → false. They only bridge that
+// wait: the catalogue's next answer drops them (below), so a card then follows
+// whatever else adds or removes the skill — the hub's sync engine, a terminal.
 export const $hubInstalledOverride = map<Record<string, boolean | undefined>>({})
 
 // The key whose log the bottom pane currently tails (the latest-started action).
@@ -69,6 +72,23 @@ $activeGatewayProfile.subscribe(value => {
   }
 
   _hubProfile = key
+})
+
+// The catalogue answered: the backend reads the installed map as it answers, so
+// an answer landing after an action finished already counts it — hand every
+// card back to the catalogue. Only a successful answer does: a failed refetch
+// leaves the flips standing, and a request the action's own invalidation
+// superseded never lands. Watched at the cache, so the query's fetches and the
+// Sync button's direct write both count.
+queryClient.getQueryCache().subscribe(event => {
+  if (
+    event.type === 'updated' &&
+    event.action.type === 'success' &&
+    matchQuery({ queryKey: HUB_CATALOG_KEY }, event.query) &&
+    Object.keys($hubInstalledOverride.get()).length > 0
+  ) {
+    $hubInstalledOverride.set({})
+  }
 })
 
 // One self-contained task: spawn → tail its own action log into the store →
@@ -107,7 +127,8 @@ async function runHubAction(key: string, kind: HubActionKind, spawn: () => Promi
     }
 
     // Only flip the row on a clean exit — a failed install/uninstall must not
-    // render as installed/removed.
+    // render as installed/removed. The flip lasts until the catalogue answers
+    // again — normally the refetch just below.
     if (key !== UPDATE_ALL_KEY && exitCode === 0) {
       $hubInstalledOverride.setKey(key, kind !== 'uninstall')
     }

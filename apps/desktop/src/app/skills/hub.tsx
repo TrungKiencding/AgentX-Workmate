@@ -152,15 +152,6 @@ function haystack(skill: SkillHubResult): string {
   return normalize(`${skill.name} ${skill.description} ${skill.identifier} ${(skill.tags ?? []).join(' ')}`)
 }
 
-// One catalogue card — a self-contained tile that installs/uninstalls ITSELF
-// and reads its own action status from the store, so parallel installs never
-// desync. A card is metadata only: nothing reaches the skills tree until
-// "Thêm kỹ năng này" runs. `rawInstalled` is the sources/catalog truth; the
-// store's optimistic override wins so the card flips the instant its action
-// resolves. Once added, the card is also where the skill is managed —
-// installed hub skills are not listed under "Kỹ năng sẵn có" — so it grows
-// the same switch and "Thử ngay" a skill card has; `localSkill` is the
-// backend's row for it (enabled state), when the skills list has loaded.
 /** The Hub version newer than the one installed here, or null (a withdrawn
  *  newer version the machine still runs is not an "update"). */
 function hubUpdateFor(skill: SkillHubResult, entry: null | SkillHubInstalledEntry | undefined): null | string {
@@ -169,6 +160,16 @@ function hubUpdateFor(skill: SkillHubResult, entry: null | SkillHubInstalledEntr
   return entry?.version && latest && compareSemver(latest, entry.version) > 0 ? latest : null
 }
 
+// One catalogue card — a self-contained tile that installs/uninstalls ITSELF
+// and reads its own action status from the store, so parallel installs never
+// desync. A card is metadata only: nothing reaches the skills tree until
+// "Thêm kỹ năng này" runs. `installedEntry` is the catalogue's truth; the
+// store's optimistic override wins until the catalogue answers again, so the
+// card flips the instant its own action resolves. Once added, the card is also
+// where the skill is managed — installed hub skills are not listed under
+// "Kỹ năng sẵn có" — so it grows the same switch and "Thử ngay" a skill card
+// has; `localSkill` is the backend's row for it (enabled state), when the
+// skills list has loaded.
 function HubSkillCard({
   installedEntry,
   localSkill,
@@ -500,11 +501,16 @@ export function SkillsHub({ query }: SkillsHubProps) {
     return [...merged.values()]
   }, [catalog, catalogMatches, results, term])
 
-  // Installed map: the catalogue seeds it, the search patches it (a term can
-  // surface an install the cached catalogue didn't list); the optimistic
-  // override wins so a just-(un)installed card reflects its own outcome
-  // without the refetch race.
-  const installed = { ...(catalogQuery.data?.installed ?? {}), ...(search.data?.installed ?? {}) }
+  // Installed map: the catalogue and the search each carry all of it, read as
+  // the backend answered, so the newer answer is the truth — a search can show
+  // an install made since the catalogue answered, and an older search must not
+  // bring back a skill removed since. The optimistic override wins until the
+  // catalogue answers again, so a just-(un)installed card reflects its own
+  // outcome without the refetch race.
+  const installed =
+    (search.data && search.dataUpdatedAt > catalogQuery.dataUpdatedAt
+      ? search.data.installed
+      : catalogQuery.data?.installed) ?? {}
 
   const isInstalled = (identifier: string) => overrides[identifier] ?? Boolean(installed[identifier])
 
