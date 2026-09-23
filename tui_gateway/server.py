@@ -8165,16 +8165,49 @@ def _find_live_session_by_key(session_key: str) -> tuple[str, dict] | None:
     return None
 
 
+def _live_session_identity(session: dict) -> tuple[str, str]:
+    """``(model, provider)`` the live session actually runs — the same precedence
+    ``_session_info`` reports: a switch queued mid-turn, the metadata mirror, the
+    built agent, the composer override a deferred record carries. The profile
+    default is the LAST resort, never the answer for a chat that made its own pick.
+    """
+    pending = session.get("pending_model_switch") or {}
+    mirror = _metadata_mirror(session)
+    agent = session.get("agent")
+    override = session.get("model_override") or {}
+    model = (
+        str(pending.get("display_model") or "").strip()
+        or mirror.get("model")
+        or getattr(agent, "model", "")
+        or override.get("model")
+        or _resolve_model()
+    )
+    provider = (
+        str(pending.get("display_provider") or "").strip()
+        or mirror.get("provider")
+        or getattr(agent, "provider", "")
+        or override.get("provider")
+        or ""
+    )
+    return str(model), str(provider or "")
+
+
 def _fallback_session_info(session: dict) -> dict:
     agent = session.get("agent")
     if agent is not None:
         return _session_info(agent)
     cwd = _default_session_cwd()
-    return {
+    # The chat's own pick, not the profile default. Every re-attach (a reconnect,
+    # a tab re-binding, a switch back) lands here while the agent is still being
+    # built, and desktop writes info.model straight into the picker — reporting
+    # _resolve_model() flipped a chat's pick to the default until the build's
+    # session.info flipped it back.
+    model, provider = _live_session_identity(session)
+    info = {
         "cwd": cwd,
         "project": _project_info_for_cwd(cwd),
         "lazy": True,
-        "model": _resolve_model(),
+        "model": model,
         "skills": {},
         "tools": {},
         # A lazy session (agent not built yet) is still served by *this* backend,
@@ -8184,6 +8217,9 @@ def _fallback_session_info(session: dict) -> dict:
         # session.create shape (_lazy_resume_info) already carries it (#36112).
         "desktop_contract": DESKTOP_BACKEND_CONTRACT,
     }
+    if provider:
+        info["provider"] = provider
+    return info
 
 
 def _reconcile_display_with_live(

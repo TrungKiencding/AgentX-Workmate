@@ -265,3 +265,51 @@ class TestPendingPromptsRideTheReattachPayload:
         payload = server._live_session_payload("sid", registry["sid"], omit_messages=True)
 
         assert "pending_prompts" not in payload
+
+
+class TestReattachReportsTheChatsOwnModel:
+    """Desktop writes a re-attach's ``info.model``/``provider`` straight into the
+    picker. A session whose agent is still being built must answer with the pick
+    the chat made, or every reconnect flips that pick to the profile default."""
+
+    @pytest.fixture(autouse=True)
+    def profile_default(self, monkeypatch):
+        monkeypatch.setattr(server, "_resolve_model", lambda: "profile-default")
+
+    @pytest.mark.parametrize(
+        ("extra", "expected"),
+        [
+            (
+                {"model_override": {"model": "chat-pick", "provider": "chat-provider"}},
+                ("chat-pick", "chat-provider"),
+            ),
+            (
+                {
+                    "model_override": {"model": "chat-pick", "provider": "chat-provider"},
+                    "pending_model_switch": {"display_model": "next-pick", "display_provider": "next-provider"},
+                },
+                ("next-pick", "next-provider"),
+            ),
+            (
+                {"_metadata_mirror": {"model": "host-model", "provider": "host-provider"}},
+                ("host-model", "host-provider"),
+            ),
+        ],
+        ids=["composer-override", "queued-switch", "compute-host-mirror"],
+    )
+    def test_lazy_session_reports_its_own_pick(self, registry, extra, expected):
+        registry["sid"] = _session(agent=None, transport=server._detached_ws_transport, **extra)
+
+        info = server._live_session_payload("sid", registry["sid"], omit_messages=True)["info"]
+
+        assert (info["model"], info["provider"]) == expected
+        assert info["lazy"] is True
+
+    def test_lazy_session_without_a_pick_reports_the_default_and_no_provider(self, registry):
+        registry["sid"] = _session(agent=None, transport=server._detached_ws_transport)
+
+        info = server._live_session_payload("sid", registry["sid"], omit_messages=True)["info"]
+
+        assert info["model"] == "profile-default"
+        # Absent rather than "": the client keeps the provider it already shows.
+        assert "provider" not in info
