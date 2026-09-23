@@ -10,8 +10,9 @@ the conversation after context compression events.
 Design:
 - Single `todo` tool: provide `todos` param to write, omit to read
 - Every call returns the full current list
-- No system prompt mutation, no tool response modification
-- Behavioral guidance lives entirely in the tool schema description
+- No system prompt mutation; no other tool's response is modified
+- Behavioral guidance lives in the tool schema description, plus a one-line
+  `next` reminder in the tool's own result while an item is still open
 """
 
 import json
@@ -43,6 +44,29 @@ TODO_INJECTION_HEADER = (
 )
 
 
+def _item_content(item: Any) -> str:
+    """An item's description, stripped; "" when absent, null or blank."""
+    if not isinstance(item, dict):
+        return ""
+    content = item.get("content")
+    return "" if content is None else str(content).strip()
+
+
+def is_status_update(todos: Any) -> bool:
+    """True when a write carries no description at all.
+
+    Such a list can't be a fresh plan — it only flips statuses on the list
+    the model already wrote, whatever its ``merge`` flag says. Models often
+    drop ``merge`` for these, and replacing would wipe every description
+    and drop the items the update didn't mention.
+    """
+    return (
+        isinstance(todos, list)
+        and bool(todos)
+        and all(isinstance(t, dict) and not _item_content(t) for t in todos)
+    )
+
+
 class TodoStore:
     """
     In-memory todo list. One instance per AIAgent (one per session).
@@ -65,14 +89,15 @@ class TodoStore:
             merge: if False, replace the entire list. If True, update
                    existing items by id and append new ones.
         """
+        existing = {item["id"]: item for item in self._items}
         if not merge:
-            # Replace mode: new list entirely
+            # Replace mode: new list entirely. An item listed without content
+            # keeps the description it already has.
             self._items = self._normalize_order(
-                [self._validate(t) for t in self._dedupe_by_id(todos)]
+                [self._validate(t, existing) for t in self._dedupe_by_id(todos)]
             )
         else:
             # Merge mode: update existing items by id, append new ones
-            existing = {item["id"]: item for item in self._items}
             for t in self._dedupe_by_id(todos):
                 item_id = str(t.get("id", "")).strip()
                 if not item_id:
@@ -80,8 +105,9 @@ class TodoStore:
 
                 if item_id in existing:
                     # Update only the fields the LLM actually provided
-                    if "content" in t and t["content"]:
-                        existing[item_id]["content"] = self._cap_content(str(t["content"]).strip())
+                    content = _item_content(t)
+                    if content:
+                        existing[item_id]["content"] = self._cap_content(content)
                     if "status" in t and t["status"]:
                         status = str(t["status"]).strip().lower()
                         if status in VALID_STATUSES:
@@ -114,6 +140,22 @@ class TodoStore:
     def has_items(self) -> bool:
         """Check if there are any items in the list."""
         return bool(self._items)
+
+    def undescribed_new_ids(self, todos: List[Any]) -> List[str]:
+        """Ids of items a write would add to the list without any content.
+
+        An item already on the list keeps its description when an update
+        leaves content out; a new one has nothing to show but a placeholder.
+        """
+        known = {item["id"] for item in self._items}
+        missing = []
+        for t in self._dedupe_by_id(todos):
+            if not isinstance(t, dict) or _item_content(t):
+                continue
+            item_id = str(t.get("id", "")).strip() or "?"
+            if item_id not in known:
+                missing.append(item_id)
+        return missing
 
     def format_for_injection(self) -> Optional[str]:
         """
@@ -163,11 +205,15 @@ class TodoStore:
         return content
 
     @staticmethod
-    def _validate(item: Dict[str, Any]) -> Dict[str, str]:
+    def _validate(
+        item: Dict[str, Any],
+        existing: Optional[Dict[str, Dict[str, str]]] = None,
+    ) -> Dict[str, str]:
         """
         Validate and normalize a todo item.
 
-        Ensures required fields exist and status is valid.
+        Ensures required fields exist and status is valid. An item without
+        content takes the description of the ``existing`` item with its id.
         Returns a clean dict with only {id, content, status}.
         """
         if not isinstance(item, dict):
@@ -177,11 +223,13 @@ class TodoStore:
         if not item_id:
             item_id = "?"
 
-        content = str(item.get("content", "")).strip()
-        if not content:
-            content = "(no description)"
-        else:
+        content = _item_content(item)
+        if content:
             content = TodoStore._cap_content(content)
+        elif existing and item_id in existing:
+            content = existing[item_id]["content"]
+        else:
+            content = "(no description)"
 
         status = str(item.get("status", "pending")).strip().lower()
         if status not in VALID_STATUSES:
@@ -258,7 +306,15 @@ def todo_tool(
             return tool_error(
                 f"todos must be a list, got {type(todos).__name__}"
             )
-        items = store.write(todos, merge)
+        undescribed = store.undescribed_new_ids(todos)
+        if undescribed:
+            return tool_error(
+                "New todo items need a short task description in 'content' "
+                f"(missing for id {', '.join(repr(i) for i in undescribed)}); "
+                "nothing was changed. To update items already on the list, "
+                "send merge=true with each item's id and new status."
+            )
+        items = store.write(todos, merge or is_status_update(todos))
     else:
         items = store.read()
 
@@ -268,7 +324,7 @@ def todo_tool(
     completed = sum(1 for i in items if i["status"] == "completed")
     cancelled = sum(1 for i in items if i["status"] == "cancelled")
 
-    return json.dumps({
+    result: Dict[str, Any] = {
         "todos": items,
         "summary": {
             "total": len(items),
@@ -277,7 +333,37 @@ def todo_tool(
             "completed": completed,
             "cancelled": cancelled,
         },
-    }, ensure_ascii=False)
+    }
+    reminder = _next_step_reminder(items)
+    if reminder:
+        result["next"] = reminder
+    return json.dumps(result, ensure_ascii=False)
+
+
+def _next_step_reminder(items: List[Dict[str, str]]) -> Optional[str]:
+    """What the list needs from the model next, while any item is open.
+
+    The schema already says to tick items off as they finish, but weaker
+    models read it once and save every status change for the end — the
+    user then watches the progress list sit at 0/N and jump to done. Said
+    again right after each write, where the model is about to act, it lands.
+    """
+    has_pending = any(i["status"] == "pending" for i in items)
+    active = next((i for i in items if i["status"] == "in_progress"), None)
+    if active is not None:
+        if has_pending:
+            return (
+                f"Item {active['id']} is in progress. As soon as it is done, "
+                "call todo to mark it completed and the next item "
+                "in_progress, before you start on anything else."
+            )
+        return (
+            f"Item {active['id']} is in progress. As soon as it is done, "
+            "call todo to mark it completed."
+        )
+    if has_pending:
+        return "Mark the next item in_progress before you start on it."
+    return None
 
 
 def check_todo_requirements() -> bool:
@@ -300,12 +386,16 @@ TODO_SCHEMA = {
         "Writing:\n"
         "- Provide 'todos' array to create/update items\n"
         "- merge=false (default): replace the entire list with a fresh plan\n"
-        "- merge=true: update existing items by id, add any new ones\n\n"
+        "- merge=true: update existing items by id (e.g. to change their "
+        "status), add any new ones\n\n"
         "Each item: {id: string, content: string, "
         "status: pending|in_progress|completed|cancelled}\n"
-        "List order is priority. Only ONE item in_progress at a time.\n"
-        "Mark items completed immediately when done. If something fails, "
-        "cancel it and add a revised item.\n\n"
+        "List order is priority. Only ONE item in_progress at a time.\n\n"
+        "The user watches this list as your live progress, so keep it in "
+        "step with the work: as soon as an item is done, call todo to mark "
+        "it completed and the next one in_progress, before you start on that "
+        "next item. Never finish several items and tick them off together "
+        "at the end. If something fails, cancel it and add a revised item.\n\n"
         "Always returns the full current list."
     ),
     "parameters": {
