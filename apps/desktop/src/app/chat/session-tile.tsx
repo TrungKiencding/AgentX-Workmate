@@ -52,7 +52,6 @@ import {
   $sessionStates,
   $sessionTiles,
   closeSessionTile,
-  discardSessionTile,
   patchSessionTile,
   type SessionTile,
   sessionTileDelegate
@@ -66,6 +65,7 @@ import { paneMirror } from './pane-mirror'
 import { startSessionDrag } from './session-drag'
 import { SessionStatusDot } from './session-status-dot'
 import { useSessionTileActions } from './session-tile-actions'
+import { useTileRuntimeBinding } from './session-tile-binding'
 import { type SessionView, SessionViewProvider } from './session-view'
 import { MessagingSessionContextMenu, SessionContextMenu } from './sidebar/session-actions-menu'
 import { lastVisibleMessageIsUser } from './thread-loading'
@@ -225,11 +225,8 @@ function TileChat({
 }
 
 export function SessionTilePane({ storedSessionId }: { storedSessionId: string }) {
-  const tiles = useStore($sessionTiles)
-  const tile = tiles.find(t => t.storedSessionId === storedSessionId)
+  const tile = useTileRuntimeBinding(storedSessionId)
   const runtimeId = tile?.runtimeId ?? null
-  const gatewayOpen = useStore($gatewayState) === 'open'
-  const resumingRef = useRef(false)
   const view = useMemo(() => buildTileView(storedSessionId), [storedSessionId])
 
   // A tab-strip "+"/⌘T tab is created UNLISTED — its session stays out of
@@ -278,55 +275,6 @@ export function SessionTilePane({ storedSessionId }: { storedSessionId: string }
       }
     }
   }, [hasMessages, runtimeId, storedSessionId])
-
-  // Same gating as the primary's route resume (use-route-resume): never fire
-  // session.resume before the gateway is OPEN. Persisted tiles mount at boot
-  // while it's still connecting — an ungated resume rejected there and
-  // latched every restored tile into the error card.
-  // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
-  useEffect(() => {
-    if (!gatewayOpen || runtimeId || tile?.error || resumingRef.current) {
-      return
-    }
-
-    const delegate = sessionTileDelegate()
-
-    if (!delegate) {
-      return
-    }
-
-    resumingRef.current = true
-
-    delegate
-      .resumeTile(storedSessionId)
-      .then(id => patchSessionTile(storedSessionId, { error: undefined, runtimeId: id }))
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
-
-        // A gone session (404 / "Session not found") is terminal — a stale or
-        // cross-profile persisted tile. Discard it instead of latching an error
-        // that re-retries on every reconnect (the "Session not found" spam).
-        if (/session not found|\b404\b/i.test(message)) {
-          discardSessionTile(storedSessionId)
-        } else {
-          patchSessionTile(storedSessionId, { error: message })
-        }
-      })
-      .finally(() => {
-        resumingRef.current = false
-      })
-  }, [gatewayOpen, runtimeId, storedSessionId, tile?.error])
-
-  // The gateway (re)opening invalidates any latched error — it likely came
-  // from a not-yet-open gateway or the previous connection. Clearing it
-  // retriggers the resume effect: one bounded auto-retry per (re)connect,
-  // mirroring the primary path's became-open resync.
-  useEffect(() => {
-    if (gatewayOpen && tile?.error) {
-      patchSessionTile(storedSessionId, { error: undefined })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gatewayOpen, storedSessionId])
 
   if (tile?.error) {
     return (

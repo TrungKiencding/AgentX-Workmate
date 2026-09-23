@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { textWithoutReferenceLines, WIRE_REFERENCE_KINDS } from '@/components/assistant-ui/reference-kinds'
 import { type ChatMessage, type ChatMessagePart, chatMessageText } from '@/lib/chat-messages'
+import { createClientSessionState } from '@/lib/chat-runtime'
 import { $approvalModes, approvalModeForProfile } from '@/store/approval-mode'
 import { $desktopOnboarding } from '@/store/onboarding'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $currentBranch, $currentCwd, setCurrentBranch, setCurrentCwd } from '@/store/session'
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo, SessionMessage } from '@/types/hermes'
 
 import {
   appendLiveSessionProjection,
@@ -15,7 +16,10 @@ import {
   chatMessagesEquivalent,
   chatPartsEquivalent,
   isSessionGoneError,
+  liveTurnStreamId,
   preserveLocalPendingTurnMessages,
+  reattachedSessionState,
+  reattachedTranscript,
   reconcileResumeMessages,
   sessionMatchesStoredId,
   sessionShouldHaveTranscript,
@@ -1197,6 +1201,139 @@ describe('appendLiveSessionProjection', () => {
     expect(restored.at(-1)).toMatchObject({
       id: 'assistant-stream-runtime-1',
       pending: true
+    })
+  })
+})
+
+describe('re-attaching to a live runtime', () => {
+  const stored: SessionMessage[] = [
+    { content: 'first question', role: 'user', timestamp: 1 },
+    { content: 'first answer', role: 'assistant', timestamp: 2 },
+    { content: 'long task', role: 'user', timestamp: 3 }
+  ]
+
+  const omitted = { messages: [], messages_omitted: true, session_id: 'rt-1' }
+  const texts = (messages: ChatMessage[]) => messages.map(m => `${m.role}:${chatMessageText(m)}`)
+
+  describe('reattachedTranscript', () => {
+    it('grafts the live turn onto the stored transcript when the payload omitted it', () => {
+      const cached = [msg('user-1', 'user', 'long task')]
+
+      const next = reattachedTranscript(
+        cached,
+        { ...omitted, inflight: { assistant: 'partial', streaming: true, user: 'long task' } },
+        stored
+      )
+
+      expect(texts(next)).toEqual([
+        'user:first question',
+        'assistant:first answer',
+        'user:long task',
+        'assistant:partial'
+      ])
+    })
+
+    it('never rebuilds the thread out of the projection when there is no stored copy', () => {
+      const cached = [msg('m1', 'user', 'first question'), msg('m2', 'assistant', 'first answer')]
+
+      const next = reattachedTranscript(cached, { ...omitted, inflight: { assistant: 'x', streaming: true } }, null)
+
+      expect(next).toBe(cached)
+    })
+
+    it('an empty stored page never wipes a non-empty cache (a respawning backend returns one)', () => {
+      const cached = [msg('m1', 'user', 'first question')]
+
+      expect(reattachedTranscript(cached, omitted, [])).toBe(cached)
+    })
+
+    it('still reconciles a payload that carries its own transcript', () => {
+      const next = reattachedTranscript([], { messages: stored, session_id: 'rt-1' }, null)
+
+      expect(texts(next)).toEqual(['user:first question', 'assistant:first answer', 'user:long task'])
+    })
+  })
+
+  describe('liveTurnStreamId', () => {
+    it('names the pending reply of the turn in flight', () => {
+      expect(liveTurnStreamId([msg('u', 'user', 'q'), msg('a', 'assistant', 'x', { pending: true })])).toBe('a')
+    })
+
+    it('is null before the turn has produced a reply, and for a settled one', () => {
+      expect(liveTurnStreamId([msg('a0', 'assistant', 'old', { pending: true }), msg('u', 'user', 'q')])).toBeNull()
+      expect(liveTurnStreamId([msg('u', 'user', 'q'), msg('a', 'assistant', 'done')])).toBeNull()
+    })
+  })
+
+  describe('reattachedSessionState', () => {
+    it('adopts a running turn: live row extended, thinking only until a reply exists', () => {
+      const state = {
+        ...createClientSessionState('stored-1'),
+        busy: true,
+        messages: [msg('user-1', 'user', 'long task')]
+      }
+
+      const next = reattachedSessionState(
+        state,
+        { ...omitted, inflight: { assistant: 'partial', streaming: true, user: 'long task' }, running: true },
+        stored
+      )
+
+      expect(next).toMatchObject({
+        adoptedRunningTurn: true,
+        awaitingResponse: false,
+        busy: true,
+        sawAssistantPayload: true
+      })
+      expect(next.streamId).toBe(next.messages.at(-1)?.id)
+      expect(next.turnStartedAt).toEqual(expect.any(Number))
+    })
+
+    it('settles a turn that ended while nobody was attached', () => {
+      const state = {
+        ...createClientSessionState('stored-1'),
+        awaitingResponse: true,
+        busy: true,
+        messages: [msg('user-1', 'user', 'long task'), msg('s1', 'assistant', '', { pending: true })],
+        needsInput: true,
+        streamId: 's1',
+        turnStartedAt: 5
+      }
+
+      const next = reattachedSessionState(state, { ...omitted, running: false }, null)
+
+      expect(texts(next.messages)).toEqual(['user:long task'])
+      expect(next).toMatchObject({
+        adoptedRunningTurn: false,
+        awaitingResponse: false,
+        busy: false,
+        needsInput: false,
+        streamId: null,
+        turnStartedAt: null
+      })
+    })
+
+    it('a Stop the backend has not finished unwinding is not re-armed', () => {
+      const state = { ...createClientSessionState('stored-1'), interrupted: true }
+
+      expect(reattachedSessionState(state, { ...omitted, running: true }, null).busy).toBe(false)
+    })
+
+    it('keeps a pending approval flag while running and raises it for a replayed question', () => {
+      const state = { ...createClientSessionState('stored-1'), busy: true, needsInput: true }
+
+      expect(reattachedSessionState(state, { ...omitted, running: true }, null).needsInput).toBe(true)
+      expect(
+        reattachedSessionState(
+          { ...state, needsInput: false },
+          {
+            ...omitted,
+            pending_prompts: [{ event: 'clarify.request', payload: { question: 'q', request_id: 'r' } }],
+            running: true
+          },
+          null
+        ).needsInput
+      ).toBe(true)
     })
   })
 })

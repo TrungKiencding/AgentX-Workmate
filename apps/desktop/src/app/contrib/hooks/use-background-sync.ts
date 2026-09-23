@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useEffect } from 'react'
 
+import type { ClientSessionState } from '@/app/types'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { $changeEventsAvailable, $cronChangeTick, $sessionsChangeTick } from '@/store/live-sync'
 import { $onBattery, batteryPollInterval } from '@/store/power'
@@ -13,6 +14,7 @@ import {
   setSessionStalled
 } from '@/store/session-states'
 
+import { finalizeInterruptedMessages } from '../../session/hooks/use-prompt-actions/rewind'
 import type { GatewayRequester } from '../types'
 
 // Cron sessions are written by a background scheduler tick, messaging turns by
@@ -54,6 +56,20 @@ interface LiveSessionStatusResponse {
   sessions?: LiveSessionStatusItem[]
 }
 
+/** Writes one runtime's reconciled liveness. The default publishes to the view
+ *  mirror only. The app routes a runtime its session cache holds through that
+ *  cache instead, so the two never disagree: a mirror-only write left the pane
+ *  (which renders the cache) "thinking" while the sidebar said the turn was
+ *  over, and the next event for that runtime re-published the stale flag. */
+export type LiveSessionStateCommit = (
+  runtimeId: string,
+  update: (state: ClientSessionState) => ClientSessionState,
+  storedSessionId: string
+) => void
+
+export const publishLiveSessionState: LiveSessionStateCommit = (runtimeId, update, storedSessionId) =>
+  publishSessionState(runtimeId, update($sessionStates.get()[runtimeId] ?? createClientSessionState(storedSessionId)))
+
 // Runtime ids this poll has seen live, per gateway profile. A profile only
 // ever reaps what its OWN snapshot previously reported: background profiles are
 // served by different gateways and never appear in this profile's active_list,
@@ -74,7 +90,9 @@ const liveRuntimeIdsByProfile = new Map<string, Set<string>>()
 export function rehydrateLiveSessionStatuses(
   response: LiveSessionStatusResponse,
   nowMs = Date.now(),
-  profileKey = 'default'
+  profileKey = 'default',
+  stateAtRequest: Record<string, ClientSessionState> = $sessionStates.get(),
+  commit: LiveSessionStateCommit = publishLiveSessionState
 ): void {
   const seen = new Set<string>()
 
@@ -91,6 +109,14 @@ export function rehydrateLiveSessionStatuses(
     seen.add(runtimeSessionId)
 
     const existing = $sessionStates.get()[runtimeSessionId]
+
+    // The snapshot is async. Stream events can start or finish this turn after
+    // the request went out but before its answer lands; those events are newer
+    // than the snapshot, so an old idle row must not finish a live turn and an
+    // old working row must not revive a finished one.
+    if (existing !== stateAtRequest[runtimeSessionId]) {
+      continue
+    }
 
     // "starting" is the deferred agent build. With a submit already seeded
     // (busy + awaitingResponse, no assistant payload yet), the message is
@@ -115,12 +141,7 @@ export function rehydrateLiveSessionStatuses(
       existing.busy !== busy ||
       existing.needsInput !== needsInput
     ) {
-      publishSessionState(runtimeSessionId, {
-        ...(existing ?? createClientSessionState(storedSessionId)),
-        busy,
-        needsInput,
-        storedSessionId
-      })
+      commit(runtimeSessionId, state => ({ ...state, busy, needsInput, storedSessionId }), storedSessionId)
     }
 
     if (!working) {
@@ -156,15 +177,31 @@ export function rehydrateLiveSessionStatuses(
 
       const existing = $sessionStates.get()[runtimeSessionId]
 
-      if (existing?.busy || existing?.needsInput) {
-        publishSessionState(runtimeSessionId, {
-          ...existing,
-          awaitingResponse: false,
-          busy: false,
-          needsInput: false,
-          streamId: null,
-          turnStartedAt: null
-        })
+      if (existing !== stateAtRequest[runtimeSessionId]) {
+        // Newer than the snapshot — let a later poll judge it.
+        seen.add(runtimeSessionId)
+
+        continue
+      }
+
+      if (existing?.busy || existing?.needsInput || existing?.awaitingResponse) {
+        commit(
+          runtimeSessionId,
+          state => ({
+            ...state,
+            adoptedRunningTurn: false,
+            awaitingResponse: false,
+            busy: false,
+            // The turn ended without its completion reaching us: settle its
+            // bubble the way the running:false edge does (keep text, drop an
+            // empty placeholder), or it keeps "thinking" in an idle session.
+            messages: finalizeInterruptedMessages(state.messages, state.streamId),
+            needsInput: false,
+            streamId: null,
+            turnStartedAt: null
+          }),
+          existing.storedSessionId ?? ''
+        )
       }
     }
   }
@@ -183,6 +220,8 @@ interface BackgroundSyncParams {
   activeGatewayProfile: string
   activeIsMessaging: boolean
   activeSessionId: null | string
+  /** Where reconciled live statuses are written (see LiveSessionStateCommit). */
+  commitLiveSessionState?: LiveSessionStateCommit
   freshDraftReady: boolean
   gatewayState: string
   refreshActiveMessagingTranscript: () => Promise<unknown> | unknown
@@ -232,6 +271,7 @@ export function useBackgroundSync({
   activeGatewayProfile,
   activeIsMessaging,
   activeSessionId,
+  commitLiveSessionState = publishLiveSessionState,
   freshDraftReady,
   gatewayState,
   refreshActiveMessagingTranscript,
@@ -291,12 +331,19 @@ export function useBackgroundSync({
       }
 
       inFlight = true
+      const stateAtRequest = $sessionStates.get()
 
       try {
         const response = await requestGateway<LiveSessionStatusResponse>('session.active_list', {})
 
         if (!cancelled) {
-          rehydrateLiveSessionStatuses(response, Date.now(), activeGatewayProfile)
+          rehydrateLiveSessionStatuses(
+            response,
+            Date.now(),
+            activeGatewayProfile,
+            stateAtRequest,
+            commitLiveSessionState
+          )
         }
       } catch {
         // Older gateways may not expose session.active_list. Live stream events
@@ -319,7 +366,14 @@ export function useBackgroundSync({
     }
     // sessionsChangeTick: each sessions.changed broadcast re-seeds immediately
     // via the effect re-run (already coalesced to 2s server-side).
-  }, [activeGatewayProfile, changeEventsAvailable, gatewayState, requestGateway, sessionsChangeTick])
+  }, [
+    activeGatewayProfile,
+    changeEventsAvailable,
+    commitLiveSessionState,
+    gatewayState,
+    requestGateway,
+    sessionsChangeTick
+  ])
 
   // sessions.changed also means the *stored* list may have new rows (a cron
   // run's session, an inbound messaging turn creating a thread). The full list

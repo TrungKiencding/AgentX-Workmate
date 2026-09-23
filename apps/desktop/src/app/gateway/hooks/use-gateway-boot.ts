@@ -38,7 +38,7 @@ import {
   setCurrentCwd,
   setSessionsLoading
 } from '@/store/session'
-import { $attentionSessionIds, $workingSessionIds, resetTileRuntimeBindings } from '@/store/session-states'
+import { $attentionSessionIds, $workingSessionIds, invalidateTileRuntimeBindings } from '@/store/session-states'
 import type { RpcEvent } from '@/types/hermes'
 
 import { stashGatewaySurvivor, survivorIsStale, takeGatewaySurvivor } from './gateway-hmr-survivor'
@@ -184,9 +184,10 @@ export function useGatewayBoot({
 
         reconnectAttempt = 0
         reconnectFailingSince = null
-        // A respawned backend re-mints (recycles) runtime ids, so any tile's
-        // bound runtime id is now stale — drop them so each tile re-resumes.
-        resetTileRuntimeBindings()
+        // The backend parked every session of the dropped socket on a drop
+        // transport (and a respawned backend has none of them): each tile
+        // re-attaches its runtime to this socket, or rebinds a fresh one.
+        invalidateTileRuntimeBindings()
         // Resync state that may have moved on the backend while we were asleep.
         await callbacksRef.current.refreshHermesConfig().catch(() => undefined)
         await callbacksRef.current.refreshSessions().catch(() => undefined)

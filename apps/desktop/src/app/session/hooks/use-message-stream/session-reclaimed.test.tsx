@@ -19,6 +19,7 @@ const ACTIVE_SID = 'session-active'
 const ACTIVE_PROFILE = 'compass'
 let handleEvent: ((event: RpcEvent) => void) | null = null
 let queryClient: QueryClient
+let onRuntimeReclaimed: ((runtimeId: string) => void) | undefined
 
 function Harness() {
   const activeSessionIdRef = useRef<string | null>(ACTIVE_SID)
@@ -28,6 +29,7 @@ function Harness() {
     activeGatewayProfile: ACTIVE_PROFILE,
     activeSessionIdRef,
     hydrateFromStoredSession: vi.fn(async () => undefined),
+    onRuntimeReclaimed,
     queryClient,
     refreshHermesConfig: vi.fn<() => Promise<void>>(async () => undefined),
     refreshSessions: vi.fn<() => Promise<void>>(async () => undefined),
@@ -64,6 +66,7 @@ const reclaim = (sessionId: string, reason = 'ws_orphan_reap') =>
 
 beforeEach(() => {
   handleEvent = null
+  onRuntimeReclaimed = undefined
   queryClient = new QueryClient()
   $sessionStates.set({})
 })
@@ -121,5 +124,18 @@ describe('session.reclaimed', () => {
 
       expect($sessionStates.get()['live-gone'], reason).toBeUndefined()
     }
+  })
+
+  it('hands the reclaimed runtime to the app so it can re-attach whatever showed it', async () => {
+    const retired: string[] = []
+    onRuntimeReclaimed = runtimeId => retired.push(runtimeId)
+    await mountStream()
+    publishSessionState('live-gone', createClientSessionState())
+
+    reclaim('live-gone')
+
+    // Dropping only the published slice left a tab bound to the dead id: an
+    // empty pane, and "session not found" on the next send.
+    expect(retired).toEqual(['live-gone'])
   })
 })

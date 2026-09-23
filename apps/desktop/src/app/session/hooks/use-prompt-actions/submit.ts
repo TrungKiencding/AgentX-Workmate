@@ -23,6 +23,7 @@ import { requestDesktopOnboarding } from '@/store/onboarding'
 import {
   $sessions,
   resolveComposerSessionKey,
+  setActiveSessionId,
   setAwaitingResponse,
   setBusy,
   setMessages,
@@ -33,7 +34,6 @@ import { $sessionStates } from '@/store/session-states'
 
 import type { ClientSessionState } from '../../../types'
 import { sessionContextDrift } from '../session-context-drift'
-import { resolveSessionProfile } from '../use-session-actions/utils'
 
 import { finalizeInterruptedMessages } from './rewind'
 import {
@@ -57,6 +57,10 @@ interface SubmitPromptDeps {
   getRoutedStoredSessionId: () => null | string
   getRuntimeIdForStoredSession: (storedSessionId: string) => null | string
   getRouteToken: () => string
+  /** Rebind a stored conversation to a live runtime after its runtime id died
+   *  ("session not found"), carrying what was on screen — transcript, the turn
+   *  being started, every surface showing the dead id — onto it. */
+  recoverSessionRuntime: (storedSessionId: string, staleRuntimeId: null | string) => Promise<null | string>
   requestGateway: GatewayRequest
   resumeStoredSession: (storedSessionId: string) => Promise<void> | void
   selectedStoredSessionIdRef: MutableRefObject<string | null>
@@ -74,6 +78,8 @@ interface SubmitPromptDeps {
    *  (defaults); a session tile injects its own so a tile submit never writes
    *  the primary view's $busy/$messages or clears the main attachment chips. */
   scope?: {
+    /** Point this surface at a runtime the submit had to (re)bind. */
+    bindRuntime: (runtimeId: string) => void
     clearAttachments: () => void
     readAttachments: () => ComposerAttachment[]
     setAwaitingResponse: (awaiting: boolean) => void
@@ -86,6 +92,7 @@ interface SubmitPromptDeps {
 // Stable identity — a fresh default object per render would churn the
 // useCallback below on every render.
 const MAIN_SUBMIT_SCOPE: NonNullable<SubmitPromptDeps['scope']> = {
+  bindRuntime: setActiveSessionId,
   clearAttachments: clearComposerAttachments,
   readAttachments: () => $composerAttachments.get(),
   setAwaitingResponse,
@@ -104,6 +111,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
     getRoutedStoredSessionId,
     getRuntimeIdForStoredSession,
     getRouteToken,
+    recoverSessionRuntime,
     requestGateway,
     resumeStoredSession,
     selectedStoredSessionIdRef,
@@ -488,33 +496,13 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
         // live session was orphan-reaped, a timeout/reconnect cleared it, or a
         // background queue drain only has the durable id). Continue that target
         // conversation; only a genuine new-chat draft may create a new session.
+        // Whatever runtime the surface still shows for it is carried over.
+        const staleRuntimeId = targetIsCurrentView()
+          ? activeSessionIdRef.current
+          : getRuntimeIdForStoredSession(targetStoredSessionId)
+
         try {
-          // Re-register on the session's OWNING profile — resuming on whichever
-          // profile is live would fork the conversation into the wrong DB (#67603).
-          const resumeProfile = await resolveSessionProfile(targetStoredSessionId)
-
-          const resumed = await requestGateway<{ session_id: string }>('session.resume', {
-            session_id: targetStoredSessionId,
-            source: 'desktop',
-            omit_messages: true,
-            ...(resumeProfile ? { profile: resumeProfile } : {})
-          })
-
-          const resumeDrift = sessionDriftReason()
-
-          if (resumeDrift) {
-            console.warn('[submit-drift-abort]', resumeDrift, { phase: 'post-resume' })
-
-            return abortForSessionSwitch(sessionId)
-          }
-
-          if (resumed?.session_id) {
-            sessionId = resumed.session_id
-
-            if (targetIsCurrentView()) {
-              activeSessionIdRef.current = sessionId
-            }
-          }
+          sessionId = await recoverSessionRuntime(targetStoredSessionId, staleRuntimeId)
         } catch {
           // A target stored conversation is not a new-chat draft. If its
           // runtime cannot be rebound, stop here rather than silently replacing
@@ -524,16 +512,23 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
           return abortForSessionSwitch(null)
         }
 
-        const resumeSettleDrift = sessionDriftReason()
+        const resumeDrift = sessionDriftReason()
 
-        if (resumeSettleDrift) {
-          console.warn('[submit-drift-abort]', resumeSettleDrift, { phase: 'post-resume-settle' })
+        if (resumeDrift) {
+          console.warn('[submit-drift-abort]', resumeDrift, { phase: 'post-resume' })
 
           return abortForSessionSwitch(sessionId)
         }
 
         if (!sessionId) {
           return abortForSessionSwitch(null)
+        }
+
+        // The surface must render the runtime the prompt and its reply land
+        // in — pinning only the hot ref left the pane painting a dead slice.
+        if (targetIsCurrentView() && activeSessionIdRef.current !== sessionId) {
+          activeSessionIdRef.current = sessionId
+          scope.bindRuntime(sessionId)
         }
 
         seedOptimistic(sessionId)
@@ -595,93 +590,123 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
         seedOptimistic(sessionId)
       }
 
-      try {
-        const syncedAttachments = await syncAttachmentsForSubmit(sessionId, attachments, {
+      // Past this point `sessionId` is a runtime id, possibly one the backend
+      // has since dropped (sleep/wake, a reconnect's orphan reap, a restart).
+      const submitParams = (targetId: string, text: string) => ({
+        session_id: targetId,
+        text,
+        ...(interrupted && { interrupted }),
+        // A queue drain is a "run after" message, never a live-turn
+        // correction. The flag tells the gateway's busy path to hold it for
+        // the next turn untouched — without it, losing the settle race
+        // (client saw idle, server still unwinding) redirects or interrupts
+        // the live turn with text the user explicitly queued.
+        ...(options?.fromQueue && { queued: true })
+      })
+
+      // What the last attempt staged against which runtime, so a retry on the
+      // SAME runtime (a timed-out submit) never attaches an image twice.
+      let staged: { attachments: ComposerAttachment[]; runtimeId: string } | null = null
+      let submitting = false
+
+      // Stage the attachments on `targetId`, then submit. Staging is part of
+      // the send: image/file attach is a session-scoped RPC too, and a dead
+      // runtime fails it with "session not found" before prompt.submit is
+      // ever reached — recovery has to cover both.
+      const sendTo = async (targetId: string, pending: ComposerAttachment[]): Promise<boolean> => {
+        submitting = false
+
+        const syncedAttachments = await syncAttachmentsForSubmit(targetId, pending, {
           updateComposerAttachments: usingComposerAttachments
         })
+
+        staged = { attachments: syncedAttachments, runtimeId: targetId }
 
         const attachmentsDrift = sessionDriftReason()
 
         if (attachmentsDrift) {
           console.warn('[submit-drift-abort]', attachmentsDrift, { phase: 'post-attachments' })
 
-          return abortForSessionSwitch(sessionId)
+          return false
         }
 
         // Rewrite the optimistic message + prompt text with the synced refs so
         // the gateway receives @file: paths that resolve in its workspace.
         // (Images keep their inline base64 preview — see optimisticAttachmentRef.)
         attachmentRefs = syncedAttachments.map(optimisticAttachmentRef).filter((r): r is string => Boolean(r))
-        rewriteOptimistic(sessionId)
+        rewriteOptimistic(targetId)
         const text = buildContextText(syncedAttachments)
 
-        const submitParams = (targetId: string) => ({
-          session_id: targetId,
-          text,
-          ...(interrupted && { interrupted }),
-          // A queue drain is a "run after" message, never a live-turn
-          // correction. The flag tells the gateway's busy path to hold it for
-          // the next turn untouched — without it, losing the settle race
-          // (client saw idle, server still unwinding) redirects or interrupts
-          // the live turn with text the user explicitly queued.
-          ...(options?.fromQueue && { queued: true })
-        })
+        submitting = true
+        await withSessionBusyRetry(() =>
+          requestGateway('prompt.submit', submitParams(targetId, text), PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)
+        )
 
-        // On sleep/wake the gateway's in-memory session may have been cleared
-        // while the desktop app still holds the old session ID. Detect this,
-        // resume the stored session to re-register it, and retry once.
-        let submitErr: unknown = null
+        return true
+      }
+
+      try {
+        let sent: boolean
 
         try {
-          await withSessionBusyRetry(() =>
-            requestGateway('prompt.submit', submitParams(sessionId), PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)
-          )
+          sent = await sendTo(sessionId, attachments)
         } catch (firstErr) {
+          // On sleep/wake or after a reconnect the gateway may no longer hold
+          // the runtime this window still names. Rebind the stored
+          // conversation to a live runtime — carrying the transcript, this
+          // turn's optimistic prompt and every surface showing the dead id —
+          // then stage and submit again, once. Timeouts recover the same way,
+          // but only at the submit itself: a starved backend loop (#55578
+          // symptom d) rejects the submit even though the stored session is
+          // fine, whereas a slow upload is not a dead session.
           const recoverStoredSessionId = targetStoredSessionId ?? selectedStoredSessionIdRef.current
+          const recoverable = isSessionNotFoundError(firstErr) || (submitting && isGatewayTimeoutError(firstErr))
 
-          if ((isSessionNotFoundError(firstErr) || isGatewayTimeoutError(firstErr)) && recoverStoredSessionId) {
-            // Re-register the session in the gateway and get a fresh live ID.
-            // Timeouts recover the same way as "session not found": a starved
-            // backend loop (#55578 symptom d) rejects the submit even though
-            // the stored session is fine — resume + retry instead of erroring
-            // out and losing the session binding.
-            const resumeProfile = await resolveSessionProfile(recoverStoredSessionId)
-
-            const resumed = await requestGateway<{ session_id: string }>('session.resume', {
-              session_id: recoverStoredSessionId,
-              source: 'desktop',
-              omit_messages: true,
-              ...(resumeProfile ? { profile: resumeProfile } : {})
-            })
-
-            const resumeRetryDrift = sessionDriftReason()
-
-            if (resumeRetryDrift) {
-              console.warn('[submit-drift-abort]', resumeRetryDrift, { phase: 'post-resume-retry' })
-
-              return abortForSessionSwitch(sessionId)
-            }
-
-            const recoveredId = resumed?.session_id
-
-            if (recoveredId) {
-              if (targetIsCurrentView()) {
-                activeSessionIdRef.current = recoveredId
-              }
-
-              await withSessionBusyRetry(() =>
-                requestGateway('prompt.submit', submitParams(recoveredId), PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)
-              )
-            } else {
-              submitErr = firstErr
-            }
-          } else {
-            submitErr = firstErr
+          if (!recoverable || !recoverStoredSessionId) {
+            throw firstErr
           }
+
+          const staleRuntimeId = sessionId
+          const recoveredId = await recoverSessionRuntime(recoverStoredSessionId, staleRuntimeId)
+          const resumeRetryDrift = sessionDriftReason()
+
+          if (resumeRetryDrift) {
+            console.warn('[submit-drift-abort]', resumeRetryDrift, { phase: 'post-resume-retry' })
+
+            return abortForSessionSwitch(recoveredId ?? staleRuntimeId)
+          }
+
+          if (!recoveredId) {
+            throw firstErr
+          }
+
+          sessionId = recoveredId
+
+          if (targetIsCurrentView() && activeSessionIdRef.current !== recoveredId) {
+            activeSessionIdRef.current = recoveredId
+            scope.bindRuntime(recoveredId)
+          }
+
+          // Idempotent: re-asserts the prompt row and the turn's busy state on
+          // the live runtime, whatever reached it from the dead one.
+          seedOptimistic(recoveredId)
+
+          const lastStaged = staged as { attachments: ComposerAttachment[]; runtimeId: string } | null
+
+          // Same runtime (a timed-out submit): what it staged is already there.
+          // A new runtime holds none of it — stage the latest copies again.
+          const retryAttachments =
+            lastStaged && lastStaged.runtimeId === recoveredId
+              ? lastStaged.attachments
+              : usingComposerAttachments
+                ? attachments.map(original => scope.readAttachments().find(a => a?.id === original.id) ?? original)
+                : attachments
+
+          sent = await sendTo(recoveredId, retryAttachments)
         }
 
-        if (submitErr !== null) {
-          throw submitErr
+        if (!sent) {
+          return abortForSessionSwitch(sessionId)
         }
 
         if (usingComposerAttachments) {
@@ -748,6 +773,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
       getRoutedStoredSessionId,
       getRuntimeIdForStoredSession,
       getRouteToken,
+      recoverSessionRuntime,
       requestGateway,
       resumeStoredSession,
       scope,

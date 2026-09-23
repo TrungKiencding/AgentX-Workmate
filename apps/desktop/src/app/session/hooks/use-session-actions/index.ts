@@ -5,7 +5,7 @@ import type { NavigateFunction } from 'react-router'
 import { revealTreePane } from '@/components/pane-shell/tree/store'
 import { deleteSession, getSessionMessages, setSessionArchived } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { type ChatMessage, preserveLocalAssistantErrors, toChatMessages } from '@/lib/chat-messages'
+import { preserveLocalAssistantErrors, toChatMessages } from '@/lib/chat-messages'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { recoverInFlightTurnJournal } from '@/lib/inflight-turn-journal'
 import { normalizeSessionSource } from '@/lib/session-source'
@@ -73,6 +73,7 @@ import {
 import { broadcastSessionsChanged } from '@/store/session-sync'
 import { isWatchWindow } from '@/store/windows'
 import type {
+  RpcEvent,
   SessionCreateResponse,
   SessionInfo,
   SessionMessage,
@@ -82,18 +83,20 @@ import type {
 
 import { navigateToWorkspacePage, NEW_CHAT_ROUTE, sessionRoute, SETTINGS_ROUTE } from '../../../routes'
 import type { ClientSessionState, SidebarNavItem } from '../../../types'
+import { replayPendingPrompts } from '../../pending-prompts'
 import { sessionContextDrift } from '../session-context-drift'
 
 import {
-  appendLiveSessionProjection,
   applyRuntimeInfo,
   applyStoredSessionPreviewRuntimeInfo,
   type BranchMessage,
   chatMessageArraysEquivalent,
   isSessionGoneError,
+  liveTurnStreamId,
   patchSessionWorkspace,
   preserveLocalPendingTurnMessages,
-  reconcileResumeMessages,
+  reattachedSessionState,
+  reconcileAuthoritativeMessages,
   resolveSessionProfile,
   resolveStoredSession,
   sessionMatchesStoredId,
@@ -101,6 +104,8 @@ import {
   toBranchMessages,
   upsertOptimisticSession
 } from './utils'
+
+const ignoreReplayedEvent = () => undefined
 
 interface SessionActionsOptions {
   activeSessionId: string | null
@@ -112,6 +117,9 @@ interface SessionActionsOptions {
   getRoutedStoredSessionId: () => null | string
   navigate: NavigateFunction
   onFreshDraftRouteIntent?: () => void
+  /** Feeds replayed events (the questions a re-attached session is blocked
+   *  on) through the same handler live gateway events take. */
+  replayGatewayEvent?: (event: RpcEvent) => void
   requestGateway: <T>(method: string, params?: Record<string, unknown>) => Promise<T>
   resetViewSync: () => void
   runtimeIdByStoredSessionIdRef: MutableRefObject<Map<string, string>>
@@ -155,19 +163,6 @@ function shiftMessagingPlatformTotal(platform: string, delta: number) {
 // Every stored id a row answers to: its live id, lineage root and chain segments.
 function lineageIdsOf(session: SessionInfo): string[] {
   return [session.id, session._lineage_root_id, ...(session._lineage_ids ?? [])].filter((id): id is string => !!id)
-}
-
-function reconcileAuthoritativeMessages(
-  authoritativeMessages: SessionResumeResponse['messages'],
-  previousMessages: ChatMessage[],
-  liveProjection?: Pick<SessionResumeResponse, 'inflight' | 'queued' | 'session_id'>
-): ChatMessage[] {
-  const authoritative = toChatMessages(authoritativeMessages)
-  const withLiveProjection = liveProjection ? appendLiveSessionProjection(authoritative, liveProjection) : authoritative
-  const reconciled = reconcileResumeMessages(withLiveProjection, previousMessages)
-  const withPendingTurn = preserveLocalPendingTurnMessages(reconciled, previousMessages)
-
-  return preserveLocalAssistantErrors(withPendingTurn, previousMessages)
 }
 
 // `session.create` params from the current profile + sticky-UI model/effort/fast,
@@ -229,6 +224,7 @@ export function useSessionActions({
   getRoutedStoredSessionId,
   navigate,
   onFreshDraftRouteIntent,
+  replayGatewayEvent = ignoreReplayedEvent,
   requestGateway,
   resetViewSync,
   runtimeIdByStoredSessionIdRef,
@@ -759,19 +755,15 @@ export function useSessionActions({
             } else {
               const runtimeInfo = applyRuntimeInfo(activated.info)
 
-              let activatedMessages =
-                activated.messages.length || activated.inflight || activated.queued
-                  ? reconcileAuthoritativeMessages(activated.messages, cachedViewState.messages, activated)
-                  : cachedViewState.messages
+              // The persisted REST transcript is the display authority, mid-turn
+              // included: session.activate omits messages (and a runtime only
+              // carries its compressed context projection anyway), so the live
+              // turn is grafted onto the stored conversation rather than
+              // rebuilding the thread out of the projection alone — see
+              // reattachedTranscript. Watch mirrors stay live-only by design.
+              let persistedMessages: null | SessionMessage[] = null
 
-              const running = Boolean(activated.running ?? cachedViewState.busy)
-
-              // While idle, the persisted REST transcript is the display
-              // authority: session.activate returns the runtime's compressed
-              // context projection, not necessarily the complete conversation.
-              // During a live turn, keep the runtime/cache projection so an
-              // accepted but not-yet-persisted prompt or stream is never lost.
-              if (!running && persistedTranscriptPromise) {
+              if (persistedTranscriptPromise) {
                 const persisted = await persistedTranscriptPromise
 
                 if (!isCurrentResume()) {
@@ -786,26 +778,23 @@ export function useSessionActions({
                   persisted.session_id === activatedStoredSessionId
 
                 if (persisted && persistedMatchesActivatedSession) {
-                  activatedMessages = reconcileAuthoritativeMessages(persisted.messages, activatedMessages)
+                  persistedMessages = persisted.messages
                 }
               }
 
+              // Read the freshest cache entry inside the updater: stream events
+              // that landed while the RPCs were in flight must not be rewound.
               const activatedState = updateSessionState(
                 cachedRuntimeId,
-                state => ({
-                  ...state,
-                  ...(runtimeInfo ?? {}),
-                  messages: activatedMessages,
-                  busy: running,
-                  awaitingResponse: running
-                }),
+                state => reattachedSessionState(state, activated, persistedMessages, runtimeInfo),
                 storedSessionId
               )
 
-              busyRef.current = running
-              setBusy(running)
-              setAwaitingResponse(running)
+              busyRef.current = activatedState.busy
+              setBusy(activatedState.busy)
+              setAwaitingResponse(activatedState.awaitingResponse)
               syncSessionStateToView(cachedRuntimeId, activatedState)
+              replayPendingPrompts(cachedRuntimeId, activated.pending_prompts, replayGatewayEvent)
 
               return
             }
@@ -957,7 +946,19 @@ export function useSessionActions({
                   ? preserveLocalPendingTurnMessages(currentMessages, resumeStartMessages)
                   : currentMessages
 
-                const resumedMessages = reconcileAuthoritativeMessages(resumed.messages, previousMessages, resumed)
+                // Omitted, not empty: Desktop asks resume to leave the transcript
+                // out because REST is its authority, so the prefetch IS the
+                // transcript here and the resume payload only contributes the
+                // live tail. Reconciling that tail against the empty payload
+                // instead rebuilt a running session out of its in-flight turn,
+                // dropping every earlier message. (Without a usable prefetch the
+                // projection alone remains the degraded fallback.)
+                const authoritativeMessages =
+                  resumed.messages_omitted && prefetchedResult && prefetchMatchesResumedSession
+                    ? prefetchedResult.messages
+                    : resumed.messages
+
+                const resumedMessages = reconcileAuthoritativeMessages(authoritativeMessages, previousMessages, resumed)
 
                 return chatMessageArraysEquivalent(currentMessages, resumedMessages) ? currentMessages : resumedMessages
               })()
@@ -1014,6 +1015,9 @@ export function useSessionActions({
             messages: messagesForView,
             busy: resumedRunning,
             awaitingResponse: resumedRunning && !recoveredInFlightTail,
+            // Resumed onto a turn already running: events before this attach
+            // never reached us, so it hydrates from stored history on settle.
+            adoptedRunningTurn: state.adoptedRunningTurn || resumedRunning,
             ...(inFlightRecovery.applied
               ? {
                   sawAssistantPayload: true,
@@ -1024,10 +1028,19 @@ export function useSessionActions({
                     ? (inFlightRecovery.turnStartedAt ?? state.turnStartedAt ?? Date.now())
                     : state.turnStartedAt
                 }
-              : {})
+              : resumedRunning && liveTurnStreamId(messagesForView)
+                ? {
+                    // The projected in-flight row is the live one: extend it
+                    // instead of starting a second bubble on the next delta.
+                    sawAssistantPayload: true,
+                    streamId: liveTurnStreamId(messagesForView)
+                  }
+                : {})
           }),
           storedSessionId
         )
+
+        replayPendingPrompts(resumed.session_id, resumed.pending_prompts, replayGatewayEvent)
 
         // updateSessionState stages its view sync through requestAnimationFrame.
         // Commit the final, already-reconciled transcript now so resume has one
@@ -1129,6 +1142,7 @@ export function useSessionActions({
       activeSessionIdRef,
       busyRef,
       copy,
+      replayGatewayEvent,
       requestGateway,
       resetViewSync,
       runtimeIdByStoredSessionIdRef,

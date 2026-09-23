@@ -1,6 +1,6 @@
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { MutableRefObject } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
@@ -40,6 +40,7 @@ import {
   setSessions
 } from '@/store/session'
 import { $sessionTiles } from '@/store/session-states'
+import type { RpcEvent } from '@/types/hermes'
 
 import { NEW_CHAT_ROUTE, sessionRoute } from '../../routes'
 import type { ClientSessionState } from '../../types'
@@ -584,6 +585,7 @@ describe('createBackendSessionForSend profile routing', () => {
 function ResumeHarness({
   onStateUpdate,
   onReady,
+  replayGatewayEvent,
   requestGateway,
   runtimeIdByStoredSessionIdRef,
   selectedStoredSessionId = null,
@@ -591,12 +593,14 @@ function ResumeHarness({
 }: {
   onStateUpdate?: (sessionId: string, state: ClientSessionState) => void
   onReady: (resume: (storedSessionId: string, replaceRoute?: boolean) => Promise<unknown>) => void
+  replayGatewayEvent?: (event: RpcEvent) => void
   requestGateway: <T>(method: string, params?: Record<string, unknown>) => Promise<T>
   runtimeIdByStoredSessionIdRef?: MutableRefObject<Map<string, string>>
   selectedStoredSessionId?: string | null
   sessionStateByRuntimeIdRef?: MutableRefObject<Map<string, ClientSessionState>>
 }) {
   const ref = <T,>(value: T): MutableRefObject<T> => ({ current: value })
+  const localStates = useRef(sessionStateByRuntimeIdRef ?? ref(new Map<string, ClientSessionState>())).current
 
   const actions = useSessionActions({
     activeSessionId: null,
@@ -607,15 +611,20 @@ function ResumeHarness({
     getRouteToken: () => 'token',
     getRoutedStoredSessionId: () => null,
     navigate: vi.fn() as never,
+    replayGatewayEvent,
     requestGateway,
     resetViewSync: vi.fn(),
     runtimeIdByStoredSessionIdRef: runtimeIdByStoredSessionIdRef ?? ref(new Map<string, string>()),
     selectedStoredSessionId,
     selectedStoredSessionIdRef: ref<string | null>(selectedStoredSessionId),
-    sessionStateByRuntimeIdRef: sessionStateByRuntimeIdRef ?? ref(new Map<string, ClientSessionState>()),
+    sessionStateByRuntimeIdRef: localStates,
     syncSessionStateToView: vi.fn(),
-    updateSessionState: (sessionId, updater) => {
-      const next = updater({} as ClientSessionState)
+    // Like the real cache: the updater sees the session's current state and
+    // its result is what the next read (and updater) sees.
+    updateSessionState: (sessionId, updater, storedSessionId) => {
+      const previous = localStates.current.get(sessionId) ?? createClientSessionState(storedSessionId ?? null)
+      const next = updater(previous)
+      localStates.current.set(sessionId, next)
       onStateUpdate?.(sessionId, next)
 
       return next
@@ -940,6 +949,7 @@ describe('resumeSession failure recovery', () => {
         [
           'runtime-stale',
           {
+            adoptedRunningTurn: false,
             awaitingResponse: false,
             branch: '',
             busy: false,
@@ -1635,6 +1645,139 @@ describe('resumeSession warm-cache mapping integrity', () => {
     expect(requestGateway.mock.calls.map(([method]) => method)).not.toContain('session.resume')
     expect(runtimeIdByStoredSessionIdRef.current.get('stored-A')).toBe('rt-A')
     expect(sessionStateByRuntimeIdRef.current.get('rt-A')?.messages[0]?.id).toBe('user-optimistic')
+  })
+})
+
+describe('resumeSession onto a session that is still running', () => {
+  afterEach(() => {
+    cleanup()
+    setActiveSessionId(null)
+    setResumeFailedSessionId(null)
+    setMessages([])
+    setSessions([])
+    vi.restoreAllMocks()
+  })
+
+  const inflightTurn = {
+    inflight: { assistant: 'half an answer', streaming: true, user: 'long task' },
+    messages: [],
+    messages_omitted: true,
+    running: true
+  }
+
+  const storedHistory = {
+    messages: [
+      { content: 'first question', role: 'user', timestamp: 1 },
+      { content: 'first answer', role: 'assistant', timestamp: 2 },
+      { content: 'long task', role: 'user', timestamp: 3 }
+    ],
+    session_id: 'stored-A'
+  }
+
+  const texts = (state: ClientSessionState | undefined) =>
+    (state?.messages ?? []).map(m => `${m.role}:${m.parts.map(p => ('text' in p ? p.text : p.type)).join('')}`)
+
+  it('switching back to a running chat keeps its history instead of only the turn in flight', async () => {
+    // session.activate is asked to omit messages. Reconciling its live
+    // projection against that empty list rebuilt the thread out of the
+    // in-flight turn alone — every earlier message vanished until the turn
+    // ended ("switching between two chats shows no old messages").
+    const runtimeIdByStoredSessionIdRef: MutableRefObject<Map<string, string>> = {
+      current: new Map([['stored-A', 'rt-A']])
+    }
+
+    const cached = clientState('stored-A')
+    cached.busy = true
+    cached.messages = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'first question' }] },
+      { id: 'm2', role: 'assistant', parts: [{ type: 'text', text: 'first answer' }] },
+      { id: 'user-live', role: 'user', parts: [{ type: 'text', text: 'long task' }] }
+    ]
+
+    const sessionStateByRuntimeIdRef: MutableRefObject<Map<string, ClientSessionState>> = {
+      current: new Map([['rt-A', cached]])
+    }
+
+    vi.mocked(getSessionMessages).mockResolvedValue(storedHistory as never)
+
+    const requestGateway = vi.fn(async (method: string) =>
+      method === 'session.activate'
+        ? ({
+            ...inflightTurn,
+            pending_prompts: [{ event: 'clarify.request', payload: { question: 'Which one?', request_id: 'r1' } }],
+            session_id: 'rt-A',
+            session_key: 'stored-A'
+          } as never)
+        : ({} as never)
+    )
+
+    const replayed: unknown[] = []
+    let resumedState: ClientSessionState | undefined
+    let resume: ((storedSessionId: string, replaceRoute?: boolean) => Promise<unknown>) | null = null
+
+    render(
+      <ResumeHarness
+        onReady={ready => (resume = ready)}
+        onStateUpdate={(_sessionId, next) => (resumedState = next)}
+        replayGatewayEvent={event => replayed.push(event)}
+        requestGateway={requestGateway}
+        runtimeIdByStoredSessionIdRef={runtimeIdByStoredSessionIdRef}
+        sessionStateByRuntimeIdRef={sessionStateByRuntimeIdRef}
+      />
+    )
+    await waitFor(() => expect(resume).not.toBeNull())
+    await resume!('stored-A', true)
+
+    expect(texts(resumedState)).toEqual([
+      'user:first question',
+      'assistant:first answer',
+      'user:long task',
+      'assistant:half an answer'
+    ])
+    expect(resumedState).toMatchObject({ adoptedRunningTurn: true, busy: true })
+    // The next delta extends the projected row instead of opening a second one.
+    expect(resumedState?.streamId).toBe(resumedState?.messages.at(-1)?.id)
+    // A question raised while this chat was in the background comes back.
+    expect(replayed).toEqual([
+      {
+        payload: { question: 'Which one?', replayed: true, request_id: 'r1' },
+        session_id: 'rt-A',
+        type: 'clarify.request'
+      }
+    ])
+  })
+
+  it('a cold resume onto a running chat grafts the live turn onto the stored transcript', async () => {
+    setSessions([storedSession({ id: 'stored-A', message_count: 3 })])
+    vi.mocked(getSessionMessages).mockResolvedValue(storedHistory as never)
+
+    const requestGateway = vi.fn(async (method: string) =>
+      method === 'session.resume'
+        ? ({ ...inflightTurn, resumed: 'stored-A', session_id: 'rt-new', session_key: 'stored-A' } as never)
+        : ({} as never)
+    )
+
+    let resumedState: ClientSessionState | undefined
+    let resume: ((storedSessionId: string, replaceRoute?: boolean) => Promise<unknown>) | null = null
+
+    render(
+      <ResumeHarness
+        onReady={ready => (resume = ready)}
+        onStateUpdate={(_sessionId, next) => (resumedState = next)}
+        requestGateway={requestGateway}
+      />
+    )
+    await waitFor(() => expect(resume).not.toBeNull())
+    await resume!('stored-A', true)
+
+    expect(texts(resumedState)).toEqual([
+      'user:first question',
+      'assistant:first answer',
+      'user:long task',
+      'assistant:half an answer'
+    ])
+    expect(resumedState).toMatchObject({ adoptedRunningTurn: true, busy: true, sawAssistantPayload: true })
+    expect(resumedState?.streamId).toBe(resumedState?.messages.at(-1)?.id)
   })
 })
 

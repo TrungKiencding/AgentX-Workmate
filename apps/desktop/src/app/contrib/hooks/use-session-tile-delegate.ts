@@ -1,43 +1,43 @@
 import { useEffect } from 'react'
 
-import { getSessionMessages, PROMPT_SUBMIT_REQUEST_TIMEOUT_MS } from '@/hermes'
-import { toChatMessages } from '@/lib/chat-messages'
-import { publishSessionState, setSessionTileDelegate } from '@/store/session-states'
-import type { SessionResumeResponse } from '@/types/hermes'
+import { PROMPT_SUBMIT_REQUEST_TIMEOUT_MS } from '@/hermes'
+import { setSessionTileDelegate } from '@/store/session-states'
 
 import type { usePromptActions } from '../../session/hooks/use-prompt-actions'
-import { resolveSessionProfile } from '../../session/hooks/use-session-actions/utils'
+import type { useSessionRuntimeRecovery } from '../../session/hooks/use-session-runtime-recovery'
 import type { useSessionStateCache } from '../../session/hooks/use-session-state-cache'
 import type { GatewayRequester } from '../types'
 
 type SessionStateCache = ReturnType<typeof useSessionStateCache>
+type SessionRuntimeRecovery = ReturnType<typeof useSessionRuntimeRecovery>
 
 interface SessionTileDelegateParams {
   archiveSession: (storedSessionId: string) => Promise<unknown>
+  attachSessionRuntime: SessionRuntimeRecovery['attachSessionRuntime']
   branchStoredSession: (storedSessionId: string) => Promise<unknown>
   executeSlashCommand: ReturnType<typeof usePromptActions>['executeSlashCommand']
+  recoverSessionRuntime: SessionRuntimeRecovery['recoverSessionRuntime']
   removeSession: (storedSessionId: string) => Promise<unknown>
   requestGateway: GatewayRequester
-  runtimeIdByStoredSessionIdRef: SessionStateCache['runtimeIdByStoredSessionIdRef']
-  sessionStateByRuntimeIdRef: SessionStateCache['sessionStateByRuntimeIdRef']
   updateSessionState: SessionStateCache['updateSessionState']
 }
 
 /**
  * Publishes the session-tile delegate: resume / submit / interrupt / slash for
  * tiled sessions WITHOUT touching the primary view ($activeSessionId /
- * $messages stay the main thread's). Resume reuses a live runtime binding when
- * one exists (incl. the main thread's own session); a cold tile binds +
- * hydrates the cache, which publishSessionState mirrors to the tile.
+ * $messages stay the main thread's). Resume attaches a live runtime to this
+ * window's socket — re-attaching a cached one in place, or binding a fresh one
+ * that carries the cached conversation over — and hydrates the cache, which
+ * publishSessionState mirrors to the tile.
  */
 export function useSessionTileDelegate({
   archiveSession,
+  attachSessionRuntime,
   branchStoredSession,
   executeSlashCommand,
+  recoverSessionRuntime,
   removeSession,
   requestGateway,
-  runtimeIdByStoredSessionIdRef,
-  sessionStateByRuntimeIdRef,
   updateSessionState
 }: SessionTileDelegateParams): void {
   useEffect(() => {
@@ -57,52 +57,8 @@ export function useSessionTileDelegate({
       interruptSession: async runtimeId => {
         await requestGateway('session.interrupt', { session_id: runtimeId })
       },
-      resumeTile: async storedSessionId => {
-        const existing = runtimeIdByStoredSessionIdRef.current.get(storedSessionId)
-        const cached = existing ? sessionStateByRuntimeIdRef.current.get(existing) : undefined
-
-        if (existing && cached?.storedSessionId === storedSessionId) {
-          publishSessionState(existing, cached)
-
-          return existing
-        }
-
-        // Resolve the owning profile before binding a runtime. A tile can open a
-        // session from any profile, not just the active one; resuming (or
-        // reading messages) without a profile lets the gateway fall back to the
-        // launch-profile DB and fork the conversation into the wrong profile —
-        // the same cross-profile bleed the recovery resumes had (#67603).
-        const profile = await resolveSessionProfile(storedSessionId)
-
-        const [prefetch, resumed] = await Promise.all([
-          getSessionMessages(storedSessionId, profile).catch(() => null),
-          requestGateway<SessionResumeResponse>('session.resume', {
-            session_id: storedSessionId,
-            cols: 96,
-            omit_messages: true,
-            ...(profile ? { profile } : {})
-          })
-        ])
-
-        const runtimeId = resumed?.session_id
-
-        if (!runtimeId) {
-          throw new Error('resume returned no session id')
-        }
-
-        updateSessionState(
-          runtimeId,
-          state => ({
-            ...state,
-            busy: Boolean(resumed?.info?.running),
-            messages:
-              state.messages.length > 0 ? state.messages : toChatMessages(prefetch?.messages ?? resumed?.messages ?? [])
-          }),
-          storedSessionId
-        )
-
-        return runtimeId
-      },
+      recoverRuntime: (storedSessionId, staleRuntimeId) => recoverSessionRuntime(storedSessionId, staleRuntimeId),
+      resumeTile: storedSessionId => attachSessionRuntime(storedSessionId),
       submitToSession: async (runtimeId, text) => {
         await requestGateway('prompt.submit', { session_id: runtimeId, text }, PROMPT_SUBMIT_REQUEST_TIMEOUT_MS)
       },
@@ -110,12 +66,12 @@ export function useSessionTileDelegate({
     })
   }, [
     archiveSession,
+    attachSessionRuntime,
     branchStoredSession,
     executeSlashCommand,
+    recoverSessionRuntime,
     removeSession,
     requestGateway,
-    runtimeIdByStoredSessionIdRef,
-    sessionStateByRuntimeIdRef,
     updateSessionState
   ])
 }
