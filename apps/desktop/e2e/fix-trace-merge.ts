@@ -17,7 +17,7 @@
  *
  * The patch reads each zip into memory and hands yauzl the buffer instead: its
  * buffer reader serves entries from a plain PassThrough and never marks it
- * destroyed. Trace chunks are a few hundred KB. `yauzl.open` itself is a
+ * destroyed. A trace chunk is at most a few MB. `yauzl.open` itself is a
  * non-configurable getter on the bundle's ESM-interop object that reads
  * through to the CommonJS module in `yauzl.default`, so that is where the
  * patch goes.
