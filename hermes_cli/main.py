@@ -10993,6 +10993,17 @@ def cmd_dashboard(args):
             exc_info=True,
         )
 
+    # Start the tirith scanner download in the background now, as the CLI and
+    # the messaging gateway do at startup, rather than on the first terminal
+    # command. Commands fail open/closed per security.tirith_fail_open until
+    # it lands.
+    try:
+        from tools.tirith_security import ensure_installed
+
+        ensure_installed(log_failures=False)
+    except Exception:
+        logger.debug("tirith background install failed to start", exc_info=True)
+
     from hermes_cli.web_server import start_server
 
     # Interactive auth setup: if this bind will engage the auth gate but no
