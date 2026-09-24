@@ -60,7 +60,7 @@ import { shouldLatchBackendStartFailure, shouldLatchRemoteReauthFailure } from '
 import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
-import { runBootstrap } from './bootstrap-runner'
+import { pendingInstallerTeardown, runBootstrap } from './bootstrap-runner'
 import { defaultExecGit, probeCheckoutPin, readCheckoutVersion, relateByMarker, relateByVersion } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
@@ -450,6 +450,9 @@ if (IS_WINDOWS) {
     console.warn(
       `[agentx] Windows GPU sandbox crashed (exit=${details?.exitCode}); relaunching once with --no-sandbox (#38216)`
     )
+
+    // app.exit() skips before-quit, which is where a running install is stopped.
+    bootstrapAbortController?.abort()
 
     try {
       app.relaunch({ args: buildNoSandboxRelaunchArgs(process.argv.slice(1)) })
@@ -2716,6 +2719,9 @@ let isQuittingForHandoff = false
 // (the app.quit() that follows re-enters before-quit and must pass through).
 let quitPromptOpen = false
 let quitConfirmedWithActiveWork = false
+// Set once an aborted installer's process tree is gone, so the app.quit() that
+// was held for it passes straight through.
+let installerQuitTeardownDone = false
 
 // Resolve the staged updater binary the desktop may hand an update to. On
 // Windows that binary owns ALL repo mutation — running `agentx update` +
@@ -10591,6 +10597,9 @@ function createWindow() {
 
           rememberLog('[renderer] Windows sandbox crash loop detected; relaunching once with --no-sandbox (#38216)')
 
+          // app.exit() skips before-quit, which is where a running install is stopped.
+          bootstrapAbortController?.abort()
+
           try {
             app.relaunch({ args: buildNoSandboxRelaunchArgs(process.argv.slice(1)) })
             app.exit(0)
@@ -10964,8 +10973,9 @@ ipcMain.handle('agentx:bootstrap:continue-local', async () => {
 })
 ipcMain.handle('agentx:bootstrap:cancel', async () => {
   // Renderer's Cancel button during first-launch install. Abort the running
-  // install script (SIGTERM via the runner's abortSignal). runBootstrap
-  // resolves with { cancelled: true }, which surfaces the recovery overlay.
+  // install script and everything it started (the runner's abortSignal
+  // tears down its process tree). runBootstrap resolves with
+  // { cancelled: true }, which surfaces the recovery overlay.
   if (bootstrapAbortController) {
     try {
       bootstrapAbortController.abort()
@@ -13746,6 +13756,19 @@ app.on('before-quit', event => {
     } catch {
       void 0
     }
+  }
+
+  // The abort sends SIGTERM to the installer's whole process tree at once;
+  // the SIGKILL for anything that ignores it comes from this process a few
+  // seconds later, so the quit waits for the tree to be gone.
+  const installerTeardown = pendingInstallerTeardown()
+
+  if (installerTeardown && !installerQuitTeardownDone) {
+    event.preventDefault()
+    void installerTeardown.then(() => {
+      installerQuitTeardownDone = true
+      app.quit()
+    })
   }
 
   if (desktopLogFlushTimer) {
