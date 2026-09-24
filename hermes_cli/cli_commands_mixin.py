@@ -374,13 +374,13 @@ class CLICommandsMixin:
             print(f"  Unknown subcommand: {subcmd}")
             print("  Usage: /snapshot [list|create [label]|restore <id>|prune [N]]")
 
-    def _handle_export_command(self, command: str):
-        """Handle /export — export a profile to a shareable .tar.gz archive.
+    def _handle_export_profile_command(self, command: str):
+        """Handle /export-profile — export a profile to a shareable .tar.gz archive.
 
         Syntax:
-            /export                       — export the active profile
-            /export <profile>             — export a named profile
-            /export [profile] -o <path>   — choose the output path
+            /export-profile                       — export the active profile
+            /export-profile <profile>             — export a named profile
+            /export-profile [profile] -o <path>   — choose the output path
         """
         from hermes_cli.profiles import export_profile, get_active_profile_name
 
@@ -389,7 +389,7 @@ class CLICommandsMixin:
         if "-o" in parts:
             idx = parts.index("-o")
             if idx + 1 >= len(parts):
-                print("  Usage: /export [profile] [-o output.tar.gz]")
+                print("  Usage: /export-profile [profile] [-o output.tar.gz]")
                 return
             output = parts[idx + 1]
             parts = parts[:idx] + parts[idx + 2:]

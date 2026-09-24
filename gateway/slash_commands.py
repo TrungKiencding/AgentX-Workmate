@@ -4393,24 +4393,32 @@ class GatewaySlashCommandsMixin:
                 format_type = "json" if arg == "json" else "markdown"
                 filename = f"session_{session_id}.{'json' if format_type == 'json' else 'md'}"
             else:
-                filename = arg
+                filename = args[0]
 
         if len(args) > 1:
             filename = args[1]
 
-        export_data = self._session_db.export_session(session_id)
+        # The document is staged in a private temp dir that is deleted after
+        # sending, so a chat-supplied name must stay inside it. Joined as-is,
+        # `/export md /abs/path` (or `../..`) truncated and then removed an
+        # arbitrary file on the gateway host.
+        filename = os.path.basename(filename)
+        if filename in ("", ".", ".."):
+            filename = f"session_{session_id}.{'json' if format_type == 'json' else 'md'}"
+
+        export_data = await self._session_db.export_session(session_id)
         if not export_data:
             return f"Failed to export session {session_id}."
 
         import json
+        import shutil
         import tempfile
-        import os
 
         # Write to a temp file, then send it via adapter
         temp_dir = tempfile.mkdtemp(prefix="hermes_export_")
         temp_path = os.path.join(temp_dir, filename)
 
-        try:
+        def _render_and_write() -> None:
             with open(temp_path, "w", encoding="utf-8") as f:
                 if format_type == "json":
                     json.dump(export_data, f, indent=2, ensure_ascii=False)
@@ -4418,7 +4426,12 @@ class GatewaySlashCommandsMixin:
                     from hermes_state import SessionDB
                     f.write(SessionDB.format_session_as_markdown(export_data))
 
-            adapter = self.get_adapter(source.platform)
+        try:
+            await asyncio.to_thread(_render_and_write)
+
+            # Profile-aware: under multiplex the requester's bot lives in
+            # _profile_adapters, not self.adapters.
+            adapter = self._adapter_for_source(source)
             if adapter:
                 await adapter.send_document(
                     chat_id=source.chat_id,
@@ -4432,11 +4445,7 @@ class GatewaySlashCommandsMixin:
         except Exception as e:
             return f"Error exporting session: {e}"
         finally:
-            try:
-                os.remove(temp_path)
-                os.rmdir(temp_dir)
-            except Exception:
-                pass
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     async def _handle_title_command(self, event: MessageEvent) -> str:
         """Handle /title command — set or show the current session's title."""

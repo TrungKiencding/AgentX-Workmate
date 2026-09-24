@@ -48,10 +48,32 @@ class TestCommandRegistry:
 
 
     def test_export_command_registered(self):
+        """/export is session export on every surface (CLI, TUI, desktop, gateway)."""
         cmd = resolve_command("export")
         assert cmd is not None
         assert cmd.name == "export"
-        assert cmd.args_hint == "[format] [filename]"
+        assert cmd.category == "Session"
+        assert not cmd.cli_only
+        assert cmd.args_hint == "[md|json] [filename]"
+        assert SUBCOMMANDS["/export"] == ["md", "json"]
+        assert "export" in GATEWAY_KNOWN_COMMANDS
+
+    def test_export_profile_command_registered(self):
+        """Profile sharing lives on /export-profile so it can't shadow /export."""
+        cmd = resolve_command("export-profile")
+        assert cmd is not None
+        assert cmd.name == "export-profile"
+        assert cmd.category == "Configuration"
+        assert cmd.cli_only
+        assert "export-profile" not in GATEWAY_KNOWN_COMMANDS
+        # Its partner keeps the upstream name.
+        assert resolve_command("import").cli_only
+
+    def test_export_listed_once_in_cli_help(self):
+        assert COMMANDS["/export"].startswith("Export the current session history")
+        assert "/export" in COMMANDS_BY_CATEGORY["Session"]
+        assert "/export" not in COMMANDS_BY_CATEGORY["Configuration"]
+        assert "/export-profile" in COMMANDS_BY_CATEGORY["Configuration"]
 
     def test_no_duplicate_canonical_names(self):
         names = [cmd.name for cmd in COMMAND_REGISTRY]
