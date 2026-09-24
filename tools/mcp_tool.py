@@ -218,6 +218,11 @@ _MCP_MESSAGE_HANDLER_SUPPORTED = False
 # Streamable HTTP was introduced by 2025-03-26, so this remains valid for the
 # HTTP transport path even on older-but-supported SDK versions.
 LATEST_PROTOCOL_VERSION = "2025-03-26"
+# The revision an HTTP connection opens with: initialize is the handshake,
+# so this is the latest *handshake* revision. On mcp < 2.0 it is the same as
+# LATEST_PROTOCOL_VERSION; on mcp >= 2.0 LATEST_PROTOCOL_VERSION is the
+# stateless 2026-07-28 revision, which has no initialize at all.
+HANDSHAKE_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION
 
 # Not in _MCP_SDK_LAZY_SYMBOLS on purpose: tests patch this name directly,
 # and mock.patch needs it to already exist as a module attribute.
@@ -280,7 +285,7 @@ def _ensure_mcp_sdk() -> bool:
     global _MCP_SDK_IMPORT_ATTEMPTED, _MCP_AVAILABLE, _MCP_HTTP_AVAILABLE
     global _MCP_SAMPLING_TYPES, _MCP_NOTIFICATION_TYPES, _MCP_ELICITATION_TYPES
     global _MCP_MESSAGE_HANDLER_SUPPORTED, _MCP_LOGGING_CALLBACK_SUPPORTED
-    global _MCP_NEW_HTTP, _MCP_LEGACY_HTTP, LATEST_PROTOCOL_VERSION, sse_client
+    global _MCP_NEW_HTTP, _MCP_LEGACY_HTTP, LATEST_PROTOCOL_VERSION, HANDSHAKE_PROTOCOL_VERSION, sse_client
     global ClientSession, StdioServerParameters, stdio_client
     global streamablehttp_client, streamable_http_client
     global CreateMessageResult, CreateMessageResultWithTools, ErrorData
@@ -322,6 +327,11 @@ def _ensure_mcp_sdk() -> bool:
                 from mcp.types import LATEST_PROTOCOL_VERSION
             except ImportError:
                 logger.debug("mcp.types.LATEST_PROTOCOL_VERSION not available -- using fallback protocol version")
+            try:
+                # mcp >= 2.0 names the latest handshake revision apart from the latest revision.
+                from mcp_types.version import LATEST_HANDSHAKE_VERSION as HANDSHAKE_PROTOCOL_VERSION
+            except ImportError:
+                HANDSHAKE_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION
             # SSE transport client (for MCP servers using SSE transport instead of Streamable HTTP)
             try:
                 from mcp.client.sse import sse_client
@@ -3220,8 +3230,13 @@ class MCPServerTask:
         # initialize request and reject session-less POSTs otherwise.
         # Seed it as a client-level default, but treat user overrides as
         # case-insensitive so conventional casing is preserved.
+        # The seed is the handshake revision: initialize opens the
+        # connection (_negotiate_session), and a 2026-07-28 header in front of
+        # it sends an mcp 2.x server down its stateless path, which answers
+        # the handshake with -32602 instead of a session. Once a revision is
+        # negotiated (either era) the SDK stamps it on every request itself.
         if not any(key.lower() == "mcp-protocol-version" for key in headers):
-            headers["mcp-protocol-version"] = LATEST_PROTOCOL_VERSION
+            headers["mcp-protocol-version"] = HANDSHAKE_PROTOCOL_VERSION
         connect_timeout = config.get("connect_timeout", _DEFAULT_CONNECT_TIMEOUT)
         ssl_verify = config.get("ssl_verify", True)
         client_cert = _resolve_client_cert(self.name, config)
@@ -3383,9 +3398,10 @@ class MCPServerTask:
             # http_client is provided, so we wrap in async-with.
             try:
                 async with httpx.AsyncClient(**client_kwargs) as http_client:
-                    async with streamable_http_client(url, http_client=http_client) as (
-                        read_stream, write_stream, _get_session_id,
-                    ):
+                    async with streamable_http_client(url, http_client=http_client) as transport_streams:
+                        # mcp >= 2.0 yields (read, write); mcp 1.24–1.x also
+                        # yielded a get_session_id callback. Index, never unpack.
+                        read_stream, write_stream = transport_streams[0], transport_streams[1]
                         async with ClientSession(read_stream, write_stream, **sampling_kwargs) as session:
                             # Bound the handshake (#59349) — see stdio path.
                             self.initialize_result = await self._negotiate_session(
