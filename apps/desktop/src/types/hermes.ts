@@ -625,12 +625,21 @@ export interface SessionResumeResponse {
   message_count: number
   messages: SessionMessage[]
   messages_omitted?: boolean
+  /** Questions the session is blocked on (clarify / sudo / secret), oldest
+   *  first. Their one-shot `*.request` events never reached a client that was
+   *  disconnected or watching another chat, so (re)attaching replays these. */
+  pending_prompts?: SessionPendingPrompt[]
   resumed: string
   running?: boolean
   session_id: string
   session_key?: string
   started_at?: number
   status?: string
+}
+
+export interface SessionPendingPrompt {
+  event: 'clarify.request' | 'secret.request' | 'sudo.request'
+  payload: Record<string, unknown>
 }
 
 export interface SessionRuntimeInfo {

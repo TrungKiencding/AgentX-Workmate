@@ -6,11 +6,17 @@ import { $layoutTree } from '@/components/pane-shell/tree/store'
 import { $selectedStoredSessionId } from '@/store/session'
 import type { SessionTile } from '@/store/session-states'
 import {
+  $sessionTiles,
+  $tileBindingGeneration,
   blankDraftTile,
   focusedSessionNeedsRoute,
+  invalidateTileRuntimeBindings,
   markSelectionRestore,
   orderTilesByTree,
-  selectionHomesToWorkspace
+  patchSessionTile,
+  repointTileRuntime,
+  selectionHomesToWorkspace,
+  unbindTileRuntime
 } from '@/store/session-states'
 
 const tile = (storedSessionId: string): SessionTile => ({ storedSessionId })
@@ -225,5 +231,71 @@ describe('reopenLastClosedTile focuses the restored tab', () => {
     expect(states.$sessionTiles.get().some(t => t.storedSessionId === 'closed')).toBe(true)
     expect(findGroupOfPane(tree.$layoutTree.get()!, tilePane('closed'))?.active).toBe(tilePane('closed'))
     expect(tree.$activeTreeGroup.get()).toBe('grp-main')
+  })
+})
+
+describe('tile runtime bindings across reconnects and reclaims', () => {
+  beforeEach(() => {
+    $sessionTiles.set([tile('a'), tile('b')])
+  })
+
+  afterEach(() => {
+    $sessionTiles.set([])
+  })
+
+  const bound = (id: string) => $sessionTiles.get().find(t => t.storedSessionId === id)
+
+  it('stamps a bound runtime with the connection generation it is live on', () => {
+    patchSessionTile('a', { runtimeId: 'rt-a' })
+
+    expect(bound('a')).toMatchObject({ boundGeneration: $tileBindingGeneration.get(), runtimeId: 'rt-a' })
+  })
+
+  it('a reconnect leaves every bound tile stale without dropping what it shows', () => {
+    patchSessionTile('a', { runtimeId: 'rt-a' })
+    const before = $tileBindingGeneration.get()
+
+    invalidateTileRuntimeBindings()
+
+    // The runtime id (and so the rendered transcript) stays; only the
+    // generation says it must be re-attached to the new socket.
+    expect($tileBindingGeneration.get()).toBe(before + 1)
+    expect(bound('a')).toMatchObject({ boundGeneration: before, runtimeId: 'rt-a' })
+  })
+
+  it('an explicit generation wins, so an attach that raced a reconnect stays stale', () => {
+    const started = $tileBindingGeneration.get()
+    invalidateTileRuntimeBindings()
+
+    patchSessionTile('a', { boundGeneration: started, runtimeId: 'rt-a' })
+
+    expect(bound('a')?.boundGeneration).toBe(started)
+  })
+
+  it('unbinds only the tile holding a reclaimed runtime', () => {
+    patchSessionTile('a', { runtimeId: 'rt-a' })
+    patchSessionTile('b', { runtimeId: 'rt-b' })
+
+    unbindTileRuntime('rt-a')
+
+    expect(bound('a')).toMatchObject({ boundGeneration: undefined, runtimeId: undefined })
+    expect(bound('b')?.runtimeId).toBe('rt-b')
+  })
+
+  it('re-points a tile from a dead runtime to its live replacement', () => {
+    patchSessionTile('a', { runtimeId: 'rt-dead' })
+    invalidateTileRuntimeBindings()
+
+    repointTileRuntime('rt-dead', 'rt-live')
+
+    expect(bound('a')).toMatchObject({ boundGeneration: $tileBindingGeneration.get(), runtimeId: 'rt-live' })
+  })
+
+  it('never persists runtime bindings', () => {
+    patchSessionTile('a', { runtimeId: 'rt-a' })
+
+    const stored = JSON.stringify(localStorage.getItem('agentx.desktop.sessionTiles.v2'))
+    expect(stored).not.toContain('rt-a')
+    expect(stored).not.toContain('boundGeneration')
   })
 })

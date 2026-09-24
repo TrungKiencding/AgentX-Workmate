@@ -78,6 +78,9 @@ export type GatewayEventPayload = {
   request_id?: string
   question?: string
   choices?: string[] | null
+  // clarify / sudo / secret requests re-raised for a session this window just
+  // (re)attached to (see app/session/pending-prompts) — already announced once.
+  replayed?: boolean
   // approval.request (dangerous command / execute_code) — session-keyed
   command?: string
   description?: string

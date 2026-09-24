@@ -50,6 +50,7 @@ function delegate(): SessionTileDelegate & { deleteSession: ReturnType<typeof vi
     deleteSession: vi.fn(async () => undefined),
     executeSlash: vi.fn(async () => undefined),
     interruptSession: vi.fn(async () => undefined),
+    recoverRuntime: vi.fn(async () => null),
     resumeTile: vi.fn(async () => 'runtime'),
     submitToSession: vi.fn(async () => undefined),
     updateSession: vi.fn()
