@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useLayoutEffect, useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { HermesConfigRecord } from '@/hermes'
@@ -20,6 +21,29 @@ function LanguageProbe({ target = 'zh' }: { target?: Locale }) {
       <button onClick={() => void setLocale(target).catch(() => undefined)} type="button">
         switch
       </button>
+    </div>
+  )
+}
+
+// Switches as soon as the locale `from` is on screen and the config has loaded.
+// A layout effect runs in the commit that shows it, before the provider's
+// passive effects: a deterministic stand-in for a click that lands before they
+// flush.
+function SwitchOnceShown({ from, to }: { from: Locale; to: Locale }) {
+  const { isLoadingConfig, locale, saveError, setLocale } = useI18n()
+  const switched = useRef(false)
+
+  useLayoutEffect(() => {
+    if (!isLoadingConfig && locale === from && !switched.current) {
+      switched.current = true
+      void setLocale(to).catch(() => undefined)
+    }
+  }, [from, isLoadingConfig, locale, setLocale, to])
+
+  return (
+    <div>
+      <p data-testid="locale">{locale}</p>
+      <p data-testid="save-error">{saveError?.message ?? ''}</p>
     </div>
   )
 }
@@ -265,5 +289,44 @@ describe('I18nProvider', () => {
 
     expect(screen.getByTestId('locale').textContent).toBe('en')
     expect(screen.getByTestId('label').textContent).toBe('Language')
+  })
+
+  it('rolls back to the configured locale when a switch fails right after the config loaded', async () => {
+    const configClient: I18nConfigClient = {
+      getConfig: vi.fn().mockResolvedValue({ display: { language: 'en' } }),
+      saveConfig: vi.fn().mockRejectedValue(new Error('save failed'))
+    }
+
+    render(
+      <I18nProvider configClient={configClient}>
+        <SwitchOnceShown from="en" to="zh" />
+      </I18nProvider>
+    )
+
+    await waitFor(() => expect(screen.getByTestId('save-error').textContent).toBe('save failed'))
+
+    expect(configClient.saveConfig).toHaveBeenCalledWith({ display: { language: 'zh' } })
+    expect(screen.getByTestId('locale').textContent).toBe('en')
+  })
+
+  it('rolls back to the default locale when a switch fails right after the config failed to load', async () => {
+    const configClient: I18nConfigClient = {
+      getConfig: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('config unavailable'))
+        .mockResolvedValue({ display: { language: 'vi' } }),
+      saveConfig: vi.fn().mockRejectedValue(new Error('save failed'))
+    }
+
+    render(
+      <I18nProvider configClient={configClient} initialLocale="zh">
+        <SwitchOnceShown from="vi" to="en" />
+      </I18nProvider>
+    )
+
+    await waitFor(() => expect(screen.getByTestId('save-error').textContent).toBe('save failed'))
+
+    expect(configClient.saveConfig).toHaveBeenCalledWith({ display: { language: 'en' } })
+    expect(screen.getByTestId('locale').textContent).toBe('vi')
   })
 })
