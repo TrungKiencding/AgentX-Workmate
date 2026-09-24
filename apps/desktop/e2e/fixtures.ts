@@ -919,8 +919,12 @@ export async function waitForBootFailure(page: Page, timeoutMs = 60_000): Promis
       // which is harmless.
       const text = document.body.textContent ?? ''
 
-      // BootFailureOverlay buttons.
+      // BootFailureOverlay: its "what to do" section's id is the one marker
+      // that does not depend on the locale. That matters here — with no
+      // backend the renderer never reads `display.language`, so the overlay
+      // renders in the default Vietnamese whatever config.yaml says.
       const hasFailureUI =
+        document.getElementById('boot-failure-steps') !== null ||
         text.includes('Retry') ||
         text.includes('Repair') ||
         text.includes('Use local gateway') ||
