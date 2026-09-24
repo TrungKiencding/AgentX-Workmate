@@ -161,6 +161,11 @@ export function createSandbox(prefix: string): Sandbox {
  *  - `display.language: en` — the desktop renders in the backend's
  *    `display.language`, which defaults to Vietnamese here, and the specs
  *    assert English copy.
+ *  - `security.tirith_enabled: false` — in a fresh AGENTX_HOME the first
+ *    `terminal` command downloads the tirith scanner from GitHub inside its
+ *    own security check (only the CLI starts that download in the
+ *    background). On a slow link the call then sits in "Running" past the
+ *    spec's timeout, and a spec should not depend on GitHub anyway.
  *
  * A spec that needs another value sets the same key in its `extraConfig` (or
  * `extraDisplayConfig`); `mergeConfigYaml` lets the spec's value win.
@@ -168,7 +173,9 @@ export function createSandbox(prefix: string): Sandbox {
 const FIXTURE_CONFIG_DEFAULTS = `dashboard:
   require_auth: false
 display:
-  language: en`
+  language: en
+security:
+  tirith_enabled: false`
 
 interface ConfigSection {
   /** The section's own line: `key:`, or `key: value` for an inline value. */
