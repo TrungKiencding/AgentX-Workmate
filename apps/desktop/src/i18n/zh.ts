@@ -1216,6 +1216,28 @@ export const zh: Translations = {
       hubNameTaken: '本机上已有其他服务器使用此名称。',
       hubNotRegistered: '已安装。一旦可以连接，就会通知 AgentX Hub。',
       hubUnsupported: count => `Hub 上有 ${count} 个服务器暂时无法在 Workmate 中直接运行——请在 Hub 上打开。`,
+      gatewaySection: 'AgentX Gateway（MCP）',
+      gatewayHint:
+        '你在 hub 上的服务器和工具集，经由 hub 的网关：一次登录即可全部使用。添加后会在 .env 中保存本机的令牌（AGENTX_GATEWAY_TOKEN），并自动续期。',
+      gatewaySignIn: '请打开 Workmate 重新登录：本机的网关令牌已过期。',
+      gatewayTokenDays: days => `本机的网关令牌还剩 ${days} 天，会自动续期。`,
+      gatewayLoading: '正在向 hub 获取你的端点…',
+      gatewayOff: '此 hub 尚未开放网关。',
+      gatewayEmpty: '还没有端点：在 hub 上连接一个服务器或创建工具集。',
+      gatewayServer: '服务器',
+      gatewayToolset: '工具集',
+      gatewayTools: count => `就绪 · ${count} 个工具`,
+      gatewayStatus: {
+        needs_connection: '在 hub 上连接',
+        needs_reauth: '在 hub 上重新登录',
+        partial: '部分可用',
+        ready: '就绪',
+        unavailable: '不可用'
+      },
+      gatewayAdd: '添加到 Workmate',
+      gatewayAddedPill: '已添加',
+      gatewayAdded: label => `已通过网关添加 ${label}`,
+      gatewayAddFailed: label => `无法添加 ${label}`,
       capabilitySummary: (tools, prompts, resources) =>
         `已启用 ${[`${tools} 个工具`, ...(prompts ? [`${prompts} 个提示`] : []), ...(resources ? [`${resources} 个资源`] : [])].join('、')}`,
       statusConnecting: '连接中…',

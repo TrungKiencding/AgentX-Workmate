@@ -1035,6 +1035,29 @@ export const en: Translations = {
       hubNotRegistered: 'Installed. The AgentX Hub is told as soon as it can be reached.',
       hubUnsupported: count =>
         `${count} Hub server${count === 1 ? '' : 's'} cannot run in Workmate as ${count === 1 ? 'it is' : 'they are'} — open ${count === 1 ? 'it' : 'them'} on the Hub.`,
+      gatewaySection: 'AgentX Gateway (MCP)',
+      gatewayHint:
+        'Your servers and toolsets on the hub, through its gateway: one sign-in for all of them. Adding one keeps a token of this machine in .env (AGENTX_GATEWAY_TOKEN) — renewed on its own.',
+      gatewaySignIn: 'Open Workmate to sign in again: the gateway token of this machine has expired.',
+      gatewayTokenDays: days =>
+        `This machine's gateway token is valid ${days} more day${days === 1 ? '' : 's'}; it is renewed on its own.`,
+      gatewayLoading: 'Asking the hub for your endpoints…',
+      gatewayOff: 'The gateway is not open on this hub.',
+      gatewayEmpty: 'No endpoint yet: connect a server or make a toolset on the hub.',
+      gatewayServer: 'Server',
+      gatewayToolset: 'Toolset',
+      gatewayTools: count => `Ready · ${count} tool${count === 1 ? '' : 's'}`,
+      gatewayStatus: {
+        needs_connection: 'Connect it on the hub',
+        needs_reauth: 'Sign in again on the hub',
+        partial: 'Serves in part',
+        ready: 'Ready',
+        unavailable: 'Not served'
+      },
+      gatewayAdd: 'Add to Workmate',
+      gatewayAddedPill: 'Added',
+      gatewayAdded: label => `${label} added through the gateway`,
+      gatewayAddFailed: label => `Could not add ${label}`,
       capabilitySummary: (tools, prompts, resources) =>
         `${[`${tools} tools`, ...(prompts ? [`${prompts} prompts`] : []), ...(resources ? [`${resources} resources`] : [])].join(', ')} enabled`,
       statusConnecting: 'Connecting…',

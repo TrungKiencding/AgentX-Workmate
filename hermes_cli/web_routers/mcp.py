@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional  # noqa: F401
 
 from fastapi import APIRouter, HTTPException, Request  # noqa: F401
 from fastapi.responses import HTMLResponse  # noqa: F401
+from pydantic import BaseModel
 
 from hermes_cli.web_deps import late, LateState
 from hermes_cli.web_models import (
@@ -585,6 +586,97 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
 
     registered = await asyncio.to_thread(announce_mcp_install, entry.hub.slug)
     return {"ok": True, "name": entry.name, "id": entry.identifier, "background": False, "registered": registered}
+
+
+# ---------------------------------------------------------------------------
+# The AgentX Gateway (Agent Hub Phase 5): the person's endpoints, one added here
+# ---------------------------------------------------------------------------
+
+
+class MCPGatewayAdd(BaseModel):
+    """``POST /api/mcp/gateway/add``: which of the person's gateway endpoints."""
+
+    kind: str = "server"
+    ref: str
+
+
+def _gateway_refusal(status: str, message: str, code: str = "") -> Dict[str, Any]:
+    """What the tab reads when the hub (or this machine) says no — as the Hub tab's routes answer it:
+    ``{ok: false, status: offline|reauth|sign_in|not_found|error, code, detail}``."""
+    return {"ok": False, "status": status, "code": code or status, "detail": message}
+
+
+def _gateway_error(exc: Any) -> Dict[str, Any]:
+    status = "offline" if getattr(exc, "unreachable", False) else "reauth" if getattr(exc, "reauth", False) else "error"
+    # The hub gives a gateway token to a signed-in session alone: a personal token is refused with 403.
+    if status == "error" and getattr(exc, "status_code", None) == 403:
+        status = "sign_in"
+    return _gateway_refusal(status, str(exc), str(getattr(exc, "code", "") or ""))
+
+
+@router.get("/api/mcp/gateway")
+async def list_gateway_endpoints(request: Request, profile: Optional[str] = None):
+    """The person's AgentX Gateway endpoints (``GET /v1/mcp/me/endpoints`` on
+    the hub), each with the entry that already reaches it here, and this
+    machine's gateway token (never the token itself). The default profile
+    only: it is where the hub sync keeps them."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from hermes_cli.hub_sync import GATEWAY_SOURCE, engine
+    from hermes_cli.web_routers.skills import _hub_credentials_from
+
+    if not _is_default_profile(profile):
+        return {"available": False, "reason": "profile", "endpoints": [], "device": None}
+    credentials = _hub_credentials_from(request)
+    base_url = hub_base_url()
+    device = engine()._gateway
+    added = await asyncio.to_thread(device.entries)
+    by_url = {str(cfg.get("url") or ""): name for name, cfg in added.items() if cfg.get("source") == GATEWAY_SOURCE}
+    status = await asyncio.to_thread(device.status, len(added))
+    if credentials is None or not base_url:
+        return {"available": False, "reason": "signed_out", "endpoints": [], "device": status, "added": sorted(added)}
+    try:
+        body = await asyncio.to_thread(HubClient(base_url).gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
+                                       device_name=credentials.device_name)
+    except HubError as exc:
+        refusal = _gateway_error(exc)
+        return {"available": False, "reason": refusal["status"], "error": refusal, "endpoints": [], "device": status, "added": sorted(added)}
+    gateway = body.get("gateway") or {}
+    endpoints = [{**endpoint, "added": by_url.get(str(endpoint.get("url") or ""))} for endpoint in body.get("endpoints") or [] if isinstance(endpoint, dict)]
+    return {"available": bool(gateway.get("enabled")), "reason": None if gateway.get("enabled") else "gateway_off", "gateway": gateway,
+            "endpoints": endpoints, "device": status, "added": sorted(added), "session": credentials.source in ("session", "mailbox")}
+
+
+@router.post("/api/mcp/gateway/add")
+async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profile: Optional[str] = None):
+    """Add one of the person's gateway endpoints to Workmate: this machine's
+    gateway token (asked for with the signed-in session, kept in ``.env`` as
+    ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. The desktop reloads
+    MCP after."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from hermes_cli.hub_sync import GatewaySignInNeeded, add_gateway_endpoint
+    from hermes_cli.web_routers.skills import _hub_credentials_from
+
+    if not _is_default_profile(profile):
+        raise HTTPException(status_code=400, detail="The AgentX Gateway is added in the default profile, where the hub sync renews its token.")
+    credentials = _hub_credentials_from(request)
+    base_url = hub_base_url()
+    if credentials is None or not base_url:
+        return _gateway_refusal("reauth", "Sign in to AgentX Hub first.", "signed_out")
+    client = HubClient(base_url)
+    try:
+        listed = await asyncio.to_thread(client.gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
+                                         device_name=credentials.device_name)
+        endpoint = next((e for e in listed.get("endpoints") or [] if isinstance(e, dict) and e.get("kind") == body.kind and e.get("ref") == body.ref), None)
+        if endpoint is None:
+            return _gateway_refusal("not_found", "That endpoint is not one of yours on the hub.")
+        name = await asyncio.to_thread(add_gateway_endpoint, endpoint, client=client, credentials=credentials)
+    except GatewaySignInNeeded as exc:
+        return _gateway_refusal("sign_in", str(exc), "sign_in_required")
+    except HubError as exc:
+        return _gateway_error(exc)
+    except ValueError as exc:
+        return _gateway_refusal("error", str(exc), "invalid")
+    return {"ok": True, "name": name, "url": endpoint["url"]}
 
 
 @router.post("/api/mcp/hub/{slug}/remove")

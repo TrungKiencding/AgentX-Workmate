@@ -1291,6 +1291,28 @@ export const vi: Translations = {
       hubNameTaken: 'Một server khác đang dùng tên này trên máy.',
       hubNotRegistered: 'Đã cài. AgentX Hub sẽ được báo ngay khi kết nối được.',
       hubUnsupported: count => `${count} server của Hub chưa chạy được trong Workmate như hiện có — mở trên Hub.`,
+      gatewaySection: 'AgentX Gateway (MCP)',
+      gatewayHint:
+        'Server và bộ công cụ của bạn trên hub, qua Gateway của hub: đăng nhập một lần cho tất cả. Thêm một mục sẽ lưu token của máy này trong .env (AGENTX_GATEWAY_TOKEN) — tự gia hạn.',
+      gatewaySignIn: 'Mở Workmate để đăng nhập lại: token Gateway của máy này đã hết hạn.',
+      gatewayTokenDays: days => `Token Gateway của máy này còn ${days} ngày; nó tự gia hạn.`,
+      gatewayLoading: 'Đang hỏi hub các endpoint của bạn…',
+      gatewayOff: 'Gateway chưa mở trên hub này.',
+      gatewayEmpty: 'Chưa có endpoint nào: kết nối một server hoặc tạo bộ công cụ trên hub.',
+      gatewayServer: 'Server',
+      gatewayToolset: 'Bộ công cụ',
+      gatewayTools: count => `Sẵn sàng · ${count} công cụ`,
+      gatewayStatus: {
+        needs_connection: 'Kết nối trên hub',
+        needs_reauth: 'Đăng nhập lại trên hub',
+        partial: 'Chỉ một phần phục vụ được',
+        ready: 'Sẵn sàng',
+        unavailable: 'Không phục vụ'
+      },
+      gatewayAdd: 'Thêm vào Workmate',
+      gatewayAddedPill: 'Đã thêm',
+      gatewayAdded: label => `Đã thêm ${label} qua Gateway`,
+      gatewayAddFailed: label => `Không thêm được ${label}`,
       capabilitySummary: (tools, prompts, resources) =>
         `Đang bật ${[`${tools} công cụ`, ...(prompts ? [`${prompts} prompt`] : []), ...(resources ? [`${resources} tài nguyên`] : [])].join(', ')}`,
       statusConnecting: 'Đang kết nối…',

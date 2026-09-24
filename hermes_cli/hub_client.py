@@ -341,6 +341,30 @@ class HubClient:
         body = self._request("GET", "/v1/mcp/me/installs", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
         return list((body or {}).get("installs") or [])
 
+    # -- the AgentX Gateway (Agent Hub Phase 5) ------------------------------
+
+    def gateway_endpoints(self, *, bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, Any]:
+        """The gateway endpoints that are this person's (``GET /v1/mcp/me/endpoints``):
+        ``{gateway {enabled, url}, endpoints [{kind: server|toolset, ref, label, url, status, tools, …}]}``."""
+        body = self._request("GET", "/v1/mcp/me/endpoints", bearer=bearer, device_id=device_id, device_name=device_name)
+        if not isinstance(body, dict) or not isinstance(body.get("endpoints"), list):
+            raise HubError("the hub returned gateway endpoints without a list")
+        return body
+
+    def gateway_device_token(self, *, bearer: str, device_id: str, device_name: str = "") -> Dict[str, Any]:
+        """This machine's token for the gateway (``POST /v1/mcp/gateway/device-token``):
+        scope ``mcp`` alone, 90 days; the hub revokes the machine's earlier one.
+        Only a signed-in session may ask (a personal token gets 403). The
+        plaintext is in ``token``, this once."""
+        if not device_id:
+            raise HubError("a gateway token is asked for one machine: this one has no device id")
+        name = (device_name or "Workmate").strip()[:80] or "Workmate"
+        body = self._request("POST", "/v1/mcp/gateway/device-token", bearer=bearer, device_id=device_id, device_name=device_name,
+                             json_body={"device_id": device_id, "device_name": name})
+        if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not body["token"]:
+            raise HubError("the hub answered a gateway token without the token")
+        return body
+
     # -- catalog / publishing ---------------------------------------------
 
     def skill(self, slug: str, *, bearer: str = "") -> Dict[str, Any]:

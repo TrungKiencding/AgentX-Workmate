@@ -435,8 +435,10 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
 
   // Key by active profile — installed/enabled badges are per-profile, so sharing
   // one cache across profiles would flash the previous profile's state on switch.
+  const profileKey = normalizeProfileKey(useStore($activeGatewayProfile))
+
   const catalogQuery = useQuery({
-    queryKey: [...MCP_CATALOG_KEY, normalizeProfileKey(useStore($activeGatewayProfile))],
+    queryKey: [...MCP_CATALOG_KEY, profileKey],
     queryFn: getMcpCatalog,
     staleTime: 5 * 60_000
   })
@@ -1028,6 +1030,7 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
             </>
           ) : (
             <>
+              <GatewayEndpoints onAdded={() => void onCatalogInstalled()} profile={profileKey} />
               <p className="mb-3 text-sm text-(--ui-text-tertiary)">{m.mcpIntro}</p>
               {names.map(serverName => {
                 const server = servers[serverName]
@@ -1337,6 +1340,183 @@ function ServerIconActions({
 // Small attribute chip (transport / auth / needs-build) — the shared TagChip.
 function CatalogTag({ children }: { children: string }) {
   return <TagChip>{children}</TagChip>
+}
+
+// The person's AgentX Gateway endpoints (Agent Hub P5.8): a server or a toolset
+// of theirs on the hub, reached through the hub's gateway with this machine's
+// token — "Thêm vào Workmate" asks the hub for that token (the signed-in
+// session does), keeps it in .env and writes the entry; the hub sync renews
+// it. Default profile only, like the hub's servers. Calls the local backend
+// directly (`/api/mcp/gateway*`).
+export interface McpGatewayEndpoint {
+  kind: 'server' | 'toolset'
+  ref: string
+  label: string
+  url: string
+  status: 'ready' | 'partial' | 'needs_connection' | 'needs_reauth' | 'unavailable'
+  tools: number
+  connect_url?: null | string
+  added: null | string
+}
+
+/** A refusal, as the Hub tab's routes answer one. */
+export interface McpGatewayRefusal {
+  ok: false
+  status: 'error' | 'not_found' | 'offline' | 'reauth' | 'sign_in'
+  code: string
+  detail: string
+}
+
+export interface McpGatewayListing {
+  available: boolean
+  reason: 'error' | 'gateway_off' | 'offline' | 'profile' | 'reauth' | 'sign_in' | 'signed_out' | null
+  error?: McpGatewayRefusal
+  endpoints: McpGatewayEndpoint[]
+  session?: boolean
+  device: null | {
+    entries: number
+    token: boolean
+    expires_at: null | string
+    days_left: null | number
+    state: 'expired' | 'none' | 'ok' | 'renew'
+  }
+}
+
+function gatewayPath(profile: string, tail = ''): string {
+  return `/api/mcp/gateway${tail}${profile === 'default' ? '' : `?profile=${encodeURIComponent(profile)}`}`
+}
+
+export function GatewayEndpoints({ onAdded, profile }: { onAdded: () => void; profile: string }) {
+  const { t } = useI18n()
+  const m = t.settings.mcp
+  const [adding, setAdding] = useState<null | string>(null)
+
+  const query = useQuery({
+    queryKey: ['mcp-gateway', profile],
+    queryFn: () => window.agentxDesktop.api<McpGatewayListing>({ path: gatewayPath(profile) }),
+    retry: false
+  })
+
+  if (profile !== 'default' || query.data?.reason === 'profile') {
+    return null
+  }
+
+  const data = query.data
+  const device = data?.device
+
+  // The token lapsed and nothing here can renew it (no signed-in session), or the hub refused the session.
+  const signIn =
+    Boolean(device && device.entries > 0 && device.state === 'expired' && !data?.session) ||
+    data?.reason === 'reauth' ||
+    data?.reason === 'sign_in'
+
+  const add = async (endpoint: McpGatewayEndpoint) => {
+    setAdding(endpoint.ref)
+
+    try {
+      const res = await window.agentxDesktop.api<McpGatewayRefusal | { ok: true; name: string; url: string }>({
+        path: gatewayPath(profile, '/add'),
+        method: 'POST',
+        body: { kind: endpoint.kind, ref: endpoint.ref },
+        timeoutMs: 30_000
+      })
+
+      if (!res.ok) {
+        notify({
+          kind: 'error',
+          title:
+            res.status === 'sign_in' || res.status === 'reauth' ? m.gatewaySignIn : m.gatewayAddFailed(endpoint.label),
+          message: res.status === 'sign_in' || res.status === 'reauth' ? '' : res.detail
+        })
+
+        return
+      }
+
+      notify({ kind: 'success', title: m.gatewayAdded(endpoint.label), message: '' })
+      void query.refetch()
+      onAdded()
+    } catch (err) {
+      notifyError(err, m.gatewayAddFailed(endpoint.label))
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  return (
+    <section
+      aria-label={m.gatewaySection}
+      className="mb-4 grid gap-2 rounded-lg border border-(--ui-border-subtle) p-3"
+      data-testid="mcp-gateway"
+    >
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold text-(--ui-text-primary)">{m.gatewaySection}</h3>
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayHint}</p>
+        {signIn && (
+          <p className="text-xs text-(--ui-yellow)" data-testid="mcp-gateway-signin">
+            {m.gatewaySignIn}
+          </p>
+        )}
+        {!signIn && device?.token && device.days_left !== null && device.entries > 0 && (
+          <p className="text-xs text-(--ui-text-tertiary)" data-testid="mcp-gateway-token">
+            {m.gatewayTokenDays(device.days_left)}
+          </p>
+        )}
+      </div>
+      {query.isLoading ? (
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayLoading}</p>
+      ) : query.isError || data?.reason === 'offline' ? (
+        <p className="text-xs text-(--ui-yellow)" data-testid="mcp-gateway-offline">
+          {m.hubOffline}
+        </p>
+      ) : !data?.available ? (
+        signIn ? null : (
+          <p className="text-xs text-(--ui-text-secondary)" data-testid="mcp-gateway-unavailable">
+            {data?.reason === 'signed_out'
+              ? m.hubSignIn
+              : data?.reason === 'error'
+                ? data.error?.detail || m.gatewayOff
+                : m.gatewayOff}
+          </p>
+        )
+      ) : data.endpoints.length === 0 ? (
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayEmpty}</p>
+      ) : (
+        <ul className="grid gap-1.5">
+          {data.endpoints.map(endpoint => (
+            <li
+              className="flex flex-wrap items-center gap-2"
+              data-ref={endpoint.ref}
+              data-testid="mcp-gateway-endpoint"
+              key={`${endpoint.kind}:${endpoint.ref}`}
+            >
+              <span className="min-w-0 flex-1 truncate text-sm text-(--ui-text-primary)">{endpoint.label}</span>
+              <CatalogTag>{endpoint.kind === 'toolset' ? m.gatewayToolset : m.gatewayServer}</CatalogTag>
+              <StatusPill
+                size="md"
+                tone={endpoint.status === 'ready' ? 'good' : endpoint.status === 'unavailable' ? 'bad' : 'warn'}
+              >
+                {endpoint.status === 'ready' ? m.gatewayTools(endpoint.tools) : m.gatewayStatus[endpoint.status]}
+              </StatusPill>
+              {endpoint.added ? (
+                <StatusPill size="md" tone="good">
+                  {m.gatewayAddedPill}
+                </StatusPill>
+              ) : (
+                <Button
+                  disabled={adding !== null}
+                  loading={adding === endpoint.ref}
+                  onClick={() => void add(endpoint)}
+                  size="sm"
+                >
+                  {m.gatewayAdd}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
 }
 
 // The Nous-approved MCP catalog: one-click installs of curated servers, with an
