@@ -236,9 +236,10 @@ async def _lifespan(app: "FastAPI"):
     # Desktop's 10-second WebSocket ready-probe to time out (GH-73083).
     _warm_gateway_module()
 
-    # Desktop-spawned backends (AGENTX_DESKTOP=1) fire cron jobs themselves,
-    # since the app has no gateway running the scheduler. Server `agentx
-    # dashboard` is unaffected — it relies on its own gateway.
+    # Desktop-spawned backends (AGENTX_DESKTOP=1) fire cron jobs themselves:
+    # the app only runs a gateway (and its scheduler) while a messaging channel
+    # is on, and the tick lock keeps the two from firing the same job twice.
+    # Server `agentx dashboard` is unaffected — it relies on its own gateway.
     cron_stop: "threading.Event | None" = None
     cron_thread: "threading.Thread | None" = None
     if os.getenv("AGENTX_DESKTOP") == "1":
@@ -4198,6 +4199,7 @@ _ACTION_LOG_FILES: Dict[str, str] = {
     "gateway-restart": "gateway-restart.log",
     "gateway-start": "gateway-start.log",
     "gateway-stop": "gateway-stop.log",
+    "gateway-autostart": "gateway-autostart.log",
     "agentx-update": "agentx-update.log",
     "doctor": "action-doctor.log",
     "security-audit": "action-security-audit.log",
@@ -13129,6 +13131,12 @@ async def stop_gateway(profile: Optional[str] = None):
         _log.exception("Failed to spawn gateway stop")
         raise HTTPException(status_code=500, detail=f"Failed to stop gateway: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "gateway-stop"}
+
+
+# The desktop's once-per-launch "start it if it has work and nobody owns it".
+from hermes_cli.web_routers import gateway_autostart as _gateway_autostart_routes  # noqa: E402
+
+app.include_router(_gateway_autostart_routes.router)
 
 
 # ---------------------------------------------------------------------------
