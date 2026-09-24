@@ -137,7 +137,9 @@ export function createSandbox(prefix: string): Sandbox {
     userDataDir,
     cleanup: () => {
       try {
-        fs.rmSync(root, { recursive: true, force: true })
+        // Retries ride out ENOTEMPTY while a just-stopped backend's last
+        // writes land.
+        fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 })
       } catch {
         // best-effort
       }
@@ -653,15 +655,83 @@ export interface PackagedAppFixture {
   cleanup: () => Promise<void>
 }
 
+interface ProcessInfo {
+  pid: number
+  ppid: number
+  command: string
+}
+
+/** Every process on the machine, from one `ps` listing. POSIX only: [] on Windows. */
+function listProcesses(): ProcessInfo[] {
+  if (process.platform === 'win32') {
+    return []
+  }
+
+  const ps = spawnSync('ps', ['-A', '-ww', '-o', 'pid=,ppid=,command='], { encoding: 'utf8' })
+
+  return (ps.stdout ?? '').split('\n').flatMap(line => {
+    const match = /^\s*(\d+)\s+(\d+)\s(.*)$/.exec(line)
+
+    return match ? [{ pid: Number(match[1]), ppid: Number(match[2]), command: match[3].trim() }] : []
+  })
+}
+
+/** The processes below `roots` in `processes`. */
+function descendantsOf(processes: ProcessInfo[], roots: number[]): ProcessInfo[] {
+  const found: ProcessInfo[] = []
+  const queue = [...roots]
+
+  while (queue.length > 0) {
+    const parent = queue.shift()
+
+    for (const child of processes.filter(p => p.ppid === parent)) {
+      found.push(child)
+      queue.push(child.pid)
+    }
+  }
+
+  return found
+}
+
+/**
+ * SIGKILL what a closed packaged app left running: the processes noted while
+ * it was still their parent (same pid AND same command line, so a recycled
+ * pid is never hit), whatever those started since, and anything whose
+ * command line still names the sandbox.
+ */
+function killLeftovers(noted: ProcessInfo[], sandboxRoot: string): void {
+  const now = listProcesses()
+  const survivors = noted.filter(p => now.some(q => q.pid === p.pid && q.command === p.command))
+  const roots = new Set([sandboxRoot, fs.existsSync(sandboxRoot) ? fs.realpathSync(sandboxRoot) : sandboxRoot])
+  const naming = now.filter(p => [...roots].some(root => p.command.includes(root)))
+
+  for (const { pid } of [...survivors, ...descendantsOf(now, survivors.map(p => p.pid)), ...naming]) {
+    if (pid !== process.pid) {
+      try {
+        process.kill(pid, 'SIGKILL')
+      } catch {
+        // already gone
+      }
+    }
+  }
+}
+
 /**
  * Launch the *packaged* Electron binary (from `npm run pack` →
- * `electron-builder --dir`) with `BOOT_FAKE=1` so it simulates boot
- * progress without spawning a real AgentX backend.
+ * `electron-builder --dir`) with `BOOT_FAKE=1`, which paces the boot
+ * progress events.
+ *
+ * It does not keep the app from bootstrapping: with no AgentX install in the
+ * sandbox the first launch clones the agent and runs install.sh (Chromium
+ * download included) — minutes and ~280 MB. Quitting signals only the
+ * script, so its git / uv / `npx playwright install` children would outlive
+ * the app and keep filling the sandbox; `cleanup` kills them before removing
+ * it, and a failed launch cleans up too.
  *
  * Uses the same sandbox isolation (credential stripping, isolated
  * AGENTX_HOME + userData, unique app name) as the dev-mode fixtures.
  *
- * Skips if the packaged binary doesn't exist — run `npm run pack` first.
+ * Throws if the packaged binary doesn't exist — run `npm run pack` first.
  */
 export async function setupPackagedApp(): Promise<PackagedAppFixture> {
   if (!packagedBinaryExists()) {
@@ -686,23 +756,36 @@ export async function setupPackagedApp(): Promise<PackagedAppFixture> {
   delete (env as Record<string, string | undefined>).AGENTX_DESKTOP_AGENTX
   delete (env as Record<string, string | undefined>).AGENTX_DESKTOP_AGENTX_ROOT
 
-  const app = await _electron.launch({
-    executablePath: PACKAGED_BINARY_PATH,
-    args: ['--disable-gpu', '--no-sandbox'],
-    env,
-  })
-
-  const page = await app.firstWindow()
-  installErrorBannerGuard(page)
-
-  return {
-    app,
-    page,
-    sandbox,
-    cleanup: async () => {
-      await app.close().catch(() => undefined)
+  const app = await _electron
+    .launch({
+      executablePath: PACKAGED_BINARY_PATH,
+      args: ['--disable-gpu', '--no-sandbox'],
+      env,
+    })
+    .catch((error: unknown) => {
       sandbox.cleanup()
-    },
+      throw error
+    })
+
+  const cleanup = async () => {
+    // Note the app's process tree while the app is still its parent: once it
+    // exits, the installer's orphans are reparented and look like anything else.
+    const appPid = app.process().pid
+    const tree = appPid ? descendantsOf(listProcesses(), [appPid]) : []
+
+    await app.close().catch(() => undefined)
+    killLeftovers(tree, sandbox.root)
+    sandbox.cleanup()
+  }
+
+  try {
+    const page = await app.firstWindow()
+    installErrorBannerGuard(page)
+
+    return { app, page, sandbox, cleanup }
+  } catch (error) {
+    await cleanup()
+    throw error
   }
 }
 
