@@ -9236,7 +9236,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 format_type = "json" if arg == "json" else "markdown"
                 filename = f"session_{self.session_id}.{'json' if format_type == 'json' else 'md'}"
             else:
-                filename = arg
+                filename = parts[1]
 
         if len(parts) > 2:
             filename = parts[2]
@@ -11247,8 +11247,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._handle_rollback_command(cmd_original)
         elif canonical == "snapshot":
             self._handle_snapshot_command(cmd_original)
-        elif canonical == "export":
-            self._handle_export_command(cmd_original)
+        elif canonical == "export-profile":
+            self._handle_export_profile_command(cmd_original)
         elif canonical == "import":
             self._handle_import_command(cmd_original)
         elif canonical == "stop":
