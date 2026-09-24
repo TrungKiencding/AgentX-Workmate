@@ -1,0 +1,76 @@
+{
+  "about": "A Workmate manifest v1 of the hub's MCP catalogue feed (GET /v1/mcp/catalog.json), signed twice: hub.signature over hub.signed (the version's manifest, fields of MCP_MANIFEST_FIELDS) and hub.manifest_sig over the canonical JSON of the whole manifest without hub.manifest_sig and hub.manifest_kid. Keys: /.well-known/agentx-hub.json signing_keys.",
+  "public_b64": "ixqPPIfaHgdIPaY+Y/nVicTcSRzSNughwQUlegyLXps=",
+  "kid": "vector-k1",
+  "signature_keys": [
+    "manifest_sig",
+    "manifest_kid"
+  ],
+  "manifest": {
+    "manifest_version": 1,
+    "name": "linear",
+    "description": "Linear issues and projects for an agent.",
+    "source": "https://hub.example/mcp/servers/linear",
+    "transport": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@acme/linear-mcp@1.4.0"
+      ],
+      "version": "1.4.0"
+    },
+    "auth": {
+      "type": "api_key",
+      "env": [
+        {
+          "name": "LINEAR_API_KEY",
+          "prompt": "A Linear API key",
+          "required": true,
+          "secret": true
+        }
+      ]
+    },
+    "tools": {
+      "default_enabled": [
+        "list_issues"
+      ]
+    },
+    "hub": {
+      "slug": "linear",
+      "version": "1.4.0",
+      "content_hash": "sha256:abababababababababababababababababababababababababababababababab",
+      "surface_hash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "tool_hashes": {
+        "create_issue": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+        "list_issues": "sha256:3434343434343434343434343434343434343434343434343434343434343434"
+      },
+      "trust": "reviewed",
+      "verdict": "safe",
+      "signed": {
+        "kind": "mcp",
+        "slug": "linear",
+        "name": "vn.com.astralx.team/linear",
+        "version": "1.4.0",
+        "content_hash": "sha256:abababababababababababababababababababababababababababababababab",
+        "surface_hash": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "verdict": "safe",
+        "scanned_at": "2026-09-24T08:00:00+00:00",
+        "scanner_versions": {
+          "mcp_schema": "mcp-schema-v1",
+          "mcp_launch": "mcp-launch-v1+wm-3f2a91c0",
+          "mcp_secrets": "gitleaks-8.30.1",
+          "mcp_supply": "mcp-supply-v1",
+          "mcp_remote": "mcp-remote-v1",
+          "mcp_surface": "mcp-surface-v1+inj-v2",
+          "mcp_llm": "mcp-llm-v1"
+        }
+      },
+      "signature": "X4Scr4aBUMspAS7N0u4rQBN/96BGIAV8azmqyzesW+vyoEQ7ninuMQhEOR1wPdPu0AyQ73HEv8HbDPGJhcCGDg==",
+      "kid": "vector-k1",
+      "manifest_sig": "lB7g+eovDU74zxRIB9jNryyhMbv9JMsfU3m2u+xNRAI+TNMsp64dBmWS7EwXHKiFn1/3GAhm9w0qD3YR0RO/CQ==",
+      "manifest_kid": "vector-k1"
+    }
+  },
+  "signed_body_canonical": "{\"auth\":{\"env\":[{\"name\":\"LINEAR_API_KEY\",\"prompt\":\"A Linear API key\",\"required\":true,\"secret\":true}],\"type\":\"api_key\"},\"description\":\"Linear issues and projects for an agent.\",\"hub\":{\"content_hash\":\"sha256:abababababababababababababababababababababababababababababababab\",\"kid\":\"vector-k1\",\"signature\":\"X4Scr4aBUMspAS7N0u4rQBN/96BGIAV8azmqyzesW+vyoEQ7ninuMQhEOR1wPdPu0AyQ73HEv8HbDPGJhcCGDg==\",\"signed\":{\"content_hash\":\"sha256:abababababababababababababababababababababababababababababababab\",\"kind\":\"mcp\",\"name\":\"vn.com.astralx.team/linear\",\"scanned_at\":\"2026-09-24T08:00:00+00:00\",\"scanner_versions\":{\"mcp_launch\":\"mcp-launch-v1+wm-3f2a91c0\",\"mcp_llm\":\"mcp-llm-v1\",\"mcp_remote\":\"mcp-remote-v1\",\"mcp_schema\":\"mcp-schema-v1\",\"mcp_secrets\":\"gitleaks-8.30.1\",\"mcp_supply\":\"mcp-supply-v1\",\"mcp_surface\":\"mcp-surface-v1+inj-v2\"},\"slug\":\"linear\",\"surface_hash\":\"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"verdict\":\"safe\",\"version\":\"1.4.0\"},\"slug\":\"linear\",\"surface_hash\":\"sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"tool_hashes\":{\"create_issue\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"list_issues\":\"sha256:3434343434343434343434343434343434343434343434343434343434343434\"},\"trust\":\"reviewed\",\"verdict\":\"safe\",\"version\":\"1.4.0\"},\"manifest_version\":1,\"name\":\"linear\",\"source\":\"https://hub.example/mcp/servers/linear\",\"tools\":{\"default_enabled\":[\"list_issues\"]},\"transport\":{\"args\":[\"-y\",\"@acme/linear-mcp@1.4.0\"],\"command\":\"npx\",\"type\":\"stdio\",\"version\":\"1.4.0\"}}"
+}

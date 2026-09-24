@@ -64,6 +64,18 @@ class _FakeHub:
             return httpx.Response(202, json={"skill": {"slug": "x", "visibility": body.get("visibility")}, "version": {"version": "1.0.0"}, "scan_id": "scan-1", "created": True})
         if path == "/v1/skills/x":
             return httpx.Response(200, json={"slug": "x"})
+        if path == "/v1/mcp/catalog.json":
+            if request.headers.get("If-None-Match") == '"feed-1"':
+                return httpx.Response(304, headers={"ETag": '"feed-1"'})
+            return httpx.Response(200, json={"product": request.url.params.get("product"), "servers": [{"slug": "linear"}]}, headers={"ETag": '"feed-1"'})
+        if path == "/v1/mcp/installs" and request.method == "POST":
+            body = json.loads(request.content)
+            self.installs.append(body)
+            return httpx.Response(201, json={"id": "mcp-1", **body, "device_id": request.headers.get("X-AgentX-Device")})
+        if path == "/v1/mcp/installs/mcp-1" and request.method == "DELETE":
+            return httpx.Response(200, json={"ok": True, "deleted": request.url.params.get("purge") == "true"})
+        if path == "/v1/mcp/me/installs":
+            return httpx.Response(200, json={"installs": [{"id": "mcp-1", "device_id": request.url.params.get("device_id")}]})
         if path == "/v1/events":
             frames = (
                 "retry: 3000\n\n"
@@ -114,6 +126,31 @@ class TestCalls:
         assert hub.reports[-1] == {"state": "installed", "version": "1.0.0", "device_name": "Ada's laptop"}
         client.report_install("inst-1", "failed", bearer="tok", error="x" * 3000)
         assert len(hub.reports[-1]["error"]) == 2000
+
+    def test_the_mcp_catalogue_is_asked_again_with_its_etag(self, client, hub):
+        feed, etag = client.mcp_catalog(bearer="tok")
+        assert feed == {"product": "workmate", "servers": [{"slug": "linear"}]} and etag == '"feed-1"'
+        assert "If-None-Match" not in hub.requests[-1].headers
+        again, same = client.mcp_catalog(bearer="tok", etag=etag)
+        assert again is None and same == '"feed-1"'  # 304: nothing changed
+        assert hub.requests[-1].headers["If-None-Match"] == '"feed-1"'
+
+    def test_an_mcp_install_its_report_its_list_and_its_removal(self, client, hub):
+        row = client.create_mcp_install("linear", bearer="tok", device_id=DEVICE, device_name="Ada's laptop")
+        assert row["id"] == "mcp-1" and row["device_id"] == DEVICE and hub.installs[-1] == {"slug": "linear", "product": "workmate"}
+        client.report_mcp_install("mcp-1", "installed", bearer="tok", device_id=DEVICE, version="1.4.0", surface={"tools": [{"name": "ping"}]},
+                                  surface_hash="sha256:" + "a" * 64, blocked_tools=["b", "a", "a"])
+        assert hub.reports[-1] == {"state": "installed", "version": "1.4.0", "surface": {"tools": [{"name": "ping"}]}, "surface_hash": "sha256:" + "a" * 64,
+                                   "blocked_tools": ["a", "b"]}
+        assert hub.requests[-1].url.path == "/v1/mcp/installs/mcp-1/report"
+        # no list: the hub keeps what the last report said; an empty list says "nothing blocked"
+        client.report_mcp_install("mcp-1", "failed", bearer="tok", error="x" * 3000)
+        assert "blocked_tools" not in hub.reports[-1] and len(hub.reports[-1]["error"]) == 2000
+        client.report_mcp_install("mcp-1", "installed", bearer="tok", blocked_tools=[])
+        assert hub.reports[-1]["blocked_tools"] == []
+        assert client.list_mcp_installs(bearer="tok", device_id=DEVICE) == [{"id": "mcp-1", "device_id": DEVICE}]
+        assert client.remove_mcp_install("mcp-1", bearer="tok", purge=True) == {"ok": True, "deleted": True}
+        assert client.remove_mcp_install("mcp-1", bearer="tok") == {"ok": True, "deleted": False}
 
     def test_validate_and_publish(self, client, hub):
         assert client.validate({"SKILL.md": "# x"}, kind="core")["ok"] is True

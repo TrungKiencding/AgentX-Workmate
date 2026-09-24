@@ -23,6 +23,19 @@ the loop, and then it waits for the desktop to deliver a fresh one.
 ``/v1/me/changes`` and reconciles the whole list, so a dropped SSE frame
 never loses an install. The stream only decides *when* the next tick runs.
 
+**MCP servers too (Agent Hub Phase 3).** The snapshot's ``mcp`` block
+lists the MCP servers the person installed from the hub on this machine.
+:class:`McpLocalInstaller` installs one from the hub's signed feed
+(``tools/mcp_hub.py``; never a manifest nobody signed) without asking —
+a required value this machine does not hold is reported, not prompted for —
+switches one off (``enabled: false``, the config stays) and removes one
+(its tokens and cached tools too). A server edited on this machine is never
+overwritten; the report says so once. When the hub approves another tool
+list for the version a machine runs, its lock (``hub.tool_hashes``) is
+refreshed from the feed: the tools it approved open on the next reload.
+Each report carries what the server announced when it last registered
+(``tools/mcp_tool.py``) and the tools kept off.
+
 **Credentials are given, never obtained.** This process holds no refresh
 token. The bearer arrives on ``POST /api/skills/hub/tick`` (the desktop's
 Hub tab), on ``POST /api/sync/tick`` (the desktop's 30-second timer — the
@@ -49,7 +62,10 @@ HISTORY_SIZE = 30
 PRODUCT = "workmate"
 SOURCE = "agentx-hub"
 #: Events on the stream that mean "something on this machine may need to change".
-NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted")
+NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted",
+                "mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
+#: Of those, the ones after which the MCP feed is fetched again at once (a new manifest, a new tool list).
+FEED_EVENTS = ("mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
 #: Why a skill the hub wants replaced stays as it is (reported as ``failed``).
 LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the Hub tab (the edit is backed up first) or keep it"
 
@@ -93,6 +109,8 @@ class HubSyncOutcome:
     enabled: List[str] = field(default_factory=list)
     failed: List[Dict[str, Any]] = field(default_factory=list)
     updates: List[Dict[str, Any]] = field(default_factory=list)
+    #: What the tick did to MCP servers: ``{installed, updated, removed, disabled, enabled, failed}``.
+    mcp: Dict[str, List[Any]] = field(default_factory=lambda: {k: [] for k in ("installed", "updated", "removed", "disabled", "enabled", "failed")})
     cursor: Optional[int] = None
     at: str = ""
 
@@ -102,7 +120,12 @@ class HubSyncOutcome:
 
     @property
     def changed(self) -> bool:
-        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled)
+        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled) or self.mcp_changed
+
+    @property
+    def mcp_changed(self) -> bool:
+        """An MCP server was installed, updated, removed or switched: the desktop reloads MCP."""
+        return any(self.mcp[key] for key in ("installed", "updated", "removed", "disabled", "enabled"))
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -115,6 +138,8 @@ class HubSyncOutcome:
             "enabled": list(self.enabled),
             "failed": list(self.failed),
             "updates": list(self.updates),
+            "mcp": {key: list(value) for key, value in self.mcp.items()},
+            "mcp_changed": self.mcp_changed,
             "cursor": self.cursor,
             "at": self.at,
         }
@@ -427,6 +452,110 @@ class LocalInstaller:
             pass
 
 
+class McpLocalInstaller:
+    """Installs, removes and switches MCP servers from the hub on this
+    machine, through the catalog (``hermes_cli/mcp_catalog.py``): the entry
+    from the hub's signed feed, installed without asking."""
+
+    def local_state(self, slug: str) -> Dict[str, Any]:
+        """The server installed from hub server *slug*, as config.yaml has it."""
+        from hermes_cli import mcp_catalog
+
+        for name, cfg in mcp_catalog.raw_servers().items():
+            if mcp_catalog.hub_slug_of(cfg) != slug:
+                continue
+            hub = cfg.get("hub") or {}
+            return {
+                "installed": True, "name": name, "version": str(hub.get("version") or ""), "enabled": mcp_catalog.is_enabled(name),
+                "modified": mcp_catalog.edited_locally(cfg), "tool_hashes": dict(hub.get("tool_hashes") or {}),
+            }
+        return {"installed": False, "name": "", "version": "", "enabled": False, "modified": False, "tool_hashes": {}}
+
+    def feed_entry(self, slug: str) -> Any:
+        """The verified entry of hub server *slug* in the feed on disk, or None."""
+        from hermes_cli import mcp_catalog
+
+        return mcp_catalog.get_entry(f"{mcp_catalog.HUB_PREFIX}{slug}")
+
+    def install(self, slug: str, *, version: str = "") -> InstallResult:
+        import contextlib
+        import io
+
+        from hermes_cli import mcp_catalog
+
+        entry = self.feed_entry(slug)
+        if entry is None or entry.hub is None:
+            return InstallResult(ok=False, error="not_in_feed: the hub's feed on this machine has no verified entry for it", blocked=True)
+        if version and entry.hub.version != version:
+            return InstallResult(ok=False, name=entry.name, error=f"pinned: the hub serves {entry.hub.version}, not {version}", blocked=True)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                mcp_catalog.install_entry(entry, enable=True, interactive=False)
+        except mcp_catalog.NeedsSecrets as exc:
+            return InstallResult(ok=False, name=entry.name, error=f"needs_secrets: {', '.join(exc.missing)}", blocked=True)
+        except mcp_catalog.CatalogError as exc:
+            return InstallResult(ok=False, name=entry.name, error=str(exc), blocked=True)
+        except Exception as exc:  # noqa: BLE001 - reported, never raised
+            return InstallResult(ok=False, name=entry.name, error=f"install failed: {exc}")
+        return InstallResult(ok=True, name=entry.name, version=entry.hub.version, content_hash=entry.hub.content_hash, verdict=entry.hub.verdict or "")
+
+    def uninstall(self, name: str) -> tuple[bool, str]:
+        from hermes_cli import mcp_catalog
+        from tools import mcp_hub
+
+        try:
+            mcp_catalog.uninstall_entry(name)
+        except Exception as exc:  # noqa: BLE001
+            return False, f"could not remove {name}: {exc}"
+        mcp_hub.forget_observed(name)
+        return True, f"removed {name}"
+
+    def disable(self, name: str) -> bool:
+        return self._set_enabled(name, False)
+
+    def enable(self, name: str) -> bool:
+        return self._set_enabled(name, True)
+
+    @staticmethod
+    def _set_enabled(name: str, enabled: bool) -> bool:
+        from hermes_cli.config import load_config, save_config
+
+        try:
+            config = load_config()
+            servers = config.get("mcp_servers") or {}
+            if name not in servers or not isinstance(servers[name], dict):
+                return False
+            if bool(servers[name].get("enabled", True)) == enabled:
+                return True
+            servers[name]["enabled"] = enabled
+            config["mcp_servers"] = servers
+            save_config(config)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("hub sync: could not %s MCP %s: %s", "enable" if enabled else "disable", name, exc)
+            return False
+
+    @staticmethod
+    def observed(name: str) -> Optional[Dict[str, Any]]:
+        """What the server announced when it last registered (``tools/mcp_tool.py``)."""
+        from tools import mcp_hub
+
+        return mcp_hub.observed(name)
+
+    @staticmethod
+    def removed_here() -> set:
+        """The hub servers the person removed on this machine, not yet said to the hub."""
+        from tools import mcp_hub
+
+        return mcp_hub.removed_here()
+
+    @staticmethod
+    def forget_removed(slug: str) -> None:
+        from tools import mcp_hub
+
+        mcp_hub.clear_removed_here(slug)
+
+
 # ---------------------------------------------------------------------------
 # The engine
 # ---------------------------------------------------------------------------
@@ -447,6 +576,7 @@ class HubSyncEngine:
         client: Any | None = None,
         transport: Any | None = None,
         installer: Any | None = None,
+        mcp_installer: Any | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._credentials = credentials
@@ -454,6 +584,9 @@ class HubSyncEngine:
         self._client = client
         self._transport = transport
         self._installer = installer if installer is not None else LocalInstaller(transport=transport)
+        self._mcp = mcp_installer if mcp_installer is not None else McpLocalInstaller()
+        #: The next tick fetches the MCP feed even if it is fresh (an event said it changed).
+        self._feed_stale = False
         self._clock = clock
         self._tick_lock = threading.Lock()
         self._last = HubSyncOutcome(status="idle")
@@ -462,6 +595,8 @@ class HubSyncEngine:
         self._cursor: Optional[int] = None
         self._history: Deque[Dict[str, Any]] = deque(maxlen=HISTORY_SIZE)
         self._revision = 0
+        #: Bumped when a tick changed an MCP server here: the desktop reloads MCP.
+        self._mcp_revision = 0
         self._stream_state = "off"
         self._wake: Any | None = None
         self._loop: Any | None = None
@@ -483,6 +618,8 @@ class HubSyncEngine:
             self._last = outcome
             if outcome.changed or outcome.failed:
                 self._revision += 1
+            if outcome.mcp_changed:
+                self._mcp_revision += 1
             return outcome
 
     def _tick(self) -> HubSyncOutcome:
@@ -509,6 +646,8 @@ class HubSyncEngine:
             self._cursor = snapshot.get("cursor", self._cursor)
             outcome.cursor = self._cursor
             self._reconcile(snapshot, credentials, client, outcome)
+            if isinstance(snapshot.get("mcp"), dict):
+                self._reconcile_mcp(snapshot["mcp"], credentials, client, outcome)
         except HubError as exc:
             return self._from_error(exc)
         except Exception as exc:  # noqa: BLE001 - reported, never raised
@@ -629,6 +768,151 @@ class HubSyncEngine:
             outcome.disabled.append(slug)
             self._remember("disabled", slug, local["version"], str(install.get("reason") or ""))
 
+    # -- MCP servers (Agent Hub Phase 3) ----------------------------------------
+
+    def _reconcile_mcp(self, block: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        installs = [row for row in block.get("installs") or [] if isinstance(row, dict) and row.get("slug")]
+        if installs:
+            self._refresh_feed(client, credentials)
+        for install in installs:
+            try:
+                self._apply_mcp(install, credentials, client, outcome)
+            except Exception as exc:  # noqa: BLE001 - one server must not stop the others
+                logger.warning("hub sync: MCP %s: %s", install.get("slug"), exc)
+                outcome.mcp["failed"].append({"slug": install.get("slug"), "error": str(exc)})
+
+    def _refresh_feed(self, client: Any, credentials: HubCredentials) -> None:
+        from tools import mcp_hub
+
+        feed = mcp_hub.refresh(client, bearer=credentials.bearer, force=self._feed_stale)
+        if not feed.error:
+            self._feed_stale = False
+
+    def _apply_mcp(self, install: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        slug = str(install["slug"])
+        desired = str(install.get("desired_state") or "installed")
+        reported = str(install.get("reported_state") or "pending")
+        install_id = str(install.get("id") or "")
+        pinned = str(install.get("version") or "")
+        local = self._mcp.local_state(slug)
+        report = self._mcp_reporter(client, credentials, install_id, install)
+        done = outcome.mcp
+
+        if desired == "removed":
+            if reported == "removed":
+                self._mcp.forget_removed(slug)
+                return
+            if local["installed"]:
+                ok, message = self._mcp.uninstall(local["name"])
+                if not ok:
+                    report("failed", error=message)
+                    done["failed"].append({"slug": slug, "error": message})
+                    return
+            report("removed")
+            done["removed"].append(slug)
+            self._remember("removed", f"mcp:{slug}", local["version"])
+            return
+        if desired == "disabled":
+            if local["installed"] and local["enabled"]:
+                self._mcp.disable(local["name"])
+                done["disabled"].append(slug)
+                self._remember("disabled", f"mcp:{slug}", local["version"], str(install.get("reason") or ""))
+            if reported != "disabled":
+                report("disabled", version=local["version"] or None)
+            return
+
+        # desired == "installed"
+        if not local["installed"] and (reported == "installed" or slug in self._mcp.removed_here()):
+            # It ran here and is gone: the person removed it on this machine.
+            # Say so to the hub — installing it again would undo their choice.
+            try:
+                client.remove_mcp_install(install_id, bearer=credentials.bearer, device_id=credentials.device_id,
+                                          device_name=credentials.device_name)
+            except Exception as exc:  # noqa: BLE001 - asked again next tick
+                logger.warning("hub sync: could not tell the hub MCP %s was removed here: %s", slug, exc)
+                return
+            report("removed")
+            self._mcp.forget_removed(slug)
+            done["removed"].append(slug)
+            self._remember("removed", f"mcp:{slug}", "", "removed on this machine")
+            return
+        if local["installed"] and local["modified"]:
+            # Edited on this machine: never replaced from here; said once.
+            if reported != "failed" or str(install.get("error") or "") != LOCAL_CHANGES:
+                report("failed", version=local["version"] or None, error=LOCAL_CHANGES)
+                done["failed"].append({"slug": slug, "error": LOCAL_CHANGES, "blocked": True})
+            return
+        entry = self._mcp.feed_entry(slug)
+        feed_version = entry.hub.version if entry is not None and entry.hub is not None else ""
+        if local["installed"] and (not pinned or local["version"] == pinned):
+            same_version = entry is not None and feed_version == local["version"]
+            if same_version and dict(entry.hub.tool_hashes) != local["tool_hashes"]:
+                # The hub approved another tool list for this version: the lock follows it.
+                result = self._mcp.install(slug, version=local["version"])
+                if result.ok:
+                    done["updated"].append(slug)
+                    self._remember("updated", f"mcp:{slug}", result.version, "tool list approved on the hub")
+                else:
+                    report("failed", version=local["version"] or None, error=result.error)
+                    done["failed"].append({"slug": slug, "error": result.error, "blocked": result.blocked})
+                    return
+            if not local["enabled"] and reported in ("pending", "disabled"):
+                self._mcp.enable(local["name"])
+                done["enabled"].append(slug)
+            if reported != "installed" or self._mcp_surface_news(local["name"], install):
+                report("installed", version=local["version"] or None)
+            return
+        result = self._mcp.install(slug, version=pinned)
+        if result.ok:
+            report("installed", version=result.version)
+            (done["updated"] if local["installed"] else done["installed"]).append(slug)
+            self._remember("updated" if local["installed"] else "installed", f"mcp:{slug}", result.version)
+        elif reported != "failed" or str(install.get("error") or "") != result.error:
+            report("failed", version=local["version"] or None, error=result.error)
+            done["failed"].append({"slug": slug, "error": result.error, "blocked": result.blocked})
+            self._remember("failed", f"mcp:{slug}", pinned or feed_version, result.error)
+
+    def _mcp_surface_news(self, name: str, install: Dict[str, Any]) -> bool:
+        """The server announced a list the hub has not heard from this machine."""
+        seen = self._mcp.observed(name)
+        return bool(seen and seen.get("surface_hash") and seen.get("surface_hash") != install.get("reported_surface_hash"))
+
+    def _mcp_reporter(self, client: Any, credentials: HubCredentials, install_id: str, install: Dict[str, Any]) -> Callable[..., None]:
+        from hermes_cli.hub_client import HubError
+
+        slug = str(install.get("slug") or "")
+
+        def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
+            if not install_id:
+                return
+            name = self._mcp.local_state(slug)["name"]
+            seen = self._mcp.observed(name) if name and state == "installed" else None
+            fields: Dict[str, Any] = {"version": version or None, "error": error}
+            if seen and seen.get("surface_hash"):
+                fields["blocked_tools"] = list(seen.get("blocked_tools") or [])
+                if seen["surface_hash"] != install.get("reported_surface_hash"):
+                    fields.update(surface=seen.get("surface"), surface_hash=seen["surface_hash"])
+                else:
+                    fields["surface_hash"] = seen["surface_hash"]
+            send = dict(bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name)
+            try:
+                client.report_mcp_install(install_id, state, **send, **fields)
+            except HubError as exc:
+                if "surface" in fields and exc.status_code in (413, 422):
+                    # The hub would not read the list (too large): the state still counts.
+                    fields.pop("surface", None)
+                    fields.pop("surface_hash", None)
+                    try:
+                        client.report_mcp_install(install_id, state, **send, **fields)
+                    except Exception as again:  # noqa: BLE001
+                        logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, again)
+                else:
+                    logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, exc)
+            except Exception as exc:  # noqa: BLE001 - the next tick reports again
+                logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, exc)
+
+        return report
+
     def _reporter(self, client: Any, credentials: HubCredentials, install_id: str) -> Callable[..., None]:
         def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
             if not install_id:
@@ -676,6 +960,7 @@ class HubSyncEngine:
             "stream": self._stream_state,
             "cursor": self._cursor,
             "revision": self._revision,
+            "mcp_revision": self._mcp_revision,
             "last": self._last.to_json(),
         }
 
@@ -691,9 +976,21 @@ class HubSyncEngine:
             "installs": installs,
             "updates": list(self._last.updates),
             "workspaces": list(self._last_snapshot.get("workspaces") or []),
+            "mcp": self._mcp_changes(),
             "history": list(self._history),
             "generated_at": self._last_snapshot.get("generated_at"),
         }
+
+    def _mcp_changes(self) -> Dict[str, Any]:
+        """The ``mcp`` block of the last snapshot, each install with its local state."""
+        block = self._last_snapshot.get("mcp") if isinstance(self._last_snapshot.get("mcp"), dict) else {}
+        rows = []
+        for row in block.get("installs") or []:
+            if isinstance(row, dict):
+                local = self._mcp.local_state(str(row.get("slug") or ""))
+                rows.append({**row, "local": {k: v for k, v in local.items() if k != "tool_hashes"}})
+        return {"installs": rows, "updates": list(block.get("updates") or []), "workspaces": list(block.get("workspaces") or []),
+                "endpoints_changed_at": block.get("endpoints_changed_at")}
 
     # -- the loop ------------------------------------------------------------
 
@@ -767,8 +1064,46 @@ class HubSyncEngine:
             event_id = event.get("id")
             if isinstance(event_id, int):
                 self._cursor = max(self._cursor or 0, event_id)
+            if event.get("type") in FEED_EVENTS:
+                self._feed_stale = True
             if event.get("type") in NUDGE_EVENTS:
                 self.nudge()
+
+
+# ---------------------------------------------------------------------------
+# MCP servers installed or removed here by the person
+# ---------------------------------------------------------------------------
+
+
+def announce_mcp_install(slug: str) -> bool:
+    """The person installed AgentX Hub server *slug* on this machine (the MCP
+    tab, ``agentx mcp``): tell the hub — it keeps the desired state from now
+    on, a yank reaches this machine — and wake the sync, which reports what
+    the server announces. Offline: False, and the sync registers it later."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from tools import mcp_hub
+
+    mcp_hub.clear_removed_here(slug)
+    registered = False
+    credentials = resolve_credentials()
+    base_url = hub_base_url()
+    if credentials is not None and base_url:
+        try:
+            HubClient(base_url).create_mcp_install(slug, bearer=credentials.bearer, device_id=credentials.device_id,
+                                                   device_name=credentials.device_name)
+            registered = True
+        except HubError as exc:
+            logger.warning("hub sync: could not tell the hub about MCP %s: %s", slug, exc)
+    engine().nudge()
+    return registered
+
+
+def announce_mcp_removal(slug: str) -> None:
+    """The person removed AgentX Hub server *slug* here: the sync tells the hub."""
+    from tools import mcp_hub
+
+    mcp_hub.mark_removed_here(slug)
+    engine().nudge()
 
 
 # ---------------------------------------------------------------------------

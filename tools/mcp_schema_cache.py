@@ -45,6 +45,12 @@ def config_fingerprint(config: dict) -> str:
         # written with no filter. Only this case adds the key, so every other
         # config keeps the fingerprint (and the cache) it had.
         payload["tools_include_empty"] = True
+    hub = config.get("hub")
+    if isinstance(hub, dict):
+        # A server installed from the AgentX Hub is locked to the tools the
+        # hub approved: when the hub approves another list, the cache written
+        # under the old one must not register it (Agent Hub P3.8).
+        payload["hub_tools"] = sorted((str(k), str(v)) for k, v in (hub.get("tool_hashes") or {}).items())
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 

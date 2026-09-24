@@ -6518,7 +6518,28 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
     # Selective tool loading: honour include/exclude lists from config
     # (tool_name_filter — an empty include registers no tool).
     tools_filter = config.get("tools") or {}
-    _should_register = tool_name_filter(name, tools_filter)
+    _allowed_by_config = tool_name_filter(name, tools_filter)
+
+    # A server installed from the AgentX Hub runs only the tools the hub
+    # approved: each announced tool is hashed as the hub hashed it
+    # (tools/mcp_hub.py, tools/mcp_surface.py); a new tool, or one described
+    # otherwise, stays off — here and in the lazy cache — until the hub
+    # approves the list it belongs to. What it announced is kept for the
+    # hub sync's next report (Agent Hub P3.8).
+    hub_check = None
+    if isinstance(config.get("hub"), dict):
+        from tools import mcp_hub
+
+        hub_check = mcp_hub.check_tools(config, server._tools)
+        mcp_hub.record_check(name, config, hub_check)
+        if hub_check.blocked:
+            logger.warning(
+                "MCP server '%s': %d tool(s) differ from the list the AgentX Hub approved and stay off: %s",
+                name, len(hub_check.blocked), ", ".join(hub_check.blocked[:20]),
+            )
+
+    def _should_register(tool_name: str) -> bool:
+        return _allowed_by_config(tool_name) and (hub_check is None or tool_name in hub_check.allowed)
 
     check_fn = _make_check_fn(name)
     candidates: List[dict] = []

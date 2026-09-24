@@ -122,7 +122,7 @@ class HubClient:
             headers[DEVICE_NAME_HEADER] = device_name
         return headers
 
-    def _request(
+    def _send(
         self,
         method: str,
         path: str,
@@ -132,11 +132,15 @@ class HubClient:
         device_name: str = "",
         params: Optional[Mapping[str, Any]] = None,
         json_body: Optional[Mapping[str, Any]] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
+        """The answer below 400 (one retry on a network error or a 429/5xx); a
+        refusal raises :class:`HubError`."""
         import httpx
 
         url = f"{self.base_url}{path}"
         headers = self.headers(bearer, device_id, device_name)
+        headers.update(extra_headers or {})
         last: Optional[HubError] = None
         for attempt in range(_MAX_ATTEMPTS):
             try:
@@ -150,15 +154,29 @@ class HubClient:
                 elif response.status_code >= 400:
                     raise _failure(response, path)
                 else:
-                    if response.status_code == 204 or not response.content:
-                        return {}
-                    try:
-                        return response.json()
-                    except ValueError as exc:
-                        raise HubError(f"the hub returned a non-JSON body for {path}", status_code=response.status_code) from exc
+                    return response
             if attempt + 1 < _MAX_ATTEMPTS:
                 self._sleep(_RETRY_DELAY_SECONDS)
         raise last or HubError(f"the request to {path} failed")
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        params: Optional[Mapping[str, Any]] = None,
+        json_body: Optional[Mapping[str, Any]] = None,
+    ) -> Any:
+        response = self._send(method, path, bearer=bearer, device_id=device_id, device_name=device_name, params=params, json_body=json_body)
+        if response.status_code == 204 or not response.content:
+            return {}
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise HubError(f"the hub returned a non-JSON body for {path}", status_code=response.status_code) from exc
 
     # -- who am I ----------------------------------------------------------
 
@@ -240,6 +258,88 @@ class HubClient:
         if device_name:
             body["device_name"] = device_name
         return self._request("POST", f"/v1/installs/{install_id}/report", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    # -- MCP servers from the hub (Agent Hub Phase 3) ------------------------
+
+    def mcp_catalog(self, *, bearer: str, etag: str = "", product: str = PRODUCT) -> tuple[Optional[Dict[str, Any]], str]:
+        """The MCP servers this person may install, each with the manifest the
+        hub signed (``GET /v1/mcp/catalog.json``): ``(feed, etag)`` — ``feed``
+        is ``None`` when the hub answered ``304`` to *etag* (nothing changed)."""
+        extra = {"If-None-Match": etag} if etag else None
+        response = self._send("GET", "/v1/mcp/catalog.json", bearer=bearer, params={"product": product}, extra_headers=extra)
+        tag = str(response.headers.get("ETag") or "")
+        if response.status_code == 304:
+            return None, tag or etag
+        try:
+            body = response.json()
+        except ValueError as exc:
+            raise HubError("the hub returned a non-JSON MCP catalogue", status_code=response.status_code) from exc
+        if not isinstance(body, dict) or not isinstance(body.get("servers"), list):
+            raise HubError("the hub returned an MCP catalogue without servers", status_code=response.status_code)
+        return body, tag
+
+    def create_mcp_install(
+        self,
+        slug: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        product: str = PRODUCT,
+        version: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Tell the hub this machine installed MCP server *slug* (the hub keeps
+        its desired state from now on); the machine is the device header."""
+        body: Dict[str, Any] = {"slug": slug, "product": product}
+        if version:
+            body["version"] = version
+        return self._request("POST", "/v1/mcp/installs", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    def report_mcp_install(
+        self,
+        install_id: str,
+        state: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        version: Optional[str] = None,
+        error: str = "",
+        surface: Optional[Mapping[str, Any]] = None,
+        surface_hash: str = "",
+        blocked_tools: Optional[Iterable[str]] = None,
+    ) -> Dict[str, Any]:
+        """What this machine did with an MCP install, and — *surface* — what the
+        server offered before any filter (the hub compares it with the list it
+        approved). *blocked_tools* are the tools kept off; ``None`` leaves the
+        last report's list as it was."""
+        body: Dict[str, Any] = {"state": state}
+        if version:
+            body["version"] = version
+        if error:
+            body["error"] = error[:2000]
+        if device_name:
+            body["device_name"] = device_name
+        if surface is not None:
+            body["surface"] = dict(surface)
+        if surface_hash:
+            body["surface_hash"] = surface_hash
+        if blocked_tools is not None:
+            body["blocked_tools"] = sorted({str(name) for name in blocked_tools})
+        return self._request("POST", f"/v1/mcp/installs/{install_id}/report", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    def remove_mcp_install(self, install_id: str, *, bearer: str, device_id: str = "", device_name: str = "", purge: bool = False) -> Dict[str, Any]:
+        """Stop the hub keeping an MCP install: ``purge`` forgets it at once;
+        otherwise it waits for this machine to report ``removed``."""
+        params = {"purge": "true"} if purge else None
+        return self._request("DELETE", f"/v1/mcp/installs/{install_id}", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
+
+    def list_mcp_installs(self, *, bearer: str, device_id: str = "", device_name: str = "", product: str = PRODUCT) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {"product": product}
+        if device_id:
+            params["device_id"] = device_id
+        body = self._request("GET", "/v1/mcp/me/installs", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
+        return list((body or {}).get("installs") or [])
 
     # -- catalog / publishing ---------------------------------------------
 

@@ -1828,16 +1828,36 @@ export function getMcpCatalog(): Promise<McpCatalogResponse> {
   })
 }
 
+export interface McpCatalogInstallResponse {
+  ok: boolean
+  name?: string
+  id?: string
+  pid?: number
+  action?: string
+  background?: boolean
+  /** An AgentX Hub server: whether the hub was told at once (else the hub sync tells it). */
+  registered?: boolean
+}
+
+/** Install a catalog entry by its id: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
 export function installMcpCatalogEntry(
-  name: string,
+  id: string,
   env: Record<string, string> = {}
-): Promise<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }> {
-  return window.agentxDesktop.api<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }>({
+): Promise<McpCatalogInstallResponse> {
+  return window.agentxDesktop.api<McpCatalogInstallResponse>({
     ...profileScoped(),
     path: '/api/mcp/catalog/install',
     method: 'POST',
-    body: { name, env, enable: true },
+    body: { name: id, env, enable: true },
     timeoutMs: 60_000
+  })
+}
+
+/** Remove an AgentX Hub server from this machine; the hub hears it on the next sync. */
+export function removeHubMcpServer(slug: string): Promise<{ ok: boolean; name: string }> {
+  return window.agentxDesktop.api<{ ok: boolean; name: string }>({
+    path: `/api/mcp/hub/${encodeURIComponent(slug)}/remove`,
+    method: 'POST'
   })
 }
 

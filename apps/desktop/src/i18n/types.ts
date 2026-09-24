@@ -842,6 +842,28 @@ export interface Translations {
       catalogInstallFailed: (name: string) => string
       catalogEnvPrompt: (name: string) => string
       catalogEnvRequired: string
+      hubSection: string
+      hubHint: string
+      hubSignIn: string
+      hubOffline: string
+      hubVerified: string
+      hubTrustCurated: string
+      hubTrustReviewed: string
+      hubTrustPrivate: string
+      hubVerdictCaution: string
+      hubUpdate: (version: string) => string
+      hubUpdateAvailable: (version: string) => string
+      hubBlocked: (count: number, tools: string) => string
+      hubOpen: string
+      hubRemove: string
+      hubRemoved: (name: string) => string
+      hubRemoveFailed: (name: string) => string
+      hubReplace: string
+      hubReplaceConfirm: (name: string) => string
+      hubModified: string
+      hubNameTaken: string
+      hubNotRegistered: string
+      hubUnsupported: (count: number) => string
       capabilitySummary: (tools: number, prompts: number, resources: number) => string
       statusConnecting: string
       statusNeedsAuth: string

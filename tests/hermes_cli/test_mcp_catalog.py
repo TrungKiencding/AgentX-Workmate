@@ -883,3 +883,87 @@ class TestBundledInstall:
             "webmate_connection", "webmate_run", "webmate_extract",
             "webmate_status", "webmate_respond", "webmate_abort",
         ]
+
+
+class TestHubEntries:
+    """AgentX Hub entries (Agent Hub P3.6): a manifest the hub signed, read
+    as a dict, held to the rules the shipped manifests follow in CI, and
+    installed without asking."""
+
+    @staticmethod
+    def _manifest(**changes):
+        import copy
+        import json as _json
+        from pathlib import Path as _Path
+
+        vector = _json.loads((_Path(__file__).resolve().parents[1] / "fixtures" / "mcp" / "feed-manifest-v1.json").read_text(encoding="utf-8"))
+        manifest = copy.deepcopy(vector["manifest"])
+        for key, value in changes.items():
+            manifest[key] = value
+        return manifest
+
+    def _parse(self, manifest):
+        from hermes_cli.mcp_catalog import ORIGIN_HUB, _parse_manifest_dict
+
+        return _parse_manifest_dict(manifest, where="agentx-hub/linear", origin=ORIGIN_HUB)
+
+    def test_a_signed_manifest_is_an_entry_with_its_hub_block(self):
+        entry = self._parse(self._manifest())
+        assert (entry.origin, entry.identifier, entry.hub.slug, entry.hub.version, entry.hub.trust) == ("hub", "agentx-hub/linear", "linear", "1.4.0", "reviewed")
+        assert sorted(entry.hub.tool_hashes) == ["create_issue", "list_issues"] and entry.install is None
+
+    def test_a_launcher_runs_one_exact_release(self):
+        from hermes_cli.mcp_catalog import CatalogError
+
+        for args in (["-y", "@acme/linear-mcp"], ["-y", "@acme/linear-mcp@latest"], ["-y", "@acme/linear-mcp@^1.4.0"], []):
+            with pytest.raises(CatalogError, match="one exact release"):
+                self._parse(self._manifest(transport={"type": "stdio", "command": "npx", "args": args}))
+        assert self._parse(self._manifest(transport={"type": "stdio", "command": "uvx", "args": ["weather-mcp==1.2.0"]}))
+
+    def test_a_hub_entry_installs_nothing_and_carries_its_hub_block(self):
+        from hermes_cli.mcp_catalog import CatalogError
+
+        with pytest.raises(CatalogError, match="installs nothing"):
+            self._parse(self._manifest(install={"type": "git", "url": "https://example.com/x.git", "ref": "a" * 40}))
+        with pytest.raises(CatalogError, match="needs its 'hub' block"):
+            self._parse({k: v for k, v in self._manifest().items() if k != "hub"})
+        bad = self._manifest()
+        bad["hub"] = {**bad["hub"], "tool_hashes": {"x": "md5:1"}}
+        with pytest.raises(CatalogError, match="tool_hashes"):
+            self._parse(bad)
+
+    def test_a_key_in_another_header_names_it_and_its_variable(self):
+        from hermes_cli.mcp_catalog import CatalogError, _build_server_config
+
+        http = {"type": "http", "url": "https://mcp.example.com/mcp"}
+        auth = {"type": "api_key", "env": [{"name": "MCP_LINEAR_API_KEY", "prompt": "key"}], "header": "X-API-Key", "env_var": "MCP_LINEAR_API_KEY"}
+        entry = self._parse(self._manifest(transport=http, auth=auth))
+        assert _build_server_config(entry, None)["headers"] == {"X-API-Key": "${MCP_LINEAR_API_KEY}"}
+        for broken in ({**auth, "header": "Authorization"}, {**auth, "env_var": "OTHER"}, {**auth, "header": "bad header"}):
+            with pytest.raises(CatalogError, match="auth.header"):
+                self._parse(self._manifest(transport=http, auth=broken))
+
+    def test_a_malformed_manifest_is_a_catalog_error_not_a_crash(self):
+        from hermes_cli.mcp_catalog import CatalogError, _parse_env_spec
+
+        with pytest.raises(CatalogError, match="invalid or missing 'name'"):
+            self._parse(self._manifest(name=123))
+        with pytest.raises(CatalogError, match="invalid env var name"):
+            _parse_env_spec({"name": 5})
+        assert _parse_env_spec({"name": "A", "required": "false", "secret": "no"}).required is False
+
+    def test_installing_without_asking_names_what_is_missing_and_never_takes_another_servers_name(self, tmp_path):
+        from hermes_cli.config import load_config, save_config, save_env_value
+        from hermes_cli.mcp_catalog import CatalogError, NeedsSecrets, install_entry, raw_servers
+
+        entry = self._parse(self._manifest())
+        with pytest.raises(NeedsSecrets) as missing:
+            install_entry(entry, interactive=False)
+        assert missing.value.missing == ["LINEAR_API_KEY"] and missing.value.code == "needs_secrets"
+        assert "linear" not in raw_servers()
+        config = load_config()
+        config["mcp_servers"] = {"linear": {"command": "npx", "args": ["-y", "someone-else@1.0.0"]}}
+        save_config(config)
+        save_env_value("LINEAR_API_KEY", "lin-value")
+        with pytest.raises(CatalogError, match="already configured as another server"):
+            install_entry(entry, interactive=False)
