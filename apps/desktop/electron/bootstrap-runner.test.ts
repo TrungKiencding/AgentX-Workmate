@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -14,6 +15,7 @@ import {
   installedAgentInstallScript,
   installRefForStamp,
   isPinnedCommit,
+  pendingInstallerTeardown,
   resolveInstallScript,
   resolveMarkerPinnedCommit,
   runBootstrap
@@ -379,3 +381,214 @@ test('resolveInstallScript rethrows when the 404 fallback is unavailable', async
     fs.rmSync(home, { recursive: true, force: true })
   }
 })
+
+// ---------------------------------------------------------------------------
+// Aborting a stage stops the installer's whole process tree
+// ---------------------------------------------------------------------------
+
+const INSTALL_SH = path.resolve(__dirname, '..', '..', '..', 'scripts', 'install.sh')
+
+// Lift one function out of scripts/install.sh so a stand-in installer runs the
+// real thing (tests/test_install_sh_browser_install.py does the same).
+function installShFunction(name: string): string {
+  const match = new RegExp(`^${name}\\(\\) \\{[\\s\\S]*?^\\}`, 'm').exec(fs.readFileSync(INSTALL_SH, 'utf8'))
+  assert.ok(match, `could not extract ${name}() from scripts/install.sh`)
+
+  return match[0]
+}
+
+// A repo root whose scripts/install.sh lists one stage and runs `stageBody`
+// for it. The body can call the real run_with_timeout, and `note PID` records
+// a process it started in $AGENTX_HOME/started.
+function fakeInstallerRepo(stageBody: string[]): string {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-fake-installer-'))
+  fs.mkdirSync(path.join(repoRoot, 'scripts'))
+  fs.writeFileSync(
+    path.join(repoRoot, 'scripts', 'install.sh'),
+    [
+      '#!/usr/bin/env bash',
+      'if [ "$1" = "--manifest" ]; then',
+      `  echo '{"protocol_version":1,"stages":[{"name":"deps","title":"Deps","category":"core","needs_user_input":false}]}'`,
+      '  exit 0',
+      'fi',
+      'note() { echo "$1" >> "$AGENTX_HOME/started"; }',
+      installShFunction('run_with_timeout'),
+      ...stageBody
+    ].join('\n') + '\n'
+  )
+
+  return repoRoot
+}
+
+function bootstrapWith(repoRoot: string, home: string, abortSignal?: AbortSignal, onEvent: (ev) => void = () => {}) {
+  return runBootstrap({
+    installStamp: null,
+    activeRoot: path.join(home, 'agentx-agent'),
+    sourceRepoRoot: repoRoot,
+    hermesHome: home,
+    logRoot: path.join(home, 'logs'),
+    onEvent,
+    abortSignal
+  })
+}
+
+async function waitFor<T>(what: string, probe: () => T, timeoutMs = 10_000): Promise<T> {
+  const deadline = Date.now() + timeoutMs
+
+  for (;;) {
+    const value = probe()
+
+    if (value) {
+      return value
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(`timed out waiting for ${what}`)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 25))
+  }
+}
+
+// Fail with `what` instead of hanging the file until vitest's own timeout,
+// which would skip the cleanup and leave the test's processes running.
+function within<T>(what: string, promise: Promise<T>, timeoutMs = 10_000): Promise<T> {
+  let timer
+
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`timed out waiting for ${what}`)), timeoutMs)
+    })
+  ]).finally(() => clearTimeout(timer))
+}
+
+function notedPids(home: string): number[] {
+  try {
+    return fs.readFileSync(path.join(home, 'started'), 'utf8').split('\n').filter(Boolean).map(Number)
+  } catch {
+    return []
+  }
+}
+
+function isRunning(target: number): boolean {
+  try {
+    process.kill(target, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+function processGroupOf(pid: number): number {
+  return Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(pid)], { encoding: 'utf8' }).trim())
+}
+
+// SIGKILL whatever a failed run left behind, never this test's own group.
+function killLeftovers(pids: number[], groups: number[]) {
+  const ownGroup = processGroupOf(process.pid)
+
+  for (const target of [...groups.filter(group => group !== ownGroup).map(group => -group), ...pids]) {
+    try {
+      process.kill(target, 'SIGKILL')
+    } catch {
+      // already gone
+    }
+  }
+}
+
+test.skipIf(process.platform === 'win32')(
+  'aborting a stage stops everything the installer started, including a job in its own process group',
+  async () => {
+    // What quitting mid-install used to leave running: a child in the
+    // script's own group (git, uv, pip), and the Playwright download going
+    // through run_with_timeout's `set -m` watchdog, a job in a process group
+    // of its own that a signal to the script's group does not reach. That
+    // job's subshell also holds the stage's stdout, so the stage could not
+    // even finish until it exited.
+    const repoRoot = fakeInstallerRepo([
+      'sleep 300 >/dev/null 2>&1 &',
+      'note $!',
+      'download() { sleep 300 >/dev/null 2>&1 & note $!; wait; }',
+      'run_with_timeout 600 download'
+    ])
+
+    const home = mkTmpHome()
+    const controller = new AbortController()
+    let pids: number[] = []
+    let groups: number[] = []
+
+    try {
+      const run = bootstrapWith(repoRoot, home, controller.signal)
+
+      pids = await waitFor('the installer to start its children', () => {
+        const noted = notedPids(home)
+
+        return noted.length === 2 ? noted : null
+      })
+      groups = pids.map(processGroupOf)
+
+      assert.notEqual(groups[1], groups[0], 'run_with_timeout runs the download in a process group of its own')
+      assert.notEqual(groups[0], processGroupOf(process.pid), "the installer does not share the app's process group")
+
+      controller.abort()
+      const teardown = pendingInstallerTeardown()
+      assert.ok(teardown, 'an abort leaves a teardown to wait for')
+
+      const result = await within('the aborted stage to finish', run)
+      assert.equal(result.ok, false)
+      assert.match(String(result.error), /cancelled/)
+
+      await within('the installer tree to go down', teardown)
+      assert.deepEqual(pids.filter(isRunning), [], 'no process the installer started is still running')
+      assert.deepEqual(
+        groups.filter(group => isRunning(-group)),
+        [],
+        'no process is left in either group'
+      )
+      assert.equal(pendingInstallerTeardown(), null, 'nothing left to wait for once the tree is gone')
+    } finally {
+      killLeftovers(pids, groups)
+      fs.rmSync(home, { recursive: true, force: true })
+      fs.rmSync(repoRoot, { recursive: true, force: true })
+    }
+  },
+  30_000
+)
+
+test.skipIf(process.platform === 'win32')(
+  "run_with_timeout still kills its own job's group when the installer runs in a session of its own",
+  async () => {
+    // The installer runs detached: a session of its own, with no controlling
+    // terminal. Its watchdog's `set -m` job and `kill -TERM/-KILL -$cmd_pid`
+    // on timeout must work the same there, or a wedged Playwright download
+    // would hang the stage for good.
+    const repoRoot = fakeInstallerRepo([
+      'download() { sleep 300 >/dev/null 2>&1 & note $!; wait; }',
+      'run_with_timeout 1 download',
+      'echo "{\\"ok\\":true,\\"stage\\":\\"deps\\",\\"rc\\":$?}"'
+    ])
+
+    const home = mkTmpHome()
+    const events = []
+
+    try {
+      const result = await within(
+        'the timed-out stage to finish',
+        bootstrapWith(repoRoot, home, undefined, ev => events.push(ev)),
+        20_000
+      )
+
+      assert.equal(result.ok, true)
+      const stage = events.find(ev => ev.type === 'stage' && ev.name === 'deps' && ev.state === 'succeeded')
+      assert.equal(stage?.json?.rc, 124, 'run_with_timeout reports the timeout')
+      assert.deepEqual(notedPids(home).filter(isRunning), [], 'the timed-out download was killed')
+    } finally {
+      killLeftovers(notedPids(home), [])
+      fs.rmSync(home, { recursive: true, force: true })
+      fs.rmSync(repoRoot, { recursive: true, force: true })
+    }
+  },
+  30_000
+)
