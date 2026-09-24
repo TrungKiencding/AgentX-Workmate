@@ -58,7 +58,11 @@ from __future__ import annotations
 
 from typing import Tuple
 
-__all__ = ["StreamingThinkScrubber"]
+__all__ = ["StreamingThinkScrubber", "THINK_TAG_NAMES"]
+
+THINK_TAG_NAMES: Tuple[str, ...] = (
+    "think", "thinking", "reasoning", "thought", "REASONING_SCRATCHPAD",
+)
 
 
 class StreamingThinkScrubber:
@@ -76,13 +80,7 @@ class StreamingThinkScrubber:
         block boundary.
     """
 
-    _OPEN_TAG_NAMES: Tuple[str, ...] = (
-        "think",
-        "thinking",
-        "reasoning",
-        "thought",
-        "REASONING_SCRATCHPAD",
-    )
+    _OPEN_TAG_NAMES: Tuple[str, ...] = THINK_TAG_NAMES
 
     # Materialise literal tag strings so the hot path does string
     # operations, not regex compilation per feed().

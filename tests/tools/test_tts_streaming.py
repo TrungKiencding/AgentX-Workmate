@@ -915,3 +915,10 @@ def test_sync_pipeline_cleans_temp_files(monkeypatch):
     assert created, "expected temp files to be created via mkstemp"
     leftovers = [p for p in created if os.path.exists(p)]
     assert not leftovers, f"temp files not cleaned: {leftovers}"
+
+
+@pytest.mark.parametrize("tag", ["<think>", "<thinking>", "<THINK>", "<reasoning>", "<thought>", "<REASONING_SCRATCHPAD>"])
+def test_flush_drops_unterminated_think_tail(tag):
+    chunker = ts.SentenceChunker()
+    assert chunker.feed(f"The spoken part. {tag}half-formed reas") == []
+    assert chunker.flush() == ["The spoken part."]
