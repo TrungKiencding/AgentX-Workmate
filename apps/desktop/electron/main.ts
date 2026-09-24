@@ -110,6 +110,7 @@ import { findGitBash as _findGitBash } from './find-git-bash'
 import { installFoundInPageForwarder, performFind, stopFind } from './find-in-page'
 import { createFirstRunSetupGate } from './first-run-setup-gate'
 import { readDirForIpc } from './fs-read-dir'
+import { autostartMessagingGateway, GATEWAY_AUTOSTART_PATH, GATEWAY_AUTOSTART_TIMEOUT_MS } from './gateway-autostart'
 import { probeGatewayWebSocket } from './gateway-ws-probe'
 import { scanGitRepos } from './git-repo-scan'
 import {
@@ -9761,6 +9762,20 @@ async function startHermes() {
     if (rehomeTo) {
       throw new AccountRehomeRequested(rehomeTo)
     }
+
+    // The messaging gateway runs outside this backend and a reboot ends it.
+    // Now that the home is settled, ask for it back; the backend decides
+    // whether there is anything to start. Never awaited: a gateway problem
+    // must not slow or fail the boot.
+    void autostartMessagingGateway({
+      log: rememberLog,
+      post: async () =>
+        fetchJson(`${baseUrl}${GATEWAY_AUTOSTART_PATH}`, authToken, {
+          bearer: auth.authMode === 'oauth' ? await ensureNativeAccessToken(baseUrl) : undefined,
+          method: 'POST',
+          timeoutMs: GATEWAY_AUTOSTART_TIMEOUT_MS
+        })
+    })
 
     updateBootProgress({
       phase: 'backend.ready',
