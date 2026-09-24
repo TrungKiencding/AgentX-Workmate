@@ -1,4 +1,5 @@
 import './e2e/fix-electron-tracing'
+import './e2e/fix-trace-merge'
 
 import { defineConfig, type ReporterDescription } from '@playwright/test'
 
