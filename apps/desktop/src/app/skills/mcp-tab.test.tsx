@@ -159,7 +159,7 @@ describe('McpCatalog — AgentX Hub', () => {
     await waitFor(() =>
       expect(installMcpCatalogEntry).toHaveBeenCalledWith('agentx-hub/linear', { LINEAR_API_KEY: 'lin-value' })
     )
-    expect(onInstalled).toHaveBeenCalled()
+    await waitFor(() => expect(onInstalled).toHaveBeenCalled())
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'success',
@@ -199,7 +199,7 @@ describe('McpCatalog — AgentX Hub', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     })
     await waitFor(() => expect(removeHubMcpServer).toHaveBeenCalledWith('linear'))
-    expect(onInstalled).toHaveBeenCalled()
+    await waitFor(() => expect(onInstalled).toHaveBeenCalled())
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'linear removed. The AgentX Hub hears it on the next sync.' })
     )

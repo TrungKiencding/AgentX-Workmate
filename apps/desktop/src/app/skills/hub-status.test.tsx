@@ -187,27 +187,36 @@ describe('HubStatus', () => {
     const { $gateway } = await import('@/store/gateway')
     const request = vi.fn().mockResolvedValue({})
     $gateway.set({ request } as unknown as Parameters<typeof $gateway.set>[0])
-    getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1 }))
-    const { client } = await renderStatus()
-    await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
-    const invalidate = vi.spyOn(client, 'invalidateQueries')
-    expect(request).not.toHaveBeenCalled()
 
-    getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2 }))
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
-    })
+    try {
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1 }))
+      const { client } = await renderStatus()
+      await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
+      const invalidate = vi.spyOn(client, 'invalidateQueries')
+      expect(request).not.toHaveBeenCalled()
 
-    await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', { confirm: true }))
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
-    // a revision that did not move reloads nothing
-    request.mockClear()
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
-    })
-    await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(3))
-    expect(request).not.toHaveBeenCalled()
-    $gateway.set(null)
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+
+      await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', { confirm: true }))
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+
+      // Skills moved, MCP did not: the skills list is refreshed (so the new
+      // changes have landed) and MCP is not reloaded.
+      request.mockClear()
+      invalidate.mockClear()
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2, revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
+      expect(request).not.toHaveBeenCalled()
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+    } finally {
+      $gateway.set(null)
+    }
   })
 
   it('"Update installed" runs the fleet update action', async () => {
