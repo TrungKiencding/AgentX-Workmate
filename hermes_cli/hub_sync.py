@@ -1287,14 +1287,19 @@ def add_gateway_endpoint(endpoint: Dict[str, Any], *, client: Any, credentials: 
     """Add *endpoint* (one of ``GET /v1/mcp/me/endpoints``) to this machine:
     a gateway token first when there is none worth keeping, then the entry.
     Returns the entry's name. The desktop reloads MCP after."""
+    from hermes_cli import mcp_catalog
     from hermes_cli.mcp_config import _save_mcp_server
 
     if not str(endpoint.get("url") or "").startswith(("https://", "http://")):
         raise ValueError("the endpoint has no address")
+    name = gateway_entry_name(str(endpoint.get("ref") or ""))
+    existing = mcp_catalog.raw_servers().get(name)
+    if isinstance(existing, dict) and existing.get("source") != GATEWAY_SOURCE:
+        # Somebody's own server under that name stays theirs: the gateway never writes over it.
+        raise ValueError(f"an MCP server named {name} is already set up here, not by the gateway: rename or remove it first")
     device = device or engine()._gateway
     if device.needs_rotation():
         device.issue(client, credentials)
-    name = gateway_entry_name(str(endpoint.get("ref") or ""))
     if not _save_mcp_server(name, gateway_entry(endpoint)):
         raise ValueError(f"the entry {name} was refused by the MCP config checks")
     engine().nudge()

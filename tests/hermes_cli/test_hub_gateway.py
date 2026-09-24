@@ -295,6 +295,22 @@ def test_an_unreachable_hub_lists_nothing_and_says_so(client, gateway, monkeypat
     assert body["available"] is False and body["reason"] == "offline" and body["endpoints"] == []
 
 
+def test_the_gateway_never_writes_over_a_server_of_the_same_name_set_up_by_hand(client, gateway):
+    from hermes_cli import mcp_catalog
+    from hermes_cli.mcp_config import _save_mcp_server
+
+    mine = {"url": "https://tracker.example.com/mcp", "headers": {"Authorization": "Bearer ${TRACKER_KEY}"}}
+    assert _save_mcp_server("agentx-tracker", mine)
+    refused = client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "tracker"})
+    assert refused.status_code == 200, refused.text
+    body = refused.json()
+    assert (body["ok"], body["status"], body["code"]) == (False, "error", "invalid") and "agentx-tracker" in body["detail"]
+    assert mcp_catalog.raw_servers()["agentx-tracker"] == mine and not gateway.issued
+    # One the gateway wrote is its own to write again.
+    assert client.post("/api/mcp/gateway/add", json={"kind": "toolset", "ref": "ts_abcdefghij"}).json()["ok"] is True
+    assert client.post("/api/mcp/gateway/add", json={"kind": "toolset", "ref": "ts_abcdefghij"}).json()["ok"] is True
+
+
 def test_add_gateway_endpoint_refuses_an_endpoint_without_an_address(tmp_path):
     held, _env = device(tmp_path)
     with pytest.raises(ValueError):
