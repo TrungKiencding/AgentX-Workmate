@@ -148,13 +148,140 @@ export function createSandbox(prefix: string): Sandbox {
 // ─── Config writing ─────────────────────────────────────────────────────
 
 /**
+ * Settings every generated config.yaml starts from, so the specs meet the app
+ * they were written against:
+ *
+ *  - `dashboard.require_auth: false` — this fork's defaults configure a
+ *    Keycloak realm, and a configured identity provider puts the AgentX
+ *    sign-in card in front of even a loopback dashboard
+ *    (`_loopback_auth_opt_in` in hermes_cli/web_server.py); every
+ *    `waitForAppReady` would time out on it.
+ *  - `display.language: en` — the desktop renders in the backend's
+ *    `display.language`, which defaults to Vietnamese here, and the specs
+ *    assert English copy.
+ *
+ * A spec that needs another value sets the same key in its `extraConfig` (or
+ * `extraDisplayConfig`); `mergeConfigYaml` lets the spec's value win.
+ */
+const FIXTURE_CONFIG_DEFAULTS = `dashboard:
+  require_auth: false
+display:
+  language: en`
+
+interface ConfigSection {
+  /** The section's own line: `key:`, or `key: value` for an inline value. */
+  head: string
+  /** The lines under it, re-indented so its first level sits at two spaces. */
+  body: string[]
+}
+
+/** Split block-style YAML into its top-level sections. */
+function parseConfigSections(yaml: string): Map<string, ConfigSection> {
+  const sections = new Map<string, ConfigSection>()
+  let body: string[] | undefined
+  let indent = 0
+
+  for (const line of yaml.split('\n')) {
+    const text = line.trimStart()
+
+    if (!text || text.startsWith('#')) {
+      continue
+    }
+
+    const depth = line.length - text.length
+
+    if (depth === 0) {
+      const key = /^([\w.-]+):(?:\s|$)/.exec(text)?.[1]
+
+      if (!key) {
+        throw new Error(`E2E config: expected a top-level "key:" line, got ${JSON.stringify(line)}`)
+      }
+
+      body = []
+      indent = 0
+      sections.set(key, { head: text, body })
+
+      continue
+    }
+
+    if (!body) {
+      throw new Error(`E2E config: ${JSON.stringify(line)} is indented but belongs to no section`)
+    }
+
+    indent ||= depth
+    body.push(`  ${line.slice(Math.min(depth, indent))}`)
+  }
+
+  return sections
+}
+
+/** A section's first-level `key:` entries, or null unless it is a plain block mapping. */
+function sectionEntries({ head, body }: ConfigSection): Map<string, string[]> | null {
+  if (!/^[\w.-]+:\s*$/.test(head)) {
+    return null
+  }
+
+  const entries = new Map<string, string[]>()
+  let entry: string[] | undefined
+
+  for (const line of body) {
+    const key = /^ {2}([\w.-]+):(?:\s|$)/.exec(line)?.[1]
+
+    if (key) {
+      entry = []
+      entries.set(key, entry)
+    } else if (!entry || !line.startsWith('   ')) {
+      return null
+    }
+
+    entry.push(line)
+  }
+
+  return entries
+}
+
+/**
+ * Join YAML snippets into one config without writing any top-level section
+ * twice: where two snippets share a section, their first-level keys are
+ * merged and the later snippet wins a key both set. A section that is not a
+ * plain block mapping is replaced whole by a later one.
+ */
+function mergeConfigYaml(...snippets: Array<string | undefined>): string {
+  const merged = new Map<string, ConfigSection>()
+
+  for (const snippet of snippets) {
+    for (const [key, section] of parseConfigSections(snippet ?? '')) {
+      const earlier = merged.get(key)
+      const earlierEntries = earlier ? sectionEntries(earlier) : null
+      const entries = sectionEntries(section)
+
+      if (earlier && earlierEntries && entries) {
+        entries.forEach((lines, name) => earlierEntries.set(name, lines))
+        merged.set(key, { head: earlier.head, body: [...earlierEntries.values()].flat() })
+      } else {
+        merged.set(key, section)
+      }
+    }
+  }
+
+  return `${[...merged.values()].map(({ head, body }) => [head, ...body].join('\n')).join('\n')}\n`
+}
+
+/** Write config.yaml: `base`, then the fixture defaults, then a spec's overrides. */
+function writeConfig(hermesHome: string, header: string, base: string, ...overrides: Array<string | undefined>): void {
+  const config = mergeConfigYaml(base, FIXTURE_CONFIG_DEFAULTS, ...overrides)
+  fs.writeFileSync(path.join(hermesHome, 'config.yaml'), `# ${header}\n${config}`, 'utf8')
+}
+
+/**
  * Write a config.yaml that pre-configures a mock provider pointing at the
  * mock inference server. The provider is set as the active model provider so
  * the desktop app skips onboarding and boots straight to the chat UI.
  *
- * @param extraDisplayConfig optional YAML lines appended to the `display:`
- *   section, used by the interim-message e2e test.
- * @param extraConfig optional top-level YAML sections for a test scenario.
+ * @param extraDisplayConfig optional YAML lines for the `display:` section,
+ *   used by the interim-message e2e test.
+ * @param extraConfig optional top-level YAML sections for a test scenario;
+ *   sections it shares with the fixture defaults are merged key by key.
  * @param modelContextLength optional primary-model context limit.
  */
 export function writeMockProviderConfig(
@@ -164,14 +291,10 @@ export function writeMockProviderConfig(
   extraConfig?: string,
   modelContextLength?: number,
 ): void {
-  const configPath = path.join(hermesHome, 'config.yaml')
-
-  const displaySection = extraDisplayConfig
-    ? `\ndisplay:\n${extraDisplayConfig}\n`
-    : ''
-
-  const config = `# Auto-generated by E2E test fixtures
-model:
+  writeConfig(
+    hermesHome,
+    'Auto-generated by E2E test fixtures',
+    `model:
   default: mock-model
   provider: mock
 ${modelContextLength ? `  context_length: ${modelContextLength}\n` : ''}providers:
@@ -182,10 +305,10 @@ ${modelContextLength ? `  context_length: ${modelContextLength}\n` : ''}provider
     key_env: MOCK_API_KEY
     models:
       mock-model: {}
-    context_length: 4096
-${displaySection}${extraConfig ? `\n${extraConfig.trim()}\n` : ''}`
-
-  fs.writeFileSync(configPath, config, 'utf8')
+    context_length: 4096`,
+    extraDisplayConfig && `display:\n${extraDisplayConfig}`,
+    extraConfig,
+  )
 }
 
 /**
@@ -202,8 +325,7 @@ export function writeEnvFile(hermesHome: string, apiKey = 'e2e-mock-key'): void 
  * onboarding overlay because no inference provider is configured.
  */
 function writeEmptyConfig(hermesHome: string): void {
-  const configPath = path.join(hermesHome, 'config.yaml')
-  fs.writeFileSync(configPath, '# Auto-generated by E2E test fixtures — no providers configured\n', 'utf8')
+  writeConfig(hermesHome, 'Auto-generated by E2E test fixtures — no providers configured', '')
 }
 
 // ─── Env building ──────────────────────────────────────────────────────
@@ -466,11 +588,10 @@ export interface DeadBackendOptions {
  */
 export async function setupDeadBackend(options: DeadBackendOptions = {}): Promise<DeadBackendFixture> {
   const sandbox = createSandbox('dead')
-  const configPath = path.join(sandbox.hermesHome, 'config.yaml')
-  fs.writeFileSync(
-    configPath,
-    `# Auto-generated by E2E test fixtures — dead provider
-model:
+  writeConfig(
+    sandbox.hermesHome,
+    'Auto-generated by E2E test fixtures — dead provider',
+    `model:
   default: mock-model
   provider: mock
 providers:
@@ -481,9 +602,7 @@ providers:
     key_env: MOCK_API_KEY
     models:
       mock-model: {}
-    context_length: 4096
-`,
-    'utf8',
+    context_length: 4096`,
   )
   writeEnvFile(sandbox.hermesHome)
 
