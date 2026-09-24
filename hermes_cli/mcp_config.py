@@ -698,8 +698,10 @@ def cmd_mcp_list(args=None):
         if isinstance(tools_cfg, dict):
             include = tools_cfg.get("include")
             exclude = tools_cfg.get("exclude")
-            if include and isinstance(include, list):
-                tools_str = f"{len(include)} selected"
+            # An include list — even an empty one — is an allow-list
+            # (tools.mcp_tool.tool_name_filter): [] is "none", not "all".
+            if isinstance(include, list):
+                tools_str = f"{len(include)} selected" if include else "none"
             elif exclude and isinstance(exclude, list):
                 tools_str = f"-{len(exclude)} excluded"
             else:
@@ -993,39 +995,14 @@ def cmd_mcp_configure(args):
         _warning("Server reports no tools.")
         return
 
-    # Determine which are currently enabled
-    tools_cfg = cfg.get("tools", {})
-    if isinstance(tools_cfg, dict):
-        include = tools_cfg.get("include")
-        exclude = tools_cfg.get("exclude")
-    else:
-        include = None
-        exclude = None
+    # Determine which are currently enabled: the very filter runtime
+    # registration applies (exact names or fnmatch globs; an empty include
+    # allows none).
+    from tools.mcp_tool import tool_name_filter
 
     tool_names = [t[0] for t in all_tools]
-
-    # Same matching semantics as runtime registration (tools/mcp_tool.py):
-    # exact names or fnmatch globs.
-    try:
-        from tools.mcp_tool import matches_name_filter
-    except ImportError:  # pragma: no cover — defensive fallback
-        def matches_name_filter(tool_name, patterns):
-            return tool_name in patterns
-
-    if include and isinstance(include, list):
-        include_set = {str(p) for p in include}
-        pre_selected = {
-            i for i, tn in enumerate(tool_names)
-            if matches_name_filter(tn, include_set)
-        }
-    elif exclude and isinstance(exclude, list):
-        exclude_set = {str(p) for p in exclude}
-        pre_selected = {
-            i for i, tn in enumerate(tool_names)
-            if not matches_name_filter(tn, exclude_set)
-        }
-    else:
-        pre_selected = set(range(len(all_tools)))
+    allowed = tool_name_filter(name, cfg.get("tools"))
+    pre_selected = {i for i, tn in enumerate(tool_names) if allowed(tn)}
 
     currently = len(pre_selected)
     total = len(all_tools)

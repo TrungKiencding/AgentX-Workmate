@@ -6293,6 +6293,33 @@ def _normalize_name_filter(value: Any, label: str) -> set[str]:
     return set()
 
 
+def tool_name_filter(name: str, tools_filter: Any) -> Callable[[str], bool]:
+    """Which tools of MCP server *name* are registered, by its ``tools`` config
+    (issue #690, with globs — see :func:`matches_name_filter`):
+
+    * ``include`` — an allow-list: only matching tools. **An empty list allows
+      none**: it is what the catalog, ``agentx mcp configure``, ``agentx tools``
+      and the desktop write when every tool of a server is switched off;
+    * ``exclude`` — every tool except the matching ones (``include`` wins);
+    * neither (or a value of the wrong type, ignored with a warning) — every
+      tool, the backward-compatible default.
+
+    The one reading of the filter: registration (live and from the schema
+    cache) and the CLI views use it, so none of them can disagree on ``[]``.
+    """
+    tools_filter = tools_filter if isinstance(tools_filter, dict) else {}
+    include = tools_filter.get("include")
+    if isinstance(include, (str, list, tuple, set)):
+        include_set = _normalize_name_filter(include, f"mcp_servers.{name}.tools.include")
+        return lambda tool_name: matches_name_filter(tool_name, include_set)
+    if include is not None:
+        _normalize_name_filter(include, f"mcp_servers.{name}.tools.include")  # warns
+    exclude_set = _normalize_name_filter(tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude")
+    if exclude_set:
+        return lambda tool_name: not matches_name_filter(tool_name, exclude_set)
+    return lambda tool_name: True
+
+
 def matches_name_filter(tool_name: str, patterns: set[str]) -> bool:
     """True if ``tool_name`` matches any entry in ``patterns``.
 
@@ -6488,27 +6515,10 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
     registered_names: List[str] = []
     toolset_name = f"mcp-{name}"
 
-    # Selective tool loading: honour include/exclude lists from config.
-    # Rules (matching issue #690 spec, extended with glob support):
-    #   tools.include — whitelist: only matching tool names are registered
-    #   tools.exclude — blacklist: all tools EXCEPT matching ones are registered
-    #   entries may be exact names or fnmatch globs (e.g. "*_radar_*")
-    #   include takes precedence over exclude
-    #   Neither set → register all tools (backward-compatible default)
+    # Selective tool loading: honour include/exclude lists from config
+    # (tool_name_filter — an empty include registers no tool).
     tools_filter = config.get("tools") or {}
-    include_set = _normalize_name_filter(
-        tools_filter.get("include"), f"mcp_servers.{name}.tools.include"
-    )
-    exclude_set = _normalize_name_filter(
-        tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude"
-    )
-
-    def _should_register(tool_name: str) -> bool:
-        if include_set:
-            return matches_name_filter(tool_name, include_set)
-        if exclude_set:
-            return not matches_name_filter(tool_name, exclude_set)
-        return True
+    _should_register = tool_name_filter(name, tools_filter)
 
     check_fn = _make_check_fn(name)
     candidates: List[dict] = []
@@ -6758,19 +6768,7 @@ def _register_from_cache_sync(name: str, config: dict, entry: dict) -> List[str]
     fingerprint = config_fingerprint(config)
     tool_timeout = config.get("timeout", _DEFAULT_TOOL_TIMEOUT)
     tools_filter = config.get("tools") or {}
-    include_set = _normalize_name_filter(
-        tools_filter.get("include"), f"mcp_servers.{name}.tools.include"
-    )
-    exclude_set = _normalize_name_filter(
-        tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude"
-    )
-
-    def _should_register(tool_name: str) -> bool:
-        if include_set:
-            return matches_name_filter(tool_name, include_set)
-        if exclude_set:
-            return not matches_name_filter(tool_name, exclude_set)
-        return True
+    _should_register = tool_name_filter(name, tools_filter)
 
     check_fn = _make_check_fn(name)
     # Trust-tier metadata for the lazy path: the cached manifest carries

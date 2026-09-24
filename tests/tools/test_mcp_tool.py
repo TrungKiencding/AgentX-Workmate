@@ -2290,6 +2290,20 @@ class TestMCPSelectiveToolLoading:
             _servers.pop(name, None)
         return registered, mock_registry
 
+    def test_an_empty_include_registers_no_tools(self):
+        """``include: []`` is an allow-list with nothing on it — what the
+        catalog, ``agentx mcp configure`` and the desktop write when every
+        tool is switched off — not "no filter" (regression: it registered
+        every tool)."""
+        config = {"url": "https://mcp.example.com", "tools": {"include": []}}
+        registered, _ = self._run_discover("ink", ["create_service", "delete_service"], config, session=SimpleNamespace())
+        assert registered == []
+
+    def test_an_empty_include_still_wins_over_exclude(self):
+        config = {"url": "https://mcp.example.com", "tools": {"include": [], "exclude": ["delete_service"]}}
+        registered, _ = self._run_discover("ink", ["create_service", "delete_service"], config, session=SimpleNamespace())
+        assert registered == []
+
     def test_include_takes_precedence_over_exclude(self):
         config = {
             "url": "https://mcp.example.com",
@@ -2763,3 +2777,35 @@ class TestMCPDiscoveryCrossProcessLock:
                 os.unlink(lock_path)
             except Exception:
                 pass
+
+
+class TestToolNameFilter:
+    """``tool_name_filter``: the one reading of ``tools.include`` / ``tools.exclude``."""
+
+    def test_no_filter_allows_every_tool(self):
+        from tools.mcp_tool import tool_name_filter
+
+        for tools in (None, {}, {"include": None}, "not a mapping"):
+            allowed = tool_name_filter("srv", tools)
+            assert allowed("anything") is True
+
+    def test_an_include_is_an_allow_list_even_when_empty(self):
+        from tools.mcp_tool import tool_name_filter
+
+        assert [n for n in ("a", "b", "get_x") if tool_name_filter("srv", {"include": ["a", "get_*"]})(n)] == ["a", "get_x"]
+        assert [n for n in ("a", "b") if tool_name_filter("srv", {"include": []})(n)] == []
+        assert tool_name_filter("srv", {"include": "a"})("a") is True
+
+    def test_exclude_applies_only_without_include(self):
+        from tools.mcp_tool import tool_name_filter
+
+        assert [n for n in ("a", "b") if tool_name_filter("srv", {"exclude": ["b"]})(n)] == ["a"]
+        assert [n for n in ("a", "b") if tool_name_filter("srv", {"include": ["b"], "exclude": ["b"]})(n)] == ["b"]
+
+    def test_an_include_of_the_wrong_type_is_ignored_with_a_warning(self, caplog):
+        from tools.mcp_tool import tool_name_filter
+
+        with caplog.at_level("WARNING"):
+            allowed = tool_name_filter("srv", {"include": 42, "exclude": ["b"]})
+        assert [n for n in ("a", "b") if allowed(n)] == ["a"]
+        assert "mcp_servers.srv.tools.include" in caplog.text

@@ -110,6 +110,15 @@ class TestMcpList:
         assert "2 selected" in out  # ink has 2 in include
         assert "disabled" in out  # github is disabled
 
+    def test_an_empty_include_lists_as_none(self, tmp_path, capsys):
+        """``include: []`` switches every tool off (tools.mcp_tool.tool_name_filter), so the list says "none", not "all"."""
+        _seed_config(tmp_path, {"ink": {"url": "https://mcp.ml.ink/mcp", "tools": {"include": []}}})
+        from hermes_cli.mcp_config import cmd_mcp_list
+
+        cmd_mcp_list()
+        line = next(row for row in capsys.readouterr().out.splitlines() if "ink" in row)
+        assert "none" in line and "all" not in line
+
     def test_list_enabled_default_true(self, tmp_path, capsys):
         """Server without explicit enabled key defaults to enabled."""
         _seed_config(tmp_path, {
@@ -747,3 +756,39 @@ class TestMcpReauth:
         cmd_mcp_reauth(_make_args(name="ghost", all=False))
         out = capsys.readouterr().out
         assert "not found" in out
+
+
+# ---------------------------------------------------------------------------
+# Tests: cmd_mcp_configure pre-selects what runtime registration registers
+# ---------------------------------------------------------------------------
+
+class TestMcpConfigurePreselection:
+    def _preselected(self, tmp_path, monkeypatch, tools_cfg):
+        from unittest.mock import MagicMock
+
+        _seed_config(tmp_path, {"ink": {"url": "https://mcp.ml.ink/mcp", **({"tools": tools_cfg} if tools_cfg is not None else {})}})
+        stdin = MagicMock()
+        stdin.isatty.return_value = True
+        monkeypatch.setattr("sys.stdin", stdin)
+        monkeypatch.setattr("hermes_cli.mcp_config._probe_single_server", lambda name, cfg: [("create", "c"), ("delete", "d"), ("get_x", "g")])
+        seen = {}
+
+        def fake_checklist(title, labels, pre_selected, **kwargs):
+            seen["pre"] = set(pre_selected)
+            return set(pre_selected)
+
+        monkeypatch.setattr("hermes_cli.curses_ui.curses_checklist", fake_checklist)
+        from hermes_cli.mcp_config import cmd_mcp_configure
+
+        cmd_mcp_configure(_make_args(name="ink"))
+        return seen["pre"]
+
+    def test_an_empty_include_preselects_nothing(self, tmp_path, monkeypatch):
+        assert self._preselected(tmp_path, monkeypatch, {"include": []}) == set()
+
+    def test_no_filter_preselects_everything(self, tmp_path, monkeypatch):
+        assert self._preselected(tmp_path, monkeypatch, None) == {0, 1, 2}
+
+    def test_globs_and_exclude_preselect_like_registration(self, tmp_path, monkeypatch):
+        assert self._preselected(tmp_path, monkeypatch, {"include": ["get_*"]}) == {2}
+        assert self._preselected(tmp_path, monkeypatch, {"exclude": ["delete"]}) == {0, 2}

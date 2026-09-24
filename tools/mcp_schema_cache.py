@@ -31,14 +31,20 @@ def _cache_path() -> Path:
 def config_fingerprint(config: dict) -> str:
     """Stable hash of the connection-defining parts of an MCP server config."""
     tools_filter = config.get("tools") or {}
+    include = tools_filter.get("include")
     payload = {
         "command": config.get("command"),
         "args": config.get("args") or [],
         "url": config.get("url"),
         "transport": config.get("transport"),
-        "tools_include": sorted(tools_filter.get("include") or []),
+        "tools_include": sorted(include or []),
         "tools_exclude": sorted(tools_filter.get("exclude") or []),
     }
+    if isinstance(include, (list, tuple)) and not include:
+        # An empty allow-list registers no tool: it must never read the cache
+        # written with no filter. Only this case adds the key, so every other
+        # config keeps the fingerprint (and the cache) it had.
+        payload["tools_include_empty"] = True
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
