@@ -13,12 +13,28 @@ interface UseComposerPlaceholderOptions {
   sessionId: null | string | undefined
 }
 
+/** Which resting line to show — a starter or a follow-up, and where in its pool
+ *  it landed. No text is stored: every render reads the pick out of the live
+ *  pools, so a locale or folder change lands on the same slot in the new pool. */
+interface RestingPick {
+  draw: number
+  starter: boolean
+}
+
+const rollRestingPick = (sessionId: null | string | undefined): RestingPick => ({
+  draw: Math.random(),
+  starter: !sessionId
+})
+
 /**
  * The composer's placeholder text. A resting starter (new session) / continuation
  * (existing session) is picked once and only re-rolled when we genuinely move to
  * a *different* conversation — the null→id persist of a freshly-started session
- * keeps its starter so the text doesn't flip mid-stream. While the transport is
- * down, it swaps to a reconnecting / starting message instead.
+ * keeps its starter so the text doesn't flip mid-stream. The pick outlives its
+ * words: when the locale changes (the boot-time default giving way to
+ * `display.language`, or a switch in settings) the same line is read out of the
+ * new language's pool. While the transport is down, it swaps to a reconnecting /
+ * starting message instead.
  */
 export function useComposerPlaceholder({
   codingContext = false,
@@ -36,9 +52,7 @@ export function useComposerPlaceholder({
 
   const followUpPlaceholders = t.composer.followUpPlaceholders
 
-  const [restingPlaceholder, setRestingPlaceholder] = useState(() =>
-    pickPlaceholder(sessionId ? followUpPlaceholders : newSessionPlaceholders)
-  )
+  const [restingPick, setRestingPick] = useState(() => rollRestingPick(sessionId))
 
   const prevSessionIdRef = useRef(sessionId)
 
@@ -58,8 +72,13 @@ export function useComposerPlaceholder({
     }
 
     resetBrowseState(prev)
-    setRestingPlaceholder(pickPlaceholder(sessionId ? followUpPlaceholders : newSessionPlaceholders))
-  }, [followUpPlaceholders, newSessionPlaceholders, sessionId])
+    setRestingPick(rollRestingPick(sessionId))
+  }, [sessionId])
+
+  const restingPlaceholder = pickPlaceholder(
+    restingPick.starter ? newSessionPlaceholders : followUpPlaceholders,
+    restingPick.draw
+  )
 
   // When the transport is disabled it's because the gateway isn't open.
   // Distinguish a cold start ("Starting AgentX...") from a dropped connection
