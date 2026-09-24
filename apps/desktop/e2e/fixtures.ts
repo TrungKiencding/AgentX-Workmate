@@ -137,7 +137,9 @@ export function createSandbox(prefix: string): Sandbox {
     userDataDir,
     cleanup: () => {
       try {
-        fs.rmSync(root, { recursive: true, force: true })
+        // Retries ride out ENOTEMPTY while a just-stopped backend's last
+        // writes land.
+        fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 })
       } catch {
         // best-effort
       }
@@ -148,13 +150,147 @@ export function createSandbox(prefix: string): Sandbox {
 // ─── Config writing ─────────────────────────────────────────────────────
 
 /**
+ * Settings every generated config.yaml starts from, so the specs meet the app
+ * they were written against:
+ *
+ *  - `dashboard.require_auth: false` — this fork's defaults configure a
+ *    Keycloak realm, and a configured identity provider puts the AgentX
+ *    sign-in card in front of even a loopback dashboard
+ *    (`_loopback_auth_opt_in` in hermes_cli/web_server.py); every
+ *    `waitForAppReady` would time out on it.
+ *  - `display.language: en` — the desktop renders in the backend's
+ *    `display.language`, which defaults to Vietnamese here, and the specs
+ *    assert English copy.
+ *  - `security.tirith_enabled: false` — in a fresh AGENTX_HOME the first
+ *    `terminal` command downloads the tirith scanner from GitHub inside its
+ *    own security check (only the CLI starts that download in the
+ *    background). On a slow link the call then sits in "Running" past the
+ *    spec's timeout, and a spec should not depend on GitHub anyway.
+ *
+ * A spec that needs another value sets the same key in its `extraConfig` (or
+ * `extraDisplayConfig`); `mergeConfigYaml` lets the spec's value win.
+ */
+const FIXTURE_CONFIG_DEFAULTS = `dashboard:
+  require_auth: false
+display:
+  language: en
+security:
+  tirith_enabled: false`
+
+interface ConfigSection {
+  /** The section's own line: `key:`, or `key: value` for an inline value. */
+  head: string
+  /** The lines under it, re-indented so its first level sits at two spaces. */
+  body: string[]
+}
+
+/** Split block-style YAML into its top-level sections. */
+function parseConfigSections(yaml: string): Map<string, ConfigSection> {
+  const sections = new Map<string, ConfigSection>()
+  let body: string[] | undefined
+  let indent = 0
+
+  for (const line of yaml.split('\n')) {
+    const text = line.trimStart()
+
+    if (!text || text.startsWith('#')) {
+      continue
+    }
+
+    const depth = line.length - text.length
+
+    if (depth === 0) {
+      const key = /^([\w.-]+):(?:\s|$)/.exec(text)?.[1]
+
+      if (!key) {
+        throw new Error(`E2E config: expected a top-level "key:" line, got ${JSON.stringify(line)}`)
+      }
+
+      body = []
+      indent = 0
+      sections.set(key, { head: text, body })
+
+      continue
+    }
+
+    if (!body) {
+      throw new Error(`E2E config: ${JSON.stringify(line)} is indented but belongs to no section`)
+    }
+
+    indent ||= depth
+    body.push(`  ${line.slice(Math.min(depth, indent))}`)
+  }
+
+  return sections
+}
+
+/** A section's first-level `key:` entries, or null unless it is a plain block mapping. */
+function sectionEntries({ head, body }: ConfigSection): Map<string, string[]> | null {
+  if (!/^[\w.-]+:\s*$/.test(head)) {
+    return null
+  }
+
+  const entries = new Map<string, string[]>()
+  let entry: string[] | undefined
+
+  for (const line of body) {
+    const key = /^ {2}([\w.-]+):(?:\s|$)/.exec(line)?.[1]
+
+    if (key) {
+      entry = []
+      entries.set(key, entry)
+    } else if (!entry || !line.startsWith('   ')) {
+      return null
+    }
+
+    entry.push(line)
+  }
+
+  return entries
+}
+
+/**
+ * Join YAML snippets into one config without writing any top-level section
+ * twice: where two snippets share a section, their first-level keys are
+ * merged and the later snippet wins a key both set. A section that is not a
+ * plain block mapping is replaced whole by a later one.
+ */
+function mergeConfigYaml(...snippets: Array<string | undefined>): string {
+  const merged = new Map<string, ConfigSection>()
+
+  for (const snippet of snippets) {
+    for (const [key, section] of parseConfigSections(snippet ?? '')) {
+      const earlier = merged.get(key)
+      const earlierEntries = earlier ? sectionEntries(earlier) : null
+      const entries = sectionEntries(section)
+
+      if (earlier && earlierEntries && entries) {
+        entries.forEach((lines, name) => earlierEntries.set(name, lines))
+        merged.set(key, { head: earlier.head, body: [...earlierEntries.values()].flat() })
+      } else {
+        merged.set(key, section)
+      }
+    }
+  }
+
+  return `${[...merged.values()].map(({ head, body }) => [head, ...body].join('\n')).join('\n')}\n`
+}
+
+/** Write config.yaml: `base`, then the fixture defaults, then a spec's overrides. */
+function writeConfig(hermesHome: string, header: string, base: string, ...overrides: Array<string | undefined>): void {
+  const config = mergeConfigYaml(base, FIXTURE_CONFIG_DEFAULTS, ...overrides)
+  fs.writeFileSync(path.join(hermesHome, 'config.yaml'), `# ${header}\n${config}`, 'utf8')
+}
+
+/**
  * Write a config.yaml that pre-configures a mock provider pointing at the
  * mock inference server. The provider is set as the active model provider so
  * the desktop app skips onboarding and boots straight to the chat UI.
  *
- * @param extraDisplayConfig optional YAML lines appended to the `display:`
- *   section, used by the interim-message e2e test.
- * @param extraConfig optional top-level YAML sections for a test scenario.
+ * @param extraDisplayConfig optional YAML lines for the `display:` section,
+ *   used by the interim-message e2e test.
+ * @param extraConfig optional top-level YAML sections for a test scenario;
+ *   sections it shares with the fixture defaults are merged key by key.
  * @param modelContextLength optional primary-model context limit.
  */
 export function writeMockProviderConfig(
@@ -164,14 +300,10 @@ export function writeMockProviderConfig(
   extraConfig?: string,
   modelContextLength?: number,
 ): void {
-  const configPath = path.join(hermesHome, 'config.yaml')
-
-  const displaySection = extraDisplayConfig
-    ? `\ndisplay:\n${extraDisplayConfig}\n`
-    : ''
-
-  const config = `# Auto-generated by E2E test fixtures
-model:
+  writeConfig(
+    hermesHome,
+    'Auto-generated by E2E test fixtures',
+    `model:
   default: mock-model
   provider: mock
 ${modelContextLength ? `  context_length: ${modelContextLength}\n` : ''}providers:
@@ -182,10 +314,10 @@ ${modelContextLength ? `  context_length: ${modelContextLength}\n` : ''}provider
     key_env: MOCK_API_KEY
     models:
       mock-model: {}
-    context_length: 4096
-${displaySection}${extraConfig ? `\n${extraConfig.trim()}\n` : ''}`
-
-  fs.writeFileSync(configPath, config, 'utf8')
+    context_length: 4096`,
+    extraDisplayConfig && `display:\n${extraDisplayConfig}`,
+    extraConfig,
+  )
 }
 
 /**
@@ -202,8 +334,7 @@ export function writeEnvFile(hermesHome: string, apiKey = 'e2e-mock-key'): void 
  * onboarding overlay because no inference provider is configured.
  */
 function writeEmptyConfig(hermesHome: string): void {
-  const configPath = path.join(hermesHome, 'config.yaml')
-  fs.writeFileSync(configPath, '# Auto-generated by E2E test fixtures — no providers configured\n', 'utf8')
+  writeConfig(hermesHome, 'Auto-generated by E2E test fixtures — no providers configured', '')
 }
 
 // ─── Env building ──────────────────────────────────────────────────────
@@ -466,11 +597,10 @@ export interface DeadBackendOptions {
  */
 export async function setupDeadBackend(options: DeadBackendOptions = {}): Promise<DeadBackendFixture> {
   const sandbox = createSandbox('dead')
-  const configPath = path.join(sandbox.hermesHome, 'config.yaml')
-  fs.writeFileSync(
-    configPath,
-    `# Auto-generated by E2E test fixtures — dead provider
-model:
+  writeConfig(
+    sandbox.hermesHome,
+    'Auto-generated by E2E test fixtures — dead provider',
+    `model:
   default: mock-model
   provider: mock
 providers:
@@ -481,9 +611,7 @@ providers:
     key_env: MOCK_API_KEY
     models:
       mock-model: {}
-    context_length: 4096
-`,
-    'utf8',
+    context_length: 4096`,
   )
   writeEnvFile(sandbox.hermesHome)
 
@@ -534,15 +662,83 @@ export interface PackagedAppFixture {
   cleanup: () => Promise<void>
 }
 
+interface ProcessInfo {
+  pid: number
+  ppid: number
+  command: string
+}
+
+/** Every process on the machine, from one `ps` listing. POSIX only: [] on Windows. */
+function listProcesses(): ProcessInfo[] {
+  if (process.platform === 'win32') {
+    return []
+  }
+
+  const ps = spawnSync('ps', ['-A', '-ww', '-o', 'pid=,ppid=,command='], { encoding: 'utf8' })
+
+  return (ps.stdout ?? '').split('\n').flatMap(line => {
+    const match = /^\s*(\d+)\s+(\d+)\s(.*)$/.exec(line)
+
+    return match ? [{ pid: Number(match[1]), ppid: Number(match[2]), command: match[3].trim() }] : []
+  })
+}
+
+/** The processes below `roots` in `processes`. */
+function descendantsOf(processes: ProcessInfo[], roots: number[]): ProcessInfo[] {
+  const found: ProcessInfo[] = []
+  const queue = [...roots]
+
+  while (queue.length > 0) {
+    const parent = queue.shift()
+
+    for (const child of processes.filter(p => p.ppid === parent)) {
+      found.push(child)
+      queue.push(child.pid)
+    }
+  }
+
+  return found
+}
+
+/**
+ * SIGKILL what a closed packaged app left running: the processes noted while
+ * it was still their parent (same pid AND same command line, so a recycled
+ * pid is never hit), whatever those started since, and anything whose
+ * command line still names the sandbox.
+ */
+function killLeftovers(noted: ProcessInfo[], sandboxRoot: string): void {
+  const now = listProcesses()
+  const survivors = noted.filter(p => now.some(q => q.pid === p.pid && q.command === p.command))
+  const roots = new Set([sandboxRoot, fs.existsSync(sandboxRoot) ? fs.realpathSync(sandboxRoot) : sandboxRoot])
+  const naming = now.filter(p => [...roots].some(root => p.command.includes(root)))
+
+  for (const { pid } of [...survivors, ...descendantsOf(now, survivors.map(p => p.pid)), ...naming]) {
+    if (pid !== process.pid) {
+      try {
+        process.kill(pid, 'SIGKILL')
+      } catch {
+        // already gone
+      }
+    }
+  }
+}
+
 /**
  * Launch the *packaged* Electron binary (from `npm run pack` →
- * `electron-builder --dir`) with `BOOT_FAKE=1` so it simulates boot
- * progress without spawning a real AgentX backend.
+ * `electron-builder --dir`) with `BOOT_FAKE=1`, which paces the boot
+ * progress events.
+ *
+ * It does not keep the app from bootstrapping: with no AgentX install in the
+ * sandbox the first launch clones the agent and runs install.sh (Chromium
+ * download included) — minutes and ~280 MB. Quitting signals only the
+ * script, so its git / uv / `npx playwright install` children would outlive
+ * the app and keep filling the sandbox; `cleanup` kills them before removing
+ * it, and a failed launch cleans up too.
  *
  * Uses the same sandbox isolation (credential stripping, isolated
  * AGENTX_HOME + userData, unique app name) as the dev-mode fixtures.
  *
- * Skips if the packaged binary doesn't exist — run `npm run pack` first.
+ * Throws if the packaged binary doesn't exist — run `npm run pack` first.
  */
 export async function setupPackagedApp(): Promise<PackagedAppFixture> {
   if (!packagedBinaryExists()) {
@@ -567,23 +763,36 @@ export async function setupPackagedApp(): Promise<PackagedAppFixture> {
   delete (env as Record<string, string | undefined>).AGENTX_DESKTOP_AGENTX
   delete (env as Record<string, string | undefined>).AGENTX_DESKTOP_AGENTX_ROOT
 
-  const app = await _electron.launch({
-    executablePath: PACKAGED_BINARY_PATH,
-    args: ['--disable-gpu', '--no-sandbox'],
-    env,
-  })
-
-  const page = await app.firstWindow()
-  installErrorBannerGuard(page)
-
-  return {
-    app,
-    page,
-    sandbox,
-    cleanup: async () => {
-      await app.close().catch(() => undefined)
+  const app = await _electron
+    .launch({
+      executablePath: PACKAGED_BINARY_PATH,
+      args: ['--disable-gpu', '--no-sandbox'],
+      env,
+    })
+    .catch((error: unknown) => {
       sandbox.cleanup()
-    },
+      throw error
+    })
+
+  const cleanup = async () => {
+    // Note the app's process tree while the app is still its parent: once it
+    // exits, the installer's orphans are reparented and look like anything else.
+    const appPid = app.process().pid
+    const tree = appPid ? descendantsOf(listProcesses(), [appPid]) : []
+
+    await app.close().catch(() => undefined)
+    killLeftovers(tree, sandbox.root)
+    sandbox.cleanup()
+  }
+
+  try {
+    const page = await app.firstWindow()
+    installErrorBannerGuard(page)
+
+    return { app, page, sandbox, cleanup }
+  } catch (error) {
+    await cleanup()
+    throw error
   }
 }
 
@@ -717,8 +926,12 @@ export async function waitForBootFailure(page: Page, timeoutMs = 60_000): Promis
       // which is harmless.
       const text = document.body.textContent ?? ''
 
-      // BootFailureOverlay buttons.
+      // BootFailureOverlay: its "what to do" section's id is the one marker
+      // that does not depend on the locale. That matters here — with no
+      // backend the renderer never reads `display.language`, so the overlay
+      // renders in the default Vietnamese whatever config.yaml says.
       const hasFailureUI =
+        document.getElementById('boot-failure-steps') !== null ||
         text.includes('Retry') ||
         text.includes('Repair') ||
         text.includes('Use local gateway') ||

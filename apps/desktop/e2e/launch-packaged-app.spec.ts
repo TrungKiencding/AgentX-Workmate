@@ -15,17 +15,24 @@ import { expectVisualSnapshot } from './visual-snapshot'
  * `electron-builder --dir`) with BOOT_FAKE=1 and full sandbox isolation
  * (credential stripping, isolated AGENTX_HOME + userData, unique app name).
  *
- * Skips if the packaged binary doesn't exist — run `npm run pack` first.
+ * Opt-in: AGENTX_E2E_PACKAGED=1. The packaged app's first launch installs
+ * AgentX for real into the sandbox — clone, venv, Chromium — which takes
+ * minutes and ~280 MB (see setupPackagedApp). Also skips if the packaged
+ * binary doesn't exist — run `npm run pack` first.
  */
+
+test.skip(
+  process.env.AGENTX_E2E_PACKAGED !== '1',
+  'Packaged-app smoke test is opt-in: set AGENTX_E2E_PACKAGED=1 (it runs a full first-launch install).',
+)
+test.skip(
+  !packagedBinaryExists(),
+  `Built app binary not found: ${PACKAGED_BINARY_PATH}. Run 'npm run pack' first.`,
+)
 
 let fixture: PackagedAppFixture | null = null
 
 test.beforeAll(async () => {
-  test.skip(
-    !packagedBinaryExists(),
-    `Built app binary not found: ${PACKAGED_BINARY_PATH}. Run 'npm run pack' first.`,
-  )
-
   fixture = await setupPackagedApp()
 })
 
