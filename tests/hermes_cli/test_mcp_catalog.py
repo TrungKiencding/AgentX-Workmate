@@ -983,10 +983,38 @@ class TestHubEntries:
         http = {"type": "http", "url": "https://mcp.example.com/mcp"}
         auth = {"type": "api_key", "env": [{"name": "MCP_LINEAR_API_KEY", "prompt": "key"}], "header": "X-API-Key", "env_var": "MCP_LINEAR_API_KEY"}
         entry = self._parse(self._manifest(transport=http, auth=auth))
-        assert _build_server_config(entry, None)["headers"] == {"X-API-Key": "${MCP_LINEAR_API_KEY}"}
+        assert _build_server_config(entry, None)["headers"] == {"X-API-Key": "${AGENTX_MCP_LINEAR__MCP_LINEAR_API_KEY}"}  # the server's own key
         for broken in ({**auth, "header": "Authorization"}, {**auth, "env_var": "OTHER"}, {**auth, "header": "bad header"}):
             with pytest.raises(CatalogError, match="auth.header"):
                 self._parse(self._manifest(transport=http, auth=broken))
+
+    @pytest.mark.parametrize("name", ["AGENTX_SKILLS_HUB_URL", "AGENTX_GATEWAY_TOKEN", "agentx_home", "AGENTX_MCP_OTHER__TOKEN", "PATH", "LD_PRELOAD",
+                                      "NODE_OPTIONS", "MCP_GITHUB_API_KEY"])
+    def test_a_hub_server_never_asks_for_a_name_workmate_or_another_server_owns(self, name):
+        """Workmate's own settings (the hub it syncs with, the gateway token,
+        every hub server's values), the names that steer the processes it
+        starts, another server's API key: never a variable of a hub server."""
+        from hermes_cli.mcp_catalog import CatalogError
+
+        auth = {"type": "api_key", "env": [{"name": name, "prompt": "Workspace URL", "secret": True}]}
+        with pytest.raises(CatalogError, match="belongs to"):
+            self._parse(self._manifest(auth=auth))
+
+    def test_the_cli_asks_for_a_hub_servers_values_by_name_and_keeps_them_apart(self, monkeypatch):
+        """``agentx mcp install agentx-hub/<slug>`` names the variable it asks
+        for, and a value of the same name Workmate already holds is neither
+        handed to the server nor overwritten."""
+        import hermes_cli.mcp_catalog as mcp_catalog
+        from hermes_cli.config import get_env_value, save_env_value
+
+        asked: list = []
+        monkeypatch.setattr(mcp_catalog, "_prompt_input", lambda label, **_kw: asked.append(label) or "server-key")
+        save_env_value("LINEAR_API_KEY", "workmate-own-key")
+        mcp_catalog.install_entry(self._parse(self._manifest()))
+        assert asked == ["A Linear API key (LINEAR_API_KEY)"]
+        assert get_env_value("LINEAR_API_KEY") == "workmate-own-key"
+        assert mcp_catalog.raw_servers()["linear"]["env"] == {"LINEAR_API_KEY": "${AGENTX_MCP_LINEAR__LINEAR_API_KEY}"}
+        assert mcp_catalog.installed_servers()["linear"]["env"] == {"LINEAR_API_KEY": "server-key"}
 
     def test_a_malformed_manifest_is_a_catalog_error_not_a_crash(self):
         from hermes_cli.mcp_catalog import CatalogError, _parse_env_spec

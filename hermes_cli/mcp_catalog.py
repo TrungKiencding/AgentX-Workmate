@@ -29,6 +29,9 @@ launch like a shipped entry (checked at parse time, not only in CI), carries
 the hashes of the tools the hub approved (``hub.tool_hashes``, what
 ``tools/mcp_tool.py`` locks the server's tools to), and installs nothing
 (no clone, no bundle): it runs through a package launcher or a remote URL.
+The values it needs live in ``.env`` under keys of its own
+(``AGENTX_MCP_<SLUG>__<NAME>``, :func:`hub_env_key`), never under the names
+it reads, which may be Workmate's own or another server's.
 
 See website/docs/user-guide/mcp-catalog.md for user docs.
 See references/mcp-catalog.md (this repo's skill) for the manifest schema.
@@ -44,7 +47,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -102,6 +105,9 @@ _LAUNCHERS: Dict[str, tuple] = {
 }
 #: What Windows appends to a launcher's name (``npx.cmd`` is npx).
 _EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat", ".ps1")
+#: Where the values of AgentX Hub servers live in ``.env``: one key per server
+#: and variable (:func:`hub_env_key`), never the name the server reads.
+HUB_ENV_PREFIX = "AGENTX_MCP_"
 #: What a hub entry says of who vouches for it.
 _HUB_TRUST = frozenset({"curated", "reviewed", "private"})
 _HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -411,6 +417,7 @@ def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path]
         if install_raw is not None:
             raise CatalogError(f"{path}: a hub entry installs nothing (no install block): it runs through a package launcher or a remote URL")
         _check_literal(transport, auth, path)
+        _check_variables(auth, name, path)
         _check_pinned(transport, path)
         hub = _parse_hub_spec(data.get("hub"), path)
     elif install_raw is not None:
@@ -448,6 +455,38 @@ def _check_literal(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
     for where, value in values:
         if "${" in str(value or ""):
             raise CatalogError(f"{path}: {where} holds a ${{…}} reference; a hub entry's values are literal (what it needs from this machine is declared in auth.env)")
+
+
+def _owner_of(name: str, server: str) -> Optional[str]:
+    """Who owns environment variable *name*, when hub server *server* may
+    not declare it: Workmate — its own ``AGENTX_*`` settings (the hub it
+    syncs with, the gateway token, every hub server's values) and the names
+    its env writer refuses because they steer the processes it starts
+    (``PATH``, ``LD_PRELOAD``, ``NODE_OPTIONS``…) — or the server whose API
+    key it is (``MCP_<NAME>_API_KEY``). None when *name* is free to declare:
+    whatever the server reads, its value is its own (:func:`hub_env_key`)."""
+    from hermes_cli.config import validate_env_var_name_for_write
+    from hermes_cli.mcp_config import _env_key_for_server
+
+    upper = name.upper()  # ``path`` is ``PATH`` on Windows: refused everywhere alike
+    try:
+        validate_env_var_name_for_write(upper)
+    except ValueError:
+        return "Workmate"
+    if upper.startswith("AGENTX_"):
+        return "Workmate"
+    other = re.fullmatch(r"MCP_(.+)_API_KEY", upper)
+    if other and upper != _env_key_for_server(server).upper():
+        return f"the MCP server {other.group(1).lower()}"
+    return None
+
+
+def _check_variables(auth: AuthSpec, server: str, path: str) -> None:
+    """A hub server declares variables of its own (:func:`_owner_of`)."""
+    for spec in auth.env:
+        owner = _owner_of(spec.name, server)
+        if owner:
+            raise CatalogError(f"{path}: auth.env declares {spec.name}, which belongs to {owner}; a hub server declares variables of its own")
 
 
 def _launcher_of(command: Any) -> str:
@@ -507,7 +546,9 @@ def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
     if not isinstance(signed, dict):
         raise CatalogError(f"{path}: hub.signed must be the signed version manifest")
     slug = text("slug")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", slug or ""):
+    # The hub's own rule: lowercase letters and digits joined by single dashes
+    # (it is what keeps two servers' keys in .env apart: hub_env_key).
+    if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", slug or "") or len(slug or "") > 64:
         raise CatalogError(f"{path}: hub.slug must be a hub slug")
     return HubSpec(
         slug=slug, version=text("version"), content_hash=text("content_hash"), surface_hash=surface_hash, tool_hashes=dict(tool_hashes),
@@ -840,18 +881,36 @@ def _expand_install_dir(value: str, install_dir: Optional[Path]) -> str:
     return value.replace(_INSTALL_DIR_VAR, str(install_dir))
 
 
-def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
+def hub_env_key(slug: str, name: str) -> str:
+    """The ``.env`` key holding variable *name* of hub server *slug*:
+    ``AGENTX_MCP_<SLUG>__<NAME>`` (``AGENTX_MCP_LINEAR__LINEAR_API_KEY``).
+    The server still reads *name*; its entry maps the one to the other. A
+    hub slug is lowercase letters and digits joined by single dashes, so no
+    two servers' keys meet, nor one of Workmate's (``_owner_of``)."""
+    return f"{HUB_ENV_PREFIX}{slug.upper().replace('-', '_')}__{name}"
+
+
+def value_key(entry: CatalogEntry, name: str) -> str:
+    """The ``.env`` key of *entry*'s variable *name*: the name itself for a
+    shipped entry, the server's own key for a hub entry (:func:`hub_env_key`)."""
+    return hub_env_key(entry.hub.slug, name) if entry.hub is not None else name
+
+
+def _prompt_env_vars(specs: List[EnvVarSpec], key_of: Callable[[str], str] = lambda name: name) -> Dict[str, str]:
     """Walk the env spec list, prompting the user for each. Writes secrets and
-    non-secrets alike to ~/.agentx/.env via save_env_value()."""
+    non-secrets alike to ~/.agentx/.env via save_env_value(), under
+    ``key_of(name)`` (a hub server's own key: :func:`value_key`). A prompt
+    that is not the variable's name says the name too."""
     collected: Dict[str, str] = {}
     for spec in specs:
-        existing = get_env_value(spec.name)
+        key = key_of(spec.name)
+        existing = get_env_value(key)
         if existing:
             print(color(f"  ✓ {spec.name} already set in .env", Colors.GREEN))
             collected[spec.name] = existing
             continue
         value = _prompt_input(
-            spec.prompt,
+            spec.prompt if spec.prompt == spec.name else f"{spec.prompt} ({spec.name})",
             default=spec.default or None,
             password=spec.secret,
         )
@@ -859,7 +918,7 @@ def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
             if spec.required:
                 raise CatalogError(f"{spec.name} is required but no value was provided")
             continue
-        save_env_value(spec.name, value)
+        save_env_value(key, value)
         collected[spec.name] = value
     return collected
 
@@ -885,18 +944,24 @@ def _build_server_config(
         if t.env:
             cfg["env"] = {k: _expand_install_dir(v, install_dir) for k, v in t.env.items()}
         if entry.origin == ORIGIN_HUB and entry.auth.type == "api_key":
-            # A hub server reads its values from its own environment: each one
-            # this machine holds (in .env) is handed to it by reference. One
+            # A hub server reads its values from its own environment, under
+            # the names it declares: each one this machine holds under the
+            # server's own key (value_key) is handed to it by reference. One
             # left unset stays out — an unset ${VAR} would reach it literally.
             for spec in entry.auth.env:
-                if get_env_value(spec.name):
-                    cfg.setdefault("env", {})[spec.name] = f"${{{spec.name}}}"
+                key = value_key(entry, spec.name)
+                if get_env_value(key):
+                    cfg.setdefault("env", {})[spec.name] = f"${{{key}}}"
     elif t.type == "http":
         cfg["url"] = t.url
         if entry.auth.type == "oauth":
             cfg["auth"] = "oauth"
         elif entry.auth.type == "api_key" and entry.auth.header:
-            cfg["headers"] = {entry.auth.header: f"${{{entry.auth.env_var}}}"}
+            cfg["headers"] = {entry.auth.header: f"${{{value_key(entry, entry.auth.env_var)}}}"}
+        elif entry.auth.type == "api_key" and entry.hub is not None:
+            from hermes_cli.mcp_config import _env_key_for_server
+
+            cfg["headers"] = {"Authorization": f"Bearer ${{{value_key(entry, _env_key_for_server(entry.name))}}}"}
         elif entry.auth.type == "api_key":
             from hermes_cli.mcp_config import _bearer_auth_headers
 
@@ -935,6 +1000,15 @@ def hub_config_block(entry: CatalogEntry, server_cfg: Dict[str, Any]) -> Dict[st
     }
 
 
+def _installed_here(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
+    """Hub server *entry* as this machine has it installed (as written in
+    config.yaml), or None: not installed, or *entry* is a shipped one."""
+    if entry.hub is None:
+        return None
+    current = raw_servers().get(entry.name)
+    return current if isinstance(current, dict) and hub_slug_of(current) == entry.hub.slug else None
+
+
 def _kept_on_reinstall(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
     """What a hub server installed here keeps when it is installed again (a
     tool list the hub approved, a new version, the person's Update or
@@ -942,12 +1016,32 @@ def _kept_on_reinstall(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
     ``hub`` block — whether it is on, its ``trust``, its ``tools`` filter,
     its timeouts, as written. None for a first install, and for a shipped
     entry (written whole, as ``agentx mcp install`` always has)."""
-    if entry.hub is None:
-        return None
-    current = raw_servers().get(entry.name)
-    if not isinstance(current, dict) or hub_slug_of(current) != entry.hub.slug:
+    current = _installed_here(entry)
+    if current is None:
         return None
     return {key: value for key, value in current.items() if key not in _LAUNCH_KEYS and key != "hub"}
+
+
+def _move_shared_values(entry: CatalogEntry) -> None:
+    """Keep an install from before per-server values working. Such a hub
+    server read its values under the names it declares (``${LINEAR_API_KEY}``
+    in its entry), and it runs on as it is. The first time it is installed
+    again, each value its entry read is copied to the server's own key
+    (:func:`value_key`), which the rebuilt entry reads. Copied, not moved:
+    the name may still serve something else here (Workmate's own tool of
+    that name, a server set up by hand). Only a name the old entry read
+    moves, so no value the server never had reaches it."""
+    current = _installed_here(entry)
+    if current is None:
+        return
+    launch = json.dumps({key: current[key] for key in _LAUNCH_KEYS if key in current})
+    for spec in entry.auth.env:
+        key = value_key(entry, spec.name)
+        if f"${{{spec.name}}}" not in launch or get_env_value(key):
+            continue
+        value = get_env_value(spec.name)
+        if value:
+            save_env_value(key, value)
 
 
 def hub_slug_of(server_cfg: Any) -> Optional[str]:
@@ -1186,8 +1280,9 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
         6. Print post_install notes.
     """
     _check_name_free(entry)
+    _move_shared_values(entry)
     if not interactive:
-        missing = [spec.name for spec in entry.auth.env if spec.required and not get_env_value(spec.name) and not spec.default]
+        missing = [spec.name for spec in entry.auth.env if spec.required and not get_env_value(value_key(entry, spec.name)) and not spec.default]
         if entry.auth.type == "api_key" and missing:
             raise NeedsSecrets(entry.name, missing)
 
@@ -1218,12 +1313,13 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
     if entry.auth.type == "api_key" and interactive:
         print()
         print(color("  Configure credentials:", Colors.CYAN))
-        _prompt_env_vars(entry.auth.env)
+        _prompt_env_vars(entry.auth.env, key_of=lambda name: value_key(entry, name))
     elif entry.auth.type == "api_key":
         # Defaults of optional values, as the prompt would have kept them.
         for spec in entry.auth.env:
-            if spec.default and not get_env_value(spec.name):
-                save_env_value(spec.name, spec.default)
+            key = value_key(entry, spec.name)
+            if spec.default and not get_env_value(key):
+                save_env_value(key, spec.default)
     elif entry.auth.type == "oauth":
         if entry.auth.provider:
             # Case 2: provider-mediated (Google, GitHub, etc.). We rely on

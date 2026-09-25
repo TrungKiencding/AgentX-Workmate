@@ -520,12 +520,13 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
 
     # Validate the complete map before the first write. This preserves the
     # existing writer/install flow while ensuring a mixed valid+invalid request
-    # cannot partially persist credentials.
+    # cannot partially persist credentials. A hub server's values are kept
+    # under keys of its own (value_key), never under the names it reads.
     from hermes_cli.config import validate_env_var_name_for_write
 
     try:
         for key in body.env:
-            validate_env_var_name_for_write(key)
+            validate_env_var_name_for_write(mcp_catalog.value_key(entry, key))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -534,7 +535,7 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
         with _profile_scope(effective_profile):
             for k, v in body.env.items():
                 if v:
-                    save_env_value(k, v)
+                    save_env_value(mcp_catalog.value_key(entry, k), v)
 
     # Git-bootstrap entries can take a while to clone — run via the background
     # action path so the request returns immediately and the UI can tail logs.

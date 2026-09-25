@@ -1645,6 +1645,10 @@ export function McpCatalog({
                 {env.prompt || env.name}
                 {env.required ? ' *' : ''}
               </span>
+              {/* The author's prompt says what it wants; the name is what the server reads the value as. */}
+              {env.prompt && env.prompt !== env.name && (
+                <span className="font-mono text-xs text-(--ui-text-tertiary)">{env.name}</span>
+              )}
               <Input
                 onChange={event => {
                   // Read now: React may run the updater after the event, when currentTarget is gone.

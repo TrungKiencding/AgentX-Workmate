@@ -90,6 +90,23 @@ def test_installing_a_hub_server_asks_nothing_tells_the_hub_and_wakes_the_sync(c
     assert (entry["installed"], entry["enabled"], entry["installed_version"], entry["update_available"], entry["modified"]) == (True, True, "1.4.0", False, False)
 
 
+def test_a_hub_servers_values_are_kept_apart_from_the_names_it_reads(client, hub):
+    """A hub server's values live under keys of its own
+    (``AGENTX_MCP_<SLUG>__<NAME>``): Workmate's own LINEAR_API_KEY is neither
+    handed to the server nor overwritten by what the person types for it."""
+    from hermes_cli import mcp_catalog
+    from hermes_cli.config import get_env_value, save_env_value
+
+    save_env_value("LINEAR_API_KEY", "workmate-own-key")
+    asked = client.post("/api/mcp/catalog/install", json={"name": "agentx-hub/linear"})
+    assert asked.status_code == 400 and asked.json()["detail"]["missing"] == ["LINEAR_API_KEY"]
+    done = client.post("/api/mcp/catalog/install", json={"name": "agentx-hub/linear", "env": {"LINEAR_API_KEY": "server-key"}})
+    assert done.status_code == 200, done.text
+    assert get_env_value("LINEAR_API_KEY") == "workmate-own-key"
+    assert mcp_catalog.raw_servers()["linear"]["env"] == {"LINEAR_API_KEY": "${AGENTX_MCP_LINEAR__LINEAR_API_KEY}"}
+    assert mcp_catalog.installed_servers()["linear"]["env"] == {"LINEAR_API_KEY": "server-key"}
+
+
 def test_a_hub_server_goes_in_the_default_profile_only(client, hub):
     refused = client.post("/api/mcp/catalog/install", json={"name": "agentx-hub/linear", "env": {"LINEAR_API_KEY": "v"}, "profile": "work"})
     assert refused.status_code == 400 and "default profile" in refused.json()["detail"]

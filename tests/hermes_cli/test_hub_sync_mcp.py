@@ -296,11 +296,12 @@ class TestMcpLocalInstaller:
         installer = McpLocalInstaller()
         missing = installer.install("linear")
         assert not missing.ok and missing.error == "needs_secrets: LINEAR_API_KEY"
-        save_env_value("LINEAR_API_KEY", "lin-test-value")
+        save_env_value(mcp_catalog.hub_env_key("linear", "LINEAR_API_KEY"), "lin-test-value")
         done = installer.install("linear")
         assert done.ok and done.version == "1.4.0"
-        cfg = mcp_catalog.raw_servers()["linear"]  # as written: the value stays in .env, the config names it
-        assert cfg["command"] == "npx" and cfg["args"] == ["-y", "@acme/linear-mcp@1.4.0"] and cfg["env"] == {"LINEAR_API_KEY": "${LINEAR_API_KEY}"}
+        cfg = mcp_catalog.raw_servers()["linear"]  # as written: the value stays in .env under the server's own key, the config names it
+        assert cfg["command"] == "npx" and cfg["args"] == ["-y", "@acme/linear-mcp@1.4.0"]
+        assert cfg["env"] == {"LINEAR_API_KEY": "${AGENTX_MCP_LINEAR__LINEAR_API_KEY}"}
         assert mcp_catalog.installed_servers()["linear"]["env"] == {"LINEAR_API_KEY": "lin-test-value"}  # what the server gets
         assert cfg["hub"]["slug"] == "linear" and cfg["hub"]["tool_hashes"] == feed["hub"]["tool_hashes"]
         assert cfg["tools"] == {"include": ["list_issues"]}  # the author's default
@@ -312,8 +313,9 @@ class TestMcpLocalInstaller:
 
     def test_an_edit_to_the_launch_is_seen(self, feed):
         from hermes_cli.config import load_config, save_config, save_env_value
+        from hermes_cli.mcp_catalog import hub_env_key
 
-        save_env_value("LINEAR_API_KEY", "lin-test-value")
+        save_env_value(hub_env_key("linear", "LINEAR_API_KEY"), "lin-test-value")
         installer = McpLocalInstaller()
         assert installer.install("linear").ok
         config = load_config()
@@ -329,7 +331,7 @@ class TestMcpLocalInstaller:
         from hermes_cli import mcp_catalog
         from hermes_cli.config import load_config, save_config, save_env_value
 
-        save_env_value("LINEAR_API_KEY", "lin-test-value")
+        save_env_value(mcp_catalog.hub_env_key("linear", "LINEAR_API_KEY"), "lin-test-value")
         installer = McpLocalInstaller()
         assert installer.install("linear").ok
         config = load_config()
@@ -348,6 +350,29 @@ class TestMcpLocalInstaller:
         kept = {key: raw.get(key) for key in ("enabled", "trust", "timeout", "connect_timeout", "tools")}
         assert kept == {"enabled": False, "trust": "untrusted", "timeout": 45, "connect_timeout": 20, "tools": {"exclude": ["create_issue"], "prompts": False}}
         assert installer.local_state("linear")["modified"] is False
+
+    def test_an_install_from_before_per_server_values_keeps_working_and_moves_them_when_installed_again(self, feed):
+        """Before this release a hub server read its values under the names it
+        declares (``${LINEAR_API_KEY}``). It keeps running as it is; the first
+        time it is installed again, each value its entry read is copied to
+        the server's own key, and its entry reads that one."""
+        from hermes_cli import mcp_catalog
+        from hermes_cli.config import get_env_value, load_config, save_config, save_env_value
+
+        entry = mcp_catalog.get_entry("agentx-hub/linear")
+        legacy = {"command": "npx", "args": ["-y", "@acme/linear-mcp@1.4.0"], "env": {"LINEAR_API_KEY": "${LINEAR_API_KEY}"}}
+        legacy.update(hub=mcp_catalog.hub_config_block(entry, legacy), enabled=True, tools={"include": ["list_issues"]})
+        config = load_config()
+        config["mcp_servers"] = {"linear": legacy}
+        save_config(config)
+        save_env_value("LINEAR_API_KEY", "lin-legacy-value")
+        installer = McpLocalInstaller()
+        assert installer.local_state("linear")["modified"] is False
+        assert installer.install("linear", version="1.4.0").ok
+        assert mcp_catalog.raw_servers()["linear"]["env"] == {"LINEAR_API_KEY": "${AGENTX_MCP_LINEAR__LINEAR_API_KEY}"}
+        assert get_env_value("AGENTX_MCP_LINEAR__LINEAR_API_KEY") == "lin-legacy-value"
+        assert mcp_catalog.installed_servers()["linear"]["env"] == {"LINEAR_API_KEY": "lin-legacy-value"}  # the server still gets its value
+        assert get_env_value("LINEAR_API_KEY") == "lin-legacy-value" and installer.local_state("linear")["modified"] is False
 
     def test_a_pinned_version_the_feed_does_not_serve_is_not_installed(self, feed):
         result = McpLocalInstaller().install("linear", version="1.3.0")

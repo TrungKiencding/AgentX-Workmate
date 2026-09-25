@@ -168,6 +168,19 @@ describe('McpCatalog — AgentX Hub', () => {
     )
   })
 
+  it('names the variable each value becomes, beside what the author asks for', async () => {
+    await renderCatalog([hubEntry()])
+    const card = screen.getByTestId('mcp-hub-entry')
+
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: 'Install' }))
+    })
+    const field = within(card).getByLabelText(/A Linear API key/)
+    expect(field.getAttribute('type')).toBe('password')
+    // The author's prompt says what it wants; the name says what the server reads it as.
+    expect(within(card).getByText('LINEAR_API_KEY')).toBeTruthy()
+  })
+
   it('updates an installed server without asking its values again', async () => {
     await renderCatalog([
       hubEntry({ installed: true, enabled: true, installed_version: '1.3.0', update_available: true, version: '1.5.0' })

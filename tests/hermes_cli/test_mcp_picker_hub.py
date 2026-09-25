@@ -53,11 +53,12 @@ def test_the_catalog_says_why_a_hub_server_cannot_be_installed(monkeypatch, caps
 def test_installing_a_hub_server_by_name_tells_the_hub(monkeypatch):
     from hermes_cli import hub_sync, mcp_picker
     from hermes_cli.config import save_env_value
+    from hermes_cli.mcp_catalog import hub_env_key
 
     _feed(monkeypatch, {"slug": "linear", "supported": True, "manifest": VECTOR["manifest"]})
     told: list[str] = []
     monkeypatch.setattr(hub_sync, "announce_mcp_install", lambda slug: told.append(slug) or True)
-    save_env_value("LINEAR_API_KEY", "lin-value")
+    save_env_value(hub_env_key("linear", "LINEAR_API_KEY"), "lin-value")
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
     assert mcp_picker.install_by_name("agentx-hub/linear") == 0
     assert told == ["linear"]
