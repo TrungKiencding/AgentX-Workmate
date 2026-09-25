@@ -396,6 +396,7 @@ def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path]
     if origin == ORIGIN_HUB:
         if install_raw is not None:
             raise CatalogError(f"{path}: a hub entry installs nothing (no install block): it runs through a package launcher or a remote URL")
+        _check_literal(transport, auth, path)
         _check_pinned(transport, path)
         hub = _parse_hub_spec(data.get("hub"), path)
     elif install_raw is not None:
@@ -414,6 +415,25 @@ def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path]
         origin=origin,
         hub=hub,
     )
+
+
+def _check_literal(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
+    """A hub entry's values are literal: none holds a ``${…}`` reference.
+
+    Workmate fills every ``${NAME}`` of a server entry from the person's
+    secrets when it starts the server (``tools/mcp_tool.py``), and a
+    variable's default lands in ``.env``, where the same happens: a
+    reference the author wrote would hand the server any secret of this
+    machine. The only references a hub server runs with, its headers
+    included, are the ones :func:`_build_server_config` writes for the
+    variables it declares (``auth.env``), filled in on this machine."""
+    values = [("transport.command", transport.command), ("transport.url", transport.url)]
+    values += [(f"transport.args[{index}]", arg) for index, arg in enumerate(transport.args)]
+    values += [(f"transport.env.{key}", f"{key}={value}") for key, value in transport.env.items()]
+    values += [(f"auth.env.{spec.name}.default", spec.default) for spec in auth.env]
+    for where, value in values:
+        if "${" in str(value or ""):
+            raise CatalogError(f"{path}: {where} holds a ${{…}} reference; a hub entry's values are literal (what it needs from this machine is declared in auth.env)")
 
 
 def _check_pinned(transport: TransportSpec, path: str) -> None:
