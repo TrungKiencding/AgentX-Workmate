@@ -1630,6 +1630,8 @@ export function McpCatalog({
 
   const hubEntries = entries.filter(entry => entry.origin === 'hub')
   const shipped = entries.filter(entry => entry.origin !== 'hub')
+  // Keys the hub signs with that this machine does not trust (Agent Hub P6.1): said instead of "offline".
+  const untrustedKids = (hub?.notices ?? []).filter(n => n.code === 'hub_key_untrusted').map(n => n.kid ?? '?')
 
   const credentialInputs = (entry: McpCatalogEntry) => {
     const key = keyOf(entry)
@@ -1675,10 +1677,16 @@ export function McpCatalog({
                 {m.hubSignIn}
               </p>
             )}
-            {hub.error && (
-              <p className="text-xs text-(--ui-yellow)" data-testid="mcp-hub-offline">
-                {m.hubOffline}
+            {untrustedKids.length > 0 ? (
+              <p className="text-xs text-(--ui-red)" data-testid="mcp-hub-key-untrusted">
+                {m.hubKeyUntrusted(untrustedKids.join(', '))}
               </p>
+            ) : (
+              hub.error && (
+                <p className="text-xs text-(--ui-yellow)" data-testid="mcp-hub-offline">
+                  {m.hubOffline}
+                </p>
+              )
             )}
             {unsupported > 0 && <p className="text-xs text-(--ui-text-tertiary)">{m.hubUnsupported(unsupported)}</p>}
           </div>

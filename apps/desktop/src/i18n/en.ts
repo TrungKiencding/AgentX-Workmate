@@ -1015,6 +1015,8 @@ export const en: Translations = {
         'MCP servers your AgentX Hub approved. Workmate turns on only the tools the hub approved; a tool that changes stays off until the hub approves it.',
       hubSignIn: 'Sign in to AgentX Hub (the Hub tab) to see its MCP servers here.',
       hubOffline: 'The AgentX Hub could not be reached: this is the list fetched last.',
+      hubKeyUntrusted: kids =>
+        `The AgentX Hub signs with a key this machine does not trust (${kids}): nothing it signs can be installed. If the hub's operator confirms a key change, run \`agentx mcp hub-keys --reset\`.`,
       hubVerified: 'Verified',
       hubTrustCurated: 'Curated',
       hubTrustReviewed: 'Reviewed',
