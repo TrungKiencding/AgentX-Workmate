@@ -46,6 +46,7 @@ import base64
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
@@ -403,31 +404,42 @@ def feed_status(hub_url: Optional[str] = None) -> Dict[str, Any]:
             "notices": list(feed.notices)}
 
 
-# ─── The lock on a hub server's tools (Agent Hub P3.8) ───────────────────────
+# ─── The lock on a hub server's surface (Agent Hub P3.8, P6.1) ───────────────
 
 _SURFACES_FILENAME = "mcp_hub_surfaces.json"
 
 
 @dataclass(frozen=True)
 class ToolCheck:
-    """What a hub server announced, against the tools the hub approved.
+    """What a hub server announced, against the surface the hub approved.
 
     ``allowed`` — the tools whose canonical hash equals the approved one
     (``hub.tool_hashes``): the only ones registered. ``blocked`` — the others
     (new, or described otherwise): kept off until the hub approves the list
-    they belong to. ``surface`` is the canonical list as the hub reads it,
-    for the report (``surface_hash`` its hash)."""
+    they belong to. ``prompts`` and ``templates`` — the approved prompts (by
+    name, ``hub.prompt_hashes``) and resource templates (by ``uriTemplate``,
+    ``hub.template_hashes``) announced with their approved hash: the
+    server's prompt and resource tools are registered for those alone
+    (``blocked_prompts``, ``blocked_templates``: the others). ``surface`` is
+    the canonical surface as the hub reads it — tools, prompts and resource
+    templates — for the report, ``surface_hash`` its hash; both are empty
+    when what the server offers is not known whole (a list it could not
+    give, or one that cannot be read item by item)."""
 
     surface_hash: str
     surface: Dict[str, Any]
     allowed: frozenset
     blocked: tuple
+    prompts: frozenset = frozenset()
+    templates: frozenset = frozenset()
+    blocked_prompts: tuple = ()
+    blocked_templates: tuple = ()
 
 
 def tool_payload(tool: Any) -> Dict[str, Any]:
-    """What the server sent for *tool*, as JSON — the keys it set, its nulls
-    included: the hub hashed what the author pasted or what its probe read
-    the same way (``tools/mcp_surface.py``)."""
+    """What the server sent for *tool* — or a prompt, or a resource template
+    — as JSON: the keys it set, its nulls included. The hub hashed what the
+    author pasted or what its probe read the same way (``tools/mcp_surface.py``)."""
     dump = getattr(tool, "model_dump", None)
     if callable(dump):
         return dump(by_alias=True, exclude_unset=True, mode="json")
@@ -436,25 +448,101 @@ def tool_payload(tool: Any) -> Dict[str, Any]:
     return {"name": str(getattr(tool, "name", "") or "")}
 
 
-def check_tools(config: Mapping[str, Any], tools: Any) -> Optional[ToolCheck]:
-    """The lock of a server installed from the hub (``config["hub"]``), or
-    None for any other server. A list that cannot be read tool by tool (a
-    tool without a name, two with the same one) turns every tool off."""
-    from tools.mcp_surface import surface_from_payload
+def _lock(config: Mapping[str, Any], key: str) -> Dict[str, str]:
+    hub = config.get("hub") if isinstance(config.get("hub"), dict) else {}
+    return hub.get(key) if isinstance(hub.get(key), dict) else {}
 
-    hub = config.get("hub")
-    if not isinstance(hub, dict):
+
+def check_tools(config: Mapping[str, Any], tools: Any, prompts: Any = (), templates: Any = ()) -> Optional[ToolCheck]:
+    """The lock of a server installed from the hub (``config["hub"]``), or
+    None for any other server: its *tools*, *prompts* and resource
+    *templates* against the approved surface. Each family is read on its
+    own: one that cannot be read item by item (an item without a name, two
+    with the same one) turns all of that family off, and one the server
+    could not list (``None``) stays off."""
+    from tools.mcp_surface import Surface, surface_from_lists
+
+    if not isinstance(config.get("hub"), dict):
         return None
-    approved = hub.get("tool_hashes") if isinstance(hub.get("tool_hashes"), dict) else {}
-    payloads = [tool_payload(tool) for tool in tools or []]
-    try:
-        surface = surface_from_payload({"tools": payloads})
-    except ValueError:
-        names = sorted({str(p.get("name") or "") for p in payloads} - {""})
-        return ToolCheck(surface_hash="", surface={"tools": payloads}, allowed=frozenset(), blocked=tuple(names))
-    hashes = surface.tool_hashes
-    allowed = frozenset(name for name, digest in hashes.items() if approved.get(name) == digest)
-    return ToolCheck(surface_hash=surface.hash, surface=surface.to_json(), allowed=allowed, blocked=tuple(sorted(set(hashes) - allowed)))
+
+    def read(family: str, items: Any) -> Optional[Surface]:
+        if items is None:
+            return None
+        try:
+            return surface_from_lists(**{family: [tool_payload(item) for item in items]})
+        except ValueError:
+            return None
+
+    def opened(hashes: Dict[str, str], key: str) -> frozenset:
+        approved = _lock(config, key)
+        return frozenset(name for name, digest in hashes.items() if approved.get(name) == digest)
+
+    tools_read, prompts_read, templates_read = read("tools", tools or []), read("prompts", prompts), read("resource_templates", templates)
+    if tools_read is None:
+        allowed, blocked = frozenset(), tuple(sorted({str(tool_payload(tool).get("name") or "") for tool in tools or []} - {""}))
+    else:
+        allowed = opened(tools_read.tool_hashes, "tool_hashes")
+        blocked = tuple(sorted(set(tools_read.tool_hashes) - allowed))
+    open_prompts = opened(prompts_read.prompt_hashes, "prompt_hashes") if prompts_read is not None else frozenset()
+    open_templates = opened(templates_read.template_hashes, "template_hashes") if templates_read is not None else frozenset()
+    surface_hash, surface = "", {}
+    if tools_read is not None and prompts_read is not None and templates_read is not None:
+        whole = Surface(tools=tools_read.tools, prompts=prompts_read.prompts, resource_templates=templates_read.resource_templates)
+        surface_hash, surface = whole.hash, whole.to_json()
+    return ToolCheck(
+        surface_hash=surface_hash, surface=surface, allowed=allowed, blocked=blocked, prompts=open_prompts, templates=open_templates,
+        blocked_prompts=tuple(sorted(set(prompts_read.prompt_hashes) - open_prompts)) if prompts_read is not None else (),
+        blocked_templates=tuple(sorted(set(templates_read.template_hashes) - open_templates)) if templates_read is not None else (),
+    )
+
+
+def approved_prompts(config: Mapping[str, Any], check: Optional[ToolCheck], prompts: Any) -> List[Any]:
+    """Of the *prompts* a hub server lists now, those its ``list_prompts``
+    tool shows: approved when it registered (``check.prompts``) and still
+    announced with the approved hash. A name listed twice shows neither."""
+    from tools.mcp_surface import canonical_prompt, item_hash
+
+    approved, opened = _lock(config, "prompt_hashes"), check.prompts if check is not None else frozenset()
+    canonical: List[tuple] = []
+    for prompt in prompts or []:
+        try:
+            canonical.append((prompt, canonical_prompt(tool_payload(prompt))))
+        except ValueError:
+            continue
+    names = [item["name"] for _, item in canonical]
+    return [prompt for prompt, item in canonical
+            if names.count(item["name"]) == 1 and item["name"] in opened and approved.get(item["name"]) == item_hash(item)]
+
+
+_URI_EXPRESSION = re.compile(r"\{([+#./;?&]?)[^{}]*\}")
+#: What one ``{…}`` expression of a URI template (RFC 6570) expands to, by its operator.
+_URI_EXPANSIONS = {
+    "": r"[^/?#&]*",          # simple: reserved characters come percent-encoded
+    "+": r".*",               # reserved expansion
+    "#": r"(?:#.*)?",
+    ".": r"(?:\.[^/?#]*)*",
+    "/": r"(?:/[^/?#]*)*",
+    ";": r"(?:;[^/?#]*)*",
+    "?": r"(?:\?[^#]*)?",
+    "&": r"(?:&[^#]*)?",
+}
+
+
+def uri_matches(template: str, uri: str) -> bool:
+    """Whether *uri* is one the URI template *template* describes: its
+    literal parts as they are, each expression what it can expand to."""
+    pattern, last = [], 0
+    for expression in _URI_EXPRESSION.finditer(template):
+        pattern += [re.escape(template[last:expression.start()]), _URI_EXPANSIONS[expression.group(1)]]
+        last = expression.end()
+    pattern.append(re.escape(template[last:]))
+    return re.fullmatch("".join(pattern), uri, flags=re.DOTALL) is not None
+
+
+def resource_allowed(check: Optional[ToolCheck], uri: str) -> bool:
+    """A resource of a hub server its resource tools may list or read: one an
+    approved template (``check.templates``) describes."""
+    return check is not None and any(uri_matches(template, uri) for template in check.templates)
 
 
 def _surfaces_path() -> Path:

@@ -28,7 +28,11 @@ keys, no whitespace, UTF-8 kept):
 
 * item hash — of the canonical item;
 * surface hash — of ``[{"k": "tool"|"prompt"|"template", "n": name, "h": item hash}, …]``
-  sorted by ``(k, n, h)``.
+  sorted by ``(k, n, h)``;
+* the locks, ``{key: item hash}`` of each kind — ``tool_hashes`` and
+  ``prompt_hashes`` by name, ``template_hashes`` by ``uriTemplate`` (two
+  templates may share a name): what the gateway and Workmate compare an
+  item a server announces with.
 """
 
 from __future__ import annotations
@@ -144,6 +148,16 @@ class Surface:
     def tool_hashes(self) -> dict[str, str]:
         """``{tool name: item hash}`` — what the gateway and Workmate compare."""
         return {t["name"]: item_hash(t) for t in self.tools}
+
+    @property
+    def prompt_hashes(self) -> dict[str, str]:
+        """``{prompt name: item hash}``, made as :attr:`tool_hashes` is."""
+        return {p["name"]: item_hash(p) for p in self.prompts}
+
+    @property
+    def template_hashes(self) -> dict[str, str]:
+        """``{uriTemplate: item hash}`` of the resource templates, made as :attr:`tool_hashes` is."""
+        return {r["uriTemplate"]: item_hash(r) for r in self.resource_templates}
 
     def to_json(self) -> dict[str, Any]:
         return {"version": SURFACE_VERSION, "tools": self.tools, "prompts": self.prompts, "resource_templates": self.resource_templates}

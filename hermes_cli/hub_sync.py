@@ -31,8 +31,9 @@ a required value this machine does not hold is reported, not prompted for —
 switches one off (``enabled: false``, the config stays) and removes one
 (its tokens and cached tools too). A server edited on this machine is never
 overwritten; the report says so once. When the hub approves another tool
-list for the version a machine runs, its lock (``hub.tool_hashes``) is
-refreshed from the feed: the tools it approved open on the next reload.
+list for the version a machine runs, its lock (``hub.tool_hashes``, and
+``prompt_hashes`` and ``template_hashes`` since P6.1) is refreshed from the
+feed: what it approved opens on the next reload.
 Each report carries what the server announced when it last registered
 (``tools/mcp_tool.py``) and the tools kept off.
 
@@ -78,6 +79,8 @@ NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.
                 "mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
 #: Of those, the ones after which the MCP feed is fetched again at once (a new manifest, a new tool list).
 FEED_EVENTS = ("mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
+#: What a hub server's lock is made of (``hub`` block of its config): its approved tools, prompts and resource templates.
+HUB_LOCK_KEYS = ("tool_hashes", "prompt_hashes", "template_hashes")
 #: Why a skill the hub wants replaced stays as it is (reported as ``failed``).
 LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the Hub tab (the edit is backed up first) or keep it"
 
@@ -483,9 +486,9 @@ class McpLocalInstaller:
             hub = cfg.get("hub") or {}
             return {
                 "installed": True, "name": name, "version": str(hub.get("version") or ""), "enabled": mcp_catalog.is_enabled(name),
-                "modified": mcp_catalog.edited_locally(cfg), "tool_hashes": dict(hub.get("tool_hashes") or {}),
+                "modified": mcp_catalog.edited_locally(cfg), **{key: dict(hub.get(key) or {}) for key in HUB_LOCK_KEYS},
             }
-        return {"installed": False, "name": "", "version": "", "enabled": False, "modified": False, "tool_hashes": {}}
+        return {"installed": False, "name": "", "version": "", "enabled": False, "modified": False, **{key: {} for key in HUB_LOCK_KEYS}}
 
     def feed_entry(self, slug: str) -> Any:
         """The verified entry of hub server *slug* in the feed on disk, or None."""
@@ -865,7 +868,7 @@ class HubSyncEngine:
         feed_version = entry.hub.version if entry is not None and entry.hub is not None else ""
         if local["installed"] and (not pinned or local["version"] == pinned):
             same_version = entry is not None and feed_version == local["version"]
-            if same_version and dict(entry.hub.tool_hashes) != local["tool_hashes"]:
+            if same_version and any(dict(getattr(entry.hub, key, None) or {}) != (local.get(key) or {}) for key in HUB_LOCK_KEYS):
                 # The hub approved another tool list for this version: the lock follows it.
                 result = self._mcp.install(slug, version=local["version"])
                 if result.ok:
@@ -1035,7 +1038,7 @@ class HubSyncEngine:
         for row in block.get("installs") or []:
             if isinstance(row, dict):
                 local = self._mcp.local_state(str(row.get("slug") or ""))
-                rows.append({**row, "local": {k: v for k, v in local.items() if k != "tool_hashes"}})
+                rows.append({**row, "local": {k: v for k, v in local.items() if k not in HUB_LOCK_KEYS}})
         return {"installs": rows, "updates": list(block.get("updates") or []), "workspaces": list(block.get("workspaces") or []),
                 "endpoints_changed_at": block.get("endpoints_changed_at")}
 
