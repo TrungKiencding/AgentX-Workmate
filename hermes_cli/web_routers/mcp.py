@@ -499,11 +499,12 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
 
     name = (body.name or "").strip()
     effective_profile = body.profile or profile
-    if name.startswith(mcp_catalog.HUB_PREFIX) and not _is_default_profile(effective_profile):
-        raise HTTPException(status_code=400, detail="AgentX Hub servers are installed in the default profile, where the hub sync keeps them.")
     entry = mcp_catalog.get_entry(name)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"No catalog entry '{name}'")
+    # Every hub entry, asked for as agentx-hub/<slug> or by its bare name (get_entry finds both).
+    if entry.hub is not None and not _is_default_profile(effective_profile):
+        raise HTTPException(status_code=400, detail="AgentX Hub servers are installed in the default profile, where the hub sync keeps them.")
 
     # Catalog credentials are a closed schema: configuring one MCP must not
     # become a generic write primitive for unrelated process environment.

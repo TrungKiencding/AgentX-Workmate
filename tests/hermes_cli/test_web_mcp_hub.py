@@ -112,6 +112,23 @@ def test_a_hub_server_goes_in_the_default_profile_only(client, hub):
     assert refused.status_code == 400 and "default profile" in refused.json()["detail"]
 
 
+def test_a_hub_server_asked_for_by_its_bare_name_goes_in_the_default_profile_only_too(client, hub, monkeypatch, tmp_path):
+    """``linear`` finds the hub's server when nothing shipped has that name
+    (``get_entry``): the rule holds for every hub entry, however it is
+    named. In another profile the sync would never manage it — switched off
+    on the hub, it would run on here."""
+    from hermes_cli import mcp_catalog, profiles
+
+    monkeypatch.setenv("AGENTX_OPTIONAL_MCPS", str(tmp_path / "no-shipped-entries"))
+    work = tmp_path / "profiles" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setattr(profiles, "_get_profiles_root", lambda: tmp_path / "profiles")
+    assert mcp_catalog.get_entry("linear").hub is not None
+    refused = client.post("/api/mcp/catalog/install", json={"name": "linear", "env": {"LINEAR_API_KEY": "v"}, "profile": "work"})
+    assert refused.status_code == 400 and "default profile" in refused.json()["detail"]
+    assert not (work / "config.yaml").exists() and not (work / ".env").exists() and hub.created == []
+
+
 def test_removing_a_hub_server_here_is_said_to_the_hub_by_the_sync(client, hub):
     client.post("/api/mcp/catalog/install", json={"name": "agentx-hub/linear", "env": {"LINEAR_API_KEY": "lin-value"}})
     removed = client.post("/api/mcp/hub/linear/remove")
