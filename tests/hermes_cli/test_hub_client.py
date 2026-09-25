@@ -192,6 +192,20 @@ class TestFailures:
         with pytest.raises(HubError):
             HubClient("  ")
 
+    def test_a_hub_not_reached_over_https_is_refused_before_anything_is_sent(self, hub):
+        """P6.1 (Workmate review F1): over plain http whoever answers for the hub
+        reads the bearer and hands out its own keys and feed. Refused — a
+        refusal of this machine's, not an outage — except on this machine."""
+        client = HubClient("http://hub.test", transport=hub.transport, sleep=lambda _s: None)
+        for call in (lambda: client.me(bearer="tok", device_id=DEVICE), lambda: client.mcp_catalog(bearer="tok")):
+            with pytest.raises(HubError) as refused:
+                call()
+            assert refused.value.code == "insecure_hub_url" and "https" in str(refused.value)
+            assert refused.value.unreachable is False and refused.value.reauth is False
+        assert hub.requests == []
+        for local in ("http://127.0.0.1:8820", "http://localhost:8820", "http://[::1]:8820"):
+            assert HubClient(local, transport=hub.transport).me(bearer="tok")["subject"] == "kc-ada", local
+
 
 @pytest.mark.asyncio
 class TestEventStream:
@@ -209,3 +223,10 @@ class TestEventStream:
             async for _ in client.aiter_events(bearer="stale", device_id=DEVICE):
                 pass
         assert refused.value.reauth is True
+
+    async def test_no_stream_is_opened_to_a_hub_over_plain_http(self, hub):
+        client = HubClient("http://hub.test", transport=hub.transport)
+        with pytest.raises(HubError) as refused:
+            async for _ in client.aiter_events(bearer="tok", device_id=DEVICE):
+                pass
+        assert refused.value.code == "insecure_hub_url" and hub.requests == []
