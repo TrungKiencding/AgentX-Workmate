@@ -890,6 +890,10 @@ def _launch(command, args, env):
     return {"transport": {"type": "stdio", "command": command, "args": args, "env": env}}
 
 
+#: An image digest, as the hub pins an OCI package it scanned.
+_DIGEST = "sha256:" + "a" * 64
+
+
 class TestHubEntries:
     """AgentX Hub entries (Agent Hub P3.6): a manifest the hub signed, read
     as a dict, held to the rules the shipped manifests follow in CI, and
@@ -947,6 +951,77 @@ class TestHubEntries:
         from hermes_cli.mcp_catalog import CatalogError
 
         manifest = self._manifest(transport={"type": "stdio", "command": command, "args": args})
+        if pinned:
+            assert self._parse(manifest).transport.args == args
+        else:
+            with pytest.raises(CatalogError, match="one exact release"):
+                self._parse(manifest)
+
+    @pytest.mark.parametrize("command, args, pinned", [
+        pytest.param("docker", ["run", "-i", "--rm", "ghcr.io/acme/linear-mcp:1.4.0"], False, id="tag-not-digest"),
+        pytest.param("docker", ["run", "-i", "--rm", "ghcr.io/acme/linear-mcp"], False, id="no-reference"),
+        pytest.param("docker", ["run", "-i", "--rm", "-v", "/:/host", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="volume"),
+        pytest.param("docker", ["run", "--volume=/Users:/h", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="volume-inline"),
+        pytest.param("docker", ["run", "--mount", "type=bind,src=/,dst=/h", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="mount"),
+        pytest.param("docker", ["run", "--privileged", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="privileged"),
+        pytest.param("docker", ["run", "--network=host", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="network"),
+        pytest.param("docker", ["run", "--pid=host", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="pid"),
+        pytest.param("docker", ["run", "--ipc=host", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="ipc"),
+        pytest.param("docker", ["run", "--cap-add=SYS_ADMIN", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="cap-add"),
+        pytest.param("docker", ["run", "--device", "/dev/mem", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="device"),
+        pytest.param("docker", ["run", "--security-opt", "seccomp=unconfined", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="security-opt"),
+        pytest.param("docker", ["run", "--entrypoint=/bin/sh", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="entrypoint"),
+        pytest.param("docker", ["run", "--env-file=/Users/me/.agentx/.env", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="env-file"),
+        pytest.param("docker", ["run", "-p", "8080:8080", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="publish"),
+        pytest.param("docker", ["run", "-e", "LINEAR_API_KEY=lin-value", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="env-with-a-value"),
+        pytest.param("docker", ["run", "--unknown", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="unknown-flag"),
+        pytest.param("docker", ["pull", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="not-run"),
+        pytest.param("docker", [], False, id="nothing"),
+        pytest.param("/usr/local/bin/docker.exe", ["run", "-v", "/:/host", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], False, id="docker-by-path"),
+        pytest.param("docker", ["run", "-i", "--rm", "-e", "LINEAR_API_KEY", f"ghcr.io/acme/linear-mcp@{_DIGEST}"], True, id="hub-shape"),
+        pytest.param("docker", ["run", "--interactive", "--init", "--env", "LINEAR_API_KEY", f"acme/linear-mcp@{_DIGEST}", "--port", "3000"], True,
+                     id="long-flags-then-the-containers-own-arguments"),
+        pytest.param("docker", ["run", "-i", "--rm", f"registry.example.com:5000/acme/linear-mcp:1.4.0@{_DIGEST}"], True, id="port-and-tag-beside-the-digest"),
+    ])
+    def test_docker_runs_one_image_pinned_by_its_digest(self, command, args, pinned):
+        """``docker run`` of one image by its digest, with only ``-i``,
+        ``--rm``, ``--init`` and ``-e NAME`` (a name passed through, never a
+        value) before it: a mount, a device, the host's network or
+        namespaces, another entrypoint, an env file would reach past the
+        image the hub scanned. After the image: the container's own arguments."""
+        from hermes_cli.mcp_catalog import CatalogError
+
+        manifest = self._manifest(transport={"type": "stdio", "command": command, "args": args})
+        if pinned:
+            assert self._parse(manifest).transport.args == args
+        else:
+            with pytest.raises(CatalogError, match="one exact release"):
+                self._parse(manifest)
+
+    @pytest.mark.parametrize("args, pinned", [
+        pytest.param(["Acme.Linear.Mcp", "--yes"], False, id="no-version"),
+        pytest.param(["Acme.Linear.Mcp@1", "--yes"], False, id="one-part"),
+        pytest.param(["Acme.Linear.Mcp@1.*", "--yes"], False, id="floating"),
+        pytest.param(["Acme.Linear.Mcp@[1.4.0,2.0.0)", "--yes"], False, id="range"),
+        pytest.param(["--source", "https://nuget.evil.example/v3/index.json", "Acme.Linear.Mcp@1.4.0", "--yes"], False, id="source"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "--add-source=https://nuget.evil.example/v3/index.json", "--yes"], False, id="add-source-after-the-package"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "--configfile", "/tmp/nuget.config", "--yes"], False, id="configfile"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "--unknown", "--yes"], False, id="unknown-flag"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "Other.Tool@2.0.0", "--yes"], False, id="two-packages"),
+        pytest.param([], False, id="nothing"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "--yes"], True, id="hub-shape"),
+        pytest.param(["Acme.Linear.Mcp@1.4.0", "--yes", "--", "--port", "3000", "--source", "x"], True, id="the-tools-own-arguments-after-the-separator"),
+        pytest.param(["-y", "Acme.Linear.Mcp@1.4.0.1-beta.2"], True, id="four-parts-and-a-prerelease"),
+        pytest.param(["Acme.Linear.Mcp@1.4", "--yes"], True, id="two-parts-as-the-hub-reads-nuget"),
+    ])
+    def test_dnx_runs_one_exact_release(self, args, pinned):
+        """``dnx <Package>@<version> --yes [-- <the tool's arguments>]``, the
+        shape the hub renders: one NuGet release, no float or range, and
+        ``--yes`` alone beside it — ``--source``, ``--add-source`` or
+        ``--configfile`` would fetch it from a feed the hub never read."""
+        from hermes_cli.mcp_catalog import CatalogError
+
+        manifest = self._manifest(transport={"type": "stdio", "command": "dnx", "args": args})
         if pinned:
             assert self._parse(manifest).transport.args == args
         else:

@@ -103,6 +103,22 @@ _LAUNCHERS: Dict[str, tuple] = {
     "uvx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
     "pipx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
 }
+#: Launchers with a shape of their own, as the hub renders them. docker
+#: runs one image pinned by its digest: ``run``, then only ``-i``,
+#: ``--rm``, ``--init`` and ``-e NAME`` (a variable passed through by its
+#: bare name, never a value) before the image — a mount, a device, the
+#: host's network or namespaces, another entrypoint or an env file would
+#: reach past the image the hub scanned; after the image come the
+#: container's own arguments. dnx runs one NuGet release, ``Package@X.Y[.Z[.W]]``
+#: (a bare version is an exact one to dnx; no float, no range), with
+#: ``--yes`` alone beside it — ``--source``, ``--add-source`` or
+#: ``--configfile`` would fetch it from another feed; after ``--`` come the
+#: tool's own arguments.
+_DOCKER_IMAGE = re.compile(r"[a-z0-9][a-z0-9._\-/:]*@sha256:[0-9a-f]{64}")
+_DOCKER_FLAGS = frozenset({"-i", "--interactive", "--rm", "--init"})
+_DOCKER_ENV_FLAGS = frozenset({"-e", "--env"})
+_NUGET_RELEASE = re.compile(r"[A-Za-z0-9_][\w.\-]*@\d+(\.\d+){1,3}(-[0-9A-Za-z.\-]+)?(\+[0-9A-Za-z.\-]+)?")
+_DNX_FLAGS = frozenset({"-y", "--yes"})
 #: What Windows appends to a launcher's name (``npx.cmd`` is npx).
 _EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat", ".ps1")
 #: The environment variables that point a package launcher at another
@@ -525,7 +541,7 @@ def _launcher_of(command: Any) -> str:
         if name.endswith(suffix):
             name = name[: -len(suffix)]
             break
-    return name if name in _LAUNCHERS else ""
+    return name if name in _LAUNCHERS or name in ("docker", "dnx") else ""
 
 
 def _check_pinned(transport: TransportSpec, path: str) -> None:
@@ -533,9 +549,16 @@ def _check_pinned(transport: TransportSpec, path: str) -> None:
     first argument that is not a flag names it, and the flags before that
     are harmless ones (a hub entry is read with the rule the shipped
     manifests follow in CI). The arguments after the release are the
-    server's own."""
+    server's own. docker and dnx have shapes of their own (:func:`_check_docker`,
+    :func:`_check_dnx`)."""
     launcher = _launcher_of(transport.command) if transport.type == "stdio" else ""
     if not launcher:
+        return
+    if launcher == "docker":
+        _check_docker(transport, path)
+        return
+    if launcher == "dnx":
+        _check_dnx(transport, path)
         return
     release, form, harmless = _LAUNCHERS[launcher]
     for arg in transport.args:
@@ -547,6 +570,45 @@ def _check_pinned(transport: TransportSpec, path: str) -> None:
             raise CatalogError(f"{path}: {transport.command} must run one exact release from its own registry: "
                                f"{arg!r} is not a flag a hub entry may give it (only {', '.join(sorted(harmless))})")
     raise CatalogError(f"{path}: {transport.command} must run one exact release ({form}), got nothing")
+
+
+def _check_docker(transport: TransportSpec, path: str) -> None:
+    """``docker run`` of one image pinned by its digest, harmless flags only
+    before it (:data:`_DOCKER_IMAGE`)."""
+    args = list(transport.args)
+    if not args or args[0] != "run":
+        raise CatalogError(f"{path}: docker must run one exact release (docker run … name@sha256:<64 hex>), got {args[:1] or 'nothing'}")
+    index = 1
+    while index < len(args):
+        arg = args[index]
+        if arg in _DOCKER_ENV_FLAGS:
+            name = args[index + 1] if index + 1 < len(args) else ""
+            if not _ENV_NAME_RE.match(name):
+                raise CatalogError(f"{path}: docker must run one exact release: {arg} passes a variable by its bare name, got {name!r}")
+            index += 2
+        elif arg.startswith("-"):
+            if arg not in _DOCKER_FLAGS:
+                raise CatalogError(f"{path}: docker must run one exact release, the image alone: {arg!r} is not a flag a hub entry may give it "
+                                   f"(only -i/--interactive, --rm, --init, -e/--env NAME)")
+            index += 1
+        elif _DOCKER_IMAGE.fullmatch(arg):
+            return
+        else:
+            raise CatalogError(f"{path}: docker must run one exact release, an image pinned by its digest (name@sha256:<64 hex>), got {arg!r}")
+    raise CatalogError(f"{path}: docker must run one exact release (name@sha256:<64 hex>), got nothing")
+
+
+def _check_dnx(transport: TransportSpec, path: str) -> None:
+    """``dnx Package@X.Y.Z --yes [-- <the tool's arguments>]``: one NuGet
+    release, and ``--yes`` alone beside it (:data:`_NUGET_RELEASE`)."""
+    args = list(transport.args)
+    head = args[: args.index("--")] if "--" in args else args
+    releases = [arg for arg in head if not arg.startswith("-")]
+    for flag in (arg for arg in head if arg.startswith("-")):
+        if flag not in _DNX_FLAGS:
+            raise CatalogError(f"{path}: dnx must run one exact release from its own feed: {flag!r} is not a flag a hub entry may give it (only -y, --yes)")
+    if len(releases) != 1 or not _NUGET_RELEASE.fullmatch(releases[0]):
+        raise CatalogError(f"{path}: dnx must run one exact release (Package@X.Y.Z), got {releases or 'nothing'}")
 
 
 def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
