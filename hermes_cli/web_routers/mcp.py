@@ -652,10 +652,12 @@ async def list_gateway_endpoints(request: Request, profile: Optional[str] = None
 async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profile: Optional[str] = None):
     """Add one of the person's gateway endpoints to Workmate: this machine's
     gateway token (asked for with the signed-in session, kept in ``.env`` as
-    ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. The desktop reloads
+    ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. An endpoint off the
+    gateway the hub announces (another origin, plain http) is refused
+    (``endpoint_refused``) before any token is asked for. The desktop reloads
     MCP after."""
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
-    from hermes_cli.hub_sync import GatewaySignInNeeded, add_gateway_endpoint
+    from hermes_cli.hub_sync import GatewayEndpointRefused, GatewaySignInNeeded, add_gateway_endpoint
     from hermes_cli.web_routers.skills import _hub_credentials_from
 
     if not _is_default_profile(profile):
@@ -671,11 +673,14 @@ async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profi
         endpoint = next((e for e in listed.get("endpoints") or [] if isinstance(e, dict) and e.get("kind") == body.kind and e.get("ref") == body.ref), None)
         if endpoint is None:
             return _gateway_refusal("not_found", "That endpoint is not one of yours on the hub.")
-        name = await asyncio.to_thread(add_gateway_endpoint, endpoint, client=client, credentials=credentials)
+        gateway_url = str((listed.get("gateway") or {}).get("url") or "")
+        name = await asyncio.to_thread(add_gateway_endpoint, endpoint, gateway_url=gateway_url, client=client, credentials=credentials)
     except GatewaySignInNeeded as exc:
         return _gateway_refusal("sign_in", str(exc), "sign_in_required")
     except HubError as exc:
         return _gateway_error(exc)
+    except GatewayEndpointRefused as exc:
+        return _gateway_refusal("error", str(exc), GatewayEndpointRefused.code)
     except ValueError as exc:
         return _gateway_refusal("error", str(exc), "invalid")
     return {"ok": True, "name": name, "url": endpoint["url"]}

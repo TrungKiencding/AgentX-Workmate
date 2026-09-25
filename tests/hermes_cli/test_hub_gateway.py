@@ -55,6 +55,8 @@ class FakeHub:
     def __init__(self) -> None:
         self.issued: list[dict] = []
         self.refuse: HubError | None = None
+        #: What the hub announces as its gateway with each token.
+        self.gateway_url = f"{HUB}/gw"
 
     def gateway_endpoints(self, **_kwargs):
         return ENDPOINTS
@@ -64,7 +66,7 @@ class FakeHub:
             raise self.refuse
         n = len(self.issued) + 1
         answer = {"id": f"t{n}", "prefix": f"hub_t{n}", "token": f"hub_secret-{n}", "expires_at": _in(90), "device_id": device_id, "purpose": "gateway-device",
-                  "gateway_url": f"{HUB}/gw", "replaced": n - 1}
+                  "gateway_url": self.gateway_url, "replaced": n - 1}
         self.issued.append({"bearer": bearer, "device_id": device_id, "device_name": device_name})
         return answer
 
@@ -314,4 +316,97 @@ def test_the_gateway_never_writes_over_a_server_of_the_same_name_set_up_by_hand(
 def test_add_gateway_endpoint_refuses_an_endpoint_without_an_address(tmp_path):
     held, _env = device(tmp_path)
     with pytest.raises(ValueError):
-        add_gateway_endpoint({"kind": "server", "ref": "x", "url": "javascript:alert(1)"}, client=FakeHub(), credentials=SESSION, device=held)
+        add_gateway_endpoint({"kind": "server", "ref": "x", "url": "javascript:alert(1)"}, gateway_url=f"{HUB}/gw", client=FakeHub(), credentials=SESSION,
+                             device=held)
+
+
+# --- the token goes to the gateway, nowhere else (Agent Hub P6.1 WM-F3) ----------------------------------------------------------------
+
+
+def test_the_token_goes_over_https_to_the_origin_of_the_gateway_only():
+    from hermes_cli.hub_sync import gateway_endpoint_problem as problem
+
+    gateway = f"{HUB}/gw"
+    assert problem(f"{HUB}/gw/s/tracker", gateway) is None and problem("https://HUB.test:443/gw/t/ts_x", gateway) is None
+    for url in ("http://hub.test/gw/s/x", "https://gw.evil.example/gw/s/x", "https://hub.test:8443/gw/s/x", "https://hub.test.evil.example/gw/s/x",
+                "https://hub.test@evil.example/gw/s/x", "javascript:alert(1)", ""):
+        assert problem(url, gateway), url
+    for local in ("http://127.0.0.1:8820", "http://localhost:8820", "http://[::1]:8820"):  # a hub run on this machine
+        assert problem(f"{local}/gw/s/x", f"{local}/gw") is None
+    assert problem(f"{HUB}/gw/s/x", "http://hub.test/gw") and problem(f"{HUB}/gw/s/x", "")  # a gateway over plain http, or none, is no anchor
+
+
+@pytest.mark.parametrize("url", ["https://gw.evil.example/gw/s/tracker", "http://hub.test/gw/s/tracker", "https://hub.test:8443/gw/s/tracker"],
+                         ids=["foreign-host", "plain-http", "other-port"])
+def test_a_foreign_or_plain_http_endpoint_is_refused_and_no_token_is_issued(client, gateway, monkeypatch, url):
+    """Whatever the endpoint list says, the device token goes over https to
+    the gateway the hub announces: an endpoint elsewhere is refused before
+    any token is asked for."""
+    from hermes_cli import mcp_catalog
+
+    rewritten = {**ENDPOINTS, "endpoints": [{**ENDPOINTS["endpoints"][0], "url": url}]}
+    monkeypatch.setattr(HubClient, "gateway_endpoints", lambda self, **_kwargs: rewritten)
+    refused = client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "tracker"})
+    assert refused.status_code == 200, refused.text
+    body = refused.json()
+    assert (body.get("ok"), body.get("status"), body.get("code"), len(gateway.issued)) == (False, "error", "endpoint_refused", 0)
+    assert not any(cfg.get("source") == GATEWAY_SOURCE for cfg in mcp_catalog.raw_servers().values())
+
+
+def _enabled(name: str):
+    from hermes_cli import mcp_catalog
+
+    return (mcp_catalog.raw_servers().get(name) or {}).get("enabled")
+
+
+def _renewing(tmp_path: Path, hub: FakeHub, written: list) -> tuple[HubSyncEngine, GatewayDevice]:
+    """A token issued for the tracker entry of the real config, twelve days from expiry."""
+    from hermes_cli.mcp_config import _save_mcp_server
+
+    assert _save_mcp_server("agentx-tracker", gateway_entry(ENDPOINTS["endpoints"][0]))
+    held = GatewayDevice(state_path=tmp_path / "gateway.json", write_env=lambda _key, value: written.append((value, _enabled("agentx-leak"))))
+    held.issue(hub, SESSION)
+    _age(tmp_path / "gateway.json", 12)
+    return HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=object(), mcp_installer=_NoMcp(), gateway=held), held
+
+
+def test_a_renewal_switches_off_an_entry_off_the_gateway_before_the_token_is_written(tmp_path):
+    """Each renewal checks every entry again: one whose address left the
+    gateway (edited here, or written from a list rewritten on the way) is
+    switched off before the fresh token reaches .env — it never sends it."""
+    from hermes_cli import mcp_catalog
+    from hermes_cli.mcp_config import _save_mcp_server
+
+    hub, written = FakeHub(), []
+    sync, _held = _renewing(tmp_path, hub, written)
+    assert _save_mcp_server("agentx-leak", gateway_entry({"kind": "server", "ref": "leak", "url": "http://gw.evil.example/gw/s/tracker"}))
+    outcome = sync.tick()
+    assert outcome.gateway["renewed"] is True and len(hub.issued) == 2
+    assert written[-1] == ("hub_secret-2", False)  # switched off before the fresh token was written
+    assert _enabled("agentx-tracker") is True and [r["name"] for r in outcome.gateway["refused"]] == ["agentx-leak"] and outcome.mcp_changed
+    assert mcp_catalog.raw_servers()["agentx-leak"]["headers"] == {"Authorization": "Bearer ${AGENTX_GATEWAY_TOKEN}"}  # never the token itself
+    assert sync.changes()["history"][1]["slug"] == "mcp:agentx-leak"
+
+
+def test_no_token_is_issued_when_no_entry_may_carry_it(tmp_path):
+    from hermes_cli.config import load_config, save_config
+
+    hub, written = FakeHub(), []
+    sync, _held = _renewing(tmp_path, hub, written)
+    config = load_config()
+    config["mcp_servers"]["agentx-tracker"]["url"] = "http://gw.evil.example/gw/s/tracker"
+    save_config(config)
+    outcome = sync.tick()
+    assert len(hub.issued) == 1 and "renewed" not in outcome.gateway and _enabled("agentx-tracker") is False
+    assert "renewed" not in sync.tick().gateway and len(hub.issued) == 1  # and none on the ticks after
+
+
+def test_a_renewal_follows_the_gateway_the_hub_announces_now(tmp_path):
+    """The gateway moved (the hub's domain changed): the entries on the old
+    address are switched off before the new token is written — that address
+    may no longer be the hub's."""
+    hub, written = FakeHub(), []
+    sync, _held = _renewing(tmp_path, hub, written)
+    hub.gateway_url = "https://skills.new.example/gw"
+    outcome = sync.tick()
+    assert outcome.gateway["renewed"] is True and _enabled("agentx-tracker") is False
