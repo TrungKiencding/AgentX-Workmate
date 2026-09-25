@@ -49,8 +49,14 @@ def config_fingerprint(config: dict) -> str:
     if isinstance(hub, dict):
         # A server installed from the AgentX Hub is locked to the tools the
         # hub approved: when the hub approves another list, the cache written
-        # under the old one must not register it (Agent Hub P3.8).
+        # under the old one must not register it (Agent Hub P3.8). Its prompt
+        # and resource tools follow the approved prompts and resource
+        # templates the same way (P6.1); a lock without them keeps the
+        # fingerprint it had.
         payload["hub_tools"] = sorted((str(k), str(v)) for k, v in (hub.get("tool_hashes") or {}).items())
+        for key, label in (("prompt_hashes", "hub_prompts"), ("template_hashes", "hub_templates")):
+            if isinstance(hub.get(key), dict) and hub[key]:
+                payload[label] = sorted((str(k), str(v)) for k, v in hub[key].items())
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 

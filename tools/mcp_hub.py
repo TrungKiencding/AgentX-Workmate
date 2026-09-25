@@ -11,8 +11,10 @@ unless forced), everything else reads the copy on disk
 (:func:`checked_servers`) — a hub that is down leaves the last feed usable.
 
 A manifest is **verified** when both of the hub's signatures hold, with a
-key of ``/.well-known/agentx-hub.json`` (the keys and the cache the skill
-source uses, ``tools/skills_hub.py``):
+key of ``/.well-known/agentx-hub.json`` this machine trusts — pinned the
+first time it read the hub's keys, or endorsed by a pinned key
+(``tools/hub_trust.py``; the keys and the cache the skill source uses,
+``tools/skills_hub.py``):
 
 * ``hub.signature`` over ``hub.signed`` — the version's manifest, signed when
   a hub admin (or the private-server rule) approved it: the ``server.json``
@@ -26,6 +28,16 @@ source uses, ``tools/skills_hub.py``):
 A manifest that fails either check, or whose scan was ``dangerous``, is
 listed as a problem and cannot be installed. The canonical JSON is the
 hub's: sorted keys, no whitespace, UTF-8 kept.
+
+**The feed itself** (Agent Hub P6.1) replaces the copy on disk only when
+:func:`feed_problem` finds nothing: it comes from a hub reached over https
+(``hub_trust.url_problem``), names that hub, is signed whole — ``feed_sig``
+with the key ``feed_kid`` over :func:`signed_feed_body` — and was issued no
+earlier than the feed accepted last (an older one is a replay: it could
+bring back what the hub has since withdrawn). Otherwise the last good feed
+stays and ``error`` says why. A key the feed names that this machine does
+not trust is a notice, ``hub_key_untrusted``, beside that error
+(:func:`feed_status`).
 """
 
 from __future__ import annotations
@@ -34,12 +46,15 @@ import base64
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +66,10 @@ RETRY_SECONDS = 60
 MCP_MANIFEST_FIELDS = ("kind", "slug", "name", "version", "content_hash", "surface_hash", "verdict", "scanned_at", "scanner_versions")
 #: The keys of the ``hub`` block the manifest signature leaves out (they hold it).
 MANIFEST_SIGNATURE_KEYS = ("manifest_sig", "manifest_kid")
+#: The product a feed is for (``GET /v1/mcp/catalog.json?product=workmate``).
+FEED_PRODUCT = "workmate"
+#: The notice of a key the feed names that this machine does not trust.
+NOTICE_KEY_UNTRUSTED = "hub_key_untrusted"
 _CACHE_FILENAME = "mcp_hub_feed.json"
 _cache_lock = threading.Lock()
 
@@ -98,7 +117,7 @@ def manifest_problem(manifest: Any, keys: Mapping[str, str]) -> Optional[str]:
             return f"hub.{key} is missing"
     version_key, manifest_key = keys.get(hub["kid"]), keys.get(hub["manifest_kid"])
     if not version_key or not manifest_key:
-        return "signed with a key this hub does not publish"
+        return "signed with a key this machine does not trust"
     subset = {key: signed.get(key) for key in MCP_MANIFEST_FIELDS}
     if not _verify(version_key, canonical_bytes(subset), hub["signature"]):
         return "the version signature does not hold"
@@ -111,10 +130,97 @@ def manifest_problem(manifest: Any, keys: Mapping[str, str]) -> Optional[str]:
     return None
 
 
+def _manifest_sig(server: Mapping[str, Any]) -> Any:
+    manifest = server.get("manifest")
+    hub = manifest.get("hub") if isinstance(manifest, Mapping) else None
+    return hub.get("manifest_sig") if isinstance(hub, Mapping) else None
+
+
+def signed_feed_body(body: Mapping[str, Any]) -> Dict[str, Any]:
+    """What ``feed_sig`` covers: ``{hub, issued_at, product, servers: [[slug,
+    version, manifest_sig], …]}``, the servers in the feed's order."""
+    return {"hub": body.get("hub"), "issued_at": body.get("issued_at"), "product": body.get("product"),
+            "servers": [[s.get("slug"), s.get("version"), _manifest_sig(s)] for s in body.get("servers") or [] if isinstance(s, Mapping)]}
+
+
+def _instant(text: Any) -> Optional[datetime]:
+    """An ISO 8601 time with its offset, as UTC; None for anything else."""
+    if not isinstance(text, str) or not text:
+        return None
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment.astimezone(timezone.utc) if moment.tzinfo is not None else None
+
+
+def _address(url: str) -> tuple:
+    try:
+        parts = urlsplit((url or "").strip())
+        scheme = parts.scheme.lower()
+        return scheme, (parts.hostname or "").lower(), parts.port or {"https": 443, "http": 80}.get(scheme), parts.path.rstrip("/")
+    except ValueError:
+        return ("", "", None, url)
+
+
+def same_hub(a: str, b: str) -> bool:
+    """Two addresses of one hub: the same scheme, host, port and path (case,
+    a default port and a trailing slash aside)."""
+    return _address(a) == _address(b)
+
+
+def feed_problem(body: Any, keys: Mapping[str, str], hub_url: str, *, after: str = "") -> Optional[str]:
+    """Why the feed *body* may not replace the one on disk, or None: it names
+    the hub at *hub_url*, is signed whole with a key of *keys* (those this
+    machine trusts), and was issued no earlier than *after* — when the feed
+    accepted last was issued. Never raises."""
+    if not isinstance(body, Mapping) or not isinstance(body.get("servers"), list) or not all(isinstance(s, Mapping) for s in body["servers"]):
+        return "the hub returned a feed without its list of servers"
+    if not all(isinstance(body.get(key), str) and body.get(key) for key in ("feed_sig", "feed_kid")):
+        return "the feed is not signed"
+    if not isinstance(body.get("hub"), str) or not same_hub(body["hub"], hub_url):
+        return f"the feed is another hub's ({body.get('hub')!r}), not {hub_url}'s"
+    if body.get("product") != FEED_PRODUCT:
+        return f"the feed is for {body.get('product')!r}, not {FEED_PRODUCT}"
+    issued = _instant(body.get("issued_at"))
+    if issued is None:
+        return "the feed does not say when it was issued"
+    public = keys.get(body["feed_kid"])
+    if not public:
+        return "the feed is signed with a key this machine does not trust"
+    if not _verify(public, canonical_bytes(signed_feed_body(body)), body["feed_sig"]):
+        return "the feed signature does not hold"
+    last = _instant(after)
+    if last is not None and issued < last:
+        return f"the feed was issued at {body['issued_at']}, older than the one this machine has ({after}): a replay"
+    return None
+
+
+def _kids_named(body: Any) -> set:
+    """The keys a feed says it is signed with: its own and its manifests'."""
+    if not isinstance(body, Mapping):
+        return set()
+    kids = {body.get("feed_kid")}
+    for server in body.get("servers") or []:
+        manifest = server.get("manifest") if isinstance(server, Mapping) else None
+        hub = manifest.get("hub") if isinstance(manifest, Mapping) else None
+        if isinstance(hub, Mapping):
+            kids |= {hub.get("kid"), hub.get("manifest_kid")}
+    return {kid for kid in kids if isinstance(kid, str) and kid}
+
+
+def _untrusted_notice(kid: str) -> Dict[str, str]:
+    return {"code": NOTICE_KEY_UNTRUSTED, "kid": kid,
+            "message": (f"The hub signs with a key this machine does not trust ({kid}): nothing it signs can be installed. "
+                        "If the hub's operator changed its key, `agentx mcp hub-keys --reset` trusts the keys it publishes now.")}
+
+
 def signing_keys(base_url: str, *, transport: Any = None, refresh: bool = False) -> Dict[str, str]:
-    """``{kid: ed25519_pub}`` the hub publishes — the skill source's keys and
-    cache (one hour). ``refresh`` asks the hub again (a manifest signed with
-    a key the cache does not know: the hub rotated its key)."""
+    """``{kid: ed25519_pub}`` of the keys the hub publishes that this machine
+    trusts (``tools/hub_trust.py``) — the skill source's keys and cache (one
+    hour). ``refresh`` asks the hub again (a key the cache does not know, or
+    a signature that does not hold with the ones it knows: the hub rotated
+    its key)."""
     from tools.skills_hub import _AGENTX_HUB_KEYS_CACHE_KEY, AgentXHubSource, _write_index_cache
 
     if refresh:
@@ -139,6 +245,10 @@ class HubFeed:
     keys: Dict[str, str] = field(default_factory=dict)
     #: When a refresh was last tried, whatever came of it.
     attempted_at: float = 0.0
+    #: When the hub issued this feed (``issued_at``): an older one is a replay.
+    issued_at: str = ""
+    #: What this machine should be told of the last refresh besides ``error``: ``[{code, kid, message}]``.
+    notices: List[Dict[str, str]] = field(default_factory=list)
 
     def fresh(self, now: float) -> bool:
         """Nothing to ask the hub yet: fetched within the TTL, or failed moments ago."""
@@ -148,7 +258,7 @@ class HubFeed:
 
     def to_json(self) -> Dict[str, Any]:
         return {"hub_url": self.hub_url, "servers": self.servers, "etag": self.etag, "fetched_at": self.fetched_at, "error": self.error,
-                "keys": self.keys, "attempted_at": self.attempted_at}
+                "keys": self.keys, "attempted_at": self.attempted_at, "issued_at": self.issued_at, "notices": self.notices}
 
 
 def _cache_path() -> Path:
@@ -167,7 +277,8 @@ def read_feed(hub_url: str) -> Optional[HubFeed]:
         return None
     return HubFeed(hub_url=data["hub_url"], servers=[s for s in data["servers"] if isinstance(s, dict)], etag=str(data.get("etag") or ""),
                    fetched_at=float(data.get("fetched_at") or 0.0), error=str(data.get("error") or ""),
-                   keys={str(k): str(v) for k, v in (data.get("keys") or {}).items()}, attempted_at=float(data.get("attempted_at") or 0.0))
+                   keys={str(k): str(v) for k, v in (data.get("keys") or {}).items()}, attempted_at=float(data.get("attempted_at") or 0.0),
+                   issued_at=str(data.get("issued_at") or ""), notices=[n for n in data.get("notices") or [] if isinstance(n, dict)])
 
 
 def _write_feed(feed: HubFeed) -> None:
@@ -200,38 +311,55 @@ def refresh(
     """The feed of the hub *client* talks to, fetched when the copy on disk
     is older than :data:`FEED_TTL_SECONDS` (or *force*), with its ``ETag``.
 
-    Never raises for the hub's sake: an unreachable hub or a refusal keeps
-    the copy on disk and says why in ``error``. *keys* (``refresh -> keys``)
-    defaults to :func:`signing_keys`; it is asked again once when a manifest
-    names a key it does not know."""
+    Never raises for the hub's sake: an unreachable hub, a refusal, or a feed
+    :func:`feed_problem` refuses keeps the copy on disk and says why in
+    ``error`` (a key it names that this machine does not trust, in
+    ``notices`` too). *keys* (``refresh -> keys``) defaults to
+    :func:`signing_keys`; it is asked again once when the feed names a key
+    it does not know, or does not verify with the ones it knows."""
     from hermes_cli.hub_client import HubError
+    from tools.hub_trust import url_problem
 
     base_url = client.base_url.rstrip("/")
     cached = read_feed(base_url)
     moment = now()
     if cached is not None and not force and cached.fresh(moment):
         return cached
+    insecure = url_problem(base_url)
+    if insecure:
+        return _kept(cached, base_url, insecure, moment)
     get_keys = keys or (lambda again: signing_keys(base_url, transport=getattr(client, "_transport", None), refresh=again))
     try:
         body, etag = client.mcp_catalog(bearer=bearer, etag=cached.etag if cached is not None else "")
     except HubError as exc:
-        stale = cached or HubFeed(hub_url=base_url)
-        stale.error, stale.attempted_at = str(exc), moment
-        _write_feed(stale)
-        return stale
+        return _kept(cached, base_url, str(exc), moment)
     if body is None and cached is not None:  # 304: the same servers
         cached.fetched_at, cached.attempted_at, cached.etag, cached.error = moment, moment, etag or cached.etag, ""
         _write_feed(cached)
         return cached
-    servers = [s for s in (body or {}).get("servers") or [] if isinstance(s, dict)]
+    named = _kids_named(body)
     known = get_keys(False)
-    wanted = {str((s.get("manifest") or {}).get("hub", {}).get(k) or "") for s in servers if isinstance(s.get("manifest"), dict)
-              for k in ("kid", "manifest_kid")} - {""}
-    if wanted - set(known):
+    if named - set(known) or feed_problem(body, known, base_url) is not None:
         known = get_keys(True)
-    feed = HubFeed(hub_url=base_url, servers=servers, etag=etag, fetched_at=moment, keys=dict(known), attempted_at=moment)
+    notices = [_untrusted_notice(kid) for kid in sorted(named - set(known))]
+    problem = feed_problem(body, known, base_url, after=cached.issued_at if cached is not None else "")
+    if problem:
+        logger.warning("mcp hub: the feed of %s is refused: %s", base_url, problem)
+        return _kept(cached, base_url, problem, moment, notices=notices)
+    feed = HubFeed(hub_url=base_url, servers=[dict(s) for s in body["servers"]], etag=etag, fetched_at=moment, keys=dict(known),
+                   attempted_at=moment, issued_at=str(body["issued_at"]), notices=notices)
     _write_feed(feed)
     return feed
+
+
+def _kept(cached: Optional[HubFeed], base_url: str, error: str, moment: float, *, notices: Optional[List[Dict[str, str]]] = None) -> HubFeed:
+    """The feed on disk kept as it was, with why the refresh changed nothing."""
+    stale = cached or HubFeed(hub_url=base_url)
+    stale.error, stale.attempted_at = error, moment
+    if notices is not None:
+        stale.notices = notices
+    _write_feed(stale)
+    return stale
 
 
 def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -239,12 +367,14 @@ def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
     ``problem`` (why it cannot be installed, None when it can) and
     ``problem_kind`` (``hub_unsupported`` — Workmate cannot run it as it is;
     ``unverified`` — a signature does not hold). No network call."""
+    from tools.hub_trust import url_problem
+
     if hub_url is None:
         from tools.skills_hub import agentx_hub_url
 
         hub_url = agentx_hub_url()
     feed = read_feed(hub_url.rstrip("/"))
-    if feed is None:
+    if feed is None or url_problem(hub_url):  # a feed from a plain-http hub proves nothing
         return []
     out: List[Dict[str, Any]] = []
     for server in feed.servers:
@@ -260,42 +390,56 @@ def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def feed_status(hub_url: Optional[str] = None) -> Dict[str, Any]:
-    """When the feed on disk was fetched, and what the last refresh could not do."""
+    """When the feed on disk was fetched, what the last refresh could not do,
+    and what this machine should be told besides (``notices``: a key the
+    hub signs with that it does not trust, ``hub_key_untrusted``)."""
     if hub_url is None:
         from tools.skills_hub import agentx_hub_url
 
         hub_url = agentx_hub_url()
     feed = read_feed(hub_url.rstrip("/"))
     if feed is None:
-        return {"hub_url": hub_url.rstrip("/"), "fetched_at": None, "error": "", "servers": 0}
-    return {"hub_url": feed.hub_url, "fetched_at": feed.fetched_at or None, "error": feed.error, "servers": len(feed.servers)}
+        return {"hub_url": hub_url.rstrip("/"), "fetched_at": None, "error": "", "servers": 0, "notices": []}
+    return {"hub_url": feed.hub_url, "fetched_at": feed.fetched_at or None, "error": feed.error, "servers": len(feed.servers),
+            "notices": list(feed.notices)}
 
 
-# ─── The lock on a hub server's tools (Agent Hub P3.8) ───────────────────────
+# ─── The lock on a hub server's surface (Agent Hub P3.8, P6.1) ───────────────
 
 _SURFACES_FILENAME = "mcp_hub_surfaces.json"
 
 
 @dataclass(frozen=True)
 class ToolCheck:
-    """What a hub server announced, against the tools the hub approved.
+    """What a hub server announced, against the surface the hub approved.
 
     ``allowed`` — the tools whose canonical hash equals the approved one
     (``hub.tool_hashes``): the only ones registered. ``blocked`` — the others
     (new, or described otherwise): kept off until the hub approves the list
-    they belong to. ``surface`` is the canonical list as the hub reads it,
-    for the report (``surface_hash`` its hash)."""
+    they belong to. ``prompts`` and ``templates`` — the approved prompts (by
+    name, ``hub.prompt_hashes``) and resource templates (by ``uriTemplate``,
+    ``hub.template_hashes``) announced with their approved hash: the
+    server's prompt and resource tools are registered for those alone
+    (``blocked_prompts``, ``blocked_templates``: the others). ``surface`` is
+    the canonical surface as the hub reads it — tools, prompts and resource
+    templates — for the report, ``surface_hash`` its hash; both are empty
+    when what the server offers is not known whole (a list it could not
+    give, or one that cannot be read item by item)."""
 
     surface_hash: str
     surface: Dict[str, Any]
     allowed: frozenset
     blocked: tuple
+    prompts: frozenset = frozenset()
+    templates: frozenset = frozenset()
+    blocked_prompts: tuple = ()
+    blocked_templates: tuple = ()
 
 
 def tool_payload(tool: Any) -> Dict[str, Any]:
-    """What the server sent for *tool*, as JSON — the keys it set, its nulls
-    included: the hub hashed what the author pasted or what its probe read
-    the same way (``tools/mcp_surface.py``)."""
+    """What the server sent for *tool* — or a prompt, or a resource template
+    — as JSON: the keys it set, its nulls included. The hub hashed what the
+    author pasted or what its probe read the same way (``tools/mcp_surface.py``)."""
     dump = getattr(tool, "model_dump", None)
     if callable(dump):
         return dump(by_alias=True, exclude_unset=True, mode="json")
@@ -304,25 +448,101 @@ def tool_payload(tool: Any) -> Dict[str, Any]:
     return {"name": str(getattr(tool, "name", "") or "")}
 
 
-def check_tools(config: Mapping[str, Any], tools: Any) -> Optional[ToolCheck]:
-    """The lock of a server installed from the hub (``config["hub"]``), or
-    None for any other server. A list that cannot be read tool by tool (a
-    tool without a name, two with the same one) turns every tool off."""
-    from tools.mcp_surface import surface_from_payload
+def _lock(config: Mapping[str, Any], key: str) -> Dict[str, str]:
+    hub = config.get("hub") if isinstance(config.get("hub"), dict) else {}
+    return hub.get(key) if isinstance(hub.get(key), dict) else {}
 
-    hub = config.get("hub")
-    if not isinstance(hub, dict):
+
+def check_tools(config: Mapping[str, Any], tools: Any, prompts: Any = (), templates: Any = ()) -> Optional[ToolCheck]:
+    """The lock of a server installed from the hub (``config["hub"]``), or
+    None for any other server: its *tools*, *prompts* and resource
+    *templates* against the approved surface. Each family is read on its
+    own: one that cannot be read item by item (an item without a name, two
+    with the same one) turns all of that family off, and one the server
+    could not list (``None``) stays off."""
+    from tools.mcp_surface import Surface, surface_from_lists
+
+    if not isinstance(config.get("hub"), dict):
         return None
-    approved = hub.get("tool_hashes") if isinstance(hub.get("tool_hashes"), dict) else {}
-    payloads = [tool_payload(tool) for tool in tools or []]
-    try:
-        surface = surface_from_payload({"tools": payloads})
-    except ValueError:
-        names = sorted({str(p.get("name") or "") for p in payloads} - {""})
-        return ToolCheck(surface_hash="", surface={"tools": payloads}, allowed=frozenset(), blocked=tuple(names))
-    hashes = surface.tool_hashes
-    allowed = frozenset(name for name, digest in hashes.items() if approved.get(name) == digest)
-    return ToolCheck(surface_hash=surface.hash, surface=surface.to_json(), allowed=allowed, blocked=tuple(sorted(set(hashes) - allowed)))
+
+    def read(family: str, items: Any) -> Optional[Surface]:
+        if items is None:
+            return None
+        try:
+            return surface_from_lists(**{family: [tool_payload(item) for item in items]})
+        except ValueError:
+            return None
+
+    def opened(hashes: Dict[str, str], key: str) -> frozenset:
+        approved = _lock(config, key)
+        return frozenset(name for name, digest in hashes.items() if approved.get(name) == digest)
+
+    tools_read, prompts_read, templates_read = read("tools", tools or []), read("prompts", prompts), read("resource_templates", templates)
+    if tools_read is None:
+        allowed, blocked = frozenset(), tuple(sorted({str(tool_payload(tool).get("name") or "") for tool in tools or []} - {""}))
+    else:
+        allowed = opened(tools_read.tool_hashes, "tool_hashes")
+        blocked = tuple(sorted(set(tools_read.tool_hashes) - allowed))
+    open_prompts = opened(prompts_read.prompt_hashes, "prompt_hashes") if prompts_read is not None else frozenset()
+    open_templates = opened(templates_read.template_hashes, "template_hashes") if templates_read is not None else frozenset()
+    surface_hash, surface = "", {}
+    if tools_read is not None and prompts_read is not None and templates_read is not None:
+        whole = Surface(tools=tools_read.tools, prompts=prompts_read.prompts, resource_templates=templates_read.resource_templates)
+        surface_hash, surface = whole.hash, whole.to_json()
+    return ToolCheck(
+        surface_hash=surface_hash, surface=surface, allowed=allowed, blocked=blocked, prompts=open_prompts, templates=open_templates,
+        blocked_prompts=tuple(sorted(set(prompts_read.prompt_hashes) - open_prompts)) if prompts_read is not None else (),
+        blocked_templates=tuple(sorted(set(templates_read.template_hashes) - open_templates)) if templates_read is not None else (),
+    )
+
+
+def approved_prompts(config: Mapping[str, Any], check: Optional[ToolCheck], prompts: Any) -> List[Any]:
+    """Of the *prompts* a hub server lists now, those its ``list_prompts``
+    tool shows: approved when it registered (``check.prompts``) and still
+    announced with the approved hash. A name listed twice shows neither."""
+    from tools.mcp_surface import canonical_prompt, item_hash
+
+    approved, opened = _lock(config, "prompt_hashes"), check.prompts if check is not None else frozenset()
+    canonical: List[tuple] = []
+    for prompt in prompts or []:
+        try:
+            canonical.append((prompt, canonical_prompt(tool_payload(prompt))))
+        except ValueError:
+            continue
+    names = [item["name"] for _, item in canonical]
+    return [prompt for prompt, item in canonical
+            if names.count(item["name"]) == 1 and item["name"] in opened and approved.get(item["name"]) == item_hash(item)]
+
+
+_URI_EXPRESSION = re.compile(r"\{([+#./;?&]?)[^{}]*\}")
+#: What one ``{…}`` expression of a URI template (RFC 6570) expands to, by its operator.
+_URI_EXPANSIONS = {
+    "": r"[^/?#&]*",          # simple: reserved characters come percent-encoded
+    "+": r".*",               # reserved expansion
+    "#": r"(?:#.*)?",
+    ".": r"(?:\.[^/?#]*)*",
+    "/": r"(?:/[^/?#]*)*",
+    ";": r"(?:;[^/?#]*)*",
+    "?": r"(?:\?[^#]*)?",
+    "&": r"(?:&[^#]*)?",
+}
+
+
+def uri_matches(template: str, uri: str) -> bool:
+    """Whether *uri* is one the URI template *template* describes: its
+    literal parts as they are, each expression what it can expand to."""
+    pattern, last = [], 0
+    for expression in _URI_EXPRESSION.finditer(template):
+        pattern += [re.escape(template[last:expression.start()]), _URI_EXPANSIONS[expression.group(1)]]
+        last = expression.end()
+    pattern.append(re.escape(template[last:]))
+    return re.fullmatch("".join(pattern), uri, flags=re.DOTALL) is not None
+
+
+def resource_allowed(check: Optional[ToolCheck], uri: str) -> bool:
+    """A resource of a hub server its resource tools may list or read: one an
+    approved template (``check.templates``) describes."""
+    return check is not None and any(uri_matches(template, uri) for template in check.templates)
 
 
 def _surfaces_path() -> Path:

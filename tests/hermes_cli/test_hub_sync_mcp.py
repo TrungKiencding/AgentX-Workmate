@@ -83,7 +83,8 @@ class FakeMcp:
 
     def feed_entry(self, slug):
         item = self.feed.get(slug)
-        return SimpleNamespace(hub=SimpleNamespace(version=item["version"], tool_hashes=item["tool_hashes"])) if item else None
+        return SimpleNamespace(hub=SimpleNamespace(version=item["version"], tool_hashes=item["tool_hashes"], prompt_hashes=item.get("prompt_hashes", {}),
+                                                   template_hashes=item.get("template_hashes", {}))) if item else None
 
     def install(self, slug, *, version=""):
         self.calls.append(("install", slug, version))
@@ -91,7 +92,8 @@ class FakeMcp:
             return InstallResult(ok=False, name=slug, error=self.install_error, blocked=True)
         item = self.feed[slug]
         self.local[slug] = {"installed": True, "name": slug, "version": item["version"], "enabled": True, "modified": False,
-                            "tool_hashes": dict(item["tool_hashes"])}
+                            "tool_hashes": dict(item["tool_hashes"]), "prompt_hashes": dict(item.get("prompt_hashes", {})),
+                            "template_hashes": dict(item.get("template_hashes", {}))}
         return InstallResult(ok=True, name=slug, version=item["version"])
 
     def uninstall(self, name):
@@ -235,6 +237,20 @@ class TestReconcile:
         assert ("install", "linear", "1.4.0") in mcp.calls and outcome.mcp["updated"] == ["linear"]
         assert mcp.local["linear"]["tool_hashes"] == mcp.feed["linear"]["tool_hashes"]
 
+    def test_the_lock_follows_a_prompt_or_template_list_the_hub_approved_for_the_same_version(self):
+        """Agent Hub P6.1: a drift of prompts or resource templates accepted on
+        the hub changes the lock of the version a machine runs, as a tool
+        drift does — or the approved prompt would stay off."""
+        for key in ("prompt_hashes", "template_hashes"):
+            client, mcp = FakeClient(), FakeMcp()
+            mcp.local["linear"] = {"installed": True, "name": "linear", "version": "1.4.0", "enabled": True, "modified": False, "tool_hashes": HASHES,
+                                   "prompt_hashes": {}, "template_hashes": {}}
+            mcp.feed["linear"] = {"version": "1.4.0", "tool_hashes": HASHES, key: {"triage": "sha256:" + "5" * 64}}
+            client.installs = [_row(reported_state="installed")]
+            outcome = _engine(client, mcp).tick()
+            assert ("install", "linear", "1.4.0") in mcp.calls and outcome.mcp["updated"] == ["linear"], key
+            assert mcp.local["linear"][key] == {"triage": "sha256:" + "5" * 64}
+
     def test_a_newer_version_is_offered_not_forced(self):
         client, mcp = FakeClient(), FakeMcp()
         mcp.local["linear"] = {"installed": True, "name": "linear", "version": "1.4.0", "enabled": True, "modified": False, "tool_hashes": HASHES}
@@ -304,9 +320,11 @@ class TestMcpLocalInstaller:
         assert cfg["env"] == {"LINEAR_API_KEY": "${AGENTX_MCP_LINEAR__LINEAR_API_KEY}"}
         assert mcp_catalog.installed_servers()["linear"]["env"] == {"LINEAR_API_KEY": "lin-test-value"}  # what the server gets
         assert cfg["hub"]["slug"] == "linear" and cfg["hub"]["tool_hashes"] == feed["hub"]["tool_hashes"]
+        assert (cfg["hub"]["prompt_hashes"], cfg["hub"]["template_hashes"]) == (feed["hub"]["prompt_hashes"], feed["hub"]["template_hashes"])
         assert cfg["tools"] == {"include": ["list_issues"]}  # the author's default
         state = installer.local_state("linear")
         assert (state["installed"], state["version"], state["enabled"], state["modified"]) == (True, "1.4.0", True, False)
+        assert (state["prompt_hashes"], state["template_hashes"]) == (feed["hub"]["prompt_hashes"], feed["hub"]["template_hashes"])
         assert installer.disable("linear") and installer.local_state("linear")["enabled"] is False
         assert installer.enable("linear") and installer.local_state("linear")["enabled"] is True
         assert installer.uninstall("linear")[0] and installer.local_state("linear")["installed"] is False

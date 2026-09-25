@@ -35,6 +35,9 @@ def test_every_vector(case_id):
     assert surface.to_json() == case["canonical"]
     assert sorted(surface.entries(), key=lambda e: (e["k"], e["n"], e["h"])) == case["entries"]
     assert surface.tool_hashes == case["tool_hashes"]
+    # the locks of the prompts (by name) and resource templates (by uriTemplate), Agent Hub P6.1
+    assert surface.prompt_hashes == case["prompt_hashes"]
+    assert surface.template_hashes == case["template_hashes"]
     assert surface.hash == case["surface_hash"]
 
 

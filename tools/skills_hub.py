@@ -34,6 +34,7 @@ from urllib.parse import unquote, urljoin, urlparse, urlsplit, urlunparse
 import httpx
 import yaml
 
+from tools import hub_trust
 from tools.skills_guard import (
     ScanResult, content_hash, TRUSTED_REPOS,
 )
@@ -4525,7 +4526,9 @@ class HermesIndexSource(SkillSource):
 #: Trust level of a hub bundle whose signature verified. Mapped into
 #: ``tools.skills_guard.INSTALL_POLICY`` like ``trusted``.
 AGENTX_HUB_TRUST_VERIFIED = "agentx-hub-verified"
-_AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-keys"
+#: The hub keys this machine trusts (``tools/hub_trust.py``), cached one hour; a new name, so no
+#: key cached before the pins existed is ever used.
+_AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-trusted-keys"
 _AGENTX_HUB_CATALOG_CACHE_KEY = "agentx-hub-catalog"
 #: How long a synced catalog stays fresh. The desktop asks on every open; this
 #: is what keeps "sync on open" from being a network call every time.
@@ -4536,6 +4539,10 @@ AGENTX_HUB_CATALOG_MAX = 500
 
 class HubCatalogUnavailable(RuntimeError):
     """The hub could not be reached (or refused us) while listing the catalog."""
+
+
+#: Hub addresses refused for plain http, said once each in the log.
+_INSECURE_HUBS_SAID: set = set()
 
 
 _AGENTX_HUB_IDENTIFIER_RE = re.compile(
@@ -4607,10 +4614,13 @@ class AgentXHubSource(SkillSource):
 
     Search and inspect read the hub's public catalog (``/v1/skills``); fetch
     downloads a signed bundle and verifies the Ed25519 signature against the
-    keys the hub publishes at ``/.well-known/agentx-hub.json`` (cached in the
-    hub index cache, one hour). A bundle that verifies is installed with the
-    trust level ``agentx-hub-verified``; one that does not is treated as
-    ``community`` — the hub's verdict is never trusted without its signature.
+    keys the hub publishes at ``/.well-known/agentx-hub.json`` that this
+    machine trusts — pinned on first use, or endorsed by a pinned key
+    (``tools/hub_trust.py``; cached in the hub index cache, one hour). A
+    bundle that verifies is installed with the trust level
+    ``agentx-hub-verified``; one that does not is treated as ``community`` —
+    the hub's verdict is never trusted without its signature. The hub is
+    reached over https only (http on this machine alone).
 
     Both kinds install here: a ``core`` skill is a Workmate skill outright; a
     ``browser`` skill is a SKILL.md of site instructions that the agent follows
@@ -4654,6 +4664,12 @@ class AgentXHubSource(SkillSource):
         return headers
 
     def _get_json(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        problem = hub_trust.url_problem(self.base_url)
+        if problem:
+            if self.base_url not in _INSECURE_HUBS_SAID:
+                _INSECURE_HUBS_SAID.add(self.base_url)
+                logger.warning("AgentX Hub: %s", problem)
+            return None
         url = f"{self.base_url}{path}"
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport, follow_redirects=False) as client:
@@ -4676,12 +4692,9 @@ class AgentXHubSource(SkillSource):
         if isinstance(cached, dict) and cached.get("hub_url") == self.base_url and isinstance(cached.get("keys"), dict):
             self._keys = {str(k): str(v) for k, v in cached["keys"].items()}
             return self._keys
-        keys: Dict[str, str] = {}
         data = self._get_json("/.well-known/agentx-hub.json")
-        if isinstance(data, dict):
-            for entry in data.get("signing_keys") or []:
-                if isinstance(entry, dict) and entry.get("kid") and entry.get("ed25519_pub"):
-                    keys[str(entry["kid"])] = str(entry["ed25519_pub"])
+        # Only the keys this machine trusts: pinned on first use, or endorsed by a pinned key (Agent Hub P6.1).
+        keys: Dict[str, str] = hub_trust.trust(self.base_url, data) if isinstance(data, dict) else {}
         if keys:
             _write_index_cache(_AGENTX_HUB_KEYS_CACHE_KEY, {"hub_url": self.base_url, "keys": keys})
         self._keys = keys
@@ -4760,6 +4773,9 @@ class AgentXHubSource(SkillSource):
         :class:`HubCatalogUnavailable` when the hub answers nothing at all, so
         a caller can tell "the hub is down" from "the hub has no skills".
         """
+        problem = hub_trust.url_problem(self.base_url)
+        if problem:
+            raise HubCatalogUnavailable(problem)
         out: List[SkillMeta] = []
         cursor: Optional[str] = None
         page = max(1, min(int(page_size), 100))

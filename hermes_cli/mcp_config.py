@@ -1045,6 +1045,44 @@ def cmd_mcp_configure(args):
     _info("Start a new session for changes to take effect.")
 
 
+def cmd_mcp_hub_keys(args):
+    """``agentx mcp hub-keys [--reset]``: the AgentX Hub signing keys this
+    machine trusts (pinned the first time it read them, or endorsed by a
+    pinned key — ``tools/hub_trust.py``) and those it refused.
+
+    ``--reset`` forgets the pins and pins the keys the hub publishes now: the
+    one way to trust a key no pinned key endorsed. Whoever answers for the
+    hub's address at that moment is believed, so it is for when the hub's
+    operator confirms a key change (Agent Hub P6.1).
+    """
+    from tools import hub_trust, mcp_hub
+    from tools.skills_hub import agentx_hub_url
+
+    hub_url = agentx_hub_url()
+    problem = hub_trust.url_problem(hub_url)
+    if problem:
+        _error(problem)
+        return
+    if getattr(args, "reset", False):
+        hub_trust.reset(hub_url)
+        if mcp_hub.signing_keys(hub_url, refresh=True):
+            _success(f"Pinned the signing keys {hub_url} publishes now.")
+        else:
+            _warning(f"{hub_url} could not be asked for its keys now: the keys it publishes next are pinned.")
+    print()
+    print(color(f"  AgentX Hub signing keys — {hub_url}", Colors.CYAN))
+    pinned, refused = hub_trust.trusted(hub_url), hub_trust.untrusted(hub_url)
+    if not pinned:
+        _info("None pinned yet: the first keys this machine reads from the hub are.")
+    for kid, public in sorted(pinned.items()):
+        _success(f"trusted  {kid}  {public}")
+    for kid, public in sorted(refused.items()):
+        _warning(f"refused  {kid}  {public}  (no trusted key endorses it)")
+    if refused:
+        _info("If the hub's operator confirms this key change: agentx mcp hub-keys --reset")
+    print()
+
+
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 def mcp_command(args):
@@ -1088,6 +1126,7 @@ def mcp_command(args):
         "config": cmd_mcp_configure,
         "login": cmd_mcp_login,
         "reauth": cmd_mcp_reauth,
+        "hub-keys": cmd_mcp_hub_keys,
     }
 
     handler = handlers.get(action)
@@ -1112,4 +1151,5 @@ def mcp_command(args):
         _info("agentx mcp configure <name>                   Toggle tools")
         _info("agentx mcp login <name>                       Re-authenticate OAuth")
         _info("agentx mcp reauth <name> | --all              Re-auth one or all OAuth servers")
+        _info("agentx mcp hub-keys [--reset]                 AgentX Hub signing keys this machine trusts")
         print()

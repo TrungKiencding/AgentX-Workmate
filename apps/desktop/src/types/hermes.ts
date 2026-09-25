@@ -1473,8 +1473,16 @@ export interface McpCatalogEntry {
 export interface McpCatalogResponse {
   entries: McpCatalogEntry[]
   diagnostics: { name: string; kind: string; message: string }[]
-  /** The AgentX Hub's feed on this machine (null outside the default profile). */
-  hub?: null | { hub_url: string; fetched_at: null | number; error: string; servers: number; signed_in: boolean }
+  /** The AgentX Hub's feed on this machine (null outside the default profile). `notices`: what the last
+   *  refresh has to say besides `error` — `hub_key_untrusted`: the hub signs with a key this machine does not trust. */
+  hub?: null | {
+    hub_url: string
+    fetched_at: null | number
+    error: string
+    servers: number
+    signed_in: boolean
+    notices?: { code: string; kid?: string; message?: string }[]
+  }
 }
 
 /** `GET /api/memory` — active provider + built-in memory file sizes. */

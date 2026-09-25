@@ -846,6 +846,7 @@ export interface Translations {
       hubHint: string
       hubSignIn: string
       hubOffline: string
+      hubKeyUntrusted: (kids: string) => string
       hubVerified: string
       hubTrustCurated: string
       hubTrustReviewed: string

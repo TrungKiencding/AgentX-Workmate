@@ -1819,6 +1819,49 @@ class TestAgentXHubSource:
         assert bundle is not None and bundle.metadata["kind"] == "browser"
         assert bundle.trust_level == "agentx-hub-verified"
 
+    def test_the_hub_is_reached_over_https_only(self):
+        """Agent Hub P6.1 (Workmate review F1): a plain-http hub is never asked —
+        not for its keys, its catalog or a bundle; whoever answers there could
+        hand out keys of its own. A hub on this machine may speak http."""
+        from tools.skills_hub import AgentXHubSource, HubCatalogUnavailable
+
+        transport, _ = _hub_transport(self.FILES)
+        asked = []
+
+        def record(request):
+            asked.append(request)
+            return transport.handle_request(request)
+
+        src = AgentXHubSource("http://hub.test", token="", transport=httpx.MockTransport(record))
+        assert src.search("demo") == [] and src.fetch("agentx-hub/demo-core") is None
+        with pytest.raises(HubCatalogUnavailable, match="https"):
+            src.catalog()
+        assert asked == []
+        local = AgentXHubSource("http://127.0.0.1:8820", token="", transport=transport)
+        assert [m.identifier for m in local.search("demo")] == ["agentx-hub/demo-core"]
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_only_a_key_pinned_for_the_hub_verifies_a_bundle(self, _r, _w):
+        """The keys a hub first published are pinned (Agent Hub P6.1): a bundle
+        signed with a key its address hands out later, endorsed by no pinned
+        key, installs as community — whoever answers for the hub could have
+        made that key."""
+        import base64
+
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        from tools import hub_trust
+        from tools.skills_hub import AgentXHubSource
+
+        earlier = base64.b64encode(Ed25519PrivateKey.generate().public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode()
+        assert hub_trust.trust("https://hub.test", {"signing_keys": [{"kid": "k0", "alg": "ed25519", "ed25519_pub": earlier}]}) == {"k0": earlier}
+        transport, _ = _hub_transport(self.FILES)  # the hub's address now publishes k1, endorsed by nobody
+        bundle = AgentXHubSource("https://hub.test", token="", transport=transport).fetch("agentx-hub/demo-core")
+        assert bundle is not None and bundle.trust_level == "community" and bundle.metadata["signature_verified"] is False
+        assert list(hub_trust.untrusted("https://hub.test")) == ["k1"]
+
     def test_unreachable_hub_degrades_to_nothing(self):
         from tools.skills_hub import AgentXHubSource
 

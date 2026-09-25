@@ -920,6 +920,13 @@ class TestHubEntries:
         entry = self._parse(self._manifest())
         assert (entry.origin, entry.identifier, entry.hub.slug, entry.hub.version, entry.hub.trust) == ("hub", "agentx-hub/linear", "linear", "1.4.0", "reviewed")
         assert sorted(entry.hub.tool_hashes) == ["create_issue", "list_issues"] and entry.install is None
+        # the approved prompts (by name) and resource templates (by uriTemplate), Agent Hub P6.1
+        assert entry.hub.prompt_hashes == {"triage": "sha256:" + "56" * 32}
+        assert entry.hub.template_hashes == {"linear://issues/{id}": "sha256:" + "78" * 32}
+        # a hub block from before them locks no prompt and no template
+        older = self._manifest()
+        older["hub"] = {k: v for k, v in older["hub"].items() if k not in ("prompt_hashes", "template_hashes")}
+        assert (self._parse(older).hub.prompt_hashes, self._parse(older).hub.template_hashes) == ({}, {})
 
     @pytest.mark.parametrize("command, args, pinned", [
         pytest.param("npx", ["-y", "@acme/linear-mcp"], False, id="npx-no-version"),
@@ -1086,10 +1093,11 @@ class TestHubEntries:
             self._parse(self._manifest(install={"type": "git", "url": "https://example.com/x.git", "ref": "a" * 40}))
         with pytest.raises(CatalogError, match="needs its 'hub' block"):
             self._parse({k: v for k, v in self._manifest().items() if k != "hub"})
-        bad = self._manifest()
-        bad["hub"] = {**bad["hub"], "tool_hashes": {"x": "md5:1"}}
-        with pytest.raises(CatalogError, match="tool_hashes"):
-            self._parse(bad)
+        for key in ("tool_hashes", "prompt_hashes", "template_hashes"):
+            bad = self._manifest()
+            bad["hub"] = {**bad["hub"], key: {"x": "md5:1"}}
+            with pytest.raises(CatalogError, match=key):
+                self._parse(bad)
 
     def test_a_key_in_another_header_names_it_and_its_variable(self):
         from hermes_cli.mcp_catalog import CatalogError, _build_server_config

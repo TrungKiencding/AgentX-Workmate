@@ -40,6 +40,9 @@ _RETRY_DELAY_SECONDS = 0.75
 DEVICE_ID_HEADER = "X-AgentX-Device"
 DEVICE_NAME_HEADER = "X-AgentX-Device-Name"
 PRODUCT = "workmate"
+#: The code of the refusal to send anything to a hub not reached over https
+#: (``tools/hub_trust.py``): this machine's refusal, not an outage.
+INSECURE_HUB_URL = "insecure_hub_url"
 #: The hub sends a keepalive comment every 25 s; a stream silent for longer
 #: than this is treated as dead and reopened.
 STREAM_READ_TIMEOUT_SECONDS = 90.0
@@ -62,8 +65,9 @@ class HubError(RuntimeError):
 
     @property
     def unreachable(self) -> bool:
-        """True when we never got an HTTP answer at all."""
-        return self.status_code is None
+        """True when we never got an HTTP answer at all (not when this client
+        refused to ask: :data:`INSECURE_HUB_URL`)."""
+        return self.status_code is None and self.code != INSECURE_HUB_URL
 
     @property
     def reauth(self) -> bool:
@@ -113,6 +117,16 @@ class HubClient:
 
     # -- plumbing ---------------------------------------------------------
 
+    def _require_https(self) -> None:
+        """Nothing goes to a hub over plain http (the bearer, and the keys and
+        feed that come back, would be anybody's on the way); a hub on this
+        machine may (Agent Hub P6.1, ``tools/hub_trust.py``)."""
+        from tools.hub_trust import url_problem
+
+        problem = url_problem(self.base_url)
+        if problem:
+            raise HubError(problem, code=INSECURE_HUB_URL)
+
     @staticmethod
     def headers(bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, str]:
         headers = {"Authorization": f"Bearer {bearer}", "Accept": "application/json", "User-Agent": "agentx-workmate-hub-client"}
@@ -138,6 +152,7 @@ class HubClient:
         refusal raises :class:`HubError`."""
         import httpx
 
+        self._require_https()
         url = f"{self.base_url}{path}"
         headers = self.headers(bearer, device_id, device_name)
         headers.update(extra_headers or {})
@@ -443,6 +458,7 @@ class HubClient:
         """
         import httpx
 
+        self._require_https()
         params: Dict[str, Any] = {"product": product}
         headers = self.headers(bearer, device_id, device_name)
         headers["Accept"] = "text/event-stream"

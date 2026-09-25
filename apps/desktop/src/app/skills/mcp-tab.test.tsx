@@ -225,6 +225,20 @@ describe('McpCatalog — AgentX Hub', () => {
     expect(screen.getByText(/2 Hub servers cannot run in Workmate/)).toBeTruthy()
   })
 
+  it('says the hub signs with a key this machine does not trust, and how to trust it (Agent Hub P6.1)', async () => {
+    await renderCatalog([], {
+      ...HUB,
+      error: 'the feed is signed with a key this machine does not trust',
+      notices: [
+        { code: 'hub_key_untrusted', kid: 'k9', message: 'The hub signs with a key this machine does not trust (k9).' }
+      ]
+    })
+    const warning = screen.getByTestId('mcp-hub-key-untrusted').textContent ?? ''
+    expect(warning).toContain('k9')
+    expect(warning).toContain('agentx mcp hub-keys --reset')
+    expect(screen.queryByTestId('mcp-hub-offline')).toBeNull() // the hub answered: it is not out of reach
+  })
+
   it('shows no hub section outside the default profile, and never installs over a name another server holds', async () => {
     await renderCatalog([shipped], null)
     expect(screen.queryByTestId('mcp-hub-catalog')).toBeNull()

@@ -1198,6 +1198,8 @@ export const zh: Translations = {
         '您的 AgentX Hub 已批准的 MCP 服务器。Workmate 只启用 Hub 批准的工具；有变化的工具会保持关闭，直到 Hub 重新批准。',
       hubSignIn: '登录 AgentX Hub（Hub 标签页）即可在此看到其 MCP 服务器。',
       hubOffline: '无法连接 AgentX Hub：这是上次获取的列表。',
+      hubKeyUntrusted: kids =>
+        `AgentX Hub 使用本机不信任的密钥签名（${kids}）：由它签名的内容都无法安装。若 Hub 管理员确认已更换密钥，请运行 \`agentx mcp hub-keys --reset\`。`,
       hubVerified: '已验证',
       hubTrustCurated: '精选',
       hubTrustReviewed: '已审核',

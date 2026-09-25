@@ -227,6 +227,9 @@ class HubSpec:
 
     ``tool_hashes`` maps each approved tool to the hash of its canonical form
     (``tools/mcp_surface.py``): the only tools of the server Workmate turns on.
+    ``prompt_hashes`` (by name) and ``template_hashes`` (by ``uriTemplate``)
+    do the same for its prompts and resource templates, which its prompt and
+    resource tools answer for (Agent Hub P6.1; none from an older hub).
     """
 
     slug: str
@@ -241,6 +244,8 @@ class HubSpec:
     kid: str
     manifest_sig: str
     manifest_kid: str
+    prompt_hashes: Dict[str, str] = field(default_factory=dict)
+    template_hashes: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -623,9 +628,12 @@ def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
             raise CatalogError(f"{path}: hub.{key} must be a non-empty string")
         return value
 
-    tool_hashes = raw.get("tool_hashes") or {}
-    if not isinstance(tool_hashes, dict) or not all(isinstance(k, str) and isinstance(v, str) and _HASH_RE.match(v) for k, v in tool_hashes.items()):
-        raise CatalogError(f"{path}: hub.tool_hashes must map tool names to sha256 hashes")
+    locks: Dict[str, Dict[str, str]] = {}
+    for key, what in (("tool_hashes", "tool names"), ("prompt_hashes", "prompt names"), ("template_hashes", "URI templates")):
+        hashes = raw.get(key) or {}
+        if not isinstance(hashes, dict) or not all(isinstance(k, str) and k and isinstance(v, str) and _HASH_RE.match(v) for k, v in hashes.items()):
+            raise CatalogError(f"{path}: hub.{key} must map {what} to sha256 hashes")
+        locks[key] = dict(hashes)
     surface_hash = text("surface_hash", optional=True)
     if surface_hash is not None and not _HASH_RE.match(surface_hash):
         raise CatalogError(f"{path}: hub.surface_hash must be a sha256 hash")
@@ -641,9 +649,10 @@ def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
     if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", slug or "") or len(slug or "") > 64:
         raise CatalogError(f"{path}: hub.slug must be a hub slug")
     return HubSpec(
-        slug=slug, version=text("version"), content_hash=text("content_hash"), surface_hash=surface_hash, tool_hashes=dict(tool_hashes),
+        slug=slug, version=text("version"), content_hash=text("content_hash"), surface_hash=surface_hash, tool_hashes=locks["tool_hashes"],
         trust=trust, verdict=text("verdict", optional=True), signed=dict(signed), signature=text("signature"), kid=text("kid"),
         manifest_sig=text("manifest_sig"), manifest_kid=text("manifest_kid"),
+        prompt_hashes=locks["prompt_hashes"], template_hashes=locks["template_hashes"],
     )
 
 
@@ -1075,9 +1084,10 @@ def launch_hash(server_cfg: Dict[str, Any]) -> str:
 
 def hub_config_block(entry: CatalogEntry, server_cfg: Dict[str, Any]) -> Dict[str, Any]:
     """The ``hub`` block written into ``mcp_servers.<name>`` for a hub entry:
-    which hub server it is, the tool hashes ``tools/mcp_tool.py`` locks it
-    to, and the hash of the launch as installed (``launch_hash``) — how
-    the sync tells a person's own edit from the hub's."""
+    which hub server it is, the hashes of the tools, prompts and resource
+    templates ``tools/mcp_tool.py`` locks it to, and the hash of the launch
+    as installed (``launch_hash``) — how the sync tells a person's own edit
+    from the hub's."""
     assert entry.hub is not None
     return {
         "slug": entry.hub.slug,
@@ -1085,6 +1095,8 @@ def hub_config_block(entry: CatalogEntry, server_cfg: Dict[str, Any]) -> Dict[st
         "content_hash": entry.hub.content_hash,
         "surface_hash": entry.hub.surface_hash,
         "tool_hashes": dict(entry.hub.tool_hashes),
+        "prompt_hashes": dict(entry.hub.prompt_hashes),
+        "template_hashes": dict(entry.hub.template_hashes),
         "trust": entry.hub.trust,
         "launch_hash": launch_hash(server_cfg),
     }

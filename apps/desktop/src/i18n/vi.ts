@@ -1273,6 +1273,8 @@ export const vi: Translations = {
         'Các MCP server AgentX Hub đã duyệt cho bạn. Workmate chỉ bật công cụ hub đã duyệt; công cụ nào thay đổi sẽ bị tắt tới khi hub duyệt lại.',
       hubSignIn: 'Đăng nhập AgentX Hub (tab Hub) để thấy MCP của hub ở đây.',
       hubOffline: 'Không kết nối được AgentX Hub: đây là danh sách tải lần trước.',
+      hubKeyUntrusted: kids =>
+        `AgentX Hub ký bằng khoá máy này chưa tin (${kids}): không cài được gì khoá đó ký. Nếu người quản trị hub xác nhận đã đổi khoá, chạy \`agentx mcp hub-keys --reset\`.`,
       hubVerified: 'Đã xác minh',
       hubTrustCurated: 'Tuyển chọn',
       hubTrustReviewed: 'Đã duyệt',
