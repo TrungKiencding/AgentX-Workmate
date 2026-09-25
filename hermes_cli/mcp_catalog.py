@@ -105,6 +105,16 @@ _LAUNCHERS: Dict[str, tuple] = {
 }
 #: What Windows appends to a launcher's name (``npx.cmd`` is npx).
 _EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat", ".ps1")
+#: The environment variables that point a package launcher at another
+#: registry or index (npm, uv, pip, bun, yarn, corepack): the flags
+#: :func:`_check_pinned` refuses, spelled as the environment the launcher
+#: reads. Exact names, compared in upper case — the launchers' other
+#: settings (``UV_PYTHON``, ``npm_config_loglevel``…) stay a server's to set.
+_REGISTRY_ENV = frozenset(name.upper() for name in (
+    "npm_config_registry", "npm_config_userconfig", "UV_INDEX_URL", "UV_EXTRA_INDEX_URL", "UV_DEFAULT_INDEX", "UV_INDEX", "UV_FIND_LINKS",
+    "PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL", "PIP_FIND_LINKS", "BUN_CONFIG_REGISTRY", "YARN_REGISTRY", "COREPACK_NPM_REGISTRY",
+))
+_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 #: Where the values of AgentX Hub servers live in ``.env``: one key per server
 #: and variable (:func:`hub_env_key`), never the name the server reads.
 HUB_ENV_PREFIX = "AGENTX_MCP_"
@@ -275,7 +285,7 @@ def _parse_env_spec(raw: Any) -> EnvVarSpec:
     if not isinstance(raw, dict):
         raise CatalogError(f"env entry must be a mapping, got {type(raw).__name__}")
     name = raw.get("name") or ""
-    if not isinstance(name, str) or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
+    if not isinstance(name, str) or not _ENV_NAME_RE.match(name):
         raise CatalogError(f"invalid env var name: {name!r}")
     return EnvVarSpec(
         name=name,
@@ -418,6 +428,7 @@ def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path]
             raise CatalogError(f"{path}: a hub entry installs nothing (no install block): it runs through a package launcher or a remote URL")
         _check_literal(transport, auth, path)
         _check_variables(auth, name, path)
+        _check_registry_env(transport, auth, path)
         _check_pinned(transport, path)
         hub = _parse_hub_spec(data.get("hub"), path)
     elif install_raw is not None:
@@ -487,6 +498,23 @@ def _check_variables(auth: AuthSpec, server: str, path: str) -> None:
         owner = _owner_of(spec.name, server)
         if owner:
             raise CatalogError(f"{path}: auth.env declares {spec.name}, which belongs to {owner}; a hub server declares variables of its own")
+
+
+def _check_registry_env(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
+    """A hub entry never points its launcher at another registry through the
+    environment either: neither its static environment nor a variable it
+    declares (filled in here, or by its default) sets one of
+    :data:`_REGISTRY_ENV`. A static name that is no variable name at all is
+    refused too: npm reads ``npm_config_@scope:registry`` as the registry of
+    a scope."""
+    for key in transport.env:
+        if not _ENV_NAME_RE.match(key):
+            raise CatalogError(f"{path}: transport.env.{key} is not an environment variable name; a launcher may read it as an option "
+                               f"(npm_config_@scope:registry points a scope at another registry)")
+    named = [(f"transport.env.{key}", key) for key in transport.env] + [(f"auth.env.{spec.name}", spec.name) for spec in auth.env]
+    for where, name in named:
+        if name.upper() in _REGISTRY_ENV:
+            raise CatalogError(f"{path}: {where} would point the launcher at another registry; a hub entry runs the release the hub scanned")
 
 
 def _launcher_of(command: Any) -> str:
