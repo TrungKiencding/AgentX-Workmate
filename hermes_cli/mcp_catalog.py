@@ -83,11 +83,25 @@ ORIGIN_OFFICIAL = "official"
 ORIGIN_HUB = "hub"
 #: The identifier of a hub entry: ``agentx-hub/<slug>``.
 HUB_PREFIX = "agentx-hub/"
-#: Package launchers whose first argument that is not a flag must name one
-#: exact release (``pkg==X`` or ``[@scope/]pkg@X``): the rule the shipped
-#: manifests follow in CI, enforced on hub entries when they are read.
-_LAUNCHERS = frozenset({"uvx", "npx", "pipx", "bunx", "pnpx"})
-_PINNED_PACKAGE = (re.compile(r"[^=@\s]+==\d[\w.\-+]*"), re.compile(r"(@[\w.\-]+/)?[\w.\-]+@\d[\w.\-+]*"))
+#: Package launchers: the first argument of theirs that is not a flag must
+#: name one exact release — ``[@scope/]pkg@X.Y.Z`` for npm's (``@1`` or
+#: ``@1.x`` is a range), ``pkg==X`` or ``pkg@X`` for Python's, a registry
+#: name either way (not a URL or a path) — and the flags before it may only
+#: say "yes, run it" or "quietly", as each launcher spells them. Any other
+#: flag (another registry or index, an extra package, another source) runs
+#: code the hub never scanned. The rule the shipped manifests follow in CI,
+#: enforced on hub entries when they are read.
+_NPM_RELEASE = re.compile(r"(@[\w.\-]+/)?[\w.\-]+@\d+\.\d+\.\d+([-+][\w.\-+]*)?")
+_PYPI_RELEASE = re.compile(r"[A-Za-z0-9][\w.\-]*(\[[\w.,\-]+\])?(==|@)\d[\w.!+\-]*")
+_LAUNCHERS: Dict[str, tuple] = {
+    "npx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"-y", "--yes", "-q", "--quiet", "--silent"})),
+    "bunx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"--silent"})),
+    "pnpx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"-s", "--silent"})),
+    "uvx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
+    "pipx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
+}
+#: What Windows appends to a launcher's name (``npx.cmd`` is npx).
+_EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat", ".ps1")
 #: What a hub entry says of who vouches for it.
 _HUB_TRUST = frozenset({"curated", "reviewed", "private"})
 _HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -436,15 +450,36 @@ def _check_literal(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
             raise CatalogError(f"{path}: {where} holds a ${{…}} reference; a hub entry's values are literal (what it needs from this machine is declared in auth.env)")
 
 
+def _launcher_of(command: Any) -> str:
+    """The package launcher *command* names (``npx``, ``/usr/bin/npx`` and
+    ``npx.cmd`` all name ``npx``), or ``""`` for any other command."""
+    name = re.split(r"[\\/]", str(command or ""))[-1].lower()
+    for suffix in _EXECUTABLE_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    return name if name in _LAUNCHERS else ""
+
+
 def _check_pinned(transport: TransportSpec, path: str) -> None:
-    """A package launcher runs one exact release: its first argument that
-    is not a flag is ``pkg==X`` or ``[@scope/]pkg@X`` (a hub entry is read
-    with the rule the shipped manifests follow in CI)."""
-    if transport.type != "stdio" or Path(str(transport.command or "")).name not in _LAUNCHERS:
+    """A package launcher runs one exact release (:data:`_LAUNCHERS`): its
+    first argument that is not a flag names it, and the flags before that
+    are harmless ones (a hub entry is read with the rule the shipped
+    manifests follow in CI). The arguments after the release are the
+    server's own."""
+    launcher = _launcher_of(transport.command) if transport.type == "stdio" else ""
+    if not launcher:
         return
-    packages = [arg for arg in transport.args if not arg.startswith("-")]
-    if not packages or not any(pattern.fullmatch(packages[0]) for pattern in _PINNED_PACKAGE):
-        raise CatalogError(f"{path}: {transport.command} must run one exact release (pkg==X or pkg@X), got {packages[:1] or 'nothing'}")
+    release, form, harmless = _LAUNCHERS[launcher]
+    for arg in transport.args:
+        if not arg.startswith("-"):
+            if release.fullmatch(arg):
+                return
+            raise CatalogError(f"{path}: {transport.command} must run one exact release ({form}), got {arg!r}")
+        if arg not in harmless:
+            raise CatalogError(f"{path}: {transport.command} must run one exact release from its own registry: "
+                               f"{arg!r} is not a flag a hub entry may give it (only {', '.join(sorted(harmless))})")
+    raise CatalogError(f"{path}: {transport.command} must run one exact release ({form}), got nothing")
 
 
 def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
