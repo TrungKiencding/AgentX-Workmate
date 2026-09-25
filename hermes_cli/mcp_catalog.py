@@ -935,6 +935,21 @@ def hub_config_block(entry: CatalogEntry, server_cfg: Dict[str, Any]) -> Dict[st
     }
 
 
+def _kept_on_reinstall(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
+    """What a hub server installed here keeps when it is installed again (a
+    tool list the hub approved, a new version, the person's Update or
+    Replace): everything but its launch (:data:`_LAUNCH_KEYS`) and its
+    ``hub`` block — whether it is on, its ``trust``, its ``tools`` filter,
+    its timeouts, as written. None for a first install, and for a shipped
+    entry (written whole, as ``agentx mcp install`` always has)."""
+    if entry.hub is None:
+        return None
+    current = raw_servers().get(entry.name)
+    if not isinstance(current, dict) or hub_slug_of(current) != entry.hub.slug:
+        return None
+    return {key: value for key, value in current.items() if key not in _LAUNCH_KEYS and key != "hub"}
+
+
 def hub_slug_of(server_cfg: Any) -> Optional[str]:
     """The hub slug a configured server was installed from, or None."""
     hub = server_cfg.get("hub") if isinstance(server_cfg, dict) else None
@@ -1150,6 +1165,10 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
     ``tools.default_enabled`` (a hub entry is further locked to the tools the
     hub approved, ``tools/mcp_tool.py``) — no probe, no checklist.
 
+    A hub server installed here again replaces its launch and its ``hub``
+    block only: whether it is on, its ``trust``, its ``tools`` filter and
+    its timeouts stay as the person set them (:func:`_kept_on_reinstall`).
+
     Steps:
         1. If ``install.type == git``, clone + run bootstrap commands. If
            ``bundled``, check the shipped server file (no clone, no build);
@@ -1229,11 +1248,16 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
     # Reading BEFORE we overwrite the entry below so a reinstall pre-checks
     # whatever the user picked last time.
     prior_selection = _read_prior_tool_selection(entry.name)
+    # A hub server installed here again keeps what the person set on it.
+    kept = _kept_on_reinstall(entry)
 
     # Build and write the mcp_servers entry (without tools filter yet;
     # _apply_tool_selection() finalizes it below).
     server_cfg = _build_server_config(entry, install_dir, dev=use_dev_clone)
-    server_cfg["enabled"] = enable
+    if kept is None:
+        server_cfg["enabled"] = enable
+    else:
+        server_cfg.update(kept)
 
     from hermes_cli.mcp_config import _save_mcp_server
 
@@ -1245,13 +1269,13 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
     # ── Probe + tool selection ──────────────────────────────────────────
     if interactive:
         _apply_tool_selection(entry, prior_selection=prior_selection)
-    else:
+    elif kept is None:
         _write_tools_include(entry.name, prior_selection if prior_selection is not None else entry.tools.default_enabled)
 
     print()
     print(color(
         f"  ✓ Installed '{entry.name}' "
-        f"({'enabled' if enable else 'disabled'}). "
+        f"({'enabled' if server_cfg.get('enabled', True) else 'disabled'}). "
         f"Start a new AgentX session to load its tools.",
         Colors.GREEN,
     ))

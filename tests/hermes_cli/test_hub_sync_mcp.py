@@ -11,12 +11,16 @@ into the per-test AGENTX_HOME.
 
 from __future__ import annotations
 
+import base64
+import copy
 import json
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from hermes_cli.hub_client import HubError
 from hermes_cli.hub_sync import FEED_EVENTS, LOCAL_CHANGES, HubCredentials, HubSyncEngine, HubSyncSettings, InstallResult, McpLocalInstaller
@@ -121,6 +125,28 @@ def _no_feed_fetch(monkeypatch):
     fetched: list[bool] = []
     monkeypatch.setattr(mcp_hub, "refresh", lambda client, *, bearer, force=False: fetched.append(force) or mcp_hub.HubFeed(hub_url=HUB))
     return fetched
+
+
+def _signed(manifest: dict, **hub_changes) -> tuple[dict, dict]:
+    """*manifest* with *hub_changes* to its hub block (and to the version it
+    signs, for the fields that version holds), signed again by a key of
+    this test's own: ``(manifest, keys)``."""
+    key = Ed25519PrivateKey.generate()
+    public = base64.b64encode(key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode("ascii")
+    manifest = copy.deepcopy(manifest)
+    hub = manifest["hub"]
+    hub.update(hub_changes)
+    hub["signed"].update({k: v for k, v in hub_changes.items() if k in mcp_hub.MCP_MANIFEST_FIELDS})
+    hub["kid"] = hub["manifest_kid"] = "test-k"
+    subset = {k: hub["signed"].get(k) for k in mcp_hub.MCP_MANIFEST_FIELDS}
+    hub["signature"] = base64.b64encode(key.sign(mcp_hub.canonical_bytes(subset))).decode("ascii")
+    hub["manifest_sig"] = base64.b64encode(key.sign(mcp_hub.canonical_bytes(mcp_hub.signed_manifest_body(manifest)))).decode("ascii")
+    return manifest, {"test-k": public}
+
+
+def _write_feed(manifest: dict, keys: dict) -> None:
+    mcp_hub._write_feed(mcp_hub.HubFeed(hub_url=HUB, servers=[{"slug": manifest["hub"]["slug"], "supported": True, "manifest": manifest}],
+                                        fetched_at=time.time(), attempted_at=time.time(), keys=keys))
 
 
 def _row(**extra) -> dict:
@@ -260,8 +286,7 @@ class TestMcpLocalInstaller:
     def feed(self, monkeypatch):
         monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", HUB)
         manifest = VECTOR["manifest"]
-        mcp_hub._write_feed(mcp_hub.HubFeed(hub_url=HUB, servers=[{"slug": "linear", "supported": True, "manifest": manifest}],
-                                            fetched_at=time.time(), attempted_at=time.time(), keys={VECTOR["kid"]: VECTOR["public_b64"]}))
+        _write_feed(manifest, {VECTOR["kid"]: VECTOR["public_b64"]})
         return manifest
 
     def test_installs_from_the_signed_feed_without_asking_and_switches_and_removes(self, feed):
@@ -295,6 +320,34 @@ class TestMcpLocalInstaller:
         config["mcp_servers"]["linear"]["args"] = ["-y", "@acme/linear-mcp@1.4.1"]
         save_config(config)
         assert installer.local_state("linear")["modified"] is True
+
+    def test_a_lock_refresh_keeps_what_the_person_set_here(self, feed):
+        """The hub approving another tool list reinstalls the server: its
+        launch and its lock follow the hub, while what the person set here
+        stays — switched off, untrusted, the tools they turned off, their
+        timeouts (plan §2.5: a person's edit is never silently overwritten)."""
+        from hermes_cli import mcp_catalog
+        from hermes_cli.config import load_config, save_config, save_env_value
+
+        save_env_value("LINEAR_API_KEY", "lin-test-value")
+        installer = McpLocalInstaller()
+        assert installer.install("linear").ok
+        config = load_config()
+        config["mcp_servers"]["linear"].update(enabled=False, trust="untrusted", timeout=45, connect_timeout=20,
+                                               tools={"exclude": ["create_issue"], "prompts": False})
+        save_config(config)
+        approved = {**feed["hub"]["tool_hashes"], "list_issues": "sha256:" + "5" * 64}
+        _write_feed(*_signed(feed, surface_hash="sha256:" + "e" * 64, tool_hashes=approved))
+        client = FakeClient()
+        client.installs = [_row(reported_state="installed")]
+        outcome = HubSyncEngine(credentials=lambda: CREDS, settings=SETTINGS, client=client, installer=SimpleNamespace(local_state=lambda slug: {}),
+                                mcp_installer=installer).tick()
+        assert outcome.mcp["updated"] == ["linear"]
+        raw = mcp_catalog.raw_servers()["linear"]
+        assert raw["hub"]["tool_hashes"] == approved and raw["args"] == ["-y", "@acme/linear-mcp@1.4.0"]  # the hub's part followed the hub
+        kept = {key: raw.get(key) for key in ("enabled", "trust", "timeout", "connect_timeout", "tools")}
+        assert kept == {"enabled": False, "trust": "untrusted", "timeout": 45, "connect_timeout": 20, "tools": {"exclude": ["create_issue"], "prompts": False}}
+        assert installer.local_state("linear")["modified"] is False
 
     def test_a_pinned_version_the_feed_does_not_serve_is_not_installed(self, feed):
         result = McpLocalInstaller().install("linear", version="1.3.0")
