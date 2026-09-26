@@ -5411,9 +5411,6 @@ def _configure_mcp_tools_interactive(config: dict):
             continue
 
         srv_cfg = mcp_servers.get(server_name, {})
-        tools_cfg = srv_cfg.get("tools") or {}
-        include_list = tools_cfg.get("include") or []
-        exclude_list = tools_cfg.get("exclude") or []
 
         # Build checklist labels
         labels = []
@@ -5424,21 +5421,13 @@ def _configure_mcp_tools_interactive(config: dict):
             else:
                 labels.append(tool_name)
 
-        # Determine which tools are currently enabled
-        pre_selected: Set[int] = set()
+        # Determine which tools are currently enabled: the very filter runtime
+        # registration applies (an empty include allows none).
+        from tools.mcp_tool import tool_name_filter
+
         tool_names = [t[0] for t in tools]
-        for i, tool_name in enumerate(tool_names):
-            if include_list:
-                # Include mode: only included tools are selected
-                if tool_name in include_list:
-                    pre_selected.add(i)
-            elif exclude_list:
-                # Exclude mode: everything except excluded
-                if tool_name not in exclude_list:
-                    pre_selected.add(i)
-            else:
-                # No filter: all enabled
-                pre_selected.add(i)
+        allowed = tool_name_filter(server_name, srv_cfg.get("tools"))
+        pre_selected: Set[int] = {i for i, tool_name in enumerate(tool_names) if allowed(tool_name)}
 
         chosen = curses_checklist(
             f"MCP Server: {server_name}  ({len(tools)} tools)",
@@ -5558,8 +5547,10 @@ def _print_tools_list(enabled_toolsets: set, mcp_servers: dict, platform: str = 
         for srv_name, srv_cfg in mcp_servers.items():
             tools_cfg = srv_cfg.get("tools") or {}
             exclude = tools_cfg.get("exclude") or []
-            include = tools_cfg.get("include") or []
-            if include:
+            include = tools_cfg.get("include")
+            if isinstance(include, list) and not include:
+                _print_info(f"{srv_name}  {color('no tools enabled', Colors.YELLOW)}")
+            elif include:
                 _print_info(f"{srv_name}  [include only: {', '.join(include)}]")
             elif exclude:
                 _print_info(f"{srv_name}  [excluded: {color(', '.join(exclude), Colors.YELLOW)}]")

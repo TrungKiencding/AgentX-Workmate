@@ -1446,11 +1446,43 @@ export interface McpCatalogEntry {
   needs_install: boolean
   installed: boolean
   enabled: boolean
+  /** Where the entry comes from: shipped with AgentX, or the person's AgentX Hub. */
+  origin?: 'official' | 'hub'
+  /** What to install it by: the name, or `agentx-hub/<slug>` for a hub server. */
+  id?: string
+  /** An AgentX Hub server (listed only when both of the hub's signatures hold). */
+  slug?: string
+  version?: string
+  verified?: boolean
+  trust?: 'curated' | 'reviewed' | 'private'
+  verdict?: null | string
+  /** The tools the hub approved: the only ones Workmate turns on. */
+  tools?: string[]
+  /** Its page on the hub. */
+  page?: null | string
+  /** Tools the server announces that differ from the approved list: kept off. */
+  blocked_tools?: string[]
+  installed_version?: null | string
+  update_available?: boolean
+  /** Its launch was edited on this machine: the hub sync never overwrites it. */
+  modified?: boolean
+  /** Another server is configured under this name. */
+  name_taken?: boolean
 }
 
 export interface McpCatalogResponse {
   entries: McpCatalogEntry[]
   diagnostics: { name: string; kind: string; message: string }[]
+  /** The AgentX Hub's feed on this machine (null outside the default profile). `notices`: what the last
+   *  refresh has to say besides `error` — `hub_key_untrusted`: the hub signs with a key this machine does not trust. */
+  hub?: null | {
+    hub_url: string
+    fetched_at: null | number
+    error: string
+    servers: number
+    signed_in: boolean
+    notices?: { code: string; kid?: string; message?: string }[]
+  }
 }
 
 /** `GET /api/memory` — active provider + built-in memory file sizes. */
@@ -1605,6 +1637,8 @@ export interface SkillHubChangesResponse {
   stream: 'off' | 'waiting' | 'connected' | 'reconnecting'
   cursor: number | null
   revision: number
+  /** Bumped when the sync changed an MCP server here (installed, removed, switched): reload MCP. */
+  mcp_revision?: number
   last: SkillHubTickResponse
   installs: SkillHubInstallRow[]
   updates: SkillHubUpdate[]

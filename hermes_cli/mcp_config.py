@@ -698,8 +698,10 @@ def cmd_mcp_list(args=None):
         if isinstance(tools_cfg, dict):
             include = tools_cfg.get("include")
             exclude = tools_cfg.get("exclude")
-            if include and isinstance(include, list):
-                tools_str = f"{len(include)} selected"
+            # An include list — even an empty one — is an allow-list
+            # (tools.mcp_tool.tool_name_filter): [] is "none", not "all".
+            if isinstance(include, list):
+                tools_str = f"{len(include)} selected" if include else "none"
             elif exclude and isinstance(exclude, list):
                 tools_str = f"-{len(exclude)} excluded"
             else:
@@ -993,39 +995,14 @@ def cmd_mcp_configure(args):
         _warning("Server reports no tools.")
         return
 
-    # Determine which are currently enabled
-    tools_cfg = cfg.get("tools", {})
-    if isinstance(tools_cfg, dict):
-        include = tools_cfg.get("include")
-        exclude = tools_cfg.get("exclude")
-    else:
-        include = None
-        exclude = None
+    # Determine which are currently enabled: the very filter runtime
+    # registration applies (exact names or fnmatch globs; an empty include
+    # allows none).
+    from tools.mcp_tool import tool_name_filter
 
     tool_names = [t[0] for t in all_tools]
-
-    # Same matching semantics as runtime registration (tools/mcp_tool.py):
-    # exact names or fnmatch globs.
-    try:
-        from tools.mcp_tool import matches_name_filter
-    except ImportError:  # pragma: no cover — defensive fallback
-        def matches_name_filter(tool_name, patterns):
-            return tool_name in patterns
-
-    if include and isinstance(include, list):
-        include_set = {str(p) for p in include}
-        pre_selected = {
-            i for i, tn in enumerate(tool_names)
-            if matches_name_filter(tn, include_set)
-        }
-    elif exclude and isinstance(exclude, list):
-        exclude_set = {str(p) for p in exclude}
-        pre_selected = {
-            i for i, tn in enumerate(tool_names)
-            if not matches_name_filter(tn, exclude_set)
-        }
-    else:
-        pre_selected = set(range(len(all_tools)))
+    allowed = tool_name_filter(name, cfg.get("tools"))
+    pre_selected = {i for i, tn in enumerate(tool_names) if allowed(tn)}
 
     currently = len(pre_selected)
     total = len(all_tools)
@@ -1066,6 +1043,44 @@ def cmd_mcp_configure(args):
     new_count = len(chosen)
     _success(f"Updated config: {new_count}/{total} tools enabled")
     _info("Start a new session for changes to take effect.")
+
+
+def cmd_mcp_hub_keys(args):
+    """``agentx mcp hub-keys [--reset]``: the AgentX Hub signing keys this
+    machine trusts (pinned the first time it read them, or endorsed by a
+    pinned key — ``tools/hub_trust.py``) and those it refused.
+
+    ``--reset`` forgets the pins and pins the keys the hub publishes now: the
+    one way to trust a key no pinned key endorsed. Whoever answers for the
+    hub's address at that moment is believed, so it is for when the hub's
+    operator confirms a key change (Agent Hub P6.1).
+    """
+    from tools import hub_trust, mcp_hub
+    from tools.skills_hub import agentx_hub_url
+
+    hub_url = agentx_hub_url()
+    problem = hub_trust.url_problem(hub_url)
+    if problem:
+        _error(problem)
+        return
+    if getattr(args, "reset", False):
+        hub_trust.reset(hub_url)
+        if mcp_hub.signing_keys(hub_url, refresh=True):
+            _success(f"Pinned the signing keys {hub_url} publishes now.")
+        else:
+            _warning(f"{hub_url} could not be asked for its keys now: the keys it publishes next are pinned.")
+    print()
+    print(color(f"  AgentX Hub signing keys — {hub_url}", Colors.CYAN))
+    pinned, refused = hub_trust.trusted(hub_url), hub_trust.untrusted(hub_url)
+    if not pinned:
+        _info("None pinned yet: the first keys this machine reads from the hub are.")
+    for kid, public in sorted(pinned.items()):
+        _success(f"trusted  {kid}  {public}")
+    for kid, public in sorted(refused.items()):
+        _warning(f"refused  {kid}  {public}  (no trusted key endorses it)")
+    if refused:
+        _info("If the hub's operator confirms this key change: agentx mcp hub-keys --reset")
+    print()
 
 
 # ─── Dispatcher ───────────────────────────────────────────────────────────────
@@ -1111,6 +1126,7 @@ def mcp_command(args):
         "config": cmd_mcp_configure,
         "login": cmd_mcp_login,
         "reauth": cmd_mcp_reauth,
+        "hub-keys": cmd_mcp_hub_keys,
     }
 
     handler = handlers.get(action)
@@ -1135,4 +1151,5 @@ def mcp_command(args):
         _info("agentx mcp configure <name>                   Toggle tools")
         _info("agentx mcp login <name>                       Re-authenticate OAuth")
         _info("agentx mcp reauth <name> | --all              Re-auth one or all OAuth servers")
+        _info("agentx mcp hub-keys [--reset]                 AgentX Hub signing keys this machine trusts")
         print()

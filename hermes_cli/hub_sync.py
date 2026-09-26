@@ -23,6 +23,35 @@ the loop, and then it waits for the desktop to deliver a fresh one.
 ``/v1/me/changes`` and reconciles the whole list, so a dropped SSE frame
 never loses an install. The stream only decides *when* the next tick runs.
 
+**MCP servers too (Agent Hub Phase 3).** The snapshot's ``mcp`` block
+lists the MCP servers the person installed from the hub on this machine.
+:class:`McpLocalInstaller` installs one from the hub's signed feed
+(``tools/mcp_hub.py``; never a manifest nobody signed) without asking —
+a required value this machine does not hold is reported, not prompted for —
+switches one off (``enabled: false``, the config stays) and removes one
+(its tokens and cached tools too). A server edited on this machine is never
+overwritten; the report says so once. When the hub approves another tool
+list for the version a machine runs, its lock (``hub.tool_hashes``, and
+``prompt_hashes`` and ``template_hashes`` since P6.1) is refreshed from the
+feed: what it approved opens on the next reload.
+Each report carries what the server announced when it last registered
+(``tools/mcp_tool.py``) and the tools kept off.
+
+**The AgentX Gateway too (Agent Hub Phase 5).** The MCP tab lists the
+person's gateway endpoints (``GET /v1/mcp/me/endpoints``) and adds one:
+this machine asks the hub for its gateway token (only a signed-in session
+may), keeps it in the profile's ``.env`` as ``AGENTX_GATEWAY_TOKEN`` and
+writes an entry ``{url, headers: {Authorization: "Bearer
+${AGENTX_GATEWAY_TOKEN}"}, protocol: auto, source: hub-gateway}``
+(:class:`GatewayDevice`, :func:`add_gateway_endpoint`). Each tick renews the
+token when it has under :data:`GATEWAY_ROTATE_DAYS` days left, with the
+person's session; without one, the desktop is told to open Workmate and
+sign in again. The token goes over https (plain http only to this machine)
+and only to the origin of the gateway the hub announces: an endpoint
+elsewhere is refused before any token is asked for, and every renewal
+switches off an entry that left the gateway before the new token is
+written (:func:`gateway_endpoint_problem`).
+
 **Credentials are given, never obtained.** This process holds no refresh
 token. The bearer arrives on ``POST /api/skills/hub/tick`` (the desktop's
 Hub tab), on ``POST /api/sync/tick`` (the desktop's 30-second timer — the
@@ -32,13 +61,16 @@ token in ``skills.hub_token`` for an install without a desktop.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import re
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 logger = logging.getLogger("hermes_cli.hub_sync")
 
@@ -49,7 +81,12 @@ HISTORY_SIZE = 30
 PRODUCT = "workmate"
 SOURCE = "agentx-hub"
 #: Events on the stream that mean "something on this machine may need to change".
-NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted")
+NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted",
+                "mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
+#: Of those, the ones after which the MCP feed is fetched again at once (a new manifest, a new tool list).
+FEED_EVENTS = ("mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
+#: What a hub server's lock is made of (``hub`` block of its config): its approved tools, prompts and resource templates.
+HUB_LOCK_KEYS = ("tool_hashes", "prompt_hashes", "template_hashes")
 #: Why a skill the hub wants replaced stays as it is (reported as ``failed``).
 LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the Hub tab (the edit is backed up first) or keep it"
 
@@ -93,6 +130,10 @@ class HubSyncOutcome:
     enabled: List[str] = field(default_factory=list)
     failed: List[Dict[str, Any]] = field(default_factory=list)
     updates: List[Dict[str, Any]] = field(default_factory=list)
+    #: What the tick did to MCP servers: ``{installed, updated, removed, disabled, enabled, failed}``.
+    mcp: Dict[str, List[Any]] = field(default_factory=lambda: {k: [] for k in ("installed", "updated", "removed", "disabled", "enabled", "failed")})
+    #: The gateway token of this machine (:meth:`GatewayDevice.status`), and whether this tick renewed it.
+    gateway: Dict[str, Any] = field(default_factory=dict)
     cursor: Optional[int] = None
     at: str = ""
 
@@ -102,7 +143,15 @@ class HubSyncOutcome:
 
     @property
     def changed(self) -> bool:
-        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled)
+        return bool(self.installed or self.updated or self.removed or self.disabled or self.enabled) or self.mcp_changed
+
+    @property
+    def mcp_changed(self) -> bool:
+        """An MCP server was installed, updated, removed or switched — or the
+        gateway token changed under the servers that send it, or a gateway
+        entry was switched off for pointing off the gateway: the desktop reloads MCP."""
+        return (any(self.mcp[key] for key in ("installed", "updated", "removed", "disabled", "enabled"))
+                or bool(self.gateway.get("renewed")) or bool(self.gateway.get("refused")))
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -115,6 +164,9 @@ class HubSyncOutcome:
             "enabled": list(self.enabled),
             "failed": list(self.failed),
             "updates": list(self.updates),
+            "mcp": {key: list(value) for key, value in self.mcp.items()},
+            "mcp_changed": self.mcp_changed,
+            "gateway": dict(self.gateway),
             "cursor": self.cursor,
             "at": self.at,
         }
@@ -427,6 +479,110 @@ class LocalInstaller:
             pass
 
 
+class McpLocalInstaller:
+    """Installs, removes and switches MCP servers from the hub on this
+    machine, through the catalog (``hermes_cli/mcp_catalog.py``): the entry
+    from the hub's signed feed, installed without asking."""
+
+    def local_state(self, slug: str) -> Dict[str, Any]:
+        """The server installed from hub server *slug*, as config.yaml has it."""
+        from hermes_cli import mcp_catalog
+
+        for name, cfg in mcp_catalog.raw_servers().items():
+            if mcp_catalog.hub_slug_of(cfg) != slug:
+                continue
+            hub = cfg.get("hub") or {}
+            return {
+                "installed": True, "name": name, "version": str(hub.get("version") or ""), "enabled": mcp_catalog.is_enabled(name),
+                "modified": mcp_catalog.edited_locally(cfg), **{key: dict(hub.get(key) or {}) for key in HUB_LOCK_KEYS},
+            }
+        return {"installed": False, "name": "", "version": "", "enabled": False, "modified": False, **{key: {} for key in HUB_LOCK_KEYS}}
+
+    def feed_entry(self, slug: str) -> Any:
+        """The verified entry of hub server *slug* in the feed on disk, or None."""
+        from hermes_cli import mcp_catalog
+
+        return mcp_catalog.get_entry(f"{mcp_catalog.HUB_PREFIX}{slug}")
+
+    def install(self, slug: str, *, version: str = "") -> InstallResult:
+        import contextlib
+        import io
+
+        from hermes_cli import mcp_catalog
+
+        entry = self.feed_entry(slug)
+        if entry is None or entry.hub is None:
+            return InstallResult(ok=False, error="not_in_feed: the hub's feed on this machine has no verified entry for it", blocked=True)
+        if version and entry.hub.version != version:
+            return InstallResult(ok=False, name=entry.name, error=f"pinned: the hub serves {entry.hub.version}, not {version}", blocked=True)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                mcp_catalog.install_entry(entry, enable=True, interactive=False)
+        except mcp_catalog.NeedsSecrets as exc:
+            return InstallResult(ok=False, name=entry.name, error=f"needs_secrets: {', '.join(exc.missing)}", blocked=True)
+        except mcp_catalog.CatalogError as exc:
+            return InstallResult(ok=False, name=entry.name, error=str(exc), blocked=True)
+        except Exception as exc:  # noqa: BLE001 - reported, never raised
+            return InstallResult(ok=False, name=entry.name, error=f"install failed: {exc}")
+        return InstallResult(ok=True, name=entry.name, version=entry.hub.version, content_hash=entry.hub.content_hash, verdict=entry.hub.verdict or "")
+
+    def uninstall(self, name: str) -> tuple[bool, str]:
+        from hermes_cli import mcp_catalog
+        from tools import mcp_hub
+
+        try:
+            mcp_catalog.uninstall_entry(name)
+        except Exception as exc:  # noqa: BLE001
+            return False, f"could not remove {name}: {exc}"
+        mcp_hub.forget_observed(name)
+        return True, f"removed {name}"
+
+    def disable(self, name: str) -> bool:
+        return self._set_enabled(name, False)
+
+    def enable(self, name: str) -> bool:
+        return self._set_enabled(name, True)
+
+    @staticmethod
+    def _set_enabled(name: str, enabled: bool) -> bool:
+        from hermes_cli.config import load_config, save_config
+
+        try:
+            config = load_config()
+            servers = config.get("mcp_servers") or {}
+            if name not in servers or not isinstance(servers[name], dict):
+                return False
+            if bool(servers[name].get("enabled", True)) == enabled:
+                return True
+            servers[name]["enabled"] = enabled
+            config["mcp_servers"] = servers
+            save_config(config)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("hub sync: could not %s MCP %s: %s", "enable" if enabled else "disable", name, exc)
+            return False
+
+    @staticmethod
+    def observed(name: str) -> Optional[Dict[str, Any]]:
+        """What the server announced when it last registered (``tools/mcp_tool.py``)."""
+        from tools import mcp_hub
+
+        return mcp_hub.observed(name)
+
+    @staticmethod
+    def removed_here() -> set:
+        """The hub servers the person removed on this machine, not yet said to the hub."""
+        from tools import mcp_hub
+
+        return mcp_hub.removed_here()
+
+    @staticmethod
+    def forget_removed(slug: str) -> None:
+        from tools import mcp_hub
+
+        mcp_hub.clear_removed_here(slug)
+
+
 # ---------------------------------------------------------------------------
 # The engine
 # ---------------------------------------------------------------------------
@@ -447,6 +603,8 @@ class HubSyncEngine:
         client: Any | None = None,
         transport: Any | None = None,
         installer: Any | None = None,
+        mcp_installer: Any | None = None,
+        gateway: Any | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._credentials = credentials
@@ -454,6 +612,10 @@ class HubSyncEngine:
         self._client = client
         self._transport = transport
         self._installer = installer if installer is not None else LocalInstaller(transport=transport)
+        self._mcp = mcp_installer if mcp_installer is not None else McpLocalInstaller()
+        self._gateway = gateway if gateway is not None else GatewayDevice()
+        #: The next tick fetches the MCP feed even if it is fresh (an event said it changed).
+        self._feed_stale = False
         self._clock = clock
         self._tick_lock = threading.Lock()
         self._last = HubSyncOutcome(status="idle")
@@ -462,6 +624,8 @@ class HubSyncEngine:
         self._cursor: Optional[int] = None
         self._history: Deque[Dict[str, Any]] = deque(maxlen=HISTORY_SIZE)
         self._revision = 0
+        #: Bumped when a tick changed an MCP server here: the desktop reloads MCP.
+        self._mcp_revision = 0
         self._stream_state = "off"
         self._wake: Any | None = None
         self._loop: Any | None = None
@@ -483,6 +647,8 @@ class HubSyncEngine:
             self._last = outcome
             if outcome.changed or outcome.failed:
                 self._revision += 1
+            if outcome.mcp_changed:
+                self._mcp_revision += 1
             return outcome
 
     def _tick(self) -> HubSyncOutcome:
@@ -509,6 +675,9 @@ class HubSyncEngine:
             self._cursor = snapshot.get("cursor", self._cursor)
             outcome.cursor = self._cursor
             self._reconcile(snapshot, credentials, client, outcome)
+            if isinstance(snapshot.get("mcp"), dict):
+                self._reconcile_mcp(snapshot["mcp"], credentials, client, outcome)
+            outcome.gateway = self._keep_gateway(credentials, client)
         except HubError as exc:
             return self._from_error(exc)
         except Exception as exc:  # noqa: BLE001 - reported, never raised
@@ -629,6 +798,151 @@ class HubSyncEngine:
             outcome.disabled.append(slug)
             self._remember("disabled", slug, local["version"], str(install.get("reason") or ""))
 
+    # -- MCP servers (Agent Hub Phase 3) ----------------------------------------
+
+    def _reconcile_mcp(self, block: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        installs = [row for row in block.get("installs") or [] if isinstance(row, dict) and row.get("slug")]
+        if installs:
+            self._refresh_feed(client, credentials)
+        for install in installs:
+            try:
+                self._apply_mcp(install, credentials, client, outcome)
+            except Exception as exc:  # noqa: BLE001 - one server must not stop the others
+                logger.warning("hub sync: MCP %s: %s", install.get("slug"), exc)
+                outcome.mcp["failed"].append({"slug": install.get("slug"), "error": str(exc)})
+
+    def _refresh_feed(self, client: Any, credentials: HubCredentials) -> None:
+        from tools import mcp_hub
+
+        feed = mcp_hub.refresh(client, bearer=credentials.bearer, force=self._feed_stale)
+        if not feed.error:
+            self._feed_stale = False
+
+    def _apply_mcp(self, install: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        slug = str(install["slug"])
+        desired = str(install.get("desired_state") or "installed")
+        reported = str(install.get("reported_state") or "pending")
+        install_id = str(install.get("id") or "")
+        pinned = str(install.get("version") or "")
+        local = self._mcp.local_state(slug)
+        report = self._mcp_reporter(client, credentials, install_id, install)
+        done = outcome.mcp
+
+        if desired == "removed":
+            if reported == "removed":
+                self._mcp.forget_removed(slug)
+                return
+            if local["installed"]:
+                ok, message = self._mcp.uninstall(local["name"])
+                if not ok:
+                    report("failed", error=message)
+                    done["failed"].append({"slug": slug, "error": message})
+                    return
+            report("removed")
+            done["removed"].append(slug)
+            self._remember("removed", f"mcp:{slug}", local["version"])
+            return
+        if desired == "disabled":
+            if local["installed"] and local["enabled"]:
+                self._mcp.disable(local["name"])
+                done["disabled"].append(slug)
+                self._remember("disabled", f"mcp:{slug}", local["version"], str(install.get("reason") or ""))
+            if reported != "disabled":
+                report("disabled", version=local["version"] or None)
+            return
+
+        # desired == "installed"
+        if not local["installed"] and (reported == "installed" or slug in self._mcp.removed_here()):
+            # It ran here and is gone: the person removed it on this machine.
+            # Say so to the hub — installing it again would undo their choice.
+            try:
+                client.remove_mcp_install(install_id, bearer=credentials.bearer, device_id=credentials.device_id,
+                                          device_name=credentials.device_name)
+            except Exception as exc:  # noqa: BLE001 - asked again next tick
+                logger.warning("hub sync: could not tell the hub MCP %s was removed here: %s", slug, exc)
+                return
+            report("removed")
+            self._mcp.forget_removed(slug)
+            done["removed"].append(slug)
+            self._remember("removed", f"mcp:{slug}", "", "removed on this machine")
+            return
+        if local["installed"] and local["modified"]:
+            # Edited on this machine: never replaced from here; said once.
+            if reported != "failed" or str(install.get("error") or "") != LOCAL_CHANGES:
+                report("failed", version=local["version"] or None, error=LOCAL_CHANGES)
+                done["failed"].append({"slug": slug, "error": LOCAL_CHANGES, "blocked": True})
+            return
+        entry = self._mcp.feed_entry(slug)
+        feed_version = entry.hub.version if entry is not None and entry.hub is not None else ""
+        if local["installed"] and (not pinned or local["version"] == pinned):
+            same_version = entry is not None and feed_version == local["version"]
+            if same_version and any(dict(getattr(entry.hub, key, None) or {}) != (local.get(key) or {}) for key in HUB_LOCK_KEYS):
+                # The hub approved another tool list for this version: the lock follows it.
+                result = self._mcp.install(slug, version=local["version"])
+                if result.ok:
+                    done["updated"].append(slug)
+                    self._remember("updated", f"mcp:{slug}", result.version, "tool list approved on the hub")
+                else:
+                    report("failed", version=local["version"] or None, error=result.error)
+                    done["failed"].append({"slug": slug, "error": result.error, "blocked": result.blocked})
+                    return
+            if not local["enabled"] and reported in ("pending", "disabled"):
+                self._mcp.enable(local["name"])
+                done["enabled"].append(slug)
+            if reported != "installed" or self._mcp_surface_news(local["name"], install):
+                report("installed", version=local["version"] or None)
+            return
+        result = self._mcp.install(slug, version=pinned)
+        if result.ok:
+            report("installed", version=result.version)
+            (done["updated"] if local["installed"] else done["installed"]).append(slug)
+            self._remember("updated" if local["installed"] else "installed", f"mcp:{slug}", result.version)
+        elif reported != "failed" or str(install.get("error") or "") != result.error:
+            report("failed", version=local["version"] or None, error=result.error)
+            done["failed"].append({"slug": slug, "error": result.error, "blocked": result.blocked})
+            self._remember("failed", f"mcp:{slug}", pinned or feed_version, result.error)
+
+    def _mcp_surface_news(self, name: str, install: Dict[str, Any]) -> bool:
+        """The server announced a list the hub has not heard from this machine."""
+        seen = self._mcp.observed(name)
+        return bool(seen and seen.get("surface_hash") and seen.get("surface_hash") != install.get("reported_surface_hash"))
+
+    def _mcp_reporter(self, client: Any, credentials: HubCredentials, install_id: str, install: Dict[str, Any]) -> Callable[..., None]:
+        from hermes_cli.hub_client import HubError
+
+        slug = str(install.get("slug") or "")
+
+        def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
+            if not install_id:
+                return
+            name = self._mcp.local_state(slug)["name"]
+            seen = self._mcp.observed(name) if name and state == "installed" else None
+            fields: Dict[str, Any] = {"version": version or None, "error": error}
+            if seen and seen.get("surface_hash"):
+                fields["blocked_tools"] = list(seen.get("blocked_tools") or [])
+                if seen["surface_hash"] != install.get("reported_surface_hash"):
+                    fields.update(surface=seen.get("surface"), surface_hash=seen["surface_hash"])
+                else:
+                    fields["surface_hash"] = seen["surface_hash"]
+            send = dict(bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name)
+            try:
+                client.report_mcp_install(install_id, state, **send, **fields)
+            except HubError as exc:
+                if "surface" in fields and exc.status_code in (413, 422):
+                    # The hub would not read the list (too large): the state still counts.
+                    fields.pop("surface", None)
+                    fields.pop("surface_hash", None)
+                    try:
+                        client.report_mcp_install(install_id, state, **send, **fields)
+                    except Exception as again:  # noqa: BLE001
+                        logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, again)
+                else:
+                    logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, exc)
+            except Exception as exc:  # noqa: BLE001 - the next tick reports again
+                logger.warning("hub sync: could not report MCP %s for %s: %s", state, install_id, exc)
+
+        return report
+
     def _reporter(self, client: Any, credentials: HubCredentials, install_id: str) -> Callable[..., None]:
         def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
             if not install_id:
@@ -645,6 +959,52 @@ class HubSyncEngine:
 
     def _remember(self, action: str, slug: str, version: str = "", detail: str = "") -> None:
         self._history.appendleft({"action": action, "slug": slug, "version": version or None, "detail": detail, "at": datetime.now(timezone.utc).isoformat()})
+
+    # -- the gateway token --------------------------------------------------
+
+    def _keep_gateway(self, credentials: HubCredentials, client: Any) -> Dict[str, Any]:
+        """Renew this machine's gateway token while it has under
+        :data:`GATEWAY_ROTATE_DAYS` days left — and only while a gateway entry
+        may carry it. The hub gives one to a signed-in session alone: with a
+        personal token, the desktop is told to sign in (``sign_in``). A refusal
+        other than a lapsed session is kept for the tab, the tick goes on.
+
+        Every renewal checks the entries again (:func:`gateway_endpoint_problem`):
+        first against the gateway the hub announced with the current token —
+        when none may carry a new one, none is asked for — then against the
+        one it announces with the new token, before that is written
+        (:meth:`GatewayDevice.issue`). An entry off the gateway is switched
+        off (``refused``: the desktop reloads MCP, the history says why)."""
+        from hermes_cli.hub_client import HubError
+
+        device = self._gateway
+        entries = device.entries()
+        status = device.status(len(entries))
+        if not entries or not device.needs_rotation():
+            return status
+        if credentials.source not in SESSION_SOURCES:
+            return {**status, "sign_in": True}
+        refused: List[Dict[str, str]] = []
+        if device.gateway_url():
+            kept, refused = device.keep_to_gateway(device.gateway_url())
+            self._remember_refused(refused)
+            if not kept:
+                return {**status, "refused": refused} if refused else status
+        try:
+            held = device.issue(client, credentials)
+        except (HubError, GatewayEndpointRefused) as exc:
+            if getattr(exc, "reauth", False):
+                raise
+            logger.warning("hub sync: the gateway token could not be renewed: %s", exc)
+            return {**status, "error": str(exc), "error_code": getattr(exc, "code", "") or "", **({"refused": refused} if refused else {})}
+        self._remember_refused(held["refused"])
+        refused += held["refused"]
+        self._remember("gateway_token", GATEWAY_TOKEN_ENV, detail="renewed")
+        return {**device.status(len(entries)), "renewed": True, **({"refused": refused} if refused else {})}
+
+    def _remember_refused(self, refused: List[Dict[str, str]]) -> None:
+        for entry in refused:
+            self._remember("disabled", f"mcp:{entry['name']}", detail=entry["reason"])
 
     # -- failures ----------------------------------------------------------
 
@@ -676,7 +1036,9 @@ class HubSyncEngine:
             "stream": self._stream_state,
             "cursor": self._cursor,
             "revision": self._revision,
+            "mcp_revision": self._mcp_revision,
             "last": self._last.to_json(),
+            "gateway": self._gateway.status(len(self._gateway.entries())),
         }
 
     def changes(self) -> Dict[str, Any]:
@@ -691,9 +1053,21 @@ class HubSyncEngine:
             "installs": installs,
             "updates": list(self._last.updates),
             "workspaces": list(self._last_snapshot.get("workspaces") or []),
+            "mcp": self._mcp_changes(),
             "history": list(self._history),
             "generated_at": self._last_snapshot.get("generated_at"),
         }
+
+    def _mcp_changes(self) -> Dict[str, Any]:
+        """The ``mcp`` block of the last snapshot, each install with its local state."""
+        block = self._last_snapshot.get("mcp") if isinstance(self._last_snapshot.get("mcp"), dict) else {}
+        rows = []
+        for row in block.get("installs") or []:
+            if isinstance(row, dict):
+                local = self._mcp.local_state(str(row.get("slug") or ""))
+                rows.append({**row, "local": {k: v for k, v in local.items() if k not in HUB_LOCK_KEYS}})
+        return {"installs": rows, "updates": list(block.get("updates") or []), "workspaces": list(block.get("workspaces") or []),
+                "endpoints_changed_at": block.get("endpoints_changed_at")}
 
     # -- the loop ------------------------------------------------------------
 
@@ -767,9 +1141,300 @@ class HubSyncEngine:
             event_id = event.get("id")
             if isinstance(event_id, int):
                 self._cursor = max(self._cursor or 0, event_id)
+            if event.get("type") in FEED_EVENTS:
+                self._feed_stale = True
             if event.get("type") in NUDGE_EVENTS:
                 self.nudge()
 
+
+# ---------------------------------------------------------------------------
+# MCP servers installed or removed here by the person
+# ---------------------------------------------------------------------------
+
+
+def announce_mcp_install(slug: str) -> bool:
+    """The person installed AgentX Hub server *slug* on this machine (the MCP
+    tab, ``agentx mcp``): tell the hub — it keeps the desired state from now
+    on, a yank reaches this machine — and wake the sync, which reports what
+    the server announces. Offline: False, and the sync registers it later."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from tools import mcp_hub
+
+    mcp_hub.clear_removed_here(slug)
+    registered = False
+    credentials = resolve_credentials()
+    base_url = hub_base_url()
+    if credentials is not None and base_url:
+        try:
+            HubClient(base_url).create_mcp_install(slug, bearer=credentials.bearer, device_id=credentials.device_id,
+                                                   device_name=credentials.device_name)
+            registered = True
+        except HubError as exc:
+            logger.warning("hub sync: could not tell the hub about MCP %s: %s", slug, exc)
+    engine().nudge()
+    return registered
+
+
+def announce_mcp_removal(slug: str) -> None:
+    """The person removed AgentX Hub server *slug* here: the sync tells the hub."""
+    from tools import mcp_hub
+
+    mcp_hub.mark_removed_here(slug)
+    engine().nudge()
+
+
+
+# ---------------------------------------------------------------------------
+# The AgentX Gateway: this machine's token and the entries that send it
+# ---------------------------------------------------------------------------
+
+#: The ``.env`` key of this machine's gateway token (the entries read ``${AGENTX_GATEWAY_TOKEN}``).
+GATEWAY_TOKEN_ENV = "AGENTX_GATEWAY_TOKEN"
+#: What an entry added from the gateway carries as ``source`` — never ``hub:``,
+#: which is the tool-hash lock of a server installed from the hub's feed.
+GATEWAY_SOURCE = "hub-gateway"
+#: Renew the token when it has fewer days left than this.
+GATEWAY_ROTATE_DAYS = 30
+#: The bearers that are a signed-in session (the hub gives a gateway token to nothing else).
+SESSION_SOURCES = ("session", "mailbox")
+_GATEWAY_STATE_FILENAME = "mcp_hub_gateway.json"
+_GATEWAY_NAME_RE = re.compile(r"[^a-z0-9_-]+")
+
+
+def gateway_entry_name(ref: str) -> str:
+    """The ``mcp_servers`` key of a gateway endpoint: ``agentx-<ref>`` (a server's slug, a toolset's ``ts_…`` id)."""
+    tail = _GATEWAY_NAME_RE.sub("-", str(ref or "").lower()).strip("-")[:48] or "endpoint"
+    return f"agentx-{tail}"
+
+
+def gateway_entry(endpoint: Dict[str, Any]) -> Dict[str, Any]:
+    """The entry that reaches *endpoint* through the gateway with this machine's token."""
+    return {
+        "url": str(endpoint["url"]),
+        "headers": {"Authorization": f"Bearer ${{{GATEWAY_TOKEN_ENV}}}"},
+        "protocol": "auto",
+        "enabled": True,
+        "source": GATEWAY_SOURCE,
+        "gateway": {"kind": str(endpoint.get("kind") or "server"), "ref": str(endpoint.get("ref") or ""), "label": str(endpoint.get("label") or "")},
+    }
+
+
+def gateway_entries() -> Dict[str, dict]:
+    """The entries added from the gateway, in the profile the sync runs in."""
+    from hermes_cli import mcp_catalog
+
+    return {name: cfg for name, cfg in mcp_catalog.raw_servers().items() if isinstance(cfg, dict) and cfg.get("source") == GATEWAY_SOURCE}
+
+
+class GatewaySignInNeeded(Exception):
+    """A gateway token is asked for by a signed-in session only: this bearer is a personal token."""
+
+
+class GatewayEndpointRefused(ValueError):
+    """An address this machine's gateway token may not go to (:func:`gateway_endpoint_problem`)."""
+
+    code = "endpoint_refused"
+
+
+def _origin(url: Any) -> Optional[Tuple[str, str, int]]:
+    """``(scheme, host, port)`` of an https URL, or of a plain http one on
+    this machine (a hub run locally, for development); None for anything else."""
+    try:
+        parts = urlsplit(str(url or ""))
+        host, port = (parts.hostname or "").lower(), parts.port
+    except ValueError:
+        return None
+    if not host or parts.username is not None or parts.password is not None:
+        return None
+    if parts.scheme == "https":
+        return ("https", host, port or 443)
+    if parts.scheme == "http" and _on_this_machine(host):
+        return ("http", host, port or 80)
+    return None
+
+
+def _on_this_machine(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def gateway_endpoint_problem(url: Any, gateway_url: Any) -> Optional[str]:
+    """Why an entry reaching *url* may not send this machine's gateway token,
+    or None when it may. The token opens every endpoint of the person's, so it
+    travels over https (plain http only to this machine, for a hub run
+    locally) and only to the origin of the gateway the hub announced
+    (*gateway_url*) — never to an address an endpoint list alone named."""
+    gateway = _origin(gateway_url)
+    if gateway is None:
+        return f"the hub announced no gateway address a token may go to ({gateway_url or 'none'})"
+    target = _origin(url)
+    if target is None:
+        return f"{url or 'the endpoint'} is not an https address"
+    if target != gateway:
+        return f"{url} is not on the gateway the hub announced ({gateway_url})"
+    return None
+
+
+def _switch_off_gateway_entry(name: str) -> None:
+    """``enabled: false`` on gateway entry *name*: the token must not go where it points."""
+    from hermes_cli.config import load_config, save_config
+
+    config = load_config()
+    server = (config.get("mcp_servers") or {}).get(name)
+    if isinstance(server, dict) and server.get("source") == GATEWAY_SOURCE:
+        server["enabled"] = False
+        save_config(config)
+
+
+class GatewayDevice:
+    """This machine's gateway token: the secret in the profile's ``.env``
+    (:data:`GATEWAY_TOKEN_ENV`), its id and expiry beside the MCP feed
+    (``cache/mcp_hub_gateway.json`` — no secret there), and the gateway the
+    hub announced with it, which every entry sending it must be on.
+    Injectable for tests."""
+
+    def __init__(self, *, state_path: Any | None = None, write_env: Callable[[str, str], Any] | None = None,
+                 list_entries: Callable[[], Dict[str, dict]] | None = None, switch_off: Callable[[str], Any] | None = None,
+                 clock: Callable[[], float] = time.time) -> None:
+        self._state_path = state_path
+        self._write_env = write_env
+        self._list_entries = list_entries or gateway_entries
+        self._switch_off = switch_off or _switch_off_gateway_entry
+        self._clock = clock
+        self._lock = threading.Lock()
+
+    def _path(self) -> Any:
+        if self._state_path is not None:
+            return self._state_path
+        from hermes_constants import get_hermes_home
+
+        return get_hermes_home() / "cache" / _GATEWAY_STATE_FILENAME
+
+    def entries(self) -> Dict[str, dict]:
+        try:
+            return self._list_entries()
+        except Exception as exc:  # noqa: BLE001 - a broken config lists nothing, the tab says so
+            logger.debug("hub sync: gateway entries unreadable: %s", exc)
+            return {}
+
+    def state(self) -> Dict[str, Any]:
+        import json
+
+        try:
+            data = json.loads(self._path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _expires_at(self) -> float:
+        raw = self.state().get("expires_at")
+        try:
+            return datetime.fromisoformat(str(raw)).timestamp() if raw else 0.0
+        except ValueError:
+            return 0.0
+
+    def needs_rotation(self) -> bool:
+        expires = self._expires_at()
+        return not expires or expires - self._clock() < GATEWAY_ROTATE_DAYS * 86400
+
+    def gateway_url(self) -> str:
+        """The gateway the hub announced with the current token (``""`` without one)."""
+        return str(self.state().get("gateway_url") or "")
+
+    def keep_to_gateway(self, gateway_url: str) -> Tuple[int, List[Dict[str, str]]]:
+        """Switch off each entry that may not send the token to *gateway_url*
+        (:func:`gateway_endpoint_problem`). Returns how many entries may, and
+        the ones switched off now (``{name, url, reason}``; one already off
+        is not switched again)."""
+        kept, refused = 0, []
+        for name, cfg in self.entries().items():
+            problem = gateway_endpoint_problem(cfg.get("url"), gateway_url)
+            if problem is None:
+                kept += 1
+            elif _as_bool(cfg.get("enabled"), True):
+                self._switch_off(name)
+                refused.append({"name": name, "url": str(cfg.get("url") or ""), "reason": problem})
+        return kept, refused
+
+    def status(self, entries: int = 0) -> Dict[str, Any]:
+        """``{entries, token, expires_at, days_left, state: none|ok|renew|expired}`` — never the token."""
+        held = self.state()
+        expires = self._expires_at()
+        if not held or not expires:
+            return {"entries": entries, "token": False, "expires_at": None, "days_left": None, "state": "none"}
+        left = expires - self._clock()
+        state = "expired" if left <= 0 else "renew" if left < GATEWAY_ROTATE_DAYS * 86400 else "ok"
+        return {"entries": entries, "token": True, "expires_at": held.get("expires_at"), "days_left": max(0, int(left // 86400)), "state": state,
+                "device_id": held.get("device_id")}
+
+    def issue(self, client: Any, credentials: HubCredentials) -> Dict[str, Any]:
+        """Ask the hub for a new token of this machine (the earlier one is
+        revoked there), keep it. Before it is written, every entry is checked
+        against the gateway the hub announces with it: one off that gateway
+        is switched off first (``refused`` in the answer), so it never sends
+        the token. A hub that announces no gateway a token may go to gets
+        its token refused (:class:`GatewayEndpointRefused`)."""
+        import json
+        import os
+        import tempfile
+
+        if credentials.source not in SESSION_SOURCES:
+            raise GatewaySignInNeeded("the hub gives a gateway token to a signed-in session only")
+        with self._lock:
+            answer = client.gateway_device_token(bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name)
+            announced = str(answer.get("gateway_url") or "")
+            if _origin(announced) is None:
+                raise GatewayEndpointRefused(f"the hub announced no gateway address a token may go to ({announced or 'none'})")
+            _kept, refused = self.keep_to_gateway(announced)
+            write = self._write_env
+            if write is None:
+                from hermes_cli.config import save_env_value as write
+            write(GATEWAY_TOKEN_ENV, str(answer["token"]))
+            held = {"token_id": answer.get("id"), "prefix": answer.get("prefix"), "expires_at": answer.get("expires_at"), "device_id": answer.get("device_id"),
+                    "gateway_url": announced, "issued_at": datetime.now(timezone.utc).isoformat()}
+            path = self._path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=".gateway-", suffix=".json")
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(held, handle, indent=2)
+            os.replace(temp, path)
+            return {**held, "refused": refused}
+
+
+def add_gateway_endpoint(endpoint: Dict[str, Any], *, gateway_url: str, client: Any, credentials: HubCredentials, device: GatewayDevice | None = None) -> str:
+    """Add *endpoint* (one of ``GET /v1/mcp/me/endpoints``, which announces
+    the gateway: *gateway_url*) to this machine: a gateway token first when
+    there is none worth keeping, then the entry. An endpoint off the gateway
+    is refused before any token is asked for (:class:`GatewayEndpointRefused`).
+    Returns the entry's name. The desktop reloads MCP after."""
+    from hermes_cli import mcp_catalog
+    from hermes_cli.mcp_config import _save_mcp_server
+
+    url = str(endpoint.get("url") or "")
+    problem = gateway_endpoint_problem(url, gateway_url)
+    if problem:
+        raise GatewayEndpointRefused(problem)
+    name = gateway_entry_name(str(endpoint.get("ref") or ""))
+    existing = mcp_catalog.raw_servers().get(name)
+    if isinstance(existing, dict) and existing.get("source") != GATEWAY_SOURCE:
+        # Somebody's own server under that name stays theirs: the gateway never writes over it.
+        raise ValueError(f"an MCP server named {name} is already set up here, not by the gateway: rename or remove it first")
+    device = device or engine()._gateway
+    if device.needs_rotation() or _origin(device.gateway_url()) != _origin(gateway_url):
+        # No token worth keeping, or one asked for when the gateway was elsewhere.
+        device.issue(client, credentials)
+    # The token goes where the hub announced it would: the entry must be there too.
+    problem = gateway_endpoint_problem(url, device.gateway_url())
+    if problem:
+        raise GatewayEndpointRefused(problem)
+    if not _save_mcp_server(name, gateway_entry(endpoint)):
+        raise ValueError(f"the entry {name} was refused by the MCP config checks")
+    engine().nudge()
+    return name
 
 # ---------------------------------------------------------------------------
 # Wiring

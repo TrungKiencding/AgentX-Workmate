@@ -66,14 +66,27 @@ class _Row:
         return self.entry is None
 
 
+def _is_this_entry(entry: CatalogEntry) -> bool:
+    """The server configured under *entry*'s name is this entry (an AgentX Hub
+    entry and a shipped one may share a name; only one is configured)."""
+    from hermes_cli.mcp_catalog import hub_slug_of
+
+    cfg = installed_servers().get(entry.name)
+    return isinstance(cfg, dict) and hub_slug_of(cfg) == (entry.hub.slug if entry.hub is not None else None)
+
+
 def _build_rows() -> List[_Row]:
-    """Return catalog rows + any custom (non-catalog) MCPs found in config."""
+    """Return catalog rows + any custom (non-catalog) MCPs found in config.
+    An AgentX Hub entry is a row of its own: ``agentx-hub/<slug>``."""
     catalog_entries = list_catalog()
-    catalog_names = {e.name for e in catalog_entries}
 
     rows: List[_Row] = []
+    claimed = set()
     for entry in catalog_entries:
-        if not is_installed(entry.name):
+        mine = _is_this_entry(entry)
+        if mine:
+            claimed.add(entry.name)
+        if not mine:
             status = _STATUS_NOT_INSTALLED
         elif is_enabled(entry.name):
             status = _STATUS_ENABLED
@@ -81,7 +94,7 @@ def _build_rows() -> List[_Row]:
             status = _STATUS_DISABLED
         rows.append(
             _Row(
-                name=entry.name,
+                name=entry.identifier,
                 description=entry.description,
                 status=status,
                 entry=entry,
@@ -90,7 +103,7 @@ def _build_rows() -> List[_Row]:
 
     # Custom MCPs the user added directly (not in the catalog)
     for name, cfg in sorted(installed_servers().items()):
-        if name in catalog_names:
+        if name in claimed:
             continue
         enabled = cfg.get("enabled", True)
         if isinstance(enabled, str):
@@ -157,19 +170,31 @@ def _remove_custom(name: str) -> None:
     print(color(f"  ✓ Removed '{name}'", Colors.GREEN))
 
 
+def _install(entry: CatalogEntry) -> bool:
+    """Install *entry*; an AgentX Hub entry is also told to the hub (which keeps it from then on)."""
+    try:
+        install_entry(entry, enable=True)
+    except CatalogError as exc:
+        print(color(f"  ✗ install failed: {exc}", Colors.RED))
+        return False
+    if entry.hub is not None:
+        from hermes_cli.hub_sync import announce_mcp_install
+
+        if not announce_mcp_install(entry.hub.slug):
+            print(color("  The AgentX Hub could not be told yet; the hub sync tells it when it can.", Colors.DIM))
+    return True
+
+
 def _handle_row(row: _Row) -> None:
     """Act on the picked row based on its current status."""
     # === Catalog row, not yet installed ===
-    if row.entry and not is_installed(row.name):
-        try:
-            install_entry(row.entry, enable=True)
-        except CatalogError as exc:
-            print(color(f"  ✗ install failed: {exc}", Colors.RED))
+    if row.entry and not _is_this_entry(row.entry):
+        _install(row.entry)
         return
 
     # === Catalog row, installed but disabled ===
-    if row.entry and not is_enabled(row.name):
-        _enable_disable(row.name, enable=True)
+    if row.entry and not is_enabled(row.entry.name):
+        _enable_disable(row.entry.name, enable=True)
         return
 
     # === Catalog row, installed + enabled OR custom row ===
@@ -192,6 +217,8 @@ def _handle_row(row: _Row) -> None:
         return
 
     # Catalog row, installed + enabled
+    assert row.entry is not None
+    name = row.entry.name
     print()
     print(color(f"  '{row.name}' is already enabled.", Colors.DIM))
     actions = [
@@ -204,12 +231,16 @@ def _handle_row(row: _Row) -> None:
     if choice is None:
         return
     if choice == 0:
-        _configure_tools(row.name)
+        _configure_tools(name)
     elif choice == 1:
-        _enable_disable(row.name, enable=False)
+        _enable_disable(name, enable=False)
     elif choice == 2:
         if prompt_yes_no(f"Uninstall '{row.name}'?", default=False):
-            if uninstall_entry(row.name):
+            if uninstall_entry(name):
+                if row.entry.hub is not None:
+                    from hermes_cli.hub_sync import announce_mcp_removal
+
+                    announce_mcp_removal(row.entry.hub.slug)
                 print(color(
                     f"  ✓ Uninstalled '{row.name}'. "
                     "Credentials in .env preserved — delete manually if no longer needed.",
@@ -218,11 +249,7 @@ def _handle_row(row: _Row) -> None:
             else:
                 print(color(f"  '{row.name}' was not installed", Colors.DIM))
     elif choice == 3:
-        try:
-            assert row.entry is not None
-            install_entry(row.entry, enable=True)
-        except CatalogError as exc:
-            print(color(f"  ✗ reinstall failed: {exc}", Colors.RED))
+        _install(row.entry)
 
 
 # ─── Output / entry points ────────────────────────────────────────────────────
@@ -262,6 +289,14 @@ def _print_rows_text(rows: List[_Row]) -> None:
                 "to install this entry.",
                 Colors.YELLOW,
             ))
+        print()
+    # AgentX Hub servers that cannot be installed here, and why (Agent Hub P3.11):
+    # not runnable in Workmate as they are, or signatures that do not hold.
+    hub = [d for d in diags if d[1] in ("hub_unsupported", "unverified", "hub_unavailable")]
+    if hub:
+        print()
+        for name, _, msg in hub:
+            print(color(f"  ⚠ {name}: {msg}", Colors.YELLOW))
         print()
     print()
 
@@ -316,6 +351,8 @@ def install_by_name(identifier: str, *, dev: bool = False) -> int:
             Colors.RED,
         ))
         return 1
+    if entry.hub is not None:
+        return 0 if _install(entry) else 1
     try:
         install_entry(entry, enable=True, dev=dev)
     except CatalogError as exc:

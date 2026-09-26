@@ -19,6 +19,7 @@ import { JsonDocumentEditor } from '@/components/chat/json-document-editor'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorBanner } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
@@ -45,11 +46,12 @@ import {
   installMcpCatalogEntry,
   type McpCatalogEntry,
   type McpTestResult,
+  removeHubMcpServer,
   saveMcpServers,
   testMcpServer
 } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
-import { ChevronLeft, RefreshCw, Trash2 } from '@/lib/icons'
+import { ChevronLeft, ExternalLink, Lock, RefreshCw, Trash2 } from '@/lib/icons'
 import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import { countEnabledTools, isToolEnabled, toggleToolInServer } from '@/lib/mcp-tool-filter'
 import { cn } from '@/lib/utils'
@@ -57,7 +59,7 @@ import { notify, notifyError } from '@/store/notifications'
 import { setPaneHeightOverride } from '@/store/panes'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $activeSessionId } from '@/store/session'
-import type { HermesConfigRecord } from '@/types/hermes'
+import type { HermesConfigRecord, McpCatalogResponse } from '@/types/hermes'
 
 import { setHermesConfigCache, useHermesConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
@@ -433,8 +435,10 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
 
   // Key by active profile — installed/enabled badges are per-profile, so sharing
   // one cache across profiles would flash the previous profile's state on switch.
+  const profileKey = normalizeProfileKey(useStore($activeGatewayProfile))
+
   const catalogQuery = useQuery({
-    queryKey: [...MCP_CATALOG_KEY, normalizeProfileKey(useStore($activeGatewayProfile))],
+    queryKey: [...MCP_CATALOG_KEY, profileKey],
     queryFn: getMcpCatalog,
     staleTime: 5 * 60_000
   })
@@ -1016,10 +1020,17 @@ export function McpTab({ gateway }: { gateway: HermesGateway | null }) {
                   {m.backToConnections}
                 </Button>
               </div>
-              <McpCatalog entries={catalog} loading={catalogQuery.isLoading} onInstalled={onCatalogInstalled} />
+              <McpCatalog
+                entries={catalog}
+                hub={catalogQuery.data?.hub ?? null}
+                loading={catalogQuery.isLoading}
+                onInstalled={onCatalogInstalled}
+                unsupported={(catalogQuery.data?.diagnostics ?? []).filter(d => d.kind === 'hub_unsupported').length}
+              />
             </>
           ) : (
             <>
+              <GatewayEndpoints onAdded={() => void onCatalogInstalled()} profile={profileKey} />
               <p className="mb-3 text-sm text-(--ui-text-tertiary)">{m.mcpIntro}</p>
               {names.map(serverName => {
                 const server = servers[serverName]
@@ -1331,32 +1342,222 @@ function CatalogTag({ children }: { children: string }) {
   return <TagChip>{children}</TagChip>
 }
 
+// The person's AgentX Gateway endpoints (Agent Hub P5.8): a server or a toolset
+// of theirs on the hub, reached through the hub's gateway with this machine's
+// token — "Thêm vào Workmate" asks the hub for that token (the signed-in
+// session does), keeps it in .env and writes the entry; the hub sync renews
+// it. Default profile only, like the hub's servers. Calls the local backend
+// directly (`/api/mcp/gateway*`).
+export interface McpGatewayEndpoint {
+  kind: 'server' | 'toolset'
+  ref: string
+  label: string
+  url: string
+  status: 'ready' | 'partial' | 'needs_connection' | 'needs_reauth' | 'unavailable'
+  tools: number
+  connect_url?: null | string
+  added: null | string
+}
+
+/** A refusal, as the Hub tab's routes answer one. */
+export interface McpGatewayRefusal {
+  ok: false
+  status: 'error' | 'not_found' | 'offline' | 'reauth' | 'sign_in'
+  code: string
+  detail: string
+}
+
+export interface McpGatewayListing {
+  available: boolean
+  reason: 'error' | 'gateway_off' | 'offline' | 'profile' | 'reauth' | 'sign_in' | 'signed_out' | null
+  error?: McpGatewayRefusal
+  endpoints: McpGatewayEndpoint[]
+  session?: boolean
+  device: null | {
+    entries: number
+    token: boolean
+    expires_at: null | string
+    days_left: null | number
+    state: 'expired' | 'none' | 'ok' | 'renew'
+  }
+}
+
+function gatewayPath(profile: string, tail = ''): string {
+  return `/api/mcp/gateway${tail}${profile === 'default' ? '' : `?profile=${encodeURIComponent(profile)}`}`
+}
+
+export function GatewayEndpoints({ onAdded, profile }: { onAdded: () => void; profile: string }) {
+  const { t } = useI18n()
+  const m = t.settings.mcp
+  const [adding, setAdding] = useState<null | string>(null)
+
+  const query = useQuery({
+    queryKey: ['mcp-gateway', profile],
+    queryFn: () => window.agentxDesktop.api<McpGatewayListing>({ path: gatewayPath(profile) }),
+    retry: false
+  })
+
+  if (profile !== 'default' || query.data?.reason === 'profile') {
+    return null
+  }
+
+  const data = query.data
+  const device = data?.device
+
+  // The token lapsed and nothing here can renew it (no signed-in session), or the hub refused the session.
+  const signIn =
+    Boolean(device && device.entries > 0 && device.state === 'expired' && !data?.session) ||
+    data?.reason === 'reauth' ||
+    data?.reason === 'sign_in'
+
+  const add = async (endpoint: McpGatewayEndpoint) => {
+    setAdding(endpoint.ref)
+
+    try {
+      const res = await window.agentxDesktop.api<McpGatewayRefusal | { ok: true; name: string; url: string }>({
+        path: gatewayPath(profile, '/add'),
+        method: 'POST',
+        body: { kind: endpoint.kind, ref: endpoint.ref },
+        timeoutMs: 30_000
+      })
+
+      if (!res.ok) {
+        notify({
+          kind: 'error',
+          title:
+            res.status === 'sign_in' || res.status === 'reauth' ? m.gatewaySignIn : m.gatewayAddFailed(endpoint.label),
+          message: res.status === 'sign_in' || res.status === 'reauth' ? '' : res.detail
+        })
+
+        return
+      }
+
+      notify({ kind: 'success', title: m.gatewayAdded(endpoint.label), message: '' })
+      void query.refetch()
+      onAdded()
+    } catch (err) {
+      notifyError(err, m.gatewayAddFailed(endpoint.label))
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  return (
+    <section
+      aria-label={m.gatewaySection}
+      className="mb-4 grid gap-2 rounded-lg border border-(--ui-border-subtle) p-3"
+      data-testid="mcp-gateway"
+    >
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold text-(--ui-text-primary)">{m.gatewaySection}</h3>
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayHint}</p>
+        {signIn && (
+          <p className="text-xs text-(--ui-yellow)" data-testid="mcp-gateway-signin">
+            {m.gatewaySignIn}
+          </p>
+        )}
+        {!signIn && device?.token && device.days_left !== null && device.entries > 0 && (
+          <p className="text-xs text-(--ui-text-tertiary)" data-testid="mcp-gateway-token">
+            {m.gatewayTokenDays(device.days_left)}
+          </p>
+        )}
+      </div>
+      {query.isLoading ? (
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayLoading}</p>
+      ) : query.isError || data?.reason === 'offline' ? (
+        <p className="text-xs text-(--ui-yellow)" data-testid="mcp-gateway-offline">
+          {m.hubOffline}
+        </p>
+      ) : !data?.available ? (
+        signIn ? null : (
+          <p className="text-xs text-(--ui-text-secondary)" data-testid="mcp-gateway-unavailable">
+            {data?.reason === 'signed_out'
+              ? m.hubSignIn
+              : data?.reason === 'error'
+                ? data.error?.detail || m.gatewayOff
+                : m.gatewayOff}
+          </p>
+        )
+      ) : data.endpoints.length === 0 ? (
+        <p className="text-xs text-(--ui-text-tertiary)">{m.gatewayEmpty}</p>
+      ) : (
+        <ul className="grid gap-1.5">
+          {data.endpoints.map(endpoint => (
+            <li
+              className="flex flex-wrap items-center gap-2"
+              data-ref={endpoint.ref}
+              data-testid="mcp-gateway-endpoint"
+              key={`${endpoint.kind}:${endpoint.ref}`}
+            >
+              <span className="min-w-0 flex-1 truncate text-sm text-(--ui-text-primary)">{endpoint.label}</span>
+              <CatalogTag>{endpoint.kind === 'toolset' ? m.gatewayToolset : m.gatewayServer}</CatalogTag>
+              <StatusPill
+                size="md"
+                tone={endpoint.status === 'ready' ? 'good' : endpoint.status === 'unavailable' ? 'bad' : 'warn'}
+              >
+                {endpoint.status === 'ready' ? m.gatewayTools(endpoint.tools) : m.gatewayStatus[endpoint.status]}
+              </StatusPill>
+              {endpoint.added ? (
+                <StatusPill size="md" tone="good">
+                  {m.gatewayAddedPill}
+                </StatusPill>
+              ) : (
+                <Button
+                  disabled={adding !== null}
+                  loading={adding === endpoint.ref}
+                  onClick={() => void add(endpoint)}
+                  size="sm"
+                >
+                  {m.gatewayAdd}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 // The Nous-approved MCP catalog: one-click installs of curated servers, with an
 // inline prompt for any required credentials (never shows stored values). On
 // install the parent refetches config + catalog and reloads live sessions.
-function McpCatalog({
+// Above it, the person's AgentX Hub (Agent Hub Phase 3): the servers the hub
+// approved for them, verified by the backend (both of the hub's signatures),
+// each locked to the tools the hub approved — installed, updated, replaced or
+// removed here, the hub hears it.
+export function McpCatalog({
   entries,
+  hub = null,
   loading,
-  onInstalled
+  onInstalled,
+  unsupported = 0
 }: {
   entries: McpCatalogEntry[]
+  hub?: McpCatalogResponse['hub']
   loading: boolean
   onInstalled: () => void
+  unsupported?: number
 }) {
   const { t } = useI18n()
   const m = t.settings.mcp
   const [installing, setInstalling] = useState<null | string>(null)
   const [envDrafts, setEnvDrafts] = useState<Record<string, Record<string, string>>>({})
   const [envOpenFor, setEnvOpenFor] = useState<null | string>(null)
+  const [replaceTarget, setReplaceTarget] = useState<McpCatalogEntry | null>(null)
 
-  const install = async (entry: McpCatalogEntry) => {
+  const keyOf = (entry: McpCatalogEntry) => entry.id ?? entry.name
+
+  const install = async (entry: McpCatalogEntry, { askCredentials = true }: { askCredentials?: boolean } = {}) => {
+    const key = keyOf(entry)
     const required = entry.required_env.filter(env => env.required)
-    const draft = envDrafts[entry.name] ?? {}
+    const draft = envDrafts[key] ?? {}
 
     // Reveal the credential prompt first; only error once it's shown and unfilled.
-    if (required.some(env => !draft[env.name]?.trim())) {
-      if (envOpenFor !== entry.name) {
-        setEnvOpenFor(entry.name)
+    // An installed server (an update, a replace) already has its values here.
+    if (askCredentials && !entry.installed && required.some(env => !draft[env.name]?.trim())) {
+      if (envOpenFor !== key) {
+        setEnvOpenFor(key)
 
         return
       }
@@ -1366,10 +1567,10 @@ function McpCatalog({
       return
     }
 
-    setInstalling(entry.name)
+    setInstalling(key)
 
     try {
-      const res = await installMcpCatalogEntry(entry.name, draft)
+      const res = await installMcpCatalogEntry(key, draft)
 
       // Git-backed entries clone in the background — keep the row busy and poll
       // the action to completion before refetching / re-enabling, so a re-click
@@ -1391,7 +1592,11 @@ function McpCatalog({
         }
       }
 
-      notify({ kind: 'success', title: m.catalogInstallStarted(entry.name), message: '' })
+      notify({
+        kind: 'success',
+        title: m.catalogInstallStarted(entry.name),
+        message: res.registered === false ? m.hubNotRegistered : ''
+      })
       setEnvOpenFor(null)
       onInstalled()
     } catch (err) {
@@ -1401,81 +1606,270 @@ function McpCatalog({
     }
   }
 
+  const remove = async (entry: McpCatalogEntry) => {
+    if (!entry.slug) {
+      return
+    }
+
+    setInstalling(keyOf(entry))
+
+    try {
+      await removeHubMcpServer(entry.slug)
+      notify({ kind: 'success', title: m.hubRemoved(entry.name), message: '' })
+      onInstalled()
+    } catch (err) {
+      notifyError(err, m.hubRemoveFailed(entry.name))
+    } finally {
+      setInstalling(null)
+    }
+  }
+
   if (loading) {
     return <PageLoader className="min-h-24" label={m.catalogLoading} />
   }
 
-  if (entries.length === 0) {
-    return <PanelEmpty description={m.catalogEmpty} figure="plug" title={m.tabCatalog} />
+  const hubEntries = entries.filter(entry => entry.origin === 'hub')
+  const shipped = entries.filter(entry => entry.origin !== 'hub')
+  // Keys the hub signs with that this machine does not trust (Agent Hub P6.1): said instead of "offline".
+  const untrustedKids = (hub?.notices ?? []).filter(n => n.code === 'hub_key_untrusted').map(n => n.kid ?? '?')
+
+  const credentialInputs = (entry: McpCatalogEntry) => {
+    const key = keyOf(entry)
+    const draft = envDrafts[key] ?? {}
+
+    return (
+      envOpenFor === key &&
+      entry.required_env.length > 0 && (
+        <div className="grid gap-2">
+          {entry.required_env.map(env => (
+            <label className="grid gap-1" key={env.name}>
+              <span className="text-xs text-(--ui-text-tertiary)">
+                {env.prompt || env.name}
+                {env.required ? ' *' : ''}
+              </span>
+              {/* The author's prompt says what it wants; the name is what the server reads the value as. */}
+              {env.prompt && env.prompt !== env.name && (
+                <span className="font-mono text-xs text-(--ui-text-tertiary)">{env.name}</span>
+              )}
+              <Input
+                onChange={event => {
+                  // Read now: React may run the updater after the event, when currentTarget is gone.
+                  const value = event.currentTarget.value
+
+                  setEnvDrafts(prev => ({ ...prev, [key]: { ...prev[key], [env.name]: value } }))
+                }}
+                size="sm"
+                type="password"
+                value={draft[env.name] ?? ''}
+              />
+            </label>
+          ))}
+        </div>
+      )
+    )
   }
 
   return (
-    // The same StoreCard the skill store uses, so "install a curated
-    // connection" reads exactly like "add a skill".
-    <StoreCardGrid>
-      {entries.map(entry => {
-        const draft = envDrafts[entry.name] ?? {}
-
-        return (
-          <StoreCard key={entry.name}>
-            <StoreCardHeader
-              glyph={
-                <McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />
-              }
-              title={prettyName(entry.name)}
-            />
-            <StoreCardDescription>{entry.description}</StoreCardDescription>
-            <StoreCardTags>
-              <CatalogTag>{entry.transport}</CatalogTag>
-              {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
-              {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
-              {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
-            </StoreCardTags>
-            {envOpenFor === entry.name && entry.required_env.length > 0 && (
-              <div className="grid gap-2">
-                {entry.required_env.map(env => (
-                  <label className="grid gap-1" key={env.name}>
-                    <span className="text-xs text-(--ui-text-tertiary)">
-                      {env.prompt || env.name}
-                      {env.required ? ' *' : ''}
-                    </span>
-                    <Input
-                      onChange={event =>
-                        setEnvDrafts(prev => ({
-                          ...prev,
-                          [entry.name]: { ...prev[entry.name], [env.name]: event.currentTarget.value }
-                        }))
-                      }
-                      size="sm"
-                      type="password"
-                      value={draft[env.name] ?? ''}
-                    />
-                  </label>
-                ))}
-              </div>
+    <div className="grid gap-6">
+      {hub && (
+        <section aria-label={m.hubSection} className="grid gap-3" data-testid="mcp-hub-catalog">
+          <div className="grid gap-1">
+            <h3 className="text-sm font-semibold text-(--ui-text-primary)">{m.hubSection}</h3>
+            <p className="text-xs text-(--ui-text-tertiary)">{m.hubHint}</p>
+            {!hub.signed_in && (
+              <p className="text-xs text-(--ui-text-secondary)" data-testid="mcp-hub-signin">
+                {m.hubSignIn}
+              </p>
             )}
-            <StoreCardFooter
-              end={
-                entry.installed ? (
-                  <StatusPill size="md" tone="good">
-                    {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
-                  </StatusPill>
-                ) : (
-                  <Button
-                    disabled={installing !== null}
-                    loading={installing === entry.name}
-                    onClick={() => void install(entry)}
-                    size="sm"
-                  >
-                    {m.catalogInstall}
+            {untrustedKids.length > 0 ? (
+              <p className="text-xs text-(--ui-red)" data-testid="mcp-hub-key-untrusted">
+                {m.hubKeyUntrusted(untrustedKids.join(', '))}
+              </p>
+            ) : (
+              hub.error && (
+                <p className="text-xs text-(--ui-yellow)" data-testid="mcp-hub-offline">
+                  {m.hubOffline}
+                </p>
+              )
+            )}
+            {unsupported > 0 && <p className="text-xs text-(--ui-text-tertiary)">{m.hubUnsupported(unsupported)}</p>}
+          </div>
+          {hubEntries.length > 0 && (
+            <StoreCardGrid>
+              {hubEntries.map(entry => (
+                <HubCatalogCard
+                  busy={installing !== null}
+                  entry={entry}
+                  installing={installing === keyOf(entry)}
+                  key={keyOf(entry)}
+                  onInstall={() => void install(entry)}
+                  onRemove={() => void remove(entry)}
+                  onReplace={() => setReplaceTarget(entry)}
+                  onUpdate={() => void install(entry, { askCredentials: false })}
+                >
+                  {credentialInputs(entry)}
+                </HubCatalogCard>
+              ))}
+            </StoreCardGrid>
+          )}
+        </section>
+      )}
+      {shipped.length === 0 ? (
+        <PanelEmpty description={m.catalogEmpty} figure="plug" title={m.tabCatalog} />
+      ) : (
+        // The same StoreCard the skill store uses, so "install a curated
+        // connection" reads exactly like "add a skill".
+        <StoreCardGrid>
+          {shipped.map(entry => (
+            <StoreCard key={entry.name}>
+              <StoreCardHeader
+                glyph={
+                  <McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />
+                }
+                title={prettyName(entry.name)}
+              />
+              <StoreCardDescription>{entry.description}</StoreCardDescription>
+              <StoreCardTags>
+                <CatalogTag>{entry.transport}</CatalogTag>
+                {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
+                {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
+                {entry.needs_install && !entry.installed && <CatalogTag>{m.catalogNeedsInstall}</CatalogTag>}
+              </StoreCardTags>
+              {credentialInputs(entry)}
+              <StoreCardFooter
+                end={
+                  entry.installed ? (
+                    <StatusPill size="md" tone="good">
+                      {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
+                    </StatusPill>
+                  ) : (
+                    <Button
+                      disabled={installing !== null}
+                      loading={installing === entry.name}
+                      onClick={() => void install(entry)}
+                      size="sm"
+                    >
+                      {m.catalogInstall}
+                    </Button>
+                  )
+                }
+              />
+            </StoreCard>
+          ))}
+        </StoreCardGrid>
+      )}
+      <ConfirmDialog
+        confirmLabel={m.hubReplace.replace('…', '')}
+        destructive
+        dismissOnConfirm
+        onClose={() => setReplaceTarget(null)}
+        onConfirm={async () => {
+          if (replaceTarget) {
+            await install(replaceTarget, { askCredentials: false })
+          }
+        }}
+        open={replaceTarget !== null}
+        title={replaceTarget ? m.hubReplaceConfirm(replaceTarget.name) : ''}
+      />
+    </div>
+  )
+}
+
+// One AgentX Hub server: what the hub vouches for (verified, curated or
+// reviewed or yours, the scan), what this machine runs of it (installed,
+// the version, an update, the tools it keeps off because they differ from the
+// approved list) and the verbs — install, update, replace an edited copy,
+// remove, open its page on the hub.
+function HubCatalogCard({
+  busy,
+  children,
+  entry,
+  installing,
+  onInstall,
+  onRemove,
+  onReplace,
+  onUpdate
+}: {
+  busy: boolean
+  children?: React.ReactNode
+  entry: McpCatalogEntry
+  installing: boolean
+  onInstall: () => void
+  onRemove: () => void
+  onReplace: () => void
+  onUpdate: () => void
+}) {
+  const { t } = useI18n()
+  const m = t.settings.mcp
+  const blocked = entry.blocked_tools ?? []
+
+  const trust =
+    entry.trust === 'curated' ? m.hubTrustCurated : entry.trust === 'private' ? m.hubTrustPrivate : m.hubTrustReviewed
+
+  return (
+    <StoreCard data-hub-slug={entry.slug} data-testid="mcp-hub-entry">
+      <StoreCardHeader
+        glyph={<McpAvatar name={entry.name} status={entry.installed ? (entry.enabled ? 'ok' : 'off') : 'unknown'} />}
+        title={prettyName(entry.name)}
+      />
+      <StoreCardDescription>{entry.description}</StoreCardDescription>
+      <StoreCardTags>
+        {entry.verified && <CatalogTag>{m.hubVerified}</CatalogTag>}
+        <CatalogTag>{trust}</CatalogTag>
+        {entry.version && <CatalogTag>{`v${entry.version}`}</CatalogTag>}
+        <CatalogTag>{entry.transport}</CatalogTag>
+        {entry.auth_type === 'oauth' && <CatalogTag>OAuth</CatalogTag>}
+        {entry.auth_type === 'api_key' && <CatalogTag>API key</CatalogTag>}
+        {entry.verdict === 'caution' && <CatalogTag>{m.hubVerdictCaution}</CatalogTag>}
+        {entry.update_available && entry.version && <CatalogTag>{m.hubUpdateAvailable(entry.version)}</CatalogTag>}
+      </StoreCardTags>
+      {blocked.length > 0 && (
+        <p className="flex items-center gap-1 text-xs text-(--ui-yellow)" data-testid="mcp-hub-blocked">
+          <Lock aria-hidden className="size-3.5 shrink-0" />
+          {m.hubBlocked(blocked.length, blocked.join(', '))}
+        </p>
+      )}
+      {entry.modified && <p className="text-xs text-(--ui-text-secondary)">{m.hubModified}</p>}
+      {entry.name_taken && <p className="text-xs text-(--ui-text-secondary)">{m.hubNameTaken}</p>}
+      {children}
+      <StoreCardFooter
+        end={
+          entry.installed ? (
+            <div className="flex items-center gap-2">
+              {entry.modified ? (
+                <Button disabled={busy} onClick={onReplace} size="sm" variant="secondary">
+                  {m.hubReplace}
+                </Button>
+              ) : (
+                entry.update_available &&
+                entry.version && (
+                  <Button disabled={busy} loading={installing} onClick={onUpdate} size="sm">
+                    {m.hubUpdate(entry.version)}
                   </Button>
                 )
-              }
-            />
-          </StoreCard>
-        )
-      })}
-    </StoreCardGrid>
+              )}
+              <StatusPill size="md" tone="good">
+                {entry.enabled ? m.catalogEnabled : m.catalogInstalled}
+              </StatusPill>
+              <Button disabled={busy} onClick={onRemove} size="sm" variant="ghost">
+                {m.hubRemove}
+              </Button>
+            </div>
+          ) : (
+            <Button disabled={busy || entry.name_taken} loading={installing} onClick={onInstall} size="sm">
+              {m.catalogInstall}
+            </Button>
+          )
+        }
+      >
+        {entry.page && (
+          <Button onClick={() => void window.agentxDesktop.openExternal(entry.page!)} size="sm" variant="ghost">
+            <ExternalLink aria-hidden className="size-3.5" />
+            {m.hubOpen}
+          </Button>
+        )}
+      </StoreCardFooter>
+    </StoreCard>
   )
 }
 

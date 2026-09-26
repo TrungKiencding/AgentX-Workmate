@@ -8,6 +8,7 @@ import { getSkillHubChanges, tickSkillHub } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
+import { $gateway } from '@/store/gateway'
 import {
   $hubActions,
   HUB_CATALOG_KEY,
@@ -87,6 +88,8 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
   const [ticking, setTicking] = useState(false)
   // The backend revision we last acted on; a change means files moved.
   const [seenRevision, setSeenRevision] = useState<number | null>(null)
+  // The same for MCP servers the sync installed, removed or switched here.
+  const [seenMcpRevision, setSeenMcpRevision] = useState<number | null>(null)
   const [replace, setReplace] = useState<null | ReplaceTarget>(null)
 
   const changes = useQuery({
@@ -145,6 +148,28 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       setSeenRevision(revision)
     }
   }, [queryClient, revision, seenRevision])
+
+  // The sync changed an MCP server here (an AgentX Hub server installed,
+  // switched off from the hub, removed, its tool list re-approved): live
+  // sessions reload MCP and the MCP tab's catalog is stale.
+  const mcpRevision = changes.data?.mcp_revision
+  useEffect(() => {
+    if (mcpRevision === undefined) {
+      return
+    }
+
+    if (seenMcpRevision !== null && seenMcpRevision !== mcpRevision) {
+      void queryClient.invalidateQueries({ queryKey: ['mcp-catalog'] })
+      void $gateway
+        .get()
+        ?.request('reload.mcp', { confirm: true })
+        .catch(() => undefined)
+    }
+
+    if (seenMcpRevision !== mcpRevision) {
+      setSeenMcpRevision(mcpRevision)
+    }
+  }, [mcpRevision, queryClient, seenMcpRevision])
 
   const updateAll = () => {
     notify({ kind: 'success', title: h.updateStarted, message: h.actionLog })

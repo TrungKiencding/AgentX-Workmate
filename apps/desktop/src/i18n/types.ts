@@ -842,6 +842,44 @@ export interface Translations {
       catalogInstallFailed: (name: string) => string
       catalogEnvPrompt: (name: string) => string
       catalogEnvRequired: string
+      hubSection: string
+      hubHint: string
+      hubSignIn: string
+      hubOffline: string
+      hubKeyUntrusted: (kids: string) => string
+      hubVerified: string
+      hubTrustCurated: string
+      hubTrustReviewed: string
+      hubTrustPrivate: string
+      hubVerdictCaution: string
+      hubUpdate: (version: string) => string
+      hubUpdateAvailable: (version: string) => string
+      hubBlocked: (count: number, tools: string) => string
+      hubOpen: string
+      hubRemove: string
+      hubRemoved: (name: string) => string
+      hubRemoveFailed: (name: string) => string
+      hubReplace: string
+      hubReplaceConfirm: (name: string) => string
+      hubModified: string
+      hubNameTaken: string
+      hubNotRegistered: string
+      hubUnsupported: (count: number) => string
+      gatewaySection: string
+      gatewayHint: string
+      gatewaySignIn: string
+      gatewayTokenDays: (days: number) => string
+      gatewayLoading: string
+      gatewayOff: string
+      gatewayEmpty: string
+      gatewayServer: string
+      gatewayToolset: string
+      gatewayTools: (count: number) => string
+      gatewayStatus: Record<'needs_connection' | 'needs_reauth' | 'partial' | 'ready' | 'unavailable', string>
+      gatewayAdd: string
+      gatewayAddedPill: string
+      gatewayAdded: (label: string) => string
+      gatewayAddFailed: (label: string) => string
       capabilitySummary: (tools: number, prompts: number, resources: number) => string
       statusConnecting: string
       statusNeedsAuth: string

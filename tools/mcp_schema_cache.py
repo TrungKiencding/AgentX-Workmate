@@ -31,14 +31,32 @@ def _cache_path() -> Path:
 def config_fingerprint(config: dict) -> str:
     """Stable hash of the connection-defining parts of an MCP server config."""
     tools_filter = config.get("tools") or {}
+    include = tools_filter.get("include")
     payload = {
         "command": config.get("command"),
         "args": config.get("args") or [],
         "url": config.get("url"),
         "transport": config.get("transport"),
-        "tools_include": sorted(tools_filter.get("include") or []),
+        "tools_include": sorted(include or []),
         "tools_exclude": sorted(tools_filter.get("exclude") or []),
     }
+    if isinstance(include, (list, tuple)) and not include:
+        # An empty allow-list registers no tool: it must never read the cache
+        # written with no filter. Only this case adds the key, so every other
+        # config keeps the fingerprint (and the cache) it had.
+        payload["tools_include_empty"] = True
+    hub = config.get("hub")
+    if isinstance(hub, dict):
+        # A server installed from the AgentX Hub is locked to the tools the
+        # hub approved: when the hub approves another list, the cache written
+        # under the old one must not register it (Agent Hub P3.8). Its prompt
+        # and resource tools follow the approved prompts and resource
+        # templates the same way (P6.1); a lock without them keeps the
+        # fingerprint it had.
+        payload["hub_tools"] = sorted((str(k), str(v)) for k, v in (hub.get("tool_hashes") or {}).items())
+        for key, label in (("prompt_hashes", "hub_prompts"), ("template_hashes", "hub_templates")):
+            if isinstance(hub.get(key), dict) and hub[key]:
+                payload[label] = sorted((str(k), str(v)) for k, v in hub[key].items())
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 

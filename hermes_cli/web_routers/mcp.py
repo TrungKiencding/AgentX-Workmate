@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional  # noqa: F401
 
 from fastapi import APIRouter, HTTPException, Request  # noqa: F401
 from fastapi.responses import HTMLResponse  # noqa: F401
+from pydantic import BaseModel
 
 from hermes_cli.web_deps import late, LateState
 from hermes_cli.web_models import (
@@ -337,9 +338,43 @@ async def set_mcp_server_enabled(
     return {"ok": True, "name": name, "enabled": bool(body.enabled)}
 
 
+def _hub_session():
+    """``(client, credentials)`` for the AgentX Hub, or ``(None, None)`` when
+    nobody is signed in on this machine (the hub sync's credentials)."""
+    from hermes_cli.hub_client import HubClient, hub_base_url
+    from hermes_cli.hub_sync import resolve_credentials
+
+    credentials = resolve_credentials()
+    base_url = hub_base_url()
+    if credentials is None or not base_url:
+        return None, None
+    return HubClient(base_url), credentials
+
+
+def _refresh_hub_feed(force: bool = False) -> None:
+    """Fetch the hub's MCP feed when the copy on disk is stale (never raises:
+    the catalog lists what is on disk)."""
+    from tools import mcp_hub
+
+    try:
+        client, credentials = _hub_session()
+        if client is not None:
+            mcp_hub.refresh(client, bearer=credentials.bearer, force=force)
+    except Exception:  # noqa: BLE001
+        _log.debug("the AgentX Hub MCP feed could not be refreshed", exc_info=True)
+
+
+def _is_default_profile(profile: Optional[str]) -> bool:
+    """AgentX Hub servers live in the profile the hub sync runs in (the default)."""
+    return not profile or profile == "default"
+
+
 @router.get("/api/mcp/catalog")
-async def list_mcp_catalog(profile: Optional[str] = None):
-    """Browse the Nous-approved MCP catalog (the optional-mcps/ manifests).
+async def list_mcp_catalog(profile: Optional[str] = None, refresh: bool = False):
+    """Browse the Nous-approved MCP catalog (the optional-mcps/ manifests) and
+    the servers of the person's AgentX Hub (``origin: "hub"``, id
+    ``agentx-hub/<slug>``: the hub's signed feed, fetched when stale —
+    ``refresh`` fetches it now — and read from disk otherwise).
 
     Each entry reports whether it's already installed and enabled so the UI
     can show install / enabled state inline.  This is the same catalog
@@ -349,17 +384,20 @@ async def list_mcp_catalog(profile: Optional[str] = None):
     """
     try:
         from hermes_cli import mcp_catalog
+        from tools import mcp_hub
     except Exception as exc:
         _log.exception("mcp_catalog import failed")
         raise HTTPException(status_code=500, detail=f"Catalog unavailable: {exc}")
 
+    if _is_default_profile(profile):
+        await asyncio.to_thread(_refresh_hub_feed, refresh)
     entries = []
     try:
         with _profile_scope(profile):
-            catalog_entries = list(mcp_catalog.list_catalog())
+            catalog_entries = [e for e in mcp_catalog.list_catalog() if e.origin != mcp_catalog.ORIGIN_HUB or _is_default_profile(profile)]
+            configured = mcp_catalog.raw_servers()
             installed_state = {
-                e.name: (mcp_catalog.is_installed(e.name), mcp_catalog.is_enabled(e.name))
-                for e in catalog_entries
+                e.identifier: _installed_state(mcp_catalog, e, configured) for e in catalog_entries
             }
         for entry in catalog_entries:
             auth = entry.auth
@@ -393,8 +431,8 @@ async def list_mcp_catalog(profile: Optional[str] = None):
                 else None,
                 "post_install": entry.post_install or "",
                 "needs_install": entry.install is not None,
-                "installed": installed_state.get(entry.name, (False, False))[0],
-                "enabled": installed_state.get(entry.name, (False, False))[1],
+                **installed_state.get(entry.identifier, {"installed": False, "enabled": False}),
+                **_hub_fields(entry, mcp_hub),
             })
     except HTTPException:
         # Unknown/invalid profile → 404, not a silently-empty catalog.
@@ -407,11 +445,45 @@ async def list_mcp_catalog(profile: Optional[str] = None):
         diagnostics = [
             {"name": n, "kind": k, "message": m}
             for (n, k, m) in mcp_catalog.catalog_diagnostics()
+            if _is_default_profile(profile) or not n.startswith(mcp_catalog.HUB_PREFIX)
         ]
     except Exception:
         pass
 
-    return {"entries": entries, "diagnostics": diagnostics}
+    hub = None
+    if _is_default_profile(profile):
+        client, _credentials = await asyncio.to_thread(_hub_session)
+        hub = {**mcp_hub.feed_status(), "signed_in": client is not None}
+    return {"entries": entries, "diagnostics": diagnostics, "hub": hub}
+
+
+def _installed_state(mcp_catalog, entry, configured: Dict[str, Any]) -> Dict[str, Any]:
+    """Installed? enabled? — of this entry, not of another server that took its name."""
+    cfg = configured.get(entry.name)
+    if not isinstance(cfg, dict):
+        return {"installed": False, "enabled": False}
+    owner = mcp_catalog.hub_slug_of(cfg)
+    mine = entry.hub.slug if entry.hub is not None else None
+    if owner != mine:
+        return {"installed": False, "enabled": False, "name_taken": True}
+    state: Dict[str, Any] = {"installed": True, "enabled": mcp_catalog.is_enabled(entry.name)}
+    if entry.hub is not None:
+        installed_version = str((cfg.get("hub") or {}).get("version") or "")
+        state.update(installed_version=installed_version or None, update_available=bool(installed_version) and installed_version != entry.hub.version,
+                     modified=mcp_catalog.edited_locally(cfg))
+    return state
+
+
+def _hub_fields(entry, mcp_hub) -> Dict[str, Any]:
+    """What an AgentX Hub entry adds: which server, its verdict, who vouches, the tools it may run, the tools kept off."""
+    if entry.hub is None:
+        return {"origin": entry.origin, "id": entry.identifier}
+    seen = mcp_hub.observed(entry.name) or {}
+    return {
+        "origin": entry.origin, "id": entry.identifier, "slug": entry.hub.slug, "version": entry.hub.version, "verified": True,
+        "trust": entry.hub.trust, "verdict": entry.hub.verdict, "tools": sorted(entry.hub.tool_hashes), "page": entry.source or None,
+        "blocked_tools": list(seen.get("blocked_tools") or []) if seen.get("slug") == entry.hub.slug else [],
+    }
 
 
 @router.post("/api/mcp/catalog/install")
@@ -426,9 +498,13 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
     from hermes_cli import mcp_catalog
 
     name = (body.name or "").strip()
+    effective_profile = body.profile or profile
     entry = mcp_catalog.get_entry(name)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"No catalog entry '{name}'")
+    # Every hub entry, asked for as agentx-hub/<slug> or by its bare name (get_entry finds both).
+    if entry.hub is not None and not _is_default_profile(effective_profile):
+        raise HTTPException(status_code=400, detail="AgentX Hub servers are installed in the default profile, where the hub sync keeps them.")
 
     # Catalog credentials are a closed schema: configuring one MCP must not
     # become a generic write primitive for unrelated process environment.
@@ -445,22 +521,22 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
 
     # Validate the complete map before the first write. This preserves the
     # existing writer/install flow while ensuring a mixed valid+invalid request
-    # cannot partially persist credentials.
+    # cannot partially persist credentials. A hub server's values are kept
+    # under keys of its own (value_key), never under the names it reads.
     from hermes_cli.config import validate_env_var_name_for_write
 
     try:
         for key in body.env:
-            validate_env_var_name_for_write(key)
+            validate_env_var_name_for_write(mcp_catalog.value_key(entry, key))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Persist any supplied, declared env vars first.
-    effective_profile = body.profile or profile
     if body.env:
         with _profile_scope(effective_profile):
             for k, v in body.env.items():
                 if v:
-                    save_env_value(k, v)
+                    save_env_value(mcp_catalog.value_key(entry, k), v)
 
     # Git-bootstrap entries can take a while to clone — run via the background
     # action path so the request returns immediately and the UI can tail logs.
@@ -491,13 +567,138 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall, profile: Optional[s
     # setting it here works; keep it explicit for clarity).
     def _install_scoped():
         with _profile_scope(effective_profile):
-            mcp_catalog.install_entry(entry, enable=body.enable)
+            if entry.hub is not None:
+                # A hub entry is installed without asking: its values came in this request.
+                mcp_catalog.install_entry(entry, enable=body.enable, interactive=False)
+            else:
+                mcp_catalog.install_entry(entry, enable=body.enable)
 
     try:
         await asyncio.to_thread(_install_scoped)
     except HTTPException:
         raise
+    except mcp_catalog.NeedsSecrets as exc:
+        raise HTTPException(status_code=400, detail={"code": exc.code, "message": str(exc), "missing": exc.missing}) from exc
     except Exception as exc:
         _log.exception("install_mcp_catalog_entry failed")
         raise HTTPException(status_code=400, detail=str(exc))
-    return {"ok": True, "name": name, "background": False}
+    if entry.hub is None:
+        return {"ok": True, "name": name, "background": False}
+    from hermes_cli.hub_sync import announce_mcp_install
+
+    registered = await asyncio.to_thread(announce_mcp_install, entry.hub.slug)
+    return {"ok": True, "name": entry.name, "id": entry.identifier, "background": False, "registered": registered}
+
+
+# ---------------------------------------------------------------------------
+# The AgentX Gateway (Agent Hub Phase 5): the person's endpoints, one added here
+# ---------------------------------------------------------------------------
+
+
+class MCPGatewayAdd(BaseModel):
+    """``POST /api/mcp/gateway/add``: which of the person's gateway endpoints."""
+
+    kind: str = "server"
+    ref: str
+
+
+def _gateway_refusal(status: str, message: str, code: str = "") -> Dict[str, Any]:
+    """What the tab reads when the hub (or this machine) says no — as the Hub tab's routes answer it:
+    ``{ok: false, status: offline|reauth|sign_in|not_found|error, code, detail}``."""
+    return {"ok": False, "status": status, "code": code or status, "detail": message}
+
+
+def _gateway_error(exc: Any) -> Dict[str, Any]:
+    status = "offline" if getattr(exc, "unreachable", False) else "reauth" if getattr(exc, "reauth", False) else "error"
+    # The hub gives a gateway token to a signed-in session alone: a personal token is refused with 403.
+    if status == "error" and getattr(exc, "status_code", None) == 403:
+        status = "sign_in"
+    return _gateway_refusal(status, str(exc), str(getattr(exc, "code", "") or ""))
+
+
+@router.get("/api/mcp/gateway")
+async def list_gateway_endpoints(request: Request, profile: Optional[str] = None):
+    """The person's AgentX Gateway endpoints (``GET /v1/mcp/me/endpoints`` on
+    the hub), each with the entry that already reaches it here, and this
+    machine's gateway token (never the token itself). The default profile
+    only: it is where the hub sync keeps them."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from hermes_cli.hub_sync import GATEWAY_SOURCE, engine
+    from hermes_cli.web_routers.skills import _hub_credentials_from
+
+    if not _is_default_profile(profile):
+        return {"available": False, "reason": "profile", "endpoints": [], "device": None}
+    credentials = _hub_credentials_from(request)
+    base_url = hub_base_url()
+    device = engine()._gateway
+    added = await asyncio.to_thread(device.entries)
+    by_url = {str(cfg.get("url") or ""): name for name, cfg in added.items() if cfg.get("source") == GATEWAY_SOURCE}
+    status = await asyncio.to_thread(device.status, len(added))
+    if credentials is None or not base_url:
+        return {"available": False, "reason": "signed_out", "endpoints": [], "device": status, "added": sorted(added)}
+    try:
+        body = await asyncio.to_thread(HubClient(base_url).gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
+                                       device_name=credentials.device_name)
+    except HubError as exc:
+        refusal = _gateway_error(exc)
+        return {"available": False, "reason": refusal["status"], "error": refusal, "endpoints": [], "device": status, "added": sorted(added)}
+    gateway = body.get("gateway") or {}
+    endpoints = [{**endpoint, "added": by_url.get(str(endpoint.get("url") or ""))} for endpoint in body.get("endpoints") or [] if isinstance(endpoint, dict)]
+    return {"available": bool(gateway.get("enabled")), "reason": None if gateway.get("enabled") else "gateway_off", "gateway": gateway,
+            "endpoints": endpoints, "device": status, "added": sorted(added), "session": credentials.source in ("session", "mailbox")}
+
+
+@router.post("/api/mcp/gateway/add")
+async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profile: Optional[str] = None):
+    """Add one of the person's gateway endpoints to Workmate: this machine's
+    gateway token (asked for with the signed-in session, kept in ``.env`` as
+    ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. An endpoint off the
+    gateway the hub announces (another origin, plain http) is refused
+    (``endpoint_refused``) before any token is asked for. The desktop reloads
+    MCP after."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from hermes_cli.hub_sync import GatewayEndpointRefused, GatewaySignInNeeded, add_gateway_endpoint
+    from hermes_cli.web_routers.skills import _hub_credentials_from
+
+    if not _is_default_profile(profile):
+        raise HTTPException(status_code=400, detail="The AgentX Gateway is added in the default profile, where the hub sync renews its token.")
+    credentials = _hub_credentials_from(request)
+    base_url = hub_base_url()
+    if credentials is None or not base_url:
+        return _gateway_refusal("reauth", "Sign in to AgentX Hub first.", "signed_out")
+    client = HubClient(base_url)
+    try:
+        listed = await asyncio.to_thread(client.gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
+                                         device_name=credentials.device_name)
+        endpoint = next((e for e in listed.get("endpoints") or [] if isinstance(e, dict) and e.get("kind") == body.kind and e.get("ref") == body.ref), None)
+        if endpoint is None:
+            return _gateway_refusal("not_found", "That endpoint is not one of yours on the hub.")
+        gateway_url = str((listed.get("gateway") or {}).get("url") or "")
+        name = await asyncio.to_thread(add_gateway_endpoint, endpoint, gateway_url=gateway_url, client=client, credentials=credentials)
+    except GatewaySignInNeeded as exc:
+        return _gateway_refusal("sign_in", str(exc), "sign_in_required")
+    except HubError as exc:
+        return _gateway_error(exc)
+    except GatewayEndpointRefused as exc:
+        return _gateway_refusal("error", str(exc), GatewayEndpointRefused.code)
+    except ValueError as exc:
+        return _gateway_refusal("error", str(exc), "invalid")
+    return {"ok": True, "name": name, "url": endpoint["url"]}
+
+
+@router.post("/api/mcp/hub/{slug}/remove")
+async def remove_hub_mcp_server(slug: str):
+    """Remove an AgentX Hub server from this machine: its config, tokens and
+    cached tools; the hub hears it was removed here (at once, or on the
+    sync's next tick when it cannot be reached)."""
+    from hermes_cli.hub_sync import McpLocalInstaller, announce_mcp_removal
+
+    installer = McpLocalInstaller()
+    local = await asyncio.to_thread(installer.local_state, slug)
+    if not local["installed"]:
+        raise HTTPException(status_code=404, detail=f"No AgentX Hub server '{slug}' is installed here")
+    ok, message = await asyncio.to_thread(installer.uninstall, local["name"])
+    if not ok:
+        raise HTTPException(status_code=400, detail=message)
+    announce_mcp_removal(slug)
+    return {"ok": True, "name": local["name"]}

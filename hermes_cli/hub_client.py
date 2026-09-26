@@ -40,6 +40,9 @@ _RETRY_DELAY_SECONDS = 0.75
 DEVICE_ID_HEADER = "X-AgentX-Device"
 DEVICE_NAME_HEADER = "X-AgentX-Device-Name"
 PRODUCT = "workmate"
+#: The code of the refusal to send anything to a hub not reached over https
+#: (``tools/hub_trust.py``): this machine's refusal, not an outage.
+INSECURE_HUB_URL = "insecure_hub_url"
 #: The hub sends a keepalive comment every 25 s; a stream silent for longer
 #: than this is treated as dead and reopened.
 STREAM_READ_TIMEOUT_SECONDS = 90.0
@@ -62,8 +65,9 @@ class HubError(RuntimeError):
 
     @property
     def unreachable(self) -> bool:
-        """True when we never got an HTTP answer at all."""
-        return self.status_code is None
+        """True when we never got an HTTP answer at all (not when this client
+        refused to ask: :data:`INSECURE_HUB_URL`)."""
+        return self.status_code is None and self.code != INSECURE_HUB_URL
 
     @property
     def reauth(self) -> bool:
@@ -113,6 +117,16 @@ class HubClient:
 
     # -- plumbing ---------------------------------------------------------
 
+    def _require_https(self) -> None:
+        """Nothing goes to a hub over plain http (the bearer, and the keys and
+        feed that come back, would be anybody's on the way); a hub on this
+        machine may (Agent Hub P6.1, ``tools/hub_trust.py``)."""
+        from tools.hub_trust import url_problem
+
+        problem = url_problem(self.base_url)
+        if problem:
+            raise HubError(problem, code=INSECURE_HUB_URL)
+
     @staticmethod
     def headers(bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, str]:
         headers = {"Authorization": f"Bearer {bearer}", "Accept": "application/json", "User-Agent": "agentx-workmate-hub-client"}
@@ -122,7 +136,7 @@ class HubClient:
             headers[DEVICE_NAME_HEADER] = device_name
         return headers
 
-    def _request(
+    def _send(
         self,
         method: str,
         path: str,
@@ -132,11 +146,16 @@ class HubClient:
         device_name: str = "",
         params: Optional[Mapping[str, Any]] = None,
         json_body: Optional[Mapping[str, Any]] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
+        """The answer below 400 (one retry on a network error or a 429/5xx); a
+        refusal raises :class:`HubError`."""
         import httpx
 
+        self._require_https()
         url = f"{self.base_url}{path}"
         headers = self.headers(bearer, device_id, device_name)
+        headers.update(extra_headers or {})
         last: Optional[HubError] = None
         for attempt in range(_MAX_ATTEMPTS):
             try:
@@ -150,15 +169,29 @@ class HubClient:
                 elif response.status_code >= 400:
                     raise _failure(response, path)
                 else:
-                    if response.status_code == 204 or not response.content:
-                        return {}
-                    try:
-                        return response.json()
-                    except ValueError as exc:
-                        raise HubError(f"the hub returned a non-JSON body for {path}", status_code=response.status_code) from exc
+                    return response
             if attempt + 1 < _MAX_ATTEMPTS:
                 self._sleep(_RETRY_DELAY_SECONDS)
         raise last or HubError(f"the request to {path} failed")
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        params: Optional[Mapping[str, Any]] = None,
+        json_body: Optional[Mapping[str, Any]] = None,
+    ) -> Any:
+        response = self._send(method, path, bearer=bearer, device_id=device_id, device_name=device_name, params=params, json_body=json_body)
+        if response.status_code == 204 or not response.content:
+            return {}
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise HubError(f"the hub returned a non-JSON body for {path}", status_code=response.status_code) from exc
 
     # -- who am I ----------------------------------------------------------
 
@@ -241,6 +274,112 @@ class HubClient:
             body["device_name"] = device_name
         return self._request("POST", f"/v1/installs/{install_id}/report", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
 
+    # -- MCP servers from the hub (Agent Hub Phase 3) ------------------------
+
+    def mcp_catalog(self, *, bearer: str, etag: str = "", product: str = PRODUCT) -> tuple[Optional[Dict[str, Any]], str]:
+        """The MCP servers this person may install, each with the manifest the
+        hub signed (``GET /v1/mcp/catalog.json``): ``(feed, etag)`` — ``feed``
+        is ``None`` when the hub answered ``304`` to *etag* (nothing changed)."""
+        extra = {"If-None-Match": etag} if etag else None
+        response = self._send("GET", "/v1/mcp/catalog.json", bearer=bearer, params={"product": product}, extra_headers=extra)
+        tag = str(response.headers.get("ETag") or "")
+        if response.status_code == 304:
+            return None, tag or etag
+        try:
+            body = response.json()
+        except ValueError as exc:
+            raise HubError("the hub returned a non-JSON MCP catalogue", status_code=response.status_code) from exc
+        if not isinstance(body, dict) or not isinstance(body.get("servers"), list):
+            raise HubError("the hub returned an MCP catalogue without servers", status_code=response.status_code)
+        return body, tag
+
+    def create_mcp_install(
+        self,
+        slug: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        product: str = PRODUCT,
+        version: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Tell the hub this machine installed MCP server *slug* (the hub keeps
+        its desired state from now on); the machine is the device header."""
+        body: Dict[str, Any] = {"slug": slug, "product": product}
+        if version:
+            body["version"] = version
+        return self._request("POST", "/v1/mcp/installs", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    def report_mcp_install(
+        self,
+        install_id: str,
+        state: str,
+        *,
+        bearer: str,
+        device_id: str = "",
+        device_name: str = "",
+        version: Optional[str] = None,
+        error: str = "",
+        surface: Optional[Mapping[str, Any]] = None,
+        surface_hash: str = "",
+        blocked_tools: Optional[Iterable[str]] = None,
+    ) -> Dict[str, Any]:
+        """What this machine did with an MCP install, and — *surface* — what the
+        server offered before any filter (the hub compares it with the list it
+        approved). *blocked_tools* are the tools kept off; ``None`` leaves the
+        last report's list as it was."""
+        body: Dict[str, Any] = {"state": state}
+        if version:
+            body["version"] = version
+        if error:
+            body["error"] = error[:2000]
+        if device_name:
+            body["device_name"] = device_name
+        if surface is not None:
+            body["surface"] = dict(surface)
+        if surface_hash:
+            body["surface_hash"] = surface_hash
+        if blocked_tools is not None:
+            body["blocked_tools"] = sorted({str(name) for name in blocked_tools})
+        return self._request("POST", f"/v1/mcp/installs/{install_id}/report", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    def remove_mcp_install(self, install_id: str, *, bearer: str, device_id: str = "", device_name: str = "", purge: bool = False) -> Dict[str, Any]:
+        """Stop the hub keeping an MCP install: ``purge`` forgets it at once;
+        otherwise it waits for this machine to report ``removed``."""
+        params = {"purge": "true"} if purge else None
+        return self._request("DELETE", f"/v1/mcp/installs/{install_id}", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
+
+    def list_mcp_installs(self, *, bearer: str, device_id: str = "", device_name: str = "", product: str = PRODUCT) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {"product": product}
+        if device_id:
+            params["device_id"] = device_id
+        body = self._request("GET", "/v1/mcp/me/installs", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
+        return list((body or {}).get("installs") or [])
+
+    # -- the AgentX Gateway (Agent Hub Phase 5) ------------------------------
+
+    def gateway_endpoints(self, *, bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, Any]:
+        """The gateway endpoints that are this person's (``GET /v1/mcp/me/endpoints``):
+        ``{gateway {enabled, url}, endpoints [{kind: server|toolset, ref, label, url, status, tools, …}]}``."""
+        body = self._request("GET", "/v1/mcp/me/endpoints", bearer=bearer, device_id=device_id, device_name=device_name)
+        if not isinstance(body, dict) or not isinstance(body.get("endpoints"), list):
+            raise HubError("the hub returned gateway endpoints without a list")
+        return body
+
+    def gateway_device_token(self, *, bearer: str, device_id: str, device_name: str = "") -> Dict[str, Any]:
+        """This machine's token for the gateway (``POST /v1/mcp/gateway/device-token``):
+        scope ``mcp`` alone, 90 days; the hub revokes the machine's earlier one.
+        Only a signed-in session may ask (a personal token gets 403). The
+        plaintext is in ``token``, this once."""
+        if not device_id:
+            raise HubError("a gateway token is asked for one machine: this one has no device id")
+        name = (device_name or "Workmate").strip()[:80] or "Workmate"
+        body = self._request("POST", "/v1/mcp/gateway/device-token", bearer=bearer, device_id=device_id, device_name=device_name,
+                             json_body={"device_id": device_id, "device_name": name})
+        if not isinstance(body, dict) or not isinstance(body.get("token"), str) or not body["token"]:
+            raise HubError("the hub answered a gateway token without the token")
+        return body
+
     # -- catalog / publishing ---------------------------------------------
 
     def skill(self, slug: str, *, bearer: str = "") -> Dict[str, Any]:
@@ -319,6 +458,7 @@ class HubClient:
         """
         import httpx
 
+        self._require_https()
         params: Dict[str, Any] = {"product": product}
         headers = self.headers(bearer, device_id, device_name)
         headers["Accept"] = "text/event-stream"

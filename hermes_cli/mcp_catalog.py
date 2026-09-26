@@ -21,6 +21,18 @@ Catalog policy:
   .env-is-for-secrets rule). Non-secret env vars also go to .env to keep
   one credential store.
 
+AgentX Hub (Agent Hub Phase 3): the servers the person may install from
+their AgentX Skill Hub are catalog entries too — ``agentx-hub/<slug>`` —
+read from the hub's signed feed (``tools/mcp_hub.py``), never from a file a
+person pasted. Only an entry whose two signatures hold is listed; it pins its
+launch like a shipped entry (checked at parse time, not only in CI), carries
+the hashes of the tools the hub approved (``hub.tool_hashes``, what
+``tools/mcp_tool.py`` locks the server's tools to), and installs nothing
+(no clone, no bundle): it runs through a package launcher or a remote URL.
+The values it needs live in ``.env`` under keys of its own
+(``AGENTX_MCP_<SLUG>__<NAME>``, :func:`hub_env_key`), never under the names
+it reads, which may be Workmate's own or another server's.
+
 See website/docs/user-guide/mcp-catalog.md for user docs.
 See references/mcp-catalog.md (this repo's skill) for the manifest schema.
 """
@@ -28,13 +40,14 @@ See references/mcp-catalog.md (this repo's skill) for the manifest schema.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -68,6 +81,65 @@ _NODE_VAR = "${NODE}"
 _AGENTX_ROOT_VAR = "${AGENTX_ROOT}"
 
 
+#: Where an entry comes from: shipped with AgentX, or the person's AgentX Hub.
+ORIGIN_OFFICIAL = "official"
+ORIGIN_HUB = "hub"
+#: The identifier of a hub entry: ``agentx-hub/<slug>``.
+HUB_PREFIX = "agentx-hub/"
+#: Package launchers: the first argument of theirs that is not a flag must
+#: name one exact release — ``[@scope/]pkg@X.Y.Z`` for npm's (``@1`` or
+#: ``@1.x`` is a range), ``pkg==X`` or ``pkg@X`` for Python's, a registry
+#: name either way (not a URL or a path) — and the flags before it may only
+#: say "yes, run it" or "quietly", as each launcher spells them. Any other
+#: flag (another registry or index, an extra package, another source) runs
+#: code the hub never scanned. The rule the shipped manifests follow in CI,
+#: enforced on hub entries when they are read.
+_NPM_RELEASE = re.compile(r"(@[\w.\-]+/)?[\w.\-]+@\d+\.\d+\.\d+([-+][\w.\-+]*)?")
+_PYPI_RELEASE = re.compile(r"[A-Za-z0-9][\w.\-]*(\[[\w.,\-]+\])?(==|@)\d[\w.!+\-]*")
+_LAUNCHERS: Dict[str, tuple] = {
+    "npx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"-y", "--yes", "-q", "--quiet", "--silent"})),
+    "bunx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"--silent"})),
+    "pnpx": (_NPM_RELEASE, "[@scope/]pkg@X.Y.Z", frozenset({"-s", "--silent"})),
+    "uvx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
+    "pipx": (_PYPI_RELEASE, "pkg==X or pkg@X", frozenset({"-q", "--quiet"})),
+}
+#: Launchers with a shape of their own, as the hub renders them. docker
+#: runs one image pinned by its digest: ``run``, then only ``-i``,
+#: ``--rm``, ``--init`` and ``-e NAME`` (a variable passed through by its
+#: bare name, never a value) before the image — a mount, a device, the
+#: host's network or namespaces, another entrypoint or an env file would
+#: reach past the image the hub scanned; after the image come the
+#: container's own arguments. dnx runs one NuGet release, ``Package@X.Y[.Z[.W]]``
+#: (a bare version is an exact one to dnx; no float, no range), with
+#: ``--yes`` alone beside it — ``--source``, ``--add-source`` or
+#: ``--configfile`` would fetch it from another feed; after ``--`` come the
+#: tool's own arguments.
+_DOCKER_IMAGE = re.compile(r"[a-z0-9][a-z0-9._\-/:]*@sha256:[0-9a-f]{64}")
+_DOCKER_FLAGS = frozenset({"-i", "--interactive", "--rm", "--init"})
+_DOCKER_ENV_FLAGS = frozenset({"-e", "--env"})
+_NUGET_RELEASE = re.compile(r"[A-Za-z0-9_][\w.\-]*@\d+(\.\d+){1,3}(-[0-9A-Za-z.\-]+)?(\+[0-9A-Za-z.\-]+)?")
+_DNX_FLAGS = frozenset({"-y", "--yes"})
+#: What Windows appends to a launcher's name (``npx.cmd`` is npx).
+_EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat", ".ps1")
+#: The environment variables that point a package launcher at another
+#: registry or index (npm, uv, pip, bun, yarn, corepack): the flags
+#: :func:`_check_pinned` refuses, spelled as the environment the launcher
+#: reads. Exact names, compared in upper case — the launchers' other
+#: settings (``UV_PYTHON``, ``npm_config_loglevel``…) stay a server's to set.
+_REGISTRY_ENV = frozenset(name.upper() for name in (
+    "npm_config_registry", "npm_config_userconfig", "UV_INDEX_URL", "UV_EXTRA_INDEX_URL", "UV_DEFAULT_INDEX", "UV_INDEX", "UV_FIND_LINKS",
+    "PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL", "PIP_FIND_LINKS", "BUN_CONFIG_REGISTRY", "YARN_REGISTRY", "COREPACK_NPM_REGISTRY",
+))
+_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+#: Where the values of AgentX Hub servers live in ``.env``: one key per server
+#: and variable (:func:`hub_env_key`), never the name the server reads.
+HUB_ENV_PREFIX = "AGENTX_MCP_"
+#: What a hub entry says of who vouches for it.
+_HUB_TRUST = frozenset({"curated", "reviewed", "private"})
+_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_HEADER_RE = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+
 # ─── Data classes ────────────────────────────────────────────────────────────
 
 
@@ -88,6 +160,9 @@ class AuthSpec:
     provider: Optional[str] = None
     scopes: List[str] = field(default_factory=list)
     env_var: Optional[str] = None
+    # An http API key sent in a header other than ``Authorization: Bearer``
+    # (e.g. ``X-API-Key``): the header, whose value is ``${env_var}``.
+    header: Optional[str] = None
 
 
 @dataclass
@@ -145,6 +220,34 @@ class ToolsSpec:
     default_enabled: Optional[List[str]] = None
 
 
+@dataclass(frozen=True)
+class HubSpec:
+    """The ``hub`` block of an AgentX Hub entry: which version of which hub
+    server this is, what the hub approved of it and signed.
+
+    ``tool_hashes`` maps each approved tool to the hash of its canonical form
+    (``tools/mcp_surface.py``): the only tools of the server Workmate turns on.
+    ``prompt_hashes`` (by name) and ``template_hashes`` (by ``uriTemplate``)
+    do the same for its prompts and resource templates, which its prompt and
+    resource tools answer for (Agent Hub P6.1; none from an older hub).
+    """
+
+    slug: str
+    version: str
+    content_hash: str
+    surface_hash: Optional[str]
+    tool_hashes: Dict[str, str]
+    trust: str
+    verdict: Optional[str]
+    signed: Dict[str, Any]
+    signature: str
+    kid: str
+    manifest_sig: str
+    manifest_kid: str
+    prompt_hashes: Dict[str, str] = field(default_factory=dict)
+    template_hashes: Dict[str, str] = field(default_factory=dict)
+
+
 @dataclass
 class CatalogEntry:
     name: str
@@ -156,6 +259,13 @@ class CatalogEntry:
     install: Optional[InstallSpec] = None
     post_install: str = ""
     manifest_path: Path = field(default_factory=Path)
+    origin: str = ORIGIN_OFFICIAL
+    hub: Optional[HubSpec] = None
+
+    @property
+    def identifier(self) -> str:
+        """``agentx-hub/<slug>`` for a hub entry, the manifest name otherwise."""
+        return f"{HUB_PREFIX}{self.hub.slug}" if self.hub is not None else self.name
 
 
 # ─── Manifest loader ─────────────────────────────────────────────────────────
@@ -165,6 +275,17 @@ class CatalogError(Exception):
     """Manifest parse/validation failure or install error."""
 
 
+class NeedsSecrets(CatalogError):
+    """An install that may not ask (``interactive=False``) lacks required
+    values: ``missing`` names them, the caller asks the person and retries."""
+
+    code = "needs_secrets"
+
+    def __init__(self, name: str, missing: List[str]) -> None:
+        super().__init__(f"'{name}' needs {', '.join(missing)} before it can be installed")
+        self.missing = list(missing)
+
+
 def _catalog_root() -> Path:
     """Return the optional-mcps/ directory shipped with this AgentX install."""
     # Prefer the env-var override / packaged location; fall back to the repo's
@@ -172,17 +293,26 @@ def _catalog_root() -> Path:
     return get_optional_mcps_dir(Path(__file__).parent.parent / "optional-mcps")
 
 
+def _flag(value: Any, default: bool) -> bool:
+    """A manifest yes/no: a boolean, or its YAML spelling (``"false"`` is no)."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() not in {"false", "no", "0", "off", ""}
+    return bool(value)
+
+
 def _parse_env_spec(raw: Any) -> EnvVarSpec:
     if not isinstance(raw, dict):
         raise CatalogError(f"env entry must be a mapping, got {type(raw).__name__}")
     name = raw.get("name") or ""
-    if not name or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
+    if not isinstance(name, str) or not _ENV_NAME_RE.match(name):
         raise CatalogError(f"invalid env var name: {name!r}")
     return EnvVarSpec(
         name=name,
-        prompt=raw.get("prompt") or name,
-        required=bool(raw.get("required", True)),
-        secret=bool(raw.get("secret", True)),
+        prompt=str(raw.get("prompt") or name),
+        required=_flag(raw.get("required"), True),
+        secret=_flag(raw.get("secret"), True),
         default=str(raw.get("default") or ""),
     )
 
@@ -194,7 +324,15 @@ def _parse_manifest(path: Path) -> CatalogEntry:
             data = yaml.safe_load(f) or {}
     except Exception as exc:
         raise CatalogError(f"failed to read {path}: {exc}") from exc
+    return _parse_manifest_dict(data, where=str(path), manifest_path=path)
 
+
+def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path] = None, origin: str = ORIGIN_OFFICIAL) -> CatalogEntry:
+    """Validate a manifest v1 already read (a shipped ``manifest.yaml``, or
+    one the AgentX Hub signed). *where* names it in errors. A hub entry
+    (``origin="hub"``) must carry its ``hub`` block, pin its launch and
+    install nothing."""
+    path = where
     if not isinstance(data, dict):
         raise CatalogError(f"{path}: manifest must be a mapping")
 
@@ -206,7 +344,7 @@ def _parse_manifest(path: Path) -> CatalogEntry:
         )
 
     name = data.get("name") or ""
-    if not name or not re.match(r"^[A-Za-z0-9_-]+$", name):
+    if not isinstance(name, str) or not re.match(r"^[A-Za-z0-9_-]+$", name):
         raise CatalogError(f"{path}: invalid or missing 'name'")
 
     description = str(data.get("description") or "").strip()
@@ -254,12 +392,25 @@ def _parse_manifest(path: Path) -> CatalogEntry:
     if not isinstance(env_list_raw, list):
         raise CatalogError(f"{path}: auth.env must be a list")
     env_list = [_parse_env_spec(e) for e in env_list_raw]
+    scopes_raw = auth_raw.get("scopes") or []
+    if not isinstance(scopes_raw, list):
+        raise CatalogError(f"{path}: auth.scopes must be a list")
+    header = auth_raw.get("header")
+    env_var = auth_raw.get("env_var")
+    if header is not None:
+        if t_type != "http" or a_type != "api_key":
+            raise CatalogError(f"{path}: auth.header is for an http api_key entry")
+        if not isinstance(header, str) or not _HEADER_RE.match(header) or header.lower() == "authorization":
+            raise CatalogError(f"{path}: auth.header must be a header name other than Authorization")
+        if not isinstance(env_var, str) or not any(spec.name == env_var for spec in env_list):
+            raise CatalogError(f"{path}: auth.header needs auth.env_var, declared in auth.env")
     auth = AuthSpec(
         type=a_type,
         env=env_list,
         provider=auth_raw.get("provider"),
-        scopes=list(auth_raw.get("scopes") or []),
-        env_var=auth_raw.get("env_var"),
+        scopes=[str(scope) for scope in scopes_raw],
+        env_var=env_var,
+        header=header,
     )
     if t_type == "http" and a_type == "api_key":
         # _build_server_config emits an Authorization header referencing
@@ -292,8 +443,17 @@ def _parse_manifest(path: Path) -> CatalogEntry:
 
     install: Optional[InstallSpec] = None
     install_raw = data.get("install")
-    if install_raw is not None:
-        install = _parse_install_spec(install_raw, path, key="install", allow_dev=True)
+    hub: Optional[HubSpec] = None
+    if origin == ORIGIN_HUB:
+        if install_raw is not None:
+            raise CatalogError(f"{path}: a hub entry installs nothing (no install block): it runs through a package launcher or a remote URL")
+        _check_literal(transport, auth, path)
+        _check_variables(auth, name, path)
+        _check_registry_env(transport, auth, path)
+        _check_pinned(transport, path)
+        hub = _parse_hub_spec(data.get("hub"), path)
+    elif install_raw is not None:
+        install = _parse_install_spec(install_raw, Path(path), key="install", allow_dev=True)
 
     return CatalogEntry(
         name=name,
@@ -304,11 +464,199 @@ def _parse_manifest(path: Path) -> CatalogEntry:
         tools=tools_spec,
         install=install,
         post_install=str(data.get("post_install") or ""),
-        manifest_path=path,
+        manifest_path=manifest_path if manifest_path is not None else Path(),
+        origin=origin,
+        hub=hub,
     )
 
 
-def _parse_install_spec(raw: Any, path: Path, *, key: str, allow_dev: bool) -> InstallSpec:
+def _check_literal(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
+    """A hub entry's values are literal: none holds a ``${…}`` reference.
+
+    Workmate fills every ``${NAME}`` of a server entry from the person's
+    secrets when it starts the server (``tools/mcp_tool.py``), and a
+    variable's default lands in ``.env``, where the same happens: a
+    reference the author wrote would hand the server any secret of this
+    machine. The only references a hub server runs with, its headers
+    included, are the ones :func:`_build_server_config` writes for the
+    variables it declares (``auth.env``), filled in on this machine."""
+    values = [("transport.command", transport.command), ("transport.url", transport.url)]
+    values += [(f"transport.args[{index}]", arg) for index, arg in enumerate(transport.args)]
+    values += [(f"transport.env.{key}", f"{key}={value}") for key, value in transport.env.items()]
+    values += [(f"auth.env.{spec.name}.default", spec.default) for spec in auth.env]
+    for where, value in values:
+        if "${" in str(value or ""):
+            raise CatalogError(f"{path}: {where} holds a ${{…}} reference; a hub entry's values are literal (what it needs from this machine is declared in auth.env)")
+
+
+def _owner_of(name: str, server: str) -> Optional[str]:
+    """Who owns environment variable *name*, when hub server *server* may
+    not declare it: Workmate — its own ``AGENTX_*`` settings (the hub it
+    syncs with, the gateway token, every hub server's values) and the names
+    its env writer refuses because they steer the processes it starts
+    (``PATH``, ``LD_PRELOAD``, ``NODE_OPTIONS``…) — or the server whose API
+    key it is (``MCP_<NAME>_API_KEY``). None when *name* is free to declare:
+    whatever the server reads, its value is its own (:func:`hub_env_key`)."""
+    from hermes_cli.config import validate_env_var_name_for_write
+    from hermes_cli.mcp_config import _env_key_for_server
+
+    upper = name.upper()  # ``path`` is ``PATH`` on Windows: refused everywhere alike
+    try:
+        validate_env_var_name_for_write(upper)
+    except ValueError:
+        return "Workmate"
+    if upper.startswith("AGENTX_"):
+        return "Workmate"
+    other = re.fullmatch(r"MCP_(.+)_API_KEY", upper)
+    if other and upper != _env_key_for_server(server).upper():
+        return f"the MCP server {other.group(1).lower()}"
+    return None
+
+
+def _check_variables(auth: AuthSpec, server: str, path: str) -> None:
+    """A hub server declares variables of its own (:func:`_owner_of`)."""
+    for spec in auth.env:
+        owner = _owner_of(spec.name, server)
+        if owner:
+            raise CatalogError(f"{path}: auth.env declares {spec.name}, which belongs to {owner}; a hub server declares variables of its own")
+
+
+def _check_registry_env(transport: TransportSpec, auth: AuthSpec, path: str) -> None:
+    """A hub entry never points its launcher at another registry through the
+    environment either: neither its static environment nor a variable it
+    declares (filled in here, or by its default) sets one of
+    :data:`_REGISTRY_ENV`. A static name that is no variable name at all is
+    refused too: npm reads ``npm_config_@scope:registry`` as the registry of
+    a scope."""
+    for key in transport.env:
+        if not _ENV_NAME_RE.match(key):
+            raise CatalogError(f"{path}: transport.env.{key} is not an environment variable name; a launcher may read it as an option "
+                               f"(npm_config_@scope:registry points a scope at another registry)")
+    named = [(f"transport.env.{key}", key) for key in transport.env] + [(f"auth.env.{spec.name}", spec.name) for spec in auth.env]
+    for where, name in named:
+        if name.upper() in _REGISTRY_ENV:
+            raise CatalogError(f"{path}: {where} would point the launcher at another registry; a hub entry runs the release the hub scanned")
+
+
+def _launcher_of(command: Any) -> str:
+    """The package launcher *command* names (``npx``, ``/usr/bin/npx`` and
+    ``npx.cmd`` all name ``npx``), or ``""`` for any other command."""
+    name = re.split(r"[\\/]", str(command or ""))[-1].lower()
+    for suffix in _EXECUTABLE_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    return name if name in _LAUNCHERS or name in ("docker", "dnx") else ""
+
+
+def _check_pinned(transport: TransportSpec, path: str) -> None:
+    """A package launcher runs one exact release (:data:`_LAUNCHERS`): its
+    first argument that is not a flag names it, and the flags before that
+    are harmless ones (a hub entry is read with the rule the shipped
+    manifests follow in CI). The arguments after the release are the
+    server's own. docker and dnx have shapes of their own (:func:`_check_docker`,
+    :func:`_check_dnx`)."""
+    launcher = _launcher_of(transport.command) if transport.type == "stdio" else ""
+    if not launcher:
+        return
+    if launcher == "docker":
+        _check_docker(transport, path)
+        return
+    if launcher == "dnx":
+        _check_dnx(transport, path)
+        return
+    release, form, harmless = _LAUNCHERS[launcher]
+    for arg in transport.args:
+        if not arg.startswith("-"):
+            if release.fullmatch(arg):
+                return
+            raise CatalogError(f"{path}: {transport.command} must run one exact release ({form}), got {arg!r}")
+        if arg not in harmless:
+            raise CatalogError(f"{path}: {transport.command} must run one exact release from its own registry: "
+                               f"{arg!r} is not a flag a hub entry may give it (only {', '.join(sorted(harmless))})")
+    raise CatalogError(f"{path}: {transport.command} must run one exact release ({form}), got nothing")
+
+
+def _check_docker(transport: TransportSpec, path: str) -> None:
+    """``docker run`` of one image pinned by its digest, harmless flags only
+    before it (:data:`_DOCKER_IMAGE`)."""
+    args = list(transport.args)
+    if not args or args[0] != "run":
+        raise CatalogError(f"{path}: docker must run one exact release (docker run … name@sha256:<64 hex>), got {args[:1] or 'nothing'}")
+    index = 1
+    while index < len(args):
+        arg = args[index]
+        if arg in _DOCKER_ENV_FLAGS:
+            name = args[index + 1] if index + 1 < len(args) else ""
+            if not _ENV_NAME_RE.match(name):
+                raise CatalogError(f"{path}: docker must run one exact release: {arg} passes a variable by its bare name, got {name!r}")
+            index += 2
+        elif arg.startswith("-"):
+            if arg not in _DOCKER_FLAGS:
+                raise CatalogError(f"{path}: docker must run one exact release, the image alone: {arg!r} is not a flag a hub entry may give it "
+                                   f"(only -i/--interactive, --rm, --init, -e/--env NAME)")
+            index += 1
+        elif _DOCKER_IMAGE.fullmatch(arg):
+            return
+        else:
+            raise CatalogError(f"{path}: docker must run one exact release, an image pinned by its digest (name@sha256:<64 hex>), got {arg!r}")
+    raise CatalogError(f"{path}: docker must run one exact release (name@sha256:<64 hex>), got nothing")
+
+
+def _check_dnx(transport: TransportSpec, path: str) -> None:
+    """``dnx Package@X.Y.Z --yes [-- <the tool's arguments>]``: one NuGet
+    release, and ``--yes`` alone beside it (:data:`_NUGET_RELEASE`)."""
+    args = list(transport.args)
+    head = args[: args.index("--")] if "--" in args else args
+    releases = [arg for arg in head if not arg.startswith("-")]
+    for flag in (arg for arg in head if arg.startswith("-")):
+        if flag not in _DNX_FLAGS:
+            raise CatalogError(f"{path}: dnx must run one exact release from its own feed: {flag!r} is not a flag a hub entry may give it (only -y, --yes)")
+    if len(releases) != 1 or not _NUGET_RELEASE.fullmatch(releases[0]):
+        raise CatalogError(f"{path}: dnx must run one exact release (Package@X.Y.Z), got {releases or 'nothing'}")
+
+
+def _parse_hub_spec(raw: Any, path: str) -> HubSpec:
+    if not isinstance(raw, dict):
+        raise CatalogError(f"{path}: a hub entry needs its 'hub' block")
+
+    def text(key: str, *, optional: bool = False) -> Optional[str]:
+        value = raw.get(key)
+        if value is None and optional:
+            return None
+        if not isinstance(value, str) or not value:
+            raise CatalogError(f"{path}: hub.{key} must be a non-empty string")
+        return value
+
+    locks: Dict[str, Dict[str, str]] = {}
+    for key, what in (("tool_hashes", "tool names"), ("prompt_hashes", "prompt names"), ("template_hashes", "URI templates")):
+        hashes = raw.get(key) or {}
+        if not isinstance(hashes, dict) or not all(isinstance(k, str) and k and isinstance(v, str) and _HASH_RE.match(v) for k, v in hashes.items()):
+            raise CatalogError(f"{path}: hub.{key} must map {what} to sha256 hashes")
+        locks[key] = dict(hashes)
+    surface_hash = text("surface_hash", optional=True)
+    if surface_hash is not None and not _HASH_RE.match(surface_hash):
+        raise CatalogError(f"{path}: hub.surface_hash must be a sha256 hash")
+    trust = text("trust")
+    if trust not in _HUB_TRUST:
+        raise CatalogError(f"{path}: hub.trust must be one of {', '.join(sorted(_HUB_TRUST))}")
+    signed = raw.get("signed")
+    if not isinstance(signed, dict):
+        raise CatalogError(f"{path}: hub.signed must be the signed version manifest")
+    slug = text("slug")
+    # The hub's own rule: lowercase letters and digits joined by single dashes
+    # (it is what keeps two servers' keys in .env apart: hub_env_key).
+    if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", slug or "") or len(slug or "") > 64:
+        raise CatalogError(f"{path}: hub.slug must be a hub slug")
+    return HubSpec(
+        slug=slug, version=text("version"), content_hash=text("content_hash"), surface_hash=surface_hash, tool_hashes=locks["tool_hashes"],
+        trust=trust, verdict=text("verdict", optional=True), signed=dict(signed), signature=text("signature"), kid=text("kid"),
+        manifest_sig=text("manifest_sig"), manifest_kid=text("manifest_kid"),
+        prompt_hashes=locks["prompt_hashes"], template_hashes=locks["template_hashes"],
+    )
+
+
+def _parse_install_spec(raw: Any, path: Any, *, key: str, allow_dev: bool) -> InstallSpec:
     if not isinstance(raw, dict):
         raise CatalogError(f"{path}: '{key}' must be a mapping")
     i_type = raw.get("type")
@@ -358,11 +706,9 @@ def list_catalog() -> List[CatalogEntry]:
     UIs can tell the user their AgentX is out of date.
     """
     root = _catalog_root()
-    if not root.exists():
-        return []
     entries: List[CatalogEntry] = []
     _CATALOG_DIAGNOSTICS.clear()
-    for child in sorted(root.iterdir()):
+    for child in (sorted(root.iterdir()) if root.exists() else []):
         manifest = child / "manifest.yaml"
         if not manifest.is_file():
             continue
@@ -377,6 +723,40 @@ def list_catalog() -> List[CatalogEntry]:
             else:
                 _CATALOG_DIAGNOSTICS.append((child.name, "invalid", msg))
             continue
+    entries.extend(hub_entries(_CATALOG_DIAGNOSTICS))
+    return entries
+
+
+def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]:
+    """The AgentX Hub's servers from the last feed this machine fetched
+    (``tools/mcp_hub.py``; no network call here), by slug. A server the hub
+    cannot hand Workmate (``supported: false``), or whose signatures do not
+    hold, is a diagnostic (``hub_unsupported`` / ``unverified``) in
+    *diagnostics*, never an entry."""
+    notes = diagnostics if diagnostics is not None else []
+    try:
+        from tools import mcp_hub
+
+        servers = mcp_hub.checked_servers()
+    except Exception as exc:  # noqa: BLE001 - the shipped catalog lists without the hub
+        notes.append(("agentx-hub", "hub_unavailable", str(exc)))
+        return []
+    entries: List[CatalogEntry] = []
+    for server in servers:
+        slug = str(server.get("slug") or "")
+        identifier = f"{HUB_PREFIX}{slug}"
+        if server.get("problem"):
+            notes.append((identifier, str(server.get("problem_kind") or "unverified"), str(server["problem"])))
+            continue
+        try:
+            entry = _parse_manifest_dict(server["manifest"], where=identifier, origin=ORIGIN_HUB)
+        except CatalogError as exc:
+            notes.append((identifier, "invalid", str(exc)))
+            continue
+        if entry.hub is None or entry.hub.slug != slug:
+            notes.append((identifier, "invalid", f"{identifier}: the manifest names another hub server"))
+            continue
+        entries.append(entry)
     return entries
 
 
@@ -399,16 +779,29 @@ def catalog_diagnostics() -> List[tuple]:
 
 
 def get_entry(name: str) -> Optional[CatalogEntry]:
-    """Look up a single entry by name. ``official/<name>`` prefix accepted."""
+    """Look up a single entry by name. ``official/<name>`` prefix accepted;
+    ``agentx-hub/<slug>`` finds a hub entry (a bare name finds a shipped one
+    first)."""
+    if name.startswith(HUB_PREFIX):
+        slug = name[len(HUB_PREFIX):]
+        return next((entry for entry in hub_entries() if entry.hub is not None and entry.hub.slug == slug), None)
     if name.startswith("official/"):
         name = name[len("official/"):]
-    for entry in list_catalog():
-        if entry.name == name:
-            return entry
-    return None
+    entries = list_catalog()
+    return next((entry for entry in entries if entry.name == name and entry.origin == ORIGIN_OFFICIAL), None) \
+        or next((entry for entry in entries if entry.name == name), None)
 
 
 # ─── Status helpers ──────────────────────────────────────────────────────────
+
+
+def raw_servers() -> Dict[str, dict]:
+    """The ``mcp_servers`` block as written — ``${VAR}`` references kept (what
+    a launch hash is taken over: :func:`launch_hash`)."""
+    from hermes_cli.config import read_raw_config
+
+    servers = (read_raw_config() or {}).get("mcp_servers") or {}
+    return servers if isinstance(servers, dict) else {}
 
 
 def installed_servers() -> Dict[str, dict]:
@@ -587,18 +980,36 @@ def _expand_install_dir(value: str, install_dir: Optional[Path]) -> str:
     return value.replace(_INSTALL_DIR_VAR, str(install_dir))
 
 
-def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
+def hub_env_key(slug: str, name: str) -> str:
+    """The ``.env`` key holding variable *name* of hub server *slug*:
+    ``AGENTX_MCP_<SLUG>__<NAME>`` (``AGENTX_MCP_LINEAR__LINEAR_API_KEY``).
+    The server still reads *name*; its entry maps the one to the other. A
+    hub slug is lowercase letters and digits joined by single dashes, so no
+    two servers' keys meet, nor one of Workmate's (``_owner_of``)."""
+    return f"{HUB_ENV_PREFIX}{slug.upper().replace('-', '_')}__{name}"
+
+
+def value_key(entry: CatalogEntry, name: str) -> str:
+    """The ``.env`` key of *entry*'s variable *name*: the name itself for a
+    shipped entry, the server's own key for a hub entry (:func:`hub_env_key`)."""
+    return hub_env_key(entry.hub.slug, name) if entry.hub is not None else name
+
+
+def _prompt_env_vars(specs: List[EnvVarSpec], key_of: Callable[[str], str] = lambda name: name) -> Dict[str, str]:
     """Walk the env spec list, prompting the user for each. Writes secrets and
-    non-secrets alike to ~/.agentx/.env via save_env_value()."""
+    non-secrets alike to ~/.agentx/.env via save_env_value(), under
+    ``key_of(name)`` (a hub server's own key: :func:`value_key`). A prompt
+    that is not the variable's name says the name too."""
     collected: Dict[str, str] = {}
     for spec in specs:
-        existing = get_env_value(spec.name)
+        key = key_of(spec.name)
+        existing = get_env_value(key)
         if existing:
             print(color(f"  ✓ {spec.name} already set in .env", Colors.GREEN))
             collected[spec.name] = existing
             continue
         value = _prompt_input(
-            spec.prompt,
+            spec.prompt if spec.prompt == spec.name else f"{spec.prompt} ({spec.name})",
             default=spec.default or None,
             password=spec.secret,
         )
@@ -606,7 +1017,7 @@ def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
             if spec.required:
                 raise CatalogError(f"{spec.name} is required but no value was provided")
             continue
-        save_env_value(spec.name, value)
+        save_env_value(key, value)
         collected[spec.name] = value
     return collected
 
@@ -631,15 +1042,123 @@ def _build_server_config(
             cfg["args"] = [_expand_install_dir(a, install_dir) for a in args]
         if t.env:
             cfg["env"] = {k: _expand_install_dir(v, install_dir) for k, v in t.env.items()}
+        if entry.origin == ORIGIN_HUB and entry.auth.type == "api_key":
+            # A hub server reads its values from its own environment, under
+            # the names it declares: each one this machine holds under the
+            # server's own key (value_key) is handed to it by reference. One
+            # left unset stays out — an unset ${VAR} would reach it literally.
+            for spec in entry.auth.env:
+                key = value_key(entry, spec.name)
+                if get_env_value(key):
+                    cfg.setdefault("env", {})[spec.name] = f"${{{key}}}"
     elif t.type == "http":
         cfg["url"] = t.url
         if entry.auth.type == "oauth":
             cfg["auth"] = "oauth"
+        elif entry.auth.type == "api_key" and entry.auth.header:
+            cfg["headers"] = {entry.auth.header: f"${{{value_key(entry, entry.auth.env_var)}}}"}
+        elif entry.auth.type == "api_key" and entry.hub is not None:
+            from hermes_cli.mcp_config import _env_key_for_server
+
+            cfg["headers"] = {"Authorization": f"Bearer ${{{value_key(entry, _env_key_for_server(entry.name))}}}"}
         elif entry.auth.type == "api_key":
             from hermes_cli.mcp_config import _bearer_auth_headers
 
             cfg["headers"] = _bearer_auth_headers(entry.name)
+    if entry.hub is not None:
+        cfg["hub"] = hub_config_block(entry, cfg)
     return cfg
+
+
+#: The keys of a server entry that say what runs and where: an edit to any of
+#: them on this machine is the person's, and the hub never overwrites it.
+_LAUNCH_KEYS = ("command", "args", "env", "url", "headers", "auth")
+
+
+def launch_hash(server_cfg: Dict[str, Any]) -> str:
+    """``sha256:<hex>`` of what a server entry runs (:data:`_LAUNCH_KEYS`),
+    before ``${VAR}`` expansion — as written in config.yaml."""
+    launch = {key: server_cfg[key] for key in _LAUNCH_KEYS if key in server_cfg}
+    return "sha256:" + hashlib.sha256(json.dumps(launch, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def hub_config_block(entry: CatalogEntry, server_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """The ``hub`` block written into ``mcp_servers.<name>`` for a hub entry:
+    which hub server it is, the hashes of the tools, prompts and resource
+    templates ``tools/mcp_tool.py`` locks it to, and the hash of the launch
+    as installed (``launch_hash``) — how the sync tells a person's own edit
+    from the hub's."""
+    assert entry.hub is not None
+    return {
+        "slug": entry.hub.slug,
+        "version": entry.hub.version,
+        "content_hash": entry.hub.content_hash,
+        "surface_hash": entry.hub.surface_hash,
+        "tool_hashes": dict(entry.hub.tool_hashes),
+        "prompt_hashes": dict(entry.hub.prompt_hashes),
+        "template_hashes": dict(entry.hub.template_hashes),
+        "trust": entry.hub.trust,
+        "launch_hash": launch_hash(server_cfg),
+    }
+
+
+def _installed_here(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
+    """Hub server *entry* as this machine has it installed (as written in
+    config.yaml), or None: not installed, or *entry* is a shipped one."""
+    if entry.hub is None:
+        return None
+    current = raw_servers().get(entry.name)
+    return current if isinstance(current, dict) and hub_slug_of(current) == entry.hub.slug else None
+
+
+def _kept_on_reinstall(entry: CatalogEntry) -> Optional[Dict[str, Any]]:
+    """What a hub server installed here keeps when it is installed again (a
+    tool list the hub approved, a new version, the person's Update or
+    Replace): everything but its launch (:data:`_LAUNCH_KEYS`) and its
+    ``hub`` block — whether it is on, its ``trust``, its ``tools`` filter,
+    its timeouts, as written. None for a first install, and for a shipped
+    entry (written whole, as ``agentx mcp install`` always has)."""
+    current = _installed_here(entry)
+    if current is None:
+        return None
+    return {key: value for key, value in current.items() if key not in _LAUNCH_KEYS and key != "hub"}
+
+
+def _move_shared_values(entry: CatalogEntry) -> None:
+    """Keep an install from before per-server values working. Such a hub
+    server read its values under the names it declares (``${LINEAR_API_KEY}``
+    in its entry), and it runs on as it is. The first time it is installed
+    again, each value its entry read is copied to the server's own key
+    (:func:`value_key`), which the rebuilt entry reads. Copied, not moved:
+    the name may still serve something else here (Workmate's own tool of
+    that name, a server set up by hand). Only a name the old entry read
+    moves, so no value the server never had reaches it."""
+    current = _installed_here(entry)
+    if current is None:
+        return
+    launch = json.dumps({key: current[key] for key in _LAUNCH_KEYS if key in current})
+    for spec in entry.auth.env:
+        key = value_key(entry, spec.name)
+        if f"${{{spec.name}}}" not in launch or get_env_value(key):
+            continue
+        value = get_env_value(spec.name)
+        if value:
+            save_env_value(key, value)
+
+
+def hub_slug_of(server_cfg: Any) -> Optional[str]:
+    """The hub slug a configured server was installed from, or None."""
+    hub = server_cfg.get("hub") if isinstance(server_cfg, dict) else None
+    slug = hub.get("slug") if isinstance(hub, dict) else None
+    return slug if isinstance(slug, str) and slug else None
+
+
+def edited_locally(server_cfg: Any) -> bool:
+    """A hub-installed server whose launch was changed on this machine
+    (*server_cfg* as written: :func:`raw_servers`)."""
+    hub = server_cfg.get("hub") if isinstance(server_cfg, dict) else None
+    recorded = hub.get("launch_hash") if isinstance(hub, dict) else None
+    return bool(recorded) and launch_hash(server_cfg) != recorded
 
 
 def _read_prior_tool_selection(name: str) -> Optional[List[str]]:
@@ -833,8 +1352,18 @@ def _apply_tool_selection(
     ))
 
 
-def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False) -> None:
+def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False, interactive: bool = True) -> None:
     """Install a catalog entry end-to-end.
+
+    ``interactive=False`` (the desktop, the hub sync) asks nothing: a
+    required value this machine does not hold raises :class:`NeedsSecrets`
+    before anything is written, and the tool filter is the manifest's
+    ``tools.default_enabled`` (a hub entry is further locked to the tools the
+    hub approved, ``tools/mcp_tool.py``) — no probe, no checklist.
+
+    A hub server installed here again replaces its launch and its ``hub``
+    block only: whether it is on, its ``trust``, its ``tools`` filter and
+    its timeouts stay as the person set them (:func:`_kept_on_reinstall`).
 
     Steps:
         1. If ``install.type == git``, clone + run bootstrap commands. If
@@ -852,6 +1381,13 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
            ``tools.default_enabled`` or all-on.
         6. Print post_install notes.
     """
+    _check_name_free(entry)
+    _move_shared_values(entry)
+    if not interactive:
+        missing = [spec.name for spec in entry.auth.env if spec.required and not get_env_value(value_key(entry, spec.name)) and not spec.default]
+        if entry.auth.type == "api_key" and missing:
+            raise NeedsSecrets(entry.name, missing)
+
     print()
     print(color(f"  Installing MCP '{entry.name}'", Colors.CYAN + Colors.BOLD))
     if entry.description:
@@ -876,10 +1412,16 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
             install_dir = _do_git_install(entry)
 
     # Auth
-    if entry.auth.type == "api_key":
+    if entry.auth.type == "api_key" and interactive:
         print()
         print(color("  Configure credentials:", Colors.CYAN))
-        _prompt_env_vars(entry.auth.env)
+        _prompt_env_vars(entry.auth.env, key_of=lambda name: value_key(entry, name))
+    elif entry.auth.type == "api_key":
+        # Defaults of optional values, as the prompt would have kept them.
+        for spec in entry.auth.env:
+            key = value_key(entry, spec.name)
+            if spec.default and not get_env_value(key):
+                save_env_value(key, spec.default)
     elif entry.auth.type == "oauth":
         if entry.auth.provider:
             # Case 2: provider-mediated (Google, GitHub, etc.). We rely on
@@ -904,11 +1446,16 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
     # Reading BEFORE we overwrite the entry below so a reinstall pre-checks
     # whatever the user picked last time.
     prior_selection = _read_prior_tool_selection(entry.name)
+    # A hub server installed here again keeps what the person set on it.
+    kept = _kept_on_reinstall(entry)
 
     # Build and write the mcp_servers entry (without tools filter yet;
     # _apply_tool_selection() finalizes it below).
     server_cfg = _build_server_config(entry, install_dir, dev=use_dev_clone)
-    server_cfg["enabled"] = enable
+    if kept is None:
+        server_cfg["enabled"] = enable
+    else:
+        server_cfg.update(kept)
 
     from hermes_cli.mcp_config import _save_mcp_server
 
@@ -918,12 +1465,15 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
         )
 
     # ── Probe + tool selection ──────────────────────────────────────────
-    _apply_tool_selection(entry, prior_selection=prior_selection)
+    if interactive:
+        _apply_tool_selection(entry, prior_selection=prior_selection)
+    elif kept is None:
+        _write_tools_include(entry.name, prior_selection if prior_selection is not None else entry.tools.default_enabled)
 
     print()
     print(color(
         f"  ✓ Installed '{entry.name}' "
-        f"({'enabled' if enable else 'disabled'}). "
+        f"({'enabled' if server_cfg.get('enabled', True) else 'disabled'}). "
         f"Start a new AgentX session to load its tools.",
         Colors.GREEN,
     ))
@@ -936,11 +1486,15 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
 
 def uninstall_entry(name: str, *, purge_install_dir: bool = True) -> bool:
     """Remove a catalog-installed MCP from config and (optionally) wipe its
-    clone directory. Returns True if anything was removed."""
+    clone directory. Returns True if anything was removed. A server
+    installed from the AgentX Hub also leaves no OAuth token and no cached
+    tool list behind (the hub asked for it to be gone)."""
     cfg = load_config()
     servers = cfg.get("mcp_servers") or {}
     removed = False
     if name in servers:
+        if hub_slug_of(servers[name]):
+            _forget_hub_server(name)
         del servers[name]
         if not servers:
             cfg.pop("mcp_servers", None)
@@ -956,3 +1510,33 @@ def uninstall_entry(name: str, *, purge_install_dir: bool = True) -> bool:
             removed = True
 
     return removed
+
+
+def _forget_hub_server(name: str) -> None:
+    """Drop the OAuth tokens and the cached tool list of *name*."""
+    try:
+        from tools.mcp_oauth import remove_oauth_tokens
+
+        remove_oauth_tokens(name)
+    except Exception:  # noqa: BLE001 - a server without tokens has nothing to drop
+        pass
+    try:
+        from tools.mcp_schema_cache import clear_cache_entry
+
+        clear_cache_entry(name)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _check_name_free(entry: CatalogEntry) -> None:
+    """``mcp_servers.<name>`` holds one server: a hub entry never replaces a
+    server of another origin (a shipped one, one written by hand, another
+    hub server), nor a shipped entry a hub-installed one."""
+    current = installed_servers().get(entry.name)
+    if current is None:
+        return
+    owner = hub_slug_of(current)
+    mine = entry.hub.slug if entry.hub is not None else None
+    if owner != mine:
+        held_by = f"the AgentX Hub server {HUB_PREFIX}{owner}" if owner else "another server"
+        raise CatalogError(f"'{entry.name}' is already configured as {held_by}: remove it first")
