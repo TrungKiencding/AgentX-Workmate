@@ -29,7 +29,7 @@ const CATALOG: SkillHubCatalogResponse = {
   fetched_at: 1_780_000_000,
   stale: false,
   authenticated: false,
-  hub_url: 'https://skills.astralx.com.vn',
+  hub_url: 'https://agenthub.astralx.com.vn',
   error: ''
 }
 

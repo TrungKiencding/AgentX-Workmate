@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import copy
 from typing import Any, Callable, Dict, List, Tuple
+from urllib.parse import urlsplit
 
 #: Auto-migration support floor. Configs whose on-disk ``_config_version`` is
 #: below this are NOT auto-migrated any more (policy decision, July 2026):
@@ -768,6 +769,76 @@ def _migrate_to_36(results: Dict[str, Any], quiet: bool) -> None:
         )
 
 
+#: The hosts AgentX shipped as the default ``skills.hub_url`` before the
+#: AgentX Hub moved to agenthub.astralx.com.vn on 2026-09-26 (v37).
+RETIRED_HUB_HOSTS = ("skills.dev-server.cloud", "skills.astralx.com.vn")
+
+
+def _is_retired_hub_url(value: Any) -> bool:
+    """True for a retired default hub address as the installer wrote it: https,
+    no port, no path (a trailing slash aside), any letter case."""
+    if not isinstance(value, str):
+        return False
+    try:
+        parts = urlsplit(value.strip())
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme.lower() == "https"
+        and (parts.hostname or "") in RETIRED_HUB_HOSTS
+        and port is None
+        and parts.path in ("", "/")
+        and not parts.query
+        and not parts.fragment
+        and not parts.username
+        and not parts.password
+    )
+
+
+def _migrate_to_37(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 36 → 37: the AgentX Hub moved to agenthub.astralx.com.vn ──
+    # An install from before 2026-09-26 may keep in config.yaml the hub
+    # address it shipped with (skills.astralx.com.vn, or skills.dev-server.cloud
+    # before 2026-09-09): an older build wrote the default out, and a key
+    # present in the raw config outlives every later default. The literal was
+    # ours, so the key goes and the current default takes effect. A
+    # ``sync.base_url`` naming that same retired address follows it — the sync
+    # plane is the hub exactly when the two share an origin
+    # (tools/skills_sync_client.py::resolve_sync_provider), so leaving it
+    # behind would move sync to the Nous plane. An address somebody chose (a
+    # staging hub, a hub on this machine) is left exactly as it is.
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    hub_url = DEFAULT_CONFIG["skills"]["hub_url"]
+    config = read_raw_config()
+    moved: List[str] = []
+
+    skills = config.get("skills")
+    if isinstance(skills, dict) and _is_retired_hub_url(skills.get("hub_url")):
+        moved.append(f"skills.hub_url={hub_url} (was {skills.pop('hub_url').strip()})")
+        if skills:
+            config["skills"] = skills
+        else:
+            config.pop("skills")
+
+    sync = config.get("sync")
+    if isinstance(sync, dict) and _is_retired_hub_url(sync.get("base_url")):
+        moved.append(f"sync.base_url={hub_url} (was {sync['base_url'].strip()})")
+        sync["base_url"] = hub_url
+        config["sync"] = sync
+
+    if not moved:
+        return
+    _persist_migration(config)
+    results["config_added"].extend(moved)
+    if not quiet:
+        print(f"  ✓ The AgentX Hub moved to {hub_url}: {', '.join(moved)}.")
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -792,6 +863,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (34, _migrate_to_34),
     (35, _migrate_to_35),
     (36, _migrate_to_36),
+    (37, _migrate_to_37),
 )
 
 
