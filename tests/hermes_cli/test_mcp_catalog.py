@@ -1162,3 +1162,16 @@ class TestHubEntries:
         save_env_value("LINEAR_API_KEY", "lin-value")
         with pytest.raises(CatalogError, match="already configured as another server"):
             install_entry(entry, interactive=False)
+
+
+def test_a_hub_servers_title_is_the_hubs_label_on_one_printable_line():
+    """The name the hub shows (the feed's ``label``, else ``title``): words for
+    people, never what the server runs by — a slug can carry its publisher's
+    name (``crm-noi-bo-tacgia-c``)."""
+    from hermes_cli.mcp_catalog import HUB_TITLE_MAX, hub_title
+
+    assert hub_title({"label": "  CRM nội bộ\n(gói)\t", "title": "ignored"}) == "CRM nội bộ (gói)"
+    assert hub_title({"label": "", "title": "Tracker"}) == "Tracker"
+    assert hub_title({"label": "a\x00b\x1bc"}) == "abc"
+    assert hub_title({"label": "x" * 500}) == "x" * HUB_TITLE_MAX
+    assert hub_title({}) == "" and hub_title({"label": 42, "title": None}) == ""
