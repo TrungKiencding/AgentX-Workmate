@@ -119,16 +119,11 @@ afterEach(() => {
 })
 
 describe('SkillsView tabs', () => {
-  it('orders the tabs skills · store · tools · connections, with the store beside the skills', async () => {
+  it('has three tabs: the skills AgentX has, the tools it may use, and the one store for adding either', async () => {
     await renderSkills('skills')
 
     const tabs = await screen.findAllByRole('tab')
-    expect(tabs.map(tab => tab.textContent?.replace(/\d+$/, '').trim())).toEqual([
-      'Available skills',
-      'Skill store',
-      'Tools',
-      'Advanced connections'
-    ])
+    expect(tabs.map(tab => tab.textContent?.replace(/\d+$/, '').trim())).toEqual(['Available skills', 'Tools', 'Store'])
   })
 })
 
@@ -192,7 +187,7 @@ describe('SkillsView — the skills you have', () => {
     expect(within(card).queryByTestId('skill-upload-hub')).toBeNull()
 
     await act(async () => {
-      fireEvent.click(within(card).getByRole('button', { name: 'Details' }))
+      fireEvent.click(within(card).getByRole('button', { name: 'Details for Notes' }))
     })
 
     const dialog = await screen.findByTestId('skill-detail')

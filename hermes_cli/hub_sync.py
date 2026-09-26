@@ -88,7 +88,7 @@ FEED_EVENTS = ("mcp.install.desired", "mcp.install.update_available", "mcp.endpo
 #: What a hub server's lock is made of (``hub`` block of its config): its approved tools, prompts and resource templates.
 HUB_LOCK_KEYS = ("tool_hashes", "prompt_hashes", "template_hashes")
 #: Why a skill the hub wants replaced stays as it is (reported as ``failed``).
-LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the Hub tab (the edit is backed up first) or keep it"
+LOCAL_CHANGES = "local_changes: edited on this machine — replace it from the store in Workmate (the edit is backed up first) or keep it"
 
 
 @dataclass(frozen=True)

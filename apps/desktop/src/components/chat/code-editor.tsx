@@ -34,7 +34,9 @@ function applyFormatJson(view: EditorView, onError?: (error: string) => void): F
  *  config list focusing its block in the document). */
 export interface CodeEditorApi {
   formatJson: () => FormatOutcome
-  setCursor: (pos: number) => void
+  /** Place the caret and focus. `center` scrolls it to the middle of the view
+   *  (a block about to be read top to bottom), else just into view. */
+  setCursor: (pos: number, options?: { center?: boolean }) => void
 }
 
 interface CodeEditorProps {
@@ -299,9 +301,13 @@ export function CodeEditor({
 
           return applyFormatJson(view)
         },
-        setCursor: pos => {
+        setCursor: (pos, options) => {
           const clamped = Math.max(0, Math.min(pos, view.state.doc.length))
-          view.dispatch({ scrollIntoView: true, selection: { anchor: clamped } })
+          view.dispatch(
+            options?.center
+              ? { effects: EditorView.scrollIntoView(clamped, { y: 'center' }), selection: { anchor: clamped } }
+              : { scrollIntoView: true, selection: { anchor: clamped } }
+          )
           view.focus()
         }
       }

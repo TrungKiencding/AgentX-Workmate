@@ -1,5 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type * as React from 'react'
 import { useCallback, useMemo, useState } from 'react'
 
 import { useDebounced } from '@/app/hooks/use-debounced'
@@ -24,9 +25,9 @@ import {
   StoreCard,
   StoreCardDescription,
   StoreCardFooter,
-  StoreCardGrid,
   StoreCardHeader,
   StoreCardMeta,
+  StoreCardShelf,
   StoreCardTags
 } from '@/components/ui/store-card'
 import { Switch } from '@/components/ui/switch'
@@ -37,14 +38,14 @@ import {
   scanSkillHub,
   searchSkillsHub,
   type SkillHubResult,
-  type SkillHubScanResult,
-  tickSkillHub
+  type SkillHubScanResult
 } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
 import { compactNumber } from '@/lib/format'
-import { CloudDownload, ExternalLink, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
+import { CloudDownload, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
 import { compareSemver } from '@/lib/semver'
+import { skillDisplayName } from '@/lib/skill-categories'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import {
@@ -62,9 +63,10 @@ import {
 import { notify, notifyError, readableError } from '@/store/notifications'
 import type { SkillHubInstalledEntry, SkillInfo } from '@/types/hermes'
 
-import { HUB_CHANGES_KEY, HubStatus } from './hub-status'
+import { HUB_CHANGES_KEY, HubStatus, type HubSync } from './hub-status'
 import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 import { skillMarkdownBody, skillsQueryOptions, toggleSkillEnabled } from './skills-data'
+import { StoreBar, StoreNotice, StoreSource, syncedAt } from './store-tab'
 import { useTrySkill } from './use-try-skill'
 
 // The only source the store reads. The backend defaults to the same one, so
@@ -115,42 +117,14 @@ function verdictTone(policy: string): string {
   }
 }
 
-/** `fetched_at` (Unix seconds, 0 = never) as a clock time in the UI's locale. */
-function syncedAt(seconds: number | undefined, locale: string): string {
-  if (!seconds) {
-    return ''
-  }
-
-  const date = new Date(seconds * 1000)
-
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-
-  try {
-    return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-  } catch {
-    return date.toLocaleTimeString()
-  }
-}
-
-/** The hub as people know it — its host, not the scheme and path. */
-function hubHost(url: string | undefined): string {
-  if (!url) {
-    return ''
-  }
-
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
-}
-
 /** Everything a card matches on, lowercased once per skill. */
 function haystack(skill: SkillHubResult): string {
   return normalize(`${skill.name} ${skill.description} ${skill.identifier} ${(skill.tags ?? []).join(' ')}`)
 }
+
+/** An AgentX Hub install is locked at the version it resolved to (`agentx-hub/x@1.2.0`); the catalogue speaks `agentx-hub/x`. */
+const unpinned = (identifier: string): string =>
+  identifier.startsWith('agentx-hub/') ? identifier.split('@', 1)[0] : identifier
 
 /** The Hub version newer than the one installed here, or null (a withdrawn
  *  newer version the machine still runs is not an "update"). */
@@ -160,17 +134,104 @@ function hubUpdateFor(skill: SkillHubResult, entry: null | SkillHubInstalledEntr
   return entry?.version && latest && compareSemver(latest, entry.version) > 0 ? latest : null
 }
 
-// One catalogue card — a self-contained tile that installs/uninstalls ITSELF
-// and reads its own action status from the store, so parallel installs never
-// desync. A card is metadata only: nothing reaches the skills tree until
-// "Thêm kỹ năng này" runs. `installedEntry` is the catalogue's truth; the
-// store's optimistic override wins until the catalogue answers again, so the
-// card flips the instant its own action resolves. Once added, the card is also
-// where the skill is managed — installed hub skills are not listed under
-// "Kỹ năng sẵn có" — so it grows the same switch and "Thử ngay" a skill card
-// has; `localSkill` is the backend's row for it (enabled state), when the
-// skills list has loaded.
-function HubSkillCard({
+/** The trust pill, kind and reach tags every hub card carries. */
+function HubSkillTags({ children, skill }: { children?: React.ReactNode; skill: SkillHubResult }) {
+  const { t } = useI18n()
+  const h = t.skills.hub
+  const extra = skill.extra ?? {}
+  const visibility = extra.visibility === 'workspace' || extra.visibility === 'private' ? extra.visibility : null
+  const kind = extra.kind === 'browser' || extra.kind === 'core' ? extra.kind : null
+  const downloads = Number(extra.downloads ?? 0)
+
+  return (
+    <StoreCardTags>
+      {kind && <TagChip>{h.kind[kind]}</TagChip>}
+      <StatusPill tone={trustTone(skill.trust_level)}>{h.trust[skill.trust_level] ?? skill.trust_level}</StatusPill>
+      {visibility && <TagChip>{t.skills.publish.visibilityOptions[visibility]}</TagChip>}
+      {downloads > 0 && (
+        <StoreCardMeta className="flex items-center gap-1">
+          <CloudDownload className="size-3.5" />
+          {compactNumber(downloads)}
+        </StoreCardMeta>
+      )}
+      {children}
+    </StoreCardTags>
+  )
+}
+
+// One catalogue card — a self-contained tile that installs ITSELF and reads
+// its own action status from the store, so parallel installs never desync. A
+// card is metadata only: nothing reaches the skills tree until "Thêm kỹ năng
+// này" runs. Once added it says so and stays where it is — the skill itself
+// is managed from its card on the "Đã thêm" shelf above, so the catalogue
+// never jumps under the pointer that just pressed Add.
+function HubCatalogCard({
+  installed,
+  onPreview,
+  skill
+}: {
+  installed: boolean
+  onPreview: (skill: SkillHubResult) => void
+  skill: SkillHubResult
+}) {
+  const { t } = useI18n()
+  const h = t.skills.hub
+  const action = useStore($hubActions)[skill.identifier]
+  const running = action?.running ?? false
+  const version = typeof skill.extra?.version === 'string' ? skill.extra.version : ''
+
+  const doInstall = () => {
+    notify({ kind: 'success', title: h.installStarted(skill.name), message: h.actionLog })
+    void installHubSkill(skill.identifier).catch(err => notifyError(err, h.actionFailed))
+  }
+
+  return (
+    <StoreCard data-identifier={skill.identifier} data-testid="hub-card">
+      <StoreCardHeader
+        meta={
+          version && (
+            <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)" data-testid="hub-card-version">
+              {version}
+            </span>
+          )
+        }
+        title={skillDisplayName(skill.name)}
+      />
+      <StoreCardDescription>{skill.description || t.skills.noDescription}</StoreCardDescription>
+      <HubSkillTags skill={skill} />
+      <StoreCardFooter
+        end={
+          installed ? (
+            <StatusPill data-testid="hub-card-installed" size="md" tone="good">
+              {h.installed}
+            </StatusPill>
+          ) : (
+            <Button disabled={running} loading={running} onClick={doInstall} size="sm">
+              {h.install}
+            </Button>
+          )
+        }
+      >
+        <Button
+          aria-label={h.previewFor(skillDisplayName(skill.name))}
+          onClick={() => onPreview(skill)}
+          size="sm"
+          variant="text"
+        >
+          {h.preview}
+        </Button>
+      </StoreCardFooter>
+    </StoreCard>
+  )
+}
+
+// One skill this machine runs from the hub, managed where it is listed: the
+// same switch and "Thử ngay" a skill you already had carries, the version it
+// runs, the newer one waiting (or, for a copy edited here, the replacement
+// that has to be confirmed — hub decision §8 #20), and removal behind ⋯.
+// `localSkill` is the backend's row for it (enabled state), once the skills
+// list has it; until then the card is metadata with its verbs.
+function HubInstalledCard({
   installedEntry,
   localSkill,
   onPreview,
@@ -190,31 +251,16 @@ function HubSkillCard({
   const { t } = useI18n()
   const h = t.skills.hub
   const action = useStore($hubActions)[skill.identifier]
-  const override = useStore($hubInstalledOverride)[skill.identifier]
-  const installed = override ?? installedEntry !== null
-  const installedName = installedEntry?.name ?? null
   const running = action?.running ?? false
-  const extra = skill.extra ?? {}
-  const visibility = extra.visibility === 'workspace' || extra.visibility === 'private' ? extra.visibility : null
-  const kind = extra.kind === 'browser' || extra.kind === 'core' ? extra.kind : null
-  const downloads = Number(extra.downloads ?? 0)
-  // The switch needs the backend's own row for the installed copy; until the
-  // skills list has it (or it was removed underneath us), the card is metadata.
-  const managed = installed ? localSkill : null
-  // What this machine runs, against the catalogue: an update to take, or —
-  // for a copy edited here — a replacement to confirm (hub decision §8 #20).
-  const updateTo = installed ? hubUpdateFor(skill, installedEntry) : null
-  const edited = installed && Boolean(installedEntry?.modified)
-  const shownVersion = installed && installedEntry?.version ? installedEntry.version : extra.version
+  const installedName = installedEntry?.name ?? null
+  const updateTo = hubUpdateFor(skill, installedEntry)
+  const edited = Boolean(installedEntry?.modified)
+  const shownVersion = installedEntry?.version || (typeof skill.extra?.version === 'string' ? skill.extra.version : '')
+  const off = localSkill ? !localSkill.enabled : false
 
   const doUpdate = () => {
     notify({ kind: 'success', title: h.updateOneStarted(skill.name), message: h.actionLog })
     void updateHubSkill(skill.identifier, installedName || skill.name).catch(err => notifyError(err, h.actionFailed))
-  }
-
-  const doInstall = () => {
-    notify({ kind: 'success', title: h.installStarted(skill.name), message: h.actionLog })
-    void installHubSkill(skill.identifier).catch(err => notifyError(err, h.actionFailed))
   }
 
   const doUninstall = () => {
@@ -223,120 +269,115 @@ function HubSkillCard({
   }
 
   return (
-    <StoreCard data-testid="hub-card">
+    <StoreCard data-identifier={skill.identifier} data-testid="hub-installed-card">
       <StoreCardHeader
         control={
-          managed && (
+          localSkill && (
             <Switch
-              aria-label={t.skills.toggleSkill(skill.name, !managed.enabled)}
-              checked={managed.enabled}
-              className={cn('cursor-pointer', !managed.enabled && 'opacity-60')}
+              aria-label={t.skills.toggleSkill(skillDisplayName(skill.name), !localSkill.enabled)}
+              checked={localSkill.enabled}
+              className="cursor-pointer"
               data-testid="hub-card-switch"
               disabled={running}
-              onCheckedChange={enabled => onToggle(managed, enabled)}
+              onCheckedChange={enabled => onToggle(localSkill, enabled)}
               size="md"
             />
           )
         }
-        dimmed={managed ? !managed.enabled : false}
+        dimmed={off}
+        // One pill: off outranks the version, exactly as on "Kỹ năng sẵn có".
         meta={
-          shownVersion && (
-            <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)" data-testid="hub-card-version">
-              {shownVersion}
-            </span>
+          off ? (
+            <StatusPill tone="muted">{t.skills.switchedOff}</StatusPill>
+          ) : (
+            shownVersion && (
+              <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)" data-testid="hub-card-version">
+                {shownVersion}
+              </span>
+            )
           )
         }
-        title={skill.name}
+        title={skillDisplayName(skill.name)}
       />
-
-      <StoreCardDescription>{skill.description || t.skills.noDescription}</StoreCardDescription>
-
-      <StoreCardTags>
-        {kind && <TagChip>{h.kind[kind]}</TagChip>}
-        <StatusPill tone={trustTone(skill.trust_level)}>{h.trust[skill.trust_level] ?? skill.trust_level}</StatusPill>
-        {visibility && <TagChip>{t.skills.publish.visibilityOptions[visibility]}</TagChip>}
-        {downloads > 0 && (
-          <StoreCardMeta className="flex items-center gap-1">
-            <CloudDownload className="size-3.5" />
-            {compactNumber(downloads)}
-          </StoreCardMeta>
-        )}
-        {installed && (
-          <StatusPill data-testid="hub-card-installed" tone="good">
-            {h.installed}
-          </StatusPill>
-        )}
-        {updateTo && (
-          <StatusPill data-testid="hub-card-update-available" tone="warn">
-            {h.updateTo(updateTo)}
-          </StatusPill>
-        )}
-        {edited && (
-          <StatusPill data-testid="hub-card-edited" tone="muted">
-            {h.editedHere}
-          </StatusPill>
-        )}
-      </StoreCardTags>
-
+      <StoreCardDescription>
+        {skill.description || localSkill?.description || t.skills.noDescription}
+      </StoreCardDescription>
+      {(updateTo || edited) && (
+        // The newer version and what to do about it sit together, beside the
+        // pill that says so — the footer keeps "Thử ngay" and ⋯ on one line
+        // at the narrowest column.
+        <StoreCardTags>
+          {updateTo && (
+            <StatusPill data-testid="hub-card-update-available" tone="warn">
+              {h.updateTo(updateTo)}
+            </StatusPill>
+          )}
+          {edited && (
+            <StatusPill data-testid="hub-card-edited" tone="muted">
+              {h.editedHere}
+            </StatusPill>
+          )}
+          {updateTo &&
+            (edited ? (
+              <Button
+                data-testid="hub-card-replace"
+                disabled={running}
+                onClick={() =>
+                  onReplace({ identifier: skill.identifier, name: installedName || skill.name, version: updateTo })
+                }
+                size="sm"
+                variant="textStrong"
+              >
+                {h.replaceWithHub}
+              </Button>
+            ) : (
+              <Button
+                data-testid="hub-card-update"
+                disabled={running}
+                loading={running && action?.kind === 'update'}
+                onClick={doUpdate}
+                size="sm"
+                variant="textStrong"
+              >
+                {h.updateThis}
+              </Button>
+            ))}
+        </StoreCardTags>
+      )}
       <StoreCardFooter
         end={
-          installed ? (
-            <>
-              {updateTo &&
-                (edited ? (
-                  <Button
-                    data-testid="hub-card-replace"
-                    disabled={running}
-                    onClick={() =>
-                      onReplace({ identifier: skill.identifier, name: installedName || skill.name, version: updateTo })
-                    }
-                    size="sm"
-                    variant="secondary"
-                  >
-                    {h.replaceWithHub}
-                  </Button>
-                ) : (
-                  <Button
-                    data-testid="hub-card-update"
-                    disabled={running}
-                    loading={running && action?.kind === 'update'}
-                    onClick={doUpdate}
-                    size="sm"
-                  >
-                    {h.updateThis}
-                  </Button>
-                ))}
-              {managed?.enabled && (
-                <Button
-                  data-testid="hub-card-try-now"
-                  onClick={() => onTryNow(managed.name)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  {t.skills.tryNow}
+          <>
+            {localSkill?.enabled && (
+              <Button
+                data-testid="hub-card-try-now"
+                onClick={() => onTryNow(localSkill.name)}
+                size="sm"
+                variant="secondary"
+              >
+                {t.skills.tryNow}
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button aria-label={h.actions} size="icon-sm" variant="ghost">
+                  <MoreVertical />
                 </Button>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-label={h.actions} size="icon-sm" variant="ghost">
-                    <MoreVertical />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={4}>
-                  <DropdownMenuItem disabled={running} onSelect={doUninstall} variant="destructive">
-                    {running ? h.uninstalling : h.uninstall}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            <Button disabled={running} loading={running} onClick={doInstall} size="sm">
-              {h.install}
-            </Button>
-          )
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={4}>
+                <DropdownMenuItem disabled={running} onSelect={doUninstall} variant="destructive">
+                  {running ? h.uninstalling : h.uninstall}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         }
       >
-        <Button onClick={() => onPreview(skill)} size="sm" variant="text">
+        <Button
+          aria-label={h.previewFor(skillDisplayName(skill.name))}
+          onClick={() => onPreview(skill)}
+          size="sm"
+          variant="text"
+        >
           {h.preview}
         </Button>
       </StoreCardFooter>
@@ -346,9 +387,13 @@ function HubSkillCard({
 
 interface SkillsHubProps {
   query: string
+  /** The store's kind switch, rendered first in the bar (see `StoreTab`). */
+  switcher: React.ReactNode
+  /** The store's hub sync (`useHubSync`), owned by `StoreTab`. */
+  sync: HubSync
 }
 
-export function SkillsHub({ query }: SkillsHubProps) {
+export function SkillsHub({ query, switcher, sync }: SkillsHubProps) {
   const { locale, t } = useI18n()
   const h = t.skills.hub
   const queryClient = useQueryClient()
@@ -384,10 +429,11 @@ export function SkillsHub({ query }: SkillsHubProps) {
   // The Sync button: force a real catalogue sync (bypassing the backend's
   // 30-minute cache) and, when this machine is signed in, reconcile what the
   // hub asked it to install in the same press.
+  const { tick } = sync
+
   const syncNow = useCallback(() => {
     setSyncing(true)
-    void tickSkillHub()
-      .catch(() => null)
+    void tick(false)
       .then(() => getSkillHubCatalog(true))
       .then(data => queryClient.setQueryData(HUB_CATALOG_KEY, data))
       .catch(err => notifyError(err, h.loadFailed))
@@ -395,7 +441,7 @@ export function SkillsHub({ query }: SkillsHubProps) {
         setSyncing(false)
         void queryClient.invalidateQueries({ queryKey: HUB_CHANGES_KEY })
       })
-  }, [h, queryClient])
+  }, [h, queryClient, tick])
 
   // Debounced hub search, keyed on the settled query so RQ dedupes/caches per
   // term and abandons stale terms for us (no hand-rolled sequence guard).
@@ -507,12 +553,83 @@ export function SkillsHub({ query }: SkillsHubProps) {
   // bring back a skill removed since. The optimistic override wins until the
   // catalogue answers again, so a just-(un)installed card reflects its own
   // outcome without the refetch race.
-  const installed =
-    (search.data && search.dataUpdatedAt > catalogQuery.dataUpdatedAt
-      ? search.data.installed
-      : catalogQuery.data?.installed) ?? {}
+  const installed = useMemo(
+    () =>
+      (search.data && search.dataUpdatedAt > catalogQuery.dataUpdatedAt
+        ? search.data.installed
+        : catalogQuery.data?.installed) ?? {},
+    [catalogQuery.data?.installed, catalogQuery.dataUpdatedAt, search.data, search.dataUpdatedAt]
+  )
 
   const isInstalled = (identifier: string) => overrides[identifier] ?? Boolean(installed[identifier])
+
+  // "Đã thêm": every skill this machine runs from the hub, one card each — the
+  // installed map is keyed by identifier, and a pinned `agentx-hub/x@1.2.0` is
+  // also filed under its unpinned alias, so rows fold by the local name. A
+  // skill the catalogue no longer lists (withdrawn, private to a workspace
+  // left since, past the page cap) still gets its card from the local row:
+  // installed skills are managed nowhere else, so none may go missing here.
+  // A just-added skill joins from its override; a just-removed one leaves.
+  const installedCards = useMemo(() => {
+    const byIdentifier = new Map<string, SkillHubResult>()
+
+    for (const skill of [...catalog, ...results]) {
+      byIdentifier.set(skill.identifier, skill)
+    }
+
+    const rows = new Map<string, { entry: null | SkillHubInstalledEntry; identifier: string }>()
+
+    for (const [identifier, entry] of Object.entries(installed)) {
+      const key = entry.name ?? identifier
+
+      if (!rows.has(key)) {
+        rows.set(key, { entry, identifier: unpinned(identifier) })
+      }
+    }
+
+    for (const [identifier, added] of Object.entries(overrides)) {
+      const skill = byIdentifier.get(identifier)
+
+      if (added && skill && ![...rows.values()].some(row => row.identifier === identifier)) {
+        rows.set(skill.name, { entry: null, identifier })
+      }
+    }
+
+    const catalogOrder = new Map(catalog.map((skill, index) => [skill.identifier, index]))
+
+    return [...rows.entries()]
+      .filter(([, row]) => overrides[row.identifier] !== false)
+      .map(([localName, row]) => {
+        const local = localByName.get(localName) ?? null
+
+        const skill: SkillHubResult = byIdentifier.get(row.identifier) ?? {
+          description: local?.description ?? '',
+          extra: row.entry?.version ? { version: row.entry.version } : {},
+          identifier: row.identifier,
+          name: localName,
+          repo: null,
+          source: row.identifier.split('/')[0] ?? '',
+          tags: [],
+          trust_level: row.entry?.trust_level ?? 'community'
+        }
+
+        return { entry: row.entry, local, localName, skill }
+      })
+      .sort(
+        (a, b) =>
+          (catalogOrder.get(a.skill.identifier) ?? Number.MAX_SAFE_INTEGER) -
+            (catalogOrder.get(b.skill.identifier) ?? Number.MAX_SAFE_INTEGER) ||
+          a.skill.name.localeCompare(b.skill.name)
+      )
+  }, [catalog, installed, localByName, overrides, results])
+
+  // A search narrows "Đã thêm" like every shelf; what the machine runs (and so
+  // whether "Cập nhật tất cả" is offered) does not depend on it.
+  const shownInstalled = useMemo(() => {
+    const needle = normalize(term)
+
+    return needle.length === 0 ? installedCards : installedCards.filter(({ skill }) => haystack(skill).includes(needle))
+  }, [installedCards, term])
 
   const anyFetching = term.length > 0 && search.isFetching
   const searched = term.length > 0 && !search.isFetching
@@ -520,9 +637,9 @@ export function SkillsHub({ query }: SkillsHubProps) {
   // Only block the whole pane when there is nothing to show yet; a search over
   // the cached catalogue answers instantly while the hub's own reply lands.
   const loading = showLanding ? catalogQuery.isLoading && catalog.length === 0 : anyFetching && listed.length === 0
-  const hasInstalled = Object.keys(installed).length > 0
+  const hasInstalled = installedCards.length > 0
   const offline = Boolean(catalogQuery.data?.stale && catalogQuery.data.error)
-  const hubUrl = catalogQuery.data?.hub_url
+  const neverSynced = Boolean(catalogQuery.data && !catalogQuery.data.fetched_at)
 
   const lastSync = catalogQuery.data?.fetched_at
     ? h.lastSync(syncedAt(catalogQuery.data.fetched_at, locale))
@@ -538,43 +655,9 @@ export function SkillsHub({ query }: SkillsHubProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* The store front: which hub this is, whether it answers, what it
-          holds and when it last synced. One hub — nothing else to list. */}
-      <div className="shrink-0 px-4 pt-4 pb-3" data-testid="hub-catalog-bar">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <span className="text-md font-semibold text-foreground">{h.storeTitle}</span>
-            <StatusPill
-              data-testid="hub-store-state"
-              tone={
-                offline || (catalogQuery.data && !catalogQuery.data.fetched_at)
-                  ? 'warn'
-                  : catalogQuery.data
-                    ? 'good'
-                    : 'info'
-              }
-            >
-              {offline || (catalogQuery.data && !catalogQuery.data.fetched_at)
-                ? h.storeOffline
-                : catalogQuery.data
-                  ? h.storeOnline
-                  : h.syncing}
-            </StatusPill>
-            {hubUrl && (
-              <a
-                className="flex min-h-6 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                href={hubUrl}
-                rel="noreferrer"
-                target="_blank"
-                title={h.openHub}
-              >
-                {hubHost(hubUrl)}
-                <ExternalLink className="size-3" />
-              </a>
-            )}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1.5">
+      <StoreBar
+        actions={
+          <>
             {hasInstalled && (
               <Button
                 data-testid="hub-update-all"
@@ -591,77 +674,95 @@ export function SkillsHub({ query }: SkillsHubProps) {
               {syncing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw />}
               {syncing ? h.syncing : h.syncNow}
             </Button>
-          </div>
-        </div>
-
-        <p className="mt-1.5 text-sm text-(--ui-text-secondary)">
-          {term.length > 0 ? h.resultCount(listed.length, null) : h.catalogCount(listed.length)}
-          <span className="text-(--ui-text-quaternary)"> · </span>
-          {lastSync}
-          {anyFetching && listed.length > 0 && <span className="ml-2 text-(--ui-text-quaternary)">{h.searching}</span>}
-        </p>
-
+          </>
+        }
+        line={
+          <span data-testid="hub-catalog-line">
+            {term.length > 0 ? h.resultCount(listed.length, null) : h.catalogCount(catalog.length)}
+            <span className="text-(--ui-text-quaternary)"> · </span>
+            {lastSync}
+            {anyFetching && listed.length > 0 && (
+              <span className="ml-2 text-(--ui-text-quaternary)">{h.searching}</span>
+            )}
+          </span>
+        }
+        source={
+          <StoreSource
+            label={offline || neverSynced ? h.storeOffline : catalogQuery.data ? h.storeOnline : h.syncing}
+            testId="hub-store-state"
+            tone={offline || neverSynced ? 'warn' : catalogQuery.data ? 'good' : 'info'}
+            url={catalogQuery.data?.hub_url}
+          />
+        }
+        switcher={switcher}
+      >
         {offline && (
-          <p className="mt-1 text-sm text-(--ui-yellow)" data-testid="hub-catalog-offline">
+          <StoreNotice data-testid="hub-catalog-offline" tone="warn">
             {h.catalogOffline}
-          </p>
+          </StoreNotice>
         )}
-
         {editedWithUpdate > 0 && (
-          <p className="mt-1 text-sm text-(--ui-text-tertiary)" data-testid="hub-edited-note">
-            {h.keptOnUpdateAll(editedWithUpdate)}
-          </p>
+          <StoreNotice data-testid="hub-edited-note">{h.keptOnUpdateAll(editedWithUpdate)}</StoreNotice>
         )}
-      </div>
+      </StoreBar>
 
-      {/* Scrollable cards. */}
+      {/* Scrollable shelves. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
         {/* What the hub asked this machine to do (installs from the web, yanks,
             workspace skills) — on the landing view, and only when there is something
             to say: browsing the store needs no account. */}
-        {showLanding && <HubStatus hideWhenIdle />}
-        {loading ? (
-          <div className="grid min-h-40 place-items-center">
-            <PageLoader label={h.searching} />
-          </div>
-        ) : listed.length === 0 ? (
-          <PanelEmpty
-            action={
-              searched ? null : (
-                <Button disabled={syncing} onClick={syncNow} size="sm" variant="secondary">
-                  {h.syncNow}
-                </Button>
-              )
-            }
-            description={searched ? h.searchEmptyDesc : h.catalogEmptyDesc}
-            figure="box"
-            title={searched ? h.noResults : h.catalogEmpty}
-          />
-        ) : (
-          <StoreCardGrid>
-            {listed.map(skill => {
-              const entry = installed[skill.identifier] ?? null
-              const localName = entry?.name ?? null
-
-              return (
-                <HubSkillCard
+        {showLanding && <HubStatus hideWhenIdle sync={sync} />}
+        <div className="grid gap-6">
+          {shownInstalled.length > 0 && (
+            <StoreCardShelf count={shownInstalled.length} data-testid="hub-shelf-installed" label={h.shelfInstalled}>
+              {shownInstalled.map(({ entry, local, localName, skill }) => (
+                <HubInstalledCard
                   installedEntry={entry}
-                  key={skill.identifier}
-                  localSkill={localByName.get(localName ?? skill.name) ?? null}
+                  key={localName}
+                  localSkill={local}
                   onPreview={openDetail}
                   onReplace={setReplace}
                   onToggle={toggleLocal}
                   onTryNow={trySkill}
                   skill={skill}
                 />
-              )
-            })}
-          </StoreCardGrid>
-        )}
+              ))}
+            </StoreCardShelf>
+          )}
+          {loading ? (
+            <div className="grid min-h-40 place-items-center">
+              <PageLoader label={h.searching} />
+            </div>
+          ) : listed.length === 0 ? (
+            <PanelEmpty
+              action={
+                searched ? null : (
+                  <Button disabled={syncing} onClick={syncNow} size="sm" variant="secondary">
+                    {h.syncNow}
+                  </Button>
+                )
+              }
+              description={searched ? h.searchEmptyDesc : h.catalogEmptyDesc}
+              figure="box"
+              title={searched ? h.noResults : h.catalogEmpty}
+            />
+          ) : (
+            <StoreCardShelf count={listed.length} data-testid="hub-shelf-catalog" label={h.shelfCatalog}>
+              {listed.map(skill => (
+                <HubCatalogCard
+                  installed={isInstalled(skill.identifier)}
+                  key={skill.identifier}
+                  onPreview={openDetail}
+                  skill={skill}
+                />
+              ))}
+            </StoreCardShelf>
+          )}
+        </div>
       </div>
 
       {/* Action log — same resizable, flush-width bottom pane + LogTail surface
-          as the MCP logs. ANSI stripped so spawn output reads clean. Tails the
+          the MCP logs use. ANSI stripped so spawn output reads clean. Tails the
           latest-started action ($hubActiveLog). */}
       {activeLogKey && (
         <DetailPane

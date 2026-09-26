@@ -349,3 +349,70 @@ clickable at all, and the preview rail refused every office file and PDF as
   deliverable-extension table lives in three places by necessity (renderer,
   Electron, Python) with tests pinning the same fixtures on each; every new
   string is hand-translated in vi · en · ja · zh · zh-hant · ar.
+
+## 2026-09 — Kho tiện ích: one store, by kind
+
+**Before.** Four tabs that paired unevenly: Kỹ năng sẵn có sat beside the
+store that adds skills (Kho kỹ năng), but Công cụ sat beside "Kết nối nâng
+cao" — a list of 48px rows under a boxed "AgentX Gateway (MCP)" panel whose
+border resolved to an undefined token (so it drew in the text colour), an
+intro that said "Dành cho người quản trị", and a single "Thêm kết nối" button.
+Nothing on the page said what MCP was or how to get more of it; the mcp.json
+editor and the logs sat under the page as two collapsed panes; the row's trash
+icon removed a server without asking.
+
+**After.**
+- **Three tabs, one store.** Kỹ năng sẵn có · Công cụ · **Kho tiện ích**. The
+  store holds every kind AgentX can add, switched by a `SegmentedControl`
+  (`size="md"`): **Kỹ năng · MCP** (data sources are the next entry). Each
+  kind keeps the `?tab=` id its old tab had (`hub`, `mcp`), so every deep link
+  — the palette, `/settings?tab=mcp`, `?server=` — lands where it pointed; the
+  store reopens on the kind last looked at; a search typed about one kind is
+  cleared on the way to the other.
+- **A way from what you have to where you get more.** "Kỹ năng sẵn có" leads
+  with "＋ Thêm từ kho", "Công cụ" with "＋ Kết nối phần mềm khác", each
+  opening the store on its own kind. The line under the title teaches the kind
+  on screen: a skill teaches a way of working and grants nothing; an MCP
+  connection brings a set of tools AgentX may use.
+- **One bar for the store.** The kind switch, whether the hub answers and its
+  host, the segment's actions ("Cập nhật tất cả", "Đồng bộ ngay", ⋯), a line of
+  counts and the last sync, then one notice per thing worth a line. The hub
+  sync (`useHubSync`: the bearer tick and the changes feed) now runs for the
+  whole store, so a server the hub installs lands while MCP is on screen.
+- **Shelves, yours first.** `StoreCardShelf` names a shelf and counts it.
+  Skills: **Đã thêm** — every hub skill this machine runs, including one the
+  catalogue no longer lists, managed there (switch, "Thử ngay", update beside
+  its "Có bản mới" pill, removal behind ⋯) — then **Trong kho**. MCP: **Đã
+  kết nối** — every configured server with its live dot, what is wrong in the
+  one pill slot ("Cần đăng nhập", "Lỗi kết nối", "Đang tắt") and the one verb
+  that fixes it ("Đăng nhập", "Cập nhật", "Thử lại"), or how many tools it
+  gives AgentX when nothing is — then **Từ AgentX Hub**, **Qua AgentX
+  Gateway** (only when the hub has endpoints for this person) and **AgentX
+  đề xuất**. A catalogue card never jumps: once added it stays where it was
+  and says "Đã thêm" / "Đã kết nối".
+- **Plain words on the tile.** Access tags read "Đăng nhập tài khoản", "Cần
+  khoá API", "Chạy trên máy này", "Tải về khi kết nối" — never "stdio",
+  "OAuth" or "Cần build"; the six servers AgentX ships carry hand-written copy
+  in every locale; a server added by hand says so in its description. Black
+  brand marks (GitHub, Notion, Vercel) draw in the ink so they survive the
+  dark band.
+- **The technical surface opens on demand.** A connection's **Chi tiết** is a
+  dialog: what stands between it and working with its way out, its tools as
+  toggles, the hub's word on it, and — folded — the launch line, the logs and
+  a jump into mcp.json. "Gỡ kết nối" asks first. The whole mcp.json is a
+  dialog from ⋯ (and from "Thêm thủ công", seeded with a starter entry that is
+  scrolled to the middle); leaving it with unsaved edits asks in its footer,
+  so a draft is never left hidden for the next save to write by surprise.
+- **Writes that cannot undo each other.** mcp.json opens only once the config
+  has loaded; its save lays the person's edits over the config as it is then
+  (`mergeServers`), so a sign-in, an install or a hub sync that landed while
+  the editor was open survives; every write is queued behind the previous one,
+  so two quick switches both land; a connection whose launch changed (an
+  update, a replace, an edit) is checked again instead of keeping its old
+  tool list. A command-palette jump opens its connection once and lets go of
+  the URL, whatever the search says.
+- **Kept honest.** `mcp-tab.tsx` (2,092 lines) is now a model
+  (`mcp-model.ts`, tested without a DOM), the segment, its cards, dialogs and
+  logs; 52 orphaned `settings.mcp.*` keys and three `skills.*` keys are gone
+  from the contract and all six locales; the hub keys ja · zh-hant · ar had
+  been falling back to English for are translated with the new ones.

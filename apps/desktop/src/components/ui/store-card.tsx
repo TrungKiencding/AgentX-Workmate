@@ -4,18 +4,19 @@ import { cn } from '@/lib/utils'
 
 /**
  * The store card — one tile in the Tiện ích grids: a skill you have, a skill
- * in the store, a tool, a curated connection. One treatment for all four so
- * "turn a tool on", "add a skill" and "install a connection" read as the same
- * kind of thing: `--radius-card`, the quinary fill, 16px padding, and the
- * §Motion card-hover recipe (background, border and shadow move together at
- * `--dur-short` — never a translate, never a scale).
+ * in the store, a tool, a connection on this machine or one in the store. One
+ * treatment for all of them so "turn a tool on", "add a skill" and "connect an
+ * app" read as the same kind of thing: `--radius-card`, the quinary fill, 16px
+ * padding, and the §Motion card-hover recipe (background, border and shadow
+ * move together at `--dur-short` — never a translate, never a scale).
  *
  * A card is glanceable, not exhaustive. Compose it top to bottom as
  * `StoreCardHeader` (glyph · name · one pill · the switch), a two-line
  * `StoreCardDescription`, an optional `StoreCardTags` row, and a
  * `StoreCardFooter` whose left side opens the detail and whose right side
- * carries the one verb (Thử ngay · Thêm kỹ năng này · Cài). Everything an
- * administrator might want lives behind the detail, never on the tile.
+ * carries the one verb (Thử ngay · Thêm kỹ năng này · Kết nối · Đăng nhập).
+ * Everything an administrator might want lives behind the detail, never on
+ * the tile. Cards sit on a `StoreCardGrid`, grouped by `StoreCardShelf`.
  */
 export function StoreCard({ className, ...props }: React.ComponentProps<'article'>) {
   return (
@@ -38,6 +39,51 @@ export function StoreCardGrid({ className, ...props }: React.ComponentProps<'div
       data-slot="store-card-grid"
       {...props}
     />
+  )
+}
+
+/**
+ * One named shelf of cards — the heading a person scans instead of reading
+ * every card: the shelf's name, how many cards it holds, and (only where a
+ * shelf earns one) a line saying what the whole shelf means. `action` sits at
+ * the heading's far end (the shelf's own verb, e.g. "Thêm thủ công"); `empty`
+ * replaces the grid while the shelf holds nothing but must still be there to
+ * say so. An unnamed shelf renders as a bare grid, which is what a search
+ * result is.
+ */
+export function StoreCardShelf({
+  action,
+  children,
+  className,
+  count,
+  empty,
+  label,
+  note,
+  ...props
+}: Omit<React.ComponentProps<'section'>, 'children'> & {
+  action?: React.ReactNode
+  children?: React.ReactNode
+  count?: number
+  empty?: React.ReactNode
+  label?: string
+  note?: React.ReactNode
+}) {
+  return (
+    <section aria-label={label} className={className} data-slot="store-card-shelf" {...props}>
+      {label && (
+        <div className="mb-2 flex items-end justify-between gap-3 px-0.5">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-1.5">
+              <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{label}</h3>
+              {count !== undefined && <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{count}</span>}
+            </div>
+            {note && <p className="mt-0.5 max-w-[60ch] text-xs text-(--ui-text-quaternary)">{note}</p>}
+          </div>
+          {action && <div className="flex shrink-0 items-center gap-1.5">{action}</div>}
+        </div>
+      )}
+      {empty !== undefined && count === 0 ? empty : <StoreCardGrid>{children}</StoreCardGrid>}
+    </section>
   )
 }
 

@@ -786,63 +786,25 @@ export interface Translations {
       empty: string
     }
     mcp: {
-      mcpIntro: string
-      addConnection: string
-      addFromCatalog: string
-      addPasteConfig: string
       advancedConfig: string
-      backToConnections: string
       logsTitle: string
       loading: string
       failedLoad: string
-      nameRequiredTitle: string
-      nameRequiredMessage: string
-      objectRequired: string
       invalidJson: string
       saveFailed: string
-      removeFailed: string
-      gatewayUnavailableTitle: string
-      gatewayUnavailableMessage: string
-      reloadedTitle: string
-      reloadedMessage: string
       reloadFailed: string
       savedTitle: string
       savedMessage: (name: string) => string
-      newServer: string
-      reload: string
-      reloading: string
-      emptyTitle: string
-      emptyDesc: string
-      disabled: string
-      editServer: string
-      name: string
-      serverJson: string
-      remove: string
-      saveServer: string
-      test: string
-      testing: string
-      testOk: (count: number) => string
-      testFailed: string
       enableServer: (name: string) => string
       disableServer: (name: string) => string
-      serverEnabled: (name: string) => string
-      serverDisabled: (name: string) => string
-      toggleFailed: (name: string, enabled: boolean) => string
-      tabServers: string
-      tabCatalog: string
       catalogLoading: string
       catalogLoadFailed: string
-      catalogEmpty: string
-      catalogInstalled: string
-      catalogEnabled: string
       catalogNeedsInstall: string
-      catalogInstall: string
-      catalogInstalling: string
       catalogInstallStarted: (name: string) => string
+      catalogAddedNeedsSignIn: (name: string) => string
       catalogInstallFailed: (name: string) => string
       catalogEnvPrompt: (name: string) => string
       catalogEnvRequired: string
-      hubSection: string
       hubHint: string
       hubSignIn: string
       hubOffline: string
@@ -856,44 +818,94 @@ export interface Translations {
       hubUpdateAvailable: (version: string) => string
       hubBlocked: (count: number, tools: string) => string
       hubOpen: string
-      hubRemove: string
       hubRemoved: (name: string) => string
-      hubRemoveFailed: (name: string) => string
       hubReplace: string
       hubReplaceConfirm: (name: string) => string
       hubModified: string
       hubNameTaken: string
       hubNotRegistered: string
       hubUnsupported: (count: number) => string
-      gatewaySection: string
       gatewayHint: string
       gatewaySignIn: string
       gatewayTokenDays: (days: number) => string
-      gatewayLoading: string
-      gatewayOff: string
-      gatewayEmpty: string
       gatewayServer: string
       gatewayToolset: string
-      gatewayTools: (count: number) => string
       gatewayStatus: Record<'needs_connection' | 'needs_reauth' | 'partial' | 'ready' | 'unavailable', string>
-      gatewayAdd: string
-      gatewayAddedPill: string
       gatewayAdded: (label: string) => string
       gatewayAddFailed: (label: string) => string
+      gatewayListFailed: (detail: string) => string
       capabilitySummary: (tools: number, prompts: number, resources: number) => string
-      statusConnecting: string
       statusNeedsAuth: string
+      /** A server that sends its own key (headers) was refused: the fix is the key, not a sign-in. */
+      statusKeyRefused: string
       statusError: string
-      statusOff: string
-      allServers: string
       authenticatedTitle: string
       authenticatedMessage: (server: string, count: number) => string
       waitingForBrowser: string
       authenticate: string
-      unsavedConnect: string
       enableTool: (tool: string) => string
       disableTool: (tool: string) => string
       noOutput: string
+      /** The store's MCP segment. */
+      searchPlaceholder: string
+      shelfConnected: string
+      shelfHub: string
+      shelfGateway: string
+      shelfCatalog: string
+      connectedEmpty: string
+      nounConnections: string
+      storeCounts: (connected: number, available: number) => string
+      connect: string
+      connectedPill: string
+      needsAccount: string
+      needsKey: string
+      runsLocal: string
+      customLocal: string
+      customAt: (host: string) => string
+      customRemote: string
+      /** Hand-written copy for the servers AgentX ships in its catalog, keyed by manifest name; the manifest is the fallback. */
+      catalogCopy: Record<string, { description: string; label: string }>
+      sourceHub: string
+      sourceGateway: string
+      statusChecking: string
+      hubUpdateShort: string
+      hubUpdated: (name: string) => string
+      hubReplaced: (name: string) => string
+      editedHere: string
+      hubBlockedShort: (count: number) => string
+      toolCount: (count: number) => string
+      toolsHeading: string
+      toolsEnabledOf: (on: number, total: number) => string
+      toolsHint: string
+      noTools: string
+      gatewayServerDesc: string
+      gatewayToolsetDesc: string
+      gatewayTokenNote: string
+      signInHint: (name: string) => string
+      keyRefused: string
+      errorHint: string
+      editInConfig: string
+      configName: string
+      launchLabel: string
+      transportLabel: string
+      capabilitiesLabel: string
+      serverOn: string
+      serverOff: string
+      recheck: string
+      removeConnection: string
+      removeConfirm: (name: string) => string
+      removeConfirmDescription: string
+      moreActions: string
+      addManual: string
+      editConfig: string
+      logsAll: string
+      logsHint: string
+      configHint: string
+      discardPrompt: string
+      keepEditing: string
+      discardChanges: string
+      hubKeyUntrustedShort: string
+      hubSignedOutShort: string
     }
     model: {
       loading: string
@@ -1050,8 +1062,14 @@ export interface Translations {
     pageDescription: string
     tabSkills: string
     tabToolsets: string
-    tabMcp: string
-    tabHub: string
+    /** Kho tiện ích — the page tab for adding skills and connections. */
+    tabStore: string
+    /** The store's kind switch, keyed by the `?tab=` id each kind keeps. */
+    storeSegment: Record<'hub' | 'mcp', string>
+    /** The way from "Kỹ năng sẵn có" into the store's skills. */
+    addFromStore: string
+    /** The way from "Công cụ" into the store's MCP connections. */
+    connectMore: string
     searchSkills: string
     searchToolsets: string
     refresh: string
@@ -1063,10 +1081,13 @@ export interface Translations {
     tryNow: string
     /** The way into a card's detail dialog. */
     details: string
+    /** Accessible name of a card's "Chi tiết": the button names its card. */
+    detailsFor: (name: string) => string
     technicalDetails: string
     originalName: string
     sourceLabel: string
     setUp: string
+    setUpFor: (name: string) => string
     /** Localized skill-category labels, keyed by normalized category slug. */
     category: Record<string, string>
     /** Hand-written toolset copy, keyed by toolset name; backend text is the fallback. */
@@ -1115,9 +1136,12 @@ export interface Translations {
     skillArchivedTitle: string
     skillArchivedMessage: string
     hub: {
-      storeTitle: string
       actions: string
       searchPlaceholder: string
+      /** Shelf of the hub skills this machine runs — where they are managed. */
+      shelfInstalled: string
+      /** Shelf of the whole hub catalogue. */
+      shelfCatalog: string
       searching: string
       catalogCount: (count: number) => string
       catalogEmpty: string
@@ -1137,6 +1161,7 @@ export interface Translations {
       updateAll: string
       updating: string
       preview: string
+      previewFor: (name: string) => string
       scan: string
       scanning: string
       files: string

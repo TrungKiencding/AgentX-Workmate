@@ -100,14 +100,30 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
   }
 }
 
+// The store owns one sync (`useHubSync`) and hands it to the panel; its
+// "Sync now" lives in the store bar. The harness stands in for both.
 async function renderStatus() {
-  const { HubStatus } = await import('./hub-status')
+  const { HubStatus, useHubSync } = await import('./hub-status')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  function Harness() {
+    const sync = useHubSync()
+
+    return (
+      <>
+        <button onClick={() => void sync.tick(true)} type="button">
+          Sync now
+        </button>
+        <HubStatus sync={sync} />
+      </>
+    )
+  }
+
   let result: ReturnType<typeof render>
   await act(async () => {
     result = render(
       <QueryClientProvider client={client}>
-        <HubStatus />
+        <Harness />
       </QueryClientProvider>
     )
   })
@@ -202,6 +218,8 @@ describe('HubStatus', () => {
 
       await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', { confirm: true }))
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+      // The MCP segment's "Connected" shelf reads the config: it is asked again too.
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['agentx-config-record'] })
 
       // Skills moved, MCP did not: the skills list is refreshed (so the new
       // changes have landed) and MCP is not reloaded.
