@@ -90,7 +90,7 @@ export function SkillCard({
           </>
         }
       >
-        <Button onClick={onDetails} size="sm" variant="text">
+        <Button aria-label={t.skills.detailsFor(name)} onClick={onDetails} size="sm" variant="text">
           {t.skills.details}
         </Button>
       </StoreCardFooter>

@@ -8,10 +8,11 @@ import { CodeEditor } from '@/components/chat/code-editor'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { StoreCardGrid } from '@/components/ui/store-card'
+import { StoreCardShelf } from '@/components/ui/store-card'
 import { editLearningNode, getLearningNode, getUsageAnalytics, setSkillEnabled, setToolsetEnabled } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { isDesktopToolsetVisible } from '@/lib/desktop-toolsets'
+import { Plus } from '@/lib/icons'
 import { queryClient } from '@/lib/query-client'
 import { skillCategoryKey, skillDisplayName } from '@/lib/skill-categories'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
@@ -32,8 +33,6 @@ import { PageSearchShell } from '../page-search-shell'
 import { includesQuery, toolNames, toolsetDisplayLabel } from '../settings/helpers'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
-import { SkillsHub } from './hub'
-import { McpTab } from './mcp-tab'
 import { type PublishMode, PublishSkillDialog } from './publish-dialog'
 import { SkillCard } from './skill-card'
 import { SkillDetailDialog } from './skill-detail-dialog'
@@ -53,14 +52,22 @@ import {
   toolsetsQueryOptions,
   usageOf
 } from './skills-data'
-import { $skillsSortDesc } from './store'
+import { $skillsSortDesc, $storeSegment } from './store'
+import { isStoreSegment, type StoreSegmentId, StoreTab } from './store-tab'
 import { ToolsetCard } from './toolset-card'
 import { ToolsetDetailDialog } from './toolset-detail-dialog'
 import { useTrySkill } from './use-try-skill'
 
-// Display order: the skills you have, the store that adds more, the tools, and
-// the technical connections last. The ids are the `?tab=` deep links and stay.
-const SKILLS_MODES = ['skills', 'hub', 'toolsets', 'mcp'] as const
+// What `?tab=` may say. Three page tabs: the skills AgentX has, the tools it
+// may use, and Kho tiện ích — the one store for adding either kind, whose
+// segments keep the ids the two stores always had (`hub` = skills, `mcp` =
+// connections), so every deep link into them still lands where it pointed.
+const SKILLS_MODES = ['skills', 'toolsets', 'hub', 'mcp'] as const
+
+type SkillsMode = (typeof SKILLS_MODES)[number]
+
+// The page-tab row: the store is one tab whatever segment the URL names.
+const PAGE_TABS = ['skills', 'toolsets', 'store'] as const
 
 // Per-tool call counts come from a 365-day message scan — heavy, and purely
 // cosmetic (Toolsets usage badges). Cache the result module-wide with a TTL so
@@ -93,37 +100,6 @@ async function loadToolCalls(force = false): Promise<Record<string, number>> {
 
 // Highlight the active order inside the sort menu.
 const cnActive = (active: boolean) => (active ? 'font-medium text-foreground' : undefined)
-
-// One named shelf inside a card grid — the heading a person scans instead of
-// reading every card: the group's name, how many cards it holds, and (only
-// where a shelf earns one) a line saying what this whole shelf means. An
-// unnamed shelf renders as a bare grid, which is what a search result is.
-function CardShelf({
-  children,
-  count,
-  label,
-  note
-}: {
-  children: React.ReactNode
-  count: number
-  label?: string
-  note?: string
-}) {
-  return (
-    <section>
-      {label && (
-        <div className="mb-2 px-0.5">
-          <div className="flex items-baseline gap-1.5">
-            <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{label}</h3>
-            <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{count}</span>
-          </div>
-          {note && <p className="mt-0.5 max-w-[60ch] text-xs text-(--ui-text-quaternary)">{note}</p>}
-        </div>
-      )}
-      <StoreCardGrid>{children}</StoreCardGrid>
-    </section>
-  )
-}
 
 function filteredSkills(skills: SkillInfo[], query: string, desc: boolean, t: Translations): SkillInfo[] {
   const q = normalize(query)
@@ -179,13 +155,33 @@ interface SkillsViewProps extends React.ComponentProps<'section'> {
 
 export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...props }: SkillsViewProps) {
   const { t } = useI18n()
-  const [mode, setMode] = useRouteEnumParam('tab', SKILLS_MODES, 'skills')
-  // $gateway only feeds the MCP tab — gate the subscription so Skills/Toolsets/Hub
+  const [mode, setMode] = useRouteEnumParam<SkillsMode>('tab', SKILLS_MODES, 'skills')
+  // $gateway only feeds the MCP segment — gate the subscription so the other
   // tabs don't re-render on connect/disconnect/reconnect.
   const gateway = useStoreSelector($gateway, g => (mode === 'mcp' ? g : null))
+
+  // The store tab reopens on the kind last looked at there.
+  useEffect(() => {
+    if (isStoreSegment(mode)) {
+      $storeSegment.set(mode)
+    }
+  }, [mode])
   const trySkill = useTrySkill()
 
-  const [query, setQuery] = useState('')
+  // A search belongs to the tab (or store kind) it was typed in, so every way
+  // of moving — a tab, a kind, a doorway, a command-palette jump that rewrites
+  // `?tab=` — starts the next one clean. On the store the box means something
+  // else by each kind (a network search of the hub, a filter of the shelves);
+  // arriving already filtered by words typed about another kind hid the very
+  // card a jump pointed at.
+  const [search, setSearch] = useState<{ mode: SkillsMode; text: string }>({ mode, text: '' })
+  const query = search.mode === mode ? search.text : ''
+  const setQuery = useCallback((text: string) => setSearch({ mode, text }), [mode])
+
+  // The way from what AgentX has to where it gets more: each "have" tab opens
+  // the store on its own kind, so a skill leads to skills and a tool to the
+  // connections that bring more tools.
+  const openStore = (segment: StoreSegmentId) => setMode(segment)
 
   const { data: skills, isError: skillsFailed, error: skillsError } = useQuery(skillsQueryOptions)
   const { data: toolsets, isError: toolsetsFailed } = useQuery(toolsetsQueryOptions)
@@ -502,7 +498,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
                 {t.skills.clearSearch}
               </Button>
             ) : skillsAllInStore ? (
-              <Button onClick={() => setMode('hub')} size="sm" variant="secondary">
+              <Button onClick={() => openStore('hub')} size="sm" variant="secondary">
                 {t.skills.emptyOpenStore}
               </Button>
             ) : (
@@ -616,10 +612,20 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     trySkill(skill.name)
   }
 
+  const storeDoorway = (segment: StoreSegmentId, label: string) => (
+    <Button data-testid={`open-store-${segment}`} onClick={() => openStore(segment)} size="sm" variant="ghost">
+      <Plus />
+      {label}
+    </Button>
+  )
+
   const skillsGrid = (
     <div className="flex h-full min-h-0 flex-col">
       {gridStrip(
-        sortButton(skillsSortDesc, next => $skillsSortDesc.set(next)),
+        <>
+          {sortButton(skillsSortDesc, next => $skillsSortDesc.set(next))}
+          {storeDoorway('hub', t.skills.addFromStore)}
+        </>,
         <ListStripMenu
           items={[{ disabled: bulkBusy, label: t.skills.disableUnused, onSelect: () => void disableUnused() }]}
           label={t.skills.tabSkills}
@@ -629,7 +635,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
         <div className="grid gap-5">
           {(groupedSkills ?? [{ key: 'all', label: '', rows: visibleSkills, usage: 0 }]).map(group => (
-            <CardShelf count={group.rows.length} key={group.key} label={group.label}>
+            <StoreCardShelf count={group.rows.length} key={group.key} label={group.label}>
               {group.rows.map(skill => (
                 <SkillCard
                   busy={bulkBusy}
@@ -640,7 +646,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
                   skill={skill}
                 />
               ))}
-            </CardShelf>
+            </StoreCardShelf>
           ))}
         </div>
       </div>
@@ -652,13 +658,13 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
     <div className="flex h-full min-h-0 flex-col">
       {gridStrip(
         // No sort control here: the shelves are the order, and A-Z inside one.
-        null,
+        storeDoorway('mcp', t.skills.connectMore),
         <ListStripMenu label={t.skills.tabToolsets} toggle={bulkSwitch(allToolsetsEnabled, bulkToolsets.length)} />
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 [scrollbar-gutter:stable]">
         <div className="grid gap-5">
           {(groupedToolsets ?? [{ key: 'all', label: '', note: undefined, rows: visibleToolsets }]).map(group => (
-            <CardShelf count={group.rows.length} key={group.key} label={group.label} note={group.note}>
+            <StoreCardShelf count={group.rows.length} key={group.key} label={group.label} note={group.note}>
               {group.rows.map(toolset => (
                 <ToolsetCard
                   busy={bulkBusy}
@@ -669,7 +675,7 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
                   toolset={toolset}
                 />
               ))}
-            </CardShelf>
+            </StoreCardShelf>
           ))}
         </div>
       </div>
@@ -679,48 +685,36 @@ export function SkillsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...p
   return (
     <PageSearchShell
       {...props}
-      activeTab={mode}
-      // The page's one description line is per tab on purpose: this is the only
-      // place the app ever says what separates a skill from a tool, and the
-      // sentence has to be there while the person is looking at that tab's
-      // switches. A single page-wide line ("bật thứ bạn cần") taught neither.
+      activeTab={isStoreSegment(mode) ? 'store' : mode}
+      // The page's one description line is per tab (per store kind) on purpose:
+      // this is the only place the app ever says what separates a skill from a
+      // tool, and the sentence has to be there while the person is looking at
+      // that tab's switches. A single page-wide line taught neither.
       description={t.skills.tabDescription[mode]}
       onSearchChange={setQuery}
-      // One box, four tabs that mean different things by it — on the store it is
-      // a network search, on the connections tab it is hidden but still applied.
-      // Leaving a query behind meant arriving at a tab already filtered by words
-      // typed about something else, with the box that explains it out of sight.
-      onTabChange={id => {
-        setQuery('')
-        setMode(id as (typeof SKILLS_MODES)[number])
-      }}
-      // The connections tab manages a handful of entries with the editor right
-      // there — searching it is noise.
-      searchHidden={mode === 'mcp'}
+      onTabChange={id => setMode(id === 'store' ? $storeSegment.get() : (id as SkillsMode))}
       searchHints={searchHints}
       searchPlaceholder={
         mode === 'skills'
           ? t.skills.searchSkills
           : mode === 'hub'
             ? t.skills.hub.searchPlaceholder
-            : t.skills.searchToolsets
+            : mode === 'mcp'
+              ? t.settings.mcp.searchPlaceholder
+              : t.skills.searchToolsets
       }
       searchValue={query}
-      tabs={SKILLS_MODES.map(id =>
+      tabs={PAGE_TABS.map(id =>
         id === 'skills'
           ? { id, label: t.skills.tabSkills, meta: skills ? ownSkills.length : null }
-          : id === 'hub'
-            ? { id, label: t.skills.tabHub }
-            : id === 'toolsets'
-              ? { id, label: t.skills.tabToolsets, meta: toolsets ? bulkToolsets.length : null }
-              : { id, label: t.skills.tabMcp }
+          : id === 'toolsets'
+            ? { id, label: t.skills.tabToolsets, meta: toolsets ? bulkToolsets.length : null }
+            : { id, label: t.skills.tabStore }
       )}
       title={t.skills.pageTitle}
     >
-      {mode === 'hub' ? (
-        <SkillsHub query={query} />
-      ) : mode === 'mcp' ? (
-        <McpTab gateway={gateway} />
+      {isStoreSegment(mode) ? (
+        <StoreTab gateway={gateway} onSegmentChange={openStore} query={query} segment={mode} />
       ) : (skillsFailed || toolsetsFailed) && (!skills || !toolsets) ? (
         <PanelEmpty
           action={

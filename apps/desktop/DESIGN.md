@@ -396,7 +396,11 @@ Notes:
   field.
 - **`SegmentedControl`** — the choice control for small mutually-exclusive sets
   (color mode, tool-call display, usage period). Replaces radio piles and
-  pill rows. 28px track (`--control-h-sm`), 12px labels.
+  pill rows. 28px track (`--control-h-sm`), 12px labels. `size="md"` (32px
+  track, 13px labels, 14px glyphs) is the one view switch *inside* a page tab —
+  Kho tiện ích's "Kỹ năng · MCP" — so it reads as a switch at a glance without
+  becoming a second `PillTabs` row. It renders `role="group"`; pass an
+  `aria-label` that names what is being switched.
 - **`Switch`** — bare, with `aria-label`, no bordered text wrapper.
   `size="md"` (22×38 track, 18px thumb) is the toggle for every enable/disable
   row in a page; `xs` stays for menus and dense rows. An invisible pad extends
@@ -526,32 +530,57 @@ running — while staying quieter than the content they frame.
   `size="lg"`/`"xl"` with its Cancel matched.
 - **No dividers between rows** unless the list genuinely needs them; prefer
   spacing. When you do need one, it's a single `--ui-stroke-tertiary` hairline.
-- **The technical surface folds under the page.** The advanced-connections tab
-  is a single column — a 13px intro line, 48px connection rows, one "Thêm kết
-  nối" button — with the mcp.json editor and the logs each in a
-  `DetailPane` that starts collapsed ("Cấu hình nâng cao (mcp.json)" ·
-  "Nhật ký"). The panes stay mounted while collapsed, so cursor-driven
-  selection and "Dán cấu hình" (which expands the editor pane before seeding
-  the starter entry) keep working.
-- **Tiện ích is a store, and every tile is a `StoreCard`**
-  (`components/ui/store-card.tsx`). The four store surfaces — Kỹ năng sẵn có,
-  Kho kỹ năng, Công cụ and the MCP catalog — lay the same card on the same
-  `StoreCardGrid` (`auto-fill minmax(18rem,1fr)`, gap 12): `--radius-card`,
-  quinary fill, p-4, the §Motion card-hover recipe. A card is glanceable, not
-  exhaustive, and reads top to bottom in one order: `StoreCardHeader` (a
-  32px `StoreCardGlyph` tile · 14px semibold name · at most one pill beside it
-  — "Tự học", a version, "Cần thiết lập" · the `md` switch), a two-line
-  `StoreCardDescription`, an optional `StoreCardTags` row, and a
+- **The technical surface opens on demand.** In Kho tiện ích → MCP nothing
+  technical is part of the page: a connection's "Chi tiết" is a dialog (what
+  stands between it and working, with its way out; its tools as toggles; the
+  hub's word on it; the launch line, the logs and a jump into mcp.json folded
+  under `DisclosureRow`s), and the whole mcp.json and every server's logs are
+  dialogs from the store bar's ⋯. mcp.json opens only once the config has
+  loaded (a whole-map save of an empty map would remove every server), and a
+  save writes the person's edits *over the config as it is then*
+  (`mergeServers`: what they added, removed or changed wins; everything else —
+  a sign-in, an install, a hub sync that landed while the editor was open —
+  stays). Every write to the map is queued behind the one before it, so two
+  quick switches both land. The dialog never closes on unsaved edits: Esc,
+  the backdrop and "Huỷ" turn its footer into "Bỏ các thay đổi chưa lưu?" ·
+  "Tiếp tục sửa" · "Bỏ thay đổi". Removing a connection always asks
+  (`ConfirmDialog`). A dialog whose first focusable is a control with a
+  tooltip opens with `onOpenAutoFocus={focusDialogContent}` — focus inside the
+  dialog, on the content itself, with no ring and no tooltip.
+- **Tiện ích is three tabs, and every tile is a `StoreCard`**
+  (`components/ui/store-card.tsx`). Kỹ năng sẵn có · Công cụ are what AgentX
+  has; **Kho tiện ích** is the one store for adding either kind, switched by a
+  `size="md"` `SegmentedControl` (Kỹ năng · MCP; each kind keeps its old
+  `?tab=` id, `hub` / `mcp`). Each "have" tab's strip leads with the doorway
+  to its kind in the store ("＋ Thêm từ kho", "＋ Kết nối phần mềm khác"). Every
+  surface lays the same card on the same `StoreCardGrid` (`auto-fill
+  minmax(18rem,1fr)`, gap 12), grouped by `StoreCardShelf` — a 13px semibold
+  name, a tabular count, at most one note line, an optional verb at the far
+  end, and an `empty` line when the shelf must stay to say it is empty. A card
+  is glanceable, not exhaustive, and reads top to bottom in one order:
+  `StoreCardHeader` (a 32px `StoreCardGlyph` tile or `McpAvatar` · 14px
+  semibold name · at most one pill — "Tự học", a version, "Cần thiết lập",
+  "Đang tắt", "Cần đăng nhập", "Lỗi kết nối" · the `md` switch), a two-line
+  `StoreCardDescription`, an optional `StoreCardTags` row (a newer version sits
+  there with its inline "Cập nhật", so the footer never overflows), and a
   `StoreCardFooter` whose left is the way into the detail ("Chi tiết" · "Xem
-  trước" · a boxed "Thiết lập" when the tool needs keys) and whose right is a
-  quiet `StoreCardMeta` figure plus the card's one verb ("Thử ngay" · "Thêm
-  kỹ năng này" · "Cài"). A switched-off card dims its title to the tertiary
-  ink. Everything else — the raw slug, the source, provider keys and models,
-  the function list, edit/share/archive for a learned skill — lives in the
-  card's detail `Dialog`, never on the tile. Skills installed from the store
-  appear only in Kho kỹ năng, where the same card carries their switch and
-  "Thử ngay"; the Công cụ tab offers only providers the person configures
-  themselves (subscription-only rows are not rendered).
+  trước" · a boxed "Thiết lập") and whose right is a quiet `StoreCardMeta`
+  figure or the card's one verb. A switched-off card dims its title to the
+  tertiary ink. In the store, **yours come first**: "Đã thêm" / "Đã kết nối"
+  hold what this machine runs, managed there; the catalogue shelves below keep
+  every card where it stands once added and swap its verb for a "Đã thêm" /
+  "Đã kết nối" pill — a card never jumps away from the pointer that pressed
+  it. Tags speak the person's words ("Đăng nhập tài khoản", "Cần khoá API",
+  "Chạy trên máy này"), never transport or auth jargon. Everything else — the
+  raw slug, the source, provider keys and models, the function list,
+  edit/share/archive for a learned skill — lives in the card's detail
+  `Dialog`, never on the tile. The Công cụ tab offers only providers the
+  person configures themselves (subscription-only rows are not rendered).
+- **`McpAvatar`** is a connection's glyph: the brand mark on a 16% brand tint
+  (Messaging's treatment), a letter monogram otherwise, and the live status
+  dot. A brand whose mark is black (GitHub, Notion, Vercel) draws in the ink
+  on the neutral tile — its own colour disappears on the dark band. Remote
+  favicons are never fetched (a private MCP host must not leak off-box).
 
 ## Feedback & empty/error/loading states
 

@@ -60,6 +60,17 @@ export function preventCloseButtonAutoFocus(event: Event) {
   event.preventDefault()
 }
 
+// The other answer to the same problem, for a dialog whose first focusable is
+// a control with a tooltip (a row of chips, a switch): keep focus INSIDE the
+// dialog — on the content itself, which Radix makes focusable with
+// tabIndex -1, so no focus ring paints — instead of leaving it on the trigger
+// behind the overlay. The first Tab then lands on the first control, as a
+// keyboard person expects. Pass as `onOpenAutoFocus={focusDialogContent}`.
+export function focusDialogContent(event: Event) {
+  event.preventDefault()
+  ;(event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
+}
+
 function DialogContent({
   className,
   children,

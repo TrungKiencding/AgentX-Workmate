@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -20,10 +20,12 @@ import {
 import { notify, notifyError } from '@/store/notifications'
 import type { SkillHubChangesResponse, SkillHubInstallRow, SkillHubUpdate } from '@/types/hermes'
 
+import { AGENTX_CONFIG_KEY } from '../hooks/use-config-record'
+
 import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 
 // What the hub wants on this machine, and what the backend did about it.
-// Polled while the Hub tab is open (the plan's 15 s), with a tick — which
+// Polled while Kho tiện ích is open (the plan's 15 s), with a tick — which
 // also hands the backend a fresh bearer — on mount and every minute.
 export { HUB_CHANGES_KEY }
 const SKILLS_LIST_KEY = ['skills-list'] as const
@@ -75,22 +77,30 @@ function when(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString()
 }
 
-/** `hideWhenIdle`: render nothing while the hub has asked this machine for
- *  nothing (no installs, updates or history). Browsing the store needs no
- *  account, so an empty "sign in to sync" panel is noise above the cards —
- *  the panel appears the moment the hub actually wants something here. The
- *  polling/tick effects still run either way. */
-export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } = {}) {
+/** What `useHubSync` hands the store: the hub's changes feed and the tick. */
+export interface HubSync {
+  changes: UseQueryResult<SkillHubChangesResponse>
+  /** Run a tick now; `announce` toasts an outcome that is not "ok". */
+  tick: (announce: boolean) => Promise<void>
+  ticking: boolean
+}
+
+/**
+ * The store's link to the hub, whichever kind is on screen: a tick on mount
+ * (which hands the backend this session's bearer and reconciles at once) and
+ * every minute after, the changes feed polled every 15 s, and what a moved
+ * revision means — skills or MCP servers changed on disk. Mounted once per
+ * store (`StoreTab`); the panel below only renders what it returns.
+ */
+export function useHubSync(): HubSync {
   const { t } = useI18n()
   const h = t.skills.hub
   const queryClient = useQueryClient()
-  const actions = useStore($hubActions)
   const [ticking, setTicking] = useState(false)
   // The backend revision we last acted on; a change means files moved.
   const [seenRevision, setSeenRevision] = useState<number | null>(null)
   // The same for MCP servers the sync installed, removed or switched here.
   const [seenMcpRevision, setSeenMcpRevision] = useState<number | null>(null)
-  const [replace, setReplace] = useState<null | ReplaceTarget>(null)
 
   const changes = useQuery({
     queryKey: HUB_CHANGES_KEY,
@@ -122,7 +132,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
   )
 
   // A tick on mount hands the backend this session's bearer and reconciles
-  // at once; the interval keeps the credential fresh while the tab is open.
+  // at once; the interval keeps the credential fresh while the store is open.
   useEffect(() => {
     void tick(false)
     const timer = setInterval(() => void tick(false), HUB_TICK_MS)
@@ -151,7 +161,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
 
   // The sync changed an MCP server here (an AgentX Hub server installed,
   // switched off from the hub, removed, its tool list re-approved): live
-  // sessions reload MCP and the MCP tab's catalog is stale.
+  // sessions reload MCP, and the MCP segment's catalog and config are stale.
   const mcpRevision = changes.data?.mcp_revision
   useEffect(() => {
     if (mcpRevision === undefined) {
@@ -160,6 +170,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
 
     if (seenMcpRevision !== null && seenMcpRevision !== mcpRevision) {
       void queryClient.invalidateQueries({ queryKey: ['mcp-catalog'] })
+      void queryClient.invalidateQueries({ queryKey: AGENTX_CONFIG_KEY })
       void $gateway
         .get()
         ?.request('reload.mcp', { confirm: true })
@@ -170,6 +181,22 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       setSeenMcpRevision(mcpRevision)
     }
   }, [mcpRevision, queryClient, seenMcpRevision])
+
+  return { changes, tick, ticking }
+}
+
+/** `hideWhenIdle`: render nothing while the hub has asked this machine for
+ *  nothing (no installs, updates or history). Browsing the store needs no
+ *  account, so an empty "sign in to sync" panel is noise above the cards —
+ *  the panel appears the moment the hub actually wants something here. The
+ *  sync itself (`useHubSync`) runs either way; the store bar carries the hub's
+ *  link and the "Đồng bộ ngay" button, so the panel repeats neither. */
+export function HubStatus({ hideWhenIdle = false, sync }: { hideWhenIdle?: boolean; sync: HubSync }) {
+  const { t } = useI18n()
+  const h = t.skills.hub
+  const actions = useStore($hubActions)
+  const [replace, setReplace] = useState<null | ReplaceTarget>(null)
+  const { changes } = sync
 
   const updateAll = () => {
     notify({ kind: 'success', title: h.updateStarted, message: h.actionLog })
@@ -219,22 +246,6 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
         {data?.last?.at && (
           <span className="text-xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
         )}
-        <span className="ml-auto flex items-center gap-1">
-          {data?.base_url && (
-            <a
-              className="inline-flex min-h-6 items-center text-xs text-muted-foreground underline-offset-4 hover:underline"
-              href={data.base_url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {h.openHub}
-            </a>
-          )}
-          <Button disabled={ticking} onClick={() => void tick(true)} size="sm" variant="outline">
-            {ticking && <Loader2 className="size-3 animate-spin" />}
-            {ticking ? h.syncing : h.syncNow}
-          </Button>
-        </span>
       </div>
 
       {line && (

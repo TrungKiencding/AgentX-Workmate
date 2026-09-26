@@ -1821,10 +1821,12 @@ export function setMcpServerEnabled(name: string, enabled: boolean): Promise<{ o
   })
 }
 
-export function getMcpCatalog(): Promise<McpCatalogResponse> {
+/** The MCP catalog: the servers AgentX ships and the person's AgentX Hub ones.
+ *  `refresh` fetches the hub's signed feed now instead of when it is stale. */
+export function getMcpCatalog(refresh = false): Promise<McpCatalogResponse> {
   return window.agentxDesktop.api<McpCatalogResponse>({
     ...profileScoped(),
-    path: '/api/mcp/catalog'
+    path: `/api/mcp/catalog${refresh ? '?refresh=true' : ''}`
   })
 }
 
