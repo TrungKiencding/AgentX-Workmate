@@ -81,6 +81,32 @@ regexes = [
     '''(?i)oauth_client_id\s*[=:]''',
 ]
 
+# The public half of the Ed25519 key that signs WebMate releases. The desktop
+# app pins it to verify a release before installing one, so it has to ship; the
+# private half is the WebMate repository's WEBMATE_RELEASE_SIGNING_KEY secret
+# and never enters this one. generic-api-key flags it only because the PEM's
+# "KEY-----" header reads like a variable name, with the base64 body on the
+# next line as its value.
+#
+# All three must hold: this file, this rule, and a value that IS an Ed25519
+# public key — MCowBQYDK2VwAyEA is the DER header of an Ed25519
+# SubjectPublicKeyInfo, which a private key (PKCS#8: MC4CAQAw…) never starts
+# with. This key anywhere else, or any other value in this file, is still
+# reported; rotating to a new Ed25519 key needs no edit here. Not an inline
+# `gitleaks:allow`: that silences every rule on the line, and
+# apps/desktop/scripts/fetch-webmate.mjs parses the key's array literal and
+# refuses one with a comment in it.
+[[allowlists]]
+description = "WebMate release-signing public key"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+    '''^apps/desktop/electron/webmate/release-feed\.ts$''',
+]
+regexes = [
+    '''^MCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}=$''',
+]
+
 # --- Placeholders -------------------------------------------------------------
 #
 # Files whose entire purpose is to show the shape of a value without carrying
