@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClientProvider, type UseQueryResult } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
@@ -11,7 +11,7 @@ import { $activeGatewayProfile } from '@/store/profile'
 import type { McpCatalogEntry, McpCatalogResponse, SkillHubChangesResponse } from '@/types/hermes'
 
 import type { HubSync } from './hub-status'
-import type { McpGatewayListing } from './mcp-model'
+import type { McpGatewayEndpoint, McpGatewayListing } from './mcp-model'
 
 // Kho tiện ích → MCP: every connection on this machine on the "Connected"
 // shelf — its live state, the one verb that fixes what is wrong, the switch —
@@ -175,6 +175,11 @@ const sync: HubSync = {
   ticking: false
 }
 
+/** Where the router is now: the query a jump left behind, or not. */
+function LocationProbe() {
+  return <span data-testid="location">{useLocation().search}</span>
+}
+
 async function storeElement({
   path = '/skills?tab=mcp',
   query = '',
@@ -191,6 +196,7 @@ async function storeElement({
           switcher={<span />}
           sync={hubSync}
         />
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>
   )
@@ -613,13 +619,14 @@ describe('McpStore — what can be added', () => {
 })
 
 describe('McpStore — the AgentX Gateway', () => {
-  it('lists the endpoints, connects one in a click, and marks what is already here', async () => {
+  it('shelves the toolsets alone, connects one in a click, and marks what is already here', async () => {
     let added: null | string = null
 
     api.mockImplementation(async (req: { path: string; method?: string; body?: unknown }) => {
       if (req.path === '/api/mcp/gateway') {
         return listing({
           endpoints: [
+            // A server of the hub: its card is on the hub's shelf, never on this one (the hub's decision §9.1 #17).
             {
               kind: 'server',
               ref: 'tracker',
@@ -627,13 +634,22 @@ describe('McpStore — the AgentX Gateway', () => {
               url: 'https://hub.test/gw/s/tracker',
               status: 'ready',
               tools: 4,
-              added
+              added: null
             },
             {
               kind: 'toolset',
               ref: 'ts_1',
               label: 'Dự án',
               url: 'https://hub.test/gw/t/ts_1',
+              status: 'ready',
+              tools: 3,
+              added
+            },
+            {
+              kind: 'toolset',
+              ref: 'ts_2',
+              label: 'Kế toán',
+              url: 'https://hub.test/gw/t/ts_2',
               status: 'needs_connection',
               tools: 0,
               added: null
@@ -646,24 +662,27 @@ describe('McpStore — the AgentX Gateway', () => {
       }
 
       if (req.path === '/api/mcp/gateway/add') {
-        added = 'agentx-tracker'
+        added = 'agentx-ts-1'
 
-        return { ok: true, name: 'agentx-tracker', url: 'https://hub.test/gw/s/tracker' }
+        return { ok: true, name: 'agentx-ts-1', url: 'https://hub.test/gw/t/ts_1' }
       }
 
       throw new Error(`unexpected ${req.path}`)
     })
     await renderStore()
 
-    const gatewayShelf = await screen.findByTestId('mcp-gateway')
-    const endpoints = within(gatewayShelf).getAllByTestId('mcp-gateway-endpoint')
-    expect(endpoints.map(node => node.getAttribute('data-ref'))).toEqual(['tracker', 'ts_1'])
-    expect(within(endpoints[0]).getByText('4 tools')).toBeTruthy()
+    const toolsetsShelf = await screen.findByTestId('mcp-gateway')
+    expect(toolsetsShelf.getAttribute('aria-label')).toBe('Toolsets')
+    const endpoints = within(toolsetsShelf).getAllByTestId('mcp-gateway-endpoint')
+    expect(endpoints.map(node => node.getAttribute('data-ref'))).toEqual(['ts_1', 'ts_2'])
+    expect(within(endpoints[0]).getByText('3 tools')).toBeTruthy()
     expect(within(endpoints[1]).getByText('Connect it on the hub')).toBeTruthy()
     expect(within(endpoints[1]).getByText('Toolset')).toBeTruthy()
+    // Two toolsets to add; the server the listing names is not counted twice (it is no card of the catalog here).
+    expect(screen.getByTestId('mcp-store-line').textContent).toContain('4 connected · 3 available')
 
     getHermesConfigRecord.mockResolvedValue({
-      mcp_servers: { ...SERVERS, 'agentx-tracker': { url: 'https://hub.test/gw/s/tracker' } }
+      mcp_servers: { ...SERVERS, 'agentx-ts-1': { url: 'https://hub.test/gw/t/ts_1' } }
     })
 
     await act(async () => {
@@ -675,21 +694,23 @@ describe('McpStore — the AgentX Gateway', () => {
         expect.objectContaining({
           path: '/api/mcp/gateway/add',
           method: 'POST',
-          body: { kind: 'server', ref: 'tracker' }
+          body: { kind: 'toolset', ref: 'ts_1' }
         })
       )
     )
     expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'success', title: 'Tracker connected through the gateway' })
+      expect.objectContaining({ kind: 'success', title: 'Dự án connected through the gateway' })
     )
     // It joins "Connected" as a gateway connection, under its own name…
-    await waitFor(() => expect(within(card('agentx-tracker')).getByText('Tracker', { selector: 'span' })).toBeTruthy())
-    expect(within(card('agentx-tracker')).getByText('AgentX Gateway')).toBeTruthy()
+    await waitFor(() => expect(within(card('agentx-ts-1')).getByText('Dự án', { selector: 'span' })).toBeTruthy())
+    expect(within(card('agentx-ts-1')).getByText('AgentX Gateway')).toBeTruthy()
     // …and its endpoint reads as connected, with how long this machine's token lasts.
     await waitFor(() =>
       expect(within(screen.getAllByTestId('mcp-gateway-endpoint')[0]).getByText('Connected')).toBeTruthy()
     )
-    expect(screen.getByTestId('mcp-gateway-token').textContent).toContain('89 more days')
+    expect(within(screen.getByTestId('mcp-gateway')).getByTestId('mcp-gateway-token').textContent).toContain(
+      '89 more days'
+    )
   })
 
   it('asks for a new sign-in when the token lapsed and nothing here renews it', async () => {
@@ -711,6 +732,477 @@ describe('McpStore — the AgentX Gateway', () => {
     await screen.findByTestId('mcp-shelf-connected')
     expect(api).not.toHaveBeenCalled()
     expect(screen.queryByTestId('mcp-gateway')).toBeNull()
+  })
+})
+
+describe('McpStore — each hub server set up in one place (the hub’s decision §9.1 #17)', () => {
+  /** A hub server the hub sets up on the hub: added here as its gateway endpoint, nothing of it asked here. */
+  function gatewayEntry(slug: string, title: string, overrides: Partial<McpCatalogEntry> = {}): McpCatalogEntry {
+    return hubEntry({
+      name: `agentx-${slug}`,
+      description: `What ${slug} does for an agent.`,
+      source: `https://hub.test/mcp/servers/${slug}`,
+      transport: 'http',
+      auth_type: 'oauth',
+      required_env: [],
+      command: null,
+      args: [],
+      url: null,
+      id: `agentx-hub/${slug}`,
+      slug,
+      title,
+      version: '2.0.0',
+      tools: ['search'],
+      page: `https://hub.test/mcp/servers/${slug}`,
+      route: { via: 'gateway', reason: null },
+      ...overrides
+    })
+  }
+
+  function serverEndpoint(slug: string, overrides: Partial<McpGatewayEndpoint> = {}): McpGatewayEndpoint {
+    return {
+      kind: 'server',
+      ref: slug,
+      label: slug,
+      url: `https://hub.test/gw/s/${slug}`,
+      status: 'ready',
+      tools: 5,
+      added: null,
+      credential: 'own',
+      ...overrides
+    }
+  }
+
+  const connectUrl = (slug: string) => `https://hub.test/mcp/connect/${slug}?from=workmate`
+
+  /** Workmate's backend, as it answers for the hub: where the person stands with each server, and what waits. */
+  function hubWorld(endpoints: McpGatewayEndpoint[]) {
+    const world = {
+      checks: 0,
+      connectedOnHub: new Set<string>(),
+      endpoints,
+      waiting: [] as NonNullable<McpGatewayListing['waiting']>
+    }
+
+    api.mockImplementation(async (req: { body?: unknown; method?: string; path: string }) => {
+      if (req.path === '/api/mcp/gateway') {
+        return listing({ endpoints: world.endpoints, waiting: world.waiting })
+      }
+
+      if (req.path === '/api/mcp/gateway/add') {
+        const ref = (req.body as { ref: string }).ref
+        const endpoint = world.endpoints.find(item => item.ref === ref)!
+
+        if (endpoint.status === 'ready') {
+          return { ok: true, name: `agentx-${ref}`, url: endpoint.url, registered: true }
+        }
+
+        world.waiting = [...world.waiting, { slug: ref, label: endpoint.label, until: 1, connect_url: connectUrl(ref) }]
+
+        return { ok: false, status: 'connect', code: endpoint.status, connect_url: connectUrl(ref), detail: '' }
+      }
+
+      if (req.path === '/api/mcp/gateway/waiting/check') {
+        world.checks += 1
+        const done = world.waiting.filter(wait => world.connectedOnHub.has(wait.slug))
+        world.waiting = world.waiting.filter(wait => !world.connectedOnHub.has(wait.slug))
+
+        return {
+          added: done.map(wait => ({ slug: wait.slug, name: `agentx-${wait.slug}`, label: wait.label })),
+          waiting: world.waiting
+        }
+      }
+
+      if (req.method === 'DELETE' && req.path.startsWith('/api/mcp/gateway/waiting/')) {
+        const slug = decodeURIComponent(req.path.split('/').at(-1)!)
+        world.waiting = world.waiting.filter(wait => wait.slug !== slug)
+
+        return { ok: true }
+      }
+
+      throw new Error(`unexpected ${req.path}`)
+    })
+
+    return world
+  }
+
+  function hubCard(slug: string): HTMLElement {
+    const found = within(screen.getByTestId('mcp-hub-catalog'))
+      .getAllByTestId('mcp-hub-entry')
+      .find(node => node.getAttribute('data-hub-slug') === slug)
+
+    if (!found) {
+      throw new Error(`no hub card for ${slug}`)
+    }
+
+    return found
+  }
+
+  const DESIGNS_ENTRY = {
+    url: 'https://hub.test/gw/s/designs',
+    headers: { Authorization: 'Bearer ${AGENTX_GATEWAY_TOKEN}' },
+    source: 'hub-gateway',
+    gateway: { kind: 'server', ref: 'designs', label: 'Designs' }
+  }
+
+  it('one shelf holds every hub server — set up here or on the hub — each with one verb, none asking for a key', async () => {
+    getHermesConfigRecord.mockResolvedValue({ mcp_servers: { ...SERVERS, 'agentx-designs': DESIGNS_ENTRY } })
+    getMcpCatalog.mockResolvedValue(
+      catalog([
+        hubEntry({ route: { via: 'local', reason: 'runs_local' } }),
+        gatewayEntry('github', 'GitHub', { auth_type: 'api_key' }),
+        gatewayEntry('crm', 'CRM'),
+        gatewayEntry('jira', 'Jira'),
+        gatewayEntry('notion', 'Notion'),
+        gatewayEntry('ledger', 'Ledger'),
+        gatewayEntry('weather', 'Weather'),
+        gatewayEntry('designs', 'Designs', { installed: true, enabled: true }),
+        gatewayEntry('wiki', 'Wiki', { name_taken: true })
+      ])
+    )
+    hubWorld([
+      serverEndpoint('github', { label: 'GitHub' }),
+      serverEndpoint('crm', { label: 'CRM', credential: 'shared' }),
+      serverEndpoint('jira', { label: 'Jira', status: 'needs_connection', tools: 0 }),
+      serverEndpoint('notion', { label: 'Notion', status: 'needs_reauth', tools: 0 }),
+      serverEndpoint('ledger', { label: 'Ledger', status: 'unavailable', reason: 'upstream_down', tools: 0 }),
+      serverEndpoint('weather', { label: 'Weather', tools: 0 }),
+      serverEndpoint('designs', { label: 'Designs', added: 'agentx-designs' }),
+      serverEndpoint('wiki', { label: 'Wiki' })
+    ])
+    await renderStore()
+
+    await waitFor(() => expect(hubCard('github').getAttribute('data-use')).toBe('add'))
+    const cards = within(screen.getByTestId('mcp-hub-catalog')).getAllByTestId('mcp-hub-entry')
+    expect(cards.map(node => node.getAttribute('data-hub-slug'))).toEqual([
+      'tracker',
+      'github',
+      'crm',
+      'jira',
+      'notion',
+      'ledger',
+      'weather',
+      'designs',
+      'wiki'
+    ])
+
+    // Where each stands on the hub, said on its card, with the one thing to do about it.
+    const uses = Object.fromEntries(
+      cards.slice(1).map(node => [node.getAttribute('data-hub-slug'), node.getAttribute('data-use')])
+    )
+
+    expect(uses).toEqual({
+      github: 'add',
+      crm: 'add',
+      jira: 'connect',
+      notion: 'reconnect',
+      ledger: 'unavailable',
+      weather: 'unavailable',
+      designs: 'installed',
+      wiki: 'add'
+    })
+    const line = (slug: string) => within(hubCard(slug)).getByTestId('mcp-hub-use').textContent
+    expect(line('github')).toBe('Ready — nothing to type on this machine.')
+    expect(line('crm')).toBe("Uses your organisation's account — nothing to type on this machine.")
+    expect(line('jira')).toBe('Connect your account once on AgentX Hub — Workmate adds it when you are done.')
+    expect(line('notion')).toBe('Your account on AgentX Hub needs a new sign-in.')
+    expect(line('ledger')).toBe('The AgentX Gateway does not serve this MCP right now.')
+    expect(line('weather')).toBe('The Hub has approved none of its tools yet.')
+    expect(within(hubCard('github')).getByTestId('mcp-hub-action').textContent).toBe('Add')
+    expect(within(hubCard('jira')).getByTestId('mcp-hub-action').textContent).toBe('Connect')
+    expect(within(hubCard('notion')).getByTestId('mcp-hub-action').textContent).toBe('Connect again')
+    expect(within(hubCard('ledger')).queryByTestId('mcp-hub-action')).toBeNull()
+    expect(within(hubCard('weather')).queryByTestId('mcp-hub-action')).toBeNull()
+    expect(within(hubCard('designs')).getByTestId('mcp-catalog-connected')).toBeTruthy()
+    // A name another server holds here: said, and never written over.
+    expect(within(hubCard('wiki')).getByText('Another server uses this name here.')).toBeTruthy()
+    expect((within(hubCard('wiki')).getByTestId('mcp-hub-action') as HTMLButtonElement).disabled).toBe(true)
+    // Set up on the hub, and said so; the one set up here is the store card it always was.
+    expect(within(hubCard('github')).getByText('Through AgentX Hub')).toBeTruthy()
+    expect(within(hubCard('tracker')).queryByText('Through AgentX Hub')).toBeNull()
+    expect(within(hubCard('tracker')).getByText('Needs an API key')).toBeTruthy()
+    // No second shelf for the gateway's servers: they are the hub's (no toolset here, so no toolsets shelf).
+    expect(screen.queryByTestId('mcp-gateway')).toBeNull()
+
+    // Adding one set up on the hub asks nothing here…
+    await act(async () => {
+      fireEvent.click(within(hubCard('github')).getByTestId('mcp-hub-action'))
+    })
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/api/mcp/gateway/add', body: { kind: 'server', ref: 'github' } })
+      )
+    )
+    expect(screen.queryByTestId('mcp-credentials')).toBeNull()
+    expect(installMcpCatalogEntry).not.toHaveBeenCalled()
+    // …while the one set up here still asks for its key, on its card.
+    await act(async () => {
+      fireEvent.click(within(hubCard('tracker')).getByRole('button', { name: 'Connect' }))
+    })
+    expect(within(hubCard('tracker')).getByTestId('mcp-credentials')).toBeTruthy()
+  })
+
+  it('"Add" adds a hub server at once: the agent can use it, and live sessions pick it up', async () => {
+    getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('github', 'GitHub', { auth_type: 'api_key' })]))
+    hubWorld([serverEndpoint('github', { label: 'GitHub' })])
+    await renderStore()
+
+    await waitFor(() => expect(hubCard('github').getAttribute('data-use')).toBe('add'))
+    const catalogAsks = getMcpCatalog.mock.calls.length
+    await act(async () => {
+      fireEvent.click(within(hubCard('github')).getByTestId('mcp-hub-action'))
+    })
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'success', title: 'GitHub added — the agent can use it now.' })
+      )
+    )
+    expect(openExternal).not.toHaveBeenCalled()
+    await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', expect.objectContaining({ confirm: true })))
+    expect(getMcpCatalog.mock.calls.length).toBeGreaterThan(catalogAsks)
+  })
+
+  it('"Connect" opens the hub’s page and waits; Workmate adds the server once the account is connected there', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] })
+
+    try {
+      getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('jira', 'Jira')]))
+      const world = hubWorld([serverEndpoint('jira', { label: 'Jira', status: 'needs_connection', tools: 0 })])
+      await renderStore()
+
+      await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('connect'))
+      await act(async () => {
+        fireEvent.click(within(hubCard('jira')).getByTestId('mcp-hub-action'))
+      })
+
+      // The hub's connect page, in the browser — nothing to type here.
+      await waitFor(() => expect(openExternal).toHaveBeenCalledWith(connectUrl('jira')))
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'info',
+          title: 'Connect Jira on AgentX Hub',
+          message: expect.stringContaining('Workmate adds this MCP by itself')
+        })
+      )
+      await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('waiting'))
+      expect(within(hubCard('jira')).getByTestId('mcp-hub-use').textContent).toBe(
+        'Waiting for you to connect on AgentX Hub…'
+      )
+      fireEvent.click(within(hubCard('jira')).getByTestId('mcp-hub-reopen'))
+      expect(openExternal).toHaveBeenLastCalledWith(connectUrl('jira'))
+
+      // Asked soon, then less and less often…
+      expect(world.checks).toBe(0)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+      expect(world.checks).toBe(1)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+      expect(world.checks).toBe(1)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1500)
+      })
+      expect(world.checks).toBe(2)
+
+      // …and at once when the person is back from the browser, connected: it is added.
+      world.connectedOnHub.add('jira')
+      world.endpoints = [serverEndpoint('jira', { label: 'Jira', added: 'agentx-jira' })]
+      getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('jira', 'Jira', { installed: true, enabled: true })]))
+      getHermesConfigRecord.mockResolvedValue({
+        mcp_servers: { ...SERVERS, 'agentx-jira': { ...DESIGNS_ENTRY, url: 'https://hub.test/gw/s/jira' } }
+      })
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+      })
+
+      await waitFor(() =>
+        expect(notify).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: 'success', title: 'Jira added — the agent can use it now.' })
+        )
+      )
+      expect(world.checks).toBe(3)
+      await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('installed'))
+      await waitFor(() =>
+        expect(request).toHaveBeenCalledWith('reload.mcp', expect.objectContaining({ confirm: true }))
+      )
+
+      // Nothing waits: nothing more is asked.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+      })
+      expect(world.checks).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('"Cancel" stops the wait: the card offers "Connect" again and nothing more is asked', async () => {
+    getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('jira', 'Jira')]))
+    const world = hubWorld([serverEndpoint('jira', { label: 'Jira', status: 'needs_connection', tools: 0 })])
+    await renderStore()
+
+    await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('connect'))
+    await act(async () => {
+      fireEvent.click(within(hubCard('jira')).getByTestId('mcp-hub-action'))
+    })
+    await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('waiting'))
+
+    await act(async () => {
+      fireEvent.click(within(hubCard('jira')).getByTestId('mcp-hub-cancel'))
+    })
+
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/api/mcp/gateway/waiting/jira', method: 'DELETE' })
+      )
+    )
+    await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('connect'))
+    expect(world.waiting).toEqual([])
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(world.checks).toBe(0)
+  })
+
+  it('a server here whose account on the hub lapsed says so where it is used, and the hub’s page fixes it', async () => {
+    const reauth = 'https://hub.test/mcp/connect/designs'
+    getHermesConfigRecord.mockResolvedValue({ mcp_servers: { ...SERVERS, 'agentx-designs': DESIGNS_ENTRY } })
+    getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('designs', 'Designs', { installed: true, enabled: true })]))
+    hubWorld([
+      serverEndpoint('designs', {
+        label: 'Designs',
+        added: 'agentx-designs',
+        status: 'needs_reauth',
+        connect_url: reauth
+      })
+    ])
+    await renderStore()
+
+    // On the hub's shelf: "Connect again" opens the hub's page — it is here already, nothing to add or wait for.
+    await waitFor(() => expect(hubCard('designs').getAttribute('data-use')).toBe('reconnect'))
+    await act(async () => {
+      fireEvent.click(within(hubCard('designs')).getByTestId('mcp-hub-action'))
+    })
+    expect(openExternal).toHaveBeenLastCalledWith(reauth)
+    expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ path: '/api/mcp/gateway/add' }))
+
+    // On "Connected": the hub's word on it, and the same way out.
+    const designs = await findCard('agentx-designs')
+    expect(within(designs).getByTestId('mcp-server-lapsed').textContent).toBe('Sign in again on the hub')
+    expect(within(designs).getByText('AgentX Hub')).toBeTruthy()
+    expect(within(designs).getByText('What designs does for an agent.')).toBeTruthy()
+    openExternal.mockClear()
+    fireEvent.click(within(designs).getByTestId('mcp-server-reconnect'))
+    expect(openExternal).toHaveBeenCalledWith(reauth)
+
+    // Its detail says it too, before anything else.
+    await act(async () => {
+      fireEvent.click(within(designs).getByTestId('mcp-server-details'))
+    })
+    const detail = await screen.findByTestId('mcp-server-lapsed-detail')
+    expect(detail.textContent).toContain('Your account on AgentX Hub needs a new sign-in.')
+    openExternal.mockClear()
+    fireEvent.click(within(detail).getByRole('button', { name: 'Connect again' }))
+    expect(openExternal).toHaveBeenCalledWith(reauth)
+    // Folded away with the technical tail: the machine token that reaches it.
+    fireEvent.click(within(screen.getByTestId('mcp-server-detail')).getByText('Technical details'))
+    expect(screen.getByTestId('mcp-server-detail').textContent).toContain('AGENTX_GATEWAY_TOKEN')
+  })
+
+  it('a hub server whose provider takes no sign-in through the hub says its account signs in on this machine', async () => {
+    getMcpCatalog.mockResolvedValue(
+      catalog([
+        hubEntry({
+          name: 'figjam',
+          slug: 'figjam',
+          id: 'agentx-hub/figjam',
+          transport: 'http',
+          auth_type: 'oauth',
+          required_env: [],
+          command: null,
+          args: [],
+          url: 'https://mcp.figjam.test/mcp',
+          route: { via: 'local', reason: 'sign_in_local' }
+        }),
+        hubEntry({ name: 'miro', slug: 'miro', id: 'agentx-hub/miro', auth_type: 'oauth', required_env: [] })
+      ])
+    )
+    await renderStore()
+
+    await waitFor(() => expect(hubCard('figjam')).toBeTruthy())
+    expect(within(hubCard('figjam')).getByText('Sign in on this machine')).toBeTruthy()
+    expect(within(hubCard('figjam')).queryByText('Sign in with an account')).toBeNull()
+    expect(within(hubCard('miro')).getByText('Sign in with an account')).toBeTruthy()
+  })
+
+  it('`agentx://mcp/<slug>` brings that server’s card into view and marks it a moment; the link is used once', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] })
+
+    try {
+      getMcpCatalog.mockResolvedValue(catalog([gatewayEntry('github', 'GitHub'), gatewayEntry('jira', 'Jira')]))
+      hubWorld([serverEndpoint('github', { label: 'GitHub' }), serverEndpoint('jira', { label: 'Jira' })])
+      await renderStore({ path: '/skills?tab=mcp&hub=jira' })
+
+      await waitFor(() => expect(hubCard('jira').getAttribute('data-spotlight')).toBe('true'))
+      expect(hubCard('github').getAttribute('data-spotlight')).toBeNull()
+      expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toContain(hubCard('jira'))
+      // The router applies the dropped param in a transition of its own.
+      await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('?tab=mcp'))
+      // The feed had it: not fetched again.
+      expect(getMcpCatalog).not.toHaveBeenCalledWith(true)
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000)
+      })
+      expect(hubCard('jira').getAttribute('data-spotlight')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a link to a server the feed here does not have yet fetches the feed again, once; a malformed one is dropped', async () => {
+    getMcpCatalog.mockImplementation(async (refresh?: boolean) =>
+      catalog(
+        refresh
+          ? [gatewayEntry('github', 'GitHub'), gatewayEntry('fresh', 'Fresh')]
+          : [gatewayEntry('github', 'GitHub')]
+      )
+    )
+    hubWorld([serverEndpoint('github', { label: 'GitHub' }), serverEndpoint('fresh', { label: 'Fresh' })])
+    await renderStore({ path: '/skills?tab=mcp&hub=fresh' })
+
+    await waitFor(() => expect(hubCard('fresh').getAttribute('data-spotlight')).toBe('true'))
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('?tab=mcp'))
+    expect(getMcpCatalog.mock.calls.filter(([refresh]) => refresh === true)).toHaveLength(1)
+
+    cleanup()
+    queryClient.clear()
+    getMcpCatalog.mockClear()
+    await renderStore({ path: '/skills?tab=mcp&hub=nowhere' })
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('?tab=mcp'))
+    expect(getMcpCatalog.mock.calls.filter(([refresh]) => refresh === true)).toHaveLength(1)
+    expect(screen.getAllByTestId('mcp-hub-entry').some(node => node.hasAttribute('data-spotlight'))).toBe(false)
+
+    cleanup()
+    queryClient.clear()
+    getMcpCatalog.mockClear()
+    await renderStore({ path: `/skills?tab=mcp&hub=${encodeURIComponent('../GitHub!')}` })
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('?tab=mcp'))
+    expect(getMcpCatalog).not.toHaveBeenCalledWith(true)
+  })
+
+  it('a search finds a hub server by the name the hub shows', async () => {
+    getMcpCatalog.mockResolvedValue(
+      catalog([gatewayEntry('gh', 'GitHub', { description: 'Code hosting.' }), gatewayEntry('jira', 'Jira')])
+    )
+    hubWorld([serverEndpoint('gh', { label: 'GitHub' }), serverEndpoint('jira', { label: 'Jira' })])
+    await renderStore({ query: 'github' })
+
+    await waitFor(() => expect(hubCard('gh')).toBeTruthy())
+    expect(within(screen.getByTestId('mcp-hub-catalog')).getAllByTestId('mcp-hub-entry')).toHaveLength(1)
   })
 })
 

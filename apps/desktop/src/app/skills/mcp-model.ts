@@ -332,10 +332,12 @@ export function describeServer({
 
   const title = gatewayEndpoint?.label || hubEntry?.title || (installed && copy?.label) || serverTitle(name)
 
+  // A toolset is the person's own gathering: said as one. A server of the hub reads as the hub describes it.
   const description =
-    (gatewayEndpoint && (gatewayEndpoint.kind === 'toolset' ? m.gatewayToolsetDesc : m.gatewayServerDesc)) ||
+    (gatewayEndpoint?.kind === 'toolset' && m.gatewayToolsetDesc) ||
     copy?.description ||
     described?.description ||
+    (gatewayEndpoint && m.gatewayServerDesc) ||
     customDescription(server, m)
 
   return {
@@ -529,6 +531,93 @@ export interface McpGatewayEndpoint {
   tools: number
   connect_url?: null | string
   added: null | string
+  /** Why the gateway does not serve it (`unavailable`), or what it waits for. */
+  reason?: null | string
+  /** A server's: whose account the gateway calls it with — the person's own, or one shared with them. */
+  credential?: 'own' | 'shared' | null
+  /** A server's: where the hub sets it up (the hub's decision §9.1 #17). */
+  route?: McpHubRoute | null
+}
+
+/**
+ * Where the hub sets one of its servers up (the hub's decision §9.1 #17): on the
+ * hub — its key or its sign-in kept there, added here as its gateway endpoint,
+ * nothing asked here — or on this machine, installed from its manifest.
+ */
+export interface McpHubRoute {
+  via: 'gateway' | 'local'
+  reason: null | string
+}
+
+/** A server the person went to connect on the hub from here: added as soon as the hub serves it. */
+export interface McpGatewayWait {
+  slug: string
+  label: string
+  until: number
+  connect_url: string
+}
+
+/**
+ * What a card of a hub server set up on the hub offers (the hub's decision
+ * §9.1 #17), from where the person stands with it on the hub: `installed` (here
+ * already), `waiting` (they went to connect it on the hub), `add` (the hub
+ * serves it to them: added at a click, nothing asked), `connect` / `reconnect`
+ * (their account there first — Workmate opens the hub's page; `reconnect` also
+ * when it is here already and its account on the hub lapsed: it works again
+ * the moment they sign in there), `unavailable` (the gateway does not serve it
+ * now, `reason`), `unknown` (the hub could not be asked: the store says why
+ * above its shelves).
+ */
+export type HubServerUse = 'add' | 'connect' | 'installed' | 'reconnect' | 'unavailable' | 'unknown' | 'waiting'
+
+/** A hub server's slug, as the hub makes them: lowercase letters and digits joined by single dashes, at most 64. */
+export function isHubSlug(value: string): boolean {
+  return value.length <= 64 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
+}
+
+/** A gateway endpoint the person's account on the hub no longer reaches (or never did): connected on the hub, it works. */
+export function gatewayLapsed(endpoint: McpGatewayEndpoint | null | undefined): boolean {
+  return endpoint?.status === 'needs_connection' || endpoint?.status === 'needs_reauth'
+}
+
+export function hubServerUse(
+  entry: McpCatalogEntry,
+  listing: McpGatewayListing | undefined
+): { endpoint: McpGatewayEndpoint | null; reason: null | string; use: HubServerUse; wait: McpGatewayWait | null } {
+  const endpoint = listing?.endpoints.find(item => item.kind === 'server' && item.ref === entry.slug) ?? null
+  const wait = listing?.waiting?.find(item => item.slug === entry.slug) ?? null
+
+  if (entry.installed) {
+    // Here as its gateway endpoint (`added`), with an account on the hub that lapsed: signing in there again fixes it.
+    // One installed here from its manifest before the hub set it up keeps its own values: the hub's account is not its.
+    return {
+      endpoint,
+      reason: null,
+      use: endpoint?.added && gatewayLapsed(endpoint) ? 'reconnect' : 'installed',
+      wait: null
+    }
+  }
+
+  if (wait) {
+    return { endpoint, reason: null, use: 'waiting', wait }
+  }
+
+  if (!listing?.available || !endpoint) {
+    return { endpoint, reason: null, use: 'unknown', wait: null }
+  }
+
+  if (endpoint.status === 'ready') {
+    // Served, but with no tool the hub approved yet: adding it would bring nothing.
+    return endpoint.tools > 0
+      ? { endpoint, reason: null, use: 'add', wait: null }
+      : { endpoint, reason: 'no_tools', use: 'unavailable', wait: null }
+  }
+
+  if (gatewayLapsed(endpoint)) {
+    return { endpoint, reason: null, use: endpoint.status === 'needs_reauth' ? 'reconnect' : 'connect', wait: null }
+  }
+
+  return { endpoint, reason: endpoint.reason ?? null, use: 'unavailable', wait: null }
 }
 
 /** A refusal, as the gateway routes answer one. */
@@ -544,6 +633,8 @@ export interface McpGatewayListing {
   reason: 'error' | 'gateway_off' | 'offline' | 'profile' | 'reauth' | 'sign_in' | 'signed_out' | null
   error?: McpGatewayRefusal
   endpoints: McpGatewayEndpoint[]
+  /** The servers the person went to connect on the hub from here (the hub's decision §9.1 #17). */
+  waiting?: McpGatewayWait[]
   session?: boolean
   device: null | {
     entries: number

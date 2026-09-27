@@ -362,11 +362,40 @@ def _kept(cached: Optional[HubFeed], base_url: str, error: str, moment: float, *
     return stale
 
 
+# ─── Where a hub server is set up (the hub's decision §9.1 #17) ──────────────
+
+#: The hub's ``route`` of a server. ``gateway``: its sign-in — a key, an OAuth
+#: account, a value such as a tenant — is kept by the hub, and the server is
+#: added here as its gateway endpoint: nothing of it runs here and nothing is
+#: asked here (the person connects on the hub, once). ``local``: it is
+#: installed here from its manifest and set up on this machine.
+ROUTE_GATEWAY, ROUTE_LOCAL = "gateway", "local"
+#: Why the hub sets a server up on the machine: a package that runs there, no
+#: gateway on the hub, the gateway turned off for it, a provider that takes no
+#: sign-in through the hub.
+ROUTE_REASONS = ("runs_local", "gateway_off", "policy", "sign_in_local")
+
+
+def hub_route(server: Mapping[str, Any]) -> Dict[str, Any]:
+    """``{"via", "reason"}``: where the hub says feed entry *server* is set up.
+    A hub that says nothing of it (older than the rule) sets every server up on
+    the machine, as it always did; a reason it names that this machine does not
+    know is dropped, never read as more."""
+    route = server.get("route")
+    if isinstance(route, dict) and route.get("via") in (ROUTE_GATEWAY, ROUTE_LOCAL):
+        reason = route.get("reason")
+        return {"via": route["via"], "reason": reason if reason in ROUTE_REASONS else None}
+    return {"via": ROUTE_LOCAL, "reason": None}
+
+
 def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
     """The servers of the feed on disk, each checked: the feed's entry plus
-    ``problem`` (why it cannot be installed, None when it can) and
-    ``problem_kind`` (``hub_unsupported`` — Workmate cannot run it as it is;
-    ``unverified`` — a signature does not hold). No network call."""
+    ``route`` (:func:`hub_route`), ``problem`` (why it cannot be installed,
+    None when it can) and ``problem_kind`` (``hub_unsupported`` — Workmate
+    cannot run it as it is; ``unverified`` — a signature does not hold). A
+    server set up on the hub has no problem of its manifest: this machine adds
+    its gateway endpoint and never runs it — the feed it came in is verified
+    whole. No network call."""
     from tools.hub_trust import url_problem
 
     if hub_url is None:
@@ -379,7 +408,10 @@ def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for server in feed.servers:
         entry = dict(server)
-        if not server.get("supported") or not isinstance(server.get("manifest"), dict):
+        entry["route"] = hub_route(server)
+        if entry["route"]["via"] == ROUTE_GATEWAY:
+            entry.update(problem=None, problem_kind=None)
+        elif not server.get("supported") or not isinstance(server.get("manifest"), dict):
             notes = ", ".join(str(n.get("code")) for n in server.get("notes") or [] if isinstance(n, dict)) or "unsupported"
             entry.update(problem=f"Workmate cannot run this server as it is ({notes})", problem_kind="hub_unsupported")
         else:
@@ -387,6 +419,11 @@ def checked_servers(hub_url: Optional[str] = None) -> List[Dict[str, Any]]:
             entry.update(problem=problem, problem_kind="unverified" if problem else None)
         out.append(entry)
     return out
+
+
+def checked_server(slug: str, hub_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """The checked entry of hub server *slug* in the feed on disk (:func:`checked_servers`), or None."""
+    return next((entry for entry in checked_servers(hub_url) if entry.get("slug") == slug), None)
 
 
 def feed_status(hub_url: Optional[str] = None) -> Dict[str, Any]:

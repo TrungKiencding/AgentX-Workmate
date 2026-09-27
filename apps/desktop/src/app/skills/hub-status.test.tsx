@@ -237,6 +237,40 @@ describe('HubStatus', () => {
     }
   })
 
+  it('where the person stands with the hub’s servers changed: the MCP store asks the hub again, and nothing reloads', async () => {
+    const { $gateway } = await import('@/store/gateway')
+    const request = vi.fn().mockResolvedValue({})
+    $gateway.set({ request } as unknown as Parameters<typeof $gateway.set>[0])
+
+    try {
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 1 }))
+      const { client } = await renderStatus()
+      await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
+      const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+      // A connection made on the hub (the hub's decision §9.1 #17): the store's hub shelf is stale, MCP here is not.
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-gateway'] }))
+      expect(request).not.toHaveBeenCalled()
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+
+      // Unchanged: asked for nothing.
+      invalidate.mockClear()
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 2, revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-gateway'] })
+    } finally {
+      $gateway.set(null)
+    }
+  })
+
   it('"Update installed" runs the fleet update action', async () => {
     await renderStatus()
     await screen.findByTestId('hub-updates')

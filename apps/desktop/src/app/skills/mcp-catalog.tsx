@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,8 @@ import { notify, notifyError } from '@/store/notifications'
 import { McpAvatar } from './mcp-avatar'
 import {
   gatewayPath,
+  type HubServerUse,
+  hubServerUse,
   MCP_GATEWAY_KEY,
   type McpGatewayEndpoint,
   type McpGatewayListing,
@@ -31,6 +33,9 @@ import {
 
 // Cadence for polling a background (git-bootstrap) catalog install to completion.
 const CATALOG_INSTALL_POLL_MS = 1500
+
+/** The card a link pointed at (`?hub=<slug>`), marked a moment so the eye lands on it. */
+const SPOTLIGHT_CLASS = 'border-(--ui-accent) bg-(--ui-bg-quaternary)'
 
 /** What a catalog entry is installed by: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
 export const catalogKey = (entry: McpCatalogEntry) => entry.id ?? entry.name
@@ -184,14 +189,21 @@ function CredentialFields({ entry, install }: { entry: McpCatalogEntry; install:
   )
 }
 
-/** What connecting it takes, in words — never "stdio", "OAuth" or "API key" on the tile. */
+/**
+ * What connecting it takes, in words — never "stdio", "OAuth" or "API key" on
+ * the tile. A hub server whose provider takes no sign-in through the hub says
+ * where its account is signed in: here, on this machine (the hub's decision
+ * §9.1 #17 — the one place it is set up).
+ */
 function AccessTags({ entry }: { entry: McpCatalogEntry }) {
   const { t } = useI18n()
   const m = t.settings.mcp
 
   return (
     <>
-      {entry.auth_type === 'oauth' && <TagChip>{m.needsAccount}</TagChip>}
+      {entry.auth_type === 'oauth' && (
+        <TagChip>{entry.route?.reason === 'sign_in_local' ? m.signInHere : m.needsAccount}</TagChip>
+      )}
       {entry.auth_type === 'api_key' && <TagChip>{m.needsKey}</TagChip>}
       {entry.transport === 'stdio' && <TagChip>{m.runsLocal}</TagChip>}
       {entry.needs_install && !entry.installed && <TagChip>{m.catalogNeedsInstall}</TagChip>}
@@ -206,11 +218,13 @@ function AccessTags({ entry }: { entry: McpCatalogEntry }) {
 export function CatalogServerCard({
   entry,
   install,
-  onOpenHub
+  onOpenHub,
+  spotlight = false
 }: {
   entry: McpCatalogEntry
   install: CatalogInstall
   onOpenHub: (url: string) => void
+  spotlight?: boolean
 }) {
   const { t } = useI18n()
   const m = t.settings.mcp
@@ -228,8 +242,10 @@ export function CatalogServerCard({
 
   return (
     <StoreCard
+      className={spotlight ? SPOTLIGHT_CLASS : undefined}
       data-catalog-id={key}
       data-hub-slug={entry.slug}
+      data-spotlight={spotlight || undefined}
       data-testid={hub ? 'mcp-hub-entry' : 'mcp-catalog-entry'}
     >
       <StoreCardHeader
@@ -289,16 +305,39 @@ export function CatalogServerCard({
 }
 
 /**
- * The person's AgentX Gateway endpoints (Agent Hub P5.8), and adding one:
- * the hub hands this machine a token (the signed-in session asks), the backend
- * keeps it in .env and writes the entry; the hub sync renews it. Default
- * profile only — every other profile gets no listing at all.
+ * While a server is waited for, the store asks whether it can be added: soon at
+ * first — connecting on the hub takes a minute or less — then less and less
+ * often, and at once whenever Workmate comes back to the front (the person back
+ * from the browser). The hub's own word (`mcp.connection.connected`) usually
+ * gets there first: the sync adds it and the shelf follows.
  */
-export function useGatewayEndpoints(profile: string, onAdded: () => void) {
+export const GATEWAY_WAIT_CHECK_MS = 3000
+export const GATEWAY_WAIT_CHECK_MAX_MS = 30_000
+
+/** What adding an endpoint answers: added, the hub's page to connect on first, or a refusal. */
+type GatewayAddAnswer =
+  | McpGatewayRefusal
+  | { code: string; connect_url: string; detail: string; ok: false; status: 'connect' }
+  | { name: string; ok: true; url: string }
+
+/**
+ * The person's AgentX Gateway endpoints (Agent Hub P5.8) — every server of the
+ * hub set up there, with where they stand with it, and their toolsets (the
+ * hub's decision §9.1 #17) — and adding one: the hub hands this machine a
+ * token (the signed-in session asks), the backend keeps it in .env and writes
+ * the entry; the hub sync renews it. A server whose account is not connected
+ * yet is never asked for here: "Kết nối" opens the hub's connect page in the
+ * browser and the store waits (`GATEWAY_WAIT_CHECK_MS`), and the server is
+ * added as soon as the hub serves it. Default profile only — every other
+ * profile gets no listing.
+ */
+export function useGatewayEndpoints(profile: string, onAdded: () => void, openExternal: (url: string) => void) {
   const { t } = useI18n()
   const m = t.settings.mcp
   const [adding, setAdding] = useState<null | string>(null)
   const enabled = profile === 'default'
+  // The check the wait timer runs: the one of the latest render (its profile, its callbacks).
+  const checkRef = useRef<() => Promise<void>>(async () => undefined)
 
   const query = useQuery({
     enabled,
@@ -307,45 +346,265 @@ export function useGatewayEndpoints(profile: string, onAdded: () => void) {
     retry: false
   })
 
-  const add = async (endpoint: McpGatewayEndpoint) => {
-    setAdding(endpoint.ref)
+  const add = async (kind: McpGatewayEndpoint['kind'], ref: string, label: string) => {
+    setAdding(ref)
 
     try {
-      const res = await window.agentxDesktop.api<McpGatewayRefusal | { ok: true; name: string; url: string }>({
+      const res = await window.agentxDesktop.api<GatewayAddAnswer>({
         path: gatewayPath(profile, '/add'),
         method: 'POST',
-        body: { kind: endpoint.kind, ref: endpoint.ref },
+        body: { kind, ref },
         timeoutMs: 30_000
       })
+
+      if (!res.ok && res.status === 'connect') {
+        // Its account is the hub's to hold: the person connects there, once, and the store waits for it.
+        openExternal(res.connect_url)
+        notify({ kind: 'info', title: m.hubConnectOpened(label), message: m.hubConnectOpenedBody })
+        void query.refetch()
+
+        return
+      }
 
       if (!res.ok) {
         const signIn = res.status === 'sign_in' || res.status === 'reauth'
 
         notify({
           kind: 'error',
-          title: signIn ? m.gatewaySignIn : m.gatewayAddFailed(endpoint.label),
+          title: signIn ? m.gatewaySignIn : m.gatewayAddFailed(label),
           message: signIn ? '' : res.detail
         })
 
         return
       }
 
-      notify({ kind: 'success', title: m.gatewayAdded(endpoint.label), message: '' })
+      notify({ kind: 'success', title: kind === 'server' ? m.hubAdded(label) : m.gatewayAdded(label), message: '' })
       void query.refetch()
       onAdded()
     } catch (err) {
-      notifyError(err, m.gatewayAddFailed(endpoint.label))
+      notifyError(err, m.gatewayAddFailed(label))
     } finally {
       setAdding(null)
     }
   }
 
-  return { add, adding, listing: enabled ? query.data : undefined, query }
+  // Asked while a server is waited for: added the moment the hub serves it. Never throws — a check that could not
+  // ask is simply asked again.
+  const check = async () => {
+    try {
+      const res = await window.agentxDesktop.api<{ added: { label: string; name: string; slug: string }[] }>({
+        path: gatewayPath(profile, '/waiting/check'),
+        method: 'POST',
+        timeoutMs: 30_000
+      })
+
+      for (const server of res.added) {
+        notify({ kind: 'success', title: m.hubAdded(server.label), message: '' })
+      }
+
+      if (res.added.length > 0) {
+        onAdded()
+      }
+    } catch {
+      // The next check asks again.
+    }
+
+    void query.refetch()
+  }
+
+  checkRef.current = check
+
+  const cancel = async (slug: string) => {
+    try {
+      await window.agentxDesktop.api<{ ok: boolean }>({
+        path: gatewayPath(profile, `/waiting/${encodeURIComponent(slug)}`),
+        method: 'DELETE'
+      })
+    } catch (err) {
+      notifyError(err, t.common.failed)
+    }
+
+    void query.refetch()
+  }
+
+  const waiting = enabled ? (query.data?.waiting?.length ?? 0) : 0
+
+  useEffect(() => {
+    if (waiting === 0) {
+      return
+    }
+
+    let delay = GATEWAY_WAIT_CHECK_MS
+    let timer: number | undefined
+    let stopped = false
+    let asking = false
+
+    const later = () => {
+      timer = window.setTimeout(() => void ask(), delay)
+      delay = Math.min(Math.round(delay * 1.5), GATEWAY_WAIT_CHECK_MAX_MS)
+    }
+
+    // One check at a time: a focus while one is out waits for its answer.
+    const ask = async () => {
+      if (asking || stopped) {
+        return
+      }
+
+      asking = true
+      window.clearTimeout(timer)
+      await checkRef.current()
+      asking = false
+
+      if (!stopped) {
+        later()
+      }
+    }
+
+    // Back from the browser: asked at once, and soon again after.
+    const onFocus = () => {
+      delay = GATEWAY_WAIT_CHECK_MS
+      void ask()
+    }
+
+    later()
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      stopped = true
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [waiting])
+
+  return { add, adding, cancel, listing: enabled ? query.data : undefined, query }
 }
 
-// One endpoint of the person's gateway: a server or a whole toolset they set
-// up on the hub, one sign-in for all of it. Its readiness is the hub's word;
-// "Kết nối" adds it here.
+export type GatewayEndpoints = ReturnType<typeof useGatewayEndpoints>
+
+/**
+ * One AgentX Hub server set up on the hub (the hub's decision §9.1 #17), on
+ * the "Từ AgentX Hub" shelf beside the ones set up here: the same store card,
+ * with where the person stands with it on the hub and **one** verb — "Thêm"
+ * (the hub serves it to them: added as its gateway endpoint, nothing asked),
+ * "Kết nối" / "Kết nối lại" (the hub's page opens; Workmate adds it once they
+ * are connected — or, here already, it works again once they are), or, while
+ * it waits, "Mở lại trang" and "Huỷ". Nothing on it ever asks for a key: the
+ * hub holds the account.
+ */
+export function HubGatewayCard({
+  entry,
+  gateway,
+  onOpenHub,
+  spotlight = false
+}: {
+  entry: McpCatalogEntry
+  gateway: GatewayEndpoints
+  onOpenHub: (url: string) => void
+  spotlight?: boolean
+}) {
+  const { t } = useI18n()
+  const m = t.settings.mcp
+  const { endpoint, reason, use, wait } = hubServerUse(entry, gateway.listing)
+  const slug = entry.slug ?? ''
+  const title = catalogTitle(entry, t)
+  const busy = gateway.adding !== null || Boolean(entry.name_taken)
+
+  const trust =
+    entry.trust === 'curated' ? m.hubTrustCurated : entry.trust === 'private' ? m.hubTrustPrivate : m.hubTrustReviewed
+
+  const line: Record<HubServerUse, null | string> = {
+    add: endpoint?.credential === 'shared' ? m.hubUse.shared : m.hubUse.ready,
+    connect: m.hubUse.connect,
+    installed: null,
+    reconnect: m.hubUse.reconnect,
+    unavailable: reason === 'no_tools' ? m.hubUse.noTools : m.hubUse.unavailable,
+    unknown: m.hubUse.unknown,
+    waiting: m.hubUse.waiting
+  }
+
+  const verb = use === 'add' ? m.hubAdd : use === 'connect' ? m.connect : use === 'reconnect' ? m.hubReconnect : null
+
+  // Here already: its account is fixed on the hub, where the entry reaches it — nothing to add or wait for.
+  const act = () =>
+    entry.installed && endpoint?.connect_url ? onOpenHub(endpoint.connect_url) : void gateway.add('server', slug, title)
+
+  return (
+    <StoreCard
+      className={spotlight ? SPOTLIGHT_CLASS : undefined}
+      data-hub-slug={slug}
+      data-spotlight={spotlight || undefined}
+      data-testid="mcp-hub-entry"
+      data-use={use}
+    >
+      <StoreCardHeader
+        glyph={<McpAvatar name={entry.name} />}
+        meta={
+          entry.version && (
+            <span className="shrink-0 font-mono text-xs text-(--ui-text-tertiary)">{`v${entry.version}`}</span>
+          )
+        }
+        title={title}
+      />
+      <StoreCardDescription>{entry.description}</StoreCardDescription>
+      <StoreCardTags>
+        <TagChip>{trust}</TagChip>
+        {entry.verdict === 'caution' && <StatusPill tone="warn">{m.hubVerdictCaution}</StatusPill>}
+        <TagChip>{m.viaHub}</TagChip>
+      </StoreCardTags>
+      {entry.name_taken && <p className="text-xs text-(--ui-text-secondary)">{m.hubNameTaken}</p>}
+      {line[use] && (
+        <p
+          className={use === 'waiting' ? 'text-xs text-(--ui-text-secondary)' : 'text-xs text-(--ui-text-tertiary)'}
+          data-testid="mcp-hub-use"
+        >
+          {line[use]}
+        </p>
+      )}
+      <StoreCardFooter
+        end={
+          use === 'installed' ? (
+            <StatusPill data-testid="mcp-catalog-connected" size="md" tone="good">
+              {m.connectedPill}
+            </StatusPill>
+          ) : use === 'waiting' ? (
+            <Button data-testid="mcp-hub-cancel" onClick={() => void gateway.cancel(slug)} size="sm" variant="ghost">
+              {m.hubWaitingCancel}
+            </Button>
+          ) : verb ? (
+            <Button
+              data-testid="mcp-hub-action"
+              disabled={busy}
+              loading={gateway.adding === slug}
+              onClick={act}
+              size="sm"
+            >
+              {verb}
+            </Button>
+          ) : null
+        }
+      >
+        {use === 'waiting' && wait ? (
+          <Button data-testid="mcp-hub-reopen" onClick={() => onOpenHub(wait.connect_url)} size="sm" variant="text">
+            <ExternalLink aria-hidden className="size-3.5" />
+            {m.hubWaitingOpen}
+          </Button>
+        ) : (
+          entry.page && (
+            <Button onClick={() => onOpenHub(entry.page!)} size="sm" variant="text">
+              <ExternalLink aria-hidden className="size-3.5" />
+              {m.hubOpen}
+            </Button>
+          )
+        )}
+      </StoreCardFooter>
+    </StoreCard>
+  )
+}
+
+// One toolset of the person's gateway: several servers they gathered on the
+// hub behind one endpoint, one sign-in for all of it. Its readiness is the
+// hub's word; "Kết nối" adds it here. (A server of the hub has its own card on
+// the hub's shelf, `HubGatewayCard`.)
 export function GatewayEndpointCard({
   adding,
   busy,
@@ -376,11 +635,9 @@ export function GatewayEndpointCard({
         }
         title={endpoint.label}
       />
-      <StoreCardDescription>
-        {endpoint.kind === 'toolset' ? m.gatewayToolsetDesc : m.gatewayServerDesc}
-      </StoreCardDescription>
+      <StoreCardDescription>{m.gatewayToolsetDesc}</StoreCardDescription>
       <StoreCardTags>
-        <TagChip>{endpoint.kind === 'toolset' ? m.gatewayToolset : m.gatewayServer}</TagChip>
+        <TagChip>{m.gatewayToolset}</TagChip>
       </StoreCardTags>
       <StoreCardFooter
         end={

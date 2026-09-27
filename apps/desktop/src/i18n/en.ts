@@ -974,7 +974,7 @@ export const en: Translations = {
       catalogEnvPrompt: name => `${name} requires credentials`,
       catalogEnvRequired: 'Fill in the required values before connecting.',
       hubHint:
-        'Your Hub approved these servers for you. AgentX turns on only the tools the Hub approved; a tool that changes stays locked until the Hub approves it again.',
+        'Your Hub approved these servers for you. A server “Through AgentX Hub” keeps its account on the hub: nothing to type here — the one button on its card does the rest. AgentX turns on only the tools the Hub approved.',
       hubSignIn: 'Sign in to AgentX to see the MCP servers your Hub approved for you.',
       hubOffline: 'The AgentX Hub could not be reached: this is the list fetched last.',
       hubKeyUntrusted: kids =>
@@ -997,12 +997,32 @@ export const en: Translations = {
       hubNotRegistered: 'The AgentX Hub is told as soon as it can be reached.',
       hubUnsupported: count =>
         `${count} Hub server${count === 1 ? '' : 's'} cannot run in Workmate as ${count === 1 ? 'it is' : 'they are'} — open ${count === 1 ? 'it' : 'them'} on the Hub.`,
-      gatewayHint: 'Your servers and toolsets on the Hub — sign in once and use them all.',
+      viaHub: 'Through AgentX Hub',
+      signInHere: 'Sign in on this machine',
+      hubAdd: 'Add',
+      hubReconnect: 'Connect again',
+      hubUse: {
+        connect: 'Connect your account once on AgentX Hub — Workmate adds it when you are done.',
+        noTools: 'The Hub has approved none of its tools yet.',
+        ready: 'Ready — nothing to type on this machine.',
+        reconnect: 'Your account on AgentX Hub needs a new sign-in.',
+        shared: "Uses your organisation's account — nothing to type on this machine.",
+        unavailable: 'The AgentX Gateway does not serve this MCP right now.',
+        unknown: 'AgentX Hub could not be asked.',
+        waiting: 'Waiting for you to connect on AgentX Hub…'
+      },
+      hubWaitingOpen: 'Open the page again',
+      hubWaitingCancel: 'Cancel',
+      hubConnectOpened: name => `Connect ${name} on AgentX Hub`,
+      hubConnectOpenedBody:
+        'The connect page opened in your browser. Once you are connected, Workmate adds this MCP by itself.',
+      hubAdded: name => `${name} added — the agent can use it now.`,
+      toolsetsHint:
+        'The toolsets you gathered on AgentX Hub: several MCPs behind one address, signed in with your AgentX account.',
       gatewaySignIn:
         "This machine's gateway token has expired — sign in to AgentX again to keep the gateway connections working.",
       gatewayTokenDays: days =>
         `This machine's gateway token is valid ${days} more day${days === 1 ? '' : 's'}; it is renewed on its own.`,
-      gatewayServer: 'Server',
       gatewayToolset: 'Toolset',
       gatewayStatus: {
         needs_connection: 'Connect it on the hub',
@@ -1029,7 +1049,7 @@ export const en: Translations = {
       searchPlaceholder: 'Search MCP connections',
       shelfConnected: 'Connected',
       shelfHub: 'From AgentX Hub',
-      shelfGateway: 'Through AgentX Gateway',
+      shelfToolsets: 'Toolsets',
       shelfCatalog: 'Recommended by AgentX',
       connectedEmpty: 'Nothing is connected yet. Pick one below to start, or add one by hand from an mcp.json snippet.',
       nounConnections: 'connections',

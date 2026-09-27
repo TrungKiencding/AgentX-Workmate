@@ -73,18 +73,27 @@ class FakeMcp:
     def __init__(self) -> None:
         self.local: dict[str, dict] = {}
         self.feed: dict[str, dict] = {}
+        #: The hub servers set up on the hub (the hub's decision §9.1 #17): in the feed, with no manifest this machine runs.
+        self.on_hub: dict[str, dict] = {}
         self.seen: dict[str, dict] = {}
         self.calls: list[tuple] = []
         self.install_error = ""
         self.removed: set[str] = set()
 
     def local_state(self, slug):
-        return dict(self.local.get(slug) or {"installed": False, "name": "", "version": "", "enabled": False, "modified": False, "tool_hashes": {}})
+        return dict(self.local.get(slug) or {"installed": False, "name": "", "route": "", "version": "", "enabled": False, "modified": False,
+                                             "tool_hashes": {}})
 
     def feed_entry(self, slug):
         item = self.feed.get(slug)
         return SimpleNamespace(hub=SimpleNamespace(version=item["version"], tool_hashes=item["tool_hashes"], prompt_hashes=item.get("prompt_hashes", {}),
                                                    template_hashes=item.get("template_hashes", {}))) if item else None
+
+    def hub_server(self, slug):
+        if slug in self.on_hub:
+            return {"slug": slug, "version": self.on_hub[slug]["version"], "route": {"via": "gateway", "reason": None}}
+        item = self.feed.get(slug)
+        return {"slug": slug, "version": item["version"], "route": {"via": "local", "reason": None}} if item else None
 
     def install(self, slug, *, version=""):
         self.calls.append(("install", slug, version))

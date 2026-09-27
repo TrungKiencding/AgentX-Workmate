@@ -14,7 +14,7 @@ import { type Translations, useI18n } from '@/i18n'
 import { Lock } from '@/lib/icons'
 
 import { McpAvatar } from './mcp-avatar'
-import { enabledToolCount, type McpServerView, serverEnabled, type ServerStatus } from './mcp-model'
+import { enabledToolCount, gatewayLapsed, type McpServerView, serverEnabled, type ServerStatus } from './mcp-model'
 
 /**
  * The one pill a connected card carries beside its name: what is wrong, or
@@ -93,14 +93,17 @@ export function ServerSourceTag({ view }: { view: McpServerView }) {
 // its name, what is wrong with it (or that it is off) in the one pill slot, the
 // switch, what it does, where it came from, and the one verb that fixes what
 // is wrong — "Đăng nhập" for an OAuth server that needs it, "Cập nhật" for a
-// newer hub version, "Thử lại" after an error. Working, it shows how many
-// tools it gives AgentX instead. Tools, logs, the launch line and removal all
-// live behind "Chi tiết".
+// newer hub version, "Kết nối lại" for a gateway endpoint whose account on the
+// hub lapsed (the hub's page opens: it is fixed there, the one place it is set
+// up), "Thử lại" after an error. Working, it shows how many tools it gives
+// AgentX instead. Tools, logs, the launch line and removal all live behind
+// "Chi tiết".
 export function McpServerCard({
   authing,
   busy,
   onAuthenticate,
   onDetails,
+  onOpenHub,
   onProbe,
   onToggle,
   onUpdate,
@@ -111,6 +114,7 @@ export function McpServerCard({
   busy: boolean
   onAuthenticate: () => void
   onDetails: () => void
+  onOpenHub: (url: string) => void
   onProbe: () => void
   onToggle: (enabled: boolean) => void
   onUpdate: () => void
@@ -124,6 +128,7 @@ export function McpServerCard({
   const blocked = hub?.blocked_tools ?? []
   const hubUpdate = hub?.update_available && hub.version ? hub.version : null
   const probe = view.probe && view.probe !== 'probing' && view.probe.ok ? view.probe : null
+  const lapsed = view.gatewayEndpoint && gatewayLapsed(view.gatewayEndpoint) ? view.gatewayEndpoint : null
 
   const verb =
     view.status === 'needs-auth' && view.canAuth ? (
@@ -133,6 +138,10 @@ export function McpServerCard({
     ) : hubUpdate && !hub?.modified ? (
       <Button data-testid="mcp-server-update" disabled={busy} loading={updating} onClick={onUpdate} size="sm">
         {m.hubUpdateShort}
+      </Button>
+    ) : lapsed?.connect_url ? (
+      <Button data-testid="mcp-server-reconnect" onClick={() => onOpenHub(lapsed.connect_url!)} size="sm">
+        {m.hubReconnect}
       </Button>
     ) : view.status === 'error' ? (
       <Button data-testid="mcp-server-retry" onClick={onProbe} size="sm" variant="secondary">
@@ -168,6 +177,11 @@ export function McpServerCard({
             </StatusPill>
           )}
           {hub?.modified && <StatusPill tone="muted">{m.editedHere}</StatusPill>}
+          {lapsed && (
+            <StatusPill data-testid="mcp-server-lapsed" tone="warn">
+              {m.gatewayStatus[lapsed.status]}
+            </StatusPill>
+          )}
         </StoreCardTags>
       )}
       {blocked.length > 0 && (

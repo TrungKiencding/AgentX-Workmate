@@ -23,7 +23,14 @@ import { cn } from '@/lib/utils'
 
 import { McpAvatar } from './mcp-avatar'
 import { McpLogs } from './mcp-logs'
-import { capabilitySummary, enabledToolCount, launchLine, type McpServerView, serverEnabled } from './mcp-model'
+import {
+  capabilitySummary,
+  enabledToolCount,
+  gatewayLapsed,
+  launchLine,
+  type McpServerView,
+  serverEnabled
+} from './mcp-model'
 import { ServerSourceTag, ServerStatusPill } from './mcp-server-card'
 import { TechnicalDetailRow, TechnicalDetails } from './technical-details'
 
@@ -84,6 +91,7 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
   const hub = v.hubEntry
   const blocked = hub?.blocked_tools ?? []
   const hubUpdate = hub?.update_available && hub.version ? hub.version : null
+  const lapsed = v.gatewayEndpoint && gatewayLapsed(v.gatewayEndpoint) ? v.gatewayEndpoint : null
 
   const trust = hub
     ? hub.trust === 'curated'
@@ -118,6 +126,22 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
                 {m.hubOpen}
               </Button>
             )}
+          </div>
+        )}
+
+        {/* A gateway endpoint whose account on the hub lapsed: fixed there, the one place it is set up. */}
+        {lapsed?.connect_url && (
+          <div
+            className="grid gap-2 rounded-(--radius-card) bg-(--ui-bg-quinary) p-3"
+            data-testid="mcp-server-lapsed-detail"
+          >
+            <p className="text-sm text-(--ui-text-secondary)">{m.hubUse.reconnect}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => props.onOpenHub(lapsed.connect_url!)} size="sm">
+                <ExternalLink aria-hidden className="size-3.5" />
+                {m.hubReconnect}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -237,7 +261,7 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
 
         <TechnicalDetails>
           <TechnicalDetailRow label={m.configName} value={<span className="font-mono">{v.name}</span>} />
-          {v.source === 'gateway' && <p className="text-sm text-(--ui-text-tertiary)">{m.gatewayTokenNote}</p>}
+          {v.gatewayEndpoint && <p className="text-sm text-(--ui-text-tertiary)">{m.gatewayTokenNote}</p>}
           <TechnicalDetailRow
             label={m.launchLabel}
             value={<span className="font-mono break-all">{launchLine(v.server) || '—'}</span>}

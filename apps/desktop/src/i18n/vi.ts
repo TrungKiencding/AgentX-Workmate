@@ -1232,7 +1232,7 @@ export const vi: Translations = {
       catalogEnvPrompt: name => `${name} cần thông tin đăng nhập`,
       catalogEnvRequired: 'Hãy điền các giá trị bắt buộc trước khi kết nối.',
       hubHint:
-        'Hub đã duyệt các server này cho bạn. AgentX chỉ bật những công cụ Hub đã duyệt; công cụ nào thay đổi sẽ bị khoá tới khi Hub duyệt lại.',
+        'Hub đã duyệt các server này cho bạn. Server “Qua AgentX Hub” giữ tài khoản trên hub: không phải nhập gì trên máy — nút duy nhất trên thẻ lo phần còn lại. AgentX chỉ bật những công cụ Hub đã duyệt.',
       hubSignIn: 'Đăng nhập AgentX để thấy các server MCP mà Hub đã duyệt cho bạn.',
       hubOffline: 'Không kết nối được AgentX Hub: đây là danh sách tải lần trước.',
       hubKeyUntrusted: kids =>
@@ -1253,11 +1253,29 @@ export const vi: Translations = {
       hubNameTaken: 'Một server khác đang dùng tên này trên máy.',
       hubNotRegistered: 'AgentX Hub sẽ được báo ngay khi liên lạc được.',
       hubUnsupported: count => `${count} server của Hub chưa chạy được trong Workmate như hiện có — mở trên Hub.`,
-      gatewayHint: 'Server và bộ công cụ của bạn trên Hub — đăng nhập một lần là dùng được tất cả.',
+      viaHub: 'Qua AgentX Hub',
+      signInHere: 'Đăng nhập trên máy',
+      hubAdd: 'Thêm',
+      hubReconnect: 'Kết nối lại',
+      hubUse: {
+        connect: 'Kết nối tài khoản một lần trên AgentX Hub — Workmate tự thêm khi xong.',
+        noTools: 'Hub chưa duyệt công cụ nào của MCP này.',
+        ready: 'Sẵn sàng — không phải nhập gì trên máy.',
+        reconnect: 'Tài khoản trên AgentX Hub cần đăng nhập lại.',
+        shared: 'Dùng tài khoản của tổ chức — không phải nhập gì trên máy.',
+        unavailable: 'AgentX Gateway chưa phục vụ MCP này lúc này.',
+        unknown: 'Chưa hỏi được AgentX Hub.',
+        waiting: 'Đang chờ bạn kết nối trên AgentX Hub…'
+      },
+      hubWaitingOpen: 'Mở lại trang',
+      hubWaitingCancel: 'Huỷ',
+      hubConnectOpened: name => `Kết nối ${name} trên AgentX Hub`,
+      hubConnectOpenedBody: 'Trang kết nối đã mở trong trình duyệt. Kết nối xong, Workmate tự thêm MCP này.',
+      hubAdded: name => `Đã thêm ${name} — agent dùng được ngay.`,
+      toolsetsHint: 'Bộ công cụ bạn gom trên AgentX Hub: nhiều MCP sau một địa chỉ, dùng tài khoản AgentX của bạn.',
       gatewaySignIn:
         'Token Gateway của máy này đã hết hạn — đăng nhập lại AgentX để các kết nối qua Gateway chạy tiếp.',
       gatewayTokenDays: days => `Token Gateway của máy này còn ${days} ngày; nó tự gia hạn.`,
-      gatewayServer: 'Server',
       gatewayToolset: 'Bộ công cụ',
       gatewayStatus: {
         needs_connection: 'Kết nối trên hub',
@@ -1284,7 +1302,7 @@ export const vi: Translations = {
       searchPlaceholder: 'Tìm kết nối MCP',
       shelfConnected: 'Đã kết nối',
       shelfHub: 'Từ AgentX Hub',
-      shelfGateway: 'Qua AgentX Gateway',
+      shelfToolsets: 'Bộ công cụ',
       shelfCatalog: 'AgentX đề xuất',
       connectedEmpty:
         'Chưa kết nối phần mềm nào. Chọn một mục bên dưới để bắt đầu, hoặc thêm thủ công từ cấu hình mcp.json.',

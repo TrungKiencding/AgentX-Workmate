@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { closeActiveTab } from '@/app/chat/close-tab'
 import { openSession } from '@/app/open-session'
+import { isHubSlug } from '@/app/skills/mcp-model'
 import { storedSessionIdForNotification } from '@/lib/session-ids'
 import { respondToApprovalAction } from '@/store/native-notifications'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -20,7 +21,7 @@ import { startWebmateWatcher, stopWebmateWatcher } from '@/store/webmate'
 import { isSecondaryWindow } from '@/store/windows'
 
 import { requestComposerFocus, requestComposerInsert } from '../../chat/composer/focus'
-import { appViewForPath, isOverlayView, NEW_CHAT_ROUTE, sessionRoute } from '../../routes'
+import { appViewForPath, isOverlayView, NEW_CHAT_ROUTE, sessionRoute, SKILLS_ROUTE } from '../../routes'
 
 interface DesktopIntegrationsParams {
   chatOpen: boolean
@@ -156,9 +157,24 @@ export function useDesktopIntegrations({
     return () => unsubscribe?.()
   }, [])
 
-  // agentx:// deep links -> a reviewable /blueprint command in the composer.
+  // agentx:// deep links -> a reviewable /blueprint command in the composer, or
+  // (agentx://mcp/<slug>, the hub's "Mở trong Workmate") the MCP store with
+  // that hub server's card in view. The subscription outlives renders (a link
+  // that arrives during boot is flushed to it once), so it navigates through
+  // the latest `navigate`.
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+
   useEffect(() => {
     const unsubscribe = window.agentxDesktop?.onDeepLink?.(payload => {
+      const mcpTarget = payload?.kind === 'mcp' ? hubServerLinkTarget(payload.name) : null
+
+      if (mcpTarget) {
+        navigateRef.current(mcpTarget)
+
+        return
+      }
+
       if (!payload || payload.kind !== 'blueprint' || !payload.name) {
         return
       }
@@ -208,4 +224,13 @@ export function useDesktopIntegrations({
 
     return onSessionsChanged(() => void refreshSessions())
   }, [refreshSessions])
+}
+
+/**
+ * Where `agentx://mcp/<slug>` leads: the MCP store, with that hub server's
+ * card in view (`?hub=`, the hub's decision §9.1 #17) — or nowhere, for a name
+ * no hub slug can have (a link is outside input: nothing else of it is read).
+ */
+export function hubServerLinkTarget(name: string | undefined): null | string {
+  return name && isHubSlug(name) ? `${SKILLS_ROUTE}?tab=mcp&hub=${name}` : null
 }

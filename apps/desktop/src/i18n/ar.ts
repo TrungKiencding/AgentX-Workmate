@@ -961,8 +961,9 @@ export const ar = defineLocale({
       authenticate: 'تسجيل الدخول',
       hubSignIn: 'سجّل الدخول إلى AgentX لترى خوادم MCP التي وافق عليها Hub لك.',
       hubHint:
-        'وافق Hub على هذه الخوادم لك. لا يُفعّل AgentX إلا الأدوات التي وافق عليها Hub، وأي أداة تتغيّر تبقى مقفلة حتى يوافق عليها Hub مجددًا.',
-      gatewayHint: 'خوادمك ومجموعات أدواتك على Hub — سجّل الدخول مرة واحدة واستخدمها كلها.',
+        'وافق Hub على هذه الخوادم لك. الخادم «عبر AgentX Hub» يحفظ حسابه على Hub: لا شيء تُدخله على هذا الجهاز، والزر الوحيد على بطاقته يتكفّل بالباقي. لا يُفعّل AgentX إلا الأدوات التي وافق عليها Hub.',
+      toolsetsHint:
+        'مجموعات الأدوات التي جمعتها على AgentX Hub: عدة خوادم MCP خلف عنوان واحد، بتسجيل الدخول بحساب AgentX.',
       gatewaySignIn:
         'انتهت صلاحية رمز البوابة لهذا الجهاز — سجّل الدخول إلى AgentX مجددًا لتستمر الاتصالات عبر البوابة في العمل.',
       gatewayAdded: label => `تم ربط ${label} عبر البوابة`,
@@ -995,8 +996,26 @@ export const ar = defineLocale({
       hubNameTaken: 'يستخدم خادم آخر هذا الاسم على هذا الجهاز.',
       hubNotRegistered: 'سيُبلَّغ AgentX Hub فور إمكان الوصول إليه.',
       hubUnsupported: count => `لا يمكن تشغيل ${count} من خوادم Hub في Workmate كما هي — افتحها في Hub.`,
+      viaHub: 'عبر AgentX Hub',
+      signInHere: 'تسجيل الدخول على هذا الجهاز',
+      hubAdd: 'إضافة',
+      hubReconnect: 'اربط مجددًا',
+      hubUse: {
+        connect: 'اربط حسابك مرة واحدة على AgentX Hub — ويضيفه Workmate تلقائيًا عند الانتهاء.',
+        noTools: 'لم يوافق Hub بعد على أي أداة لهذا الخادم.',
+        ready: 'جاهز — لا شيء يُدخَل على هذا الجهاز.',
+        reconnect: 'يحتاج حسابك على AgentX Hub إلى تسجيل دخول جديد.',
+        shared: 'يستخدم حساب مؤسستك — لا شيء يُدخَل على هذا الجهاز.',
+        unavailable: 'لا تقدّم AgentX Gateway هذا الخادم حاليًا.',
+        unknown: 'تعذّر سؤال AgentX Hub.',
+        waiting: 'بانتظار أن تربطه على AgentX Hub…'
+      },
+      hubWaitingOpen: 'افتح الصفحة مجددًا',
+      hubWaitingCancel: 'إلغاء',
+      hubConnectOpened: name => `اربط ${name} على AgentX Hub`,
+      hubConnectOpenedBody: 'فُتحت صفحة الربط في متصفحك. بعد الربط يضيف Workmate هذا الخادم تلقائيًا.',
+      hubAdded: name => `أُضيف ${name} — يمكن للوكيل استخدامه الآن.`,
       gatewayTokenDays: days => `يبقى لرمز البوابة لهذا الجهاز ${days} يومًا، ويتجدد تلقائيًا.`,
-      gatewayServer: 'خادم',
       gatewayToolset: 'مجموعة أدوات',
       gatewayStatus: {
         needs_connection: 'اربطه في Hub',
@@ -1018,7 +1037,7 @@ export const ar = defineLocale({
       searchPlaceholder: 'ابحث في اتصالات MCP',
       shelfConnected: 'المتصلة',
       shelfHub: 'من AgentX Hub',
-      shelfGateway: 'عبر AgentX Gateway',
+      shelfToolsets: 'مجموعات الأدوات',
       shelfCatalog: 'يقترحها AgentX',
       connectedEmpty: 'لا يوجد أي اتصال بعد. اختر واحدًا أدناه للبدء، أو أضفه يدويًا من إعداد mcp.json.',
       nounConnections: 'اتصالات',
