@@ -1470,6 +1470,12 @@ export interface McpCatalogEntry {
   modified?: boolean
   /** Another server is configured under this name. */
   name_taken?: boolean
+  /**
+   * An AgentX Hub server's: where the hub sets it up (the hub's decision §9.1 #17). `gateway`: its sign-in is kept
+   * on the hub and it is added here as its gateway endpoint — nothing asked here; `local`: installed here from its
+   * manifest, its values asked on this machine.
+   */
+  route?: { via: 'gateway' | 'local'; reason: null | string }
 }
 
 export interface McpCatalogResponse {
@@ -1641,6 +1647,11 @@ export interface SkillHubChangesResponse {
   revision: number
   /** Bumped when the sync changed an MCP server here (installed, removed, switched): reload MCP. */
   mcp_revision?: number
+  /**
+   * Bumped when where the person stands with a hub server may have changed — a connection made, lost or removed on
+   * the hub, a server waited for added here (the hub's decision §9.1 #17): the MCP store asks the hub again.
+   */
+  gateway_revision?: number
   last: SkillHubTickResponse
   installs: SkillHubInstallRow[]
   updates: SkillHubUpdate[]

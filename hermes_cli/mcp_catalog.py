@@ -749,12 +749,19 @@ def hub_title(server: Dict[str, Any]) -> str:
     return ""
 
 
+#: The diagnostic of a hub server set up on the hub (decision §9.1 #17): added from the MCP store as its gateway endpoint, never installed here.
+HUB_GATEWAY = "hub_gateway"
+
+
 def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]:
     """The AgentX Hub's servers from the last feed this machine fetched
-    (``tools/mcp_hub.py``; no network call here), by slug. A server the hub
-    cannot hand Workmate (``supported: false``), or whose signatures do not
-    hold, is a diagnostic (``hub_unsupported`` / ``unverified``) in
-    *diagnostics*, never an entry."""
+    (``tools/mcp_hub.py``; no network call here), by slug — those set up on
+    this machine. A server the hub cannot hand Workmate (``supported: false``),
+    or whose signatures do not hold, is a diagnostic (``hub_unsupported`` /
+    ``unverified``) in *diagnostics*, never an entry; so is a server set up on
+    the hub (``hub_gateway``, the hub's decision §9.1 #17): its sign-in is the
+    hub's, the MCP store adds its gateway endpoint (``hub_sync.add_hub_server``)
+    and nothing of it is installed from its manifest, whatever the manifest."""
     notes = diagnostics if diagnostics is not None else []
     try:
         from tools import mcp_hub
@@ -767,6 +774,9 @@ def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]
     for server in servers:
         slug = str(server.get("slug") or "")
         identifier = f"{HUB_PREFIX}{slug}"
+        if (server.get("route") or {}).get("via") == mcp_hub.ROUTE_GATEWAY:
+            notes.append((identifier, HUB_GATEWAY, "set up on AgentX Hub: add it in Workmate — Utilities → Store → MCP (nothing to type here)"))
+            continue
         if server.get("problem"):
             notes.append((identifier, str(server.get("problem_kind") or "unverified"), str(server["problem"])))
             continue
@@ -785,6 +795,18 @@ def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]
     return entries
 
 
+def set_up_on_hub(slug: str) -> bool:
+    """AgentX Hub server *slug* is set up on the hub (``hub_gateway``, :func:`hub_entries`):
+    the MCP store adds its gateway endpoint, nothing installs it here. No network call."""
+    try:
+        from tools import mcp_hub
+
+        server = mcp_hub.checked_server(slug)
+    except Exception:  # noqa: BLE001 - no feed: nothing is known of it
+        return False
+    return server is not None and (server.get("route") or {}).get("via") == mcp_hub.ROUTE_GATEWAY
+
+
 # Populated by list_catalog(). Inspected by the picker / catalog UIs so the
 # user gets actionable feedback instead of a silently-shorter list.
 _CATALOG_DIAGNOSTICS: List[tuple] = []
@@ -799,6 +821,10 @@ def catalog_diagnostics() -> List[tuple]:
         understands. Update AgentX to install this entry.
       - ``invalid`` — manifest is malformed in some other way (caught by
         CI for shipped manifests; user-modified manifests can hit this).
+      - ``hub_unsupported`` / ``unverified`` / ``hub_unavailable`` — an
+        AgentX Hub server that cannot be installed here (:func:`hub_entries`).
+      - ``hub_gateway`` — an AgentX Hub server set up on the hub: added from
+        the MCP store, not installed here (not a problem).
     """
     return list(_CATALOG_DIAGNOSTICS)
 

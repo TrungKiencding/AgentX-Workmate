@@ -1049,7 +1049,7 @@ export const ja = defineLocale({
       searchPlaceholder: 'MCP 接続を検索',
       shelfConnected: '接続済み',
       shelfHub: 'AgentX Hub から',
-      shelfGateway: 'AgentX Gateway 経由',
+      shelfToolsets: 'ツールセット',
       shelfCatalog: 'AgentX のおすすめ',
       connectedEmpty: 'まだ何もつないでいません。下から選んで始めるか、mcp.json の設定から手動で追加してください。',
       nounConnections: '接続',
@@ -1125,8 +1125,9 @@ export const ja = defineLocale({
       hubSignedOutShort: '未サインイン',
       hubSignIn: 'AgentX にサインインすると、Hub があなた向けに承認した MCP サーバーが表示されます。',
       hubHint:
-        'Hub があなた向けに承認したサーバーです。AgentX は Hub が承認したツールだけを有効にし、変更されたツールは Hub が再承認するまでロックされます。',
-      gatewayHint: 'Hub 上のあなたのサーバーとツールセットです。一度サインインすれば全部使えます。',
+        'Hub があなた向けに承認したサーバーです。「AgentX Hub 経由」のサーバーはアカウントを Hub に置いています。このマシンでは何も入力しません。あとはカードのボタンひとつで済みます。AgentX は Hub が承認したツールだけを有効にします。',
+      toolsetsHint:
+        'AgentX Hub でまとめたツールセットです。1 つのアドレスの向こうに複数の MCP があり、AgentX アカウントでサインインします。',
       gatewaySignIn:
         'このマシンのゲートウェイトークンの期限が切れました。ゲートウェイ経由の接続を使い続けるには、AgentX に再度サインインしてください。',
       gatewayAdded: label => `${label} をゲートウェイ経由で接続しました`,
@@ -1160,8 +1161,27 @@ export const ja = defineLocale({
       hubNotRegistered: 'AgentX Hub には連絡がつき次第伝えます。',
       hubUnsupported: count =>
         `Hub のサーバー ${count} 件は、今の Workmate ではそのまま動かせません。Hub で開いてください。`,
+      viaHub: 'AgentX Hub 経由',
+      signInHere: 'このマシンでサインイン',
+      hubAdd: '追加',
+      hubReconnect: 'もう一度接続',
+      hubUse: {
+        connect: 'AgentX Hub でアカウントを一度接続してください。終わると Workmate が自動で追加します。',
+        noTools: 'Hub はまだこの MCP のツールを承認していません。',
+        ready: '準備完了。このマシンでは何も入力しません。',
+        reconnect: 'AgentX Hub のアカウントにもう一度サインインが必要です。',
+        shared: '組織のアカウントを使います。このマシンでは何も入力しません。',
+        unavailable: 'AgentX Gateway は今この MCP を提供していません。',
+        unknown: 'AgentX Hub に問い合わせできませんでした。',
+        waiting: 'AgentX Hub での接続を待っています…'
+      },
+      hubWaitingOpen: 'ページをもう一度開く',
+      hubWaitingCancel: 'キャンセル',
+      hubConnectOpened: name => `AgentX Hub で ${name} を接続`,
+      hubConnectOpenedBody:
+        '接続ページをブラウザで開きました。接続が終わると、Workmate がこの MCP を自動で追加します。',
+      hubAdded: name => `${name} を追加しました。エージェントがすぐに使えます。`,
       gatewayTokenDays: days => `このマシンのゲートウェイトークンはあと ${days} 日有効で、自動で更新されます。`,
-      gatewayServer: 'サーバー',
       gatewayToolset: 'ツールセット',
       gatewayStatus: {
         needs_connection: 'Hub で接続してください',

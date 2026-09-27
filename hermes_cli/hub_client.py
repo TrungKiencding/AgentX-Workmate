@@ -358,10 +358,13 @@ class HubClient:
 
     # -- the AgentX Gateway (Agent Hub Phase 5) ------------------------------
 
-    def gateway_endpoints(self, *, bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, Any]:
+    def gateway_endpoints(self, *, bearer: str, device_id: str = "", device_name: str = "", every_server: bool = False) -> Dict[str, Any]:
         """The gateway endpoints that are this person's (``GET /v1/mcp/me/endpoints``):
-        ``{gateway {enabled, url}, endpoints [{kind: server|toolset, ref, label, url, status, tools, …}]}``."""
-        body = self._request("GET", "/v1/mcp/me/endpoints", bearer=bearer, device_id=device_id, device_name=device_name)
+        ``{gateway {enabled, url}, endpoints [{kind: server|toolset, ref, label, url, status, tools, route?, …}]}``.
+        *every_server* (``?servers=all``, the hub's decision §9.1 #17): besides, every server
+        set up on the hub that the person sees, connected or not — with where they stand."""
+        params = {"servers": "all"} if every_server else None
+        body = self._request("GET", "/v1/mcp/me/endpoints", bearer=bearer, device_id=device_id, device_name=device_name, params=params)
         if not isinstance(body, dict) or not isinstance(body.get("endpoints"), list):
             raise HubError("the hub returned gateway endpoints without a list")
         return body

@@ -41,6 +41,7 @@ import {
   CatalogServerCard,
   catalogTitle,
   GatewayEndpointCard,
+  HubGatewayCard,
   useCatalogInstall,
   useGatewayEndpoints
 } from './mcp-catalog'
@@ -50,6 +51,7 @@ import {
   describeServer,
   gatewayNeedsSignIn,
   getServers,
+  isHubSlug,
   MCP_CATALOG_KEY,
   MCP_GATEWAY_KEY,
   type McpGatewayEndpoint,
@@ -76,14 +78,20 @@ import { StoreBar, StoreNotice, StoreSource, syncedAt } from './store-tab'
 const NO_ENTRIES: McpCatalogEntry[] = []
 const NO_ENDPOINTS: McpGatewayEndpoint[] = []
 
+/** How long the card a link pointed at stays marked. */
+export const HUB_SPOTLIGHT_MS = 4000
+
 /**
  * Kho tiện ích → MCP: every connection this machine has, and every one it
  * could add, as store cards on named shelves — "Đã kết nối" (what AgentX can
  * reach now, with its live state and the verb that fixes it), then what can
- * be added: from the person's AgentX Hub, through their AgentX Gateway, and
- * the servers AgentX itself recommends. The technical surfaces — the whole
- * mcp.json, the logs — open on demand from the bar's ⋯ and from a
- * connection's own detail; they are never the first thing a person reads.
+ * be added: from the person's AgentX Hub — one shelf, each server set up in
+ * one place, the hub's or this machine's, whichever the hub says (its
+ * decision §9.1 #17) — the toolsets they gathered there, and the servers
+ * AgentX itself recommends. The technical surfaces — the whole mcp.json, the
+ * logs — open on demand from the bar's ⋯ and from a connection's own detail;
+ * they are never the first thing a person reads. A link to one hub server
+ * (`?hub=<slug>`, from `agentx://mcp/<slug>`) brings its card into view.
  *
  * State is the old connections tab's, carried over whole: the shared config
  * cache (whole-map replace, never a deep merge), probes cached per profile and
@@ -351,6 +359,61 @@ export function McpStore({
     )
   }, [configReady, linkedServer, servers, setSearchParams])
 
+  // A link to one hub server (`?hub=<slug>`: the hub's "Mở trong Workmate",
+  // `agentx://mcp/<slug>`) brings its card into view and marks it a moment.
+  // The feed on this machine may predate the server: not in it, it is fetched
+  // again once. The param is dropped either way, like `?server=`.
+  const linkedHub = searchParams.get('hub')
+  const [spotlight, setSpotlight] = useState<null | string>(null)
+  const [hubRefetch, setHubRefetch] = useState<{ done: boolean; slug: string } | null>(null)
+  const catalogLoaded = catalogQuery.data !== undefined
+
+  useEffect(() => {
+    if (!linkedHub || !catalogLoaded || (hubRefetch?.slug === linkedHub && !hubRefetch.done)) {
+      return
+    }
+
+    const valid = isHubSlug(linkedHub)
+    const found = valid && catalog.some(entry => entry.origin === 'hub' && entry.slug === linkedHub)
+
+    if (valid && !found && hubRefetch?.slug !== linkedHub) {
+      setHubRefetch({ done: false, slug: linkedHub })
+      void getMcpCatalog(true)
+        .then(data => queryClient.setQueryData<McpCatalogResponse>([...MCP_CATALOG_KEY, profileKey], data))
+        .catch(() => undefined)
+        .finally(() => setHubRefetch({ done: true, slug: linkedHub }))
+
+      return
+    }
+
+    if (found) {
+      setSpotlight(linkedHub)
+    }
+
+    setSearchParams(
+      previous => {
+        const next = new URLSearchParams(previous)
+        next.delete('hub')
+
+        return next
+      },
+      { replace: true }
+    )
+  }, [catalog, catalogLoaded, hubRefetch, linkedHub, profileKey, queryClient, setSearchParams])
+
+  const configLoaded = Boolean(config)
+
+  useEffect(() => {
+    if (!spotlight || !configLoaded) {
+      return
+    }
+
+    document.querySelector(`[data-hub-slug="${spotlight}"]`)?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    const timer = window.setTimeout(() => setSpotlight(null), HUB_SPOTLIGHT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [configLoaded, spotlight])
+
   // A connection that left (removed here, by the hub sync, from a terminal)
   // takes its open detail with it — it must not pop back if the name returns.
   useEffect(() => {
@@ -563,8 +626,9 @@ export function McpStore({
     void silentReload()
   }
 
+  const openExternal = (url: string) => void window.agentxDesktop.openExternal(url)
   const install = useCatalogInstall(() => void onCatalogInstalled())
-  const gatewayEndpoints = useGatewayEndpoints(profileKey, () => void onCatalogInstalled())
+  const gatewayEndpoints = useGatewayEndpoints(profileKey, () => void onCatalogInstalled(), openExternal)
   const listing = gatewayEndpoints.listing
   const endpoints = listing?.available ? listing.endpoints : NO_ENDPOINTS
 
@@ -716,8 +780,6 @@ export function McpStore({
       .finally(() => setSyncing(false))
   }
 
-  const openExternal = (url: string) => void window.agentxDesktop.openExternal(url)
-
   // Everything the shelves show, resolved once per render.
   const views = useMemo<McpServerView[]>(
     () =>
@@ -734,8 +796,9 @@ export function McpStore({
 
   const connected = views.filter(view => matches(view.title, view.name, view.description))
 
+  // One shelf for the hub's servers, whichever place each is set up in: a card never says where before it says what.
   const hubEntries = catalog.filter(
-    entry => entry.origin === 'hub' && matches(entry.name, entry.description, entry.slug)
+    entry => entry.origin === 'hub' && matches(entry.title, entry.name, entry.description, entry.slug)
   )
 
   const shipped = catalog.filter(entry => {
@@ -744,15 +807,26 @@ export function McpStore({
     return entry.origin !== 'hub' && matches(entry.name, entry.description, copy?.label, copy?.description)
   })
 
-  const gatewayShown = endpoints.filter(endpoint => matches(endpoint.label, endpoint.ref))
+  // A server of the hub has its card on the hub's shelf (the listing only says where the person stands with it).
+  const toolsets = endpoints.filter(endpoint => endpoint.kind === 'toolset')
+  const toolsetsShown = toolsets.filter(endpoint => matches(endpoint.label, endpoint.ref))
 
   const available =
-    catalog.filter(entry => !entry.installed).length + endpoints.filter(endpoint => !endpoint.added).length
+    catalog.filter(entry => !entry.installed).length + toolsets.filter(endpoint => !endpoint.added).length
 
   const untrustedKids = (hub?.notices ?? []).filter(n => n.code === 'hub_key_untrusted').map(n => n.kid ?? '?')
   const unsupported = (catalogQuery.data?.diagnostics ?? []).filter(d => d.kind === 'hub_unsupported').length
   const detailView = detailName ? (views.find(view => view.name === detailName) ?? null) : null
   const device = listing?.device
+
+  // This machine's gateway token, said where its entries are offered: beside the hub's servers set up on the hub,
+  // else beside the toolsets.
+  const tokenNote = device?.token &&
+    device.days_left !== null &&
+    device.entries > 0 &&
+    !gatewayNeedsSignIn(listing) && <span data-testid="mcp-gateway-token"> {m.gatewayTokenDays(device.days_left)}</span>
+
+  const tokenOnHubShelf = hubEntries.some(entry => entry.route?.via === 'gateway')
 
   const updateHubEntry = (view: McpServerView) => {
     if (view.hubEntry) {
@@ -872,7 +946,7 @@ export function McpStore({
   }
 
   const nothingMatches =
-    needle.length > 0 && connected.length + hubEntries.length + shipped.length + gatewayShown.length === 0
+    needle.length > 0 && connected.length + hubEntries.length + shipped.length + toolsetsShown.length === 0
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -914,6 +988,7 @@ export function McpStore({
                     key={view.name}
                     onAuthenticate={() => void authenticate(view.name)}
                     onDetails={() => setDetailName(view.name)}
+                    onOpenHub={openExternal}
                     onProbe={() => void runProbe(view.name)}
                     onToggle={checked => void setServerEnabled(view.name, checked)}
                     onUpdate={() => updateHubEntry(view)}
@@ -933,42 +1008,53 @@ export function McpStore({
                     count={hubEntries.length}
                     data-testid="mcp-hub-catalog"
                     label={m.shelfHub}
-                    note={m.hubHint}
-                  >
-                    {hubEntries.map(entry => (
-                      <CatalogServerCard
-                        entry={entry}
-                        install={install}
-                        key={catalogKey(entry)}
-                        onOpenHub={openExternal}
-                      />
-                    ))}
-                  </StoreCardShelf>
-                )}
-                {gatewayShown.length > 0 && (
-                  <StoreCardShelf
-                    count={gatewayShown.length}
-                    data-testid="mcp-gateway"
-                    label={m.shelfGateway}
                     note={
                       <>
-                        {m.gatewayHint}
-                        {device?.token &&
-                          device.days_left !== null &&
-                          device.entries > 0 &&
-                          !gatewayNeedsSignIn(listing) && (
-                            <span data-testid="mcp-gateway-token"> {m.gatewayTokenDays(device.days_left)}</span>
-                          )}
+                        {m.hubHint}
+                        {tokenOnHubShelf && tokenNote}
                       </>
                     }
                   >
-                    {gatewayShown.map(endpoint => (
+                    {hubEntries.map(entry =>
+                      entry.route?.via === 'gateway' ? (
+                        <HubGatewayCard
+                          entry={entry}
+                          gateway={gatewayEndpoints}
+                          key={catalogKey(entry)}
+                          onOpenHub={openExternal}
+                          spotlight={spotlight === entry.slug}
+                        />
+                      ) : (
+                        <CatalogServerCard
+                          entry={entry}
+                          install={install}
+                          key={catalogKey(entry)}
+                          onOpenHub={openExternal}
+                          spotlight={spotlight === entry.slug}
+                        />
+                      )
+                    )}
+                  </StoreCardShelf>
+                )}
+                {toolsetsShown.length > 0 && (
+                  <StoreCardShelf
+                    count={toolsetsShown.length}
+                    data-testid="mcp-gateway"
+                    label={m.shelfToolsets}
+                    note={
+                      <>
+                        {m.toolsetsHint}
+                        {!tokenOnHubShelf && tokenNote}
+                      </>
+                    }
+                  >
+                    {toolsetsShown.map(endpoint => (
                       <GatewayEndpointCard
                         adding={gatewayEndpoints.adding === endpoint.ref}
                         busy={gatewayEndpoints.adding !== null}
                         endpoint={endpoint}
                         key={`${endpoint.kind}:${endpoint.ref}`}
-                        onAdd={() => void gatewayEndpoints.add(endpoint)}
+                        onAdd={() => void gatewayEndpoints.add(endpoint.kind, endpoint.ref, endpoint.label)}
                         onOpenHub={openExternal}
                       />
                     ))}

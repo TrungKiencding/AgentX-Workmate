@@ -825,10 +825,31 @@ export interface Translations {
       hubNameTaken: string
       hubNotRegistered: string
       hubUnsupported: (count: number) => string
-      gatewayHint: string
+      /**
+       * A hub server set up on the hub (the hub's decision §9.1 #17): added here as its gateway endpoint, nothing
+       * asked here. `viaHub` is its tag; `signInHere` the tag of one whose provider takes no sign-in through the hub.
+       */
+      viaHub: string
+      signInHere: string
+      /** Its single action: add it (the hub serves it to the person), or connect / connect again on the hub first. */
+      hubAdd: string
+      hubReconnect: string
+      /** Where the person stands with it, on its card. */
+      hubUse: Record<
+        'connect' | 'noTools' | 'reconnect' | 'ready' | 'shared' | 'unavailable' | 'unknown' | 'waiting',
+        string
+      >
+      hubWaitingOpen: string
+      hubWaitingCancel: string
+      /** "Kết nối" opened the hub's connect page in the browser: said, with what happens next. */
+      hubConnectOpened: (name: string) => string
+      hubConnectOpenedBody: string
+      /** Added through AgentX Hub: at once, or once connected on the hub. */
+      hubAdded: (name: string) => string
+      /** The toolsets shelf: the person's toolsets on the hub, each one endpoint. */
+      toolsetsHint: string
       gatewaySignIn: string
       gatewayTokenDays: (days: number) => string
-      gatewayServer: string
       gatewayToolset: string
       gatewayStatus: Record<'needs_connection' | 'needs_reauth' | 'partial' | 'ready' | 'unavailable', string>
       gatewayAdded: (label: string) => string
@@ -850,7 +871,7 @@ export interface Translations {
       searchPlaceholder: string
       shelfConnected: string
       shelfHub: string
-      shelfGateway: string
+      shelfToolsets: string
       shelfCatalog: string
       connectedEmpty: string
       nounConnections: string

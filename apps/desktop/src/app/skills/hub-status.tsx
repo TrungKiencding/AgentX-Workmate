@@ -22,6 +22,7 @@ import type { SkillHubChangesResponse, SkillHubInstallRow, SkillHubUpdate } from
 
 import { AGENTX_CONFIG_KEY } from '../hooks/use-config-record'
 
+import { MCP_GATEWAY_KEY } from './mcp-model'
 import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 
 // What the hub wants on this machine, and what the backend did about it.
@@ -101,6 +102,8 @@ export function useHubSync(): HubSync {
   const [seenRevision, setSeenRevision] = useState<number | null>(null)
   // The same for MCP servers the sync installed, removed or switched here.
   const [seenMcpRevision, setSeenMcpRevision] = useState<number | null>(null)
+  // The same for where the person stands with the hub's servers (a connection made on the hub, a wait completed).
+  const [seenGatewayRevision, setSeenGatewayRevision] = useState<number | null>(null)
 
   const changes = useQuery({
     queryKey: HUB_CHANGES_KEY,
@@ -181,6 +184,23 @@ export function useHubSync(): HubSync {
       setSeenMcpRevision(mcpRevision)
     }
   }, [mcpRevision, queryClient, seenMcpRevision])
+
+  // Where the person stands with a hub server changed on the hub (a connection made there, lost, removed; a server
+  // waited for added here — the hub's decision §9.1 #17): the MCP store's shelf asks the hub again.
+  const gatewayRevision = changes.data?.gateway_revision
+  useEffect(() => {
+    if (gatewayRevision === undefined) {
+      return
+    }
+
+    if (seenGatewayRevision !== null && seenGatewayRevision !== gatewayRevision) {
+      void queryClient.invalidateQueries({ queryKey: [MCP_GATEWAY_KEY] })
+    }
+
+    if (seenGatewayRevision !== gatewayRevision) {
+      setSeenGatewayRevision(gatewayRevision)
+    }
+  }, [gatewayRevision, queryClient, seenGatewayRevision])
 
   return { changes, tick, ticking }
 }

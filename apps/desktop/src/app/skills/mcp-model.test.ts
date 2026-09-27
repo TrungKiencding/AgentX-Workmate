@@ -10,7 +10,10 @@ import {
   customDescription,
   describeServer,
   filterStdioSections,
+  gatewayLapsed,
   gatewayNeedsSignIn,
+  hubServerUse,
+  isHubSlug,
   type McpGatewayEndpoint,
   type McpGatewayListing,
   mergeServers,
@@ -255,6 +258,128 @@ describe('naming and describing a connection', () => {
     // A hub that sends no name: the slug as words, as before.
     expect(view('untitled-hub').title).toBe('Untitled Hub')
     expect(catalogTitle(unnamed, en)).toBe('Untitled Hub')
+  })
+})
+
+describe('where a hub server is set up (the hub’s decision §9.1 #17)', () => {
+  const onHub = (overrides: Partial<McpCatalogEntry> = {}) =>
+    entry({
+      name: 'agentx-tracker',
+      origin: 'hub',
+      id: 'agentx-hub/tracker',
+      slug: 'tracker',
+      title: 'Tracker',
+      description: 'Issues and projects, as the hub describes them.',
+      route: { via: 'gateway', reason: null },
+      ...overrides
+    })
+
+  const listed = (endpoints: McpGatewayEndpoint[], overrides: Partial<McpGatewayListing> = {}): McpGatewayListing => ({
+    available: true,
+    reason: null,
+    endpoints,
+    device: null,
+    ...overrides
+  })
+
+  it('offers one verb from where the person stands with it on the hub', () => {
+    const use = (server: McpCatalogEntry, listing: McpGatewayListing | undefined) => hubServerUse(server, listing).use
+
+    expect(use(onHub(), listed([endpoint()]))).toBe('add')
+    expect(use(onHub(), listed([endpoint({ status: 'needs_connection', tools: 0 })]))).toBe('connect')
+    expect(use(onHub(), listed([endpoint({ status: 'needs_reauth', tools: 0 })]))).toBe('reconnect')
+    // Served with no tool approved: adding it would bring nothing.
+    expect(hubServerUse(onHub(), listed([endpoint({ tools: 0 })]))).toMatchObject({
+      use: 'unavailable',
+      reason: 'no_tools'
+    })
+    expect(
+      hubServerUse(onHub(), listed([endpoint({ status: 'unavailable', reason: 'upstream_down', tools: 0 })]))
+    ).toMatchObject({ use: 'unavailable', reason: 'upstream_down' })
+    // The hub could not be asked, or does not list it for the person: nothing is offered.
+    expect(use(onHub(), undefined)).toBe('unknown')
+    expect(use(onHub(), listed([endpoint()], { available: false, reason: 'signed_out' }))).toBe('unknown')
+    expect(use(onHub(), listed([endpoint({ ref: 'another' })]))).toBe('unknown')
+    // A toolset of the same ref is not the server.
+    expect(use(onHub(), listed([endpoint({ kind: 'toolset' })]))).toBe('unknown')
+  })
+
+  it('a server waited for waits; one here is here — unless its account on the hub lapsed', () => {
+    const wait = {
+      slug: 'tracker',
+      label: 'Tracker',
+      until: 1,
+      connect_url: 'https://hub.test/mcp/connect/tracker?from=workmate'
+    }
+
+    expect(
+      hubServerUse(onHub(), listed([endpoint({ status: 'needs_connection' })], { waiting: [wait] }))
+    ).toMatchObject({
+      use: 'waiting',
+      wait
+    })
+    // Here as its gateway endpoint, account lapsed on the hub: signing in there again is the fix.
+    expect(
+      hubServerUse(onHub({ installed: true }), listed([endpoint({ added: 'agentx-tracker', status: 'needs_reauth' })]))
+        .use
+    ).toBe('reconnect')
+    expect(hubServerUse(onHub({ installed: true }), listed([endpoint({ added: 'agentx-tracker' })])).use).toBe(
+      'installed'
+    )
+    // Installed from its manifest before the hub set it up: its own values, the hub's account is not its.
+    expect(hubServerUse(onHub({ installed: true }), listed([endpoint({ status: 'needs_reauth' })])).use).toBe(
+      'installed'
+    )
+    // Here already, a wait left over says nothing.
+    expect(hubServerUse(onHub({ installed: true }), listed([], { waiting: [wait] })).use).toBe('installed')
+  })
+
+  it('knows a lapsed account, and a slug as the hub makes them', () => {
+    expect(gatewayLapsed(endpoint({ status: 'needs_connection' }))).toBe(true)
+    expect(gatewayLapsed(endpoint({ status: 'needs_reauth' }))).toBe(true)
+    expect(gatewayLapsed(endpoint({ status: 'partial' }))).toBe(false)
+    expect(gatewayLapsed(endpoint())).toBe(false)
+    expect(gatewayLapsed(null)).toBe(false)
+
+    expect(isHubSlug('github')).toBe(true)
+    expect(isHubSlug('crm-noi-bo-2')).toBe(true)
+
+    for (const bad of ['', 'GitHub', '-github', 'git--hub', 'github-', 'git hub', '../github', 'a'.repeat(65)]) {
+      expect(isHubSlug(bad)).toBe(false)
+    }
+
+    expect(isHubSlug('a'.repeat(64))).toBe(true)
+  })
+
+  it('a hub server here as its gateway endpoint reads as the hub’s, described as the hub describes it', () => {
+    const view = describeServer({
+      endpoints: [endpoint({ added: 'agentx-tracker', label: 'Tracker (hub)' })],
+      entries: [onHub({ installed: true })],
+      name: 'agentx-tracker',
+      probe: undefined,
+      server: { url: 'https://hub.test/gw/s/tracker' },
+      t: en
+    })
+
+    expect(view).toMatchObject({
+      source: 'hub',
+      title: 'Tracker (hub)',
+      description: 'Issues and projects, as the hub describes them.'
+    })
+    expect(view.gatewayEndpoint?.ref).toBe('tracker')
+    expect(view.hubEntry?.slug).toBe('tracker')
+
+    // A toolset is still said as the person's own gathering.
+    const toolset = describeServer({
+      endpoints: [endpoint({ kind: 'toolset', ref: 'ts_1', label: 'Dự án', added: 'agentx-ts-1' })],
+      entries: [],
+      name: 'agentx-ts-1',
+      probe: undefined,
+      server: { url: 'https://hub.test/gw/t/ts_1' },
+      t: en
+    })
+
+    expect(toolset).toMatchObject({ source: 'gateway', description: m.gatewayToolsetDesc })
   })
 })
 

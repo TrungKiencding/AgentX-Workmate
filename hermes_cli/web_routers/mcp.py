@@ -13,7 +13,7 @@ import asyncio  # noqa: F401 — used by handlers
 import logging
 import secrets  # noqa: F401
 import threading  # noqa: F401
-from typing import Any, Dict, Optional  # noqa: F401
+from typing import Any, Dict, List, Optional  # noqa: F401
 
 from fastapi import APIRouter, HTTPException, Request  # noqa: F401
 from fastapi.responses import HTMLResponse  # noqa: F401
@@ -399,6 +399,8 @@ async def list_mcp_catalog(profile: Optional[str] = None, refresh: bool = False)
             installed_state = {
                 e.identifier: _installed_state(mcp_catalog, e, configured) for e in catalog_entries
             }
+            hub_servers = mcp_hub.checked_servers() if _is_default_profile(profile) else []
+        routes = {str(server.get("slug") or ""): server["route"] for server in hub_servers}
         for entry in catalog_entries:
             auth = entry.auth
             transport = entry.transport
@@ -432,8 +434,9 @@ async def list_mcp_catalog(profile: Optional[str] = None, refresh: bool = False)
                 "post_install": entry.post_install or "",
                 "needs_install": entry.install is not None,
                 **installed_state.get(entry.identifier, {"installed": False, "enabled": False}),
-                **_hub_fields(entry, mcp_hub),
+                **_hub_fields(entry, mcp_hub, routes),
             })
+        entries.extend(_gateway_hub_entries(mcp_catalog, mcp_hub, hub_servers, configured))
     except HTTPException:
         # Unknown/invalid profile → 404, not a silently-empty catalog.
         raise
@@ -474,8 +477,9 @@ def _installed_state(mcp_catalog, entry, configured: Dict[str, Any]) -> Dict[str
     return state
 
 
-def _hub_fields(entry, mcp_hub) -> Dict[str, Any]:
-    """What an AgentX Hub entry adds: which server and its name on the hub, its verdict, who vouches, the tools it may run, the tools kept off."""
+def _hub_fields(entry, mcp_hub, routes: Dict[str, Any]) -> Dict[str, Any]:
+    """What an AgentX Hub entry adds: which server and its name on the hub, its verdict, who vouches, the tools it may
+    run, the tools kept off — and where the hub sets it up (``route``: here, on the machine, for an entry of the catalog)."""
     if entry.hub is None:
         return {"origin": entry.origin, "id": entry.identifier}
     seen = mcp_hub.observed(entry.name) or {}
@@ -483,7 +487,43 @@ def _hub_fields(entry, mcp_hub) -> Dict[str, Any]:
         "origin": entry.origin, "id": entry.identifier, "slug": entry.hub.slug, "title": entry.title or None, "version": entry.hub.version, "verified": True,
         "trust": entry.hub.trust, "verdict": entry.hub.verdict, "tools": sorted(entry.hub.tool_hashes), "page": entry.source or None,
         "blocked_tools": list(seen.get("blocked_tools") or []) if seen.get("slug") == entry.hub.slug else [],
+        "route": routes.get(entry.hub.slug) or {"via": mcp_hub.ROUTE_LOCAL, "reason": None},
     }
+
+
+def _gateway_hub_entries(mcp_catalog, mcp_hub, servers: List[Dict[str, Any]], configured: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The hub's servers set up on the hub (``route.via = gateway``, the hub's decision §9.1 #17), for the one "Từ
+    AgentX Hub" shelf: each is added here as its gateway endpoint (``POST /api/mcp/gateway/add``) — nothing to fill
+    in, whatever its manifest could say. One already here — as that endpoint, or installed from its manifest before
+    the hub set it up (it keeps running as it was, its tools kept off still said) — says so under the name it has;
+    ``name_taken`` when a server of somebody else's holds the name its endpoint would take."""
+    from hermes_cli.hub_sync import gateway_entry_name, gateway_server_of
+
+    rows: List[Dict[str, Any]] = []
+    for server in servers:
+        route = server.get("route") or {}
+        slug = str(server.get("slug") or "")
+        if route.get("via") != mcp_hub.ROUTE_GATEWAY or not slug:
+            continue
+        name, installed, enabled, blocked = gateway_entry_name(slug), False, False, []
+        for key, cfg in configured.items():
+            if gateway_server_of(cfg) == slug or mcp_catalog.hub_slug_of(cfg) == slug:
+                name, installed, enabled = key, True, mcp_catalog.is_enabled(key)
+                seen = mcp_hub.observed(key) or {}
+                blocked = list(seen.get("blocked_tools") or []) if seen.get("slug") == slug else []
+                break
+        taken = not installed and isinstance(configured.get(name), dict)
+        rows.append({
+            "name": name, "description": str(server.get("description") or ""), "source": str(server.get("page") or ""), "transport": "http",
+            "auth_type": str(server.get("auth") or "none"), "required_env": [], "command": None, "args": [], "url": None, "install_url": None,
+            "install_ref": None, "bootstrap": [], "default_enabled": None, "post_install": "", "needs_install": False,
+            "installed": installed, "enabled": enabled, **({"name_taken": True} if taken else {}),
+            "origin": mcp_catalog.ORIGIN_HUB, "id": f"{mcp_catalog.HUB_PREFIX}{slug}", "slug": slug, "title": mcp_catalog.hub_title(server) or None,
+            "version": str(server.get("version") or ""), "verified": True, "trust": server.get("trust") if server.get("trust") in ("curated", "reviewed", "private") else None,
+            "verdict": server.get("verdict"), "tools": sorted(str(tool) for tool in server.get("tools") or []), "page": server.get("page") or None,
+            "blocked_tools": blocked, "route": {"via": route["via"], "reason": route.get("reason")},
+        })
+    return rows
 
 
 @router.post("/api/mcp/catalog/install")
@@ -616,36 +656,49 @@ def _gateway_error(exc: Any) -> Dict[str, Any]:
     return _gateway_refusal(status, str(exc), str(getattr(exc, "code", "") or ""))
 
 
+def _waiting(engine: Any) -> List[Dict[str, Any]]:
+    """The servers the person went to connect on the hub from here, each with the hub page they were sent to."""
+    from hermes_cli.hub_sync import hub_connect_url
+
+    return [{"slug": wait["slug"], "label": wait["label"], "until": wait["until"], "connect_url": hub_connect_url(wait["slug"])} for wait in engine.waiting()]
+
+
 @router.get("/api/mcp/gateway")
 async def list_gateway_endpoints(request: Request, profile: Optional[str] = None):
     """The person's AgentX Gateway endpoints (``GET /v1/mcp/me/endpoints`` on
-    the hub), each with the entry that already reaches it here, and this
-    machine's gateway token (never the token itself). The default profile
-    only: it is where the hub sync keeps them."""
+    the hub, ``?servers=all``: every server set up on the hub they see, with
+    where they stand — the hub's decision §9.1 #17), each with the entry that
+    already reaches it here; this machine's gateway token (never the token
+    itself); and the servers waited for (``waiting``: the person went to
+    connect them on the hub). The default profile only: it is where the hub
+    sync keeps them."""
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
     from hermes_cli.hub_sync import GATEWAY_SOURCE, engine
     from hermes_cli.web_routers.skills import _hub_credentials_from
 
     if not _is_default_profile(profile):
-        return {"available": False, "reason": "profile", "endpoints": [], "device": None}
+        return {"available": False, "reason": "profile", "endpoints": [], "device": None, "waiting": []}
     credentials = _hub_credentials_from(request)
     base_url = hub_base_url()
-    device = engine()._gateway
+    sync = engine()
+    device = sync._gateway
     added = await asyncio.to_thread(device.entries)
     by_url = {str(cfg.get("url") or ""): name for name, cfg in added.items() if cfg.get("source") == GATEWAY_SOURCE}
     status = await asyncio.to_thread(device.status, len(added))
     if credentials is None or not base_url:
-        return {"available": False, "reason": "signed_out", "endpoints": [], "device": status, "added": sorted(added)}
+        return {"available": False, "reason": "signed_out", "endpoints": [], "device": status, "added": sorted(added), "waiting": _waiting(sync)}
     try:
         body = await asyncio.to_thread(HubClient(base_url).gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
-                                       device_name=credentials.device_name)
+                                       device_name=credentials.device_name, every_server=True)
     except HubError as exc:
         refusal = _gateway_error(exc)
-        return {"available": False, "reason": refusal["status"], "error": refusal, "endpoints": [], "device": status, "added": sorted(added)}
+        return {"available": False, "reason": refusal["status"], "error": refusal, "endpoints": [], "device": status, "added": sorted(added),
+                "waiting": _waiting(sync)}
     gateway = body.get("gateway") or {}
     endpoints = [{**endpoint, "added": by_url.get(str(endpoint.get("url") or ""))} for endpoint in body.get("endpoints") or [] if isinstance(endpoint, dict)]
     return {"available": bool(gateway.get("enabled")), "reason": None if gateway.get("enabled") else "gateway_off", "gateway": gateway,
-            "endpoints": endpoints, "device": status, "added": sorted(added), "session": credentials.source in ("session", "mailbox")}
+            "endpoints": endpoints, "device": status, "added": sorted(added), "session": credentials.source in ("session", "mailbox"),
+            "waiting": _waiting(sync)}
 
 
 @router.post("/api/mcp/gateway/add")
@@ -655,9 +708,16 @@ async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profi
     ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. An endpoint off the
     gateway the hub announces (another origin, plain http) is refused
     (``endpoint_refused``) before any token is asked for. The desktop reloads
-    MCP after."""
+    MCP after.
+
+    A server (the hub's decision §9.1 #17, :func:`hub_sync.add_hub_server`)
+    is added when the hub serves it to the person, and the hub is told it is
+    here (an install of it). Not connected yet: nothing is asked here —
+    ``{ok: false, status: "connect", code, connect_url}`` names the hub page
+    where they connect, once, and this machine waits for it (``waiting``),
+    adding the server as soon as the hub serves it."""
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
-    from hermes_cli.hub_sync import GatewayEndpointRefused, GatewaySignInNeeded, add_gateway_endpoint
+    from hermes_cli.hub_sync import GatewayEndpointRefused, GatewaySignInNeeded, add_gateway_endpoint, add_hub_server, announce_mcp_install, engine
     from hermes_cli.web_routers.skills import _hub_credentials_from
 
     if not _is_default_profile(profile):
@@ -668,6 +728,25 @@ async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profi
         return _gateway_refusal("reauth", "Sign in to AgentX Hub first.", "signed_out")
     client = HubClient(base_url)
     try:
+        if body.kind == "server":
+            result = await asyncio.to_thread(add_hub_server, body.ref, client=client, credentials=credentials)
+            status = result["status"]
+            if status == "added":
+                engine().stop_waiting(body.ref)
+                registered = await asyncio.to_thread(announce_mcp_install, body.ref, client=client, credentials=credentials)
+                return {"ok": True, "name": result["name"], "url": result["url"], "registered": registered}
+            if status in ("needs_connection", "needs_reauth"):
+                engine().wait_for(body.ref, result["label"])
+                return {"ok": False, "status": "connect", "code": status, "connect_url": result["connect_url"],
+                        "detail": f"Connect {result['label']} on AgentX Hub: Workmate adds it once you are connected."}
+            if status == "local":
+                return _gateway_refusal("error", "The hub sets this server up on the machine: install it from the store.", "set_up_here")
+            if status == "gateway_off":
+                return _gateway_refusal("error", "The hub runs no AgentX Gateway.", "gateway_off")
+            if status == "unavailable":
+                return _gateway_refusal("error", f"The AgentX Gateway does not serve it now ({result.get('reason') or 'unavailable'}).",
+                                        f"unavailable:{result.get('reason') or ''}".rstrip(":"))
+            return _gateway_refusal("not_found", "That server is not set up on the hub for you.")
         listed = await asyncio.to_thread(client.gateway_endpoints, bearer=credentials.bearer, device_id=credentials.device_id,
                                          device_name=credentials.device_name)
         endpoint = next((e for e in listed.get("endpoints") or [] if isinstance(e, dict) and e.get("kind") == body.kind and e.get("ref") == body.ref), None)
@@ -684,6 +763,38 @@ async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profi
     except ValueError as exc:
         return _gateway_refusal("error", str(exc), "invalid")
     return {"ok": True, "name": name, "url": endpoint["url"]}
+
+
+@router.post("/api/mcp/gateway/waiting/check")
+async def check_gateway_waits(request: Request, profile: Optional[str] = None):
+    """Add now each server waited for that the hub serves the person
+    (:meth:`hub_sync.HubSyncEngine.complete_waits`) — the store asks while it
+    shows one waiting, and when Workmate comes back to the front: ``{added:
+    [{slug, name, label}], waiting}``. The desktop reloads MCP when one was."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+    from hermes_cli.hub_sync import engine
+    from hermes_cli.web_routers.skills import _hub_credentials_from
+
+    if not _is_default_profile(profile):
+        return {"added": [], "waiting": []}
+    sync = engine()
+    credentials = _hub_credentials_from(request)
+    base_url = hub_base_url()
+    if credentials is None or not base_url or not sync.waiting():
+        return {"added": [], "waiting": _waiting(sync)}
+    try:
+        added = await asyncio.to_thread(sync.complete_waits, HubClient(base_url), credentials)
+    except HubError as exc:
+        return {"added": [], "waiting": _waiting(sync), "error": _gateway_error(exc)}
+    return {"added": added, "waiting": _waiting(sync)}
+
+
+@router.delete("/api/mcp/gateway/waiting/{slug}")
+async def stop_gateway_wait(slug: str):
+    """The person no longer waits for hub server *slug* ("Huỷ" on its card)."""
+    from hermes_cli.hub_sync import engine
+
+    return {"ok": engine().stop_waiting(slug)}
 
 
 @router.post("/api/mcp/hub/{slug}/remove")

@@ -298,6 +298,11 @@ def _print_rows_text(rows: List[_Row]) -> None:
         for name, _, msg in hub:
             print(color(f"  ⚠ {name}: {msg}", Colors.YELLOW))
         print()
+    # AgentX Hub servers the hub sets up itself (its decision §9.1 #17): their sign-in is the
+    # hub's, and Workmate's MCP store adds them — nothing to install or type in from here.
+    through_hub = [d[0] for d in diags if d[1] == "hub_gateway"]
+    if through_hub:
+        print(color(f"  Set up on AgentX Hub — add them in Workmate (Utilities → Store → MCP): {', '.join(through_hub)}", Colors.DIM))
     print()
 
 
@@ -341,9 +346,17 @@ def install_by_name(identifier: str, *, dev: bool = False) -> int:
     shipped server file. Returns 0 on success, non-zero on failure (so the CLI
     can propagate exit codes).
     """
-    from hermes_cli.mcp_catalog import get_entry
+    from hermes_cli.mcp_catalog import HUB_PREFIX, get_entry, set_up_on_hub
 
     entry = get_entry(identifier)
+    if entry is None and identifier.startswith(HUB_PREFIX) and set_up_on_hub(identifier[len(HUB_PREFIX):]):
+        # Set up on the hub (its decision §9.1 #17): one place holds its sign-in, and it is not this machine.
+        print(color(
+            f"  '{identifier}' is set up on AgentX Hub: add it in Workmate — Utilities → Store → MCP. "
+            "Its sign-in is kept by the hub; nothing to install or type in here.",
+            Colors.YELLOW,
+        ))
+        return 1
     if entry is None:
         print(color(
             f"  ✗ '{identifier}' is not in the catalog. "

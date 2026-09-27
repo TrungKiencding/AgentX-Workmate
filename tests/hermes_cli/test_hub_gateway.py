@@ -57,9 +57,17 @@ class FakeHub:
         self.refuse: HubError | None = None
         #: What the hub announces as its gateway with each token.
         self.gateway_url = f"{HUB}/gw"
+        #: The installs this machine told the hub about (a gateway endpoint of a hub server is one, the hub's §9.1 #17).
+        self.installs: list[str] = []
+        self.every_server: list[bool] = []
 
-    def gateway_endpoints(self, **_kwargs):
+    def gateway_endpoints(self, every_server=False, **_kwargs):
+        self.every_server.append(every_server)
         return ENDPOINTS
+
+    def create_mcp_install(self, slug, **_kwargs):
+        self.installs.append(slug)
+        return {"id": f"inst-{slug}", "slug": slug}
 
     def gateway_device_token(self, *, bearer, device_id, device_name=""):
         if self.refuse is not None:
@@ -151,6 +159,9 @@ class _NoMcp:
     def local_state(self, _slug):
         return {"installed": False}
 
+    def removed_here(self):
+        return set()
+
 
 def _age(path: Path, days_left: float) -> None:
     state = json.loads(path.read_text())
@@ -226,16 +237,36 @@ def gateway(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
     monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", HUB)
     hub = FakeHub()
-    for name in ("gateway_endpoints", "gateway_device_token"):
+    for name in ("gateway_endpoints", "gateway_device_token", "create_mcp_install"):
         monkeypatch.setattr(HubClient, name, lambda self, *args, _name=name, **kwargs: getattr(hub, _name)(*args, **kwargs))
     current = {"credentials": SESSION}
     monkeypatch.setattr(skills, "_hub_credentials_from", lambda _request: current["credentials"])
+    monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: current["credentials"])
     held = GatewayDevice(state_path=tmp_path / "gateway.json")
     nudges: list[int] = []
-    fake_engine = type("E", (), {"_gateway": held, "nudge": lambda self: nudges.append(1)})()
-    monkeypatch.setattr(hub_sync, "engine", lambda: fake_engine)
+    waits = hub_sync.GatewayWaits()
+
+    class FakeEngine:
+        """The engine as the routes use it: the gateway device, a nudge, the servers waited for."""
+
+        _gateway = held
+
+        def nudge(self):
+            nudges.append(1)
+
+        def wait_for(self, slug, label=""):
+            return waits.add(slug, label)
+
+        def stop_waiting(self, slug):
+            return waits.drop(slug)
+
+        def waiting(self):
+            return waits.current()
+
+    monkeypatch.setattr(hub_sync, "engine", lambda: FakeEngine())
     hub.current = current
     hub.nudges = nudges
+    hub.waits = waits
     return hub
 
 
@@ -256,12 +287,17 @@ def test_the_tab_lists_my_endpoints_and_adds_one_in_a_click(client, gateway):
     raw = mcp_catalog.raw_servers()["agentx-ts_abcdefghij"]
     assert raw["headers"] == {"Authorization": "Bearer ${AGENTX_GATEWAY_TOKEN}"} and raw["source"] == GATEWAY_SOURCE and raw["protocol"] == "auto"
     assert load_config()["mcp_servers"]["agentx-ts_abcdefghij"]["url"] == f"{HUB}/gw/t/ts_abcdefghij"
-    # A second endpoint reuses the token (it has 90 days): one token for the machine.
-    assert client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "tracker"}).status_code == 200
-    assert len(gateway.issued) == 1
+    # A second endpoint reuses the token (it has 90 days): one token for the machine. A server's is an install of it,
+    # told to the hub (the hub's decision §9.1 #17); a toolset's is not.
+    server = client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "tracker"})
+    assert server.status_code == 200 and server.json() == {"ok": True, "name": "agentx-tracker", "url": f"{HUB}/gw/s/tracker", "registered": True}
+    assert len(gateway.issued) == 1 and gateway.installs == ["tracker"]
     after = client.get("/api/mcp/gateway").json()
     assert {e["ref"]: e["added"] for e in after["endpoints"]} == {"tracker": "agentx-tracker", "ts_abcdefghij": "agentx-ts_abcdefghij"}
     assert after["device"]["state"] == "ok" and after["device"]["entries"] == 2 and "hub_secret" not in json.dumps(after)
+    # The tab — and adding a server — asks the hub for every server set up there, not only the ones connected; a
+    # toolset is always one of mine: list, add the toolset, add the server, list.
+    assert gateway.every_server == [True, False, True, True] and after["waiting"] == []
 
 
 def test_the_tab_says_what_stands_in_the_way(client, gateway):
@@ -270,7 +306,7 @@ def test_the_tab_says_what_stands_in_the_way(client, gateway):
         assert answer.status_code == 200, answer.text  # a refusal is said in the body, as the Hub tab's routes say it
         return answer.json()
 
-    assert add("nope") == {"ok": False, "status": "not_found", "code": "not_found", "detail": "That endpoint is not one of yours on the hub."}
+    assert add("nope") == {"ok": False, "status": "not_found", "code": "not_found", "detail": "That server is not set up on the hub for you."}
     gateway.current["credentials"] = PERSONAL
     assert (add()["status"], add()["code"]) == ("sign_in", "sign_in_required")
     gateway.current["credentials"] = None
@@ -281,7 +317,7 @@ def test_the_tab_says_what_stands_in_the_way(client, gateway):
     assert (add()["status"], add()["code"]) == ("error", "mcp_gateway_disabled")
     gateway.refuse = HubError("A device token is asked for from a signed-in session.", status_code=403, code="forbidden")
     assert add()["status"] == "sign_in"
-    assert client.get("/api/mcp/gateway?profile=work").json() == {"available": False, "reason": "profile", "endpoints": [], "device": None}
+    assert client.get("/api/mcp/gateway?profile=work").json() == {"available": False, "reason": "profile", "endpoints": [], "device": None, "waiting": []}
     assert client.post("/api/mcp/gateway/add?profile=work", json={"kind": "server", "ref": "tracker"}).status_code == 400
     from hermes_cli import mcp_catalog
 
