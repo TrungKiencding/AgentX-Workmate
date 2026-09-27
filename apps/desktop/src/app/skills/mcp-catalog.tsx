@@ -35,9 +35,13 @@ const CATALOG_INSTALL_POLL_MS = 1500
 /** What a catalog entry is installed by: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
 export const catalogKey = (entry: McpCatalogEntry) => entry.id ?? entry.name
 
-/** A catalog entry as people read it: AgentX's own copy for a shipped server, else its name as words. */
+/**
+ * A catalog entry as people read it: an AgentX Hub server's name as the hub
+ * shows it, AgentX's own copy for a shipped server, else its name as words
+ * (a hub slug can carry its publisher's name — never the first choice).
+ */
 export const catalogTitle = (entry: McpCatalogEntry, t: Translations): string =>
-  (entry.origin === 'hub' ? null : shippedCopy(entry.name, t)?.label) ?? serverTitle(entry.name)
+  (entry.origin === 'hub' ? entry.title : shippedCopy(entry.name, t)?.label) || serverTitle(entry.name)
 
 /**
  * Installing from the catalog — the shipped servers and the AgentX Hub's —

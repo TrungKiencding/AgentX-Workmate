@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { en } from '@/i18n/en'
 import type { McpCatalogEntry } from '@/types/hermes'
 
+import { catalogTitle } from './mcp-catalog'
 import {
   canAuthenticate,
   catalogMatchFor,
@@ -218,6 +219,42 @@ describe('naming and describing a connection', () => {
 
     const custom = view('ghi-chu', { command: '/usr/bin/python3', enabled: false })
     expect(custom).toMatchObject({ source: 'custom', title: 'Ghi Chu', status: 'off', description: m.customLocal })
+  })
+
+  it('names a hub server as the hub does, not by the slug it runs by (a slug can carry its publisher’s name)', () => {
+    const named = entry({
+      name: 'crm-noi-bo-tacgia-c',
+      origin: 'hub',
+      id: 'agentx-hub/crm-noi-bo-tacgia-c',
+      slug: 'crm-noi-bo-tacgia-c',
+      installed: true,
+      title: 'CRM nội bộ (gói)'
+    })
+
+    const unnamed = entry({
+      name: 'untitled-hub',
+      origin: 'hub',
+      id: 'agentx-hub/untitled-hub',
+      slug: 'untitled-hub',
+      installed: true,
+      title: null
+    })
+
+    const view = (name: string) =>
+      describeServer({
+        endpoints: [],
+        entries: [named, unnamed],
+        name,
+        probe: undefined,
+        server: { command: 'npx' },
+        t: en
+      })
+
+    expect(view('crm-noi-bo-tacgia-c').title).toBe('CRM nội bộ (gói)')
+    expect(catalogTitle(named, en)).toBe('CRM nội bộ (gói)')
+    // A hub that sends no name: the slug as words, as before.
+    expect(view('untitled-hub').title).toBe('Untitled Hub')
+    expect(catalogTitle(unnamed, en)).toBe('Untitled Hub')
   })
 })
 

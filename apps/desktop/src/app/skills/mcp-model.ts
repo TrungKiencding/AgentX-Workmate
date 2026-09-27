@@ -330,7 +330,7 @@ export function describeServer({
 
   const source: ServerSource = hubEntry ? 'hub' : gatewayEndpoint ? 'gateway' : installed ? 'shipped' : 'custom'
 
-  const title = gatewayEndpoint?.label || (installed && copy?.label) || serverTitle(name)
+  const title = gatewayEndpoint?.label || hubEntry?.title || (installed && copy?.label) || serverTitle(name)
 
   const description =
     (gatewayEndpoint && (gatewayEndpoint.kind === 'toolset' ? m.gatewayToolsetDesc : m.gatewayServerDesc)) ||

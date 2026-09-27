@@ -261,6 +261,11 @@ class CatalogEntry:
     manifest_path: Path = field(default_factory=Path)
     origin: str = ORIGIN_OFFICIAL
     hub: Optional[HubSpec] = None
+    #: What people read: an AgentX Hub server's name as the hub shows it (the
+    #: feed's ``label``). Words only — the entry is found, configured and run
+    #: by ``name`` (its slug on the hub). Empty for a shipped entry, whose words
+    #: are the desktop's own copy.
+    title: str = ""
 
     @property
     def identifier(self) -> str:
@@ -727,6 +732,23 @@ def list_catalog() -> List[CatalogEntry]:
     return entries
 
 
+#: The most characters of a hub server's name kept for display.
+HUB_TITLE_MAX = 120
+
+
+def hub_title(server: Dict[str, Any]) -> str:
+    """A hub server's name as people read it (the feed's ``label``: its title,
+    else the last part of its name; ``title`` from a hub that sends no label),
+    on one line, printable characters only — "" when the feed has none."""
+    for key in ("label", "title"):
+        value = server.get(key)
+        if isinstance(value, str):
+            text = "".join(ch for ch in " ".join(value.split()) if ch.isprintable())
+            if text:
+                return text[:HUB_TITLE_MAX]
+    return ""
+
+
 def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]:
     """The AgentX Hub's servers from the last feed this machine fetched
     (``tools/mcp_hub.py``; no network call here), by slug. A server the hub
@@ -756,6 +778,9 @@ def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]
         if entry.hub is None or entry.hub.slug != slug:
             notes.append((identifier, "invalid", f"{identifier}: the manifest names another hub server"))
             continue
+        # The name the hub shows, not the slug the manifest runs by (a slug can carry its publisher's
+        # name — `crm-noi-bo-tacgia-c` when two servers wanted `crm-noi-bo`).
+        entry.title = hub_title(server)
         entries.append(entry)
     return entries
 

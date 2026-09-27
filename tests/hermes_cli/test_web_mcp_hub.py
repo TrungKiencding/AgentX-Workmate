@@ -46,7 +46,7 @@ def hub(monkeypatch: pytest.MonkeyPatch):
     from hermes_cli.web_routers import mcp as routes
 
     monkeypatch.setenv("AGENTX_SKILLS_HUB_URL", HUB)
-    mcp_hub._write_feed(mcp_hub.HubFeed(hub_url=HUB, servers=[{"slug": "linear", "supported": True, "manifest": VECTOR["manifest"]},
+    mcp_hub._write_feed(mcp_hub.HubFeed(hub_url=HUB, servers=[{"slug": "linear", "label": "Linear của nhóm", "supported": True, "manifest": VECTOR["manifest"]},
                                                               {"slug": "legacy", "supported": False, "manifest": None,
                                                                "notes": [{"code": "workmate_sse_gateway", "params": {}}]}],
                                         fetched_at=time.time(), attempted_at=time.time(), keys={VECTOR["kid"]: VECTOR["public_b64"]}))
@@ -70,6 +70,8 @@ def test_the_catalog_lists_the_hubs_verified_servers_with_what_the_tab_shows(cli
     linear = by_id["agentx-hub/linear"]
     assert (linear["origin"], linear["slug"], linear["version"], linear["verified"], linear["trust"], linear["verdict"]) == (
         "hub", "linear", "1.4.0", True, "reviewed", "safe")
+    # Its name as the hub shows it — the tab never names a hub server by its slug.
+    assert linear["title"] == "Linear của nhóm"
     assert linear["tools"] == ["create_issue", "list_issues"] and linear["installed"] is False
     assert [r["name"] for r in linear["required_env"]] == ["LINEAR_API_KEY"]
     assert "agentx-hub/legacy" not in by_id

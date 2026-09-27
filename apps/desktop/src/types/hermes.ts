@@ -1452,6 +1452,8 @@ export interface McpCatalogEntry {
   id?: string
   /** An AgentX Hub server (listed only when both of the hub's signatures hold). */
   slug?: string
+  /** An AgentX Hub server's name as the hub shows it — words only; `name` is what it runs by. */
+  title?: null | string
   version?: string
   verified?: boolean
   trust?: 'curated' | 'reviewed' | 'private'

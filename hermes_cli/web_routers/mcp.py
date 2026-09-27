@@ -475,12 +475,12 @@ def _installed_state(mcp_catalog, entry, configured: Dict[str, Any]) -> Dict[str
 
 
 def _hub_fields(entry, mcp_hub) -> Dict[str, Any]:
-    """What an AgentX Hub entry adds: which server, its verdict, who vouches, the tools it may run, the tools kept off."""
+    """What an AgentX Hub entry adds: which server and its name on the hub, its verdict, who vouches, the tools it may run, the tools kept off."""
     if entry.hub is None:
         return {"origin": entry.origin, "id": entry.identifier}
     seen = mcp_hub.observed(entry.name) or {}
     return {
-        "origin": entry.origin, "id": entry.identifier, "slug": entry.hub.slug, "version": entry.hub.version, "verified": True,
+        "origin": entry.origin, "id": entry.identifier, "slug": entry.hub.slug, "title": entry.title or None, "version": entry.hub.version, "verified": True,
         "trust": entry.hub.trust, "verdict": entry.hub.verdict, "tools": sorted(entry.hub.tool_hashes), "page": entry.source or None,
         "blocked_tools": list(seen.get("blocked_tools") or []) if seen.get("slug") == entry.hub.slug else [],
     }
