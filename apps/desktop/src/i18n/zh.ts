@@ -1265,7 +1265,7 @@ export const zh: Translations = {
       noTools: '这个连接没有提供任何工具。',
       gatewayServerDesc: '你在 AgentX Hub 上的服务器，经由网关使用——登录一次，全部可用。',
       gatewayToolsetDesc: '你在 AgentX Hub 上组合的工具集，经由网关使用——登录一次，全部可用。',
-      gatewayTokenNote: '本机的令牌保存在 .env（AGENTX_GATEWAY_TOKEN）中，会自动续期。',
+      gatewayTokenNote: '本机的令牌保存在 .env（AGENTX_HUB_GATEWAY_TOKEN）中，会自动续期。',
       signInHint: name => `${name} 需要你登录。AgentX 会打开浏览器让你授权，然后自动重新连接。`,
       keyRefused: '服务器拒绝了当前的访问密钥。请在 mcp.json 中改正密钥后再检查一次。',
       errorHint: 'AgentX 没能连上。原因见下方，也可查看日志。',

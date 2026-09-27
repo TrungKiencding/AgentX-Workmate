@@ -1348,7 +1348,7 @@ export const vi: Translations = {
       noTools: 'Kết nối này không có công cụ nào.',
       gatewayServerDesc: 'Server của bạn trên AgentX Hub, dùng qua Gateway — đăng nhập một lần cho tất cả.',
       gatewayToolsetDesc: 'Bộ công cụ bạn gom trên AgentX Hub, dùng qua Gateway — đăng nhập một lần cho tất cả.',
-      gatewayTokenNote: 'Token của máy này lưu trong .env (AGENTX_GATEWAY_TOKEN) và tự gia hạn.',
+      gatewayTokenNote: 'Token của máy này lưu trong .env (AGENTX_HUB_GATEWAY_TOKEN) và tự gia hạn.',
       signInHint: name => `${name} cần bạn đăng nhập. AgentX mở trình duyệt để bạn cho phép, rồi tự kết nối lại.`,
       keyRefused: 'Máy chủ từ chối khoá truy cập đang dùng. Sửa khoá trong mcp.json rồi kiểm tra lại.',
       errorHint: 'AgentX chưa kết nối được. Lý do nằm bên dưới và trong Nhật ký.',

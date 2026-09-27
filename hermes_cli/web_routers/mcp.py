@@ -705,7 +705,7 @@ async def list_gateway_endpoints(request: Request, profile: Optional[str] = None
 async def add_gateway_endpoint_here(body: MCPGatewayAdd, request: Request, profile: Optional[str] = None):
     """Add one of the person's gateway endpoints to Workmate: this machine's
     gateway token (asked for with the signed-in session, kept in ``.env`` as
-    ``AGENTX_GATEWAY_TOKEN``) and an entry that sends it. An endpoint off the
+    ``AGENTX_HUB_GATEWAY_TOKEN``) and an entry that sends it. An endpoint off the
     gateway the hub announces (another origin, plain http) is refused
     (``endpoint_refused``) before any token is asked for. The desktop reloads
     MCP after.

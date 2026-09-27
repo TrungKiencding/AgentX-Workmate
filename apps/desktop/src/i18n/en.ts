@@ -1098,7 +1098,7 @@ export const en: Translations = {
       gatewayServerDesc: 'A server of yours on AgentX Hub, reached through its Gateway — one sign-in for all of them.',
       gatewayToolsetDesc:
         'A toolset you put together on AgentX Hub, reached through its Gateway — one sign-in for all of them.',
-      gatewayTokenNote: "This machine's token is kept in .env (AGENTX_GATEWAY_TOKEN) and renews itself.",
+      gatewayTokenNote: "This machine's token is kept in .env (AGENTX_HUB_GATEWAY_TOKEN) and renews itself.",
       signInHint: name =>
         `${name} needs you to sign in. AgentX opens your browser so you can allow it, then reconnects.`,
       keyRefused: 'The server refused the access key it was given. Fix the key in mcp.json, then check again.',
