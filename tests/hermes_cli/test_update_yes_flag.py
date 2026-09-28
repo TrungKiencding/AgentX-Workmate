@@ -12,7 +12,11 @@ import subprocess
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from hermes_cli.main import cmd_update
+
+pytestmark = pytest.mark.usefixtures("update_leaves_checkout_alone")
 
 
 def _make_run_side_effect(
