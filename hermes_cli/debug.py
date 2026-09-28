@@ -561,7 +561,7 @@ def _capture_default_log_snapshots(
 # Debug report collection
 # ---------------------------------------------------------------------------
 
-def _capture_dump() -> str:
+def _capture_dump(redact: bool = True) -> str:
     """Run ``agentx dump`` and return its stdout as a string."""
     from hermes_cli.dump import run_dump
 
@@ -577,7 +577,7 @@ def _capture_dump() -> str:
     finally:
         sys.stdout = old_stdout
 
-    return capture.getvalue()
+    return _redact_log_text(capture.getvalue()) if redact else capture.getvalue()
 
 
 def collect_debug_report(
@@ -664,7 +664,7 @@ def collect_share_bundle(
     paste behaviour) so every file is self-contained, and the redaction
     banner is prepended when ``redact`` is True.
     """
-    dump_text = _capture_dump()
+    dump_text = _capture_dump(redact=redact)
     log_snapshots = _capture_default_log_snapshots(log_lines, redact=redact)
 
     report = collect_debug_report(
