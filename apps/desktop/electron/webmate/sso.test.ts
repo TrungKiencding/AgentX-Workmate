@@ -37,8 +37,20 @@ function browser(overrides: Partial<BrowserInfo> = {}): BrowserInfo {
     singleProfile: false,
     running: true,
     profiles: [
-      { dir: 'Default', displayName: 'Kiên', lastActive: null, isLastUsed: true, webmate: { installed: true, path: null, disabled: false, disableReasons: [], elsewhere: false } },
-      { dir: 'Profile 2', displayName: 'Work', lastActive: null, isLastUsed: false, webmate: { installed: false, path: null, disabled: false, disableReasons: [], elsewhere: false } }
+      {
+        dir: 'Default',
+        displayName: 'Kiên',
+        lastActive: null,
+        isLastUsed: true,
+        webmate: { installed: true, path: null, disabled: false, disableReasons: [], elsewhere: false }
+      },
+      {
+        dir: 'Profile 2',
+        displayName: 'Work',
+        lastActive: null,
+        isLastUsed: false,
+        webmate: { installed: false, path: null, disabled: false, disableReasons: [], elsewhere: false }
+      }
     ],
     ...overrides
   }
@@ -49,7 +61,11 @@ const NOW = Date.parse('2026-09-09T10:00:00.000Z')
 describe('planAuthHints', () => {
   test('hints every Workmate-installed browser that reports not signed in', () => {
     const decision = planAuthHints(
-      [connection({ instanceId: 'a' }), connection({ instanceId: 'b', signedIn: true }), connection({ instanceId: 'c', signedIn: null })],
+      [
+        connection({ instanceId: 'a' }),
+        connection({ instanceId: 'b', signedIn: true }),
+        connection({ instanceId: 'c', signedIn: null })
+      ],
       defaultPrefs(),
       'kien@example.test',
       new Map(),
@@ -85,9 +101,10 @@ describe('planAuthHints', () => {
       'inst-1'
     ])
     // A different instance (a reconnect gets the same id; a new profile a new one) is due at once.
-    assert.deepEqual(planAuthHints([connection({ instanceId: 'inst-2' })], defaultPrefs(), 'k@x', memory, NOW).instanceIds, [
-      'inst-2'
-    ])
+    assert.deepEqual(
+      planAuthHints([connection({ instanceId: 'inst-2' })], defaultPrefs(), 'k@x', memory, NOW).instanceIds,
+      ['inst-2']
+    )
   })
 })
 
@@ -117,19 +134,30 @@ describe('chooseLoginTarget', () => {
   })
 
   test('the system browser when nothing was chosen or the chosen browser is gone', () => {
-    assert.deepEqual(chooseLoginTarget({ mode: null, browser: null }, false, [browser()]), { kind: 'system', reason: 'no-choice' })
-    assert.deepEqual(chooseLoginTarget({ mode: 'browser', browser: chosen }, false, [browser({ id: 'edge', name: 'Edge' })]), {
+    assert.deepEqual(chooseLoginTarget({ mode: null, browser: null }, false, [browser()]), {
       kind: 'system',
-      reason: 'browser-gone'
+      reason: 'no-choice'
     })
-    assert.deepEqual(chooseLoginTarget({ mode: 'browser', browser: chosen }, false, [browser({ executable: null, appPath: null })]), {
-      kind: 'system',
-      reason: 'browser-gone'
-    })
+    assert.deepEqual(
+      chooseLoginTarget({ mode: 'browser', browser: chosen }, false, [browser({ id: 'edge', name: 'Edge' })]),
+      {
+        kind: 'system',
+        reason: 'browser-gone'
+      }
+    )
+    assert.deepEqual(
+      chooseLoginTarget({ mode: 'browser', browser: chosen }, false, [browser({ executable: null, appPath: null })]),
+      {
+        kind: 'system',
+        reason: 'browser-gone'
+      }
+    )
   })
 
   test('a profile that no longer exists is dropped rather than launched', () => {
-    const target = chooseLoginTarget({ mode: 'browser', browser: { ...chosen, profileDir: 'Profile 9' } }, false, [browser()])
+    const target = chooseLoginTarget({ mode: 'browser', browser: { ...chosen, profileDir: 'Profile 9' } }, false, [
+      browser()
+    ])
 
     assert.equal(target.kind === 'browser' && target.profileDir, null)
 
@@ -149,7 +177,12 @@ describe('chosenBrowserFrom', () => {
       profileDir: 'Profile 2',
       profileName: 'Work'
     })
-    assert.deepEqual(chosenBrowserFrom(browser(), null), { id: 'chrome', name: 'Google Chrome', profileDir: null, profileName: null })
+    assert.deepEqual(chosenBrowserFrom(browser(), null), {
+      id: 'chrome',
+      name: 'Google Chrome',
+      profileDir: null,
+      profileName: null
+    })
     assert.deepEqual(chosenBrowserFrom(browser({ id: 'opera', singleProfile: true, profiles: [] }), 'x'), {
       id: 'opera',
       name: 'Google Chrome',

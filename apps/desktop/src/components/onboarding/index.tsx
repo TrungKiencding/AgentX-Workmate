@@ -249,7 +249,8 @@ export function DesktopOnboardingOverlay({
     })
   }
 
-  const finishBrowserStep = (choice: 'connected' | 'later' | 'never') => leaveThen(() => completeBrowserStep(ctx, choice))
+  const finishBrowserStep = (choice: 'connected' | 'later' | 'never') =>
+    leaveThen(() => completeBrowserStep(ctx, choice))
 
   useEffect(() => {
     if (enabled || onboarding.requested) {

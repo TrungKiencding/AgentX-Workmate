@@ -229,9 +229,7 @@ function ModelResults({
                   <span className="min-w-0 flex-1 truncate">
                     <HighlightMatches query={search} text={model} />
                   </span>
-                  {locked && (
-                    <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>
-                  )}
+                  {locked && <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>}
                   <ModelPrice isCurrent={isCurrent} price={price} />
                 </CommandItem>
               )

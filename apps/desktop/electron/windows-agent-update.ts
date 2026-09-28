@@ -66,7 +66,10 @@ export type AgentUpdateDecision =
  * a rebuild was needed.
  */
 function normalize(value: string): string {
-  return path.win32.normalize(String(value || '')).replace(/[\\/]+$/, '').toLowerCase()
+  return path.win32
+    .normalize(String(value || ''))
+    .replace(/[\\/]+$/, '')
+    .toLowerCase()
 }
 
 /** True when `child` is inside `parent` (or is `parent`). */

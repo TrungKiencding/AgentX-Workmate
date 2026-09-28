@@ -125,13 +125,7 @@ function SudoDialog({ sessionId }: { sessionId: string | null }) {
             value={password}
           />
           <DialogFooter>
-            <Button
-              disabled={submitting}
-              onClick={() => void send('')}
-              size="lg"
-              type="button"
-              variant="ghost"
-            >
+            <Button disabled={submitting} onClick={() => void send('')} size="lg" type="button" variant="ghost">
               {t.common.cancel}
             </Button>
             <Button loading={submitting} size="lg" type="submit">
@@ -232,13 +226,7 @@ function SecretDialog({ sessionId }: { sessionId: string | null }) {
             value={value}
           />
           <DialogFooter>
-            <Button
-              disabled={submitting}
-              onClick={() => void send('')}
-              size="lg"
-              type="button"
-              variant="ghost"
-            >
+            <Button disabled={submitting} onClick={() => void send('')} size="lg" type="button" variant="ghost">
               {t.common.cancel}
             </Button>
             <Button disabled={!value} loading={submitting} size="lg" type="submit">

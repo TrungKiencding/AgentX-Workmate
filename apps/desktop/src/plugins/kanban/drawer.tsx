@@ -205,9 +205,7 @@ function Diagnostics({ items, onReclaim }: { items: Diagnostic[]; onReclaim: () 
             title={`${diag.title}${diag.count > 1 ? ` ×${diag.count}` : ''}`}
             tone={tone}
           >
-            <p className="whitespace-pre-wrap text-2xs leading-relaxed text-(--ui-text-secondary)">
-              {diag.detail}
-            </p>
+            <p className="whitespace-pre-wrap text-2xs leading-relaxed text-(--ui-text-secondary)">{diag.detail}</p>
             {actions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {actions.map(action => (
@@ -379,11 +377,7 @@ function DescriptionSection({ body, onSave }: { body: null | string | undefined;
     >
       {editing ? (
         <div className="flex flex-col gap-1.5">
-          <Textarea
-            className="min-h-24 text-xs"
-            onChange={event => setDraft(event.target.value)}
-            value={draft}
-          />
+          <Textarea className="min-h-24 text-xs" onChange={event => setDraft(event.target.value)} value={draft} />
           <Button
             className="self-end"
             onClick={() => {
@@ -853,9 +847,7 @@ export function TaskDrawer({
                   {detail.comments.map(comment => (
                     <li className="text-xs" key={comment.id}>
                       <span className="font-medium text-(--ui-text-secondary)">{comment.author}</span>
-                      <span className="ml-2 text-2xs text-(--ui-text-quaternary)">
-                        {ago(comment.created_at)}
-                      </span>
+                      <span className="ml-2 text-2xs text-(--ui-text-quaternary)">{ago(comment.created_at)}</span>
                       <p className="whitespace-pre-wrap text-(--ui-text-tertiary)">{comment.body}</p>
                     </li>
                   ))}
@@ -880,10 +872,7 @@ export function TaskDrawer({
                         <li className="flex items-baseline gap-2 text-2xs" key={event.id}>
                           <span className="shrink-0 text-(--ui-text-secondary)">{label}</span>
                           {extra && (
-                            <span
-                              className="min-w-0 truncate text-2xs text-(--ui-text-quaternary)"
-                              title={extra}
-                            >
+                            <span className="min-w-0 truncate text-2xs text-(--ui-text-quaternary)" title={extra}>
                               {extra}
                             </span>
                           )}
