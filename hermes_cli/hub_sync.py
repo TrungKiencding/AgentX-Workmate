@@ -689,6 +689,26 @@ _HUB_STATE_FILENAME = "hub_sync_state.json"
 _VIEW_FIELDS = ("desired_state", "withdrawn", "reason", "reason_version", "visible", "archived_at", "successor", "serving_until")
 
 
+def syncs_this_home() -> bool:
+    """AgentX Hub keeps one home per machine: the default profile's (of the
+    install, or of the account signed in) — the hub sync runs there, what the
+    hub says lives there, and only a copy there is the hub's to keep. Every
+    backend starts the sync, and a named profile (``profiles/<name>``) has one
+    of its own on the desktop, with the same device id: two homes answering for
+    one machine would undo each other (what one has is, to the other, a copy
+    "removed here"). What a named profile installs from the hub is its own."""
+    from hermes_constants import get_hermes_home, split_home_scope
+
+    return split_home_scope(get_hermes_home())[1] is None
+
+
+def hub_keeps_profile(profile: Optional[str]) -> bool:
+    """A route's profile is the one AgentX Hub keeps (:func:`syncs_this_home`):
+    the one the request names, or — asked of a named profile's own backend,
+    which names none — this process's home."""
+    return (not profile or profile == "default") and syncs_this_home()
+
+
 def hub_state_path() -> Any:
     from hermes_constants import get_hermes_home
 
@@ -838,6 +858,8 @@ class HubSyncEngine:
             return HubSyncOutcome(status="disabled", detail="Hub sync is switched off (skills.hub_sync_enabled).")
         if not self._settings.configured:
             return HubSyncOutcome(status="unconfigured", detail="No AgentX Skill Hub URL is configured (skills.hub_url).")
+        if not syncs_this_home():
+            return HubSyncOutcome(status="other_profile", detail="AgentX Hub keeps this machine's skills and MCP servers in the default profile.")
         if self._clock() < self._blocked_until:
             return self._last
         credentials = self._resolve_credentials()
@@ -1597,8 +1619,10 @@ class HubSyncEngine:
 
         self._wake = asyncio.Event()
         self._loop = asyncio.get_running_loop()
-        if not (self._settings.enabled and self._settings.configured):
-            logger.info("hub sync: not running (%s)", "switched off" if not self._settings.enabled else "no hub configured")
+        if not (self._settings.enabled and self._settings.configured and syncs_this_home()):
+            why = ("switched off" if not self._settings.enabled else "no hub configured" if not self._settings.configured
+                   else "a named profile: the hub keeps the default profile")
+            logger.info("hub sync: not running (%s)", why)
             return
         logger.info("hub sync: every %.0fs against %s", self._settings.interval_seconds, self._settings.base_url)
         watcher = asyncio.create_task(self._watch_stream()) if self._settings.realtime else None
@@ -1677,10 +1701,13 @@ def announce_mcp_install(slug: str, *, client: Any | None = None, credentials: O
     keeps the desired state from now on, a yank reaches this machine — and
     wake the sync, which reports what the server announces. Offline: False,
     and the sync registers it later (:meth:`HubSyncEngine._adopt_gateway_servers`
-    for a gateway endpoint)."""
+    for a gateway endpoint). In a named profile nothing is told: the hub
+    keeps the default profile (:func:`syncs_this_home`)."""
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
     from tools import mcp_hub
 
+    if not syncs_this_home():
+        return False
     mcp_hub.clear_removed_here(slug)
     registered = False
     credentials = credentials or resolve_credentials()
@@ -1697,9 +1724,12 @@ def announce_mcp_install(slug: str, *, client: Any | None = None, credentials: O
 
 
 def announce_mcp_removal(slug: str) -> None:
-    """The person removed AgentX Hub server *slug* here: the sync tells the hub."""
+    """The person removed AgentX Hub server *slug* here: the sync tells the hub
+    (not from a named profile, whose servers are its own)."""
     from tools import mcp_hub
 
+    if not syncs_this_home():
+        return
     mcp_hub.mark_removed_here(slug)
     engine().nudge()
 

@@ -1641,6 +1641,8 @@ export const zh: Translations = {
       offline: '无法连接 Hub —— 已安装的技能仍可正常使用。',
       reauth: 'Hub 拒绝了本机的令牌，请重新登录。',
       unconfigured: '尚未配置 Hub 地址（skills.hub_url）。',
+      otherProfile:
+        'AgentX Hub 仅适用于默认配置：切换到默认配置即可从 Hub 添加技能和 MCP 服务器，并接收 Hub 推送的内容。',
       lastSync: when => `上次同步 ${when}`,
       noInstalls: '本机尚未收到来自 Hub 的安装请求。在 Hub 上点击“添加”即可送达此处。',
       desired: { installed: '待安装', removed: '待移除', disabled: '待停用' },

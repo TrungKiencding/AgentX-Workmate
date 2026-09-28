@@ -1601,6 +1601,8 @@ export const ja = defineLocale({
       offline: 'Hub に接続できません — インストール済みのスキルはそのまま使えます。',
       reauth: 'Hub がこのパソコンのサインインを受け付けませんでした。もう一度サインインしてください。',
       unconfigured: 'Hub のアドレスが設定されていません (skills.hub_url)。',
+      otherProfile:
+        'AgentX Hub はデフォルトのプロファイルでのみ動作します。Hub からスキルや MCP サーバーを追加し、Hub の変更を受け取るには、デフォルトのプロファイルに切り替えてください。',
       lastSync: when => `最終同期: ${when}`,
       noInstalls:
         'このパソコンには、まだ Hub からのインストール依頼がありません。Hub で「インストール」を押すと、ここに届きます。',

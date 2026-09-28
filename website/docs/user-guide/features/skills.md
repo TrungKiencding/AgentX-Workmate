@@ -746,7 +746,7 @@ Your organisation's AgentX Hub: the skills it approved for you — your own, you
 - **When you can no longer see it on the hub** (made private, a workspace you left), it keeps working; no newer version will come.
 - **Removing it here** removes it from the hub's list for this machine too.
 
-Only the default profile is kept in step with the hub.
+Only the default profile is kept in step with the hub. A named profile installs no new AgentX Hub skill (the store and `agentx -p <name> skills install agentx-hub/…` send you to the default profile), and one it had from before is its own: the hub no longer reaches it there.
 
 ### Security scanning and `--force`
 

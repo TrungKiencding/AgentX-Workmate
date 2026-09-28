@@ -60,6 +60,11 @@ async def install_skill_hub(request: Request, body: SkillInstallRequest, profile
     identifier = (body.identifier or "").strip()
     if not identifier:
         raise HTTPException(status_code=400, detail="identifier is required")
+    from hermes_cli.hub_sync import hub_keeps_profile
+
+    # AgentX Hub skills live in the profile the hub sync keeps (the default), as its MCP servers do.
+    if identifier.startswith("agentx-hub/") and not hub_keeps_profile(body.profile or profile):
+        raise HTTPException(status_code=400, detail="AgentX Hub skills are installed in the default profile, where the hub sync keeps them.")
     name = _hub_action_name("install", identifier)
     args = _profile_cli_args(body.profile or profile) + ["skills", "install", identifier, "--yes"]
     # A private/workspace skill is only downloadable with the person's bearer, and

@@ -1210,6 +1210,8 @@ export interface Translations {
       offline: string
       reauth: string
       unconfigured: string
+      /** A named profile: AgentX Hub keeps the default profile's skills and MCP servers only. */
+      otherProfile: string
       lastSync: (when: string) => string
       noInstalls: string
       desired: Record<'installed' | 'removed' | 'disabled', string>

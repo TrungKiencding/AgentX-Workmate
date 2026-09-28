@@ -1550,7 +1550,7 @@ export interface ModelAssignmentResponse {
 export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
 export type SkillHubReportedState = 'pending' | 'installed' | 'removed' | 'failed' | 'disabled'
 export type SkillHubSyncStatus =
-  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
+  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'other_profile' | 'signed_out' | 'offline' | 'reauth' | 'error'
 
 /** What the local engine knows about a hub skill on this machine. */
 export interface SkillHubLocalState {

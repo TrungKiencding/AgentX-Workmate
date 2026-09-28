@@ -71,7 +71,7 @@ The hub never removes or overwrites anything by itself while it cannot be reache
 - **Edited here** — you changed the server's command, arguments, environment or URL. The hub sync never overwrites it; **Replace with the Hub version…** in its **Details** puts the hub's configuration back, after a confirmation.
 - **Remove connection** (in its **Details**, after a confirmation) — removes the server from this machine, with its OAuth tokens and cached tool list. The hub hears it on the next sync (removing it from `mcp.json` by hand is understood the same way).
 
-A hub server always installs into the default profile, where the hub sync runs, and never replaces a server of another origin that already uses its name.
+A hub server always installs into the default profile, where the hub sync runs, and never replaces a server of another origin that already uses its name. A named profile — including one the desktop runs on its own — offers no hub server, and tells the hub nothing of the servers it has.
 
 ## Troubleshooting
 

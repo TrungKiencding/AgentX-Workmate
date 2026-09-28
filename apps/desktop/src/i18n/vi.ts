@@ -1736,6 +1736,8 @@ export const vi: Translations = {
       offline: 'Không tới được Hub — skill đã cài vẫn dùng bình thường.',
       reauth: 'Hub từ chối quyền đăng nhập của máy này. Hãy đăng nhập lại.',
       unconfigured: 'Chưa cấu hình địa chỉ Hub (skills.hub_url).',
+      otherProfile:
+        'AgentX Hub chỉ làm việc với hồ sơ mặc định: chuyển sang hồ sơ đó để thêm kỹ năng và MCP từ Hub và nhận những gì Hub gửi.',
       lastSync: when => `Đồng bộ lần cuối ${when}`,
       noInstalls: 'Chưa có kỹ năng nào được yêu cầu cài từ Hub cho máy này. Bấm “Thêm” trên Hub là kỹ năng về đây.',
       desired: { installed: 'Cần cài', removed: 'Cần gỡ', disabled: 'Cần tắt' },

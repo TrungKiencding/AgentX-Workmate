@@ -1485,6 +1485,8 @@ export const en: Translations = {
       offline: 'The Hub cannot be reached — installed skills keep working.',
       reauth: "The Hub refused this machine's token. Sign in again.",
       unconfigured: 'No Hub address is configured (skills.hub_url).',
+      otherProfile:
+        'AgentX Hub works with the default profile: switch to it to add skills and MCP servers from the Hub and keep what it sends.',
       lastSync: when => `Last sync ${when}`,
       noInstalls:
         'Nothing has been requested from the Hub for this machine yet. Click Add on the Hub and it lands here.',

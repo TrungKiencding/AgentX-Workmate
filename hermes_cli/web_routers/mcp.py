@@ -380,8 +380,11 @@ def _refresh_hub_feed(force: bool = False) -> None:
 
 
 def _is_default_profile(profile: Optional[str]) -> bool:
-    """AgentX Hub servers live in the profile the hub sync runs in (the default)."""
-    return not profile or profile == "default"
+    """AgentX Hub servers live in the profile the hub sync runs in (the default;
+    :func:`hermes_cli.hub_sync.hub_keeps_profile`)."""
+    from hermes_cli.hub_sync import hub_keeps_profile
+
+    return hub_keeps_profile(profile)
 
 
 @router.get("/api/mcp/catalog")

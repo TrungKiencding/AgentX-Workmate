@@ -185,6 +185,24 @@ describe('HubStatus', () => {
     getSkillHubChanges.mockResolvedValue(changes({ last: { status: 'signed_out', detail: '' }, installs: [] }))
   })
 
+  it('says a named profile is not the one AgentX Hub keeps (hub decision §8 #22)', async () => {
+    getSkillHubChanges.mockResolvedValue(
+      changes({
+        last: { status: 'other_profile', detail: 'x' },
+        installs: [],
+        updates: [],
+        history: [],
+        workspaces: []
+      })
+    )
+
+    await renderStatus()
+
+    expect((await screen.findByTestId('hub-status-line')).textContent).toBe(
+      'AgentX Hub works with the default profile: switch to it to add skills and MCP servers from the Hub and keep what it sends.'
+    )
+  })
+
   it('"Sync now" runs a tick and refreshes; a changed revision invalidates the skills list', async () => {
     const { client } = await renderStatus()
     await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))

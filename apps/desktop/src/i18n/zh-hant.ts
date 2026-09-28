@@ -1531,6 +1531,8 @@ export const zhHant = defineLocale({
       offline: '無法連線到 Hub — 已安裝的技能仍可正常使用。',
       reauth: 'Hub 不接受這台電腦的登入憑證，請重新登入。',
       unconfigured: '尚未設定 Hub 位址（skills.hub_url）。',
+      otherProfile:
+        'AgentX Hub 只適用於預設設定檔：切換到預設設定檔即可從 Hub 新增技能和 MCP 伺服器，並接收 Hub 傳來的內容。',
       lastSync: when => `上次同步：${when}`,
       noInstalls: '這台電腦還沒有從 Hub 收到任何安裝要求。在 Hub 上按「新增」，技能就會送到這裡。',
       desired: {

@@ -63,6 +63,9 @@ function statusLine(data: SkillHubChangesResponse, h: ReturnType<typeof useI18n>
     case 'unconfigured':
       return h.unconfigured
 
+    case 'other_profile':
+      return h.otherProfile
+
     default:
       return data.configured ? null : h.unconfigured
   }
