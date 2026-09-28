@@ -43,6 +43,7 @@ _SENSITIVE_QUERY_PARAMS = frozenset({
     "code",           # OAuth authorization codes
     "signature",      # pre-signed URL signatures
     "x-amz-signature",
+    "x-goog-signature", "sig",  # GCS V4 signed URLs, Azure SAS tokens
 })
 
 # Sensitive form-urlencoded / JSON body key names (case-insensitive exact match).
