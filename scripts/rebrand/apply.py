@@ -299,6 +299,13 @@ RULES: list[Rule] = [
             "agent/learning_graph.py",
             "tools/blueprints.py",
             "tools/skills_tool.py",
+            # Two more readers that rebrand passes did move to
+            # `metadata.get("agentx")` (24c7b25edd, 7e7f18a5e5): the SKILL.md
+            # linter then warned "missing metadata" on every well-formed
+            # skill, and the hub's GitHub, URL and optional-skills sources
+            # came back with no tags.
+            "tools/skill_linter.py",
+            "tools/skills_hub.py",
             "skills/*",
             "optional-skills/*",
             "tests/acp/test_session_provenance.py",

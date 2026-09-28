@@ -770,6 +770,24 @@ class TestOptionalSkillSourceMetadata:
         assert meta.repo == "TrungKiencding/AgentX-Workmate"
         assert meta.path == "optional-skills/finance/3-statement-model"
 
+    def test_scan_all_reads_tags_from_the_metadata_hermes_key(self, tmp_path):
+        # Every shipped SKILL.md keeps its tags under `metadata.hermes`. A
+        # rebrand pass once moved this lookup to `metadata.agentx`, and every
+        # optional skill came back from the hub with no tags.
+        optional_root = tmp_path / "optional-skills"
+        skill_dir = optional_root / "finance" / "tagged"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: tagged\ndescription: test\nmetadata:\n  hermes:\n"
+            "    tags: [finance, modeling]\n---\n\nBody\n",
+            encoding="utf-8",
+        )
+
+        src = OptionalSkillSource()
+        src._optional_dir = optional_root
+
+        assert [meta.tags for meta in src._scan_all()] == [["finance", "modeling"]]
+
     def test_scan_all_accepts_install_prefix_but_rejects_nested_support_skills(self, tmp_path):
         optional_root = tmp_path / "venv" / "lib" / "site-packages" / "optional-skills"
         real = optional_root / "research" / "real-skill"
