@@ -1385,6 +1385,7 @@ class TestWSL2PowerShellFallback:
             return next(it)
         return _side_effect
 
+    @pytest.mark.linux_only  # the WSL2 PowerShell branch requires platform.system() == "Linux"
     def test_powershell_pipeline_preserves_real_exit_status(self, sample_wav):
         """Regression (review of #63768): the shell pipeline must preserve
         the (ffmpeg && powershell) exit status past the unconditional
@@ -1434,6 +1435,7 @@ class TestWSL2PowerShellFallback:
             "Shell pipeline must preserve the real exit status past cleanup: " + sh_script
         )
 
+    @pytest.mark.linux_only  # the WSL2 PowerShell branch requires platform.system() == "Linux"
     def test_wsl2_unique_temp_filename(self, monkeypatch, tmp_path, sample_wav):
         """Two concurrent calls must use different temp WAV filenames."""
         from unittest.mock import patch, MagicMock
