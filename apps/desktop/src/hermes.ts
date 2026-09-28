@@ -1021,8 +1021,11 @@ export function testMcpServer(name: string): Promise<McpTestResult> {
 /** Replace the whole `mcp_servers` map (the mcp.json editor's save). Unlike
  *  `saveHermesConfig`, this REPLACES rather than deep-merges, so deletes,
  *  re-enables (dropping `enabled: false`), and removed nested fields persist. */
-export function saveMcpServers(servers: Record<string, Record<string, unknown>>): Promise<{ ok: boolean }> {
-  return window.agentxDesktop.api<{ ok: boolean }>({
+/** `kept_off`: servers AgentX Hub keeps off, saved off whatever the map said (the hub's decision §9.1 #18). */
+export function saveMcpServers(
+  servers: Record<string, Record<string, unknown>>
+): Promise<{ kept_off?: string[]; ok: boolean }> {
+  return window.agentxDesktop.api<{ kept_off?: string[]; ok: boolean }>({
     ...profileScoped(),
     path: '/api/mcp/servers',
     method: 'PUT',

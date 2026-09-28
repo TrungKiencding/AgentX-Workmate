@@ -422,6 +422,108 @@ describe('McpStore — what is connected', () => {
   })
 })
 
+describe('McpStore — what the hub says of its servers here (the hub’s decision §9.1 #18)', () => {
+  function hubSync(mcp: Record<string, unknown>): HubSync {
+    return {
+      ...sync,
+      changes: { data: { hub_state: { skills: {}, mcp } } } as unknown as UseQueryResult<SkillHubChangesResponse>
+    }
+  }
+
+  function state(overrides: Record<string, unknown>) {
+    return {
+      slug: 'tracker',
+      name: 'tracker',
+      desired_state: 'installed',
+      withdrawn: false,
+      reason: null,
+      reason_version: null,
+      visible: true,
+      status: 'active',
+      archived_at: null,
+      successor: null,
+      serving_until: null,
+      ...overrides
+    }
+  }
+
+  it('locks the switch of a server the hub keeps off, and says why', async () => {
+    getHermesConfigRecord.mockResolvedValue({ mcp_servers: { tracker: { command: 'npx', enabled: false } } })
+    getMcpCatalog.mockResolvedValue(catalog([hubEntry({ installed: true, enabled: false })]))
+    await renderStore({
+      hubSync: hubSync({
+        tracker: state({ desired_state: 'disabled', withdrawn: true, reason: 'yanked: leaks tokens' })
+      })
+    })
+
+    const held = await findCard('tracker')
+    expect(within(held).getByTestId('mcp-server-held').textContent).toBe('Off by the hub')
+    expect(within(held).getByTestId('mcp-server-state').textContent).toBe(
+      'AgentX Hub switched this off: yanked: leaks tokens. Only the hub turns it back on; you can still remove it.'
+    )
+    const toggle = within(within(held).getByTestId('mcp-server-switch-locked')).getByRole('switch')
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(toggle)
+    expect(saveMcpServers).not.toHaveBeenCalled()
+  })
+
+  it('says a server left the catalogue, until when the gateway serves it, and removes it through the hub', async () => {
+    getHermesConfigRecord.mockResolvedValue({ mcp_servers: { tracker: { command: 'npx' } } })
+    getMcpCatalog.mockResolvedValue(catalog([])) // no longer in the hub's feed
+    const until = new Date(Date.now() + 5 * 86_400_000).toISOString()
+    await renderStore({
+      hubSync: hubSync({
+        tracker: state({
+          status: 'archived',
+          serving_until: until,
+          successor: { slug: 'tracker-two', label: 'Tracker Two' }
+        })
+      })
+    })
+
+    const shown = await findCard('tracker')
+    expect(within(shown).getByTestId('mcp-server-archived').textContent).toBe('No longer published')
+    // Installed from its manifest: it keeps running here, whatever the gateway does.
+    expect(within(shown).getByTestId('mcp-server-state').textContent).toBe(
+      'Its author stopped publishing it: it still works on this machine, but no newer version will come. Its author points to Tracker Two instead.'
+    )
+    await act(async () => {
+      fireEvent.click(within(shown).getByTestId('mcp-server-details'))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mcp-server-remove'))
+    })
+    await act(async () => {
+      fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove connection' }))
+    })
+    // Out of the feed, still the hub's removal: its tokens go too, and the hub hears it.
+    await waitFor(() => expect(removeHubMcpServer).toHaveBeenCalledWith('tracker'))
+    expect(saveMcpServers).not.toHaveBeenCalled()
+  })
+
+  it('an mcp.json save that switches on a server the hub keeps off is kept off, and says so', async () => {
+    getHermesConfigRecord.mockResolvedValue({ mcp_servers: { tracker: { command: 'npx', enabled: false } } })
+    saveMcpServers.mockResolvedValue({ ok: true, kept_off: ['tracker'] })
+    await renderStore({
+      hubSync: hubSync({ tracker: state({ desired_state: 'disabled', withdrawn: true, reason: 'yanked' }) })
+    })
+    await findCard('tracker')
+
+    const dialog = await openEditorFromMenu()
+    fireEvent.change(within(dialog).getByLabelText('mcp.json'), {
+      target: { value: JSON.stringify({ mcpServers: { tracker: { command: 'npx', enabled: true } } }) }
+    })
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    })
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith({ kind: 'warning', message: 'Kept off by AgentX Hub: tracker' })
+    )
+    expect(within(card('tracker')).getByTestId('mcp-server-switch-locked')).toBeTruthy()
+  })
+})
+
 describe('McpStore — what can be added', () => {
   it('connecting from the Hub asks for the values it needs first, then installs by the hub id', async () => {
     getMcpCatalog.mockResolvedValue(catalog([hubEntry()]))

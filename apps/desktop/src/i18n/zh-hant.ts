@@ -1531,6 +1531,8 @@ export const zhHant = defineLocale({
       offline: '無法連線到 Hub — 已安裝的技能仍可正常使用。',
       reauth: 'Hub 不接受這台電腦的登入憑證，請重新登入。',
       unconfigured: '尚未設定 Hub 位址（skills.hub_url）。',
+      otherProfile:
+        'AgentX Hub 只適用於預設設定檔：切換到預設設定檔即可從 Hub 新增技能和 MCP 伺服器，並接收 Hub 傳來的內容。',
       lastSync: when => `上次同步：${when}`,
       noInstalls: '這台電腦還沒有從 Hub 收到任何安裝要求。在 Hub 上按「新增」，技能就會送到這裡。',
       desired: {
@@ -1558,9 +1560,26 @@ export const zhHant = defineLocale({
         removed: '已移除',
         disabled: '已關閉',
         enabled: '已重新開啟',
-        failed: '失敗'
+        failed: '失敗',
+        registered: '已告知 AgentX Hub'
       },
-      openHub: '開啟 AgentX Hub'
+      openHub: '開啟 AgentX Hub',
+      state: {
+        heldPill: 'Hub 已關閉',
+        held: reason => `AgentX Hub 已關閉它：${reason}。只有 Hub 能重新開啟；你仍可移除它。`,
+        heldNoReason: 'AgentX Hub 已關閉它。只有 Hub 能重新開啟；你仍可移除它。',
+        switchLocked: 'AgentX Hub 保持關閉',
+        archivedPill: '已停止發布',
+        archived: '作者已停止發布：在本機仍可使用，但不會再有新版本。',
+        hiddenPill: '已無權查看',
+        hidden: '你在 AgentX Hub 上已無權查看它：仍可使用，但不會再有新版本。',
+        successor: name => `作者建議改用 ${name}。`,
+        installSuccessor: name => `安裝 ${name}`,
+        successorInstalled: name => `已安裝 ${name}`,
+        servingUntil: date => `AgentX Gateway 服務到 ${date}。`,
+        servedNoMore: 'AgentX Gateway 已停止服務。',
+        keptOff: names => `AgentX Hub 保持關閉：${names}`
+      }
     },
     publish: {
       upload: '上傳到 Hub',

@@ -178,9 +178,9 @@ def _install(entry: CatalogEntry) -> bool:
         print(color(f"  ✗ install failed: {exc}", Colors.RED))
         return False
     if entry.hub is not None:
-        from hermes_cli.hub_sync import announce_mcp_install
+        from hermes_cli.hub_sync import announce_mcp_install, syncs_this_home
 
-        if not announce_mcp_install(entry.hub.slug):
+        if not announce_mcp_install(entry.hub.slug) and syncs_this_home():
             print(color("  The AgentX Hub could not be told yet; the hub sync tells it when it can.", Colors.DIM))
     return True
 

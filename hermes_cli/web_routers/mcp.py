@@ -115,13 +115,20 @@ async def replace_mcp_servers(body: MCPServersReplace, profile: Optional[str] = 
     endpoint sets the whole map so removals actually persist.  Storage stays
     the config.yaml ``mcp_servers`` key the CLI/TUI already read.
     """
+    from hermes_cli.hub_sync import hub_hold
     from hermes_cli.mcp_config import _replace_mcp_servers
 
+    servers = dict(body.servers)
     with _profile_scope(body.profile or profile):
-        ok, issues = _replace_mcp_servers(body.servers)
+        # A server the AgentX Hub keeps off stays off, whatever the editor says (§9.1 #18).
+        kept_off = sorted(name for name, cfg in servers.items()
+                          if isinstance(cfg, dict) and cfg.get("enabled", True) is not False and hub_hold("mcp", name) is not None)
+        for name in kept_off:
+            servers[name] = {**servers[name], "enabled": False}
+        ok, issues = _replace_mcp_servers(servers)
     if not ok:
         raise HTTPException(status_code=400, detail="; ".join(issues))
-    return {"ok": True}
+    return {"ok": True, "kept_off": kept_off}
 
 
 @router.delete("/api/mcp/servers/{name}")
@@ -324,9 +331,17 @@ async def set_mcp_server_enabled(
 
     Toggles the ``enabled`` key on the server's config.yaml entry — the same
     flag the agent reads at startup.  Disabled servers stay in config so they
-    can be re-enabled without re-entering their settings.
+    can be re-enabled without re-entering their settings.  A server the AgentX
+    Hub keeps off is not switched on here (``409``, with the hub's reason): only
+    the hub turns it back on (the hub's decision §9.1 #18).
     """
+    from hermes_cli.hub_sync import hub_hold
+
     with _profile_scope(body.profile or profile):
+        held = hub_hold("mcp", name) if body.enabled else None
+        if held is not None:
+            raise HTTPException(status_code=409, detail={"code": "hub_disabled", "message": f"AgentX Hub keeps {name} off: {held.get('reason') or ''}",
+                                                         "reason": held.get("reason") or "", "version": held.get("reason_version")})
         cfg = load_config()
         servers = cfg.get("mcp_servers")
         if not isinstance(servers, dict) or name not in servers:
@@ -365,8 +380,11 @@ def _refresh_hub_feed(force: bool = False) -> None:
 
 
 def _is_default_profile(profile: Optional[str]) -> bool:
-    """AgentX Hub servers live in the profile the hub sync runs in (the default)."""
-    return not profile or profile == "default"
+    """AgentX Hub servers live in the profile the hub sync runs in (the default;
+    :func:`hermes_cli.hub_sync.hub_keeps_profile`)."""
+    from hermes_cli.hub_sync import hub_keeps_profile
+
+    return hub_keeps_profile(profile)
 
 
 @router.get("/api/mcp/catalog")

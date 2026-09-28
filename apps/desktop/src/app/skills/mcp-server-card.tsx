@@ -10,9 +10,11 @@ import {
 } from '@/components/ui/store-card'
 import { Switch } from '@/components/ui/switch'
 import { TagChip } from '@/components/ui/tag-chip'
+import { Tip } from '@/components/ui/tooltip'
 import { type Translations, useI18n } from '@/i18n'
 import { Lock } from '@/lib/icons'
 
+import { HubStateNote } from './hub-state-note'
 import { McpAvatar } from './mcp-avatar'
 import { enabledToolCount, gatewayLapsed, type McpServerView, serverEnabled, type ServerStatus } from './mcp-model'
 
@@ -129,6 +131,10 @@ export function McpServerCard({
   const hubUpdate = hub?.update_available && hub.version ? hub.version : null
   const probe = view.probe && view.probe !== 'probing' && view.probe.ok ? view.probe : null
   const lapsed = view.gatewayEndpoint && gatewayLapsed(view.gatewayEndpoint) ? view.gatewayEndpoint : null
+  const hubState = view.hubState
+  // AgentX Hub keeps it off (the hub's decision §9.1 #18): the switch is the hub's until it turns it back on.
+  const held = hubState?.desired_state === 'disabled'
+  const s = t.skills.hub.state
 
   const verb =
     view.status === 'needs-auth' && view.canAuth ? (
@@ -153,24 +159,56 @@ export function McpServerCard({
     <StoreCard data-server={view.name} data-testid="mcp-server-card" id={`mcp-server-${view.name}`}>
       <StoreCardHeader
         control={
-          <Switch
-            aria-label={enabled ? m.disableServer(view.title) : m.enableServer(view.title)}
-            checked={enabled}
-            className="cursor-pointer"
-            disabled={busy}
-            onCheckedChange={onToggle}
-            size="md"
-          />
+          held ? (
+            <Tip label={s.switchLocked}>
+              <span data-testid="mcp-server-switch-locked">
+                <Switch aria-label={m.enableServer(view.title)} checked={false} disabled size="md" />
+              </span>
+            </Tip>
+          ) : (
+            <Switch
+              aria-label={enabled ? m.disableServer(view.title) : m.enableServer(view.title)}
+              checked={enabled}
+              className="cursor-pointer"
+              disabled={busy}
+              onCheckedChange={onToggle}
+              size="md"
+            />
+          )
         }
-        dimmed={!enabled}
+        dimmed={!enabled || held}
         glyph={<McpAvatar name={view.name} status={view.status} />}
-        meta={<ServerStatusPill canAuth={view.canAuth} status={view.status} t={t} />}
+        meta={
+          held ? (
+            <StatusPill data-testid="mcp-server-held" tone="bad">
+              {s.heldPill}
+            </StatusPill>
+          ) : (
+            <ServerStatusPill canAuth={view.canAuth} status={view.status} t={t} />
+          )
+        }
         title={view.title}
       />
       <StoreCardDescription>{view.description}</StoreCardDescription>
-      {(view.source === 'hub' || view.source === 'gateway' || hubUpdate || hub?.modified) && (
+      {hubState && <HubStateNote gateway={view.source === 'gateway'} hubState={hubState} testId="mcp-server-state" />}
+      {(view.source === 'hub' ||
+        view.source === 'gateway' ||
+        hubUpdate ||
+        hub?.modified ||
+        hubState?.status === 'archived' ||
+        hubState?.visible === false) && (
         <StoreCardTags>
           <ServerSourceTag view={view} />
+          {hubState?.status === 'archived' && (
+            <StatusPill data-testid="mcp-server-archived" tone="warn">
+              {s.archivedPill}
+            </StatusPill>
+          )}
+          {hubState?.visible === false && (
+            <StatusPill data-testid="mcp-server-hidden" tone="muted">
+              {s.hiddenPill}
+            </StatusPill>
+          )}
           {hubUpdate && (
             <StatusPill data-testid="mcp-server-update-available" tone="warn">
               {m.hubUpdateAvailable(hubUpdate)}

@@ -1210,6 +1210,8 @@ export interface Translations {
       offline: string
       reauth: string
       unconfigured: string
+      /** A named profile: AgentX Hub keeps the default profile's skills and MCP servers only. */
+      otherProfile: string
       lastSync: (when: string) => string
       noInstalls: string
       desired: Record<'installed' | 'removed' | 'disabled', string>
@@ -1221,7 +1223,10 @@ export interface Translations {
       syncing: string
       workspaceSkills: (count: number, workspaces: number) => string
       history: string
-      historyAction: Record<'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed', string>
+      historyAction: Record<
+        'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed' | 'registered',
+        string
+      >
       openHub: string
       /** A hub skill edited on this machine: "Update all" keeps it, replacing it backs the edit up (hub §8 #20). */
       editedHere: string
@@ -1235,6 +1240,27 @@ export interface Translations {
       replaceDescription: (version: string) => string
       replaceConfirm: string
       replaceStarted: (name: string) => string
+      /**
+       * What AgentX Hub last said of an installed skill or MCP server (hub decisions §8 #22, §9.1 #18): switched off by
+       * the hub (only the hub turns it back on), no longer published by its author, no longer yours to see — the
+       * card's pill and line, the successor its author points to, the gateway's last day.
+       */
+      state: {
+        heldPill: string
+        held: (reason: string) => string
+        heldNoReason: string
+        switchLocked: string
+        archivedPill: string
+        archived: string
+        hiddenPill: string
+        hidden: string
+        successor: (name: string) => string
+        installSuccessor: (name: string) => string
+        successorInstalled: (name: string) => string
+        servingUntil: (date: string) => string
+        servedNoMore: string
+        keptOff: (names: string) => string
+      }
     }
     publish: {
       upload: string

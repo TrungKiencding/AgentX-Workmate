@@ -1485,6 +1485,8 @@ export const en: Translations = {
       offline: 'The Hub cannot be reached — installed skills keep working.',
       reauth: "The Hub refused this machine's token. Sign in again.",
       unconfigured: 'No Hub address is configured (skills.hub_url).',
+      otherProfile:
+        'AgentX Hub works with the default profile: switch to it to add skills and MCP servers from the Hub and keep what it sends.',
       lastSync: when => `Last sync ${when}`,
       noInstalls:
         'Nothing has been requested from the Hub for this machine yet. Click Add on the Hub and it lands here.',
@@ -1510,7 +1512,8 @@ export const en: Translations = {
         removed: 'removed',
         disabled: 'switched off',
         enabled: 'switched back on',
-        failed: 'failed'
+        failed: 'failed',
+        registered: 'told AgentX Hub'
       },
       openHub: 'Open AgentX Hub',
       editedHere: 'Edited here',
@@ -1525,7 +1528,24 @@ export const en: Translations = {
       replaceDescription: version =>
         `You edited this skill on this machine. Version ${version} from the Hub replaces it; your edited copy is backed up first to ~/.agentx/skills/.hub/backups/.`,
       replaceConfirm: 'Back up and replace',
-      replaceStarted: name => `Replacing ${name} with the Hub version (your copy is backed up)`
+      replaceStarted: name => `Replacing ${name} with the Hub version (your copy is backed up)`,
+      state: {
+        heldPill: 'Off by the hub',
+        held: reason =>
+          `AgentX Hub switched this off: ${reason}. Only the hub turns it back on; you can still remove it.`,
+        heldNoReason: 'AgentX Hub switched this off. Only the hub turns it back on; you can still remove it.',
+        switchLocked: 'AgentX Hub keeps this off',
+        archivedPill: 'No longer published',
+        archived: 'Its author stopped publishing it: it still works on this machine, but no newer version will come.',
+        hiddenPill: 'No longer yours to see',
+        hidden: 'You can no longer see this on AgentX Hub: it still works, but no newer version will come.',
+        successor: name => `Its author points to ${name} instead.`,
+        installSuccessor: name => `Install ${name}`,
+        successorInstalled: name => `${name} is installed`,
+        servingUntil: date => `AgentX Gateway serves it until ${date}.`,
+        servedNoMore: 'AgentX Gateway no longer serves it.',
+        keptOff: names => `Kept off by AgentX Hub: ${names}`
+      }
     },
     publish: {
       upload: 'Upload to Hub',

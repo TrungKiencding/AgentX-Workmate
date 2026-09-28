@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/store-card'
 import { Switch } from '@/components/ui/switch'
 import { TagChip } from '@/components/ui/tag-chip'
+import { Tip } from '@/components/ui/tooltip'
 import {
   getSkillHubCatalog,
   previewSkillHub,
@@ -61,8 +62,9 @@ import {
   updateHubSkills
 } from '@/store/hub-actions'
 import { notify, notifyError, readableError } from '@/store/notifications'
-import type { SkillHubInstalledEntry, SkillInfo } from '@/types/hermes'
+import type { HubStateView, SkillHubInstalledEntry, SkillInfo } from '@/types/hermes'
 
+import { HubStateNote } from './hub-state-note'
 import { HUB_CHANGES_KEY, HubStatus, type HubSync } from './hub-status'
 import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 import { skillMarkdownBody, skillsQueryOptions, toggleSkillEnabled } from './skills-data'
@@ -84,6 +86,9 @@ export const HUB_CATALOG_REFRESH_MS = 30 * 60_000
 
 // Stable empty arrays — a fresh `[]` per render would re-run every memo below.
 const NO_SKILLS: SkillHubResult[] = []
+const NO_HUB_STATES: Record<string, HubStateView> = {}
+// An AgentX Hub skill's identifier is this and its slug.
+const HUB_PREFIX = `${HUB_SOURCE_ID}/`
 
 // Trust and scan verdicts paint from the semantic tokens through StatusPill,
 // so the pill follows the skin on both bands instead of a fixed Tailwind ramp.
@@ -232,21 +237,28 @@ function HubCatalogCard({
 // `localSkill` is the backend's row for it (enabled state), once the skills
 // list has it; until then the card is metadata with its verbs.
 function HubInstalledCard({
+  hubState,
   installedEntry,
   localSkill,
+  onInstall,
   onPreview,
   onReplace,
   onToggle,
   onTryNow,
-  skill
+  skill,
+  successorInstalled
 }: {
+  /** What AgentX Hub last said of it (hub decision §8 #22): kept off by the hub, no longer published, no longer yours to see. */
+  hubState: HubStateView | null
   installedEntry: null | SkillHubInstalledEntry
   localSkill: null | SkillInfo
+  onInstall: (identifier: string, name: string) => void
   onPreview: (skill: SkillHubResult) => void
   onReplace: (target: ReplaceTarget) => void
   onToggle: (skill: SkillInfo, enabled: boolean) => void
   onTryNow: (skillName: string) => void
   skill: SkillHubResult
+  successorInstalled: boolean
 }) {
   const { t } = useI18n()
   const h = t.skills.hub
@@ -257,6 +269,10 @@ function HubInstalledCard({
   const edited = Boolean(installedEntry?.modified)
   const shownVersion = installedEntry?.version || (typeof skill.extra?.version === 'string' ? skill.extra.version : '')
   const off = localSkill ? !localSkill.enabled : false
+  // The hub keeps it off: the switch is the hub's until it turns it back on (the backend refuses too).
+  const held = hubState?.desired_state === 'disabled'
+  const successor = hubState?.status === 'archived' ? hubState.successor : null
+  const successorName = successor ? successor.name || successor.slug : ''
 
   const doUpdate = () => {
     notify({ kind: 'success', title: h.updateOneStarted(skill.name), message: h.actionLog })
@@ -272,7 +288,20 @@ function HubInstalledCard({
     <StoreCard data-identifier={skill.identifier} data-testid="hub-installed-card">
       <StoreCardHeader
         control={
-          localSkill && (
+          localSkill &&
+          (held ? (
+            <Tip label={h.state.switchLocked}>
+              <span data-testid="hub-card-switch-locked">
+                <Switch
+                  aria-label={t.skills.toggleSkill(skillDisplayName(skill.name), true)}
+                  checked={false}
+                  data-testid="hub-card-switch"
+                  disabled
+                  size="md"
+                />
+              </span>
+            </Tip>
+          ) : (
             <Switch
               aria-label={t.skills.toggleSkill(skillDisplayName(skill.name), !localSkill.enabled)}
               checked={localSkill.enabled}
@@ -282,12 +311,16 @@ function HubInstalledCard({
               onCheckedChange={enabled => onToggle(localSkill, enabled)}
               size="md"
             />
-          )
+          ))
         }
-        dimmed={off}
-        // One pill: off outranks the version, exactly as on "Kỹ năng sẵn có".
+        dimmed={off || held}
+        // One pill: the hub's switch-off outranks off, which outranks the version, as on "Kỹ năng sẵn có".
         meta={
-          off ? (
+          held ? (
+            <StatusPill data-testid="hub-card-held" tone="bad">
+              {h.state.heldPill}
+            </StatusPill>
+          ) : off ? (
             <StatusPill tone="muted">{t.skills.switchedOff}</StatusPill>
           ) : (
             shownVersion && (
@@ -302,6 +335,36 @@ function HubInstalledCard({
       <StoreCardDescription>
         {skill.description || localSkill?.description || t.skills.noDescription}
       </StoreCardDescription>
+      {hubState && <HubStateNote hubState={hubState} />}
+      {(hubState?.status === 'archived' || hubState?.visible === false) && (
+        <StoreCardTags>
+          {hubState.status === 'archived' && (
+            <StatusPill data-testid="hub-card-archived" tone="warn">
+              {h.state.archivedPill}
+            </StatusPill>
+          )}
+          {hubState.visible === false && (
+            <StatusPill data-testid="hub-card-hidden" tone="muted">
+              {h.state.hiddenPill}
+            </StatusPill>
+          )}
+          {successor &&
+            (successorInstalled ? (
+              <span className="text-xs text-(--ui-text-tertiary)" data-testid="hub-card-successor-installed">
+                {h.state.successorInstalled(successorName)}
+              </span>
+            ) : (
+              <Button
+                data-testid="hub-card-install-successor"
+                onClick={() => onInstall(`agentx-hub/${successor.slug}`, successorName)}
+                size="sm"
+                variant="textStrong"
+              >
+                {h.state.installSuccessor(successorName)}
+              </Button>
+            ))}
+        </StoreCardTags>
+      )}
       {(updateTo || edited) && (
         // The newer version and what to do about it sit together, beside the
         // pill that says so — the footer keeps "Thử ngay" and ⋯ on one line
@@ -563,6 +626,9 @@ export function SkillsHub({ query, switcher, sync }: SkillsHubProps) {
 
   const isInstalled = (identifier: string) => overrides[identifier] ?? Boolean(installed[identifier])
 
+  // What the hub last said of each skill here, by slug (the sync keeps it across restarts).
+  const hubStates = sync.changes.data?.hub_state?.skills ?? NO_HUB_STATES
+
   // "Đã thêm": every skill this machine runs from the hub, one card each — the
   // installed map is keyed by identifier, and a pinned `agentx-hub/x@1.2.0` is
   // also filed under its unpinned alias, so rows fold by the local name. A
@@ -715,18 +781,28 @@ export function SkillsHub({ query, switcher, sync }: SkillsHubProps) {
         <div className="grid gap-6">
           {shownInstalled.length > 0 && (
             <StoreCardShelf count={shownInstalled.length} data-testid="hub-shelf-installed" label={h.shelfInstalled}>
-              {shownInstalled.map(({ entry, local, localName, skill }) => (
-                <HubInstalledCard
-                  installedEntry={entry}
-                  key={localName}
-                  localSkill={local}
-                  onPreview={openDetail}
-                  onReplace={setReplace}
-                  onToggle={toggleLocal}
-                  onTryNow={trySkill}
-                  skill={skill}
-                />
-              ))}
+              {shownInstalled.map(({ entry, local, localName, skill }) => {
+                const hubState = skill.identifier.startsWith(HUB_PREFIX)
+                  ? (hubStates[skill.identifier.slice(HUB_PREFIX.length)] ?? null)
+                  : null
+                const successor = hubState?.status === 'archived' ? hubState.successor : null
+
+                return (
+                  <HubInstalledCard
+                    hubState={hubState}
+                    installedEntry={entry}
+                    key={localName}
+                    localSkill={local}
+                    onInstall={install}
+                    onPreview={openDetail}
+                    onReplace={setReplace}
+                    onToggle={toggleLocal}
+                    onTryNow={trySkill}
+                    skill={skill}
+                    successorInstalled={successor ? isInstalled(`${HUB_PREFIX}${successor.slug}`) : false}
+                  />
+                )
+              })}
             </StoreCardShelf>
           )}
           {loading ? (
