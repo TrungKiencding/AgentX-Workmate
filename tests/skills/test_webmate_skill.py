@@ -189,6 +189,11 @@ class TestSkillMarkdown:
         # The old ritual — a separate manual sign-in as a prerequisite — is gone.
         assert "does NOT sign in WebMate" not in prose
         assert "open the WebMate side panel once and sign in there" not in prose
+        # A taken port is relayed, not fixed by the agent killing processes
+        # (the in-app agent kill -9'd a gateway's server on 28/09/2026; it came
+        # straight back). Copies of the server share the port since 1.3.0.
+        assert "Never kill processes yourself" in prose
+        assert "Quit the process the message names" not in prose
 
     def test_install_instructions_describe_the_bundled_server(self):
         prose = _prose()

@@ -10,6 +10,26 @@ _mcp_discovery_lock = threading.Lock()
 _mcp_discovery_started = False
 _mcp_discovery_thread: Optional[threading.Thread] = None
 
+# Which AgentX process spawns stdio MCP servers, passed to them as
+# AGENTX_MCP_HOST ("desktop" for the desktop app's backend, "gateway" for the
+# messaging gateway; see tools.mcp_tool._with_mcp_host_role). A module variable
+# rather than os.environ on purpose: the gateway the desktop backend spawns must
+# not inherit "desktop". Servers that share one machine-wide resource use it to
+# decide who gets it — the WebMate bridge port goes to the desktop app's copy,
+# and the others relay through it. Kept here, not in tools.mcp_tool, so naming
+# the process at startup does not import the MCP stack.
+_mcp_host_role: Optional[str] = None
+
+
+def set_mcp_host_role(role: Optional[str]) -> None:
+    """Name this process to the stdio MCP servers it spawns from now on."""
+    global _mcp_host_role
+    _mcp_host_role = (role or "").strip() or None
+
+
+def get_mcp_host_role() -> Optional[str]:
+    return _mcp_host_role
+
 
 def _has_configured_mcp_servers() -> bool:
     """Cheap config probe so non-MCP users avoid importing the MCP stack."""
