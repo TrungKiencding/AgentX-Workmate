@@ -393,7 +393,11 @@ class TestTranscribeLocalExtended:
             }
         }
 
+        # Apple Silicon forces cpu/int8 ahead of config to dodge a native
+        # abort in device autodetection (884900ffd6); this test is about
+        # forwarding the configured values everywhere else.
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
+             patch("tools.transcription_tools._should_force_faster_whisper_cpu", return_value=False), \
              patch("faster_whisper.WhisperModel", mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None), \
