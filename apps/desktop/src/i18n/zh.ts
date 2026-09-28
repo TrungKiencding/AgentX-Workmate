@@ -1658,7 +1658,8 @@ export const zh: Translations = {
         removed: '已移除',
         disabled: '已停用',
         enabled: '已重新启用',
-        failed: '失败'
+        failed: '失败',
+        registered: '已告知 AgentX Hub'
       },
       openHub: '打开 AgentX Hub',
       editedHere: '已在本机修改',
@@ -1672,7 +1673,23 @@ export const zh: Translations = {
       replaceDescription: version =>
         `你在本机修改过这个 skill。Hub 上的 ${version} 版本将替换它；替换前会先把你修改的版本备份到 ~/.agentx/skills/.hub/backups/。`,
       replaceConfirm: '备份并替换',
-      replaceStarted: name => `正在用 Hub 版本替换 ${name}（已备份你的版本）`
+      replaceStarted: name => `正在用 Hub 版本替换 ${name}（已备份你的版本）`,
+      state: {
+        heldPill: 'Hub 已停用',
+        held: reason => `AgentX Hub 已停用它：${reason}。只有 Hub 能重新启用；你仍可移除它。`,
+        heldNoReason: 'AgentX Hub 已停用它。只有 Hub 能重新启用；你仍可移除它。',
+        switchLocked: 'AgentX Hub 保持停用',
+        archivedPill: '已停止发布',
+        archived: '作者已停止发布：在本机仍可使用，但不会再有新版本。',
+        hiddenPill: '已无权查看',
+        hidden: '你在 AgentX Hub 上已无权查看它：仍可使用，但不会再有新版本。',
+        successor: name => `作者建议改用 ${name}。`,
+        installSuccessor: name => `安装 ${name}`,
+        successorInstalled: name => `已安装 ${name}`,
+        servingUntil: date => `AgentX Gateway 服务到 ${date}。`,
+        servedNoMore: 'AgentX Gateway 已停止服务。',
+        keptOff: names => `AgentX Hub 保持停用：${names}`
+      }
     },
     publish: {
       upload: '上传到 Hub',

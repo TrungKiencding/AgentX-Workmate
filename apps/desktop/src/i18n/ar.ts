@@ -1538,9 +1538,26 @@ export const ar = defineLocale({
         removed: 'تمت الإزالة',
         disabled: 'تم الإيقاف',
         enabled: 'تم التشغيل مجددًا',
-        failed: 'فشل'
+        failed: 'فشل',
+        registered: 'تم إبلاغ AgentX Hub'
       },
-      openHub: 'فتح AgentX Hub'
+      openHub: 'فتح AgentX Hub',
+      state: {
+        heldPill: 'أوقفه المركز',
+        held: reason => `أوقف AgentX Hub هذا: ${reason}. لا يعيد تشغيله إلا المركز؛ ويمكنك إزالته.`,
+        heldNoReason: 'أوقف AgentX Hub هذا. لا يعيد تشغيله إلا المركز؛ ويمكنك إزالته.',
+        switchLocked: 'يُبقي AgentX Hub هذا متوقفًا',
+        archivedPill: 'توقف النشر',
+        archived: 'أوقف المؤلف نشره: ما زال يعمل على هذا الجهاز، لكن لن يصل إصدار أحدث.',
+        hiddenPill: 'لم يعد مرئيًا لك',
+        hidden: 'لم تعد تستطيع رؤية هذا على AgentX Hub: ما زال يعمل، لكن لن يصل إصدار أحدث.',
+        successor: name => `يقترح المؤلف ${name} بديلًا.`,
+        installSuccessor: name => `تثبيت ${name}`,
+        successorInstalled: name => `تم تثبيت ${name}`,
+        servingUntil: date => `يقدّمه AgentX Gateway حتى ${date}.`,
+        servedNoMore: 'توقف AgentX Gateway عن تقديمه.',
+        keptOff: names => `يُبقيها AgentX Hub متوقفة: ${names}`
+      }
     },
     publish: {
       upload: 'رفع إلى Hub',

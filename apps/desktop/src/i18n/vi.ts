@@ -1753,7 +1753,8 @@ export const vi: Translations = {
         removed: 'đã gỡ',
         disabled: 'đã tắt',
         enabled: 'đã bật lại',
-        failed: 'lỗi'
+        failed: 'lỗi',
+        registered: 'đã báo AgentX Hub'
       },
       openHub: 'Mở AgentX Hub',
       editedHere: 'Đã sửa trên máy',
@@ -1768,7 +1769,23 @@ export const vi: Translations = {
       replaceDescription: version =>
         `Bạn đã sửa skill này trên máy này. Bản ${version} từ Hub sẽ thay thế nó; bản bạn sửa được sao lưu trước vào ~/.agentx/skills/.hub/backups/.`,
       replaceConfirm: 'Sao lưu rồi thay',
-      replaceStarted: name => `Đang thay ${name} bằng bản Hub (đã sao lưu bản của bạn)`
+      replaceStarted: name => `Đang thay ${name} bằng bản Hub (đã sao lưu bản của bạn)`,
+      state: {
+        heldPill: 'Hub đã tắt',
+        held: reason => `AgentX Hub đã tắt: ${reason}. Chỉ hub bật lại được; bạn vẫn gỡ được.`,
+        heldNoReason: 'AgentX Hub đã tắt mục này. Chỉ hub bật lại được; bạn vẫn gỡ được.',
+        switchLocked: 'AgentX Hub đang tắt mục này',
+        archivedPill: 'Ngừng phát hành',
+        archived: 'Tác giả đã ngừng phát hành: vẫn dùng được trên máy này, nhưng sẽ không có bản mới.',
+        hiddenPill: 'Hết quyền xem',
+        hidden: 'Bạn không còn quyền xem mục này trên AgentX Hub: vẫn dùng được, nhưng sẽ không có bản mới.',
+        successor: name => `Tác giả đề xuất dùng ${name} thay thế.`,
+        installSuccessor: name => `Cài ${name}`,
+        successorInstalled: name => `Đã cài ${name}`,
+        servingUntil: date => `AgentX Gateway phục vụ tới ${date}.`,
+        servedNoMore: 'AgentX Gateway đã thôi phục vụ.',
+        keptOff: names => `AgentX Hub giữ tắt: ${names}`
+      }
     },
     publish: {
       upload: 'Tải lên Hub',

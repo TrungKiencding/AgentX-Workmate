@@ -241,6 +241,102 @@ afterEach(() => {
   $hubInstalledOverride.set({})
 })
 
+// What the hub last said of one installed skill (hub decision §8 #22), as the sync keeps it.
+function hubState(overrides: Record<string, unknown> = {}) {
+  return {
+    name: 'vneb-report',
+    desired_state: 'installed',
+    withdrawn: false,
+    reason: null,
+    reason_version: null,
+    visible: true,
+    status: 'active',
+    archived_at: null,
+    successor: null,
+    serving_until: null,
+    ...overrides
+  }
+}
+
+describe('SkillsHub — what the hub says of an added skill', () => {
+  async function renderWithState(state: Record<string, unknown>, extra: Partial<SkillHubCatalogResponse> = {}) {
+    getSkillHubCatalog.mockResolvedValue(catalog({ installed: INSTALLED_REPORT, ...extra }))
+    getSkills.mockResolvedValue([localSkill({ enabled: false })])
+    getSkillHubChanges.mockResolvedValue({
+      ...changes(),
+      hub_state: { skills: { 'vneb-report': hubState(state) }, mcp: {} }
+    })
+    await renderHub()
+
+    return waitFor(() => {
+      const card = screen.getAllByTestId('hub-installed-card')[0]
+      expect(within(card).getByTestId('hub-card-state')).toBeTruthy()
+
+      return card
+    })
+  }
+
+  it('locks the switch of a skill the hub keeps off, with its reason — removing it stays possible', async () => {
+    const card = await renderWithState({
+      desired_state: 'disabled',
+      withdrawn: true,
+      reason: 'taken down by admin: phishing'
+    })
+    expect(within(card).getByTestId('hub-card-held').textContent).toBe('Off by the hub')
+    expect(within(card).getByTestId('hub-card-state').textContent).toBe(
+      'AgentX Hub switched this off: taken down by admin: phishing. Only the hub turns it back on; you can still remove it.'
+    )
+    const toggle = within(card).getByTestId('hub-card-switch')
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(toggle)
+    expect(setSkillEnabled).not.toHaveBeenCalled()
+    expect(within(card).queryByTestId('hub-card-try-now')).toBeNull()
+    await removeFrom(card)
+    await waitFor(() => expect(uninstallSkillFromHub).toHaveBeenCalledWith('vneb-report'))
+  })
+
+  it('says its author stopped publishing it, and installs what they point to in one press', async () => {
+    const card = await renderWithState({
+      status: 'archived',
+      archived_at: '2026-09-28T00:00:00Z',
+      successor: { slug: 'vneb-report-2', name: 'VNEB report 2' }
+    })
+    expect(within(card).getByTestId('hub-card-archived').textContent).toBe('No longer published')
+    expect(within(card).getByTestId('hub-card-state').textContent).toBe(
+      'Its author stopped publishing it: it still works on this machine, but no newer version will come. Its author points to VNEB report 2 instead.'
+    )
+    // Still on: the author stopping it switches nothing off.
+    expect(within(card).getByTestId('hub-card-switch').hasAttribute('disabled')).toBe(false)
+    await act(async () => {
+      fireEvent.click(within(card).getByTestId('hub-card-install-successor'))
+    })
+    await waitFor(() => expect(installSkillFromHub).toHaveBeenCalledWith('agentx-hub/vneb-report-2'))
+  })
+
+  it('says a successor already here is installed rather than offering it again', async () => {
+    const card = await renderWithState(
+      { status: 'archived', successor: { slug: 'kien/notes', name: 'notes' } },
+      {
+        installed: {
+          ...INSTALLED_REPORT,
+          'agentx-hub/kien/notes': { name: 'notes', trust_level: 'community', scan_verdict: 'safe' }
+        }
+      }
+    )
+
+    expect(within(card).queryByTestId('hub-card-install-successor')).toBeNull()
+    expect(within(card).getByTestId('hub-card-successor-installed').textContent).toBe('notes is installed')
+  })
+
+  it("says a skill is no longer the person's to see", async () => {
+    const card = await renderWithState({ visible: false })
+    expect(within(card).getByTestId('hub-card-hidden').textContent).toBe('No longer yours to see')
+    expect(within(card).getByTestId('hub-card-state').textContent).toBe(
+      'You can no longer see this on AgentX Hub: it still works, but no newer version will come.'
+    )
+  })
+})
+
 describe('SkillsHub — the skill store', () => {
   it('syncs the catalogue on open, with no sign-in, and shows one card per skill', async () => {
     await renderHub()

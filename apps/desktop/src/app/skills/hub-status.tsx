@@ -240,7 +240,13 @@ export function HubStatus({ hideWhenIdle = false, sync }: { hideWhenIdle?: boole
   }
 
   const data = changes.data
-  const installs = data?.installs ?? []
+
+  // Every skill here from the hub is an install the hub keeps (hub decision §8 #22), so the steady ones — wanted,
+  // running, nothing to say — are the "Đã thêm" shelf's to show; the panel keeps what is on its way or went wrong.
+  const installs = (data?.installs ?? []).filter(
+    row => row.desired_state !== 'installed' || row.reported_state !== 'installed' || Boolean(row.error)
+  )
+
   const updates = data?.updates ?? []
   const history = (data?.history ?? []).slice(0, 5)
   const line = data ? statusLine(data, h) : null

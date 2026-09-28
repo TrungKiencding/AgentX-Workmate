@@ -148,13 +148,13 @@ describe('HubStatus', () => {
 
     await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
     expect(await screen.findByTestId('hub-installs')).toBeTruthy()
+    // A steady install (wanted, running) is the "Đã thêm" shelf's: the panel keeps what the hub changed.
     const rows = screen.getAllByTestId('hub-install')
-    expect(rows).toHaveLength(2)
-    expect(rows[0].textContent).toContain('vneb-report')
-    expect(rows[0].textContent).toContain('Installed')
-    expect(rows[1].textContent).toContain('Switched off')
-    expect(rows[1].textContent).toContain('leaks the reactor code')
-    expect(rows[1].textContent).toContain('switched off on this machine')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].textContent).toContain('leaky')
+    expect(rows[0].textContent).toContain('Switched off')
+    expect(rows[0].textContent).toContain('leaks the reactor code')
+    expect(rows[0].textContent).toContain('switched off on this machine')
     expect(screen.getByTestId('hub-stream').textContent).toBe('Live connection')
     // Updates are offered, with the fleet-wide update action.
     expect(screen.getByTestId('hub-updates').textContent).toContain('1 update available')

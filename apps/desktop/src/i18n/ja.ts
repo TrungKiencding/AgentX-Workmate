@@ -1629,9 +1629,26 @@ export const ja = defineLocale({
         removed: '削除済み',
         disabled: 'オフ',
         enabled: '再びオン',
-        failed: '失敗'
+        failed: '失敗',
+        registered: 'AgentX Hub に伝達済み'
       },
-      openHub: 'AgentX Hub を開く'
+      openHub: 'AgentX Hub を開く',
+      state: {
+        heldPill: 'Hub がオフ',
+        held: reason => `AgentX Hub がオフにしました：${reason}。オンに戻せるのは Hub だけです。削除はできます。`,
+        heldNoReason: 'AgentX Hub がオフにしました。オンに戻せるのは Hub だけです。削除はできます。',
+        switchLocked: 'AgentX Hub がオフのままにしています',
+        archivedPill: '公開停止',
+        archived: '作者が公開を停止しました。このマシンでは引き続き使えますが、新しいバージョンは届きません。',
+        hiddenPill: '閲覧権限なし',
+        hidden: 'AgentX Hub でこれを見る権限がなくなりました。引き続き使えますが、新しいバージョンは届きません。',
+        successor: name => `作者は代わりに ${name} を勧めています。`,
+        installSuccessor: name => `${name} をインストール`,
+        successorInstalled: name => `${name} はインストール済み`,
+        servingUntil: date => `AgentX Gateway は ${date} まで提供します。`,
+        servedNoMore: 'AgentX Gateway は提供を終了しました。',
+        keptOff: names => `AgentX Hub がオフのままにしています：${names}`
+      }
     },
     publish: {
       upload: 'Hub にアップロード',
