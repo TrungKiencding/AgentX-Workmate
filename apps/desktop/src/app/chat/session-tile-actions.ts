@@ -25,7 +25,7 @@ import { notifyError } from '@/store/notifications'
 import { clearPreviewArtifacts } from '@/store/preview-status'
 import { clearAllPrompts } from '@/store/prompts'
 import { $connection, $sessions, sessionMatchesStoredId } from '@/store/session'
-import { $sessionStates, sessionTileDelegate } from '@/store/session-states'
+import { $sessionStates, patchSessionTile, sessionTileDelegate } from '@/store/session-states'
 import { broadcastSessionsChanged } from '@/store/session-sync'
 import { clearSessionSubagents } from '@/store/subagents'
 import { clearSessionTodos } from '@/store/todos'
@@ -45,7 +45,7 @@ import {
   truncateSubmitParams
 } from '../session/hooks/use-prompt-actions/rewind'
 import { useSubmitPrompt } from '../session/hooks/use-prompt-actions/submit'
-import { type SubmitTextOptions } from '../session/hooks/use-prompt-actions/utils'
+import { isSessionNotFoundError, type SubmitTextOptions } from '../session/hooks/use-prompt-actions/utils'
 import { upsertOptimisticSession } from '../session/hooks/use-session-actions/utils'
 
 import type { ComposerScope } from './composer/scope'
@@ -205,6 +205,10 @@ export function useSessionTileActions({ runtimeId, scope, storedSessionId }: Ses
     // A tile IS its session — no route to abandon, so the create-abort guard's
     // token is a stable constant (the guard never trips for a tile).
     getRouteToken: () => runtimeId,
+    // A send that finds the tile's runtime gone rebinds the conversation — and
+    // the tile — to a live one (the delegate re-points the tile itself).
+    recoverSessionRuntime: (storedId, staleRuntimeId) =>
+      sessionTileDelegate()?.recoverRuntime(storedId, staleRuntimeId) ?? Promise.resolve(null),
     requestGateway,
     // Tile ids are always bound before this hook mounts, so routed recovery is
     // unreachable here; keep the shared submit contract explicit.
@@ -213,6 +217,10 @@ export function useSessionTileActions({ runtimeId, scope, storedSessionId }: Ses
     syncAttachmentsForSubmit,
     updateSessionState: (sessionId, updater) => sessionTileDelegate()!.updateSession(sessionId, updater),
     scope: {
+      bindRuntime: id => {
+        runtimeIdRef.current = id
+        patchSessionTile(storedIdRef.current, { runtimeId: id })
+      },
       clearAttachments: scope.attachments.clear,
       readAttachments: () => scope.attachments.$attachments.get(),
       // Busy/messages flow through updateSession -> the tile's state slice;
@@ -267,6 +275,25 @@ export function useSessionTileActions({ runtimeId, scope, storedSessionId }: Ses
     try {
       await requestGateway('session.interrupt', { session_id: sessionId })
     } catch (err) {
+      // The runtime is already gone (reaped after a reconnect, a restart), so
+      // its turn is too: rebind the tab to a live runtime and stop whatever
+      // runs there, instead of reporting a failure for a turn that has ended.
+      if (isSessionNotFoundError(err)) {
+        try {
+          const recoveredId = await sessionTileDelegate()?.recoverRuntime(storedIdRef.current, sessionId)
+
+          if (recoveredId) {
+            await requestGateway('session.interrupt', { session_id: recoveredId })
+
+            return
+          }
+        } catch (resumeErr) {
+          notifyError(resumeErr, copy.stopFailed)
+
+          return
+        }
+      }
+
       notifyError(err, copy.stopFailed)
     }
   }, [copy.stopFailed, requestGateway, update])

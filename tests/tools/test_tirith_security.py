@@ -5,13 +5,24 @@ import json
 import os
 import subprocess
 import tarfile
+import tempfile
+import threading
 import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 import tools.tirith_security as _tirith_mod
 from tools.tirith_security import check_command_security, ensure_installed
+
+
+@pytest.fixture(autouse=True)
+def _private_tempdir(tmp_path, monkeypatch):
+    """Install temp dirs, and the stale-dir sweep, stay inside the test's tmp_path."""
+    private = tmp_path / "tmp"
+    private.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(private))
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +59,11 @@ def _mock_run(returncode=0, stdout="", stderr=""):
 
 def _json_stdout(findings=None, summary=""):
     return json.dumps({"findings": findings or [], "summary": summary})
+
+
+def _join_install_thread():
+    if _tirith_mod._install_thread is not None:
+        _tirith_mod._install_thread.join(5)
 
 
 # ---------------------------------------------------------------------------
@@ -303,8 +319,9 @@ class TestFailedDownloadCaching:
         from tools.tirith_security import _resolve_tirith_path, _INSTALL_FAILED
         _tirith_mod._resolved_path = None
 
-        # First call: tries install, fails
+        # First call: tries install (on the background thread), fails
         _resolve_tirith_path("tirith")
+        _join_install_thread()
         assert mock_install.call_count == 1
         assert _tirith_mod._resolved_path is _INSTALL_FAILED
         mock_mark.assert_called_once_with("download_failed")  # reason persisted
@@ -341,13 +358,14 @@ class TestExplicitPathNoAutoDownload:
     @patch("tools.tirith_security.shutil.which", return_value=None)
     def test_default_path_does_auto_download(self, mock_which, mock_install,
                                               mock_disk_check, mock_mark):
-        """The default bare 'tirith' SHOULD trigger auto-download."""
+        """The default bare 'tirith' SHOULD trigger auto-download (in the background)."""
         from tools.tirith_security import _resolve_tirith_path
         _tirith_mod._resolved_path = None
 
-        result = _resolve_tirith_path("tirith")
+        assert _resolve_tirith_path("tirith") == "tirith"  # returns before the download
+        _join_install_thread()
         mock_install.assert_called_once()
-        assert result == "/auto/tirith"
+        assert _resolve_tirith_path("tirith") == "/auto/tirith"
 
         _tirith_mod._resolved_path = None
 
@@ -521,6 +539,126 @@ class TestBackgroundInstall:
 
         _tirith_mod._install_thread = None
         _tirith_mod._resolved_path = None
+
+
+# ---------------------------------------------------------------------------
+# A command's security check never waits on the download
+# ---------------------------------------------------------------------------
+
+class TestCheckNeverWaitsForDownload:
+    """Hosts that never called ensure_installed() at startup (the desktop's
+    ``agentx serve`` backend) reached the install from the first command's
+    security check, which downloaded inline: on a slow link the terminal tool
+    call sat in "Running" for the whole release download."""
+
+    @staticmethod
+    def _cfg(fail_open=True):
+        return {"tirith_enabled": True, "tirith_path": "tirith",
+                "tirith_timeout": 5, "tirith_fail_open": fail_open}
+
+    @staticmethod
+    def _slow_install(release, installed_path):
+        """Stand-in for _install_tirith whose download lasts until *release* is set."""
+        calls = []
+
+        def _install(*, log_failures=True):
+            calls.append(threading.current_thread())
+            release.wait(10)
+            return installed_path, ""
+
+        return _install, calls
+
+    @patch("tools.tirith_security.subprocess.run")
+    @patch("tools.tirith_security.shutil.which", return_value=None)
+    @patch("tools.tirith_security._load_security_config")
+    def test_commands_fail_open_until_the_download_lands(self, mock_cfg, mock_which, mock_run):
+        mock_cfg.return_value = self._cfg()
+        _tirith_mod._resolved_path = None
+        release = threading.Event()
+        fake_install, calls = self._slow_install(release, "/auto/tirith")
+
+        with patch("tools.tirith_security._install_tirith", side_effect=fake_install):
+            try:
+                # More commands than _CRASH_LIMIT: waiting for the binary is not a crash.
+                results = [check_command_security("echo hi")
+                           for _ in range(_tirith_mod._CRASH_LIMIT + 1)]
+            finally:
+                release.set()
+                _join_install_thread()
+
+        assert results == [{"action": "allow", "findings": [],
+                            "summary": "tirith install in progress"}] * len(results)
+        assert len(calls) == 1  # one download...
+        assert calls[0] is not threading.current_thread()  # ...off the command's thread
+        mock_run.assert_not_called()  # no binary to spawn yet
+        assert _tirith_mod._crash_count == 0
+        assert _tirith_mod._circuit_open is False
+
+        # Once the download lands, the next command is scanned by the installed binary.
+        mock_run.return_value = _mock_run(1, _json_stdout([{"rule_id": "homograph_url"}], "homograph"))
+        assert check_command_security("curl http://gооgle.com")["action"] == "block"
+        assert mock_run.call_args[0][0][0] == "/auto/tirith"
+
+    @patch("tools.tirith_security.subprocess.run")
+    @patch("tools.tirith_security.shutil.which", return_value=None)
+    @patch("tools.tirith_security._load_security_config")
+    def test_fail_closed_blocks_until_the_download_lands(self, mock_cfg, mock_which, mock_run):
+        mock_cfg.return_value = self._cfg(fail_open=False)
+        _tirith_mod._resolved_path = None
+        release = threading.Event()
+        fake_install, _calls = self._slow_install(release, "/auto/tirith")
+
+        with patch("tools.tirith_security._install_tirith", side_effect=fake_install):
+            try:
+                result = check_command_security("echo hi")
+            finally:
+                release.set()
+                _join_install_thread()
+
+        assert result["action"] == "block"
+        assert result["summary"] == "tirith install in progress (fail-closed)"
+        mock_run.assert_not_called()
+        assert _tirith_mod._crash_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Install temp dirs abandoned by killed processes
+# ---------------------------------------------------------------------------
+
+class TestStaleInstallDirSweep:
+    """A killed process, or the daemon install thread at interpreter exit,
+    never runs _install_tirith's cleanup and leaves a partial archive in a
+    tirith-install-* temp dir. The next install attempt removes abandoned dirs
+    without touching a download that another process still has in flight."""
+
+    def test_install_removes_only_abandoned_install_dirs(self):
+        root = Path(tempfile.gettempdir())
+        now = time.time()
+        old = now - 2 * _tirith_mod._STALE_INSTALL_DIR_SECONDS
+
+        def make_dir(name, *, archive_mtime):
+            d = root / name
+            d.mkdir()
+            archive = d / "tirith-aarch64-apple-darwin.tar.gz"
+            archive.write_bytes(b"partial")
+            os.utime(archive, (archive_mtime, archive_mtime))
+            os.utime(d, (old, old))
+            return d
+
+        abandoned = make_dir("tirith-install-dead", archive_mtime=old)
+        in_flight = make_dir("tirith-install-live", archive_mtime=now)
+        unrelated = make_dir("othertool-install-dead", archive_mtime=old)
+
+        with patch("tools.tirith_security._detect_target", return_value="aarch64-apple-darwin"), \
+             patch("tools.tirith_security._download_file", side_effect=OSError("offline")):
+            assert _tirith_mod._install_tirith(log_failures=False) == (None, "download_failed")
+
+        assert not abandoned.exists()
+        assert in_flight.exists()
+        assert unrelated.exists()
+        # The failed attempt still removes its own temp dir.
+        assert sorted(p.name for p in root.iterdir()) == [
+            "othertool-install-dead", "tirith-install-live"]
 
 
 # ---------------------------------------------------------------------------

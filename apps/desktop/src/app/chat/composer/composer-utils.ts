@@ -26,7 +26,9 @@ export const COMPOSER_FADE_BACKGROUND =
 // unmount/pagehide flushes bypass it.
 export const DRAFT_PERSIST_DEBOUNCE_MS = 400
 
-export const pickPlaceholder = (pool: readonly string[]) => pool[Math.floor(Math.random() * pool.length)]
+// `draw` is in [0, 1). Replaying a stored draw against another pool lands on the
+// matching slot — the same line in a new language.
+export const pickPlaceholder = (pool: readonly string[], draw = Math.random()) => pool[Math.floor(draw * pool.length)]
 
 /** Completion items can carry an `action` (set in use-slash-completions) that
  *  runs a side effect on pick instead of inserting a chip — e.g. the session

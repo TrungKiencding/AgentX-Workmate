@@ -21,7 +21,7 @@ import {
   generatedImageEchoSources,
   stripGeneratedImageEchoes
 } from '@/lib/generated-images'
-import { parseTodos } from '@/lib/todos'
+import { todoCallResult } from '@/lib/todos'
 import { dispatchNativeNotification } from '@/store/native-notifications'
 import { isDiskFullErrorMessage, notifyError } from '@/store/notifications'
 import { broadcastSessionsChanged } from '@/store/session-sync'
@@ -41,6 +41,8 @@ interface MessageStreamOptions {
     storedSessionId?: string | null,
     runtimeSessionId?: string | null
   ) => Promise<void>
+  /** Retire a runtime the backend reclaimed (see the session.reclaimed branch). */
+  onRuntimeReclaimed?: (runtimeId: string) => void
   queryClient: QueryClient
   refreshHermesConfig: () => Promise<void>
   refreshSessions: () => Promise<void>
@@ -68,6 +70,7 @@ export function useMessageStream({
   activeGatewayProfile = 'default',
   activeSessionIdRef,
   hydrateFromStoredSession,
+  onRuntimeReclaimed,
   queryClient,
   refreshHermesConfig,
   refreshSessions,
@@ -452,7 +455,7 @@ export function useMessageStream({
       // The composer status stack owns todo display now (no inline panel) —
       // mirror every todo state the tool reports into its session store.
       if (payload?.name === 'todo') {
-        const todos = parseTodos(payload.todos) ?? parseTodos(payload.result) ?? parseTodos(payload.args)
+        const todos = todoCallResult(payload)
 
         if (todos) {
           setSessionTodos(sessionId, todos)
@@ -555,6 +558,7 @@ export function useMessageStream({
         if (state.interrupted) {
           return {
             ...state,
+            adoptedRunningTurn: false,
             awaitingResponse: false,
             busy: false,
             needsInput: false,
@@ -665,12 +669,22 @@ export function useMessageStream({
         const hasInlineError = nextMessages.some(m => m.role === 'assistant' && m.error && !m.hidden)
         const lastVisible = [...nextMessages].reverse().find(m => !m.hidden)
         const unresolvedUserTail = lastVisible?.role === 'user'
+        // Having streamed the reply normally means this window owns the whole
+        // turn and re-reading stored history would be wasted work. That only
+        // holds for a turn it STARTED: an adopted one (attached to a session
+        // already running — a switch back, a reconnect, a tab re-binding) never
+        // received what was emitted before the attach, so it hydrates or those
+        // rows (the prompt, early tool calls) never show up.
         shouldHydrate =
-          !completionError && !hasInlineError && !unresolvedUserTail && (!state.sawAssistantPayload || !finalText)
+          !completionError &&
+          !hasInlineError &&
+          !unresolvedUserTail &&
+          (state.adoptedRunningTurn || !state.sawAssistantPayload || !finalText)
 
         return {
           ...state,
           messages: nextMessages,
+          adoptedRunningTurn: false,
           streamId: null,
           pendingBranchGroup: null,
           awaitingResponse: false,
@@ -745,6 +759,7 @@ export function useMessageStream({
         return {
           ...state,
           messages: nextMessages,
+          adoptedRunningTurn: false,
           streamId: null,
           pendingBranchGroup: null,
           sawAssistantPayload: true,
@@ -771,6 +786,7 @@ export function useMessageStream({
     failAssistantMessage,
     flushQueuedDeltas,
     finalizeInterimAssistantMessage,
+    onRuntimeReclaimed,
     queryClient,
     refreshHermesConfig,
     sessionInterrupted,

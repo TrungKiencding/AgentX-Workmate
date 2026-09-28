@@ -1078,7 +1078,7 @@ def install(
                 _report_gateway_start(f"direct spawn (PID {pid})")
         else:
             print("ℹ Gateway not started and no auto-start service installed.")
-            print("  Run later with: agentx gateway start")
+            print("  Run in the foreground later with: agentx gateway run")
         return
 
     task_name = get_task_name()
@@ -1495,23 +1495,25 @@ def start() -> None:
         print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
         return
 
-    task_installed = is_task_registered()
-    startup_installed = is_startup_entry_installed()
+    if not is_task_registered() and not is_startup_entry_installed():
+        # Login persistence is a lasting system change: a bare ``start`` installs it only on an explicit
+        # answer — the AGENTX_GATEWAY_INSTALL_START_ON_LOGIN override or a real TTY prompt — never on a
+        # non-TTY default (upstream #113977). Declining still starts the gateway; the command is ``start``.
+        start_on_login = _install_choice_from_env("AGENTX_GATEWAY_INSTALL_START_ON_LOGIN")
+        if start_on_login is None:
+            from hermes_cli.setup import is_interactive_stdin, is_noninteractive, prompt_yes_no
 
-    if not task_installed and not startup_installed:
-        from hermes_cli.setup import prompt_yes_no
-
-        print("✗ Gateway service is not installed")
-        if not prompt_yes_no("  Install it now so the gateway starts on login?", True):
-            print("  Run: agentx gateway install")
+            print("✗ Gateway service is not installed")
+            if is_noninteractive() or not is_interactive_stdin():
+                start_on_login = False
+            else:
+                start_on_login = prompt_yes_no("  Install it now so the gateway starts on login?", True)
+        if start_on_login:
+            # install() starts the gateway itself (start_now) and reports the outcome — including a UAC
+            # hand-off to an elevated child — so there is nothing left to spawn or to warn about here.
+            install(force=False, start_now=True, start_on_login=True)
             return
-        install(force=False)
-        task_installed = is_task_registered()
-        startup_installed = is_startup_entry_installed()
-        if not task_installed and not startup_installed:
-            print("⚠ Gateway install did not complete in this process.")
-            print("  If a UAC prompt opened, approve it, then run: agentx gateway start")
-            return
+        print("ℹ Login auto-start not installed; add it later with: agentx gateway install")
 
     # Manual starts use the same console-less direct spawn path as restart()
     # and install --start-now. Scheduled Task / Startup entries are only login

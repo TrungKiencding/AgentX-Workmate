@@ -31,21 +31,6 @@ from tools.skills_hub import (
 )
 
 
-@pytest.fixture(autouse=True)
-def _no_leaked_path_overrides():
-    """``tools.skills_hub`` resolves SKILLS_DIR/HUB_DIR/LOCK_FILE… live through
-    PEP 562 ``__getattr__``; a real module attribute of the same name wins.
-    ``monkeypatch.setattr`` on such a name reads the *resolved* value as the
-    "old" one and puts it back as a real attribute on undo — pinning every
-    later test in the process to this test's throwaway home. Drop any such
-    attribute after each test so the resolvers are live again."""
-    yield
-    import tools.skills_hub as hub
-
-    for name in hub._DYNAMIC_PATH_RESOLVERS:
-        hub.__dict__.pop(name, None)
-
-
 # ---------------------------------------------------------------------------
 # GitHubSource._parse_frontmatter_quick
 # ---------------------------------------------------------------------------
@@ -1091,9 +1076,12 @@ class TestInstallPathSafety:
 
     @pytest.fixture
     def isolated_skills_dir(self, tmp_path, monkeypatch):
+        # SKILLS_DIR resolves from AGENTX_HOME on every call (PEP 562). Don't
+        # pin it with monkeypatch.setattr: the undo puts the resolved path back
+        # as a real module attribute, pinning every later test in the process.
+        monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
-        monkeypatch.setattr("tools.skills_hub.SKILLS_DIR", skills_dir)
         return skills_dir
 
     @pytest.fixture
@@ -1831,6 +1819,49 @@ class TestAgentXHubSource:
         assert bundle is not None and bundle.metadata["kind"] == "browser"
         assert bundle.trust_level == "agentx-hub-verified"
 
+    def test_the_hub_is_reached_over_https_only(self):
+        """Agent Hub P6.1 (Workmate review F1): a plain-http hub is never asked —
+        not for its keys, its catalog or a bundle; whoever answers there could
+        hand out keys of its own. A hub on this machine may speak http."""
+        from tools.skills_hub import AgentXHubSource, HubCatalogUnavailable
+
+        transport, _ = _hub_transport(self.FILES)
+        asked = []
+
+        def record(request):
+            asked.append(request)
+            return transport.handle_request(request)
+
+        src = AgentXHubSource("http://hub.test", token="", transport=httpx.MockTransport(record))
+        assert src.search("demo") == [] and src.fetch("agentx-hub/demo-core") is None
+        with pytest.raises(HubCatalogUnavailable, match="https"):
+            src.catalog()
+        assert asked == []
+        local = AgentXHubSource("http://127.0.0.1:8820", token="", transport=transport)
+        assert [m.identifier for m in local.search("demo")] == ["agentx-hub/demo-core"]
+
+    @patch("tools.skills_hub._write_index_cache")
+    @patch("tools.skills_hub._read_index_cache", return_value=None)
+    def test_only_a_key_pinned_for_the_hub_verifies_a_bundle(self, _r, _w):
+        """The keys a hub first published are pinned (Agent Hub P6.1): a bundle
+        signed with a key its address hands out later, endorsed by no pinned
+        key, installs as community — whoever answers for the hub could have
+        made that key."""
+        import base64
+
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        from tools import hub_trust
+        from tools.skills_hub import AgentXHubSource
+
+        earlier = base64.b64encode(Ed25519PrivateKey.generate().public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode()
+        assert hub_trust.trust("https://hub.test", {"signing_keys": [{"kid": "k0", "alg": "ed25519", "ed25519_pub": earlier}]}) == {"k0": earlier}
+        transport, _ = _hub_transport(self.FILES)  # the hub's address now publishes k1, endorsed by nobody
+        bundle = AgentXHubSource("https://hub.test", token="", transport=transport).fetch("agentx-hub/demo-core")
+        assert bundle is not None and bundle.trust_level == "community" and bundle.metadata["signature_verified"] is False
+        assert list(hub_trust.untrusted("https://hub.test")) == ["k1"]
+
     def test_unreachable_hub_degrades_to_nothing(self):
         from tools.skills_hub import AgentXHubSource
 
@@ -2050,3 +2081,148 @@ class TestHubVerifiedInstallPolicy:
         blocked, _ = should_allow_install(ScanResult(skill_name="x", source="agentx-hub-verified", trust_level="agentx-hub-verified", verdict="dangerous"))
         assert blocked is False
 
+
+
+# ---------------------------------------------------------------------------
+# Edits made on this machine to an installed hub skill (AgentX Skill Hub §8 #20)
+# ---------------------------------------------------------------------------
+
+
+def _install_hub_skill(files: dict, name: str = "demo-hub") -> dict:
+    """Install through quarantine the way the hub source does; return its lock entry (with its name)."""
+    import tools.skills_hub as hub
+    from tools.skills_guard import ScanResult
+
+    bundle = SkillBundle(name=name, files=files, source="agentx-hub", identifier=f"agentx-hub/{name}@1.0.0",
+                         trust_level="agentx-hub-verified", metadata={"hub_version": "1.0.0"})
+    q_path = quarantine_bundle(bundle)
+    hub.install_from_quarantine(q_path, name, "", bundle, ScanResult(skill_name=name, source="agentx-hub", trust_level="agentx-hub-verified", verdict="safe"))
+    return {**HubLockFile().get_installed(name), "name": name}
+
+
+HUB_FILES = {
+    "SKILL.md": "---\nname: demo-hub\ndescription: A hub skill.\nmetadata:\n  version: 1.0.0\n---\n# Demo\n\nSay hello.\n",
+    "scripts/run.py": "print('hello')\n",
+    "assets/.DS_Store": "shipped on purpose",
+}
+
+
+class TestLocalChanges:
+    def test_use_is_not_an_edit(self):
+        from tools.skills_hub import hub_skill_local_changes, installed_skill_dir
+
+        entry = _install_hub_skill(HUB_FILES)
+        skill_dir = installed_skill_dir(entry)
+        assert skill_dir is not None and hub_skill_local_changes(entry) is False
+        # What running it leaves behind: bytecode, a dependency folder, OS litter.
+        (skill_dir / "scripts" / "__pycache__").mkdir()
+        (skill_dir / "scripts" / "__pycache__" / "run.cpython-311.pyc").write_bytes(b"\x00")
+        (skill_dir / "node_modules" / "left-pad").mkdir(parents=True)
+        (skill_dir / "node_modules" / "left-pad" / "index.js").write_text("module.exports = 1\n")
+        (skill_dir / ".DS_Store").write_bytes(b"\x00")
+        (skill_dir / "._SKILL.md").write_bytes(b"\x00")
+        assert hub_skill_local_changes(entry) is False
+
+    def test_an_edit_an_added_or_a_removed_file_is_an_edit(self):
+        from tools.skills_hub import hub_skill_local_changes, installed_skill_dir
+
+        entry = _install_hub_skill(HUB_FILES)
+        skill_dir = installed_skill_dir(entry)
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text(HUB_FILES["SKILL.md"].replace("Say hello.", "Say goodbye."))
+        assert hub_skill_local_changes(entry) is True
+        skill_md.write_text(HUB_FILES["SKILL.md"])
+        assert hub_skill_local_changes(entry) is False
+        (skill_dir / "notes.md").write_text("mine\n")
+        assert hub_skill_local_changes(entry) is True
+        (skill_dir / "notes.md").unlink()
+        (skill_dir / "scripts" / "run.py").unlink()
+        assert hub_skill_local_changes(entry) is True
+
+    def test_a_file_the_bundle_shipped_counts_even_when_it_looks_like_litter(self):
+        from tools.skills_hub import hub_skill_local_changes, installed_skill_dir
+
+        entry = _install_hub_skill(HUB_FILES)
+        (installed_skill_dir(entry) / "assets" / ".DS_Store").write_text("changed")
+        assert hub_skill_local_changes(entry) is True
+
+    def test_nothing_to_compare_is_not_an_edit(self):
+        from tools.skills_hub import hub_skill_local_changes
+
+        entry = _install_hub_skill(HUB_FILES)
+        assert hub_skill_local_changes({**entry, "content_hash": ""}) is False
+        assert hub_skill_local_changes({**entry, "install_path": "gone", "name": "gone"}) is False
+
+    def test_an_unreadable_copy_is_not_replaced_blind(self, monkeypatch):
+        from pathlib import Path
+
+        from tools.skills_hub import hub_skill_local_changes
+
+        entry = _install_hub_skill(HUB_FILES)
+
+        def refuse(self):
+            raise PermissionError("denied")
+
+        monkeypatch.setattr(Path, "read_bytes", refuse)
+        assert hub_skill_local_changes(entry) is True
+
+    def test_a_backup_is_a_copy_under_hub_that_no_scanner_loads(self):
+        from agent.skill_utils import is_excluded_skill_path
+        from tools.skills_hub import backup_hub_skill, installed_skill_dir
+
+        entry = _install_hub_skill(HUB_FILES)
+        (installed_skill_dir(entry) / "SKILL.md").write_text("edited\n")
+        first = backup_hub_skill(entry)
+        second = backup_hub_skill(entry)
+        assert first is not None and second is not None and first != second
+        assert first.parent.name == "demo-hub" and first.parent.parent.name == "backups" and first.parent.parent.parent.name == ".hub"
+        assert (first / "SKILL.md").read_text() == "edited\n" and (first / "scripts" / "run.py").exists()
+        assert is_excluded_skill_path(first / "SKILL.md")
+        assert backup_hub_skill({**entry, "install_path": "gone", "name": "gone"}) is None
+
+    def test_the_update_check_names_a_skill_edited_here(self):
+        from tools.skills_hub import installed_skill_dir
+
+        entry = _install_hub_skill(HUB_FILES)
+        source = MagicMock()
+        source.source_id.return_value = "agentx-hub"
+        source.fetch.return_value = SkillBundle(name="demo-hub", files={**HUB_FILES, "SKILL.md": HUB_FILES["SKILL.md"].replace("1.0.0", "1.1.0")},
+                                                source="agentx-hub", identifier="agentx-hub/demo-hub@1.1.0", trust_level="agentx-hub-verified")
+        assert check_for_skill_updates(sources=[source])[0]["locally_modified"] is False
+        (installed_skill_dir(entry) / "SKILL.md").write_text("edited\n")
+        [result] = check_for_skill_updates(sources=[source])
+        assert result["status"] == "update_available" and result["locally_modified"] is True
+
+
+class TestSetSkillVersion:
+    NESTED = "---\nname: x\ndescription: d\nmetadata:\n  version: 1.0.0\n  agentx:\n    version: 9.9.9\n---\n# Body\nversion: 7.7.7\n"
+
+    def test_it_rewrites_the_line_the_hub_reads_and_nothing_else(self):
+        from agent.skill_utils import parse_frontmatter
+        from tools.skills_hub import set_skill_version
+
+        out = set_skill_version(self.NESTED, "1.0.1")
+        assert out == self.NESTED.replace("  version: 1.0.0", "  version: 1.0.1")
+        assert parse_frontmatter(out)[0]["metadata"]["version"] == "1.0.1"
+
+    def test_a_top_level_version_follows_and_stands_alone(self):
+        from tools.skills_hub import set_skill_version
+
+        both = "---\nname: x\nversion: 1.0.0\nmetadata:\n  version: 1.0.0\n---\nbody\n"
+        assert set_skill_version(both, "1.1.0") == "---\nname: x\nversion: 1.1.0\nmetadata:\n  version: 1.1.0\n---\nbody\n"
+        assert set_skill_version("---\nname: x\nversion: '1.0.0'\n---\nbody\n", "1.0.1") == "---\nname: x\nversion: 1.0.1\n---\nbody\n"
+
+    def test_it_adds_the_line_where_the_hub_looks(self):
+        from tools.skills_hub import set_skill_version
+
+        assert set_skill_version("---\nname: x\nmetadata:\n    author: me\n---\nbody\n", "1.0.0") == "---\nname: x\nmetadata:\n    version: 1.0.0\n    author: me\n---\nbody\n"
+        assert set_skill_version("---\nname: x\ndescription: d\n---\nbody\n", "1.0.0") == "---\nname: x\ndescription: d\nversion: 1.0.0\n---\nbody\n"
+        assert set_skill_version("---\nname: x\nmetadata: {}\n---\nbody\n", "1.0.0") == "---\nname: x\nmetadata: {}\nversion: 1.0.0\n---\nbody\n"
+
+    def test_it_keeps_the_bytes_around_the_line(self):
+        from tools.skills_hub import set_skill_version
+
+        crlf = "﻿---\r\nname: x\r\nmetadata:\r\n  version: 1.0.0\r\n---\r\nbody\r\n"
+        assert set_skill_version(crlf, "2.0.0") == crlf.replace("version: 1.0.0", "version: 2.0.0")
+        assert set_skill_version("---\r\nname: x\r\n---\r\nbody\r\n", "2.0.0") == "---\r\nname: x\r\nversion: 2.0.0\r\n---\r\nbody\r\n"
+        assert set_skill_version("# no frontmatter\nversion: 1.0.0\n", "2.0.0") == "# no frontmatter\nversion: 1.0.0\n"

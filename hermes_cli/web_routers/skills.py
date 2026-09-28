@@ -23,6 +23,7 @@ from hermes_cli.web_deps import late, LateState
 from hermes_cli.web_models import (
     SkillContentUpdate,
     SkillCreate,
+    SkillHubBumpVersionRequest,
     SkillHubPublishRequest,
     SkillHubValidateRequest,
     SkillInstallRequest,
@@ -105,19 +106,28 @@ async def uninstall_skill_hub(body: SkillUninstallRequest, profile: Optional[str
 
 @hub_router.post("/api/skills/hub/update")
 async def update_skills_hub(
-    body: Optional[SkillsUpdateRequest] = None, profile: Optional[str] = None
+    request: Request, body: Optional[SkillsUpdateRequest] = None, profile: Optional[str] = None
 ):
+    """Update hub skills: every one with an update, or ``name`` alone. A skill
+    edited on this machine is kept unless ``overwrite_local`` (backed up first)."""
+    effective = (body.profile if body else None) or profile
+    skill = ((body.name if body else None) or "").strip()
+    args = _profile_cli_args(effective) + ["skills", "update"] + ([skill] if skill else [])
+    if body is not None and body.overwrite_local:
+        args.append("--overwrite-local")
+    # A private/workspace skill downloads only with the person's bearer — the
+    # same hand-over as Install (the CLI process has no session of its own).
+    bearer = _hub_bearer_from(request)
+    extra_env = {"AGENTX_HUB_TOKEN": bearer} if bearer else {}
+    name = _hub_action_name("update", skill) if skill else "skills-update"
     try:
-        effective = (body.profile if body else None) or profile
-        proc = _spawn_hermes_action(
-            _profile_cli_args(effective) + ["skills", "update"], "skills-update"
-        )
+        proc = _spawn_hermes_action(args, name, extra_env) if extra_env else _spawn_hermes_action(args, name)
     except HTTPException:
         raise
     except Exception as exc:
         _log.exception("Failed to spawn skills update")
         raise HTTPException(status_code=500, detail=f"Failed to update skills: {exc}")
-    return {"ok": True, "pid": proc.pid, "name": "skills-update"}
+    return {"ok": True, "pid": proc.pid, "name": name}
 
 
 @hub_router.get("/api/skills/hub/sources")
@@ -497,8 +507,14 @@ async def scan_skill_hub(request: Request, identifier: str = "", profile: Option
 # web_routers/sync.py.
 # ---------------------------------------------------------------------------
 
-MAX_PUBLISH_BYTES = 5 * 1024 * 1024
-_SKIP_FILE_NAMES = frozenset({".usage.json", ".DS_Store", ".bundled_manifest"})
+#: What a skill may weigh unpacked when the hub does not say (its well-known
+#: ``limits.max_bundle_bytes``; hubs before 2026-09-23 do not): the hub default.
+DEFAULT_PUBLISH_BYTES = 25 * 1024 * 1024
+_SKIP_FILE_NAMES = frozenset({".usage.json", ".DS_Store", ".bundled_manifest", "Thumbs.db", "desktop.ini"})
+#: Directories the hub refuses in a package (its decision §8 #15): the skill
+#: keeps them to run here, the upload leaves them out. Dot-directories
+#: (.git, .venv, tool caches) are left out by the dot rule already.
+_SKIP_DIR_NAMES = frozenset({"node_modules", "__pycache__", "venv"})
 
 
 def _hub_credentials_from(request) -> "Optional[object]":
@@ -536,7 +552,18 @@ def _hub_error_body(exc) -> dict:
             "error_detail": getattr(exc, "detail", None)}
 
 
-def _local_skill_files(name: str) -> tuple:
+def _publish_limit(bearer: str) -> int:
+    """The unpacked size the hub accepts, so the refusal comes before the upload."""
+    from hermes_cli.hub_client import HubClient, HubError, hub_base_url
+
+    try:
+        return HubClient(hub_base_url()).max_bundle_bytes(bearer=bearer) or DEFAULT_PUBLISH_BYTES
+    except HubError:
+        # The upload that follows reports an unreachable hub on its own.
+        return DEFAULT_PUBLISH_BYTES
+
+
+def _local_skill_files(name: str, *, max_bytes: int = DEFAULT_PUBLISH_BYTES) -> tuple:
     """``(skill_dir, files)`` for a local skill: text as str, binary as {base64}."""
     import base64
 
@@ -548,12 +575,14 @@ def _local_skill_files(name: str) -> tuple:
     files = {}
     total = 0
     for path in sorted(p for p in skill_dir.rglob("*") if p.is_file()):
-        if path.is_symlink() or path.name in _SKIP_FILE_NAMES or any(part.startswith(".") for part in path.relative_to(skill_dir).parts):
+        parts = path.relative_to(skill_dir).parts
+        if path.is_symlink() or path.name in _SKIP_FILE_NAMES or any(part.startswith(".") for part in parts) \
+                or any(part in _SKIP_DIR_NAMES for part in parts[:-1]):
             continue
         data = path.read_bytes()
         total += len(data)
-        if total > MAX_PUBLISH_BYTES:
-            raise HTTPException(status_code=413, detail=f"Skill '{name}' is larger than {MAX_PUBLISH_BYTES} bytes.")
+        if total > max_bytes:
+            raise HTTPException(status_code=413, detail=f"Skill '{name}' is larger than {max_bytes} bytes, the most the hub accepts.")
         rel = path.relative_to(skill_dir).as_posix()
         text = _as_text(data)
         files[rel] = text if text is not None else {"base64": base64.b64encode(data).decode("ascii")}
@@ -607,8 +636,9 @@ async def hub_validate(body: SkillHubValidateRequest, request: Request):
     from hermes_cli.hub_client import HubClient, HubError, hub_base_url
 
     credentials = _hub_credentials_from(request)
+    limit = await run_in_threadpool(_publish_limit, credentials.bearer if credentials else "")
     with _profile_scope(body.profile):
-        _skill_dir, files = _local_skill_files(body.name)
+        _skill_dir, files = _local_skill_files(body.name, max_bytes=limit)
 
     def _run():
         client = HubClient(hub_base_url())
@@ -635,8 +665,9 @@ async def hub_publish(body: SkillHubPublishRequest, request: Request):
     credentials = _hub_credentials_from(request)
     if credentials is None:
         return {"ok": False, "status": "signed_out", "detail": "Sign in to upload a skill to the hub."}
+    limit = await run_in_threadpool(_publish_limit, credentials.bearer)
     with _profile_scope(body.profile):
-        _skill_dir, files = _local_skill_files(body.name)
+        _skill_dir, files = _local_skill_files(body.name, max_bytes=limit)
 
     def _run():
         client = HubClient(hub_base_url())
@@ -676,6 +707,32 @@ async def hub_propose(body: SkillHubPublishRequest, request: Request):
     it for a hub admin (decision §8 #11), members see it once approved."""
     body.visibility = "workspace"
     return await hub_publish(body, request)
+
+
+@hub_router.post("/api/skills/hub/bump-version")
+async def hub_bump_version(body: SkillHubBumpVersionRequest):
+    """Write a new version into a local skill's SKILL.md — the number the hub
+    named when it refused an upload for its version — through the validated
+    write the skill editor uses, so "Upload to Hub" can go again in one press."""
+    from tools.skill_manager_tool import _edit_skill, _find_skill
+    from tools.skills_hub import HUB_SEMVER_RE, set_skill_version
+
+    version = (body.version or "").strip()
+    if not HUB_SEMVER_RE.match(version):
+        raise HTTPException(status_code=400, detail="version must be semver (MAJOR.MINOR.PATCH)")
+    with _profile_scope(body.profile):
+        existing = _find_skill(body.name)
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Skill '{body.name}' not found.")
+        current = (existing["path"] / "SKILL.md").read_text(encoding="utf-8")
+        updated = set_skill_version(current, version)
+        if updated == current:
+            return {"ok": True, "name": body.name, "version": version, "changed": False}
+        result = _edit_skill(body.name, updated)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Could not update the skill."))
+    _clear_skills_prompt_cache()
+    return {"ok": True, "name": body.name, "version": version, "changed": True}
 
 
 @router.get("/api/skills")

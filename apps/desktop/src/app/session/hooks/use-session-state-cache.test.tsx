@@ -3,6 +3,7 @@ import { type MutableRefObject, useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChatMessage } from '@/lib/chat-messages'
+import { $clarifyRequests, clearClarifyRequest, setClarifyRequest } from '@/store/clarify'
 import {
   $activeSessionStoredIdRotation,
   $currentFastMode,
@@ -21,6 +22,7 @@ import {
   setCurrentServiceTier,
   setTurnStartedAt
 } from '@/store/session'
+import { $sessionStates, $sessionTiles, clearAllSessionStates } from '@/store/session-states'
 
 import { useSessionStateCache } from './use-session-state-cache'
 
@@ -491,5 +493,102 @@ describe('useSessionStateCache — cross-thread error isolation', () => {
     // check must reject it instead of allowing a submit into stored-B.
     cache.runtimeIdByStoredSessionIdRef.current.set('stored-A', 'runtime-B')
     expect(cache.getRuntimeIdForStoredSession('stored-A')).toBeNull()
+  })
+})
+
+describe('useSessionStateCache — retiring and re-homing runtimes', () => {
+  beforeEach(() => {
+    $sessionTiles.set([])
+    clearAllSessionStates()
+  })
+
+  afterEach(() => {
+    cleanup()
+    setActiveSessionId(null)
+    $sessionTiles.set([])
+    clearAllSessionStates()
+    clearClarifyRequest()
+  })
+
+  it('forgets a reclaimed runtime everywhere and unbinds the tile showing it', () => {
+    let cache!: Cache
+    render(<Harness activeSessionId={null} onReady={value => (cache = value)} selectedStoredSessionId={null} />)
+
+    act(() => {
+      cache.updateSessionState('rt-gone', state => ({ ...state, needsInput: true }), 'stored-A')
+      setClarifyRequest({ choices: null, question: 'Pick?', requestId: 'r1', sessionId: 'rt-gone' })
+      $sessionTiles.set([{ storedSessionId: 'stored-A', runtimeId: 'rt-gone', boundGeneration: 0 }])
+    })
+
+    let forgotten: ReturnType<Cache['forgetRuntime']>
+
+    act(() => {
+      forgotten = cache.forgetRuntime('rt-gone')
+    })
+
+    expect(forgotten!?.storedSessionId).toBe('stored-A')
+    expect(cache.sessionStateByRuntimeIdRef.current.has('rt-gone')).toBe(false)
+    expect(cache.runtimeIdByStoredSessionIdRef.current.has('stored-A')).toBe(false)
+    expect($sessionStates.get()['rt-gone']).toBeUndefined()
+    // A question for a runtime nobody holds can never be answered.
+    expect($clarifyRequests.get()['rt-gone']).toBeUndefined()
+    // The pane stays (the stored conversation is intact); its resume re-arms.
+    expect($sessionTiles.get()).toEqual([
+      { boundGeneration: undefined, runtimeId: undefined, storedSessionId: 'stored-A' }
+    ])
+  })
+
+  it('re-homes a conversation onto its live runtime and moves every surface that showed the dead id', () => {
+    let cache!: Cache
+
+    setActiveSessionId('rt-dead')
+    render(<Harness activeSessionId="rt-dead" onReady={value => (cache = value)} selectedStoredSessionId="stored-A" />)
+
+    act(() => {
+      cache.updateSessionState(
+        'rt-dead',
+        state => ({
+          ...state,
+          awaitingResponse: true,
+          busy: true,
+          messages: [userMessage('user-1', 'Kho lạnh')],
+          model: 'old-model',
+          turnStartedAt: 7
+        }),
+        'stored-A'
+      )
+      // The live runtime already reported its model before the carry lands.
+      cache.updateSessionState('rt-live', state => ({ ...state, model: 'MiniMax-M3' }), 'stored-A')
+      $sessionTiles.set([{ storedSessionId: 'stored-B', runtimeId: 'rt-dead', boundGeneration: 0 }])
+    })
+
+    act(() => {
+      cache.rehomeRuntime('rt-dead', 'rt-live', 'stored-A')
+    })
+
+    const live = cache.sessionStateByRuntimeIdRef.current.get('rt-live')!
+
+    expect(live.messages.map(message => message.id)).toEqual(['user-1'])
+    expect(live).toMatchObject({ awaitingResponse: true, busy: true, model: 'MiniMax-M3', turnStartedAt: 7 })
+    expect(cache.sessionStateByRuntimeIdRef.current.has('rt-dead')).toBe(false)
+    expect(cache.getRuntimeIdForStoredSession('stored-A')).toBe('rt-live')
+    expect($sessionStates.get()['rt-dead']).toBeUndefined()
+    expect($sessionStates.get()['rt-live']?.busy).toBe(true)
+    // The main chat and the tab both follow the conversation.
+    expect(cache.activeSessionIdRef.current).toBe('rt-live')
+    expect($sessionTiles.get()[0]?.runtimeId).toBe('rt-live')
+  })
+
+  it('re-homing onto the same id only makes sure the conversation maps to it', () => {
+    let cache!: Cache
+    render(<Harness activeSessionId={null} onReady={value => (cache = value)} selectedStoredSessionId={null} />)
+
+    act(() => {
+      cache.updateSessionState('rt-1', state => ({ ...state, messages: [userMessage('u', 'hi')] }), 'stored-A')
+      cache.rehomeRuntime('rt-1', 'rt-1', 'stored-A')
+    })
+
+    expect(cache.sessionStateByRuntimeIdRef.current.get('rt-1')?.messages).toHaveLength(1)
+    expect(cache.getRuntimeIdForStoredSession('stored-A')).toBe('rt-1')
   })
 })

@@ -10,13 +10,15 @@ const validateSkillForHub = vi.fn()
 const publishSkillToHub = vi.fn()
 const proposeSkillToWorkspace = vi.fn()
 const getSkillHubChanges = vi.fn()
+const bumpSkillVersion = vi.fn()
 
 vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<typeof HermesApi>()),
   validateSkillForHub: (name: string, options: unknown) => validateSkillForHub(name, options),
   publishSkillToHub: (name: string, options: unknown) => publishSkillToHub(name, options),
   proposeSkillToWorkspace: (name: string, options: unknown) => proposeSkillToWorkspace(name, options),
-  getSkillHubChanges: () => getSkillHubChanges()
+  getSkillHubChanges: () => getSkillHubChanges(),
+  bumpSkillVersion: (name: string, version: string) => bumpSkillVersion(name, version)
 }))
 
 const SKILL: SkillInfo = {
@@ -188,5 +190,67 @@ describe('PublishSkillDialog', () => {
       fireEvent.click(screen.getByTestId('publish-submit'))
     })
     expect((await screen.findByTestId('publish-error')).textContent).toContain('above 1.2.0')
+    // An older hub names no number: nothing to offer but the sentence.
+    expect(screen.queryByTestId('publish-bump')).toBeNull()
+  })
+
+  it('a refused version is one press away: the number the hub names goes into SKILL.md, then the upload runs again', async () => {
+    publishSkillToHub
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 'error',
+        code: 'version_exists',
+        error_detail: { slug: 'vneb-report', version: '1.0.0', highest: '1.0.2', suggested_version: '1.0.3' }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 'ok',
+        created: true,
+        slug: 'vneb-report',
+        visibility: 'private',
+        version: '1.0.3',
+        publish_state: 'scanning'
+      })
+    bumpSkillVersion.mockResolvedValue({ ok: true, name: 'vneb-report', version: '1.0.3', changed: true })
+
+    await renderDialog('upload')
+    await screen.findByTestId('publish-preview-status')
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('publish-submit'))
+    })
+
+    const bump = await screen.findByTestId('publish-bump')
+    expect(bump.textContent).toBe('Bump to 1.0.3 and upload')
+    await act(async () => {
+      fireEvent.click(bump)
+    })
+
+    await waitFor(() => expect(screen.getByTestId('publish-done').textContent).toContain('1.0.3'))
+    expect(bumpSkillVersion).toHaveBeenCalledWith('vneb-report', '1.0.3')
+    expect(publishSkillToHub).toHaveBeenCalledTimes(2)
+    // The preview reads SKILL.md again, now at the new number.
+    expect(validateSkillForHub.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  it('a bump the backend refuses is shown, and nothing is uploaded again', async () => {
+    publishSkillToHub.mockResolvedValue({
+      ok: false,
+      status: 'error',
+      code: 'version_not_newer',
+      error_detail: { highest: '1.2.0', suggested_version: '1.2.1' }
+    })
+    bumpSkillVersion.mockRejectedValue(new Error('Skill not found'))
+
+    await renderDialog('upload')
+    await screen.findByTestId('publish-preview-status')
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('publish-submit'))
+    })
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('publish-bump'))
+    })
+
+    await waitFor(() => expect(screen.getByTestId('publish-error').textContent).toContain('Skill not found'))
+    expect(publishSkillToHub).toHaveBeenCalledTimes(1)
   })
 })

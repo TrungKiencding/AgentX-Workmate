@@ -110,3 +110,25 @@ class TestWriteSkip:
         # Changed payload → rewrite.
         msc.write_cache_entry("srv", "fp2", tools=tools, utility_tools=[])
         assert len(saves) == 2
+
+
+class TestEmptyIncludeFingerprint:
+    """An empty ``tools.include`` registers no tool, so it must never read the
+    cache written with no filter — and no other config changes fingerprint
+    (a lazy server's cache survives the fix)."""
+
+    def test_an_empty_include_has_a_fingerprint_of_its_own(self):
+        import tools.mcp_schema_cache as msc
+
+        base = {"url": "https://mcp.example.com"}
+        assert msc.config_fingerprint({**base, "tools": {"include": []}}) != msc.config_fingerprint(base)
+        assert msc.config_fingerprint({**base, "tools": {"include": []}}) != msc.config_fingerprint({**base, "tools": {}})
+
+    def test_every_other_config_keeps_the_fingerprint_it_had(self):
+        import tools.mcp_schema_cache as msc
+
+        # Computed by the code before the fix (version-1.0.3, 96fc17feff).
+        assert msc.config_fingerprint({"command": "npx", "args": ["-y", "pkg@1.0.0"]}) == "cf7735df753306be"
+        assert msc.config_fingerprint({"url": "https://mcp.example.com", "tools": {"include": ["a", "b"]}}) == "5e1ad731c76d74c6"
+        assert msc.config_fingerprint({"url": "https://mcp.example.com", "tools": {"exclude": ["c"]}}) == "a0b22f0bc2d3ed5a"
+        assert msc.config_fingerprint({"url": "https://mcp.example.com"}) == "f41d5575d2de8456"

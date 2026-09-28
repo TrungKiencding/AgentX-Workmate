@@ -218,6 +218,23 @@ class TestComposeFile:
         assert result.returncode == 0, result.stderr
 
 
+def _run_canary_copy(root: Path, config: str) -> subprocess.CompletedProcess[str]:
+    """Run a copy of the canary script in a checkout at *root* holding *config*.
+
+    The script finds the repository from its own location, so the copy checks
+    ``root/.gitleaks.toml`` and plants its canary in ``root/deploy/second-brain/``.
+    """
+    script = root / "scripts" / "check-secret-scanning.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    (root / "deploy" / "second-brain").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(REPO_ROOT / "scripts" / "check-secret-scanning.sh", script)
+    (root / ".gitleaks.toml").write_text(config, encoding="utf-8")
+
+    return subprocess.run(
+        [str(script)], cwd=root, capture_output=True, check=False, text=True
+    )
+
+
 class TestSecretScanning:
     @pytest.mark.skipif(
         shutil.which("gitleaks") is None,
@@ -243,3 +260,48 @@ class TestSecretScanning:
         # disk containing a token shape, which is a poor thing to leave lying
         # around.
         assert not (DEPLOY_DIR / ".secret-scanning-canary").exists()
+
+    @pytest.mark.skipif(
+        shutil.which("gitleaks") is None,
+        reason="gitleaks is not installed (brew install gitleaks)",
+    )
+    @pytest.mark.parametrize(
+        "sabotage",
+        [
+            # One for each .gitleaks.toml cause the script's failure message
+            # lists.
+            pytest.param(
+                lambda config: config + "\n[[allowlists\n",
+                id="config-does-not-parse",
+            ),
+            pytest.param(
+                lambda config: config.replace(
+                    "useDefault = true", "useDefault = false"
+                ),
+                id="default-rules-turned-off",
+            ),
+            pytest.param(
+                lambda config: config + "\n[[allowlists]]\npaths = ['''^deploy/''']\n",
+                id="allowlist-covers-deploy",
+            ),
+        ],
+    )
+    def test_the_canary_fails_when_the_config_stops_looking(self, tmp_path, sabotage):
+        # Regression: gitleaks reads .gitleaks.toml only from a directory it
+        # scans, and the canary hands it a single file, so without --config
+        # it ran on the built-in rules and stayed green through all of these.
+        # Exit code 1 was no proof either: gitleaks exits 1 when its config
+        # fails to load, too.
+        config = (REPO_ROOT / ".gitleaks.toml").read_text(encoding="utf-8")
+        sabotaged = sabotage(config)
+        assert sabotaged != config, "this sabotage no longer changes .gitleaks.toml"
+
+        # The same copy is awake with the real config, so a red run below is
+        # the sabotage's doing and not the copy's.
+        control = _run_canary_copy(tmp_path, config)
+        assert control.returncode == 0, control.stdout + control.stderr
+
+        result = _run_canary_copy(tmp_path, sabotaged)
+
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert "SECRET SCANNING IS NOT WORKING" in result.stderr, result.stderr

@@ -1,6 +1,13 @@
 import { textWithoutReferenceLines } from '@/components/assistant-ui/reference-kinds'
 import { getSession } from '@/hermes'
-import { assistantTextPart, type ChatMessage, chatMessageText, textPart } from '@/lib/chat-messages'
+import {
+  assistantTextPart,
+  type ChatMessage,
+  chatMessageText,
+  preserveLocalAssistantErrors,
+  textPart,
+  toChatMessages
+} from '@/lib/chat-messages'
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
@@ -27,9 +34,16 @@ import {
 // it from here; the canonical definition lives in @/store/session.
 export { sessionMatchesStoredId }
 import { reportBackendContract, reportInstallMethodWarning } from '@/store/updates'
-import type { SessionCreateResponse, SessionInfo, SessionResumeResponse, SessionRuntimeInfo } from '@/types/hermes'
+import type {
+  SessionCreateResponse,
+  SessionInfo,
+  SessionMessage,
+  SessionResumeResponse,
+  SessionRuntimeInfo
+} from '@/types/hermes'
 
 import type { ClientSessionState } from '../../../types'
+import { finalizeInterruptedMessages } from '../use-prompt-actions/rewind'
 
 function withAppendedText(message: ChatMessage, suffix: string): ChatMessage {
   let appended = false
@@ -783,6 +797,147 @@ export function appendLiveSessionProjection(
   }
 
   return projected.length ? [...messages, ...projected] : messages
+}
+
+/** An authoritative transcript (REST, or a resume payload that carries one)
+ *  reconciled against what this window already shows: the live projection is
+ *  grafted on, structure the flat dump cannot express is kept, the local tail
+ *  of an accepted turn survives, and local error bubbles are preserved. */
+export function reconcileAuthoritativeMessages(
+  authoritativeMessages: SessionMessage[],
+  previousMessages: ChatMessage[],
+  liveProjection?: Pick<SessionResumeResponse, 'inflight' | 'queued' | 'session_id'>
+): ChatMessage[] {
+  const authoritative = toChatMessages(authoritativeMessages)
+  const withLiveProjection = liveProjection ? appendLiveSessionProjection(authoritative, liveProjection) : authoritative
+  const reconciled = reconcileResumeMessages(withLiveProjection, previousMessages)
+  const withPendingTurn = preserveLocalPendingTurnMessages(reconciled, previousMessages)
+
+  return preserveLocalAssistantErrors(withPendingTurn, previousMessages)
+}
+
+/**
+ * The transcript to show for a live runtime this window (re)attaches to — a
+ * reconnect, a switch back, a tab re-binding its session.
+ *
+ * Desktop asks `session.activate` / `session.resume` to omit messages (REST is
+ * the display authority), so `messages_omitted` means "no transcript in this
+ * response", not an empty one. Reconciling the live projection against that
+ * empty list rebuilt the thread out of the in-flight turn alone: every earlier
+ * message vanished for as long as the turn ran. The persisted transcript is the
+ * base when there is one (an empty page is not proof of an empty conversation —
+ * a respawning backend can return one — so it never wipes a non-empty cache);
+ * otherwise the cached transcript is kept and live events continue it.
+ *
+ * Pass the FRESHEST cached messages (read inside the state updater), so stream
+ * events that landed while the RPCs were in flight are not rewound.
+ */
+export function reattachedTranscript(
+  cachedMessages: ChatMessage[],
+  attached: Pick<SessionResumeResponse, 'inflight' | 'messages' | 'messages_omitted' | 'queued' | 'session_id'>,
+  persisted: null | SessionMessage[]
+): ChatMessage[] {
+  if (persisted && (persisted.length || !cachedMessages.length)) {
+    return reconcileAuthoritativeMessages(persisted, cachedMessages, attached)
+  }
+
+  if (!attached.messages_omitted && (attached.messages.length || attached.inflight || attached.queued)) {
+    return reconcileAuthoritativeMessages(attached.messages, cachedMessages, attached)
+  }
+
+  return cachedMessages
+}
+
+/** The row live deltas extend after a (re)attach: the newest pending assistant
+ *  row of the turn in flight (null when the turn has not produced one yet). A
+ *  reconcile can re-key that row to the projection's id, and a stream id that
+ *  names a row no longer in the transcript would start a duplicate bubble. */
+export function liveTurnStreamId(messages: ChatMessage[]): null | string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+
+    if (message.role === 'user') {
+      return null
+    }
+
+    if (message.role === 'assistant' && message.pending) {
+      return message.id
+    }
+  }
+
+  return null
+}
+
+/** What a (re)attach payload tells us about the session's turn. */
+export type ReattachPayload = Pick<
+  SessionResumeResponse,
+  'inflight' | 'messages' | 'messages_omitted' | 'pending_prompts' | 'queued' | 'running' | 'session_id'
+>
+
+/**
+ * A session's state after this window (re)attached to its live runtime: the
+ * transcript per `reattachedTranscript`, and the turn as the backend reports
+ * it — not as the cache last saw it, since events emitted while this window
+ * was not attached never arrived.
+ *
+ * Still running: the turn is adopted (this window may never have seen its
+ * prompt or its early output, so it hydrates from stored history when it
+ * settles), live deltas extend the projected row, and the thinking indicator
+ * shows only until that row exists. Idle: the turn ended unseen, so settle it
+ * the way a `running: false` edge would — un-pend kept text, drop empty
+ * placeholders, clear the waiting / needs-input flags.
+ */
+export function reattachedSessionState(
+  state: ClientSessionState,
+  attached: ReattachPayload,
+  persisted: null | SessionMessage[],
+  runtimeInfo?: null | SessionRuntimeStatePatch,
+  { sendInFlight = false }: { sendInFlight?: boolean } = {}
+): ClientSessionState {
+  // A Stop the backend has not finished unwinding still wins, exactly as it
+  // does against a late message.start: the user asked for this turn to end.
+  const running = Boolean(attached.running ?? state.busy) && !state.interrupted
+  const messages = reattachedTranscript(state.messages, attached, persisted)
+
+  if (running) {
+    const streamId = liveTurnStreamId(messages)
+
+    return {
+      ...state,
+      ...(runtimeInfo ?? {}),
+      messages,
+      busy: true,
+      awaitingResponse: !streamId,
+      sawAssistantPayload: state.sawAssistantPayload || Boolean(streamId),
+      streamId: streamId ?? state.streamId,
+      // A blocked question replays right after this update; an approval is
+      // replayed separately and keeps the flag it already had.
+      needsInput: state.needsInput || Boolean(attached.pending_prompts?.length),
+      adoptedRunningTurn: true,
+      turnStartedAt: state.turnStartedAt ?? Date.now()
+    }
+  }
+
+  // A send of ours the backend has not started yet (see isSubmitInFlight): its
+  // "not running" predates the turn on screen. Tearing that turn down blinked
+  // the busy state and reset the thinking timer until message.start re-armed it.
+  if (sendInFlight) {
+    return { ...state, ...(runtimeInfo ?? {}), messages }
+  }
+
+  return {
+    ...state,
+    ...(runtimeInfo ?? {}),
+    messages: finalizeInterruptedMessages(messages, state.streamId),
+    busy: false,
+    awaitingResponse: false,
+    needsInput: false,
+    streamId: null,
+    pendingBranchGroup: null,
+    interimBoundaryPending: false,
+    adoptedRunningTurn: false,
+    turnStartedAt: null
+  }
 }
 
 export interface BranchMessage {

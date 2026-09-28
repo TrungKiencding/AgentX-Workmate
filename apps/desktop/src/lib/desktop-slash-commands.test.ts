@@ -7,6 +7,7 @@ import {
   desktopSlashUnavailableMessage,
   filterDesktopCommandsCatalog,
   isDesktopSlashCommand,
+  isDesktopSlashExtensionCommand,
   isDesktopSlashSuggestion,
   isModelPickerCommand,
   isPickerCommand,
@@ -152,6 +153,55 @@ describe('desktop slash command curation', () => {
     for (const name of execNames) {
       expect(resolveDesktopCommand(name)?.surface).toEqual({ kind: 'exec' })
     }
+  })
+
+  it('runs /export as session export and keeps profile sharing on /export-profile + /import', () => {
+    // Session and profile export used to share the name /export: the catalog
+    // listed it twice and, missing from this table, it was offered as a skill.
+    expect(resolveDesktopCommand('/export')?.surface).toEqual({ kind: 'exec' })
+    expect(desktopSlashCommandArgumentMode('/export')).toBe('mixed')
+    expect(isDesktopSlashSuggestion('/export')).toBe(true)
+    expect(isDesktopSlashCommand('/export')).toBe(true)
+
+    for (const name of ['/export-profile', '/import']) {
+      expect(resolveDesktopCommand(name)?.surface).toEqual({ kind: 'exec' })
+      expect(desktopSlashCommandArgumentMode(name)).toBe('text')
+      expect(isDesktopSlashSuggestion(name)).toBe(true)
+    }
+
+    for (const name of ['/export', '/export-profile', '/import']) {
+      expect(isDesktopSlashExtensionCommand(name)).toBe(false)
+    }
+
+    const filtered = filterDesktopCommandsCatalog({
+      categories: [
+        {
+          name: 'Session',
+          pairs: [['/export', 'Export the current session history to a file (usage: /export [md|json] [filename])']]
+        },
+        {
+          name: 'Configuration',
+          pairs: [
+            ['/export-profile', 'Export a profile (config, skills, theme) to a shareable archive'],
+            ['/import', 'Import a shared profile archive as a new profile']
+          ]
+        }
+      ],
+      skill_count: 3
+    })
+
+    expect(filtered.categories).toEqual([
+      { name: 'Session', pairs: [['/export', 'Export this chat to a Markdown or JSON file [md|json] [filename]']] },
+      {
+        name: 'Configuration',
+        pairs: [
+          ['/export-profile', 'Export a profile to a shareable .tar.gz archive'],
+          ['/import', 'Import a shared profile archive as a new profile']
+        ]
+      }
+    ])
+    // Built-in commands, not skills — they no longer inflate the /help footer.
+    expect(filtered.skill_count).toBe(0)
   })
 
   it('distinguishes free prose from finite slash option lists', () => {

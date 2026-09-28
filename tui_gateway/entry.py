@@ -428,6 +428,8 @@ def ensure_mcp_discovery_started() -> None:
 
 
 def main():
+    # stdout is this process's JSON-RPC client channel: peer-less global broadcasts belong on it.
+    server._stdio_is_rpc_channel = True
     _install_sidecar_publisher()
 
     # MCP tool discovery — backgrounded so a slow or unreachable MCP server
@@ -465,6 +467,14 @@ def main():
         prewarm_picker_cache_async()
     except Exception:
         logger.debug("picker cache prewarm (tui) failed to start", exc_info=True)
+
+    # Start the tirith scanner download in the background now, as the classic
+    # CLI does at startup, rather than on the first terminal command.
+    try:
+        from tools.tirith_security import ensure_installed
+        ensure_installed(log_failures=False)
+    except Exception:
+        logger.debug("tirith background install (tui) failed to start", exc_info=True)
 
     while True:
         raw = sys.stdin.readline()

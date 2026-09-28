@@ -108,6 +108,7 @@ import { usePromptActions } from '../session/hooks/use-prompt-actions'
 import { useRouteResume } from '../session/hooks/use-route-resume'
 import { useSessionActions } from '../session/hooks/use-session-actions'
 import { useSessionListActions } from '../session/hooks/use-session-list-actions'
+import { useSessionRuntimeRecovery } from '../session/hooks/use-session-runtime-recovery'
 import { useSessionStateCache } from '../session/hooks/use-session-state-cache'
 import { startWorkspaceSession } from '../session/workspace-session-target'
 import { useOverlayRouting } from '../shell/hooks/use-overlay-routing'
@@ -117,7 +118,7 @@ import { TitlebarControls } from '../shell/titlebar-controls'
 import { UpdatesOverlay } from '../updates-overlay'
 
 import { ContribWiringContext } from './context'
-import { useBackgroundSync } from './hooks/use-background-sync'
+import { type LiveSessionStateCommit, publishLiveSessionState, useBackgroundSync } from './hooks/use-background-sync'
 import { useDesktopIntegrations } from './hooks/use-desktop-integrations'
 import { usePetBridge } from './hooks/use-pet-bridge'
 import { useQuickEntryBridge } from './hooks/use-quick-entry-bridge'
@@ -243,7 +244,9 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   const {
     activeSessionIdRef,
     ensureSessionState,
+    forgetRuntime,
     getRuntimeIdForStoredSession,
+    rehomeRuntime,
     resetViewSync,
     runtimeIdByStoredSessionIdRef,
     selectedStoredSessionIdRef,
@@ -412,13 +415,49 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     }
   }, [activeSessionIdRef, busyRef, selectedStoredSessionIdRef, updateSessionState])
 
+  // resumeSession comes from useSessionActions further down, which itself
+  // needs the event handler built here — the reclaim path reads it late.
+  const resumeSessionRef = useRef<null | ((storedSessionId: string, replaceRoute?: boolean) => Promise<unknown>)>(null)
+
+  // session.reclaimed: the backend tore a live runtime down (idle TTL, LRU
+  // cap, WS-orphan reap). Forget it everywhere — a tile showing it unbinds and
+  // re-attaches its stored conversation — and when it was the main chat's,
+  // re-resume that conversation so the pane is live again instead of silently
+  // holding a dead id until the next send fails "session not found".
+  const handleRuntimeReclaimed = useCallback(
+    (runtimeId: string) => {
+      const wasActive = activeSessionIdRef.current === runtimeId
+
+      forgetRuntime(runtimeId)
+
+      const selected = selectedStoredSessionIdRef.current
+
+      if (wasActive && selected) {
+        void resumeSessionRef.current?.(selected, true)
+      }
+    },
+    [activeSessionIdRef, forgetRuntime, selectedStoredSessionIdRef]
+  )
+
   const { handleGatewayEvent } = useMessageStream({
     activeGatewayProfile,
     activeSessionIdRef,
     hydrateFromStoredSession,
+    onRuntimeReclaimed: handleRuntimeReclaimed,
     queryClient,
     refreshHermesConfig,
     refreshSessions,
+    sessionStateByRuntimeIdRef,
+    updateSessionState
+  })
+
+  // Re-attaching / recovering runtime bindings outside the primary route
+  // resume: tiles after a reconnect, and a send that finds its id gone.
+  const { attachSessionRuntime, recoverSessionRuntime } = useSessionRuntimeRecovery({
+    rehomeRuntime,
+    replayGatewayEvent: handleGatewayEvent,
+    requestGateway,
+    runtimeIdByStoredSessionIdRef,
     sessionStateByRuntimeIdRef,
     updateSessionState
   })
@@ -469,6 +508,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     getRoutedStoredSessionId,
     navigate,
     onFreshDraftRouteIntent: clearRoutedSessionIntent,
+    replayGatewayEvent: handleGatewayEvent,
     requestGateway,
     resetViewSync,
     runtimeIdByStoredSessionIdRef,
@@ -478,6 +518,8 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     syncSessionStateToView,
     updateSessionState
   })
+
+  resumeSessionRef.current = resumeSession
 
   // A profile switch/create drops to a fresh new-session draft so the
   // previously open session doesn't bleed across contexts. Skip initial value.
@@ -599,6 +641,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     getRouteToken,
     handleSkinCommand,
     openMemoryGraph: openStarmap,
+    recoverSessionRuntime,
     refreshSessions,
     requestGateway,
     resumeStoredSession: resumeSession,
@@ -621,12 +664,12 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   // the tile TAB menu needs, without touching the primary view).
   useSessionTileDelegate({
     archiveSession,
+    attachSessionRuntime,
     branchStoredSession,
     executeSlashCommand,
+    recoverSessionRuntime,
     removeSession,
     requestGateway,
-    runtimeIdByStoredSessionIdRef,
-    sessionStateByRuntimeIdRef,
     updateSessionState
   })
 
@@ -773,10 +816,25 @@ export function ContribWiring({ children }: { children: ReactNode }) {
 
   // Keep app data live while the gateway is open (on-connect reseed + the
   // cron / messaging / transcript visibility polls + fresh-draft reseed).
+  // The live-status poll writes a runtime this window's cache holds through the
+  // cache (so the pane and the sidebar agree); anything else — another window's
+  // or the TUI's sessions — only feeds the sidebar mirror.
+  const commitLiveSessionState = useCallback<LiveSessionStateCommit>(
+    (runtimeId, update, storedSessionId) => {
+      if (sessionStateByRuntimeIdRef.current.has(runtimeId)) {
+        updateSessionState(runtimeId, update, storedSessionId || undefined)
+      } else {
+        publishLiveSessionState(runtimeId, update, storedSessionId)
+      }
+    },
+    [sessionStateByRuntimeIdRef, updateSessionState]
+  )
+
   useBackgroundSync({
     activeGatewayProfile,
     activeIsMessaging,
     activeSessionId,
+    commitLiveSessionState,
     freshDraftReady,
     gatewayState,
     refreshActiveMessagingTranscript,

@@ -37,9 +37,7 @@ async function setupMessagingDesktop(): Promise<MessagingFixture> {
     undefined,
     // The grouped sidebar below kicks off Projects repo discovery, which falls
     // back to crawling the host's real home directory; keep the sandbox hermetic.
-    `dashboard:
-  require_auth: false
-desktop:
+    `desktop:
   repo_scan_enabled: false
 platforms:
   telegram:

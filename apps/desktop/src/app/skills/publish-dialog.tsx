@@ -10,7 +10,13 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { getSkillHubChanges, proposeSkillToWorkspace, publishSkillToHub, validateSkillForHub } from '@/hermes'
+import {
+  bumpSkillVersion,
+  getSkillHubChanges,
+  proposeSkillToWorkspace,
+  publishSkillToHub,
+  validateSkillForHub
+} from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -64,6 +70,18 @@ function errorText(result: SkillHubPublishResponse, p: ReturnType<typeof useI18n
     default:
       return result.detail || p.failed
   }
+}
+
+/** The number the hub named when it refused the upload for its version (hub
+ *  decision §8 #20), or null — every other refusal, and hubs that do not say. */
+function suggestedVersion(result: null | SkillHubPublishResponse): null | string {
+  if (!result || result.ok || (result.code !== 'version_exists' && result.code !== 'version_not_newer')) {
+    return null
+  }
+
+  const suggested = (result.error_detail as { suggested_version?: unknown } | null | undefined)?.suggested_version
+
+  return typeof suggested === 'string' && suggested ? suggested : null
 }
 
 // "Upload to Hub" / "Share with a workspace" for a local skill: pick the
@@ -138,6 +156,26 @@ export function PublishSkillDialog({
       setSubmitting(false)
     }
   }
+
+  // The hub keeps every version: an edit uploads as a new number. Write the
+  // one the hub named into SKILL.md (the editor's validated write) and go again.
+  const bumpAndRetry = async (version: string) => {
+    setSubmitting(true)
+
+    try {
+      await bumpSkillVersion(skill.name, version)
+    } catch (err) {
+      setResult({ ok: false, status: 'error', detail: err instanceof Error ? err.message : String(err) })
+      setSubmitting(false)
+
+      return
+    }
+
+    void preview.refetch()
+    await submit()
+  }
+
+  const suggested = suggestedVersion(result)
 
   return (
     <Dialog onOpenChange={value => !value && onClose()} open={open}>
@@ -280,6 +318,18 @@ export function PublishSkillDialog({
               <p className="text-destructive" data-testid="publish-error">
                 {errorText(result, p)}
               </p>
+            )}
+            {suggested && (
+              <Button
+                data-testid="publish-bump"
+                disabled={submitting}
+                onClick={() => void bumpAndRetry(suggested)}
+                size="sm"
+                variant="secondary"
+              >
+                {submitting && <Loader2 className="size-3 animate-spin" />}
+                {submitting ? p.bumping : p.bumpAndRetry(suggested)}
+              </Button>
             )}
           </div>
         )}

@@ -300,6 +300,11 @@ export interface SessionTile {
   before?: null | string
   /** Live runtime id once the tile's resume has bound one. */
   runtimeId?: string
+  /** The gateway connection generation `runtimeId` was bound (or last
+   *  re-attached) in — see $tileBindingGeneration. Older than the current one
+   *  means the socket that runtime streams to is gone and the tile must
+   *  re-attach it. Runtime-only, like `runtimeId`: never persisted. */
+  boundGeneration?: number
   /** Resume failed terminally (shown in the tile; retryable). */
   error?: string
 }
@@ -416,17 +421,53 @@ if (!isSecondaryWindow()) {
   })
 }
 
-export function patchSessionTile(storedSessionId: string, patch: Partial<SessionTile>) {
-  saveTiles($sessionTiles.get().map(t => (t.storedSessionId === storedSessionId ? { ...t, ...patch } : t)))
+// Bumped on every gateway RECONNECT. When a socket drops, the backend parks
+// each session bound to it on a drop transport — everything the session emits
+// is discarded — until a client re-attaches it (session.activate / resume),
+// and reclaims the idle ones after a short grace. The primary chat re-attaches
+// through its route resume; a tile compares its `boundGeneration` against this
+// and re-attaches in place (same pane, same transcript). Handing a tile its
+// cached runtime id back without re-attaching left it deaf: its turns finished
+// unseen ("thinking" forever while the sidebar said done), and its runtime was
+// reaped under it (an empty pane, then "session not found" on the next send).
+export const $tileBindingGeneration = atom(0)
+
+export function invalidateTileRuntimeBindings() {
+  $tileBindingGeneration.set($tileBindingGeneration.get() + 1)
 }
 
-/** Drop live runtime bindings so every tile re-resumes — used on gateway
- *  reconnect, where a respawned backend re-mints (recycles) runtime ids. */
-export function resetTileRuntimeBindings() {
+/** Patch one tile. Binding a runtime stamps it live on the current connection
+ *  unless the patch says which generation it was bound in. */
+export function patchSessionTile(storedSessionId: string, patch: Partial<SessionTile>) {
+  const stamped = patch.runtimeId ? { boundGeneration: $tileBindingGeneration.get(), ...patch } : patch
+
+  saveTiles($sessionTiles.get().map(t => (t.storedSessionId === storedSessionId ? { ...t, ...stamped } : t)))
+}
+
+/** A runtime the backend no longer holds (reclaimed, reaped, restarted): unbind
+ *  every tile showing it so its resume effect re-attaches the intact stored
+ *  session. The pane stays — only its live runtime went away. */
+export function unbindTileRuntime(runtimeId: string) {
   const tiles = $sessionTiles.get()
 
-  if (tiles.some(t => t.runtimeId)) {
-    $sessionTiles.set(tiles.map(toStored))
+  if (tiles.some(t => t.runtimeId === runtimeId)) {
+    $sessionTiles.set(
+      tiles.map(t => (t.runtimeId === runtimeId ? { ...t, boundGeneration: undefined, runtimeId: undefined } : t))
+    )
+  }
+}
+
+/** A dead runtime was replaced by a live one for the same conversation: every
+ *  tile showing the dead id follows to the live one, bound on this connection. */
+export function repointTileRuntime(fromRuntimeId: string, toRuntimeId: string) {
+  const tiles = $sessionTiles.get()
+
+  if (fromRuntimeId !== toRuntimeId && tiles.some(t => t.runtimeId === fromRuntimeId)) {
+    const boundGeneration = $tileBindingGeneration.get()
+
+    $sessionTiles.set(
+      tiles.map(t => (t.runtimeId === fromRuntimeId ? { ...t, boundGeneration, runtimeId: toRuntimeId } : t))
+    )
   }
 }
 
@@ -448,8 +489,13 @@ export interface SessionTileDelegate {
   executeSlash(rawCommand: string, sessionId: string): Promise<void>
   /** Interrupt a tile's running turn. */
   interruptSession(runtimeId: string): Promise<void>
-  /** Bind a live runtime id for a stored session (resume without touching
-   *  the main view). Returns the runtime id, or throws. */
+  /** A tile call just failed "session not found": rebind the stored session
+   *  to a live runtime, carrying the tile's conversation (and the tile) over
+   *  from the dead id. Returns the live runtime id, or null. */
+  recoverRuntime(storedSessionId: string, staleRuntimeId: null | string): Promise<null | string>
+  /** Attach a live runtime for a stored session to this window's socket
+   *  (resume without touching the main view): re-attaches a cached runtime in
+   *  place, or binds a fresh one. Returns the runtime id, or throws. */
   resumeTile(storedSessionId: string): Promise<string>
   /** Submit a prompt to a tile's live session. */
   submitToSession(runtimeId: string, text: string): Promise<void>
@@ -802,6 +848,7 @@ $selectedStoredSessionId.listen(selected => {
 if ((import.meta.env.DEV || import.meta.env.VITE_PERF_PROBE === '1') && typeof window !== 'undefined') {
   ;(window as unknown as Record<string, unknown>).__AGENTX_SESSION_TILES__ = {
     close: closeSessionTile,
+    generation: () => $tileBindingGeneration.get(),
     open: openSessionTile,
     patch: patchSessionTile,
     publish: publishSessionState,

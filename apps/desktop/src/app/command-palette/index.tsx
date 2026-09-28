@@ -1043,9 +1043,16 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
         },
         {
           icon: Layers3,
+          id: 'cap-hub',
+          keywords: ['store', 'hub', 'skills', 'install', 'capabilities'],
+          label: `${capLabel}: ${t.skills.tabStore} · ${t.skills.storeSegment.hub}`,
+          run: go(`${SKILLS_ROUTE}?tab=hub`)
+        },
+        {
+          icon: Layers3,
           id: 'cap-mcp',
-          keywords: ['mcp', 'servers', 'tools', 'capabilities', 'model context protocol'],
-          label: `${capLabel}: ${t.skills.tabMcp}`,
+          keywords: ['store', 'mcp', 'servers', 'connections', 'tools', 'capabilities', 'model context protocol'],
+          label: `${capLabel}: ${t.skills.tabStore} · ${t.skills.storeSegment.mcp}`,
           run: go(`${SKILLS_ROUTE}?tab=mcp`)
         }
       ]

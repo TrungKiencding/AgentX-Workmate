@@ -187,6 +187,12 @@ export interface ClientSessionState {
   awaitingResponse: boolean
   streamId: string | null
   sawAssistantPayload: boolean
+  /** This window picked up a turn it did not start — it (re)attached to a
+   *  session that was already running (a reconnect, a switch back, a tab
+   *  re-attaching). Events emitted before the attach never reached it, so the
+   *  usual "I streamed it, my transcript is complete" shortcut is false and the
+   *  turn must hydrate from stored history when it settles. */
+  adoptedRunningTurn: boolean
   pendingBranchGroup: string | null
   interrupted: boolean
   /** True after message.interim finalized a bubble in the still-running turn. */

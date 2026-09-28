@@ -824,6 +824,7 @@ agentx skills install https://sharethis.chat/SKILL.md                     # 直�
 agentx skills install https://example.com/SKILL.md --name my-skill        # frontmatter 无名称时覆盖名称
 agentx skills check
 agentx skills update
+agentx skills update my-skill --overwrite-local   # 本机改过也更新（先备份）
 agentx skills config
 agentx skills reset google-workspace
 agentx skills reset google-workspace --restore --yes

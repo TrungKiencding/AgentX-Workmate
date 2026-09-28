@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as HermesApi from '@/hermes'
@@ -14,7 +14,7 @@ vi.mock('@/hermes', async importOriginal => ({
   ...(await importOriginal<typeof HermesApi>()),
   getSkillHubChanges: () => getSkillHubChanges(),
   tickSkillHub: () => tickSkillHub(),
-  updateSkillsFromHub: () => updateSkillsFromHub()
+  updateSkillsFromHub: (options?: unknown) => updateSkillsFromHub(options)
 }))
 
 vi.mock('@/store/notifications', () => ({
@@ -26,7 +26,7 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
   return {
     enabled: true,
     configured: true,
-    base_url: 'https://skills.astralx.com.vn',
+    base_url: 'https://agenthub.astralx.com.vn',
     realtime: true,
     credentials: 'mailbox',
     device_id: '11111111-2222-3333-4444-555555555555',
@@ -100,14 +100,30 @@ function changes(overrides: Partial<SkillHubChangesResponse> = {}): SkillHubChan
   }
 }
 
+// The store owns one sync (`useHubSync`) and hands it to the panel; its
+// "Sync now" lives in the store bar. The harness stands in for both.
 async function renderStatus() {
-  const { HubStatus } = await import('./hub-status')
+  const { HubStatus, useHubSync } = await import('./hub-status')
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  function Harness() {
+    const sync = useHubSync()
+
+    return (
+      <>
+        <button onClick={() => void sync.tick(true)} type="button">
+          Sync now
+        </button>
+        <HubStatus sync={sync} />
+      </>
+    )
+  }
+
   let result: ReturnType<typeof render>
   await act(async () => {
     result = render(
       <QueryClientProvider client={client}>
-        <HubStatus />
+        <Harness />
       </QueryClientProvider>
     )
   })
@@ -183,6 +199,78 @@ describe('HubStatus', () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
   })
 
+  it('an MCP server the sync changed here reloads MCP in live sessions and refreshes the MCP catalog', async () => {
+    const { $gateway } = await import('@/store/gateway')
+    const request = vi.fn().mockResolvedValue({})
+    $gateway.set({ request } as unknown as Parameters<typeof $gateway.set>[0])
+
+    try {
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1 }))
+      const { client } = await renderStatus()
+      await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
+      const invalidate = vi.spyOn(client, 'invalidateQueries')
+      expect(request).not.toHaveBeenCalled()
+
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+
+      await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', { confirm: true }))
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+      // The MCP segment's "Connected" shelf reads the config: it is asked again too.
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ['agentx-config-record'] })
+
+      // Skills moved, MCP did not: the skills list is refreshed (so the new
+      // changes have landed) and MCP is not reloaded.
+      request.mockClear()
+      invalidate.mockClear()
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2, revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
+      expect(request).not.toHaveBeenCalled()
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+    } finally {
+      $gateway.set(null)
+    }
+  })
+
+  it('where the person stands with the hub’s servers changed: the MCP store asks the hub again, and nothing reloads', async () => {
+    const { $gateway } = await import('@/store/gateway')
+    const request = vi.fn().mockResolvedValue({})
+    $gateway.set({ request } as unknown as Parameters<typeof $gateway.set>[0])
+
+    try {
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 1 }))
+      const { client } = await renderStatus()
+      await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
+      const invalidate = vi.spyOn(client, 'invalidateQueries')
+
+      // A connection made on the hub (the hub's decision §9.1 #17): the store's hub shelf is stale, MCP here is not.
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['mcp-gateway'] }))
+      expect(request).not.toHaveBeenCalled()
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-catalog'] })
+
+      // Unchanged: asked for nothing.
+      invalidate.mockClear()
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1, gateway_revision: 2, revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['mcp-gateway'] })
+    } finally {
+      $gateway.set(null)
+    }
+  })
+
   it('"Update installed" runs the fleet update action', async () => {
     await renderStatus()
     await screen.findByTestId('hub-updates')
@@ -192,5 +280,57 @@ describe('HubStatus', () => {
     })
 
     await waitFor(() => expect(updateSkillsFromHub).toHaveBeenCalledTimes(1))
+  })
+
+  it('updates one skill from its own row', async () => {
+    await renderStatus()
+    const row = await screen.findByTestId('hub-update')
+    expect(row.getAttribute('data-modified')).toBe('false')
+
+    await act(async () => {
+      fireEvent.click(within(row).getByRole('button', { name: 'Update' }))
+    })
+
+    await waitFor(() =>
+      expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: undefined })
+    )
+  })
+
+  it('keeps a copy edited here out of "Update installed" and replaces it only after a confirmation', async () => {
+    getSkillHubChanges.mockResolvedValue(
+      changes({
+        updates: [
+          {
+            install_id: 'inst-1',
+            slug: 'vneb-report',
+            name: 'vneb-report',
+            current: '1.0.0',
+            latest: '1.1.0',
+            modified: true
+          }
+        ]
+      })
+    )
+    await renderStatus()
+    const row = await screen.findByTestId('hub-update')
+
+    expect(row.getAttribute('data-modified')).toBe('true')
+    expect(row.textContent).toContain('Edited here')
+    // Every update left is an edited copy: "Update all" would change nothing.
+    expect(screen.getByRole('button', { name: 'Update installed' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('hub-updates-kept').textContent).toContain('keeps the 1 skill you edited on this machine')
+
+    await act(async () => {
+      fireEvent.click(within(row).getByRole('button', { name: 'Replace with the Hub version…' }))
+    })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.textContent).toContain('Version 1.1.0 from the Hub replaces it')
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back up and replace' }))
+    })
+
+    await waitFor(() => expect(updateSkillsFromHub).toHaveBeenCalledWith({ name: 'vneb-report', overwriteLocal: true }))
   })
 })

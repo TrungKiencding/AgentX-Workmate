@@ -34,6 +34,7 @@ from urllib.parse import unquote, urljoin, urlparse, urlsplit, urlunparse
 import httpx
 import yaml
 
+from tools import hub_trust
 from tools.skills_guard import (
     ScanResult, content_hash, TRUSTED_REPOS,
 )
@@ -3941,6 +3942,160 @@ def uninstall_skill(skill_name: str) -> Tuple[bool, str]:
     return True, f"Uninstalled '{skill_name}' from {entry['install_path']}"
 
 
+# ---------------------------------------------------------------------------
+# Edits made on this machine to installed hub skills
+# ---------------------------------------------------------------------------
+
+#: What using a skill leaves in its directory — bytecode, tool caches,
+#: dependency folders, OS litter. Not an edit: the local-changes check skips
+#: them unless the bundle itself shipped the path.
+_RUNTIME_DIR_NAMES = frozenset({"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules", ".venv", "venv"})
+_RUNTIME_FILE_NAMES = frozenset({".DS_Store", "Thumbs.db", "desktop.ini"})
+
+
+def _is_runtime_artifact(rel: str) -> bool:
+    parts = rel.split("/")
+    name = parts[-1]
+    return (
+        any(part in _RUNTIME_DIR_NAMES for part in parts[:-1])
+        or name in _RUNTIME_FILE_NAMES
+        or name.startswith("._")
+        or name.endswith((".pyc", ".pyo"))
+    )
+
+
+def installed_skill_dir(entry: dict) -> Optional[Path]:
+    """The directory a lock entry points at, validated the way uninstall validates it, or None."""
+    try:
+        path = _resolve_lock_install_path(str(entry.get("install_path") or ""), str(entry.get("name") or ""))
+    except ValueError:
+        return None
+    return path if path.is_dir() else None
+
+
+def hub_skill_local_changes(entry: dict) -> bool:
+    """Whether the installed copy of a hub skill was edited on this machine.
+
+    The lock entry records ``content_hash`` of the directory as it was
+    installed (``skills_guard.content_hash``). The same digest over the
+    directory now — minus what running the skill leaves behind, unless the
+    bundle shipped it — tells an edit from use. A copy that cannot be read
+    counts as edited (it is not replaced blind); one with no recorded hash or
+    no directory has nothing to protect.
+    """
+    recorded = str(entry.get("content_hash") or "")
+    skill_dir = installed_skill_dir(entry)
+    if not recorded or skill_dir is None:
+        return False
+    shipped = {str(p).replace("\\", "/") for p in entry.get("files") or []}
+    shipped_dirs = {"/".join(p.split("/")[:i]) for p in shipped for i in range(1, p.count("/") + 1)}
+    found: List[Tuple[str, Path]] = []
+    try:
+        for root, dirnames, filenames in os.walk(skill_dir):
+            rel_root = Path(root).relative_to(skill_dir).as_posix()
+            prefix = "" if rel_root == "." else f"{rel_root}/"
+            # A dependency folder can hold thousands of files: never walked unless shipped.
+            dirnames[:] = [d for d in dirnames if d not in _RUNTIME_DIR_NAMES or f"{prefix}{d}" in shipped_dirs]
+            for filename in filenames:
+                rel = f"{prefix}{filename}"
+                if rel in shipped or not _is_runtime_artifact(rel):
+                    found.append((rel, Path(root) / filename))
+        digest = hashlib.sha256()
+        for rel, path in sorted(found):
+            digest.update(rel.encode("utf-8") + b"\x00")
+            digest.update(path.read_bytes())
+    except OSError as exc:
+        logger.warning("Could not read %s to check it for local edits: %s", skill_dir, exc)
+        return True
+    return f"sha256:{digest.hexdigest()[:16]}" != recorded
+
+
+def backup_hub_skill(entry: dict) -> Optional[Path]:
+    """Copy an installed hub skill aside before it is replaced, into
+    ``skills/.hub/backups/<name>/<UTC time>/`` — under ``.hub``, so no skill
+    scanner loads it. Returns the copy, or None when there is nothing to copy."""
+    skill_dir = installed_skill_dir(entry)
+    if skill_dir is None:
+        return None
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    parent = _hub_dir() / "backups" / _validate_skill_name(str(entry.get("name") or ""))
+    target = parent / stamp
+    counter = 1
+    while target.exists():
+        counter += 1
+        target = parent / f"{stamp}-{counter}"
+    parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(skill_dir, target, symlinks=True)
+    return target
+
+
+#: The version rule of the AgentX Skill Hub (``agentx_skillkit.package.SEMVER_RE``).
+HUB_SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+    r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+)
+_FRONTMATTER_KEY = re.compile(r"^(\s*)([A-Za-z0-9_-]+):(\s*)(.*?)(\r?)$")
+
+
+def set_skill_version(text: str, version: str) -> str:
+    """Write *version* where the hub reads it, touching only that line.
+
+    ``metadata.version`` first (and a top-level ``version:`` beside it, so the
+    two never disagree), else the top-level one — the order of the hub's
+    ``_parse_version``. With neither, ``version:`` becomes the first key under
+    a ``metadata:`` block, or the frontmatter's last line. A text without a
+    frontmatter (split the way :func:`agent.skill_utils.parse_frontmatter`
+    splits it) comes back unchanged.
+    """
+    bom = "\ufeff" if text.startswith("\ufeff") else ""
+    content = text[len(bom):]
+    if not content.startswith("---"):
+        return text
+    close = re.search(r"\n---\s*\n", content[3:])
+    if not close:
+        return text
+    lines = content[3:close.start() + 3].split("\n")
+    cr = "\r" if any(line.endswith("\r") for line in lines) else ""
+    keys: Dict[str, int] = {}
+    metadata_block = -1
+    child_indent: Optional[str] = None
+    stack: List[Tuple[int, str]] = []
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        match = _FRONTMATTER_KEY.match(line)
+        if not match:
+            continue
+        spaces, key, _gap, value, _cr = match.groups()
+        while stack and len(spaces) <= stack[-1][0]:
+            stack.pop()
+        if len(stack) == 1 and stack[0][1] == "metadata" and child_indent is None:
+            child_indent = spaces
+        path = ".".join([k for _, k in stack] + [key])
+        keys.setdefault(path, index)
+        if not value.strip():
+            if path == "metadata":
+                metadata_block = index
+            stack.append((len(spaces), key))
+
+    def set_line(index: int) -> None:
+        spaces, key, _gap, _value, line_cr = _FRONTMATTER_KEY.match(lines[index]).groups()
+        lines[index] = f"{spaces}{key}: {version}{line_cr}"
+
+    nested, top = keys.get("metadata.version"), keys.get("version")
+    if nested is not None or top is not None:
+        for index in (nested, top):
+            if index is not None:
+                set_line(index)
+    elif metadata_block != -1:
+        lines.insert(metadata_block + 1, f"{child_indent if child_indent is not None else '  '}version: {version}{cr}")
+    else:
+        lines.append(f"version: {version}{cr}")
+    return f"{bom}---" + "\n".join(lines) + content[close.start() + 3:]
+
+
 def bundle_content_hash(bundle: SkillBundle) -> str:
     """Compute a deterministic hash for an in-memory skill bundle.
 
@@ -4057,6 +4212,9 @@ def check_for_skill_updates(
             "status": status,
             "current_hash": current_hash,
             "latest_hash": latest_hash,
+            # Edited on this machine since it was installed: an update would
+            # replace the edit, so ``agentx skills update`` asks first.
+            "locally_modified": hub_skill_local_changes(entry),
             "bundle": bundle,
         })
 
@@ -4075,7 +4233,7 @@ def check_for_skill_updates(
 # AGENTX_SKILLS_INDEX_URL to point at your own deployment.
 #: The AgentX Skill Hub. ``AGENTX_SKILLS_HUB_URL`` or ``skills.hub_url`` in
 #: config.yaml override it (see :func:`agentx_hub_url`).
-DEFAULT_AGENTX_HUB_URL = "https://skills.astralx.com.vn"
+DEFAULT_AGENTX_HUB_URL = "https://agenthub.astralx.com.vn"
 
 AGENTX_INDEX_URL = os.environ.get("AGENTX_SKILLS_INDEX_URL") or (
     f"{DEFAULT_AGENTX_HUB_URL}/v1/index.json"
@@ -4368,7 +4526,9 @@ class HermesIndexSource(SkillSource):
 #: Trust level of a hub bundle whose signature verified. Mapped into
 #: ``tools.skills_guard.INSTALL_POLICY`` like ``trusted``.
 AGENTX_HUB_TRUST_VERIFIED = "agentx-hub-verified"
-_AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-keys"
+#: The hub keys this machine trusts (``tools/hub_trust.py``), cached one hour; a new name, so no
+#: key cached before the pins existed is ever used.
+_AGENTX_HUB_KEYS_CACHE_KEY = "agentx-hub-trusted-keys"
 _AGENTX_HUB_CATALOG_CACHE_KEY = "agentx-hub-catalog"
 #: How long a synced catalog stays fresh. The desktop asks on every open; this
 #: is what keeps "sync on open" from being a network call every time.
@@ -4379,6 +4539,10 @@ AGENTX_HUB_CATALOG_MAX = 500
 
 class HubCatalogUnavailable(RuntimeError):
     """The hub could not be reached (or refused us) while listing the catalog."""
+
+
+#: Hub addresses refused for plain http, said once each in the log.
+_INSECURE_HUBS_SAID: set = set()
 
 
 _AGENTX_HUB_IDENTIFIER_RE = re.compile(
@@ -4446,14 +4610,17 @@ def verify_hub_signature(manifest: Dict[str, Any], signature_b64: str, public_ke
 
 
 class AgentXHubSource(SkillSource):
-    """The AgentX Skill Hub (``skills.astralx.com.vn``).
+    """The AgentX Skill Hub (``agenthub.astralx.com.vn``).
 
     Search and inspect read the hub's public catalog (``/v1/skills``); fetch
     downloads a signed bundle and verifies the Ed25519 signature against the
-    keys the hub publishes at ``/.well-known/agentx-hub.json`` (cached in the
-    hub index cache, one hour). A bundle that verifies is installed with the
-    trust level ``agentx-hub-verified``; one that does not is treated as
-    ``community`` — the hub's verdict is never trusted without its signature.
+    keys the hub publishes at ``/.well-known/agentx-hub.json`` that this
+    machine trusts — pinned on first use, or endorsed by a pinned key
+    (``tools/hub_trust.py``; cached in the hub index cache, one hour). A
+    bundle that verifies is installed with the trust level
+    ``agentx-hub-verified``; one that does not is treated as ``community`` —
+    the hub's verdict is never trusted without its signature. The hub is
+    reached over https only (http on this machine alone).
 
     Both kinds install here: a ``core`` skill is a Workmate skill outright; a
     ``browser`` skill is a SKILL.md of site instructions that the agent follows
@@ -4497,6 +4664,12 @@ class AgentXHubSource(SkillSource):
         return headers
 
     def _get_json(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        problem = hub_trust.url_problem(self.base_url)
+        if problem:
+            if self.base_url not in _INSECURE_HUBS_SAID:
+                _INSECURE_HUBS_SAID.add(self.base_url)
+                logger.warning("AgentX Hub: %s", problem)
+            return None
         url = f"{self.base_url}{path}"
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport, follow_redirects=False) as client:
@@ -4519,12 +4692,9 @@ class AgentXHubSource(SkillSource):
         if isinstance(cached, dict) and cached.get("hub_url") == self.base_url and isinstance(cached.get("keys"), dict):
             self._keys = {str(k): str(v) for k, v in cached["keys"].items()}
             return self._keys
-        keys: Dict[str, str] = {}
         data = self._get_json("/.well-known/agentx-hub.json")
-        if isinstance(data, dict):
-            for entry in data.get("signing_keys") or []:
-                if isinstance(entry, dict) and entry.get("kid") and entry.get("ed25519_pub"):
-                    keys[str(entry["kid"])] = str(entry["ed25519_pub"])
+        # Only the keys this machine trusts: pinned on first use, or endorsed by a pinned key (Agent Hub P6.1).
+        keys: Dict[str, str] = hub_trust.trust(self.base_url, data) if isinstance(data, dict) else {}
         if keys:
             _write_index_cache(_AGENTX_HUB_KEYS_CACHE_KEY, {"hub_url": self.base_url, "keys": keys})
         self._keys = keys
@@ -4603,6 +4773,9 @@ class AgentXHubSource(SkillSource):
         :class:`HubCatalogUnavailable` when the hub answers nothing at all, so
         a caller can tell "the hub is down" from "the hub has no skills".
         """
+        problem = hub_trust.url_problem(self.base_url)
+        if problem:
+            raise HubCatalogUnavailable(problem)
         out: List[SkillMeta] = []
         cursor: Optional[str] = None
         page = max(1, min(int(page_size), 100))

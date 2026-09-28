@@ -38,6 +38,7 @@ import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
 
+import { terminateProcessTree } from './process-tree'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 
 const IS_WINDOWS = process.platform === 'win32'
@@ -429,6 +430,39 @@ async function resolveInstallScript({
 }
 
 // ---------------------------------------------------------------------------
+// Stopping an aborted installer
+// ---------------------------------------------------------------------------
+
+// Aborted installers whose process tree is still going down: SIGTERM has
+// reached all of it, the SIGKILL for whatever ignored that is still to come.
+const stoppingInstallers = new Set<Promise<void>>()
+
+// Stop an installer and everything it started. child.kill() alone signals
+// just the script, and its git / uv / `npx playwright install` children kept
+// running (and writing into AGENTX_HOME) after the app was gone.
+function stopInstaller(child) {
+  if (!child.pid) {
+    return
+  }
+
+  const stopping = terminateProcessTree(child.pid)
+
+  if (stopping) {
+    stoppingInstallers.add(stopping)
+    void stopping.then(() => stoppingInstallers.delete(stopping))
+  }
+}
+
+/**
+ * Settles once every aborted installer's process tree is gone; null when none
+ * is still going down. main.ts holds the app's quit on it: the SIGKILL that
+ * follows the SIGTERM is sent from this process, so exiting first would skip it.
+ */
+function pendingInstallerTeardown(): Promise<void> | null {
+  return stoppingInstallers.size > 0 ? Promise.all(stoppingInstallers).then(() => undefined) : null
+}
+
+// ---------------------------------------------------------------------------
 // powershell wrapper
 // ---------------------------------------------------------------------------
 
@@ -510,7 +544,7 @@ function spawnPowerShell(scriptPath, args, { emit, stageName, abortSignal, herme
       killed = true
 
       try {
-        child.kill('SIGTERM')
+        stopInstaller(child)
       } catch {
         void 0
       }
@@ -591,6 +625,9 @@ function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome,
   return new Promise<any>((resolve, reject) => {
     const child = spawn('bash', [scriptPath, ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Leads a process group (and session) of its own, so an abort can signal
+      // everything the script started without reaching the app's own group.
+      detached: true,
       env: {
         ...process.env,
         AGENTX_HOME: hermesHome || process.env.AGENTX_HOME || '',
@@ -608,7 +645,7 @@ function spawnBash(scriptPath, args, { emit, stageName, abortSignal, hermesHome,
       killed = true
 
       try {
-        child.kill('SIGTERM')
+        stopInstaller(child)
       } catch {
         void 0
       }
@@ -1088,6 +1125,7 @@ export {
   isPinnedCommit,
   // Exposed for testability
   parseStageResult,
+  pendingInstallerTeardown,
   resolveCheckoutHead,
   resolveInstallScript,
   resolveLocalInstallScript,

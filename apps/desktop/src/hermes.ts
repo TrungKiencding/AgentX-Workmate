@@ -1707,12 +1707,29 @@ export function uninstallSkillFromHub(name: string): Promise<ActionResponse> {
   })
 }
 
-export function updateSkillsFromHub(): Promise<ActionResponse> {
+/** Update every hub skill with an update, or `name` alone. A skill edited on
+ *  this machine is kept unless `overwriteLocal` (the edit is backed up first). */
+export function updateSkillsFromHub(
+  options: { name?: string; overwriteLocal?: boolean } = {}
+): Promise<ActionResponse> {
   return window.agentxDesktop.api<ActionResponse>({
     ...profileScoped(),
     path: '/api/skills/hub/update',
     method: 'POST',
-    body: {}
+    body: { name: options.name ?? null, overwrite_local: Boolean(options.overwriteLocal) }
+  })
+}
+
+/** Write the version the hub named into a local skill's SKILL.md (before uploading again). */
+export function bumpSkillVersion(
+  name: string,
+  version: string
+): Promise<{ ok: boolean; name: string; version: string; changed: boolean }> {
+  return window.agentxDesktop.api<{ ok: boolean; name: string; version: string; changed: boolean }>({
+    ...profileScoped(),
+    path: '/api/skills/hub/bump-version',
+    method: 'POST',
+    body: { name, version }
   })
 }
 
@@ -1804,23 +1821,45 @@ export function setMcpServerEnabled(name: string, enabled: boolean): Promise<{ o
   })
 }
 
-export function getMcpCatalog(): Promise<McpCatalogResponse> {
+/** The MCP catalog: the servers AgentX ships and the person's AgentX Hub ones.
+ *  `refresh` fetches the hub's signed feed now instead of when it is stale. */
+export function getMcpCatalog(refresh = false): Promise<McpCatalogResponse> {
   return window.agentxDesktop.api<McpCatalogResponse>({
     ...profileScoped(),
-    path: '/api/mcp/catalog'
+    path: `/api/mcp/catalog${refresh ? '?refresh=true' : ''}`
   })
 }
 
+export interface McpCatalogInstallResponse {
+  ok: boolean
+  name?: string
+  id?: string
+  pid?: number
+  action?: string
+  background?: boolean
+  /** An AgentX Hub server: whether the hub was told at once (else the hub sync tells it). */
+  registered?: boolean
+}
+
+/** Install a catalog entry by its id: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
 export function installMcpCatalogEntry(
-  name: string,
+  id: string,
   env: Record<string, string> = {}
-): Promise<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }> {
-  return window.agentxDesktop.api<{ ok: boolean; name?: string; pid?: number; action?: string; background?: boolean }>({
+): Promise<McpCatalogInstallResponse> {
+  return window.agentxDesktop.api<McpCatalogInstallResponse>({
     ...profileScoped(),
     path: '/api/mcp/catalog/install',
     method: 'POST',
-    body: { name, env, enable: true },
+    body: { name: id, env, enable: true },
     timeoutMs: 60_000
+  })
+}
+
+/** Remove an AgentX Hub server from this machine; the hub hears it on the next sync. */
+export function removeHubMcpServer(slug: string): Promise<{ ok: boolean; name: string }> {
+  return window.agentxDesktop.api<{ ok: boolean; name: string }>({
+    path: `/api/mcp/hub/${encodeURIComponent(slug)}/remove`,
+    method: 'POST'
   })
 }
 

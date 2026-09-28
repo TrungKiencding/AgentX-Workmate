@@ -6,10 +6,15 @@ import { preserveLocalAssistantErrors } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { persistInFlightTurnState } from '@/lib/inflight-turn-journal'
 import { setMutableRef } from '@/lib/mutable-ref'
+import { setSessionAgentStarting } from '@/store/agent-starting'
+import { clearClarifyRequest } from '@/store/clarify'
+import { setSessionCompacting } from '@/store/compaction'
+import { clearAllPrompts } from '@/store/prompts'
 import {
   $activeSessionId,
   $busy,
   $messages,
+  setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setCurrentFastMode,
   setCurrentModel,
@@ -20,7 +25,10 @@ import {
   setTurnStartedAt,
   setYoloActive
 } from '@/store/session'
-import { publishSessionState } from '@/store/session-states'
+import { dropSessionState, publishSessionState, repointTileRuntime, unbindTileRuntime } from '@/store/session-states'
+import { clearSessionSubagents } from '@/store/subagents'
+import { clearSessionTodos } from '@/store/todos'
+import { setSessionDraftingTool } from '@/store/tool-drafting'
 
 import type { ClientSessionState } from '../../types'
 
@@ -43,6 +51,39 @@ function syncRuntimeMetadataToView(state: ClientSessionState) {
   setCurrentFastMode(state.fast ?? false)
   setYoloActive(state.yolo ?? false)
   setCurrentPersonality(state.personality ?? '')
+}
+
+/** Turn state kept per runtime outside the session cache: blocking prompts,
+ *  status labels, subagent rows, the todo panel. A retired runtime's copies can
+ *  never settle — their events would arrive under an id nobody holds any more. */
+function clearRuntimeTurnState(runtimeId: string) {
+  clearAllPrompts(runtimeId)
+  clearClarifyRequest(undefined, runtimeId)
+  clearSessionSubagents(runtimeId)
+  clearSessionTodos(runtimeId)
+  setSessionAgentStarting(runtimeId, false)
+  setSessionCompacting(runtimeId, false)
+  setSessionDraftingTool(runtimeId, '')
+}
+
+/** The conversation a dead runtime held, carried onto the live runtime that
+ *  replaced it. The transcript and the turn in flight come from the dead id's
+ *  cache (a fresh runtime omits messages and has seen no turn); runtime facts
+ *  the live runtime already reported win. */
+function carryConversation(carried: ClientSessionState, current: ClientSessionState): ClientSessionState {
+  return {
+    ...carried,
+    branch: current.branch || carried.branch,
+    cwd: current.cwd || carried.cwd,
+    messages: carried.messages.length ? carried.messages : current.messages,
+    model: current.model || carried.model,
+    personality: current.personality || carried.personality,
+    provider: current.provider || carried.provider,
+    reasoningEffort: current.reasoningEffort || carried.reasoningEffort,
+    serviceTier: current.serviceTier || carried.serviceTier,
+    storedSessionId: current.storedSessionId ?? carried.storedSessionId,
+    usage: current.usage ?? carried.usage
+  }
 }
 
 export function useSessionStateCache({
@@ -315,6 +356,72 @@ export function useSessionStateCache({
     [ensureSessionState, syncSessionStateToView]
   )
 
+  // Every per-runtime record this window keeps, retired together: the cache
+  // entry, the stored→runtime mappings onto it, the published mirror, and the
+  // turn state kept beside them.
+  const retireRuntime = useCallback((runtimeId: string): ClientSessionState | undefined => {
+    const retired = sessionStateByRuntimeIdRef.current.get(runtimeId)
+
+    sessionStateByRuntimeIdRef.current.delete(runtimeId)
+
+    for (const [storedSessionId, mappedRuntimeId] of runtimeIdByStoredSessionIdRef.current) {
+      if (mappedRuntimeId === runtimeId) {
+        runtimeIdByStoredSessionIdRef.current.delete(storedSessionId)
+      }
+    }
+
+    dropSessionState(runtimeId)
+    clearRuntimeTurnState(runtimeId)
+
+    return retired
+  }, [])
+
+  /** The backend no longer holds `runtimeId` (reclaimed, reaped, respawned).
+   *  Forget it everywhere and unbind any tile showing it, so that tile
+   *  re-attaches its stored conversation instead of rendering an empty slice
+   *  or sending into a dead id. The main chat's re-resume is the caller's — it
+   *  owns the route. Returns what was cached (its storedSessionId names the
+   *  conversation that lost its runtime). */
+  const forgetRuntime = useCallback(
+    (runtimeId: string): ClientSessionState | undefined => {
+      const retired = retireRuntime(runtimeId)
+      unbindTileRuntime(runtimeId)
+
+      return retired
+    },
+    [retireRuntime]
+  )
+
+  /** A dead runtime was replaced by a live one for the same conversation (a
+   *  resume after a reap, a restart, a reconnect). Move the cached conversation
+   *  — transcript and turn in flight — onto the live id, and point every
+   *  surface that showed the dead one at it: the main chat, tiles. Otherwise
+   *  the view keeps rendering the dead id's slice while the reply, and every
+   *  later turn, streams into a slice nothing paints. */
+  const rehomeRuntime = useCallback(
+    (fromRuntimeId: string, toRuntimeId: string, storedSessionId: string): ClientSessionState => {
+      if (fromRuntimeId === toRuntimeId) {
+        return ensureSessionState(toRuntimeId, storedSessionId)
+      }
+
+      const carried = retireRuntime(fromRuntimeId)
+      repointTileRuntime(fromRuntimeId, toRuntimeId)
+
+      // Before the state write: the view only publishes the ACTIVE runtime.
+      if (activeSessionIdRef.current === fromRuntimeId) {
+        activeSessionIdRef.current = toRuntimeId
+        setActiveSessionId(toRuntimeId)
+      }
+
+      if (!carried) {
+        return ensureSessionState(toRuntimeId, storedSessionId)
+      }
+
+      return updateSessionState(toRuntimeId, current => carryConversation(carried, current), storedSessionId)
+    },
+    [ensureSessionState, retireRuntime, updateSessionState]
+  )
+
   const getRuntimeIdForStoredSession = useCallback((storedSessionId: string): string | null => {
     const runtimeId = runtimeIdByStoredSessionIdRef.current.get(storedSessionId)
 
@@ -330,7 +437,9 @@ export function useSessionStateCache({
   return {
     activeSessionIdRef,
     ensureSessionState,
+    forgetRuntime,
     getRuntimeIdForStoredSession,
+    rehomeRuntime,
     resetViewSync,
     runtimeIdByStoredSessionIdRef,
     selectedStoredSessionIdRef,

@@ -117,7 +117,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("save", "Save the current conversation", "Session",
                cli_only=True),
     CommandDef("export", "Export the current session history to a file", "Session",
-               args_hint="[format] [filename]"),
+               args_hint="[md|json] [filename]"),
     CommandDef("retry", "Retry the last message (resend to agent)", "Session"),
     CommandDef("prompt", "Compose your next prompt in $EDITOR (markdown), then send it", "Session",
                cli_only=True, args_hint="[initial text]", aliases=("compose",)),
@@ -135,7 +135,10 @@ COMMAND_REGISTRY: list[CommandDef] = [
                args_hint="[number]"),
     CommandDef("snapshot", "Create or restore state snapshots of AgentX config/state", "Session",
                cli_only=True, aliases=("snap",), args_hint="[create|restore <id>|prune]"),
-    CommandDef("export", "Export a profile (config, skills, theme) to a shareable archive", "Configuration",
+    # Upstream spells this /export (its session export lives on /save). Here
+    # /export has been session export on every surface since the fork took it
+    # in, so profile sharing keeps its own name instead of colliding with it.
+    CommandDef("export-profile", "Export a profile (config, skills, theme) to a shareable archive", "Configuration",
                cli_only=True, args_hint="[profile] [-o output.tar.gz]"),
     CommandDef("import", "Import a shared profile archive as a new profile", "Configuration",
                cli_only=True, args_hint="<archive.tar.gz> [--name <name>]"),
@@ -1266,7 +1269,12 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 #     /agentx update on Slack. Demoted to free the native slot /approvals now
 #     claims — without this entry /approvals tips the registry past the 50-cap
 #     and silently clamps /update off, breaking Telegram parity.
-_SLACK_VIA_AGENTX_ONLY = frozenset({"topup", "moa", "debug", "egress", "init", "version", "diff", "update"})
+#   - platform: rare operator lookup (pause/resume/list an adapter); reached
+#     via /agentx platform on Slack. Demoted for the native slot the session
+#     /export claims (upstream made the same call when its session export
+#     became gateway-available) — without this entry /export tips the registry
+#     past the 50-cap and silently clamps /platform, breaking Telegram parity.
+_SLACK_VIA_AGENTX_ONLY = frozenset({"topup", "moa", "debug", "egress", "init", "version", "diff", "update", "platform"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

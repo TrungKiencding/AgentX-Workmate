@@ -542,6 +542,10 @@ class SkillUninstallRequest(BaseModel):
 
 class SkillsUpdateRequest(BaseModel):
     profile: Optional[str] = None
+    #: One skill (its installed name) instead of every one with an update.
+    name: Optional[str] = None
+    #: Also replace a skill edited on this machine; the edit is backed up first.
+    overwrite_local: bool = False
 
 
 # --- Phase 3 (AgentX Skill Hub): publish / validate / propose a local skill ---
@@ -555,6 +559,14 @@ class SkillHubPublishRequest(BaseModel):
     workspace: Optional[str] = None
     kind: Optional[str] = None
     targets: Optional[List[str]] = None
+    profile: Optional[str] = None
+
+
+class SkillHubBumpVersionRequest(BaseModel):
+    """Write the version the hub named into a local skill before uploading again."""
+
+    name: str
+    version: str
     profile: Optional[str] = None
 
 

@@ -91,3 +91,71 @@ describe('useMessageStream turn-end todo cleanup', () => {
     expect($todosBySession.get()[SID]).toBeUndefined()
   })
 })
+
+// `tool.complete` for `todo`, shaped as tui_gateway emits it: the call's own
+// args, the parsed result, and the result's list lifted to `todos`.
+const todoComplete = (toolId: string, args: unknown, result: unknown) =>
+  act(() =>
+    handleEvent!({
+      payload: {
+        args,
+        name: 'todo',
+        result,
+        tool_id: toolId,
+        ...(result && typeof result === 'object' && 'todos' in result ? { todos: result.todos } : {})
+      },
+      session_id: SID,
+      type: 'tool.complete'
+    })
+  )
+
+describe('useMessageStream live todo updates', () => {
+  const plan = [todo('1', 'in_progress'), todo('2', 'pending'), todo('3', 'pending')]
+
+  beforeEach(() => {
+    handleEvent = null
+    clearSessionTodos(SID)
+  })
+
+  afterEach(() => {
+    cleanup()
+    clearSessionTodos(SID)
+    vi.restoreAllMocks()
+  })
+
+  it('moves the list one step per update, taking the full list from each result', async () => {
+    await mountStream()
+    todoComplete('call-1', { todos: plan }, { todos: plan })
+
+    expect($todosBySession.get()[SID]).toEqual(plan)
+
+    // A status-only update: the args name two items and carry no content.
+    const stepOne = [todo('1', 'completed'), todo('2', 'in_progress'), todo('3', 'pending')]
+
+    todoComplete(
+      'call-2',
+      {
+        todos: [
+          { id: '1', status: 'completed' },
+          { id: '2', status: 'in_progress' }
+        ]
+      },
+      { todos: stepOne }
+    )
+
+    expect($todosBySession.get()[SID]).toEqual(stepOne)
+  })
+
+  it('keeps the current list when a todo call is rejected', async () => {
+    await mountStream()
+    todoComplete('call-1', { todos: plan }, { todos: plan })
+
+    todoComplete(
+      'call-2',
+      { todos: [{ id: '4', status: 'pending' }] },
+      { error: "New todo items need a short task description in 'content' (missing for id '4'); nothing was changed." }
+    )
+
+    expect($todosBySession.get()[SID]).toEqual(plan)
+  })
+})

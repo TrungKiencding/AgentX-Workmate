@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -8,14 +8,27 @@ import { getSkillHubChanges, tickSkillHub } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
-import { $hubActions, HUB_CATALOG_KEY, UPDATE_ALL_KEY, updateHubSkills } from '@/store/hub-actions'
+import { $gateway } from '@/store/gateway'
+import {
+  $hubActions,
+  HUB_CATALOG_KEY,
+  HUB_CHANGES_KEY,
+  UPDATE_ALL_KEY,
+  updateHubSkill,
+  updateHubSkills
+} from '@/store/hub-actions'
 import { notify, notifyError } from '@/store/notifications'
-import type { SkillHubChangesResponse, SkillHubInstallRow } from '@/types/hermes'
+import type { SkillHubChangesResponse, SkillHubInstallRow, SkillHubUpdate } from '@/types/hermes'
+
+import { AGENTX_CONFIG_KEY } from '../hooks/use-config-record'
+
+import { MCP_GATEWAY_KEY } from './mcp-model'
+import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 
 // What the hub wants on this machine, and what the backend did about it.
-// Polled while the Hub tab is open (the plan's 15 s), with a tick — which
+// Polled while Kho tiện ích is open (the plan's 15 s), with a tick — which
 // also hands the backend a fresh bearer — on mount and every minute.
-export const HUB_CHANGES_KEY = ['skill-hub-changes'] as const
+export { HUB_CHANGES_KEY }
 const SKILLS_LIST_KEY = ['skills-list'] as const
 export const HUB_CHANGES_POLL_MS = 15_000
 export const HUB_TICK_MS = 60_000
@@ -65,19 +78,32 @@ function when(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString()
 }
 
-/** `hideWhenIdle`: render nothing while the hub has asked this machine for
- *  nothing (no installs, updates or history). Browsing the store needs no
- *  account, so an empty "sign in to sync" panel is noise above the cards —
- *  the panel appears the moment the hub actually wants something here. The
- *  polling/tick effects still run either way. */
-export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } = {}) {
+/** What `useHubSync` hands the store: the hub's changes feed and the tick. */
+export interface HubSync {
+  changes: UseQueryResult<SkillHubChangesResponse>
+  /** Run a tick now; `announce` toasts an outcome that is not "ok". */
+  tick: (announce: boolean) => Promise<void>
+  ticking: boolean
+}
+
+/**
+ * The store's link to the hub, whichever kind is on screen: a tick on mount
+ * (which hands the backend this session's bearer and reconciles at once) and
+ * every minute after, the changes feed polled every 15 s, and what a moved
+ * revision means — skills or MCP servers changed on disk. Mounted once per
+ * store (`StoreTab`); the panel below only renders what it returns.
+ */
+export function useHubSync(): HubSync {
   const { t } = useI18n()
   const h = t.skills.hub
   const queryClient = useQueryClient()
-  const actions = useStore($hubActions)
   const [ticking, setTicking] = useState(false)
   // The backend revision we last acted on; a change means files moved.
   const [seenRevision, setSeenRevision] = useState<number | null>(null)
+  // The same for MCP servers the sync installed, removed or switched here.
+  const [seenMcpRevision, setSeenMcpRevision] = useState<number | null>(null)
+  // The same for where the person stands with the hub's servers (a connection made on the hub, a wait completed).
+  const [seenGatewayRevision, setSeenGatewayRevision] = useState<number | null>(null)
 
   const changes = useQuery({
     queryKey: HUB_CHANGES_KEY,
@@ -109,7 +135,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
   )
 
   // A tick on mount hands the backend this session's bearer and reconciles
-  // at once; the interval keeps the credential fresh while the tab is open.
+  // at once; the interval keeps the credential fresh while the store is open.
   useEffect(() => {
     void tick(false)
     const timer = setInterval(() => void tick(false), HUB_TICK_MS)
@@ -136,9 +162,81 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
     }
   }, [queryClient, revision, seenRevision])
 
+  // The sync changed an MCP server here (an AgentX Hub server installed,
+  // switched off from the hub, removed, its tool list re-approved): live
+  // sessions reload MCP, and the MCP segment's catalog and config are stale.
+  const mcpRevision = changes.data?.mcp_revision
+  useEffect(() => {
+    if (mcpRevision === undefined) {
+      return
+    }
+
+    if (seenMcpRevision !== null && seenMcpRevision !== mcpRevision) {
+      void queryClient.invalidateQueries({ queryKey: ['mcp-catalog'] })
+      void queryClient.invalidateQueries({ queryKey: AGENTX_CONFIG_KEY })
+      void $gateway
+        .get()
+        ?.request('reload.mcp', { confirm: true })
+        .catch(() => undefined)
+    }
+
+    if (seenMcpRevision !== mcpRevision) {
+      setSeenMcpRevision(mcpRevision)
+    }
+  }, [mcpRevision, queryClient, seenMcpRevision])
+
+  // Where the person stands with a hub server changed on the hub (a connection made there, lost, removed; a server
+  // waited for added here — the hub's decision §9.1 #17): the MCP store's shelf asks the hub again.
+  const gatewayRevision = changes.data?.gateway_revision
+  useEffect(() => {
+    if (gatewayRevision === undefined) {
+      return
+    }
+
+    if (seenGatewayRevision !== null && seenGatewayRevision !== gatewayRevision) {
+      void queryClient.invalidateQueries({ queryKey: [MCP_GATEWAY_KEY] })
+    }
+
+    if (seenGatewayRevision !== gatewayRevision) {
+      setSeenGatewayRevision(gatewayRevision)
+    }
+  }, [gatewayRevision, queryClient, seenGatewayRevision])
+
+  return { changes, tick, ticking }
+}
+
+/** `hideWhenIdle`: render nothing while the hub has asked this machine for
+ *  nothing (no installs, updates or history). Browsing the store needs no
+ *  account, so an empty "sign in to sync" panel is noise above the cards —
+ *  the panel appears the moment the hub actually wants something here. The
+ *  sync itself (`useHubSync`) runs either way; the store bar carries the hub's
+ *  link and the "Đồng bộ ngay" button, so the panel repeats neither. */
+export function HubStatus({ hideWhenIdle = false, sync }: { hideWhenIdle?: boolean; sync: HubSync }) {
+  const { t } = useI18n()
+  const h = t.skills.hub
+  const actions = useStore($hubActions)
+  const [replace, setReplace] = useState<null | ReplaceTarget>(null)
+  const { changes } = sync
+
   const updateAll = () => {
     notify({ kind: 'success', title: h.updateStarted, message: h.actionLog })
     void updateHubSkills().catch(err => notifyError(err, h.actionFailed))
+  }
+
+  // One row: the installed name is what `agentx skills update` takes; a copy
+  // edited here is replaced only after the confirmation (hub decision §8 #20).
+  const updateOne = (update: SkillHubUpdate) => {
+    const identifier = `agentx-hub/${update.slug}`
+    const name = update.name || update.slug.split('/').pop() || update.slug
+
+    if (update.modified) {
+      setReplace({ identifier, name, version: update.latest ?? '?' })
+
+      return
+    }
+
+    notify({ kind: 'success', title: h.updateOneStarted(name), message: h.actionLog })
+    void updateHubSkill(identifier, name).catch(err => notifyError(err, h.actionFailed))
   }
 
   const data = changes.data
@@ -147,6 +245,7 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
   const history = (data?.history ?? []).slice(0, 5)
   const line = data ? statusLine(data, h) : null
   const updating = actions[UPDATE_ALL_KEY]?.running ?? false
+  const editedUpdates = updates.filter(update => update.modified).length
 
   if (hideWhenIdle && installs.length === 0 && updates.length === 0 && history.length === 0) {
     return null
@@ -167,22 +266,6 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
         {data?.last?.at && (
           <span className="text-xs text-(--ui-text-quaternary)">{h.lastSync(when(data.last.at))}</span>
         )}
-        <span className="ml-auto flex items-center gap-1">
-          {data?.base_url && (
-            <a
-              className="inline-flex min-h-6 items-center text-xs text-muted-foreground underline-offset-4 hover:underline"
-              href={data.base_url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {h.openHub}
-            </a>
-          )}
-          <Button disabled={ticking} onClick={() => void tick(true)} size="sm" variant="outline">
-            {ticking && <Loader2 className="size-3 animate-spin" />}
-            {ticking ? h.syncing : h.syncNow}
-          </Button>
-        </span>
       </div>
 
       {line && (
@@ -192,20 +275,56 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
       )}
 
       {updates.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" data-testid="hub-updates">
-          <span className="font-medium text-foreground/85">{h.updatesAvailable(updates.length)}</span>
-          {updates.map(update => (
-            <span
-              className="rounded bg-(--ui-bg-tertiary) px-1.5 py-0.5 text-(--ui-text-secondary)"
-              key={update.install_id}
+        <div className="mt-2 text-xs" data-testid="hub-updates">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground/85">{h.updatesAvailable(updates.length)}</span>
+            <Button
+              className="ml-auto"
+              disabled={updating || editedUpdates === updates.length}
+              onClick={updateAll}
+              size="sm"
+              variant="secondary"
             >
-              {update.name || update.slug} {h.updateOne(update.current ?? '?', update.latest ?? '?')}
-            </span>
-          ))}
-          <Button className="ml-auto" disabled={updating} onClick={updateAll} size="sm" variant="secondary">
-            {updating && <Loader2 className="size-3 animate-spin" />}
-            {updating ? h.updating : h.updateAll}
-          </Button>
+              {updating && <Loader2 className="size-3 animate-spin" />}
+              {updating ? h.updating : h.updateAll}
+            </Button>
+          </div>
+          <ul className="mt-1 flex flex-col gap-1">
+            {updates.map(update => {
+              const running = actions[`agentx-hub/${update.slug}`]?.running ?? false
+
+              return (
+                <li
+                  className="flex flex-wrap items-center gap-1.5"
+                  data-modified={update.modified ? 'true' : 'false'}
+                  data-testid="hub-update"
+                  key={update.install_id}
+                >
+                  <span className="font-medium text-foreground/85">{update.name || update.slug}</span>
+                  <span className="text-(--ui-text-tertiary)">
+                    {h.updateOne(update.current ?? '?', update.latest ?? '?')}
+                  </span>
+                  {update.modified && <StatusPill tone="muted">{h.editedHere}</StatusPill>}
+                  <Button
+                    className="ml-auto"
+                    data-testid="hub-update-one"
+                    disabled={running || updating}
+                    onClick={() => updateOne(update)}
+                    size="sm"
+                    variant={update.modified ? 'outline' : 'text'}
+                  >
+                    {running && <Loader2 className="size-3 animate-spin" />}
+                    {update.modified ? h.replaceWithHub : h.updateThis}
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+          {editedUpdates > 0 && (
+            <p className="mt-1 text-(--ui-text-tertiary)" data-testid="hub-updates-kept">
+              {h.keptOnUpdateAll(editedUpdates)}
+            </p>
+          )}
         </div>
       )}
 
@@ -243,6 +362,8 @@ export function HubStatus({ hideWhenIdle = false }: { hideWhenIdle?: boolean } =
           )}
         </p>
       )}
+
+      <ReplaceEditedSkillDialog onClose={() => setReplace(null)} target={replace} />
 
       {history.length > 0 && (
         <div className="mt-2 text-xs text-(--ui-text-tertiary)" data-testid="hub-history">

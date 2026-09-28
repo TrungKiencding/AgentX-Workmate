@@ -218,6 +218,11 @@ _MCP_MESSAGE_HANDLER_SUPPORTED = False
 # Streamable HTTP was introduced by 2025-03-26, so this remains valid for the
 # HTTP transport path even on older-but-supported SDK versions.
 LATEST_PROTOCOL_VERSION = "2025-03-26"
+# The revision an HTTP connection opens with: initialize is the handshake,
+# so this is the latest *handshake* revision. On mcp < 2.0 it is the same as
+# LATEST_PROTOCOL_VERSION; on mcp >= 2.0 LATEST_PROTOCOL_VERSION is the
+# stateless 2026-07-28 revision, which has no initialize at all.
+HANDSHAKE_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION
 
 # Not in _MCP_SDK_LAZY_SYMBOLS on purpose: tests patch this name directly,
 # and mock.patch needs it to already exist as a module attribute.
@@ -280,7 +285,7 @@ def _ensure_mcp_sdk() -> bool:
     global _MCP_SDK_IMPORT_ATTEMPTED, _MCP_AVAILABLE, _MCP_HTTP_AVAILABLE
     global _MCP_SAMPLING_TYPES, _MCP_NOTIFICATION_TYPES, _MCP_ELICITATION_TYPES
     global _MCP_MESSAGE_HANDLER_SUPPORTED, _MCP_LOGGING_CALLBACK_SUPPORTED
-    global _MCP_NEW_HTTP, _MCP_LEGACY_HTTP, LATEST_PROTOCOL_VERSION, sse_client
+    global _MCP_NEW_HTTP, _MCP_LEGACY_HTTP, LATEST_PROTOCOL_VERSION, HANDSHAKE_PROTOCOL_VERSION, sse_client
     global ClientSession, StdioServerParameters, stdio_client
     global streamablehttp_client, streamable_http_client
     global CreateMessageResult, CreateMessageResultWithTools, ErrorData
@@ -322,6 +327,11 @@ def _ensure_mcp_sdk() -> bool:
                 from mcp.types import LATEST_PROTOCOL_VERSION
             except ImportError:
                 logger.debug("mcp.types.LATEST_PROTOCOL_VERSION not available -- using fallback protocol version")
+            try:
+                # mcp >= 2.0 names the latest handshake revision apart from the latest revision.
+                from mcp_types.version import LATEST_HANDSHAKE_VERSION as HANDSHAKE_PROTOCOL_VERSION
+            except ImportError:
+                HANDSHAKE_PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION
             # SSE transport client (for MCP servers using SSE transport instead of Streamable HTTP)
             try:
                 from mcp.client.sse import sse_client
@@ -810,6 +820,8 @@ def _prepend_path(env: dict, directory: str) -> dict:
 # returns a cursor forever cannot spin discovery indefinitely. 50 pages at
 # the common 50-100 items/page covers thousands of tools/resources/prompts.
 _MCP_LIST_MAX_PAGES = 50
+# A list result's items under the mcp 1.x spelling, where mcp 2.x renamed them.
+_LIST_ITEMS_CAMEL = {"resource_templates": "resourceTemplates"}
 
 
 async def _paginate_full_list(list_method, items_attr: str, server_name: str,
@@ -863,7 +875,7 @@ async def _paginate_full_list(list_method, items_attr: str, server_name: str,
                 cache_meta_out["ttl_ms"] = _ttl
             if _scope is not None:
                 cache_meta_out["cache_scope"] = _scope
-        items.extend(getattr(result, items_attr, None) or [])
+        items.extend(mcp_field(result, items_attr, _LIST_ITEMS_CAMEL.get(items_attr, items_attr)) or [])
         cursor = mcp_field(result, "next_cursor", "nextCursor")
         # Per the MCP spec the cursor is an opaque string; anything else
         # (including mock objects in tests) means "no more pages".
@@ -2194,6 +2206,7 @@ class MCPServerTask:
         "_idle_timeout_seconds", "_max_lifetime_seconds", "_recycled_reason",
         "initialize_result", "_ping_unsupported", "_list_cache_meta",
         "_reconnect_retries", "_session_proven", "_was_parked",
+        "_hub_prompts", "_hub_templates", "_hub_check",
     )
 
     def __init__(self, name: str):
@@ -2268,6 +2281,12 @@ class MCPServerTask:
         # back to ``list_tools`` (the pre-ping probe) so we neither spam pings
         # nor reconnect-loop. Reset on each fresh transport connection.
         self._ping_unsupported: bool = False
+        # A server installed from the AgentX Hub: the prompts and resource
+        # templates it announced (None — it could not list them), and its
+        # lock against the surface the hub approved (tools/mcp_hub.py).
+        self._hub_prompts: Optional[list] = []
+        self._hub_templates: Optional[list] = []
+        self._hub_check: Optional[Any] = None
 
     def _is_http(self) -> bool:
         """Check if this server uses HTTP transport."""
@@ -3220,8 +3239,13 @@ class MCPServerTask:
         # initialize request and reject session-less POSTs otherwise.
         # Seed it as a client-level default, but treat user overrides as
         # case-insensitive so conventional casing is preserved.
+        # The seed is the handshake revision: initialize opens the
+        # connection (_negotiate_session), and a 2026-07-28 header in front of
+        # it sends an mcp 2.x server down its stateless path, which answers
+        # the handshake with -32602 instead of a session. Once a revision is
+        # negotiated (either era) the SDK stamps it on every request itself.
         if not any(key.lower() == "mcp-protocol-version" for key in headers):
-            headers["mcp-protocol-version"] = LATEST_PROTOCOL_VERSION
+            headers["mcp-protocol-version"] = HANDSHAKE_PROTOCOL_VERSION
         connect_timeout = config.get("connect_timeout", _DEFAULT_CONNECT_TIMEOUT)
         ssl_verify = config.get("ssl_verify", True)
         client_cert = _resolve_client_cert(self.name, config)
@@ -3383,9 +3407,10 @@ class MCPServerTask:
             # http_client is provided, so we wrap in async-with.
             try:
                 async with httpx.AsyncClient(**client_kwargs) as http_client:
-                    async with streamable_http_client(url, http_client=http_client) as (
-                        read_stream, write_stream, _get_session_id,
-                    ):
+                    async with streamable_http_client(url, http_client=http_client) as transport_streams:
+                        # mcp >= 2.0 yields (read, write); mcp 1.24–1.x also
+                        # yielded a get_session_id callback. Index, never unpack.
+                        read_stream, write_stream = transport_streams[0], transport_streams[1]
                         async with ClientSession(read_stream, write_stream, **sampling_kwargs) as session:
                             # Bound the handshake (#59349) — see stdio path.
                             self.initialize_result = await self._negotiate_session(
@@ -3473,6 +3498,7 @@ class MCPServerTask:
                 self.name,
             )
             self._tools = []
+            await self._discover_hub_extras()
             self._register_discovered_tools_if_needed()
             return
         async with self._rpc_lock:
@@ -3481,7 +3507,38 @@ class MCPServerTask:
                 self.session.list_tools, "tools", self.name,
                 cache_meta_out=self._list_cache_meta,
             )
+        await self._discover_hub_extras()
         self._register_discovered_tools_if_needed()
+
+    async def _discover_hub_extras(self) -> None:
+        """A server installed from the AgentX Hub is locked to the whole
+        surface the hub approved (Agent Hub P6.1): its prompts and resource
+        templates are listed with its tools, for the lock and for the report
+        (``tools/mcp_hub.py``). A family the server does not advertise is
+        empty; one it could not list is None: its prompt (or resource) tools
+        stay off and no surface is reported, nothing proving it whole."""
+        self._hub_prompts, self._hub_templates = [], []
+        if not isinstance((self._config or {}).get("hub"), dict) or self.session is None:
+            return
+        init_result = self.initialize_result
+        caps = getattr(init_result, "capabilities", None) if init_result is not None else None
+        for attr, capability, method, items_attr in (
+            ("_hub_prompts", "prompts", "list_prompts", "prompts"),
+            ("_hub_templates", "resources", "list_resource_templates", "resource_templates"),
+        ):
+            if caps is not None and getattr(caps, capability, None) is None:
+                continue
+            try:
+                async with self._rpc_lock:
+                    setattr(self, attr, await _paginate_full_list(getattr(self.session, method), items_attr, self.name))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "MCP server '%s': its %s could not be listed (%s); the tools for them stay off",
+                    self.name, capability, _exc_str(exc),
+                )
+                setattr(self, attr, None)
 
     def _register_discovered_tools_if_needed(self) -> None:
         """Re-register tools after an owned server reconnects if needed.
@@ -5730,6 +5787,20 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
     return _handler
 
 
+def _hub_check_of(server: Any) -> Any:
+    """For a server installed from the AgentX Hub, what the hub approved of
+    what it announced (``tools/mcp_hub.ToolCheck``) — nothing yet when it has
+    not registered; None for any other server. Its prompt and resource tools
+    answer for the approved prompts and resource templates alone (Agent Hub
+    P6.1)."""
+    config = getattr(server, "_config", None)
+    if not isinstance(config, dict) or not isinstance(config.get("hub"), dict):
+        return None
+    from tools.mcp_hub import ToolCheck
+
+    return getattr(server, "_hub_check", None) or ToolCheck(surface_hash="", surface={}, allowed=frozenset(), blocked=())
+
+
 def _make_list_resources_handler(server_name: str, tool_timeout: float):
     """Return a sync handler that lists resources from an MCP server."""
 
@@ -5744,6 +5815,11 @@ def _make_list_resources_handler(server_name: str, tool_timeout: float):
                 all_resources = await _paginate_full_list(
                     server.session.list_resources, "resources", server_name
                 )
+            hub_check = _hub_check_of(server)
+            if hub_check is not None:
+                from tools.mcp_hub import resource_allowed
+
+                all_resources = [r for r in all_resources if resource_allowed(hub_check, str(getattr(r, "uri", "") or ""))]
             resources = []
             for r in all_resources:
                 entry = {}
@@ -5800,6 +5876,12 @@ def _make_read_resource_handler(server_name: str, tool_timeout: float):
         uri = args.get("uri")
         if not uri:
             return tool_error("Missing required parameter 'uri'")
+        hub_check = _hub_check_of(server)
+        if hub_check is not None:
+            from tools.mcp_hub import resource_allowed
+
+            if not resource_allowed(hub_check, str(uri)):
+                return tool_error(f"The resource '{uri}' of MCP server '{server_name}' is not approved by the AgentX Hub")
 
         async def _call():
             _mark_server_call_started(server)
@@ -5864,6 +5946,11 @@ def _make_list_prompts_handler(server_name: str, tool_timeout: float):
                 all_prompts = await _paginate_full_list(
                     server.session.list_prompts, "prompts", server_name
                 )
+            hub_check = _hub_check_of(server)
+            if hub_check is not None:
+                from tools.mcp_hub import approved_prompts
+
+                all_prompts = approved_prompts(server._config, hub_check, all_prompts)
             prompts = []
             for p in all_prompts:
                 entry = {}
@@ -5922,6 +6009,9 @@ def _make_get_prompt_handler(server_name: str, tool_timeout: float):
         name = args.get("name")
         if not name:
             return tool_error("Missing required parameter 'name'")
+        hub_check = _hub_check_of(server)
+        if hub_check is not None and name not in hub_check.prompts:
+            return tool_error(f"The prompt '{name}' of MCP server '{server_name}' is not approved by the AgentX Hub")
         arguments = args.get("arguments", {})
 
         async def _call():
@@ -6293,6 +6383,33 @@ def _normalize_name_filter(value: Any, label: str) -> set[str]:
     return set()
 
 
+def tool_name_filter(name: str, tools_filter: Any) -> Callable[[str], bool]:
+    """Which tools of MCP server *name* are registered, by its ``tools`` config
+    (issue #690, with globs — see :func:`matches_name_filter`):
+
+    * ``include`` — an allow-list: only matching tools. **An empty list allows
+      none**: it is what the catalog, ``agentx mcp configure``, ``agentx tools``
+      and the desktop write when every tool of a server is switched off;
+    * ``exclude`` — every tool except the matching ones (``include`` wins);
+    * neither (or a value of the wrong type, ignored with a warning) — every
+      tool, the backward-compatible default.
+
+    The one reading of the filter: registration (live and from the schema
+    cache) and the CLI views use it, so none of them can disagree on ``[]``.
+    """
+    tools_filter = tools_filter if isinstance(tools_filter, dict) else {}
+    include = tools_filter.get("include")
+    if isinstance(include, (str, list, tuple, set)):
+        include_set = _normalize_name_filter(include, f"mcp_servers.{name}.tools.include")
+        return lambda tool_name: matches_name_filter(tool_name, include_set)
+    if include is not None:
+        _normalize_name_filter(include, f"mcp_servers.{name}.tools.include")  # warns
+    exclude_set = _normalize_name_filter(tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude")
+    if exclude_set:
+        return lambda tool_name: not matches_name_filter(tool_name, exclude_set)
+    return lambda tool_name: True
+
+
 def matches_name_filter(tool_name: str, patterns: set[str]) -> bool:
     """True if ``tool_name`` matches any entry in ``patterns``.
 
@@ -6348,6 +6465,9 @@ def _get_lifecycle_seconds(config: dict, key: str) -> Optional[float]:
         return None
     return seconds
 
+
+#: The utility tools of a server's prompts (the others are of its resources).
+_PROMPT_UTILITIES = frozenset({"list_prompts", "get_prompt"})
 
 _UTILITY_CAPABILITY_METHODS = {
     "list_resources": "list_resources",
@@ -6488,27 +6608,40 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
     registered_names: List[str] = []
     toolset_name = f"mcp-{name}"
 
-    # Selective tool loading: honour include/exclude lists from config.
-    # Rules (matching issue #690 spec, extended with glob support):
-    #   tools.include — whitelist: only matching tool names are registered
-    #   tools.exclude — blacklist: all tools EXCEPT matching ones are registered
-    #   entries may be exact names or fnmatch globs (e.g. "*_radar_*")
-    #   include takes precedence over exclude
-    #   Neither set → register all tools (backward-compatible default)
+    # Selective tool loading: honour include/exclude lists from config
+    # (tool_name_filter — an empty include registers no tool).
     tools_filter = config.get("tools") or {}
-    include_set = _normalize_name_filter(
-        tools_filter.get("include"), f"mcp_servers.{name}.tools.include"
-    )
-    exclude_set = _normalize_name_filter(
-        tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude"
-    )
+    _allowed_by_config = tool_name_filter(name, tools_filter)
+
+    # A server installed from the AgentX Hub runs only the tools the hub
+    # approved: each announced tool is hashed as the hub hashed it
+    # (tools/mcp_hub.py, tools/mcp_surface.py); a new tool, or one described
+    # otherwise, stays off — here and in the lazy cache — until the hub
+    # approves the list it belongs to. Its prompts and resource templates are
+    # locked the same way: its prompt and resource tools answer for the
+    # approved ones alone (Agent Hub P6.1). What it announced is kept for the
+    # hub sync's next report (Agent Hub P3.8).
+    hub_check = None
+    if isinstance(config.get("hub"), dict):
+        from tools import mcp_hub
+
+        hub_check = mcp_hub.check_tools(config, server._tools, getattr(server, "_hub_prompts", []), getattr(server, "_hub_templates", []))
+        server._hub_check = hub_check
+        mcp_hub.record_check(name, config, hub_check)
+        if hub_check.blocked:
+            logger.warning(
+                "MCP server '%s': %d tool(s) differ from the list the AgentX Hub approved and stay off: %s",
+                name, len(hub_check.blocked), ", ".join(hub_check.blocked[:20]),
+            )
+        kept_off = [*hub_check.blocked_prompts, *hub_check.blocked_templates]
+        if kept_off:
+            logger.warning(
+                "MCP server '%s': %d prompt(s) or resource template(s) differ from what the AgentX Hub approved and stay off: %s",
+                name, len(kept_off), ", ".join(kept_off[:20]),
+            )
 
     def _should_register(tool_name: str) -> bool:
-        if include_set:
-            return matches_name_filter(tool_name, include_set)
-        if exclude_set:
-            return not matches_name_filter(tool_name, exclude_set)
-        return True
+        return _allowed_by_config(tool_name) and (hub_check is None or tool_name in hub_check.allowed)
 
     check_fn = _make_check_fn(name)
     candidates: List[dict] = []
@@ -6544,13 +6677,19 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
 
     # Generated resource/prompt utility tools share the same namespace as raw
     # MCP tools, so they must participate in the same collision preflight.
+    # A hub server has them only for the prompts and resource templates the
+    # hub approved and it announced as approved.
     handler_factories = {
         "list_resources": _make_list_resources_handler,
         "read_resource": _make_read_resource_handler,
         "list_prompts": _make_list_prompts_handler,
         "get_prompt": _make_get_prompt_handler,
     }
-    for entry in _select_utility_schemas(name, server, config):
+    utility_entries = [
+        entry for entry in _select_utility_schemas(name, server, config)
+        if hub_check is None or (hub_check.prompts if entry["handler_key"] in _PROMPT_UTILITIES else hub_check.templates)
+    ]
+    for entry in utility_entries:
         schema = entry["schema"]
         handler_key = entry["handler_key"]
         candidates.append(
@@ -6712,7 +6851,7 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
                 })
             utility_payload = [
                 {"schema": entry["schema"], "handler_key": entry["handler_key"]}
-                for entry in _select_utility_schemas(name, server, config)
+                for entry in utility_entries
             ]
             write_cache_entry(
                 name,
@@ -6758,19 +6897,7 @@ def _register_from_cache_sync(name: str, config: dict, entry: dict) -> List[str]
     fingerprint = config_fingerprint(config)
     tool_timeout = config.get("timeout", _DEFAULT_TOOL_TIMEOUT)
     tools_filter = config.get("tools") or {}
-    include_set = _normalize_name_filter(
-        tools_filter.get("include"), f"mcp_servers.{name}.tools.include"
-    )
-    exclude_set = _normalize_name_filter(
-        tools_filter.get("exclude"), f"mcp_servers.{name}.tools.exclude"
-    )
-
-    def _should_register(tool_name: str) -> bool:
-        if include_set:
-            return matches_name_filter(tool_name, include_set)
-        if exclude_set:
-            return not matches_name_filter(tool_name, exclude_set)
-        return True
+    _should_register = tool_name_filter(name, tools_filter)
 
     check_fn = _make_check_fn(name)
     # Trust-tier metadata for the lazy path: the cached manifest carries

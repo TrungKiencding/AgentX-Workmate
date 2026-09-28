@@ -25,7 +25,6 @@ import {
 } from '@/store/composer-status'
 import { refreshSessionGoal } from '@/store/goals'
 import { $previewStatusBySession, dismissPreviewArtifact } from '@/store/preview-status'
-import { $threadScrolledUp } from '@/store/thread-scroll'
 import { openSessionInNewWindow } from '@/store/windows'
 
 import { PreviewStatusRow } from './preview-row'
@@ -92,7 +91,6 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
   // items actually changed.
   const items = useSessionSlice($statusItemsBySession, sessionId)
   const previews = useSessionSlice($previewStatusBySession, sessionId)
-  const scrolledUp = useStore($threadScrolledUp)
   const billing = useStore($billingBlock)
 
   const groups = useMemo(() => groupStatusItems(items), [items])
@@ -229,9 +227,10 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
       className="flex max-h-[40vh] min-h-0 flex-col overflow-y-auto"
       onPointerDownCapture={() => blurComposerInput()}
     >
-      {/* The card paints the shared --composer-fill (rest / scrolled / focused
-          all match the composer surface by construction); on scroll we only
-          ghost the CONTENT — element opacity on the card would kill the blur.
+      {/* The card paints --composer-fill (opaque out here, see composerDockCard)
+          and is never ghosted while the thread is scrolled up: these rows are
+          live progress, read while scrolling back through the transcript, and a
+          see-through card let the transcript bleed through them.
           Rounded top, square bottom; the bottom border is TRANSPARENT — the
           composer surface's visible top border (which sits at a higher z) is the
           single shared seam, so the two read as one fused capsule. */}
@@ -241,9 +240,7 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
             composerDockCard('top'),
             // Inset (mx-2) so the stack reads slightly narrower than the composer
             // surface below it — the original look.
-            'mx-2 overflow-hidden rounded-b-none border-b border-b-transparent pt-0.5',
-            'transition-opacity duration-(--dur-short) ease-out',
-            scrolledUp ? 'opacity-30 group-hover/composer:opacity-100' : 'opacity-100'
+            'mx-2 overflow-hidden rounded-b-none border-b border-b-transparent pt-0.5'
           )}
         >
           {sections.map(section => (

@@ -84,11 +84,23 @@ export function ToolsetCard({
         end={calls && calls > 0 ? <StoreCardMeta>{t.skills.usageCount(compactNumber(calls))}</StoreCardMeta> : null}
       >
         {setupLed ? (
-          <Button data-testid="toolset-set-up" onClick={onOpen} size="sm" variant="secondary">
+          <Button
+            aria-label={t.skills.setUpFor(copy.label)}
+            data-testid="toolset-set-up"
+            onClick={onOpen}
+            size="sm"
+            variant="secondary"
+          >
             {t.skills.setUp}
           </Button>
         ) : (
-          <Button data-testid="toolset-details" onClick={onOpen} size="sm" variant="text">
+          <Button
+            aria-label={t.skills.detailsFor(copy.label)}
+            data-testid="toolset-details"
+            onClick={onOpen}
+            size="sm"
+            variant="text"
+          >
             {t.skills.details}
           </Button>
         )}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { latestSessionTodos, parseTodos } from './todos'
+import { latestSessionTodos, parseTodos, todoCallResult } from './todos'
 
 describe('parseTodos', () => {
   it('parses todo arrays with valid ids, content, and statuses', () => {
@@ -76,5 +76,57 @@ describe('latestSessionTodos', () => {
   it('returns null when no todo tool calls exist', () => {
     expect(latestSessionTodos([{ parts: [{ type: 'text', text: 'hi' }] }])).toBeNull()
     expect(latestSessionTodos([])).toBeNull()
+  })
+
+  it('skips a rejected todo call, so the list before it still stands', () => {
+    const plan = [
+      { content: 'Shrink the CTA', id: '1', status: 'completed' },
+      { content: 'Drop the nav item', id: '2', status: 'in_progress' }
+    ]
+
+    const messages = [
+      { parts: [todoPart(plan, { result: { todos: plan } })] },
+      {
+        parts: [
+          todoPart([{ id: '3', status: 'pending' }], {
+            result: '{"error": "New todo items need a short task description in \'content\'"}'
+          })
+        ]
+      }
+    ]
+
+    expect(latestSessionTodos(messages)).toEqual(plan)
+  })
+})
+
+describe('todoCallResult', () => {
+  const full = [
+    { content: 'Shrink the CTA', id: '1', status: 'completed' },
+    { content: 'Drop the nav item', id: '2', status: 'in_progress' },
+    { content: 'Scroll spy', id: '3', status: 'pending' }
+  ]
+
+  it('reads the full list the tool returned, not the partial update it was sent', () => {
+    const mergeCall = {
+      args: {
+        merge: true,
+        todos: [
+          { id: '1', status: 'completed' },
+          { id: '2', status: 'in_progress' }
+        ]
+      },
+      result: { summary: { total: 3 }, todos: full }
+    }
+
+    expect(todoCallResult(mergeCall)).toEqual(full)
+  })
+
+  it('prefers the gateway-lifted `todos` field', () => {
+    expect(todoCallResult({ result: { todos: [] }, todos: full })).toEqual(full)
+  })
+
+  it('has no list for a call that failed or has not finished', () => {
+    expect(todoCallResult({ result: { error: 'todos must be a list, got int' } })).toBeNull()
+    expect(todoCallResult({})).toBeNull()
   })
 })

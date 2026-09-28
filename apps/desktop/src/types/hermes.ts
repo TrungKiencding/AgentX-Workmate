@@ -625,12 +625,21 @@ export interface SessionResumeResponse {
   message_count: number
   messages: SessionMessage[]
   messages_omitted?: boolean
+  /** Questions the session is blocked on (clarify / sudo / secret), oldest
+   *  first. Their one-shot `*.request` events never reached a client that was
+   *  disconnected or watching another chat, so (re)attaching replays these. */
+  pending_prompts?: SessionPendingPrompt[]
   resumed: string
   running?: boolean
   session_id: string
   session_key?: string
   started_at?: number
   status?: string
+}
+
+export interface SessionPendingPrompt {
+  event: 'clarify.request' | 'secret.request' | 'sudo.request'
+  payload: Record<string, unknown>
 }
 
 export interface SessionRuntimeInfo {
@@ -1331,6 +1340,10 @@ export interface SkillHubInstalledEntry {
   name: string | null
   trust_level: string | null
   scan_verdict: string | null
+  /** The AgentX Hub version this machine runs ('' for other sources). */
+  version?: string
+  /** An AgentX Hub skill edited on this machine since it was installed. */
+  modified?: boolean
 }
 
 export interface SkillHubSourcesResponse {
@@ -1433,11 +1446,51 @@ export interface McpCatalogEntry {
   needs_install: boolean
   installed: boolean
   enabled: boolean
+  /** Where the entry comes from: shipped with AgentX, or the person's AgentX Hub. */
+  origin?: 'official' | 'hub'
+  /** What to install it by: the name, or `agentx-hub/<slug>` for a hub server. */
+  id?: string
+  /** An AgentX Hub server (listed only when both of the hub's signatures hold). */
+  slug?: string
+  /** An AgentX Hub server's name as the hub shows it — words only; `name` is what it runs by. */
+  title?: null | string
+  version?: string
+  verified?: boolean
+  trust?: 'curated' | 'reviewed' | 'private'
+  verdict?: null | string
+  /** The tools the hub approved: the only ones Workmate turns on. */
+  tools?: string[]
+  /** Its page on the hub. */
+  page?: null | string
+  /** Tools the server announces that differ from the approved list: kept off. */
+  blocked_tools?: string[]
+  installed_version?: null | string
+  update_available?: boolean
+  /** Its launch was edited on this machine: the hub sync never overwrites it. */
+  modified?: boolean
+  /** Another server is configured under this name. */
+  name_taken?: boolean
+  /**
+   * An AgentX Hub server's: where the hub sets it up (the hub's decision §9.1 #17). `gateway`: its sign-in is kept
+   * on the hub and it is added here as its gateway endpoint — nothing asked here; `local`: installed here from its
+   * manifest, its values asked on this machine.
+   */
+  route?: { via: 'gateway' | 'local'; reason: null | string }
 }
 
 export interface McpCatalogResponse {
   entries: McpCatalogEntry[]
   diagnostics: { name: string; kind: string; message: string }[]
+  /** The AgentX Hub's feed on this machine (null outside the default profile). `notices`: what the last
+   *  refresh has to say besides `error` — `hub_key_untrusted`: the hub signs with a key this machine does not trust. */
+  hub?: null | {
+    hub_url: string
+    fetched_at: null | number
+    error: string
+    servers: number
+    signed_in: boolean
+    notices?: { code: string; kid?: string; message?: string }[]
+  }
 }
 
 /** `GET /api/memory` — active provider + built-in memory file sizes. */
@@ -1507,6 +1560,8 @@ export interface SkillHubLocalState {
   content_hash: string
   install_path: string
   enabled: boolean
+  /** Edited on this machine since it was installed: an update would replace the edit. */
+  modified?: boolean
 }
 
 /** One desired install the hub holds for this person/product, paired with the local state. */
@@ -1535,6 +1590,8 @@ export interface SkillHubUpdate {
   name: string
   current: string | null
   latest: string | null
+  /** Edited on this machine: "Update all" keeps it; replacing it backs the edit up. */
+  modified?: boolean
 }
 
 export interface SkillHubHistoryEntry {
@@ -1588,6 +1645,13 @@ export interface SkillHubChangesResponse {
   stream: 'off' | 'waiting' | 'connected' | 'reconnecting'
   cursor: number | null
   revision: number
+  /** Bumped when the sync changed an MCP server here (installed, removed, switched): reload MCP. */
+  mcp_revision?: number
+  /**
+   * Bumped when where the person stands with a hub server may have changed — a connection made, lost or removed on
+   * the hub, a server waited for added here (the hub's decision §9.1 #17): the MCP store asks the hub again.
+   */
+  gateway_revision?: number
   last: SkillHubTickResponse
   installs: SkillHubInstallRow[]
   updates: SkillHubUpdate[]

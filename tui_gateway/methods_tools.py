@@ -1874,10 +1874,11 @@ def _(rid, params: dict) -> dict:
     """Bundled MCP catalog with per-profile install/enable state.
 
     Params: optional ``profile`` (defaults to the launch profile). Result:
-    ``{servers: [{name, description, installed, enabled, requires: [env
-    keys], transport}]}`` — the same catalog `agentx mcp` offers, so
-    capability UIs can present the full menu and know which entries need
-    setup (missing requires) before they'll work.
+    ``{servers: [{name, id, origin, description, installed, enabled,
+    requires: [env keys], auth, transport}]}`` — the same catalog `agentx
+    mcp` offers (AgentX Hub servers too, ``origin: "hub"``), so capability
+    UIs can present the full menu and know which entries need setup
+    (missing requires) before they'll work.
     """
     profile = str(params.get("profile") or "").strip()
     token = None
@@ -1894,24 +1895,23 @@ def _(rid, params: dict) -> dict:
         from hermes_cli import mcp_catalog
 
         out = []
+        configured = mcp_catalog.raw_servers()
         for entry in mcp_catalog.list_catalog():
-            try:
-                requires = [str(k) for k in (getattr(entry, "env_keys", None) or [])]
-            except Exception:
-                requires = []
+            cfg = configured.get(entry.name)
+            # Installed means this entry is — not another server that took its name.
+            mine = isinstance(cfg, dict) and mcp_catalog.hub_slug_of(cfg) == (entry.hub.slug if entry.hub is not None else None)
             out.append(
                 {
                     "name": entry.name,
-                    "description": getattr(entry, "description", "") or "",
-                    "installed": bool(mcp_catalog.is_installed(entry.name)),
-                    "enabled": bool(mcp_catalog.is_enabled(entry.name)),
-                    "requires": requires,
-                    # TransportSpec object — reduce to its kind string.
-                    "transport": str(
-                        getattr(getattr(entry, "transport", None), "kind", "")
-                        or getattr(entry, "transport", "")
-                        or "stdio"
-                    ),
+                    "id": entry.identifier,
+                    "origin": entry.origin,
+                    "description": entry.description or "",
+                    "installed": bool(mine),
+                    "enabled": bool(mine and mcp_catalog.is_enabled(entry.name)),
+                    # The values the person supplies at install (auth.env).
+                    "requires": [spec.name for spec in entry.auth.env],
+                    "auth": entry.auth.type,
+                    "transport": entry.transport.type,
                 }
             )
         return _ok(rid, {"servers": out})

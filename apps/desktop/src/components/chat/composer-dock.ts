@@ -1,14 +1,15 @@
 import { cn } from '@/lib/utils'
 
 /**
- * The composer surface and the status/queue stack paint ONE shared
- * `--composer-fill` var. The state ladder (rest / scrolled) lives in styles.css
- * on `[data-slot='composer-root']`, so the layers can never disagree.
+ * The composer surface and everything docked to it paint ONE shared
+ * `--composer-fill` var. The composer's state ladder (rest / scrolled) lives
+ * in styles.css on `[data-slot='composer-root']`; anything painted outside that
+ * root — the status stack above it — gets the opaque `:root` value instead.
  */
 export const composerFill = 'bg-(--composer-fill)'
 
-/** Backdrop treatment for the composer input surface. Harmless when the fill
- *  goes opaque (drawer open) — nothing shows through to blur. */
+/** Backdrop treatment for the composer input surface. Harmless where the fill
+ *  is opaque (the status stack) — nothing shows through to blur. */
 export const composerSurfaceGlass = cn(
   'backdrop-blur-[0.75rem] backdrop-saturate-[1.12] [-webkit-backdrop-filter:blur(0.75rem)_saturate(1.12)]',
   'transition-[background-color] duration-(--dur-short-exit) ease-out'
@@ -17,9 +18,10 @@ export const composerSurfaceGlass = cn(
 const composerDockEdge = (edge: 'bottom' | 'top') =>
   cn('border border-border/65', edge === 'top' ? 'rounded-t-2xl border-b-0' : 'rounded-b-2xl border-t-0')
 
-/** Glassy docked card — the status stack / queue. Paints the SAME
- *  `--composer-fill` as the surface, so rest / scrolled / focused / drawer-open
- *  all match the composer by construction. */
+/** Glassy docked card — the status stack / queue above the composer. It sits
+ *  outside `composer-root`, so its `--composer-fill` is the opaque `:root`
+ *  value: the card stays solid while the thread scrolls under it, and live
+ *  status never has the transcript showing through it. */
 export const composerDockCard = (edge: 'bottom' | 'top' = 'top') =>
   cn(composerDockEdge(edge), composerFill, composerSurfaceGlass)
 

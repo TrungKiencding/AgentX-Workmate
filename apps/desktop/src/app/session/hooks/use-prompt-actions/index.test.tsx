@@ -25,6 +25,8 @@ import { dropSessionState, publishSessionState } from '@/store/session-states'
 import { $wakeWord, resetWakeWordState } from '@/store/wake-word'
 import type { SessionInfo } from '@/types/hermes'
 
+import { resolveSessionProfile } from '../use-session-actions/utils'
+
 import type { SubmitTextOptions } from './utils'
 
 import { uploadComposerAttachment, usePromptActions } from '.'
@@ -159,6 +161,27 @@ function Harness({
     getRouteToken: getRouteToken ?? (() => 'token'),
     handleSkinCommand: () => '',
     openMemoryGraph: openMemoryGraph ?? (() => undefined),
+    // RPC-level double of useSessionRuntimeRecovery.recoverSessionRuntime: the
+    // owning-profile session.resume, and the view that showed the dead id
+    // following the live one (what rehomeRuntime does in the app).
+    recoverSessionRuntime: async (storedId, staleRuntimeId) => {
+      const profile = await resolveSessionProfile(storedId)
+
+      const resumed = await requestGateway<{ session_id?: string }>('session.resume', {
+        session_id: storedId,
+        source: 'desktop',
+        omit_messages: true,
+        ...(profile ? { profile } : {})
+      })
+
+      const recovered = resumed?.session_id ?? null
+
+      if (recovered && activeSessionIdRef.current === staleRuntimeId) {
+        activeSessionIdRef.current = recovered
+      }
+
+      return recovered
+    },
     refreshSessions,
     requestGateway,
     resumeStoredSession: resumeStoredSession ?? (() => undefined),
@@ -2699,6 +2722,110 @@ describe('usePromptActions sleep/wake session recovery', () => {
     cleanup()
     $turnStartedAt.set(null)
     vi.restoreAllMocks()
+  })
+
+  describe('a send with attachments on a runtime the backend already dropped', () => {
+    const image: ComposerAttachment = {
+      id: 'image:cold.png',
+      kind: 'image',
+      label: 'cold.png',
+      path: '/Users/me/cold.png'
+    }
+
+    beforeEach(() => {
+      $currentCwd.set('/Users/me')
+      $composerAttachments.set([image])
+      clearNotifications()
+    })
+
+    afterEach(() => {
+      $composerAttachments.set([])
+      $currentCwd.set('')
+      clearNotifications()
+    })
+
+    async function send(requestGateway: ReturnType<typeof vi.fn>) {
+      let handle: HarnessHandle | null = null
+      await actRender(
+        <Harness
+          onReady={h => (handle = h)}
+          refreshSessions={async () => undefined}
+          requestGateway={requestGateway as never}
+          storedSessionId={STORED_SESSION_ID}
+        />
+      )
+
+      return handle!.submitText('Kho lạnh')
+    }
+
+    it('rebinds, re-stages the image on the live runtime and sends there (the "Kho lạnh" failure)', async () => {
+      // Staging an image is a session-scoped RPC too: a dead runtime fails it
+      // with "session not found" before prompt.submit is ever reached, and the
+      // recovery used to wrap prompt.submit only — so the send surfaced
+      // "Gửi prompt thất bại / session not found" with the chips left behind.
+      const calls: Array<[string, unknown]> = []
+
+      const requestGateway = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+        calls.push([method, params?.session_id])
+
+        if (method === 'image.attach') {
+          if (params?.session_id === RUNTIME_SESSION_ID) {
+            throw new Error('session not found')
+          }
+
+          return { attached: true, path: '/Users/me/cold.png' } as never
+        }
+
+        return (method === 'session.resume' ? { session_id: RECOVERED_SESSION_ID } : {}) as never
+      })
+
+      expect(await send(requestGateway)).toBe(true)
+      expect(calls).toEqual([
+        ['image.attach', RUNTIME_SESSION_ID],
+        ['session.resume', STORED_SESSION_ID],
+        ['image.attach', RECOVERED_SESSION_ID],
+        ['prompt.submit', RECOVERED_SESSION_ID]
+      ])
+      expect($notifications.get()).toEqual([])
+      expect($composerAttachments.get()).toEqual([])
+    })
+
+    it('does not mistake a slow upload for a dead session', async () => {
+      const requestGateway = vi.fn(async (method: string) => {
+        if (method === 'image.attach') {
+          throw new Error('request timed out after 30s: image.attach')
+        }
+
+        return {} as never
+      })
+
+      expect(await send(requestGateway)).toBe(false)
+      expect(requestGateway).not.toHaveBeenCalledWith('session.resume', expect.anything())
+      expect(requestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything(), expect.anything())
+    })
+
+    it('a timed-out submit retried on the same live runtime never stages the image twice', async () => {
+      let submits = 0
+      const methods: string[] = []
+
+      const requestGateway = vi.fn(async (method: string) => {
+        methods.push(method)
+
+        if (method === 'image.attach') {
+          return { attached: true, path: '/Users/me/cold.png' } as never
+        }
+
+        if (method === 'prompt.submit' && ++submits === 1) {
+          throw new Error('request timed out after 1800s: prompt.submit')
+        }
+
+        // The runtime is alive: resume hands the same id back.
+        return (method === 'session.resume' ? { session_id: RUNTIME_SESSION_ID } : {}) as never
+      })
+
+      expect(await send(requestGateway)).toBe(true)
+      expect(methods).toEqual(['image.attach', 'prompt.submit', 'session.resume', 'prompt.submit'])
+    })
   })
 
   it('resumes the stored session and retries once when prompt.submit reports "session not found"', async () => {

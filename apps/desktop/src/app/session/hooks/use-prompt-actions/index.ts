@@ -45,7 +45,6 @@ import type {
   ImageAttachResponse,
   SessionRedirectResponse
 } from '../../../types'
-import { resolveSessionProfile } from '../use-session-actions/utils'
 
 import {
   applyBranchVisibility,
@@ -193,6 +192,9 @@ interface PromptActionsOptions {
   getRouteToken: () => string
   handleSkinCommand: (arg: string) => string
   openMemoryGraph: () => void
+  /** Rebind a conversation whose runtime id died to a live runtime (see
+   *  useSessionRuntimeRecovery). */
+  recoverSessionRuntime: (storedSessionId: string, staleRuntimeId: null | string) => Promise<null | string>
   refreshSessions: () => Promise<void>
   requestGateway: <T>(method: string, params?: Record<string, unknown>, timeoutMs?: number) => Promise<T>
   resumeStoredSession: (storedSessionId: string) => Promise<void> | void
@@ -224,6 +226,7 @@ export function usePromptActions({
   getRouteToken,
   handleSkinCommand,
   openMemoryGraph,
+  recoverSessionRuntime,
   refreshSessions,
   requestGateway,
   resumeStoredSession,
@@ -428,6 +431,7 @@ export function usePromptActions({
     getRoutedStoredSessionId,
     getRuntimeIdForStoredSession,
     getRouteToken,
+    recoverSessionRuntime,
     requestGateway,
     resumeStoredSession,
     selectedStoredSessionIdRef,
@@ -632,21 +636,14 @@ export function usePromptActions({
     } catch (err) {
       let stopError = err
 
+      // The runtime is already gone (reaped after a reconnect, a restart):
+      // rebind the conversation so the chat is live again — its view follows
+      // the new runtime — and stop whatever runs there.
       if (isSessionNotFoundError(err) && selectedStoredSessionIdRef.current) {
         try {
-          const resumeProfile = await resolveSessionProfile(selectedStoredSessionIdRef.current)
-
-          const resumed = await requestGateway<{ session_id: string }>('session.resume', {
-            session_id: selectedStoredSessionIdRef.current,
-            source: 'desktop',
-            omit_messages: true,
-            ...(resumeProfile ? { profile: resumeProfile } : {})
-          })
-
-          const recoveredId = resumed?.session_id
+          const recoveredId = await recoverSessionRuntime(selectedStoredSessionIdRef.current, sessionId)
 
           if (recoveredId) {
-            activeSessionIdRef.current = recoveredId
             await requestGateway('session.interrupt', { session_id: recoveredId })
             releaseBusy()
 
@@ -660,7 +657,15 @@ export function usePromptActions({
       releaseBusy()
       notifyError(stopError, copy.stopFailed)
     }
-  }, [activeSessionIdRef, busyRef, copy.stopFailed, requestGateway, selectedStoredSessionIdRef, updateSessionState])
+  }, [
+    activeSessionIdRef,
+    busyRef,
+    copy.stopFailed,
+    recoverSessionRuntime,
+    requestGateway,
+    selectedStoredSessionIdRef,
+    updateSessionState
+  ])
 
   // The desktop steering action is an immediate correction: the core cancels
   // model generation and rebuilds the live turn with displayed reasoning and
@@ -740,20 +745,9 @@ export function usePromptActions({
         // correction right after a reconnect isn't lost to the race.
         if (isSessionNotFoundError(err) && selectedStoredSessionIdRef.current) {
           try {
-            const resumeProfile = await resolveSessionProfile(selectedStoredSessionIdRef.current)
-
-            const resumed = await requestGateway<{ session_id: string }>('session.resume', {
-              session_id: selectedStoredSessionIdRef.current,
-              source: 'desktop',
-              omit_messages: true,
-              ...(resumeProfile ? { profile: resumeProfile } : {})
-            })
-
-            const recoveredId = resumed?.session_id
+            const recoveredId = await recoverSessionRuntime(selectedStoredSessionIdRef.current, sessionId)
 
             if (recoveredId) {
-              activeSessionIdRef.current = recoveredId
-
               return await send(recoveredId)
             }
           } catch {
@@ -765,7 +759,14 @@ export function usePromptActions({
 
       return false
     },
-    [activeSessionIdRef, appendSessionTextMessage, requestGateway, selectedStoredSessionIdRef, updateSessionState]
+    [
+      activeSessionIdRef,
+      appendSessionTextMessage,
+      recoverSessionRuntime,
+      requestGateway,
+      selectedStoredSessionIdRef,
+      updateSessionState
+    ]
   )
 
   const reloadFromMessage = useCallback(

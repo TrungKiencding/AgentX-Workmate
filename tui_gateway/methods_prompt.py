@@ -125,9 +125,11 @@ def _(rid, params: dict) -> dict:
     turn_isolation = _session_uses_compute_host(session, isolation_cfg)
     # Re-bind to the current client transport for this request. This keeps
     # streaming events on the active websocket even if an earlier disconnect
-    # or fallback moved the session transport to stdio.
+    # or fallback moved the session transport to stdio. A submit whose socket
+    # closed while it was in flight leaves the binding alone (see
+    # _bind_session_transport).
     if (t := current_transport()) is not None:
-        session["transport"] = t
+        _bind_session_transport(session, t)
     while True:
         busy_transport = None
         with session["history_lock"]:

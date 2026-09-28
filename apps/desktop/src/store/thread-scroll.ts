@@ -2,10 +2,10 @@ import { atom, type WritableAtom } from 'nanostores'
 
 // "Is the thread parked at the bottom" is owned by use-stick-to-bottom inside
 // ThreadMessageList (the scroll container). That state lives only in that
-// subtree, so ThreadMessageList mirrors it into these atoms for the composer,
-// status stack, and floating jump button — all of which render OUTSIDE the thread.
+// subtree, so ThreadMessageList mirrors it into these atoms for the composer
+// and the floating jump button, both of which render OUTSIDE the thread.
 //
-// `$threadScrolledUp` dims the composer / status stack; `$threadJumpButtonVisible`
+// `$threadScrolledUp` dims the composer; `$threadJumpButtonVisible`
 // shows the floating jump control. Both track `!isAtBottom` today, but stay
 // separate so their thresholds can diverge again without touching consumers.
 export const $threadScrolledUp = atom(false)

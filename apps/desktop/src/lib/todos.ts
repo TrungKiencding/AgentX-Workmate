@@ -50,8 +50,15 @@ function parse(value: unknown, depth: number): null | TodoItem[] {
 
 export const parseTodos = (value: unknown): null | TodoItem[] => parse(value, 0)
 
-/** Latest parseable todo list from one message's aui content parts (tool-call
- *  parts named `todo`; live parts carry `todos`, hydrated ones args/result). */
+/** The list a finished `todo` call reports — the full, normalized list the
+ *  tool returned. Never its arguments: a merge update only names the items it
+ *  changes, a status flip carries no content, and a rejected call changed
+ *  nothing. `null` when there is no list (still running, or an error). */
+export const todoCallResult = (call: { result?: unknown; todos?: unknown }): null | TodoItem[] =>
+  parseTodos(call.todos) ?? parseTodos(call.result)
+
+/** Latest reported todo list from one message's aui content parts (tool-call
+ *  parts named `todo`; see {@link todoCallResult}). */
 export function todosFromMessageContent(content: unknown): null | TodoItem[] {
   if (!Array.isArray(content)) {
     return null
@@ -64,7 +71,7 @@ export function todosFromMessageContent(content: unknown): null | TodoItem[] {
       continue
     }
 
-    const parsed = parseTodos(part.todos) ?? parseTodos(part.result) ?? parseTodos(part.args)
+    const parsed = todoCallResult(part)
 
     if (parsed !== null) {
       latest = parsed

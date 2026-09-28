@@ -236,9 +236,10 @@ async def _lifespan(app: "FastAPI"):
     # Desktop's 10-second WebSocket ready-probe to time out (GH-73083).
     _warm_gateway_module()
 
-    # Desktop-spawned backends (AGENTX_DESKTOP=1) fire cron jobs themselves,
-    # since the app has no gateway running the scheduler. Server `agentx
-    # dashboard` is unaffected — it relies on its own gateway.
+    # Desktop-spawned backends (AGENTX_DESKTOP=1) fire cron jobs themselves:
+    # the app only runs a gateway (and its scheduler) while a messaging channel
+    # is on, and the tick lock keeps the two from firing the same job twice.
+    # Server `agentx dashboard` is unaffected — it relies on its own gateway.
     cron_stop: "threading.Event | None" = None
     cron_thread: "threading.Thread | None" = None
     if os.getenv("AGENTX_DESKTOP") == "1":
@@ -4198,6 +4199,7 @@ _ACTION_LOG_FILES: Dict[str, str] = {
     "gateway-restart": "gateway-restart.log",
     "gateway-start": "gateway-start.log",
     "gateway-stop": "gateway-stop.log",
+    "gateway-autostart": "gateway-autostart.log",
     "agentx-update": "agentx-update.log",
     "doctor": "action-doctor.log",
     "security-audit": "action-security-audit.log",
@@ -13131,6 +13133,12 @@ async def stop_gateway(profile: Optional[str] = None):
     return {"ok": True, "pid": proc.pid, "name": "gateway-stop"}
 
 
+# The desktop's once-per-launch "start it if it has work and nobody owns it".
+from hermes_cli.web_routers import gateway_autostart as _gateway_autostart_routes  # noqa: E402
+
+app.include_router(_gateway_autostart_routes.router)
+
+
 # ---------------------------------------------------------------------------
 # Credential pool endpoints — list / add / remove rotation keys.
 #
@@ -13869,23 +13877,32 @@ def _installed_hub_identifiers(profile: Optional[str] = None) -> dict:
             lock = HubLockFile(profile_dir / "skills" / ".hub" / "lock.json")
         else:
             lock = HubLockFile()
+        from tools.skills_hub import hub_skill_local_changes
+
         out = {}
-        for entry in lock.list_installed():
-            ident = entry.get("identifier")
-            if not ident:
-                continue
-            row = {
-                "name": entry.get("name"),
-                "trust_level": entry.get("trust_level"),
-                "scan_verdict": entry.get("scan_verdict"),
-            }
-            out[ident] = row
-            # An AgentX Hub install is locked at the version it resolved to
-            # (``agentx-hub/<slug>@<version>``) while the catalogue and search
-            # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
-            # for a skill that IS installed reads as if it were not.
-            if ident.startswith("agentx-hub/") and "@" in ident:
-                out.setdefault(ident.split("@", 1)[0], row)
+        # The local-edit check reads the skill directories: the profile's own.
+        with _config_profile_scope(profile):
+            for entry in lock.list_installed():
+                ident = entry.get("identifier")
+                if not ident:
+                    continue
+                hub = ident.startswith("agentx-hub/")
+                row = {
+                    "name": entry.get("name"),
+                    "trust_level": entry.get("trust_level"),
+                    "scan_verdict": entry.get("scan_verdict"),
+                    # What this machine runs, against the catalogue's latest: the
+                    # card offers the update, or its replacement when edited here.
+                    "version": str((entry.get("metadata") or {}).get("hub_version") or ident.partition("@")[2]) if hub else "",
+                    "modified": hub and hub_skill_local_changes(entry),
+                }
+                out[ident] = row
+                # An AgentX Hub install is locked at the version it resolved to
+                # (``agentx-hub/<slug>@<version>``) while the catalogue and search
+                # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
+                # for a skill that IS installed reads as if it were not.
+                if ident.startswith("agentx-hub/") and "@" in ident:
+                    out.setdefault(ident.split("@", 1)[0], row)
         return out
     except Exception:
         return {}

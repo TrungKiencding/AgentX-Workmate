@@ -16,8 +16,9 @@ The download always verifies SHA-256 checksums.  When cosign is available on
 PATH, provenance verification (GitHub Actions workflow signature) is also
 performed.  If cosign is not installed, the download proceeds with SHA-256
 verification only — still secure via HTTPS + checksum, just without supply
-chain provenance proof.  Installation runs in a background thread so startup
-never blocks.
+chain provenance proof.  Installation runs in a background thread, so neither
+startup nor a command's security check ever waits on the download; commands
+fail open/closed per tirith_fail_open until the binary lands.
 """
 
 import hashlib
@@ -383,6 +384,37 @@ def _extract_tirith_binary(tar: tarfile.TarFile, dest_dir: str, log) -> tuple[st
     return None, "binary_not_in_archive"
 
 
+# A killed process never reaches _install_tirith's ``finally``, and neither does
+# the daemon install thread when the interpreter exits mid-download, so the
+# partial archive stays in the temp dir. A live download rewrites its archive
+# every few seconds (urlopen's read timeout aborts a stalled one), so an install
+# dir untouched for an hour belongs to a dead process.
+_STALE_INSTALL_DIR_SECONDS = 3600
+
+
+def _sweep_stale_install_dirs() -> None:
+    """Best-effort removal of install temp dirs left behind by dead processes."""
+    try:
+        tmp_root = tempfile.gettempdir()
+        names = os.listdir(tmp_root)
+    except OSError:
+        return
+    cutoff = time.time() - _STALE_INSTALL_DIR_SECONDS
+    for name in names:
+        if not name.startswith("tirith-install-"):
+            continue
+        path = os.path.join(tmp_root, name)
+        try:
+            newest = max([os.lstat(path).st_mtime] + [
+                os.lstat(os.path.join(path, entry)).st_mtime
+                for entry in os.listdir(path)
+            ])
+        except OSError:
+            continue  # vanished meanwhile, not a directory, or not ours
+        if newest < cutoff:
+            shutil.rmtree(path, ignore_errors=True)
+
+
 def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
     """Download and install tirith to $AGENTX_HOME/bin/tirith.
 
@@ -402,6 +434,7 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
     archive_name = f"tirith-{target}.tar.gz"
     base_url = f"https://github.com/{_REPO}/releases/latest/download"
 
+    _sweep_stale_install_dirs()
     try:
         tmpdir = tempfile.mkdtemp(prefix="tirith-install-")
     except OSError as exc:
@@ -500,7 +533,8 @@ def _resolve_tirith_path(configured_path: str) -> str:
     For the default "tirith":
     1. PATH lookup via shutil.which
     2. $AGENTX_HOME/bin/tirith (previously auto-installed)
-    3. Auto-install from GitHub releases → $AGENTX_HOME/bin/tirith
+    3. Start the background auto-install from GitHub releases →
+       $AGENTX_HOME/bin/tirith and return the configured path meanwhile
 
     Failed installs are cached for the process lifetime (and persisted to
     disk for 24h) to avoid repeated network attempts.
@@ -570,8 +604,8 @@ def _resolve_tirith_path(configured_path: str) -> str:
             return expanded
 
     # If a background install thread is running, don't start a parallel one —
-    # return the configured path; the OSError handler in check_command_security
-    # will apply fail_open until the thread finishes.
+    # return the configured path; check_command_security applies fail_open
+    # until the thread finishes.
     if _install_thread is not None and _install_thread.is_alive():
         return expanded
 
@@ -584,17 +618,11 @@ def _resolve_tirith_path(configured_path: str) -> str:
         _install_failure_reason = disk_reason
         return expanded
 
-    installed, reason = _install_tirith()
-    if installed:
-        _resolved_path = installed
-        _install_failure_reason = ""
-        _clear_install_failed()
-        return installed
-
-    # Install failed — cache the miss and persist reason to disk
-    _resolved_path = _INSTALL_FAILED
-    _install_failure_reason = reason
-    _mark_install_failed(reason)
+    # Never download inline: this runs inside a command's security check, and
+    # urlopen's timeout bounds each read, not the transfer, so on a slow link
+    # the command would wait for the whole release archive. Any host that did
+    # not call ensure_installed() at startup reaches this on its first command.
+    _start_background_install()
     return expanded
 
 
@@ -630,6 +658,28 @@ def _background_install(*, log_failures: bool = True):
             _mark_install_failed(reason)
 
 
+def _start_background_install(*, log_failures: bool = True) -> None:
+    """Start the download thread unless one is already running."""
+    global _install_thread
+    if _install_thread is None or not _install_thread.is_alive():
+        _install_thread = threading.Thread(
+            target=_background_install,
+            kwargs={"log_failures": log_failures},
+            name="tirith-install",
+            daemon=True,
+        )
+        _install_thread.start()
+
+
+def _install_pending() -> bool:
+    """True while the download thread runs and no binary is resolved yet."""
+    return (
+        _resolved_path is None
+        and _install_thread is not None
+        and _install_thread.is_alive()
+    )
+
+
 def ensure_installed(*, log_failures: bool = True):
     """Ensure tirith is available, downloading in background if needed.
 
@@ -637,7 +687,7 @@ def ensure_installed(*, log_failures: bool = True):
     daemon thread so startup never blocks. Safe to call multiple times.
     Returns the resolved path immediately if available, or None.
     """
-    global _resolved_path, _install_thread, _install_failure_reason
+    global _resolved_path, _install_failure_reason
 
     cfg = _load_security_config()
     if not cfg["tirith_enabled"]:
@@ -709,13 +759,7 @@ def ensure_installed(*, log_failures: bool = True):
         return None
 
     # Need to download — launch background thread so startup doesn't block
-    if _install_thread is None or not _install_thread.is_alive():
-        _install_thread = threading.Thread(
-            target=_background_install,
-            kwargs={"log_failures": log_failures},
-            daemon=True,
-        )
-        _install_thread.start()
+    _start_background_install(log_failures=log_failures)
 
     return None  # Not available yet; commands will fail-open until ready
 
@@ -771,6 +815,15 @@ def check_command_security(command: str) -> dict:
         if fail_open:
             return {"action": "allow", "findings": [], "summary": "tirith path unavailable"}
         return {"action": "block", "findings": [], "summary": "tirith path unavailable (fail-closed)"}
+
+    # The auto-install is still downloading, so there is no binary to run yet.
+    # Apply fail_open without spawning: the spawn can only fail, and counting
+    # that toward the circuit breaker would keep tirith off for the rest of the
+    # process even after the download lands.
+    if _install_pending():
+        if fail_open:
+            return {"action": "allow", "findings": [], "summary": "tirith install in progress"}
+        return {"action": "block", "findings": [], "summary": "tirith install in progress (fail-closed)"}
 
     try:
         result = subprocess.run(

@@ -14,6 +14,8 @@ import json
 import logging
 import re
 import shutil
+import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -1119,27 +1121,57 @@ def do_check(name: Optional[str] = None, console: Optional[Console] = None) -> N
     table.add_column("Status", style="dim")
 
     for entry in results:
-        table.add_row(entry.get("name", ""), entry.get("source", ""), entry.get("status", ""))
+        status = entry.get("status", "")
+        if entry.get("locally_modified"):
+            status += " · edited here"
+        table.add_row(entry.get("name", ""), entry.get("source", ""), status)
 
     c.print(table)
     update_count = sum(1 for entry in results if entry.get("status") == "update_available")
     c.print(f"[dim]{update_count} update(s) available across {len(results)} checked skill(s)[/]\n")
 
 
-def do_update(name: Optional[str] = None, console: Optional[Console] = None) -> None:
-    """Update hub-installed skills with upstream changes."""
-    from tools.skills_hub import HubLockFile, check_for_skill_updates
+@dataclass
+class UpdateSummary:
+    """What ``do_update`` did, by skill name."""
+
+    updated: List[str] = field(default_factory=list)
+    failed: List[str] = field(default_factory=list)
+    #: Edited on this machine and left as they are (no ``overwrite_local``).
+    kept: List[str] = field(default_factory=list)
+    #: Where the edited copies that were replaced went, by skill name.
+    backups: Dict[str, str] = field(default_factory=dict)
+
+
+def do_update(name: Optional[str] = None, console: Optional[Console] = None, overwrite_local: bool = False) -> UpdateSummary:
+    """Update hub-installed skills with upstream changes.
+
+    A skill edited on this machine since it was installed is kept as it is
+    and named — an update would silently replace the edit. ``overwrite_local``
+    takes the update anyway, after copying the edited skill aside
+    (``skills/.hub/backups/<name>/<time>/``).
+    """
+    from tools.skills_hub import HubLockFile, backup_hub_skill, check_for_skill_updates
 
     c = console or _console
     lock = HubLockFile()
+    summary = UpdateSummary()
     updates = [entry for entry in check_for_skill_updates(name=name) if entry.get("status") == "update_available"]
     if not updates:
         c.print("[dim]No updates available.[/]\n")
-        return
+        return summary
 
     for entry in updates:
+        if entry.get("locally_modified") and not overwrite_local:
+            summary.kept.append(entry["name"])
+            continue
         installed = lock.get_installed(entry["name"])
         category = _derive_category_from_install_path(installed.get("install_path", "")) if installed else ""
+        if entry.get("locally_modified") and installed:
+            backup = backup_hub_skill({**installed, "name": entry["name"]})
+            if backup is not None:
+                summary.backups[entry["name"]] = str(backup)
+                c.print(f"[dim]Your edited copy of {entry['name']} is kept in {backup}[/]")
         c.print(f"[bold]Updating:[/] {entry['name']}")
         # Pin the update to the source registry recorded in the lockfile.
         # Without this, a bare (slash-less) identifier such as "reddit" falls
@@ -1155,8 +1187,21 @@ def do_update(name: Optional[str] = None, console: Optional[Console] = None) -> 
             console=c,
             source_id=entry.get("source", "") or None,
         )
+        # do_install reports a refusal on the console; the lock tells whether the new content landed.
+        after = HubLockFile().get_installed(entry["name"]) or {}
+        (summary.updated if after.get("content_hash") == entry.get("latest_hash") else summary.failed).append(entry["name"])
 
-    c.print(f"[bold green]Updated {len(updates)} skill(s).[/]\n")
+    if summary.updated:
+        c.print(f"[bold green]Updated {len(summary.updated)} skill(s).[/]\n")
+    if summary.failed:
+        c.print(f"[bold red]Could not update {len(summary.failed)} skill(s): {', '.join(summary.failed)} — see above.[/]\n")
+    if summary.kept:
+        c.print(
+            f"[yellow]Kept {len(summary.kept)} skill(s) you edited on this machine: {', '.join(summary.kept)}.[/] "
+            "Their hub update is waiting — run `agentx skills update <name> --overwrite-local` to take it "
+            "(your copy is backed up first).\n"
+        )
+    return summary
 
 
 def do_audit(name: Optional[str] = None, console: Optional[Console] = None,
@@ -1819,7 +1864,9 @@ def skills_command(args) -> None:
     elif action == "check":
         do_check(name=getattr(args, "name", None))
     elif action == "update":
-        do_update(name=getattr(args, "name", None))
+        summary = do_update(name=getattr(args, "name", None), overwrite_local=getattr(args, "overwrite_local", False))
+        if summary.failed:
+            sys.exit(1)
     elif action == "audit":
         do_audit(name=getattr(args, "name", None),
                  deep=getattr(args, "deep", False))
@@ -1884,6 +1931,7 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
         /skills list --source hub
         /skills check
         /skills update
+        /skills update my-skill --overwrite-local
         /skills audit
         /skills audit my-skill
         /skills audit --deep
@@ -2003,8 +2051,8 @@ def handle_skills_slash(cmd: str, console: Optional[Console] = None) -> None:
         do_check(name=name, console=c)
 
     elif action == "update":
-        name = args[0] if args else None
-        do_update(name=name, console=c)
+        name = args[0] if args and not args[0].startswith("--") else None
+        do_update(name=name, console=c, overwrite_local="--overwrite-local" in args)
 
     elif action == "audit":
         name = args[0] if args and not args[0].startswith("--") else None

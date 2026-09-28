@@ -1,4 +1,5 @@
 import './e2e/fix-electron-tracing'
+import './e2e/fix-trace-merge'
 
 import { defineConfig, type ReporterDescription } from '@playwright/test'
 
@@ -34,6 +35,12 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   /* Each test gets its own worker so the Electron process is fully isolated. */
   fullyParallel: false,
+  /* Every worker runs a whole Electron app plus an `agentx serve` backend.
+   * With Playwright's default (half the cores: 5 on a 10-core Mac) boots slow
+   * down enough for the timing-sensitive specs to flake — messaging-read-only
+   * and large-session-resume's paint budget time out — and the run is slower
+   * than with 2 (3.5 min vs 3.0 min). 2 is also what a 4-vCPU CI runner gets. */
+  workers: 2,
   reporter: reporters,
   use: {
     screenshot: 'on',

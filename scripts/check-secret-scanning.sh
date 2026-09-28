@@ -54,13 +54,33 @@ trap cleanup EXIT
 
 echo "Planted a secret at $CANARY; expecting gitleaks to find it."
 
-if gitleaks dir --no-banner --redact --exit-code 1 "$CANARY" >/dev/null 2>&1; then
+# --config, because the target is a single file: gitleaks looks for
+# .gitleaks.toml only inside a directory it scans, and handed a file it falls
+# back to its built-in config, saying so only at --log-level debug. Without
+# the flag the canary would prove gitleaks' own rules work and nothing about
+# this repository's config — it would stay green with useDefault turned off,
+# or with an allowlist covering deploy/. With it, the canary faces the same
+# rules and allowlist as the tree scan in lint.yml.
+#
+# --exit-code "$CAUGHT" rather than 1, because gitleaks also exits 1 when it
+# cannot load its config at all. With 1, a config that fails to load would
+# read as a caught canary: a TOML error, say, or useDefault turned off while
+# an allowlist still targets a built-in rule by id. So only CAUGHT means
+# "found it"; anything else, clean or failed, means the scanner is not
+# working.
+CAUGHT=42
+status=0
+output="$(gitleaks dir --config "$REPO_ROOT/.gitleaks.toml" --no-banner --redact \
+  --exit-code "$CAUGHT" "$CANARY" 2>&1)" || status=$?
+
+if [ "$status" -ne "$CAUGHT" ]; then
   cat >&2 <<'MESSAGE'
 
   SECRET SCANNING IS NOT WORKING.
 
-  gitleaks reported a clean result for a file holding a token and a private
-  key. Until this is fixed, every green run of this job means nothing.
+  gitleaks did not report a file holding a token and a private key: it
+  either called the file clean or failed to run (its output is below).
+  Until this is fixed, every green run of this job means nothing.
   Likely causes, in order:
 
     * .gitleaks.toml no longer parses, or [extend] useDefault was turned off
@@ -68,6 +88,7 @@ if gitleaks dir --no-banner --redact --exit-code 1 "$CANARY" >/dev/null 2>&1; th
     * gitleaks was upgraded across a breaking change in its CLI or rules
 
 MESSAGE
+  printf 'gitleaks exited %s:\n%s\n' "$status" "$output" >&2
   exit 1
 fi
 

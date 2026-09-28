@@ -2114,15 +2114,15 @@ code {
   color: var(--ui-text-tertiary) !important;
 }
 
-/* ── Composer fill — ONE var painted by the surface AND anything docked to it
-   (slash·@ popover, `?` help). State ladder sets the var; consumers just paint
-   `background: var(--composer-fill)`, so every state matches by construction.
-   The :has() rule is last on purpose: while a completion drawer is open it
-   beats focus/scroll and forces an OPAQUE fill (both mix endpoints solid) —
-   translucent glass can never match across the two layers because they sample
-   different backdrops. */
+/* ── Composer fill — ONE var painted by the surface AND the chrome docked to
+   it (status stack, floating pills, jump button). Consumers just paint
+   `background: var(--composer-fill)`; the state ladder below sets it for the
+   composer surface (rest / scrolled), and anything outside the composer root
+   keeps the opaque `:root` value (both mix endpoints solid). The completion
+   drawers carry their own fill (composerPanelCard). */
 :root {
-  /* Fallback for drawers outside the main composer (e.g. edit-message). */
+  /* Opaque fill for anything painted outside the main composer root: drawers
+     (e.g. edit-message) and the status stack docked above the composer. */
   --composer-fill: color-mix(in srgb, var(--dt-card) 90%, var(--dt-background));
 }
 

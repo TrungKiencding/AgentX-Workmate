@@ -186,6 +186,9 @@ interface GatewayEventDeps {
   failAssistantMessage: (sessionId: string, errorMessage: string) => void
   flushQueuedDeltas: (sessionId?: string) => void
   finalizeInterimAssistantMessage: (sessionId: string, text: string) => void
+  /** Retire a runtime the backend reclaimed and re-attach whatever showed it.
+   *  Defaults to dropping its published state only (bare harnesses). */
+  onRuntimeReclaimed?: (runtimeId: string) => void
   queryClient: QueryClient
   refreshHermesConfig: () => Promise<void>
   sessionInterrupted: (sessionId: string) => boolean
@@ -217,6 +220,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
     failAssistantMessage,
     flushQueuedDeltas,
     finalizeInterimAssistantMessage,
+    onRuntimeReclaimed,
     queryClient,
     refreshHermesConfig,
     sessionInterrupted,
@@ -354,13 +358,16 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         // The backend reclaimed a live session we may still be holding (idle
         // TTL, LRU cap, or the WS-orphan reap). Without this the runtime id
         // stays cached until something fails against it, which reads as the
-        // session vanishing rather than being reclaimed. Drop the cached state
-        // now — the stored row is untouched, so the sidebar keeps the
-        // conversation and reopening it resumes from the DB.
+        // session vanishing rather than being reclaimed. The stored row is
+        // untouched, so the conversation stays in the sidebar: the wiring layer
+        // forgets the runtime everywhere and re-attaches whatever surface was
+        // showing it (a tab re-binds, the main chat re-resumes) — dropping only
+        // the published state left a tab bound to the dead id rendering an
+        // empty transcript, and the next send failing "session not found".
         const reclaimedRuntimeId = String((payload as { session_id?: string } | undefined)?.session_id ?? '')
 
         if (reclaimedRuntimeId) {
-          dropSessionState(reclaimedRuntimeId)
+          ;(onRuntimeReclaimed ?? dropSessionState)(reclaimedRuntimeId)
         }
 
         // The row's ended_at moved, so refresh the lists that render it.
@@ -508,6 +515,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
 
               return {
                 ...state,
+                adoptedRunningTurn: false,
                 awaitingResponse: false,
                 busy,
                 // The turn is over but its streaming bubble may still say
@@ -951,12 +959,15 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             updateSessionState(sessionId, state => ({ ...state, needsInput: true }))
           }
 
-          dispatchNativeNotification({
-            body: question,
-            kind: 'input',
-            sessionId,
-            title: translateNow('notifications.native.inputTitle')
-          })
+          // A replay re-renders a question the user was already alerted to.
+          if (!payload?.replayed) {
+            dispatchNativeNotification({
+              body: question,
+              kind: 'input',
+              sessionId,
+              title: translateNow('notifications.native.inputTitle')
+            })
+          }
         }
       } else if (event.type === 'approval.request') {
         // Dangerous-command / execute_code approval. The Python side is blocked
@@ -1007,12 +1018,14 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             updateSessionState(sessionId, state => ({ ...state, needsInput: true }))
           }
 
-          dispatchNativeNotification({
-            body: translateNow('notifications.native.inputBody'),
-            kind: 'input',
-            sessionId,
-            title: translateNow('notifications.native.inputTitle')
-          })
+          if (!payload?.replayed) {
+            dispatchNativeNotification({
+              body: translateNow('notifications.native.inputBody'),
+              kind: 'input',
+              sessionId,
+              title: translateNow('notifications.native.inputTitle')
+            })
+          }
         }
       } else if (event.type === 'secret.request') {
         // Skill credential capture (tools/skills_tool.py). Blocked on
@@ -1034,12 +1047,14 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
             updateSessionState(sessionId, state => ({ ...state, needsInput: true }))
           }
 
-          dispatchNativeNotification({
-            body: promptText || envVar || translateNow('notifications.native.inputBody'),
-            kind: 'input',
-            sessionId,
-            title: translateNow('notifications.native.inputTitle')
-          })
+          if (!payload?.replayed) {
+            dispatchNativeNotification({
+              body: promptText || envVar || translateNow('notifications.native.inputBody'),
+              kind: 'input',
+              sessionId,
+              title: translateNow('notifications.native.inputTitle')
+            })
+          }
         }
       } else if (event.type === 'terminal.read.request') {
         // read_terminal tool: serialize the renderer's xterm buffer and answer
@@ -1279,6 +1294,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
       flushQueuedDeltas,
       lastCwdInfoSessionRef,
       nativeSubagentSessionsRef,
+      onRuntimeReclaimed,
       queryClient,
       scheduleConfigRefresh,
       sessionInterrupted,

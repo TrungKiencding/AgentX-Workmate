@@ -8595,6 +8595,27 @@ def test_commands_catalog_has_no_duplicate_or_alias_colliding_names():
     )
 
 
+def test_commands_catalog_separates_session_export_from_profile_export():
+    """Session export and profile sharing used to both register as /export,
+    so the TUI/desktop menu listed /export twice with two meanings while
+    typing it only ever reached the session export."""
+    resp = server.handle_request(
+        {"id": "1", "method": "commands.catalog", "params": {}}
+    )
+
+    categories = {c["name"]: dict(c["pairs"]) for c in resp["result"]["categories"]}
+    assert categories["Session"]["/export"].startswith(
+        "Export the current session history"
+    )
+    assert "/export" not in categories["Configuration"]
+    assert categories["Configuration"]["/export-profile"].startswith(
+        "Export a profile"
+    )
+    assert "/import" in categories["Configuration"]
+    assert resp["result"]["sub"]["/export"] == ["md", "json"]
+    assert resp["result"]["canon"]["/export-profile"] == "/export-profile"
+
+
 def test_commands_catalog_filters_gateway_only_commands_and_keeps_status_visible():
     resp = server.handle_request(
         {"id": "1", "method": "commands.catalog", "params": {}}

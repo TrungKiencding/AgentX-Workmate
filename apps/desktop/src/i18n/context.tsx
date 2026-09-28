@@ -121,11 +121,18 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
   const [isSavingLocale, setIsSavingLocale] = useState(false)
   const [configLoadError, setConfigLoadError] = useState<Error | null>(null)
   const [saveError, setSaveError] = useState<Error | null>(null)
+  // The locale a failed save rolls back to. `showLocale` writes it together
+  // with the state. An effect mirroring `locale` into it would run after the
+  // commit, so a switch landing in between (right as the config's language
+  // arrives) would roll the UI back to the locale before the one on screen.
   const localeRef = useRef(locale)
 
-  // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
+  const showLocale = useCallback((next: Locale) => {
+    localeRef.current = next
+    setLocaleState(next)
+  }, [])
+
   useEffect(() => {
-    localeRef.current = locale
     setRuntimeI18nLocale(locale)
     applyDocumentLocale(locale)
   }, [locale])
@@ -144,13 +151,13 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
       .getConfig()
       .then(config => {
         if (!cancelled) {
-          setLocaleState(normalizeLocale(getConfigDisplayLanguage(config)))
+          showLocale(normalizeLocale(getConfigDisplayLanguage(config)))
         }
       })
       .catch(error => {
         if (!cancelled) {
           setConfigLoadError(toError(error))
-          setLocaleState(DEFAULT_LOCALE)
+          showLocale(DEFAULT_LOCALE)
         }
       })
       .finally(() => {
@@ -162,14 +169,14 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
     return () => {
       cancelled = true
     }
-  }, [configClient, initialLocale])
+  }, [configClient, initialLocale, showLocale])
 
   const setLocale = useCallback(
     async (next: Locale) => {
       const previousLocale = localeRef.current
 
       setSaveError(null)
-      setLocaleState(next)
+      showLocale(next)
 
       if (!configClient) {
         return
@@ -187,7 +194,7 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
       } catch (error) {
         const nextError = toError(error)
 
-        setLocaleState(previousLocale)
+        showLocale(previousLocale)
         setSaveError(nextError)
 
         throw nextError
@@ -195,7 +202,7 @@ export function I18nProvider({ children, configClient = defaultConfigClient, ini
         setIsSavingLocale(false)
       }
     },
-    [configClient]
+    [configClient, showLocale]
   )
 
   const value = useMemo<I18nContextValue>(

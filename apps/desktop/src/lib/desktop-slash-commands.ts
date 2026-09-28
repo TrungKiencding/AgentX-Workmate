@@ -260,11 +260,31 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
     argumentMode: 'text'
   },
   { name: '/debug', description: 'Create a debug report', surface: exec() },
+  // /export is session export on every surface; profile sharing (upstream's
+  // /export) is /export-profile, paired with /import.
+  {
+    name: '/export',
+    description: 'Export this chat to a Markdown or JSON file [md|json] [filename]',
+    surface: exec(),
+    argumentMode: 'mixed'
+  },
+  {
+    name: '/export-profile',
+    description: 'Export a profile to a shareable .tar.gz archive',
+    surface: exec(),
+    argumentMode: 'text'
+  },
   {
     name: '/goal',
     description: 'Manage the standing goal for this session',
     surface: exec(),
     argumentMode: 'mixed'
+  },
+  {
+    name: '/import',
+    description: 'Import a shared profile archive as a new profile',
+    surface: exec(),
+    argumentMode: 'text'
   },
   {
     name: '/personality',

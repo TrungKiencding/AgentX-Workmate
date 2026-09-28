@@ -2,7 +2,9 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $desktopBoot } from '@/store/boot'
+import { $gateway, reportPrimaryGatewayState } from '@/store/gateway'
 import { $gatewayState } from '@/store/session'
+import { $tileBindingGeneration } from '@/store/session-states'
 
 import { takeGatewaySurvivor } from './gateway-hmr-survivor'
 import { useGatewayBoot } from './use-gateway-boot'
@@ -336,5 +338,67 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
     expect($desktopBoot.get().error).toBeNull()
     expect($desktopBoot.get().visible).toBe(false)
     expect($desktopBoot.get().phase).toBe('renderer.ready')
+  })
+})
+
+// After a drop the backend parks every session bound to the old connection on a
+// drop transport, so each tile must re-attach its runtime to the new socket —
+// whichever path brought the socket back.
+describe('useGatewayBoot re-attaches tiles when the socket reopens', () => {
+  const generation = () => $tileBindingGeneration.get()
+
+  it('does not treat the first open at boot as a reopen', async () => {
+    const before = generation()
+
+    render(<Harness />)
+    await flushAsync()
+
+    expect($gatewayState.get()).toBe('open')
+    expect(generation()).toBe(before)
+  })
+
+  it('re-attaches once when the boot loop reconnects a dropped socket', async () => {
+    render(<Harness />)
+    await flushAsync()
+    const before = generation()
+
+    act(() => FakeWebSocket.instances[0].drop())
+    await flushAsync()
+    await advanceBackoff()
+
+    expect($gatewayState.get()).toBe('open')
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    expect(generation()).toBe(before + 1)
+  })
+
+  it('re-attaches when a request re-dials the socket before the boot loop does', async () => {
+    render(<Harness />)
+    await flushAsync()
+    const before = generation()
+
+    act(() => FakeWebSocket.instances[0].drop())
+    // useGatewayRequest's ensureGatewayOpen: a send that met "connection
+    // closed" re-dials the same socket itself, and the boot loop then finds it
+    // open and stands down — it never reaches its own post-connect cleanup.
+    await act(async () => {
+      const redial = $gateway.get()!.connect('wss://vps.example.com/api/ws?token=t')
+      await vi.advanceTimersByTimeAsync(0)
+      await redial
+    })
+    await advanceBackoff()
+
+    expect($gatewayState.get()).toBe('open')
+    expect(generation()).toBe(before + 1)
+  })
+
+  it('does not treat a re-report of the open state as a reopen', async () => {
+    render(<Harness />)
+    await flushAsync()
+    const before = generation()
+
+    // An HMR adoption mirrors the already-open state into the composer again.
+    act(() => reportPrimaryGatewayState('open'))
+
+    expect(generation()).toBe(before)
   })
 })
