@@ -422,7 +422,7 @@ def _resolve_log_path(log_name: str) -> Optional[Path]:
     return None
 
 
-def _redact_log_text(text: str) -> str:
+def _redact_log_text(text: str, *, redact_url_credentials: bool = False) -> str:
     """Run ``redact_sensitive_text`` with ``force=True`` over upload-bound text.
 
     Uses ``force=True`` so redaction fires regardless of the operator's
@@ -435,7 +435,7 @@ def _redact_log_text(text: str) -> str:
         return text
     from agent.redact import redact_sensitive_text
 
-    text = redact_sensitive_text(text, force=True)
+    text = redact_sensitive_text(text, force=True, redact_url_credentials=redact_url_credentials)
     return _EMAIL_ADDRESS_RE.sub("[REDACTED_EMAIL]", text)
 
 
@@ -577,7 +577,7 @@ def _capture_dump(redact: bool = True) -> str:
     finally:
         sys.stdout = old_stdout
 
-    return _redact_log_text(capture.getvalue()) if redact else capture.getvalue()
+    return _redact_log_text(capture.getvalue(), redact_url_credentials=True) if redact else capture.getvalue()
 
 
 def collect_debug_report(
