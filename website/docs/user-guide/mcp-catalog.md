@@ -17,7 +17,7 @@ Each hub server is set up in **one place** — on the hub or on this machine —
 
 The hub decides where each of its servers is set up, the same way for everybody:
 
-- **On the hub** (its card is tagged **Through AgentX Hub**) — a remote server the hub's AgentX Gateway serves. Its account — an API key, an OAuth sign-in, a value such as a tenant — is kept by the hub, encrypted, and Workmate reaches the server through the gateway with this machine's own token (`AGENTX_GATEWAY_TOKEN` in `~/.agentx/.env`, renewed by itself). **Nothing about it is typed in Workmate.** Its card has one button, which says what comes next:
+- **On the hub** (its card is tagged **Through AgentX Hub**) — a remote server the hub's AgentX Gateway serves. Its account — an API key, an OAuth sign-in, a value such as a tenant — is kept by the hub, encrypted, and Workmate reaches the server through the gateway with this machine's own token (`AGENTX_HUB_GATEWAY_TOKEN` in `~/.agentx/.env`, renewed by itself). **Nothing about it is typed in Workmate.** Its card has one button, which says what comes next:
   - **Add** — your account is connected on the hub (or your organisation shares one with you): the server is added at once.
   - **Connect** — Workmate opens the hub's connect page in your browser. Connect once there (sign in, or paste the key). Workmate waits — the card says *Waiting for you to connect on AgentX Hub…*, with **Open the page again** and **Cancel** — and adds the server as soon as you are connected. It asks again when you come back to Workmate, and the hub tells it too; a wait lasts 30 minutes.
   - **Connect again** — your account on the hub needs a new sign-in. The hub's page opens; once you are signed in there, the server works again (it stays added).
@@ -29,6 +29,8 @@ The hub's own pages follow the same rule. On a server set up on the hub, **Add t
 `agentx mcp install agentx-hub/<slug>` on a server set up on the hub says to add it from **Utilities → Store → MCP**: there is nothing to install or type on the command line.
 
 A server you installed from its manifest **before** the hub set it up on the hub keeps running as it is, with the values you typed. To move it to the hub, remove it and add it again.
+
+Before config v38 Workmate kept this machine's gateway token as `AGENTX_GATEWAY_TOKEN` — the key the [OpenClaw migration](../guides/migrate-from-openclaw.md) fills with OpenClaw's own gateway token. Workmate moves the hub's token to `AGENTX_HUB_GATEWAY_TOKEN` by itself (`agentx update` does too). A value under the old key that is not the hub's token stays exactly where it is, and Workmate asks the hub for a new token.
 
 ## What "verified" means
 

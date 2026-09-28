@@ -40,9 +40,9 @@ Each report carries what the server announced when it last registered
 **The AgentX Gateway too (Agent Hub Phase 5).** The MCP tab lists the
 person's gateway endpoints (``GET /v1/mcp/me/endpoints``) and adds one:
 this machine asks the hub for its gateway token (only a signed-in session
-may), keeps it in the profile's ``.env`` as ``AGENTX_GATEWAY_TOKEN`` and
+may), keeps it in the profile's ``.env`` as ``AGENTX_HUB_GATEWAY_TOKEN`` and
 writes an entry ``{url, headers: {Authorization: "Bearer
-${AGENTX_GATEWAY_TOKEN}"}, protocol: auto, source: hub-gateway}``
+${AGENTX_HUB_GATEWAY_TOKEN}"}, protocol: auto, source: hub-gateway}``
 (:class:`GatewayDevice`, :func:`add_gateway_endpoint`). Each tick renews the
 token when it has under :data:`GATEWAY_ROTATE_DAYS` days left, with the
 person's session; without one, the desktop is told to open Workmate and
@@ -50,7 +50,10 @@ sign in again. The token goes over https (plain http only to this machine)
 and only to the origin of the gateway the hub announces: an endpoint
 elsewhere is refused before any token is asked for, and every renewal
 switches off an entry that left the gateway before the new token is
-written (:func:`gateway_endpoint_problem`).
+written (:func:`gateway_endpoint_problem`). Before config v38 the key was
+``AGENTX_GATEWAY_TOKEN`` — the one the OpenClaw migration fills with
+OpenClaw's messaging gateway token: :func:`migrate_gateway_token_env` moves
+the token off it, never OpenClaw's value.
 
 **One place to set a server up (the hub's decision §9.1 #17).** The feed
 says where each hub server is set up (``route``, ``tools/mcp_hub.py``). One
@@ -163,9 +166,10 @@ class HubSyncOutcome:
     def mcp_changed(self) -> bool:
         """An MCP server was installed, updated, removed or switched — or the
         gateway token changed under the servers that send it, or a gateway
-        entry was switched off for pointing off the gateway: the desktop reloads MCP."""
+        entry was switched off for pointing off the gateway, or rewritten to
+        read the token's own key: the desktop reloads MCP."""
         return (any(self.mcp[key] for key in ("installed", "updated", "removed", "disabled", "enabled"))
-                or bool(self.gateway.get("renewed")) or bool(self.gateway.get("refused")))
+                or any(self.gateway.get(key) for key in ("renewed", "refused", "renamed")))
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -1091,6 +1095,28 @@ class HubSyncEngine:
     # -- the gateway token --------------------------------------------------
 
     def _keep_gateway(self, credentials: HubCredentials, client: Any) -> Dict[str, Any]:
+        """A token still kept under the key it shared with the OpenClaw
+        migration moves to its own first (:func:`migrate_gateway_token_env`:
+        a desktop install never runs the config migration that moves it too),
+        and the entries rewritten are said (``renamed``: the desktop reloads
+        MCP). Then :meth:`_renew_gateway`."""
+        renamed = self._move_gateway_token()
+        kept = self._renew_gateway(credentials, client)
+        return {**kept, "renamed": renamed} if renamed else kept
+
+    def _move_gateway_token(self) -> List[str]:
+        try:
+            moved = migrate_gateway_token_env(self._gateway)
+        except Exception as exc:  # noqa: BLE001 - the next tick tries again
+            logger.warning("hub sync: the gateway token could not move to %s: %s", GATEWAY_TOKEN_ENV, exc)
+            return []
+        if moved["moved"]:
+            self._remember("gateway_token", GATEWAY_TOKEN_ENV, detail=f"moved from {LEGACY_GATEWAY_TOKEN_ENV}")
+        elif moved["expired"]:
+            self._remember("gateway_token", GATEWAY_TOKEN_ENV, detail=f"{LEGACY_GATEWAY_TOKEN_ENV} did not hold this machine's token: a new one is asked for")
+        return list(moved["entries"])
+
+    def _renew_gateway(self, credentials: HubCredentials, client: Any) -> Dict[str, Any]:
         """Renew this machine's gateway token while it has under
         :data:`GATEWAY_ROTATE_DAYS` days left — and only while a gateway entry
         may carry it. The hub gives one to a signed-in session alone: with a
@@ -1401,8 +1427,18 @@ def announce_mcp_removal(slug: str) -> None:
 # The AgentX Gateway: this machine's token and the entries that send it
 # ---------------------------------------------------------------------------
 
-#: The ``.env`` key of this machine's gateway token (the entries read ``${AGENTX_GATEWAY_TOKEN}``).
-GATEWAY_TOKEN_ENV = "AGENTX_GATEWAY_TOKEN"
+#: The ``.env`` key of this machine's gateway token (the entries read ``${AGENTX_HUB_GATEWAY_TOKEN}``).
+GATEWAY_TOKEN_ENV = "AGENTX_HUB_GATEWAY_TOKEN"
+#: The key the token was kept under before config v38 — the one the OpenClaw
+#: migration (``optional-skills/migration/openclaw-migration``) fills with
+#: OpenClaw's messaging gateway token (``gateway.auth.token``): the two
+#: overwrote each other. :func:`migrate_gateway_token_env` moves the token off
+#: it, and never OpenClaw's value.
+LEGACY_GATEWAY_TOKEN_ENV = "AGENTX_GATEWAY_TOKEN"
+#: The hub gives a token's first 12 characters as its ``prefix`` (``hub_`` and
+#: eight of the secret): a value is taken for the token the state names only
+#: when it begins with a prefix that long (:meth:`GatewayDevice.is_its_token`).
+GATEWAY_TOKEN_PREFIX_MIN = 12
 #: What an entry added from the gateway carries as ``source`` — never ``hub:``,
 #: which is the tool-hash lock of a server installed from the hub's feed.
 GATEWAY_SOURCE = "hub-gateway"
@@ -1412,6 +1448,10 @@ GATEWAY_ROTATE_DAYS = 30
 SESSION_SOURCES = ("session", "mailbox")
 _GATEWAY_STATE_FILENAME = "mcp_hub_gateway.json"
 _GATEWAY_NAME_RE = re.compile(r"[^a-z0-9_-]+")
+#: A reference to the old key in an entry's header (``${…}`` or Cursor's ``${env:…}``).
+_LEGACY_TOKEN_REF_RE = re.compile(r"\$\{(?:env:)?" + LEGACY_GATEWAY_TOKEN_ENV + r"\}")
+#: One move off the old key at a time: the tick and a route may both start one.
+_TOKEN_ENV_LOCK = threading.Lock()
 
 
 def gateway_entry_name(ref: str) -> str:
@@ -1554,6 +1594,42 @@ class GatewayDevice:
         expires = self._expires_at()
         return not expires or expires - self._clock() < GATEWAY_ROTATE_DAYS * 86400
 
+    def is_its_token(self, value: Any) -> bool:
+        """True when *value* is the token the state names: the state holds the
+        token's id and the prefix the hub gave for it (:data:`GATEWAY_TOKEN_PREFIX_MIN`
+        characters at least), and *value* begins with that prefix. A value
+        another tool wrote under a key the token was kept in never passes."""
+        held = self.state()
+        prefix = held.get("prefix")
+        return (bool(held.get("token_id")) and isinstance(prefix, str) and len(prefix) >= GATEWAY_TOKEN_PREFIX_MIN
+                and isinstance(value, str) and value.startswith(prefix))
+
+    def expire(self) -> bool:
+        """The token the state names is not where the entries read it: it
+        counts as expired from now on — the next tick with a signed-in session
+        asks for a new one (the hub revokes this one), and without one the
+        desktop asks to sign in again, instead of the state saying a token is
+        fine that no entry sends. False when there is no state (nothing says
+        a token is fine: one is asked for anyway)."""
+        with self._lock:
+            held = self.state()
+            if not held:
+                return False
+            self._write_state({**held, "expires_at": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat()})
+            return True
+
+    def _write_state(self, held: Dict[str, Any]) -> None:
+        import json
+        import os
+        import tempfile
+
+        path = self._path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=".gateway-", suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(held, handle, indent=2)
+        os.replace(temp, path)
+
     def gateway_url(self) -> str:
         """The gateway the hub announced with the current token (``""`` without one)."""
         return str(self.state().get("gateway_url") or "")
@@ -1591,10 +1667,6 @@ class GatewayDevice:
         is switched off first (``refused`` in the answer), so it never sends
         the token. A hub that announces no gateway a token may go to gets
         its token refused (:class:`GatewayEndpointRefused`)."""
-        import json
-        import os
-        import tempfile
-
         if credentials.source not in SESSION_SOURCES:
             raise GatewaySignInNeeded("the hub gives a gateway token to a signed-in session only")
         with self._lock:
@@ -1609,13 +1681,67 @@ class GatewayDevice:
             write(GATEWAY_TOKEN_ENV, str(answer["token"]))
             held = {"token_id": answer.get("id"), "prefix": answer.get("prefix"), "expires_at": answer.get("expires_at"), "device_id": answer.get("device_id"),
                     "gateway_url": announced, "issued_at": datetime.now(timezone.utc).isoformat()}
-            path = self._path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=".gateway-", suffix=".json")
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(held, handle, indent=2)
-            os.replace(temp, path)
+            self._write_state(held)
             return {**held, "refused": refused}
+
+
+def migrate_gateway_token_env(device: GatewayDevice | None = None) -> Dict[str, Any]:
+    """Move this machine's gateway token off :data:`LEGACY_GATEWAY_TOKEN_ENV`
+    (config v38). The token used to be kept under that name, which the
+    OpenClaw migration fills with OpenClaw's messaging gateway token: on a
+    machine that ran both, one overwrote the other, and the entries could send
+    OpenClaw's secret to the hub's gateway. Now it has a key of its own
+    (:data:`GATEWAY_TOKEN_ENV`):
+
+    * the value under the old key moves — written under the new one, dropped
+      from the old one last — only when the state beside the feed shows it is
+      the token this machine was given (:meth:`GatewayDevice.is_its_token`).
+      Any other value there is not the hub's: it stays exactly where it is;
+    * every entry added from the gateway (``source: hub-gateway``) reads the
+      new key, whatever the old one holds, so none sends that value again;
+    * when an entry read the old key and the new one does not hold the token
+      the state names, that token counts as expired (:meth:`GatewayDevice.expire`):
+      the next tick with a signed-in session asks for a new one.
+
+    Nothing to move costs a read of config.yaml, ``.env`` and the state:
+    config v38 runs it, and so does each step of the gateway here (every
+    tick, adding an endpoint) — a desktop install never runs ``agentx
+    update``. Returns ``{entries, moved, expired}``: the entries rewritten,
+    whether the value moved, whether the token was expired."""
+    from hermes_cli.config import is_managed, load_env, read_raw_config, remove_env_value, save_config, save_env_value
+
+    device = device if device is not None else GatewayDevice()
+    done: Dict[str, Any] = {"entries": [], "moved": False, "expired": False}
+    if is_managed():
+        return done  # nothing here is written (the gateway never keeps a token on such an install)
+    with _TOKEN_ENV_LOCK:
+        env = load_env()
+        legacy = env.get(LEGACY_GATEWAY_TOKEN_ENV) or ""
+        moving = bool(legacy) and device.is_its_token(legacy)
+        if moving and env.get(GATEWAY_TOKEN_ENV) != legacy:
+            save_env_value(GATEWAY_TOKEN_ENV, legacy)
+            if load_env().get(GATEWAY_TOKEN_ENV) != legacy:
+                logger.warning("hub sync: the gateway token could not be written as %s; it stays as %s", GATEWAY_TOKEN_ENV, LEGACY_GATEWAY_TOKEN_ENV)
+                return done
+        config = read_raw_config()
+        servers = config.get("mcp_servers")
+        for name, cfg in servers.items() if isinstance(servers, dict) else ():
+            headers = cfg.get("headers") if isinstance(cfg, dict) and cfg.get("source") == GATEWAY_SOURCE else None
+            if not isinstance(headers, dict):
+                continue
+            renamed = {key: _LEGACY_TOKEN_REF_RE.sub(f"${{{GATEWAY_TOKEN_ENV}}}", value) if isinstance(value, str) else value
+                       for key, value in headers.items()}
+            if renamed != headers:
+                cfg["headers"] = renamed
+                done["entries"].append(name)
+        if done["entries"]:
+            save_config(config)
+        if moving:
+            remove_env_value(LEGACY_GATEWAY_TOKEN_ENV)
+            done["moved"] = True
+        elif done["entries"] and not device.is_its_token(load_env().get(GATEWAY_TOKEN_ENV)):
+            done["expired"] = device.expire()
+    return done
 
 
 def gateway_server_of(cfg: Any) -> Optional[str]:
@@ -1731,6 +1857,8 @@ def add_gateway_endpoint(endpoint: Dict[str, Any], *, gateway_url: str, client: 
         # Somebody's own server under that name stays theirs: the gateway never writes over it.
         raise ValueError(f"an MCP server named {name} is already set up here, not by the gateway: rename or remove it first")
     device = device or engine()._gateway
+    # A token still kept under the key it shared with the OpenClaw migration moves first: the new entry reads its own.
+    migrate_gateway_token_env(device)
     if device.needs_rotation() or _origin(device.gateway_url()) != _origin(gateway_url):
         # No token worth keeping, or one asked for when the gateway was elsewhere.
         device.issue(client, credentials)

@@ -361,6 +361,31 @@ def test_an_endpoint_added_before_it_was_an_install_is_told_to_the_hub_once(tmp_
         "tool_hashes": {}, "prompt_hashes": {}, "template_hashes": {}}
 
 
+def test_an_endpoint_added_before_the_token_had_its_own_key_stays_the_same_install(tmp_path, nudges, monkeypatch):
+    """A server's endpoint added by a build before config v38 reads
+    ``${AGENTX_GATEWAY_TOKEN}`` — the key the OpenClaw migration fills too. The
+    tick moves the token to its own key and rewrites the entry where it is: the
+    same install for the hub — not removed, not added again, no new token."""
+    from hermes_cli.config import load_env, save_env_value
+    from hermes_cli.mcp_config import _save_mcp_server
+
+    monkeypatch.setattr(mcp_hub, "refresh", lambda client, *, bearer, force=False: mcp_hub.HubFeed(hub_url=HUB))
+    _write_feed(OCTO)
+    token = "hub_Q7fK2mZx-the-rest-of-a-test-token"
+    entry = gateway_entry({"kind": "server", "ref": "octo", "label": "GitHub", "url": f"{HUB}/gw/s/octo"})
+    assert _save_mcp_server("agentx-octo", {**entry, "headers": {"Authorization": "Bearer ${AGENTX_GATEWAY_TOKEN}"}})
+    save_env_value("AGENTX_GATEWAY_TOKEN", token)
+    (tmp_path / "gateway.json").write_text(json.dumps({"token_id": "t0", "prefix": token[:12], "expires_at": "2099-01-01T00:00:00+00:00",
+                                                       "gateway_url": f"{HUB}/gw"}), encoding="utf-8")
+    hub = FakeHub(octo="ready")
+    hub.rows = [_row(reported_state="installed", reported_version="1.12.2")]
+    outcome = _engine(tmp_path, hub).tick()
+    assert outcome.gateway["renamed"] == ["agentx-octo"] and _config_servers()["agentx-octo"] == entry
+    assert (hub.removals, hub.reports, hub.installs, hub.issued) == ([], [], [], [])
+    env = load_env()
+    assert env.get("AGENTX_HUB_GATEWAY_TOKEN") == token and "AGENTX_GATEWAY_TOKEN" not in env
+
+
 # --- the MCP store's routes ----------------------------------------------------------------------------------------------------------
 
 

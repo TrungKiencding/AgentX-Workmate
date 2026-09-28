@@ -1095,7 +1095,7 @@ export const ja = defineLocale({
       gatewayServerDesc: 'AgentX Hub 上のあなたのサーバーを、ゲートウェイ経由で使います。サインインは一度で済みます。',
       gatewayToolsetDesc:
         'AgentX Hub でまとめたツールセットを、ゲートウェイ経由で使います。サインインは一度で済みます。',
-      gatewayTokenNote: 'このマシンのトークンは .env (AGENTX_GATEWAY_TOKEN) に保存され、自動で更新されます。',
+      gatewayTokenNote: 'このマシンのトークンは .env (AGENTX_HUB_GATEWAY_TOKEN) に保存され、自動で更新されます。',
       signInHint: name =>
         `${name} にはサインインが必要です。AgentX がブラウザーを開くので許可してください。その後、自動で再接続します。`,
       keyRefused: 'サーバーが今のアクセスキーを拒否しました。mcp.json でキーを直してから、もう一度確認してください。',

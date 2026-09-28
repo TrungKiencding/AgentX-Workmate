@@ -1042,7 +1042,7 @@ export const zhHant = defineLocale({
       noTools: '這個連線沒有提供任何工具。',
       gatewayServerDesc: '你在 AgentX Hub 上的伺服器，經由閘道使用——登入一次，全部可用。',
       gatewayToolsetDesc: '你在 AgentX Hub 上組合的工具集，經由閘道使用——登入一次，全部可用。',
-      gatewayTokenNote: '本機的權杖保存在 .env（AGENTX_GATEWAY_TOKEN）中，會自動續期。',
+      gatewayTokenNote: '本機的權杖保存在 .env（AGENTX_HUB_GATEWAY_TOKEN）中，會自動續期。',
       signInHint: name => `${name} 需要你登入。AgentX 會開啟瀏覽器讓你授權，然後自動重新連接。`,
       keyRefused: '伺服器拒絕了目前的存取金鑰。請在 mcp.json 中修正金鑰後再檢查一次。',
       errorHint: 'AgentX 沒能連上。原因見下方，也可查看日誌。',

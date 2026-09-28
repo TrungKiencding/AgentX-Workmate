@@ -1082,7 +1082,7 @@ export const ar = defineLocale({
       noTools: 'لا يوفّر هذا الاتصال أي أداة.',
       gatewayServerDesc: 'خادم لك على AgentX Hub، تصل إليه عبر بوابته — تسجيل دخول واحد يكفي للجميع.',
       gatewayToolsetDesc: 'مجموعة أدوات جمعتها على AgentX Hub، تصل إليها عبر بوابته — تسجيل دخول واحد يكفي للجميع.',
-      gatewayTokenNote: 'يُحفَظ رمز هذا الجهاز في ‎.env (AGENTX_GATEWAY_TOKEN) ويتجدد تلقائيًا.',
+      gatewayTokenNote: 'يُحفَظ رمز هذا الجهاز في ‎.env (AGENTX_HUB_GATEWAY_TOKEN) ويتجدد تلقائيًا.',
       signInHint: name => `يحتاج ${name} إلى تسجيل دخولك. يفتح AgentX متصفحك لتسمح له، ثم يعيد الاتصال.`,
       keyRefused: 'رفض الخادم مفتاح الوصول المستخدَم. صحّح المفتاح في mcp.json ثم تحقّق مجددًا.',
       errorHint: 'تعذّر على AgentX الاتصال. السبب أدناه وفي السجلات.',

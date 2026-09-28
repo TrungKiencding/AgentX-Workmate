@@ -839,6 +839,41 @@ def _migrate_to_37(results: Dict[str, Any], quiet: bool) -> None:
         print(f"  ✓ The AgentX Hub moved to {hub_url}: {', '.join(moved)}.")
 
 
+def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 37 → 38: the AgentX Hub gateway token gets a .env key of its own ──
+    # Workmate kept this machine's AgentX Gateway token as AGENTX_GATEWAY_TOKEN,
+    # the key the OpenClaw migration fills with OpenClaw's messaging gateway
+    # token (gateway.auth.token): on a machine that ran both, one overwrote the
+    # other, and the hub-gateway entries could send OpenClaw's secret to the
+    # hub. The token moves to AGENTX_HUB_GATEWAY_TOKEN and every hub-gateway
+    # entry reads that key — the value only when the gateway state proves it
+    # is the token the hub gave this machine; any other value stays where it
+    # is (hermes_cli/hub_sync.py::migrate_gateway_token_env). The hub sync does
+    # the same on each tick: a desktop install never runs this ladder.
+    from hermes_cli.hub_sync import GATEWAY_TOKEN_ENV, LEGACY_GATEWAY_TOKEN_ENV, migrate_gateway_token_env
+
+    try:
+        done = migrate_gateway_token_env()
+    except Exception as exc:  # noqa: BLE001 - the hub sync tries again on its next tick
+        results["warnings"].append(f"The AgentX Hub gateway token could not move to {GATEWAY_TOKEN_ENV}: {exc}")
+        return
+    moved = [f"mcp_servers.{name}.headers reads ${{{GATEWAY_TOKEN_ENV}}} (was ${{{LEGACY_GATEWAY_TOKEN_ENV}}})" for name in done["entries"]]
+    if done["moved"]:
+        moved.insert(0, f".env {GATEWAY_TOKEN_ENV} (was {LEGACY_GATEWAY_TOKEN_ENV})")
+    if not moved:
+        return
+    results["config_added"].extend(moved)
+    if done["expired"]:
+        results["warnings"].append(
+            f"{LEGACY_GATEWAY_TOKEN_ENV} does not hold this machine's AgentX Hub gateway token: it is left as it is, "
+            "and the next hub sync asks the hub for a new token."
+        )
+    if not quiet:
+        print(f"  ✓ The AgentX Hub gateway token has its own .env key, {GATEWAY_TOKEN_ENV}: {', '.join(moved)}.")
+        if done["expired"]:
+            print(f"  ⚠ {results['warnings'][-1]}")
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -864,6 +899,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (35, _migrate_to_35),
     (36, _migrate_to_36),
     (37, _migrate_to_37),
+    (38, _migrate_to_38),
 )
 
 

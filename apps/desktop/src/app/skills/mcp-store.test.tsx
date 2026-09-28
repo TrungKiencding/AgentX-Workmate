@@ -840,7 +840,7 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
 
   const DESIGNS_ENTRY = {
     url: 'https://hub.test/gw/s/designs',
-    headers: { Authorization: 'Bearer ${AGENTX_GATEWAY_TOKEN}' },
+    headers: { Authorization: 'Bearer ${AGENTX_HUB_GATEWAY_TOKEN}' },
     source: 'hub-gateway',
     gateway: { kind: 'server', ref: 'designs', label: 'Designs' }
   }
@@ -1109,7 +1109,7 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
     expect(openExternal).toHaveBeenCalledWith(reauth)
     // Folded away with the technical tail: the machine token that reaches it.
     fireEvent.click(within(screen.getByTestId('mcp-server-detail')).getByText('Technical details'))
-    expect(screen.getByTestId('mcp-server-detail').textContent).toContain('AGENTX_GATEWAY_TOKEN')
+    expect(screen.getByTestId('mcp-server-detail').textContent).toContain('AGENTX_HUB_GATEWAY_TOKEN')
   })
 
   it('a hub server whose provider takes no sign-in through the hub says its account signs in on this machine', async () => {
