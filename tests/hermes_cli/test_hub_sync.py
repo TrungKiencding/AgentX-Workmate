@@ -480,6 +480,26 @@ class TestWhatThisMachineHas:
         assert outcome.disabled == ["demo-core"] and installer.calls == [("disable", "demo-core")]
         assert sorted(r[0] for r in hub.reports) == ["every", "mine"] and {r[1]["state"] for r in hub.reports} == {"disabled"}
 
+    def test_what_the_hub_decides_of_an_install_wakes_the_sync_at_once(self, hub, monkeypatch):
+        """An archive, its undoing, a switch-off (``install.status``,
+        ``mcp.install.status``, ``install.desired``) change what the store says
+        here: the next tick is now, not at the next interval."""
+        import asyncio
+
+        engine = _engine(hub)
+        woken: list = []
+        monkeypatch.setattr(engine, "nudge", lambda: woken.append(1))
+        heard = ("install.status", "mcp.install.status", "install.desired", "comment.created", "install.reported")
+
+        class Stream:
+            async def aiter_events(self, **_kwargs):
+                for number, kind in enumerate(heard, start=1):
+                    yield {"id": number, "type": kind, "payload": {"slug": "demo-core"}}
+
+        monkeypatch.setattr(engine, "_session_client", lambda: Stream())
+        asyncio.run(engine._stream_once(CREDS))
+        assert len(woken) == 3  # the three decisions; a comment, the machine's own report are nothing to act on
+
 
 class TestFailures:
     def test_offline_is_not_an_error(self, hub):
