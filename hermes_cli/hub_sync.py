@@ -23,6 +23,22 @@ the loop, and then it waits for the desktop to deliver a fresh one.
 ``/v1/me/changes`` and reconciles the whole list, so a dropped SSE frame
 never loses an install. The stream only decides *when* the next tick runs.
 
+**Every copy from the hub is an install the hub keeps (hub decisions §8 #22,
+§9.1 #18).** A skill installed from the store in Workmate or by ``agentx
+skills install``, a server installed from its manifest while the hub could
+not be told — each one the snapshot does not list is told to the hub with
+the version it runs and that version's content hash (the hub's proof the
+copy is its own), so a yank or a takedown reaches it; the hub's answer is
+applied at once. One the hub keeps off stays off here: every tick switches
+it off again, whatever switched it on (the Skills and MCP switches refuse,
+:func:`hub_hold`), and the version it runs goes with each report, so a copy
+updated to a version the hub serves is switched back on by the hub. One the
+person removed here is removed on the hub. Several installs of one skill
+here (one asked for on every machine) never pull it two ways: the one the
+hub changed last decides, and each hears what the machine did. What the hub
+last said of each is kept for the switches and the store
+(:func:`read_hub_state`).
+
 **MCP servers too (Agent Hub Phase 3).** The snapshot's ``mcp`` block
 lists the MCP servers the person installed from the hub on this machine.
 :class:`McpLocalInstaller` installs one from the hub's signed feed
@@ -94,8 +110,8 @@ HISTORY_SIZE = 30
 PRODUCT = "workmate"
 SOURCE = "agentx-hub"
 #: Events on the stream that mean "something on this machine may need to change".
-NUDGE_EVENTS = ("install.desired", "install.update_available", "workspace.skill.published", "catalog.version.yanked", "catalog.version.demoted",
-                "mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
+NUDGE_EVENTS = ("install.desired", "install.update_available", "install.status", "workspace.skill.published", "catalog.version.yanked",
+                "catalog.version.demoted", "mcp.install.desired", "mcp.install.update_available", "mcp.install.status", "mcp.endpoint.changed")
 #: Of those, the ones after which the MCP feed is fetched again at once (a new manifest, a new tool list).
 FEED_EVENTS = ("mcp.install.desired", "mcp.install.update_available", "mcp.endpoint.changed")
 #: The person's own connections on the hub (made, needing a new sign-in, removed): the MCP store asks the hub
@@ -364,6 +380,27 @@ class LocalInstaller:
             }
         return {"installed": False, "name": "", "version": "", "content_hash": "", "install_path": "", "enabled": False, "modified": False}
 
+    def hub_skills(self) -> List[Dict[str, str]]:
+        """Every skill on this machine installed from the hub, as the hub
+        would know it: its slug, the version it runs and that version's content
+        hash on the hub (what the machine tells the hub to prove the copy is
+        its own), and its name here."""
+        from tools.skills_hub import HubLockFile
+
+        out = []
+        for entry in HubLockFile().list_installed():
+            identifier = str(entry.get("identifier") or "")
+            if entry.get("source") != SOURCE or not identifier.startswith(SOURCE + "/"):
+                continue
+            metadata = entry.get("metadata") or {}
+            slug = str(metadata.get("hub_slug") or identifier[len(SOURCE) + 1:].partition("@")[0])
+            out.append({
+                "slug": slug, "name": str(entry.get("name") or ""),
+                "version": str(metadata.get("hub_version") or identifier.partition("@")[2] or ""),
+                "hub_content_hash": str(metadata.get("content_hash") or ""),
+            })
+        return out
+
     def _disabled(self) -> set:
         from hermes_cli.config import load_config
         from hermes_cli.skills_config import get_disabled_skills
@@ -526,6 +563,22 @@ class McpLocalInstaller:
                         **{key: {} for key in HUB_LOCK_KEYS}}
         return {"installed": False, "name": "", "route": "", "version": "", "enabled": False, "modified": False, **{key: {} for key in HUB_LOCK_KEYS}}
 
+    def hub_servers(self) -> List[Dict[str, str]]:
+        """Every server on this machine installed from a hub manifest, as the hub
+        would know it: its slug, the version it runs and that version's content
+        hash (what the machine tells the hub to prove the copy is its own), and
+        its name here. A gateway endpoint is not one (``gateway_entries``)."""
+        from hermes_cli import mcp_catalog
+
+        out = []
+        for name, cfg in mcp_catalog.raw_servers().items():
+            slug = mcp_catalog.hub_slug_of(cfg)
+            if not slug:
+                continue
+            hub = cfg.get("hub") or {}
+            out.append({"slug": slug, "name": name, "version": str(hub.get("version") or ""), "hub_content_hash": str(hub.get("content_hash") or "")})
+        return out
+
     def feed_entry(self, slug: str) -> Any:
         """The verified entry of hub server *slug* in the feed on disk, or None — a
         server set up on this machine only (one set up on the hub has none)."""
@@ -624,6 +677,85 @@ class McpLocalInstaller:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# What the hub last said of each hub skill and server here (hub decision §8 #22)
+# ---------------------------------------------------------------------------
+
+#: The engine writes it after every tick that reached the hub; the Skills and MCP switches read it (one the hub keeps
+#: off is not switched on here) and so do the store's cards (what became of it on the hub). It lives in the cache of
+#: the home the engine syncs — the default profile: another profile has none, and nothing there is the hub's to hold.
+_HUB_STATE_FILENAME = "hub_sync_state.json"
+#: What a view keeps of an install row: what the hub wants, why, and what became of the skill or server there.
+_VIEW_FIELDS = ("desired_state", "withdrawn", "reason", "reason_version", "visible", "archived_at", "successor", "serving_until")
+
+
+def hub_state_path() -> Any:
+    from hermes_constants import get_hermes_home
+
+    return get_hermes_home() / "cache" / _HUB_STATE_FILENAME
+
+
+def read_hub_state() -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """``{"skills": {slug: view}, "mcp": {slug: view}}`` as the engine last wrote it (empty without one)."""
+    import json
+
+    try:
+        data = json.loads(hub_state_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return {kind: {str(k): v for k, v in (data.get(kind) or {}).items() if isinstance(v, dict)} if isinstance(data.get(kind), dict) else {}
+            for kind in ("skills", "mcp")}
+
+
+def _write_hub_state(state: Dict[str, Dict[str, Dict[str, Any]]]) -> None:
+    import json
+    import os
+    import tempfile
+
+    path = hub_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=".hub-sync-state-", suffix=".json")
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(state, handle, ensure_ascii=False, indent=1, sort_keys=True)
+    os.replace(temp, path)
+
+
+def install_view(row: Dict[str, Any], *, name: str, status_key: str) -> Dict[str, Any]:
+    """What the store and the switches need of one install row: the hub's
+    wish and its reason, and what became of the skill or server on the hub
+    (``status``: ``active``, ``archived``, ``yanked`` — taken down)."""
+    view = {key: row.get(key) for key in _VIEW_FIELDS}
+    view["slug"] = str(row.get("slug") or "")
+    view["withdrawn"] = bool(row.get("withdrawn"))
+    view["visible"] = row.get("visible") is not False
+    view["status"] = str(row.get(status_key) or "active")
+    view["name"] = name
+    return view
+
+
+def hub_hold(kind: str, name: str) -> Optional[Dict[str, Any]]:
+    """The view of the hub skill (``kind="skills"``) or server (``"mcp"``)
+    named *name* here, when the hub keeps it off; else None."""
+    for view in read_hub_state().get(kind, {}).values():
+        if view.get("name") == name and view.get("desired_state") == "disabled":
+            return view
+    return None
+
+
+def rows_by_slug(installs: Any) -> Dict[str, List[Dict[str, Any]]]:
+    """The snapshot's installs grouped by slug, each group newest first (the
+    one the hub changed last says what it wants — as WebMate reads it)."""
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    for row in installs if isinstance(installs, list) else []:
+        if isinstance(row, dict) and row.get("slug"):
+            groups.setdefault(str(row["slug"]), []).append(row)
+    for rows in groups.values():
+        rows.sort(key=lambda row: str(row.get("updated_at") or ""), reverse=True)
+    return groups
+
+
 def _short_hash(hub_hash: str) -> str:
     """The hub's full ``sha256:<64>`` in the lock file's ``sha256:<16>`` form."""
     digest = (hub_hash or "").split(":", 1)[-1]
@@ -670,6 +802,10 @@ class HubSyncEngine:
         self._waits_lock = threading.Lock()
         #: Gateway entries of hub servers told to the hub once already (entries added before they were installs).
         self._adopted: set = set()
+        #: Skills and manifest servers from the hub told to the hub once already, or that it would not take
+        #: (§8 #22, §9.1 #18): asked again after a restart, never every tick.
+        self._adopted_skills: set = set()
+        self._adopted_servers: set = set()
         self._stream_state = "off"
         self._wake: Any | None = None
         self._loop: Any | None = None
@@ -721,6 +857,7 @@ class HubSyncEngine:
             self._reconcile(snapshot, credentials, client, outcome)
             if isinstance(snapshot.get("mcp"), dict):
                 self._reconcile_mcp(snapshot["mcp"], credentials, client, outcome)
+            self._keep_state(snapshot)
             outcome.gateway = self._keep_gateway(credentials, client)
             if self._waits.current():
                 outcome.mcp["installed"] += [added["slug"] for added in self.complete_waits(client, credentials)]
@@ -730,6 +867,25 @@ class HubSyncEngine:
             logger.warning("hub sync: tick failed: %s", exc)
             return HubSyncOutcome(status="error", detail=str(exc), cursor=self._cursor)
         return outcome
+
+    def _keep_state(self, snapshot: Dict[str, Any]) -> None:
+        """What the hub said of each skill and server here, for the switches and
+        the store (:func:`read_hub_state`) — written when it changed. A row this
+        tick changed (a skill it registered or switched off) is as the snapshot
+        had it until the next tick."""
+        skills: Dict[str, Dict[str, Any]] = {}
+        for slug, rows in rows_by_slug(snapshot.get("installs") or []).items():
+            skills[slug] = install_view(rows[0], name=self._installer.local_state(slug)["name"], status_key="skill_status")
+        servers: Dict[str, Dict[str, Any]] = {}
+        block = snapshot.get("mcp") if isinstance(snapshot.get("mcp"), dict) else {}
+        for slug, rows in rows_by_slug(block.get("installs") or []).items():
+            servers[slug] = install_view(rows[0], name=self._mcp.local_state(slug)["name"], status_key="server_status")
+        state = {"skills": skills, "mcp": servers}
+        try:
+            if read_hub_state() != state:
+                _write_hub_state(state)
+        except OSError as exc:
+            logger.warning("hub sync: could not keep what the hub said: %s", exc)
 
     def _resolve_credentials(self) -> Optional[HubCredentials]:
         try:
@@ -749,12 +905,14 @@ class HubSyncEngine:
     # -- reconcile ----------------------------------------------------------
 
     def _reconcile(self, snapshot: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
-        for install in snapshot.get("installs") or []:
+        groups = rows_by_slug(snapshot.get("installs") or [])
+        for slug, rows in groups.items():
             try:
-                self._apply(install, credentials, client, outcome)
+                self._apply(rows, credentials, client, outcome)
             except Exception as exc:  # noqa: BLE001 - one skill must not stop the others
-                logger.warning("hub sync: %s: %s", install.get("slug"), exc)
-                outcome.failed.append({"slug": install.get("slug"), "error": str(exc)})
+                logger.warning("hub sync: %s: %s", slug, exc)
+                outcome.failed.append({"slug": slug, "error": str(exc)})
+        self._adopt_skills(snapshot, set(groups), credentials, client, outcome)
         outcome.updates = []
         for u in snapshot.get("updates") or []:
             local = self._installer.local_state(str(u.get("slug") or ""))
@@ -771,18 +929,27 @@ class HubSyncEngine:
         # tab to show; nothing is installed until the person asks (hub
         # decision §8 #11 — no automatic mirror).
 
-    def _apply(self, install: Dict[str, Any], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+    def _apply(self, rows: List[Dict[str, Any]], credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        """Make this machine agree with *rows*, the installs of one skill here
+        (this machine's, and one asked for on every machine — rarely both):
+        the most recently changed one says what the hub wants; each hears what
+        this machine did."""
+        install = rows[0]
         slug = str(install.get("slug") or "")
-        if not slug or install.get("kind") not in (None, "core"):
-            return
         desired = str(install.get("desired_state") or "installed")
         reported = str(install.get("reported_state") or "pending")
-        install_id = str(install.get("id") or "")
         wanted_version = str(install.get("version") or install.get("latest_version") or "")
         pinned = bool(install.get("version"))
         local = self._installer.local_state(slug)
-        report = self._reporter(client, credentials, install_id)
+        report = self._reporter(client, credentials, rows)
 
+        if not local["installed"] and reported in ("installed", "disabled") and desired != "removed":
+            # It was here and is gone: the person removed it on this machine. Say so to the
+            # hub — installing it again would undo their choice (as for an MCP server).
+            self._tell_removed_here(rows, client, credentials, report)
+            outcome.removed.append(slug)
+            self._remember("removed", slug, "", "removed on this machine")
+            return
         if desired == "installed":
             if reported == "installed" and local["installed"] and (not pinned or local["version"] == wanted_version):
                 # Switched off locally while the hub still wants it: the person's choice stands.
@@ -836,13 +1003,70 @@ class HubSyncEngine:
             outcome.removed.append(slug)
             self._remember("removed", slug, local["version"], detail)
         elif desired == "disabled":
-            if reported == "disabled":
-                return
-            if local["installed"]:
+            # Kept off every tick: a switch turned back on here — the Skills tab, `agentx skills`, config.yaml — is
+            # turned off again. Only the hub turns it back on (a switch-off of its own, §8 #22), or its person on the
+            # hub; the version this machine runs goes with each report, so a copy updated to a version the hub
+            # serves is switched back on by the hub.
+            switched = local["installed"] and local["enabled"]
+            if switched:
                 self._installer.disable(local["name"])
+            if switched or reported != "disabled":
+                outcome.disabled.append(slug)
+                self._remember("disabled", slug, local["version"], str(install.get("reason") or ""))
             report("disabled", version=local["version"] or None)
-            outcome.disabled.append(slug)
-            self._remember("disabled", slug, local["version"], str(install.get("reason") or ""))
+
+    def _tell_removed_here(self, rows: List[Dict[str, Any]], client: Any, credentials: HubCredentials, report: Callable[..., None]) -> None:
+        """The skill of *rows* was removed on this machine: the hub stops wanting
+        it here (each row), and hears it is gone."""
+        from hermes_cli.hub_client import HubError
+
+        for row in rows:
+            if str(row.get("desired_state") or "") == "removed":
+                continue
+            try:
+                client.remove_install(str(row.get("id") or ""), bearer=credentials.bearer, device_id=credentials.device_id,
+                                      device_name=credentials.device_name)
+            except HubError as exc:
+                if exc.reauth:
+                    raise
+                logger.warning("hub sync: could not tell the hub %s was removed here: %s", row.get("slug"), exc)
+        report("removed")
+
+    def _adopt_skills(self, snapshot: Dict[str, Any], known: set, credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        """Every skill on this machine from the hub is an install the hub keeps
+        (hub decision §8 #22): one it keeps none of here — installed from the
+        store in Workmate, by `agentx skills install`, while the hub could not
+        be told — is told to the hub with the version it runs and that
+        version's content hash, and what the hub answers is applied at once
+        (a version it withdrew is switched off now). One the hub will not take
+        (no copy of its own, a skill no longer there) is not asked again
+        until the next start."""
+        from hermes_cli.hub_client import HubError
+
+        for held in self._installer.hub_skills():
+            slug = held["slug"]
+            if not slug or slug in known or slug in self._adopted_skills:
+                continue
+            if not (held["version"] and held["hub_content_hash"]):
+                self._adopted_skills.add(slug)
+                logger.info("hub sync: %s has no version or content hash from the hub to show it by", slug)
+                continue
+            try:
+                row = client.create_install(slug, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
+                                            installed={"version": held["version"], "content_hash": held["hub_content_hash"]})
+            except HubError as exc:
+                if exc.reauth or exc.unreachable or exc.identity_unavailable:
+                    raise
+                self._adopted_skills.add(slug)
+                logger.info("hub sync: the hub keeps no install of %s: %s", slug, exc)
+                continue
+            self._adopted_skills.add(slug)
+            self._remember("registered", slug, held["version"])
+            if isinstance(row, dict) and row.get("slug"):
+                self._apply([row], credentials, client, outcome)
+                # The snapshot this tick keeps (the desktop's, the switches') has it from now on.
+                snapshot.setdefault("installs", []).append(row)
+
 
     # -- MCP servers (Agent Hub Phase 3) ----------------------------------------
 
@@ -856,7 +1080,9 @@ class HubSyncEngine:
             except Exception as exc:  # noqa: BLE001 - one server must not stop the others
                 logger.warning("hub sync: MCP %s: %s", install.get("slug"), exc)
                 outcome.mcp["failed"].append({"slug": install.get("slug"), "error": str(exc)})
-        self._adopt_gateway_servers({str(row["slug"]) for row in installs}, credentials, client)
+        known = {str(row["slug"]) for row in installs}
+        self._adopt_gateway_servers(known, credentials, client)
+        self._adopt_manifest_servers(block, known, credentials, client, outcome)
 
     def _adopt_gateway_servers(self, known: set, credentials: HubCredentials, client: Any) -> None:
         """A hub server added here as its gateway endpoint is an install of it,
@@ -881,6 +1107,57 @@ class HubSyncEngine:
                 if exc.reauth:
                     raise
                 logger.info("hub sync: the hub keeps no install of gateway server %s: %s", slug, exc)
+
+    def _tell_mcp_removed_here(self, slug: str, install_id: str, credentials: HubCredentials, client: Any, report: Callable[..., None],
+                               done: Dict[str, List[Any]]) -> None:
+        """Hub server *slug* ran here and is gone — the person removed it: the
+        hub stops wanting it here and hears it is gone. Unreachable: asked again
+        next tick."""
+        try:
+            client.remove_mcp_install(install_id, bearer=credentials.bearer, device_id=credentials.device_id,
+                                      device_name=credentials.device_name)
+        except Exception as exc:  # noqa: BLE001 - asked again next tick
+            logger.warning("hub sync: could not tell the hub MCP %s was removed here: %s", slug, exc)
+            return
+        report("removed")
+        self._mcp.forget_removed(slug)
+        done["removed"].append(slug)
+        self._remember("removed", f"mcp:{slug}", "", "removed on this machine")
+
+    def _adopt_manifest_servers(self, block: Dict[str, Any], known: set, credentials: HubCredentials, client: Any, outcome: HubSyncOutcome) -> None:
+        """A server installed here from a hub manifest is an install the hub
+        keeps (the hub's decision §9.1 #18): one it keeps none of — installed
+        while the hub could not be told — is told to the hub with the version it
+        runs and that version's content hash, and the hub's answer is applied
+        at once. One the hub will not take is not asked again until the next
+        start; one the person removed here is left gone."""
+        from hermes_cli.hub_client import HubError
+
+        removed = self._mcp.removed_here()
+        for held in self._mcp.hub_servers():
+            slug = held["slug"]
+            if slug in known or slug in removed or slug in self._adopted_servers:
+                continue
+            if not (held["version"] and held["hub_content_hash"]):
+                self._adopted_servers.add(slug)
+                continue
+            try:
+                row = client.create_mcp_install(slug, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
+                                                installed={"version": held["version"], "content_hash": held["hub_content_hash"]})
+            except HubError as exc:
+                if exc.reauth or exc.unreachable or exc.identity_unavailable:
+                    raise
+                self._adopted_servers.add(slug)
+                logger.info("hub sync: the hub keeps no install of MCP %s: %s", slug, exc)
+                continue
+            self._adopted_servers.add(slug)
+            self._remember("registered", f"mcp:{slug}", held["version"])
+            if isinstance(row, dict) and row.get("slug"):
+                self._apply_mcp(row, credentials, client, outcome)
+                if isinstance(block.get("installs"), list):
+                    block["installs"].append(row)
+                else:
+                    block["installs"] = [row]
 
     def _refresh_feed(self, client: Any, credentials: HubCredentials) -> None:
         from tools import mcp_hub
@@ -914,11 +1191,15 @@ class HubSyncEngine:
             self._remember("removed", f"mcp:{slug}", local["version"])
             return
         if desired == "disabled":
+            if not local["installed"] and (reported in ("installed", "disabled") or slug in self._mcp.removed_here()):
+                self._tell_mcp_removed_here(slug, install_id, credentials, client, report, done)
+                return
             if local["installed"] and local["enabled"]:
                 self._mcp.disable(local["name"])
                 done["disabled"].append(slug)
                 self._remember("disabled", f"mcp:{slug}", local["version"], str(install.get("reason") or ""))
-            if reported != "disabled":
+            # The version it runs goes with the report: one updated to a version the hub serves is switched back on by the hub.
+            if reported != "disabled" or (local["version"] and local["version"] != str(install.get("reported_version") or "")):
                 report("disabled", version=local["version"] or None)
             return
 
@@ -926,16 +1207,7 @@ class HubSyncEngine:
         if not local["installed"] and (reported == "installed" or slug in self._mcp.removed_here()):
             # It ran here and is gone: the person removed it on this machine.
             # Say so to the hub — installing it again would undo their choice.
-            try:
-                client.remove_mcp_install(install_id, bearer=credentials.bearer, device_id=credentials.device_id,
-                                          device_name=credentials.device_name)
-            except Exception as exc:  # noqa: BLE001 - asked again next tick
-                logger.warning("hub sync: could not tell the hub MCP %s was removed here: %s", slug, exc)
-                return
-            report("removed")
-            self._mcp.forget_removed(slug)
-            done["removed"].append(slug)
-            self._remember("removed", f"mcp:{slug}", "", "removed on this machine")
+            self._tell_mcp_removed_here(slug, install_id, credentials, client, report, done)
             return
         if local["installed"] and local["modified"]:
             # Edited on this machine: never replaced from here; said once.
@@ -1075,17 +1347,25 @@ class HubSyncEngine:
 
         return report
 
-    def _reporter(self, client: Any, credentials: HubCredentials, install_id: str) -> Callable[..., None]:
+    def _reporter(self, client: Any, credentials: HubCredentials, rows: List[Dict[str, Any]]) -> Callable[..., None]:
+        """Tell each of *rows* what this machine did — each one that has not
+        heard it yet (the same state, version and error)."""
+
         def report(state: str, *, version: Optional[str] = None, error: str = "") -> None:
-            if not install_id:
-                return
-            try:
-                client.report_install(
-                    install_id, state, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
-                    version=version or None, error=error,
-                )
-            except Exception as exc:  # noqa: BLE001 - the next tick reports again
-                logger.warning("hub sync: could not report %s for %s: %s", state, install_id, exc)
+            for row in rows:
+                install_id = str(row.get("id") or "")
+                if not install_id:
+                    continue
+                if (str(row.get("reported_state") or "") == state and (not version or str(row.get("reported_version") or "") == version)
+                        and str(row.get("error") or "") == error):
+                    continue
+                try:
+                    client.report_install(
+                        install_id, state, bearer=credentials.bearer, device_id=credentials.device_id, device_name=credentials.device_name,
+                        version=version or None, error=error,
+                    )
+                except Exception as exc:  # noqa: BLE001 - the next tick reports again
+                    logger.warning("hub sync: could not report %s for %s: %s", state, install_id, exc)
 
         return report
 
@@ -1209,6 +1489,8 @@ class HubSyncEngine:
             "updates": list(self._last.updates),
             "workspaces": list(self._last_snapshot.get("workspaces") or []),
             "mcp": self._mcp_changes(),
+            # What the hub last said of each skill and server here, kept across restarts: the store's labels and locks.
+            "hub_state": read_hub_state(),
             "history": list(self._history),
             "generated_at": self._last_snapshot.get("generated_at"),
         }

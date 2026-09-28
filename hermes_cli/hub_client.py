@@ -244,15 +244,25 @@ class HubClient:
         product: str = PRODUCT,
         version: Optional[str] = None,
         reason: str = "",
+        installed: Optional[Mapping[str, str]] = None,
     ) -> Dict[str, Any]:
         """Record that this machine wants *slug*; the hub answers the install row.
-        Without ``device_id`` in the body the hub pins the row to the device header."""
+        Without ``device_id`` in the body the hub pins the row to the device header.
+        *installed* (``{version, content_hash}``) tells the hub of the copy this
+        machine already has instead: the hub makes the install as it is, and
+        switches it off at once if the hub withdrew that version."""
         body: Dict[str, Any] = {"slug": slug, "product": product}
         if version:
             body["version"] = version
         if reason:
             body["reason"] = reason
+        if installed is not None:
+            body["installed"] = {"version": str(installed.get("version") or ""), "content_hash": str(installed.get("content_hash") or "")}
         return self._request("POST", "/v1/installs", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
+
+    def remove_install(self, install_id: str, *, bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, Any]:
+        """Ask the hub to stop wanting a skill install (it waits for this machine to report ``removed``)."""
+        return self._request("DELETE", f"/v1/installs/{install_id}", bearer=bearer, device_id=device_id, device_name=device_name)
 
     def report_install(
         self,
@@ -302,12 +312,16 @@ class HubClient:
         device_name: str = "",
         product: str = PRODUCT,
         version: Optional[str] = None,
+        installed: Optional[Mapping[str, str]] = None,
     ) -> Dict[str, Any]:
         """Tell the hub this machine installed MCP server *slug* (the hub keeps
-        its desired state from now on); the machine is the device header."""
+        its desired state from now on); the machine is the device header.
+        *installed* (``{version, content_hash}``) names the copy it already runs."""
         body: Dict[str, Any] = {"slug": slug, "product": product}
         if version:
             body["version"] = version
+        if installed is not None:
+            body["installed"] = {"version": str(installed.get("version") or ""), "content_hash": str(installed.get("content_hash") or "")}
         return self._request("POST", "/v1/mcp/installs", bearer=bearer, device_id=device_id, device_name=device_name, json_body=body)
 
     def report_mcp_install(

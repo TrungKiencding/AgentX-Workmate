@@ -193,6 +193,15 @@ def skills_command(args=None):
         # Anything NOT chosen is disabled
         new_disabled = {skills[i]["name"] for i in range(len(skills)) if i not in chosen}
 
+    # A skill the AgentX Hub keeps off stays off: only the hub turns it back on (hub decision §8 #22).
+    from hermes_cli.hub_sync import hub_hold
+
+    for skill in skills:
+        held = hub_hold("skills", skill["name"]) if skill["name"] not in new_disabled else None
+        if held is not None:
+            new_disabled.add(skill["name"])
+            print(color(f"  {skill['name']} stays off — AgentX Hub keeps it off: {held.get('reason') or ''}", Colors.YELLOW))
+
     if new_disabled == disabled:
         print(color("  No changes.", Colors.DIM))
         return

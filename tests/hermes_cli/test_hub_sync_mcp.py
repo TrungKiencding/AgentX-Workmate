@@ -43,9 +43,21 @@ class FakeClient:
         self.reports: list[tuple[str, str, dict]] = []
         self.removals: list[str] = []
         self.refuse_surface = False
+        #: What machines told the hub they run (hub decision §9.1 #18), and the answer the hub gives.
+        self.adopted: list[dict] = []
+        self.adopt_answer: dict = {}
+        self.adopt_error: Exception | None = None
 
     def changes(self, **_kwargs):
         return {"cursor": 1, "installs": [], "updates": [], "workspaces": [], "mcp": {"installs": list(self.installs), "updates": [], "workspaces": []}}
+
+    def create_mcp_install(self, slug, *, installed=None, **_kwargs):
+        self.adopted.append({"slug": slug, "installed": installed})
+        if self.adopt_error is not None:
+            raise self.adopt_error
+        row = _row(id=f"mcp-{slug}", slug=slug, reported_state="installed", reported_version=(installed or {}).get("version"), **self.adopt_answer)
+        self.installs.append(row)
+        return row
 
     def remove_mcp_install(self, install_id, **_kwargs):
         self.removals.append(install_id)
@@ -62,6 +74,8 @@ class FakeClient:
             if row["id"] == install_id:
                 row["reported_state"] = state
                 row["error"] = fields.get("error") or ""
+                # As the hub keeps it: a report that names no version keeps the last one's.
+                row["reported_version"] = fields.get("version") or row.get("reported_version")
                 if fields.get("surface_hash"):
                     row["reported_surface_hash"] = fields["surface_hash"]
         return {}
@@ -126,6 +140,10 @@ class FakeMcp:
     def removed_here(self):
         return set(self.removed)
 
+    def hub_servers(self):
+        return [{"slug": slug, "name": st["name"], "version": st.get("version", ""), "hub_content_hash": st.get("hub_content_hash", "")}
+                for slug, st in self.local.items() if st.get("installed") and st.get("route") != "gateway"]
+
     def forget_removed(self, slug):
         self.removed.discard(slug)
 
@@ -166,7 +184,7 @@ def _row(**extra) -> dict:
 
 
 def _engine(client: FakeClient, mcp: FakeMcp) -> HubSyncEngine:
-    return HubSyncEngine(credentials=lambda: CREDS, settings=SETTINGS, client=client, installer=SimpleNamespace(local_state=lambda slug: {}),
+    return HubSyncEngine(credentials=lambda: CREDS, settings=SETTINGS, client=client, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=mcp)
 
 
@@ -225,6 +243,52 @@ class TestReconcile:
         client.installs = [_row(reported_state="pending")]
         _engine(client, mcp).tick()
         assert client.removals == ["mcp-1"] and mcp.removed == set()
+
+    def test_a_server_switched_off_by_the_hub_and_removed_here_is_removed_on_the_hub(self):
+        client, mcp = FakeClient(), FakeMcp()
+        client.installs = [_row(desired_state="disabled", reported_state="disabled", reason="yanked: leaks tokens")]
+        outcome = _engine(client, mcp).tick()
+        assert client.removals == ["mcp-1"] and outcome.mcp["removed"] == ["linear"] and client.reports[-1][1] == "removed"
+
+    def test_a_server_the_hub_switched_off_says_which_version_runs_here(self):
+        """Updated here to a version the hub serves: the report names it, so the hub switches it back on."""
+        client, mcp = FakeClient(), FakeMcp()
+        mcp.local["linear"] = {"installed": True, "name": "linear", "version": "1.4.0", "enabled": False, "modified": False, "tool_hashes": HASHES}
+        client.installs = [_row(desired_state="disabled", reported_state="disabled", reported_version="1.4.0", reason="yanked")]
+        engine = _engine(client, mcp)
+        engine.tick()
+        assert client.reports == []
+        mcp.local["linear"]["version"] = "1.5.0"
+        engine.tick()
+        assert client.reports == [("mcp-1", "disabled", {"version": "1.5.0", "error": ""})]
+
+    def test_a_server_installed_while_the_hub_could_not_be_told_is_told_with_its_copy(self):
+        client, mcp = FakeClient(), FakeMcp()
+        mcp.feed["linear"] = {"version": "1.4.0", "tool_hashes": HASHES}
+        mcp.local["linear"] = {"installed": True, "name": "linear", "version": "1.4.0", "enabled": True, "modified": False, "tool_hashes": HASHES,
+                               "hub_content_hash": "sha256:" + "c" * 64}
+        mcp.local["gone"] = {"installed": True, "name": "gone", "version": "1.0.0", "enabled": True, "modified": False, "tool_hashes": {},
+                             "hub_content_hash": "sha256:" + "d" * 64}
+        mcp.removed = {"gone"}  # removed here, not yet said: never told as installed
+        client.adopt_answer = {"desired_state": "disabled", "reason": "taken down by admin: phones home", "withdrawn": True}
+        engine = _engine(client, mcp)
+        outcome = engine.tick()
+        assert client.adopted == [{"slug": "linear", "installed": {"version": "1.4.0", "content_hash": "sha256:" + "c" * 64}}]
+        # The hub's answer is applied at once: it withdrew it, so it is switched off here.
+        assert outcome.mcp["disabled"] == ["linear"] and mcp.local["linear"]["enabled"] is False
+        assert engine.changes()["history"][-1]["action"] == "registered"
+        engine.tick()
+        assert len(client.adopted) == 1
+
+    def test_a_server_the_hub_will_not_take_is_not_asked_again(self):
+        client, mcp = FakeClient(), FakeMcp()
+        mcp.local["linear"] = {"installed": True, "name": "linear", "version": "1.4.0", "enabled": True, "modified": False, "tool_hashes": HASHES,
+                               "hub_content_hash": "sha256:" + "c" * 64}
+        client.adopt_error = HubError("not this hub's", status_code=409, code="mcp_install_unknown_copy")
+        engine = _engine(client, mcp)
+        assert engine.tick().status == "ok"
+        engine.tick()
+        assert len(client.adopted) == 1 and mcp.local["linear"]["enabled"] is True
 
     def test_an_edit_made_here_is_never_overwritten_and_said_once(self):
         client, mcp = FakeClient(), FakeMcp()
@@ -369,7 +433,7 @@ class TestMcpLocalInstaller:
         _write_feed(*_signed(feed, surface_hash="sha256:" + "e" * 64, tool_hashes=approved))
         client = FakeClient()
         client.installs = [_row(reported_state="installed")]
-        outcome = HubSyncEngine(credentials=lambda: CREDS, settings=SETTINGS, client=client, installer=SimpleNamespace(local_state=lambda slug: {}),
+        outcome = HubSyncEngine(credentials=lambda: CREDS, settings=SETTINGS, client=client, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                                 mcp_installer=installer).tick()
         assert outcome.mcp["updated"] == ["linear"]
         raw = mcp_catalog.raw_servers()["linear"]

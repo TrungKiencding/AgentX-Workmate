@@ -47,7 +47,7 @@ A hub entry installs nothing but its configuration: it runs through a package la
 
 Click **Connect** on a hub server set up on this machine (or run `agentx mcp install agentx-hub/<slug>`). If it needs values — an API key, a token — you type them on its card; they are written to `~/.agentx/.env`, never sent to the hub, and the server's configuration only names them (`${LINEAR_API_KEY}`). The server then joins the **Connected** shelf, where it is switched on and off, signed in, checked, updated and removed; its card in the hub's shelf reads **Connected**.
 
-Workmate then tells the hub it installed the server on this machine — a server set up on the hub too, once it is added. From then on the hub keeps the install's desired state, like it does for skills: the web shows **Installed on &lt;your machine&gt;**, and a change on the hub reaches this machine through the hub sync (at most a minute; at once while the store is open, since it keeps a live connection).
+Workmate then tells the hub it installed the server on this machine — a server set up on the hub too, once it is added. One installed while the hub could not be reached is told on a later sync, with the version it runs. From then on the hub keeps the install's desired state, like it does for skills: the web shows **Installed on &lt;your machine&gt;**, and a change on the hub reaches this machine through the hub sync (at most a minute; at once while the store is open, since it keeps a live connection).
 
 ## The tools you get are the tools the hub approved
 
@@ -59,7 +59,9 @@ Your own tool filter (`tools.include` / `tools.exclude`) still applies on top.
 
 ## When the hub withdraws a server
 
-If the version you run is yanked, the server is taken down by a hub admin, or a rescan finds it unsafe, the hub asks every machine that runs it to switch it off. Workmate sets `enabled: false` on it — the configuration and your values stay — and you are notified with the reason. When the hub restores it, or approves the version again, it is switched back on. When a fixed version is published, the store offers it as an update.
+If the version you run is yanked, the server is taken down by a hub admin, or a rescan finds it unsafe, the hub asks every machine that runs it to switch it off. Workmate sets `enabled: false` on it — the configuration and your values stay — and its card says **Off by the hub** with the reason. Its switch stays locked: switching it on here, or in `mcp.json`, does not last (Workmate says it kept it off). When the hub restores it, or approves the version again, it is switched back on; when a fixed version is published, the store offers it as an update, and once you run it the hub switches the server back on.
+
+When its owner **stops publishing** it, it keeps working: a server installed here from its manifest runs as it is; one reached through the AgentX Gateway is served 30 more days — its card says until when — unless the owner stopped it at once. The card says **No longer published** and names what the owner points to instead, when there is one. **Remove connection** takes it off, the hub's way (its tokens and cached tools too).
 
 The hub never removes or overwrites anything by itself while it cannot be reached: an unreachable hub leaves every installed server as it is, and the catalog keeps showing the list it fetched last.
 
@@ -83,3 +85,5 @@ A hub server always installs into the default profile, where the hub sync runs, 
 | *Waiting for you to connect on AgentX Hub…* | Workmate opened the hub's connect page; connect there. **Open the page again** if you closed it, **Cancel** to stop waiting. |
 | **Sign in again on the hub** on a connected server | Its account on the hub lapsed: **Connect again** opens the hub's page. |
 | Tools blocked | The server announces tools that differ from the approved list; a hub admin decides. |
+| **Off by the hub** on a server, its switch locked | The hub withdrew what it runs; the reason is on the card. Only the hub turns it back on — or update to a version it serves. |
+| **No longer published** | Its owner took it out of the catalogue. It keeps working here (through the gateway, until the date on its card). |
