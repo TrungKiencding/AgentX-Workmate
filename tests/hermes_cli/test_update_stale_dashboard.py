@@ -251,12 +251,15 @@ class TestWindowsWmicEncoding:
     """
 
     def test_wmic_invoked_with_utf8_ignore_errors(self, monkeypatch):
-        """The wmic subprocess.run call must pass encoding='utf-8' and
-        errors='ignore' so the subprocess reader thread cannot raise
-        UnicodeDecodeError on non-UTF-8 wmic output."""
+        """The wmic scan must decode with errors='ignore' so the reader
+        thread cannot raise UnicodeDecodeError on non-UTF-8 wmic output.
+
+        The scan runs through bounded_probe_run (#87134), which always
+        decodes as UTF-8 and forwards *errors*; before that it was a direct
+        subprocess.run call, which is what this test used to patch."""
         monkeypatch.setattr(sys, "platform", "win32")
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
+        with patch("hermes_cli._subprocess_compat.bounded_probe_run") as mock_probe:
+            mock_probe.return_value = MagicMock(
                 returncode=0,
                 stdout=(
                     "CommandLine=python -m hermes_cli.main dashboard\n"
@@ -264,18 +267,12 @@ class TestWindowsWmicEncoding:
                 ),
                 stderr="",
             )
-            _find_stale_dashboard_pids()
+            assert _find_stale_dashboard_pids() == [12345]
 
-        # The wmic call is the first subprocess.run invocation.
-        assert mock_run.called, "subprocess.run was not invoked"
-        wmic_call = mock_run.call_args_list[0]
-        kwargs = wmic_call.kwargs
-        assert kwargs.get("encoding") == "utf-8", (
-            "encoding kwarg must be 'utf-8' so wmic output is decoded "
-            "deterministically rather than via the implicit reader-thread "
-            "default that crashes on non-UTF-8 locales (#17049)."
-        )
-        assert kwargs.get("errors") == "ignore", (
+        assert mock_probe.called, "bounded_probe_run was not invoked"
+        wmic_call = mock_probe.call_args_list[0]
+        assert wmic_call.args[0][0] == "wmic"
+        assert wmic_call.kwargs.get("errors") == "ignore", (
             "errors kwarg must be 'ignore' so undecodable bytes don't take "
             "down the reader thread (#17049)."
         )

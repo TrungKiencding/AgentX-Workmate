@@ -78,9 +78,13 @@ class TestMultiplexOnUnchanged:
                 multiplex_profiles=True, multiplex_profile_allowlist=None
             )
         )
+        # The fork's profiles_to_serve(multiplex) has no profile_allowlist
+        # (upstream c8f235a106 was not taken); a stub that requires it raised
+        # TypeError inside the resolver's fail-closed except and read as a
+        # rejection.
         monkeypatch.setattr(
             "hermes_cli.profiles.profiles_to_serve",
-            lambda multiplex, profile_allowlist: [("worker", object())],
+            lambda multiplex, **_kwargs: [("worker", object())],
         )
         assert adapter._resolve_request_profile(_request("worker")) == "worker"
         assert adapter._resolve_request_profile(_request("ghost")) is _PROFILE_REJECTED
