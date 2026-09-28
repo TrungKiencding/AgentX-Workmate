@@ -10981,8 +10981,12 @@ def cmd_dashboard(args):
     # sessions show no MCP tools.  Spawn discovery in the background here so a
     # slow/dead server can't block dashboard startup.
     try:
-        from hermes_cli.mcp_startup import start_background_mcp_discovery
+        from hermes_cli.mcp_startup import set_mcp_host_role, start_background_mcp_discovery
 
+        # The desktop app's backend outranks every other AgentX process for
+        # machine-wide MCP resources: its WebMate server takes the browser
+        # bridge port, even from a gateway that started first.
+        set_mcp_host_role("desktop" if os.getenv("AGENTX_DESKTOP") == "1" else "dashboard")
         start_background_mcp_discovery(
             logger=logger,
             thread_name="dashboard-mcp-discovery",
