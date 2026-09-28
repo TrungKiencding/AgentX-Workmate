@@ -980,6 +980,49 @@ def _wal_is_usable() -> bool:
 _AUDIO_GUARD_BYPASS_MARK = "real_audio_playback"
 _ALLOW_MACOS_KEYCHAIN_MARK = "allow_macos_keychain"
 
+# ---------------------------------------------------------------------------
+# OS gating
+#
+# AgentX runs on Linux, macOS and native Windows, and a lot of its behaviour
+# genuinely differs per host: PTY vs pywinpty, taskkill vs SIGTERM, launchd
+# vs systemd, abstract AF_UNIX names, GNU vs BSD userland.
+#
+# A test whose subject is genuinely OS-specific declares the OS it belongs to
+# and runs there for real —
+#
+#   @pytest.mark.windows_only   → only on native Windows (``sys.platform == "win32"``)
+#   @pytest.mark.macos_only     → only on macOS (``sys.platform == "darwin"``)
+#   @pytest.mark.linux_only     → only on Linux (``sys.platform.startswith("linux")``)
+#
+# Elsewhere the test is skipped, not faked. Upstream introduced the markers
+# with this hook (30da5d0a89); cherry-picked tests kept arriving with the
+# markers while the fork had no hook, so every ``windows_only`` test ran — and
+# failed — on macOS and Linux. The fork's CI runs on Linux only, so
+# ``windows_only`` / ``macos_only`` tests run on a developer's machine of
+# that OS, not in CI.
+#
+# This does NOT mean every mention of another platform must be gated: a pure
+# function that TAKES a platform as data, or an assertion about a file's
+# declarations, is host-independent. The line is: if the test needs the
+# interpreter to BELIEVE it is on another OS in order to pass, it belongs on
+# that OS.
+# ---------------------------------------------------------------------------
+
+_OS_MARKS = {
+    "linux_only": (
+        lambda: sys.platform.startswith("linux"),
+        "Linux",
+    ),
+    "macos_only": (
+        lambda: sys.platform == "darwin",
+        "macOS",
+    ),
+    "windows_only": (
+        lambda: sys.platform == "win32",
+        "native Windows",
+    ),
+}
+
 
 def pytest_configure(config):  # noqa: D401 — pytest hook
     """Register markers used by hermetic conftest."""
@@ -1012,6 +1055,10 @@ def pytest_configure(config):  # noqa: D401 — pytest hook
         "created in the current environment (needs admin/developer mode "
         "on Windows).",
     )
+    # NOTE: linux_only / macos_only / windows_only are declared in
+    # pyproject.toml's ``markers`` list, not here — they are part of the
+    # project's public marker vocabulary (``pytest --markers``), whereas the
+    # marks above are conftest-internal guards.
 
     # The pyproject addopts pin ``--timeout-method=signal`` relies on
     # ``signal.SIGALRM``, which does not exist on Windows — pytest-timeout
@@ -1052,13 +1099,51 @@ def pytest_runtest_setup(item):
             )
 
 
-def pytest_collection_modifyitems(config, items):  # noqa: D401 — pytest hook
-    """Skip ``requires_wal`` tests when the linked SQLite can't use WAL.
+def _reject_multiple_os_marks(items):
+    """Fail collection when one test carries two host-OS markers.
 
-    Cheaper and more honest than each test hand-rolling a version check: the
-    reason string names the actual linked version so the skip is diagnosable
-    rather than mysterious.
+    Every marker in ``_OS_MARKS`` skips on all but one host, so two of them
+    on the same item means it is skipped on *every* host — a test that never
+    runs anywhere and reads green everywhere. That is a hard collection error
+    rather than a warning nobody reads.
     """
+    offenders = []
+    for item in items:
+        marks = sorted({m.name for m in item.iter_markers() if m.name in _OS_MARKS})
+        if len(marks) > 1:
+            offenders.append(f"  {item.nodeid}: {', '.join(marks)}")
+    if offenders:
+        raise pytest.UsageError(
+            "a test may carry at most one host-OS marker "
+            f"({', '.join(_OS_MARKS)}); these carry several and would be "
+            "skipped on every host:\n" + "\n".join(offenders)
+        )
+
+
+def pytest_collection_modifyitems(config, items):  # noqa: D401 — pytest hook
+    """Apply host-OS gating, then skip ``requires_wal`` where WAL is unusable.
+
+    OS gating: a test marked ``linux_only`` / ``macos_only`` /
+    ``windows_only`` runs only on that host. See the ``_OS_MARKS`` block
+    comment above for why these tests are skipped rather than run against a
+    patched ``sys.platform``.
+
+    WAL gating is cheaper and more honest than each test hand-rolling a
+    version check: the reason string names the actual linked version so the
+    skip is diagnosable rather than mysterious.
+    """
+    _reject_multiple_os_marks(items)
+
+    for mark_name, (is_host, label) in _OS_MARKS.items():
+        if is_host():
+            continue
+        skip_os = pytest.mark.skip(
+            reason=f"{label}-only test (marked {mark_name}); host is {sys.platform}"
+        )
+        for item in items:
+            if item.get_closest_marker(mark_name) is not None:
+                item.add_marker(skip_os)
+
     if _wal_is_usable():
         return
 

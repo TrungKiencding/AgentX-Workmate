@@ -393,7 +393,11 @@ class TestTranscribeLocalExtended:
             }
         }
 
+        # Apple Silicon forces cpu/int8 ahead of config to dodge a native
+        # abort in device autodetection (884900ffd6); this test is about
+        # forwarding the configured values everywhere else.
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
+             patch("tools.transcription_tools._should_force_faster_whisper_cpu", return_value=False), \
              patch("faster_whisper.WhisperModel", mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None), \
@@ -1295,16 +1299,20 @@ class TestExplicitOpenaiSelectionError:
         assert "managed" in warning or "gateway" in warning
         assert "no API key available" not in warning
 
-    def test_dispatch_returns_selection_specific_error(self, monkeypatch):
+    def test_dispatch_returns_selection_specific_error(self, monkeypatch, sample_wav):
         """The final transcription result carries the managed-route error and
         its agentx tools remediation instead of the all-provider install
-        hint."""
+        hint.
+
+        Driven through _transcribe_prepared_audio: the fork has no separate
+        _dispatch_stt_provider (an upstream refactor it did not take), so the
+        provider resolution and the "none" fallback live in one function."""
         self._no_openai_credentials(monkeypatch)
         monkeypatch.setattr(
             "tools.transcription_tools.managed_nous_tools_enabled", lambda: True
         )
         monkeypatch.setattr(
-            "tools.transcription_tools._load_stt_config", lambda: {}
+            "tools.transcription_tools._load_stt_config", lambda: {"provider": "openai"}
         )
         with patch("tools.transcription_tools._HAS_OPENAI", True), \
              patch("tools.transcription_tools._HAS_FASTER_WHISPER", False), \
@@ -1312,18 +1320,16 @@ class TestExplicitOpenaiSelectionError:
                  "tools.transcription_tools.nous_tool_gateway_unavailable_message",
                  lambda what: f"managed route down for {what}; run `agentx tools`",
              ):
-            from tools.transcription_tools import _dispatch_stt_provider
+            from tools.transcription_tools import _transcribe_prepared_audio
 
-            result = _dispatch_stt_provider(
-                "/tmp/nonexistent.wav", "none", {"provider": "openai"}
-            )
+            result = _transcribe_prepared_audio(str(sample_wav))
 
         assert result["success"] is False
         assert "managed route down" in result["error"]
         assert "agentx tools" in result["error"]
         assert "No STT provider available" not in result["error"]
 
-    def test_auto_detect_none_keeps_generic_hint(self, monkeypatch):
+    def test_auto_detect_none_keeps_generic_hint(self, monkeypatch, sample_wav):
         """Auto-detect with no credentials at all still returns the generic
         all-provider hint — the selection-specific branch must not fire
         without an explicit provider choice."""
@@ -1340,9 +1346,9 @@ class TestExplicitOpenaiSelectionError:
                  "tools.transcription_tools._try_lazy_install_stt",
                  return_value=False,
              ):
-            from tools.transcription_tools import _dispatch_stt_provider
+            from tools.transcription_tools import _transcribe_prepared_audio
 
-            result = _dispatch_stt_provider("/tmp/x.wav", "none", {})
+            result = _transcribe_prepared_audio(str(sample_wav))
 
         assert result["success"] is False
         assert "No STT provider available" in result["error"]

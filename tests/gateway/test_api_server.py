@@ -2592,6 +2592,27 @@ class TestModelRoutesAgentCreation:
         assert captured["api_key"] == "sk-session"
 
 
+class TestStoredSessionModelFilter:
+    """A session row that persisted the advertised virtual model must read as
+    "no stored model" — replaying "agentx-agent" upstream 400s ("agentx-agent
+    is not a valid model ID") and every turn on that session fails. Rows
+    written before the create-side fix (fabfd847cb) still carry it.
+    """
+
+    def test_virtual_model_is_filtered(self):
+        adapter = _make_routing_adapter({})
+        assert adapter._stored_session_model({"model": adapter._model_name}) is None
+
+    def test_real_model_passes_through(self):
+        adapter = _make_routing_adapter({})
+        assert adapter._stored_session_model({"model": "google/gemini-3.7-flash"}) == "google/gemini-3.7-flash"
+
+    def test_missing_or_bad_shapes(self):
+        adapter = _make_routing_adapter({})
+        assert adapter._stored_session_model({}) is None
+        assert adapter._stored_session_model(None) is None
+
+
 # ---------------------------------------------------------------------------
 # Event-loop offloading for synchronous SessionDB calls (P1)
 # ---------------------------------------------------------------------------

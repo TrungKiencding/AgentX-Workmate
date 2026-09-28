@@ -689,10 +689,14 @@ class TestCleanupTempRecordings:
 # ============================================================================
 
 class TestPlayBeep:
-    def test_beep_calls_sounddevice_play(self, mock_sd):
+    def test_beep_calls_sounddevice_play(self, mock_sd, monkeypatch):
         np = pytest.importorskip("numpy")
 
         from tools.voice_mode import play_beep
+
+        # macOS routes beeps through afplay by design (no TCC media-library
+        # prompt); this test covers the sounddevice path every other host takes.
+        monkeypatch.setattr("tools.voice_mode._sounddevice_output_allowed", lambda: True)
 
         # play_beep uses polling (get_stream) + sd.stop() instead of sd.wait()
         mock_stream = MagicMock()
@@ -1385,6 +1389,7 @@ class TestWSL2PowerShellFallback:
             return next(it)
         return _side_effect
 
+    @pytest.mark.linux_only  # the WSL2 PowerShell branch requires platform.system() == "Linux"
     def test_powershell_pipeline_preserves_real_exit_status(self, sample_wav):
         """Regression (review of #63768): the shell pipeline must preserve
         the (ffmpeg && powershell) exit status past the unconditional
@@ -1434,6 +1439,7 @@ class TestWSL2PowerShellFallback:
             "Shell pipeline must preserve the real exit status past cleanup: " + sh_script
         )
 
+    @pytest.mark.linux_only  # the WSL2 PowerShell branch requires platform.system() == "Linux"
     def test_wsl2_unique_temp_filename(self, monkeypatch, tmp_path, sample_wav):
         """Two concurrent calls must use different temp WAV filenames."""
         from unittest.mock import patch, MagicMock

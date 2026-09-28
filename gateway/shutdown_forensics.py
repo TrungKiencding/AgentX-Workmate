@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -203,9 +204,9 @@ def spawn_async_diagnostic(
     """Fire-and-forget ``ps``-style snapshot written to ``log_path``.
 
     Runs as a detached subprocess so it can't block the asyncio event loop
-    or compete with platform teardown.  The subprocess uses its own
-    ``timeout`` so a wedged ``ps`` still self-cleans within
-    ``timeout_seconds``.
+    or compete with platform teardown.  Where GNU ``timeout`` (or
+    ``gtimeout``) exists the subprocess runs under it, so a wedged ``ps``
+    still self-cleans within ``timeout_seconds``.
 
     Returns the subprocess PID on success, ``None`` on failure.  Never
     raises.
@@ -248,6 +249,12 @@ def spawn_async_diagnostic(
     except OSError:
         return None
 
+    # GNU ``timeout`` (Homebrew: ``gtimeout``) is absent from stock macOS;
+    # without it the detached script still cannot block teardown, so run it
+    # unbounded rather than skip the diagnostic.
+    timeout_bin = shutil.which("timeout") or shutil.which("gtimeout")
+    bound = [timeout_bin, f"{timeout_seconds:.0f}"] if timeout_bin else []
+
     try:
         # Detach from our process group so the subprocess survives even
         # if systemd kills our cgroup with KillMode=control-group (which
@@ -255,7 +262,7 @@ def spawn_async_diagnostic(
         # start_new_session, a SIGKILL on our cgroup takes the diag down
         # before it can flush.
         proc = subprocess.Popen(
-            ["timeout", f"{timeout_seconds:.0f}", "bash", "-c", script],
+            [*bound, "bash", "-c", script],
             stdout=fd,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,

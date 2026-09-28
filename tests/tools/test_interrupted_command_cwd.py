@@ -43,7 +43,7 @@ def _run(env, session_key, command, timeout=30):
     the record only when the command reported where it finished.
     """
     command_cwd = tt._resolve_command_cwd(
-        workdir=None, default_cwd=env.cwd, session_key=session_key, env_type="local"
+        workdir=None, default_cwd=env.cwd, session_key=session_key
     )
     result = env.execute(command, cwd=command_cwd, timeout=timeout)
     if result.get("cwd_observed"):
