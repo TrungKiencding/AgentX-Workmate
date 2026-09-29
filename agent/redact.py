@@ -745,6 +745,75 @@ def _canonical_url_param_name(name: str) -> str:
     return folded if folded in _SENSITIVE_QUERY_PARAMS else folded.replace("-", "_")
 
 
+_PYTHON_REPR_SECRET_KEYS = frozenset({
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "auth_token",
+    "token",
+    "api_key",
+    "apikey",
+    "client_secret",
+    "secret",
+    "password",
+    "passwd",
+    "private_key",
+    "credential",
+    "credentials",
+    "authorization",
+    "bearer",
+    "secret_value",
+    "raw_secret",
+    "secret_input",
+    "key_material",
+})
+_PYTHON_REPR_ENV_SUFFIXES = (
+    "_API_KEY",
+    "_TOKEN",
+    "_SECRET",
+    "_PASSWORD",
+    "_PASSWD",
+    "_CREDENTIAL",
+    "_CREDENTIALS",
+)
+# Casefolded credential suffixes for mixed/camel-case key names
+# (``UserPassword``, ``sessionToken``, ``clientApiKey``). Suffix-only so
+# ``token_count`` / ``password_policy`` metadata keys never match. Widened per
+# OpenHands/software-agent-sdk#4508.
+_PYTHON_REPR_CREDENTIAL_SUFFIXES = (
+    "apikey",
+    "api_key",
+    "token",
+    "secret",
+    "password",
+    "passwd",
+    "credential",
+    "credentials",
+)
+
+
+def _is_python_repr_secret_key(key: str) -> bool:
+    """Return True for exact secret keys or credential-suffixed key names."""
+    folded = key.casefold()
+    if folded in _PYTHON_REPR_SECRET_KEYS:
+        return True
+    if key.isupper() and key.endswith(_PYTHON_REPR_ENV_SUFFIXES):
+        return True
+    # Mixed/camel-case keys ending in a credential word (``UserPassword``,
+    # ``sessionToken``, ``clientApiKey``) — the exact-set and uppercase-suffix
+    # rules above miss these. Suffix-only matching keeps metadata names like
+    # ``TOKEN_COUNT`` / ``PASSWORD_POLICY`` / ``SECRET_NAME`` untouched.
+    # Class widened per OpenHands/software-agent-sdk#4508 (their dict-entry
+    # redaction was uppercase-only and leaked mixed-case keys).
+    return folded.endswith(_PYTHON_REPR_CREDENTIAL_SUFFIXES)
+
+
+def is_secret_field_name(key: object) -> bool:
+    """True when a mapping field named ``key`` holds a credential — the repr-field policy, for callers
+    that mask structured config by field instead of by text."""
+    return isinstance(key, str) and _is_python_repr_secret_key(key)
+
+
 def _redact_strict_url_credentials(text: str) -> str:
     """Redact credentials from absolute, relative, and network URL references.
 
