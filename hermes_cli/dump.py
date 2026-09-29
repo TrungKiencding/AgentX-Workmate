@@ -272,9 +272,20 @@ def _config_overrides(config: dict) -> dict[str, str]:
     fallbacks = config.get("fallback_providers", [])
     if fallbacks:
         from agent.redact import redact_sensitive_text
-        overrides["fallback_providers"] = redact_sensitive_text(str(fallbacks), force=True, redact_url_credentials=True)
+        overrides["fallback_providers"] = redact_sensitive_text(str(_mask_fallback_keys(fallbacks)), force=True, redact_url_credentials=True)
 
     return overrides
+
+
+def _mask_fallback_keys(value):
+    """Mask ``api_key`` by field, not by text: the runtime ``str()``s whatever value is there
+    (a YAML int, a mapping, a key containing ``***``), and text redaction only masks quoted
+    strings that don't already look masked."""
+    if isinstance(value, dict):
+        return {k: "***" if k == "api_key" and v else _mask_fallback_keys(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_mask_fallback_keys(v) for v in value]
+    return value
 
 
 def run_dump(args):
