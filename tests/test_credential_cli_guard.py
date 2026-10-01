@@ -74,6 +74,20 @@ def test_credential_subcommand_through_a_shell_is_refused(command):
     assert GUARD in _refused(command, shell=True)
 
 
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "gh --version",
+        "cd . && gh api --help",
+        ["env", "GH_PAGER=", "gh", "--version"],
+        ["nohup", "gh", "pr", "--help"],
+    ],
+)
+def test_any_gh_command_through_a_shell_or_wrapper_is_refused(cmd):
+    # Not only `gh auth`: every gh command runs as the developer's GitHub login.
+    assert GUARD in _refused(cmd, shell=isinstance(cmd, str))
+
+
 def test_spawn_from_a_background_thread_is_refused():
     errors = []
 
@@ -97,6 +111,14 @@ def test_unrelated_commands_still_run():
     if sys.platform != "win32":
         echoed = subprocess.run("echo gh", shell=True, capture_output=True, text=True, timeout=30)
         assert echoed.stdout.strip() == "gh"
+        probed = subprocess.run(
+            "command -v gh >/dev/null; echo probed",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert probed.stdout.strip() == "probed"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shebang fake")

@@ -1296,7 +1296,10 @@ hand the code under test the developer's GitHub token and Keychain entries
 elsewhere). Code under test sees "CLI not installed" (`FileNotFoundError`), as
 on CI. To exercise a reader, mock `subprocess.run` or the reader itself, or
 point it at a fake `gh` written under `tmp_path`; per-test patches alone are not
-enough, since a daemon thread can outlive the test that patched it.
+enough, since a daemon thread can outlive the test that patched it. The guard
+covers the pytest process only: a child process the test starts (a script,
+`python -m hermes_cli.main ...`) can still run the real `gh`, so keep such a
+child away from gh yourself.
 
 ---
 

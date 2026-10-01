@@ -612,9 +612,9 @@ def _neutralize_macos_keychain_creds(request, monkeypatch):
 #   • GitHub CLI: ``gh auth token`` seeds the Copilot pool on every
 #     ``load_pool("copilot")`` / ``list_authenticated_providers()``
 #     (hermes_cli/copilot_auth.py) and authenticates the Skills Hub
-#     (tools/skills_hub.py); ``gh auth status`` runs from doctor and the
-#     dashboard git panel. gh answers from the login keychain even with
-#     GH_CONFIG_DIR pointed at an empty directory.
+#     (tools/skills_hub.py); doctor runs ``gh auth token`` too, and the
+#     dashboard git panel ``gh auth status`` / ``gh pr view``. gh answers from
+#     the login keychain even with GH_CONFIG_DIR pointed at an empty directory.
 #   • macOS Keychain: ``security find-generic-password -s "Claude
 #     Code-credentials" -w`` (agent/anthropic_adapter.py).
 #
@@ -639,17 +639,34 @@ def _neutralize_macos_keychain_creds(request, monkeypatch):
 # under its tmp_path still runs, and tests that mock subprocess.run (or the
 # reader) never get as far as a spawn, so there is no opt-out marker: gh
 # would fall back to the real keychain.
+#
+# The hook lives in this process only. A child process that runs gh itself —
+# a script, ``python -m hermes_cli.main ...`` — is out of its reach, so a test
+# that starts one has to keep it away from gh on its own.
 
 _CREDENTIAL_CLIS = frozenset({"gh", "security"})
-# Through a shell or wrapper (``sh -c``, ``env``, ``sudo`` ...) only the
-# credential subcommands are refused, so ``echo gh`` and friends still run.
+# Through a shell or wrapper (``sh -c``, ``env``, ``nohup`` ...) gh is refused
+# with any of its commands, as a direct spawn is: every one runs as the
+# developer's GitHub login (``gh api``, ``gh pr comment`` ...), not only
+# ``gh auth``. For ``security`` only the credential subcommands are. A command
+# word has to follow, so ``echo gh`` and ``command -v gh`` still run.
+_GH_COMMANDS = (
+    "agent-task", "alias", "api", "attestation", "auth", "browse", "cache",
+    "codespace", "completion", "config", "copilot", "extension", "ext", "gist",
+    "gpg-key", "help", "issue", "label", "org", "preview", "pr", "project",
+    "release", "repo", "ruleset", "run", "search", "secret", "ssh-key",
+    "status", "variable", "version", "workflow",
+)
 _CREDENTIAL_CLI_COMMAND = re.compile(
-    r"(?:^|[\s;&|(`'\"])(?:\S*[/\\])?(?:gh(?:\.exe)?['\"]?\s+auth"
+    r"(?:^|[\s;&|(`'\"])(?:\S*[/\\])?"
+    r"(?:gh(?:\.exe)?['\"]?\s+-{0,2}(?:" + "|".join(map(re.escape, _GH_COMMANDS)) + ")"
     r"|security\s+(?:find-(?:generic|internet)-password|dump-keychain|export))\b"
 )
 _COMMAND_WRAPPERS = frozenset({
-    "sh", "bash", "zsh", "dash", "env", "nohup", "setsid", "timeout", "sudo",
-    "xargs", "nice", "ionice", "stdbuf", "flock", "cmd", "powershell", "pwsh",
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh", "env", "nohup",
+    "setsid", "timeout", "time", "sudo", "doas", "su", "runuser", "xargs",
+    "nice", "ionice", "chrt", "taskset", "stdbuf", "unbuffer", "flock",
+    "script", "arch", "caffeinate", "command", "cmd", "powershell", "pwsh",
 })
 _SPAWN_AUDIT_EVENTS = frozenset({
     "subprocess.Popen", "os.posix_spawn", "os.exec", "os.spawn", "os.system",
