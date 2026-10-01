@@ -260,6 +260,40 @@ def load_machine_config() -> Mapping[str, Any]:
         reset_hermes_home_override(token)
 
 
+def resolve_second_brain_url(value: Any) -> str:
+    """``accounts.second_brain.base_url`` as every reader uses it.
+
+    Trailing slashes go. A retired default address (https, a host in
+    ``RETIRED_SECOND_BRAIN_HOSTS``, no port or path) reads as the current
+    default: an older build wrote the default out into config.yaml, a key
+    present there outlives every later default, and a desktop install never
+    runs the config migration ladder — so it is fixed where it is read. An
+    address somebody chose (another host, a port, a path) is left as it is.
+    """
+    from urllib.parse import urlsplit
+
+    from hermes_cli.config_defaults import DEPLOYMENT_SECOND_BRAIN_URL, RETIRED_SECOND_BRAIN_HOSTS
+
+    url = str(value or "").strip().rstrip("/")
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return url
+    if (
+        parts.scheme.lower() == "https"
+        and (parts.hostname or "") in RETIRED_SECOND_BRAIN_HOSTS
+        and port is None
+        and not parts.path
+        and not parts.query
+        and not parts.fragment
+        and not parts.username
+        and not parts.password
+    ):
+        return DEPLOYMENT_SECOND_BRAIN_URL
+    return url
+
+
 def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSettings:
     """Read ``accounts.litellm`` out of config, with the defaults applied."""
     from hermes_cli.config import cfg_get
@@ -301,7 +335,7 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
     brain_section = cfg_get(cfg, "accounts", "second_brain", default=None)
     if not isinstance(brain_section, dict):
         brain_section = {}
-    second_brain_url = str(brain_section.get("base_url") or "").strip().rstrip("/")
+    second_brain_url = resolve_second_brain_url(brain_section.get("base_url"))
 
     return LiteLLMAccountSettings(
         enabled=bool(section.get("enabled", False)),

@@ -961,7 +961,7 @@ class TestRealtime:
 
     def test_realtime_can_be_switched_off_in_the_field(self):
         settings = _settings_from(
-            {"base_url": "https://brain.test", "sync": {"realtime": False}}
+            {"base_url": "https://brain.test", "sync": {"enabled": True, "realtime": False}}
         )
 
         assert settings.realtime is False
@@ -972,15 +972,28 @@ class TestRealtime:
 
 
 class TestSettings:
-    def test_a_missing_sync_block_leaves_synchronisation_on(self):
+    def test_a_missing_sync_block_leaves_synchronisation_off(self):
         from hermes_cli.sync_engine import DEFAULT_INTERVAL_SECONDS
 
         settings = _settings_from({"base_url": "https://brain.test"})
 
-        # Every install that already has a service configured starts syncing
-        # on update, without anybody editing config.yaml.
-        assert settings.enabled is True
+        # The service keeps no history any more (it is the keys service of
+        # AgentX SSO): an install that never mentioned sync stops on update,
+        # without anybody editing config.yaml.
+        assert settings.enabled is False
         assert settings.interval_seconds == DEFAULT_INTERVAL_SECONDS
+
+    def test_the_shipped_default_is_off(self):
+        from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+        assert DEFAULT_CONFIG["accounts"]["second_brain"]["sync"]["enabled"] is False
+
+    def test_only_an_explicit_true_switches_it_on(self):
+        on = _settings_from({"base_url": "https://brain.test", "sync": {"enabled": True}})
+        not_a_bool = _settings_from({"base_url": "https://brain.test", "sync": {"enabled": "yes"}})
+
+        assert on.enabled is True
+        assert not_a_bool.enabled is False
 
     def test_it_can_be_switched_off_in_the_field(self):
         settings = _settings_from(
