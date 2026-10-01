@@ -2710,11 +2710,17 @@ def run_doctor(args):
     from hermes_cli.config import get_env_value
 
     def _gh_authenticated() -> bool:
-        """Check if gh CLI is authenticated via token file or device flow."""
+        """Check if the gh CLI holds a token the Skills Hub can use.
+
+        Same probe as GitHubAuth._try_gh_cli in tools/skills_hub.py: ``gh auth
+        token`` exits 0 only when a token is stored, with no network call
+        (``gh auth status --json`` exits 0 even when logged out). Its output
+        goes to DEVNULL so the token never reaches this process.
+        """
         try:
             result = subprocess.run(
-                ["gh", "auth", "status", "--json", "authenticated"],
-                capture_output=True, timeout=10,
+                ["gh", "auth", "token"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
             )
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired):
