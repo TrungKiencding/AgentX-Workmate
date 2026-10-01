@@ -505,15 +505,14 @@ _STRICT_URL_PARAM_RE = re.compile(
 # at path/query/fragment delimiters so an ``@`` elsewhere in a URL is ignored.
 #
 # Anchored on the mandatory ``//`` rather than an optional scheme prefix: the
-# scheme sits outside the match either way (replacement callbacks re-emit
-# group(1), so ``https:`` stays untouched in the surrounding text), and the
+# scheme sits outside the match, so ``https:`` stays untouched, and the
 # old optional-scheme prefix ``(?:[A-Za-z][A-Za-z0-9+.-]*:)?`` backtracked
 # catastrophically (O(n²)) on long unbroken alphanumeric runs — a 320KB
 # synthetic compaction payload spent ~55s inside this pattern per sub() call.
 # Output-equivalence to the old pattern was fuzz-verified (20k random strings
 # plus targeted URL forms).
 _STRICT_URL_USERINFO_RE = re.compile(
-    r"(//)([^/\s?#@]+)@"
+    r"//[^/\s?#@]+@"
 )
 
 # HTTP access logs often use a relative request target rather than a full URL:
@@ -827,18 +826,15 @@ def _redact_strict_url_credentials(text: str) -> str:
             return match.group(0)
         return f"{match.group(1)}{match.group(2)}=***"
 
-    def _redact_userinfo(match: re.Match) -> str:
-        return f"{match.group(1)}***:***@"
-
     text = _STRICT_URL_PARAM_RE.sub(_redact_param, text)
-    return _STRICT_URL_USERINFO_RE.sub(_redact_userinfo, text)
+    return _STRICT_URL_USERINFO_RE.sub("//***:***@", text)
 
 
 def redact_cdp_url(value: object) -> str:
     """Mask secrets in a CDP/browser endpoint URL before it is logged.
 
     The global ``redact_sensitive_text`` deliberately passes web-URL query
-    params and ``user:pass@`` userinfo through unmasked (OAuth callbacks,
+    params and the entire URL userinfo (``***:***@``) through unmasked (OAuth callbacks,
     magic-link / pre-signed URLs the agent is meant to follow -- see the
     web-URL note above). CDP discovery endpoints are NOT such a workflow:
     their query-string tokens and userinfo passwords are pure credentials
