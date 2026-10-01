@@ -1288,6 +1288,16 @@ repository under `tmp_path`. Update-flow tests patch the module
 patched the module it imported at collection would silently lose its
 `PROJECT_ROOT` sandbox. The conftest puts the original back and warns.
 
+### Tests cannot read your gh login or Keychain
+`tests/conftest.py` refuses to run the real `gh` and macOS `security` binaries
+— process-wide, from any thread, before and between tests too — because they
+hand the code under test the developer's GitHub token and Keychain entries
+(`gh auth token` answers from the keychain even with `GH_CONFIG_DIR` pointed
+elsewhere). Code under test sees "CLI not installed" (`FileNotFoundError`), as
+on CI. To exercise a reader, mock `subprocess.run` or the reader itself, or
+point it at a fake `gh` written under `tmp_path`; per-test patches alone are not
+enough, since a daemon thread can outlive the test that patched it.
+
 ---
 
 ## Testing

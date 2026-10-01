@@ -16,6 +16,10 @@ Hermetic-test invariants enforced here (see AGENTS.md for rationale):
 5. **The checkout is read-only to git.** A git command that would modify the
    repository the suite runs from is refused and fails the test that ran it
    (see "Live-checkout git guard" below).
+6. **No logins read through a CLI.** The real ``gh`` and macOS ``security``
+   binaries are refused process-wide, from any thread, so the developer's
+   GitHub token and Keychain entries cannot leak in either (see the
+   credential-CLI guard).
 
 These invariants make the local test run match CI closely. Gaps that
 remain (CPU count, xdist worker count) are addressed by the canonical
@@ -25,10 +29,13 @@ test runner at ``scripts/run_tests.sh``.
 import asyncio
 import atexit
 import copy
+import errno
 import importlib.util
 import os
+import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -574,7 +581,12 @@ def _neutralize_webbrowser(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _neutralize_macos_keychain_creds(request, monkeypatch):
-    """Default Anthropic credential resolution away from the real macOS Keychain."""
+    """Default Anthropic credential resolution away from the real macOS Keychain.
+
+    Keeps the reader's answer deterministic for tests that mock subprocess. It
+    is not what keeps the real Keychain out — a per-test patch has a window a
+    daemon thread can slip through; the credential-CLI guard below closes it.
+    """
     if request.node.get_closest_marker(_ALLOW_MACOS_KEYCHAIN_MARK):
         return None
 
@@ -590,6 +602,151 @@ def _neutralize_macos_keychain_creds(request, monkeypatch):
         raising=False,
     )
     return None
+
+
+# ── Credential-CLI guard ────────────────────────────────────────────────────
+#
+# Two of the developer's logins are read through a CLI, out of reach of the
+# env-var blanking and the AGENTX_HOME redirect above:
+#
+#   • GitHub CLI: ``gh auth token`` seeds the Copilot pool on every
+#     ``load_pool("copilot")`` / ``list_authenticated_providers()``
+#     (hermes_cli/copilot_auth.py) and authenticates the Skills Hub
+#     (tools/skills_hub.py); ``gh auth status`` runs from doctor and the
+#     dashboard git panel. gh answers from the login keychain even with
+#     GH_CONFIG_DIR pointed at an empty directory.
+#   • macOS Keychain: ``security find-generic-password -s "Claude
+#     Code-credentials" -w`` (agent/anthropic_adapter.py).
+#
+# A spawn probe over tests/hermes_cli + tests/tui_gateway counted 215
+# ``gh auth token`` spawns from 26 files, and the code under test hands that
+# token to api.github.com/copilot_internal/v2/token and api.githubcopilot.com.
+# The per-test stub above did not keep the Keychain out either: the
+# ``picker-cache-prewarm`` daemon thread a tui_gateway test started outlived
+# that test and reached the reader during the NEXT test's setup — after
+# teardown had put the real function back, before the next stub went in — and
+# went on to call api.anthropic.com with the token (or, once it has expired,
+# the OAuth endpoint with the refresh token). Every per-test monkeypatch has
+# that window.
+#
+# So this guard is process-wide and permanent: a PEP 578 audit hook, installed
+# at conftest import (before collection), refuses to run the real ``gh`` or
+# ``security`` binary from any thread at any time. (An audit hook rather than
+# a ``Popen._execute_child`` wrapper like the live-checkout git guard: it also
+# sees ``os.system``, ``os.exec*`` and ``os.posix_spawn``.) It raises
+# FileNotFoundError — "CLI not installed", a branch every reader already
+# handles — so a developer machine looks like CI. A fake ``gh`` a test writes
+# under its tmp_path still runs, and tests that mock subprocess.run (or the
+# reader) never get as far as a spawn, so there is no opt-out marker: gh
+# would fall back to the real keychain.
+
+_CREDENTIAL_CLIS = frozenset({"gh", "security"})
+# Through a shell or wrapper (``sh -c``, ``env``, ``sudo`` ...) only the
+# credential subcommands are refused, so ``echo gh`` and friends still run.
+_CREDENTIAL_CLI_COMMAND = re.compile(
+    r"(?:^|[\s;&|(`'\"])(?:\S*[/\\])?(?:gh(?:\.exe)?['\"]?\s+auth"
+    r"|security\s+(?:find-(?:generic|internet)-password|dump-keychain|export))\b"
+)
+_COMMAND_WRAPPERS = frozenset({
+    "sh", "bash", "zsh", "dash", "env", "nohup", "setsid", "timeout", "sudo",
+    "xargs", "nice", "ionice", "stdbuf", "flock", "cmd", "powershell", "pwsh",
+})
+_SPAWN_AUDIT_EVENTS = frozenset({
+    "subprocess.Popen", "os.posix_spawn", "os.exec", "os.spawn", "os.system",
+})
+# Captured at import: tests monkeypatch shutil.which / os.path.isfile /
+# os.access process-wide, and the guard has to see the real filesystem.
+_real_stat = os.stat
+_real_realpath = os.path.realpath
+_TEST_TMP_ROOT = os.path.join(_real_realpath(tempfile.gettempdir()), "")
+
+
+def _spawn_target(program, env):
+    """Real path of the file a spawn of *program* would execute, or None."""
+    if os.path.dirname(program):
+        candidates = [program]
+    else:
+        if env is None:
+            search = os.environ.get("PATH", os.defpath)
+        else:
+            search = env["PATH"] if "PATH" in env else env.get(b"PATH", os.defpath)
+        candidates = [
+            os.path.join(directory or os.curdir, program)
+            for directory in os.fsdecode(search).split(os.pathsep)
+        ]
+    suffixes = [""]
+    if sys.platform == "win32":
+        suffixes += os.environ.get("PATHEXT", ".EXE").split(os.pathsep)
+    for candidate in candidates:
+        for suffix in suffixes:
+            try:
+                st = _real_stat(candidate + suffix)
+            except (OSError, ValueError):
+                continue
+            if stat.S_ISREG(st.st_mode) and (sys.platform == "win32" or st.st_mode & 0o111):
+                return _real_realpath(candidate + suffix)
+    return None
+
+
+def _first_word(command):
+    """argv[0] of a one-string command line (os.system, Popen on Windows)."""
+    command = command.lstrip()
+    if command[:1] in ("'", '"'):
+        end = command.find(command[0], 1)
+        return command[1:end] if end > 0 else command[1:]
+    return command.split(None, 1)[0] if command else ""
+
+
+def _credential_cli_spawn(event, args):
+    """The command line, when this spawn would run the developer's gh / security."""
+    if event == "os.system":
+        program, argv, env = None, args[0], None
+    elif event == "subprocess.Popen":
+        program, argv, _cwd, env = args
+    elif event == "os.spawn":
+        _mode, program, argv, env = args
+    else:  # os.exec, os.posix_spawn
+        program, argv, env = args
+    one_string = isinstance(argv, (str, bytes))
+    argv = [os.fsdecode(arg) for arg in ([argv] if one_string else argv or ())]
+    command = " ".join(argv)
+    if program is None:
+        program = _first_word(command) if one_string else (argv[0] if argv else "")
+    program = os.fsdecode(program)
+
+    name = os.path.basename(program).lower()
+    name = name[:-4] if name.endswith(".exe") else name
+    if name in _CREDENTIAL_CLIS:
+        try:
+            target = _spawn_target(program, env)
+        except Exception:
+            target = None
+        # Unresolvable is refused too: exec would fail the same way.
+        return None if target and target.startswith(_TEST_TMP_ROOT) else (command or program)
+    if one_string or name in _COMMAND_WRAPPERS:
+        return command if _CREDENTIAL_CLI_COMMAND.search(command) else None
+    return None
+
+
+def _credential_cli_guard(event, args):
+    if event not in _SPAWN_AUDIT_EVENTS:
+        return
+    try:
+        refused = _credential_cli_spawn(event, args)
+    except Exception:
+        return
+    if refused:
+        raise FileNotFoundError(
+            errno.ENOENT,
+            "tests/conftest.py credential-CLI guard: tests may not run the real "
+            "gh / security CLI (it reads the developer's GitHub token or macOS "
+            "Keychain). Mock subprocess.run or the reader, or point the code at "
+            "a fake binary under tmp_path",
+            refused,
+        )
+
+
+sys.addaudithook(_credential_cli_guard)
 
 
 # ── Kanban write guard (#69283) ─────────────────────────────────────────────
