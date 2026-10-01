@@ -828,11 +828,7 @@ def _redact_strict_url_credentials(text: str) -> str:
         return f"{match.group(1)}{match.group(2)}=***"
 
     def _redact_userinfo(match: re.Match) -> str:
-        userinfo = match.group(2)
-        if ":" in userinfo:
-            username, _, _password = userinfo.partition(":")
-            return f"{match.group(1)}{username}:***@"
-        return f"{match.group(1)}***@"
+        return f"{match.group(1)}***:***@"
 
     text = _STRICT_URL_PARAM_RE.sub(_redact_param, text)
     return _STRICT_URL_USERINFO_RE.sub(_redact_userinfo, text)
