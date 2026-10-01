@@ -1255,13 +1255,8 @@ def _check_symlink_support() -> bool:
         return False
 
 
-def pytest_runtest_setup(item):
-    if item.get_closest_marker("require_symlinks"):
-        if not _check_symlink_support():
-            pytest.skip(
-                "Environment does not support symbolic links "
-                "(requires admin/developer mode on Windows)"
-            )
+# The ``require_symlinks`` skip is applied in ``pytest_runtest_setup`` under
+# "hermes_cli.main identity" below, the only definition of that hook here.
 
 
 def _reject_multiple_os_marks(items):
@@ -2004,9 +1999,19 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):  # noqa: D401
 _HERMES_CLI_MAIN_AT_SETUP = pytest.StashKey()
 
 
+# The ``require_symlinks`` skip lives here too: a module binds each hook name
+# once, and a second ``def pytest_runtest_setup`` would replace this one. It
+# comes after the stash write, so teardown still checks a skipped test, and
+# before the ``yield``, so a skipped test never sets up its fixtures.
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item):
     item.stash[_HERMES_CLI_MAIN_AT_SETUP] = sys.modules.get("hermes_cli.main")
+    if item.get_closest_marker("require_symlinks"):
+        if not _check_symlink_support():
+            pytest.skip(
+                "Environment does not support symbolic links "
+                "(requires admin/developer mode on Windows)"
+            )
     return (yield)
 
 
