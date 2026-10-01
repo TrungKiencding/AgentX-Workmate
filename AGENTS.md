@@ -1277,6 +1277,17 @@ def profile_env(tmp_path, monkeypatch):
     return home
 ```
 
+### Tests must not modify the checkout
+`agentx update` operates on `hermes_cli.main.PROJECT_ROOT`, the checkout the
+suite runs from. `tests/conftest.py` refuses any git command that would modify
+that checkout (read-only `rev-parse`, `log`, `status`, ... stay allowed) and
+fails the test that ran it; a test that needs a mutating git command builds its
+repository under `tmp_path`. Update-flow tests patch the module
+`hermes_cli.update_cmd._m()` returns. Don't drop `hermes_cli.main` from
+`sys.modules` and re-import it in-process (use a subprocess): every test that
+patched the module it imported at collection would silently lose its
+`PROJECT_ROOT` sandbox. The conftest puts the original back and warns.
+
 ---
 
 ## Testing

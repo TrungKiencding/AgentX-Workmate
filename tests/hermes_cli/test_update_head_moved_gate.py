@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hermes_cli import main as hermes_main
+from hermes_cli import update_cmd
 
 
 def _make_head_moved_side_effect(pre_sha="abc123", post_sha="def456"):
@@ -70,8 +70,12 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
 
     ``_m()`` in update_cmd.py lazily returns hermes_cli.main, so patching
     attributes on that module is the canonical test surface (matches
-    tests/hermes_cli/test_cmd_update.py).
+    tests/hermes_cli/test_cmd_update.py). Patch the module ``_m()`` returns,
+    not one imported at collection: if anything swapped hermes_cli.main since,
+    the sandbox would miss and the update would run ``npm ci`` in the real
+    checkout. Returns the patched module.
     """
+    hermes_main = update_cmd._m()
     monkeypatch.setattr(hermes_main.subprocess, "run", run_side_effect)
     monkeypatch.setattr(hermes_main, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".git").mkdir()  # pass the "is a git repo" gate
@@ -105,14 +109,15 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
     monkeypatch.setattr(hermes_main, "_clear_update_incomplete_marker", lambda: None)
     # Gateway restart path (called after a successful update).
     monkeypatch.setattr(hermes_main, "_finish_dashboard_update_cleanup", lambda *a: None)
+    return hermes_main
 
 
 def test_update_success_when_head_moves(monkeypatch, tmp_path, capsys):
     """When the pull advances HEAD, the update proceeds normally."""
     args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
-    _patch_update_deps(monkeypatch, tmp_path, _make_head_moved_side_effect())
+    main_mod = _patch_update_deps(monkeypatch, tmp_path, _make_head_moved_side_effect())
 
-    hermes_main.cmd_update(args)  # completes normally (no SystemExit)
+    main_mod.cmd_update(args)  # completes normally (no SystemExit)
 
     out = capsys.readouterr().out
     assert "✓ Code updated!" in out
@@ -123,10 +128,10 @@ def test_update_fails_loudly_when_head_pinned(monkeypatch, tmp_path, capsys):
     """A detached/pinned HEAD that never moves must fail loudly, not print
     '✓ Code updated!' against the stale tree."""
     args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
-    _patch_update_deps(monkeypatch, tmp_path, _make_head_pinned_side_effect())
+    main_mod = _patch_update_deps(monkeypatch, tmp_path, _make_head_pinned_side_effect())
 
     with pytest.raises(SystemExit) as exc_info:
-        hermes_main.cmd_update(args)
+        main_mod.cmd_update(args)
 
     assert exc_info.value.code == 1
     out = capsys.readouterr().out
