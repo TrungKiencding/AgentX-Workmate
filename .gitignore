@@ -94,6 +94,12 @@ hermes_cli/web_dist/
 apps/desktop/build/*
 !apps/desktop/build/installer.nsh
 apps/desktop/dist/
+# The main-process bundle belongs in apps/desktop/dist/ (above) only; a copy at
+# the repo root is always a stray. `asar extract-file app.asar <path>` takes no
+# destination (a third argument is silently ignored) and writes the basename
+# into the cwd — that, run from the checkout root and swept up by `git add -A`,
+# is how a stale bundle got committed in 0c7cff4181.
+/electron-main.mjs
 
 # tsc-emitted artifacts (a stray `tsc -b` compiles into src/, and vite then
 # resolves the stale .js OVER the .tsx — never track these)
