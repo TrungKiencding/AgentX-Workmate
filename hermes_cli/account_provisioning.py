@@ -587,6 +587,8 @@ def _key_from_second_brain(
         key_alias=str(payload.get("key_alias") or alias),
         models=tuple(str(m) for m in (payload.get("models") or ())),
         web_search_model=str(payload.get("web_search_model") or "").strip(),
+        image_model=str(payload.get("image_model") or "").strip(),
+        vision_model=str(payload.get("vision_model") or "").strip(),
     )
     base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
     return minted, base_url, str(payload.get("status") or "issued")
@@ -684,6 +686,7 @@ def _write_provider_config(
     models: tuple[str, ...],
     default_model: str = "",
     previous_models: tuple[str, ...] = (),
+    vision_model: str = "",
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -711,7 +714,7 @@ def _write_provider_config(
     _upgrade_stale_label(entry)
     entry["base_url"] = openai_base_url(base_url)
     entry["key_env"] = key_env
-    entry["discover_models"] = settings.discover_models
+    entry["discover_models"] = _discovers_models(settings)
     # Deliberately not writing ``enabled``: it defaults to true, and forcing
     # it on every sign-in would silently undo a user who turned this provider
     # off on purpose.
@@ -792,7 +795,20 @@ def _write_provider_config(
     if retired_models:
         _drop_provider_models(settings.provider_name, retired_models)
 
-    _release_vision_pin(settings.provider_name)
+    _apply_vision_model(settings.provider_name, vision_model)
+
+
+def _discovers_models(settings: LiteLLMAccountSettings) -> bool:
+    """Whether the picker may list the proxy's live ``/v1/models`` for this account.
+
+    Never under the second brain. Its answer IS the picker — the chat models,
+    in the order an operator chose — while the key also reaches one model per
+    feature (web search, image generation, vision) that nobody is meant to
+    talk to. LiteLLM's ``/v1/models`` lists the key's whole allowlist, so a
+    live listing would put those feature models in every model menu. The
+    deprecated modes have no such answer and keep the setting.
+    """
+    return False if settings.mode == "second_brain" else settings.discover_models
 
 
 def _mark_models_vision_capable(entry: dict[str, Any], models: tuple[str, ...]) -> bool:
@@ -819,6 +835,55 @@ def _mark_models_vision_capable(entry: dict[str, Any], models: tuple[str, ...]) 
         current["supports_vision"] = True
         changed = True
     return changed
+
+
+def _apply_vision_model(provider_name: str, vision_model: str) -> bool:
+    """Point ``auxiliary.vision`` at the vision model this account was granted.
+
+    The second brain names one model per feature, and the vision slot is
+    Workmate's: whatever reads a picture for a model that cannot. With a
+    vision model granted, the slot names it at this account's proxy; without
+    one, a pin at the proxy is released and the slot follows the main model
+    (``_release_vision_pin``). Either way a pin at any *other* provider is
+    somebody's deliberate choice and is left alone — as is a slot already
+    saying exactly this.
+
+    Every chat model the proxy grants still reads images itself (see
+    ``_mark_models_vision_capable``), and ``agent.image_routing`` sends
+    pictures to a vision-capable main model directly: this slot is the
+    fallback the moment the model in use cannot see, not a detour for every
+    image.
+
+    A full-document write, like ``_release_vision_pin``.
+    """
+    if not vision_model:
+        return _release_vision_pin(provider_name)
+
+    from hermes_cli.config import read_raw_config, save_config
+
+    raw = read_raw_config()
+    aux = raw.get("auxiliary")
+    aux = aux if isinstance(aux, dict) else {}
+    vision = aux.get("vision")
+    vision = vision if isinstance(vision, dict) else {}
+    pinned = str(vision.get("provider") or "").strip().lower()
+    if pinned not in ("", "auto", provider_name.lower()):
+        return False
+    if (
+        pinned == provider_name.lower()
+        and str(vision.get("model") or "").strip() == vision_model
+        and not any(key in vision for key in ("base_url", "api_key", "api_mode"))
+    ):
+        return False
+
+    vision["provider"] = provider_name
+    vision["model"] = vision_model
+    for key in ("base_url", "api_key", "api_mode"):
+        vision.pop(key, None)
+    aux["vision"] = vision
+    raw["auxiliary"] = aux
+    save_config(raw)
+    return True
 
 
 def _release_vision_pin(provider_name: str) -> bool:
@@ -872,15 +937,17 @@ def _upgrade_stale_label(entry: dict[str, Any]) -> bool:
 
 
 def _ensure_vision_follows_main(
-    settings: LiteLLMAccountSettings, models: tuple[str, ...]
+    settings: LiteLLMAccountSettings, models: tuple[str, ...], vision_model: str = ""
 ) -> None:
-    """Tidy an account whose key is simply reused: vision policy, and the label.
+    """Tidy an account whose key is simply reused: vision policy, label, discovery.
 
     The reuse path writes nothing else, but an account provisioned before this
-    policy existed still carries an unflagged model map and, often, a vision
-    pin at the proxy — and one provisioned before the last rename still wears
-    an old label in every picker. Cheap and idempotent: one config read, and a
-    write only when something actually changes.
+    policy existed still carries an unflagged model map, a vision slot that
+    does not name the granted vision model, a provider entry that lists the
+    proxy's live ``/v1/models`` (feature models included) in the picker — and
+    one provisioned before the last rename still wears an old label in every
+    picker. Cheap and idempotent: one config read, and a write only when
+    something actually changes.
     """
     from hermes_cli.config import load_config, save_config
 
@@ -890,9 +957,13 @@ def _ensure_vision_follows_main(
     if isinstance(entry, dict):
         vision_changed = _mark_models_vision_capable(entry, models)
         label_changed = _upgrade_stale_label(entry)
-        if vision_changed or label_changed:
+        discover = _discovers_models(settings)
+        discovery_changed = entry.get("discover_models", True) != discover
+        if discovery_changed:
+            entry["discover_models"] = discover
+        if vision_changed or label_changed or discovery_changed:
             save_config(cfg, merge_existing=True)
-    _release_vision_pin(settings.provider_name)
+    _apply_vision_model(settings.provider_name, vision_model)
 
 
 def _tidy_reused_account(
@@ -903,24 +974,38 @@ def _tidy_reused_account(
     Returns the models the picker may show. The reuse path writes nothing
     else, so this is where corrections an older provisioning run left behind
     are made: the vision policy and the provider label
-    (``_ensure_vision_follows_main``), and the web search model — a sidecar
-    written from a service answer that listed the search preset among the
-    chat models has it in the picker and, when it led the list, as the
-    account's default model. Both are taken back out, and the sidecar is
-    rewritten so this runs once rather than on every launch.
+    (``_ensure_vision_follows_main``), and the feature models — a sidecar
+    written from a service answer that listed the search preset (or the model
+    now named for images or vision) among the chat models has it in the
+    picker and, when it led the list, as the account's default model. They
+    are taken back out, and the sidecar is rewritten so this runs once rather
+    than on every launch.
     """
-    search = str(state.get("web_search_model") or "").strip()
+    roles = _role_models(state)
     recorded = tuple(str(m) for m in (state.get("models") or ()))
-    models = _chat_models(recorded, search)
+    models = _chat_models(recorded, *roles)
 
-    _ensure_vision_follows_main(settings, models)
+    _ensure_vision_follows_main(
+        settings, models, vision_model=str(state.get("vision_model") or "").strip()
+    )
 
-    if search and search in recorded:
-        _drop_provider_models(settings.provider_name, (search,))
-        _repin_default_model_away_from(settings, search, models)
+    leaked = tuple(role for role in roles if role in recorded)
+    if leaked:
+        _drop_provider_models(settings.provider_name, leaked)
+        for role in leaked:
+            _repin_default_model_away_from(settings, role, models)
         write_state(home, {**state, "models": list(models)})
 
     return models
+
+
+def _role_models(state: Mapping[str, Any]) -> tuple[str, ...]:
+    """The feature models a sidecar records: web search, image generation, vision."""
+    names = (
+        str(state.get(field) or "").strip()
+        for field in ("web_search_model", "image_model", "vision_model")
+    )
+    return tuple(dict.fromkeys(name for name in names if name))
 
 
 def _repin_default_model_away_from(
@@ -1232,20 +1317,22 @@ def _key_belongs_to(
     return state.get("key_alias") == alias
 
 
-def _chat_models(models: Any, web_search_model: str) -> tuple[str, ...]:
-    """*models* without the web search grant — what the picker may show.
+def _chat_models(models: Any, *role_models: str) -> tuple[str, ...]:
+    """*models* without any feature model — what the picker may show.
 
-    The service keeps the two apart, but a row it wrote before it did, or a
-    proxy that declares the search preset ``mode: chat``, has put the preset
-    in the model list before — and every laptop then offered "Pro Search" as
-    something to talk to, which fails the moment the agent sends its tools.
-    Filtering here means no version of the service can put it back.
+    The service keeps them apart: ``models`` is the chat grant, and the web
+    search, image and vision models ride beside it. But a row it wrote before
+    it did, or a proxy that declares the search preset ``mode: chat``, has put
+    a feature model in the chat list before — and every laptop then offered
+    "Pro Search" as something to talk to, which fails the moment the agent
+    sends its tools. Filtering here means no version of the service can put
+    one back.
     """
-    search = (web_search_model or "").strip()
+    roles = {str(role).strip() for role in role_models if str(role or "").strip()}
     listed = tuple(str(m) for m in (models or ()) if str(m).strip())
-    if not search:
+    if not roles:
         return listed
-    return tuple(m for m in listed if m != search)
+    return tuple(m for m in listed if m not in roles)
 
 
 def _key_came_from_the_current_authority(
@@ -1512,8 +1599,8 @@ def _rotate(
 
     save_provider_env_credential(key_env, minted.key)
 
-    # The picker's list: the chat grant, never the web search model beside it.
-    models = _chat_models(minted.models, minted.web_search_model)
+    # The picker's list: the chat grant, never a feature model beside it.
+    models = _chat_models(minted.models, *minted.role_models)
     if reachable is not None and models:
         # `reachable` is what `/v1/models` answered for this very key, moments
         # ago. LiteLLM answers a scoped key with its allowlist verbatim, so
@@ -1530,7 +1617,9 @@ def _rotate(
         if narrowed:
             models = narrowed
     if settings.discover_models and not models:
-        models = tuple(_discover_models(settings, base_url, minted.key))
+        models = _chat_models(
+            _discover_models(settings, base_url, minted.key), *minted.role_models
+        )
 
     # What a fresh account opens on; an account that already has a default
     # model keeps it (see _write_provider_config).
@@ -1545,15 +1634,17 @@ def _rotate(
         # What the previous run wrote, so ids this key no longer reaches can be
         # taken back out of the picker instead of accumulating forever.
         previous_models=tuple(str(m) for m in (state.get("models") or ())),
+        vision_model=minted.vision_model,
     )
 
-    # The model the web search tool calls with this key: granted by the second
-    # brain beside ``models``, never among them, and recorded here rather than
-    # in config because nobody picks it — ``plugins/web/agentx_gateway`` reads
-    # it from this file.
+    # The models each feature calls with this key: granted by the second brain
+    # beside ``models``, never among them, and recorded here rather than in
+    # config because nobody picks them — ``plugins/web/agentx_gateway`` and
+    # ``plugins/image_gen/agentx_gateway`` read them from this file, and the
+    # vision model is also pinned in ``auxiliary.vision`` above.
     web_search_model = minted.web_search_model
     if reachable is None:
-        reachable = (*models, web_search_model) if web_search_model else tuple(models)
+        reachable = (*models, *minted.role_models)
 
     # What the key actually wears at the proxy — a suffixed label when the
     # plain one was taken — not what this machine would have called it.
@@ -1572,6 +1663,8 @@ def _rotate(
             "mode": settings.mode,
             "models": list(models),
             "web_search_model": web_search_model,
+            "image_model": minted.image_model,
+            "vision_model": minted.vision_model,
             "reachable_models": sorted(set(reachable)),
         },
     )

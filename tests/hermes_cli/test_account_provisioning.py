@@ -883,6 +883,10 @@ class FakeSecondBrain:
         # None stands for a service that predates web search and says nothing
         # about it; "" for one that grants none.
         self.web_search_model: str | None = None
+        # The image and vision models the NEXT issued key carries beside
+        # `grants` (None = a service that predates feature models).
+        self.image_model: str | None = None
+        self.vision_model: str | None = None
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -917,6 +921,20 @@ class FakeSecondBrain:
         record = self.proxy.records[held["token"]]
         record["models"] = [*held["models"], model] if model else list(held["models"])
         held["web_search_model"] = model
+
+    def grant_features(self, subject: str, *, image: str = "", vision: str = "") -> None:
+        """The grant pass naming an image and a vision model for a key somebody holds.
+
+        Like the real service, a model named for a feature leaves the chat list
+        and the key's allowlist gains whatever it did not reach yet.
+        """
+        held = self.keys[subject]
+        record = self.proxy.records[held["token"]]
+        roles = [m for m in (image, vision) if m]
+        held["models"] = [m for m in held["models"] if m not in roles]
+        held["image_model"] = image
+        held["vision_model"] = vision
+        record["models"] = [*record["models"], *(m for m in roles if m not in record["models"])]
 
     def retire_model(self, subject: str, model: str) -> None:
         """What the service's grant pass does when the proxy retires a model.
@@ -969,7 +987,10 @@ class FakeSecondBrain:
         # Scoped the way the real service scopes a key: the grant, then web
         # search. An empty scope is LiteLLM's "everything", as before.
         search = [self.web_search_model] if self.web_search_model else []
-        record = self.proxy.mint(alias, models=[*self.grants, *search], user_id=subject)
+        features = [m for m in (self.image_model, self.vision_model) if m]
+        record = self.proxy.mint(
+            alias, models=list(dict.fromkeys([*self.grants, *search, *features])), user_id=subject
+        )
         if held is not None:
             # Exactly the previously stored token, and never by alias.
             self.proxy.records.pop(held["token"], None)
@@ -983,6 +1004,10 @@ class FakeSecondBrain:
         }
         if self.web_search_model is not None:
             issued["web_search_model"] = self.web_search_model
+        if self.image_model is not None:
+            issued["image_model"] = self.image_model
+        if self.vision_model is not None:
+            issued["vision_model"] = self.vision_model
         self.keys[subject] = issued
         return httpx.Response(
             200, json={**issued, "status": "rotated" if held is not None else "issued"}
@@ -2531,6 +2556,163 @@ class TestVisionFollowsTheModelInUse:
             "provider": "openrouter",
             "model": "google/gemini-3-flash",
         }
+
+
+class TestFeatureModels:
+    """Web search, image and vision models: reachable with the key, never in a picker.
+
+    The service names one model per feature beside the chat grant. The laptop
+    records them for the features that call them, pins the vision one in the
+    vision slot, and keeps every one of them out of the model menus — including
+    the live ``/v1/models`` listing, which would show the key's whole allowlist.
+    """
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def _features(self, brain):
+        brain.grants = ["big-chat", "small-chat"]
+        brain.web_search_model = "search-model"
+        brain.image_model = "paint-model"
+        brain.vision_model = "eyes-model"
+
+    def test_feature_models_never_reach_the_picker(self, account, brain):
+        self._features(brain)
+
+        result = self._provision(account, brain)
+
+        assert result.ok, result.detail
+        assert result.models == ("big-chat", "small-chat")
+        assert result.default_model == "big-chat"
+        entry = raw_config(account.home)["providers"]["litellm"]
+        assert set(entry["models"]) == {"big-chat", "small-chat"}
+        # The picker is the service's answer, not the proxy's whole allowlist.
+        assert entry["discover_models"] is False
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_the_sidecar_records_each_feature_model(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+
+        state = read_state(account.home)
+        assert (state["web_search_model"], state["image_model"], state["vision_model"]) == (
+            "search-model",
+            "paint-model",
+            "eyes-model",
+        )
+        assert state["models"] == ["big-chat", "small-chat"]
+        assert set(state["reachable_models"]) == {
+            "big-chat", "small-chat", "search-model", "paint-model", "eyes-model",
+        }
+
+    def test_the_vision_slot_names_the_granted_vision_model(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["auxiliary"]["vision"] == {
+            "provider": "litellm",
+            "model": "eyes-model",
+        }
+
+    def test_a_feature_model_listed_among_the_chat_models_is_kept_out(self, account, brain):
+        # An answer that still lists the vision model for chat (a row written
+        # before the change): the field naming it for vision wins.
+        self._features(brain)
+        brain.grants = ["eyes-model", "big-chat"]
+
+        result = self._provision(account, brain)
+
+        assert result.models == ("big-chat",)
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat"}
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_features_granted_later_arrive_on_the_reuse_path(self, account, brain):
+        # Day one: chat models only — the vision-capable small model among them.
+        brain.grants = ["small-chat", "big-chat", "eyes-model"]
+        first = self._provision(account, brain)
+        assert first.models == ("small-chat", "big-chat", "eyes-model")
+
+        # The operator names an image and a vision model; the key keeps its token.
+        brain.grant_features("tok", image="paint-model", vision="eyes-model")
+        again = self._provision(account, brain)
+
+        assert again.ok, again.detail
+        assert again.models == ("small-chat", "big-chat")
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "small-chat", "big-chat",
+        }
+        state = read_state(account.home)
+        assert (state["image_model"], state["vision_model"]) == ("paint-model", "eyes-model")
+        assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
+
+    def test_a_default_on_a_model_that_became_a_feature_moves_to_a_chat_model(
+        self, account, brain
+    ):
+        brain.grants = ["eyes-model", "big-chat"]
+        self._provision(account, brain)
+        assert raw_config(account.home)["model"]["default"] == "eyes-model"
+
+        brain.grant_features("tok", image="paint-model", vision="eyes-model")
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_an_older_sidecar_listing_a_feature_model_is_tidied_on_reuse(self, account, brain):
+        from hermes_cli.account_provisioning import write_state
+
+        self._features(brain)
+        self._provision(account, brain)
+
+        # What a run before this change could leave behind: the vision model in
+        # the recorded chat list and in the picker.
+        state = read_state(account.home)
+        write_state(account.home, {**state, "models": ["eyes-model", *state["models"]]})
+        from hermes_cli.config import load_config, save_config
+
+        cfg = load_config()
+        cfg["providers"]["litellm"]["models"]["eyes-model"] = {"supports_vision": True}
+        cfg["model"]["default"] = "eyes-model"
+        save_config(cfg, merge_existing=True)
+
+        result = self._provision(account, brain)
+
+        assert result.status == "reused"
+        assert result.models == ("big-chat", "small-chat")
+        assert "eyes-model" not in raw_config(account.home)["providers"]["litellm"]["models"]
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+        assert read_state(account.home)["models"] == ["big-chat", "small-chat"]
+
+    def test_a_vision_pin_somebody_set_elsewhere_survives(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        self._features(brain)
+        self._provision(account, brain)
+        cfg = load_config()
+        cfg["auxiliary"] = {"vision": {"provider": "openrouter", "model": "google/gemini-3-flash"}}
+        save_config(cfg, merge_existing=True)
+
+        self._provision(account, brain, force_rotate=True)
+
+        assert raw_config(account.home)["auxiliary"]["vision"] == {
+            "provider": "openrouter",
+            "model": "google/gemini-3-flash",
+        }
+
+    def test_no_vision_model_releases_the_pin(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
+
+        # The operator takes the vision model away; the next key the service
+        # issues (a rotation here) names none.
+        brain.vision_model = ""
+        self._provision(account, brain, force_rotate=True)
+
+        vision = raw_config(account.home)["auxiliary"]["vision"]
+        assert (vision["provider"], vision["model"]) == ("auto", "")
 
 
 class TestStaleDeprecatedModes:

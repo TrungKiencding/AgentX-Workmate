@@ -1392,7 +1392,10 @@ def check_image_generation_requirements() -> bool:
         pass
 
     configured = _read_configured_image_provider()
-    if not configured or configured in ("fal", NOUS_MANAGED_PROVIDER):
+    if not configured:
+        # The AgentX AI Gateway, when the signed-in account was granted an image model.
+        return _gateway_image_default() is not None
+    if configured in ("fal", NOUS_MANAGED_PROVIDER):
         return False
 
     # Probe only the explicitly selected plugin. Merely possessing a cloud
@@ -1564,6 +1567,37 @@ def _read_configured_image_provider():
     return None
 
 
+#: The bundled backend that draws with the signed-in AgentX account's granted
+#: image model (``plugins/image_gen/agentx_gateway``).
+AGENTX_GATEWAY_IMAGE_PROVIDER = "agentx-gateway"
+
+
+def _gateway_image_default() -> Optional[str]:
+    """``agentx-gateway`` when it is this account's image backend by default, else None.
+
+    With no ``image_gen.provider`` chosen and FAL not set up either, a signed-in
+    AgentX account whose key carries an image grant generates through the AgentX
+    AI Gateway — the way web search falls to it. A deliberate choice, or a FAL
+    key (the long-standing default), wins; so does a session with no account.
+    """
+    try:
+        if check_fal_api_key():
+            return None
+    except Exception as exc:  # noqa: BLE001 — a broken FAL probe is not a FAL key
+        logger.debug("FAL availability probe failed: %s", exc)
+    try:
+        from agent.image_gen_registry import get_provider
+        from hermes_cli.plugins import _ensure_plugins_discovered
+
+        _ensure_plugins_discovered()
+        provider = get_provider(AGENTX_GATEWAY_IMAGE_PROVIDER)
+        if provider is not None and provider.is_available():
+            return AGENTX_GATEWAY_IMAGE_PROVIDER
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("AgentX gateway image backend probe failed: %s", exc)
+    return None
+
+
 def _dispatch_to_plugin_provider(
     prompt: str,
     aspect_ratio: str,
@@ -1589,14 +1623,22 @@ def _dispatch_to_plugin_provider(
     ignore it via their ``**kwargs`` (the ABC contract).
     """
     configured = _read_configured_image_provider()
+    implicit = False
+    if not configured:
+        # Nothing chosen: a signed-in AgentX account with an image grant draws
+        # through the gateway unless FAL is set up (see _gateway_image_default).
+        configured = _gateway_image_default()
+        implicit = configured is not None
     if not configured or configured in ("fal", NOUS_MANAGED_PROVIDER):
         # Unset/explicit FAL keeps the legacy FAL path; "nous" (managed
         # Nous Subscription selection) also runs the legacy pipeline, which
         # routes through the managed fal-queue gateway.
         return None
 
-    # Also read configured model so we can pass it to the plugin
-    configured_model = _read_configured_image_model()
+    # Also read configured model so we can pass it to the plugin — unless the
+    # backend was not chosen at all: ``image_gen.model`` then names a model for
+    # some other backend, and the gateway calls only the model it was granted.
+    configured_model = None if implicit else _read_configured_image_model()
 
     try:
         # Import locally so plugin discovery isn't triggered just by
@@ -1946,6 +1988,10 @@ def _active_image_capabilities() -> Dict[str, Any]:
     info: Dict[str, Any] = {"modalities": ["text"], "max_reference_images": 0}
 
     configured_provider = _read_configured_image_provider()
+    implicit = False
+    if not configured_provider:
+        configured_provider = _gateway_image_default()
+        implicit = configured_provider is not None
     if configured_provider and configured_provider != "fal":
         try:
             from agent.image_gen_registry import get_provider
@@ -1960,7 +2006,9 @@ def _active_image_capabilities() -> Dict[str, Any]:
                 except Exception:  # noqa: BLE001
                     caps = {}
                 info["provider"] = provider.display_name
-                info["model"] = _read_configured_image_model() or (provider.default_model() or "")
+                info["model"] = (None if implicit else _read_configured_image_model()) or (
+                    provider.default_model() or ""
+                )
                 if caps.get("modalities"):
                     info["modalities"] = list(caps["modalities"])
                 if caps.get("max_reference_images"):

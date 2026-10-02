@@ -1,10 +1,13 @@
 """AgentX AI Gateway web search — plugin form.
 
 Routes ``web_search`` through the gateway the signed-in AgentX account already
-uses for chat, with that account's own key. The model is a Perplexity search
-preset — ``perplexity/preset/pro-search`` unless the deployment grants another
-— called on the gateway's Responses API: Perplexity runs the searches and reads
-the pages, and the reply carries both what it found and a short cited answer.
+uses for chat, with that account's own key. The model is the account's web
+search grant: a Perplexity search preset (``perplexity/preset/pro-search``) is
+called on the gateway's Responses API, any other search model — Perplexity's
+``perplexity/sonar`` — on Chat Completions, the only API Sonar answers on (the
+Responses API refuses it with "model sonar is not supported"). Either way
+Perplexity runs the searches and reads the pages, and the reply carries both
+what it found and a short cited answer.
 
 There is nothing to set up. The second brain grants the search model on each
 person's key and names it when a laptop collects the key;
@@ -109,20 +112,94 @@ def _account_gateway() -> Optional[Dict[str, str]]:
     return {"base_url": base_url, "api_key": api_key, "model": model}
 
 
+def uses_responses_api(model: str) -> bool:
+    """True for a Perplexity search preset, which only the Responses API runs.
+
+    Every other search model is called on Chat Completions: Sonar answers there
+    (and nowhere else — the Responses API refuses ``sonar``), as does any
+    search-grounded chat model a deployment might grant instead.
+    """
+    return "preset/" in (model or "").lower()
+
+
+#: How Sonar cites a source inside its answer: ``[N]``, N counting from 1 into
+#: the reply's ``citations`` (and ``search_results``, which come in the same order).
+_NUMBER_CITATION_RE = re.compile(r"\[(\d{1,3})\]")
+
+
+def chat_reply_as_responses(data: Dict[str, Any]) -> Dict[str, Any]:
+    """A Chat Completions search reply, in the Responses shape the parser reads.
+
+    Sonar answers with ``choices[0].message.content`` citing sources as
+    ``[N]``, a top-level ``search_results`` list (title, url, date, snippet)
+    and ``citations`` (bare URLs) in the same order; LiteLLM may add
+    ``url_citation`` annotations to the message. Each result gets ``id`` N so
+    ``[N]`` becomes ``[web:N]`` — the marker the parser already keeps cited
+    results for and renumbers to row positions.
+    """
+    choices = data.get("choices")
+    message = (choices[0] or {}).get("message") if isinstance(choices, list) and choices else {}
+    message = message if isinstance(message, dict) else {}
+    content = message.get("content")
+    answer = content if isinstance(content, str) else ""
+
+    results: List[Dict[str, Any]] = []
+    search_results = data.get("search_results")
+    for index, result in enumerate(search_results if isinstance(search_results, list) else (), 1):
+        if isinstance(result, dict) and result.get("url"):
+            results.append({**result, "id": index})
+    if not results:
+        citations = data.get("citations")
+        for index, url in enumerate(citations if isinstance(citations, list) else (), 1):
+            if isinstance(url, str) and url:
+                results.append({"id": index, "url": url, "title": ""})
+
+    known = {str(result["id"]) for result in results}
+
+    def to_marker(match: "re.Match[str]") -> str:
+        number = match.group(1)
+        return f"[web:{number}]" if number in known else match.group(0)
+
+    annotations: List[Dict[str, Any]] = []
+    for ann in message.get("annotations") if isinstance(message.get("annotations"), list) else ():
+        if not isinstance(ann, dict):
+            continue
+        cited = ann.get("url_citation") if isinstance(ann.get("url_citation"), dict) else ann
+        if cited.get("url"):
+            annotations.append({"url": cited.get("url"), "title": cited.get("title") or ""})
+
+    output: List[Dict[str, Any]] = []
+    if results:
+        output.append({"type": "search_results", "results": results})
+    output.append(
+        {
+            "type": "message",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": _NUMBER_CITATION_RE.sub(to_marker, answer),
+                    "annotations": annotations,
+                }
+            ],
+        }
+    )
+    return {"output": output}
+
+
 # ---------------------------------------------------------------------------
 # Provider
 # ---------------------------------------------------------------------------
 
 
 class AgentXGatewayWebSearchProvider(WebSearchProvider):
-    """Search-only provider backed by a Perplexity preset on the AgentX gateway.
+    """Search-only provider backed by Perplexity (Sonar or a preset) on the AgentX gateway.
 
     Like the xAI backend, this is a model doing the searching rather than an
     index handing back rows: Perplexity decides which pages to read and writes
     the answer, and a crafted query can steer it. Treat the URLs it returns the
     way you would any model-produced link.
 
-    No extract capability — the preset reads pages, but hands back its reading
+    No extract capability — Perplexity reads pages, but hands back its reading
     of them rather than their text.
     """
 
@@ -147,7 +224,7 @@ class AgentXGatewayWebSearchProvider(WebSearchProvider):
     # -- Search -----------------------------------------------------------
 
     def search(self, query: str, limit: int = 5) -> Dict[str, Any]:
-        """Run *query* through the account's search preset.
+        """Run *query* through the account's web search model.
 
         Returns ``{"success": True, "data": {"web": [...], "answer": str}}`` —
         the usual ``{title, url, description, position}`` rows, plus
@@ -185,17 +262,25 @@ class AgentXGatewayWebSearchProvider(WebSearchProvider):
         import httpx
 
         model = gateway["model"]
+        responses_api = uses_responses_api(model)
         logger.info(
-            "AgentX gateway web search via %s: '%s' (limit=%d)", model, query, limit
+            "AgentX gateway web search via %s (%s): '%s' (limit=%d)",
+            model, "responses" if responses_api else "chat", query, limit,
         )
+        if responses_api:
+            url = f"{gateway['base_url']}/responses"
+            body: Dict[str, Any] = {"model": model, "input": query}
+        else:
+            url = f"{gateway['base_url']}/chat/completions"
+            body = {"model": model, "messages": [{"role": "user", "content": query}]}
         try:
             resp = httpx.post(
-                f"{gateway['base_url']}/responses",
+                url,
                 headers={
                     "Authorization": f"Bearer {gateway['api_key']}",
                     "Content-Type": "application/json",
                 },
-                json={"model": model, "input": query},
+                json=body,
                 timeout=timeout,
             )
         except httpx.RequestError as exc:
@@ -231,6 +316,8 @@ class AgentXGatewayWebSearchProvider(WebSearchProvider):
                 "error": f"Web search failed at the AgentX AI Gateway: {message or 'unknown error'}",
             }
 
+        if not responses_api:
+            data = chat_reply_as_responses(data)
         answer, annotations = self._collect_output_text(data)
         rows, answer = self._extract_results(data, annotations, answer, limit=limit)
         payload: Dict[str, Any] = {"web": rows}
