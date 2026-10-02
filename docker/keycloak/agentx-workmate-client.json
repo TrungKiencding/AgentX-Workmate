@@ -20,5 +20,33 @@
   "attributes": {
     "pkce.code.challenge.method": "S256",
     "post.logout.redirect.uris": "http://127.0.0.1:47821/*##http://127.0.0.1:47822/*##http://127.0.0.1:47823/*##http://localhost:9119/*"
-  }
+  },
+  "protocolMappers": [
+    {
+      "name": "org_id",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-attribute-mapper",
+      "config": {
+        "user.attribute": "org_id",
+        "claim.name": "org_id",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true"
+      }
+    },
+    {
+      "name": "realm roles (id token)",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-realm-role-mapper",
+      "config": {
+        "claim.name": "realm_access.roles",
+        "jsonType.label": "String",
+        "multivalued": "true",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true"
+      }
+    }
+  ]
 }
