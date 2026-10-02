@@ -189,12 +189,15 @@ class TestCmdUpdateTermuxUvBootstrap:
 
         pkg_uv = "/data/data/com.termux/files/usr/bin/uv"
         monkeypatch.setattr(hm, "_is_termux_env", lambda env=None: True)
-        # Production resolve_uv only checks $AGENTX_HOME/bin/uv; model an empty
-        # managed dir so the PATH probe is what surfaces the packaged uv.
-        monkeypatch.setattr("hermes_cli.managed_uv.resolve_uv", lambda: None)
         monkeypatch.setattr("shutil.which", lambda name: pkg_uv if name == "uv" else None)
 
-        uv_bin = hm._ensure_uv_for_termux(["/termux/python", "-m", "pip"])
+        # Production resolve_uv only checks $AGENTX_HOME/bin/uv; model an empty
+        # managed dir so the PATH probe is what surfaces the packaged uv. Not
+        # monkeypatch: the autouse _patch_managed_uv exits before monkeypatch
+        # undoes, so that undo would leave the fixture's shutil.which-backed
+        # mock installed for every later test in the process.
+        with patch("hermes_cli.managed_uv.resolve_uv", return_value=None):
+            uv_bin = hm._ensure_uv_for_termux(["/termux/python", "-m", "pip"])
 
         assert uv_bin == pkg_uv
         mock_run.assert_not_called()
