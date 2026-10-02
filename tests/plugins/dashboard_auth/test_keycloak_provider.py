@@ -863,8 +863,28 @@ class TestNativeOidcConfig:
             "client_id": _CLIENT_ID,
             "scopes": "openid profile email",
             "confidential": True,
+            "session_days": 0,
         }
         assert "top-secret" not in json.dumps(cfg)
+
+    def test_publishes_the_desktop_session_days(self, rsa_keypair):
+        cfg = _make_provider(rsa_keypair, session_days=14).native_oidc_config()
+        # Whole days stay an int on the wire.
+        assert json.dumps(cfg["session_days"]) == "14"
+        assert _make_provider(rsa_keypair, session_days=0.5).native_oidc_config()[
+            "session_days"
+        ] == 0.5
+
+    def test_offline_access_is_not_folded_into_scopes(self, rsa_keypair):
+        """An older desktop follows ``scopes`` too. Offline access arriving there
+        would give it an offline session with no day limit and no way to end it."""
+        cfg = _make_provider(rsa_keypair, session_days=14).native_oidc_config()
+        assert "offline_access" not in cfg["scopes"]
+
+    @pytest.mark.parametrize("days", [-1, float("nan"), float("inf")])
+    def test_rejects_session_days_that_are_not_days(self, rsa_keypair, days):
+        with pytest.raises(ValueError, match="session_days"):
+            _make_provider(rsa_keypair, session_days=days)
 
     def test_base_default_is_none(self):
         """A provider with no native story opts out by not overriding."""
@@ -911,6 +931,7 @@ class TestPluginRegister:
         "AGENTX_DASHBOARD_KEYCLOAK_ORG_CLAIM",
         "AGENTX_DASHBOARD_KEYCLOAK_IDP_HINT",
         "AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT",
+        "AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS",
     )
 
     @pytest.fixture(autouse=True)
@@ -1050,6 +1071,55 @@ class TestPluginRegister:
         ctx = MagicMock()
         kc_plugin.register(ctx)
         assert self._registered(ctx).supports_password is True
+
+    def _with_session_days(self, patch_config, value):
+        patch_config(
+            {
+                "keycloak": {
+                    "base_url": _BASE_URL,
+                    "realm": _REALM,
+                    "client_id": _CLIENT_ID,
+                    "session_days": value,
+                }
+            }
+        )
+
+    def test_session_days_defaults_to_the_browser_session(self, patch_config):
+        patch_config(
+            {"keycloak": {"base_url": _BASE_URL, "realm": _REALM, "client_id": _CLIENT_ID}}
+        )
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+
+    def test_session_days_from_config(self, patch_config):
+        self._with_session_days(patch_config, 14)
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 14
+
+    def test_env_overrides_session_days_in_both_directions(self, patch_config, monkeypatch):
+        """An explicit 0 must beat config.yaml's 14, not read as "unset"."""
+        self._with_session_days(patch_config, 14)
+        monkeypatch.setenv("AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS", "0")
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+
+        monkeypatch.setenv("AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS", "3")
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 3
+
+    @pytest.mark.parametrize("value", ["two weeks", -5, True, "nan"])
+    def test_a_bad_session_days_warns_and_still_registers(self, patch_config, caplog, value):
+        """Sign-in is the only way into a gated install; a typo must not close it."""
+        self._with_session_days(patch_config, value)
+        ctx = MagicMock()
+        with caplog.at_level("WARNING"):
+            kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+        assert "session_days" in caplog.text
 
     def test_config_load_failure_falls_through_to_env(self, monkeypatch):
         def _broken():

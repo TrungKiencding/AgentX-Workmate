@@ -46,11 +46,33 @@ export const KEYCLOAK_CALLBACK_PATH = '/callback'
 /** Sign-in must complete inside this window before the listener is torn down. */
 export const KEYCLOAK_LOGIN_TIMEOUT_MS = 5 * 60 * 1000
 
+const DEFAULT_SCOPES = 'openid profile email'
+
+/**
+ * The scope that makes Keycloak issue an offline session: a refresh token that
+ * does not depend on the browser's SSO session. Without it, a desktop sign-in
+ * ends when the realm's SSO idle or max limit is reached, which is less than a
+ * day on the AgentX realm.
+ */
+export const OFFLINE_ACCESS_SCOPE = 'offline_access'
+
+const SECONDS_PER_DAY = 86_400
+
 /** What the backend publishes on /api/auth/providers for a native client. */
 export interface KeycloakOidcConfig {
   issuer: string
   clientId: string
   scopes: string
+  /**
+   * How many days a desktop sign-in lasts before the app asks again, counted
+   * from the browser sign-in (`dashboard.oauth.keycloak.session_days`).
+   *
+   * Present only when the backend publishes a positive value. Then the app
+   * asks Keycloak for an offline session, because nothing tied to the
+   * browser's SSO session survives that long. Absent means the sign-in ends
+   * with the browser's Keycloak session, the behaviour before this existed.
+   */
+  sessionDays?: number
 }
 
 /** The subset of the OIDC discovery document this flow needs. */
@@ -58,6 +80,39 @@ export interface KeycloakEndpoints {
   authorizationEndpoint: string
   tokenEndpoint: string
   endSessionEndpoint: string
+}
+
+/** True when this install keeps a desktop sign-in for `sessionDays` days. */
+export function wantsOfflineSession(config: Pick<KeycloakOidcConfig, 'sessionDays'>): boolean {
+  return Number(config.sessionDays) > 0
+}
+
+/** `config` with `offline_access` added to its scopes, unless already there. */
+export function withOfflineAccess(config: KeycloakOidcConfig): KeycloakOidcConfig {
+  const scopes = (config.scopes || DEFAULT_SCOPES).split(/\s+/).filter(Boolean)
+
+  return scopes.includes(OFFLINE_ACCESS_SCOPE)
+    ? config
+    : { ...config, scopes: [...scopes, OFFLINE_ACCESS_SCOPE].join(' ') }
+}
+
+/**
+ * When this install's limit ends the sign-in, in unix seconds, or 0 for no
+ * limit: the install publishes no `sessionDays`, or the session predates
+ * `signedInAt`. A session of the second kind is still bound to the browser's
+ * Keycloak session and expires on its own within the day.
+ */
+export function signInLimitAt(
+  tokens: Pick<NativeTokenSet, 'signedInAt'>,
+  config: Pick<KeycloakOidcConfig, 'sessionDays'>
+): number {
+  const signedInAt = Number(tokens.signedInAt)
+
+  if (!wantsOfflineSession(config) || !Number.isFinite(signedInAt) || signedInAt <= 0) {
+    return 0
+  }
+
+  return signedInAt + Math.round(Number(config.sessionDays) * SECONDS_PER_DAY)
 }
 
 /** `{issuer}/.well-known/openid-configuration`, trailing slash tolerated. */
@@ -146,7 +201,7 @@ export function buildKeycloakAuthorizeUrl(
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: args.redirectUri,
-    scope: config.scopes || 'openid profile email',
+    scope: config.scopes || DEFAULT_SCOPES,
     state: args.state,
     nonce: args.nonce,
     code_challenge: args.codeChallenge,
@@ -184,7 +239,36 @@ export function buildKeycloakRefreshBody(config: KeycloakOidcConfig, refreshToke
     grant_type: 'refresh_token',
     client_id: config.clientId,
     refresh_token: refreshToken,
-    scope: config.scopes || 'openid profile email'
+    scope: config.scopes || DEFAULT_SCOPES
+  }
+}
+
+/**
+ * The back-channel request that ends the Keycloak session a refresh token
+ * belongs to. It POSTs the refresh token to the end-session endpoint.
+ *
+ * This, not RFC 7009 revocation, is how the desktop ends an offline session.
+ * On Keycloak 25 and 26, revoking a refresh token ends every session the person
+ * has on this client. That would sign out their other machines and WebMate
+ * along with this one. A logout by refresh token ends this sign-in only, plus
+ * the browser session it started from if that is still alive.
+ *
+ * Returns null when the realm advertises no end-session endpoint, or a
+ * cleartext one: the refresh token must never travel unencrypted.
+ */
+export function buildKeycloakLogoutRequest(
+  endpoints: KeycloakEndpoints,
+  config: KeycloakOidcConfig,
+  refreshToken: string
+): { url: string; form: Record<string, string> } | null {
+  if (!refreshToken || !endpoints.endSessionEndpoint || !isHttpsOrLoopback(endpoints.endSessionEndpoint)) {
+    return null
+  }
+
+  // Public client, so no secret.
+  return {
+    url: endpoints.endSessionEndpoint,
+    form: { client_id: config.clientId, refresh_token: refreshToken }
   }
 }
 
@@ -192,10 +276,11 @@ export function buildKeycloakRefreshBody(config: KeycloakOidcConfig, refreshToke
  * Decode a JWT payload WITHOUT verifying it.
  *
  * Safe here and only here: this runs on a token Keycloak just handed us over
- * TLS, and the only things read out are `exp` (when to refresh) and `sub` (a
- * display/telemetry id). Nothing is authorised on the strength of it — the
- * backend re-verifies the signature, issuer and audience on every request. Do
- * not reach for this to make a trust decision.
+ * TLS, and the only things read out are `exp` (when to refresh), `sub` (a
+ * display/telemetry id) and a refresh token's `typ` (whether the session is
+ * offline). Nothing is authorised on the strength of it — the backend
+ * re-verifies the signature, issuer and audience on every request. Do not
+ * reach for this to make a trust decision.
  */
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const parts = token.split('.')
@@ -213,6 +298,27 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 
   return parsed as Record<string, unknown>
+}
+
+/**
+ * True when a token response carries an offline session.
+ *
+ * Keycloak echoes the granted `offline_access` in `scope`, and its refresh
+ * token is a JWT whose `typ` is "Offline". Either signal is enough. A realm
+ * that quietly drops the scope then reads as a browser-bound session, which is
+ * the right answer: that session ends with the browser one.
+ */
+function isOfflineGrant(payload: Record<string, unknown>): boolean {
+  if (String(payload.scope || '').split(/\s+/).includes(OFFLINE_ACCESS_SCOPE)) {
+    return true
+  }
+
+  try {
+    return decodeJwtPayload(String(payload.refresh_token || '')).typ === 'Offline'
+  } catch {
+    // An opaque refresh token says nothing either way.
+    return false
+  }
 }
 
 /**
@@ -259,7 +365,8 @@ export function parseKeycloakTokenResponse(body: unknown, nowSeconds: number): N
     provider: 'keycloak',
     userId: String(claims.sub || ''),
     ...(email ? { email } : {}),
-    ...(displayName ? { displayName } : {})
+    ...(displayName ? { displayName } : {}),
+    ...(isOfflineGrant(payload) ? { offline: true } : {})
   }
 }
 
@@ -292,7 +399,16 @@ export function nativeOidcFromProviders(body: unknown): KeycloakOidcConfig | nul
       continue
     }
 
-    return { issuer, clientId, scopes: String(native.scopes || 'openid profile email') }
+    // Omitted rather than zeroed when absent, so a backend that predates the
+    // setting yields exactly the config it always did.
+    const sessionDays = Number(native.session_days)
+
+    return {
+      issuer,
+      clientId,
+      scopes: String(native.scopes || DEFAULT_SCOPES),
+      ...(Number.isFinite(sessionDays) && sessionDays > 0 ? { sessionDays } : {})
+    }
   }
 
   return null

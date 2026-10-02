@@ -10,6 +10,7 @@ import { describe, test } from 'vitest'
 import {
   buildEndSessionUrl,
   buildKeycloakAuthorizeUrl,
+  buildKeycloakLogoutRequest,
   buildKeycloakRefreshBody,
   buildKeycloakTokenBody,
   callbackRedirectUri,
@@ -19,8 +20,12 @@ import {
   type KeycloakEndpoints,
   type KeycloakOidcConfig,
   nativeOidcFromProviders,
+  OFFLINE_ACCESS_SCOPE,
   parseDiscovery,
-  parseKeycloakTokenResponse
+  parseKeycloakTokenResponse,
+  signInLimitAt,
+  wantsOfflineSession,
+  withOfflineAccess
 } from './keycloak-oidc'
 
 const ISSUER = 'https://agentx.example.com/auth/realms/agent-hub'
@@ -293,6 +298,92 @@ describe('parseKeycloakTokenResponse', () => {
 
     assert.equal(parsed.refreshToken, '')
   })
+
+  test('marks an offline session when the granted scope says so', () => {
+    const parsed = parseKeycloakTokenResponse(
+      { id_token: fakeIdToken({ sub: 's', exp }), refresh_token: 'opaque', scope: 'openid offline_access email' },
+      0
+    )
+
+    assert.equal(parsed.offline, true)
+  })
+
+  test("marks an offline session from the refresh token's own typ", () => {
+    // Keycloak's refresh token is a JWT, and an offline one says so even when
+    // the response omits `scope`.
+    const parsed = parseKeycloakTokenResponse(
+      { id_token: fakeIdToken({ sub: 's', exp }), refresh_token: fakeIdToken({ typ: 'Offline' }) },
+      0
+    )
+
+    assert.equal(parsed.offline, true)
+  })
+
+  test('leaves a browser-bound session unmarked, without adding the key', () => {
+    const bound = parseKeycloakTokenResponse(
+      { id_token: fakeIdToken({ sub: 's', exp }), refresh_token: fakeIdToken({ typ: 'Refresh' }), scope: 'openid email' },
+      0
+    )
+
+    const opaque = parseKeycloakTokenResponse({ id_token: fakeIdToken({ sub: 's', exp }), refresh_token: 'opaque' }, 0)
+
+    assert.equal('offline' in bound, false)
+    assert.equal('offline' in opaque, false)
+  })
+})
+
+describe('offline sessions and the session_days limit', () => {
+  test('are wanted only when the backend publishes a positive number of days', () => {
+    assert.equal(wantsOfflineSession({ sessionDays: 14 }), true)
+    assert.equal(wantsOfflineSession({ sessionDays: 0.5 }), true)
+    assert.equal(wantsOfflineSession({}), false)
+    assert.equal(wantsOfflineSession({ sessionDays: 0 }), false)
+  })
+
+  test('add offline_access to the scopes exactly once', () => {
+    const offline = withOfflineAccess(CONFIG)
+
+    assert.equal(offline.scopes, 'openid profile email offline_access')
+    assert.equal(withOfflineAccess(offline).scopes, offline.scopes)
+    assert.equal(CONFIG.scopes, 'openid profile email', 'the original config is not mutated')
+  })
+
+  test('add offline_access to the default scopes when none are configured', () => {
+    assert.equal(withOfflineAccess({ ...CONFIG, scopes: '' }).scopes, `openid profile email ${OFFLINE_ACCESS_SCOPE}`)
+  })
+
+  test('the limit counts from the browser sign-in', () => {
+    assert.equal(signInLimitAt({ signedInAt: 1_000 }, { sessionDays: 14 }), 1_000 + 14 * 86_400)
+    assert.equal(signInLimitAt({ signedInAt: 1_000 }, { sessionDays: 0.5 }), 1_000 + 43_200)
+  })
+
+  test('there is no limit without a policy, or for a session stored before signedInAt existed', () => {
+    assert.equal(signInLimitAt({ signedInAt: 1_000 }, {}), 0)
+    assert.equal(signInLimitAt({}, { sessionDays: 14 }), 0)
+  })
+})
+
+describe('buildKeycloakLogoutRequest', () => {
+  test('posts the refresh token to the end-session endpoint, with no secret', () => {
+    const request = buildKeycloakLogoutRequest(ENDPOINTS, CONFIG, 'rt-offline')
+
+    assert.deepEqual(request, {
+      url: ENDPOINTS.endSessionEndpoint,
+      form: { client_id: 'agentx-workmate', refresh_token: 'rt-offline' }
+    })
+  })
+
+  test('is null without an endpoint or a token', () => {
+    assert.equal(buildKeycloakLogoutRequest({ ...ENDPOINTS, endSessionEndpoint: '' }, CONFIG, 'rt'), null)
+    assert.equal(buildKeycloakLogoutRequest(ENDPOINTS, CONFIG, ''), null)
+  })
+
+  test('refuses to send the refresh token in cleartext', () => {
+    const cleartext = { ...ENDPOINTS, endSessionEndpoint: 'http://kc.example.com/logout' }
+
+    assert.equal(buildKeycloakLogoutRequest(cleartext, CONFIG, 'rt'), null)
+    assert.ok(buildKeycloakLogoutRequest({ ...ENDPOINTS, endSessionEndpoint: 'http://127.0.0.1:8080/logout' }, CONFIG, 'rt'))
+  })
 })
 
 describe('nativeOidcFromProviders', () => {
@@ -334,6 +425,24 @@ describe('nativeOidcFromProviders', () => {
     const noScopes = { ...entry, native_oidc: { ...entry.native_oidc, scopes: '' } }
 
     assert.equal(nativeOidcFromProviders({ providers: [noScopes] })?.scopes, 'openid profile email')
+  })
+
+  test('carries the published session_days', () => {
+    const withDays = { ...entry, native_oidc: { ...entry.native_oidc, session_days: 14 } }
+
+    assert.equal(nativeOidcFromProviders({ providers: [withDays] })?.sessionDays, 14)
+  })
+
+  test('omits session_days that is absent, zero or garbage', () => {
+    // Absent is what a backend that predates the setting sends; the config it
+    // yields must be exactly the one it always was.
+    for (const value of [undefined, 0, -3, 'soon', null]) {
+      const cfg = nativeOidcFromProviders({
+        providers: [{ ...entry, native_oidc: { ...entry.native_oidc, session_days: value } }]
+      })
+
+      assert.equal(cfg && 'sessionDays' in cfg, false, `session_days=${String(value)}`)
+    }
   })
 })
 

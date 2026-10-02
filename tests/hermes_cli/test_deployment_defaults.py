@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -30,6 +31,7 @@ from hermes_cli.config_defaults import (
     DEPLOYMENT_KEYCLOAK_BASE_URL,
     DEPLOYMENT_KEYCLOAK_CLIENT_ID,
     DEPLOYMENT_KEYCLOAK_REALM,
+    DEPLOYMENT_KEYCLOAK_SESSION_DAYS,
     DEPLOYMENT_LITELLM_BASE_URL,
     DEPLOYMENT_LITELLM_DEFAULT_MODEL,
 )
@@ -44,6 +46,7 @@ _KEYCLOAK_ENV_VARS = (
     "AGENTX_DASHBOARD_KEYCLOAK_BASE_URL",
     "AGENTX_DASHBOARD_KEYCLOAK_REALM",
     "AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID",
+    "AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS",
 )
 
 
@@ -109,6 +112,30 @@ class TestTheGateIsOnOutOfTheBox:
         assert load_config()["dashboard"]["oauth"]["keycloak"]["client_secret"] == ""
 
 
+class TestTheDesktopKeepsItsSignIn:
+    """How long a sign-in lasts is part of what a first launch gets.
+
+    Without a number here, the desktop's sign-in ends with the browser's
+    Keycloak session. On the AgentX realm that session does not last a night,
+    so every morning would start at the Sign in screen.
+    """
+
+    def test_a_fresh_install_keeps_a_sign_in_for_two_weeks(self, fresh_machine):
+        keycloak = load_config()["dashboard"]["oauth"]["keycloak"]
+
+        assert keycloak["session_days"] == DEPLOYMENT_KEYCLOAK_SESSION_DAYS == 14
+
+    def test_the_backend_publishes_it_to_the_desktop(self, fresh_machine):
+        """The desktop learns the number from /api/auth/providers, nowhere else."""
+        from plugins.dashboard_auth import keycloak as kc_plugin
+
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        provider = ctx.register_dashboard_auth_provider.call_args.args[0]
+
+        assert provider.native_oidc_config()["session_days"] == 14
+
+
 class TestTheInstallerTemplateDoesNotUndoAnyOfIt:
     """``install.sh`` copies ``cli-config.yaml.example`` onto a fresh machine.
 
@@ -131,6 +158,11 @@ class TestTheInstallerTemplateDoesNotUndoAnyOfIt:
 
     def test_the_gate_survives_the_template(self, installed_machine):
         assert web_server.should_require_auth("127.0.0.1") is True
+
+    def test_the_sign_in_lifetime_survives_the_template(self, installed_machine):
+        keycloak = load_config()["dashboard"]["oauth"]["keycloak"]
+
+        assert keycloak["session_days"] == DEPLOYMENT_KEYCLOAK_SESSION_DAYS
 
     def test_the_proxy_survives_the_template(self, installed_machine):
         settings = load_settings(load_config())

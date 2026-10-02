@@ -54,6 +54,23 @@ export interface NativeTokenSet {
    */
   email?: string
   displayName?: string
+  /**
+   * When the person last signed in through the browser, in unix seconds.
+   *
+   * Set by the direct Keycloak flow and carried unchanged through every
+   * refresh. That way a sign-in can end a fixed number of days after the
+   * person signed in (`session_days`), however often it was refreshed.
+   * Absent on the brokered flow and on sessions stored before this existed.
+   */
+  signedInAt?: number
+  /**
+   * True when Keycloak issued an offline session (`offline_access`).
+   *
+   * Its refresh token does not depend on the browser's Keycloak session, so
+   * it outlives the realm's SSO idle and max limits. It also survives the
+   * end-session page, so sign-out has to end it explicitly. Absent otherwise.
+   */
+  offline?: boolean
 }
 
 /** base64url without `=` padding (RFC 7636 §4). */
@@ -224,6 +241,9 @@ export function parseStoredTokenSet(body: any): NativeTokenSet {
   // empty keys to its token set would change a shape other code compares.
   const email = String(body?.email || '')
   const displayName = String(body?.displayName || '')
+  // Dropping these on reload would quietly lift the session_days limit on
+  // every restart, and stop sign-out from revoking an offline session.
+  const signedInAt = Number(body?.signedInAt)
 
   return {
     accessToken,
@@ -232,7 +252,9 @@ export function parseStoredTokenSet(body: any): NativeTokenSet {
     provider: String(body?.provider || ''),
     userId: String(body?.userId || ''),
     ...(email ? { email } : {}),
-    ...(displayName ? { displayName } : {})
+    ...(displayName ? { displayName } : {}),
+    ...(Number.isFinite(signedInAt) && signedInAt > 0 ? { signedInAt } : {}),
+    ...(body?.offline === true ? { offline: true } : {})
   }
 }
 

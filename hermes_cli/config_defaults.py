@@ -36,6 +36,13 @@ DEPLOYMENT_KEYCLOAK_BASE_URL = "https://agentx.astralx.com.vn/auth"
 DEPLOYMENT_KEYCLOAK_REALM = "agent-hub"
 DEPLOYMENT_KEYCLOAK_CLIENT_ID = "agentx-workmate"
 
+#: How many days the desktop app keeps a sign-in before asking again, counted
+#: from the browser sign-in. The realm's own SSO session does not last a night,
+#: so this rides on a Keycloak offline session. The realm's Offline Session
+#: Idle (30 days by default) and Max must stay above it, or Keycloak ends the
+#: sign-in first.
+DEPLOYMENT_KEYCLOAK_SESSION_DAYS = 14
+
 #: LiteLLM proxy each signed-in account is given its own virtual key on.
 #:
 #: A fallback, not the authority: under ``mode: "second_brain"`` every key
@@ -1574,6 +1581,12 @@ DEFAULT_CONFIG = {
             # because a realm with MFA, a password-reset requirement, or any
             # other required action cannot complete that flow — Keycloak just
             # answers invalid_grant and the user has no way to respond.
+            #
+            # ``session_days`` is how long the desktop app keeps a sign-in,
+            # counted from the browser sign-in. It is checked at launch, so a
+            # sign-in that passes the limit while the app is open ends at the
+            # next start. 0 ends the sign-in with the browser's Keycloak
+            # session instead, which is under a day on the AgentX realm.
             "keycloak": {
                 "base_url": DEPLOYMENT_KEYCLOAK_BASE_URL,
                 "realm": DEPLOYMENT_KEYCLOAK_REALM,
@@ -1584,6 +1597,7 @@ DEFAULT_CONFIG = {
                 "org_claim": "",  # blank → tenant_slug → organization → roles
                 "idp_hint": "",  # optional kc_idp_hint (skip the IdP chooser)
                 "allow_password_grant": False,  # in-app credential form
+                "session_days": DEPLOYMENT_KEYCLOAK_SESSION_DAYS,  # desktop sign-in
             },
         },
         # Username/password gate configuration — read by the bundled

@@ -156,7 +156,7 @@ import {
   forgetKeycloakSession,
   type KeycloakSessionDeps
 } from './keycloak-desktop-session'
-import { fetchKeycloakEndpoints } from './keycloak-login'
+import { fetchKeycloakEndpoints, logoutKeycloakSession } from './keycloak-login'
 import { buildEndSessionUrl, type KeycloakOidcConfig } from './keycloak-oidc'
 import { loadKeycloakSession } from './keycloak-session-store'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
@@ -6910,7 +6910,13 @@ async function ensureNativeAccessToken(baseUrl: string): Promise<string | null> 
   if (keycloakConfig) {
     // Non-interactive: a token that has genuinely lapsed must surface as "sign
     // in again" through the UI, not pop a browser out of a background refresh.
-    const session = await ensureKeycloakSession(keycloakConfig, keycloakDeps({ interactive: false }))
+    // The session_days limit is checked at launch only. The Sign in screen
+    // exists only on the boot path, so ending a sign-in here would just make
+    // requests fail in the middle of someone's work.
+    const session = await ensureKeycloakSession(
+      keycloakConfig,
+      keycloakDeps({ interactive: false, enforceSignInPolicy: false })
+    )
 
     if (session.tokens) {
       _nativeTokens.set(baseUrl, session.tokens)
@@ -11253,6 +11259,13 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   const tokens = loadKeycloakSession(config, _nativeTokenStoreIo())
 
   forgetKeycloakSession(config, { store: _nativeTokenStoreIo() })
+
+  // An offline session (session_days) survives the end-session page below, so
+  // it is ended on its own. Otherwise it stays live in the realm for weeks.
+  // Runs alongside the logout page and never throws.
+  if (tokens?.refreshToken) {
+    void logoutKeycloakSession(config, tokens.refreshToken, keycloakDeps())
+  }
 
   for (const [baseUrl, cfg] of _keycloakConfigs.entries()) {
     if (cfg.issuer === config.issuer && cfg.clientId === config.clientId) {
