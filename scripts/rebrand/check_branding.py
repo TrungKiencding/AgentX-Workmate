@@ -195,6 +195,21 @@ ALLOWED: list[tuple[str, re.Pattern[str], str]] = [
         "agentskills.io compatibility, and the MCP server name in codex config",
     ),
     (
+        "hub-render-target",
+        # The AgentX Hub keys the render target for Workmate packages as
+        # `hermes` (its targets table and skillkit's CORE_TARGETS, in the hub
+        # repo): it is the default target of every core skill, and the hub
+        # rejects a target it does not know, both on publish and on a bundle
+        # request.  The client passes the id through untouched, and the fake
+        # hubs in the tests send what the real one sends.  Only a one-element
+        # list under a `targets` key, kwarg or subscript is covered, so any
+        # other `hermes` on the same line still fails.
+        re.compile(r"""targets["']?\]?\s*(?:==|[:=])\s*\[["']hermes["']\]"""),
+        "the AgentX Hub's render-target id for Workmate packages, a wire value "
+        "the hub defines and validates; the fake-hub fixtures must send what "
+        "the real hub sends",
+    ),
+    (
         "legacy-migration",
         re.compile(r"hermes\.service|hermes\.desktop|hey_hermes[\w.]*"),
         "deliberate references to a PRE-rename name: the allowlists that find "

@@ -47,14 +47,16 @@ MUST_FAIL = [
     ("README.ur-pk.md", "ہرمیس ایجنٹ انسٹال کریں"),
     ("hermes_cli/x.py", 'subprocess.run(["hermes", "--version"])'),
     ("web/src/App.tsx", 'localStorage.getItem("hermes-sidebar-collapsed")'),
+    # The hub's target id is pardoned, not a display name next to it.
+    ("tests/tools/test_skills_hub.py", '"targets": ["hermes"], "name": "Hermes Agent",'),
 ]
 
 # ── Things the gate must NOT flag ────────────────────────────────────────
 #
 # The deliberately-kept names, one per ALLOWED entry: module names, model
 # slugs a provider API expects, third-party packages, upstream citations, the
-# provider's own hosts, internal identifiers, migration allowlists, and the
-# unicode fixture that is not a brand mark.
+# provider's own hosts, internal identifiers, migration allowlists, the hub's
+# render-target id, and the unicode fixture that is not a brand mark.
 MUST_PASS = [
     ("hermes_cli/main.py", "from hermes_cli.config import get_hermes_home"),
     ("hermes_cli/state.py", "hermes_home = get_hermes_home()"),
@@ -74,6 +76,9 @@ MUST_PASS = [
     ("acp_adapter/server.py", '_meta.hermes carries the provenance block'),
     ("tests/agent/test_tool_guardrails.py", '{"β": "☤", "a": 1}'),
     ("tools/wake_word.py", '_BUNDLED_MODEL_NAME = "hey_hermes"'),
+    ("tests/tools/test_skills_hub.py", '"tags": ["Demo"], "targets": ["hermes"], "latest_version": "1.2.0",'),
+    ("tests/hermes_cli/test_hub_client.py", 'assert sent["targets"] == ["hermes"] and sent["workspace"] == "team"'),
+    ("tests/hermes_cli/test_hub_client.py", 'client.publish(files, bearer="tok", targets=["hermes"])'),
 ]
 
 
