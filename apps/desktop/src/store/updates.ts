@@ -169,6 +169,7 @@ export function reportBackendContract(contract: number | undefined): void {
     kind: 'warning',
     message: translateNow('notifications.backendOutOfDateMessage'),
     onDismiss: () => snoozeSkewToast(),
+    scope: 'app',
     title: translateNow('notifications.backendOutOfDateTitle')
   })
 }
@@ -190,6 +191,7 @@ export function reportInstallMethodWarning(message: string | undefined): void {
     kind: 'warning',
     message,
     onDismiss: () => snoozeInstallMethodToast(),
+    scope: 'app',
     title: translateNow('notifications.installMethodUnsupportedTitle')
   })
 }
@@ -233,6 +235,7 @@ export function maybeNotifyUpdateAvailable(status: DesktopUpdateStatus | null) {
     kind: 'info',
     message: translateNow('notifications.updateReadyMessage', behind),
     onDismiss: () => snoozeUpdateToast(),
+    scope: 'app',
     title: translateNow('notifications.updateReadyTitle')
   })
 }
@@ -466,6 +469,7 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
           // it with the other update toasts instead of the ambient bottom-right
           // stack.
           placement: 'default',
+          scope: 'app',
           title: translateNow('updates.allSetTitle')
         })
       } else {

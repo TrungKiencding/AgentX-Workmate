@@ -135,7 +135,7 @@ beforeEach(() => {
   resetWebmatePromptSession()
   $webmateStatus.set(null)
   $webmateGuide.set(null)
-  notifications.clearNotifications()
+  notifications.resetNotifications()
 })
 
 afterEach(() => {
@@ -496,9 +496,10 @@ describe('maybeNotifyWebmateUpdate', () => {
 
     $webmateStatus.set(status({ prefs: prefs({ autoUpdate: false }) }))
     maybeNotifyWebmateUpdate(check())
-    expect(notifications.$notifications.get().map(n => n.id)).toEqual(['webmate-update-available'])
+    // Both are about WebMate, not the open chat: moving between chats leaves them up.
+    expect(notifications.$notifications.get().map(n => [n.id, n.scope])).toEqual([['webmate-update-available', 'app']])
 
-    notifications.clearNotifications()
+    notifications.resetNotifications()
     $webmateStatus.set(
       status({
         prefs: prefs({ autoUpdate: false, updateToastSnoozedUntil: new Date(Date.now() + 60_000).toISOString() })
@@ -508,8 +509,8 @@ describe('maybeNotifyWebmateUpdate', () => {
     expect(notifications.$notifications.get()).toHaveLength(0)
 
     maybeNotifyWebmateUpdate(check({ belowMinProtocol: true, available: true }))
-    expect(notifications.$notifications.get().map(n => [n.id, n.kind])).toEqual([
-      ['webmate-update-required', 'warning']
+    expect(notifications.$notifications.get().map(n => [n.id, n.kind, n.scope])).toEqual([
+      ['webmate-update-required', 'warning', 'app']
     ])
 
     // Resolved on the next check.

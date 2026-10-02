@@ -936,6 +936,7 @@ export function maybeNotifyWebmateUpdate(check: DesktopWebmateUpdateCheck | null
       id: MANDATORY_TOAST_ID,
       kind: 'warning',
       message: translateNow('webmate.update.mandatoryBody'),
+      scope: 'app',
       title: translateNow('webmate.update.mandatoryTitle')
     })
 
@@ -967,6 +968,7 @@ export function maybeNotifyWebmateUpdate(check: DesktopWebmateUpdateCheck | null
     kind: 'info',
     message: translateNow('webmate.update.toastBody', check.feed.version),
     onDismiss: () => snoozeUpdateToast(),
+    scope: 'app',
     title: translateNow('webmate.update.toastTitle')
   })
 }
