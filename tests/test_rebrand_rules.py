@@ -139,6 +139,10 @@ PRESERVED = [
     "https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh",
     "https://github.com/TrungKiencding/AgentX-Workmate",
     "trungkiencding/agentx-workmate:latest",
+    # The install directory followed by a regex character class, from
+    # checkout-pin.test.ts. dist-name-proper used to read the `[` as a pip
+    # extras spec, which would turn the directory into the dist name.
+    r"/agentx-agent[\\/]pyproject\.toml$/",
     # OTHER repositories and HuggingFace artifacts under the Nous org. Only
     # `NousResearch/hermes-agent` is this product; every sibling below belongs
     # to Nous and resolves nowhere once renamed. A widened kebab lookbehind
@@ -335,6 +339,12 @@ RENAMES = [
     ("$AGENTX_HOME/hermes-agent/venv/bin/agentx", "$AGENTX_HOME/agentx-agent/venv/bin/agentx"),
     ("services.hermes-agent.settings", "services.agentx-agent.settings"),
     ("pkgs.hermes-agent.override", "pkgs.agentx-agent.override"),
+    # A pip requirement spec names the DIST, agentx-workmate; the f-string is
+    # how tests/test_project_metadata.py builds one. A `[` that opens a regex
+    # class after the install directory is not a spec.
+    ("pip install 'hermes-agent[cron]'", "pip install 'agentx-workmate[cron]'"),
+    ('f"hermes-agent[{extra}]"', 'f"agentx-workmate[{extra}]"'),
+    (r"/hermes-agent[\\/]pyproject\.toml$/", r"/agentx-agent[\\/]pyproject\.toml$/"),
     ("hermes-setup.exe", "agentx-setup.exe"),
     ("/etc/cont-init.d/01-hermes-setup", "/etc/cont-init.d/01-agentx-setup"),
     ("hermes-dashboard.service", "agentx-dashboard.service"),
@@ -543,6 +553,13 @@ OUT_OF_SCOPE_PRESERVED = [
         "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
         "OpenClaw's extensions/migrate-hermes/apply.ts",
     ),
+    # The AgentX Hub's render-target id for Workmate packages, as the three
+    # hub test files send and receive it. The hub rejects a target it does not
+    # know, so cli-command must leave these alone.
+    ("tests/hermes_cli/test_hub_client.py", 'client.publish(files, bearer="tok", targets=["hermes"])'),
+    ("tests/hermes_cli/test_hub_client.py", 'assert sent["targets"] == ["hermes"]'),
+    ("tests/hermes_cli/test_hub_sync.py", '"targets": ["hermes"], "files": files,'),
+    ("tests/tools/test_skills_hub.py", '"tags": ["Demo"], "targets": ["hermes"],'),
 ]
 
 

@@ -323,6 +323,14 @@ RULES: list[Rule] = [
             # sweep would have moved the lookup while all 169 SKILL.md files
             # kept the key, emptying the skills index the site builds from.
             "website/scripts/extract-skills.py",
+            # `"targets": ["hermes"]` here is the AgentX Hub's render-target id
+            # for Workmate packages, not the command: these fixtures carry what
+            # the real hub sends and accepts, and it rejects a target it does
+            # not know. check_branding.py allows the same strings
+            # (hub-render-target); tests/tools/test_skills_hub.py, the third
+            # file with these fixtures, is already excluded above.
+            "tests/hermes_cli/test_hub_client.py",
+            "tests/hermes_cli/test_hub_sync.py",
         ],
     ),
     Rule(
@@ -870,11 +878,18 @@ RULES: list[Rule] = [
         # `agentx-workmate` (branding.py DIST_NAME), and pyproject's
         # self-referential extras are pip requirement specs naming the dist.
         #
-        # The `[` is the whole discriminator: `agentx-agent[cron]` can only be
-        # a requirement spec, while a bare `agentx-agent` in this tree is the
+        # The `[` is the discriminator: `agentx-agent[cron]` can only be a
+        # requirement spec, while a bare `agentx-agent` in this tree is the
         # command, a path segment or prose. Runs after dist-name so it sees
         # the already-normalised spelling.
-        pattern=r"agentx-agent\[",
+        #
+        # Except where the `[` opens a regex character class after the
+        # install directory: checkout-pin.test.ts matches
+        # /agentx-agent[\\/]pyproject\.toml$/, and rewriting it would make the
+        # test expect agentx-workmate/pyproject.toml, a path the checkout never
+        # has. No extra name starts with `\`, `/`, `^` or `]`; the f-string
+        # spec `agentx-agent[{extra}]` still matches.
+        pattern=r"agentx-agent\[(?![\\/^\]])",
         replacement="agentx-workmate[",
         note="pip requirement spec agentx-agent[extra] -> agentx-workmate[extra]",
     ),
