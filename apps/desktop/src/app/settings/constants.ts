@@ -240,6 +240,41 @@ export const BUILTIN_PERSONALITIES = [
   'hype'
 ]
 
+// Gemini TTS prebuilt voices — the Gemini provider's and the AgentX gateway's
+// (its speech model is Gemini TTS) — kept in sync with tools/agentx_gateway_tts.py.
+const GEMINI_TTS_VOICES = [
+  'Zephyr',
+  'Puck',
+  'Charon',
+  'Kore',
+  'Fenrir',
+  'Leda',
+  'Orus',
+  'Aoede',
+  'Callirrhoe',
+  'Autonoe',
+  'Enceladus',
+  'Iapetus',
+  'Umbriel',
+  'Algieba',
+  'Despina',
+  'Erinome',
+  'Algenib',
+  'Rasalgethi',
+  'Laomedeia',
+  'Achernar',
+  'Alnilam',
+  'Schedar',
+  'Gacrux',
+  'Pulcherrima',
+  'Achird',
+  'Zubenelgenubi',
+  'Vindemiatrix',
+  'Sadachbia',
+  'Sadaltager',
+  'Sulafat'
+]
+
 // Schema-side select overrides for desktop-relevant enum fields whose
 // backend schema only declares a string type.
 export const ENUM_OPTIONS: Record<string, string[]> = {
@@ -292,39 +327,11 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
     'en-GB-SoniaNeural'
   ],
   'tts.gemini.model': ['gemini-2.5-flash-preview-tts', 'gemini-2.5-pro-preview-tts'],
+  // The AgentX gateway's speech model is Gemini TTS: the same prebuilt voices,
+  // and only those (any other name is refused, so this is a closed list).
+  'tts.agentx_gateway.voice': GEMINI_TTS_VOICES,
   // Gemini TTS prebuilt voice set.
-  'tts.gemini.voice': [
-    'Zephyr',
-    'Puck',
-    'Charon',
-    'Kore',
-    'Fenrir',
-    'Leda',
-    'Orus',
-    'Aoede',
-    'Callirrhoe',
-    'Autonoe',
-    'Enceladus',
-    'Iapetus',
-    'Umbriel',
-    'Algieba',
-    'Despina',
-    'Erinome',
-    'Algenib',
-    'Rasalgethi',
-    'Laomedeia',
-    'Achernar',
-    'Alnilam',
-    'Schedar',
-    'Gacrux',
-    'Pulcherrima',
-    'Achird',
-    'Zubenelgenubi',
-    'Vindemiatrix',
-    'Sadachbia',
-    'Sadaltager',
-    'Sulafat'
-  ],
+  'tts.gemini.voice': GEMINI_TTS_VOICES,
   'tts.xai.voice_id': ['eve'],
   'tts.minimax.model': ['speech-02-hd', 'speech-02-turbo'],
   'tts.mistral.model': ['voxtral-mini-tts-2603'],
@@ -338,8 +345,11 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'tts.neutts.model': ['neuphonic/neutts-air-q4-gguf', 'neuphonic/neutts-air-q8-gguf', 'neuphonic/neutts-air'],
   // Text-to-speech backends — kept in sync with the built-in source of truth
   // (agent/tts_registry.py::_BUILTIN_NAMES / tools/tts_tool.py::
-  // BUILTIN_TTS_PROVIDERS). 'xai' is Grok TTS.
+  // BUILTIN_TTS_PROVIDERS). 'xai' is Grok TTS. 'agentx-gateway' is the bundled
+  // plugin (plugins/tts/agentx_gateway) — the speech model the AgentX account
+  // was granted; provisioning selects it for an account that has one.
   'tts.provider': [
+    'agentx-gateway',
     'edge',
     'elevenlabs',
     'openai',
@@ -358,6 +368,11 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   // NeuTTS local inference device.
   'tts.neutts.device': ['cpu', 'cuda', 'mps'],
   'updates.non_interactive_local_changes': ['stash', 'discard']
+}
+
+// Provider ids shown by their product name instead of a prettified id.
+export const TTS_PROVIDER_LABELS: Record<string, string> = {
+  'agentx-gateway': 'AgentX AI Gateway'
 }
 
 // Voice/model name fields render as a free-input combobox (Input + datalist)
@@ -476,6 +491,9 @@ export const FIELD_LABELS: Record<string, string> = defineFieldCopy({
   },
   tts: {
     provider: 'Text-To-Speech Provider',
+    agentxGateway: {
+      voice: 'AgentX AI Gateway Voice'
+    },
     edge: {
       voice: 'Edge Voice'
     },
@@ -712,6 +730,7 @@ export const SECTIONS: DesktopConfigSection[] = [
       'stt.echo_transcripts',
       'stt.provider',
       'voice.auto_tts',
+      'tts.agentx_gateway.voice',
       'tts.edge.voice',
       'tts.openai.model',
       'tts.openai.voice',

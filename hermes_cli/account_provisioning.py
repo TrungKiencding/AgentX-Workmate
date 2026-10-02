@@ -589,6 +589,7 @@ def _key_from_second_brain(
         web_search_model=str(payload.get("web_search_model") or "").strip(),
         image_model=str(payload.get("image_model") or "").strip(),
         vision_model=str(payload.get("vision_model") or "").strip(),
+        speech_model=str(payload.get("speech_model") or "").strip(),
     )
     base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
     return minted, base_url, str(payload.get("status") or "issued")
@@ -687,6 +688,7 @@ def _write_provider_config(
     default_model: str = "",
     previous_models: tuple[str, ...] = (),
     vision_model: str = "",
+    speech_model: str = "",
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -796,6 +798,7 @@ def _write_provider_config(
         _drop_provider_models(settings.provider_name, retired_models)
 
     _apply_vision_model(settings.provider_name, vision_model)
+    _apply_speech_default(speech_model)
 
 
 def _discovers_models(settings: LiteLLMAccountSettings) -> bool:
@@ -886,6 +889,39 @@ def _apply_vision_model(provider_name: str, vision_model: str) -> bool:
     return True
 
 
+def _apply_speech_default(speech_model: str) -> bool:
+    """Make the AgentX gateway the TTS provider of an account granted a speech model.
+
+    With a speech model granted, ``tts.provider`` becomes ``agentx-gateway`` —
+    but only while nobody has chosen a provider: an absent (or empty) key means
+    the built-in default (Edge, English voice) would read Vietnamese replies,
+    while any value someone wrote, ``edge`` included, is their choice and stays.
+    Without a speech model the gateway cannot speak, so a provider naming it is
+    removed again and the default takes over.
+
+    A full-document write, like ``_release_vision_pin``: removing the key must
+    not be undone by ``merge_existing``.
+    """
+    from hermes_cli.config import read_raw_config, save_config
+    from tools.agentx_gateway_tts import PROVIDER_NAME
+
+    raw = read_raw_config()
+    tts = raw.get("tts")
+    tts = tts if isinstance(tts, dict) else {}
+    current = str(tts.get("provider") or "").strip().lower()
+    if speech_model:
+        if current:
+            return False
+        tts["provider"] = PROVIDER_NAME
+    else:
+        if current != PROVIDER_NAME:
+            return False
+        tts.pop("provider", None)
+    raw["tts"] = tts
+    save_config(raw)
+    return True
+
+
 def _release_vision_pin(provider_name: str) -> bool:
     """Drop an ``auxiliary.vision`` pin that names this account's proxy.
 
@@ -937,7 +973,10 @@ def _upgrade_stale_label(entry: dict[str, Any]) -> bool:
 
 
 def _ensure_vision_follows_main(
-    settings: LiteLLMAccountSettings, models: tuple[str, ...], vision_model: str = ""
+    settings: LiteLLMAccountSettings,
+    models: tuple[str, ...],
+    vision_model: str = "",
+    speech_model: str = "",
 ) -> None:
     """Tidy an account whose key is simply reused: vision policy, label, discovery.
 
@@ -964,6 +1003,7 @@ def _ensure_vision_follows_main(
         if vision_changed or label_changed or discovery_changed:
             save_config(cfg, merge_existing=True)
     _apply_vision_model(settings.provider_name, vision_model)
+    _apply_speech_default(speech_model)
 
 
 def _tidy_reused_account(
@@ -986,7 +1026,10 @@ def _tidy_reused_account(
     models = _chat_models(recorded, *roles)
 
     _ensure_vision_follows_main(
-        settings, models, vision_model=str(state.get("vision_model") or "").strip()
+        settings,
+        models,
+        vision_model=str(state.get("vision_model") or "").strip(),
+        speech_model=str(state.get("speech_model") or "").strip(),
     )
 
     leaked = tuple(role for role in roles if role in recorded)
@@ -1000,10 +1043,10 @@ def _tidy_reused_account(
 
 
 def _role_models(state: Mapping[str, Any]) -> tuple[str, ...]:
-    """The feature models a sidecar records: web search, image generation, vision."""
+    """The feature models a sidecar records: web search, image generation, vision, speech."""
     names = (
         str(state.get(field) or "").strip()
-        for field in ("web_search_model", "image_model", "vision_model")
+        for field in ("web_search_model", "image_model", "vision_model", "speech_model")
     )
     return tuple(dict.fromkeys(name for name in names if name))
 
@@ -1635,13 +1678,16 @@ def _rotate(
         # taken back out of the picker instead of accumulating forever.
         previous_models=tuple(str(m) for m in (state.get("models") or ())),
         vision_model=minted.vision_model,
+        speech_model=minted.speech_model,
     )
 
     # The models each feature calls with this key: granted by the second brain
     # beside ``models``, never among them, and recorded here rather than in
-    # config because nobody picks them — ``plugins/web/agentx_gateway`` and
-    # ``plugins/image_gen/agentx_gateway`` read them from this file, and the
-    # vision model is also pinned in ``auxiliary.vision`` above.
+    # config because nobody picks them — ``plugins/web/agentx_gateway``,
+    # ``plugins/image_gen/agentx_gateway`` and ``tools/agentx_gateway_tts`` read
+    # them from this file, the vision model is also pinned in
+    # ``auxiliary.vision`` and the speech model's backend made the TTS
+    # provider above.
     web_search_model = minted.web_search_model
     if reachable is None:
         reachable = (*models, *minted.role_models)
@@ -1665,6 +1711,7 @@ def _rotate(
             "web_search_model": web_search_model,
             "image_model": minted.image_model,
             "vision_model": minted.vision_model,
+            "speech_model": minted.speech_model,
             "reachable_models": sorted(set(reachable)),
         },
     )

@@ -828,6 +828,9 @@ export const vi: Translations = {
       },
       tts: {
         provider: 'Nhà cung cấp text-to-speech',
+        agentxGateway: {
+          voice: 'Giọng đọc AgentX AI Gateway'
+        },
         edge: {
           voice: 'Giọng Edge'
         },

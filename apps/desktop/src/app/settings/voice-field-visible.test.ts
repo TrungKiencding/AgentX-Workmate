@@ -45,4 +45,11 @@ describe('voiceFieldVisible', () => {
     expect(voiceFieldVisible('tts.openai.voice', cfg({ tts: { provider: 'openai', openai: {} } }))).toBe(true)
     expect(voiceFieldVisible('tts.edge.voice', cfg({ tts: { provider: 'openai', openai: {} } }))).toBe(false)
   })
+
+  it('shows the AgentX gateway voice under its YAML-friendly section name', () => {
+    const gateway = cfg({ tts: { provider: 'agentx-gateway' } })
+    expect(voiceFieldVisible('tts.agentx_gateway.voice', gateway)).toBe(true)
+    expect(voiceFieldVisible('tts.edge.voice', gateway)).toBe(false)
+    expect(voiceFieldVisible('tts.agentx_gateway.voice', cfg())).toBe(false)
+  })
 })

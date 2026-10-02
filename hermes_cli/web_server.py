@@ -1091,7 +1091,21 @@ _SCHEMA_OVERRIDES: Dict[str, Dict[str, Any]] = {
     "tts.provider": {
         "type": "select",
         "description": "Text-to-speech provider",
-        "options": ["edge", "elevenlabs", "openai", "xai", "minimax", "mistral", "gemini", "neutts", "kittentts", "piper"],
+        # ``agentx-gateway`` is the bundled plugin (plugins/tts/agentx_gateway): the
+        # speech model the signed-in AgentX account was granted.
+        "options": [
+            "agentx-gateway",
+            "edge",
+            "elevenlabs",
+            "openai",
+            "xai",
+            "minimax",
+            "mistral",
+            "gemini",
+            "neutts",
+            "kittentts",
+            "piper",
+        ],
     },
     "stt.provider": {
         "type": "select",

@@ -486,3 +486,32 @@ class XAIStreamer(StreamingTTSProvider):
                     return
                 logger.warning("xAI WS receive failed: %s", exc)
                 return
+
+
+@register("agentx-gateway")
+class AgentXGatewayStreamer(StreamingTTSProvider):
+    """AgentX AI Gateway speech → raw PCM (24 kHz mono int16), as it arrives.
+
+    The account's granted speech model on the gateway, with the account's own
+    key (``tools.agentx_gateway_tts``). The gateway answers PCM natively, so
+    this is the streaming shape of the provider rather than an adaptation:
+    voice mode and the desktop's streamed playback start on the first chunk of
+    each sentence.
+    """
+
+    sample_rate = 24000
+
+    @staticmethod
+    def available() -> bool:
+        from tools.agentx_gateway_tts import account_speech_gateway
+
+        return account_speech_gateway() is not None
+
+    def stream(self, text: str) -> Iterator[bytes]:
+        from tools.agentx_gateway_tts import iter_pcm
+
+        voice = self.tts_config.get("voice") if isinstance(self.tts_config, dict) else None
+        yield from _capped(
+            iter_pcm(text, voice if isinstance(voice, str) else None, limit=_STREAM_SENTENCE_BYTE_CAP),
+            "AgentX gateway streaming TTS",
+        )

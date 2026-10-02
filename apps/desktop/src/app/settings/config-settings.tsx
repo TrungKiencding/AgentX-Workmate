@@ -28,6 +28,7 @@ import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { PanelEmpty } from '../overlays/panel'
 
 import { ConfigField } from './config-field'
+import { TTS_PROVIDER_LABELS } from './constants'
 import { enumOptionsFor, getNested, isExternalMemoryProvider, sectionFieldEntries, setNested } from './helpers'
 import { MemoryConnect } from './memory/connect'
 import { ProviderConfigPanel } from './memory/provider-config-panel'
@@ -52,7 +53,11 @@ export function voiceFieldVisible(key: string, config: HermesConfigRecord): bool
     return false
   }
 
-  return provider === String(getNested(config, `${domain}.provider`) ?? '')
+  // A config section is a YAML-friendly spelling of its provider's name:
+  // ``tts.agentx_gateway.*`` belongs to the ``agentx-gateway`` provider.
+  const selected = String(getNested(config, `${domain}.provider`) ?? '')
+
+  return provider === selected || provider === selected.replace(/-/g, '_')
 }
 
 export function ConfigSettings({
@@ -354,7 +359,13 @@ export function ConfigSettings({
                     : enumOptionsFor(key, getNested(config, key), config)
                 }
                 onChange={value => updateConfig(setNested(config, key, value))}
-                optionLabels={key === 'tts.elevenlabs.voice_id' ? elevenLabsVoiceLabels : undefined}
+                optionLabels={
+                  key === 'tts.elevenlabs.voice_id'
+                    ? elevenLabsVoiceLabels
+                    : key === 'tts.provider'
+                      ? TTS_PROVIDER_LABELS
+                      : undefined
+                }
                 schema={field}
                 schemaKey={key}
                 value={getNested(config, key)}

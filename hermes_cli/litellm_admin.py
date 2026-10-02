@@ -82,12 +82,18 @@ class MintedKey:
     image_model: str = ""
     #: The model that reads pictures for the vision slot, granted beside ``models``, or ``""``.
     vision_model: str = ""
+    #: The text-to-speech model that reads replies aloud, granted beside ``models``, or ``""``.
+    speech_model: str = ""
 
     @property
     def role_models(self) -> tuple[str, ...]:
         """The models granted for a feature, never offered in the picker."""
         return tuple(
-            dict.fromkeys(m for m in (self.web_search_model, self.image_model, self.vision_model) if m)
+            dict.fromkeys(
+                m
+                for m in (self.web_search_model, self.image_model, self.vision_model, self.speech_model)
+                if m
+            )
         )
 
     @property

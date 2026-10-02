@@ -193,6 +193,14 @@ describe('settings helpers', () => {
       expect(opts).toContain('elevenlabs')
     })
 
+    it('offers the AgentX gateway first, with Gemini voices only', () => {
+      expect(enumOptionsFor('tts.provider', 'agentx-gateway', config)?.[0]).toBe('agentx-gateway')
+      const voices = enumOptionsFor('tts.agentx_gateway.voice', 'Kore', config)
+      expect(voices).toContain('Kore')
+      expect(voices).toEqual(enumOptionsFor('tts.gemini.voice', 'Kore', config))
+      expect(voices).not.toContain('alloy')
+    })
+
     it('renders a dropdown for the STT provider including xAI (Grok)', () => {
       const opts = enumOptionsFor('stt.provider', 'local', config)
       expect(opts).toEqual(['local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs'])

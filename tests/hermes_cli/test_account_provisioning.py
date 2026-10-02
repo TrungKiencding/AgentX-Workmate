@@ -887,6 +887,9 @@ class FakeSecondBrain:
         # `grants` (None = a service that predates feature models).
         self.image_model: str | None = None
         self.vision_model: str | None = None
+        # The text-to-speech model the NEXT issued key carries (None = a service
+        # that predates it).
+        self.speech_model: str | None = None
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -922,18 +925,22 @@ class FakeSecondBrain:
         record["models"] = [*held["models"], model] if model else list(held["models"])
         held["web_search_model"] = model
 
-    def grant_features(self, subject: str, *, image: str = "", vision: str = "") -> None:
-        """The grant pass naming an image and a vision model for a key somebody holds.
+    def grant_features(
+        self, subject: str, *, image: str = "", vision: str = "", speech: str | None = None
+    ) -> None:
+        """The grant pass naming an image, a vision (and a speech) model for a key somebody holds.
 
         Like the real service, a model named for a feature leaves the chat list
         and the key's allowlist gains whatever it did not reach yet.
         """
         held = self.keys[subject]
         record = self.proxy.records[held["token"]]
-        roles = [m for m in (image, vision) if m]
+        roles = [m for m in (image, vision, speech) if m]
         held["models"] = [m for m in held["models"] if m not in roles]
         held["image_model"] = image
         held["vision_model"] = vision
+        if speech is not None:
+            held["speech_model"] = speech
         record["models"] = [*record["models"], *(m for m in roles if m not in record["models"])]
 
     def retire_model(self, subject: str, model: str) -> None:
@@ -987,7 +994,7 @@ class FakeSecondBrain:
         # Scoped the way the real service scopes a key: the grant, then web
         # search. An empty scope is LiteLLM's "everything", as before.
         search = [self.web_search_model] if self.web_search_model else []
-        features = [m for m in (self.image_model, self.vision_model) if m]
+        features = [m for m in (self.image_model, self.vision_model, self.speech_model) if m]
         record = self.proxy.mint(
             alias, models=list(dict.fromkeys([*self.grants, *search, *features])), user_id=subject
         )
@@ -1008,6 +1015,8 @@ class FakeSecondBrain:
             issued["image_model"] = self.image_model
         if self.vision_model is not None:
             issued["vision_model"] = self.vision_model
+        if self.speech_model is not None:
+            issued["speech_model"] = self.speech_model
         self.keys[subject] = issued
         return httpx.Response(
             200, json={**issued, "status": "rotated" if held is not None else "issued"}
@@ -2713,6 +2722,90 @@ class TestFeatureModels:
 
         vision = raw_config(account.home)["auxiliary"]["vision"]
         assert (vision["provider"], vision["model"]) == ("auto", "")
+
+
+class TestSpeechModel:
+    """The text-to-speech model: reachable with the key, never in a picker, read aloud by default.
+
+    The service names it beside the chat grant like the other feature models.
+    The laptop records it for ``tools/agentx_gateway_tts`` and makes the
+    gateway the TTS provider — unless the person already chose one — so replies
+    are read in the account's speech model instead of Edge's English voice.
+    """
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def _grant(self, brain, speech="voice-model"):
+        brain.grants = ["big-chat", "small-chat"]
+        brain.web_search_model = "search-model"
+        brain.speech_model = speech
+
+    def test_recorded_kept_out_of_the_picker_and_made_the_tts_provider(self, account, brain):
+        self._grant(brain)
+
+        result = self._provision(account, brain)
+
+        assert result.ok, result.detail
+        assert result.models == ("big-chat", "small-chat")
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat", "small-chat"}
+        state = read_state(account.home)
+        assert state["speech_model"] == "voice-model"
+        assert "voice-model" in state["reachable_models"]
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+    def test_a_provider_somebody_chose_stays(self, account, brain):
+        from hermes_cli.config import read_raw_config, save_config
+
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+        # Settings → Voice → Edge: the key is already in the file, so even the
+        # schema default is saved as the person's choice — and survives.
+        raw = read_raw_config()
+        raw["tts"]["provider"] = "edge"
+        save_config(raw)
+        assert raw_config(account.home)["tts"]["provider"] == "edge"
+        self._provision(account, brain)
+        self._provision(account, brain, force_rotate=True)
+
+        assert raw_config(account.home)["tts"]["provider"] == "edge"
+
+    def test_a_hand_written_provider_stays(self, account, brain):
+        (account.home / "config.yaml").write_text("tts:\n  provider: openai\n")
+        self._grant(brain)
+
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["tts"]["provider"] == "openai"
+
+    def test_a_speech_model_granted_later_arrives_on_the_reuse_path(self, account, brain):
+        self._grant(brain, speech=None)
+        first = self._provision(account, brain)
+        assert first.ok and "provider" not in (raw_config(account.home).get("tts") or {})
+
+        brain.grant_features("tok", speech="voice-model")
+        again = self._provision(account, brain)
+
+        assert again.ok, again.detail
+        assert again.models == ("big-chat", "small-chat")
+        assert read_state(account.home)["speech_model"] == "voice-model"
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+    def test_no_speech_model_hands_the_provider_back(self, account, brain):
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+        brain.speech_model = ""
+        self._provision(account, brain, force_rotate=True)
+
+        assert "provider" not in raw_config(account.home)["tts"]
+        assert read_state(account.home)["speech_model"] == ""
 
 
 class TestStaleDeprecatedModes:
