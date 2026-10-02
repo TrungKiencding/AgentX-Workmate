@@ -1,30 +1,30 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
+import type { AppUpdateState } from '@/global'
 import { type Translations, useI18n } from '@/i18n'
+import { formatByteSize } from '@/lib/format'
 import { CheckCircle2, ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import {
-  $desktopVersion,
-  $updateApply,
-  $updateChecking,
-  $updateStatus,
-  checkUpdates,
-  openUpdatesWindow,
-  refreshDesktopVersion,
-  startActiveUpdate
-} from '@/store/updates'
+  $appUpdate,
+  cancelAppUpdateDownload,
+  checkAppUpdate,
+  downloadAppUpdate,
+  downloadProblemKey,
+  installAppUpdate
+} from '@/store/app-update'
+import { openUpdateOverlay } from '@/store/update-overlay'
+import { $desktopVersion, refreshDesktopVersion } from '@/store/updates'
 
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 import { WebmateUpdateCard } from './webmate-update-card'
 
-const RELEASE_NOTES_URL = 'https://github.com/TrungKiencding/AgentX-Workmate/releases'
-
-function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {
+function relativeTime(ms: null | number | undefined, a: Translations['settings']['about']) {
   if (!ms) {
     return a.never
   }
@@ -46,52 +46,73 @@ function relativeTime(ms: number | undefined, a: Translations['settings']['about
   return a.daysAgo(Math.round(diff / 86_400_000))
 }
 
+type Tone = 'available' | 'error' | 'idle'
+
+/** The one-line summary of this app's update state, and how loudly to say it. */
+export function appUpdateStatusLine(state: AppUpdateState | null, t: Translations): { line: string; tone: Tone } {
+  const a = t.settings.about
+  const u = t.appUpdate
+  const next = state?.release?.version ?? ''
+
+  if (state?.installError) {
+    return { line: u.installFailed, tone: 'error' }
+  }
+
+  switch (state?.phase) {
+    case 'available':
+      return state.downloadError
+        ? { line: u.downloadFailed[downloadProblemKey(state.downloadError.kind)], tone: 'error' }
+        : { line: u.statusAvailable(next), tone: 'available' }
+    case 'downloading': {
+      const total = state.progress?.totalBytes ?? 0
+      const percent = total > 0 ? Math.floor(((state.progress?.receivedBytes ?? 0) / total) * 100) : 0
+
+      return { line: u.statusDownloading(percent), tone: 'available' }
+    }
+
+    case 'ready':
+      return { line: u.statusReady(next), tone: 'available' }
+
+    case 'installing':
+      return { line: u.statusInstalling, tone: 'available' }
+
+    case 'up-to-date':
+      return { line: a.onLatest, tone: 'idle' }
+
+    default:
+      if (state?.checking) {
+        return { line: u.checking, tone: 'idle' }
+      }
+
+      return state?.checkError ? { line: a.cantReach, tone: 'error' } : { line: a.tapCheck, tone: 'idle' }
+  }
+}
+
 export function AboutSettings() {
   const { t } = useI18n()
   const a = t.settings.about
+  const u = t.appUpdate
   const version = useStore($desktopVersion)
-  const status = useStore($updateStatus)
-  const apply = useStore($updateApply)
-  const checking = useStore($updateChecking)
-  const [justChecked, setJustChecked] = useState(false)
+  const state = useStore($appUpdate)
 
-  // The version atom is loaded once at app boot, which makes About show a
-  // stale number after a self-update (the running binary is current, the
-  // displayed string is not). Re-read on mount so opening About always
-  // reflects the running build.
+  // The version atom is loaded once at app boot; re-read it on mount so opening
+  // About always reflects the running build and the agent beside it.
   useEffect(() => {
     void refreshDesktopVersion()
   }, [])
 
-  const behind = status?.behind ?? 0
-  const supported = status?.supported !== false
-  const applying = apply.applying || apply.stage === 'restart'
+  const phase = state?.phase
+  const busy = Boolean(state?.checking) || phase === 'downloading' || phase === 'installing'
+  const { line, tone } = appUpdateStatusLine(state, t)
+  const agentLags = Boolean(version?.agentVersion && version.agentVersion !== version.appVersion)
 
-  const handleCheck = async () => {
-    setJustChecked(false)
-    const next = await checkUpdates()
-    setJustChecked(Boolean(next))
-  }
+  const install = async () => {
+    const outcome = await installAppUpdate()
 
-  let statusLine: string
-  let statusTone: 'idle' | 'available' | 'error' = 'idle'
-
-  if (!supported) {
-    statusLine = status?.message ?? a.cantUpdate
-    statusTone = 'error'
-  } else if (status?.error) {
-    statusLine = a.cantReach
-    statusTone = 'error'
-  } else if (applying) {
-    statusLine = a.installing
-    statusTone = 'available'
-  } else if (behind > 0) {
-    statusLine = a.updateReady(behind)
-    statusTone = 'available'
-  } else if (status) {
-    statusLine = a.onLatest
-  } else {
-    statusLine = a.tapCheck
+    // Asking about the agent's work, or saying why it failed, is the dialog's job.
+    if (outcome && !outcome.started) {
+      openUpdateOverlay('client')
+    }
   }
 
   return (
@@ -102,6 +123,7 @@ export function AboutSettings() {
           <h2 className="text-lg font-semibold tracking-tight">{a.heading}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {version?.appVersion ? a.version(version.appVersion) : a.versionUnavailable}
+            {agentLags && version ? ` · ${a.agentVersion(version.agentVersion)}` : ''}
           </p>
         </div>
       </div>
@@ -112,70 +134,76 @@ export function AboutSettings() {
         <div
           className={cn(
             'rounded-xl border px-4 py-3 text-sm',
-            statusTone === 'available' && 'border-primary/30 bg-primary/5 text-foreground',
-            statusTone === 'error' && 'border-destructive/35 bg-destructive/5 text-destructive',
-            statusTone === 'idle' && 'border-border/70 bg-muted/20 text-foreground'
+            tone === 'available' && 'border-primary/30 bg-primary/5 text-foreground',
+            tone === 'error' && 'border-destructive/35 bg-destructive/5 text-destructive',
+            tone === 'idle' && 'border-border/70 bg-muted/20 text-foreground'
           )}
         >
           <div className="flex items-start gap-2">
-            {statusTone === 'available' ? (
+            {tone === 'available' ? (
               <Codicon className="mt-0.5 size-4 shrink-0 text-primary" name="cloud-download" size="1rem" />
-            ) : statusTone === 'error' ? null : (
+            ) : tone === 'error' ? null : (
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             )}
             <div className="min-w-0">
-              <p className="font-medium">{statusLine}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {a.lastChecked(relativeTime(status?.fetchedAt, a))}
-                {justChecked && !checking ? a.justNowSuffix : ''}
-              </p>
+              <p className="font-medium">{line}</p>
+              {state?.blocked && phase !== 'up-to-date' && (
+                <p className="mt-1 text-xs text-muted-foreground">{u.blocked[state.blocked]}</p>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">{a.lastChecked(relativeTime(state?.checkedAt, a))}</p>
             </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-4">
-            <Button
-              disabled={checking || applying || !supported}
-              onClick={() => void handleCheck()}
-              size="sm"
-              variant="textStrong"
-            >
-              {checking ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
-              {checking ? a.checking : a.checkNow}
+            <Button disabled={busy} onClick={() => void checkAppUpdate()} size="sm" variant="textStrong">
+              {state?.checking ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+              {state?.checking ? a.checking : a.checkNow}
             </Button>
 
-            {behind > 0 && supported && !applying && (
-              <>
-                <Button onClick={() => startActiveUpdate()} size="sm">
-                  {a.updateNow}
-                </Button>
-                <Button onClick={() => openUpdatesWindow()} size="sm" variant="textStrong">
-                  {a.seeWhatsNew}
-                </Button>
-              </>
+            {phase === 'available' && !state?.blocked && (
+              <Button onClick={() => void downloadAppUpdate()} size="sm">
+                {u.download(formatByteSize(state?.release?.bytes))}
+              </Button>
             )}
 
-            <Button asChild className="ml-auto" size="sm" variant="text">
-              <a
-                href={RELEASE_NOTES_URL}
-                onClick={event => {
-                  event.preventDefault()
-                  void window.agentxDesktop?.openExternal?.(RELEASE_NOTES_URL)
-                }}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <ExternalLink className="size-3" />
-                {a.releaseNotes}
-              </a>
-            </Button>
+            {phase === 'downloading' && (
+              <Button onClick={() => void cancelAppUpdateDownload()} size="sm" variant="textStrong">
+                {u.cancelDownload}
+              </Button>
+            )}
+
+            {phase === 'ready' && (
+              <Button onClick={() => void install()} size="sm">
+                {u.restartToUpdate}
+              </Button>
+            )}
+
+            {(phase === 'available' || phase === 'ready') && (
+              <Button onClick={() => openUpdateOverlay('client')} size="sm" variant="textStrong">
+                {a.seeWhatsNew}
+              </Button>
+            )}
+
+            {state?.downloadPageUrl && (
+              <Button asChild className="ml-auto" size="sm" variant="text">
+                <a
+                  href={state.downloadPageUrl}
+                  onClick={event => {
+                    event.preventDefault()
+                    void window.agentxDesktop?.openExternal?.(state.downloadPageUrl)
+                  }}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <ExternalLink className="size-3" />
+                  {a.downloadPage}
+                </a>
+              </Button>
+            )}
           </div>
         </div>
 
-        <ListRow
-          description={a.automaticUpdatesDesc}
-          hint={a.branchCommit(status?.branch ?? 'unknown', status?.currentSha?.slice(0, 7) ?? 'unknown')}
-          title={a.automaticUpdates}
-        />
+        <ListRow description={a.automaticUpdatesDesc} title={a.automaticUpdates} />
 
         {/* The browser extension updates on its own feed; it reads like the app's card above. */}
         <SectionHeading icon={RefreshCw} title={t.webmate.update.heading} />

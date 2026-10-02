@@ -7,10 +7,11 @@ import { afterEach, describe, expect, it, type Mock, vi } from 'vitest'
 // `agentx://blueprint/<key>` still becomes a reviewable /blueprint command.
 
 vi.mock('@/store/updates', () => ({
-  openUpdatesWindow: vi.fn(),
+  requestActiveUpdate: vi.fn(),
   startUpdatePoller: vi.fn(),
   stopUpdatePoller: vi.fn()
 }))
+vi.mock('@/store/app-update', () => ({ startAppUpdateSync: vi.fn(() => () => undefined) }))
 vi.mock('@/store/webmate', () => ({ startWebmateWatcher: vi.fn(), stopWebmateWatcher: vi.fn() }))
 vi.mock('@/store/native-notifications', () => ({ respondToApprovalAction: vi.fn() }))
 vi.mock('@/store/projects', () => ({ openFolderAsProject: vi.fn() }))

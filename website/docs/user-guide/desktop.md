@@ -168,9 +168,11 @@ The app also surfaces the broader AgentX management surface so you don't have to
 
 ## Updating
 
-The app checks for updates in the background and offers a one-click update when one is ready.
+The installed app updates itself and the agent together. It checks the release feed on the download site in the background and tells you when a new version is out; **Download update** fetches the installer for your computer in the background, and **Restart to update** installs it and reopens the app (on macOS by replacing the app bundle, on Windows by running the installer silently). On its first start the new version brings the agent up to the commit it was built from — this can take a few minutes — and then confirms the update. **Settings → About** shows the same state and checks on demand.
 
-The [manual update process](/getting-started/updating) also works with the GUI.
+Every release is signed: the app installs a download only when its size and sha256 match the signed feed. If the app cannot replace itself — macOS running it straight from Downloads or the disk image, a folder your account cannot write, or a copy not set up by the installer — it links to the download page instead.
+
+`agentx update` (see [Updating](/getting-started/updating)) updates only the agent; with the desktop app installed, update from the app so the two stay on the same version.
 
 ## Uninstalling
 
@@ -374,9 +376,9 @@ macOS/Windows signing and notarization run automatically when the relevant crede
 
 macOS remembers permission grants (Full Disk Access, Desktop/Downloads/Documents,
 Accessibility, Automation, microphone) against the app's *code-signing identity*,
-not its path. Locally built and self-updated apps are signed with a stable
-identifier-pinned ad-hoc signature, so grants persist across updates out of the
-box.
+not its path. Release builds without a Developer ID and locally built apps are
+signed with a stable identifier-pinned ad-hoc signature, so grants persist
+across updates out of the box.
 
 For the strongest guarantee — a certificate-anchored identity, the same
 mechanism yabai/skhd users rely on — create a self-signed code-signing
@@ -387,9 +389,9 @@ certificate once and tell AgentX to use it:
    Certificate Type: **Code Signing**.
 3. `agentx config set desktop.macos_signing_identity "AgentX Local Signing"`
 
-The next update re-signs the rebuilt app with that certificate; every TCC grant
-survives. No Apple Developer account is required. Notarized release builds are
-detected and never re-signed.
+The next local rebuild (`agentx desktop`) re-signs the app with that
+certificate; every TCC grant survives. No Apple Developer account is required.
+Notarized release builds are detected and never re-signed.
 
 One-time note: changing the signing identity (including the first update after
 this fix) changes the app's identity once, so macOS will re-prompt one final

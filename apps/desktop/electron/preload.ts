@@ -354,16 +354,20 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     summary: () => ipcRenderer.invoke('agentx:uninstall:summary'),
     run: mode => ipcRenderer.invoke('agentx:uninstall:run', { mode })
   },
-  updates: {
-    check: () => ipcRenderer.invoke('agentx:updates:check'),
-    apply: opts => ipcRenderer.invoke('agentx:updates:apply', opts),
-    getBranch: () => ipcRenderer.invoke('agentx:updates:branch:get'),
-    setBranch: name => ipcRenderer.invoke('agentx:updates:branch:set', name),
-    onProgress: callback => {
+  // The app's own updates; main owns the state (electron/app-update/).
+  appUpdate: {
+    get: () => ipcRenderer.invoke('agentx:app-update:get'),
+    check: () => ipcRenderer.invoke('agentx:app-update:check'),
+    download: () => ipcRenderer.invoke('agentx:app-update:download'),
+    cancel: () => ipcRenderer.invoke('agentx:app-update:cancel'),
+    install: options => ipcRenderer.invoke('agentx:app-update:install', options),
+    acknowledge: () => ipcRenderer.invoke('agentx:app-update:acknowledge'),
+    restart: () => ipcRenderer.invoke('agentx:app-update:restart'),
+    onState: callback => {
       const listener = (_event, payload) => callback(payload)
-      ipcRenderer.on('agentx:updates:progress', listener)
+      ipcRenderer.on('agentx:app-update:state', listener)
 
-      return () => ipcRenderer.removeListener('agentx:updates:progress', listener)
+      return () => ipcRenderer.removeListener('agentx:app-update:state', listener)
     }
   },
   // AgentX WebMate (browser extension Workmate installs from its own folder).

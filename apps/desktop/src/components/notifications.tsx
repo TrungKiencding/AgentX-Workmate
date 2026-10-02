@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils'
 import {
   $notifications,
   type AppNotification,
-  clearNotifications,
-  dismissNotification,
+  closeAllNotifications,
+  closeNotification,
   type NotificationKind
 } from '@/store/notifications'
 
@@ -130,7 +130,7 @@ function TopCenterStack({
           <Button className="-ml-2" onClick={onToggleExpanded} size="xs" type="button" variant="text">
             {expanded ? copy.hide : copy.show} {copy.more(older.length)}
           </Button>
-          <Button className="-mr-2" onClick={clearNotifications} size="xs" type="button" variant="text">
+          <Button className="-mr-2" onClick={closeAllNotifications} size="xs" type="button" variant="text">
             {copy.clearAll}
           </Button>
         </div>
@@ -223,7 +223,7 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
               className="mt-1.5"
               onClick={() => {
                 notification.action?.onClick()
-                dismissNotification(notification.id)
+                closeNotification(notification.id)
               }}
               size="xs"
               type="button"
@@ -237,7 +237,7 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
       <Button
         aria-label={copy.dismiss}
         className="col-start-3 -mr-1 text-muted-foreground"
-        onClick={() => dismissNotification(notification.id)}
+        onClick={() => closeNotification(notification.id)}
         size="icon-xs"
         type="button"
         variant="ghost"

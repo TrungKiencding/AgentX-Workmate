@@ -201,10 +201,14 @@ export const en: Translations = {
     backendOutOfDateTitle: 'Backend out of date',
     backendOutOfDateMessage:
       'Your AgentX backend is older than this desktop build and may not work correctly. Update to align them.',
+    agentOutOfDateMessage:
+      'The AgentX agent on this computer is older than this app and may not work correctly. Restart AgentX to bring it up to date.',
     installMethodUnsupportedTitle: 'Unsupported install method',
     updateHermes: 'Update AgentX',
-    updateReadyTitle: 'Update ready',
-    updateReadyMessage: count => `${count} new change${count === 1 ? '' : 's'} available.`,
+    restartApp: 'Restart AgentX',
+    backendUpdateTitle: 'Backend update available',
+    backendUpdateMessage: count => `The connected backend has ${count} new change${count === 1 ? '' : 's'}.`,
+    backendUpdateMessageNoCount: 'A newer version of the connected backend is ready.',
     seeWhatsNew: "See what's new",
     errors: {
       elevenLabsNeedsKey: 'ElevenLabs STT needs ELEVENLABS_API_KEY.',
@@ -730,24 +734,19 @@ export const en: Translations = {
       heading: 'AgentX Workmate Desktop',
       version: value => `Version ${value}`,
       versionUnavailable: 'Version unavailable',
+      agentVersion: value => `agent ${value}`,
       updates: 'Updates',
       checkNow: 'Check now',
       checking: 'Checking…',
       seeWhatsNew: "See what's new",
-      updateNow: 'Update now',
-      releaseNotes: 'Release notes',
+      downloadPage: 'Download page',
       onLatest: "You're on the latest version.",
-      installing: 'An update is currently installing.',
-      cantUpdate: "This build can't update itself from inside the app.",
       cantReach: "We couldn't reach the update server.",
       tapCheck: 'Tap "Check now" to look for updates.',
-      updateReady: count => `A new update is ready (${count} change${count === 1 ? '' : 's'} included).`,
       lastChecked: age => `Last checked ${age}`,
-      justNowSuffix: ' · just now',
-      automaticUpdates: 'Automatic updates',
+      automaticUpdates: 'Automatic update checks',
       automaticUpdatesDesc:
-        'AgentX checks for updates automatically in the background and lets you know when one is ready.',
-      branchCommit: (branch, commit) => `Branch ${branch} · Commit ${commit}`,
+        'AgentX looks for a new release in the background and tells you when there is one; you choose when to download and install it.',
       never: 'never',
       justNow: 'just now',
       minAgo: count => `${count} min ago`,
@@ -2789,48 +2788,38 @@ export const en: Translations = {
     stages: {
       idle: 'Getting ready…',
       prepare: 'Getting ready…',
-      fetch: 'Downloading…',
       pull: 'Almost there…',
-      pydeps: 'Finishing up…',
-      update: 'Updating AgentX…',
-      rebuild: 'Rebuilding the desktop app…',
-      restart: 'Restarting AgentX…',
-      done: 'Update complete',
-      manual: 'Update from your terminal',
-      guiSkew: 'Update the desktop app',
-      error: 'Update paused'
+      restart: 'Restarting the backend…'
     },
     checking: 'Looking for updates…',
     checkFailedTitle: 'Couldn’t check for updates',
     tryAgain: 'Try again',
-    notAvailableTitle: 'Update not available',
-    unsupportedMessage: 'This version of AgentX can’t update itself from inside the app.',
+    notAvailableTitle: 'Can’t update from the app',
+    unsupportedMessage: 'The connected AgentX backend can’t update itself from inside the app.',
     connectionRetry: 'Check your connection and try again.',
-    latestBody: 'You’re running the latest version.',
     latestBodyBackend: 'The backend is running the latest version.',
     allSetTitle: 'You’re all set',
-    availableTitle: 'New update available',
-    availableBody: 'A new version of AgentX is ready to install.',
     availableTitleBackend: 'Backend update available',
     availableBodyBackend: 'A newer version of the connected AgentX backend is ready to install.',
-    availableBodyNoChangelog: 'A newer version is ready. Release notes aren’t available for this install type.',
+    availableBodyNoChangelog: 'A newer version is ready. This backend doesn’t list what changed.',
+    changelogGroups: {
+      new: 'What’s new',
+      fixed: 'Fixed',
+      faster: 'Faster',
+      improved: 'Improved',
+      other: 'Other improvements'
+    },
+    changelogFallback: 'Small fixes and improvements.',
     updateNow: 'Update now',
     maybeLater: 'Maybe later',
     moreChanges: count => `+ ${count} more change${count === 1 ? '' : 's'} included.`,
-    manualTitle: 'Update from your terminal',
-    manualBody: 'You installed AgentX from the command line, so updates run there too. Paste this into your terminal:',
-    manualPickedUp: 'AgentX will pick up the new version next time you launch it.',
-    guiSkewTitle: 'Update the desktop app',
-    guiSkewBody:
-      'The backend was updated, but this desktop app package wasn’t changed. Update or reinstall the AgentX desktop app (your AppImage / .deb / .rpm) to match.',
+    manualTitle: 'Update the backend by hand',
+    manualBody: 'The connected AgentX backend can’t update itself. Run this on the machine it runs on:',
     copy: 'Copy',
     copied: 'Copied',
     done: 'Done',
-    applyingBody:
-      'The AgentX updater takes over in its own window and reopens AgentX automatically when it’s done. Please don’t reopen AgentX yourself while it’s updating.',
     applyingBodyBackend:
       'The remote backend is applying the update and will restart. AgentX reconnects automatically when it’s back.',
-    applyingClose: 'This window will close while the update runs, then AgentX reopens on its own.',
     errorTitle: 'Update didn’t finish',
     errorBody: 'No worries — nothing was lost. You can try again now.',
     notNow: 'Not now',
@@ -2842,6 +2831,93 @@ export const en: Translations = {
       failed: 'Backend update failed.',
       noReturn: 'Backend didn’t come back online. The update may not have completed — check the backend host.'
     }
+  },
+
+  appUpdate: {
+    checking: 'Looking for updates…',
+    checkNow: 'Check for updates',
+    checkFailedTitle: 'Couldn’t check for updates',
+    checkFailedBody: 'Check your connection and try again.',
+    tryAgain: 'Try again',
+    notCheckedTitle: 'AgentX hasn’t looked for updates yet',
+    upToDateTitle: 'You’re up to date',
+    upToDateBody: version => `AgentX Workmate ${version} is the latest version.`,
+    availableTitle: version => `AgentX Workmate ${version} is available`,
+    readyTitle: version => `AgentX Workmate ${version} is ready to install`,
+    releasedOn: date => `Released ${date}`,
+    whatsNew: 'What’s new',
+    download: size => (size ? `Download update (${size})` : 'Download update'),
+    retryDownload: 'Download again',
+    later: 'Later',
+    downloadingTitle: version => `Downloading AgentX Workmate ${version}`,
+    downloadProgress: (received, total) => `${received} of ${total}`,
+    downloadInBackground: 'Keep working — the download carries on in the background.',
+    hide: 'Hide',
+    cancelDownload: 'Cancel download',
+    downloadFailed: {
+      disk: 'The update couldn’t be saved. Free up some disk space and try again.',
+      http: 'The update server didn’t send the installer. Try again in a few minutes.',
+      mismatch: 'The downloaded file didn’t match the signed release, so AgentX discarded it. Try again.',
+      network: 'The download stopped because the connection dropped. Check your network and try again.',
+      other: 'The download didn’t finish. Try again.'
+    },
+    readyBodyMac: 'AgentX closes, swaps in the new version and opens again by itself.',
+    readyBodyWindows:
+      'AgentX closes while the installer runs in the background, then opens again by itself in about a minute.',
+    readyAgentNote:
+      'On its first start the new version also brings the agent up to date, which can take a few minutes.',
+    restartToUpdate: 'Restart to update',
+    installFailed:
+      'The update couldn’t be installed, so you’re still on this version. Try again, or install it from the download page.',
+    activeWorkTitle: 'The agent is still working',
+    activeWorkBody: count =>
+      count === 1
+        ? 'Updating now stops the conversation that is still running.'
+        : `Updating now stops the ${count} conversations that are still running.`,
+    updateAnyway: 'Update anyway',
+    keepWorking: 'Let it finish',
+    installingTitle: 'Restarting to update…',
+    installingBody: 'AgentX closes now and opens again by itself. Please don’t reopen it in the meantime.',
+    openDownloadPage: 'Open the download page',
+    blocked: {
+      'dev-build': 'This is a development build; it updates with git, not from here.',
+      'unsupported-platform': 'There’s no installer for this operating system yet.',
+      'no-installer-for-machine':
+        'This release has no installer for this computer yet. Get it from the download page once it’s there.',
+      'not-a-bundle':
+        'AgentX can’t replace itself from where it’s running. Install the new version from the download page.',
+      translocated:
+        'macOS is running AgentX straight from Downloads or the disk image. Move AgentX Workmate into Applications, open it from there, then update.',
+      'not-writable':
+        'AgentX isn’t allowed to replace itself in its folder (that needs an administrator account). Install the new version from the download page.',
+      'not-installer-build':
+        'This copy of AgentX wasn’t set up by the installer, so it can’t update itself. Install the new version from the download page.'
+    },
+    availableToastTitle: 'Update available',
+    availableToastMessage: version => `AgentX Workmate ${version} is ready to download.`,
+    seeWhatsNew: 'See what’s new',
+    readyToastTitle: 'Update downloaded',
+    readyToastMessage: version => `Restart AgentX to finish updating to ${version}.`,
+    updatedToastTitle: 'AgentX updated',
+    updatedToastMessage: (from, to) => `AgentX Workmate is now ${to} (was ${from}).`,
+    downloadFailedToastTitle: 'The update didn’t download',
+    installFailedToastTitle: 'The update didn’t install',
+    installFailedToastMessage: version =>
+      `AgentX Workmate ${version} wasn’t installed; you’re still on the previous version.`,
+    agentToastTitle: 'The agent wasn’t updated',
+    agentToastMessage: {
+      'held-open':
+        'Another program was using the AgentX agent, so it stayed on the previous version. Close other AgentX windows and terminals running agentx, then restart.',
+      failed:
+        'Bringing the agent up to date didn’t finish, so the previous version is running. Restart AgentX to try again.',
+      cancelled: 'The agent update was cancelled, so the previous version is running. Restart AgentX to update it.'
+    },
+    restart: 'Restart',
+    statusCurrent: version => `AgentX Workmate ${version}`,
+    statusAvailable: version => `AgentX Workmate ${version} is available`,
+    statusDownloading: percent => `Downloading the update · ${percent}%`,
+    statusReady: version => `${version} is ready — restart to update`,
+    statusInstalling: 'Installing the update…'
   },
 
   install: {
@@ -3333,12 +3409,10 @@ export const en: Translations = {
       offDescription: 'Run without approval prompts'
     },
     statusbar: {
-      unknown: 'unknown',
       restart: 'restart',
       update: 'update',
       updateInProgress: 'Update in progress',
       commitsBehind: (count, branch) => `${count} commit${count === 1 ? '' : 's'} behind ${branch}`,
-      desktopVersion: version => `AgentX Workmate Desktop v${version}`,
       backendVersion: version => `Backend v${version}`,
       clientLabel: version => `client v${version}`,
       connectionSsh: host => `SSH: ${host}`,
@@ -3348,8 +3422,6 @@ export const en: Translations = {
       connectionSshTooltip: host => `SSH · ${host}`,
       connectionRemoteTooltip: host => `Remote · ${host}`,
       backendLabel: version => `backend v${version}`,
-      commit: sha => `commit ${sha}`,
-      branch: branch => `branch ${branch}`,
       closeCommandCenter: 'Close Command Center',
       openCommandCenter: 'Open Command Center',
       showTerminal: 'Show terminal',

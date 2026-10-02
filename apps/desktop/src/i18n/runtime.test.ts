@@ -25,7 +25,7 @@ describe('desktop i18n runtime translator', () => {
   })
 
   it('passes arguments to function translations', () => {
-    expect(translateNow('notifications.updateReadyMessage', 2)).toBe('2 new changes available.')
+    expect(translateNow('notifications.backendUpdateMessage', 2)).toBe('The connected backend has 2 new changes.')
   })
 
   it('translates the default locale, including interpolated messages', () => {
@@ -34,7 +34,7 @@ describe('desktop i18n runtime translator', () => {
     expect(translateNow('boot.ready')).toBe('AgentX Workmate Desktop đã sẵn sàng')
     expect(translateNow('common.save')).toBe('Lưu')
     expect(translateNow('settings.nav.notifications')).toBe('Thông báo')
-    expect(translateNow('notifications.updateReadyMessage', 2)).toBe('Có 2 thay đổi mới.')
+    expect(translateNow('notifications.backendUpdateMessage', 2)).toBe('Backend đang kết nối có 2 thay đổi mới.')
   })
 
   it('resolves a missing key against English, not the default locale', () => {

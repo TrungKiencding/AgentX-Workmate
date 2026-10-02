@@ -30,7 +30,8 @@ import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { upsertDesktopActionTask } from '@/store/activity'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
-import { $sessions, sessionPinId } from '@/store/session'
+import { $connection, $sessions, sessionPinId } from '@/store/session'
+import { openUpdateOverlay } from '@/store/update-overlay'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -309,6 +310,17 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
     [cc, refreshSystem]
   )
 
+  // A remote backend updates itself. Locally the agent is the one this app
+  // ships and every launch brings it to the app's version, so updating it means
+  // updating the app; `agentx update` here would move it past the app instead.
+  const updateAgentx = useCallback(() => {
+    if ($connection.get()?.mode === 'remote') {
+      void runSystemAction('update')
+    } else {
+      openUpdateOverlay('client')
+    }
+  }, [runSystemAction])
+
   const navGroups = useMemo(
     () =>
       SECTIONS.map(value => ({
@@ -447,7 +459,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
                         <Button onClick={() => void runSystemAction('restart')} size="xs" variant="text">
                           {cc.restartGateway}
                         </Button>
-                        <Button onClick={() => void runSystemAction('update')} size="xs" variant="textStrong">
+                        <Button onClick={updateAgentx} size="xs" variant="textStrong">
                           {cc.updateHermes}
                         </Button>
                       </div>

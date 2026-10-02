@@ -203,10 +203,14 @@ export const ja = defineLocale({
     backendOutOfDateTitle: 'バックエンドが古いです',
     backendOutOfDateMessage:
       'AgentX バックエンドがこのデスクトップビルドより古く、正常に動作しない場合があります。更新して揃えてください。',
+    agentOutOfDateMessage:
+      'このコンピューターの AgentX エージェントはアプリより古く、正しく動作しない可能性があります。AgentX を再起動して最新にしてください。',
     installMethodUnsupportedTitle: 'サポート対象外のインストール方法',
     updateHermes: 'AgentX を更新',
-    updateReadyTitle: '更新の準備ができました',
-    updateReadyMessage: count => `${count} 件の新しい変更が利用可能です。`,
+    restartApp: 'AgentX を再起動',
+    backendUpdateTitle: 'バックエンドの更新があります',
+    backendUpdateMessage: count => `接続中のバックエンドに ${count} 件の新しい変更があります。`,
+    backendUpdateMessageNoCount: '接続中のバックエンドの新しいバージョンを利用できます。',
     seeWhatsNew: '新機能を見る',
     errors: {
       elevenLabsNeedsKey: 'ElevenLabs STT には ELEVENLABS_API_KEY が必要です。',
@@ -825,30 +829,26 @@ export const ja = defineLocale({
       },
       updates: {
         nonInteractiveLocalChanges:
-          'アプリから AgentX 自身を更新するとき、ローカルのソース変更を保持するか破棄するかを選びます。ターミナル更新では常に確認されます。'
+          '確認できるターミナルがない状態で `agentx update` が実行されるとき（このアプリから更新するリモートバックエンドや、メッセージの /update コマンド）、ローカルのソース変更を保持するか破棄するかを選びます。ターミナル更新では常に確認されます。'
       }
     }),
     about: {
       heading: 'AgentX Workmate Desktop',
       version: value => `バージョン ${value}`,
       versionUnavailable: 'バージョンを取得できません',
+      agentVersion: value => `エージェント ${value}`,
       updates: '更新',
       checkNow: '今すぐ確認',
       checking: '確認中…',
       seeWhatsNew: '新機能を見る',
-      updateNow: '今すぐ更新',
-      releaseNotes: 'リリースノート',
+      downloadPage: 'ダウンロードページ',
       onLatest: '最新バージョンです。',
-      installing: '更新をインストール中です。',
-      cantUpdate: 'このビルドはアプリ内から更新できません。',
       cantReach: '更新サーバーに接続できませんでした。',
       tapCheck: '更新を探すには「今すぐ確認」を押してください。',
-      updateReady: count => `新しい更新の準備ができました (${count} 件の変更を含みます)。`,
       lastChecked: age => `前回確認: ${age}`,
-      justNowSuffix: ' · たった今',
-      automaticUpdates: '自動更新',
-      automaticUpdatesDesc: 'AgentX はバックグラウンドで自動的に更新を確認し、利用可能になったら通知します。',
-      branchCommit: (branch, commit) => `ブランチ ${branch} · コミット ${commit}`,
+      automaticUpdates: '更新の自動確認',
+      automaticUpdatesDesc:
+        'AgentX はバックグラウンドで新しいリリースを確認し、見つかるとお知らせします。ダウンロードとインストールのタイミングは自分で選べます。',
       never: '未確認',
       justNow: 'たった今',
       minAgo: count => `${count} 分前`,
@@ -2785,49 +2785,38 @@ export const ja = defineLocale({
     stages: {
       idle: '準備中…',
       prepare: '準備中…',
-      fetch: 'ダウンロード中…',
       pull: 'もうすぐ完了…',
-      pydeps: '仕上げ中…',
-      update: 'AgentX を更新中…',
-      rebuild: 'デスクトップアプリを再ビルド中…',
-      restart: 'AgentX を再起動中…',
-      done: '更新が完了しました',
-      manual: 'ターミナルから更新',
-      guiSkew: 'デスクトップアプリを更新してください',
-      error: '更新が一時停止中'
+      restart: 'バックエンドを再起動中…'
     },
     checking: '更新を確認中…',
     checkFailedTitle: '更新を確認できませんでした',
     tryAgain: '再試行',
-    notAvailableTitle: '更新は利用できません',
-    unsupportedMessage: 'このバージョンの AgentX はアプリ内から自分を更新できません。',
+    notAvailableTitle: 'アプリから更新できません',
+    unsupportedMessage: '接続中の AgentX バックエンドはアプリ内から自分を更新できません。',
     connectionRetry: '接続を確認してもう一度試してください。',
-    latestBody: '最新バージョンを実行しています。',
     latestBodyBackend: 'バックエンドは最新バージョンを実行しています。',
     allSetTitle: '準備完了',
-    availableTitle: '新しい更新が利用可能',
-    availableBody: '新しいバージョンの AgentX をインストールする準備ができています。',
     availableTitleBackend: 'バックエンドの更新があります',
     availableBodyBackend: '接続中の AgentX バックエンドの新しいバージョンをインストールできます。',
-    availableBodyNoChangelog:
-      '新しいバージョンを利用できます。このインストール形式ではリリースノートは表示できません。',
+    availableBodyNoChangelog: '新しいバージョンを利用できます。このバックエンドは変更内容を提供していません。',
+    changelogGroups: {
+      new: '新機能',
+      fixed: '修正',
+      faster: '高速化',
+      improved: '改善',
+      other: 'その他の改善'
+    },
+    changelogFallback: '細かな修正と改善。',
     updateNow: '今すぐ更新',
     maybeLater: '後で',
     moreChanges: count => `さらに ${count} 件の変更が含まれています。`,
-    manualTitle: 'ターミナルから更新',
+    manualTitle: 'バックエンドを手動で更新',
     manualBody:
-      'AgentX をコマンドラインからインストールしたため、更新もそこで実行されます。これをターミナルに貼り付けてください:',
-    manualPickedUp: 'AgentX は次回起動時に新しいバージョンを読み込みます。',
-    guiSkewTitle: 'デスクトップアプリを更新してください',
-    guiSkewBody:
-      'バックエンドは更新されましたが、このデスクトップアプリのパッケージは変更されていません。一致させるために AgentX デスクトップアプリ（AppImage / .deb / .rpm）を更新または再インストールしてください。',
+      '接続中の AgentX バックエンドは自分で更新できません。バックエンドが動いているマシンで次のコマンドを実行してください:',
     copy: 'コピー',
     copied: 'コピーしました',
     done: '完了',
-    applyingBody:
-      'AgentX アップデーターが独自のウィンドウで引き継ぎ、完了後に自動的に AgentX を再度開きます。更新中はご自分で AgentX を開き直さないでください。',
     applyingBodyBackend: 'リモートバックエンドが更新を適用して再起動します。復帰すると AgentX が自動的に再接続します。',
-    applyingClose: 'このウィンドウは更新中に閉じ、その後 AgentX が自動的に再度開きます。',
     errorTitle: '更新が完了しませんでした',
     errorBody: 'ご安心ください。何も失われていません。今すぐ再試行できます。',
     notNow: '今は後で',
@@ -2840,6 +2829,90 @@ export const ja = defineLocale({
       noReturn:
         'バックエンドがオンラインに戻りませんでした。更新が完了していない可能性があります。バックエンドホストを確認してください。'
     }
+  },
+
+  appUpdate: {
+    checking: '更新を確認中…',
+    checkNow: '更新を確認',
+    checkFailedTitle: '更新を確認できませんでした',
+    checkFailedBody: '接続を確認してもう一度試してください。',
+    tryAgain: '再試行',
+    notCheckedTitle: 'まだ更新を確認していません',
+    upToDateTitle: '最新の状態です',
+    upToDateBody: version => `AgentX Workmate ${version} が最新バージョンです。`,
+    availableTitle: version => `AgentX Workmate ${version} が利用可能です`,
+    readyTitle: version => `AgentX Workmate ${version} をインストールする準備ができました`,
+    releasedOn: date => `${date} リリース`,
+    whatsNew: '新機能',
+    download: size => (size ? `アップデートをダウンロード（${size}）` : 'アップデートをダウンロード'),
+    retryDownload: 'もう一度ダウンロード',
+    later: '後で',
+    downloadingTitle: version => `AgentX Workmate ${version} をダウンロード中`,
+    downloadProgress: (received, total) => `${received} / ${total}`,
+    downloadInBackground: '作業を続けられます。ダウンロードはバックグラウンドで進みます。',
+    hide: '隠す',
+    cancelDownload: 'ダウンロードをキャンセル',
+    downloadFailed: {
+      disk: '更新を保存できませんでした。ディスクの空き容量を確保してから、もう一度お試しください。',
+      http: '更新サーバーからインストーラーを受け取れませんでした。数分後にもう一度お試しください。',
+      mismatch: 'ダウンロードしたファイルが署名済みのリリースと一致しなかったため、AgentX が破棄しました。もう一度お試しください。',
+      network: '接続が途切れたため、ダウンロードが止まりました。ネットワークを確認して、もう一度お試しください。',
+      other: 'ダウンロードが完了しませんでした。もう一度お試しください。'
+    },
+    readyBodyMac: 'AgentX は終了し、新しいバージョンに置き換えてから自動的に再度開きます。',
+    readyBodyWindows:
+      'インストーラーがバックグラウンドで実行される間 AgentX は終了し、約 1 分後に自動的に再度開きます。',
+    readyAgentNote: '新しいバージョンの初回起動時にはエージェントも更新されるため、数分かかることがあります。',
+    restartToUpdate: '再起動して更新',
+    installFailed:
+      '更新をインストールできなかったため、現在のバージョンのままです。もう一度試すか、ダウンロードページからインストールしてください。',
+    activeWorkTitle: 'エージェントはまだ作業中です',
+    activeWorkBody: count => `今更新すると、実行中の ${count} 件の会話が途中で止まります。`,
+    updateAnyway: 'それでも更新',
+    keepWorking: '作業が終わるまで待つ',
+    installingTitle: '再起動して更新しています…',
+    installingBody: 'AgentX はこれから終了し、自動的に再度開きます。その間に自分で開き直さないでください。',
+    openDownloadPage: 'ダウンロードページを開く',
+    blocked: {
+      'dev-build': 'これは開発ビルドです。ここではなく git で更新してください。',
+      'unsupported-platform': 'このオペレーティングシステム用のインストーラーはまだありません。',
+      'no-installer-for-machine':
+        'このリリースにはこのコンピューター用のインストーラーがまだありません。用意され次第、ダウンロードページから入手してください。',
+      'not-a-bundle':
+        'AgentX は実行中の場所から自分を置き換えられません。ダウンロードページから新しいバージョンをインストールしてください。',
+      translocated:
+        'macOS は AgentX をダウンロードフォルダーまたはディスクイメージから直接実行しています。AgentX Workmate をアプリケーションフォルダーに移動し、そこから開いてから更新してください。',
+      'not-writable':
+        'AgentX には現在のフォルダーで自分を置き換える権限がありません（管理者アカウントが必要です）。ダウンロードページから新しいバージョンをインストールしてください。',
+      'not-installer-build':
+        'この AgentX はインストーラーで導入されていないため、自分で更新できません。ダウンロードページから新しいバージョンをインストールしてください。'
+    },
+    availableToastTitle: 'アップデートがあります',
+    availableToastMessage: version => `AgentX Workmate ${version} をダウンロードできます。`,
+    seeWhatsNew: '新機能を見る',
+    readyToastTitle: 'アップデートをダウンロードしました',
+    readyToastMessage: version => `AgentX を再起動すると ${version} への更新が完了します。`,
+    updatedToastTitle: 'AgentX を更新しました',
+    updatedToastMessage: (from, to) => `AgentX Workmate は ${to} になりました（以前は ${from}）。`,
+    downloadFailedToastTitle: '更新をダウンロードできませんでした',
+    installFailedToastTitle: '更新をインストールできませんでした',
+    installFailedToastMessage: version =>
+      `AgentX Workmate ${version} はインストールされませんでした。以前のバージョンを使用しています。`,
+    agentToastTitle: 'エージェントは更新されませんでした',
+    agentToastMessage: {
+      'held-open':
+        '別のプログラムが AgentX エージェントを使用していたため、以前のバージョンのままです。ほかの AgentX ウィンドウや agentx を実行中のターミナルを閉じてから再起動してください。',
+      failed:
+        'エージェントの更新が完了しなかったため、以前のバージョンで動作しています。AgentX を再起動してもう一度試してください。',
+      cancelled:
+        'エージェントの更新がキャンセルされたため、以前のバージョンで動作しています。AgentX を再起動して更新してください。'
+    },
+    restart: '再起動',
+    statusCurrent: version => `AgentX Workmate ${version}`,
+    statusAvailable: version => `AgentX Workmate ${version} が利用可能`,
+    statusDownloading: percent => `アップデートをダウンロード中 · ${percent}%`,
+    statusReady: version => `${version} の準備ができました — 再起動して更新`,
+    statusInstalling: 'アップデートをインストール中…'
   },
 
   install: {
@@ -3337,12 +3410,10 @@ export const ja = defineLocale({
       offDescription: '承認プロンプトなしで実行します'
     },
     statusbar: {
-      unknown: '不明',
       restart: '再起動',
       update: '更新',
       updateInProgress: '更新中',
       commitsBehind: (count, branch) => `${branch} より ${count} コミット遅れています`,
-      desktopVersion: version => `AgentX Workmate Desktop v${version}`,
       backendVersion: version => `バックエンド v${version}`,
       clientLabel: version => `クライアント v${version}`,
       connectionSsh: host => `SSH: ${host}`,
@@ -3352,8 +3423,6 @@ export const ja = defineLocale({
       connectionSshTooltip: host => `SSH · ${host}`,
       connectionRemoteTooltip: host => `Remote · ${host}`,
       backendLabel: version => `バックエンド v${version}`,
-      commit: sha => `コミット ${sha}`,
-      branch: branch => `ブランチ ${branch}`,
       closeCommandCenter: 'コマンドセンターを閉じる',
       openCommandCenter: 'コマンドセンターを開く',
       showTerminal: 'ターミナルを表示',

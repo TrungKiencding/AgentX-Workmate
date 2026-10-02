@@ -1,9 +1,19 @@
-import { beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { $notifications, clearNotifications, isDiskFullErrorMessage, notifyError } from './notifications'
+import {
+  $notifications,
+  clearNotifications,
+  closeAllNotifications,
+  closeNotification,
+  dismissNotification,
+  isDiskFullErrorMessage,
+  notify,
+  notifyError,
+  resetNotifications
+} from './notifications'
 
 beforeEach(() => {
-  clearNotifications()
+  resetNotifications()
 })
 
 function lastMessage(): string {
@@ -54,4 +64,72 @@ test('session storage write failure is treated as disk-full class', () => {
   )
 
   expect(lastMessage()).toMatch(/Disk full/i)
+})
+
+describe('closing versus withdrawing', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const ids = () => $notifications.get().map(item => item.id)
+
+  test('moving to another chat clears the chat’s notices, keeps the app’s, and closes nothing', () => {
+    const closedChat = vi.fn()
+    const closedApp = vi.fn()
+
+    notify({ id: 'chat', kind: 'warning', message: 'Send failed', onDismiss: closedChat })
+    notify({ id: 'update', kind: 'info', message: 'Update available', onDismiss: closedApp, scope: 'app' })
+
+    clearNotifications()
+
+    expect(ids()).toEqual(['update'])
+    expect(closedChat).not.toHaveBeenCalled()
+    expect(closedApp).not.toHaveBeenCalled()
+  })
+
+  test('a notice the app withdraws, or one that times out, was not closed by the person', () => {
+    vi.useFakeTimers()
+
+    const closed = vi.fn()
+
+    notify({ id: 'withdrawn', kind: 'warning', message: 'Agent out of date', onDismiss: closed, scope: 'app' })
+    notify({ id: 'timed', kind: 'info', message: 'Updated', durationMs: 1000, onDismiss: closed, scope: 'app' })
+
+    dismissNotification('withdrawn')
+    vi.advanceTimersByTime(1000)
+
+    expect(ids()).toEqual([])
+    expect(closed).not.toHaveBeenCalled()
+  })
+
+  test('the person closing one notice, or all of them, closes each once', () => {
+    const closed = vi.fn()
+
+    notify({ id: 'a', kind: 'warning', message: 'A', onDismiss: () => closed('a') })
+    notify({ id: 'b', kind: 'info', message: 'B', onDismiss: () => closed('b'), scope: 'app' })
+    notify({ id: 'c', kind: 'error', message: 'C', onDismiss: () => closed('c') })
+
+    closeNotification('a')
+    closeNotification('a')
+    expect(closed.mock.calls).toEqual([['a']])
+
+    closeAllNotifications()
+    expect(ids()).toEqual([])
+    expect(closed.mock.calls).toEqual([['a'], ['c'], ['b']])
+  })
+
+  test('a burst of chat notices keeps the newest four and never pushes out an app notice', () => {
+    vi.useFakeTimers()
+
+    notify({ id: 'update', kind: 'info', message: 'Update available', durationMs: 0, scope: 'app' })
+
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      notify({ id: `saved-${n}`, kind: 'success', message: `Saved ${n}` })
+    }
+
+    expect(ids()).toEqual(['saved-6', 'saved-5', 'saved-4', 'saved-3', 'update'])
+
+    // What the cap dropped is gone for good: its timer does not outlive it.
+    expect(vi.getTimerCount()).toBe(4)
+  })
 })

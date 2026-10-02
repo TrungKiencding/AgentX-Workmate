@@ -138,3 +138,85 @@ def test_update_fails_loudly_when_head_pinned(monkeypatch, tmp_path, capsys):
     assert "Code did not move" in out
     assert "✓ Code updated!" not in out
     assert "checkout main" in out
+
+
+def _make_switch_from_pin_side_effect(pinned_sha, branch_sha, calls):
+    """Simulate a detached checkout pinned to ``pinned_sha`` whose local
+    ``main`` already sits on the fetched tip ``branch_sha``.
+
+    That is the desktop's checkout after an installer built from an older
+    commit than ``main`` was at install time: the switch to ``main`` moves
+    HEAD all the way to the target, so ``rev-list HEAD..origin/main`` counts
+    nothing even though the code just changed. Every git call is recorded in
+    ``calls``.
+    """
+    state = {"switched": False}
+
+    def side_effect(cmd, **kwargs):
+        joined = " ".join(str(c) for c in cmd)
+        calls.append(joined)
+
+        if "rev-parse" in joined and "--abbrev-ref" in joined:
+            return SimpleNamespace(returncode=0, stdout="HEAD\n", stderr="")
+
+        if joined.endswith("checkout main"):
+            state["switched"] = True
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        if "rev-list" in joined:
+            return SimpleNamespace(returncode=0, stdout="0\n", stderr="")
+
+        if joined.endswith("rev-parse HEAD"):
+            sha = branch_sha if state["switched"] else pinned_sha
+            return SimpleNamespace(returncode=0, stdout=f"{sha}\n", stderr="")
+
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    return side_effect
+
+
+def test_update_runs_the_full_update_when_switching_off_a_pin_lands_on_the_tip(
+    monkeypatch, tmp_path, capsys
+):
+    """Leaving the pinned commit IS the update, even with nothing to merge.
+
+    Before the fix the zero behind-count took the "Already up to date!" exit:
+    the code had moved to ``main`` but dependencies, config migrations and
+    skills were never refreshed against it.
+    """
+    pinned, tip = "a" * 40, "b" * 40
+    calls = []
+    args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
+    main_mod = _patch_update_deps(
+        monkeypatch, tmp_path, _make_switch_from_pin_side_effect(pinned, tip, calls)
+    )
+
+    main_mod.cmd_update(args)  # completes normally (no SystemExit)
+
+    out = capsys.readouterr().out
+    assert "Already up to date!" not in out
+    assert f"Moving the pinned checkout ({pinned[:10]}) onto main" in out
+    assert "✓ Code updated!" in out
+    # The dependency check diffs from the pinned commit — the tree the venv
+    # was synced against — not from wherever the branch switch left HEAD.
+    assert any(f"diff --name-only {pinned}..HEAD" in call for call in calls)
+
+
+def test_update_still_reports_up_to_date_when_the_pin_is_the_tip(monkeypatch, tmp_path, capsys):
+    """A pinned checkout already on the branch tip has nothing to do."""
+    sha = "c" * 40
+    calls = []
+    args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
+    main_mod = _patch_update_deps(
+        monkeypatch, tmp_path, _make_switch_from_pin_side_effect(sha, sha, calls)
+    )
+    monkeypatch.setattr(update_cmd, "_venv_core_imports_healthy", lambda: (True, ""))
+    monkeypatch.setattr("hermes_cli.managed_uv.update_managed_uv", lambda **_k: None)
+    monkeypatch.setattr("hermes_cli.managed_uv.ensure_uv", lambda **_k: None)
+
+    main_mod.cmd_update(args)
+
+    out = capsys.readouterr().out
+    assert "✓ Already up to date!" in out
+    assert "Moving the pinned checkout" not in out
+    assert "✓ Code updated!" not in out

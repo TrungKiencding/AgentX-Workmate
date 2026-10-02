@@ -43,7 +43,7 @@ function stagedFileMtimeMs(candidate: string): number | null {
 }
 
 /**
- * Decide which staged installer binary — if any — may be handed an update.
+ * Decide which staged installer binary — if any — may be handed a recovery.
  *
  * The Tauri installer self-copies into AGENTX_HOME on *every* platform
  * (`agentx-setup.exe` on Windows, `agentx-setup` elsewhere — see
@@ -51,19 +51,17 @@ function stagedFileMtimeMs(candidate: string): number | null {
  * `bootstrap::copy_self_to_hermes_home`), so finding that binary on macOS or
  * Linux is expected, not leftover junk.
  *
- * Handing an update to it is nonetheless a Windows-only policy. Windows needs
- * the quit -> hand-off -> rebuild dance because a venv shim file lock keeps the
- * running desktop from rewriting its own bits; macOS and Linux have no such
- * lock and update in place through applyUpdatesPosixInApp(). Off Windows the
- * hand-off therefore buys nothing and costs a great deal: a staged binary older
- * than the hand-off protocol holds the update marker, spawns `agentx update`,
- * and that child refuses its own parent — wedging the in-app Update button for
- * good, with no route (update, re-download, reinstall) to a newer binary
- * (#74836). Returning null off Windows is what routes those platforms to the
- * in-app updater.
+ * Handing work to it is nonetheless a Windows-only policy. Windows needs the
+ * quit -> hand-off dance because a venv shim file lock keeps the running
+ * desktop from rewriting the install it runs from; macOS and Linux have no
+ * such lock. Off Windows the hand-off therefore buys nothing and costs a great
+ * deal: a staged binary older than the hand-off protocol holds the update
+ * marker, spawns `agentx update`, and that child refuses its own parent —
+ * wedging the app with no route to a newer binary (#74836).
  *
- * Null on Windows too when nothing is staged (a dev/source run, or a CLI
- * install that never went through the installer); callers degrade gracefully.
+ * Null on Windows too when nothing is staged (an NSIS install, a dev/source
+ * run, or a CLI install that never went through the Tauri installer); callers
+ * degrade gracefully.
  */
 export function resolveStagedUpdaterBinary(
   hermesHome: string,

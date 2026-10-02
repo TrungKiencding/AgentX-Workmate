@@ -630,7 +630,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   updates: {
     nonInteractiveLocalChanges:
-      'When AgentX updates itself from the app (no terminal prompt), keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
+      'When `agentx update` runs with no terminal to ask — a remote backend updated from this app, or a messaging /update command — keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
   }
 })
 
