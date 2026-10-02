@@ -192,6 +192,24 @@ def _b64url_no_pad(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
+def _is_https_or_loopback(url: str) -> bool:
+    """True for an https URL, or for plain http on loopback. Never raises.
+
+    A URL that does not parse is False: nothing may be sent to it.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme == "https":
+        return True
+    return parsed.scheme == "http" and (parsed.hostname or "") in (
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    )
+
+
 def _require_https_or_loopback(url: str, *, field: str) -> str:
     """Reject an endpoint URL that isn't HTTPS (loopback http is allowed).
 
@@ -199,14 +217,7 @@ def _require_https_or_loopback(url: str, *, field: str) -> str:
     misconfigured issuer must not be able to ship them in cleartext. Returns
     the URL unchanged on success.
     """
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme == "https":
-        return url
-    if parsed.scheme == "http" and (parsed.hostname or "") in (
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    ):
+    if _is_https_or_loopback(url):
         return url
     raise ProviderError(
         f"Keycloak {field} must be https:// (or http on localhost), got {url!r}"
@@ -469,12 +480,27 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
         )
 
     def revoke_session(self, *, refresh_token: str) -> None:
-        """Best-effort RFC 7009 revocation. Must never raise.
+        """End, at Keycloak, the session this refresh token belongs to.
 
-        Deliberately does not call ``end_session_endpoint``: RP-initiated
-        logout wants an ``id_token_hint``, which this method is never handed.
-        The desktop shell, which does hold the ID token, opens the end-session
-        URL itself on an explicit sign-out.
+        Best effort, and it never raises. ``/auth/logout`` clears the cookies
+        whatever happens here, and a realm that cannot be reached must not
+        turn a sign-out into an error.
+
+        This is a logout by refresh token, not an RFC 7009 revocation. On
+        Keycloak 25 and 26, revoking a refresh token revokes this client for
+        the whole person, not for one session: Keycloak detaches the client
+        from every session they have, and for an offline token from all their
+        offline sessions too. One sign-out here could then sign them out of
+        WebMate, which shares this client id, and of the desktop app on their
+        other machines. Posting the refresh token to the end-session endpoint
+        logs out only the Keycloak session it belongs to, which is this
+        browser's sign-in.
+
+        That POST is the non-browser form of the end-session endpoint, so
+        unlike RP-initiated logout it needs no ``id_token_hint``. Nothing is
+        sent when the realm advertises no end-session endpoint, or a cleartext
+        one: the refresh token must never travel unencrypted. The Keycloak
+        session then ends when it expires.
         """
         if not refresh_token:
             return None
@@ -482,27 +508,34 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
             disco = self._get_discovery()
         except ProviderError:
             return None
-        endpoint = str(disco.get("revocation_endpoint") or "").strip()
-        if not endpoint:
+        endpoint = str(disco.get("end_session_endpoint") or "").strip()
+        if not _is_https_or_loopback(endpoint):
             return None
         data = {
-            "token": refresh_token,
-            "token_type_hint": "refresh_token",
             "client_id": self._client_id,
+            "refresh_token": refresh_token,
         }
         headers = {"Accept": "application/json"}
         extra_data, extra_headers = self._token_endpoint_auth(disco)
         data.update(extra_data)
         headers.update(extra_headers)
         try:
-            httpx.post(
+            response = httpx.post(
                 endpoint,
                 data=data,
                 headers=headers,
                 timeout=_TOKEN_ENDPOINT_TIMEOUT_SEC,
             )
+            if response.status_code >= 300:
+                # Routine for a token another registered provider minted: the
+                # logout route offers every refresh token to every provider.
+                logger.debug(
+                    "keycloak: logout answered %s (ignored): %s",
+                    response.status_code,
+                    self._parse_json_body(response).get("error", ""),
+                )
         except Exception as exc:  # noqa: BLE001 — best-effort
-            logger.debug("keycloak: revoke failed (ignored): %s", exc)
+            logger.debug("keycloak: logout failed (ignored): %s", exc)
         return None
 
     def native_oidc_config(self) -> Optional[dict]:
@@ -753,9 +786,6 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
             "authorization_endpoint": authorization_endpoint,
             "token_endpoint": token_endpoint,
             "jwks_uri": jwks_uri,
-            "revocation_endpoint": str(
-                payload.get("revocation_endpoint", "") or ""
-            ).strip(),
             "end_session_endpoint": str(
                 payload.get("end_session_endpoint", "") or ""
             ).strip(),

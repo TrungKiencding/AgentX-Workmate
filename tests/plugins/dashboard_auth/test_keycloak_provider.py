@@ -769,24 +769,98 @@ class TestRefreshAndRevoke:
             with pytest.raises(RefreshExpiredError):
                 p.refresh_session(refresh_token="dead")
 
-    def test_revoke_posts_to_the_revocation_endpoint(self, rsa_keypair):
+    def test_revoke_logs_out_at_the_end_session_endpoint(self, rsa_keypair):
+        """A logout by refresh token ends only the session the token belongs to.
+
+        RFC 7009 revocation would not. On Keycloak 25 and 26 it revokes the
+        client for the whole person, which can sign them out of WebMate and of
+        the desktop app on their other machines too. The realm still
+        advertises a revocation endpoint here, and it must go unused.
+        """
         p = _make_provider(rsa_keypair)
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.post",
-            return_value=_mock_response(200, {}),
+            return_value=_mock_response(204, {}),
+        ) as mock_post:
+            assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_called_once()
+        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["end_session_endpoint"]
+        assert mock_post.call_args.kwargs["data"] == {
+            "client_id": _CLIENT_ID,
+            "refresh_token": "rt",
+        }
+
+    def test_revoke_authenticates_a_confidential_client(self, rsa_keypair):
+        p = _make_provider(rsa_keypair, client_secret="sec")
+        with patch(
+            "plugins.dashboard_auth.keycloak.httpx.post",
+            return_value=_mock_response(204, {}),
         ) as mock_post:
             p.revoke_session(refresh_token="rt")
-        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["revocation_endpoint"]
-        assert mock_post.call_args.kwargs["data"]["token_type_hint"] == "refresh_token"
+        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["end_session_endpoint"]
+        header = mock_post.call_args.kwargs["headers"]["Authorization"]
+        assert base64.b64decode(header.split(" ", 1)[1]).decode() == f"{_CLIENT_ID}:sec"
 
-    def test_revoke_never_raises(self, rsa_keypair):
+    def test_revoke_allows_http_on_loopback(self, rsa_keypair):
         p = _make_provider(rsa_keypair)
+        local = "http://localhost:8080/realms/agent-hub/protocol/openid-connect/logout"
+        p._discovery = dict(_DISCOVERY_DOC, end_session_endpoint=local)
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.post",
-            side_effect=httpx.ConnectError("down"),
-        ):
+            return_value=_mock_response(204, {}),
+        ) as mock_post:
+            p.revoke_session(refresh_token="rt")
+        assert mock_post.call_args.args[0] == local
+
+    @pytest.mark.parametrize(
+        "end_session_endpoint",
+        [
+            None,
+            "",
+            "http://agentx.example.com/auth/realms/agent-hub/protocol/openid-connect/logout",
+            "https://[::1",
+        ],
+        ids=["not-advertised", "empty", "cleartext", "unparseable"],
+    )
+    def test_revoke_sends_nothing_without_a_safe_end_session_endpoint(
+        self, rsa_keypair, end_session_endpoint
+    ):
+        """No fallback to the revocation endpoint, and no token in cleartext."""
+        p = _make_provider(rsa_keypair)
+        doc = dict(_DISCOVERY_DOC)
+        if end_session_endpoint is None:
+            del doc["end_session_endpoint"]
+        else:
+            doc["end_session_endpoint"] = end_session_endpoint
+        p._discovery = doc
+        with patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
             assert p.revoke_session(refresh_token="rt") is None
-        assert p.revoke_session(refresh_token="") is None
+        mock_post.assert_not_called()
+
+    def test_revoke_sends_nothing_without_a_refresh_token(self, rsa_keypair):
+        p = _make_provider(rsa_keypair)
+        with patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
+            assert p.revoke_session(refresh_token="") is None
+        mock_post.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "outcome",
+        [
+            httpx.ConnectError("down"),
+            httpx.ReadTimeout("slow"),
+            _mock_response(400, {"error": "invalid_grant"}),
+            _mock_response(502, "<html>Bad gateway</html>", ctype="text/html"),
+        ],
+        ids=["unreachable", "timeout", "rejected", "proxy-error"],
+    )
+    def test_revoke_never_raises(self, rsa_keypair, outcome):
+        p = _make_provider(rsa_keypair)
+        # A side_effect list raises the exceptions in it and returns the rest.
+        with patch(
+            "plugins.dashboard_auth.keycloak.httpx.post", side_effect=[outcome]
+        ) as mock_post:
+            assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_called_once()
 
     def test_revoke_survives_a_discovery_outage(self):
         p = kc_plugin.KeycloakOIDCProvider(
@@ -795,8 +869,9 @@ class TestRefreshAndRevoke:
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.get",
             side_effect=httpx.ConnectError("down"),
-        ):
+        ), patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
             assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
