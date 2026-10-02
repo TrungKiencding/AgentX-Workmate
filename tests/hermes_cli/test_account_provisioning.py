@@ -2921,6 +2921,38 @@ class TestTranscriptionModel:
         assert read_state(account.home)["transcription_model"] == "ears-model"
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
+    def test_a_sidecar_from_before_transcription_asks_once(self, account, brain, fake_proxy):
+        from hermes_cli.account_provisioning import write_state
+        from hermes_cli.config import read_raw_config, save_config
+
+        # A version that did not know the field ran after the grant pass: it
+        # re-asked because the allowlist changed, recorded that allowlist (the
+        # transcription model included) and nothing about what it is for.
+        self._grant(brain)
+        self._provision(account, brain, client=make_client(fake_proxy))
+        state = read_state(account.home)
+        state.pop("transcription_model")
+        assert "ears-model" in state["reachable_models"]
+        write_state(account.home, state)
+        raw = read_raw_config()
+        raw["stt"].pop("provider")
+        save_config(raw)
+        brain.requests.clear()
+
+        # The proxy's answer matches what was recorded, yet the service is asked
+        # once, so the update learns the model and makes it the STT provider...
+        again = self._provision(account, brain, client=make_client(fake_proxy))
+
+        assert again.ok, again.detail
+        assert len(brain.requests) == 1
+        assert read_state(account.home)["transcription_model"] == "ears-model"
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+        # ...and only once.
+        brain.requests.clear()
+        third = self._provision(account, brain, client=make_client(fake_proxy))
+        assert third.status == "reused" and brain.requests == []
+
     def test_no_transcription_model_hands_the_provider_back(self, account, brain):
         self._grant(brain)
         self._provision(account, brain)

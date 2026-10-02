@@ -1085,18 +1085,19 @@ def _tidy_reused_account(
     return models
 
 
+#: The feature models a sidecar records beside the chat grant (written by ``_rotate``).
+_FEATURE_FIELDS = (
+    "web_search_model",
+    "image_model",
+    "vision_model",
+    "speech_model",
+    "transcription_model",
+)
+
+
 def _role_models(state: Mapping[str, Any]) -> tuple[str, ...]:
     """The feature models a sidecar records: web search, image, vision, speech, transcription."""
-    names = (
-        str(state.get(field) or "").strip()
-        for field in (
-            "web_search_model",
-            "image_model",
-            "vision_model",
-            "speech_model",
-            "transcription_model",
-        )
-    )
+    names = (str(state.get(field) or "").strip() for field in _FEATURE_FIELDS)
     return tuple(dict.fromkeys(name for name in names if name))
 
 
@@ -1519,13 +1520,20 @@ def _reach_changed(
 
     A sidecar written before ``reachable_models`` existed counts as changed,
     once: that is how an install that predates web search learns its model
-    without its owner signing in again. Only the second brain grants anything,
-    so the deprecated modes never ask.
+    without its owner signing in again. So does one written before a feature
+    model existed (no field for it): a version that did not know the feature
+    may already have recorded the allowlist that carries its model — installs
+    that ran between the service granting ``openai/whisper-1`` for
+    transcription and the update that reads ``transcription_model`` did — and
+    then the proxy's answer alone would never tell. Only the second brain
+    grants anything, so the deprecated modes never ask.
     """
     if settings.mode != "second_brain" or reachable is None:
         return False
     recorded = state.get("reachable_models")
     if not isinstance(recorded, list):
+        return True
+    if any(field not in state for field in _FEATURE_FIELDS):
         return True
     return set(reachable) != {str(model) for model in recorded}
 
