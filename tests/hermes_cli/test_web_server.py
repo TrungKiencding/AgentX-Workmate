@@ -1781,6 +1781,24 @@ class TestBuildSchemaFromConfig:
         assert fields["memory.provider"]["type"] == "select"
         assert web_server.CONFIG_SCHEMA["memory.provider"] is not fields["memory.provider"]
 
+    def test_dynamic_merge_offers_the_bundled_stt_gateway_once(self, monkeypatch):
+        """The AgentX gateway is a static option AND a registered plugin: the
+        per-request merge keeps it first and lists it once."""
+        from agent import transcription_registry
+        from hermes_cli import web_server
+        from plugins.transcription.agentx_gateway import AgentXGatewayTranscriptionProvider
+
+        transcription_registry.register_provider(AgentXGatewayTranscriptionProvider())
+        monkeypatch.setattr(web_server, "load_config", lambda: {"stt": {"provider": "agentx-gateway"}})
+        try:
+            options = web_server._schema_with_dynamic_provider_options()["stt.provider"]["options"]
+        finally:
+            transcription_registry._reset_for_tests()
+
+        assert options[0] == "agentx-gateway"
+        assert options.count("agentx-gateway") == 1
+        assert "local" in options
+
 
 
 

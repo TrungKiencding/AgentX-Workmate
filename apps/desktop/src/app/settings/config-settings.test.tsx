@@ -157,3 +157,36 @@ describe('ConfigSettings draft seeding', () => {
     await waitFor(() => expect(cwdInput(container)?.value).toBe('/tmp/profile-b'))
   })
 })
+
+describe('ConfigSettings voice providers', () => {
+  // ``agentx-gateway`` is a product, not an id to prettify: both voice provider
+  // selects name it the way the AgentX account does.
+  it('shows the AgentX gateway as "AgentX AI Gateway" for speech-to-text as for text-to-speech', async () => {
+    getHermesConfigSchema.mockResolvedValue({
+      fields: {
+        'stt.enabled': { category: 'voice', type: 'boolean' },
+        'stt.provider': { category: 'voice', type: 'select' },
+        'tts.provider': { category: 'voice', type: 'select' }
+      }
+    })
+    getHermesConfigRecord.mockResolvedValue({
+      stt: { enabled: true, provider: 'agentx-gateway' },
+      tts: { provider: 'agentx-gateway' }
+    } as unknown as HermesConfigRecord)
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    const { container } = render(
+      <MemoryRouter>
+        <QueryClientProvider client={client}>
+          <ConfigSettings activeSectionId="voice" importInputRef={{ current: null }} />
+        </QueryClientProvider>
+      </MemoryRouter>
+    )
+
+    const field = (key: string) => container.querySelector(`[id="setting-field-${key}"]`)
+
+    await waitFor(() => expect(field('stt.provider')?.textContent).toContain('AgentX AI Gateway'))
+    expect(field('tts.provider')?.textContent).toContain('AgentX AI Gateway')
+  })
+})
