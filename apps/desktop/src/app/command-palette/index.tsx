@@ -65,7 +65,8 @@ import {
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
-import { resolveVersionStatus } from '@/lib/version-status'
+import { resolveAppVersionStatus, resolveBackendVersionStatus } from '@/lib/version-status'
+import { $appUpdate } from '@/store/app-update'
 import { $repoWorktrees } from '@/store/coding-status'
 import {
   $commandPaletteOpen,
@@ -79,14 +80,7 @@ import { openPetGenerate } from '@/store/pet-generate'
 import { $projectTree, goToProject, openFolderAsProject, requestStartWorkSession } from '@/store/projects'
 import { $connection } from '@/store/session'
 import { runGatewayRestart } from '@/store/system-actions'
-import {
-  $backendUpdateApply,
-  $backendUpdateStatus,
-  $desktopVersion,
-  $updateApply,
-  $updateStatus,
-  requestActiveUpdate
-} from '@/store/updates'
+import { $backendUpdateApply, $backendUpdateStatus, $desktopVersion, requestActiveUpdate } from '@/store/updates'
 import { canOpenNewWindow, openNewWindow } from '@/store/windows'
 import { luminance } from '@/themes/color'
 import { type ThemeMode, useTheme } from '@/themes/context'
@@ -482,7 +476,7 @@ function themeSupportsMode(name: string, target: 'light' | 'dark'): boolean {
  * queries, and the group builders that assemble a few hundred rows — lives in
  * `CommandPaletteBody`, which only exists while the palette is on screen.
  * Before this split those hooks ran on every render of the always-mounted
- * component: an in-flight update rewrote `$updateApply` per progress line and
+ * component: an in-flight update rewrote its store on every progress tick and
  * rebuilt the entire row set each time, for a surface nobody could see.
  *
  * `mounted` lags `open` by the close animation rather than tracking it exactly.
@@ -544,33 +538,45 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
   const [page, setPage] = useState<string | null>(null)
 
   // The Update row names the same install the statusbar names — same target
-  // selection, same resolver. Reduced to the label string: an in-flight apply
-  // rewrites these stores on every progress line, and only a changed string
-  // should rebuild the palette's groups.
+  // selection, same resolvers. Reduced to the label string: a download or a
+  // backend update rewrites these stores on every progress tick, and only a
+  // changed string should rebuild the palette's groups.
   const connection = useStore($connection)
   const desktopVersion = useStore($desktopVersion)
-  const clientStatus = useStore($updateStatus)
-  const clientApply = useStore($updateApply)
+  const appUpdate = useStore($appUpdate)
   const backendStatus = useStore($backendUpdateStatus)
   const backendApply = useStore($backendUpdateApply)
 
   const updateVersionLabel = useMemo(() => {
-    const backend = connection?.mode === 'remote'
-    const apply = backend ? backendApply : clientApply
-    const status = backend ? backendStatus : clientStatus
+    const statusbar = t.shell.statusbar
 
-    return resolveVersionStatus({
-      applying: apply.applying || apply.stage === 'restart',
-      behind: status?.behind ?? 0,
-      copy: t.shell.statusbar,
-      remote: backend,
-      restarting: apply.stage === 'restart',
-      sha: status?.currentSha?.slice(0, 7) ?? null,
-      target: backend ? 'backend' : 'client',
-      updateAvailable: status?.updateAvailable,
-      version: backend ? status?.currentVersion : desktopVersion?.appVersion
+    if (connection?.mode === 'remote') {
+      return resolveBackendVersionStatus({
+        applying: backendApply.applying || backendApply.stage === 'restart',
+        behind: backendStatus?.behind ?? 0,
+        copy: statusbar,
+        restarting: backendApply.stage === 'restart',
+        updateAvailable: backendStatus?.updateAvailable,
+        version: backendStatus?.currentVersion
+      }).label
+    }
+
+    return resolveAppVersionStatus({
+      copy: {
+        clientLabel: statusbar.clientLabel,
+        restart: statusbar.restart,
+        update: statusbar.update,
+        current: t.appUpdate.statusCurrent,
+        available: t.appUpdate.statusAvailable,
+        downloading: t.appUpdate.statusDownloading,
+        ready: t.appUpdate.statusReady,
+        installing: t.appUpdate.statusInstalling
+      },
+      remote: false,
+      state: appUpdate,
+      version: desktopVersion?.appVersion
     }).label
-  }, [backendApply, backendStatus, clientApply, clientStatus, connection?.mode, desktopVersion?.appVersion, t])
+  }, [appUpdate, backendApply, backendStatus, connection?.mode, desktopVersion?.appVersion, t])
 
   // cmdk's onSelect doesn't forward the triggering event — keep the last
   // click/keydown modifiers so session rows can honour ⌘-Enter / ⌘-click.

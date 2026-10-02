@@ -38,6 +38,7 @@
     "dist:win:msi": "npm run build && npm run builder -- --win msi",
     "dist:win:nsis": "npm run build && npm run builder -- --win nsis",
     "dist:linux": "npm run build && npm run builder -- --linux AppImage deb rpm",
+    "release:feed": "tsx scripts/release-feed.ts",
     "perf": "node scripts/perf/run.mjs",
     "perf:serve": "node scripts/perf/serve.mjs",
     "test:desktop": "node scripts/test-desktop.mjs",

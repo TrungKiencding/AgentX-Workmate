@@ -1,7 +1,7 @@
 # AgentX Workmate Desktop ⬡
 
 <p align="center">
-  <a href="https://github.com/TrungKiencding/AgentX-Workmate/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
+  <a href="https://agentx-landingpage.astralx.com.vn/#tai-ve"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows-FFD700?style=for-the-badge" alt="Download"></a>
   <a href="https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs"><img src="https://img.shields.io/badge/Docs-GitHub-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/TrungKiencding/AgentX-Workmate/discussions"><img src="https://img.shields.io/badge/Discussions-24292F?style=for-the-badge&logo=github&logoColor=white" alt="Discussions"></a>
   <a href="https://github.com/TrungKiencding/AgentX-Workmate/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
@@ -15,7 +15,7 @@
 <tr><td><b>File browser</b></td><td>Explore and preview the working directory without leaving the app.</td></tr>
 <tr><td><b>Voice</b></td><td>Talk to AgentX and hear it back.</td></tr>
 <tr><td><b>Settings & onboarding</b></td><td>Manage providers, models, tools, and credentials from a real UI. First-run setup gets you to your first message in seconds.</td></tr>
-<tr><td><b>Stays current</b></td><td>Built-in updates pull the latest agent and rebuild the app in place.</td></tr>
+<tr><td><b>Stays current</b></td><td>The app finds each new release, downloads the installer in the background, and swaps itself — and the agent behind it — for the new version on a restart.</td></tr>
 </table>
 
 ---
@@ -34,17 +34,22 @@ It builds and launches the GUI against your existing install — same config, ke
 
 ### Prebuilt installers
 
-Prebuilt installers are built and distributed via [the AgentX Workmate Desktop website.](https://github.com/TrungKiencding/AgentX-Workmate).
+Prebuilt installers for macOS (Apple silicon) and Windows are on [the AgentX Workmate download page](https://agentx-landingpage.astralx.com.vn/#tai-ve).
 
 ---
 
 ## Updating
 
-The app checks for updates in the background and offers a one-click update when one is ready. You can also update any time from the CLI:
+An installed app updates itself, the app and the agent together:
 
-```bash
-agentx update
-```
+1. It checks the release feed on the download site a little after launch and every few hours, and says when a new version is out (**Settings → About** shows the same, and **Check now** asks right away).
+2. **Download update** fetches the installer for this computer in the background. It is used only if its size and sha256 match the signed feed.
+3. **Restart to update** closes the app and installs the new version — on macOS by swapping the app bundle, on Windows by running the NSIS installer silently — then opens it again. If the agent is mid-turn, the app asks first.
+4. On that first launch the new version brings the agent (`AGENTX_HOME/agentx-agent`) up to the commit it was built from, then the app confirms the update. If something did not take, it says so and offers the download page or a restart.
+
+A copy that cannot replace itself — run straight from Downloads or the disk image, in a folder the account cannot write, or not set up by the installer — points at the download page instead.
+
+`agentx update` remains for CLI installs. It moves only the agent, so an installed app should be updated from the app.
 
 ---
 
@@ -84,7 +89,19 @@ npm run dist:linux   # AppImage + deb + rpm
 npm run pack         # unpacked app under release/ (no installer)
 ```
 
-Installers are built and uploaded to GitHub Releases manually. macOS/Windows signing & notarization happen automatically when the relevant credentials are present in the environment (`CSC_LINK` / `CSC_KEY_PASSWORD` / `APPLE_*` for macOS, `WIN_CSC_*` for Windows).
+macOS/Windows signing & notarization happen automatically when the relevant credentials are present in the environment (`CSC_LINK` / `CSC_KEY_PASSWORD` / `APPLE_*` for macOS, `WIN_CSC_*` for Windows). Without a Developer ID, the macOS app is signed ad-hoc with an identifier-pinned requirement (`scripts/sign-mac-adhoc.mjs`), so macOS keeps its permissions and keychain access across updates.
+
+### Publishing a release
+
+Installed apps update from `release.json`, a feed signed with the Workmate release key, served beside the installers on the download site (`https://agentx-landingpage.astralx.com.vn/install/`). To publish:
+
+1. Bump the version (`hermes_cli/__init__.py`, then `python scripts/release.py --sync-versions`), merge to `main`, and push — each installer pins the commit it was built from, and the agent is fetched from GitHub at that commit.
+2. Write `release-notes/<version>.md`: a `## vi` and a `## en` heading, each followed by `- ` bullet points.
+3. Build both installers from that clean commit (`npm run build`, then `npm run builder -- --mac dmg` and `npm run builder -- --win nsis --x64`, both with `'-c.artifactName=AgentXWorkmate-${os}-${arch}.${ext}'`).
+4. `npm run release:feed -- build --out <download site folder>` (for the landing page: `AgentX-Landing/public/install`). It refuses unless the versions, the build stamp, the installers and the notes all agree, then copies the installers and writes the signed feed. `npm run release:feed -- verify <folder>` re-checks a folder.
+5. Deploy that folder (`AgentX-Landing/deploy/deploy.sh`).
+
+The release key lives at `~/.config/agentx-workmate/release-signing-key.pem` (or `AGENTX_WORKMATE_RELEASE_KEY`). Keep a backup: the app only trusts the public half compiled into it (`electron/app-update/feed.ts`), so a lost key means shipping a new public key with a manual install. `npm run release:feed -- keygen` creates one and never overwrites an existing key.
 
 ### How it works
 
