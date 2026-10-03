@@ -590,6 +590,7 @@ def _key_from_second_brain(
         image_model=str(payload.get("image_model") or "").strip(),
         vision_model=str(payload.get("vision_model") or "").strip(),
         speech_model=str(payload.get("speech_model") or "").strip(),
+        transcription_model=str(payload.get("transcription_model") or "").strip(),
     )
     base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
     return minted, base_url, str(payload.get("status") or "issued")
@@ -689,6 +690,7 @@ def _write_provider_config(
     previous_models: tuple[str, ...] = (),
     vision_model: str = "",
     speech_model: str = "",
+    transcription_model: str = "",
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -799,6 +801,7 @@ def _write_provider_config(
 
     _apply_vision_model(settings.provider_name, vision_model)
     _apply_speech_default(speech_model)
+    _apply_transcription_default(transcription_model)
 
 
 def _discovers_models(settings: LiteLLMAccountSettings) -> bool:
@@ -922,6 +925,43 @@ def _apply_speech_default(speech_model: str) -> bool:
     return True
 
 
+def _apply_transcription_default(transcription_model: str) -> bool:
+    """Make the AgentX gateway the STT provider of an account granted a transcription model.
+
+    The speech-to-text twin of ``_apply_speech_default``. With a transcription
+    model granted, ``stt.provider`` becomes ``agentx-gateway`` — but only while
+    nobody has chosen a provider: an absent (or empty) key means the built-in
+    default (``local``: faster-whisper, installed on first use and told by the
+    shipped ``stt.language`` that every clip is English) would transcribe
+    Vietnamese dictation, while any value someone wrote, ``local`` included, is
+    their choice and stays. Without a transcription model the gateway cannot
+    transcribe, so a provider naming it is removed again and the default takes
+    over.
+
+    Read from the raw file on purpose: ``load_config()`` merges in the shipped
+    ``stt.provider: local``, which would make every account look as though it
+    had chosen. A full-document write, like ``_apply_speech_default``.
+    """
+    from hermes_cli.config import read_raw_config, save_config
+    from tools.agentx_gateway_stt import PROVIDER_NAME
+
+    raw = read_raw_config()
+    stt = raw.get("stt")
+    stt = stt if isinstance(stt, dict) else {}
+    current = str(stt.get("provider") or "").strip().lower()
+    if transcription_model:
+        if current:
+            return False
+        stt["provider"] = PROVIDER_NAME
+    else:
+        if current != PROVIDER_NAME:
+            return False
+        stt.pop("provider", None)
+    raw["stt"] = stt
+    save_config(raw)
+    return True
+
+
 def _release_vision_pin(provider_name: str) -> bool:
     """Drop an ``auxiliary.vision`` pin that names this account's proxy.
 
@@ -977,6 +1017,7 @@ def _ensure_vision_follows_main(
     models: tuple[str, ...],
     vision_model: str = "",
     speech_model: str = "",
+    transcription_model: str = "",
 ) -> None:
     """Tidy an account whose key is simply reused: vision policy, label, discovery.
 
@@ -1004,6 +1045,7 @@ def _ensure_vision_follows_main(
             save_config(cfg, merge_existing=True)
     _apply_vision_model(settings.provider_name, vision_model)
     _apply_speech_default(speech_model)
+    _apply_transcription_default(transcription_model)
 
 
 def _tidy_reused_account(
@@ -1030,6 +1072,7 @@ def _tidy_reused_account(
         models,
         vision_model=str(state.get("vision_model") or "").strip(),
         speech_model=str(state.get("speech_model") or "").strip(),
+        transcription_model=str(state.get("transcription_model") or "").strip(),
     )
 
     leaked = tuple(role for role in roles if role in recorded)
@@ -1042,12 +1085,19 @@ def _tidy_reused_account(
     return models
 
 
+#: The feature models a sidecar records beside the chat grant (written by ``_rotate``).
+_FEATURE_FIELDS = (
+    "web_search_model",
+    "image_model",
+    "vision_model",
+    "speech_model",
+    "transcription_model",
+)
+
+
 def _role_models(state: Mapping[str, Any]) -> tuple[str, ...]:
-    """The feature models a sidecar records: web search, image generation, vision, speech."""
-    names = (
-        str(state.get(field) or "").strip()
-        for field in ("web_search_model", "image_model", "vision_model", "speech_model")
-    )
+    """The feature models a sidecar records: web search, image, vision, speech, transcription."""
+    names = (str(state.get(field) or "").strip() for field in _FEATURE_FIELDS)
     return tuple(dict.fromkeys(name for name in names if name))
 
 
@@ -1470,13 +1520,20 @@ def _reach_changed(
 
     A sidecar written before ``reachable_models`` existed counts as changed,
     once: that is how an install that predates web search learns its model
-    without its owner signing in again. Only the second brain grants anything,
-    so the deprecated modes never ask.
+    without its owner signing in again. So does one written before a feature
+    model existed (no field for it): a version that did not know the feature
+    may already have recorded the allowlist that carries its model — installs
+    that ran between the service granting ``openai/whisper-1`` for
+    transcription and the update that reads ``transcription_model`` did — and
+    then the proxy's answer alone would never tell. Only the second brain
+    grants anything, so the deprecated modes never ask.
     """
     if settings.mode != "second_brain" or reachable is None:
         return False
     recorded = state.get("reachable_models")
     if not isinstance(recorded, list):
+        return True
+    if any(field not in state for field in _FEATURE_FIELDS):
         return True
     return set(reachable) != {str(model) for model in recorded}
 
@@ -1679,15 +1736,16 @@ def _rotate(
         previous_models=tuple(str(m) for m in (state.get("models") or ())),
         vision_model=minted.vision_model,
         speech_model=minted.speech_model,
+        transcription_model=minted.transcription_model,
     )
 
     # The models each feature calls with this key: granted by the second brain
     # beside ``models``, never among them, and recorded here rather than in
     # config because nobody picks them — ``plugins/web/agentx_gateway``,
-    # ``plugins/image_gen/agentx_gateway`` and ``tools/agentx_gateway_tts`` read
-    # them from this file, the vision model is also pinned in
-    # ``auxiliary.vision`` and the speech model's backend made the TTS
-    # provider above.
+    # ``plugins/image_gen/agentx_gateway``, ``tools/agentx_gateway_tts`` and
+    # ``tools/agentx_gateway_stt`` read them from this file, the vision model
+    # is also pinned in ``auxiliary.vision``, and the speech and transcription
+    # models' backends were made the TTS and STT providers above.
     web_search_model = minted.web_search_model
     if reachable is None:
         reachable = (*models, *minted.role_models)
@@ -1712,6 +1770,7 @@ def _rotate(
             "image_model": minted.image_model,
             "vision_model": minted.vision_model,
             "speech_model": minted.speech_model,
+            "transcription_model": minted.transcription_model,
             "reachable_models": sorted(set(reachable)),
         },
     )

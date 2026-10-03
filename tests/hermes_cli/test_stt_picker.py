@@ -122,3 +122,60 @@ class TestPostSetup:
         from hermes_cli.tools_config import _POST_SETUP_READY
 
         assert "faster_whisper" in _POST_SETUP_READY
+
+
+class TestPluginSttProviders:
+    """Plugin-registered STT backends become picker rows, as TTS ones do."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_registry(self):
+        from agent import transcription_registry
+
+        transcription_registry._reset_for_tests()
+        yield
+        transcription_registry._reset_for_tests()
+
+    def test_a_plugin_provider_is_a_row_after_the_builtins(self):
+        from agent import transcription_registry
+        from agent.transcription_provider import TranscriptionProvider
+        from hermes_cli.tools_config import _visible_providers
+
+        class _SenseAudio(TranscriptionProvider):
+            @property
+            def name(self):
+                return "sensaudio"
+
+            def get_setup_schema(self):
+                return {
+                    "name": "SenseAudio",
+                    "tag": "cloud ASR",
+                    "env_vars": [{"key": "SENSAUDIO_API_KEY", "prompt": "SenseAudio API key"}],
+                }
+
+            def transcribe(self, file_path, **kw):
+                return {"success": True, "transcript": "", "provider": "sensaudio"}
+
+        transcription_registry.register_provider(_SenseAudio())
+
+        visible = _visible_providers(_stt_cat(), config={})
+        names = [row["name"] for row in visible]
+        assert names.index("SenseAudio") > names.index("Local Whisper")
+        row = next(r for r in visible if r.get("stt_plugin_name") == "sensaudio")
+        assert row["stt_provider"] == "sensaudio"
+        assert row["env_vars"][0]["key"] == "SENSAUDIO_API_KEY"
+
+        # Selecting it goes through the same write path as a built-in row.
+        config = {}
+        _write_provider_config(row, config, managed_feature=None)
+        assert config["stt"]["provider"] == "sensaudio"
+        assert _is_provider_active(row, config)
+
+    def test_the_bundled_agentx_gateway_is_offered(self):
+        from hermes_cli.plugins import _ensure_plugins_discovered
+        from hermes_cli.tools_config import _plugin_stt_providers
+
+        _ensure_plugins_discovered(force=True)
+
+        row = next(r for r in _plugin_stt_providers() if r["stt_provider"] == "agentx-gateway")
+        assert row["name"] == "AgentX AI Gateway"
+        assert row["env_vars"] == []

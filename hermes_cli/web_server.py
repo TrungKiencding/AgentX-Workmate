@@ -1112,7 +1112,10 @@ _SCHEMA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "description": "Speech-to-text provider",
         # "mistral" temporarily removed — mistralai PyPI package quarantined
         # (malicious 2.4.6 release on 2026-05-12). Restore once available.
-        "options": ["local", "groq", "openai", "xai", "elevenlabs"],
+        # ``agentx-gateway`` is the bundled plugin (plugins/transcription/
+        # agentx_gateway): the transcription model the signed-in AgentX
+        # account was granted.
+        "options": ["agentx-gateway", "local", "groq", "openai", "xai", "elevenlabs"],
     },
     "stt.local.model": {
         "type": "select",

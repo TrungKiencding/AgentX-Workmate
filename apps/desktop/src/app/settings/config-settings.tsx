@@ -28,7 +28,7 @@ import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { PanelEmpty } from '../overlays/panel'
 
 import { ConfigField } from './config-field'
-import { TTS_PROVIDER_LABELS } from './constants'
+import { VOICE_PROVIDER_LABELS } from './constants'
 import { enumOptionsFor, getNested, isExternalMemoryProvider, sectionFieldEntries, setNested } from './helpers'
 import { MemoryConnect } from './memory/connect'
 import { ProviderConfigPanel } from './memory/provider-config-panel'
@@ -362,8 +362,8 @@ export function ConfigSettings({
                 optionLabels={
                   key === 'tts.elevenlabs.voice_id'
                     ? elevenLabsVoiceLabels
-                    : key === 'tts.provider'
-                      ? TTS_PROVIDER_LABELS
+                    : key === 'tts.provider' || key === 'stt.provider'
+                      ? VOICE_PROVIDER_LABELS
                       : undefined
                 }
                 schema={field}

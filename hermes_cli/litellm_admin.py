@@ -84,6 +84,9 @@ class MintedKey:
     vision_model: str = ""
     #: The text-to-speech model that reads replies aloud, granted beside ``models``, or ``""``.
     speech_model: str = ""
+    #: The speech-to-text model that transcribes dictation and voice messages, granted
+    #: beside ``models``, or ``""``.
+    transcription_model: str = ""
 
     @property
     def role_models(self) -> tuple[str, ...]:
@@ -91,7 +94,13 @@ class MintedKey:
         return tuple(
             dict.fromkeys(
                 m
-                for m in (self.web_search_model, self.image_model, self.vision_model, self.speech_model)
+                for m in (
+                    self.web_search_model,
+                    self.image_model,
+                    self.vision_model,
+                    self.speech_model,
+                    self.transcription_model,
+                )
                 if m
             )
         )

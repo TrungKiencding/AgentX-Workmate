@@ -297,7 +297,10 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'stt.local.model': ['tiny', 'base', 'small', 'medium', 'large-v3'],
   // Speech-to-text backends — kept in sync with the stt block in
   // hermes_cli/config.py (local/groq/openai/mistral/elevenlabs).
-  'stt.provider': ['local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs'],
+  // 'agentx-gateway' is the bundled plugin (plugins/transcription/agentx_gateway)
+  // — the transcription model the AgentX account was granted; provisioning
+  // selects it for an account that has one.
+  'stt.provider': ['agentx-gateway', 'local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs'],
   // OpenAI TTS voices — the union across models (per the OpenAI TTS API
   // docs). Model-specific narrowing happens in enumOptionsFor():
   // tts-1 / tts-1-hd support 9 voices; gpt-4o-mini-tts supports all 13.
@@ -370,8 +373,9 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'updates.non_interactive_local_changes': ['stash', 'discard']
 }
 
-// Provider ids shown by their product name instead of a prettified id.
-export const TTS_PROVIDER_LABELS: Record<string, string> = {
+// Voice provider ids (tts.provider / stt.provider) shown by their product name
+// instead of a prettified id.
+export const VOICE_PROVIDER_LABELS: Record<string, string> = {
   'agentx-gateway': 'AgentX AI Gateway'
 }
 
