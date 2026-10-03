@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 
-SCANNER_VERSION = "skills-guard-v1"
+SCANNER_VERSION = "skills-guard-v2"
 
 
 
@@ -509,7 +509,8 @@ THREAT_PATTERNS = [
     (r'sk-ant-[A-Za-z0-9_-]{90,}',
      "anthropic_key_leaked", "critical", "credential_exposure",
      "possible Anthropic API key in skill content"),
-    (r'AKIA[0-9A-Z]{16}',
+    # AWS IDs are uppercase; case-folded base64 collisions are not keys.
+    (r'(?-i:AKIA[0-9A-Z]{16})',
      "aws_access_key_leaked", "critical", "credential_exposure",
      "AWS access key ID in skill content"),
     (r'glpat-[A-Za-z0-9_\-]{20,}',
