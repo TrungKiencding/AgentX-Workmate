@@ -10,7 +10,7 @@ import { EventEmitter } from 'node:events'
 
 import { describe, test } from 'vitest'
 
-import { refreshKeycloakSession, runKeycloakLogin } from './keycloak-login'
+import { logoutKeycloakSession, refreshKeycloakSession, runKeycloakLogin } from './keycloak-login'
 import { KEYCLOAK_CALLBACK_PORTS, type KeycloakOidcConfig } from './keycloak-oidc'
 
 const ISSUER = 'https://agentx.example.com/auth/realms/agent-hub'
@@ -142,6 +142,41 @@ describe('runKeycloakLogin', () => {
     assert.equal(posted[0].form.code, 'the-code')
     assert.equal(posted[0].form.grant_type, 'authorization_code')
     assert.equal(state.closed, true)
+  })
+
+  test('stamps when the person signed in and logs what Keycloak granted', async () => {
+    const { createServer, state } = makeFakeServerFactory()
+    const logs: string[] = []
+
+    const { deps, openedUrls } = makeDeps({
+      createServer,
+      timeoutMs: 5_000,
+      now: () => 1_234,
+      rememberLog: (line: string) => logs.push(line),
+      postForm: async () => ({
+        id_token: ID_TOKEN,
+        refresh_token: 'rt-offline',
+        scope: 'openid profile email offline_access',
+        refresh_expires_in: 2_592_000
+      })
+    })
+
+    const pending = runKeycloakLogin(CONFIG, deps)
+
+    await tick()
+    await tick()
+
+    const stateParam = new URL(openedUrls[0]).searchParams.get('state') || ''
+
+    state.callback(`?code=c&state=${encodeURIComponent(stateParam)}`)
+
+    const tokens = await pending
+
+    // The session_days clock starts here and nowhere else.
+    assert.equal(tokens.signedInAt, 1_234)
+    assert.equal(tokens.offline, true)
+    // The realm's own answer is the one place its offline idle limit shows.
+    assert.ok(logs.some(line => line.includes('offline session') && line.includes('30d')), logs.join('\n'))
   })
 
   test('redirect_uri is the port actually bound, and matches the token exchange', async () => {
@@ -330,5 +365,59 @@ describe('refreshKeycloakSession', () => {
     })
 
     await assert.rejects(refreshKeycloakSession(CONFIG, 'rt', deps), /invalid_grant/)
+  })
+})
+
+describe('logoutKeycloakSession', () => {
+  test('ends the session by posting its refresh token to the end-session endpoint', async () => {
+    // Not the RFC 7009 revocation endpoint: on Keycloak 25/26 that ends every
+    // session the person has on this client, on every machine.
+    const { deps, posted } = makeDeps()
+
+    assert.equal(await logoutKeycloakSession(CONFIG, 'rt-offline', deps), true)
+    assert.deepEqual(posted, [
+      {
+        url: DISCOVERY_DOC.end_session_endpoint,
+        form: { client_id: 'agentx-workmate', refresh_token: 'rt-offline' }
+      }
+    ])
+  })
+
+  test('makes no request without a refresh token', async () => {
+    const { deps, posted } = makeDeps()
+
+    assert.equal(await logoutKeycloakSession(CONFIG, '', deps), false)
+    assert.deepEqual(posted, [])
+  })
+
+  test('makes no request when the realm advertises no end-session endpoint', async () => {
+    const { deps, posted } = makeDeps({
+      getJson: async () => ({ ...DISCOVERY_DOC, end_session_endpoint: undefined })
+    })
+
+    assert.equal(await logoutKeycloakSession(CONFIG, 'rt', deps), false)
+    assert.deepEqual(posted, [])
+  })
+
+  test('never throws, because the local session is already gone', async () => {
+    const logs: string[] = []
+
+    const { deps } = makeDeps({
+      rememberLog: (line: string) => logs.push(line),
+      postForm: async () => {
+        throw new Error('connect ECONNREFUSED')
+      }
+    })
+
+    assert.equal(await logoutKeycloakSession(CONFIG, 'rt', deps), false)
+    assert.ok(logs.some(line => line.includes('could not end the session')))
+
+    const { deps: unreachable } = makeDeps({
+      getJson: async () => {
+        throw new Error('getaddrinfo ENOTFOUND')
+      }
+    })
+
+    assert.equal(await logoutKeycloakSession(CONFIG, 'rt', unreachable), false)
   })
 })

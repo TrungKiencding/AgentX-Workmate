@@ -64,6 +64,13 @@ class FakeHub:
         self.unreachable = False
         self.reject_token = False
         self.skills: dict[str, dict] = {}
+        #: Slugs whose versions the hub withdrew: a copy a machine tells of is switched off at once (§8 #22).
+        self.withdrawn: dict[str, str] = {}
+        #: Slugs the hub will not take a copy of (``install_unknown_copy``).
+        self.unknown: set[str] = set()
+        self.removed_ids: list[str] = []
+        #: Paths the hub cannot be reached on (the rest answers).
+        self.down: set[str] = set()
         self._canon = _hub_canonical_manifest
         self._bundle_hash = lambda files: bundle_content_hash(SkillBundle(name="x", files=files, source="", identifier="", trust_level=""))
 
@@ -93,7 +100,7 @@ class FakeHub:
 
     def _handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
-        if self.unreachable:
+        if self.unreachable or request.url.path in self.down:
             raise httpx.ConnectError("no route", request=request)
         path = request.url.path
         if path == "/.well-known/agentx-hub.json":
@@ -107,8 +114,23 @@ class FakeHub:
         if path == "/v1/installs" and request.method == "POST":
             body = json.loads(request.content)
             self.created.append(body)
+            held = body.get("installed")
+            if held and (body["slug"] in self.unknown or held.get("content_hash") != self.skills[body["slug"]]["content_hash"]):
+                return httpx.Response(409, json={"code": "install_unknown_copy", "message": "not this hub's", "detail": None})
             row = self.install_row(body["slug"], install_id=f"inst-{len(self.created)}-{body['slug']}", reason=body.get("reason", ""))
+            if held:
+                row.update(reported_state="installed", reported_version=held["version"])
+                if body["slug"] in self.withdrawn:
+                    row.update(desired_state="disabled", withdrawn=True, reason=self.withdrawn[body["slug"]], reason_version=held["version"],
+                               reported_state="pending")
             return httpx.Response(201, json=row)
+        if path.startswith("/v1/installs/") and request.method == "DELETE":
+            install_id = path.split("/")[3]
+            self.removed_ids.append(install_id)
+            for row in self.installs:
+                if row["id"] == install_id:
+                    row.update(desired_state="removed", reported_state="pending")
+            return httpx.Response(200, json={"ok": True})
         if path.startswith("/v1/installs/") and path.endswith("/report"):
             install_id = path.split("/")[3]
             body = json.loads(request.content)
@@ -116,7 +138,9 @@ class FakeHub:
             for row in self.installs:
                 if row["id"] == install_id:
                     row["reported_state"] = body["state"]
+                    # As the hub keeps a skill's report: the version and error it names, or none.
                     row["reported_version"] = body.get("version")
+                    row["error"] = body.get("error") or ""
             return httpx.Response(200, json={"id": install_id, "reported_state": body["state"]})
         if path.startswith("/v1/skills/") and "/versions/" in path and path.endswith("/bundle"):
             slug = path[len("/v1/skills/"):].split("/versions/")[0]
@@ -153,6 +177,10 @@ class FakeInstaller:
 
     def local_state(self, slug: str) -> dict:
         return dict(self.state.get(slug) or {"installed": False, "name": "", "version": "", "content_hash": "", "install_path": "", "enabled": False})
+
+    def hub_skills(self) -> list[dict]:
+        return [{"slug": slug, "name": st["name"], "version": st.get("version", ""), "hub_content_hash": st.get("hub_content_hash", "")}
+                for slug, st in self.state.items() if st.get("installed")]
 
     def install(self, identifier: str, *, base_url: str, token: str) -> InstallResult:
         self.calls.append(("install", identifier, token))
@@ -339,11 +367,138 @@ class TestReconcile:
         assert engine.changes()["workspaces"] == hub.workspaces
         assert "workspace.skill.published" in __import__("hermes_cli.hub_sync", fromlist=["NUDGE_EVENTS"]).NUDGE_EVENTS
 
-    def test_browser_installs_are_ignored_by_workmate(self, hub):
+    def test_a_browser_skill_is_installed_like_any_other(self, hub):
+        """Workmate's agent follows a browser skill with its own browser tools:
+        an install the hub keeps like a core skill's (hub decision §8 #22)."""
         hub.add_skill("site", {"SKILL.md": "# x\n"}, kind="browser")
         hub.install_row("site")
         installer = FakeInstaller()
-        assert _engine(hub, installer).tick().changed is False and installer.calls == []
+        assert _engine(hub, installer).tick().installed == ["site"] and installer.calls == [("install", "agentx-hub/site", "tok")]
+
+
+class TestWhatThisMachineHas:
+    """Hub decision §8 #22: every skill here from the hub is an install the hub
+    keeps — told to it with the copy's version and content hash when it keeps
+    none — so a yank or a takedown reaches it; one the hub keeps off stays off
+    here; one removed here is removed on the hub."""
+
+    def _held(self, installer, hub, slug="demo-core", *, version="1.0.0", enabled=True):
+        installer.state[slug] = {"installed": True, "name": slug, "version": version, "content_hash": "sha256:" + "a" * 16, "install_path": slug,
+                                 "enabled": enabled, "hub_content_hash": hub.skills[slug]["content_hash"]}
+
+    def test_a_skill_the_hub_keeps_no_install_of_is_told_to_the_hub_with_its_copy(self, hub):
+        hub.add_skill("demo-core", SAFE_FILES)
+        installer = FakeInstaller()
+        self._held(installer, hub)
+        engine = _engine(hub, installer)
+        outcome = engine.tick()
+        assert hub.created == [{"slug": "demo-core", "product": "workmate",
+                                "installed": {"version": "1.0.0", "content_hash": hub.skills["demo-core"]["content_hash"]}}]
+        assert outcome.status == "ok" and installer.calls == [] and outcome.changed is False
+        assert engine.changes()["history"][0]["action"] == "registered" and engine.changes()["history"][0]["version"] == "1.0.0"
+        assert [row["slug"] for row in engine.changes()["installs"]] == ["demo-core"]  # this tick's snapshot has it now
+        # The next snapshot lists it: nothing more is told.
+        engine.tick()
+        assert len(hub.created) == 1
+
+    def test_a_copy_of_a_version_the_hub_withdrew_is_switched_off_at_once_and_stays_off(self, hub):
+        from hermes_cli.hub_sync import hub_hold, read_hub_state
+
+        hub.add_skill("demo-core", SAFE_FILES)
+        hub.withdrawn["demo-core"] = "taken down by admin: phishing"
+        installer = FakeInstaller()
+        self._held(installer, hub)
+        engine = _engine(hub, installer)
+        outcome = engine.tick()
+        assert outcome.disabled == ["demo-core"] and installer.calls == [("disable", "demo-core")]
+        assert hub.reports[-1] == ("inst-1-demo-core", {"state": "disabled", "version": "1.0.0", "device_name": "Ada's laptop"})
+        held = hub_hold("skills", "demo-core")
+        assert held is not None and held["reason"] == "taken down by admin: phishing" and held["withdrawn"] is True
+        assert read_hub_state()["skills"]["demo-core"]["name"] == "demo-core"
+        # Switched back on here (the Skills tab, config.yaml): switched off again, and said only once.
+        installer.state["demo-core"]["enabled"] = True
+        again = engine.tick()
+        assert again.disabled == ["demo-core"] and installer.calls[-1] == ("disable", "demo-core")
+        assert len([r for r in hub.reports if r[1]["state"] == "disabled"]) == 1
+        # Updated here to a version the hub serves: the report names it, so the hub can switch it back on.
+        installer.state["demo-core"]["version"] = "1.1.0"
+        engine.tick()
+        assert hub.reports[-1][1] == {"state": "disabled", "version": "1.1.0", "device_name": "Ada's laptop"}
+        # The hub does: switched on, said so; the hold is gone.
+        hub.installs[0].update(desired_state="installed", reported_state="pending", withdrawn=False, reason="runs 1.1.0, which the hub serves")
+        assert engine.tick().enabled == ["demo-core"] and installer.state["demo-core"]["enabled"] is True
+        assert hub_hold("skills", "demo-core") is None
+
+    def test_a_copy_the_hub_will_not_take_is_not_asked_of_it_again(self, hub):
+        hub.add_skill("demo-core", SAFE_FILES)
+        hub.add_skill("old-one", SAFE_FILES)
+        hub.unknown.add("demo-core")
+        installer = FakeInstaller()
+        self._held(installer, hub)
+        self._held(installer, hub, "old-one")
+        installer.state["old-one"]["hub_content_hash"] = ""  # installed before the lock kept the hub's hash: nothing to show it by
+        engine = _engine(hub, installer)
+        assert engine.tick().status == "ok" and [body["slug"] for body in hub.created] == ["demo-core"]
+        engine.tick()
+        assert len(hub.created) == 1 and hub.installs == []
+
+    def test_an_unreachable_hub_is_asked_again_next_tick(self, hub):
+        hub.add_skill("demo-core", SAFE_FILES)
+        installer = FakeInstaller()
+        self._held(installer, hub)
+        engine = _engine(hub, installer)
+        hub.down.add("/v1/installs")
+        assert engine.tick().status == "offline" and hub.installs == []
+        hub.down.clear()
+        assert engine.tick().status == "ok" and [row["slug"] for row in hub.installs] == ["demo-core"]
+
+    def test_a_skill_removed_on_this_machine_is_removed_on_the_hub_not_installed_again(self, hub):
+        hub.add_skill("demo-core", SAFE_FILES)
+        hub.install_row("demo-core", reported="installed").update(reported_version="1.0.0")
+        installer = FakeInstaller()  # nothing here: the person removed it
+        engine = _engine(hub, installer)
+        outcome = engine.tick()
+        assert installer.calls == [] and outcome.removed == ["demo-core"]
+        assert hub.removed_ids == ["inst-demo-core"] and hub.reports[-1] == ("inst-demo-core", {"state": "removed", "device_name": "Ada's laptop"})
+        assert engine.changes()["history"][0]["detail"] == "removed on this machine"
+        # Removed while the hub kept it off: the same.
+        hub.install_row("other", desired="disabled", reported="disabled", install_id="inst-other") if hub.add_skill("other", SAFE_FILES) else None
+        engine.tick()
+        assert hub.removed_ids[-1] == "inst-other" and hub.reports[-1][1]["state"] == "removed"
+
+    def test_the_install_changed_last_says_what_the_hub_wants_and_every_one_hears(self, hub):
+        """One asked for on every machine and one for this machine (rare): the
+        newest decides — they never pull the skill two ways — and both hear."""
+        hub.add_skill("demo-core", SAFE_FILES)
+        every = hub.install_row("demo-core", install_id="every", reported="installed")
+        every.update(device_id=None, updated_at="2026-09-28T10:00:00+00:00", reported_version="1.0.0")
+        mine = hub.install_row("demo-core", install_id="mine", desired="disabled", reported="installed", reason="yanked: wrong totals")
+        mine.update(updated_at="2026-09-28T11:00:00+00:00", reported_version="1.0.0")
+        installer = FakeInstaller()
+        self._held(installer, hub)
+        outcome = _engine(hub, installer).tick()
+        assert outcome.disabled == ["demo-core"] and installer.calls == [("disable", "demo-core")]
+        assert sorted(r[0] for r in hub.reports) == ["every", "mine"] and {r[1]["state"] for r in hub.reports} == {"disabled"}
+
+    def test_what_the_hub_decides_of_an_install_wakes_the_sync_at_once(self, hub, monkeypatch):
+        """An archive, its undoing, a switch-off (``install.status``,
+        ``mcp.install.status``, ``install.desired``) change what the store says
+        here: the next tick is now, not at the next interval."""
+        import asyncio
+
+        engine = _engine(hub)
+        woken: list = []
+        monkeypatch.setattr(engine, "nudge", lambda: woken.append(1))
+        heard = ("install.status", "mcp.install.status", "install.desired", "comment.created", "install.reported")
+
+        class Stream:
+            async def aiter_events(self, **_kwargs):
+                for number, kind in enumerate(heard, start=1):
+                    yield {"id": number, "type": kind, "payload": {"slug": "demo-core"}}
+
+        monkeypatch.setattr(engine, "_session_client", lambda: Stream())
+        asyncio.run(engine._stream_once(CREDS))
+        assert len(woken) == 3  # the three decisions; a comment, the machine's own report are nothing to act on
 
 
 class TestFailures:
@@ -447,6 +602,26 @@ class TestLocalInstaller:
         assert engine.tick().removed == ["demo-core"]
         assert not skill_dir.exists() and HubLockFile().get_installed("demo-core") is None
         assert hub.reports[-1][1]["state"] == "removed"
+
+    def test_a_skill_installed_from_the_store_is_told_to_the_hub_with_the_copy_on_disk(self, hub):
+        """The store in Workmate installs without the hub keeping an install
+        (`agentx skills install agentx-hub/<slug>`): the lock keeps what the hub
+        needs to take it — the version and the hub's content hash of it."""
+        from tools.skills_hub import AgentXHubSource, HubLockFile, install_from_quarantine, quarantine_bundle
+        from tools.skills_guard import scan_skill
+
+        hub.add_skill("demo-core", SAFE_FILES)
+        bundle = AgentXHubSource(HUB, transport=hub.transport).fetch("agentx-hub/demo-core")
+        q_path = quarantine_bundle(bundle)
+        install_from_quarantine(q_path, bundle.name, "", bundle, scan_skill(q_path, source=bundle.trust_level))
+        installer = LocalInstaller(transport=hub.transport)
+        assert installer.hub_skills() == [{"slug": "demo-core", "name": "demo-core", "version": "1.0.0",
+                                           "hub_content_hash": hub.skills["demo-core"]["content_hash"]}]
+        assert HubLockFile().get_installed("demo-core")["metadata"]["hub_slug"] == "demo-core"
+        engine = _engine(hub, installer)
+        assert engine.tick().status == "ok"
+        assert hub.created == [{"slug": "demo-core", "product": "workmate",
+                                "installed": {"version": "1.0.0", "content_hash": hub.skills["demo-core"]["content_hash"]}}]
 
     def test_an_unsigned_bundle_still_installs_as_community_and_a_dangerous_one_is_blocked(self, hub):
         from tools.skills_hub import HubLockFile

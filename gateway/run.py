@@ -28308,7 +28308,11 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # heartbeats (Discord shard, Telegram polling) until it returned.
     # See #16856.
     try:
+        from hermes_cli.mcp_startup import set_mcp_host_role
         from tools.mcp_tool import discover_mcp_tools
+        # Named to the MCP servers it spawns: the WebMate server of a gateway
+        # yields the browser bridge to the desktop app's and relays through it.
+        set_mcp_host_role("gateway")
         _loop = asyncio.get_running_loop()
         await _loop.run_in_executor(None, discover_mcp_tools)
     except Exception as e:

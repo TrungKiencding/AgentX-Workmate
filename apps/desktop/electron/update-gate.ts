@@ -4,47 +4,26 @@
  * update-gate.ts
  *
  * Pure, dependency-injected gate that parks local backend spawns while an
- * in-app update is running (#73822, #50238).
+ * update owns the agent install (#50238).
  *
- * Two independent signals mean "an update owns the venv right now":
- *
- *  - the on-disk marker (`AGENTX_HOME/.agentx-update-in-progress`), written
- *    by the updater — and by the desktop itself just before hand-off — and
- *  - the in-process `updateInFlight` flag, true for the whole
- *    `applyUpdates()` critical section.
- *
- * The marker alone is NOT enough (#73822): `applyUpdates` kills its own
- * backend early (`releaseBackendLock`) but only writes the marker AFTER the
- * Windows venv-blocker scan. Killing the backend drops the renderer's
- * WebSocket, the renderer reconnects within ~1s, and a marker-only gate
- * happily spawns a fresh backend inside the update's own critical section —
- * which `scanVenvBlockers` then reports as a blocker, aborting every update
- * attempt forever. Consulting the flag closes that window. On the success
- * path the marker is written BEFORE the flag clears in `applyUpdates`'
- * `finally`, so there is no instant where both signals are false and a
- * waiter could slip through mid-update.
+ * The signal is the on-disk marker (`AGENTX_HOME/.agentx-update-in-progress`,
+ * see update-marker.ts). `agentx update` holds it for its whole run
+ * (hermes_cli/update_lock.py), and so does a staged recovery updater
+ * (apps/bootstrap-installer) — written by the desktop itself just before it
+ * hands off. A backend spawned underneath either would re-lock the venv the
+ * update is rewriting.
  */
 
-export type UpdateGateReason = 'marker' | 'update-in-flight' | null
+export type UpdateGateReason = 'marker' | null
 
 export interface UpdateGateDeps {
   /** True when a live on-disk update marker exists (see update-marker.ts). */
   hasLiveMarker: () => boolean
-  /** True while this process is inside applyUpdates()' critical section. */
-  isUpdateInFlight: () => boolean
 }
 
 /** Why the gate is closed right now, or null when it is open. */
 export function updateGateReason(deps: UpdateGateDeps): UpdateGateReason {
-  if (deps.hasLiveMarker()) {
-    return 'marker'
-  }
-
-  if (deps.isUpdateInFlight()) {
-    return 'update-in-flight'
-  }
-
-  return null
+  return deps.hasLiveMarker() ? 'marker' : null
 }
 
 export type UpdateClearanceOutcome = 'clear' | 'finished' | 'timeout'

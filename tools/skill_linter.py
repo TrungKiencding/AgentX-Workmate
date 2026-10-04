@@ -196,7 +196,7 @@ def _check_metadata_block(frontmatter: Dict[str, Any]) -> List[LintFinding]:
                 )
             )
     meta = frontmatter.get("metadata")
-    hermes_meta = meta.get("agentx") if isinstance(meta, dict) else None
+    hermes_meta = meta.get("hermes") if isinstance(meta, dict) else None
     if not isinstance(hermes_meta, dict):
         findings.append(
             LintFinding(

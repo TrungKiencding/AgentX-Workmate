@@ -8,10 +8,21 @@
  * matches; there is no "install anyway".
  *
  * Pure: no I/O. The updater (phase 2) and the installer's fetch script sit on
- * top of this.
+ * top of this. The signing primitives are shared with Workmate's own update
+ * feed (../signed-manifest.ts); they are re-exported here for the WebMate code
+ * that has always imported them from this module.
  */
 
-import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto'
+import {
+  canonicalJson,
+  compareVersions,
+  isSemver,
+  sha256Hex,
+  signingPayload,
+  verifyEd25519Signature
+} from '../signed-manifest'
+
+export { canonicalJson, compareVersions, sha256Hex, signingPayload }
 
 /**
  * Public half of the Ed25519 key that signs WebMate releases. The private half
@@ -30,8 +41,6 @@ export const WEBMATE_RELEASE_FEED_URL =
   'https://raw.githubusercontent.com/astralxkienlt/agentx-webmate/main/release.json'
 export const WEBMATE_REPOSITORY_URL = 'https://github.com/astralxkienlt/agentx-webmate'
 
-const SIGNATURE_PREFIX = 'ed25519:'
-const SEMVER = /^\d+\.\d+\.\d+$/
 const SHA256_HEX = /^[0-9a-f]{64}$/
 
 export interface ReleaseManifest {
@@ -50,29 +59,6 @@ export class ReleaseManifestError extends Error {
     super(message)
     this.name = 'ReleaseManifestError'
   }
-}
-
-/** Deterministic JSON: sorted keys at every level, no whitespace, undefined dropped. */
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value)
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.map(item => canonicalJson(item === undefined ? null : item)).join(',')}]`
-  }
-
-  const record = value as Record<string, unknown>
-
-  const keys = Object.keys(record)
-    .filter(key => record[key] !== undefined)
-    .sort()
-
-  return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`
-}
-
-export function sha256Hex(buffer: Buffer | Uint8Array): string {
-  return createHash('sha256').update(buffer).digest('hex')
 }
 
 export interface ParseReleaseOptions {
@@ -96,7 +82,7 @@ export function parseReleaseManifest(raw: unknown, options: ParseReleaseOptions 
     throw new ReleaseManifestError(`release manifest schema ${String(record.schema)} is not supported`)
   }
 
-  if (typeof record.version !== 'string' || !SEMVER.test(record.version)) {
+  if (!isSemver(record.version)) {
     throw new ReleaseManifestError(`release manifest version is not MAJOR.MINOR.PATCH: ${String(record.version)}`)
   }
 
@@ -130,7 +116,7 @@ export function parseReleaseManifest(raw: unknown, options: ParseReleaseOptions 
     throw new ReleaseManifestError('release manifest chrome.bytes is not a positive integer')
   }
 
-  if (typeof record.minWorkmate !== 'string' || !SEMVER.test(record.minWorkmate)) {
+  if (!isSemver(record.minWorkmate)) {
     throw new ReleaseManifestError('release manifest minWorkmate is not MAJOR.MINOR.PATCH')
   }
 
@@ -159,13 +145,6 @@ export function parseReleaseManifest(raw: unknown, options: ParseReleaseOptions 
   return manifest
 }
 
-/** The bytes the signature covers: canonical JSON of everything but `signature`. */
-export function signingPayload(manifest: Record<string, unknown>): Buffer {
-  const { signature: _signature, ...rest } = manifest
-
-  return Buffer.from(canonicalJson(rest), 'utf8')
-}
-
 /**
  * true only for a well-formed manifest whose Ed25519 signature verifies under
  * `publicKeyPem`. Never throws: a broken feed is "no feed".
@@ -176,38 +155,10 @@ export function verifyReleaseManifest(
   options: ParseReleaseOptions = {}
 ): boolean {
   try {
-    const manifest = parseReleaseManifest(raw, options)
-    const signature = String(manifest.signature || '')
-
-    if (!signature.startsWith(SIGNATURE_PREFIX)) {
-      return false
-    }
-
-    const bytes = Buffer.from(signature.slice(SIGNATURE_PREFIX.length), 'base64')
-
-    if (bytes.length !== 64) {
-      return false
-    }
-
-    const key = createPublicKey(publicKeyPem)
-
-    if (key.asymmetricKeyType !== 'ed25519') {
-      return false
-    }
-
-    // Verify over the document as received (all fields the signer saw), not
-    // over the parsed subset — an extra field would otherwise slip past.
-    return cryptoVerify(null, signingPayload(raw as Record<string, unknown>), key, bytes)
+    parseReleaseManifest(raw, options)
   } catch {
     return false
   }
-}
 
-/** Compare MAJOR.MINOR.PATCH strings; non-semver sorts lowest. */
-export function compareVersions(a: string, b: string): number {
-  const parse = (value: string) => (SEMVER.test(value) ? value.split('.').map(Number) : [-1, -1, -1])
-  const [a1, a2, a3] = parse(a)
-  const [b1, b2, b3] = parse(b)
-
-  return a1 - b1 || a2 - b2 || a3 - b3
+  return verifyEd25519Signature(raw, publicKeyPem)
 }

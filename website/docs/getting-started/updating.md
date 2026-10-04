@@ -46,7 +46,7 @@ If your local checkout is on a different branch, AgentX auto-stashes any uncommi
 
 When you run `agentx update` in a terminal, AgentX stashes any uncommitted source-tree changes, pulls, then **asks** whether to restore them — exactly as it always has. Nothing changes for interactive updates.
 
-When the update runs **without a terminal** — from the desktop/chat app's "Update" button or a gateway-triggered update — there's no prompt to answer. The `updates.non_interactive_local_changes` setting decides what happens to your stashed changes:
+When the update runs **without a terminal** — a remote backend updated from the desktop or chat app, or a gateway-triggered `/update` — there's no prompt to answer. (The desktop app's own updates install the app and re-pin its agent instead; they never run `agentx update`.) The `updates.non_interactive_local_changes` setting decides what happens to your stashed changes:
 
 ```yaml
 # ~/.agentx/config.yaml

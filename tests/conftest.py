@@ -13,6 +13,13 @@ Hermetic-test invariants enforced here (see AGENTS.md for rationale):
 3. **Deterministic runtime.** TZ=UTC, LANG=C.UTF-8, PYTHONHASHSEED=0.
 4. **No AGENTX_SESSION_* inheritance** — the agent's current gateway
    session must not leak into tests.
+5. **The checkout is read-only to git.** A git command that would modify the
+   repository the suite runs from is refused and fails the test that ran it
+   (see "Live-checkout git guard" below).
+6. **No logins read through a CLI.** The real ``gh`` and macOS ``security``
+   binaries are refused process-wide, from any thread, so the developer's
+   GitHub token and Keychain entries cannot leak in either (see the
+   credential-CLI guard).
 
 These invariants make the local test run match CI closely. Gaps that
 remain (CPU count, xdist worker count) are addressed by the canonical
@@ -22,11 +29,19 @@ test runner at ``scripts/run_tests.sh``.
 import asyncio
 import atexit
 import copy
+import errno
+import importlib.util
 import os
+import re
 import shutil
 import sqlite3
+import stat
+import subprocess
 import sys
 import tempfile
+import threading
+import traceback
+import warnings
 from pathlib import Path
 
 import pytest
@@ -566,7 +581,12 @@ def _neutralize_webbrowser(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _neutralize_macos_keychain_creds(request, monkeypatch):
-    """Default Anthropic credential resolution away from the real macOS Keychain."""
+    """Default Anthropic credential resolution away from the real macOS Keychain.
+
+    Keeps the reader's answer deterministic for tests that mock subprocess. It
+    is not what keeps the real Keychain out — a per-test patch has a window a
+    daemon thread can slip through; the credential-CLI guard below closes it.
+    """
     if request.node.get_closest_marker(_ALLOW_MACOS_KEYCHAIN_MARK):
         return None
 
@@ -582,6 +602,168 @@ def _neutralize_macos_keychain_creds(request, monkeypatch):
         raising=False,
     )
     return None
+
+
+# ── Credential-CLI guard ────────────────────────────────────────────────────
+#
+# Two of the developer's logins are read through a CLI, out of reach of the
+# env-var blanking and the AGENTX_HOME redirect above:
+#
+#   • GitHub CLI: ``gh auth token`` seeds the Copilot pool on every
+#     ``load_pool("copilot")`` / ``list_authenticated_providers()``
+#     (hermes_cli/copilot_auth.py) and authenticates the Skills Hub
+#     (tools/skills_hub.py); doctor runs ``gh auth token`` too, and the
+#     dashboard git panel ``gh auth status`` / ``gh pr view``. gh answers from
+#     the login keychain even with GH_CONFIG_DIR pointed at an empty directory.
+#   • macOS Keychain: ``security find-generic-password -s "Claude
+#     Code-credentials" -w`` (agent/anthropic_adapter.py).
+#
+# A spawn probe over tests/hermes_cli + tests/tui_gateway counted 215
+# ``gh auth token`` spawns from 26 files, and the code under test hands that
+# token to api.github.com/copilot_internal/v2/token and api.githubcopilot.com.
+# The per-test stub above did not keep the Keychain out either: the
+# ``picker-cache-prewarm`` daemon thread a tui_gateway test started outlived
+# that test and reached the reader during the NEXT test's setup — after
+# teardown had put the real function back, before the next stub went in — and
+# went on to call api.anthropic.com with the token (or, once it has expired,
+# the OAuth endpoint with the refresh token). Every per-test monkeypatch has
+# that window.
+#
+# So this guard is process-wide and permanent: a PEP 578 audit hook, installed
+# at conftest import (before collection), refuses to run the real ``gh`` or
+# ``security`` binary from any thread at any time. (An audit hook rather than
+# a ``Popen._execute_child`` wrapper like the live-checkout git guard: it also
+# sees ``os.system``, ``os.exec*`` and ``os.posix_spawn``.) It raises
+# FileNotFoundError — "CLI not installed", a branch every reader already
+# handles — so a developer machine looks like CI. A fake ``gh`` a test writes
+# under its tmp_path still runs, and tests that mock subprocess.run (or the
+# reader) never get as far as a spawn, so there is no opt-out marker: gh
+# would fall back to the real keychain.
+#
+# The hook lives in this process only. A child process that runs gh itself —
+# a script, ``python -m hermes_cli.main ...`` — is out of its reach, so a test
+# that starts one has to keep it away from gh on its own.
+
+_CREDENTIAL_CLIS = frozenset({"gh", "security"})
+# Through a shell or wrapper (``sh -c``, ``env``, ``nohup`` ...) gh is refused
+# with any of its commands, as a direct spawn is: every one runs as the
+# developer's GitHub login (``gh api``, ``gh pr comment`` ...), not only
+# ``gh auth``. For ``security`` only the credential subcommands are. A command
+# word has to follow, so ``echo gh`` and ``command -v gh`` still run.
+_GH_COMMANDS = (
+    "agent-task", "alias", "api", "attestation", "auth", "browse", "cache",
+    "codespace", "completion", "config", "copilot", "extension", "ext", "gist",
+    "gpg-key", "help", "issue", "label", "org", "preview", "pr", "project",
+    "release", "repo", "ruleset", "run", "search", "secret", "ssh-key",
+    "status", "variable", "version", "workflow",
+)
+_CREDENTIAL_CLI_COMMAND = re.compile(
+    r"(?:^|[\s;&|(`'\"])(?:\S*[/\\])?"
+    r"(?:gh(?:\.exe)?['\"]?\s+-{0,2}(?:" + "|".join(map(re.escape, _GH_COMMANDS)) + ")"
+    r"|security\s+(?:find-(?:generic|internet)-password|dump-keychain|export))\b"
+)
+_COMMAND_WRAPPERS = frozenset({
+    "sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh", "env", "nohup",
+    "setsid", "timeout", "time", "sudo", "doas", "su", "runuser", "xargs",
+    "nice", "ionice", "chrt", "taskset", "stdbuf", "unbuffer", "flock",
+    "script", "arch", "caffeinate", "command", "cmd", "powershell", "pwsh",
+})
+_SPAWN_AUDIT_EVENTS = frozenset({
+    "subprocess.Popen", "os.posix_spawn", "os.exec", "os.spawn", "os.system",
+})
+# Captured at import: tests monkeypatch shutil.which / os.path.isfile /
+# os.access process-wide, and the guard has to see the real filesystem.
+_real_stat = os.stat
+_real_realpath = os.path.realpath
+_TEST_TMP_ROOT = os.path.join(_real_realpath(tempfile.gettempdir()), "")
+
+
+def _spawn_target(program, env):
+    """Real path of the file a spawn of *program* would execute, or None."""
+    if os.path.dirname(program):
+        candidates = [program]
+    else:
+        if env is None:
+            search = os.environ.get("PATH", os.defpath)
+        else:
+            search = env["PATH"] if "PATH" in env else env.get(b"PATH", os.defpath)
+        candidates = [
+            os.path.join(directory or os.curdir, program)
+            for directory in os.fsdecode(search).split(os.pathsep)
+        ]
+    suffixes = [""]
+    if sys.platform == "win32":
+        suffixes += os.environ.get("PATHEXT", ".EXE").split(os.pathsep)
+    for candidate in candidates:
+        for suffix in suffixes:
+            try:
+                st = _real_stat(candidate + suffix)
+            except (OSError, ValueError):
+                continue
+            if stat.S_ISREG(st.st_mode) and (sys.platform == "win32" or st.st_mode & 0o111):
+                return _real_realpath(candidate + suffix)
+    return None
+
+
+def _first_word(command):
+    """argv[0] of a one-string command line (os.system, Popen on Windows)."""
+    command = command.lstrip()
+    if command[:1] in ("'", '"'):
+        end = command.find(command[0], 1)
+        return command[1:end] if end > 0 else command[1:]
+    return command.split(None, 1)[0] if command else ""
+
+
+def _credential_cli_spawn(event, args):
+    """The command line, when this spawn would run the developer's gh / security."""
+    if event == "os.system":
+        program, argv, env = None, args[0], None
+    elif event == "subprocess.Popen":
+        program, argv, _cwd, env = args
+    elif event == "os.spawn":
+        _mode, program, argv, env = args
+    else:  # os.exec, os.posix_spawn
+        program, argv, env = args
+    one_string = isinstance(argv, (str, bytes))
+    argv = [os.fsdecode(arg) for arg in ([argv] if one_string else argv or ())]
+    command = " ".join(argv)
+    if program is None:
+        program = _first_word(command) if one_string else (argv[0] if argv else "")
+    program = os.fsdecode(program)
+
+    name = os.path.basename(program).lower()
+    name = name[:-4] if name.endswith(".exe") else name
+    if name in _CREDENTIAL_CLIS:
+        try:
+            target = _spawn_target(program, env)
+        except Exception:
+            target = None
+        # Unresolvable is refused too: exec would fail the same way.
+        return None if target and target.startswith(_TEST_TMP_ROOT) else (command or program)
+    if one_string or name in _COMMAND_WRAPPERS:
+        return command if _CREDENTIAL_CLI_COMMAND.search(command) else None
+    return None
+
+
+def _credential_cli_guard(event, args):
+    if event not in _SPAWN_AUDIT_EVENTS:
+        return
+    try:
+        refused = _credential_cli_spawn(event, args)
+    except Exception:
+        return
+    if refused:
+        raise FileNotFoundError(
+            errno.ENOENT,
+            "tests/conftest.py credential-CLI guard: tests may not run the real "
+            "gh / security CLI (it reads the developer's GitHub token or macOS "
+            "Keychain). Mock subprocess.run or the reader, or point the code at "
+            "a fake binary under tmp_path",
+            refused,
+        )
+
+
+sys.addaudithook(_credential_cli_guard)
 
 
 # ── Kanban write guard (#69283) ─────────────────────────────────────────────
@@ -980,6 +1162,49 @@ def _wal_is_usable() -> bool:
 _AUDIO_GUARD_BYPASS_MARK = "real_audio_playback"
 _ALLOW_MACOS_KEYCHAIN_MARK = "allow_macos_keychain"
 
+# ---------------------------------------------------------------------------
+# OS gating
+#
+# AgentX runs on Linux, macOS and native Windows, and a lot of its behaviour
+# genuinely differs per host: PTY vs pywinpty, taskkill vs SIGTERM, launchd
+# vs systemd, abstract AF_UNIX names, GNU vs BSD userland.
+#
+# A test whose subject is genuinely OS-specific declares the OS it belongs to
+# and runs there for real —
+#
+#   @pytest.mark.windows_only   → only on native Windows (``sys.platform == "win32"``)
+#   @pytest.mark.macos_only     → only on macOS (``sys.platform == "darwin"``)
+#   @pytest.mark.linux_only     → only on Linux (``sys.platform.startswith("linux")``)
+#
+# Elsewhere the test is skipped, not faked. Upstream introduced the markers
+# with this hook (30da5d0a89); cherry-picked tests kept arriving with the
+# markers while the fork had no hook, so every ``windows_only`` test ran — and
+# failed — on macOS and Linux. The fork's CI runs on Linux only, so
+# ``windows_only`` / ``macos_only`` tests run on a developer's machine of
+# that OS, not in CI.
+#
+# This does NOT mean every mention of another platform must be gated: a pure
+# function that TAKES a platform as data, or an assertion about a file's
+# declarations, is host-independent. The line is: if the test needs the
+# interpreter to BELIEVE it is on another OS in order to pass, it belongs on
+# that OS.
+# ---------------------------------------------------------------------------
+
+_OS_MARKS = {
+    "linux_only": (
+        lambda: sys.platform.startswith("linux"),
+        "Linux",
+    ),
+    "macos_only": (
+        lambda: sys.platform == "darwin",
+        "macOS",
+    ),
+    "windows_only": (
+        lambda: sys.platform == "win32",
+        "native Windows",
+    ),
+}
+
 
 def pytest_configure(config):  # noqa: D401 — pytest hook
     """Register markers used by hermetic conftest."""
@@ -1012,6 +1237,10 @@ def pytest_configure(config):  # noqa: D401 — pytest hook
         "created in the current environment (needs admin/developer mode "
         "on Windows).",
     )
+    # NOTE: linux_only / macos_only / windows_only are declared in
+    # pyproject.toml's ``markers`` list, not here — they are part of the
+    # project's public marker vocabulary (``pytest --markers``), whereas the
+    # marks above are conftest-internal guards.
 
     # The pyproject addopts pin ``--timeout-method=signal`` relies on
     # ``signal.SIGALRM``, which does not exist on Windows — pytest-timeout
@@ -1043,22 +1272,55 @@ def _check_symlink_support() -> bool:
         return False
 
 
-def pytest_runtest_setup(item):
-    if item.get_closest_marker("require_symlinks"):
-        if not _check_symlink_support():
-            pytest.skip(
-                "Environment does not support symbolic links "
-                "(requires admin/developer mode on Windows)"
-            )
+# The ``require_symlinks`` skip is applied in ``pytest_runtest_setup`` under
+# "hermes_cli.main identity" below, the only definition of that hook here.
+
+
+def _reject_multiple_os_marks(items):
+    """Fail collection when one test carries two host-OS markers.
+
+    Every marker in ``_OS_MARKS`` skips on all but one host, so two of them
+    on the same item means it is skipped on *every* host — a test that never
+    runs anywhere and reads green everywhere. That is a hard collection error
+    rather than a warning nobody reads.
+    """
+    offenders = []
+    for item in items:
+        marks = sorted({m.name for m in item.iter_markers() if m.name in _OS_MARKS})
+        if len(marks) > 1:
+            offenders.append(f"  {item.nodeid}: {', '.join(marks)}")
+    if offenders:
+        raise pytest.UsageError(
+            "a test may carry at most one host-OS marker "
+            f"({', '.join(_OS_MARKS)}); these carry several and would be "
+            "skipped on every host:\n" + "\n".join(offenders)
+        )
 
 
 def pytest_collection_modifyitems(config, items):  # noqa: D401 — pytest hook
-    """Skip ``requires_wal`` tests when the linked SQLite can't use WAL.
+    """Apply host-OS gating, then skip ``requires_wal`` where WAL is unusable.
 
-    Cheaper and more honest than each test hand-rolling a version check: the
-    reason string names the actual linked version so the skip is diagnosable
-    rather than mysterious.
+    OS gating: a test marked ``linux_only`` / ``macos_only`` /
+    ``windows_only`` runs only on that host. See the ``_OS_MARKS`` block
+    comment above for why these tests are skipped rather than run against a
+    patched ``sys.platform``.
+
+    WAL gating is cheaper and more honest than each test hand-rolling a
+    version check: the reason string names the actual linked version so the
+    skip is diagnosable rather than mysterious.
     """
+    _reject_multiple_os_marks(items)
+
+    for mark_name, (is_host, label) in _OS_MARKS.items():
+        if is_host():
+            continue
+        skip_os = pytest.mark.skip(
+            reason=f"{label}-only test (marked {mark_name}); host is {sys.platform}"
+        )
+        for item in items:
+            if item.get_closest_marker(mark_name) is not None:
+                item.add_marker(skip_os)
+
     if _wal_is_usable():
         return
 
@@ -1438,6 +1700,382 @@ def _live_system_guard(request, monkeypatch):
         pass
 
     yield
+
+
+# ── Live-checkout git guard ────────────────────────────────────────────────
+#
+# ``agentx update`` (hermes_cli/update_cmd.py) operates on
+# ``hermes_cli.main.PROJECT_ROOT``: the checkout the imported module lives in,
+# i.e. the one this suite runs from — on a developer machine often the same
+# checkout a live gateway runs from. A test that reaches the update flow
+# without sandboxing PROJECT_ROOT or mocking ``subprocess.run`` operates on the
+# developer's own repository. On 2026-10-01 a plain
+# ``pytest tests/hermes_cli tests/tui_gateway`` did exactly that: ``npm ci``
+# reinstalled node_modules, ``git stash push --include-untracked`` swept the
+# uncommitted work into an ``agentx-update-autostash-*`` entry, ``git checkout
+# main`` switched branches under the live gateway, and ``git fetch upstream
+# main`` was running when the suite was stopped by hand.
+#
+# ``_live_system_guard`` above only blocks *spawning* ``agentx update``; the
+# update flow runs in-process. This guard hooks the primitive every subprocess
+# spawn funnels through, ``subprocess.Popen._execute_child`` (so code that
+# captured ``subprocess.run`` / ``Popen`` early is covered too), and stays
+# installed for the whole session: collection-time imports and daemon threads
+# that outlive their test included.
+#
+# A git command whose repository is this checkout is refused unless it is
+# read-only. Inspection (``rev-parse``, ``log``, ``status``, ``describe``,
+# ``ls-files``, ``config --get``, ``branch --show-current``, ...) stays allowed:
+# banner, session-info and dashboard tests read the checkout legitimately.
+# ``git -C`` / ``--git-dir`` / ``GIT_DIR`` are judged by the repository they
+# name, ``git init <dir>`` / ``git clone <src> <dir>`` by the directory they
+# create, not by the spawn's cwd.
+#
+# A refusal raises in the spawning thread and is recorded. Production code
+# often swallows subprocess errors, so ``_live_checkout_git_guard`` also fails
+# the running test at teardown, and refusals outside any test (collection,
+# stray threads) fail the session. There is no opt-out marker: a test that
+# needs a mutating git command builds its repository under tmp_path.
+
+
+def _checkout_roots() -> frozenset:
+    """The checkout this conftest lives in, plus the one ``hermes_cli`` is
+    imported from — an editable install can point the venv at another one."""
+    roots = {PROJECT_ROOT.resolve()}
+    try:
+        spec = importlib.util.find_spec("hermes_cli")
+    except (ImportError, ValueError):
+        spec = None
+    if spec is not None and spec.origin:
+        roots.add(Path(spec.origin).resolve().parent.parent)
+    return frozenset(roots)
+
+
+_LIVE_CHECKOUT_ROOTS = _checkout_roots()
+
+# Subcommands that never write to the repository they run in.
+_GIT_READ_ONLY_SUBCOMMANDS = frozenset({
+    "blame", "cat-file", "check-attr", "check-ignore", "check-ref-format",
+    "cherry", "count-objects", "describe", "diff", "diff-files", "diff-index",
+    "diff-tree", "for-each-ref", "grep", "help", "log", "ls-files", "ls-remote",
+    "ls-tree", "merge-base", "name-rev", "rev-list", "rev-parse", "shortlog",
+    "show", "show-branch", "show-ref", "status", "var", "verify-commit",
+    "verify-tag", "version", "whatchanged",
+})
+# Options that take a separate value token: before the subcommand (global),
+# and for the two subcommands that create a repository.
+_GIT_GLOBAL_OPTS_WITH_VALUE = frozenset({
+    "-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
+    "--super-prefix", "--attr-source",
+})
+_GIT_INIT_OPTS_WITH_VALUE = frozenset({
+    "-b", "--initial-branch", "--template", "--separate-git-dir",
+    "--object-format", "--ref-format",
+})
+_GIT_CLONE_OPTS_WITH_VALUE = frozenset({
+    "-b", "--branch", "-o", "--origin", "-u", "--upload-pack", "--reference",
+    "--reference-if-able", "--separate-git-dir", "--depth", "--shallow-since",
+    "--shallow-exclude", "-c", "--config", "--template", "-j", "--jobs",
+    "--filter", "--bundle-uri", "--server-option", "--ref-format", "--revision",
+})
+_GIT_BRANCH_LISTING_FLAGS = frozenset({
+    "-a", "--all", "-r", "--remotes", "-v", "-vv", "--verbose", "-l", "--list",
+    "--color", "--no-color", "--no-abbrev", "--show-current",
+})
+
+
+def _git_is_read_only(sub: str, rest: list) -> bool:
+    if sub in _GIT_READ_ONLY_SUBCOMMANDS:
+        return True
+    flags = {a.split("=", 1)[0] for a in rest if a.startswith("-")}
+    positional = [a for a in rest if not a.startswith("-")]
+    if sub == "config":
+        return bool(
+            flags & {"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"}
+        ) or positional[:1] in (["get"], ["list"])
+    if sub == "branch":
+        return "--show-current" in flags or (
+            flags <= _GIT_BRANCH_LISTING_FLAGS
+            and (not positional or flags & {"-l", "--list"})
+        )
+    if sub == "remote":
+        return not positional or positional[0] in ("get-url", "show")
+    if sub == "stash":
+        return positional[:1] in (["list"], ["show"])
+    if sub == "symbolic-ref":
+        return len(positional) == 1 and not flags & {"-d", "--delete"}
+    if sub == "tag":
+        return not positional or bool(flags & {"-l", "--list"})
+    if sub == "reflog":
+        return not positional or positional[0] not in ("expire", "delete", "drop", "write")
+    if sub == "worktree":
+        return positional[:1] == ["list"]
+    return False
+
+
+def _git_created_repo_dir(sub: str, rest: list, base: Path) -> Path:
+    """Directory ``git init`` / ``git clone`` creates the repository in."""
+    takes_value = _GIT_INIT_OPTS_WITH_VALUE if sub == "init" else _GIT_CLONE_OPTS_WITH_VALUE
+    positional, skip = [], False
+    for arg in rest:
+        if skip:
+            skip = False
+        elif arg.startswith("-"):
+            skip = arg in takes_value
+        else:
+            positional.append(arg)
+    if sub == "init":
+        return base / positional[-1] if positional else base
+    if len(positional) >= 2:
+        return base / positional[1]
+    if positional:  # clone into ./<humanish name of the source>
+        name = positional[0].rstrip("/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+        return base / (name[:-4] if name.endswith(".git") else name)
+    return base
+
+
+def _enclosing_git_root(path: Path):
+    for candidate in (path, *path.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def _live_checkout_root_for(path: Path):
+    for root in _LIVE_CHECKOUT_ROOTS:
+        if path == root or path.is_relative_to(root):
+            return root
+    return None
+
+
+def _live_checkout_git_refusal(args, executable, cwd, env):
+    """``(argv, reason)`` when this spawn would modify a live checkout."""
+    if isinstance(args, (str, bytes, os.PathLike)):
+        return None  # shell string / bare program: hermes_cli runs git as argv
+    try:
+        argv = [os.fsdecode(a) for a in args]
+        program = os.fsdecode(executable) if executable else argv[0]
+    except (TypeError, IndexError):
+        return None
+    if Path(program).name.lower() not in ("git", "git.exe"):
+        return None
+
+    environ = os.environ if env is None else env
+    base = Path(os.fsdecode(cwd)) if cwd is not None else Path.cwd()
+    git_dir, work_tree = environ.get("GIT_DIR"), environ.get("GIT_WORK_TREE")
+    i = 1
+    while i < len(argv) and argv[i].startswith("-"):
+        name, has_value, value = argv[i].partition("=")
+        if name in _GIT_GLOBAL_OPTS_WITH_VALUE and not has_value:
+            value = argv[i + 1] if i + 1 < len(argv) else ""
+            i += 2
+        else:
+            i += 1
+        if name == "-C":
+            base = base / value
+        elif name == "--git-dir":
+            git_dir = value
+        elif name == "--work-tree":
+            work_tree = value
+    if i == len(argv):
+        return None  # `git --version` and friends
+    sub, rest = argv[i], argv[i + 1 :]
+
+    if sub in ("init", "clone"):
+        target = _git_created_repo_dir(sub, rest, base).resolve()
+        root = _live_checkout_root_for(target)
+        if root is None:
+            return None
+        return argv, f"would create a repository inside the checkout {root}"
+    if sub == "config" and {"--global", "--system"} & set(rest):
+        return None  # not this repository's config
+
+    if git_dir:
+        repo = (base / git_dir).resolve()
+        root = next((r for r in _LIVE_CHECKOUT_ROOTS if repo in (r, r / ".git")), None)
+    else:
+        root = _enclosing_git_root(base.resolve())
+        root = root if root in _LIVE_CHECKOUT_ROOTS else None
+    if root is None and work_tree:
+        root = _live_checkout_root_for((base / work_tree).resolve())
+    if root is None or _git_is_read_only(sub, rest):
+        return None
+    return argv, f"would modify the checkout {root}"
+
+
+#: One dict per refused command: ``message``, ``test`` (PYTEST_CURRENT_TEST
+#: when it ran) and ``claimed`` (reported by a test's teardown).
+_LIVE_CHECKOUT_GIT_REFUSALS: list = []
+_LIVE_CHECKOUT_GIT_LOCK = threading.Lock()
+
+
+def _checkout_frames() -> str:
+    """Where the refused spawn came from: the innermost checkout frames."""
+    here = Path(__file__).resolve()
+    frames = []
+    for frame in traceback.extract_stack()[:-3]:
+        path = Path(frame.filename)
+        if path == here or "site-packages" in path.parts:
+            continue
+        if _live_checkout_root_for(path) is not None:
+            frames.append(f"{path.name}:{frame.lineno}")
+    return " <- ".join(reversed(frames[-6:]))
+
+
+_REAL_EXECUTE_CHILD = subprocess.Popen._execute_child
+
+
+def _guarded_execute_child(self, args, executable, preexec_fn, close_fds, pass_fds, cwd, env, *rest):
+    refusal = _live_checkout_git_refusal(args, executable, cwd, env)
+    if refusal is not None:
+        argv, reason = refusal
+        message = (
+            f"`{' '.join(argv)}` {reason} "
+            f"(thread {threading.current_thread().name}; via {_checkout_frames()})"
+        )
+        with _LIVE_CHECKOUT_GIT_LOCK:
+            _LIVE_CHECKOUT_GIT_REFUSALS.append({
+                "message": message,
+                "test": os.environ.get("PYTEST_CURRENT_TEST", ""),
+                "claimed": False,
+            })
+        raise RuntimeError(
+            f"tests/conftest.py live-checkout git guard: refused {message}. "
+            "Tests must never modify the checkout the suite runs from: point "
+            "hermes_cli.main.PROJECT_ROOT (the module hermes_cli.update_cmd._m() "
+            "returns) at a tmp_path repository, or mock the git calls."
+        )
+    return _REAL_EXECUTE_CHILD(
+        self, args, executable, preexec_fn, close_fds, pass_fds, cwd, env, *rest
+    )
+
+
+subprocess.Popen._execute_child = _guarded_execute_child
+
+
+@pytest.fixture(autouse=True)
+def _live_checkout_git_guard():
+    """Fail the test if a git command against the checkout was refused while
+    it ran — even when the code under test swallowed the RuntimeError."""
+    start = len(_LIVE_CHECKOUT_GIT_REFUSALS)
+    yield
+    with _LIVE_CHECKOUT_GIT_LOCK:
+        fresh = _LIVE_CHECKOUT_GIT_REFUSALS[start:]
+        for refusal in fresh:
+            refusal["claimed"] = True
+    if fresh:
+        pytest.fail(
+            "live-checkout git guard refused git command(s) against the "
+            "checkout the suite runs from:\n"
+            + "\n".join(f"  - {r['message']}" for r in fresh),
+            pytrace=False,
+        )
+
+
+def pytest_sessionfinish(session, exitstatus):  # noqa: D401 — pytest hook
+    """Refusals no test claimed (collection, stray threads) fail the run."""
+    if any(not r["claimed"] for r in _LIVE_CHECKOUT_GIT_REFUSALS):
+        if session.exitstatus == pytest.ExitCode.OK:
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):  # noqa: D401
+    unclaimed = [r for r in _LIVE_CHECKOUT_GIT_REFUSALS if not r["claimed"]]
+    if not unclaimed:
+        return
+    terminalreporter.section("live-checkout git guard", red=True, bold=True)
+    terminalreporter.line(
+        "git command(s) against the checkout the suite runs from were refused "
+        "outside any test (collection or a stray thread):",
+        red=True,
+    )
+    for refusal in unclaimed:
+        where = refusal["test"] or "no test running"
+        terminalreporter.line(f"  - [{where}] {refusal['message']}")
+
+
+# ── hermes_cli.main identity ───────────────────────────────────────────────
+#
+# The update path reaches ``hermes_cli.main`` through ``update_cmd._m()`` (a
+# fresh ``from hermes_cli import main`` on every call), so update tests
+# isolate it by patching attributes on that module — ``PROJECT_ROOT``,
+# ``_is_windows``, ``_detect_venv_python_processes``, ... — through the module
+# object their file imported at collection. A test that drops the module from
+# ``sys.modules`` and re-imports it (tests/hermes_cli/test_skills_subparser.py
+# did; the kanban fixtures that purge every ``hermes_cli*`` module to re-read
+# AGENTX_HOME still do) leaves every later test patching a stale copy while
+# the updater runs the fresh one against the real PROJECT_ROOT. That is how
+# the 2026-10-01 run reached the developer's checkout; only a single-process
+# run is exposed, not the per-file runner.
+#
+# After every test, put the original module back and warn. Repair, not fail:
+# making the purging fixtures restore every module they drop shifts which
+# tests fail in a single-process run, because the purge also discards state
+# that earlier tests leak into those modules.
+
+_HERMES_CLI_MAIN_AT_SETUP = pytest.StashKey()
+
+
+# The ``require_symlinks`` skip lives here too: a module binds each hook name
+# once, and a second ``def pytest_runtest_setup`` would replace this one. It
+# comes after the stash write, so teardown still checks a skipped test, and
+# before the ``yield``, so a skipped test never sets up its fixtures.
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item):
+    item.stash[_HERMES_CLI_MAIN_AT_SETUP] = sys.modules.get("hermes_cli.main")
+    if item.get_closest_marker("require_symlinks"):
+        if not _check_symlink_support():
+            pytest.skip(
+                "Environment does not support symbolic links "
+                "(requires admin/developer mode on Windows)"
+            )
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    result = yield
+    original = item.stash.get(_HERMES_CLI_MAIN_AT_SETUP, None)
+    package = sys.modules.get("hermes_cli")
+    if original is not None and (
+        sys.modules.get("hermes_cli.main") is not original
+        or getattr(package, "main", original) is not original
+    ):
+        sys.modules["hermes_cli.main"] = original
+        if package is not None:
+            package.main = original
+        warnings.warn(
+            "this test left hermes_cli.main replaced in sys.modules (the "
+            "original is back now). Update tests patch the module they "
+            "imported while hermes_cli.update_cmd._m() resolves whatever "
+            "sys.modules holds, so their PROJECT_ROOT sandboxes would stop "
+            "applying. Re-import in a subprocess, or restore sys.modules.",
+            stacklevel=1,
+        )
+    return result
+
+
+# ── Update-check prefetch ──────────────────────────────────────────────────
+#
+# Importing ``tui_gateway.server`` calls ``hermes_cli.banner.
+# prefetch_update_check()`` at module level: a daemon thread that runs ``git
+# fetch origin main`` in this checkout. Dozens of test files import that
+# module (at collection or inside a test), so every run fetched from the
+# developer's origin at an unpredictable moment — exactly what the guard above
+# refuses. Stub it for the session, before any test module is imported, with
+# one that reports "no result" at once so ``get_update_result()`` never waits.
+# A test of the real prefetch takes it back with ``inspect.unwrap``.
+try:
+    import hermes_cli.banner as _banner
+except Exception:  # a broken checkout fails loudly in the tests themselves
+    _banner = None
+if _banner is not None:
+
+    def _prefetch_update_check_stub():
+        _banner._update_check_done.set()
+
+    _prefetch_update_check_stub.__wrapped__ = _banner.prefetch_update_check
+    _banner.prefetch_update_check = _prefetch_update_check_stub
 
 
 @pytest.fixture(autouse=True)

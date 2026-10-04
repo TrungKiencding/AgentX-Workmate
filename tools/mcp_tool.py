@@ -659,6 +659,23 @@ def _build_safe_env(user_env: Optional[dict]) -> dict:
     return env
 
 
+def _with_mcp_host_role(env: dict) -> dict:
+    """Add AGENTX_MCP_HOST to a stdio server's env, unless its config sets one.
+
+    The value is this process's own role (hermes_cli.mcp_startup
+    .set_mcp_host_role), never one inherited through os.environ — see there.
+    """
+    try:
+        from hermes_cli.mcp_startup import get_mcp_host_role
+
+        role = get_mcp_host_role()
+    except Exception:  # pragma: no cover — early bootstrap/import fallback
+        role = None
+    if role and "AGENTX_MCP_HOST" not in env:
+        env["AGENTX_MCP_HOST"] = role
+    return env
+
+
 def _sanitize_error(text: str) -> str:
     """Strip credential-like patterns from error text before returning to LLM.
 
@@ -2863,7 +2880,7 @@ class MCPServerTask:
                 f"MCP server '{self.name}' has no 'command' in config"
             )
 
-        safe_env = _build_safe_env(user_env)
+        safe_env = _with_mcp_host_role(_build_safe_env(user_env))
         command, safe_env = _resolve_stdio_command(command, safe_env)
 
         # Check package against OSV malware database before spawning.

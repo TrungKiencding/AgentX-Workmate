@@ -30,9 +30,11 @@ in ``BUILTIN_STT_PROVIDERS`` with a warning) AND at dispatch time
 (:func:`tools.transcription_tools._dispatch_to_plugin_provider`
 re-checks defensively).
 
-Providers live in ``<repo>/plugins/transcription/<name>/`` (built-in
-plugins, none shipped today) or
-``~/.agentx/plugins/transcription/<name>/`` (user-installed).
+Providers live in ``<repo>/plugins/transcription/<name>/`` (bundled,
+auto-loaded) or ``~/.agentx/plugins/transcription/<name>/``
+(user-installed). One ships in-tree: ``plugins/transcription/agentx_gateway``
+— the transcription model the signed-in AgentX account was granted, on the
+AgentX AI Gateway.
 
 Response contract
 -----------------

@@ -769,24 +769,98 @@ class TestRefreshAndRevoke:
             with pytest.raises(RefreshExpiredError):
                 p.refresh_session(refresh_token="dead")
 
-    def test_revoke_posts_to_the_revocation_endpoint(self, rsa_keypair):
+    def test_revoke_logs_out_at_the_end_session_endpoint(self, rsa_keypair):
+        """A logout by refresh token ends only the session the token belongs to.
+
+        RFC 7009 revocation would not. On Keycloak 25 and 26 it revokes the
+        client for the whole person, which can sign them out of WebMate and of
+        the desktop app on their other machines too. The realm still
+        advertises a revocation endpoint here, and it must go unused.
+        """
         p = _make_provider(rsa_keypair)
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.post",
-            return_value=_mock_response(200, {}),
+            return_value=_mock_response(204, {}),
+        ) as mock_post:
+            assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_called_once()
+        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["end_session_endpoint"]
+        assert mock_post.call_args.kwargs["data"] == {
+            "client_id": _CLIENT_ID,
+            "refresh_token": "rt",
+        }
+
+    def test_revoke_authenticates_a_confidential_client(self, rsa_keypair):
+        p = _make_provider(rsa_keypair, client_secret="sec")
+        with patch(
+            "plugins.dashboard_auth.keycloak.httpx.post",
+            return_value=_mock_response(204, {}),
         ) as mock_post:
             p.revoke_session(refresh_token="rt")
-        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["revocation_endpoint"]
-        assert mock_post.call_args.kwargs["data"]["token_type_hint"] == "refresh_token"
+        assert mock_post.call_args.args[0] == _DISCOVERY_DOC["end_session_endpoint"]
+        header = mock_post.call_args.kwargs["headers"]["Authorization"]
+        assert base64.b64decode(header.split(" ", 1)[1]).decode() == f"{_CLIENT_ID}:sec"
 
-    def test_revoke_never_raises(self, rsa_keypair):
+    def test_revoke_allows_http_on_loopback(self, rsa_keypair):
         p = _make_provider(rsa_keypair)
+        local = "http://localhost:8080/realms/agent-hub/protocol/openid-connect/logout"
+        p._discovery = dict(_DISCOVERY_DOC, end_session_endpoint=local)
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.post",
-            side_effect=httpx.ConnectError("down"),
-        ):
+            return_value=_mock_response(204, {}),
+        ) as mock_post:
+            p.revoke_session(refresh_token="rt")
+        assert mock_post.call_args.args[0] == local
+
+    @pytest.mark.parametrize(
+        "end_session_endpoint",
+        [
+            None,
+            "",
+            "http://agentx.example.com/auth/realms/agent-hub/protocol/openid-connect/logout",
+            "https://[::1",
+        ],
+        ids=["not-advertised", "empty", "cleartext", "unparseable"],
+    )
+    def test_revoke_sends_nothing_without_a_safe_end_session_endpoint(
+        self, rsa_keypair, end_session_endpoint
+    ):
+        """No fallback to the revocation endpoint, and no token in cleartext."""
+        p = _make_provider(rsa_keypair)
+        doc = dict(_DISCOVERY_DOC)
+        if end_session_endpoint is None:
+            del doc["end_session_endpoint"]
+        else:
+            doc["end_session_endpoint"] = end_session_endpoint
+        p._discovery = doc
+        with patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
             assert p.revoke_session(refresh_token="rt") is None
-        assert p.revoke_session(refresh_token="") is None
+        mock_post.assert_not_called()
+
+    def test_revoke_sends_nothing_without_a_refresh_token(self, rsa_keypair):
+        p = _make_provider(rsa_keypair)
+        with patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
+            assert p.revoke_session(refresh_token="") is None
+        mock_post.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "outcome",
+        [
+            httpx.ConnectError("down"),
+            httpx.ReadTimeout("slow"),
+            _mock_response(400, {"error": "invalid_grant"}),
+            _mock_response(502, "<html>Bad gateway</html>", ctype="text/html"),
+        ],
+        ids=["unreachable", "timeout", "rejected", "proxy-error"],
+    )
+    def test_revoke_never_raises(self, rsa_keypair, outcome):
+        p = _make_provider(rsa_keypair)
+        # A side_effect list raises the exceptions in it and returns the rest.
+        with patch(
+            "plugins.dashboard_auth.keycloak.httpx.post", side_effect=[outcome]
+        ) as mock_post:
+            assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_called_once()
 
     def test_revoke_survives_a_discovery_outage(self):
         p = kc_plugin.KeycloakOIDCProvider(
@@ -795,8 +869,9 @@ class TestRefreshAndRevoke:
         with patch(
             "plugins.dashboard_auth.keycloak.httpx.get",
             side_effect=httpx.ConnectError("down"),
-        ):
+        ), patch("plugins.dashboard_auth.keycloak.httpx.post") as mock_post:
             assert p.revoke_session(refresh_token="rt") is None
+        mock_post.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -863,8 +938,28 @@ class TestNativeOidcConfig:
             "client_id": _CLIENT_ID,
             "scopes": "openid profile email",
             "confidential": True,
+            "session_days": 0,
         }
         assert "top-secret" not in json.dumps(cfg)
+
+    def test_publishes_the_desktop_session_days(self, rsa_keypair):
+        cfg = _make_provider(rsa_keypair, session_days=14).native_oidc_config()
+        # Whole days stay an int on the wire.
+        assert json.dumps(cfg["session_days"]) == "14"
+        assert _make_provider(rsa_keypair, session_days=0.5).native_oidc_config()[
+            "session_days"
+        ] == 0.5
+
+    def test_offline_access_is_not_folded_into_scopes(self, rsa_keypair):
+        """An older desktop follows ``scopes`` too. Offline access arriving there
+        would give it an offline session with no day limit and no way to end it."""
+        cfg = _make_provider(rsa_keypair, session_days=14).native_oidc_config()
+        assert "offline_access" not in cfg["scopes"]
+
+    @pytest.mark.parametrize("days", [-1, float("nan"), float("inf")])
+    def test_rejects_session_days_that_are_not_days(self, rsa_keypair, days):
+        with pytest.raises(ValueError, match="session_days"):
+            _make_provider(rsa_keypair, session_days=days)
 
     def test_base_default_is_none(self):
         """A provider with no native story opts out by not overriding."""
@@ -911,6 +1006,7 @@ class TestPluginRegister:
         "AGENTX_DASHBOARD_KEYCLOAK_ORG_CLAIM",
         "AGENTX_DASHBOARD_KEYCLOAK_IDP_HINT",
         "AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT",
+        "AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS",
     )
 
     @pytest.fixture(autouse=True)
@@ -1050,6 +1146,55 @@ class TestPluginRegister:
         ctx = MagicMock()
         kc_plugin.register(ctx)
         assert self._registered(ctx).supports_password is True
+
+    def _with_session_days(self, patch_config, value):
+        patch_config(
+            {
+                "keycloak": {
+                    "base_url": _BASE_URL,
+                    "realm": _REALM,
+                    "client_id": _CLIENT_ID,
+                    "session_days": value,
+                }
+            }
+        )
+
+    def test_session_days_defaults_to_the_browser_session(self, patch_config):
+        patch_config(
+            {"keycloak": {"base_url": _BASE_URL, "realm": _REALM, "client_id": _CLIENT_ID}}
+        )
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+
+    def test_session_days_from_config(self, patch_config):
+        self._with_session_days(patch_config, 14)
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 14
+
+    def test_env_overrides_session_days_in_both_directions(self, patch_config, monkeypatch):
+        """An explicit 0 must beat config.yaml's 14, not read as "unset"."""
+        self._with_session_days(patch_config, 14)
+        monkeypatch.setenv("AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS", "0")
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+
+        monkeypatch.setenv("AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS", "3")
+        ctx = MagicMock()
+        kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 3
+
+    @pytest.mark.parametrize("value", ["two weeks", -5, True, "nan"])
+    def test_a_bad_session_days_warns_and_still_registers(self, patch_config, caplog, value):
+        """Sign-in is the only way into a gated install; a typo must not close it."""
+        self._with_session_days(patch_config, value)
+        ctx = MagicMock()
+        with caplog.at_level("WARNING"):
+            kc_plugin.register(ctx)
+        assert self._registered(ctx).native_oidc_config()["session_days"] == 0
+        assert "session_days" in caplog.text
 
     def test_config_load_failure_falls_through_to_env(self, monkeypatch):
         def _broken():

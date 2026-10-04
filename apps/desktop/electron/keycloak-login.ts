@@ -25,6 +25,7 @@ import http from 'node:http'
 
 import {
   buildKeycloakAuthorizeUrl,
+  buildKeycloakLogoutRequest,
   buildKeycloakRefreshBody,
   buildKeycloakTokenBody,
   callbackRedirectUri,
@@ -183,7 +184,12 @@ export async function runKeycloakLogin(
             { timeoutMs: 15_000 }
           )
 
-          return parseKeycloakTokenResponse(body, now())
+          const signedInAt = now()
+          const tokens = parseKeycloakTokenResponse(body, signedInAt)
+
+          log(describeGrant(tokens, body))
+
+          return { ...tokens, signedInAt }
         })
       } catch (error) {
         fail(error instanceof Error ? error : new Error(String(error)))
@@ -291,6 +297,78 @@ export async function refreshKeycloakSession(
   // Keycloak rotates refresh tokens by default, but a realm can be configured
   // not to. Keep the old one rather than losing the ability to refresh at all.
   return next.refreshToken ? next : { ...next, refreshToken }
+}
+
+/**
+ * End, at Keycloak, the session a refresh token belongs to.
+ *
+ * This is how an offline session actually ends. Unlike a browser-bound one, it
+ * survives the end-session page, so forgetting it locally would leave it live
+ * in the realm for the rest of its offline idle window. See
+ * buildKeycloakLogoutRequest for why this is a logout and not a revocation.
+ *
+ * Best effort, and it never throws. The local session is already gone by the
+ * time this runs, and a realm that cannot be reached must not turn a sign-out
+ * into an error. Resolves true only when Keycloak accepted the request.
+ */
+export async function logoutKeycloakSession(
+  config: KeycloakOidcConfig,
+  refreshToken: string,
+  deps: Pick<KeycloakLoginDeps, 'getJson' | 'postForm' | 'rememberLog'>
+): Promise<boolean> {
+  if (!refreshToken) {
+    return false
+  }
+
+  const log = deps.rememberLog || (() => undefined)
+
+  try {
+    const request = buildKeycloakLogoutRequest(await fetchKeycloakEndpoints(config, deps), config, refreshToken)
+
+    if (!request) {
+      log('[keycloak] the realm advertises no usable end-session endpoint; the session ends when Keycloak expires it')
+
+      return false
+    }
+
+    await deps.postForm(request.url, request.form, { timeoutMs: 10_000 })
+    log('[keycloak] ended the session at Keycloak')
+
+    return true
+  } catch (error) {
+    log(`[keycloak] could not end the session at Keycloak: ${error instanceof Error ? error.message : String(error)}`)
+
+    return false
+  }
+}
+
+/**
+ * One log line saying what kind of session Keycloak granted, and for how long.
+ *
+ * The lifetime is the realm's own answer (`refresh_expires_in`), which is the
+ * only place a desktop can see its SSO or offline idle limit without admin
+ * access to the realm.
+ */
+function describeGrant(tokens: NativeTokenSet, body: any): string {
+  const kind = tokens.offline ? 'an offline session' : 'a session bound to the browser sign-in'
+
+  return `[keycloak] Keycloak granted ${kind} (refresh token valid for ${humanSeconds(Number(body?.refresh_expires_in))})`
+}
+
+function humanSeconds(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return 'no stated limit'
+  }
+
+  if (seconds >= 86_400) {
+    return `${Math.round((seconds / 86_400) * 10) / 10}d`
+  }
+
+  if (seconds >= 3_600) {
+    return `${Math.round((seconds / 3_600) * 10) / 10}h`
+  }
+
+  return `${Math.round(seconds / 60)}m`
 }
 
 export { DONE_HTML }

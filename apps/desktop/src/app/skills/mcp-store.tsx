@@ -18,6 +18,7 @@ import {
   type HermesGateway,
   type McpCatalogEntry,
   type McpTestResult,
+  removeHubMcpServer,
   saveMcpServers,
   testMcpServer
 } from '@/hermes'
@@ -591,11 +592,19 @@ export function McpStore({
       }
 
       const current = currentServers()
-      const next = change(current)
-      await saveMcpServers(next)
+      let next = change(current)
+      const saved = await saveMcpServers(next)
 
       if (profileEpoch.current !== epoch) {
         return false
+      }
+
+      // A server AgentX Hub keeps off was saved off whatever the map said: the cache follows the file, and says why.
+      const keptOff = (saved?.kept_off ?? []).filter(name => next[name])
+
+      if (keptOff.length > 0) {
+        next = { ...next, ...Object.fromEntries(keptOff.map(name => [name, withEnabled(next[name], false)])) }
+        notify({ kind: 'warning', message: t.skills.hub.state.keptOff(keptOff.join(', ')) })
       }
 
       setConfig(record => ({ ...record, mcp_servers: next }))
@@ -780,13 +789,21 @@ export function McpStore({
       .finally(() => setSyncing(false))
   }
 
+  // What the hub last said of each of its servers here, by the name it has here.
+  const hubStateMap = sync.changes.data?.hub_state?.mcp
+
+  const hubStates = useMemo(
+    () => Object.fromEntries(Object.values(hubStateMap ?? {}).map(view => [view.name, view])),
+    [hubStateMap]
+  )
+
   // Everything the shelves show, resolved once per render.
   const views = useMemo<McpServerView[]>(
     () =>
       names.map(name =>
-        describeServer({ endpoints, entries: catalog, name, probe: probes[name], server: servers[name], t })
+        describeServer({ endpoints, entries: catalog, hubStates, name, probe: probes[name], server: servers[name], t })
       ),
-    [catalog, endpoints, names, probes, servers, t]
+    [catalog, endpoints, hubStates, names, probes, servers, t]
   )
 
   const needle = normalize(query)
@@ -1141,9 +1158,14 @@ export function McpStore({
             return
           }
 
-          // A hub server leaves through the hub's own removal, so the hub hears it.
+          // A hub server leaves through the hub's own removal, so the hub hears it — one that left the hub's feed
+          // (no longer published, taken down) too: its tokens and cached tools go with it (the hub's decision §9.1 #18).
           if (removeTarget.hubEntry?.slug) {
             await install.removeFromHub(removeTarget.hubEntry)
+          } else if (removeTarget.hubState?.slug && removeTarget.source !== 'gateway') {
+            await removeHubMcpServer(removeTarget.hubState.slug)
+            notify({ kind: 'success', title: m.hubRemoved(removeTarget.title), message: '' })
+            await onCatalogInstalled()
           } else {
             await removeServer(removeTarget.name)
           }

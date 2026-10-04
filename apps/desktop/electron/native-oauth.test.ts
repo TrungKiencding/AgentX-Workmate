@@ -210,6 +210,35 @@ test('parseStoredTokenSet rejects a non-normalized server response', () => {
   assert.throws(() => parseStoredTokenSet({ access_token: 'AT-server' }), /missing accessToken/i)
 })
 
+test('parseStoredTokenSet keeps when the person signed in, and that the session is offline', () => {
+  // Losing either on reload would lift the session_days limit on every restart
+  // and stop sign-out from ending the offline session at Keycloak.
+  const t = parseStoredTokenSet({
+    accessToken: 'AT',
+    refreshToken: 'RT',
+    expiresAt: 1,
+    provider: 'keycloak',
+    userId: 'u',
+    signedInAt: 1_700_000_000,
+    offline: true
+  })
+
+  assert.equal(t.signedInAt, 1_700_000_000)
+  assert.equal(t.offline, true)
+})
+
+test('parseStoredTokenSet omits signedInAt and offline when they are absent or junk', () => {
+  // Absent, not blanked: the brokered flow's token set has neither.
+  const base = { accessToken: 'AT', refreshToken: 'RT', expiresAt: 1, provider: 'nous', userId: 'u' }
+
+  for (const extra of [{}, { signedInAt: 'yesterday', offline: 'yes' }, { signedInAt: 0, offline: false }]) {
+    const t = parseStoredTokenSet({ ...base, ...extra })
+
+    assert.equal('signedInAt' in t, false)
+    assert.equal('offline' in t, false)
+  }
+})
+
 // --- refresh timing ---
 
 test('tokenNeedsRefresh respects the skew window', () => {

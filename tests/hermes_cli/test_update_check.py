@@ -39,7 +39,14 @@ def test_check_for_updates_uses_cache(tmp_path, monkeypatch):
 
 def test_prefetch_non_blocking():
     """prefetch_update_check() should return immediately without blocking."""
+    import inspect
+
     import hermes_cli.banner as banner
+
+    # tests/conftest.py stubs the prefetch for the session (the real one runs
+    # `git fetch` in the checkout); this test drives the real background thread
+    # with check_for_updates mocked.
+    prefetch_update_check = inspect.unwrap(banner.prefetch_update_check)
 
     # Reset module state
     banner._update_result = None
@@ -47,7 +54,7 @@ def test_prefetch_non_blocking():
 
     with patch.object(banner, "check_for_updates", return_value=5):
         start = time.monotonic()
-        banner.prefetch_update_check()
+        prefetch_update_check()
         elapsed = time.monotonic() - start
 
         # Should return almost immediately (well under 1 second)

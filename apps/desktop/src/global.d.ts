@@ -8,6 +8,7 @@ import type {
   PetOverlayStatePayload
 } from './store/pet-overlay'
 import type { QuickEntryStatePush, QuickEntryStatus, QuickEntrySubmitPayload } from './store/quick-entry'
+import type { BackendUpdateCommit } from './types/hermes'
 
 export {}
 
@@ -317,12 +318,16 @@ declare global {
       onBootstrapEvent: (callback: (payload: DesktopBootstrapEvent) => void) => () => void
       getVersion: () => Promise<DesktopVersionInfo>
       getRemoteDisplayReason?: () => Promise<string | null>
-      updates: {
-        check: () => Promise<DesktopUpdateStatus>
-        apply: (opts?: DesktopUpdateApplyOptions) => Promise<DesktopUpdateApplyResult>
-        getBranch: () => Promise<{ branch: string }>
-        setBranch: (name: string) => Promise<{ branch: string }>
-        onProgress: (callback: (payload: DesktopUpdateProgress) => void) => () => void
+      // The app's own updates — main owns the state (electron/app-update/).
+      appUpdate: {
+        get: () => Promise<AppUpdateState>
+        check: () => Promise<AppUpdateState>
+        download: () => Promise<AppUpdateState>
+        cancel: () => Promise<AppUpdateState>
+        install: (options?: { confirmActiveWork?: boolean }) => Promise<AppUpdateInstallOutcome>
+        acknowledge: () => Promise<AppUpdateState>
+        restart: () => Promise<void>
+        onState: (callback: (state: AppUpdateState) => void) => () => void
       }
       // AgentX WebMate — see apps/desktop/WEBMATE-INTEGRATION-PLAN.md. The
       // idempotent bootstrap (extension folder + pairing files), the merged
@@ -690,7 +695,10 @@ export interface DesktopWebmateUpdateProgress {
 }
 
 export interface DesktopVersionInfo {
+  /** The installed app's version — what a release feed compares against. */
   appVersion: string
+  /** The agent checkout's version; differs from appVersion only while the agent lags. */
+  agentVersion: string
   electronVersion: string
   nodeVersion: string
   platform: string
@@ -721,94 +729,89 @@ export interface DesktopUninstallResult {
   message?: string
 }
 
-export interface DesktopUpdateCommit {
-  sha: string
-  summary: string
-  author: string
-  at: number
+// ── The app's own updates: mirrors electron/app-update/updater.ts ───────────
+
+export type AppUpdatePhase = 'available' | 'downloading' | 'idle' | 'installing' | 'ready' | 'up-to-date'
+
+/** Why this copy cannot replace itself; the app points at the download page instead. */
+export type AppUpdateBlock =
+  | 'dev-build'
+  | 'no-installer-for-machine'
+  | 'not-a-bundle'
+  | 'not-installer-build'
+  | 'not-writable'
+  | 'translocated'
+  | 'unsupported-platform'
+
+/** Why a launch could not bring the agent up to the app's version. */
+export type AgentUpdateFailure = 'cancelled' | 'failed' | 'held-open'
+
+export interface AppUpdateRelease {
+  version: string
+  publishedAt: string
+  /** Bullet points per locale; `vi` and `en` are always present. */
+  notes: Record<string, string[]>
+  /** This machine's installer size; null when the release has none for it. */
+  bytes: number | null
 }
 
-export interface DesktopUpdateStatus {
+export interface AppUpdateProblem {
+  kind: string
+  message: string
+}
+
+export interface AppUpdateState {
+  phase: AppUpdatePhase
+  currentVersion: string
+  checking: boolean
+  checkedAt: number | null
+  checkError: string | null
+  release: AppUpdateRelease | null
+  progress: { receivedBytes: number; totalBytes: number } | null
+  downloadError: AppUpdateProblem | null
+  installError: AppUpdateProblem | null
+  blocked: AppUpdateBlock | null
+  downloadPageUrl: string
+  updatedFrom: string | null
+  lastInstallFailed: { version: string; message: string } | null
+  agentUpdateFailed: AgentUpdateFailure | null
+}
+
+export interface AppUpdateActiveWork {
+  count: number
+  titles: string[]
+}
+
+export type AppUpdateInstallOutcome =
+  | { started: true }
+  | { started: false; reason: 'active-work'; activeWork: AppUpdateActiveWork }
+  | { started: false; reason: 'failed'; message: string }
+
+// ── A remote backend's own updates (remote mode): its /api/agentx/update ────
+
+export interface BackendUpdateStatus {
   supported: boolean
   updateAvailable?: boolean
-  branch?: string
-  currentBranch?: string
-  reason?: string
   message?: string
   error?: string
+  /** Commits behind; 0 when unknown (see updateAvailable). */
   behind?: number
-  currentSha?: string
-  /** Backend only: the version string the backend reports for itself. */
+  /** The version string the backend reports for itself. */
   currentVersion?: string
-  targetSha?: string
-  commits?: DesktopUpdateCommit[]
-  dirty?: boolean
+  commits?: BackendUpdateCommit[]
   fetchedAt?: number
 }
 
-export type DesktopUpdateDirtyStrategy = 'abort' | 'stash' | 'force'
-
-export interface DesktopUpdateApplyOptions {
-  dirtyStrategy?: DesktopUpdateDirtyStrategy
-}
-
-export interface DesktopUpdateApplyResult {
+export interface BackendUpdateApplyResult {
   ok: boolean
-  branch?: string
   error?: string
   message?: string
-  /** True when no staged updater exists (CLI install) and the user should run
-   *  `agentx update` themselves. `command` is the exact line to run. */
+  /** The backend cannot update itself; `command` is what to run on it instead. */
   manual?: boolean
   command?: string
-  hermesRoot?: string
-  /** True when the backend was updated but the GUI couldn't be relaunched in
-   *  place (AppImage / dev run): the new version loads on next launch. */
-  backendUpdated?: boolean
-  /** False when the running GUI package was NOT replaced by this update
-   *  (Linux GUI/backend skew, or a sandbox-blocked relaunch). Distinguishes
-   *  "backend only" outcomes from a real in-place GUI relaunch. (#45205) */
-  guiUpdated?: boolean
-  /** True for the Linux GUI/backend-skew terminal state: backend updated but
-   *  the running AppImage/.deb/.rpm shell is unchanged and must be
-   *  reinstalled. Renders a closeable "update the desktop app" message. */
-  guiSkew?: boolean
-  /** True when the update finished but the app must be quit + reopened by hand
-   *  (e.g. the rebuilt sandbox helper isn't launchable): keep a working
-   *  window, don't auto-quit into a dead app. (#45205) */
-  manualRestart?: boolean
-  /** True when the auto-relaunch was skipped specifically because the rebuilt
-   *  chrome-sandbox helper is not launchable (not root:root + setuid). */
-  sandboxBlocked?: boolean
-  /** True when a detached relauncher took over (macOS bundle swap / Linux
-   *  re-exec): the app is about to quit and reopen itself. */
-  handedOff?: boolean
 }
 
-export type DesktopUpdateStage =
-  | 'idle'
-  | 'prepare'
-  | 'fetch'
-  | 'pull'
-  | 'pydeps'
-  | 'update'
-  | 'rebuild'
-  | 'restart'
-  | 'done'
-  | 'manual'
-  /** Backend updated but the running GUI package (AppImage/.deb/.rpm) was NOT
-   *  changed — the user must update/reinstall the desktop app. Terminal,
-   *  closeable; never claims the GUI was updated. (#45205) */
-  | 'guiSkew'
-  | 'error'
-
-export interface DesktopUpdateProgress {
-  stage: DesktopUpdateStage
-  message: string
-  percent: number | null
-  error: string | null
-  at: number
-}
+export type BackendUpdateStage = 'error' | 'idle' | 'manual' | 'prepare' | 'pull' | 'restart'
 
 export interface HermesConnection {
   baseUrl: string

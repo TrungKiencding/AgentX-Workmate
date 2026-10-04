@@ -2,6 +2,7 @@
 
 import ast
 import asyncio
+import json
 import threading
 from pathlib import Path
 
@@ -94,6 +95,20 @@ def test_gateway_async_code_uses_one_awaited_session_store_boundary() -> None:
     assert not violations, "\n".join(violations)
 
 
-def test_no_repository_local_claude_permissions_file() -> None:
+def test_repository_claude_settings_carry_no_local_permission_grants() -> None:
+    """The repo may ship project-wide Claude Code settings, never one
+    maintainer's local grants.
+
+    Upstream deleted a committed ``.claude/settings.json`` full of personal
+    ``Bash(...)`` / ``Read(...)`` allows (journalctl, strace, /proc/<pid>) in
+    9d38a2309e and asserted the file never came back. The fork commits one on
+    purpose (d0c1c7d441) to wire up CodeGraph, so pin the actual hazard:
+    anything beyond MCP tool grants belongs in the untracked
+    ``.claude/settings.local.json``.
+    """
     root = Path(__file__).resolve().parents[2]
-    assert not (root / ".claude" / "settings.json").exists()
+    settings = root / ".claude" / "settings.json"
+    if not settings.exists():
+        return
+    allow = json.loads(settings.read_text(encoding="utf-8")).get("permissions", {}).get("allow", [])
+    assert [rule for rule in allow if not rule.startswith("mcp__")] == []

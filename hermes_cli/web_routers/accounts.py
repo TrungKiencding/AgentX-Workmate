@@ -206,13 +206,13 @@ def _second_brain_settings():
     to. Reading it from the account's own config would break the feature
     outright, since an account home is created at sign-in with no config.yaml.
     """
-    from hermes_cli.account_provisioning import load_machine_config
+    from hermes_cli.account_provisioning import load_machine_config, resolve_second_brain_url
     from hermes_cli.config import cfg_get
 
     section = cfg_get(load_machine_config(), "accounts", "second_brain", default=None)
     if not isinstance(section, dict):
         section = {}
-    base_url = str(section.get("base_url") or "").strip().rstrip("/")
+    base_url = resolve_second_brain_url(section.get("base_url"))
     try:
         timeout = float(section.get("request_timeout_seconds") or 15)
     except (TypeError, ValueError):

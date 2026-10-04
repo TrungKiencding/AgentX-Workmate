@@ -1,6 +1,7 @@
 """Tests for hermes_cli.doctor."""
 
 import os
+import subprocess
 import sys
 import types
 import io
@@ -898,6 +899,10 @@ def test_run_doctor_opencode_go_skips_invalid_models_probe(monkeypatch, tmp_path
 class TestGitHubTokenCheck:
     """Tests for GitHub token / gh auth detection in doctor."""
 
+    # Same probe as GitHubAuth._try_gh_cli in tools/skills_hub.py.
+    GH_ARGV = ["gh", "auth", "token"]
+    FAKE_TOKEN = "gho_fake_doctor_token"
+
     @staticmethod
     def _isolate_home(monkeypatch, home):
         """Point doctor at the temp AGENTX_HOME.
@@ -912,61 +917,65 @@ class TestGitHubTokenCheck:
         monkeypatch.setattr(doctor_mod, "_DHH", str(home))
         monkeypatch.setenv("AGENTX_HOME", str(home))
 
-    def test_no_token_and_not_gh_authenticated_shows_warn(self, monkeypatch, tmp_path):
+    def _run_doctor_with_gh(self, monkeypatch, tmp_path, gh_result):
+        """Run doctor with subprocess.run faked; return (output, gh argvs run).
+
+        ``gh_result`` is what the expected ``gh auth token`` call returns or
+        raises. Any other gh argv gets gh's answer to an unknown flag (exit
+        1), so a wrong probe can't pass for an authenticated one.
+        """
         home = tmp_path / ".agentx"
         home.mkdir(parents=True, exist_ok=True)
         self._isolate_home(monkeypatch, home)
-        monkeypatch.setenv("PATH", "/nonexistent")  # gh not found
-
-        from hermes_cli.doctor import run_doctor
-        import io, contextlib
-
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            run_doctor(Namespace(fix=False))
-        out = buf.getvalue()
-
-        assert "No GITHUB_TOKEN" in out
-        assert "60 req/hr" in out
-
-
-    def test_gh_authenticated_without_env_token_shows_ok(self, monkeypatch, tmp_path):
-        home = tmp_path / ".agentx"
-        home.mkdir(parents=True, exist_ok=True)
-        self._isolate_home(monkeypatch, home)
-        # No GITHUB_TOKEN or GH_TOKEN
         monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         monkeypatch.delenv("GH_TOKEN", raising=False)
 
-        # Mock gh to return success
-        import shutil
-        real_which = shutil.which
-        def mock_which(cmd):
-            return "/usr/local/bin/gh" if cmd == "gh" else real_which(cmd)
-        monkeypatch.setattr(shutil, "which", mock_which)
+        gh_calls = []
 
-        call_log = []
-        def mock_run(cmd, **kwargs):
-            call_log.append(cmd)
-            if cmd[:2] == ["gh", "auth"]:
-                result = types.SimpleNamespace(returncode=0, stdout="", stderr="")
-            else:
-                result = types.SimpleNamespace(returncode=1, stdout="", stderr="")
-            return result
+        def fake_run(cmd, *args, **kwargs):
+            if not (isinstance(cmd, list) and cmd and cmd[0] == "gh"):
+                return types.SimpleNamespace(returncode=1, stdout="", stderr="")
+            gh_calls.append(list(cmd))
+            if list(cmd) != self.GH_ARGV:
+                return types.SimpleNamespace(returncode=1, stdout="", stderr="unknown flag")
+            if isinstance(gh_result, BaseException):
+                raise gh_result
+            return gh_result
 
-        import subprocess
-        monkeypatch.setattr(subprocess, "run", mock_run)
-
-        from hermes_cli.doctor import run_doctor
-        import io, contextlib
+        monkeypatch.setattr(subprocess, "run", fake_run)
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            run_doctor(Namespace(fix=False))
-        out = buf.getvalue()
+            doctor_mod.run_doctor(Namespace(fix=False))
+        return buf.getvalue(), gh_calls
 
-        assert "gh auth" in str(call_log) or any(c[0] == "gh" for c in call_log), f"gh not called: {call_log}"
-        assert "GitHub authenticated via gh CLI" in out or "token configured" in out
+    def test_gh_token_stored_shows_ok(self, monkeypatch, tmp_path):
+        # The fake hands the token over even if doctor discards stdout: it
+        # must never show up in the report either way.
+        stored = types.SimpleNamespace(returncode=0, stdout=self.FAKE_TOKEN + "\n", stderr="")
+        out, gh_calls = self._run_doctor_with_gh(monkeypatch, tmp_path, stored)
+
+        assert gh_calls == [self.GH_ARGV]
+        assert "GitHub authenticated via gh CLI" in out
+        assert "No GITHUB_TOKEN" not in out
+        assert self.FAKE_TOKEN not in out
+
+    @pytest.mark.parametrize(
+        "gh_result",
+        [
+            types.SimpleNamespace(returncode=1, stdout="", stderr="no oauth token found for github.com"),
+            FileNotFoundError(2, "No such file or directory", "gh"),
+            subprocess.TimeoutExpired(["gh", "auth", "token"], 10),
+        ],
+        ids=["no-token", "gh-missing", "gh-timeout"],
+    )
+    def test_gh_without_token_shows_warn(self, monkeypatch, tmp_path, gh_result):
+        out, gh_calls = self._run_doctor_with_gh(monkeypatch, tmp_path, gh_result)
+
+        assert gh_calls == [self.GH_ARGV]
+        assert "GitHub authenticated via gh CLI" not in out
+        assert "No GITHUB_TOKEN" in out
+        assert "60 req/hr" in out
 
 
 def _run_doctor_with_healthy_oauth_fallback(

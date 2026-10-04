@@ -43,6 +43,8 @@ import {
   writeAccountState
 } from './account-store'
 import { classifyActiveRuntime } from './active-runtime-state'
+import { type AppUpdateService, createAppUpdateService } from './app-update/service'
+import type { AgentUpdateFailure } from './app-update/updater'
 import { stopBackendChild as stopBackendChildImpl, stopBackendTreesForUpdate } from './backend-child'
 import { dashboardFallbackArgs, sourceDeclaresServe } from './backend-command'
 import { createBackendConnectionState } from './backend-connection-state'
@@ -156,7 +158,7 @@ import {
   forgetKeycloakSession,
   type KeycloakSessionDeps
 } from './keycloak-desktop-session'
-import { fetchKeycloakEndpoints } from './keycloak-login'
+import { fetchKeycloakEndpoints, logoutKeycloakSession } from './keycloak-login'
 import { buildEndSessionUrl, type KeycloakOidcConfig } from './keycloak-oidc'
 import { loadKeycloakSession } from './keycloak-session-store'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
@@ -218,26 +220,14 @@ import {
 } from './stale-checkout'
 import { createStreamThrottle } from './stream-throttle'
 import { nativeOverlayWidth as computeNativeOverlayWidth, macTitleBarOverlayHeight } from './titlebar-overlay-width'
-import { resolveBehindCount, shouldCountCommits } from './update-count'
 import { waitForUpdateClearance } from './update-gate'
 import { readLiveUpdateMarker, updateHandoffConflict, writeUpdateMarker } from './update-marker'
-import { runRebuildWithRetry } from './update-rebuild'
-import {
-  buildRelaunchScript,
-  collectRelaunchArgs,
-  collectRelaunchEnv,
-  decideRelaunchOutcome,
-  resolveUnpackedRelease,
-  sandboxFallbackFromEnv,
-  sandboxPreflight
-} from './update-relaunch'
 import { isOfficialSshRemote, OFFICIAL_REPO_HTTPS_URL } from './update-remote'
 import {
   resolveStagedUpdaterBinary,
   spawnUpdaterProcess,
   stagedUpdaterSupportsPrewrittenMarker
 } from './updater-process'
-import { formatBlockerMessage, formatProbeFailedMessage, scanVenvBlockers } from './venv-blocker-scan'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
 import { readLocalWebmateStatus } from './webmate/bootstrap'
@@ -249,7 +239,6 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
-import { decideInAppAgentUpdate } from './windows-agent-update'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
   buildPathExtCandidates,
@@ -695,9 +684,10 @@ const DESKTOP_DEVICE_CONFIG_PATH = path.join(app.getPath('userData'), 'device.js
 // Mirrors hermes_cli.profiles._PROFILE_ID_RE so we never hand the backend a
 // value its profile resolver would reject and exit on.
 const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
-// Branch we track for self-update. The GUI work has merged to main, so this
-// tracks main. User can also override at runtime via
-// agentxDesktop.updates.setBranch().
+// Branch a staged recovery updater (handOffWindowsBootstrapRecovery) installs
+// from. updates.json may name another; resolveHealedBranch falls back to main
+// once origin stops publishing it. The app's own updates come from the signed
+// release feed instead (electron/app-update/).
 const DEFAULT_UPDATE_BRANCH = 'main'
 // desktop.log lives under AGENTX_HOME/logs/ so it sits next to agent.log,
 // errors.log, gateway.log produced by hermes_logging.setup_logging — one log
@@ -1052,13 +1042,12 @@ if (IS_WINDOWS) {
   app.setAppUserModelId('com.agentx.workmate')
 }
 
-// Seed the native About panel with the live AgentX version. This is refreshed
-// on every open via the explicit "About" menu handler (refreshAboutPanel), so
-// an in-place `agentx update` mid-session is reflected without an app restart;
-// the seed here just covers the first open and any non-menu invocation path.
+// Seed the native About panel with the app's version. The "About" menu item
+// refreshes it on every open (showAboutPanelFresh), adding the agent's version
+// when the two differ; the seed covers the first open and any non-menu path.
 app.setAboutPanelOptions({
   applicationName: APP_NAME,
-  applicationVersion: resolveHermesVersion(),
+  applicationVersion: app.getVersion(),
   copyright: 'Copyright © 2026 AstralX Technology'
 })
 
@@ -1865,16 +1854,11 @@ const UPDATE_WAIT_POLL_MS = 1000
 const UPDATE_HANDOFF_DWELL_MS = 2500
 
 // Gate deps shared by the primary-window boot path and the pool-backend
-// spawn path. Consulting BOTH the on-disk marker and the in-process
-// updateInFlight flag is load-bearing (#73822): applyUpdates kills its own
-// backend BEFORE the Windows venv-blocker scan but only writes the marker
-// AFTER it, so a marker-only gate lets the renderer's ~1s reconnect respawn
-// a backend inside the update's own critical section — which the scan then
-// reports as a blocker, aborting every update attempt.
+// spawn path: the on-disk marker `agentx update` and a staged recovery updater
+// hold for as long as they rewrite the install.
 function updateGateDeps() {
   return {
-    hasLiveMarker: () => Boolean(readLiveUpdateMarker(AGENTX_HOME)),
-    isUpdateInFlight: () => updateInFlight
+    hasLiveMarker: () => Boolean(readLiveUpdateMarker(AGENTX_HOME))
   }
 }
 
@@ -2393,7 +2377,7 @@ function recentHermesLog() {
   return hermesLog.slice(-20).join('\n')
 }
 
-// ─── Self-update (git-pull against the running backend's agentx root) ──────
+// ─── Agent checkout: update branch and git helpers ────────────────────────────
 
 function readDesktopUpdateConfig() {
   try {
@@ -2521,21 +2505,10 @@ function runGit(args, options: any = {}): Promise<{ code: number; stdout: string
   })
 }
 
-const firstLine = text => (text || '').split('\n').find(Boolean) || ''
-
 async function getOriginUrl(updateRoot) {
   const origin = await runGit(['remote', 'get-url', 'origin'], { cwd: updateRoot })
 
   return origin.code === 0 ? origin.stdout.trim() : ''
-}
-
-function emitUpdateProgress(payload) {
-  const merged = { stage: 'idle', message: '', percent: null, error: null, ...payload, at: Date.now() }
-  rememberLog(`[updates] ${merged.stage}: ${merged.message || merged.error || ''}`)
-
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send('agentx:updates:progress', merged)
-  }
 }
 
 // Self-heal the tracked update branch: if origin no longer publishes it (e.g.
@@ -2567,144 +2540,6 @@ async function resolveHealedBranch(updateRoot, branch) {
   return 'main'
 }
 
-async function checkUpdates() {
-  const updateRoot = resolveUpdateRoot()
-  let { branch } = readDesktopUpdateConfig()
-  const gitDir = path.join(updateRoot, '.git')
-
-  if (!directoryExists(gitDir)) {
-    return {
-      supported: false,
-      reason: 'not-a-git-checkout',
-      message: `${updateRoot} isn't a git checkout — desktop self-update only runs against a source install.`,
-      hermesRoot: updateRoot,
-      branch
-    }
-  }
-
-  branch = await resolveHealedBranch(updateRoot, branch)
-  const originUrl = await getOriginUrl(updateRoot)
-
-  if (isOfficialSshRemote(originUrl)) {
-    const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
-
-    const [currentSha, target, dirtyStr, currentBranch] = await Promise.all([
-      git(['rev-parse', 'HEAD']),
-      runGit(['ls-remote', OFFICIAL_REPO_HTTPS_URL, `refs/heads/${branch}`], { cwd: updateRoot }),
-      git(['status', '--porcelain']),
-      git(['rev-parse', '--abbrev-ref', 'HEAD'])
-    ])
-
-    const targetSha = firstLine(target.stdout).split(/\s+/)[0] || ''
-
-    if (target.code !== 0 || !targetSha) {
-      return {
-        supported: true,
-        branch,
-        error: 'fetch-failed',
-        message: firstLine(target.stderr) || 'git ls-remote failed.',
-        hermesRoot: updateRoot,
-        fetchedAt: Date.now()
-      }
-    }
-
-    return {
-      supported: true,
-      branch,
-      currentBranch,
-      behind: currentSha && currentSha === targetSha ? 0 : 1,
-      currentSha,
-      targetSha,
-      commits: [],
-      dirty: dirtyStr.length > 0,
-      hermesRoot: updateRoot,
-      fetchedAt: Date.now()
-    }
-  }
-
-  const fetched = await runGit(['fetch', '--quiet', 'origin', branch], { cwd: updateRoot })
-
-  if (fetched.code !== 0) {
-    return {
-      supported: true,
-      branch,
-      error: 'fetch-failed',
-      message: firstLine(fetched.stderr) || 'git fetch failed.',
-      hermesRoot: updateRoot,
-      fetchedAt: Date.now()
-    }
-  }
-
-  const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
-
-  const [currentSha, targetSha, dirtyStr, currentBranch, shallowStr, mergeBaseStr] = await Promise.all([
-    git(['rev-parse', 'HEAD']),
-    git(['rev-parse', `origin/${branch}`]),
-    git(['status', '--porcelain']),
-    git(['rev-parse', '--abbrev-ref', 'HEAD']),
-    git(['rev-parse', '--is-shallow-repository']),
-    // merge-base exits non-zero with empty stdout when HEAD shares no common
-    // ancestor with the freshly fetched tip — exactly the shallow-clone case.
-    git(['merge-base', 'HEAD', `origin/${branch}`])
-  ])
-
-  const isShallow = shallowStr === 'true'
-  const hasMergeBase = Boolean(mergeBaseStr)
-
-  // Only enumerate the commit count when it is meaningful. On a shallow checkout
-  // with no merge-base, `rev-list --count` walks the entire remote ancestry
-  // (thousands of commits, see #51922) and resolveBehindCount discards the
-  // result anyway in favour of a SHA compare — so skip the expensive query.
-  const countStr = shouldCountCommits({ isShallow, hasMergeBase })
-    ? await git(['rev-list', `HEAD..origin/${branch}`, '--count'])
-    : ''
-
-  const behind = resolveBehindCount({
-    countStr,
-    currentSha,
-    targetSha,
-    isShallow,
-    hasMergeBase
-  })
-
-  const commits = behind > 0 ? await readCommitLog(updateRoot, branch) : []
-
-  return {
-    supported: true,
-    branch,
-    currentBranch,
-    behind,
-    currentSha,
-    targetSha,
-    commits,
-    dirty: dirtyStr.length > 0,
-    hermesRoot: updateRoot,
-    fetchedAt: Date.now()
-  }
-}
-
-async function readCommitLog(cwd, branch) {
-  const SEP = '\x1f'
-  const REC = '\x1e'
-
-  const { stdout } = await runGit(
-    ['log', `HEAD..origin/${branch}`, `--pretty=format:%H${SEP}%s${SEP}%an${SEP}%at${REC}`, '-n', '40'],
-    { cwd }
-  )
-
-  return stdout
-    .split(REC)
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(line => {
-      const [sha, summary, author, at] = line.split(SEP)
-
-      return { sha, summary, author, at: Number.parseInt(at, 10) * 1000 }
-    })
-}
-
-let updateInFlight = false
-
 // Set to true when the desktop is about to quit so a detached swap/install/
 // uninstall script can take over. On macOS, app.quit() closes windows but
 // window-all-closed deliberately keeps the process alive (standard Electron
@@ -2724,42 +2559,13 @@ let quitConfirmedWithActiveWork = false
 // was held for it passes straight through.
 let installerQuitTeardownDone = false
 
-// Resolve the staged updater binary the desktop may hand an update to. On
-// Windows that binary owns ALL repo mutation — running `agentx update` +
-// rebuilding the desktop — so the desktop never touches its own bits while
-// running. macOS/Linux stage the same binary but deliberately do not use it;
-// see resolveStagedUpdaterBinary for the policy and for #74836. Returns null
-// whenever no hand-off applies; callers degrade gracefully.
+// Resolve the staged recovery updater (AgentX-Setup, from the Tauri bootstrap
+// installer) a broken Windows install may be handed to; see
+// resolveStagedUpdaterBinary for the policy and for #74836. The NSIS installer
+// stages none, so this is null for most installs and callers degrade
+// gracefully.
 function resolveUpdaterBinary() {
   return resolveStagedUpdaterBinary(AGENTX_HOME, { fileExists, isWindows: IS_WINDOWS })
-}
-
-function repairMacUpdaterHelper(updater) {
-  if (!IS_MAC || !updater) {
-    return
-  }
-
-  try {
-    execFileSync('/usr/bin/xattr', ['-cr', updater], { stdio: 'ignore' })
-  } catch (err) {
-    rememberLog(`[updates] macOS updater helper quarantine repair skipped: ${err.message}`)
-  }
-
-  try {
-    execFileSync('/usr/bin/codesign', ['--verify', updater], { stdio: 'ignore' })
-
-    return
-  } catch {
-    // Unsigned or invalid helper. Apply a local ad-hoc signature so Gatekeeper
-    // does not block the staged updater before it can run.
-  }
-
-  try {
-    execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', updater], { stdio: 'ignore' })
-    rememberLog('[updates] repaired macOS updater helper signature')
-  } catch (err) {
-    rememberLog(`[updates] macOS updater helper signature repair skipped: ${err.message}`)
-  }
 }
 
 // Path to the venv shim whose lock decides whether `agentx update` can write
@@ -2916,235 +2722,6 @@ async function releaseBackendLock(updateRoot, tag) {
   return { unlocked: false }
 }
 
-// applyUpdates — hand off to the installer's --update flow, then exit.
-//
-// The desktop is a pure consumer: it does NOT git pull / pip install / rebuild
-// itself (the old open-coded git dance lived here and drifted from
-// `agentx update`). Instead we spawn the staged AgentX-Setup binary with
-// --update and quit, so it can run `agentx update` (which refuses while we
-// hold the venv shim) and rebuild the desktop with our exe already gone.
-//
-// Detection (checkUpdates / commit changelog / "N behind") stays in the UI;
-// only this apply action changed.
-async function applyUpdates(opts = {}) {
-  if (updateInFlight) {
-    throw new Error('An update is already in progress.')
-  }
-
-  updateInFlight = true
-
-  try {
-    const updater = resolveUpdaterBinary()
-
-    if (!updater && !IS_WINDOWS) {
-      // macOS/Linux: never hand off, staged agentx-setup or not — the resolver
-      // returns null there by policy. Unlike Windows (where a venv-shim file
-      // lock forces the quit→hand-off→rebuild dance), there's no mandatory file
-      // locking here, so the desktop can drive the whole update itself:
-      // `agentx update` (backend) + `agentx desktop --build-only` (OS-aware GUI
-      // rebuild), then swap the running .app bundle with the freshly built one
-      // and relaunch.
-      return await applyUpdatesPosixInApp(opts)
-    }
-
-    if (!updater) {
-      // An NSIS-installed desktop lives outside the checkout and ships its own
-      // Electron, so an update has nothing of ours to rebuild and nothing of
-      // ours to lock — the whole reason Windows hands off does not apply, and
-      // we can run `agentx update` here. See windows-agent-update.ts.
-      const inApp = decideInAppAgentUpdate({
-        execPath: process.execPath,
-        updateRoot: resolveUpdateRoot(),
-        isPackaged: IS_PACKAGED,
-        platform: process.platform,
-        hasStagedUpdater: false
-      })
-
-      if (inApp.inApp) {
-        return await applyAgentOnlyUpdateInApp()
-      }
-
-      // Otherwise: a CLI-installed user (they ran `agentx desktop`, never the
-      // Tauri installer that self-copies agentx-setup.exe into AGENTX_HOME).
-      // Their desktop IS built from the checkout, so an update must rebuild a
-      // running exe — which Windows forbids. They DO have a working `agentx`
-      // on PATH / in the venv, so the correct path is the one-liner in their
-      // native medium. We show the EXACT command, branch-pinned to the
-      // checkout they're on — bare `agentx update` defaults to main and would
-      // silently switch a bb/gui (or any non-main) install off-branch. Mirror
-      // the GUI button's contract: append --branch <current> for non-main
-      // checkouts, keep it bare for main so the card stays clean.
-      const updateRoot = resolveUpdateRoot()
-      let command = 'agentx update'
-
-      try {
-        const head = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: updateRoot })
-        const current = (head.stdout || '').trim()
-
-        if (head.code === 0 && current && current !== 'HEAD') {
-          const branch = await resolveHealedBranch(updateRoot, current)
-
-          if (branch !== 'main') {
-            command = `agentx update --branch ${branch}`
-          }
-        }
-      } catch {
-        // Best-effort: fall back to bare `agentx update` if branch detection fails.
-      }
-
-      rememberLog(`[updates] no staged updater; surfacing manual \`${command}\` for CLI install at ${updateRoot}`)
-      emitUpdateProgress({ stage: 'manual', message: command, percent: null })
-
-      return { ok: true, manual: true, command, hermesRoot: updateRoot }
-    }
-
-    const handoffConflict = updateHandoffConflict(AGENTX_HOME)
-
-    if (handoffConflict) {
-      // A different updater already owns the marker — most often a previous
-      // "Update" click whose updater is still alive and parked mid-run.
-      // Spawning another here would overwrite its claim and let two updaters
-      // mutate the checkout at once (#75778); refuse instead.
-      rememberLog(`[updates] refusing hand-off: ${handoffConflict.message}`)
-      emitUpdateProgress({ stage: 'error', message: handoffConflict.message, percent: null })
-
-      return { ok: false, error: 'update-already-running', message: handoffConflict.message }
-    }
-
-    emitUpdateProgress({
-      stage: 'restart',
-      message:
-        'Updating AgentX — this window will close and the updater will open. Don’t reopen AgentX yourself; it restarts automatically when the update finishes.',
-      percent: 100
-    })
-    repairMacUpdaterHelper(updater)
-
-    const updateRoot = resolveUpdateRoot()
-    const { branch: configuredBranch } = readDesktopUpdateConfig()
-    const branch = await resolveHealedBranch(updateRoot, configuredBranch || DEFAULT_UPDATE_BRANCH)
-    const updaterArgs = ['--update', '--branch', branch]
-    const targetApp = IS_MAC ? runningAppBundle() : null
-
-    if (targetApp) {
-      updaterArgs.push('--target-app', targetApp)
-    }
-
-    const venvBin = path.join(updateRoot, 'venv', IS_WINDOWS ? 'Scripts' : 'bin')
-
-    // ── Pre-flight state.db integrity guard (#68474) ─────────────────
-    // Emergency backup and header verification before the update touches
-    // anything.  Runs while the backend is still alive.
-    preflightStateDb(AGENTX_HOME, rememberLog)
-
-    // Stop our own backend(s) and wait for the venv shim to unlock BEFORE we
-    // spawn the updater. Without this the updater races a still-locked
-    // agentx.exe (held by the backend child / its grandchildren) and the update
-    // bricks. See releaseBackendLockForUpdate for the full failure analysis.
-    const lock = await releaseBackendLockForUpdate(updateRoot)
-
-    if (!lock.unlocked) {
-      // Something OUTSIDE this app holds the venv (a second window, a user
-      // terminal running agentx, an unkillable child). Handing off anyway
-      // guarantees a half-updated venv — abort loudly instead and let the
-      // user close the holder and retry. Restart our own backend so the app
-      // keeps working after the failed attempt.
-      const message =
-        'Update aborted: another process is holding the AgentX install open ' +
-        '(a second AgentX window or a terminal running agentx?). Close it and retry.'
-
-      emitUpdateProgress({ stage: 'error', message, percent: null })
-      startHermes().catch(() => {})
-
-      return { ok: false, error: message }
-    }
-
-    // Preflight: after releasing our own backends, check for remaining
-    // AgentX processes running from this venv.  The updater normally refuses
-    // when it detects a holder, but because the updater is spawned detached
-    // with stdio:ignore, the user never sees that refusal and the update
-    // silently fails.  This preflight detects holders early and gives the
-    // user an actionable error.  Windows-only; the .pyd lock hazard is a
-    // Windows phenomenon.  ALL failures (blocked, missing python, timeout,
-    // malformed output, missing psutil) abort the handoff — never proceed
-    // to the detached updater when the venv state is unknown.
-    if (IS_WINDOWS) {
-      const scanOutcome = await scanVenvBlockers(updateRoot)
-
-      if (scanOutcome.kind === 'blocked') {
-        const message = formatBlockerMessage(scanOutcome.result)
-
-        rememberLog(`[updates] venv-blocked: ${scanOutcome.result.processes.length} process(es) hold the install`)
-        emitUpdateProgress({ stage: 'error', message, percent: null })
-        startHermes().catch(() => {})
-
-        return { ok: false, error: 'venv-blocked', message }
-      }
-
-      if (scanOutcome.kind === 'probe-failure') {
-        const message = formatProbeFailedMessage()
-
-        rememberLog(`[updates] venv-blocker probe failed: ${scanOutcome.error}`)
-        emitUpdateProgress({ stage: 'error', message, percent: null })
-        startHermes().catch(() => {})
-
-        return { ok: false, error: 'venv-probe-failed', message }
-      }
-    }
-
-    // Detached so the updater outlives this process — it needs us GONE before
-    // `agentx update` will run (the venv shim is locked while we live).
-    const child = spawnUpdaterProcess(updater, updaterArgs, {
-      cwd: AGENTX_HOME,
-      env: {
-        ...process.env,
-        AGENTX_HOME,
-        PATH: pathWithHermesManagedNode(venvBin)
-      },
-      detached: true,
-      stdio: 'ignore'
-    })
-
-    // Write the update-in-progress marker IMMEDIATELY — before the 2.5s
-    // quit dwell. The Tauri updater won't write its own marker for several
-    // seconds (window init + manifest), and during that gap our renderer
-    // can reconnect and spawn a fresh backend that re-locks .pyd files in
-    // the venv. By writing the marker ourselves the renderer's
-    // waitForUpdateToFinish() gate sees a live update and parks instead.
-    // The updater overwrites this with its own PID later; same format.
-    //
-    // SKIPPED for pre-#74782 staged updaters: those have no self-PID
-    // exclusion, so they read this very marker as a foreign live owner and
-    // abort with "Another AgentX update is already running (PID <itself>)" —
-    // an unbreakable loop, because the update that would replace the stale
-    // binary is the one being refused. Losing the anti-respawn hardening is
-    // strictly better than never updating again, and the updater still writes
-    // its own marker moments later.
-    if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
-      writeUpdateMarker(AGENTX_HOME, child.pid)
-    } else if (Number.isInteger(child.pid)) {
-      rememberLog(
-        `[updates] skipping marker pre-write: staged updater predates self-adopt (${updater}); it would refuse its own claim`
-      )
-    }
-
-    rememberLog(`[updates] launched updater: ${updater} ${updaterArgs.join(' ')}; exiting desktop to release venv shim`)
-
-    // Linger on the "updating — don't reopen" overlay long enough for the user
-    // to actually read it (and to bridge the gap until the updater's own window
-    // appears), THEN quit to release the venv shim. The updater rebuilds and
-    // relaunches us when it's done. (#50419 — a 600ms quit looked like a crash
-    // and lured users into the #50238 relaunch loop.)
-    isQuittingForHandoff = true
-    setTimeout(() => {
-      app.quit()
-    }, UPDATE_HANDOFF_DWELL_MS)
-
-    return { ok: true, handedOff: true, updater }
-  } finally {
-    updateInFlight = false
-  }
-}
-
 async function handOffWindowsBootstrapRecovery(reason) {
   if (!IS_WINDOWS || !IS_PACKAGED) {
     return false
@@ -3159,12 +2736,11 @@ async function handOffWindowsBootstrapRecovery(reason) {
   const handoffConflict = updateHandoffConflict(AGENTX_HOME)
 
   if (handoffConflict) {
-    // Same hazard as applyUpdates (#75778): a live foreign updater already
-    // owns the marker. Spawning another here would overwrite its claim and
-    // race a second updater over the same install tree. The live updater
-    // is already working on this exact install and will restart us when
-    // it finishes, so treat this the same as a successful hand-off instead
-    // of clobbering it with our own.
+    // A live foreign updater already owns the marker (#75778). Spawning
+    // another here would overwrite its claim and race a second updater over
+    // the same install tree. The live updater is already working on this
+    // exact install and will restart us when it finishes, so treat this the
+    // same as a successful hand-off instead of clobbering it with our own.
     rememberLog(`[bootstrap] refusing recovery hand-off: ${handoffConflict.message}`)
     isQuittingForHandoff = true
     setTimeout(() => {
@@ -3209,11 +2785,13 @@ async function handOffWindowsBootstrapRecovery(reason) {
     stdio: 'ignore'
   })
 
-  // Same marker pre-write as applyUpdates — see comment there. The recovery
-  // hand-off has the same window where the renderer can respawn a backend
-  // before the updater writes its own marker, and the same stale-updater
-  // exclusion: a pre-#74782 binary would refuse its own pre-written claim and
-  // strand the very recovery meant to heal the install.
+  // Write the update-in-progress marker now, naming the updater just spawned:
+  // AgentX-Setup takes several seconds to reach the point where it writes its
+  // own, and in that gap the renderer can reconnect and respawn a backend that
+  // re-locks the venv the recovery is about to rebuild (update-marker.ts).
+  // Skipped for pre-#74782 binaries, which would read the claim as a foreign
+  // owner and refuse their own run — stranding the very recovery meant to heal
+  // the install.
   if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
     writeUpdateMarker(AGENTX_HOME, child.pid)
   } else if (Number.isInteger(child.pid)) {
@@ -3225,566 +2803,15 @@ async function handOffWindowsBootstrapRecovery(reason) {
   rememberLog(
     `[bootstrap] handed off ${reason} recovery to updater: ${updater} ${updaterArgs.join(' ')}; exiting desktop to release app.asar`
   )
-  // Same dwell as the in-app update hand-off (#50419): give the updater's
-  // window time to appear before we vanish, so the recovery doesn't look like
-  // a crash and provoke a mid-recovery relaunch.
+  // Linger (#50419): give the updater's window time to appear before we
+  // vanish, so the recovery doesn't look like a crash and provoke a
+  // mid-recovery relaunch.
   isQuittingForHandoff = true
   setTimeout(() => {
     app.quit()
   }, UPDATE_HANDOFF_DWELL_MS)
 
   return true
-}
-
-// Resolve the agentx CLI to drive an in-app update: prefer the venv shim in
-// the install we're updating, fall back to `agentx` on PATH.
-function resolveHermesCliBinary(updateRoot) {
-  const venvHermes = path.join(updateRoot, 'venv', 'bin', 'agentx')
-
-  if (fileExists(venvHermes)) {
-    return venvHermes
-  }
-
-  return findOnPath('agentx') || null
-}
-
-// Spawn a command and stream each output line to the update progress channel.
-function runStreamedUpdate(command, args, { cwd, env, stage }: any = {}) {
-  return new Promise(resolve => {
-    let child
-
-    try {
-      child = spawn(
-        command,
-        args,
-        hiddenWindowsChildOptions({
-          cwd,
-          env: { ...process.env, ...(env || {}) },
-          stdio: ['ignore', 'pipe', 'pipe']
-        })
-      )
-    } catch (err) {
-      resolve({ code: 1, error: err.message })
-
-      return
-    }
-
-    const emitLines = chunk => {
-      for (const line of chunk.toString().split('\n')) {
-        const trimmed = line.trim()
-
-        if (trimmed) {
-          emitUpdateProgress({ stage, message: trimmed, percent: null })
-        }
-      }
-    }
-
-    child.stdout.on('data', emitLines)
-    child.stderr.on('data', emitLines)
-    child.once('error', err => resolve({ code: 1, error: err.message }))
-    child.once('exit', code => resolve({ code }))
-  })
-}
-
-// The running app's .app bundle (packaged macOS): execPath is
-// <App>.app/Contents/MacOS/<exe>; climb three levels to the bundle root.
-function runningAppBundle() {
-  if (!IS_MAC) {
-    return null
-  }
-
-  let dir = path.dirname(app.getPath('exe')) // .../Contents/MacOS
-
-  for (let i = 0; i < 2; i++) {
-    dir = path.dirname(dir)
-  } // -> .../X.app
-
-  return dir.endsWith('.app') ? dir : null
-}
-
-// ── Pre-flight state.db integrity guard (#68474) ─────────────────────
-// Take an emergency snapshot of state.db and verify the live copy is
-// intact before any update process mutates the install.  Runs in the
-// desktop Electron process itself, before the backend is killed and
-// before the updater is spawned — a separate safety net from the
-// Python-level pre-update snapshot inside `agentx update`.
-function preflightStateDb(hermesHome, rememberLog) {
-  const stateDbPath = path.join(hermesHome, 'state.db')
-
-  if (!fileExists(stateDbPath)) {
-    rememberLog('[updates] state.db pre-flight: not found (fresh install?)')
-
-    return
-  }
-
-  try {
-    const stat = fs.statSync(stateDbPath)
-
-    if (stat.size > 100) {
-      const fd = fs.openSync(stateDbPath, 'r')
-      const header = Buffer.alloc(16)
-
-      fs.readSync(fd, header, 0, 16, 0)
-      fs.closeSync(fd)
-
-      const expectedHeader = Buffer.from('SQLite format 3\0')
-      const headerOk = header.equals(expectedHeader)
-
-      rememberLog(
-        `[updates] state.db pre-flight: size=${stat.size}, ` +
-          `headerOk=${headerOk}, headerHex=${header.toString('hex')}`
-      )
-
-      if (!headerOk) {
-        rememberLog(
-          '[updates] state.db header is INVALID before update — ' +
-            'this indicates pre-existing corruption or a concurrent write issue'
-        )
-      }
-
-      // Emergency timestamped backup, separate from the Python-level snapshot.
-      const ts = new Date().toISOString().replace(/[:.]/g, '-')
-
-      const emergencyPath = path.join(hermesHome, `state.db.pre-update-emergency-${ts}.bak`)
-
-      try {
-        fs.copyFileSync(stateDbPath, emergencyPath)
-        const emergStat = fs.statSync(emergencyPath)
-
-        rememberLog(`[updates] emergency state.db backup: ${emergencyPath} ` + `(${emergStat.size} bytes)`)
-
-        // Prune to the 2 most recent emergency backups.
-        try {
-          const homeDir = fs.readdirSync(hermesHome)
-
-          const backups = homeDir
-            .filter(
-              f =>
-                f.startsWith('state.db.pre-update-emergency-') &&
-                f.endsWith('.bak') &&
-                f !== path.basename(emergencyPath)
-            )
-            .sort()
-            .reverse()
-
-          for (const old of backups.slice(2)) {
-            try {
-              fs.unlinkSync(path.join(hermesHome, old))
-            } catch {
-              void 0
-            }
-          }
-        } catch {
-          void 0
-        }
-      } catch (copyErr) {
-        rememberLog(`[updates] emergency state.db backup failed: ${copyErr.message}`)
-      }
-    } else {
-      rememberLog(`[updates] state.db too small (${stat.size} bytes) for a valid SQLite database`)
-    }
-  } catch (statErr) {
-    rememberLog(`[updates] could not stat state.db before update: ${statErr.message}`)
-  }
-}
-
-function shellQuote(value) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`
-}
-
-// Windows in-app update for a desktop that is NOT built from the checkout —
-// an NSIS install. Runs `agentx update` and nothing else: no rebuild (this app
-// ships its own Electron and is replaced by downloading a new installer), no
-// hand-off (nothing here needs the running exe swapped), no quit.
-//
-// The one hard precondition is that our backend must be down first. On Windows
-// the backend runs the venv's `agentx.exe`, `uv pip install` cannot replace a
-// running image, and `agentx update` correctly refuses while it sees one. So
-// the sequence is: stop the backend, confirm the shim unlocked, update, bring
-// the backend back.
-//
-// It ends on `guiSkew` — the terminal state the renderer already has for
-// "backend moved, packaged shell did not". That is exactly what happened, and
-// saying "restart to load the new version" instead would be a lie: restarting
-// this .exe reopens the same .exe.
-async function applyAgentOnlyUpdateInApp() {
-  const updateRoot = resolveUpdateRoot()
-  const agentx = resolveHermesCliBinary(updateRoot)
-
-  if (!agentx) {
-    // No venv entry point to drive. Fall back to telling them the command.
-    emitUpdateProgress({ stage: 'manual', message: 'agentx update', percent: null })
-
-    return { ok: true, manual: true, command: 'agentx update', hermesRoot: updateRoot }
-  }
-
-  preflightStateDb(AGENTX_HOME, rememberLog)
-
-  // Stop our own backend(s) and wait for the venv shim to unlock. Without this
-  // `agentx update` sees a live agentx.exe and refuses — correctly, because
-  // continuing would leave a half-written venv.
-  const lock = await releaseBackendLockForUpdate(updateRoot)
-
-  if (!lock.unlocked) {
-    const message =
-      'Update aborted: another process is holding the AgentX install open ' +
-      '(a second AgentX window or a terminal running agentx?). Close it and retry.'
-
-    emitUpdateProgress({ stage: 'error', message, percent: null })
-    startHermes().catch(() => {})
-
-    return { ok: false, error: message }
-  }
-
-  const env: Record<string, string> = {
-    AGENTX_HOME,
-    // `agentx update` writes to a pipe here, so CPython block-buffers stdout
-    // and long quiet steps stream nothing — users read silence as a hang.
-    PYTHONUNBUFFERED: '1',
-    PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'Scripts'))
-  }
-
-  // Branch-pin so a non-main checkout isn't switched to main (and self-heal to
-  // main when the pinned branch no longer exists on origin).
-  let branchArgs: string[] = []
-
-  try {
-    const head = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: updateRoot })
-    const current = (head.stdout || '').trim()
-
-    if (head.code === 0 && current && current !== 'HEAD') {
-      branchArgs = ['--branch', await resolveHealedBranch(updateRoot, current)]
-    }
-  } catch {
-    // best effort
-  }
-
-  emitUpdateProgress({ stage: 'update', message: 'Updating AgentX (git + dependencies)…', percent: 10 })
-  rememberLog(`[updates] packaged Windows install: running \`agentx update\` in-app against ${updateRoot}`)
-
-  const updated = (await runStreamedUpdate(agentx, ['update', '--yes', ...branchArgs], {
-    cwd: updateRoot,
-    env,
-    stage: 'update'
-  })) as any
-
-  // Bring the backend back either way. A failed update leaves the previous
-  // install intact and working; leaving the user with a dead app on top of it
-  // would turn a retryable failure into a broken one.
-  startHermes().catch(() => {})
-
-  if (updated.code !== 0) {
-    emitUpdateProgress({ stage: 'error', message: 'agentx update failed.', error: updated.error || 'update-failed' })
-
-    return { ok: false, error: 'agentx update failed' }
-  }
-
-  emitUpdateProgress({
-    stage: 'guiSkew',
-    message:
-      'AgentX was updated. This desktop app package was not changed — ' +
-      'install the latest AgentX Workmate to match.',
-    percent: 100
-  })
-
-  return { ok: true, backendUpdated: true, guiUpdated: false, guiSkew: true }
-}
-
-// macOS/Linux in-app update: backend (`agentx update`) + OS-aware GUI rebuild
-// (`agentx desktop --build-only`), then atomically swap the running .app bundle
-// with the freshly built one and relaunch. Degrades to "backend updated,
-// restart to load the new GUI" if the swap can't be performed.
-async function applyUpdatesPosixInApp(opts: any) {
-  const updateRoot = resolveUpdateRoot()
-  const agentx = resolveHermesCliBinary(updateRoot)
-
-  if (!agentx) {
-    emitUpdateProgress({ stage: 'manual', message: 'agentx update', percent: null })
-
-    return { ok: true, manual: true, command: 'agentx update', hermesRoot: updateRoot }
-  }
-
-  // ── Pre-flight state.db integrity guard (#68474) ──
-  preflightStateDb(AGENTX_HOME, rememberLog)
-
-  // Put the AgentX-managed Node and the venv on PATH so `agentx desktop`'s
-  // npm build can find them on a machine with no system Node. Windows portable
-  // Node lives directly under %LOCALAPPDATA%\\agentx\\node, not node\\bin.
-  // PYTHONUNBUFFERED: `agentx update` writes to a pipe here, so CPython
-  // block-buffers stdout and long quiet steps (the pre-update backup can zip
-  // multi-GB archives for minutes) stream nothing to the progress UI — users
-  // read the silence as a hang and cancel a healthy update.
-  const env: Record<string, string> = {
-    AGENTX_HOME,
-    PYTHONUNBUFFERED: '1',
-    PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'bin'))
-  }
-
-  // `agentx update` reaps stale `agentx serve` backends (a code update
-  // leaves the running process serving old Python against the freshly-updated
-  // JS bundle). But OUR backend is one of those processes, and killing it
-  // mid-update produces the boot→kill→crash loop in #37532 — the desktop
-  // already restarts its own backend via the rebuild+relaunch below, so the
-  // reap must spare it. Hand the live backend's PID to the update process;
-  // _kill_stale_dashboard_processes reads AGENTX_DESKTOP_CHILD_PID and excludes
-  // it while still reaping any genuinely-orphaned backends. (#37532)
-  // Exclude every desktop-managed backend (primary + all pool profiles) from
-  // the update reaper. _kill_stale_dashboard_processes accepts a comma-separated
-  // list (a single int still parses for back-compat).
-  const desktopChildPids = []
-  const hermesProcess = backendConnectionState.getProcess()
-
-  if (hermesProcess && Number.isInteger(hermesProcess.pid)) {
-    desktopChildPids.push(hermesProcess.pid)
-  }
-
-  for (const entry of backendPool.values()) {
-    if (entry.process && Number.isInteger(entry.process.pid)) {
-      desktopChildPids.push(entry.process.pid)
-    }
-  }
-
-  if (desktopChildPids.length) {
-    env.AGENTX_DESKTOP_CHILD_PID = desktopChildPids.join(',')
-  }
-
-  // Branch-pin so a non-main checkout doesn't get switched to main (and self-heal
-  // to main when the pinned branch no longer exists on origin).
-  let branchArgs = []
-
-  try {
-    const head = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: updateRoot })
-    const current = (head.stdout || '').trim()
-
-    if (head.code === 0 && current && current !== 'HEAD') {
-      branchArgs = ['--branch', await resolveHealedBranch(updateRoot, current)]
-    }
-  } catch {
-    // best effort
-  }
-
-  emitUpdateProgress({ stage: 'update', message: 'Updating AgentX (git + dependencies)…', percent: 10 })
-
-  const updated = (await runStreamedUpdate(agentx, ['update', '--yes', ...branchArgs], {
-    cwd: updateRoot,
-    env,
-    stage: 'update'
-  })) as any
-
-  if (updated.code !== 0) {
-    emitUpdateProgress({ stage: 'error', message: 'agentx update failed.', error: updated.error || 'update-failed' })
-
-    return { ok: false, error: 'agentx update failed' }
-  }
-
-  emitUpdateProgress({ stage: 'rebuild', message: 'Rebuilding the desktop app…', percent: 60 })
-
-  // Retry-once: a first rebuild can fail on a still-settling tree or a
-  // self-healed (network-blocked) Electron download; a second run builds clean
-  // off the healed dist so we reach the swap+relaunch below instead of bailing.
-  const rebuilt = await runRebuildWithRetry(attempt => {
-    if (attempt > 0) {
-      emitUpdateProgress({ stage: 'rebuild', message: 'Retrying the desktop rebuild…', percent: 60 })
-    }
-
-    return runStreamedUpdate(agentx, ['desktop', '--build-only'], { cwd: updateRoot, env, stage: 'rebuild' })
-  })
-
-  if (rebuilt.code !== 0) {
-    emitUpdateProgress({
-      stage: 'error',
-      message: 'Backend updated, but the desktop rebuild failed. Restart AgentX to retry.',
-      error: rebuilt.error || 'rebuild-failed'
-    })
-
-    return { ok: false, backendUpdated: true, error: 'desktop rebuild failed' }
-  }
-
-  // Linux in-app update terminal state (#45205). `agentx desktop --build-only`
-  // rebuilds the unpacked app in place under apps/desktop/release/<plat>-unpacked.
-  // We can only HONESTLY relaunch into the new GUI when the *running* binary IS
-  // that rebuilt one — i.e. execPath lives under release/<plat>-unpacked. The
-  // outcome is decided by three signals (see update-relaunch.ts):
-  //
-  //   underUnpacked + sandboxOk  → 'relaunch': detached watcher re-execs us in
-  //       place (mirrors the macOS handoff). Without it the update succeeds but
-  //       the app never restarts and the overlay hangs on "applying" forever.
-  //   !underUnpacked             → 'guiSkew': the running shell is an AppImage/
-  //       .deb/.rpm/dev/unresolved binary we did NOT replace. Claiming "loads
-  //       next launch" is a lie (GUI/backend skew, #37541) — surface an
-  //       explicit closeable terminal state telling the user the GUI package
-  //       was NOT changed and must be updated/reinstalled.
-  //   underUnpacked + !sandboxOk → 'manual': we'd be relaunching the rebuilt
-  //       binary, but a fresh rebuild can leave chrome-sandbox without
-  //       root:root + setuid (mode 4755) and Electron then refuses to launch
-  //       ("quit and never came back"). DO NOT quit into a dead app — keep the
-  //       working window and surface the closeable manual-restart state.
-  if (!IS_MAC) {
-    const unpackedDir = resolveUnpackedRelease(process.execPath, updateRoot, process.platform)
-    const underUnpacked = unpackedDir !== null
-
-    const preflight = underUnpacked
-      ? sandboxPreflight(unpackedDir, p => fs.statSync(p))
-      : { ok: false, reason: 'not-under-unpacked', path: null }
-
-    const sandboxFallback = sandboxFallbackFromEnv(process.env, process.argv.slice(1))
-    const sandboxOk = preflight.ok || sandboxFallback
-
-    if (underUnpacked && !preflight.ok) {
-      rememberLog(
-        `[updates] sandbox preflight: not launchable (${preflight.reason}) at ${preflight.path}; ` +
-          `fallback=${sandboxFallback ? 'env/--no-sandbox' : 'none'}`
-      )
-    }
-
-    const outcome = decideRelaunchOutcome({ underUnpacked, sandboxOk })
-
-    if (outcome === 'relaunch') {
-      emitUpdateProgress({ stage: 'restart', message: 'Restarting AgentX…', percent: 100 })
-      // Preserve launch context across the re-exec: replay the original args
-      // (filtered of Electron internals) and the env/cwd that define which
-      // backend/profile/root this instance talks to. Without this the
-      // relaunched instance comes up with default context instead of the user's.
-      const relaunchArgs = collectRelaunchArgs(process.argv.slice(1))
-      const relaunchEnv = collectRelaunchEnv(process.env)
-
-      const relaunchScript = buildRelaunchScript({
-        pid: process.pid,
-        execPath: process.execPath,
-        args: relaunchArgs,
-        env: relaunchEnv,
-        cwd: process.cwd()
-      })
-
-      const scriptPath = path.join(app.getPath('temp'), `agentx-desktop-update-${Date.now()}.sh`)
-
-      try {
-        fs.writeFileSync(scriptPath, relaunchScript, { mode: 0o755 })
-        const child = spawn('/bin/bash', [scriptPath], { detached: true, stdio: 'ignore' })
-        child.unref()
-        rememberLog(
-          `[updates] launched linux relaunch: ${scriptPath} -> ${process.execPath} ` +
-            `(args=${relaunchArgs.length}, env=${Object.keys(relaunchEnv).length})`
-        )
-        isQuittingForHandoff = true
-        setTimeout(() => app.quit(), UPDATE_HANDOFF_DWELL_MS)
-
-        return { ok: true, handedOff: true }
-      } catch (err) {
-        rememberLog(`[updates] linux relaunch failed: ${err.message}; falling back to manual restart`)
-
-        return {
-          ok: true,
-          backendUpdated: true,
-          guiUpdated: false,
-          manualRestart: true,
-          message: 'Backend updated. Quit and reopen AgentX to load the new version.'
-        }
-      }
-    }
-
-    if (outcome === 'guiSkew') {
-      emitUpdateProgress({
-        stage: 'guiSkew',
-        message:
-          'Backend updated, but the desktop app package was not changed. ' +
-          'Update or reinstall the AgentX desktop app to match.',
-        percent: 100
-      })
-      rememberLog(
-        `[updates] gui/backend skew: execPath ${process.execPath} not under release/*-unpacked; ` +
-          'backend updated, GUI package unchanged (AppImage/.deb/.rpm/dev/unresolved)'
-      )
-
-      return { ok: true, backendUpdated: true, guiUpdated: false, guiSkew: true }
-    }
-
-    // outcome === 'manual': we're the rebuilt binary, but its sandbox helper is
-    // not launchable and no fallback applies. Keep this working window alive.
-    rememberLog(
-      `[updates] sandbox not launchable (${preflight.reason}); skipping auto-relaunch, ` +
-        'returning manual-restart so the user keeps a working window'
-    )
-
-    return {
-      ok: true,
-      backendUpdated: true,
-      guiUpdated: false,
-      manualRestart: true,
-      sandboxBlocked: true,
-      message:
-        'Backend updated. The rebuilt app can’t relaunch automatically ' +
-        '(sandbox helper needs root). Quit and reopen AgentX to finish.'
-    }
-  }
-
-  const rebuiltApp = [
-    path.join(updateRoot, 'apps', 'desktop', 'release', 'mac-arm64', 'AgentX Workmate.app'),
-    path.join(updateRoot, 'apps', 'desktop', 'release', 'mac', 'AgentX Workmate.app')
-  ].find(directoryExists)
-
-  const targetApp = runningAppBundle()
-
-  // No bundle to swap (dev run, Linux AppImage, or unresolved paths): the
-  // backend is updated; the next launch picks up the rebuilt GUI.
-  if (!rebuiltApp || !targetApp) {
-    emitUpdateProgress({
-      stage: 'done',
-      message: 'Backend updated. Restart AgentX to load the new version.',
-      percent: 100
-    })
-
-    return { ok: true, backendUpdated: true, rebuiltApp: rebuiltApp || null }
-  }
-
-  emitUpdateProgress({ stage: 'restart', message: 'Installing the updated app and restarting…', percent: 95 })
-
-  // Detached swapper: wait for THIS process to exit (so the bundle is free),
-  // ditto the rebuilt app over the running one, clear quarantine, relaunch.
-  const swapScript = `#!/bin/bash
-set -u
-APP_PID=${process.pid}
-SRC=${shellQuote(rebuiltApp)}
-DST=${shellQuote(targetApp)}
-for _ in $(seq 1 240); do
-  kill -0 "$APP_PID" 2>/dev/null || break
-  sleep 0.5
-done
-if [ "$SRC" != "$DST" ]; then
-  if /usr/bin/ditto "$SRC" "$DST.agentx-update-new"; then
-    rm -rf "$DST.agentx-update-old" 2>/dev/null || true
-    mv "$DST" "$DST.agentx-update-old" 2>/dev/null || rm -rf "$DST"
-    mv "$DST.agentx-update-new" "$DST"
-    rm -rf "$DST.agentx-update-old" 2>/dev/null || true
-  fi
-fi
-/usr/bin/xattr -dr com.apple.quarantine "$DST" 2>/dev/null || true
-/usr/bin/open "$DST"
-`
-
-  const scriptPath = path.join(app.getPath('temp'), `agentx-desktop-update-${Date.now()}.sh`)
-
-  try {
-    fs.writeFileSync(scriptPath, swapScript, { mode: 0o755 })
-  } catch (err) {
-    emitUpdateProgress({
-      stage: 'done',
-      message: 'Backend + app updated. Restart AgentX to load the new version.',
-      percent: 100
-    })
-    rememberLog(`[updates] could not write swap script: ${err.message}; rebuilt app at ${rebuiltApp}`)
-
-    return { ok: true, backendUpdated: true, rebuiltApp }
-  }
-
-  const child = spawn('/bin/bash', [scriptPath], { detached: true, stdio: 'ignore' })
-  child.unref()
-  rememberLog(`[updates] launched mac swap+relaunch: ${scriptPath} (${rebuiltApp} -> ${targetApp})`)
-
-  isQuittingForHandoff = true
-  setTimeout(() => app.quit(), 600)
-
-  return { ok: true, handedOff: true, rebuiltApp, targetApp }
 }
 
 function readJson(filePath) {
@@ -4398,6 +3425,7 @@ async function ensureRuntime(backend) {
         rememberLog(
           `[bootstrap] the AgentX install at ${backend.activeRoot} is held open by another process; launching it as is instead of bringing it forward`
         )
+        reportAgentUpdate('held-open')
 
         return ensureRuntime(resolveHermesBackend(backend.args))
       }
@@ -4542,6 +3570,7 @@ async function ensureRuntime(backend) {
           `[bootstrap] replacing the install ${bootstrapResult.cancelled ? 'was cancelled' : `failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ${bootstrapResult.error || 'unknown error'}`}; launching the AgentX runtime already at ${backend.activeRoot}`
         )
         broadcastBootstrapEvent({ type: 'dismissed' })
+        reportAgentUpdate(bootstrapResult.cancelled ? 'cancelled' : 'failed')
 
         return ensureRuntime(resolveHermesBackend(backend.args))
       }
@@ -4580,6 +3609,10 @@ async function ensureRuntime(backend) {
     }
 
     rememberLog('[bootstrap] bootstrap complete; marker written. Re-resolving backend.')
+
+    if (repin) {
+      reportAgentUpdate(null)
+    }
 
     // Re-resolve now that the install exists. The new resolution lands in
     // step 3 (bootstrap-complete marker) and we recurse to wire venvPython.
@@ -6910,7 +5943,13 @@ async function ensureNativeAccessToken(baseUrl: string): Promise<string | null> 
   if (keycloakConfig) {
     // Non-interactive: a token that has genuinely lapsed must surface as "sign
     // in again" through the UI, not pop a browser out of a background refresh.
-    const session = await ensureKeycloakSession(keycloakConfig, keycloakDeps({ interactive: false }))
+    // The session_days limit is checked at launch only. The Sign in screen
+    // exists only on the boot path, so ending a sign-in here would just make
+    // requests fail in the middle of someone's work.
+    const session = await ensureKeycloakSession(
+      keycloakConfig,
+      keycloakDeps({ interactive: false, enforceSignInPolicy: false })
+    )
 
     if (session.tokens) {
       _nativeTokens.set(baseUrl, session.tokens)
@@ -10548,6 +9587,8 @@ function createWindow() {
     if (syncTimer) {
       void syncTick('focus')
     }
+
+    appUpdateService?.onFocus()
   })
 
   // Reopen where the user left off. resized/moved settle once per drag; close is
@@ -11253,6 +10294,13 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   const tokens = loadKeycloakSession(config, _nativeTokenStoreIo())
 
   forgetKeycloakSession(config, { store: _nativeTokenStoreIo() })
+
+  // An offline session (session_days) survives the end-session page below, so
+  // it is ended on its own. Otherwise it stays live in the realm for weeks.
+  // Runs alongside the logout page and never throws.
+  if (tokens?.refreshToken) {
+    void logoutKeycloakSession(config, tokens.refreshToken, keycloakDeps())
+  }
 
   for (const [baseUrl, cfg] of _keycloakConfigs.entries()) {
     if (cfg.issuer === config.issuer && cfg.clientId === config.clientId) {
@@ -13020,25 +12068,90 @@ ipcMain.handle('agentx:terminal:cwd', async (_event, id) => {
 
 ipcMain.handle('agentx:terminal:dispose', (_event, id) => disposeTerminalSession(String(id || '')))
 
-ipcMain.handle('agentx:updates:check', async () =>
-  checkUpdates().catch(error => ({
-    supported: true,
-    branch: readDesktopUpdateConfig().branch,
-    error: 'check-failed',
-    message: error?.message || String(error),
-    fetchedAt: Date.now()
-  }))
-)
+// ===========================================================================
+// The app's own updates (electron/app-update/): a signed release feed on the
+// download site, the installer for this machine, and a hand-off that replaces
+// the app — and, through the install stamp the new build carries, the agent
+// (ensureRuntime's repin on the next launch). Main owns the state and every
+// window mirrors it, so the status bar, About and the updates dialog agree.
+// ===========================================================================
 
-ipcMain.handle('agentx:updates:apply', async (_event, payload) =>
-  applyUpdates(payload || {}).catch(error => ({
-    ok: false,
-    error: 'apply-failed',
-    message: error?.message || String(error)
-  }))
-)
+// How long the "restarting to update" state shows before the app quits for
+// the installer. The hand-off scripts wait for this process to exit, so this
+// is only for the person reading the dialog.
+const APP_UPDATE_QUIT_DWELL_MS = 800
 
-ipcMain.handle('agentx:updates:branch:get', async () => readDesktopUpdateConfig())
+let appUpdateService: AppUpdateService | null = null
+
+function appUpdates(): AppUpdateService {
+  if (!appUpdateService) {
+    appUpdateService = createAppUpdateService({
+      appVersion: app.getVersion(),
+      // app.isPackaged, not IS_PACKAGED: `npm run start` reports itself as
+      // packaged for the backend's sake, but its executable is Electron.app in
+      // node_modules, which an update must never replace.
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      arch: process.arch,
+      execPath: process.execPath,
+      userDataDir: app.getPath('userData'),
+      tempDir: app.getPath('temp'),
+      pid: process.pid,
+      cwd: process.cwd(),
+      argv: process.argv.slice(1),
+      env: process.env,
+      fetch: (url, init) => electronNet.fetch(url, init),
+      broadcast: state => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.isDestroyed()) {
+            window.webContents.send('agentx:app-update:state', state)
+          }
+        }
+      },
+      log: rememberLog,
+      activeWork: () => mergeActiveWork(activeWorkByWebContents.values()),
+      quitForHandoff: () => {
+        isQuittingForHandoff = true
+        setTimeout(() => app.quit(), APP_UPDATE_QUIT_DWELL_MS)
+      },
+      fileExists,
+      isWritable: dir => {
+        try {
+          fs.accessSync(dir, fs.constants.W_OK)
+
+          return true
+        } catch {
+          return false
+        }
+      }
+    })
+  }
+
+  return appUpdateService
+}
+
+// How this launch's attempt to bring the agent up to the app's version went
+// (null: it got there). Without this a failed repin was silent: the app came
+// up on the old agent and never said so.
+function reportAgentUpdate(failure: AgentUpdateFailure | null) {
+  appUpdates().updater.reportAgentUpdate(failure)
+}
+
+ipcMain.handle('agentx:app-update:get', () => appUpdates().updater.getState())
+ipcMain.handle('agentx:app-update:check', () => appUpdates().updater.check())
+ipcMain.handle('agentx:app-update:download', () => appUpdates().updater.download())
+ipcMain.handle('agentx:app-update:cancel', () => appUpdates().updater.cancelDownload())
+ipcMain.handle('agentx:app-update:install', (_event, options) =>
+  appUpdates().updater.install({ confirmActiveWork: Boolean(options?.confirmActiveWork) })
+)
+ipcMain.handle('agentx:app-update:acknowledge', () => appUpdates().updater.acknowledgeNotices())
+// Restart, so the boot brings the agent up to this app's version again after
+// a launch that could not (reportAgentUpdate). The quit confirmation still
+// applies: it is the person's restart, not an installer's.
+ipcMain.handle('agentx:app-update:restart', () => {
+  app.relaunch()
+  app.quit()
+})
 
 // ===========================================================================
 // AgentX WebMate — the browser extension Workmate installs from a folder it
@@ -13166,18 +12279,11 @@ ipcMain.handle('agentx:webmate:choose-browser', async (_event, request) =>
   })
 )
 
-ipcMain.handle('agentx:updates:branch:set', async (_event, name) => {
-  const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
-  writeDesktopUpdateConfig({ branch })
-
-  return { branch }
-})
-
-// Resolve the canonical AgentX version (the one `release.py` bumps in
-// hermes_cli/__init__.py + pyproject.toml) so the desktop About panel shows the
-// real AgentX version instead of the Electron app's own package.json version,
-// which historically drifted (stuck at 0.0.2). Falls back to app.getVersion()
-// when the source tree can't be read (e.g. a packaged build without the repo).
+// The agent's version: `__version__` in the checkout's hermes_cli/__init__.py.
+// release.py keeps it and the app's package.json version in step, so a healthy
+// install reports the same number twice; they differ only while the agent has
+// not been brought up to the app (a repin that failed). Falls back to
+// app.getVersion() when the checkout can't be read.
 function resolveHermesVersion() {
   try {
     const root = resolveUpdateRoot()
@@ -13198,21 +12304,25 @@ function resolveHermesVersion() {
   return app.getVersion()
 }
 
-// Re-resolve the live AgentX version and push it into the native About panel
-// just before showing it, so an in-place `agentx update` is reflected without
-// an app restart. macOS only — `showAboutPanel()` is a no-op elsewhere, and the
-// other platforms don't use this menu item.
+// The native About panel names the app's version, and the agent's beside it
+// when the two differ. Re-read just before showing so a repin that finished
+// meanwhile is reflected. macOS only — `showAboutPanel()` is a no-op
+// elsewhere, and the other platforms don't use this menu item.
 function showAboutPanelFresh() {
+  const agentVersion = resolveHermesVersion()
+
   app.setAboutPanelOptions({
     applicationName: APP_NAME,
-    applicationVersion: resolveHermesVersion(),
+    applicationVersion: app.getVersion(),
+    version: agentVersion === app.getVersion() ? '' : `agent ${agentVersion}`,
     copyright: 'Copyright © 2026 AstralX Technology'
   })
   app.showAboutPanel()
 }
 
 ipcMain.handle('agentx:version', async () => ({
-  appVersion: resolveHermesVersion(),
+  appVersion: app.getVersion(),
+  agentVersion: resolveHermesVersion(),
   electronVersion: process.versions.electron,
   nodeVersion: process.versions.node,
   platform: process.platform,
@@ -13611,6 +12721,12 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // Settle how the last update went (did the install take?), then check the
+  // release feed on a schedule. Off the critical path like WebMate below.
+  appUpdates()
+    .start()
+    .catch(error => rememberLog(`[app-update] could not start: ${error?.message || String(error)}`))
+
   // Prepare the WebMate folder and pairing off the critical path: a broken
   // bundle is logged and shown in Settings, never allowed to stall the boot.
   // The status watcher then follows state.json so the renderer learns about
@@ -13721,6 +12837,7 @@ app.on('before-quit', event => {
   }
 
   stopSyncTicker()
+  appUpdateService?.stop()
 
   // The Workmate browser window lives only as long as Workmate does: send it
   // Browser.close now (its process exits on its own; a lingering one is killed).

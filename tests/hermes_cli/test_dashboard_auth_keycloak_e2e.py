@@ -38,7 +38,7 @@ _CLIENT_ID = "agentx-workmate"
 
 
 class _FakeKeycloak:
-    """A realm that answers discovery and the token endpoint, in-process."""
+    """A realm that answers discovery, the token and end-session endpoints, in-process."""
 
     def __init__(self) -> None:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -52,6 +52,7 @@ class _FakeKeycloak:
         # code → the claims that code will redeem for.
         self.codes: Dict[str, Dict[str, Any]] = {}
         self.token_requests: list[Dict[str, str]] = []
+        self.logouts: list[Dict[str, str]] = []
 
     # -- what the realm publishes ------------------------------------------
 
@@ -62,6 +63,7 @@ class _FakeKeycloak:
             "authorization_endpoint": f"{_ISSUER}/protocol/openid-connect/auth",
             "token_endpoint": f"{_ISSUER}/protocol/openid-connect/token",
             "jwks_uri": self.jwks_uri,
+            "revocation_endpoint": f"{_ISSUER}/protocol/openid-connect/revoke",
             "end_session_endpoint": f"{_ISSUER}/protocol/openid-connect/logout",
         }
 
@@ -114,6 +116,10 @@ class _FakeKeycloak:
 
     def http_post(self, url: str, data: Dict[str, str] | None = None, **_kwargs: Any) -> Any:
         form = dict(data or {})
+        if url == self.discovery["end_session_endpoint"]:
+            # Logout by refresh token: Keycloak answers 204 No Content.
+            self.logouts.append(form)
+            return _json_response(204, {})
         self.token_requests.append(form)
 
         grant = form.get("grant_type")
@@ -335,6 +341,8 @@ class TestRedirectSignIn:
         assert out.status_code == 302
         assert "/login" in out.headers["location"]
         assert client.get("/api/auth/me").status_code == 401
+        # The Keycloak session behind the cookie ends too, and only that one.
+        assert keycloak.logouts == [{"client_id": _CLIENT_ID, "refresh_token": "rt-e2e"}]
 
 
 # ---------------------------------------------------------------------------

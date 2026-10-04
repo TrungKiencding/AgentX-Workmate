@@ -155,11 +155,24 @@ def test_entries_send_the_token_by_reference_and_are_named_for_their_endpoint():
 
 def engine_with(tmp_path: Path, entries: dict, credentials: HubCredentials, hub: FakeHub) -> tuple[HubSyncEngine, GatewayDevice, dict]:
     held, env = device(tmp_path, entries)
-    sync = HubSyncEngine(credentials=lambda: credentials, settings=SETTINGS, client=hub, installer=object(), mcp_installer=_NoMcp(), gateway=held)
+    sync = HubSyncEngine(credentials=lambda: credentials, settings=SETTINGS, client=hub, installer=_NoSkills(), mcp_installer=_NoMcp(), gateway=held)
     return sync, held, env
 
 
+class _NoSkills:
+    """No skill from the hub on this machine."""
+
+    def local_state(self, _slug):
+        return {"installed": False, "name": "", "version": "", "content_hash": "", "install_path": "", "enabled": False}
+
+    def hub_skills(self):
+        return []
+
+
 class _NoMcp:
+    def hub_servers(self):
+        return []
+
     def local_state(self, _slug):
         return {"installed": False}
 
@@ -407,7 +420,7 @@ def _renewing(tmp_path: Path, hub: FakeHub, written: list) -> tuple[HubSyncEngin
     held = GatewayDevice(state_path=tmp_path / "gateway.json", write_env=lambda _key, value: written.append((value, _enabled("agentx-leak"))))
     held.issue(hub, SESSION)
     _age(tmp_path / "gateway.json", 12)
-    return HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=object(), mcp_installer=_NoMcp(), gateway=held), held
+    return HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=_NoSkills(), mcp_installer=_NoMcp(), gateway=held), held
 
 
 def test_a_renewal_switches_off_an_entry_off_the_gateway_before_the_token_is_written(tmp_path):
@@ -594,7 +607,7 @@ def test_a_move_cut_short_is_finished_by_the_next_one(tmp_path, cut):
 def test_the_tick_moves_it_on_a_desktop_that_never_runs_agentx_update(tmp_path, legacy_value):
     hub = FakeHub()
     held = _left_before_v38(tmp_path / "gateway.json", legacy_value)
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=object(), mcp_installer=_NoMcp(), gateway=held)
+    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=_NoSkills(), mcp_installer=_NoMcp(), gateway=held)
     outcome = sync.tick()
     assert outcome.ok and outcome.gateway["renamed"] == ["agentx-tracker"] and outcome.mcp_changed
     assert _servers()["agentx-tracker"] == TRACKER
@@ -612,7 +625,7 @@ def test_the_tick_moves_it_on_a_desktop_that_never_runs_agentx_update(tmp_path, 
 def test_without_a_session_the_desktop_is_asked_to_sign_in_not_told_the_token_is_fine(tmp_path):
     hub = FakeHub()
     held = _left_before_v38(tmp_path / "gateway.json", OPENCLAW_TOKEN)
-    sync = HubSyncEngine(credentials=lambda: PERSONAL, settings=SETTINGS, client=hub, installer=object(), mcp_installer=_NoMcp(), gateway=held)
+    sync = HubSyncEngine(credentials=lambda: PERSONAL, settings=SETTINGS, client=hub, installer=_NoSkills(), mcp_installer=_NoMcp(), gateway=held)
     outcome = sync.tick()
     # What the MCP tab reads as "sign in again" (gatewayNeedsSignIn: entries, an expired token, no session).
     assert (outcome.gateway["state"], outcome.gateway["sign_in"], outcome.gateway["renamed"]) == ("expired", True, ["agentx-tracker"])

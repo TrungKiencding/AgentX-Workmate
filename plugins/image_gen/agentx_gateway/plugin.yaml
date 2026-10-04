@@ -1,0 +1,5 @@
+name: agentx-gateway
+version: 1.0.0
+description: "AgentX AI Gateway image generation — the image model the signed-in AgentX account was granted, called through the account's own gateway key. Text-to-image and image editing. Nothing to set up."
+author: AstralX Technology
+kind: backend

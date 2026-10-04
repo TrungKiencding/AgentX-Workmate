@@ -107,7 +107,7 @@ relay the sentence that follows the code once and stop:
 | `WEBMATE_NOT_CONNECTED` | No browser with the extension is attached | Open the browser WebMate is installed into (or enable it under chrome://extensions) |
 | `WEBMATE_NOT_SIGNED_IN` | Attached, but nobody is signed in to WebMate there | Open the WebMate side panel in that browser and sign in, then retry once |
 | `WEBMATE_OUTDATED` | The extension speaks a bridge protocol too old for this server | Update WebMate from Workmate → Settings → Browser |
-| `WEBMATE_PORT_IN_USE` | Another process holds port 17374 | Quit the process the message names (usually a leftover MCP server) |
+| `WEBMATE_PORT_IN_USE` | Port 17374 is held by something this server cannot share it with — an older WebMate server, or another program (every other AgentX process relays through the one holding it) | Relay the message: it names the process and how to free the port. Never kill processes yourself — this server takes the port over by itself once it is free |
 | `WEBMATE_DISABLED` | Workmate has the browser feature switched off | Turn it on in Workmate → Settings → Browser |
 
 ## Procedure

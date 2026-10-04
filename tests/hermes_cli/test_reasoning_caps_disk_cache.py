@@ -191,7 +191,6 @@ def test_pricing_fetch_seeds_the_mirror(cold_process, offline, monkeypatch):
     never pays a second round-trip to learn the same thing.
     """
     monkeypatch.setattr(models_mod, "_pricing_cache", {})
-    monkeypatch.setattr(models_mod, "_pricing_cache_retry_after", {})
     monkeypatch.setattr(
         models_mod, "_urlopen_model_catalog_request",
         lambda req, *, timeout: _response(_CATALOG),

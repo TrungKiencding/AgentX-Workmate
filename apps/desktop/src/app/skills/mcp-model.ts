@@ -2,7 +2,7 @@ import type { McpTestResult } from '@/hermes'
 import type { Translations } from '@/i18n'
 import { countEnabledTools } from '@/lib/mcp-tool-filter'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
-import type { HermesConfigRecord, McpCatalogEntry } from '@/types/hermes'
+import type { HermesConfigRecord, HubStateView, McpCatalogEntry } from '@/types/hermes'
 
 // The MCP segment's data layer, UI-free: the mcp.json document the editor
 // speaks, what a configured server's live state is, and how a configured
@@ -302,12 +302,15 @@ export interface McpServerView {
   hubEntry: McpCatalogEntry | null
   /** The gateway endpoint it was added from. */
   gatewayEndpoint: McpGatewayEndpoint | null
+  /** What AgentX Hub last said of it (the hub's decision §9.1 #18): kept off by the hub, no longer published… */
+  hubState: HubStateView | null
   canAuth: boolean
 }
 
 export function describeServer({
   endpoints,
   entries,
+  hubStates = {},
   name,
   probe,
   server,
@@ -315,6 +318,8 @@ export function describeServer({
 }: {
   endpoints: readonly McpGatewayEndpoint[]
   entries: readonly McpCatalogEntry[]
+  /** What the hub last said of each hub server here, by its name here. */
+  hubStates?: Readonly<Record<string, HubStateView>>
   name: string
   probe: Probe | undefined
   server: Record<string, unknown>
@@ -345,6 +350,7 @@ export function describeServer({
     description,
     gatewayEndpoint,
     hubEntry,
+    hubState: hubStates[name] ?? null,
     name,
     probe,
     server,
@@ -537,6 +543,9 @@ export interface McpGatewayEndpoint {
   credential?: 'own' | 'shared' | null
   /** A server's: where the hub sets it up (the hub's decision §9.1 #17). */
   route?: McpHubRoute | null
+  /** A server's, no longer published: until when the gateway still serves it (the hub's decision §9.1 #18). */
+  server_status?: string
+  serving_until?: null | string
 }
 
 /**

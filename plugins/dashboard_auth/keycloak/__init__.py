@@ -63,6 +63,7 @@ precedence convention the other bundled providers use)::
           # org_claim: ""         # dotted claim path feeding org_id
           # idp_hint: ""          # kc_idp_hint, to skip the IdP chooser
           # allow_password_grant: false
+          # session_days: 0       # desktop sign-in lifetime; 0 → browser's SSO session
 
     # Environment overrides
     AGENTX_DASHBOARD_KEYCLOAK_BASE_URL
@@ -73,7 +74,16 @@ precedence convention the other bundled providers use)::
     AGENTX_DASHBOARD_KEYCLOAK_ORG_CLAIM
     AGENTX_DASHBOARD_KEYCLOAK_IDP_HINT
     AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT
+    AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS
     AGENTX_DASHBOARD_KEYCLOAK_CLIENT_SECRET   # confidential clients only
+
+``session_days`` is for the desktop app only, which runs its own sign-in (see
+:meth:`KeycloakOIDCProvider.native_oidc_config`). A positive value makes the
+desktop ask Keycloak for an offline session and keep it for that many days
+from the browser sign-in. Without it, the desktop's sign-in ends with the
+browser's Keycloak SSO session. The realm's Offline Session Idle and Max
+settings still apply on top. The browser dashboard's own cookie session does
+not use this setting.
 
 When the plugin loads but declines to register, the reason is written to the
 module-level :data:`LAST_SKIP_REASON` so the gate's fail-closed branch can tell
@@ -85,6 +95,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import math
 import os
 import secrets
 import threading
@@ -114,6 +125,11 @@ logger = logging.getLogger(__name__)
 # ``openid`` is mandatory (without it Keycloak issues no ID token);
 # ``profile``/``email`` populate display_name/email.
 _DEFAULT_SCOPES = "openid profile email"
+
+# Generic default: the desktop sign-in ends with the browser's Keycloak SSO
+# session, as it always did. The AgentX deployment sets its own number in
+# ``hermes_cli.config_defaults``.
+_DEFAULT_SESSION_DAYS = 0
 
 # Signing algorithms accepted on the ID token. Keycloak realms default to RS256
 # but can be switched to the PS or ES families per-realm or per-client, so all
@@ -176,6 +192,24 @@ def _b64url_no_pad(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
+def _is_https_or_loopback(url: str) -> bool:
+    """True for an https URL, or for plain http on loopback. Never raises.
+
+    A URL that does not parse is False: nothing may be sent to it.
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme == "https":
+        return True
+    return parsed.scheme == "http" and (parsed.hostname or "") in (
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    )
+
+
 def _require_https_or_loopback(url: str, *, field: str) -> str:
     """Reject an endpoint URL that isn't HTTPS (loopback http is allowed).
 
@@ -183,14 +217,7 @@ def _require_https_or_loopback(url: str, *, field: str) -> str:
     misconfigured issuer must not be able to ship them in cleartext. Returns
     the URL unchanged on success.
     """
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme == "https":
-        return url
-    if parsed.scheme == "http" and (parsed.hostname or "") in (
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    ):
+    if _is_https_or_loopback(url):
         return url
     raise ProviderError(
         f"Keycloak {field} must be https:// (or http on localhost), got {url!r}"
@@ -254,6 +281,7 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
         org_claim: str = "",
         idp_hint: str = "",
         allow_password_grant: bool = False,
+        session_days: float = _DEFAULT_SESSION_DAYS,
     ) -> None:
         if not base_url and not issuer:
             raise ValueError("base_url is required (or an explicit issuer)")
@@ -261,6 +289,8 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
             raise ValueError("realm is required (or an explicit issuer)")
         if not client_id:
             raise ValueError("client_id is required")
+        if not math.isfinite(session_days) or session_days < 0:
+            raise ValueError(f"session_days must be 0 or more days, got {session_days!r}")
 
         self._base_url = (base_url or "").rstrip("/")
         self._realm = (realm or "").strip()
@@ -281,6 +311,10 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
         self._client_secret = (client_secret or "").strip()
         self._org_claim = (org_claim or "").strip()
         self._idp_hint = (idp_hint or "").strip()
+        # Whole days publish as an int, so the payload reads ``14``, not ``14.0``.
+        self._session_days = (
+            int(session_days) if float(session_days).is_integer() else float(session_days)
+        )
 
         # Instance-level override of the class flag. The login page and the
         # /auth/password-login route both read it via getattr, so per-instance
@@ -446,12 +480,27 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
         )
 
     def revoke_session(self, *, refresh_token: str) -> None:
-        """Best-effort RFC 7009 revocation. Must never raise.
+        """End, at Keycloak, the session this refresh token belongs to.
 
-        Deliberately does not call ``end_session_endpoint``: RP-initiated
-        logout wants an ``id_token_hint``, which this method is never handed.
-        The desktop shell, which does hold the ID token, opens the end-session
-        URL itself on an explicit sign-out.
+        Best effort, and it never raises. ``/auth/logout`` clears the cookies
+        whatever happens here, and a realm that cannot be reached must not
+        turn a sign-out into an error.
+
+        This is a logout by refresh token, not an RFC 7009 revocation. On
+        Keycloak 25 and 26, revoking a refresh token revokes this client for
+        the whole person, not for one session: Keycloak detaches the client
+        from every session they have, and for an offline token from all their
+        offline sessions too. One sign-out here could then sign them out of
+        WebMate, which shares this client id, and of the desktop app on their
+        other machines. Posting the refresh token to the end-session endpoint
+        logs out only the Keycloak session it belongs to, which is this
+        browser's sign-in.
+
+        That POST is the non-browser form of the end-session endpoint, so
+        unlike RP-initiated logout it needs no ``id_token_hint``. Nothing is
+        sent when the realm advertises no end-session endpoint, or a cleartext
+        one: the refresh token must never travel unencrypted. The Keycloak
+        session then ends when it expires.
         """
         if not refresh_token:
             return None
@@ -459,27 +508,34 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
             disco = self._get_discovery()
         except ProviderError:
             return None
-        endpoint = str(disco.get("revocation_endpoint") or "").strip()
-        if not endpoint:
+        endpoint = str(disco.get("end_session_endpoint") or "").strip()
+        if not _is_https_or_loopback(endpoint):
             return None
         data = {
-            "token": refresh_token,
-            "token_type_hint": "refresh_token",
             "client_id": self._client_id,
+            "refresh_token": refresh_token,
         }
         headers = {"Accept": "application/json"}
         extra_data, extra_headers = self._token_endpoint_auth(disco)
         data.update(extra_data)
         headers.update(extra_headers)
         try:
-            httpx.post(
+            response = httpx.post(
                 endpoint,
                 data=data,
                 headers=headers,
                 timeout=_TOKEN_ENDPOINT_TIMEOUT_SEC,
             )
+            if response.status_code >= 300:
+                # Routine for a token another registered provider minted: the
+                # logout route offers every refresh token to every provider.
+                logger.debug(
+                    "keycloak: logout answered %s (ignored): %s",
+                    response.status_code,
+                    self._parse_json_body(response).get("error", ""),
+                )
         except Exception as exc:  # noqa: BLE001 — best-effort
-            logger.debug("keycloak: revoke failed (ignored): %s", exc)
+            logger.debug("keycloak: logout failed (ignored): %s", exc)
         return None
 
     def native_oidc_config(self) -> Optional[dict]:
@@ -489,12 +545,19 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
         here must be non-secret. ``issuer`` and a public ``client_id`` are
         published by design — they are what the browser would carry in an
         authorize URL anyway.
+
+        ``session_days`` is how long the desktop keeps its sign-in. It is a
+        separate field rather than ``offline_access`` folded into ``scopes``.
+        An older desktop would follow ``scopes`` too, and get an offline session
+        with no day limit, no fallback for a realm that refuses one, and no
+        way to end it on sign-out.
         """
         return {
             "issuer": self._issuer,
             "client_id": self._client_id,
             "scopes": self._scopes,
             "confidential": bool(self._client_secret),
+            "session_days": self._session_days,
         }
 
     # ---- internals: token exchange ----------------------------------------
@@ -723,9 +786,6 @@ class KeycloakOIDCProvider(DashboardAuthProvider):
             "authorization_endpoint": authorization_endpoint,
             "token_endpoint": token_endpoint,
             "jwks_uri": jwks_uri,
-            "revocation_endpoint": str(
-                payload.get("revocation_endpoint", "") or ""
-            ).strip(),
             "end_session_endpoint": str(
                 payload.get("end_session_endpoint", "") or ""
             ).strip(),
@@ -971,6 +1031,36 @@ def _resolve_flag(env_var: str, cfg_value: Any) -> bool:
     return bool(cfg_value)
 
 
+def _resolve_session_days(env_var: str, cfg_value: Any) -> float:
+    """Number form of :func:`_resolve_setting`, for ``session_days``.
+
+    A value that is not a number of days, 0 or more, falls back to the default
+    with a warning rather than raising. Sign-in is the only way into a gated
+    install, so a typo here must not stop the provider from registering.
+
+    Read without :func:`_resolve_setting`'s ``or ""``, which would turn an
+    explicit ``0`` from config.yaml into "unset".
+    """
+    env = os.environ.get(env_var, "").strip()
+    raw: Any = env or cfg_value
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return _DEFAULT_SESSION_DAYS
+    try:
+        # ``yes`` in YAML is a bool, and float(True) would read it as one day.
+        days = math.nan if isinstance(raw, bool) else float(raw)
+    except (TypeError, ValueError):
+        days = math.nan
+    if not math.isfinite(days) or days < 0:
+        logger.warning(
+            "dashboard-auth-keycloak: session_days=%r is not a number of days "
+            "(0 or more); using %s",
+            raw,
+            _DEFAULT_SESSION_DAYS,
+        )
+        return _DEFAULT_SESSION_DAYS
+    return days
+
+
 def register(ctx) -> None:
     """Plugin entry — called by the plugin loader at startup.
 
@@ -1018,6 +1108,9 @@ def register(ctx) -> None:
         "AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT",
         kc_cfg.get("allow_password_grant"),
     )
+    session_days = _resolve_session_days(
+        "AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS", kc_cfg.get("session_days")
+    )
 
     have_issuer = bool(issuer) or (bool(base_url) and bool(realm))
     if not have_issuer or not client_id:
@@ -1044,6 +1137,7 @@ def register(ctx) -> None:
             org_claim=org_claim,
             idp_hint=idp_hint,
             allow_password_grant=allow_password_grant,
+            session_days=session_days,
         )
     except (ValueError, ProviderError) as exc:
         LAST_SKIP_REASON = f"KeycloakOIDCProvider construction failed: {exc}"
@@ -1065,11 +1159,13 @@ def register(ctx) -> None:
     ctx.register_dashboard_auth_provider(provider)
     logger.info(
         "dashboard-auth-keycloak: registered provider "
-        "(issuer=%s, client_id=%s, scopes=%r, confidential=%s, password_grant=%s)",
+        "(issuer=%s, client_id=%s, scopes=%r, confidential=%s, password_grant=%s, "
+        "desktop_session_days=%s)",
         provider._issuer,
         client_id,
         scopes,
         # Log only whether a secret is present, never the secret itself.
         bool(client_secret),
         allow_password_grant,
+        provider._session_days,
     )

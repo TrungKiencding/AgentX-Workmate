@@ -36,6 +36,13 @@ DEPLOYMENT_KEYCLOAK_BASE_URL = "https://agentx.astralx.com.vn/auth"
 DEPLOYMENT_KEYCLOAK_REALM = "agent-hub"
 DEPLOYMENT_KEYCLOAK_CLIENT_ID = "agentx-workmate"
 
+#: How many days the desktop app keeps a sign-in before asking again, counted
+#: from the browser sign-in. The realm's own SSO session does not last a night,
+#: so this rides on a Keycloak offline session. The realm's Offline Session
+#: Idle (30 days by default) and Max must stay above it, or Keycloak ends the
+#: sign-in first.
+DEPLOYMENT_KEYCLOAK_SESSION_DAYS = 14
+
 #: LiteLLM proxy each signed-in account is given its own virtual key on.
 #:
 #: A fallback, not the authority: under ``mode: "second_brain"`` every key
@@ -71,9 +78,11 @@ DEPLOYMENT_LITELLM_DEFAULT_MODEL = ""
 #: default model keeps it.
 DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL = "MiniMax/MiniMax-M3"
 
-#: The second-brain service: one model key per person, the devices they hold
-#: it on, and (later) the change feed their history syncs through. Public — it
-#: is a URL, and every route behind it verifies a Keycloak bearer.
+#: The second-brain service: one model key per person and the devices they hold
+#: it on. Public — it is a URL, and every route behind it verifies a Keycloak
+#: bearer. Since 2026-10-01 it is the keys service of AgentX SSO, which also
+#: decides in its console which models each key is granted; it keeps no
+#: conversation history (see ``accounts.second_brain.sync`` below).
 #:
 #: SET THIS BEFORE CUTTING A RELEASE. Since the key vault shipped, this URL is
 #: where a laptop gets its model key: ``accounts.litellm.mode`` defaults to
@@ -84,9 +93,12 @@ DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL = "MiniMax/MiniMax-M3"
 #:
 #: It is deliberately not a fallback to local minting. Falling back is how the
 #: LiteLLM admin key came to travel inside every installer.
-#:
-#: See deploy/second-brain/README.md for standing one up.
-DEPLOYMENT_SECOND_BRAIN_URL = "https://brain.dev-server.cloud"
+DEPLOYMENT_SECOND_BRAIN_URL = "https://agentx.astralx.com.vn/keys"
+
+#: Hosts the service answered at before it moved into AgentX SSO. A config.yaml
+#: that still names one (an older build wrote the default out) is read as the
+#: current default — ``account_provisioning.resolve_second_brain_url``.
+RETIRED_SECOND_BRAIN_HOSTS = ("brain.dev-server.cloud",)
 
 DEFAULT_CONFIG = {
     "model": "",
@@ -1569,6 +1581,12 @@ DEFAULT_CONFIG = {
             # because a realm with MFA, a password-reset requirement, or any
             # other required action cannot complete that flow — Keycloak just
             # answers invalid_grant and the user has no way to respond.
+            #
+            # ``session_days`` is how long the desktop app keeps a sign-in,
+            # counted from the browser sign-in. It is checked at launch, so a
+            # sign-in that passes the limit while the app is open ends at the
+            # next start. 0 ends the sign-in with the browser's Keycloak
+            # session instead, which is under a day on the AgentX realm.
             "keycloak": {
                 "base_url": DEPLOYMENT_KEYCLOAK_BASE_URL,
                 "realm": DEPLOYMENT_KEYCLOAK_REALM,
@@ -1579,6 +1597,7 @@ DEFAULT_CONFIG = {
                 "org_claim": "",  # blank → tenant_slug → organization → roles
                 "idp_hint": "",  # optional kc_idp_hint (skip the IdP chooser)
                 "allow_password_grant": False,  # in-app credential form
+                "session_days": DEPLOYMENT_KEYCLOAK_SESSION_DAYS,  # desktop sign-in
             },
         },
         # Username/password gate configuration — read by the bundled
@@ -1722,9 +1741,9 @@ DEFAULT_CONFIG = {
             "discover_models": True,
             "request_timeout_seconds": 20,
         },
-        # The central account service. Today it answers one question: which
-        # machines is this person signed in on, and can I revoke one? Later it
-        # holds their model key and their conversation history.
+        # The central account service: this person's model key, and which
+        # machines they are signed in on (each one revocable). It keeps no
+        # conversation history.
         #
         # Machine-wide policy like the LiteLLM block above, read from the
         # INSTALL root's config rather than from an account home — an account
@@ -1742,13 +1761,11 @@ DEFAULT_CONFIG = {
             # There is no separate URL: synchronisation talks to the service
             # named above, and an install with no `base_url` never starts it.
             "sync": {
-                # Off switch for the field. Left absent it is ON, so an
-                # install that already has a service configured starts
-                # synchronising on update without anybody editing this file.
-                # Set it to false on a machine that must not send its history
-                # anywhere — the app stays fully usable, it simply stops
-                # converging.
-                "enabled": True,
+                # Off: the service no longer keeps history (it became the keys
+                # service of AgentX SSO on 2026-10-01, which accepts a push and
+                # drops it). Only an explicit `true` turns it on, for a service
+                # that still keeps history; left absent it stays off.
+                "enabled": False,
                 # Seconds between ticks. Thirty is well inside the window in
                 # which "did my other laptop get this?" still feels live, and
                 # an idle tick is one request that returns an empty page.

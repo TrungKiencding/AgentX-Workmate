@@ -1550,7 +1550,7 @@ export interface ModelAssignmentResponse {
 export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
 export type SkillHubReportedState = 'pending' | 'installed' | 'removed' | 'failed' | 'disabled'
 export type SkillHubSyncStatus =
-  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'signed_out' | 'offline' | 'reauth' | 'error'
+  'idle' | 'ok' | 'disabled' | 'unconfigured' | 'other_profile' | 'signed_out' | 'offline' | 'reauth' | 'error'
 
 /** What the local engine knows about a hub skill on this machine. */
 export interface SkillHubLocalState {
@@ -1580,8 +1580,39 @@ export interface SkillHubInstallRow {
   reported_version: string | null
   error: string
   reason: string
+  /** Switched off by the hub — a yank, a takedown, a rescan, an archive that withdrew it: only the hub turns it back on. */
+  withdrawn?: boolean
+  /** Its person may still see it on the hub; one who may not hears nothing of its later versions. */
+  visible?: boolean
+  /** The skill on the hub: `active`, `archived` (no longer published) or `yanked` (taken down). */
+  skill_status?: null | string
+  archived_at?: null | string
+  /** What its author points to while it is archived (named only to who may see it). */
+  successor?: null | { slug: string; name?: string }
   update_available: boolean
   local: SkillHubLocalState
+}
+
+/**
+ * What AgentX Hub last said of one installed skill or server here (hub decisions §8 #22, §9.1 #18), as the sync keeps
+ * it across restarts: the store's labels and the switch it locks.
+ */
+export interface HubStateView {
+  /** Its slug on the hub. */
+  slug: string
+  /** Its name here (the skill's, or the MCP server entry's). */
+  name: string
+  desired_state: SkillHubDesiredState
+  withdrawn: boolean
+  reason: null | string
+  reason_version: null | string
+  visible: boolean
+  /** `active`, `archived` (no longer published) or `yanked` (taken down). */
+  status: string
+  archived_at: null | string
+  successor: null | { slug: string; name?: string; label?: string }
+  /** An MCP server's, archived: until when AgentX Gateway still serves it. */
+  serving_until: null | string
 }
 
 export interface SkillHubUpdate {
@@ -1595,7 +1626,8 @@ export interface SkillHubUpdate {
 }
 
 export interface SkillHubHistoryEntry {
-  action: 'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed'
+  /** `registered`: a copy here from the hub told to the hub (hub decision §8 #22). */
+  action: 'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed' | 'registered'
   slug: string
   version: string | null
   detail: string
@@ -1656,6 +1688,8 @@ export interface SkillHubChangesResponse {
   installs: SkillHubInstallRow[]
   updates: SkillHubUpdate[]
   workspaces: SkillHubWorkspace[]
+  /** What the hub last said of each skill (by slug) and MCP server (by slug) here. */
+  hub_state?: { skills: Record<string, HubStateView>; mcp: Record<string, HubStateView> }
   history: SkillHubHistoryEntry[]
   generated_at: string | null
 }

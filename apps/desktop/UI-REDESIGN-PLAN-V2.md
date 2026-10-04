@@ -1,7 +1,7 @@
 <!-- Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 · plan document (design-system evolution — no page emitted) -->
 <!-- Scope: apps/desktop (AgentX Workmate). Managed project: đọc apps/desktop/design.md TRƯỚC KHI làm bất cứ việc gì. Nối tiếp UI-REDESIGN-PLAN.md (v1, 10 phase, xong 2026-08-27). Bản 2.1: mọi quyết định §6 đã được người dùng chốt ngày 2026-09-06. -->
 
-# AgentX Workmate — Kế hoạch nâng cấp giao diện v2: thân thiện, trực quan, tẩy dấu Hermes
+# AgentX Workmate — Kế hoạch nâng cấp giao diện v2: thân thiện, trực quan, tẩy dấu thương hiệu cũ
 
 **Phiên bản:** 2.1 · 2026-09-06 · nối tiếp v1 (`UI-REDESIGN-PLAN.md`, đã hoàn tất 10 phase). **Mọi quyết định ở §6 đã chốt** — agent không cần hỏi lại các mục đó.
 **Phạm vi:** `apps/desktop` — (1) **giao diện chính**: sidebar, màn hình trống, khung chat, composer, titlebar; (2) trang **Tiện ích** (hiện là "Năng lực") với 4 tab Kỹ năng · Công cụ · MCP · Kho kỹ năng; (3) trang **Tin nhắn**; (4) trang **Artifact**.
@@ -31,8 +31,8 @@
 11. **Thứ tự bắt buộc:** Phase 1 → 2 → (3, 4 đổi chỗ được) → 5. Không gộp phase, không làm trước việc của phase sau.
 12. **Sau Phase 1**, cập nhật stamp đầu `src/styles.css`:
     `/* Hallmark · genre: playful-soft (shape · icon · copy; palette + type unchanged) · design-system: design.md · designed-as-app · uplift-plan: UI-REDESIGN-PLAN-V2.md */`
-    và thêm vào **đầu** mảng `apps/desktop/.hallmark/log.json`: `{ "date": "<ngày>", "scope": "app", "genre": "playful-soft", "theme": "night-owl (unchanged)", "brief": "AgentX Workmate v2 — friendly for non-technical users, Hermes traces removed; palette and type kept" }`.
-13. **Cấm tuyệt đối (dấu vân tay AI + dấu vết Hermes) — áp mọi phase:**
+    và thêm vào **đầu** mảng `apps/desktop/.hallmark/log.json`: `{ "date": "<ngày>", "scope": "app", "genre": "playful-soft", "theme": "night-owl (unchanged)", "brief": "AgentX Workmate v2 — friendly for non-technical users, old-brand traces removed; palette and type kept" }`.
+13. **Cấm tuyệt đối (dấu vân tay AI + dấu vết thương hiệu cũ) — áp mọi phase:**
     - Gradient chữ, gradient tím→xanh/hồng, aurora blob, orb 3D, glassmorphism trang trí, glow màu trên nền tối.
     - Bounce/overshoot trên UI state (spring chỉ ở 2 tương tác vật lý đã có), `transition-all`, animate layout property.
     - Lưới 3 card đều nhau kiểu icon-trên-tiêu-đề-dưới; card lồng card; viền-stripe dày một cạnh; badge-pill đặt ngay trên tiêu đề; nhãn HOA tracking rộng trên mọi mục.
@@ -48,18 +48,18 @@
 
 Bằng chứng: đọc mã + 14 ảnh chụp app dev (`npm run dev`, CDP) ở 1382×793 CSS px, cả sáng lẫn tối, cho 7 bề mặt: home, 4 tab Năng lực, Tin nhắn, Artifact. Ảnh không lưu vào repo — agent chụp lại được bằng script tương tự (§7).
 
-### 1.1 Dấu vết Hermes / Nous Research còn lại (nhìn là nhận ra)
+### 1.1 Dấu vết thương hiệu cũ còn lại (nhìn là nhận ra)
 
-| # | Dấu vết | Vì sao nó "Hermes" | Xử lý trong đợt này | Bằng chứng |
+| # | Dấu vết | Vì sao lộ thương hiệu cũ | Xử lý trong đợt này | Bằng chứng |
 |---|---|---|---|---|
-| H1 | **Thẩm mỹ 8-bit / terminal**: `@font-face` Neuebit + Collapse nạp thẳng từ gói `@nous-research/ui` (không còn chỗ nào dùng trong `.tsx`), trái tim pixel-art trong reaction, comment `BrandMark` vẫn gọi mark là "8-bit mascot", pet là sprite pixel | Nous xây thương hiệu Hermes trên retro-pixel / hacker-terminal | Gỡ font pixel chết, trái tim pixel → path Tabler, sửa comment; pet giữ opt-in (Q7) | `styles.css:34,48`; `components/chat/vibe-hearts.tsx:37`; `components/brand-mark.tsx:5`; `components/pet/*` |
-| H2 | Accent "Nous blue" `#0053FD` là seed của preset `nous` và của accent picker | Màu thương hiệu của Nous Research | **Giữ nguyên** theo Q1 (màu không đổi) | `themes/presets.ts:43,648` |
+| H1 | **Thẩm mỹ 8-bit / terminal**: `@font-face` Neuebit + Collapse nạp thẳng từ gói `@nous-research/ui` (không còn chỗ nào dùng trong `.tsx`), trái tim pixel-art trong reaction, comment `BrandMark` vẫn gọi mark là "8-bit mascot", pet là sprite pixel | Nhà phát triển gốc dựng thương hiệu cũ trên retro-pixel / hacker-terminal | Gỡ font pixel chết, trái tim pixel → path Tabler, sửa comment; pet giữ opt-in (Q7) | `styles.css:34,48`; `components/chat/vibe-hearts.tsx:37`; `components/brand-mark.tsx:5`; `components/pet/*` |
+| H2 | Accent "Nous blue" `#0053FD` là seed của preset `nous` và của accent picker | Màu thương hiệu của nhà phát triển gốc | **Giữ nguyên** theo Q1 (màu không đổi) | `themes/presets.ts:43,648` |
 | H3 | Skin mặc định Night Owl, mở lần đầu ở chế độ tối | Theme editor của cộng đồng dev | **Giữ nguyên** theo Q1 | `presets.ts:640` |
 | H4 | **Icon Codicon (bộ icon của VS Code) trong điều hướng chính**: "Phiên mới" là icon `robot`, "Năng lực" là `symbol-misc`, "Tin nhắn" `comment`, "Artifact" `files`; nút "+" là codicon `add`, kebab `kebab-vertical`; còn 13 chỗ trong master-detail/hub/mcp | Codicon là chữ ký của editor code | Thay bằng Tabler trong chrome trang (Phase 1) | `app/chat/sidebar/index.tsx:145-174` (9 chỗ), `app/master-detail.tsx` (4), `app/skills/hub.tsx` (5), `app/skills/mcp-tab.tsx` (4); `styles.css:6` |
 | H5 | **Loader "đường cong toán / ASCII"** (`rose-curve`, `lemniscate-bloom`) dùng cho mọi `PageLoader` | Register hacker-terminal | `PageLoader` dùng vòng tròn mềm; curve giữ trong transcript (Q6) | `components/ui/loader.tsx:10-15`; `design.md` §Feedback |
-| H6 | **Giọng developer** khắp chuỗi người dùng thấy: "Phiên", "MCP", "Gateway", "token", "ID người dùng", "repo"; tên kỹ năng kebab-case (`agentx-agent-skill-authoring`), nhóm `Autonomous-Ai-Agents`, mô tả công cụ tiếng Anh thuần kỹ thuật, 19 đoạn hướng dẫn nền tảng nhắn tin bằng tiếng Anh cứng trong component, `vi.ts` để `platformIntro: {}` rỗng | Copy là phần Hermes dày nhất — đổi tên sản phẩm không đổi giọng | Bảng thuật ngữ §2.7 + lớp dịch tay (Phase 2–5) | ảnh `skills-skills`, `skills-toolsets`, `messaging`; `app/messaging/index.tsx` (`PLATFORM_INTRO`), `i18n/vi.ts:2037` |
-| H7 | **Hình dạng "panel dev"** cho trang cấu hình: master-detail dày, hàng 44px chữ 12px + switch 16×28, thanh tab là chữ gạch chân 13px, tab MCP lấy **editor JSON `mcp.json` + khung log** làm bề mặt chính | Bố cục Hermes = TUI/IDE | Hàng 48px chữ 14px, tab pill, JSON gấp lại (Phase 3) | `app/master-detail.tsx` (`CapRow`), `components/ui/text-tab.tsx` (`h-7`), `app/skills/mcp-tab.tsx`; ảnh `skills-mcp` |
-| H8 | **Pet pixel** (nhân vật 8-bit góc phải dưới) | Tính năng "petdex" của Hermes | **Giữ opt-in**, không làm gì (Q7) | `components/pet/*`; chỉ hiện khi người dùng đã nhận pet qua `/pet` |
+| H6 | **Giọng developer** khắp chuỗi người dùng thấy: "Phiên", "MCP", "Gateway", "token", "ID người dùng", "repo"; tên kỹ năng kebab-case (`agentx-agent-skill-authoring`), nhóm `Autonomous-Ai-Agents`, mô tả công cụ tiếng Anh thuần kỹ thuật, 19 đoạn hướng dẫn nền tảng nhắn tin bằng tiếng Anh cứng trong component, `vi.ts` để `platformIntro: {}` rỗng | Copy là lớp thương hiệu cũ dày nhất — đổi tên sản phẩm không đổi giọng | Bảng thuật ngữ §2.7 + lớp dịch tay (Phase 2–5) | ảnh `skills-skills`, `skills-toolsets`, `messaging`; `app/messaging/index.tsx` (`PLATFORM_INTRO`), `i18n/vi.ts:2037` |
+| H7 | **Hình dạng "panel dev"** cho trang cấu hình: master-detail dày, hàng 44px chữ 12px + switch 16×28, thanh tab là chữ gạch chân 13px, tab MCP lấy **editor JSON `mcp.json` + khung log** làm bề mặt chính | Bố cục của thương hiệu cũ = TUI/IDE | Hàng 48px chữ 14px, tab pill, JSON gấp lại (Phase 3) | `app/master-detail.tsx` (`CapRow`), `components/ui/text-tab.tsx` (`h-7`), `app/skills/mcp-tab.tsx`; ảnh `skills-mcp` |
+| H8 | **Pet pixel** (nhân vật 8-bit góc phải dưới) | Tính năng "petdex" có từ mã nguồn gốc | **Giữ opt-in**, không làm gì (Q7) | `components/pet/*`; chỉ hiện khi người dùng đã nhận pet qua `/pet` |
 
 ### 1.2 Rào cản với người dùng phổ thông (theo bề mặt)
 
@@ -212,7 +212,7 @@ Luật giọng: câu ngắn; động từ đứng trước ("Kết nối Telegra
 
 ---
 
-### Phase 1 — Nền tảng thân thiện & tẩy dấu Hermes: bo góc, icon, primitive, dọn dấu vết
+### Phase 1 — Nền tảng thân thiện & tẩy dấu thương hiệu cũ: bo góc, icon, primitive, dọn dấu vết
 
 **Mục tiêu:** đặt các primitive và token hình khối mà phase 2–4 cần, thay bộ icon chrome, dọn dấu vết pixel và Tailwind ramp thô — **chưa đổi layout, không đổi màu, không đổi font**. Sau phase này app chỉ khác: bo góc mềm hơn, icon nav Tabler, pill trạng thái đi theo theme, loader trang là vòng mềm.
 
@@ -435,7 +435,7 @@ LUẬT CHẤT LƯỢNG (tóm tắt §0 — bản đầy đủ trong kế hoạch
   trong src/i18n/; dấu typography chuẩn.
 - Icon: Tabler cho chrome trang; Codicon chỉ trong transcript/terminal/editor/file-tree; không emoji, không set thứ ba.
 - design.md là named contract: đổi primitive/token/variant/tên gọi nào → cập nhật mục tương ứng TRONG CÙNG change.
-- Cấm dấu vân tay AI và dấu vết Hermes theo §0.13 (gradient, glass, bounce, transition-all, card lồng card,
+- Cấm dấu vân tay AI và dấu vết thương hiệu cũ theo §0.13 (gradient, glass, bounce, transition-all, card lồng card,
   lưới 3 card đều, minh hoạ stock/blob/Lottie, font pixel, heading nghiêng, chữ đọc < 13px, số liệu bịa, "Oops").
 
 NGHIỆM THU (DoD của Phase {N} + các bước sau, đủ mới được coi là xong)
@@ -465,4 +465,4 @@ Bắt đầu: trả lời trước bằng 5–7 dòng kế hoạch làm việc c
 
 ## 8 · Tinh thần cuối cùng (để agent không "sáng tạo lố")
 
-Sản phẩm này thắng bằng **sự dễ hiểu**: chữ đủ to, một tiêu điểm mỗi màn hình, mọi nút nói đúng việc nó làm, phần kỹ thuật vẫn còn nhưng nằm sau một cú bấm "Chi tiết kỹ thuật" — và màu sắc, font chữ người dùng đã quen thì giữ nguyên. Nếu đứng giữa hai lựa chọn — thêm một hiệu ứng hay bỏ một hiệu ứng — **bỏ**. Nếu đứng giữa một từ đúng kỹ thuật và một từ mẹ bạn hiểu — **chọn từ mẹ bạn hiểu**. Sau 5 phase, không ai nói "app này giống Hermes" và không ai phải hỏi "bấm vào đâu".
+Sản phẩm này thắng bằng **sự dễ hiểu**: chữ đủ to, một tiêu điểm mỗi màn hình, mọi nút nói đúng việc nó làm, phần kỹ thuật vẫn còn nhưng nằm sau một cú bấm "Chi tiết kỹ thuật" — và màu sắc, font chữ người dùng đã quen thì giữ nguyên. Nếu đứng giữa hai lựa chọn — thêm một hiệu ứng hay bỏ một hiệu ứng — **bỏ**. Nếu đứng giữa một từ đúng kỹ thuật và một từ mẹ bạn hiểu — **chọn từ mẹ bạn hiểu**. Sau 5 phase, không ai nói "app này giống sản phẩm gốc" và không ai phải hỏi "bấm vào đâu".

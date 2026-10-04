@@ -14,89 +14,70 @@ import {
 import { ErrorIcon, ErrorState } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
 import { Progress } from '@/components/ui/progress'
-import type { DesktopUpdateCommit, DesktopUpdateStage, DesktopUpdateStatus } from '@/global'
+import type { BackendUpdateStatus } from '@/global'
 import { useI18n } from '@/i18n'
-import { buildCommitChangelog, type CommitGroup } from '@/lib/commit-changelog'
+import { buildCommitChangelog } from '@/lib/commit-changelog'
 import { AlertCircle, Check, Copy, Terminal } from '@/lib/icons'
-import { resolveUpdateCopy, type UpdateTarget } from '@/lib/update-copy'
 import { cn } from '@/lib/utils'
+import { $appUpdate, checkAppUpdate, dismissActiveWorkPrompt } from '@/store/app-update'
+import { $updateOverlayOpen, $updateOverlayTarget, closeUpdateOverlay } from '@/store/update-overlay'
 import {
   $backendUpdateApply,
   $backendUpdateChecking,
   $backendUpdateStatus,
-  $updateApply,
-  $updateChecking,
-  $updateOverlayOpen,
-  $updateOverlayTarget,
-  $updateStatus,
   applyBackendUpdate,
-  applyUpdates,
+  type BackendUpdateApplyState,
   checkBackendUpdates,
-  checkUpdates,
-  resetUpdateApplyState,
-  setUpdateOverlayOpen,
-  type UpdateApplyState
+  resetBackendUpdateApplyState
 } from '@/store/updates'
 
-function totalItems(groups: readonly CommitGroup[]) {
-  return groups.reduce((sum, g) => sum + g.items.length, 0)
-}
+import { AppUpdateContent } from './app-update-content'
 
+/**
+ * The updates dialog: this app's own update ('client'), or in remote mode the
+ * connected backend's ('backend'). Opening it checks the target unless it is
+ * already somewhere in an update.
+ */
 export function UpdatesOverlay() {
   const open = useStore($updateOverlayOpen)
   const target = useStore($updateOverlayTarget)
-
-  const clientStatus = useStore($updateStatus)
-  const clientChecking = useStore($updateChecking)
-  const clientApply = useStore($updateApply)
-  const backendStatus = useStore($backendUpdateStatus)
-  const backendChecking = useStore($backendUpdateChecking)
+  const appUpdate = useStore($appUpdate)
   const backendApply = useStore($backendUpdateApply)
 
-  const isBackend = target === 'backend'
-  const status = isBackend ? backendStatus : clientStatus
-  const checking = isBackend ? backendChecking : clientChecking
-  const apply = isBackend ? backendApply : clientApply
-  const check = isBackend ? checkBackendUpdates : checkUpdates
-  const install = isBackend ? applyBackendUpdate : applyUpdates
-
   useEffect(() => {
-    if (open && !status && !checking) {
-      void check()
-    }
-  }, [check, checking, open, status])
-
-  const behind = status?.behind ?? 0
-  const updateAvailable = status?.updateAvailable || behind > 0
-
-  const phase: 'idle' | 'applying' | 'manual' | 'guiSkew' | 'error' =
-    apply.stage === 'manual'
-      ? 'manual'
-      : apply.stage === 'guiSkew'
-        ? 'guiSkew'
-        : apply.applying || apply.stage === 'restart'
-          ? 'applying'
-          : apply.stage === 'error'
-            ? 'error'
-            : 'idle'
-
-  const handleClose = (next: boolean) => {
-    if (phase === 'applying') {
+    if (!open) {
       return
     }
 
-    setUpdateOverlayOpen(next)
+    if (target === 'backend') {
+      void checkBackendUpdates()
 
-    if (
-      !next &&
-      (apply.stage === 'error' || apply.stage === 'restart' || apply.stage === 'manual' || apply.stage === 'guiSkew')
-    ) {
-      resetUpdateApplyState()
+      return
     }
-  }
 
-  const handleInstall = () => {
-    void install()
+    const phase = $appUpdate.get()?.phase
+
+    if (!phase || phase === 'idle' || phase === 'up-to-date') {
+      void checkAppUpdate()
+    }
+  }, [open, target])
+
+  // The app is quitting for its installer, or a backend update is mid-flight:
+  // neither may be dismissed half-way.
+  const locked =
+    target === 'backend' ? backendApply.applying || backendApply.stage === 'restart' : appUpdate?.phase === 'installing'
+
+  const handleClose = (next: boolean) => {
+    if (next || locked) {
+      return
+    }
+
+    closeUpdateOverlay()
+    dismissActiveWorkPrompt()
+
+    if (target === 'backend' && ['error', 'manual', 'restart'].includes(backendApply.stage)) {
+      resetBackendUpdateApplyState()
+    }
   }
 
   return (
@@ -106,58 +87,46 @@ export function UpdatesOverlay() {
       <DialogContent
         className="max-w-sm overflow-hidden p-0 gap-0"
         onOpenAutoFocus={preventCloseButtonAutoFocus}
-        showCloseButton={phase !== 'applying'}
+        showCloseButton={!locked}
       >
-        {phase === 'applying' && <ApplyingView apply={apply} isBackend={isBackend} />}
-
-        {phase === 'manual' && (
-          <ManualView command={apply.command ?? null} message={apply.message} onDone={() => handleClose(false)} />
-        )}
-
-        {phase === 'guiSkew' && <GuiSkewView message={apply.message} onDone={() => handleClose(false)} />}
-
-        {phase === 'error' && (
-          <ErrorView message={apply.message} onDismiss={() => handleClose(false)} onRetry={handleInstall} />
-        )}
-
-        {phase === 'idle' && (
-          <IdleView
-            behind={behind}
-            checking={checking}
-            commits={status?.commits ?? []}
-            onInstall={handleInstall}
-            onLater={() => handleClose(false)}
-            onRetryCheck={() => void check()}
-            status={status}
-            target={target}
-            updateAvailable={updateAvailable}
-          />
+        {target === 'client' ? (
+          <AppUpdateContent onClose={() => handleClose(false)} />
+        ) : (
+          <BackendUpdateContent onClose={() => handleClose(false)} />
         )}
       </DialogContent>
     </Dialog>
   )
 }
 
+function BackendUpdateContent({ onClose }: { onClose: () => void }) {
+  const status = useStore($backendUpdateStatus)
+  const checking = useStore($backendUpdateChecking)
+  const apply = useStore($backendUpdateApply)
+
+  if (apply.stage === 'manual') {
+    return <ManualView command={apply.command} message={apply.message} onDone={onClose} />
+  }
+
+  if (apply.applying || apply.stage === 'restart') {
+    return <ApplyingView apply={apply} />
+  }
+
+  if (apply.stage === 'error') {
+    return <ErrorView message={apply.message} onDismiss={onClose} onRetry={() => void applyBackendUpdate()} />
+  }
+
+  return <IdleView checking={checking} onLater={onClose} status={status} />
+}
+
 function IdleView({
-  behind,
   checking,
-  commits,
-  onInstall,
   onLater,
-  onRetryCheck,
-  status,
-  target,
-  updateAvailable
+  status
 }: {
-  behind: number
   checking: boolean
-  commits: readonly DesktopUpdateCommit[]
-  onInstall: () => void
   onLater: () => void
-  onRetryCheck: () => void
-  status: DesktopUpdateStatus | null
-  target: UpdateTarget
-  updateAvailable: boolean
+  status: BackendUpdateStatus | null
 }) {
   const { t } = useI18n()
   const u = t.updates
@@ -171,14 +140,15 @@ function IdleView({
     )
   }
 
-  if (!status) {
+  if (!status || status.error) {
     return (
       <CenteredStatus
         action={
-          <Button onClick={onRetryCheck} size="sm">
+          <Button disabled={checking} onClick={() => void checkBackendUpdates()} size="sm">
             {u.tryAgain}
           </Button>
         }
+        body={u.connectionRetry}
         icon={<ErrorIcon />}
         title={u.checkFailedTitle}
       />
@@ -195,68 +165,54 @@ function IdleView({
     )
   }
 
-  if (status.error) {
-    return (
-      <CenteredStatus
-        action={
-          <Button disabled={checking} onClick={onRetryCheck} size="sm">
-            {u.tryAgain}
-          </Button>
-        }
-        body={u.connectionRetry}
-        icon={<ErrorIcon />}
-        title={u.checkFailedTitle}
-      />
-    )
+  const behind = status.behind ?? 0
+
+  if (!status.updateAvailable && behind <= 0) {
+    return <CenteredStatus body={u.latestBodyBackend} icon={<BrandMark className="size-12" />} title={u.allSetTitle} />
   }
 
-  if (!updateAvailable) {
-    return (
-      <CenteredStatus
-        body={target === 'backend' ? u.latestBodyBackend : u.latestBody}
-        icon={<BrandMark className="size-12" />}
-        title={u.allSetTitle}
-      />
-    )
-  }
-
+  const commits = status.commits ?? []
   const groups = buildCommitChangelog(commits)
-  const shownItems = totalItems(groups)
+  const shownItems = groups.reduce((sum, group) => sum + group.items.length, 0)
   const remaining = Math.max(0, behind - shownItems)
-
-  // Name what's being updated. In remote mode the overlay acts on the connected
-  // backend, not the local client — say so. When there are no commit rows to
-  // show (e.g. pip/non-git backend), degrade to honest "no release notes" copy
-  // instead of generic filler.
-  const { title, body } = resolveUpdateCopy({ target, shownItems, copy: u })
 
   return (
     <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
       <div className="flex flex-col items-center gap-3 text-center">
         <BrandMark className="size-16" />
 
-        <DialogTitle className="text-center text-xl">{title}</DialogTitle>
-        <DialogDescription className="text-center text-sm">{body}</DialogDescription>
+        <DialogTitle className="text-center text-xl">{u.availableTitleBackend}</DialogTitle>
+        <DialogDescription className="text-center text-sm">
+          {commits.length > 0 ? u.availableBodyBackend : u.availableBodyNoChangelog}
+        </DialogDescription>
       </div>
 
-      <div className="grid gap-3">
-        {groups.map(group => (
-          <div key={group.id}>
-            <p className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{group.label}</p>
-            <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
-              {group.items.map(item => (
-                <li className="flex items-start gap-2" key={item}>
-                  <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
-                  <span className="leading-snug">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      {commits.length > 0 && (
+        <div className="grid gap-3">
+          {groups.length === 0 ? (
+            <p className="text-xs text-foreground">{u.changelogFallback}</p>
+          ) : (
+            groups.map(group => (
+              <div key={group.id}>
+                <p className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
+                  {u.changelogGroups[group.id]}
+                </p>
+                <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
+                  {group.items.map(item => (
+                    <li className="flex items-start gap-2" key={item}>
+                      <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <div className="grid gap-2">
-        <Button className="font-semibold" onClick={onInstall} size="lg">
+        <Button className="font-semibold" onClick={() => void applyBackendUpdate()} size="lg">
           {u.updateNow}
         </Button>
         <Button className="font-medium" onClick={onLater} type="button" variant="text">
@@ -269,7 +225,7 @@ function IdleView({
   )
 }
 
-function ManualView({ command, message, onDone }: { command: string | null; message?: string; onDone: () => void }) {
+function ManualView({ command, message, onDone }: { command: null | string; message?: string; onDone: () => void }) {
   const { t } = useI18n()
   const u = t.updates
   const [copied, setCopied] = useState(false)
@@ -285,84 +241,39 @@ function ManualView({ command, message, onDone }: { command: string | null; mess
     })
   }
 
-  // No command (e.g. the Linux sandbox-blocked relaunch): render the explanatory
-  // message + a Done button, not a copy-a-command box.
-  if (!command) {
-    return (
-      <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <Terminal className="size-8 text-primary" />
-
-          <DialogTitle className="text-center text-xl">{u.manualTitle}</DialogTitle>
-          <DialogDescription className="text-center text-sm">{message || u.manualPickedUp}</DialogDescription>
-        </div>
-
-        <Button className="font-semibold" onClick={onDone} size="lg" variant="secondary">
-          {u.done}
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
       <div className="flex flex-col items-center gap-3 text-center">
         <Terminal className="size-8 text-primary" />
 
         <DialogTitle className="text-center text-xl">{u.manualTitle}</DialogTitle>
-        <DialogDescription className="text-center text-sm">{u.manualBody}</DialogDescription>
+        <DialogDescription className="text-center text-sm">{message || u.manualBody}</DialogDescription>
       </div>
 
-      <button
-        className={cn(
-          'group flex w-full items-center justify-between gap-3 rounded-md border px-4 py-3 text-left transition-colors',
-          copied ? 'border-primary/50' : 'border-(--stroke-nous) hover:border-(--ui-stroke-secondary)'
-        )}
-        onClick={handleCopy}
-        type="button"
-      >
-        <code className="min-w-0 flex-1 truncate select-all font-mono text-sm text-foreground">
-          <span className="select-none text-muted-foreground">$ </span>
-          {command}
-        </code>
-        <span
+      {command && (
+        <button
           className={cn(
-            'flex shrink-0 items-center gap-1 text-xs font-medium transition-colors',
-            copied ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+            'group flex w-full items-center justify-between gap-3 rounded-md border px-4 py-3 text-left transition-colors',
+            copied ? 'border-primary/50' : 'border-(--stroke-nous) hover:border-(--ui-stroke-secondary)'
           )}
+          onClick={handleCopy}
+          type="button"
         >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          {copied ? u.copied : u.copy}
-        </span>
-      </button>
-
-      <p className="text-center text-xs text-muted-foreground">{u.manualPickedUp}</p>
-
-      <Button className="font-semibold" onClick={onDone} size="lg" variant="secondary">
-        {u.done}
-      </Button>
-    </div>
-  )
-}
-
-// Linux GUI/backend skew (#45205): backend updated, but the running desktop app
-// package (AppImage/.deb/.rpm) was NOT changed. Closeable terminal state that
-// tells the user to update/reinstall the desktop app — never claims the GUI was
-// updated.
-function GuiSkewView({ message, onDone }: { message?: string; onDone: () => void }) {
-  const { t } = useI18n()
-  const u = t.updates
-
-  return (
-    <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <AlertCircle className="size-8 text-(--ui-yellow)" />
-
-        <DialogTitle className="text-center text-xl">{u.guiSkewTitle}</DialogTitle>
-        <DialogDescription className="max-w-prose text-center text-sm leading-5 text-muted-foreground">
-          {message || u.guiSkewBody}
-        </DialogDescription>
-      </div>
+          <code className="min-w-0 flex-1 truncate select-all font-mono text-sm text-foreground">
+            <span className="select-none text-muted-foreground">$ </span>
+            {command}
+          </code>
+          <span
+            className={cn(
+              'flex shrink-0 items-center gap-1 text-xs font-medium transition-colors',
+              copied ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+            )}
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? u.copied : u.copy}
+          </span>
+        </button>
+      )}
 
       <Button className="font-semibold" onClick={onDone} size="lg" variant="secondary">
         {u.done}
@@ -371,18 +282,12 @@ function GuiSkewView({ message, onDone }: { message?: string; onDone: () => void
   )
 }
 
-function ApplyingView({ apply, isBackend }: { apply: UpdateApplyState; isBackend: boolean }) {
+function ApplyingView({ apply }: { apply: BackendUpdateApplyState }) {
   const { t } = useI18n()
   const u = t.updates
-  const label = u.stages[apply.stage as DesktopUpdateStage] ?? u.stages.idle
-  const body = isBackend ? u.applyingBodyBackend : u.applyingBody
+  const label = u.stages[apply.stage] ?? u.stages.idle
   const currentMessage = apply.message.trim()
   const recentLog = apply.log.slice(-4)
-
-  const percent =
-    typeof apply.percent === 'number' && Number.isFinite(apply.percent)
-      ? Math.max(2, Math.min(100, Math.round(apply.percent)))
-      : null
 
   return (
     <div className="grid gap-5 px-6 pb-6 pt-7">
@@ -390,19 +295,14 @@ function ApplyingView({ apply, isBackend }: { apply: UpdateApplyState; isBackend
         <Loader className="size-16" label={label} type="lemniscate-bloom" />
 
         <DialogTitle className="text-center text-xl">{label}</DialogTitle>
-        <DialogDescription className="text-center text-sm">{body}</DialogDescription>
+        <DialogDescription className="text-center text-sm">{u.applyingBodyBackend}</DialogDescription>
 
         {currentMessage ? (
           <p className="max-w-lg break-words text-center text-xs leading-5 text-muted-foreground">{currentMessage}</p>
         ) : null}
       </div>
 
-      <Progress
-        aria-label={label}
-        indeterminate={percent === null}
-        size="lg"
-        value={percent === null ? 0 : percent / 100}
-      />
+      <Progress aria-label={label} indeterminate size="lg" />
 
       {recentLog.length > 1 ? (
         <div className="max-h-24 overflow-hidden rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left font-mono text-2xs leading-4 text-muted-foreground">
@@ -413,8 +313,6 @@ function ApplyingView({ apply, isBackend }: { apply: UpdateApplyState; isBackend
           ))}
         </div>
       ) : null}
-
-      <p className="text-center text-xs text-muted-foreground">{u.applyingClose}</p>
     </div>
   )
 }

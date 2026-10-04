@@ -4404,6 +4404,17 @@ def _cmd_update_impl(args, gateway_mode: bool):
         )
         current_branch = result.stdout.strip()
 
+        # A detached checkout is pinned to a raw commit — the desktop installer
+        # and `install.sh --commit` leave it that way. Remember that commit:
+        # switching to the branch below can itself move the code, and when it
+        # does, that move is the update even if the branch has nothing left to
+        # merge.
+        pinned_sha = (
+            _capture_head_sha(git_cmd, _m().PROJECT_ROOT)
+            if current_branch == "HEAD"
+            else None
+        )
+
         # If user is on a different branch than the update target, switch
         # to the target. When the target is "main" this is the historical
         # "always update against main" behavior; for any other target it's
@@ -4501,7 +4512,18 @@ def _cmd_update_impl(args, gateway_mode: bool):
             # not behind, fall through to the up-to-date path.
             commit_count = counted if counted is not None else -1
 
-        if commit_count == 0:
+        # Switching off the pinned commit already landed on the target, so the
+        # merge below has nothing to do — but this code has never had its
+        # dependencies synced, its config migrated or its skills refreshed.
+        # Taking the "Already up to date!" exit here would leave the new code
+        # running on the old commit's venv.
+        switched_from_pin = (
+            pinned_sha is not None
+            and commit_count == 0
+            and _capture_head_sha(git_cmd, _m().PROJECT_ROOT) not in (None, pinned_sha)
+        )
+
+        if commit_count == 0 and not switched_from_pin:
             _invalidate_update_cache()
 
             # Even if origin is up to date, the fork may be behind upstream
@@ -4607,7 +4629,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             _m()._resume_windows_gateways_after_update(_windows_gateway_resume)
             return
 
-        if commit_count > 0:
+        if switched_from_pin:
+            print(f"→ Moving the pinned checkout ({pinned_sha[:10]}) onto {branch}")
+        elif commit_count > 0:
             print(f"→ Found {commit_count} new commit(s)")
         else:
             # Shallow checkout, exact count unrecoverable (offline/rate-limited
@@ -4620,8 +4644,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # has a syntax error in a critical-path file (PR #28452 incident:
         # orphan merge-conflict markers in hermes_cli/config.py bricked
         # every user who ran ``agentx update`` for the 7 minutes between
-        # the bad commit and the fix landing).
-        pre_pull_sha = _capture_head_sha(git_cmd, _m().PROJECT_ROOT)
+        # the bad commit and the fix landing). A pinned checkout's "before"
+        # is the pinned commit, not wherever the branch switch put HEAD: that
+        # is the code the venv was synced against and the state to roll back
+        # to.
+        pre_pull_sha = pinned_sha or _capture_head_sha(git_cmd, _m().PROJECT_ROOT)
         try:
             # Merge the ref we already fetched above (→ Fetching updates...)
             # instead of `git pull`, which performs a SECOND network fetch of
@@ -4801,6 +4828,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
             # 2026-08-11 patch: use official managed_python_env() isolation so
             # third-party UV_PYTHON_INSTALL_DIR (WorkBuddy) cannot hijack uv;
             # then point VIRTUAL_ENV at this install's venv.
+            from hermes_cli.managed_uv import managed_python_env
+
             uv_env = managed_python_env()
             uv_env["VIRTUAL_ENV"] = str(_m().PROJECT_ROOT / "venv")
             if _m()._is_termux_env(uv_env):

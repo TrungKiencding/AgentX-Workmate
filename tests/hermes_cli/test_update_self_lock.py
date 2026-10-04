@@ -27,6 +27,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import hermes_cli.main as cli_main
+from hermes_cli import update_cmd
 
 
 # ---------------------------------------------------------------------------
@@ -93,25 +94,30 @@ def _run_update_until_sync(args, *, self_locked: list[str]):
 
     marker_writes = []
 
-    with patch.object(cli_main, "_is_windows", return_value=True), patch.object(
-        cli_main, "_venv_scripts_dir", return_value=None
-    ), patch.object(cli_main, "_run_pre_update_backup"), patch.object(
-        cli_main, "_pause_windows_gateways_for_update", return_value=None
+    # Patch the module _cmd_update_impl resolves (update_cmd._m()), not the
+    # one imported at collection: if hermes_cli.main was swapped since, the
+    # sentinel would miss and the update would run against the real checkout.
+    main_mod = update_cmd._m()
+
+    with patch.object(main_mod, "_is_windows", return_value=True), patch.object(
+        main_mod, "_venv_scripts_dir", return_value=None
+    ), patch.object(main_mod, "_run_pre_update_backup"), patch.object(
+        main_mod, "_pause_windows_gateways_for_update", return_value=None
     ), patch.object(
-        cli_main, "_resume_windows_gateways_after_update"
+        main_mod, "_resume_windows_gateways_after_update"
     ), patch.object(
-        cli_main, "_detect_venv_python_processes", return_value=[]
+        main_mod, "_detect_venv_python_processes", return_value=[]
     ), patch.object(
-        cli_main, "_detect_self_loaded_native_modules", return_value=self_locked
+        main_mod, "_detect_self_loaded_native_modules", return_value=self_locked
     ), patch.object(
-        cli_main,
+        main_mod,
         "_write_update_incomplete_marker",
         side_effect=lambda: marker_writes.append("written"),
     ), patch.object(
-        cli_main, "PROJECT_ROOT", _RootSentinel()
+        main_mod, "PROJECT_ROOT", _RootSentinel()
     ):
         try:
-            cli_main._cmd_update_impl(args, gateway_mode=False)
+            main_mod._cmd_update_impl(args, gateway_mode=False)
         except _PastPreflight:
             return "past_preflight", marker_writes
         except SystemExit as exc:

@@ -226,7 +226,7 @@ def load_sync_settings() -> SyncSettings:
     with no ``config.yaml``, so a per-account setting would come back empty and
     nothing would ever be configured.
     """
-    from hermes_cli.account_provisioning import load_machine_config
+    from hermes_cli.account_provisioning import load_machine_config, resolve_second_brain_url
     from hermes_cli.config import cfg_get
 
     section = cfg_get(load_machine_config(), "accounts", "second_brain", default=None)
@@ -247,14 +247,15 @@ def load_sync_settings() -> SyncSettings:
     enabled = sync_section.get("enabled")
     realtime = sync_section.get("realtime")
     return SyncSettings(
-        base_url=str(section.get("base_url") or "").strip().rstrip("/"),
-        # Both default on and both compare against False explicitly, so a
-        # missing key and an explicit `true` behave identically.
+        base_url=resolve_second_brain_url(section.get("base_url")),
+        # Default on, compared against False explicitly, so a missing key and
+        # an explicit `true` behave identically.
         realtime=realtime is not False,
-        # Default on, and explicitly comparable to False so that a missing key
-        # and a `true` behave identically. The switch exists so synchronisation
-        # can be turned off in the field without an update.
-        enabled=enabled is not False,
+        # Default OFF since the service stopped keeping history (it became the
+        # keys service of AgentX SSO, which drops what it is pushed): only an
+        # explicit `true` starts synchronisation, so a config.yaml that never
+        # mentioned it stops on update without anybody editing it.
+        enabled=enabled is True,
         interval_seconds=_float(sync_section, "interval_seconds", DEFAULT_INTERVAL_SECONDS),
         request_timeout_seconds=_float(section, "request_timeout_seconds", 15.0),
     )

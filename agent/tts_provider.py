@@ -29,10 +29,10 @@ Built-ins-always-win is enforced at registration time
 defensively). The dispatcher also rejects plugin dispatch when a same-
 name command provider is configured.
 
-Providers live in ``<repo>/plugins/tts/<name>/`` (built-in plugins, no
-shipped today) or ``~/.agentx/plugins/tts/<name>/`` (user-installed).
-None ship in-tree as of issue #30398 — the hook is additive
-infrastructure waiting for a real consumer (Cartesia, Fish Audio, …).
+Providers live in ``<repo>/plugins/tts/<name>/`` (bundled, auto-loaded)
+or ``~/.agentx/plugins/tts/<name>/`` (user-installed). One ships in-tree:
+``plugins/tts/agentx_gateway`` — the speech model the signed-in AgentX
+account was granted, on the AgentX AI Gateway.
 
 Response contract
 -----------------

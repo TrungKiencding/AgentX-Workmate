@@ -19,7 +19,7 @@ import {
   forgetKeycloakSession
 } from './keycloak-desktop-session'
 import type { KeycloakOidcConfig } from './keycloak-oidc'
-import { keycloakStorageKey, persistKeycloakSession } from './keycloak-session-store'
+import { keycloakStorageKey, loadKeycloakSession, persistKeycloakSession } from './keycloak-session-store'
 import type { NativeTokenStoreIo } from './native-token-store'
 
 const ISSUER = 'https://agentx.example.com/auth/realms/agent-hub'
@@ -29,7 +29,8 @@ const CONFIG: KeycloakOidcConfig = { issuer: ISSUER, clientId: 'agentx-workmate'
 const DISCOVERY_DOC = {
   issuer: ISSUER,
   authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
-  token_endpoint: `${ISSUER}/protocol/openid-connect/token`
+  token_endpoint: `${ISSUER}/protocol/openid-connect/token`,
+  end_session_endpoint: `${ISSUER}/protocol/openid-connect/logout`
 }
 
 const NOW = 1_700_000_000
@@ -325,6 +326,266 @@ describe('ensureKeycloakSession', () => {
     assert.equal(result.tokens?.refreshToken, 'rt-fresh')
     // …and the reason is on the record rather than swallowed.
     assert.ok(logs.some(line => line.includes('could not be saved')))
+  })
+})
+
+describe('ensureKeycloakSession with session_days', () => {
+  const DAY = 86_400
+  const POLICY: KeycloakOidcConfig = { ...CONFIG, sessionDays: 14 }
+
+  let store: ReturnType<typeof makeStore>
+  let posts: Array<{ url: string; form: Record<string, string> }>
+  let authorizeScopes: string[]
+  let logs: string[]
+
+  beforeEach(() => {
+    store = makeStore()
+    posts = []
+    authorizeScopes = []
+    logs = []
+  })
+
+  /** The background logout is not awaited by the ladder; let it land. */
+  const settle = () => new Promise(resolve => setImmediate(resolve))
+
+  /** Deps for paths that must not open a browser. Refreshes answer with no `scope`. */
+  function quietDeps(overrides: Record<string, any> = {}) {
+    return {
+      store,
+      now: () => NOW,
+      getJson: async () => DISCOVERY_DOC,
+      postForm: async (url: string, form: Record<string, string>) => {
+        posts.push({ url, form })
+
+        return { id_token: idTokenExpiring(NOW + 900), refresh_token: 'rt-rotated' }
+      },
+      openExternal: async () => {
+        throw new Error('no browser expected in this test')
+      },
+      createServer: (() => {
+        throw new Error('no browser expected in this test')
+      }) as any,
+      rememberLog: (line: string) => logs.push(line),
+      ...overrides
+    } as any
+  }
+
+  /**
+   * Deps that drive the browser round trip. `answer` picks the callback query
+   * for the n-th authorize URL opened. The token endpoint grants whatever scope
+   * that URL asked for, as Keycloak does.
+   */
+  function browserDeps(answer: (n: number, state: string) => string, overrides: Record<string, any> = {}) {
+    let handler: any = null
+
+    const createServer: any = (h: any) => {
+      handler = h
+
+      const server: any = {
+        listen: (_port: number, _host: string, cb: () => void) => {
+          setImmediate(cb)
+
+          return server
+        },
+        once: () => server,
+        on: () => server,
+        removeListener: () => server,
+        close: () => undefined
+      }
+
+      return server
+    }
+
+    return quietDeps({
+      createServer,
+      openExternal: async (url: string) => {
+        const params = new URL(url).searchParams
+
+        authorizeScopes.push(params.get('scope') || '')
+
+        const query = answer(authorizeScopes.length, encodeURIComponent(params.get('state') || ''))
+
+        setImmediate(() => handler({ url: `/callback?${query}` }, { writeHead: () => undefined, end: () => undefined }))
+      },
+      postForm: async (url: string, form: Record<string, string>) => {
+        posts.push({ url, form })
+
+        return {
+          id_token: idTokenExpiring(NOW + 900),
+          refresh_token: 'rt-new',
+          scope: authorizeScopes[authorizeScopes.length - 1]
+        }
+      },
+      ...overrides
+    })
+  }
+
+  const signInAnswer = (_n: number, state: string) => `code=c&state=${state}`
+
+  test('asks Keycloak for an offline session and starts the clock at the sign-in', async () => {
+    const result = await ensureKeycloakSession(POLICY, browserDeps(signInAnswer))
+
+    assert.equal(result.outcome, 'signed-in')
+    assert.match(authorizeScopes[0], /\boffline_access\b/)
+    assert.equal(result.tokens?.signedInAt, NOW)
+    assert.equal(result.tokens?.offline, true)
+
+    // Both survive the encrypted store, or the next launch forgets the limit.
+    const reloaded = loadKeycloakSession(POLICY, store)
+
+    assert.equal(reloaded?.signedInAt, NOW)
+    assert.equal(reloaded?.offline, true)
+  })
+
+  test('without session_days, signs in the browser-bound way it always did', async () => {
+    const result = await ensureKeycloakSession(CONFIG, browserDeps(signInAnswer))
+
+    assert.equal(result.outcome, 'signed-in')
+    assert.doesNotMatch(authorizeScopes[0], /offline_access/)
+    assert.equal(result.tokens?.offline, undefined)
+  })
+
+  test('signs in without an offline session when the client may not ask for one', async () => {
+    // Keycloak answers invalid_scope before the login page when the client
+    // lacks the offline_access scope. Locking the person out over it would be
+    // worse than a sign-in that lasts a day.
+    const result = await ensureKeycloakSession(
+      POLICY,
+      browserDeps((n, state) =>
+        n === 1 ? `error=invalid_scope&error_description=Invalid+scopes&state=${state}` : `code=c&state=${state}`
+      )
+    )
+
+    assert.equal(result.outcome, 'signed-in')
+    assert.equal(authorizeScopes.length, 2)
+    assert.match(authorizeScopes[0], /offline_access/)
+    assert.doesNotMatch(authorizeScopes[1], /offline_access/)
+    assert.equal(result.tokens?.offline, undefined)
+    assert.ok(logs.some(line => line.includes('refused an offline session')))
+  })
+
+  test('signs in without an offline session when Keycloak will not give this person one', async () => {
+    // A user without the offline_access role passes the login page and is
+    // refused at the token endpoint instead.
+    let exchanges = 0
+
+    const result = await ensureKeycloakSession(
+      POLICY,
+      browserDeps(signInAnswer, {
+        postForm: async (url: string, form: Record<string, string>) => {
+          posts.push({ url, form })
+          exchanges += 1
+
+          if (exchanges === 1) {
+            throw new HttpError('Keycloak rejected the request: not_allowed', 400)
+          }
+
+          return { id_token: idTokenExpiring(NOW + 900), refresh_token: 'rt-bound' }
+        }
+      })
+    )
+
+    assert.equal(result.outcome, 'signed-in')
+    assert.equal(authorizeScopes.length, 2)
+    assert.equal(result.tokens?.refreshToken, 'rt-bound')
+  })
+
+  test('any other sign-in failure is not retried', async () => {
+    await assert.rejects(
+      ensureKeycloakSession(POLICY, browserDeps((_n, state) => `error=access_denied&state=${state}`)),
+      /access_denied/
+    )
+
+    assert.equal(authorizeScopes.length, 1)
+  })
+
+  test('refreshing an offline session keeps asking for it and keeps the sign-in time', async () => {
+    persistKeycloakSession(
+      POLICY,
+      tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 3 * DAY, offline: true }),
+      store
+    )
+
+    const result = await ensureKeycloakSession(POLICY, quietDeps())
+
+    assert.equal(result.outcome, 'refreshed')
+    assert.match(posts[0].form.scope, /\boffline_access\b/)
+    assert.equal(result.tokens?.refreshToken, 'rt-rotated')
+    // A refresh is not a sign-in: the 14 days still count from the browser.
+    assert.equal(result.tokens?.signedInAt, NOW - 3 * DAY)
+    assert.equal(result.tokens?.offline, true)
+  })
+
+  test('a sign-in that reached the limit ends at launch, at Keycloak too', async () => {
+    // Still valid as far as the token goes; the limit is this install's call.
+    persistKeycloakSession(
+      POLICY,
+      tokenSet({ signedInAt: NOW - 14 * DAY, offline: true, refreshToken: 'rt-old' }),
+      store
+    )
+
+    const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false }))
+
+    assert.equal(result.outcome, 'needs-login')
+    assert.equal(result.tokens, null)
+    assert.equal(loadKeycloakSession(POLICY, store), null)
+
+    await settle()
+
+    // Ended by refresh token at the logout endpoint, which ends this sign-in
+    // only, not the person's sessions on their other machines.
+    assert.deepEqual(posts, [
+      {
+        url: DISCOVERY_DOC.end_session_endpoint,
+        form: { client_id: 'agentx-workmate', refresh_token: 'rt-old' }
+      }
+    ])
+    assert.ok(logs.some(line => line.includes('14-day limit')))
+  })
+
+  test('a day short of the limit, the sign-in carries on', async () => {
+    persistKeycloakSession(POLICY, tokenSet({ signedInAt: NOW - 13 * DAY, offline: true }), store)
+
+    const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false }))
+
+    assert.equal(result.outcome, 'stored')
+    assert.deepEqual(posts, [])
+  })
+
+  test('the limit is not enforced while the app is running', async () => {
+    // The Sign in screen lives on the boot path. Ending the sign-in mid-session
+    // would only make requests fail in the middle of someone's work.
+    persistKeycloakSession(
+      POLICY,
+      tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 15 * DAY, offline: true }),
+      store
+    )
+
+    const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false, enforceSignInPolicy: false }))
+
+    assert.equal(result.outcome, 'refreshed')
+  })
+
+  test('turning session_days off ends an offline sign-in at the next launch', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ signedInAt: NOW - DAY, offline: true, refreshToken: 'rt-old' }), store)
+
+    const result = await ensureKeycloakSession(CONFIG, quietDeps({ interactive: false }))
+
+    assert.equal(result.outcome, 'needs-login')
+
+    await settle()
+
+    assert.equal(posts[0]?.form.refresh_token, 'rt-old')
+  })
+
+  test('a session stored before the limit existed is left to expire on its own', async () => {
+    // No signedInAt, not offline: it is still bound to the browser session and
+    // ends within the day, so there is nothing to enforce.
+    persistKeycloakSession(POLICY, tokenSet(), store)
+
+    const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false }))
+
+    assert.equal(result.outcome, 'stored')
   })
 })
 

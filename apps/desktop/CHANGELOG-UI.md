@@ -211,7 +211,7 @@ Japanese, Traditional Chinese and Arabic fell back to English for 355 / 355 /
 304 of the strings on those pages. Month dividers and "2 min ago" followed the
 OS locale, so a Vietnamese app labelled a shelf "August". The page loader was
 a rose curve; two pixel `@font-face`s and a pixel heart survived from the
-Hermes era.
+original codebase.
 
 **After.**
 - **Shape and chrome.** `--radius-control/card/overlay/bubble` = 8/12/14/18px;

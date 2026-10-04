@@ -1,0 +1,5 @@
+name: agentx-gateway
+version: 1.0.0
+description: "AgentX AI Gateway text-to-speech — the speech model the signed-in AgentX account was granted, called through the account's own gateway key. Reads replies aloud; nothing to set up."
+author: AstralX Technology
+kind: backend

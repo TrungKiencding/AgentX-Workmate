@@ -15,7 +15,8 @@ import type { RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@/lib/statusbar'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
-import { resolveVersionStatus } from '@/lib/version-status'
+import { resolveAppVersionStatus, resolveBackendVersionStatus } from '@/lib/version-status'
+import { $appUpdate } from '@/store/app-update'
 import { copyFilePath, revealFile } from '@/store/file-actions'
 import { revealFileInTree } from '@/store/layout'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -37,14 +38,8 @@ import {
 import { $focusedRuntimeId, $focusedSessionState, $focusedStoredSessionId } from '@/store/session-states'
 import { $subagentsBySession, activeSubagentCount, failedSubagentCount } from '@/store/subagents'
 import { $gatewayRestarting } from '@/store/system-actions'
-import {
-  $backendUpdateApply,
-  $backendUpdateStatus,
-  $desktopVersion,
-  $updateApply,
-  $updateStatus,
-  openUpdateOverlayFor
-} from '@/store/updates'
+import { openUpdateOverlay } from '@/store/update-overlay'
+import { $backendUpdateApply, $backendUpdateStatus, $desktopVersion } from '@/store/updates'
 import type { StatusResponse, UsageStats } from '@/types/hermes'
 
 import { CRON_ROUTE, SETTINGS_ROUTE, WEBHOOKS_ROUTE } from '../../routes'
@@ -114,8 +109,7 @@ export function useStatusbarItems({
     Object.values(bySession).reduce((sum, items) => sum + failedSubagentCount(items), 0)
   )
 
-  const updateStatus = useStore($updateStatus)
-  const updateApply = useStore($updateApply)
+  const appUpdate = useStore($appUpdate)
   const backendUpdateStatus = useStore($backendUpdateStatus)
   const backendUpdateApply = useStore($backendUpdateApply)
   const desktopVersion = useStore($desktopVersion)
@@ -270,47 +264,39 @@ export function useStatusbarItems({
       : 'text-destructive hover:text-destructive'
 
   const clientVersionItem = useMemo<StatusbarItem>(() => {
-    const applying = updateApply.applying || updateApply.stage === 'restart'
-
-    const status = resolveVersionStatus({
-      applying,
-      applyMessage: updateApply.message,
-      behind: updateStatus?.behind ?? 0,
-      branch: updateStatus?.branch,
-      copy,
+    const status = resolveAppVersionStatus({
+      copy: {
+        clientLabel: copy.clientLabel,
+        restart: copy.restart,
+        update: copy.update,
+        current: t.appUpdate.statusCurrent,
+        available: t.appUpdate.statusAvailable,
+        downloading: t.appUpdate.statusDownloading,
+        ready: t.appUpdate.statusReady,
+        installing: t.appUpdate.statusInstalling
+      },
       remote: connection?.mode === 'remote',
-      restarting: updateApply.stage === 'restart',
-      sha: updateStatus?.currentSha?.slice(0, 7) ?? null,
-      target: 'client',
+      state: appUpdate,
       version: desktopVersion?.appVersion
     })
 
+    const busy = appUpdate?.phase === 'downloading' || appUpdate?.phase === 'installing'
+
     return {
       className: status.hasUpdate ? 'text-primary hover:text-primary' : undefined,
-      detail: status.detail,
       hidden: status.unknown,
-      icon: applying ? <Loader2 className="size-3 animate-spin" /> : <Hash className="size-3" />,
+      icon: busy ? <Loader2 className="size-3 animate-spin" /> : <Hash className="size-3" />,
       id: 'version-client',
       label: status.label,
       // Update state is not a preference: hiding it is how a user misses that
-      // their client is behind. Listed in the menu, but locked on.
+      // their app is behind. Listed in the menu, but locked on.
       lockedVisible: true,
-      onSelect: () => openUpdateOverlayFor('client'),
+      onSelect: () => openUpdateOverlay('client'),
       title: status.tooltip,
       toggleLabel: copy.toggleVersion,
       variant: 'action'
     }
-  }, [
-    desktopVersion?.appVersion,
-    connection?.mode,
-    copy,
-    updateApply.applying,
-    updateApply.message,
-    updateApply.stage,
-    updateStatus?.behind,
-    updateStatus?.branch,
-    updateStatus?.currentSha
-  ])
+  }, [appUpdate, connection?.mode, copy, desktopVersion?.appVersion, t.appUpdate])
 
   const backendVersionItem = useMemo<StatusbarItem | null>(() => {
     if (connection?.mode !== 'remote') {
@@ -319,14 +305,12 @@ export function useStatusbarItems({
 
     const applying = backendUpdateApply.applying || backendUpdateApply.stage === 'restart'
 
-    const status = resolveVersionStatus({
+    const status = resolveBackendVersionStatus({
       applying,
       applyMessage: backendUpdateApply.message,
       behind: backendUpdateStatus?.behind ?? 0,
       copy,
-      remote: true,
       restarting: backendUpdateApply.stage === 'restart',
-      target: 'backend',
       updateAvailable: backendUpdateStatus?.updateAvailable,
       version: statusSnapshot?.version
     })
@@ -338,7 +322,7 @@ export function useStatusbarItems({
       id: 'version-backend',
       label: status.label,
       lockedVisible: true,
-      onSelect: () => openUpdateOverlayFor('backend'),
+      onSelect: () => openUpdateOverlay('backend'),
       title: status.tooltip,
       toggleLabel: copy.toggleBackendVersion,
       variant: 'action'

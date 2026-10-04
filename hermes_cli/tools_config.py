@@ -3154,6 +3154,55 @@ def _plugin_tts_providers() -> list[dict]:
     return rows
 
 
+def _plugin_stt_providers() -> list[dict]:
+    """Build picker-row dicts from plugin-registered STT providers.
+
+    The speech-to-text twin of :func:`_plugin_tts_providers`: the built-in
+    rows stay hardcoded in ``TOOL_CATEGORIES["stt"]``, and this injects the
+    providers plugins register through ``register_transcription_provider()``
+    (the bundled AgentX AI Gateway backend among them) from their
+    ``get_setup_schema()``. Built-in shadowing is filtered out defensively,
+    as for TTS.
+    """
+    try:
+        from agent.transcription_registry import _BUILTIN_NAMES, list_providers
+        from hermes_cli.plugins import _ensure_plugins_discovered
+
+        _ensure_plugins_discovered()
+        providers = list_providers()
+    except Exception:
+        return []
+
+    rows: list[dict] = []
+    for provider in providers:
+        name = getattr(provider, "name", None)
+        if not name:
+            continue
+        if name.lower().strip() in _BUILTIN_NAMES:
+            continue
+        try:
+            schema = provider.get_setup_schema()
+        except Exception:
+            continue
+        if not isinstance(schema, dict):
+            continue
+        row = {
+            "name": schema.get("name", provider.display_name),
+            "badge": schema.get("badge", ""),
+            "tag": schema.get("tag", ""),
+            "env_vars": schema.get("env_vars", []),
+            # Selecting this row writes ``stt.provider: <name>`` — the same
+            # write path as the hardcoded rows; the plugin dispatcher in
+            # ``transcribe_audio`` picks it up from there.
+            "stt_provider": name,
+            "stt_plugin_name": name,
+        }
+        if schema.get("post_setup"):
+            row["post_setup"] = schema["post_setup"]
+        rows.append(row)
+    return rows
+
+
 def _visible_providers(
     cat: dict,
     config: dict,
@@ -3236,6 +3285,11 @@ def _visible_providers(
     # is filtered out by ``_plugin_tts_providers`` defensively.
     if cat.get("name") == "Text-to-Speech":
         visible.extend(_plugin_tts_providers())
+
+    # Inject plugin-registered STT backends below the hardcoded built-in rows,
+    # the same way.
+    if cat.get("name") == "Speech-to-Text":
+        visible.extend(_plugin_stt_providers())
 
     return visible
 

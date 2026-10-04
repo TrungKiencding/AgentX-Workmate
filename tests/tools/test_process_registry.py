@@ -1824,8 +1824,12 @@ class TestSystemdCgroupIsolation:
         sep_idx = argv.index("--")
         assert "/bin/bash" in argv[sep_idx:]
         assert "set +m; echo hello" in argv[sep_idx:]
-        # systemd-run owns session/cgroup creation — no start_new_session.
-        assert captured["start_new_session"] is False
+        # systemd-run --scope gives the worker a new cgroup but NOT a new
+        # session (#70716 regression: start_new_session was False, so the
+        # worker kept the parent's session + controlling terminal → SIGTTIN/
+        # SIGTTOU stopped the TUI).  start_new_session=True gives systemd-run
+        # (and the scoped worker below it) a private session.
+        assert captured["start_new_session"] is True
         # The session must record the unit name so kill_process can stop it.
         assert session.systemd_unit == f"agentx-worker-{session.id}.scope"
 
@@ -2015,7 +2019,7 @@ class TestSystemdCgroupIsolation:
     def test_systemd_post_spawn_failure_never_kills_gateway_process_group(
         self, registry, monkeypatch
     ):
-        """The scope wrapper shares the gateway PG, so cleanup must not killpg."""
+        """Cleanup must not killpg: scope teardown is the authoritative path."""
         fake_popen, _captured = self._fake_popen_capture()
         fake_proc = fake_popen(["placeholder"])
 

@@ -1768,6 +1768,7 @@ updates:
 #   dashboard.oauth.keycloak.org_claim                 <-  AGENTX_DASHBOARD_KEYCLOAK_ORG_CLAIM
 #   dashboard.oauth.keycloak.idp_hint                  <-  AGENTX_DASHBOARD_KEYCLOAK_IDP_HINT
 #   dashboard.oauth.keycloak.allow_password_grant      <-  AGENTX_DASHBOARD_KEYCLOAK_ALLOW_PASSWORD_GRANT
+#   dashboard.oauth.keycloak.session_days              <-  AGENTX_DASHBOARD_KEYCLOAK_SESSION_DAYS
 #
 # dashboard:
 #   # Require a sign-in even on a LOOPBACK bind. The gate normally engages only
@@ -1819,6 +1820,13 @@ updates:
 #       # access grants" enabled on the client, and realm brute-force protection
 #       # counts failures against the real account.
 #       # allow_password_grant: false
+#
+#       # How many days the DESKTOP app keeps a sign-in before asking again,
+#       # counted from the browser sign-in and checked at launch. A shipped
+#       # AgentX Workmate build uses 14. It rides on a Keycloak offline session, so
+#       # the realm's Offline Session Idle/Max must stay above it. 0 ends the
+#       # sign-in with the browser's Keycloak SSO session instead.
+#       # session_days: 14
 #
 #       # OPTIONAL — only for a confidential client. Setting it stops the
 #       # DESKTOP app from running its own sign-in (a binary on an employee's

@@ -626,6 +626,7 @@ To do it by hand instead, these are the settings that matter:
 | Direct access grants | Off (unless you enable the in-app form below) |
 | PKCE method | `S256` |
 | Valid redirect URIs | `http://127.0.0.1:47821/callback`, `http://127.0.0.1:47822/callback`, `http://127.0.0.1:47823/callback` (the desktop app), plus `<your dashboard URL>/auth/callback` (the browser dashboard) |
+| Mappers | `org_id` (user attribute `org_id` → claim `org_id`) and the realm roles (claim `realm_access.roles`, multivalued), each added to the ID token, access token and userinfo — AgentX Hub reads both from the ID token Workmate sends (`docker/keycloak/README.md` says why) |
 
 The three fixed loopback ports are what the desktop app listens on for its own OAuth callback. It needs them because the local backend is started on an ephemeral port that changes every launch — that URL could never be registered with Keycloak, so the app runs the flow against a listener it controls instead.
 

@@ -54,3 +54,22 @@ def _suppress_concurrent_hermes_gate(request, monkeypatch):
         lambda *_a, **_k: [],
         raising=False,
     )
+
+
+@pytest.fixture
+def update_leaves_checkout_alone(monkeypatch):
+    """Keep a mocked ``cmd_update`` run off the real checkout's files.
+
+    ``cmd_update`` resolves ``PROJECT_ROOT`` to the checkout the suite runs
+    from, and its bytecode step stays real even with git/uv mocked:
+    ``_clear_bytecode_cache`` deletes every ``__pycache__`` under the
+    checkout and ``_record_bytecode_fingerprint`` writes
+    ``.bytecode-fingerprint`` into it. Under the per-file parallel runner the
+    deletion races every other test process — tests/gateway/conftest.py's
+    fingerprint rglob then hits a vanished ``tests/gateway/__pycache__`` and
+    that file dies with an INTERNALERROR before collecting a test.
+    """
+    from hermes_cli import main as hermes_main
+
+    monkeypatch.setattr(hermes_main, "_clear_bytecode_cache", lambda *_a, **_k: 0)
+    monkeypatch.setattr(hermes_main, "_record_bytecode_fingerprint", lambda *_a, **_k: None)

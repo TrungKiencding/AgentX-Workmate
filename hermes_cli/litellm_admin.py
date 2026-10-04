@@ -78,6 +78,32 @@ class MintedKey:
     #: The web search model the issuer granted beside ``models``, or ``""``.
     #: Only the second brain grants one.
     web_search_model: str = ""
+    #: The image generation model granted beside ``models``, or ``""``.
+    image_model: str = ""
+    #: The model that reads pictures for the vision slot, granted beside ``models``, or ``""``.
+    vision_model: str = ""
+    #: The text-to-speech model that reads replies aloud, granted beside ``models``, or ``""``.
+    speech_model: str = ""
+    #: The speech-to-text model that transcribes dictation and voice messages, granted
+    #: beside ``models``, or ``""``.
+    transcription_model: str = ""
+
+    @property
+    def role_models(self) -> tuple[str, ...]:
+        """The models granted for a feature, never offered in the picker."""
+        return tuple(
+            dict.fromkeys(
+                m
+                for m in (
+                    self.web_search_model,
+                    self.image_model,
+                    self.vision_model,
+                    self.speech_model,
+                    self.transcription_model,
+                )
+                if m
+            )
+        )
 
     @property
     def masked(self) -> str:

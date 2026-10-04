@@ -155,7 +155,9 @@ class TestReusedKey:
             hermes_home,
             {
                 "_config_version": 35,
-                "providers": {"litellm": {"name": PROVIDER_DISPLAY_NAME}},
+                "providers": {
+                    "litellm": {"name": PROVIDER_DISPLAY_NAME, "discover_models": False}
+                },
             },
         )
         before = path.read_text(encoding="utf-8")
@@ -163,6 +165,20 @@ class TestReusedKey:
         _ensure_vision_follows_main(LiteLLMAccountSettings(provider_name="litellm"), ())
 
         assert path.read_text(encoding="utf-8") == before
+
+    @pytest.mark.parametrize("recorded", [True, None])
+    def test_a_reused_key_stops_listing_the_live_proxy_catalog(self, hermes_home, recorded):
+        # The live /v1/models lists every model the key reaches, the feature
+        # models included; under the second brain the picker is its answer.
+        entry = {"name": PROVIDER_DISPLAY_NAME}
+        if recorded is not None:
+            entry["discover_models"] = recorded
+        _write_config(hermes_home, {"_config_version": 35, "providers": {"litellm": entry}})
+
+        _ensure_vision_follows_main(LiteLLMAccountSettings(provider_name="litellm"), ())
+
+        raw = yaml.safe_load((hermes_home / "config.yaml").read_text(encoding="utf-8"))
+        assert raw["providers"]["litellm"]["discover_models"] is False
 
 
 class TestV34Migration:

@@ -24,6 +24,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from hermes_cli import main as cli_main
+from hermes_cli import update_cmd
 
 
 class _FakeNoSuchProcess(Exception):
@@ -256,27 +257,32 @@ def _run_guard(detect_side_effect, orphan_return):
 
     killed: list[list[int]] = []
 
-    with patch.object(cli_main, "_is_windows", return_value=True), patch.object(
-        cli_main, "_venv_scripts_dir", return_value=None
-    ), patch.object(cli_main, "_run_pre_update_backup"), patch.object(
-        cli_main, "_pause_windows_gateways_for_update", return_value=None
+    # Patch the module _cmd_update_impl resolves (update_cmd._m()), not the
+    # one imported at collection: if hermes_cli.main was swapped since, the
+    # sentinel would miss and the update would run against the real checkout.
+    main_mod = update_cmd._m()
+
+    with patch.object(main_mod, "_is_windows", return_value=True), patch.object(
+        main_mod, "_venv_scripts_dir", return_value=None
+    ), patch.object(main_mod, "_run_pre_update_backup"), patch.object(
+        main_mod, "_pause_windows_gateways_for_update", return_value=None
     ), patch.object(
-        cli_main, "_resume_windows_gateways_after_update"
+        main_mod, "_resume_windows_gateways_after_update"
     ), patch.object(
-        cli_main, "_detect_venv_python_processes", side_effect=detect_side_effect
+        main_mod, "_detect_venv_python_processes", side_effect=detect_side_effect
     ), patch.object(
-        cli_main, "_leftover_pausable_gateway_pids", return_value=None
+        main_mod, "_leftover_pausable_gateway_pids", return_value=None
     ), patch.object(
-        cli_main, "_orphaned_desktop_backend_pids", return_value=orphan_return
+        main_mod, "_orphaned_desktop_backend_pids", return_value=orphan_return
     ), patch.object(
-        cli_main, "_stop_process_trees", side_effect=killed.append
+        main_mod, "_stop_process_trees", side_effect=killed.append
     ), patch.object(
-        cli_main, "PROJECT_ROOT", _RootSentinel()
+        main_mod, "PROJECT_ROOT", _RootSentinel()
     ), patch(
         "time.sleep"
     ):
         try:
-            cli_main._cmd_update_impl(_update_args(), gateway_mode=False)
+            main_mod._cmd_update_impl(_update_args(), gateway_mode=False)
         except _PastGuard:
             return "past_guard", killed
         except SystemExit as exc:

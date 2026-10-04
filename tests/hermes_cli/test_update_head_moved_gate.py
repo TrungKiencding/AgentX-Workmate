@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hermes_cli import main as hermes_main
+from hermes_cli import update_cmd
 
 
 def _make_head_moved_side_effect(pre_sha="abc123", post_sha="def456"):
@@ -70,8 +70,12 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
 
     ``_m()`` in update_cmd.py lazily returns hermes_cli.main, so patching
     attributes on that module is the canonical test surface (matches
-    tests/hermes_cli/test_cmd_update.py).
+    tests/hermes_cli/test_cmd_update.py). Patch the module ``_m()`` returns,
+    not one imported at collection: if anything swapped hermes_cli.main since,
+    the sandbox would miss and the update would run ``npm ci`` in the real
+    checkout. Returns the patched module.
     """
+    hermes_main = update_cmd._m()
     monkeypatch.setattr(hermes_main.subprocess, "run", run_side_effect)
     monkeypatch.setattr(hermes_main, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".git").mkdir()  # pass the "is a git repo" gate
@@ -105,14 +109,15 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
     monkeypatch.setattr(hermes_main, "_clear_update_incomplete_marker", lambda: None)
     # Gateway restart path (called after a successful update).
     monkeypatch.setattr(hermes_main, "_finish_dashboard_update_cleanup", lambda *a: None)
+    return hermes_main
 
 
 def test_update_success_when_head_moves(monkeypatch, tmp_path, capsys):
     """When the pull advances HEAD, the update proceeds normally."""
     args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
-    _patch_update_deps(monkeypatch, tmp_path, _make_head_moved_side_effect())
+    main_mod = _patch_update_deps(monkeypatch, tmp_path, _make_head_moved_side_effect())
 
-    hermes_main.cmd_update(args)  # completes normally (no SystemExit)
+    main_mod.cmd_update(args)  # completes normally (no SystemExit)
 
     out = capsys.readouterr().out
     assert "✓ Code updated!" in out
@@ -123,13 +128,95 @@ def test_update_fails_loudly_when_head_pinned(monkeypatch, tmp_path, capsys):
     """A detached/pinned HEAD that never moves must fail loudly, not print
     '✓ Code updated!' against the stale tree."""
     args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
-    _patch_update_deps(monkeypatch, tmp_path, _make_head_pinned_side_effect())
+    main_mod = _patch_update_deps(monkeypatch, tmp_path, _make_head_pinned_side_effect())
 
     with pytest.raises(SystemExit) as exc_info:
-        hermes_main.cmd_update(args)
+        main_mod.cmd_update(args)
 
     assert exc_info.value.code == 1
     out = capsys.readouterr().out
     assert "Code did not move" in out
     assert "✓ Code updated!" not in out
     assert "checkout main" in out
+
+
+def _make_switch_from_pin_side_effect(pinned_sha, branch_sha, calls):
+    """Simulate a detached checkout pinned to ``pinned_sha`` whose local
+    ``main`` already sits on the fetched tip ``branch_sha``.
+
+    That is the desktop's checkout after an installer built from an older
+    commit than ``main`` was at install time: the switch to ``main`` moves
+    HEAD all the way to the target, so ``rev-list HEAD..origin/main`` counts
+    nothing even though the code just changed. Every git call is recorded in
+    ``calls``.
+    """
+    state = {"switched": False}
+
+    def side_effect(cmd, **kwargs):
+        joined = " ".join(str(c) for c in cmd)
+        calls.append(joined)
+
+        if "rev-parse" in joined and "--abbrev-ref" in joined:
+            return SimpleNamespace(returncode=0, stdout="HEAD\n", stderr="")
+
+        if joined.endswith("checkout main"):
+            state["switched"] = True
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        if "rev-list" in joined:
+            return SimpleNamespace(returncode=0, stdout="0\n", stderr="")
+
+        if joined.endswith("rev-parse HEAD"):
+            sha = branch_sha if state["switched"] else pinned_sha
+            return SimpleNamespace(returncode=0, stdout=f"{sha}\n", stderr="")
+
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    return side_effect
+
+
+def test_update_runs_the_full_update_when_switching_off_a_pin_lands_on_the_tip(
+    monkeypatch, tmp_path, capsys
+):
+    """Leaving the pinned commit IS the update, even with nothing to merge.
+
+    Before the fix the zero behind-count took the "Already up to date!" exit:
+    the code had moved to ``main`` but dependencies, config migrations and
+    skills were never refreshed against it.
+    """
+    pinned, tip = "a" * 40, "b" * 40
+    calls = []
+    args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
+    main_mod = _patch_update_deps(
+        monkeypatch, tmp_path, _make_switch_from_pin_side_effect(pinned, tip, calls)
+    )
+
+    main_mod.cmd_update(args)  # completes normally (no SystemExit)
+
+    out = capsys.readouterr().out
+    assert "Already up to date!" not in out
+    assert f"Moving the pinned checkout ({pinned[:10]}) onto main" in out
+    assert "✓ Code updated!" in out
+    # The dependency check diffs from the pinned commit — the tree the venv
+    # was synced against — not from wherever the branch switch left HEAD.
+    assert any(f"diff --name-only {pinned}..HEAD" in call for call in calls)
+
+
+def test_update_still_reports_up_to_date_when_the_pin_is_the_tip(monkeypatch, tmp_path, capsys):
+    """A pinned checkout already on the branch tip has nothing to do."""
+    sha = "c" * 40
+    calls = []
+    args = SimpleNamespace(branch=None, yes=False, force=False, force_venv=False)
+    main_mod = _patch_update_deps(
+        monkeypatch, tmp_path, _make_switch_from_pin_side_effect(sha, sha, calls)
+    )
+    monkeypatch.setattr(update_cmd, "_venv_core_imports_healthy", lambda: (True, ""))
+    monkeypatch.setattr("hermes_cli.managed_uv.update_managed_uv", lambda **_k: None)
+    monkeypatch.setattr("hermes_cli.managed_uv.ensure_uv", lambda **_k: None)
+
+    main_mod.cmd_update(args)
+
+    out = capsys.readouterr().out
+    assert "✓ Already up to date!" in out
+    assert "Moving the pinned checkout" not in out
+    assert "✓ Code updated!" not in out

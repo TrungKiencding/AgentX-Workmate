@@ -109,10 +109,11 @@ class TestRegisterTTSProvider:
             mgr = PluginManager()
             mgr.discover_and_load()
 
-        # Plugin loaded (register returned normally), but registry empty.
+        # Plugin loaded (register returned normally), but it registered nothing:
+        # the registry holds only the bundled backends (plugins/tts/*, auto-loaded).
         assert mgr._plugins["bad-tts-plugin"].enabled is True
         assert tts_registry.get_provider("not a provider") is None
-        assert tts_registry.list_providers() == []
+        assert [p.name for p in tts_registry.list_providers() if p.name != "agentx-gateway"] == []
         assert "does not inherit from TTSProvider" in caplog.text
 
         tts_registry._reset_for_tests()

@@ -11,6 +11,8 @@ export interface NotificationAction {
 
 export type NotificationPlacement = 'default' | 'bottom-right'
 
+export type NotificationScope = 'app' | 'session'
+
 export interface AppNotification {
   id: string
   kind: NotificationKind
@@ -24,9 +26,11 @@ export interface AppNotification {
   message: string
   detail?: string
   action?: NotificationAction
+  /** Runs when the person closes the notice; see NotificationInput.onDismiss. */
   onDismiss?: () => void
   createdAt: number
   placement?: NotificationPlacement
+  scope: NotificationScope
 }
 
 export interface NotificationInput {
@@ -39,10 +43,27 @@ export interface NotificationInput {
   message: string
   detail?: string
   action?: NotificationAction
+  /**
+   * Runs when the person closes the notice: its close button, its action, or
+   * "Clear all". Not when the app withdraws it (dismissNotification,
+   * clearNotifications) or it times out, so a snooze hung here only ever follows
+   * the person saying "not now".
+   */
   onDismiss?: () => void
   durationMs?: number
   placement?: NotificationPlacement
+  /**
+   * 'app' for a notice about the app rather than the open chat: an update, an
+   * agent that needs a restart. Moving to another chat or starting a turn clears
+   * the chat's notices (clearNotifications); an app notice stays up until the
+   * person closes it or the app withdraws it. Defaults to 'session'.
+   */
+  scope?: NotificationScope
 }
+
+// The most chat notices kept at once; a burst drops the oldest. App notices have
+// fixed ids, so only a few can exist, and a burst never pushes one out.
+const MAX_SESSION_NOTIFICATIONS = 4
 
 let notificationCounter = 0
 const timers = new Map<string, number>()
@@ -171,12 +192,24 @@ export function notify(input: NotificationInput): string {
     action: input.action,
     onDismiss: input.onDismiss,
     createdAt: Date.now(),
-    placement: input.placement ?? defaultPlacement(kind, input.action)
+    placement: input.placement ?? defaultPlacement(kind, input.action),
+    scope: input.scope ?? 'session'
   }
 
-  window.clearTimeout(timers.get(id))
-  timers.delete(id)
-  $notifications.set([notification, ...$notifications.get().filter(item => item.id !== id)].slice(0, 4))
+  forgetTimer(id)
+
+  let sessionCount = 0
+  const kept: AppNotification[] = []
+
+  for (const item of [notification, ...$notifications.get().filter(item => item.id !== id)]) {
+    if (item.scope === 'app' || ++sessionCount <= MAX_SESSION_NOTIFICATIONS) {
+      kept.push(item)
+    } else {
+      forgetTimer(item.id)
+    }
+  }
+
+  $notifications.set(kept)
 
   const duration = input.durationMs ?? defaultDuration(kind)
 
@@ -201,24 +234,62 @@ export function notifyError(error: unknown, fallback: string): string {
   })
 }
 
-export function dismissNotification(id: string) {
+function forgetTimer(id: string) {
   window.clearTimeout(timers.get(id))
   timers.delete(id)
-  const dismissed = $notifications.get().find(item => item.id === id)
-  $notifications.set($notifications.get().filter(item => item.id !== id))
-  dismissed?.onDismiss?.()
 }
 
+function remove(id: string): AppNotification | undefined {
+  forgetTimer(id)
+  const removed = $notifications.get().find(item => item.id === id)
+
+  if (removed) {
+    $notifications.set($notifications.get().filter(item => item.id !== id))
+  }
+
+  return removed
+}
+
+/** Withdraw a notice: what it said no longer applies. Also how one times out. */
+export function dismissNotification(id: string) {
+  remove(id)
+}
+
+/** The person closed a notice, with its close button or by taking its action. */
+export function closeNotification(id: string) {
+  remove(id)?.onDismiss?.()
+}
+
+/** The open chat's notices go as the person moves on: another chat, a new turn. */
 export function clearNotifications() {
+  const all = $notifications.get()
+
+  for (const item of all) {
+    if (item.scope !== 'app') {
+      forgetTimer(item.id)
+    }
+  }
+
+  $notifications.set(all.filter(item => item.scope === 'app'))
+}
+
+/** The person cleared every notice ("Clear all"). */
+export function closeAllNotifications() {
+  const all = $notifications.get()
+
+  resetNotifications()
+
+  for (const item of all) {
+    item.onDismiss?.()
+  }
+}
+
+/** Drop every notice and timer, running nothing. For tests. */
+export function resetNotifications() {
   for (const timer of timers.values()) {
     window.clearTimeout(timer)
   }
 
   timers.clear()
-  const all = $notifications.get()
   $notifications.set([])
-
-  for (const item of all) {
-    item.onDismiss?.()
-  }
 }

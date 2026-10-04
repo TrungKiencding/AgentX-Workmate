@@ -1277,6 +1277,30 @@ def profile_env(tmp_path, monkeypatch):
     return home
 ```
 
+### Tests must not modify the checkout
+`agentx update` operates on `hermes_cli.main.PROJECT_ROOT`, the checkout the
+suite runs from. `tests/conftest.py` refuses any git command that would modify
+that checkout (read-only `rev-parse`, `log`, `status`, ... stay allowed) and
+fails the test that ran it; a test that needs a mutating git command builds its
+repository under `tmp_path`. Update-flow tests patch the module
+`hermes_cli.update_cmd._m()` returns. Don't drop `hermes_cli.main` from
+`sys.modules` and re-import it in-process (use a subprocess): every test that
+patched the module it imported at collection would silently lose its
+`PROJECT_ROOT` sandbox. The conftest puts the original back and warns.
+
+### Tests cannot read your gh login or Keychain
+`tests/conftest.py` refuses to run the real `gh` and macOS `security` binaries
+— process-wide, from any thread, before and between tests too — because they
+hand the code under test the developer's GitHub token and Keychain entries
+(`gh auth token` answers from the keychain even with `GH_CONFIG_DIR` pointed
+elsewhere). Code under test sees "CLI not installed" (`FileNotFoundError`), as
+on CI. To exercise a reader, mock `subprocess.run` or the reader itself, or
+point it at a fake `gh` written under `tmp_path`; per-test patches alone are not
+enough, since a daemon thread can outlive the test that patched it. The guard
+covers the pytest process only: a child process the test starts (a script,
+`python -m hermes_cli.main ...`) can still run the real `gh`, so keep such a
+child away from gh yourself.
+
 ---
 
 ## Testing

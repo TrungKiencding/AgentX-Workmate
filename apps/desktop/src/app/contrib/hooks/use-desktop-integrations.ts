@@ -4,6 +4,7 @@ import { closeActiveTab } from '@/app/chat/close-tab'
 import { openSession } from '@/app/open-session'
 import { isHubSlug } from '@/app/skills/mcp-model'
 import { storedSessionIdForNotification } from '@/lib/session-ids'
+import { startAppUpdateSync } from '@/store/app-update'
 import { respondToApprovalAction } from '@/store/native-notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import { openFolderAsProject } from '@/store/projects'
@@ -16,7 +17,7 @@ import {
   setRememberedSessionId
 } from '@/store/session'
 import { onSessionsChanged } from '@/store/session-sync'
-import { openUpdatesWindow, startUpdatePoller, stopUpdatePoller } from '@/store/updates'
+import { requestActiveUpdate, startUpdatePoller, stopUpdatePoller } from '@/store/updates'
 import { startWebmateWatcher, stopWebmateWatcher } from '@/store/webmate'
 import { isSecondaryWindow } from '@/store/windows'
 
@@ -49,18 +50,20 @@ export function useDesktopIntegrations({
   routedSessionId,
   runtimeIdByStoredSessionId
 }: DesktopIntegrationsParams): void {
-  // Update polling — populates $desktopVersion/$updateStatus, which feed the
-  // statusbar version pill and the update toasts. Also honors the main
-  // process's "open updates" menu request.
+  // Updates: mirror the app's own update state from main (status bar, About,
+  // notices), poll a remote backend and WebMate, and honour the menu's
+  // "Check for Updates…".
   useEffect(() => {
     // WebMate first: the update poller's first pass also checks the WebMate
     // feed, and the watcher must hold the status (prefs) that check reads.
     startWebmateWatcher()
     startUpdatePoller()
-    const unsubscribe = window.agentxDesktop?.onOpenUpdatesRequested?.(() => openUpdatesWindow())
+    const stopAppUpdateSync = startAppUpdateSync()
+    const unsubscribe = window.agentxDesktop?.onOpenUpdatesRequested?.(() => requestActiveUpdate())
 
     return () => {
       unsubscribe?.()
+      stopAppUpdateSync()
       stopUpdatePoller()
       stopWebmateWatcher()
     }

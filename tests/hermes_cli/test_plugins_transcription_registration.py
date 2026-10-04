@@ -106,9 +106,12 @@ class TestRegisterTranscriptionProvider:
             mgr = PluginManager()
             mgr.discover_and_load()
 
+        # Plugin loaded (register returned normally), but it registered nothing:
+        # the registry holds only the bundled backends (plugins/transcription/*,
+        # auto-loaded).
         assert mgr._plugins["bad-stt-plugin"].enabled is True
         assert transcription_registry.get_provider("not a provider") is None
-        assert transcription_registry.list_providers() == []
+        assert [p.name for p in transcription_registry.list_providers() if p.name != "agentx-gateway"] == []
         assert "does not inherit from TranscriptionProvider" in caplog.text
 
         transcription_registry._reset_for_tests()

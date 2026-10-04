@@ -218,7 +218,7 @@ def test_a_wait_lasts_half_an_hour_and_is_forgotten_after(monkeypatch):
 
 def test_a_server_waited_for_is_added_once_the_hub_serves_it_and_the_hub_is_told(tmp_path, nudges):
     hub = FakeHub(octo="needs_connection", gone="unavailable", designs="local")
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}),
+    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=McpLocalInstaller(), gateway=_device(tmp_path))
     for slug in ("octo", "gone", "designs", "nope"):
         sync.wait_for(slug, slug.title())
@@ -240,7 +240,7 @@ def test_a_wait_taken_back_while_the_hub_is_asked_is_not_added(tmp_path, nudges)
             return super().gateway_endpoints(every_server=every_server, **kwargs)
 
     hub = CancelledMeanwhile(octo="ready", tracker="ready")
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}),
+    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=McpLocalInstaller(), gateway=_device(tmp_path))
     sync.wait_for("octo", "GitHub")
     sync.wait_for("tracker", "Tracker")
@@ -257,7 +257,7 @@ def test_the_hubs_word_that_a_connection_was_made_adds_the_server_waited_for_at_
                 yield event
 
     hub = StreamingHub(octo="ready")
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}),
+    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=McpLocalInstaller(), gateway=_device(tmp_path))
     woken: list[int] = []
     sync.nudge = lambda: woken.append(1)  # the loop's wake-up: the tick then completes the wait
@@ -277,7 +277,7 @@ def _row(**extra) -> dict:
 
 
 def _engine(tmp_path: Path, hub: FakeHub, credentials: HubCredentials = SESSION) -> HubSyncEngine:
-    return HubSyncEngine(credentials=lambda: credentials, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}),
+    return HubSyncEngine(credentials=lambda: credentials, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=McpLocalInstaller(), gateway=_device(tmp_path))
 
 
@@ -413,7 +413,7 @@ def store(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(skills, "_hub_credentials_from", lambda _request: SESSION)
     monkeypatch.setattr(hub_sync, "resolve_credentials", lambda: SESSION)
     monkeypatch.setattr(routes, "_refresh_hub_feed", lambda force=False: None)
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}),
+    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=SimpleNamespace(local_state=lambda slug: {}, hub_skills=lambda: []),
                          mcp_installer=McpLocalInstaller(), gateway=_device(tmp_path))
     sync.nudge = lambda: None
     monkeypatch.setattr(hub_sync, "engine", lambda: sync)

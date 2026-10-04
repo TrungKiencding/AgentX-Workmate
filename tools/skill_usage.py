@@ -677,8 +677,12 @@ def load_usage() -> Dict[str, Dict[str, Any]]:
     return clean
 
 
-def save_usage(data: Dict[str, Dict[str, Any]]) -> None:
-    """Write the usage map atomically. Best-effort — errors are logged, not raised."""
+def save_usage(data: Dict[str, Dict[str, Any]]) -> bool:
+    """Write the usage map atomically. Best-effort — errors are logged, not raised.
+
+    Returns True when the write landed, so a caller that reports success
+    (``set_pinned``) can tell a failed save from a successful one.
+    """
     path = _usage_file()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -699,6 +703,8 @@ def save_usage(data: Dict[str, Dict[str, Any]]) -> None:
             raise
     except Exception as e:
         logger.debug("Failed to write %s: %s", path, e, exc_info=True)
+        return False
+    return True
 
 
 def get_record(skill_name: str) -> Dict[str, Any]:
@@ -736,7 +742,7 @@ def seed_record_if_missing(skill_name: str) -> None:
         logger.debug("skill_usage.seed_record_if_missing(%s) failed: %s", skill_name, e, exc_info=True)
 
 
-def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False) -> None:
+def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False) -> Any:
     """Load, apply *mutator(record)* in place, save. Best-effort.
 
     By default this records telemetry for ANY skill — bundled, hub-installed,
@@ -746,22 +752,30 @@ def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False
     ``require_curation_eligible=True`` so they never write meaningless state
     onto a skill the curator can't manage (e.g. an ``archived`` flag on a
     hub-installed skill).
+
+    Returns the mutator's result once the write has landed, and None when
+    nothing was written (ineligible skill, failed save, any error).
+    ``set_pinned`` relies on this to report a pin that did not land (#92993);
+    before it propagated anything, every pin read as failed.
     """
     if not skill_name:
-        return
+        return None
     try:
         if require_curation_eligible and not is_curation_eligible(skill_name):
-            return
+            return None
         with _usage_file_lock():
             data = load_usage()
             rec = data.get(skill_name)
             if not isinstance(rec, dict):
                 rec = _empty_record()
-            mutator(rec)
+            result = mutator(rec)
             data[skill_name] = rec
-            save_usage(data)
+            if not save_usage(data):
+                return None
+        return result
     except Exception as e:
         logger.debug("skill_usage._mutate(%s) failed: %s", skill_name, e, exc_info=True)
+        return None
 
 
 # ---------------------------------------------------------------------------

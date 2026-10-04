@@ -438,3 +438,129 @@ class TestPickerRow:
         monkeypatch.setenv(KEY_ENV, "sk-account-key")
         _write_state(tmp_path, web_search_model=SEARCH_MODEL)
         assert provider_readiness_status(row, {}) == "ready"
+
+
+# ---------------------------------------------------------------------------
+# Sonar: a search model the Responses API refuses, called on Chat Completions
+# ---------------------------------------------------------------------------
+
+SONAR = "perplexity/sonar"
+
+
+def _sonar_reply(answer: str, search_results=None, citations=None, annotations=None) -> dict:
+    """Shaped like the gateway's real perplexity/sonar answer (LiteLLM 1.82.6)."""
+    message: dict = {"role": "assistant", "content": answer}
+    if annotations is not None:
+        message["annotations"] = annotations
+    reply: dict = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "model": "sonar",
+        "choices": [{"index": 0, "finish_reason": "stop", "message": message}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 120},
+    }
+    if search_results is not None:
+        reply["search_results"] = search_results
+    if citations is not None:
+        reply["citations"] = citations
+    return reply
+
+
+@pytest.fixture
+def sonar_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.setenv(KEY_ENV, "sk-account-key")
+    _write_state(tmp_path, web_search_model=SONAR)
+    return tmp_path
+
+
+class TestSonar:
+    def test_only_presets_go_to_the_responses_api(self):
+        from plugins.web.agentx_gateway.provider import uses_responses_api
+
+        assert uses_responses_api("perplexity/preset/pro-search") is True
+        assert uses_responses_api("perplexity/sonar") is False
+        assert uses_responses_api("perplexity/sonar-pro") is False
+
+    def test_sonar_is_asked_on_chat_completions_with_the_account_key(self, sonar_home):
+        captured: dict = {}
+
+        def fake_post(url, **kwargs):
+            captured.update(url=url, **kwargs)
+            return _mock_resp(_sonar_reply("ok"))
+
+        with patch("httpx.post", side_effect=fake_post):
+            _provider().search("giá vàng hôm nay", limit=3)
+
+        assert captured["url"] == "https://gateway.test/v1/chat/completions"
+        assert captured["headers"]["Authorization"] == "Bearer sk-account-key"
+        assert captured["json"] == {
+            "model": SONAR,
+            "messages": [{"role": "user", "content": "giá vàng hôm nay"}],
+        }
+
+    def test_search_results_become_rows_and_numbered_citations_follow_them(self, sonar_home):
+        results = [
+            {
+                "title": f"Trang {n}",
+                "url": f"https://example.vn/{n}",
+                "snippet": f"Nội dung {n}",
+                "date": "2026-10-01",
+                "last_updated": "2026-10-02",
+            }
+            for n in range(1, 7)
+        ]
+        reply = _sonar_reply(
+            "Giá vàng SJC khoảng 141 triệu đồng/lượng.[2][6]",
+            search_results=results,
+            citations=[r["url"] for r in results],
+        )
+        with patch("httpx.post", return_value=_mock_resp(reply)):
+            result = _provider().search("q", limit=2)
+
+        assert result["success"] is True
+        rows = result["data"]["web"]
+        # The two cited sources lead and survive the limit; their markers follow them.
+        assert [r["url"] for r in rows] == ["https://example.vn/2", "https://example.vn/6"]
+        assert rows[0]["description"] == "(2026-10-02) Nội dung 2"
+        assert result["data"]["answer"] == "Giá vàng SJC khoảng 141 triệu đồng/lượng.[1][2]"
+
+    def test_a_reply_with_only_citations_still_has_rows(self, sonar_home):
+        reply = _sonar_reply(
+            "Xem nguồn [1].",
+            citations=["https://a.example/one", "https://b.example/two"],
+        )
+        with patch("httpx.post", return_value=_mock_resp(reply)):
+            result = _provider().search("q", limit=5)
+
+        assert [r["url"] for r in result["data"]["web"]] == [
+            "https://a.example/one",
+            "https://b.example/two",
+        ]
+        assert result["data"]["answer"] == "Xem nguồn [1]."
+
+    def test_annotations_litellm_adds_are_read_too(self, sonar_home):
+        reply = _sonar_reply(
+            "Một câu trả lời.",
+            annotations=[
+                {"type": "url_citation", "url_citation": {"url": "https://c.example/x", "title": "C"}}
+            ],
+        )
+        with patch("httpx.post", return_value=_mock_resp(reply)):
+            result = _provider().search("q", limit=5)
+
+        assert result["data"]["web"][0]["url"] == "https://c.example/x"
+        assert result["data"]["web"][0]["title"] == "C"
+
+    def test_a_refusal_names_the_model(self, sonar_home):
+        denied = {
+            "error": {
+                "message": "key not allowed to access model perplexity/sonar",
+                "type": "key_model_access_denied",
+            }
+        }
+        with patch("httpx.post", return_value=_mock_resp(denied, status_code=401)):
+            result = _provider().search("q")
+
+        assert result["success"] is False
+        assert "perplexity/sonar" in result["error"]

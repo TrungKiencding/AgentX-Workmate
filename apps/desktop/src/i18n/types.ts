@@ -205,10 +205,13 @@ export interface Translations {
     copyDetailFailed: string
     backendOutOfDateTitle: string
     backendOutOfDateMessage: string
+    agentOutOfDateMessage: string
     installMethodUnsupportedTitle: string
     updateHermes: string
-    updateReadyTitle: string
-    updateReadyMessage: (count: number) => string
+    restartApp: string
+    backendUpdateTitle: string
+    backendUpdateMessage: (count: number) => string
+    backendUpdateMessageNoCount: string
     seeWhatsNew: string
     errors: {
       elevenLabsNeedsKey: string
@@ -578,23 +581,18 @@ export interface Translations {
       heading: string
       version: (value: string) => string
       versionUnavailable: string
+      agentVersion: (value: string) => string
       updates: string
       checkNow: string
       checking: string
       seeWhatsNew: string
-      updateNow: string
-      releaseNotes: string
+      downloadPage: string
       onLatest: string
-      installing: string
-      cantUpdate: string
       cantReach: string
       tapCheck: string
-      updateReady: (count: number) => string
       lastChecked: (age: string) => string
-      justNowSuffix: string
       automaticUpdates: string
       automaticUpdatesDesc: string
-      branchCommit: (branch: string, commit: string) => string
       never: string
       justNow: string
       minAgo: (count: number) => string
@@ -1210,6 +1208,8 @@ export interface Translations {
       offline: string
       reauth: string
       unconfigured: string
+      /** A named profile: AgentX Hub keeps the default profile's skills and MCP servers only. */
+      otherProfile: string
       lastSync: (when: string) => string
       noInstalls: string
       desired: Record<'installed' | 'removed' | 'disabled', string>
@@ -1221,7 +1221,10 @@ export interface Translations {
       syncing: string
       workspaceSkills: (count: number, workspaces: number) => string
       history: string
-      historyAction: Record<'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed', string>
+      historyAction: Record<
+        'installed' | 'updated' | 'removed' | 'disabled' | 'enabled' | 'failed' | 'registered',
+        string
+      >
       openHub: string
       /** A hub skill edited on this machine: "Update all" keeps it, replacing it backs the edit up (hub §8 #20). */
       editedHere: string
@@ -1235,6 +1238,27 @@ export interface Translations {
       replaceDescription: (version: string) => string
       replaceConfirm: string
       replaceStarted: (name: string) => string
+      /**
+       * What AgentX Hub last said of an installed skill or MCP server (hub decisions §8 #22, §9.1 #18): switched off by
+       * the hub (only the hub turns it back on), no longer published by its author, no longer yours to see — the
+       * card's pill and line, the successor its author points to, the gateway's last day.
+       */
+      state: {
+        heldPill: string
+        held: (reason: string) => string
+        heldNoReason: string
+        switchLocked: string
+        archivedPill: string
+        archived: string
+        hiddenPill: string
+        hidden: string
+        successor: (name: string) => string
+        installSuccessor: (name: string) => string
+        successorInstalled: (name: string) => string
+        servingUntil: (date: string) => string
+        servedNoMore: string
+        keptOff: (names: string) => string
+      }
     }
     publish: {
       upload: string
@@ -2213,6 +2237,7 @@ export interface Translations {
     }
   }
 
+  /** A remote backend's own update (remote mode); this app's is `appUpdate`. */
   updates: {
     stages: Record<string, string>
     checking: string
@@ -2221,30 +2246,22 @@ export interface Translations {
     notAvailableTitle: string
     unsupportedMessage: string
     connectionRetry: string
-    latestBody: string
     latestBodyBackend: string
     allSetTitle: string
-    availableTitle: string
-    availableBody: string
     availableTitleBackend: string
     availableBodyBackend: string
     availableBodyNoChangelog: string
+    changelogGroups: Record<'faster' | 'fixed' | 'improved' | 'new' | 'other', string>
+    changelogFallback: string
     updateNow: string
     maybeLater: string
     moreChanges: (count: number) => string
     manualTitle: string
     manualBody: string
-    manualPickedUp: string
-    /** GUI/backend skew (#45205): backend updated but the running desktop app
-     *  package (AppImage/.deb/.rpm) was not changed and must be reinstalled. */
-    guiSkewTitle: string
-    guiSkewBody: string
     copy: string
     copied: string
     done: string
-    applyingBody: string
     applyingBodyBackend: string
-    applyingClose: string
     errorTitle: string
     errorBody: string
     notNow: string
@@ -2256,6 +2273,78 @@ export interface Translations {
       failed: string
       noReturn: string
     }
+  }
+
+  /** This desktop app's own update: the release feed, download, install. */
+  appUpdate: {
+    checking: string
+    checkNow: string
+    checkFailedTitle: string
+    checkFailedBody: string
+    tryAgain: string
+    notCheckedTitle: string
+    upToDateTitle: string
+    upToDateBody: (version: string) => string
+    availableTitle: (version: string) => string
+    readyTitle: (version: string) => string
+    releasedOn: (date: string) => string
+    whatsNew: string
+    download: (size: string) => string
+    retryDownload: string
+    later: string
+    downloadingTitle: (version: string) => string
+    downloadProgress: (received: string, total: string) => string
+    downloadInBackground: string
+    hide: string
+    cancelDownload: string
+    /** Why a download stopped, by DownloadError kind (size and hash are `mismatch`). */
+    downloadFailed: {
+      disk: string
+      http: string
+      mismatch: string
+      network: string
+      other: string
+    }
+    readyBodyMac: string
+    readyBodyWindows: string
+    readyAgentNote: string
+    restartToUpdate: string
+    installFailed: string
+    activeWorkTitle: string
+    activeWorkBody: (count: number) => string
+    updateAnyway: string
+    keepWorking: string
+    installingTitle: string
+    installingBody: string
+    openDownloadPage: string
+    blocked: Record<
+      | 'dev-build'
+      | 'no-installer-for-machine'
+      | 'not-a-bundle'
+      | 'not-installer-build'
+      | 'not-writable'
+      | 'translocated'
+      | 'unsupported-platform',
+      string
+    >
+    availableToastTitle: string
+    availableToastMessage: (version: string) => string
+    seeWhatsNew: string
+    readyToastTitle: string
+    readyToastMessage: (version: string) => string
+    updatedToastTitle: string
+    updatedToastMessage: (from: string, to: string) => string
+    downloadFailedToastTitle: string
+    installFailedToastTitle: string
+    installFailedToastMessage: (version: string) => string
+    agentToastTitle: string
+    agentToastMessage: Record<'cancelled' | 'failed' | 'held-open', string>
+    restart: string
+    statusCurrent: (version: string) => string
+    statusAvailable: (version: string) => string
+    statusDownloading: (percent: number) => string
+    statusReady: (version: string) => string
+    statusInstalling: string
   }
 
   install: {
@@ -2677,12 +2766,10 @@ export interface Translations {
       offDescription: string
     }
     statusbar: {
-      unknown: string
       restart: string
       update: string
       updateInProgress: string
       commitsBehind: (count: number, branch: string) => string
-      desktopVersion: (version: string) => string
       backendVersion: (version: string) => string
       clientLabel: (version: string) => string
       connectionSsh: (host: string) => string
@@ -2692,8 +2779,6 @@ export interface Translations {
       connectionSshTooltip: (host: string) => string
       connectionRemoteTooltip: (host: string) => string
       backendLabel: (version: string) => string
-      commit: (sha: string) => string
-      branch: (branch: string) => string
       closeCommandCenter: string
       openCommandCenter: string
       showTerminal: string

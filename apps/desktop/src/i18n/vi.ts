@@ -209,10 +209,14 @@ export const vi: Translations = {
     backendOutOfDateTitle: 'Backend đã cũ',
     backendOutOfDateMessage:
       'Backend AgentX của bạn cũ hơn bản desktop này nên có thể chạy sai. Hãy cập nhật để hai bên khớp nhau.',
+    agentOutOfDateMessage:
+      'Agent của AgentX trên máy này cũ hơn ứng dụng và có thể chạy không đúng. Khởi động lại AgentX để cập nhật agent.',
     installMethodUnsupportedTitle: 'Cách cài đặt không được hỗ trợ',
     updateHermes: 'Cập nhật AgentX',
-    updateReadyTitle: 'Đã có bản cập nhật',
-    updateReadyMessage: count => `Có ${count} thay đổi mới.`,
+    restartApp: 'Khởi động lại AgentX',
+    backendUpdateTitle: 'Có bản cập nhật cho backend',
+    backendUpdateMessage: count => `Backend đang kết nối có ${count} thay đổi mới.`,
+    backendUpdateMessageNoCount: 'Đã có phiên bản mới hơn cho backend đang kết nối.',
     seeWhatsNew: 'Xem có gì mới',
     errors: {
       elevenLabsNeedsKey: 'ElevenLabs STT cần ELEVENLABS_API_KEY.',
@@ -824,6 +828,9 @@ export const vi: Translations = {
       },
       tts: {
         provider: 'Nhà cung cấp text-to-speech',
+        agentxGateway: {
+          voice: 'Giọng đọc AgentX AI Gateway'
+        },
         edge: {
           voice: 'Giọng Edge'
         },
@@ -978,30 +985,26 @@ export const vi: Translations = {
       },
       updates: {
         nonInteractiveLocalChanges:
-          'Khi AgentX tự cập nhật từ trong app (không hỏi qua terminal), giữ lại phần sửa mã cục bộ (stash) hay bỏ đi (discard). Cập nhật từ terminal thì luôn hỏi.'
+          'Khi `agentx update` chạy mà không có terminal để hỏi — backend từ xa được cập nhật từ app này, hoặc lệnh /update qua kênh nhắn tin — giữ lại phần sửa mã cục bộ (stash) hay bỏ đi (discard). Cập nhật từ terminal thì luôn hỏi.'
       }
     }),
     about: {
       heading: 'AgentX Workmate Desktop',
       version: value => `Phiên bản ${value}`,
       versionUnavailable: 'Không xác định được phiên bản',
+      agentVersion: value => `agent ${value}`,
       updates: 'Cập nhật',
       checkNow: 'Kiểm tra ngay',
       checking: 'Đang kiểm tra…',
       seeWhatsNew: 'Xem có gì mới',
-      updateNow: 'Cập nhật ngay',
-      releaseNotes: 'Ghi chú phát hành',
+      downloadPage: 'Trang tải về',
       onLatest: 'Bạn đang dùng phiên bản mới nhất.',
-      installing: 'Một bản cập nhật đang được cài.',
-      cantUpdate: 'Bản dựng này không thể tự cập nhật từ trong ứng dụng.',
       cantReach: 'Không kết nối được tới máy chủ cập nhật.',
       tapCheck: 'Nhấn "Kiểm tra ngay" để tìm bản cập nhật.',
-      updateReady: count => `Đã có bản cập nhật mới (gồm ${count} thay đổi).`,
       lastChecked: age => `Kiểm tra lần cuối ${age}`,
-      justNowSuffix: ' · vừa xong',
-      automaticUpdates: 'Tự động cập nhật',
-      automaticUpdatesDesc: 'AgentX tự tìm bản cập nhật ở chế độ nền và báo cho bạn khi có bản sẵn sàng.',
-      branchCommit: (branch, commit) => `Nhánh ${branch} · Commit ${commit}`,
+      automaticUpdates: 'Tự kiểm tra bản cập nhật',
+      automaticUpdatesDesc:
+        'AgentX tự tìm bản phát hành mới ở chế độ nền và báo cho bạn khi có; bạn chọn lúc tải và cài.',
       never: 'chưa bao giờ',
       justNow: 'vừa xong',
       minAgo: count => `${count} phút trước`,
@@ -1736,6 +1739,8 @@ export const vi: Translations = {
       offline: 'Không tới được Hub — skill đã cài vẫn dùng bình thường.',
       reauth: 'Hub từ chối quyền đăng nhập của máy này. Hãy đăng nhập lại.',
       unconfigured: 'Chưa cấu hình địa chỉ Hub (skills.hub_url).',
+      otherProfile:
+        'AgentX Hub chỉ làm việc với hồ sơ mặc định: chuyển sang hồ sơ đó để thêm kỹ năng và MCP từ Hub và nhận những gì Hub gửi.',
       lastSync: when => `Đồng bộ lần cuối ${when}`,
       noInstalls: 'Chưa có kỹ năng nào được yêu cầu cài từ Hub cho máy này. Bấm “Thêm” trên Hub là kỹ năng về đây.',
       desired: { installed: 'Cần cài', removed: 'Cần gỡ', disabled: 'Cần tắt' },
@@ -1753,7 +1758,8 @@ export const vi: Translations = {
         removed: 'đã gỡ',
         disabled: 'đã tắt',
         enabled: 'đã bật lại',
-        failed: 'lỗi'
+        failed: 'lỗi',
+        registered: 'đã báo AgentX Hub'
       },
       openHub: 'Mở AgentX Hub',
       editedHere: 'Đã sửa trên máy',
@@ -1768,7 +1774,23 @@ export const vi: Translations = {
       replaceDescription: version =>
         `Bạn đã sửa skill này trên máy này. Bản ${version} từ Hub sẽ thay thế nó; bản bạn sửa được sao lưu trước vào ~/.agentx/skills/.hub/backups/.`,
       replaceConfirm: 'Sao lưu rồi thay',
-      replaceStarted: name => `Đang thay ${name} bằng bản Hub (đã sao lưu bản của bạn)`
+      replaceStarted: name => `Đang thay ${name} bằng bản Hub (đã sao lưu bản của bạn)`,
+      state: {
+        heldPill: 'Hub đã tắt',
+        held: reason => `AgentX Hub đã tắt: ${reason}. Chỉ hub bật lại được; bạn vẫn gỡ được.`,
+        heldNoReason: 'AgentX Hub đã tắt mục này. Chỉ hub bật lại được; bạn vẫn gỡ được.',
+        switchLocked: 'AgentX Hub đang tắt mục này',
+        archivedPill: 'Ngừng phát hành',
+        archived: 'Tác giả đã ngừng phát hành: vẫn dùng được trên máy này, nhưng sẽ không có bản mới.',
+        hiddenPill: 'Hết quyền xem',
+        hidden: 'Bạn không còn quyền xem mục này trên AgentX Hub: vẫn dùng được, nhưng sẽ không có bản mới.',
+        successor: name => `Tác giả đề xuất dùng ${name} thay thế.`,
+        installSuccessor: name => `Cài ${name}`,
+        successorInstalled: name => `Đã cài ${name}`,
+        servingUntil: date => `AgentX Gateway phục vụ tới ${date}.`,
+        servedNoMore: 'AgentX Gateway đã thôi phục vụ.',
+        keptOff: names => `AgentX Hub giữ tắt: ${names}`
+      }
     },
     publish: {
       upload: 'Tải lên Hub',
@@ -3014,47 +3036,37 @@ export const vi: Translations = {
     stages: {
       idle: 'Đang chuẩn bị…',
       prepare: 'Đang chuẩn bị…',
-      fetch: 'Đang tải về…',
       pull: 'Sắp xong rồi…',
-      pydeps: 'Đang hoàn tất…',
-      update: 'Đang cập nhật AgentX…',
-      rebuild: 'Đang dựng lại ứng dụng desktop…',
-      restart: 'Đang khởi động lại AgentX…',
-      done: 'Cập nhật xong',
-      manual: 'Cập nhật từ terminal của bạn',
-      guiSkew: 'Cập nhật ứng dụng desktop',
-      error: 'Cập nhật đang tạm dừng'
+      restart: 'Đang khởi động lại backend…'
     },
     checking: 'Đang tìm bản cập nhật…',
     checkFailedTitle: 'Không kiểm tra được bản cập nhật',
     tryAgain: 'Thử lại',
-    notAvailableTitle: 'Chưa có bản cập nhật',
-    unsupportedMessage: 'Phiên bản AgentX này không thể tự cập nhật từ trong ứng dụng.',
+    notAvailableTitle: 'Không cập nhật được từ ứng dụng',
+    unsupportedMessage: 'Backend AgentX đang kết nối không thể tự cập nhật từ trong ứng dụng.',
     connectionRetry: 'Hãy kiểm tra kết nối mạng rồi thử lại.',
-    latestBody: 'Bạn đang chạy phiên bản mới nhất.',
     latestBodyBackend: 'Backend đang chạy phiên bản mới nhất.',
     allSetTitle: 'Mọi thứ đã sẵn sàng',
-    availableTitle: 'Đã có bản cập nhật mới',
-    availableBody: 'Một phiên bản AgentX mới đã sẵn sàng để cài.',
     availableTitleBackend: 'Có bản cập nhật cho backend',
     availableBodyBackend: 'Một phiên bản mới hơn của backend AgentX đang kết nối đã sẵn sàng để cài.',
-    availableBodyNoChangelog: 'Đã có phiên bản mới hơn. Kiểu cài đặt này không có ghi chú phát hành.',
+    availableBodyNoChangelog: 'Đã có phiên bản mới hơn. Backend này không kèm danh sách thay đổi.',
+    changelogGroups: {
+      new: 'Có gì mới',
+      fixed: 'Đã sửa',
+      faster: 'Nhanh hơn',
+      improved: 'Cải thiện',
+      other: 'Cải tiến khác'
+    },
+    changelogFallback: 'Các sửa lỗi và cải tiến nhỏ.',
     updateNow: 'Cập nhật ngay',
     maybeLater: 'Để sau',
     moreChanges: count => `+ ${count} thay đổi nữa.`,
-    manualTitle: 'Cập nhật từ terminal của bạn',
-    manualBody: 'Bạn đã cài AgentX từ dòng lệnh, nên việc cập nhật cũng chạy ở đó. Hãy dán lệnh này vào terminal:',
-    manualPickedUp: 'AgentX sẽ dùng phiên bản mới ở lần bạn mở ứng dụng kế tiếp.',
-    guiSkewTitle: 'Cập nhật ứng dụng desktop',
-    guiSkewBody:
-      'Backend đã được cập nhật, nhưng gói ứng dụng desktop này thì chưa. Hãy cập nhật hoặc cài lại ứng dụng desktop AgentX (bản AppImage / .deb / .rpm của bạn) cho khớp.',
+    manualTitle: 'Cập nhật backend thủ công',
+    manualBody: 'Backend AgentX đang kết nối không tự cập nhật được. Hãy chạy lệnh này trên máy chủ đang chạy backend:',
     copy: 'Sao chép',
     copied: 'Đã sao chép',
     done: 'Xong',
-    applyingBody:
-      'Trình cập nhật AgentX sẽ chạy trong cửa sổ riêng của nó và tự mở lại AgentX khi xong. Đừng tự mở lại AgentX trong lúc đang cập nhật.',
     applyingBodyBackend: 'Backend từ xa đang cài bản cập nhật và sẽ khởi động lại. AgentX tự kết nối lại khi nó lên.',
-    applyingClose: 'Cửa sổ này sẽ đóng trong lúc cập nhật, sau đó AgentX tự mở lại.',
     errorTitle: 'Cập nhật chưa hoàn tất',
     errorBody: 'Đừng lo — không mất gì cả. Bạn có thể thử lại ngay bây giờ.',
     notNow: 'Để lúc khác',
@@ -3066,6 +3078,84 @@ export const vi: Translations = {
       failed: 'Cập nhật backend thất bại.',
       noReturn: 'Backend không quay lại trực tuyến. Bản cập nhật có thể chưa hoàn tất — hãy kiểm tra máy chủ backend.'
     }
+  },
+
+  appUpdate: {
+    checking: 'Đang tìm bản cập nhật…',
+    checkNow: 'Kiểm tra bản cập nhật',
+    checkFailedTitle: 'Không kiểm tra được bản cập nhật',
+    checkFailedBody: 'Hãy kiểm tra kết nối mạng rồi thử lại.',
+    tryAgain: 'Thử lại',
+    notCheckedTitle: 'AgentX chưa tìm bản cập nhật',
+    upToDateTitle: 'Bạn đang dùng bản mới nhất',
+    upToDateBody: version => `AgentX Workmate ${version} là phiên bản mới nhất.`,
+    availableTitle: version => `Đã có AgentX Workmate ${version}`,
+    readyTitle: version => `AgentX Workmate ${version} đã sẵn sàng để cài`,
+    releasedOn: date => `Phát hành ngày ${date}`,
+    whatsNew: 'Có gì mới',
+    download: size => (size ? `Tải bản cập nhật (${size})` : 'Tải bản cập nhật'),
+    retryDownload: 'Tải lại',
+    later: 'Để sau',
+    downloadingTitle: version => `Đang tải AgentX Workmate ${version}`,
+    downloadProgress: (received, total) => `${received} / ${total}`,
+    downloadInBackground: 'Bạn cứ làm việc tiếp — bản cập nhật vẫn tải ở chế độ nền.',
+    hide: 'Ẩn',
+    cancelDownload: 'Huỷ tải',
+    downloadFailed: {
+      disk: 'Không lưu được bản cập nhật. Hãy giải phóng bớt dung lượng ổ đĩa rồi thử lại.',
+      http: 'Máy chủ cập nhật chưa gửi được bộ cài. Hãy thử lại sau ít phút.',
+      mismatch: 'Tệp tải về không khớp với bản phát hành đã ký nên AgentX đã bỏ nó. Hãy thử lại.',
+      network: 'Mất kết nối mạng khi đang tải. Hãy kiểm tra mạng rồi thử lại.',
+      other: 'Chưa tải xong bản cập nhật. Hãy thử lại.'
+    },
+    readyBodyMac: 'AgentX sẽ đóng lại, thay bằng bản mới rồi tự mở lại.',
+    readyBodyWindows: 'AgentX sẽ đóng lại trong lúc trình cài đặt chạy ngầm, rồi tự mở lại sau khoảng một phút.',
+    readyAgentNote: 'Lần mở đầu tiên, bản mới sẽ cập nhật luôn phần agent, có thể mất vài phút.',
+    restartToUpdate: 'Khởi động lại để cập nhật',
+    installFailed:
+      'Chưa cài được bản cập nhật nên bạn vẫn đang dùng bản hiện tại. Hãy thử lại, hoặc cài bản mới từ trang tải về.',
+    activeWorkTitle: 'Agent vẫn đang làm việc',
+    activeWorkBody: count => `Cập nhật bây giờ sẽ dừng ${count} cuộc trò chuyện đang chạy.`,
+    updateAnyway: 'Vẫn cập nhật',
+    keepWorking: 'Để agent làm xong',
+    installingTitle: 'Đang khởi động lại để cập nhật…',
+    installingBody: 'AgentX sẽ đóng ngay bây giờ và tự mở lại. Đừng tự mở lại AgentX trong lúc này.',
+    openDownloadPage: 'Mở trang tải về',
+    blocked: {
+      'dev-build': 'Đây là bản phát triển — cập nhật bằng git, không qua đây.',
+      'unsupported-platform': 'Chưa có bộ cài cho hệ điều hành này.',
+      'no-installer-for-machine': 'Bản phát hành này chưa có bộ cài cho máy này. Hãy tải trên trang tải về khi có.',
+      'not-a-bundle': 'AgentX không tự thay được từ vị trí đang chạy. Hãy cài bản mới từ trang tải về.',
+      translocated:
+        'macOS đang chạy AgentX trực tiếp từ thư mục Downloads hoặc từ ổ đĩa ảnh. Hãy kéo AgentX Workmate vào thư mục Applications, mở lại từ đó rồi cập nhật.',
+      'not-writable':
+        'AgentX không có quyền thay chính nó trong thư mục hiện tại (cần tài khoản quản trị). Hãy cài bản mới từ trang tải về.',
+      'not-installer-build':
+        'Bản AgentX này không được cài bằng bộ cài nên không tự cập nhật được. Hãy cài bản mới từ trang tải về.'
+    },
+    availableToastTitle: 'Đã có bản cập nhật',
+    availableToastMessage: version => `AgentX Workmate ${version} đã sẵn sàng để tải.`,
+    seeWhatsNew: 'Xem có gì mới',
+    readyToastTitle: 'Đã tải xong bản cập nhật',
+    readyToastMessage: version => `Khởi động lại AgentX để hoàn tất cập nhật lên ${version}.`,
+    updatedToastTitle: 'Đã cập nhật AgentX',
+    updatedToastMessage: (from, to) => `AgentX Workmate đã lên bản ${to} (trước đó ${from}).`,
+    downloadFailedToastTitle: 'Chưa tải được bản cập nhật',
+    installFailedToastTitle: 'Cập nhật chưa thành công',
+    installFailedToastMessage: version => `Chưa cài được AgentX Workmate ${version}; bạn vẫn đang dùng bản cũ.`,
+    agentToastTitle: 'Phần agent chưa được cập nhật',
+    agentToastMessage: {
+      'held-open':
+        'Một chương trình khác đang dùng agent của AgentX nên agent vẫn ở bản cũ. Hãy đóng các cửa sổ AgentX khác và terminal đang chạy agentx rồi khởi động lại.',
+      failed: 'Cập nhật phần agent chưa xong nên AgentX đang chạy agent bản cũ. Khởi động lại AgentX để thử lại.',
+      cancelled: 'Bạn đã huỷ cập nhật phần agent nên AgentX đang chạy agent bản cũ. Khởi động lại AgentX để cập nhật.'
+    },
+    restart: 'Khởi động lại',
+    statusCurrent: version => `AgentX Workmate ${version}`,
+    statusAvailable: version => `Đã có AgentX Workmate ${version}`,
+    statusDownloading: percent => `Đang tải bản cập nhật · ${percent}%`,
+    statusReady: version => `Bản ${version} đã sẵn sàng — khởi động lại để cập nhật`,
+    statusInstalling: 'Đang cài bản cập nhật…'
   },
 
   install: {
@@ -3556,12 +3646,10 @@ export const vi: Translations = {
       offDescription: 'Chạy mà không hỏi phê duyệt'
     },
     statusbar: {
-      unknown: 'không rõ',
       restart: 'khởi động lại',
       update: 'cập nhật',
       updateInProgress: 'Đang cập nhật',
       commitsBehind: (count, branch) => `chậm sau ${branch} ${count} commit`,
-      desktopVersion: version => `AgentX Workmate Desktop v${version}`,
       backendVersion: version => `Backend v${version}`,
       clientLabel: version => `client v${version}`,
       connectionSsh: host => `SSH: ${host}`,
@@ -3571,8 +3659,6 @@ export const vi: Translations = {
       connectionSshTooltip: host => `SSH · ${host}`,
       connectionRemoteTooltip: host => `Từ xa · ${host}`,
       backendLabel: version => `backend v${version}`,
-      commit: sha => `commit ${sha}`,
-      branch: branch => `nhánh ${branch}`,
       closeCommandCenter: 'Đóng Trung tâm điều khiển',
       openCommandCenter: 'Mở Trung tâm điều khiển',
       showTerminal: 'Hiện terminal',

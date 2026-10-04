@@ -883,6 +883,16 @@ class FakeSecondBrain:
         # None stands for a service that predates web search and says nothing
         # about it; "" for one that grants none.
         self.web_search_model: str | None = None
+        # The image and vision models the NEXT issued key carries beside
+        # `grants` (None = a service that predates feature models).
+        self.image_model: str | None = None
+        self.vision_model: str | None = None
+        # The text-to-speech model the NEXT issued key carries (None = a service
+        # that predates it).
+        self.speech_model: str | None = None
+        # The speech-to-text model the NEXT issued key carries (None = a service
+        # that predates it).
+        self.transcription_model: str | None = None
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -917,6 +927,32 @@ class FakeSecondBrain:
         record = self.proxy.records[held["token"]]
         record["models"] = [*held["models"], model] if model else list(held["models"])
         held["web_search_model"] = model
+
+    def grant_features(
+        self,
+        subject: str,
+        *,
+        image: str = "",
+        vision: str = "",
+        speech: str | None = None,
+        transcription: str | None = None,
+    ) -> None:
+        """The grant pass naming an image, a vision (a speech, a transcription) model for a held key.
+
+        Like the real service, a model named for a feature leaves the chat list
+        and the key's allowlist gains whatever it did not reach yet.
+        """
+        held = self.keys[subject]
+        record = self.proxy.records[held["token"]]
+        roles = [m for m in (image, vision, speech, transcription) if m]
+        held["models"] = [m for m in held["models"] if m not in roles]
+        held["image_model"] = image
+        held["vision_model"] = vision
+        if speech is not None:
+            held["speech_model"] = speech
+        if transcription is not None:
+            held["transcription_model"] = transcription
+        record["models"] = [*record["models"], *(m for m in roles if m not in record["models"])]
 
     def retire_model(self, subject: str, model: str) -> None:
         """What the service's grant pass does when the proxy retires a model.
@@ -969,7 +1005,14 @@ class FakeSecondBrain:
         # Scoped the way the real service scopes a key: the grant, then web
         # search. An empty scope is LiteLLM's "everything", as before.
         search = [self.web_search_model] if self.web_search_model else []
-        record = self.proxy.mint(alias, models=[*self.grants, *search], user_id=subject)
+        features = [
+            m
+            for m in (self.image_model, self.vision_model, self.speech_model, self.transcription_model)
+            if m
+        ]
+        record = self.proxy.mint(
+            alias, models=list(dict.fromkeys([*self.grants, *search, *features])), user_id=subject
+        )
         if held is not None:
             # Exactly the previously stored token, and never by alias.
             self.proxy.records.pop(held["token"], None)
@@ -983,6 +1026,14 @@ class FakeSecondBrain:
         }
         if self.web_search_model is not None:
             issued["web_search_model"] = self.web_search_model
+        if self.image_model is not None:
+            issued["image_model"] = self.image_model
+        if self.vision_model is not None:
+            issued["vision_model"] = self.vision_model
+        if self.speech_model is not None:
+            issued["speech_model"] = self.speech_model
+        if self.transcription_model is not None:
+            issued["transcription_model"] = self.transcription_model
         self.keys[subject] = issued
         return httpx.Response(
             200, json={**issued, "status": "rotated" if held is not None else "issued"}
@@ -2531,6 +2582,408 @@ class TestVisionFollowsTheModelInUse:
             "provider": "openrouter",
             "model": "google/gemini-3-flash",
         }
+
+
+class TestFeatureModels:
+    """Web search, image and vision models: reachable with the key, never in a picker.
+
+    The service names one model per feature beside the chat grant. The laptop
+    records them for the features that call them, pins the vision one in the
+    vision slot, and keeps every one of them out of the model menus — including
+    the live ``/v1/models`` listing, which would show the key's whole allowlist.
+    """
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def _features(self, brain):
+        brain.grants = ["big-chat", "small-chat"]
+        brain.web_search_model = "search-model"
+        brain.image_model = "paint-model"
+        brain.vision_model = "eyes-model"
+
+    def test_feature_models_never_reach_the_picker(self, account, brain):
+        self._features(brain)
+
+        result = self._provision(account, brain)
+
+        assert result.ok, result.detail
+        assert result.models == ("big-chat", "small-chat")
+        assert result.default_model == "big-chat"
+        entry = raw_config(account.home)["providers"]["litellm"]
+        assert set(entry["models"]) == {"big-chat", "small-chat"}
+        # The picker is the service's answer, not the proxy's whole allowlist.
+        assert entry["discover_models"] is False
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_the_sidecar_records_each_feature_model(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+
+        state = read_state(account.home)
+        assert (state["web_search_model"], state["image_model"], state["vision_model"]) == (
+            "search-model",
+            "paint-model",
+            "eyes-model",
+        )
+        assert state["models"] == ["big-chat", "small-chat"]
+        assert set(state["reachable_models"]) == {
+            "big-chat", "small-chat", "search-model", "paint-model", "eyes-model",
+        }
+
+    def test_the_vision_slot_names_the_granted_vision_model(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["auxiliary"]["vision"] == {
+            "provider": "litellm",
+            "model": "eyes-model",
+        }
+
+    def test_a_feature_model_listed_among_the_chat_models_is_kept_out(self, account, brain):
+        # An answer that still lists the vision model for chat (a row written
+        # before the change): the field naming it for vision wins.
+        self._features(brain)
+        brain.grants = ["eyes-model", "big-chat"]
+
+        result = self._provision(account, brain)
+
+        assert result.models == ("big-chat",)
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat"}
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_features_granted_later_arrive_on_the_reuse_path(self, account, brain):
+        # Day one: chat models only — the vision-capable small model among them.
+        brain.grants = ["small-chat", "big-chat", "eyes-model"]
+        first = self._provision(account, brain)
+        assert first.models == ("small-chat", "big-chat", "eyes-model")
+
+        # The operator names an image and a vision model; the key keeps its token.
+        brain.grant_features("tok", image="paint-model", vision="eyes-model")
+        again = self._provision(account, brain)
+
+        assert again.ok, again.detail
+        assert again.models == ("small-chat", "big-chat")
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "small-chat", "big-chat",
+        }
+        state = read_state(account.home)
+        assert (state["image_model"], state["vision_model"]) == ("paint-model", "eyes-model")
+        assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
+
+    def test_a_default_on_a_model_that_became_a_feature_moves_to_a_chat_model(
+        self, account, brain
+    ):
+        brain.grants = ["eyes-model", "big-chat"]
+        self._provision(account, brain)
+        assert raw_config(account.home)["model"]["default"] == "eyes-model"
+
+        brain.grant_features("tok", image="paint-model", vision="eyes-model")
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_an_older_sidecar_listing_a_feature_model_is_tidied_on_reuse(self, account, brain):
+        from hermes_cli.account_provisioning import write_state
+
+        self._features(brain)
+        self._provision(account, brain)
+
+        # What a run before this change could leave behind: the vision model in
+        # the recorded chat list and in the picker.
+        state = read_state(account.home)
+        write_state(account.home, {**state, "models": ["eyes-model", *state["models"]]})
+        from hermes_cli.config import load_config, save_config
+
+        cfg = load_config()
+        cfg["providers"]["litellm"]["models"]["eyes-model"] = {"supports_vision": True}
+        cfg["model"]["default"] = "eyes-model"
+        save_config(cfg, merge_existing=True)
+
+        result = self._provision(account, brain)
+
+        assert result.status == "reused"
+        assert result.models == ("big-chat", "small-chat")
+        assert "eyes-model" not in raw_config(account.home)["providers"]["litellm"]["models"]
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+        assert read_state(account.home)["models"] == ["big-chat", "small-chat"]
+
+    def test_a_vision_pin_somebody_set_elsewhere_survives(self, account, brain):
+        from hermes_cli.config import load_config, save_config
+
+        self._features(brain)
+        self._provision(account, brain)
+        cfg = load_config()
+        cfg["auxiliary"] = {"vision": {"provider": "openrouter", "model": "google/gemini-3-flash"}}
+        save_config(cfg, merge_existing=True)
+
+        self._provision(account, brain, force_rotate=True)
+
+        assert raw_config(account.home)["auxiliary"]["vision"] == {
+            "provider": "openrouter",
+            "model": "google/gemini-3-flash",
+        }
+
+    def test_no_vision_model_releases_the_pin(self, account, brain):
+        self._features(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
+
+        # The operator takes the vision model away; the next key the service
+        # issues (a rotation here) names none.
+        brain.vision_model = ""
+        self._provision(account, brain, force_rotate=True)
+
+        vision = raw_config(account.home)["auxiliary"]["vision"]
+        assert (vision["provider"], vision["model"]) == ("auto", "")
+
+
+class TestSpeechModel:
+    """The text-to-speech model: reachable with the key, never in a picker, read aloud by default.
+
+    The service names it beside the chat grant like the other feature models.
+    The laptop records it for ``tools/agentx_gateway_tts`` and makes the
+    gateway the TTS provider — unless the person already chose one — so replies
+    are read in the account's speech model instead of Edge's English voice.
+    """
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def _grant(self, brain, speech="voice-model"):
+        brain.grants = ["big-chat", "small-chat"]
+        brain.web_search_model = "search-model"
+        brain.speech_model = speech
+
+    def test_recorded_kept_out_of_the_picker_and_made_the_tts_provider(self, account, brain):
+        self._grant(brain)
+
+        result = self._provision(account, brain)
+
+        assert result.ok, result.detail
+        assert result.models == ("big-chat", "small-chat")
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat", "small-chat"}
+        state = read_state(account.home)
+        assert state["speech_model"] == "voice-model"
+        assert "voice-model" in state["reachable_models"]
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+    def test_a_provider_somebody_chose_stays(self, account, brain):
+        from hermes_cli.config import read_raw_config, save_config
+
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+        # Settings → Voice → Edge: the key is already in the file, so even the
+        # schema default is saved as the person's choice — and survives.
+        raw = read_raw_config()
+        raw["tts"]["provider"] = "edge"
+        save_config(raw)
+        assert raw_config(account.home)["tts"]["provider"] == "edge"
+        self._provision(account, brain)
+        self._provision(account, brain, force_rotate=True)
+
+        assert raw_config(account.home)["tts"]["provider"] == "edge"
+
+    def test_a_hand_written_provider_stays(self, account, brain):
+        (account.home / "config.yaml").write_text("tts:\n  provider: openai\n")
+        self._grant(brain)
+
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["tts"]["provider"] == "openai"
+
+    def test_a_speech_model_granted_later_arrives_on_the_reuse_path(self, account, brain):
+        self._grant(brain, speech=None)
+        first = self._provision(account, brain)
+        assert first.ok and "provider" not in (raw_config(account.home).get("tts") or {})
+
+        brain.grant_features("tok", speech="voice-model")
+        again = self._provision(account, brain)
+
+        assert again.ok, again.detail
+        assert again.models == ("big-chat", "small-chat")
+        assert read_state(account.home)["speech_model"] == "voice-model"
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+    def test_no_speech_model_hands_the_provider_back(self, account, brain):
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
+
+        brain.speech_model = ""
+        self._provision(account, brain, force_rotate=True)
+
+        assert "provider" not in raw_config(account.home)["tts"]
+        assert read_state(account.home)["speech_model"] == ""
+
+
+class TestTranscriptionModel:
+    """The speech-to-text model: reachable with the key, never in a picker, transcribing by default.
+
+    The service names it beside the chat grant like the other feature models.
+    The laptop records it for ``tools/agentx_gateway_stt`` and makes the
+    gateway the STT provider — unless the person already chose one — so
+    dictation and voice messages are transcribed by the account's model instead
+    of a local Whisper told every clip is English.
+    """
+
+    def _provision(self, account, brain, **kwargs):
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+        )
+
+    def _grant(self, brain, transcription="ears-model"):
+        brain.grants = ["big-chat", "small-chat"]
+        brain.web_search_model = "search-model"
+        brain.transcription_model = transcription
+
+    def test_recorded_kept_out_of_the_picker_and_made_the_stt_provider(self, account, brain):
+        from tools.transcription_tools import _load_stt_config
+
+        self._grant(brain)
+
+        result = self._provision(account, brain)
+
+        assert result.ok, result.detail
+        assert result.models == ("big-chat", "small-chat")
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat", "small-chat"}
+        state = read_state(account.home)
+        assert state["transcription_model"] == "ears-model"
+        assert "ears-model" in state["reachable_models"]
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+        # What transcribe_audio reads: the written choice beats the shipped ``local``.
+        assert _load_stt_config()["provider"] == "agentx-gateway"
+        # Nothing was granted for speech, so text-to-speech keeps its default.
+        assert "provider" not in (raw_config(account.home).get("tts") or {})
+
+    def test_listed_among_the_chat_models_it_is_still_kept_out(self, account, brain):
+        # An answer that still lists it for chat: the field naming it wins.
+        self._grant(brain)
+        brain.grants = ["ears-model", "big-chat"]
+
+        result = self._provision(account, brain)
+
+        assert result.models == ("big-chat",)
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat"}
+        assert raw_config(account.home)["model"]["default"] == "big-chat"
+
+    def test_a_provider_somebody_chose_stays(self, account, brain):
+        from hermes_cli.config import read_raw_config, save_config
+
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+        # Settings → Voice → Local: the key is already in the file, so even the
+        # schema default is saved as the person's choice — and survives.
+        raw = read_raw_config()
+        raw["stt"]["provider"] = "local"
+        save_config(raw)
+        assert raw_config(account.home)["stt"]["provider"] == "local"
+        self._provision(account, brain)
+        self._provision(account, brain, force_rotate=True)
+
+        assert raw_config(account.home)["stt"]["provider"] == "local"
+
+    def test_a_hand_written_provider_stays_even_the_default(self, account, brain):
+        # ``local`` is also what the shipped config says — but written, it is a choice.
+        (account.home / "config.yaml").write_text("stt:\n  provider: local\n")
+        self._grant(brain)
+
+        self._provision(account, brain)
+
+        assert raw_config(account.home)["stt"]["provider"] == "local"
+
+    def test_a_transcription_model_granted_later_arrives_on_the_reuse_path(
+        self, account, brain, fake_proxy
+    ):
+        # An installed machine, before the service named a transcription model.
+        self._grant(brain, transcription=None)
+        first = self._provision(account, brain, client=make_client(fake_proxy))
+        assert first.ok and "provider" not in (raw_config(account.home).get("stt") or {})
+
+        # The grant pass adds it to the key it already holds: the proxy's
+        # /v1/models answer changes, and that is the cue to ask the service.
+        brain.grant_features("tok", transcription="ears-model")
+        again = self._provision(account, brain, client=make_client(fake_proxy))
+
+        assert again.ok, again.detail
+        assert again.models == ("big-chat", "small-chat")
+        assert read_state(account.home)["transcription_model"] == "ears-model"
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+    def test_a_sidecar_from_before_transcription_asks_once(self, account, brain, fake_proxy):
+        from hermes_cli.account_provisioning import write_state
+        from hermes_cli.config import read_raw_config, save_config
+
+        # A version that did not know the field ran after the grant pass: it
+        # re-asked because the allowlist changed, recorded that allowlist (the
+        # transcription model included) and nothing about what it is for.
+        self._grant(brain)
+        self._provision(account, brain, client=make_client(fake_proxy))
+        state = read_state(account.home)
+        state.pop("transcription_model")
+        assert "ears-model" in state["reachable_models"]
+        write_state(account.home, state)
+        raw = read_raw_config()
+        raw["stt"].pop("provider")
+        save_config(raw)
+        brain.requests.clear()
+
+        # The proxy's answer matches what was recorded, yet the service is asked
+        # once, so the update learns the model and makes it the STT provider...
+        again = self._provision(account, brain, client=make_client(fake_proxy))
+
+        assert again.ok, again.detail
+        assert len(brain.requests) == 1
+        assert read_state(account.home)["transcription_model"] == "ears-model"
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+        # ...and only once.
+        brain.requests.clear()
+        third = self._provision(account, brain, client=make_client(fake_proxy))
+        assert third.status == "reused" and brain.requests == []
+
+    def test_no_transcription_model_hands_the_provider_back(self, account, brain):
+        self._grant(brain)
+        self._provision(account, brain)
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+        brain.transcription_model = ""
+        self._provision(account, brain, force_rotate=True)
+
+        assert "provider" not in raw_config(account.home)["stt"]
+        assert read_state(account.home)["transcription_model"] == ""
+
+    def test_the_reuse_path_follows_the_sidecar(self, account, brain, fake_proxy):
+        from hermes_cli.account_provisioning import write_state
+
+        self._grant(brain)
+        self._provision(account, brain, client=make_client(fake_proxy))
+        brain.requests.clear()
+
+        # A key the proxy still accepts, reaching what was recorded, is simply
+        # reused — the service is not asked, and the tidy pass reads the grant
+        # from the sidecar: the gateway stays...
+        again = self._provision(account, brain, client=make_client(fake_proxy))
+        assert again.status == "reused" and brain.requests == []
+        assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
+
+        # ...and is handed back once the sidecar records no transcription model.
+        write_state(account.home, {**read_state(account.home), "transcription_model": ""})
+        third = self._provision(account, brain, client=make_client(fake_proxy))
+
+        assert third.status == "reused" and brain.requests == []
+        assert "provider" not in raw_config(account.home)["stt"]
 
 
 class TestStaleDeprecatedModes:

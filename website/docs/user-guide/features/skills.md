@@ -736,6 +736,18 @@ agentx skills install https://example.com/SKILL.md --name sharethis-chat
 
 Trust level is always `community` — the same security scan runs as for every other source. The URL is stored as the install identifier, so `agentx skills update` re-fetches from the same URL automatically when you want to refresh.
 
+#### 9. AgentX Hub (`agentx-hub`)
+
+Your organisation's AgentX Hub: the skills it approved for you — your own, your workspaces', your organisation's public ones — in **Utilities → Store → Skills**, or `agentx skills install agentx-hub/<slug>`. A bundle installs only with the hub's signature checked (trust `agentx-hub-verified`).
+
+- **The hub knows every copy.** Workmate tells the hub of each skill from it on this machine — installed from the store, from the command line, or while the hub could not be reached — with the version it runs. That is what lets the hub reach it later.
+- **When the hub switches a skill off** (its version yanked, the skill taken down by a hub admin, a rescan finds it unsafe), Workmate switches it off and keeps its files. Its card says **Off by the hub** with the reason, and its switch stays locked: switching it back on here — in the store, `agentx skills`, or `config.yaml` — does not last. Only the hub turns it back on (the hub admin restores it, or you update to a version the hub still serves). You can always remove it.
+- **When its author stops publishing it**, it keeps working on this machine; its card says **No longer published**, no newer version will come, and **Install <name>** installs what the author points to instead, when there is one.
+- **When you can no longer see it on the hub** (made private, a workspace you left), it keeps working; no newer version will come.
+- **Removing it here** removes it from the hub's list for this machine too.
+
+Only the default profile is kept in step with the hub. A named profile installs no new AgentX Hub skill (the store and `agentx -p <name> skills install agentx-hub/…` send you to the default profile), and one it had from before is its own: the hub no longer reaches it there.
+
 ### Security scanning and `--force`
 
 All hub-installed skills go through a **security scanner** that checks for data exfiltration, prompt injection, destructive commands, supply-chain signals, and other threats.

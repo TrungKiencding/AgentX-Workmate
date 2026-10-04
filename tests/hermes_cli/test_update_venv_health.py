@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from hermes_cli import main as cli_main
+from hermes_cli import update_cmd
 
 
 # ---------------------------------------------------------------------------
@@ -123,14 +124,19 @@ def _run_update_until_guard(args):
         def __truediv__(self, _other):
             raise _PastGuard
 
-    with patch.object(cli_main, "_is_windows", return_value=True), patch.object(
-        cli_main, "_venv_scripts_dir", return_value=None
-    ), patch.object(cli_main, "_run_pre_update_backup"), patch.object(
-        cli_main, "_pause_windows_gateways_for_update", return_value=None
+    # Patch the module _cmd_update_impl resolves (update_cmd._m()), not the
+    # one imported at collection: if hermes_cli.main was swapped since, the
+    # sentinel would miss and the update would run against the real checkout.
+    main_mod = update_cmd._m()
+
+    with patch.object(main_mod, "_is_windows", return_value=True), patch.object(
+        main_mod, "_venv_scripts_dir", return_value=None
+    ), patch.object(main_mod, "_run_pre_update_backup"), patch.object(
+        main_mod, "_pause_windows_gateways_for_update", return_value=None
     ), patch.object(
-        cli_main, "_resume_windows_gateways_after_update"
+        main_mod, "_resume_windows_gateways_after_update"
     ), patch.object(
-        cli_main,
+        main_mod,
         "_detect_venv_python_processes",
         return_value=[(101, "python.exe", "python.exe -m hermes_cli.main serve")],
     ), patch.object(
@@ -138,12 +144,12 @@ def _run_update_until_guard(args):
         # gating, not orphan detection (covered in
         # test_update_orphan_backend_reap.py). None = "not provably orphaned"
         # → the guard refuses exactly as before the orphan-reap addition.
-        cli_main, "_orphaned_desktop_backend_pids", return_value=None
+        main_mod, "_orphaned_desktop_backend_pids", return_value=None
     ), patch.object(
-        cli_main, "PROJECT_ROOT", _RootSentinel()
+        main_mod, "PROJECT_ROOT", _RootSentinel()
     ):
         try:
-            cli_main._cmd_update_impl(args, gateway_mode=False)
+            main_mod._cmd_update_impl(args, gateway_mode=False)
         except _PastGuard:
             return "past_guard"
         except SystemExit as exc:

@@ -7,6 +7,8 @@ implementation in this same file once that phase ships.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from hermes_cli.service_manager import (
@@ -200,6 +202,10 @@ def test_seed_supervise_skeleton_creates_expected_layout(tmp_path) -> None:
 
     svc_dir = tmp_path / "gateway-foo"
     svc_dir.mkdir()
+    # BSD/macOS give a new directory its PARENT's group, and chmod by a
+    # non-member silently drops setgid. Under /tmp (group wheel; the
+    # canonical runner clears TMPDIR) event/ came out 01730 instead of 03730.
+    os.chown(svc_dir, -1, os.getegid())
 
     _seed_supervise_skeleton(svc_dir)
 
