@@ -35,7 +35,7 @@ install:
   dev:
     type: git
     url: https://github.com/astralxkienlt/agentx-webmate.git
-    ref: c8ca4eaf2b386423750a4561a8ffb74a542db47e
+    ref: 9da0f2c97a9d839b12381a1450b5ce33fc0085d3
     entry: mcp-server/dist/index.js
     bootstrap:
       - "npm --prefix mcp-server ci --no-audit --no-fund"

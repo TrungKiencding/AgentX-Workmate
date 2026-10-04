@@ -15,6 +15,7 @@ Tests cover:
 import asyncio
 import json
 import os
+import shutil
 import stat
 import sys
 import time
@@ -702,13 +703,15 @@ class TestHealthDetailedEndpoint:
     async def test_health_detailed_returns_ok(self, adapter):
         """GET /health/detailed returns status, platform, and runtime fields."""
         app = _create_app(adapter)
+        # Exercise a healthy disk independently of the developer machine's free space.
         with patch("gateway.status.read_runtime_status", return_value={
             "gateway_state": "running",
             "platforms": {"telegram": {"state": "connected"}},
             "active_agents": 2,
             "exit_reason": None,
             "updated_at": "2026-04-14T00:00:00Z",
-        }), patch("gateway.run._resolve_gateway_model", return_value="test/model"):
+        }), patch("gateway.run._resolve_gateway_model", return_value="test/model"), \
+             patch("gateway.readiness.shutil.disk_usage", return_value=shutil._ntuple_diskusage(100, 50, 50)):
             async with TestClient(TestServer(app)) as cli:
                 resp = await cli.get("/health/detailed")
                 assert resp.status == 200
