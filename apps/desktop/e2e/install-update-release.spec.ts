@@ -24,6 +24,7 @@ interface ReleaseWindow extends Window {
 test.skip(process.env.AGENTX_E2E_RELEASE !== '1', 'Full release installation is opt-in.')
 
 test('packaged release installs once and preserves its version and data across three restarts', async () => {
+  const testInfo = test.info()
   test.setTimeout(1_200_000)
   const sandbox = createSandbox('release-install')
   const executablePath = process.env.AGENTX_E2E_EXECUTABLE || PACKAGED_BINARY_PATH
@@ -46,23 +47,30 @@ test('packaged release installs once and preserves its version and data across t
     while (Date.now() < deadline) {
       const state = await page.evaluate(() => (window as unknown as ReleaseWindow).agentxDesktop.getBootstrapState())
       const summary = JSON.stringify({ active: state.active, stages: state.stages, error: state.error })
+
       if (summary !== last) {
         console.log(summary)
         last = summary
       }
+
       if (state.error) {
         throw new Error(state.error)
       }
+
       if (state.setupChoice) {
         await page.evaluate(() => (window as unknown as ReleaseWindow).agentxDesktop.continueBootstrapLocal())
       }
+
       if (state.completedAt) {
         expect(Object.values(state.stages).some(stage => stage.state === 'failed')).toBe(false)
         completed = true
+
         break
       }
+
       await page.waitForTimeout(2000)
     }
+
     expect(completed, 'Fresh installation must finish successfully').toBe(true)
     const version = await page.evaluate(() => (window as unknown as ReleaseWindow).agentxDesktop.getVersion())
     expect(version.appVersion).toBe(
@@ -97,6 +105,14 @@ test('packaged release installs once and preserves its version and data across t
     }
   } finally {
     await app?.close().catch(() => undefined)
+    const logs = path.join(sandbox.hermesHome, 'logs')
+
+    if (fs.existsSync(logs)) {
+      for (const file of fs.readdirSync(logs).filter(file => file.startsWith('bootstrap-') && file.endsWith('.log'))) {
+        await testInfo.attach(file, { body: fs.readFileSync(path.join(logs, file)), contentType: 'text/plain' })
+      }
+    }
+
     sandbox.cleanup()
   }
 })
