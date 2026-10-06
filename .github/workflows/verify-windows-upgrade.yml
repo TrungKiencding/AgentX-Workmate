@@ -85,6 +85,7 @@ jobs:
 
       - name: Exercise the upgraded app and repeated restarts
         working-directory: apps/desktop
+        shell: powershell
         env:
           AGENTX_E2E_RELEASE: '1'
         run: npx playwright test e2e/install-update-release.spec.ts --workers=1 --retries=0
