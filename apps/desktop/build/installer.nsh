@@ -121,3 +121,10 @@ FunctionEnd
 
   ${endif}
 !macroend
+
+; Retire the bootstrap installer's shortcuts when installing the packaged app.
+; Otherwise a user can reopen the old executable after updating the new one.
+!macro customInstall
+  Delete "$DESKTOP\AgentX.lnk"
+  Delete "$SMPROGRAMS\AgentX.lnk"
+!macroend

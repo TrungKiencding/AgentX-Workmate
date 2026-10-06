@@ -21,7 +21,6 @@ its behavior. These run the bash implementation of the same logic for real.
 
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -47,18 +46,6 @@ def _git(cwd: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-def _extract_pin_block() -> str:
-    """Pull the commit-pin block out of install.sh's update_repo()."""
-    text = INSTALL_SH.read_text()
-    match = re.search(
-        r'if \[ -n "\$INSTALL_COMMIT" \]; then.*?\n    fi\n',
-        text,
-        re.DOTALL,
-    )
-    assert match is not None, "commit-pin block not found in install.sh"
-    return match.group(0)
-
-
 @pytest.fixture
 def repo(tmp_path):
     """A checkout with three commits, HEAD at the newest."""
@@ -68,31 +55,24 @@ def repo(tmp_path):
     shas = []
     for n in range(3):
         (origin / "f.txt").write_text(f"rev{n}\n")
-        _git(origin, "add", "f.txt")
+        (origin / "pyproject.toml").write_text('[project]\nversion = "1.0.1"\n')
+        _git(origin, "add", ".")
         _git(origin, "commit", "-qm", f"rev{n}")
         shas.append(_git(origin, "rev-parse", "HEAD"))
-    return origin, shas
+    checkout = tmp_path / "agentx-agent"
+    subprocess.run(["git", "clone", str(origin), str(checkout)], check=True, capture_output=True)
+    return checkout, shas
 
 
 def _run_pin_block(repo_dir: Path, commit: str, *, force: bool = False) -> str:
-    """Execute install.sh's pin block standalone against ``repo_dir``."""
-    script = "\n".join(
-        [
-            "set -e",
-            "log_info() { echo \"INFO $*\"; }",
-            "log_warn() { echo \"WARN $*\"; }",
-            f'INSTALL_COMMIT="{commit}"',
-            f'FORCE_COMMIT={"true" if force else "false"}',
-            f'cd "{repo_dir}"',
-            _extract_pin_block(),
-        ]
-    )
-    return subprocess.run(
-        ["bash", "-c", script],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
+    """Exercise the real repository stage, not an extracted source fragment."""
+    import os
+    args = ["bash", str(INSTALL_SH), "--stage", "repository", "--non-interactive", "--json",
+            "--dir", str(repo_dir), "--agentx-home", str(repo_dir.parent / "home"), "--commit", commit]
+    if force:
+        args.append("--force-commit")
+    return subprocess.run(args, capture_output=True, text=True, check=True,
+                          env={**os.environ, "AGENTX_HOME": str(repo_dir.parent / "home")}).stdout
 
 
 def test_stale_pin_does_not_rewind_a_newer_checkout(repo):

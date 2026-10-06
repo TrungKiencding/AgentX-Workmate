@@ -170,6 +170,8 @@ The app also surfaces the broader AgentX management surface so you don't have to
 
 The installed app updates itself and the agent together. It checks the release feed on the download site in the background and tells you when a new version is out; **Download update** fetches the installer for your computer in the background, and **Restart to update** installs it and reopens the app (on macOS by replacing the app bundle, on Windows by running the installer silently). On its first start the new version brings the agent up to the commit it was built from — this can take a few minutes — and then confirms the update. **Settings → About** shows the same state and checks on demand.
 
+If upgrading from desktop 1.0.1–1.0.3, run the current installer from the download page once: their old update button only updates the agent. Open **AgentX Workmate** on Windows and replace taskbar pins pointing at the legacy **AgentX** executable. Desktop 1.0.4 and later can install the new desktop directly from the app.
+
 Every release is signed: the app installs a download only when its size and sha256 match the signed feed. If the app cannot replace itself — macOS running it straight from Downloads or the disk image, a folder your account cannot write, or a copy not set up by the installer — it links to the download page instead.
 
 `agentx update` (see [Updating](/getting-started/updating)) updates only the agent; with the desktop app installed, update from the app so the two stay on the same version.

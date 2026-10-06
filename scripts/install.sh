@@ -1333,8 +1333,28 @@ show_manual_install_hint() {
 # Installation
 # ============================================================================
 
+# Release numbers remain available even when a shallow clone cannot prove
+# ancestry. Compare numeric components without sort -V (absent on macOS).
+release_version() {
+    awk '/^\[project\]/{in_project=1;next} /^\[/{in_project=0} in_project && /^[[:space:]]*version[[:space:]]*=/{gsub(/["\047]/,"",$0);sub(/^[^=]*=[[:space:]]*/,"");print;exit}'
+}
+release_is_older() {
+    local left="$1" right="$2" i x y
+    local -a lhs rhs
+    [[ "$left" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$right" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+    local old_ifs="$IFS"
+    IFS=.; read -r -a lhs <<< "$left"; read -r -a rhs <<< "$right"; IFS="$old_ifs"
+    for i in 0 1 2; do
+        x=$((10#${lhs[$i]})); y=$((10#${rhs[$i]}))
+        [ "$x" -lt "$y" ] && return 0
+        [ "$x" -gt "$y" ] && return 1
+    done
+    return 1
+}
+
 clone_repo() {
     log_info "Installing to $INSTALL_DIR..."
+    local existing_checkout=false
 
     # An interrupted previous clone leaves a .git with no initial commit, where
     # the update path's `git stash` / `git checkout` abort with "You do not
@@ -1350,6 +1370,7 @@ clone_repo() {
 
     if [ -d "$INSTALL_DIR" ]; then
         if [ -d "$INSTALL_DIR/.git" ]; then
+            existing_checkout=true
             log_info "Existing installation found, updating..."
             cd "$INSTALL_DIR"
 
@@ -1382,14 +1403,14 @@ clone_repo() {
             # into a multi-minute download that can stall the installer.
             git remote set-branches origin "$BRANCH" 2>/dev/null || true
             git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            # Managed installs should follow origin/$BRANCH exactly. If the
-            # checkout has diverged (or has local-only commits), ff-only pull
-            # cannot succeed — mirror ``agentx update`` and reset to the
-            # fetched remote so bootstrap/install can recover.
-            if ! git pull --ff-only origin "$BRANCH"; then
-                log_warn "Fast-forward not possible; resetting managed install to origin/$BRANCH..."
-                git reset --hard "origin/$BRANCH"
+            # With a pin, retain HEAD until the rollback checks below have
+            # decided whether it may move. Following main first loses that fact.
+            if [ -z "$INSTALL_COMMIT" ]; then
+                git checkout "$BRANCH"
+                if ! git pull --ff-only origin "$BRANCH"; then
+                    log_warn "Fast-forward not possible; resetting managed install to origin/$BRANCH..."
+                    git reset --hard "origin/$BRANCH"
+                fi
             fi
 
             if [ -n "$autostash_ref" ]; then
@@ -1498,19 +1519,19 @@ EOF
                 return 1
             fi
         fi
-        if git rev-parse --verify --quiet HEAD >/dev/null 2>&1 \
-           && git merge-base --is-ancestor "$INSTALL_COMMIT" HEAD 2>/dev/null \
-           && [ "$(git rev-parse "$INSTALL_COMMIT^{commit}" 2>/dev/null)" != "$(git rev-parse HEAD)" ]; then
-            if [ "$FORCE_COMMIT" = true ]; then
-                log_warn "--force-commit: rolling this install back to $INSTALL_COMMIT."
-                if ! git checkout --detach "$INSTALL_COMMIT"; then
-                    log_error "Failed to detach at $INSTALL_COMMIT"
-                    return 1
-                fi
-            else
-                log_warn "Ignoring --commit $INSTALL_COMMIT: the checkout is already newer."
-                log_warn "Pinning to it would roll this install back. Pass --force-commit to override."
+        local skip_rollback=false current_version target_version
+        current_version=$(release_version < pyproject.toml 2>/dev/null) || current_version=""
+        target_version=$(git show "$INSTALL_COMMIT:pyproject.toml" 2>/dev/null | release_version) || target_version=""
+        if [ "$existing_checkout" = true ] && [ "$FORCE_COMMIT" != true ]; then
+            if release_is_older "$target_version" "$current_version" \
+               || { git merge-base --is-ancestor "$INSTALL_COMMIT" HEAD 2>/dev/null \
+                    && [ "$(git rev-parse "$INSTALL_COMMIT^{commit}")" != "$(git rev-parse HEAD)" ]; }; then
+                skip_rollback=true
             fi
+        fi
+        if [ "$skip_rollback" = true ]; then
+            log_warn "Ignoring --commit $INSTALL_COMMIT: the checkout is already newer."
+            log_warn "Pass --force-commit only if an intentional rollback is required."
         else
             log_info "Pinning checkout to commit $INSTALL_COMMIT..."
             if ! git checkout --detach "$INSTALL_COMMIT"; then
@@ -2673,15 +2694,9 @@ write_bootstrap_marker() {
         return 0
     fi
 
-    # Explicit --commit wins; otherwise read HEAD from the checkout we just
-    # installed. If neither resolves, skip the marker entirely rather than
-    # write one the desktop will reject -- an absent marker is a clean
-    # "bootstrap needed", a malformed one is a confusing half-state.
-    local pinned_commit="$INSTALL_COMMIT"
-    if [ -z "$pinned_commit" ]; then
-        pinned_commit=$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null) || pinned_commit=""
-    fi
-
+    # Record what was actually installed, including a skipped rollback pin.
+    local pinned_commit
+    pinned_commit=$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null) || pinned_commit="$INSTALL_COMMIT"
     if [ -z "$pinned_commit" ]; then
         log_warn "Skipping bootstrap marker: could not resolve HEAD in $INSTALL_DIR"
         return 0

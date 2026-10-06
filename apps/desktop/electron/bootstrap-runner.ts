@@ -38,6 +38,7 @@ import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
 
+import { compareVersions, readCheckoutVersion } from './checkout-pin'
 import { terminateProcessTree } from './process-tree'
 import { hiddenWindowsChildOptions } from './windows-child-options'
 
@@ -112,17 +113,13 @@ function resolveMarkerPinnedCommit(
 ): string | null {
   const resolveHead = opts.resolveHead || resolveCheckoutHead
 
-  if (installStamp && isPinnedCommit(installStamp.commit)) {
-    return installStamp.commit
-  }
-
   const head = resolveHead(activeRoot)
 
   if (head) {
     return head
   }
 
-  return readExistingPinnedCommit(activeRoot)
+  return readExistingPinnedCommit(activeRoot) || (isPinnedCommit(installStamp?.commit) ? installStamp.commit : null)
 }
 
 /**
@@ -386,9 +383,7 @@ async function resolveInstallScript({
     // a commit only that machine has. write-build-stamp.mjs records the root
     // for local builds precisely so this path can read the installer off disk.
     const fromBuildRoot =
-      installStamp && installStamp.source === 'local'
-        ? resolveLocalInstallScript(installStamp.repoRoot)
-        : null
+      installStamp && installStamp.source === 'local' ? resolveLocalInstallScript(installStamp.repoRoot) : null
 
     const installed = fromBuildRoot || installedAgentInstallScript(hermesHome)
     const fallbackSource = fromBuildRoot ? 'build-checkout' : 'installed-agent'
@@ -757,7 +752,16 @@ function buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit = t
   return args
 }
 
-async function fetchManifest({ scriptPath, installerKind, emit, hermesHome, activeRoot, installStamp, pinCommit, repoUrl }) {
+async function fetchManifest({
+  scriptPath,
+  installerKind,
+  emit,
+  hermesHome,
+  activeRoot,
+  installStamp,
+  pinCommit,
+  repoUrl
+}) {
   const isPosix = installerKind === 'posix'
 
   const args = isPosix
@@ -955,6 +959,7 @@ async function runBootstrap(opts) {
     // following its branch. Set by main.ts when the checkout is behind the
     // install stamp; see decidePinCommit.
     pinExistingCheckout = false,
+    expectedVersion = null,
     writeMarker // callback to write the bootstrap-complete marker; main.ts provides
   } = opts
 
@@ -1069,6 +1074,17 @@ async function runBootstrap(opts) {
         emit({ type: 'failed', stage: stage.name, error: (ev as any).error || 'stage failed' })
 
         return { ok: false, failedStage: stage.name, error: (ev as any).error }
+      }
+    }
+
+    // Never report success or let main discard the prior install if the
+    // installer claimed success but left an older release at the active root.
+    if (expectedVersion) {
+      const actual = readCheckoutVersion(activeRoot)
+      const order = compareVersions(actual, expectedVersion)
+
+      if (order === null || order < 0) {
+        throw new Error(`Installed agent ${actual || '<unknown>'} did not reach desktop ${expectedVersion}`)
       }
     }
 

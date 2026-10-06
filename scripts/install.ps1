@@ -1667,6 +1667,16 @@ function Install-SystemPackages {
 # Installation
 # ============================================================================
 
+function Get-ReleaseVersion {
+    param([string]$Text)
+    $project = [regex]::Match($Text, '(?ms)^\[project\]\s*\r?\n(.*?)(?=^\[|\z)')
+    if (-not $project.Success) { return $null }
+    $match = [regex]::Match($project.Groups[1].Value, '(?m)^\s*version\s*=\s*["''][^"'']+["'']')
+    if (-not $match.Success) { return $null }
+    $value = ($match.Value -split '=', 2)[1].Trim().Trim('"', "'")
+    try { return [version]$value } catch { return $null }
+}
+
 function Install-Repository {
     Write-Info "Installing to $InstallDir..."
 
@@ -1771,6 +1781,7 @@ function Install-Repository {
                     # Make sure we have the commit locally (a tag-less commit
                     # SHA isn't always reachable from any one branch fetch).
                     git -c windows.appendAtomically=false fetch origin $Commit
+                    if ($LASTEXITCODE -ne 0) { throw "git fetch $Commit failed (exit $LASTEXITCODE)" }
                     # A commit pin must never move an existing install
                     # BACKWARDS. agentx-setup.exe bakes its build-time commit
                     # into the binary (BUILD_PIN_COMMIT) and passes it as
@@ -1788,7 +1799,11 @@ function Install-Repository {
                         $isAncestor = ($LASTEXITCODE -eq 0)
                         $pinnedSha = (& git -c windows.appendAtomically=false rev-parse "$Commit^{commit}" 2>$null)
                         $headSha = (& git -c windows.appendAtomically=false rev-parse HEAD 2>$null)
-                        $skipRollback = $isAncestor -and ($pinnedSha -ne $headSha)
+                        $currentVersion = Get-ReleaseVersion ((Get-Content -LiteralPath (Join-Path $InstallDir 'pyproject.toml') -Raw -ErrorAction SilentlyContinue))
+                        $targetText = (& git -c windows.appendAtomically=false show "${Commit}:pyproject.toml" 2>$null) -join "`n"
+                        $targetVersion = Get-ReleaseVersion $targetText
+                        $olderRelease = $currentVersion -and $targetVersion -and ($targetVersion -lt $currentVersion)
+                        $skipRollback = $olderRelease -or ($isAncestor -and ($pinnedSha -ne $headSha))
                     }
                     if ($skipRollback) {
                         Write-Warn "Ignoring -Commit $Commit`: the checkout is already newer."
@@ -2649,31 +2664,18 @@ function Write-BootstrapMarker {
         return
     }
 
-    # Resolve the pinned commit: explicit -Commit wins, otherwise read
-    # the checkout's HEAD via git. If git can't run, leave commit empty
-    # and the marker will fail desktop validation (pinnedCommit.length
-    # >= 7) -- better to be invalid than wrong.
-    $pinnedCommit = $Commit
-    if (-not $pinnedCommit) {
-        # PS 5.1 doesn't support the ?. null-conditional operator, so
-        # check Get-Command's result explicitly before reading .Source.
-        $gitCmd = Get-Command git -ErrorAction SilentlyContinue
-        $gitExe = if ($gitCmd) { $gitCmd.Source } else { $null }
-        if ($gitExe) {
-            Push-Location $InstallDir
-            try {
-                $resolved = & $gitExe rev-parse HEAD 2>$null
-                if ($LASTEXITCODE -eq 0 -and $resolved) {
-                    $pinnedCommit = $resolved.Trim()
-                }
-            } catch {
-                # Ignore -- pinnedCommit stays empty, marker stays invalid,
-                # desktop falls through to its legacy bootstrap path.
-            } finally {
-                Pop-Location
-            }
-        }
+    # Record the actual HEAD, including when a stale rollback pin was skipped.
+    # ZIP installs without Git can fall back to the requested commit.
+    $pinnedCommit = $null
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) {
+        Push-Location $InstallDir
+        try {
+            $resolved = & $gitCmd.Source rev-parse HEAD 2>$null
+            if ($LASTEXITCODE -eq 0 -and $resolved) { $pinnedCommit = $resolved.Trim() }
+        } catch {} finally { Pop-Location }
     }
+    if (-not $pinnedCommit) { $pinnedCommit = $Commit }
 
     $pinnedBranch = $Branch
     if (-not $pinnedBranch) {

@@ -40,6 +40,8 @@ Prebuilt installers for macOS (Apple silicon) and Windows are on [the AgentX Wor
 
 ## Updating
 
+Desktop 1.0.1–1.0.3 users must download and run the current desktop installer once. Those versions update only the agent and can display its version as the app version. From desktop 1.0.4 onward, the app installs the desktop package itself. On Windows, open **AgentX Workmate** after installing; replace any taskbar pin pointing at the older **AgentX** executable. Settings, conversations and model keys are retained.
+
 An installed app updates itself, the app and the agent together:
 
 1. It checks the release feed on the download site a little after launch and every few hours, and says when a new version is out (**Settings → About** shows the same, and **Check now** asks right away).

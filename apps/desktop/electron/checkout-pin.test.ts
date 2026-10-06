@@ -55,11 +55,14 @@ test('relateCheckoutToPin: a checkout that already contains the stamp is ahead, 
   assert.equal(relateCheckoutToPin({ pinnedCommit: PIN, headSha: OTHER, pinIsAncestorOfHead: true }), 'ahead')
 })
 
-test('relateCheckoutToPin: a checkout without the stamp is behind, whether git said no or could not say', () => {
+test('relateCheckoutToPin: only positive reverse ancestry proves behind', () => {
   // The August-checkout-under-a-September-shell case: HEAD provably lacks the pin.
-  assert.equal(relateCheckoutToPin({ pinnedCommit: PIN, headSha: OTHER, pinIsAncestorOfHead: false }), 'behind')
-  // Never fetched the pin at all (git: "Not a valid commit name"): also older.
-  assert.equal(relateCheckoutToPin({ pinnedCommit: PIN, headSha: OTHER, pinIsAncestorOfHead: null }), 'behind')
+  assert.equal(
+    relateCheckoutToPin({ pinnedCommit: PIN, headSha: OTHER, pinIsAncestorOfHead: false, headIsAncestorOfPin: true }),
+    'behind'
+  )
+  // Never fetched the pin: there is no evidence of age.
+  assert.equal(relateCheckoutToPin({ pinnedCommit: PIN, headSha: OTHER, pinIsAncestorOfHead: null }), 'unknown')
 })
 
 function fakeGit(answers: Record<string, { status: number | null; stdout?: string }>) {
@@ -94,20 +97,20 @@ test('probeCheckoutPin reads HEAD once and stops when it is the pin', () => {
   assert.equal(calls.length, 1)
 })
 
-test('probeCheckoutPin maps merge-base exit codes: 0 ahead, 1 behind, anything else behind-until-fetched', () => {
+test('probeCheckoutPin requires positive forward or reverse ancestry', () => {
   const ahead = fakeGit({ 'rev-parse HEAD': { status: 0, stdout: OTHER }, 'merge-base --is-ancestor': { status: 0 } })
   assert.equal(probeCheckoutPin('/x', PIN, ahead.execGit).relation, 'ahead')
   assert.deepEqual(ahead.calls[1], ['merge-base', '--is-ancestor', PIN, 'HEAD'])
 
   const behind = fakeGit({ 'rev-parse HEAD': { status: 0, stdout: OTHER }, 'merge-base --is-ancestor': { status: 1 } })
-  assert.equal(probeCheckoutPin('/x', PIN, behind.execGit).relation, 'behind')
+  assert.equal(probeCheckoutPin('/x', PIN, behind.execGit).relation, 'unknown')
 
   const unfetched = fakeGit({
     'rev-parse HEAD': { status: 0, stdout: OTHER },
     'merge-base --is-ancestor': { status: 128 }
   })
 
-  assert.equal(probeCheckoutPin('/x', PIN, unfetched.execGit).relation, 'behind')
+  assert.equal(probeCheckoutPin('/x', PIN, unfetched.execGit).relation, 'unknown')
 })
 
 test('probeCheckoutPin reports unknown when the root is not a repository or git is missing', () => {
@@ -155,9 +158,9 @@ test('parseVersion / compareVersions order numeric components and reject junk', 
 test('relateByVersion: only a LOWER declared version proves the checkout is older', () => {
   // The August install: pyproject said 0.20.0 while the desktop shipping over it said 1.0.1.
   assert.equal(relateByVersion({ checkoutVersion: '0.20.0', shellVersion: '1.0.1' }), 'behind')
-  // Equal or newer says nothing about commits; never claim more than we know.
+  // Equal versions say nothing about commits; higher versions prevent rollback.
   assert.equal(relateByVersion({ checkoutVersion: '1.0.1', shellVersion: '1.0.1' }), 'unknown')
-  assert.equal(relateByVersion({ checkoutVersion: '1.1.0', shellVersion: '1.0.1' }), 'unknown')
+  assert.equal(relateByVersion({ checkoutVersion: '1.1.0', shellVersion: '1.0.1' }), 'ahead')
   assert.equal(relateByVersion({ checkoutVersion: null, shellVersion: '1.0.1' }), 'unknown')
 })
 
@@ -206,10 +209,10 @@ test("readCheckoutVersion reads this repository's own pyproject when run from th
   assert.match(version, /^\d+\.\d+/)
 })
 
-test('relateByMarker: without git, a marker pinned elsewhere is an older build; the same pin is at-pin', () => {
+test('relateByMarker: only matching provenance can settle the pin', () => {
   assert.equal(relateByMarker({ markerPinnedCommit: PIN, stampCommit: PIN }), 'at-pin')
   assert.equal(relateByMarker({ markerPinnedCommit: PIN.slice(0, 12), stampCommit: PIN }), 'at-pin')
-  assert.equal(relateByMarker({ markerPinnedCommit: OTHER, stampCommit: PIN }), 'behind')
+  assert.equal(relateByMarker({ markerPinnedCommit: OTHER, stampCommit: PIN }), 'unknown')
   // No marker, a fallback marker, or no real stamp: nothing to say.
   assert.equal(relateByMarker({ markerPinnedCommit: null, stampCommit: PIN }), 'unknown')
   assert.equal(relateByMarker({ markerPinnedCommit: '0'.repeat(40), stampCommit: PIN }), 'unknown')

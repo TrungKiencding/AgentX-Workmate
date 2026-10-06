@@ -21,24 +21,14 @@ INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 
 
 def run_write_marker(install_dir, *, commit="", branch="main"):
-    """Source install.sh and invoke write_bootstrap_marker in isolation.
-
-    install.sh guards its own entrypoint behind MANIFEST_MODE/STAGE_NAME/main,
-    so sourcing it with --help-less argv defines the functions without running
-    an install.
-    """
-    script = f"""
-set -e
-INSTALL_DIR={install_dir!s}
-INSTALL_COMMIT={commit!r}
-BRANCH={branch!r}
-# Pull in the function definitions without triggering an install.
-eval "$(sed -n '/^write_bootstrap_marker()/,/^}}/p' {INSTALL_SH!s})"
-log_warn() {{ echo "WARN: $*" >&2; }}
-write_bootstrap_marker
-"""
+    """Invoke the actual completion stage in an isolated home."""
+    import os
     return subprocess.run(
-        ["bash", "-c", script], capture_output=True, text=True, timeout=30
+        ["bash", str(INSTALL_SH), "--stage", "complete", "--non-interactive", "--json",
+         "--dir", str(install_dir), "--agentx-home", str(install_dir.parent / "home"),
+         "--commit", commit, "--branch", branch],
+        capture_output=True, text=True, timeout=30,
+        env={**os.environ, "AGENTX_HOME": str(install_dir.parent / "home")},
     )
 
 
@@ -82,14 +72,15 @@ def test_marker_publish_leaves_no_temp_sibling(tmp_path):
     assert not (install_dir / ".agentx-bootstrap-complete.tmp").exists()
 
 
-def test_explicit_commit_pin_wins_over_head(tmp_path):
+def test_actual_head_wins_over_a_skipped_commit_pin(tmp_path):
     install_dir = make_checkout(tmp_path)
     pinned = "abcdef1234567890abcdef1234567890abcdef12"
 
     run_write_marker(install_dir, commit=pinned)
 
     payload = json.loads((install_dir / ".agentx-bootstrap-complete").read_text())
-    assert payload["pinnedCommit"] == pinned
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=install_dir, capture_output=True, text=True, check=True).stdout.strip()
+    assert payload["pinnedCommit"] == head
 
 
 def test_no_marker_written_when_head_cannot_be_resolved(tmp_path):
@@ -103,7 +94,7 @@ def test_no_marker_written_when_head_cannot_be_resolved(tmp_path):
     assert not (install_dir / ".agentx-bootstrap-complete").exists()
 
 
-def test_missing_install_dir_is_not_fatal(tmp_path):
+def test_completion_stage_requires_an_install_dir(tmp_path):
     result = run_write_marker(tmp_path / "does-not-exist")
-
-    assert result.returncode == 0
+    assert result.returncode != 0
+    assert not (tmp_path / "does-not-exist" / ".agentx-bootstrap-complete").exists()

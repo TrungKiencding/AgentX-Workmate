@@ -63,7 +63,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { pendingInstallerTeardown, runBootstrap } from './bootstrap-runner'
-import { defaultExecGit, probeCheckoutPin, readCheckoutVersion, relateByMarker, relateByVersion } from './checkout-pin'
+import { defaultExecGit, resolveCheckoutPin } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
   authModeFromStatus,
@@ -2891,42 +2891,17 @@ function checkoutPinRelation() {
     return { relation: 'unpinned' as const, headSha: null }
   }
 
-  const byGit = probeCheckoutPin(
+  const result = resolveCheckoutPin(
     ACTIVE_AGENTX_ROOT,
     INSTALL_STAMP.commit,
-    defaultExecGit(resolveGitBinary(), IS_WINDOWS)
+    app.getVersion(),
+    defaultExecGit(resolveGitBinary(), IS_WINDOWS),
+    readBootstrapMarker()?.pinnedCommit
   )
-
-  if (byGit.relation !== 'unknown') {
-    rememberLog(
-      `[bootstrap] checkout pin: HEAD ${shortSha(byGit.headSha)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${byGit.relation}`
-    )
-
-    return byGit
-  }
-
-  const marker = readBootstrapMarker()
-  const byMarker = relateByMarker({ markerPinnedCommit: marker?.pinnedCommit, stampCommit: INSTALL_STAMP.commit })
-
-  if (byMarker !== 'unknown') {
-    rememberLog(
-      `[bootstrap] checkout pin: git could not describe ${ACTIVE_AGENTX_ROOT} (git: ${resolveGitBinary()}); ` +
-        `bootstrap marker pin ${shortSha(marker?.pinnedCommit)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${byMarker}`
-    )
-
-    return { relation: byMarker, headSha: null }
-  }
-
-  const checkoutVersion = readCheckoutVersion(ACTIVE_AGENTX_ROOT)
-  const shellVersion = app.getVersion()
-  const byVersion = relateByVersion({ checkoutVersion, shellVersion })
-
   rememberLog(
-    `[bootstrap] checkout pin: git could not describe ${ACTIVE_AGENTX_ROOT} (git: ${resolveGitBinary()}); ` +
-      `declared version ${checkoutVersion || '<none>'} vs desktop ${shellVersion} → ${byVersion}`
+    `[bootstrap] checkout pin: HEAD ${shortSha(result.headSha)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${result.relation}`
   )
-
-  return { relation: byVersion, headSha: null }
+  return result
 }
 
 function shortSha(sha) {
@@ -3510,6 +3485,7 @@ async function ensureRuntime(backend) {
       logRoot: path.join(AGENTX_HOME, 'logs'),
       abortSignal: bootstrapAbortController.signal,
       pinExistingCheckout: Boolean(repin),
+      expectedVersion: app.getVersion(),
       onEvent: ev => {
         // Tee every bootstrap event to (a) the desktop log for forensics
         // and (b) the renderer for live progress UI. Either may be absent;

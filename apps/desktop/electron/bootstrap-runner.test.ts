@@ -154,8 +154,8 @@ test('resolveMarkerPinnedCommit prefers real HEAD over fallback stamp zeros', ()
     resolveMarkerPinnedCommit({ commit: 'd'.repeat(40), branch: 'main' }, '/tmp/checkout', {
       resolveHead: () => realHead
     }),
-    'd'.repeat(40),
-    'packaged real pin wins over checkout HEAD'
+    realHead,
+    'marker records the checkout kept by the anti-rollback guard'
   )
   assert.equal(
     resolveMarkerPinnedCommit({ commit: ZERO_COMMIT, branch: 'main' }, '/tmp/missing', {

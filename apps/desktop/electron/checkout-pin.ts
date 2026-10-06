@@ -44,7 +44,7 @@ export type CheckoutPinRelation =
   | 'at-pin'
   /** The stamped commit is an ancestor of HEAD: the checkout is newer. */
   | 'ahead'
-  /** HEAD does not contain the stamped commit: the checkout is older. */
+  /** Positive ancestry or an older release proves the checkout is older. */
   | 'behind'
 
 const COMMIT_RE = /^[0-9a-f]{7,40}$/i
@@ -64,12 +64,15 @@ export interface CheckoutPinFacts {
    * null when it could not (no such object locally, no repository).
    */
   pinIsAncestorOfHead: boolean | null
+  /** Only a positive reverse ancestry check proves HEAD is older. */
+  headIsAncestorOfPin?: boolean | null
 }
 
 export function relateCheckoutToPin({
   pinnedCommit,
   headSha,
-  pinIsAncestorOfHead
+  pinIsAncestorOfHead,
+  headIsAncestorOfPin
 }: CheckoutPinFacts): CheckoutPinRelation {
   if (!isRealPin(pinnedCommit)) {
     return 'unpinned'
@@ -91,12 +94,9 @@ export function relateCheckoutToPin({
     return 'ahead'
   }
 
-  // false: HEAD provably lacks the commit. null: git has no such object,
-  // which on a managed checkout means it was never fetched — the checkout
-  // predates it. Both are "behind"; the install scripts re-check after
-  // fetching and never roll a newer checkout back, so erring this way costs
-  // one no-op installer pass, never a downgrade.
-  return 'behind'
+  // A negative check is not proof of age: shallow history and divergent
+  // branches both lack ancestry. Replacing that checkout could downgrade it.
+  return headIsAncestorOfPin === true ? 'behind' : 'unknown'
 }
 
 export interface GitResult {
@@ -150,7 +150,7 @@ export interface CheckoutPinProbe {
 
 /**
  * Ask the checkout at `activeRoot` where it stands against `pinnedCommit`.
- * Two git calls at most, and none at all when there is no real pin.
+ * Three git calls at most, and none at all when there is no real pin.
  */
 export function probeCheckoutPin(
   activeRoot: string | null | undefined,
@@ -169,6 +169,7 @@ export function probeCheckoutPin(
   }
 
   let pinIsAncestorOfHead: boolean | null = null
+  let headIsAncestorOfPin: boolean | null = null
 
   if (
     headSha.toLowerCase() !== pinnedCommit.toLowerCase() &&
@@ -177,9 +178,14 @@ export function probeCheckoutPin(
     const ancestry = execGit(['merge-base', '--is-ancestor', pinnedCommit, 'HEAD'], activeRoot)
 
     pinIsAncestorOfHead = ancestry.status === 0 ? true : ancestry.status === 1 ? false : null
+
+    if (!pinIsAncestorOfHead) {
+      const reverse = execGit(['merge-base', '--is-ancestor', 'HEAD', pinnedCommit], activeRoot)
+      headIsAncestorOfPin = reverse.status === 0 ? true : reverse.status === 1 ? false : null
+    }
   }
 
-  return { relation: relateCheckoutToPin({ pinnedCommit, headSha, pinIsAncestorOfHead }), headSha }
+  return { relation: relateCheckoutToPin({ pinnedCommit, headSha, pinIsAncestorOfHead, headIsAncestorOfPin }), headSha }
 }
 
 // ---------------------------------------------------------------------------
@@ -256,19 +262,16 @@ export function relateByVersion({
 }): CheckoutPinRelation {
   const order = compareVersions(checkoutVersion, shellVersion)
 
-  return order !== null && order < 0 ? 'behind' : 'unknown'
+  return order === null || order === 0 ? 'unknown' : order < 0 ? 'behind' : 'ahead'
 }
 
 // ---------------------------------------------------------------------------
-// Git-free fallback, first opinion: the bootstrap marker
+// Git-free fallback: the bootstrap marker
 // ---------------------------------------------------------------------------
 //
-// `.agentx-bootstrap-complete` inside the checkout records the commit the
-// last desktop-driven bootstrap installed. When git cannot describe the
-// checkout, a marker pinned to a DIFFERENT commit than this build's stamp is
-// a different build, and is treated as older: the paths that move a checkout
-// forward (in-app update, `agentx update`) all need git, so a checkout that
-// is genuinely newer never has to be judged here.
+// A matching bootstrap marker attests that this pin was installed. A
+// different marker cannot establish age: a CLI update may have moved HEAD,
+// or git may temporarily be unavailable. Compare declared releases instead.
 
 export function relateByMarker({
   markerPinnedCommit,
@@ -284,5 +287,39 @@ export function relateByMarker({
   const marker = markerPinnedCommit.toLowerCase()
   const stamp = stampCommit.toLowerCase()
 
-  return marker === stamp || marker.startsWith(stamp) || stamp.startsWith(marker) ? 'at-pin' : 'behind'
+  return marker === stamp || marker.startsWith(stamp) || stamp.startsWith(marker) ? 'at-pin' : 'unknown'
+}
+
+/** One launch policy, including shallow/ZIP installs. A newer declared release
+ * always protects the checkout, even if its branch lacks the packaged commit.
+ * Otherwise positive ancestry wins, then versions, then matching provenance.
+ * A different marker is not evidence that an install is older. No network I/O.
+ */
+export function resolveCheckoutPin(
+  activeRoot: string,
+  pinnedCommit: unknown,
+  shellVersion: string,
+  execGit: ExecGit,
+  markerPinnedCommit?: unknown
+): CheckoutPinProbe {
+  const byGit = probeCheckoutPin(activeRoot, pinnedCommit, execGit)
+
+  if (byGit.relation === 'unpinned') {
+    return byGit
+  }
+  const byVersion = relateByVersion({ checkoutVersion: readCheckoutVersion(activeRoot), shellVersion })
+
+  if (byVersion === 'ahead') {
+    return { ...byGit, relation: 'ahead' }
+  }
+
+  if (byGit.relation !== 'unknown') {
+    return byGit
+  }
+
+  if (byVersion !== 'unknown') {
+    return { ...byGit, relation: byVersion }
+  }
+
+  return { ...byGit, relation: relateByMarker({ markerPinnedCommit, stampCommit: pinnedCommit }) }
 }
