@@ -12,7 +12,7 @@ and ``package-lock.json`` changed together.
 
 from __future__ import annotations
 
-import re
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -39,50 +39,39 @@ def _git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
     )
 
 
-def _extract_install_sh_function(name: str) -> str:
-    text = INSTALL_SH.read_text()
-    match = re.search(rf"{name}\(\) \{{.*?\n\}}", text, re.DOTALL)
-    assert match is not None, f"{name}() not found in install.sh"
-    return match.group(0)
-
-
-def _extract_install_sh_autostash_block() -> str:
-    text = INSTALL_SH.read_text()
-    match = re.search(
-        r'local autostash_ref="".*?\n            fi\n',
-        text,
-        re.DOTALL,
-    )
-    assert match is not None, "autostash block not found in install.sh"
-    return match.group(0)
-
-
 @pytest.mark.live_system_guard_bypass
 def test_install_sh_discards_runtime_lockfile_churn_before_stash(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "agentx-agent"
     repo.mkdir()
-    _git(repo, "init")
+    _git(repo, "init", "-b", "main")
     (repo / "package.json").write_text('{"dependencies":{"a":"1"}}\n')
     (repo / "package-lock.json").write_text('{"lock":"old"}\n')
     _git(repo, "add", "package.json", "package-lock.json")
     _git(repo, "commit", "-m", "init")
 
+    origin = tmp_path / "origin"
+    _git(tmp_path, "clone", "--bare", str(repo), str(origin))
+    _git(repo, "remote", "add", "origin", origin.as_uri())
+
     (repo / "package-lock.json").write_text('{"lock":"runtime-churn"}\n')
 
-    script = (
-        "set -e\n"
-        'log_info() { echo "INFO: $*"; }\n'
-        'INSTALL_DIR="$PWD"\n'
-        f"{_extract_install_sh_function('discard_update_lockfile_churn')}\n"
-        "run() {\n"
-        f"{_extract_install_sh_autostash_block()}"
-        "}\n"
-        "run\n"
-    )
     res = subprocess.run(
-        ["bash", "-c", script], cwd=repo, capture_output=True, text=True
+        [
+            "bash",
+            str(INSTALL_SH),
+            "--stage",
+            "repository",
+            "--non-interactive",
+            "--dir",
+            str(repo),
+            "--agentx-home",
+            str(tmp_path / "home"),
+        ],
+        env={**os.environ, "AGENTX_REPO_URL": origin.as_uri()},
+        capture_output=True,
+        text=True,
     )
 
     assert res.returncode == 0, res.stderr
