@@ -1,0 +1,98 @@
+name: Verify published Windows upgrade
+
+on:
+  workflow_dispatch:
+    inputs:
+      previous_installer_url:
+        description: HTTPS URL of the previous NSIS installer
+        required: true
+        type: string
+      previous_sha256:
+        description: SHA-256 of that previous installer
+        required: true
+        type: string
+      release_tag:
+        description: GitHub release containing the new installer
+        default: desktop-v1.0.5
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm i -g npm@12
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+
+      - name: Upgrade the previously published NSIS install and preserve its data
+        shell: powershell
+        env:
+          PREVIOUS_INSTALLER_URL: ${{ inputs.previous_installer_url }}
+          PREVIOUS_SHA256: ${{ inputs.previous_sha256 }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:PREVIOUS_INSTALLER_URL -notmatch '^https://') { throw 'The previous installer must use HTTPS' }
+          $old = Join-Path $env:RUNNER_TEMP 'previous-workmate.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri $env:PREVIOUS_INSTALLER_URL -OutFile $old
+          if ((Get-FileHash $old -Algorithm SHA256).Hash -ne $env:PREVIOUS_SHA256) { throw 'Previous installer hash mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'agentx-upgrade-installed'
+          $oldProcess = Start-Process $old -ArgumentList '/S', "/D=$destination" -Wait -PassThru
+          if ($oldProcess.ExitCode -ne 0) { throw 'Previous NSIS install failed' }
+          $executable = Join-Path $destination 'AgentX Workmate.exe'
+          $before = (Get-Item $executable).VersionInfo.ProductVersion
+          Write-Output "Installed previous desktop $before"
+          $dataRoots = @((Join-Path $env:APPDATA 'AgentX Workmate'), (Join-Path $env:LOCALAPPDATA 'agentx'))
+          foreach ($root in $dataRoots) {
+            New-Item -ItemType Directory -Force $root | Out-Null
+            Set-Content -LiteralPath (Join-Path $root 'upgrade-data-must-survive.txt') -Value 'preserve existing user data'
+          }
+          $desktopLink = Join-Path ([Environment]::GetFolderPath('Desktop')) 'AgentX.lnk'
+          $startLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'AgentX.lnk'
+          Set-Content -LiteralPath $desktopLink -Value 'legacy shortcut'
+          Set-Content -LiteralPath $startLink -Value 'legacy shortcut'
+          $downloads = Join-Path $env:RUNNER_TEMP 'new-release'
+          New-Item -ItemType Directory $downloads | Out-Null
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern '*-win-x64.exe' --dir $downloads --clobber
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq 29) { throw 'The new release is unavailable' }
+            Start-Sleep -Seconds 20
+          }
+          $new = Get-ChildItem $downloads -Filter '*.exe' | Select-Object -First 1
+          # Same NSIS upgrade mode as the app; launch is exercised below under an isolated profile.
+          $newProcess = Start-Process $new.FullName -ArgumentList '--updated', '/S', "/D=$destination" -Wait -PassThru
+          if ($newProcess.ExitCode -ne 0) { throw 'NSIS upgrade failed' }
+          foreach ($root in $dataRoots) {
+            if ((Get-Content -LiteralPath (Join-Path $root 'upgrade-data-must-survive.txt')) -ne 'preserve existing user data') { throw "User data lost under $root" }
+          }
+          if ((Test-Path -LiteralPath $desktopLink) -or (Test-Path -LiteralPath $startLink)) { throw 'Legacy shortcuts remain' }
+          $after = (Get-Item $executable).VersionInfo.ProductVersion
+          if ([version]$after -le [version]$before) { throw "Desktop did not advance: $before -> $after" }
+          Write-Output "Desktop upgraded $before -> $after; user data preserved and legacy shortcuts removed"
+          "AGENTX_E2E_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Exercise the upgraded app and repeated restarts
+        working-directory: apps/desktop
+        env:
+          AGENTX_E2E_RELEASE: '1'
+        run: npx playwright test e2e/install-update-release.spec.ts --workers=1 --retries=0
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-upgrade-diagnostics
+          path: |
+            apps/desktop/playwright-report
+            apps/desktop/test-results
