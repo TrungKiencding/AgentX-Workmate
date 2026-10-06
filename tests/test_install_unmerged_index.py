@@ -13,7 +13,7 @@ before stashing (#4735); both installer scripts must do the same.
 
 from __future__ import annotations
 
-import re
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -40,29 +40,10 @@ def _git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
     )
 
 
-def _extract_autostash_block() -> str:
-    """Pull the autostash if-block from install.sh's update_repo()."""
-    text = INSTALL_SH.read_text()
-    m = re.search(
-        r'local autostash_ref="".*?\n            fi\n',
-        text,
-        re.DOTALL,
-    )
-    assert m is not None, "autostash block not found in install.sh"
-    return m.group(0)
-
-
-def _extract_install_sh_function(name: str) -> str:
-    text = INSTALL_SH.read_text()
-    match = re.search(rf"{name}\(\) \{{.*?\n\}}", text, re.DOTALL)
-    assert match is not None, f"{name}() not found in install.sh"
-    return match.group(0)
-
-
 def _make_unmerged_repo(repo: Path) -> None:
     """Leave ``repo`` with a conflicted (unmerged) index, as an interrupted
     update would."""
-    _git(repo, "init")
+    _git(repo, "init", "-b", "main")
     (repo / "f.txt").write_text("base\n")
     _git(repo, "add", "f.txt")
     _git(repo, "commit", "-m", "base")
@@ -95,35 +76,39 @@ def test_install_sh_clears_unmerged_index_then_stashes(tmp_path: Path) -> None:
         "test setup failed to produce an unmerged index"
     )
 
-    block = _extract_autostash_block()
-    script = (
-        "set -e\n"
-        'log_info() { echo "INFO: $*"; }\n'
-        f'INSTALL_DIR="{repo}"\n'
-        f"{_extract_install_sh_function('discard_update_lockfile_churn')}\n"
-        "run() {\n"
-        f"{block}"
-        "}\n"
-        "run\n"
-        "echo BLOCK_OK\n"
-    )
+    origin = tmp_path / "origin"
+    _git(tmp_path, "clone", "--bare", str(repo), str(origin))
+    remote_work = tmp_path / "remote-work"
+    _git(tmp_path, "clone", str(origin), str(remote_work))
+    (remote_work / "f.txt").write_text("remote replacement\n")
+    _git(remote_work, "add", ".")
+    _git(remote_work, "commit", "-m", "remote change")
+    _git(remote_work, "push", "origin", "main")
+    _git(repo, "remote", "add", "origin", origin.as_uri())
     res = subprocess.run(
-        ["bash", "-c", script], cwd=repo, capture_output=True, text=True
+        [
+            "bash",
+            str(INSTALL_SH),
+            "--stage",
+            "repository",
+            "--non-interactive",
+            "--dir",
+            str(repo),
+            "--agentx-home",
+            str(tmp_path / "home"),
+        ],
+        env={**os.environ, "AGENTX_REPO_URL": origin.as_uri()},
+        capture_output=True,
+        text=True,
     )
-
-    # The block must complete (previously `git stash` failed with "could not
-    # write index" on the unmerged tree).
-    assert res.returncode == 0, res.stderr
-    assert "BLOCK_OK" in res.stdout
-    assert "Clearing unmerged index entries" in res.stdout
-
-    # The conflict state is gone ...
-    assert _git(repo, "ls-files", "--unmerged").stdout.strip() == "", (
-        "unmerged entries should have been cleared"
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert _git(repo, "ls-files", "--unmerged").stdout.strip() == ""
+    assert (
+        _git(repo, "rev-parse", "HEAD").stdout
+        == _git(remote_work, "rev-parse", "HEAD").stdout
     )
-    # ... and the local changes were preserved in a stash, not discarded.
     assert _git(repo, "stash", "list").stdout.strip(), (
-        "local changes should be preserved in a stash"
+        "conflicting changes must survive in a stash"
     )
 
 
@@ -152,21 +137,21 @@ def test_install_sh_clears_unmerged_index_before_stash_source_order() -> None:
     assert idx_unmerged < idx_stash
 
 
-def test_install_ps1_stops_venv_resident_processes_before_removing_venv() -> None:
+def test_install_ps1_stops_venv_resident_processes_before_parking_venv() -> None:
     """The Windows venv-recreate path must stop every process running out of the
-    old venv before deleting it.
+    old venv before moving it aside for replacement.
 
     A gateway autostarted by a scheduled task runs as
     ``venv\\Scripts\\pythonw.exe -m hermes_cli.main gateway run`` — image name
     ``pythonw``, not ``agentx.exe`` — so the ``taskkill /IM agentx.exe`` guard
     misses it, the loaded ``.pyd`` stays locked, and ``Remove-Item venv`` fails
     mid-recursion (issues #47036/#47557/#47910). The recreate branch must also
-    sweep by venv path prefix, and that sweep must run before the delete.
+    sweep by venv path prefix, and that sweep must run before parking the venv.
     """
     text = INSTALL_PS1.read_text()
 
     # The agentx.exe tree-kill is preserved (kills spawned child processes too).
-    assert 'taskkill /F /T /IM agentx.exe' in text
+    assert "taskkill /F /T /IM agentx.exe" in text
 
     # The venv path-prefix sweep exists. It must match by case-insensitive
     # StartsWith, NOT PowerShell -like: a venv path containing wildcard
@@ -174,13 +159,16 @@ def test_install_ps1_stops_venv_resident_processes_before_removing_venv() -> Non
     # to match under -like, reintroducing the exact miss this fix closes.
     idx_recreate = text.index("Virtual environment already exists, recreating")
     idx_sweep = text.index("StartsWith($venvPrefix", idx_recreate)
-    assert "[System.StringComparison]::OrdinalIgnoreCase" in text[idx_sweep:idx_sweep + 200]
+    assert (
+        "[System.StringComparison]::OrdinalIgnoreCase"
+        in text[idx_sweep : idx_sweep + 200]
+    )
     assert 'ExecutablePath -like "$venvRoot' not in text, (
         "the -like wildcard match must not be used for venv path scoping"
     )
 
-    # The process sweep must run before the venv is removed, or it is a no-op.
-    idx_remove = text.index('Remove-Item -Recurse -Force "venv"', idx_recreate)
-    assert idx_sweep < idx_remove, (
-        "venv-resident processes must be stopped before Remove-Item deletes the venv"
+    # Replacement parks the live venv atomically; it never deletes it first.
+    idx_park = text.index('Rename-Item -LiteralPath "venv"', idx_recreate)
+    assert idx_sweep < idx_park, (
+        "venv-resident processes must be stopped before the old venv is parked"
     )

@@ -62,7 +62,7 @@ function fakeStage(image: FakeImage = {}) {
     },
     listDir: async () => image.apps ?? ['AgentX Workmate.app', '.background'],
     run: async (file: string, args: string[]) => {
-      calls.push([path.basename(file), ...args].join(' '))
+      calls.push([path.basename(file), ...args].join(' ').replace(/\\/g, '/'))
 
       if (file.endsWith('hdiutil') && args[0] === 'attach' && image.failAttach) {
         throw new Error('hdiutil: attach failed - image not recognized')

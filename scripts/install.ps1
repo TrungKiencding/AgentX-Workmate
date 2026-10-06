@@ -1941,11 +1941,13 @@ function Install-Repository {
         $env:GIT_CONFIG_VALUE_0 = "false"
         git config --global windows.appendAtomically false 2>$null
 
+        # Set autocrlf in the clone before its first checkout: changing it later
+        # makes the freshly cloned CRLF files look modified and blocks pinning.
         # Try SSH first, then HTTPS, with -c flag for atomic write fix
         Write-Info "Trying SSH clone..."
         $env:GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o ConnectTimeout=5"
         try {
-            Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlSsh $InstallDir }
+            Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --config core.autocrlf=false --depth 1 --branch $Branch $RepoUrlSsh $InstallDir }
             if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
         } catch { }
         $env:GIT_SSH_COMMAND = $null
@@ -1954,7 +1956,7 @@ function Install-Repository {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
             Write-Info "SSH failed, trying HTTPS..."
             try {
-                Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlHttps $InstallDir }
+                Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --config core.autocrlf=false --depth 1 --branch $Branch $RepoUrlHttps $InstallDir }
                 if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
             } catch { }
         }
@@ -2081,6 +2083,7 @@ function Install-Repository {
             if ($Commit) {
                 Write-Info "Pinning to commit $Commit..."
                 git -c windows.appendAtomically=false fetch origin $Commit
+                if ($LASTEXITCODE -ne 0) { throw "git fetch $Commit failed (exit $LASTEXITCODE)" }
                 git -c windows.appendAtomically=false checkout --detach $Commit
                 if ($LASTEXITCODE -ne 0) {
                     throw "git checkout $Commit failed (exit $LASTEXITCODE)"
@@ -2088,6 +2091,7 @@ function Install-Repository {
             } elseif ($Tag) {
                 Write-Info "Pinning to tag $Tag..."
                 git -c windows.appendAtomically=false fetch origin "refs/tags/${Tag}:refs/tags/${Tag}"
+                if ($LASTEXITCODE -ne 0) { throw "git fetch tag $Tag failed (exit $LASTEXITCODE)" }
                 git -c windows.appendAtomically=false checkout --detach "refs/tags/$Tag"
                 if ($LASTEXITCODE -ne 0) {
                     throw "git checkout tag $Tag failed (exit $LASTEXITCODE)"

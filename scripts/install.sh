@@ -1354,7 +1354,7 @@ release_is_older() {
 
 clone_repo() {
     log_info "Installing to $INSTALL_DIR..."
-    local existing_checkout=false
+    local existing_checkout=false autostash_ref=""
 
     # An interrupted previous clone leaves a .git with no initial commit, where
     # the update path's `git stash` / `git checkout` abort with "You do not
@@ -1374,7 +1374,6 @@ clone_repo() {
             log_info "Existing installation found, updating..."
             cd "$INSTALL_DIR"
 
-            local autostash_ref=""
             discard_update_lockfile_churn "$INSTALL_DIR"
             if [ -n "$(git status --porcelain)" ]; then
                 # A previously interrupted update can leave the index with
@@ -1413,61 +1412,7 @@ clone_repo() {
                 fi
             fi
 
-            if [ -n "$autostash_ref" ]; then
-                local restore_now="yes"
-                if [ -t 0 ] && [ -t 1 ]; then
-                    echo
-                    log_warn "Local changes were stashed before updating."
-                    log_warn "Restoring them may reapply local customizations onto the updated codebase."
-                    printf "Restore local changes now? [Y/n] "
-                    read -r restore_answer
-                    case "$restore_answer" in
-                        ""|y|Y|yes|YES|Yes) restore_now="yes" ;;
-                        *) restore_now="no" ;;
-                    esac
-                fi
 
-                if [ "$restore_now" = "yes" ]; then
-                    log_info "Restoring local changes..."
-                    local restore_output=""
-                    local restore_ok="yes"
-                    if restore_output="$(git stash apply "$autostash_ref" 2>&1)"; then
-                        restore_ok="yes"
-                    else
-                        restore_ok="no"
-                    fi
-                    local conflicted_files=""
-                    conflicted_files="$(git diff --name-only --diff-filter=U || true)"
-                    if [ "$restore_ok" = "yes" ] && [ -z "$conflicted_files" ]; then
-                        git stash drop "$autostash_ref" >/dev/null
-                        log_warn "Local changes were restored on top of the updated codebase."
-                        log_warn "Review git diff / git status if AgentX behaves unexpectedly."
-                    else
-                        log_error "Update pulled new code, but restoring local changes hit conflicts."
-                        if [ -n "$restore_output" ]; then
-                            printf '%s\n' "$restore_output"
-                        fi
-                        if [ -n "$conflicted_files" ]; then
-                            printf '\nConflicted files:\n'
-                            while IFS= read -r file; do
-                                [ -n "$file" ] && printf '  • %s\n' "$file"
-                            done <<EOF
-$conflicted_files
-EOF
-                        fi
-                        printf '\n'
-                        log_info "Your stashed changes are preserved — nothing is lost."
-                        log_info "  Stash ref: $autostash_ref"
-                        git reset --hard HEAD >/dev/null 2>&1 || true
-                        log_info "Working tree reset to clean state."
-                        log_info "Restore your changes later with: git stash apply $autostash_ref"
-                    fi
-                else
-                    log_info "Skipped restoring local changes."
-                    log_info "Your changes are still preserved in git stash."
-                    log_info "Restore manually with: git stash apply $autostash_ref"
-                fi
-            fi
         else
             log_error "Directory exists but is not a git repository: $INSTALL_DIR"
             log_info "Remove it or choose a different directory with --dir"
@@ -1538,6 +1483,63 @@ EOF
                 log_error "Failed to detach at $INSTALL_COMMIT"
                 return 1
             fi
+        fi
+    fi
+
+    # Restore user changes only after the final pinned checkout is settled.
+    if [ -n "$autostash_ref" ]; then
+        local restore_now="yes"
+        if [ -t 0 ] && [ -t 1 ]; then
+            echo
+            log_warn "Local changes were stashed before updating."
+            log_warn "Restoring them may reapply local customizations onto the updated codebase."
+            printf "Restore local changes now? [Y/n] "
+            read -r restore_answer
+            case "$restore_answer" in
+                ""|y|Y|yes|YES|Yes) restore_now="yes" ;;
+                *) restore_now="no" ;;
+            esac
+        fi
+
+        if [ "$restore_now" = "yes" ]; then
+            log_info "Restoring local changes..."
+            local restore_output=""
+            local restore_ok="yes"
+            if restore_output="$(git stash apply "$autostash_ref" 2>&1)"; then
+                restore_ok="yes"
+            else
+                restore_ok="no"
+            fi
+            local conflicted_files=""
+            conflicted_files="$(git diff --name-only --diff-filter=U || true)"
+            if [ "$restore_ok" = "yes" ] && [ -z "$conflicted_files" ]; then
+                git stash drop "$autostash_ref" >/dev/null
+                log_warn "Local changes were restored on top of the updated codebase."
+                log_warn "Review git diff / git status if AgentX behaves unexpectedly."
+            else
+                log_error "Update pulled new code, but restoring local changes hit conflicts."
+                if [ -n "$restore_output" ]; then
+                    printf '%s\n' "$restore_output"
+                fi
+                if [ -n "$conflicted_files" ]; then
+                    printf '\nConflicted files:\n'
+                    while IFS= read -r file; do
+                        [ -n "$file" ] && printf '  • %s\n' "$file"
+                    done <<EOF
+$conflicted_files
+EOF
+                fi
+                printf '\n'
+                log_info "Your stashed changes are preserved — nothing is lost."
+                log_info "  Stash ref: $autostash_ref"
+                git reset --hard HEAD >/dev/null 2>&1 || true
+                log_info "Working tree reset to clean state."
+                log_info "Restore your changes later with: git stash apply $autostash_ref"
+            fi
+        else
+            log_info "Skipped restoring local changes."
+            log_info "Your changes are still preserved in git stash."
+            log_info "Restore manually with: git stash apply $autostash_ref"
         fi
     fi
 

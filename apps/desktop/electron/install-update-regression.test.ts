@@ -40,6 +40,8 @@ function fixture(versions = ['1.0.1', '1.0.4', '1.0.5']) {
 
   fs.mkdirSync(origin)
   fs.mkdirSync(home)
+  const globalConfig = path.join(root, 'git-global-config')
+  fs.writeFileSync(globalConfig, windows ? '[core]\n  autocrlf = true\n' : '')
   git(origin, 'init', '-b', 'main')
 
   const commits = versions.map((version, i) => {
@@ -51,7 +53,12 @@ function fixture(versions = ['1.0.1', '1.0.4', '1.0.5']) {
     return git(origin, 'rev-parse', 'HEAD')
   })
 
-  const env = { ...process.env, AGENTX_HOME: home, AGENTX_REPO_URL: pathToFileURL(origin).href }
+  const env = {
+    ...process.env,
+    AGENTX_HOME: home,
+    AGENTX_REPO_URL: pathToFileURL(origin).href,
+    GIT_CONFIG_GLOBAL: globalConfig
+  }
 
   const install = (pin: string, force = false, stage = 'repository') => {
     const args = windows
@@ -119,6 +126,7 @@ test('fresh pinned install and an older shallow install reach the new release on
   const f = fixture()
   f.install(f.commits[0])
   assert.equal(readCheckoutVersion(f.active), '1.0.1')
+  assert.equal(git(f.active, 'status', '--porcelain'), '')
   fs.writeFileSync(path.join(f.home, 'config.yaml'), 'user data must survive\n')
   fs.writeFileSync(path.join(f.home, '.env'), 'TEST_KEY=keep\n')
   assert.equal(resolveCheckoutPin(f.active, f.commits[2], '1.0.5', runGit).relation, 'behind')
@@ -131,6 +139,17 @@ test('fresh pinned install and an older shallow install reach the new release on
 
   assert.equal(fs.readFileSync(path.join(f.home, 'config.yaml'), 'utf8'), 'user data must survive\n')
   assert.equal(fs.readFileSync(path.join(f.home, '.env'), 'utf8'), 'TEST_KEY=keep\n')
+}, 60000)
+test('a pinned upgrade completes before restoring local changes and preserves conflicts in a stash', () => {
+  const f = fixture()
+  f.install(f.commits[0])
+  fs.writeFileSync(path.join(f.active, 'revision'), 'user edit that conflicts with the new revision')
+  fs.writeFileSync(path.join(f.active, 'keep-user-file'), 'user-created file')
+  f.install(f.commits[2])
+  assert.equal(git(f.active, 'rev-parse', 'HEAD'), f.commits[2])
+  assert.equal(readCheckoutVersion(f.active), '1.0.5')
+  assert.match(git(f.active, 'stash', 'show', '-p', '--include-untracked'), /user edit that conflicts/)
+  assert.match(git(f.active, 'stash', 'show', '-p', '--include-untracked'), /user-created file/)
 }, 60000)
 test('installers refuse a stale pin without ancestry, but an explicit rollback works', () => {
   const f = fixture()

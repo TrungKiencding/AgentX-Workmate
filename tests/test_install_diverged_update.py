@@ -11,23 +11,14 @@ Fixes the bootstrap failure seen in #53257 and desktop update paths that run
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 INSTALL_PS1 = REPO_ROOT / "scripts" / "install.ps1"
-
-
-def _extract_install_sh_update_block() -> str:
-    text = INSTALL_SH.read_text()
-    match = re.search(
-        r"(?P<block>git checkout \"\$BRANCH\".*?fi\n\n            if \[ -n \"\$autostash_ref\" \])",
-        text,
-        re.DOTALL,
-    )
-    assert match is not None, "managed-install update block not found in install.sh"
-    return match["block"]
 
 
 def _extract_install_ps1_branch_update_block() -> str:
@@ -41,17 +32,46 @@ def _extract_install_ps1_branch_update_block() -> str:
     return match["block"]
 
 
-def test_install_sh_resets_when_ff_only_pull_fails() -> None:
-    block = _extract_install_sh_update_block()
+def test_install_sh_resets_when_ff_only_pull_fails(tmp_path: Path) -> None:
+    def git(root: Path, *args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
+            cwd=root,
+            text=True,
+        ).strip()
 
-    assert 'git pull --ff-only origin "$BRANCH"' in block
-    assert 'git reset --hard "origin/$BRANCH"' in block
-    assert "Fast-forward not possible" in block
-
-    pull_idx = block.find('git pull --ff-only origin "$BRANCH"')
-    reset_idx = block.find('git reset --hard "origin/$BRANCH"')
-    assert pull_idx != -1 and reset_idx != -1
-    assert pull_idx < reset_idx, "ff-only pull must be attempted before reset fallback"
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git(origin, "init", "-b", "main")
+    (origin / "f").write_text("base")
+    git(origin, "add", ".")
+    git(origin, "commit", "-m", "base")
+    repo = tmp_path / "agentx-agent"
+    git(tmp_path, "clone", origin.as_uri(), str(repo))
+    (repo / "local").write_text("local commit")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "local")
+    (origin / "remote").write_text("remote commit")
+    git(origin, "add", ".")
+    git(origin, "commit", "-m", "remote")
+    result = subprocess.run(
+        [
+            "bash",
+            str(INSTALL_SH),
+            "--stage",
+            "repository",
+            "--non-interactive",
+            "--dir",
+            str(repo),
+            "--agentx-home",
+            str(tmp_path / "home"),
+        ],
+        env={**os.environ, "AGENTX_REPO_URL": origin.as_uri()},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert git(repo, "rev-parse", "HEAD") == git(origin, "rev-parse", "HEAD")
 
 
 def test_install_ps1_resets_when_ff_only_pull_fails() -> None:
