@@ -22462,6 +22462,9 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             user_id=str(context.source.user_id) if context.source.user_id else "",
             user_name=str(context.source.user_name) if context.source.user_name else "",
             session_key=context.session_key,
+            # A cached agent binds AGENTX_SESSION_ID only on the turn that built it; every later turn
+            # (and a command it yields to the background) must still see its own session.
+            session_id=context.session_id or "",
             message_id=str(context.source.message_id) if context.source.message_id else "",
             profile=getattr(context.source, "profile", "") or "",
             async_delivery=_async_delivery,
