@@ -206,7 +206,7 @@ No `mcp_servers` key in `~/.agentx/config.yaml`, or it's empty. Add at least one
 ### "Failed to connect to MCP server 'X'"
 
 Common causes:
-- **Command not found**: The `command` binary isn't on PATH. Ensure `npx`, `uvx`, or the relevant command is installed.
+- **Command not found** (`missing runtime …` / `missing executable …`): The `command` binary isn't on PATH, and for `uvx`/`uv` not in AgentX's own `~/.agentx/bin` either (`npx`/`node`: `~/.agentx/node/bin`). Nothing was started. `agentx update` reinstalls AgentX's uv; otherwise install the runtime or set an absolute `command`.
 - **Package not found**: For npx servers, the npm package may not exist or may need `-y` in args to auto-install.
 - **Timeout**: The server took too long to start. Increase `connect_timeout`.
 - **Port conflict**: For HTTP servers, the URL may be unreachable.
