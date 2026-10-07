@@ -1038,6 +1038,7 @@ export const en: Translations = {
       statusNeedsAuth: 'Needs sign-in',
       statusKeyRefused: 'Key refused',
       statusError: 'Connection error',
+      statusMissing: name => `Missing ${name}`,
       authenticatedTitle: 'Authenticated',
       authenticatedMessage: (server, count) => `${server}: ${count} tools`,
       waitingForBrowser: 'Waiting for browser…',
@@ -1102,6 +1103,14 @@ export const en: Translations = {
         `${name} needs you to sign in. AgentX opens your browser so you can allow it, then reconnects.`,
       keyRefused: 'The server refused the access key it was given. Fix the key in mcp.json, then check again.',
       errorHint: 'AgentX could not connect. The reason is below, and in the logs.',
+      missingRuntimeHint: (runtime, command) =>
+        `This connection starts with ${command}, which needs ${runtime}. AgentX could not find ${runtime} on this computer, so the connection was not started.`,
+      missingCommandHint: command =>
+        `This connection starts with ${command}, which AgentX could not find on this computer, so the connection was not started.`,
+      missingFixUv:
+        'Update AgentX to reinstall the uv it comes with, or install uv yourself (docs.astral.sh/uv), then retry.',
+      missingFixNode: 'Install Node.js (nodejs.org), then retry.',
+      missingFixOther: 'Install that program, or fix the command in mcp.json, then retry.',
       editInConfig: 'Edit in mcp.json',
       configName: 'Config name',
       launchLabel: 'Runs',

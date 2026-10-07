@@ -913,11 +913,186 @@ def _mcp_types():
     return _t
 
 
+class MissingStdioCommandError(FileNotFoundError):
+    """A stdio MCP server's command cannot be found, so nothing was spawned.
+
+    A ``FileNotFoundError`` so ``_classify_mcp_failure`` parks the server as a
+    permanent failure and ``_format_connect_error`` finds it. ``filename`` is
+    the command as configured; ``runtime`` names what to install when AgentX
+    knows it (``"uv"``, ``"Node.js"``) and is None for any other command.
+    ``str()`` is the actionable message alone, which is what the dashboard's
+    "test server" endpoint and the CLI print.
+    """
+
+    runtime: Optional[str] = None
+
+    def __str__(self) -> str:
+        return self.strerror or super().__str__()
+
+
+_NODE_LAUNCHERS = frozenset({"npx", "npm", "node"})
+_UV_LAUNCHERS = frozenset({"uv", "uvx"})
+# What the MCP SDK appends when it resolves a command on Windows
+# (mcp.os.win32.utilities.get_windows_executable_command).
+_WINDOWS_SPAWN_EXTENSIONS = (".cmd", ".bat", ".exe", ".ps1")
+_RUNTIME_HINTS = {
+    "Node.js": (
+        "ensure Node.js is installed and PATH includes its bin directory, "
+        "or set mcp_servers.<name>.command to an absolute path and include "
+        "that directory in mcp_servers.<name>.env.PATH"
+    ),
+    "uv": (
+        "run `agentx update` to reinstall AgentX's own uv, or install uv: "
+        "https://docs.astral.sh/uv/"
+    ),
+}
+
+
+def _launcher_runtime(command: str) -> Optional[str]:
+    """The runtime a bare launcher name belongs to: ``"Node.js"``, ``"uv"`` or None."""
+    name = os.path.basename(str(command)).lower()
+    if name.endswith((".exe", ".cmd")):
+        name = name[:-4]
+    if name in _NODE_LAUNCHERS:
+        return "Node.js"
+    if name in _UV_LAUNCHERS:
+        return "uv"
+    return None
+
+
+def _node_launcher_dirs() -> List[str]:
+    """Where a bare ``npx``/``npm``/``node`` is looked for when PATH lacks it."""
+    hermes_home = os.path.expanduser(
+        os.getenv("AGENTX_HOME", os.path.join(os.path.expanduser("~"), ".agentx"))
+    )
+    return [
+        os.path.join(hermes_home, "node", "bin"),
+        os.path.join(os.path.expanduser("~"), ".local", "bin"),
+        # /usr/local/bin is the canonical install location for Node on
+        # Linux from-source builds, the upstream node:bookworm-slim
+        # image (which the AgentX Docker image copies node + npm +
+        # corepack from since #4977), and macOS Homebrew on Intel.
+        # Without this candidate, any MCP server configured with an
+        # env.PATH that omits /usr/local/bin (a common pattern when
+        # users hand-author PATH for sandboxing) fails with ENOENT
+        # at execvp, and a naive symlink workaround into the user's
+        # PATH only fails one layer deeper because npx's shebang
+        # re-execs /usr/bin/env node which needs the same directory.
+        os.path.join(os.sep, "usr", "local", "bin"),
+    ]
+
+
+def _uv_launcher_dirs() -> List[str]:
+    """Where a bare ``uvx``/``uv`` is looked for when PATH lacks it.
+
+    AgentX's own uv lives in ``$AGENTX_HOME/bin``, which is deliberately never
+    on PATH (see hermes_cli/managed_uv.py). Two homes can hold it: the active
+    one, where ``ensure_uv()`` bootstraps, and the install root, where
+    install.sh / install.ps1 put it — they differ when the desktop runs the
+    backend inside ``accounts/<slug>`` or a profile is active. Last comes
+    ``~/.local/bin``, the standalone uv installer's default on every OS.
+    """
+    from hermes_constants import get_default_hermes_root, get_hermes_home
+
+    dirs: List[str] = []
+    for directory in (
+        os.path.join(str(get_hermes_home()), "bin"),
+        os.path.join(str(get_default_hermes_root()), "bin"),
+        os.path.join(os.path.expanduser("~"), ".local", "bin"),
+    ):
+        if directory not in dirs:
+            dirs.append(directory)
+    return dirs
+
+
+def _find_uv_launcher(command: str, *, windows: Optional[bool] = None) -> Optional[str]:
+    """Locate a bare ``uvx``/``uv`` in :func:`_uv_launcher_dirs`, or None.
+
+    On Windows the files are ``uvx.exe``/``uv.exe``; ``windows`` is injectable
+    so that branch is testable without patching ``os.name``.
+    """
+    is_windows = os.name == "nt" if windows is None else windows
+    name = command
+    if is_windows and not name.lower().endswith(".exe"):
+        name += ".exe"
+    for directory in _uv_launcher_dirs():
+        candidate = os.path.join(directory, name)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def _launcher_fallback(command: str) -> Optional[str]:
+    """A known launcher's install location when the subprocess PATH lacks it."""
+    if command in _NODE_LAUNCHERS:
+        for directory in _node_launcher_dirs():
+            candidate = os.path.join(directory, command)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
+        return None
+    if _launcher_runtime(command) == "uv":
+        return _find_uv_launcher(command)
+    return None
+
+
+def _windows_spawn_finds(command: str, *, windows: Optional[bool] = None) -> bool:
+    """Whether a Windows spawn still finds *command* where our lookup did not.
+
+    The MCP SDK resolves a Windows command against the PARENT's PATH and then
+    tries ``.cmd``/``.bat``/``.exe``/``.ps1``, so a miss in the subprocess
+    PATH is not a miss there. On POSIX ``execvp`` searches only the
+    subprocess PATH, which the caller has already searched.
+    """
+    is_windows = sys.platform == "win32" if windows is None else windows
+    if not is_windows:
+        return False
+    candidates = (command, *(command + ext for ext in _WINDOWS_SPAWN_EXTENSIONS))
+    if os.path.dirname(command):
+        return any(os.path.exists(candidate) for candidate in candidates)
+    return any(shutil.which(candidate) for candidate in candidates)
+
+
+def _home_relative(path: str) -> str:
+    home = os.path.expanduser("~")
+    if home and home != "~" and (path == home or path.startswith(home + os.sep)):
+        return "~" + path[len(home):]
+    return path
+
+
+def _missing_stdio_command(command: str) -> MissingStdioCommandError:
+    """Build the error for a stdio command that cannot be found."""
+    runtime = None if os.path.dirname(command) else _launcher_runtime(command)
+    if runtime is not None:
+        dirs = _uv_launcher_dirs() if runtime == "uv" else _node_launcher_dirs()
+        searched = ", ".join(_home_relative(directory) for directory in dirs)
+        message = (
+            f"missing runtime {runtime}: '{command}' is not on PATH or in "
+            f"{searched} ({_RUNTIME_HINTS[runtime]})"
+        )
+    elif os.path.dirname(command):
+        message = f"missing executable '{command}' (no such file)"
+    else:
+        message = (
+            f"missing executable '{command}' (not on PATH; install it, or set "
+            "mcp_servers.<name>.command to an absolute path)"
+        )
+    error = MissingStdioCommandError(errno.ENOENT, message, command)
+    error.runtime = runtime
+    return error
+
+
 def _resolve_stdio_command(command: str, env: dict) -> tuple[str, dict]:
     """Resolve a stdio MCP command against the exact subprocess environment.
 
-    This primarily exists to make bare ``npx``/``npm``/``node`` commands work
-    reliably even when MCP subprocesses run under a filtered PATH.
+    Bare ``npx``/``npm``/``node`` and ``uvx``/``uv`` fall back to where they
+    are installed when the subprocess PATH lacks them — a Finder-launched
+    desktop, a gateway service or a hand-authored ``env.PATH`` all run MCP
+    servers under such a PATH, and AgentX's own uv is never on it.
+
+    Raises :class:`MissingStdioCommandError` when the spawn could not find the
+    command either, so the failure is reported before anything starts. On
+    POSIX the spawn goes through the parent-death watchdog, and its failure to
+    exec would otherwise reach the client only as "Connection closed".
     """
     resolved_command = os.path.expanduser(str(command).strip())
     resolved_env = dict(env or {})
@@ -925,33 +1100,14 @@ def _resolve_stdio_command(command: str, env: dict) -> tuple[str, dict]:
     if os.sep not in resolved_command:
         path_arg = resolved_env["PATH"] if "PATH" in resolved_env else None
         which_hit = shutil.which(resolved_command, path=path_arg)
+        if not which_hit and not os.path.dirname(resolved_command):
+            which_hit = _launcher_fallback(resolved_command)
         if which_hit:
             resolved_command = which_hit
-        elif resolved_command in {"npx", "npm", "node"}:
-            hermes_home = os.path.expanduser(
-                os.getenv(
-                    "AGENTX_HOME", os.path.join(os.path.expanduser("~"), ".agentx")
-                )
-            )
-            candidates = [
-                os.path.join(hermes_home, "node", "bin", resolved_command),
-                os.path.join(os.path.expanduser("~"), ".local", "bin", resolved_command),
-                # /usr/local/bin is the canonical install location for Node on
-                # Linux from-source builds, the upstream node:bookworm-slim
-                # image (which the AgentX Docker image copies node + npm +
-                # corepack from since #4977), and macOS Homebrew on Intel.
-                # Without this candidate, any MCP server configured with an
-                # env.PATH that omits /usr/local/bin (a common pattern when
-                # users hand-author PATH for sandboxing) fails with ENOENT
-                # at execvp, and a naive symlink workaround into the user's
-                # PATH only fails one layer deeper because npx's shebang
-                # re-execs /usr/bin/env node which needs the same directory.
-                os.path.join(os.sep, "usr", "local", "bin", resolved_command),
-            ]
-            for candidate in candidates:
-                if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-                    resolved_command = candidate
-                    break
+        elif not _windows_spawn_finds(resolved_command):
+            raise _missing_stdio_command(resolved_command)
+    elif not (os.path.exists(resolved_command) or _windows_spawn_finds(resolved_command)):
+        raise _missing_stdio_command(resolved_command)
 
     command_dir = os.path.dirname(resolved_command)
     if command_dir:
@@ -1520,34 +1676,45 @@ def _apply_identity_header(server_name: str, config: dict, headers: dict) -> dic
 def _format_connect_error(exc: BaseException) -> str:
     """Render nested MCP connection errors into an actionable short message."""
 
-    def _find_missing(current: BaseException) -> Optional[str]:
+    # ``__cause__``/``__context__`` can point back into the tree: re-raising a
+    # group's child while handling the group (``_probe_single_server`` does)
+    # makes the child's context the group itself. ``seen`` breaks the cycle.
+    def _find_missing(
+        current: BaseException, seen: Set[int]
+    ) -> Optional[Tuple[BaseException, str]]:
+        if id(current) in seen:
+            return None
+        seen.add(id(current))
         nested = getattr(current, "exceptions", None)
         if nested:
             for child in nested:
-                missing = _find_missing(child)
+                missing = _find_missing(child, seen)
                 if missing:
                     return missing
             return None
         if isinstance(current, FileNotFoundError):
             if getattr(current, "filename", None):
-                return str(current.filename)
+                return current, str(current.filename)
             match = re.search(r"No such file or directory: '([^']+)'", str(current))
             if match:
-                return match.group(1)
+                return current, match.group(1)
         for attr in ("__cause__", "__context__"):
             nested_exc = getattr(current, attr, None)
             if isinstance(nested_exc, BaseException):
-                missing = _find_missing(nested_exc)
+                missing = _find_missing(nested_exc, seen)
                 if missing:
                     return missing
         return None
 
-    def _flatten_messages(current: BaseException) -> List[str]:
+    def _flatten_messages(current: BaseException, seen: Set[int]) -> List[str]:
+        if id(current) in seen:
+            return []
+        seen.add(id(current))
         nested = getattr(current, "exceptions", None)
         if nested:
             flattened: List[str] = []
             for child in nested:
-                flattened.extend(_flatten_messages(child))
+                flattened.extend(_flatten_messages(child, seen))
             return flattened
         messages = []
         text = str(current).strip()
@@ -1556,22 +1723,22 @@ def _format_connect_error(exc: BaseException) -> str:
         for attr in ("__cause__", "__context__"):
             nested_exc = getattr(current, attr, None)
             if isinstance(nested_exc, BaseException):
-                messages.extend(_flatten_messages(nested_exc))
+                messages.extend(_flatten_messages(nested_exc, seen))
         return messages or [current.__class__.__name__]
 
-    missing = _find_missing(exc)
-    if missing:
+    found = _find_missing(exc, set())
+    if found:
+        missing_exc, missing = found
+        if isinstance(missing_exc, MissingStdioCommandError):
+            return _sanitize_error(str(missing_exc))
         message = f"missing executable '{missing}'"
-        if os.path.basename(missing) in {"npx", "npm", "node"}:
-            message += (
-                " (ensure Node.js is installed and PATH includes its bin directory, "
-                "or set mcp_servers.<name>.command to an absolute path and include "
-                "that directory in mcp_servers.<name>.env.PATH)"
-            )
+        hint = _RUNTIME_HINTS.get(_launcher_runtime(missing) or "")
+        if hint:
+            message += f" ({hint})"
         return _sanitize_error(message)
 
     deduped: List[str] = []
-    for item in _flatten_messages(exc):
+    for item in _flatten_messages(exc, set()):
         if item not in deduped:
             deduped.append(item)
     return _sanitize_error("; ".join(deduped[:3]))
@@ -2881,6 +3048,8 @@ class MCPServerTask:
             )
 
         safe_env = _with_mcp_host_role(_build_safe_env(user_env))
+        # Raises MissingStdioCommandError for a command that cannot be found,
+        # before the OSV lookup and the watchdog wrap below.
         command, safe_env = _resolve_stdio_command(command, safe_env)
 
         # Check package against OSV malware database before spawning.

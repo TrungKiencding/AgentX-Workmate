@@ -803,7 +803,10 @@ class TestMCPServerTask:
         p_stdio, p_cs, _, _ = self._mock_stdio_and_session(mock_session)
 
         async def _test():
-            with patch("tools.mcp_tool.StdioServerParameters"), p_stdio, p_cs:
+            # The resolver would raise on a machine without Node; the
+            # transport is mocked, so the command is never spawned.
+            with patch("tools.mcp_tool.StdioServerParameters"), p_stdio, p_cs, \
+                 patch("tools.mcp_tool._resolve_stdio_command", side_effect=lambda c, e: (c, e)):
                 server = MCPServerTask("test_srv")
                 await server.start({"command": "npx", "args": ["-y", "test"]})
 

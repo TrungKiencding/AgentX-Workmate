@@ -1295,6 +1295,7 @@ export const vi: Translations = {
       statusNeedsAuth: 'Cần đăng nhập',
       statusKeyRefused: 'Khoá bị từ chối',
       statusError: 'Lỗi kết nối',
+      statusMissing: name => `Thiếu ${name}`,
       authenticatedTitle: 'Đã xác thực',
       authenticatedMessage: (server, count) => `${server}: ${count} công cụ`,
       waitingForBrowser: 'Đang chờ trình duyệt…',
@@ -1355,6 +1356,13 @@ export const vi: Translations = {
       signInHint: name => `${name} cần bạn đăng nhập. AgentX mở trình duyệt để bạn cho phép, rồi tự kết nối lại.`,
       keyRefused: 'Máy chủ từ chối khoá truy cập đang dùng. Sửa khoá trong mcp.json rồi kiểm tra lại.',
       errorHint: 'AgentX chưa kết nối được. Lý do nằm bên dưới và trong Nhật ký.',
+      missingRuntimeHint: (runtime, command) =>
+        `Kết nối này chạy bằng lệnh ${command} và cần ${runtime}, nhưng AgentX không tìm thấy ${runtime} trên máy này nên chưa khởi động kết nối.`,
+      missingCommandHint: command =>
+        `Kết nối này chạy bằng lệnh ${command}, nhưng AgentX không tìm thấy lệnh đó trên máy này nên chưa khởi động kết nối.`,
+      missingFixUv: 'Cập nhật AgentX để cài lại uv đi kèm, hoặc tự cài uv (docs.astral.sh/uv), rồi bấm Thử lại.',
+      missingFixNode: 'Cài Node.js (nodejs.org), rồi bấm Thử lại.',
+      missingFixOther: 'Cài chương trình đó, hoặc sửa lệnh trong mcp.json, rồi bấm Thử lại.',
       editInConfig: 'Sửa trong mcp.json',
       configName: 'Tên cấu hình',
       launchLabel: 'Chạy bằng',

@@ -118,13 +118,25 @@ def main(argv: list[str] | None = None) -> int:
     # New process group so we can killpg() the whole tree the real command
     # may spawn (e.g. mcp-remote's own child `node` process), without
     # touching our own group or the (already-gone) original parent's.
-    proc = subprocess.Popen(
-        real_argv,
-        stdin=sys.stdin,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        start_new_session=True,
-    )
+    try:
+        proc = subprocess.Popen(
+            real_argv,
+            stdin=sys.stdin,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        # The parent resolves the command before wrapping it, so this is a
+        # file removed in between or one that cannot be executed. The client
+        # only sees the pipe close; leave one readable line in mcp-stderr.log
+        # instead of a traceback, and exit as a shell would (127: not found,
+        # 126: cannot execute).
+        print(
+            f"mcp_stdio_watchdog: cannot start {real_argv[0]!r}: {exc.strerror or exc}",
+            file=sys.stderr,
+        )
+        return 127 if isinstance(exc, FileNotFoundError) else 126
 
     # Because the real server lives in its OWN process group (above), the
     # parent's graceful-shutdown killpg of *our* group no longer reaches it.

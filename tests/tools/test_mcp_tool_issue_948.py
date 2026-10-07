@@ -106,6 +106,7 @@ def test_run_stdio_malware_check_does_not_block_event_loop():
 
     async def _test():
         with patch("tools.osv_check.check_package_for_malware", side_effect=slow_check), \
+             patch("tools.mcp_tool._resolve_stdio_command", side_effect=lambda c, e: (c, e)), \
              patch("tools.mcp_tool.StdioServerParameters"), \
              patch("tools.mcp_tool.stdio_client", return_value=mock_stdio_cm), \
              patch("tools.mcp_tool.ClientSession", return_value=mock_session_cm):
@@ -133,6 +134,7 @@ def test_run_stdio_malware_check_times_out_fail_open():
 
     async def _test():
         with patch("tools.osv_check.check_package_for_malware", side_effect=hung_check), \
+             patch("tools.mcp_tool._resolve_stdio_command", side_effect=lambda c, e: (c, e)), \
              patch("tools.mcp_tool._OSV_MALWARE_CHECK_TIMEOUT_S", 0.2), \
              patch("tools.mcp_tool.StdioServerParameters"), \
              patch("tools.mcp_tool.stdio_client", return_value=mock_stdio_cm), \

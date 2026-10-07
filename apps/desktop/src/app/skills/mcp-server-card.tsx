@@ -16,21 +16,32 @@ import { Lock } from '@/lib/icons'
 
 import { HubStateNote } from './hub-state-note'
 import { McpAvatar } from './mcp-avatar'
-import { enabledToolCount, gatewayLapsed, type McpServerView, serverEnabled, type ServerStatus } from './mcp-model'
+import {
+  enabledToolCount,
+  gatewayLapsed,
+  type McpServerView,
+  missingCommandOf,
+  serverEnabled,
+  type ServerStatus
+} from './mcp-model'
 
 /**
  * The one pill a connected card carries beside its name: what is wrong, or
  * that it is off. Working is unmarked. A refusal reads "Cần đăng nhập" only
  * where signing in is the fix (`canAuth`); a server that sends its own key
- * had that key refused, and says so.
+ * had that key refused, and says so. One whose command is not on this
+ * machine names what to install ("Thiếu uv") rather than a connection error.
  */
 export function ServerStatusPill({
   canAuth,
+  missing,
   size,
   status,
   t
 }: {
   canAuth: boolean
+  /** What a 'missing-runtime' server lacks, as the pill names it (`uv`, `Node.js`, the command). */
+  missing?: string | null
   size?: 'md' | 'sm'
   status: ServerStatus
   t: Translations
@@ -56,6 +67,13 @@ export function ServerStatusPill({
       return (
         <StatusPill data-testid="mcp-server-status" size={size} tone="warn">
           {canAuth ? m.statusNeedsAuth : m.statusKeyRefused}
+        </StatusPill>
+      )
+
+    case 'missing-runtime':
+      return (
+        <StatusPill data-testid="mcp-server-status" size={size} tone="bad">
+          {missing ? m.statusMissing(missing) : m.statusError}
         </StatusPill>
       )
 
@@ -97,9 +115,9 @@ export function ServerSourceTag({ view }: { view: McpServerView }) {
 // is wrong — "Đăng nhập" for an OAuth server that needs it, "Cập nhật" for a
 // newer hub version, "Kết nối lại" for a gateway endpoint whose account on the
 // hub lapsed (the hub's page opens: it is fixed there, the one place it is set
-// up), "Thử lại" after an error. Working, it shows how many tools it gives
-// AgentX instead. Tools, logs, the launch line and removal all live behind
-// "Chi tiết".
+// up), "Thử lại" after an error or once a missing runtime is installed.
+// Working, it shows how many tools it gives AgentX instead. Tools, logs, the
+// launch line and removal all live behind "Chi tiết".
 export function McpServerCard({
   authing,
   busy,
@@ -130,6 +148,7 @@ export function McpServerCard({
   const blocked = hub?.blocked_tools ?? []
   const hubUpdate = hub?.update_available && hub.version ? hub.version : null
   const probe = view.probe && view.probe !== 'probing' && view.probe.ok ? view.probe : null
+  const missing = missingCommandOf(view.probe)
   const lapsed = view.gatewayEndpoint && gatewayLapsed(view.gatewayEndpoint) ? view.gatewayEndpoint : null
   const hubState = view.hubState
   // AgentX Hub keeps it off (the hub's decision §9.1 #18): the switch is the hub's until it turns it back on.
@@ -149,7 +168,7 @@ export function McpServerCard({
       <Button data-testid="mcp-server-reconnect" onClick={() => onOpenHub(lapsed.connect_url!)} size="sm">
         {m.hubReconnect}
       </Button>
-    ) : view.status === 'error' ? (
+    ) : view.status === 'error' || view.status === 'missing-runtime' ? (
       <Button data-testid="mcp-server-retry" onClick={onProbe} size="sm" variant="secondary">
         {t.common.retry}
       </Button>
@@ -184,7 +203,7 @@ export function McpServerCard({
               {s.heldPill}
             </StatusPill>
           ) : (
-            <ServerStatusPill canAuth={view.canAuth} status={view.status} t={t} />
+            <ServerStatusPill canAuth={view.canAuth} missing={missing?.label} status={view.status} t={t} />
           )
         }
         title={view.title}

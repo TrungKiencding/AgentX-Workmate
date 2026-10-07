@@ -989,6 +989,14 @@ export function setSkillEnabled(
   })
 }
 
+/** A server whose command is not on this machine: nothing was started. */
+export interface McpMissingCommand {
+  /** The command as configured (`uvx`, `npx`, a path). */
+  command: string
+  /** What to install when AgentX knows it (`uv`, `Node.js`); null for any other command. */
+  runtime: string | null
+}
+
 export interface McpTestResult {
   ok: boolean
   error?: string
@@ -996,6 +1004,8 @@ export interface McpTestResult {
   /** Capability counts (absent on older backends / failed probes). */
   prompts?: number
   resources?: number
+  /** Set when the failure is a command missing from this machine (absent on older backends). */
+  missing?: McpMissingCommand
 }
 
 export interface McpOAuthFlow {
