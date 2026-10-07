@@ -6,7 +6,7 @@ gateway and AgentX Workmate re-hash what the server announces and block every
 tool whose hash differs from the approved one (tool poisoning, rug pulls).
 Both sides must hash the same way, so this module is self-contained — plain
 Python, no imports beyond the standard library — and Workmate keeps a copy of
-it (``tools/mcp_surface.py``). ``tests/vectors/surface-v1.json`` holds the
+it (``tools/mcp_surface.py``). ``tests/vectors/surface-v2.json`` holds the
 answers both copies must give.
 
 Canonical forms (keys outside these are dropped — ``_meta``, ``icons``,
@@ -14,14 +14,32 @@ Canonical forms (keys outside these are dropped — ``_meta``, ``icons``,
 
 * tool — ``{name, title?, description?, inputSchema, outputSchema?, annotations?}``;
   ``inputSchema`` defaults to ``{"type": "object"}`` (the protocol requires one);
-* prompt — ``{name, title?, description?, arguments?}``;
+  ``annotations`` keeps ``title`` and the four hints (:data:`ANNOTATION_KEYS`);
+* prompt — ``{name, title?, description?, arguments?}``; each argument keeps
+  ``name``, ``title``, ``description`` and ``required`` (:data:`ARGUMENT_KEYS`);
 * resource template — ``{uriTemplate, name, title?, description?, mimeType?}``.
 
 A text field counts only when it is a string, a schema or an annotation block
 only when it is a non-empty object, the argument list only when it is a
 non-empty list; otherwise the key is left out, so "absent", ``null`` and
-``{}`` hash alike. Nothing else is rewritten: a changed description *is* a
-different tool.
+``{}`` hash alike.
+
+**Annotations and prompt arguments are read as a client reads them**
+(version 2). The MCP SDK Workmate runs (``mcp`` for Python, pydantic models)
+keeps no other key there, and reads a hint or ``required`` sent as ``0`` or
+``1``, ``0.0`` or ``1.0``, or one of ``true``/``false``, ``yes``/``no``,
+``on``/``off``, ``t``/``f``, ``y``/``n``, ``1``/``0`` in any ASCII case, as
+that boolean. So a list as a server sent it and the same list read through
+the SDK hash alike: what the hub approves from a ``tools/list`` result, what
+the gateway sees upstream and what Workmate reads. Version 1 kept both as
+sent — a list approved as chrome-devtools-mcp sent it (``annotations.category``)
+never matched on a machine. A list the SDK reads unchanged hashes as it did
+in version 1.
+
+Nothing else is rewritten: a changed description *is* a different tool, and
+a value no client takes — a hint of ``2``, a ``title`` that is a number, an
+argument that is not an object — stays as sent (the SDK refuses such a list
+whole).
 
 Hashes are ``sha256:<64 hex>`` over the canonical JSON of the hub (sorted
 keys, no whitespace, UTF-8 kept):
@@ -43,10 +61,19 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-SURFACE_VERSION = 1
+SURFACE_VERSION = 2
 KIND_TOOL = "tool"
 KIND_PROMPT = "prompt"
 KIND_TEMPLATE = "template"
+#: The boolean hints of a tool's ``annotations`` (``ToolAnnotations``)…
+ANNOTATION_HINTS = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+#: …and every key the protocol defines there.
+ANNOTATION_KEYS = ("title", *ANNOTATION_HINTS)
+#: The keys the protocol defines for a prompt argument (``PromptArgument``).
+ARGUMENT_KEYS = ("name", "title", "description", "required")
+#: The words a client reads as ``true`` and as ``false`` (pydantic's lax mode), in lower case.
+_TRUE_WORDS = frozenset({"1", "t", "y", "on", "yes", "true"})
+_FALSE_WORDS = frozenset({"0", "f", "n", "no", "off", "false"})
 
 
 def canonical_json(value: Any) -> str:
@@ -77,6 +104,37 @@ def _object(value: Any) -> dict[str, Any] | None:
     return dict(value) if isinstance(value, Mapping) and value else None
 
 
+def _boolean(value: Any) -> Any:
+    """*value* of a boolean field as a client reads it (the module
+    docstring): ``True`` or ``False`` when it takes the value for one,
+    anything else as it is."""
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str) and value.isascii() and value.lower() in _TRUE_WORDS | _FALSE_WORDS:
+        return value.lower() in _TRUE_WORDS
+    return value
+
+
+def _annotations(value: Any) -> dict[str, Any] | None:
+    """A tool's annotation block as a client reads it: the keys the protocol
+    defines, the hints as booleans; ``None`` when nothing is left."""
+    block = _object(value)
+    if block is None:
+        return None
+    read = {key: _boolean(sent) if key in ANNOTATION_HINTS else sent for key, sent in block.items() if key in ANNOTATION_KEYS}
+    return read or None
+
+
+def _argument(value: Any) -> Any:
+    """A prompt argument as a client reads it: the keys the protocol defines,
+    ``required`` as a boolean. One that is not an object stays as it is."""
+    if not isinstance(value, Mapping):
+        return value
+    return {key: _boolean(sent) if key == "required" else sent for key, sent in value.items() if key in ARGUMENT_KEYS}
+
+
 def canonical_tool(tool: Mapping[str, Any]) -> dict[str, Any]:
     """The canonical form of one ``tools/list`` entry."""
     if not isinstance(tool, Mapping):
@@ -84,10 +142,12 @@ def canonical_tool(tool: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"name": _name(tool, "name", "tool")}
     _texts(tool, ("title", "description"), out)
     out["inputSchema"] = _object(tool.get("inputSchema")) or {"type": "object"}
-    for key in ("outputSchema", "annotations"):
-        value = _object(tool.get(key))
-        if value is not None:
-            out[key] = value
+    output_schema = _object(tool.get("outputSchema"))
+    if output_schema is not None:
+        out["outputSchema"] = output_schema
+    annotations = _annotations(tool.get("annotations"))
+    if annotations is not None:
+        out["annotations"] = annotations
     return out
 
 
@@ -99,7 +159,7 @@ def canonical_prompt(prompt: Mapping[str, Any]) -> dict[str, Any]:
     _texts(prompt, ("title", "description"), out)
     arguments = prompt.get("arguments")
     if isinstance(arguments, list) and arguments:
-        out["arguments"] = list(arguments)
+        out["arguments"] = [_argument(argument) for argument in arguments]
     return out
 
 

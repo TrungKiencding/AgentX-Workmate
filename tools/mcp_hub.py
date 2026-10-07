@@ -474,9 +474,13 @@ class ToolCheck:
 
 
 def tool_payload(tool: Any) -> Dict[str, Any]:
-    """What the server sent for *tool* — or a prompt, or a resource template
-    — as JSON: the keys it set, its nulls included. The hub hashed what the
-    author pasted or what its probe read the same way (``tools/mcp_surface.py``)."""
+    """*tool* — or a prompt, or a resource template — as JSON, as the MCP SDK
+    read it: the keys the server set that the SDK's models know, its nulls
+    included. The SDK keeps no other key in a tool's annotations or a prompt
+    argument, and reads a hint or ``required`` sent as ``"true"`` or ``1`` as
+    a boolean; the canonical form (``tools/mcp_surface.py``, version 2) reads
+    the list the hub approved — as the server sent it — the same way, so both
+    hash alike (Agent Hub decision §9.1 #20)."""
     dump = getattr(tool, "model_dump", None)
     if callable(dump):
         return dump(by_alias=True, exclude_unset=True, mode="json")
