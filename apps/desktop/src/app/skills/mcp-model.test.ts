@@ -17,6 +17,7 @@ import {
   type McpGatewayEndpoint,
   type McpGatewayListing,
   mergeServers,
+  missingCommandOf,
   parseServersDoc,
   scanServerBlocks,
   serverTitle,
@@ -152,6 +153,26 @@ describe('what a connection is doing', () => {
     expect(statusOf({}, { ok: true, tools: [] })).toBe('ok')
     expect(statusOf({}, { ok: false, error: 'HTTP 401 Unauthorized', tools: [] })).toBe('needs-auth')
     expect(statusOf({}, { ok: false, error: 'spawn npx ENOENT', tools: [] })).toBe('error')
+  })
+
+  it('reads a command missing from this machine apart from a failed connection', () => {
+    const missingUv = {
+      ok: false,
+      error: "missing runtime uv: 'uvx' is not on PATH or in ~/.agentx/bin",
+      tools: [],
+      missing: { command: 'uvx', runtime: 'uv' }
+    }
+
+    expect(statusOf({}, missingUv)).toBe('missing-runtime')
+    expect(statusOf({ enabled: false }, missingUv)).toBe('off')
+    // Named by the runtime to install when known, else by the command itself.
+    expect(missingCommandOf(missingUv)).toEqual({ command: 'uvx', runtime: 'uv', label: 'uv' })
+    expect(missingCommandOf({ ok: false, tools: [], missing: { command: 'docker', runtime: null } })?.label).toBe(
+      'docker'
+    )
+    expect(missingCommandOf({ ok: false, error: 'spawn npx ENOENT', tools: [] })).toBeNull()
+    expect(missingCommandOf('probing')).toBeNull()
+    expect(missingCommandOf(undefined)).toBeNull()
   })
 
   it('offers the browser sign-in only to OAuth-shaped remote servers', () => {

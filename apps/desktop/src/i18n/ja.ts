@@ -1039,6 +1039,7 @@ export const ja = defineLocale({
       statusNeedsAuth: 'サインインが必要',
       statusKeyRefused: 'キーが拒否されました',
       statusError: '接続エラー',
+      statusMissing: name => `${name} がありません`,
       authenticatedTitle: '認証済み',
       authenticatedMessage: (server, count) => `${server}: ツール ${count} 個`,
       waitingForBrowser: 'ブラウザを待機中…',
@@ -1100,6 +1101,14 @@ export const ja = defineLocale({
         `${name} にはサインインが必要です。AgentX がブラウザーを開くので許可してください。その後、自動で再接続します。`,
       keyRefused: 'サーバーが今のアクセスキーを拒否しました。mcp.json でキーを直してから、もう一度確認してください。',
       errorHint: 'AgentX は接続できませんでした。理由は下とログにあります。',
+      missingRuntimeHint: (runtime, command) =>
+        `この接続は ${command} で起動し、${runtime} が必要です。このコンピューターに ${runtime} が見つからないため、接続を開始していません。`,
+      missingCommandHint: command =>
+        `この接続は ${command} で起動しますが、このコンピューターに見つからないため、接続を開始していません。`,
+      missingFixUv:
+        'AgentX を更新して付属の uv を入れ直すか、uv を自分でインストールしてから（docs.astral.sh/uv）、再試行してください。',
+      missingFixNode: 'Node.js をインストールしてから（nodejs.org）、再試行してください。',
+      missingFixOther: 'そのプログラムをインストールするか、mcp.json のコマンドを直してから、再試行してください。',
       editInConfig: 'mcp.json で編集',
       configName: '設定名',
       launchLabel: '起動方法',

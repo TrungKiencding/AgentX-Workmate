@@ -386,6 +386,73 @@ describe('McpStore — what is connected', () => {
     expect(testMcpServer).toHaveBeenCalledWith('broken')
   })
 
+  it('a server whose runtime is not on this machine names what to install', async () => {
+    getHermesConfigRecord.mockResolvedValue({
+      mcp_servers: { ...SERVERS, time: { command: 'uvx', args: ['mcp-server-time'] } }
+    })
+    testMcpServer.mockImplementation(async (name: string) =>
+      name === 'time'
+        ? {
+            ok: false,
+            error: "missing runtime uv: 'uvx' is not on PATH or in ~/.agentx/bin, ~/.local/bin",
+            tools: [],
+            missing: { command: 'uvx', runtime: 'uv' }
+          }
+        : (PROBES[name] ?? { ok: true, tools: [] })
+    )
+    await renderStore()
+
+    // Not a "Connection error": nothing was started, and the card says what is missing.
+    await waitFor(() => expect(within(card('time')).getByTestId('mcp-server-status').textContent).toBe('Missing uv'))
+    expect(within(card('time')).getByTestId('mcp-server-retry')).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(within(card('time')).getByTestId('mcp-server-details'))
+    })
+
+    const problem = within(await screen.findByTestId('mcp-server-detail')).getByTestId('mcp-server-missing')
+    expect(problem.textContent).toContain('This connection starts with uvx, which needs uv.')
+    expect(problem.textContent).toContain('Update AgentX to reinstall the uv it comes with')
+    expect(problem.textContent).toContain("missing runtime uv: 'uvx' is not on PATH")
+    // A runtime is installed, not fixed in mcp.json.
+    expect(within(problem).queryByRole('button', { name: 'Edit in mcp.json' })).toBeNull()
+    testMcpServer.mockClear()
+
+    await act(async () => {
+      fireEvent.click(within(problem).getByRole('button', { name: 'Retry' }))
+    })
+
+    expect(testMcpServer).toHaveBeenCalledWith('time')
+  })
+
+  it('a command AgentX knows nothing about is named, with mcp.json one click away', async () => {
+    testMcpServer.mockImplementation(async (name: string) =>
+      name === 'broken'
+        ? {
+            ok: false,
+            error:
+              "missing executable 'nope' (not on PATH; install it, or set mcp_servers.<name>.command to an absolute path)",
+            tools: [],
+            missing: { command: 'nope', runtime: null }
+          }
+        : (PROBES[name] ?? { ok: true, tools: [] })
+    )
+    await renderStore()
+
+    await waitFor(() =>
+      expect(within(card('broken')).getByTestId('mcp-server-status').textContent).toBe('Missing nope')
+    )
+
+    await act(async () => {
+      fireEvent.click(within(card('broken')).getByTestId('mcp-server-details'))
+    })
+
+    const problem = within(await screen.findByTestId('mcp-server-detail')).getByTestId('mcp-server-missing')
+    expect(problem.textContent).toContain('This connection starts with nope, which AgentX could not find')
+    expect(problem.textContent).toContain('Install that program, or fix the command in mcp.json')
+    expect(within(problem).getByRole('button', { name: 'Edit in mcp.json' })).toBeTruthy()
+  })
+
   it('removing asks first, then writes the map without it', async () => {
     await renderStore()
 

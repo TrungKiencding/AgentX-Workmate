@@ -958,6 +958,7 @@ export const ar = defineLocale({
       statusNeedsAuth: 'يلزم تسجيل الدخول',
       statusKeyRefused: 'رُفض المفتاح',
       statusError: 'خطأ في الاتصال',
+      statusMissing: name => `${name} غير مثبّت`,
       authenticate: 'تسجيل الدخول',
       hubSignIn: 'سجّل الدخول إلى AgentX لترى خوادم MCP التي وافق عليها Hub لك.',
       hubHint:
@@ -1086,6 +1087,13 @@ export const ar = defineLocale({
       signInHint: name => `يحتاج ${name} إلى تسجيل دخولك. يفتح AgentX متصفحك لتسمح له، ثم يعيد الاتصال.`,
       keyRefused: 'رفض الخادم مفتاح الوصول المستخدَم. صحّح المفتاح في mcp.json ثم تحقّق مجددًا.',
       errorHint: 'تعذّر على AgentX الاتصال. السبب أدناه وفي السجلات.',
+      missingRuntimeHint: (runtime, command) =>
+        `يبدأ هذا الاتصال بالأمر ${command} الذي يحتاج إلى ${runtime}. لم يجد AgentX ${runtime} على هذا الجهاز، لذا لم يبدأ الاتصال.`,
+      missingCommandHint: command =>
+        `يبدأ هذا الاتصال بالأمر ${command}، لكن AgentX لم يجده على هذا الجهاز، لذا لم يبدأ الاتصال.`,
+      missingFixUv: 'حدّث AgentX لإعادة تثبيت uv المرفق به، أو ثبّت uv بنفسك (docs.astral.sh/uv)، ثم أعد المحاولة.',
+      missingFixNode: 'ثبّت Node.js (nodejs.org)، ثم أعد المحاولة.',
+      missingFixOther: 'ثبّت هذا البرنامج، أو صحّح الأمر في mcp.json، ثم أعد المحاولة.',
       editInConfig: 'حرّر في mcp.json',
       configName: 'اسم الإعداد',
       launchLabel: 'يعمل عبر',

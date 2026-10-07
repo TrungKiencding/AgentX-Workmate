@@ -860,6 +860,8 @@ export interface Translations {
       /** A server that sends its own key (headers) was refused: the fix is the key, not a sign-in. */
       statusKeyRefused: string
       statusError: string
+      /** The server's command, or the runtime it needs (`uv`, `Node.js`), is not on this machine. */
+      statusMissing: (name: string) => string
       authenticatedTitle: string
       authenticatedMessage: (server: string, count: number) => string
       waitingForBrowser: string
@@ -905,6 +907,12 @@ export interface Translations {
       signInHint: (name: string) => string
       keyRefused: string
       errorHint: string
+      /** A known runtime is missing: `command` (`uvx`) needs `runtime` (`uv`). */
+      missingRuntimeHint: (runtime: string, command: string) => string
+      missingCommandHint: (command: string) => string
+      missingFixUv: string
+      missingFixNode: string
+      missingFixOther: string
       editInConfig: string
       configName: string
       launchLabel: string

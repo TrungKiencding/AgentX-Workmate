@@ -29,6 +29,7 @@ import {
   gatewayLapsed,
   launchLine,
   type McpServerView,
+  missingCommandOf,
   serverEnabled
 } from './mcp-model'
 import { ServerSourceTag, ServerStatusPill } from './mcp-server-card'
@@ -43,12 +44,12 @@ function reasonLine(error: string | undefined): string {
 
 // One connection's whole story, opened from its card: what it does and where
 // it came from, what stands between it and working (a sign-in, a key the
-// server refused, an error — each with its way out), the tools it gives AgentX
-// (each one a toggle), the hub's word on it for a hub server (who vouches, the
-// version, an update or a replacement, the tools kept off), and the technical
-// tail folded away — the launch line, the logs, a jump into mcp.json. The
-// switch sits in the footer beside "Kiểm tra lại" and "Gỡ kết nối", so a
-// person who came to read can also decide.
+// server refused, a runtime this machine lacks, an error — each with its way
+// out), the tools it gives AgentX (each one a toggle), the hub's word on it
+// for a hub server (who vouches, the version, an update or a replacement, the
+// tools kept off), and the technical tail folded away — the launch line, the
+// logs, a jump into mcp.json. The switch sits in the footer beside "Kiểm tra
+// lại" and "Gỡ kết nối", so a person who came to read can also decide.
 export function McpServerDialog({
   onClose,
   view,
@@ -88,6 +89,7 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
   const [logsShown, setLogsShown] = useState(false)
   const enabled = serverEnabled(v.server)
   const probe = v.probe && v.probe !== 'probing' ? v.probe : null
+  const missing = missingCommandOf(v.probe)
   const hub = v.hubEntry
   const blocked = hub?.blocked_tools ?? []
   const hubUpdate = hub?.update_available && hub.version ? hub.version : null
@@ -107,7 +109,7 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
         <DialogTitle className="flex flex-wrap items-center gap-2.5">
           <McpAvatar name={v.name} size="lg" status={v.status} />
           <span className="min-w-0 truncate">{v.title}</span>
-          <ServerStatusPill canAuth={v.canAuth} status={v.status} t={t} />
+          <ServerStatusPill canAuth={v.canAuth} missing={missing?.label} status={v.status} t={t} />
         </DialogTitle>
         <DialogDescription className="text-base">{v.description}</DialogDescription>
       </DialogHeader>
@@ -161,6 +163,34 @@ function ServerDetail({ view: v, ...props }: ServerDetailProps & { view: McpServ
                   {m.editInConfig}
                 </Button>
               )}
+            </div>
+          </div>
+        ) : v.status === 'missing-runtime' && missing ? (
+          <div className="grid gap-2 rounded-(--radius-card) bg-(--ui-bg-quinary) p-3" data-testid="mcp-server-missing">
+            <p className="text-sm text-(--ui-text-secondary)">
+              {missing.runtime
+                ? m.missingRuntimeHint(missing.runtime, missing.command)
+                : m.missingCommandHint(missing.command)}
+            </p>
+            <p className="text-sm text-(--ui-text-secondary)">
+              {missing.runtime === 'uv'
+                ? m.missingFixUv
+                : missing.runtime === 'Node.js'
+                  ? m.missingFixNode
+                  : m.missingFixOther}
+            </p>
+            {probe?.error && (
+              <p className="font-mono text-xs break-words text-(--ui-text-tertiary)">{reasonLine(probe.error)}</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {!missing.runtime && (
+                <Button onClick={props.onEditConfig} size="sm" variant="secondary">
+                  {m.editInConfig}
+                </Button>
+              )}
+              <Button onClick={props.onProbe} size="sm" variant="secondary">
+                {t.common.retry}
+              </Button>
             </div>
           </div>
         ) : v.status === 'error' ? (

@@ -20,6 +20,7 @@ import type { ServerStatus } from './mcp-model'
 const STATUS_DOT: Record<ServerStatus, string> = {
   ok: 'bg-(--ui-green)',
   error: 'bg-(--ui-red)',
+  'missing-runtime': 'bg-(--ui-red)',
   'needs-auth': 'bg-(--ui-yellow)',
   probing: 'animate-pulse bg-foreground/40',
   off: 'bg-foreground/20',

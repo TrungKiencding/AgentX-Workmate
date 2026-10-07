@@ -1,4 +1,4 @@
-import type { McpTestResult } from '@/hermes'
+import type { McpMissingCommand, McpTestResult } from '@/hermes'
 import type { Translations } from '@/i18n'
 import { countEnabledTools } from '@/lib/mcp-tool-filter'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
@@ -152,7 +152,10 @@ export const probeKey = (name: string, server: Record<string, unknown> | undefin
 
 export type Probe = McpTestResult | 'probing'
 
-export type ServerStatus = 'off' | 'probing' | 'ok' | 'needs-auth' | 'error' | 'unknown'
+// 'missing-runtime': the server's command (or the runtime it needs, uv for
+// `uvx`) is not on this machine, so nothing was started — a setup problem to
+// fix here, not a connection that failed.
+export type ServerStatus = 'off' | 'probing' | 'ok' | 'needs-auth' | 'missing-runtime' | 'error' | 'unknown'
 
 export function statusOf(server: Record<string, unknown>, probe: Probe | undefined): ServerStatus {
   if (!serverEnabled(server)) {
@@ -171,7 +174,18 @@ export function statusOf(server: Record<string, unknown>, probe: Probe | undefin
     return 'ok'
   }
 
+  if (probe.missing) {
+    return 'missing-runtime'
+  }
+
   return NEEDS_AUTH_RE.test(probe.error ?? '') ? 'needs-auth' : 'error'
+}
+
+/** The command a failed probe found missing, with what to call it: the runtime when known (`uv`), else the command. */
+export function missingCommandOf(probe: Probe | undefined): (McpMissingCommand & { label: string }) | null {
+  const missing = probe && probe !== 'probing' && !probe.ok ? probe.missing : undefined
+
+  return missing ? { ...missing, label: missing.runtime || missing.command } : null
 }
 
 /**
