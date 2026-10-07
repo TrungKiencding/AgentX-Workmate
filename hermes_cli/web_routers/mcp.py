@@ -176,11 +176,19 @@ async def test_mcp_server(name: str, profile: Optional[str] = None):
         # FastAPI event loop is never blocked.
         tools, token_present = await asyncio.to_thread(_probe_scoped)
     except Exception as exc:
-        return {
+        from tools.mcp_tool import MissingStdioCommandError
+
+        failed: Dict[str, Any] = {
             "ok": False,
             "error": str(exc),
             "tools": [],
         }
+        if isinstance(exc, MissingStdioCommandError):
+            # Nothing was started: the command (or the runtime it needs, e.g.
+            # uv for `uvx`) is not on this machine. The card names what to
+            # install instead of reporting a connection error.
+            failed["missing"] = {"command": exc.filename, "runtime": exc.runtime}
+        return failed
     if not token_present:
         return {
             "ok": False,
