@@ -2877,6 +2877,21 @@ class TestHubToolLock:
         assert sorted(n.rsplit("__", 1)[-1] for n in registered) == ["create_issue", "list_issues"]
         assert mcp_hub.observed("linear")["blocked_tools"] == []
 
+    def test_a_list_approved_as_the_server_sent_it_registers_whole(self):
+        """A server sends annotation keys the protocol does not define and a
+        hint as a word (chrome-devtools-mcp: ``category``); the hub approved
+        the list as it was sent, and the SDK reads it without them: every
+        tool registers (Agent Hub decision §9.1 #20)."""
+        from tools import mcp_hub
+        from tools.mcp_surface import surface_from_payload
+
+        sent = [{**tool, "annotations": {**tool.get("annotations", {}), "category": "issues", "readOnlyHint": "true" if tool.get("annotations") else "no"}}
+                for tool in self.APPROVED]
+        approved = {"slug": "linear", "version": "1.4.0", "tool_hashes": surface_from_payload({"tools": sent}).tool_hashes}
+        registered = self._discover("linear", sent, {"url": "https://mcp.example.com/mcp", "hub": approved})
+        assert sorted(n.rsplit("__", 1)[-1] for n in registered) == ["create_issue", "list_issues"]
+        assert mcp_hub.observed("linear")["blocked_tools"] == []
+
     def test_the_config_filter_still_narrows_what_the_hub_allows(self):
         registered = self._discover("linear", self.APPROVED, self._config(tools={"include": ["create_issue"]}))
         assert [n.rsplit("__", 1)[-1] for n in registered] == ["create_issue"]
