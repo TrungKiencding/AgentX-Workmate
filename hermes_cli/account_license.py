@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -496,20 +497,15 @@ def _is_account_gateway(base_url: str) -> bool:
     return bool(recorded) and recorded.lower() == candidate.lower()
 
 
-def license_behind_gateway_refusal(base_url: str) -> dict[str, Any] | None:
-    """The read-only license behind a 401/403 from *base_url*, or ``None``.
+def _read_only_after_asking_again() -> dict[str, Any] | None:
+    """Ask the keys service again, then answer :func:`read_only_license`.
 
-    The SSO blocks a person's gateway key the moment it makes them read-only,
-    so a model request this account's AgentX AI Gateway refuses mid-turn may
-    be exactly that. The keys service is asked again — with the bearer the
-    desktop last handed this process (``sync_engine.mailbox``), when it holds
-    one — and the license standing afterwards decides. With no bearer to ask
-    with (the messaging gateway's own process), the license this machine
-    already holds decides alone. A refusal from any other provider is not
-    the license's business.
+    Asked with the bearer the desktop last handed this process
+    (``sync_engine.mailbox``), when it holds one, on a short timeout — a
+    person is waiting on the turn. With no bearer to ask with (the messaging
+    gateway's own process), or a service that cannot be reached, the license
+    this machine already holds decides alone.
     """
-    if not _is_account_gateway(base_url):
-        return None
     try:
         from hermes_cli.sync_engine import mailbox
 
@@ -524,6 +520,51 @@ def license_behind_gateway_refusal(base_url: str) -> dict[str, Any] | None:
             timeout=_MID_TURN_TIMEOUT_SECONDS,
         )
     return read_only_license()
+
+
+def license_behind_gateway_refusal(base_url: str) -> dict[str, Any] | None:
+    """The read-only license behind a 401/403 from *base_url*, or ``None``.
+
+    The SSO blocks a person's gateway key the moment it makes them read-only,
+    so a model request this account's AgentX AI Gateway refuses mid-turn may
+    be exactly that: the keys service is asked again and the license standing
+    afterwards decides. A refusal from any other provider is not the
+    license's business.
+    """
+    if not _is_account_gateway(base_url):
+        return None
+    return _read_only_after_asking_again()
+
+
+#: How WebMate's MCP server (1.4.0+) leads a tool error when the extension
+#: refused the task for the AgentX license of the account signed in to it.
+_EXTENSION_REFUSAL = re.compile(r"(?:^|[\s\"'])" + re.escape(READ_ONLY_CODE) + ":")
+
+
+def is_extension_license_refusal(tool_name: str, content: Any) -> bool:
+    """Whether a tool result is the WebMate extension refusing for the license.
+
+    The extension checks the license of the account signed in to it on its
+    own and answers ``license_read_only: <why>`` (with the license as
+    ``structuredContent``, which Workmate's MCP client keeps out of error
+    results). Only the webmate server's tools count: another tool quoting the
+    code is page text, not a refusal.
+    """
+    if "webmate" not in str(tool_name or "").lower() or not isinstance(content, str):
+        return False
+    return bool(_EXTENSION_REFUSAL.search(content))
+
+
+def license_behind_extension_refusal() -> dict[str, Any] | None:
+    """The read-only license behind a WebMate refusal, or ``None``.
+
+    The keys service is asked again and the license standing afterwards
+    decides: read-only ends the turn with the license reason, like a refused
+    gateway request; still full means the two disagree (the extension's
+    record is older or newer than this one), so the turn goes on and the
+    model just reads the tool's error.
+    """
+    return _read_only_after_asking_again()
 
 
 _EN_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

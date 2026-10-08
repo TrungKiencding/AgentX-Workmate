@@ -227,6 +227,8 @@ While the license is **read-only** — no plan, a plan that has not started, one
 
 Every refusal carries the same code — `license_read_only` as a refused turn's `failure_reason`, as `data.code` on a gateway JSON-RPC error (4403), as `code` beside a 403 `detail` on the speech routes — and the same reason, with whom to ask.
 
+The WebMate browser extension checks the license of the account signed in to it on its own and refuses a browser task with `license_read_only` (WebMate MCP server 1.4.0 and later). Workmate then asks the account service again: when the license is now read-only the turn ends with the license reason, as above; when Workmate's license still covers AI, the turn goes on and the model reads the tool's error.
+
 History stays readable, searchable and exportable. An SSO that predates licensing sends no license, and nothing changes. A service that cannot be reached leaves the last license known in place; with none known, nothing is blocked.
 
 The desktop app refreshes the license after every sign-in and every 30 minutes, shows it in Settings → Account, warns during the grace period, and reminds you before the plan ends.

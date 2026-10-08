@@ -643,6 +643,32 @@ def _billing_terminal_label(summary: str, unverified: bool) -> str:
     return f"Billing or credits exhausted: {summary}"
 
 
+def _extension_license_refused(assistant_message: Any, messages: list) -> bool:
+    """Whether a tool result of *assistant_message*'s batch is WebMate refusing for the license.
+
+    The batch's results are the ``tool`` messages after its own assistant
+    message at the end of *messages*; each is matched to its call by
+    ``tool_call_id`` for the tool's name.
+    """
+    from hermes_cli.account_license import is_extension_license_refusal
+
+    names = {
+        getattr(call, "id", None): getattr(getattr(call, "function", None), "name", "")
+        for call in (getattr(assistant_message, "tool_calls", None) or [])
+    }
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") == "assistant":
+            # The batch's own call message: everything after it was its results.
+            break
+        if message.get("role") == "tool":
+            name = names.get(message.get("tool_call_id"))
+            if name and is_extension_license_refusal(name, message.get("content")):
+                return True
+    return False
+
+
 def _billing_failure_result(
     *,
     classified,
@@ -1733,6 +1759,9 @@ def run_conversation(
     # Total outer-loop exceptions this turn (#92450) — see _MAX_OUTER_LOOP_ERRORS.
     _outer_error_count = 0
     truncated_tool_call_retries = 0
+    # The WebMate extension refusing a tool call for the AgentX license is
+    # checked against the license once per turn (see after tool execution).
+    extension_license_checked = False
     truncated_response_parts: List[str] = []
     compression_attempts = 0
     # One resolved per-turn compression attempt cap, shared by every site that
@@ -7233,6 +7262,34 @@ def run_conversation(
                     final_response = ""
                     failed = True
                     break
+
+                # ── AgentX license: the WebMate extension refusing ──
+                # The extension checks the license of the account signed in
+                # to it on its own and refuses a delegated browser task with
+                # license_read_only (WebMate server 1.4.0+). That may be this
+                # account turning read-only mid-turn: ask once per turn, and
+                # when the license confirms it, end the turn with the license
+                # reason rather than letting the model carry on. Still full,
+                # the two disagree — the model just reads the tool's error.
+                if not extension_license_checked and _extension_license_refused(
+                    assistant_message, messages
+                ):
+                    extension_license_checked = True
+                    from hermes_cli.account_license import (
+                        license_behind_extension_refusal,
+                        turn_refusal,
+                    )
+
+                    _read_only = license_behind_extension_refusal()
+                    if _read_only is not None:
+                        logger.warning(
+                            "%sWebMate refused a browser task for the AgentX "
+                            "license, which is read-only (%s)",
+                            agent.log_prefix,
+                            _read_only.get("state"),
+                        )
+                        agent._persist_session(messages, conversation_history)
+                        return turn_refusal(_read_only, messages, api_calls=api_call_count)
 
                 if agent._tool_guardrail_halt_decision is not None:
                     decision = agent._tool_guardrail_halt_decision
