@@ -18,6 +18,10 @@ interface GenerateButtonProps extends Omit<React.ComponentProps<typeof Button>, 
   label: string
   /** Tooltip while generating (e.g. "Stop" with cancel, "Generating…" without). */
   generatingLabel?: string
+  /** Why generating is unavailable right now (e.g. a read-only AgentX license).
+   *  Set, the button stays visibly off and its tooltip says why — kept
+   *  hoverable (aria-disabled, not disabled) so the reason can be read. */
+  blockedReason?: null | string
   iconSize?: number | string
 }
 
@@ -31,6 +35,7 @@ export function GenerateButton({
   onCancel,
   label,
   generatingLabel,
+  blockedReason,
   disabled,
   iconSize = 12,
   className,
@@ -38,6 +43,28 @@ export function GenerateButton({
 }: GenerateButtonProps) {
   const tip = generating ? (generatingLabel ?? label) : label
   const cancellable = generating && !!onCancel
+
+  if (blockedReason && !generating) {
+    return (
+      <Tip label={blockedReason}>
+        <Button
+          aria-disabled
+          aria-label={label}
+          className={cn(
+            'cursor-default text-muted-foreground/80 opacity-50 hover:bg-transparent hover:text-muted-foreground/80',
+            className
+          )}
+          data-blocked=""
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+          {...rest}
+        >
+          <Codicon name="sparkle" size={iconSize} />
+        </Button>
+      </Tip>
+    )
+  }
 
   return (
     <Tip label={tip}>

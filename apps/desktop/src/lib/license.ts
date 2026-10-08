@@ -38,6 +38,49 @@ export function asLicense(value: unknown): DesktopLicense | null {
     : null
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Whether `error` is the backend refusing AI work because the license is
+ * read-only, and the license it decided by. Two shapes carry the code: a
+ * JSON-RPC error (`data.code`, from the gateway's one-off generation,
+ * compression and image methods) and an HTTP error body (`code`, from the
+ * speech routes, which reaches the renderer as "403: {…}" text).
+ *
+ * `undefined` when it is some other error; `null` when it is a refusal whose
+ * license could not be read.
+ */
+export function licenseRefusal(error: unknown): DesktopLicense | null | undefined {
+  const data = isRecord(error) ? error.data : undefined
+
+  if (isRecord(data) && data.code === LICENSE_READ_ONLY_CODE) {
+    return asLicense(data.license)
+  }
+
+  const text = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+
+  if (!text.includes(LICENSE_READ_ONLY_CODE)) {
+    return undefined
+  }
+
+  const start = text.indexOf('{')
+
+  if (start >= 0) {
+    try {
+      const body: unknown = JSON.parse(text.slice(start))
+
+      if (isRecord(body) && body.code === LICENSE_READ_ONLY_CODE) {
+        return asLicense(body.license)
+      }
+    } catch {
+      // Not the JSON body after all — still a refusal by its code.
+    }
+  }
+
+  return null
+}
+
 /** Why this license leaves the person read-only, without whom to ask. */
 export function licenseReadOnlyReason(license: DesktopLicense, copy: LicenseCopy): string {
   const plan = planName(license)

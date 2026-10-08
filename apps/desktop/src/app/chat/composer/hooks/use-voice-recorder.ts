@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '@/i18n'
+import { notifyAiError, refuseAiAction } from '@/store/license'
 import { notify, notifyError } from '@/store/notifications'
 
 import type { VoiceActivityState, VoiceStatus } from '../types'
@@ -70,7 +71,7 @@ export function useVoiceRecorder({
         onTranscript(transcript)
       }
     } catch (error) {
-      notifyError(error, voiceCopy.transcriptionFailed)
+      notifyAiError(error, voiceCopy.transcriptionFailed)
     } finally {
       setVoiceStatus('idle')
       focusInput()
@@ -81,6 +82,12 @@ export function useVoiceRecorder({
     if (!onTranscribeAudio) {
       notify({ kind: 'warning', title: voiceCopy.unavailable, message: voiceCopy.transcriptionUnavailable })
 
+      return
+    }
+
+    // A read-only AgentX license: dictation ends in a transcription, so the
+    // microphone does not open — the toast says why.
+    if (refuseAiAction(voiceCopy.unavailable)) {
       return
     }
 

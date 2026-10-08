@@ -5,8 +5,12 @@ import { FALLBACK_LOCALE } from '@/i18n'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
 
 const notifySpy = vi.fn()
+const notifyErrorSpy = vi.fn()
 
-vi.mock('@/store/notifications', () => ({ notify: (...args: unknown[]) => notifySpy(...args) }))
+vi.mock('@/store/notifications', () => ({
+  notify: (...args: unknown[]) => notifySpy(...args),
+  notifyError: (...args: unknown[]) => notifyErrorSpy(...args)
+}))
 
 let secondary = false
 
@@ -16,10 +20,17 @@ const {
   $license,
   $licenseBanner,
   $licenseReadOnly,
+  aiBlockedMessage,
   checkLicenseNow,
+  ensureAiAllowed,
   licenseCheckFailed,
+  LicenseRefusedError,
+  licenseRefusalMessage,
   noteLicenseRefusal,
+  notifyAiError,
+  notifyLicenseRefusal,
   refreshLicense,
+  refuseAiAction,
   startLicenseSync
 } = await import('./license')
 
@@ -78,6 +89,7 @@ function stubBridge(answer: DesktopLicenseView = view(null)): BridgeStub {
 beforeEach(() => {
   setRuntimeI18nLocale('vi')
   notifySpy.mockReset()
+  notifyErrorSpy.mockReset()
   secondary = false
   window.localStorage.clear()
   $license.set({ account: null, available: false, checking: false, lastCheck: null, license: null, loaded: false })
@@ -261,5 +273,84 @@ describe('the reminder before a plan ends', () => {
     await refreshLicense()
 
     expect(notifySpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('AI work outside the composer', () => {
+  const REASON =
+    'Gói Pilot 2026 đã hết hạn ngày 31/05/2027. Workmate đang ở chế độ chỉ xem. ' +
+    'Liên hệ it@astralx.com.vn để được cấp lại hoặc gia hạn.'
+
+  function readOnly() {
+    $license.set({ ...$license.get(), license: READ_ONLY, loaded: true })
+  }
+
+  it('may run while nothing is known or the license covers AI', () => {
+    expect(aiBlockedMessage()).toBeNull()
+    expect(() => ensureAiAllowed()).not.toThrow()
+
+    $license.set({ ...$license.get(), license: license(), loaded: true })
+
+    expect(aiBlockedMessage()).toBeNull()
+    expect(() => ensureAiAllowed()).not.toThrow()
+    expect(refuseAiAction('Voice')).toBe(false)
+    expect(notifySpy).not.toHaveBeenCalled()
+  })
+
+  it('is refused while read-only, before anything is sent, with the reason', () => {
+    stubBridge(view(READ_ONLY))
+    readOnly()
+
+    expect(aiBlockedMessage()).toBe(REASON)
+    expect(() => ensureAiAllowed()).toThrow(LicenseRefusedError)
+
+    try {
+      ensureAiAllowed()
+    } catch (error) {
+      expect((error as Error).message).toBe(REASON)
+      // The shape the backend's refusal has, so one check recognises both.
+      expect((error as InstanceType<typeof LicenseRefusedError>).data).toEqual({
+        code: 'license_read_only',
+        license: READ_ONLY
+      })
+    }
+  })
+
+  it('a refusal from the backend locks this window at once and reads in its words', async () => {
+    const bridge = stubBridge(view(READ_ONLY))
+    const error = Object.assign(new Error('backend text'), { data: { code: 'license_read_only', license: READ_ONLY } })
+
+    expect(licenseRefusalMessage(error)).toBe(REASON)
+    expect($licenseReadOnly.get()).toBe(true)
+    await vi.waitFor(() => expect(bridge.get).toHaveBeenCalled())
+  })
+
+  it('anything else is not a refusal', () => {
+    expect(licenseRefusalMessage(new Error('Transcription failed'))).toBeNull()
+    expect(notifyLicenseRefusal(new Error('Transcription failed'), 'Dictation')).toBe(false)
+    expect(notifySpy).not.toHaveBeenCalled()
+  })
+
+  it('a refusal is a warning that keeps the whole reason; other failures stay errors', () => {
+    stubBridge(view(READ_ONLY))
+    readOnly()
+
+    notifyAiError(new LicenseRefusedError(READ_ONLY), 'Đọc to')
+
+    expect(notifySpy).toHaveBeenCalledWith({ id: 'license-refusal', kind: 'warning', message: REASON, title: 'Đọc to' })
+    expect(notifyErrorSpy).not.toHaveBeenCalled()
+
+    const failure = new Error('ElevenLabs STT API error')
+    notifyAiError(failure, 'Đọc to')
+
+    expect(notifyErrorSpy).toHaveBeenCalledWith(failure, 'Đọc to')
+  })
+
+  it('an action the person just started stops with the reason', () => {
+    stubBridge(view(READ_ONLY))
+    readOnly()
+
+    expect(refuseAiAction('Giọng nói')).toBe(true)
+    expect(notifySpy).toHaveBeenCalledWith(expect.objectContaining({ kind: 'warning', message: REASON }))
   })
 })

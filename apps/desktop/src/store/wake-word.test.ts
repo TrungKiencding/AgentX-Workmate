@@ -6,6 +6,7 @@ import {
   applyWakeStatus,
   applyWakeStopResult,
   armWakeWord,
+  pauseWakeForLicense,
   resetWakeWordState,
   resumeWakeAfterVoice,
   toggleWakeWord,
@@ -369,5 +370,41 @@ describe('resumeWakeAfterVoice (post-voice reconcile)', () => {
     await resumeWakeAfterVoice(request)
 
     expect($wakeWord.get()).toMatchObject({ available: false, listening: false })
+  })
+})
+
+describe('a read-only AgentX license', () => {
+  const REASON = 'Workmate is in read-only mode. Contact it@astralx.com.vn.'
+
+  it('lets go of the microphone and says why, leaving config alone', async () => {
+    $wakeWord.set({ ...$wakeWord.get(), available: true, enabled: true, listening: true, phrase: 'hey agentx' })
+    const request = requester(() => ({ paused: true }))
+
+    await pauseWakeForLicense(REASON, request)
+
+    expect(request).toHaveBeenCalledWith('wake.pause', {})
+    expect($wakeWord.get()).toMatchObject({ enabled: true, listening: false, notice: REASON, pending: false })
+  })
+
+  it('still lands off when there was no listener to pause', async () => {
+    const request = requester(() => {
+      throw new Error('unknown method: wake.pause')
+    })
+
+    await pauseWakeForLicense(REASON, request)
+
+    expect($wakeWord.get()).toMatchObject({ listening: false, notice: REASON })
+  })
+
+  it('an auto-arm the backend refuses keeps the toggle off with the reason', async () => {
+    const request = requester(method =>
+      method === 'wake.status'
+        ? { available: true, enabled: true, listening: false, phrase: 'hey agentx' }
+        : { hint: REASON, reason: 'license_read_only', started: false }
+    )
+
+    await armWakeWord(request)
+
+    expect($wakeWord.get()).toMatchObject({ listening: false, notice: REASON })
   })
 })

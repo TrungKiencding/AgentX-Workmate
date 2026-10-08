@@ -1,4 +1,5 @@
 import { $gateway } from '@/store/gateway'
+import { ensureAiAllowed } from '@/store/license'
 import { $activeSessionId } from '@/store/session'
 
 // Shared client for one-off ("one-shot") LLM requests: a single stateless model
@@ -32,9 +33,13 @@ export interface OneShotRequest {
 
 /**
  * Send a one-off request to AgentX and return the generated text.
- * Throws when the gateway is offline or the backend reports an error.
+ * Throws when the gateway is offline or the backend reports an error — and,
+ * before sending anything, while the AgentX license is read-only (the
+ * backend refuses it with the same code).
  */
 export async function requestOneShot(req: OneShotRequest): Promise<string> {
+  ensureAiAllowed()
+
   const gateway = $gateway.get()
 
   if (!gateway) {

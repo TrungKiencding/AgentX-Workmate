@@ -2,9 +2,17 @@ import { atom, computed } from 'nanostores'
 
 import type { DesktopLicense, DesktopLicenseView } from '@/global'
 import { translationsNow } from '@/i18n'
-import { asLicense, licenseBannerKind, licenseExpiringMessage, licenseReminderKey } from '@/lib/license'
+import {
+  asLicense,
+  LICENSE_READ_ONLY_CODE,
+  licenseBannerKind,
+  licenseExpiringMessage,
+  licenseReadOnlyMessage,
+  licenseRefusal,
+  licenseReminderKey
+} from '@/lib/license'
 import { persistStringArray, storedStringArray } from '@/lib/storage'
-import { notify } from '@/store/notifications'
+import { notify, notifyError } from '@/store/notifications'
 import { isSecondaryWindow } from '@/store/windows'
 
 /**
@@ -194,4 +202,98 @@ export function startLicenseSync(): () => void {
   void refreshLicense()
 
   return off
+}
+
+// ── AI work outside the composer ───────────────────────────────────────────
+// The composer is not the only way to reach AI: read-aloud, dictation, the
+// voice conversation, the sparkle buttons (commit message, project idea, pet).
+// Each is disabled with the reason while the license is read-only, and its
+// action checks again before anything is sent — the backend refuses the same
+// work regardless, with the same code.
+
+/** AI work this window refused itself: the same shape the backend's refusal has. */
+export class LicenseRefusedError extends Error {
+  readonly data: { code: typeof LICENSE_READ_ONLY_CODE; license: DesktopLicense }
+
+  constructor(license: DesktopLicense) {
+    super(licenseReadOnlyMessage(license, translationsNow().license))
+    this.data = { code: LICENSE_READ_ONLY_CODE, license }
+  }
+}
+
+/**
+ * Why AI may not be used right now — the read-only reason in this app's words,
+ * with whom to ask — or null while it may. The non-React twin of
+ * `useAiBlockedReason`, for actions about to send a request.
+ */
+export function aiBlockedMessage(): null | string {
+  const { license } = $license.get()
+
+  return license?.access === 'read_only' ? licenseReadOnlyMessage(license, translationsNow().license) : null
+}
+
+/** Throw a {@link LicenseRefusedError} while the license is read-only — before an AI request is sent. */
+export function ensureAiAllowed(): void {
+  const { license } = $license.get()
+
+  if (license?.access === 'read_only') {
+    throw new LicenseRefusedError(license)
+  }
+}
+
+/**
+ * If `error` is a refusal for the license — this window's own or the
+ * backend's — lock the UI at once (see noteLicenseRefusal) and return the
+ * reason in this app's words, with whom to ask. Null for any other error.
+ */
+export function licenseRefusalMessage(error: unknown): null | string {
+  const refused = licenseRefusal(error)
+
+  if (refused === undefined) {
+    return null
+  }
+
+  noteLicenseRefusal(refused)
+
+  const license = refused ?? $license.get().license
+  const copy = translationsNow().license
+
+  return license ? licenseReadOnlyMessage(license, copy) : copy.readOnlyGeneric
+}
+
+const REFUSAL_TOAST_ID = 'license-refusal'
+
+/**
+ * Toast a refusal for the license — why, and whom to ask, never cut to a
+ * generic line however long — and lock the UI. False, and nothing shown, when
+ * `error` is something else.
+ */
+export function notifyLicenseRefusal(error: unknown, title?: string): boolean {
+  const message = licenseRefusalMessage(error)
+
+  if (message === null) {
+    return false
+  }
+
+  notify({ id: REFUSAL_TOAST_ID, kind: 'warning', message, ...(title ? { title } : {}) })
+
+  return true
+}
+
+/**
+ * For an AI action the person just started: while the license is read-only,
+ * say why (as {@link notifyLicenseRefusal} does) and return true — the action
+ * stops there, before a microphone opens or a request is sent.
+ */
+export function refuseAiAction(title?: string): boolean {
+  const { license } = $license.get()
+
+  return license?.access === 'read_only' && notifyLicenseRefusal(new LicenseRefusedError(license), title)
+}
+
+/** Report a failed AI action: a refusal for the license as above, anything else as the usual error toast. */
+export function notifyAiError(error: unknown, title: string): void {
+  if (!notifyLicenseRefusal(error, title)) {
+    notifyError(error, title)
+  }
 }

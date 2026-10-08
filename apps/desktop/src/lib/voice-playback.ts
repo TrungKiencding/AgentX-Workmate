@@ -1,6 +1,7 @@
 import { resolveGatewayWsUrl } from '@agentx/shared'
 
 import { getApiRequestProfile, speakText } from '@/hermes'
+import { $licenseReadOnly, ensureAiAllowed } from '@/store/license'
 import {
   $voicePlayback,
   setVoicePlaybackState,
@@ -322,6 +323,12 @@ function openSpeechStream(wsUrl: string, options: VoicePlaybackOptions): SpeechS
  * whole-text `playSpeechText`.
  */
 export async function startSpeechStream(options: VoicePlaybackOptions): Promise<null | SpeechStreamSession> {
+  // A read-only AgentX license: no live speech. The whole-text fallback the
+  // caller takes next refuses with the reason.
+  if ($licenseReadOnly.get()) {
+    return null
+  }
+
   const wsUrl = await resolveSpeakStreamUrl()
 
   if (!wsUrl) {
@@ -436,6 +443,10 @@ async function playSpeechDataUrl(
 }
 
 export async function playSpeechText(text: string, options: VoicePlaybackOptions): Promise<boolean> {
+  // Speech synthesis is AI work: refused before anything is sent while the
+  // AgentX license is read-only (the backend refuses it with the same code).
+  ensureAiAllowed()
+
   stopVoicePlayback()
 
   const speakableText = sanitizeTextForSpeech(text)

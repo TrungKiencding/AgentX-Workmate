@@ -15,6 +15,7 @@ import { GenerateButton } from '@/components/ui/generate-button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
+import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
 import { pathLeaf } from '@/lib/display-path'
 import { Folder, FolderOpen, Plus, RefreshCw, X } from '@/lib/icons'
@@ -54,6 +55,8 @@ export function ProjectDialog() {
   const [idea, setIdea] = useState('')
   const [templates, setTemplates] = useState<ProjectIdeaTemplate[]>([])
   const [generatingIdea, setGeneratingIdea] = useState(false)
+  // A read-only AgentX license: generating an idea is model work.
+  const aiBlocked = useAiBlockedReason()
   const [submitting, setSubmitting] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
   const nameHintId = useId()
@@ -163,7 +166,7 @@ export function ProjectDialog() {
   }
 
   const generateIdea = async () => {
-    if (generatingIdea) {
+    if (generatingIdea || aiBlocked) {
       return
     }
 
@@ -283,6 +286,7 @@ export function ProjectDialog() {
                 value={idea}
               />
               <GenerateButton
+                blockedReason={aiBlocked}
                 className="absolute top-1 right-1"
                 disabled={submitting}
                 generating={generatingIdea}

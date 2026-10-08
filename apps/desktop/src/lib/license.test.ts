@@ -1,3 +1,4 @@
+import { JsonRpcError } from '@agentx/shared'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { DesktopLicense } from '@/global'
@@ -11,6 +12,7 @@ import {
   licenseGraceMessage,
   licenseReadOnlyMessage,
   licenseReadOnlyReason,
+  licenseRefusal,
   licenseReminderKey
 } from './license'
 import { fmtCalendarDay } from './time'
@@ -157,5 +159,38 @@ describe('fmtCalendarDay', () => {
     expect(fmtCalendarDay('31/12/2026')).toBe('')
     expect(fmtCalendarDay('2026-02-31')).toBe('')
     expect(fmtCalendarDay('2026-12-31T00:00:00+07:00')).toBe('')
+  })
+})
+
+describe('a refusal of AI work, recognised from the error', () => {
+  const refused = license({ access: 'read_only', notice: 'read_only', state: 'revoked' })
+
+  it('from a JSON-RPC error: the code and the license are its data', () => {
+    const error = new JsonRpcError({
+      code: 4403,
+      data: { code: 'license_read_only', license: refused },
+      message: 'Workmate is in read-only mode.'
+    })
+
+    expect(licenseRefusal(error)).toEqual(refused)
+  })
+
+  it('from an HTTP error body, as it reaches the renderer through IPC', () => {
+    const body = JSON.stringify({ code: 'license_read_only', detail: 'read-only', license: refused })
+    const error = new Error(`Error invoking remote method 'agentx:api': Error: 403: ${body}`)
+
+    expect(licenseRefusal(error)).toEqual(refused)
+  })
+
+  it('by its code alone when the license cannot be read', () => {
+    expect(licenseRefusal(new Error('403: license_read_only (truncated'))).toBeNull()
+    expect(licenseRefusal(new JsonRpcError({ data: { code: 'license_read_only', license: 'nonsense' } }))).toBeNull()
+  })
+
+  it('anything else is not one', () => {
+    expect(licenseRefusal(new Error('500: {"detail": "Transcription failed"}'))).toBeUndefined()
+    expect(licenseRefusal(new JsonRpcError({ code: 5030, data: { code: 'other' } }))).toBeUndefined()
+    expect(licenseRefusal('network down')).toBeUndefined()
+    expect(licenseRefusal(null)).toBeUndefined()
   })
 })

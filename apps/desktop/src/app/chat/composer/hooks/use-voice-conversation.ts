@@ -11,6 +11,7 @@ import {
   stopVoicePlayback
 } from '@/lib/voice-playback'
 import { isVoiceStopCommand } from '@/lib/voice-stop-word'
+import { notifyAiError, notifyLicenseRefusal } from '@/store/license'
 import { notify, notifyError } from '@/store/notifications'
 import { $voicePlayback } from '@/store/voice-playback'
 
@@ -188,6 +189,16 @@ export function useVoiceConversation({
           await onSubmit(transcript)
           setStatus('thinking')
         } catch (error) {
+          // Refused for a read-only AgentX license: say why and end the
+          // conversation — nothing more can be heard or answered until the
+          // license covers AI again.
+          if (notifyLicenseRefusal(error, voiceCopy.transcriptionFailed)) {
+            setStatus('idle')
+            onFatalError?.()
+
+            return
+          }
+
           notifyError(error, voiceCopy.transcriptionFailed)
 
           if (enabledRef.current && !mutedRef.current && !busyRef.current) {
@@ -200,7 +211,7 @@ export function useVoiceConversation({
         turnClosingRef.current = false
       }
     },
-    [handle, onSubmit, onTranscribeAudio, voiceCopy.transcriptionFailed]
+    [handle, onFatalError, onSubmit, onTranscribeAudio, voiceCopy.transcriptionFailed]
   )
 
   const startListening = useCallback(async () => {
@@ -357,11 +368,19 @@ export function useVoiceConversation({
         await onSubmit(transcript)
         setStatus('thinking')
       } catch (error) {
+        // Refused for a read-only AgentX license: end, as in handleTurn.
+        if (notifyLicenseRefusal(error, voiceCopy.transcriptionFailed)) {
+          setStatus('idle')
+          onFatalError?.()
+
+          return
+        }
+
         notifyError(error, voiceCopy.transcriptionFailed)
         resumeListening()
       }
     },
-    [consumePendingResponse, onSubmit, onTranscribeAudio, voiceCopy.transcriptionFailed]
+    [consumePendingResponse, onFatalError, onSubmit, onTranscribeAudio, voiceCopy.transcriptionFailed]
   )
 
   /**
@@ -466,7 +485,7 @@ export function useVoiceConversation({
         speechStartSequenceRef.current = $voicePlayback.get().sequence
 
         void playback
-          .catch(error => notifyError(error, voiceCopy.playbackFailed))
+          .catch(error => notifyAiError(error, voiceCopy.playbackFailed))
           .finally(() => {
             if (responseIdRef.current === responseId) {
               awaitingSpokenResponseRef.current = false

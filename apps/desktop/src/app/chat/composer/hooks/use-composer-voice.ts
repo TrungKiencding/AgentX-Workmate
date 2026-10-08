@@ -8,6 +8,7 @@ import { clearWakeIndicator, syncWakeIndicatorWithVoice } from '@/lib/wake-indic
 import { $voiceConversationStartRequest, takeVoiceConversationStart } from '@/store/composer'
 import { resetBrowseState } from '@/store/composer-input-history'
 import { $gateway } from '@/store/gateway'
+import { $licenseReadOnly } from '@/store/license'
 import { notify, notifyError } from '@/store/notifications'
 import { $autoSpeakReplies, $voiceStopPhrase, setAutoSpeakReplies } from '@/store/voice-prefs'
 import { resumeWakeAfterVoice } from '@/store/wake-word'
@@ -198,6 +199,28 @@ export function useComposerVoice({
       setVoiceConversationActive(true)
     }
   }, [disabled, target, voiceConversationActive, voiceStartRequest])
+
+  // A read-only AgentX license: voice is AI work end to end — transcription,
+  // the turn, the spoken reply. A conversation running when it lands ends now
+  // (its own controls are locked with the composer), and a wake word's request
+  // to start one is dropped rather than left to fire once the license covers
+  // AI again.
+  const licenseReadOnly = useStore($licenseReadOnly)
+
+  useEffect(() => {
+    if (!licenseReadOnly) {
+      return
+    }
+
+    if (target === 'main') {
+      takeVoiceConversationStart(voiceStartRequest)
+    }
+
+    if (voiceConversationActive) {
+      setVoiceConversationActive(false)
+      void conversation.end()
+    }
+  }, [conversation, licenseReadOnly, target, voiceConversationActive, voiceStartRequest])
 
   const resumeWakeIfPaused = useCallback(() => {
     if (!wakePausedRef.current) {

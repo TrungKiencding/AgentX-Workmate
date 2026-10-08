@@ -253,6 +253,10 @@ export type {
  *  id with your plugin slug (`kanban:board-switcher`). */
 export { Contribute, type ContributeProps } from '@/contrib/react/contribute'
 export type { Contribution } from '@/contrib/types'
+/** Why AI actions are unavailable right now (a read-only AgentX license), or
+ *  null. A plugin control that makes a model call disables itself and shows
+ *  this as the reason — the backend refuses the call regardless. */
+export { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 /** Grab-to-pan for overflow containers (boards, timelines, wide tables) —
  *  the shared scrub primitive; don't hand-roll drag-to-scroll. */
 export { type GrabScroll, useGrabScroll } from '@/hooks/use-grab-scroll'

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { HermesReviewFile, HermesReviewShipInfo } from '@/global'
 
+import { $license, LicenseRefusedError } from './license'
 import {
   $reviewCommitDefault,
   $reviewCommitMsgBusy,
@@ -477,6 +478,35 @@ describe('generateCommitMessage', () => {
     const msg = await generateCommitMessage()
 
     expect(msg).toBe('')
+  })
+
+  it('is refused while the AgentX license is read-only, before the diff is read', async () => {
+    const review = stubReview()
+
+    $license.set({
+      account: 'kien',
+      available: true,
+      checking: false,
+      lastCheck: null,
+      license: {
+        access: 'read_only',
+        contact: 'it@astralx.com.vn',
+        enforced: true,
+        notice: 'read_only',
+        plan: null,
+        state: 'revoked'
+      },
+      loaded: true
+    })
+
+    try {
+      await expect(generateCommitMessage()).rejects.toBeInstanceOf(LicenseRefusedError)
+      expect(review.commitContext).not.toHaveBeenCalled()
+      expect(requestOneShot).not.toHaveBeenCalled()
+      expect($reviewCommitMsgBusy.get()).toBe(false)
+    } finally {
+      $license.set({ account: null, available: false, checking: false, lastCheck: null, license: null, loaded: false })
+    }
   })
 })
 

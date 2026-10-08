@@ -19,6 +19,7 @@ import {
   updateComposerAttachment
 } from '@/store/composer'
 import { resetSessionBackground } from '@/store/composer-status'
+import { ensureAiAllowed } from '@/store/license'
 import { clearNotifications, notify, notifyError } from '@/store/notifications'
 import { clearPreviewArtifacts } from '@/store/preview-status'
 import { clearAllPrompts } from '@/store/prompts'
@@ -563,6 +564,10 @@ export function usePromptActions({
 
   const transcribeVoiceAudio = useCallback(
     async (audio: Blob) => {
+      // Speech recognition is AI work: refused while the AgentX license is
+      // read-only, before the recording is uploaded.
+      ensureAiAllowed()
+
       if (!sttEnabled) {
         throw new Error(copy.sttDisabled)
       }

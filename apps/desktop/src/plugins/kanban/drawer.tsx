@@ -22,6 +22,7 @@ import {
   LogView,
   Textarea,
   Tip,
+  useAiBlockedReason,
   useMutation,
   useQuery,
   useQueryClient,
@@ -476,6 +477,8 @@ function AttachmentsSection({
 function EstimateSection({ id }: { id: string }) {
   const k = useKanban()
   const [result, setResult] = useState<null | TaskEstimate>(null)
+  // A read-only AgentX license: estimating is a model call.
+  const aiBlocked = useAiBlockedReason()
 
   const est = useMutation({
     mutationFn: () => estimateTask(id),
@@ -505,17 +508,19 @@ function EstimateSection({ id }: { id: string }) {
                 · {k.complexity[result.complexity] ?? result.complexity}
               </span>
             )}
-            <Tip label={k.reEstimate}>
-              <Button
-                aria-label={k.reEstimate}
-                className="ml-auto"
-                disabled={est.isPending}
-                onClick={() => est.mutate()}
-                size="icon-xs"
-                variant="ghost"
-              >
-                <Codicon name="refresh" size="0.75rem" spinning={est.isPending} />
-              </Button>
+            <Tip label={aiBlocked ?? k.reEstimate}>
+              {/* The wrapper takes the hover a disabled button does not. */}
+              <span className="ml-auto inline-flex">
+                <Button
+                  aria-label={k.reEstimate}
+                  disabled={est.isPending || Boolean(aiBlocked)}
+                  onClick={() => est.mutate()}
+                  size="icon-xs"
+                  variant="ghost"
+                >
+                  <Codicon name="refresh" size="0.75rem" spinning={est.isPending} />
+                </Button>
+              </span>
             </Tip>
           </div>
           {result.rationale && (
@@ -524,13 +529,22 @@ function EstimateSection({ id }: { id: string }) {
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <Button disabled={est.isPending} onClick={() => est.mutate()} size="xs" variant="outline">
+          <Button
+            disabled={est.isPending || Boolean(aiBlocked)}
+            onClick={() => est.mutate()}
+            size="xs"
+            variant="outline"
+          >
             <Codicon name={est.isPending ? 'loading' : 'dashboard'} size="0.75rem" spinning={est.isPending} />
             {est.isPending ? k.estimating : k.estimateEffort}
           </Button>
-          <Tip label={k.estimateTipLong}>
-            <span className="text-2xs text-(--ui-text-quaternary)">{k.makesModelCall}</span>
-          </Tip>
+          {aiBlocked ? (
+            <span className="text-2xs text-(--ui-text-quaternary)">{aiBlocked}</span>
+          ) : (
+            <Tip label={k.estimateTipLong}>
+              <span className="text-2xs text-(--ui-text-quaternary)">{k.makesModelCall}</span>
+            </Tip>
+          )}
         </div>
       )}
     </Section>

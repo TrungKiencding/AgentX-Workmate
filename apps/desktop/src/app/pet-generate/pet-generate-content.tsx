@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { GenerateButton } from '@/components/ui/generate-button'
 import { Input } from '@/components/ui/input'
+import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { Egg, ImageIcon } from '@/lib/icons'
@@ -83,6 +84,8 @@ export function PetGenerateContent() {
 
   const busy = status === 'generating' || status === 'hatching'
   const hasDrafts = drafts.length > 0
+  // A read-only AgentX license: drafting a pet is image-model work.
+  const aiBlocked = useAiBlockedReason()
   const generating = status === 'generating'
 
   // The idle "describe a pet" state — egg + suggestions get generous, equidistant
@@ -96,7 +99,7 @@ export function PetGenerateContent() {
     status !== 'stale'
 
   const generate = () => {
-    if ((prompt.trim() || refImage) && !busy) {
+    if ((prompt.trim() || refImage) && !busy && !aiBlocked) {
       void generateDrafts(requestGateway, { prompt: prompt.trim(), referenceImage: refImage ?? undefined })
     }
   }
@@ -232,6 +235,7 @@ export function PetGenerateContent() {
                 value={prompt}
               />
               <GenerateButton
+                blockedReason={aiBlocked}
                 className="absolute right-1 top-1/2 -translate-y-1/2"
                 disabled={!prompt.trim() && !refImage}
                 generating={generating}

@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Tip,
+  useAiBlockedReason,
   useMutation,
   useQuery,
   useQueryClient
@@ -72,6 +74,8 @@ function ProfileDescriptionRow({ profile }: { profile: KanbanProfile }) {
   const k = useKanban()
   const qc = useQueryClient()
   const [draft, setDraft] = useState(profile.description)
+  // A read-only AgentX license: auto-describing is a model call.
+  const aiBlocked = useAiBlockedReason()
   const invalidate = () => void qc.invalidateQueries({ queryKey: PROFILES_KEY })
 
   const save = useMutation({
@@ -117,14 +121,25 @@ function ProfileDescriptionRow({ profile }: { profile: KanbanProfile }) {
       </Button>
       {/* Overlay the spinner so the button keeps its "Auto" width — the aux
           model can take a few seconds and a text swap would jump the row. */}
-      <Button className="relative" disabled={auto.isPending} onClick={() => auto.mutate()} size="xs" variant="ghost">
-        <span className={auto.isPending ? 'invisible' : ''}>{k.auto}</span>
-        {auto.isPending && (
-          <span className="absolute inset-0 grid place-items-center">
-            <Codicon className="animate-spin [animation-duration:1.2s]" name="loading" size="0.75rem" />
-          </span>
-        )}
-      </Button>
+      <Tip label={aiBlocked}>
+        {/* The wrapper takes the hover a disabled button does not. */}
+        <span className="inline-flex">
+          <Button
+            className="relative"
+            disabled={auto.isPending || Boolean(aiBlocked)}
+            onClick={() => auto.mutate()}
+            size="xs"
+            variant="ghost"
+          >
+            <span className={auto.isPending ? 'invisible' : ''}>{k.auto}</span>
+            {auto.isPending && (
+              <span className="absolute inset-0 grid place-items-center">
+                <Codicon className="animate-spin [animation-duration:1.2s]" name="loading" size="0.75rem" />
+              </span>
+            )}
+          </Button>
+        </span>
+      </Tip>
     </div>
   )
 }

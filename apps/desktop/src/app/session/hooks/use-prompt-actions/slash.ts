@@ -20,6 +20,7 @@ import { openCommandPalettePage } from '@/store/command-palette'
 import { setComposerDraft } from '@/store/composer'
 import { enqueueQueuedPrompt } from '@/store/composer-queue'
 import { applyGoalStatusText } from '@/store/goals'
+import { licenseRefusalMessage } from '@/store/license'
 import { dismissNotification, notify, notifyError } from '@/store/notifications'
 import { setPetScale } from '@/store/pet-gallery'
 import { $petGenInput, openPetGenerate } from '@/store/pet-generate'
@@ -612,7 +613,11 @@ export function useSlashCommand(deps: SlashCommandDeps) {
               return
             }
 
-            renderSlashOutput(`error: ${err instanceof Error ? err.message : String(err)}`)
+            // Refused for a read-only AgentX license: say why in this app's
+            // words (and lock the composer), not as an error dump.
+            renderSlashOutput(
+              licenseRefusalMessage(err) ?? `error: ${err instanceof Error ? err.message : String(err)}`
+            )
           } finally {
             compressInFlightRef.current.delete(sessionId)
           }
