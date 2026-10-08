@@ -271,6 +271,35 @@ export const en: Translations = {
     dismiss: 'Dismiss'
   },
 
+  license: {
+    title: 'AgentX license',
+    states: {
+      active: 'Active',
+      grace: 'Grace period',
+      expired: 'Expired',
+      revoked: 'Revoked',
+      scheduled: 'Not started',
+      none: 'Not assigned'
+    },
+    lastDay: date => `Last day: ${date}`,
+    startsOn: date => `Starts: ${date}`,
+    contactLine: contact => `Contact: ${contact}`,
+    checkAgain: 'Check again',
+    checking: 'Checking…',
+    checkFailed: "Couldn't check right now — showing the last license we know of.",
+    expiring: (plan, date, days) =>
+      `Your ${plan} plan expires on ${date} (${days} ${days === 1 ? 'day' : 'days'} left).`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `Your ${plan} plan expired on ${lastDay}. From ${readOnlyFrom}, Workmate switches to read-only mode.`,
+    readOnlyNone: "Your account hasn't been assigned an AgentX license.",
+    readOnlyScheduled: (plan, date) => `Your ${plan} plan starts on ${date}.`,
+    readOnlyExpired: (plan, date) => `Your ${plan} plan expired on ${date}. Workmate is in read-only mode.`,
+    readOnlyRevoked: 'Your AgentX license has been revoked. Workmate is in read-only mode.',
+    readOnlyGeneric: "Your AgentX license doesn't cover AI right now. Workmate is in read-only mode.",
+    contactRenew: contact => `Contact ${contact} to renew.`,
+    contactReissue: contact => `Contact ${contact} to get a license or renew it.`
+  },
+
   titlebar: {
     hideSidebar: 'Hide sidebar',
     showSidebar: 'Show sidebar',
@@ -2596,6 +2625,7 @@ export const en: Translations = {
     wakingProfile: profile => `Waking up ${profile}…`,
     placeholderStarting: 'Starting AgentX...',
     placeholderReconnecting: 'Reconnecting to AgentX…',
+    placeholderReadOnly: 'Read-only mode — requests to AI are turned off',
     placeholderFollowUp: 'Send follow-up',
     newSessionPlaceholders: ['What do you need today?'],
     newSessionPlaceholdersRepo: ['Ask about the code or hand over a task…'],

@@ -274,6 +274,34 @@ export interface Translations {
     dismiss: string
   }
 
+  /** The AgentX license: Settings → Account's row, the composer banner, the reminder. */
+  license: {
+    title: string
+    states: {
+      active: string
+      grace: string
+      expired: string
+      revoked: string
+      scheduled: string
+      none: string
+    }
+    lastDay: (date: string) => string
+    startsOn: (date: string) => string
+    contactLine: (contact: string) => string
+    checkAgain: string
+    checking: string
+    checkFailed: string
+    expiring: (plan: string, date: string, days: number) => string
+    grace: (plan: string, lastDay: string, readOnlyFrom: string) => string
+    readOnlyNone: string
+    readOnlyScheduled: (plan: string, date: string) => string
+    readOnlyExpired: (plan: string, date: string) => string
+    readOnlyRevoked: string
+    readOnlyGeneric: string
+    contactRenew: (contact: string) => string
+    contactReissue: (contact: string) => string
+  }
+
   titlebar: {
     hideSidebar: string
     showSidebar: string
@@ -2088,6 +2116,8 @@ export interface Translations {
     wakingProfile: (profile: string) => string
     placeholderStarting: string
     placeholderReconnecting: string
+    /** The composer while the AgentX license is read-only (no request may reach AI). */
+    placeholderReadOnly: string
     placeholderFollowUp: string
     newSessionPlaceholders: readonly string[]
     /** The resting placeholder inside a git repository (the coding voice). */

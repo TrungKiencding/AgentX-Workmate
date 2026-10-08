@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import type { DesktopAccountProvisionResult } from '@/global'
 import { useI18n } from '@/i18n'
 import { Check, LogOut, UserCircle } from '@/lib/icons'
+import { asLicense, licenseReadOnlyMessage } from '@/lib/license'
 import {
   $accountIsolation,
   $keycloakAccount,
@@ -15,8 +17,10 @@ import {
   rotateAccountKey,
   signOutKeycloak
 } from '@/store/account'
+import { refreshLicense } from '@/store/license'
 
 import { DeviceList } from './device-list'
+import { LicenseRow } from './license-row'
 import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
 import { SyncStatus } from './sync-status'
 
@@ -53,6 +57,28 @@ export function describeKey(
 }
 
 /**
+ * Why a rotation did not happen, for the line under the key row. A refusal
+ * because of the AgentX license is said the way the license is everywhere
+ * else; anything else is the service's own words.
+ */
+export function describeRotateFailure(
+  result: DesktopAccountProvisionResult,
+  t: ReturnType<typeof useI18n>['t']
+): string {
+  const litellm = result.litellm
+
+  if (litellm?.status === 'license_inactive') {
+    const license = asLicense(litellm.license)
+
+    return t.settings.account.keyRotateFailed(
+      license ? licenseReadOnlyMessage(license, t.license) : t.license.readOnlyGeneric
+    )
+  }
+
+  return t.settings.account.keyRotateFailed(litellm?.detail?.trim() || result.error || litellm?.status || '')
+}
+
+/**
  * Settings → Account: who you are signed in to AgentX as, and how to leave.
  *
  * Everything shown here comes off the locally stored session, so the page
@@ -77,6 +103,7 @@ export function AccountSettings() {
   useEffect(() => {
     void refreshKeycloakAccount()
     void refreshAccountIsolation()
+    void refreshLicense()
   }, [])
 
   if (!account.loaded) {
@@ -152,6 +179,10 @@ export function AccountSettings() {
           />
         ) : null}
 
+        {/* The license sits with who you are, above the key it decides
+            whether you may use. Renders nothing while none is known. */}
+        {account.signedIn ? <LicenseRow /> : null}
+
         {account.signedIn && isolation.loaded && isolation.litellm ? (
           <ListRow
             action={
@@ -169,11 +200,7 @@ export function AccountSettings() {
                       const result = await rotateAccountKey()
 
                       if (!result.ok) {
-                        setRotateError(
-                          copy.keyRotateFailed(
-                            result.litellm?.detail?.trim() || result.error || result.litellm?.status || ''
-                          )
-                        )
+                        setRotateError(describeRotateFailure(result, t))
                       }
                     } finally {
                       setRotating(false)

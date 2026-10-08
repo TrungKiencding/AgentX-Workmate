@@ -30,6 +30,26 @@ export const DRAFT_PERSIST_DEBOUNCE_MS = 400
 // matching slot — the same line in a new language.
 export const pickPlaceholder = (pool: readonly string[], draw = Math.random()) => pool[Math.floor(draw * pool.length)]
 
+/**
+ * Whether the composer may send (`disabled` blocks it), and whether its input
+ * takes typing at all. A closed transport blocks sending but keeps the input
+ * editable while reconnecting, so a flaky network does not stop drafting. A
+ * read-only AgentX license blocks both: nothing typed there could ever be sent.
+ */
+export function composerLock({
+  licenseReadOnly,
+  reconnecting,
+  transportDisabled
+}: {
+  licenseReadOnly: boolean
+  reconnecting: boolean
+  transportDisabled: boolean
+}): { disabled: boolean; inputDisabled: boolean } {
+  const disabled = transportDisabled || licenseReadOnly
+
+  return { disabled, inputDisabled: licenseReadOnly || (disabled && !reconnecting) }
+}
+
 /** Completion items can carry an `action` (set in use-slash-completions) that
  *  runs a side effect on pick instead of inserting a chip — e.g. the session
  *  picker's "Browse all…" entry opens the overlay. Table-driven so new action

@@ -7,6 +7,7 @@ import { AGENTS_ROUTE } from '@/app/routes'
 import { BillingBanner } from '@/components/billing-banner'
 import { composerDockCard } from '@/components/chat/composer-dock'
 import { StatusSection } from '@/components/chat/status-section'
+import { LicenseBanner } from '@/components/license-banner'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
@@ -24,6 +25,7 @@ import {
   stopBackgroundProcess
 } from '@/store/composer-status'
 import { refreshSessionGoal } from '@/store/goals'
+import { $licenseBanner } from '@/store/license'
 import { $previewStatusBySession, dismissPreviewArtifact } from '@/store/preview-status'
 import { openSessionInNewWindow } from '@/store/windows'
 
@@ -92,6 +94,7 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
   const items = useSessionSlice($statusItemsBySession, sessionId)
   const previews = useSessionSlice($previewStatusBySession, sessionId)
   const billing = useStore($billingBlock)
+  const licenseBanner = useStore($licenseBanner)
 
   const groups = useMemo(() => groupStatusItems(items), [items])
 
@@ -141,9 +144,16 @@ export function ComposerStatusStack({ queue, sessionId }: ComposerStatusStackPro
 
   const sections: { key: string; node: ReactNode }[] = []
 
-  // Billing wall sits at the very top of the stack — it's the most important
-  // thing above the composer when the account is out of credits. Rendered here
-  // (not as a composer-disable) so slash commands stay usable.
+  // The license comes first of all: read-only, it is why this composer is
+  // locked; in the grace period, the warning before it will be. Not tied to a
+  // session — the license is the person's, whichever chat is open.
+  if (licenseBanner) {
+    sections.push({ key: 'license', node: <LicenseBanner /> })
+  }
+
+  // The billing wall comes next — the most important thing above the composer
+  // when the account is out of credits. Rendered here (not as a
+  // composer-disable) so slash commands stay usable.
   if (billing && sessionId && billing.sessionId === sessionId) {
     sections.push({ key: 'billing', node: <BillingBanner sessionId={sessionId} /> })
   }

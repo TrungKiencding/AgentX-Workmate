@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   acceptsTriggerCompletion,
+  composerLock,
   isPendingDraftPersistCurrent,
   type PendingDraftPersist,
   pickPlaceholder,
@@ -125,5 +126,33 @@ describe('isPendingDraftPersistCurrent (#54527 integrity guard)', () => {
 
   it('rejects when nothing was ever captured', () => {
     expect(isPendingDraftPersistCurrent(null, null)).toBe(false)
+  })
+})
+
+describe('composerLock', () => {
+  it('lets a reconnecting composer keep drafting but not send', () => {
+    expect(composerLock({ licenseReadOnly: false, reconnecting: true, transportDisabled: true })).toEqual({
+      disabled: true,
+      inputDisabled: false
+    })
+    expect(composerLock({ licenseReadOnly: false, reconnecting: false, transportDisabled: true })).toEqual({
+      disabled: true,
+      inputDisabled: true
+    })
+    expect(composerLock({ licenseReadOnly: false, reconnecting: false, transportDisabled: false })).toEqual({
+      disabled: false,
+      inputDisabled: false
+    })
+  })
+
+  it('locks typing and sending outright while the AgentX license is read-only', () => {
+    for (const reconnecting of [false, true]) {
+      for (const transportDisabled of [false, true]) {
+        expect(composerLock({ licenseReadOnly: true, reconnecting, transportDisabled })).toEqual({
+          disabled: true,
+          inputDisabled: true
+        })
+      }
+    }
   })
 })

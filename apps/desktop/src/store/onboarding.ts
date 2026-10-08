@@ -12,7 +12,8 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/hermes'
-import { translateNow } from '@/i18n'
+import { translateNow, translationsNow } from '@/i18n'
+import { asLicense, licenseReadOnlyMessage } from '@/lib/license'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
@@ -859,6 +860,16 @@ function gatewayFailureMessage(result: DesktopAccountProvisionResult | null): st
     // No answer at all: nobody signed in, a lapsed session, or a backend that
     // timed out — the main process reports all three the same way.
     return translateNow('onboarding.messages.gatewayNoAnswer')
+  }
+
+  // The service refused the key because of the person's AgentX license: say
+  // which way it does not cover AI, and whom to ask — never the operator prose
+  // in `detail`.
+  if (litellm.status === 'license_inactive') {
+    const license = asLicense(litellm.license)
+    const copy = translationsNow().license
+
+    return license ? licenseReadOnlyMessage(license, copy) : copy.readOnlyGeneric
   }
 
   const key = GATEWAY_FAILURE_COPY[litellm.status]

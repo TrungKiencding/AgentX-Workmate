@@ -67,6 +67,36 @@ export const fmtDate = dateFormatter({ day: 'numeric', month: 'short', year: 'nu
 export const fmtMonth = dateFormatter({ month: 'long' })
 export const fmtMonthYear = dateFormatter({ month: 'long', year: 'numeric' })
 
+// ── Calendar days ──────────────────────────────────────────────────────────
+// A day a service sends as `YYYY-MM-DD` — the last day a plan covers, the day
+// it starts — is already a date in the issuer's own time zone. It is formatted
+// exactly as written (pinned to UTC on both sides), never shifted through this
+// machine's zone, which would move it a day either way. Vietnamese writes it
+// dd/MM/yyyy; every other language gets its own medium date ("Dec 31, 2026").
+const numericCalendarDay = dateFormatter({ day: '2-digit', month: '2-digit', timeZone: 'UTC', year: 'numeric' })
+const mediumCalendarDay = dateFormatter({ dateStyle: 'medium', timeZone: 'UTC' })
+const NUMERIC_CALENDAR_DAY_LANGUAGES = new Set(['vi'])
+
+export function fmtCalendarDay(day: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day.trim())
+
+  if (!match) {
+    return ''
+  }
+
+  const [year, month, date] = match.slice(1).map(Number)
+  const at = new Date(Date.UTC(year, month - 1, date))
+
+  // 2026-02-31 is not a day; Date would quietly make it 3 March.
+  if (at.getUTCMonth() !== month - 1 || at.getUTCDate() !== date) {
+    return ''
+  }
+
+  const language = (formatLocale ?? '').split('-')[0].toLowerCase()
+
+  return (NUMERIC_CALENDAR_DAY_LANGUAGES.has(language) ? numericCalendarDay : mediumCalendarDay).format(at)
+}
+
 // ── Relative time ──────────────────────────────────────────────────────────
 let rtfBuilt: Intl.RelativeTimeFormat | undefined
 let rtfFor: string | undefined

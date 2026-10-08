@@ -947,6 +947,58 @@ describe('AgentX AI Gateway onboarding', () => {
     expect(flow.status === 'error' ? flow.message : '').toContain(sentence)
   })
 
+  it('explains a key refused for the AgentX license the way the license is said everywhere', async () => {
+    const api = vi.fn(async () => ({}))
+
+    installGatewayBridge(
+      async () => ({
+        ok: false,
+        litellm: grantedKey({
+          code: 'license_revoked',
+          detail: "this account's AgentX license does not cover AI right now (HTTP 403)",
+          license: {
+            access: 'read_only',
+            contact: 'it@astralx.com.vn',
+            enforced: true,
+            notice: 'read_only',
+            plan: { name: 'Pilot 2026', slug: 'pilot-2026' },
+            state: 'revoked'
+          },
+          models: [],
+          ok: false,
+          status: 'license_inactive'
+        })
+      }),
+      api
+    )
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    expect(api).not.toHaveBeenCalled()
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status).toBe('error')
+    // Never the operator prose in `detail`.
+    expect(flow.status === 'error' ? flow.message : '').toBe(
+      'Your AgentX license has been revoked. Workmate is in read-only mode. ' +
+        'Contact it@astralx.com.vn to get a license or renew it.'
+    )
+  })
+
+  it('says the license does not cover AI when the refusal carries no license to name', async () => {
+    installGatewayBridge(async () => ({
+      ok: false,
+      litellm: grantedKey({ detail: 'HTTP 403', models: [], ok: false, status: 'license_inactive' })
+    }))
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status === 'error' ? flow.message : '').toBe(
+      "Your AgentX license doesn't cover AI right now. Workmate is in read-only mode."
+    )
+  })
+
   it('asks the person to check their sign-in when the desktop gets no answer', async () => {
     installGatewayBridge(async () => ({ ok: false, error: 'Sign in first — there is no account to provision.' }))
 

@@ -279,6 +279,34 @@ export const vi: Translations = {
     dismiss: 'Bỏ qua'
   },
 
+  license: {
+    title: 'Giấy phép AgentX',
+    states: {
+      active: 'Đang hiệu lực',
+      grace: 'Đang ân hạn',
+      expired: 'Đã hết hạn',
+      revoked: 'Đã thu hồi',
+      scheduled: 'Chưa bắt đầu',
+      none: 'Chưa được cấp'
+    },
+    lastDay: date => `Ngày hết hạn: ${date}`,
+    startsOn: date => `Bắt đầu: ${date}`,
+    contactLine: contact => `Liên hệ: ${contact}`,
+    checkAgain: 'Kiểm tra lại',
+    checking: 'Đang kiểm tra…',
+    checkFailed: 'Chưa kiểm tra được lúc này — đang dùng thông tin gần nhất.',
+    expiring: (plan, date, days) => `Gói ${plan} hết hạn ngày ${date} (còn ${days} ngày).`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `Gói ${plan} đã hết hạn ngày ${lastDay}. Từ ngày ${readOnlyFrom}, Workmate chuyển sang chế độ chỉ xem.`,
+    readOnlyNone: 'Tài khoản chưa được cấp giấy phép AgentX.',
+    readOnlyScheduled: (plan, date) => `Gói ${plan} bắt đầu từ ngày ${date}.`,
+    readOnlyExpired: (plan, date) => `Gói ${plan} đã hết hạn ngày ${date}. Workmate đang ở chế độ chỉ xem.`,
+    readOnlyRevoked: 'Giấy phép AgentX của bạn đã bị thu hồi. Workmate đang ở chế độ chỉ xem.',
+    readOnlyGeneric: 'Giấy phép AgentX của bạn hiện không bao gồm AI. Workmate đang ở chế độ chỉ xem.',
+    contactRenew: contact => `Liên hệ ${contact} để gia hạn.`,
+    contactReissue: contact => `Liên hệ ${contact} để được cấp lại hoặc gia hạn.`
+  },
+
   titlebar: {
     hideSidebar: 'Ẩn thanh bên',
     showSidebar: 'Hiện thanh bên',
@@ -2844,6 +2872,7 @@ export const vi: Translations = {
     wakingProfile: profile => `Đang đánh thức ${profile}…`,
     placeholderStarting: 'Đang khởi động AgentX...',
     placeholderReconnecting: 'Đang kết nối lại AgentX…',
+    placeholderReadOnly: 'Chế độ chỉ xem — không gửi được yêu cầu tới AI',
     placeholderFollowUp: 'Gửi tiếp',
     newSessionPlaceholders: ['Bạn cần làm gì hôm nay?'],
     newSessionPlaceholdersRepo: ['Hỏi về mã nguồn hoặc giao việc…'],

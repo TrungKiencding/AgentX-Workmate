@@ -249,6 +249,34 @@ export const zhHant = defineLocale({
     dismiss: '忽略'
   },
 
+  license: {
+    title: 'AgentX 授權',
+    states: {
+      active: '有效',
+      grace: '寬限期',
+      expired: '已到期',
+      revoked: '已撤銷',
+      scheduled: '尚未開始',
+      none: '未指派'
+    },
+    lastDay: date => `最後一天：${date}`,
+    startsOn: date => `開始日期：${date}`,
+    contactLine: contact => `聯絡人：${contact}`,
+    checkAgain: '重新檢查',
+    checking: '正在檢查…',
+    checkFailed: '目前無法檢查 — 顯示的是最近一次取得的授權資訊。',
+    expiring: (plan, date, days) => `你的 ${plan} 方案將於 ${date} 到期（還剩 ${days} 天）。`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `你的 ${plan} 方案已於 ${lastDay} 到期。自 ${readOnlyFrom} 起，Workmate 將切換為唯讀模式。`,
+    readOnlyNone: '你的帳戶尚未獲指派 AgentX 授權。',
+    readOnlyScheduled: (plan, date) => `你的 ${plan} 方案將於 ${date} 開始。`,
+    readOnlyExpired: (plan, date) => `你的 ${plan} 方案已於 ${date} 到期。Workmate 處於唯讀模式。`,
+    readOnlyRevoked: '你的 AgentX 授權已被撤銷。Workmate 處於唯讀模式。',
+    readOnlyGeneric: '你的 AgentX 授權目前不包含 AI 功能。Workmate 處於唯讀模式。',
+    contactRenew: contact => `請聯絡 ${contact} 續訂。`,
+    contactReissue: contact => `請聯絡 ${contact} 取得或續訂授權。`
+  },
+
   titlebar: {
     hideSidebar: '隱藏側邊欄',
     showSidebar: '顯示側邊欄',
@@ -2482,6 +2510,7 @@ export const zhHant = defineLocale({
     wakingProfile: profile => `正在喚醒 ${profile}…`,
     placeholderStarting: '正在啟動 AgentX...',
     placeholderReconnecting: '正在重新連線至 AgentX…',
+    placeholderReadOnly: '唯讀模式 — 無法向 AI 傳送請求',
     placeholderFollowUp: '傳送後續訊息',
     newSessionPlaceholders: ['今天需要做什麼？'],
     newSessionPlaceholdersRepo: ['問問程式碼，或交辦一件事…'],
