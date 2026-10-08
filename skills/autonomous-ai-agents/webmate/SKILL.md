@@ -1,7 +1,7 @@
 ---
 name: webmate
 description: "Delegate browser tasks to the signed-in AgentX WebMate."
-version: 1.3.0
+version: 1.4.0
 author: AstralX Technology
 license: MIT
 platforms: [linux, macos, windows]
@@ -98,8 +98,8 @@ python "${AGENTX_HOME:-$HOME/.agentx}/skills/autonomous-ai-agents/webmate/script
 Statuses: `running`, `needs_user_input`, `completed`, `failed`, `aborted`.
 
 Every failing tool result starts with a structured code and repeats it as
-`structuredContent.code`; Workmate turns these into a card for the user, so
-relay the sentence that follows the code once and stop:
+`structuredContent.code`; Workmate turns the `WEBMATE_*` ones into a card for
+the user, so relay the sentence that follows the code once and stop:
 
 | Code | Meaning | What to tell the user |
 |---|---|---|
@@ -109,6 +109,7 @@ relay the sentence that follows the code once and stop:
 | `WEBMATE_OUTDATED` | The extension speaks a bridge protocol too old for this server | Update WebMate from Workmate → Settings → Browser |
 | `WEBMATE_PORT_IN_USE` | Port 17374 is held by something this server cannot share it with — an older WebMate server, or another program (every other AgentX process relays through the one holding it) | Relay the message: it names the process and how to free the port. Never kill processes yourself — this server takes the port over by itself once it is free |
 | `WEBMATE_DISABLED` | Workmate has the browser feature switched off | Turn it on in Workmate → Settings → Browser |
+| `license_read_only` | The AgentX license of the account signed in to WebMate is read-only (no license, not started yet, expired or revoked); the extension refuses AI work. Workmate usually ends the turn with its own license notice first | Tell the user what the message says — why, and whom to contact — and stop. Retrying does not help until the license changes |
 
 ## Procedure
 
@@ -117,7 +118,10 @@ relay the sentence that follows the code once and stop:
    otherwise it starts with a `WEBMATE_*` code — relay its instructions to the
    user verbatim (open the browser WebMate is installed into, or install it
    from Workmate → Settings → Browser) and stop. Do not retry the task in a
-   loop.
+   loop. A tool that fails with `license_read_only` means the AgentX license
+   of the account signed in to WebMate is read-only: tell the user what the
+   message says (why, and whom to contact) and stop — retrying does not help
+   until the license changes.
 2. **Pick the mode from the verb in the task.** `mode="ask"` reads, extracts
    and summarises the page that is already open; it cannot navigate, click,
    type or submit. Use `mode="act"` the moment the task opens a site, searches
