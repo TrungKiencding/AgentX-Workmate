@@ -216,11 +216,16 @@ Three things worth knowing:
 
 The account service also reports each person's AgentX license — `GET /v1/license`, and beside every key it hands out. Workmate keeps the last answer in `license.json` in the account home and re-evaluates it as time passes, so a plan starting, ending or running out of its grace period takes effect on time even while the service cannot be reached. `GET /api/account/license` answers from that record; `?refresh=1` asks the service first.
 
-While the license is **read-only** — no plan, a plan that has not started, one past its grace period, or a revoked license, and only while the SSO enforces licensing — Workmate starts no AI turn at all, whichever provider it would use, your own API keys included:
+While the license is **read-only** — no plan, a plan that has not started, one past its grace period, or a revoked license, and only while the SSO enforces licensing — Workmate does no AI work at all, whichever provider or engine it would use, your own API keys and on-device models included:
 
 - chat in the desktop app and the CLI is refused with the reason (code `license_read_only`), and the desktop locks its composer;
 - scheduled jobs are not dispatched; due jobs wait and run once the license covers AI again, as they do under `agentx pause`;
-- the messaging gateway answers a message with the reason (its commands keep working), and the kanban dispatcher starts no worker.
+- the messaging gateway answers a message with the reason (its commands keep working), and the kanban dispatcher starts no worker;
+- one-off generations — the commit message in the review pane, a new project's idea, a pet, kanban estimates and profile descriptions — are refused, and their buttons say why;
+- `/compress` is refused on every surface (`--preview` still answers: it is arithmetic, not a model call);
+- speech is off: read-aloud, dictation, the voice conversation and the "Hey AgentX" wake word, on-device engines included. Voice notes sent to the messaging gateway are not transcribed, and replies are not spoken.
+
+Every refusal carries the same code — `license_read_only` as a refused turn's `failure_reason`, as `data.code` on a gateway JSON-RPC error (4403), as `code` beside a 403 `detail` on the speech routes — and the same reason, with whom to ask.
 
 History stays readable, searchable and exportable. An SSO that predates licensing sends no license, and nothing changes. A service that cannot be reached leaves the last license known in place; with none known, nothing is blocked.
 
