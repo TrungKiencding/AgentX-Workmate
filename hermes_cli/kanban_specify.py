@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from hermes_cli import kanban_db as kb
+from hermes_cli.account_license import model_failure_reason
 
 from utils import env_int
 
@@ -192,9 +193,7 @@ def specify_task(
             "specify: API call failed for %s (%s) — skipping",
             task_id, exc,
         )
-        return SpecifyOutcome(
-            task_id, False, f"LLM error: {type(exc).__name__}"
-        )
+        return SpecifyOutcome(task_id, False, model_failure_reason(exc))
 
     try:
         raw = (resp.choices[0].message.content or "").strip()

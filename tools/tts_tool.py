@@ -2816,6 +2816,17 @@ def text_to_speech_tool(
     Returns:
         str: JSON result with success, file_path, and optionally MEDIA tag.
     """
+    # A read-only AgentX license refuses all speech synthesis — every
+    # provider, on-device voices included — before a provider is chosen.
+    from hermes_cli.account_license import read_only_license, refusal_payload
+
+    read_only = read_only_license()
+    if read_only is not None:
+        refusal = refusal_payload(read_only)
+        return tool_error(
+            refusal["message"], success=False, code=refusal["code"], license=refusal["license"]
+        )
+
     if not text or not text.strip():
         return tool_error("Text is required", success=False)
 

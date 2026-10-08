@@ -32,6 +32,7 @@ from hermes_constants import (
     reset_hermes_home_override,
     set_hermes_home_override,
 )
+from hermes_cli.account_license import LicenseReadOnly
 from hermes_cli.env_loader import load_hermes_dotenv
 from utils import is_truthy_value
 from tools.environments.local import hermes_subprocess_env
@@ -1969,6 +1970,45 @@ def _ok(rid, result: dict) -> dict:
 
 def _err(rid, code: int, msg: str) -> dict:
     return {"jsonrpc": "2.0", "id": rid, "error": {"code": code, "message": msg}}
+
+
+#: JSON-RPC error code for AI work a read-only AgentX license refused.
+LICENSE_READ_ONLY_RPC_CODE = 4403
+
+
+def _license_refusal(rid, license: dict) -> dict:
+    """The JSON-RPC error for AI work a read-only AgentX license refused.
+
+    ``message`` says why in the display language — what a client without
+    license support shows; ``data`` carries the code a refused turn reports
+    (``license_read_only``) and the license, for a client that says it in
+    its own words.
+    """
+    from hermes_cli.account_license import refusal_payload
+
+    payload = refusal_payload(license)
+    return {
+        "jsonrpc": "2.0",
+        "id": rid,
+        "error": {
+            "code": LICENSE_READ_ONLY_RPC_CODE,
+            "message": payload["message"],
+            "data": {"code": payload["code"], "license": payload["license"]},
+        },
+    }
+
+
+def _license_gate(rid) -> dict | None:
+    """The refusal for a request that would do AI work while the account is read-only.
+
+    ``None`` while the license covers AI (or none is known). Checked at the
+    top of every method whose work is model work outside an agent turn —
+    before a status line, a compute-host round trip or a provider call.
+    """
+    from hermes_cli.account_license import read_only_license
+
+    license = read_only_license()
+    return None if license is None else _license_refusal(rid, license)
 
 
 def method(name: str):
@@ -13030,6 +13070,15 @@ def _mirror_slash_side_effects(sid: str, session: dict, command: str) -> str:
         # session never compresses and the deferred context-engine
         # notification wiring below is never exercised for that route.
         name = "compress"
+    if name == "compress":
+        # Compaction is model work: refused while the AgentX license is
+        # read-only, like the session.compress RPC — before a compute-host
+        # round trip, so the refusal reads the same on every route.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            return read_only_message(_read_only)
 
     # Reject agent-mutating commands during an in-flight turn.  These
     # all do read-then-mutate on live agent/session state that the
@@ -13155,6 +13204,9 @@ def _mirror_slash_side_effects(sid: str, session: dict, command: str) -> str:
                 agent,
                 committed=False,
             )
+        if isinstance(e, LicenseReadOnly):
+            # Read-only since the check above: nothing was compressed.
+            return str(e)
         return f"live session sync failed: {e}"
     return ""
 
@@ -13655,6 +13707,18 @@ def _(rid, params: dict) -> dict:
     surface = str(params.get("surface") or "auto").strip().lower()
     persist = bool(params.get("persist"))
     transport = current_transport() or _stdio_transport
+    # A read-only AgentX license: the wake word would only start a voice chat
+    # that cannot run, so the listener is not armed (and config not touched).
+    # The refusal reads like any other, with the license's reason as the hint.
+    from hermes_cli.account_license import read_only_license, read_only_message
+
+    _read_only = read_only_license()
+    if _read_only is not None:
+        return _ok(rid, {
+            "started": False,
+            "reason": "license_read_only",
+            "hint": read_only_message(_read_only),
+        })
     try:
         from tools.wake_word import (
             WakeWordInUse,
@@ -13726,8 +13790,12 @@ def _(rid, params: dict) -> dict:
     new_session = bool(cfg.get("start_new_session", True))
 
     def _on_detect() -> None:
+        from hermes_cli.account_license import read_only_license
         from tools.wake_word import get_last_match, owns_listener, pause_listening
 
+        # Read-only since the listener was armed: a detection starts nothing.
+        if read_only_license() is not None:
+            return
         if not pause_listening(owner=transport):
             return
         if not owns_listener(transport):
@@ -13837,6 +13905,12 @@ def _(rid, params: dict) -> dict:
 @method("wake.resume")
 def _(rid, params: dict) -> dict:
     """Reclaim the mic after a pause; no-op if the listener isn't armed."""
+    from hermes_cli.account_license import read_only_license
+
+    if read_only_license() is not None:
+        # Paused for a read-only AgentX license: stays paused until it
+        # covers AI again (the desktop re-arms then).
+        return _ok(rid, {"resumed": False, "reason": "license_read_only"})
     transport = current_transport() or _stdio_transport
     resumed = _wake_resume_if_owner(transport)
     logger.info("wake.resume: detector resumed=%s", resumed)
@@ -14001,6 +14075,12 @@ def _(rid, params: dict) -> dict:
 
     if action in {"on", "off"}:
         enabled = action == "on"
+        if enabled:
+            # Voice is speech recognition and synthesis — AI work, refused
+            # while the AgentX license is read-only (turning it off is not).
+            refusal = _license_gate(rid)
+            if refusal is not None:
+                return refusal
         # Runtime-only flag (CLI parity) — no _write_config_key, so the
         # next TUI launch starts with voice OFF instead of auto-REC from a
         # persisted stale toggle.
@@ -14092,6 +14172,11 @@ def _(rid, params: dict) -> dict:
 
     try:
         if action == "start":
+            # Listening ends in a transcription: refused while the AgentX
+            # license is read-only, before the microphone opens.
+            refusal = _license_gate(rid)
+            if refusal is not None:
+                return refusal
             if not _voice_mode_enabled():
                 return _err(rid, 4015, "voice mode is off — enable with /voice on")
 
@@ -14228,6 +14313,11 @@ def _(rid, params: dict) -> dict:
     text = params.get("text", "")
     if not text:
         return _err(rid, 4020, "text required")
+    # Speech synthesis is AI work: refused while the AgentX license is
+    # read-only — here, rather than silently in the speaking thread.
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
     try:
         # Import check up front so a missing voice module still returns the
         # documented 5026 instead of failing silently in the thread.

@@ -91,3 +91,29 @@ def test_describer_refuses_to_overwrite_user_authored(profile_env, monkeypatch):
     assert profiles_mod.read_profile_meta(profile_env)["description"] == "curated"
 
 
+
+
+def test_describer_says_why_when_the_license_is_read_only(profile_env, monkeypatch):
+    # The auxiliary client refuses every call while the AgentX license is
+    # read-only; the describer's ``ok: false`` reason is the license's own
+    # sentence (who to ask), not an error class name.
+    from hermes_cli.account_license import read_only_message, remember_license
+
+    revoked = {
+        "state": "revoked",
+        "access": "read_only",
+        "enforced": True,
+        "notice": "read_only",
+        "contact": "it@astralx.com.vn",
+        "server_time": "2026-11-02T10:00:00+07:00",
+    }
+    remember_license(revoked)
+    monkeypatch.setattr(profiles_mod, "profile_exists", lambda n: n == "myprof")
+    monkeypatch.setattr(profiles_mod, "normalize_profile_name", lambda n: n)
+    monkeypatch.setattr(profiles_mod, "get_profile_dir", lambda n: profile_env)
+
+    outcome = describer.describe_profile("myprof")
+
+    assert outcome.ok is False
+    assert outcome.reason == read_only_message(revoked)
+    assert profiles_mod.read_profile_meta(profile_env)["description"] == ""

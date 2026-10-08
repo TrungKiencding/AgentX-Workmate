@@ -22,18 +22,22 @@ from hermes_cli.account_license import (
     LICENSE_FILENAME,
     READ_ONLY_CODE,
     KnownLicense,
+    LicenseReadOnly,
     current_license,
     dispatch_blocked,
     effective_access,
+    ensure_ai_allowed,
     evaluate,
     forget_license,
     format_day,
     license_behind_gateway_refusal,
+    model_failure_reason,
     license_path,
     read_known_license,
     read_only_license,
     read_only_message,
     refresh_license,
+    refusal_payload,
     remember_license,
     turn_refusal,
 )
@@ -552,6 +556,64 @@ class TestTurnGuard:
         # Adopted as the new history by the desktop's chat: nothing lost.
         assert result["messages"] == history
         assert result["messages"] is not history
+
+
+class TestOutsideATurn:
+    """AI work that is not an agent turn — a one-off generation, compaction,
+    speech — asks the same question and is refused with the same code."""
+
+    _REVOKED = _license(state="revoked", access="read_only", notice="read_only")
+
+    def test_the_refusal_as_data(self):
+        payload = refusal_payload(self._REVOKED)
+
+        assert payload == {
+            "code": READ_ONLY_CODE,
+            "message": read_only_message(self._REVOKED),
+            "license": self._REVOKED,
+        }
+        assert payload["license"] is not self._REVOKED
+
+    def test_the_exception_reads_as_the_reason(self):
+        refused = LicenseReadOnly(self._REVOKED)
+
+        assert isinstance(refused, RuntimeError)
+        assert str(refused) == read_only_message(self._REVOKED)
+        assert refused.code == READ_ONLY_CODE
+        assert refused.license == self._REVOKED and refused.license is not self._REVOKED
+        assert refused.payload() == refusal_payload(self._REVOKED)
+
+    def test_a_helper_reporting_a_failed_call_says_the_licenses_reason(self):
+        assert model_failure_reason(LicenseReadOnly(self._REVOKED)) == read_only_message(self._REVOKED)
+        assert model_failure_reason(TimeoutError("slow")) == "LLM error: TimeoutError"
+
+    def test_read_only_refuses(self, home, monkeypatch):
+        monkeypatch.setenv("AGENTX_HOME", str(home))
+        remember_license(self._REVOKED)
+
+        with pytest.raises(LicenseReadOnly) as refused:
+            ensure_ai_allowed()
+
+        assert refused.value.license["state"] == "revoked"
+        assert "it@astralx.com.vn" in str(refused.value)
+
+    @pytest.mark.parametrize(
+        "known",
+        [
+            None,
+            _license(),
+            _license(state="grace", notice="grace"),
+            # Not enforced: the plan is reported, nobody is blocked.
+            _license(state="expired", access="full", enforced=False),
+        ],
+        ids=["none-known", "active", "grace", "not-enforced"],
+    )
+    def test_anything_else_lets_it_run(self, home, monkeypatch, known):
+        monkeypatch.setenv("AGENTX_HOME", str(home))
+        if known is not None:
+            remember_license(known)
+
+        ensure_ai_allowed()
 
 
 class TestDispatchGate:

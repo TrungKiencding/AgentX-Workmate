@@ -3987,6 +3987,19 @@ class GatewaySlashCommandsMixin:
                 lines.append(_agg_note)
             return "\n".join(lines)
 
+        # Compaction is model work: refused while the AgentX license is
+        # read-only, with the same reason a refused message gets (the preview
+        # above is local arithmetic, so it still answers).
+        from hermes_cli.account_license import (
+            LicenseReadOnly,
+            read_only_license,
+            read_only_message,
+        )
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            return read_only_message(_read_only)
+
         try:
             from run_agent import AIAgent
             from agent.manual_compression_feedback import summarize_manual_compression
@@ -4281,6 +4294,9 @@ class GatewaySlashCommandsMixin:
                     )
                 )
             return "\n".join(lines)
+        except LicenseReadOnly as e:
+            # Read-only since the check above: nothing was compressed.
+            return str(e)
         except Exception as e:
             logger.warning("Manual compress failed: %s", e)
             return t("gateway.compress.failed", error=e)

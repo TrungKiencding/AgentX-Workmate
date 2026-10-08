@@ -23,6 +23,8 @@ the laptop's half, and it has three jobs:
    right now? Workmate blocks *all* AI in read-only mode, including providers
    somebody configured with their own key, so the answer has to come from here
    rather than from whether the AgentX gateway happens to refuse a request.
+   AI work outside a turn asks too (:func:`ensure_ai_allowed`): auxiliary
+   model calls, one-off generations, compaction, speech, image generation.
 
 Two rules shape everything below.
 
@@ -382,6 +384,67 @@ def turn_refusal(
         "failure_retryable": False,
         "license": dict(license),
     }
+
+
+# ---------------------------------------------------------------------------
+# Refusing AI work outside a turn
+# ---------------------------------------------------------------------------
+
+
+def refusal_payload(license: Mapping[str, Any]) -> dict[str, Any]:
+    """A read-only refusal as data, for any surface that answers with JSON.
+
+    ``code`` is :data:`READ_ONLY_CODE` — the same code a refused turn carries
+    as ``failure_reason`` — ``message`` says why in the display language, and
+    ``license`` lets a client say it in its own words.
+    """
+    return {"code": READ_ONLY_CODE, "message": read_only_message(license), "license": dict(license)}
+
+
+class LicenseReadOnly(RuntimeError):
+    """AI work refused because this account is read-only.
+
+    Raised where AI work starts outside an agent turn — a one-off generation,
+    a manual compression, an auxiliary model call, speech — before anything is
+    sent to a provider. ``str()`` is the reason in the display language;
+    ``code`` is :data:`READ_ONLY_CODE`, as on a refused turn.
+    """
+
+    code = READ_ONLY_CODE
+
+    def __init__(self, license: Mapping[str, Any]) -> None:
+        self.license = dict(license)
+        super().__init__(read_only_message(self.license))
+
+    def payload(self) -> dict[str, Any]:
+        """This refusal as :func:`refusal_payload` data."""
+        return refusal_payload(self.license)
+
+
+def model_failure_reason(exc: BaseException) -> str:
+    """What an ``ok: false`` answer says when its auxiliary model call failed.
+
+    For helpers that report a failed model call as a reason instead of
+    raising (kanban specify/decompose/estimate, the profile describer): a
+    read-only refusal reads as the license's reason — something the person
+    can act on — anything else as the error's type, as before.
+    """
+    if isinstance(exc, LicenseReadOnly):
+        return str(exc)
+    return f"LLM error: {type(exc).__name__}"
+
+
+def ensure_ai_allowed() -> None:
+    """Raise :class:`LicenseReadOnly` while this account is read-only.
+
+    The check for AI work that does not run as an agent turn (those are
+    refused by :func:`turn_refusal` instead). Every engine counts, the
+    person's own keys and on-device models included: in read-only mode
+    nothing in Workmate does AI work.
+    """
+    license = read_only_license()
+    if license is not None:
+        raise LicenseReadOnly(license)
 
 
 _dispatch_lock = threading.Lock()

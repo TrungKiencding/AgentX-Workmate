@@ -45,6 +45,7 @@ from typing import Optional
 
 from hermes_cli import kanban_db as kb
 from hermes_cli import profiles as profiles_mod
+from hermes_cli.account_license import model_failure_reason
 
 logger = logging.getLogger(__name__)
 
@@ -330,7 +331,7 @@ def decompose_task(
         logger.info(
             "decompose: API call failed for %s (%s)", task_id, exc,
         )
-        return DecomposeOutcome(task_id, False, f"LLM error: {type(exc).__name__}")
+        return DecomposeOutcome(task_id, False, model_failure_reason(exc))
 
     try:
         raw = resp.choices[0].message.content or ""

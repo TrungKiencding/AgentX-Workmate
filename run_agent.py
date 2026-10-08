@@ -7722,7 +7722,17 @@ class AIAgent:
         so users can bypass the summary-failure cooldown after an
         auto-compress abort.  Auto-compress callers use the default
         ``force=False``.
+
+        Raises ``hermes_cli.account_license.LicenseReadOnly`` while the
+        AgentX license is read-only, before anything is summarised, rotated
+        or persisted: compaction is model work, and every route to it —
+        ``/compress`` on each surface, the gateway's hygiene sweep, the
+        loop's own — ends here.
         """
+        from hermes_cli.account_license import ensure_ai_allowed
+
+        ensure_ai_allowed()
+
         from agent.conversation_compression import (
             CompressionCommitFence,
             compress_context,

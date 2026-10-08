@@ -126,3 +126,62 @@ def test_the_kanban_dispatcher_spawns_no_worker_while_read_only():
     remember_license(_REVOKED)
 
     assert _kanban_dispatch_allowed() is False
+
+
+def _compress_runner():
+    """A runner whose session holds enough history for /compress to act on."""
+    from datetime import datetime
+
+    from gateway.config import GatewayConfig, Platform, PlatformConfig
+    from gateway.run import GatewayRunner
+    from gateway.session import SessionEntry, build_session_key
+
+    source = make_restart_source()
+    runner = object.__new__(GatewayRunner)
+    runner.config = GatewayConfig(platforms={Platform.TELEGRAM: PlatformConfig(enabled=True, token="***")})
+    runner.session_store = MagicMock()
+    runner.session_store.get_or_create_session.return_value = SessionEntry(
+        session_key=build_session_key(source),
+        session_id="sess-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        platform=source.platform,
+        chat_type=source.chat_type,
+    )
+    runner.session_store.load_transcript.return_value = [
+        {"role": "user", "content": "one"},
+        {"role": "assistant", "content": "two"},
+        {"role": "user", "content": "three"},
+        {"role": "assistant", "content": "four"},
+    ]
+    runner._session_db = None
+    return runner
+
+
+@pytest.mark.asyncio
+async def test_compress_says_why_and_builds_no_agent(monkeypatch):
+    # Compaction is model work: the command answers with the same reason a
+    # message gets, and no throwaway agent is built to summarise anything.
+    remember_license(_REVOKED)
+    runner = _compress_runner()
+
+    def no_agent(*_args, **_kwargs):
+        raise AssertionError("a refused /compress must not build an agent")
+
+    monkeypatch.setattr("run_agent.AIAgent", no_agent)
+
+    reply = await runner._handle_compress_command(_event("/compress"))
+
+    assert reply == read_only_message(_REVOKED)
+    runner.session_store.rewrite_transcript.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_compress_preview_is_local_arithmetic_and_still_answers():
+    remember_license(_REVOKED)
+    runner = _compress_runner()
+
+    reply = await runner._handle_compress_command(_event("/compress --preview"))
+
+    assert reply != read_only_message(_REVOKED)
+    assert "🗜️" in reply

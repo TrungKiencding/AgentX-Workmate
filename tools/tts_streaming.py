@@ -197,7 +197,16 @@ def resolve_streaming_provider(
        then speaks per-sentence via the sync path, preserving the user's
        chosen voice. We never silently swap to a different provider just
        to get streaming.
+
+    ``None`` as well while the AgentX license is read-only: every caller then
+    takes the sync path, and ``text_to_speech_tool`` refuses it there with
+    the reason — one refusal, said once.
     """
+    from hermes_cli.account_license import read_only_license
+
+    if read_only_license() is not None:
+        return None
+
     streaming_cfg = tts_config.get("streaming") or {}
     pinned = str(streaming_cfg.get("provider") or "").lower().strip()
     if pinned == "auto":

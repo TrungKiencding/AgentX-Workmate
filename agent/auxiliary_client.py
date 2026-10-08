@@ -8868,6 +8868,17 @@ async def _acreate_with_stream(
     )
 
 
+def _ensure_ai_allowed() -> None:
+    """Refuse an auxiliary call while the AgentX license is read-only.
+
+    Checked before anything is resolved or sent — no client, no semaphore
+    permit, no Relay attempt — so a refused call never reaches a provider.
+    """
+    from hermes_cli.account_license import ensure_ai_allowed
+
+    ensure_ai_allowed()
+
+
 @_relay_auxiliary_call
 def call_llm(
     task: str = None,
@@ -8890,7 +8901,13 @@ def call_llm(
     stream_options: dict = None,
     route_info: Optional[Dict[str, str]] = None,
 ) -> Any:
-    """Run an auxiliary LLM request, applying the configured task limit."""
+    """Run an auxiliary LLM request, applying the configured task limit.
+
+    Raises ``hermes_cli.account_license.LicenseReadOnly`` while the account's
+    AgentX license is read-only: every auxiliary call — titles, one-off
+    generations, summaries, vision, judges — whatever its provider.
+    """
+    _ensure_ai_allowed()
     semaphore = _acquire_sync_aux_semaphore(task)
     if semaphore is not None:
         semaphore.acquire()
@@ -9778,7 +9795,11 @@ async def async_call_llm(
     reasoning_config: Optional[dict] = None,
     route_info: Optional[Dict[str, str]] = None,
 ) -> Any:
-    """Run an asynchronous auxiliary LLM request under the configured limit."""
+    """Run an asynchronous auxiliary LLM request under the configured limit.
+
+    Refused like :func:`call_llm` while the AgentX license is read-only.
+    """
+    _ensure_ai_allowed()
     semaphore = _acquire_async_aux_semaphore(task)
     if semaphore is not None:
         await semaphore.acquire()
