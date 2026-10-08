@@ -8209,6 +8209,18 @@ class AIAgent:
         moa_config: Optional[dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
+        # Every agent turn on every surface passes through here — the
+        # desktop's chat, cron, the messaging gateway, the CLI, ACP,
+        # subagents — so this is where a read-only AgentX license refuses
+        # one, whatever provider it would use (hermes_cli.account_license).
+        # Checked before the turn touches anything: no lease, no persisted
+        # user message, so a refused turn leaves the session as it was.
+        from hermes_cli.account_license import read_only_license, turn_refusal
+
+        read_only = read_only_license()
+        if read_only is not None:
+            return turn_refusal(read_only, conversation_history)
+
         from agent.aux_accounting import (
             reset_accounting_context,
             set_accounting_context,

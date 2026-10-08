@@ -10310,6 +10310,15 @@ def _run_prompt_submit(
             if _billing_block:
                 payload["billing"] = _billing_block
                 payload["failure_reason"] = result.get("failure_reason")
+            # Same for a turn the AgentX license refused
+            # (hermes_cli.account_license.turn_refusal): the code and the
+            # license travel as data, so the desktop explains it in its own
+            # words and locks the composer rather than re-parsing the text.
+            from hermes_cli.account_license import READ_ONLY_CODE as _LICENSE_READ_ONLY
+
+            if isinstance(result, dict) and result.get("failure_reason") == _LICENSE_READ_ONLY:
+                payload["failure_reason"] = _LICENSE_READ_ONLY
+                payload["license"] = result.get("license")
             rendered = render_message(raw, cols)
             if rendered:
                 payload["rendered"] = rendered

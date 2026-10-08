@@ -4590,6 +4590,34 @@ def run_conversation(
                     reason=classified.reason.value,
                 )
 
+                # ── AgentX license: the gateway refusing a read-only person ──
+                # The SSO blocks this person's AgentX AI Gateway key the moment
+                # it makes them read-only, so a 401/403 from that gateway may be
+                # exactly that. When the license confirms it, end the turn with
+                # the license reason — not the provider's raw error, and before
+                # credential rotation or failover could carry the turn to another
+                # provider: read-only means no AI at all.
+                if status_code in (401, 403) and not _retry.license_checked:
+                    _retry.license_checked = True
+                    from hermes_cli.account_license import (
+                        license_behind_gateway_refusal,
+                        turn_refusal,
+                    )
+
+                    _read_only = license_behind_gateway_refusal(
+                        str(getattr(agent, "base_url", "") or "")
+                    )
+                    if _read_only is not None:
+                        logger.warning(
+                            "%sThe AgentX AI Gateway refused this account (HTTP %s): "
+                            "its license is read-only (%s)",
+                            agent.log_prefix,
+                            status_code,
+                            _read_only.get("state"),
+                        )
+                        agent._persist_session(messages, conversation_history)
+                        return turn_refusal(_read_only, messages, api_calls=api_call_count)
+
                 if (
                     classified.reason == FailoverReason.billing
                     and _is_nous_inference_route(

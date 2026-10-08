@@ -16741,6 +16741,24 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 "please resend shortly."
             )
 
+        # ── AgentX license: read-only starts no AI turn ────────────────
+        # The SSO has made this person read-only (hermes_cli.account_license):
+        # no AI, whatever provider the turn would use. Commands above keep
+        # working; a message — or an internal event, which would start a turn
+        # just the same — is answered with the reason here, before the session
+        # slot is claimed and before the pre-turn model work below (session
+        # hygiene compression) can reach a model.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only_license = read_only_license()
+        if _read_only_license is not None:
+            logger.info(
+                "Refusing new turn for session %s — the AgentX license is read-only (%s).",
+                _quick_key,
+                _read_only_license.get("state"),
+            )
+            return read_only_message(_read_only_license)
+
         # ── Claim this session before any await ───────────────────────
         # Between here and _run_agent registering the real AIAgent, there
         # are numerous await points (hooks, vision enrichment, STT,
