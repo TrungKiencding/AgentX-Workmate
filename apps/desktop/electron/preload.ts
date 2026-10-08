@@ -115,6 +115,19 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     status: () => ipcRenderer.invoke('agentx:account:status'),
     provision: options => ipcRenderer.invoke('agentx:account:provision', options)
   },
+  // This person's AgentX license, as the local backend last heard it. `refresh`
+  // asks the keys service first ("Check again"); `onChanged` hears every change,
+  // whoever caused it — the main process's own cadence included.
+  license: {
+    get: () => ipcRenderer.invoke('agentx:license:get'),
+    refresh: () => ipcRenderer.invoke('agentx:license:refresh'),
+    onChanged: callback => {
+      const listener = (_event, view) => callback(view)
+      ipcRenderer.on('agentx:license:changed', listener)
+
+      return () => ipcRenderer.removeListener('agentx:license:changed', listener)
+    }
+  },
   // The machines this person is signed in on, and the way to cut one off.
   // `revoke` takes the id of the device to remove — which may be this one; the
   // service is what decides whether that is allowed.

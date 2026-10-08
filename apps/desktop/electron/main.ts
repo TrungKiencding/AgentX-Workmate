@@ -161,6 +161,7 @@ import {
 import { fetchKeycloakEndpoints, logoutKeycloakSession } from './keycloak-login'
 import { buildEndSessionUrl, type KeycloakOidcConfig } from './keycloak-oidc'
 import { loadKeycloakSession } from './keycloak-session-store'
+import { createLicenseSync, LICENSE_ROUTE } from './license-sync'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
 import { ensureMainWindow } from './main-window-lifecycle'
 import {
@@ -8431,10 +8432,6 @@ async function ensureAccountProvisioned(
     // the service needs to attribute the machine to a person.
     heartbeatDevice()
 
-    // Same reason, and the same moment: synchronisation needs a bearer, and
-    // this is the first point in a launch where one can be minted.
-    startSyncTicker()
-
     return body
   }
 
@@ -8446,6 +8443,17 @@ async function ensureAccountProvisioned(
     )
 
     return null
+  })
+
+  // Whatever provisioning did, the license is asked about once it is over — a
+  // key the service refused for the license is exactly when it matters, and a
+  // provisioning call that failed says nothing about it — and the account
+  // ticker keeps it (and synchronisation, which needs the bearer this moment
+  // is the first to have) going from here.
+  void attempt.then(() => {
+    startAccountTicker()
+
+    return licenseSync.refresh('provisioned')
   })
 
   return shouldAwait ? attempt : null
@@ -9557,13 +9565,15 @@ function createWindow() {
 
   // Coming back to this machine is exactly when "did my other laptop get
   // that?" gets asked, and waiting up to thirty seconds to answer it feels
-  // broken even though nothing is. No-ops until the ticker has started, which
-  // is after somebody signs in.
+  // broken even though nothing is. It is also when a license renewed (or
+  // ended) in the meantime should show — asked of the keys service once the
+  // last check is half an hour old. Both no-op until somebody has signed in.
   mainWindow.on('focus', () => {
-    if (syncTimer) {
+    if (accountTicker) {
       void syncTick('focus')
     }
 
+    void licenseSync.tick('focus')
     appUpdateService?.onFocus()
   })
 
@@ -10289,6 +10299,9 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   // same person should land straight in their home, not respawn to find it.
   _accountRehomeAttempted = false
 
+  // Nor may they start under this person's license.
+  licenseSync.forget()
+
   try {
     const endpoints = await fetchKeycloakEndpoints(config, keycloakDeps())
     const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
@@ -10449,23 +10462,30 @@ ipcMain.handle('agentx:account:provision', async (_event, options) => {
 // Neither handler throws. A device list that cannot be fetched is a sentence
 // in Settings; it is never a reason for a dialog the user cannot act on.
 
-async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
+/**
+ * Call one of the signed-in person's account routes on the LOCAL backend.
+ *
+ * Never throws: a backend that is not running, a session with no bearer and a
+ * failed request all come back as `unavailable(detail)`, in the shape the
+ * caller's own answers have.
+ */
+async function callAccountRoute(
+  path: string,
+  options: any,
+  unavailable: (detail: string) => any,
+  logTag: string
+): Promise<any> {
   const baseUrl = await primaryLocalBaseUrl()
 
   if (!baseUrl) {
-    return { current: '', detail: 'The local backend is not running.', devices: [], status: 'offline' }
+    return unavailable('The local backend is not running.')
   }
 
   try {
     const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
 
     if (!bearer) {
-      return {
-        current: '',
-        detail: 'Not signed in.',
-        devices: [],
-        status: 'offline'
-      }
+      return unavailable('Not signed in.')
     }
 
     return await fetchJson(`${baseUrl}${path}`, null, {
@@ -10476,10 +10496,14 @@ async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
 
-    rememberLog(`[devices] ${path} failed: ${detail}`)
+    rememberLog(`[${logTag}] ${path} failed: ${detail}`)
 
-    return { current: '', detail, devices: [], status: 'offline' }
+    return unavailable(detail)
   }
+}
+
+async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
+  return callAccountRoute(path, options, detail => ({ current: '', detail, devices: [], status: 'offline' }), 'devices')
 }
 
 ipcMain.handle('agentx:devices:list', async () => callDeviceRoute('/api/account/devices'))
@@ -10536,7 +10560,7 @@ function heartbeatDevice(): void {
 /** How often to sync while the window is open. Matches the backend default. */
 const SYNC_TICK_INTERVAL_MS = 30_000
 
-let syncTimer: ReturnType<typeof setInterval> | null = null
+let accountTicker: ReturnType<typeof setInterval> | null = null
 let syncInFlight = false
 
 async function syncTick(reason: string): Promise<any> {
@@ -10563,41 +10587,82 @@ async function syncTick(reason: string): Promise<any> {
 }
 
 /**
- * Start the sync timer, and tick on the moments a person is about to care.
+ * Start the account ticker: synchronisation every thirty seconds, and the
+ * license — re-read from the backend each beat, asked of the keys service on
+ * its own half-hour cadence (see license-sync.ts) — one timer for both rather
+ * than a second one.
  *
- * Window focus is one of them: coming back to this machine is exactly when
- * "did my other laptop get that?" gets asked, and waiting up to thirty seconds
- * to answer it feels broken even though nothing is.
+ * Both also tick on the moments a person is about to care. Window focus is one
+ * of them: coming back to this machine is exactly when "did my other laptop get
+ * that?" gets asked, and waiting up to thirty seconds to answer it feels broken
+ * even though nothing is.
  */
-function startSyncTicker(): void {
-  if (syncTimer) {
+function startAccountTicker(): void {
+  if (accountTicker) {
     return
   }
 
   void syncTick('launch')
 
-  syncTimer = setInterval(() => {
+  accountTicker = setInterval(() => {
     void syncTick('interval')
+    void licenseSync.tick('interval')
   }, SYNC_TICK_INTERVAL_MS)
 
   // `unref` so a stray timer can never be the reason the process will not
   // exit. Electron's main process outlives the window, and a 30-second
   // interval holding it open is a quit that silently does nothing.
-  syncTimer.unref?.()
+  accountTicker.unref?.()
 }
 
-function stopSyncTicker(): void {
-  if (!syncTimer) {
+function stopAccountTicker(): void {
+  if (!accountTicker) {
     return
   }
 
-  clearInterval(syncTimer)
-  syncTimer = null
+  clearInterval(accountTicker)
+  accountTicker = null
 }
 
 ipcMain.handle('agentx:sync:tick', async () => syncTick('requested'))
 
 ipcMain.handle('agentx:sync:status', async () => callDeviceRoute('/api/sync/status', { method: 'GET' }))
+
+// --- The AgentX license ------------------------------------------------------
+//
+// Whether this person may use AI right now. The keys service decides, the local
+// backend keeps its last answer and refuses AI turns from it, and every window
+// shows it (the read-only banner, the locked composer, Settings → Account).
+// This keeps that answer fresh — after each provisioning, on the account
+// ticker's slow cadence, on focus after a while — and pushes changes to every
+// window. Never throws, never shows an error: an unreachable service leaves the
+// last answer standing, which is the backend's rule too.
+
+const licenseSync = createLicenseSync({
+  broadcast: view => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      const { webContents } = win
+
+      if (webContents && !webContents.isDestroyed()) {
+        webContents.send('agentx:license:changed', view)
+      }
+    }
+  },
+  // A refresh waits on the keys service (two attempts of its own timeout);
+  // reading the backend's record is local.
+  fetch: refresh =>
+    callAccountRoute(
+      `${LICENSE_ROUTE}${refresh ? '?refresh=1' : ''}`,
+      { method: 'GET', timeoutMs: refresh ? 45_000 : 8_000 },
+      detail => ({ detail, status: 'unavailable' }),
+      'license'
+    ),
+  log: rememberLog
+})
+
+ipcMain.handle('agentx:license:get', async () => licenseSync.read())
+
+ipcMain.handle('agentx:license:refresh', async () => licenseSync.refresh('requested'))
 
 ipcMain.handle('agentx:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
 ipcMain.handle('agentx:profile:set', async (_event, name) => {
@@ -12812,7 +12877,7 @@ app.on('before-quit', event => {
     return
   }
 
-  stopSyncTicker()
+  stopAccountTicker()
   appUpdateService?.stop()
 
   // The Workmate browser window lives only as long as Workmate does: send it
