@@ -17,6 +17,7 @@ import { sessionCompacting } from '@/store/compaction'
 import { browseBackward, browseForward, deriveUserHistory, isBrowsingHistory } from '@/store/composer-input-history'
 import { POPOUT_WIDTH_REM } from '@/store/composer-popout'
 import { parkQueuedPrompts, removeQueuedPrompt, unparkQueuedPrompts } from '@/store/composer-queue'
+import { $licenseReadOnly } from '@/store/license'
 import { toggleReview } from '@/store/review'
 import { $gatewayState } from '@/store/session'
 import { $threadScrolledUp } from '@/store/thread-scroll'
@@ -27,6 +28,7 @@ import { AttachmentList } from './attachments'
 import {
   acceptsTriggerCompletion,
   COMPOSER_FADE_BACKGROUND,
+  composerLock,
   type QueueEditState,
   slashArgStage
 } from './composer-utils'
@@ -81,7 +83,7 @@ import { VoiceActivity, VoicePlaybackActivity } from './voice-activity'
 export function ChatBar({
   busy,
   cwd,
-  disabled,
+  disabled: transportDisabled,
   focusKey,
   gateway,
   maxRecordingSeconds = 120,
@@ -197,7 +199,16 @@ export function ChatBar({
   const { t } = useI18n()
   const gatewayState = useStore($gatewayState)
   const reconnecting = gatewayState === 'closed' || gatewayState === 'error'
-  const inputDisabled = disabled && !reconnecting
+  // A read-only AgentX license: nothing may be sent to AI, so the composer
+  // locks — typing included, reconnecting or not — until the license covers AI
+  // again. The status stack's license banner says why and whom to ask.
+  const licenseLocked = useStore($licenseReadOnly)
+
+  const { disabled, inputDisabled } = composerLock({
+    licenseReadOnly: licenseLocked,
+    reconnecting,
+    transportDisabled
+  })
 
   // The draft engine — detached source of truth (DOM + draftRef + edge
   // selectors); typing never re-renders the chrome. ChatBar owns `queueEditRef`
@@ -343,7 +354,14 @@ export function ChatBar({
   // conversation change.
   // One folder probe (shared with the branch strip and the model pill).
   const codingContext = useStore(repoStatusForCwd(cwd)) !== null
-  const placeholder = useComposerPlaceholder({ codingContext, disabled, reconnecting, sessionId })
+
+  const placeholder = useComposerPlaceholder({
+    codingContext,
+    disabled,
+    readOnly: licenseLocked,
+    reconnecting,
+    sessionId
+  })
 
   // Trigger / completion engine: @// detection, the adapter-driven item list,
   // popover selection, and chip insertion. The keydown nav block below consumes

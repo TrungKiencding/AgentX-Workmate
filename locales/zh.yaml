@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "会话数据库不可用"
     session_not_found:           "数据库中未找到该会话。"
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "你的 AgentX 许可证目前不包含 AI 功能。Workmate 处于只读模式。"
+  read_only_none:       "你的账户尚未分配 AgentX 许可证。"
+  read_only_scheduled:  "你的 {plan} 套餐将于 {date} 开始。"
+  read_only_expired:    "你的 {plan} 套餐已于 {date} 到期。Workmate 处于只读模式。"
+  read_only_revoked:    "你的 AgentX 许可证已被撤销。Workmate 处于只读模式。"
+  contact:              "请联系 {contact} 获取或续订许可证。"

@@ -72,6 +72,10 @@ class TurnRetryState:
     # credential-refresh attempt above failed) to the fallback chain, so we
     # don't loop on the same auth failover within one attempt.
     auth_failover_attempted: bool = False
+    # Set once a 401/403 from the AgentX AI Gateway has been checked against
+    # the person's license (hermes_cli.account_license), so retries of the
+    # same attempt don't ask the keys service again.
+    license_checked: bool = False
 
     # ── Restart signals (read by the outer loop after the attempt) ───────
     restart_with_compressed_messages: bool = False

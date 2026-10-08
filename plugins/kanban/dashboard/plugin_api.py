@@ -1861,7 +1861,9 @@ def _run_estimate(title: str, body: Optional[str]) -> dict:
             timeout=60,
         )
     except Exception as exc:
-        return {"ok": False, "reason": f"LLM error: {type(exc).__name__}"}
+        from hermes_cli.account_license import model_failure_reason
+
+        return {"ok": False, "reason": model_failure_reason(exc)}
 
     try:
         raw = (resp.choices[0].message.content or "").strip()

@@ -5,8 +5,11 @@
 // AssistantMessage's action bar hide the button entirely when no handler is
 // supplied, matching how onDismissError/onRestoreToMessage already behave.
 import { AssistantRuntimeProvider, type ThreadMessage, useExternalStoreRuntime } from '@assistant-ui/react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { $license } from '@/store/license'
+import { $voicePlayback } from '@/store/voice-playback'
 
 import { Thread } from '.'
 
@@ -105,5 +108,50 @@ describe('AssistantMessage branch button visibility (bug #2 fix)', () => {
     expect(screen.queryByRole('button', { name: 'Branch in new chat' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'React' })).toBeNull()
+  })
+})
+
+describe('Read aloud with a read-only AgentX license', () => {
+  afterEach(() =>
+    $license.set({ account: null, available: false, checking: false, lastCheck: null, license: null, loaded: false })
+  )
+
+  it('stays visibly off, does nothing, and can still be hovered for the reason', async () => {
+    $license.set({
+      account: 'kien',
+      available: true,
+      checking: false,
+      lastCheck: null,
+      license: {
+        access: 'read_only',
+        contact: 'it@astralx.com.vn',
+        enforced: true,
+        notice: 'read_only',
+        plan: null,
+        state: 'revoked'
+      },
+      loaded: true
+    })
+
+    render(<Harness />)
+    await screen.findByText('done')
+
+    const button = screen.getByRole('button', { name: 'Read aloud' })
+
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect((button as HTMLButtonElement).disabled).toBe(false)
+    expect(button.hasAttribute('data-blocked')).toBe(true)
+    fireEvent.click(button)
+    expect($voicePlayback.get().status).toBe('idle')
+  })
+
+  it('reads aloud as before while the license covers AI', async () => {
+    render(<Harness />)
+    await screen.findByText('done')
+
+    const button = screen.getByRole('button', { name: 'Read aloud' })
+
+    expect(button.getAttribute('aria-disabled')).toBeNull()
+    expect(button.hasAttribute('data-blocked')).toBe(false)
   })
 })

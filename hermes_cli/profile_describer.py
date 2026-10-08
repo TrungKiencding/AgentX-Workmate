@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Optional
 
 from hermes_cli import profiles as profiles_mod
+from hermes_cli.account_license import model_failure_reason
 from agent.skill_utils import is_excluded_skill_path
 
 logger = logging.getLogger(__name__)
@@ -240,7 +241,7 @@ def describe_profile(
         )
     except Exception as exc:
         logger.info("describe: API call failed for %s (%s)", canon, exc)
-        return DescribeOutcome(canon, False, f"LLM error: {type(exc).__name__}")
+        return DescribeOutcome(canon, False, model_failure_reason(exc))
 
     try:
         raw = resp.choices[0].message.content or ""

@@ -131,6 +131,10 @@ export type GatewayEventPayload = {
   // with FailoverReason.billing (shape mirrors @agentx/shared BillingBlock).
   billing?: BillingBlock
   failure_reason?: string
+  // message.complete with failure_reason "license_read_only" — the AgentX
+  // license the backend refused the turn by (validated with lib/license
+  // asLicense before use: it is outside input).
+  license?: unknown
   // message.complete — the deliverable files this turn produced.
   files_created?: unknown
 }

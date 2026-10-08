@@ -1,10 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import type { DesktopLicense } from '@/global'
+import { setTimeFormatLocale } from '@/lib/time'
+import { $license } from '@/store/license'
 
 import { en } from '../../i18n/en'
 import type { AccountIsolationState } from '../../store/account'
 
-import { AccountSettings, describeKey } from './account-settings'
+import { AccountSettings, describeKey, describeRotateFailure } from './account-settings'
 
 // Settings → Account is the only place the desktop app tells you who you are
 // signed in as, and the only way out. These pin that it names a person rather
@@ -200,5 +204,154 @@ describe('describeKey', () => {
 
   it('falls through to the backend detail for states a user cannot act on', () => {
     expect(describeKey(state({ status: 'error' }), copy)).toBe('operator-facing prose')
+  })
+})
+
+// The AgentX license row: plan, state, the day that matters, whom to ask, and
+// "Check again" — whenever a license is known, enforced or not; nothing while
+// none is (an SSO that predates licensing).
+describe('the AgentX license row', () => {
+  const KEYCLOAK = {
+    status: async () => ({
+      clientId: 'agentx-workmate',
+      configured: true,
+      displayName: 'Le Trung Kien',
+      email: 'kienlt1@astralx.com.vn',
+      issuer: 'https://sso.example.com/realms/agent-hub',
+      signedIn: true,
+      userId: 'kc-sub-1'
+    })
+  }
+
+  const ACTIVE: DesktopLicense = {
+    access: 'full',
+    contact: 'it@astralx.com.vn',
+    days_left: 120,
+    enforced: true,
+    last_day: '2027-05-31',
+    notice: null,
+    plan: { name: 'Pilot 2026', slug: 'pilot-2026' },
+    reminder: null,
+    state: 'active'
+  }
+
+  function stub(license: DesktopLicense | null, refresh?: () => Promise<unknown>) {
+    const view = { account: 'kien', detail: '', license, status: 'cached' }
+
+    Object.defineProperty(window, 'agentxDesktop', {
+      configurable: true,
+      value: {
+        keycloak: KEYCLOAK,
+        license: {
+          get: async () => view,
+          onChanged: () => () => undefined,
+          refresh: refresh ?? (async () => ({ ...view, status: 'ok' }))
+        }
+      }
+    })
+  }
+
+  beforeEach(() => {
+    setTimeFormatLocale('en')
+    $license.set({ account: null, available: false, checking: false, lastCheck: null, license: null, loaded: false })
+  })
+
+  afterEach(() => setTimeFormatLocale(undefined))
+
+  it('shows the plan, its state, its last day and whom to ask', async () => {
+    stub(ACTIVE)
+
+    render(<AccountSettings />)
+
+    expect(await screen.findByText(en.license.title)).toBeTruthy()
+    expect(screen.getByText(en.license.states.active)).toBeTruthy()
+    expect(screen.getByText('Pilot 2026 · Last day: May 31, 2027')).toBeTruthy()
+    expect(screen.getByText('Contact: it@astralx.com.vn')).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.license.checkAgain })).toBeTruthy()
+  })
+
+  it('shows the plan while the license is not enforced, too', async () => {
+    stub({ ...ACTIVE, enforced: false, state: 'expired' })
+
+    render(<AccountSettings />)
+
+    expect(await screen.findByText(en.license.states.expired)).toBeTruthy()
+  })
+
+  it('names the start day of a plan that has not started', async () => {
+    stub({ ...ACTIVE, access: 'read_only', notice: 'read_only', starts_on: '2026-10-15', state: 'scheduled' })
+
+    render(<AccountSettings />)
+
+    expect(await screen.findByText('Pilot 2026 · Starts: Oct 15, 2026 · Last day: May 31, 2027')).toBeTruthy()
+    expect(screen.getByText(en.license.states.scheduled)).toBeTruthy()
+  })
+
+  it('is absent while no license is known', async () => {
+    stub(null)
+
+    render(<AccountSettings />)
+
+    expect(await screen.findByText('Le Trung Kien')).toBeTruthy()
+    await waitFor(() => expect($license.get().loaded).toBe(true))
+    expect(screen.queryByText(en.license.title)).toBeNull()
+  })
+
+  it('says when a check could not reach the service, and keeps what it knew', async () => {
+    stub(ACTIVE, async () => ({ account: 'kien', detail: 'unreachable', license: ACTIVE, status: 'offline' }))
+
+    render(<AccountSettings />)
+
+    fireEvent.click(await screen.findByRole('button', { name: en.license.checkAgain }))
+
+    expect((await screen.findByRole('status')).textContent).toBe(en.license.checkFailed)
+    expect(screen.getByText(en.license.states.active)).toBeTruthy()
+  })
+})
+
+describe('describeRotateFailure', () => {
+  it('says a license refusal the way the license is said everywhere', () => {
+    setTimeFormatLocale('en')
+
+    const line = describeRotateFailure(
+      {
+        litellm: {
+          base_url: '',
+          code: 'license_expired',
+          detail: "this account's AgentX license does not cover AI right now (HTTP 403)",
+          key_alias: '',
+          license: {
+            access: 'read_only',
+            contact: '',
+            enforced: true,
+            last_day: '2026-12-31',
+            notice: 'read_only',
+            plan: { name: 'Pilot 2026', slug: 'pilot-2026' },
+            state: 'expired'
+          },
+          masked_key: '',
+          models: [],
+          ok: false,
+          provider: 'litellm',
+          status: 'license_inactive'
+        },
+        ok: false
+      },
+      en
+    )
+
+    setTimeFormatLocale(undefined)
+
+    expect(line).toBe(
+      en.settings.account.keyRotateFailed(
+        'Your Pilot 2026 plan expired on Dec 31, 2026. Workmate is in read-only mode.'
+      )
+    )
+  })
+
+  it('keeps the service words for anything else', () => {
+    const line = describeRotateFailure({ error: 'no backend', ok: false }, en)
+
+    expect(line).toBe(en.settings.account.keyRotateFailed('no backend'))
   })
 })

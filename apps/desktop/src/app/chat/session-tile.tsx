@@ -37,6 +37,7 @@ import { sessionTitle } from '@/lib/chat-runtime'
 import { isMessagingSource } from '@/lib/session-source'
 import { createComposerAttachmentScope } from '@/store/composer'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
+import { ensureAiAllowed } from '@/store/license'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $projectTree } from '@/store/projects'
 import { sessionAwaitingInput } from '@/store/prompts'
@@ -110,8 +111,12 @@ function buildTileView(storedSessionId: string): SessionView {
 // tiles have no pin/delete affordance, and transcription needs no per-tile state.
 const noop = () => undefined
 
-const tileTranscribeAudio = async (audio: Blob) =>
-  (await transcribeAudio(await blobToDataUrl(audio), audio.type)).transcript
+const tileTranscribeAudio = async (audio: Blob) => {
+  // Speech recognition is AI work: refused while the AgentX license is read-only.
+  ensureAiAllowed()
+
+  return (await transcribeAudio(await blobToDataUrl(audio), audio.type)).transcript
+}
 
 function TileChat({
   runtimeId,

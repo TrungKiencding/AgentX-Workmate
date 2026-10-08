@@ -435,3 +435,11 @@ gateway:
     session_db_unavailable_prefix: "Base de datos de sesiones no disponible"
     session_not_found:           "Sesión no encontrada en la base de datos."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Su licencia de AgentX no incluye IA en este momento. Workmate está en modo de solo lectura."
+  read_only_none:       "Su cuenta no tiene asignada una licencia de AgentX."
+  read_only_scheduled:  "Su plan {plan} empieza el {date}."
+  read_only_expired:    "Su plan {plan} venció el {date}. Workmate está en modo de solo lectura."
+  read_only_revoked:    "Su licencia de AgentX ha sido revocada. Workmate está en modo de solo lectura."
+  contact:              "Póngase en contacto con {contact} para obtener o renovar una licencia."

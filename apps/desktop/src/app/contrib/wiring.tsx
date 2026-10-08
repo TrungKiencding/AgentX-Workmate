@@ -37,6 +37,7 @@ import { $billingSettingsRequest } from '@/store/billing-block'
 import { requestVoiceConversationStart } from '@/store/composer'
 import { $cronReviewRequest, setCronFocusJobId } from '@/store/cron'
 import { $pinnedSessionIds, pinSession, restoreWorktree, unpinSession } from '@/store/layout'
+import { $licenseReadOnly, aiBlockedMessage } from '@/store/license'
 import { $previewTarget } from '@/store/preview'
 import {
   $activeGatewayProfile,
@@ -67,7 +68,7 @@ import {
   setMessages
 } from '@/store/session'
 import { clearSessionTodos, setSessionTodos, todosForHydration } from '@/store/todos'
-import { armWakeWord, stopClientCapture } from '@/store/wake-word'
+import { armWakeWord, pauseWakeForLicense, resumeWakeAfterVoice, stopClientCapture } from '@/store/wake-word'
 import { isSecondaryWindow } from '@/store/windows'
 import { useSkinCommand } from '@/themes/use-skin-command'
 
@@ -744,6 +745,13 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       emitGatewayEvent(event)
 
       if (event.type === 'wake.detected') {
+        // A read-only AgentX license: the wake word starts nothing — no new
+        // chat, no voice conversation. (The backend stops reporting it too;
+        // this covers one that was already on its way.)
+        if ($licenseReadOnly.get()) {
+          return
+        }
+
         const payload = event.payload as { profile?: null | string; start_new_session?: boolean } | undefined
 
         // Free the Mac mic so voice conversation can open getUserMedia.
@@ -806,6 +814,22 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       // same listener this auto-arm claims.
       void armWakeWord(requestGateway)
     }
+  }, [gatewayState, requestGateway])
+
+  // The license turning read-only lets go of the wake listener (the backend
+  // refuses to arm it meanwhile); covering AI again re-arms it as config says.
+  // `listen` fires on changes only — the auto-arm above handles the state a
+  // connection opens in.
+  useEffect(() => {
+    if (gatewayState !== 'open') {
+      return undefined
+    }
+
+    return $licenseReadOnly.listen(readOnly => {
+      void (readOnly
+        ? pauseWakeForLicense(aiBlockedMessage() ?? '', requestGateway)
+        : resumeWakeAfterVoice(requestGateway))
+    })
   }, [gatewayState, requestGateway])
 
   // Only the open messaging transcript needs its own poll — local chats are

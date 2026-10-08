@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "База данных сеансов недоступна"
     session_not_found:           "Сеанс не найден в базе данных."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Ваша лицензия AgentX сейчас не включает ИИ. Workmate работает в режиме только для чтения."
+  read_only_none:       "Вашей учётной записи не назначена лицензия AgentX."
+  read_only_scheduled:  "Ваш план {plan} начнёт действовать {date}."
+  read_only_expired:    "Срок действия вашего плана {plan} истёк {date}. Workmate работает в режиме только для чтения."
+  read_only_revoked:    "Ваша лицензия AgentX отозвана. Workmate работает в режиме только для чтения."
+  contact:              "Чтобы получить или продлить лицензию, свяжитесь с {contact}."

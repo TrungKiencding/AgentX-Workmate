@@ -8,13 +8,14 @@ import { readActiveTerminal } from '@/app/right-sidebar/terminal/buffer'
 import { closeAgentTerminalByProc } from '@/app/right-sidebar/terminal/terminals'
 import { createdFilesFromPayload } from '@/components/assistant-ui/thread/created-files'
 import { burstVibeHearts } from '@/components/chat/vibe-hearts'
-import { translateNow } from '@/i18n'
+import { translateNow, translationsNow } from '@/i18n'
 import { type GatewayEventPayload, textPart } from '@/lib/chat-messages'
 import { coerceGatewayText, coerceThinkingText, normalizePersonalityValue } from '@/lib/chat-runtime'
 import { playCompletionSound } from '@/lib/completion-sound'
 import type { DeliverableFile } from '@/lib/deliverables'
 import { approvalReplaySessionId, resolveGatewayEventSessionId } from '@/lib/gateway-events'
 import { triggerHaptic } from '@/lib/haptics'
+import { asLicense, LICENSE_READ_ONLY_CODE, licenseReadOnlyMessage } from '@/lib/license'
 import { modelOptionsQueryKey } from '@/lib/model-options'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
@@ -27,6 +28,7 @@ import { setSessionCompacting } from '@/store/compaction'
 import { refreshBackgroundProcesses } from '@/store/composer-status'
 import { $gateway } from '@/store/gateway'
 import { applyGoalStatusText } from '@/store/goals'
+import { noteLicenseRefusal } from '@/store/license'
 import {
   notifyCronChanged,
   notifyPairingChanged,
@@ -761,13 +763,23 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
 
         const finalText = coerceGatewayText(payload?.text) || coerceGatewayText(payload?.rendered)
 
+        // A turn the AgentX license refused (read-only): the license travels
+        // as data, so the bubble says it in the app's own words — the same
+        // sentence, dates and contact as the composer banner.
+        const licenseRefusal = payload?.failure_reason === LICENSE_READ_ONLY_CODE
+        const refusedBy = licenseRefusal ? asLicense(payload?.license) : null
+
         // Terminal error frames (status "error") carry the failure in
         // structured fields: `error` is the message, and `partial` marks
         // `text` as streamed output to keep rather than the error string.
         const failure =
           payload?.status === 'error'
             ? {
-                error: coerceGatewayText(payload.error).trim() || finalText || 'AgentX reported an error',
+                error:
+                  (refusedBy && licenseReadOnlyMessage(refusedBy, translationsNow().license)) ||
+                  coerceGatewayText(payload.error).trim() ||
+                  finalText ||
+                  'AgentX reported an error',
                 partial: Boolean(payload.partial)
               }
             : undefined
@@ -784,6 +796,13 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         // payment required) — cache it + raise a billing-specific toast.
         if (payload?.billing) {
           surfaceBillingBlock(sessionId, payload.billing)
+        }
+
+        // Lock every composer now, not at the next license check: whatever
+        // this window believed, the backend just decided the account is
+        // read-only.
+        if (licenseRefusal) {
+          noteLicenseRefusal(payload?.license)
         }
 
         if (isActiveEvent) {

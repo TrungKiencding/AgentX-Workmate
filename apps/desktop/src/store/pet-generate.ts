@@ -3,6 +3,7 @@ import { atom } from 'nanostores'
 import { persistBoolean, persistString, storedBoolean, storedString } from '@/lib/storage'
 import { capitalize } from '@/lib/text'
 import { $gateway } from '@/store/gateway'
+import { aiBlockedMessage, licenseRefusalMessage } from '@/store/license'
 import { dispatchNativeNotification } from '@/store/native-notifications'
 import { notify } from '@/store/notifications'
 import { type PetInfo } from '@/store/pet'
@@ -339,6 +340,17 @@ export async function generateDrafts(request: GatewayRequest, options: GenerateO
     return false
   }
 
+  // Drafting is image-model work: a read-only AgentX license refuses it here,
+  // before the current preview is thrown away for a round that cannot run.
+  const blocked = aiBlockedMessage()
+
+  if (blocked) {
+    $petGenError.set(blocked)
+    $petGenStatus.set('error')
+
+    return false
+  }
+
   const runId = gen.begin()
   const controller = new AbortController()
   gen.arm(() => {
@@ -443,7 +455,7 @@ export async function generateDrafts(request: GatewayRequest, options: GenerateO
       $petGenStatus.set('stale')
     } else {
       $petGenStatus.set('error')
-      $petGenError.set(e instanceof Error ? e.message : 'Could not generate pet drafts.')
+      $petGenError.set(licenseRefusalMessage(e) ?? (e instanceof Error ? e.message : 'Could not generate pet drafts.'))
       notifyPetGenDone('Pet generation failed', 'Reopen to try again.', 'error')
     }
 
@@ -474,6 +486,17 @@ export async function hatchSelected(request: GatewayRequest, options: HatchOptio
   const concept = ($petGenPrompt.get() || options.prompt || name).trim()
 
   if (token === null || index === null || !name) {
+    return false
+  }
+
+  // Hatching draws the frames with an image model: refused while read-only.
+  // The drafts stay, so the person can hatch once the license covers AI again.
+  const blocked = aiBlockedMessage()
+
+  if (blocked) {
+    $petGenError.set(blocked)
+    $petGenStatus.set('error')
+
     return false
   }
 
@@ -559,7 +582,7 @@ export async function hatchSelected(request: GatewayRequest, options: HatchOptio
     }
 
     $petGenStatus.set('error')
-    $petGenError.set(e instanceof Error ? e.message : 'Could not hatch the pet.')
+    $petGenError.set(licenseRefusalMessage(e) ?? (e instanceof Error ? e.message : 'Could not hatch the pet.'))
     notifyPetGenDone('Hatching failed', 'Reopen to try again.', 'error')
 
     return false

@@ -4783,10 +4783,53 @@ async def check_hermes_update(force: bool = False):
     return payload
 
 
+def _license_refusal_response(license: Dict[str, Any]) -> "JSONResponse":
+    """403 for AI work a read-only AgentX license refused.
+
+    ``detail`` is the reason in the display language — what a client that
+    knows nothing of licenses shows; ``code`` (``license_read_only``, as on a
+    refused agent turn) and ``license`` let the desktop say it in its own
+    words and lock its AI controls.
+    """
+    from hermes_cli.account_license import refusal_payload
+
+    refusal = refusal_payload(license)
+    return JSONResponse(
+        status_code=403,
+        content={
+            "detail": refusal["message"],
+            "code": refusal["code"],
+            "license": refusal["license"],
+        },
+    )
+
+
+def _speech_license_refusal(result: Any = None) -> Optional["JSONResponse"]:
+    """The 403 for a speech request while the account is read-only, else ``None``.
+
+    Checked before the request is decoded and again on the engine's answer
+    (``code`` on a failed result), which covers a license that turned
+    read-only in between. Speech counts whatever the engine — on-device or a
+    provider's: read-only Workmate does no AI work.
+    """
+    from hermes_cli.account_license import READ_ONLY_CODE, read_only_license
+
+    if isinstance(result, dict) and result.get("code") == READ_ONLY_CODE:
+        license = result.get("license")
+        if isinstance(license, dict):
+            return _license_refusal_response(license)
+    license = read_only_license()
+    return _license_refusal_response(license) if license is not None else None
+
+
 @app.post("/api/audio/transcribe")
 async def transcribe_audio_upload(
     payload: AudioTranscriptionRequest, profile: Optional[str] = None
 ):
+    refused = _speech_license_refusal()
+    if refused is not None:
+        return refused
+
     data_url = (payload.data_url or "").strip()
     if not data_url.startswith("data:") or "," not in data_url:
         raise HTTPException(status_code=400, detail="Invalid audio payload")
@@ -4860,6 +4903,9 @@ async def transcribe_audio_upload(
                 pass
 
     if not result.get("success"):
+        refused = _speech_license_refusal(result)
+        if refused is not None and result.get("code"):
+            return refused
         err = result.get("error") or "Transcription failed"
         # An empty transcript means no speech was detected — a normal outcome
         # for VAD/continuous voice loops (e.g. a wake-word conversation
@@ -4999,6 +5045,10 @@ async def speak_text(payload: TTSSpeakRequest, profile: Optional[str] = None):
     existing TTS provider chain (Edge / OpenAI / ElevenLabs / etc.)
     configured in ``~/.agentx/config.yaml`` under ``tts.``.
     """
+    refused = _speech_license_refusal()
+    if refused is not None:
+        return refused
+
     text = (payload.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -5030,6 +5080,9 @@ async def speak_text(payload: TTSSpeakRequest, profile: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Invalid TTS response")
 
     if not result.get("success"):
+        refused = _speech_license_refusal(result)
+        if refused is not None and result.get("code"):
+            return refused
         raise HTTPException(
             status_code=400,
             detail=result.get("error") or "Speech synthesis failed",

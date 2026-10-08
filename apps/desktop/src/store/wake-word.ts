@@ -394,6 +394,24 @@ export async function resumeWakeAfterVoice(request: WakeRequester = gatewayReque
   }
 }
 
+/**
+ * A read-only AgentX license: "Hey AgentX" would only start a voice chat that
+ * cannot run, so the listener lets go of the microphone and the toggle says
+ * why (`reason`). Config is left as it is — `resumeWakeAfterVoice` re-arms the
+ * listener once the license covers AI again.
+ */
+export async function pauseWakeForLicense(reason: string, request: WakeRequester = gatewayRequester): Promise<void> {
+  stopClientCapture()
+
+  try {
+    await request('wake.pause', {})
+  } catch {
+    // No listener here, or an older backend — nothing holds the mic.
+  }
+
+  $wakeWord.set({ ...$wakeWord.get(), listening: false, notice: reason, pending: false })
+}
+
 /** Test-only reset. */
 export function resetWakeWordState(): void {
   stopClientCapture()

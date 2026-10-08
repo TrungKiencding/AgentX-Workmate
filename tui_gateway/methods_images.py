@@ -90,6 +90,12 @@ def _(rid, params: dict) -> dict:
     if not prompt:
         return _err(rid, 4071, "prompt required")
 
+    # Image generation is model work: refused while the AgentX license is
+    # read-only (the probe above only reports availability).
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
+
     aspect = str(params.get("aspect_ratio") or "square").strip().lower()
     try:
         cap = min(int(params.get("max_bytes", 8_000_000) or 8_000_000), 16_000_000)

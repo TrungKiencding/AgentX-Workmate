@@ -13,6 +13,7 @@ const isWakeSub = (value: string): value is WakeSub => (WAKE_SUBCOMMANDS as read
 const START_REASON_TEXT: Record<string, string> = {
   disabled: 'disabled (config wake_word.enabled)',
   disabled_for_surface: 'scoped to another surface (config wake_word.surface)',
+  license_read_only: 'the AgentX license is read-only',
   not_owner: 'another surface owns the listener',
   owned: 'another surface owns the listener',
   unavailable: 'unavailable'

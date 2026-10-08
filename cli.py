@@ -12085,6 +12085,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 print(f"🗜️  {line}")
             return
 
+        # Compaction is model work: refused while the AgentX license is
+        # read-only (the preview above is local arithmetic, so it still runs).
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            print(f"(._.) {read_only_message(_read_only)}")
+            return
+
         original_count = len(self.conversation_history)
         with self._busy_command("Compressing context...", blocks_input=False):
             try:
@@ -13177,6 +13186,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """Start capturing audio from the microphone."""
         if getattr(self, '_should_exit', False):
             return
+        # A recording ends in a transcription: refused (before the mic opens)
+        # while the AgentX license is read-only. Callers print the reason.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            raise RuntimeError(read_only_message(_read_only))
         from tools.voice_mode import create_audio_recorder, check_voice_requirements
 
         reqs = check_voice_requirements()
@@ -13419,6 +13435,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 submitted = True
             elif result.get("success"):
                 _cprint(f"{_DIM}No speech detected.{_RST}")
+            elif result.get("code") == "license_read_only":
+                # A read-only AgentX license: voice cannot work at all — say
+                # why and leave voice mode rather than listen again.
+                _cprint(f"\n{_DIM}{result.get('error')}{_RST}")
+                self._disable_voice_mode()
+                return
             else:
                 error = result.get("error", "Unknown error")
                 _cprint(f"\n{_DIM}Transcription failed: {error}{_RST}")
@@ -13736,6 +13758,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             _cprint(f"{_DIM}Voice mode is already enabled.{_RST}")
             return
 
+        # Voice is speech recognition and synthesis — AI work, refused while
+        # the AgentX license is read-only.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            _cprint(f"\n{_DIM}{read_only_message(_read_only)}{_RST}")
+            return
+
         from tools.voice_mode import check_voice_requirements, detect_audio_environment
 
         # Environment detection -- warn and block in incompatible environments
@@ -13961,6 +13992,14 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             return
         # Ignore wake while a turn is in flight or the mic is already in use.
         if self._agent_running or self._voice_recording or getattr(self, "_voice_processing", False):
+            return
+        # A read-only AgentX license: the wake word starts nothing — say why
+        # and keep listening, so it works again once the license is renewed.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        _read_only = read_only_license()
+        if _read_only is not None:
+            _cprint(f"\n{_DIM}{read_only_message(_read_only)}{_RST}")
             return
 
         # Release the mic so STT can capture the command utterance.

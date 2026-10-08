@@ -1102,6 +1102,12 @@ def _(rid, params: dict) -> dict:
     if not template and not str(instructions).strip() and not str(user_input).strip():
         return _err(rid, 4030, "llm.oneshot requires a template or instructions/input")
 
+    # A read-only AgentX license refuses every one-off generation (the
+    # desktop's commit-message and project-idea buttons among them).
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
+
     # Optional: inherit the live session's model (no error if absent).
     session = _sessions.get(params.get("session_id") or "")
     main_runtime = _main_runtime_from_agent(session.get("agent")) if session else None
@@ -1119,6 +1125,9 @@ def _(rid, params: dict) -> dict:
             temperature=temperature if temperature is not None else 0.3,
             main_runtime=main_runtime,
         )
+    except LicenseReadOnly as e:
+        # The license turned read-only between the gate above and the call.
+        return _license_refusal(rid, e.license)
     except KeyError as e:
         return _err(rid, 4031, str(e))
     except ValueError as e:
@@ -1821,6 +1830,11 @@ def _(rid, params: dict) -> dict:
     ref_raw = str(params.get("referenceImage") or "").strip()
     if not prompt and not ref_raw:
         return _err(rid, 4004, "missing prompt")
+    # Drafting a pet is image-model work: refused while the AgentX license is
+    # read-only.
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
     try:
         count = max(1, min(4, int(params.get("count") or 4)))
     except (TypeError, ValueError):
@@ -1946,6 +1960,11 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 4004, "missing token")
     if not name:
         return _err(rid, 4004, "missing name")
+    # Hatching draws the pet's frames with an image model: refused while the
+    # AgentX license is read-only, like pet.generate.
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
     try:
         index = int(index)
     except (TypeError, ValueError):
@@ -2440,6 +2459,11 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     assert session is not None
+    # Compaction is model work: a read-only AgentX license refuses it here,
+    # before a status line or a compute-host round trip.
+    refusal = _license_gate(rid)
+    if refusal is not None:
+        return refusal
     if _session_uses_compute_host(session):
         sid = str(params.get("session_id") or "")
         focus_topic = str(params.get("focus_topic", "") or "").strip()
@@ -2598,6 +2622,13 @@ def _(rid, params: dict) -> dict:
             "lock_held": True,
             "message": describe_compression_lock_skip(e.holder),
         })
+    except LicenseReadOnly as e:
+        # Read-only since the gate above: refused before anything changed.
+        finalize_context_engine_compression_notification(
+            session["agent"],
+            committed=False,
+        )
+        return _license_refusal(rid, e.license)
     except Exception as e:
         finalize_context_engine_compression_notification(
             session["agent"],

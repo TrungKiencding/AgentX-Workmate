@@ -2511,6 +2511,13 @@ class HermesACPAgent(acp.Agent):
     def _cmd_compress(self, args: str, state: SessionState) -> str:
         if not state.history:
             return "Nothing to compress — conversation is empty."
+        # Compaction is model work: refused while the AgentX license is
+        # read-only (hermes_cli.account_license), with the reason and contact.
+        from hermes_cli.account_license import read_only_license, read_only_message
+
+        read_only = read_only_license()
+        if read_only is not None:
+            return read_only_message(read_only)
         try:
             agent = state.agent
             # No compression_enabled gate: the flag disables *automatic*

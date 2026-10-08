@@ -893,6 +893,12 @@ class FakeSecondBrain:
         # The speech-to-text model the NEXT issued key carries (None = a service
         # that predates it).
         self.transcription_model: str | None = None
+        # The person's AgentX license as the service reports it, beside every
+        # key and on `/v1/license` (None = a service that predates licensing:
+        # no `license` anywhere, and `/v1/license` answers 404 not_found).
+        self.license: dict | None = None
+        # A license refusal (`license_expired`, …) for `/v1/model-key`.
+        self.license_refusal = ""
 
     @property
     def transport(self) -> httpx.MockTransport:
@@ -989,16 +995,36 @@ class FakeSecondBrain:
         if not bearer:
             return httpx.Response(401, json={"error": "missing_bearer", "detail": "no"})
 
+        if request.url.path == "/v1/license":
+            if self.license is None:
+                return httpx.Response(
+                    404, json={"error": "not_found", "detail": "No route 'v1/license' here."}
+                )
+            return httpx.Response(200, json={"license": self.license})
+
+        if self.license_refusal:
+            # Checked before the key, like the service: a person whose license
+            # does not cover AI is handed no key, old or new.
+            return httpx.Response(
+                403,
+                json={
+                    "error": self.license_refusal,
+                    "detail": "this account's AgentX license does not cover AI",
+                    "license": self.license,
+                },
+            )
+
         # The token decides the person, exactly as the service does it.
         subject = bearer
         body = json.loads(request.content or b"{}")
         held = self.keys.get(subject)
+        licensed = {"license": self.license} if self.license is not None else {}
 
         if held is not None and not body.get("rotate"):
             # The proxy the service fronts NOW, not the one recorded at mint:
             # that is how a laptop learns the proxy moved.
             return httpx.Response(
-                200, json={**held, "base_url": self.base_url, "status": "reused"}
+                200, json={**held, "base_url": self.base_url, "status": "reused", **licensed}
             )
 
         alias = LiteLLMAccountSettings().alias_for(subject)
@@ -1036,7 +1062,8 @@ class FakeSecondBrain:
             issued["transcription_model"] = self.transcription_model
         self.keys[subject] = issued
         return httpx.Response(
-            200, json={**issued, "status": "rotated" if held is not None else "issued"}
+            200,
+            json={**issued, "status": "rotated" if held is not None else "issued", **licensed},
         )
 
 
@@ -3049,3 +3076,172 @@ class TestStaleDeprecatedModes:
 
         assert result.ok, result.detail
         assert read_state(account.home)["mode"] == "second_brain"
+
+
+# ===========================================================================
+# The AgentX license that travels with the key
+# ===========================================================================
+
+
+def _license(**overrides) -> dict:
+    """An enforced plan as the keys service reports it (active by default)."""
+    body = {
+        "state": "active",
+        "access": "full",
+        "enforced": True,
+        "notice": None,
+        "plan": {"slug": "pilot-2026", "name": "Pilot nội bộ 2026"},
+        "products": ["workmate", "webmate", "chat"],
+        "starts_at": "2026-10-15T00:00:00+07:00",
+        "ends_at": "2027-06-01T00:00:00+07:00",
+        "grace_until": "2027-06-08T00:00:00+07:00",
+        "starts_on": "2026-10-15",
+        "last_day": "2027-05-31",
+        "read_only_from": "2027-06-08",
+        "revoked_at": None,
+        "days_left": 120,
+        "reminder": None,
+        "warn_days": [14, 7, 1],
+        "contact": "it@astralx.com.vn",
+        "server_time": "2027-01-31T09:00:00+07:00",
+    }
+    body.update(overrides)
+    return body
+
+
+_EXPIRED = {"state": "expired", "access": "read_only", "notice": "read_only"}
+
+
+class TestLicense:
+    def _sign_in(self, account, brain, fake_proxy=None, **kwargs):
+        extra = {"client": make_client(fake_proxy)} if fake_proxy is not None else {}
+        return ensure_account_key(
+            account.identity, account.slug, settings=brain_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            **extra, **kwargs,
+        )
+
+    def test_the_license_sent_with_the_key_is_carried_and_recorded(self, account, brain):
+        from hermes_cli.account_license import read_known_license
+
+        brain.license = _license()
+
+        result = self._sign_in(account, brain)
+
+        assert result.ok is True
+        assert result.license["state"] == "active"
+        assert result.code == ""
+        assert result.to_json()["license"]["plan"]["name"] == "Pilot nội bộ 2026"
+        # Recorded for the person, at the account home.
+        assert read_known_license(account.home).license == brain.license
+
+    def test_a_service_that_predates_licensing_sends_none_and_records_nothing(
+        self, account, brain
+    ):
+        from hermes_cli.account_license import LICENSE_FILENAME
+
+        result = self._sign_in(account, brain)
+
+        assert result.ok is True
+        assert result.license is None
+        assert result.to_json()["license"] is None
+        assert not (account.home / LICENSE_FILENAME).exists()
+
+    @pytest.mark.parametrize("code", ["license_required", "license_expired", "license_revoked"])
+    def test_a_license_refusal_is_its_own_status_and_names_the_license(
+        self, account, brain, code
+    ):
+        from hermes_cli.account_license import effective_access
+
+        brain.license = _license(**_EXPIRED)
+        brain.license_refusal = code
+
+        result = self._sign_in(account, brain)
+
+        # Not a generic error the person can do nothing with: the license
+        # that explains it rides along, and is now what this machine knows.
+        assert result.status == "license_inactive"
+        assert result.ok is False
+        assert result.code == code
+        assert result.license["state"] == "expired"
+        assert effective_access(home=account.home) == "read_only"
+        # No key was ever issued, so none was written.
+        assert env_value(provider_key_env("litellm")) == ""
+
+    def test_a_refusal_never_takes_the_key_this_account_holds(
+        self, account, brain, fake_proxy
+    ):
+        brain.license = _license()
+        self._sign_in(account, brain, fake_proxy)
+        key_env = provider_key_env("litellm")
+        held = env_value(key_env)
+        state_before = read_state(account.home)
+
+        # The plan ran out: the gateway now refuses the key, the service
+        # refuses to hand it out again.
+        fake_proxy.revoke_everything()
+        brain.license = _license(**_EXPIRED)
+        brain.license_refusal = "license_expired"
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "license_inactive"
+        # Renewing the plan restores AI with the very same key — nothing here
+        # may have deleted or replaced it.
+        assert env_value(key_env) == held
+        assert read_state(account.home) == state_before
+
+    def test_a_refusal_ends_the_reuse_of_a_still_working_key(
+        self, account, brain, fake_proxy
+    ):
+        """The gateway may take up to a sync interval to block the key.
+
+        When the launch asks the service anyway — here because the models the
+        key reaches changed — a license refusal must reach the person rather
+        than hiding behind "reused".
+        """
+        brain.grants = ["chat-a", "chat-b"]
+        brain.license = _license()
+        self._sign_in(account, brain, fake_proxy)
+
+        brain.retire_model("tok", "chat-b")
+        brain.license = _license(**_EXPIRED)
+        brain.license_refusal = "license_expired"
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "license_inactive"
+        assert result.code == "license_expired"
+
+    def test_a_live_key_is_reused_without_asking_so_no_license_rides_along(
+        self, account, brain, fake_proxy
+    ):
+        """Why the desktop refreshes the license on its own route.
+
+        The common launch never reaches the keys service — the proxy accepted
+        the key — so provisioning has nothing new to say about the license.
+        """
+        from hermes_cli.account_license import read_known_license
+
+        brain.grants = ["chat-a"]
+        brain.license = _license()
+        self._sign_in(account, brain, fake_proxy)
+        brain.requests.clear()
+        brain.license = _license(**_EXPIRED)
+
+        result = self._sign_in(account, brain, fake_proxy)
+
+        assert result.status == "reused"
+        assert brain.requests == []
+        assert result.license is None
+        assert read_known_license(account.home).license["state"] == "active"
+
+    def test_the_cli_reports_the_status(self, account, brain):
+        brain.license = _license(**_EXPIRED)
+        brain.license_refusal = "license_expired"
+
+        result = self._sign_in(account, brain)
+
+        assert result.to_json()["status"] == "license_inactive"
+        assert result.to_json()["code"] == "license_expired"
+        assert result.to_json()["ok"] is False

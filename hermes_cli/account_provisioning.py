@@ -110,6 +110,12 @@ PROVIDER_DISPLAY_NAME = "AgentX AI Gateway"
 #: other name was set by hand and is left alone.
 LEGACY_PROVIDER_DISPLAY_NAMES: tuple[str, ...] = ("LiteLLM", "AI Gateway")
 
+#: Answers from the service that end a launch's reuse of a still-working key:
+#: this device has been revoked, or this person's license no longer covers AI.
+#: Either way the person has to be told — reporting "reused" would hide it
+#: behind a key the gateway is about to stop accepting.
+_DEFINITIVE_REFUSALS = frozenset({"revoked", "license_inactive"})
+
 
 class ProvisioningError(RuntimeError):
     """Provisioning could not complete. The message is operator-facing."""
@@ -209,6 +215,14 @@ class ProvisionResult:
     #: The model a fresh account opens on (``choose_default_model``), so the
     #: desktop's gateway card makes the same pick provisioning does.
     default_model: str = ""
+    #: The service's machine-readable refusal (``license_expired``,
+    #: ``access_blocked``, …) when it refused; empty otherwise.
+    code: str = ""
+    #: The AgentX license the service sent with its answer — beside the key,
+    #: or with a ``license_inactive`` refusal — evaluated for now. ``None``
+    #: when the service sent none (one that predates licensing) or was not
+    #: asked at all (the key was simply reused).
+    license: Mapping[str, Any] | None = None
 
     @property
     def ok(self) -> bool:
@@ -224,6 +238,8 @@ class ProvisionResult:
             "base_url": self.base_url,
             "models": list(self.models),
             "default_model": self.default_model,
+            "code": self.code,
+            "license": dict(self.license) if self.license is not None else None,
             "ok": self.ok,
         }
 
@@ -292,6 +308,26 @@ def resolve_second_brain_url(value: Any) -> str:
     ):
         return DEPLOYMENT_SECOND_BRAIN_URL
     return url
+
+
+def second_brain_service() -> tuple[str, float]:
+    """``(base_url, timeout)`` of the keys service this install talks to.
+
+    Read from ``accounts.second_brain`` at the INSTALL root (see
+    ``load_machine_config``): which service a fleet talks to is machine
+    policy, and an account home is created at sign-in with no config.yaml of
+    its own. ``base_url`` is empty when none is configured.
+    """
+    from hermes_cli.config import cfg_get
+
+    section = cfg_get(dict(load_machine_config()), "accounts", "second_brain", default=None)
+    if not isinstance(section, dict):
+        section = {}
+    try:
+        timeout = float(section.get("request_timeout_seconds") or 15)
+    except (TypeError, ValueError):
+        timeout = 15.0
+    return resolve_second_brain_url(section.get("base_url")), timeout
 
 
 def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSettings:
@@ -530,13 +566,15 @@ def _key_from_second_brain(
     device_name: str = "",
     rotate: bool = False,
     transport: Any | None = None,
-) -> tuple[MintedKey, str, str]:
+) -> tuple[MintedKey, str, str, Any]:
     """Ask the second brain for this person's key.
 
-    Returns the key, the proxy URL, and what the service says it did —
-    ``issued``, ``reused`` or ``rotated``. That last one matters: reporting
-    "rotated" in Settings when the service simply handed back the key this
-    person already had would describe the fix as though it were the bug.
+    Returns the key, the proxy URL, what the service says it did —
+    ``issued``, ``reused`` or ``rotated`` — and the ``license`` it sent beside
+    the key (``None`` from a service that predates licensing). The status
+    matters: reporting "rotated" in Settings when the service simply handed
+    back the key this person already had would describe the fix as though it
+    were the bug.
 
     Usually this mints nothing at all: the service holds one key per person and
     hands the same plaintext to every machine, so the second device to sign in
@@ -593,7 +631,7 @@ def _key_from_second_brain(
         transcription_model=str(payload.get("transcription_model") or "").strip(),
     )
     base_url = normalize_base_url(str(payload.get("base_url") or "")) or settings.base_url
-    return minted, base_url, str(payload.get("status") or "issued")
+    return minted, base_url, str(payload.get("status") or "issued"), payload.get("license")
 
 
 def _mint_via_broker(
@@ -1261,8 +1299,10 @@ def ensure_account_key(
     Never raises for "the service is unreachable" — a person who opens their
     laptop on a train must still get their agent, with the key they already
     have. Only a genuine misconfiguration (direct mode with no admin key, a
-    service that rejects the sign-in) surfaces as an error status, and only a
-    revoked device surfaces as ``revoked``.
+    service that rejects the sign-in) surfaces as an error status, only a
+    revoked device surfaces as ``revoked``, and only a license that does not
+    cover AI right now surfaces as ``license_inactive`` — with the ``license``
+    on the result, and the key this account holds left in place.
     """
     from hermes_constants import get_hermes_home
 
@@ -1331,7 +1371,7 @@ def ensure_account_key(
                     device_name=device_name,
                     reason=f"the proxy at {base_url} could not be reached",
                 )
-                if collected.ok or collected.status == "revoked":
+                if collected.ok or collected.status in _DEFINITIVE_REFUSALS:
                     return collected
                 # The service is unreachable too — a train, not a move. Keep
                 # the key; the next launch asks again.
@@ -1348,7 +1388,7 @@ def ensure_account_key(
                     device_name=device_name, reachable=reachable,
                     reason="the models this account's key reaches have changed",
                 )
-                if collected.ok or collected.status == "revoked":
+                if collected.ok or collected.status in _DEFINITIVE_REFUSALS:
                     return collected
                 # Offline, or nothing to ask with: the key still works, so this
                 # launch keeps it and the next one asks again.
@@ -1570,10 +1610,11 @@ def _rotate(
     state = read_state(home)
     had_key = bool(state.get("key_alias"))
     service_status = ""
+    license_sent: Any = None
 
     try:
         if settings.mode == "second_brain":
-            minted, base_url, service_status = _key_from_second_brain(
+            minted, base_url, service_status, license_sent = _key_from_second_brain(
                 settings, identity, alias, bearer,
                 device_id=device_id, device_name=device_name,
                 rotate=rotate, transport=brain_transport,
@@ -1589,7 +1630,7 @@ def _rotate(
                     "asking for a replacement",
                     alias,
                 )
-                minted, base_url, service_status = _key_from_second_brain(
+                minted, base_url, service_status, license_sent = _key_from_second_brain(
                     settings, identity, alias, bearer,
                     device_id=device_id, device_name=device_name,
                     rotate=True, transport=brain_transport,
@@ -1608,6 +1649,9 @@ def _rotate(
             )
             base_url = settings.base_url
     except SecondBrainError as exc:
+        # Whatever the refusal, a license it carried is the newest word on
+        # this person's plan.
+        license_now = _remember_license(exc.license)
         if exc.revoked:
             # The one failure that must reach the user as "sign in again"
             # rather than "try later". The key on this machine is not the
@@ -1622,6 +1666,24 @@ def _rotate(
                 provider=settings.provider_name,
                 key_alias=alias,
                 base_url=settings.base_url,
+                code=exc.code,
+                license=license_now,
+            )
+        if exc.license_refused:
+            # The person's AgentX license does not cover AI right now: no
+            # plan, one not started yet, one past its grace period, or one
+            # revoked. Not an outage and not a misconfiguration, and nothing
+            # here is undone — the key this account holds stays where it is
+            # (the gateway blocks it), so renewing the plan restores AI
+            # without a sign-in.
+            return ProvisionResult(
+                status="license_inactive",
+                detail=f"this account's AgentX license does not cover AI right now ({exc}).",
+                provider=settings.provider_name,
+                key_alias=alias,
+                base_url=settings.base_url,
+                code=exc.code,
+                license=license_now,
             )
         if exc.unreachable:
             return ProvisionResult(
@@ -1647,6 +1709,8 @@ def _rotate(
                 provider=settings.provider_name,
                 key_alias=alias,
                 base_url=settings.base_url,
+                code=exc.code,
+                license=license_now,
             )
         if exc.status_code == 424:
             # The service reached LiteLLM and LiteLLM refused: an alias it
@@ -1662,6 +1726,8 @@ def _rotate(
                 provider=settings.provider_name,
                 key_alias=alias,
                 base_url=settings.base_url,
+                code=exc.code,
+                license=license_now,
             )
         return ProvisionResult(
             status="error",
@@ -1669,6 +1735,8 @@ def _rotate(
             provider=settings.provider_name,
             key_alias=alias,
             base_url=settings.base_url,
+            code=exc.code,
+            license=license_now,
         )
     except LiteLLMError as exc:
         if exc.unreachable:
@@ -1806,7 +1874,24 @@ def _rotate(
         base_url=base_url,
         models=models,
         default_model=default_model,
+        license=_remember_license(license_sent),
     )
+
+
+def _remember_license(raw: Any) -> dict[str, Any] | None:
+    """Record a license the keys service sent; return it as it stands now.
+
+    ``None`` when it sent none. Whatever this account knew from before is then
+    left alone: deciding that a service no longer reports licenses at all is
+    the license route's call (``account_license.refresh_license``), which asks
+    the question directly.
+    """
+    if raw is None:
+        return None
+    from hermes_cli.account_license import remember_license
+
+    known = remember_license(raw)
+    return known.at() if known is not None else None
 
 
 def _discover_models(

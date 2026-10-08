@@ -971,6 +971,11 @@ def _(rid, params: dict) -> dict:
             return _err(
                 rid, 4009, "session busy — /interrupt the current turn before /compress"
             )
+        # Compaction is model work: refused while the AgentX license is
+        # read-only, like session.compress.
+        refusal = _license_gate(rid)
+        if refusal is not None:
+            return refusal
         from agent.conversation_compression import (
             finalize_context_engine_compression_notification,
         )
@@ -1074,6 +1079,12 @@ def _(rid, params: dict) -> dict:
                 rid,
                 {"type": "exec", "output": describe_compression_lock_skip(e.holder)},
             )
+        except LicenseReadOnly as exc:
+            finalize_context_engine_compression_notification(
+                session["agent"],
+                committed=False,
+            )
+            return _license_refusal(rid, exc.license)
         except Exception as exc:
             finalize_context_engine_compression_notification(
                 session["agent"],

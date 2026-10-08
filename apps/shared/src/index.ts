@@ -64,6 +64,8 @@ export {
   type GatewayEvent,
   type GatewayEventName,
   type GatewayRequestId,
+  JsonRpcError,
+  type JsonRpcErrorBody,
   type JsonRpcFrame,
   JsonRpcGatewayClient,
   type WebSocketLike

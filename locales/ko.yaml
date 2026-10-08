@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "세션 데이터베이스를 사용할 수 없습니다"
     session_not_found:           "데이터베이스에서 세션을 찾을 수 없습니다."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "현재 AgentX 라이선스로는 AI를 사용할 수 없습니다. Workmate는 읽기 전용 모드입니다."
+  read_only_none:       "이 계정에는 AgentX 라이선스가 할당되지 않았습니다."
+  read_only_scheduled:  "{plan} 요금제는 {date}에 시작됩니다."
+  read_only_expired:    "{plan} 요금제가 {date}에 만료되었습니다. Workmate는 읽기 전용 모드입니다."
+  read_only_revoked:    "AgentX 라이선스가 취소되었습니다. Workmate는 읽기 전용 모드입니다."
+  contact:              "라이선스를 받거나 갱신하려면 {contact}에 문의하세요."

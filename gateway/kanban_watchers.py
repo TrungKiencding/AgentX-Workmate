@@ -59,19 +59,30 @@ def _resolve_auto_decompose_settings(
 
 
 def _kanban_dispatch_allowed() -> bool:
-    """Return False while the global emergency stop (`agentx pause`) is engaged.
+    """Return False while the global emergency stop (`agentx pause`) is engaged,
+    or while the AgentX license is read-only.
 
     Checked every dispatcher tick BEFORE spawning new workers so a pause takes
     effect on the next tick without a gateway restart. In-flight workers are
     never touched — this only stops NEW spawns. Fails open: if the estop
     module is unimportable, dispatch proceeds (the sentinel gate must not
     become a new crash surface for the dispatcher).
+
+    A read-only license (hermes_cli.account_license) stops the same work: every
+    worker would be an AI turn the agent loop refuses, and each refusal would
+    count toward the task's failure limit and block it — leaving the board
+    stuck once the license is renewed. Auto-decompose, a model call of its
+    own, waits too.
     """
+    from hermes_cli.account_license import dispatch_blocked
+
     try:
         from agent.estop import check_paused
     except ImportError:
-        return True
-    return not check_paused("kanban", logger)
+        paused = False
+    else:
+        paused = check_paused("kanban", logger)
+    return not paused and not dispatch_blocked("kanban", logger)
 
 
 def _run_in_fresh_context(func: Callable[..., Any], /, *args: Any) -> Any:

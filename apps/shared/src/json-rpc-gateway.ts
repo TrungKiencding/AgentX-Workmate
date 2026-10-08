@@ -33,8 +33,14 @@ export interface GatewayEvent<P = unknown> {
 export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 export type GatewayRequestId = number | string
 
+export interface JsonRpcErrorBody {
+  code?: number
+  data?: unknown
+  message?: string
+}
+
 export interface JsonRpcFrame {
-  error?: { message?: string }
+  error?: JsonRpcErrorBody
   id?: GatewayRequestId | null
   method?: string
   params?: GatewayEvent
@@ -42,6 +48,22 @@ export interface JsonRpcFrame {
 }
 
 export type WebSocketLike = WebSocket
+
+/**
+ * A request the backend answered with a JSON-RPC error. The message is the
+ * backend's sentence, as before; `code` and `data` are kept so a caller can
+ * recognise a structured refusal without matching on its wording.
+ */
+export class JsonRpcError extends Error {
+  readonly code?: number
+  readonly data?: unknown
+
+  constructor(body: JsonRpcErrorBody) {
+    super(body.message || 'AgentX RPC failed')
+    this.code = typeof body.code === 'number' ? body.code : undefined
+    this.data = body.data
+  }
+}
 
 type PendingCall = {
   reject: (error: Error) => void
@@ -398,7 +420,7 @@ export class JsonRpcGatewayClient {
       this.clearPending(frame.id)
 
       if (frame.error) {
-        call.reject(new Error(frame.error.message || 'AgentX RPC failed'))
+        call.reject(new JsonRpcError(frame.error))
       } else {
         call.resolve(frame.result)
       }

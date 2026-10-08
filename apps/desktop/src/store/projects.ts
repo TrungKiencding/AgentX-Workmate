@@ -15,6 +15,7 @@ import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { persistentAtom } from '@/lib/persisted'
 import { $gateway, activeGateway, ensureActiveGatewayOpen } from '@/store/gateway'
 import { setSidebarAgentsGrouped } from '@/store/layout'
+import { aiBlockedMessage, notifyLicenseRefusal } from '@/store/license'
 import { notify } from '@/store/notifications'
 import { $activeGatewayProfile, requestFreshSession } from '@/store/profile'
 import {
@@ -705,6 +706,11 @@ export interface CreateProjectInput {
 // session's model when one exists). Returns "" on failure so the caller can just
 // leave the field untouched. The "🎲" affordance in the new-project dialog.
 export async function generateProjectIdea(name: string): Promise<string> {
+  // A read-only AgentX license: no idea is generated (the button says why).
+  if (aiBlockedMessage()) {
+    return ''
+  }
+
   try {
     const res = await gatewayRequest<{ text: string }>('llm.oneshot', {
       instructions:
@@ -715,7 +721,11 @@ export async function generateProjectIdea(name: string): Promise<string> {
     })
 
     return (res.text || '').trim()
-  } catch {
+  } catch (error) {
+    // Failures stay quiet — except a refusal for the license (it turned
+    // read-only while the dialog was open), which the person needs to hear.
+    notifyLicenseRefusal(error)
+
     return ''
   }
 }

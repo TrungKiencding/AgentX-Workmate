@@ -5293,6 +5293,17 @@ def tick(
         except ImportError:
             pass
 
+        # A read-only AgentX license (hermes_cli.account_license): a job may
+        # not start an AI turn, so none is dispatched. Like the emergency
+        # stop, due jobs simply wait for the first tick after the license
+        # covers AI again, instead of each fire failing and alerting. A job
+        # somebody runs by hand still reaches the agent loop, which refuses
+        # it with the reason.
+        from hermes_cli.account_license import dispatch_blocked as _license_blocks_dispatch
+
+        if _license_blocks_dispatch("cron", logger):
+            return 0
+
         if can_dispatch is not None and not can_dispatch():
             logger.debug("Cron dispatch paused while gateway drains existing work")
             return 0

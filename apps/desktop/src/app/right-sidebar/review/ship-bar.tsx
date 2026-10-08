@@ -8,7 +8,9 @@ import { GenerateButton } from '@/components/ui/generate-button'
 import { SplitButton } from '@/components/ui/split-button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
+import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
+import { notifyAiError } from '@/store/license'
 import { notifyError } from '@/store/notifications'
 import {
   $reviewCommitDefault,
@@ -40,9 +42,13 @@ export function ReviewShipBar() {
   const [message, setMessage] = useState('')
   const prLabel = ship.pr?.url ? c.openPr : c.createPr
 
+  // A read-only AgentX license: drafting a message, or handing the work to
+  // the agent, is AI work — both controls say why instead.
+  const aiBlocked = useAiBlockedReason()
+
   const hasFiles = files.length > 0
   const canCommit = hasFiles && message.trim().length > 0 && !busy
-  const canGenerate = hasFiles && !generating && !busy
+  const canGenerate = hasFiles && !generating && !busy && !aiBlocked
 
   // Nothing to commit → no ship bar at all; the pane just shows the tree /
   // "No changes" state.
@@ -69,7 +75,7 @@ export function ReviewShipBar() {
 
     void generateCommitMessage(message)
       .then(text => text && setMessage(text))
-      .catch(err => notifyError(err, c.generateCommitMessage))
+      .catch(err => notifyAiError(err, c.generateCommitMessage))
   }
 
   return (
@@ -93,6 +99,7 @@ export function ReviewShipBar() {
           value={message}
         />
         <GenerateButton
+          blockedReason={aiBlocked}
           className="absolute top-px right-px h-6 w-8 rounded-l-none rounded-r-[2px]"
           disabled={!canGenerate}
           generating={generating}
@@ -125,15 +132,21 @@ export function ReviewShipBar() {
           The PR button floats on the right (out of flow) so the label centers on
           the whole bar; px-7 reserves the icon's width on both sides. */}
       <div className="relative flex min-w-0 items-center">
-        <Button
-          className="min-w-0 flex-1 justify-center px-7 text-2xs text-muted-foreground/85 hover:text-foreground"
-          disabled={!hasFiles}
-          onClick={() => requestComposerSubmit(c.agentShipPrompt, { target: 'main' })}
-          size="sm"
-          variant="ghost"
-        >
-          <span className="truncate underline underline-offset-2">{c.agentShip}</span>
-        </Button>
+        {/* The wrapper takes the hover a disabled button does not, so the
+            license's reason can be read. */}
+        <Tip label={aiBlocked}>
+          <span className="flex min-w-0 flex-1">
+            <Button
+              className="min-w-0 flex-1 justify-center px-7 text-2xs text-muted-foreground/85 hover:text-foreground"
+              disabled={!hasFiles || Boolean(aiBlocked)}
+              onClick={() => requestComposerSubmit(c.agentShipPrompt, { target: 'main' })}
+              size="sm"
+              variant="ghost"
+            >
+              <span className="truncate underline underline-offset-2">{c.agentShip}</span>
+            </Button>
+          </span>
+        </Tip>
         <Tip label={ship.ghReady ? prLabel : c.ghMissing}>
           <span className="absolute inset-y-0 right-0 flex items-center">
             <Button

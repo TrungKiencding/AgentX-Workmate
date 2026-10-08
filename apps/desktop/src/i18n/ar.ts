@@ -247,6 +247,33 @@ export const ar = defineLocale({
   remoteDisplayBanner: {
     message: reason => `العرض البرمجي نشط — تم اكتشاف شاشة بعيدة (${reason}). تم تعطيل تسريع GPU لمنع الوميض.`
   },
+  license: {
+    title: 'ترخيص AgentX',
+    states: {
+      active: 'ساري',
+      grace: 'فترة سماح',
+      expired: 'منتهي الصلاحية',
+      revoked: 'ملغى',
+      scheduled: 'لم يبدأ بعد',
+      none: 'غير معيّن'
+    },
+    lastDay: date => `آخر يوم: ${date}`,
+    startsOn: date => `يبدأ في: ${date}`,
+    contactLine: contact => `جهة الاتصال: ${contact}`,
+    checkAgain: 'التحقق مرة أخرى',
+    checking: 'جار التحقق…',
+    checkFailed: 'تعذّر التحقق الآن — يُعرض آخر ترخيص معروف.',
+    expiring: (plan, date, days) => `تنتهي خطتك ${plan} في ${date} (متبقٍ ${days} يوم).`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `انتهت خطتك ${plan} في ${lastDay}. اعتبارًا من ${readOnlyFrom} ينتقل Workmate إلى وضع القراءة فقط.`,
+    readOnlyNone: 'لم يُعيَّن ترخيص AgentX لحسابك.',
+    readOnlyScheduled: (plan, date) => `تبدأ خطتك ${plan} في ${date}.`,
+    readOnlyExpired: (plan, date) => `انتهت خطتك ${plan} في ${date}. Workmate في وضع القراءة فقط.`,
+    readOnlyRevoked: 'تم إلغاء ترخيص AgentX الخاص بك. Workmate في وضع القراءة فقط.',
+    readOnlyGeneric: 'لا يشمل ترخيص AgentX الخاص بك الذكاء الاصطناعي حاليًا. Workmate في وضع القراءة فقط.',
+    contactRenew: contact => `تواصل مع ${contact} للتجديد.`,
+    contactReissue: contact => `تواصل مع ${contact} للحصول على ترخيص أو تجديده.`
+  },
   titlebar: {
     hideSidebar: 'إخفاء الشريط الجانبي',
     showSidebar: 'إظهار الشريط الجانبي',
@@ -2507,6 +2534,7 @@ export const ar = defineLocale({
     wakingProfile: profile => `جار إيقاظ ${profile}`,
     placeholderStarting: 'جار بدء AgentX...',
     placeholderReconnecting: 'جار إعادة الاتصال...',
+    placeholderReadOnly: 'وضع القراءة فقط — لا يمكن إرسال طلبات إلى الذكاء الاصطناعي',
     placeholderFollowUp: 'اكتب متابعة...',
     newSessionPlaceholders: ['ماذا تحتاج اليوم؟'],
     newSessionPlaceholdersRepo: ['اسأل عن الكود أو أسند مهمة…'],

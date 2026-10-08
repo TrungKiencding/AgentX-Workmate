@@ -11,6 +11,7 @@ import { requestOneShot } from '@/lib/oneshot'
 import { Codecs, persistentAtom } from '@/lib/persisted'
 
 import { refreshRepoStatus } from './coding-status'
+import { ensureAiAllowed } from './license'
 import { $busy, $currentCwd } from './session'
 import { $workspaceChangeTick } from './workspace-events'
 
@@ -463,6 +464,10 @@ export async function generateCommitMessage(previous = ''): Promise<string> {
   if (!ctx?.review.commitContext) {
     return ''
   }
+
+  // A read-only AgentX license: drafting the message is model work. Throws
+  // the license's reason for the caller to show, before the diff is read.
+  ensureAiAllowed()
 
   const gen = (commitGenSeq += 1)
   const live = () => gen === commitGenSeq

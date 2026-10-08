@@ -273,6 +273,34 @@ export const ja = defineLocale({
     dismiss: '閉じる'
   },
 
+  license: {
+    title: 'AgentX ライセンス',
+    states: {
+      active: '有効',
+      grace: '猶予期間中',
+      expired: '期限切れ',
+      revoked: '取り消し済み',
+      scheduled: '開始前',
+      none: '未割り当て'
+    },
+    lastDay: date => `最終日: ${date}`,
+    startsOn: date => `開始日: ${date}`,
+    contactLine: contact => `連絡先: ${contact}`,
+    checkAgain: '再確認',
+    checking: '確認中…',
+    checkFailed: '現在確認できません — 最後に確認したライセンス情報を表示しています。',
+    expiring: (plan, date, days) => `${plan} プランは ${date} に期限切れになります（残り ${days} 日）。`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `${plan} プランは ${lastDay} に期限切れになりました。${readOnlyFrom} から Workmate は閲覧専用モードになります。`,
+    readOnlyNone: 'このアカウントには AgentX ライセンスが割り当てられていません。',
+    readOnlyScheduled: (plan, date) => `${plan} プランは ${date} に開始します。`,
+    readOnlyExpired: (plan, date) => `${plan} プランは ${date} に期限切れになりました。Workmate は閲覧専用モードです。`,
+    readOnlyRevoked: 'AgentX ライセンスは取り消されました。Workmate は閲覧専用モードです。',
+    readOnlyGeneric: '現在の AgentX ライセンスでは AI を利用できません。Workmate は閲覧専用モードです。',
+    contactRenew: contact => `更新については ${contact} にお問い合わせください。`,
+    contactReissue: contact => `ライセンスの取得または更新については ${contact} にお問い合わせください。`
+  },
+
   titlebar: {
     hideSidebar: 'サイドバーを非表示',
     showSidebar: 'サイドバーを表示',
@@ -2601,6 +2629,7 @@ export const ja = defineLocale({
     wakingProfile: profile => `${profile} を起動中…`,
     placeholderStarting: 'AgentX を起動中...',
     placeholderReconnecting: 'AgentX に再接続中…',
+    placeholderReadOnly: '閲覧専用モード — AI へのリクエストは送信できません',
     placeholderFollowUp: 'フォローアップを送信',
     newSessionPlaceholders: ['今日は何をしましょうか？'],
     newSessionPlaceholdersRepo: ['コードについて質問するか、仕事を任せてください…'],

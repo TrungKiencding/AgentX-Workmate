@@ -2,7 +2,7 @@ import { setTimeFormatLocale } from '@/lib/time'
 
 import { TRANSLATIONS } from './catalog'
 import { DEFAULT_LOCALE, FALLBACK_LOCALE, localeToBcp47 } from './languages'
-import type { Locale } from './types'
+import type { Locale, Translations } from './types'
 
 let runtimeLocale: Locale = DEFAULT_LOCALE
 
@@ -68,4 +68,11 @@ export function getRuntimeI18nLocale(): Locale {
 
 export function translateNow(key: string, ...args: unknown[]): string {
   return translateFrom(locale => TRANSLATIONS[locale], runtimeLocale, key, args)
+}
+
+/** The whole catalog in the runtime locale, for module-level code that hands a
+ *  section (`t.license`, …) to a shared helper the way a component does. Every
+ *  bundle is complete — missing keys were merged from English at definition. */
+export function translationsNow(): Translations {
+  return TRANSLATIONS[runtimeLocale]
 }

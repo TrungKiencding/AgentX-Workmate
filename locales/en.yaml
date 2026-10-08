@@ -451,3 +451,11 @@ gateway:
     session_db_unavailable_prefix: "Session database not available"
     session_not_found:           "Session not found in database."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Your AgentX license does not cover AI right now. Workmate is in read-only mode."
+  read_only_none:       "Your account has not been assigned an AgentX license."
+  read_only_scheduled:  "Your {plan} plan starts on {date}."
+  read_only_expired:    "Your {plan} plan expired on {date}. Workmate is in read-only mode."
+  read_only_revoked:    "Your AgentX license has been revoked. Workmate is in read-only mode."
+  contact:              "Contact {contact} to get a license or renew it."

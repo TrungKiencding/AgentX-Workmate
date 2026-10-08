@@ -2543,8 +2543,37 @@ def _transcribe_prepared_audio(file_path: str, model: Optional[str] = None) -> D
     }
 
 
+def _license_refusal() -> Optional[Dict[str, Any]]:
+    """The failed result for transcription while the AgentX license is read-only.
+
+    ``None`` while it may run. Read-only Workmate does no AI work of any kind,
+    and speech recognition is AI work whatever the engine — a provider's or
+    an on-device model — so one rule covers every backend. ``code`` is the
+    one a refused agent turn carries (``license_read_only``).
+    """
+    from hermes_cli.account_license import read_only_license, refusal_payload
+
+    license = read_only_license()
+    if license is None:
+        return None
+    payload = refusal_payload(license)
+    return {
+        "success": False,
+        "transcript": "",
+        "error": payload["message"],
+        "code": payload["code"],
+        "license": payload["license"],
+    }
+
+
 def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, Any]:
     """Safely validate, preprocess supported inputs, and dispatch transcription."""
+    # A read-only AgentX license refuses every transcription, before the file
+    # is read or a backend chosen.
+    refused = _license_refusal()
+    if refused is not None:
+        return refused
+
     # Refuse to feed a credential / secret store (auth.json, .env, OAuth
     # tokens, mcp-tokens/, ...) to an STT provider — before ANY validation or
     # preprocessing, so the refusal names the real reason rather than a
@@ -2617,6 +2646,10 @@ def transcribe_audio_local_fallback(
     provider has failed. It deliberately does not lazy-install dependencies or
     fall through to another cloud provider.
     """
+    refused = _license_refusal()
+    if refused is not None:
+        return refused
+
     error = _validate_audio_file(file_path)
     if error:
         return error

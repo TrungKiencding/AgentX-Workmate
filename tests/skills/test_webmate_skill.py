@@ -195,6 +195,18 @@ class TestSkillMarkdown:
         assert "Never kill processes yourself" in prose
         assert "Quit the process the message names" not in prose
 
+    def test_the_license_refusal_is_relayed_and_never_retried(self):
+        """Server 1.4.0 passes the extension's own refusal through as
+        ``license_read_only``: the account's AgentX license is read-only. No
+        card applies (nothing about the browser is wrong), and retrying cannot
+        help until the license changes — the skill must say both.
+        """
+        prose = _prose()
+        assert "`license_read_only`" in prose
+        assert "whom to contact" in prose
+        assert "retrying does not help until the license changes" in prose
+        assert "Workmate turns the `WEBMATE_*` ones into a card" in prose
+
     def test_install_instructions_describe_the_bundled_server(self):
         prose = _prose()
         assert "agentx mcp install webmate" in prose

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 
 import { playSpeechText } from '@/lib/voice-playback'
 import { ownsAmbientCue } from '@/store/ambient'
-import { notifyError } from '@/store/notifications'
+import { $licenseReadOnly, notifyAiError } from '@/store/license'
 import { $voicePlayback } from '@/store/voice-playback'
 import { $autoSpeakReplies } from '@/store/voice-prefs'
 
@@ -70,13 +70,20 @@ export function useAutoSpeakReplies({
       }
 
       markSpoken()
+
+      // A read-only AgentX license: nothing is read aloud. Marked spoken all
+      // the same, so it is not read out once the license covers AI again.
+      if ($licenseReadOnly.get()) {
+        return
+      }
+
       // Only one window voices a given reply when the same chat is open in
       // several (reply.id is the shared backend message id). markSpoken already
       // ran in every window, so peers just stay quiet.
       void ownsAmbientCue(`speak:${reply.id}`).then(owns => {
         if (owns) {
           void playSpeechText(reply.text, { messageId: reply.id, source: 'read-aloud' }).catch(error =>
-            notifyError(error, failureLabel)
+            notifyAiError(error, failureLabel)
           )
         }
       })

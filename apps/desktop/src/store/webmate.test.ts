@@ -165,6 +165,25 @@ describe('webmateCodeFromToolPayload', () => {
     expect(webmateCodeFromToolPayload({ name: 'terminal', result: { error: 'WEBMATE_DISABLED' } })).toBeNull()
     expect(webmateCodeFromToolPayload(null)).toBeNull()
   })
+
+  it("the extension's own license refusal is not a WebMate setup problem", () => {
+    // Server 1.4.0+: the extension refused for the AgentX license. The browser
+    // is installed, attached and signed in — nothing on the card would help;
+    // the turn's license refusal says why instead.
+    const refusal = {
+      name: 'mcp__webmate__webmate_run',
+      result: {
+        error: 'license_read_only: Your AgentX license has been revoked.',
+        structuredContent: {
+          code: 'license_read_only',
+          license: { access: 'read_only', state: 'revoked' },
+          message: 'Your AgentX license has been revoked.'
+        }
+      }
+    }
+
+    expect(webmateCodeFromToolPayload(refusal)).toBeNull()
+  })
 })
 
 describe('browserIdFromBridgeLabel', () => {
@@ -444,6 +463,19 @@ describe('the "wants to use your browser" card', () => {
       'WEBMATE_DISABLED'
     )
     expect($webmatePrompt.get()?.code).toBe('WEBMATE_DISABLED')
+  })
+
+  it('never shows for the extension refusing for the AgentX license', () => {
+    resetWebmatePromptSession()
+    $webmateStatus.set(status())
+
+    expect(
+      reportWebmateToolPayload({
+        name: 'mcp__webmate__webmate_run',
+        result: { error: 'license_read_only: Workmate is in read-only mode.' }
+      })
+    ).toBeNull()
+    expect($webmatePrompt.get()).toBeNull()
   })
 
   it('"not now" snoozes through prefs, "never" turns the card off', async () => {

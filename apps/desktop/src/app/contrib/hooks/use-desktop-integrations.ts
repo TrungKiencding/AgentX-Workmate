@@ -5,6 +5,7 @@ import { openSession } from '@/app/open-session'
 import { isHubSlug } from '@/app/skills/mcp-model'
 import { storedSessionIdForNotification } from '@/lib/session-ids'
 import { startAppUpdateSync } from '@/store/app-update'
+import { startLicenseSync } from '@/store/license'
 import { respondToApprovalAction } from '@/store/native-notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import { openFolderAsProject } from '@/store/projects'
@@ -37,9 +38,9 @@ interface DesktopIntegrationsParams {
 
 /**
  * All the Electron-main / OS / cross-window integrations the shell listens for:
- * update polling, the ⌘W close shortcut, deep links, native-notification
- * navigation, preview-shortcut enablement, remembered-session restore, and
- * cross-window session-list sync. Kept out of the wiring controller so the
+ * update polling, the AgentX license, the ⌘W close shortcut, deep links,
+ * native-notification navigation, preview-shortcut enablement,
+ * remembered-session restore, and cross-window session-list sync. Kept out of the wiring controller so the
  * "talks to the desktop shell" surface reads as one unit.
  */
 export function useDesktopIntegrations({
@@ -68,6 +69,10 @@ export function useDesktopIntegrations({
       stopWebmateWatcher()
     }
   }, [])
+
+  // The AgentX license: mirror main's view in every window, so every composer
+  // locks (and every banner shows) the moment it changes.
+  useEffect(() => startLicenseSync(), [])
 
   // The renderer OWNS ⌘W: on macOS the native menu accelerator would else
   // close the window, so claim it unconditionally — the menu then routes ⌘W

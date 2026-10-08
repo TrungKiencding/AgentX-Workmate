@@ -127,6 +127,14 @@ declare global {
         status: () => Promise<DesktopAccountStatus>
         provision: (options?: { rotate?: boolean }) => Promise<DesktopAccountProvisionResult>
       }
+      // This person's AgentX license, as the local backend last heard it.
+      // `refresh` asks the keys service first; `onChanged` hears every change.
+      // Optional: an older shell predates it, and so does a remote backend's.
+      license?: {
+        get: () => Promise<DesktopLicenseView>
+        refresh: () => Promise<DesktopLicenseView>
+        onChanged: (callback: (view: DesktopLicenseView) => void) => () => void
+      }
       // The machines this person is signed in on. Reads through the local
       // backend, which holds both the service URL (machine policy in
       // config.yaml) and the offline contract — an unreachable service is
@@ -1000,6 +1008,7 @@ export interface DesktopKeycloakSignInResult {
 
 export interface DesktopAccountLiteLlm {
   // provisioned | rotated | reused | disabled | unconfigured | offline | error | missing
+  // | revoked (this device) | license_inactive (the license does not cover AI now)
   status: string
   detail: string
   ok: boolean
@@ -1013,6 +1022,12 @@ export interface DesktopAccountLiteLlm {
   // this key reaches it, otherwise the first one granted. Absent from backends
   // that predate the field.
   default_model?: string
+  // The service's machine-readable refusal (`license_expired`, …), when it
+  // refused. Absent from backends that predate licensing.
+  code?: string
+  // The license the service sent with its answer (beside the key, or with a
+  // `license_inactive` refusal); null when it sent none.
+  license?: DesktopLicense | null
 }
 
 export interface DesktopAccountStatus {
@@ -1036,6 +1051,52 @@ export interface DesktopAccountProvisionResult {
   ok: boolean
   error?: string
   litellm?: DesktopAccountLiteLlm
+}
+
+// --- The AgentX license (hermes_cli/account_license.py) ---------------------
+
+export type DesktopLicenseState = 'active' | 'expired' | 'grace' | 'none' | 'revoked' | 'scheduled'
+
+/**
+ * One person's AgentX license, exactly as the keys service defines it and
+ * re-evaluated by the local backend for the current moment. `access` is the one
+ * field that blocks; `notice` is what to show now (null while not enforced).
+ * Days a person reads are calendar days in the company's time zone
+ * (`starts_on`, `last_day`, `read_only_from`) — never format the instants.
+ */
+export interface DesktopLicense {
+  state: DesktopLicenseState
+  access: 'full' | 'read_only'
+  enforced: boolean
+  notice: 'expiring' | 'grace' | 'read_only' | null
+  plan: { name: string; slug: string } | null
+  products?: string[]
+  starts_at?: null | string
+  ends_at?: null | string
+  grace_until?: null | string
+  starts_on?: null | string
+  last_day?: null | string
+  read_only_from?: null | string
+  revoked_at?: null | string
+  days_left?: null | number
+  reminder?: null | number
+  warn_days?: number[]
+  contact?: string
+  server_time?: string
+}
+
+/** What the main process tells a window about the license. */
+export interface DesktopLicenseView {
+  // The account the license belongs to (the backend's slug), when known.
+  account: null | string
+  detail: string
+  // Null while no license is known — an SSO that predates licensing, nobody
+  // signed in yet: nothing to show and nothing blocked.
+  license: DesktopLicense | null
+  // cached | ok | offline | unsupported | unauthorized | revoked | unconfigured
+  // | error | unavailable (the local backend itself could not be asked: no news,
+  // the license is the last one known) | signed_out (cleared at sign-out).
+  status: string
 }
 
 // --- Devices: the machines one person is signed in on ---

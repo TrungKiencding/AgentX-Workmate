@@ -436,3 +436,11 @@ gateway:
     session_db_unavailable_prefix: "Không truy cập được cơ sở dữ liệu phiên"
     session_not_found:           "Không tìm thấy phiên trong cơ sở dữ liệu."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Giấy phép AgentX của bạn hiện không bao gồm AI. Workmate đang ở chế độ chỉ xem."
+  read_only_none:       "Tài khoản chưa được cấp giấy phép AgentX."
+  read_only_scheduled:  "Gói {plan} bắt đầu từ ngày {date}."
+  read_only_expired:    "Gói {plan} đã hết hạn ngày {date}. Workmate đang ở chế độ chỉ xem."
+  read_only_revoked:    "Giấy phép AgentX của bạn đã bị thu hồi. Workmate đang ở chế độ chỉ xem."
+  contact:              "Liên hệ {contact} để được cấp lại hoặc gia hạn."

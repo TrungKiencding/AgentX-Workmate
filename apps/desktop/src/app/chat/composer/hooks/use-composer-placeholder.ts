@@ -9,6 +9,8 @@ interface UseComposerPlaceholderOptions {
   /** Inside a git repository the starter speaks the coding voice. */
   codingContext?: boolean
   disabled: boolean
+  /** The AgentX license is read-only: the composer is locked, not starting. */
+  readOnly?: boolean
   reconnecting: boolean
   sessionId: null | string | undefined
 }
@@ -39,6 +41,7 @@ const rollRestingPick = (sessionId: null | string | undefined): RestingPick => (
 export function useComposerPlaceholder({
   codingContext = false,
   disabled,
+  readOnly = false,
   reconnecting,
   sessionId
 }: UseComposerPlaceholderOptions): string {
@@ -79,6 +82,12 @@ export function useComposerPlaceholder({
     restingPick.starter ? newSessionPlaceholders : followUpPlaceholders,
     restingPick.draw
   )
+
+  // A read-only license locks the composer outright, and saying "Starting
+  // AgentX..." there would promise a wait that never ends.
+  if (readOnly) {
+    return t.composer.placeholderReadOnly
+  }
 
   // When the transport is disabled it's because the gateway isn't open.
   // Distinguish a cold start ("Starting AgentX...") from a dropped connection

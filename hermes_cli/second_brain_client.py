@@ -42,6 +42,13 @@ _RETRY_DELAY_SECONDS = 0.75
 DEVICE_ID_HEADER = "X-AgentX-Device"
 DEVICE_NAME_HEADER = "X-AgentX-Device-Name"
 
+#: The ``403`` codes ``POST /v1/model-key`` refuses with when this person's
+#: AgentX license does not cover AI right now: ``license_required`` (no plan,
+#: or one that has not started), ``license_expired`` (past its grace period)
+#: and ``license_revoked``. Each body also carries the ``license`` itself, so
+#: the app can say which of those it is in its own words.
+LICENSE_REFUSAL_CODES = frozenset({"license_required", "license_expired", "license_revoked"})
+
 #: Where a backend with no desktop above it keeps its own device id. Named and
 #: shaped exactly like ``apps/desktop/electron/device-id.ts`` writes, and for
 #: the same reason: the id belongs to the INSTALL, so it sits at the install
@@ -59,7 +66,8 @@ class SecondBrainError(RuntimeError):
     request never got an answer. ``code`` is the service's machine-readable
     error (``device_revoked``, ``cannot_revoke_last_device``, …), which is what
     a caller should branch on — matching on the human sentence breaks the day
-    somebody improves the wording.
+    somebody improves the wording. ``license`` is the ``license`` object a
+    refusal carried, when it carried one (see ``LICENSE_REFUSAL_CODES``).
     """
 
     def __init__(
@@ -68,10 +76,12 @@ class SecondBrainError(RuntimeError):
         *,
         status_code: int | None = None,
         code: str = "",
+        license: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
+        self.license = license
 
     @property
     def unreachable(self) -> bool:
@@ -86,6 +96,16 @@ class SecondBrainError(RuntimeError):
         than as "try later".
         """
         return self.status_code == 403 and self.code == "device_revoked"
+
+    @property
+    def license_refused(self) -> bool:
+        """True when the service declined because of this person's license.
+
+        Not an outage and not a revoked device: the person keeps their
+        sign-in, their history and the key they already hold — what they have
+        lost is AI, until somebody renews or assigns their plan.
+        """
+        return self.status_code == 403 and self.code in LICENSE_REFUSAL_CODES
 
 
 class SecondBrainClient:
@@ -253,6 +273,25 @@ class SecondBrainClient:
             json_body={"rotate": bool(rotate)},
         )
 
+    def license(
+        self, *, bearer: str, device_id: str, device_name: str = ""
+    ) -> dict[str, Any]:
+        """This person's AgentX license, as the service evaluates it now.
+
+        The answer is ``{"license": {...}}``. Cheap on the service side — it
+        never calls LiteLLM — which is what lets the app ask on a timer. A
+        service that predates licensing answers ``404 not_found``, which a
+        caller reads as "nobody here knows about licenses", never as an error
+        to show.
+        """
+        return self._request(
+            "GET",
+            "/v1/license",
+            bearer=bearer,
+            device_id=device_id,
+            device_name=device_name,
+        )
+
     def push_documents(
         self,
         documents: Any,
@@ -391,10 +430,15 @@ def install_device_identity(root: Path | None = None) -> tuple[str, str]:
 
 
 def _failure(response: Any) -> SecondBrainError:
-    """Turn a refusal into one line, keeping the code a caller can branch on."""
+    """Turn a refusal into one line, keeping what a caller can branch on.
+
+    That is the code, and — on a license refusal — the ``license`` the body
+    carries, so the caller can explain the refusal without asking again.
+    """
     status = response.status_code
     code = ""
     detail = ""
+    license_body: dict[str, Any] | None = None
     try:
         body = response.json()
     except ValueError:
@@ -402,6 +446,8 @@ def _failure(response: Any) -> SecondBrainError:
     if isinstance(body, dict):
         code = str(body.get("error") or "")
         detail = str(body.get("detail") or "")
+        if isinstance(body.get("license"), dict):
+            license_body = body["license"]
     if not detail:
         detail = (getattr(response, "text", "") or "")[:300]
     detail = detail.strip()
@@ -409,4 +455,5 @@ def _failure(response: Any) -> SecondBrainError:
         f"the second brain returned HTTP {status}{f': {detail}' if detail else ''}",
         status_code=status,
         code=code,
+        license=license_body,
     )

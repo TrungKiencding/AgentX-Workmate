@@ -24,8 +24,11 @@ import { useMessageReactions, useTapbackDoubleClick } from '@/components/assista
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button'
 import { BrandGlyph } from '@/components/brand-glyph'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
+import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
+import { Tip } from '@/components/ui/tooltip'
+import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
 import type { DeliverableFile } from '@/lib/deliverables'
 import { triggerHaptic } from '@/lib/haptics'
@@ -35,7 +38,7 @@ import { formatAgo } from '@/lib/time'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
 import { playSpeechText, stopVoicePlayback } from '@/lib/voice-playback'
-import { notifyError } from '@/store/notifications'
+import { notifyAiError } from '@/store/license'
 import { $voicePlayback } from '@/store/voice-playback'
 
 // Stable empty identity for the settled-parts selector — a fresh [] per render
@@ -310,6 +313,8 @@ const ReadAloudButton: FC<{ getText: () => string; messageId: string }> = ({ get
   const { t } = useI18n()
   const copy = t.assistant.thread
   const voicePlayback = useStore($voicePlayback)
+  // A read-only AgentX license: reading aloud is speech synthesis — AI work.
+  const aiBlocked = useAiBlockedReason()
 
   const readAloudStatus =
     voicePlayback.source === 'read-aloud' && voicePlayback.messageId === messageId ? voicePlayback.status : 'idle'
@@ -330,9 +335,29 @@ const ReadAloudButton: FC<{ getText: () => string; messageId: string }> = ({ get
     try {
       await playSpeechText(text, { messageId, source: 'read-aloud' })
     } catch (error) {
-      notifyError(error, copy.readAloudFailed)
+      notifyAiError(error, copy.readAloudFailed)
     }
   }, [copy.readAloudFailed, getText, messageId])
+
+  if (aiBlocked && !isSpeaking && !isPreparing) {
+    // Visibly off, yet hoverable (aria-disabled, not disabled), so the
+    // tooltip can say why.
+    return (
+      <Tip label={aiBlocked} side="bottom">
+        <Button
+          aria-disabled
+          aria-label={copy.readAloud}
+          className="aui-button-icon cursor-default opacity-50 hover:bg-transparent"
+          data-blocked=""
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
+          <AudioLines className="size-3.5" />
+        </Button>
+      </Tip>
+    )
+  }
 
   return (
     <TooltipIconButton

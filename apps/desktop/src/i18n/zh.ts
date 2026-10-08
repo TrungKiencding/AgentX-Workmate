@@ -249,6 +249,34 @@ export const zh: Translations = {
     dismiss: '忽略'
   },
 
+  license: {
+    title: 'AgentX 许可证',
+    states: {
+      active: '有效',
+      grace: '宽限期',
+      expired: '已过期',
+      revoked: '已撤销',
+      scheduled: '未开始',
+      none: '未分配'
+    },
+    lastDay: date => `最后一天：${date}`,
+    startsOn: date => `开始日期：${date}`,
+    contactLine: contact => `联系人：${contact}`,
+    checkAgain: '重新检查',
+    checking: '正在检查…',
+    checkFailed: '暂时无法检查 — 显示的是最近一次获取的许可证信息。',
+    expiring: (plan, date, days) => `你的 ${plan} 套餐将于 ${date} 到期（还剩 ${days} 天）。`,
+    grace: (plan, lastDay, readOnlyFrom) =>
+      `你的 ${plan} 套餐已于 ${lastDay} 到期。从 ${readOnlyFrom} 起，Workmate 将切换为只读模式。`,
+    readOnlyNone: '你的账户尚未分配 AgentX 许可证。',
+    readOnlyScheduled: (plan, date) => `你的 ${plan} 套餐将于 ${date} 开始。`,
+    readOnlyExpired: (plan, date) => `你的 ${plan} 套餐已于 ${date} 到期。Workmate 处于只读模式。`,
+    readOnlyRevoked: '你的 AgentX 许可证已被撤销。Workmate 处于只读模式。',
+    readOnlyGeneric: '你的 AgentX 许可证目前不包含 AI 功能。Workmate 处于只读模式。',
+    contactRenew: contact => `请联系 ${contact} 续订。`,
+    contactReissue: contact => `请联系 ${contact} 获取或续订许可证。`
+  },
+
   titlebar: {
     hideSidebar: '隐藏侧边栏',
     showSidebar: '显示侧边栏',
@@ -2702,6 +2730,7 @@ export const zh: Translations = {
     wakingProfile: profile => `正在唤醒 ${profile}…`,
     placeholderStarting: '正在启动 AgentX…',
     placeholderReconnecting: '正在重新连接 AgentX…',
+    placeholderReadOnly: '只读模式 — 无法向 AI 发送请求',
     placeholderFollowUp: '发送后续消息',
     newSessionPlaceholders: ['今天需要做什么？'],
     newSessionPlaceholdersRepo: ['问问代码，或交代一件事…'],

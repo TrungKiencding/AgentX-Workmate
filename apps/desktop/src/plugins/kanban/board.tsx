@@ -43,6 +43,7 @@ import {
   Textarea,
   Tip,
   TITLEBAR_AREAS,
+  useAiBlockedReason,
   useGrabScroll,
   useMutation,
   useQuery,
@@ -577,6 +578,8 @@ function NewTaskDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<null | string>(null)
   const [estimate, setEstimate] = useState<null | TaskEstimate>(null)
+  // A read-only AgentX license: estimating is a model call.
+  const aiBlocked = useAiBlockedReason()
 
   // Rough effort estimate from the typed title/body (before the task exists),
   // via the auto-routed auxiliary model. Makes a model call — explicit action.
@@ -795,33 +798,38 @@ function NewTaskDialog({
                     {estimate.complexity ? ` · ${k.complexity[estimate.complexity] ?? estimate.complexity}` : ''}
                   </span>
                 </Tip>
-                <Tip label={k.reEstimate}>
-                  <Button
-                    aria-label={k.reEstimate}
-                    disabled={!title.trim() || estMut.isPending}
-                    onClick={() => estMut.mutate()}
-                    size="icon-xs"
-                    variant="ghost"
-                  >
-                    <Codicon name="refresh" size="0.7rem" spinning={estMut.isPending} />
-                  </Button>
+                <Tip label={aiBlocked ?? k.reEstimate}>
+                  {/* The wrapper takes the hover a disabled button does not. */}
+                  <span className="inline-flex">
+                    <Button
+                      aria-label={k.reEstimate}
+                      disabled={!title.trim() || estMut.isPending || Boolean(aiBlocked)}
+                      onClick={() => estMut.mutate()}
+                      size="icon-xs"
+                      variant="ghost"
+                    >
+                      <Codicon name="refresh" size="0.7rem" spinning={estMut.isPending} />
+                    </Button>
+                  </span>
                 </Tip>
               </>
             ) : (
-              <Tip label={k.estimateTip}>
-                <Button
-                  disabled={!title.trim() || estMut.isPending}
-                  onClick={() => estMut.mutate()}
-                  size="xs"
-                  variant="ghost"
-                >
-                  <Codicon
-                    name={estMut.isPending ? 'loading' : 'dashboard'}
-                    size="0.75rem"
-                    spinning={estMut.isPending}
-                  />
-                  {estMut.isPending ? k.estimating : k.estimate}
-                </Button>
+              <Tip label={aiBlocked ?? k.estimateTip}>
+                <span className="inline-flex">
+                  <Button
+                    disabled={!title.trim() || estMut.isPending || Boolean(aiBlocked)}
+                    onClick={() => estMut.mutate()}
+                    size="xs"
+                    variant="ghost"
+                  >
+                    <Codicon
+                      name={estMut.isPending ? 'loading' : 'dashboard'}
+                      size="0.75rem"
+                      spinning={estMut.isPending}
+                    />
+                    {estMut.isPending ? k.estimating : k.estimate}
+                  </Button>
+                </span>
               </Tip>
             )}
           </div>
