@@ -50,6 +50,12 @@ class _FakeBrain:
         self.caller_is_revoked = False
         self.refuse_last_device = False
         self.requests: list[httpx.Request] = []
+        # The person's license as the service would report it. None stands for
+        # a service that predates licensing: no `license` in any body, and
+        # `/v1/license` falls through to the catch-all 404 `not_found`.
+        self.license: dict | None = None
+        # A license refusal code (`license_expired`, …) for `/v1/model-key`.
+        self.license_refusal = ""
 
     def add(self, device_id: str, name: str = "", revoked: bool = False) -> None:
         self.devices[device_id] = {
@@ -106,24 +112,36 @@ class _FakeBrain:
             self.add(caller, name=request.headers.get("X-AgentX-Device-Name", ""))
             return httpx.Response(200, json={"device": self.devices[caller]})
 
+        if path == "/v1/license" and request.method == "GET" and self.license is not None:
+            return httpx.Response(200, json={"license": self.license})
+
         if path == "/v1/model-key":
             import json
 
+            if self.license_refusal:
+                return httpx.Response(
+                    403,
+                    json={
+                        "error": self.license_refusal,
+                        "detail": "this account's license does not cover AI",
+                        "license": self.license,
+                    },
+                )
             rotate = bool(json.loads(request.content or b"{}").get("rotate"))
             self.key_calls.append((caller, "rotate" if rotate else "fetch"))
             if rotate or not self.issued_key:
                 self.issued_key = f"sk-{len(self.key_calls)}"
-            return httpx.Response(
-                200,
-                json={
-                    "key": self.issued_key,
-                    "token": f"hash-of-{self.issued_key}",
-                    "key_alias": "agentx-workmate-someone",
-                    "base_url": "https://litellm.internal.test",
-                    "models": [],
-                    "status": "rotated" if rotate else "issued",
-                },
-            )
+            issued = {
+                "key": self.issued_key,
+                "token": f"hash-of-{self.issued_key}",
+                "key_alias": "agentx-workmate-someone",
+                "base_url": "https://litellm.internal.test",
+                "models": [],
+                "status": "rotated" if rotate else "issued",
+            }
+            if self.license is not None:
+                issued["license"] = self.license
+            return httpx.Response(200, json=issued)
 
         if request.method == "DELETE" and path.startswith("/v1/devices/"):
             target = path.rsplit("/", 1)[-1]
@@ -320,6 +338,125 @@ class TestClientFailures:
             SecondBrainClient("")
 
 
+def _license(**overrides) -> dict:
+    """A license object as the service sends it (an expired, enforced plan)."""
+    body = {
+        "state": "expired",
+        "access": "read_only",
+        "enforced": True,
+        "notice": "read_only",
+        "plan": {"slug": "pilot-2026", "name": "Pilot nội bộ 2026"},
+        "products": ["workmate", "webmate", "chat"],
+        "starts_at": "2026-10-15T00:00:00+07:00",
+        "ends_at": "2027-01-01T00:00:00+07:00",
+        "grace_until": "2027-01-08T00:00:00+07:00",
+        "starts_on": "2026-10-15",
+        "last_day": "2026-12-31",
+        "read_only_from": "2027-01-08",
+        "revoked_at": None,
+        "days_left": None,
+        "reminder": None,
+        "warn_days": [14, 7, 1],
+        "contact": "it@astralx.com.vn",
+        "server_time": "2027-01-09T09:30:00+07:00",
+    }
+    body.update(overrides)
+    return body
+
+
+class TestLicenseCalls:
+    def test_the_license_is_asked_for_with_the_device_headers(self, client, brain):
+        brain.license = _license()
+
+        body = client.license(bearer="tok", device_id=_DEVICE_A, device_name="MacBook")
+
+        sent = brain.requests[-1]
+        assert (sent.method, sent.url.path) == ("GET", "/v1/license")
+        assert sent.headers["Authorization"] == "Bearer tok"
+        assert sent.headers["X-AgentX-Device"] == _DEVICE_A
+        assert sent.headers["X-AgentX-Device-Name"] == "MacBook"
+        assert body == {"license": brain.license}
+
+    def test_a_service_that_predates_licensing_answers_not_found(self, client, brain):
+        with pytest.raises(SecondBrainError) as raised:
+            client.license(bearer="tok", device_id=_DEVICE_A)
+
+        # Distinguishable from an outage and from a refusal: this is "nobody
+        # here knows about licenses", which the caller reads as unknown.
+        assert raised.value.status_code == 404
+        assert raised.value.code == "not_found"
+        assert raised.value.unreachable is False
+        assert raised.value.license_refused is False
+        assert raised.value.license is None
+
+    def test_the_key_answer_carries_the_license(self, client, brain):
+        brain.license = _license(state="active", access="full", notice=None)
+
+        body = client.model_key(bearer="tok", device_id=_DEVICE_A)
+
+        assert body["license"]["state"] == "active"
+        assert body["key"].startswith("sk-")
+
+    @pytest.mark.parametrize("code", ["license_required", "license_expired", "license_revoked"])
+    def test_a_license_refusal_keeps_its_code_and_its_license(self, client, brain, code):
+        brain.license = _license()
+        brain.license_refusal = code
+
+        with pytest.raises(SecondBrainError) as raised:
+            client.model_key(bearer="tok", device_id=_DEVICE_A)
+
+        assert raised.value.status_code == 403
+        assert raised.value.code == code
+        assert raised.value.license_refused is True
+        # Neither of the two failures that already had a meaning.
+        assert raised.value.revoked is False
+        assert raised.value.unreachable is False
+        assert raised.value.license == brain.license
+
+    def test_a_revoked_device_is_not_a_license_refusal(self, client, brain):
+        brain.caller_is_revoked = True
+
+        with pytest.raises(SecondBrainError) as raised:
+            client.model_key(bearer="tok", device_id=_DEVICE_A)
+
+        assert raised.value.revoked is True
+        assert raised.value.license_refused is False
+        assert raised.value.license is None
+
+    def test_another_403_with_no_license_is_neither(self):
+        def _blocked(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, json={"error": "access_blocked", "detail": "blocked by an admin"})
+
+        client = SecondBrainClient(
+            _BRAIN_URL, transport=httpx.MockTransport(_blocked), sleep=lambda _s: None
+        )
+
+        with pytest.raises(SecondBrainError) as raised:
+            client.model_key(bearer="tok", device_id=_DEVICE_A)
+
+        assert raised.value.code == "access_blocked"
+        assert raised.value.license_refused is False
+        assert raised.value.license is None
+
+    def test_a_license_that_is_not_an_object_is_dropped(self):
+        def _odd(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                403, json={"error": "license_expired", "detail": "no", "license": "expired"}
+            )
+
+        client = SecondBrainClient(
+            _BRAIN_URL, transport=httpx.MockTransport(_odd), sleep=lambda _s: None
+        )
+
+        with pytest.raises(SecondBrainError) as raised:
+            client.model_key(bearer="tok", device_id=_DEVICE_A)
+
+        # The code still says what happened; a malformed body cannot pass for
+        # a license.
+        assert raised.value.license_refused is True
+        assert raised.value.license is None
+
+
 # ---------------------------------------------------------------------------
 # The routes the desktop actually calls
 # ---------------------------------------------------------------------------
@@ -511,6 +648,141 @@ class TestDeviceRoutes:
         # The token decides the account on the service side, so forwarding the
         # wrong one would list somebody else's devices.
         assert brain.requests[-1].headers["Authorization"] == "Bearer tok-a"
+
+
+class TestLicenseRoute:
+    """``/api/account/license``: what this machine knows, and asking again.
+
+    The route answers from the record by default — Settings and the composer
+    read it on every launch, and that must work on a train — and asks the
+    service only when told to, with the bearer the request carried.
+    """
+
+    def _active(self) -> dict:
+        return _license(
+            state="active",
+            access="full",
+            notice=None,
+            ends_at="2027-06-01T00:00:00+07:00",
+            grace_until="2027-06-08T00:00:00+07:00",
+            last_day="2027-05-31",
+            read_only_from="2027-06-08",
+            server_time="2027-01-03T09:30:00+07:00",
+        )
+
+    def test_it_requires_a_session(self, monkeypatch, tmp_path):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+
+        with TestClient(_routes_app(None)) as client:
+            response = client.get("/api/account/license", headers=_HEADERS)
+
+        assert response.status_code == 401
+
+    def test_nothing_known_reads_as_no_license(self, monkeypatch, tmp_path, brain):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+
+        with TestClient(_routes_app(_session())) as client:
+            body = client.get("/api/account/license", headers=_HEADERS).json()
+
+        # Unknown, not `none`: nothing to show and nothing blocked.
+        assert body["status"] == "cached"
+        assert body["license"] is None
+        assert brain.requests == []
+
+    def test_a_refresh_asks_with_the_session_bearer_and_records_the_answer(
+        self, monkeypatch, tmp_path, brain
+    ):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+        brain.license = self._active()
+
+        with TestClient(_routes_app(_session())) as client:
+            refreshed = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
+            cached = client.get("/api/account/license", headers=_HEADERS).json()
+
+        sent = brain.requests[-1]
+        assert sent.url.path == "/v1/license"
+        assert sent.headers["Authorization"] == "Bearer tok-a"
+        assert sent.headers["X-AgentX-Device"] == _DEVICE_A
+        assert refreshed["status"] == "ok"
+        assert refreshed["license"]["state"] == "active"
+        assert refreshed["license"]["plan"]["name"] == "Pilot nội bộ 2026"
+        # The second read answered from the record, without asking.
+        assert len(brain.requests) == 1
+        assert cached["status"] == "cached"
+        assert cached["license"]["state"] == "active"
+
+    def test_an_unreachable_service_keeps_the_last_license(
+        self, monkeypatch, tmp_path, brain
+    ):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+        brain.license = _license()
+
+        with TestClient(_routes_app(_session())) as client:
+            client.get("/api/account/license?refresh=1", headers=_HEADERS)
+            brain.unreachable = True
+            body = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
+
+        # An outage is never a lock — and never an unlock either.
+        assert body["status"] == "offline"
+        assert body["license"]["state"] == "expired"
+        assert body["license"]["access"] == "read_only"
+
+    def test_a_service_that_predates_licensing_drops_the_record(
+        self, monkeypatch, tmp_path, brain
+    ):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+        brain.license = _license()
+
+        with TestClient(_routes_app(_session())) as client:
+            client.get("/api/account/license?refresh=1", headers=_HEADERS)
+            # The SSO is rolled back to a build that knows nothing of licenses.
+            brain.license = None
+            refreshed = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
+            cached = client.get("/api/account/license", headers=_HEADERS).json()
+
+        assert refreshed["status"] == "unsupported"
+        assert refreshed["license"] is None
+        assert cached["license"] is None
+
+    def test_a_revoked_device_keeps_the_last_license(self, monkeypatch, tmp_path, brain):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+        brain.license = self._active()
+
+        with TestClient(_routes_app(_session())) as client:
+            client.get("/api/account/license?refresh=1", headers=_HEADERS)
+            brain.caller_is_revoked = True
+            body = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
+
+        assert body["status"] == "revoked"
+        assert body["license"]["state"] == "active"
+
+    def test_no_service_configured_is_reported_not_raised(self, monkeypatch, tmp_path):
+        _configure(monkeypatch, tmp_path / "home", "")
+
+        with TestClient(_routes_app(_session())) as client:
+            response = client.get("/api/account/license?refresh=1", headers=_HEADERS)
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "unconfigured"
+        assert response.json()["license"] is None
+
+    def test_the_account_route_carries_the_license(self, monkeypatch, tmp_path, brain):
+        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _route_client_to(monkeypatch, brain)
+
+        with TestClient(_routes_app(_session())) as client:
+            before = client.get("/api/account", headers=_HEADERS).json()
+            brain.license = self._active()
+            client.get("/api/account/license?refresh=1", headers=_HEADERS)
+            after = client.get("/api/account", headers=_HEADERS).json()
+
+        assert before["license"] is None
+        assert after["license"]["state"] == "active"
 
 
 # ---------------------------------------------------------------------------

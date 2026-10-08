@@ -440,3 +440,11 @@ gateway:
     session_db_unavailable_prefix: "قاعدة بيانات الجلسات غير متاحة"
     session_not_found:           "لم يُعثر على الجلسة في قاعدة البيانات."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "لا يشمل ترخيص AgentX الخاص بك الذكاء الاصطناعي حاليًا. Workmate في وضع القراءة فقط."
+  read_only_none:       "لم يُعيَّن ترخيص AgentX لحسابك."
+  read_only_scheduled:  "تبدأ خطتك {plan} في {date}."
+  read_only_expired:    "انتهت صلاحية خطتك {plan} في {date}. Workmate في وضع القراءة فقط."
+  read_only_revoked:    "تم إلغاء ترخيص AgentX الخاص بك. Workmate في وضع القراءة فقط."
+  contact:              "تواصل مع {contact} للحصول على ترخيص أو تجديده."

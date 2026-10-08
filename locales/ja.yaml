@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "セッションデータベースが利用できません"
     session_not_found:           "データベースにセッションが見つかりません。"
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "現在の AgentX ライセンスでは AI を利用できません。Workmate は閲覧専用モードです。"
+  read_only_none:       "このアカウントには AgentX ライセンスが割り当てられていません。"
+  read_only_scheduled:  "{plan} プランは {date} に開始します。"
+  read_only_expired:    "{plan} プランは {date} に期限切れになりました。Workmate は閲覧専用モードです。"
+  read_only_revoked:    "AgentX ライセンスは取り消されました。Workmate は閲覧専用モードです。"
+  contact:              "ライセンスの取得または更新については {contact} にお問い合わせください。"

@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "工作階段資料庫無法使用"
     session_not_found:           "資料庫中找不到此工作階段。"
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "你的 AgentX 授權目前不包含 AI 功能。Workmate 處於唯讀模式。"
+  read_only_none:       "你的帳戶尚未獲指派 AgentX 授權。"
+  read_only_scheduled:  "你的 {plan} 方案將於 {date} 開始。"
+  read_only_expired:    "你的 {plan} 方案已於 {date} 到期。Workmate 處於唯讀模式。"
+  read_only_revoked:    "你的 AgentX 授權已被撤銷。Workmate 處於唯讀模式。"
+  contact:              "請聯絡 {contact} 取得或續訂授權。"

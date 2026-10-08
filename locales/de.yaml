@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "Session-Datenbank nicht verfügbar"
     session_not_found:           "Session nicht in der Datenbank gefunden."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Ihre AgentX-Lizenz umfasst derzeit keine KI. Workmate ist im Nur-Lese-Modus."
+  read_only_none:       "Ihrem Konto wurde keine AgentX-Lizenz zugewiesen."
+  read_only_scheduled:  "Ihr Tarif {plan} beginnt am {date}."
+  read_only_expired:    "Ihr Tarif {plan} ist am {date} abgelaufen. Workmate ist im Nur-Lese-Modus."
+  read_only_revoked:    "Ihre AgentX-Lizenz wurde widerrufen. Workmate ist im Nur-Lese-Modus."
+  contact:              "Wenden Sie sich an {contact}, um eine Lizenz zu erhalten oder zu verlängern."

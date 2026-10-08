@@ -102,9 +102,10 @@ def _current_account_slug(session) -> str:
 
 @router.get("/api/account")
 def get_account(request: Request):
-    """Describe the signed-in account and its provider key. No network calls."""
+    """Describe the signed-in account, its provider key and its license. No network calls."""
     session = _require_session(request)
 
+    from hermes_cli.account_license import current_license
     from hermes_cli.account_provisioning import account_key_status
     from hermes_constants import get_active_account, get_hermes_home
 
@@ -123,6 +124,51 @@ def get_account(request: Request):
         "display_name": getattr(session, "display_name", "") or "",
         "provider": getattr(session, "provider", "") or "",
         "litellm": status.to_json(),
+        # What this machine last heard, re-evaluated for now; null when no
+        # license is known (an SSO that predates licensing).
+        "license": current_license(),
+    }
+
+
+@router.get("/api/account/license")
+async def get_license(request: Request, refresh: bool = False):
+    """This person's AgentX license, as it stands now.
+
+    Answers from what this machine last heard — no network — unless
+    ``?refresh=1``, which first asks the keys service with the bearer this
+    request carried (the same token ``/api/account/provision`` forwards).
+    ``license`` is null while no license is known, which is how an SSO that
+    predates licensing reads: nothing to show and nothing blocked.
+
+    Answers 200 for every service outcome, with what happened in ``status``
+    (see ``account_license.LicenseRefresh``; ``cached`` when nobody was
+    asked). An unreachable service leaves the last license known in place:
+    an outage is never a lock.
+    """
+    session = _require_session(request)
+    slug = _current_account_slug(session)
+
+    from hermes_cli.account_license import current_license, refresh_license
+
+    if not refresh:
+        license = await run_in_threadpool(current_license)
+        return {"account": slug, "status": "cached", "detail": "", "license": license}
+
+    bearer = getattr(session, "access_token", "") or ""
+    device_id, device_name = _device_headers(request)
+
+    def _run():
+        return refresh_license(bearer=bearer, device_id=device_id, device_name=device_name)
+
+    result = await run_in_threadpool(_run)
+    if result.status not in {"ok", "unsupported", "offline", "unconfigured"}:
+        _log.warning("account %s: license refresh %s — %s", slug, result.status, result.detail)
+
+    return {
+        "account": slug,
+        "status": result.status,
+        "detail": result.detail,
+        "license": result.license,
     }
 
 
@@ -206,18 +252,9 @@ def _second_brain_settings():
     to. Reading it from the account's own config would break the feature
     outright, since an account home is created at sign-in with no config.yaml.
     """
-    from hermes_cli.account_provisioning import load_machine_config, resolve_second_brain_url
-    from hermes_cli.config import cfg_get
+    from hermes_cli.account_provisioning import second_brain_service
 
-    section = cfg_get(load_machine_config(), "accounts", "second_brain", default=None)
-    if not isinstance(section, dict):
-        section = {}
-    base_url = resolve_second_brain_url(section.get("base_url"))
-    try:
-        timeout = float(section.get("request_timeout_seconds") or 15)
-    except (TypeError, ValueError):
-        timeout = 15.0
-    return base_url, timeout
+    return second_brain_service()
 
 
 def _unconfigured(reason: str) -> dict:

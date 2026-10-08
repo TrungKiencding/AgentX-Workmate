@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "Sessie-databasis is nie beskikbaar"
     session_not_found:           "Sessie nie in databasis gevind nie."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Jou AgentX-lisensie dek nie tans KI nie. Workmate is in leesalleen-modus."
+  read_only_none:       "Jou rekening het nie 'n AgentX-lisensie gekry nie."
+  read_only_scheduled:  "Jou {plan}-plan begin op {date}."
+  read_only_expired:    "Jou {plan}-plan het op {date} verval. Workmate is in leesalleen-modus."
+  read_only_revoked:    "Jou AgentX-lisensie is herroep. Workmate is in leesalleen-modus."
+  contact:              "Kontak {contact} om 'n lisensie te kry of te hernu."

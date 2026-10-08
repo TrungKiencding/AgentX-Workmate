@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "A munkamenet-adatbázis nem érhető el"
     session_not_found:           "A munkamenet nem található az adatbázisban."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Az AgentX-licenced jelenleg nem tartalmazza a mesterséges intelligenciát. A Workmate csak olvasható módban van."
+  read_only_none:       "A fiókodhoz nincs AgentX-licenc rendelve."
+  read_only_scheduled:  "A(z) {plan} csomagod {date} napján indul."
+  read_only_expired:    "A(z) {plan} csomagod {date} napján lejárt. A Workmate csak olvasható módban van."
+  read_only_revoked:    "Az AgentX-licencedet visszavonták. A Workmate csak olvasható módban van."
+  contact:              "Licenc igényléséhez vagy megújításához fordulj ehhez: {contact}."

@@ -438,3 +438,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "Oturum veritabanı kullanılamıyor"
     session_not_found:           "Oturum veritabanında bulunamadı."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "AgentX lisansınız şu anda yapay zekâyı kapsamıyor. Workmate salt okunur modda."
+  read_only_none:       "Hesabınıza bir AgentX lisansı atanmamış."
+  read_only_scheduled:  "{plan} planınız {date} tarihinde başlıyor."
+  read_only_expired:    "{plan} planınızın süresi {date} tarihinde doldu. Workmate salt okunur modda."
+  read_only_revoked:    "AgentX lisansınız iptal edildi. Workmate salt okunur modda."
+  contact:              "Lisans almak veya yenilemek için {contact} ile iletişime geçin."

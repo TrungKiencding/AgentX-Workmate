@@ -442,3 +442,11 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "Níl bunachar sonraí na seisiún ar fáil"
     session_not_found:           "Seisiún gan a aimsiú sa bhunachar sonraí."
     warn_passthrough:            "⚠️ {error}"
+
+license:
+  read_only:            "Ní chlúdaíonn do cheadúnas AgentX intleacht shaorga faoi láthair. Tá Workmate i mód léite amháin."
+  read_only_none:       "Níor sannadh ceadúnas AgentX do do chuntas."
+  read_only_scheduled:  "Tosóidh do phlean {plan} ar {date}."
+  read_only_expired:    "Chuaigh do phlean {plan} in éag ar {date}. Tá Workmate i mód léite amháin."
+  read_only_revoked:    "Cúlghaireadh do cheadúnas AgentX. Tá Workmate i mód léite amháin."
+  contact:              "Déan teagmháil le {contact} chun ceadúnas a fháil nó a athnuachan."
