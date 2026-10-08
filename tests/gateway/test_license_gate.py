@@ -113,3 +113,16 @@ async def test_a_license_that_covers_ai_lets_the_turn_through():
     reply = await runner._handle_message(_event())
 
     assert reply == "past the license gate"
+
+
+def test_the_kanban_dispatcher_spawns_no_worker_while_read_only():
+    # Every worker would be a refused AI turn counting toward its task's
+    # failure limit — the board would be blocked by the time the license is
+    # renewed.
+    from gateway.kanban_watchers import _kanban_dispatch_allowed
+
+    assert _kanban_dispatch_allowed() is True
+
+    remember_license(_REVOKED)
+
+    assert _kanban_dispatch_allowed() is False
