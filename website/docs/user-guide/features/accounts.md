@@ -212,6 +212,20 @@ Three things worth knowing:
 - `agentx account provision` writes into an account's home and so needs one to be active; run it as `agentx --account <slug> account provision`. In broker mode it also needs the user's Keycloak token — the desktop app supplies it automatically, and by hand you pass `--token <bearer>`.
 - `agentx account delete` refuses to delete the account the calling process is running under. The directory would be recreated underneath you by the next config load, leaving a half-deleted home that looks fine and has lost its data.
 
+## The AgentX license (read-only mode)
+
+The account service also reports each person's AgentX license — `GET /v1/license`, and beside every key it hands out. Workmate keeps the last answer in `license.json` in the account home and re-evaluates it as time passes, so a plan starting, ending or running out of its grace period takes effect on time even while the service cannot be reached. `GET /api/account/license` answers from that record; `?refresh=1` asks the service first.
+
+While the license is **read-only** — no plan, a plan that has not started, one past its grace period, or a revoked license, and only while the SSO enforces licensing — Workmate starts no AI turn at all, whichever provider it would use, your own API keys included:
+
+- chat in the desktop app and the CLI is refused with the reason (code `license_read_only`), and the desktop locks its composer;
+- scheduled jobs are not dispatched; due jobs wait and run once the license covers AI again, as they do under `agentx pause`;
+- the messaging gateway answers a message with the reason (its commands keep working), and the kanban dispatcher starts no worker.
+
+History stays readable, searchable and exportable. An SSO that predates licensing sends no license, and nothing changes. A service that cannot be reached leaves the last license known in place; with none known, nothing is blocked.
+
+The desktop app refreshes the license after every sign-in and every 30 minutes, shows it in Settings → Account, warns during the grace period, and reminds you before the plan ends.
+
 ## Troubleshooting
 
 Every provisioning attempt reports a status — in `agentx account provision` output, in `agentx account show`, and in the `litellm` block of `GET /api/account`.
@@ -226,6 +240,7 @@ Every provisioning attempt reports a status — in `agentx account provision` ou
 | `offline` | LiteLLM (or the broker) could not be reached at all. | Not an error state for the user: the account keeps whatever key it has and the next launch retries. Check the proxy, DNS and TLS if it persists. Note that a stored key is deliberately *not* discarded on an unreachable proxy — an outage must never look like a revocation. |
 | `error` | A real misconfiguration. Common cases: direct mode with no `AGENTX_LITELLM_ADMIN_KEY`; the broker rejected the sign-in (401 — the broker and the app disagree about the realm, or the session is stale, so sign out and in again); the broker answered 502/503 because LiteLLM refused or was unreachable from it; provisioning was attempted in broker mode with no bearer token. | Read `detail`; it names the specific failure. |
 | `missing` | Status-only result from `agentx account show` / `GET /api/account`: this account has no key yet. Nothing has been attempted. | Run `agentx --account <slug> account provision`, or just sign in from the desktop app. |
+| `license_inactive` | The account service refused the key because this person's AgentX license does not cover AI right now. `code` says why (`license_required`, `license_expired`, `license_revoked`) and `license` names the plan and its dates. The key already on the account is left in place. | Ask your administrator to assign or renew the plan. **Check again** in Settings → Account, or the next refresh, picks it up — no new sign-in needed. |
 
 `provisioned`, `rotated` and `reused` are the successful ones. `disabled` and `unconfigured` are deliberate configurations rather than failures, and the CLI exits 0 for them.
 
