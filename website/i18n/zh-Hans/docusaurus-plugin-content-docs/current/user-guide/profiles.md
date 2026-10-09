@@ -234,7 +234,7 @@ agentx profile delete coder
 使用 `--yes` 跳过确认：`agentx profile delete coder --yes`
 
 :::note
-你无法删除默认 profile（`~/.agentx`）。如需删除所有内容，请使用 `agentx uninstall`。
+你无法删除默认 profile（`~/.agentx`）。如需删除所有内容，请使用 `agentx uninstall --full`。
 :::
 
 ## Tab 补全

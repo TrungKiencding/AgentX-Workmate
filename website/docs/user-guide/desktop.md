@@ -182,15 +182,15 @@ Every release is signed: the app installs a download only when its size and sha2
 
 Open **Settings → About → Danger zone** and pick how much to remove:
 
-- **Uninstall, keep my data** (recommended) — removes the app, the agent, and the `agentx` command, but keeps your chats, settings, saved model key, and the app's own settings for a future reinstall. (Same as `agentx uninstall --keep-data`.)
-- **Uninstall everything** — removes the app, the agent, the `agentx` command, your shortcuts, and all user data. This cannot be undone. (Same as `agentx uninstall`.)
+- **Uninstall, keep my data** (recommended) — removes the app, the agent, and the `agentx` command, but keeps your chats, settings, saved model key, and the app's own settings for a future reinstall. (Same as `agentx uninstall`.)
+- **Uninstall everything** — removes the app, the agent, the `agentx` command, your shortcuts, and all user data. This cannot be undone. (Same as `agentx uninstall --full`.)
 - **Uninstall Chat GUI only** — removes the desktop app and its data; the AgentX agent, your config, and your chats stay. (Same as `agentx uninstall --gui`.)
 
 The Windows uninstaller (Settings → Apps) asks the same question: it always removes the app, the agent, and the `agentx` command, and deletes your AgentX data only when you tick **Also delete my AgentX data**. That box starts unticked, so uninstalling to reinstall keeps everything. Installing a new version over an old one, or updating from inside the app, never deletes data either way.
 
 The app closes to finish the job (the cleanup runs after it exits so it can remove the running app bundle and its own venv). The agent-removing options are hidden automatically when no local agent is installed (for example, a GUI-only "lite" client connected to a remote backend).
 
-You can do the same from the terminal — `agentx uninstall` removes everything, `agentx uninstall --keep-data` keeps your config and chats, and `agentx uninstall --gui` touches only the desktop app.
+You can do the same from the terminal — `agentx uninstall` keeps your data, `agentx uninstall --full` removes everything, and `agentx uninstall --gui` touches only the desktop app.
 
 :::note
 Running `agentx uninstall --gui` from a **source checkout** (a `agentx desktop` dev build) also removes the workspace `node_modules` and `apps/desktop/{dist,release}` build output, since those are GUI build artifacts. They're recoverable with `agentx desktop` (or `npm install` + a rebuild) — but if you're actively hacking on the desktop app, expect to reinstall dependencies afterward.

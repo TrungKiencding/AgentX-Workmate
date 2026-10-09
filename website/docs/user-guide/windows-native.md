@@ -262,14 +262,14 @@ From PowerShell:
 agentx uninstall
 ```
 
-That removes everything: the schtasks entry, the Startup folder shortcut, the Desktop and Start Menu shortcuts, all of `%LOCALAPPDATA%\agentx\` (agent, venv, PortableGit, Node, config, auth, skills, sessions, logs), the desktop app's own data under `%APPDATA%\AgentX Workmate`, and the `AGENTX_HOME` and PATH entries in `HKCU\Environment`.
+That removes the schtasks entry, the Startup folder shortcut, the Desktop and Start Menu shortcuts, the agent and its venv, PortableGit and Node under `%LOCALAPPDATA%\agentx\`, and the AgentX PATH entries in `HKCU\Environment`. Your config, auth, skills, sessions and logs stay in `%LOCALAPPDATA%\agentx\`, the desktop app's own data stays under `%APPDATA%\AgentX Workmate`, and `AGENTX_HOME` stays set, so a reinstall picks up where you left off.
 
 Some of those files are locked while the uninstall is running — `agentx.exe` and the venv's `python.exe` are the very binaries executing it, and Windows will not let a running image be deleted. The uninstaller hands the locked remainder to a detached cleanup that finishes the moment the command exits, and it names the paths involved before it does. Open a new terminal afterwards to pick up the updated PATH.
 
-To keep your config, chats, and secrets for a future reinstall:
+To delete your config, chats and secrets as well — all of `%LOCALAPPDATA%\agentx\` and `%APPDATA%\AgentX Workmate`, with `AGENTX_HOME`:
 
 ```powershell
-agentx uninstall --keep-data
+agentx uninstall --full
 ```
 
 You can also uninstall from **Settings → Apps**. That uninstaller always removes the app, the agent and the `agentx` command, and deletes your AgentX data only when you tick **Also delete my AgentX data** — a box that starts unticked, so uninstalling to reinstall keeps everything.

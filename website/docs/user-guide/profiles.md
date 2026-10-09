@@ -252,7 +252,7 @@ This stops the gateway, removes the systemd/launchd service, removes the command
 Use `--yes` to skip confirmation: `agentx profile delete coder --yes`
 
 :::note
-You cannot delete the default profile (`~/.agentx`). To remove everything, use `agentx uninstall`.
+You cannot delete the default profile (`~/.agentx`). To remove everything, use `agentx uninstall --full`.
 :::
 
 ## Tab completion
