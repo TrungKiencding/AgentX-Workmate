@@ -1,12 +1,13 @@
 /**
  * The NSIS uninstaller customisation is a text file compiled by makensis on a
  * Windows-only toolchain, so what can be checked here is its wiring and the
- * two decisions inside it that are dangerous to get wrong:
+ * decisions inside it that are dangerous to get wrong:
  *
  *   - it must run on a real uninstall, so Programs and Features actually
  *     removes the agent and the `agentx` command instead of leaving them;
  *   - it must NOT run during an update, or every app update would delete the
- *     user's settings, sessions, and saved model key.
+ *     user's settings, sessions, and saved model key;
+ *   - on a real uninstall it keeps that data unless the person ticks the box.
  *
  * A compile error is caught by `npm run dist:win:nsis`; this catches the
  * silent failures — an unwired include, or a guard someone removed.
@@ -42,11 +43,26 @@ describe('the NSIS uninstaller customisation', () => {
   })
 
   test('it asks with a checkbox rather than silently deciding', () => {
-    // The user asked to be given the choice; a default-on checkbox on the page
-    // they are already reading is the form that gives it to them.
+    // The user is given the choice on the page they are already reading.
     assert.match(nsh, /!macro\s+customUnWelcomePage\b/)
     assert.match(nsh, /\$\{NSD_CreateCheckbox\}/)
-    assert.match(nsh, /\$\{NSD_Check\}\s+\$AgentXPurgeCheckbox/)
+  })
+
+  test('keeping the data is the default; deleting it has to be asked for', () => {
+    // People uninstall to reinstall — that is how "get the new version" is
+    // done on Windows — and a box ticked for them wiped every conversation on
+    // the way. Unticked, and a silent uninstall that never shows the page,
+    // must both keep the data.
+    assert.doesNotMatch(code, /\$\{NSD_Check\}/)
+
+    const asked = code.indexOf('${If} $AgentXPurgeState == ${BST_CHECKED}')
+    const full = code.indexOf('StrCpy $4 "full"')
+    const otherwise = code.indexOf('${Else}', asked)
+    const lite = code.indexOf('StrCpy $4 "lite"')
+
+    assert.ok(asked >= 0, 'the purge must depend on the checkbox')
+    assert.ok(asked < full && full < otherwise, 'only a ticked box may ask for --mode full')
+    assert.ok(otherwise < lite, 'everything else keeps the data (--mode lite)')
   })
 
   test('an update never purges the agent or the data', () => {
@@ -65,8 +81,9 @@ describe('the NSIS uninstaller customisation', () => {
   test('it drives the agent uninstaller rather than deleting paths itself', () => {
     // Duplicating the removal logic in NSIS would mean two implementations of
     // "what is an AgentX install", drifting apart. hermes_cli.uninstall is the
-    // one that knows, and it is the one under test in Python.
-    assert.match(nsh, /-m hermes_cli\.uninstall --mode full/)
+    // one that knows, and it is the one under test in Python. Both choices go
+    // through it: the agent and the agentx command are removed either way.
+    assert.match(code, /-m hermes_cli\.uninstall --mode \$4/)
   })
 
   test('it finds AGENTX_HOME the way the installer set it', () => {

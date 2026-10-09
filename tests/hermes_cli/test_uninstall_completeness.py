@@ -368,9 +368,13 @@ def install(tmp_path, monkeypatch):
     monkeypatch.setattr(uninstall, "desktop_runtime_data_paths", lambda: [])
     monkeypatch.setattr(uninstall, "_is_default_hermes_home", lambda _home: False)
     monkeypatch.setattr(uninstall, "_discover_named_profiles", lambda: [])
-    monkeypatch.setattr("hermes_cli.gui_uninstall.uninstall_gui", lambda _home: [])
+    gui_calls: list[dict] = []
+    monkeypatch.setattr(
+        "hermes_cli.gui_uninstall.uninstall_gui",
+        lambda _home, **kwargs: (gui_calls.append(kwargs), [])[1],
+    )
 
-    return SimpleNamespace(home=home, project=project)
+    return SimpleNamespace(home=home, project=project, gui_calls=gui_calls)
 
 
 class TestPerformUninstall:
@@ -426,6 +430,48 @@ class TestPerformUninstall:
         assert not leftover.exists()
         assert (install.home / "config.yaml").exists()
         assert (install.home / ".env").exists()
+
+    def test_only_a_full_wipe_takes_the_desktops_own_data(self, install):
+        """Electron's userData holds which account home is whose, the device
+        identity and the sign-in: keeping the chats but not those made a
+        reinstall a new device that could not find the right home."""
+        for full in (True, False):
+            install.gui_calls.clear()
+            install.home.mkdir(exist_ok=True)
+
+            uninstall._perform_uninstall(
+                project_root=install.project,
+                hermes_home=install.home,
+                full_uninstall=full,
+                remove_profiles=False,
+                named_profiles=[],
+            )
+
+            assert install.gui_calls == [{"remove_userdata": full}]
+
+    def test_keep_data_keeps_agentx_home_in_the_windows_environment(self, install, monkeypatch):
+        """AGENTX_HOME is how a reinstall finds the kept data again."""
+        seen: list[bool] = []
+        monkeypatch.setattr(uninstall, "_is_windows", lambda: True)
+        monkeypatch.setattr(uninstall, "remove_path_from_windows_registry", lambda _home: [])
+        monkeypatch.setattr(uninstall, "remove_portable_tooling_windows", lambda _home: [])
+        monkeypatch.setattr(
+            uninstall,
+            "remove_hermes_env_vars_windows",
+            lambda *, keep_home=False: (seen.append(keep_home), [])[1],
+        )
+
+        for full in (False, True):
+            install.home.mkdir(exist_ok=True)
+            uninstall._perform_uninstall(
+                project_root=install.project,
+                hermes_home=install.home,
+                full_uninstall=full,
+                remove_profiles=False,
+                named_profiles=[],
+            )
+
+        assert seen == [True, False]
 
     def test_a_locked_venv_is_handed_to_a_deferred_cleanup(self, install, monkeypatch, capsys):
         """The Windows case, reproduced without Windows.
@@ -538,3 +584,37 @@ def test_windows_registry_markers_leave_unrelated_entries_alone(unrelated):
     markers = uninstall._hermes_path_markers(home)
 
     assert not any(unrelated.lower().startswith(m.lower()) for m in markers)
+
+
+class TestWindowsEnvVars:
+    """remove_hermes_env_vars_windows against a fake winreg."""
+
+    @pytest.fixture()
+    def registry(self, monkeypatch):
+        values = {"AGENTX_HOME": r"D:\AgentX", "AGENTX_GIT_BASH_PATH": r"C:\x\git\bin\bash.exe", "PATH": "x"}
+
+        class _Key:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        fake = SimpleNamespace(
+            HKEY_CURRENT_USER=object(),
+            KEY_READ=1,
+            KEY_WRITE=2,
+            OpenKey=lambda *_args: _Key(),
+            QueryValueEx=lambda _key, name: (values[name], 1) if name in values else (_ for _ in ()).throw(FileNotFoundError(name)),
+            DeleteValue=lambda _key, name: values.pop(name),
+        )
+        monkeypatch.setitem(sys.modules, "winreg", fake)
+        return values
+
+    def test_a_full_uninstall_removes_both(self, registry):
+        assert uninstall.remove_hermes_env_vars_windows() == ["AGENTX_HOME", "AGENTX_GIT_BASH_PATH"]
+        assert set(registry) == {"PATH"}
+
+    def test_keeping_the_data_keeps_the_way_back_to_it(self, registry):
+        assert uninstall.remove_hermes_env_vars_windows(keep_home=True) == ["AGENTX_GIT_BASH_PATH"]
+        assert registry["AGENTX_HOME"] == r"D:\AgentX"

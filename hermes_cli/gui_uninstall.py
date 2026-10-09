@@ -79,8 +79,11 @@ def desktop_userdata_dir() -> Path:
     in a directory the app never wrote to and silently left GUI state behind.
     Keep package.json's productName equal to DESKTOP_APP_NAME.
 
-    This is GUI-only state (connection.json, updates.json, Chromium cache)
-    and never holds agent config or sessions.
+    It never holds agent config or sessions, but it is not only GUI state
+    either: besides connection.json, updates.json and the Chromium cache it
+    keeps which account home belongs to whom (accounts.json), this install's
+    device identity (device.json) and the encrypted sign-in. An uninstall that
+    keeps the person's data keeps this directory too.
     """
     home = Path.home()
     if sys.platform == "darwin":
