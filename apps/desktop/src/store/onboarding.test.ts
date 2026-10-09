@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopAccountLiteLlm, DesktopAccountProvisionResult } from '@/global'
+import { en } from '@/i18n/en'
+import { $agentxKeyGate, OPEN_AGENTX_KEY_GATE } from '@/store/agentx-key'
 import * as notifications from '@/store/notifications'
 import type { OAuthProvider } from '@/types/hermes'
 
@@ -11,6 +13,7 @@ import {
   completeBrowserStep,
   connectAgentxGateway,
   type DesktopOnboardingState,
+  dismissFirstRunOnboarding,
   type OnboardingContext,
   refreshOnboarding,
   requestDesktopOnboarding,
@@ -922,12 +925,10 @@ describe('AgentX AI Gateway onboarding', () => {
   })
 
   it.each([
-    ['offline', 'Could not reach AgentX AI Gateway'],
-    ['unconfigured', 'not set up on this install'],
-    ['disabled', 'not set up on this install'],
-    ['revoked', 'This device has been revoked'],
-    ['error', 'could not issue a model key: the service rejected the sign-in']
-  ])('explains a %s key and leaves the model alone', async (status, sentence) => {
+    ['offline', en.agentxKey.reasons.offline],
+    ['revoked', en.agentxKey.reasons.revoked],
+    ['error', en.agentxKey.reasons.failed]
+  ])('explains a %s key, says whom to contact, and leaves the model alone', async (status, sentence) => {
     const api = vi.fn(async () => ({}))
 
     installGatewayBridge(
@@ -944,8 +945,51 @@ describe('AgentX AI Gateway onboarding', () => {
 
     const { flow } = $desktopOnboarding.get()
     expect(flow.status).toBe('error')
-    expect(flow.status === 'error' ? flow.message : '').toContain(sentence)
+    expect(flow.status === 'error' ? flow.message : '').toBe(`${sentence} ${en.agentxKey.contactSupport}`)
+    // The operator prose stays out of the sentence and goes to support as details.
+    expect(flow.status === 'error' ? flow.gateway?.failure : null).toMatchObject({
+      detail: 'the service rejected the sign-in',
+      status
+    })
   })
+
+  it('turns the HTTP 424 from the SSO console into a reason and a support contact', async () => {
+    const detail =
+      'the second brain could not issue a key: the second brain returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.'
+
+    installGatewayBridge(async () => ({
+      ok: false,
+      litellm: grantedKey({ code: 'no_grantable_models', detail, models: [], ok: false, status: 'error' })
+    }))
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    const { flow } = $desktopOnboarding.get()
+    expect(flow.status === 'error' ? flow.message : '').toBe(
+      `${en.agentxKey.reasons.noModels} ${en.agentxKey.contactSupport}`
+    )
+    expect(flow.status === 'error' ? flow.gateway?.failure : null).toMatchObject({
+      code: 'no_grantable_models',
+      detail,
+      status: 'error'
+    })
+  })
+
+  it.each(['unconfigured', 'disabled'])(
+    'points an install with no keys service (%s) at another provider instead',
+    async status => {
+      installGatewayBridge(async () => ({
+        ok: false,
+        litellm: grantedKey({ detail: 'accounts.second_brain.base_url is not set.', models: [], ok: false, status })
+      }))
+
+      await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+      const { flow } = $desktopOnboarding.get()
+      expect(flow.status === 'error' ? flow.message : '').toContain('not set up on this install')
+      expect(flow.status === 'error' ? flow.gateway : 'unset').toBeUndefined()
+    }
+  )
 
   it('explains a key refused for the AgentX license the way the license is said everywhere', async () => {
     const api = vi.fn(async () => ({}))
@@ -994,19 +1038,23 @@ describe('AgentX AI Gateway onboarding', () => {
     await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
 
     const { flow } = $desktopOnboarding.get()
+    // No license to name a contact: whom to ask comes from the key gate's line.
     expect(flow.status === 'error' ? flow.message : '').toBe(
-      "Your AgentX license doesn't cover AI right now. Workmate is in read-only mode."
+      `Your AgentX license doesn't cover AI right now. Workmate is in read-only mode. ${en.agentxKey.contactSupport}`
     )
   })
 
-  it('asks the person to check their sign-in when the desktop gets no answer', async () => {
+  it('asks the person to check their connection when the desktop gets no answer', async () => {
     installGatewayBridge(async () => ({ ok: false, error: 'Sign in first — there is no account to provision.' }))
 
     await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
 
     const { flow } = $desktopOnboarding.get()
     expect(flow.status).toBe('error')
-    expect(flow.status === 'error' ? flow.message : '').toContain('signed in to AgentX')
+    expect(flow.status === 'error' ? flow.message : '').toBe(
+      `${en.agentxKey.reasons.noAnswer} ${en.agentxKey.contactSupport}`
+    )
+    expect(flow.status === 'error' ? flow.gateway?.failure?.status : '').toBe('no-answer')
   })
 
   it('leaves a cancelled flow alone when the key arrives late', async () => {
@@ -1050,5 +1098,33 @@ describe('AgentX AI Gateway onboarding', () => {
     await refreshOnboarding(onboardingContext(emptyOpenRouterGateway()))
 
     expect($desktopOnboarding.get()).toMatchObject({ mode: 'oauth', providers: [] })
+  })
+})
+
+describe('an account that must run on its AgentX key', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    $desktopOnboarding.set(baseState())
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
+    $desktopOnboarding.set(baseState())
+    $agentxKeyGate.set(OPEN_AGENTX_KEY_GATE)
+  })
+
+  it('cannot put the first run off until later', () => {
+    $agentxKeyGate.set({ ...OPEN_AGENTX_KEY_GATE, required: true })
+
+    dismissFirstRunOnboarding()
+
+    expect($desktopOnboarding.get().firstRunSkipped).toBe(false)
+    expect(window.localStorage.getItem('agentx-onboarding-skipped-v1')).toBeNull()
+  })
+
+  it('an install with no AgentX keys can still choose later', () => {
+    dismissFirstRunOnboarding()
+
+    expect($desktopOnboarding.get().firstRunSkipped).toBe(true)
   })
 })

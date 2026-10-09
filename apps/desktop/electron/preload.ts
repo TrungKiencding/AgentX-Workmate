@@ -113,7 +113,19 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
   // the account is whoever signed in, never a renderer choice.
   account: {
     status: () => ipcRenderer.invoke('agentx:account:status'),
-    provision: options => ipcRenderer.invoke('agentx:account:provision', options)
+    provision: options => ipcRenderer.invoke('agentx:account:provision', options),
+    // The AgentX key gate: whether this account must hold an AgentX key and
+    // whether the boot is waiting for one. Answers while the boot is held.
+    keyGate: {
+      get: () => ipcRenderer.invoke('agentx:account:key-gate:get'),
+      retry: () => ipcRenderer.invoke('agentx:account:key-gate:retry'),
+      onChanged: callback => {
+        const listener = (_event, state) => callback(state)
+        ipcRenderer.on('agentx:account:key-gate:changed', listener)
+
+        return () => ipcRenderer.removeListener('agentx:account:key-gate:changed', listener)
+      }
+    }
   },
   // This person's AgentX license, as the local backend last heard it. `refresh`
   // asks the keys service first ("Check again"); `onChanged` hears every change,

@@ -249,6 +249,30 @@ export const zh: Translations = {
     dismiss: '忽略'
   },
 
+  agentxKey: {
+    title: '无法签发 AgentX AI 密钥',
+    provisioning: '正在为你的账户签发 AgentX AI Gateway 密钥…',
+    intro: 'Workmate 需要账户的 AgentX AI Gateway 密钥才能使用。系统未能为此账户签发密钥，因此暂时无法使用 Workmate。',
+    account: who => `账户：${who}`,
+    reasons: {
+      offline: '无法连接 AgentX 密钥服务。请检查网络，然后点击“重试”。',
+      revoked: '此设备已从你的 AgentX 账户中撤销。',
+      noModels: '你的账户尚未分配 AgentX AI Gateway 当前提供的任何模型。',
+      noAnswer: '为此账户申请密钥时没有收到响应。请检查网络连接，然后点击“重试”。',
+      suspended: '管理员已暂停此账户的 AI 使用权限。',
+      issuanceOff: 'AgentX 目前暂停签发新密钥。',
+      failed: 'AgentX 服务器未为此账户签发密钥。'
+    },
+    contactSupport: '请联系 AgentX 支持（或公司的 AgentX 管理员），并附上下方的错误详情。',
+    contactSupportAt: contact => `请联系 AgentX 支持：${contact}，并附上下方的错误详情。`,
+    details: '错误详情',
+    copyDetails: '复制错误详情',
+    copied: '已复制',
+    retry: '重试',
+    retrying: '正在重试…',
+    signOut: '退出登录'
+  },
+
   license: {
     title: 'AgentX 许可证',
     states: {
@@ -3148,14 +3172,11 @@ export const zh: Translations = {
       couldNotSaveLocalEndpoint: '无法保存本地端点',
       couldNotChangeModel: '无法更改模型',
       directApiAccess: name => `直接访问 ${name} 的 API。`,
-      gatewayNoAnswer: 'AgentX 未能为你的账户获取模型密钥。请确认已登录 AgentX 且网络正常，然后重试。',
-      gatewayNotSetUp: '此安装尚未配置 AgentX AI Gateway。请联系 AgentX 管理员，或选择其他提供方。',
-      gatewayOffline: '无法连接到 AgentX AI Gateway。请检查网络后重试。',
-      gatewayRevoked: '此设备已被吊销。请重新登录 AgentX 以使用 AgentX AI Gateway。',
-      gatewayFailed: detail => `AgentX AI Gateway 未能签发模型密钥：${detail}`
+      gatewayNotSetUp: '此安装尚未配置 AgentX AI Gateway。请联系 AgentX 管理员，或选择其他提供方。'
     },
     headerTitle: '开始设置 AgentX Workmate',
     headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',
+    gatewayHeaderDesc: 'Workmate 通过 AgentX AI Gateway 使用你的 AgentX 账户所附带的模型。',
     preparingInstall: 'AgentX 正在完成安装。首次运行通常不到一分钟。',
     starting: '正在启动 AgentX…',
     lookingUpProviders: '正在查找提供方...',

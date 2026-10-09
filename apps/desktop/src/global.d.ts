@@ -126,6 +126,13 @@ declare global {
       account?: {
         status: () => Promise<DesktopAccountStatus>
         provision: (options?: { rotate?: boolean }) => Promise<DesktopAccountProvisionResult>
+        // The AgentX key gate (electron/agentx-key-gate.ts). Optional: an
+        // older shell predates it.
+        keyGate?: {
+          get: () => Promise<DesktopAgentxKeyGate>
+          retry: () => Promise<DesktopAgentxKeyGate>
+          onChanged: (callback: (state: DesktopAgentxKeyGate) => void) => () => void
+        }
       }
       // This person's AgentX license, as the local backend last heard it.
       // `refresh` asks the keys service first; `onChanged` hears every change.
@@ -1051,6 +1058,30 @@ export interface DesktopAccountProvisionResult {
   ok: boolean
   error?: string
   litellm?: DesktopAccountLiteLlm
+}
+
+/** Why the AgentX key could not be issued (electron/agentx-key-gate.ts). */
+export interface DesktopAgentxKeyFailure {
+  // A provisioning status (error | offline | revoked | license_inactive | …), or
+  // `no-answer` when the backend gave none.
+  status: string
+  // The service's machine-readable reason (`no_grantable_models`, …), or ''.
+  code: string
+  // Operator-facing detail: for support, never the headline.
+  detail: string
+  license: DesktopLicense | null
+}
+
+/**
+ * The AgentX key gate. While `required` and not `open`, the boot is held: the
+ * signed-in account has no AgentX AI Gateway key on this machine yet.
+ */
+export interface DesktopAgentxKeyGate {
+  required: boolean
+  phase: 'blocked' | 'open' | 'provisioning'
+  failure: DesktopAgentxKeyFailure | null
+  account: { displayName: string; email: string } | null
+  attempts: number
 }
 
 // --- The AgentX license (hermes_cli/account_license.py) ---------------------

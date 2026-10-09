@@ -271,6 +271,33 @@ export const en: Translations = {
     dismiss: 'Dismiss'
   },
 
+  agentxKey: {
+    title: 'Your AgentX AI key could not be issued',
+    provisioning: 'Issuing the AgentX AI Gateway key for your account…',
+    intro:
+      'Workmate runs on your account’s AgentX AI Gateway key. That key could not be issued for this account, so Workmate cannot be used yet.',
+    account: who => `Account: ${who}`,
+    reasons: {
+      offline: 'The AgentX key service could not be reached. Check your network, then select Try again.',
+      revoked: 'This device was revoked from your AgentX account.',
+      noModels: 'Your account has no model assigned that the AgentX AI Gateway currently serves.',
+      noAnswer:
+        'Workmate got no answer when asking for this account’s key. Check your connection, then select Try again.',
+      suspended: 'An administrator has suspended AI access for this account.',
+      issuanceOff: 'AgentX is not issuing new keys right now.',
+      failed: 'The AgentX server did not issue a key for this account.'
+    },
+    contactSupport:
+      'Please contact AgentX support (or your company’s AgentX administrator) and include the error details below.',
+    contactSupportAt: contact => `Please contact AgentX support: ${contact} — include the error details below.`,
+    details: 'Error details',
+    copyDetails: 'Copy error details',
+    copied: 'Copied',
+    retry: 'Try again',
+    retrying: 'Trying again…',
+    signOut: 'Sign out'
+  },
+
   license: {
     title: 'AgentX license',
     states: {
@@ -3072,16 +3099,12 @@ export const en: Translations = {
       couldNotSaveLocalEndpoint: 'Could not save local endpoint',
       couldNotChangeModel: 'Could not change model',
       directApiAccess: name => `Direct API access to ${name}.`,
-      gatewayNoAnswer:
-        'AgentX could not get a model key for your account. Make sure you are signed in to AgentX and online, then try again.',
       gatewayNotSetUp:
-        'AgentX AI Gateway is not set up on this install. Ask whoever manages AgentX, or pick a different provider.',
-      gatewayOffline: 'Could not reach AgentX AI Gateway. Check your connection and try again.',
-      gatewayRevoked: 'This device has been revoked. Sign in to AgentX again to use AgentX AI Gateway.',
-      gatewayFailed: detail => `AgentX AI Gateway could not issue a model key: ${detail}`
+        'AgentX AI Gateway is not set up on this install. Ask whoever manages AgentX, or pick a different provider.'
     },
     headerTitle: 'Let’s get you set up with AgentX Workmate',
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',
+    gatewayHeaderDesc: 'Workmate runs on the models that come with your AgentX account, through AgentX AI Gateway.',
     preparingInstall: 'AgentX is finishing install. This usually takes under a minute on first run.',
     starting: 'Starting AgentX…',
     lookingUpProviders: 'Looking up providers...',

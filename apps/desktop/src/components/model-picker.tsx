@@ -35,6 +35,10 @@ interface ModelPickerDialogProps {
    * underneath and blocks pointer events.
    */
   contentClassName?: string
+  /** Show only these providers (by slug) — e.g. the account's AgentX AI Gateway on its first run. */
+  onlyProviders?: readonly string[]
+  /** Offer the "Add provider" button (on by default). */
+  allowAddProvider?: boolean
 }
 
 export function ModelPickerDialog({
@@ -46,7 +50,9 @@ export function ModelPickerDialog({
   currentProvider,
   onSelect,
   profile = 'default',
-  contentClassName
+  contentClassName,
+  onlyProviders,
+  allowAddProvider = true
 }: ModelPickerDialogProps) {
   const { t } = useI18n()
   const copy = t.modelPicker
@@ -63,7 +69,9 @@ export function ModelPickerDialog({
     enabled: open
   })
 
-  const providers = modelOptions.data?.providers ?? []
+  const listed = modelOptions.data?.providers ?? []
+  const only = onlyProviders?.map(slug => slug.toLowerCase())
+  const providers = only ? listed.filter(p => only.includes(String(p.slug).toLowerCase())) : listed
 
   const { model: optionsModel, provider: optionsProvider } = currentPickerSelection(
     { model: currentModel, provider: currentProvider },
@@ -120,9 +128,11 @@ export function ModelPickerDialog({
         </Command>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 bg-card p-3">
-          <Button onClick={addProvider} variant="ghost">
-            {copy.addProvider}
-          </Button>
+          {allowAddProvider ? (
+            <Button onClick={addProvider} variant="ghost">
+              {copy.addProvider}
+            </Button>
+          ) : null}
           <Button onClick={() => onOpenChange(false)} variant="outline">
             {t.common.cancel}
           </Button>

@@ -11,6 +11,7 @@ import { bootPhaseLabel } from '@/lib/boot-phase-label'
 import { Check, ChevronDown, ChevronLeft, KeyRound, Loader2 } from '@/lib/icons'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { cn } from '@/lib/utils'
+import { $agentxKeyRequired } from '@/store/agentx-key'
 import { $desktopBoot, type DesktopBootState } from '@/store/boot'
 import {
   $desktopOnboarding,
@@ -201,6 +202,7 @@ export function DesktopOnboardingOverlay({
   const { t } = useI18n()
   const onboarding = useStore($desktopOnboarding)
   const boot = useStore($desktopBoot)
+  const keyRequired = useStore($agentxKeyRequired)
   const ctxRef = useRef<OnboardingContext>({ requestGateway, onCompleted, profile })
   ctxRef.current = { requestGateway, onCompleted, profile }
 
@@ -298,8 +300,10 @@ export function DesktopOnboardingOverlay({
 
   // The user chose "I'll choose a provider later" on first run. Stay out of the
   // way on every subsequent launch — they re-enter via Settings → Providers
-  // (manual mode), which sets manual=true and bypasses this gate.
-  if (onboarding.firstRunSkipped && !onboarding.manual) {
+  // (manual mode), which sets manual=true and bypasses this gate. Not for an
+  // account that must run on its AgentX key: there is no "later" for that, and
+  // a skip saved before it was required must not hide the card now.
+  if (onboarding.firstRunSkipped && !onboarding.manual && !keyRequired) {
     return null
   }
 
@@ -349,7 +353,7 @@ export function DesktopOnboardingOverlay({
             : 'translate-y-0 scale-100 opacity-100 blur-0'
         )}
       >
-        {showPicker || !ready ? <Header /> : null}
+        {showPicker || !ready ? <Header gatewayOnly={keyRequired && !onboarding.manual} /> : null}
         {onboarding.manual ? (
           <Button
             aria-label={t.common.close}
@@ -417,7 +421,7 @@ function Preparing({ boot }: { boot: DesktopBootState }) {
   )
 }
 
-function Header() {
+function Header({ gatewayOnly }: { gatewayOnly: boolean }) {
   const { t } = useI18n()
 
   return (
@@ -425,7 +429,9 @@ function Header() {
       {/* Serif outlier slot 2 of 2 (the home greeting is slot 1). Roman, never
           italic — the one moment of voice on the way in. */}
       <h2 className="font-serif-display text-2xl text-(--ui-text-primary)">{t.onboarding.headerTitle}</h2>
-      <p className="mt-1.5 max-w-xl text-base text-(--ui-text-tertiary)">{t.onboarding.headerDesc}</p>
+      <p className="mt-1.5 max-w-xl text-base text-(--ui-text-tertiary)">
+        {gatewayOnly ? t.onboarding.gatewayHeaderDesc : t.onboarding.headerDesc}
+      </p>
     </div>
   )
 }
@@ -453,6 +459,7 @@ const persistShowAll = (value: boolean) => {
 export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const { t } = useI18n()
   const { localEndpoint, manual, mode, providers } = useStore($desktopOnboarding)
+  const keyRequired = useStore($agentxKeyRequired)
   const [showAll, setShowAll] = useState(readShowAll)
   // Which key-form option to preselect when we flip to 'apikey' mode. The
   // OpenRouter row selects its key; the generic link lands on the first option.
@@ -469,6 +476,18 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   const gateway = isAgentxGatewayAvailable()
   const hasChoices = gateway || ordered.length > 0
   const apiKeyOptions = useApiKeyCatalog()
+
+  // A signed-in AgentX account runs on its AgentX AI Gateway key, so its first
+  // run offers that and nothing else: no other provider, no API-key form, no
+  // "later". (Adding another provider stays possible afterwards, from a
+  // configured app — the manual flow.)
+  if (gateway && keyRequired && !manual) {
+    return (
+      <div className="grid gap-2 p-1">
+        <GatewayProviderRow onSelect={() => void connectAgentxGateway(ctx)} />
+      </div>
+    )
+  }
 
   // localEndpoint forces the key form regardless of `mode` (which a manual
   // provider refresh may flip back to 'oauth'); it preselects the local option
