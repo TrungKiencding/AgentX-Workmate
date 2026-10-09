@@ -109,6 +109,8 @@ function fixture(versions = ['1.0.1', '1.0.4', '1.0.5']) {
   return { root, origin, home, active, commits, env, install }
 }
 
+// The tests that run on Windows spawn real git, so they get 60 s rather than
+// vitest's 5 s default: a slow Windows runner took 7 s for one that takes 0.4 s here.
 test('shallow updated agent under an old desktop never triggers replacement across repeated launches', () => {
   const f = fixture()
   git(f.root, 'clone', '--depth', '1', f.env.AGENTX_REPO_URL, f.active)
@@ -121,7 +123,7 @@ test('shallow updated agent under an old desktop never triggers replacement acro
     assert.equal(classifyActiveRuntime(null, 1, true, relation.relation).shouldUseActiveRuntime, true)
     assert.equal(git(f.active, 'rev-parse', 'HEAD'), f.commits[2])
   }
-})
+}, 60000)
 test('fresh pinned install and an older shallow install reach the new release once and preserve user data', () => {
   const f = fixture()
   f.install(f.commits[0])
@@ -175,21 +177,21 @@ test('same release with shallow history is not declared old; only matching prove
   git(f.root, 'clone', '--depth', '1', f.env.AGENTX_REPO_URL, f.active)
   assert.equal(resolveCheckoutPin(f.active, f.commits[0], '1.0.5', runGit, f.commits[0]).relation, 'at-pin')
   assert.equal(resolveCheckoutPin(f.active, f.commits[0], '1.0.5', runGit, f.commits[1]).relation, 'unknown')
-})
+}, 60000)
 test('full history distinguishes behind and ahead without relying on release numbers', () => {
   const f = fixture(['1.0.5', '1.0.5'])
   git(f.root, 'clone', f.env.AGENTX_REPO_URL, f.active)
   assert.equal(probeCheckoutPin(f.active, f.commits[0], runGit).relation, 'ahead')
   git(f.active, 'checkout', '--detach', f.commits[0])
   assert.equal(probeCheckoutPin(f.active, f.commits[1], runGit).relation, 'behind')
-})
+}, 60000)
 test('unavailable Git and a stale marker cannot downgrade a newer ZIP install', () => {
   const f = fixture()
   fs.mkdirSync(f.active)
   fs.writeFileSync(path.join(f.active, 'pyproject.toml'), '[project]\nversion = "1.0.5"\n')
   const absent = defaultExecGit(path.join(f.root, 'missing-git'), windows)
   assert.equal(resolveCheckoutPin(f.active, f.commits[0], '1.0.1', absent, f.commits[0]).relation, 'ahead')
-})
+}, 60000)
 test.skipIf(windows)('bootstrap success frames cannot conceal an older installed release', async () => {
   const f = fixture()
   fs.mkdirSync(f.active)
