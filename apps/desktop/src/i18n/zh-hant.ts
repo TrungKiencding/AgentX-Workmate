@@ -249,6 +249,30 @@ export const zhHant = defineLocale({
     dismiss: '忽略'
   },
 
+  agentxKey: {
+    title: '無法簽發 AgentX AI 金鑰',
+    provisioning: '正在為你的帳戶簽發 AgentX AI Gateway 金鑰…',
+    intro: 'Workmate 需要帳戶的 AgentX AI Gateway 金鑰才能使用。系統未能為此帳戶簽發金鑰，因此暫時無法使用 Workmate。',
+    account: who => `帳戶：${who}`,
+    reasons: {
+      offline: '無法連線至 AgentX 金鑰服務。請檢查網路，然後點選「重試」。',
+      revoked: '此裝置已從你的 AgentX 帳戶中撤銷。',
+      noModels: '你的帳戶尚未指派 AgentX AI Gateway 目前提供的任何模型。',
+      noAnswer: '為此帳戶申請金鑰時沒有收到回應。請檢查網路連線，然後點選「重試」。',
+      suspended: '管理員已暫停此帳戶的 AI 使用權限。',
+      issuanceOff: 'AgentX 目前暫停簽發新金鑰。',
+      failed: 'AgentX 伺服器未為此帳戶簽發金鑰。'
+    },
+    contactSupport: '請聯絡 AgentX 支援（或公司的 AgentX 管理員），並附上下方的錯誤詳細資料。',
+    contactSupportAt: contact => `請聯絡 AgentX 支援：${contact}，並附上下方的錯誤詳細資料。`,
+    details: '錯誤詳細資料',
+    copyDetails: '複製錯誤詳細資料',
+    copied: '已複製',
+    retry: '重試',
+    retrying: '正在重試…',
+    signOut: '登出'
+  },
+
   license: {
     title: 'AgentX 授權',
     states: {
@@ -2936,14 +2960,11 @@ export const zhHant = defineLocale({
       couldNotSaveLocalEndpoint: '無法儲存本機端點',
       couldNotChangeModel: '無法變更模型',
       directApiAccess: name => `直接存取 ${name} 的 API。`,
-      gatewayNoAnswer: 'AgentX 無法為你的帳戶取得模型金鑰。請確認已登入 AgentX 且網路正常，然後再試一次。',
-      gatewayNotSetUp: '此安裝尚未設定 AgentX AI Gateway。請聯絡 AgentX 管理員，或選擇其他提供方。',
-      gatewayOffline: '無法連線到 AgentX AI Gateway。請檢查網路後再試一次。',
-      gatewayRevoked: '此裝置已被撤銷。請重新登入 AgentX 以使用 AgentX AI Gateway。',
-      gatewayFailed: detail => `AgentX AI Gateway 無法核發模型金鑰：${detail}`
+      gatewayNotSetUp: '此安裝尚未設定 AgentX AI Gateway。請聯絡 AgentX 管理員，或選擇其他提供方。'
     },
     headerTitle: '開始設定 AgentX Workmate',
     headerDesc: '連線模型提供方即可開始聊天。大多數選項只需一次點擊。',
+    gatewayHeaderDesc: 'Workmate 透過 AgentX AI Gateway 使用你的 AgentX 帳戶所附帶的模型。',
     preparingInstall: 'AgentX 正在完成安裝。首次執行通常不到一分鐘。',
     starting: '正在啟動 AgentX…',
     lookingUpProviders: '正在查詢提供方...',

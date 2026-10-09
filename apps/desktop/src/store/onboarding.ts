@@ -1,6 +1,6 @@
 import { atom } from 'nanostores'
 
-import type { DesktopAccountProvisionResult } from '@/global'
+import type { DesktopAccountLiteLlm, DesktopAccountProvisionResult, DesktopAgentxKeyFailure } from '@/global'
 import {
   cancelOAuthSession,
   getGlobalModelOptions,
@@ -13,10 +13,13 @@ import {
   validateProviderCredential
 } from '@/hermes'
 import { translateNow, translationsNow } from '@/i18n'
-import { asLicense, licenseReadOnlyMessage } from '@/lib/license'
+import { agentxKeyMessage } from '@/lib/agentx-key'
+import { asLicense } from '@/lib/license'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
+import { $agentxKeyRequired } from '@/store/agentx-key'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
+import { $license } from '@/store/license'
 import { notify, notifyError } from '@/store/notifications'
 import {
   $webmateGuide,
@@ -70,7 +73,16 @@ export type OnboardingFlow =
       // No OAuthProvider rides along; the gateway is not a sign-in it lists.
       status: 'connecting_gateway'
     }
-  | { message: string; provider?: OAuthProvider; start?: OAuthStartResponse; status: 'error' }
+  | {
+      message: string
+      provider?: OAuthProvider
+      start?: OAuthStartResponse
+      status: 'error'
+      // Set when the AgentX AI Gateway card failed. `failure` is what the keys
+      // service said when the key itself could not be issued; null when the
+      // key came through and the connection after it did not.
+      gateway?: { failure: DesktopAgentxKeyFailure | null }
+    }
 
 export interface DesktopOnboardingState {
   /** null until the first runtime check resolves. Seeded from localStorage so
@@ -562,6 +574,12 @@ export function completeDesktopOnboarding() {
 // stops forcing the choice up front. Distinct from completeDesktopOnboarding,
 // which marks the app actually configured.
 export function dismissFirstRunOnboarding() {
+  // A signed-in AgentX account runs on its AgentX key: there is no "later" to
+  // choose. The card never offers it then; this keeps any other path honest.
+  if ($agentxKeyRequired.get()) {
+    return
+  }
+
   clearPoll()
   writeCachedSkipped(true)
   patch({ firstRunSkipped: true, requested: false, manual: false, localEndpoint: false, flow: { status: 'idle' } })
@@ -842,43 +860,35 @@ export function isAgentxGatewayAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.agentxDesktop?.account?.provision === 'function'
 }
 
-// Product language for a key the backend could not hand over — table-driven
-// over the provisioning status, like Settings → Account's describeKey. `detail`
-// is operator prose that names a config setting, so it only surfaces for the
-// statuses nobody wrote a sentence for.
-const GATEWAY_FAILURE_COPY: Record<string, string> = {
-  disabled: 'onboarding.messages.gatewayNotSetUp',
-  offline: 'onboarding.messages.gatewayOffline',
-  revoked: 'onboarding.messages.gatewayRevoked',
-  unconfigured: 'onboarding.messages.gatewayNotSetUp'
-}
+// Provisioning statuses that mean this install hands out no AgentX keys at all
+// (`accounts.litellm` off, or no keys service configured). Only there does the
+// picker offer other providers, so only there does the card say so.
+const GATEWAY_NOT_SET_UP = new Set(['disabled', 'unconfigured'])
 
-function gatewayFailureMessage(result: DesktopAccountProvisionResult | null): string {
-  const litellm = result?.litellm
-
-  if (!litellm) {
+/** What the keys service said, in the shape the key gate and this card share. */
+function gatewayFailure(litellm: DesktopAccountLiteLlm | undefined): DesktopAgentxKeyFailure {
+  return {
+    code: litellm?.code ?? '',
+    detail: litellm?.detail?.trim() ?? '',
+    license: asLicense(litellm?.license),
     // No answer at all: nobody signed in, a lapsed session, or a backend that
     // timed out — the main process reports all three the same way.
-    return translateNow('onboarding.messages.gatewayNoAnswer')
+    status: litellm?.status || 'no-answer'
+  }
+}
+
+// Product language for a key the backend could not hand over: the same reason
+// the key gate gives (lib/agentx-key.ts), then whom to contact. The operator
+// prose in `detail` stays out of the sentence; the card offers it as error
+// details for support.
+function gatewayFailureMessage(failure: DesktopAgentxKeyFailure): string {
+  if (GATEWAY_NOT_SET_UP.has(failure.status)) {
+    return translateNow('onboarding.messages.gatewayNotSetUp')
   }
 
-  // The service refused the key because of the person's AgentX license: say
-  // which way it does not cover AI, and whom to ask — never the operator prose
-  // in `detail`.
-  if (litellm.status === 'license_inactive') {
-    const license = asLicense(litellm.license)
-    const copy = translationsNow().license
+  const copy = translationsNow()
 
-    return license ? licenseReadOnlyMessage(license, copy) : copy.readOnlyGeneric
-  }
-
-  const key = GATEWAY_FAILURE_COPY[litellm.status]
-
-  if (key) {
-    return translateNow(key)
-  }
-
-  return translateNow('onboarding.messages.gatewayFailed', litellm.detail.trim() || litellm.status)
+  return agentxKeyMessage(failure, copy.agentxKey, copy.license, $license.get().license)
 }
 
 // "AgentX AI Gateway" on the picker: run on the models that come with the
@@ -907,7 +917,15 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
   const litellm = result?.litellm
 
   if (!result?.ok || !litellm?.ok) {
-    setFlow({ status: 'error', message: gatewayFailureMessage(result) })
+    const failure = gatewayFailure(litellm)
+
+    setFlow({
+      // An install with no keys service is the one place another provider is
+      // the answer: a plain error, with "Choose another provider" under it.
+      ...(GATEWAY_NOT_SET_UP.has(failure.status) ? {} : { gateway: { failure } }),
+      message: gatewayFailureMessage(failure),
+      status: 'error'
+    })
 
     return
   }
@@ -920,7 +938,7 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
     // The picker lists a `providers:` entry under its bare key; the durable
     // `custom:` form is what grouped custom-endpoint rows carry.
     [provider, `custom:${provider}`],
-    reason => setFlow({ status: 'error', message: providerResolutionFailure(reason) }),
+    reason => setFlow({ gateway: { failure: null }, message: providerResolutionFailure(reason), status: 'error' }),
     // Same pick provisioning makes for a fresh account; an older backend sends
     // no default_model, and the first granted model stands in.
     { accountGateway: { model: litellm.default_model || litellm.models[0] } }

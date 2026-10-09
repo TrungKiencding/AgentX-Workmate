@@ -4,6 +4,7 @@ import { closeActiveTab } from '@/app/chat/close-tab'
 import { openSession } from '@/app/open-session'
 import { isHubSlug } from '@/app/skills/mcp-model'
 import { storedSessionIdForNotification } from '@/lib/session-ids'
+import { startAgentxKeyGateSync } from '@/store/agentx-key'
 import { startAppUpdateSync } from '@/store/app-update'
 import { startLicenseSync } from '@/store/license'
 import { respondToApprovalAction } from '@/store/native-notifications'
@@ -73,6 +74,10 @@ export function useDesktopIntegrations({
   // The AgentX license: mirror main's view in every window, so every composer
   // locks (and every banner shows) the moment it changes.
   useEffect(() => startLicenseSync(), [])
+
+  // The AgentX key gate: mirror main's view in every window, so the gate shows
+  // wherever the person looks while the boot waits for their key.
+  useEffect(() => startAgentxKeyGateSync(), [])
 
   // The renderer OWNS ⌘W: on macOS the native menu accelerator would else
   // close the window, so claim it unconditionally — the menu then routes ⌘W

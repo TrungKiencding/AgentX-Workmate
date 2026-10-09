@@ -1934,6 +1934,16 @@ def account_key_status(
 
     stored = (get_env_value_prefer_dotenv(key_env) or "").strip()
     if not stored:
+        effective = _effective_settings(settings)
+        if not effective.configured:
+            # Nothing to provision from, so nothing is missing: the desktop's
+            # key gate holds a signed-in person until "missing" turns into a
+            # key, and on an install with no keys service that never could.
+            return ProvisionResult(
+                status="unconfigured",
+                detail=f"{effective.missing_setting} is not set.",
+                provider=settings.provider_name,
+            )
         return ProvisionResult(
             status="missing",
             detail="this account has no LiteLLM key yet.",

@@ -109,6 +109,15 @@ jobs:
         working-directory: apps/desktop
         run: npm run builder -- --win nsis ${{ (inputs.msi && 'msi') || '' }} --x64 --arm64 --publish never
 
+      # An NSIS installer's payload is compressed, so the release machine cannot
+      # read which commit a CI-built .exe pins. This records it, with each
+      # installer's sha256, in a file the release carries beside them; that is
+      # what `npm run release:feed -- build --from-github <tag>` checks.
+      - name: Record the commit the Windows installers pin
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: node scripts/write-win-build-manifest.mjs
+
       - name: Install NSIS and exercise real first launch and repeated restarts
         if: runner.os == 'Windows'
         working-directory: apps/desktop
@@ -158,6 +167,7 @@ jobs:
             apps/desktop/release/AgentXWorkmate-*.exe
             apps/desktop/release/AgentXWorkmate-*.msi
             apps/desktop/release/AgentXWorkmate-*.zip
+            apps/desktop/release/AgentXWorkmate-*-build.json
 
   release:
     name: Attach to the release

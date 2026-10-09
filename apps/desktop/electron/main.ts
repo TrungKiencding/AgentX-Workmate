@@ -1,4 +1,4 @@
-import { execFile, execFileSync, spawn } from 'node:child_process'
+import { type ChildProcess, execFile, execFileSync, spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
@@ -31,7 +31,7 @@ import {
 } from 'electron'
 import nodePty from 'node-pty'
 
-import { accountSlugForIdentity } from './account-slug'
+import { type AccountHomeOnDisk, accountSlugForIdentity, isAccountSlug, resolveAccountSlug } from './account-slug'
 import {
   type AccountRecord,
   type AccountStoreIo,
@@ -43,6 +43,7 @@ import {
   writeAccountState
 } from './account-store'
 import { classifyActiveRuntime } from './active-runtime-state'
+import { AgentxKeyGate } from './agentx-key-gate'
 import { type AppUpdateService, createAppUpdateService } from './app-update/service'
 import type { AgentUpdateFailure } from './app-update/updater'
 import { stopBackendChild as stopBackendChildImpl, stopBackendTreesForUpdate } from './backend-child'
@@ -268,7 +269,7 @@ import {
   writeSandboxMarker
 } from './windows-sandbox-fallback'
 import { installWindowsSystemCaTrust } from './windows-system-ca'
-import { readWindowsUserEnvVar } from './windows-user-env'
+import { isLosslessWindowsPath, readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
 import { resolvePickerDefaultPath } from './wsl-path-bridge'
@@ -590,8 +591,15 @@ function resolveHermesHome() {
     // Consult the live User-scoped registry value before the default below.
     const fromRegistry = readWindowsUserEnvVar('AGENTX_HOME')
 
-    if (fromRegistry) {
+    if (fromRegistry && isLosslessWindowsPath(fromRegistry)) {
       return normalizeHermesHomeRoot(fromRegistry)
+    }
+
+    if (fromRegistry) {
+      // A user name with diacritics does not survive `reg`'s code page, and the
+      // mangled path would be a new, empty home — everything the person had
+      // would seem gone. The default below is what install.ps1 writes anyway.
+      console.warn(`[agentx] ignoring an AGENTX_HOME the registry returned garbled: ${fromRegistry}`)
     }
   }
 
@@ -6856,9 +6864,70 @@ let _spawnedAccountSlug: string | null = null
  */
 let _accountRehomeAttempted = false
 
+/**
+ * The AgentX key gate: holds the boot of a signed-in account that has no
+ * AgentX AI Gateway key, and tells every window why (agentx-key-gate.ts).
+ */
+const agentxKeyGate = new AgentxKeyGate({
+  log: message => rememberLog(message),
+  publish: state => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      const { webContents } = win
+
+      if (webContents && !webContents.isDestroyed()) {
+        webContents.send('agentx:account:key-gate:changed', state)
+      }
+    }
+  }
+})
+
 /** Read the account the next spawn should use. Null means the shared home. */
 function readBootAccountSlug(): string | null {
   return bootAccountSlug(readAccountState(_accountStoreIo()))
+}
+
+/**
+ * The account homes already on this machine, with when each was last used —
+ * what resolveAccountSlug needs to keep a renamed person in the home they have.
+ */
+function accountHomesOnDisk(): AccountHomeOnDisk[] {
+  const root = path.join(AGENTX_HOME, 'accounts')
+  let names: string[]
+
+  try {
+    names = fs.readdirSync(root)
+  } catch {
+    return []
+  }
+
+  const homes: AccountHomeOnDisk[] = []
+
+  for (const slug of names) {
+    if (!isAccountSlug(slug)) {
+      continue
+    }
+
+    const home = path.join(root, slug)
+    let lastUsedMs = 0
+
+    try {
+      if (!fs.statSync(home).isDirectory()) {
+        continue
+      }
+
+      lastUsedMs = fs.statSync(path.join(home, 'state.db')).mtimeMs
+    } catch {
+      try {
+        lastUsedMs = fs.statSync(home).mtimeMs
+      } catch {
+        continue
+      }
+    }
+
+    homes.push({ lastUsedMs, slug })
+  }
+
+  return homes
 }
 
 /** The account record for whoever is signed in right now, if anyone. */
@@ -7839,6 +7908,8 @@ function resetHermesConnection({ soft = false } = {}) {
   backendStartFailure = null
   remoteReauthFailure = null
   remoteLiveness.clear()
+  // A boot held at the key gate belongs to the backend going away.
+  agentxKeyGate.release(new Error('The AgentX backend is restarting.'))
   const hermesProcess = backendConnectionState.invalidate()
   stopBackendChild(hermesProcess)
 
@@ -8309,12 +8380,11 @@ class AccountRehomeRequested extends Error {
  * which is every launch except the first on a machine and the one right after
  * somebody else signs in.
  *
- * Provisioning the LiteLLM key rides along here because this is the first
- * moment both halves exist: a verified identity and a backend running in that
- * identity's home. It is awaited only when this account has never had a key,
- * so the common launch is not held up by a call to LiteLLM — and even that
- * first wait cannot fail the boot, because a person with no key still needs
- * their app in order to be told why.
+ * Provisioning the LiteLLM key starts here because this is the first moment
+ * both halves exist: a verified identity and a backend running in that
+ * identity's home. It is not awaited here: an account that already holds its
+ * key is not held up by a call to LiteLLM, and one that does not is held at
+ * the key gate (holdForAgentxKey) until the key arrives.
  */
 async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null> {
   const tokens = _nativeTokens.get(baseUrl)
@@ -8325,14 +8395,31 @@ async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null
     return null
   }
 
+  const io = _accountStoreIo()
+  const known = readAccountState(io)
   let slug: string
 
   try {
-    slug = accountSlugForIdentity({
+    const derived = accountSlugForIdentity({
       email: tokens.email || '',
       subject: tokens.userId,
       username: tokens.displayName || ''
     })
+
+    // The same person keeps the same home when their name changes — see
+    // resolveAccountSlug for why the derived slug alone cannot decide.
+    slug = resolveAccountSlug({
+      derived,
+      homes: accountHomesOnDisk(),
+      stored: known.accounts[tokens.userId]?.slug || null,
+      subject: tokens.userId
+    })
+
+    if (slug !== derived) {
+      rememberLog(
+        `[account] this sign-in derives "${derived}" but the account already lives in "${slug}" (the name it was created under has changed); staying there`
+      )
+    }
   } catch (error) {
     rememberLog(
       `[account] could not derive an account from this sign-in: ${
@@ -8343,9 +8430,7 @@ async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null
     return null
   }
 
-  const io = _accountStoreIo()
-
-  const { state, switched } = rememberSignIn(readAccountState(io), {
+  const { state, switched } = rememberSignIn(known, {
     displayName: tokens.displayName || '',
     email: tokens.email || '',
     issuer: _keycloakConfigs.get(baseUrl)?.issuer || '',
@@ -8381,29 +8466,53 @@ async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null
     rememberLog(`[account] now signed in as "${slug}"`)
   }
 
-  const record = state.accounts[tokens.userId]
-
-  await ensureAccountProvisioned(baseUrl, tokens.userId, { await: !record?.provisioned })
+  // Started here, waited on by the key gate when the account has no key yet —
+  // so the gate can show the request while it is out instead of a frozen boot.
+  void ensureAccountProvisioned(baseUrl, tokens.userId)
 
   return null
+}
+
+/** Provisioning requests out right now, by backend + subject + kind, so concurrent callers share one. */
+const _provisionInFlight = new Map<string, Promise<any>>()
+
+/** The last `litellm` answer each subject got this launch (null: the backend gave none). */
+const _lastProvision = new Map<string, unknown>()
+
+/** Whom this launch has already reported the device for (see heartbeatDevice). */
+const _heartbeatSentFor = new Set<string>()
+
+function provisionRequestKey(baseUrl: string, subject: string, rotate: boolean): string {
+  return JSON.stringify([baseUrl, subject, rotate])
 }
 
 /**
  * Ask the backend to make sure this account holds a working LiteLLM key.
  *
- * Fire-and-forget unless the account has never been provisioned: a key that
- * already works only needs a cheap liveness check, and making every launch
- * wait on the proxy would put someone else's downtime in front of the app.
+ * Fire-and-forget by default: a key that already works only needs a cheap
+ * liveness check, and making every launch wait on the proxy would put someone
+ * else's downtime in front of the app. The key gate awaits it when the account
+ * has no key (holdForAgentxKey). A request already out for the same account is
+ * joined rather than repeated — sign-in starts one and the gate waits on it.
  */
 async function ensureAccountProvisioned(
   baseUrl: string,
   subject: string,
   { await: shouldAwait = false, rotate = false }: { await?: boolean; rotate?: boolean } = {}
 ): Promise<any> {
+  const requestKey = provisionRequestKey(baseUrl, subject, rotate)
+  const pending = _provisionInFlight.get(requestKey)
+
+  if (pending) {
+    return shouldAwait ? pending : null
+  }
+
   const run = async () => {
     const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
 
     if (!bearer) {
+      _lastProvision.set(subject, null)
+
       return null
     }
 
@@ -8420,6 +8529,7 @@ async function ensureAccountProvisioned(
     const status = body?.litellm?.status || 'unknown'
 
     rememberLog(`[account] LiteLLM key: ${status} — ${body?.litellm?.detail || ''}`)
+    _lastProvision.set(subject, body?.litellm ?? null)
 
     if (body?.litellm?.ok) {
       const io = _accountStoreIo()
@@ -8427,23 +8537,30 @@ async function ensureAccountProvisioned(
       writeAccountState(markProvisioned(readAccountState(io), subject), io)
     }
 
-    // Once per launch, and here rather than at boot because this is the first
-    // point where the backend is up AND somebody is signed in — which is what
-    // the service needs to attribute the machine to a person.
-    heartbeatDevice()
+    // Once per launch and person, and here rather than at boot because this is
+    // the first point where the backend is up AND somebody is signed in — which
+    // is what the service needs to attribute the machine to a person. Not on
+    // every "Try again" at the key gate.
+    if (!_heartbeatSentFor.has(subject)) {
+      _heartbeatSentFor.add(subject)
+      heartbeatDevice()
+    }
 
     return body
   }
 
   const attempt = run().catch(error => {
-    // Never fatal. The person is signed in and their state is isolated; what
-    // they are missing is a model key, and the next launch retries.
+    // Never fatal here: whether the person can go on without a key is the key
+    // gate's decision, and it reads the key for itself.
     rememberLog(
       `[account] could not provision a LiteLLM key: ${error instanceof Error ? error.message : String(error)}`
     )
+    _lastProvision.set(subject, null)
 
     return null
   })
+
+  _provisionInFlight.set(requestKey, attempt)
 
   // Whatever provisioning did, the license is asked about once it is over — a
   // key the service refused for the license is exactly when it matters, and a
@@ -8451,12 +8568,85 @@ async function ensureAccountProvisioned(
   // ticker keeps it (and synchronisation, which needs the bearer this moment
   // is the first to have) going from here.
   void attempt.then(() => {
+    _provisionInFlight.delete(requestKey)
     startAccountTicker()
 
     return licenseSync.refresh('provisioned')
   })
 
   return shouldAwait ? attempt : null
+}
+
+/** `/api/account`'s `litellm` block — which key this account holds — or null when it cannot be read. */
+async function readAccountKey(baseUrl: string): Promise<unknown> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const bearer = await ensureNativeAccessToken(baseUrl).catch(() => null)
+
+      if (!bearer) {
+        return null
+      }
+
+      const body = (await fetchJson(`${baseUrl}/api/account`, null, { bearer, timeoutMs: 8_000 })) as any
+
+      return body?.litellm ?? null
+    } catch (error) {
+      rememberLog(
+        `[account] could not read this account's key (attempt ${attempt}): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+  }
+
+  return null
+}
+
+/**
+ * Hold the boot until the signed-in account holds its AgentX key.
+ *
+ * Returns at once for an ungated backend, an install that provisions no keys,
+ * and an account whose key is in place. Otherwise the key gate tells the
+ * person why and waits for "Try again" (agentx-key-gate.ts). The backend
+ * exiting meanwhile releases the hold, so the boot fails like any other crash
+ * instead of hanging.
+ */
+async function holdForAgentxKey(baseUrl: string, child: ChildProcess): Promise<void> {
+  const tokens = _nativeTokens.get(baseUrl)
+
+  if (!tokens?.userId) {
+    agentxKeyGate.forget()
+
+    return
+  }
+
+  const subject = tokens.userId
+  const exited = new AbortController()
+
+  const onExit = () =>
+    exited.abort(new Error("The AgentX backend exited while waiting for this account's AgentX key."))
+
+  child.once('exit', onExit)
+
+  try {
+    const inFlight = _provisionInFlight.has(provisionRequestKey(baseUrl, subject, false))
+
+    await agentxKeyGate.hold({
+      account: { displayName: tokens.displayName || '', email: tokens.email || '' },
+      // A request still out is waited on through `provision`; one that has
+      // already answered is not asked again before the person says so.
+      lastAttempt: inFlight || !_lastProvision.has(subject) ? undefined : _lastProvision.get(subject),
+      provision: async () => {
+        const body = await ensureAccountProvisioned(baseUrl, subject, { await: true })
+
+        return body?.litellm ?? null
+      },
+      readKey: () => readAccountKey(baseUrl),
+      signal: exited.signal
+    })
+  } finally {
+    child.removeListener('exit', onExit)
+  }
 }
 
 /**
@@ -8609,6 +8799,10 @@ async function startHermes() {
     })
 
     if (setup.kind === 'remote') {
+      // A remote backend is somebody else's install: its key is not this
+      // machine's to require.
+      agentxKeyGate.forget()
+
       return setup.connection
     }
 
@@ -8785,6 +8979,12 @@ async function startHermes() {
     if (rehomeTo) {
       throw new AccountRehomeRequested(rehomeTo)
     }
+
+    // Nobody signed in to AgentX gets the app without their AgentX key: the
+    // connection is not reported ready until it is on this machine (see
+    // agentx-key-gate.ts). Resolves at once for an account that has one, and
+    // for an install that provisions none.
+    await holdForAgentxKey(baseUrl, hermesProcess)
 
     // The messaging gateway runs outside this backend and a reboot ends it.
     // Now that the home is settled, ask for it back; the backend decides
@@ -10302,6 +10502,9 @@ ipcMain.handle('agentx:keycloak:sign-out', async (_event, profile) => {
   // Nor may they start under this person's license.
   licenseSync.forget()
 
+  // Nor wait at this person's key gate: whoever signs in next is asked again.
+  agentxKeyGate.forget()
+
   try {
     const endpoints = await fetchKeycloakEndpoints(config, keycloakDeps())
     const url = buildEndSessionUrl(endpoints, tokens?.accessToken || '')
@@ -10381,6 +10584,11 @@ async function primaryLocalBaseUrl(): Promise<string | null> {
 // The renderer never chooses an account — it is whoever signed in. These
 // answer "which one am I in, and does it have a working model key?", plus the
 // one action a user can take about it: mint a fresh key.
+
+// The key gate. Both answer while the boot is held — they never wait on
+// startHermes(), whose connection is exactly what the gate is holding back.
+ipcMain.handle('agentx:account:key-gate:get', async () => agentxKeyGate.state)
+ipcMain.handle('agentx:account:key-gate:retry', async () => agentxKeyGate.retry())
 
 ipcMain.handle('agentx:account:status', async () => {
   const record = currentAccountRecord()

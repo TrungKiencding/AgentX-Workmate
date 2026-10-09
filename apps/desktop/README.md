@@ -95,13 +95,14 @@ macOS/Windows signing & notarization happen automatically when the relevant cred
 
 ### Publishing a release
 
-Installed apps update from `release.json`, a feed signed with the Workmate release key, served beside the installers on the download site (`https://agentx-landingpage.astralx.com.vn/install/`). To publish:
+Installed apps update from `release.json`, a feed signed with the Workmate release key, served beside the installers on the download site (`https://agentx-landingpage.astralx.com.vn/install/`). The installers are the ones CI builds for a release tag. To publish:
 
-1. Bump the version (`hermes_cli/__init__.py`, then `python scripts/release.py --sync-versions`), merge to `main`, and push — each installer pins the commit it was built from, and the agent is fetched from GitHub at that commit.
-2. Write `release-notes/<version>.md`: a `## vi` and a `## en` heading, each followed by `- ` bullet points.
-3. Build both installers from that clean commit (`npm run build`, then `npm run builder -- --mac dmg` and `npm run builder -- --win nsis --x64`, both with `'-c.artifactName=AgentXWorkmate-${os}-${arch}.${ext}'`).
-4. `npm run release:feed -- build --out <download site folder>` (for the landing page: `AgentX-Landing/public/install`). It refuses unless the versions, the build stamp, the installers and the notes all agree, then copies the installers and writes the signed feed. `npm run release:feed -- verify <folder>` re-checks a folder.
-5. Deploy that folder (`AgentX-Landing/deploy/deploy.sh`).
+1. Bump the version (`hermes_cli/__init__.py`, then `python scripts/release.py --sync-versions`) and write `release-notes/<version>.md`: a `## vi` and a `## en` heading, each followed by `- ` bullet points. Merge to `main` and push — each installer pins the commit it was built from, and the agent is fetched from GitHub at that commit.
+2. Push an annotated tag `desktop-v<version>` on that commit. `.github/workflows/release-desktop.yml` builds both installers, installs and exercises the Windows one, and attaches them to the GitHub Release for the tag, with `AgentXWorkmate-<version>-win-build.json`: the commit the Windows installers pin and their sha256s (an NSIS installer's own payload cannot be read on the release machine).
+3. `npm run release:feed -- build --from-github desktop-v<version> --out <download site folder>` (for the landing page: `AgentX-Landing/public/install`). It downloads the macOS dmg and the Windows x64 exe from the release, resuming when the connection drops (`--download-dir` keeps them between runs; by default a folder per tag under the system temp folder). It refuses unless each hashes to the digest GitHub reports, the tagged commit is on `origin/main` and its versions agree, both installers carry that version and pin that commit, and `release-notes/<version>.md` is in this checkout; then it writes the installers under the download page's names and the signed feed. It needs `gh` signed in, and macOS to mount the dmg. Releases tagged before CI wrote the build manifest (1.0.8 and earlier) cannot be published this way.
+4. Deploy that folder (`AgentX-Landing/deploy/deploy.sh`).
+
+To publish installers built on this machine instead, build both from the clean, pushed commit (`npm run build`, then `npm run builder -- --mac dmg` and `npm run builder -- --win nsis --x64`, both with `'-c.artifactName=AgentXWorkmate-${os}-${arch}.${ext}'`) and run `npm run release:feed -- build --out <folder>`, which makes the same checks against the build stamp and `release/win-unpacked`. Either way, `npm run release:feed -- verify <folder>` re-checks a folder.
 
 The release key lives at `~/.config/agentx-workmate/release-signing-key.pem` (or `AGENTX_WORKMATE_RELEASE_KEY`). Keep a backup: the app only trusts the public half compiled into it (`electron/app-update/feed.ts`), so a lost key means shipping a new public key with a manual install. `npm run release:feed -- keygen` creates one and never overwrites an existing key.
 

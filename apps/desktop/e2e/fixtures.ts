@@ -147,6 +147,93 @@ export function createSandbox(prefix: string): Sandbox {
   }
 }
 
+// ─── The developer's own command links ───────────────────────────────────
+
+/**
+ * Specs that run the real installer touch more than their sandbox: the `path`
+ * stage of install.sh points the `agentx` commands in ~/.local/bin at the
+ * sandbox's checkout, which the spec then deletes — leaving the developer's own
+ * `agentx` broken until a reinstall. Snapshot the directory's small entries
+ * (links and wrapper scripts, never large binaries) and return a function that
+ * puts back exactly what was there and removes what the run added.
+ */
+export function protectUserCommandLinks(dir = path.join(os.homedir(), '.local', 'bin')): () => void {
+  const SMALL = 1_000_000
+  const before = new Map<string, { data?: Buffer; link?: string; mode?: number }>()
+  let names: string[] = []
+
+  try {
+    names = fs.readdirSync(dir)
+  } catch {
+    names = []
+  }
+
+  for (const name of names) {
+    const full = path.join(dir, name)
+    const stat = fs.lstatSync(full)
+
+    if (stat.isSymbolicLink()) {
+      before.set(name, { link: fs.readlinkSync(full) })
+    } else if (stat.isFile() && stat.size < SMALL) {
+      before.set(name, { data: fs.readFileSync(full), mode: stat.mode })
+    }
+  }
+
+  const restore = (name: string) => {
+    const full = path.join(dir, name)
+    const entry = before.get(name)!
+
+    fs.rmSync(full, { force: true })
+
+    if (entry.link !== undefined) {
+      fs.symlinkSync(entry.link, full)
+    } else {
+      fs.writeFileSync(full, entry.data!)
+      fs.chmodSync(full, entry.mode! & 0o7777)
+    }
+  }
+
+  return () => {
+    let now: string[] = []
+
+    try {
+      now = fs.readdirSync(dir)
+    } catch {
+      now = []
+    }
+
+    for (const name of now) {
+      const full = path.join(dir, name)
+      const entry = before.get(name)
+
+      if (!entry) {
+        if (!names.includes(name)) {
+          fs.rmSync(full, { force: true })
+        }
+
+        continue
+      }
+
+      const stat = fs.lstatSync(full)
+
+      const same =
+        entry.link !== undefined
+          ? stat.isSymbolicLink() && fs.readlinkSync(full) === entry.link
+          : stat.isFile() && fs.readFileSync(full).equals(entry.data!)
+
+      if (!same) {
+        restore(name)
+      }
+    }
+
+    for (const name of before.keys()) {
+      if (!now.includes(name)) {
+        restore(name)
+      }
+    }
+  }
+}
+
 // ─── Config writing ─────────────────────────────────────────────────────
 
 /**

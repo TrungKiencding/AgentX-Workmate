@@ -488,18 +488,26 @@ def remove_path_from_windows_registry(hermes_home: Path) -> list[str]:
     return removed
 
 
-def remove_hermes_env_vars_windows() -> list[str]:
-    """Delete AGENTX_HOME and AGENTX_GIT_BASH_PATH from User-scope env vars."""
+def remove_hermes_env_vars_windows(*, keep_home: bool = False) -> list[str]:
+    """Delete AGENTX_HOME and AGENTX_GIT_BASH_PATH from User-scope env vars.
+
+    ``keep_home`` leaves AGENTX_HOME in place: when the data stays, that
+    variable is how a reinstall finds it again — on a machine where it points
+    anywhere but the default, deleting it would leave the kept data stranded
+    behind a fresh, empty home. AGENTX_GIT_BASH_PATH always goes; it names the
+    PortableGit the uninstall removes either way.
+    """
     try:
         import winreg
     except ImportError:
         return []
 
+    names = ("AGENTX_GIT_BASH_PATH",) if keep_home else ("AGENTX_HOME", "AGENTX_GIT_BASH_PATH")
     removed: list[str] = []
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0,
                             winreg.KEY_READ | winreg.KEY_WRITE) as key:
-            for name in ("AGENTX_HOME", "AGENTX_GIT_BASH_PATH"):
+            for name in names:
                 try:
                     winreg.QueryValueEx(key, name)
                 except FileNotFoundError:
@@ -1145,8 +1153,8 @@ def _perform_uninstall(
         else:
             log_info("No AgentX-owned PATH entries in User environment")
 
-        log_info("Removing AGENTX_HOME / AGENTX_GIT_BASH_PATH User env vars...")
-        removed_env = remove_hermes_env_vars_windows()
+        log_info("Removing AgentX User env vars...")
+        removed_env = remove_hermes_env_vars_windows(keep_home=not full_uninstall)
         if removed_env:
             for name in removed_env:
                 log_success(f"Removed User env var: {name}")
@@ -1174,18 +1182,23 @@ def _perform_uninstall(
         log_info("No AgentX-managed node/npm/npx symlinks found")
 
     # 3c. Remove the desktop Chat GUI's artifacts too (built renderer/release,
-    #     node_modules, the packaged app bundle, and the Electron userData
-    #     dir). Both the "keep data" and "full" CLI flows remove the agent
-    #     code, so the GUI — which is just another consumer of the same
-    #     checkout — should go with it. uninstall_gui() never touches config /
-    #     sessions / .env, so it's safe in keep-data mode; on full uninstall the
-    #     step-5 rmtree(hermes_home) would sweep the in-tree artifacts anyway,
-    #     but the packaged app + Electron userData live OUTSIDE AGENTX_HOME and
-    #     must be cleaned explicitly here.
+    #     node_modules, the packaged app bundle). Both the "keep data" and
+    #     "full" CLI flows remove the agent code, so the GUI — which is just
+    #     another consumer of the same checkout — should go with it. On full
+    #     uninstall the step-5 rmtree(hermes_home) would sweep the in-tree
+    #     artifacts anyway, but the packaged app + Electron userData live
+    #     OUTSIDE AGENTX_HOME and must be cleaned explicitly here.
+    #
+    #     The Electron userData dir only goes on a full uninstall. It is the
+    #     desktop's half of the person's data: which account home is whose
+    #     (accounts.json), this install's device identity (device.json), the
+    #     sign-in, and the app's own settings. "Keep my data" that kept the
+    #     chats but threw those away was a reinstall that signed in as a new
+    #     device and could not find the right home.
     log_info("Removing desktop Chat GUI artifacts...")
     try:
         from hermes_cli.gui_uninstall import uninstall_gui
-        gui_removed = uninstall_gui(hermes_home)
+        gui_removed = uninstall_gui(hermes_home, remove_userdata=full_uninstall)
         if not gui_removed:
             log_info("No desktop GUI artifacts found")
     except Exception as e:

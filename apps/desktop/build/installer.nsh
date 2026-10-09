@@ -20,13 +20,20 @@
 ; inside it — which is how a later reinstall came to silently adopt an old key
 ; instead of collecting the current one from the second brain.
 ;
-; This file closes that. The uninstall welcome page carries a checkbox, ticked
-; by default, that hands the rest of the job to the agent's own uninstaller
-; (`python -m hermes_cli.uninstall --mode full`). That module already knows how
-; to stop the gateway, strip the registry PATH entry, and delete the venv it is
-; itself running from — including the deferred cleanup that finishes after this
-; process exits, which is the only way a running python.exe ever gets deleted
-; on Windows.
+; This file closes that. Uninstalling hands the rest of the job to the agent's
+; own uninstaller (`python -m hermes_cli.uninstall`). That module already knows
+; how to stop the gateway, strip the registry PATH entry, and delete the venv it
+; is itself running from — including the deferred cleanup that finishes after
+; this process exits, which is the only way a running python.exe ever gets
+; deleted on Windows.
+;
+; What it removes is the person's choice, on the uninstall welcome page: the
+; agent and the agentx command always go (`--mode lite`); their chats, settings
+; and model key go only when they tick the box (`--mode full`). It is unticked
+; by default. People uninstall to reinstall — that is how "get the new version"
+; is done on Windows — and a box ticked for them used to wipe every
+; conversation on the way. A key kept in .env no longer ambushes a reinstall:
+; sign-in checks it with the keys service and replaces one that stopped working.
 
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
@@ -53,14 +60,15 @@ Function un.AgentXPurgePageCreate
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 24u "AgentX Workmate will be removed from this computer."
+  ${NSD_CreateLabel} 0 0 100% 36u "AgentX Workmate, the AgentX agent and the agentx command will be removed from this computer. Your chats, settings and saved model key stay on it, so reinstalling picks up where you left off."
   Pop $0
 
-  ${NSD_CreateCheckbox} 0 30u 100% 12u "Also remove the AgentX agent, the agentx command, and all AgentX data (recommended)"
+  ; Unticked by default: deleting somebody's chats is the one step here that
+  ; cannot be undone, so it is the one they have to ask for.
+  ${NSD_CreateCheckbox} 0 42u 100% 12u "Also delete my AgentX data (chats, settings and saved model key)"
   Pop $AgentXPurgeCheckbox
-  ${NSD_Check} $AgentXPurgeCheckbox
 
-  ${NSD_CreateLabel} 14u 46u 100% 48u "This removes the agent installed under %LOCALAPPDATA%\agentx, takes the agentx command off your PATH, and deletes your AgentX settings, sessions, and saved model key.$\r$\n$\r$\nLeave it unticked to keep those for a future reinstall. The agentx command will stay available in your terminal."
+  ${NSD_CreateLabel} 14u 58u 100% 36u "Deletes everything under %LOCALAPPDATA%\agentx and the app's own settings. This cannot be undone."
   Pop $0
 
   nsDialogs::Show
@@ -83,40 +91,46 @@ FunctionEnd
     Delete "$DESKTOP\AgentX.lnk"
     Delete "$SMPROGRAMS\AgentX.lnk"
 
+    ; The agent and the agentx command go either way: the app they belong to
+    ; is going, and an agent left on PATH would outlive it. The box decides
+    ; only whether the person's data goes too. A silent uninstall never shows
+    ; the page, so it keeps the data.
     ${If} $AgentXPurgeState == ${BST_CHECKED}
-      DetailPrint "Removing the AgentX agent, the agentx command, and AgentX data..."
+      StrCpy $4 "full"
+      DetailPrint "Removing the AgentX agent, the agentx command, and your AgentX data..."
+    ${Else}
+      StrCpy $4 "lite"
+      DetailPrint "Removing the AgentX agent and the agentx command; keeping your AgentX data..."
+    ${EndIf}
 
-      ; AGENTX_HOME wins when set (install.ps1 sets it, and an operator may
-      ; have pointed it elsewhere); otherwise the installer's own default.
-      ReadEnvStr $0 "AGENTX_HOME"
-      ${If} $0 == ""
-        ReadEnvStr $1 "LOCALAPPDATA"
-        StrCpy $0 "$1\agentx"
-      ${EndIf}
+    ; AGENTX_HOME wins when set (install.ps1 sets it, and an operator may
+    ; have pointed it elsewhere); otherwise the installer's own default.
+    ReadEnvStr $0 "AGENTX_HOME"
+    ${If} $0 == ""
+      ReadEnvStr $1 "LOCALAPPDATA"
+      StrCpy $0 "$1\agentx"
+    ${EndIf}
 
-      StrCpy $1 "$0\agentx-agent"
-      StrCpy $2 "$1\venv\Scripts\python.exe"
+    StrCpy $1 "$0\agentx-agent"
+    StrCpy $2 "$1\venv\Scripts\python.exe"
 
-      ${If} ${FileExists} "$2"
-        ; PYTHONPATH so `import hermes_cli` resolves from the checkout even
-        ; when the editable install in the venv is half-broken — which is
-        ; exactly the state a machine gets into after a failed update, and
-        ; precisely when somebody reaches for Uninstall.
-        System::Call 'Kernel32::SetEnvironmentVariable(t "PYTHONPATH", t "$1")i.r3'
-        ; --mode full is non-interactive and never prompts. The module detects
-        ; that it is running from inside the tree it must delete and hands the
-        ; locked remainder to a detached cleanup that runs once this python
-        ; exits; nothing here has to wait for that.
-        nsExec::ExecToLog '"$2" -m hermes_cli.uninstall --mode full'
-        Pop $4
-        ${If} $4 != 0
-          DetailPrint "The agent uninstaller returned $4; some AgentX files may remain in $0"
-        ${EndIf}
-      ${Else}
-        DetailPrint "No AgentX agent found at $1 - nothing else to remove"
+    ${If} ${FileExists} "$2"
+      ; PYTHONPATH so `import hermes_cli` resolves from the checkout even
+      ; when the editable install in the venv is half-broken — which is
+      ; exactly the state a machine gets into after a failed update, and
+      ; precisely when somebody reaches for Uninstall.
+      System::Call 'Kernel32::SetEnvironmentVariable(t "PYTHONPATH", t "$1")i.r3'
+      ; Both modes are non-interactive and never prompt. The module detects
+      ; that it is running from inside the tree it must delete and hands the
+      ; locked remainder to a detached cleanup that runs once this python
+      ; exits; nothing here has to wait for that.
+      nsExec::ExecToLog '"$2" -m hermes_cli.uninstall --mode $4'
+      Pop $4
+      ${If} $4 != 0
+        DetailPrint "The agent uninstaller returned $4; some AgentX files may remain in $0"
       ${EndIf}
     ${Else}
-      DetailPrint "Keeping the AgentX agent and your data (the agentx command stays on your PATH)"
+      DetailPrint "No AgentX agent found at $1 - nothing else to remove"
     ${EndIf}
 
   ${endif}

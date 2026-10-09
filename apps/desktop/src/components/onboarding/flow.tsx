@@ -1,6 +1,8 @@
+import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { AgentxKeyFailureNotice } from '@/components/agentx-key-failure'
 import { ModelPickerDialog } from '@/components/model-picker'
 import { Button } from '@/components/ui/button'
 import { ErrorIcon } from '@/components/ui/error-state'
@@ -8,10 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Loader } from '@/components/ui/loader'
 import { getGlobalModelOptions } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { ExternalLink, Loader2 } from '@/lib/icons'
+import { agentxKeyContact, agentxKeySupportLine } from '@/lib/agentx-key'
+import { ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { $agentxKeyGate, $agentxKeyRequired } from '@/store/agentx-key'
+import { $license } from '@/store/license'
 import {
+  $desktopOnboarding,
   cancelOnboardingFlow,
+  connectAgentxGateway,
   copyDeviceCode,
   copyExternalCommand,
   type OnboardingContext,
@@ -37,7 +44,12 @@ export function FlowPanel({
   onBegin: () => void
 }) {
   const { t } = useI18n()
+  const { manual } = useStore($desktopOnboarding)
+  const keyRequired = useStore($agentxKeyRequired)
   const title = 'provider' in flow && flow.provider ? providerTitle(flow.provider) : ''
+  // A signed-in AgentX account's first run is the gateway or nothing: no other
+  // provider to fall back to (see Picker in index.tsx).
+  const gatewayOnly = keyRequired && !manual
 
   if (flow.status === 'starting') {
     return <Status>{t.onboarding.startingSignIn(title)}</Status>
@@ -56,23 +68,19 @@ export function FlowPanel({
   }
 
   if (flow.status === 'confirming_model') {
-    return <ConfirmingModelPanel flow={flow} leaving={leaving} onBegin={onBegin} profile={ctx.profile} />
+    return (
+      <ConfirmingModelPanel
+        flow={flow}
+        gatewayOnly={gatewayOnly}
+        leaving={leaving}
+        onBegin={onBegin}
+        profile={ctx.profile}
+      />
+    )
   }
 
   if (flow.status === 'error') {
-    return (
-      <div className="grid gap-3">
-        <div className="flex items-center gap-1.5 text-sm text-destructive">
-          <ErrorIcon className="shrink-0" size="0.875rem" />
-          <span>{flow.message || t.onboarding.signInFailed}</span>
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={cancelOnboardingFlow} variant="outline">
-            {t.onboarding.pickDifferentProvider}
-          </Button>
-        </div>
-      </div>
-    )
+    return <ErrorPanel ctx={ctx} flow={flow} gatewayOnly={gatewayOnly} />
   }
 
   if (flow.status === 'awaiting_user') {
@@ -135,6 +143,60 @@ export function FlowPanel({
         <CancelBtn size="sm" />
       </FlowFooter>
     </Step>
+  )
+}
+
+function ErrorPanel({
+  ctx,
+  flow,
+  gatewayOnly
+}: {
+  ctx: OnboardingContext
+  flow: Extract<OnboardingFlow, { status: 'error' }>
+  gatewayOnly: boolean
+}) {
+  const { t } = useI18n()
+  const gate = useStore($agentxKeyGate)
+  const { license } = useStore($license)
+  const keyFailure = flow.gateway?.failure ?? null
+
+  // The gateway card failing: the key gate's own reason and support details
+  // when the key itself was refused; otherwise what went wrong after it, and —
+  // where no other provider is on offer — whom to contact.
+  const body = keyFailure ? (
+    <AgentxKeyFailureNotice account={gate.account} failure={keyFailure} />
+  ) : (
+    <div className="grid gap-2">
+      <div className="flex items-center gap-1.5 text-sm text-destructive">
+        <ErrorIcon className="shrink-0" size="0.875rem" />
+        <span>{flow.message || t.onboarding.signInFailed}</span>
+      </div>
+      {flow.gateway && gatewayOnly ? (
+        <p className="text-sm text-foreground">{agentxKeySupportLine(agentxKeyContact(null, license), t.agentxKey)}</p>
+      ) : null}
+    </div>
+  )
+
+  return (
+    <div className="grid gap-3">
+      {body}
+      <div className="flex justify-end gap-2">
+        {gatewayOnly ? null : (
+          <Button onClick={cancelOnboardingFlow} variant="outline">
+            {t.onboarding.pickDifferentProvider}
+          </Button>
+        )}
+        {flow.gateway || gatewayOnly ? (
+          <Button
+            onClick={() => (flow.gateway ? void connectAgentxGateway(ctx) : cancelOnboardingFlow())}
+            variant={gatewayOnly ? 'default' : 'outline'}
+          >
+            <RefreshCw />
+            {t.agentxKey.retry}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
@@ -220,11 +282,13 @@ function CancelBtn({ size = 'default' }: { size?: 'default' | 'sm' }) {
 
 function ConfirmingModelPanel({
   flow,
+  gatewayOnly,
   leaving,
   onBegin,
   profile
 }: {
   flow: Extract<OnboardingFlow, { status: 'confirming_model' }>
+  gatewayOnly: boolean
   leaving: boolean
   onBegin: () => void
   profile?: string
@@ -318,10 +382,14 @@ function ConfirmingModelPanel({
         layer stays on the modal-backdrop rung: onboarding already dims the
         rest of the screen, so a second backdrop would double up.
       */}
+      {/* On a gateway-only first run the change stays among the gateway's own
+          models, with no way out to another provider from here. */}
       <ModelPickerDialog
+        allowAddProvider={!gatewayOnly}
         contentClassName="z-(--z-onboarding-popover)"
         currentModel={flow.currentModel}
         currentProvider={flow.providerSlug}
+        onlyProviders={gatewayOnly ? [flow.providerSlug] : undefined}
         onOpenChange={setPickerOpen}
         onSelect={({ model }) => {
           void setOnboardingModel(model)

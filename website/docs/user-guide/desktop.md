@@ -142,6 +142,8 @@ Manage providers, models, tools, and credentials from a real UI instead of editi
 
 First-run onboarding has been redesigned on a unified overlay design system, and you can pick **Choose provider later** to skip provider setup and get into the app first.
 
+The one exception is an account signed in to AgentX on an install that issues AgentX AI Gateway keys: that account runs on its own key, so its first run offers the gateway and nothing else — no other provider, no "later". If the key cannot be issued (the keys service refuses it, the network is down, the device was revoked), the app stops at a key screen that says why, asks the person to contact AgentX support with the error details it shows, and offers only **Try again** and **Sign out**. Other providers can still be added from **Settings → Providers** once the key is in place.
+
 ### Management panes
 
 The app also surfaces the broader AgentX management surface so you don't have to drop to a terminal:
@@ -180,9 +182,11 @@ Every release is signed: the app installs a download only when its size and sha2
 
 Open **Settings → About → Danger zone** and pick how much to remove:
 
-- **Uninstall everything** (recommended) — removes the app, the agent, the `agentx` command, your shortcuts, and all user data. (Same as `agentx uninstall`.)
-- **Uninstall GUI + agent, keep my data** — removes the app and the agent but keeps config, chats, and secrets for a future reinstall. (Same as `agentx uninstall --keep-data`.)
+- **Uninstall, keep my data** (recommended) — removes the app, the agent, and the `agentx` command, but keeps your chats, settings, saved model key, and the app's own settings for a future reinstall. (Same as `agentx uninstall --keep-data`.)
+- **Uninstall everything** — removes the app, the agent, the `agentx` command, your shortcuts, and all user data. This cannot be undone. (Same as `agentx uninstall`.)
 - **Uninstall Chat GUI only** — removes the desktop app and its data; the AgentX agent, your config, and your chats stay. (Same as `agentx uninstall --gui`.)
+
+The Windows uninstaller (Settings → Apps) asks the same question: it always removes the app, the agent, and the `agentx` command, and deletes your AgentX data only when you tick **Also delete my AgentX data**. That box starts unticked, so uninstalling to reinstall keeps everything. Installing a new version over an old one, or updating from inside the app, never deletes data either way.
 
 The app closes to finish the job (the cleanup runs after it exits so it can remove the running app bundle and its own venv). The agent-removing options are hidden automatically when no local agent is installed (for example, a GUI-only "lite" client connected to a remote backend).
 
