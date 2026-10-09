@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { expandWindowsEnvRefs, isLosslessWindowsPath, parseRegQueryValue, readWindowsUserEnvVar } from './windows-user-env'
+import {
+  expandWindowsEnvRefs,
+  isLosslessWindowsPath,
+  parseRegQueryValue,
+  readWindowsUserEnvVar
+} from './windows-user-env'
 
 // ── parseRegQueryValue ─────────────────────────────────────────────────────
 

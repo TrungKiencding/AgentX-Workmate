@@ -8623,8 +8623,7 @@ async function holdForAgentxKey(baseUrl: string, child: ChildProcess): Promise<v
   const subject = tokens.userId
   const exited = new AbortController()
 
-  const onExit = () =>
-    exited.abort(new Error("The AgentX backend exited while waiting for this account's AgentX key."))
+  const onExit = () => exited.abort(new Error("The AgentX backend exited while waiting for this account's AgentX key."))
 
   child.once('exit', onExit)
 

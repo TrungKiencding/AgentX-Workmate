@@ -162,7 +162,10 @@ describe('resolveAccountSlug', () => {
   test('finds the home by its digest when this machine forgot which one it was', () => {
     // accounts.json lives in Electron's userData, which an uninstall of the
     // app alone removes; the homes under AGENTX_HOME are still there.
-    assert.equal(resolveAccountSlug({ derived: renamed, homes: [{ lastUsedMs: 1, slug: original }], subject }), original)
+    assert.equal(
+      resolveAccountSlug({ derived: renamed, homes: [{ lastUsedMs: 1, slug: original }], subject }),
+      original
+    )
   })
 
   test('prefers the most recently used home when a rename already split one person in two', () => {
