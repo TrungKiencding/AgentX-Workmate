@@ -279,6 +279,33 @@ export const vi: Translations = {
     dismiss: 'Bỏ qua'
   },
 
+  agentxKey: {
+    title: 'Chưa cấp được key AgentX AI',
+    provisioning: 'Đang cấp key AgentX AI Gateway cho tài khoản của bạn…',
+    intro:
+      'Workmate cần key AgentX AI Gateway của tài khoản để hoạt động. Hệ thống chưa cấp được key cho tài khoản này, nên bạn chưa dùng được Workmate.',
+    account: who => `Tài khoản: ${who}`,
+    reasons: {
+      offline: 'Không kết nối được tới máy chủ cấp key AgentX. Hãy kiểm tra mạng rồi bấm Thử lại.',
+      revoked: 'Thiết bị này đã bị thu hồi khỏi tài khoản AgentX của bạn.',
+      noModels: 'Tài khoản của bạn chưa được gán model nào đang hoạt động trên AgentX AI Gateway.',
+      noAnswer:
+        'Workmate chưa nhận được phản hồi khi xin key cho tài khoản này. Hãy kiểm tra kết nối mạng rồi bấm Thử lại.',
+      suspended: 'Quản trị viên đã tạm dừng quyền dùng AI của tài khoản này.',
+      issuanceOff: 'Hệ thống AgentX đang tạm ngừng cấp key mới.',
+      failed: 'Máy chủ AgentX chưa cấp key cho tài khoản này.'
+    },
+    contactSupport:
+      'Vui lòng liên hệ bộ phận hỗ trợ AgentX (hoặc quản trị viên AgentX của công ty) và gửi kèm chi tiết lỗi bên dưới.',
+    contactSupportAt: contact => `Vui lòng liên hệ bộ phận hỗ trợ AgentX: ${contact} — gửi kèm chi tiết lỗi bên dưới.`,
+    details: 'Chi tiết lỗi',
+    copyDetails: 'Sao chép chi tiết lỗi',
+    copied: 'Đã sao chép',
+    retry: 'Thử lại',
+    retrying: 'Đang thử lại…',
+    signOut: 'Đăng xuất'
+  },
+
   license: {
     title: 'Giấy phép AgentX',
     states: {
@@ -3309,16 +3336,12 @@ export const vi: Translations = {
       couldNotSaveLocalEndpoint: 'Không lưu được endpoint cục bộ',
       couldNotChangeModel: 'Không đổi được model',
       directApiAccess: name => `Truy cập API trực tiếp tới ${name}.`,
-      gatewayNoAnswer:
-        'AgentX chưa lấy được key model cho tài khoản của bạn. Hãy kiểm tra bạn đã đăng nhập AgentX và đang có mạng, rồi thử lại.',
       gatewayNotSetUp:
-        'Bản cài này chưa được thiết lập AgentX AI Gateway. Hãy hỏi người quản lý AgentX, hoặc chọn nhà cung cấp khác.',
-      gatewayOffline: 'Không kết nối được tới AgentX AI Gateway. Hãy kiểm tra mạng rồi thử lại.',
-      gatewayRevoked: 'Thiết bị này đã bị thu hồi. Hãy đăng nhập lại AgentX để dùng AgentX AI Gateway.',
-      gatewayFailed: detail => `AgentX AI Gateway không cấp được key model: ${detail}`
+        'Bản cài này chưa được thiết lập AgentX AI Gateway. Hãy hỏi người quản lý AgentX, hoặc chọn nhà cung cấp khác.'
     },
     headerTitle: 'Cùng thiết lập AgentX Workmate cho bạn nào',
     headerDesc: 'Kết nối một nhà cung cấp model để bắt đầu trò chuyện. Phần lớn lựa chọn chỉ mất một cú nhấp.',
+    gatewayHeaderDesc: 'Workmate dùng các model đi kèm tài khoản AgentX của bạn qua AgentX AI Gateway.',
     preparingInstall: 'AgentX đang hoàn tất việc cài đặt. Lần chạy đầu thường mất chưa tới một phút.',
     starting: 'Đang khởi động AgentX…',
     lookingUpProviders: 'Đang tìm các nhà cung cấp...',

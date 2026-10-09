@@ -197,6 +197,16 @@ async def provision_account(request: Request):
     identity = _identity_from_session(session)
     slug = _current_account_slug(session)
 
+    # Provisioning is the sign-in path, so this is where the home learns whose
+    # it is. Only the home this process actually runs in: a backend still in
+    # the shared home must not create somebody's account directory as a side
+    # effect of asking for their key.
+    from hermes_cli.accounts import remember_account_identity
+    from hermes_constants import get_active_account
+
+    if get_active_account() == slug:
+        await run_in_threadpool(remember_account_identity, slug, identity)
+
     # The bearer the service needs is the very token that authenticated this
     # request. Session.access_token holds the Keycloak ID token, which is what
     # it verifies (its audience is our client_id — Keycloak's OAuth access

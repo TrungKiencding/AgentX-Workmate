@@ -247,6 +247,31 @@ export const ar = defineLocale({
   remoteDisplayBanner: {
     message: reason => `العرض البرمجي نشط — تم اكتشاف شاشة بعيدة (${reason}). تم تعطيل تسريع GPU لمنع الوميض.`
   },
+  agentxKey: {
+    title: 'تعذّر إصدار مفتاح AgentX AI',
+    provisioning: 'جارٍ إصدار مفتاح AgentX AI Gateway لحسابك…',
+    intro:
+      'يعمل Workmate بمفتاح AgentX AI Gateway الخاص بحسابك. تعذّر إصدار هذا المفتاح لهذا الحساب، لذا لا يمكن استخدام Workmate بعد.',
+    account: who => `الحساب: ${who}`,
+    reasons: {
+      offline: 'تعذّر الوصول إلى خدمة مفاتيح AgentX. تحقّق من اتصالك بالشبكة، ثم اختر «إعادة المحاولة».',
+      revoked: 'تم إلغاء هذا الجهاز من حساب AgentX الخاص بك.',
+      noModels: 'لم يُخصَّص لحسابك أي نموذج يقدّمه AgentX AI Gateway حاليًا.',
+      noAnswer: 'لم يتلقَّ Workmate أي رد عند طلب مفتاح هذا الحساب. تحقّق من اتصالك، ثم اختر «إعادة المحاولة».',
+      suspended: 'أوقف أحد المسؤولين وصول هذا الحساب إلى الذكاء الاصطناعي مؤقتًا.',
+      issuanceOff: 'لا يُصدر AgentX مفاتيح جديدة حاليًا.',
+      failed: 'لم يُصدر خادم AgentX مفتاحًا لهذا الحساب.'
+    },
+    contactSupport: 'يُرجى التواصل مع دعم AgentX (أو مسؤول AgentX في شركتك) وإرفاق تفاصيل الخطأ أدناه.',
+    contactSupportAt: contact => `يُرجى التواصل مع دعم AgentX: ${contact} — وأرفق تفاصيل الخطأ أدناه.`,
+    details: 'تفاصيل الخطأ',
+    copyDetails: 'نسخ تفاصيل الخطأ',
+    copied: 'تم النسخ',
+    retry: 'إعادة المحاولة',
+    retrying: 'جارٍ إعادة المحاولة…',
+    signOut: 'تسجيل الخروج'
+  },
+
   license: {
     title: 'ترخيص AgentX',
     states: {
@@ -2914,15 +2939,11 @@ export const ar = defineLocale({
       couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',
       couldNotChangeModel: 'تعذر تغيير النموذج',
       directApiAccess: name => `وصول مباشر إلى واجهة برمجة ${name}.`,
-      gatewayNoAnswer:
-        'تعذّر على AgentX الحصول على مفتاح نموذج لحسابك. تأكد من تسجيل الدخول إلى AgentX ومن اتصالك بالإنترنت، ثم حاول مجددًا.',
-      gatewayNotSetUp: 'لم يُعدّ AgentX AI Gateway في هذا التثبيت. تواصل مع مسؤول AgentX، أو اختر مزوّدًا آخر.',
-      gatewayOffline: 'تعذّر الوصول إلى AgentX AI Gateway. تحقّق من اتصالك ثم حاول مجددًا.',
-      gatewayRevoked: 'تم إبطال هذا الجهاز. سجّل الدخول إلى AgentX مرة أخرى لاستخدام AgentX AI Gateway.',
-      gatewayFailed: detail => `تعذّر على AgentX AI Gateway إصدار مفتاح نموذج: ${detail}`
+      gatewayNotSetUp: 'لم يُعدّ AgentX AI Gateway في هذا التثبيت. تواصل مع مسؤول AgentX، أو اختر مزوّدًا آخر.'
     },
     headerTitle: 'لنُعِدّ لك AgentX Workmate',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',
+    gatewayHeaderDesc: 'يعمل Workmate بالنماذج المرفقة بحسابك في AgentX عبر AgentX AI Gateway.',
     preparingInstall: 'يُكمل AgentX التثبيت. عادة ما يستغرق ذلك أقل من دقيقة في أول تشغيل.',
     starting: 'جار بدء AgentX...',
     lookingUpProviders: 'جار البحث عن المزوّدين...',

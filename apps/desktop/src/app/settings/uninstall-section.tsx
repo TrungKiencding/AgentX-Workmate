@@ -19,13 +19,23 @@ interface ModeOption {
   recommended?: boolean
 }
 
-// Order matters: "everything" leads. It used to come last, under two options
-// that keep some of the install, and the partial ones read as the safe default
-// — which is how machines ended up with the agent still on PATH and an old
-// model key still in .env after somebody thought they had uninstalled. A
-// person opening "Danger zone" wants it gone; the options that keep something
-// are the ones worth reading carefully, so they come after.
+// Order matters: "keep my data" leads. It removes the app, the agent and the
+// agentx command — nothing of the install is left on PATH — and keeps what
+// belongs to the person, so uninstalling to reinstall (the usual way to "get
+// the new version") never costs anybody their chats. Deleting the data is the
+// one step here that cannot be undone, so it is the one people have to choose.
+// A model key left in .env is no hazard to a reinstall any more: sign-in checks
+// it with the keys service and replaces one that no longer works.
 const OPTIONS: ModeOption[] = [
+  {
+    mode: 'lite',
+    title: 'Uninstall, keep my data',
+    description:
+      'Remove the app, the AgentX agent and the agentx command. Your chats, settings and saved model key stay for a future reinstall.',
+    consequence: 'the Chat GUI, the AgentX agent and the agentx command (your chats, settings and model key are kept)',
+    needsAgent: true,
+    recommended: true
+  },
   {
     mode: 'full',
     title: 'Uninstall everything',
@@ -36,14 +46,6 @@ const OPTIONS: ModeOption[] = [
     // hide it on a lite client with no local agent, same as lite. A lite client
     // connecting to a remote backend has no local agent OR local user data the
     // GUI installed, so gui-only is the correct (and only) option there.
-    needsAgent: true,
-    recommended: true
-  },
-  {
-    mode: 'lite',
-    title: 'Uninstall GUI + agent, keep my data',
-    description: 'Remove the app and the AgentX agent, but keep config, chats, and secrets for a future reinstall.',
-    consequence: 'the Chat GUI and the AgentX agent (config, chats, and secrets are kept)',
     needsAgent: true
   },
   {

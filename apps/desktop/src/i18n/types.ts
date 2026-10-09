@@ -274,6 +274,42 @@ export interface Translations {
     dismiss: string
   }
 
+  /**
+   * The AgentX key gate: a signed-in account whose AgentX AI Gateway key could
+   * not be issued. The app is held until it is — there is no other provider to
+   * pick and nothing to skip, so every reason ends in "contact support".
+   */
+  agentxKey: {
+    title: string
+    provisioning: string
+    intro: string
+    account: (who: string) => string
+    reasons: {
+      /** The keys service could not be reached. */
+      offline: string
+      /** This device was revoked from the account. */
+      revoked: string
+      /** The SSO console grants no model the proxy serves (HTTP 424). */
+      noModels: string
+      /** The backend gave no answer at all. */
+      noAnswer: string
+      /** An administrator suspended this account's AI access (access_blocked). */
+      suspended: string
+      /** The keys service is not issuing new keys (issuance_disabled). */
+      issuanceOff: string
+      /** Any other refusal. */
+      failed: string
+    }
+    contactSupport: string
+    contactSupportAt: (contact: string) => string
+    details: string
+    copyDetails: string
+    copied: string
+    retry: string
+    retrying: string
+    signOut: string
+  }
+
   /** The AgentX license: Settings → Account's row, the composer banner, the reminder. */
   license: {
     title: string
@@ -2453,6 +2489,8 @@ export interface Translations {
   onboarding: {
     headerTitle: string
     headerDesc: string
+    /** The header's line when the account must run on its AgentX AI Gateway key. */
+    gatewayHeaderDesc: string
     preparingInstall: string
     starting: string
     lookingUpProviders: string
@@ -2496,12 +2534,8 @@ export interface Translations {
       couldNotSaveLocalEndpoint: string
       couldNotChangeModel: string
       directApiAccess: (name: string) => string
-      /** Why the AgentX AI Gateway card could not connect, by provisioning outcome. */
-      gatewayNoAnswer: string
+      /** The install provisions no AgentX keys, so the card cannot connect; other providers can. */
       gatewayNotSetUp: string
-      gatewayOffline: string
-      gatewayRevoked: string
-      gatewayFailed: (detail: string) => string
     }
     backToSignIn: string
     getKey: string

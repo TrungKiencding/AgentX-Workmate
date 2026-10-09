@@ -53,6 +53,20 @@ function expandWindowsEnvRefs(value, env = process.env) {
   })
 }
 
+// Whether a path read back through `reg query` survived the trip intact.
+//
+// `reg` prints in the console's OEM code page, not UTF-8. A character the code
+// page cannot hold comes out as `?`, and one it can hold but UTF-8 cannot
+// decode comes out as U+FFFD — so `C:\Users\Kiên\AppData\Local\agentx` reads
+// back as some other directory. Honouring that would start AgentX in a new,
+// empty home, which to the person looks like their conversations were wiped.
+// Neither character can appear in a real Windows path (`?` is reserved, and
+// U+FFFD only ever comes from a failed decode), so either one marks a value
+// that must not be used.
+function isLosslessWindowsPath(value) {
+  return typeof value === 'string' && /^(?:[A-Za-z]:[\\/]|\\\\)/.test(value) && !/[?\uFFFD]/.test(value)
+}
+
 // Read a User-scoped env var from HKCU\Environment. Windows-only: returns null
 // off-Windows (without spawning), on any spawn error, when `reg` exits non-zero
 // (the value doesn't exist), or when the value is empty.
@@ -96,4 +110,4 @@ function readWindowsUserEnvVar(
   return expanded || null
 }
 
-export { expandWindowsEnvRefs, parseRegQueryValue, readWindowsUserEnvVar }
+export { expandWindowsEnvRefs, isLosslessWindowsPath, parseRegQueryValue, readWindowsUserEnvVar }

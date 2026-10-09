@@ -273,6 +273,31 @@ export const ja = defineLocale({
     dismiss: '閉じる'
   },
 
+  agentxKey: {
+    title: 'AgentX AI キーを発行できませんでした',
+    provisioning: 'アカウントの AgentX AI Gateway キーを発行しています…',
+    intro:
+      'Workmate を使うには、アカウントの AgentX AI Gateway キーが必要です。このアカウントのキーを発行できなかったため、まだ Workmate を使用できません。',
+    account: who => `アカウント: ${who}`,
+    reasons: {
+      offline: 'AgentX のキー発行サービスに接続できません。ネットワークを確認してから「再試行」を選んでください。',
+      revoked: 'このデバイスは AgentX アカウントから取り消されています。',
+      noModels: 'アカウントに、AgentX AI Gateway が現在提供しているモデルが割り当てられていません。',
+      noAnswer: 'このアカウントのキーを要求しましたが、応答がありませんでした。接続を確認してから「再試行」を選んでください。',
+      suspended: '管理者がこのアカウントの AI 利用を一時停止しています。',
+      issuanceOff: 'AgentX は現在、新しいキーを発行していません。',
+      failed: 'AgentX サーバーはこのアカウントのキーを発行しませんでした。'
+    },
+    contactSupport: 'AgentX サポート（または社内の AgentX 管理者）に連絡し、下のエラーの詳細を添えてください。',
+    contactSupportAt: contact => `AgentX サポートに連絡してください: ${contact} — 下のエラーの詳細を添えてください。`,
+    details: 'エラーの詳細',
+    copyDetails: 'エラーの詳細をコピー',
+    copied: 'コピーしました',
+    retry: '再試行',
+    retrying: '再試行しています…',
+    signOut: 'サインアウト'
+  },
+
   license: {
     title: 'AgentX ライセンス',
     states: {
@@ -3069,17 +3094,12 @@ export const ja = defineLocale({
       couldNotSaveLocalEndpoint: 'ローカルエンドポイントを保存できませんでした',
       couldNotChangeModel: 'モデルを変更できませんでした',
       directApiAccess: name => `${name} の API に直接アクセスします。`,
-      gatewayNoAnswer:
-        'アカウントのモデルキーを取得できませんでした。AgentX にサインインしていて、オンラインであることを確認してから再試行してください。',
       gatewayNotSetUp:
-        'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。',
-      gatewayOffline: 'AgentX AI Gateway に接続できませんでした。接続を確認してから再試行してください。',
-      gatewayRevoked:
-        'このデバイスは失効しました。AgentX AI Gateway を使うには、もう一度 AgentX にサインインしてください。',
-      gatewayFailed: detail => `AgentX AI Gateway がモデルキーを発行できませんでした: ${detail}`
+        'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。'
     },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
     headerDesc: 'チャットを始めるにはモデルプロバイダーを接続してください。ほとんどのオプションはワンクリックです。',
+    gatewayHeaderDesc: 'Workmate は AgentX AI Gateway を通じて、AgentX アカウントに付属するモデルを使用します。',
     preparingInstall: 'AgentX はインストールを完了中です。初回実行では通常 1 分以内に完了します。',
     starting: 'AgentX を起動中…',
     lookingUpProviders: 'プロバイダーを検索中...',

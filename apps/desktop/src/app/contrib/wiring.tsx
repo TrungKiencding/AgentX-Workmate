@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { type CSSProperties, lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
+import { AgentxKeyGate } from '@/components/agentx-key-gate'
 import { formatRefValue } from '@/components/assistant-ui/directive-text'
 import { BootFailureOverlay } from '@/components/boot-failure-overlay'
 import { DesktopInstallOverlay } from '@/components/desktop-install-overlay'
@@ -1136,6 +1137,9 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       {/* Mutually exclusive with BootFailureOverlay — each self-gates on
           isKeycloakSignInFailure(boot.error), so only one ever paints. */}
       <SignInOverlay />
+      {/* Every window: while a signed-in account has no AgentX key the boot is
+          held, and nothing in any window may be used. */}
+      <AgentxKeyGate />
       <CommandPalette />
       <PetGenerateOverlay />
       <SessionSwitcher />
