@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 
 import { describe, test } from 'vitest'
 
-import { ACCOUNT_SLUG_RE, accountSlugForIdentity, accountSlugLabel, isAccountSlug } from './account-slug'
+import {
+  ACCOUNT_SLUG_RE,
+  accountSlugDigest,
+  accountSlugForIdentity,
+  accountSlugLabel,
+  isAccountSlug,
+  resolveAccountSlug,
+  slugBelongsToSubject
+} from './account-slug'
 
 /**
  * The cross-language contract.
@@ -109,5 +117,89 @@ describe('isAccountSlug', () => {
     }
 
     assert.equal(isAccountSlug('kien-le-30a5154b'), true)
+  })
+})
+
+describe('slugBelongsToSubject', () => {
+  const subject = 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6'
+
+  test('recognises every slug the subject could have been given', () => {
+    assert.equal(accountSlugDigest(subject), '30a5154b')
+    assert.equal(slugBelongsToSubject('kien-le-30a5154b', subject), true)
+    assert.equal(slugBelongsToSubject('l-trung-ki-n-30a5154b', subject), true)
+    assert.equal(slugBelongsToSubject('u-30a5154b', subject), true)
+  })
+
+  test("never claims another person's home or a malformed one", () => {
+    assert.equal(slugBelongsToSubject('kien-le-9fe36593', subject), false)
+    assert.equal(slugBelongsToSubject('kien-le30a5154b', subject), false)
+    assert.equal(slugBelongsToSubject('../x-30a5154b', subject), false)
+    assert.equal(slugBelongsToSubject('kien-le-30a5154b', ''), false)
+  })
+})
+
+describe('resolveAccountSlug', () => {
+  const subject = 'f81d4fae-7dec-11d0-a765-00a0c91e6bf6'
+  const renamed = accountSlugForIdentity({ subject, username: 'Lê Trung Kiên' })
+  const original = accountSlugForIdentity({ subject, username: 'Kien.Le' })
+
+  test('a renamed person stays in the home they have instead of starting an empty one', () => {
+    // The bug: the SSO console renames "Kien.Le" to "Lê Trung Kiên", the next
+    // sign-in derives a new slug, and every conversation is left behind.
+    assert.notEqual(renamed, original)
+
+    assert.equal(
+      resolveAccountSlug({
+        derived: renamed,
+        homes: [{ lastUsedMs: 1, slug: original }],
+        stored: original,
+        subject
+      }),
+      original
+    )
+  })
+
+  test('finds the home by its digest when this machine forgot which one it was', () => {
+    // accounts.json lives in Electron's userData, which an uninstall of the
+    // app alone removes; the homes under AGENTX_HOME are still there.
+    assert.equal(resolveAccountSlug({ derived: renamed, homes: [{ lastUsedMs: 1, slug: original }], subject }), original)
+  })
+
+  test('prefers the most recently used home when a rename already split one person in two', () => {
+    const homes = [
+      { lastUsedMs: 100, slug: original },
+      { lastUsedMs: 500, slug: 'kien-30a5154b' }
+    ]
+
+    assert.equal(resolveAccountSlug({ derived: renamed, homes, subject }), 'kien-30a5154b')
+  })
+
+  test('keeps the derived home when it exists, and creates it when nothing does', () => {
+    assert.equal(
+      resolveAccountSlug({
+        derived: original,
+        homes: [
+          { lastUsedMs: 900, slug: 'kien-30a5154b' },
+          { lastUsedMs: 1, slug: original }
+        ],
+        subject
+      }),
+      original
+    )
+    assert.equal(resolveAccountSlug({ derived: original, homes: [], subject }), original)
+  })
+
+  test("ignores a stored home that is gone, and other people's homes", () => {
+    const stranger = accountSlugForIdentity({ subject: 'other-subject', username: 'Kien.Le' })
+
+    assert.equal(
+      resolveAccountSlug({
+        derived: original,
+        homes: [{ lastUsedMs: 999, slug: stranger }],
+        stored: 'kien-30a5154b',
+        subject
+      }),
+      original
+    )
   })
 })

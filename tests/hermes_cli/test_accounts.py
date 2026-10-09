@@ -46,7 +46,9 @@ from hermes_cli.accounts import (
     litellm_key_alias_for_identity,
     litellm_key_alias_label,
     read_account_identity,
+    remember_account_identity,
     resolve_account_for_identity,
+    slug_belongs_to_subject,
     validate_account_slug,
     write_account_identity,
 )
@@ -609,6 +611,79 @@ class TestListAndResolveAccounts:
         ensure_account_home("ana-1234abcd", AccountIdentity(subject="sub-a", username="ana"))
         slug = resolve_account_for_identity("sub-b", username="ana")
         assert slug != "ana-1234abcd"
+
+    def test_resolve_adopts_a_renamed_home_that_never_recorded_an_identity(
+        self, install_root
+    ):
+        """Every home the desktop created before 1.0.9 has no account.json.
+
+        The digest at the end of the slug is the subject's, so it still finds
+        the person's home after the SSO console renamed them.
+        """
+        subject = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        original = account_slug_for_identity(subject, username="Kien.Le")
+        home = ensure_account_home(original)
+        assert read_account_identity(original) is None
+        (home / "state.db").write_text("conversations", encoding="utf-8")
+
+        renamed = resolve_account_for_identity(subject, username="Lê Trung Kiên")
+
+        assert renamed == original
+        assert find_account_for_subject(subject).slug == original
+
+    def test_digest_match_prefers_the_most_recently_used_home(self, install_root):
+        subject = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        older = ensure_account_home(account_slug_for_identity(subject, username="Kien.Le"))
+        newer = ensure_account_home(account_slug_for_identity(subject, username="Kien"))
+        (older / "state.db").write_text("a", encoding="utf-8")
+        (newer / "state.db").write_text("b", encoding="utf-8")
+        os.utime(older / "state.db", (1_000, 1_000))
+        os.utime(newer / "state.db", (2_000, 2_000))
+
+        assert find_account_for_subject(subject).home == newer
+
+    def test_digest_match_never_takes_a_home_recorded_for_someone_else(
+        self, install_root
+    ):
+        subject = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        slug = account_slug_for_identity(subject, username="Kien.Le")
+        ensure_account_home(slug, AccountIdentity(subject="someone-else", username="x"))
+
+        assert find_account_for_subject(subject) is None
+
+    def test_slug_belongs_to_subject(self):
+        subject = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+        assert slug_belongs_to_subject("kien-le-30a5154b", subject)
+        assert slug_belongs_to_subject("l-trung-ki-n-30a5154b", subject)
+        assert slug_belongs_to_subject("u-30a5154b", subject)
+        assert not slug_belongs_to_subject("kien-le-9fe36593", subject)
+        assert not slug_belongs_to_subject("kien-le30a5154b", subject)
+        assert not slug_belongs_to_subject("../x-30a5154b", subject)
+        assert not slug_belongs_to_subject("kien-le-30a5154b", "")
+
+
+class TestRememberAccountIdentity:
+    SUBJECT = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+
+    def test_records_the_identity_once_and_again_only_when_it_changes(self, install_root):
+        slug = account_slug_for_identity(self.SUBJECT, username="Kien.Le")
+        ensure_account_home(slug)
+        identity = AccountIdentity(subject=self.SUBJECT, username="Kien.Le", email="k@x.vn")
+
+        assert remember_account_identity(slug, identity) is True
+        assert read_account_identity(slug) == identity
+        assert remember_account_identity(slug, identity) is False
+
+        renamed = AccountIdentity(subject=self.SUBJECT, username="Lê Trung Kiên", email="k@x.vn")
+        assert remember_account_identity(slug, renamed) is True
+        assert read_account_identity(slug) == renamed
+
+    def test_never_records_a_person_in_another_persons_home(self, install_root):
+        ensure_account_home("ana-1234abcd")
+        identity = AccountIdentity(subject=self.SUBJECT, username="Kien.Le")
+
+        assert remember_account_identity("ana-1234abcd", identity) is False
+        assert read_account_identity("ana-1234abcd") is None
 
 
 class TestDeleteAccount:

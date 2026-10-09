@@ -404,20 +404,74 @@ def list_accounts() -> list[AccountInfo]:
     return accounts
 
 
+def slug_belongs_to_subject(slug: str, subject: str) -> bool:
+    """Return True when *slug* is one *subject* could have been given.
+
+    Every slug ends in the digest of the subject it was derived for; only the
+    readable half in front of it follows the person's name. Mirrors
+    ``slugBelongsToSubject`` in ``apps/desktop/electron/account-slug.ts``.
+    """
+    digest = _subject_digest(subject)
+    if not digest or not isinstance(slug, str) or not ACCOUNT_SLUG_RE.match(slug):
+        return False
+    return slug == f"u-{digest}" or slug.endswith(f"-{digest}")
+
+
+def _last_used(info: AccountInfo) -> float:
+    """When an account home was last written to: its state.db, else the directory."""
+    for candidate in (info.home / "state.db", info.home):
+        try:
+            return candidate.stat().st_mtime
+        except OSError:
+            continue
+    return 0.0
+
+
 def find_account_for_subject(subject: str) -> AccountInfo | None:
-    """Return the account whose recorded identity has this ``sub`` claim.
+    """Return the account home this ``sub`` claim already has, if any.
 
     Used to recognise a returning user whose username or email changed since
     the home was created: the slug would derive differently now, but the
-    subject still points at the state they already have.
+    subject still points at the state they already have. A recorded identity
+    is the strongest answer; failing that, the subject's digest at the end of
+    the slug is — homes created before the desktop recorded identities have
+    no sidecar, and they must not be orphaned by a rename either.
     """
     subject = (subject or "").strip()
     if not subject:
         return None
-    for info in list_accounts():
+    accounts = list_accounts()
+    for info in accounts:
         if info.identity and info.identity.subject == subject:
             return info
-    return None
+    by_digest = [
+        info
+        for info in accounts
+        if info.identity is None and slug_belongs_to_subject(info.slug, subject)
+    ]
+    if not by_digest:
+        return None
+    return max(by_digest, key=lambda info: (_last_used(info), info.slug))
+
+
+def remember_account_identity(slug: str, identity: AccountIdentity) -> bool:
+    """Record who *slug* belongs to, unless that is already on disk.
+
+    Called on the sign-in path, where it runs on every launch — so it only
+    writes when the sidecar is missing or names the person differently.
+    Returns True when it wrote. Never raises: the sidecar is what lets
+    ``agentx account`` name a person and find a renamed one, not a
+    precondition for using the account.
+    """
+    if not identity.subject or not slug_belongs_to_subject(slug, identity.subject):
+        return False
+    try:
+        if read_account_identity(slug) == identity:
+            return False
+        write_account_identity(slug, identity)
+        return True
+    except (AccountError, OSError):
+        return False
 
 
 def resolve_account_for_identity(

@@ -31,7 +31,7 @@ import {
 } from 'electron'
 import nodePty from 'node-pty'
 
-import { accountSlugForIdentity } from './account-slug'
+import { type AccountHomeOnDisk, accountSlugForIdentity, isAccountSlug, resolveAccountSlug } from './account-slug'
 import {
   type AccountRecord,
   type AccountStoreIo,
@@ -6861,6 +6861,50 @@ function readBootAccountSlug(): string | null {
   return bootAccountSlug(readAccountState(_accountStoreIo()))
 }
 
+/**
+ * The account homes already on this machine, with when each was last used —
+ * what resolveAccountSlug needs to keep a renamed person in the home they have.
+ */
+function accountHomesOnDisk(): AccountHomeOnDisk[] {
+  const root = path.join(AGENTX_HOME, 'accounts')
+  let names: string[]
+
+  try {
+    names = fs.readdirSync(root)
+  } catch {
+    return []
+  }
+
+  const homes: AccountHomeOnDisk[] = []
+
+  for (const slug of names) {
+    if (!isAccountSlug(slug)) {
+      continue
+    }
+
+    const home = path.join(root, slug)
+    let lastUsedMs = 0
+
+    try {
+      if (!fs.statSync(home).isDirectory()) {
+        continue
+      }
+
+      lastUsedMs = fs.statSync(path.join(home, 'state.db')).mtimeMs
+    } catch {
+      try {
+        lastUsedMs = fs.statSync(home).mtimeMs
+      } catch {
+        continue
+      }
+    }
+
+    homes.push({ lastUsedMs, slug })
+  }
+
+  return homes
+}
+
 /** The account record for whoever is signed in right now, if anyone. */
 function currentAccountRecord(): AccountRecord | null {
   const state = readAccountState(_accountStoreIo())
@@ -8325,14 +8369,31 @@ async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null
     return null
   }
 
+  const io = _accountStoreIo()
+  const known = readAccountState(io)
   let slug: string
 
   try {
-    slug = accountSlugForIdentity({
+    const derived = accountSlugForIdentity({
       email: tokens.email || '',
       subject: tokens.userId,
       username: tokens.displayName || ''
     })
+
+    // The same person keeps the same home when their name changes — see
+    // resolveAccountSlug for why the derived slug alone cannot decide.
+    slug = resolveAccountSlug({
+      derived,
+      homes: accountHomesOnDisk(),
+      stored: known.accounts[tokens.userId]?.slug || null,
+      subject: tokens.userId
+    })
+
+    if (slug !== derived) {
+      rememberLog(
+        `[account] this sign-in derives "${derived}" but the account already lives in "${slug}" (the name it was created under has changed); staying there`
+      )
+    }
   } catch (error) {
     rememberLog(
       `[account] could not derive an account from this sign-in: ${
@@ -8343,9 +8404,7 @@ async function reconcileAccountAfterAuth(baseUrl: string): Promise<string | null
     return null
   }
 
-  const io = _accountStoreIo()
-
-  const { state, switched } = rememberSignIn(readAccountState(io), {
+  const { state, switched } = rememberSignIn(known, {
     displayName: tokens.displayName || '',
     email: tokens.email || '',
     issuer: _keycloakConfigs.get(baseUrl)?.issuer || '',

@@ -62,20 +62,33 @@ export function accountSlugLabel(username = '', email = ''): string {
 }
 
 /**
- * Return the stable account slug for a verified Keycloak identity.
+ * The digest half of every slug `subject` can be given — the part taken over
+ * the immutable `sub` claim, which is what actually identifies a home.
+ *
+ * Throws when `subject` is empty, for the reason `accountSlugForIdentity` does.
+ */
+export function accountSlugDigest(subject: string): string {
+  const trimmed = (subject || '').trim()
+
+  if (!trimmed) {
+    throw new Error('cannot derive an account slug without a subject claim')
+  }
+
+  return createHash('sha256').update(trimmed, 'utf8').digest('hex').slice(0, SLUG_DIGEST_CHARS)
+}
+
+/**
+ * Return the account slug a verified Keycloak identity derives to today.
  *
  * `subject` must be the IdP's immutable `sub` claim. Throws when it is empty:
  * a slug derived from nothing would be one shared directory that every
  * unidentified sign-in fell into, which is the exact opposite of the point.
+ *
+ * Only the digest half is stable — the label follows the person's name. Which
+ * home somebody signs into is `resolveAccountSlug`'s decision, not this one.
  */
 export function accountSlugForIdentity(identity: AccountIdentityInput): string {
-  const subject = (identity?.subject || '').trim()
-
-  if (!subject) {
-    throw new Error('cannot derive an account slug without a subject claim')
-  }
-
-  const digest = createHash('sha256').update(subject, 'utf8').digest('hex').slice(0, SLUG_DIGEST_CHARS)
+  const digest = accountSlugDigest(identity?.subject || '')
   const label = accountSlugLabel(identity.username, identity.email)
   const slug = label ? `${label}-${digest}` : `u-${digest}`
 
@@ -94,4 +107,65 @@ export function accountSlugForIdentity(identity: AccountIdentityInput): string {
  */
 export function isAccountSlug(value: unknown): value is string {
   return typeof value === 'string' && ACCOUNT_SLUG_RE.test(value)
+}
+
+/** True when `slug` is one `subject` could have been given, whatever its name was at the time. */
+export function slugBelongsToSubject(slug: unknown, subject: string): boolean {
+  if (!isAccountSlug(slug) || !(subject || '').trim()) {
+    return false
+  }
+
+  const digest = accountSlugDigest(subject)
+
+  return slug === `u-${digest}` || slug.endsWith(`-${digest}`)
+}
+
+/** An account home found under `<AGENTX_HOME>/accounts`. */
+export interface AccountHomeOnDisk {
+  slug: string
+  /** When the home was last written to (its state.db, else the directory); 0 when unknown. */
+  lastUsedMs: number
+}
+
+/**
+ * The account a verified identity signs into on this machine.
+ *
+ * The readable half of a slug is taken from the person's name, and the name is
+ * not the person: an administrator can edit it in the SSO console, and the
+ * claim the name comes from can change with the realm's mappers. Deriving the
+ * slug afresh at every sign-in therefore moved a renamed person into a new,
+ * empty home — sessions, settings, memory and model key left behind in the old
+ * directory, which from the person's chair looks exactly like an update that
+ * wiped everything. The digest half is taken over the immutable `sub`, so it is
+ * what identifies a home; the name only ever names a NEW one.
+ *
+ * In order: the home this machine last used for the subject (`stored`); the
+ * freshly derived slug when its home exists; any other home carrying the
+ * subject's digest, most recently used first; otherwise the derived slug,
+ * whose home the backend creates on spawn.
+ */
+export function resolveAccountSlug({
+  derived,
+  homes,
+  stored,
+  subject
+}: {
+  derived: string
+  homes: readonly AccountHomeOnDisk[]
+  stored?: null | string
+  subject: string
+}): string {
+  const existing = homes.filter(home => slugBelongsToSubject(home.slug, subject))
+
+  if (stored && existing.some(home => home.slug === stored)) {
+    return stored
+  }
+
+  if (existing.some(home => home.slug === derived)) {
+    return derived
+  }
+
+  const [latest] = [...existing].sort((a, b) => b.lastUsedMs - a.lastUsedMs || a.slug.localeCompare(b.slug))
+
+  return latest ? latest.slug : derived
 }
