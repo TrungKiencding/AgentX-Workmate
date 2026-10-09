@@ -2239,6 +2239,34 @@ class TestAccountKeyStatus:
         )
         assert result.status == "disabled"
 
+    def test_no_keys_service_is_unconfigured_not_missing(self, account, monkeypatch):
+        """The desktop holds a signed-in person at its key gate while the key is
+        "missing"; an install with no keys service could never end that wait."""
+        monkeypatch.setattr(httpx, "Client", ExplodingClient)
+        settings = direct_settings(base_url="")
+
+        result = account_key_status(account.slug, settings=settings, home=account.home)
+
+        assert result.status == "unconfigured"
+        assert result.ok is False
+        assert "accounts.litellm.base_url" in result.detail
+
+    def test_a_stored_key_is_reported_even_without_a_keys_service(
+        self, account, fake_proxy, monkeypatch
+    ):
+        settings = direct_settings()
+        ensure_account_key(
+            account.identity, account.slug, settings=settings,
+            home=account.home, client=make_client(fake_proxy),
+        )
+        monkeypatch.setattr(httpx, "Client", ExplodingClient)
+
+        result = account_key_status(
+            account.slug, settings=direct_settings(base_url=""), home=account.home
+        )
+
+        assert result.status == "reused"
+
     def test_to_json_is_serializable_and_carries_the_verdict(self, account, monkeypatch):
         monkeypatch.setattr(httpx, "Client", ExplodingClient)
         result = account_key_status(
