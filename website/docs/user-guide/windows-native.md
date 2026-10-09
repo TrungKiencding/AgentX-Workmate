@@ -272,7 +272,7 @@ To keep your config, chats, and secrets for a future reinstall:
 agentx uninstall --keep-data
 ```
 
-You can also uninstall from **Settings → Apps**. That uninstaller shows a checkbox — ticked by default — that runs the same full removal; leaving it unticked removes only the desktop app and keeps the `agentx` command.
+You can also uninstall from **Settings → Apps**. That uninstaller always removes the app, the agent and the `agentx` command, and deletes your AgentX data only when you tick **Also delete my AgentX data** — a box that starts unticked, so uninstalling to reinstall keeps everything.
 
 If you ever used a legacy CLI/WSL data dir, it lives outside `%LOCALAPPDATA%` and has to go by hand:
 

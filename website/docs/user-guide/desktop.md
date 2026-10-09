@@ -192,8 +192,6 @@ The app closes to finish the job (the cleanup runs after it exits so it can remo
 
 You can do the same from the terminal — `agentx uninstall` removes everything, `agentx uninstall --keep-data` keeps your config and chats, and `agentx uninstall --gui` touches only the desktop app.
 
-On Windows you can also uninstall from **Settings → Apps** (or Programs and Features). That uninstaller asks the same question with a checkbox — ticked by default — and hands the rest of the job to the agent's own uninstaller, so the `agentx` command comes off your PATH too. Leaving it unticked removes only the desktop app; the agent and the `agentx` command stay.
-
 :::note
 Running `agentx uninstall --gui` from a **source checkout** (a `agentx desktop` dev build) also removes the workspace `node_modules` and `apps/desktop/{dist,release}` build output, since those are GUI build artifacts. They're recoverable with `agentx desktop` (or `npm install` + a rebuild) — but if you're actively hacking on the desktop app, expect to reinstall dependencies afterward.
 :::
