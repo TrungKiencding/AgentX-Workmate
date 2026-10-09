@@ -142,6 +142,8 @@ Manage providers, models, tools, and credentials from a real UI instead of editi
 
 First-run onboarding has been redesigned on a unified overlay design system, and you can pick **Choose provider later** to skip provider setup and get into the app first.
 
+The one exception is an account signed in to AgentX on an install that issues AgentX AI Gateway keys: that account runs on its own key, so its first run offers the gateway and nothing else — no other provider, no "later". If the key cannot be issued (the keys service refuses it, the network is down, the device was revoked), the app stops at a key screen that says why, asks the person to contact AgentX support with the error details it shows, and offers only **Try again** and **Sign out**. Other providers can still be added from **Settings → Providers** once the key is in place.
+
 ### Management panes
 
 The app also surfaces the broader AgentX management surface so you don't have to drop to a terminal:
