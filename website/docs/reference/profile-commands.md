@@ -163,7 +163,7 @@ agentx profile delete mybot --yes
 ```
 
 :::warning
-This permanently deletes the profile's entire directory including all config, memories, sessions, and skills. The `default` profile (`~/.agentx`) cannot be deleted — use `agentx uninstall` to remove everything.
+This permanently deletes the profile's entire directory including all config, memories, sessions, and skills. The `default` profile (`~/.agentx`) cannot be deleted — use `agentx uninstall --full` to remove everything.
 :::
 
 ## `agentx profile show`

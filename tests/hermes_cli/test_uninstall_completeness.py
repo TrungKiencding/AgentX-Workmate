@@ -1,15 +1,18 @@
 """Tests for the parts of ``agentx uninstall`` that decide whether it is DONE.
 
-Every case here comes from the same report: "I uninstalled AgentX on Windows
-and ``agentx`` is still in my terminal, and I ran it many times." Three
-separate defects added up to that:
+Most cases here come from the same report: "I uninstalled AgentX on Windows
+and ``agentx`` is still in my terminal, and I ran it many times." Two
+defects added up to that:
 
-  * the default was keep-data, so a wipe had to be asked for;
   * the rmtree of the checkout ran from inside that checkout, and Windows
     mandatory-locks a running image, so it aborted partway and left the venv
     (and ``agentx.exe`` in it) behind;
   * shortcuts and the desktop app's own per-user directories were never in
     scope at all, so they survived every mode.
+
+That report also made a full wipe the default for a while. It is keep-data
+again: the code, the command and the shortcuts go in every mode, and the
+wipe was taking every conversation from people who uninstall to reinstall.
 """
 
 from __future__ import annotations
@@ -29,18 +32,18 @@ import hermes_cli.uninstall as uninstall
 # ---------------------------------------------------------------------------
 
 
-class TestTheDefaultIsAFullWipe:
-    def test_bare_uninstall_removes_everything(self):
-        # The heart of it. Somebody typing `agentx uninstall` means it.
-        assert uninstall.wants_full_uninstall(SimpleNamespace()) is True
+class TestTheDefaultKeepsTheData:
+    def test_bare_uninstall_keeps_the_data(self):
+        # The same default as the Windows uninstaller and the app's Settings:
+        # people uninstall to reinstall, and the wipe took their conversations.
+        assert uninstall.wants_full_uninstall(SimpleNamespace()) is False
 
-    def test_keep_data_is_how_you_opt_out(self):
-        assert uninstall.wants_full_uninstall(SimpleNamespace(keep_data=True)) is False
-
-    def test_the_old_full_flag_still_means_a_full_wipe(self):
-        # Scripts and docs carry --full. It must not quietly start meaning the
-        # opposite of what it says.
+    def test_full_is_how_you_ask_for_a_wipe(self):
         assert uninstall.wants_full_uninstall(SimpleNamespace(full=True)) is True
+
+    def test_keep_data_still_means_keep_the_data(self):
+        # Scripts and docs carry --keep-data; it says what it does.
+        assert uninstall.wants_full_uninstall(SimpleNamespace(keep_data=True)) is False
 
     def test_keep_data_wins_over_full_because_it_is_the_cautious_one(self):
         assert (
@@ -67,6 +70,51 @@ class TestTheDefaultIsAFullWipe:
         # name for "remove the agent, keep my data".
         assert uninstall.wants_full_uninstall(uninstall._UninstallArgs(mode="lite")) is False
         assert uninstall.wants_full_uninstall(uninstall._UninstallArgs(mode="full")) is True
+
+
+class TestTheInteractiveMenu:
+    """What bare Enter, a typo and --full pick when somebody runs it by hand."""
+
+    @pytest.fixture
+    def menu(self, tmp_path, monkeypatch):
+        project = tmp_path / "agentx-agent"
+        home = tmp_path / ".agentx"
+        project.mkdir()
+        home.mkdir()
+        performed: list[bool] = []
+        monkeypatch.setattr(uninstall, "get_project_root", lambda: project)
+        monkeypatch.setattr(uninstall, "get_hermes_home", lambda: home)
+        monkeypatch.setattr(uninstall, "_is_default_hermes_home", lambda _home: False)
+        monkeypatch.setattr(uninstall, "_discover_named_profiles", lambda: [])
+        monkeypatch.setattr(
+            uninstall,
+            "_perform_uninstall",
+            lambda **kwargs: performed.append(kwargs["full_uninstall"]),
+        )
+
+        def run(*answers, **flags):
+            replies = iter(answers)
+            monkeypatch.setattr("builtins.input", lambda _prompt="": next(replies))
+            uninstall.run_uninstall(SimpleNamespace(**flags))
+            return performed[-1] if performed else None
+
+        return run
+
+    def test_enter_keeps_the_data(self, menu):
+        assert menu("", "yes") is False
+
+    def test_option_two_removes_everything(self, menu):
+        assert menu("2", "yes") is True
+
+    def test_a_typo_keeps_the_data(self, menu):
+        # Whatever is not "2" lands on the side that cannot be regretted.
+        assert menu("x", "yes") is False
+
+    def test_full_makes_remove_everything_the_default(self, menu):
+        assert menu("", "yes", full=True) is True
+
+    def test_nothing_happens_without_typing_yes(self, menu):
+        assert menu("2", "no") is None
 
 
 # ---------------------------------------------------------------------------

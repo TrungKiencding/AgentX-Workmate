@@ -245,7 +245,7 @@ See [Nix Setup](./nix-setup.md) for more details.
 agentx uninstall
 ```
 
-This removes everything: the code, the `agentx` command, the desktop app and its data, and your configuration under `~/.agentx/`. Pass `--keep-data` to hold on to that last part for a future reinstall, or answer the prompt with option 2.
+This removes the code, the `agentx` command and the shortcuts, and keeps your configuration, chats and saved model key under `~/.agentx/`, plus the desktop app's own data, for a future reinstall. To delete those too, pass `--full` or pick option 2 at the prompt.
 
 ### Manual Uninstall
 

@@ -18,23 +18,27 @@ def build_uninstall_parser(subparsers, *, cmd_uninstall: Callable) -> None:
         "uninstall",
         help="Uninstall AgentX Workmate",
         description=(
-            "Remove AgentX Workmate from your system. Removes everything by "
-            "default: the code, the agentx command, shortcuts, the desktop "
-            "app's data, and your configs/sessions/logs. Pass --keep-data to "
-            "hold on to the last of those for a future reinstall."
+            "Remove AgentX Workmate from your system: the code, the agentx "
+            "command and shortcuts. Your configs, sessions, logs, saved model "
+            "key and the desktop app's data are kept for a future reinstall, "
+            "like the Windows uninstaller and the app's Settings do. Pass "
+            "--full to delete those too."
         ),
     )
     uninstall_parser.add_argument(
         "--keep-data",
         action="store_true",
-        help="Keep configs, sessions, and logs (~/.agentx) for a future reinstall",
+        help=(
+            "Keep configs, sessions, logs and the desktop app's data. This is "
+            "the default; the flag is accepted so existing scripts keep working."
+        ),
     )
     uninstall_parser.add_argument(
         "--full",
         action="store_true",
         help=(
-            "Remove everything including configs and data. This is now the "
-            "default; the flag is accepted so existing scripts keep working."
+            "Also delete configs, sessions, logs, the saved model key (~/.agentx) "
+            "and the desktop app's data"
         ),
     )
     uninstall_parser.add_argument(

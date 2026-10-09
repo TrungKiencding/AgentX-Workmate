@@ -865,20 +865,27 @@ def run_gui_uninstall(args):
 def wants_full_uninstall(args) -> bool:
     """Resolve the two flags into one answer: wipe everything, or keep data?
 
-    Uninstall removes everything unless ``--keep-data`` says otherwise. It did
-    not always: the default was keep-data, chosen so a reinstall could pick up
-    where you left off. In practice that is what made "I uninstalled it" and
-    "it is gone" two different states — the old config, the old .env, and the
-    old model key all survived, and the next install silently adopted them
-    instead of provisioning fresh. Somebody uninstalling wants it gone; keeping
-    a copy of their secrets is the surprising half, so it is the half that now
-    has to be asked for.
+    Uninstall keeps the person's data unless ``--full`` asks for a wipe — the
+    same default as the Windows uninstaller and the app's Settings, so the
+    three ways out of AgentX agree. The code, the ``agentx`` command and the
+    shortcuts go either way.
 
-    ``--full`` predates this and used to be how you asked for a wipe. It is
-    still accepted, and now means what it always said, because scripts and
-    docs carrying it should not quietly start doing the opposite of a wipe.
+    The default has turned twice. It was keep-data, then became a full wipe
+    after "I uninstalled it and ``agentx`` is still in my terminal" — but what
+    left the command behind was deleting the checkout from inside itself
+    (``_step_out_of`` now moves away first), and keep-data removes the command
+    too. The wipe, meanwhile, took every conversation from the people who
+    uninstall in order to reinstall, which on Windows is how many of them get
+    a new version. Keeping the old model key is not the risk it was either:
+    the next sign-in checks the stored key against the proxy and replaces it
+    if it no longer works (``account_provisioning.ensure_account_key``).
+
+    ``--keep-data`` is still accepted so existing scripts keep working, and
+    wins over ``--full`` because it is the cautious one.
     """
-    return not bool(getattr(args, "keep_data", False))
+    if getattr(args, "keep_data", False):
+        return False
+    return bool(getattr(args, "full", False))
 
 
 def run_uninstall(args):
@@ -886,10 +893,11 @@ def run_uninstall(args):
     Run the uninstall process.
 
     Options:
-    - Full uninstall (the default): removes code + ~/.agentx/ (configs, data,
-      logs), the agentx command, shortcuts, and the desktop app's own state
-    - Keep data (``--keep-data``): removes code but keeps ~/.agentx/ for a
+    - Keep data (the default): removes the code, the agentx command and
+      shortcuts, but keeps ~/.agentx/ and the desktop app's own state for a
       future reinstall
+    - Full uninstall (``--full``): also removes ~/.agentx/ (configs, data,
+      logs, the saved model key) and the desktop app's own state
     """
     project_root = get_project_root()
     hermes_home = get_hermes_home()
@@ -908,8 +916,8 @@ def run_uninstall(args):
     is_default_profile = _is_default_hermes_home(hermes_home)
     named_profiles = _discover_named_profiles() if is_default_profile else []
 
-    # Non-interactive fast path (``--yes``): no prompts. A full wipe unless
-    # ``--keep-data`` was passed. Named profiles are NOT auto-removed here —
+    # Non-interactive fast path (``--yes``): no prompts. Keeps the data unless
+    # ``--full`` was passed. Named profiles are NOT auto-removed here —
     # that's a destructive, surprising default for an unattended run, so it
     # stays opt-in to the interactive flow. This is the path the desktop app's
     # detached cleanup script uses for its lite/full modes.
@@ -946,23 +954,27 @@ def run_uninstall(args):
             print(f"  • {p.name}{running}: {p.path}")
         print()
     
-    # Ask for confirmation. Option 1 is the full wipe and bare Enter picks it:
-    # somebody who typed `agentx uninstall` wants it gone, and leaving their
-    # config, .env and model key behind is the choice that needs asking for.
+    # Ask for confirmation. Option 1 keeps the data, like the Windows
+    # uninstaller and the app's Settings; bare Enter picks it unless --full
+    # was passed, and anything that is not "2" stays on the side that cannot
+    # be undone by mistake.
+    default_choice = "2" if wants_full_uninstall(args) else "1"
     print(color("Uninstall Options:", Colors.YELLOW, Colors.BOLD))
     print()
-    print("  1) " + color("Remove everything", Colors.RED) + " - code, the agentx command, shortcuts,")
-    print("     configs, sessions, logs, and the desktop app's data")
-    print("     (Recommended - this is what 'uninstall' should mean)")
+    print("  1) " + color("Keep my data", Colors.GREEN) + " - remove the code,")
+    print("     the agentx command and shortcuts; keep configs, sessions, logs,")
+    print("     the saved model key and the desktop app's data")
+    print(f"     (Recommended - {hermes_home} stays for a future reinstall)")
     print()
-    print("  2) " + color("Keep my data", Colors.GREEN) + " - remove the code but keep configs/sessions/logs")
-    print(f"     (Leaves {hermes_home} in place for a future reinstall)")
+    print("  2) " + color("Remove everything", Colors.RED) + " - also delete configs,")
+    print("     sessions, logs, the saved model key and the desktop app's data")
     print()
     print("  3) " + color("Cancel", Colors.CYAN) + " - Don't uninstall")
     print()
 
+    prompt = f"Select option [1/2/3] (default {default_choice}): "
     try:
-        choice = input(color("Select option [1/2/3] (default 1): ", Colors.BOLD)).strip()
+        choice = input(color(prompt, Colors.BOLD)).strip()
     except (KeyboardInterrupt, EOFError):
         print()
         print("Cancelled.")
@@ -973,7 +985,7 @@ def run_uninstall(args):
         print("Uninstall cancelled.")
         return
 
-    full_uninstall = choice != "2"
+    full_uninstall = (choice or default_choice) == "2"
 
     # When doing a full uninstall from the default profile, also offer to
     # remove any named profiles — stopping their gateway services, unlinking

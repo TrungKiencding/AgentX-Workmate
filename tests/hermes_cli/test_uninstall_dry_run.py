@@ -34,6 +34,24 @@ def test_dry_run_prints_plan_without_mutating(monkeypatch, tmp_path, capsys):
     assert hermes_home.exists()
 
 
+def test_dry_run_without_full_plans_to_keep_the_data(monkeypatch, tmp_path, capsys):
+    project_root = tmp_path / "agentx-agent"
+    hermes_home = tmp_path / ".agentx"
+    project_root.mkdir()
+    hermes_home.mkdir()
+
+    monkeypatch.setattr(uninstall, "get_project_root", lambda: project_root)
+    monkeypatch.setattr(uninstall, "get_hermes_home", lambda: hermes_home)
+    monkeypatch.setattr(uninstall, "_is_default_hermes_home", lambda home: False)
+    monkeypatch.setattr(uninstall, "_discover_named_profiles", lambda: [])
+
+    uninstall.run_uninstall(SimpleNamespace(dry_run=True))
+
+    output = capsys.readouterr().out
+    assert f"Keep AgentX config/data: {hermes_home}" in output
+    assert f"Code checkout: {project_root}" in output
+
+
 def test_build_uninstall_parser_accepts_dry_run():
     import argparse
     from hermes_cli.subcommands.uninstall import build_uninstall_parser
