@@ -58,7 +58,10 @@ describe('sendWebmateCommand', () => {
       {}
     )
 
-    assert.deepEqual(JSON.parse(files.get('/home/k/.agentx/webmate/commands/cmd-3.json')!), { id: 'cmd-3', action: 'auth_open' })
+    assert.deepEqual(JSON.parse(files.get('/home/k/.agentx/webmate/commands/cmd-3.json')!), {
+      id: 'cmd-3',
+      action: 'auth_open'
+    })
   })
 })
 
@@ -70,8 +73,22 @@ describe('parseLastCommand', () => {
       ok: true,
       signedIn: true,
       results: [
-        { instanceId: 'inst-1', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true, email: 'kien@example.test' },
-        { instanceId: 'inst-2', browser: null, ok: true, outcome: 'login-required', signedIn: false, message: 'no session' },
+        {
+          instanceId: 'inst-1',
+          browser: 'Chrome 152',
+          ok: true,
+          outcome: 'signed-in',
+          signedIn: true,
+          email: 'kien@example.test'
+        },
+        {
+          instanceId: 'inst-2',
+          browser: null,
+          ok: true,
+          outcome: 'login-required',
+          signedIn: false,
+          message: 'no session'
+        },
         { browser: 'nameless' },
         'junk'
       ],
@@ -81,10 +98,27 @@ describe('parseLastCommand', () => {
 
     assert.equal(parsed?.signedIn, true)
     assert.deepEqual(parsed?.results, [
-      { instanceId: 'inst-1', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true, email: 'kien@example.test' },
-      { instanceId: 'inst-2', browser: null, ok: true, outcome: 'login-required', signedIn: false, message: 'no session' }
+      {
+        instanceId: 'inst-1',
+        browser: 'Chrome 152',
+        ok: true,
+        outcome: 'signed-in',
+        signedIn: true,
+        email: 'kien@example.test'
+      },
+      {
+        instanceId: 'inst-2',
+        browser: null,
+        ok: true,
+        outcome: 'login-required',
+        signedIn: false,
+        message: 'no session'
+      }
     ])
-    assert.equal('results' in (parseLastCommand({ id: 'c1', action: 'reload', ok: true, startedAt: 's', finishedAt: 'f' }) ?? {}), false)
+    assert.equal(
+      'results' in (parseLastCommand({ id: 'c1', action: 'reload', ok: true, startedAt: 's', finishedAt: 'f' }) ?? {}),
+      false
+    )
   })
 })
 

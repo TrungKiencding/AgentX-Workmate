@@ -19,11 +19,7 @@ type AccountCopy = ReturnType<typeof useI18n>['t']['settings']['account']
  * hands back — passing milliseconds here would read as fifty years ago.
  * Exported so its edges are testable without rendering anything.
  */
-export function describeSyncTime(
-  seconds: number | null | undefined,
-  copy: AccountCopy,
-  now = Date.now()
-): string {
+export function describeSyncTime(seconds: number | null | undefined, copy: AccountCopy, now = Date.now()): string {
   if (!seconds || !Number.isFinite(seconds)) {
     return copy.syncNever
   }
@@ -128,11 +124,7 @@ export function SyncStatus() {
               onClick={async () => {
                 const result = await syncNow()
 
-                setOutcome(
-                  result.status === 'ok'
-                    ? copy.syncNowDone
-                    : describeSyncState({ last: result }, copy)
-                )
+                setOutcome(result.status === 'ok' ? copy.syncNowDone : describeSyncState({ last: result }, copy))
               }}
               variant="outline"
             >
@@ -140,9 +132,7 @@ export function SyncStatus() {
             </Button>
           }
           description={describeSyncState(sync, copy)}
-          hint={
-            sync.pending ? <Pill tone="muted">{copy.syncPendingPill(sync.pending)}</Pill> : undefined
-          }
+          hint={sync.pending ? <Pill tone="muted">{copy.syncPendingPill(sync.pending)}</Pill> : undefined}
           title={copy.syncTitle}
         />
 
@@ -151,9 +141,7 @@ export function SyncStatus() {
           title={copy.syncLastPull}
         />
 
-        {sync.last_error ? (
-          <ListRow description={sync.last_error} title={copy.syncLastError} />
-        ) : null}
+        {sync.last_error ? <ListRow description={sync.last_error} title={copy.syncLastError} /> : null}
 
         {outcome ? <ListRow description={outcome} title={copy.syncNow} /> : null}
       </div>

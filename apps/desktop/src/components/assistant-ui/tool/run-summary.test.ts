@@ -63,7 +63,7 @@ describe('summarizeToolRun', () => {
     expect(settled([read('a.ts'), tool('search_files', { query: 'toolRuns' })])).toBe('Explored 2 files')
   })
 
-  it('narrates in the app\'s language, with the catalog owning the nouns', () => {
+  it("narrates in the app's language, with the catalog owning the nouns", () => {
     const mcp = (name: string) => tool(name)
 
     expect(summarizeToolRun([mcp('mcp_webmate_webmate'), mcp('mcp_webmate_search')], true, vi)).toBe(

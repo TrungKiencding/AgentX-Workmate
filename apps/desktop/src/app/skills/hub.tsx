@@ -785,6 +785,7 @@ export function SkillsHub({ query, switcher, sync }: SkillsHubProps) {
                 const hubState = skill.identifier.startsWith(HUB_PREFIX)
                   ? (hubStates[skill.identifier.slice(HUB_PREFIX.length)] ?? null)
                   : null
+
                 const successor = hubState?.status === 'archived' ? hubState.successor : null
 
                 return (

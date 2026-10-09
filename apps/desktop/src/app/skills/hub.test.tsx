@@ -282,6 +282,7 @@ describe('SkillsHub — what the hub says of an added skill', () => {
       withdrawn: true,
       reason: 'taken down by admin: phishing'
     })
+
     expect(within(card).getByTestId('hub-card-held').textContent).toBe('Off by the hub')
     expect(within(card).getByTestId('hub-card-state').textContent).toBe(
       'AgentX Hub switched this off: taken down by admin: phishing. Only the hub turns it back on; you can still remove it.'
@@ -301,6 +302,7 @@ describe('SkillsHub — what the hub says of an added skill', () => {
       archived_at: '2026-09-28T00:00:00Z',
       successor: { slug: 'vneb-report-2', name: 'VNEB report 2' }
     })
+
     expect(within(card).getByTestId('hub-card-archived').textContent).toBe('No longer published')
     expect(within(card).getByTestId('hub-card-state').textContent).toBe(
       'Its author stopped publishing it: it still works on this machine, but no newer version will come. Its author points to VNEB report 2 instead.'

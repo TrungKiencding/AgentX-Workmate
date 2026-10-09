@@ -51,9 +51,7 @@ export function GatewayProviderRow({ onSelect }: { onSelect: () => void }) {
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <img alt="" className="size-5 shrink-0 rounded" src={assetPath('apple-touch-icon.png')} />
-          <span className="text-[length:var(--conversation-text-font-size)] font-semibold">
-            {AGENTX_GATEWAY_LABEL}
-          </span>
+          <span className="text-[length:var(--conversation-text-font-size)] font-semibold">{AGENTX_GATEWAY_LABEL}</span>
           <span className="inline-flex items-center gap-1.5 bg-primary px-2 py-0.5 text-2xs font-semibold uppercase tracking-label text-primary-foreground">
             <span aria-hidden="true" className="dither inline-block size-2 shrink-0" />
             {t.onboarding.recommended}

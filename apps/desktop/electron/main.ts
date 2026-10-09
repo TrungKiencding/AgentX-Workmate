@@ -2907,9 +2907,11 @@ function checkoutPinRelation() {
     defaultExecGit(resolveGitBinary(), IS_WINDOWS),
     readBootstrapMarker()?.pinnedCommit
   )
+
   rememberLog(
     `[bootstrap] checkout pin: HEAD ${shortSha(result.headSha)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${result.relation}`
   )
+
   return result
 }
 

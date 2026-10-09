@@ -714,9 +714,7 @@ function Step({
         aria-label={done ? t.messaging.stepDone : undefined}
         className={cn(
           'mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums',
-          done
-            ? 'bg-(--ui-green) text-(--ui-green-foreground)'
-            : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+          done ? 'bg-(--ui-green) text-(--ui-green-foreground)' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
         )}
       >
         {done ? <Check aria-hidden className="size-3.5" /> : index}

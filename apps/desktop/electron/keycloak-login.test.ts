@@ -176,7 +176,10 @@ describe('runKeycloakLogin', () => {
     assert.equal(tokens.signedInAt, 1_234)
     assert.equal(tokens.offline, true)
     // The realm's own answer is the one place its offline idle limit shows.
-    assert.ok(logs.some(line => line.includes('offline session') && line.includes('30d')), logs.join('\n'))
+    assert.ok(
+      logs.some(line => line.includes('offline session') && line.includes('30d')),
+      logs.join('\n')
+    )
   })
 
   test('redirect_uri is the port actually bound, and matches the token exchange', async () => {

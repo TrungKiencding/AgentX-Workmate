@@ -492,7 +492,10 @@ describe('ensureKeycloakSession with session_days', () => {
 
   test('any other sign-in failure is not retried', async () => {
     await assert.rejects(
-      ensureKeycloakSession(POLICY, browserDeps((_n, state) => `error=access_denied&state=${state}`)),
+      ensureKeycloakSession(
+        POLICY,
+        browserDeps((_n, state) => `error=access_denied&state=${state}`)
+      ),
       /access_denied/
     )
 
@@ -500,11 +503,7 @@ describe('ensureKeycloakSession with session_days', () => {
   })
 
   test('refreshing an offline session keeps asking for it and keeps the sign-in time', async () => {
-    persistKeycloakSession(
-      POLICY,
-      tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 3 * DAY, offline: true }),
-      store
-    )
+    persistKeycloakSession(POLICY, tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 3 * DAY, offline: true }), store)
 
     const result = await ensureKeycloakSession(POLICY, quietDeps())
 
@@ -555,11 +554,7 @@ describe('ensureKeycloakSession with session_days', () => {
   test('the limit is not enforced while the app is running', async () => {
     // The Sign in screen lives on the boot path. Ending the sign-in mid-session
     // would only make requests fail in the middle of someone's work.
-    persistKeycloakSession(
-      POLICY,
-      tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 15 * DAY, offline: true }),
-      store
-    )
+    persistKeycloakSession(POLICY, tokenSet({ expiresAt: NOW + 10, signedInAt: NOW - 15 * DAY, offline: true }), store)
 
     const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false, enforceSignInPolicy: false }))
 

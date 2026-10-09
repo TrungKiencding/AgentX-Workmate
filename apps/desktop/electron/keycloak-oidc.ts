@@ -309,7 +309,11 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
  * the right answer: that session ends with the browser one.
  */
 function isOfflineGrant(payload: Record<string, unknown>): boolean {
-  if (String(payload.scope || '').split(/\s+/).includes(OFFLINE_ACCESS_SCOPE)) {
+  if (
+    String(payload.scope || '')
+      .split(/\s+/)
+      .includes(OFFLINE_ACCESS_SCOPE)
+  ) {
     return true
   }
 
@@ -341,9 +345,7 @@ export function parseKeycloakTokenResponse(body: unknown, nowSeconds: number): N
   const idToken = String(payload.id_token || '')
 
   if (!idToken) {
-    throw new Error(
-      'Keycloak token response carried no id_token — check that the client requests the "openid" scope.'
-    )
+    throw new Error('Keycloak token response carried no id_token — check that the client requests the "openid" scope.')
   }
 
   const claims = decodeJwtPayload(idToken)

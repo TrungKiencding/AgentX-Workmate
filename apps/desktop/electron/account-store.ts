@@ -100,9 +100,7 @@ export function parseAccountState(raw: string | null | undefined): AccountStoreS
   }
 
   const activeSubject =
-    typeof parsed.activeSubject === 'string' && accounts[parsed.activeSubject]
-      ? parsed.activeSubject
-      : ''
+    typeof parsed.activeSubject === 'string' && accounts[parsed.activeSubject] ? parsed.activeSubject : ''
 
   return { activeSubject, accounts }
 }
@@ -112,9 +110,7 @@ export function readAccountState(io: AccountStoreIo): AccountStoreState {
     return parseAccountState(io.readText())
   } catch (error) {
     io.rememberLog?.(
-      `[account] could not read the account store: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[account] could not read the account store: ${error instanceof Error ? error.message : String(error)}`
     )
 
     return { activeSubject: '', accounts: {} }
