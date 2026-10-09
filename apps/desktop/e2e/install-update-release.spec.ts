@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import { _electron, type ElectronApplication } from '@playwright/test'
 
-import { buildAppEnv, createSandbox, PACKAGED_BINARY_PATH } from './fixtures'
+import { buildAppEnv, createSandbox, PACKAGED_BINARY_PATH, protectUserCommandLinks } from './fixtures'
 import { expect, installErrorBannerGuard, test } from './test'
 
 interface ReleaseWindow extends Window {
@@ -27,6 +27,8 @@ test('packaged release installs once and preserves its version and data across t
   const testInfo = test.info()
   test.setTimeout(1_200_000)
   const sandbox = createSandbox('release-install')
+  // The real installer re-points ~/.local/bin/agentx at this sandbox.
+  const restoreCommandLinks = protectUserCommandLinks()
   const executablePath = process.env.AGENTX_E2E_EXECUTABLE || PACKAGED_BINARY_PATH
   const env = buildAppEnv(sandbox)
   delete env.AGENTX_DESKTOP_AGENTX_ROOT
@@ -114,5 +116,6 @@ test('packaged release installs once and preserves its version and data across t
     }
 
     sandbox.cleanup()
+    restoreCommandLinks()
   }
 })
