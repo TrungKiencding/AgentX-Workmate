@@ -268,7 +268,7 @@ import {
   writeSandboxMarker
 } from './windows-sandbox-fallback'
 import { installWindowsSystemCaTrust } from './windows-system-ca'
-import { readWindowsUserEnvVar } from './windows-user-env'
+import { isLosslessWindowsPath, readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
 import { resolvePickerDefaultPath } from './wsl-path-bridge'
@@ -590,8 +590,15 @@ function resolveHermesHome() {
     // Consult the live User-scoped registry value before the default below.
     const fromRegistry = readWindowsUserEnvVar('AGENTX_HOME')
 
-    if (fromRegistry) {
+    if (fromRegistry && isLosslessWindowsPath(fromRegistry)) {
       return normalizeHermesHomeRoot(fromRegistry)
+    }
+
+    if (fromRegistry) {
+      // A user name with diacritics does not survive `reg`'s code page, and the
+      // mangled path would be a new, empty home — everything the person had
+      // would seem gone. The default below is what install.ps1 writes anyway.
+      console.warn(`[agentx] ignoring an AGENTX_HOME the registry returned garbled: ${fromRegistry}`)
     }
   }
 

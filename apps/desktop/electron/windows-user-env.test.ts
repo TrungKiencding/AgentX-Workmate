@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { expandWindowsEnvRefs, parseRegQueryValue, readWindowsUserEnvVar } from './windows-user-env'
+import { expandWindowsEnvRefs, isLosslessWindowsPath, parseRegQueryValue, readWindowsUserEnvVar } from './windows-user-env'
 
 // ── parseRegQueryValue ─────────────────────────────────────────────────────
 
@@ -84,4 +84,28 @@ test('readWindowsUserEnvVar returns null when reg exits non-zero (value missing)
 test('readWindowsUserEnvVar returns null for an empty value', () => {
   const exec = () => '    AGENTX_HOME    REG_SZ    \r\n'
   assert.equal(readWindowsUserEnvVar('AGENTX_HOME', { platform: 'win32', exec }), null)
+})
+
+// ── isLosslessWindowsPath ──────────────────────────────────────────────────
+
+test('isLosslessWindowsPath accepts drive and UNC paths, including ones with diacritics', () => {
+  assert.equal(isLosslessWindowsPath('C:\\Users\\kien\\AppData\\Local\\agentx'), true)
+  assert.equal(isLosslessWindowsPath('F:/AgentX Workmate/data'), true)
+  assert.equal(isLosslessWindowsPath('C:\\Users\\Kiên\\AppData\\Local\\agentx'), true)
+  assert.equal(isLosslessWindowsPath('\\\\server\\share\\agentx'), true)
+})
+
+test('isLosslessWindowsPath rejects a path reg mangled through its code page', () => {
+  // What `C:\Users\Kiên\...` reads back as when reg prints it in an OEM code
+  // page and Node decodes the bytes as UTF-8, or when the code page has no
+  // such character at all.
+  assert.equal(isLosslessWindowsPath('C:\\Users\\Ki\uFFFDn\\AppData\\Local\\agentx'), false)
+  assert.equal(isLosslessWindowsPath('C:\\Users\\Ki?n\\AppData\\Local\\agentx'), false)
+})
+
+test('isLosslessWindowsPath rejects relative and unexpanded values', () => {
+  assert.equal(isLosslessWindowsPath('agentx'), false)
+  assert.equal(isLosslessWindowsPath('%NOPE%\\agentx'), false)
+  assert.equal(isLosslessWindowsPath(''), false)
+  assert.equal(isLosslessWindowsPath(null), false)
 })
