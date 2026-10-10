@@ -74,6 +74,16 @@ test('packaged release installs once and preserves its version and data across t
     }
 
     expect(completed, 'Fresh installation must finish successfully').toBe(true)
+    if (process.platform === 'win32' && process.env.AGENTX_UPGRADE_OLD_PLUGINS) {
+      const report = testInfo.outputPath('windows-old-plugins.json')
+      execFileSync(path.join(active, 'venv', 'Scripts', 'python.exe'), [
+        path.resolve(import.meta.dirname, '../scripts/test-windows-plugins.py'),
+        active,
+        process.env.AGENTX_UPGRADE_OLD_PLUGINS,
+        report
+      ], { encoding: 'utf8', timeout: 300_000 })
+      await testInfo.attach('windows-old-plugins', { path: report, contentType: 'application/json' })
+    }
     const version = await page.evaluate(() => (window as unknown as ReleaseWindow).agentxDesktop.getVersion())
     expect(version.appVersion).toBe(
       JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../package.json'), 'utf8')).version

@@ -106,6 +106,7 @@ jobs:
         shell: powershell
         env:
           AGENTX_E2E_RELEASE: '1'
+          AGENTX_UPGRADE_OLD_PLUGINS: ${{ runner.temp }}/workmate-upgrade-state/legacy-plugins
         run: npx playwright test e2e/install-update-release.spec.ts --workers=1 --retries=0
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
