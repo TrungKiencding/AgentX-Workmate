@@ -6,8 +6,8 @@ import path from 'node:path'
 import http from 'node:http'
 import { createHash, generateKeyPairSync } from 'node:crypto'
 import { createRequire } from 'node:module'
-import { execFileSync } from 'node:child_process'
-import { _electron } from '@playwright/test'
+import { execFileSync, spawn } from 'node:child_process'
+import { chromium } from '@playwright/test'
 import { build } from 'esbuild'
 assert.equal(process.platform, 'win32')
 assert.equal(process.env.CI, 'true')
@@ -43,7 +43,12 @@ async function poll(fn, milliseconds = 180000) {
   }
   throw last || Error('Windows update timed out')
 }
-const app = await _electron.launch({ executablePath: executable, args: ['--disable-gpu', '--no-sandbox'], env: {
+const debugServer = http.createServer()
+await new Promise(resolve => debugServer.listen(0, '127.0.0.1', resolve))
+const debugPort = debugServer.address().port
+await new Promise(resolve => debugServer.close(resolve))
+// Direct launch avoids Playwright's Windows cmd wrapper and Node debugger.
+const oldProcess = spawn(executable, ['--disable-gpu', '--no-sandbox', `--remote-debugging-port=${debugPort}`], { stdio: 'ignore', env: {
   ...process.env,
   AGENTX_HOME: path.join(root, 'agent-data'),
   AGENTX_DESKTOP_USER_DATA_DIR: path.join(root, 'desktop-data'),
@@ -53,11 +58,12 @@ const app = await _electron.launch({ executablePath: executable, args: ['--disab
   AGENTX_DESKTOP_UPDATE_FEED_URL: `http://127.0.0.1:${port}/release.json`,
   AGENTX_DESKTOP_UPDATE_PUBLIC_KEY: publicKey.export({ type: 'spki', format: 'pem' }).toString()
 } })
-const oldProcess = app.process()
+let browser
 try {
+  browser = await poll(() => chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, { timeout: 1500 }), 60000)
   console.log('IPC: old Electron launched; backend simulated, updater real')
   const page = await poll(async () => {
-    for (const candidate of app.windows()) {
+    for (const candidate of browser.contexts().flatMap(context => context.pages())) {
       if (await candidate.evaluate(() => Boolean(window.agentxDesktop?.appUpdate)).catch(() => false)) return candidate
     }
     return null
@@ -88,8 +94,9 @@ try {
   fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } finally {
+  await browser?.close().catch(() => {})
   if (oldProcess.exitCode === null) {
-    try { execFileSync('taskkill.exe', ['/PID', String(oldProcess.pid), '/T', '/F'], { stdio: 'ignore' }) } catch {}
+    try { execFileSync('taskkill.exe', ['/PID', String(oldProcess.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { /* The test process may already have exited. */ }
   }
   server.closeAllConnections()
   await new Promise(resolve => server.close(resolve))
