@@ -30,6 +30,9 @@ jobs:
         with:
           node-version: 26
           cache: npm
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
       - run: npm i -g npm@12
       - uses: ./.github/actions/retry
         with:
@@ -62,6 +65,17 @@ jobs:
           $startLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'AgentX.lnk'
           Set-Content -LiteralPath $desktopLink -Value 'legacy shortcut'
           Set-Content -LiteralPath $startLink -Value 'legacy shortcut'
+          $state = Join-Path $env:RUNNER_TEMP 'workmate-upgrade-state'
+          $legacy = Join-Path $state 'legacy-plugins'
+          New-Item -ItemType Directory -Force $legacy | Out-Null
+          git fetch origin tag desktop-v1.0.5 --depth=1
+          if ($LASTEXITCODE -ne 0) { throw 'Could not obtain old plugin code' }
+          $archive = Join-Path $env:RUNNER_TEMP 'old-plugins.tar'
+          git archive --format=tar --output=$archive desktop-v1.0.5 plugins
+          tar -xf $archive -C $legacy --strip-components=1
+          if ($LASTEXITCODE -ne 0) { throw 'Could not extract old plugins' }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs before $executable $state
+          if ($LASTEXITCODE -ne 0) { throw 'Old Windows login persistence failed' }
           $downloads = Join-Path $env:RUNNER_TEMP 'new-release'
           New-Item -ItemType Directory $downloads | Out-Null
           for ($attempt = 0; $attempt -lt 30; $attempt++) {
@@ -80,6 +94,10 @@ jobs:
           if ((Test-Path -LiteralPath $desktopLink) -or (Test-Path -LiteralPath $startLink)) { throw 'Legacy shortcuts remain' }
           $after = (Get-Item $executable).VersionInfo.ProductVersion
           if ([version]$after -le [version]$before) { throw "Desktop did not advance: $before -> $after" }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs after $executable $state
+          if ($LASTEXITCODE -ne 0) { throw 'Windows upgrade lost credentials or data' }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $executable $state
+          if ($LASTEXITCODE -ne 0) { throw 'Windows restart lost credentials or data' }
           Write-Output "Desktop upgraded $before -> $after; user data preserved and legacy shortcuts removed"
           "AGENTX_E2E_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -95,5 +113,6 @@ jobs:
         with:
           name: windows-upgrade-diagnostics
           path: |
+            ${{ runner.temp }}/workmate-upgrade-state/*-report.json
             apps/desktop/playwright-report
             apps/desktop/test-results
