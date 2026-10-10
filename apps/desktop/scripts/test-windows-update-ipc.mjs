@@ -1,3 +1,4 @@
+/* global window */
 /** Actual old Electron update IPC -> signed local feed -> real NSIS installer. */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -47,33 +48,49 @@ const app = await _electron.launch({ executablePath: executable, args: ['--disab
   AGENTX_HOME: path.join(root, 'agent-data'),
   AGENTX_DESKTOP_USER_DATA_DIR: path.join(root, 'desktop-data'),
   AGENTX_DESKTOP_APP_NAME: state.appName,
+  AGENTX_DESKTOP_BOOT_FAKE: '1',
+  AGENTX_DESKTOP_BOOT_FAKE_STEP_MS: '20',
   AGENTX_DESKTOP_UPDATE_FEED_URL: `http://127.0.0.1:${port}/release.json`,
   AGENTX_DESKTOP_UPDATE_PUBLIC_KEY: publicKey.export({ type: 'spki', format: 'pem' }).toString()
 } })
 const oldProcess = app.process()
 try {
-  const page = await app.firstWindow()
-  await page.waitForFunction(() => Boolean(window.agentxDesktop?.appUpdate))
+  console.log('IPC: old Electron launched; backend simulated, updater real')
+  const page = await poll(async () => {
+    for (const candidate of app.windows()) {
+      if (await candidate.evaluate(() => Boolean(window.agentxDesktop?.appUpdate)).catch(() => false)) return candidate
+    }
+    return null
+  }, 60000)
+  console.log('IPC: desktop update bridge ready')
   const oldVersion = (await page.evaluate(() => window.agentxDesktop.getVersion())).appVersion
   assert.equal(oldVersion, '1.0.5')
   await poll(async () => (await page.evaluate(() => window.agentxDesktop.appUpdate.get())).phase === 'available', 45000)
+  console.log('IPC: update automatically detected')
   assert.equal(downloads, 0, 'Application downloaded without user choice')
   assert.equal((await page.evaluate(() => window.agentxDesktop.appUpdate.download())).phase, 'ready')
+  console.log('IPC: explicit download verified')
   assert.equal(downloads, 1)
   assert.equal((await page.evaluate(() => window.agentxDesktop.appUpdate.install())).started, true)
+  console.log('IPC: explicit install started')
   await poll(() => oldProcess.exitCode !== null, 60000)
+  console.log('IPC: old process exited')
   const quoted = executable.replaceAll("'", "''")
   function powershell(code) {
     return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 }).trim()
   }
   await poll(() => powershell(`(Get-Item -LiteralPath '${quoted}').VersionInfo.ProductVersion`) === '1.0.10.0')
+  console.log('IPC: executable version advanced')
   // Wait for --force-run, so we prove the installer restarted the new app.
   await poll(() => powershell(`@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' }).Count`) !== '0')
   powershell(`Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`)
-  const report = { oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; signed loopback feed carrying the released NSIS installer' }
+  const report = { oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
   fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } finally {
-  await app.close().catch(() => {})
+  if (oldProcess.exitCode === null) {
+    try { execFileSync('taskkill.exe', ['/PID', String(oldProcess.pid), '/T', '/F'], { stdio: 'ignore' }) } catch {}
+  }
+  server.closeAllConnections()
   await new Promise(resolve => server.close(resolve))
 }
