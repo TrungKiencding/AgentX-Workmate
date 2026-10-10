@@ -59,6 +59,9 @@ const oldProcess = spawn(executable, ['--disable-gpu', '--no-sandbox', `--remote
   AGENTX_DESKTOP_UPDATE_PUBLIC_KEY: publicKey.export({ type: 'spki', format: 'pem' }).toString()
 } })
 let browser
+let lastVersion = ''
+const phases = []
+const originalHash = createHash('sha256').update(fs.readFileSync(executable)).digest('hex')
 try {
   browser = await poll(() => chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`, { timeout: 1500 }), 60000)
   console.log('IPC: old Electron launched; backend simulated, updater real')
@@ -81,11 +84,18 @@ try {
   console.log('IPC: explicit install started')
   await poll(() => oldProcess.exitCode !== null, 60000)
   console.log('IPC: old process exited')
+  phases.push('old-process-exited')
   const quoted = executable.replaceAll("'", "''")
   function powershell(code) {
-    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 }).trim()
+    const prepared = "$ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); " + code
+    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-OutputFormat', 'Text', '-EncodedCommand', Buffer.from(prepared, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 }).trim()
   }
-  await poll(() => powershell(`(Get-Item -LiteralPath '${quoted}').VersionInfo.ProductVersion`) === '1.0.10.0')
+  await poll(() => {
+    const value = powershell(`(Get-Item -LiteralPath '${quoted}').VersionInfo.ProductVersion`)
+    if (value !== lastVersion) console.log('IPC: executable ProductVersion=' + JSON.stringify(value))
+    lastVersion = value
+    return value === '1.0.10.0'
+  })
   console.log('IPC: executable version advanced')
   // Wait for --force-run, so we prove the installer restarted the new app.
   await poll(() => powershell(`@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' }).Count`) !== '0')
@@ -93,11 +103,20 @@ try {
   const report = { oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
   fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
+} catch (error) {
+  const command = "$ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*Workmate*' -or $_.Name -eq 'cmd.exe' -or $_.Name -eq 'tasklist.exe' -or $_.Name -eq 'findstr.exe' } | Select-Object Name,ProcessId,ExecutablePath | ConvertTo-Json -Compress"
+  let processes
+  try { processes = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-OutputFormat', 'Text', '-EncodedCommand', Buffer.from(command, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 }).trim() } catch { processes = 'probe failed' }
+  const helperFiles = fs.readdirSync(process.env.RUNNER_TEMP).filter(file => /^agentx-update-.*\.cmd$/.test(file)).map(file => ({ file, text: fs.readFileSync(path.join(process.env.RUNNER_TEMP, file), 'utf8') }))
+  const report = { ok: false, error: String(error), phases, lastVersion, executableChanged: createHash('sha256').update(fs.readFileSync(executable)).digest('hex') !== originalHash, processes, helperFiles }
+  fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
+  console.log(JSON.stringify(report))
+  throw error
 } finally {
-  await browser?.close().catch(() => {})
   if (oldProcess.exitCode === null) {
     try { execFileSync('taskkill.exe', ['/PID', String(oldProcess.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { /* The test process may already have exited. */ }
   }
+  await Promise.race([browser?.close().catch(() => {}), new Promise(resolve => { const timer = setTimeout(resolve, 3000); timer.unref() })])
   server.closeAllConnections()
   await new Promise(resolve => server.close(resolve))
 }
