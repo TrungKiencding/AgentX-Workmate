@@ -93,7 +93,7 @@ jobs:
           }
           $new = Get-ChildItem $downloads -Filter '*.exe' | Select-Object -First 1
           # Same NSIS upgrade mode as the app; launch is exercised below under an isolated profile.
-          node apps/desktop/scripts/test-windows-update-ipc.mjs $executable $new.FullName $state
+          node apps/desktop/scripts/test-windows-update-ipc.mjs $executable $new.FullName $state --patched-handoff
           if ($LASTEXITCODE -ne 0) { throw 'App-driven Windows update failed' }
           foreach ($root in $dataRoots) {
             if ((Get-Content -LiteralPath (Join-Path $root 'upgrade-data-must-survive.txt')) -ne 'preserve existing user data') { throw "User data lost under $root" }

@@ -70,16 +70,11 @@ export function buildWindowsUpdateScript(options: WindowsUpdateScriptOptions): s
   return [
     '@echo off',
     'setlocal enableextensions',
-    `set "PID=${pid}"`,
-    'set /a waited=0',
-    ':waitloop',
-    'rem An exact PID filter: one task row for that PID, or "INFO: No tasks...".',
-    'tasklist /NH /FI "PID eq %PID%" 2>nul | findstr /r /c:" %PID% " >nul',
-    'if %ERRORLEVEL% neq 0 goto run',
-    'set /a waited+=1',
-    `if %waited% geq ${wait} goto run`,
-    'timeout /t 1 /nobreak >nul',
-    'goto waitloop',
+    // Avoid a tasklist | findstr pipeline: its inherited pipe handles can keep
+    // findstr alive after the app exits, preventing the installer from running.
+    // Wait-Process observes the exact PID and has a native timeout; a missing
+    // or timed-out process falls through to NSIS, which handles a hung app.
+    `powershell.exe -NoProfile -NonInteractive -Command "Wait-Process -Id ${pid} -Timeout ${wait} -ErrorAction SilentlyContinue" >nul 2>nul`,
     ':run',
     `${cmdQuoted(options.installer)} ${NSIS_UPDATE_ARGS.join(' ')}`,
     'set "CODE=%ERRORLEVEL%"',

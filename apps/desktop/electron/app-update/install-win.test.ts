@@ -42,11 +42,12 @@ describe('Windows install preflight', () => {
 
     const lines = script.split('\r\n')
 
-    expect(lines).toContain('set "PID=4242"')
-    expect(lines).toContain('tasklist /NH /FI "PID eq %PID%" 2>nul | findstr /r /c:" %PID% " >nul')
-    expect(lines).toContain('if %waited% geq 90 goto run')
+    const waitLine = 'powershell.exe -NoProfile -NonInteractive -Command "Wait-Process -Id 4242 -Timeout 90 -ErrorAction SilentlyContinue" >nul 2>nul'
+    expect(lines).toContain(waitLine)
+    expect(script).not.toContain('findstr')
+    expect(script).not.toContain('tasklist')
     // The installer runs after the wait loop, with `%` doubled so cmd keeps it.
-    expect(lines.indexOf(':run')).toBeGreaterThan(lines.indexOf(':waitloop'))
+    expect(lines.indexOf(':run')).toBeGreaterThan(lines.indexOf(waitLine))
     expect(lines[lines.indexOf(':run') + 1]).toBe(
       '"C:\\Users\\An 100%%\\AppData\\Roaming\\AgentX Workmate\\updates\\1.0.4\\AgentXWorkmate-win-x64.exe" --updated /S --force-run'
     )

@@ -85,6 +85,22 @@ try {
   await poll(() => oldProcess.exitCode !== null, 60000)
   console.log('IPC: old process exited')
   phases.push('old-process-exited')
+  if (process.argv.includes('--patched-handoff')) {
+    // The published old app contains the reproduced pipeline bug. Exercise the
+    // corrected production generator without modifying that historical binary.
+    const moduleFile = path.join(root, 'windows-handoff.cjs')
+    await build({ entryPoints: [path.resolve(import.meta.dirname, '../electron/app-update/install-win.ts')], outfile: moduleFile, bundle: true, format: 'cjs', platform: 'node' })
+    const { buildWindowsUpdateScript } = createRequire(import.meta.url)(moduleFile)
+    const cleanup = "$ProgressPreference='SilentlyContinue'; Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'cmd.exe' -and $_.CommandLine -like '*agentx-update-*.cmd*' } | ForEach-Object { & taskkill.exe /PID $_.ProcessId /T /F | Out-Null }"
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(cleanup, 'utf16le').toString('base64')], { stdio: 'ignore', timeout: 15000 })
+    // Real, short-lived process verifies the new helper waits before NSIS runs.
+    const waiting = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 3'], { stdio: 'ignore' })
+    const helper = path.join(root, 'patched-handoff.cmd')
+    fs.writeFileSync(helper, buildWindowsUpdateScript({ pid: waiting.pid, installer, version: '1.0.10', resultFile: path.join(root, 'patched-result.json'), waitSeconds: 30 }))
+    spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', helper], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+    await poll(() => waiting.exitCode !== null, 30000)
+    console.log('IPC: corrected production helper used; simulated old wait process exited')
+  }
   const quoted = executable.replaceAll("'", "''")
   function powershell(code) {
     const prepared = "$ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); " + code
@@ -100,7 +116,7 @@ try {
   // Wait for --force-run, so we prove the installer restarted the new app.
   await poll(() => powershell(`@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' }).Count`) !== '0')
   powershell(`Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`)
-  const report = { oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
+  const report = { correctedHandoff: process.argv.includes('--patched-handoff'), historicalBinaryUnmodified: true, oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
   fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } catch (error) {
