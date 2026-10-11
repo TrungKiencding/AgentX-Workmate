@@ -1,6 +1,6 @@
 # Workmate 1.1.0 — workspace usage rebuild
 
-This operator-requested rebuild integrates the first-party SSO usage Dashboard and bundles WebMate 1.0.10. Workmate retains version 1.1.0. Previous installer URLs and release tags remain immutable; publish new installers under a revision path and replace only the landing page's latest download aliases and signed feed.
+This operator-requested rebuild integrates the first-party SSO usage Dashboard and bundles WebMate 1.0.11. Workmate retains version 1.1.0. Previous installer URLs and release tags remain immutable; publish new installers under a revision path and replace only the landing page's latest download aliases and signed feed.
 
 Main process owns token refresh and a bounded reporter. Renderer IPC contains only session/profile lifecycle signals. One completed chat turn records the authenticated account/workspace, version, operating system, native environment, duration and outcome. Multiple windows are deduplicated while a turn is active. Cancelled/interrupted turns, disconnected activity without completion and account changes are excluded. Generic errors are counted without transcripts, prompts, tool data, URLs or raw errors. Three bounded retries retain one event UUID. A collection outage never changes a turn or prompts sign-in.
 
