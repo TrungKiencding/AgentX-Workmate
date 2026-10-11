@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { FALLBACK_LOCALE, setRuntimeI18nLocale, TRANSLATIONS } from '@/i18n'
 import { $desktopBoot } from '@/store/boot'
 import { $desktopOnboarding } from '@/store/onboarding'
 
@@ -46,7 +47,10 @@ beforeEach(() => {
   setBootError(SIGN_IN_ERROR)
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  setRuntimeI18nLocale(FALLBACK_LOCALE)
+})
 
 describe('SignInOverlay', () => {
   describe('visibility', () => {
@@ -66,6 +70,22 @@ describe('SignInOverlay', () => {
   })
 
   describe('voice', () => {
+    it.each(Object.keys(TRANSLATIONS) as (keyof typeof TRANSLATIONS)[])(
+      'names the dialog and its action in %s',
+      locale => {
+        setRuntimeI18nLocale(locale)
+        render(<SignInOverlay />)
+        const copy = TRANSLATIONS[locale].boot.failure
+        const dialog = screen.getByRole('dialog', { name: copy.keycloakTitle })
+
+        expect(dialog.getAttribute('aria-modal')).toBe('true')
+        expect(window.document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toBe(
+          copy.keycloakDescription
+        )
+        expect(screen.getByRole('button', { name: copy.signInWithAgentX })).toBeTruthy()
+      }
+    )
+
     // The whole point of splitting this out: the recovery console's Retry /
     // Repair / Open logs / log dump belong to a crash, not to a sign-in.
     it('offers exactly one primary action and no recovery chrome', () => {
@@ -129,6 +149,8 @@ describe('SignInOverlay', () => {
         render(<SignInOverlay />)
         fireEvent.click(screen.getByRole('button', { name: /sign in with agentx/i }))
         expect(await screen.findByText(/ports 47821-47823 are all in use/i)).toBeTruthy()
+        expect(screen.getByRole('alert').textContent).toContain('Ports 47821-47823')
+        expect(screen.getByRole('button', { name: /sign in with agentx/i }).hasAttribute('disabled')).toBe(false)
       } finally {
         restore()
       }
@@ -177,8 +199,58 @@ describe('SignInOverlay', () => {
 
         await waitFor(() => expect(screen.getByRole('button', { name: /waiting for your browser/i })).toBeTruthy())
         expect(screen.getByRole('button', { name: /waiting for your browser/i }).hasAttribute('disabled')).toBe(true)
+        expect(screen.getByRole('button', { name: /gateway settings/i }).hasAttribute('disabled')).toBe(true)
+        expect(screen.getByText(/complete sign-in in your browser/i).closest('[aria-live]')).toBeTruthy()
 
-        release({ ok: false, error: 'cancelled' })
+        await act(async () => release({ ok: false, error: 'cancelled' }))
+      } finally {
+        restore()
+      }
+    })
+
+    it('clears the previous error when the user tries again', async () => {
+      let attempts = 0
+      let release: (v: unknown) => void = () => undefined
+
+      const restore = stubDesktop({
+        keycloak: {
+          signIn: () =>
+            ++attempts === 1
+              ? Promise.resolve({ ok: false, error: 'Please try again' })
+              : new Promise(resolve => (release = resolve))
+        }
+      })
+
+      try {
+        render(<SignInOverlay />)
+        fireEvent.click(screen.getByRole('button', { name: /sign in with agentx/i }))
+        await screen.findByRole('alert')
+        fireEvent.click(screen.getByRole('button', { name: /sign in with agentx/i }))
+        expect(screen.queryByRole('alert')).toBeNull()
+        expect(attempts).toBe(2)
+        await act(async () => release({ ok: false, error: 'cancelled' }))
+      } finally {
+        restore()
+      }
+    })
+
+    it('keeps a short success label and both actions disabled while the backend resets', async () => {
+      let release: () => void = () => undefined
+
+      const restore = stubDesktop({
+        keycloak: { signIn: async () => ({ ok: true }) },
+        resetBootstrap: () => new Promise<void>(resolve => (release = resolve))
+      })
+
+      try {
+        render(<SignInOverlay />)
+        fireEvent.click(screen.getByRole('button', { name: /sign in with agentx/i }))
+        const button = await screen.findByRole('button', { name: 'Signed in' })
+
+        expect(button.hasAttribute('disabled')).toBe(true)
+        expect(screen.getByRole('button', { name: /gateway settings/i }).hasAttribute('disabled')).toBe(true)
+        expect(screen.getByText(/starting agentx workmate/i).closest('[aria-live]')).toBeTruthy()
+        await act(async () => release())
       } finally {
         restore()
       }

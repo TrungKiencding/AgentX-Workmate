@@ -1,0 +1,137 @@
+/* Hallmark · pre-emit critique: P4 H5 E5 S5 R5 V4
+ * genre: modern-minimal · macrostructure: split welcome
+ * design-system: apps/desktop/DESIGN.md · designed-as-app
+ * Existing desktop tokens own palette, typography, controls and motion.
+ */
+.sign-in-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  overflow-x: clip;
+  padding: 2rem;
+}
+
+.sign-in-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  width: 100%;
+  max-width: 64rem;
+  margin-block: auto;
+}
+
+.sign-in-brand {
+  position: relative;
+  display: flex;
+  min-height: 36rem;
+  flex-direction: column;
+  overflow: clip;
+  border-start-start-radius: var(--radius-overlay);
+  border-end-start-radius: var(--radius-overlay);
+  background: var(--ui-sidebar-surface-background);
+  padding: 3rem;
+}
+
+.sign-in-wordmark {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sign-in-intro {
+  position: relative;
+  z-index: 1;
+  margin-block: auto;
+  padding-block: 3rem;
+}
+
+.sign-in-headline {
+  margin-top: 1rem;
+  line-height: 1.25;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.sign-in-headline > span {
+  display: block;
+}
+
+.sign-in-lede {
+  max-width: 34ch;
+  margin-top: 1.5rem;
+  text-align: justify;
+  text-wrap: pretty;
+}
+
+.sign-in-brand-art {
+  position: absolute;
+  inset-inline-end: -3rem;
+  inset-block-end: -5rem;
+  width: 19rem;
+  height: 19rem;
+  color: var(--ui-accent);
+  opacity: var(--ui-watermark-strength);
+  pointer-events: none;
+}
+
+.sign-in-form {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem;
+  overflow-wrap: anywhere;
+}
+
+/* Collapse before either column squeezes translated copy or a button label.
+   The viewport scrolls vertically on short windows and at larger text sizes. */
+@media (max-width: 900px) {
+  .sign-in-screen {
+    padding: 1.5rem;
+  }
+
+  .sign-in-brand,
+  .sign-in-form {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .sign-in-screen {
+    padding: 1rem;
+  }
+
+  .sign-in-layout {
+    max-width: 30rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sign-in-brand {
+    min-height: auto;
+    border-end-start-radius: 0;
+    border-start-end-radius: var(--radius-overlay);
+    padding: 1.5rem;
+  }
+
+  .sign-in-intro,
+  .sign-in-brand-art {
+    display: none;
+  }
+
+  .sign-in-form {
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 374px) {
+  .sign-in-screen {
+    padding: 0.5rem;
+  }
+
+  .sign-in-brand,
+  .sign-in-form {
+    padding-inline: 1rem;
+  }
+}

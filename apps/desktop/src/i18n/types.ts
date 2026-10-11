@@ -175,6 +175,12 @@ export interface Translations {
       keycloakTitle: string
       keycloakDescription: string
       keycloakSignInHint: string
+      signInEyebrow: string
+      signInHeroLead: string
+      signInHeroAccent: string
+      signInHeroDescription: string
+      signInBrowserHint: string
+      keycloakSignedIn: string
       signInWithAgentX: string
       keycloakSigningIn: string
       keycloakReconnecting: string

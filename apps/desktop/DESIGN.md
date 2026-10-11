@@ -850,6 +850,15 @@ so two-line rows still grow), `HUD_HEADING`.
 - Install, onboarding, connecting, boot failure, and reauthentication are
   distinct states with shared visual primitives. Preserve their recovery
   semantics when unifying appearance.
+- **The sign-in gate** (`components/sign-in-overlay.tsx`) is a split welcome
+  surface: the product mark and a short introduction on the sidebar surface,
+  with the account action on the card surface. Its scoped stylesheet collapses
+  to a brand header and one form column below 768px; short windows scroll
+  vertically. Use the bundled sans, theme colors, and `Button size="xl"`.
+  Keep button labels short in every state; browser instructions and reconnect
+  details belong in the polite live region below. Errors use an inline alert.
+  The non-dismissable modal owns keyboard focus, and the subordinate gateway
+  settings view keeps a way back. Authentication remains with the native bridge.
 - **Boot surfaces speak the app's language, never the main process's.** The
   main process reports progress and failures as English log lines. The
   renderer translates by *phase* (`lib/boot-phase-label.ts`, with the dynamic
