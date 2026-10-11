@@ -49,7 +49,10 @@ const oldCache = oldHome ? cacheInventory(path.join(oldHome, 'bootstrap-cache'))
 const report = { version: JSON.parse(fs.readFileSync(path.join(runtime,'runtime.json'),'utf8')).version, migrated: Boolean(oldHome), checks:[], launches:[] }
 const rules = []
 function powershell(script) {
-  return execFileSync(path.join(system,'System32/WindowsPowerShell/v1.0/powershell.exe'), ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')], {encoding:'utf8',timeout:30000})
+  // NetSecurity initialization on a fresh hosted runner can exceed 30 seconds.
+  // Keep a bound, while requiring the same actual firewall rules and socket probe.
+  const prepared = "$ProgressPreference='SilentlyContinue'; " + script
+  return execFileSync(path.join(system,'System32/WindowsPowerShell/v1.0/powershell.exe'), ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(prepared,'utf16le').toString('base64')], {encoding:'utf8',timeout:120000})
 }
 async function gateway(url, method) {
   return new Promise((resolve,reject) => {
@@ -67,8 +70,9 @@ let app
 try {
   for (const program of [executable, python, path.join(runtime,'node/node.exe'),path.join(runtime,'bin/uv.exe'),path.join(runtime,'bin/agent-browser.exe')]) {
     const name='WorkmateOffline-'+rules.length+'-'+path.basename(root)
-    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255','2000::/3','fc00::/7','fe80::/10' -ErrorAction Stop | Out-Null`)
+    // A timed-out command may still have created its rule; always clean it up.
     rules.push(name)
+    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255','2000::/3','fc00::/7','fe80::/10' -ErrorAction Stop | Out-Null`)
   }
   // Use literal IP so a DNS failure cannot masquerade as enforced offline mode.
   console.log(pythonRun("import socket; s=socket.socket(); s.settimeout(3); blocked=False\ntry: s.connect(('1.1.1.1',443))\nexcept OSError: blocked=True\nfinally: s.close()\nassert blocked, 'External network was not blocked'; print('offline enforcement verified')"))
