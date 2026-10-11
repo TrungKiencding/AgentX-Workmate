@@ -160,7 +160,7 @@ describe('notices', () => {
     expect($updateOverlayTarget.get()).toBe('client')
   })
 
-  it('stays quiet for a day about a version the person closed, but not about the next one', () => {
+  it('stays quiet for eight hours about a version the person closed, but not about the next one', () => {
     push(state({ phase: 'available', release }))
     toast('app-update-available')[0].onDismiss()
     notifySpy.mockClear()
@@ -181,11 +181,11 @@ describe('notices', () => {
       push(state({ phase: 'available', release, checkedAt: 1 }))
       toast('app-update-available')[0].onDismiss()
 
-      vi.setSystemTime(23 * 60 * 60 * 1000)
+      vi.setSystemTime(8 * 60 * 60 * 1000 - 1)
       push(state({ phase: 'available', release, checkedAt: 2 }))
       expect(toast('app-update-available')).toHaveLength(1)
 
-      vi.setSystemTime(25 * 60 * 60 * 1000)
+      vi.setSystemTime(8 * 60 * 60 * 1000)
       push(state({ phase: 'available', release, checkedAt: 3 }))
       push(state({ phase: 'available', release, checkedAt: 4 }))
       expect(toast('app-update-available')).toHaveLength(2)
@@ -278,7 +278,7 @@ describe('notices', () => {
     expect(toast('app-update-ready')).toHaveLength(1)
   })
 
-  it('treats "Later" in the dialog like closing the notice: quiet for a day', () => {
+  it('treats "Later" in the dialog like closing the notice: quiet for eight hours', () => {
     push(state({ phase: 'available', release }))
     dismissSpy.mockClear()
 

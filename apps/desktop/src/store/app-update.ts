@@ -33,11 +33,11 @@ const AGENT_TOAST_ID = 'app-update-agent'
 const DOWNLOAD_TOAST_ID = 'app-update-download'
 
 // Closing the "update available" notice, or starting the download, quiets it for
-// a day, for that version only: a newer release is news again straight away. A
+// eight hours, for that version only: a newer release is news again straight away. A
 // download that fails or is cancelled has the dialog and About to say so; the
 // notice coming back would only nag.
 const SNOOZE_KEY = 'agentx:app-update-snooze'
-const SNOOZE_MS = 24 * 60 * 60 * 1000
+const SNOOZE_MS = 8 * 60 * 60 * 1000
 
 interface Snooze {
   version: string
@@ -346,7 +346,7 @@ export function dismissActiveWorkPrompt(): void {
   $appUpdateActiveWork.set(null)
 }
 
-/** "Later" in the dialog: the same as closing the available notice, for a day. */
+/** "Later" in the dialog: the same as closing the available notice, for eight hours. */
 export function deferAppUpdate(): void {
   const state = $appUpdate.get()
   const version = state?.release?.version
