@@ -22,7 +22,7 @@ describe('requestModelOptions', () => {
       request: vi.fn(() => Promise.resolve(gatewayPayload))
     }
 
-    await expect(requestModelOptions({ gateway: gateway as never, sessionId: null })).resolves.toBe(gatewayPayload)
+    await expect(requestModelOptions({ gateway: gateway as never, sessionId: null })).resolves.toEqual(gatewayPayload)
 
     expect(gateway.request).toHaveBeenCalledWith('model.options', { explicit_only: true })
     expect(getGlobalModelOptions).not.toHaveBeenCalled()
@@ -96,4 +96,11 @@ describe('manualPickRemoved', () => {
   it('never clobbers when there is no pick', () => {
     expect(manualPickRemoved(providers, '', '')).toBe(false)
   })
+})
+
+it('invalidates a manual pin to another provider once gateway models are available', () => {
+  const gateway = [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['model'] }]
+  expect(manualPickRemoved(gateway, 'anthropic', 'claude')).toBe(true)
+  expect(manualPickRemoved(gateway, 'litellm', 'model')).toBe(false)
+  expect(manualPickRemoved([{ ...gateway[0], models: [] }], 'anthropic', 'claude')).toBe(false)
 })

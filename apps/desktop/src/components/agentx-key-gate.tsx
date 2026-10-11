@@ -8,18 +8,9 @@ import { Loader } from '@/components/ui/loader'
 import { useI18n } from '@/i18n'
 import { Loader2, LogOut, RefreshCw } from '@/lib/icons'
 import { signOutKeycloak } from '@/store/account'
-import { $agentxKeyGate, retryAgentxKey } from '@/store/agentx-key'
+import { $agentxKeyGate, retryAgentxKey, skipAgentxKey } from '@/store/agentx-key'
 
-/**
- * The AgentX key gate: a signed-in account whose AgentX AI Gateway key could
- * not be issued.
- *
- * The main process holds the boot until the key is on this machine
- * (electron/agentx-key-gate.ts), so there is no app behind this screen to get
- * back to — and, by design, no other provider to pick, nothing to skip, no
- * close button and no Esc. What is left is what can actually resolve it: try
- * again, sign out (the wrong account), or hand support the reason.
- */
+/** Gateway setup failure: retry, skip setup, or sign out. */
 export function AgentxKeyGate() {
   const gate = useStore($agentxKeyGate)
   const { t } = useI18n()
@@ -83,6 +74,11 @@ export function AgentxKeyGate() {
             >
               {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {busy ? copy.retrying : copy.retry}
+            </Button>
+          ) : null}
+          {failure && window.agentxDesktop?.account?.keyGate?.skip ? (
+            <Button disabled={busy || signingOut} onClick={() => void skipAgentxKey()} variant="outline">
+              {t.common.skip}
             </Button>
           ) : null}
           <div className="flex justify-center">

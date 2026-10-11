@@ -275,7 +275,7 @@ export const en: Translations = {
     title: 'Your AgentX AI key could not be issued',
     provisioning: 'Issuing the AgentX AI Gateway key for your account…',
     intro:
-      'Workmate runs on your account’s AgentX AI Gateway key. That key could not be issued for this account, so Workmate cannot be used yet.',
+      'Workmate only uses models through your account’s AgentX AI Gateway. Retry or skip setup; AI stays unavailable until the gateway connects.',
     account: who => `Account: ${who}`,
     reasons: {
       offline: 'The AgentX key service could not be reached. Check your network, then select Try again.',
@@ -3100,7 +3100,7 @@ export const en: Translations = {
       couldNotChangeModel: 'Could not change model',
       directApiAccess: name => `Direct API access to ${name}.`,
       gatewayNotSetUp:
-        'AgentX AI Gateway is not set up on this install. Ask whoever manages AgentX, or pick a different provider.'
+        'AgentX AI Gateway is not set up on this install. Contact your AgentX administrator or skip setup for now.'
     },
     headerTitle: 'Let’s get you set up with AgentX Workmate',
     headerDesc: 'Connect a model provider to start chatting. Most options take one click.',

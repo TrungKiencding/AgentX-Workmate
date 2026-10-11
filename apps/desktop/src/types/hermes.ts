@@ -433,6 +433,8 @@ export interface ModelCapabilities {
 }
 
 export interface ModelOptionsResponse {
+  /** Managed inference provider for this signed-in account. */
+  inference_provider?: string
   model?: string
   provider?: string
   providers?: ModelOptionProvider[]

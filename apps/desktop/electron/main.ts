@@ -10617,6 +10617,7 @@ async function primaryLocalBaseUrl(): Promise<string | null> {
 // startHermes(), whose connection is exactly what the gate is holding back.
 ipcMain.handle('agentx:account:key-gate:get', async () => agentxKeyGate.state)
 ipcMain.handle('agentx:account:key-gate:retry', async () => agentxKeyGate.retry())
+ipcMain.handle('agentx:account:key-gate:skip', async () => agentxKeyGate.skip())
 
 ipcMain.handle('agentx:account:status', async () => {
   const record = currentAccountRecord()

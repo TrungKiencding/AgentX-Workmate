@@ -1,16 +1,13 @@
 import { atom, computed } from 'nanostores'
 
 import type { DesktopAgentxKeyGate } from '@/global'
+import { translationsNow } from '@/i18n'
 
-/**
- * The AgentX key gate, mirrored from the main process (electron/agentx-key-gate.ts).
- *
- * The main process decides: it holds the boot of a signed-in account that has
- * no AgentX AI Gateway key and pushes every change here. This window renders
- * the gate while it is shut, and reads `required` to keep the onboarding card
- * on the gateway — an account that must hold an AgentX key is never offered
- * another provider or a way to skip.
- */
+import { notifyError } from './notifications'
+import { dismissFirstRunOnboarding } from './onboarding'
+
+/** Mirror the main process's gateway setup state. Skipping opens the shell
+ * without changing the account's inference policy or claiming it has a key. */
 
 export const OPEN_AGENTX_KEY_GATE: DesktopAgentxKeyGate = Object.freeze({
   account: null,
@@ -85,5 +82,26 @@ export async function retryAgentxKey(): Promise<void> {
     receive(await api.retry())
   } catch {
     receive(await api.get().catch(() => null))
+  }
+}
+
+/** Skip setup only after the main process has released its pending boot. */
+export async function skipAgentxKey(): Promise<void> {
+  const api = bridge()
+
+  if (!api?.skip) {
+    return
+  }
+
+  try {
+    const state = await api.skip()
+
+    if (state.phase === 'open') {
+      dismissFirstRunOnboarding()
+    }
+
+    receive(state)
+  } catch (error) {
+    notifyError(error, translationsNow().agentxKey.title)
   }
 }

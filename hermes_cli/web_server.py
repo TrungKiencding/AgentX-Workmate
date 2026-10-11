@@ -7050,6 +7050,15 @@ def set_moa_models(body: MoaConfigPayload, profile: Optional[str] = None):
                     status_code=422,
                     detail="Invalid MoA config: " + "; ".join(problems),
                 )
+            from hermes_cli.account_inference import require_account_provider
+
+            preset_rows = raw["presets"].values() if "presets" in raw else [raw]
+            try:
+                for preset in preset_rows:
+                    for slot in [*preset["reference_models"], preset["aggregator"]]:
+                        require_account_provider(slot["provider"], str(slot.get("base_url") or ""))
+            except ValueError as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
             normalized = normalize_moa_config(raw)
             # Merge instead of overwrite so that hand-edited keys not declared
             # in MoaConfigPayload (e.g. save_traces, trace_dir) survive a GUI
@@ -7135,6 +7144,15 @@ def _apply_model_assignment_sync(
     HTTPException for validation errors — the async wrapper re-raises them.
     """
     cfg = load_config()
+    from hermes_cli.account_inference import require_account_provider
+
+    # Validate before any write; reset-to-auto does not choose a provider.
+    if not (scope == "auxiliary" and (task == "__reset__" or provider in {"", "auto"})):
+        try:
+            require_account_provider(provider, base_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+
 
     if scope == "main":
         if not provider or not model:

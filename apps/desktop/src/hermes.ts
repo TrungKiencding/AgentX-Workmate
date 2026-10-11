@@ -1,5 +1,6 @@
 import { JsonRpcGatewayClient } from '@agentx/shared'
 
+import { gatewayModelOptions } from '@/lib/inference-policy'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
 import type {
   ActionResponse,
@@ -1490,7 +1491,7 @@ export function getUsageAnalytics(days = 30): Promise<AnalyticsResponse> {
   })
 }
 
-export function getGlobalModelOptions(opts?: {
+export async function getGlobalModelOptions(opts?: {
   refresh?: boolean
   includeUnconfigured?: boolean
   explicitOnly?: boolean
@@ -1509,11 +1510,13 @@ export function getGlobalModelOptions(opts?: {
     params.set('explicit_only', '1')
   }
 
-  return window.agentxDesktop.api<ModelOptionsResponse>({
-    ...profileScoped(),
-    path: params.size > 0 ? `/api/model/options?${params.toString()}` : '/api/model/options',
-    timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
-  })
+  return gatewayModelOptions(
+    await window.agentxDesktop.api<ModelOptionsResponse>({
+      ...profileScoped(),
+      path: params.size > 0 ? `/api/model/options?${params.toString()}` : '/api/model/options',
+      timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
+    })
+  )
 }
 
 export interface RecommendedDefaultModel {

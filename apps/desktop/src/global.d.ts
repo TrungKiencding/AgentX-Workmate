@@ -131,6 +131,7 @@ declare global {
         keyGate?: {
           get: () => Promise<DesktopAgentxKeyGate>
           retry: () => Promise<DesktopAgentxKeyGate>
+          skip?: () => Promise<DesktopAgentxKeyGate>
           onChanged: (callback: (state: DesktopAgentxKeyGate) => void) => () => void
         }
       }

@@ -277,7 +277,7 @@ export const ja = defineLocale({
     title: 'AgentX AI キーを発行できませんでした',
     provisioning: 'アカウントの AgentX AI Gateway キーを発行しています…',
     intro:
-      'Workmate を使うには、アカウントの AgentX AI Gateway キーが必要です。このアカウントのキーを発行できなかったため、まだ Workmate を使用できません。',
+      'Workmate はアカウントの AgentX AI Gateway 経由でのみモデルを使用します。再試行するか、セットアップをスキップできます。接続が完了するまで AI は利用できません。',
     account: who => `アカウント: ${who}`,
     reasons: {
       offline: 'AgentX のキー発行サービスに接続できません。ネットワークを確認してから「再試行」を選んでください。',
@@ -2919,7 +2919,8 @@ export const ja = defineLocale({
     downloadFailed: {
       disk: '更新を保存できませんでした。ディスクの空き容量を確保してから、もう一度お試しください。',
       http: '更新サーバーからインストーラーを受け取れませんでした。数分後にもう一度お試しください。',
-      mismatch: 'ダウンロードしたファイルが署名済みのリリースと一致しなかったため、AgentX が破棄しました。もう一度お試しください。',
+      mismatch:
+        'ダウンロードしたファイルが署名済みのリリースと一致しなかったため、AgentX が破棄しました。もう一度お試しください。',
       network: '接続が途切れたため、ダウンロードが止まりました。ネットワークを確認して、もう一度お試しください。',
       other: 'ダウンロードが完了しませんでした。もう一度お試しください。'
     },
@@ -3096,7 +3097,7 @@ export const ja = defineLocale({
       couldNotChangeModel: 'モデルを変更できませんでした',
       directApiAccess: name => `${name} の API に直接アクセスします。`,
       gatewayNotSetUp:
-        'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、別のプロバイダーを選択してください。'
+        'このインストールでは AgentX AI Gateway が設定されていません。AgentX の管理者に問い合わせるか、セットアップを後で行ってください。'
     },
     headerTitle: 'AgentX Workmate のセットアップをしましょう',
     headerDesc: 'チャットを始めるにはモデルプロバイダーを接続してください。ほとんどのオプションはワンクリックです。',

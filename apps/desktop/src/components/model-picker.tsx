@@ -10,7 +10,6 @@ import type { ModelOptionProvider, ModelPricing } from '@/types/hermes'
 
 import type { HermesGateway } from '../hermes'
 import { cn } from '../lib/utils'
-import { startManualOnboarding } from '../store/onboarding'
 
 import { InlineNotice } from './notifications'
 import { Button } from './ui/button'
@@ -37,8 +36,6 @@ interface ModelPickerDialogProps {
   contentClassName?: string
   /** Show only these providers (by slug) — e.g. the account's AgentX AI Gateway on its first run. */
   onlyProviders?: readonly string[]
-  /** Offer the "Add provider" button (on by default). */
-  allowAddProvider?: boolean
 }
 
 export function ModelPickerDialog({
@@ -51,8 +48,7 @@ export function ModelPickerDialog({
   onSelect,
   profile = 'default',
   contentClassName,
-  onlyProviders,
-  allowAddProvider = true
+  onlyProviders
 }: ModelPickerDialogProps) {
   const { t } = useI18n()
   const copy = t.modelPicker
@@ -91,15 +87,6 @@ export function ModelPickerDialog({
     onOpenChange(false)
   }
 
-  // Open the full onboarding provider selector to add/switch a provider.
-  // Reuses the entire onboarding flow (OAuth rows, API-key form, device-code,
-  // model-confirm) instead of duplicating provider UI here. Closes the picker
-  // so the onboarding overlay isn't rendered underneath it.
-  const addProvider = () => {
-    startManualOnboarding()
-    onOpenChange(false)
-  }
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className={cn('max-h-[85vh] max-w-2xl gap-0 overflow-hidden p-0', contentClassName)}>
@@ -128,11 +115,6 @@ export function ModelPickerDialog({
         </Command>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 bg-card p-3">
-          {allowAddProvider ? (
-            <Button onClick={addProvider} variant="ghost">
-              {copy.addProvider}
-            </Button>
-          ) : null}
           <Button onClick={() => onOpenChange(false)} variant="outline">
             {t.common.cancel}
           </Button>
@@ -239,9 +221,7 @@ function ModelResults({
                   <span className="min-w-0 flex-1 truncate">
                     <HighlightMatches query={search} text={model} />
                   </span>
-                  {locked && (
-                    <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>
-                  )}
+                  {locked && <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>}
                   <ModelPrice isCurrent={isCurrent} price={price} />
                 </CommandItem>
               )

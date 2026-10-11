@@ -2471,7 +2471,7 @@ class TestDefaultModelPinning:
         assert model_cfg["key_env"] == provider_key_env(settings.provider_name)
         assert "api_key" not in model_cfg
 
-    def test_a_model_the_user_already_chose_survives_provisioning(self, account, fake_proxy):
+    def test_a_model_on_another_provider_moves_to_the_account_gateway(self, account, fake_proxy):
         (account.home / "config.yaml").write_text(
             yaml.safe_dump({"model": {"default": "my-own-model", "provider": "openai"}}),
             encoding="utf-8",
@@ -2484,9 +2484,9 @@ class TestDefaultModelPinning:
         )
 
         model_cfg = raw_config(account.home)["model"]
-        assert model_cfg["default"] == "my-own-model"
-        assert model_cfg["provider"] == "openai"
-        # The provider entry is still wired up — only the choice was left alone.
+        assert model_cfg["default"] == "gpt-4o-mini"
+        assert model_cfg["provider"] == settings.provider_name
+        # Both the main choice and the provider entry use the account gateway.
         assert raw_config(account.home)["providers"][settings.provider_name]["key_env"] == (
             provider_key_env(settings.provider_name)
         )
@@ -2621,7 +2621,7 @@ class TestVisionFollowsTheModelInUse:
             "supports_vision": True
         }
 
-    def test_a_vision_pin_at_another_provider_is_left_alone(self, account, brain):
+    def test_a_vision_pin_at_another_provider_returns_to_gateway_main(self, account, brain):
         from hermes_cli.config import load_config, save_config
 
         brain.grants = ["chat-a"]
@@ -2634,8 +2634,8 @@ class TestVisionFollowsTheModelInUse:
         self._provision(account, brain)
 
         assert raw_config(account.home)["auxiliary"]["vision"] == {
-            "provider": "openrouter",
-            "model": "google/gemini-3-flash",
+            "provider": "auto",
+            "model": "",
         }
 
 
@@ -2766,7 +2766,7 @@ class TestFeatureModels:
         assert raw_config(account.home)["model"]["default"] == "big-chat"
         assert read_state(account.home)["models"] == ["big-chat", "small-chat"]
 
-    def test_a_vision_pin_somebody_set_elsewhere_survives(self, account, brain):
+    def test_a_vision_pin_at_another_provider_moves_to_the_granted_gateway_model(self, account, brain):
         from hermes_cli.config import load_config, save_config
 
         self._features(brain)
@@ -2778,8 +2778,8 @@ class TestFeatureModels:
         self._provision(account, brain, force_rotate=True)
 
         assert raw_config(account.home)["auxiliary"]["vision"] == {
-            "provider": "openrouter",
-            "model": "google/gemini-3-flash",
+            "provider": "litellm",
+            "model": "eyes-model",
         }
 
     def test_no_vision_model_releases_the_pin(self, account, brain):

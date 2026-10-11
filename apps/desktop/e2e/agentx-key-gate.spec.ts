@@ -2,7 +2,7 @@
  * Signing in for real, against a local stand-in for AgentX SSO (fake-sso.ts).
  *
  * 1. The keys service refuses the first key with the SSO console's HTTP 424:
- *    the app must stop at the key gate — no other provider, no "later" — and
+ *    the app must show the key gate with retry and Skip, without another provider, and
  *    stay there through a retry that is refused again; once the console grants
  *    a model, "Try again" lets the person in.
  * 2. The administrator then renames the person in the console: signing in
@@ -122,7 +122,7 @@ test('a refused AgentX key holds the app at the key gate until it is issued, and
     await expect(gate.getByText(NO_MODELS)).toBeVisible()
     await expect(gate.getByText(CONTACT_SUPPORT, { exact: false })).toBeVisible()
     await expect(gate.getByText('Tài khoản: kien.test@astralx.com.vn', { exact: true })).toBeVisible()
-    // Nothing behind it has started, and nothing on it leads around the key.
+    // Inference has not started; Skip can open the shell without credentials.
     await expect(page.locator('[contenteditable="true"]')).toHaveCount(0)
     await expect(page.getByText('Chọn nhà cung cấp khác')).toHaveCount(0)
     await expect(page.getByText('Để sau tôi chọn nhà cung cấp')).toHaveCount(0)
@@ -181,6 +181,51 @@ test('a refused AgentX key holds the app at the key gate until it is issued, and
     const log = fs.readFileSync(path.join(sandbox.hermesHome, 'logs', 'desktop.log'), 'utf8')
 
     expect(log).toContain(`the account already lives in "${home}"`)
+  } finally {
+    await app?.close().catch(() => undefined)
+    await sso.close()
+    sandbox.cleanup()
+  }
+})
+
+test('a refused signed-in gateway can be skipped, with no provider settings afterward', async () => {
+  test.setTimeout(360_000)
+  allowErrorBanners()
+  const sso = await startFakeSso({ name: 'Gateway Skip' })
+  const sandbox = createSandbox('key-gate-skip')
+  let app: ElectronApplication | undefined
+  try {
+    writeSsoConfig(sandbox, sso)
+    const launched = await launchDesktop(
+      buildAppEnv(sandbox, {
+        AGENTX_DASHBOARD_KEYCLOAK_BASE_URL: sso.url,
+        AGENTX_DASHBOARD_KEYCLOAK_CLIENT_ID: FAKE_SSO_CLIENT_ID,
+        AGENTX_DASHBOARD_KEYCLOAK_REALM: FAKE_SSO_REALM
+      })
+    )
+    app = launched.app
+    const { page } = launched
+    await routeSignInThroughFetch(app)
+    await signIn(page)
+    const gate = page.getByRole('alertdialog')
+    await expect(gate).toBeVisible({ timeout: 240_000 })
+    await expect(gate.getByText(NO_MODELS)).toBeVisible()
+    await expect(gate.getByRole('button', { name: 'Bỏ qua', exact: true })).toBeVisible()
+    await gate.getByRole('button', { name: 'Bỏ qua', exact: true }).click()
+    await waitForComposer(page)
+    const [home] = accountHomes(sandbox)
+    expect(fs.readFileSync(path.join(sandbox.hermesHome, 'accounts', home, '.env'), 'utf8')).not.toContain(
+      'sk-fake-sso'
+    )
+    await page.reload()
+    await waitForComposer(page)
+    await expect(page.getByRole('button', { name: /AgentX AI Gateway/ })).toHaveCount(0)
+    await page.evaluate(() => {
+      window.location.hash = '/settings?tab=providers&pview=keys'
+    })
+    await expect(page).toHaveURL(/tab=account/)
+    await expect(page.getByRole('button', { name: 'Providers', exact: true })).toHaveCount(0)
+    await expect(page.getByPlaceholder('Paste API key')).toHaveCount(0)
   } finally {
     await app?.close().catch(() => undefined)
     await sso.close()

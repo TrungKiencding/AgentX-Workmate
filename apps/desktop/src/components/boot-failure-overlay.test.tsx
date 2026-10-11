@@ -51,13 +51,10 @@ beforeEach(() => {
   $desktopOnboarding.set({
     configured: true,
     flow: { status: 'idle' },
-    mode: 'oauth',
-    providers: null,
     reason: null,
     requested: false,
     firstRunSkipped: false,
-    manual: false,
-    localEndpoint: false
+    manual: false
   })
   failBoot()
 })
@@ -126,7 +123,8 @@ describe('BootFailureOverlay — explaining the failure', () => {
     const restore = stubDesktop({ mode: 'local' })
     $desktopBoot.set({
       ...$desktopBoot.get(),
-      error: "Error invoking remote method 'agentx:connection': Error: Timed out connecting to AgentX backend after 8000ms",
+      error:
+        "Error invoking remote method 'agentx:connection': Error: Timed out connecting to AgentX backend after 8000ms",
       running: false,
       visible: true
     })

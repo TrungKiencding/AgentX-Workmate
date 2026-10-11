@@ -1,13 +1,10 @@
 import { getGlobalModelOptions, type HermesGateway, type ModelOptionsResponse } from '@/hermes'
 import type { ModelOptionProvider } from '@/types/hermes'
 
-/**
- * True only when a persisted **manual** composer pick has been removed from the
- * catalog (its provider still ships models, but no longer this one) — so a new
- * chat would keep 404'ing the dead model. Deliberately conservative to never
- * clobber a still-valid pick: an unknown/absent provider, an empty model list
- * (re-auth / unconfigured), or a not-yet-loaded catalog all return false.
- */
+import { gatewayModelOptions } from './inference-policy'
+
+/** Reset removed model picks and legacy provider pins once the managed gateway
+ * catalog is available. Empty/unavailable catalogs preserve the saved pick. */
 export function manualPickRemoved(
   providers: ModelOptionProvider[] | undefined,
   provider: string,
@@ -20,7 +17,9 @@ export function manualPickRemoved(
   const row = providers.find(p => p.slug === provider || p.name === provider)
 
   if (!row) {
-    return false
+    // A managed gateway catalog is authoritative: a manual pin to a retired
+    // provider must not keep routing new chats outside the account gateway.
+    return providers.some(entry => entry.name === 'AgentX AI Gateway' && (entry.models?.length ?? 0) > 0)
   }
 
   const models = row.models ?? []
@@ -50,7 +49,7 @@ export function modelOptionsQueryKey(profile: null | string | undefined, session
   return ['model-options', profileKey, sessionId || 'global'] as const
 }
 
-export function requestModelOptions({
+export async function requestModelOptions({
   explicitOnly = true,
   gateway,
   refresh = false,
@@ -71,7 +70,7 @@ export function requestModelOptions({
       params.explicit_only = true
     }
 
-    return gateway.request<ModelOptionsResponse>('model.options', params)
+    return gatewayModelOptions(await gateway.request<ModelOptionsResponse>('model.options', params))
   }
 
   return getGlobalModelOptions({ explicitOnly, ...(refresh ? { refresh: true } : {}) })

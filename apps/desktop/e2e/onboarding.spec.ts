@@ -1,21 +1,15 @@
 /**
- * E2E onboarding tests — verify the provider picker appears when no
- * inference provider is configured.
+ * E2E onboarding tests — only AgentX AI Gateway may be connected.
  *
  * Launches the app with an empty config.yaml (no providers). The renderer
  * should detect the unconfigured state and show the DesktopOnboardingOverlay
- * with provider options / API key form.
+ * with the gateway connection and Skip actions.
  *
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
+import { type NoProviderFixture, setupNoProvider, waitForOnboarding } from './fixtures'
 import { expect, test } from './test'
-
-import {
-  type NoProviderFixture,
-  setupNoProvider,
-  waitForOnboarding,
-} from './fixtures'
 import { expectVisualSnapshot } from './visual-snapshot'
 
 let fixture: NoProviderFixture | null = null
@@ -35,33 +29,13 @@ test.describe('onboarding with no provider configured', () => {
     await waitForOnboarding(fixture.page, 90_000)
   })
 
-  test('onboarding shows provider options or API key form', async () => {
-    if (!fixture) {
-      test.skip(true, 'Previous test failed — no app running')
-
-      return
-    }
-
-    const page = fixture.page
-
-    // The onboarding overlay should contain provider-related text.
-    // It might show OAuth providers, an API key form, or a "choose later"
-    // link. Verify at least one of these is visible.
-    const rootText = await page.evaluate(() => {
-      const root = document.getElementById('root')
-
-      return root?.textContent ?? ''
-    })
-
-    const hasProviderText =
-      rootText.includes('provider') ||
-      rootText.includes('Provider') ||
-      rootText.includes('API key') ||
-      rootText.includes('Sign in') ||
-      rootText.includes('OpenRouter') ||
-      rootText.includes('OpenAI')
-
-    expect(hasProviderText).toBe(true)
+  test('onboarding offers only AgentX AI Gateway and skip', async () => {
+    const page = fixture!.page
+    await expect(page.getByRole('button', { name: /AgentX AI Gateway/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Skip', exact: true })).toBeVisible()
+    await expect(page.getByText('Other providers', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Fireworks AI', { exact: true })).toHaveCount(0)
+    await expect(page.getByPlaceholder('Paste API key')).toHaveCount(0)
   })
 
   test('screenshot of onboarding overlay', async () => {
@@ -72,5 +46,18 @@ test.describe('onboarding with no provider configured', () => {
     }
 
     await expectVisualSnapshot(fixture.page, { name: 'onboarding-overlay', app: fixture.app })
+  })
+
+  test('gateway failure can be skipped without choosing another provider', async () => {
+    const page = fixture!.page
+    await page.getByRole('button', { name: /AgentX AI Gateway/ }).click()
+    await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Choose another provider', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Skip', exact: true }).click()
+    await expect(page.getByText('Let’s get you set up with AgentX Workmate', { exact: true })).toHaveCount(0)
+    await expect(page.locator('[contenteditable="true"]').first()).toBeVisible()
+    await page.reload()
+    await expect(page.locator('[contenteditable="true"]').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /AgentX AI Gateway/ })).toHaveCount(0)
   })
 })

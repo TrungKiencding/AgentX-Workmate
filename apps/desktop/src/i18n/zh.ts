@@ -252,7 +252,7 @@ export const zh: Translations = {
   agentxKey: {
     title: '无法签发 AgentX AI 密钥',
     provisioning: '正在为你的账户签发 AgentX AI Gateway 密钥…',
-    intro: 'Workmate 需要账户的 AgentX AI Gateway 密钥才能使用。系统未能为此账户签发密钥，因此暂时无法使用 Workmate。',
+    intro: 'Workmate 仅通过你账户的 AgentX AI Gateway 使用模型。你可以重试或跳过设置；连接成功前 AI 不可用。',
     account: who => `账户：${who}`,
     reasons: {
       offline: '无法连接 AgentX 密钥服务。请检查网络，然后点击“重试”。',
@@ -3172,7 +3172,7 @@ export const zh: Translations = {
       couldNotSaveLocalEndpoint: '无法保存本地端点',
       couldNotChangeModel: '无法更改模型',
       directApiAccess: name => `直接访问 ${name} 的 API。`,
-      gatewayNotSetUp: '此安装尚未配置 AgentX AI Gateway。请联系 AgentX 管理员，或选择其他提供方。'
+      gatewayNotSetUp: '此安装尚未配置 AgentX AI Gateway。请联系 AgentX 管理员，或暂时跳过设置。'
     },
     headerTitle: '开始设置 AgentX Workmate',
     headerDesc: '连接模型提供方即可开始对话。大多数选项只需一次点击。',

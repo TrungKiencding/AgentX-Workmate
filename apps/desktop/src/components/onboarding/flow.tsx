@@ -6,31 +6,23 @@ import { AgentxKeyFailureNotice } from '@/components/agentx-key-failure'
 import { ModelPickerDialog } from '@/components/model-picker'
 import { Button } from '@/components/ui/button'
 import { ErrorIcon } from '@/components/ui/error-state'
-import { Input } from '@/components/ui/input'
 import { Loader } from '@/components/ui/loader'
 import { getGlobalModelOptions } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { agentxKeyContact, agentxKeySupportLine } from '@/lib/agentx-key'
-import { ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
+import { RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
-import { $agentxKeyGate, $agentxKeyRequired } from '@/store/agentx-key'
+import { $agentxKeyGate } from '@/store/agentx-key'
 import { $license } from '@/store/license'
 import {
-  $desktopOnboarding,
-  cancelOnboardingFlow,
   connectAgentxGateway,
-  copyDeviceCode,
-  copyExternalCommand,
+  dismissFirstRunOnboarding,
   type OnboardingContext,
   type OnboardingFlow,
-  recheckExternalSignin,
-  setOnboardingCode,
-  setOnboardingModel,
-  submitOnboardingCode
+  setOnboardingModel
 } from '@/store/onboarding'
 
 import { DecodedLabel, GlyphText, HackeryButton, useScramble } from './glyph'
-import { providerTitle } from './providers'
 
 export function FlowPanel({
   ctx,
@@ -44,117 +36,23 @@ export function FlowPanel({
   onBegin: () => void
 }) {
   const { t } = useI18n()
-  const { manual } = useStore($desktopOnboarding)
-  const keyRequired = useStore($agentxKeyRequired)
-  const title = 'provider' in flow && flow.provider ? providerTitle(flow.provider) : ''
-  // A signed-in AgentX account's first run is the gateway or nothing: no other
-  // provider to fall back to (see Picker in index.tsx).
-  const gatewayOnly = keyRequired && !manual
-
-  if (flow.status === 'starting') {
-    return <Status>{t.onboarding.startingSignIn(title)}</Status>
-  }
 
   if (flow.status === 'connecting_gateway') {
     return <Status>{t.onboarding.gatewayConnecting}</Status>
   }
 
-  if (flow.status === 'submitting') {
-    return <Status>{t.onboarding.verifyingCode(title)}</Status>
-  }
-
-  if (flow.status === 'success') {
-    return <DecodedLabel text={t.onboarding.connectedPicking(title)} />
-  }
-
   if (flow.status === 'confirming_model') {
-    return (
-      <ConfirmingModelPanel
-        flow={flow}
-        gatewayOnly={gatewayOnly}
-        leaving={leaving}
-        onBegin={onBegin}
-        profile={ctx.profile}
-      />
-    )
+    return <ConfirmingModelPanel flow={flow} leaving={leaving} onBegin={onBegin} profile={ctx.profile} />
   }
 
   if (flow.status === 'error') {
-    return <ErrorPanel ctx={ctx} flow={flow} gatewayOnly={gatewayOnly} />
+    return <ErrorPanel ctx={ctx} flow={flow} />
   }
 
-  if (flow.status === 'awaiting_user') {
-    return (
-      <Step title={t.onboarding.signInWith(title)}>
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>{t.onboarding.openedBrowser(title)}</li>
-          <li>{t.onboarding.authorizeThere}</li>
-          <li>{t.onboarding.copyAuthCode}</li>
-        </ol>
-        <Input
-          autoFocus
-          onChange={e => setOnboardingCode(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && void submitOnboardingCode(ctx)}
-          placeholder={t.onboarding.pasteAuthCode}
-          value={flow.code}
-        />
-        <FlowFooter left={<DocsLink href={flow.start.auth_url}>{t.onboarding.reopenAuthPage}</DocsLink>}>
-          <CancelBtn />
-          <Button disabled={!flow.code.trim()} onClick={() => void submitOnboardingCode(ctx)}>
-            {t.common.continue}
-          </Button>
-        </FlowFooter>
-      </Step>
-    )
-  }
-
-  if (flow.status === 'external_pending') {
-    return (
-      <Step title={t.onboarding.signInWith(title)}>
-        <p className="text-sm text-muted-foreground">{t.onboarding.externalPending(title)}</p>
-        <CodeBlock copied={flow.copied} onCopy={() => void copyExternalCommand()} text={flow.provider.cli_command} />
-        <FlowFooter
-          left={
-            flow.provider.docs_url ? (
-              <DocsLink href={flow.provider.docs_url}>{t.onboarding.docs(title)}</DocsLink>
-            ) : null
-          }
-        >
-          <CancelBtn />
-          <Button onClick={() => void recheckExternalSignin(ctx)}>{t.onboarding.signedIn}</Button>
-        </FlowFooter>
-      </Step>
-    )
-  }
-
-  if (flow.status !== 'polling') {
-    return null
-  }
-
-  return (
-    <Step title={t.onboarding.signInWith(title)}>
-      <p className="text-sm text-muted-foreground">{t.onboarding.deviceCodeOpened(title)}</p>
-      <DeviceCode code={flow.start.user_code} copied={flow.copied} onCopy={() => void copyDeviceCode()} />
-      <FlowFooter left={<DocsLink href={flow.start.verification_url}>{t.onboarding.reopenVerification}</DocsLink>}>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" />
-          {t.onboarding.waitingAuthorize}
-        </span>
-        <CancelBtn size="sm" />
-      </FlowFooter>
-    </Step>
-  )
+  return null
 }
 
-function ErrorPanel({
-  ctx,
-  flow,
-  gatewayOnly
-}: {
-  ctx: OnboardingContext
-  flow: Extract<OnboardingFlow, { status: 'error' }>
-  gatewayOnly: boolean
-}) {
+function ErrorPanel({ ctx, flow }: { ctx: OnboardingContext; flow: Extract<OnboardingFlow, { status: 'error' }> }) {
   const { t } = useI18n()
   const gate = useStore($agentxKeyGate)
   const { license } = useStore($license)
@@ -171,7 +69,7 @@ function ErrorPanel({
         <ErrorIcon className="shrink-0" size="0.875rem" />
         <span>{flow.message || t.onboarding.signInFailed}</span>
       </div>
-      {flow.gateway && gatewayOnly ? (
+      {flow.gateway ? (
         <p className="text-sm text-foreground">{agentxKeySupportLine(agentxKeyContact(null, license), t.agentxKey)}</p>
       ) : null}
     </div>
@@ -181,114 +79,25 @@ function ErrorPanel({
     <div className="grid gap-3">
       {body}
       <div className="flex justify-end gap-2">
-        {gatewayOnly ? null : (
-          <Button onClick={cancelOnboardingFlow} variant="outline">
-            {t.onboarding.pickDifferentProvider}
-          </Button>
-        )}
-        {flow.gateway || gatewayOnly ? (
-          <Button
-            onClick={() => (flow.gateway ? void connectAgentxGateway(ctx) : cancelOnboardingFlow())}
-            variant={gatewayOnly ? 'default' : 'outline'}
-          >
-            <RefreshCw />
-            {t.agentxKey.retry}
-          </Button>
-        ) : null}
+        <Button onClick={dismissFirstRunOnboarding} variant="outline">
+          {t.common.skip}
+        </Button>
+        <Button onClick={() => void connectAgentxGateway(ctx)}>
+          <RefreshCw />
+          {t.agentxKey.retry}
+        </Button>
       </div>
     </div>
   )
 }
 
-function Step({ children, title }: { children: React.ReactNode; title: string }) {
-  return (
-    <div className="grid gap-4">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      {children}
-    </div>
-  )
-}
-
-// Device-code display: OTP-style — each character in its own readonly cell.
-// The whole row is the copy button (no side button, no checkmark); on copy the
-// cells flash emerald for feedback. Dashes render as quiet separators.
-function DeviceCode({ code, copied, onCopy }: { code: string; copied: boolean; onCopy: () => void }) {
-  const { t } = useI18n()
-
-  return (
-    <button
-      aria-label={t.onboarding.copy}
-      className="group flex w-full items-center justify-center gap-1.5"
-      onClick={onCopy}
-      type="button"
-    >
-      {[...code].map((ch, i) =>
-        ch === '-' || ch === ' ' ? (
-          <span className="w-1.5 text-center text-lg text-muted-foreground" key={i}>
-            –
-          </span>
-        ) : (
-          <span
-            className={cn(
-              'flex size-10 items-center justify-center rounded-md border font-mono text-xl font-semibold uppercase transition-colors',
-              copied
-                ? 'border-primary/50 text-primary'
-                : 'border-(--stroke-nous) text-foreground group-hover:border-(--ui-stroke-secondary)'
-            )}
-            key={i}
-          >
-            {ch}
-          </span>
-        )
-      )}
-    </button>
-  )
-}
-
-function CodeBlock({ copied, onCopy, text }: { copied: boolean; onCopy: () => void; text: string }) {
-  const { t } = useI18n()
-
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-(--stroke-nous) px-3 py-2">
-      <code className="min-w-0 flex-1 truncate font-mono text-sm">
-        <span className="mr-2 select-none text-muted-foreground">$</span>
-        {text}
-      </code>
-      <Button onClick={onCopy} size="sm" variant="outline">
-        {copied ? t.common.copied : t.onboarding.copy}
-      </Button>
-    </div>
-  )
-}
-
-function FlowFooter({ children, left }: { children: React.ReactNode; left?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0">{left}</div>
-      <div className="flex items-center gap-3">{children}</div>
-    </div>
-  )
-}
-
-function CancelBtn({ size = 'default' }: { size?: 'default' | 'sm' }) {
-  const { t } = useI18n()
-
-  return (
-    <Button onClick={cancelOnboardingFlow} size={size} variant="ghost">
-      {t.common.cancel}
-    </Button>
-  )
-}
-
 function ConfirmingModelPanel({
   flow,
-  gatewayOnly,
   leaving,
   onBegin,
   profile
 }: {
   flow: Extract<OnboardingFlow, { status: 'confirming_model' }>
-  gatewayOnly: boolean
   leaving: boolean
   onBegin: () => void
   profile?: string
@@ -299,7 +108,7 @@ function ConfirmingModelPanel({
   // Local state controls whether the model picker dialog is open.
   // We reuse the existing ModelPickerDialog component (the same picker
   // available from the chat shell) rather than building an inline
-  // dropdown — gives us search, multi-provider listing if relevant, and
+  // dropdown — gives us gateway model search and
   // a familiar UI for users who'll see this picker again later.
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -385,11 +194,10 @@ function ConfirmingModelPanel({
       {/* On a gateway-only first run the change stays among the gateway's own
           models, with no way out to another provider from here. */}
       <ModelPickerDialog
-        allowAddProvider={!gatewayOnly}
         contentClassName="z-(--z-onboarding-popover)"
         currentModel={flow.currentModel}
         currentProvider={flow.providerSlug}
-        onlyProviders={gatewayOnly ? [flow.providerSlug] : undefined}
+        onlyProviders={[flow.providerSlug]}
         onOpenChange={setPickerOpen}
         onSelect={({ model }) => {
           void setOnboardingModel(model)
@@ -399,17 +207,6 @@ function ConfirmingModelPanel({
         profile={profile}
       />
     </div>
-  )
-}
-
-export function DocsLink({ children, href }: { children: React.ReactNode; href: string }) {
-  return (
-    <Button asChild size="xs" variant="text">
-      <a href={href} rel="noreferrer" target="_blank">
-        <ExternalLink className="size-3" />
-        {children}
-      </a>
-    </Button>
   )
 }
 

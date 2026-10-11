@@ -22,9 +22,7 @@ const saveMoaModels = vi.fn()
 const setEnvVar = vi.fn()
 const getHermesConfigRecord = vi.fn()
 const saveHermesConfig = vi.fn()
-const startManualLocalEndpoint = vi.fn()
 const startManualOnboarding = vi.fn()
-const startManualProviderOAuth = vi.fn()
 let profileSwitchHandler: (() => void) | null = null
 
 vi.mock('@/hermes', () => ({
@@ -43,9 +41,8 @@ vi.mock('@/hermes', () => ({
 }))
 
 vi.mock('@/store/onboarding', () => ({
-  startManualLocalEndpoint: () => startManualLocalEndpoint(),
   startManualOnboarding: () => startManualOnboarding(),
-  startManualProviderOAuth: (slug: string) => startManualProviderOAuth(slug)
+  AGENTX_GATEWAY_LABEL: 'AgentX AI Gateway'
 }))
 
 vi.mock('../hooks/use-on-profile-switch', () => ({
@@ -55,12 +52,12 @@ vi.mock('../hooks/use-on-profile-switch', () => ({
 }))
 
 beforeEach(() => {
-  getGlobalModelInfo.mockResolvedValue({ provider: 'nous', model: 'hermes-4' })
+  getGlobalModelInfo.mockResolvedValue({ provider: 'litellm', model: 'hermes-4' })
   getGlobalModelOptions.mockResolvedValue({
     providers: [
       {
-        name: 'Nous',
-        slug: 'nous',
+        name: 'AgentX AI Gateway',
+        slug: 'litellm',
         models: ['hermes-4', 'hermes-4-mini'],
         authenticated: true,
         capabilities: { 'hermes-4': { reasoning: true, fast: true } }
@@ -68,12 +65,12 @@ beforeEach(() => {
     ]
   })
   getAuxiliaryModels.mockResolvedValue({
-    main: { provider: 'nous', model: 'hermes-4' },
+    main: { provider: 'litellm', model: 'hermes-4' },
     tasks: [{ task: 'vision', provider: 'auto', model: '', base_url: '' }]
   })
   getMoaModels.mockResolvedValue(null)
-  setModelAssignment.mockResolvedValue({ ok: true, provider: 'nous', model: 'hermes-4', gateway_tools: [] })
-  getRecommendedDefaultModel.mockResolvedValue({ provider: 'nous', model: 'hermes-4', free_tier: null })
+  setModelAssignment.mockResolvedValue({ ok: true, provider: 'litellm', model: 'hermes-4', gateway_tools: [] })
+  getRecommendedDefaultModel.mockResolvedValue({ provider: 'litellm', model: 'hermes-4', free_tier: null })
   setEnvVar.mockResolvedValue({ ok: true })
   getHermesConfigRecord.mockResolvedValue({ agent: { reasoning_effort: 'medium', service_tier: 'normal' } })
   saveHermesConfig.mockResolvedValue({ ok: true })
@@ -101,164 +98,62 @@ async function renderModelSettings() {
 }
 
 describe('ModelSettings', () => {
-  it('loads the current main model and lists configured providers only', async () => {
+  it('has no provider selector or API key form and applies only a gateway model', async () => {
+    getGlobalModelOptions.mockResolvedValueOnce({
+      providers: [
+        { name: 'AgentX AI Gateway', slug: 'litellm', models: ['hermes-4'], api_url: 'https://gateway.test/v1' },
+        { name: 'Anthropic', slug: 'anthropic', models: ['claude'], authenticated: true }
+      ]
+    })
     await renderModelSettings()
-
-    await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalled())
-    await waitFor(() => expect(getGlobalModelOptions).toHaveBeenCalled())
-
-    // Open the provider Select — only configured providers should be listed.
-    const triggers = await screen.findAllByRole('combobox')
-    fireEvent.click(triggers[0])
-
-    // "Nous" shows in both the trigger and the open list.
-    expect((await screen.findAllByText('Nous')).length).toBeGreaterThan(0)
-    expect(screen.queryByText(/DeepSeek/)).toBeNull()
+    const selects = await screen.findAllByRole('combobox')
+    fireEvent.click(selects[0])
+    expect(await screen.findByRole('option', { name: 'hermes-4' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Anthropic' })).toBeNull()
+    expect(screen.queryByRole('option', { name: 'claude' })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: 'hermes-4' }))
+    expect(screen.queryByPlaceholderText(/Paste/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() =>
+      expect(setModelAssignment).toHaveBeenCalledWith({
+        scope: 'main',
+        provider: 'litellm',
+        model: 'hermes-4',
+        base_url: 'https://gateway.test/v1'
+      })
+    )
   })
 
-  it.each(['custom', 'local', 'custom:lab'])(
-    'opens local endpoint setup when %s has no inventory row',
+  it.each(['anthropic', 'custom', 'local', 'retired-provider'])(
+    'offers gateway retry instead of setting up legacy provider %s',
     async provider => {
-      getGlobalModelInfo.mockResolvedValueOnce({ provider, model: '' })
+      getGlobalModelInfo.mockResolvedValueOnce({ provider, model: 'old-model' })
       getGlobalModelOptions.mockResolvedValueOnce({ providers: [] })
-
       await renderModelSettings()
-
-      const providerSelect = (await screen.findAllByRole('combobox'))[0]
-
-      expect(providerSelect.textContent).toContain(provider)
-      expect(screen.queryByText(/undefined/)).toBeNull()
-      expect(screen.queryByText(/signs in through your browser/)).toBeNull()
-
-      fireEvent.click(await screen.findByRole('button', { name: 'Set up provider' }))
-
-      expect(startManualLocalEndpoint).toHaveBeenCalledOnce()
-      expect(startManualOnboarding).not.toHaveBeenCalled()
-      expect(startManualProviderOAuth).not.toHaveBeenCalled()
+      fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+      expect(startManualOnboarding).toHaveBeenCalledOnce()
+      expect(screen.queryByRole('combobox')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
     }
   )
 
-  it('opens the generic provider picker for an unknown provider with no inventory row', async () => {
-    getGlobalModelInfo.mockResolvedValueOnce({ provider: 'retired-provider', model: '' })
-    getGlobalModelOptions.mockResolvedValueOnce({ providers: [] })
-
-    await renderModelSettings()
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Set up provider' }))
-
-    expect(startManualOnboarding).toHaveBeenCalledOnce()
-    expect(startManualLocalEndpoint).not.toHaveBeenCalled()
-    expect(startManualProviderOAuth).not.toHaveBeenCalled()
-  })
-
-  it('deep-links a known OAuth provider row into its setup flow', async () => {
-    getGlobalModelInfo.mockResolvedValueOnce({ provider: 'anthropic', model: '' })
-    getGlobalModelOptions.mockResolvedValueOnce({
-      providers: [
-        {
-          name: 'Anthropic',
-          slug: 'anthropic',
-          models: [],
-          authenticated: false,
-          auth_type: 'oauth'
-        }
-      ]
-    })
-
-    await renderModelSettings()
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Set up Anthropic' }))
-
-    expect(startManualProviderOAuth).toHaveBeenCalledWith('anthropic')
-    expect(startManualLocalEndpoint).not.toHaveBeenCalled()
-    expect(startManualOnboarding).not.toHaveBeenCalled()
-  })
-
-  it('replaces the selected provider and model when the active profile changes', async () => {
+  it('replaces model selection when the account profile changes', async () => {
     getGlobalModelInfo
-      .mockResolvedValueOnce({ provider: 'custom', model: 'local-a' })
-      .mockResolvedValueOnce({ provider: 'nous', model: 'hermes-4' })
+      .mockResolvedValueOnce({ provider: 'litellm', model: 'account-a-model' })
+      .mockResolvedValueOnce({ provider: 'litellm', model: 'account-b-model' })
     getGlobalModelOptions
       .mockResolvedValueOnce({
-        providers: [
-          {
-            name: 'Custom A',
-            slug: 'custom',
-            models: ['local-a'],
-            authenticated: true
-          }
-        ]
+        providers: [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['account-a-model'] }]
       })
       .mockResolvedValueOnce({
-        providers: [
-          {
-            name: 'Nous',
-            slug: 'nous',
-            models: ['hermes-4'],
-            authenticated: true,
-            capabilities: { 'hermes-4': { reasoning: true, fast: true } }
-          }
-        ]
+        providers: [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['account-b-model'] }]
       })
-
     await renderModelSettings()
-    expect((await screen.findAllByRole('combobox'))[0].textContent).toContain('Custom A')
-
+    expect((await screen.findAllByRole('combobox'))[0].textContent).toContain('account-a-model')
     await act(async () => {
       profileSwitchHandler?.()
     })
-
-    await waitFor(() => expect(getGlobalModelInfo).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.getAllByRole('combobox')[0].textContent).toContain('Nous'))
-    expect(screen.queryByRole('button', { name: 'Set up provider' })).toBeNull()
-  })
-
-  it('preserves a user-defined provider endpoint when applying the main model', async () => {
-    getGlobalModelOptions.mockResolvedValueOnce({
-      providers: [
-        {
-          name: 'Nous',
-          slug: 'nous',
-          models: ['hermes-4'],
-          authenticated: true
-        },
-        {
-          name: 'Ollama',
-          slug: 'local-ollama',
-          models: ['qwen3:latest'],
-          authenticated: true,
-          is_user_defined: true,
-          api_url: 'http://localhost:11434/v1'
-        }
-      ]
-    })
-    setModelAssignment.mockResolvedValueOnce({
-      ok: true,
-      provider: 'local-ollama',
-      model: 'qwen3:latest',
-      gateway_tools: []
-    })
-
-    await renderModelSettings()
-
-    const providerSelect = (await screen.findAllByRole('combobox'))[0]
-    fireEvent.click(providerSelect)
-    fireEvent.click(await screen.findByRole('option', { name: 'Ollama' }))
-
-    const modelSelect = (await screen.findAllByRole('combobox'))[1]
-    fireEvent.click(modelSelect)
-    fireEvent.click(await screen.findByRole('option', { name: 'qwen3:latest' }))
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
-
-    await waitFor(() =>
-      expect(setModelAssignment).toHaveBeenCalledWith({
-        model: 'qwen3:latest',
-        provider: 'local-ollama',
-        scope: 'main',
-        base_url: 'http://localhost:11434/v1'
-      })
-    )
+    await waitFor(() => expect(screen.getAllByRole('combobox')[0].textContent).toContain('account-b-model'))
   })
 
   it('writes the profile default speed (service_tier) when the fast switch is toggled', async () => {
@@ -279,8 +174,8 @@ describe('ModelSettings', () => {
     getGlobalModelOptions.mockResolvedValueOnce({
       providers: [
         {
-          name: 'Nous',
-          slug: 'nous',
+          name: 'AgentX AI Gateway',
+          slug: 'litellm',
           models: ['hermes-4'],
           authenticated: true,
           capabilities: { 'hermes-4': { reasoning: false, fast: false } }
@@ -311,29 +206,29 @@ describe('ModelSettings', () => {
     await waitFor(() =>
       expect(setModelAssignment).toHaveBeenCalledWith({
         model: 'hermes-4',
-        provider: 'nous',
+        provider: 'litellm',
         scope: 'auxiliary',
         task: 'vision'
       })
     )
   })
 
-  it('carries the user-defined endpoint when an aux slot is set to a local main model', async () => {
+  it('carries the user-defined endpoint when an aux slot is set to a gateway main model', async () => {
     getGlobalModelOptions.mockResolvedValueOnce({
       providers: [
         {
-          name: 'Ollama',
-          slug: 'local-ollama',
+          name: 'AgentX AI Gateway',
+          slug: 'litellm',
           models: ['qwen3:latest'],
           authenticated: true,
           is_user_defined: true,
-          api_url: 'http://localhost:11434/v1'
+          api_url: 'https://gateway.test/v1'
         }
       ]
     })
-    getGlobalModelInfo.mockResolvedValueOnce({ provider: 'local-ollama', model: 'qwen3:latest' })
+    getGlobalModelInfo.mockResolvedValueOnce({ provider: 'litellm', model: 'qwen3:latest' })
     getAuxiliaryModels.mockResolvedValueOnce({
-      main: { provider: 'local-ollama', model: 'qwen3:latest' },
+      main: { provider: 'litellm', model: 'qwen3:latest' },
       tasks: [{ task: 'vision', provider: 'auto', model: '', base_url: '' }]
     })
 
@@ -345,10 +240,10 @@ describe('ModelSettings', () => {
     await waitFor(() =>
       expect(setModelAssignment).toHaveBeenCalledWith({
         model: 'qwen3:latest',
-        provider: 'local-ollama',
+        provider: 'litellm',
         scope: 'auxiliary',
         task: 'vision',
-        base_url: 'http://localhost:11434/v1'
+        base_url: 'https://gateway.test/v1'
       })
     )
   })
@@ -359,7 +254,7 @@ describe('ModelSettings', () => {
       provider: 'openrouter',
       model: 'anthropic/claude-opus-4.7',
       gateway_tools: [],
-      stale_aux: [{ task: 'compression', provider: 'nous', model: 'hermes-4' }]
+      stale_aux: [{ task: 'compression', provider: 'litellm', model: 'hermes-4' }]
     })
 
     await renderModelSettings()
@@ -369,20 +264,20 @@ describe('ModelSettings', () => {
     fireEvent.click(applyButton)
 
     // The switch-time notice names the pinned provider and offers a reset.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
-    expect(screen.getByText('nous')).toBeTruthy()
+    expect(await screen.findByText(/remain configured for/)).toBeTruthy()
+    expect(screen.getByText('litellm')).toBeTruthy()
   })
 
   it('shows a persistent banner when a loaded aux slot mismatches the main provider', async () => {
     getAuxiliaryModels.mockResolvedValueOnce({
-      main: { provider: 'nous', model: 'hermes-4' },
+      main: { provider: 'litellm', model: 'hermes-4' },
       tasks: [{ task: 'curator', provider: 'openrouter', model: 'anthropic/claude-opus-4.7', base_url: '' }]
     })
 
     await renderModelSettings()
 
     // Banner present on load, no switch required.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
+    expect(await screen.findByText(/remain configured for/)).toBeTruthy()
   })
 })
 
@@ -393,7 +288,7 @@ describe('ModelSettings MoA preset editor', () => {
     presets: {
       default: {
         reference_models: [
-          { provider: 'nous', model: 'hermes-4' },
+          { provider: 'litellm', model: 'hermes-4' },
           { provider: 'openrouter', model: 'deepseek/deepseek-v4-pro' }
         ],
         aggregator: { provider: 'openrouter', model: 'anthropic/claude-opus-4.8' },
@@ -404,7 +299,7 @@ describe('ModelSettings MoA preset editor', () => {
       }
     },
     reference_models: [
-      { provider: 'nous', model: 'hermes-4' },
+      { provider: 'litellm', model: 'hermes-4' },
       { provider: 'openrouter', model: 'deepseek/deepseek-v4-pro' }
     ],
     aggregator: { provider: 'openrouter', model: 'anthropic/claude-opus-4.8' },
@@ -418,8 +313,8 @@ describe('ModelSettings MoA preset editor', () => {
     getGlobalModelOptions.mockResolvedValue({
       providers: [
         {
-          name: 'Nous',
-          slug: 'nous',
+          name: 'AgentX AI Gateway',
+          slug: 'litellm',
           models: ['hermes-4', 'hermes-4-mini'],
           authenticated: true,
           capabilities: { 'hermes-4': { reasoning: true, fast: true } }
@@ -441,81 +336,21 @@ describe('ModelSettings MoA preset editor', () => {
     expect(await screen.findByText('Reference 1')).toBeTruthy()
   }
 
-  function slotSelects() {
-    // Combobox order in the MoA section (last 7 on the page): preset select,
-    // then provider+model per reference (2 refs), then aggregator
-    // provider+model. Reference 1's pair is therefore at -6 / -5.
-    const all = screen.getAllByRole('combobox')
-
-    return { ref1Provider: all.at(-6)!, ref1Model: all.at(-5)! }
-  }
-
-  it('holds the autosave while a slot is half-filled (provider changed, model pending)', async () => {
+  it('offers model edits without provider selection and autosaves through the gateway', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
 
     try {
       await openReferenceEditor()
-
-      fireEvent.click(slotSelects().ref1Provider)
-      fireEvent.click(await screen.findByRole('option', { name: 'OpenRouter' }))
-
-      // Model was cleared by the provider change → config incomplete → the
-      // debounced autosave must NOT fire, even well past the 600ms window.
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(saveMoaModels).not.toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('saves once the model pick completes the slot', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-
-    try {
-      await openReferenceEditor()
-
-      fireEvent.click(slotSelects().ref1Provider)
-      fireEvent.click(await screen.findByRole('option', { name: 'OpenRouter' }))
+      const all = screen.getAllByRole('combobox')
+      fireEvent.click(all.at(-3)!)
+      expect(screen.queryByRole('option', { name: 'OpenRouter' })).toBeNull()
+      fireEvent.click(await screen.findByRole('option', { name: 'hermes-4-mini' }))
       await vi.advanceTimersByTimeAsync(700)
-
-      fireEvent.click(slotSelects().ref1Model)
-      fireEvent.click(await screen.findByRole('option', { name: 'anthropic/claude-opus-4.8' }))
-      await vi.advanceTimersByTimeAsync(700)
-
       expect(saveMoaModels).toHaveBeenCalledTimes(1)
       const sent = saveMoaModels.mock.calls[0][0] as ReturnType<typeof moaConfig>
-      expect(sent.presets.default.reference_models[0]).toEqual({
-        provider: 'openrouter',
-        model: 'anthropic/claude-opus-4.8'
-      })
-      // The untouched slots ride along unchanged — nothing reverts to defaults.
-      expect(sent.presets.default.reference_models[1]).toEqual({
-        provider: 'openrouter',
-        model: 'deepseek/deepseek-v4-pro'
-      })
-      expect(sent.presets.default.aggregator).toEqual({
-        provider: 'openrouter',
-        model: 'anthropic/claude-opus-4.8'
-      })
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('does not clear the model or save when the same provider is re-selected', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-
-    try {
-      await openReferenceEditor()
-
-      fireEvent.click(slotSelects().ref1Provider)
-      fireEvent.click(await screen.findByRole('option', { name: 'Nous' }))
-      await vi.advanceTimersByTimeAsync(700)
-
-      // Radix treats re-picking the current value as a no-op (no
-      // onValueChange), so nothing changes: no save, model still shown.
-      expect(saveMoaModels).not.toHaveBeenCalled()
-      expect(screen.getByText('nous · hermes-4')).toBeTruthy()
+      expect(sent.presets.default.reference_models[0]).toEqual({ provider: 'litellm', model: 'hermes-4-mini' })
+      expect(sent.presets.default.reference_models.every(slot => slot.provider === 'litellm')).toBe(true)
+      expect(sent.presets.default.aggregator.provider).toBe('litellm')
     } finally {
       vi.useRealTimers()
     }
@@ -556,8 +391,8 @@ describe('ModelSettings MoA preset editor', () => {
           presets: expect.objectContaining({
             default: expect.objectContaining({
               reference_models: [
-                expect.objectContaining({ provider: 'nous', model: 'hermes-4', enabled: false }),
-                expect.objectContaining({ provider: 'openrouter', model: 'deepseek/deepseek-v4-pro' })
+                expect.objectContaining({ provider: 'litellm', model: 'hermes-4', enabled: false }),
+                expect.objectContaining({ provider: 'litellm', model: 'hermes-4' })
               ]
             })
           })

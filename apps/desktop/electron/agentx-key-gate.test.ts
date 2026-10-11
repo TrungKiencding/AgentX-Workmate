@@ -311,3 +311,38 @@ describe('AgentxKeyGate.forget', () => {
     assert.deepEqual(gate.state, OPEN_KEY_GATE)
   })
 })
+
+describe('AgentxKeyGate.skip', () => {
+  test('releases boot without claiming a key exists and keeps the account restriction', async () => {
+    const { gate } = harness()
+    const held = gate.hold({ account: ACCOUNT, readKey: async () => MISSING, provision: async () => REFUSED_424 })
+    await settle()
+    assert.equal(gate.state.phase, 'blocked')
+    assert.equal(gate.skip().phase, 'open')
+    await held
+    assert.equal(gate.state.required, true)
+    assert.equal(gate.state.failure?.code, 'no_grantable_models')
+    assert.deepEqual(gate.state.account, ACCOUNT)
+    assert.equal(gate.skip().phase, 'open')
+  })
+  test('ignores skip while provisioning', async () => {
+    const { gate } = harness()
+    let deliver!: (result: unknown) => void
+
+    const held = gate.hold({
+      account: ACCOUNT,
+      readKey: async () => MISSING,
+      provision: () =>
+        new Promise(resolve => {
+          deliver = resolve
+        })
+    })
+
+    await settle()
+    assert.equal(gate.skip().phase, 'provisioning')
+    deliver(REFUSED_424)
+    await settle()
+    gate.skip()
+    await held
+  })
+})

@@ -252,7 +252,7 @@ export const zhHant = defineLocale({
   agentxKey: {
     title: '無法簽發 AgentX AI 金鑰',
     provisioning: '正在為你的帳戶簽發 AgentX AI Gateway 金鑰…',
-    intro: 'Workmate 需要帳戶的 AgentX AI Gateway 金鑰才能使用。系統未能為此帳戶簽發金鑰，因此暫時無法使用 Workmate。',
+    intro: 'Workmate 僅透過你帳戶的 AgentX AI Gateway 使用模型。你可以重試或略過設定；連線成功前 AI 無法使用。',
     account: who => `帳戶：${who}`,
     reasons: {
       offline: '無法連線至 AgentX 金鑰服務。請檢查網路，然後點選「重試」。',
@@ -2960,7 +2960,7 @@ export const zhHant = defineLocale({
       couldNotSaveLocalEndpoint: '無法儲存本機端點',
       couldNotChangeModel: '無法變更模型',
       directApiAccess: name => `直接存取 ${name} 的 API。`,
-      gatewayNotSetUp: '此安裝尚未設定 AgentX AI Gateway。請聯絡 AgentX 管理員，或選擇其他提供方。'
+      gatewayNotSetUp: '此安裝尚未設定 AgentX AI Gateway。請聯絡 AgentX 管理員，或暫時略過設定。'
     },
     headerTitle: '開始設定 AgentX Workmate',
     headerDesc: '連線模型提供方即可開始聊天。大多數選項只需一次點擊。',

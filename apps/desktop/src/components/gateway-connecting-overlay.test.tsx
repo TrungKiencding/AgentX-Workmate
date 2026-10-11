@@ -38,13 +38,10 @@ function resetStores() {
   $desktopOnboarding.set({
     configured: true,
     flow: { status: 'idle' },
-    mode: 'oauth',
-    providers: null,
     reason: null,
     requested: false,
     firstRunSkipped: false,
-    manual: false,
-    localEndpoint: false
+    manual: false
   })
 }
 

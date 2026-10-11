@@ -14,7 +14,6 @@ export type SettingsView =
   | 'keys'
   | 'notifications'
   | 'plugins'
-  | 'providers'
   | 'sessions'
   | `config:${string}`
 export type EnvPatch = Partial<Pick<EnvVarInfo, 'is_set' | 'redacted_value'>>

@@ -10,10 +10,8 @@ import {
   getGlobalModelInfo,
   getGlobalModelOptions,
   getMoaModels,
-  getRecommendedDefaultModel,
   saveHermesConfig,
   saveMoaModels,
-  setEnvVar,
   setModelAssignment
 } from '@/hermes'
 import type {
@@ -25,11 +23,12 @@ import type {
 } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
+import { gatewayModelOptions } from '@/lib/inference-policy'
 import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_VALUES } from '@/lib/reasoning-effort'
 import { cn } from '@/lib/utils'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
 import { notifyError } from '@/store/notifications'
-import { startManualLocalEndpoint, startManualOnboarding, startManualProviderOAuth } from '@/store/onboarding'
+import { AGENTX_GATEWAY_LABEL, startManualOnboarding } from '@/store/onboarding'
 
 import { invalidateHermesConfig, setHermesConfigCache, useHermesConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
@@ -92,14 +91,6 @@ const isFastTier = (tier: unknown): boolean =>
       .toLowerCase()
   )
 
-// A provider row is "ready" to pick a model from when it reports models. The
-// backend now surfaces the full `agentx model` universe (every canonical
-// provider), so unconfigured providers come back with `authenticated:false`
-// and an empty `models` list — those need a setup step before a model exists.
-function isProviderReady(p?: ModelOptionProvider): boolean {
-  return !!p && (p.authenticated !== false || (p.models?.length ?? 0) > 0)
-}
-
 // Mirrors `_AUX_TASK_SLOTS` in hermes_cli/web_server.py. Friendly labels and
 // hints make the assignments readable; raw task keys (vision, mcp, …) are
 // opaque to most users.
@@ -151,10 +142,8 @@ interface StaleAuxWarningProps {
   taskLabel: (key: string) => string
 }
 
-// Shared notice: auxiliary tasks still pinned to a provider that isn't the
-// current main. Surfaces the silent credit-burn path (e.g. aux pinned to a
-// $0-balance provider after switching main away from it) and offers the
-// existing one-click reset rather than auto-clearing legitimate pins.
+// Older backends may still report vendor pins. Offer the gateway reset;
+// managed runtimes reject those routes until they are reconciled.
 function StaleAuxWarning({ applying, onReset, slots, taskLabel }: StaleAuxWarningProps) {
   if (!slots.length) {
     return null
@@ -168,7 +157,7 @@ function StaleAuxWarning({ applying, onReset, slots, taskLabel }: StaleAuxWarnin
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
       <AlertTriangle className="size-3.5 shrink-0" />
       <span className="grow">
-        {slots.length} auxiliary task{slots.length === 1 ? '' : 's'} ({names}) still run on{' '}
+        {slots.length} auxiliary task{slots.length === 1 ? '' : 's'} ({names}) remain configured for{' '}
         <span className="font-mono">{allSameProvider ? provider : 'other providers'}</span>, not your main model.
       </span>
       <Button disabled={applying} onClick={onReset} size="sm" variant="textStrong">
@@ -206,11 +195,6 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
   // Aux slots reported stale by the backend immediately after a main-model
   // switch (provider differs from the new main). Cleared on next switch/reset.
   const [switchStaleAux, setSwitchStaleAux] = useState<StaleAuxAssignment[]>([])
-  // Inline API-key entry for picking an unconfigured `api_key` provider in
-  // place — mirrors the onboarding ApiKeyForm but scoped to the model picker.
-  const [apiKeyDraft, setApiKeyDraft] = useState('')
-  const [activating, setActivating] = useState(false)
-
   // Deep link from the vision Capabilities detail (?tab=config:model&aux=vision):
   // scroll the auxiliary task row into view and flash it once the list loads.
   useDeepLinkHighlight({
@@ -241,19 +225,48 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
         return
       }
 
-      setMainModel({ model: modelInfo.model, provider: modelInfo.provider })
-      setProviders(modelOptions.providers || [])
+      const gatewayProviders = gatewayModelOptions(modelOptions).providers || []
+      setProviders(gatewayProviders)
+      const gatewayRow = gatewayProviders[0]
+      const provider = gatewayRow?.slug || ''
+      const model = modelInfo.provider === provider ? modelInfo.model : gatewayRow?.models?.[0] || ''
+      setMainModel(provider && model ? { provider, model } : null)
 
       if (replaceSelection) {
-        setSelectedProvider(modelInfo.provider)
-        setSelectedModel(modelInfo.model)
+        setSelectedProvider(provider)
+        setSelectedModel(model)
       } else {
-        setSelectedProvider(prev => prev || modelInfo.provider)
-        setSelectedModel(prev => prev || modelInfo.model)
+        setSelectedProvider(prev => (gatewayProviders.some(row => row.slug === prev) ? prev : provider))
+        setSelectedModel(prev => prev || model)
       }
 
       setAuxiliary(auxiliaryModels)
-      setMoa(moaModels)
+
+      // Legacy presets keep their shape; each constituent model now uses
+      // the same managed gateway as the main slot.
+      const gatewaySlot = (slot: MoaModelSlot): MoaModelSlot => ({
+        ...slot,
+        provider,
+        model: gatewayRow?.models?.includes(slot.model) ? slot.model : gatewayRow?.models?.[0] || ''
+      })
+
+      setMoa(
+        moaModels
+          ? {
+              ...moaModels,
+              presets: Object.fromEntries(
+                Object.entries(moaModels.presets).map(([name, preset]) => [
+                  name,
+                  {
+                    ...preset,
+                    reference_models: preset.reference_models.map(gatewaySlot),
+                    aggregator: gatewaySlot(preset.aggregator)
+                  }
+                ])
+              )
+            }
+          : null
+      )
 
       if (moaModels) {
         setSelectedMoaPreset(prev => (prev && moaModels.presets[prev] ? prev : moaModels.default_preset))
@@ -286,27 +299,8 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
     // truth. Ordinary same-profile refreshes still preserve in-progress edits.
     setSelectedProvider('')
     setSelectedModel('')
-    setApiKeyDraft('')
     void refresh({ replaceSelection: true })
   })
-
-  const providerOptions = providers.length ? providers : NO_PROVIDERS
-
-  // Radix renders a blank trigger when the controlled value has no matching
-  // item. Keep a missing saved provider visible in the main selector while
-  // leaving it out of the real inventory used for readiness/setup metadata.
-  const mainProviderOptions = useMemo(
-    () =>
-      selectedProvider && !providers.some(provider => provider.slug === selectedProvider)
-        ? [{ name: selectedProvider, slug: selectedProvider, models: [] }, ...providers]
-        : providerOptions,
-    [providerOptions, providers, selectedProvider]
-  )
-
-  // MoA reference/aggregator slots must never be the moa virtual provider —
-  // that would create a recursive MoA tree (the backend rejects it on save).
-  // Hide it from the slot selectors so it isn't offered as a dead choice.
-  const moaSlotProviderOptions = providerOptions.filter(provider => (provider.slug || '').toLowerCase() !== 'moa')
 
   const selectedProviderRow = useMemo(
     () => providers.find(provider => provider.slug === selectedProvider),
@@ -314,17 +308,6 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
   )
 
   const selectedProviderModels = selectedProviderRow?.models ?? []
-
-  // An unconfigured provider was picked: no credentials yet, so there are no
-  // models to choose. `api_key` providers can be activated inline (paste key);
-  // OAuth / external flows hand off to the onboarding sign-in.
-  const needsSetup = !!selectedProvider && !isProviderReady(selectedProviderRow)
-  const setupIsApiKey = needsSetup && selectedProviderRow?.auth_type === 'api_key' && !!selectedProviderRow?.key_env
-
-  // Clear any half-typed key when switching provider so it can't leak across.
-  useEffect(() => {
-    setApiKeyDraft('')
-  }, [selectedProvider])
 
   const auxDraftProviderModels = useMemo(
     () => providers.find(provider => provider.slug === auxDraft.provider)?.models ?? [],
@@ -536,80 +519,6 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
     [config, m.defaultsFailed, setConfig]
   )
 
-  // Paste an API key for the selected `api_key` provider, persist it, then
-  // refresh so the now-authenticated provider's models populate. Auto-selects
-  // the recommended default model so the user can Apply in one more click.
-  const activateApiKeyProvider = useCallback(async () => {
-    const keyEnv = selectedProviderRow?.key_env
-    const slug = selectedProviderRow?.slug
-
-    if (!keyEnv || !slug || !apiKeyDraft.trim()) {
-      return
-    }
-
-    const epoch = profileEpoch.current
-    setActivating(true)
-    setError('')
-
-    try {
-      await setEnvVar(keyEnv, apiKeyDraft.trim())
-      setApiKeyDraft('')
-
-      // Pick a sensible default for the freshly-activated provider (mirrors
-      // `agentx model` curation). Best-effort — fall through to the refreshed
-      // model list if it fails.
-      let nextModel = ''
-
-      try {
-        const rec = await getRecommendedDefaultModel(slug)
-        nextModel = rec.model || ''
-      } catch {
-        nextModel = ''
-      }
-
-      const options = await getGlobalModelOptions()
-
-      if (profileEpoch.current !== epoch) {
-        return
-      }
-
-      setProviders(options.providers || [])
-      const refreshedRow = options.providers?.find(p => p.slug === slug)
-      const fallbackModel = refreshedRow?.models?.[0] ?? ''
-      setSelectedModel(nextModel || fallbackModel)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setActivating(false)
-    }
-  }, [apiKeyDraft, selectedProviderRow])
-
-  // OAuth / external providers can't be activated with a pasted key — hand off
-  // to the shared onboarding flow scoped to this provider's real sign-in. The
-  // custom / local endpoint is NOT an OAuth provider, so it gets the dedicated
-  // local-endpoint form (URL + optional API key) instead of being dead-ended
-  // on the OAuth picker (the original "booted back to the first screen" loop).
-  const startProviderSetup = useCallback(() => {
-    const rowSlug = selectedProviderRow?.slug.trim() ?? ''
-    const slug = rowSlug || selectedProvider.trim()
-
-    if (!slug) {
-      return
-    }
-
-    const lower = slug.toLowerCase()
-
-    if (lower === 'custom' || lower === 'local' || lower.startsWith('custom:')) {
-      startManualLocalEndpoint()
-    } else if (rowSlug) {
-      startManualProviderOAuth(rowSlug)
-    } else {
-      // An absent row has no trustworthy auth metadata. Open the generic
-      // provider picker instead of deep-linking an unknown or stale slug.
-      startManualOnboarding()
-    }
-  }, [selectedProvider, selectedProviderRow])
-
   const applyMainModel = useCallback(async () => {
     if (!selectedProvider || !selectedModel) {
       return
@@ -716,14 +625,13 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
     (task: string) => {
       const current = auxiliary?.tasks.find(entry => entry.task === task)
 
-      const initialProvider =
-        current?.provider && current.provider !== 'auto' ? current.provider : (mainModel?.provider ?? '')
+      const initialProvider = providers[0]?.slug ?? ''
 
       const initialModel = current?.model || mainModel?.model || ''
       setAuxDraft({ provider: initialProvider, model: initialModel })
       setEditingAuxTask(task)
     },
-    [auxiliary, mainModel]
+    [auxiliary, mainModel, providers]
   )
 
   const resetAuxiliaryModels = useCallback(async () => {
@@ -759,48 +667,11 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
       <section>
         <p className="mb-3 text-xs text-muted-foreground">{m.appliesDesc}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Select onValueChange={setSelectedProvider} value={selectedProvider}>
-            <SelectTrigger className={cn('min-w-40', CONTROL_TEXT)}>
-              <SelectValue placeholder={m.provider} />
-            </SelectTrigger>
-            <SelectContent>
-              {mainProviderOptions.map(provider => (
-                <SelectItem key={provider.slug || 'none'} value={provider.slug || 'none'}>
-                  {provider.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {needsSetup ? (
-            setupIsApiKey ? (
-              <>
-                <Input
-                  autoComplete="off"
-                  className={cn('min-w-60 flex-1', CONTROL_TEXT)}
-                  onChange={event => setApiKeyDraft(event.target.value)}
-                  onKeyDown={event => {
-                    if (event.key === 'Enter') {
-                      void activateApiKeyProvider()
-                    }
-                  }}
-                  placeholder={`Paste ${selectedProviderRow?.key_env ?? 'API key'}`}
-                  type="password"
-                  value={apiKeyDraft}
-                />
-                <Button
-                  disabled={!apiKeyDraft.trim() || activating}
-                  onClick={() => void activateApiKeyProvider()}
-                  size="sm"
-                >
-                  {activating && <Loader2 className="size-3.5 animate-spin" />}
-                  {activating ? 'Activating...' : 'Activate'}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={startProviderSetup} size="sm" variant="textStrong">
-                Set up {selectedProviderRow?.name ?? 'provider'}
-              </Button>
-            )
+          <span className="text-xs text-muted-foreground">{AGENTX_GATEWAY_LABEL}</span>
+          {!selectedProvider ? (
+            <Button onClick={() => startManualOnboarding()} size="sm" variant="textStrong">
+              {t.agentxKey.retry}
+            </Button>
           ) : (
             <>
               <Select onValueChange={setSelectedModel} value={selectedModel}>
@@ -826,13 +697,6 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
             </>
           )}
         </div>
-        {needsSetup && !setupIsApiKey && selectedProviderRow && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {selectedProviderRow?.auth_type === 'api_key'
-              ? `${selectedProviderRow?.name} needs an API key — set it up to choose a model.`
-              : `${selectedProviderRow?.name} signs in through your browser — AgentX runs the flow for you.`}
-          </p>
-        )}
         {config && mainModel && (reasoningSupported || fastSupported) && (
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
             <span className="text-xs text-muted-foreground">{m.defaultsLabel}</span>
@@ -939,21 +803,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                   below={
                     isEditing && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
-                        <Select
-                          onValueChange={value => setAuxDraft(prev => ({ ...prev, provider: value, model: '' }))}
-                          value={auxDraft.provider}
-                        >
-                          <SelectTrigger className={cn('min-w-32', CONTROL_TEXT)}>
-                            <SelectValue placeholder={m.provider} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {providerOptions.map(provider => (
-                              <SelectItem key={provider.slug || 'none'} value={provider.slug || 'none'}>
-                                {provider.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <span className="text-xs text-muted-foreground">{AGENTX_GATEWAY_LABEL}</span>
                         <Select
                           onValueChange={value => setAuxDraft(prev => ({ ...prev, model: value }))}
                           value={auxDraft.model}
@@ -1121,35 +971,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                 }
                 below={
                   <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
-                    <Select
-                      onValueChange={value =>
-                        updateMoaPreset(prev => ({
-                          ...prev,
-                          reference_models: prev.reference_models.map((s, i) =>
-                            i === index ? updateMoaSlot(s, { provider: value }) : s
-                          )
-                        }))
-                      }
-                      value={slot.provider}
-                    >
-                      <SelectTrigger className={cn('min-w-32', CONTROL_TEXT)}>
-                        <SelectValue placeholder={m.provider} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {withActive(
-                          moaSlotProviderOptions.map(p => p.slug || 'none'),
-                          slot.provider
-                        ).map(slug => {
-                          const provider = moaSlotProviderOptions.find(p => (p.slug || 'none') === slug)
-
-                          return (
-                            <SelectItem key={slug} value={slug}>
-                              {provider?.name || slug}
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
+                    <span className="text-xs text-muted-foreground">{AGENTX_GATEWAY_LABEL}</span>
                     <Select
                       onValueChange={value =>
                         updateMoaPreset(prev => ({
@@ -1213,33 +1035,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
             <ListRow
               below={
                 <div className="mt-2 flex flex-wrap items-center gap-2 pt-1">
-                  <Select
-                    onValueChange={value =>
-                      updateMoaPreset(prev => ({
-                        ...prev,
-                        aggregator: updateMoaSlot(prev.aggregator, { provider: value })
-                      }))
-                    }
-                    value={currentMoaPreset.aggregator.provider}
-                  >
-                    <SelectTrigger className={cn('min-w-32', CONTROL_TEXT)}>
-                      <SelectValue placeholder={m.provider} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {withActive(
-                        moaSlotProviderOptions.map(p => p.slug || 'none'),
-                        currentMoaPreset.aggregator.provider
-                      ).map(slug => {
-                        const provider = moaSlotProviderOptions.find(p => (p.slug || 'none') === slug)
-
-                        return (
-                          <SelectItem key={slug} value={slug}>
-                            {provider?.name || slug}
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <span className="text-xs text-muted-foreground">{AGENTX_GATEWAY_LABEL}</span>
                   <Select
                     onValueChange={value =>
                       updateMoaPreset(prev => ({

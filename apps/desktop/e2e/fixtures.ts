@@ -973,29 +973,7 @@ export async function waitForAppReady(fixture: MockBackendFixture | NoProviderFi
  * Wait for the onboarding overlay to appear (no provider configured).
  */
 export async function waitForOnboarding(page: Page, timeoutMs = 60_000): Promise<void> {
-  // The onboarding overlay contains a heading with "Choose your provider"
-  // or similar text. We look for any text that indicates the picker.
-  await page.waitForFunction(
-    () => {
-      const root = document.getElementById('root')
-
-      if (!root) {
-        return false
-      }
-
-      const text = root.textContent ?? ''
-
-      return (
-        text.includes('provider') ||
-        text.includes('Provider') ||
-        text.includes('Choose') ||
-        text.includes('API key') ||
-        text.includes('Sign in')
-      )
-    },
-    undefined,
-    { timeout: timeoutMs },
-  )
+  await page.getByRole('button', { name: /AgentX AI Gateway/ }).waitFor({ state: 'visible', timeout: timeoutMs })
 }
 
 /**

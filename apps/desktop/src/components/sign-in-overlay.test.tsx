@@ -38,13 +38,10 @@ beforeEach(() => {
   $desktopOnboarding.set({
     configured: true,
     flow: { status: 'idle' },
-    mode: 'oauth',
-    providers: null,
     reason: null,
     requested: false,
     firstRunSkipped: false,
-    manual: false,
-    localEndpoint: false
+    manual: false
   })
   setBootError(SIGN_IN_ERROR)
 })
@@ -66,7 +63,6 @@ describe('SignInOverlay', () => {
 
       expect(container.firstChild).toBeNull()
     })
-
   })
 
   describe('voice', () => {

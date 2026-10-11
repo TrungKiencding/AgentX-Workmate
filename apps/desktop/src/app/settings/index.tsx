@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
-import { codiconIcon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
 import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -21,10 +20,9 @@ import {
   Settings2,
   Upload,
   UserCircle,
-  Wrench,
-  Zap
+  Wrench
 } from '@/lib/icons'
-import { BILLING_ENABLED, PROVIDER_ACCOUNTS_ENABLED } from '@/lib/product-flags'
+import { BILLING_ENABLED } from '@/lib/product-flags'
 import { notifyError } from '@/store/notifications'
 
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -45,13 +43,11 @@ import { KeybindSettings } from './keybind-settings'
 import { KEYS_VIEWS, KeysSettings, type KeysView } from './keys-settings'
 import { NotificationsSettings } from './notifications-settings'
 import { PluginsSettings } from './plugins-settings'
-import { DEFAULT_PROVIDER_VIEW, PROVIDER_VIEWS, ProvidersSettings, type ProviderView } from './providers-settings'
 import { SessionsSettings } from './sessions-settings'
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
 
 const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   ...SECTIONS.map(s => `config:${s.id}` as SettingsViewId),
-  'providers',
   'gateway',
   'account',
   'keybinds',
@@ -79,17 +75,22 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   useEffect(() => {
     const params = new URLSearchParams(search)
 
+    if (params.get('tab') === 'providers') {
+      params.set('tab', 'account')
+      params.delete('pview')
+      navigate({ pathname, hash, search: `?${params}` }, { replace: true })
+
+      return
+    }
+
     if (params.get('tab') === 'mcp') {
       const server = params.get('server')
       const suffix = server ? `&server=${encodeURIComponent(server)}` : ''
       navigate(`${SKILLS_ROUTE}?tab=mcp${suffix}`, { replace: true })
     }
-  }, [navigate, search])
+  }, [navigate, pathname, hash, search])
 
   const [activeView, setActiveView] = useRouteEnumParam('tab', SETTINGS_VIEWS, 'config:model' as SettingsViewId)
-  // Providers subnav (Accounts vs API keys) lives in its own param so each
-  // sub-view is deep-linkable and survives a refresh.
-  const [providerView, setProviderView] = useRouteEnumParam<ProviderView>('pview', PROVIDER_VIEWS, DEFAULT_PROVIDER_VIEW)
   const [keysView] = useRouteEnumParam<KeysView>('kview', KEYS_VIEWS, 'tools')
 
   // Jump to a section + its sub-view in one navigate. Two sequential setters
@@ -110,11 +111,6 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       navigate({ hash, pathname, search: qs ? `?${qs}` : '' }, { replace: true })
     },
     [hash, navigate, pathname, search]
-  )
-
-  const openProviderView = useCallback(
-    (view: ProviderView) => openSubView('providers', 'pview', view, DEFAULT_PROVIDER_VIEW),
-    [openSubView]
   )
 
   const openKeysView = useCallback((view: KeysView) => openSubView('keys', 'kview', view, 'tools'), [openSubView])
@@ -192,42 +188,6 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
           ]
         : []),
       {
-        active: activeView === 'providers',
-        children: [
-          // The provider sign-in picker is hidden — see PROVIDER_ACCOUNTS_ENABLED.
-          ...(PROVIDER_ACCOUNTS_ENABLED
-            ? [
-                {
-                  active: activeView === 'providers' && providerView === 'accounts',
-                  icon: codiconIcon('account'),
-                  id: 'pview:accounts',
-                  label: t.settings.nav.providerAccounts,
-                  onSelect: () => openProviderView('accounts')
-                }
-              ]
-            : []),
-          {
-            active: activeView === 'providers' && providerView === 'keys',
-            icon: KeyRound,
-            id: 'pview:keys',
-            label: t.settings.nav.providerApiKeys,
-            onSelect: () => openProviderView('keys')
-          },
-          {
-            active: activeView === 'providers' && providerView === 'custom-endpoints',
-            icon: Globe,
-            id: 'pview:custom-endpoints',
-            label: t.settings.nav.providerCustomEndpoints,
-            onSelect: () => openProviderView('custom-endpoints')
-          }
-        ],
-        gapBefore: true,
-        icon: Zap,
-        id: 'providers',
-        label: t.settings.nav.providers,
-        onSelect: () => setActiveView('providers')
-      },
-      {
         active: activeView === 'gateway',
         icon: Globe,
         id: 'gateway',
@@ -294,7 +254,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         onSelect: () => setActiveView('about')
       }
     ],
-    [activeView, keysView, providerView, t, setActiveView, openProviderView, openKeysView]
+    [activeView, keysView, t, setActiveView, openKeysView]
   )
 
   const navFooter = (
@@ -350,14 +310,6 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
               importInputRef={importInputRef}
               onConfigSaved={onConfigSaved}
               onMainModelChanged={onMainModelChanged}
-            />
-          ) : activeView === 'providers' ? (
-            <ProvidersSettings
-              onClose={onClose}
-              onConfigSaved={onConfigSaved}
-              onMainModelChanged={onMainModelChanged}
-              onViewChange={setProviderView}
-              view={providerView}
             />
           ) : activeView === 'keys' ? (
             <KeysSettings view={keysView} />

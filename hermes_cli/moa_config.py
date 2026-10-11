@@ -400,6 +400,26 @@ def normalize_moa_config(raw: Any) -> dict[str, Any]:
     if active_name not in presets:
         active_name = ""
 
+    # Managed accounts keep MoA's orchestration, with every slot routed through
+    # their gateway. Normalize legacy/default vendor slots at this shared read
+    # boundary so the UI and actual one-shot execution see the same models.
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        from hermes_cli.account_provisioning import choose_default_model, load_settings, read_state
+        from hermes_constants import get_hermes_home
+
+        models = tuple(str(m) for m in read_state(get_hermes_home()).get("models", ()))
+        default_model = choose_default_model(models, load_settings())
+        for preset in presets.values():
+            for slot in [*preset["reference_models"], preset["aggregator"]]:
+                if not policy.allows(slot["provider"], str(slot.get("base_url") or "")):
+                    slot["model"] = slot["model"] if slot["model"] in models else default_model
+                slot["provider"] = policy.provider
+                for field in ("base_url", "api_key", "api_mode"):
+                    slot.pop(field, None)
+
     active = presets[default_name]
     return {
         "default_preset": default_name,

@@ -25,15 +25,5 @@
  */
 export const PROFILE_MANAGEMENT_ENABLED: boolean = false
 
-/**
- * Settings → Providers → "Accounts": the OAuth provider sign-in picker.
- *
- * Off because models now reach the app through the account's own AI Gateway
- * key, so there is no upstream provider account left to connect. The API-keys
- * and custom-endpoint sub-views stay — those are how someone points the app at
- * an endpoint of their own.
- */
-export const PROVIDER_ACCOUNTS_ENABLED: boolean = false
-
 /** Settings → Billing (plan, balance, top-ups). Temporarily hidden. */
 export const BILLING_ENABLED: boolean = false

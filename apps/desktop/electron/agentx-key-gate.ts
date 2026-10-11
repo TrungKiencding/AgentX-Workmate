@@ -1,28 +1,7 @@
 /**
- * agentx-key-gate.ts
- *
- * A person signed in to AgentX does not use Workmate until their account
- * holds an AgentX AI Gateway key.
- *
- * Sign-in provisions that key (`ensureAccountProvisioned` in main.ts). When it
- * could not — the keys service refused (HTTP 424: none of the models chosen
- * in the SSO console is served right now), the network was down, the device
- * was revoked, the license does not cover AI — the app used to finish booting
- * anyway and drop the person on the provider picker, where "Choose another
- * provider", an API-key form and "I'll choose later" all led past the missing
- * key. Every one of those is a way of running Workmate on something AgentX
- * does not manage, so the boot now stops short of handing the app over: the
- * connection is not reported ready until the key is on this machine. Nothing
- * behind the gate can be reached, because nothing behind it has started —
- * no session list, no composer, no Quick Entry, no wake word.
- *
- * What the person can do at the gate is narrow on purpose: try again (an
- * outage or a fixed SSO console resolves it), sign out (somebody else's
- * account), or contact support with the reason shown. When provisioning is not
- * part of this install at all — `accounts.litellm` disabled, or no keys
- * service configured — there is no key to wait for and the gate stays open.
- *
- * Pure apart from the injected I/O, so the whole policy is unit-tested.
+ * Gateway credential setup for signed-in accounts. A failed attempt holds boot
+ * until the person retries, skips setup, or signs out. Skipping releases boot
+ * without claiming the account has a key; inference remains gateway-only.
  */
 
 /** What `/api/account`'s `litellm` block says about the key on this machine. */
@@ -257,6 +236,22 @@ export class AgentxKeyGate {
       })
 
     return this.retrying
+  }
+
+  /** Continue boot without a key. AI remains restricted to the account gateway. */
+  skip(): AgentxKeyGateState {
+    const held = this.hold_
+
+    if (!held || this.current.phase !== 'blocked') {
+      return this.current
+    }
+
+    this.hold_ = null
+    this.set({ ...this.current, phase: 'open' })
+    this.deps.log('[account] gateway setup skipped; continuing boot without AI credentials')
+    held.resolve()
+
+    return this.current
   }
 
   /**

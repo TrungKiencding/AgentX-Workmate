@@ -18,6 +18,7 @@ import {
   signOutKeycloak
 } from '@/store/account'
 import { refreshLicense } from '@/store/license'
+import { startManualOnboarding } from '@/store/onboarding'
 
 import { DeviceList } from './device-list'
 import { LicenseRow } from './license-row'
@@ -146,9 +147,7 @@ export function AccountSettings() {
           // tickets, Keycloak admin lookups), so it opts out of the app-wide
           // user-select: none.
           hint={
-            account.signedIn && account.userId ? (
-              <span data-selectable-text="true">{account.userId}</span>
-            ) : undefined
+            account.signedIn && account.userId ? <span data-selectable-text="true">{account.userId}</span> : undefined
           }
           title={account.signedIn ? name : copy.signedOut}
         />
@@ -210,7 +209,11 @@ export function AccountSettings() {
                 >
                   {rotating ? copy.keyRotating : copy.keyRotate}
                 </Button>
-              ) : undefined
+              ) : (
+                <Button onClick={() => startManualOnboarding()} variant="outline">
+                  {t.agentxKey.retry}
+                </Button>
+              )
             }
             below={
               rotateError ? (
@@ -220,11 +223,7 @@ export function AccountSettings() {
               ) : undefined
             }
             description={describeKey(isolation.litellm, copy)}
-            hint={
-              isolation.litellm.models.length
-                ? copy.keyModels(isolation.litellm.models.length)
-                : undefined
-            }
+            hint={isolation.litellm.models.length ? copy.keyModels(isolation.litellm.models.length) : undefined}
             title={copy.keyTitle}
           />
         ) : null}

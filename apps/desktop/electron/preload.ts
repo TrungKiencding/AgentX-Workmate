@@ -119,6 +119,7 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     keyGate: {
       get: () => ipcRenderer.invoke('agentx:account:key-gate:get'),
       retry: () => ipcRenderer.invoke('agentx:account:key-gate:retry'),
+      skip: () => ipcRenderer.invoke('agentx:account:key-gate:skip'),
       onChanged: callback => {
         const listener = (_event, state) => callback(state)
         ipcRenderer.on('agentx:account:key-gate:changed', listener)

@@ -283,7 +283,7 @@ export const vi: Translations = {
     title: 'Chưa cấp được key AgentX AI',
     provisioning: 'Đang cấp key AgentX AI Gateway cho tài khoản của bạn…',
     intro:
-      'Workmate cần key AgentX AI Gateway của tài khoản để hoạt động. Hệ thống chưa cấp được key cho tài khoản này, nên bạn chưa dùng được Workmate.',
+      'Workmate chỉ dùng model qua AgentX AI Gateway của tài khoản bạn. Bạn có thể thử lại hoặc bỏ qua thiết lập; AI chưa dùng được cho đến khi kết nối thành công.',
     account: who => `Tài khoản: ${who}`,
     reasons: {
       offline: 'Không kết nối được tới máy chủ cấp key AgentX. Hãy kiểm tra mạng rồi bấm Thử lại.',
@@ -3337,7 +3337,7 @@ export const vi: Translations = {
       couldNotChangeModel: 'Không đổi được model',
       directApiAccess: name => `Truy cập API trực tiếp tới ${name}.`,
       gatewayNotSetUp:
-        'Bản cài này chưa được thiết lập AgentX AI Gateway. Hãy hỏi người quản lý AgentX, hoặc chọn nhà cung cấp khác.'
+        'Bản cài này chưa được thiết lập AgentX AI Gateway. Hãy liên hệ người quản lý AgentX hoặc bỏ qua để thiết lập sau.'
     },
     headerTitle: 'Cùng thiết lập AgentX Workmate cho bạn nào',
     headerDesc: 'Kết nối một nhà cung cấp model để bắt đầu trò chuyện. Phần lớn lựa chọn chỉ mất một cú nhấp.',

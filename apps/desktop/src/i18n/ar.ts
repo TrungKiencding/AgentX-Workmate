@@ -251,7 +251,7 @@ export const ar = defineLocale({
     title: 'تعذّر إصدار مفتاح AgentX AI',
     provisioning: 'جارٍ إصدار مفتاح AgentX AI Gateway لحسابك…',
     intro:
-      'يعمل Workmate بمفتاح AgentX AI Gateway الخاص بحسابك. تعذّر إصدار هذا المفتاح لهذا الحساب، لذا لا يمكن استخدام Workmate بعد.',
+      'يستخدم Workmate النماذج عبر AgentX AI Gateway الخاص بحسابك فقط. أعد المحاولة أو تخطَّ الإعداد؛ يظل الذكاء الاصطناعي غير متاح حتى يتصل.',
     account: who => `الحساب: ${who}`,
     reasons: {
       offline: 'تعذّر الوصول إلى خدمة مفاتيح AgentX. تحقّق من اتصالك بالشبكة، ثم اختر «إعادة المحاولة».',
@@ -2939,7 +2939,7 @@ export const ar = defineLocale({
       couldNotSaveLocalEndpoint: 'تعذر حفظ نقطة النهاية المحلية',
       couldNotChangeModel: 'تعذر تغيير النموذج',
       directApiAccess: name => `وصول مباشر إلى واجهة برمجة ${name}.`,
-      gatewayNotSetUp: 'لم يُعدّ AgentX AI Gateway في هذا التثبيت. تواصل مع مسؤول AgentX، أو اختر مزوّدًا آخر.'
+      gatewayNotSetUp: 'لم يُعدّ AgentX AI Gateway في هذا التثبيت. تواصل مع مسؤول AgentX، أو تخطَّ الإعداد الآن.'
     },
     headerTitle: 'لنُعِدّ لك AgentX Workmate',
     headerDesc: 'اربط مزوّد نماذج لبدء المحادثة. معظم الخيارات تتطلب نقرة واحدة.',

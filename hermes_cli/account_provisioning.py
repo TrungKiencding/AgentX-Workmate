@@ -786,9 +786,8 @@ def _write_provider_config(
     providers[settings.provider_name] = entry
     cfg["providers"] = providers
 
-    # Pin the account's default model only when we have one and the user has
-    # not already chosen. Overriding a model somebody picked themselves, on
-    # every sign-in, would be maddening.
+    # Preserve a gateway model choice, but migrate a former vendor default
+    # to the account gateway. Every sign-in must obey the managed policy.
     #
     # ``default_model`` comes from the key, not from a constant: the service
     # sorts what it grants so a chat model leads, and the caller hands us the
@@ -819,10 +818,14 @@ def _write_provider_config(
             and current_default in previous_models
             and current_default not in models
         )
-        if not current_default or ours_and_unreachable:
+        current_provider = str(model_cfg.get("provider") or "").strip().lower()
+        other_provider = current_provider not in {settings.provider_name.lower(), f"custom:{settings.provider_name.lower()}"}
+        if not current_default or ours_and_unreachable or other_provider:
             model_cfg["provider"] = settings.provider_name
             model_cfg["default"] = chosen
             model_cfg["key_env"] = key_env
+            model_cfg["base_url"] = openai_base_url(base_url)
+            model_cfg["api_mode"] = "chat_completions"
             model_cfg.pop("api_key", None)
             cfg["model"] = model_cfg
 
@@ -836,6 +839,8 @@ def _write_provider_config(
     # migrations take (see ``_persist_migration``'s docstring).
     if retired_models:
         _drop_provider_models(settings.provider_name, retired_models)
+
+    _reconcile_managed_inference(settings, {"base_url": base_url, "key_env": key_env}, models)
 
     _apply_vision_model(settings.provider_name, vision_model)
     _apply_speech_default(speech_model)
@@ -1105,6 +1110,8 @@ def _tidy_reused_account(
     recorded = tuple(str(m) for m in (state.get("models") or ()))
     models = _chat_models(recorded, *roles)
 
+    _reconcile_managed_inference(settings, state, models)
+
     _ensure_vision_follows_main(
         settings,
         models,
@@ -1121,6 +1128,71 @@ def _tidy_reused_account(
         write_state(home, {**state, "models": list(models)})
 
     return models
+
+
+def _reconcile_managed_inference(
+    settings: LiteLLMAccountSettings, state: Mapping[str, Any], models: tuple[str, ...]
+) -> None:
+    """Migrate legacy inference routes while preserving gateway model choices."""
+    from copy import deepcopy
+
+    from hermes_cli.account_inference import AccountInference
+    from hermes_cli.config import read_raw_config, save_config
+
+    raw = read_raw_config()
+    before = deepcopy(raw)
+    previous = raw.get("model")
+    model = dict(previous) if isinstance(previous, dict) else {}
+    base_url = openai_base_url(str(state.get("base_url") or settings.base_url))
+    key_env = str(state.get("key_env") or provider_key_env(settings.provider_name))
+    policy = AccountInference(settings.provider_name, base_url, key_env)
+    provider = str(model.get("provider") or "").strip().lower()
+    ours = policy.allows(provider, str(model.get("base_url") or ""))
+    if not ours or not model.get("default"):
+        chosen = choose_default_model(models, settings)
+        if not chosen:
+            return
+        model["default"] = chosen
+    model["provider"] = settings.provider_name
+    model["base_url"] = base_url
+    model["key_env"] = key_env
+    model["api_mode"] = "chat_completions"
+    model.pop("api_key", None)
+    raw["model"] = model
+
+    auxiliary = raw.get("auxiliary")
+    if isinstance(auxiliary, dict):
+        for slot in auxiliary.values():
+            if not isinstance(slot, dict):
+                continue
+            provider = str(slot.get("provider") or "auto").strip()
+            base = str(slot.get("base_url") or "").strip()
+            if provider.lower() != "auto" and policy.allows(provider, base):
+                slot["provider"] = settings.provider_name
+            elif provider.lower() != "auto" or base:
+                # A former vendor model is not a model ID at our gateway.
+                slot.update(provider="auto", model="")
+            for key in ("base_url", "api_key", "api_mode", "key_env", "api_key_env"):
+                slot.pop(key, None)
+    delegation = raw.get("delegation")
+    if isinstance(delegation, dict):
+        provider = str(delegation.get("provider") or "auto").strip()
+        base = str(delegation.get("base_url") or "")
+        if policy.allows(provider, base):
+            delegation["provider"] = settings.provider_name
+        elif provider.lower() not in {"", "auto"} or base:
+            delegation.pop("provider", None)
+            delegation.pop("model", None)
+        for key in ("base_url", "api_key", "api_mode", "key_env", "api_key_env"):
+            delegation.pop(key, None)
+    for key in ("fallback_providers", "fallback_model"):
+        chain = raw.get(key)
+        if isinstance(chain, list):
+            raw[key] = [slot for slot in chain if isinstance(slot, dict) and policy.allows(str(slot.get("provider") or ""), str(slot.get("base_url") or ""))]
+        elif isinstance(chain, dict) and not policy.allows(str(chain.get("provider") or ""), str(chain.get("base_url") or "")):
+            raw.pop(key, None)
+    if raw != before:
+        save_config(raw)
 
 
 #: The feature models a sidecar records beside the chat grant (written by ``_rotate``).

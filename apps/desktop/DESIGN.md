@@ -833,6 +833,10 @@ so two-line rows still grow), `HUD_HEADING`.
   its `word` legible from the first frame while the `target` decodes under it,
   then a fade that hands off to the home greeting in the same face. Cold boot only: a post-boot socket drop
   reconnects behind the shell, never behind this overlay.
+- **Inference belongs to AgentX AI Gateway.** Sign-in, onboarding, model
+  pickers and Settings never offer another inference provider or endpoint.
+  Gateway failure offers retry or Skip; Skip opens the shell without claiming
+  AI is ready. Backend resolution enforces the same policy for account homes.
 - Install, onboarding, connecting, boot failure, and reauthentication are
   distinct states with shared visual primitives. Preserve their recovery
   semantics when unifying appearance.

@@ -5963,6 +5963,25 @@ def resolve_provider_client(
     Returns:
         (client, resolved_model) or (None, None) if auth is unavailable.
     """
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        from hermes_cli.runtime_provider import resolve_runtime_provider
+
+        requested = (provider or "auto").strip().lower()
+        if requested not in {"", "auto"} and not policy.allows(requested, explicit_base_url or ""):
+            raise ValueError("This account can only use models through AgentX AI Gateway.")
+        runtime = resolve_runtime_provider(
+            requested=policy.provider, explicit_base_url=explicit_base_url
+        )
+        # Use the existing custom-client path, but only with the managed key
+        # and endpoint. It never reaches auto-detection or vendor fallbacks.
+        provider = "custom"
+        explicit_base_url = runtime["base_url"]
+        explicit_api_key = runtime["api_key"]
+        api_mode = runtime["api_mode"]
+
     _validate_proxy_env_urls()
     # Preserve the original provider name before alias normalization so a
     # user-declared ``custom_providers`` entry whose name coincidentally
@@ -6964,6 +6983,19 @@ def resolve_vision_provider_client(
     backends, so users can intentionally force experimental providers. Auto mode
     stays conservative and only tries vision backends known to work today.
     """
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        requested, selected_model, selected_base, _, _ = _resolve_task_provider_model(
+            "vision", provider, model, base_url, api_key
+        )
+        client, selected_model = resolve_provider_client(
+            requested or "auto", model=selected_model, async_mode=async_mode,
+            explicit_base_url=selected_base, is_vision=True, task="vision",
+        )
+        return policy.provider, client, selected_model
+
     runtime = _normalize_main_runtime(main_runtime)
     requested, resolved_model, resolved_base_url, resolved_api_key, resolved_api_mode = _resolve_task_provider_model(
         "vision", provider, model, base_url, api_key

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // deep link. These tests walk the doors. Each one also runs with the flag
 // forced on, because "hidden" has to mean gated, not deleted: if the on-path
 // stopped working nobody would notice until the flag came back.
-const flags = vi.hoisted(() => ({ billing: false, profileManagement: false, providerAccounts: false }))
+const flags = vi.hoisted(() => ({ billing: false, profileManagement: false }))
 
 vi.mock('@/lib/product-flags', () => ({
   get BILLING_ENABLED() {
@@ -16,9 +16,7 @@ vi.mock('@/lib/product-flags', () => ({
   get PROFILE_MANAGEMENT_ENABLED() {
     return flags.profileManagement
   },
-  get PROVIDER_ACCOUNTS_ENABLED() {
-    return flags.providerAccounts
-  }
+
 }))
 
 // SettingsView mounts a dozen panels that all reach the backend. Every `@/hermes`
@@ -36,7 +34,6 @@ vi.mock('@/hermes', async () => ({
 beforeEach(() => {
   flags.billing = false
   flags.profileManagement = false
-  flags.providerAccounts = false
   vi.resetModules()
   ;(window as unknown as { agentxDesktop: unknown }).agentxDesktop = {
     api: vi.fn().mockResolvedValue({}),
@@ -177,22 +174,18 @@ describe('BILLING_ENABLED — the Settings nav', () => {
   })
 })
 
-describe('PROVIDER_ACCOUNTS_ENABLED — the Providers sub-nav', () => {
-  it('offers API keys and Custom Endpoints, but no Accounts', async () => {
-    await renderSettingsAt('?tab=providers')
-
+describe('provider configuration is unavailable', () => {
+  it.each([
+    '?tab=providers',
+    '?tab=providers&pview=keys',
+    '?tab=providers&pview=custom-endpoints',
+    '?tab=providers&pview=accounts'
+  ])('leaves no provider controls behind legacy deep link %s', async search => {
+    await renderSettingsAt(search)
     const rows = navRows()
-    expect(rows).toContain('API keys')
-    expect(rows).toContain('Custom Endpoints')
+    expect(rows).not.toContain('Providers')
+    expect(rows).not.toContain('Custom Endpoints')
     expect(rows).not.toContain('Accounts')
-  })
-
-  it('brings the sub-view back when the flag does', async () => {
-    flags.providerAccounts = true
-    vi.resetModules()
-
-    await renderSettingsAt('?tab=providers')
-
-    expect(navRows()).toContain('Accounts')
+    expect(screen.queryByPlaceholderText('Paste API key')).toBeNull()
   })
 })

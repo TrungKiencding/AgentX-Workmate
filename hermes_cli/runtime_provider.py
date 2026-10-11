@@ -1779,6 +1779,29 @@ def resolve_runtime_provider(
     persisted default. Other callers can leave it None to preserve existing
     behavior (api_mode derived from config).
     """
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        # Never auto-detect another vendor, including when the key is absent
+        # or the gateway is offline. Old explicit session/fallback pins fail.
+        explicit = (requested or "").strip()
+        if explicit and explicit.lower() != "auto" and not policy.allows(explicit, explicit_base_url or ""):
+            raise ValueError("This account can only use models through AgentX AI Gateway.")
+        if explicit_base_url and not policy.allows(policy.provider, explicit_base_url):
+            raise ValueError("This account can only use models through AgentX AI Gateway.")
+        key = _getenv(policy.key_env, "").strip()
+        if not policy.base_url or not has_usable_secret(key):
+            raise ValueError("AgentX AI Gateway is not configured for this account. Retry gateway setup or skip it for now.")
+        return {
+            "provider": "custom",
+            "api_mode": "chat_completions",
+            "base_url": policy.base_url,
+            "api_key": key,
+            "source": "account-gateway",
+            "requested_provider": policy.provider,
+        }
+
     requested_provider = resolve_requested_provider(requested)
 
     # Honour ``providers.<name>.enabled: false`` for BOTH user-defined

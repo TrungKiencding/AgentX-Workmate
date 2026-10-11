@@ -1,23 +1,12 @@
 import { atom } from 'nanostores'
 
 import type { DesktopAccountLiteLlm, DesktopAccountProvisionResult, DesktopAgentxKeyFailure } from '@/global'
-import {
-  cancelOAuthSession,
-  getGlobalModelOptions,
-  getRecommendedDefaultModel,
-  listOAuthProviders,
-  pollOAuthSession,
-  setEnvVar,
-  startOAuthLogin,
-  submitOAuthCode,
-  validateProviderCredential
-} from '@/hermes'
+import { getGlobalModelOptions } from '@/hermes'
 import { translateNow, translationsNow } from '@/i18n'
 import { agentxKeyMessage } from '@/lib/agentx-key'
 import { asLicense } from '@/lib/license'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
-import { $agentxKeyRequired } from '@/store/agentx-key'
 import { setMainModelAssignment } from '@/store/cron-model-impact'
 import { $license } from '@/store/license'
 import { notify, notifyError } from '@/store/notifications'
@@ -30,21 +19,10 @@ import {
   scanWebmateBrowsers,
   setWebmatePrefs
 } from '@/store/webmate'
-import type { ModelOptionProvider, OAuthProvider, OAuthStartResponse } from '@/types/hermes'
-
-type PkceStart = Extract<OAuthStartResponse, { flow: 'pkce' }>
-type DeviceStart = Extract<OAuthStartResponse, { flow: 'device_code' }>
-
-export type OnboardingMode = 'apikey' | 'oauth'
+import type { ModelOptionProvider } from '@/types/hermes'
 
 export type OnboardingFlow =
   | { status: 'idle' }
-  | { provider: OAuthProvider; status: 'starting' }
-  | { code: string; provider: OAuthProvider; start: PkceStart; status: 'awaiting_user' }
-  | { copied: boolean; provider: OAuthProvider; start: DeviceStart; status: 'polling' }
-  | { provider: OAuthProvider; start: OAuthStartResponse; status: 'submitting' }
-  | { copied: boolean; provider: OAuthProvider; status: 'external_pending' }
-  | { provider: OAuthProvider; status: 'success' }
   | {
       // After successful credential acquisition, before completing
       // onboarding: show the user which model they're getting and let
@@ -70,13 +48,10 @@ export type OnboardingFlow =
   | {
       // "AgentX AI Gateway" was picked: the main process is asking the backend
       // for this account's gateway key — the same provisioning sign-in runs.
-      // No OAuthProvider rides along; the gateway is not a sign-in it lists.
       status: 'connecting_gateway'
     }
   | {
       message: string
-      provider?: OAuthProvider
-      start?: OAuthStartResponse
       status: 'error'
       // Set when the AgentX AI Gateway card failed. `failure` is what the keys
       // service said when the key itself could not be issued; null when the
@@ -90,27 +65,12 @@ export interface DesktopOnboardingState {
    *  every reload. */
   configured: boolean | null
   flow: OnboardingFlow
-  mode: OnboardingMode
-  providers: null | OAuthProvider[]
   reason: null | string
   requested: boolean
-  /** True when the user explicitly chose "I'll choose a provider later" on the
-   *  first-run picker. Persisted to localStorage so the blocking overlay never
-   *  re-nags on subsequent launches — the user can connect a provider any time
-   *  from Settings → Providers (or the model picker's "Add provider"). Distinct
-   *  from `configured`: the app still has no usable provider, so chat won't work
-   *  until one is connected; we just stop forcing the choice up front. */
+  /** Setup was skipped; AI is still unavailable until the gateway is connected. */
   firstRunSkipped: boolean
-  /** True when the user explicitly opened the provider selector to add /
-   *  switch providers from an already-configured app (e.g. via the model
-   *  picker's "Add provider" button). Forces the overlay to show the picker
-   *  even when configured === true, and adds a close affordance. */
+  /** The user reopened gateway setup from Settings → Account. */
   manual: boolean
-  /** True when the overlay was opened specifically to configure a local /
-   *  custom OpenAI-compatible endpoint (e.g. from Settings → Model's "Set up
-   *  custom endpoint"). Forces the API-key form with the local option
-   *  preselected instead of the OAuth picker. */
-  localEndpoint: boolean
 }
 
 export interface OnboardingContext {
@@ -121,10 +81,8 @@ export interface OnboardingContext {
 
 const CONFIGURED_CACHE_KEY = 'agentx-desktop-onboarded-v1'
 const SKIP_CACHE_KEY = 'agentx-onboarding-skipped-v1'
-const POLL_MS = 2000
-const COPY_FLASH_MS = 1500
 export const DEFAULT_ONBOARDING_REASON = 'No inference provider is configured.'
-export const DEFAULT_MANUAL_ONBOARDING_REASON = 'Add or switch inference provider.'
+export const DEFAULT_MANUAL_ONBOARDING_REASON = 'Connect AgentX AI Gateway.'
 
 function readCachedConfigured(): boolean | null {
   if (typeof window === 'undefined') {
@@ -185,35 +143,20 @@ function writeCachedSkipped(value: boolean) {
 const INITIAL: DesktopOnboardingState = {
   configured: readCachedConfigured(),
   flow: { status: 'idle' },
-  mode: 'oauth',
-  providers: null,
   reason: null,
   requested: false,
   firstRunSkipped: readCachedSkipped(),
-  manual: false,
-  localEndpoint: false
+  manual: false
 }
 
 export const $desktopOnboarding = atom<DesktopOnboardingState>(INITIAL)
 
-let pollTimer: number | null = null
-let providersRefreshPromise: null | Promise<void> = null
-
-const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e))
+let gatewayAttempt = 0
 
 const patch = (update: Partial<DesktopOnboardingState>) =>
   $desktopOnboarding.set({ ...$desktopOnboarding.get(), ...update })
 
 const setFlow = (flow: OnboardingFlow) => patch(flow.status === 'idle' ? { flow } : { flow, reason: null })
-
-const sessionIdFor = (flow: OnboardingFlow) => ('start' in flow && flow.start ? flow.start.session_id : undefined)
-
-function clearPoll() {
-  if (pollTimer !== null) {
-    window.clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
 
 async function checkRuntime(ctx: OnboardingContext, requestedProvider?: string): Promise<RuntimeReadinessResult> {
   return evaluateRuntimeReadiness(ctx.requestGateway, {
@@ -229,62 +172,12 @@ function shouldPreserveConfiguredOnFallback(runtime: RuntimeReadinessResult, sta
   return runtime.source === 'fallback' && state.configured === true && !state.requested
 }
 
-function notifyReady(provider: string) {
-  notify({
-    kind: 'success',
-    title: translateNow('onboarding.messages.readyTitle'),
-    message: translateNow('onboarding.messages.readyBody', provider)
-  })
-}
-
-// Human-friendly labels for tools auto-routed through the Nous Tool Gateway,
-// mirroring hermes_cli/nous_subscription._GATEWAY_TOOL_LABELS so the GUI and
-// CLI describe the same thing. The catalog carries the labels; a tool id the
-// catalog does not know is shown as-is rather than as a dangling key path.
-function gatewayToolLabel(tool: string): string {
-  const key = `onboarding.messages.toolLabels.${tool}`
-  const label = translateNow(key)
-
-  return label === key ? tool : label
-}
-
-// When switching to Nous auto-routes unconfigured tools through the Tool
-// Gateway, tell the user which ones — same information the CLI prints. Silent
-// when nothing changed (subscriber already configured, has own keys, etc.).
-function notifyGatewayTools(tools: string[] | undefined) {
-  if (!tools || tools.length === 0) {
-    return
-  }
-
-  const labels = tools.map(gatewayToolLabel)
-
-  const list =
-    labels.length === 1
-      ? labels[0]
-      : `${labels.slice(0, -1).join(', ')} ${translateNow('onboarding.messages.listAnd')} ${labels[labels.length - 1]}`
-
-  notify({
-    durationMs: 8000,
-    kind: 'info',
-    message: translateNow('onboarding.messages.toolGatewayBody', list),
-    title: translateNow('onboarding.messages.toolGatewayTitle')
-  })
-}
-
-// After credentials are persisted, ask the backend which provider+models
-// are now authenticated. Pick the first curated model for the matching
-// provider as a sensible default, persist it via /api/model/set, and
-// transition to the model-confirmation step. If anything goes wrong
-// fetching options (no providers returned, network error), the caller
-// falls through to completing onboarding without showing the confirm
-// card — the user gets the undefined-model auto-selection behaviour
-// we had before, which works but is surprising. The confirm step is
-// opportunistic polish, not a hard requirement for onboarding.
+// Resolve a default only from the gateway row that provisioning just wrote.
 async function fetchProviderDefaultModel(
   preferredSlugs: string[],
   // Set for the account's own AgentX AI Gateway; `model` is the one
   // provisioning opens a fresh account on. See the branch below for what changes.
-  accountGateway?: { model?: string }
+  accountGateway: { model?: string }
 ): Promise<null | { providerSlug: string; defaultModel: string }> {
   let options
 
@@ -300,16 +193,9 @@ async function fetchProviderDefaultModel(
     return null
   }
 
-  // Try each preferred slug (lowercased), fall back to the first provider
-  // returned (model.options orders by recency / authenticated state, so
-  // the just-authenticated provider is usually first anyway). The account
-  // gateway gets no fallback: a first row that is some other provider would
-  // put the person on a model their gateway key never granted.
   const lower = preferredSlugs.map(s => s.toLowerCase())
 
-  const matched =
-    providers.find((p: ModelOptionProvider) => lower.includes(String(p.slug).toLowerCase())) ??
-    (accountGateway ? undefined : providers[0])
+  const matched = providers.find((p: ModelOptionProvider) => lower.includes(String(p.slug).toLowerCase()))
 
   if (!matched) {
     return null
@@ -317,89 +203,46 @@ async function fetchProviderDefaultModel(
 
   const models = matched.models ?? []
 
-  if (accountGateway) {
-    // A main model already on the gateway stays — provisioning pinned it, or
-    // the person picked it — so choosing the card again never resets it.
-    // Otherwise the key decides: the service grants chat models first, which
-    // is more than a curated recommendation knows about this proxy.
-    const current = String(options.provider ?? '').toLowerCase()
-    const kept = current && lower.includes(current) ? (options.model ?? '').trim() : ''
-    const defaultModel = kept || accountGateway.model?.trim() || String(models[0] ?? '')
+  const current = String(options.provider ?? '').toLowerCase()
+  const kept = current && lower.includes(current) ? (options.model ?? '').trim() : ''
+  const defaultModel = kept || accountGateway.model?.trim() || String(models[0] ?? '')
 
-    return defaultModel ? { providerSlug: String(matched.slug), defaultModel } : null
-  }
-
-  if (models.length === 0) {
-    return null
-  }
-
-  // Prefer the backend's recommended default — it mirrors the curation
-  // `agentx model` does (for Nous it honors the user's free/paid tier, so a
-  // free user gets a free model rather than a paid default like opus). Fall
-  // back to the first curated model if the endpoint can't resolve one.
-  let defaultModel = String(models[0])
-
-  try {
-    const recommended = await getRecommendedDefaultModel(String(matched.slug))
-
-    if (recommended.model && models.map(String).includes(recommended.model)) {
-      defaultModel = recommended.model
-    } else if (recommended.model) {
-      // Recommended model isn't in the curated options list (e.g. a Portal
-      // free-recommendation the picker list didn't include); trust it anyway.
-      defaultModel = recommended.model
-    }
-  } catch {
-    // Endpoint unavailable — keep models[0]. Non-fatal: the confirm card still
-    // shows and the user can change it.
-  }
-
-  return {
-    providerSlug: String(matched.slug),
-    defaultModel
-  }
+  return defaultModel ? { providerSlug: String(matched.slug), defaultModel } : null
 }
 
-// After OAuth/API-key success: reload the backend env, verify runtime,
-// then either show the model-confirm step or fall straight through to
-// completion if we can't determine a default.
-//
-// onFail receives the runtime-readiness `reason` from checkRuntime so
-// the caller can fold it into a user-facing error — same contract as
-// reloadAndConnect used to have (which this replaces).
+// Persist the gateway model, then verify the runtime before confirming setup.
 async function completeWithModelConfirm(
   ctx: OnboardingContext,
   providerLabel: string,
   preferredSlugs: string[],
   onFail: (reason: null | string) => void,
-  {
-    accountGateway,
-    ignoreRuntimeGate = false
-  }: {
-    // The provider is the account's AgentX AI Gateway — see fetchProviderDefaultModel.
-    accountGateway?: { model?: string }
-    // When true, a failing runtime check no longer blocks progression — the
-    // user is allowed through onboarding regardless. Used by the API-key path,
-    // where we intentionally don't validate the key (it blocked too many users).
-    ignoreRuntimeGate?: boolean
-  } = {}
+  { accountGateway, active }: { accountGateway: { model?: string }; active: () => boolean }
 ) {
   await ctx.requestGateway('reload.env').catch(() => undefined)
 
   const defaults = await fetchProviderDefaultModel(preferredSlugs, accountGateway)
 
+  if (!active()) {
+    return
+  }
+
   if (defaults) {
     // Persist the chosen provider/model before the runtime gate so a stale
     // config provider (e.g. anthropic from a prior failed setup) cannot make
-    // setup.runtime_check validate the wrong backend after a fresh OAuth login.
+    // setup.runtime_check validate the wrong backend after gateway setup.
     try {
-      const res = await setMainModelAssignment({
+      await setMainModelAssignment({
         provider: defaults.providerSlug,
         model: defaults.defaultModel
       })
 
-      notifyGatewayTools(res.gateway_tools)
+      if (!active()) {
+        return
+      }
     } catch (error) {
+      if (!active()) {
+        return
+      }
       onFail(error instanceof Error ? error.message : translateNow('onboarding.messages.couldNotSaveModel'))
 
       return
@@ -408,17 +251,18 @@ async function completeWithModelConfirm(
 
   const runtime = await checkRuntime(ctx, preferredSlugs[0])
 
-  if (!runtime.ready && !ignoreRuntimeGate) {
+  if (!active()) {
+    return
+  }
+
+  if (!runtime.ready) {
     onFail(runtime.reason)
 
     return
   }
 
   if (!defaults) {
-    // Couldn't get a sensible default — proceed without confirm step.
-    notifyReady(providerLabel)
-    completeDesktopOnboarding()
-    ctx.onCompleted?.()
+    onFail(null)
 
     return
   }
@@ -439,31 +283,6 @@ function providerResolutionFailure(reason: null | string) {
   return detail ? `${base} ${detail}` : base
 }
 
-async function refreshProviders() {
-  if (providersRefreshPromise) {
-    await providersRefreshPromise
-
-    return
-  }
-
-  providersRefreshPromise = (async () => {
-    // The AgentX AI Gateway card is a choice of its own, so the picker stays up
-    // even when the backend lists no sign-in providers (or cannot list them).
-    const fallbackMode: OnboardingMode = isAgentxGatewayAvailable() ? 'oauth' : 'apikey'
-
-    try {
-      const { providers } = await listOAuthProviders()
-      patch({ mode: providers.length > 0 ? 'oauth' : fallbackMode, providers })
-    } catch {
-      patch({ mode: fallbackMode, providers: [] })
-    } finally {
-      providersRefreshPromise = null
-    }
-  })()
-
-  await providersRefreshPromise
-}
-
 export function requestDesktopOnboarding(reason = DEFAULT_ONBOARDING_REASON) {
   patch({ reason: reason.trim() || DEFAULT_ONBOARDING_REASON, requested: true })
 }
@@ -478,125 +297,41 @@ export function requestDesktopOnboardingForCredentialWarning(reason: null | stri
   requestDesktopOnboarding(warning)
 }
 
-// Open the onboarding provider selector on demand from an already-configured
-// app — e.g. the model picker's "Add provider" button. Reuses the entire
-// onboarding flow (OAuth rows, API-key form, model-confirm) instead of
-// duplicating provider UI. Sets manual=true so the overlay shows the picker
-// even though configured===true, and refreshes the provider list.
-export function startManualOnboarding(reason: null | string = DEFAULT_MANUAL_ONBOARDING_REASON) {
-  patch({
-    manual: true,
-    requested: true,
-    localEndpoint: false,
-    // `null` opts out of the prompt banner entirely (e.g. when the user already
-    // picked a specific provider and we auto-start its sign-in).
-    reason: reason ? reason.trim() || DEFAULT_ONBOARDING_REASON : null,
-    flow: { status: 'idle' }
-  })
-  void refreshProviders()
+// Reconnect the account's gateway from Settings → Account.
+export function startManualOnboarding(reason: null | string = null) {
+  gatewayAttempt += 1
+  patch({ manual: true, requested: true, reason, flow: { status: 'idle' } })
 }
 
-// Open the onboarding overlay directly on the local / custom endpoint form
-// (URL + optional API key), bypassing the OAuth picker. Used by Settings →
-// Model's "Set up custom endpoint" so it lands on a form that can actually
-// configure the endpoint instead of dead-ending on the OAuth provider list
-// (`custom` is not an OAuth provider, so the generic manual flow would just
-// re-show the picker — the original "booted back to the first screen" loop).
-export function startManualLocalEndpoint(reason: null | string = null) {
-  pendingProviderOAuthId = null
-  patch({
-    manual: true,
-    requested: true,
-    localEndpoint: true,
-    mode: 'apikey',
-    reason: reason ? reason.trim() || DEFAULT_ONBOARDING_REASON : null,
-    flow: { status: 'idle' }
-  })
-}
-
-// One-shot hand-off used when the dedicated Providers settings page launches a
-// specific provider's sign-in: we open the manual onboarding overlay AND
-// remember which provider to start, so the overlay drives that exact OAuth
-// flow instead of re-showing the picker the user just clicked through.
-// Module-level (not store state) because it's consumed immediately on the next
-// overlay render and never needs to persist or re-render anything itself.
-let pendingProviderOAuthId: null | string = null
-
-export function startManualProviderOAuth(providerId: string, reason: null | string = null) {
-  pendingProviderOAuthId = providerId
-  startManualOnboarding(reason)
-}
-
-// Read the pending provider id without clearing it. The overlay only clears it
-// (via clearPendingProviderOAuth) once it has actually launched that provider,
-// so a transient empty/failed provider fetch doesn't drop the hand-off and the
-// deep-link can still auto-start after the list loads.
-export function peekPendingProviderOAuth(): null | string {
-  return pendingProviderOAuthId
-}
-
-export function clearPendingProviderOAuth() {
-  pendingProviderOAuthId = null
-}
-
-// Dismiss a manually-opened provider selector without touching the existing
-// (working) configuration. Only valid in the manual path — the unconfigured
-// first-run flow has no close affordance because the app can't run yet.
 export function closeManualOnboarding() {
-  pendingProviderOAuthId = null
-
-  patch({ manual: false, requested: false, localEndpoint: false, flow: { status: 'idle' } })
+  gatewayAttempt += 1
+  patch({ manual: false, requested: false, flow: { status: 'idle' } })
 }
 
 export function completeDesktopOnboarding() {
-  clearPoll()
+  gatewayAttempt += 1
   writeCachedConfigured(true)
-  // A real provider is now connected, so any earlier "choose later" skip is
-  // moot — clear it so the flag never lingers in a configured install.
+  // Clear the earlier skip now that the gateway is connected.
   writeCachedSkipped(false)
   $desktopOnboarding.set({
     configured: true,
     flow: { status: 'idle' },
-    mode: 'oauth',
-    providers: null,
     reason: null,
     requested: false,
     firstRunSkipped: false,
-    manual: false,
-    localEndpoint: false
+    manual: false
   })
 }
 
-// "I'll choose a provider later" on the first-run picker. Persists the skip so
-// the blocking overlay never re-nags on future launches, and dismisses it now
-// so the user lands in the app. Chat won't work until a provider is connected
-// (from Settings → Providers or the model picker's "Add provider") — this only
-// stops forcing the choice up front. Distinct from completeDesktopOnboarding,
-// which marks the app actually configured.
+// Persist a skipped setup without claiming that AI is configured.
 export function dismissFirstRunOnboarding() {
-  // A signed-in AgentX account runs on its AgentX key: there is no "later" to
-  // choose. The card never offers it then; this keeps any other path honest.
-  if ($agentxKeyRequired.get()) {
-    return
-  }
-
-  clearPoll()
+  gatewayAttempt += 1
   writeCachedSkipped(true)
-  patch({ firstRunSkipped: true, requested: false, manual: false, localEndpoint: false, flow: { status: 'idle' } })
-}
-
-export function setOnboardingMode(mode: OnboardingMode) {
-  patch({ mode })
+  patch({ firstRunSkipped: true, requested: false, manual: false, flow: { status: 'idle' } })
 }
 
 export async function refreshOnboarding(ctx: OnboardingContext) {
-  // Manual mode (user opened the selector from a working app): never
-  // auto-dismiss on runtime-ready — the whole point is to let them add /
-  // switch a provider while already configured. Just ensure the provider
-  // list is loaded and show the picker.
   if ($desktopOnboarding.get().manual) {
-    await refreshProviders()
-
     return false
   }
 
@@ -631,238 +366,21 @@ export async function refreshOnboarding(ctx: OnboardingContext) {
   writeCachedConfigured(false)
   patch({ configured: false, reason })
 
-  if (state.providers !== null && !state.requested) {
-    return false
-  }
-
-  await refreshProviders()
-
   return false
 }
 
-// Open a sign-in URL via the desktop bridge, falling back to window.open
-// when the bridge isn't present (e.g. the web dashboard / dev preview) so
-// the flow never silently stalls in a waiting state. Mirrors the pattern in
-// apps/desktop/src/app/artifacts/index.tsx.
-async function openSignInUrl(url: string) {
-  if (window.agentxDesktop?.openExternal) {
-    try {
-      await window.agentxDesktop.openExternal(url)
-
-      return
-    } catch {
-      // Bridge present but failed (no OS handler, user denied, etc.). Fall
-      // through to window.open so the sign-in URL still opens and the flow
-      // doesn't strand a pending OAuth session in a waiting state.
-    }
-  }
-
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-export async function startProviderOAuth(provider: OAuthProvider, ctx: OnboardingContext) {
-  clearPoll()
-
-  if (provider.flow === 'external') {
-    setFlow({ status: 'external_pending', provider, copied: false })
-
-    return
-  }
-
-  setFlow({ status: 'starting', provider })
-
-  try {
-    const start = await startOAuthLogin(provider.id)
-    const browserUrl = start.flow === 'device_code' ? start.verification_url : start.auth_url
-    await openSignInUrl(browserUrl)
-
-    if (start.flow === 'pkce') {
-      setFlow({ status: 'awaiting_user', provider, start, code: '' })
-
-      return
-    }
-
-    setFlow({ status: 'polling', provider, start, copied: false })
-    pollTimer = window.setInterval(() => void pollSession(provider, start, ctx), POLL_MS)
-  } catch (error) {
-    setFlow({
-      status: 'error',
-      provider,
-      message: translateNow('onboarding.messages.couldNotStartSignIn', errMessage(error))
-    })
-  }
-}
-
-// Poll a session-backed device-code flow until it resolves.
-async function pollSession(provider: OAuthProvider, start: DeviceStart, ctx: OnboardingContext) {
-  try {
-    const { error_message, status } = await pollOAuthSession(provider.id, start.session_id)
-
-    if (status === 'approved') {
-      clearPoll()
-      setFlow({ status: 'success', provider })
-      await completeWithModelConfirm(ctx, provider.name, [provider.id], reason =>
-        setFlow({
-          status: 'error',
-          provider,
-          message: providerResolutionFailure(reason)
-        })
-      )
-    } else if (status !== 'pending') {
-      clearPoll()
-      setFlow({
-        status: 'error',
-        provider,
-        start,
-        message: error_message || translateNow('onboarding.messages.signInStatus', status)
-      })
-    }
-  } catch (error) {
-    clearPoll()
-    setFlow({
-      status: 'error',
-      provider,
-      start,
-      message: translateNow('onboarding.messages.pollingFailed', errMessage(error))
-    })
-  }
-}
-
-export function setOnboardingCode(code: string) {
-  const { flow } = $desktopOnboarding.get()
-
-  if (flow.status === 'awaiting_user') {
-    setFlow({ ...flow, code })
-  }
-}
-
-export async function submitOnboardingCode(ctx: OnboardingContext) {
-  const { flow } = $desktopOnboarding.get()
-
-  if (flow.status !== 'awaiting_user' || !flow.code.trim()) {
-    return
-  }
-
-  const { provider, start, code } = flow
-  setFlow({ status: 'submitting', provider, start })
-
-  try {
-    const resp = await submitOAuthCode(provider.id, start.session_id, code.trim())
-
-    if (resp.ok && resp.status === 'approved') {
-      setFlow({ status: 'success', provider })
-      await completeWithModelConfirm(ctx, provider.name, [provider.id], reason =>
-        setFlow({
-          status: 'error',
-          provider,
-          message: providerResolutionFailure(reason)
-        })
-      )
-    } else {
-      setFlow({
-        status: 'error',
-        provider,
-        start,
-        message: resp.message || translateNow('onboarding.messages.tokenExchangeFailed')
-      })
-    }
-  } catch (error) {
-    setFlow({ status: 'error', provider, start, message: errMessage(error) })
-  }
-}
-
 export function cancelOnboardingFlow() {
-  clearPoll()
-  const sessionId = sessionIdFor($desktopOnboarding.get().flow)
-
-  if (sessionId) {
-    cancelOAuthSession(sessionId).catch(() => undefined)
-  }
-
+  gatewayAttempt += 1
   setFlow({ status: 'idle' })
 }
 
-async function copyAndFlash(text: string, predicate: (flow: OnboardingFlow) => boolean) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    return
-  }
-
-  const { flow } = $desktopOnboarding.get()
-
-  if (!predicate(flow) || !('copied' in flow)) {
-    return
-  }
-
-  setFlow({ ...flow, copied: true })
-  window.setTimeout(() => {
-    const current = $desktopOnboarding.get().flow
-
-    if (predicate(current) && 'copied' in current) {
-      setFlow({ ...current, copied: false })
-    }
-  }, COPY_FLASH_MS)
-}
-
-export async function copyDeviceCode() {
-  const { flow } = $desktopOnboarding.get()
-
-  if (flow.status !== 'polling') {
-    return
-  }
-
-  const sid = flow.start.session_id
-  await copyAndFlash(flow.start.user_code, f => f.status === 'polling' && f.start.session_id === sid)
-}
-
-export async function copyExternalCommand() {
-  const { flow } = $desktopOnboarding.get()
-
-  if (flow.status !== 'external_pending') {
-    return
-  }
-
-  const id = flow.provider.id
-  await copyAndFlash(flow.provider.cli_command, f => f.status === 'external_pending' && f.provider.id === id)
-}
-
-export async function recheckExternalSignin(ctx: OnboardingContext) {
-  const { flow } = $desktopOnboarding.get()
-
-  if (flow.status !== 'external_pending') {
-    return
-  }
-
-  const { provider } = flow
-  await completeWithModelConfirm(ctx, provider.name, [provider.id], reason =>
-    setFlow({
-      status: 'error',
-      provider,
-      message:
-        reason?.trim() || translateNow('onboarding.messages.stillCannotReach', provider.name, provider.cli_command)
-    })
-  )
-}
-
-/** What the account's own model proxy is called in every picker. Mirrors
- *  PROVIDER_DISPLAY_NAME in hermes_cli/account_provisioning.py — the backend
- *  writes that label into providers.<slug>.name, so the two must agree. */
 export const AGENTX_GATEWAY_LABEL = 'AgentX AI Gateway'
 
 // The `providers:` key provisioning writes (the accounts.litellm.provider_name
 // default), for a result that does not name one.
 const AGENTX_GATEWAY_PROVIDER = 'litellm'
 
-/** Whether this surface can offer the gateway: only the desktop app's main
- *  process can ask the backend for the signed-in account's key. */
-export function isAgentxGatewayAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof window.agentxDesktop?.account?.provision === 'function'
-}
-
-// Provisioning statuses that mean this install hands out no AgentX keys at all
-// (`accounts.litellm` off, or no keys service configured). Only there does the
-// picker offer other providers, so only there does the card say so.
+// These statuses need an administrator to finish gateway setup.
 const GATEWAY_NOT_SET_UP = new Set(['disabled', 'unconfigured'])
 
 /** What the keys service said, in the shape the key gate and this card share. */
@@ -895,10 +413,10 @@ function gatewayFailureMessage(failure: DesktopAgentxKeyFailure): string {
 // signed-in AgentX account. Provisioning is the call sign-in already makes — it
 // reuses a live key or collects this account's key from the service, and writes
 // providers.<slug> — so picking the card is safe to repeat, and it never
-// rotates. What provisioning leaves alone is a main model already set on some
-// other provider; moving that onto the gateway is the choice made here.
+// rotates. Provisioning also reconciles any former main-provider choice.
 export async function connectAgentxGateway(ctx: OnboardingContext) {
-  clearPoll()
+  const attempt = ++gatewayAttempt
+  const active = () => attempt === gatewayAttempt && $desktopOnboarding.get().flow.status === 'connecting_gateway'
   setFlow({ status: 'connecting_gateway' })
 
   let result: DesktopAccountProvisionResult | null = null
@@ -910,7 +428,7 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
   }
 
   // Closed or cancelled while the key was on its way: the person has moved on.
-  if ($desktopOnboarding.get().flow.status !== 'connecting_gateway') {
+  if (!active()) {
     return
   }
 
@@ -920,9 +438,7 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
     const failure = gatewayFailure(litellm)
 
     setFlow({
-      // An install with no keys service is the one place another provider is
-      // the answer: a plain error, with "Choose another provider" under it.
-      ...(GATEWAY_NOT_SET_UP.has(failure.status) ? {} : { gateway: { failure } }),
+      gateway: { failure },
       message: gatewayFailureMessage(failure),
       status: 'error'
     })
@@ -941,133 +457,8 @@ export async function connectAgentxGateway(ctx: OnboardingContext) {
     reason => setFlow({ gateway: { failure: null }, message: providerResolutionFailure(reason), status: 'error' }),
     // Same pick provisioning makes for a fresh account; an older backend sends
     // no default_model, and the first granted model stands in.
-    { accountGateway: { model: litellm.default_model || litellm.models[0] } }
+    { accountGateway: { model: litellm.default_model || litellm.models[0] }, active }
   )
-}
-
-export async function saveOnboardingApiKey(
-  envKey: string,
-  value: string,
-  label: string,
-  ctx: OnboardingContext,
-  // Optional endpoint key — only meaningful for the "Local / custom endpoint"
-  // option, whose primary `value` is the base URL. Ignored for plain API-key
-  // providers (their key IS `value`).
-  endpointApiKey?: string
-) {
-  const trimmed = value.trim()
-
-  if (!trimmed) {
-    return { ok: false, message: translateNow('settings.credentials.enterValueFirst') }
-  }
-
-  // The "Local / custom endpoint" option carries a base URL (in `value`) plus
-  // an optional API key. It must be wired into config (provider=custom +
-  // base_url + model + api_key), not dropped into .env — runtime resolution
-  // ignores OPENAI_BASE_URL.
-  if (envKey === 'OPENAI_BASE_URL') {
-    return saveOnboardingLocalEndpoint(trimmed, endpointApiKey?.trim() ?? '', ctx)
-  }
-
-  // No key validation here on purpose: we previously live-probed the key and
-  // hard-blocked on a runtime check after saving, which rejected too many
-  // legitimate users (corporate proxies, regional blocks, flaky/rate-limited
-  // provider probes, self-hosted endpoints). We now save the value as-is and
-  // let the user proceed; an actually-bad key surfaces later at chat time.
-  try {
-    await setEnvVar(envKey, trimmed)
-    // For API-key flows we don't have a definitive provider id (the
-    // user picked which API key they're entering, but the corresponding
-    // backend slug — e.g. OPENROUTER_API_KEY → "openrouter" — is the
-    // env-key prefix stripped). Pass a couple of likely candidates;
-    // fetchProviderDefaultModel falls back to the first authenticated
-    // provider returned by /api/model/options if none match.
-    const slugCandidates = [envKey.replace(/_API_KEY$/, '').toLowerCase(), label.toLowerCase()]
-    // ignoreRuntimeGate=true: never block onboarding on the runtime check.
-    await completeWithModelConfirm(ctx, label, slugCandidates, () => undefined, { ignoreRuntimeGate: true })
-
-    return { ok: true }
-  } catch (error) {
-    notifyError(error, translateNow('onboarding.messages.couldNotSaveProvider', label))
-
-    return { ok: false, message: errMessage(error) }
-  }
-}
-
-// Configure a local / self-hosted OpenAI-compatible endpoint (vLLM, llama.cpp,
-// Ollama, …). Unlike API-key providers, a local endpoint is defined by its URL
-// and usually needs NO key. The runtime resolver reads model.base_url from
-// config (it ignores the OPENAI_BASE_URL env var), so we persist
-// provider=custom + base_url + model via /api/model/set rather than dropping an
-// env var that resolution never consults.
-//
-// The model is auto-discovered from the endpoint's /v1/models (surfaced by the
-// validate probe). The optional API key is forwarded to the probe (so hosted
-// endpoints that gate /v1/models behind auth still enumerate models) and
-// persisted to model.api_key so the runtime can authenticate.
-//
-// We deliberately don't route through completeWithModelConfirm: that path
-// re-assigns the model from /api/model/options WITHOUT a base_url, which would
-// wipe the base_url we just wrote. We have a concrete model already, so we
-// verify the runtime directly and finish.
-export async function saveOnboardingLocalEndpoint(baseUrl: string, apiKey: string, ctx: OnboardingContext) {
-  const url = baseUrl.trim()
-  const key = apiKey.trim()
-
-  if (!url) {
-    return { ok: false, message: translateNow('onboarding.messages.enterEndpointUrl') }
-  }
-
-  // Probe connectivity + discover the served models. Any HTTP response proves
-  // the endpoint is up; an unreachable probe hard-blocks because we can't
-  // resolve a model to route to.
-  let model = ''
-
-  try {
-    const probe = await validateProviderCredential('OPENAI_BASE_URL', url, key)
-
-    if (!probe.ok && probe.reachable) {
-      return { ok: false, message: probe.message || translateNow('onboarding.messages.couldNotReachEndpoint') }
-    }
-
-    if (!probe.reachable) {
-      return { ok: false, message: probe.message || translateNow('onboarding.messages.couldNotReachUrl', url) }
-    }
-
-    model = (probe.models?.[0] ?? '').trim()
-  } catch {
-    return { ok: false, message: translateNow('onboarding.messages.couldNotReachUrl', url) }
-  }
-
-  if (!model) {
-    return {
-      ok: false,
-      message: translateNow('onboarding.messages.noModelsAdvertised', url)
-    }
-  }
-
-  try {
-    await setMainModelAssignment({ provider: 'custom', model, base_url: url, api_key: key })
-    await ctx.requestGateway('reload.env').catch(() => undefined)
-
-    const runtime = await checkRuntime(ctx)
-
-    if (!runtime.ready) {
-      const detail = (runtime.reason ?? '').trim()
-
-      return { ok: false, message: detail || translateNow('onboarding.messages.savedButUnreachable', url) }
-    }
-
-    notifyReady(translateNow('onboarding.messages.localEndpointLabel'))
-    completeDesktopOnboarding()
-    ctx.onCompleted?.()
-
-    return { ok: true }
-  } catch (error) {
-    notifyError(error, translateNow('onboarding.messages.couldNotSaveLocalEndpoint'))
-
-    return { ok: false, message: errMessage(error) }
-  }
 }
 
 // User picked a different model from the dropdown on the confirm card.
@@ -1075,13 +466,14 @@ export async function saveOnboardingLocalEndpoint(baseUrl: string, apiKey: strin
 export async function setOnboardingModel(model: string) {
   const { flow } = $desktopOnboarding.get()
 
-  if (flow.status !== 'confirming_model') {
+  if (flow.status !== 'confirming_model' || flow.saving) {
     return
   }
 
   // Optimistic update so the dropdown feels instant; revert on failure.
   const previous = flow.currentModel
-  setFlow({ ...flow, currentModel: model, saving: true })
+  const pending = { ...flow, currentModel: model, saving: true }
+  setFlow(pending)
 
   try {
     await setMainModelAssignment({
@@ -1090,14 +482,14 @@ export async function setOnboardingModel(model: string) {
     })
     const current = $desktopOnboarding.get().flow
 
-    if (current.status === 'confirming_model') {
+    if (current === pending) {
       setFlow({ ...current, currentModel: model, saving: false })
     }
   } catch (error) {
     notifyError(error, translateNow('onboarding.messages.couldNotChangeModel'))
     const current = $desktopOnboarding.get().flow
 
-    if (current.status === 'confirming_model') {
+    if (current === pending) {
       setFlow({ ...current, currentModel: previous, saving: false })
     }
   }
@@ -1114,9 +506,7 @@ export function confirmOnboardingModel(ctx: OnboardingContext) {
     return
   }
 
-  // No success toast here: the confirm-model screen already showed "<provider>
-  // connected." notifyReady is reserved for completion paths that SKIP this
-  // screen (no-default fallthrough, local endpoint) so feedback isn't lost.
+  // The confirmation card already showed the connection succeeded.
   completeDesktopOnboarding()
   ctx.onCompleted?.()
 }
@@ -1124,7 +514,7 @@ export function confirmOnboardingModel(ctx: OnboardingContext) {
 // Whether the first-run flow should show the "Kết nối trình duyệt" step after
 // the model card. Not on the web dashboard (no desktop bridge), not for someone
 // who chose "Đừng hỏi lại", not when a Workmate-installed extension is already
-// connected, and never in the manual add-a-provider flow of a configured app.
+// connected, and never in the manual gateway-reconnection flow of a configured app.
 export async function shouldOfferBrowserStep(): Promise<boolean> {
   if ($desktopOnboarding.get().manual || !isWebmateAvailable()) {
     return false

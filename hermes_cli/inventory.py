@@ -298,7 +298,7 @@ def build_model_options_payload(
       cache so live catalogs repopulate fully
     """
     refresh = bool(refresh)
-    return build_models_payload(
+    payload = build_models_payload(
         ctx,
         explicit_only=bool(explicit_only),
         include_unconfigured=bool(include_unconfigured),
@@ -311,6 +311,17 @@ def build_model_options_payload(
         probe_custom_providers=refresh,
         probe_current_custom_provider=not refresh,
     )
+
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        payload["inference_provider"] = policy.provider
+        payload["providers"] = [
+            row for row in payload.get("providers", [])
+            if policy.allows(str(row.get("slug") or ""), str(row.get("api_url") or ""))
+        ]
+    return payload
 
 
 # ─── Public: auxiliary-task pickers ─────────────────────────────────────

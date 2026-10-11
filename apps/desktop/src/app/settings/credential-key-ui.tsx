@@ -9,7 +9,6 @@ import type { EnvVarInfo } from '@/types/hermes'
 
 import { CONTROL_TEXT } from './constants'
 import { prettyName, withoutKey } from './helpers'
-import { ListRow } from './primitives'
 import type { EnvRowProps } from './types'
 
 export type KeyRowProps = Omit<EnvRowProps, 'info' | 'varKey'>
@@ -251,123 +250,6 @@ export function CredentialKeyCard({
   )
 }
 
-/** Provider API key group — collapsible card; description, docs link, and advanced fields expand on click. */
-export function ProviderKeyRows({ expanded, group, onExpand, onToggle, rowProps }: ProviderKeyRowsProps) {
-  const { t } = useI18n()
-  const docsUrl = group.docsUrl?.trim()
-  const description = group.description?.trim()
-  const expandable = Boolean(description || docsUrl || group.advanced.length > 0)
-
-  return (
-    <div
-      className={cn(
-        '@container group/card rounded-[6px] p-3 transition-colors',
-        expandable && 'cursor-pointer',
-        expandable && !expanded && 'row-hover',
-        expanded && 'bg-(--ui-bg-quaternary) ring-1 ring-(--ui-stroke-secondary)'
-      )}
-      onClick={expandable ? onToggle : undefined}
-      onKeyDown={
-        expandable
-          ? e => {
-              // Only the card's own focus toggles it — ignore Enter/Space
-              // bubbling up from the inputs/buttons inside (Enter saves a key,
-              // Space types a space) so keyboard editing never collapses the card.
-              if (e.target !== e.currentTarget) {
-                return
-              }
-
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onToggle()
-              }
-            }
-          : undefined
-      }
-      role={expandable ? 'button' : undefined}
-      tabIndex={expandable ? 0 : undefined}
-    >
-      {/* Same grid as CredentialKeyCard: 1 col stacked, 2 cols at @2xl, p-3 =
-          gap-3, items-start, label row h-8 to line up with the input row. */}
-      <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1.5 @2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:gap-y-3">
-        <div className="flex h-8 min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              group.hasAnySet ? 'bg-primary' : 'bg-(--ui-stroke-secondary)'
-            )}
-          />
-
-          <span className="min-w-0 truncate text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
-            {group.name}
-          </span>
-
-          {expandable && (
-            <ChevronDown
-              className={cn(
-                'size-3.5 shrink-0 text-muted-foreground transition',
-                expanded ? 'rotate-180 opacity-100' : 'opacity-0 group-hover/card:opacity-100'
-              )}
-            />
-          )}
-        </div>
-
-        <div
-          className="min-w-0"
-          onClick={e => e.stopPropagation()}
-          onFocus={() => {
-            if (expandable && !expanded) {
-              onExpand()
-            }
-          }}
-        >
-          <KeyField
-            expanded={expanded}
-            info={group.primary[1]}
-            placeholder={t.settings.credentials.pasteLabelKey(group.name)}
-            rowProps={rowProps}
-            varKey={group.primary[0]}
-          />
-        </div>
-
-        {expandable && expanded && (
-          <div className="grid gap-3 @2xl:col-span-2" onClick={e => e.stopPropagation()}>
-            {description && (
-              <p className="text-[length:var(--conversation-caption-font-size)] leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
-                {description}
-              </p>
-            )}
-
-            {group.advanced.map(([key, info]) => {
-              const fieldLabel = isKeyVar(key, info)
-                ? prettyName(key.replace(/(?:_API_KEY|_TOKEN|_KEY)$/i, ''))
-                : friendlyFieldLabel(key, info)
-
-              return (
-                <ListRow
-                  action={
-                    <KeyField
-                      expanded={expanded}
-                      info={info}
-                      placeholder={credentialPlaceholder(key, info, fieldLabel)}
-                      rowProps={rowProps}
-                      varKey={key}
-                    />
-                  }
-                  key={key}
-                  title={fieldLabel}
-                />
-              )
-            })}
-
-            {docsUrl && <CredentialDocsLink href={docsUrl} />}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export function credentialRowLabel(varKey: string, info: EnvVarInfo): string {
   if (isKeyVar(varKey, info)) {
     return prettyName(varKey.replace(/(?:_API_KEY|_TOKEN|_KEY)$/i, ''))
@@ -385,21 +267,4 @@ interface CredentialKeyCardProps {
   placeholder: string
   rowProps: KeyRowProps
   varKey: string
-}
-
-interface ProviderKeyRowsProps {
-  expanded: boolean
-  group: ProviderKeyRowGroup
-  onExpand: () => void
-  onToggle: () => void
-  rowProps: KeyRowProps
-}
-
-export interface ProviderKeyRowGroup {
-  advanced: [string, EnvVarInfo][]
-  description?: string
-  docsUrl?: string
-  hasAnySet: boolean
-  name: string
-  primary: [string, EnvVarInfo]
 }
