@@ -57,6 +57,21 @@ try {
   execFileSync(path.join(runtime, 'bin/agent-browser'), ['--version'], { env, stdio: 'inherit' })
   report.checks.push('bundled Python/backend, Node, browser CLI run without developer PATH')
   if (production) {
+    const minimumOS = execFileSync('/usr/bin/plutil', ['-extract', 'LSMinimumSystemVersion', 'raw', path.join(copied, 'Contents/Info.plist')], { encoding: 'utf8' }).trim()
+    for (const binary of ['node/bin/node', 'bin/uv', 'bin/agent-browser', 'python/bin/python3.11']) {
+      const loadCommands = execFileSync('/usr/bin/otool', ['-l', path.join(runtime, binary)], { encoding: 'utf8' })
+      const requiredOS = loadCommands.match(/\bminos\s+([\d.]+)/)?.[1]
+      assert(requiredOS, `No native minimum macOS recorded in ${binary}`)
+      const parts = value => value.split('.').map(Number)
+      const required = parts(requiredOS), supported = parts(minimumOS)
+      let order = 0
+      for (let i = 0; i < Math.max(required.length, supported.length); i++) {
+        order = (required[i] || 0) - (supported[i] || 0)
+        if (order) break
+      }
+      assert(order <= 0, `${binary} requires macOS ${requiredOS}; app declares ${minimumOS}`)
+    }
+    report.checks.push('native runtime binaries support the app-declared minimum macOS')
     execFileSync(path.join(runtime, 'python/bin/python3.11'), ['-c', "from agent.i18n import t; from pathlib import Path; assert t('approval.denied', lang='vi') != 'approval.denied'; assert t('approval.denied', lang='vi') != t('approval.denied', lang='en'); assert Path('cli-config.yaml.example').is_file(); print('bundled translations and config template OK')"], { cwd: path.join(runtime, 'source'), env: backendEnv, stdio: 'inherit' })
     report.checks.push('real bundled backend loads Vietnamese translations and the config recovery template')
   }

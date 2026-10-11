@@ -3,6 +3,9 @@
 The production `com.agentx.workmate` installer ships `resources/bundled-runtime`.
 `beforePack` stages standalone CPython, frozen/hash-verified Python dependencies,
 tracked backend/plugin/skill source, Node, uv, agent-browser, and Windows Git/Bash.
+The shipped Node is pinned to 22.23.3 LTS independently of the builder's Node;
+native load commands are checked against the app's macOS 12 minimum so updating
+a build machine cannot silently drop support for existing users.
 A production payload is version/commit/OS/architecture checked and never falls
 back to downloading source. The two currently distributed builds are macOS
 ARM64 and Windows x64; each must be built on its native OS/architecture.

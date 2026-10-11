@@ -5,6 +5,9 @@ import crypto from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
 
 export const PYTHON_VERSION = '3.11.15'
+// Host Node is a build tool, not a compatibility contract for the shipped app.
+// Node 22 LTS keeps the existing macOS 12 floor; Node 26 requires macOS 13.5.
+export const NODE_VERSION = 'v22.23.3'
 const RUNTIME_DIRS = new Set([
   'agent',
   'tools',
@@ -88,7 +91,7 @@ export async function prepareBundledRuntime({ desktop, platform = process.platfo
   const expected = { platform, arch, version: pkg.version, commit: stamp.commit }
   const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repo }).toString().split('\0').filter(Boolean)
   // Hash source as well as the lock: development packs must not silently reuse stale code.
-  const hash = crypto.createHash('sha256').update(process.version).update(PYTHON_VERSION)
+  const hash = crypto.createHash('sha256').update(NODE_VERSION).update(PYTHON_VERSION)
   for (const relative of tracked.filter(isRuntimeSource).sort()) {
     const file = path.join(repo, relative)
     if (fs.existsSync(file) && fs.statSync(file).isFile()) hash.update(relative).update(fs.readFileSync(file))
@@ -191,7 +194,7 @@ export async function prepareBundledRuntime({ desktop, platform = process.platfo
   // payload volume so the final rename works across those runner layouts.
   const temporary = fs.mkdtempSync(path.join(out, '.download-'))
   try {
-    const nodeVersion = process.version
+    const nodeVersion = NODE_VERSION
     const archive = `node-${nodeVersion}-${platform === 'win32' ? 'win' : platform}-${arch}.${platform === 'win32' ? 'zip' : 'tar.gz'}`
     const base = `https://nodejs.org/dist/${nodeVersion}`
     const response = await fetch(`${base}/SHASUMS256.txt`)
@@ -232,7 +235,7 @@ export async function prepareBundledRuntime({ desktop, platform = process.platfo
         schema: 1,
         ...expected,
         python: PYTHON_VERSION,
-        node: process.version,
+        node: NODE_VERSION,
         sourceHash,
         dirty: stamp.dirty,
         experimental: false,
