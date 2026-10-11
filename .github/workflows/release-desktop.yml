@@ -124,7 +124,7 @@ jobs:
         working-directory: apps/desktop
         run: node scripts/write-win-build-manifest.mjs
 
-      - name: Validate old installer upgrade and offline bundled runtime (Windows)
+      - name: Validate legacy migration and offline bundled runtime (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: ./apps/desktop/scripts/verify-windows-bundled-release.ps1

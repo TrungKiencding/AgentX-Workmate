@@ -19,8 +19,13 @@ Set-Content (Join-Path $legacy 'user-example/plugin.yaml') 'name: user-example'
 node apps/desktop/scripts/test-windows-upgrade-state.mjs before $exe $state
 if ($LASTEXITCODE -ne 0) { throw 'Old credentials fixture failed' }
 $newInstaller = Resolve-Path "apps/desktop/release/AgentXWorkmate-$version-win-x64.exe"
-node apps/desktop/scripts/test-windows-update-ipc.mjs $exe $newInstaller $state --old-version=1.0.10 "--new-version=$version"
-if ($LASTEXITCODE -ne 0) { throw 'Actual old updater did not install the bundled release' }
+# The published 1.0.10 cmd pipeline can deadlock. Its real IPC still checks,
+# downloads and verifies the new installer, but cannot repair its own helper.
+# After it quits, exercise the release's corrected production helper with a
+# real wait process and the actual NSIS in-place replacement. This is recorded
+# as a replaced historical handoff, never as a working 1.0.10 automatic update.
+node apps/desktop/scripts/test-windows-update-ipc.mjs $exe $newInstaller $state --old-version=1.0.10 "--new-version=$version" --patched-handoff
+if ($LASTEXITCODE -ne 0) { throw 'Corrected native installer handoff failed' }
 node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
 if ($LASTEXITCODE -ne 0) { throw 'Update lost login or data' }
 node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $exe $state

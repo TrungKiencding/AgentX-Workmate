@@ -20,9 +20,12 @@ Optional Python SDKs live outside the immutable app in a Python/OS/arch-scoped
 cache. The code-scoped `.install_method=bundled` prevents CLI/dashboard source
 updaters from modifying the signed app or trusting a legacy home git marker.
 
-1. Desktop 1.0.10 checks the unchanged signed landing-page feed and installs
-   1.1.0 using its existing platform handoff. macOS replaces the whole bundle;
-   Windows uses the same NSIS product identity and `--updated /S --force-run`.
+1. macOS desktop 1.0.10 checks the unchanged signed landing-page feed and
+   replaces the whole bundle with 1.1.0 using its existing platform handoff.
+   Published Windows 1.0.10 still has the tasklist/findstr pipeline deadlock;
+   Windows 1.0.x users must run the new installer over the existing copy once.
+   The corrected helper ships in 1.1.0 for later updates, using the same NSIS
+   identity and `--updated /S --force-run`. A new feed cannot patch an old binary.
 2. Older builds without the app updater, or a failing historical handoff, use
    the download page. Install over the old copy; do not uninstall first.
 3. Windows uninstallers before 1.0.9 defaulted to deleting user data. Avoid
@@ -65,8 +68,10 @@ rollback; signing an older version does not force clients to downgrade.
   and terminal calls; restart retains data; production updater enabled.
 - macOS upgrade: published 1.0.10 app through its actual updater IPC, real
   Keychain encryption with synthetic credentials and actual SessionDB history.
-- Windows CI: published archived 1.0.10 installer through actual update IPC,
-  NSIS replacement, native safeStorage credentials, data/hash preservation,
+- Windows CI: published archived 1.0.10 installer through actual check/download
+  IPC, then its defective historical handoff explicitly replaced with the
+  current production generator and a real wait process. Native NSIS replacement,
+  native safeStorage credentials, data/hash preservation,
   then actual bundled gateway with external IPv4/IPv6 blocked and no developer
   tools on PATH. Checks include new install and retained old history.
 - Verify signed feed and downloaded installer SHA256/size from the live domain.
