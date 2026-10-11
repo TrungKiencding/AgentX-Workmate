@@ -1,0 +1,101 @@
+name: Build and test Windows bundled runtime preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 26
+          cache: npm
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
+      - run: npm i -g npm@12
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+      - run: python -m pip install uv==0.11.7
+      - name: Validate bundled resolver and Windows updater
+        working-directory: apps/desktop
+        run: npx vitest run --project electron electron/bundled-runtime-preview.test.ts electron/app-update/ electron/backend-env.test.ts
+      - name: Build bundled Windows x64 installer
+        run: node apps/desktop/scripts/build-windows-runtime-preview.mjs
+      - name: Package second preview for genuine in-app update testing
+        run: node apps/desktop/scripts/build-windows-runtime-preview.mjs --update-only --version=1.0.11
+      - name: Install and test fresh bundle, old data, plugins and packaged updater
+        shell: powershell
+        run: |
+          $state = Join-Path $env:RUNNER_TEMP 'windows-bundled-state'
+          $legacy = Join-Path $state 'legacy-plugins'
+          New-Item -ItemType Directory -Force $legacy | Out-Null
+          git fetch origin tag desktop-v1.0.5 --depth=1
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch historical plugin code' }
+          $archive = Join-Path $env:RUNNER_TEMP 'plugins.tar'
+          git archive --format=tar --output=$archive desktop-v1.0.5 plugins
+          tar -xf $archive -C $legacy --strip-components=1
+          $oldInstaller = Join-Path $env:RUNNER_TEMP 'old-workmate.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/TrungKiencding/AgentX-Workmate/releases/download/desktop-v1.0.5/AgentXWorkmate-1.0.5-win-x64.exe' -OutFile $oldInstaller
+          if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash -ne '4643eeef78eb306659331120c39c7b1caa8878e2903bab3ba367c4d6e126f2c0') { throw 'Historical installer checksum mismatch' }
+          $oldDestination = Join-Path $env:RUNNER_TEMP 'old-workmate-installed'
+          $p = Start-Process $oldInstaller -ArgumentList '/S', "/D=$oldDestination" -PassThru
+          if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Old install failed' }
+          $oldExe = Join-Path $oldDestination 'AgentX Workmate.exe'
+          Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $oldExe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs before $oldExe $state
+          if ($LASTEXITCODE -ne 0) { throw 'Old native credentials fixture failed' }
+          $destination = Join-Path $env:RUNNER_TEMP 'Moved app with spaces'
+          $first = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.10-win-x64.exe'
+          $p = Start-Process $first -ArgumentList '/S', "/D=$destination" -PassThru
+          if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Preview install failed' }
+          $exe = Join-Path $destination 'AgentX Workmate Runtime Preview.exe'
+          Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
+          if ($LASTEXITCODE -ne 0) { throw 'Preview could not decrypt old login or read history' }
+          node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'preview-fresh')
+          if ($LASTEXITCODE -ne 0) { throw 'Fresh offline bundled runtime smoke failed' }
+          $runtime = Join-Path $destination 'resources/runtime-preview'
+          $env:PYTHONHOME = Join-Path $runtime 'python'
+          $env:PYTHONPATH = Join-Path $runtime 'source'
+          $env:PYTHONDONTWRITEBYTECODE = '1'
+          & (Join-Path $runtime 'python/python.exe') apps/desktop/scripts/test-windows-plugins.py (Join-Path $runtime 'source') $legacy (Join-Path $state 'plugins-report.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Plugin probe failed' }
+          $plugins = Get-Content (Join-Path $state 'plugins-report.json') -Raw | ConvertFrom-Json
+          if ($plugins.passed -ne $plugins.count) { throw 'Some historical plugins failed to load' }
+          Remove-Item Env:PYTHONHOME
+          Remove-Item Env:PYTHONPATH
+          $second = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.11-win-x64.exe'
+          node apps/desktop/scripts/test-windows-update-ipc.mjs $exe $second $state --old-version=1.0.10 --new-version=1.0.11
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged preview update failed' }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
+          if ($LASTEXITCODE -ne 0) { throw 'Preview update lost old data or credentials' }
+          node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $exe $state
+          if ($LASTEXITCODE -ne 0) { throw 'Preview restart lost old data or credentials' }
+          node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'preview-migrated') (Join-Path $state 'agent-data')
+          if ($LASTEXITCODE -ne 0) { throw 'Upgraded bundle failed offline or lost history in real gateway' }
+      - name: Record installer digests
+        if: always()
+        shell: powershell
+        run: |
+          Get-ChildItem apps/desktop/release/windows-runtime-preview -Filter '*.exe' | ForEach-Object { Get-FileHash $_.FullName -Algorithm SHA256 } | ConvertTo-Json | Set-Content apps/desktop/release/windows-runtime-preview/installer-sha256.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: workmate-windows-bundled-preview
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-*-win-x64.exe
+            apps/desktop/release/windows-runtime-preview/installer-sha256.json
+            ${{ runner.temp }}/windows-bundled-state/*-report.json
+            ${{ runner.temp }}/preview-fresh/runtime-smoke-report.json
+            ${{ runner.temp }}/preview-fresh/*.png
+            ${{ runner.temp }}/preview-fresh/user-home/logs/desktop.log
+            ${{ runner.temp }}/preview-migrated/runtime-smoke-report.json
+            ${{ runner.temp }}/preview-migrated/*.png
+            ${{ runner.temp }}/preview-migrated/user-home/logs/desktop.log

@@ -12,6 +12,8 @@ import { build } from 'esbuild'
 assert.equal(process.platform, 'win32')
 assert.equal(process.env.CI, 'true')
 const [executable, installer, root] = process.argv.slice(2)
+const expectedOld = process.argv.find(value => value.startsWith('--old-version='))?.slice(14) || '1.0.5'
+const expectedNew = process.argv.find(value => value.startsWith('--new-version='))?.slice(14) || '1.0.10'
 assert.ok(root && path.resolve(root).startsWith(path.resolve(process.env.RUNNER_TEMP) + path.sep))
 const state = JSON.parse(fs.readFileSync(path.join(root, 'synthetic-state.json'), 'utf8'))
 const signingModule = path.join(root, 'signed-manifest.cjs')
@@ -32,7 +34,7 @@ const server = http.createServer((req, res) => {
 })
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const port = server.address().port
-feed = { schema: 1, product: 'agentx-workmate', version: '1.0.10', publishedAt: new Date().toISOString(), notes: { vi: ['Kiểm thử cập nhật Windows'], en: ['Windows update test'] }, assets: { 'win32-x64': { url: `http://127.0.0.1:${port}/update.exe`, sha256: createHash('sha256').update(fs.readFileSync(installer)).digest('hex'), bytes: fs.statSync(installer).size } } }
+feed = { schema: 1, product: 'agentx-workmate', version: expectedNew, publishedAt: new Date().toISOString(), notes: { vi: ['Kiểm thử cập nhật Windows'], en: ['Windows update test'] }, assets: { 'win32-x64': { url: `http://127.0.0.1:${port}/update.exe`, sha256: createHash('sha256').update(fs.readFileSync(installer)).digest('hex'), bytes: fs.statSync(installer).size } } }
 feed.signature = signEd25519(feed, privateKey.export({ type: 'pkcs8', format: 'pem' }).toString())
 async function poll(fn, milliseconds = 180000) {
   const until = Date.now() + milliseconds
@@ -73,7 +75,7 @@ try {
   }, 60000)
   console.log('IPC: desktop update bridge ready')
   const oldVersion = (await page.evaluate(() => window.agentxDesktop.getVersion())).appVersion
-  assert.equal(oldVersion, '1.0.5')
+  assert.equal(oldVersion, expectedOld)
   await poll(async () => (await page.evaluate(() => window.agentxDesktop.appUpdate.get())).phase === 'available', 45000)
   console.log('IPC: update automatically detected')
   assert.equal(downloads, 0, 'Application downloaded without user choice')
@@ -96,7 +98,7 @@ try {
     // Real, short-lived process verifies the new helper waits before NSIS runs.
     const waiting = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 3'], { stdio: 'ignore' })
     const helper = path.join(root, 'patched-handoff.cmd')
-    fs.writeFileSync(helper, buildWindowsUpdateScript({ pid: waiting.pid, installer, version: '1.0.10', resultFile: path.join(root, 'patched-result.json'), waitSeconds: 30 }))
+    fs.writeFileSync(helper, buildWindowsUpdateScript({ pid: waiting.pid, installer, version: expectedNew, resultFile: path.join(root, 'patched-result.json'), waitSeconds: 30 }))
     spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', helper], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
     await poll(() => waiting.exitCode !== null, 30000)
     console.log('IPC: corrected production helper used; simulated old wait process exited')
@@ -110,13 +112,13 @@ try {
     const value = powershell(`(Get-Item -LiteralPath '${quoted}').VersionInfo.ProductVersion`)
     if (value !== lastVersion) console.log('IPC: executable ProductVersion=' + JSON.stringify(value))
     lastVersion = value
-    return value === '1.0.10.0'
+    return value === `${expectedNew}.0`
   })
   console.log('IPC: executable version advanced')
   // Wait for --force-run, so we prove the installer restarted the new app.
   await poll(() => powershell(`@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' }).Count`) !== '0')
   powershell(`Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${quoted}' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`)
-  const report = { correctedHandoff: process.argv.includes('--patched-handoff'), historicalBinaryUnmodified: true, oldVersion, newVersion: '1.0.10', automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
+  const report = { correctedHandoff: process.argv.includes('--patched-handoff'), historicalBinaryUnmodified: true, oldVersion, newVersion: expectedNew, automaticCheck: true, noAutomaticDownload: true, explicitDownload: true, explicitInstall: true, oldProcessExited: true, newProcessRestarted: true, installerDownloads: downloads, scope: 'Real Windows x64 Electron update IPC and detached installer handoff; backend simulated for this test only; signed loopback feed carrying the released NSIS installer' }
   fs.writeFileSync(path.join(root, 'ipc-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } catch (error) {
