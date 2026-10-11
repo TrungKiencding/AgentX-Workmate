@@ -18,6 +18,32 @@ const userData = path.join(root, 'desktop-data')
 const home = path.join(root, 'agent-data')
 const stateFile = path.join(root, 'synthetic-state.json')
 const storeFile = path.join(userData, 'native-oauth-tokens.json')
+const sessionFile = path.join(home, 'state.db')
+const repoRoot = path.resolve(import.meta.dirname, '../../..')
+function sessionDatabase(mode) {
+  // The SessionDB modules are unchanged since desktop-v1.0.5. Exercise their
+  // actual schema and reader as well as the independent binary SQLite fixture.
+  const script = `
+import sqlite3, sys
+from pathlib import Path
+from hermes_state import SessionDB
+mode, filename = sys.argv[1:]
+db = SessionDB(Path(filename), read_only=mode != 'before')
+if mode == 'before':
+    db.create_session('old-windows-session', 'desktop')
+    db.append_message('old-windows-session', 'user', 'Lịch sử trước cập nhật')
+    db.append_message('old-windows-session', 'assistant', 'Giữ dữ liệu cũ')
+else:
+    messages = db.get_messages('old-windows-session')
+    assert [(m['role'], m['content']) for m in messages] == [('user', 'Lịch sử trước cập nhật'), ('assistant', 'Giữ dữ liệu cũ')]
+db.close()
+with sqlite3.connect(filename) as connection:
+    assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+`
+  execFileSync('python', ['-S', '-c', script, mode, sessionFile], {
+    cwd: repoRoot, env: { ...process.env, AGENTX_HOME: home, PYTHONUTF8: '1' }
+  })
+}
 fs.mkdirSync(userData, { recursive: true })
 fs.mkdirSync(home, { recursive: true })
 const digest = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex')
@@ -40,6 +66,7 @@ if (mode === 'before') {
   fs.writeFileSync(path.join(home, 'memories', 'MEMORY.md'), 'Old user memory — dữ liệu cũ\n')
   // A real SQLite file exercises binary preservation, not just a text marker.
   execFileSync('python', ['-c', "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute('CREATE TABLE migration_fixture(id TEXT PRIMARY KEY, message TEXT)'); c.execute('INSERT INTO migration_fixture VALUES(?,?)', ('old-session', 'Lịch sử cũ')); c.commit(); c.close()", path.join(home, 'history.sqlite')])
+  sessionDatabase(mode)
   state = {
     appName: 'Workmate Windows Upgrade ' + randomUUID(),
     baseUrl: 'https://migration-test.invalid',
@@ -86,8 +113,9 @@ try {
   } else {
     assert.notEqual(result.version, state.oldVersion, 'The old executable is still running')
     execFileSync('python', ['-c', "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'; assert c.execute('SELECT message FROM migration_fixture WHERE id=?', ('old-session',)).fetchone()[0]=='Lịch sử cũ'; c.close()", path.join(home, 'history.sqlite')])
+    sessionDatabase(mode)
   }
-  const report = { mode, ...result, preservedFiles: Object.keys(state.files).length, pluginFiles: Object.keys(state.files).filter(p => p.startsWith('plugins' + path.sep)).length, scope: 'Real published Electron process and Windows native safeStorage; synthetic login; old plugin bytes and SQLite fixture preserved. No live OAuth or external plugin service calls.' }
+  const report = { mode, ...result, sessionHistory: true, preservedFiles: Object.keys(state.files).length, pluginFiles: Object.keys(state.files).filter(p => p.startsWith('plugins' + path.sep)).length, scope: 'Real published Electron process and Windows native safeStorage; synthetic login; old plugin bytes, actual SessionDB history and SQLite fixture preserved. SessionDB schema unchanged since desktop-v1.0.5. No live OAuth or external plugin service calls.' }
   fs.writeFileSync(path.join(root, mode + '-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } finally {
