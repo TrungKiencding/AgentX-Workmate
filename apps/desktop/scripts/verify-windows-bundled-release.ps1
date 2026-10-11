@@ -41,6 +41,12 @@ $fixture = Get-Content (Join-Path $state 'synthetic-state.json') -Raw | ConvertF
 $env:AGENTX_DESKTOP_APP_NAME = $fixture.appName
 $env:AGENTX_DESKTOP_BOOT_FAKE = '1'
 Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+# The old installer correctly refuses a downgrade over 1.1.0. Reset only the
+# disposable app/registration, using the update flag to retain the fixtures;
+# the subsequent old -> new manual migration itself has no update flag.
+$uninstaller = Join-Path $destination 'Uninstall AgentX Workmate.exe'
+$p = Start-Process $uninstaller -ArgumentList '/S', '--updated', "_?=$destination" -PassThru
+if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Disposable app reset failed' }
 $p = Start-Process $oldInstaller -ArgumentList '/S', "/D=$destination" -PassThru
 if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Reset to old installer failed' }
 Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
