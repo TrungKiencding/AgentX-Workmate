@@ -37,6 +37,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
+import { finished } from 'node:stream/promises'
 
 import { compareVersions, readCheckoutVersion } from './checkout-pin'
 import { terminateProcessTree } from './process-tree'
@@ -922,8 +923,11 @@ function openRunLog(logRoot) {
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   const logPath = path.join(logRoot, `bootstrap-${ts}.log`)
   const stream = fs.createWriteStream(logPath, { flags: 'a' })
+  // Observe errors immediately and wait for the file to close before callers
+  // inspect the log or remove the install directory. Logging stays best effort.
+  const closed = finished(stream, { cleanup: true }).catch(() => undefined)
 
-  return { path: logPath, stream }
+  return { path: logPath, stream, closed }
 }
 
 // ---------------------------------------------------------------------------
@@ -1127,6 +1131,7 @@ async function runBootstrap(opts) {
     } catch {
       void 0
     }
+    await runLog.closed
   }
 }
 
