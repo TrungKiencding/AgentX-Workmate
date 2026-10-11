@@ -83,6 +83,7 @@ jobs:
         if: always()
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Force apps/desktop/release/windows-runtime-preview | Out-Null
           Get-ChildItem apps/desktop/release/windows-runtime-preview -Filter '*.exe' | ForEach-Object { Get-FileHash $_.FullName -Algorithm SHA256 } | ConvertTo-Json | Set-Content apps/desktop/release/windows-runtime-preview/installer-sha256.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

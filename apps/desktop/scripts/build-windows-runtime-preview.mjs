@@ -71,7 +71,7 @@ try {
   if (!expected) throw Error('Node checksum unavailable')
   nodeDigest = await download(`${base}/${archive}`, path.join(temporary, archive), expected)
   await run('tar.exe', ['-xf', path.join(temporary, archive), '-C', temporary])
-  fs.renameSync(path.join(temporary, `node-${nodeVersion}-win-x64`), path.join(out, 'node'))
+  fs.cpSync(path.join(temporary, `node-${nodeVersion}-win-x64`), path.join(out, 'node'), { recursive: true })
   const asset = `PortableGit-${gitVersion}-64-bit.7z.exe`
   await download(`https://github.com/git-for-windows/git/releases/download/v${gitVersion}.windows.1/${asset}`, path.join(temporary, asset), 'bea006a6cc69673f27b1647e84ab3a68e912fbc175ab6320c5987e012897f311')
   await run('7z', ['x', path.join(temporary, asset), `-o${path.join(out, 'git')}`, '-y'])

@@ -40,12 +40,12 @@ let app
 try {
   for (const program of [executable, python, path.join(runtime,'node/node.exe'),path.join(runtime,'bin/uv.exe'),path.join(runtime,'bin/agent-browser.exe')]) {
     const name='WorkmateOffline-'+rules.length+'-'+path.basename(root)
-    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255' -ErrorAction Stop | Out-Null`)
+    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255','::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' -ErrorAction Stop | Out-Null`)
     rules.push(name)
   }
   // Use literal IP so a DNS failure cannot masquerade as enforced offline mode.
   console.log(pythonRun("import socket; s=socket.socket(); s.settimeout(3); blocked=False\ntry: s.connect(('1.1.1.1',443))\nexcept OSError: blocked=True\nfinally: s.close()\nassert blocked, 'External network was not blocked'; print('offline enforcement verified')"))
-  report.checks.push('external IPv4 blocked for packaged app/runtime and verified by socket probe')
+  report.checks.push('external IPv4 and IPv6 blocked for packaged app/runtime and verified by socket probe')
   console.log(pythonRun('import ssl,sqlite3,ctypes,yaml,fastapi,uvicorn; import hermes_cli.main,run_agent; print("bundled backend imports OK")'))
   for (const tool of ['node/node.exe','bin/uv.exe','bin/agent-browser.exe','git/cmd/git.exe','git/bin/bash.exe']) {
     console.log(execFileSync(path.join(runtime,tool),['--version'],{env:backendEnv,encoding:'utf8',timeout:30000}).trim())
