@@ -74,7 +74,7 @@ jobs:
           New-Item -ItemType Directory -Force $productionData | Out-Null
           $productionMarker = Join-Path $productionData 'production-data-must-survive.txt'
           Set-Content $productionMarker 'preserve production data'
-          $destination = Join-Path $env:RUNNER_TEMP 'Moved app with spaces'
+          $destination = Join-Path $env:LOCALAPPDATA 'Programs/AgentX Workmate Runtime Preview'
           $first = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.10-win-x64.exe'
           $p = Start-Process $first -ArgumentList '/S', "/D=$destination" -PassThru
           if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Preview install failed' }

@@ -18,6 +18,21 @@ const system = process.env.SystemRoot || process.env.SYSTEMROOT
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => ['SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE'].includes(key.toUpperCase())))
 Object.assign(env, { PATH: [path.join(system, 'System32'), path.join(system, 'System32/WindowsPowerShell/v1.0'), system].join(';'), AGENTX_HOME: home, AGENTX_DESKTOP_USER_DATA_DIR: path.join(root, 'electron-data'), AGENTX_DESKTOP_SKIP_QUIT_CONFIRM: '1', AGENTX_DESKTOP_BOOT_FAKE: '0', PYTHONUTF8: '1' })
 const backendEnv = { ...env, PYTHONHOME: path.join(runtime, 'python'), PYTHONPATH: source, PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1', AGENTX_LAZY_INSTALL_TARGET: path.join(home, 'runtime-preview-packages/python3.11-win32-x64'), PATH: [path.join(runtime,'bin'),path.join(runtime,'node'),path.join(runtime,'python'),path.join(runtime,'git/cmd'),path.join(runtime,'git/bin'),env.PATH].join(';') }
+async function bounded(promise, label, milliseconds = 60000) {
+  let timer
+  try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`${label} timed out`)), milliseconds) })]) }
+  finally { clearTimeout(timer) }
+}
+async function closeApplication() {
+  const closing = app
+  app = null
+  if (!closing) return
+  try { await bounded(closing.close(), 'Application shutdown', 15000) }
+  catch (error) {
+    try { execFileSync('taskkill.exe', ['/PID', String(closing.process().pid), '/T', '/F'], { stdio: 'ignore' }) } catch {}
+    throw error
+  }
+}
 function pythonRun(code) { return execFileSync(python, ['-c',code], { cwd: root, env: backendEnv, encoding:'utf8',timeout:60000 }) }
 const report = { version: JSON.parse(fs.readFileSync(path.join(runtime,'runtime.json'),'utf8')).version, migrated: Boolean(oldHome), checks:[], launches:[] }
 const rules = []
@@ -55,9 +70,9 @@ try {
     app=await _electron.launch({executablePath:executable,env,args:['--disable-gpu','--no-sandbox'],timeout:60000})
     const page=await app.firstWindow()
     await page.waitForFunction(()=>Boolean(window.agentxDesktop),{timeout:60000})
-    await assert.rejects(page.evaluate(()=>window.agentxDesktop.getConnection()),/sign-in required/)
+    await assert.rejects(bounded(page.evaluate(()=>window.agentxDesktop.getConnection()), 'Sign-in gate'),/sign-in required/)
     await page.screenshot({path:path.join(root,'sign-in.png')})
-    await app.close();app=null
+    await closeApplication()
     report.checks.push('fresh install reaches normal sign-in gate offline')
   } else {
     fs.cpSync(oldHome,home,{recursive:true})
@@ -72,7 +87,7 @@ try {
     app=await _electron.launch({executablePath:executable,env,args:['--disable-gpu','--no-sandbox'],timeout:60000})
     const page=await app.firstWindow()
     await page.waitForFunction(()=>Boolean(window.agentxDesktop),{timeout:60000})
-    const connection=await page.evaluate(()=>window.agentxDesktop.getConnection())
+    const connection=await bounded(page.evaluate(()=>window.agentxDesktop.getConnection()), 'Backend connection')
     const sessions=await gateway(connection.wsUrl||connection.url,'session.list')
     if(oldHome) assert(JSON.stringify(sessions).includes('old-windows-session'),'Real gateway lost old session')
     const boot=await page.evaluate(()=>window.agentxDesktop.getBootstrapState())
@@ -87,13 +102,13 @@ try {
     if(launch===0) {fs.writeFileSync(marker,'keep user data');await page.screenshot({path:path.join(root,'running.png')})}
     else assert.equal(fs.readFileSync(marker,'utf8'),'keep user data')
     report.launches.push({launch:launch+1,backendReadyMs:Date.now()-started,bootstrapSkipped:true})
-    await app.close();app=null
+    await closeApplication()
   }
   report.checks.push('real gateway ready offline across three launches; data retained; preview updates disabled by default')
   report.ok=true
 } catch(error) {report.ok=false;report.error=error.stack;console.error(error);process.exitCode=1}
 finally {
-  await app?.close().catch(()=>{})
+  await closeApplication().catch(error => { report.ok=false;report.shutdownError=String(error);process.exitCode=1 })
   for(const name of rules) powershell(`Remove-NetFirewallRule -DisplayName '${name}' -ErrorAction SilentlyContinue`)
   fs.writeFileSync(path.join(root,'runtime-smoke-report.json'),JSON.stringify(report,null,2))
   console.log(JSON.stringify(report))
