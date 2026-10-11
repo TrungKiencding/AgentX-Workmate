@@ -64,6 +64,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { pendingInstallerTeardown, runBootstrap } from './bootstrap-runner'
+import { bundledPreviewBackend, readBundledRuntimePreview } from './bundled-runtime-preview'
 import { defaultExecGit, resolveCheckoutPin } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
@@ -291,6 +292,16 @@ const IS_WSL = isWslEnvironment()
 // build SDK, so gate Tahoe workarounds on Darwin instead.
 const DARWIN_MAJOR = IS_MAC ? Number.parseInt(os.release(), 10) || 0 : 0
 const APP_ROOT = app.getAppPath()
+
+const BUNDLED_RUNTIME_PREVIEW = IS_PACKAGED && (IS_MAC || IS_WINDOWS)
+  ? readBundledRuntimePreview(process.resourcesPath, app.getVersion())
+  : null
+
+if (BUNDLED_RUNTIME_PREVIEW && !USER_DATA_OVERRIDE) {
+  const previewUserData = path.join(app.getPath('appData'), 'AgentX Workmate Runtime Preview')
+  fs.mkdirSync(previewUserData, { recursive: true })
+  app.setPath('userData', previewUserData)
+}
 
 // Preload must be plain JS — Electron's sandbox can't run .ts, and tsx's
 // ESM loader is broken on Electron 40's Node (ERR_INVALID_RETURN_PROPERTY_VALUE).
@@ -582,6 +593,10 @@ function resolveHermesHome() {
     return path.join(path.resolve(USER_DATA_OVERRIDE), 'agentx-home')
   }
 
+  if (BUNDLED_RUNTIME_PREVIEW) {
+    return path.join(app.getPath('home'), '.agentx-workmate-runtime-preview')
+  }
+
   if (IS_WINDOWS) {
     // A GUI app launched from Explorer inherits the environment block captured
     // at login, so a AGENTX_HOME set via `setx` AFTER login is invisible in
@@ -740,7 +755,7 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env.AGENTX_DESKTOP_APP_NAME || 'AgentX'
+const APP_NAME = process.env.AGENTX_DESKTOP_APP_NAME || (BUNDLED_RUNTIME_PREVIEW ? 'AgentX Runtime Preview' : 'AgentX')
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 
@@ -2476,6 +2491,10 @@ function writeZoomState(zoomLevel) {
 // Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_AGENTX_ROOT.
 // AGENTX_DESKTOP_AGENTX_ROOT always wins so devs can pin a worktree.
 function resolveUpdateRoot() {
+  if (BUNDLED_RUNTIME_PREVIEW) {
+    return BUNDLED_RUNTIME_PREVIEW.source
+  }
+
   const candidates = [
     process.env.AGENTX_DESKTOP_AGENTX_ROOT && path.resolve(process.env.AGENTX_DESKTOP_AGENTX_ROOT),
     !IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT) ? SOURCE_REPO_ROOT : null,
@@ -3150,6 +3169,16 @@ function createActiveBackend(backendArgs) {
 }
 
 function resolveHermesBackend(backendArgs) {
+  if (BUNDLED_RUNTIME_PREVIEW) {
+    const backend = bundledPreviewBackend(BUNDLED_RUNTIME_PREVIEW, AGENTX_HOME, backendArgs)
+
+    if (!canImportHermesCli(backend.command, { env: backend.env })) {
+      throw new Error('The bundled preview backend could not start. Reinstall the preview installer; see desktop.log for details.')
+    }
+
+    return backend
+  }
+
   // 1. Explicit override -- AGENTX_DESKTOP_AGENTX_ROOT points at a developer
   //    checkout. Honour it as-is (no bootstrap; the user is driving).
   const overrideRoot = process.env.AGENTX_DESKTOP_AGENTX_ROOT && path.resolve(process.env.AGENTX_DESKTOP_AGENTX_ROOT)
@@ -12338,7 +12367,8 @@ function appUpdates(): AppUpdateService {
       // app.isPackaged, not IS_PACKAGED: `npm run start` reports itself as
       // packaged for the backend's sake, but its executable is Electron.app in
       // node_modules, which an update must never replace.
-      isPackaged: app.isPackaged,
+      // Preview replacement stays disabled unless explicitly testing a signed feed.
+      isPackaged: app.isPackaged && (!BUNDLED_RUNTIME_PREVIEW || Boolean(process.env.AGENTX_DESKTOP_UPDATE_FEED_URL)),
       platform: process.platform,
       arch: process.arch,
       execPath: process.execPath,
@@ -12878,6 +12908,10 @@ ipcMain.handle('agentx:deep-link-ready', () => {
 })
 
 function registerDeepLinkProtocol() {
+  if (BUNDLED_RUNTIME_PREVIEW) {
+    return
+  }
+
   try {
     if (process.defaultApp && process.argv.length >= 2) {
       // Dev: register with the electron exec path + entry script so the OS can

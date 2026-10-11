@@ -28,8 +28,8 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
-const STANDALONE_NAMES = new Set(['chrome_crashpad_handler', 'spawn-helper'])
-const STANDALONE_SUFFIXES = new Set(['.node', '.dylib'])
+const STANDALONE_NAMES = new Set(['chrome_crashpad_handler', 'spawn-helper', 'python3.11', 'node', 'uv', 'agent-browser'])
+const STANDALONE_SUFFIXES = new Set(['.node', '.dylib', '.so'])
 
 async function defaultRun(file, args) {
   const { stdout, stderr } = await execFileAsync(file, args, { maxBuffer: 16 * 1024 * 1024 })

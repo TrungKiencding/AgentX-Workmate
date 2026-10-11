@@ -154,13 +154,13 @@ def test_shell_hooks_hide_hook_command_windows(monkeypatch):
 
     captured = []
 
-    def fake_run(cmd, **kwargs):
+    def fake_popen(cmd, **kwargs):
         captured.append((cmd, kwargs))
-        return SimpleNamespace(returncode=0, stdout="{}", stderr="")
+        return SimpleNamespace(returncode=0, communicate=lambda **kwargs: ("{}", ""))
 
     monkeypatch.setattr(shell_hooks, "IS_WINDOWS", True)
     monkeypatch.setattr(shell_hooks, "windows_hide_flags", lambda: _CREATE_NO_WINDOW)
-    monkeypatch.setattr(shell_hooks.subprocess, "run", fake_run)
+    monkeypatch.setattr(shell_hooks.subprocess, "Popen", fake_popen)
 
     result = shell_hooks._spawn(
         shell_hooks.ShellHookSpec(event="post_tool_call", command="hook-bin --flag"),
