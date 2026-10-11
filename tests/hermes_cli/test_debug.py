@@ -500,7 +500,7 @@ class TestRunDebugShareRedaction:
             )
 
     def test_fallback_provider_key_never_reaches_upload_bound_content(self, hermes_home_with_secret):
-        """``hermes dump`` quotes ``fallback_providers`` from config.yaml; neither the CLI share
+        """``agentx dump`` quotes ``fallback_providers`` from config.yaml; neither the CLI share
         bundle nor the gateway /debug report may carry a fallback entry's api_key."""
         from hermes_cli.debug import _capture_dump, collect_debug_report, collect_share_bundle
 
@@ -534,7 +534,7 @@ class TestRunDebugShareRedaction:
             "    model: backup-model\n"
             f"    api_key: {yaml_value}\n", encoding="utf-8")
 
-        texts = [_capture_dump(redact=False),  # `hermes dump` stdout, as printed
+        texts = [_capture_dump(redact=False),  # `agentx dump` stdout, as printed
                  *collect_share_bundle(log_lines=20).values(),
                  collect_debug_report(log_lines=20, dump_text=_capture_dump())]
 
@@ -573,7 +573,7 @@ class TestRunDebugShareRedaction:
         assert any("backup-model" in text for text in uploaded)  # the dump really reached the sink
         assert not [text for text in uploaded if secret in text]  # checked first: the sink alone catches a leak
 
-        texts = [_capture_dump(redact=False),  # `hermes dump` stdout, as printed
+        texts = [_capture_dump(redact=False),  # `agentx dump` stdout, as printed
                  collect_debug_report(log_lines=20, dump_text=_capture_dump())]
 
         assert all(s in texts[0] for s in ("backup-model", "BACKUP_KEY_ENV_NAME", "BACKUP_API_KEY_ENV_NAME", "4321"))
@@ -589,7 +589,7 @@ class TestRunDebugShareRedaction:
     ])
     def test_fallback_base_url_credential_never_reaches_upload_bound_content(self, hermes_home_with_secret, base_url):
         """A fallback ``base_url`` can carry its credential in the URL (userinfo, query, fragment). The
-        dump is config made to be pasted, so ``hermes dump`` itself and every upload of it get strict
+        dump is config made to be pasted, so ``agentx dump`` itself and every upload of it get strict
         URL-credential redaction, not the log policy."""
         from hermes_cli.debug import _capture_dump, collect_debug_report, collect_share_bundle
 
@@ -600,7 +600,7 @@ class TestRunDebugShareRedaction:
             "    model: backup-model\n"
             f"    base_url: '{base_url.format(s=secret)}'\n", encoding="utf-8")
 
-        texts = [_capture_dump(redact=False),  # `hermes dump` stdout, as printed
+        texts = [_capture_dump(redact=False),  # `agentx dump` stdout, as printed
                  *collect_share_bundle(log_lines=20).values(),
                  collect_debug_report(log_lines=20, dump_text=_capture_dump())]
 

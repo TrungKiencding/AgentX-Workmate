@@ -16862,6 +16862,8 @@ def test_stale_session_settings_leave_profile_and_process_unchanged(tmp_path, mo
 
 @pytest.mark.parametrize("fails", [False, True])
 def test_manual_compression_uses_session_workspace_and_clears_context(tmp_path, monkeypatch, fails):
+    from unittest.mock import MagicMock
+
     from agent.runtime_cwd import resolve_agent_cwd
 
     launch = tmp_path / "launch"
@@ -16872,7 +16874,10 @@ def test_manual_compression_uses_session_workspace_and_clears_context(tmp_path, 
     agent = MagicMock()
     agent.context_compressor = None
     agent._compression_skipped_due_to_lock = False
-    history = [{"role": "user", "content": "one"}, {"role": "assistant", "content": "two"}]
+    history = [
+        {"role": "user", "content": "one"}, {"role": "assistant", "content": "two"},
+        {"role": "user", "content": "three"}, {"role": "assistant", "content": "four"},
+    ]
 
     def compress(*args, **kwargs):
         assert resolve_agent_cwd() == workspace
@@ -16887,4 +16892,5 @@ def test_manual_compression_uses_session_workspace_and_clears_context(tmp_path, 
             server._compress_session_history(session)
     else:
         server._compress_session_history(session)
+    agent._compress_context.assert_called_once()
     assert resolve_agent_cwd() == launch

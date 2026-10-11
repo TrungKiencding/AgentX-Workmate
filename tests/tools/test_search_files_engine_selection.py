@@ -39,3 +39,31 @@ def test_handler_preserves_nonblank_path(monkeypatch, raw_path):
     assert captured["path"] == raw_path
 
 
+
+
+def test_blank_search_paths_read_real_workspace(tmp_path, monkeypatch):
+    import json
+    from tools.file_tools import reset_file_dedup
+    from tools.terminal_tool import cleanup_all_environments
+
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    home.mkdir()
+    workspace.mkdir()
+    (workspace / "sample.txt").write_text("agentx_normalized_path\n", encoding="utf-8")
+    (home / "config.yaml").write_text("terminal:\n  env_type: local\n", encoding="utf-8")
+    monkeypatch.setenv("AGENTX_HOME", str(home))
+    monkeypatch.setenv("TERMINAL_ENV", "local")
+    monkeypatch.setenv("TERMINAL_CWD", str(workspace))
+    try:
+        for blank in ("", " \t ", None):
+            reset_file_dedup()
+            result = json.loads(registry.dispatch("search_files", {
+                "pattern": "agentx_normalized_path", "target": "content", "path": blank,
+            }))
+            assert "error" not in result, result
+            assert result["matches"], result
+            assert any("agentx_normalized_path" in item["content"] for item in result["matches"])
+    finally:
+        cleanup_all_environments()
+        reset_file_dedup()

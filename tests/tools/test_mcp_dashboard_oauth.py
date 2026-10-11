@@ -110,7 +110,7 @@ def test_mark_error_surfaces_real_cause_to_callback_waiter():
         flow_id="flow-err",
         server_name="asana",
         profile=None,
-        hermes_home="/tmp/hermes-test",
+        hermes_home="/tmp/agentx-test",
         redirect_uri="https://agent.example/mcp/oauth/callback/flow-err",
     )
     flow.mark_error("403 Forbidden from the OAuth registration endpoint")
@@ -129,7 +129,7 @@ def test_mark_error_with_empty_message_stays_diagnosable():
         flow_id="flow-empty",
         server_name="asana",
         profile=None,
-        hermes_home="/tmp/hermes-test",
+        hermes_home="/tmp/agentx-test",
         redirect_uri="https://agent.example/mcp/oauth/callback/flow-empty",
     )
     flow.mark_error("")
@@ -145,7 +145,7 @@ def test_late_mark_error_cannot_override_delivered_callback():
         flow_id="flow-late",
         server_name="reports",
         profile=None,
-        hermes_home="/tmp/hermes-test",
+        hermes_home="/tmp/agentx-test",
         redirect_uri="https://agent.example/mcp/oauth/callback/flow-late",
     )
     asyncio.run(flow.publish_authorization_url("https://idp.example/authorize?state=s9"))

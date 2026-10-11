@@ -831,7 +831,6 @@ _PYTHON_EXCEPTION_LINE_RE = re.compile(
 )
 
 
-
 def _redact_python_repr_fields(text: str) -> str:
     """Fully mask credential fields in Python mapping ``repr`` output."""
     def _sub(match: re.Match) -> str:
@@ -905,7 +904,7 @@ def redact_cdp_url(value: object) -> str:
     """Mask secrets in a CDP/browser endpoint URL before it is logged.
 
     The global ``redact_sensitive_text`` deliberately passes web-URL query
-    params and the entire URL userinfo (``***:***@``) through unmasked (OAuth callbacks,
+    params and ``user:pass@`` userinfo through unmasked (OAuth callbacks,
     magic-link / pre-signed URLs the agent is meant to follow -- see the
     web-URL note above). CDP discovery endpoints are NOT such a workflow:
     their query-string tokens and userinfo passwords are pure credentials
