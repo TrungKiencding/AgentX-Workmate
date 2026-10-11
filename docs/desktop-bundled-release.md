@@ -68,7 +68,10 @@ rollback; signing an older version does not force clients to downgrade.
   and terminal calls; restart retains data; production updater enabled.
 - macOS upgrade: published 1.0.10 app through its actual updater IPC, real
   Keychain encryption with synthetic credentials and actual SessionDB history.
-- Windows CI: published archived 1.0.10 installer through actual check/download
+- Windows CI: run the 1.1.0 NSIS directly over published archived 1.0.10, with
+  no outer update flag; check native login, data and restart, then offline startup.
+  The separate `verify-windows-bundled-release.ps1 -CorrectedHandoff` mode takes
+  the published old installer through actual check/download
   IPC, then its defective historical handoff explicitly replaced with the
   current production generator and a real wait process. Native NSIS replacement,
   native safeStorage credentials, data/hash preservation,
