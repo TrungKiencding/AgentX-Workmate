@@ -1,10 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { DesktopDevice } from '@/global'
 import { en } from '@/i18n/en'
 import { $devices } from '@/store/account'
 
-import { describeLastSeen, describeRevokeFailure, DeviceList } from './device-list'
+import { DeviceList } from './device-list'
+import { describeLastSeen, describeRevokeFailure } from './device-presentation'
 
 // The device list is where somebody who has lost a laptop goes. Two things
 // have to hold: it must say which machine is which, and it must not lie about
@@ -13,17 +15,14 @@ import { describeLastSeen, describeRevokeFailure, DeviceList } from './device-li
 
 const original = window.agentxDesktop
 
-function stubDevices(
-  bridge: Record<string, unknown> | null,
-  rest: Record<string, unknown> = {}
-) {
+function stubDevices(bridge: Record<string, unknown> | null, rest: Record<string, unknown> = {}) {
   Object.defineProperty(window, 'agentxDesktop', {
     configurable: true,
     value: bridge === null ? { ...rest } : { devices: bridge, ...rest }
   })
 }
 
-function device(overrides: Record<string, unknown> = {}) {
+function device(overrides: Partial<DesktopDevice> = {}): DesktopDevice {
   return {
     app_version: '0.18.0',
     created_at: '2026-08-01T00:00:00+00:00',
@@ -45,6 +44,7 @@ afterEach(() => {
     current: '',
     devices: [],
     loaded: false,
+    refreshing: false,
     status: 'unconfigured'
   })
   Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: original })
@@ -66,8 +66,8 @@ describe('DeviceList', () => {
 
     render(<DeviceList />)
 
-    expect(await screen.findByText('MacBook Pro')).toBeTruthy()
-    expect(screen.getByText('Windows desktop')).toBeTruthy()
+    expect(await screen.findByRole('article', { name: /^MacBook Pro/ })).toBeTruthy()
+    expect(screen.getByRole('article', { name: /^Windows desktop/ })).toBeTruthy()
     // Exactly one row says "this device" — the caller's, not a row property.
     expect(screen.getAllByText(/this device/i)).toHaveLength(1)
   })
@@ -130,10 +130,7 @@ describe('DeviceList', () => {
     stubDevices({
       list: async () => ({
         current: 'device-a',
-        devices: [
-          device({ current: true, id: 'device-a' }),
-          device({ id: 'device-b', name: 'Windows desktop' })
-        ],
+        devices: [device({ current: true, id: 'device-a' }), device({ id: 'device-b', name: 'Windows desktop' })],
         status: 'ok'
       }),
       revoke
@@ -141,7 +138,7 @@ describe('DeviceList', () => {
 
     render(<DeviceList />)
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /revoke device/i }))[1])
+    fireEvent.click(await screen.findByRole('button', { name: /revoke device/i }))
 
     // The safe default: revoking alone cannot cut model access, because the
     // devices share one key.
@@ -196,7 +193,7 @@ describe('DeviceList', () => {
     stubDevices({
       list: async () => ({
         current: 'device-a',
-        devices: [device({ current: true, id: 'device-a' })],
+        devices: [device({ id: 'device-b' })],
         status: 'ok'
       }),
       revoke: async () => ({
@@ -233,7 +230,21 @@ describe('DeviceList', () => {
 
     // Telling somebody who just revoked a stolen laptop that its model access
     // is gone, when it is not, is the failure this line exists to prevent.
-    expect(await screen.findByText(/keeps the model key it already holds/i)).toBeTruthy()
+    expect(await screen.findByText(en.settings.account.deviceRotationUnsupported)).toBeTruthy()
+  })
+
+  it('does not claim an account with no model key still has a usable old key', async () => {
+    stubDevices({
+      list: async () => ({ current: 'device-a', devices: [device({ id: 'device-b' })], status: 'ok' }),
+      revoke: async () => ({ key_rotated: false, key_rotation: 'no_key', status: 'ok' })
+    })
+    render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: /^revoke device$/i }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^revoke device$/i }))
+    const result = await screen.findByRole('status')
+
+    expect(result.textContent).toContain(en.settings.account.deviceRotationNoKey)
+    expect(within(result).queryByRole('button')).toBeNull()
   })
 })
 
@@ -275,12 +286,147 @@ describe('describeRevokeFailure', () => {
   })
 
   it('falls back to the service detail when the code is unknown', () => {
-    expect(
-      describeRevokeFailure({ detail: 'something specific', status: 'error' }, englishCopy())
-    ).toBe('something specific')
+    expect(describeRevokeFailure({ detail: 'something specific', status: 'error' }, englishCopy())).toBe(
+      'something specific'
+    )
   })
 
   it('has an answer even with nothing to go on', () => {
     expect(describeRevokeFailure({}, englishCopy())).toMatch(/could not revoke/i)
+  })
+})
+
+describe('device management experience', () => {
+  it('keeps identically named installs separate and puts revoked records in collapsed history', async () => {
+    stubDevices({
+      list: async () => ({
+        current: 'device-a',
+        status: 'ok',
+        devices: [
+          device({ id: 'device-a' }),
+          device({ id: 'device-b' }),
+          device({ id: 'revoked', name: 'Old Mac', revoked: true, revoked_at: '2026-10-10T00:00:00Z' })
+        ]
+      })
+    })
+    const { container } = render(<DeviceList />)
+    await screen.findByText(en.settings.account.deviceOtherTitle(1))
+    expect(screen.getByText(en.settings.account.deviceDuplicateHint)).toBeTruthy()
+    const history = screen.getByText(en.settings.account.deviceHistoryTitle(1)).closest('details')!
+    expect(history.open).toBe(false)
+    expect(screen.getAllByText(en.settings.account.deviceCurrent)).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: en.settings.account.deviceRevoke })).toHaveLength(1)
+    expect(container.textContent).toContain('macOS')
+    expect(container.textContent).not.toContain('darwin')
+  })
+
+  it('offers only local sign-out on the current device, with explicit confirmation', async () => {
+    const signOut = vi.fn(async () => undefined)
+    const revoke = vi.fn()
+    stubDevices(
+      { list: async () => ({ current: 'device-a', status: 'ok', devices: [device({ id: 'device-a' })] }), revoke },
+      { keycloak: { signOut } }
+    )
+    render(<DeviceList />)
+    const row = await screen.findByRole('article')
+    row.querySelector('details')!.open = true
+    fireEvent.click(screen.getByRole('button', { name: en.settings.account.deviceSignOutHere }))
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(signOut).not.toHaveBeenCalled()
+    expect(revoke).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: en.common.cancel }))
+    expect(signOut).not.toHaveBeenCalled()
+  })
+
+  it('keeps failed revocations in the dialog and prevents duplicate submissions while pending', async () => {
+    let finish!: (value: unknown) => void
+
+    const revoke = vi.fn(
+      () =>
+        new Promise(resolve => {
+          finish = resolve
+        })
+    )
+
+    stubDevices({
+      list: async () => ({ current: 'device-a', status: 'ok', devices: [device({ id: 'device-b' })] }),
+      revoke
+    })
+    render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRevoke }))
+    fireEvent.click(screen.getAllByRole('button', { name: en.settings.account.deviceRevoke }).at(-1)!)
+    await waitFor(() => expect(revoke).toHaveBeenCalledTimes(1))
+    expect(screen.getByText(en.settings.account.deviceRevoking)).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' })
+    expect(revoke).toHaveBeenCalledTimes(1)
+    finish({ status: 'offline' })
+    expect(await screen.findByText(en.settings.account.deviceOffline)).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect($devices.get().devices[0].revoked).toBe(false)
+  })
+
+  it('does not revoke when Space toggles the checkbox or Enter activates Cancel', async () => {
+    const revoke = vi.fn()
+    stubDevices({
+      list: async () => ({ current: 'device-a', status: 'ok', devices: [device({ id: 'device-b' })] }),
+      revoke
+    })
+    render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRevoke }))
+    fireEvent.keyDown(screen.getByRole('checkbox'), { key: ' ' })
+    fireEvent.keyDown(screen.getByRole('button', { name: en.common.cancel }), { key: 'Enter' })
+    expect(revoke).not.toHaveBeenCalled()
+  })
+
+  it('allows retry after partial failure and keeps recovery available when Settings reopens', async () => {
+    let row = device({ id: 'device-b', name: 'Old Mac' })
+    let attempts = 0
+
+    const revoke = vi.fn(async () => {
+      attempts += 1
+      row = { ...row, revoked: true, revoked_at: '2026-10-10T00:00:00Z' }
+
+      return { status: 'ok', device: row, key_rotated: attempts > 1, key_rotation: attempts > 1 ? 'rotated' : 'failed' }
+    })
+
+    stubDevices({ list: async () => ({ current: 'device-a', status: 'ok', devices: [row] }), revoke })
+    const view = render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRevoke }))
+    fireEvent.click(screen.getAllByRole('button', { name: en.settings.account.deviceRevoke }).at(-1)!)
+    expect(await screen.findByText(en.settings.account.deviceRotationFailed)).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: en.settings.account.deviceRotateRetry }))
+    fireEvent.click(screen.getAllByRole('button', { name: en.settings.account.deviceRotateRetry }).at(-1)!)
+    expect(await screen.findByText(en.settings.account.deviceRotationDone)).toBeTruthy()
+    expect(revoke).toHaveBeenLastCalledWith('device-b', { rotateKey: true })
+    view.unmount()
+    render(<DeviceList />)
+    const history = (await screen.findByText(en.settings.account.deviceHistoryTitle(1))).closest('details')!
+    history.open = true
+    history.querySelector('article details')!.setAttribute('open', '')
+    expect(within(history).getByRole('button', { name: en.settings.account.deviceRotateRetry })).toBeTruthy()
+  })
+
+  it('changes an account label while keeping the original machine name', async () => {
+    let row = device({ id: 'device-b' })
+
+    const rename = vi.fn(async (_id, name) => {
+      row = { ...row, display_name: name }
+
+      return { status: 'ok', device: row }
+    })
+
+    stubDevices({ list: async () => ({ current: 'device-a', status: 'ok', can_rename: true, devices: [row] }), rename })
+    render(<DeviceList />)
+    const article = await screen.findByRole('article')
+    article.querySelector('details')!.open = true
+    fireEvent.click(screen.getByRole('button', { name: en.settings.account.deviceRename }))
+    fireEvent.change(screen.getByRole('textbox', { name: en.settings.account.deviceRename }), {
+      target: { value: ' Work laptop ' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: en.common.save }))
+    await waitFor(() => expect(rename).toHaveBeenCalledWith('device-b', 'Work laptop'))
+    expect(await screen.findByText('Work laptop')).toBeTruthy()
+    expect(screen.getByText('MacBook Pro')).toBeTruthy()
   })
 })

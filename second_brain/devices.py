@@ -5,7 +5,7 @@ own model key in its own ``.env`` and nothing anywhere knew the laptop
 existed. A stolen machine was a support ticket about rotating a key that half
 the fleet shared.
 
-Three routes, and one rule that is not obvious:
+Heartbeat, list, rename, revoke, and one rule that is not obvious:
 
 **Revoking your last device while rotating the key locks you out of your own
 account.** One key per person is the whole point of the service (R1), so
@@ -81,8 +81,9 @@ async def heartbeat(
     platform = _text(body, "platform")
     app_version = _text(body, "app_version")
     name = _text(body, "name")
+    client_name = _text(body, "client_name")
 
-    if not (platform or app_version or name):
+    if not (platform or app_version or name or client_name):
         # Nothing to add beyond what authentication already recorded.
         return {"device": principal.device.to_json(current=True)}
 
@@ -93,6 +94,7 @@ async def heartbeat(
             name=name,
             platform=platform,
             app_version=app_version,
+            client_name=client_name,
         )
     except StoreUnavailable as exc:
         raise _store_unavailable(exc) from exc
@@ -127,7 +129,33 @@ async def list_devices(
             device.to_json(current=device.id == principal.device_id) for device in devices
         ],
         "current": principal.device_id,
+        "can_rename": True,
     }
+
+
+@router.patch("/{device_id}")
+async def rename_device(
+    request: Request,
+    device_id: str,
+    principal: Principal = Depends(require_principal),
+    body: dict = Body(default_factory=dict),
+):
+    """Set a personal label without changing the install's identity or hostname."""
+    name = body.get("display_name")
+    if not isinstance(name, str) or len(name.strip()) > _FIELD_MAX or any(
+        ord(char) < 32 or ord(char) == 127 for char in name
+    ):
+        raise BrainHTTPError(400, "invalid_device_name", "Use at most 64 characters without control characters.")
+    if not is_device_id(device_id):
+        raise BrainHTTPError(404, DEVICE_NOT_FOUND, "No such device on this account.")
+    ctx: BrainContext = request.app.state.brain
+    try:
+        device = await ctx.store.rename_device(principal.subject, device_id, name.strip())
+    except StoreUnavailable as exc:
+        raise _store_unavailable(exc) from exc
+    if device is None:
+        raise BrainHTTPError(404, DEVICE_NOT_FOUND, "No such device on this account.")
+    return {"device": device.to_json(current=device.id == principal.device_id)}
 
 
 @router.delete("/{device_id}")

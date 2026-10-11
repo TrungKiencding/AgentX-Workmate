@@ -149,6 +149,7 @@ declare global {
       // reported, never thrown.
       devices?: {
         list: () => Promise<DesktopDeviceList>
+        rename?: (id: string, name: string) => Promise<DesktopDeviceUpdateResult>
         revoke: (id: string, options?: { rotateKey?: boolean }) => Promise<DesktopDeviceRevokeResult>
       }
       // Conversation history converging across this person's machines. `tick`
@@ -1134,9 +1135,12 @@ export interface DesktopLicenseView {
 // --- Devices: the machines one person is signed in on ---
 
 export interface DesktopDevice {
-  // The install's id, generated once per machine (see electron/device-id.ts).
+  // The install's id, retained across updates/sign-outs (see electron/device-id.ts).
   id: string
   name: string
+  /** Account-owned label, absent on older services. */
+  display_name?: string
+  client_name?: string
   platform: string
   app_version: string
   created_at: string
@@ -1148,6 +1152,7 @@ export interface DesktopDevice {
 }
 
 export interface DesktopDeviceList {
+  can_rename?: boolean
   // ok          the list is live
   // unconfigured  no second-brain service on this install; there is no list
   // offline     the service could not be reached; say so and move on
@@ -1163,17 +1168,20 @@ export interface DesktopDeviceList {
   status_code?: number
 }
 
-export interface DesktopDeviceRevokeResult {
+export interface DesktopDeviceUpdateResult {
   status: 'ok' | 'unconfigured' | 'offline' | 'revoked' | 'no_device_id' | 'error'
   device?: DesktopDevice
+  detail?: string
+  error?: string
+  status_code?: number
+}
+
+export interface DesktopDeviceRevokeResult extends DesktopDeviceUpdateResult {
   // Whether the model key was actually reissued. False with
   // key_rotation: 'unsupported' means this deployment cannot rotate centrally
   // yet — the revoked machine keeps the key it holds.
   key_rotated?: boolean
-  key_rotation?: 'rotated' | 'failed' | 'unsupported' | 'not_requested'
-  detail?: string
-  error?: string
-  status_code?: number
+  key_rotation?: 'rotated' | 'failed' | 'unsupported' | 'not_requested' | 'no_key'
 }
 
 // --- Conversation history, across this person's machines -------------------

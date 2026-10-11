@@ -345,3 +345,73 @@ class TestKeyRotationHook:
             assert (
                 await client.get("/v1/me", headers=two_devices["desktop"])
             ).status_code == 403
+
+
+class TestDeviceLabels:
+    async def test_label_survives_heartbeat_and_machine_rename(self, client, two_devices):
+        await client.get('/v1/me', headers=two_devices['desktop'])
+        response = await client.patch(
+            f"/v1/devices/{two_devices['desktop_id']}",
+            headers=two_devices['laptop'], json={'display_name': '  Máy làm việc  '},
+        )
+        assert response.status_code == 200
+        assert response.json()['device']['display_name'] == 'Máy làm việc'
+        headers = {**two_devices['desktop'], 'X-AgentX-Device-Name': 'renamed-machine'}
+        await client.post('/v1/devices/heartbeat', headers=headers, json={
+            'platform': 'darwin', 'app_version': '1.0.10', 'client_name': 'AgentX Workmate',
+        })
+        body = (await client.get('/v1/devices', headers=two_devices['laptop'])).json()
+        assert body['can_rename'] is True
+        row = next(d for d in body['devices'] if d['id'] == two_devices['desktop_id'])
+        assert row['display_name'] == 'Máy làm việc'
+        assert row['name'] == 'renamed-machine'
+        assert row['client_name'] == 'AgentX Workmate'
+        assert row['app_version'] == '1.0.10'
+        assert row['revoked'] is False
+        cleared = await client.patch(
+            f"/v1/devices/{row['id']}", headers=two_devices['laptop'], json={'display_name': ''},
+        )
+        assert cleared.json()['device']['display_name'] == ''
+        assert cleared.json()['device']['name'] == 'renamed-machine'
+
+    async def test_labels_do_not_change_revocation_or_activity_history(self, client, two_devices):
+        await client.get('/v1/me', headers=two_devices['desktop'])
+        before = (await client.delete(
+            f"/v1/devices/{two_devices['desktop_id']}", headers=two_devices['laptop'],
+        )).json()['device']
+        after = (await client.patch(
+            f"/v1/devices/{two_devices['desktop_id']}", headers=two_devices['laptop'],
+            json={'display_name': 'Lost laptop'},
+        )).json()['device']
+        for key in ('id', 'revoked', 'revoked_at', 'last_seen_at', 'created_at'):
+            assert after[key] == before[key]
+        assert (await client.get('/v1/me', headers=two_devices['desktop'])).status_code == 403
+
+    async def test_cannot_rename_another_accounts_device(self, client, two_devices, realm):
+        realm.add('tok-b', subject='person-b', email='b@test', display_name='Person B')
+        other_id = new_device_id()
+        await client.get('/v1/me', headers=auth_headers('tok-b', other_id, 'Other'))
+        for target in (other_id, new_device_id(), 'invalid'):
+            response = await client.patch(
+                f'/v1/devices/{target}', headers=two_devices['laptop'], json={'display_name': 'Mine'},
+            )
+            assert response.status_code == 404
+        rows = (await client.get('/v1/devices', headers=auth_headers('tok-b', other_id))).json()['devices']
+        assert rows[0]['display_name'] == ''
+
+    @pytest.mark.parametrize('name', [None, 123, 'a' * 65, 'injected\nline', '\x00bad', 'bad\x7f'])
+    async def test_rejects_invalid_labels(self, client, two_devices, name):
+        response = await client.patch(
+            f"/v1/devices/{two_devices['laptop_id']}", headers=two_devices['laptop'],
+            json={'display_name': name},
+        )
+        assert response.status_code == 400
+
+    async def test_revoked_caller_cannot_rename(self, client, two_devices):
+        await client.get('/v1/me', headers=two_devices['desktop'])
+        await client.delete(f"/v1/devices/{two_devices['desktop_id']}", headers=two_devices['laptop'])
+        response = await client.patch(
+            f"/v1/devices/{two_devices['laptop_id']}", headers=two_devices['desktop'],
+            json={'display_name': 'Changed'},
+        )
+        assert response.status_code == 403

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { ActionStatus } from '@/components/ui/action-status'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,8 @@ interface ConfirmDialogProps {
   dismissOnConfirm?: boolean
 }
 
-// Shared confirmation dialog: Enter confirms (from anywhere in the dialog),
+// Shared confirmation dialog: Enter confirms from the dialog background.
+// Focused controls own their keys, including Cancel and the rotation checkbox.
 // Esc/Cancel/backdrop dismiss. Owns the pending → done → close beat and inline
 // error, so callers pass only an async onConfirm that does the work.
 export function ConfirmDialog({
@@ -49,6 +50,8 @@ export function ConfirmDialog({
   const { t } = useI18n()
   const [status, setStatus] = useState<'done' | 'idle' | 'saving'>('idle')
   const [error, setError] = useState<null | string>(null)
+  const closeTimer = useRef<number | null>(null)
+  const pending = useRef<AbortController | null>(null)
   const busy = status === 'saving' || status === 'done'
   const resolvedConfirmLabel = confirmLabel ?? t.common.confirm
   const resolvedBusyLabel = busyLabel ?? t.common.loading
@@ -60,21 +63,41 @@ export function ConfirmDialog({
       setStatus('idle')
       setError(null)
     }
+
+    return () => {
+      pending.current?.abort()
+
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current)
+      }
+    }
   }, [open])
 
   async function run() {
-    if (busy) {
+    if (busy || (pending.current && !pending.current.signal.aborted)) {
       return
     }
 
     setError(null)
+    const request = new AbortController()
+
+    pending.current = request
 
     if (dismissOnConfirm) {
       try {
         await onConfirm()
-        onClose()
+
+        if (!request.signal.aborted) {
+          onClose()
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : t.errors.genericFailure)
+        if (!request.signal.aborted) {
+          setError(err instanceof Error ? err.message : t.errors.genericFailure)
+        }
+      } finally {
+        if (pending.current === request) {
+          pending.current = null
+        }
       }
 
       return
@@ -84,11 +107,22 @@ export function ConfirmDialog({
 
     try {
       await onConfirm()
+
+      if (request.signal.aborted) {
+        return
+      }
+
       setStatus('done')
-      window.setTimeout(onClose, 600)
+      closeTimer.current = window.setTimeout(onClose, 600)
     } catch (err) {
-      setStatus('idle')
-      setError(err instanceof Error ? err.message : t.errors.genericFailure)
+      if (!request.signal.aborted) {
+        setStatus('idle')
+        setError(err instanceof Error ? err.message : t.errors.genericFailure)
+      }
+    } finally {
+      if (pending.current === request) {
+        pending.current = null
+      }
     }
   }
 
@@ -97,9 +131,17 @@ export function ConfirmDialog({
       <DialogContent
         className="max-w-md"
         onKeyDown={event => {
-          // Enter/Space confirm regardless of which button holds focus
-          // (preventDefault stops a focused Cancel from swallowing it).
-          if ((event.key === 'Enter' || event.key === ' ') && !busy) {
+          const target = event.target as HTMLElement
+
+          if (
+            target.closest(
+              'button, input, textarea, select, a, [role="checkbox"], [role="switch"], [contenteditable="true"]'
+            )
+          ) {
+            return
+          }
+
+          if (event.key === 'Enter' && !busy) {
             event.preventDefault()
             void run()
           }

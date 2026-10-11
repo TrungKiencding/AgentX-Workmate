@@ -6,82 +6,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { DesktopDevice } from '@/global'
 import { useI18n } from '@/i18n'
-import { Check, Monitor } from '@/lib/icons'
+import { Monitor } from '@/lib/icons'
 import { $devices, refreshDevices, revokeDevice, signOutKeycloak } from '@/store/account'
 
-import { ListRow, Pill, SectionHeading } from './primitives'
-
-type AccountCopy = ReturnType<typeof useI18n>['t']['settings']['account']
-
-/**
- * When a machine was last used, in words rather than a timestamp.
- *
- * "3 days ago" is the question being asked here — "is this the laptop I left
- * at the office?" — and an ISO string makes the reader do the subtraction.
- * Exported so its edges are testable without rendering anything.
- */
-export function describeLastSeen(iso: string, copy: AccountCopy, now = Date.now()): string {
-  const seen = Date.parse(iso || '')
-
-  if (Number.isNaN(seen)) {
-    return copy.deviceLastSeenUnknown
-  }
-
-  const minutes = Math.floor((now - seen) / 60_000)
-
-  if (minutes < 2) {
-    return copy.deviceLastSeenNow
-  }
-
-  if (minutes < 60) {
-    return copy.deviceLastSeenMinutes(minutes)
-  }
-
-  const hours = Math.floor(minutes / 60)
-
-  if (hours < 24) {
-    return copy.deviceLastSeenHours(hours)
-  }
-
-  return copy.deviceLastSeenDays(Math.floor(hours / 24))
-}
-
-/** The one line under a device's name: what it is, and when it was last here. */
-function describeDevice(device: DesktopDevice, copy: AccountCopy): string {
-  const parts = [device.platform, device.app_version].filter(Boolean)
-
-  const when = device.revoked
-    ? copy.deviceRevoked
-    : describeLastSeen(device.last_seen_at, copy)
-
-  return [parts.join(' · '), when].filter(Boolean).join(' — ')
-}
-
-/**
- * Turn a revoke outcome into a sentence the person can act on.
- *
- * Table-driven over the service's machine-readable code rather than its prose,
- * so improving a message on the server cannot silently change what the app
- * says here — and so the one refusal a person can actually do something about,
- * "this is your last device", gets its own explanation instead of a generic
- * failure.
- */
-export function describeRevokeFailure(
-  result: { detail?: string; error?: string; status?: string },
-  copy: AccountCopy
-): string {
-  if (result.error === 'cannot_revoke_last_device') {
-    return copy.deviceRevokeLastError
-  }
-
-  const byStatus: Record<string, string> = {
-    offline: copy.deviceOffline,
-    revoked: copy.deviceRevokedSelf,
-    unconfigured: copy.deviceUnconfigured
-  }
-
-  return byStatus[result.status || ''] || result.detail || copy.deviceRevokeFailed
-}
+import { describeRevokeFailure, deviceDisplayName, groupDevices } from './device-presentation'
+import { DeviceRow } from './device-row'
+import { ListRow, ListRowSkeleton, SectionHeading } from './primitives'
 
 /**
  * Settings → Account → Devices: which machines you are signed in on.
@@ -98,8 +28,16 @@ export function DeviceList() {
   const devices = useStore($devices)
   const copy = t.settings.account
   const [target, setTarget] = useState<DesktopDevice | null>(null)
+  const [signOutOpen, setSignOutOpen] = useState(false)
   const [rotateKey, setRotateKey] = useState(true)
-  const [outcome, setOutcome] = useState<null | string>(null)
+  const [outcome, setOutcome] = useState<{ message: string; retry: DesktopDevice | null } | null>(null)
+  const groups = groupDevices(devices.devices, devices.current)
+
+  function openRevoke(device: DesktopDevice) {
+    setTarget(device)
+    setRotateKey(true)
+    setOutcome(null)
+  }
 
   useEffect(() => {
     void refreshDevices()
@@ -121,8 +59,17 @@ export function DeviceList() {
   }, [devices.loaded, devices.status])
 
   // Not loaded yet, or this build has no bridge for it.
-  if (!devices.loaded || !devices.available) {
+  if (!devices.available) {
     return null
+  }
+
+  if (!devices.loaded) {
+    return (
+      <>
+        <SectionHeading icon={Monitor} title={copy.devicesTitle} />
+        <ListRowSkeleton />
+      </>
+    )
   }
 
   if (devices.status === 'unconfigured') {
@@ -132,77 +79,135 @@ export function DeviceList() {
   const unreachable = devices.status !== 'ok'
 
   return (
-    <>
-      <SectionHeading icon={Monitor} title={copy.devicesTitle} />
+    <section aria-label={copy.devicesTitle} className="min-w-0">
+      <SectionHeading
+        aside={
+          <Button disabled={devices.refreshing} onClick={() => void refreshDevices()} size="sm" variant="ghost">
+            {devices.refreshing ? t.common.loading : t.common.refresh}
+          </Button>
+        }
+        icon={Monitor}
+        title={copy.devicesTitle}
+      />
 
-      <div className="grid gap-1">
+      <div className="grid gap-4">
         {unreachable ? (
-          <ListRow
-            description={
-              devices.status === 'revoked' ? copy.deviceRevokedSelf : copy.deviceOffline
-            }
-            title={copy.devicesTitle}
-          />
+          <p className="text-sm text-destructive" role="alert">
+            {devices.status === 'revoked' ? copy.deviceRevokedSelf : copy.deviceOffline}
+          </p>
+        ) : null}
+        {groups.duplicateNames.size > 0 ? (
+          <p className="text-sm text-muted-foreground">{copy.deviceDuplicateHint}</p>
         ) : null}
 
-        {devices.devices.map(device => (
-          <ListRow
-            action={
-              device.revoked ? undefined : (
-                <Button
-                  onClick={() => {
-                    setTarget(device)
-                    // Checked by default on every open: rotation is what
-                    // actually cuts the revoked machine's model access, and
-                    // it is self-healing for the others. Resetting it here
-                    // stops a previous "no" from silently applying to the
-                    // next revocation.
-                    setRotateKey(true)
-                    setOutcome(null)
-                  }}
-                  variant="outline"
-                >
-                  {copy.deviceRevoke}
-                </Button>
-              )
-            }
-            description={describeDevice(device, copy)}
-            hint={
-              device.current ? (
-                <Pill tone="primary">
-                  <Check className="size-3" />
-                  {copy.deviceCurrent}
-                </Pill>
-              ) : undefined
-            }
+        {groups.current.map(device => (
+          <DeviceRow
+            canRename={Boolean(devices.can_rename)}
+            device={device}
+            disabled={unreachable || devices.refreshing}
+            duplicate={groups.duplicateNames.has(device.display_name || device.name)}
             key={device.id}
-            title={device.name || copy.deviceUnnamed}
+            onRevoke={openRevoke}
+            onSignOut={() => setSignOutOpen(true)}
           />
         ))}
+
+        {groups.other.length > 0 ? (
+          <section aria-label={copy.deviceOtherTitle(groups.other.length)} className="grid gap-1">
+            <h3 className="text-sm font-medium text-muted-foreground">{copy.deviceOtherTitle(groups.other.length)}</h3>
+            {groups.other.map(device => (
+              <DeviceRow
+                canRename={Boolean(devices.can_rename)}
+                device={device}
+                disabled={unreachable || devices.refreshing}
+                duplicate={groups.duplicateNames.has(device.display_name || device.name)}
+                key={device.id}
+                onRevoke={openRevoke}
+                onSignOut={() => setSignOutOpen(true)}
+              />
+            ))}
+          </section>
+        ) : null}
+
+        {groups.revoked.length > 0 ? (
+          <details className="text-sm">
+            <summary className="cursor-pointer py-2 font-medium text-muted-foreground">
+              {copy.deviceHistoryTitle(groups.revoked.length)}
+            </summary>
+            <p className="py-2 text-muted-foreground">{copy.deviceHistoryHint}</p>
+            {groups.revoked.map(device => (
+              <DeviceRow
+                canRename={Boolean(devices.can_rename)}
+                device={device}
+                disabled={unreachable || devices.refreshing}
+                duplicate={groups.duplicateNames.has(device.display_name || device.name)}
+                key={device.id}
+                onRevoke={openRevoke}
+                onSignOut={() => setSignOutOpen(true)}
+              />
+            ))}
+          </details>
+        ) : null}
 
         {!unreachable && devices.devices.length === 0 ? (
           <ListRow description={copy.devicesEmptyDesc} title={copy.devicesEmpty} />
         ) : null}
 
-        {outcome ? <ListRow description={outcome} title={copy.deviceRevoke} /> : null}
+        {outcome ? (
+          <div className="grid gap-2 text-sm" role="status">
+            <p>{outcome.message}</p>
+            {outcome.retry ? (
+              <div>
+                <Button
+                  disabled={unreachable || devices.refreshing}
+                  onClick={() => outcome.retry && openRevoke(outcome.retry)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {copy.deviceRotateRetry}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <ConfirmDialog
-        confirmLabel={copy.deviceRevoke}
+        confirmLabel={copy.deviceSignOutHere}
+        description={copy.signOutConfirmDesc}
+        onClose={() => setSignOutOpen(false)}
+        onConfirm={signOutKeycloak}
+        open={signOutOpen}
+        title={copy.signOutConfirmTitle}
+      />
+      <ConfirmDialog
+        busyLabel={target?.revoked ? copy.keyRotating : copy.deviceRevoking}
+        confirmLabel={target?.revoked ? copy.deviceRotateRetry : copy.deviceRevoke}
         description={
           <div className="grid gap-3">
-            <p>{copy.deviceRevokeConfirmDesc(target?.name || copy.deviceUnnamed)}</p>
-            <label className="flex items-start gap-2 text-left">
-              <Checkbox
-                checked={rotateKey}
-                className="mt-0.5"
-                onCheckedChange={value => setRotateKey(value === true)}
-              />
-              <span>
-                <span className="block">{copy.deviceRotateKey}</span>
-                <span className="block text-muted-foreground">{copy.deviceRotateKeyDesc}</span>
-              </span>
-            </label>
+            <p>
+              {target?.revoked
+                ? copy.deviceRotateRetryDesc
+                : copy.deviceRevokeConfirmDesc(target ? deviceDisplayName(target, copy) : copy.deviceUnnamed)}
+            </p>
+            {target ? (
+              <p className="break-all text-xs text-muted-foreground">
+                {copy.deviceIdentity}: {target.id}
+              </p>
+            ) : null}
+            {!target?.revoked ? (
+              <label className="flex items-start gap-2 text-left">
+                <Checkbox
+                  checked={rotateKey}
+                  className="mt-0.5"
+                  onCheckedChange={value => setRotateKey(value === true)}
+                />
+                <span>
+                  <span className="block">{copy.deviceRotateKey}</span>
+                  <span className="block text-muted-foreground">{copy.deviceRotateKeyDesc}</span>
+                </span>
+              </label>
+            ) : null}
           </div>
         }
         destructive
@@ -212,7 +217,7 @@ export function DeviceList() {
             return
           }
 
-          const result = await revokeDevice(target.id, { rotateKey })
+          const result = await revokeDevice(target.id, { rotateKey: target.revoked || rotateKey })
 
           if (result.status !== 'ok') {
             // Thrown so ConfirmDialog keeps itself open and shows the reason,
@@ -220,13 +225,31 @@ export function DeviceList() {
             throw new Error(describeRevokeFailure(result, copy))
           }
 
-          setOutcome(
-            result.key_rotated ? copy.deviceRevokedWithKey : copy.deviceRevokedWithoutKey
-          )
+          const rotated = result.key_rotated === true
+
+          const message = rotated
+            ? target.revoked
+              ? copy.deviceRotationDone
+              : copy.deviceRevokedWithKey
+            : result.key_rotation === 'failed'
+              ? copy.deviceRotationFailed
+              : result.key_rotation === 'unsupported'
+                ? copy.deviceRotationUnsupported
+                : result.key_rotation === 'no_key'
+                  ? copy.deviceRotationNoKey
+                  : copy.deviceRevokedWithoutKey
+
+          setOutcome({
+            message,
+            retry:
+              rotated || result.key_rotation === 'unsupported' || result.key_rotation === 'no_key'
+                ? null
+                : result.device || { ...target, revoked: true }
+          })
         }}
         open={target !== null}
-        title={copy.deviceRevokeConfirmTitle}
+        title={target?.revoked ? copy.deviceRotateRetry : copy.deviceRevokeConfirmTitle}
       />
-    </>
+    </section>
   )
 }

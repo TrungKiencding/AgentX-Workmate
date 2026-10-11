@@ -530,6 +530,16 @@ running — while staying quieter than the content they frame.
   `size="lg"`/`"xl"` with its Cancel matched.
 - **No dividers between rows** unless the list genuinely needs them; prefer
   spacing. When you do need one, it's a single `--ui-stroke-tertiary` hairline.
+- **Account devices are installations.** Keep the current install first,
+  other authorized installs below, and revoked records in collapsed history.
+  A shared hostname does not establish a shared identity: keep each install's
+  id and show registration details when names collide. Custom labels belong
+  to the account and never overwrite the hostname. Enable rename only when
+  both the service and preload advertise support. Current-install sign-out
+  uses local sign-out; revocation of another install reports account access
+  and model-key rotation separately, with a retry after partial failure.
+  Preserve cached rows through an outage, disable mutations while offline,
+  and discard pending results when the signed-in account changes.
 - **The technical surface opens on demand.** In Kho tiện ích → MCP nothing
   technical is part of the page: a connection's "Chi tiết" is a dialog (what
   stands between it and working, with its way out; its tools as toggles; the

@@ -5,6 +5,7 @@ import type {
   DesktopAccountStatus,
   DesktopDeviceList,
   DesktopDeviceRevokeResult,
+  DesktopDeviceUpdateResult,
   DesktopKeycloakStatus,
   DesktopSyncOutcome,
   DesktopSyncStatus
@@ -163,6 +164,7 @@ export async function rotateAccountKey(): Promise<DesktopAccountProvisionResult>
  * let an undeployed service make the identity panel look broken.
  */
 export interface DeviceListState extends DesktopDeviceList {
+  refreshing: boolean
   /** The preload bridge exposes `devices` at all — it is optional. */
   available: boolean
   /** `list()` has resolved at least once; distinguishes "loading" from "empty". */
@@ -174,10 +176,33 @@ const INITIAL_DEVICES: DeviceListState = {
   current: '',
   devices: [],
   loaded: false,
+  refreshing: false,
   status: 'unconfigured'
 }
 
 export const $devices = atom<DeviceListState>(INITIAL_DEVICES)
+
+let deviceGeneration = 0
+let deviceAccountGeneration = 0
+
+function deviceAccountScope(): string {
+  const account = $keycloakAccount.get()
+
+  return JSON.stringify([account.issuer, account.userId, account.signedIn])
+}
+
+let deviceScope = deviceAccountScope()
+
+$keycloakAccount.listen(() => {
+  const scope = deviceAccountScope()
+
+  if (scope !== deviceScope) {
+    deviceScope = scope
+    deviceGeneration += 1
+    deviceAccountGeneration += 1
+    $devices.set({ ...INITIAL_DEVICES })
+  }
+})
 
 /**
  * Re-read the device list. Never throws.
@@ -189,6 +214,8 @@ export const $devices = atom<DeviceListState>(INITIAL_DEVICES)
  */
 export async function refreshDevices(): Promise<DeviceListState> {
   const bridge = window.agentxDesktop?.devices
+  const generation = ++deviceGeneration
+  const scope = deviceAccountScope()
 
   if (!bridge) {
     const next = { ...INITIAL_DEVICES, loaded: true }
@@ -198,32 +225,75 @@ export async function refreshDevices(): Promise<DeviceListState> {
     return next
   }
 
-  try {
-    const body = await bridge.list()
+  $devices.set({ ...$devices.get(), available: true, refreshing: true })
 
-    const next: DeviceListState = {
-      ...INITIAL_DEVICES,
-      ...body,
-      available: true,
-      devices: body?.devices || [],
-      loaded: true
-    }
+  const body: DesktopDeviceList = await Promise.resolve()
+    .then(() => bridge.list())
+    .catch(() => ({ status: 'offline' as const, current: '', devices: [] }))
 
-    $devices.set(next)
-
-    return next
-  } catch {
-    const next: DeviceListState = {
-      ...INITIAL_DEVICES,
-      available: true,
-      loaded: true,
-      status: 'offline'
-    }
-
-    $devices.set(next)
-
-    return next
+  if (generation !== deviceGeneration || scope !== deviceAccountScope()) {
+    return $devices.get()
   }
+
+  const previous = $devices.get()
+  const transient = body.status === 'offline' || body.status === 'error'
+  const sameDevice = !body.current || !previous.current || body.current === previous.current
+
+  const next: DeviceListState = {
+    ...INITIAL_DEVICES,
+    ...body,
+    available: true,
+    can_rename: Boolean(body.can_rename && bridge.rename),
+    current: transient && sameDevice ? body.current || previous.current : body.current,
+    devices: transient && sameDevice ? previous.devices : body.devices || [],
+    loaded: true,
+    refreshing: false
+  }
+
+  $devices.set(next)
+
+  return next
+}
+
+/** Apply the mutation's authoritative row before refetching; stale reads cannot undo it. */
+function applyDeviceUpdate(result: DesktopDeviceUpdateResult, id: string): void {
+  const previous = $devices.get()
+
+  if (result.status === 'revoked' || (result.status === 'ok' && result.device?.revoked && id === previous.current)) {
+    $devices.set({ ...previous, devices: [], refreshing: false, status: 'revoked' })
+  } else if (result.status === 'ok' && result.device?.id === id) {
+    const row = result.device
+    const exists = previous.devices.some(device => device.id === id)
+
+    $devices.set({
+      ...previous,
+      devices: exists ? previous.devices.map(device => (device.id === id ? row : device)) : [...previous.devices, row],
+      refreshing: false
+    })
+  }
+}
+
+export async function renameDevice(id: string, name: string): Promise<DesktopDeviceUpdateResult> {
+  const bridge = window.agentxDesktop?.devices
+
+  if (!bridge?.rename) {
+    return { status: 'unconfigured' }
+  }
+
+  const scope = deviceAccountScope()
+  const accountGeneration = deviceAccountGeneration
+  deviceGeneration += 1
+
+  const result = await Promise.resolve()
+    .then(() => bridge.rename!(id, name))
+    .catch(() => ({ status: 'offline' as const }))
+
+  if (scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration) {
+    applyDeviceUpdate(result, id)
+    await refreshDevices()
+  }
+
+  return result
 }
 
 /**
@@ -248,6 +318,9 @@ export async function revokeDevice(
   }
 
   let result: DesktopDeviceRevokeResult
+  const scope = deviceAccountScope()
+  const accountGeneration = deviceAccountGeneration
+  deviceGeneration += 1
 
   try {
     result = await bridge.revoke(id, options)
@@ -260,7 +333,13 @@ export async function revokeDevice(
 
   // Whatever happened, the list is now stale — including the case where the
   // revoked machine was this one, which `refreshDevices` reports as `revoked`.
-  await refreshDevices()
+  if (scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration) {
+    applyDeviceUpdate(result, id)
+
+    if ($devices.get().status !== 'revoked') {
+      await refreshDevices()
+    }
+  }
 
   return result
 }

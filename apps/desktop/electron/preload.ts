@@ -146,6 +146,7 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
   // service is what decides whether that is allowed.
   devices: {
     list: () => ipcRenderer.invoke('agentx:devices:list'),
+    rename: (id, name) => ipcRenderer.invoke('agentx:devices:rename', { id, name }),
     revoke: (id, options) => ipcRenderer.invoke('agentx:devices:revoke', { id, ...options })
   },
   // Conversation history, across this person's machines. `tick` is also how

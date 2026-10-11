@@ -20,11 +20,10 @@
  * hostname the OS already broadcasts on the local network. Everything about
  * WHO is signed in comes from the verified token; this only answers WHERE.
  *
- * Parsing is deliberately total, like `account-store.ts`: a truncated or
- * hand-edited file yields a fresh id rather than throwing. This is read during
- * boot, and the cost of the failure modes is wildly asymmetric — a new id
- * costs one stale row in a device list somebody can delete, while a throw here
- * costs the user their app.
+ * Parsing is deliberately total, like `account-store.ts`: a truncated file
+ * recovers the same identity from its backup. Only when neither copy is usable
+ * do we generate a fresh id, so file damage does not usually add a stale row
+ * and an I/O failure cannot prevent the app from starting.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -54,6 +53,8 @@ export interface DeviceRecord {
 export interface DeviceStoreIo {
   readText(): string | null
   writeText(text: string): void
+  readBackupText?(): string | null
+  writeBackupText?(text: string): void
   hostname(): string
   now?(): Date
   newId?(): string
@@ -87,7 +88,7 @@ export function deviceNameFrom(hostname: string): string {
 /**
  * Parse the stored record, discarding anything that does not survive
  * validation. Returns null when there is nothing usable — the caller then
- * mints a fresh id.
+ * tries the backup before minting a fresh id.
  */
 export function parseDeviceRecord(raw: string | null | undefined): DeviceRecord | null {
   if (!raw) {
@@ -102,12 +103,14 @@ export function parseDeviceRecord(raw: string | null | undefined): DeviceRecord 
     return null
   }
 
-  if (!parsed || typeof parsed !== 'object' || !isDeviceId(parsed.id)) {
+  const id = typeof parsed?.id === 'string' ? parsed.id.toLowerCase() : ''
+
+  if (!parsed || typeof parsed !== 'object' || !isDeviceId(id)) {
     return null
   }
 
   return {
-    id: parsed.id,
+    id,
     name: typeof parsed.name === 'string' ? parsed.name : '',
     createdAt: typeof parsed.createdAt === 'string' ? parsed.createdAt : ''
   }
@@ -116,8 +119,8 @@ export function parseDeviceRecord(raw: string | null | undefined): DeviceRecord 
 /**
  * Return this install's device record, creating or repairing it as needed.
  *
- * Writes only when something actually changed — a fresh id, or a machine the
- * user has since renamed — so the common path is one read.
+ * Writes only when something actually changed or a missing copy needs repair.
+ * UUID casing never changes the install's identity.
  */
 export function readDeviceRecord(io: DeviceStoreIo): DeviceRecord {
   const name = deviceNameFrom(io.hostname())
@@ -127,14 +130,21 @@ export function readDeviceRecord(io: DeviceStoreIo): DeviceRecord {
   try {
     stored = parseDeviceRecord(io.readText())
   } catch (error) {
-    io.rememberLog?.(
-      `[device] could not read the device id: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    )
+    io.rememberLog?.(`[device] could not read the device id: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  if (stored && stored.name === name) {
+  let recovered = false
+
+  if (!stored && io.readBackupText) {
+    try {
+      stored = parseDeviceRecord(io.readBackupText())
+      recovered = stored !== null
+    } catch {
+      // Both copies are unusable: retain the existing boot recovery policy.
+    }
+  }
+
+  if (stored && stored.name === name && !recovered && !io.writeBackupText) {
     return stored
   }
 
@@ -145,15 +155,24 @@ export function readDeviceRecord(io: DeviceStoreIo): DeviceRecord {
   }
 
   try {
-    io.writeText(JSON.stringify(record, null, 2))
+    if (!stored || stored.name !== name || recovered) {
+      io.writeText(JSON.stringify(record, null, 2))
+    }
   } catch (error) {
-    // An unwritable userData means the id is regenerated on the next launch,
-    // which shows up as a duplicate row in a device list. Still better than
-    // refusing to start.
+    // The backup can still preserve the id when the primary cannot be written.
+    // Failure to write both copies must not prevent the app from starting.
     io.rememberLog?.(
-      `[device] could not persist the device id: ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `[device] could not persist the device id: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+
+  try {
+    if (io.writeBackupText && parseDeviceRecord(io.readBackupText?.())?.id !== record.id) {
+      io.writeBackupText(JSON.stringify(record, null, 2))
+    }
+  } catch (error) {
+    io.rememberLog?.(
+      `[device] could not back up the device id: ${error instanceof Error ? error.message : String(error)}`
     )
   }
 

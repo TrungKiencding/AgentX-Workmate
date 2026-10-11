@@ -372,6 +372,7 @@ async def heartbeat_device(request: Request):
         body = {}
     platform = str((body or {}).get("platform") or "")
     app_version = str((body or {}).get("app_version") or "")
+    client_name = str((body or {}).get("client_name") or "")
 
     return await _call_second_brain(
         request,
@@ -381,6 +382,29 @@ async def heartbeat_device(request: Request):
             device_name=device_name,
             platform=platform,
             app_version=app_version,
+            client_name=client_name,
+        ),
+    )
+
+
+@router.patch("/api/account/devices/{device_id}")
+async def rename_device(device_id: str, request: Request):
+    _require_session(request)
+
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Invalid device label.")
+    if not isinstance(body, dict) or not isinstance(body.get("display_name"), str):
+        raise HTTPException(400, "Invalid device label.")
+    return await _call_second_brain(
+        request,
+        lambda client, bearer, caller_id, device_name: client.rename_device(
+            device_id,
+            body["display_name"],
+            bearer=bearer,
+            device_id=caller_id,
+            device_name=device_name,
         ),
     )
 

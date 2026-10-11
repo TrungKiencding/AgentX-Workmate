@@ -270,6 +270,7 @@ class TestClientCalls:
             device_name="MacBook",
             platform="darwin",
             app_version="0.18.0",
+            client_name="AgentX Workmate",
         )
 
         import json
@@ -279,6 +280,7 @@ class TestClientCalls:
             "name": "MacBook",
             "platform": "darwin",
             "app_version": "0.18.0",
+            "client_name": "AgentX Workmate",
         }
 
 

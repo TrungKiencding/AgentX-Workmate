@@ -52,6 +52,8 @@ class DeviceRow:
     created_at: datetime
     last_seen_at: datetime
     revoked_at: datetime | None
+    display_name: str = ""
+    client_name: str = ""
 
     @property
     def revoked(self) -> bool:
@@ -61,6 +63,8 @@ class DeviceRow:
         return {
             "id": self.id,
             "name": self.name,
+            "display_name": self.display_name,
+            "client_name": self.client_name,
             "platform": self.platform,
             "app_version": self.app_version,
             "created_at": self.created_at.isoformat(),
@@ -146,6 +150,8 @@ def _device_row(record: Any) -> DeviceRow:
         created_at=record["created_at"],
         last_seen_at=record["last_seen_at"],
         revoked_at=record["revoked_at"],
+        display_name=record["display_name"],
+        client_name=record["client_name"],
     )
 
 
@@ -421,6 +427,7 @@ class Store:
         name: str = "",
         platform: str = "",
         app_version: str = "",
+        client_name: str = "",
     ) -> DeviceRow | None:
         """Upsert a device and stamp ``last_seen_at``. None when revoked.
 
@@ -436,12 +443,13 @@ class Store:
         """
         record = await self._fetchrow(
             """
-            INSERT INTO devices (subject, id, name, platform, app_version)
-            VALUES ($1, $2::uuid, $3, $4, $5)
+            INSERT INTO devices (subject, id, name, platform, app_version, client_name)
+            VALUES ($1, $2::uuid, $3, $4, $5, $6)
             ON CONFLICT (subject, id) DO UPDATE
                SET name         = COALESCE(NULLIF(EXCLUDED.name, ''), devices.name),
                    platform     = COALESCE(NULLIF(EXCLUDED.platform, ''), devices.platform),
                    app_version  = COALESCE(NULLIF(EXCLUDED.app_version, ''), devices.app_version),
+                   client_name  = COALESCE(NULLIF(EXCLUDED.client_name, ''), devices.client_name),
                    last_seen_at = now()
              WHERE devices.revoked_at IS NULL
             RETURNING *
@@ -451,6 +459,7 @@ class Store:
             name,
             platform,
             app_version,
+            client_name,
         )
         return _device_row(record) if record else None
 
@@ -465,6 +474,20 @@ class Store:
             subject,
         )
         return [_device_row(record) for record in records]
+
+    async def rename_device(self, subject: str, device_id: str, name: str) -> DeviceRow | None:
+        """An account-owned label; heartbeats continue to update the machine name."""
+        record = await self._fetchrow(
+            """
+            UPDATE devices SET display_name = $3
+             WHERE subject = $1 AND id = $2::uuid
+            RETURNING *
+            """,
+            subject,
+            device_id,
+            name,
+        )
+        return _device_row(record) if record else None
 
     async def live_device_count(self, subject: str) -> int:
         """How many of this person's devices are not revoked."""

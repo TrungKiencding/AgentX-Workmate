@@ -202,6 +202,7 @@ class SecondBrainClient:
         device_name: str = "",
         platform: str = "",
         app_version: str = "",
+        client_name: str = "",
     ) -> dict[str, Any]:
         """Announce this machine, with the details only it knows."""
         return self._request(
@@ -214,6 +215,7 @@ class SecondBrainClient:
                 "name": device_name,
                 "platform": platform,
                 "app_version": app_version,
+                "client_name": client_name,
             },
         )
 
@@ -227,6 +229,25 @@ class SecondBrainClient:
             bearer=bearer,
             device_id=device_id,
             device_name=device_name,
+        )
+
+    def rename_device(
+        self,
+        target_device_id: str,
+        name: str,
+        *,
+        bearer: str,
+        device_id: str,
+        device_name: str = "",
+    ) -> dict[str, Any]:
+        """Set an account-owned display label, preserving the machine name."""
+        return self._request(
+            "PATCH",
+            f"/v1/devices/{target_device_id}",
+            bearer=bearer,
+            device_id=device_id,
+            device_name=device_name,
+            json_body={"display_name": name},
         )
 
     def revoke_device(

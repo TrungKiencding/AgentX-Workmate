@@ -6845,6 +6845,13 @@ function _accountStoreIo(): AccountStoreIo {
 
 function _deviceStoreIo(): DeviceStoreIo {
   return {
+    readBackupText: () => {
+      try {
+        return fs.readFileSync(`${DESKTOP_DEVICE_CONFIG_PATH}.bak`, 'utf8')
+      } catch {
+        return null
+      }
+    },
     hostname: () => {
       try {
         return os.hostname()
@@ -6860,6 +6867,10 @@ function _deviceStoreIo(): DeviceStoreIo {
       }
     },
     rememberLog,
+    writeBackupText: text => {
+      fs.mkdirSync(path.dirname(DESKTOP_DEVICE_CONFIG_PATH), { recursive: true })
+      writeFileAtomic(`${DESKTOP_DEVICE_CONFIG_PATH}.bak`, text)
+    },
     writeText: text => {
       fs.mkdirSync(path.dirname(DESKTOP_DEVICE_CONFIG_PATH), { recursive: true })
       writeFileAtomic(DESKTOP_DEVICE_CONFIG_PATH, text)
@@ -10745,6 +10756,17 @@ async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
 
 ipcMain.handle('agentx:devices:list', async () => callDeviceRoute('/api/account/devices'))
 
+ipcMain.handle('agentx:devices:rename', async (_event, options) => {
+  if (typeof options?.id !== 'string' || !options.id || typeof options?.name !== 'string') {
+    return { detail: 'Invalid device label.', status: 'error' }
+  }
+
+  return callDeviceRoute(`/api/account/devices/${encodeURIComponent(options.id)}`, {
+    body: { display_name: options.name },
+    method: 'PATCH'
+  })
+})
+
 ipcMain.handle('agentx:devices:revoke', async (_event, options) => {
   const id = String(options?.id || '')
 
@@ -10769,7 +10791,7 @@ ipcMain.handle('agentx:devices:revoke', async (_event, options) => {
  */
 function heartbeatDevice(): void {
   void callDeviceRoute('/api/account/devices/heartbeat', {
-    body: { app_version: app.getVersion(), platform: process.platform },
+    body: { app_version: app.getVersion(), client_name: APP_NAME, platform: process.platform },
     method: 'POST'
   }).then(body => {
     if (body?.status && body.status !== 'ok') {

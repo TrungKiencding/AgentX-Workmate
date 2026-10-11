@@ -68,10 +68,10 @@ describe('parseDeviceRecord', () => {
     })
   })
 
-  test('rejects an uppercase uuid so one machine cannot look like two', () => {
+  test('normalizes an uppercase uuid without turning one install into two', () => {
     assert.equal(
-      parseDeviceRecord('{"id": "6D1B0A3E-1F2C-4B8A-9C7D-5E4F3A2B1C0D"}'),
-      null
+      parseDeviceRecord('{"id": "6D1B0A3E-1F2C-4B8A-9C7D-5E4F3A2B1C0D"}')?.id,
+      '6d1b0a3e-1f2c-4b8a-9c7d-5e4f3a2b1c0d'
     )
   })
 })
@@ -241,5 +241,50 @@ describe('isDeviceId', () => {
     assert.equal(isDeviceId(''), false)
     assert.equal(isDeviceId(null), false)
     assert.equal(isDeviceId(42), false)
+  })
+})
+
+describe('durable device identity', () => {
+  test('recovers the install ID from backup instead of registering another device', () => {
+    const record = readDeviceRecord(memoryIo())
+    let backup = JSON.stringify(record)
+
+    const io = memoryIo('{truncated', {
+      readBackupText: () => backup,
+      writeBackupText: value => { backup = value },
+      newId: () => { throw new Error('recovery must not mint an ID') }
+    })
+
+    const recovered = readDeviceRecord(io)
+    assert.equal(recovered.id, record.id)
+    assert.equal(recovered.createdAt, record.createdAt)
+    assert.equal(JSON.parse(io.text!).id, record.id)
+    assert.equal(readDeviceRecord(io).id, record.id)
+    assert.equal(io.writes, 1)
+  })
+
+  test('saves an ID to backup even when the primary write fails', () => {
+    let backup: string | null = null
+
+    const io = memoryIo(null, {
+      readBackupText: () => backup,
+      writeBackupText: value => { backup = value },
+      writeText: () => { throw new Error('failed write') }
+    })
+
+    const first = readDeviceRecord(io)
+    const reopened = readDeviceRecord(io)
+    assert.equal(reopened.id, first.id)
+    assert.equal(reopened.createdAt, first.createdAt)
+  })
+
+  test('normalizes a stored uppercase ID without issuing a new identity', () => {
+    const before = readDeviceRecord(memoryIo())
+
+    const io = memoryIo(JSON.stringify({ ...before, id: before.id.toUpperCase() }), {
+      newId: () => { throw new Error('existing UUID must be preserved') }
+    })
+
+    assert.equal(readDeviceRecord(io).id, before.id)
   })
 })
