@@ -2,7 +2,7 @@
   "name": "agentx-workmate",
   "productName": "AgentX Workmate",
   "private": true,
-  "version": "1.0.10",
+  "version": "1.1.0",
   "description": "Native desktop shell for AgentX Workmate.",
   "author": "AstralX Technology",
   "type": "module",
@@ -200,6 +200,10 @@
       {
         "from": "build/webmate",
         "to": "webmate"
+      },
+      {
+        "from": "build/bundled-runtime",
+        "to": "bundled-runtime"
       }
     ],
     "asar": true,
@@ -224,8 +228,18 @@
       "gatekeeperAssess": false,
       "hardenedRuntime": true,
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ]
     },
     "dmg": {

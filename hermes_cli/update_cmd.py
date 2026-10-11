@@ -2483,6 +2483,9 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
     """
     from hermes_cli.config import detect_install_method, recommended_update_command_for_method
     method = detect_install_method(_m().PROJECT_ROOT)
+    if method == "bundled":
+        print(recommended_update_command_for_method(method))
+        return
     if method == "docker":
         # Docker can't ``git fetch`` from within the container.  Surface the
         # same long-form ``docker pull`` guidance ``agentx update`` (apply
@@ -4159,6 +4162,12 @@ def _normalize_managed_eol(git_cmd, repo_root):
 def _cmd_update_impl(args, gateway_mode: bool):
     """Body of ``cmd_update`` — kept separate so the wrapper can always
     restore stdio even on ``sys.exit``."""
+    from hermes_cli.config import detect_install_method, recommended_update_command_for_method
+
+    if detect_install_method(_m().PROJECT_ROOT) == "bundled":
+        print(recommended_update_command_for_method("bundled"))
+        return
+
     # In gateway mode, use file-based IPC for prompts instead of stdin
     gw_input_fn = (
         (lambda prompt, default="": _gateway_prompt(prompt, default))

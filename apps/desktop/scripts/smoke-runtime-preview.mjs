@@ -8,10 +8,12 @@ import { execFileSync } from 'node:child_process'
 import { _electron } from '@playwright/test'
 
 const desktop = path.resolve(import.meta.dirname, '..')
-const release = path.join(desktop, 'release/runtime-preview')
-const original = path.join(release, 'mac-arm64/AgentX Workmate Runtime Preview.app')
+const production = process.argv.includes('--production')
+const product = production ? 'AgentX Workmate' : 'AgentX Workmate Runtime Preview'
+const release = path.join(desktop, production ? 'release' : 'release/runtime-preview')
+const original = path.join(release, `mac-arm64/${product}.app`)
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'workmate-preview-smoke-'))
-const copied = path.join(sandbox, 'Moved app with spaces/AgentX Workmate Runtime Preview.app')
+const copied = path.join(sandbox, `Moved app with spaces/${product}.app`)
 fs.mkdirSync(path.dirname(copied), { recursive: true })
 const dmg = fs.readdirSync(release).find(name => name.endsWith('-mac-arm64.dmg'))
 const mount = path.join(sandbox, 'mounted-dmg')
@@ -23,7 +25,7 @@ try {
   execFileSync('/usr/bin/hdiutil', ['detach', mount], { stdio: 'ignore' })
 }
 const resources = path.join(copied, 'Contents/Resources')
-const runtime = path.join(resources, 'runtime-preview')
+const runtime = path.join(resources, production ? 'bundled-runtime' : 'runtime-preview')
 const home = path.join(sandbox, 'agentx-home')
 const userData = path.join(sandbox, 'desktop-data')
 const env = {
@@ -56,7 +58,7 @@ try {
   report.checks.push('bundled Python/backend, Node, browser CLI run without developer PATH')
 
   // First prove the untouched install reaches its normal sign-in gate.
-  application = await _electron.launch({ executablePath: path.join(copied, 'Contents/MacOS/AgentX Workmate Runtime Preview'), env, args: [], timeout: 60_000 })
+  application = await _electron.launch({ executablePath: path.join(copied, `Contents/MacOS/${product}`), env, args: [], timeout: 60_000 })
   const firstPage = await application.firstWindow()
   await firstPage.waitForFunction(() => Boolean(window.agentxDesktop), { timeout: 60_000 })
   await assert.rejects(firstPage.evaluate(() => window.agentxDesktop.getConnection()), /sign-in required/)
@@ -73,7 +75,7 @@ try {
 
   for (let launch = 0; launch < 2; launch++) {
     const started = Date.now()
-    application = await _electron.launch({ executablePath: path.join(copied, 'Contents/MacOS/AgentX Workmate Runtime Preview'), env, args: [], timeout: 60_000 })
+    application = await _electron.launch({ executablePath: path.join(copied, `Contents/MacOS/${product}`), env, args: [], timeout: 60_000 })
     const page = await application.firstWindow()
     await page.waitForFunction(() => Boolean(window.agentxDesktop), { timeout: 60_000 })
     const connection = await page.evaluate(() => window.agentxDesktop.getConnection())
@@ -100,7 +102,7 @@ try {
     const version = await page.evaluate(() => window.agentxDesktop.getVersion())
     assert.equal(fs.realpathSync(version.hermesRoot), fs.realpathSync(path.join(runtime, 'source')), 'Backend escaped the bundle')
     const updates = await page.evaluate(() => window.agentxDesktop.appUpdate.get())
-    assert.equal(updates.blocked, 'dev-build')
+    assert.equal(updates.blocked, production ? null : 'dev-build')
     if (launch === 0) {
       fs.writeFileSync(path.join(home, 'preview-retained-data.txt'), 'retain me')
       await page.screenshot({ path: path.join(release, 'runtime-preview-smoke.png') })
@@ -114,7 +116,7 @@ try {
     await application.close()
     application = null
   }
-  report.checks.push('fresh launch and restart retain user data; automatic app replacement disabled')
+  report.checks.push('fresh launch and restart retain user data; updater eligibility verified')
   report.ok = true
 } catch (error) {
   report.ok = false

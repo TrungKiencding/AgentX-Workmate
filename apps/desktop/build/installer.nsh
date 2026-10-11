@@ -114,6 +114,13 @@ FunctionEnd
     StrCpy $1 "$0\agentx-agent"
     StrCpy $2 "$1\venv\Scripts\python.exe"
 
+    ; Fresh bundled installs have no legacy checkout/venv. Use the app's
+    ; standalone Python to run the same data-preserving uninstaller.
+    ${IfNot} ${FileExists} "$2"
+      StrCpy $1 "$INSTDIR\resources\bundled-runtime\source"
+      StrCpy $2 "$INSTDIR\resources\bundled-runtime\python\python.exe"
+    ${EndIf}
+
     ${If} ${FileExists} "$2"
       ; PYTHONPATH so `import hermes_cli` resolves from the checkout even
       ; when the editable install in the venv is half-broken — which is

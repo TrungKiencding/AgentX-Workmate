@@ -493,7 +493,7 @@ def detect_install_method(project_root: Optional[Path] = None) -> str:
     # 1. Code-scoped stamp — authoritative, immune to shared $AGENTX_HOME.
     try:
         method = (root / ".install_method").read_text(encoding="utf-8").strip().lower()
-        if method in supported_methods:
+        if method in supported_methods or method == "bundled":
             return method
     except OSError:
         pass
@@ -580,6 +580,8 @@ def recommended_update_command_for_method(method: str) -> str:
     """Return the update command or guidance for a given install method."""
     if method in {"nix", "nixos"}:
         return _NIX_UPDATE_MSG
+    if method == "bundled":
+        return "Open AgentX Workmate Settings → Updates, or download the installer at https://agentx-landingpage.astralx.com.vn/#tai-ve"
     if method == "docker":
         return "docker pull trungkiencding/agentx-workmate:latest"
     return "agentx update"

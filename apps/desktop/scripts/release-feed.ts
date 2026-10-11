@@ -10,8 +10,8 @@
  *
  * `build` refuses unless everything an installed app will rely on holds:
  *   - the version in package.json is the product version (hermes_cli/__init__.py);
- *   - the build stamp is clean and its commit is on origin/main — the agent each
- *     installer pins is fetched from GitHub on first launch;
+ *   - the build stamp is clean, and each installer contains a native backend
+ *     matching that commit (legacy releases require origin/main);
  *   - every installer carries that version and that stamp;
  *   - release-notes/<version>.md has Vietnamese and English notes;
  *   - the signing key is the one whose public half ships in the app
@@ -48,11 +48,12 @@ import {
   parseAppReleaseFeed,
   verifyAppReleaseFeed
 } from '../electron/app-update/feed'
-import { sha256Hex, signEd25519 } from '../electron/signed-manifest'
+import { compareVersions, sha256Hex, signEd25519 } from '../electron/signed-manifest'
 
 import { downloadAsset, type DownloadOptions, megabytes, type ReleaseAsset } from './release-download'
 import { readPeIdentity } from './win-exe-identity.mjs'
 import { winBuildManifestName } from './write-win-build-manifest.mjs'
+import { assertRuntimeManifest } from './bundled-runtime.mjs'
 
 const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
@@ -255,6 +256,31 @@ export async function assertStampOnOriginMain(
   }
 }
 
+/** Official runtime releases carry their backend; they do not need a public origin/main. */
+export function needsBundledRuntime(version: string): boolean {
+  return compareVersions(version, '1.1.0') >= 0
+}
+
+export function checkBundledInstallerResources(
+  resources: string,
+  version: string,
+  commit: string,
+  platform: string,
+  arch: string
+) {
+  const runtime = path.join(resources, 'bundled-runtime')
+  assertRuntimeManifest(readJson(path.join(runtime, 'runtime.json')), { version, commit, platform, arch })
+  for (const file of [
+    'source/hermes_cli/main.py',
+    'source/hermes_cli/__init__.py',
+    platform === 'win32' ? 'python/python.exe' : 'python/bin/python3.11',
+    platform === 'win32' ? 'node/node.exe' : 'node/bin/node'
+  ]) {
+    if (!fs.existsSync(path.join(runtime, file))) throw new ReleaseError(`incomplete bundled runtime: ${file}`)
+  }
+  agreedVersion(version, fs.readFileSync(path.join(runtime, 'source/hermes_cli/__init__.py'), 'utf8'), 'bundled ')
+}
+
 /** Mount the DMG and check the app inside carries `version` and `stampCommit`. */
 export async function checkMacInstaller(dmg: string, version: string, stampCommit: string, run: Run = defaultRun) {
   const mountPoint = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-release-'))
@@ -287,7 +313,14 @@ export async function checkMacInstaller(dmg: string, version: string, stampCommi
         )
       }
 
-      const stamp = readJson(path.join(app, 'Contents', 'Resources', 'install-stamp.json'))
+      const resources = path.join(app, 'Contents', 'Resources')
+      const stamp = readJson(path.join(resources, 'install-stamp.json'))
+
+      if (needsBundledRuntime(version)) {
+        if (info.CFBundleIdentifier !== 'com.agentx.workmate')
+          throw new ReleaseError('A preview app cannot replace the official application')
+        checkBundledInstallerResources(resources, version, stampCommit, 'darwin', 'arm64')
+      }
 
       if (stamp.commit !== stampCommit) {
         throw new ReleaseError(
@@ -334,7 +367,9 @@ export function checkWindowsInstaller(
 ) {
   checkWindowsInstallerVersion(exe, version, readVersionStrings)
 
-  const stamp = readJson(path.join(releaseDir, 'win-unpacked', 'resources', 'install-stamp.json'))
+  const resources = path.join(releaseDir, 'win-unpacked', 'resources')
+  const stamp = readJson(path.join(resources, 'install-stamp.json'))
+  if (needsBundledRuntime(version)) checkBundledInstallerResources(resources, version, stampCommit, 'win32', 'x64')
 
   if (stamp.commit !== stampCommit) {
     throw new ReleaseError(
@@ -413,7 +448,8 @@ export async function verifyReleaseDir(dir: string, publicKeyPem = APP_RELEASE_P
   const feed = verifyAppReleaseFeed(readJson(path.join(dir, FEED_FILE)), publicKeyPem)
 
   for (const [key, asset] of Object.entries(feed.assets)) {
-    const file = path.join(dir, decodeURIComponent(path.posix.basename(new URL(asset.url).pathname)))
+    const name = decodeURIComponent(path.posix.basename(new URL(asset.url).pathname))
+    const file = path.join(dir, ...(needsBundledRuntime(feed.version) ? [feed.version] : []), name)
 
     if (!(await fileMatches(file, asset.sha256, asset.bytes))) {
       throw new ReleaseError(`${key}: ${file} is missing or does not match the feed`)
@@ -459,14 +495,26 @@ export async function writeReleaseDir(options: {
     version: options.version,
     notes: options.notes,
     artifacts,
-    baseUrl: options.baseUrl,
+    baseUrl: needsBundledRuntime(options.version)
+      ? `${options.baseUrl.replace(/\/+$/, '')}/${options.version}`
+      : options.baseUrl,
     privateKeyPem: options.privateKeyPem,
     publicKeyPem
   })
 
   fs.mkdirSync(outDir, { recursive: true })
 
+  const versionDir = needsBundledRuntime(options.version) ? path.join(outDir, options.version) : null
+  if (versionDir) fs.mkdirSync(versionDir, { recursive: true })
+
   for (const artifact of artifacts) {
+    if (versionDir) {
+      const immutable = path.join(versionDir, path.basename(artifact.file))
+      if (fs.existsSync(immutable) && !(await fileMatches(immutable, artifact.sha256, artifact.bytes)))
+        throw new ReleaseError(`refusing to replace an existing versioned installer: ${immutable}`)
+      if (!fs.existsSync(immutable))
+        replaceFile(immutable, temp => fs.copyFileSync(artifact.file, temp, fs.constants.COPYFILE_FICLONE))
+    }
     const target = path.resolve(outDir, path.basename(artifact.file))
 
     if (path.resolve(artifact.file) !== target) {
@@ -600,6 +648,15 @@ export function checkWinBuildManifest(
     )
   }
 
+  if (needsBundledRuntime(expected.version)) {
+    assertRuntimeManifest(manifest.runtime, {
+      version: expected.version,
+      commit: expected.commit,
+      platform: 'win32',
+      arch: 'x64'
+    })
+  }
+
   for (const installer of expected.installers) {
     const recorded = manifest.installers?.[installer.name]
 
@@ -669,7 +726,7 @@ export async function buildFromGitHub(options: GitHubBuildOptions): Promise<AppR
   const manifestAsset = releaseAsset(release, manifestFile)
 
   log(`→ Workmate ${version} from ${tag}, agent ${release.commit.slice(0, 10)}; downloading into ${downloadDir}`)
-  await assertStampOnOriginMain(release.commit, run, repoRoot)
+  if (!needsBundledRuntime(version)) await assertStampOnOriginMain(release.commit, run, repoRoot)
 
   const committed = await productVersionAt(release.commit, run, repoRoot)
 
@@ -786,7 +843,7 @@ async function build(args: string[]) {
   const notes = parseReleaseNotes(fs.readFileSync(notesFile, 'utf8'))
 
   console.log(`→ Workmate ${version}, agent ${stamp.commit.slice(0, 10)}`)
-  await assertStampOnOriginMain(stamp.commit)
+  if (!needsBundledRuntime(version)) await assertStampOnOriginMain(stamp.commit)
 
   const artifacts: FeedArtifact[] = []
 
@@ -800,7 +857,22 @@ async function build(args: string[]) {
     if (key.startsWith('darwin')) {
       await checkMacInstaller(full, version, stamp.commit)
     } else {
-      checkWindowsInstaller(full, version, stamp.commit, releaseDir)
+      const manifestFile = path.join(releaseDir, winBuildManifestName(version))
+      if (fs.existsSync(manifestFile)) {
+        checkWindowsInstallerVersion(full, version)
+        const described = describeArtifact(key, full)
+        checkWinBuildManifest(readJson(manifestFile), {
+          file: manifestFile,
+          version,
+          tag: 'local release',
+          commit: stamp.commit,
+          installers: [
+            { name: githubAssetName(file, version), url: '', sha256: described.sha256, bytes: described.bytes }
+          ]
+        })
+      } else {
+        checkWindowsInstaller(full, version, stamp.commit, releaseDir)
+      }
     }
 
     artifacts.push(describeArtifact(key, full))

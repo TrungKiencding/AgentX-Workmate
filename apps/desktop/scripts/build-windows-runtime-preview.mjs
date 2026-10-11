@@ -83,7 +83,7 @@ if (!updateOnly) await run('npm', ['run', 'build'], desktop)
 // preview must never touch that install or its shortcuts.
 const previewInclude = path.join(desktop, 'build/windows-runtime-preview-installer.nsh')
 fs.writeFileSync(previewInclude, '; Isolated preview: standard NSIS app-only uninstall, keep user data.\n')
-const config = { ...pkg.build, extraMetadata: { version }, appId: 'com.agentx.workmate.runtime-preview', productName: product, executableName: product, artifactName: 'AgentXWorkmate-RuntimePreview-${version}-${os}-${arch}.${ext}', protocols: [], directories: { ...pkg.build.directories, output: 'release/windows-runtime-preview' }, extraResources: [...pkg.build.extraResources, { from: 'build/runtime-preview', to: 'runtime-preview' }], nsis: { ...pkg.build.nsis, include: previewInclude, shortcutName: product, uninstallDisplayName: product } }
+const config = { ...pkg.build, extraMetadata: { version }, appId: 'com.agentx.workmate.runtime-preview', productName: product, executableName: product, artifactName: 'AgentXWorkmate-RuntimePreview-${version}-${os}-${arch}.${ext}', protocols: [], directories: { ...pkg.build.directories, output: 'release/windows-runtime-preview' }, extraResources: [...pkg.build.extraResources.filter(resource => resource.to !== 'bundled-runtime'), { from: 'build/runtime-preview', to: 'runtime-preview' }], nsis: { ...pkg.build.nsis, include: previewInclude, shortcutName: product, uninstallDisplayName: product } }
 const configPath = path.join(desktop, 'build/windows-runtime-preview-builder.json')
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
 await run('npm', ['run', 'builder', '--', '--config', configPath, '--win', 'nsis', '--x64', '--publish', 'never'], desktop)

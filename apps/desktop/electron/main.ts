@@ -64,7 +64,7 @@ import { createBootPatience } from './boot-patience'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
 import { pendingInstallerTeardown, runBootstrap } from './bootstrap-runner'
-import { bundledPreviewBackend, readBundledRuntimePreview } from './bundled-runtime-preview'
+import { bundledBackend, readBundledRuntime } from './bundled-runtime-preview'
 import { defaultExecGit, resolveCheckoutPin } from './checkout-pin'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
@@ -293,11 +293,10 @@ const IS_WSL = isWslEnvironment()
 const DARWIN_MAJOR = IS_MAC ? Number.parseInt(os.release(), 10) || 0 : 0
 const APP_ROOT = app.getAppPath()
 
-const BUNDLED_RUNTIME_PREVIEW = IS_PACKAGED && (IS_MAC || IS_WINDOWS)
-  ? readBundledRuntimePreview(process.resourcesPath, app.getVersion())
-  : null
+const BUNDLED_RUNTIME =
+  IS_PACKAGED && (IS_MAC || IS_WINDOWS) ? readBundledRuntime(process.resourcesPath, app.getVersion()) : null
 
-if (BUNDLED_RUNTIME_PREVIEW && !USER_DATA_OVERRIDE) {
+if (BUNDLED_RUNTIME?.experimental && !USER_DATA_OVERRIDE) {
   const previewUserData = path.join(app.getPath('appData'), 'AgentX Workmate Runtime Preview')
   fs.mkdirSync(previewUserData, { recursive: true })
   app.setPath('userData', previewUserData)
@@ -593,7 +592,7 @@ function resolveHermesHome() {
     return path.join(path.resolve(USER_DATA_OVERRIDE), 'agentx-home')
   }
 
-  if (BUNDLED_RUNTIME_PREVIEW) {
+  if (BUNDLED_RUNTIME?.experimental) {
     return path.join(app.getPath('home'), '.agentx-workmate-runtime-preview')
   }
 
@@ -755,7 +754,8 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env.AGENTX_DESKTOP_APP_NAME || (BUNDLED_RUNTIME_PREVIEW ? 'AgentX Runtime Preview' : 'AgentX')
+const APP_NAME =
+  process.env.AGENTX_DESKTOP_APP_NAME || (BUNDLED_RUNTIME?.experimental ? 'AgentX Runtime Preview' : 'AgentX')
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 
@@ -2491,8 +2491,8 @@ function writeZoomState(zoomLevel) {
 // Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_AGENTX_ROOT.
 // AGENTX_DESKTOP_AGENTX_ROOT always wins so devs can pin a worktree.
 function resolveUpdateRoot() {
-  if (BUNDLED_RUNTIME_PREVIEW) {
-    return BUNDLED_RUNTIME_PREVIEW.source
+  if (BUNDLED_RUNTIME) {
+    return BUNDLED_RUNTIME.source
   }
 
   const candidates = [
@@ -3169,11 +3169,11 @@ function createActiveBackend(backendArgs) {
 }
 
 function resolveHermesBackend(backendArgs) {
-  if (BUNDLED_RUNTIME_PREVIEW) {
-    const backend = bundledPreviewBackend(BUNDLED_RUNTIME_PREVIEW, AGENTX_HOME, backendArgs)
+  if (BUNDLED_RUNTIME) {
+    const backend = bundledBackend(BUNDLED_RUNTIME, AGENTX_HOME, backendArgs)
 
     if (!canImportHermesCli(backend.command, { env: backend.env })) {
-      throw new Error('The bundled preview backend could not start. Reinstall the preview installer; see desktop.log for details.')
+      throw new Error('The bundled backend could not start. Reinstall AgentX Workmate; see desktop.log for details.')
     }
 
     return backend
@@ -12391,7 +12391,8 @@ function appUpdates(): AppUpdateService {
       // packaged for the backend's sake, but its executable is Electron.app in
       // node_modules, which an update must never replace.
       // Preview replacement stays disabled unless explicitly testing a signed feed.
-      isPackaged: app.isPackaged && (!BUNDLED_RUNTIME_PREVIEW || Boolean(process.env.AGENTX_DESKTOP_UPDATE_FEED_URL)),
+      isPackaged:
+        app.isPackaged && (!BUNDLED_RUNTIME?.experimental || Boolean(process.env.AGENTX_DESKTOP_UPDATE_FEED_URL)),
       platform: process.platform,
       arch: process.arch,
       execPath: process.execPath,
@@ -12646,12 +12647,12 @@ ipcMain.handle('agentx:version', async () => ({
 // bundled agent), hiding the agent/full options when there's nothing to remove.
 
 function uninstallVenvPython() {
-  return getVenvPython(VENV_ROOT)
+  return BUNDLED_RUNTIME?.python || getVenvPython(VENV_ROOT)
 }
 
 async function getUninstallSummary() {
   const py = uninstallVenvPython()
-  const agentRoot = ACTIVE_AGENTX_ROOT
+  const agentRoot = BUNDLED_RUNTIME?.source || ACTIVE_AGENTX_ROOT
 
   // Fast JS-side fallback used when the agent venv is gone (lite client) or the
   // probe fails — the renderer still needs *something* to render options from.
@@ -12690,7 +12691,12 @@ async function getUninstallSummary() {
         ['-m', 'hermes_cli.main', 'uninstall', '--gui-summary'],
         hiddenWindowsChildOptions({
           cwd: agentRoot,
-          env: { ...process.env, AGENTX_HOME, NO_COLOR: '1' },
+          env: {
+            ...process.env,
+            ...(BUNDLED_RUNTIME ? bundledBackend(BUNDLED_RUNTIME, AGENTX_HOME, []).env : {}),
+            AGENTX_HOME,
+            NO_COLOR: '1'
+          },
           stdio: ['ignore', 'pipe', 'ignore']
         })
       )
@@ -12751,9 +12757,9 @@ async function runDesktopUninstall(mode) {
   // case), fall back to the venv python — gui-only is unaffected; lite/full may
   // leave venv remnants the user can delete, which we log.
   let py = venvPy
-  let pythonPath = null
+  let pythonPath = BUNDLED_RUNTIME?.source || null
 
-  if (modeRemovesAgent(mode)) {
+  if (modeRemovesAgent(mode) && !BUNDLED_RUNTIME) {
     const sysPy = findSystemPython()
 
     if (sysPy) {
@@ -12931,7 +12937,7 @@ ipcMain.handle('agentx:deep-link-ready', () => {
 })
 
 function registerDeepLinkProtocol() {
-  if (BUNDLED_RUNTIME_PREVIEW) {
+  if (BUNDLED_RUNTIME?.experimental) {
     return
   }
 

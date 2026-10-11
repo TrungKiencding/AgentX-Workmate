@@ -88,7 +88,7 @@ const config = {
   artifactName: 'AgentXWorkmate-RuntimePreview-${version}-${os}-${arch}.${ext}',
   protocols: [],
   directories: { ...pkg.build.directories, output: 'release/runtime-preview' },
-  extraResources: [...pkg.build.extraResources, { from: 'build/runtime-preview', to: 'runtime-preview' }],
+  extraResources: [...pkg.build.extraResources.filter(resource => resource.to !== 'bundled-runtime'), { from: 'build/runtime-preview', to: 'runtime-preview' }],
   mac: { ...pkg.build.mac, target: ['dmg'], identity: null, extendInfo: { ...pkg.build.mac.extendInfo, CFBundleDisplayName: product, CFBundleExecutable: product, CFBundleName: product } },
   dmg: { ...pkg.build.dmg, title: `Install ${product}` }
 }

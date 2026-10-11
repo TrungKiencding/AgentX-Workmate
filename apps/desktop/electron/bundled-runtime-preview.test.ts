@@ -38,7 +38,13 @@ describe('opt-in bundled runtime preview', () => {
   test('invalid or incomplete payload fails instead of downloading another backend', () => {
     const resources = fixture()
     expect(() => readBundledRuntimePreview(resources, '2.0.0')).toThrow(/does not match/)
-    fs.unlinkSync(path.join(resources, 'runtime-preview', process.platform === 'win32' ? 'python/python.exe' : 'python/bin/python3.11'))
+    fs.unlinkSync(
+      path.join(
+        resources,
+        'runtime-preview',
+        process.platform === 'win32' ? 'python/python.exe' : 'python/bin/python3.11'
+      )
+    )
     expect(() => readBundledRuntimePreview(resources, '1.0.10')).toThrow(/incomplete/)
   })
   test('paths follow a moved bundle, optional packages stay outside the app', () => {
@@ -51,8 +57,41 @@ describe('opt-in bundled runtime preview', () => {
     expect(backend.command.startsWith(moved)).toBe(true)
     expect(backend.env.PYTHONHOME.startsWith(moved)).toBe(true)
     expect(backend.env.PYTHONPATH).toBe(runtime.source)
-    expect(backend.env.AGENTX_LAZY_INSTALL_TARGET.startsWith(path.join(os.tmpdir(), 'preview-user-home') + path.sep)).toBe(true)
+    expect(
+      backend.env.AGENTX_LAZY_INSTALL_TARGET.startsWith(path.join(os.tmpdir(), 'preview-user-home') + path.sep)
+    ).toBe(true)
     expect(backend.bootstrap).toBe(false)
     expect(backend.args).toEqual(['-m', 'hermes_cli.main', 'serve'])
+  })
+})
+
+describe('official bundled runtime', () => {
+  test('uses the existing profile and enables the immutable backend without bootstrap', () => {
+    const resources = fixture()
+    fs.renameSync(path.join(resources, 'runtime-preview'), path.join(resources, 'bundled-runtime'))
+    fs.writeFileSync(
+      path.join(resources, 'bundled-runtime/runtime.json'),
+      JSON.stringify({
+        schema: 1,
+        version: '1.0.10',
+        platform: process.platform,
+        arch: process.arch,
+        experimental: false,
+        commit: 'a'.repeat(40)
+      })
+    )
+    const runtime = readBundledRuntimePreview(resources, '1.0.10')!
+    const oldHome = path.join(resources, 'existing-profile')
+    const backend = bundledPreviewBackend(runtime, oldHome, ['serve'])
+    expect(runtime.experimental).toBe(false)
+    expect(backend.env.AGENTX_HOME).toBe(oldHome)
+    expect(backend.env.AGENTX_LAZY_INSTALL_TARGET).toContain(path.join(oldHome, 'runtime-packages'))
+    expect(backend.bootstrap).toBe(false)
+    expect(backend.root).toBe(path.join(resources, 'bundled-runtime/source'))
+  })
+  test('an incomplete official payload fails instead of adopting an old checkout or preview', () => {
+    const resources = fixture()
+    fs.mkdirSync(path.join(resources, 'bundled-runtime'))
+    expect(() => readBundledRuntimePreview(resources, '1.0.10')).toThrow(/incomplete/)
   })
 })

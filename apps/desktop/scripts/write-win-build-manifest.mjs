@@ -67,25 +67,32 @@ export async function readWinBuild(releaseDir, version) {
     throw new Error(`no ${prefix}*.exe in ${releaseDir}`)
   }
 
-  return { stamp: JSON.parse(stamps[0]), installers }
+  const runtimeFile = join(releaseDir, unpacked[0], 'resources', 'bundled-runtime', 'runtime.json')
+  let runtime
+  try {
+    runtime = JSON.parse(readFileSync(runtimeFile, 'utf8'))
+  } catch {
+    /* Legacy builds have no bundled payload. */
+  }
+  return { stamp: JSON.parse(stamps[0]), installers, runtime }
 }
 
 /** The manifest, naming the CI run that built it when there is one. */
-export function winBuildManifest({ version, stamp, installers, env = process.env }) {
+export function winBuildManifest({ version, stamp, installers, runtime, env = process.env }) {
   const run = env.GITHUB_RUN_ID
     ? `${env.GITHUB_SERVER_URL || 'https://github.com'}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/attempts/${env.GITHUB_RUN_ATTEMPT || '1'}`
     : null
 
-  return { schema: 1, product: 'agentx-workmate', version, stamp, installers, run }
+  return { schema: 1, product: 'agentx-workmate', version, stamp, installers, run, ...(runtime ? { runtime } : {}) }
 }
 
 async function main() {
   const version = JSON.parse(readFileSync(join(DESKTOP_ROOT, 'package.json'), 'utf8')).version
   const releaseDir = join(DESKTOP_ROOT, 'release')
-  const { stamp, installers } = await readWinBuild(releaseDir, version)
+  const { stamp, installers, runtime } = await readWinBuild(releaseDir, version)
   const file = join(releaseDir, winBuildManifestName(version))
 
-  writeFileSync(file, `${JSON.stringify(winBuildManifest({ version, stamp, installers }), null, 2)}\n`)
+  writeFileSync(file, `${JSON.stringify(winBuildManifest({ version, stamp, installers, runtime }), null, 2)}\n`)
   console.log(
     `[win-build-manifest] wrote ${file} -> ${String(stamp.commit).slice(0, 12)} for ${Object.keys(installers).join(', ')}`
   )

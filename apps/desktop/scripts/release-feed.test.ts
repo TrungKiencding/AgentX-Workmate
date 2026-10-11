@@ -596,3 +596,28 @@ describe('build --from-github', () => {
     expect(() => releaseAsset(release, 'd.exe')).toThrow(/has no d.exe/)
   })
 })
+
+it('official release downloads stay versioned and refuse replacement with different bytes', async () => {
+  const keys = testKeys()
+  const outDir = path.join(dir, 'official-out')
+  const file = path.join(dir, 'AgentXWorkmate-win-x64.exe')
+  fs.writeFileSync(file, 'official installer')
+  const options = {
+    outDir,
+    version: '1.1.0',
+    notes: NOTES,
+    artifacts: [describeArtifact('win32-x64', file)],
+    baseUrl: 'https://downloads.example.test/install',
+    privateKeyPem: keys.privatePem,
+    publicKeyPem: keys.publicPem
+  }
+  const feed = await writeReleaseDir(options)
+  expect(feed.assets['win32-x64'].url).toContain('/install/1.1.0/')
+  expect(fs.readFileSync(path.join(outDir, '1.1.0', path.basename(file)), 'utf8')).toBe('official installer')
+  await expect(verifyReleaseDir(outDir, keys.publicPem)).resolves.toMatchObject({ version: '1.1.0' })
+  fs.writeFileSync(file, 'replacement installer')
+  await expect(writeReleaseDir({ ...options, artifacts: [describeArtifact('win32-x64', file)] })).rejects.toThrow(
+    /refusing to replace/
+  )
+  await expect(verifyReleaseDir(outDir, keys.publicPem)).resolves.toMatchObject({ version: '1.1.0' })
+})

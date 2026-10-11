@@ -8,11 +8,12 @@ import { execFileSync } from 'node:child_process'
 import { _electron } from '@playwright/test'
 assert.equal(process.platform, 'win32')
 assert.equal(process.env.CI, 'true')
-const [executable, root, oldHome] = process.argv.slice(2)
+const production = process.argv.includes('--production')
+const [executable, root, oldHome] = process.argv.slice(2).filter(value => !value.startsWith('--'))
 assert.ok(path.resolve(root).startsWith(path.resolve(process.env.RUNNER_TEMP) + path.sep))
 fs.mkdirSync(root, { recursive: true })
 const home = path.join(root, 'user-home')
-const runtime = path.join(path.dirname(executable), 'resources/runtime-preview')
+const runtime = path.join(path.dirname(executable), production ? 'resources/bundled-runtime' : 'resources/runtime-preview')
 const source = path.join(runtime, 'source')
 const python = path.join(runtime, 'python/python.exe')
 const system = process.env.SystemRoot || process.env.SYSTEMROOT
@@ -106,7 +107,7 @@ try {
     const version=await page.evaluate(()=>window.agentxDesktop.getVersion())
     assert.equal(fs.realpathSync(version.hermesRoot),fs.realpathSync(source))
     assert.equal(version.appVersion,report.version)
-    assert.equal((await page.evaluate(()=>window.agentxDesktop.appUpdate.get())).blocked,'dev-build')
+    assert.equal((await page.evaluate(()=>window.agentxDesktop.appUpdate.get())).blocked,production ? null : 'dev-build')
     assert(!fs.existsSync(path.join(home,'agentx-agent')),'Downloaded managed backend')
     assert.deepEqual(cacheInventory(path.join(home,'bootstrap-cache')),oldCache,'Bundled launch created or changed bootstrap cache')
     const marker=path.join(home,'preview-data-marker.txt')
@@ -115,7 +116,7 @@ try {
     report.launches.push({launch:launch+1,backendReadyMs:Date.now()-started,bootstrapSkipped:true})
     await closeApplication()
   }
-  report.checks.push('real gateway ready offline across three launches; data retained; preview updates disabled by default')
+  report.checks.push('real gateway ready offline across three launches; data retained; updater eligibility verified')
   report.ok=true
 } catch(error) {report.ok=false;report.error=error.stack;console.error(error);process.exitCode=1}
 finally {

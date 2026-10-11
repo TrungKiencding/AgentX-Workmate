@@ -4603,6 +4603,13 @@ async def update_hermes():
         }
 
     install_method = detect_install_method(PROJECT_ROOT)
+    if install_method == "bundled":
+        return {
+            "ok": False, "pid": None, "name": "agentx-update",
+            "error": "bundled_update_managed_externally",
+            "message": recommended_update_command_for_method("bundled"),
+            "update_command": recommended_update_command_for_method("bundled"),
+        }
     if install_method == "docker":
         message = format_docker_update_message()
         _record_completed_action("agentx-update", message, exit_code=1)
@@ -4734,6 +4741,13 @@ async def check_hermes_update(force: bool = False):
         }
 
     install_method = detect_install_method(PROJECT_ROOT)
+    if install_method == "bundled":
+        return {
+            "install_method": "bundled", "current_version": __version__,
+            "behind": 0, "update_available": False, "can_apply": False,
+            "update_command": recommended_update_command_for_method("bundled"),
+            "message": recommended_update_command_for_method("bundled"),
+        }
     update_command = recommended_update_command_for_method(install_method)
 
     payload: Dict[str, Any] = {

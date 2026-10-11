@@ -13,7 +13,12 @@ import { signAppAdHoc } from './sign-mac-adhoc.mjs'
 
 const desktop = path.resolve(import.meta.dirname, '..')
 const repo = path.resolve(desktop, '../..')
-const release = path.join(desktop, 'release/runtime-preview')
+const production = process.argv.includes('--production')
+const oldVersion = production ? '1.0.10' : '1.0.5'
+const newVersion = production
+  ? JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8')).version
+  : '1.0.10'
+const release = path.join(desktop, production ? 'release' : 'release/runtime-preview')
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'workmate-real-upgrade-'))
 const home = path.join(sandbox, 'old-home')
 const userData = path.join(sandbox, 'desktop-data')
@@ -36,8 +41,8 @@ const report: Record<string, any> = {
   checks: [],
   sandbox,
   keychainTestName: appName,
-  oldVersion: '1.0.5',
-  newVersion: '1.0.10',
+  oldVersion,
+  newVersion,
   realOldProcess: true,
   syntheticCredentials: true
 }
@@ -154,7 +159,7 @@ try {
       '-noautoopen',
       '-mountpoint',
       mount,
-      path.join(desktop, 'release/AgentXWorkmate-mac-arm64.dmg')
+      process.env.AGENTX_TEST_OLD_DMG || path.join(desktop, 'release/AgentXWorkmate-mac-arm64.dmg')
     ],
     { stdio: 'ignore' }
   )
@@ -163,8 +168,12 @@ try {
   } finally {
     execFileSync('hdiutil', ['detach', mount], { stdio: 'ignore' })
   }
-  const dmg = process.env.AGENTX_TEST_UPGRADE_DMG || path.join(sandbox, 'new-release.dmg')
-  if (!process.env.AGENTX_TEST_UPGRADE_DMG) {
+  const dmg =
+    process.env.AGENTX_TEST_UPGRADE_DMG ||
+    (production
+      ? path.join(release, `AgentXWorkmate-${newVersion}-mac-arm64.dmg`)
+      : path.join(sandbox, 'new-release.dmg'))
+  if (!process.env.AGENTX_TEST_UPGRADE_DMG && !production) {
     execFileSync('ditto', [path.join(release, 'mac-arm64/AgentX Workmate Runtime Preview.app'), newBundle])
     const plist = path.join(newBundle, 'Contents/Info.plist')
     for (const [key, value] of Object.entries({
@@ -253,7 +262,7 @@ try {
   feed = {
     schema: 1,
     product: 'agentx-workmate',
-    version: '1.0.10',
+    version: newVersion,
     publishedAt: new Date().toISOString(),
     notes: { vi: ['Kiểm tra nâng cấp'], en: ['Upgrade test'] },
     assets: {
@@ -278,7 +287,7 @@ try {
   })
   const oldPage = await application.firstWindow()
   await oldPage.waitForFunction(() => Boolean(window.agentxDesktop))
-  assert.equal((await oldPage.evaluate(() => window.agentxDesktop.getVersion())).appVersion, '1.0.5')
+  assert.equal((await oldPage.evaluate(() => window.agentxDesktop.getVersion())).appVersion, oldVersion)
   const oldConnection = await poll(() => oldPage.evaluate(() => window.agentxDesktop.getConnection()))
   await gateway(oldConnection.wsUrl || oldConnection.url, 'session.list')
   report.checks.push('real 1.0.5 Electron app and source backend started successfully')
@@ -347,10 +356,15 @@ try {
   })
   await newPage.waitForFunction(() => Boolean(window.agentxDesktop))
   const version = await newPage.evaluate(() => window.agentxDesktop.getVersion())
-  assert.equal(version.appVersion, '1.0.10')
+  assert.equal(version.appVersion, newVersion)
   assert.equal(
     fs.realpathSync(version.hermesRoot),
-    fs.realpathSync(path.join(bundle, 'Contents/Resources/runtime-preview/source'))
+    fs.realpathSync(
+      path.join(
+        bundle,
+        production ? 'Contents/Resources/bundled-runtime/source' : 'Contents/Resources/runtime-preview/source'
+      )
+    )
   )
   const connection = await poll(() => newPage.evaluate(() => window.agentxDesktop.getConnection()))
   assert(JSON.stringify(await gateway(connection.wsUrl || connection.url, 'session.list')).includes('real-old-session'))

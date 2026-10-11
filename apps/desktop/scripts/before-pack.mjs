@@ -61,6 +61,7 @@ import { existsSync, rmSync, renameSync } from 'node:fs'
 import path from 'node:path'
 import { Arch } from 'electron-builder'
 import { stageNodePty } from './stage-native-deps.mjs'
+import { prepareBundledRuntime } from './bundled-runtime.mjs'
 
 export function cleanStaleAppOutDir(appOutDir) {
   if (!appOutDir || typeof appOutDir !== 'string') {
@@ -111,6 +112,14 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'AgentX Workm
 }
 
 export default async function beforePack(context) {
+  const appId = context?.packager?.config?.appId
+  if (appId === 'com.agentx.workmate') {
+    await prepareBundledRuntime({
+      desktop: path.resolve(import.meta.dirname, '..'),
+      platform: context.electronPlatformName,
+      arch: Arch[context.arch]
+    })
+  }
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
   try {
