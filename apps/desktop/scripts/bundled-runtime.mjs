@@ -17,6 +17,7 @@ const RUNTIME_DIRS = new Set([
   'plugins',
   'providers',
   'second_brain',
+  'locales',
   'skills',
   'optional-skills',
   'optional-mcps',
@@ -28,7 +29,7 @@ export function isRuntimeSource(relative) {
     return false
   return parts.length === 1
     ? relative.endsWith('.py') ||
-        ['pyproject.toml', 'uv.lock', 'LICENSE', 'README.md', 'config.example.yaml'].includes(relative)
+        ['pyproject.toml', 'uv.lock', 'LICENSE', 'README.md', 'config.example.yaml', 'cli-config.yaml.example'].includes(relative)
     : RUNTIME_DIRS.has(parts[0])
 }
 export function copyRuntimeSource(repo, out, tracked) {
@@ -161,6 +162,7 @@ export async function prepareBundledRuntime({ desktop, platform = process.platfo
   )
   copyRuntimeSource(repo, out, tracked)
   fs.writeFileSync(path.join(out, 'source/.install_method'), 'bundled\n')
+  fs.writeFileSync(path.join(out, 'source/.hermes_build_sha'), `${stamp.commit}\n`)
   fs.mkdirSync(path.join(out, 'bin'), { recursive: true })
   const uv =
     platform === 'win32'

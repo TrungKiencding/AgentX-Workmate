@@ -78,6 +78,10 @@ try {
     console.log(execFileSync(path.join(runtime,tool),['--version'],{env:backendEnv,encoding:'utf8',timeout:30000}).trim())
   }
   report.checks.push('Python/backend, Node, uv, browser CLI, Git and Bash run without developer PATH')
+  if (production) {
+    console.log(pythonRun("from agent.i18n import t; from pathlib import Path; import hermes_cli; assert t('approval.denied', lang='vi') != 'approval.denied'; assert t('approval.denied', lang='vi') != t('approval.denied', lang='en'); assert (Path(hermes_cli.__file__).parent.parent/'cli-config.yaml.example').is_file(); print('bundled translations and config template OK')"))
+    report.checks.push('real bundled backend loads Vietnamese translations and the config recovery template')
+  }
   if (!oldHome) {
     app=await _electron.launch({executablePath:executable,env,args:['--disable-gpu','--no-sandbox'],timeout:60000})
     const page=await app.firstWindow()

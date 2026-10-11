@@ -56,6 +56,10 @@ try {
   execFileSync(path.join(runtime, 'node/bin/node'), ['--version'], { env, stdio: 'inherit' })
   execFileSync(path.join(runtime, 'bin/agent-browser'), ['--version'], { env, stdio: 'inherit' })
   report.checks.push('bundled Python/backend, Node, browser CLI run without developer PATH')
+  if (production) {
+    execFileSync(path.join(runtime, 'python/bin/python3.11'), ['-c', "from agent.i18n import t; from pathlib import Path; assert t('approval.denied', lang='vi') != 'approval.denied'; assert t('approval.denied', lang='vi') != t('approval.denied', lang='en'); assert Path('cli-config.yaml.example').is_file(); print('bundled translations and config template OK')"], { cwd: path.join(runtime, 'source'), env: backendEnv, stdio: 'inherit' })
+    report.checks.push('real bundled backend loads Vietnamese translations and the config recovery template')
+  }
 
   // First prove the untouched install reaches its normal sign-in gate.
   application = await _electron.launch({ executablePath: path.join(copied, `Contents/MacOS/${product}`), env, args: [], timeout: 60_000 })
