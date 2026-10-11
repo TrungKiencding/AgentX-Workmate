@@ -3,6 +3,11 @@ name: Verify published Windows upgrade
 on:
   workflow_dispatch:
     inputs:
+      bundled_preview:
+        description: Build and test an isolated fully bundled Windows preview
+        default: false
+        required: false
+        type: boolean
       exercise_bootstrap:
         description: Also install the backend and load old plugins across restarts
         default: true
@@ -26,7 +31,11 @@ permissions:
   contents: read
 
 jobs:
+  bundled-preview:
+    if: inputs.bundled_preview
+    uses: ./.github/workflows/build-windows-runtime-preview.yml
   upgrade:
+    if: ${{ !inputs.bundled_preview }}
     runs-on: windows-latest
     timeout-minutes: 40
     steps:

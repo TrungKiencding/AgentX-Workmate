@@ -1,6 +1,7 @@
 name: Build and test Windows bundled runtime preview
 on:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 jobs:
