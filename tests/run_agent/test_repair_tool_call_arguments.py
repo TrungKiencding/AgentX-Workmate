@@ -5,6 +5,8 @@ import json
 import pytest
 
 from agent.message_sanitization import _repair_tool_call_arguments
+
+
 class TestRepairToolCallArguments:
     """Verify each repair stage in the pipeline."""
 
