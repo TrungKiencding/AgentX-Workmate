@@ -4157,7 +4157,7 @@ def _is_structured_output_rejection(exc: Exception) -> bool:
     # mime type: 'application/json' is unsupported" (pre-Gemini-3 + tools via a proxy), or an
     # "Unknown name"/"Invalid value" 400 on response_schema / response_json_schema for a schema the
     # surface cannot express. Same remedy: one retry without the format.
-    if _contains_any(err_lower, ("response mime type", "response_schema", "response_json_schema")):
+    if any(name in err_lower for name in ("response mime type", "response_schema", "response_json_schema")):
         return True
     return _is_unsupported_parameter_error(exc, "response_format") or _is_unsupported_parameter_error(exc, "output_config")
 

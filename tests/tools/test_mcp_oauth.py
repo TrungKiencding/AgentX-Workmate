@@ -1124,7 +1124,7 @@ def test_non_object_oauth_cache_is_treated_as_corrupt(tmp_path, payload, kind):
     elif kind == "tokens":
         assert asyncio.run(storage.get_tokens()) is None
     else:
-        assert storage.get_oauth_metadata() is None
+        assert storage.load_oauth_metadata() is None
 
 
 @pytest.mark.parametrize("uris", [123, {"a": 1}, None])

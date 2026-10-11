@@ -16841,3 +16841,20 @@ def test_prompt_submit_releases_old_history_before_heap_trim(monkeypatch):
         assert cleanup_order == ["trim", "reset_home"]
     finally:
         server._sessions.pop("sid_trim", None)
+
+
+@pytest.mark.parametrize("key,value", [("model", "other/model"), ("fast", "1"), ("yolo", "1"), ("reasoning", "high")])
+def test_stale_session_settings_leave_profile_and_process_unchanged(tmp_path, monkeypatch, key, value):
+    config = tmp_path / "config.yaml"
+    config.write_text("model: original/model\nfast: false\napprovals:\n  mode: manual\n")
+    before = config.read_bytes()
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.setattr(server, "_hermes_home", tmp_path)
+    monkeypatch.setenv("AGENTX_YOLO_MODE", "0")
+    env_before = dict(os.environ)
+    with patch.dict(server._sessions, {}, clear=True):
+        response = server.handle_request({"id": "stale-setting", "method": "config.set",
+            "params": {"session_id": "expired-session", "key": key, "value": value}})
+    assert response["error"]["code"] == 4001
+    assert config.read_bytes() == before
+    assert dict(os.environ) == env_before

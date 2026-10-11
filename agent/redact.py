@@ -1348,7 +1348,7 @@ def redact_terminal_output(
     cmd = command or ""
     code_file = not (is_env_dump_command(cmd) or _command_reads_env_file(cmd))
     redacted = redact_sensitive_text(output, force=force, code_file=code_file)
-    if code_file and (force or _redact_enabled()) and ":" in redacted and "'" in redacted:
+    if code_file and (force or _REDACT_ENABLED) and ":" in redacted and "'" in redacted:
         redacted = _redact_python_diagnostic_repr_fields(redacted)
     return redacted
 

@@ -1,6 +1,6 @@
 """The iterative-update instruction must name the heading the template emits."""
 
-from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from agent.context_compressor import (
     ContextCompressor,
@@ -11,14 +11,17 @@ from agent.context_compressor import (
 
 def _iterative_prompt() -> str:
     """The prompt built when a previous summary exists (the update path)."""
-    stub = SimpleNamespace(
-        tail_mode="lean",
-        _previous_summary="PREVIOUS SUMMARY BODY",
-        _bound_summary_input=lambda text: text,
-    )
-    stub._summary_template_sections = ContextCompressor._summary_template_sections
-    stub._build_summary_prompt = ContextCompressor._build_summary_prompt.__get__(stub)
-    return stub._build_summary_prompt("NEW TURNS", 2000, None, "", True)
+    with patch("agent.context_compressor.get_model_context_length", return_value=100000):
+        compressor = ContextCompressor(model="test/model", quiet_mode=True)
+    compressor._previous_summary = "PREVIOUS SUMMARY BODY"
+    response = MagicMock()
+    response.choices[0].message.content = "Updated summary"
+    with patch("agent.context_compressor.call_llm", return_value=response) as call:
+        compressor._generate_summary([
+            {"role": "user", "content": "do X"},
+            {"role": "assistant", "content": "I will do X"},
+        ])
+    return call.call_args.kwargs["messages"][-1]["content"]
 
 
 def test_update_instruction_names_the_emitted_heading():
