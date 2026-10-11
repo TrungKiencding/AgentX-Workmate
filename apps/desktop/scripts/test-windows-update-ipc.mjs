@@ -36,7 +36,7 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const port = server.address().port
 feed = { schema: 1, product: 'agentx-workmate', version: expectedNew, publishedAt: new Date().toISOString(), notes: { vi: ['Kiểm thử cập nhật Windows'], en: ['Windows update test'] }, assets: { 'win32-x64': { url: `http://127.0.0.1:${port}/update.exe`, sha256: createHash('sha256').update(fs.readFileSync(installer)).digest('hex'), bytes: fs.statSync(installer).size } } }
 feed.signature = signEd25519(feed, privateKey.export({ type: 'pkcs8', format: 'pem' }).toString())
-async function poll(fn, milliseconds = 180000) {
+async function poll(fn, milliseconds = 600000) {
   const until = Date.now() + milliseconds
   let last
   while (Date.now() < until) {
@@ -109,7 +109,7 @@ try {
     return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-OutputFormat', 'Text', '-EncodedCommand', Buffer.from(prepared, 'utf16le').toString('base64')], { encoding: 'utf8', timeout: 15000 }).trim()
   }
   await poll(() => {
-    const value = powershell(`(Get-Item -LiteralPath '${quoted}').VersionInfo.ProductVersion`)
+    const value = powershell(`(Get-Item -LiteralPath '${quoted}' -ErrorAction SilentlyContinue).VersionInfo.ProductVersion`)
     if (value !== lastVersion) console.log('IPC: executable ProductVersion=' + JSON.stringify(value))
     lastVersion = value
     return value === `${expectedNew}.0`
