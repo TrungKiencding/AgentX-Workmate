@@ -1,7 +1,9 @@
+import { execFile } from 'node:child_process'
 import { generateKeyPairSync } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -142,6 +144,44 @@ describe('build checks', () => {
     expect(calls).toEqual(['git fetch --quiet origin main', `git merge-base --is-ancestor ${COMMIT} origin/main`])
     await expect(assertStampOnOriginMain(COMMIT, run(false), dir)).rejects.toThrow(/not on origin\/main/)
   })
+
+  it('accepts a branch commit only after it is merged and pushed to the real origin main', async () => {
+    const exec = promisify(execFile)
+    const run: Run = async (file, args, options) => exec(file, args, { ...options, timeout: 60_000 })
+    const origin = path.join(dir, 'origin.git')
+    const checkout = path.join(dir, 'checkout')
+    await run('git', ['init', '--bare', '--initial-branch=main', origin])
+    await run('git', ['init', '--initial-branch=main', checkout])
+    const git = (args: string[]) => run('git', args, { cwd: checkout })
+    const commit = () =>
+      git([
+        '-c',
+        'user.name=Release Test',
+        '-c',
+        'user.email=release@example.test',
+        '-c',
+        'commit.gpgsign=false',
+        'commit',
+        '-am',
+        'fixture'
+      ])
+    writeFile(path.join(checkout, 'backend.txt'), 'main runtime')
+    await git(['add', 'backend.txt'])
+    await commit()
+    await git(['remote', 'add', 'origin', origin])
+    await git(['push', 'origin', 'main'])
+    await git(['switch', '-c', 'codex/release-check'])
+    writeFile(path.join(checkout, 'backend.txt'), 'new bundled runtime')
+    await commit()
+    const stamp = (await git(['rev-parse', 'HEAD'])).stdout.trim()
+
+    await expect(assertStampOnOriginMain(stamp, run, checkout)).rejects.toThrow(/not on origin\/main/)
+    await git(['switch', 'main'])
+    await git(['merge', '--ff-only', 'codex/release-check'])
+    await expect(assertStampOnOriginMain(stamp, run, checkout)).rejects.toThrow(/not on origin\/main/)
+    await git(['push', 'origin', 'main'])
+    await expect(assertStampOnOriginMain(stamp, run, checkout)).resolves.toBeUndefined()
+  }, 60_000)
 
   it('checks the app inside the disk image for the version and the stamp, and always detaches', async () => {
     const detached: string[] = []
@@ -327,7 +367,8 @@ describe('build --from-github', () => {
   }
 
   /** GitHub, git, hdiutil and the exe's version resource as one release presents them. */
-  function fakeRelease(release: FakeRelease) {
+  function fakeRelease(release: FakeRelease, version = '1.0.9') {
+    const tag = `desktop-v${version}`
     const calls: string[] = []
     const downloads: string[] = []
     const mounted: string[] = []
@@ -339,7 +380,7 @@ describe('build --from-github', () => {
       size: data.length,
       state: 'uploaded',
       digest: release.digests?.[name] ?? `sha256:${sha256Hex(data)}`,
-      browser_download_url: `https://github.com/TrungKiencding/AgentX-Workmate/releases/download/${TAG}/${name}`
+      browser_download_url: `https://github.com/TrungKiencding/AgentX-Workmate/releases/download/${tag}/${name}`
     }))
 
     const run: Run = async (file, args) => {
@@ -348,11 +389,11 @@ describe('build --from-github', () => {
       if (file === 'gh') {
         const endpoint = args[1].replace('repos/TrungKiencding/AgentX-Workmate/', '')
 
-        if (endpoint === `releases/tags/${TAG}`) {
-          return json({ tag_name: TAG, assets })
+        if (endpoint === `releases/tags/${tag}`) {
+          return json({ tag_name: tag, assets })
         }
 
-        if (endpoint === `git/ref/tags/${TAG}`) {
+        if (endpoint === `git/ref/tags/${tag}`) {
           return json({ object: { type: 'tag', sha: TAG_OBJECT } })
         }
 
@@ -369,7 +410,7 @@ describe('build --from-github', () => {
         }
 
         if (args[0] === 'show') {
-          const { app, product } = release.committed ?? { app: '1.0.9', product: '1.0.9' }
+          const { app, product } = release.committed ?? { app: version, product: version }
 
           return {
             stdout: args[1].endsWith('package.json') ? JSON.stringify({ version: app }) : `__version__ = "${product}"\n`
@@ -391,7 +432,7 @@ describe('build --from-github', () => {
       }
 
       if (file.endsWith('plutil')) {
-        return json({ CFBundleShortVersionString: release.dmg?.version ?? '1.0.9' })
+        return json({ CFBundleShortVersionString: release.dmg?.version ?? version })
       }
 
       return { stdout: '' }
@@ -411,7 +452,7 @@ describe('build --from-github', () => {
     const readVersionStrings = (file: string) => {
       versionsRead.push(file)
 
-      return { ProductVersion: release.exeVersion ?? '1.0.9' }
+      return { ProductVersion: release.exeVersion ?? version }
     }
 
     return { run, fetch, readVersionStrings, calls, downloads, mounted, versionsRead }
@@ -514,6 +555,28 @@ describe('build --from-github', () => {
       })
     ).rejects.toThrow(/releases\/tags\/desktop-v1.0.10 failed: gh: Not Found \(HTTP 404\)/)
     expect(fake.downloads).toEqual([])
+  })
+
+  it('also refuses an unmerged bundled release before downloading its manifest or installers', async () => {
+    const release = await ciRelease()
+    const fake = fakeRelease(
+      {
+        onMain: false,
+        assets: Object.fromEntries(
+          Object.entries(release.assets).map(([name, data]) => [name.replace('1.0.9', '1.1.0'), data])
+        )
+      },
+      '1.1.0'
+    )
+    const options = {
+      ...optionsFor(fake),
+      tag: 'desktop-v1.1.0',
+      notesFile: path.join(dir, 'desktop', 'release-notes', '1.0.9.md')
+    }
+
+    await expect(buildFromGitHub(options)).rejects.toThrow(/not on origin\/main/)
+    expect(fake.downloads).toEqual([])
+    expect(fs.existsSync(options.outDir)).toBe(false)
   })
 
   it('refuses a Windows installer that no build manifest vouches for, before downloading it', async () => {

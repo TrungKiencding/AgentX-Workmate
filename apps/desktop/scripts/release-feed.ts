@@ -11,7 +11,7 @@
  * `build` refuses unless everything an installed app will rely on holds:
  *   - the version in package.json is the product version (hermes_cli/__init__.py);
  *   - the build stamp is clean, and each installer contains a native backend
- *     matching that commit (legacy releases require origin/main);
+ *     matching that commit, which must already be merged and pushed to origin/main;
  *   - every installer carries that version and that stamp;
  *   - release-notes/<version>.md has Vietnamese and English notes;
  *   - the signing key is the one whose public half ships in the app
@@ -239,7 +239,7 @@ export function readBuildStamp(desktopRoot = DESKTOP_ROOT): BuildStamp {
   return checkBuildStamp(readJson(path.join(desktopRoot, 'build', 'install-stamp.json')), 'build/install-stamp.json')
 }
 
-/** The agent each installer pins is cloned from GitHub: its commit must be on origin/main. */
+/** Every official release must use a commit already merged and pushed to origin/main. */
 export async function assertStampOnOriginMain(
   commit: string,
   run: Run = defaultRun,
@@ -256,7 +256,7 @@ export async function assertStampOnOriginMain(
   }
 }
 
-/** Official runtime releases carry their backend; they do not need a public origin/main. */
+/** Official runtime releases carry their backend; installation needs no public source repository. */
 export function needsBundledRuntime(version: string): boolean {
   return compareVersions(version, '1.1.0') >= 0
 }
@@ -726,7 +726,7 @@ export async function buildFromGitHub(options: GitHubBuildOptions): Promise<AppR
   const manifestAsset = releaseAsset(release, manifestFile)
 
   log(`→ Workmate ${version} from ${tag}, agent ${release.commit.slice(0, 10)}; downloading into ${downloadDir}`)
-  if (!needsBundledRuntime(version)) await assertStampOnOriginMain(release.commit, run, repoRoot)
+  await assertStampOnOriginMain(release.commit, run, repoRoot)
 
   const committed = await productVersionAt(release.commit, run, repoRoot)
 
@@ -843,7 +843,7 @@ async function build(args: string[]) {
   const notes = parseReleaseNotes(fs.readFileSync(notesFile, 'utf8'))
 
   console.log(`→ Workmate ${version}, agent ${stamp.commit.slice(0, 10)}`)
-  if (!needsBundledRuntime(version)) await assertStampOnOriginMain(stamp.commit)
+  await assertStampOnOriginMain(stamp.commit)
 
   const artifacts: FeedArtifact[] = []
 

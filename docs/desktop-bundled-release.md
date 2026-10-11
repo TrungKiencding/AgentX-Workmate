@@ -40,7 +40,12 @@ updaters from modifying the signed app or trusting a legacy home git marker.
 
 ## Publishing
 
-Run Release Desktop on the release branch for native builders and CI evidence.
+Merge the version branch into `main` and push `origin/main` before publishing.
+Run Release Desktop on `main` for native builders and CI evidence, then create
+the `desktop-v<version>` tag at that verified main commit. Manual workflow builds
+on feature branches are allowed for validation but do not publish a release.
+Both tag builds and the signing command require the installer commit to be on
+`origin/main`; this operator-side check also works with a private repository.
 Download authenticated workflow artifacts as the release operator; no GitHub
 credential is embedded in the app. GitHub can hold private build artifacts.
 
@@ -48,6 +53,9 @@ For local native macOS: `npm run dist:mac:dmg` from `apps/desktop`.
 For native Windows: `npm run dist:win:nsis -- --x64`.
 The install stamp must be clean. The Mac payload and hash-bound Windows CI
 manifest must agree with the release version and source commit.
+Do not replace a published tag or its installers with a later build. A rebuild
+that changes installer bytes needs a new version; workflow uploads refuse to
+overwrite existing assets.
 
 Put both verified installers under the names the release feed expects in a
 staging folder, with `AgentXWorkmate-<version>-win-build.json` from Windows CI.
