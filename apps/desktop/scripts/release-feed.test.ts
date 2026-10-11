@@ -88,7 +88,9 @@ describe('signing key', () => {
     const file = path.join(dir, 'keys', 'release-signing-key.pem')
     const publicPem = generateSigningKey(file)
 
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600)
+    // Windows reports synthetic POSIX mode bits; permissions there come from
+    // the inherited ACL. The release signing host enforces this POSIX contract.
+    if (process.platform !== 'win32') expect(fs.statSync(file).mode & 0o777).toBe(0o600)
     expect(() => generateSigningKey(file)).toThrow(ReleaseError)
     expect(loadSigningKey(file, publicPem)).toContain('PRIVATE KEY')
     expect(() => loadSigningKey(file, testKeys().publicPem)).toThrow(/not the key the app trusts/)
