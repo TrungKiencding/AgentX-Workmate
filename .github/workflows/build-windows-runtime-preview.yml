@@ -70,6 +70,10 @@ jobs:
           Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $oldExe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
           node apps/desktop/scripts/test-windows-upgrade-state.mjs before $oldExe $state
           if ($LASTEXITCODE -ne 0) { throw 'Old native credentials fixture failed' }
+          $productionData = Join-Path $env:LOCALAPPDATA 'agentx'
+          New-Item -ItemType Directory -Force $productionData | Out-Null
+          $productionMarker = Join-Path $productionData 'production-data-must-survive.txt'
+          Set-Content $productionMarker 'preserve production data'
           $destination = Join-Path $env:RUNNER_TEMP 'Moved app with spaces'
           $first = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.10-win-x64.exe'
           $p = Start-Process $first -ArgumentList '/S', "/D=$destination" -PassThru
@@ -107,6 +111,15 @@ jobs:
           $env:Path = (Join-Path $runtime 'bin') + ';' + (Join-Path $runtime 'python') + ';' + $env:SystemRoot + '\System32'
           & (Join-Path $runtime 'python/python.exe') apps/desktop/scripts/test-windows-bundled-optional.py $runtime $env:AGENTX_LAZY_INSTALL_TARGET (Join-Path $state 'optional-report.json')
           if ($LASTEXITCODE -ne 0) { throw 'Optional SDK modified the bundle or failed to install' }
+          $uninstaller = Join-Path $destination 'Uninstall AgentX Workmate Runtime Preview.exe'
+          $p = Start-Process $uninstaller -ArgumentList '/S' -PassThru
+          if (-not $p.WaitForExit(120000)) { throw 'Preview uninstaller did not exit' }
+          for ($attempt = 0; $attempt -lt 30 -and (Test-Path $exe); $attempt++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $exe) { throw 'Preview app remains after uninstall' }
+          if (-not (Test-Path $oldExe)) { throw 'Preview uninstall removed production app' }
+          if ((Get-Content $productionMarker) -ne 'preserve production data') { throw 'Preview uninstall removed production data' }
+          if (-not (Test-Path (Join-Path $state 'agent-data/state.db'))) { throw 'Preview uninstall removed old history' }
+          @{ previewRemoved = $true; productionAppPreserved = $true; productionDataPreserved = $true; oldHistoryPreserved = $true } | ConvertTo-Json | Set-Content (Join-Path $state 'uninstall-report.json')
       - name: Record installer digests
         if: always()
         shell: powershell
