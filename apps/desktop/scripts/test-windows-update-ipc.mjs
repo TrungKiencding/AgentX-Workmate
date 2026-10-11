@@ -50,7 +50,7 @@ await new Promise(resolve => debugServer.listen(0, '127.0.0.1', resolve))
 const debugPort = debugServer.address().port
 await new Promise(resolve => debugServer.close(resolve))
 // Direct launch avoids Playwright's Windows cmd wrapper and Node debugger.
-const oldProcess = spawn(executable, ['--disable-gpu', '--no-sandbox', `--remote-debugging-port=${debugPort}`], { stdio: 'ignore', env: {
+const launchEnv = {
   ...process.env,
   AGENTX_HOME: path.join(root, 'agent-data'),
   AGENTX_DESKTOP_USER_DATA_DIR: path.join(root, 'desktop-data'),
@@ -59,7 +59,8 @@ const oldProcess = spawn(executable, ['--disable-gpu', '--no-sandbox', `--remote
   AGENTX_DESKTOP_BOOT_FAKE_STEP_MS: '20',
   AGENTX_DESKTOP_UPDATE_FEED_URL: `http://127.0.0.1:${port}/release.json`,
   AGENTX_DESKTOP_UPDATE_PUBLIC_KEY: publicKey.export({ type: 'spki', format: 'pem' }).toString()
-} })
+}
+const oldProcess = spawn(executable, ['--disable-gpu', '--no-sandbox', `--remote-debugging-port=${debugPort}`], { stdio: 'ignore', env: launchEnv })
 let browser
 let lastVersion = ''
 const phases = []
@@ -99,7 +100,7 @@ try {
     const waiting = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 3'], { stdio: 'ignore' })
     const helper = path.join(root, 'patched-handoff.cmd')
     fs.writeFileSync(helper, buildWindowsUpdateScript({ pid: waiting.pid, installer, version: expectedNew, resultFile: path.join(root, 'patched-result.json'), waitSeconds: 30 }))
-    spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', helper], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+    spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', helper], { detached: true, stdio: 'ignore', windowsHide: true, env: launchEnv }).unref()
     await poll(() => waiting.exitCode !== null, 30000)
     console.log('IPC: corrected production helper used; simulated old wait process exited')
   }

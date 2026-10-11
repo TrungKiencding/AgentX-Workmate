@@ -5,6 +5,10 @@ $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).versi
 $state = Join-Path $env:RUNNER_TEMP 'windows-release-upgrade'
 $legacy = Join-Path $state 'legacy-plugins'
 New-Item -ItemType Directory -Force $legacy | Out-Null
+# NSIS must inherit the same real user home as the Electron fixtures; otherwise
+# a destructive uninstaller could touch another directory and escape the check.
+$env:AGENTX_HOME = Join-Path $state 'agent-data'
+$env:AGENTX_DESKTOP_USER_DATA_DIR = Join-Path $state 'desktop-data'
 $oldInstaller = Join-Path $env:RUNNER_TEMP 'workmate-1.0.10.exe'
 Invoke-WebRequest -UseBasicParsing -Uri 'https://agentx-landingpage.astralx.com.vn/install/1.0.10/AgentXWorkmate-win-x64.exe' -OutFile $oldInstaller
 if ((Get-FileHash $oldInstaller -Algorithm SHA256).Hash -ne '2b9462115ea6b7830eeb4cc6f772eeddf9adbf6494ebfd359a4bb3bdffff4843') { throw 'Old installer changed; use the archived 1.0.10 fixture' }
@@ -30,6 +34,26 @@ node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
 if ($LASTEXITCODE -ne 0) { throw 'Update lost login or data' }
 node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $exe $state
 if ($LASTEXITCODE -ne 0) { throw 'Restart lost login or data' }
+# Also test the recommended user migration directly: launch the new installer
+# normally over an existing old install, without an updater/helper or an outer
+# --updated flag. /S only automates the installer pages on the disposable runner.
+$fixture = Get-Content (Join-Path $state 'synthetic-state.json') -Raw | ConvertFrom-Json
+$env:AGENTX_DESKTOP_APP_NAME = $fixture.appName
+$env:AGENTX_DESKTOP_BOOT_FAKE = '1'
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+$p = Start-Process $oldInstaller -ArgumentList '/S', "/D=$destination" -PassThru
+if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Reset to old installer failed' }
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+if ((Get-Item $exe).VersionInfo.ProductVersion -ne '1.0.10.0') { throw 'Manual upgrade did not start from the old app' }
+$p = Start-Process $newInstaller -ArgumentList '/S', "/D=$destination" -PassThru
+if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Manual in-place installer failed' }
+Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
+if ($LASTEXITCODE -ne 0) { throw 'Manual upgrade lost login or data' }
+Copy-Item (Join-Path $state 'after-report.json') (Join-Path $state 'manual-report.json')
+node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $exe $state
+if ($LASTEXITCODE -ne 0) { throw 'Manual upgrade restart lost login or data' }
+Copy-Item (Join-Path $state 'restart-report.json') (Join-Path $state 'manual-restart-report.json')
 node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'release-fresh') --production
 if ($LASTEXITCODE -ne 0) { throw 'Fresh offline production startup failed' }
 node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'release-migrated') (Join-Path $state 'agent-data') --production
