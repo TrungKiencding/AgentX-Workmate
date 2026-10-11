@@ -3,6 +3,11 @@ name: Verify published Windows upgrade
 on:
   workflow_dispatch:
     inputs:
+      preview_artifact_run:
+        description: Reuse installers from this CI run for preview tests
+        default: ''
+        required: false
+        type: string
       bundled_preview:
         description: Build and test an isolated fully bundled Windows preview
         default: false
@@ -29,11 +34,14 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   bundled-preview:
     if: inputs.bundled_preview
     uses: ./.github/workflows/build-windows-runtime-preview.yml
+    with:
+      artifact_run: ${{ inputs.preview_artifact_run }}
   upgrade:
     if: ${{ !inputs.bundled_preview }}
     runs-on: windows-latest

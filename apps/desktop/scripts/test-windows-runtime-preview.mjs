@@ -40,7 +40,7 @@ let app
 try {
   for (const program of [executable, python, path.join(runtime,'node/node.exe'),path.join(runtime,'bin/uv.exe'),path.join(runtime,'bin/agent-browser.exe')]) {
     const name='WorkmateOffline-'+rules.length+'-'+path.basename(root)
-    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255','::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' -ErrorAction Stop | Out-Null`)
+    powershell(`New-NetFirewallRule -DisplayName '${name}' -Direction Outbound -Action Block -Program '${program.replaceAll("'","''")}' -RemoteAddress '0.0.0.0-126.255.255.255','128.0.0.0-255.255.255.255','2000::/3','fc00::/7','fe80::/10' -ErrorAction Stop | Out-Null`)
     rules.push(name)
   }
   // Use literal IP so a DNS failure cannot masquerade as enforced offline mode.

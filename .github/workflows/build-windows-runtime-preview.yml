@@ -2,8 +2,13 @@ name: Build and test Windows bundled runtime preview
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      artifact_run:
+        type: string
+        default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   preview:
     runs-on: windows-latest
@@ -22,13 +27,28 @@ jobs:
         with:
           command: npm ci
       - run: python -m pip install uv==0.11.7
+        if: inputs.artifact_run == ''
       - name: Validate bundled resolver and Windows updater
         working-directory: apps/desktop
         run: npx vitest run --project electron electron/bundled-runtime-preview.test.ts electron/app-update/ electron/backend-env.test.ts
       - name: Build bundled Windows x64 installer
+        if: inputs.artifact_run == ''
         run: node apps/desktop/scripts/build-windows-runtime-preview.mjs
       - name: Package second preview for genuine in-app update testing
+        if: inputs.artifact_run == ''
         run: node apps/desktop/scripts/build-windows-runtime-preview.mjs --update-only --version=1.0.11
+      - name: Reuse the built installers for test repairs
+        if: inputs.artifact_run != ''
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN: ${{ inputs.artifact_run }}
+        run: |
+          $downloads = Join-Path $env:RUNNER_TEMP 'built-preview-downloads'
+          gh run download $env:ARTIFACT_RUN --repo $env:GITHUB_REPOSITORY --name workmate-windows-bundled-preview --dir $downloads
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download previous installers' }
+          New-Item -ItemType Directory -Force apps/desktop/release/windows-runtime-preview | Out-Null
+          Get-ChildItem $downloads -Filter 'AgentXWorkmate-RuntimePreview-*-win-x64.exe' -Recurse | Copy-Item -Destination apps/desktop/release/windows-runtime-preview
       - name: Install and test fresh bundle, old data, plugins and packaged updater
         shell: powershell
         run: |
@@ -79,6 +99,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Preview restart lost old data or credentials' }
           node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'preview-migrated') (Join-Path $state 'agent-data')
           if ($LASTEXITCODE -ne 0) { throw 'Upgraded bundle failed offline or lost history in real gateway' }
+          $env:PYTHONHOME = Join-Path $runtime 'python'
+          $env:PYTHONPATH = Join-Path $runtime 'source'
+          $env:PYTHONNOUSERSITE = '1'
+          $env:AGENTX_HOME = Join-Path $env:RUNNER_TEMP 'preview-optional-home'
+          $env:AGENTX_LAZY_INSTALL_TARGET = Join-Path $env:AGENTX_HOME 'packages'
+          $env:Path = (Join-Path $runtime 'bin') + ';' + (Join-Path $runtime 'python') + ';' + $env:SystemRoot + '\System32'
+          & (Join-Path $runtime 'python/python.exe') apps/desktop/scripts/test-windows-bundled-optional.py $runtime $env:AGENTX_LAZY_INSTALL_TARGET (Join-Path $state 'optional-report.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Optional SDK modified the bundle or failed to install' }
       - name: Record installer digests
         if: always()
         shell: powershell
