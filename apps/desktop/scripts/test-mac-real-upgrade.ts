@@ -290,7 +290,7 @@ try {
   assert.equal((await oldPage.evaluate(() => window.agentxDesktop.getVersion())).appVersion, oldVersion)
   const oldConnection = await poll(() => oldPage.evaluate(() => window.agentxDesktop.getConnection()))
   await gateway(oldConnection.wsUrl || oldConnection.url, 'session.list')
-  report.checks.push('real 1.0.5 Electron app and source backend started successfully')
+  report.checks.push(`real ${oldVersion} Electron app and source backend started successfully`)
   await application.evaluate('globalThis.__name = value => value; undefined')
   await application.evaluate(
     async ({ safeStorage }: any, args: any) => {
@@ -371,7 +371,7 @@ try {
   assert.equal(fs.readFileSync(storeFile, 'utf8'), encrypted)
   execFileSync('codesign', ['--verify', '--deep', '--strict', bundle])
   report.checks.push(
-    'real 1.0.5 app detected/downloaded/installed 1.0.10 via its own IPC, quit, and reopened new packaged backend; old history retained'
+    `real ${oldVersion} app detected/downloaded/installed ${newVersion} via its own IPC, quit, and reopened new packaged backend; old history retained`
   )
   await browser.close()
   browser = undefined
