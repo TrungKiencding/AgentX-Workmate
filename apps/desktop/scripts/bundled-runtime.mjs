@@ -1,7 +1,6 @@
 /** Native runtime payload shared by official and isolated preview installers. */
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
 import crypto from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
 
@@ -188,7 +187,9 @@ export async function prepareBundledRuntime({ desktop, platform = process.platfo
       { mode: 0o755 }
     )
   }
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'workmate-runtime-'))
+  // Windows CI keeps %TEMP% on C: and the checkout on D:. Stage on the
+  // payload volume so the final rename works across those runner layouts.
+  const temporary = fs.mkdtempSync(path.join(out, '.download-'))
   try {
     const nodeVersion = process.version
     const archive = `node-${nodeVersion}-${platform === 'win32' ? 'win' : platform}-${arch}.${platform === 'win32' ? 'zip' : 'tar.gz'}`
