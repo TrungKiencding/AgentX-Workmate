@@ -3,6 +3,7 @@ import { atom } from 'nanostores'
 
 import { HermesGateway } from '@/hermes'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
+import { reportUsageEvent } from '@/lib/usage-events'
 import { markNativeNotifyBaseline } from '@/store/notify-baseline'
 import { setGatewayState } from '@/store/session'
 
@@ -268,7 +269,11 @@ function createSecondary(profile: string): Secondary {
     wantOpen: true
   }
 
-  entry.offEvent = gateway.onEvent(event => g.config?.onEvent({ ...event, profile }))
+  entry.offEvent = gateway.onEvent(event => {
+    const scoped = { ...event, profile }
+    reportUsageEvent(scoped)
+    g.config?.onEvent(scoped)
+  })
   entry.offState = gateway.onState(state => {
     reportGatewayState(profile, gateway, state)
 

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('agentxDesktop', {
+  usageEvent: signal => ipcRenderer.invoke('agentx:usage:event', signal),
   getConnection: profile => ipcRenderer.invoke('agentx:connection', profile),
   revalidateConnection: () => ipcRenderer.invoke('agentx:connection:revalidate'),
   touchBackend: profile => ipcRenderer.invoke('agentx:backend:touch', profile),

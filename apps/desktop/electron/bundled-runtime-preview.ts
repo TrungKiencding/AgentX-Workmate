@@ -21,7 +21,10 @@ export function readBundledRuntime(resources: string, version: string): BundledR
   const marker = path.join(root, 'runtime.json')
 
   if (!fs.existsSync(marker)) {
-    if (!experimental) throw new Error('The bundled runtime is incomplete. Reinstall AgentX Workmate.')
+    if (!experimental) {
+      throw new Error('The bundled runtime is incomplete. Reinstall AgentX Workmate.')
+    }
+
     return null
   }
 

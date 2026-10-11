@@ -6,6 +6,7 @@ import { HermesGateway } from '@/hermes'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd } from '@/lib/desktop-fs'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
+import { reportUsageEvent } from '@/lib/usage-events'
 import {
   $desktopBoot,
   applyDesktopBootProgress,
@@ -418,9 +419,11 @@ export function useGatewayBoot({
 
     const sourceProfile = normalizeProfileKey($activeGatewayProfile.get())
 
-    const offEvent = gateway.onEvent(event =>
-      callbacksRef.current.handleGatewayEvent({ ...event, profile: sourceProfile })
-    )
+    const offEvent = gateway.onEvent(event => {
+      const scoped = { ...event, profile: sourceProfile }
+      reportUsageEvent(scoped)
+      callbacksRef.current.handleGatewayEvent(scoped)
+    })
 
     // Wake signals: power resume (macOS/Windows), network coming back, and the
     // window regaining focus/visibility. Each nudges an immediate reconnect.

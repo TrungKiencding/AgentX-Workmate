@@ -18,6 +18,13 @@ declare global {
       // Resolve a backend connection. Omit `profile` (or pass the primary) for
       // the window's backend; pass a named profile to lazily spawn/reuse that
       // profile's backend from the pool.
+      usageEvent?: (signal: {
+        key: string
+        profile?: string
+        phase: 'start' | 'finish'
+        failed?: boolean
+        cancelled?: boolean
+      }) => Promise<boolean>
       getConnection: (profile?: string | null) => Promise<HermesConnection>
       // Reconnect-after-wake recovery: liveness-probe the cached PRIMARY backend
       // and drop it if a remote one has gone unreachable, so the next

@@ -231,6 +231,7 @@ import {
   spawnUpdaterProcess,
   stagedUpdaterSupportsPrewrittenMarker
 } from './updater-process'
+import { UsageReporter } from './usage-reporter'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
 import { readLocalWebmateStatus } from './webmate/bootstrap'
@@ -756,6 +757,7 @@ const BOOT_FAKE_STEP_MS = (() => {
 
 const APP_NAME =
   process.env.AGENTX_DESKTOP_APP_NAME || (BUNDLED_RUNTIME?.experimental ? 'AgentX Runtime Preview' : 'AgentX')
+
 const TITLEBAR_HEIGHT = 34
 const MACOS_TRAFFIC_LIGHTS_HEIGHT = 14
 
@@ -2926,9 +2928,11 @@ function checkoutPinRelation() {
     defaultExecGit(resolveGitBinary(), IS_WINDOWS),
     readBootstrapMarker()?.pinnedCommit
   )
+
   rememberLog(
     `[bootstrap] checkout pin: HEAD ${shortSha(result.headSha)} vs stamp ${shortSha(INSTALL_STAMP.commit)} → ${result.relation}`
   )
+
   return result
 }
 
@@ -10448,6 +10452,53 @@ function keycloakConfigForProfile(profile?: string): KeycloakOidcConfig | null {
 
   return configs.length === 1 ? configs[0] : configs[0] || null
 }
+
+const usageReporter = new UsageReporter({
+  version: app.getVersion(),
+  os:
+    process.platform === 'win32'
+      ? 'Windows'
+      : process.platform === 'darwin'
+        ? 'macOS'
+        : process.platform === 'linux'
+          ? 'Linux'
+          : 'Other',
+  identity: async profile => {
+    const config = keycloakConfigForProfile(profile)
+
+    if (!config) {
+      return null
+    }
+
+    const session = await ensureKeycloakSession(
+      config,
+      keycloakDeps({ interactive: false, enforceSignInPolicy: false })
+    )
+
+    return session.tokens
+      ? { subject: session.tokens.userId, token: session.tokens.accessToken, issuer: config.issuer }
+      : null
+  }
+})
+
+ipcMain.handle('agentx:usage:event', (_event, signal) => {
+  if (!signal || typeof signal.key !== 'string' || signal.key.length > 512) {
+    return false
+  }
+
+  if (signal.profile != null && (typeof signal.profile !== 'string' || signal.profile.length > 255)) {
+    return false
+  }
+  const key = `${signal.profile || 'default'}:${signal.key}`
+
+  if (signal.phase === 'start') {
+    usageReporter.begin(key, signal.profile)
+  } else if (signal.phase === 'finish') {
+    void usageReporter.end(key, signal.failed === true, signal.cancelled === true)
+  }
+
+  return true
+})
 
 ipcMain.handle('agentx:keycloak:status', async (_event, profile) => {
   const config = keycloakConfigForProfile(typeof profile === 'string' ? profile : undefined)
