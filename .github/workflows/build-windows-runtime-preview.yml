@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
+      verification_only:
+        type: boolean
+        default: false
       artifact_run:
         type: string
         default: ''
@@ -51,7 +54,10 @@ jobs:
           Get-ChildItem $downloads -Filter 'AgentXWorkmate-RuntimePreview-*-win-x64.exe' -Recurse | Copy-Item -Destination apps/desktop/release/windows-runtime-preview
       - name: Install and test fresh bundle, old data, plugins and packaged updater
         shell: powershell
+        env:
+          VERIFY_ONLY: ${{ inputs.verification_only }}
         run: |
+          $ProgressPreference = 'SilentlyContinue'
           $state = Join-Path $env:RUNNER_TEMP 'windows-bundled-state'
           $legacy = Join-Path $state 'legacy-plugins'
           New-Item -ItemType Directory -Force $legacy | Out-Null
@@ -75,15 +81,18 @@ jobs:
           $productionMarker = Join-Path $productionData 'production-data-must-survive.txt'
           Set-Content $productionMarker 'preserve production data'
           $destination = Join-Path $env:LOCALAPPDATA 'Programs/AgentX Workmate Runtime Preview'
-          $first = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.10-win-x64.exe'
+          $firstVersion = if ($env:VERIFY_ONLY -eq 'true') { '1.0.11' } else { '1.0.10' }
+          $first = Resolve-Path "apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-$firstVersion-win-x64.exe"
           $p = Start-Process $first -ArgumentList '/S', "/D=$destination" -PassThru
           if (-not $p.WaitForExit(300000) -or $p.ExitCode -ne 0) { throw 'Preview install failed' }
           $exe = Join-Path $destination 'AgentX Workmate Runtime Preview.exe'
           Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $exe } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
           node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
           if ($LASTEXITCODE -ne 0) { throw 'Preview could not decrypt old login or read history' }
-          node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'preview-fresh')
-          if ($LASTEXITCODE -ne 0) { throw 'Fresh offline bundled runtime smoke failed' }
+          if ($env:VERIFY_ONLY -ne 'true') {
+            node apps/desktop/scripts/test-windows-runtime-preview.mjs $exe (Join-Path $env:RUNNER_TEMP 'preview-fresh')
+            if ($LASTEXITCODE -ne 0) { throw 'Fresh offline bundled runtime smoke failed' }
+          }
           $runtime = Join-Path $destination 'resources/runtime-preview'
           $env:PYTHONHOME = Join-Path $runtime 'python'
           $env:PYTHONPATH = Join-Path $runtime 'source'
@@ -94,9 +103,11 @@ jobs:
           if ($plugins.passed -ne $plugins.count) { throw 'Some historical plugins failed to load' }
           Remove-Item Env:PYTHONHOME
           Remove-Item Env:PYTHONPATH
+          if ($env:VERIFY_ONLY -ne 'true') {
           $second = Resolve-Path 'apps/desktop/release/windows-runtime-preview/AgentXWorkmate-RuntimePreview-1.0.11-win-x64.exe'
           node apps/desktop/scripts/test-windows-update-ipc.mjs $exe $second $state --old-version=1.0.10 --new-version=1.0.11
           if ($LASTEXITCODE -ne 0) { throw 'Packaged preview update failed' }
+          }
           node apps/desktop/scripts/test-windows-upgrade-state.mjs after $exe $state
           if ($LASTEXITCODE -ne 0) { throw 'Preview update lost old data or credentials' }
           node apps/desktop/scripts/test-windows-upgrade-state.mjs restart $exe $state

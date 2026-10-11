@@ -3,6 +3,11 @@ name: Verify published Windows upgrade
 on:
   workflow_dispatch:
     inputs:
+      preview_verification_only:
+        description: Verify the latest preview without repeating the proven update
+        default: false
+        required: false
+        type: boolean
       preview_artifact_run:
         description: Reuse installers from this CI run for preview tests
         default: ''
@@ -41,6 +46,7 @@ jobs:
     if: inputs.bundled_preview
     uses: ./.github/workflows/build-windows-runtime-preview.yml
     with:
+      verification_only: ${{ inputs.preview_verification_only }}
       artifact_run: ${{ inputs.preview_artifact_run }}
   upgrade:
     if: ${{ !inputs.bundled_preview }}

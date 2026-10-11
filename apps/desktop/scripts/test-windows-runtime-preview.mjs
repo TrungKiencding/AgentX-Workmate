@@ -2,6 +2,7 @@
 // Native installed bundle, empty developer PATH, firewall blocks external IPv4.
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { _electron } from '@playwright/test'
@@ -34,6 +35,16 @@ async function closeApplication() {
   }
 }
 function pythonRun(code) { return execFileSync(python, ['-c',code], { cwd: root, env: backendEnv, encoding:'utf8',timeout:60000 }) }
+function cacheInventory(directory) {
+  if (!fs.existsSync(directory)) return null
+  const result = {}
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name)
+    result[entry.name] = entry.isDirectory() ? cacheInventory(file) : createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+  }
+  return result
+}
+const oldCache = oldHome ? cacheInventory(path.join(oldHome, 'bootstrap-cache')) : null
 const report = { version: JSON.parse(fs.readFileSync(path.join(runtime,'runtime.json'),'utf8')).version, migrated: Boolean(oldHome), checks:[], launches:[] }
 const rules = []
 function powershell(script) {
@@ -97,7 +108,7 @@ try {
     assert.equal(version.appVersion,report.version)
     assert.equal((await page.evaluate(()=>window.agentxDesktop.appUpdate.get())).blocked,'dev-build')
     assert(!fs.existsSync(path.join(home,'agentx-agent')),'Downloaded managed backend')
-    assert(!fs.existsSync(path.join(home,'bootstrap-cache')),'Downloaded bootstrap')
+    assert.deepEqual(cacheInventory(path.join(home,'bootstrap-cache')),oldCache,'Bundled launch created or changed bootstrap cache')
     const marker=path.join(home,'preview-data-marker.txt')
     if(launch===0) {fs.writeFileSync(marker,'keep user data');await page.screenshot({path:path.join(root,'running.png')})}
     else assert.equal(fs.readFileSync(marker,'utf8'),'keep user data')
