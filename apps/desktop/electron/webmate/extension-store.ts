@@ -115,6 +115,8 @@ export interface EnsureOptions {
   /** Injected for tests (Windows rename retries). */
   renameRetries?: number
   renameRetryDelayMs?: number
+  /** Startup may stage a verified bundle, but must not swap a live installation. */
+  deferSwap?: boolean
 }
 
 export type InstallAction = 'installed' | 'updated' | 'kept' | 'skipped'
@@ -254,6 +256,10 @@ export async function ensureExtensionFolder(
   }
 
   // Swap: current → versions/prev, staged → AgentX WebMate. Two renames, same name.
+  if (options.deferSwap) {
+    return { ...base, action: 'skipped', reason: 'browser attached; update staged', stagedDir, verified }
+  }
+
   await fsp.mkdir(paths.versionsDir, { recursive: true })
   const retries = options.renameRetries ?? 5
   const delay = options.renameRetryDelayMs ?? 2_000

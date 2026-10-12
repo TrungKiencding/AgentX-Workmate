@@ -29,13 +29,13 @@ install:
   bundle: server/agentx-webmate-mcp.mjs
   # SHA-256 of server/agentx-webmate-mcp.mjs (also in server/SHA256SUMS).
   # Refresh both with `python scripts/vendor_webmate_server.py --from <webmate checkout>`.
-  sha256: 9897614f7a2066010a402f243145c1b5d69a6042f72ac0cea16eefc08fea5be8
+  sha256: 6e25ed5810c8d279653c1cbbb66c97995470594d945c44033ded11861402d207
   # `agentx mcp install webmate --dev` builds from this pinned checkout instead
   # of using the bundled file (needs git + npm). Full commit SHA, never a branch.
   dev:
     type: git
     url: https://github.com/astralxkienlt/agentx-webmate.git
-    ref: a000b353c377416eb3a75a6d6aef2d4da0011c26
+    ref: cb6fbdee17f42488ce3d86032e9e2119d7930687
     entry: mcp-server/dist/index.js
     bootstrap:
       - "npm --prefix mcp-server ci --no-audit --no-fund"

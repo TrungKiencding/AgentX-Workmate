@@ -7,7 +7,9 @@ import path from 'node:path'
 import { afterEach, describe, test } from 'vitest'
 
 import { bootstrapWebmate, readLocalWebmateStatus } from './bootstrap'
+import { ensureExtensionFolder } from './extension-store'
 import { sha256Hex } from './release-feed'
+import { readUpdateCheck, writeUpdateCheck } from './updater'
 import { buildZip } from './zip-writer.test-helper'
 
 const REAL_KEY = fs
@@ -157,5 +159,63 @@ describe('bootstrapWebmate', () => {
     assert.match(String(result.error), /unsigned/)
     assert.equal(result.installedVersion, null)
     assert.equal(result.pairing?.pairingWritten, true, 'the pairing is still prepared for a later install')
+  })
+  test('startup stages a live bundle with pairing and persistent pending state', async () => {
+    const dir = await tempDir()
+    const appRoot = path.join(dir, 'app')
+
+    const options = {
+      agentxHome: path.join(dir, 'home'),
+      resourcesPath: null,
+      appRoot,
+      appVersion: '0.21.0',
+      isPackaged: false
+    }
+
+    await stageBundle(appRoot, '1.0.4')
+    const first = await bootstrapWebmate(options)
+    await stageBundle(appRoot, '1.0.5')
+    await fsp.writeFile(first.paths.stateFile, JSON.stringify({ pid: process.pid, listening: true, connected: true }))
+    const next = await bootstrapWebmate(options)
+    assert.equal(next.installedVersion, '1.0.4')
+    assert.equal(next.extension?.action, 'skipped')
+    assert.equal(readUpdateCheck(next.paths).pendingVersion, '1.0.5')
+    const staged = JSON.parse(await fsp.readFile(path.join(next.extension!.stagedDir!, 'workmate.json'), 'utf8'))
+    assert.equal(staged.token, JSON.parse(await fsp.readFile(next.paths.pairingFile, 'utf8')).token)
+    writeUpdateCheck(next.paths, { failedVersions: ['1.0.5'], pendingVersion: null })
+    const retry = await bootstrapWebmate(options)
+    assert.equal(retry.extension?.action, 'kept')
+    assert.equal(retry.installedVersion, '1.0.4', 'a rollback must survive restart')
+  })
+
+  test('a deferred filesystem swap remains pending across startup', async () => {
+    const dir = await tempDir()
+    const appRoot = path.join(dir, 'app')
+    await stageBundle(appRoot, '1.0.4')
+
+    const options = {
+      agentxHome: path.join(dir, 'home'),
+      resourcesPath: null,
+      appRoot,
+      appVersion: '0.21.0',
+      isPackaged: false
+    }
+
+    await bootstrapWebmate(options)
+    await stageBundle(appRoot, '1.0.5')
+
+    const next = await bootstrapWebmate({
+      ...options,
+      installExtension: bundled =>
+        ensureExtensionFolder(
+          // The installer reports the same deferred outcome for Windows handle locks.
+          readLocalWebmateStatus(options.agentxHome).paths,
+          bundled,
+          { isPackaged: false, deferSwap: true }
+        )
+    })
+
+    assert.equal(next.installedVersion, '1.0.4')
+    assert.equal(readUpdateCheck(next.paths).pendingVersion, '1.0.5')
   })
 })

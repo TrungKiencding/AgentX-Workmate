@@ -1,3 +1,4 @@
 1.4.0
-source: https://github.com/astralxkienlt/agentx-webmate/tree/a000b353c377416eb3a75a6d6aef2d4da0011c26/mcp-server
-built: 2026-10-08T16:35:38Z with `npm run build:skill` (esbuild single-file ESM bundle, Node >= 20)
+source: https://github.com/astralxkienlt/agentx-webmate/tree/cb6fbdee17f42488ce3d86032e9e2119d7930687/mcp-server
+patch: workmate-lifecycle.patch sha256 51c11962e6b3f62ce46f3a4f720d4b68a3c8dfd45db96552ce5a898b87a84870
+built: 2026-10-12T15:42:56Z with `npm run build:skill` (esbuild single-file ESM bundle, Node >= 20)

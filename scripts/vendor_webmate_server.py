@@ -16,7 +16,8 @@ Usage::
 
     python scripts/vendor_webmate_server.py --from ../AgentX-WebMate [--no-build]
 
-Stdlib only. Never touches anything outside this repository.
+Stdlib only. Builds patched source in a temporary directory and never modifies
+the source checkout.
 """
 
 from __future__ import annotations
@@ -29,6 +30,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import tarfile
+import io
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -68,10 +72,37 @@ def main(argv: list[str] | None = None) -> int:
     if not (mcp_dir / "package.json").is_file():
         raise SystemExit(f"{source} is not an AgentX-WebMate checkout (no mcp-server/package.json)")
 
+    head = _run(["git", "rev-parse", "HEAD"], source)
+    patch = SERVER_DIR / "workmate-lifecycle.patch"
+    npm = shutil.which("npm")
+    if not args.no_build and not npm:
+        raise SystemExit("npm is required to build the bundle (or pass --no-build)")
+    stage = None
+    build_source = source
+    if patch.is_file():
+        if args.no_build:
+            raise SystemExit("--no-build cannot verify the Workmate lifecycle patch; rebuild from source")
+        # Build the exact tracked upstream revision plus the reviewed patch.
+        # Never mutate a sibling checkout or publish an unreproducible dirty pin.
+        stage = tempfile.TemporaryDirectory(prefix="webmate-vendor-")
+        build_source = Path(stage.name)
+        archive = subprocess.check_output(["git", "archive", head, "mcp-server", "brand"], cwd=source)
+        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+            tar.extractall(build_source, filter="data")
+        _run(["git", "apply", str(patch)], build_source)
+        dependencies = mcp_dir / "node_modules"
+        linked_dependencies = False
+        if dependencies.is_dir():
+            try:
+                (build_source / "mcp-server" / "node_modules").symlink_to(dependencies, target_is_directory=True)
+                linked_dependencies = True
+            except OSError:
+                pass  # Windows hosts without symlink permission use npm ci.
+        if not linked_dependencies:
+            _run([npm, "ci"], build_source / "mcp-server")
+        mcp_dir = build_source / "mcp-server"
+
     if not args.no_build:
-        npm = shutil.which("npm")
-        if not npm:
-            raise SystemExit("npm is required to build the bundle (or pass --no-build)")
         print(f"building the bundle in {mcp_dir} …")
         _run([npm, "run", "build:skill"], mcp_dir)
 
@@ -80,9 +111,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"bundle not found at {built}; run `npm --prefix mcp-server run build:skill` in the WebMate checkout")
 
     version = json.loads((mcp_dir / "package.json").read_text(encoding="utf-8"))["version"]
-    head = _run(["git", "rev-parse", "HEAD"], source)
     dirty = bool(_run(["git", "status", "--porcelain", "--", "mcp-server", "brand/brand.config.json"], source))
-    if dirty:
+    if dirty and not patch.is_file():
         print("WARNING: the WebMate checkout has uncommitted mcp-server changes; install.dev.ref will not reproduce this bundle", file=sys.stderr)
 
     SERVER_DIR.mkdir(parents=True, exist_ok=True)
@@ -94,17 +124,19 @@ def main(argv: list[str] | None = None) -> int:
 
     (SERVER_DIR / "SHA256SUMS").write_text(f"{digest}  {BUNDLE_NAME}\n", encoding="utf-8")
     built_at = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    (SERVER_DIR / "VERSION").write_text(
-        f"{version}\n"
-        f"source: https://github.com/astralxkienlt/agentx-webmate/tree/{head}/mcp-server\n"
-        f"built: {built_at} with `npm run build:skill` (esbuild single-file ESM bundle, Node >= 20)\n",
-        encoding="utf-8",
-    )
+    provenance = f"{version}\nsource: https://github.com/astralxkienlt/agentx-webmate/tree/{head}/mcp-server\n"
+    if patch.is_file():
+        provenance += f"patch: workmate-lifecycle.patch sha256 {hashlib.sha256(patch.read_bytes()).hexdigest()}\n"
+    provenance += f"built: {built_at} with `npm run build:skill` (esbuild single-file ESM bundle, Node >= 20)\n"
+    (SERVER_DIR / "VERSION").write_text(provenance, encoding="utf-8")
 
     manifest = MANIFEST.read_text(encoding="utf-8")
     manifest = _replace_once(manifest, r"^(\s+sha256:\s*)[0-9a-f]{64}\s*$", rf"\g<1>{digest}", "install.sha256")
     manifest = _replace_once(manifest, r"^(\s+ref:\s*)[0-9a-f]{40}\s*$", rf"\g<1>{head}", "install.dev.ref")
     MANIFEST.write_text(manifest, encoding="utf-8")
+
+    if stage:
+        stage.cleanup()
 
     print(f"vendored {BUNDLE_NAME} v{version} ({target.stat().st_size // 1024} KB) sha256 {digest[:12]}… from {head[:10]}")
     print("next: run `pytest tests/hermes_cli/test_mcp_catalog.py tests/skills/test_webmate_skill.py` and commit optional-mcps/webmate")

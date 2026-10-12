@@ -8,7 +8,8 @@
  * list) are injected so this module stays a plain Node module with tests.
  */
 
-import { promises as fsp } from 'node:fs'
+import { promises as fsp, readFileSync, unlinkSync } from 'node:fs'
+import nodePath from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { type BootstrapResult, bootstrapWebmate } from './bootstrap'
@@ -27,6 +28,7 @@ import {
   type WebmateCommandPayload,
   type WebmateLastCommand
 } from './commands'
+import { ensureExtensionFolder, readInstalledVersion, verifyBundledPackage } from './extension-store'
 import {
   type ExecCapture,
   openExtensionsPage,
@@ -34,7 +36,14 @@ import {
   openUrlInBrowser,
   type SpawnDetached
 } from './guide'
-import { defaultPairingIo, ensurePairing, type PairingFile, type PairingOptions, parsePairingFile } from './pairing'
+import {
+  assertParticipantsUnchanged,
+  browsersConfirmed,
+  drainBrowsers,
+  managedConnections,
+  reloadBrowsers
+} from './lifecycle'
+import { defaultPairingIo, ensurePairing, parsePairingFile } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
 import {
   prefsFile,
@@ -45,6 +54,7 @@ import {
   writePrefs
 } from './prefs'
 import {
+  compareVersions,
   parseReleaseManifest,
   type ParseReleaseOptions,
   type ReleaseManifest,
@@ -60,9 +70,7 @@ import {
   applyWebmateUpdate,
   checkWebmateUpdate,
   readUpdateCheck,
-  restorePrevious,
-  type UpdateCheckFile,
-  writeUpdateCheck
+  type UpdateCheckFile
 } from './updater'
 
 export const WEBMATE_STATUS_CHANNEL = 'agentx:webmate:status'
@@ -89,6 +97,10 @@ export interface WebmateServiceDeps {
   execCapture?: ExecCapture
   scanIo?: BrowserScanIo
   fetchImpl?: typeof fetch
+  browserWindow?: WorkmateBrowserWindow
+  commandWaitMs?: number
+  helloTimeoutMs?: number
+  bridgePort?: number
   platform?: NodeJS.Platform
   /**
    * Phase 4: the email of the AgentX account Workmate is signed in as (null
@@ -157,6 +169,8 @@ export class WebmateService {
   private checkInFlight: Promise<UpdateCheckFile> | null = null
   private bootstrapInFlight: Promise<BootstrapResult> | null = null
   private pendingSwapInFlight = false
+  private mutationTail: Promise<unknown> = Promise.resolve()
+  private mutationCount = 0
   private readonly log: (message: string) => void
   private readonly env: NodeJS.ProcessEnv
   private readonly platform: NodeJS.Platform
@@ -172,9 +186,93 @@ export class WebmateService {
     this.log = deps.log ?? (() => {})
     this.env = deps.env ?? process.env
     this.platform = deps.platform ?? process.platform
-    this.window = new WorkmateBrowserWindow({
-      log: this.log,
-      onChange: () => this.broadcastStatus()
+    this.window =
+      deps.browserWindow ??
+      new WorkmateBrowserWindow({
+        log: this.log,
+        onChange: () => this.broadcastStatus()
+      })
+  }
+
+  /** Serialize disk/browser mutations; feed reads remain independent. */
+  private mutate<T>(work: () => Promise<T>): Promise<T> {
+    this.mutationCount++
+    const result = this.mutationTail.then(work)
+    this.mutationTail = result
+      .catch(() => undefined)
+      .finally(() => {
+        this.mutationCount--
+
+        if (this.mutationCount === 0 && !this.pendingSwapInFlight) {
+          void this.applyPendingIfIdle(this.status()).catch(error =>
+            this.log(`[webmate] pending update: ${String(error)}`)
+          )
+        }
+      })
+
+    return result
+  }
+
+  private commandDeps() {
+    return {
+      readStatus: () => this.status(),
+      sendCommand: (action: WebmateCommandAction, payload?: WebmateCommandPayload) => this.sendCommand(action, payload),
+      waitForCommand: async (id: string, timeoutMs: number) => {
+        const result = await waitForCommandResult(id, {
+          timeoutMs: this.deps.commandWaitMs ?? timeoutMs,
+          readLastCommand: () => this.readLastCommand(),
+          readResult: commandId => this.readCommandResult(commandId)
+        })
+
+        if (!result) {
+          // Cancel a command still queued behind an auth request. In-flight
+          // commands are already claimed by deletion and cannot be replayed.
+          try {
+            unlinkSync(nodePath.join(this.paths.commandsDir, `${id}.json`))
+          } catch {
+            /* already claimed */
+          }
+        }
+
+        return result
+      }
+    }
+  }
+
+  private windowLifecycle() {
+    const options = this.window.isOpen() ? this.windowOptions : null
+
+    return options
+      ? {
+          close: () => this.window.close(),
+          open: async () => {
+            await this.window.open(options)
+          },
+          instanceId: () => this.window.instanceId()
+        }
+      : undefined
+  }
+
+  private applyRelease(release: ReleaseManifest, download: (url: string) => Promise<Buffer>): Promise<ApplyOutcome> {
+    const pairingOptions = {
+      port: this.deps.bridgePort ?? WEBMATE_BRIDGE_PORT,
+      workmateVersion: this.deps.appVersion,
+      minServerVersion: WEBMATE_MIN_SERVER_VERSION
+    }
+
+    const { pairing } = ensurePairing(this.paths, pairingOptions)
+
+    return applyWebmateUpdate({
+      paths: this.paths,
+      release,
+      pairing,
+      pairingOptions,
+      download,
+      ...this.commandDeps(),
+      browserWindow: this.windowLifecycle(),
+      helloTimeoutMs: this.deps.helloTimeoutMs,
+      onProgress: (stage, message) => this.progress(stage, message, release.version),
+      log: this.log
     })
   }
 
@@ -233,6 +331,11 @@ export class WebmateService {
    */
   async openWindow(request: { browserId?: string | null } = {}): Promise<OpenWindowOutcome> {
     await this.bootstrap()
+
+    return this.mutate(() => this.runOpenWindow(request))
+  }
+
+  private async runOpenWindow(request: { browserId?: string | null }): Promise<OpenWindowOutcome> {
     const browsers = await this.scan()
     const browser = chooseWindowBrowser(browsers, request.browserId ?? this.getPrefs().browser?.id ?? null)
 
@@ -243,7 +346,7 @@ export class WebmateService {
     const server = await this.ensureServerForWindow()
 
     if (server) {
-      this.log(`[webmate] window: bridge server not confirmed (${server}); opening anyway`)
+      return { ok: false, error: server, window: this.window.current() }
     }
 
     this.setPrefs({
@@ -275,23 +378,61 @@ export class WebmateService {
   }
 
   async closeWindow(): Promise<WindowStatus> {
-    await this.window.close()
+    return this.mutate(async () => {
+      await this.window.close()
 
-    return this.window.current()
+      return this.window.current()
+    })
   }
 
   // -- folder + pairing (phase 1, re-exposed) --------------------------------
 
   bootstrap(): Promise<BootstrapResult> {
     if (!this.bootstrapInFlight) {
-      this.bootstrapInFlight = bootstrapWebmate({
-        agentxHome: this.deps.agentxHome,
-        resourcesPath: this.deps.resourcesPath,
-        appRoot: this.deps.appRoot,
-        appVersion: this.deps.appVersion,
-        isPackaged: this.deps.isPackaged,
-        log: this.log
-      }).finally(() => {
+      this.bootstrapInFlight = this.mutate(() =>
+        bootstrapWebmate({
+          agentxHome: this.deps.agentxHome,
+          resourcesPath: this.deps.resourcesPath,
+          appRoot: this.deps.appRoot,
+          appVersion: this.deps.appVersion,
+          isPackaged: this.deps.isPackaged,
+          bridgePort: this.deps.bridgePort,
+          log: this.log,
+          installExtension: async bundled => {
+            const installed = readInstalledVersion(this.paths.installDir)
+
+            if (!bundled || (installed && compareVersions(installed, bundled.version) >= 0)) {
+              return ensureExtensionFolder(this.paths, bundled, { isPackaged: this.deps.isPackaged, log: this.log })
+            }
+
+            const zip = await fsp.readFile(bundled.zipPath)
+            const verified = await verifyBundledPackage(bundled, zip, { isPackaged: this.deps.isPackaged })
+
+            if (!verified.release) {
+              return ensureExtensionFolder(this.paths, bundled, {
+                isPackaged: this.deps.isPackaged,
+                log: this.log,
+                deferSwap: this.status().connected
+              })
+            }
+
+            if (compareVersions(verified.release.minWorkmate, this.deps.appVersion) > 0) {
+              throw new Error('bundled extension needs a newer Workmate')
+            }
+
+            const outcome = await this.applyRelease(verified.release, async () => zip)
+
+            return {
+              action: outcome.ok ? (installed ? 'updated' : 'installed') : 'skipped',
+              installedVersion: readInstalledVersion(this.paths.installDir),
+              bundledVersion: bundled.version,
+              reason: outcome.error ?? undefined,
+              stagedDir: outcome.pending ? nodePath.join(this.paths.versionsDir, bundled.version) : undefined,
+              verified: { sha256: true, signature: verified.signature }
+            }
+          }
+        })
+      ).finally(() => {
         this.bootstrapInFlight = null
         this.status()
       })
@@ -432,26 +573,67 @@ export class WebmateService {
   // -- pairing --------------------------------------------------------------
 
   /** "Đặt lại token": new token in pairing.json and workmate.json, then a reload so the extension re-dials with it. */
-  resetToken(): { ok: boolean; reloaded: boolean } {
-    const outcome = ensurePairing(this.paths, {
-      port: WEBMATE_BRIDGE_PORT,
-      workmateVersion: this.deps.appVersion,
-      minServerVersion: WEBMATE_MIN_SERVER_VERSION,
-      rotate: true
+  resetToken(): Promise<{ ok: boolean; reloaded: boolean }> {
+    return this.mutate(async () => {
+      const before = this.status()
+      const commands = this.commandDeps()
+      const window = this.windowLifecycle()
+
+      const pairingOptions = {
+        port: this.deps.bridgePort ?? WEBMATE_BRIDGE_PORT,
+        workmateVersion: this.deps.appVersion,
+        minServerVersion: WEBMATE_MIN_SERVER_VERSION
+      }
+
+      const oldPairing = parsePairingFile(defaultPairingIo().readText(this.paths.pairingFile))
+      let rotated = false
+
+      try {
+        await drainBrowsers(commands, before, this.deps.commandWaitMs ?? 65_000)
+        await window?.close()
+        assertParticipantsUnchanged(before, this.status())
+        const outcome = ensurePairing(this.paths, { ...pairingOptions, rotate: true })
+        rotated = true
+        await reloadBrowsers(commands)
+        await window?.open()
+        const windowId = window ? await window.instanceId() : null
+
+        if (window && !windowId) {
+          throw new Error('could not verify the Workmate browser identity')
+        }
+
+        if (window || (before.connected && (!before.connections.length || managedConnections(before).length))) {
+          const deadline = Date.now() + (this.deps.helloTimeoutMs ?? 60_000)
+
+          while (Date.now() < deadline) {
+            const current = this.status()
+            const windowConfirmed = !window || current.connections.some(c => c.instanceId === windowId && c.paired)
+
+            if (windowConfirmed && browsersConfirmed(before, current, before.installedVersion ?? '', true)) {
+              return { ok: outcome.pairingWritten, reloaded: true }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 250))
+          }
+
+          throw new Error('browsers did not reconnect with the new pairing token')
+        }
+
+        return { ok: outcome.pairingWritten, reloaded: false }
+      } catch (error) {
+        // A reset must leave the last working credential and browser usable.
+        if (rotated && oldPairing) {
+          await window?.close()
+          defaultPairingIo().writeTextAtomic(this.paths.pairingFile, `${JSON.stringify(oldPairing)}\n`)
+          ensurePairing(this.paths, pairingOptions)
+          await reloadBrowsers(commands).catch(recovery => this.log(`[webmate] reset recovery: ${String(recovery)}`))
+        }
+
+        this.sendCommand('resume')
+        await window?.open().catch(recovery => this.log(`[webmate] window recovery: ${String(recovery)}`))
+        throw error
+      }
     })
-
-    let reloaded = false
-
-    if (this.status().connected) {
-      this.sendCommand('reload')
-      reloaded = true
-    }
-
-    this.log(
-      `[webmate] pairing token reset (workmate.json ${outcome.workmateJsonWritten ? 'rewritten' : 'not present'})`
-    )
-
-    return { ok: outcome.pairingWritten, reloaded }
   }
 
   // -- sign-in (phase 4) ----------------------------------------------------
@@ -487,7 +669,8 @@ export class WebmateService {
 
       const result = await waitForCommandResult(id, {
         timeoutMs: AUTH_COMMAND_WAIT_MS,
-        readLastCommand: () => this.readLastCommand()
+        readLastCommand: () => this.readLastCommand(),
+        readResult: id => this.readCommandResult(id)
       })
 
       this.log(`[webmate] sign-in hint ${id}: ${describeAuthResult(result)}`)
@@ -528,7 +711,8 @@ export class WebmateService {
 
     const result = await waitForCommandResult(id, {
       timeoutMs: AUTH_COMMAND_WAIT_MS,
-      readLastCommand: () => this.readLastCommand()
+      readLastCommand: () => this.readLastCommand(),
+      readResult: id => this.readCommandResult(id)
     })
 
     this.log(`[webmate] ${action} ${id}: ${describeAuthResult(result)}`)
@@ -623,6 +807,20 @@ export class WebmateService {
     return parseLastCommand(readWebmateStatus(this.paths).lastCommand)
   }
 
+  private readCommandResult(id: string): WebmateLastCommand | null {
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) {
+      return null
+    }
+
+    try {
+      return parseLastCommand(
+        JSON.parse(readFileSync(nodePath.join(this.paths.commandsDir, 'results', `${id}.json`), 'utf8'))
+      )
+    } catch {
+      return null
+    }
+  }
+
   // -- updates --------------------------------------------------------------
 
   private get devOverrides(): { feedUrl: string; publicKeyPem: string; parseOptions: ParseReleaseOptions } {
@@ -653,6 +851,7 @@ export class WebmateService {
     const fetchImpl = this.deps.fetchImpl ?? fetch
 
     const response = await fetchImpl(url, {
+      signal: AbortSignal.timeout(60_000),
       cache: 'no-store',
       redirect: 'follow',
       headers: { accept: 'application/json, application/octet-stream;q=0.9, */*;q=0.8' }
@@ -700,7 +899,7 @@ export class WebmateService {
 
         if (check.available && this.getPrefs().autoUpdate && !this.applyInFlight) {
           this.log(`[webmate] ${check.feed?.version} is available; auto-update is on`)
-          void this.applyUpdate()
+          void this.applyUpdate().catch(error => this.log(`[webmate] auto-update: ${String(error)}`))
         }
 
         return check
@@ -718,7 +917,7 @@ export class WebmateService {
       return this.applyInFlight
     }
 
-    this.applyInFlight = this.runApply().finally(() => {
+    this.applyInFlight = this.mutate(() => this.runApply()).finally(() => {
       this.applyInFlight = null
       this.status()
     })
@@ -744,19 +943,6 @@ export class WebmateService {
       return failed(check.blockedByMinWorkmate ? 'this release needs a newer Workmate' : 'nothing to install')
     }
 
-    const pairing = parsePairingFile(defaultPairingIo().readText(this.paths.pairingFile))
-
-    if (!pairing) {
-      // Make one; the swapped-in folder must carry a token the server knows.
-      await this.bootstrap()
-    }
-
-    const ensured = parsePairingFile(defaultPairingIo().readText(this.paths.pairingFile))
-
-    if (!ensured) {
-      return failed('pairing could not be created')
-    }
-
     let release
 
     try {
@@ -776,172 +962,7 @@ export class WebmateService {
       return failed(`cached release is unusable: ${error instanceof Error ? error.message : String(error)}`)
     }
 
-    const pairingOptions = {
-      port: WEBMATE_BRIDGE_PORT,
-      workmateVersion: this.deps.appVersion,
-      minServerVersion: WEBMATE_MIN_SERVER_VERSION
-    }
-
-    if (this.window.isOpen() && this.windowOptions) {
-      return this.runApplyViaWindow(release, ensured, pairingOptions, this.windowOptions)
-    }
-
-    return applyWebmateUpdate({
-      paths: this.paths,
-      release,
-      pairing: ensured,
-      pairingOptions,
-      download: url => this.fetchBytes(url),
-      readStatus: () => this.status(),
-      sendCommand: action => this.sendCommand(action),
-      waitForCommand: (id, timeoutMs) =>
-        waitForCommandResult(id, { timeoutMs, readLastCommand: () => this.readLastCommand() }),
-      onProgress: (stage, message) => this.progress(stage, message, release.version),
-      log: this.log
-    })
-  }
-
-  /**
-   * Update while the Workmate browser window is open. chrome.runtime.reload()
-   * on a CDP-loaded extension unloads it for good, so instead: drain, close
-   * the window, swap the folder (the closed-browser path of the updater), open
-   * the window again, and wait for the new version's hello; no hello means the
-   * previous folder comes back and the window is opened once more.
-   */
-  private async runApplyViaWindow(
-    release: ReleaseManifest,
-    pairing: PairingFile,
-    pairingOptions: PairingOptions,
-    options: WindowLaunchOptions
-  ): Promise<ApplyOutcome> {
-    const version = release.version
-
-    const fail = (stage: ApplyStage, error: string, extra: Partial<ApplyOutcome> = {}): ApplyOutcome => {
-      this.progress('error', error, version)
-
-      return { ok: false, version, stage, error, rolledBack: false, pending: false, live: true, ...extra }
-    }
-
-    // 1. drain — the extension stops taking new runs and tells us when it is idle.
-    if (this.status().connected) {
-      this.progress('drain', version, version)
-      const id = this.sendCommand('prepare_update')
-
-      const result = await waitForCommandResult(id, {
-        timeoutMs: 65_000,
-        readLastCommand: () => this.readLastCommand()
-      })
-
-      if (result && !result.ok && (result.busy ?? 0) > 0) {
-        this.sendCommand('resume')
-
-        return fail('drain', result.error || `browser still busy (${result.busy} run(s))`)
-      }
-    }
-
-    // 2. close the window so nothing holds the folder.
-    this.progress('reload', version, version)
-    await this.window.close()
-
-    // 3. swap through the updater's closed-browser path.
-    const swapped = await applyWebmateUpdate({
-      paths: this.paths,
-      release,
-      pairing,
-      pairingOptions,
-      download: url => this.fetchBytes(url),
-      readStatus: () => ({ ...this.status(), connected: false }),
-      sendCommand: action => this.sendCommand(action),
-      waitForCommand: (id, timeoutMs) =>
-        waitForCommandResult(id, { timeoutMs, readLastCommand: () => this.readLastCommand() }),
-      onProgress: (stage, message) => {
-        if (stage !== 'done') {
-          this.progress(stage, message, version)
-        }
-      },
-      log: this.log
-    })
-
-    if (!swapped.ok) {
-      // Nothing changed on disk; give the person their window back.
-      await this.window
-        .open(options)
-        .catch(error =>
-          this.log(
-            `[webmate] window: reopen after failed swap: ${error instanceof Error ? error.message : String(error)}`
-          )
-        )
-
-      return { ...swapped, live: true }
-    }
-
-    // 4. open again and wait for the new version to say hello.
-    this.progress('confirm', version, version)
-
-    let reopenError: string | null = null
-
-    try {
-      await this.window.open(options)
-    } catch (error) {
-      reopenError = error instanceof Error ? error.message : String(error)
-      this.log(`[webmate] window: reopen failed after swap: ${reopenError}`)
-    }
-
-    // A browser that refused the new folder outright will never say hello — roll back at once
-    // instead of making the person watch a closed window for a minute.
-    const deadline = reopenError ? 0 : Date.now() + 60_000
-    let confirmed = false
-
-    while (Date.now() < deadline) {
-      const status = this.status()
-
-      if (status.connected && status.extensionVersion === version) {
-        confirmed = true
-
-        break
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-
-    if (confirmed) {
-      this.progress('done', version, version)
-      this.log(`[webmate] updated to ${version} in the Workmate browser window`)
-
-      return { ok: true, version, stage: 'done', error: null, rolledBack: false, pending: false, live: true }
-    }
-
-    // 5. no hello: back to the previous folder, window opened once more.
-    const failure = reopenError ? `browser refused the new version: ${reopenError}` : 'no hello from the new version'
-
-    this.progress('rollback', version, version)
-    await this.window.close()
-    const rolledBack = await restorePrevious(this.paths, version).catch(() => false)
-
-    await this.window
-      .open(options)
-      .catch(error =>
-        this.log(`[webmate] window: reopen after rollback: ${error instanceof Error ? error.message : String(error)}`)
-      )
-
-    const check = readUpdateCheck(this.paths)
-
-    writeUpdateCheck(this.paths, {
-      installedVersion: readWebmateStatus(this.paths).installedVersion,
-      available: false,
-      failedVersions: check.failedVersions.includes(version)
-        ? check.failedVersions
-        : [...check.failedVersions, version],
-      lastApply: {
-        version,
-        ok: false,
-        at: new Date().toISOString(),
-        error: failure,
-        rolledBack
-      }
-    })
-
-    return fail('rollback', failure, { rolledBack })
+    return this.applyRelease(release, url => this.fetchBytes(url))
   }
 
   private progress(stage: ApplyStage, message: string, version: string): void {
@@ -953,14 +974,33 @@ export class WebmateService {
 
   /** Windows: a swap deferred while the browser held the folder runs once the extension is gone. */
   private async applyPendingIfIdle(status: WebmateLocalStatus): Promise<void> {
-    if (!status.update?.pendingVersion || status.connected || this.pendingSwapInFlight || this.applyInFlight) {
+    if (
+      !status.update?.pendingVersion ||
+      status.connected ||
+      this.window.isOpen() ||
+      this.pendingSwapInFlight ||
+      this.mutationCount > 0
+    ) {
       return
     }
 
     this.pendingSwapInFlight = true
 
     try {
-      const outcome = await applyPendingSwap(this.paths, { log: this.log })
+      const outcome = await this.mutate(async () => {
+        if (this.status().connected || this.window.isOpen()) {
+          return null
+        }
+
+        return applyPendingSwap(this.paths, {
+          log: this.log,
+          pairingOptions: {
+            port: this.deps.bridgePort ?? WEBMATE_BRIDGE_PORT,
+            workmateVersion: this.deps.appVersion,
+            minServerVersion: WEBMATE_MIN_SERVER_VERSION
+          }
+        })
+      })
 
       if (outcome?.ok) {
         this.progress('done', outcome.version, outcome.version)

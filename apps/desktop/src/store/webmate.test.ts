@@ -24,6 +24,7 @@ import {
   reportWebmateToolCode,
   reportWebmateToolPayload,
   resetWebmatePromptSession,
+  setWebmateEnabled,
   signInWebmate,
   startWebmateGuide,
   webmateCodeFromToolPayload,
@@ -46,7 +47,7 @@ function prefs(overrides: Partial<DesktopWebmatePrefs> = {}): DesktopWebmatePref
     connectedAt: null,
     cardSnoozedUntil: null,
     updateToastSnoozedUntil: null,
-      ssoAutoSignIn: true,
+    ssoAutoSignIn: true,
     updatedAt: '2026-09-09T00:00:00.000Z',
     ...overrides
   }
@@ -93,6 +94,7 @@ function backend(overrides: Partial<WebmateBackendStatus> = {}): WebmateBackendS
     schema: 1,
     server: { registered: true, enabled: true, command: 'node', args: [], bundled: true },
     connected: false,
+    serverRunning: true,
     code: null,
     ...overrides
   }
@@ -140,6 +142,7 @@ beforeEach(() => {
 
 afterEach(() => {
   desktopWindow.agentxDesktop = initialAgentxDesktop
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -321,9 +324,9 @@ const connection = (overrides: Partial<DesktopWebmateConnection> = {}): DesktopW
 describe('several browsers at once (phase 4)', () => {
   it('lists the server’s connections, or synthesises one from the older fields', () => {
     expect(webmateConnections(status())).toEqual([])
-    expect(webmateConnections(status({ connected: true, browser: 'Edge 152', signedIn: false, installType: 'workmate' }))).toEqual([
-      expect.objectContaining({ instanceId: '', browser: 'Edge 152', signedIn: false, active: true })
-    ])
+    expect(
+      webmateConnections(status({ connected: true, browser: 'Edge 152', signedIn: false, installType: 'workmate' }))
+    ).toEqual([expect.objectContaining({ instanceId: '', browser: 'Edge 152', signedIn: false, active: true })])
 
     const two = status({
       connected: true,
@@ -351,7 +354,9 @@ describe('several browsers at once (phase 4)', () => {
       ]
     })
 
-    expect(webmateReadiness({ status: both, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('ready')
+    expect(webmateReadiness({ status: both, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe(
+      'ready'
+    )
     expect(webmateReadiness({ status: both, backend: backend() })).toBe('ready')
 
     const nobody = status({
@@ -362,7 +367,9 @@ describe('several browsers at once (phase 4)', () => {
       connections: [connection({ instanceId: 'own', signedIn: false })]
     })
 
-    expect(webmateReadiness({ status: nobody, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe('notSignedIn')
+    expect(webmateReadiness({ status: nobody, backend: backend(), browser: chrome, profile: chrome.profiles[0] })).toBe(
+      'notSignedIn'
+    )
     // A browser the server does not list is "not connected" even while another browser is.
     const edge = browser({ id: 'edge', name: 'Microsoft Edge', profiles: [profile(true)] })
 
@@ -388,7 +395,18 @@ describe('several browsers at once (phase 4)', () => {
     expect(webmateSignInOutcomeCopy(outcome(null))?.message).toBe('WebMate did not answer in time.')
     expect(
       webmateSignInOutcomeCopy(
-        outcome({ results: [{ instanceId: 'a', browser: 'Chrome 152', ok: true, outcome: 'signed-in', signedIn: true, email: 'kien@example.test' }] })
+        outcome({
+          results: [
+            {
+              instanceId: 'a',
+              browser: 'Chrome 152',
+              ok: true,
+              outcome: 'signed-in',
+              signedIn: true,
+              email: 'kien@example.test'
+            }
+          ]
+        })
       )
     ).toEqual({ kind: 'success', message: 'WebMate is signed in as kien@example.test.' })
     expect(
@@ -398,15 +416,28 @@ describe('several browsers at once (phase 4)', () => {
     ).toBe('info')
     expect(
       webmateSignInOutcomeCopy(
-        outcome({ ok: false, results: [{ instanceId: 'a', browser: null, ok: false, outcome: 'error', signedIn: false, message: 'offline' }] }, { ok: false })
+        outcome(
+          {
+            ok: false,
+            results: [
+              { instanceId: 'a', browser: null, ok: false, outcome: 'error', signedIn: false, message: 'offline' }
+            ]
+          },
+          { ok: false }
+        )
       )
     ).toEqual({ kind: 'error', message: 'Could not sign in WebMate: offline' })
-    expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe('Every connected WebMate is already signed in.')
+    expect(webmateSignInOutcomeCopy(outcome({ results: [] }))?.message).toBe(
+      'Every connected WebMate is already signed in.'
+    )
     expect(
-      webmateSignInOutcomeCopy(outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'opened', signedIn: false }] }))
+      webmateSignInOutcomeCopy(
+        outcome({ results: [{ instanceId: 'a', browser: null, ok: true, outcome: 'opened', signedIn: false }] })
+      )
     ).toEqual({
       kind: 'info',
-      message: 'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.'
+      message:
+        'The AgentX sign-in is open in the browser that has WebMate. Finish it there; Workmate notices on its own.'
     })
   })
 
@@ -435,7 +466,9 @@ describe('several browsers at once (phase 4)', () => {
 
     expect(signIn).toHaveBeenCalledWith({ instanceId: 'a' })
     expect(outcome?.ok).toBe(true)
-    expect(notifications.$notifications.get().map(n => [n.kind, n.message])).toEqual([['success', 'WebMate is signed in.']])
+    expect(notifications.$notifications.get().map(n => [n.kind, n.message])).toEqual([
+      ['success', 'WebMate is signed in.']
+    ])
   })
 })
 
@@ -554,12 +587,19 @@ describe('maybeNotifyWebmateUpdate', () => {
 describe('ensureWebmateServer + startWebmateGuide', () => {
   it('installs the catalog entry when missing, enables it, reloads MCP, then opens the guide', async () => {
     const calls: string[] = []
+    let enabled = false
 
     const api = vi.fn(async (request: { path: string; method?: string; body?: unknown }) => {
       calls.push(`${request.method ?? 'GET'} ${request.path}`)
 
       if (request.path === '/api/webmate/status') {
-        return backend({ server: { registered: false, enabled: false, command: null, args: [], bundled: false } })
+        return enabled
+          ? backend()
+          : backend({ server: { registered: false, enabled: false, command: null, args: [], bundled: false } })
+      }
+
+      if (request.path === '/api/mcp/servers/webmate/enabled') {
+        enabled = true
       }
 
       if (request.path === '/api/mcp/catalog') {
@@ -625,5 +665,91 @@ describe('ensureWebmateServer + startWebmateGuide', () => {
 
     expect(result.ok).toBe(false)
     expect(result.error).toMatch(/gateway/)
+  })
+  it('passes the active chat identity to its explicit reload', async () => {
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => backend()),
+      webmate: {}
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+    const { $activeSessionId } = await import('@/store/session')
+    const request = vi.fn(async () => ({ status: 'reloaded' }))
+    $activeSessionId.set('current-runtime-session')
+    $gateway.set({ request } as never)
+
+    try {
+      expect((await ensureWebmateServer()).ok).toBe(true)
+      expect(request).toHaveBeenCalledWith(
+        'reload.mcp',
+        { confirm: true, session_id: 'current-runtime-session' },
+        180_000
+      )
+    } finally {
+      $activeSessionId.set(null)
+      $gateway.set(null)
+    }
+  })
+
+  it('does not report enable success while the bridge is stopped', async () => {
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => backend({ serverRunning: false })),
+      webmate: {}
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+    $gateway.set({ request: vi.fn(async () => ({ status: 'reloaded' })) } as never)
+    vi.useFakeTimers()
+
+    try {
+      const pending = ensureWebmateServer()
+      await vi.advanceTimersByTimeAsync(5_250)
+      expect((await pending).ok).toBe(false)
+    } finally {
+      $gateway.set(null)
+    }
+  })
+
+  it('waits for the bridge state to be published after a successful reload', async () => {
+    let reads = 0
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async request =>
+        request.path === '/api/webmate/status' ? backend({ serverRunning: ++reads >= 3 }) : { ok: true }
+      ),
+      webmate: {}
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+    $gateway.set({ request: vi.fn(async () => ({ status: 'reloaded' })) } as never)
+    vi.useFakeTimers()
+
+    try {
+      const pending = ensureWebmateServer()
+      await vi.advanceTimersByTimeAsync(500)
+      expect((await pending).ok).toBe(true)
+      expect(reads).toBeGreaterThanOrEqual(3)
+    } finally {
+      $gateway.set(null)
+    }
+  })
+
+  it.each(['error', 'confirm_required'])('disable surfaces a failed reload (%s)', async mode => {
+    desktopWindow.agentxDesktop = {
+      api: vi.fn(async () => ({ ok: true })),
+      webmate: {}
+    } as unknown as Window['agentxDesktop']
+    const { $gateway } = await import('@/store/gateway')
+    $gateway.set({
+      request: vi.fn(async () => {
+        if (mode === 'error') {
+          throw new Error('reload failed')
+        }
+
+        return { status: mode }
+      })
+    } as never)
+
+    try {
+      expect(await setWebmateEnabled(false)).toBe(false)
+    } finally {
+      $gateway.set(null)
+    }
   })
 })

@@ -63,6 +63,7 @@ function backend(enabled: boolean): WebmateBackendStatus {
     schema: 1,
     server: { registered: true, enabled, command: 'node', args: [], bundled: true },
     connected: false,
+    serverRunning: true,
     code: null
   }
 }
@@ -253,7 +254,12 @@ describe('signed in together (phase 4)', () => {
       error: null
     }))
 
-    const chooseBrowser = vi.fn(async () => ({ id: 'chrome', name: 'Google Chrome', profileDir: 'Default', profileName: 'Kiên' }))
+    const chooseBrowser = vi.fn(async () => ({
+      id: 'chrome',
+      name: 'Google Chrome',
+      profileDir: 'Default',
+      profileName: 'Kiên'
+    }))
 
     desktopWindow.agentxDesktop = {
       api: vi.fn(async () => backend(true)),

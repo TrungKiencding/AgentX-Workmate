@@ -3,7 +3,8 @@
  *
  * The server opens no second port for us. Instead it watches
  * `<webmate>/commands/` and runs one `<uuid>.json` file per command, deleting
- * the file on pick-up and recording the outcome as `state.json.lastCommand`
+ * the file on pick-up and recording a durable `commands/results/<id>.json`
+ * receipt as well as the UI summary `state.json.lastCommand`
  * (docs/workmate-integration.md in the WebMate repository, "Commands").
  *
  *   { "id": "<uuid>", "action": "prepare_update" | "reload" | "resume"
@@ -20,7 +21,7 @@
  * call chrome.runtime.reload(). `resume` lifts a drain when an update is
  * called off. With no extension attached the server answers
  * `ok: false, error: "WEBMATE_NOT_CONNECTED"` — the caller reads that as
- * "browser closed, swap the folder now".
+ * a reason to read fresh connection state before deciding whether a swap is safe.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -37,6 +38,8 @@ export interface WebmateCommandPayload {
   loginHint?: string
   /** Address one attached browser (`connections[].instanceId`); omitted = the server picks. */
   instanceId?: string
+  /** Lifecycle operations address every managed browser, never the active one alone. */
+  instanceIds?: string[]
   /** auth_hint: ask browsers that already report signed in too. */
   force?: boolean
 }
@@ -93,6 +96,8 @@ export interface WaitForCommandOptions {
   pollMs?: number
   /** The current `state.json.lastCommand`, or null. */
   readLastCommand: () => WebmateLastCommand | null
+  /** Durable result receipt; avoids losing an acknowledgement to another command. */
+  readResult?: (id: string) => WebmateLastCommand | null
   sleep?: (ms: number) => Promise<void>
   now?: () => number
 }
@@ -100,8 +105,7 @@ export interface WaitForCommandOptions {
 /**
  * Poll state.json until `lastCommand.id` equals `id`, or give up. Null means
  * the server never acknowledged the command within the deadline — it is not
- * running, or it is wedged; callers decide (an update falls back to swapping
- * the folder without draining).
+ * running, or it is wedged. It never proves that a browser is closed.
  */
 export async function waitForCommandResult(
   id: string,
@@ -113,7 +117,7 @@ export async function waitForCommandResult(
   const deadline = now() + options.timeoutMs
 
   for (;;) {
-    const last = options.readLastCommand()
+    const last = options.readResult?.(id) ?? options.readLastCommand()
 
     if (last && last.id === id) {
       return last

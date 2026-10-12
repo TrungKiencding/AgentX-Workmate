@@ -5,11 +5,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { afterEach, describe, test } from 'vitest'
+import { afterEach, describe, test, vi } from 'vitest'
 
 import type { WebmateCommandAction, WebmateLastCommand } from './commands'
 import { readInstalledVersion } from './extension-store'
-import { defaultPairingIo, type PairingFile } from './pairing'
+import { defaultPairingIo, ensurePairing, type PairingFile } from './pairing'
 import { webmatePaths } from './paths'
 import { parseReleaseManifest, type ReleaseManifest, sha256Hex, signingPayload } from './release-feed'
 import { readWebmateStatus, type WebmateLocalStatus } from './status'
@@ -19,7 +19,8 @@ import {
   checkWebmateUpdate,
   evaluateFeed,
   parseUpdateCheck,
-  readUpdateCheck
+  readUpdateCheck,
+  writeUpdateCheck
 } from './updater'
 import { buildZip } from './zip-writer.test-helper'
 
@@ -370,6 +371,41 @@ describe('checkWebmateUpdate', () => {
     assert.equal(check.belowMinProtocol, true)
   })
 
+  test.each(['success', 'offline', 'invalid', 'tampered'])(
+    'feed %s cannot overwrite a concurrent rollback',
+    async mode => {
+      const paths = await installFolder(await tempRoot(), '1.0.4')
+      const zip = extensionZip('1.0.5')
+      const lastApply = { version: '1.0.5', ok: false, at: 'now', error: 'no hello', rolledBack: true }
+
+      const check = await checkWebmateUpdate({
+        paths,
+        appVersion: '0.21.0',
+        publicKeyPem: PUBLIC_PEM,
+        fetchText: async () => {
+          writeUpdateCheck(paths, { failedVersions: ['1.0.5'], pendingVersion: '1.0.6', lastApply })
+
+          if (mode === 'offline') {
+            throw new Error('offline')
+          }
+
+          if (mode === 'invalid') {
+            return '<html>'
+          }
+
+          return JSON.stringify(
+            mode === 'tampered' ? { ...signedRelease(zip, '1.0.5'), version: '9.0.0' } : signedRelease(zip, '1.0.5')
+          )
+        }
+      })
+
+      assert.deepEqual(check.failedVersions, ['1.0.5'])
+      assert.equal(check.pendingVersion, '1.0.6')
+      assert.deepEqual(check.lastApply, lastApply)
+      assert.equal(check.available, false)
+    }
+  )
+
   test('parseUpdateCheck never throws', () => {
     assert.equal(parseUpdateCheck('nope').available, false)
     assert.deepEqual(parseUpdateCheck(JSON.stringify({ failedVersions: ['1.0.2', 3] })).failedVersions, ['1.0.2'])
@@ -446,7 +482,7 @@ describe('applyWebmateUpdate', () => {
     assert.equal(outcome.ok, false)
     assert.equal(outcome.stage, 'rollback')
     assert.equal(outcome.rolledBack, true)
-    assert.deepEqual(server.commands, ['prepare_update', 'reload', 'reload'])
+    assert.deepEqual(server.commands, ['prepare_update', 'reload', 'resume'])
     assert.equal(readInstalledVersion(paths.installDir), '1.0.4')
     assert.equal(readInstalledVersion(path.join(paths.versionsDir, '1.0.5')), '1.0.5')
     assert.equal(fs.existsSync(paths.prevDir), false)
@@ -518,7 +554,7 @@ describe('applyWebmateUpdate', () => {
     assert.equal(fs.existsSync(path.join(paths.versionsDir, '1.0.5')), false)
   })
 
-  test('a server that never acknowledges is treated as a closed browser', async () => {
+  test('a live server that never acknowledges cannot authorize a folder swap', async () => {
     const root = await tempRoot()
     const paths = await installFolder(root, '1.0.4')
     const server = new FakeServer(paths, { connected: true, extensionVersion: '1.0.4' })
@@ -529,11 +565,48 @@ describe('applyWebmateUpdate', () => {
 
     const outcome = await applyWebmateUpdate(applyDeps(paths, server, release, zip))
 
-    assert.equal(outcome.ok, true)
-    assert.equal(outcome.live, false)
-    assert.deepEqual(server.commands, ['prepare_update'])
-    assert.equal(readInstalledVersion(paths.installDir), '1.0.5')
+    assert.equal(outcome.ok, false)
+    assert.equal(outcome.live, true)
+    assert.deepEqual(server.commands, ['prepare_update', 'resume'])
+    assert.equal(readInstalledVersion(paths.installDir), '1.0.4')
   })
+
+  test.each(['current', 'staged'])(
+    'Windows lock during %s rename restores the old folder and persists staging',
+    async locked => {
+      const paths = await installFolder(await tempRoot(), '1.0.4')
+      const server = new FakeServer(paths, { connected: false, extensionVersion: '1.0.4' })
+      const zip = extensionZip('1.0.5')
+      const rename = fsp.rename.bind(fsp)
+
+      const spy = vi.spyOn(fsp, 'rename').mockImplementation(async (from, to) => {
+        if (String(from) === (locked === 'current' ? paths.installDir : path.join(paths.versionsDir, '1.0.5'))) {
+          throw Object.assign(new Error('folder locked'), { code: 'EBUSY' })
+        }
+
+        return rename(from, to)
+      })
+
+      try {
+        const result = await applyWebmateUpdate({
+          ...applyDeps(paths, server, parseReleaseManifest(signedRelease(zip, '1.0.5')), zip),
+          renameRetries: 0
+        })
+
+        assert.equal(result.pending, true)
+        assert.equal(readInstalledVersion(paths.installDir), '1.0.4')
+        assert.equal(readUpdateCheck(paths).pendingVersion, '1.0.5')
+      } finally {
+        spy.mockRestore()
+      }
+
+      // Pairing changes while staging; the deferred swap must carry the new token.
+      const { pairing } = ensurePairing(paths, { ...PAIRING_OPTIONS, rotate: true })
+      assert.equal((await applyPendingSwap(paths, { pairingOptions: PAIRING_OPTIONS }))?.ok, true)
+      const workmate = JSON.parse(await fsp.readFile(paths.workmateJson, 'utf8'))
+      assert.equal(workmate.token, pairing.token)
+    }
+  )
 
   test('a fresh machine with no folder yet installs without a prev copy', async () => {
     const root = await tempRoot()
@@ -565,7 +638,8 @@ describe('applyPendingSwap', () => {
 
     assert.equal(await applyPendingSwap(webmatePaths(await tempRoot())), null, 'nothing pending elsewhere')
 
-    const outcome = await applyPendingSwap(paths)
+    ensurePairing(paths, PAIRING_OPTIONS)
+    const outcome = await applyPendingSwap(paths, { pairingOptions: PAIRING_OPTIONS })
 
     assert.equal(outcome?.ok, true)
     assert.equal(readInstalledVersion(paths.installDir), '1.0.5')

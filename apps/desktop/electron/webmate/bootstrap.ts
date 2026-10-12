@@ -22,8 +22,11 @@ import {
   locateBundledExtension,
   readInstalledVersion
 } from './extension-store'
-import { ensurePairing, type PairingOutcome } from './pairing'
+import type { BundledExtension } from './extension-store'
+import { ensurePairing, type PairingOutcome, writeWorkmateJsonInto } from './pairing'
 import { WEBMATE_BRIDGE_PORT, WEBMATE_MIN_SERVER_VERSION, type WebmatePaths, webmatePaths } from './paths'
+import { readWebmateStatus } from './status'
+import { readUpdateCheck, writeUpdateCheck } from './updater'
 
 export interface BootstrapOptions {
   /** The AgentX install root (or any AGENTX_HOME under it). */
@@ -38,6 +41,8 @@ export interface BootstrapOptions {
   log?: (message: string) => void
   /** Injected for tests. */
   pathModule?: typeof nodePath
+  /** The service uses the same live updater for bundled and downloaded releases. */
+  installExtension?: (bundled: BundledExtension | null) => Promise<InstallOutcome>
 }
 
 export interface BootstrapResult {
@@ -69,7 +74,27 @@ export async function bootstrapWebmate(options: BootstrapOptions): Promise<Boots
   }
 
   try {
-    result.extension = await ensureExtensionFolder(paths, bundled, { isPackaged: options.isPackaged, log })
+    const failed = bundled && readUpdateCheck(paths).failedVersions.includes(bundled.version)
+    result.extension = failed
+      ? {
+          action: 'kept',
+          installedVersion: readInstalledVersion(paths.installDir),
+          bundledVersion: bundled.version,
+          reason: 'bundled version previously failed',
+          verified: { sha256: false, signature: 'unsigned' }
+        }
+      : options.installExtension
+        ? await options.installExtension(bundled)
+        : await ensureExtensionFolder(paths, bundled, {
+            isPackaged: options.isPackaged,
+            log,
+            deferSwap: readWebmateStatus(paths).connected
+          })
+
+    if (bundled && result.extension.action === 'skipped' && !result.extension.stagedDir && result.extension.reason) {
+      result.error = `extension: ${result.extension.reason}`
+      log(`[webmate] ${result.error}`)
+    }
   } catch (error) {
     result.error = `extension: ${error instanceof Error ? error.message : String(error)}`
     log(`[webmate] ${result.error}`)
@@ -86,6 +111,15 @@ export async function bootstrapWebmate(options: BootstrapOptions): Promise<Boots
       pairingWritten: pairing.pairingWritten,
       workmateJsonWritten: pairing.workmateJsonWritten,
       extensionPresent: pairing.extensionPresent
+    }
+
+    if (result.extension?.stagedDir && bundled) {
+      writeWorkmateJsonInto(result.extension.stagedDir, pairing.pairing, {
+        port: options.bridgePort ?? WEBMATE_BRIDGE_PORT,
+        workmateVersion: options.appVersion,
+        minServerVersion: WEBMATE_MIN_SERVER_VERSION
+      })
+      writeUpdateCheck(paths, { pendingVersion: bundled.version })
     }
 
     if (pairing.pairingWritten) {

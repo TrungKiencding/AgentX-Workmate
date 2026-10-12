@@ -111,6 +111,7 @@ describe('the separate-window door on the card', () => {
         schema: 1,
         server: { registered: true, enabled: true, command: 'node', args: [], bundled: true },
         connected: false,
+        serverRunning: true,
         code: null
       })),
       webmate: { setPrefs: vi.fn(async (p: unknown) => p), openWindow, status: vi.fn(async () => null) }

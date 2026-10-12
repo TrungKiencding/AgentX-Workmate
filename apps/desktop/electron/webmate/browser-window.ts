@@ -262,6 +262,55 @@ export class WorkmateBrowserWindow {
     }
   }
 
+  /** Read the identity from our own extension, rather than guessing from a browser label. */
+  async instanceId(): Promise<string | null> {
+    const cdp = this.cdp
+    const extensionId = this.status.extensionId
+
+    if (!cdp || !extensionId) {return null}
+    const deadline = Date.now() + 5_000
+
+    while (Date.now() < deadline) {
+      const targets = await cdp.send<{ targetInfos: { targetId: string; type: string; url: string }[] }>(
+        'Target.getTargets'
+      )
+
+      const worker = targets.targetInfos.find(
+        target => target.type === 'service_worker' && target.url.startsWith(`chrome-extension://${extensionId}/`)
+      )
+
+      if (worker) {
+        const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', {
+          targetId: worker.targetId,
+          flatten: true
+        })
+
+        try {
+          const response = await cdp.send<{ result?: { value?: unknown } }>(
+            'Runtime.evaluate',
+            {
+              expression:
+                'chrome.storage.local.get("webbrainBridgeInstanceId").then(v => v.webbrainBridgeInstanceId ?? null)',
+              awaitPromise: true,
+              returnByValue: true
+            },
+            { sessionId, timeoutMs: 3_000 }
+          )
+
+          const value = response.result?.value
+
+          if (typeof value === 'string' && value.trim()) {return value}
+        } finally {
+          await cdp.send('Target.detachFromTarget', { sessionId }).catch(() => undefined)
+        }
+      }
+
+      await this.sleep(100)
+    }
+
+    return null
+  }
+
   /** Close the browser: Browser.close, then SIGTERM if it lingers. Safe to call when closed. */
   close(): Promise<void> {
     if (this.closing) {

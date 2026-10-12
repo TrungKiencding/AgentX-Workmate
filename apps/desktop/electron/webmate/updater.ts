@@ -24,13 +24,24 @@ import { promises as fsp } from 'node:fs'
 import fs from 'node:fs'
 import nodePath from 'node:path'
 
-import type { WebmateCommandAction, WebmateLastCommand } from './commands'
+import { isSemver } from '../signed-manifest'
+
+import type { WebmateCommandAction, WebmateCommandPayload, WebmateLastCommand } from './commands'
 import { extensionIdFromPublicKey, readInstalledVersion, renameWithRetry } from './extension-store'
 import {
+  assertParticipantsUnchanged,
+  browsersConfirmed,
+  drainBrowsers,
+  managedConnections,
+  reloadBrowsers
+} from './lifecycle'
+import {
   defaultPairingIo,
+  ensurePairing,
   type PairingFile,
   type PairingIo,
   type PairingOptions,
+  parsePairingFile,
   writeWorkmateJsonInto
 } from './pairing'
 import { WEBMATE_EXTENSION_ID, type WebmatePaths } from './paths'
@@ -44,7 +55,7 @@ import {
   WEBMATE_RELEASE_FEED_URL,
   WEBMATE_RELEASE_PUBLIC_KEY
 } from './release-feed'
-import type { WebmateLocalStatus } from './status'
+import { readWebmateStatus, type WebmateLocalStatus } from './status'
 import { extractZip } from './zip'
 
 // ---------------------------------------------------------------------------
@@ -155,9 +166,10 @@ export function parseUpdateCheck(text: string | null): UpdateCheckFile {
     available: record.available === true,
     blockedByMinWorkmate: record.blockedByMinWorkmate === true,
     belowMinProtocol: record.belowMinProtocol === true,
-    pendingVersion: typeof record.pendingVersion === 'string' && record.pendingVersion ? record.pendingVersion : null,
+    pendingVersion:
+      typeof record.pendingVersion === 'string' && isSemver(record.pendingVersion) ? record.pendingVersion : null,
     failedVersions: Array.isArray(record.failedVersions)
-      ? record.failedVersions.filter((v): v is string => typeof v === 'string')
+      ? record.failedVersions.filter((v): v is string => typeof v === 'string' && isSemver(v))
       : [],
     lastApply:
       lastApply && typeof lastApply.version === 'string'
@@ -252,8 +264,6 @@ export function evaluateFeed(input: {
 export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFile> {
   const io = deps.io ?? defaultPairingIo()
   const log = deps.log ?? (() => {})
-  const previous = readUpdateCheck(deps.paths, io)
-  const installedVersion = readInstalledVersion(deps.paths.installDir)
   const checkedAt = io.now().toISOString()
 
   let body: string
@@ -267,7 +277,13 @@ export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFi
 
     return writeUpdateCheck(
       deps.paths,
-      { ...previous, checkedAt, ok: false, error: message, installedVersion, available: false },
+      {
+        checkedAt,
+        ok: false,
+        error: message,
+        installedVersion: readInstalledVersion(deps.paths.installDir),
+        available: false
+      },
       io
     )
   }
@@ -279,7 +295,13 @@ export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFi
   } catch {
     return writeUpdateCheck(
       deps.paths,
-      { ...previous, checkedAt, ok: false, error: 'feed is not JSON', installedVersion, available: false },
+      {
+        checkedAt,
+        ok: false,
+        error: 'feed is not JSON',
+        installedVersion: readInstalledVersion(deps.paths.installDir),
+        available: false
+      },
       io
     )
   }
@@ -290,12 +312,11 @@ export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFi
     return writeUpdateCheck(
       deps.paths,
       {
-        ...previous,
         checkedAt,
         ok: false,
         error: 'feed signature does not verify',
         feed: null,
-        installedVersion,
+        installedVersion: readInstalledVersion(deps.paths.installDir),
         available: false,
         belowMinProtocol: false
       },
@@ -304,6 +325,10 @@ export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFi
   }
 
   const release = parseReleaseManifest(raw, deps.parseOptions)
+  // Fetching yields to installs/rollbacks. Read their state at commit time and
+  // only write fields owned by the feed check.
+  const previous = readUpdateCheck(deps.paths, io)
+  const installedVersion = readInstalledVersion(deps.paths.installDir)
 
   const verdict = evaluateFeed({
     release,
@@ -316,7 +341,6 @@ export async function checkWebmateUpdate(deps: CheckDeps): Promise<UpdateCheckFi
   return writeUpdateCheck(
     deps.paths,
     {
-      ...previous,
       checkedAt,
       ok: true,
       error: null,
@@ -372,7 +396,7 @@ export interface ApplyDeps {
   download: (url: string) => Promise<Buffer>
   /** A fresh read of `<webmate>/` (state.json etc.). */
   readStatus: () => WebmateLocalStatus
-  sendCommand: (action: WebmateCommandAction) => string
+  sendCommand: (action: WebmateCommandAction, payload?: WebmateCommandPayload) => string
   waitForCommand: (id: string, timeoutMs: number) => Promise<WebmateLastCommand | null>
   io?: UpdateIo
   onProgress?: (stage: ApplyStage, message: string) => void
@@ -385,9 +409,9 @@ export interface ApplyDeps {
   helloPollMs?: number
   renameRetries?: number
   renameRetryDelayMs?: number
+  /** CDP-loaded extensions must be unloaded/reloaded by their owning browser window. */
+  browserWindow?: { close: () => Promise<void>; open: () => Promise<void>; instanceId: () => Promise<string | null> }
 }
-
-const NOT_CONNECTED_CODES = new Set(['WEBMATE_NOT_CONNECTED', 'WEBMATE_NOT_INSTALLED', 'WEBMATE_OUTDATED'])
 
 /** Move `from` to `to` after clearing `to`; errors bubble (the caller decides between retry, pending and rollback). */
 async function replaceDir(from: string, to: string, retries: number, delayMs: number): Promise<void> {
@@ -486,29 +510,24 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
 
   // 3. drain, when a browser is attached
   const before = deps.readStatus()
-  let live = before.connected
+
+  const live =
+    Boolean(deps.browserWindow) ||
+    (before.connected && (!before.connections.length || managedConnections(before).length > 0))
 
   if (live) {
     progress('drain', version)
-    const id = deps.sendCommand('prepare_update')
-    const result = await deps.waitForCommand(id, (deps.drainTimeoutMs ?? 60_000) + 5_000)
 
-    if (result === null) {
-      // The server never picked the command up: it is not running. Nothing to
-      // drain or reload; swap like a closed browser.
-      log('[webmate] prepare_update was not acknowledged; treating the browser as closed')
-      live = false
-    } else if (!result.ok) {
-      if (result.error && NOT_CONNECTED_CODES.has(result.error)) {
-        live = false
-      } else {
-        // Still busy after the server's own deadline. Do not cut a task off:
-        // lift the drain and try again later.
-        deps.sendCommand('resume')
-        await fsp.rm(stagedDir, { recursive: true, force: true })
+    try {
+      await drainBrowsers(deps, before, (deps.drainTimeoutMs ?? 60_000) + 5_000)
+      await deps.browserWindow?.close()
+      assertParticipantsUnchanged(before, deps.readStatus())
+    } catch (error) {
+      deps.sendCommand('resume')
+      await deps.browserWindow?.open().catch(recovery => log(`[webmate] window recovery failed: ${String(recovery)}`))
+      await fsp.rm(stagedDir, { recursive: true, force: true })
 
-        return fail('drain', result.error || `browser still busy (${result.busy ?? '?'} run(s))`)
-      }
+      return fail('drain', error instanceof Error ? error.message : String(error), { live })
     }
   }
 
@@ -536,6 +555,7 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
 
     if (live) {
       deps.sendCommand('resume')
+      await deps.browserWindow?.open().catch(error => log(`[webmate] window recovery failed: ${String(error)}`))
     }
 
     if (isBusyError(error) && fs.existsSync(stagedDir)) {
@@ -592,17 +612,39 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
 
   // 5. reload
   progress('reload', version)
-  deps.sendCommand('reload')
+  let reloadError: string | null = null
+  let windowInstanceId: string | null = null
+
+  try {
+    // The CDP window is closed here. Only the person's other browsers receive
+    // runtime.reload; reopening uses Extensions.loadUnpacked again.
+    await reloadBrowsers(deps)
+    await deps.browserWindow?.open()
+
+    if (deps.browserWindow) {
+      windowInstanceId = await deps.browserWindow.instanceId()
+
+      if (!windowInstanceId) {
+        throw new Error('could not verify the Workmate browser identity')
+      }
+    }
+  } catch (error) {
+    reloadError = error instanceof Error ? error.message : String(error)
+  }
 
   // 6. confirm: a hello with the new version
   progress('confirm', version)
-  const deadline = now() + (deps.helloTimeoutMs ?? 60_000)
+  const deadline = reloadError ? 0 : now() + (deps.helloTimeoutMs ?? 60_000)
   let confirmed = false
 
   while (now() < deadline) {
     const status = deps.readStatus()
 
-    if (status.connected && status.extensionVersion === version) {
+    const windowConfirmed =
+      !deps.browserWindow ||
+      status.connections.some(c => c.instanceId === windowInstanceId && c.paired && c.extensionVersion === version)
+
+    if (windowConfirmed && browsersConfirmed(before, status, version)) {
       confirmed = true
 
       break
@@ -636,13 +678,18 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
 
   try {
     if (fs.existsSync(paths.prevDir)) {
+      await deps.browserWindow?.close()
       await replaceDir(paths.installDir, stagedDir, retries, retryDelay)
       await renameWithRetry(paths.prevDir, paths.installDir, retries, retryDelay)
       rolledBack = true
-      deps.sendCommand('reload')
+      await reloadBrowsers(deps)
     }
   } catch (error) {
     log(`[webmate] rollback failed: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    // An external browser failing to reload must not strand our own window.
+    await deps.browserWindow?.open().catch(error => log(`[webmate] window recovery failed: ${String(error)}`))
+    deps.sendCommand('resume')
   }
 
   const failed = readUpdateCheck(paths, io).failedVersions
@@ -652,56 +699,29 @@ export async function applyWebmateUpdate(deps: ApplyDeps): Promise<ApplyOutcome>
     {
       installedVersion: readInstalledVersion(paths.installDir),
       available: false,
+      pendingVersion: null,
       failedVersions: failed.includes(version) ? failed : [...failed, version],
       lastApply: {
         version,
         ok: false,
         at: new Date(now()).toISOString(),
-        error: 'no hello from the new version',
+        error: reloadError || 'no hello from the new version',
         rolledBack
       }
     },
     io
   )
-  progress('error', 'no hello from the new version')
+  progress('error', reloadError || 'no hello from the new version')
 
   return {
     ok: false,
     version,
     stage: 'rollback',
-    error: 'no hello from the new version',
+    error: reloadError || 'no hello from the new version',
     rolledBack,
     pending: false,
     live: true
   }
-}
-
-/**
- * Put `versions/prev` back in place after a swapped-in version failed to come
- * up, parking the failed folder under `versions/<failedVersion>`. Used by the
- * Workmate browser window's relaunch-based update. false when there is no
- * previous folder to go back to.
- */
-export async function restorePrevious(
-  paths: WebmatePaths,
-  failedVersion: string,
-  options: { renameRetries?: number; renameRetryDelayMs?: number } = {}
-): Promise<boolean> {
-  if (!fs.existsSync(paths.prevDir)) {
-    return false
-  }
-
-  const retries = options.renameRetries ?? 5
-  const delay = options.renameRetryDelayMs ?? 2_000
-  const parked = nodePath.join(paths.versionsDir, failedVersion)
-
-  if (fs.existsSync(paths.installDir)) {
-    await replaceDir(paths.installDir, parked, retries, delay)
-  }
-
-  await renameWithRetry(paths.prevDir, paths.installDir, retries, delay)
-
-  return true
 }
 
 /**
@@ -711,7 +731,13 @@ export async function restorePrevious(
  */
 export async function applyPendingSwap(
   paths: WebmatePaths,
-  options: { io?: UpdateIo; log?: (message: string) => void; renameRetries?: number; renameRetryDelayMs?: number } = {}
+  options: {
+    io?: UpdateIo
+    log?: (message: string) => void
+    renameRetries?: number
+    renameRetryDelayMs?: number
+    pairingOptions?: PairingOptions
+  } = {}
 ): Promise<ApplyOutcome | null> {
   const io = options.io ?? defaultPairingIo()
   const log = options.log ?? (() => {})
@@ -728,6 +754,54 @@ export async function applyPendingSwap(
     writeUpdateCheck(paths, { pendingVersion: null }, io)
 
     return null
+  }
+
+  // Recheck the disk and bridge immediately before consuming staged state.
+  const installed = readInstalledVersion(paths.installDir)
+
+  if (check.failedVersions.includes(version) || (installed && compareVersions(version, installed) <= 0)) {
+    writeUpdateCheck(paths, { pendingVersion: null }, io)
+
+    return null
+  }
+
+  const pendingFailure = (error: string): ApplyOutcome => ({
+    ok: false,
+    version,
+    stage: 'pending',
+    error,
+    rolledBack: false,
+    pending: true,
+    live: false
+  })
+
+  if (readWebmateStatus(paths).connected) {
+    return pendingFailure('browser attached; staged update waits')
+  }
+
+  try {
+    const manifest = JSON.parse(await fsp.readFile(nodePath.join(stagedDir, 'manifest.json'), 'utf8'))
+
+    if (
+      manifest.version !== version ||
+      typeof manifest.key !== 'string' ||
+      extensionIdFromPublicKey(manifest.key) !== WEBMATE_EXTENSION_ID
+    ) {
+      throw new Error('staged extension identity does not match the pending update')
+    }
+
+    // A token may have been rotated while Windows kept this folder staged.
+    const pairing = parsePairingFile(io.readText(paths.pairingFile))
+
+    if (!pairing) {
+      throw new Error('pending update has no pairing')
+    }
+
+    const pairingOptions = options.pairingOptions ?? { port: pairing.port, workmateVersion: 'unknown' }
+    const refreshed = ensurePairing(paths, pairingOptions)
+    writeWorkmateJsonInto(stagedDir, refreshed.pairing, pairingOptions)
+  } catch (error) {
+    return pendingFailure(error instanceof Error ? error.message : String(error))
   }
 
   try {

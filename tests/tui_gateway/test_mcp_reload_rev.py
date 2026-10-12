@@ -20,6 +20,7 @@ fixtures still restore the module globals they touch.
 from __future__ import annotations
 
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -61,6 +62,36 @@ def test_success_reports_loaded_rev(reload_env):
     assert envelope["result"]["loaded_rev"] == "rev-a"
     assert calls["discover"] == 1
     assert srv._mcp_reload_gen == 1
+
+
+def test_explicit_webmate_reload_refreshes_only_the_selected_chat(reload_env, monkeypatch):
+    """Desktop's session_id updates its tool snapshot without invalidating
+    unrelated conversations' cached prefixes. Exercise the real refresh helper.
+    """
+    def agent():
+        return SimpleNamespace(
+            tools=[{"type": "function", "function": {"name": "terminal"}}],
+            valid_tool_names={"terminal"}, enabled_toolsets=["terminal"],
+            disabled_toolsets=None,
+        )
+
+    selected, background = agent(), agent()
+    original_background_tools = background.tools
+    monkeypatch.setattr(srv, "_sessions", {"selected": {"agent": selected}, "background": {"agent": background}})
+    monkeypatch.setattr(srv, "_session_uses_compute_host", lambda _: False)
+    monkeypatch.setattr(srv, "_load_enabled_toolsets", lambda: ["terminal", "mcp_webmate"])
+    monkeypatch.setattr(srv, "_session_info", lambda *_: {})
+    monkeypatch.setattr(srv, "_emit", lambda *_: None)
+    import model_tools
+
+    fresh = [{"type": "function", "function": {"name": name}} for name in ("terminal", "mcp_webmate_webmate_run")]
+    monkeypatch.setattr(model_tools, "get_tool_definitions", lambda **_: fresh)
+    result = srv._methods["reload.mcp"](1, {"confirm": True, "session_id": "selected"})
+    assert result["result"]["status"] == "reloaded"
+    assert "mcp_webmate_webmate_run" in selected.valid_tool_names
+    assert "mcp_webmate" in selected.enabled_toolsets
+    assert background.tools is original_background_tools
+    assert background.valid_tool_names == {"terminal"}
 
 
 def test_failed_reload_is_an_error_and_no_generation_advance(reload_env, monkeypatch):

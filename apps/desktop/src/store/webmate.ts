@@ -31,6 +31,7 @@ import { getMcpCatalog, getWebmateStatus, installMcpCatalogEntry, setMcpServerEn
 import { translateNow } from '@/i18n'
 import { $gateway } from '@/store/gateway'
 import { dismissNotification, notify } from '@/store/notifications'
+import { $activeSessionId } from '@/store/session'
 import type { WebmateBackendStatus } from '@/types/hermes'
 
 export const WEBMATE_SERVER_NAME = 'webmate'
@@ -450,7 +451,20 @@ async function reloadMcp(): Promise<void> {
   }
 
   // confirm: true — the reload is the point of the switch, not a surprise.
-  await gateway.request('reload.mcp', { confirm: true }, 180_000)
+  const sessionId = $activeSessionId.get()
+
+  const result = await gateway.request<{ status?: string; error?: string }>(
+    'reload.mcp',
+    {
+      confirm: true,
+      ...(sessionId ? { session_id: sessionId } : {})
+    },
+    180_000
+  )
+
+  if (result?.status !== 'reloaded') {
+    throw new Error(result?.error || 'MCP reload failed')
+  }
 }
 
 /**
@@ -461,8 +475,10 @@ async function reloadMcp(): Promise<void> {
  */
 export async function ensureWebmateServer(): Promise<{ ok: boolean; error: string | null }> {
   try {
-    const backend = (await refreshWebmateBackend()) ?? $webmateBackend.get()
-    let registered = Boolean(backend?.server?.registered)
+    // Read authoritative state: a cached response from another profile must
+    // never authorize success for this gateway.
+    const backend = await getWebmateStatus()
+    const registered = Boolean(backend?.server?.registered)
 
     if (!registered) {
       const catalog = await getMcpCatalog()
@@ -475,8 +491,6 @@ export async function ensureWebmateServer(): Promise<{ ok: boolean; error: strin
       if (!entry.installed) {
         await installMcpCatalogEntry(WEBMATE_SERVER_NAME)
       }
-
-      registered = true
     }
 
     if (!backend?.server?.enabled) {
@@ -487,7 +501,22 @@ export async function ensureWebmateServer(): Promise<{ ok: boolean; error: strin
     // The skill teaches the agent when to reach for the browser; without it the
     // tools exist but are never picked up on their own.
     await setSkillEnabled(WEBMATE_SKILL_NAME, true).catch(() => undefined)
-    await refreshWebmateBackend()
+    // The bridge's state file is published asynchronously after MCP discovery.
+    // Bound this reconciliation rather than mistaking that short delay for a
+    // failed start or trusting cached state.
+    const deadline = Date.now() + 5_000
+    let running = await getWebmateStatus()
+
+    while (running.server?.registered && running.server.enabled && !running.serverRunning && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 250))
+      running = await getWebmateStatus()
+    }
+
+    $webmateBackend.set(running)
+
+    if (!running.server?.registered || !running.server.enabled || !running.serverRunning) {
+      throw new Error(running.error || 'WebMate bridge did not start')
+    }
 
     return { ok: true, error: null }
   } catch (error) {
@@ -506,8 +535,13 @@ export async function setWebmateEnabled(enabled: boolean): Promise<boolean> {
       }
     } else {
       await setMcpServerEnabled(WEBMATE_SERVER_NAME, false)
-      await reloadMcp().catch(() => undefined)
-      await refreshWebmateBackend()
+      await reloadMcp()
+      const disabled = await getWebmateStatus()
+      $webmateBackend.set(disabled)
+
+      if (disabled.server?.enabled !== false) {
+        throw new Error('WebMate disable was not confirmed')
+      }
     }
 
     return true
