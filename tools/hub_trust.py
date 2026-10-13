@@ -1,4 +1,4 @@
-"""Which signing keys of an AgentX Hub this machine trusts (Agent Hub P6.1).
+"""Which signing keys of an AgentX AgentHub this machine trusts (Agent Hub P6.1).
 
 What the hub signs — a skill bundle, an MCP server's manifest, the MCP feed —
 is checked with a key the hub publishes at ``/.well-known/agentx-hub.json``.
@@ -71,9 +71,9 @@ def url_problem(url: str) -> Optional[str]:
     parts = urlsplit((url or "").strip())
     host = (parts.hostname or "").lower()
     if parts.scheme not in ("http", "https") or not host:
-        return f"{url!r} is not the address of an AgentX Hub"
+        return f"{url!r} is not the address of an AgentX AgentHub"
     if parts.scheme == "http" and not _loopback(host):
-        return (f"the AgentX Hub at {url} is not reached over https: whoever answers there could hand out its own signing keys. "
+        return (f"the AgentX AgentHub at {url} is not reached over https: whoever answers there could hand out its own signing keys. "
                 "Use its https address (http is for a hub on this machine only).")
     return None
 
@@ -195,7 +195,7 @@ def trust(hub_url: str, well_known: Any, *, now: Callable[[], float] = time.time
                 return {}  # nothing to pin yet: the first keys this hub publishes will be
             pins = {key["kid"]: key["ed25519_pub"] for key in published}
             entry = {"keys": pins, "pinned_at": moment}
-            logger.info("AgentX Hub %s: pinned its signing keys %s on first use", _key(hub_url), ", ".join(sorted(pins)))
+            logger.info("AgentX AgentHub %s: pinned its signing keys %s on first use", _key(hub_url), ", ".join(sorted(pins)))
         current = {key["kid"]: key for key in published}
         trusted_now = {kid: pins[kid] for kid, key in current.items() if pins.get(kid) == key["ed25519_pub"]}
         added = True
@@ -208,17 +208,17 @@ def trust(hub_url: str, well_known: Any, *, now: Callable[[], float] = time.time
                 if any(e["kid"] in trusted_now and verify(trusted_now[e["kid"]], vouched, e["sig"]) for e in key["endorsements"]):
                     pins[kid] = trusted_now[kid] = key["ed25519_pub"]
                     added = True
-                    logger.info("AgentX Hub %s: trusts its new signing key %s, endorsed by a key it trusted", _key(hub_url), kid)
+                    logger.info("AgentX AgentHub %s: trusts its new signing key %s, endorsed by a key it trusted", _key(hub_url), kid)
         refused = {kid: key["ed25519_pub"] for kid, key in current.items() if kid not in trusted_now}
         if refused and refused != entry.get("untrusted"):
-            logger.warning("AgentX Hub %s publishes signing keys this machine does not trust: %s (agentx mcp hub-keys)",
+            logger.warning("AgentX AgentHub %s publishes signing keys this machine does not trust: %s (agentx mcp hub-keys)",
                            _key(hub_url), ", ".join(sorted(refused)))
         entry.update(keys=pins, untrusted=refused, checked_at=moment)
         data[_key(hub_url)] = entry
         try:
             _write_all(data)
         except OSError as exc:
-            logger.warning("AgentX Hub %s: the trusted keys could not be kept: %s", _key(hub_url), exc)
+            logger.warning("AgentX AgentHub %s: the trusted keys could not be kept: %s", _key(hub_url), exc)
         return trusted_now
 
 
@@ -231,5 +231,5 @@ def reset(hub_url: str) -> bool:
         if data.pop(_key(hub_url), None) is None:
             return False
         _write_all(data)
-    logger.warning("AgentX Hub %s: its pinned signing keys were reset", _key(hub_url))
+    logger.warning("AgentX AgentHub %s: its pinned signing keys were reset", _key(hub_url))
     return True

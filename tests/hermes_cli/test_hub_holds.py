@@ -1,4 +1,4 @@
-"""A skill or MCP server the AgentX Hub keeps off stays off here (hub
+"""A skill or MCP server the AgentX AgentHub keeps off stays off here (hub
 decisions §8 #22, §9.1 #18): the hub sync writes what the hub last said of
 each (``hub_sync_state.json`` in the cache of the home it syncs), and every
 way to switch one back on reads it — the Skills switch and the MCP switch
@@ -121,4 +121,4 @@ class TestSwitches:
         skills_config.save_disabled_skills(skills_config.load_config(), {"demo-core", "notes"})
         skills_config.skills_command()
         assert _config()["skills"]["disabled"] == ["demo-core"]
-        assert "demo-core stays off — AgentX Hub keeps it off: taken down by admin: phishing" in capsys.readouterr().out
+        assert "demo-core stays off — AgentX AgentHub keeps it off: taken down by admin: phishing" in capsys.readouterr().out

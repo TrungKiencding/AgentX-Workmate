@@ -1,4 +1,4 @@
-"""``agentx mcp`` with AgentX Hub servers (Agent Hub P3.11): a hub server
+"""``agentx mcp`` with AgentX AgentHub servers (Agent Hub P3.11): a hub server
 is a row of its own (``agentx-hub/<slug>``), installed only as itself, and
 ``agentx mcp catalog`` says why a hub server cannot be installed here."""
 

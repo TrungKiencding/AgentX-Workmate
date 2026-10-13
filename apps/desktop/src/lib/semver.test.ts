@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { compareSemver } from './semver'
 
-describe('compareSemver (the AgentX Skill Hub order)', () => {
+describe('compareSemver (the AgentX AgentHub order)', () => {
   it('compares numbers as numbers, a prerelease below its release, and ignores build metadata', () => {
     expect(compareSemver('1.10.0', '1.9.0')).toBeGreaterThan(0)
     expect(compareSemver('1.0.1', '1.0.0')).toBeGreaterThan(0)

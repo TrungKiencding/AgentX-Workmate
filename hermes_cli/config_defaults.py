@@ -2188,7 +2188,7 @@ DEFAULT_CONFIG = {
     # always goes to ~/.agentx/skills/.
     "skills": {
         "external_dirs": [],   # e.g. ["~/.agents/skills", "/shared/team-skills"]
-        # AgentX Skill Hub — the shared registry every AgentX product installs
+        # AgentX AgentHub — the shared registry every AgentX product installs
         # from (tools/skills_hub.py::AgentXHubSource). The URL is public; the
         # optional token is a personal API token from the hub's Settings page
         # (or AGENTX_HUB_TOKEN in the environment) and is only needed to see

@@ -151,7 +151,7 @@ export function McpServerCard({
   const missing = missingCommandOf(view.probe)
   const lapsed = view.gatewayEndpoint && gatewayLapsed(view.gatewayEndpoint) ? view.gatewayEndpoint : null
   const hubState = view.hubState
-  // AgentX Hub keeps it off (the hub's decision §9.1 #18): the switch is the hub's until it turns it back on.
+  // AgentX AgentHub keeps it off (the hub's decision §9.1 #18): the switch is the hub's until it turns it back on.
   const held = hubState?.desired_state === 'disabled'
   const s = t.skills.hub.state
 

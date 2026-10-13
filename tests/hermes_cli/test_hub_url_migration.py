@@ -1,4 +1,4 @@
-"""Config v37: the AgentX Hub moved to agenthub.astralx.com.vn (2026-09-26).
+"""Config v37: the AgentX AgentHub moved to agenthub.astralx.com.vn (2026-09-26).
 
 An install from before the move may keep the hub address it shipped with in
 config.yaml (``skills.hub_url: https://skills.astralx.com.vn``, or

@@ -24,7 +24,7 @@ The client speaks the same wire contract to either plane:
 
 * the **Nous** plane (default) — bearer = the Nous inference JWT, gated by
   the pre-launch admin claim described below;
-* the **AgentX Skill Hub** (``sync.provider: agentx-hub``, or a
+* the **AgentX AgentHub** (``sync.provider: agentx-hub``, or a
   ``sync.base_url`` that IS ``skills.hub_url``) — bearer = the AgentX
   credential the hub-sync engine already holds (the Keycloak ID token the
   desktop delivers, or ``skills.hub_token``), owner/org/role from the hub's
@@ -266,7 +266,7 @@ def resolve_identity() -> Dict[str, Any]:
     from the bearer regardless (contract §0.4), so this is advisory for local
     ref naming only. ``sync_allowed`` is the one flag the gate-and-swallow
     entrypoints check: the Nous admin claim on the Nous plane, always true on
-    the AgentX Skill Hub (which enforces access on its side).
+    the AgentX AgentHub (which enforces access on its side).
     """
     if resolve_sync_provider() == SYNC_PROVIDER_HUB:
         return _hub_identity()
@@ -313,7 +313,7 @@ def dev_gate_open() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# The AgentX Skill Hub as the sync plane (Skill Hub plan, Phase 3)
+# The AgentX AgentHub as the sync plane (Skill Hub plan, Phase 3)
 #
 # The hub serves the same wire contract under /v1/sync/. What differs is who
 # vouches for the caller: not a Nous JWT with a portal-admin claim, but the
@@ -396,16 +396,16 @@ def _hub_me(base_url: str, credentials: Any) -> Dict[str, Any]:
             device_name=getattr(credentials, "device_name", "") or "",
         )
     except HubError as e:
-        raise SyncInertError(f"the AgentX Skill Hub could not identify this account: {e}") from e
+        raise SyncInertError(f"the AgentX AgentHub could not identify this account: {e}") from e
     if not isinstance(me, dict) or not me.get("subject"):
-        raise SyncInertError("the AgentX Skill Hub answered /v1/me without a subject")
+        raise SyncInertError("the AgentX AgentHub answered /v1/me without a subject")
     _HUB_ME_CACHE.clear()
     _HUB_ME_CACHE[key] = (now, me)
     return me
 
 
 def _hub_identity() -> Dict[str, Any]:
-    """Identity when the sync plane is the AgentX Skill Hub.
+    """Identity when the sync plane is the AgentX AgentHub.
 
     Bearer and device come from ``hermes_cli.hub_sync.resolve_credentials``
     (the hub-tick / sync-tick mailboxes, else ``skills.hub_token``); owner,

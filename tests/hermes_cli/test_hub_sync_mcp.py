@@ -1,4 +1,4 @@
-"""MCP servers from the AgentX Hub in the hub sync (Agent Hub P3.9).
+"""MCP servers from the AgentX AgentHub in the hub sync (Agent Hub P3.9).
 
 Two layers, as for skills. The reconcile logic runs against a fake client
 and a fake MCP installer, so every branch is pinned: install, a value this

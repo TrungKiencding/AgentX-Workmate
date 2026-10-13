@@ -55,7 +55,7 @@ Electron main process.
 
 **The two `protocolMappers`** — `org_id` and `realm roles (id token)` put the
 person's organisation and realm roles into the **ID token**, which is what
-AgentX Workmate and WebMate (they share this client) send to AgentX Hub. The
+AgentX Workmate and WebMate (they share this client) send to AgentX AgentHub. The
 hub stores the organisation (`org_id`, else `tenant_slug`) and the hub roles
 (`hub-admin`, `hub-trusted`, read from `realm_access.roles`) again from every
 token it receives. Keycloak leaves both out of the ID token by default — the
@@ -64,7 +64,7 @@ mappers a person holding `hub-admin` in Keycloak who used Workmate was stored
 as a plain user until their next visit to the hub's web, and the organisation
 could differ from the one that web reports. They match the mappers of the hub's
 own client (`agentx-skill-hub`); the AgentX SSO console adds the same pair with
-"Include org_id and roles in the ID token (like AgentX Hub)". A person with no
+"Include org_id and roles in the ID token (like AgentX AgentHub)". A person with no
 `org_id` attribute gets no `org_id` claim.
 
 ## What you don't need to add

@@ -548,10 +548,10 @@ class SkillsUpdateRequest(BaseModel):
     overwrite_local: bool = False
 
 
-# --- Phase 3 (AgentX Skill Hub): publish / validate / propose a local skill ---
+# --- Phase 3 (AgentX AgentHub): publish / validate / propose a local skill ---
 
 class SkillHubPublishRequest(BaseModel):
-    """Upload a local skill to the AgentX Skill Hub as a new version."""
+    """Upload a local skill to the AgentX AgentHub as a new version."""
 
     name: str
     visibility: str = "private"

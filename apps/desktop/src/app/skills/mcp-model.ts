@@ -312,11 +312,11 @@ export interface McpServerView {
   title: string
   description: string
   source: ServerSource
-  /** The AgentX Hub entry it was installed from (updates, trust, blocked tools, removal through the hub). */
+  /** The AgentX AgentHub entry it was installed from (updates, trust, blocked tools, removal through the hub). */
   hubEntry: McpCatalogEntry | null
   /** The gateway endpoint it was added from. */
   gatewayEndpoint: McpGatewayEndpoint | null
-  /** What AgentX Hub last said of it (the hub's decision §9.1 #18): kept off by the hub, no longer published… */
+  /** What AgentX AgentHub last said of it (the hub's decision §9.1 #18): kept off by the hub, no longer published… */
   hubState: HubStateView | null
   canAuth: boolean
 }

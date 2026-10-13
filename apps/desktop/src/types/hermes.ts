@@ -1342,9 +1342,9 @@ export interface SkillHubInstalledEntry {
   name: string | null
   trust_level: string | null
   scan_verdict: string | null
-  /** The AgentX Hub version this machine runs ('' for other sources). */
+  /** The AgentX AgentHub version this machine runs ('' for other sources). */
   version?: string
-  /** An AgentX Hub skill edited on this machine since it was installed. */
+  /** An AgentX AgentHub skill edited on this machine since it was installed. */
   modified?: boolean
 }
 
@@ -1355,7 +1355,7 @@ export interface SkillHubSourcesResponse {
   installed: Record<string, SkillHubInstalledEntry>
 }
 
-/** `GET /api/skills/hub/catalog` — the AgentX Hub's catalog for browsing,
+/** `GET /api/skills/hub/catalog` — the AgentX AgentHub's catalog for browsing,
  *  synced on open and every 30 minutes. Cards only: nothing is installed
  *  until Install. `fetched_at` is a Unix timestamp in seconds (0 when the
  *  catalog has never synced), `stale` means the last sync failed and this is
@@ -1448,13 +1448,13 @@ export interface McpCatalogEntry {
   needs_install: boolean
   installed: boolean
   enabled: boolean
-  /** Where the entry comes from: shipped with AgentX, or the person's AgentX Hub. */
+  /** Where the entry comes from: shipped with AgentX, or the person's AgentX AgentHub. */
   origin?: 'official' | 'hub'
   /** What to install it by: the name, or `agentx-hub/<slug>` for a hub server. */
   id?: string
-  /** An AgentX Hub server (listed only when both of the hub's signatures hold). */
+  /** An AgentX AgentHub server (listed only when both of the hub's signatures hold). */
   slug?: string
-  /** An AgentX Hub server's name as the hub shows it — words only; `name` is what it runs by. */
+  /** An AgentX AgentHub server's name as the hub shows it — words only; `name` is what it runs by. */
   title?: null | string
   version?: string
   verified?: boolean
@@ -1473,7 +1473,7 @@ export interface McpCatalogEntry {
   /** Another server is configured under this name. */
   name_taken?: boolean
   /**
-   * An AgentX Hub server's: where the hub sets it up (the hub's decision §9.1 #17). `gateway`: its sign-in is kept
+   * An AgentX AgentHub server's: where the hub sets it up (the hub's decision §9.1 #17). `gateway`: its sign-in is kept
    * on the hub and it is added here as its gateway endpoint — nothing asked here; `local`: installed here from its
    * manifest, its values asked on this machine.
    */
@@ -1483,7 +1483,7 @@ export interface McpCatalogEntry {
 export interface McpCatalogResponse {
   entries: McpCatalogEntry[]
   diagnostics: { name: string; kind: string; message: string }[]
-  /** The AgentX Hub's feed on this machine (null outside the default profile). `notices`: what the last
+  /** The AgentX AgentHub's feed on this machine (null outside the default profile). `notices`: what the last
    *  refresh has to say besides `error` — `hub_key_untrusted`: the hub signs with a key this machine does not trust. */
   hub?: null | {
     hub_url: string
@@ -1546,7 +1546,7 @@ export interface ModelAssignmentResponse {
 }
 
 // ---------------------------------------------------------------------------
-// AgentX Skill Hub, Phase 3: desired-state sync + upload from the desktop.
+// AgentX AgentHub, Phase 3: desired-state sync + upload from the desktop.
 // ---------------------------------------------------------------------------
 
 export type SkillHubDesiredState = 'installed' | 'removed' | 'disabled'
@@ -1596,7 +1596,7 @@ export interface SkillHubInstallRow {
 }
 
 /**
- * What AgentX Hub last said of one installed skill or server here (hub decisions §8 #22, §9.1 #18), as the sync keeps
+ * What AgentX AgentHub last said of one installed skill or server here (hub decisions §8 #22, §9.1 #18), as the sync keeps
  * it across restarts: the store's labels and the switch it locks.
  */
 export interface HubStateView {

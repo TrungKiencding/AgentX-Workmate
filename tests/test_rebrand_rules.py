@@ -553,7 +553,7 @@ OUT_OF_SCOPE_PRESERVED = [
         "optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
         "OpenClaw's extensions/migrate-hermes/apply.ts",
     ),
-    # The AgentX Hub's render-target id for Workmate packages, as the three
+    # The AgentX AgentHub's render-target id for Workmate packages, as the three
     # hub test files send and receive it. The hub rejects a target it does not
     # know, so cli-command must leave these alone.
     ("tests/hermes_cli/test_hub_client.py", 'client.publish(files, bearer="tok", targets=["hermes"])'),

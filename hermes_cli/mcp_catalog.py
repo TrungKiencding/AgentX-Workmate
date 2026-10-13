@@ -21,8 +21,8 @@ Catalog policy:
   .env-is-for-secrets rule). Non-secret env vars also go to .env to keep
   one credential store.
 
-AgentX Hub (Agent Hub Phase 3): the servers the person may install from
-their AgentX Skill Hub are catalog entries too — ``agentx-hub/<slug>`` —
+AgentX AgentHub (Agent Hub Phase 3): the servers the person may install from
+their AgentX AgentHub are catalog entries too — ``agentx-hub/<slug>`` —
 read from the hub's signed feed (``tools/mcp_hub.py``), never from a file a
 person pasted. Only an entry whose two signatures hold is listed; it pins its
 launch like a shipped entry (checked at parse time, not only in CI), carries
@@ -81,7 +81,7 @@ _NODE_VAR = "${NODE}"
 _AGENTX_ROOT_VAR = "${AGENTX_ROOT}"
 
 
-#: Where an entry comes from: shipped with AgentX, or the person's AgentX Hub.
+#: Where an entry comes from: shipped with AgentX, or the person's AgentX AgentHub.
 ORIGIN_OFFICIAL = "official"
 ORIGIN_HUB = "hub"
 #: The identifier of a hub entry: ``agentx-hub/<slug>``.
@@ -131,7 +131,7 @@ _REGISTRY_ENV = frozenset(name.upper() for name in (
     "PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL", "PIP_FIND_LINKS", "BUN_CONFIG_REGISTRY", "YARN_REGISTRY", "COREPACK_NPM_REGISTRY",
 ))
 _ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-#: Where the values of AgentX Hub servers live in ``.env``: one key per server
+#: Where the values of AgentX AgentHub servers live in ``.env``: one key per server
 #: and variable (:func:`hub_env_key`), never the name the server reads.
 HUB_ENV_PREFIX = "AGENTX_MCP_"
 #: What a hub entry says of who vouches for it.
@@ -222,7 +222,7 @@ class ToolsSpec:
 
 @dataclass(frozen=True)
 class HubSpec:
-    """The ``hub`` block of an AgentX Hub entry: which version of which hub
+    """The ``hub`` block of an AgentX AgentHub entry: which version of which hub
     server this is, what the hub approved of it and signed.
 
     ``tool_hashes`` maps each approved tool to the hash of its canonical form
@@ -261,7 +261,7 @@ class CatalogEntry:
     manifest_path: Path = field(default_factory=Path)
     origin: str = ORIGIN_OFFICIAL
     hub: Optional[HubSpec] = None
-    #: What people read: an AgentX Hub server's name as the hub shows it (the
+    #: What people read: an AgentX AgentHub server's name as the hub shows it (the
     #: feed's ``label``). Words only — the entry is found, configured and run
     #: by ``name`` (its slug on the hub). Empty for a shipped entry, whose words
     #: are the desktop's own copy.
@@ -334,7 +334,7 @@ def _parse_manifest(path: Path) -> CatalogEntry:
 
 def _parse_manifest_dict(data: Any, *, where: str, manifest_path: Optional[Path] = None, origin: str = ORIGIN_OFFICIAL) -> CatalogEntry:
     """Validate a manifest v1 already read (a shipped ``manifest.yaml``, or
-    one the AgentX Hub signed). *where* names it in errors. A hub entry
+    one the AgentX AgentHub signed). *where* names it in errors. A hub entry
     (``origin="hub"``) must carry its ``hub`` block, pin its launch and
     install nothing."""
     path = where
@@ -754,7 +754,7 @@ HUB_GATEWAY = "hub_gateway"
 
 
 def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]:
-    """The AgentX Hub's servers from the last feed this machine fetched
+    """The AgentX AgentHub's servers from the last feed this machine fetched
     (``tools/mcp_hub.py``; no network call here), by slug — those set up on
     this machine. A server the hub cannot hand Workmate (``supported: false``),
     or whose signatures do not hold, is a diagnostic (``hub_unsupported`` /
@@ -775,7 +775,7 @@ def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]
         slug = str(server.get("slug") or "")
         identifier = f"{HUB_PREFIX}{slug}"
         if (server.get("route") or {}).get("via") == mcp_hub.ROUTE_GATEWAY:
-            notes.append((identifier, HUB_GATEWAY, "set up on AgentX Hub: add it in Workmate — Utilities → Store → MCP (nothing to type here)"))
+            notes.append((identifier, HUB_GATEWAY, "set up on AgentX AgentHub: add it in Workmate — Utilities → Store → MCP (nothing to type here)"))
             continue
         if server.get("problem"):
             notes.append((identifier, str(server.get("problem_kind") or "unverified"), str(server["problem"])))
@@ -796,7 +796,7 @@ def hub_entries(diagnostics: Optional[List[tuple]] = None) -> List[CatalogEntry]
 
 
 def set_up_on_hub(slug: str) -> bool:
-    """AgentX Hub server *slug* is set up on the hub (``hub_gateway``, :func:`hub_entries`):
+    """AgentX AgentHub server *slug* is set up on the hub (``hub_gateway``, :func:`hub_entries`):
     the MCP store adds its gateway endpoint, nothing installs it here. No network call."""
     try:
         from tools import mcp_hub
@@ -822,8 +822,8 @@ def catalog_diagnostics() -> List[tuple]:
       - ``invalid`` — manifest is malformed in some other way (caught by
         CI for shipped manifests; user-modified manifests can hit this).
       - ``hub_unsupported`` / ``unverified`` / ``hub_unavailable`` — an
-        AgentX Hub server that cannot be installed here (:func:`hub_entries`).
-      - ``hub_gateway`` — an AgentX Hub server set up on the hub: added from
+        AgentX AgentHub server that cannot be installed here (:func:`hub_entries`).
+      - ``hub_gateway`` — an AgentX AgentHub server set up on the hub: added from
         the MCP store, not installed here (not a problem).
     """
     return list(_CATALOG_DIAGNOSTICS)
@@ -1538,7 +1538,7 @@ def install_entry(entry: CatalogEntry, *, enable: bool = True, dev: bool = False
 def uninstall_entry(name: str, *, purge_install_dir: bool = True) -> bool:
     """Remove a catalog-installed MCP from config and (optionally) wipe its
     clone directory. Returns True if anything was removed. A server
-    installed from the AgentX Hub also leaves no OAuth token and no cached
+    installed from the AgentX AgentHub also leaves no OAuth token and no cached
     tool list behind (the hub asked for it to be gone)."""
     cfg = load_config()
     servers = cfg.get("mcp_servers") or {}
@@ -1589,5 +1589,5 @@ def _check_name_free(entry: CatalogEntry) -> None:
     owner = hub_slug_of(current)
     mine = entry.hub.slug if entry.hub is not None else None
     if owner != mine:
-        held_by = f"the AgentX Hub server {HUB_PREFIX}{owner}" if owner else "another server"
+        held_by = f"the AgentX AgentHub server {HUB_PREFIX}{owner}" if owner else "another server"
         raise CatalogError(f"'{entry.name}' is already configured as {held_by}: remove it first")

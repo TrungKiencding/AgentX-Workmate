@@ -179,13 +179,13 @@ describe('HubStatus', () => {
     await renderStatus()
 
     expect((await screen.findByTestId('hub-status-line')).textContent).toBe(
-      'The Hub cannot be reached — installed skills keep working.'
+      'AgentHub cannot be reached — installed skills keep working.'
     )
-    expect(screen.getByText(/Nothing has been requested from the Hub/)).toBeTruthy()
+    expect(screen.getByText(/Nothing has been requested from AgentHub/)).toBeTruthy()
     getSkillHubChanges.mockResolvedValue(changes({ last: { status: 'signed_out', detail: '' }, installs: [] }))
   })
 
-  it('says a named profile is not the one AgentX Hub keeps (hub decision §8 #22)', async () => {
+  it('says a named profile is not the one AgentX AgentHub keeps (hub decision §8 #22)', async () => {
     getSkillHubChanges.mockResolvedValue(
       changes({
         last: { status: 'other_profile', detail: 'x' },
@@ -199,7 +199,7 @@ describe('HubStatus', () => {
     await renderStatus()
 
     expect((await screen.findByTestId('hub-status-line')).textContent).toBe(
-      'AgentX Hub works with the default profile: switch to it to add skills and MCP servers from the Hub and keep what it sends.'
+      'AgentX AgentHub works with the default profile: switch to it to add skills and MCP servers from AgentHub and keep what it sends.'
     )
   })
 
@@ -339,11 +339,11 @@ describe('HubStatus', () => {
     expect(screen.getByTestId('hub-updates-kept').textContent).toContain('keeps the 1 skill you edited on this machine')
 
     await act(async () => {
-      fireEvent.click(within(row).getByRole('button', { name: 'Replace with the Hub version…' }))
+      fireEvent.click(within(row).getByRole('button', { name: 'Replace with the AgentHub version…' }))
     })
 
     const dialog = await screen.findByRole('dialog')
-    expect(dialog.textContent).toContain('Version 1.1.0 from the Hub replaces it')
+    expect(dialog.textContent).toContain('Version 1.1.0 from AgentHub replaces it')
 
     await act(async () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Back up and replace' }))

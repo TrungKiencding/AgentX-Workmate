@@ -200,7 +200,7 @@ describe('SkillsView — the skills you have', () => {
     })
 
     // The detail closes and the publish dialog takes over — one modal at a time.
-    expect(await screen.findByText('Upload “notes” to AgentX Hub')).toBeTruthy()
+    expect(await screen.findByText('Upload “notes” to AgentX AgentHub')).toBeTruthy()
     expect(screen.queryByTestId('skill-detail')).toBeNull()
   })
 })

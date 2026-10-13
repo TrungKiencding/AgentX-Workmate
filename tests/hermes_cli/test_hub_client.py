@@ -1,4 +1,4 @@
-"""The laptop's client for the AgentX Skill Hub: headers, retries, the
+"""The laptop's client for the AgentX AgentHub: headers, retries, the
 offline-versus-refused distinction, and the SSE reader — all driven through
 ``httpx.MockTransport`` with no network."""
 

@@ -30,7 +30,7 @@ export const toolsetsQueryOptions = { queryKey: TOOLSETS_QUERY_KEY, queryFn: get
 export const setSkills = writeCache<SkillInfo[]>(SKILLS_QUERY_KEY)
 export const setToolsets = writeCache<ToolsetInfo[]>(TOOLSETS_QUERY_KEY)
 
-/** A skill installed from the AgentX Skill Hub — it belongs to the store tab, not the "sẵn có" one. */
+/** A skill installed from the AgentX AgentHub — it belongs to the store tab, not the "sẵn có" one. */
 export const isHubSkill = (skill: SkillInfo): boolean => skill.provenance === 'hub'
 
 export const usageOf = (skill: SkillInfo): number => (typeof skill.usage === 'number' ? skill.usage : 0)

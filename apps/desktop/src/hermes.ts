@@ -1032,7 +1032,7 @@ export function testMcpServer(name: string): Promise<McpTestResult> {
 /** Replace the whole `mcp_servers` map (the mcp.json editor's save). Unlike
  *  `saveHermesConfig`, this REPLACES rather than deep-merges, so deletes,
  *  re-enables (dropping `enabled: false`), and removed nested fields persist. */
-/** `kept_off`: servers AgentX Hub keeps off, saved off whatever the map said (the hub's decision §9.1 #18). */
+/** `kept_off`: servers AgentX AgentHub keeps off, saved off whatever the map said (the hub's decision §9.1 #18). */
 export function saveMcpServers(
   servers: Record<string, Record<string, unknown>>
 ): Promise<{ kept_off?: string[]; ok: boolean }> {
@@ -1749,7 +1749,7 @@ export function bumpSkillVersion(
   })
 }
 
-// --- AgentX Skill Hub, Phase 3 --------------------------------------------
+// --- AgentX AgentHub, Phase 3 --------------------------------------------
 // Desired-state sync (the web's Install lands here), upload from the desktop.
 
 export function tickSkillHub(): Promise<SkillHubTickResponse> {
@@ -1837,7 +1837,7 @@ export function setMcpServerEnabled(name: string, enabled: boolean): Promise<{ o
   })
 }
 
-/** The MCP catalog: the servers AgentX ships and the person's AgentX Hub ones.
+/** The MCP catalog: the servers AgentX ships and the person's AgentX AgentHub ones.
  *  `refresh` fetches the hub's signed feed now instead of when it is stale. */
 export function getMcpCatalog(refresh = false): Promise<McpCatalogResponse> {
   return window.agentxDesktop.api<McpCatalogResponse>({
@@ -1853,11 +1853,11 @@ export interface McpCatalogInstallResponse {
   pid?: number
   action?: string
   background?: boolean
-  /** An AgentX Hub server: whether the hub was told at once (else the hub sync tells it). */
+  /** An AgentX AgentHub server: whether the hub was told at once (else the hub sync tells it). */
   registered?: boolean
 }
 
-/** Install a catalog entry by its id: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
+/** Install a catalog entry by its id: the name, or `agentx-hub/<slug>` for an AgentX AgentHub server. */
 export function installMcpCatalogEntry(
   id: string,
   env: Record<string, string> = {}
@@ -1871,7 +1871,7 @@ export function installMcpCatalogEntry(
   })
 }
 
-/** Remove an AgentX Hub server from this machine; the hub hears it on the next sync. */
+/** Remove an AgentX AgentHub server from this machine; the hub hears it on the next sync. */
 export function removeHubMcpServer(slug: string): Promise<{ ok: boolean; name: string }> {
   return window.agentxDesktop.api<{ ok: boolean; name: string }>({
     path: `/api/mcp/hub/${encodeURIComponent(slug)}/remove`,

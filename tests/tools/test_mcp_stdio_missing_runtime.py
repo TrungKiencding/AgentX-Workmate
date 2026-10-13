@@ -1,5 +1,5 @@
 """Stdio MCP servers launched with ``uvx``/``uv`` (every PyPI server the AgentX
-Hub renders) and what happens when a command cannot be found at all.
+AgentHub renders) and what happens when a command cannot be found at all.
 
 AgentX's own uv lives in ``$AGENTX_HOME/bin``, which is never on PATH, so a
 bare ``uvx`` has to be resolved there the way a bare ``npx`` is resolved in the

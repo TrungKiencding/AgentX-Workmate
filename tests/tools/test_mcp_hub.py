@@ -1,4 +1,4 @@
-"""MCP servers from the AgentX Skill Hub (Agent Hub P3.7): the feed kept on
+"""MCP servers from the AgentX AgentHub (Agent Hub P3.7): the feed kept on
 disk, and the two signatures every manifest must carry before it is listed.
 Since P6.1 the feed is signed whole and dated, a replayed or changed one is
 refused, and only keys this machine pinned — or that a pinned key endorsed —
@@ -197,7 +197,7 @@ class TestFeed:
     def test_an_unreachable_hub_keeps_the_last_feed_and_waits_before_asking_again(self):
         client, clock = _FakeClient(), [1000.0]
         mcp_hub.refresh(client, bearer="tok", now=lambda: clock[0])
-        client.answer = HubError("could not reach the AgentX Skill Hub")
+        client.answer = HubError("could not reach the AgentX AgentHub")
         clock[0] += mcp_hub.FEED_TTL_SECONDS + 1
         stale = mcp_hub.refresh(client, bearer="tok", now=lambda: clock[0])
         assert [s["slug"] for s in stale.servers] == ["linear"] and "could not reach" in stale.error

@@ -15,7 +15,7 @@ import type { McpGatewayEndpoint, McpGatewayListing } from './mcp-model'
 
 // Kho tiện ích → MCP: every connection on this machine on the "Connected"
 // shelf — its live state, the one verb that fixes what is wrong, the switch —
-// and every one it could add on the shelves under it (the AgentX Hub's, the
+// and every one it could add on the shelves under it (the AgentX AgentHub's, the
 // gateway's, AgentX's own). The technical surfaces (mcp.json, the logs) open
 // on demand. State is the old connections tab's: whole-map replace, live
 // sessions reloaded after each write, probes per exact config.
@@ -524,9 +524,9 @@ describe('McpStore — what the hub says of its servers here (the hub’s decisi
     })
 
     const held = await findCard('tracker')
-    expect(within(held).getByTestId('mcp-server-held').textContent).toBe('Off by the hub')
+    expect(within(held).getByTestId('mcp-server-held').textContent).toBe('Off by AgentHub')
     expect(within(held).getByTestId('mcp-server-state').textContent).toBe(
-      'AgentX Hub switched this off: yanked: leaks tokens. Only the hub turns it back on; you can still remove it.'
+      'AgentX AgentHub switched this off: yanked: leaks tokens. Only AgentHub turns it back on; you can still remove it.'
     )
     const toggle = within(within(held).getByTestId('mcp-server-switch-locked')).getByRole('switch')
     expect(toggle.hasAttribute('disabled')).toBe(true)
@@ -585,7 +585,7 @@ describe('McpStore — what the hub says of its servers here (the hub’s decisi
     })
 
     await waitFor(() =>
-      expect(notify).toHaveBeenCalledWith({ kind: 'warning', message: 'Kept off by AgentX Hub: tracker' })
+      expect(notify).toHaveBeenCalledWith({ kind: 'warning', message: 'Kept off by AgentX AgentHub: tracker' })
     )
     expect(within(card('tracker')).getByTestId('mcp-server-switch-locked')).toBeTruthy()
   })
@@ -626,7 +626,7 @@ describe('McpStore — what can be added', () => {
       expect.objectContaining({
         kind: 'success',
         title: 'Tracker connected.',
-        message: expect.stringContaining('AgentX Hub')
+        message: expect.stringContaining('AgentX AgentHub')
       })
     )
   })
@@ -648,7 +648,7 @@ describe('McpStore — what can be added', () => {
 
     const connected = await screen.findByTestId('mcp-shelf-connected')
     await waitFor(() => expect(within(connected).getByTestId('mcp-server-update')).toBeTruthy())
-    expect(within(card('tracker')).getByText('AgentX Hub · v1.3.0')).toBeTruthy()
+    expect(within(card('tracker')).getByText('AgentX AgentHub · v1.3.0')).toBeTruthy()
     expect(within(card('tracker')).getByTestId('mcp-server-update-available').textContent).toBe(
       'Update 1.5.0 available'
     )
@@ -677,17 +677,17 @@ describe('McpStore — what can be added', () => {
     await act(async () => {
       fireEvent.click(
         within(await screen.findByTestId('mcp-server-detail')).getByRole('button', {
-          name: 'Replace with the Hub version…'
+          name: 'Replace with the AgentHub version…'
         })
       )
     })
 
     const confirm = await screen.findByRole('dialog')
-    expect(confirm.textContent).toContain('Replace Tracker with the version from the AgentX Hub?')
+    expect(confirm.textContent).toContain('Replace Tracker with the version from AgentX AgentHub?')
     expect(installMcpCatalogEntry).not.toHaveBeenCalled()
 
     await act(async () => {
-      fireEvent.click(within(confirm).getByRole('button', { name: 'Replace with the Hub version' }))
+      fireEvent.click(within(confirm).getByRole('button', { name: 'Replace with the AgentHub version' }))
     })
     await waitFor(() => expect(installMcpCatalogEntry).toHaveBeenCalledWith('agentx-hub/tracker', {}))
   })
@@ -743,7 +743,7 @@ describe('McpStore — what can be added', () => {
 
     expect((await screen.findByTestId('mcp-hub-signin')).textContent).toContain('Sign in to AgentX')
     expect(screen.getByTestId('mcp-hub-offline').textContent).toContain('could not be reached')
-    expect(screen.getByText(/2 Hub servers cannot run in Workmate/)).toBeTruthy()
+    expect(screen.getByText(/2 AgentHub servers cannot run in Workmate/)).toBeTruthy()
     expect(screen.getByTestId('mcp-hub-state').textContent).toBe('Unreachable')
   })
 
@@ -845,7 +845,7 @@ describe('McpStore — the AgentX Gateway', () => {
     const endpoints = within(toolsetsShelf).getAllByTestId('mcp-gateway-endpoint')
     expect(endpoints.map(node => node.getAttribute('data-ref'))).toEqual(['ts_1', 'ts_2'])
     expect(within(endpoints[0]).getByText('3 tools')).toBeTruthy()
-    expect(within(endpoints[1]).getByText('Connect it on the hub')).toBeTruthy()
+    expect(within(endpoints[1]).getByText('Connect it on AgentHub')).toBeTruthy()
     expect(within(endpoints[1]).getByText('Toolset')).toBeTruthy()
     // Two toolsets to add; the server the listing names is not counted twice (it is no card of the catalog here).
     expect(screen.getByTestId('mcp-store-line').textContent).toContain('4 connected · 3 available')
@@ -1073,10 +1073,10 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
     const line = (slug: string) => within(hubCard(slug)).getByTestId('mcp-hub-use').textContent
     expect(line('github')).toBe('Ready — nothing to type on this machine.')
     expect(line('crm')).toBe("Uses your organisation's account — nothing to type on this machine.")
-    expect(line('jira')).toBe('Connect your account once on AgentX Hub — Workmate adds it when you are done.')
-    expect(line('notion')).toBe('Your account on AgentX Hub needs a new sign-in.')
+    expect(line('jira')).toBe('Connect your account once on AgentX AgentHub — Workmate adds it when you are done.')
+    expect(line('notion')).toBe('Your account on AgentX AgentHub needs a new sign-in.')
     expect(line('ledger')).toBe('The AgentX Gateway does not serve this MCP right now.')
-    expect(line('weather')).toBe('The Hub has approved none of its tools yet.')
+    expect(line('weather')).toBe('AgentHub has approved none of its tools yet.')
     expect(within(hubCard('github')).getByTestId('mcp-hub-action').textContent).toBe('Add')
     expect(within(hubCard('jira')).getByTestId('mcp-hub-action').textContent).toBe('Connect')
     expect(within(hubCard('notion')).getByTestId('mcp-hub-action').textContent).toBe('Connect again')
@@ -1087,8 +1087,8 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
     expect(within(hubCard('wiki')).getByText('Another server uses this name here.')).toBeTruthy()
     expect((within(hubCard('wiki')).getByTestId('mcp-hub-action') as HTMLButtonElement).disabled).toBe(true)
     // Set up on the hub, and said so; the one set up here is the store card it always was.
-    expect(within(hubCard('github')).getByText('Through AgentX Hub')).toBeTruthy()
-    expect(within(hubCard('tracker')).queryByText('Through AgentX Hub')).toBeNull()
+    expect(within(hubCard('github')).getByText('Through AgentX AgentHub')).toBeTruthy()
+    expect(within(hubCard('tracker')).queryByText('Through AgentX AgentHub')).toBeNull()
     expect(within(hubCard('tracker')).getByText('Needs an API key')).toBeTruthy()
     // No second shelf for the gateway's servers: they are the hub's (no toolset here, so no toolsets shelf).
     expect(screen.queryByTestId('mcp-gateway')).toBeNull()
@@ -1150,13 +1150,13 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
       expect(notify).toHaveBeenCalledWith(
         expect.objectContaining({
           kind: 'info',
-          title: 'Connect Jira on AgentX Hub',
+          title: 'Connect Jira on AgentX AgentHub',
           message: expect.stringContaining('Workmate adds this MCP by itself')
         })
       )
       await waitFor(() => expect(hubCard('jira').getAttribute('data-use')).toBe('waiting'))
       expect(within(hubCard('jira')).getByTestId('mcp-hub-use').textContent).toBe(
-        'Waiting for you to connect on AgentX Hub…'
+        'Waiting for you to connect on AgentX AgentHub…'
       )
       fireEvent.click(within(hubCard('jira')).getByTestId('mcp-hub-reopen'))
       expect(openExternal).toHaveBeenLastCalledWith(connectUrl('jira'))
@@ -1260,8 +1260,8 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
 
     // On "Connected": the hub's word on it, and the same way out.
     const designs = await findCard('agentx-designs')
-    expect(within(designs).getByTestId('mcp-server-lapsed').textContent).toBe('Sign in again on the hub')
-    expect(within(designs).getByText('AgentX Hub')).toBeTruthy()
+    expect(within(designs).getByTestId('mcp-server-lapsed').textContent).toBe('Sign in again on AgentHub')
+    expect(within(designs).getByText('AgentX AgentHub')).toBeTruthy()
     expect(within(designs).getByText('What designs does for an agent.')).toBeTruthy()
     openExternal.mockClear()
     fireEvent.click(within(designs).getByTestId('mcp-server-reconnect'))
@@ -1272,7 +1272,7 @@ describe('McpStore — each hub server set up in one place (the hub’s decision
       fireEvent.click(within(designs).getByTestId('mcp-server-details'))
     })
     const detail = await screen.findByTestId('mcp-server-lapsed-detail')
-    expect(detail.textContent).toContain('Your account on AgentX Hub needs a new sign-in.')
+    expect(detail.textContent).toContain('Your account on AgentX AgentHub needs a new sign-in.')
     openExternal.mockClear()
     fireEvent.click(within(detail).getByRole('button', { name: 'Connect again' }))
     expect(openExternal).toHaveBeenCalledWith(reauth)

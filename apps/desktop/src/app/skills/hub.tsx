@@ -76,7 +76,7 @@ import { useTrySkill } from './use-try-skill'
 // the CLI still browses a store that is purely the hub.
 const HUB_SOURCE_ID = 'agentx-hub'
 
-// The store is the AgentX Skill Hub and nothing else — one registry, signed
+// The store is the AgentX AgentHub and nothing else — one registry, signed
 // bundles, one trust story. The catalogue it opens on is synced from the hub
 // without anyone signing in (public skills always; the person's own once a
 // bearer exists). The backend answers from a 30-minute disk cache, so asking on
@@ -87,7 +87,7 @@ export const HUB_CATALOG_REFRESH_MS = 30 * 60_000
 // Stable empty arrays — a fresh `[]` per render would re-run every memo below.
 const NO_SKILLS: SkillHubResult[] = []
 const NO_HUB_STATES: Record<string, HubStateView> = {}
-// An AgentX Hub skill's identifier is this and its slug.
+// An AgentX AgentHub skill's identifier is this and its slug.
 const HUB_PREFIX = `${HUB_SOURCE_ID}/`
 
 // Trust and scan verdicts paint from the semantic tokens through StatusPill,
@@ -127,7 +127,7 @@ function haystack(skill: SkillHubResult): string {
   return normalize(`${skill.name} ${skill.description} ${skill.identifier} ${(skill.tags ?? []).join(' ')}`)
 }
 
-/** An AgentX Hub install is locked at the version it resolved to (`agentx-hub/x@1.2.0`); the catalogue speaks `agentx-hub/x`. */
+/** An AgentX AgentHub install is locked at the version it resolved to (`agentx-hub/x@1.2.0`); the catalogue speaks `agentx-hub/x`. */
 const unpinned = (identifier: string): string =>
   identifier.startsWith('agentx-hub/') ? identifier.split('@', 1)[0] : identifier
 
@@ -248,7 +248,7 @@ function HubInstalledCard({
   skill,
   successorInstalled
 }: {
-  /** What AgentX Hub last said of it (hub decision §8 #22): kept off by the hub, no longer published, no longer yours to see. */
+  /** What AgentX AgentHub last said of it (hub decision §8 #22): kept off by the hub, no longer published, no longer yours to see. */
   hubState: HubStateView | null
   installedEntry: null | SkillHubInstalledEntry
   localSkill: null | SkillInfo

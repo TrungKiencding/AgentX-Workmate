@@ -1887,7 +1887,7 @@ def _(rid, params: dict) -> dict:
     Params: optional ``profile`` (defaults to the launch profile). Result:
     ``{servers: [{name, id, origin, description, installed, enabled,
     requires: [env keys], auth, transport}]}`` — the same catalog `agentx
-    mcp` offers (AgentX Hub servers too, ``origin: "hub"``), so capability
+    mcp` offers (AgentX AgentHub servers too, ``origin: "hub"``), so capability
     UIs can present the full menu and know which entries need setup
     (missing requires) before they'll work.
     """

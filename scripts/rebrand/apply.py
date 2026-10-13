@@ -323,7 +323,7 @@ RULES: list[Rule] = [
             # sweep would have moved the lookup while all 169 SKILL.md files
             # kept the key, emptying the skills index the site builds from.
             "website/scripts/extract-skills.py",
-            # `"targets": ["hermes"]` here is the AgentX Hub's render-target id
+            # `"targets": ["hermes"]` here is the AgentX AgentHub's render-target id
             # for Workmate packages, not the command: these fixtures carry what
             # the real hub sends and accepts, and it rejects a target it does
             # not know. check_branding.py allows the same strings

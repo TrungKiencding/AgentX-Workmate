@@ -343,7 +343,7 @@ def test_the_tab_says_what_stands_in_the_way(client, gateway):
 
 def test_an_unreachable_hub_lists_nothing_and_says_so(client, gateway, monkeypatch):
     def offline(self, **_kwargs):
-        raise HubError("could not reach the AgentX Skill Hub")
+        raise HubError("could not reach the AgentX AgentHub")
 
     monkeypatch.setattr(HubClient, "gateway_endpoints", offline)
     body = client.get("/api/mcp/gateway").json()

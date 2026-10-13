@@ -1,5 +1,5 @@
 """Keep this machine's skills in step with what the person asked the AgentX
-Skill Hub for (plan Phase 3, items 5–7).
+AgentHub for (plan Phase 3, items 5–7).
 
 The hub holds the *desired* state: "this person wants skill X on this
 Workmate", "switch version 1.2 of Y off everywhere it was installed",
@@ -690,7 +690,7 @@ _VIEW_FIELDS = ("desired_state", "withdrawn", "reason", "reason_version", "visib
 
 
 def syncs_this_home() -> bool:
-    """AgentX Hub keeps one home per machine: the default profile's (of the
+    """AgentX AgentHub keeps one home per machine: the default profile's (of the
     install, or of the account signed in) — the hub sync runs there, what the
     hub says lives there, and only a copy there is the hub's to keep. Every
     backend starts the sync, and a named profile (``profiles/<name>``) has one
@@ -703,7 +703,7 @@ def syncs_this_home() -> bool:
 
 
 def hub_keeps_profile(profile: Optional[str]) -> bool:
-    """A route's profile is the one AgentX Hub keeps (:func:`syncs_this_home`):
+    """A route's profile is the one AgentX AgentHub keeps (:func:`syncs_this_home`):
     the one the request names, or — asked of a named profile's own backend,
     which names none — this process's home."""
     return (not profile or profile == "default") and syncs_this_home()
@@ -857,9 +857,9 @@ class HubSyncEngine:
         if not self._settings.enabled:
             return HubSyncOutcome(status="disabled", detail="Hub sync is switched off (skills.hub_sync_enabled).")
         if not self._settings.configured:
-            return HubSyncOutcome(status="unconfigured", detail="No AgentX Skill Hub URL is configured (skills.hub_url).")
+            return HubSyncOutcome(status="unconfigured", detail="No AgentX AgentHub URL is configured (skills.hub_url).")
         if not syncs_this_home():
-            return HubSyncOutcome(status="other_profile", detail="AgentX Hub keeps this machine's skills and MCP servers in the default profile.")
+            return HubSyncOutcome(status="other_profile", detail="AgentX AgentHub keeps this machine's skills and MCP servers in the default profile.")
         if self._clock() < self._blocked_until:
             return self._last
         credentials = self._resolve_credentials()
@@ -1469,7 +1469,7 @@ class HubSyncEngine:
         if getattr(exc, "unreachable", False) or getattr(exc, "identity_unavailable", False):
             # Never an error the person has to see; installed skills keep working.
             logger.info("hub sync: the hub is unreachable (%s)", detail)
-            return HubSyncOutcome(status="offline", detail="The AgentX Skill Hub could not be reached. Installed skills keep working; changes catch up when it returns.", cursor=self._cursor)
+            return HubSyncOutcome(status="offline", detail="The AgentX AgentHub could not be reached. Installed skills keep working; changes catch up when it returns.", cursor=self._cursor)
         if getattr(exc, "reauth", False):
             self._blocked_until = self._clock() + REAUTH_BACKOFF_SECONDS
             logger.warning("hub sync: stopping until re-authentication: %s", detail)
@@ -1695,7 +1695,7 @@ class HubSyncEngine:
 
 
 def announce_mcp_install(slug: str, *, client: Any | None = None, credentials: Optional[HubCredentials] = None) -> bool:
-    """The person installed AgentX Hub server *slug* on this machine (the MCP
+    """The person installed AgentX AgentHub server *slug* on this machine (the MCP
     tab, ``agentx mcp``) — from its manifest, or as its gateway endpoint: tell
     the hub (with *client* and *credentials* when the caller holds them) — it
     keeps the desired state from now on, a yank reaches this machine — and
@@ -1724,7 +1724,7 @@ def announce_mcp_install(slug: str, *, client: Any | None = None, credentials: O
 
 
 def announce_mcp_removal(slug: str) -> None:
-    """The person removed AgentX Hub server *slug* here: the sync tells the hub
+    """The person removed AgentX AgentHub server *slug* here: the sync tells the hub
     (not from a named profile, whose servers are its own)."""
     from tools import mcp_hub
 

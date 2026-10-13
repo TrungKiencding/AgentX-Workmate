@@ -282,9 +282,9 @@ describe('SkillsHub — what the hub says of an added skill', () => {
       withdrawn: true,
       reason: 'taken down by admin: phishing'
     })
-    expect(within(card).getByTestId('hub-card-held').textContent).toBe('Off by the hub')
+    expect(within(card).getByTestId('hub-card-held').textContent).toBe('Off by AgentHub')
     expect(within(card).getByTestId('hub-card-state').textContent).toBe(
-      'AgentX Hub switched this off: taken down by admin: phishing. Only the hub turns it back on; you can still remove it.'
+      'AgentX AgentHub switched this off: taken down by admin: phishing. Only AgentHub turns it back on; you can still remove it.'
     )
     const toggle = within(card).getByTestId('hub-card-switch')
     expect(toggle.hasAttribute('disabled')).toBe(true)
@@ -332,7 +332,7 @@ describe('SkillsHub — what the hub says of an added skill', () => {
     const card = await renderWithState({ visible: false })
     expect(within(card).getByTestId('hub-card-hidden').textContent).toBe('No longer yours to see')
     expect(within(card).getByTestId('hub-card-state').textContent).toBe(
-      'You can no longer see this on AgentX Hub: it still works, but no newer version will come.'
+      'You can no longer see this on AgentX AgentHub: it still works, but no newer version will come.'
     )
   })
 })
@@ -362,7 +362,7 @@ describe('SkillsHub — the skill store', () => {
     // The store front: the hub, its state, what it holds, when it synced.
     const bar = screen.getByTestId('store-bar').textContent ?? ''
     expect(bar).toContain('agenthub.astralx.com.vn')
-    expect(bar).toContain('2 skills from the Hub')
+    expect(bar).toContain('2 skills from AgentHub')
     expect(screen.getByTestId('hub-store-state').textContent).toBe('Connected')
   })
 
@@ -678,8 +678,8 @@ describe('SkillsHub — the skill store', () => {
     })
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Replace vneb-report with the Hub version?')).toBeTruthy()
-    expect(dialog.textContent).toContain('Version 1.1.0 from the Hub replaces it')
+    expect(within(dialog).getByText('Replace vneb-report with the AgentHub version?')).toBeTruthy()
+    expect(dialog.textContent).toContain('Version 1.1.0 from AgentHub replaces it')
     expect(updateSkillsFromHub).not.toHaveBeenCalled()
 
     await act(async () => {

@@ -4029,7 +4029,7 @@ def backup_hub_skill(entry: dict) -> Optional[Path]:
     return target
 
 
-#: The version rule of the AgentX Skill Hub (``agentx_skillkit.package.SEMVER_RE``).
+#: The version rule of the AgentX AgentHub (``agentx_skillkit.package.SEMVER_RE``).
 HUB_SEMVER_RE = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
@@ -4173,7 +4173,7 @@ def check_for_skill_updates(
         bundle = None
         resolved_identifier = identifier
         for src in candidate_sources:
-            # A source that pins installs to a version (the AgentX Hub records
+            # A source that pins installs to a version (the AgentX AgentHub records
             # ``agentx-hub/<slug>@<version>``) says which identifier to ask
             # for when checking for something NEWER; the bundle it returns
             # then carries the identifier of the version actually fetched.
@@ -4231,7 +4231,7 @@ def check_for_skill_updates(
 # stale cache and the bundled sources when it 404s — so a fresh fork gets a
 # working Skills Hub minus the remote index, not an error. Override with
 # AGENTX_SKILLS_INDEX_URL to point at your own deployment.
-#: The AgentX Skill Hub. ``AGENTX_SKILLS_HUB_URL`` or ``skills.hub_url`` in
+#: The AgentX AgentHub. ``AGENTX_SKILLS_HUB_URL`` or ``skills.hub_url`` in
 #: config.yaml override it (see :func:`agentx_hub_url`).
 DEFAULT_AGENTX_HUB_URL = "https://agenthub.astralx.com.vn"
 
@@ -4520,7 +4520,7 @@ class HermesIndexSource(SkillSource):
 
 
 # ---------------------------------------------------------------------------
-# AgentX Skill Hub source
+# AgentX AgentHub source
 # ---------------------------------------------------------------------------
 
 #: Trust level of a hub bundle whose signature verified. Mapped into
@@ -4610,7 +4610,7 @@ def verify_hub_signature(manifest: Dict[str, Any], signature_b64: str, public_ke
 
 
 class AgentXHubSource(SkillSource):
-    """The AgentX Skill Hub (``agenthub.astralx.com.vn``).
+    """The AgentX AgentHub (``agenthub.astralx.com.vn``).
 
     Search and inspect read the hub's public catalog (``/v1/skills``); fetch
     downloads a signed bundle and verifies the Ed25519 signature against the
@@ -4668,17 +4668,17 @@ class AgentXHubSource(SkillSource):
         if problem:
             if self.base_url not in _INSECURE_HUBS_SAID:
                 _INSECURE_HUBS_SAID.add(self.base_url)
-                logger.warning("AgentX Hub: %s", problem)
+                logger.warning("AgentX AgentHub: %s", problem)
             return None
         url = f"{self.base_url}{path}"
         try:
             with httpx.Client(timeout=self._timeout, transport=self._transport, follow_redirects=False) as client:
                 resp = client.get(url, params=params, headers=self._headers())
         except httpx.HTTPError as exc:
-            logger.debug("AgentX Hub unreachable for %s: %s", path, exc)
+            logger.debug("AgentX AgentHub unreachable for %s: %s", path, exc)
             return None
         if resp.status_code != 200:
-            logger.debug("AgentX Hub answered %d for %s", resp.status_code, path)
+            logger.debug("AgentX AgentHub answered %d for %s", resp.status_code, path)
             return None
         try:
             return resp.json()
@@ -4741,7 +4741,7 @@ class AgentXHubSource(SkillSource):
                 "stars": item.get("stars"),
                 "category": item.get("category"),
                 "targets": item.get("targets") or [],
-                "provider": "AgentX Hub",
+                "provider": "AgentX AgentHub",
                 "verdict": scan.get("verdict"),
                 "owner": owner.get("slug"),
                 # The browse cards badge anything that is not public, and show
@@ -4937,7 +4937,7 @@ def agentx_hub_catalog(
     limit: int = AGENTX_HUB_CATALOG_MAX,
     transport: Any = None,
 ) -> Dict[str, Any]:
-    """The AgentX Hub catalog for browsing, cached on disk for ``ttl`` seconds.
+    """The AgentX AgentHub catalog for browsing, cached on disk for ``ttl`` seconds.
 
     ``token=None`` uses whatever :func:`agentx_hub_token` resolves (env or
     ``skills.hub_token``); pass ``""`` to force the anonymous, public-only
@@ -4959,7 +4959,7 @@ def agentx_hub_catalog(
     try:
         metas = AgentXHubSource(hub_url, token=bearer, transport=transport).catalog(limit=limit)
     except HubCatalogUnavailable as exc:
-        logger.debug("AgentX Hub catalog sync failed: %s", exc)
+        logger.debug("AgentX AgentHub catalog sync failed: %s", exc)
         if cached is not None:
             return _hub_catalog_result(cached, hub_url=hub_url, token=bearer, stale=True, cached=True, error=str(exc))
         return _hub_catalog_result({}, hub_url=hub_url, token=bearer, stale=True, cached=False, error=str(exc))
@@ -4975,7 +4975,7 @@ def agentx_hub_catalog(
 
 
 def extra_skill_sources_enabled() -> bool:
-    """Whether anything beyond the AgentX Skill Hub is wired up.
+    """Whether anything beyond the AgentX AgentHub is wired up.
 
     Off by default: the skill store connects to the hub and nothing else, so a
     skill has one provenance, one signature and one trust story. Machines that
@@ -5000,7 +5000,7 @@ def create_source_router(
     """
     Create the configured source adapters, in resolution order.
 
-    The AgentX Skill Hub alone by default (see
+    The AgentX AgentHub alone by default (see
     :func:`extra_skill_sources_enabled`); the legacy fan-out is appended after
     it when the machine has opted back in, so ``agentx-hub/*`` still resolves
     at the hub either way.
@@ -5012,7 +5012,7 @@ def create_source_router(
     follow, so a skill a card can show is a skill preview and scan can read.
     """
     sources: List[SkillSource] = [
-        AgentXHubSource(token=hub_token),  # AgentX Skill Hub (signed bundles; first so agentx-hub/* resolves here)
+        AgentXHubSource(token=hub_token),  # AgentX AgentHub (signed bundles; first so agentx-hub/* resolves here)
     ]
 
     if not extra_skill_sources_enabled():

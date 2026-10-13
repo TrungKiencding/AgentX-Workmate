@@ -47,7 +47,7 @@ def config_fingerprint(config: dict) -> str:
         payload["tools_include_empty"] = True
     hub = config.get("hub")
     if isinstance(hub, dict):
-        # A server installed from the AgentX Hub is locked to the tools the
+        # A server installed from the AgentX AgentHub is locked to the tools the
         # hub approved: when the hub approves another list, the cache written
         # under the old one must not register it (Agent Hub P3.8). Its prompt
         # and resource tools follow the approved prompts and resource

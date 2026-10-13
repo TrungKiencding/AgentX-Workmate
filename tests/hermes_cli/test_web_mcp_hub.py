@@ -1,4 +1,4 @@
-"""The MCP tab's routes for AgentX Hub servers (Agent Hub P3.11): the
+"""The MCP tab's routes for AgentX AgentHub servers (Agent Hub P3.11): the
 catalog lists the hub's verified servers beside the shipped ones, with what
 the tab shows of them; installing one asks nothing (its values come with
 the request), tells the hub and wakes the sync; removing one here is said

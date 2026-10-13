@@ -1,4 +1,4 @@
-"""Every MCP server of the AgentX Hub is set up in one place (the hub's decision §9.1 #17).
+"""Every MCP server of the AgentX AgentHub is set up in one place (the hub's decision §9.1 #17).
 
 The hub's feed says where each server is set up (``route``). One set up on
 the hub — its key or its sign-in kept by the hub — is never installed here
@@ -170,7 +170,7 @@ def test_a_server_set_up_on_the_hub_is_never_installed_here_from_a_manifest(monk
     # The command line says where it is added, instead of "not in the catalog".
     assert install_by_name("agentx-hub/octo") == 1
     said = capsys.readouterr().out
-    assert "set up on AgentX Hub" in said and "Utilities → Store → MCP" in said
+    assert "set up on AgentX AgentHub" in said and "Utilities → Store → MCP" in said
     assert install_by_name("agentx-hub/nope") == 1 and "is not in the catalog" in capsys.readouterr().out
 
 
@@ -454,7 +454,7 @@ def test_a_server_installed_from_its_manifest_before_the_hub_set_it_up_on_the_hu
 def test_connecting_from_the_store_opens_the_hub_then_adds_the_server_once_connected(client, store):
     asked = client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "octo"}).json()
     assert asked == {"ok": False, "status": "connect", "code": "needs_connection", "connect_url": f"{HUB}/mcp/connect/octo?from=workmate",
-                     "detail": "Connect Octo on AgentX Hub: Workmate adds it once you are connected."}
+                     "detail": "Connect Octo on AgentX AgentHub: Workmate adds it once you are connected."}
     listed = client.get("/api/mcp/gateway").json()
     assert [(w["slug"], w["connect_url"]) for w in listed["waiting"]] == [("octo", f"{HUB}/mcp/connect/octo?from=workmate")]
     assert [(e["ref"], e["status"]) for e in listed["endpoints"]] == [("octo", "needs_connection")]
@@ -487,7 +487,7 @@ def test_a_hub_that_cannot_be_reached_leaves_the_waits_as_they_are(client, store
     client.post("/api/mcp/gateway/add", json={"kind": "server", "ref": "octo"})
 
     def offline(self, **_kwargs):
-        raise HubError("could not reach the AgentX Skill Hub")
+        raise HubError("could not reach the AgentX AgentHub")
 
     monkeypatch.setattr(HubClient, "gateway_endpoints", offline)
     checked = client.post("/api/mcp/gateway/waiting/check").json()

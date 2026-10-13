@@ -463,7 +463,7 @@ class TestCheckForSkillUpdates:
 class TestCreateSourceRouter:
 
     def test_the_hub_is_the_only_source_by_default(self, monkeypatch):
-        # The skill store connects to the AgentX Skill Hub and nothing else:
+        # The skill store connects to the AgentX AgentHub and nothing else:
         # one registry, one signature, one trust story.
         monkeypatch.setenv("AGENTX_SKILLS_EXTRA_SOURCES", "0")
         sources = create_source_router(auth=MagicMock(spec=GitHubAuth))
@@ -1704,7 +1704,7 @@ class TestLoadHermesIndex:
 
 
 # ---------------------------------------------------------------------------
-# AgentXHubSource — the AgentX Skill Hub adapter
+# AgentXHubSource — the AgentX AgentHub adapter
 # ---------------------------------------------------------------------------
 
 
@@ -2102,7 +2102,7 @@ class TestHubVerifiedInstallPolicy:
 
 
 # ---------------------------------------------------------------------------
-# Edits made on this machine to an installed hub skill (AgentX Skill Hub §8 #20)
+# Edits made on this machine to an installed hub skill (AgentX AgentHub §8 #20)
 # ---------------------------------------------------------------------------
 
 

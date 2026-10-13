@@ -1046,7 +1046,7 @@ def cmd_mcp_configure(args):
 
 
 def cmd_mcp_hub_keys(args):
-    """``agentx mcp hub-keys [--reset]``: the AgentX Hub signing keys this
+    """``agentx mcp hub-keys [--reset]``: the AgentX AgentHub signing keys this
     machine trusts (pinned the first time it read them, or endorsed by a
     pinned key — ``tools/hub_trust.py``) and those it refused.
 
@@ -1070,7 +1070,7 @@ def cmd_mcp_hub_keys(args):
         else:
             _warning(f"{hub_url} could not be asked for its keys now: the keys it publishes next are pinned.")
     print()
-    print(color(f"  AgentX Hub signing keys — {hub_url}", Colors.CYAN))
+    print(color(f"  AgentX AgentHub signing keys — {hub_url}", Colors.CYAN))
     pinned, refused = hub_trust.trusted(hub_url), hub_trust.untrusted(hub_url)
     if not pinned:
         _info("None pinned yet: the first keys this machine reads from the hub are.")
@@ -1151,5 +1151,5 @@ def mcp_command(args):
         _info("agentx mcp configure <name>                   Toggle tools")
         _info("agentx mcp login <name>                       Re-authenticate OAuth")
         _info("agentx mcp reauth <name> | --all              Re-auth one or all OAuth servers")
-        _info("agentx mcp hub-keys [--reset]                 AgentX Hub signing keys this machine trusts")
+        _info("agentx mcp hub-keys [--reset]                 AgentX AgentHub signing keys this machine trusts")
         print()

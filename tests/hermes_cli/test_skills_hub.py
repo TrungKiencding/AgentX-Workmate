@@ -313,7 +313,7 @@ def test_do_search_json_flag_emits_full_identifiers(capsys):
 
 
 # ---------------------------------------------------------------------------
-# Updates never replace an edit made on this machine silently (AgentX Skill Hub §8 #20)
+# Updates never replace an edit made on this machine silently (AgentX AgentHub §8 #20)
 # ---------------------------------------------------------------------------
 
 

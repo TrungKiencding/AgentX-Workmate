@@ -1,4 +1,4 @@
-// Version order the way the AgentX Skill Hub orders them (its `semver_key`):
+// Version order the way the AgentX AgentHub orders them (its `semver_key`):
 // release numbers compare as numbers, a prerelease sorts below its release,
 // build metadata is ignored. Enough to tell "the hub has a newer version" from
 // "the version this machine runs was withdrawn" on a store card.

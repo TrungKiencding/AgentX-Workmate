@@ -1,15 +1,15 @@
 ---
 sidebar_position: 5
-title: "MCP catalog and the AgentX Hub"
-description: "Install MCP servers from the catalog shipped with AgentX or from your AgentX Hub — verified, locked to the tools the hub approved, switched off remotely when the hub withdraws them"
+title: "MCP catalog and the AgentX AgentHub"
+description: "Install MCP servers from the catalog shipped with AgentX or from your AgentX AgentHub — verified, locked to the tools the hub approved, switched off remotely when the hub withdraws them"
 ---
 
-# MCP catalog and the AgentX Hub
+# MCP catalog and the AgentX AgentHub
 
-Workmate offers MCP servers from two places, side by side in **Utilities → Store → MCP** (the **From AgentX Hub** and **Recommended by AgentX** shelves) and in `agentx mcp`:
+Workmate offers MCP servers from two places, side by side in **Utilities → Store → MCP** (the **From AgentX AgentHub** and **Recommended by AgentX** shelves) and in `agentx mcp`:
 
 - **The shipped catalog** — the entries under `optional-mcps/` of the AgentX repository (see [MCP](./features/mcp.md#catalog-one-click-install-for-nous-approved-mcps)).
-- **Your AgentX Hub** — the MCP servers your organisation's hub approved for you: a server published privately by you, one shared with a workspace you belong to, or one approved for your organisation. They are listed as `agentx-hub/<slug>`.
+- **Your AgentX AgentHub** — the MCP servers your organisation's hub approved for you: a server published privately by you, one shared with a workspace you belong to, or one approved for your organisation. They are listed as `agentx-hub/<slug>`.
 
 Each hub server is set up in **one place** — on the hub or on this machine — and the hub says which. You never type the same key or sign in to the same account twice.
 
@@ -17,9 +17,9 @@ Each hub server is set up in **one place** — on the hub or on this machine —
 
 The hub decides where each of its servers is set up, the same way for everybody:
 
-- **On the hub** (its card is tagged **Through AgentX Hub**) — a remote server the hub's AgentX Gateway serves. Its account — an API key, an OAuth sign-in, a value such as a tenant — is kept by the hub, encrypted, and Workmate reaches the server through the gateway with this machine's own token (`AGENTX_HUB_GATEWAY_TOKEN` in `~/.agentx/.env`, renewed by itself). **Nothing about it is typed in Workmate.** Its card has one button, which says what comes next:
+- **On the hub** (its card is tagged **Through AgentX AgentHub**) — a remote server the hub's AgentX Gateway serves. Its account — an API key, an OAuth sign-in, a value such as a tenant — is kept by the hub, encrypted, and Workmate reaches the server through the gateway with this machine's own token (`AGENTX_HUB_GATEWAY_TOKEN` in `~/.agentx/.env`, renewed by itself). **Nothing about it is typed in Workmate.** Its card has one button, which says what comes next:
   - **Add** — your account is connected on the hub (or your organisation shares one with you): the server is added at once.
-  - **Connect** — Workmate opens the hub's connect page in your browser. Connect once there (sign in, or paste the key). Workmate waits — the card says *Waiting for you to connect on AgentX Hub…*, with **Open the page again** and **Cancel** — and adds the server as soon as you are connected. It asks again when you come back to Workmate, and the hub tells it too; a wait lasts 30 minutes.
+  - **Connect** — Workmate opens the hub's connect page in your browser. Connect once there (sign in, or paste the key). Workmate waits — the card says *Waiting for you to connect on AgentX AgentHub…*, with **Open the page again** and **Cancel** — and adds the server as soon as you are connected. It asks again when you come back to Workmate, and the hub tells it too; a wait lasts 30 minutes.
   - **Connect again** — your account on the hub needs a new sign-in. The hub's page opens; once you are signed in there, the server works again (it stays added).
   - No button — the gateway does not serve it right now, or the hub has approved none of its tools yet: the card says which.
 - **On this machine** — a server that runs on your computer (a package), a hub without a gateway (or with the gateway turned off for that server), or a server whose provider takes no sign-in through the hub (its card says **Sign in on this machine**). It is installed from its signed manifest, and its values are typed on its card (see [Installing](#installing)).
@@ -78,11 +78,11 @@ A hub server always installs into the default profile, where the hub sync runs, 
 | What you see | Why |
 |---|---|
 | "Sign in to AgentX to see the MCP servers your Hub approved for you" | Nobody is signed in on this machine: sign in to AgentX. |
-| "The AgentX Hub could not be reached" | The list shown is the one fetched last; installed servers keep working. |
+| "The AgentX AgentHub could not be reached" | The list shown is the one fetched last; installed servers keep working. |
 | A hub server is missing | It is not approved for you, Workmate cannot run it as it is (see the note under the hub section), or its signatures did not hold (`agentx mcp catalog` prints the reason). |
 | "needs_secrets" under **Store → Skills** (what the hub asked of this machine) | The hub asked this machine to install a server whose values it does not hold: connect it from **Store → MCP** and type them. |
 | "gateway_not_ready" under **Store → Skills** | The hub asked this machine to add a server set up on the hub, and your account there is not connected: click **Connect** on its card (or connect on the hub). |
-| *Waiting for you to connect on AgentX Hub…* | Workmate opened the hub's connect page; connect there. **Open the page again** if you closed it, **Cancel** to stop waiting. |
+| *Waiting for you to connect on AgentX AgentHub…* | Workmate opened the hub's connect page; connect there. **Open the page again** if you closed it, **Cancel** to stop waiting. |
 | **Sign in again on the hub** on a connected server | Its account on the hub lapsed: **Connect again** opens the hub's page. |
 | Tools blocked | The server announces tools that differ from the approved list; a hub admin decides. |
 | **Off by the hub** on a server, its switch locked | The hub withdrew what it runs; the reason is on the card. Only the hub turns it back on — or update to a version it serves. |

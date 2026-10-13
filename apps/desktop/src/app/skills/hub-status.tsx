@@ -165,7 +165,7 @@ export function useHubSync(): HubSync {
     }
   }, [queryClient, revision, seenRevision])
 
-  // The sync changed an MCP server here (an AgentX Hub server installed,
+  // The sync changed an MCP server here (an AgentX AgentHub server installed,
   // switched off from the hub, removed, its tool list re-approved): live
   // sessions reload MCP, and the MCP segment's catalog and config are stale.
   const mcpRevision = changes.data?.mcp_revision

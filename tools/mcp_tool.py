@@ -2465,7 +2465,7 @@ class MCPServerTask:
         # back to ``list_tools`` (the pre-ping probe) so we neither spam pings
         # nor reconnect-loop. Reset on each fresh transport connection.
         self._ping_unsupported: bool = False
-        # A server installed from the AgentX Hub: the prompts and resource
+        # A server installed from the AgentX AgentHub: the prompts and resource
         # templates it announced (None — it could not list them), and its
         # lock against the surface the hub approved (tools/mcp_hub.py).
         self._hub_prompts: Optional[list] = []
@@ -3697,7 +3697,7 @@ class MCPServerTask:
         self._register_discovered_tools_if_needed()
 
     async def _discover_hub_extras(self) -> None:
-        """A server installed from the AgentX Hub is locked to the whole
+        """A server installed from the AgentX AgentHub is locked to the whole
         surface the hub approved (Agent Hub P6.1): its prompts and resource
         templates are listed with its tools, for the lock and for the report
         (``tools/mcp_hub.py``). A family the server does not advertise is
@@ -5974,7 +5974,7 @@ def _make_tool_handler(server_name: str, tool_name: str, tool_timeout: float):
 
 
 def _hub_check_of(server: Any) -> Any:
-    """For a server installed from the AgentX Hub, what the hub approved of
+    """For a server installed from the AgentX AgentHub, what the hub approved of
     what it announced (``tools/mcp_hub.ToolCheck``) — nothing yet when it has
     not registered; None for any other server. Its prompt and resource tools
     answer for the approved prompts and resource templates alone (Agent Hub
@@ -6067,7 +6067,7 @@ def _make_read_resource_handler(server_name: str, tool_timeout: float):
             from tools.mcp_hub import resource_allowed
 
             if not resource_allowed(hub_check, str(uri)):
-                return tool_error(f"The resource '{uri}' of MCP server '{server_name}' is not approved by the AgentX Hub")
+                return tool_error(f"The resource '{uri}' of MCP server '{server_name}' is not approved by the AgentX AgentHub")
 
         async def _call():
             _mark_server_call_started(server)
@@ -6197,7 +6197,7 @@ def _make_get_prompt_handler(server_name: str, tool_timeout: float):
             return tool_error("Missing required parameter 'name'")
         hub_check = _hub_check_of(server)
         if hub_check is not None and name not in hub_check.prompts:
-            return tool_error(f"The prompt '{name}' of MCP server '{server_name}' is not approved by the AgentX Hub")
+            return tool_error(f"The prompt '{name}' of MCP server '{server_name}' is not approved by the AgentX AgentHub")
         arguments = args.get("arguments", {})
 
         async def _call():
@@ -6799,7 +6799,7 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
     tools_filter = config.get("tools") or {}
     _allowed_by_config = tool_name_filter(name, tools_filter)
 
-    # A server installed from the AgentX Hub runs only the tools the hub
+    # A server installed from the AgentX AgentHub runs only the tools the hub
     # approved: each announced tool is hashed as the hub hashed it
     # (tools/mcp_hub.py, tools/mcp_surface.py); a new tool, or one described
     # otherwise, stays off — here and in the lazy cache — until the hub
@@ -6816,13 +6816,13 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> Li
         mcp_hub.record_check(name, config, hub_check)
         if hub_check.blocked:
             logger.warning(
-                "MCP server '%s': %d tool(s) differ from the list the AgentX Hub approved and stay off: %s",
+                "MCP server '%s': %d tool(s) differ from the list the AgentX AgentHub approved and stay off: %s",
                 name, len(hub_check.blocked), ", ".join(hub_check.blocked[:20]),
             )
         kept_off = [*hub_check.blocked_prompts, *hub_check.blocked_templates]
         if kept_off:
             logger.warning(
-                "MCP server '%s': %d prompt(s) or resource template(s) differ from what the AgentX Hub approved and stay off: %s",
+                "MCP server '%s': %d prompt(s) or resource template(s) differ from what the AgentX AgentHub approved and stay off: %s",
                 name, len(kept_off), ", ".join(kept_off[:20]),
             )
 

@@ -2,7 +2,7 @@
 the person must supply (``requires`` — the names of ``auth.env``), how it
 signs in and how it connects — before, ``requires`` read an attribute
 entries never had (always ``[]``) and ``transport`` printed the dataclass —
-and an AgentX Hub server is listed with its id and origin, installed only
+and an AgentX AgentHub server is listed with its id and origin, installed only
 when it is the server configured under its name."""
 
 from __future__ import annotations

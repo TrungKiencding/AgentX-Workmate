@@ -271,7 +271,7 @@ async def _lifespan(app: "FastAPI"):
     # has not deployed one.
     sync_task = asyncio.create_task(_sync_engine_loop())
 
-    # Keep this machine's skills in step with the AgentX Skill Hub: an
+    # Keep this machine's skills in step with the AgentX AgentHub: an
     # Install clicked on the web lands here, a yanked version is switched
     # off, the workspaces' shared skills are listed. Idles until a bearer is
     # delivered (the Hub tab's tick, the sync tick, or skills.hub_token).
@@ -314,7 +314,7 @@ async def _sync_engine_loop() -> None:
 
 
 async def _hub_sync_loop() -> None:
-    """Run the AgentX Skill Hub sync engine, or return quietly if it is not wanted."""
+    """Run the AgentX AgentHub sync engine, or return quietly if it is not wanted."""
     try:
         from hermes_cli.hub_sync import engine as hub_engine
     except Exception as exc:  # noqa: BLE001 - optional feature, never fatal
@@ -13937,7 +13937,7 @@ from hermes_cli.web_routers.skills import (  # noqa: E402,F401 — legacy re-exp
 # Human-readable labels for each hub source id (matches `agentx skills search`
 # provenance).  Keep in sync with create_source_router()'s source list.
 _SKILL_HUB_SOURCE_LABELS = {
-    "agentx-hub": "AgentX Hub",
+    "agentx-hub": "AgentX AgentHub",
     "official": "Official (Nous)",
     "agentx-index": "AgentX Index",
     "skills-sh": "skills.sh",
@@ -14014,7 +14014,7 @@ def _installed_hub_identifiers(profile: Optional[str] = None) -> dict:
                     "modified": hub and hub_skill_local_changes(entry),
                 }
                 out[ident] = row
-                # An AgentX Hub install is locked at the version it resolved to
+                # An AgentX AgentHub install is locked at the version it resolved to
                 # (``agentx-hub/<slug>@<version>``) while the catalogue and search
                 # speak the unpinned ``agentx-hub/<slug>``. Index both, or a card
                 # for a skill that IS installed reads as if it were not.

@@ -1,4 +1,4 @@
-"""The AgentX Skill Hub as the sync plane (Skill Hub plan, Phase 3).
+"""The AgentX AgentHub as the sync plane (Skill Hub plan, Phase 3).
 
 Pointing ``sync.base_url`` at the hub must be all it takes: identity comes
 from the credentials the hub-sync engine holds and the hub's ``/v1/me``,
@@ -160,7 +160,7 @@ class TestHubIdentity:
 
     def test_a_hub_refusal_is_inert_not_a_crash(self, hub_plane):
         _base, _state, calls = hub_plane
-        calls["answer"] = HubError("the AgentX Skill Hub returned HTTP 401", status_code=401, code="invalid_token")
+        calls["answer"] = HubError("the AgentX AgentHub returned HTTP 401", status_code=401, code="invalid_token")
         with pytest.raises(ssc.SyncInertError):
             ssc.resolve_identity()
         assert ssc.maybe_push_skills() is None

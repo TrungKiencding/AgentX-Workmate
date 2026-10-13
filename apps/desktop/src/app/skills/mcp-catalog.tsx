@@ -37,11 +37,11 @@ const CATALOG_INSTALL_POLL_MS = 1500
 /** The card a link pointed at (`?hub=<slug>`), marked a moment so the eye lands on it. */
 const SPOTLIGHT_CLASS = 'border-(--ui-accent) bg-(--ui-bg-quaternary)'
 
-/** What a catalog entry is installed by: the name, or `agentx-hub/<slug>` for an AgentX Hub server. */
+/** What a catalog entry is installed by: the name, or `agentx-hub/<slug>` for an AgentX AgentHub server. */
 export const catalogKey = (entry: McpCatalogEntry) => entry.id ?? entry.name
 
 /**
- * A catalog entry as people read it: an AgentX Hub server's name as the hub
+ * A catalog entry as people read it: an AgentX AgentHub server's name as the hub
  * shows it, AgentX's own copy for a shipped server, else its name as words
  * (a hub slug can carry its publisher's name — never the first choice).
  */
@@ -49,7 +49,7 @@ export const catalogTitle = (entry: McpCatalogEntry, t: Translations): string =>
   (entry.origin === 'hub' ? entry.title : shippedCopy(entry.name, t)?.label) || serverTitle(entry.name)
 
 /**
- * Installing from the catalog — the shipped servers and the AgentX Hub's —
+ * Installing from the catalog — the shipped servers and the AgentX AgentHub's —
  * shared by every card in the MCP segment, so one install runs at a time and
  * a connected server's "Cập nhật" / "Thay bằng bản Hub…" runs the same path.
  * Credentials are asked inline on the card, never shown once stored: the
@@ -128,7 +128,7 @@ export function useCatalogInstall(onInstalled: () => void) {
     }
   }
 
-  /** An AgentX Hub server leaves through the hub's own removal, so the hub hears it. */
+  /** An AgentX AgentHub server leaves through the hub's own removal, so the hub hears it. */
   const removeFromHub = async (entry: McpCatalogEntry) => {
     if (!entry.slug) {
       return
@@ -212,7 +212,7 @@ function AccessTags({ entry }: { entry: McpCatalogEntry }) {
 }
 
 // One server the catalog offers — shipped with AgentX, or approved for this
-// person on their AgentX Hub. Same card as a skill in the store: what it is,
+// person on their AgentX AgentHub. Same card as a skill in the store: what it is,
 // what connecting it takes, and one verb. Connected, it says so and stays put;
 // the connection itself is managed from its card on "Đã kết nối".
 export function CatalogServerCard({
@@ -482,8 +482,8 @@ export function useGatewayEndpoints(profile: string, onAdded: () => void, openEx
 export type GatewayEndpoints = ReturnType<typeof useGatewayEndpoints>
 
 /**
- * One AgentX Hub server set up on the hub (the hub's decision §9.1 #17), on
- * the "Từ AgentX Hub" shelf beside the ones set up here: the same store card,
+ * One AgentX AgentHub server set up on the hub (the hub's decision §9.1 #17), on
+ * the "Từ AgentX AgentHub" shelf beside the ones set up here: the same store card,
  * with where the person stands with it on the hub and **one** verb — "Thêm"
  * (the hub serves it to them: added as its gateway endpoint, nothing asked),
  * "Kết nối" / "Kết nối lại" (the hub's page opens; Workmate adds it once they

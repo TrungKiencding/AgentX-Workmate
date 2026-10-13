@@ -4891,7 +4891,7 @@ def cmd_sync(args):
         if not status.get("logged_in"):
             if status.get("provider") == "agentx-hub":
                 print(
-                    "\nNot signed in to AgentX — sync with the AgentX Skill Hub is "
+                    "\nNot signed in to AgentX — sync with the AgentX AgentHub is "
                     "inert. Sign in to Workmate, or set skills.hub_token.",
                     file=sys.stderr,
                 )

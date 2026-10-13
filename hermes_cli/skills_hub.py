@@ -681,13 +681,13 @@ def do_install(identifier: str, category: str = "", force: bool = False,
             c.print("Use --force to reinstall.\n")
             return
     if bundle.source == "agentx-hub" and not existing:
-        # AgentX Hub keeps its skills in one home per machine, the default
+        # AgentX AgentHub keeps its skills in one home per machine, the default
         # profile's: a version it withdraws is switched off there. A named
         # profile gets none new (one it has already is updated as before).
         from hermes_cli.hub_sync import syncs_this_home
 
         if not syncs_this_home():
-            c.print("[bold red]Error:[/] AgentX Hub skills are installed in the default profile, where AgentX Hub keeps them "
+            c.print("[bold red]Error:[/] AgentX AgentHub skills are installed in the default profile, where AgentX AgentHub keeps them "
                     "(a version it withdraws is switched off there). Switch to the default profile to install it.\n")
             return
 

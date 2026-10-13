@@ -67,7 +67,7 @@ class _Row:
 
 
 def _is_this_entry(entry: CatalogEntry) -> bool:
-    """The server configured under *entry*'s name is this entry (an AgentX Hub
+    """The server configured under *entry*'s name is this entry (an AgentX AgentHub
     entry and a shipped one may share a name; only one is configured)."""
     from hermes_cli.mcp_catalog import hub_slug_of
 
@@ -77,7 +77,7 @@ def _is_this_entry(entry: CatalogEntry) -> bool:
 
 def _build_rows() -> List[_Row]:
     """Return catalog rows + any custom (non-catalog) MCPs found in config.
-    An AgentX Hub entry is a row of its own: ``agentx-hub/<slug>``."""
+    An AgentX AgentHub entry is a row of its own: ``agentx-hub/<slug>``."""
     catalog_entries = list_catalog()
 
     rows: List[_Row] = []
@@ -171,7 +171,7 @@ def _remove_custom(name: str) -> None:
 
 
 def _install(entry: CatalogEntry) -> bool:
-    """Install *entry*; an AgentX Hub entry is also told to the hub (which keeps it from then on)."""
+    """Install *entry*; an AgentX AgentHub entry is also told to the hub (which keeps it from then on)."""
     try:
         install_entry(entry, enable=True)
     except CatalogError as exc:
@@ -181,7 +181,7 @@ def _install(entry: CatalogEntry) -> bool:
         from hermes_cli.hub_sync import announce_mcp_install, syncs_this_home
 
         if not announce_mcp_install(entry.hub.slug) and syncs_this_home():
-            print(color("  The AgentX Hub could not be told yet; the hub sync tells it when it can.", Colors.DIM))
+            print(color("  The AgentX AgentHub could not be told yet; the hub sync tells it when it can.", Colors.DIM))
     return True
 
 
@@ -290,7 +290,7 @@ def _print_rows_text(rows: List[_Row]) -> None:
                 Colors.YELLOW,
             ))
         print()
-    # AgentX Hub servers that cannot be installed here, and why (Agent Hub P3.11):
+    # AgentX AgentHub servers that cannot be installed here, and why (Agent Hub P3.11):
     # not runnable in Workmate as they are, or signatures that do not hold.
     hub = [d for d in diags if d[1] in ("hub_unsupported", "unverified", "hub_unavailable")]
     if hub:
@@ -298,11 +298,11 @@ def _print_rows_text(rows: List[_Row]) -> None:
         for name, _, msg in hub:
             print(color(f"  ⚠ {name}: {msg}", Colors.YELLOW))
         print()
-    # AgentX Hub servers the hub sets up itself (its decision §9.1 #17): their sign-in is the
+    # AgentX AgentHub servers the hub sets up itself (its decision §9.1 #17): their sign-in is the
     # hub's, and Workmate's MCP store adds them — nothing to install or type in from here.
     through_hub = [d[0] for d in diags if d[1] == "hub_gateway"]
     if through_hub:
-        print(color(f"  Set up on AgentX Hub — add them in Workmate (Utilities → Store → MCP): {', '.join(through_hub)}", Colors.DIM))
+        print(color(f"  Set up on AgentX AgentHub — add them in Workmate (Utilities → Store → MCP): {', '.join(through_hub)}", Colors.DIM))
     print()
 
 
@@ -352,7 +352,7 @@ def install_by_name(identifier: str, *, dev: bool = False) -> int:
     if entry is None and identifier.startswith(HUB_PREFIX) and set_up_on_hub(identifier[len(HUB_PREFIX):]):
         # Set up on the hub (its decision §9.1 #17): one place holds its sign-in, and it is not this machine.
         print(color(
-            f"  '{identifier}' is set up on AgentX Hub: add it in Workmate — Utilities → Store → MCP. "
+            f"  '{identifier}' is set up on AgentX AgentHub: add it in Workmate — Utilities → Store → MCP. "
             "Its sign-in is kept by the hub; nothing to install or type in here.",
             Colors.YELLOW,
         ))

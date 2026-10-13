@@ -770,7 +770,7 @@ def _migrate_to_36(results: Dict[str, Any], quiet: bool) -> None:
 
 
 #: The hosts AgentX shipped as the default ``skills.hub_url`` before the
-#: AgentX Hub moved to agenthub.astralx.com.vn on 2026-09-26 (v37).
+#: AgentX AgentHub moved to agenthub.astralx.com.vn on 2026-09-26 (v37).
 RETIRED_HUB_HOSTS = ("skills.dev-server.cloud", "skills.astralx.com.vn")
 
 
@@ -797,7 +797,7 @@ def _is_retired_hub_url(value: Any) -> bool:
 
 
 def _migrate_to_37(results: Dict[str, Any], quiet: bool) -> None:
-    # ── Version 36 → 37: the AgentX Hub moved to agenthub.astralx.com.vn ──
+    # ── Version 36 → 37: the AgentX AgentHub moved to agenthub.astralx.com.vn ──
     # An install from before 2026-09-26 may keep in config.yaml the hub
     # address it shipped with (skills.astralx.com.vn, or skills.dev-server.cloud
     # before 2026-09-09): an older build wrote the default out, and a key
@@ -836,11 +836,11 @@ def _migrate_to_37(results: Dict[str, Any], quiet: bool) -> None:
     _persist_migration(config)
     results["config_added"].extend(moved)
     if not quiet:
-        print(f"  ✓ The AgentX Hub moved to {hub_url}: {', '.join(moved)}.")
+        print(f"  ✓ The AgentX AgentHub moved to {hub_url}: {', '.join(moved)}.")
 
 
 def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
-    # ── Version 37 → 38: the AgentX Hub gateway token gets a .env key of its own ──
+    # ── Version 37 → 38: the AgentX AgentHub gateway token gets a .env key of its own ──
     # Workmate kept this machine's AgentX Gateway token as AGENTX_GATEWAY_TOKEN,
     # the key the OpenClaw migration fills with OpenClaw's messaging gateway
     # token (gateway.auth.token): on a machine that ran both, one overwrote the
@@ -855,7 +855,7 @@ def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
     try:
         done = migrate_gateway_token_env()
     except Exception as exc:  # noqa: BLE001 - the hub sync tries again on its next tick
-        results["warnings"].append(f"The AgentX Hub gateway token could not move to {GATEWAY_TOKEN_ENV}: {exc}")
+        results["warnings"].append(f"The AgentX AgentHub gateway token could not move to {GATEWAY_TOKEN_ENV}: {exc}")
         return
     moved = [f"mcp_servers.{name}.headers reads ${{{GATEWAY_TOKEN_ENV}}} (was ${{{LEGACY_GATEWAY_TOKEN_ENV}}})" for name in done["entries"]]
     if done["moved"]:
@@ -865,11 +865,11 @@ def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
     results["config_added"].extend(moved)
     if done["expired"]:
         results["warnings"].append(
-            f"{LEGACY_GATEWAY_TOKEN_ENV} does not hold this machine's AgentX Hub gateway token: it is left as it is, "
+            f"{LEGACY_GATEWAY_TOKEN_ENV} does not hold this machine's AgentX AgentHub gateway token: it is left as it is, "
             "and the next hub sync asks the hub for a new token."
         )
     if not quiet:
-        print(f"  ✓ The AgentX Hub gateway token has its own .env key, {GATEWAY_TOKEN_ENV}: {', '.join(moved)}.")
+        print(f"  ✓ The AgentX AgentHub gateway token has its own .env key, {GATEWAY_TOKEN_ENV}: {', '.join(moved)}.")
         if done["expired"]:
             print(f"  ⚠ {results['warnings'][-1]}")
 

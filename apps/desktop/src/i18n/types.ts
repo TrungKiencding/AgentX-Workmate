@@ -939,7 +939,7 @@ export interface Translations {
       /** "Kết nối" opened the hub's connect page in the browser: said, with what happens next. */
       hubConnectOpened: (name: string) => string
       hubConnectOpenedBody: string
-      /** Added through AgentX Hub: at once, or once connected on the hub. */
+      /** Added through AgentX AgentHub: at once, or once connected on the hub. */
       hubAdded: (name: string) => string
       /** The toolsets shelf: the person's toolsets on the hub, each one endpoint. */
       toolsetsHint: string
@@ -1313,7 +1313,7 @@ export interface Translations {
       offline: string
       reauth: string
       unconfigured: string
-      /** A named profile: AgentX Hub keeps the default profile's skills and MCP servers only. */
+      /** A named profile: AgentX AgentHub keeps the default profile's skills and MCP servers only. */
       otherProfile: string
       lastSync: (when: string) => string
       noInstalls: string
@@ -1344,7 +1344,7 @@ export interface Translations {
       replaceConfirm: string
       replaceStarted: (name: string) => string
       /**
-       * What AgentX Hub last said of an installed skill or MCP server (hub decisions §8 #22, §9.1 #18): switched off by
+       * What AgentX AgentHub last said of an installed skill or MCP server (hub decisions §8 #22, §9.1 #18): switched off by
        * the hub (only the hub turns it back on), no longer published by its author, no longer yours to see — the
        * card's pill and line, the successor its author points to, the gateway's last day.
        */

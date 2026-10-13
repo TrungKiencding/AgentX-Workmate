@@ -2815,7 +2815,7 @@ class TestToolNameFilter:
 
 
 class TestHubToolLock:
-    """A server installed from the AgentX Hub runs only the tools the hub
+    """A server installed from the AgentX AgentHub runs only the tools the hub
     approved (Agent Hub P3.8): each announced tool is hashed as the hub
     hashed it, and one that is new or described otherwise stays off — in
     the registry and in the lazy cache — while what the server announced is

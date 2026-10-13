@@ -895,7 +895,7 @@ _DIGEST = "sha256:" + "a" * 64
 
 
 class TestHubEntries:
-    """AgentX Hub entries (Agent Hub P3.6): a manifest the hub signed, read
+    """AgentX AgentHub entries (Agent Hub P3.6): a manifest the hub signed, read
     as a dict, held to the rules the shipped manifests follow in CI, and
     installed without asking."""
 

@@ -169,7 +169,7 @@ the user, so relay the sentence that follows the code once and stop:
 8. **Report.** Summarise what WebMate did and where it ended (`final_url`).
    Quote extracted data; do not paraphrase numbers.
 
-## Site skills from the AgentX Skill Hub
+## Site skills from the AgentX AgentHub
 
 Skills of kind `browser` (target `webmate`) installed from the AgentX Skill
 Hub describe how to work one site: numbered steps per case, what to read,

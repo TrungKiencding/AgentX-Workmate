@@ -1,4 +1,4 @@
-"""AgentX Hub keeps one home per machine: the default profile's (hub
+"""AgentX AgentHub keeps one home per machine: the default profile's (hub
 decisions §8 #22, §9.1 #18).
 
 Every backend starts the hub sync, and on the desktop a named profile runs a
@@ -6,7 +6,7 @@ backend of its own — with the machine's device id. Two homes answering for one
 machine undo each other: a skill one has is, to the other, a copy "removed
 here", which it tells the hub, which then removes it from the first. So the
 sync runs in the default profile only (of the install, or of the account
-signed in), what a named profile has is its own, and no new AgentX Hub skill
+signed in), what a named profile has is its own, and no new AgentX AgentHub skill
 or server lands in a named profile to begin with."""
 
 from __future__ import annotations

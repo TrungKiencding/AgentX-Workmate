@@ -33,7 +33,7 @@ function note(hubState: HubStateView, gateway = false): null | string {
 
 afterEach(cleanup)
 
-/** The one sentence a card says of what AgentX Hub decided (hub decisions §8 #22, §9.1 #18). */
+/** The one sentence a card says of what AgentX AgentHub decided (hub decisions §8 #22, §9.1 #18). */
 describe('HubStateNote', () => {
   it('says nothing of a copy the hub keeps as it is', () => {
     expect(note(view())).toBeNull()
@@ -43,10 +43,10 @@ describe('HubStateNote', () => {
     expect(
       note(view({ desired_state: 'disabled', reason: 'yanked: leaks tokens', status: 'archived', withdrawn: true }))
     ).toBe(
-      'AgentX Hub switched this off: yanked: leaks tokens. Only the hub turns it back on; you can still remove it.'
+      'AgentX AgentHub switched this off: yanked: leaks tokens. Only AgentHub turns it back on; you can still remove it.'
     )
     expect(note(view({ desired_state: 'disabled', withdrawn: true }))).toBe(
-      'AgentX Hub switched this off. Only the hub turns it back on; you can still remove it.'
+      'AgentX AgentHub switched this off. Only AgentHub turns it back on; you can still remove it.'
     )
   })
 
@@ -75,7 +75,7 @@ describe('HubStateNote', () => {
 
   it('says it is no longer the person’s to see', () => {
     expect(note(view({ visible: false }))).toBe(
-      'You can no longer see this on AgentX Hub: it still works, but no newer version will come.'
+      'You can no longer see this on AgentX AgentHub: it still works, but no newer version will come.'
     )
   })
 })

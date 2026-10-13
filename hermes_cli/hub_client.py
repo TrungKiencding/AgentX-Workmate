@@ -1,4 +1,4 @@
-"""The laptop's side of the conversation with the AgentX Skill Hub.
+"""The laptop's side of the conversation with the AgentX AgentHub.
 
 Shaped like :mod:`hermes_cli.second_brain_client` and for the same reasons:
 synchronous httpx, one retry, and an error type that distinguishes "the hub
@@ -96,7 +96,7 @@ def hub_api_token() -> str:
 
 
 class HubClient:
-    """Talks to one AgentX Skill Hub on behalf of one person and one machine.
+    """Talks to one AgentX AgentHub on behalf of one person and one machine.
 
     ``transport`` exists so tests drive the whole flow through
     ``httpx.MockTransport`` with no network and no fixture server.
@@ -162,7 +162,7 @@ class HubClient:
                 with httpx.Client(timeout=self._timeout, transport=self._transport, follow_redirects=False) as client:
                     response = client.request(method, url, params=params, json=json_body, headers=headers)
             except httpx.RequestError as exc:
-                last = HubError(f"could not reach the AgentX Skill Hub at {url}: {exc}")
+                last = HubError(f"could not reach the AgentX AgentHub at {url}: {exc}")
             else:
                 if response.status_code in _RETRY_STATUSES:
                     last = _failure(response, path)
@@ -547,4 +547,4 @@ def _failure(response: Any, path: str) -> HubError:
         detail = body.get("detail")
     if not message:
         message = (getattr(response, "text", "") or "")[:300].strip()
-    return HubError(f"the AgentX Skill Hub returned HTTP {status} for {path}{f': {message}' if message else ''}", status_code=status, code=code, detail=detail)
+    return HubError(f"the AgentX AgentHub returned HTTP {status} for {path}{f': {message}' if message else ''}", status_code=status, code=code, detail=detail)

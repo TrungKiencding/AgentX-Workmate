@@ -86,7 +86,7 @@ export const HUB_SPOTLIGHT_MS = 4000
  * Kho tiện ích → MCP: every connection this machine has, and every one it
  * could add, as store cards on named shelves — "Đã kết nối" (what AgentX can
  * reach now, with its live state and the verb that fixes it), then what can
- * be added: from the person's AgentX Hub — one shelf, each server set up in
+ * be added: from the person's AgentX AgentHub — one shelf, each server set up in
  * one place, the hub's or this machine's, whichever the hub says (its
  * decision §9.1 #17) — the toolsets they gathered there, and the servers
  * AgentX itself recommends. The technical surfaces — the whole mcp.json, the
@@ -599,7 +599,7 @@ export function McpStore({
         return false
       }
 
-      // A server AgentX Hub keeps off was saved off whatever the map said: the cache follows the file, and says why.
+      // A server AgentX AgentHub keeps off was saved off whatever the map said: the cache follows the file, and says why.
       const keptOff = (saved?.kept_off ?? []).filter(name => next[name])
 
       if (keptOff.length > 0) {

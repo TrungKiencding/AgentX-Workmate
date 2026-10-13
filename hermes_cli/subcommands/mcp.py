@@ -130,10 +130,10 @@ def build_mcp_parser(subparsers, *, cmd_mcp: Callable) -> None:
         ),
     )
 
-    # ── The AgentX Hub's signing keys this machine trusts (Agent Hub P6.1) ──
+    # ── The AgentX AgentHub's signing keys this machine trusts (Agent Hub P6.1) ──
     mcp_keys_p = mcp_sub.add_parser(
         "hub-keys",
-        help="Show the AgentX Hub signing keys this machine trusts (pinned) and those it refused",
+        help="Show the AgentX AgentHub signing keys this machine trusts (pinned) and those it refused",
     )
     mcp_keys_p.add_argument(
         "--reset",

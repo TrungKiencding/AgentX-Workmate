@@ -221,7 +221,7 @@ class TestPublish:
         assert response.status_code == 200 and response.json()["status"] == "signed_out"
 
     def test_hub_refusals_are_rendered_not_raised(self, fake_hub, local_skill):
-        fake_hub.fail = HubError("the AgentX Skill Hub returned HTTP 409", status_code=409, code="version_not_newer", detail={"highest": "1.2.0"})
+        fake_hub.fail = HubError("the AgentX AgentHub returned HTTP 409", status_code=409, code="version_not_newer", detail={"highest": "1.2.0"})
         client = TestClient(_app(_session()))
         body = client.post("/api/skills/hub/publish", headers=HEADERS, json={"name": "dashboard-skill"}).json()
         assert body["ok"] is False and body["status"] == "error" and body["code"] == "version_not_newer" and body["error_detail"] == {"highest": "1.2.0"}

@@ -1,4 +1,4 @@
-"""MCP servers from the AgentX Skill Hub (Agent Hub P3.7).
+"""MCP servers from the AgentX AgentHub (Agent Hub P3.7).
 
 The hub's feed — ``GET /v1/mcp/catalog.json?product=workmate`` — lists the
 MCP servers this person may install, each with the catalog manifest v1 the

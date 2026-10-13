@@ -196,7 +196,7 @@ ALLOWED: list[tuple[str, re.Pattern[str], str]] = [
     ),
     (
         "hub-render-target",
-        # The AgentX Hub keys the render target for Workmate packages as
+        # The AgentX AgentHub keys the render target for Workmate packages as
         # `hermes` (its targets table and skillkit's CORE_TARGETS, in the hub
         # repo): it is the default target of every core skill, and the hub
         # rejects a target it does not know, both on publish and on a bundle
@@ -205,7 +205,7 @@ ALLOWED: list[tuple[str, re.Pattern[str], str]] = [
         # list under a `targets` key, kwarg or subscript is covered, so any
         # other `hermes` on the same line still fails.
         re.compile(r"""targets["']?\]?\s*(?:==|[:=])\s*\[["']hermes["']\]"""),
-        "the AgentX Hub's render-target id for Workmate packages, a wire value "
+        "the AgentX AgentHub's render-target id for Workmate packages, a wire value "
         "the hub defines and validates; the fake-hub fixtures must send what "
         "the real hub sends",
     ),

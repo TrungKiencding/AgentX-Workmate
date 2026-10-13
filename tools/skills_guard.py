@@ -62,7 +62,7 @@ INSTALL_POLICY = {
     # skills.guard_agent_created is enabled (off by default) — see
     # tools/skill_manager_tool.py::_guard_agent_created_enabled.
     "agent-created": ("allow",  "allow",   "ask"),
-    # AgentX Skill Hub bundles whose Ed25519 signature verified against the
+    # AgentX AgentHub bundles whose Ed25519 signature verified against the
     # hub's published key (tools/skills_hub.py::AgentXHubSource). The hub
     # already ran this scanner (and more) before publishing, so a caution
     # verdict is allowed exactly as it is for the trusted vendor repos; a

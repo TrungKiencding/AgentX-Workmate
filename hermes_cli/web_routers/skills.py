@@ -62,9 +62,9 @@ async def install_skill_hub(request: Request, body: SkillInstallRequest, profile
         raise HTTPException(status_code=400, detail="identifier is required")
     from hermes_cli.hub_sync import hub_keeps_profile
 
-    # AgentX Hub skills live in the profile the hub sync keeps (the default), as its MCP servers do.
+    # AgentX AgentHub skills live in the profile the hub sync keeps (the default), as its MCP servers do.
     if identifier.startswith("agentx-hub/") and not hub_keeps_profile(body.profile or profile):
-        raise HTTPException(status_code=400, detail="AgentX Hub skills are installed in the default profile, where the hub sync keeps them.")
+        raise HTTPException(status_code=400, detail="AgentX AgentHub skills are installed in the default profile, where the hub sync keeps them.")
     name = _hub_action_name("install", identifier)
     args = _profile_cli_args(body.profile or profile) + ["skills", "install", identifier, "--yes"]
     # A private/workspace skill is only downloadable with the person's bearer, and
@@ -210,7 +210,7 @@ async def list_skills_hub_sources(profile: Optional[str] = None):
 
 @hub_router.get("/api/skills/hub/catalog")
 async def skills_hub_catalog(request: Request, refresh: bool = False, profile: Optional[str] = None):
-    """The AgentX Skill Hub's catalog, as browsable cards — no sign-in needed.
+    """The AgentX AgentHub's catalog, as browsable cards — no sign-in needed.
 
     Public skills always; the caller's own private ones (and their workspaces') too
     when the request carries a bearer or this machine holds a personal token.
@@ -503,7 +503,7 @@ async def scan_skill_hub(request: Request, identifier: str = "", profile: Option
 
 
 # ---------------------------------------------------------------------------
-# AgentX Skill Hub, Phase 3: desired-state sync, upload from the desktop.
+# AgentX AgentHub, Phase 3: desired-state sync, upload from the desktop.
 #
 # The backend holds no credential of its own; the bearer that authenticated
 # the request (request.state.session, set by the dashboard auth gate) is
@@ -774,7 +774,7 @@ async def get_skills(profile: Optional[str] = None):
 
 @router.put("/api/skills/toggle")
 async def toggle_skill(body: SkillToggle, profile: Optional[str] = None):
-    """Switch a skill on or off. One the AgentX Hub keeps off — a version it
+    """Switch a skill on or off. One the AgentX AgentHub keeps off — a version it
     withdrew, a takedown — is not switched on here (``409``, with the hub's
     reason): only the hub turns it back on (hub decision §8 #22)."""
     from hermes_cli.hub_sync import hub_hold
@@ -782,7 +782,7 @@ async def toggle_skill(body: SkillToggle, profile: Optional[str] = None):
     with _profile_scope(body.profile or profile):
         held = hub_hold("skills", body.name) if body.enabled else None
         if held is not None:
-            raise HTTPException(status_code=409, detail={"code": "hub_disabled", "message": f"AgentX Hub keeps {body.name} off: {held.get('reason') or ''}",
+            raise HTTPException(status_code=409, detail={"code": "hub_disabled", "message": f"AgentX AgentHub keeps {body.name} off: {held.get('reason') or ''}",
                                                          "reason": held.get("reason") or "", "version": held.get("reason_version")})
         config = load_config()
         disabled = get_disabled_skills(config)
