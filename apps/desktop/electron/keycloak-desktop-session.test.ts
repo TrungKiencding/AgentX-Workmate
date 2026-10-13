@@ -679,7 +679,7 @@ describe('ensureKeycloakAccessToken', () => {
     assert.equal(posts[0].grant_type, 'refresh_token')
     assert.equal(posts[0].refresh_token, 'rt-stored')
     assert.equal(loadKeycloakSession(CONFIG, store)?.oauthAccessToken, 'at-new')
-    assert.ok(logs.some(line => line.includes('added an access token')))
+    assert.ok(logs.some(line => line.includes('now carries an access token')))
 
     // Saved, so the next turn does not refresh again.
     assert.equal((await ensureKeycloakAccessToken(CONFIG, deps()))?.oauthAccessToken, 'at-new')
@@ -807,7 +807,8 @@ describe('ensureKeycloakAccessToken', () => {
     assert.deepEqual(posts, [])
   })
 
-  test('tokens that could not be saved still serve this caller', async () => {
+  test('a refresh that cannot be saved leaves the stored session in use', async () => {
+    // As for the regular ladder: an unsaved refresh counts as no refresh.
     persistKeycloakSession(CONFIG, tokenSet(), store)
 
     store.encrypt = () => {
@@ -816,9 +817,238 @@ describe('ensureKeycloakAccessToken', () => {
 
     const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
 
-    assert.equal(tokens?.oauthAccessToken, 'at-new')
+    assert.deepEqual(tokens, tokenSet())
     assert.equal(loadKeycloakSession(CONFIG, store)?.refreshToken, 'rt-stored', 'the saved session is untouched')
-    assert.ok(logs.some(line => line.includes('could not save it')))
+    assert.ok(logs.some(line => line.includes('keeping it as it is: keychain is locked')))
+  })
+})
+
+describe('refreshes that overlap', () => {
+  let store: ReturnType<typeof makeStore>
+  let logs: string[]
+
+  beforeEach(() => {
+    store = makeStore()
+    logs = []
+  })
+
+  /**
+   * A realm with "Revoke Refresh Token" on: each refresh token works once, and
+   * its second use is refused with invalid_grant. Every refresh takes a round
+   * trip, so callers that start together overlap.
+   */
+  function revokingRealm() {
+    const spent = new Set<string>()
+    const used: string[] = []
+
+    const postForm = async (_url: string, form: Record<string, string>) => {
+      used.push(form.refresh_token)
+      await new Promise(resolve => setImmediate(resolve))
+
+      if (spent.has(form.refresh_token)) {
+        throw new HttpError('Keycloak rejected the request: invalid_grant', 400)
+      }
+
+      spent.add(form.refresh_token)
+
+      return {
+        id_token: idTokenExpiring(NOW + 1_800),
+        access_token: `at-${spent.size}`,
+        refresh_token: `rt-${spent.size}`
+      }
+    }
+
+    return { used, postForm }
+  }
+
+  /** A token endpoint that answers when the test says so. */
+  function heldAnswer() {
+    const used: string[] = []
+    let answer: (value: unknown) => void = () => undefined
+    let refuse: (error: unknown) => void = () => undefined
+
+    const postForm = (_url: string, form: Record<string, string>) => {
+      used.push(form.refresh_token)
+
+      return new Promise((resolve, reject) => {
+        answer = resolve
+        refuse = reject
+      })
+    }
+
+    return {
+      used,
+      postForm,
+      answer: () =>
+        answer({ id_token: idTokenExpiring(NOW + 1_800), access_token: 'at-answered', refresh_token: 'rt-answered' }),
+      refuse: () => refuse(new HttpError('Keycloak rejected the request: invalid_grant', 400))
+    }
+  }
+
+  function deps(overrides: Record<string, any> = {}) {
+    return {
+      store,
+      now: () => NOW,
+      getJson: async () => DISCOVERY_DOC,
+      openExternal: async () => {
+        throw new Error('no browser expected in this test')
+      },
+      createServer: (() => {
+        throw new Error('no browser expected in this test')
+      }) as any,
+      rememberLog: (line: string) => logs.push(line),
+      interactive: false,
+      ...overrides
+    } as any
+  }
+
+  /** Let the pending refresh reach the token endpoint. */
+  const settle = () => new Promise(resolve => setImmediate(resolve))
+
+  test('parallel requests near expiry share one refresh, and a revoking realm signs nobody out', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const realm = revokingRealm()
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => ensureKeycloakSession(CONFIG, deps(realm))))
+
+    assert.deepEqual(realm.used, ['rt-stored'], 'one refresh for all five')
+
+    for (const result of results) {
+      assert.equal(result.outcome, 'refreshed')
+      assert.equal(result.tokens?.refreshToken, 'rt-1')
+    }
+
+    assert.equal(loadKeycloakSession(CONFIG, store)?.refreshToken, 'rt-1')
+
+    // Afterwards the saved session is used as it is.
+    assert.equal((await ensureKeycloakSession(CONFIG, deps(realm))).outcome, 'stored')
+    assert.equal(realm.used.length, 1)
+  })
+
+  test('usage metrics and backend requests share the refresh too', async () => {
+    // A session saved by 1.1.0, due for refresh: both paths want one at once.
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const realm = revokingRealm()
+
+    const [backend, metrics, again] = await Promise.all([
+      ensureKeycloakSession(CONFIG, deps(realm)),
+      ensureKeycloakAccessToken(CONFIG, deps(realm)),
+      ensureKeycloakSession(CONFIG, deps(realm))
+    ])
+
+    assert.deepEqual(realm.used, ['rt-stored'])
+    assert.equal(backend.tokens?.refreshToken, 'rt-1')
+    assert.equal(again.tokens?.refreshToken, 'rt-1')
+    assert.equal(metrics?.oauthAccessToken, 'at-1')
+    assert.equal(loadKeycloakSession(CONFIG, store)?.oauthAccessToken, 'at-1')
+  })
+
+  test('an upgrade under way is joined by a caller that finds the session due', async () => {
+    // Still valid, so only the upgrade refreshes it; a later caller finds it due.
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    const realm = revokingRealm()
+    const upgrade = ensureKeycloakAccessToken(CONFIG, deps(realm))
+
+    await settle()
+
+    const due = await ensureKeycloakSession(CONFIG, deps({ ...realm, now: () => NOW + 3_590 }))
+
+    assert.equal((await upgrade)?.oauthAccessToken, 'at-1')
+    assert.equal(due.tokens?.refreshToken, 'rt-1')
+    assert.deepEqual(realm.used, ['rt-stored'])
+  })
+
+  test('a failed refresh is not left behind: the next caller asks again', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const offline = await ensureKeycloakSession(
+      CONFIG,
+      deps({
+        postForm: async () => {
+          throw new Error('connect ECONNREFUSED')
+        }
+      })
+    )
+
+    assert.equal(offline.outcome, 'stale-offline')
+
+    const realm = revokingRealm()
+    const back = await ensureKeycloakSession(CONFIG, deps(realm))
+
+    assert.equal(back.outcome, 'refreshed')
+    assert.deepEqual(realm.used, ['rt-stored'])
+  })
+
+  test('a sign-out while Keycloak answers is not undone by the answer', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const keycloak = heldAnswer()
+    const pending = ensureKeycloakSession(CONFIG, deps(keycloak))
+
+    await settle()
+    forgetKeycloakSession(CONFIG, { store })
+    keycloak.answer()
+
+    const result = await pending
+
+    assert.equal(result.outcome, 'needs-login')
+    assert.equal(result.tokens, null)
+    assert.equal(loadKeycloakSession(CONFIG, store), null, 'still signed out')
+    assert.ok(logs.some(line => line.includes('changed while it was being refreshed')))
+  })
+
+  test('a sign-in made while Keycloak answers is kept', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const keycloak = heldAnswer()
+    const pending = ensureKeycloakSession(CONFIG, deps(keycloak))
+    const signedIn = tokenSet({ refreshToken: 'rt-signed-in', userId: 'someone-else' })
+
+    await settle()
+    persistKeycloakSession(CONFIG, signedIn, store)
+    keycloak.answer()
+
+    assert.deepEqual((await pending).tokens, signedIn)
+    assert.deepEqual(loadKeycloakSession(CONFIG, store), signedIn)
+  })
+
+  test('a refusal ends the refused session only, not a sign-in saved meanwhile', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const keycloak = heldAnswer()
+    const pending = ensureKeycloakSession(CONFIG, deps(keycloak))
+    const signedIn = tokenSet({ refreshToken: 'rt-signed-in' })
+
+    await settle()
+    persistKeycloakSession(CONFIG, signedIn, store)
+    keycloak.refuse()
+
+    const result = await pending
+
+    assert.equal(result.outcome, 'stored')
+    assert.deepEqual(result.tokens, signedIn)
+    assert.deepEqual(loadKeycloakSession(CONFIG, store), signedIn)
+  })
+
+  test('a shared refusal: the regular ladder ends the session, metrics only step aside', async () => {
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    const keycloak = heldAnswer()
+    const metrics = ensureKeycloakAccessToken(CONFIG, deps(keycloak))
+
+    await settle()
+
+    const ladder = ensureKeycloakSession(CONFIG, deps({ ...keycloak, now: () => NOW + 3_590 }))
+
+    await settle()
+    keycloak.refuse()
+
+    assert.deepEqual(await metrics, tokenSet(), 'metrics hand back what they had')
+    assert.equal((await ladder).outcome, 'needs-login')
+    assert.equal(keycloak.used.length, 1)
+    assert.equal(loadKeycloakSession(CONFIG, store), null, 'ended by the ladder, as before')
   })
 })
 

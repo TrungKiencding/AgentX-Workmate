@@ -34,7 +34,7 @@ import {
   wantsOfflineSession,
   withOfflineAccess
 } from './keycloak-oidc'
-import { loadKeycloakSession, persistKeycloakSession } from './keycloak-session-store'
+import { keycloakStorageKey, loadKeycloakSession, persistKeycloakSession } from './keycloak-session-store'
 import { type NativeTokenSet, tokenNeedsRefresh } from './native-oauth'
 import { type NativeTokenStoreIo } from './native-token-store'
 
@@ -100,6 +100,10 @@ export async function discoverKeycloakConfig(
  * tokens instead of opening a browser — that is what lets the boot path put a
  * "Sign in" button in front of the user rather than launching a browser at them
  * unannounced.
+ *
+ * Callers that run at once share one refresh (rung 2), so a realm that revokes
+ * refresh tokens on use never sees one spent twice. Its answer never undoes a
+ * sign-out or a new sign-in made while it was on the way.
  */
 export async function ensureKeycloakSession(
   config: KeycloakOidcConfig,
@@ -132,15 +136,13 @@ export async function ensureKeycloakSession(
 
     if (stored.refreshToken) {
       try {
-        // An offline session asks for offline_access again, so Keycloak keeps
-        // handing back an offline token instead of narrowing the scope.
-        const refreshConfig = stored.offline ? withOfflineAccess(config) : config
-        const rotated = carrySignIn(stored, await refreshKeycloakSession(refreshConfig, stored.refreshToken, deps))
+        const refreshed = await refreshStoredSession(config, stored, deps)
 
-        persistKeycloakSession(config, rotated, deps.store)
-        log('[keycloak] refreshed the stored session')
+        if (refreshed) {
+          return { config, tokens: refreshed, outcome: 'refreshed' }
+        }
 
-        return { config, tokens: rotated, outcome: 'refreshed' }
+        // Signed out while Keycloak answered: nothing to hand back.
       } catch (error) {
         if (isRefreshUnreachable(error)) {
           // Offline, not signed out. Hand back what we have; the backend will
@@ -150,8 +152,15 @@ export async function ensureKeycloakSession(
           return { config, tokens: stored, outcome: 'stale-offline' }
         }
 
+        // Only the refused session ends. A sign-in saved while Keycloak
+        // answered is the session to use.
+        const current = replaceStoredSession(config, stored, null, deps.store)
+
+        if (current) {
+          return { config, tokens: current, outcome: 'stored' }
+        }
+
         log('[keycloak] Keycloak rejected the refresh token; a new sign-in is needed')
-        persistKeycloakSession(config, null, deps.store)
       }
     } else {
       // Expired with nothing to rotate.
@@ -221,12 +230,14 @@ export async function ensureKeycloakAccessToken(
     return stored
   }
 
-  let upgraded: NativeTokenSet
-
   try {
-    const refreshConfig = stored.offline ? withOfflineAccess(config) : config
+    const upgraded = await refreshStoredSession(config, stored, deps)
 
-    upgraded = carrySignIn(stored, await refreshKeycloakSession(refreshConfig, stored.refreshToken, deps))
+    if (upgraded?.oauthAccessToken) {
+      log('[keycloak] the stored session now carries an access token')
+    }
+
+    return upgraded
   } catch (error) {
     log(
       '[keycloak] could not add an access token to the stored session yet; keeping it as it is: ' +
@@ -235,19 +246,6 @@ export async function ensureKeycloakAccessToken(
 
     return stored
   }
-
-  // The refreshed tokens are valid whether or not they could be saved.
-  try {
-    persistKeycloakSession(config, upgraded, deps.store)
-    log('[keycloak] added an access token to a session stored by an earlier release')
-  } catch (error) {
-    log(
-      '[keycloak] added an access token to the session, but could not save it: ' +
-        (error instanceof Error ? error.message : String(error))
-    )
-  }
-
-  return upgraded
 }
 
 /** Drop the stored session. The caller opens the end-session URL separately. */
@@ -322,6 +320,79 @@ function carrySignIn(stored: NativeTokenSet, refreshed: NativeTokenSet): NativeT
     ...(stored.signedInAt ? { signedInAt: stored.signedInAt } : {}),
     ...(refreshed.offline || stored.offline ? { offline: true } : {})
   }
+}
+
+/**
+ * Refreshes under way, by session (realm, client and refresh token).
+ *
+ * A realm set to revoke refresh tokens on use answers a token's second use
+ * with invalid_grant, which ends the session. Requests that run in parallel
+ * near expiry would otherwise each spend the same token.
+ */
+const refreshesInFlight = new Map<string, Promise<NativeTokenSet | null>>()
+
+/**
+ * Refresh `stored` at Keycloak and save the result. Callers that find the
+ * same session due meanwhile share that one request.
+ *
+ * Resolves to what the store then holds: the refreshed session, or, after a
+ * sign-out or a new sign-in while Keycloak answered, whatever that left (null
+ * after a sign-out). Rejects as refreshKeycloakSession does, or when the
+ * session cannot be saved.
+ */
+function refreshStoredSession(
+  config: KeycloakOidcConfig,
+  stored: NativeTokenSet,
+  deps: KeycloakSessionDeps
+): Promise<NativeTokenSet | null> {
+  const key = `${keycloakStorageKey(config)}\n${stored.refreshToken}`
+  const running = refreshesInFlight.get(key)
+
+  if (running) {
+    return running
+  }
+
+  const refresh = (async () => {
+    // An offline session asks for offline_access again, so Keycloak keeps
+    // handing back an offline token instead of narrowing the scope.
+    const refreshConfig = stored.offline ? withOfflineAccess(config) : config
+    const rotated = carrySignIn(stored, await refreshKeycloakSession(refreshConfig, stored.refreshToken, deps))
+    const saved = replaceStoredSession(config, stored, rotated, deps.store)
+
+    deps.rememberLog?.(
+      saved === rotated
+        ? '[keycloak] refreshed the stored session'
+        : '[keycloak] the session changed while it was being refreshed; keeping the stored one'
+    )
+
+    return saved
+  })().finally(() => refreshesInFlight.delete(key))
+
+  refreshesInFlight.set(key, refresh)
+
+  return refresh
+}
+
+/**
+ * Put `next` in place of `previous` (null forgets it), unless the store has
+ * moved on. A refresh takes a round trip, and its answer must not undo a
+ * sign-out or a new sign-in made meanwhile. Returns what the store then holds.
+ */
+function replaceStoredSession(
+  config: KeycloakOidcConfig,
+  previous: NativeTokenSet,
+  next: NativeTokenSet | null,
+  store: NativeTokenStoreIo
+): NativeTokenSet | null {
+  const current = loadKeycloakSession(config, store)
+
+  if (current?.refreshToken !== previous.refreshToken) {
+    return current
+  }
+
+  persistKeycloakSession(config, next, store)
+
+  return next
 }
 
 /**
