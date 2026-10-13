@@ -41,6 +41,8 @@ export interface FakeSso {
   subject: string
   /** `refuse`: the 424 above. `issue`: a key for `mock-model` on this proxy. */
   setKeys(mode: 'issue' | 'refuse'): void
+  setModels(models: string[]): void
+  completionModels(): string[]
   /** The `name` claim of the next ID token — what an administrator edits in the console. */
   setName(name: string): void
   /** How many times the keys service was asked for a model key. */
@@ -56,7 +58,8 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
   const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
   const kid = 'fake-sso-1'
   const codes = new Map<string, { nonce?: string }>()
-  const state = { keys: 'refuse' as 'issue' | 'refuse', name: options.name ?? 'Lê Trung Kiên' }
+  const state = { keys: 'refuse' as 'issue' | 'refuse', name: options.name ?? 'Lê Trung Kiên', models: ['mock-model'] }
+  const completions: string[] = []
   let keyRequests = 0
   let url = ''
 
@@ -186,7 +189,7 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
               base_url: url,
               key: 'sk-fake-sso-0123456789abcdef',
               key_alias: `second-brain-kientest-${subject.slice(0, 8)}`,
-              models: ['mock-model'],
+              models: state.models,
               status: 'issued'
             })
       }
@@ -200,7 +203,42 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
       }
 
       if (req.method === 'GET' && path === '/v1/models') {
-        return send(res, 200, { data: [{ id: 'mock-model', object: 'model' }], object: 'list' })
+        return send(res, 200, { data: state.models.map(id => ({ id, object: 'model' })), object: 'list' })
+      }
+
+      if (req.method === 'POST' && path === '/v1/chat/completions') {
+        const request = JSON.parse(body)
+        const model = String(request.model)
+        completions.push(model)
+        if (!state.models.includes(model)) {
+          return send(res, 404, { error: { message: `Retired model: ${model}`, type: 'invalid_request_error' } })
+        }
+        const reply = `SSO model replied: ${model}`
+        if (!request.stream) {
+          return send(res, 200, {
+            id: 'fake-sso-completion',
+            object: 'chat.completion',
+            model,
+            choices: [{ index: 0, message: { role: 'assistant', content: reply }, finish_reason: 'stop' }],
+            usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+          })
+        }
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+        for (const [delta, finish_reason] of [
+          [{ role: 'assistant', content: reply }, null],
+          [{}, 'stop']
+        ]) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: 'fake-sso-completion',
+              object: 'chat.completion.chunk',
+              model,
+              choices: [{ index: 0, delta, finish_reason }]
+            })}\n\n`
+          )
+        }
+        res.end('data: [DONE]\n\n')
+        return
       }
 
       return send(res, 404, { error: 'not_found' })
@@ -214,6 +252,10 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
     close: () => new Promise<void>(resolve => server.close(() => resolve())),
     issuer: issuer(),
     keyRequests: () => keyRequests,
+    completionModels: () => [...completions],
+    setModels: models => {
+      state.models = [...models]
+    },
     setKeys: mode => {
       state.keys = mode
     },

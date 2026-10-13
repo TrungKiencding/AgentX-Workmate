@@ -80,6 +80,41 @@ function Harness({
 }
 
 describe('useModelControls', () => {
+  it('catalog repairs adopt a default without presenting a manual pin', async () => {
+    $activeSessionId.set(null)
+    const { result } = renderHook(() => useModelControls({ queryClient: new QueryClient(), requestGateway: vi.fn() }))
+    await result.current.selectModel({ provider: 'litellm', model: 'new', automatic: true })
+    expect($currentModel.get()).toBe('new')
+    expect(getCurrentModelSource()).toBe('default')
+  })
+
+  it('does not roll a newer manual choice back when an older catalog repair fails', async () => {
+    $activeSessionId.set('runtime-1')
+    let failRepair!: (error: Error) => void
+
+    const request = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            failRepair = reject
+          })
+      )
+      .mockResolvedValue({})
+
+    const queryClient = new QueryClient()
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway: request }))
+    const repairing = result.current.selectModel({ provider: 'litellm', model: 'replacement', automatic: true })
+    await result.current.selectModel({ provider: 'litellm', model: 'manual-choice' })
+    failRepair(new Error('older write failed'))
+    expect(await repairing).toBe(false)
+    expect($currentModel.get()).toBe('manual-choice')
+    expect(getCurrentModelSource()).toBe('manual')
+    expect(queryClient.getQueryData(modelOptionsQueryKey('default', 'runtime-1'))).toMatchObject({
+      model: 'manual-choice'
+    })
+  })
+
   beforeEach(() => {
     $activeGatewayProfile.set('default')
     $activeSessionId.set(null)

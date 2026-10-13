@@ -1,8 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getGlobalModelOptions } from '@/hermes'
+import { $connection } from '@/store/session'
 
-import { manualPickRemoved, modelOptionsQueryKey, requestModelOptions } from './model-options'
+import {
+  manualPickRemoved,
+  modelOptionsQueryKey,
+  replacementModelSelection,
+  requestModelOptions
+} from './model-options'
 
 const globalOptions = { model: 'hermes-4', provider: 'nous', providers: [] }
 
@@ -24,7 +30,7 @@ describe('requestModelOptions', () => {
 
     await expect(requestModelOptions({ gateway: gateway as never, sessionId: null })).resolves.toEqual(gatewayPayload)
 
-    expect(gateway.request).toHaveBeenCalledWith('model.options', { explicit_only: true })
+    expect(gateway.request).toHaveBeenCalledWith('model.options', { explicit_only: true, refresh: true })
     expect(getGlobalModelOptions).not.toHaveBeenCalled()
   })
 
@@ -46,6 +52,104 @@ describe('requestModelOptions', () => {
     await requestModelOptions({ refresh: true })
 
     expect(getGlobalModelOptions).toHaveBeenCalledWith({ explicitOnly: true, refresh: true })
+  })
+})
+
+describe('account model synchronization', () => {
+  const originalBridge = window.agentxDesktop
+
+  beforeEach(() => {
+    window.agentxDesktop = {} as never
+  })
+
+  afterEach(() => {
+    window.agentxDesktop = originalBridge
+    $connection.set(null)
+    vi.clearAllMocks()
+  })
+
+  it('joins local grant refreshes before reading either session catalog, without rotating the key', async () => {
+    let complete!: () => void
+
+    const provision = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          complete = resolve
+        })
+    )
+
+    window.agentxDesktop.account = { provision } as never
+    $connection.set({ mode: 'local', baseUrl: 'http://local', profile: 'default' } as never)
+    const request = vi.fn().mockResolvedValue(globalOptions)
+    const first = requestModelOptions({ gateway: { request } as never, sessionId: 'one' })
+    const second = requestModelOptions({ gateway: { request } as never, sessionId: 'two' })
+
+    expect(provision).toHaveBeenCalledExactlyOnceWith({ rotate: false })
+    expect(request).not.toHaveBeenCalled()
+    complete()
+    await Promise.all([first, second])
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['remote', 'cloud', 'ssh'])('never provisions the local account for a %s catalog', async mode => {
+    const provision = vi.fn()
+    window.agentxDesktop.account = { provision } as never
+    $connection.set({ mode, baseUrl: 'http://remote' } as never)
+    await requestModelOptions({})
+    expect(provision).not.toHaveBeenCalled()
+  })
+
+  it('never provisions the primary account while another profile is becoming active', async () => {
+    const provision = vi.fn()
+    window.agentxDesktop.account = { provision } as never
+    // The socket switches before its connection descriptor finishes loading.
+    $connection.set({ mode: 'local', baseUrl: 'http://local', profile: 'default' } as never)
+    await requestModelOptions({ profile: 'another' })
+    expect(provision).not.toHaveBeenCalled()
+  })
+
+  it('preserves catalog reads when the account service is offline', async () => {
+    window.agentxDesktop.account = { provision: vi.fn().mockRejectedValue(new Error('offline')) } as never
+    $connection.set({ mode: 'local', baseUrl: 'http://offline', profile: 'default' } as never)
+    await expect(requestModelOptions({})).resolves.toEqual(globalOptions)
+  })
+
+  it('retains an explicit cache-only read for callers that opt out of refresh', async () => {
+    await requestModelOptions({ refresh: false })
+    expect(getGlobalModelOptions).toHaveBeenCalledWith({ explicitOnly: true })
+  })
+})
+
+describe('replacementModelSelection', () => {
+  const options = {
+    inference_provider: 'litellm',
+    provider: 'litellm',
+    model: 'retired',
+    providers: [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['new', 'still-granted'] }]
+  }
+
+  it('replaces a retired selection with an actually granted model, even when config is stale', () => {
+    expect(replacementModelSelection(options, 'litellm', 'retired')).toEqual({ provider: 'litellm', model: 'new' })
+    expect(replacementModelSelection({ ...options, model: 'still-granted' }, 'litellm', 'retired')).toEqual({
+      provider: 'litellm',
+      model: 'still-granted'
+    })
+  })
+
+  it.each(['litellm', 'custom:litellm', 'custom'])('keeps a valid selection under provider identity %s', provider => {
+    expect(replacementModelSelection(options, provider, 'still-granted')).toBeNull()
+  })
+
+  it('never guesses a replacement while discovery is unavailable or empty', () => {
+    expect(replacementModelSelection(undefined, 'litellm', 'retired')).toBeNull()
+    expect(replacementModelSelection({ ...options, providers: [] }, 'litellm', 'retired')).toBeNull()
+    expect(
+      replacementModelSelection(
+        { ...options, providers: [{ ...options.providers[0], models: [] }] },
+        'litellm',
+        'retired'
+      )
+    ).toBeNull()
   })
 })
 

@@ -115,6 +115,7 @@ def build_models_payload(
     ctx: ConfigContext,
     *,
     explicit_only: bool = False,
+    include_current_model: bool = True,
     include_unconfigured: bool = False,
     picker_hints: bool = False,
     canonical_order: bool = False,
@@ -164,10 +165,13 @@ def build_models_payload(
       selecting Portal-recommended Nous models and applying tier gating. Keep
       this false for UI picker opens; explicit auth/model flows can opt in
       when they need freshly-purchased credits to show up immediately.
-    - ``refresh``: bust the per-provider model-id disk cache so every row
-      re-fetches its live catalog. Set only for an explicit user-triggered
-      "refresh models" action; normal picker opens leave it false to stay
-      snappy on the 1h cache.
+    - ``refresh``: bypass the model-id cache to re-fetch live catalogs.
+      Account pickers retain cached rows as an offline fallback. Desktop
+      refreshes on lifecycle events; other callers can opt in explicitly.
+    - ``include_current_model``: retain an uncurated CLI selection in ordinary
+      pickers. Account pickers disable this because the account grant is
+      authoritative; reinserting a retired selection would make it callable
+      in the UI even after a successful refresh.
     - ``probe_custom_providers``: allow saved custom/provider endpoints to
       run live ``/models`` discovery while building the payload. GUI picker
       opens should leave this false unless the user explicitly refreshes; the
@@ -188,7 +192,7 @@ def build_models_payload(
     rows = list_authenticated_providers(
         current_provider=ctx.current_provider,
         current_base_url=ctx.current_base_url,
-        current_model=ctx.current_model,
+        current_model=ctx.current_model if include_current_model else "",
         user_providers=ctx.user_providers,
         custom_providers=ctx.custom_providers,
         force_fresh_nous_tier=force_fresh_nous_tier,
@@ -294,12 +298,16 @@ def build_model_options_payload(
 
     - normal open: probe only the current custom provider so offline saved
       endpoints do not block the picker
-    - explicit refresh: probe every custom provider while busting the model
-      cache so live catalogs repopulate fully
+    - refreshed read: probe every custom provider, bypassing cached discovery;
+      account pickers preserve the cache for offline fallback
     """
     refresh = bool(refresh)
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
     payload = build_models_payload(
         ctx,
+        include_current_model=policy is None,
         explicit_only=bool(explicit_only),
         include_unconfigured=bool(include_unconfigured),
         picker_hints=True,
@@ -312,9 +320,6 @@ def build_model_options_payload(
         probe_current_custom_provider=not refresh,
     )
 
-    from hermes_cli.account_inference import account_inference
-
-    policy = account_inference()
     if policy is not None:
         payload["inference_provider"] = policy.provider
         payload["providers"] = [

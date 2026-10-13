@@ -183,6 +183,10 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
         setCurrentModel(selection.model)
         setCurrentProvider(selection.provider)
         markComposerSelectionManual()
+
+        if (selection.automatic) {
+          setCurrentModelSource('default')
+        }
       } else if (liveSessionId) {
         // Optimistic tile paint — session.info will confirm; rollback on error.
         sessionTileDelegate()?.updateSession(liveSessionId, state => ({
@@ -199,6 +203,8 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
         touchesPrimary && !liveSessionId,
         liveGatewayProfile
       )
+
+      const selectionGeneration = getComposerSelectionGeneration()
 
       // No live session yet: the pick is pure UI state. session.create reads
       // $currentModel/$currentProvider and applies it as that session's override.
@@ -231,6 +237,20 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
         // path — they answer `deferred`.
         if (isBusySessionModelSwitch(err)) {
           return true
+        }
+
+        // A catalog repair can overlap a newer picker click or navigation.
+        // Failure of the older write must never roll the newer intent back.
+        const tileState = liveSessionId ? $sessionStates.get()[liveSessionId] : undefined
+
+        const staleSelection = touchesPrimary
+          ? $activeSessionId.get() !== primaryRuntimeId ||
+            $activeGatewayProfile.get() !== liveGatewayProfile ||
+            getComposerSelectionGeneration() !== selectionGeneration
+          : tileState && (tileState.model !== selection.model || tileState.provider !== selection.provider)
+
+        if (staleSelection) {
+          return false
         }
 
         if (touchesPrimary) {

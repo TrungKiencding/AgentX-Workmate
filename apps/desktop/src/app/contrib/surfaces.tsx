@@ -142,11 +142,17 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
 
   const chatActions = useMemo(() => latestChatActions(actions), [actions])
 
+  const selectChatModel = useMemo(
+    () => (selection: Parameters<WiringActions['selectModel']>[0]) => actions.selectModel(selection),
+    [actions]
+  )
+
   const chatView = (
     <ChatView
       gateway={gateway}
       maxVoiceRecordingSeconds={maxVoiceRecordingSeconds}
       modelMenuContent={modelMenuContent}
+      onSelectModel={selectChatModel}
       {...chatActions}
     />
   )

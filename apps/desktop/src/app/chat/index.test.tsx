@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { assistantTextPart, type ChatMessage } from '@/lib/chat-messages'
+import type * as ModelOptions from '@/lib/model-options'
 import {
   $activeSessionId,
   $awaitingResponse,
@@ -47,9 +48,9 @@ vi.mock('@/components/prompt-overlays', () => ({
   PromptOverlays: () => <div data-testid="prompt-overlays" />
 }))
 vi.mock('@/components/chat/vibe-hearts', () => ({ COMPOSER_HEART_CONFIG: {}, HeartField: () => null }))
-vi.mock('@/lib/model-options', () => ({
-  modelOptionsQueryKey: (...parts: unknown[]) => ['model-options', ...parts],
-  requestModelOptions: vi.fn(async () => ({ models: [] }))
+vi.mock('@/lib/model-options', async importOriginal => ({
+  ...(await importOriginal<typeof ModelOptions>()),
+  requestModelOptions: vi.fn(async () => ({ providers: [] }))
 }))
 vi.mock('./chat-drop-overlay', () => ({ ChatDropOverlay: () => null }))
 vi.mock('./chat-swap-overlay', () => ({ ChatSwapOverlay: () => null }))

@@ -1,5 +1,6 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { ModelMenuCloseContext } from '@/app/shell/model-menu-panel'
@@ -10,8 +11,10 @@ import { releaseTypingFocus } from '@/components/ui/keyboard-first'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ChevronDown } from '@/lib/icons'
+import { refreshModelCatalogQueries } from '@/lib/model-options'
 import { conciseModelName, formatModelStatusLabel } from '@/lib/model-status-label'
 import { cn } from '@/lib/utils'
+import { $activeGatewayProfile } from '@/store/profile'
 import { $currentModelSource, $defaultReasoningEffort, setModelPickerOpen } from '@/store/session'
 
 import { onComposerModelMenuRequest } from './focus'
@@ -51,6 +54,7 @@ export function ModelPill({
 }) {
   const copy = useI18n().t.shell.statusbar
   const view = useSessionView()
+  const queryClient = useQueryClient()
   // Prefer the chat-bar snapshot (already view-scoped by ChatView); fall back
   // to the live SessionView atoms so a mid-flight session.info still paints.
   const viewModel = useStore(view.$model)
@@ -66,6 +70,21 @@ export function ModelPill({
   const scope = useComposerScope()
   const hasLiveMenu = Boolean(model.modelMenuContent)
 
+  const setMenuOpen = useCallback(
+    (next: boolean) => {
+      setOpen(next)
+
+      if (next) {
+        void refreshModelCatalogQueries(queryClient, $activeGatewayProfile.get(), view.$runtimeId.get())
+      } else {
+        // Radix returns focus to this toolbar button. Release its keyboard
+        // claim so typing after a selection reaches the composer again.
+        releaseTypingFocus()
+      }
+    },
+    [queryClient, view]
+  )
+
   // The `composer.modelPicker` hotkey, routed to exactly one surface (the pane
   // under the pointer, else the active composer — see requestModelMenuToggle).
   // Toggles the live dropdown; with no live menu (gateway closed) it opens the
@@ -78,12 +97,12 @@ export function ModelPill({
         }
 
         if (hasLiveMenu) {
-          setOpen(prev => !prev)
+          setMenuOpen(!open)
         } else {
           setModelPickerOpen(true)
         }
       }),
-    [scope.target, disabled, hasLiveMenu]
+    [scope.target, disabled, hasLiveMenu, open, setMenuOpen]
   )
 
   // The composer pick is sticky: a manual selection is pinned and every NEW
@@ -153,17 +172,6 @@ export function ModelPill({
         </Button>
       </Tip>
     )
-  }
-
-  // Closing the menu ends its claim on the keyboard: Radix restores focus to
-  // this pill (a toolbar button), so without the release the Enter that
-  // committed a model also swallows whatever you type next.
-  const setMenuOpen = (next: boolean) => {
-    setOpen(next)
-
-    if (!next) {
-      releaseTypingFocus()
-    }
   }
 
   return (

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { useI18n } from '@/i18n'
-import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import { modelCatalogQueryPolicy, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { modelSearchText } from '@/lib/model-search-text'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { normalize } from '@/lib/text'
@@ -60,8 +60,9 @@ export function ModelPickerDialog({
   const [search, setSearch] = useState('')
 
   const modelOptions = useQuery({
+    ...modelCatalogQueryPolicy,
     queryKey: modelOptionsQueryKey(profile, sessionId),
-    queryFn: () => requestModelOptions({ gateway: gw, sessionId }),
+    queryFn: () => requestModelOptions({ gateway: gw, profile, sessionId }),
     enabled: open
   })
 
@@ -105,7 +106,7 @@ export function ModelPickerDialog({
             <ModelResults
               currentModel={optionsModel || currentModel}
               currentProvider={optionsProvider || currentProvider}
-              error={error}
+              error={modelOptions.data ? null : error}
               loading={loading}
               onSelectModel={selectModel}
               providers={providers}
@@ -115,6 +116,11 @@ export function ModelPickerDialog({
         </Command>
 
         <DialogFooter className="flex-row items-center justify-end gap-2 bg-card p-3">
+          {error && modelOptions.data && (
+            <InlineNotice kind="error" title={copy.loadFailed}>
+              {error}
+            </InlineNotice>
+          )}
           <Button onClick={() => onOpenChange(false)} variant="outline">
             {t.common.cancel}
           </Button>

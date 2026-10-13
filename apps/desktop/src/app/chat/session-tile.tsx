@@ -218,6 +218,7 @@ function TileChat({
           onRemoveAttachment={onRemoveAttachment}
           onRestoreToMessage={actions.restoreToMessage}
           onRetryResume={onRetryResume}
+          onSelectModel={selectModel}
           onSteer={actions.steerPrompt}
           onSubmit={actions.submitText}
           onThreadMessagesChange={actions.handleThreadMessagesChange}

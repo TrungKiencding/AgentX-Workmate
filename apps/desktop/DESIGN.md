@@ -847,6 +847,13 @@ so two-line rows still grow), `HUD_HEADING`.
   pickers and Settings never offer another inference provider or endpoint.
   Gateway failure offers retry or Skip; Skip opens the shell without claiming
   AI is ready. Backend resolution enforces the same policy for account homes.
+- **Model catalogs follow the account's grant.** Chat refreshes on opening,
+  returning to the window, reconnecting, and once a minute while visible;
+  opening a model picker also refreshes. An idle send checks again before
+  creating or using its conversation. Preserve a model that is still granted;
+  replace a retired one between turns through the existing session switch,
+  without discarding history. Keep cached rows during connectivity failures
+  and retain Refresh Models as recovery. Refreshing never rotates the account key.
 - Install, onboarding, connecting, boot failure, and reauthentication are
   distinct states with shared visual primitives. Preserve their recovery
   semantics when unifying appearance.

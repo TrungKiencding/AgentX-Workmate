@@ -20,7 +20,7 @@ import { usePointerQuiet } from '@/components/ui/keyboard-first'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import { modelCatalogQueryPolicy, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
 import { DEFAULT_REASONING_EFFORT, reasoningEffortLabel } from '@/lib/reasoning-effort'
 import { normalize } from '@/lib/text'
@@ -129,11 +129,12 @@ export function ModelCatalogMenu({
   const visibleModels = useStore($visibleModels)
 
   const modelOptions = useQuery({
+    ...modelCatalogQueryPolicy,
     queryKey: modelOptionsQueryKey(profile, sessionId),
     // Gateway-first even with no session: a connected (possibly remote)
     // gateway owns the model catalog, including virtual providers the local
     // REST fallback can't know about (#53817).
-    queryFn: (): Promise<ModelOptionsResponse> => requestModelOptions({ gateway, sessionId })
+    queryFn: (): Promise<ModelOptionsResponse> => requestModelOptions({ gateway, profile, sessionId })
   })
 
   const loading = modelOptions.isPending && !modelOptions.data
@@ -343,7 +344,7 @@ export function ModelCatalogMenu({
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
-      ) : error ? (
+      ) : error && !modelOptions.data ? (
         <DropdownMenuItem className={dropdownMenuRow} disabled>
           {error}
         </DropdownMenuItem>
@@ -504,6 +505,11 @@ export function ModelCatalogMenu({
           contributes rows (the composer's Refresh Models) keeps the single
           trailing block it has always rendered. */}
       <DropdownMenuSeparator className="mx-0" />
+      {error && modelOptions.data && (
+        <DropdownMenuItem className={cn(dropdownMenuRow, 'whitespace-normal')} disabled>
+          {error}
+        </DropdownMenuItem>
+      )}
       {footer}
       <DropdownMenuItem
         className={cn(dropdownMenuRow, 'text-(--ui-text-tertiary)')}

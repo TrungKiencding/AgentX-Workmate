@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Search } from '@/lib/icons'
-import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import { modelCatalogQueryPolicy, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
 import { normalize } from '@/lib/text'
 import {
@@ -48,8 +48,9 @@ export function ModelVisibilityDialog({
   const collapsedProviders = useStore($collapsedProviders)
 
   const modelOptions = useQuery({
+    ...modelCatalogQueryPolicy,
     queryKey: modelOptionsQueryKey(profile, sessionId),
-    queryFn: (): Promise<ModelOptionsResponse> => requestModelOptions({ gateway: gw, sessionId }),
+    queryFn: (): Promise<ModelOptionsResponse> => requestModelOptions({ gateway: gw, profile, sessionId }),
     enabled: open
   })
 
@@ -164,7 +165,6 @@ export function ModelVisibilityDialog({
             })
           )}
         </div>
-
       </DialogContent>
     </Dialog>
   )

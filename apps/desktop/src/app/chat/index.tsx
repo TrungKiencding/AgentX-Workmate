@@ -1,6 +1,5 @@
 import { type AppendMessage, AssistantRuntimeProvider, type ThreadMessage } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
-import { useQuery } from '@tanstack/react-query'
 import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -9,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
+import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
 import { ChatWatermark } from '@/components/chat-watermark'
@@ -25,7 +25,6 @@ import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { quickModelOptions, sessionTitle } from '@/lib/chat-runtime'
 import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-store-runtime'
-import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { isMessagingSource, normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
@@ -49,7 +48,6 @@ import {
   shouldMigrateComposerScope
 } from '@/store/session'
 import { isSecondaryWindow, isWatchWindow } from '@/store/windows'
-import type { ModelOptionsResponse } from '@/types/hermes'
 
 import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
 import { titlebarHeaderBaseClass, titlebarHeaderTitleClass } from '../shell/titlebar'
@@ -61,6 +59,7 @@ import { requestComposerInsert } from './composer/focus'
 import { droppedFileInlineRefs } from './composer/inline-refs'
 import { useComposerScope } from './composer/scope'
 import type { ChatBarState } from './composer/types'
+import { useChatModelCatalog } from './hooks/use-chat-model-catalog'
 import { type DroppedFile, partitionDroppedFiles } from './hooks/use-composer-actions'
 import { type DragKind, useFileDropZone } from './hooks/use-file-drop-zone'
 import { ProfileTag } from './profile-tag'
@@ -73,6 +72,7 @@ import { selectTranscriptWindow } from './transcript-window'
 interface ChatViewProps extends Omit<React.ComponentProps<'div'>, 'onSubmit'> {
   gateway: HermesGateway | null
   modelMenuContent?: React.ReactNode
+  onSelectModel?: (selection: ModelSelection) => Promise<boolean> | void
   onToggleSelectedPin: () => void
   onDeleteSelectedSession: () => void
   onCancel: () => Promise<void> | void
@@ -327,6 +327,7 @@ export const ChatView = memo(function ChatView({
   className,
   gateway,
   modelMenuContent,
+  onSelectModel,
   onToggleSelectedPin,
   onDeleteSelectedSession,
   onCancel,
@@ -354,6 +355,7 @@ export const ChatView = memo(function ChatView({
   const location = useLocation()
   const navigate = useNavigate()
   const { t } = useI18n()
+  const paneVisible = usePaneVisible()
   // The view this surface renders: the primary route-driven session (global
   // atoms) or a tile's session slice — same component either way.
   const view = useSessionView()
@@ -518,10 +520,15 @@ export const ChatView = memo(function ChatView({
   const showChatBar = !isMessagingConversation && !loadingSession && !resumeExhausted && !isWatchWindow()
   const threadKey = selectedSessionId || activeSessionId || (isRoutedSessionView ? location.pathname : 'new')
 
-  const modelOptionsQuery = useQuery<ModelOptionsResponse>({
-    queryKey: modelOptionsQueryKey(activeGatewayProfile, activeSessionId),
-    queryFn: () => requestModelOptions({ gateway: gateway || undefined, sessionId: activeSessionId }),
-    enabled: gatewayOpen && !isMessagingConversation
+  const { modelOptionsQuery, submitWithCurrentModel } = useChatModelCatalog({
+    gateway,
+    profile: activeGatewayProfile,
+    sessionId: activeSessionId,
+    enabled: gatewayOpen && !isMessagingConversation && paneVisible,
+    busy,
+    view,
+    onSelectModel,
+    onSubmit
   })
 
   const quickModels = useMemo(
@@ -722,7 +729,7 @@ export const ChatView = memo(function ChatView({
               onPickImages={onPickImages}
               onRemoveAttachment={onRemoveAttachment}
               onSteer={onSteer}
-              onSubmit={onSubmit}
+              onSubmit={submitWithCurrentModel}
               onTranscribeAudio={onTranscribeAudio}
               queueSessionKey={queueSessionKey}
               sessionId={activeSessionId}

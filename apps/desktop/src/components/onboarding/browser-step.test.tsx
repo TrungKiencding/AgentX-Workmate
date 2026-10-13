@@ -339,6 +339,7 @@ describe('the Workmate window door', () => {
       api: vi.fn(async () => ({
         schema: 1,
         server: { registered: true, enabled: true, command: 'node', args: [], bundled: true },
+        serverRunning: true,
         connected: false,
         code: null
       })),

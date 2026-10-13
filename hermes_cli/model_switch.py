@@ -290,6 +290,7 @@ def _fetch_picker_live_models(
     headers: dict[str, str] | None = None,
     timeout: float = 5.0,
     api_mode: str | None = None,
+    force_refresh: bool = False,
 ) -> list[str] | None:
     """Fetch picker models with native Ollama and cached generic discovery."""
     from hermes_cli.models import (
@@ -339,6 +340,7 @@ def _fetch_picker_live_models(
             timeout=timeout,
             headers=resolved_headers,
             api_mode=api_mode,
+            force_refresh=force_refresh,
         )
     generic_models = cached_fetch_api_models(
         api_key,
@@ -346,6 +348,7 @@ def _fetch_picker_live_models(
         timeout=timeout,
         headers=resolved_headers,
         api_mode=api_mode,
+        force_refresh=force_refresh,
     )
     return generic_models if generic_models else None
 
@@ -2578,7 +2581,12 @@ def list_authenticated_providers(
     # Zen's free tier) the user had seen before.
     if refresh:
         try:
-            clear_provider_models_cache()
+            from hermes_cli.account_inference import account_inference
+
+            # Account pickers refresh frequently. Bypass only their endpoint's
+            # cache below, preserving its offline fallback and sibling profiles.
+            if account_inference() is None:
+                clear_provider_models_cache()
         except Exception:
             pass
 
@@ -3332,6 +3340,7 @@ def list_authenticated_providers(
                         headers=_extra_headers_from_config(ep_cfg) or None,
                         timeout=(1.5 if for_picker else 5.0),
                         api_mode=ep_cfg.get("api_mode"),
+                        force_refresh=refresh,
                     )
                     if isinstance(live_models, _NativePickerModelList):
                         native_catalog_empty = not live_models
@@ -3429,6 +3438,7 @@ def list_authenticated_providers(
                     "custom",
                     False,
                     timeout=(1.5 if for_picker else 5.0),
+                    force_refresh=refresh,
                 )
             else:
                 from hermes_cli.models import cached_fetch_api_models
@@ -3721,6 +3731,7 @@ def list_authenticated_providers(
                         headers=grp.get("extra_headers") or None,
                         timeout=(1.5 if for_picker else 5.0),
                         api_mode=grp.get("api_mode"),
+                        force_refresh=refresh,
                     )
                     if live_models is not None and (
                         live_models

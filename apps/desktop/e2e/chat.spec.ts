@@ -91,10 +91,7 @@ test.describe('chat interaction with mock backend', () => {
     const composer = page.locator('[contenteditable="true"]').first()
     const primary = page.locator('[data-slot="composer-root"] button[type="submit"]')
     const queue = page.locator('[data-slot="composer-root"] button[aria-label="Queue message"]')
-    const dictation = page.locator('[data-slot="composer-root"] button[aria-label="Voice dictation"]')
-    const speakReplies = page.locator(
-      '[data-slot="composer-root"] button[aria-label="Read replies aloud"], [data-slot="composer-root"] button[aria-label="Stop reading replies aloud"]'
-    )
+    const voice = page.locator('[data-slot="composer-root"] button[aria-label="Voice"]')
 
     await composer.click()
     await composer.type(BLOCKING_CLARIFY_TRIGGER)
@@ -107,18 +104,19 @@ test.describe('chat interaction with mock backend', () => {
     await composer.click()
     await composer.type('please answer tersely')
     await expect(primary).toHaveAttribute('aria-label', /Steer/)
-    await expect(dictation).toBeVisible()
-    await expect(speakReplies).toBeVisible()
+    await expect(voice).toBeVisible()
+    // Voice actions now share one menu. Opening it during a running turn must
+    // preserve the queue/steer state when it closes.
+    await voice.click()
+    await expect(page.getByRole('menuitem', { name: 'Voice dictation' })).toBeVisible()
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Read replies aloud' })).toBeVisible()
+    await page.keyboard.press('Escape')
     await expect(queue).toBeVisible()
     await expect(queue.locator('svg.tabler-icon-layers-intersect-2')).toBeVisible()
     const controlLabels = await page
       .locator('[data-slot="composer-root"] button')
       .evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))
-    const speakRepliesIndex = controlLabels.findIndex(
-      label => label === 'Read replies aloud' || label === 'Stop reading replies aloud'
-    )
-    expect(controlLabels.indexOf('Voice dictation')).toBeLessThan(speakRepliesIndex)
-    expect(speakRepliesIndex).toBeLessThan(controlLabels.indexOf('Queue message'))
+    expect(controlLabels.indexOf('Voice')).toBeLessThan(controlLabels.indexOf('Queue message'))
     expect(controlLabels.indexOf('Queue message')).toBeLessThan(
       controlLabels.findIndex(label => label?.startsWith('Steer'))
     )

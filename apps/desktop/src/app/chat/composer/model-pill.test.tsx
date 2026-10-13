@@ -1,5 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render as renderUi, screen } from '@testing-library/react'
 import { atom } from 'nanostores'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { ChatBarState } from '@/app/chat/composer/types'
@@ -7,6 +9,10 @@ import { type SessionView, SessionViewProvider } from '@/app/chat/session-view'
 import { $activeSessionId, $currentModel, setCurrentModel, setCurrentModelSource } from '@/store/session'
 
 import { ModelPill } from './model-pill'
+
+function render(element: ReactElement) {
+  return renderUi(<QueryClientProvider client={new QueryClient()}>{element}</QueryClientProvider>)
+}
 
 const modelState = (over: Partial<ChatBarState['model']> = {}): ChatBarState['model'] => ({
   canSwitch: true,
