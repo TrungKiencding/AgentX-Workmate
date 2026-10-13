@@ -2559,6 +2559,53 @@ class TestModelInfoEndpoint:
         data = resp.json()
         assert data["auto_context_length"] == 0
 
+    _GATEWAY_MODEL = {
+        "default": "deepseek/deepseek-v4.1-flash",
+        "provider": "litellm",
+        "base_url": "https://gateway.example/v1",
+        "key_env": "TEST_MODEL_INFO_GATEWAY_KEY",
+    }
+
+    def test_model_info_probes_with_configured_key(self, monkeypatch):
+        """A keyed gateway must not be probed keyless — it answers 401."""
+        import hermes_cli.web_server as ws
+
+        monkeypatch.setattr(ws, "load_config", lambda: {"model": dict(self._GATEWAY_MODEL)})
+        monkeypatch.setenv("TEST_MODEL_INFO_GATEWAY_KEY", "sk-gateway")
+
+        with patch("agent.model_metadata.get_model_context_length", return_value=131072) as ctx:
+            resp = self.client.get("/api/model/info")
+
+        assert resp.json()["auto_context_length"] == 131072
+        assert ctx.call_args.kwargs["api_key"] == "sk-gateway"
+        assert ctx.call_args.kwargs["base_url"] == "https://gateway.example/v1"
+
+    def test_model_info_without_configured_key_probes_keyless(self, monkeypatch):
+        import hermes_cli.web_server as ws
+
+        monkeypatch.setattr(ws, "load_config", lambda: {"model": dict(self._GATEWAY_MODEL)})
+        monkeypatch.delenv("TEST_MODEL_INFO_GATEWAY_KEY", raising=False)
+
+        with patch("agent.model_metadata.get_model_context_length", return_value=131072) as ctx:
+            self.client.get("/api/model/info")
+
+        assert ctx.call_args.kwargs["api_key"] == ""
+
+    def test_model_info_other_profile_does_not_read_this_process_key(self, monkeypatch):
+        """key_env names a variable in the other profile's env, not ours."""
+        import contextlib
+
+        import hermes_cli.web_server as ws
+
+        monkeypatch.setattr(ws, "_profile_scope", lambda profile: contextlib.nullcontext())
+        monkeypatch.setattr(ws, "load_config", lambda: {"model": dict(self._GATEWAY_MODEL)})
+        monkeypatch.setenv("TEST_MODEL_INFO_GATEWAY_KEY", "sk-this-process")
+
+        with patch("agent.model_metadata.get_model_context_length", return_value=131072) as ctx:
+            self.client.get("/api/model/info?profile=work")
+
+        assert ctx.call_args.kwargs["api_key"] == ""
+
 
 # ---------------------------------------------------------------------------
 # Gateway health probe tests

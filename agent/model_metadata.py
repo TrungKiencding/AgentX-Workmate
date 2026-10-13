@@ -164,6 +164,19 @@ _ENDPOINT_BLACKHOLE_TTL_SECONDS = 30.0
 # Values are monotonic timestamps of the last observed connect timeout.
 _endpoint_blackhole_cache: Dict[str, float] = {}
 
+# Many callers know only an endpoint's base URL — pricing lookups, insights,
+# the mid-turn overflow guards — and used to probe ``/models`` and
+# ``/api/show`` with no Authorization header. A keyed gateway (LiteLLM)
+# answered every such probe with 401 and logged it as a failed request, every
+# few minutes for as long as the gateway process lived. Keyless probes now
+# borrow the key a keyed caller last sent to the same host:port. Process memory
+# only; never written to disk, never sent to any other host.
+_endpoint_api_key_cache: Dict[str, str] = {}
+# host:port keys of endpoints that answered a keyless ``/models`` probe with
+# 401/403. Until a key is known for one, keyless probes of it return nothing
+# instead of asking again — one rejected request per process, not one per probe.
+_endpoint_auth_required: set[str] = set()
+
 
 def _endpoint_host_key(base_url: str) -> Optional[str]:
     """Return a ``host:port`` key for ``base_url``, or None if it has no host.
@@ -183,6 +196,27 @@ def _endpoint_host_key(base_url: str) -> Optional[str]:
     except Exception:
         return None
     return f"{host}:{port}" if host else None
+
+
+def _endpoint_probe_api_key(base_url: str, api_key: str = "") -> str:
+    """Return the key to probe ``base_url`` with.
+
+    A non-empty ``api_key`` wins and is remembered for the endpoint's host;
+    an empty one falls back to the key last remembered for that host.
+    """
+    key = str(api_key or "").strip()
+    host = _endpoint_host_key(base_url)
+    if host is None:
+        return key
+    if key:
+        _endpoint_api_key_cache[host] = key
+        return key
+    return _endpoint_api_key_cache.get(host, "")
+
+
+def _endpoint_needs_key(base_url: str, api_key: str) -> bool:
+    """True when a keyless probe of ``base_url`` is already known to be refused."""
+    return not api_key and _endpoint_host_key(base_url) in _endpoint_auth_required
 
 
 def _note_endpoint_blackholed(base_url: str) -> None:
@@ -1318,6 +1352,10 @@ def fetch_endpoint_model_metadata(
     if _endpoint_blackholed(normalized):
         return {}
 
+    api_key = _endpoint_probe_api_key(normalized, api_key)
+    if _endpoint_needs_key(normalized, api_key):
+        return {}
+
     candidates = [normalized]
     if normalized.endswith("/v1"):
         alternate = normalized[:-3].rstrip("/")
@@ -1328,6 +1366,7 @@ def fetch_endpoint_model_metadata(
 
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     last_error: Optional[Exception] = None
+    refused_keyless = False
 
     if is_local_endpoint(normalized):
         try:
@@ -1409,6 +1448,7 @@ def fetch_endpoint_model_metadata(
                     response.status_code,
                     url,
                 )
+                refused_keyless = not api_key
                 break
             response.raise_for_status()
             payload = response.json()
@@ -1467,6 +1507,14 @@ def fetch_endpoint_model_metadata(
 
     if last_error:
         logger.debug("Failed to fetch model metadata from %s/models: %s", normalized, last_error)
+    if refused_keyless:
+        # Remember that this host wants a key, but leave the metadata cache
+        # empty-handed rather than caching {}: a keyed caller arriving next
+        # must still get the real catalog instead of this refusal.
+        host = _endpoint_host_key(normalized)
+        if host is not None:
+            _endpoint_auth_required.add(host)
+        return {}
     _endpoint_model_metadata_cache[normalized] = {}
     _endpoint_model_metadata_cache_time[normalized] = time.time()
     return {}
@@ -2071,6 +2119,12 @@ def _query_ollama_api_show_uncached(model: str, base_url: str, api_key: str = ""
         server_url = server_url[:-3]
 
     if _endpoint_blackholed(server_url):
+        return None
+
+    # Keyed on the caller's base_url, as fetch_endpoint_model_metadata keys it,
+    # not on server_url: _localhost_to_ipv4 would file "localhost" apart.
+    api_key = _endpoint_probe_api_key(base_url, api_key)
+    if _endpoint_needs_key(base_url, api_key):
         return None
 
     headers = _auth_headers(api_key)

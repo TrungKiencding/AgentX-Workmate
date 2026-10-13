@@ -2173,6 +2173,24 @@ def _moa_caches_isolated():
     moa._runtime_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _endpoint_probe_credentials_isolated():
+    """Forget probe credentials ``agent.model_metadata`` remembers per host.
+
+    A key one test probes an endpoint with is reused by later keyless probes
+    of the same host, so a leaked entry would put an Authorization header on
+    another test's request. Only cleared when the module is already loaded,
+    and only what it has: some tests swap in a stub or an installed copy
+    under that name.
+    """
+    yield
+    mm = sys.modules.get("agent.model_metadata")
+    for name in ("_endpoint_api_key_cache", "_endpoint_auth_required"):
+        cache = getattr(mm, name, None)
+        if cache is not None:
+            cache.clear()
+
+
 @pytest.fixture
 def no_shipped_identity_provider(monkeypatch):
     """Blank the Keycloak client that AgentX Workmate ships in DEFAULT_CONFIG.

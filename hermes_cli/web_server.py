@@ -6738,6 +6738,20 @@ def get_model_info(profile: Optional[str] = None):
         if not model_name:
             return dict(_EMPTY_MODEL_INFO, provider=provider)
 
+        # Probe with the configured key, as the agent does: a keyed gateway
+        # (the AgentX LiteLLM) answers a keyless /models lookup with 401 and
+        # logs a failed request on every dashboard load. Only for the
+        # dashboard's own profile — another profile's key_env would be read
+        # from this process's environment, not from that profile's.
+        api_key = ""
+        if isinstance(model_cfg, dict) and (profile or "").strip().lower() in ("", "current"):
+            try:
+                from hermes_cli.fallback_config import resolve_entry_api_key
+
+                api_key = resolve_entry_api_key(model_cfg) or ""
+            except Exception:
+                api_key = ""
+
         # Resolve auto-detected context length (pass config_ctx=None to get
         # purely auto-detected value, then separately report the override)
         try:
@@ -6745,6 +6759,7 @@ def get_model_info(profile: Optional[str] = None):
             auto_ctx = get_model_context_length(
                 model=model_name,
                 base_url=base_url,
+                api_key=api_key,
                 provider=provider,
                 config_context_length=None,  # ignore override — we want auto value
             )
