@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
+import type { NativeTokenSet } from './native-oauth'
+
 export interface UsageIdentity {
   subject: string
+  /**
+   * The Keycloak OAuth access token. The SSO console answers an ID token with
+   * 401. Empty while the session has none, and then nothing is sent.
+   */
   token: string
   issuer: string
 }
@@ -12,7 +18,23 @@ interface UsageDependencies {
   fetch?: typeof fetch
   now?: () => number
   sleep?: (ms: number) => Promise<void>
+  /** Desktop log. Gets each distinct delivery failure once, never a token or event content. */
+  log?: (line: string) => void
 }
+
+/**
+ * Who a turn counts for, from the desktop's Keycloak session.
+ *
+ * The token is `oauthAccessToken`, never `accessToken`: the latter holds the
+ * ID token the backend verifies, and the usage endpoint refuses ID tokens.
+ */
+export function usageIdentityFromSession(
+  tokens: Pick<NativeTokenSet, 'userId' | 'oauthAccessToken'> | null,
+  issuer: string
+): UsageIdentity | null {
+  return tokens?.userId ? { subject: tokens.userId, token: tokens.oauthAccessToken || '', issuer } : null
+}
+
 interface ActiveTurn {
   started: number
   identity: Promise<UsageIdentity | null>
@@ -21,10 +43,20 @@ interface ActiveTurn {
 /** Main-process owner: multiple renderer windows cannot duplicate a turn. */
 export class UsageReporter {
   private readonly active = new Map<string, ActiveTurn>()
+  private readonly logged = new Set<string>()
   private readonly now: () => number
   private pending = 0
   constructor(private readonly deps: UsageDependencies) {
     this.now = deps.now || (() => performance.now())
+  }
+  /** Once per distinct line: a rejected token would otherwise repeat on every turn. */
+  private logOnce(line: string): void {
+    if (this.logged.has(line)) {
+      return
+    }
+
+    this.logged.add(line)
+    this.deps.log?.(line)
   }
   begin(key: string, profile?: string): void {
     if (this.active.has(key)) {
@@ -62,7 +94,9 @@ export class UsageReporter {
       const identity = await turn.identity
       const current = await this.deps.identity(turn.profile)
 
-      if (!identity || !current || identity.subject !== current.subject || identity.issuer !== current.issuer) {
+      // Only the account at the end needs a token. One that started on a
+      // session saved by an earlier release may have gained it meanwhile.
+      if (!identity || !current?.token || identity.subject !== current.subject || identity.issuer !== current.issuer) {
         return false
       }
 
@@ -85,6 +119,8 @@ export class UsageReporter {
         ...(failed ? { error_code: 'operation_failed' } : {})
       }
 
+      let lastFailure = ''
+
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const response = await (this.deps.fetch || fetch)(`${issuer.origin}/sso/api/analytics/events`, {
@@ -104,16 +140,23 @@ export class UsageReporter {
           }
 
           if (response.status < 500 && response.status !== 429) {
+            this.logOnce(`[usage] the SSO console refused usage metrics: HTTP ${response.status}`)
+
             return false
           }
-        } catch {
+
+          lastFailure = `HTTP ${response.status}`
+        } catch (error) {
           /* Retry with the same UUID; never include prompt text. */
+          lastFailure = error instanceof Error ? error.name : 'network error'
         }
 
         if (attempt < 2) {
           await (this.deps.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms))))((attempt + 1) * 1000)
         }
       }
+
+      this.logOnce(`[usage] usage metrics could not be delivered after 3 attempts: ${lastFailure}`)
     } catch {
       /* Metrics never change the operation or sign-in result. */
     } finally {

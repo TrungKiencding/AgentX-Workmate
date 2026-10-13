@@ -233,6 +233,29 @@ describe('parseKeycloakTokenResponse', () => {
     assert.equal(parsed.userId, 'user-1')
   })
 
+  test('keeps the OAuth access token beside it for the SSO APIs that refuse ID tokens', () => {
+    const idToken = fakeIdToken({ sub: 'user-1', exp, typ: 'ID' })
+    const accessToken = fakeIdToken({ sub: 'user-1', exp, typ: 'Bearer', azp: 'agentx-workmate' })
+
+    const parsed = parseKeycloakTokenResponse({ access_token: accessToken, id_token: idToken }, 1_000)
+
+    // Usage metrics answer an ID token with 401; the backend still gets the ID token.
+    assert.equal(parsed.oauthAccessToken, accessToken)
+    assert.equal(parsed.accessToken, idToken)
+  })
+
+  test('omits the access token key when the response carries none', () => {
+    for (const accessToken of [undefined, '', null, 42, { token: 'x' }]) {
+      const parsed = parseKeycloakTokenResponse(
+        { access_token: accessToken, id_token: fakeIdToken({ sub: 's', exp }) },
+        0
+      )
+
+      // Absent, not blank or stringified junk, like the other optional keys.
+      assert.equal('oauthAccessToken' in parsed, false, String(accessToken))
+    }
+  })
+
   test('takes expiry from the token exp, not from expires_in', () => {
     const parsed = parseKeycloakTokenResponse(
       { id_token: fakeIdToken({ sub: 's', exp }), expires_in: 1800 },

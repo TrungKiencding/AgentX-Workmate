@@ -156,6 +156,7 @@ import {
 } from './hardening'
 import {
   discoverKeycloakConfig,
+  ensureKeycloakAccessToken,
   ensureKeycloakSession,
   forgetKeycloakSession,
   type KeycloakSessionDeps
@@ -231,7 +232,7 @@ import {
   spawnUpdaterProcess,
   stagedUpdaterSupportsPrewrittenMarker
 } from './updater-process'
-import { UsageReporter } from './usage-reporter'
+import { usageIdentityFromSession, UsageReporter } from './usage-reporter'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
 import { readLocalWebmateStatus } from './webmate/bootstrap'
@@ -10463,20 +10464,12 @@ const usageReporter = new UsageReporter({
         : process.platform === 'linux'
           ? 'Linux'
           : 'Other',
+  log: rememberLog,
   identity: async profile => {
     const config = keycloakConfigForProfile(profile)
 
-    if (!config) {
-      return null
-    }
-
-    const session = await ensureKeycloakSession(
-      config,
-      keycloakDeps({ interactive: false, enforceSignInPolicy: false })
-    )
-
-    return session.tokens
-      ? { subject: session.tokens.userId, token: session.tokens.accessToken, issuer: config.issuer }
+    return config
+      ? usageIdentityFromSession(await ensureKeycloakAccessToken(config, keycloakDeps()), config.issuer)
       : null
   }
 })

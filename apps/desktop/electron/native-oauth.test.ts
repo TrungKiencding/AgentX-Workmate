@@ -239,6 +239,47 @@ test('parseStoredTokenSet omits signedInAt and offline when they are absent or j
   }
 })
 
+test('parseStoredTokenSet keeps the OAuth access token', () => {
+  // Losing it on reload would spend a refresh on getting it back at every launch.
+  const t = parseStoredTokenSet({
+    accessToken: 'ID',
+    refreshToken: 'RT',
+    expiresAt: 1,
+    provider: 'keycloak',
+    userId: 'u',
+    oauthAccessToken: 'AT'
+  })
+
+  assert.equal(t.oauthAccessToken, 'AT')
+  assert.equal(t.accessToken, 'ID')
+})
+
+test('parseStoredTokenSet omits the OAuth access token when absent or junk', () => {
+  const base = { accessToken: 'ID', refreshToken: 'RT', expiresAt: 1, provider: 'keycloak', userId: 'u' }
+
+  for (const extra of [{}, { oauthAccessToken: '' }, { oauthAccessToken: 42 }, { oauthAccessToken: null }]) {
+    assert.equal('oauthAccessToken' in parseStoredTokenSet({ ...base, ...extra }), false, JSON.stringify(extra))
+  }
+})
+
+test('parseStoredTokenSet reads a set saved by Workmate 1.1.0 back exactly', () => {
+  // The real-upgrade test compares the reloaded set with JSON.stringify, so an
+  // older set must come back with the same keys in the same order.
+  const saved = {
+    accessToken: 'ID',
+    refreshToken: 'RT',
+    expiresAt: 1_800_000_000,
+    provider: 'keycloak',
+    userId: 'u',
+    email: 'a@b.c',
+    displayName: 'A',
+    signedInAt: 1_700_000_000,
+    offline: true
+  }
+
+  assert.equal(JSON.stringify(parseStoredTokenSet(JSON.parse(JSON.stringify(saved)))), JSON.stringify(saved))
+})
+
 // --- refresh timing ---
 
 test('tokenNeedsRefresh respects the skew window', () => {

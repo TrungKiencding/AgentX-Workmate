@@ -331,6 +331,10 @@ function isOfflineGrant(payload: Record<string, unknown>): boolean {
  * being replayed. Keycloak's OAuth access token has `aud: account` and would
  * fail that check.
  *
+ * The OAuth access token is kept too, in `oauthAccessToken`, for the SSO APIs
+ * that take nothing else: the usage-metrics endpoint answers an ID token with
+ * 401. Keycloak gives both tokens the same `exp`, so `expiresAt` covers both.
+ *
  * Expiry comes from the ID token's own `exp` rather than `expires_in`, because
  * `exp` is what the backend enforces; deriving it from a duration would drift
  * against clock skew and let us present a token the backend already considers
@@ -357,6 +361,7 @@ export function parseKeycloakTokenResponse(body: unknown, nowSeconds: number): N
   // rather than blanked when the realm withholds the claim.
   const email = String(claims.email || '')
   const displayName = String(claims.name || claims.preferred_username || claims.email || '')
+  const oauthAccessToken = typeof payload.access_token === 'string' ? payload.access_token : ''
 
   return {
     accessToken: idToken,
@@ -364,6 +369,7 @@ export function parseKeycloakTokenResponse(body: unknown, nowSeconds: number): N
     expiresAt,
     provider: 'keycloak',
     userId: String(claims.sub || ''),
+    ...(oauthAccessToken ? { oauthAccessToken } : {}),
     ...(email ? { email } : {}),
     ...(displayName ? { displayName } : {}),
     ...(isOfflineGrant(payload) ? { offline: true } : {})

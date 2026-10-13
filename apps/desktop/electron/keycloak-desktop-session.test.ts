@@ -15,6 +15,7 @@ import { beforeEach, describe, test } from 'vitest'
 import {
   _isRefreshUnreachable,
   discoverKeycloakConfig,
+  ensureKeycloakAccessToken,
   ensureKeycloakSession,
   forgetKeycloakSession
 } from './keycloak-desktop-session'
@@ -167,6 +168,32 @@ describe('ensureKeycloakSession', () => {
     assert.deepEqual(calls, ['refresh'])
     // Persisted, so the next launch doesn't refresh again.
     assert.ok(store.text.includes(keycloakStorageKey(CONFIG)))
+  })
+
+  test('a refresh brings the new access token and never keeps the stale one', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10, oauthAccessToken: 'at-stale' }), store)
+
+    const fresh = await ensureKeycloakSession(
+      CONFIG,
+      deps({
+        postForm: async () => ({
+          id_token: idTokenExpiring(NOW + 7_200),
+          access_token: 'at-fresh',
+          refresh_token: 'rt-rotated'
+        })
+      })
+    )
+
+    assert.equal(fresh.tokens?.oauthAccessToken, 'at-fresh')
+    assert.equal(loadKeycloakSession(CONFIG, store)?.oauthAccessToken, 'at-fresh')
+
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10, oauthAccessToken: 'at-stale' }), store)
+
+    // A response without one must not leave the expired token posing as current.
+    const without = await ensureKeycloakSession(CONFIG, deps())
+
+    assert.equal(without.outcome, 'refreshed')
+    assert.equal(without.tokens && 'oauthAccessToken' in without.tokens, false)
   })
 
   test('an offline refresh keeps the stored session instead of signing out', async () => {
@@ -586,6 +613,212 @@ describe('ensureKeycloakSession with session_days', () => {
     const result = await ensureKeycloakSession(POLICY, quietDeps({ interactive: false }))
 
     assert.equal(result.outcome, 'stored')
+  })
+})
+
+describe('ensureKeycloakAccessToken', () => {
+  const DAY = 86_400
+
+  let store: ReturnType<typeof makeStore>
+  let posts: Array<Record<string, string>>
+  let logs: string[]
+
+  beforeEach(() => {
+    store = makeStore()
+    posts = []
+    logs = []
+  })
+
+  /** Keycloak answers a refresh with a new ID token and access token. No browser, ever. */
+  function deps(overrides: Record<string, any> = {}) {
+    return {
+      store,
+      now: () => NOW,
+      getJson: async () => DISCOVERY_DOC,
+      postForm: async (_url: string, form: Record<string, string>) => {
+        posts.push(form)
+
+        return { id_token: idTokenExpiring(NOW + 1_800), access_token: 'at-new', refresh_token: 'rt-rotated' }
+      },
+      openExternal: async () => {
+        throw new Error('metrics must never open a browser')
+      },
+      createServer: (() => {
+        throw new Error('metrics must never open a browser')
+      }) as any,
+      rememberLog: (line: string) => logs.push(line),
+      ...overrides
+    } as any
+  }
+
+  function failingPost(error: Error) {
+    return async (_url: string, form: Record<string, string>) => {
+      posts.push(form)
+
+      throw error
+    }
+  }
+
+  test('hands back a session that has its access token without asking Keycloak', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ oauthAccessToken: 'at-stored' }), store)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-stored')
+    assert.deepEqual(posts, [])
+  })
+
+  test('gives a session saved by an earlier release its access token with one refresh, and saves it', async () => {
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-new')
+    assert.equal(tokens?.userId, 'kien')
+    assert.equal(posts.length, 1)
+    assert.equal(posts[0].grant_type, 'refresh_token')
+    assert.equal(posts[0].refresh_token, 'rt-stored')
+    assert.equal(loadKeycloakSession(CONFIG, store)?.oauthAccessToken, 'at-new')
+    assert.ok(logs.some(line => line.includes('added an access token')))
+
+    // Saved, so the next turn does not refresh again.
+    assert.equal((await ensureKeycloakAccessToken(CONFIG, deps()))?.oauthAccessToken, 'at-new')
+    assert.equal(posts.length, 1)
+  })
+
+  test('keeps the sign-in time and the offline session through that refresh', async () => {
+    const policy: KeycloakOidcConfig = { ...CONFIG, sessionDays: 14 }
+
+    persistKeycloakSession(policy, tokenSet({ signedInAt: NOW - DAY, offline: true }), store)
+
+    const tokens = await ensureKeycloakAccessToken(policy, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-new')
+    // A refresh is not a sign-in: the 14 days still count from the browser.
+    assert.equal(tokens?.signedInAt, NOW - DAY)
+    assert.equal(tokens?.offline, true)
+    assert.match(posts[0].scope, /\boffline_access\b/)
+  })
+
+  test('an unreachable Keycloak leaves the stored session as it was', async () => {
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    const tokens = await ensureKeycloakAccessToken(
+      CONFIG,
+      deps({ postForm: failingPost(new Error('connect ECONNREFUSED')) })
+    )
+
+    assert.deepEqual(tokens, tokenSet())
+    assert.deepEqual(loadKeycloakSession(CONFIG, store), tokenSet())
+    assert.ok(logs.some(line => line.includes('keeping it as it is')))
+  })
+
+  test('a refused refresh does not sign anyone out', async () => {
+    // The regular ladder drops a session Keycloak refuses. This upgrade must
+    // not: metrics never decide that someone is signed out.
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    const tokens = await ensureKeycloakAccessToken(
+      CONFIG,
+      deps({ postForm: failingPost(new HttpError('invalid_grant', 400)) })
+    )
+
+    assert.deepEqual(tokens, tokenSet())
+    assert.deepEqual(loadKeycloakSession(CONFIG, store), tokenSet())
+  })
+
+  test('a session without a refresh token is left alone', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ refreshToken: '' }), store)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.userId, 'kien')
+    assert.equal(tokens && 'oauthAccessToken' in tokens, false)
+    assert.deepEqual(posts, [])
+    assert.ok(loadKeycloakSession(CONFIG, store), 'still signed in')
+  })
+
+  test('nobody signed in reads as null, and no browser opens even for an interactive caller', async () => {
+    assert.equal(await ensureKeycloakAccessToken(CONFIG, deps({ interactive: true })), null)
+    assert.deepEqual(posts, [])
+  })
+
+  test('a near-expiry session is refreshed once, by the regular ladder', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-new')
+    assert.equal(posts.length, 1)
+  })
+
+  test('does not ask again right after the ladder could not reach Keycloak', async () => {
+    persistKeycloakSession(CONFIG, tokenSet({ expiresAt: NOW + 10 }), store)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps({ postForm: failingPost(new Error('ETIMEDOUT')) }))
+
+    assert.equal(tokens?.refreshToken, 'rt-stored')
+    assert.equal(posts.length, 1, 'one attempt, not one per caller')
+  })
+
+  test('leaves the sign-in limit to the launch path', async () => {
+    const policy: KeycloakOidcConfig = { ...CONFIG, sessionDays: 14 }
+
+    persistKeycloakSession(
+      policy,
+      tokenSet({ signedInAt: NOW - 15 * DAY, offline: true, oauthAccessToken: 'at-stored' }),
+      store
+    )
+
+    const tokens = await ensureKeycloakAccessToken(policy, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-stored')
+    assert.ok(loadKeycloakSession(policy, store), 'not ended by a background caller')
+    assert.deepEqual(posts, [], 'and not logged out at Keycloak either')
+  })
+
+  test('uses what another caller saved meanwhile instead of refreshing again', async () => {
+    const upgraded = makeStore()
+
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+    persistKeycloakSession(CONFIG, tokenSet({ oauthAccessToken: 'at-other' }), upgraded)
+
+    // The ladder reads the session saved by an earlier release; by the time it
+    // is read again, another caller has saved the upgraded one.
+    let reads = 0
+
+    store.readStoreText = () => (++reads === 1 ? store.text : upgraded.text)
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-other')
+    assert.deepEqual(posts, [])
+  })
+
+  test('a sign-out meanwhile reads as null', async () => {
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    let reads = 0
+    const saved = store.text
+
+    store.readStoreText = () => (++reads === 1 ? saved : '')
+
+    assert.equal(await ensureKeycloakAccessToken(CONFIG, deps()), null)
+    assert.deepEqual(posts, [])
+  })
+
+  test('tokens that could not be saved still serve this caller', async () => {
+    persistKeycloakSession(CONFIG, tokenSet(), store)
+
+    store.encrypt = () => {
+      throw new Error('keychain is locked')
+    }
+
+    const tokens = await ensureKeycloakAccessToken(CONFIG, deps())
+
+    assert.equal(tokens?.oauthAccessToken, 'at-new')
+    assert.equal(loadKeycloakSession(CONFIG, store)?.refreshToken, 'rt-stored', 'the saved session is untouched')
+    assert.ok(logs.some(line => line.includes('could not save it')))
   })
 })
 

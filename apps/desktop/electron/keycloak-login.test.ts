@@ -144,6 +144,30 @@ describe('runKeycloakLogin', () => {
     assert.equal(state.closed, true)
   })
 
+  test('a fresh sign-in keeps the access token for the SSO APIs that need it', async () => {
+    const { createServer, state } = makeFakeServerFactory()
+
+    const { deps, openedUrls } = makeDeps({
+      createServer,
+      timeoutMs: 5_000,
+      postForm: async () => ({ id_token: ID_TOKEN, access_token: 'at-1', refresh_token: 'rt-1' })
+    })
+
+    const pending = runKeycloakLogin(CONFIG, deps)
+
+    await tick()
+    await tick()
+
+    const stateParam = new URL(openedUrls[0]).searchParams.get('state') || ''
+
+    state.callback(`?code=c&state=${encodeURIComponent(stateParam)}`)
+
+    const tokens = await pending
+
+    assert.equal(tokens.oauthAccessToken, 'at-1')
+    assert.equal(tokens.accessToken, ID_TOKEN)
+  })
+
   test('stamps when the person signed in and logs what Keycloak granted', async () => {
     const { createServer, state } = makeFakeServerFactory()
     const logs: string[] = []
@@ -341,6 +365,17 @@ describe('refreshKeycloakSession', () => {
     assert.equal(tokens.refreshToken, 'rt-1')
     assert.equal(posted[0].form.grant_type, 'refresh_token')
     assert.equal(posted[0].form.refresh_token, 'rt-old')
+  })
+
+  test('returns the access token Keycloak issued with the refreshed set', async () => {
+    const { deps } = makeDeps({
+      postForm: async () => ({ id_token: ID_TOKEN, access_token: 'at-fresh', refresh_token: 'rt-2' })
+    })
+
+    const tokens = await refreshKeycloakSession(CONFIG, 'rt-old', deps)
+
+    assert.equal(tokens.oauthAccessToken, 'at-fresh')
+    assert.equal(tokens.accessToken, ID_TOKEN)
   })
 
   test('keeps the old refresh token when the realm does not rotate', async () => {

@@ -45,6 +45,15 @@ export interface NativeTokenSet {
   provider: string
   userId: string
   /**
+   * Keycloak's OAuth access token (`typ: Bearer`), kept beside the ID token
+   * that the direct Keycloak flow stores in `accessToken` for the backend.
+   *
+   * For the first-party SSO APIs that accept only an access token, such as
+   * usage metrics. Absent on the brokered flow, and on sessions stored by
+   * Workmate 1.1.0 or earlier until they are next refreshed.
+   */
+  oauthAccessToken?: string
+  /**
    * Who the user actually is, for display.
    *
    * Optional because the gateway-brokered flow has no identity claims to give —
@@ -244,6 +253,8 @@ export function parseStoredTokenSet(body: any): NativeTokenSet {
   // Dropping these on reload would quietly lift the session_days limit on
   // every restart, and stop sign-out from revoking an offline session.
   const signedInAt = Number(body?.signedInAt)
+  // Dropping it would send every restart back to the refresh that adds it.
+  const oauthAccessToken = typeof body?.oauthAccessToken === 'string' ? body.oauthAccessToken : ''
 
   return {
     accessToken,
@@ -251,6 +262,7 @@ export function parseStoredTokenSet(body: any): NativeTokenSet {
     expiresAt: Number.isFinite(expiresAt) ? expiresAt : 0,
     provider: String(body?.provider || ''),
     userId: String(body?.userId || ''),
+    ...(oauthAccessToken ? { oauthAccessToken } : {}),
     ...(email ? { email } : {}),
     ...(displayName ? { displayName } : {}),
     ...(Number.isFinite(signedInAt) && signedInAt > 0 ? { signedInAt } : {}),

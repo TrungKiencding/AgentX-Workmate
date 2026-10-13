@@ -185,6 +185,71 @@ export async function ensureKeycloakSession(
   return { config, tokens, outcome: 'signed-in' }
 }
 
+/**
+ * The signed-in session, with the OAuth access token the SSO APIs that take
+ * no ID token need (usage metrics). Null when nobody is signed in.
+ *
+ * Never signs anyone in: no browser opens, and the install's sign-in limit is
+ * left to the launch path, as for any background token top-up.
+ *
+ * Workmate 1.1.0 and earlier stored no access token. Such a session spends one
+ * refresh on getting one rather than waiting up to a token lifetime for the
+ * regular refresh. That refresh only upgrades the session. When Keycloak cannot
+ * be reached, or refuses, the stored session comes back unchanged and the
+ * ladder in ensureKeycloakSession decides at expiry. Metrics never sign anyone
+ * out.
+ */
+export async function ensureKeycloakAccessToken(
+  config: KeycloakOidcConfig,
+  deps: KeycloakSessionDeps
+): Promise<NativeTokenSet | null> {
+  const log = deps.rememberLog || (() => undefined)
+
+  const session = await ensureKeycloakSession(config, { ...deps, interactive: false, enforceSignInPolicy: false })
+
+  // Nothing to upgrade when signed out or already holding one. After
+  // 'stale-offline' Keycloak has just failed the ladder's own refresh, and
+  // asking again now would only wait out the same outage.
+  if (!session.tokens || session.tokens.oauthAccessToken || session.outcome === 'stale-offline') {
+    return session.tokens
+  }
+
+  // Read again: another caller may have refreshed, or signed out, meanwhile.
+  const stored = loadKeycloakSession(config, deps.store)
+
+  if (!stored?.refreshToken || stored.oauthAccessToken) {
+    return stored
+  }
+
+  let upgraded: NativeTokenSet
+
+  try {
+    const refreshConfig = stored.offline ? withOfflineAccess(config) : config
+
+    upgraded = carrySignIn(stored, await refreshKeycloakSession(refreshConfig, stored.refreshToken, deps))
+  } catch (error) {
+    log(
+      '[keycloak] could not add an access token to the stored session yet; keeping it as it is: ' +
+        (error instanceof Error ? error.message : String(error))
+    )
+
+    return stored
+  }
+
+  // The refreshed tokens are valid whether or not they could be saved.
+  try {
+    persistKeycloakSession(config, upgraded, deps.store)
+    log('[keycloak] added an access token to a session stored by an earlier release')
+  } catch (error) {
+    log(
+      '[keycloak] added an access token to the session, but could not save it: ' +
+        (error instanceof Error ? error.message : String(error))
+    )
+  }
+
+  return upgraded
+}
+
 /** Drop the stored session. The caller opens the end-session URL separately. */
 export function forgetKeycloakSession(config: KeycloakOidcConfig, deps: Pick<KeycloakSessionDeps, 'store'>): void {
   persistKeycloakSession(config, null, deps.store)

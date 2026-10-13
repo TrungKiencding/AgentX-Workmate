@@ -84,6 +84,15 @@ describe('persist / load round trip', () => {
     assert.deepEqual(loadKeycloakSession(CONFIG, io), TOKENS)
   })
 
+  test('the OAuth access token comes back with the rest of the session', () => {
+    const io = makeIo()
+    const tokens = { ...TOKENS, oauthAccessToken: 'the-access-token' }
+
+    persistKeycloakSession(CONFIG, tokens, io)
+
+    assert.deepEqual(loadKeycloakSession(CONFIG, io), tokens)
+  })
+
   test('the refresh token is never written in plaintext', () => {
     const io = makeIo()
 
