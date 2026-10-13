@@ -2174,18 +2174,23 @@ def _moa_caches_isolated():
 
 
 @pytest.fixture(autouse=True)
-def _endpoint_probe_credentials_isolated():
-    """Forget probe credentials ``agent.model_metadata`` remembers per host.
+def _endpoint_probe_state_isolated():
+    """Forget what ``agent.model_metadata`` remembers per endpoint host.
 
     A key one test probes an endpoint with is reused by later keyless probes
-    of the same host, so a leaked entry would put an Authorization header on
-    another test's request. Only cleared when the module is already loaded,
-    and only what it has: some tests swap in a stub or an installed copy
-    under that name.
+    of the same host, and a host judged a LiteLLM proxy skips ``/api/show``,
+    so a leaked entry would change another test's requests. Only cleared when
+    the module is already loaded, and only what it has: some tests swap in a
+    stub or an installed copy under that name.
     """
     yield
     mm = sys.modules.get("agent.model_metadata")
-    for name in ("_endpoint_api_key_cache", "_endpoint_auth_required"):
+    for name in (
+        "_endpoint_api_key_cache",
+        "_endpoint_auth_required",
+        "_endpoint_litellm_verdict",
+        "_litellm_model_info_cache",
+    ):
         cache = getattr(mm, name, None)
         if cache is not None:
             cache.clear()

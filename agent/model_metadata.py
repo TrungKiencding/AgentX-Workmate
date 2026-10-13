@@ -177,6 +177,14 @@ _endpoint_api_key_cache: Dict[str, str] = {}
 # instead of asking again — one rejected request per process, not one per probe.
 _endpoint_auth_required: set[str] = set()
 
+# host:port -> (answered ``/model/info`` like a LiteLLM proxy?, monotonic ts),
+# for _ENDPOINT_PROBE_TTL_SECONDS. A LiteLLM proxy is never Ollama, so its
+# hosts skip the ``/api/show`` probe, which LiteLLM can only answer with 404.
+_endpoint_litellm_verdict: Dict[str, tuple] = {}
+# Normalized base URL -> ({model_name: max_input_tokens or None}, time.time()),
+# kept for _ENDPOINT_MODEL_CACHE_TTL like the ``/models`` metadata cache.
+_litellm_model_info_cache: Dict[str, tuple] = {}
+
 
 def _endpoint_host_key(base_url: str) -> Optional[str]:
     """Return a ``host:port`` key for ``base_url``, or None if it has no host.
@@ -2126,6 +2134,8 @@ def _query_ollama_api_show_uncached(model: str, base_url: str, api_key: str = ""
     api_key = _endpoint_probe_api_key(base_url, api_key)
     if _endpoint_needs_key(base_url, api_key):
         return None
+    if _endpoint_is_litellm(base_url):
+        return None
 
     headers = _auth_headers(api_key)
 
@@ -2162,6 +2172,120 @@ def _query_ollama_api_show_uncached(model: str, base_url: str, api_key: str = ""
         if _is_connect_timeout(exc):
             _note_endpoint_blackholed(server_url)
     return None
+
+
+def _endpoint_is_litellm(base_url: str) -> bool:
+    """True if ``base_url``'s host recently answered ``/model/info`` as LiteLLM.
+
+    Pure cache lookup; never touches the network.
+    """
+    host = _endpoint_host_key(base_url)
+    verdict = _endpoint_litellm_verdict.get(host) if host else None
+    return bool(
+        verdict
+        and verdict[0]
+        and (time.monotonic() - verdict[1]) < _ENDPOINT_PROBE_TTL_SECONDS
+    )
+
+
+def _fetch_litellm_context_windows(
+    base_url: str, api_key: str = ""
+) -> Optional[Dict[str, Optional[int]]]:
+    """``{model_name: max_input_tokens}`` from a LiteLLM proxy's ``/model/info``.
+
+    None when the server is not LiteLLM or did not answer. Every virtual key
+    may call ``/model/info``, and it lists only the models that key can use.
+    The server's verdict is remembered either way, so a host answers this
+    probe at most once per _ENDPOINT_PROBE_TTL_SECONDS when it is not LiteLLM.
+    """
+    normalized = _normalize_base_url(base_url)
+    host = _endpoint_host_key(normalized)
+    if host is None:
+        return None
+    verdict = _endpoint_litellm_verdict.get(host)
+    if verdict is not None and not verdict[0]:
+        if (time.monotonic() - verdict[1]) < _ENDPOINT_PROBE_TTL_SECONDS:
+            return None
+    cached = _litellm_model_info_cache.get(normalized)
+    if cached is not None and (time.time() - cached[1]) < _ENDPOINT_MODEL_CACHE_TTL:
+        return cached[0]
+    if _endpoint_blackholed(normalized):
+        return None
+    api_key = _endpoint_probe_api_key(normalized, api_key)
+    if _endpoint_needs_key(normalized, api_key):
+        return None
+    _ensure_requests()
+
+    try:
+        response = requests.get(
+            _localhost_to_ipv4(normalized) + "/model/info",
+            headers=_auth_headers(api_key),
+            timeout=(5, 10),
+            verify=_resolve_requests_verify(),
+        )
+    except Exception as exc:
+        if _is_connect_timeout(exc):
+            _note_endpoint_blackholed(normalized)
+        return None
+
+    try:
+        if response.status_code in (401, 403):
+            if not api_key:
+                _endpoint_auth_required.add(host)
+            return None
+        if response.status_code in (404, 405):
+            _endpoint_litellm_verdict[host] = (False, time.monotonic())
+            return None
+        if response.status_code != 200:
+            return None
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        rows = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(rows, list) or not all(
+            isinstance(row, dict) and "model_name" in row and "model_info" in row
+            for row in rows
+        ):
+            _endpoint_litellm_verdict[host] = (False, time.monotonic())
+            return None
+
+        # Only max_input_tokens is a window: LiteLLM's max_tokens is usually
+        # the OUTPUT cap. A group with several deployments takes the smallest
+        # window any of them declares.
+        windows: Dict[str, Optional[int]] = {}
+        for row in rows:
+            name = row.get("model_name")
+            if not isinstance(name, str) or not name:
+                continue
+            info = row.get("model_info")
+            raw = info.get("max_input_tokens") if isinstance(info, dict) else None
+            window = (
+                int(raw)
+                if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0
+                else None
+            )
+            previous = windows.get(name)
+            if window is not None and (previous is None or window < previous):
+                windows[name] = window
+            else:
+                windows.setdefault(name, None)
+        _endpoint_litellm_verdict[host] = (True, time.monotonic())
+        _litellm_model_info_cache[normalized] = (windows, time.time())
+        return windows
+    finally:
+        response.close()
+
+
+def _query_litellm_context_length(model: str, base_url: str, api_key: str = "") -> Optional[int]:
+    """Context window a LiteLLM proxy declares for ``model``, or None."""
+    windows = _fetch_litellm_context_windows(base_url, api_key=api_key)
+    if not windows:
+        return None
+    window = windows.get(model)
+    if window is None:
+        window = windows.get(_strip_provider_prefix(model))
+    return window
 
 
 def _model_name_suggests_kimi(model: str) -> bool:
@@ -3201,7 +3325,17 @@ def get_model_context_length(
                     if not _skip_persistent_context_cache(base_url, provider):
                         _maybe_cache_local_context_length(model, base_url, local_ctx)
                     return local_ctx
-            # 2b. Ollama native /api/show — non-local endpoints preserve
+            # 2b. LiteLLM proxy: the endpoint just listed a /models catalog
+            # with no window for this model, and LiteLLM declares windows on
+            # /model/info. A LiteLLM answer also marks the host as not Ollama,
+            # so the /api/show probe below — which LiteLLM can only 404 — is
+            # skipped. Read live like /models metadata, not persisted: the
+            # proxy's admin can change it.
+            if _endpoint_model_metadata_cache.get(_normalize_base_url(base_url)):
+                ctx = _query_litellm_context_length(model, base_url, api_key=api_key)
+                if ctx is not None:
+                    return ctx
+            # 2c. Ollama native /api/show — non-local endpoints preserve
             # the existing generic /api/show GGUF-first behavior.
             # Non-Ollama servers return 404/405 quickly.
             ctx = _query_ollama_api_show(model, base_url, api_key=api_key)
