@@ -12,6 +12,7 @@ import { $activeGatewayProfile } from '@/store/profile'
 import { openFolderAsProject } from '@/store/projects'
 import {
   $sessions,
+  forgetRememberedSession,
   getRememberedRoute,
   getRememberedSessionId,
   rememberedSessionProfile,
@@ -140,11 +141,10 @@ export function useDesktopIntegrations({
       return
     }
 
-    const owner = rememberedSessionProfile($sessions.get(), resumeExhaustedSessionId, $activeGatewayProfile.get())
-
-    if (getRememberedSessionId(owner) === resumeExhaustedSessionId) {
-      setRememberedSessionId(null, owner)
-    }
+    forgetRememberedSession(
+      [resumeExhaustedSessionId],
+      rememberedSessionProfile($sessions.get(), resumeExhaustedSessionId, $activeGatewayProfile.get())
+    )
   }, [resumeExhaustedSessionId])
 
   // Native-notification click -> jump to the session WHERE IT ALREADY IS (open

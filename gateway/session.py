@@ -1436,7 +1436,7 @@ class SessionStore:
                 row = db.get_session(entry.session_id)
                 # Explicitly deleted rows are stale even though their DB row
                 # is gone. Other missing rows are legacy/unpersisted — keep.
-                if row is None and getattr(db, "is_deleted_gateway_session", lambda _sid: False)(entry.session_id):
+                if row is None and getattr(db, "is_deleted_session", lambda _sid: False)(entry.session_id):
                     stale_keys.append(key)
                     continue
                 # row is None        -> not in DB (legacy / pre-SQLite) — keep
@@ -2307,7 +2307,7 @@ class SessionStore:
         except Exception:
             return False
         if row is None:
-            checker = getattr(db, "is_deleted_gateway_session", None)
+            checker = getattr(db, "is_deleted_session", None)
             if callable(checker):
                 try:
                     return bool(checker(session_id))

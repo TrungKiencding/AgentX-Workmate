@@ -24,6 +24,7 @@ import {
   $resumeFailedSessionId,
   $selectedStoredSessionId,
   $sessions,
+  getRememberedSessionId,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setCurrentCwd,
@@ -35,6 +36,7 @@ import {
   setMessagingPlatformTotals,
   setMessagingSessions,
   setNewChatWorkspaceTarget,
+  setRememberedSessionId,
   setResumeFailedSessionId,
   setSelectedStoredSessionId,
   setSessions
@@ -680,6 +682,31 @@ describe('resumeSession failure recovery', () => {
     // The window is no longer silently stranded: the failure latch is armed for
     // the stored session, which use-route-resume consumes to retry.
     expect($resumeFailedSessionId.get()).toBe('stored-1')
+  })
+
+  it('drops a session that is gone to a fresh draft and forgets it as the remembered session', async () => {
+    // A relaunch reopens the remembered id. One deleted elsewhere (CLI, another
+    // device) 404s on both paths; it must not be retried on every launch.
+    setRememberedSessionId('stored-1')
+
+    const requestGateway = vi.fn(async (method: string) => {
+      if (method === 'session.resume') {
+        throw new Error('session not found')
+      }
+
+      return {} as never
+    })
+
+    vi.mocked(getSessionMessages).mockRejectedValue(new Error('404: session not found'))
+
+    try {
+      await runResume(requestGateway)
+
+      expect(getRememberedSessionId()).toBeNull()
+      expect($resumeFailedSessionId.get()).toBeNull()
+    } finally {
+      setRememberedSessionId(null)
+    }
   })
 
   it('does NOT arm the failure latch when the resume RPC fails but the REST fallback paints history', async () => {
@@ -1901,6 +1928,72 @@ describe('selectSidebarItem', () => {
     expect(navigate).toHaveBeenCalledWith('/skills', undefined)
     expect(noteActiveTreeGroup).toHaveBeenCalledWith(null)
     expect(revealTreePane).toHaveBeenCalledWith('workspace')
+  })
+})
+
+describe('removeSession and the remembered session', () => {
+  // Closing the deleted chat moves the remembered route to /new, and a cold
+  // start there falls back to the remembered session id.
+  afterEach(() => {
+    cleanup()
+    setActiveSessionId(null)
+    setMessages([])
+    setSelectedStoredSessionId(null)
+    setSessions([])
+    setRememberedSessionId(null)
+    setRememberedSessionId(null, 'work')
+    $removedSessionIds.set(new Set())
+    vi.mocked(deleteSession).mockReset()
+  })
+
+  async function removeOpenChat(row: SessionInfo): Promise<void> {
+    setSessions([row])
+    setSelectedStoredSessionId(row.id)
+    setActiveSessionId('rt-open')
+    let handle: HarnessHandle | null = null
+
+    render(
+      <Harness
+        activeSessionId="rt-open"
+        onReady={value => (handle = value)}
+        requestGateway={async () => ({}) as never}
+        selectedStoredSessionId={row.id}
+      />
+    )
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.removeSession(row.id)
+    })
+  }
+
+  it('forgets the deleted chat so a relaunch does not reopen it', async () => {
+    setRememberedSessionId('deleted-chat')
+    vi.mocked(deleteSession).mockResolvedValue({ deleted_ids: ['deleted-chat'], ok: true })
+
+    await removeOpenChat(storedSession({ id: 'deleted-chat' }))
+
+    expect(getRememberedSessionId()).toBeNull()
+  })
+
+  it('forgets it under the profile that owns the chat', async () => {
+    setRememberedSessionId('deleted-chat', 'work')
+    setRememberedSessionId('default-chat')
+    vi.mocked(deleteSession).mockResolvedValue({ deleted_ids: ['deleted-chat'], ok: true })
+
+    await removeOpenChat(storedSession({ id: 'deleted-chat', profile: 'work' }))
+
+    expect(getRememberedSessionId('work')).toBeNull()
+    expect(getRememberedSessionId()).toBe('default-chat')
+  })
+
+  it('keeps it when the delete fails and the chat is restored', async () => {
+    setRememberedSessionId('kept-chat')
+    vi.mocked(deleteSession).mockRejectedValue(new Error('network unavailable'))
+
+    await removeOpenChat(storedSession({ id: 'kept-chat' }))
+
+    expect(getRememberedSessionId()).toBe('kept-chat')
   })
 })
 

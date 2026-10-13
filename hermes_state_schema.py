@@ -56,6 +56,26 @@ SYNC_TRIGGER_FINGERPRINT_KEY = "sync_trigger_fingerprint"
 SYNC_UUID_BACKFILL_HIGH_WATER_KEY = "sync_uuid_backfill_high_water"
 SYNC_UUID_BACKFILL_PROGRESS_KEY = "sync_uuid_backfill_progress"
 
+# The rows deleted conversations left behind before v27 (see
+# _prune_resurrected_sessions). A ghost is what the auto-titler left: a bare
+# 'unknown' row with a title and the titler's usage — never a message,
+# main-loop usage, a child, a gateway key or a pin, which a real conversation
+# has. The age keeps a placeholder a live writer is about to fill out of reach.
+_RESURRECTED_SESSION_WHERE = """
+    source = 'unknown'
+    AND message_count = 0
+    AND COALESCE(api_call_count, 0) = 0
+    AND COALESCE(input_tokens, 0) = 0
+    AND COALESCE(output_tokens, 0) = 0
+    AND session_key IS NULL
+    AND parent_session_id IS NULL
+    AND pinned = 0
+    AND started_at < ?
+    AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.session_id = sessions.id)
+    AND NOT EXISTS (SELECT 1 FROM sessions c WHERE c.parent_session_id = sessions.id)
+"""
+_RESURRECTED_SESSION_MIN_AGE_S = 3600
+
 
 class SessionSchemaMixin:
     """See module docstring — mixin for SessionDB (Schema cluster)."""
@@ -110,6 +130,57 @@ class SessionSchemaMixin:
                     exc,
                 )
                 return
+
+    def _prune_resurrected_sessions(self, cursor: sqlite3.Cursor) -> bool:
+        """Delete the empty ghosts of deleted conversations, tombstoned (v27).
+
+        Before v27 a delete left no tombstone for a non-gateway session, so
+        the writers still working for it recreated the row: the auto-titler
+        recorded its usage (inserting a bare ``'unknown'`` placeholder) and
+        then set the title. Desktop restored that ghost as the last session
+        and opened an empty chat. Deletes are tombstoned now; this removes
+        the ghosts already on disk.
+
+        Returns False when contention stopped it, so the caller holds the
+        schema version back and the next open runs it again — raising here
+        would fail the whole open instead.
+        """
+        cutoff = time.time() - _RESURRECTED_SESSION_MIN_AGE_S
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            try:
+                ghost_ids = [
+                    row[0]
+                    for row in cursor.execute(
+                        f"SELECT id FROM sessions WHERE {_RESURRECTED_SESSION_WHERE}",
+                        (cutoff,),
+                    ).fetchall()
+                ]
+                rows = [(sid,) for sid in ghost_ids]
+                cursor.executemany(
+                    "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
+                    rows,
+                )
+                # session_model_usage rows go with them (ON DELETE CASCADE).
+                cursor.executemany("DELETE FROM sessions WHERE id = ?", rows)
+                cursor.execute("COMMIT")
+            except BaseException:
+                if cursor.connection.in_transaction:
+                    cursor.execute("ROLLBACK")
+                raise
+        except sqlite3.OperationalError as exc:
+            logger.warning(
+                "v27 cleanup of deleted-session ghosts deferred after "
+                "contention (%s); the next schema init retries it.",
+                exc,
+            )
+            return False
+        if ghost_ids:
+            logger.info(
+                "Removed %d empty session rows left behind by deleted conversations",
+                len(ghost_ids),
+            )
+        return True
 
     def _ensure_sync_triggers(self, cursor: sqlite3.Cursor) -> bool:
         """Install the v26 outbox triggers, replacing them when the DDL moves.
@@ -1087,6 +1158,12 @@ class SessionSchemaMixin:
                 # one large prompt copy per session.
                 self._dedupe_legacy_system_prompts(cursor)
 
+            ghosts_pruned = True
+            if current_version < 27:
+                # v27: remove the empty rows deleted conversations left
+                # behind (see _prune_resurrected_sessions).
+                ghosts_pruned = self._prune_resurrected_sessions(cursor)
+
             # The FTS storage layout is versioned independently of the main
             # schema (see the v23 note above). Stamp the current layout so the
             # main version can always advance: a fresh/optimized DB is at
@@ -1116,12 +1193,14 @@ class SessionSchemaMixin:
             # migrations. This is deliberately NOT gated on the FTS opt-in —
             # holding the whole version back would block every future schema
             # migration for a user who never optimizes. FTS5 being unavailable
-            # is the one case we skip (we can't have created the current FTS
-            # objects, so claiming the current schema would be a lie).
+            # is one case we skip (we can't have created the current FTS
+            # objects, so claiming the current schema would be a lie); a v27
+            # cleanup stopped by contention is the other, so it runs again.
             if (
                 current_version < SCHEMA_VERSION
                 and fts_migrations_complete
                 and fts5_available
+                and ghosts_pruned
             ):
                 cursor.execute(
                     "UPDATE schema_version SET version = ?",

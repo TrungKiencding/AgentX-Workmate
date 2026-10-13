@@ -12,6 +12,7 @@ import {
   $sessions,
   $unreadFinishedSessionIds,
   applyConfiguredDefaultProjectDir,
+  forgetRememberedSession,
   getRememberedRoute,
   getRememberedSessionId,
   mergeSessionPage,
@@ -556,6 +557,18 @@ describe('remembered session id (per profile)', () => {
 
     expect(getRememberedSessionId('ai-engineer')).toBeNull()
     expect(getRememberedSessionId('default')).toBe('personal-session')
+  })
+
+  it('forgets a deleted session only when it is the one remembered, under its profile', () => {
+    setRememberedSessionId('deleted-session', 'ai-engineer')
+    setRememberedSessionId('deleted-session', 'default')
+
+    forgetRememberedSession(['other-session'], 'ai-engineer')
+    expect(getRememberedSessionId('ai-engineer')).toBe('deleted-session')
+
+    forgetRememberedSession(['other-session', 'deleted-session'], 'ai-engineer')
+    expect(getRememberedSessionId('ai-engineer')).toBeNull()
+    expect(getRememberedSessionId('default')).toBe('deleted-session')
   })
 })
 

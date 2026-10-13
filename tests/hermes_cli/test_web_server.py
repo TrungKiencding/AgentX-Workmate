@@ -3240,7 +3240,7 @@ class TestDeleteSessionEndpoint:
         db = SessionDB()
         try:
             assert db.get_session(session_id) is None
-            assert db.is_deleted_gateway_session(session_id)
+            assert db.is_deleted_session(session_id)
             # A live gateway may still hold the old sessions.json mapping.
             # Its routine peer refresh must not resurrect the deleted row.
             db.record_gateway_session_peer(
@@ -3288,8 +3288,8 @@ class TestDeleteSessionEndpoint:
         try:
             assert db.get_session("telegram_root") is None
             assert db.get_session("telegram_tip") is None
-            assert db.is_deleted_gateway_session("telegram_root")
-            assert db.is_deleted_gateway_session("telegram_tip")
+            assert db.is_deleted_session("telegram_root")
+            assert db.is_deleted_session("telegram_tip")
         finally:
             db.close()
 
@@ -3408,9 +3408,41 @@ class TestDeleteSessionEndpoint:
         try:
             assert db.get_session("desktop_tip") is None
             assert db.get_session("desktop_root") is not None
-            assert not db.is_deleted_gateway_session("desktop_tip")
+            assert db.is_deleted_session("desktop_tip")
+            assert not db.is_deleted_session("desktop_root")
         finally:
             db.close()
+
+    def test_deleted_chat_stays_gone_after_the_auto_titler_finishes(self):
+        """Deleting a chat right after its first reply races the auto-titler,
+        which bills its call and writes the title a few seconds later. Those
+        writes used to recreate the row: an empty, titled ghost the desktop
+        reopened as the last session on the next launch."""
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="desktop_chat", source="desktop")
+            db.append_message("desktop_chat", "user", "xin chào")
+            db.append_message("desktop_chat", "assistant", "Chào bạn!")
+        finally:
+            db.close()
+
+        resp = self.auth_client.delete("/api/sessions/desktop_chat")
+        assert resp.json() == {"ok": True, "deleted_ids": ["desktop_chat"]}
+
+        db = SessionDB()
+        try:
+            db.record_auxiliary_usage(
+                "desktop_chat", "title_generation", model="m", input_tokens=169, output_tokens=12
+            )
+            assert db.set_auto_title_if_empty("desktop_chat", "Chào hỏi và đề nghị hỗ trợ") is False
+        finally:
+            db.close()
+
+        assert self.auth_client.get("/api/sessions/desktop_chat").status_code == 404
+        listed = self.auth_client.get("/api/sessions?min_messages=0").json()["sessions"]
+        assert "desktop_chat" not in {row["id"] for row in listed}
 
 
 class TestSessionDetailLineage:
@@ -3582,7 +3614,7 @@ class TestBulkDeleteSessionsEndpoint:
         db = SessionDB()
         try:
             assert db.get_session("telegram_bulk") is None
-            assert db.is_deleted_gateway_session("telegram_bulk")
+            assert db.is_deleted_session("telegram_bulk")
         finally:
             db.close()
 
@@ -3621,8 +3653,8 @@ class TestBulkDeleteSessionsEndpoint:
         try:
             assert db.get_session("telegram_root") is None
             assert db.get_session("telegram_tip") is None
-            assert db.is_deleted_gateway_session("telegram_root")
-            assert db.is_deleted_gateway_session("telegram_tip")
+            assert db.is_deleted_session("telegram_root")
+            assert db.is_deleted_session("telegram_tip")
             assert db.get_session("bystander") is not None
         finally:
             db.close()

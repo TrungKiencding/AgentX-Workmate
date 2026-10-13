@@ -637,6 +637,14 @@ class SessionPortabilityMixin:
                 skipped_ids.append(session_id)
                 continue
 
+            # Importing a conversation the user deleted here restores it on
+            # purpose. (Sync never gets here for one: its apply path skips
+            # tombstoned ids before importing.)
+            conn.execute(
+                "DELETE FROM deleted_gateway_sessions WHERE session_id = ?",
+                (session_id,),
+            )
+
             started_at = self._float_or_none(raw.get("started_at"))
             if started_at is None:
                 started_at = time.time()

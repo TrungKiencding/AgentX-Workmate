@@ -739,7 +739,7 @@ def test_recovery_keeps_deleted_gateway_session_tombstones(tmp_path: Path) -> No
             session_key="telegram:user-1:chat-1",
         )
         assert db.delete_session("deleted-telegram")
-        assert db.is_deleted_gateway_session("deleted-telegram")
+        assert db.is_deleted_session("deleted-telegram")
     finally:
         db.close()
 
@@ -752,7 +752,7 @@ def test_recovery_keeps_deleted_gateway_session_tombstones(tmp_path: Path) -> No
 
     db = SessionDB(db_path=output)
     try:
-        assert db.is_deleted_gateway_session("deleted-telegram")
+        assert db.is_deleted_session("deleted-telegram")
         db.record_gateway_session_peer(
             "deleted-telegram",
             source="telegram",

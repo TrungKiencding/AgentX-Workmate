@@ -332,21 +332,20 @@ class SessionSyncMixin:
     ) -> None:
         if kind == SYNC_KIND_SESSION:
             exists = conn.execute(
-                "SELECT session_key FROM sessions WHERE id = ? LIMIT 1", (doc_id,)
+                "SELECT 1 FROM sessions WHERE id = ? LIMIT 1", (doc_id,)
             ).fetchone()
             if exists is None:
                 result["skipped"] += 1
                 return
-            if exists["session_key"]:
-                # This is the gateway host's copy, and its sessions.json route
-                # can still point here. Mirror SessionDB.delete_session so the
-                # next inbound platform message starts fresh instead of
-                # recreating the conversation another device deleted.
-                conn.execute(
-                    "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) "
-                    "VALUES (?)",
-                    (doc_id,),
-                )
+            # Mirror SessionDB.delete_session: this device's own writers for
+            # the conversation (a gateway route in sessions.json, an
+            # auto-titler or turn still running here) must not recreate what
+            # another device deleted.
+            conn.execute(
+                "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) "
+                "VALUES (?)",
+                (doc_id,),
+            )
             # Only the named session. The cascade the origin device ran
             # produced its own tombstone per deleted row, and its detached
             # branch children arrive as their own upserts — re-deriving the
@@ -400,9 +399,8 @@ class SessionSyncMixin:
                 (doc_id,),
             ).fetchone()
             if deleted is not None:
-                # A gateway conversation the user deleted here. A late upsert
-                # from a device that had not seen the delete must not bring
-                # it back.
+                # A conversation the user deleted here. A late upsert from a
+                # device that had not seen the delete must not bring it back.
                 result["skipped"] += 1
                 return
             payload = {**payload, "id": doc_id}

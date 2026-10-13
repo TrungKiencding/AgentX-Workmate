@@ -250,6 +250,14 @@ def _delete_delegate_children(conn, parent_ids: List[str]) -> List[str]:
         conn.execute(f"DELETE FROM sessions WHERE id IN ({ph})", ids)
     return ids
 
+
+def _record_session_tombstones(conn, session_ids: List[str]) -> None:
+    """Remember that the user deleted *session_ids* (see deleted_gateway_sessions)."""
+    conn.executemany(
+        "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
+        [(sid,) for sid in session_ids],
+    )
+
 T = TypeVar("T")
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
@@ -4430,6 +4438,13 @@ class SessionDB(
         ``thread_id``/``display_name``/``origin_json``) are inherited too, so a
         crash before the gateway re-records the peer can't strand the child
         without a recoverable routing mapping (#59527).
+
+        A session the user deleted is never recreated. The bare
+        ``source="unknown"`` callers (``update_token_counts``,
+        ``record_auxiliary_usage``) are exactly the writers that outlive a
+        delete — the auto-titler bills its call and sets the title seconds
+        after the turn — and recreating the row turned the conversation into
+        an empty, titled ghost.
         """
         def _do(conn):
             if conn.execute(
@@ -6877,9 +6892,13 @@ class SessionDB(
                 "SELECT model, billing_provider, api_call_count FROM sessions WHERE id = ?",
                 (session_id,),
             ).fetchone()
-            existing_model = row["model"] if row is not None else None
-            existing_provider = row["billing_provider"] if row is not None else None
-            existing_api_calls = int((row["api_call_count"] if row is not None else 0) or 0)
+            if row is None:
+                # The user deleted the session while this call was in flight;
+                # the guard above refused to recreate it, so nothing is billed.
+                return
+            existing_model = row["model"]
+            existing_provider = row["billing_provider"]
+            existing_api_calls = int(row["api_call_count"] or 0)
 
             # Session creation records the requested primary route before any API
             # call. If it fails and fallback succeeds, the first accounted usage
@@ -7073,6 +7092,12 @@ class SessionDB(
         self._insert_session_row(session_id, "unknown")
 
         def _do(conn):
+            if conn.execute(
+                "SELECT 1 FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone() is None:
+                # Deleted while the aux call ran (the titler finishes after
+                # the turn): the guard did not recreate it, so skip the row.
+                return
             self._record_model_usage(
                 conn,
                 session_id,
@@ -10242,8 +10267,8 @@ class SessionDB(
             delegate_ids = _collect_delegate_child_ids(self._conn, [session_id])
         return [session_id, *sorted(delegate_ids)]
 
-    def is_deleted_gateway_session(self, session_id: str) -> bool:
-        """Whether a user removed a gateway transcript while its route may live."""
+    def is_deleted_session(self, session_id: str) -> bool:
+        """Whether the user deleted *session_id* (its writers may still be live)."""
         if not session_id:
             return False
         with self._lock:
@@ -10275,8 +10300,10 @@ class SessionDB(
         lets export-before-delete callers fail closed if a new delegate appears
         after they materialize their archive. The delegate tree is re-walked
         inside the write transaction on purpose (TOCTOU guard); the cost is
-        accepted for correctness. Returns True if the session was found and
-        deleted.
+        accepted for correctness. Every removed row is tombstoned, so the
+        writers still working for the conversation (auto-title, usage
+        accounting, a turn that outlives the delete, gateway routing) can't
+        recreate it. Returns True if the session was found and deleted.
         """
         removed_delegate_ids: List[str] = []
         expected_ids = (
@@ -10284,10 +10311,9 @@ class SessionDB(
         )
 
         def _do(conn):
-            row = conn.execute(
-                "SELECT session_key FROM sessions WHERE id = ? LIMIT 1", (session_id,)
-            ).fetchone()
-            if row is None:
+            if conn.execute(
+                "SELECT 1 FROM sessions WHERE id = ? LIMIT 1", (session_id,)
+            ).fetchone() is None:
                 return False
             if expected_ids is not None:
                 actual_ids = {
@@ -10296,12 +10322,9 @@ class SessionDB(
                 }
                 if actual_ids != expected_ids:
                     return False
-            removed_delegate_ids.extend(_delete_delegate_children(conn, [session_id]))
-            if row["session_key"]:
-                conn.execute(
-                    "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
-                    (session_id,),
-                )
+            delegate_ids = _delete_delegate_children(conn, [session_id])
+            removed_delegate_ids.extend(delegate_ids)
+            _record_session_tombstones(conn, [session_id, *delegate_ids])
             # Orphan remaining child sessions (branches, etc.) so FK is satisfied.
             conn.execute(
                 "UPDATE sessions SET parent_session_id = NULL "
@@ -10384,6 +10407,7 @@ class SessionDB(
         * Messages and the session row both go in one
           ``_execute_write`` call so a partial failure can't leave the
           DB in a "messages gone but session row still there" state.
+        * Every removed row is tombstoned, as in :meth:`delete_session`.
         * On-disk transcript / ``request_dump_*`` files are cleaned up
           outside the DB transaction when *sessions_dir* is provided,
           matching :meth:`prune_sessions` and
@@ -10410,21 +10434,17 @@ class SessionDB(
             # First, filter to IDs that actually exist — we want to
             # return the real deleted count, not the input length.
             cursor = conn.execute(
-                f"SELECT id, session_key FROM sessions WHERE id IN ({placeholders})",
+                f"SELECT id FROM sessions WHERE id IN ({placeholders})",
                 unique_ids,
             )
-            existing_rows = cursor.fetchall()
-            existing = [row["id"] for row in existing_rows]
+            existing = [row["id"] for row in cursor.fetchall()]
             if not existing:
                 return 0
 
-            conn.executemany(
-                "INSERT OR IGNORE INTO deleted_gateway_sessions (session_id) VALUES (?)",
-                [(row["id"],) for row in existing_rows if row["session_key"]],
-            )
-
             existing_placeholders = ",".join("?" * len(existing))
-            removed_delegate_ids.extend(_delete_delegate_children(conn, existing))
+            delegate_ids = _delete_delegate_children(conn, existing)
+            removed_delegate_ids.extend(delegate_ids)
+            _record_session_tombstones(conn, [*existing, *delegate_ids])
             # Orphan remaining children whose parent is in the kill list so the
             # FK constraint stays satisfied. Pin children whose parent
             # is itself in the kill list rather than NULL-ing parents

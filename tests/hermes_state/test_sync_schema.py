@@ -169,7 +169,7 @@ class TestMigration:
             version = database._conn.execute(
                 "SELECT version FROM schema_version"
             ).fetchone()[0]
-            assert version == SCHEMA_VERSION == 26
+            assert version == SCHEMA_VERSION
 
             session_cols = {
                 row["name"]

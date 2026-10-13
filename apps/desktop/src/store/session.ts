@@ -48,6 +48,20 @@ export const setRememberedSessionId = (id: null | string, profile?: null | strin
   persistString(rememberedSessionKey(profile), id)
 
 /**
+ * Forget the remembered session when it is one of `sessionIds` — deleted, or
+ * found gone — so a relaunch doesn't reopen it. Closing the chat moves the
+ * remembered route to the new-chat page, and a cold start on that route falls
+ * back to this id.
+ */
+export function forgetRememberedSession(sessionIds: Iterable<string>, profile?: null | string): void {
+  const remembered = getRememberedSessionId(profile)
+
+  if (remembered && new Set(sessionIds).has(remembered)) {
+    setRememberedSessionId(null, profile)
+  }
+}
+
+/**
  * The profile a routed session belongs to, for keying the remembered id.
  *
  * Prefer the owning profile recorded on the session row (the cross-profile

@@ -411,7 +411,7 @@ class TestApply:
         _push(alice, bob)
 
         assert bob.get_session("g1") is None
-        assert bob.is_deleted_gateway_session("g1")
+        assert bob.is_deleted_session("g1")
 
         result = bob.apply_remote_documents([late])
 
@@ -436,9 +436,11 @@ class TestApply:
         assert bob.get_session("g1") is None
         assert bob.get_messages("g1") == []
 
-    def test_a_tombstone_without_a_route_records_no_gateway_tombstone(
+    def test_a_tombstone_keeps_late_local_writers_from_recreating_the_session(
         self, alice, bob
     ):
+        """Bob may still be titling or running the chat alice deleted; those
+        writers must not bring it back (and push it back to alice)."""
         _seed_session(alice, messages=("one",))
         _push(alice, bob)
 
@@ -446,7 +448,13 @@ class TestApply:
         _push(alice, bob)
 
         assert bob.get_session("s1") is None
-        assert not bob.is_deleted_gateway_session("s1")
+        assert bob.is_deleted_session("s1")
+
+        bob.record_auxiliary_usage("s1", "title_generation", model="m", input_tokens=1)
+        assert bob.set_auto_title_if_empty("s1", "late title") is False
+
+        assert bob.get_session("s1") is None
+        assert bob.outbox_pending_count() == 0
 
     def test_an_unknown_kind_is_skipped_not_rejected(self, bob):
         """``kind`` is opaque end to end so new types need no schema change."""

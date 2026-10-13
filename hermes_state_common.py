@@ -204,7 +204,7 @@ def _sql_session_last_active_by_id(session_id_expr: str) -> str:
     )
 
 
-SCHEMA_VERSION = 26
+SCHEMA_VERSION = 27
 
 
 # FTS storage-layout version, tracked INDEPENDENTLY of SCHEMA_VERSION in the
@@ -337,8 +337,14 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (system_prompt_hash) REFERENCES system_prompts(hash)
 );
 
--- Explicitly deleted gateway sessions must never be repaired from a stale
--- sessions.json routing entry after their transcript is removed.
+-- Every session the user deleted (single or bulk delete, or a delete synced
+-- from another device). Writers can outlive a delete: the auto-titler's
+-- usage and title, a turn still running, a gateway routing entry in
+-- sessions.json. None of them may recreate the row; doing so turned the
+-- conversation into an empty, titled ghost. Sweeps of empty or expired rows
+-- need no tombstone: nothing still writes to those. The name predates the
+-- move from gateway transcripts to all sessions; runtimes that share this
+-- state.db read it by name.
 CREATE TABLE IF NOT EXISTS deleted_gateway_sessions (
     session_id TEXT PRIMARY KEY
 );

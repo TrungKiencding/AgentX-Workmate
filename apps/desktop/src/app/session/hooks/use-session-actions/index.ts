@@ -35,7 +35,9 @@ import {
   $newChatWorkspaceTarget,
   $sessions,
   $yoloActive,
+  forgetRememberedSession,
   type NewChatWorkspaceTarget,
+  rememberedSessionProfile,
   resolveComposerSessionKey,
   sessionPinId,
   setActiveSessionId,
@@ -1116,6 +1118,11 @@ export function useSessionActions({
             return
           }
 
+          // Or every later launch would retry it on the way to a fresh draft.
+          forgetRememberedSession(
+            [storedSessionId],
+            rememberedSessionProfile($sessions.get(), storedSessionId, $activeGatewayProfile.get())
+          )
           startFreshSessionDraft(true)
 
           return
@@ -1360,6 +1367,12 @@ export function useSessionActions({
       const removed = removedLocal ?? removedMessaging
       const removedPinId = removed ? sessionPinId(removed) : storedSessionId
 
+      const rememberedOwner = rememberedSessionProfile(
+        removed ? [removed] : [],
+        storedSessionId,
+        $activeGatewayProfile.get()
+      )
+
       // Every cached row of this conversation. Besides lineage matches that
       // includes the segment row resolveStoredSession cached when a chat was
       // opened by a since-rotated id: it shares the lineage root, or (from a
@@ -1476,6 +1489,11 @@ export function useSessionActions({
             dropSessionState(tiledRuntimeId)
           }
         }
+
+        // Closing the chat moved the remembered route to /new, and a relaunch
+        // there falls back to the remembered session id — which must not be
+        // the conversation just deleted.
+        forgetRememberedSession([...removedIds, ...deletedIds], rememberedOwner)
       } catch (err) {
         if (droppedLocal.length) {
           setSessions(prev => [...droppedLocal, ...prev])

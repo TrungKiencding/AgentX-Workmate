@@ -59,7 +59,7 @@ def _db_returning(rows: dict) -> MagicMock:
     db.get_session.side_effect = lambda sid: rows.get(sid)
     # A bare MagicMock attribute is truthy, which would read every missing
     # row as a user-deleted gateway session.
-    db.is_deleted_gateway_session.return_value = False
+    db.is_deleted_session.return_value = False
     return db
 
 
@@ -90,7 +90,7 @@ class TestPruneStaleSessionsLocked:
 
     def test_prunes_missing_row_that_was_deleted_from_workmate(self, tmp_path):
         db = _db_returning({})
-        db.is_deleted_gateway_session.side_effect = lambda sid: sid == "sid_deleted"
+        db.is_deleted_session.side_effect = lambda sid: sid == "sid_deleted"
         store = _make_store_with_db(tmp_path, db)
         store._entries["key_deleted"] = _make_entry("key_deleted", "sid_deleted")
 
@@ -109,7 +109,7 @@ class TestPruneStaleSessionsLocked:
         store._prune_stale_sessions_locked()
 
         assert "key_legacy" in store._entries
-        db.is_deleted_gateway_session.assert_called_once_with("sid_legacy")
+        db.is_deleted_session.assert_called_once_with("sid_legacy")
 
     def test_keeps_stale_entry_when_recovery_lookup_raises(self, tmp_path):
         """Indeterminate recovery must not delete the only routing handle.
