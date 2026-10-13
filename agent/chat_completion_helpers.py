@@ -34,6 +34,7 @@ from agent.error_classifier import (
     PROVIDER_STREAM_NON_JSON_ERROR_CODE,
 )
 from agent.errors import EmptyStreamError
+from agent.reasoning_compat import create_chat_completion
 from agent.turn_context import substitute_api_content
 from agent.gemini_native_adapter import is_native_gemini_base_url
 from agent.model_metadata import is_local_endpoint
@@ -890,9 +891,12 @@ def _dispatch_nonstreaming_api_request(agent, api_kwargs: dict, *, make_client):
         _completions = getattr(getattr(agent.client, "chat", None), "completions", None)
         if not callable(getattr(_completions, "prepare", None)):
             api_kwargs.pop("_moa_prepared_request", None)
-        return agent.client.chat.completions.create(**api_kwargs)
+        return create_chat_completion(agent.client, api_kwargs)
     request_client = make_client("chat_completion_request")
-    return request_client.chat.completions.create(**api_kwargs)
+    return create_chat_completion(
+        request_client, api_kwargs,
+        cancelled=lambda: bool(getattr(agent, "_interrupt_requested", False)),
+    )
 
 
 def should_use_direct_api_call(agent) -> bool:
@@ -2780,7 +2784,7 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
                 )
                 summary_response = _managed_summary_call(
                     summary_kwargs,
-                    lambda request: summary_client.chat.completions.create(**request),
+                    lambda request: create_chat_completion(summary_client, request),
                     retry_count=0,
                 )
                 _summary_result = agent._get_transport().normalize_response(summary_response)
@@ -2845,7 +2849,7 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
                 )
                 summary_response = _managed_summary_call(
                     summary_kwargs,
-                    lambda request: summary_client.chat.completions.create(**request),
+                    lambda request: create_chat_completion(summary_client, request),
                     retry_count=1,
                 )
                 _retry_result = agent._get_transport().normalize_response(summary_response)
@@ -3537,7 +3541,11 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             attempt_request_client["value"] = request_client
             last_chunk_time["t"] = time.time()
             agent._touch_activity("waiting for provider response (streaming)")
-            return request_client.chat.completions.create(**stream_kwargs)
+            return create_chat_completion(
+                request_client, stream_kwargs,
+                cancelled=lambda: not _stream_attempt_is_active(stream_attempt_id)
+                or bool(getattr(agent, "_interrupt_requested", False)),
+            )
 
         def _stream_created(raw_stream: Any) -> None:
             response = getattr(raw_stream, "response", None)

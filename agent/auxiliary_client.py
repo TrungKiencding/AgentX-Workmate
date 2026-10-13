@@ -60,6 +60,12 @@ import uuid
 from pathlib import Path  # noqa: F401 — used by test mocks
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, TYPE_CHECKING
+
+from agent.reasoning_compat import (
+    acreate_chat_completion,
+    create_chat_completion,
+    is_unsupported_parameter_error as _is_unsupported_parameter_error,
+)
 from urllib.parse import urlparse, parse_qs, urlunparse
 
 # NOTE: `from openai import OpenAI` is deliberately NOT at module top — the
@@ -3070,7 +3076,7 @@ def _relay_sync_completion(
     api_mode: str | None = None,
     create: Callable[[dict[str, Any]], Any] | None = None,
 ) -> Any:
-    callback = create or (lambda request: client.chat.completions.create(**request))
+    callback = create or (lambda request: create_chat_completion(client, request))
     route = _relay_auxiliary_metadata(provider=provider, api_mode=api_mode)
     # Protected compression calls isolate only the provider callback and stream
     # aggregation.  The owning thread remains free to unwind its lease/DB
@@ -3098,7 +3104,7 @@ async def _relay_async_completion(
     api_mode: str | None = None,
     create: Callable[[dict[str, Any]], Any] | None = None,
 ) -> Any:
-    callback = create or (lambda request: client.chat.completions.create(**request))
+    callback = create or (lambda request: acreate_chat_completion(client, request))
     route = _relay_auxiliary_metadata(provider=provider, api_mode=api_mode)
     if route is None:
         return await callback(kwargs)
@@ -3124,13 +3130,13 @@ def _relay_sync_stream(
 ) -> Any:
     route = _relay_auxiliary_metadata(provider=provider, api_mode=api_mode)
     if route is None:
-        return client.chat.completions.create(**kwargs)
+        return create_chat_completion(client, kwargs)
     provider_name, fallback_model, metadata = route
     from agent import relay_llm
 
     return relay_llm.stream_current(
         kwargs,
-        lambda request: client.chat.completions.create(**request),
+        lambda request: create_chat_completion(client, request),
         name=provider_name,
         model_name=str(kwargs.get("model") or fallback_model),
         finalizer=dict,
@@ -4067,40 +4073,6 @@ def _is_auth_error(exc: Exception) -> bool:
     if "unauthenticated" in err_lower and "bad-credentials" in err_lower:
         return True
     return False
-
-
-def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
-    """Detect provider 400s for an unsupported request parameter.
-
-    Different OpenAI-compatible endpoints phrase the same class of error a few
-    ways: ``Unsupported parameter: X``, ``unsupported_parameter`` with a
-    ``param`` field, ``X is not supported``, ``unknown parameter: X``,
-    ``unrecognized request argument: X``.  We match on both the parameter
-    name and a generic "unsupported/unknown/unrecognized parameter" marker so
-    call sites can reactively retry without the offending key instead of
-    surfacing a noisy auxiliary failure.
-
-    Generalizes the temperature-specific detector that originally shipped
-    with PR #15621 so the same retry strategy can cover ``max_tokens``,
-    ``seed``, ``top_p``, and any future quirk. Credit @nicholasrae (PR #15416)
-    for the generalization pattern.
-    """
-    param_lower = (param or "").lower()
-    if not param_lower:
-        return False
-    err_lower = str(exc).lower()
-    if param_lower not in err_lower:
-        return False
-    return any(marker in err_lower for marker in (
-        "unsupported parameter",
-        "unsupported_parameter",
-        "not supported",
-        "does not support",
-        "unknown parameter",
-        "unrecognized request argument",
-        "unrecognized parameter",
-        "invalid parameter",
-    ))
 
 
 def _is_unsupported_temperature_error(exc: Exception) -> bool:
@@ -8685,14 +8657,14 @@ def _create_with_progress(
     """
     _notify_aux_progress()  # request dispatched counts as progress
     if (not _aux_progress_active() and not force_stream) or _client_streams_internally(client):
-        return client.chat.completions.create(**kwargs)
+        return create_chat_completion(client, kwargs)
 
     total_ceiling = _aux_stream_total_ceiling(kwargs.get("timeout"))
     stream_kwargs = dict(kwargs)
     stream_kwargs["stream"] = True
     stream_kwargs["stream_options"] = {"include_usage": True}
     try:
-        chunks = client.chat.completions.create(**stream_kwargs)
+        chunks = create_chat_completion(client, stream_kwargs)
     except Exception as exc:
         # Genuine provider failures (auth, credit, rate limit, network) are
         # not streaming's fault — surface them unchanged so the existing
@@ -8714,7 +8686,7 @@ def _create_with_progress(
             "Auxiliary %s: streamed request failed (%s); retrying "
             "non-streaming", task or "call", exc,
         )
-        return client.chat.completions.create(**kwargs)
+        return create_chat_completion(client, kwargs)
 
     # Some shims (MoA virtual provider under quiet mode, defensive adapters)
     # return a complete response even when stream=True was requested.
@@ -8897,7 +8869,7 @@ async def _acreate_with_stream(
     stream_kwargs = dict(kwargs)
     stream_kwargs["stream"] = True
     stream_kwargs["stream_options"] = {"include_usage": True}
-    chunks = await client.chat.completions.create(**stream_kwargs)
+    chunks = await acreate_chat_completion(client, stream_kwargs)
     # Defensive: shims may hand back a complete response despite stream=True.
     if hasattr(chunks, "choices"):
         return chunks
@@ -9201,7 +9173,7 @@ def _call_llm_impl(
             # Return the provider call directly; the MoA facade converts a
             # completed response into a one-chunk delta iterator at its
             # boundary.
-            return client.chat.completions.create(**kwargs)
+            return create_chat_completion(client, kwargs)
         return _relay_sync_stream(
             client,
             kwargs,
@@ -10011,7 +9983,7 @@ async def _async_call_llm_impl(
         async def _acreate(_kwargs: Dict[str, Any]) -> Any:
             if _force_stream_async:
                 return await _acreate_with_stream(client, _kwargs, task)
-            return await client.chat.completions.create(**_kwargs)
+            return await acreate_chat_completion(client, _kwargs)
 
         try:
             return _validate_llm_response(
