@@ -424,20 +424,16 @@ running — while staying quieter than the content they frame.
   tracking, `--ui-text-tertiary` (see § Typography). Visible enough to group
   the rows under them, never a headline. Not brand-tinted — accent is for
   state, not for labelling. The palette's cmdk headings keep their own look.
-- **"Trò chuyện mới" is an action, not a nav row.** It stands alone above the
-  destinations, 12px clear of them, as the sidebar's one raised control: the
-  task-card recipe at `--sidebar-nav-row-height` — `--ui-bg-elevated` on a
-  `--ui-stroke-secondary` hairline with `--shadow-xs`; hover firms the
-  hairline, takes `--shadow-sm` and moves the fill a step toward the ink (the
-  lift that still reads in dark). It leads with the composer's primary mark, a
-  22px `bg-primary` circle holding a plus, and keeps the nav rows' 15px medium
-  label on their text column. The `⌘N` chip shows on hover / focus-within only
-  — a hint for people who want one, not a label everyone reads. Right-click
-  still opens "Mở ở khung chia đôi".
-- **Nav rows** — the destinations under it (Tiện ích · Kênh tin nhắn ·
-  Artifact, Tabler glyphs at 20px) — are `--sidebar-nav-row-height` at
-  `text-md font-medium`. Selected is the same treatment as a selected
-  conversation: `--ui-row-active-background` **and** the 2px
+- **"Trò chuyện mới" heads the nav rows, as one of them.** Same row, same
+  type, same glyph treatment as the destinations under it (`NAV_ROW` /
+  `NAV_ROW_GLYPH` in the sidebar), led by Tabler's `CirclePlus` — the band
+  reads as one list of ways to go, not a button stacked on a menu. The `⌘N`
+  chip shows on hover / focus-within only — a hint for people who want one,
+  not a label everyone reads. Right-click still opens "Mở ở khung chia đôi".
+- **Nav rows** — Trò chuyện mới · Tiện ích · Kênh tin nhắn · Artifact,
+  Tabler glyphs at 20px — are `--sidebar-nav-row-height` at
+  `text-md font-medium`, 2px apart. Selected is the same treatment as a
+  selected conversation: `--ui-row-active-background` **and** the 2px
   `--ui-row-active-bar`.
 - **Connected messaging channels stay under the Messaging destination.** Show
   only adapters whose live state is connected, one compact row per platform:

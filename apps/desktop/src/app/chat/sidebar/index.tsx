@@ -25,7 +25,7 @@ import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { Files, Folders, List, MessageCircle, Plus, Puzzle } from '@/lib/icons'
+import { CirclePlus, Files, Folders, List, MessageCircle, Plus, Puzzle } from '@/lib/icons'
 import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
@@ -157,29 +157,45 @@ const NON_SESSION_LOAD_STEP = 10
 // Nav glyphs are Tabler — the page chrome's one icon set. Codicon stays in the
 // transcript, terminal, editor and file tree, where it is the tool vocabulary.
 //
-// "New chat" is not one of the destinations: it is the one thing to DO in this
-// band, so it stands on its own above them instead of heading the list.
+// "New chat" heads the list as one of its rows: the same row, type and glyph
+// treatment as the destinations under it, so the band reads as one list of
+// ways to go rather than a button and a menu.
 const NEW_SESSION_NAV: SidebarNavItem = {
   id: 'new-session',
   label: '',
-  icon: props => <Plus {...props} />,
+  icon: props => <CirclePlus {...props} />,
   action: 'new-session',
   keybindActionId: 'session.new'
 }
 
-// The sidebar's one raised control — the task-card recipe (Button
-// variant="card") at nav-row height. At rest the elevated fill sits on a
-// hairline with the contact shadow; hover firms the hairline, takes one shadow
-// rung and moves the fill a step toward the ink (the lift that still reads in
-// dark, where a shadow can't); pressed settles 1px. Height, radius and the 15px
-// medium label match the nav rows below, so only the treatment sets it apart.
-const NEW_CHAT_BUTTON = cn(
-  'group/new-chat flex h-(--sidebar-nav-row-height) w-full items-center gap-2 rounded-(--radius-control) border pl-1.75 pr-2.5 text-left text-md font-medium',
-  'border-(--ui-stroke-secondary) bg-(--ui-bg-elevated) text-(--ui-text-primary) shadow-xs',
-  'transition-[background-color,border-color,box-shadow,transform] duration-(--dur-micro) ease-out [-webkit-app-region:no-drag]',
-  'hover:border-(--ui-stroke-primary) hover:bg-[color-mix(in_srgb,var(--ui-bg-elevated)_94%,var(--ui-base))] hover:shadow-sm',
-  'data-[state=open]:border-(--ui-stroke-primary) data-[state=open]:shadow-sm active:translate-y-px active:shadow-xs'
-)
+// A nav row is a 40px, 15px-medium row in the app's primary ink — deliberately a
+// rung above the conversation rows below it, which are 36px of secondary ink, so
+// the band reads as "where you can go" rather than as the top of one long list.
+//
+// no-drag: these rows sit directly under the titlebar's
+// [-webkit-app-region:drag] strips (app-shell.tsx), with only 6px of clearance.
+// Drag regions win hit-testing over DOM (pointer-events can't override), and on
+// Linux/WSLg the resolved region has been observed to swallow clicks on the top
+// rows. Same carve-out as USER_BUBBLE_BASE_CLASS in thread.tsx.
+//
+// The glyph size has to be set from HERE. SidebarMenuButton's base carries
+// `[&>svg]:size-4`, and a `size-*` on the icon itself loses to it on
+// specificity — the `size-4.5` that used to sit down there never rendered a
+// single pixel wider than 16px.
+const NAV_ROW =
+  'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-md font-medium text-(--ui-text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none'
+
+// "Selected" is the sidebar's own selected treatment: the tinted row fill PLUS
+// the 2px accent bar on the leading edge, drawn in the row's padding so it costs
+// no layout.
+const NAV_ROW_SELECTED =
+  'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)'
+
+// Ink only — size and shrink come from the button, which outranks anything set
+// here. Held just under the label's ink so the word still leads the row, but
+// only just: at 72% these outline glyphs washed out into the sidebar fill and
+// the row lost its anchor.
+const NAV_ROW_GLYPH = 'text-[color-mix(in_srgb,currentColor_88%,transparent)]'
 
 const SIDEBAR_NAV: SidebarNavItem[] = [
   {
@@ -1228,55 +1244,52 @@ export function ChatSidebar({
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
-            {/* Right-click offers the same "Open in split" submenu as the page
-                rows below — a new chat can start in a split, too. */}
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <button
-                  className={NEW_CHAT_BUTTON}
-                  onClick={() => {
-                    // A plain new session lands in whatever profile the live
-                    // gateway is on (= the active switcher context). null →
-                    // no swap. The switcher header is the single place to
-                    // change which profile that is.
-                    $newChatProfile.set(null)
-                    onNavigate(NEW_SESSION_NAV)
-                  }}
-                  type="button"
-                >
-                  {/* The composer's primary-control mark — the filled accent
-                      circle send wears — so the button reads as "start" at a
-                      glance without the whole slab turning accent. */}
-                  <span
-                    aria-hidden="true"
-                    className="grid size-5.5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors duration-(--dur-micro) group-hover/new-chat:bg-primary/90"
-                  >
-                    <NEW_SESSION_NAV.icon className="size-3.5" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{s.nav['new-session']}</span>
-                  {/* The shortcut is a hint for people who want one, not a label
-                      everyone reads: it shows on hover or keyboard focus (and
-                      for a beat when the shortcut itself was just pressed). */}
-                  {newSessionKbd.length > 0 && (
-                    <KbdGroup
-                      className={cn(
-                        'opacity-0 transition-opacity duration-(--dur-micro) group-hover/new-chat:opacity-70 group-focus-within/new-chat:opacity-70',
-                        newSessionKbdFlash && 'opacity-100!'
-                      )}
-                      keys={newSessionKbd}
-                      size="sm"
-                    />
-                  )}
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent aria-label={s.nav['new-session']}>
-                <SplitSubmenu kit={CONTEXT_SPLIT_KIT} label={s.row.openInSplit} onSplit={onNewSessionSplit} />
-              </ContextMenuContent>
-            </ContextMenu>
-
             {/* A hair of daylight between the rows: at gap-px the 40px rows
                 fused into one slab and the hover fill had no edge to land on. */}
-            <SidebarMenu className="mt-3 gap-0.5">
+            <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
+                {/* Right-click offers the same "Open in split" submenu as the
+                    page rows below — a new chat can start in a split, too. */}
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <SidebarMenuButton
+                      className={NAV_ROW}
+                      onClick={() => {
+                        // A plain new session lands in whatever profile the live
+                        // gateway is on (= the active switcher context). null →
+                        // no swap. The switcher header is the single place to
+                        // change which profile that is.
+                        $newChatProfile.set(null)
+                        onNavigate(NEW_SESSION_NAV)
+                      }}
+                      tooltip={{
+                        children: <TipKeybindLabel actionId="session.new" text={s.nav['new-session']} />
+                      }}
+                      type="button"
+                    >
+                      <NEW_SESSION_NAV.icon className={NAV_ROW_GLYPH} />
+                      <span className="min-w-0 flex-1 truncate">{s.nav['new-session']}</span>
+                      {/* The shortcut is a hint for people who want one, not a
+                          label everyone reads: it shows on hover or keyboard
+                          focus (and for a beat when the shortcut itself was
+                          just pressed). */}
+                      {newSessionKbd.length > 0 && (
+                        <KbdGroup
+                          className={cn(
+                            'opacity-0 transition-opacity duration-(--dur-micro) group-hover/nav:opacity-70 group-focus-within/nav:opacity-70',
+                            newSessionKbdFlash && 'opacity-100!'
+                          )}
+                          keys={newSessionKbd}
+                          size="sm"
+                        />
+                      )}
+                    </SidebarMenuButton>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent aria-label={s.nav['new-session']}>
+                    <SplitSubmenu kit={CONTEXT_SPLIT_KIT} label={s.row.openInSplit} onSplit={onNewSessionSplit} />
+                  </ContextMenuContent>
+                </ContextMenu>
+              </SidebarMenuItem>
               {[...SIDEBAR_NAV, ...contributedNav].map(item => {
                 const isInteractive = Boolean(item.action) || Boolean(item.route)
 
@@ -1291,31 +1304,8 @@ export function ChatSidebar({
                   <SidebarMenuButton
                     aria-disabled={!isInteractive}
                     className={cn(
-                      // no-drag: these rows sit directly under the titlebar's
-                      // [-webkit-app-region:drag] strips (app-shell.tsx), with only
-                      // 6px of clearance. Drag regions win hit-testing over DOM
-                      // (pointer-events can't override), and on Linux/WSLg the
-                      // resolved region has been observed to swallow clicks on the
-                      // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
-                      // thread.tsx.
-                      //
-                      // A nav row is a 40px, 15px-medium destination in the
-                      // app's primary ink — deliberately a rung above the
-                      // conversation rows below it, which are 36px of secondary
-                      // ink, so the band reads as "where you can go" rather than
-                      // as the top of one long list. "Selected" is the sidebar's
-                      // own selected treatment: the tinted row fill PLUS the 2px
-                      // accent bar on the leading edge, drawn in the row's
-                      // padding so it costs no layout.
-                      //
-                      // The glyph size has to be set from HERE. SidebarMenuButton's
-                      // base carries `[&>svg]:size-4`, and a `size-*` on the icon
-                      // itself loses to it on specificity — the `size-4.5` that
-                      // used to sit down there never rendered a single pixel
-                      // wider than 16px.
-                      'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-md font-medium text-(--ui-text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
-                      active &&
-                        'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)',
+                      NAV_ROW,
+                      active && NAV_ROW_SELECTED,
                       !isInteractive && 'cursor-default hover:bg-transparent hover:text-inherit'
                     )}
                     onClick={() => onNavigate(item)}
@@ -1330,12 +1320,7 @@ export function ChatSidebar({
                     }
                     type="button"
                   >
-                    {/* Ink only — size and shrink come from the button, which
-                        outranks anything set here. Held just under the label's
-                        ink so the word still leads the row, but only just: at
-                        72% these outline glyphs washed out into the sidebar fill
-                        and the row lost its anchor. */}
-                    <item.icon className="text-[color-mix(in_srgb,currentColor_88%,transparent)]" />
+                    <item.icon className={NAV_ROW_GLYPH} />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
                     {item.id === 'messaging' && pendingPairingCount > 0 && (
                       <span
