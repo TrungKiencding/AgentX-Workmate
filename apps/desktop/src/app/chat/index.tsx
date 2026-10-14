@@ -11,8 +11,8 @@ import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/u
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
-import { ChatWatermark } from '@/components/chat-watermark'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
+import { GlyphField } from '@/components/glyph-field'
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-shell/tree/store'
 import { PromptOverlays } from '@/components/prompt-overlays'
@@ -648,8 +648,11 @@ export const ChatView = memo(function ChatView({
           {...dropHandlers}
         >
           {/* Behind the transcript, inside this wrapper: it paints the opaque
-              surface fill, so a backdrop mounted outside it would be covered. */}
-          <ChatWatermark />
+              surface fill, so a backdrop mounted outside it would be covered.
+              The field is the ground of the empty chat — it arrives with the
+              greeting and leaves as the conversation starts — and an inactive
+              tab lets go of its bitmap. */}
+          <GlyphField active={showIntro && paneVisible} />
           <Thread
             clampToComposer={showChatBar}
             cwd={currentCwd}

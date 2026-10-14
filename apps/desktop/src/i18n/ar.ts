@@ -687,7 +687,7 @@ export const ar = defineLocale({
       translucencyTitle: 'شفافية النافذة',
       translucencyDesc: 'إظهار سطح المكتب من خلال النافذة بالكامل. متاح على macOS وWindows فقط.',
       backdropTitle: 'خلفية المحادثة',
-      backdropDesc: 'نقش AgentX Workmate الخافت خلف المحادثة.',
+      backdropDesc: 'أحرف صغيرة تنتشر من حيث تنقر في محادثة جديدة.',
       reactionsTitle: 'تفاعلات الرسائل',
       reactionsDesc: 'تفاعلات إيموجي بأسلوب iMessage — تفاعل مع الرسائل، ويمكن لـ AgentX التفاعل مع رسائلك.',
       embedsTitle: 'التضمينات المضمّنة',

@@ -607,7 +607,7 @@ export const ja = defineLocale({
       translucencyTitle: 'ウィンドウの透過',
       translucencyDesc: 'ウィンドウ全体を透過させてデスクトップを表示します。macOS と Windows のみ。',
       backdropTitle: 'チャット背景',
-      backdropDesc: '会話の背後に表示される淡い AgentX Workmate のパターン。',
+      backdropDesc: '新しいチャットの画面をクリックすると、小さな文字がその場所から波紋のように広がります。',
       reactionsTitle: 'メッセージリアクション',
       reactionsDesc:
         'iMessage風の絵文字タップバック — メッセージにリアクションでき、AgentXもあなたのメッセージにリアクションします。',

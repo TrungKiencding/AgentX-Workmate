@@ -10,10 +10,9 @@
  * kink on every corner and a wobble along the tail, which a hairline at 24px
  * shows as a shaky hand. Re-fit the numbers if the artwork changes.
  *
- * One source for every place the mark is drawn as a stroke — the chat
- * watermark, the `BrandGlyph` at the head of a reply, the `EmptyFigure`
- * illustrations — so the three can never drift into three slightly different
- * logos.
+ * One source for every place the mark is drawn as a stroke — the `BrandGlyph`
+ * at the head of a reply and in the thinking row, the `EmptyFigure`
+ * illustrations — so they can never drift into slightly different logos.
  */
 type Point = readonly [number, number]
 

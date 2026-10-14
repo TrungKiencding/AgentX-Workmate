@@ -187,11 +187,15 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <h2 className="intro-greeting intro-enter font-serif-display text-2xl text-(--ui-text-primary)">{greeting}</h2>
+        <div className="intro-head">
+          <h2 className="intro-greeting intro-enter font-serif-display text-2xl text-(--ui-text-primary)">
+            {greeting}
+          </h2>
 
-        <p className="intro-body intro-enter" style={{ '--intro-step': 1 } as React.CSSProperties}>
-          {body}
-        </p>
+          <p className="intro-body intro-enter" style={{ '--intro-step': 1 } as React.CSSProperties}>
+            {body}
+          </p>
+        </div>
 
         {chips.length > 0 && (
           <div aria-label={intro.quickStart} className="intro-cards pointer-events-auto" role="group">
@@ -201,7 +205,10 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
 
               return (
                 <Button
-                  className="intro-enter"
+                  // A sheet of its own over the glyph field: the elevated fill
+                  // at rest, a step toward the ink on hover — never the
+                  // see-through hover tint, which would let the characters in.
+                  className="intro-enter bg-(--ui-bg-elevated) hover:bg-[color-mix(in_srgb,var(--ui-bg-elevated)_96%,var(--ui-base))]"
                   data-span={introCardSpan(chip)}
                   key={chip.kind === 'starter' ? chip.starter : `${chip.kind}:${copy.title}`}
                   onClick={() => runChip(chip)}

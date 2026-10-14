@@ -61,7 +61,7 @@ export function EmptyFigure({
       viewBox="0 0 96 96"
       {...props}
     >
-      {/* The mark, upper-left, at 40px — the same geometry as the watermark. */}
+      {/* The mark, upper-left, at 40px — the same geometry as the BrandGlyph. */}
       <g transform="translate(10 12) scale(0.4)">
         {BRAND_MARK_PATHS.map(d => (
           <path d={d} key={d} vectorEffect="non-scaling-stroke" />

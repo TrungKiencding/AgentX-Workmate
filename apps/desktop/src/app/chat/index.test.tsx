@@ -38,10 +38,13 @@ vi.mock('@/components/assistant-ui/thread', async () => {
   }
 })
 
-vi.mock('@/components/chat-watermark', async () => {
+vi.mock('@/components/glyph-field', async () => {
   const React = await import('react')
 
-  return { ChatWatermark: () => React.createElement('div', { 'data-testid': 'chat-watermark' }) }
+  return {
+    GlyphField: ({ active }: { active: boolean }) =>
+      React.createElement('div', { 'data-active': String(active), 'data-testid': 'glyph-field' })
+  }
 })
 
 vi.mock('@/components/prompt-overlays', () => ({
@@ -283,5 +286,59 @@ describe('ChatView render isolation', () => {
     expect(screen.queryByTestId('chat-bar')).toBeNull()
     expect(screen.queryByTestId('prompt-overlays')).toBeNull()
     expect(lastThreadProps.current.readOnly).toBe(true)
+  })
+
+  // The glyph field is the ground of the empty chat — the greeting's surface —
+  // and must never sit behind a transcript, where characters compete with text.
+  it('arms the glyph field with the greeting, and only there', () => {
+    const props = {
+      gateway: null,
+      onAddContextRef: vi.fn(),
+      onAddUrl: vi.fn(),
+      onAttachDroppedItems: vi.fn(),
+      onAttachImageBlob: vi.fn(),
+      onCancel: vi.fn(),
+      onDeleteSelectedSession: vi.fn(),
+      onEdit: vi.fn(),
+      onPasteClipboardImage: vi.fn(),
+      onPickFiles: vi.fn(),
+      onPickFolders: vi.fn(),
+      onPickImages: vi.fn(),
+      onReload: vi.fn(),
+      onRemoveAttachment: vi.fn(),
+      onRetryResume: vi.fn(),
+      onSteer: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadMessagesChange: vi.fn(),
+      onToggleSelectedPin: vi.fn()
+    }
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    const renderAt = (path: string) =>
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[path]}>
+            <ChatView {...props} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+
+    // A conversation with history: no field, no greeting.
+    renderAt('/stored-1')
+
+    expect(screen.getByTestId('glyph-field').dataset.active).toBe('false')
+    expect(lastThreadProps.current.intro).toBeUndefined()
+    cleanup()
+
+    // The fresh draft: the greeting fronts it, and the field is armed with it.
+    $activeSessionId.set(null)
+    $selectedStoredSessionId.set(null)
+    $messages.set([])
+    $freshDraftReady.set(true)
+    renderAt('/')
+
+    expect(screen.getByTestId('glyph-field').dataset.active).toBe('true')
+    expect(lastThreadProps.current.intro).toBeDefined()
   })
 })

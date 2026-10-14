@@ -72,7 +72,7 @@
   width: 19rem;
   height: 19rem;
   color: var(--ui-accent);
-  opacity: var(--ui-watermark-strength);
+  opacity: var(--ui-brand-art-strength);
   pointer-events: none;
 }
 

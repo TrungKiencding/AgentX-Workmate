@@ -4,9 +4,9 @@ import { BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX } from '@/lib/brand-mark-path'
 import { cn } from '@/lib/utils'
 
 /**
- * The mark as a 20px line-art glyph — the same geometry the chat watermark
- * tiles (`lib/brand-mark-path.ts`), drawn once, in `currentColor`, with a
- * stroke that does not scale. It says "AgentX is speaking" at the head of a
+ * The mark as a 20px line-art glyph — the shared geometry of
+ * `lib/brand-mark-path.ts`, drawn once, in `currentColor`, with a stroke that
+ * does not scale. It says "AgentX is speaking" at the head of a
  * reply and anchors the `EmptyFigure` illustrations; it is not a button and
  * carries no colour of its own. For the brand *plate* (a filled tile for hero
  * and About moments) use `BrandMark` instead.

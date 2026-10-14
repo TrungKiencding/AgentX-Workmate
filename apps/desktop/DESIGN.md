@@ -164,7 +164,8 @@ for call-site shadow or border inventions.
 | `--ui-focus-ring`, `--ui-focus-ring-width/-offset` | the one focus indicator |
 | `--ui-scrollbar-thumb*` | scrollbar thumb, per state |
 | `--ui-selection-seed` | the selection amber, one seed at two strengths |
-| `--ui-watermark-strength` | how loud the chat backdrop's brand pattern is, per mode |
+| `--ui-glyph-field-strength` | how bright the empty chat's glyph field prints when a click lights it, per mode |
+| `--ui-brand-art-strength` | how loud the brand line art behind the sign-in plate is, per mode |
 
 The semantic trio is one construction: fixed hue + chroma, lightness pitched per
 mode. Light clears 4.5:1 on paper (`oklch(52% 0.14 155)` · `oklch(55% 0.12 80)`
@@ -682,6 +683,22 @@ so two-line rows still grow), `HUD_HEADING`.
     collapses it to an instant crossfade — the app-wide reduced-motion
     kill-switch (0.01ms, top of `styles.css`) outranks the intro's own fade —
     with no stagger and no transform.
+  - **The ground is the glyph field** (`components/glyph-field`, the model in
+    `lib/glyph-field.ts`). At rest it is blank paper. A primary click anywhere
+    on the chat surface — the greeting, a card, the composer — sends a ring of
+    10px JetBrains Mono characters out from the pointer: each one flashes in
+    the accent as the edge reaches it and settles into a grey trace, brightest
+    where the ring crosses the strokes of a hidden drawing (one per app
+    launch), never on open paper. Traces build up over a few clicks and fade
+    back to white at one shared rate, so the painter draws only while a ring
+    is flashing and hands the fade to the compositor; at rest it holds no
+    bitmap and no animation frame. It grounds the empty chat only — characters
+    behind a transcript compete with the text — and reduced motion gets blank
+    paper. Off is Settings → Appearance → Nền cuộc trò chuyện.
+  - The greeting and its line sit in a pool of clear paper (`.intro-head`: the
+    surface colour, spread and blurred past the text block), and the cards
+    carry the elevated fill, a hover moving it a step toward the ink — so the
+    field runs right up to the words but never under them.
 - The transcript and composer are built on `@assistant-ui/react`. Extend the
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or
@@ -729,8 +746,8 @@ so two-line rows still grow), `HUD_HEADING`.
   rises into place at `--dur-short-exit`, and its body carries a soft bottom
   mask. No pulsing halo — a coloured glow around a card is banned on any
   surface, and a second loop would compete with the text actually arriving.
-- **A reply says who is speaking, once.** `BrandGlyph` (20px, the
-  watermark's own geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
+- **A reply says who is speaking, once.** `BrandGlyph` (20px, the mark's
+  shared geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
   the first assistant message of a turn on the prose column's left edge;
   interim messages in the same turn wear none, and it never sits in a bubble.
 - **A wait is the mark breathing.** Before the first token the thinking row
@@ -913,8 +930,8 @@ so two-line rows still grow), `HUD_HEADING`.
 - **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
   (`size="md"`, the reply head and the empty figures) or 14px (`size="sm"`,
   the thinking row) `currentColor` line-art glyph, built from `lib/brand-mark-path.ts` — the
-  same geometry the chat watermark tiles and the `EmptyFigure`s carry. Three
-  drawings, one path: re-fit the numbers there and all three follow.
+  same geometry the `EmptyFigure`s carry. One path for every drawing of the
+  mark: re-fit the numbers there and they all follow.
 
 ## Motion
 
@@ -948,6 +965,7 @@ so two-line rows still grow), `HUD_HEADING`.
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` |
 | Tab pill sliding to the active tab (`PillTabs`) | `transform` (the pill's size snaps) | `--dur-short-exit` · `--ease-out`; reduced motion → a jump |
 | Card hover (`Button variant="card"`, store/artifact cards) | `background-color`, `border-color`, `box-shadow` (`--shadow-xs` → `--shadow-sm`) | `--dur-short` · `--ease-out` — never translate, never scale |
+| Glyph field ring (canvas, see § Chat) | each character's alpha and tint, every frame while a ring flashes; the trace's fade as the canvas's `opacity` | edge eases out over 2.4s; flash 420ms and trace 3.2s time constants (`lib/glyph-field.ts`); reduced motion → no ring |
 
 - **Menus, popovers, dialogs and the palette open in the frame they are asked
   for** — no entry animation at all. Only their *close* is animated, and only

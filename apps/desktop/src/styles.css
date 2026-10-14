@@ -797,9 +797,12 @@
     --warm-glow: color-mix(in srgb, var(--ui-warm) 32%, color-mix(in srgb, var(--ui-accent) 6%, transparent));
     /* `--noise-opacity-mul` is set per-mode by `applyTheme()`. */
     --noise-opacity-mul: 1;
-    /* The one knob on the brand watermark (`.chat-watermark`). The art carries
-       its own relative weights; this says how loud the whole texture is. */
-    --ui-watermark-strength: 0.115;
+    /* How loud the brand line art behind the sign-in plate is. The art carries
+       its own relative weights; this says how loud the whole drawing is. */
+    --ui-brand-art-strength: 0.115;
+    /* How bright the characters a click lets into the glyph field print
+       (`.glyph-field`) — the strokes at full, open paper at a fifth of it. */
+    --ui-glyph-field-strength: 0.85;
   }
 
   :root.dark {
@@ -847,7 +850,9 @@
     --sidebar-edge-border: color-mix(in srgb, var(--ui-base) 12%, transparent);
     --composer-ring-strength: 1.3;
     /* Hairlines lose more to a dark ground than to paper — lift, don't match. */
-    --ui-watermark-strength: 0.16;
+    --ui-brand-art-strength: 0.16;
+    /* Light characters on graphite read louder than dark ones on paper. */
+    --ui-glyph-field-strength: 0.75;
     /* Dark mode: a dark card needs a stronger black inset to show the recess. */
     --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 38%, transparent);
     --ui-tab-hover-darken: 6%;
@@ -1832,29 +1837,37 @@ code {
   max-width: min(var(--composer-width), 82vw);
 }
 
-/* The chat backdrop — the AgentX Workmate identity as a repeating hairline
-   texture (see components/chat-watermark.tsx for the tile). It takes its colour
-   from the accent token so every skin gets its own ink, and its loudness from a
-   single per-mode token, so tuning the whisper never means touching the art. */
-.chat-watermark {
+/* The chat backdrop on an empty chat — blank paper that a click lets ink into:
+   a ring of small monospaced characters spreads from the pointer, swells into
+   the accent and fades back to nothing (see components/glyph-field). The host
+   clips the sheet and owns the fade. Its `color` is the ink a character cools
+   to and the canvas's `color` is the accent it lights in, so the painter reads
+   both off the skin instead of shipping its own; `--ui-glyph-field-strength`
+   says how loud the whole thing is, per mode. */
+.glyph-field {
   position: absolute;
   inset: 0;
   z-index: -1;
   overflow: hidden;
-  color: var(--dt-primary);
-  opacity: var(--ui-watermark-strength);
+  color: var(--dt-foreground);
+  opacity: 0;
   pointer-events: none;
+  transition: opacity var(--dur-long-exit) var(--ease-in);
 }
 
-.chat-watermark > svg {
+.glyph-field[data-state='on'] {
+  opacity: 1;
+  transition: opacity var(--dur-long) var(--ease-out);
+}
+
+/* Sized and positioned by the painter, anchored top-left so a resize never
+   moves a character. */
+.glyph-field > canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* The wordmarks are drawing, not copy: they ride the UI sans, never the ramp. */
-.chat-watermark text {
-  font-family: var(--dt-font-sans);
+  color: var(--dt-primary);
 }
 
 /* The one "human" moment in the product: a serif line that greets, a muted line
@@ -1872,6 +1885,30 @@ code {
   color: var(--ui-text-tertiary);
   font-size: var(--text-md);
   line-height: 1.5;
+}
+
+/* The glyph field runs right up to the words, so the greeting and its line sit
+   in a pool of clear paper: the surface colour, spread and blurred past the
+   text block. Painted rather than cut out of the field, it moves with the text
+   (the entrance, a reflow, a card arriving) and needs no measuring; with the
+   backdrop off it is the surface on the surface, i.e. nothing. */
+.intro-head {
+  position: relative;
+  z-index: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.intro-head::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 3rem;
+  background: var(--ui-chat-surface-background);
+  box-shadow: 0 0 2.5rem 2rem var(--ui-chat-surface-background);
+  content: '';
+  pointer-events: none;
 }
 
 /* The intro measures its own column (tiles can be narrow while the window is

@@ -574,7 +574,7 @@ export const zhHant = defineLocale({
       translucencyTitle: '視窗透明',
       translucencyDesc: '讓整個視窗透出桌面。僅支援 macOS 與 Windows。',
       backdropTitle: '聊天背景',
-      backdropDesc: '對話後方淡淡的 AgentX Workmate 圖案。',
+      backdropDesc: '在新對話頁面上點擊時，細小的字元會從點擊處泛開。',
       reactionsTitle: '訊息回應',
       reactionsDesc: 'iMessage 風格的表情回應 — 你可以對訊息做出回應，AgentX 也能回應你的訊息。',
       embedsTitle: '內嵌預覽',

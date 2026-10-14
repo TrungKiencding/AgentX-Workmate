@@ -416,3 +416,39 @@ icon removed a server without asking.
   logs; 52 orphaned `settings.mcp.*` keys and three `skills.*` keys are gone
   from the contract and all six locales; the hub keys ja · zh-hant · ar had
   been falling back to English for are translated with the new ones.
+
+## 2026-10 — the glyph field, and a sidebar of one kind of row
+
+**Before.** The chat's backdrop was a tiled brand pattern — the AgentX mark
+and the two words in hairline accent — behind every surface, conversations
+included. "Trò chuyện mới" was the sidebar's one raised control: an elevated
+card with an accent-filled plus, set apart from the rows under it.
+
+**After.**
+- **Blank paper that answers a click.** The empty chat is white (or
+  graphite). A primary click anywhere on it — the greeting, a card, the
+  composer — sends a ring of small monospaced characters out from the pointer:
+  each one flashes in the accent as the edge reaches it, then settles into a
+  grey trace. The trace only holds where the ring crosses the strokes of a
+  hidden drawing (a new one each launch), so a few clicks bring the drawing
+  out of the paper; left alone it fades back to nothing. Characters never sit
+  behind a transcript: the field leaves as the conversation starts.
+- **Smooth because it is cheap.** The model is pure (`lib/glyph-field.ts`) and
+  the canvas holds no bitmap and no animation frame until the first click.
+  When a ring is born, the moment its edge reaches every cell is worked out
+  once, so a frame is a subtraction and an exponential per cell — 2.4ms
+  typical, 4.5ms worst with four rings overlapping on a 2560×1920 canvas. The
+  drawing is laid out in idle time, so the first click costs under 2ms, not
+  18. Every trace fades at one rate, so once the rings are out the last frame
+  is handed to the compositor as an opacity animation and the painter stops.
+- **Words stay on clear paper.** The greeting and its line sit in a soft pool
+  of the surface colour, and the four cards carry the elevated fill, so the
+  field runs up to the text without ever running under it.
+- **One kind of row.** "Trò chuyện mới" is now the first of the nav rows —
+  same 40px row, 15px medium label and 20px Tabler glyph (`CirclePlus`) as
+  Tiện ích · Kênh tin nhắn · Artifact — keeping its ⌘N hint on hover and its
+  right-click "Mở ở khung chia đôi".
+- **Kept honest.** The watermark and its test are gone; the mark's geometry
+  test moved to `lib/brand-mark-path.test.ts`, where the geometry lives.
+  `--ui-watermark-strength` became `--ui-brand-art-strength` (the sign-in
+  plate's line art, its last reader) and `--ui-glyph-field-strength`.

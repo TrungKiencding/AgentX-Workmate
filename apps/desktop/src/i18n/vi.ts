@@ -740,7 +740,7 @@ export const vi: Translations = {
       translucencyTitle: 'Cửa sổ trong suốt',
       translucencyDesc: 'Nhìn xuyên qua toàn bộ cửa sổ xuống màn hình nền. Chỉ có trên macOS và Windows.',
       backdropTitle: 'Nền cuộc trò chuyện',
-      backdropDesc: 'Hoạ tiết AgentX Workmate mờ phía sau cuộc trò chuyện.',
+      backdropDesc: 'Những ký tự nhỏ loang ra từ chỗ bạn nhấp trên màn hình trò chuyện mới.',
       reactionsTitle: 'Biểu cảm tin nhắn',
       reactionsDesc:
         'Thả emoji kiểu iMessage — bạn bày tỏ cảm xúc với tin nhắn, và AgentX cũng có thể thả lại tin của bạn.',
