@@ -1,9 +1,9 @@
-# Đánh giá và tích hợp Hermes upstream — 11/10/2026
+# Đánh giá và tích hợp upstream — 11/10/2026
 
 ## Phạm vi
 
 - Nhánh đích: `version-1.1.0`; điểm xuất phát: `2e0fe184a5`.
-- Upstream đã fetch: `NousResearch/hermes-agent`, `main` tại `79b45d1647` (11/10/2026).
+- Upstream đã fetch: remote `upstream` (`git remote get-url upstream`), `main` tại `79b45d1647` (11/10/2026).
 - Sàng lọc danh sách 12.991 commit first-parent từ 16/09/2026: nội dung commit, đường dẫn, kích thước, các bản đã được cherry-pick và phụ thuộc. Đây là sàng lọc danh mục; không khẳng định đã đọc từng dòng của cả 12.991 commit.
 - Đọc và tích hợp 31 bản vá ưu tiên cùng các bản hoàn thiện cần thiết. Một số bản bổ trợ cũ hơn được lấy để khép kín nhóm sửa. Giữ tác giả upstream bằng `cherry-pick -x`; xử lý xung đột ngay trên giao diện hiện có của AgentX.
 - Thực hiện trên `codex/upstream-hermes-20261011`, sau kiểm thử mới fast-forward nhánh đích. Không push remote.

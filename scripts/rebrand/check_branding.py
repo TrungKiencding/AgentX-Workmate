@@ -257,10 +257,14 @@ ALLOWED: list[tuple[str, re.Pattern[str], str]] = [
         "upstream-citations",
         re.compile(
             r"(?i:nousresearch)/hermes-agent"
-            r"(?:#\d+|/(?:issues|pull|pulls|discussions|compare)/\d+)"
+            r"(?:#\d+|/(?:issues|pull|pulls|discussions|compare)/\d+"
+            # The commit a `cherry-pick -x` came from: its SHA names an object
+            # in the upstream history only — the pick itself has a new one.
+            r"|/commit/[0-9a-f]{7,40}(?![0-9a-z]))"
         ),
-        "numbered issue and PR citations; those numbers exist in Nous's "
-        "tracker and nowhere else, so repointing them breaks a correct link",
+        "numbered issue and PR citations, and links to the upstream commit a "
+        "cherry-pick came from; those numbers and SHAs exist in Nous's tracker "
+        "and history and nowhere else, so repointing them breaks a correct link",
     ),
     # -- Nous the LLM PROVIDER, not Nous the upstream author ----------------
     (

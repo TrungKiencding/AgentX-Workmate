@@ -14,7 +14,7 @@ export interface UsageSignal {
  * Pass lifecycle signals only; never cross transcript/tool data over IPC.
  *
  * A turn ends at its terminal `message.complete`, never at an `error` event:
- * Hermes also emits those for warnings while the turn goes on.
+ * the gateway also emits those for warnings while the turn goes on.
  */
 export function usageSignal(event: GatewayEvent): UsageSignal | null {
   if (!event.session_id || !['message.start', 'message.complete'].includes(event.type)) {

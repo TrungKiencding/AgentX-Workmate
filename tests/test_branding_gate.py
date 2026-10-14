@@ -49,6 +49,10 @@ MUST_FAIL = [
     ("web/src/App.tsx", 'localStorage.getItem("hermes-sidebar-collapsed")'),
     # The hub's target id is pardoned, not a display name next to it.
     ("tests/tools/test_skills_hub.py", '"targets": ["hermes"], "name": "Hermes Agent",'),
+    # An upstream-sync report may cite the commits it picked, not name the
+    # upstream in prose — and a commit link only counts with a real SHA.
+    ("docs/upstream-sync.md", "- Upstream fetched: `NousResearch/hermes-agent`, `main` at `79b45d1647`."),
+    ("docs/upstream-sync.md", "See https://github.com/NousResearch/hermes-agent/commit/main for the rest."),
 ]
 
 # ── Things the gate must NOT flag ────────────────────────────────────────
@@ -67,6 +71,11 @@ MUST_PASS = [
     ("package.json", '"hermes-parser": "^0.20.0"'),
     ("agent/x.py", "# See https://github.com/NousResearch/hermes-agent/issues/10454"),
     ("agent/y.py", "# Fixed in NousResearch/hermes-agent#53027"),
+    (
+        "docs/upstream-sync.md",
+        "- [`66cc3f165d`](https://github.com/NousResearch/hermes-agent/commit/"
+        "66cc3f165d2f0fd444ce93c8ce8aeb7502a4bd2b): fix(tools): normalize blank search paths",
+    ),
     ("hermes_cli/auth.py", 'PORTAL = "https://portal.nousresearch.com"'),
     ("plugins/model-providers/nous/__init__.py", 'display_name = "Nous Research"'),
     ("apps/desktop/src/b.ts", "const cfg: HermesConfigRecord = load()"),
