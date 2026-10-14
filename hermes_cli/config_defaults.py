@@ -78,12 +78,20 @@ DEPLOYMENT_LITELLM_DEFAULT_MODEL = ""
 #: model keeps it.
 DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL = "MiniMax/MiniMax-M3"
 
-#: Prefix of the LiteLLM key alias provisioning labels a key with. It predates
-#: the keys service and stays as it is: the deprecated broker mode sends the
-#: alias as the account it mints for, and a litellm-account.json recorded
-#: without a subject is matched by it (``account_provisioning._key_belongs_to``),
-#: so a new value could re-issue keys on installs that already hold one.
-DEPLOYMENT_KEY_ALIAS_PREFIX = "second-brain"
+#: Prefix of the LiteLLM key alias provisioning labels a key with — the one the
+#: keys service of AgentX SSO names the keys it mints with
+#: (``agentx-<name>-<digest>``). A label, never a handle: in ``keys`` mode the
+#: service names the key and is never sent an alias, the deprecated broker logs
+#: the alias it is sent and mints under its own, and a key is matched to its
+#: account by the subject every litellm-account.json has recorded since the
+#: first one was written (``account_provisioning._key_belongs_to``). So a new
+#: value re-labels nothing and re-issues nothing on installs that hold a key.
+DEPLOYMENT_KEY_ALIAS_PREFIX = "agentx"
+
+#: Prefixes that were the default before (``second-brain`` until 2026-10-14).
+#: An older build wrote the default out into config.yaml, so a prefix here is
+#: read as the current default — ``account_provisioning.resolve_key_alias_prefix``.
+RETIRED_KEY_ALIAS_PREFIXES = ("second-brain",)
 
 #: The keys service of AgentX SSO: one model key per person, the models it is
 #: granted, the person's license, and the devices they hold it on. Public — it

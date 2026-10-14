@@ -311,6 +311,22 @@ def resolve_keys_url(value: Any) -> str:
     return url
 
 
+def resolve_key_alias_prefix(value: Any) -> str:
+    """``accounts.litellm.key_alias_prefix`` as every reader uses it.
+
+    Unset, or a retired default (``RETIRED_KEY_ALIAS_PREFIXES``), reads as the
+    current default — for the reason ``resolve_keys_url`` gives: an older
+    build wrote the default out into config.yaml and a desktop install never
+    runs the migration ladder. A prefix somebody chose is left as it is.
+    """
+    from hermes_cli.config_defaults import RETIRED_KEY_ALIAS_PREFIXES
+
+    prefix = str(value or "").strip()
+    if not prefix or prefix.lower() in RETIRED_KEY_ALIAS_PREFIXES:
+        return DEPLOYMENT_KEY_ALIAS_PREFIX
+    return prefix
+
+
 def keys_service() -> tuple[str, float]:
     """``(base_url, timeout)`` of the keys service this install talks to.
 
@@ -381,8 +397,7 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
         broker_url=_str("broker_url").rstrip("/"),
         keys_url=keys_url,
         provider_name=_str("provider_name", "litellm") or "litellm",
-        key_alias_prefix=_str("key_alias_prefix", DEPLOYMENT_KEY_ALIAS_PREFIX)
-        or DEPLOYMENT_KEY_ALIAS_PREFIX,
+        key_alias_prefix=resolve_key_alias_prefix(section.get("key_alias_prefix")),
         models=model_tuple,
         max_budget=_float("max_budget"),
         budget_duration=_str("budget_duration"),

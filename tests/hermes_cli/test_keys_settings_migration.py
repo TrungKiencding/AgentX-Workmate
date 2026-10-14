@@ -5,8 +5,10 @@ Until 1.1.1 the settings of the service that issues model keys lived under
 mode that collects a key from it was ``accounts.litellm.mode: second_brain``.
 The service is the keys service of AgentX SSO and sync is retired, so the
 names move: ``accounts.keys`` and ``mode: keys``. Only the names — the URL, the
-timeout and the alias prefix keep their values, so a machine keeps the key it
-holds and the service that issued it.
+timeout and the alias prefix keep their values as written, so a machine keeps
+the key it holds and the service that issued it. A retired default among them
+(the old host, the old ``second-brain`` prefix) reads as the current default
+where it is read.
 
 A desktop install never runs the migration ladder, and an administrator's
 managed file is never rewritten, so ``load_config`` reads the old names under
@@ -18,7 +20,7 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from hermes_cli.config_defaults import DEPLOYMENT_KEYS_URL
+from hermes_cli.config_defaults import DEPLOYMENT_KEY_ALIAS_PREFIX, DEPLOYMENT_KEYS_URL
 
 CUSTOM = "https://sso.customer.example/keys"
 
@@ -77,7 +79,7 @@ class TestV39Migration:
         assert accounts["litellm"] == {
             "enabled": True,
             "mode": "keys",
-            # A label existing keys carry; it keeps its value (see config_defaults).
+            # Kept as written; it reads as the current default (the next test).
             "key_alias_prefix": "second-brain",
         }
         assert _read(path)["display"] == {"language": "vi"}
@@ -95,6 +97,7 @@ class TestV39Migration:
 
         settings = load_settings()
         assert (settings.mode, settings.keys_url) == ("keys", CUSTOM)
+        assert settings.key_alias_prefix == DEPLOYMENT_KEY_ALIAS_PREFIX == "agentx"
         assert keys_service() == (CUSTOM, 9.0)
 
     @pytest.mark.parametrize(
@@ -189,7 +192,8 @@ class TestReadTime:
         assert (settings.mode, settings.keys_url, settings.key_alias_prefix) == (
             "keys",
             CUSTOM,
-            "second-brain",
+            # The default an older build wrote out reads as today's.
+            DEPLOYMENT_KEY_ALIAS_PREFIX,
         )
         assert keys_service() == (CUSTOM, 9.0)
         # Reading is not migrating: the file is the ladder's to rewrite.
@@ -215,7 +219,12 @@ class TestReadTime:
         managed.mkdir()
         (managed / "config.yaml").write_text(
             yaml.safe_dump(
-                {"accounts": {"second_brain": {"base_url": CUSTOM}, "litellm": {"mode": "second_brain"}}}
+                {
+                    "accounts": {
+                        "second_brain": {"base_url": CUSTOM},
+                        "litellm": {"mode": "second_brain", "key_alias_prefix": "second-brain"},
+                    }
+                }
             ),
             encoding="utf-8",
         )
@@ -225,4 +234,12 @@ class TestReadTime:
 
         # Managed wins at the leaf, under whichever name it was written.
         assert keys_service()[0] == CUSTOM
-        assert load_settings().mode == "keys"
+        settings = load_settings()
+        assert (settings.mode, settings.key_alias_prefix) == ("keys", DEPLOYMENT_KEY_ALIAS_PREFIX)
+
+    def test_a_prefix_somebody_chose_is_kept(self, hermes_home):
+        from hermes_cli.account_provisioning import load_settings
+
+        _write_config(hermes_home, {"accounts": {"litellm": {"key_alias_prefix": "acme-lab"}}})
+
+        assert load_settings().key_alias_prefix == "acme-lab"

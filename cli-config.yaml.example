@@ -1921,8 +1921,9 @@ updates:
 #     # console — nothing looks a key up by it and nothing deletes one by it.
 #     # It used to be the idempotency handle, and that was the bug: every
 #     # machine one person owns presents the same alias, so retiring "the key
-#     # wearing this alias" retired their other laptop's working key.
-#     key_alias_prefix: "agentx-workmate"
+#     # wearing this alias" retired their other laptop's working key. The
+#     # default is the prefix the keys service of AgentX SSO names its keys with.
+#     key_alias_prefix: "agentx"
 #
 #     # Restrict each minted key to these model ids. Empty means every model
 #     # the proxy exposes to that key.

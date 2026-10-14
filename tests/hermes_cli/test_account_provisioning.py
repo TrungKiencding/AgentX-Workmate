@@ -1520,6 +1520,66 @@ class TestUpgradingOntoTheKeysService:
         assert env_value(key_env) == key
         assert read_state(account.home)["mode"] == "keys"
 
+    def test_a_key_labelled_under_the_retired_prefix_is_reused_without_asking_again(
+        self, account, service, fake_proxy
+    ):
+        """An install updated from a build whose alias prefix was ``second-brain``.
+
+        Its key wears that label at the proxy and in litellm-account.json, and
+        the config.yaml that build wrote out still names the old prefix. This
+        build labels keys ``agentx-…``, but a label decides nothing: the subject
+        the sidecar recorded says whose key it is. So the key is reused — the
+        service is not asked, nothing is minted, nothing is retired.
+        """
+        settings = load_settings(
+            {
+                "accounts": {
+                    "keys": {"base_url": KEYS_URL},
+                    "litellm": {
+                        "enabled": True,
+                        "mode": "second_brain",
+                        "base_url": PROXY_URL,
+                        "discover_models": False,
+                        "key_alias_prefix": "second-brain",
+                    },
+                }
+            }
+        )
+        assert (settings.mode, settings.keys_url, settings.key_alias_prefix) == ("keys", KEYS_URL, "agentx")
+        service.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
+            client=client,
+        )
+        sidecar = account.home / "litellm-account.json"
+        written = json.loads(sidecar.read_text(encoding="utf-8"))
+        # Every sidecar records whose key it is; that, not the label, is what reuse checks.
+        assert written["subject"] == account.identity.subject
+        old_label = "second-brain-" + written["key_alias"].removeprefix("agentx-")
+        sidecar.write_text(
+            json.dumps({**written, "key_alias": old_label, "mode": "second_brain"}), encoding="utf-8"
+        )
+        fake_proxy.records[written["token"]]["key_alias"] = old_label
+        key_env = provider_key_env(settings.provider_name)
+        key = env_value(key_env)
+        tokens = set(fake_proxy.records)
+        service.requests.clear()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
+            client=client,
+        )
+
+        assert result.status == "reused"
+        assert result.key_alias == old_label
+        assert service.requests == []
+        assert env_value(key_env) == key
+        assert set(fake_proxy.records) == tokens
+        assert read_state(account.home)["key_alias"] == old_label
+
     def test_a_proxy_that_cannot_be_reached_asks_the_service_where_it_is(
         self, account, service, fake_proxy
     ):
@@ -2434,6 +2494,29 @@ class TestLoadSettings:
 
         assert alias.count(alias.rsplit("-", 1)[-1]) == 1
         assert alias.startswith("acme-u")
+
+    def test_the_default_prefix_is_the_one_the_keys_service_names_keys_with(self):
+        digest = hashlib.sha256(b"sub-kien").hexdigest()[:8]
+
+        assert LiteLLMAccountSettings().key_alias_prefix == "agentx"
+        assert load_settings({}).key_alias_prefix == "agentx"
+        assert DEFAULT_CONFIG["accounts"]["litellm"]["key_alias_prefix"] == "agentx"
+        assert LiteLLMAccountSettings().alias_for(
+            subject="sub-kien", display_name="Lê Trung Kiên"
+        ) == f"agentx-letrungkien-{digest}"
+
+    @pytest.mark.parametrize("written", ["second-brain", " Second-Brain ", "", None])
+    def test_a_retired_or_blank_prefix_reads_as_the_default(self, written):
+        """``second-brain`` was the default until 2026-10-14, and older builds
+        wrote the default out into config.yaml."""
+        settings = load_settings({"accounts": {"litellm": {"key_alias_prefix": written}}})
+
+        assert settings.key_alias_prefix == "agentx"
+
+    def test_a_prefix_somebody_chose_is_kept(self):
+        settings = load_settings({"accounts": {"litellm": {"key_alias_prefix": " acme "}}})
+
+        assert settings.key_alias_prefix == "acme"
 
     def test_settings_come_from_the_machine_config_not_the_accounts_own(self, account):
         """``accounts.litellm`` is operator policy, read at the install root.
