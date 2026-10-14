@@ -2316,6 +2316,95 @@ code {
   opacity: 1;
 }
 
+/* The thinking row's mark writing itself (`BrandGlyph tracing`): a stroke of
+   ink runs the mark's one-stroke route (`BRAND_MARK_ROUTE`, pathLength 1) over
+   a faint copy of the mark. Two registered numbers are the pen — its head runs
+   the route over the first 70% of a lap and its tail chases from 20% to 90%,
+   both on the in-place morph curve, so the stroke swells to about two-thirds of
+   the mark and drains into the tail's tip; the last tenth is the pen lifted.
+   A dash can't be composited, so every frame of it is a main-thread frame —
+   the row only sets `tracing` while its window is focused and its transcript
+   on screen, never under reduced motion (`useAmbientMotion`). */
+@property --brand-glyph-pen-head {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --brand-glyph-pen-tail {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes brand-glyph-pen-head {
+  0% {
+    --brand-glyph-pen-head: 0;
+  }
+  70%,
+  100% {
+    --brand-glyph-pen-head: 1;
+  }
+}
+
+@keyframes brand-glyph-pen-tail {
+  0%,
+  20% {
+    --brand-glyph-pen-tail: 0;
+  }
+  90%,
+  100% {
+    --brand-glyph-pen-tail: 1;
+  }
+}
+
+/* One lap for the whole row, in ms: the pen's, and the label's shimmer — its
+   sweep, then a rest as long as the pen's lifted tenth — so the two move as
+   one. Declared once for both, since a shimmer duration is a bare number. */
+[data-slot='brand-glyph-ink'],
+[data-slot='aui_status-label'] {
+  --thinking-lap-ms: 2200;
+}
+
+/* The band is narrowed too: the stock one (4ch + 80px) is wider than "Đang
+   nghĩ" itself, so the whole word dimmed at once and read as a blink rather
+   than a wave passing through it. */
+[data-slot='aui_status-label'] {
+  --shimmer-duration: calc(var(--thinking-lap-ms) * 0.9);
+  --shimmer-repeat-delay: calc(var(--thinking-lap-ms) * 0.1);
+  --shimmer-spread: 5ch;
+}
+
+/* Strong enough that the mark never goes missing between laps (at a quarter
+   it all but vanished under the scaffold fade), faint enough that the pen is
+   the brightest thing in the row. */
+[data-slot='brand-glyph-ghost'] {
+  opacity: 0.45;
+}
+
+/* The easing goes on the animation, not in the keyframes: Chromium ignores a
+   `var()` timing function inside `@keyframes`, and the element's own curve is
+   applied per keyframe interval anyway — exactly the one eased run each needs. */
+[data-slot='brand-glyph-ink'] {
+  stroke-dasharray: calc(var(--brand-glyph-pen-head) - var(--brand-glyph-pen-tail)) 2;
+  stroke-dashoffset: calc(var(--brand-glyph-pen-tail) * -1);
+  /* A stroke too short to read as one fades out instead of shrinking to a dot. */
+  opacity: clamp(0, calc((var(--brand-glyph-pen-head) - var(--brand-glyph-pen-tail)) * 40), 1);
+  animation:
+    brand-glyph-pen-head calc(var(--thinking-lap-ms) * 1ms) var(--ease-in-out) infinite,
+    brand-glyph-pen-tail calc(var(--thinking-lap-ms) * 1ms) var(--ease-in-out) infinite;
+}
+
+/* The JS gate already keeps `tracing` off under reduced motion; this is the
+   floor under it. The global rule would otherwise run one lap in 0.01ms and
+   leave the pen at its end — an empty mark. With no animation the pen rests at
+   its initial values, which ink the whole route. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='brand-glyph-ink'] {
+    animation: none;
+  }
+}
+
 /* Shiki surfaces in the inline file diff + source preview: strip the theme's
    own background/margins, and lay each `.line` on its own grid row so the
    inter-line `\n` text nodes can't double-space full-width rows. Empty lines

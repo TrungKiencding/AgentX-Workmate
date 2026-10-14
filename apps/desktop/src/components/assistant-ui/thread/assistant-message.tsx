@@ -156,7 +156,7 @@ export const AssistantMessage: FC<{
       ref={enterRef}
     >
       {/* While the reply is still a placeholder the thinking row below carries
-          the mark (breathing, in this same spot), so the head waits for the
+          the mark (writing itself, in this same spot), so the head waits for the
           first token — one mark on screen at a time. */}
       {leadsTurn && !isPlaceholder && (
         <div aria-hidden className="mb-2 flex pl-(--message-text-indent)" data-slot="aui_assistant-turn-mark">

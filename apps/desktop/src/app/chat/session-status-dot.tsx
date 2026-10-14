@@ -154,12 +154,7 @@ export function SessionStatusDot({ storedSessionId, session, branchStem, classNa
           title={variant.title?.(r)}
         >
           {variant.pulse ? (
-            <StatusPulse
-              aria-hidden="true"
-              className={variant.pulse.className}
-              kind="ping"
-              opacity={variant.pulse.opacity}
-            />
+            <StatusPulse aria-hidden="true" className={variant.pulse.className} opacity={variant.pulse.opacity} />
           ) : null}
         </span>
       )}

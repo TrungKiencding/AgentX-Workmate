@@ -10,7 +10,7 @@ import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { SCAFFOLD_LABEL_CLASS } from '@/components/chat/scaffold-row'
 import { Codicon } from '@/components/ui/codicon'
 import { Loader } from '@/components/ui/loader'
-import { StatusPulse } from '@/components/ui/status-pulse'
+import { useAmbientMotion } from '@/hooks/use-ambient-motion'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { sessionAgentStarting } from '@/store/agent-starting'
@@ -45,16 +45,24 @@ const StatusRow: FC<{ children: ReactNode; label: string } & React.ComponentProp
   </div>
 )
 
-// Fixed label while auto-compaction runs — decoupled from backend status text.
-const HintText: FC<{ children: ReactNode }> = ({ children }) => (
-  <span className={cn(SCAFFOLD_LABEL_CLASS, 'shimmer min-w-0 truncate')}>{children}</span>
-)
+/** The row itself: the mark writing itself, the wait's name — "Đang nghĩ", or
+ *  the named wait — and the timer. The name shimmers on the pen's own lap
+ *  (`--thinking-lap-ms` in styles.css), the way every live label in the
+ *  transcript shimmers while its work runs; both rest, as the plain mark and
+ *  plain text, whenever the motion would be wasted or unwelcome. */
+const ThinkingStatus: FC<{ label: string; seconds: number; size: 'md' | 'sm' }> = ({ label, seconds, size }) => {
+  const live = useAmbientMotion()
 
-// The plain "Đang nghĩ" beside the breathing mark — no shimmer, the glyph is
-// the one thing that moves on this row.
-const ThinkingText: FC<{ children: ReactNode }> = ({ children }) => (
-  <span className={cn(SCAFFOLD_LABEL_CLASS, 'min-w-0 truncate')}>{children}</span>
-)
+  return (
+    <>
+      <BrandGlyph className="text-midground/80" size={size} tracing={live} />
+      <span className={cn(SCAFFOLD_LABEL_CLASS, 'min-w-0 truncate', live && 'shimmer')} data-slot="aui_status-label">
+        {label}
+      </span>
+      <ActivityTimerText seconds={seconds} />
+    </>
+  )
+}
 
 /** These indicators render inside whichever transcript mounted them, so every
  *  session-scoped signal comes from that surface's view — a tile must never
@@ -146,13 +154,9 @@ export const ResponseLoadingIndicator: FC = () => {
 
   return (
     <StatusRow data-slot="aui_response-loading" label={hint || t.assistant.thread.loadingResponse}>
-      {/* Head position: this is the reply's own mark, breathing until the first
-          token lands and the steady head takes over — same size, same spot. */}
-      <StatusPulse aria-hidden="true" className="inline-flex shrink-0 text-midground/80" kind="opacity">
-        <BrandGlyph size="md" />
-      </StatusPulse>
-      {hint ? <HintText>{hint}</HintText> : <ThinkingText>{t.assistant.thread.thinking}</ThinkingText>}
-      <ActivityTimerText seconds={elapsed} />
+      {/* Head position: this is the reply's own mark, writing itself until the
+          first token lands and the steady head takes over — same size, same spot. */}
+      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} size="md" />
     </StatusRow>
   )
 }
@@ -195,7 +199,7 @@ const STREAM_STALL_S = 2
 // text flows, but if the stream then goes quiet mid-turn (tool think-time,
 // provider stall) nothing signals that work continues. Watch a per-flush
 // activity signal; when it hasn't changed for STREAM_STALL_S, re-show the
-// breathing mark + a timer counting from the last activity.
+// mark writing itself + a timer counting from the last activity.
 //
 // Subscribes to the activity signal ITSELF (rather than taking it as a prop)
 // so that per-token updates re-render only this leaf, not the whole
@@ -257,11 +261,7 @@ export const StreamStallIndicator: FC = () => {
 
   return (
     <StatusRow data-slot="aui_stream-stall" label={hint || t.assistant.thread.thinking}>
-      <StatusPulse aria-hidden="true" className="inline-flex shrink-0 text-midground/80" kind="opacity">
-        <BrandGlyph size="sm" />
-      </StatusPulse>
-      {hint ? <HintText>{hint}</HintText> : <ThinkingText>{t.assistant.thread.thinking}</ThinkingText>}
-      <ActivityTimerText seconds={elapsed} />
+      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} size="sm" />
     </StatusRow>
   )
 }

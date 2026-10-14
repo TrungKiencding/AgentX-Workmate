@@ -750,17 +750,24 @@ so two-line rows still grow), `HUD_HEADING`.
   shared geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
   the first assistant message of a turn on the prose column's left edge;
   interim messages in the same turn wear none, and it never sits in a bubble.
-- **A wait is the mark breathing.** Before the first token the thinking row
-  *is* the reply's head: the same `BrandGlyph` (`size="md"`, 20px, in the
+- **A wait is the mark writing itself.** Before the first token the thinking
+  row *is* the reply's head: the same `BrandGlyph` (`size="md"`, 20px, in the
   head's own spot — the steady head is held back until content exists, so
-  one mark is on screen at a time) inside a `StatusPulse` — one opacity beat,
-  the renderer sleeping between beats, still under reduced motion — beside a
-  plain 13px "Đang nghĩ" (`assistant.thread.thinking`, or the named wait when
-  there is one) and the elapsed timer. When the stream goes quiet mid-turn
-  the same row returns at the tail a rung smaller (`size="sm"`, 14px) under
-  the prose. No dither block, no spinner: the mark that heads the reply is the
-  mark that waits for it. `.dither` survives only as the sidebar label dot
-  and the timeline's idle dots.
+  one mark is on screen at a time) with `tracing` on — a stroke of ink runs
+  the mark's one-stroke route (`BRAND_MARK_ROUTE`: out of the fork, round the
+  loop, down the tail) over a 45% copy of the mark, swelling to two-thirds of
+  it and draining into the tail's tip, one 2.2s lap at a time. Beside it the
+  13px "Đang nghĩ" (`assistant.thread.thinking`, or the named wait when there
+  is one) shimmers on the same lap — the stock `shimmer`, its band narrowed
+  to 5ch so it passes through the word instead of dimming all of it — and
+  the elapsed timer counts. When the stream goes quiet mid-turn the same row
+  returns at the tail a rung smaller (`size="sm"`, 14px) under the prose.
+  The motion runs only while it can be seen (`useAmbientMotion`: window
+  focused and on screen, pane visible, no reduced motion); otherwise the row
+  rests as the plain mark and plain text, the timer still ticking. No dither
+  block, no spinner: the mark that heads the reply is the mark that waits for
+  it. `.dither` survives only as the sidebar label dot and the timeline's
+  idle dots.
 - **Tool rows are scaffolding, not cards.** They stay transparent and faded
   (`data-conversation-scaffold`) so the prose column reads first. One voice
   for all of them: `SCAFFOLD_LABEL_CLASS` (13px medium at
@@ -929,9 +936,11 @@ so two-line rows still grow), `HUD_HEADING`.
   decorative star/sparkle icons.
 - **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
   (`size="md"`, the reply head and the empty figures) or 14px (`size="sm"`,
-  the thinking row) `currentColor` line-art glyph, built from `lib/brand-mark-path.ts` — the
-  same geometry the `EmptyFigure`s carry. One path for every drawing of the
-  mark: re-fit the numbers there and they all follow.
+  the thinking row's stall) `currentColor` line-art glyph, built from
+  `lib/brand-mark-path.ts` — the same geometry the `EmptyFigure`s carry. One
+  path for every drawing of the mark: re-fit the numbers there and they all
+  follow. `tracing` is the thinking row's mark writing itself; off, the
+  glyph is exactly the plain mark, so a paused wait never changes shape.
 
 ## Motion
 
@@ -966,6 +975,7 @@ so two-line rows still grow), `HUD_HEADING`.
 | Tab pill sliding to the active tab (`PillTabs`) | `transform` (the pill's size snaps) | `--dur-short-exit` · `--ease-out`; reduced motion → a jump |
 | Card hover (`Button variant="card"`, store/artifact cards) | `background-color`, `border-color`, `box-shadow` (`--shadow-xs` → `--shadow-sm`) | `--dur-short` · `--ease-out` — never translate, never scale |
 | Glyph field ring (canvas, see § Chat) | each character's alpha and tint, every frame while a ring flashes; the trace's fade as the canvas's `opacity` | edge eases out over 2.4s; flash 420ms and trace 3.2s time constants (`lib/glyph-field.ts`); reduced motion → no ring |
+| Thinking row (`BrandGlyph tracing` + the label's `shimmer`) | the pen's head and tail along the route (two registered numbers driving `stroke-dasharray`/`-dashoffset`); the shimmer band | 2.2s lap (`--thinking-lap-ms`): head over the first 70%, tail 20–90%, both `--ease-in-out`; shimmer sweeps 90% and rests 10%; unfocused, hidden or reduced motion → the plain mark |
 
 - **Menus, popovers, dialogs and the palette open in the frame they are asked
   for** — no entry animation at all. Only their *close* is animated, and only

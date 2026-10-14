@@ -80,7 +80,7 @@ describe('StatusPulse', () => {
   })
 
   it('plays a finite ping and sleeps between pulses', () => {
-    render(<StatusPulse kind="ping" opacity={0.7} />)
+    render(<StatusPulse opacity={0.7} />)
 
     expect(played).toHaveLength(1)
     expect(played[0]?.keyframes).toEqual([
@@ -99,7 +99,7 @@ describe('StatusPulse', () => {
 
   it('cancels scheduled work while minimized and restarts once visible', () => {
     const offWindowState = installWindowStateBridge()
-    const mounted = render(<StatusPulse kind="opacity" />)
+    const mounted = render(<StatusPulse />)
 
     expect(played).toHaveLength(1)
 
@@ -123,7 +123,7 @@ describe('StatusPulse', () => {
   it('stays static when reduced motion is requested', () => {
     installMatchMedia(true)
 
-    render(<StatusPulse kind="opacity" />)
+    render(<StatusPulse />)
 
     expect(played).toHaveLength(0)
     expect(vi.getTimerCount()).toBe(0)

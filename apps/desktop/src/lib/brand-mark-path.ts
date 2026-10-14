@@ -6,13 +6,15 @@
  * Fitting that to the medial axis of `assets/brand/mark-1024.png` (the raster
  * every icon is generated from) gives three sharp vertices, four fillet radii
  * and the tail's tip, all in a 100x100 box; `buildMark()` turns those into two
- * paths of straight runs and circular arcs. The earlier skeleton trace put a
- * kink on every corner and a wobble along the tail, which a hairline at 24px
- * shows as a shaky hand. Re-fit the numbers if the artwork changes.
+ * paths of straight runs and circular arcs, and `buildMarkRoute()` into the
+ * same ink as one stroke. The earlier skeleton trace put a kink on every
+ * corner and a wobble along the tail, which a hairline at 24px shows as a
+ * shaky hand. Re-fit the numbers if the artwork changes.
  *
  * One source for every place the mark is drawn as a stroke — the `BrandGlyph`
- * at the head of a reply and in the thinking row, the `EmptyFigure`
- * illustrations — so they can never drift into slightly different logos.
+ * at the head of a reply, the `ThinkingMark` that writes itself while a reply
+ * is on its way, the `EmptyFigure` illustrations — so they can never drift
+ * into slightly different logos.
  */
 type Point = readonly [number, number]
 
@@ -60,33 +62,68 @@ function fillet(corner: Point, a: Point, b: Point, radius: number): readonly [Po
 const point = ([x, y]: Point) => `${x.toFixed(2)} ${y.toFixed(2)}`
 const arc = (radius: number, to: Point) => `A${radius} ${radius} 0 0 1 ${point(to)}`
 
-/** The mark as two SVG path strings — the closed loop and the open tail. */
-export function buildMark(): readonly [loop: string, tail: string] {
+/** Where every straight run of the mark meets a fillet. */
+function landmarks() {
   const [apexLeft, apexRight] = fillet(APEX, HEEL, ELBOW, RADIUS.apex)
   const [fork, elbowBase] = fillet(ELBOW, APEX, HEEL, RADIUS.elbow)
   const [heelBase, heelLeft] = fillet(HEEL, ELBOW, APEX, RADIUS.heel)
-
-  const loop = [
-    `M${point(apexRight)}`,
-    `L${point(fork)}`,
-    arc(RADIUS.elbow, elbowBase),
-    `L${point(heelBase)}`,
-    arc(RADIUS.heel, heelLeft),
-    `L${point(apexLeft)}`,
-    `${arc(RADIUS.apex, apexRight)}Z`
-  ].join(' ')
-
   // The tail leaves the loop at the fork, keeps the right leg's line to where
   // it meets the return line through the tip, and rounds that corner.
   const corner = intersect(APEX, towards(APEX, ELBOW), TAIL_TIP, TAIL_RETURN)
   const [cornerDown, cornerBack] = fillet(corner, APEX, TAIL_TIP, RADIUS.tail)
 
-  const tail = [`M${point(fork)}`, `L${point(cornerDown)}`, arc(RADIUS.tail, cornerBack), `L${point(TAIL_TIP)}`].join(
-    ' '
-  )
+  return { apexLeft, apexRight, cornerBack, cornerDown, elbowBase, fork, heelBase, heelLeft }
+}
+
+/** The mark as two SVG path strings — the closed loop and the open tail. */
+export function buildMark(): readonly [loop: string, tail: string] {
+  const at = landmarks()
+
+  const loop = [
+    `M${point(at.apexRight)}`,
+    `L${point(at.fork)}`,
+    arc(RADIUS.elbow, at.elbowBase),
+    `L${point(at.heelBase)}`,
+    arc(RADIUS.heel, at.heelLeft),
+    `L${point(at.apexLeft)}`,
+    `${arc(RADIUS.apex, at.apexRight)}Z`
+  ].join(' ')
+
+  const tail = [
+    `M${point(at.fork)}`,
+    `L${point(at.cornerDown)}`,
+    arc(RADIUS.tail, at.cornerBack),
+    `L${point(TAIL_TIP)}`
+  ].join(' ')
 
   return [loop, tail]
 }
 
+/**
+ * The same ink as ONE stroke, the way a pen draws the mark without lifting:
+ * out of the fork round the loop — elbow, base, heel, up the left leg, over
+ * the apex — then down the right leg straight through the fork and on along
+ * the tail to its tip. Every joint is a tangent one, so a dash running along
+ * it never jumps a corner; that is what the thinking row's mark traces.
+ */
+export function buildMarkRoute(): string {
+  const at = landmarks()
+
+  return [
+    `M${point(at.fork)}`,
+    arc(RADIUS.elbow, at.elbowBase),
+    `L${point(at.heelBase)}`,
+    arc(RADIUS.heel, at.heelLeft),
+    `L${point(at.apexLeft)}`,
+    arc(RADIUS.apex, at.apexRight),
+    `L${point(at.cornerDown)}`,
+    arc(RADIUS.tail, at.cornerBack),
+    `L${point(TAIL_TIP)}`
+  ].join(' ')
+}
+
 /** The two paths, built once. */
 export const BRAND_MARK_PATHS = buildMark()
+
+/** The one-stroke route, built once. */
+export const BRAND_MARK_ROUTE = buildMarkRoute()

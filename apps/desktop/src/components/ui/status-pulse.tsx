@@ -1,6 +1,6 @@
 import { type ComponentProps, useEffect, useRef } from 'react'
 
-import { EASE_IN_OUT, EASE_OUT } from '@/lib/motion'
+import { EASE_OUT } from '@/lib/motion'
 import { createRendererLoopPauseController } from '@/lib/renderer-loop-pause'
 
 const PULSE_DURATION_MS = 400
@@ -80,22 +80,21 @@ const subscribePulse = (subscriber: PulseSubscriber): (() => void) => {
   }
 }
 
-// Children ride the pulse: the thinking row puts the brand glyph inside so the
-// mark itself breathes while AgentX works.
 export interface StatusPulseProps extends Omit<ComponentProps<'span'>, 'ref'> {
-  kind: 'opacity' | 'ping'
+  /** Where the ring starts; it fades out from here as it doubles in size. */
   opacity?: number
 }
 
 /**
- * A finite status pulse with a real sleep between plays.
+ * A finite status ping — a ring that doubles and fades — with a real sleep
+ * between plays.
  *
  * Continuous CSS animations keep Chromium producing frames and recalculating
  * styles for an otherwise motionless Desktop window. Drive the same visual
  * cue directly so React stays out of the loop and the renderer/compositor can
  * sleep between pulses.
  */
-export function StatusPulse({ kind, opacity = 1, ...props }: StatusPulseProps) {
+export function StatusPulse({ opacity = 1, ...props }: StatusPulseProps) {
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -114,17 +113,11 @@ export function StatusPulse({ kind, opacity = 1, ...props }: StatusPulseProps) {
     const play = () => {
       animation?.cancel()
       animation = element.animate(
-        kind === 'ping'
-          ? [
-              { opacity, transform: 'scale(1)' },
-              { opacity: 0, transform: 'scale(2)' }
-            ]
-          : [{ opacity: 1 }, { opacity: 0.5 }, { opacity: 1 }],
-        {
-          duration: PULSE_DURATION_MS,
-          easing: kind === 'ping' ? EASE_OUT : EASE_IN_OUT,
-          iterations: 1
-        }
+        [
+          { opacity, transform: 'scale(1)' },
+          { opacity: 0, transform: 'scale(2)' }
+        ],
+        { duration: PULSE_DURATION_MS, easing: EASE_OUT, iterations: 1 }
       )
     }
 
@@ -139,7 +132,7 @@ export function StatusPulse({ kind, opacity = 1, ...props }: StatusPulseProps) {
       unsubscribe()
       cancel()
     }
-  }, [kind, opacity])
+  }, [opacity])
 
   return <span {...props} ref={ref} />
 }

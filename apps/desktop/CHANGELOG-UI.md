@@ -452,3 +452,29 @@ card with an accent-filled plus, set apart from the rows under it.
   test moved to `lib/brand-mark-path.test.ts`, where the geometry lives.
   `--ui-watermark-strength` became `--ui-brand-art-strength` (the sign-in
   plate's line art, its last reader) and `--ui-glyph-field-strength`.
+
+## 2026-10 — the thinking row writes the mark
+
+**Before.** While a reply was on its way, the mark beside "Đang nghĩ" dimmed
+once for 400ms every five seconds — for the other 4.6s a still logo, which is
+how it read: a static picture next to a timer.
+
+**After.**
+- **The mark writes itself.** The pen runs the mark's own stroke — out of the
+  fork, round the loop, over the apex, down through the fork into the tail —
+  over a faint copy of the mark, the stroke swelling to two-thirds of the mark
+  and draining into the tail's tip, then lifting for a beat; one lap every
+  2.2s on the in-place curve. It is the same geometry as every other drawing
+  of the mark: `buildMarkRoute()` turns the fitted vertices into one tangent
+  stroke, pinned by tests for its ends, its ink and its joints.
+- **The name moves with it.** "Đang nghĩ" (or the named wait) shimmers like
+  every live label in the transcript, on the pen's lap so the two read as one
+  motion, with a band narrowed to 5ch — the stock one is wider than the word
+  and dimmed all of it at once, which read as a blink.
+- **Only while someone is looking.** A dash can't be composited, so the row
+  costs a main-thread frame per vsync: it moves only while its window is
+  focused and its transcript on screen, never under reduced motion
+  (`useAmbientMotion`), and otherwise rests as exactly the plain mark — the
+  timer keeps counting either way.
+- **Kept honest.** `StatusPulse` lost its opacity beat (the thinking row was
+  its only user) and is the sidebar's ping alone.

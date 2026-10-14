@@ -1,10 +1,10 @@
-// The thinking indicator (the breathing brand glyph) may only ever render at the TAIL of
+// The thinking indicator (the brand glyph writing itself) may only ever render at the TAIL of
 // the thread. A message stuck status:running mid-transcript — however it got
 // there (missed settle event, steer race, upstream state bug) — must render
 // its content with no spinner: a live indicator above a later user message
 // reads as the agent answering out of order.
 import { AssistantRuntimeProvider, type ThreadMessage, useExternalStoreRuntime } from '@assistant-ui/react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Thread } from '.'
@@ -103,5 +103,39 @@ describe('thinking indicator is tail-only', () => {
 
     expect(container.querySelector('[data-slot="aui_response-loading"]')).toBeNull()
     expect(container.querySelector('[data-slot="aui_stream-stall"]')).toBeNull()
+  })
+})
+
+describe('stall row', () => {
+  it('brings the mark back a rung smaller, writing itself, when a running reply goes quiet', async () => {
+    vi.useFakeTimers()
+    // The row only moves in a focused window, which jsdom never reports.
+    const hasFocus = vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+
+    try {
+      const { container } = render(
+        <Harness messages={[user('u1', 'question'), assistant('a1', 'partial answer', true)]} />
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_900)
+      })
+      expect(container.querySelector('[data-slot="aui_stream-stall"]')).toBeNull()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200)
+      })
+
+      const glyph = container.querySelector('[data-slot="aui_stream-stall"] [data-slot="brand-glyph"]')
+
+      expect(glyph?.hasAttribute('data-tracing')).toBe(true)
+      expect(glyph?.getAttribute('class')).toContain('size-3.5')
+      expect(
+        container.querySelector('[data-slot="aui_stream-stall"] [data-slot="aui_status-label"]')?.textContent
+      ).toBe('Thinking')
+    } finally {
+      hasFocus.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

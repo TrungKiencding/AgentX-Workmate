@@ -69,3 +69,69 @@ describe('status line', () => {
     expect(container.querySelector('[role="status"]')?.hasAttribute('data-conversation-scaffold')).toBe(true)
   })
 })
+
+// The wait is the reply's own mark writing itself, its name shimmering on the
+// same lap — and both rest, as the plain mark and plain text, when the motion
+// would be unwelcome or unseen.
+describe('thinking row motion', () => {
+  const parts = (container: HTMLElement) => ({
+    glyph: container.querySelector('[data-slot="aui_response-loading"] [data-slot="brand-glyph"]'),
+    label: container.querySelector('[data-slot="aui_response-loading"] [data-slot="aui_status-label"]')
+  })
+
+  // The window has to be focused for the row to move (jsdom reports it isn't).
+  beforeEach(() => {
+    vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('writes the mark at the head and shimmers the label while on screen', () => {
+    const { glyph, label } = parts(renderIndicator().container)
+
+    expect(glyph?.hasAttribute('data-tracing')).toBe(true)
+    expect(glyph?.getAttribute('class')).toContain('size-5')
+    expect(label?.textContent).toBe('Thinking')
+    expect(label?.classList.contains('shimmer')).toBe(true)
+  })
+
+  it('rests under reduced motion', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((media: string) => ({
+        addEventListener: vi.fn(),
+        matches: media === '(prefers-reduced-motion: reduce)',
+        media,
+        removeEventListener: vi.fn()
+      }))
+    )
+
+    const { glyph, label } = parts(renderIndicator().container)
+
+    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
+    expect(label?.textContent).toBe('Thinking')
+    expect(label?.classList.contains('shimmer')).toBe(false)
+  })
+
+  it('rests while the window is hidden', () => {
+    vi.spyOn(window.document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+    const { glyph, label } = parts(renderIndicator().container)
+
+    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
+    expect(label?.classList.contains('shimmer')).toBe(false)
+  })
+
+  it('rests while the window is in the background', () => {
+    vi.mocked(window.document.hasFocus).mockReturnValue(false)
+
+    const { glyph, label } = parts(renderIndicator().container)
+
+    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
+    expect(label?.classList.contains('shimmer')).toBe(false)
+  })
+})
