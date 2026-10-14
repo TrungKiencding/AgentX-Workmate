@@ -1,8 +1,8 @@
 {
   "_why": "Which AgentX WebMate extension release the desktop installer bundles (apps/desktop/scripts/fetch-webmate.mjs downloads it into apps/desktop/build/webmate/ before `npm run build`). `version` names the GitHub Release tag (v<version>) of astralxkienlt/agentx-webmate; `sha256` is the Chrome zip's digest and must match both the download and that release's signed release.json. `sha256: null` means the release does not exist yet — the fetch step then ships nothing and the app fetches the signed feed on first launch; a local build can be bundled with `node scripts/fetch-webmate.mjs --from-dir <webmate>/dist`. Pin a published release with `node scripts/fetch-webmate.mjs --pin <version>`.",
   "schema": 1,
-  "version": "1.0.12",
-  "sha256": "16a3f588a1ed90c401d681095271074908772d46132e84be8f3177cef789763b",
+  "version": "1.0.13",
+  "sha256": "80d5c46e5bab0b7f0b55d87c1ca6a339fe29b8c54637482d5c31cfc05e920f5a",
   "repository": "https://github.com/astralxkienlt/agentx-webmate",
   "minProtocol": 3
 }
