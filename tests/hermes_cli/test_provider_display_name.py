@@ -169,7 +169,7 @@ class TestReusedKey:
     @pytest.mark.parametrize("recorded", [True, None])
     def test_a_reused_key_stops_listing_the_live_proxy_catalog(self, hermes_home, recorded):
         # The live /v1/models lists every model the key reaches, the feature
-        # models included; under the second brain the picker is its answer.
+        # models included; under the keys service the picker is its answer.
         entry = {"name": PROVIDER_DISPLAY_NAME}
         if recorded is not None:
             entry["discover_models"] = recorded

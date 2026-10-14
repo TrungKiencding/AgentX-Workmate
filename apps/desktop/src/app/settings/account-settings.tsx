@@ -23,7 +23,6 @@ import { startManualOnboarding } from '@/store/onboarding'
 import { DeviceList } from './device-list'
 import { LicenseRow } from './license-row'
 import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
-import { SyncStatus } from './sync-status'
 
 /**
  * One line describing the account's model key.
@@ -244,13 +243,8 @@ export function AccountSettings() {
 
       {/* Below the model-key row, because "which machines hold this key" only
           makes sense once you have been told there is a key. Renders nothing
-          when no second-brain service is configured. */}
+          when no keys service is configured. */}
       {account.signedIn ? <DeviceList key={`${account.issuer}:${account.userId}`} /> : null}
-
-      {/* And below the devices, because "is my history in step" is a question
-          about those machines. Renders nothing when synchronisation is not
-          configured on this install. */}
-      {account.signedIn ? <SyncStatus /> : null}
 
       <ConfirmDialog
         confirmLabel={copy.signOut}

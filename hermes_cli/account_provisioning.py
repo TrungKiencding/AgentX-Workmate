@@ -9,8 +9,8 @@ and ten spend lines instead of one key everybody shares.
 
 Three ways to get the key, chosen by ``accounts.litellm.mode``:
 
-**second_brain** (the shipped default)
-    The laptop asks the second-brain service, which mints **once per person**
+**keys** (the shipped default)
+    The laptop asks the keys service of AgentX SSO, which mints **once per person**
     and hands the same key back to every machine they sign in on. The LiteLLM
     admin key stays on that service. This is the mode that fixes the fault the
     other two share: a key looked up by an alias derived from somebody's
@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from hermes_cli.accounts import AccountIdentity
+from hermes_cli.config_defaults import DEPLOYMENT_KEY_ALIAS_PREFIX
 from hermes_cli.litellm_admin import (
     DEFAULT_TIMEOUT_SECONDS,
     LiteLLMAdminClient,
@@ -62,9 +63,9 @@ from hermes_cli.litellm_admin import (
     normalize_base_url,
     openai_base_url,
 )
-from hermes_cli.second_brain_client import (
-    SecondBrainClient,
-    SecondBrainError,
+from hermes_cli.keys_client import (
+    KeysClient,
+    KeysServiceError,
     install_device_identity,
 )
 
@@ -75,9 +76,9 @@ logger = logging.getLogger(__name__)
 ADMIN_KEY_ENV_VAR = "AGENTX_LITELLM_ADMIN_KEY"
 
 #: Modes ``accounts.litellm.mode`` accepts. Anything else falls back to
-#: ``second_brain``, which is the one that needs no credential on the machine
-#: and cannot revoke another device's key.
-MODES = ("second_brain", "broker", "direct")
+#: ``keys``, which is the one that needs no credential on the machine and
+#: cannot revoke another device's key.
+MODES = ("keys", "broker", "direct")
 
 #: When ``mode: "direct"`` goes away. Named rather than open-ended: a
 #: compatibility flag with no end date is a compatibility flag forever, and
@@ -127,21 +128,21 @@ class LiteLLMAccountSettings:
 
     enabled: bool = False
     base_url: str = ""
-    mode: str = "second_brain"
+    mode: str = "keys"
     broker_url: str = ""
-    #: Copied from the sibling ``accounts.second_brain.base_url`` rather than
-    #: restated under ``accounts.litellm``. One install talks to one service,
-    #: and two settings naming it would eventually name two.
-    second_brain_url: str = ""
+    #: Copied from the sibling ``accounts.keys.base_url`` rather than restated
+    #: under ``accounts.litellm``. One install talks to one service, and two
+    #: settings naming it would eventually name two.
+    keys_url: str = ""
     provider_name: str = "litellm"
-    key_alias_prefix: str = "second-brain"
+    key_alias_prefix: str = DEPLOYMENT_KEY_ALIAS_PREFIX
     models: tuple[str, ...] = ()
     max_budget: float = 0.0
     budget_duration: str = ""
     tpm_limit: int = 0
     rpm_limit: int = 0
     default_model: str = ""
-    #: Under ``second_brain``: the model a fresh account opens on when its key
+    #: Under ``keys``: the model a fresh account opens on when its key
     #: was granted it. See ``choose_default_model``.
     preferred_default_model: str = ""
     discover_models: bool = True
@@ -152,8 +153,8 @@ class LiteLLMAccountSettings:
         """True when this install actually wants per-account provisioning."""
         if not self.enabled:
             return False
-        if self.mode == "second_brain":
-            return bool(self.second_brain_url)
+        if self.mode == "keys":
+            return bool(self.keys_url)
         if self.mode == "broker":
             return bool(self.broker_url)
         return bool(self.base_url)
@@ -161,8 +162,8 @@ class LiteLLMAccountSettings:
     @property
     def missing_setting(self) -> str:
         """The setting an unconfigured install has to fill in, by name."""
-        if self.mode == "second_brain":
-            return "accounts.second_brain.base_url"
+        if self.mode == "keys":
+            return "accounts.keys.base_url"
         if self.mode == "broker":
             return "accounts.litellm.broker_url"
         return "accounts.litellm.base_url"
@@ -184,7 +185,7 @@ class LiteLLMAccountSettings:
         alone deletes one.
 
         When identity fields are supplied the alias is ``{prefix}-{username}``
-        derived from Keycloak (``Lê Trung Kiên`` → ``second-brain-letrungkien``).
+        derived from Keycloak (``Lê Trung Kiên`` → ``{prefix}-letrungkien``).
         ``account_slug`` alone is a legacy fallback for callers that have not
         moved to identity-based naming yet.
         """
@@ -276,11 +277,11 @@ def load_machine_config() -> Mapping[str, Any]:
         reset_hermes_home_override(token)
 
 
-def resolve_second_brain_url(value: Any) -> str:
-    """``accounts.second_brain.base_url`` as every reader uses it.
+def resolve_keys_url(value: Any) -> str:
+    """``accounts.keys.base_url`` as every reader uses it.
 
     Trailing slashes go. A retired default address (https, a host in
-    ``RETIRED_SECOND_BRAIN_HOSTS``, no port or path) reads as the current
+    ``RETIRED_KEYS_HOSTS``, no port or path) reads as the current
     default: an older build wrote the default out into config.yaml, a key
     present there outlives every later default, and a desktop install never
     runs the config migration ladder — so it is fixed where it is read. An
@@ -288,7 +289,7 @@ def resolve_second_brain_url(value: Any) -> str:
     """
     from urllib.parse import urlsplit
 
-    from hermes_cli.config_defaults import DEPLOYMENT_SECOND_BRAIN_URL, RETIRED_SECOND_BRAIN_HOSTS
+    from hermes_cli.config_defaults import DEPLOYMENT_KEYS_URL, RETIRED_KEYS_HOSTS
 
     url = str(value or "").strip().rstrip("/")
     try:
@@ -298,7 +299,7 @@ def resolve_second_brain_url(value: Any) -> str:
         return url
     if (
         parts.scheme.lower() == "https"
-        and (parts.hostname or "") in RETIRED_SECOND_BRAIN_HOSTS
+        and (parts.hostname or "") in RETIRED_KEYS_HOSTS
         and port is None
         and not parts.path
         and not parts.query
@@ -306,28 +307,28 @@ def resolve_second_brain_url(value: Any) -> str:
         and not parts.username
         and not parts.password
     ):
-        return DEPLOYMENT_SECOND_BRAIN_URL
+        return DEPLOYMENT_KEYS_URL
     return url
 
 
-def second_brain_service() -> tuple[str, float]:
+def keys_service() -> tuple[str, float]:
     """``(base_url, timeout)`` of the keys service this install talks to.
 
-    Read from ``accounts.second_brain`` at the INSTALL root (see
+    Read from ``accounts.keys`` at the INSTALL root (see
     ``load_machine_config``): which service a fleet talks to is machine
     policy, and an account home is created at sign-in with no config.yaml of
     its own. ``base_url`` is empty when none is configured.
     """
     from hermes_cli.config import cfg_get
 
-    section = cfg_get(dict(load_machine_config()), "accounts", "second_brain", default=None)
+    section = cfg_get(dict(load_machine_config()), "accounts", "keys", default=None)
     if not isinstance(section, dict):
         section = {}
     try:
         timeout = float(section.get("request_timeout_seconds") or 15)
     except (TypeError, ValueError):
         timeout = 15.0
-    return resolve_second_brain_url(section.get("base_url")), timeout
+    return resolve_keys_url(section.get("base_url")), timeout
 
 
 def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSettings:
@@ -360,27 +361,28 @@ def load_settings(cfg: Mapping[str, Any] | None = None) -> LiteLLMAccountSetting
         str(m).strip() for m in models if str(m).strip()
     ) if isinstance(models, (list, tuple)) else ()
 
-    mode = _str("mode", "second_brain").lower()
+    mode = _str("mode", "keys").lower()
     if mode not in MODES:
         # The safe one: it needs no credential on this machine and cannot
         # delete a key another of this person's devices is using.
-        mode = "second_brain"
+        mode = "keys"
 
     # The service URL lives under its own section, because the device list and
-    # (from Phase 3) the change feed use the same one.
-    brain_section = cfg_get(cfg, "accounts", "second_brain", default=None)
-    if not isinstance(brain_section, dict):
-        brain_section = {}
-    second_brain_url = resolve_second_brain_url(brain_section.get("base_url"))
+    # the license come from the same service.
+    keys_section = cfg_get(cfg, "accounts", "keys", default=None)
+    if not isinstance(keys_section, dict):
+        keys_section = {}
+    keys_url = resolve_keys_url(keys_section.get("base_url"))
 
     return LiteLLMAccountSettings(
         enabled=bool(section.get("enabled", False)),
         base_url=normalize_base_url(_str("base_url")),
         mode=mode,
         broker_url=_str("broker_url").rstrip("/"),
-        second_brain_url=second_brain_url,
+        keys_url=keys_url,
         provider_name=_str("provider_name", "litellm") or "litellm",
-        key_alias_prefix=_str("key_alias_prefix", "second-brain") or "second-brain",
+        key_alias_prefix=_str("key_alias_prefix", DEPLOYMENT_KEY_ALIAS_PREFIX)
+        or DEPLOYMENT_KEY_ALIAS_PREFIX,
         models=model_tuple,
         max_budget=_float("max_budget"),
         budget_duration=_str("budget_duration"),
@@ -404,12 +406,24 @@ def _state_path(home: Path) -> Path:
 
 
 def read_state(home: Path) -> dict[str, Any]:
-    """Return the provisioning sidecar, or ``{}`` when there isn't a usable one."""
+    """Return the provisioning sidecar, or ``{}`` when there isn't a usable one.
+
+    A sidecar written before the keys service took its name records the mode
+    as ``second_brain``; it is read as ``keys`` (one way: the next write
+    records ``keys``), so the key it describes is still the current
+    authority's and is reused without asking the service again.
+    """
     try:
         data = json.loads(_state_path(home).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    from hermes_cli.config_migrations import LEGACY_KEYS_MODE
+
+    if data.get("mode") == LEGACY_KEYS_MODE:
+        data["mode"] = "keys"
+    return data
 
 
 def write_state(home: Path, state: Mapping[str, Any]) -> None:
@@ -488,8 +502,8 @@ def _mint_direct(
         "accounts.litellm.mode is 'direct', so this machine holds %s and mints "
         "its own keys. That credential can mint and revoke for the whole "
         "estate and anyone with this machine can read it. Direct mode is "
-        "removed on %s — move to mode: 'second_brain' and set "
-        "accounts.second_brain.base_url.",
+        "removed on %s — move to mode: 'keys' and set "
+        "accounts.keys.base_url.",
         ADMIN_KEY_ENV_VAR,
         DIRECT_MODE_REMOVAL_DATE,
     )
@@ -499,7 +513,7 @@ def _mint_direct(
         if not admin:
             raise ProvisioningError(
                 f"accounts.litellm.mode is 'direct' but {ADMIN_KEY_ENV_VAR} is not set. "
-                "Add it to this machine's .env, or switch to mode 'second_brain' "
+                "Add it to this machine's .env, or switch to mode 'keys' "
                 "so the admin key never leaves your server."
             )
         client = LiteLLMAdminClient(
@@ -508,7 +522,7 @@ def _mint_direct(
 
     # Retire the key THIS ACCOUNT recorded when it last minted, and nothing
     # else. What used to be here was a delete of everything wearing the alias,
-    # and that was the defect the second brain exists to fix: one person's
+    # and that was the defect the keys service exists to fix: one person's
     # machines all share an alias, so deleting by it deletes a colleague
     # machine's working key. A key we cannot name is a key we leave alone —
     # it costs an orphan in the proxy, which an operator can see and remove,
@@ -539,8 +553,8 @@ def _mint_direct(
         if not _alias_taken(exc):
             raise
         # The proxy will not mint under a label it already holds — the key
-        # this person's other machine is using. Same rule as the second
-        # brain: that costs a suffix, never a delete-by-alias.
+        # this person's other machine is using. Same rule as the keys
+        # service: that costs a suffix, never a delete-by-alias.
         return _mint(_fresh_alias(alias))
 
 
@@ -556,7 +570,7 @@ def _fresh_alias(base: str) -> str:
     return f"{base}-{secrets.token_hex(2)}"
 
 
-def _key_from_second_brain(
+def _key_from_keys_service(
     settings: LiteLLMAccountSettings,
     identity: AccountIdentity,
     alias: str,
@@ -567,7 +581,7 @@ def _key_from_second_brain(
     rotate: bool = False,
     transport: Any | None = None,
 ) -> tuple[MintedKey, str, str, Any]:
-    """Ask the second brain for this person's key.
+    """Ask the keys service for this person's key.
 
     Returns the key, the proxy URL, what the service says it did —
     ``issued``, ``reused`` or ``rotated`` — and the ``license`` it sent beside
@@ -589,7 +603,7 @@ def _key_from_second_brain(
     """
     if not bearer:
         raise ProvisioningError(
-            "second_brain mode needs the signed-in user's access token, and "
+            "keys mode needs the signed-in user's access token, and "
             "none was supplied. This is a bug in the caller, not a "
             "configuration problem."
         )
@@ -601,8 +615,8 @@ def _key_from_second_brain(
         device_id, fallback_name = install_device_identity()
         device_name = device_name or fallback_name
 
-    client = SecondBrainClient(
-        settings.second_brain_url,
+    client = KeysClient(
+        settings.keys_url,
         timeout=settings.request_timeout_seconds,
         transport=transport,
     )
@@ -613,11 +627,11 @@ def _key_from_second_brain(
         rotate=rotate,
     )
     if not isinstance(payload, dict):
-        raise ProvisioningError("the second brain returned an unexpected body")
+        raise ProvisioningError("the keys service returned an unexpected body")
 
     key = str(payload.get("key") or "").strip()
     if not key:
-        raise ProvisioningError("the second brain returned no key")
+        raise ProvisioningError("the keys service returned no key")
 
     minted = MintedKey(
         key=key,
@@ -850,14 +864,14 @@ def _write_provider_config(
 def _discovers_models(settings: LiteLLMAccountSettings) -> bool:
     """Whether the picker may list the proxy's live ``/v1/models`` for this account.
 
-    Never under the second brain. Its answer IS the picker — the chat models,
+    Never under the keys service. Its answer IS the picker — the chat models,
     in the order an operator chose — while the key also reaches one model per
     feature (web search, image generation, vision) that nobody is meant to
     talk to. LiteLLM's ``/v1/models`` lists the key's whole allowlist, so a
     live listing would put those feature models in every model menu. The
     deprecated modes have no such answer and keep the setting.
     """
-    return False if settings.mode == "second_brain" else settings.discover_models
+    return False if settings.mode == "keys" else settings.discover_models
 
 
 def _mark_models_vision_capable(entry: dict[str, Any], models: tuple[str, ...]) -> bool:
@@ -889,7 +903,7 @@ def _mark_models_vision_capable(entry: dict[str, Any], models: tuple[str, ...]) 
 def _apply_vision_model(provider_name: str, vision_model: str) -> bool:
     """Point ``auxiliary.vision`` at the vision model this account was granted.
 
-    The second brain names one model per feature, and the vision slot is
+    The keys service names one model per feature, and the vision slot is
     Workmate's: whatever reads a picture for a model that cannot. With a
     vision model granted, the slot names it at this account's proxy; without
     one, a pin at the proxy is released and the slot follows the main model
@@ -1270,12 +1284,12 @@ def choose_default_model(
 ) -> str:
     """The model a freshly provisioned account opens on.
 
-    Only the second brain vouches for the order of ``models`` — it sorts by
+    Only the keys service vouches for the order of ``models`` — it sorts by
     configured mode so a chat model leads — so the deprecated modes keep
     whatever the operator configured rather than opening on whichever id
     ``/v1/models`` returned first, which may well be an embedding model.
 
-    Under the second brain the deployment's preferred model wins when the key
+    Under the keys service the deployment's preferred model wins when the key
     was granted it, and the first granted model otherwise. The preference only
     chooses among what the key reaches: a proxy that retires the model, or an
     operator who never grants it, falls back instead of opening the app on a
@@ -1283,7 +1297,7 @@ def choose_default_model(
     full id or by the part after the last "/" — because proxies spell the same
     model differently (``MiniMax/MiniMax-M3``, ``minimax-m3``).
     """
-    if settings.mode != "second_brain" or not models:
+    if settings.mode != "keys" or not models:
         return settings.default_model
 
     preferred = settings.preferred_default_model.strip().lower()
@@ -1322,22 +1336,22 @@ def _effective_settings(settings: LiteLLMAccountSettings) -> LiteLLMAccountSetti
     The config migration to v36 rewrites the file itself; this covers the
     launch that runs before it, and any file written back by hand.
     """
-    if settings.mode == "direct" and settings.second_brain_url and not _admin_key():
+    if settings.mode == "direct" and settings.keys_url and not _admin_key():
         reason = f"{ADMIN_KEY_ENV_VAR} is not set"
-    elif settings.mode == "broker" and settings.second_brain_url and not settings.broker_url:
+    elif settings.mode == "broker" and settings.keys_url and not settings.broker_url:
         reason = "accounts.litellm.broker_url is empty"
     else:
         return settings
 
     logger.warning(
-        "accounts.litellm.mode is '%s' but %s; signing in through the account "
-        "service at %s instead (mode 'second_brain'). Set the mode to "
-        "'second_brain' in config.yaml, or remove it, to silence this.",
+        "accounts.litellm.mode is '%s' but %s; signing in through the keys "
+        "service at %s instead (mode 'keys'). Set the mode to 'keys' in "
+        "config.yaml, or remove it, to silence this.",
         settings.mode,
         reason,
-        settings.second_brain_url,
+        settings.keys_url,
     )
-    return replace(settings, mode="second_brain")
+    return replace(settings, mode="keys")
 
 
 # ---------------------------------------------------------------------------
@@ -1357,14 +1371,14 @@ def ensure_account_key(
     home: Path | None = None,
     client: LiteLLMAdminClient | None = None,
     broker_transport: Any | None = None,
-    brain_transport: Any | None = None,
+    keys_transport: Any | None = None,
 ) -> ProvisionResult:
     """Make sure this account holds a working LiteLLM key, and return what happened.
 
     Called on every sign-in, so the common path has to be cheap and silent:
     a key we already minted, still accepted by the proxy, is reused with one
     ``GET /v1/models``. A key that is missing, or that the proxy no longer
-    accepts, is replaced — and in ``second_brain`` mode "replaced" usually
+    accepts, is replaced — and in ``keys`` mode "replaced" usually
     means "collected from the service", which is why a second machine no
     longer costs somebody their first one.
 
@@ -1420,14 +1434,14 @@ def ensure_account_key(
             return _rotate(
                 settings, identity, account_slug, alias, key_env, home, bearer,
                 client=client, broker_transport=broker_transport,
-                brain_transport=brain_transport, device_id=device_id,
+                keys_transport=keys_transport, device_id=device_id,
                 device_name=device_name, reason="no base URL on record",
             )
         live, reachable, proxy_unreachable = _probe_key(
             _probe_client(settings, base_url, client), stored_key
         )
         if live:
-            if proxy_unreachable and settings.mode == "second_brain":
+            if proxy_unreachable and settings.mode == "keys":
                 # No answer at all from the recorded proxy URL — not a 401,
                 # nothing. That is what a proxy that MOVED looks like from
                 # here, and it is indistinguishable from being offline until
@@ -1439,7 +1453,7 @@ def ensure_account_key(
                 collected = _rotate(
                     settings, identity, account_slug, alias, key_env, home, bearer,
                     client=client, broker_transport=broker_transport,
-                    brain_transport=brain_transport, device_id=device_id,
+                    keys_transport=keys_transport, device_id=device_id,
                     device_name=device_name,
                     reason=f"the proxy at {base_url} could not be reached",
                 )
@@ -1449,14 +1463,14 @@ def ensure_account_key(
                 # the key; the next launch asks again.
             elif _reach_changed(settings, state, reachable):
                 # The proxy says this key reaches something other than what was
-                # recorded — the second brain's grant pass retired a model the
+                # recorded — the keys service's grant pass retired a model the
                 # proxy stopped serving, added one, or moved the web search
                 # grant. Ask the service what the grant now is; the key itself
                 # stays the same.
                 collected = _rotate(
                     settings, identity, account_slug, alias, key_env, home, bearer,
                     client=client, broker_transport=broker_transport,
-                    brain_transport=brain_transport, device_id=device_id,
+                    keys_transport=keys_transport, device_id=device_id,
                     device_name=device_name, reachable=reachable,
                     reason="the models this account's key reaches have changed",
                 )
@@ -1478,7 +1492,7 @@ def ensure_account_key(
 
     # 2. Fetch, mint, or re-mint.
     #
-    # Only an explicit rotation asks the second brain for a NEW key. A stored
+    # Only an explicit rotation asks the keys service for a NEW key. A stored
     # key the proxy no longer accepts means somebody rotated from another
     # machine, and the right answer to that is to collect what they rotated
     # to — not to rotate again and take their key in turn, which is the
@@ -1489,7 +1503,7 @@ def ensure_account_key(
     elif not stored_key:
         reason = "no key on this account yet"
     elif not _key_came_from_the_current_authority(state, settings):
-        reason = "this account's key predates the second brain"
+        reason = "this account's key predates the keys service"
     else:
         reason = "the proxy no longer accepts the stored key"
         rejected_key = stored_key
@@ -1497,7 +1511,7 @@ def ensure_account_key(
     return _rotate(
         settings, identity, account_slug, alias, key_env, home, bearer,
         client=client, broker_transport=broker_transport,
-        brain_transport=brain_transport, device_id=device_id,
+        keys_transport=keys_transport, device_id=device_id,
         device_name=device_name, rotate=force_rotate, reason=reason,
         rejected_key=rejected_key,
     )
@@ -1545,7 +1559,7 @@ def _key_came_from_the_current_authority(
 ) -> bool:
     """True when the stored key came from the source the current mode names.
 
-    ``second_brain`` is the only mode that promises anything across machines:
+    ``keys`` is the only mode that promises anything across machines:
     one key per person, held by the service, handed back to every device they
     sign in on. A key this account minted under the older ``direct`` or
     ``broker`` modes — or one whose sidecar predates the ``mode`` field
@@ -1560,13 +1574,13 @@ def _key_came_from_the_current_authority(
     correction costs one request and takes nobody's key away.
 
     The deprecated modes keep the lenient behaviour on purpose: they mint by
-    deleting first, so treating a brain-issued key as unusable there would
+    deleting first, so treating a service-issued key as unusable there would
     retire a working key to fix nothing.
     """
-    if settings.mode != "second_brain":
+    if settings.mode != "keys":
         return True
 
-    return state.get("mode") == "second_brain"
+    return state.get("mode") == "keys"
 
 
 def _probe_client(
@@ -1623,7 +1637,7 @@ def _reach_changed(
 ) -> bool:
     """True when the proxy says this key reaches something other than was recorded.
 
-    The second brain can change what an existing key reaches — its grant pass
+    The keys service can change what an existing key reaches — its grant pass
     retires models the proxy stops serving, adds ones an operator brings up,
     and moves the web search grant — but a laptop holding a working key never
     asks it for the key again. The reuse path's ``/v1/models`` call already
@@ -1637,10 +1651,10 @@ def _reach_changed(
     may already have recorded the allowlist that carries its model — installs
     that ran between the service granting ``openai/whisper-1`` for
     transcription and the update that reads ``transcription_model`` did — and
-    then the proxy's answer alone would never tell. Only the second brain
+    then the proxy's answer alone would never tell. Only the keys service
     grants anything, so the deprecated modes never ask.
     """
-    if settings.mode != "second_brain" or reachable is None:
+    if settings.mode != "keys" or reachable is None:
         return False
     recorded = state.get("reachable_models")
     if not isinstance(recorded, list):
@@ -1662,7 +1676,7 @@ def _rotate(
     client: LiteLLMAdminClient | None,
     broker_transport: Any | None,
     reason: str,
-    brain_transport: Any | None = None,
+    keys_transport: Any | None = None,
     device_id: str = "",
     device_name: str = "",
     rotate: bool = False,
@@ -1671,7 +1685,7 @@ def _rotate(
 ) -> ProvisionResult:
     """Get this account a working key and wire it in.
 
-    In ``second_brain`` mode this usually mints nothing: the service already
+    In ``keys`` mode this usually mints nothing: the service already
     holds this person's key and answers with it. ``rotate`` is the only thing
     that asks for a new one. ``reachable`` is what the proxy just said the key
     reaches, when the caller asked it; it is recorded for the next launch to
@@ -1685,11 +1699,11 @@ def _rotate(
     license_sent: Any = None
 
     try:
-        if settings.mode == "second_brain":
-            minted, base_url, service_status, license_sent = _key_from_second_brain(
+        if settings.mode == "keys":
+            minted, base_url, service_status, license_sent = _key_from_keys_service(
                 settings, identity, alias, bearer,
                 device_id=device_id, device_name=device_name,
-                rotate=rotate, transport=brain_transport,
+                rotate=rotate, transport=keys_transport,
             )
             if rejected_key and not rotate and minted.key == rejected_key:
                 # The proxy refused exactly this key moments ago, and the
@@ -1698,14 +1712,14 @@ def _rotate(
                 # launch heals nothing — only a replacement does, and every
                 # other device collects that on its next call.
                 logger.warning(
-                    "the proxy rejects the key the second brain holds for %s; "
+                    "the proxy rejects the key the keys service holds for %s; "
                     "asking for a replacement",
                     alias,
                 )
-                minted, base_url, service_status, license_sent = _key_from_second_brain(
+                minted, base_url, service_status, license_sent = _key_from_keys_service(
                     settings, identity, alias, bearer,
                     device_id=device_id, device_name=device_name,
-                    rotate=True, transport=brain_transport,
+                    rotate=True, transport=keys_transport,
                 )
         elif settings.mode == "broker":
             minted, base_url = _mint_via_broker(
@@ -1720,7 +1734,7 @@ def _rotate(
                 previous_token=str(state.get("token") or ""),
             )
             base_url = settings.base_url
-    except SecondBrainError as exc:
+    except KeysServiceError as exc:
         # Whatever the refusal, a license it carried is the newest word on
         # this person's plan.
         license_now = _remember_license(exc.license)
@@ -1761,7 +1775,7 @@ def _rotate(
             return ProvisionResult(
                 status="offline",
                 detail=(
-                    f"could not reach the second brain ({exc}); keeping "
+                    f"could not reach the keys service ({exc}); keeping "
                     "whatever key this account has."
                 ),
                 provider=settings.provider_name,
@@ -1775,7 +1789,7 @@ def _rotate(
             return ProvisionResult(
                 status="offline",
                 detail=(
-                    f"the second brain could not issue a key right now ({exc}); "
+                    f"the keys service could not issue a key right now ({exc}); "
                     "keeping whatever key this account has."
                 ),
                 provider=settings.provider_name,
@@ -1794,7 +1808,7 @@ def _rotate(
             # "offline, try later".
             return ProvisionResult(
                 status="error",
-                detail=f"the second brain could not issue a key: {exc}",
+                detail=f"the keys service could not issue a key: {exc}",
                 provider=settings.provider_name,
                 key_alias=alias,
                 base_url=settings.base_url,
@@ -1879,7 +1893,7 @@ def _rotate(
         transcription_model=minted.transcription_model,
     )
 
-    # The models each feature calls with this key: granted by the second brain
+    # The models each feature calls with this key: granted by the keys service
     # beside ``models``, never among them, and recorded here rather than in
     # config because nobody picks them — ``plugins/web/agentx_gateway``,
     # ``plugins/image_gen/agentx_gateway``, ``tools/agentx_gateway_tts`` and
@@ -1915,22 +1929,22 @@ def _rotate(
         },
     )
 
-    # What the second brain says it did beats what this machine assumed. A
+    # What the keys service says it did beats what this machine assumed. A
     # laptop that fetched the key its owner's other laptop minted has neither
     # provisioned nor rotated anything, and telling somebody their key was
     # replaced when it was not is how a fix comes to look like the bug.
     if service_status == "reused":
         status, detail = "reused", (
-            "collected this account's key from the second brain "
+            "collected this account's key from the keys service "
             f"({reason}); no new key was issued."
         )
     elif service_status == "rotated":
         status, detail = "rotated", (
-            f"the second brain issued a replacement key for this account ({reason})."
+            f"the keys service issued a replacement key for this account ({reason})."
         )
     elif service_status:
         status, detail = ("rotated" if had_key else "provisioned"), (
-            f"the second brain issued this account's key ({reason})."
+            f"the keys service issued this account's key ({reason})."
         )
     else:
         status, detail = ("rotated" if had_key else "provisioned"), (

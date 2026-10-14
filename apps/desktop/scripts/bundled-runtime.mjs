@@ -18,7 +18,6 @@ const RUNTIME_DIRS = new Set([
   'acp_adapter',
   'plugins',
   'providers',
-  'second_brain',
   'locales',
   'skills',
   'optional-skills',

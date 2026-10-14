@@ -43,7 +43,7 @@ test('reset wipes the last run but keeps its device id', () => {
 
   assert.deepEqual(fs.readdirSync(paths.userDataDir), ['device.json'])
   assert.equal(fs.readFileSync(path.join(paths.userDataDir, 'device.json'), 'utf8'), '{"id":"kept"}')
-  assert.deepEqual(fs.readdirSync(paths.agentxHome), ['config.yaml'])
+  assert.deepEqual(fs.readdirSync(paths.agentxHome), [])
 })
 
 test('the saved device id comes back even when the run directory is gone', () => {
@@ -62,19 +62,6 @@ test('the very first reset has no device id to restore', () => {
 
   assert.equal(fs.existsSync(path.join(paths.userDataDir, 'device.json')), false)
   assert.equal(fs.existsSync(paths.savedDeviceId), false)
-})
-
-test('history sync is switched off unless asked for', () => {
-  const off = makeSandbox()
-  resetSandbox(off)
-  assert.match(
-    fs.readFileSync(path.join(off.agentxHome, 'config.yaml'), 'utf8'),
-    /^accounts:\n {2}second_brain:\n {4}sync:\n {6}enabled: false\n/m
-  )
-
-  const on = makeSandbox()
-  resetSandbox(on, { sync: true })
-  assert.deepEqual(fs.readdirSync(on.agentxHome), [])
 })
 
 test('reset leaves everything outside the run directory alone', () => {

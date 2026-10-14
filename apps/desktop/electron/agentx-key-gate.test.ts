@@ -17,7 +17,7 @@ const ACCOUNT = { displayName: 'Lê Trung Kiên', email: 'kien@astralx.com.vn' }
 const REFUSED_424 = {
   code: 'no_grantable_models',
   detail:
-    'the second brain could not issue a key: the second brain returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.',
+    'the keys service could not issue a key: the keys service returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.',
   license: null,
   ok: false,
   status: 'error'
@@ -134,7 +134,7 @@ describe('AgentxKeyGate.hold', () => {
     assert.deepEqual(gate.state.account, ACCOUNT)
 
     // Still refused: the gate stays shut with the newest reason.
-    answer = { ok: false, status: 'offline', detail: 'the second brain is unreachable', code: '' }
+    answer = { ok: false, status: 'offline', detail: 'the keys service is unreachable', code: '' }
     assert.equal((await gate.retry()).phase, 'blocked')
     assert.equal(gate.state.failure?.status, 'offline')
     assert.equal(gate.state.attempts, 2)

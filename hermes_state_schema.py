@@ -8,7 +8,6 @@ own; methods access the host's attributes (``self._conn``, ``self.db_path``,
 module-level constants live in hermes_state_common.
 """
 
-import hashlib
 import logging
 import json
 import sqlite3
@@ -24,12 +23,12 @@ from hermes_state_common import (
     FTS_TRIGRAM_SQL,
     LEGACY_FTS_SQL,
     LEGACY_FTS_TRIGRAM_SQL,
+    RETIRED_SYNC_META_KEYS,
+    RETIRED_SYNC_TABLES,
+    RETIRED_SYNC_TRIGGERS,
     SCHEMA_SQL,
     SCHEMA_VERSION,
-    SYNC_TRIGGER_SQL,
     _FTS_TRIGGERS,
-    _SQL_UUID4,
-    _SYNC_TRIGGERS,
     _ephemeral_child_sql,
 )
 
@@ -37,24 +36,6 @@ from hermes_state_common import (
 # keep that logger identity so log filtering/capture behavior is unchanged.
 logger = logging.getLogger("hermes_state")
 
-
-# state_meta key holding a digest of the SYNC_TRIGGER_SQL the live triggers
-# were created from. See _ensure_sync_triggers.
-SYNC_TRIGGER_FINGERPRINT_KEY = "sync_trigger_fingerprint"
-
-# state_meta keys for the resumable messages.uuid backfill (v26). Same
-# high-water/progress shape as the deferred FTS rebuild: work is claimed as an
-# id RANGE so gaps from deleted rows can't shrink a batch, and the high water
-# bounds the pass so it never chases rows the insert trigger already covers.
-#
-# Unlike the FTS markers these are NOT deleted on completion. The FTS ones are
-# read by every write trigger, so absence there has to mean "normal
-# operation"; these are read once per open, and keeping them is what
-# distinguishes "finished" from "never started" on a database whose
-# schema_version cannot advance (an FTS5-less runtime holds it back, and a
-# version-gated backfill would then restart from zero on every launch).
-SYNC_UUID_BACKFILL_HIGH_WATER_KEY = "sync_uuid_backfill_high_water"
-SYNC_UUID_BACKFILL_PROGRESS_KEY = "sync_uuid_backfill_progress"
 
 # The rows deleted conversations left behind before v27 (see
 # _prune_resurrected_sessions). A ghost is what the auto-titler left: a bare
@@ -79,16 +60,6 @@ _RESURRECTED_SESSION_MIN_AGE_S = 3600
 
 class SessionSchemaMixin:
     """See module docstring — mixin for SessionDB (Schema cluster)."""
-
-    # Rows per backfill batch, and the wall-clock budget one database open
-    # will spend on the pass before leaving the rest for the next launch.
-    # Opening state.db is on the critical path of every start, so a large
-    # history must never be allowed to hold it: progress is durable, so
-    # stopping early costs nothing but time-to-complete. Measured on a
-    # 400k-message / 1.1 GB state.db: ~0.85 s per launch, converging over
-    # ~41 launches, and 0.9 ms per open once finished.
-    _UUID_BACKFILL_BATCH_ROWS = 2000
-    _UUID_BACKFILL_BUDGET_S = 0.75
 
     def _dedupe_legacy_system_prompts(self, cursor: sqlite3.Cursor) -> None:
         """Move inline prompt snapshots into the shared content-addressed table.
@@ -182,136 +153,67 @@ class SessionSchemaMixin:
             )
         return True
 
-    def _ensure_sync_triggers(self, cursor: sqlite3.Cursor) -> bool:
-        """Install the v26 outbox triggers, replacing them when the DDL moves.
+    def _drop_retired_sync_bookkeeping(self, cursor: sqlite3.Cursor) -> bool:
+        """Drop what the retired conversation sync kept in this database.
 
-        ``CREATE TRIGGER IF NOT EXISTS`` cannot rewrite a trigger that already
-        exists, so editing ``SYNC_TRIGGER_SQL`` would silently leave the old
-        definition in place on every database that has opened once — the exact
-        trap :meth:`_migrate_broad_fts_update_triggers` exists to clean up
-        after, one schema version too late.
+        Its change queue (``sync_outbox``) and feed cursor (``sync_state``),
+        the four triggers that filled the queue on every session and message
+        write, and its three ``state_meta`` markers — see the RETIRED_SYNC_*
+        names in hermes_state_common. None of it is user data: the queue only
+        described rows that stay where they are, and with nothing draining it
+        it grew by a row per write for as long as sync was off. Sessions,
+        messages and every column they have are left as they are, including
+        ``sessions.updated_at`` and ``messages.uuid``.
 
-        Fingerprint the DDL instead. When the stored digest disagrees, drop
-        the whole set and recreate it. Keying on the literal text rather than
-        on a version constant means nobody has to remember to bump anything;
-        the cost of that choice is one harmless recreate of four small
-        triggers after a comment-only edit.
+        Unconditional and idempotent rather than version-gated: an older
+        runtime sharing this state.db recreates the bookkeeping on its own
+        open, and the next open here drops it again. A database without any
+        of it costs two reads and takes no write lock.
 
-        Returns True when the triggers were (re)written from a changed DDL.
+        Returns False when contention stopped it; the next open retries.
         """
-        fingerprint = hashlib.sha256(SYNC_TRIGGER_SQL.encode("utf-8")).hexdigest()
-        row = cursor.execute(
-            "SELECT value FROM state_meta WHERE key = ?",
-            (SYNC_TRIGGER_FINGERPRINT_KEY,),
-        ).fetchone()
-        stored = None
-        if row is not None:
-            stored = row["value"] if isinstance(row, sqlite3.Row) else row[0]
-        changed = stored != fingerprint
+        objects = (*RETIRED_SYNC_TRIGGERS, *RETIRED_SYNC_TABLES)
+        object_marks = ",".join("?" for _ in objects)
+        key_marks = ",".join("?" for _ in RETIRED_SYNC_META_KEYS)
+        present = cursor.execute(
+            f"SELECT COUNT(*) FROM sqlite_master WHERE name IN ({object_marks})",
+            objects,
+        ).fetchone()[0]
+        present += cursor.execute(
+            f"SELECT COUNT(*) FROM state_meta WHERE key IN ({key_marks})",
+            RETIRED_SYNC_META_KEYS,
+        ).fetchone()[0]
+        if not present:
+            return True
 
-        if changed:
-            for name in _SYNC_TRIGGERS:
-                # Names come from the module-level literal tuple, never from
-                # user input, so interpolating the identifier is safe.
-                cursor.execute(f"DROP TRIGGER IF EXISTS {name}")
-
-        cursor.executescript(SYNC_TRIGGER_SQL)
-
-        if changed:
-            self.set_meta(SYNC_TRIGGER_FINGERPRINT_KEY, fingerprint, cursor=cursor)
-            if stored is not None:
-                logger.info(
-                    "Sync outbox triggers rebuilt from changed DDL (%s -> %s)",
-                    stored[:12],
-                    fingerprint[:12],
-                )
-        return changed
-
-    def _backfill_message_uuids(self, cursor: sqlite3.Cursor) -> bool:
-        """Give pre-v26 message rows the portable identity sync needs.
-
-        ``messages.id`` is a local AUTOINCREMENT row number; ``messages.uuid``
-        is what travels between machines. New rows get one from
-        ``sync_messages_insert``, but history written before v26 has none, and
-        a message without a uuid can never be synchronised.
-
-        The pass is batched and RESUMABLE, because "one long-running write
-        over the whole messages table" is precisely what must not happen on
-        the first launch after an update: a heavy install has hundreds of
-        thousands of rows, and this runs inside ``_init_schema`` — before the
-        app has a window. Progress is published to ``state_meta`` after every
-        batch, so an interrupted pass continues from where it stopped instead
-        of starting over, and a database that has already finished costs two
-        key lookups.
-
-        Returns True when work remains for a later open.
-        """
-        high_water = self._meta_int(cursor, SYNC_UUID_BACKFILL_HIGH_WATER_KEY)
-        progress = self._meta_int(cursor, SYNC_UUID_BACKFILL_PROGRESS_KEY)
-
-        if high_water is None or progress is None:
-            # First open at v26 (or a database whose markers were dropped as
-            # derived state by session recovery). Bound the pass to the rows
-            # that exist right now — anything inserted from here on gets its
-            # uuid from the trigger, so chasing MAX(id) forever would only
-            # rescan rows that are already done.
-            row = cursor.execute("SELECT MAX(id) FROM messages").fetchone()
-            high_water = int((row[0] if row else None) or 0)
-            progress = 0
-            self.set_meta(
-                SYNC_UUID_BACKFILL_HIGH_WATER_KEY, str(high_water), cursor=cursor
-            )
-            self.set_meta(
-                SYNC_UUID_BACKFILL_PROGRESS_KEY, str(progress), cursor=cursor
-            )
-
-        if progress >= high_water:
-            return False
-
-        deadline = time.monotonic() + self._UUID_BACKFILL_BUDGET_S
-        started_at = progress
-
-        while progress < high_water:
-            # The batch is an id RANGE, not a row count, so ids left behind by
-            # deleted rows cannot shrink a batch to nothing and stall the pass.
-            upper = min(progress + self._UUID_BACKFILL_BATCH_ROWS, high_water)
-            # ``uuid IS NULL`` makes the batch idempotent: interrupting between
-            # the UPDATE and the progress write below simply replays it.
-            cursor.execute(
-                f"UPDATE messages SET uuid = {_SQL_UUID4} "
-                "WHERE id > ? AND id <= ? AND uuid IS NULL",
-                (progress, upper),
-            )
-            progress = upper
-            self.set_meta(
-                SYNC_UUID_BACKFILL_PROGRESS_KEY, str(progress), cursor=cursor
-            )
-            if time.monotonic() >= deadline:
-                break
-
-        remaining = progress < high_water
-        if progress > started_at:
-            logger.info(
-                "messages.uuid backfill: %d/%d ids covered%s",
-                progress,
-                high_water,
-                " (continues on the next launch)" if remaining else "",
-            )
-        return remaining
-
-    @staticmethod
-    def _meta_int(cursor: sqlite3.Cursor, key: str) -> Optional[int]:
-        """Read an integer ``state_meta`` value, or None when absent/unusable."""
-        row = cursor.execute(
-            "SELECT value FROM state_meta WHERE key = ?", (key,)
-        ).fetchone()
-        if row is None:
-            return None
-        raw = row["value"] if isinstance(row, sqlite3.Row) else row[0]
         try:
-            return int(raw)
-        except (TypeError, ValueError):
-            return None
+            cursor.execute("BEGIN IMMEDIATE")
+            try:
+                # Names come from module-level literal tuples, never from
+                # input, so interpolating the identifiers is safe. Triggers
+                # first: each of them writes into sync_outbox.
+                for name in RETIRED_SYNC_TRIGGERS:
+                    cursor.execute(f"DROP TRIGGER IF EXISTS {name}")
+                for name in RETIRED_SYNC_TABLES:
+                    cursor.execute(f"DROP TABLE IF EXISTS {name}")
+                cursor.execute(
+                    f"DELETE FROM state_meta WHERE key IN ({key_marks})",
+                    RETIRED_SYNC_META_KEYS,
+                )
+                cursor.execute("COMMIT")
+            except BaseException:
+                if cursor.connection.in_transaction:
+                    cursor.execute("ROLLBACK")
+                raise
+        except sqlite3.OperationalError as exc:
+            logger.warning(
+                "Dropping the retired sync bookkeeping deferred after "
+                "contention (%s); the next schema init retries it.",
+                exc,
+            )
+            return False
+        logger.info("Dropped the retired conversation sync bookkeeping from state.db")
+        return True
 
     def _sqlite_supports_fts5(self, cursor: sqlite3.Cursor) -> bool:
         try:
@@ -894,15 +796,11 @@ class SessionSchemaMixin:
         except sqlite3.OperationalError:
             pass
 
-        # ── Synchronisation (v26) ──────────────────────────────────────
+        # ── Retired conversation sync ──────────────────────────────────
         # Unconditional and idempotent, like the PK heals above rather than
-        # like the version-gated chain below. The outbox triggers have to be
-        # in place before the first write of the session whatever the stored
-        # version says, and the uuid backfill spans launches — a version gate
-        # would give it exactly one pass (the version is bumped in this same
-        # call) and then never re-enter to finish.
-        self._ensure_sync_triggers(cursor)
-        self._backfill_message_uuids(cursor)
+        # like the version-gated chain below: an older runtime sharing this
+        # database recreates the bookkeeping on its own open.
+        self._drop_retired_sync_bookkeeping(cursor)
 
         fts5_available = self._sqlite_supports_fts5(cursor)
         fts_migrations_complete = True

@@ -188,7 +188,7 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
           : send(res, 200, {
               base_url: url,
               key: 'sk-fake-sso-0123456789abcdef',
-              key_alias: `second-brain-kientest-${subject.slice(0, 8)}`,
+              key_alias: `agentx-kientest-${subject.slice(0, 8)}`,
               models: state.models,
               status: 'issued'
             })

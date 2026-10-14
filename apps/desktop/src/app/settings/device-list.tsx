@@ -17,7 +17,7 @@ import { ListRow, ListRowSkeleton, SectionHeading } from './primitives'
  * Settings → Account → Devices: which machines you are signed in on.
  *
  * Renders nothing at all when no service is configured. An install with no
- * second brain has no device list, and an empty section headed "Devices" reads
+ * keys service has no device list, and an empty section headed "Devices" reads
  * as a feature that is broken rather than one that is absent.
  *
  * Everything else degrades in place: an unreachable service shows a line

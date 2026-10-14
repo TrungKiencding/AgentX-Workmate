@@ -3,8 +3,8 @@
 DEPRECATED. It solved the credential-exposure half of the problem and not the
 other half: it still mints per machine rather than per person, so two of
 somebody's laptops still end up with two different keys under one alias.
-``second_brain`` (``agentx second-brain serve``) replaces it and mints once per
-person. This module stays only until no install runs ``mode: "broker"``.
+The keys service of AgentX SSO (``mode: "keys"``) replaces it and mints once
+per person. This module stays only until no install runs ``mode: "broker"``.
 
 AgentX Workmate is installed on each person's own machine. Minting a per-user
 LiteLLM key needs an admin credential, and an admin credential shipped to a
@@ -204,8 +204,8 @@ def build_app(provider=None, client=None, settings=None):
             # per re-mint, visible in `/key/list` and removable by hand, which
             # is a bill rather than an outage.
             #
-            # The real fix is the second-brain service, which mints once per
-            # person and hands the same key back to every device. This module
+            # The real fix is the keys service, which mints once per person
+            # and hands the same key back to every device. This module
             # exists only until no install runs `mode: "broker"`.
             return resolved_client.generate_key(
                 key_alias=alias,

@@ -1,6 +1,6 @@
 """The laptop's half of the device list: the client, and the routes over it.
 
-Everything runs in-process. The second-brain service is an
+Everything runs in-process. The keys service is an
 ``httpx.MockTransport`` — the convention the LiteLLM admin client's tests
 already follow — so the failure modes that matter can be produced on demand:
 a service that is down, a service that says this device is revoked, and a
@@ -16,6 +16,7 @@ distinguishes them and why every one of them is asserted here.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -26,19 +27,19 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from hermes_cli.dashboard_auth.base import Session
-from hermes_cli.second_brain_client import SecondBrainClient, SecondBrainError
+from hermes_cli.keys_client import KeysClient, KeysServiceError
 
-_BRAIN_URL = "https://brain.internal.test"
+_KEYS_URL = "https://keys.internal.test"
 _DEVICE_A = "8f2b1c3d-0000-4000-8000-000000000001"
 _DEVICE_B = "8f2b1c3d-0000-4000-8000-000000000002"
 
 
 # ---------------------------------------------------------------------------
-# A second brain, in memory
+# The keys service, in memory
 # ---------------------------------------------------------------------------
 
 
-class _FakeBrain:
+class _FakeKeysService:
     """Just enough of the service to drive the client and the routes."""
 
     def __init__(self) -> None:
@@ -174,14 +175,14 @@ class _FakeBrain:
 
 
 @pytest.fixture
-def brain() -> _FakeBrain:
-    return _FakeBrain()
+def service() -> _FakeKeysService:
+    return _FakeKeysService()
 
 
 @pytest.fixture
-def client(brain) -> SecondBrainClient:
-    return SecondBrainClient(
-        _BRAIN_URL, transport=brain.transport, sleep=lambda _seconds: None
+def client(service) -> KeysClient:
+    return KeysClient(
+        _KEYS_URL, transport=service.transport, sleep=lambda _seconds: None
     )
 
 
@@ -191,79 +192,79 @@ def client(brain) -> SecondBrainClient:
 
 
 class TestClientCalls:
-    def test_listing_sends_both_device_headers(self, client, brain):
+    def test_listing_sends_both_device_headers(self, client, service):
         client.list_devices(bearer="tok", device_id=_DEVICE_A, device_name="MacBook")
 
-        sent = brain.requests[-1]
+        sent = service.requests[-1]
         assert sent.headers["X-AgentX-Device"] == _DEVICE_A
         assert sent.headers["X-AgentX-Device-Name"] == "MacBook"
         assert sent.headers["Authorization"] == "Bearer tok"
 
-    def test_listing_marks_the_calling_device(self, client, brain):
-        brain.add(_DEVICE_A, "MacBook")
-        brain.add(_DEVICE_B, "Desktop")
+    def test_listing_marks_the_calling_device(self, client, service):
+        service.add(_DEVICE_A, "MacBook")
+        service.add(_DEVICE_B, "Desktop")
 
         body = client.list_devices(bearer="tok", device_id=_DEVICE_A)
 
         current = [row["id"] for row in body["devices"] if row["current"]]
         assert current == [_DEVICE_A]
 
-    def test_revoking_passes_the_rotation_flag(self, client, brain):
-        brain.add(_DEVICE_B)
+    def test_revoking_passes_the_rotation_flag(self, client, service):
+        service.add(_DEVICE_B)
 
         client.revoke_device(_DEVICE_B, bearer="tok", device_id=_DEVICE_A, rotate_key=True)
 
-        assert brain.revoked_calls == [(_DEVICE_B, "rotate")]
+        assert service.revoked_calls == [(_DEVICE_B, "rotate")]
 
-    def test_not_rotating_is_the_default(self, client, brain):
-        brain.add(_DEVICE_B)
+    def test_not_rotating_is_the_default(self, client, service):
+        service.add(_DEVICE_B)
 
         client.revoke_device(_DEVICE_B, bearer="tok", device_id=_DEVICE_A)
 
-        assert brain.revoked_calls == [(_DEVICE_B, "no-rotate")]
+        assert service.revoked_calls == [(_DEVICE_B, "no-rotate")]
 
-    def test_the_model_key_call_defaults_to_fetching_not_rotating(self, client, brain):
+    def test_the_model_key_call_defaults_to_fetching_not_rotating(self, client, service):
         body = client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         # The default has to be "give me the key you hold". A client whose
         # default rotated would recreate the fault the service exists to fix,
         # one launch at a time.
-        assert brain.key_calls == [(_DEVICE_A, "fetch")]
+        assert service.key_calls == [(_DEVICE_A, "fetch")]
         assert body["key"] == "sk-1"
 
-    def test_two_devices_are_handed_the_same_key(self, client, brain):
+    def test_two_devices_are_handed_the_same_key(self, client, service):
         first = client.model_key(bearer="tok", device_id=_DEVICE_A)
         second = client.model_key(bearer="tok", device_id=_DEVICE_B)
 
         assert first["key"] == second["key"]
 
-    def test_rotation_is_explicit(self, client, brain):
+    def test_rotation_is_explicit(self, client, service):
         first = client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         rotated = client.model_key(bearer="tok", device_id=_DEVICE_A, rotate=True)
 
-        assert brain.key_calls[-1] == (_DEVICE_A, "rotate")
+        assert service.key_calls[-1] == (_DEVICE_A, "rotate")
         assert rotated["key"] != first["key"]
 
-    def test_a_revoked_device_asking_for_the_key_is_told_so(self, client, brain):
-        brain.caller_is_revoked = True
+    def test_a_revoked_device_asking_for_the_key_is_told_so(self, client, service):
+        service.caller_is_revoked = True
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         assert raised.value.revoked is True
         assert raised.value.unreachable is False
 
-    def test_an_unreachable_service_is_not_a_revocation(self, client, brain):
-        brain.unreachable = True
+    def test_an_unreachable_service_is_not_a_revocation(self, client, service):
+        service.unreachable = True
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         assert raised.value.unreachable is True
         assert raised.value.revoked is False
 
-    def test_heartbeat_carries_what_only_the_app_knows(self, client, brain):
+    def test_heartbeat_carries_what_only_the_app_knows(self, client, service):
         client.heartbeat(
             bearer="tok",
             device_id=_DEVICE_A,
@@ -275,7 +276,7 @@ class TestClientCalls:
 
         import json
 
-        body = json.loads(brain.requests[-1].content)
+        body = json.loads(service.requests[-1].content)
         assert body == {
             "name": "MacBook",
             "platform": "darwin",
@@ -285,10 +286,10 @@ class TestClientCalls:
 
 
 class TestClientFailures:
-    def test_an_unreachable_service_is_unreachable_not_refused(self, client, brain):
-        brain.unreachable = True
+    def test_an_unreachable_service_is_unreachable_not_refused(self, client, service):
+        service.unreachable = True
 
-        with pytest.raises(SecondBrainError) as excinfo:
+        with pytest.raises(KeysServiceError) as excinfo:
             client.list_devices(bearer="tok", device_id=_DEVICE_A)
 
         # The distinction the whole file exists for: a caller must be able to
@@ -296,21 +297,21 @@ class TestClientFailures:
         assert excinfo.value.unreachable
         assert not excinfo.value.revoked
 
-    def test_a_revoked_device_is_recognised_by_code_not_by_prose(self, client, brain):
-        brain.caller_is_revoked = True
+    def test_a_revoked_device_is_recognised_by_code_not_by_prose(self, client, service):
+        service.caller_is_revoked = True
 
-        with pytest.raises(SecondBrainError) as excinfo:
+        with pytest.raises(KeysServiceError) as excinfo:
             client.list_devices(bearer="tok", device_id=_DEVICE_A)
 
         assert excinfo.value.revoked
         assert excinfo.value.status_code == 403
         assert excinfo.value.code == "device_revoked"
 
-    def test_the_last_device_refusal_keeps_its_code(self, client, brain):
-        brain.add(_DEVICE_A)
-        brain.refuse_last_device = True
+    def test_the_last_device_refusal_keeps_its_code(self, client, service):
+        service.add(_DEVICE_A)
+        service.refuse_last_device = True
 
-        with pytest.raises(SecondBrainError) as excinfo:
+        with pytest.raises(KeysServiceError) as excinfo:
             client.revoke_device(
                 _DEVICE_A, bearer="tok", device_id=_DEVICE_A, rotate_key=True
             )
@@ -318,7 +319,7 @@ class TestClientFailures:
         assert excinfo.value.code == "cannot_revoke_last_device"
         assert excinfo.value.status_code == 409
 
-    def test_a_5xx_is_retried_once(self, brain):
+    def test_a_5xx_is_retried_once(self, service):
         seen: list[int] = []
 
         def _flaky(request: httpx.Request) -> httpx.Response:
@@ -327,8 +328,8 @@ class TestClientFailures:
                 return httpx.Response(503, json={"error": "busy", "detail": "later"})
             return httpx.Response(200, json={"devices": [], "current": _DEVICE_A})
 
-        client = SecondBrainClient(
-            _BRAIN_URL, transport=httpx.MockTransport(_flaky), sleep=lambda _s: None
+        client = KeysClient(
+            _KEYS_URL, transport=httpx.MockTransport(_flaky), sleep=lambda _s: None
         )
 
         assert client.list_devices(bearer="tok", device_id=_DEVICE_A)["devices"] == []
@@ -336,8 +337,8 @@ class TestClientFailures:
 
     def test_an_empty_base_url_is_refused_at_construction(self):
         # Better here than as a mysterious request to "/v1/devices".
-        with pytest.raises(SecondBrainError):
-            SecondBrainClient("")
+        with pytest.raises(KeysServiceError):
+            KeysClient("")
 
 
 def _license(**overrides) -> dict:
@@ -367,20 +368,20 @@ def _license(**overrides) -> dict:
 
 
 class TestLicenseCalls:
-    def test_the_license_is_asked_for_with_the_device_headers(self, client, brain):
-        brain.license = _license()
+    def test_the_license_is_asked_for_with_the_device_headers(self, client, service):
+        service.license = _license()
 
         body = client.license(bearer="tok", device_id=_DEVICE_A, device_name="MacBook")
 
-        sent = brain.requests[-1]
+        sent = service.requests[-1]
         assert (sent.method, sent.url.path) == ("GET", "/v1/license")
         assert sent.headers["Authorization"] == "Bearer tok"
         assert sent.headers["X-AgentX-Device"] == _DEVICE_A
         assert sent.headers["X-AgentX-Device-Name"] == "MacBook"
-        assert body == {"license": brain.license}
+        assert body == {"license": service.license}
 
-    def test_a_service_that_predates_licensing_answers_not_found(self, client, brain):
-        with pytest.raises(SecondBrainError) as raised:
+    def test_a_service_that_predates_licensing_answers_not_found(self, client, service):
+        with pytest.raises(KeysServiceError) as raised:
             client.license(bearer="tok", device_id=_DEVICE_A)
 
         # Distinguishable from an outage and from a refusal: this is "nobody
@@ -391,8 +392,8 @@ class TestLicenseCalls:
         assert raised.value.license_refused is False
         assert raised.value.license is None
 
-    def test_the_key_answer_carries_the_license(self, client, brain):
-        brain.license = _license(state="active", access="full", notice=None)
+    def test_the_key_answer_carries_the_license(self, client, service):
+        service.license = _license(state="active", access="full", notice=None)
 
         body = client.model_key(bearer="tok", device_id=_DEVICE_A)
 
@@ -400,11 +401,11 @@ class TestLicenseCalls:
         assert body["key"].startswith("sk-")
 
     @pytest.mark.parametrize("code", ["license_required", "license_expired", "license_revoked"])
-    def test_a_license_refusal_keeps_its_code_and_its_license(self, client, brain, code):
-        brain.license = _license()
-        brain.license_refusal = code
+    def test_a_license_refusal_keeps_its_code_and_its_license(self, client, service, code):
+        service.license = _license()
+        service.license_refusal = code
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         assert raised.value.status_code == 403
@@ -413,12 +414,12 @@ class TestLicenseCalls:
         # Neither of the two failures that already had a meaning.
         assert raised.value.revoked is False
         assert raised.value.unreachable is False
-        assert raised.value.license == brain.license
+        assert raised.value.license == service.license
 
-    def test_a_revoked_device_is_not_a_license_refusal(self, client, brain):
-        brain.caller_is_revoked = True
+    def test_a_revoked_device_is_not_a_license_refusal(self, client, service):
+        service.caller_is_revoked = True
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         assert raised.value.revoked is True
@@ -429,11 +430,11 @@ class TestLicenseCalls:
         def _blocked(request: httpx.Request) -> httpx.Response:
             return httpx.Response(403, json={"error": "access_blocked", "detail": "blocked by an admin"})
 
-        client = SecondBrainClient(
-            _BRAIN_URL, transport=httpx.MockTransport(_blocked), sleep=lambda _s: None
+        client = KeysClient(
+            _KEYS_URL, transport=httpx.MockTransport(_blocked), sleep=lambda _s: None
         )
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         assert raised.value.code == "access_blocked"
@@ -446,11 +447,11 @@ class TestLicenseCalls:
                 403, json={"error": "license_expired", "detail": "no", "license": "expired"}
             )
 
-        client = SecondBrainClient(
-            _BRAIN_URL, transport=httpx.MockTransport(_odd), sleep=lambda _s: None
+        client = KeysClient(
+            _KEYS_URL, transport=httpx.MockTransport(_odd), sleep=lambda _s: None
         )
 
-        with pytest.raises(SecondBrainError) as raised:
+        with pytest.raises(KeysServiceError) as raised:
             client.model_key(bearer="tok", device_id=_DEVICE_A)
 
         # The code still says what happened; a malformed body cannot pass for
@@ -499,35 +500,35 @@ def _routes_app(session: Session | None = None) -> FastAPI:
 def _configure(monkeypatch, home: Path, base_url: str) -> None:
     home.mkdir(parents=True, exist_ok=True)
     (home / "config.yaml").write_text(
-        yaml.safe_dump({"accounts": {"second_brain": {"base_url": base_url}}}),
+        yaml.safe_dump({"accounts": {"keys": {"base_url": base_url}}}),
         encoding="utf-8",
     )
     monkeypatch.setenv("AGENTX_HOME", str(home))
 
 
-def _route_client_to(monkeypatch, brain: _FakeBrain) -> None:
+def _route_client_to(monkeypatch, service: _FakeKeysService) -> None:
     """Point every client the routes build at the fake service."""
-    from hermes_cli import second_brain_client as module
+    from hermes_cli import keys_client as module
 
-    real = module.SecondBrainClient
+    real = module.KeysClient
 
     def _factory(base_url, **kwargs):
-        kwargs.setdefault("transport", brain.transport)
+        kwargs.setdefault("transport", service.transport)
         kwargs.setdefault("sleep", lambda _seconds: None)
         return real(base_url, **kwargs)
 
-    monkeypatch.setattr(module, "SecondBrainClient", _factory)
+    monkeypatch.setattr(module, "KeysClient", _factory)
 
 
 _HEADERS = {"X-AgentX-Device": _DEVICE_A, "X-AgentX-Device-Name": "MacBook"}
 
 
 class TestDeviceRoutes:
-    def test_listing_returns_the_service_answer(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.add(_DEVICE_A, "MacBook")
-        brain.add(_DEVICE_B, "Desktop")
+    def test_listing_returns_the_service_answer(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.add(_DEVICE_A, "MacBook")
+        service.add(_DEVICE_B, "Desktop")
 
         with TestClient(_routes_app(_session())) as client:
             body = client.get("/api/account/devices", headers=_HEADERS).json()
@@ -536,8 +537,8 @@ class TestDeviceRoutes:
         assert {row["id"] for row in body["devices"]} == {_DEVICE_A, _DEVICE_B}
         assert body["current"] == _DEVICE_A
 
-    def test_an_unauthenticated_caller_gets_401(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+    def test_an_unauthenticated_caller_gets_401(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
 
         with TestClient(_routes_app(None)) as client:
             response = client.get("/api/account/devices", headers=_HEADERS)
@@ -557,10 +558,10 @@ class TestDeviceRoutes:
         assert response.status_code == 200
         assert response.json()["status"] == "unconfigured"
 
-    def test_an_unreachable_service_reports_offline(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.unreachable = True
+    def test_an_unreachable_service_reports_offline(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.unreachable = True
 
         with TestClient(_routes_app(_session())) as client:
             response = client.get("/api/account/devices", headers=_HEADERS)
@@ -570,10 +571,10 @@ class TestDeviceRoutes:
         assert response.status_code == 200
         assert response.json()["status"] == "offline"
 
-    def test_a_revoked_device_is_reported_as_such(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.caller_is_revoked = True
+    def test_a_revoked_device_is_reported_as_such(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.caller_is_revoked = True
 
         with TestClient(_routes_app(_session())) as client:
             body = client.get("/api/account/devices", headers=_HEADERS).json()
@@ -582,36 +583,36 @@ class TestDeviceRoutes:
         assert body["status"] == "revoked"
         assert body["error"] == "device_revoked"
 
-    def test_a_missing_device_header_says_so(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
+    def test_a_missing_device_header_says_so(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
 
         with TestClient(_routes_app(_session())) as client:
             body = client.get("/api/account/devices").json()
 
         assert body["status"] == "no_device_id"
 
-    def test_revoking_forwards_the_rotation_flag(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.add(_DEVICE_B, "Desktop")
+    def test_revoking_forwards_the_rotation_flag(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.add(_DEVICE_B, "Desktop")
 
         with TestClient(_routes_app(_session())) as client:
             body = client.delete(
                 f"/api/account/devices/{_DEVICE_B}?rotate_key=true", headers=_HEADERS
             ).json()
 
-        assert brain.revoked_calls == [(_DEVICE_B, "rotate")]
+        assert service.revoked_calls == [(_DEVICE_B, "rotate")]
         assert body["status"] == "ok"
         assert body["device"]["revoked"] is True
 
     def test_the_last_device_refusal_reaches_the_ui_with_its_code(
-        self, monkeypatch, tmp_path, brain
+        self, monkeypatch, tmp_path, service
     ):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.add(_DEVICE_A, "MacBook")
-        brain.refuse_last_device = True
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.add(_DEVICE_A, "MacBook")
+        service.refuse_last_device = True
 
         with TestClient(_routes_app(_session())) as client:
             body = client.delete(
@@ -624,9 +625,9 @@ class TestDeviceRoutes:
         assert body["error"] == "cannot_revoke_last_device"
         assert body["status_code"] == 409
 
-    def test_the_heartbeat_registers_this_machine(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
+    def test_the_heartbeat_registers_this_machine(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
 
         with TestClient(_routes_app(_session())) as client:
             body = client.post(
@@ -636,20 +637,20 @@ class TestDeviceRoutes:
             ).json()
 
         assert body["status"] == "ok"
-        assert _DEVICE_A in brain.devices
+        assert _DEVICE_A in service.devices
 
     def test_the_bearer_forwarded_is_the_session_token(
-        self, monkeypatch, tmp_path, brain
+        self, monkeypatch, tmp_path, service
     ):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
 
         with TestClient(_routes_app(_session())) as client:
             client.get("/api/account/devices", headers=_HEADERS)
 
         # The token decides the account on the service side, so forwarding the
         # wrong one would list somebody else's devices.
-        assert brain.requests[-1].headers["Authorization"] == "Bearer tok-a"
+        assert service.requests[-1].headers["Authorization"] == "Bearer tok-a"
 
 
 class TestLicenseRoute:
@@ -673,16 +674,16 @@ class TestLicenseRoute:
         )
 
     def test_it_requires_a_session(self, monkeypatch, tmp_path):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
 
         with TestClient(_routes_app(None)) as client:
             response = client.get("/api/account/license", headers=_HEADERS)
 
         assert response.status_code == 401
 
-    def test_nothing_known_reads_as_no_license(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
+    def test_nothing_known_reads_as_no_license(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
 
         with TestClient(_routes_app(_session())) as client:
             body = client.get("/api/account/license", headers=_HEADERS).json()
@@ -690,20 +691,20 @@ class TestLicenseRoute:
         # Unknown, not `none`: nothing to show and nothing blocked.
         assert body["status"] == "cached"
         assert body["license"] is None
-        assert brain.requests == []
+        assert service.requests == []
 
     def test_a_refresh_asks_with_the_session_bearer_and_records_the_answer(
-        self, monkeypatch, tmp_path, brain
+        self, monkeypatch, tmp_path, service
     ):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.license = self._active()
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.license = self._active()
 
         with TestClient(_routes_app(_session())) as client:
             refreshed = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
             cached = client.get("/api/account/license", headers=_HEADERS).json()
 
-        sent = brain.requests[-1]
+        sent = service.requests[-1]
         assert sent.url.path == "/v1/license"
         assert sent.headers["Authorization"] == "Bearer tok-a"
         assert sent.headers["X-AgentX-Device"] == _DEVICE_A
@@ -711,20 +712,20 @@ class TestLicenseRoute:
         assert refreshed["license"]["state"] == "active"
         assert refreshed["license"]["plan"]["name"] == "Pilot nội bộ 2026"
         # The second read answered from the record, without asking.
-        assert len(brain.requests) == 1
+        assert len(service.requests) == 1
         assert cached["status"] == "cached"
         assert cached["license"]["state"] == "active"
 
     def test_an_unreachable_service_keeps_the_last_license(
-        self, monkeypatch, tmp_path, brain
+        self, monkeypatch, tmp_path, service
     ):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.license = _license()
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.license = _license()
 
         with TestClient(_routes_app(_session())) as client:
             client.get("/api/account/license?refresh=1", headers=_HEADERS)
-            brain.unreachable = True
+            service.unreachable = True
             body = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
 
         # An outage is never a lock — and never an unlock either.
@@ -733,16 +734,16 @@ class TestLicenseRoute:
         assert body["license"]["access"] == "read_only"
 
     def test_a_service_that_predates_licensing_drops_the_record(
-        self, monkeypatch, tmp_path, brain
+        self, monkeypatch, tmp_path, service
     ):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.license = _license()
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.license = _license()
 
         with TestClient(_routes_app(_session())) as client:
             client.get("/api/account/license?refresh=1", headers=_HEADERS)
             # The SSO is rolled back to a build that knows nothing of licenses.
-            brain.license = None
+            service.license = None
             refreshed = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
             cached = client.get("/api/account/license", headers=_HEADERS).json()
 
@@ -750,14 +751,14 @@ class TestLicenseRoute:
         assert refreshed["license"] is None
         assert cached["license"] is None
 
-    def test_a_revoked_device_keeps_the_last_license(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
-        brain.license = self._active()
+    def test_a_revoked_device_keeps_the_last_license(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+        service.license = self._active()
 
         with TestClient(_routes_app(_session())) as client:
             client.get("/api/account/license?refresh=1", headers=_HEADERS)
-            brain.caller_is_revoked = True
+            service.caller_is_revoked = True
             body = client.get("/api/account/license?refresh=1", headers=_HEADERS).json()
 
         assert body["status"] == "revoked"
@@ -773,13 +774,13 @@ class TestLicenseRoute:
         assert response.json()["status"] == "unconfigured"
         assert response.json()["license"] is None
 
-    def test_the_account_route_carries_the_license(self, monkeypatch, tmp_path, brain):
-        _configure(monkeypatch, tmp_path / "home", _BRAIN_URL)
-        _route_client_to(monkeypatch, brain)
+    def test_the_account_route_carries_the_license(self, monkeypatch, tmp_path, service):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
 
         with TestClient(_routes_app(_session())) as client:
             before = client.get("/api/account", headers=_HEADERS).json()
-            brain.license = self._active()
+            service.license = self._active()
             client.get("/api/account/license?refresh=1", headers=_HEADERS)
             after = client.get("/api/account", headers=_HEADERS).json()
 
@@ -792,6 +793,104 @@ class TestLicenseRoute:
 # ---------------------------------------------------------------------------
 
 
+class TestLicenseRouteDeliversTheBearer:
+    """The desktop reads the license every thirty seconds, with its bearer.
+
+    This process holds no credential of its own for the signed-in person, so
+    that read is what leaves one in ``account_credentials.mailbox`` for the
+    work that runs outside any request: the AgentX AgentHub sync loop and the
+    license check after a gateway refusal.
+    """
+
+    @pytest.fixture
+    def mailbox(self, monkeypatch):
+        from hermes_cli import account_credentials
+
+        box = account_credentials.CredentialMailbox()
+        monkeypatch.setattr(account_credentials, "_MAILBOX", box)
+        return box
+
+    def test_a_cached_read_leaves_the_bearer_without_asking_the_service(
+        self, monkeypatch, tmp_path, service, mailbox
+    ):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+
+        with TestClient(_routes_app(_session())) as client:
+            assert client.get("/api/account/license", headers=_HEADERS).status_code == 200
+
+        held = mailbox.current()
+        assert (held.bearer, held.device_id, held.device_name) == ("tok-a", _DEVICE_A, "MacBook")
+        assert service.requests == []
+
+    def test_a_refresh_leaves_it_too(self, monkeypatch, tmp_path, service, mailbox):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        _route_client_to(monkeypatch, service)
+
+        with TestClient(_routes_app(_session())) as client:
+            client.get("/api/account/license?refresh=1", headers=_HEADERS)
+
+        assert mailbox.current().bearer == "tok-a"
+
+    def test_an_unauthenticated_read_leaves_nothing(self, monkeypatch, tmp_path, mailbox):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+
+        with TestClient(_routes_app(None)) as client:
+            assert client.get("/api/account/license", headers=_HEADERS).status_code == 401
+
+        assert mailbox.current() is None
+
+    def test_a_backend_with_no_desktop_above_it_names_its_own_machine(
+        self, monkeypatch, tmp_path, mailbox
+    ):
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        monkeypatch.setattr(
+            "hermes_cli.keys_client.install_device_identity",
+            lambda root=None: ("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", "ssh box"),
+        )
+
+        # No device headers: a CLI sign-in, or a backend started by hand.
+        with TestClient(_routes_app(_session())) as client:
+            client.get("/api/account/license")
+
+        held = mailbox.current()
+        assert (held.device_id, held.device_name) == ("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", "ssh box")
+
+    def test_an_expired_token_is_not_kept(self, monkeypatch, tmp_path, mailbox):
+        import time
+
+        _configure(monkeypatch, tmp_path / "home", _KEYS_URL)
+        expired = Session(
+            user_id="person-a",
+            email="a@test",
+            display_name="Person A",
+            org_id="",
+            provider="keycloak",
+            expires_at=int(time.time()) - 60,
+            access_token="tok-old",
+            refresh_token="",
+        )
+
+        with TestClient(_routes_app(expired)) as client:
+            client.get("/api/account/license", headers=_HEADERS)
+
+        # Spending a token we can see has expired would only earn a 401.
+        assert mailbox.current() is None
+
+
+# The keys service's own rules for the device headers, restated because the
+# service lives in another repository (AgentX-sso,
+# console/sso_console/ai/keys_app.py: _DEVICE_ID_RE, normalize_device_name).
+_SERVICE_DEVICE_ID = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _service_device_name(raw: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9 ._-]+", " ", raw or "")
+    return re.sub(r"\s+", " ", cleaned).strip()[:64].strip()
+
+
 class TestInstallDeviceIdentity:
     """A backend with no desktop above it still has to name its machine.
 
@@ -801,7 +900,7 @@ class TestInstallDeviceIdentity:
     """
 
     def test_the_first_read_generates_and_persists_an_id(self, tmp_path):
-        from hermes_cli.second_brain_client import (
+        from hermes_cli.keys_client import (
             DEVICE_FILENAME,
             install_device_identity,
         )
@@ -813,7 +912,7 @@ class TestInstallDeviceIdentity:
         assert json.loads((tmp_path / DEVICE_FILENAME).read_text())["id"] == device_id
 
     def test_it_is_the_same_machine_next_time(self, tmp_path):
-        from hermes_cli.second_brain_client import install_device_identity
+        from hermes_cli.keys_client import install_device_identity
 
         first, _name = install_device_identity(tmp_path)
         second, _again = install_device_identity(tmp_path)
@@ -828,7 +927,7 @@ class TestInstallDeviceIdentity:
     def test_an_unusable_file_yields_a_fresh_id_rather_than_raising(
         self, tmp_path, content
     ):
-        from hermes_cli.second_brain_client import (
+        from hermes_cli.keys_client import (
             DEVICE_FILENAME,
             install_device_identity,
         )
@@ -842,7 +941,7 @@ class TestInstallDeviceIdentity:
         assert uuid.UUID(device_id)
 
     def test_an_unwritable_root_still_answers(self, tmp_path):
-        from hermes_cli.second_brain_client import install_device_identity
+        from hermes_cli.keys_client import install_device_identity
 
         blocked = tmp_path / "not-a-directory"
         blocked.write_text("this is a file")
@@ -852,12 +951,11 @@ class TestInstallDeviceIdentity:
         assert uuid.UUID(device_id)
 
     def test_the_id_matches_the_shape_the_service_accepts(self, tmp_path):
-        from second_brain.auth import is_device_id
-        from hermes_cli.second_brain_client import install_device_identity
+        from hermes_cli.keys_client import install_device_identity
 
         device_id, _name = install_device_identity(tmp_path)
 
-        assert is_device_id(device_id)
+        assert _SERVICE_DEVICE_ID.match(device_id)
 
     @pytest.mark.parametrize(
         "hostname,expected",
@@ -871,7 +969,7 @@ class TestInstallDeviceIdentity:
         ],
     )
     def test_the_name_is_safe_to_put_in_a_header(self, hostname, expected):
-        from hermes_cli.second_brain_client import device_name_from
+        from hermes_cli.keys_client import device_name_from
 
         # A machine name is whatever its owner typed, and it reaches a header.
         assert device_name_from(hostname) == expected
@@ -883,8 +981,7 @@ class TestInstallDeviceIdentity:
         arrival; three implementations that disagree is three chances for one
         machine to appear under three names.
         """
-        from hermes_cli.second_brain_client import device_name_from
-        from second_brain.auth import normalize_device_name
+        from hermes_cli.keys_client import device_name_from
 
         for hostname in ("Kien-MacBook-Pro.local", "desk top", "a_b-c.d"):
-            assert normalize_device_name(hostname) == device_name_from(hostname)
+            assert _service_device_name(hostname) == device_name_from(hostname)

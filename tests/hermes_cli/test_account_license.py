@@ -43,7 +43,7 @@ from hermes_cli.account_license import (
 )
 
 ICT = timezone(timedelta(hours=7))
-BRAIN_URL = "https://brain.test"
+KEYS_URL = "https://keys.test"
 DEVICE = "8f2b1c3d-0000-4000-8000-000000000001"
 
 
@@ -403,7 +403,7 @@ def _refresh(service: _Service, home: Path, **overrides):
         "bearer": "tok",
         "device_id": DEVICE,
         "device_name": "MacBook",
-        "base_url": BRAIN_URL,
+        "base_url": KEYS_URL,
         "timeout": 5.0,
         "home": home,
         "now": _at("2026-12-03", "09:00:00"),
@@ -485,10 +485,10 @@ class TestRefresh:
         assert service.requests == []
 
     def test_a_backend_with_no_desktop_still_names_its_machine(self, service, home, monkeypatch):
-        from hermes_cli import second_brain_client
+        from hermes_cli import keys_client
 
         monkeypatch.setattr(
-            second_brain_client, "install_device_identity", lambda: ("install-device", "build-box")
+            keys_client, "install_device_identity", lambda: ("install-device", "build-box")
         )
 
         _refresh(service, home, device_id="", device_name="")
@@ -499,7 +499,7 @@ class TestRefresh:
     def test_the_configured_service_is_used_by_default(self, service, home, monkeypatch):
         from hermes_cli import account_provisioning
 
-        monkeypatch.setattr(account_provisioning, "second_brain_service", lambda: (BRAIN_URL, 3.0))
+        monkeypatch.setattr(account_provisioning, "keys_service", lambda: (KEYS_URL, 3.0))
 
         result = refresh_license(
             bearer="tok", device_id=DEVICE, home=home, transport=service.transport,
@@ -507,7 +507,7 @@ class TestRefresh:
         )
 
         assert result.ok
-        assert str(service.requests[-1].url) == f"{BRAIN_URL}/v1/license"
+        assert str(service.requests[-1].url) == f"{KEYS_URL}/v1/license"
 
 
 # ---------------------------------------------------------------------------
@@ -654,14 +654,14 @@ class TestGatewayRefusal:
         from hermes_cli.account_provisioning import write_state
 
         monkeypatch.setenv("AGENTX_HOME", str(home))
-        write_state(home, {"base_url": self.PROXY, "mode": "second_brain"})
+        write_state(home, {"base_url": self.PROXY, "mode": "keys"})
         return home
 
     @pytest.fixture
     def no_bearer(self, monkeypatch):
-        from hermes_cli import sync_engine
+        from hermes_cli import account_credentials
 
-        monkeypatch.setattr(sync_engine.mailbox(), "current", lambda: None)
+        monkeypatch.setattr(account_credentials.mailbox(), "current", lambda: None)
 
     def test_another_provider_is_not_the_licenses_business(self, account, no_bearer):
         remember_license(_license(state="revoked", access="read_only"))
@@ -676,8 +676,8 @@ class TestGatewayRefusal:
         assert license_behind_gateway_refusal(f"{self.PROXY}/v1/")["state"] == "revoked"
 
     def test_with_a_bearer_the_service_is_asked_first(self, account, monkeypatch):
-        from hermes_cli import account_provisioning, sync_engine
-        from hermes_cli.sync_engine import SyncCredentials
+        from hermes_cli import account_credentials, account_provisioning
+        from hermes_cli.account_credentials import AccountCredentials
 
         service = _Service()
         service.license = _license(state="revoked", access="read_only", notice="read_only")
@@ -689,11 +689,11 @@ class TestGatewayRefusal:
             return real_refresh(**kwargs, transport=service.transport, sleep=lambda _s: None)
 
         monkeypatch.setattr(account_license, "refresh_license", _refresh)
-        monkeypatch.setattr(account_provisioning, "second_brain_service", lambda: (BRAIN_URL, 15.0))
+        monkeypatch.setattr(account_provisioning, "keys_service", lambda: (KEYS_URL, 15.0))
         monkeypatch.setattr(
-            sync_engine.mailbox(),
+            account_credentials.mailbox(),
             "current",
-            lambda: SyncCredentials(bearer="tok-live", device_id=DEVICE, device_name="MacBook"),
+            lambda: AccountCredentials(bearer="tok-live", device_id=DEVICE, device_name="MacBook"),
         )
 
         # Nothing was known before the gateway refused; the service says revoked.

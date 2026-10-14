@@ -32,7 +32,7 @@ def _write_state(home, **overrides) -> None:
         "base_url": "https://gateway.test",
         "key_env": KEY_ENV,
         "provider": "litellm",
-        "mode": "second_brain",
+        "mode": "keys",
         "models": ["chat-a"],
         **overrides,
     }

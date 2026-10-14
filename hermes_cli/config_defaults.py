@@ -18,8 +18,8 @@ verbatim from hermes_cli/config.py. Must not import from hermes_cli.config.
 # a PUBLIC client (a desktop binary on someone's laptop cannot keep a secret)
 # and its id, realm and base URL are all visible in the address bar during
 # sign-in. The one real secret in this system, the LiteLLM admin key, lives
-# on the second-brain service, which issues each person their model key over
-# the Keycloak bearer they already hold. It used to be injected into the
+# on the keys service, which issues each person their model key over the
+# Keycloak bearer they already hold. It used to be injected into the
 # packaged desktop app at build time, which put it inside every installer;
 # that mechanism is gone and must not come back.
 #
@@ -45,8 +45,8 @@ DEPLOYMENT_KEYCLOAK_SESSION_DAYS = 14
 
 #: LiteLLM proxy each signed-in account is given its own virtual key on.
 #:
-#: A fallback, not the authority: under ``mode: "second_brain"`` every key
-#: arrives with the proxy URL the service currently names, and that wins. It
+#: A fallback, not the authority: under ``mode: "keys"`` every key arrives
+#: with the proxy URL the service currently names, and that wins. It
 #: still has to be a live host — it is what a laptop probes before it has
 #: collected a key, and what Settings reports — so update it when the proxy
 #: moves (``vtn-4000.wondertek.space`` stopped answering in September 2026).
@@ -55,7 +55,7 @@ DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.dev-server.cloud"
 #: Model pinned as an account's default the first time its key is minted.
 #:
 #: EMPTY ON PURPOSE, and leaving it that way is the point. Under
-#: ``mode: "second_brain"`` the default comes from the minted key itself: the
+#: ``mode: "keys"`` the default comes from the minted key itself: the
 #: service grants only the modes an operator allows, sorted so a chat model
 #: leads, and provisioning pins the first of them.
 #:
@@ -74,31 +74,36 @@ DEPLOYMENT_LITELLM_DEFAULT_MODEL = ""
 #: does not grant it, provisioning falls back to the first granted model, so the
 #: key still decides what exists. Matched case-insensitively by full id or by
 #: the part after the last "/" — "minimax/minimax-m3" on another proxy counts.
-#: Only ``mode: "second_brain"`` reads it, and an account that already has a
-#: default model keeps it.
+#: Only ``mode: "keys"`` reads it, and an account that already has a default
+#: model keeps it.
 DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL = "MiniMax/MiniMax-M3"
 
-#: The second-brain service: one model key per person and the devices they hold
-#: it on. Public — it is a URL, and every route behind it verifies a Keycloak
-#: bearer. Since 2026-10-01 it is the keys service of AgentX SSO, which also
-#: decides in its console which models each key is granted; it keeps no
-#: conversation history (see ``accounts.second_brain.sync`` below).
+#: Prefix of the LiteLLM key alias provisioning labels a key with. It predates
+#: the keys service and stays as it is: the deprecated broker mode sends the
+#: alias as the account it mints for, and a litellm-account.json recorded
+#: without a subject is matched by it (``account_provisioning._key_belongs_to``),
+#: so a new value could re-issue keys on installs that already hold one.
+DEPLOYMENT_KEY_ALIAS_PREFIX = "second-brain"
+
+#: The keys service of AgentX SSO: one model key per person, the models it is
+#: granted, the person's license, and the devices they hold it on. Public — it
+#: is a URL, and every route behind it verifies a Keycloak bearer.
 #:
-#: SET THIS BEFORE CUTTING A RELEASE. Since the key vault shipped, this URL is
-#: where a laptop gets its model key: ``accounts.litellm.mode`` defaults to
-#: "second_brain", and an install with no URL here provisions nothing and says
-#: so in Settings, naming the setting. Machines that already hold a key keep
-#: working with it — the reuse path never asks the service — but a fresh
-#: install has no model until this is filled in.
+#: SET THIS BEFORE CUTTING A RELEASE. This URL is where a laptop gets its model
+#: key: ``accounts.litellm.mode`` defaults to "keys", and an install with no URL
+#: here provisions nothing and says so in Settings, naming the setting.
+#: Machines that already hold a key keep working with it — the reuse path never
+#: asks the service — but a fresh install has no model until this is filled in.
 #:
 #: It is deliberately not a fallback to local minting. Falling back is how the
 #: LiteLLM admin key came to travel inside every installer.
-DEPLOYMENT_SECOND_BRAIN_URL = "https://agentx.astralx.com.vn/keys"
+DEPLOYMENT_KEYS_URL = "https://agentx.astralx.com.vn/keys"
 
-#: Hosts the service answered at before it moved into AgentX SSO. A config.yaml
-#: that still names one (an older build wrote the default out) is read as the
-#: current default — ``account_provisioning.resolve_second_brain_url``.
-RETIRED_SECOND_BRAIN_HOSTS = ("brain.dev-server.cloud",)
+#: Hosts the keys service answered at before it moved into AgentX SSO on
+#: 2026-10-01 (``brain.dev-server.cloud`` was the retired second-brain service).
+#: A config.yaml that still names one (an older build wrote the default out) is
+#: read as the current default — ``account_provisioning.resolve_keys_url``.
+RETIRED_KEYS_HOSTS = ("brain.dev-server.cloud",)
 
 DEFAULT_CONFIG = {
     "model": "",
@@ -1690,10 +1695,10 @@ DEFAULT_CONFIG = {
             "base_url": DEPLOYMENT_LITELLM_BASE_URL,
             # Where this machine's key comes from.
             #
-            # "second_brain" (shipped) asks the central account service, which
+            # "keys" (shipped) asks the keys service of AgentX SSO, which
             # mints ONCE PER PERSON and hands the same key back to every
-            # machine they sign in on. It needs accounts.second_brain.base_url
-            # below, and nothing secret on the laptop.
+            # machine they sign in on. It needs accounts.keys.base_url below,
+            # and nothing secret on the laptop.
             #
             # "broker" (deprecated) asks the older service, which keeps the
             # admin key off laptops but still mints per machine — so two of
@@ -1705,11 +1710,11 @@ DEFAULT_CONFIG = {
             # with the machine can read it; it is no longer shipped inside the
             # installer, so this mode now needs an admin to place it by hand.
             #
-            # An install with no accounts.second_brain.base_url provisions
-            # nothing and says so, naming the setting. It does not fall back
-            # to minting locally: falling back is how the admin key ended up
-            # on laptops in the first place.
-            "mode": "second_brain",
+            # An install with no accounts.keys.base_url provisions nothing
+            # and says so, naming the setting. It does not fall back to
+            # minting locally: falling back is how the admin key ended up on
+            # laptops in the first place.
+            "mode": "keys",
             # Broker endpoint. Receives the user's Keycloak bearer and answers
             # with that user's key. Required when mode is "broker".
             "broker_url": "",
@@ -1719,7 +1724,7 @@ DEFAULT_CONFIG = {
             # Prefix for the LiteLLM key_alias. The account slug is appended,
             # which is what makes provisioning idempotent: one alias per
             # person, looked up before anything is minted.
-            "key_alias_prefix": "second-brain",
+            "key_alias_prefix": DEPLOYMENT_KEY_ALIAS_PREFIX,
             # Restrict the minted key to these model ids. Empty means every
             # model the proxy exposes.
             "models": [],
@@ -1732,51 +1737,29 @@ DEFAULT_CONFIG = {
             # Model to pin as the account's default the first time its key is
             # minted. Blank leaves model selection alone.
             "default_model": DEPLOYMENT_LITELLM_DEFAULT_MODEL,
-            # Under mode "second_brain": the model a fresh account opens on when
-            # its key was granted it (matched loosely, see the constant). Blank,
-            # or not granted, opens on the first model granted.
+            # Under mode "keys": the model a fresh account opens on when its
+            # key was granted it (matched loosely, see the constant). Blank, or
+            # not granted, opens on the first model granted.
             "preferred_default_model": DEPLOYMENT_LITELLM_PREFERRED_DEFAULT_MODEL,
             # Ask the proxy for its model list after provisioning so the model
             # picker is populated without the user typing ids.
             "discover_models": True,
             "request_timeout_seconds": 20,
         },
-        # The central account service: this person's model key, and which
-        # machines they are signed in on (each one revocable). It keeps no
-        # conversation history.
+        # The keys service: this person's model key, its license, and which
+        # machines they are signed in on (each one revocable).
         #
         # Machine-wide policy like the LiteLLM block above, read from the
         # INSTALL root's config rather than from an account home — an account
         # home is created at sign-in with no config.yaml, so a per-account
         # setting would come back empty and nothing would ever be configured.
-        "second_brain": {
+        "keys": {
             # Where it is. Empty means "not deployed here": Settings says so
             # and nothing else changes. There is no separate `enabled` flag,
             # because a URL is the only thing that decides whether there is a
             # service to talk to.
-            "base_url": DEPLOYMENT_SECOND_BRAIN_URL,
+            "base_url": DEPLOYMENT_KEYS_URL,
             "request_timeout_seconds": 15,
-            # Conversation history converging across this person's machines.
-            #
-            # There is no separate URL: synchronisation talks to the service
-            # named above, and an install with no `base_url` never starts it.
-            "sync": {
-                # Off: the service no longer keeps history (it became the keys
-                # service of AgentX SSO on 2026-10-01, which accepts a push and
-                # drops it). Only an explicit `true` turns it on, for a service
-                # that still keeps history; left absent it stays off.
-                "enabled": False,
-                # Seconds between ticks. Thirty is well inside the window in
-                # which "did my other laptop get this?" still feels live, and
-                # an idle tick is one request that returns an empty page.
-                "interval_seconds": 30,
-                # Hold a socket open so a change made on another machine
-                # arrives at once instead of on the next tick. Purely an
-                # optimisation in front of the polling above — turn it off on
-                # a network whose proxy will not pass a WebSocket upgrade and
-                # everything still converges, just on the interval.
-                "realtime": True,
-            },
         },
     },
 
@@ -3690,7 +3673,7 @@ DEFAULT_CONFIG = {
     },
 
     # Config schema version - bump this when adding new required fields
-    "_config_version": 38,
+    "_config_version": 39,
 }
 
 # Optional environment variables that enhance functionality

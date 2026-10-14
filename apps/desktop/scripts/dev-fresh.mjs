@@ -10,19 +10,13 @@
  * also holds things that are not app state at all (webmate-keys). Plain
  * `npm run dev` keeps using them exactly as before.
  *
- * Two deliberate departures from a literal first launch:
- *
- * - device.json survives a reset. The second-brain service keeps one row per
- *   device id, so a new id every launch would leave one more stale device in
- *   the account's device list every launch. The sandbox keeps an id of its own.
- *
- * - History sync is off unless --sync is passed. Signing in with a real
- *   account would otherwise pull that account's history straight back from the
- *   service, and push every test conversation out to its other devices.
+ * One deliberate departure from a literal first launch: device.json survives a
+ * reset. The keys service keeps one row per device id, so a new id every launch
+ * would leave one more stale device in the account's device list every launch.
+ * The sandbox keeps an id of its own.
  *
  * Usage:
  *   npm run dev:fresh --workspace apps/desktop
- *   npm run dev:fresh --workspace apps/desktop -- --sync
  */
 
 import { spawn, spawnSync } from 'node:child_process'
@@ -36,21 +30,9 @@ import { isCredentialEnvVar, isMain } from './utils.mjs'
 const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_SANDBOX_ROOT = path.join(os.tmpdir(), 'agentx-desktop-dev-fresh')
 
-const USAGE = `Usage: npm run dev:fresh --workspace apps/desktop [-- --sync]
+const USAGE = `Usage: npm run dev:fresh --workspace apps/desktop
 
-Wipes the dev sandbox, then runs \`npm run dev\` inside it.
-
-  --sync   leave second-brain history sync on (off by default)`
-
-// Sync is machine policy, read from the install root's config.yaml whichever
-// account is signed in (load_sync_settings), and load_config deep-merges that
-// file over the defaults, so this one key is all it takes.
-const SYNC_OFF_CONFIG = `# Written by apps/desktop/scripts/dev-fresh.mjs; pass --sync to leave it out.
-accounts:
-  second_brain:
-    sync:
-      enabled: false
-`
+Wipes the dev sandbox, then runs \`npm run dev\` inside it.`
 
 export function sandboxPaths(root = DEFAULT_SANDBOX_ROOT) {
   const runDir = path.join(root, 'run')
@@ -90,7 +72,7 @@ export function liveSandboxPid(userDataDir) {
   return ps.status === 0 && /[\\/]electron[\\/]dist[\\/]/i.test(ps.stdout) ? pid : null
 }
 
-export function resetSandbox(paths, { sync = false } = {}) {
+export function resetSandbox(paths) {
   const pid = liveSandboxPid(paths.userDataDir)
 
   if (pid) {
@@ -109,10 +91,6 @@ export function resetSandbox(paths, { sync = false } = {}) {
 
   if (fs.existsSync(paths.savedDeviceId)) {
     fs.copyFileSync(paths.savedDeviceId, deviceId)
-  }
-
-  if (!sync) {
-    fs.writeFileSync(path.join(paths.agentxHome, 'config.yaml'), SYNC_OFF_CONFIG)
   }
 }
 
@@ -134,18 +112,15 @@ function main() {
     return
   }
 
-  const unknown = args.filter(arg => arg !== '--sync')
-
-  if (unknown.length > 0) {
-    console.error(`Unknown option: ${unknown.join(' ')}\n\n${USAGE}`)
+  if (args.length > 0) {
+    console.error(`Unknown option: ${args.join(' ')}\n\n${USAGE}`)
     process.exit(2)
   }
 
-  const sync = args.includes('--sync')
   const paths = sandboxPaths()
 
   try {
-    resetSandbox(paths, { sync })
+    resetSandbox(paths)
   } catch (error) {
     console.error(`[dev:fresh] ${error.message}`)
     process.exit(1)
@@ -154,7 +129,6 @@ function main() {
   console.log(`[dev:fresh] sandbox wiped, starting dev inside it
   AGENTX_HOME   ${paths.agentxHome}
   userData      ${paths.userDataDir}
-  history sync  ${sync ? 'on' : 'off (add -- --sync to turn it on)'}
 `)
 
   // npm sets npm_execpath for the scripts it runs; going through its CLI with

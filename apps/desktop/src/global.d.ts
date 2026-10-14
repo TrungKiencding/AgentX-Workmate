@@ -159,13 +159,6 @@ declare global {
         rename?: (id: string, name: string) => Promise<DesktopDeviceUpdateResult>
         revoke: (id: string, options?: { rotateKey?: boolean }) => Promise<DesktopDeviceRevokeResult>
       }
-      // Conversation history converging across this person's machines. `tick`
-      // both triggers a synchronisation and delivers the bearer the backend
-      // needs to keep going between ticks, so calling it is a real action.
-      sync?: {
-        status: () => Promise<DesktopSyncStatus>
-        tick: () => Promise<DesktopSyncOutcome>
-      }
       profile: {
         get: () => Promise<DesktopActiveProfile>
         // Persists the desktop's profile choice and relaunches the local
@@ -1161,7 +1154,7 @@ export interface DesktopDevice {
 export interface DesktopDeviceList {
   can_rename?: boolean
   // ok          the list is live
-  // unconfigured  no second-brain service on this install; there is no list
+  // unconfigured  no keys service on this install; there is no list
   // offline     the service could not be reached; say so and move on
   // revoked     THIS device has been cut off — sign in again
   // no_device_id  the request carried no device header (an older build)
@@ -1189,50 +1182,6 @@ export interface DesktopDeviceRevokeResult extends DesktopDeviceUpdateResult {
   // yet — the revoked machine keeps the key it holds.
   key_rotated?: boolean
   key_rotation?: 'rotated' | 'failed' | 'unsupported' | 'not_requested' | 'no_key'
-}
-
-// --- Conversation history, across this person's machines -------------------
-
-/** What one synchronisation attempt did. */
-export interface DesktopSyncOutcome {
-  // ok            the tick completed, whether or not anything moved
-  // offline       the service could not be reached. NOT an error to show.
-  // signed_out    nobody is signed in, so there is nothing to synchronise
-  // unconfigured  no second-brain service on this install
-  // disabled      switched off for this machine, in config.yaml
-  // busy          a synchronisation was already running
-  // reauth        this device is revoked, or its token was rejected
-  // error         the service answered, and refused
-  status: 'ok' | 'offline' | 'signed_out' | 'unconfigured' | 'disabled' | 'busy' | 'reauth' | 'error'
-  detail?: string
-  pushed?: number
-  rejected?: number
-  pulled?: number
-  applied?: number
-  deleted?: number
-  skipped?: number
-  cursor?: number
-  pending?: number
-}
-
-/** Where synchronisation has got to. Read from the local database only. */
-export interface DesktopSyncStatus {
-  enabled?: boolean
-  configured?: boolean
-  base_url?: string
-  interval_seconds?: number
-  // This device's position in the server's change feed.
-  cursor?: number
-  // Changes made here that have not been sent yet.
-  pending?: number
-  // Epoch seconds, or null when it has never happened.
-  last_pull_at?: number | null
-  last_push_at?: number | null
-  last_error?: string | null
-  last?: DesktopSyncOutcome
-  // Set when the local state could not be read at all.
-  detail?: string
-  status?: string
 }
 
 // --- AgentX Cloud (cloud-auto-discovery Phase 3) ---

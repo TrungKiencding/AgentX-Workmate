@@ -529,18 +529,19 @@ class TestFailures:
 
 
 class TestCredentials:
-    def test_mailbox_then_sync_mailbox_then_token(self, monkeypatch):
-        from hermes_cli import hub_sync, sync_engine
+    def test_mailbox_then_account_mailbox_then_token(self, monkeypatch):
+        from hermes_cli import account_credentials, hub_sync
 
         hub_sync._MAILBOX.forget()
-        sync_engine.mailbox().forget()
+        account_mailbox = account_credentials.CredentialMailbox()
+        monkeypatch.setattr(account_credentials, "_MAILBOX", account_mailbox)
         monkeypatch.setattr("hermes_cli.hub_client.hub_api_token", lambda: "")
         assert resolve_credentials() is None
         monkeypatch.setattr("hermes_cli.hub_client.hub_api_token", lambda: "hub_secret")
         monkeypatch.setattr("hermes_cli.hub_client.install_device_identity", lambda: (DEVICE, "Box"))
         found = resolve_credentials()
         assert found is not None and found.source == "token" and found.bearer == "hub_secret" and found.device_id == DEVICE
-        sync_engine.mailbox().remember(sync_engine.SyncCredentials(bearer="id-token", device_id=DEVICE, device_name="Ada's laptop", expires_at=time.time() + 60))
+        account_mailbox.remember(account_credentials.AccountCredentials(bearer="id-token", device_id=DEVICE, device_name="Ada's laptop", expires_at=time.time() + 60))
         found = resolve_credentials()
         assert found is not None and found.source == "mailbox" and found.bearer == "id-token"
         box = HubMailbox()
@@ -549,7 +550,6 @@ class TestCredentials:
         assert resolve_credentials().source == "session" and resolve_credentials().bearer == "hub-tick"
         box.remember(HubCredentials(bearer="expired", device_id=DEVICE, expires_at=time.time() - 1))  # ignored
         assert resolve_credentials().bearer == "hub-tick"
-        sync_engine.mailbox().forget()
 
 
 # ---------------------------------------------------------------------------

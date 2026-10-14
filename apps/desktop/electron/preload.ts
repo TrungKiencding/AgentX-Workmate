@@ -150,13 +150,6 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
     rename: (id, name) => ipcRenderer.invoke('agentx:devices:rename', { id, name }),
     revoke: (id, options) => ipcRenderer.invoke('agentx:devices:revoke', { id, ...options })
   },
-  // Conversation history, across this person's machines. `tick` is also how
-  // the backend receives a bearer at all — it holds no credential of its own —
-  // so Settings asking for a sync is a real trigger and not just a refresh.
-  sync: {
-    status: () => ipcRenderer.invoke('agentx:sync:status'),
-    tick: () => ipcRenderer.invoke('agentx:sync:tick')
-  },
   profile: {
     get: () => ipcRenderer.invoke('agentx:profile:get'),
     set: name => ipcRenderer.invoke('agentx:profile:set', name)

@@ -40,7 +40,7 @@ function writeSsoConfig(sandbox: Sandbox, sso: FakeSso): void {
       `      realm: ${FAKE_SSO_REALM}`,
       `      client_id: ${FAKE_SSO_CLIENT_ID}`,
       'accounts:',
-      '  second_brain:',
+      '  keys:',
       `    base_url: ${sso.url}`,
       'display:',
       '  language: en',

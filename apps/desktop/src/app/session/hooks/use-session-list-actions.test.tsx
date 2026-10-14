@@ -192,9 +192,9 @@ describe('refreshSessions identity + loading hygiene', () => {
 
   it('does not flicker the loading flag over a list that came back empty', async () => {
     // A new account has no conversations, so every background refresh returns
-    // an empty page — and sessions.changed fires one each time second-brain
-    // sync stamps state.db, every 30s. Re-arming the flag on an empty list
-    // swapped the sidebar's blank state for skeletons and back on each one.
+    // an empty page — and sessions.changed fires one whenever something writes
+    // state.db. Re-arming the flag on an empty list swapped the sidebar's blank
+    // state for skeletons and back on each one.
     setSessionsLoading(true)
     listSidebarSessions.mockResolvedValue(sidebar({ sessions: [] }))
     const { result } = renderHook(() => useSessionListActions({ profileScope: 'default' }))

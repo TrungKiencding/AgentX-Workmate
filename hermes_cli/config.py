@@ -3538,6 +3538,13 @@ def _load_config_impl(*, want_deepcopy: bool) -> Dict[str, Any]:
                     user_config["agent"] = agent_user_config
                     user_config.pop("max_turns", None)
 
+                # Read the second-brain era's account settings under the keys
+                # service's names: a desktop install never runs the migration
+                # ladder that renames them on disk (v39).
+                from hermes_cli.config_migrations import upgrade_keys_service_settings
+
+                upgrade_keys_service_settings(user_config)
+
                 config = _deep_merge(config, user_config)
             except Exception as e:
                 # Last-known-good fallback (port of openai/codex#31188's
@@ -3589,6 +3596,11 @@ def _load_config_impl(*, want_deepcopy: bool) -> Dict[str, Any]:
         # keys the managed layer pins — see docs/design/managed-scope.md §4.1.
         managed_config = managed_scope.load_managed_config()
         if managed_config:
+            # An administrator's file is never migrated, so its second-brain
+            # era account settings are read under the new names here as well.
+            from hermes_cli.config_migrations import upgrade_keys_service_settings
+
+            upgrade_keys_service_settings(managed_config)
             # Normalize the managed overlay through the same canonicalization as
             # the user config BEFORE merging (parity with
             # managed_scope.apply_managed_overlay): a dict-valued

@@ -9,7 +9,7 @@ Responses API refuses it with "model sonar is not supported"). Either way
 Perplexity runs the searches and reads the pages, and the reply carries both
 what it found and a short cited answer.
 
-There is nothing to set up. The second brain grants the search model on each
+There is nothing to set up. The keys service grants the search model on each
 person's key and names it when a laptop collects the key;
 ``hermes_cli.account_provisioning`` records it in the account's
 ``litellm-account.json``, which is where this provider reads it. An account

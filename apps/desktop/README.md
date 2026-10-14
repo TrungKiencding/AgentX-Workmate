@@ -74,7 +74,7 @@ npm run dev          # Vite renderer + Electron, which boots the Python backend
 Point the app at a specific source checkout, or sandbox it away from your real config:
 
 ```bash
-npm run dev:fresh       # every launch like the first: wipes a sandbox AGENTX_HOME + userData, history sync off (-- --sync)
+npm run dev:fresh       # every launch like the first: wipes a sandbox AGENTX_HOME + userData
 # Linux only: run the command in a network-isolated bubblewrap sandbox (see dev-sandbox.sh --help)
 ../scripts/dev-sandbox.sh npm run dev
 AGENTX_DESKTOP_AGENTX_ROOT=/path/to/clone npm run dev

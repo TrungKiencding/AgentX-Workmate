@@ -82,13 +82,6 @@ def test_v27_removes_and_tombstones_the_ghosts(tmp_path):
         assert db._conn.execute(
             "SELECT COUNT(*) FROM session_model_usage WHERE session_id = 'ghost'"
         ).fetchone()[0] == 0
-        # Devices that synced a ghost drop it too.
-        assert {
-            row[0]
-            for row in db._conn.execute(
-                "SELECT doc_id FROM sync_outbox WHERE kind = 'session' AND op = 'delete'"
-            )
-        } == GHOSTS
         assert _schema_version(db) == SCHEMA_VERSION == 27
 
         # And the auto-titler can't bring one back.

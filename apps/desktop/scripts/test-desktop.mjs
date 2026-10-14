@@ -172,7 +172,7 @@ function assertNoAdminKeyInPackage() {
       'This package carries something shaped like a LiteLLM key:\n  ' +
         offenders.join('\n  ') +
         '\n\nNothing secret ships with the app. The admin key lives on the ' +
-        'second-brain service, which issues each person one key over their ' +
+        'keys service, which issues each person one key over their ' +
         'Keycloak bearer.'
     )
   }
@@ -371,7 +371,7 @@ function validateBundle() {
   // credential in resources/deployment.json so that `mode: direct` laptops
   // could mint their own keys — which meant anyone who unpacked the .app or
   // .exe could read a key that mints and revokes for the whole estate. The
-  // second-brain service holds it now.
+  // keys service holds it now.
   //
   // Checked against the artifact rather than the source, because the failure
   // this catches is a build script or a stray file putting it back, and
@@ -381,7 +381,7 @@ function validateBundle() {
     die(
       `deployment.json is back in the package: ${deploymentPath}\n` +
         'It existed to carry the LiteLLM admin key into installers. Nothing secret ' +
-        'ships with the app any more — the second-brain service issues model keys.'
+        'ships with the app any more — the keys service issues model keys.'
     )
   }
   assertNoAdminKeyInPackage()

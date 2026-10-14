@@ -1,6 +1,6 @@
 """The laptop's side of the conversation with the AgentX AgentHub.
 
-Shaped like :mod:`hermes_cli.second_brain_client` and for the same reasons:
+Shaped like :mod:`hermes_cli.keys_client` and for the same reasons:
 synchronous httpx, one retry, and an error type that distinguishes "the hub
 said no" from "the hub could not be reached". A laptop that cannot reach the
 hub must keep working with the skills it already holds — an outage is never
@@ -15,7 +15,7 @@ Two headers travel on every request:
                        account from the verified token and ignores anything a
                        body says.
 ``X-AgentX-Device``    which machine is asking — the same install id the
-                       second brain gets (``device.json`` / Electron's
+                       keys service gets (``device.json`` / Electron's
                        ``device-id.ts``), so an Install clicked on the web for
                        "máy A" reaches máy A and the web can say it landed.
 
@@ -524,9 +524,9 @@ class HubClient:
 
 
 def install_device_identity() -> tuple[str, str]:
-    """``(device_id, device_name)`` for this install — the same id the second
-    brain sees (``device.json`` at the install root)."""
-    from hermes_cli.second_brain_client import install_device_identity as _identity
+    """``(device_id, device_name)`` for this install — the same id the keys
+    service sees (``device.json`` at the install root)."""
+    from hermes_cli.keys_client import install_device_identity as _identity
 
     return _identity()
 

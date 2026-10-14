@@ -92,7 +92,7 @@ describe('rotating the key', () => {
     const litellm = {
       base_url: 'https://proxy.test',
       detail: '',
-      key_alias: 'second-brain-kien-8c5f68bd',
+      key_alias: 'agentx-kien-8c5f68bd',
       masked_key: 'sk-…4Bqf',
       models: ['chat-a'],
       ok: true,
@@ -107,7 +107,7 @@ describe('rotating the key', () => {
           provision: async () => ({
             litellm: {
               ...litellm,
-              detail: 'the second brain could not issue a key: LiteLLM returned HTTP 400: alias exists',
+              detail: 'the keys service could not issue a key: LiteLLM returned HTTP 400: alias exists',
               ok: false,
               status: 'error'
             },
@@ -143,7 +143,7 @@ describe('rotating the key', () => {
 
     expect(alert.textContent).toBe(
       en.settings.account.keyRotateFailed(
-        'the second brain could not issue a key: LiteLLM returned HTTP 400: alias exists'
+        'the keys service could not issue a key: LiteLLM returned HTTP 400: alias exists'
       )
     )
     // The key it still holds is still described as working — nothing was lost.

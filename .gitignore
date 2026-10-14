@@ -19,6 +19,8 @@ act/
 .env.production.local
 .env.development
 .env.test
+# Planted and removed by scripts/check-secret-scanning.sh.
+/.secret-scanning-canary
 .agentx-docker/
 .notebooklm-home/
 .notebooklm-cli-venv/

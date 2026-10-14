@@ -141,13 +141,13 @@ class TestTheGatewayRefusesMidTurn:
         from hermes_cli.account_provisioning import write_state
         from hermes_constants import get_hermes_home
 
-        write_state(get_hermes_home(), {"base_url": GATEWAY, "mode": "second_brain"})
+        write_state(get_hermes_home(), {"base_url": GATEWAY, "mode": "keys"})
 
     @pytest.fixture
     def sso_locks_on_refresh(self, monkeypatch):
         """The keys service, asked again, says the license was revoked."""
-        from hermes_cli import sync_engine
-        from hermes_cli.sync_engine import SyncCredentials
+        from hermes_cli import account_credentials
+        from hermes_cli.account_credentials import AccountCredentials
 
         asked: list[str] = []
 
@@ -158,9 +158,9 @@ class TestTheGatewayRefusesMidTurn:
 
         monkeypatch.setattr(account_license, "refresh_license", _refresh)
         monkeypatch.setattr(
-            sync_engine.mailbox(),
+            account_credentials.mailbox(),
             "current",
-            lambda: SyncCredentials(bearer="tok-live", device_id="dev-1"),
+            lambda: AccountCredentials(bearer="tok-live", device_id="dev-1"),
         )
         return asked
 
@@ -211,9 +211,9 @@ class TestTheGatewayRefusesMidTurn:
     def test_a_refusal_with_the_license_still_full_is_the_providers_error(
         self, account_gateway, monkeypatch
     ):
-        from hermes_cli import sync_engine
+        from hermes_cli import account_credentials
 
-        monkeypatch.setattr(sync_engine.mailbox(), "current", lambda: None)
+        monkeypatch.setattr(account_credentials.mailbox(), "current", lambda: None)
         remember_license(_license(state="active", access="full", notice=None, revoked_at=None))
         agent = _make_agent(base_url=f"{GATEWAY}/v1")
         agent.client.chat.completions.create.side_effect = _auth_error(401)

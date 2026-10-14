@@ -497,27 +497,6 @@ export interface Translations {
       deviceLastSeenMinutes: (n: number) => string
       deviceLastSeenHours: (n: number) => string
       deviceLastSeenDays: (n: number) => string
-      syncTitle: string
-      syncUpToDate: string
-      syncPending: (n: number) => string
-      syncPendingPill: (n: number) => string
-      syncOffline: string
-      syncError: string
-      syncReauth: string
-      syncSignedOut: string
-      syncDisabled: string
-      syncDisabledDesc: string
-      syncNow: string
-      syncRunning: string
-      syncNowDone: string
-      syncLastPull: string
-      syncLastPullDesc: (when: string) => string
-      syncLastError: string
-      syncNever: string
-      syncJustNow: string
-      syncMinutesAgo: (n: number) => string
-      syncHoursAgo: (n: number) => string
-      syncDaysAgo: (n: number) => string
     }
     plugins: {
       title: string

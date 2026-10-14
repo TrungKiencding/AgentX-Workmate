@@ -456,10 +456,9 @@ class SessionPortabilityMixin:
         """Validate and normalize an import payload before any write.
 
         Split out from :meth:`import_sessions` so a caller that is ALREADY
-        inside a write transaction — ``SessionSyncMixin.apply_remote_documents``
-        — can reuse the one serializer instead of growing a second one that
-        drifts from it. ``_execute_write`` holds a non-reentrant lock, so the
-        two halves have to be callable separately.
+        inside a write transaction can reuse the one serializer instead of
+        growing a second one that drifts from it. ``_execute_write`` holds a
+        non-reentrant lock, so the two halves have to be callable separately.
 
         Returns ``(normalized, errors)``; a non-empty ``errors`` means nothing
         should be written.
@@ -616,9 +615,7 @@ class SessionPortabilityMixin:
     ) -> Dict[str, Any]:
         """Write a payload prepared by :meth:`_prepare_session_import`.
 
-        Runs inside the caller's write transaction (takes the live ``conn``),
-        so both ``import_sessions`` and the sync mixin's apply path land rows
-        through exactly this code.
+        Runs inside the caller's write transaction (takes the live ``conn``).
         """
         imported_ids: List[str] = []
         skipped_ids: List[str] = []
@@ -638,8 +635,7 @@ class SessionPortabilityMixin:
                 continue
 
             # Importing a conversation the user deleted here restores it on
-            # purpose. (Sync never gets here for one: its apply path skips
-            # tombstoned ids before importing.)
+            # purpose.
             conn.execute(
                 "DELETE FROM deleted_gateway_sessions WHERE session_id = ?",
                 (session_id,),

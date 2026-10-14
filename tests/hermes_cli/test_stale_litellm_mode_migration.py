@@ -57,10 +57,10 @@ class TestV36Migration:
             results = _run_ladder(35)
 
         litellm = _litellm(path)
-        assert litellm["mode"] == "second_brain"
+        assert litellm["mode"] == "keys"
         # Only the mode moves; the rest of the section is somebody's config.
         assert litellm["base_url"] == "https://proxy.example"
-        assert any("accounts.litellm.mode=second_brain" in line for line in results["config_added"])
+        assert any("accounts.litellm.mode=keys" in line for line in results["config_added"])
 
     def test_direct_with_the_admin_key_in_dotenv_is_a_choice_and_stays(self, hermes_home):
         (hermes_home / ".env").write_text(f"{ADMIN_KEY_ENV_VAR}=sk-admin\n", encoding="utf-8")
@@ -83,7 +83,7 @@ class TestV36Migration:
         with patch.dict(os.environ, {"AGENTX_HOME": str(hermes_home)}):
             _run_ladder(35)
 
-        assert _litellm(path)["mode"] == "second_brain"
+        assert _litellm(path)["mode"] == "keys"
 
     def test_broker_with_a_url_stays(self, hermes_home):
         path = _write_config(
@@ -101,9 +101,9 @@ class TestV36Migration:
 
     def test_a_config_already_on_the_service_or_without_a_mode_is_untouched(self, hermes_home):
         for accounts in (
-            {"litellm": {"mode": "second_brain"}},
+            {"litellm": {"mode": "keys"}},
             {"litellm": {"enabled": True}},
-            {"second_brain": {"base_url": "https://brain.example"}},
+            {"keys": {"base_url": "https://keys.example"}},
         ):
             path = _write_config(hermes_home, {"_config_version": 35, "accounts": accounts})
             before = path.read_text(encoding="utf-8")

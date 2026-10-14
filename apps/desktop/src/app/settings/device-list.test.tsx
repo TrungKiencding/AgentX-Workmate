@@ -72,8 +72,8 @@ describe('DeviceList', () => {
     expect(screen.getAllByText(/this device/i)).toHaveLength(1)
   })
 
-  it('renders nothing when no account service is configured', async () => {
-    // An install with no second brain has no device list. An empty section
+  it('renders nothing when no keys service is configured', async () => {
+    // An install with no keys service has no device list. An empty section
     // headed "Your devices" reads as broken rather than absent.
     stubDevices({
       list: async () => ({ current: '', devices: [], status: 'unconfigured' }),
@@ -99,7 +99,7 @@ describe('DeviceList', () => {
 
     render(<DeviceList />)
 
-    expect(await screen.findByText(/could not reach the agentx account service/i)).toBeTruthy()
+    expect(await screen.findByText(/could not reach the agentx keys service/i)).toBeTruthy()
     // Never on `offline`. Signing somebody out over a network blip is the
     // exact mistake the offline contract exists to prevent.
     expect(signOut).not.toHaveBeenCalled()

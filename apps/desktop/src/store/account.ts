@@ -6,9 +6,7 @@ import type {
   DesktopDeviceList,
   DesktopDeviceRevokeResult,
   DesktopDeviceUpdateResult,
-  DesktopKeycloakStatus,
-  DesktopSyncOutcome,
-  DesktopSyncStatus
+  DesktopKeycloakStatus
 } from '@/global'
 
 /**
@@ -342,111 +340,6 @@ export async function revokeDevice(
   }
 
   return result
-}
-
-/**
- * Where conversation history has got to, across this person's machines.
- *
- * Separate from `$devices` for the same reason `$devices` is separate from
- * `$keycloakAccount`: these three fail independently. A person can be signed
- * in with the device list working and synchronisation switched off, and each
- * of those states has a different sentence to show.
- */
-export interface SyncState extends DesktopSyncStatus {
-  /** The preload bridge exposes `sync` at all — it is optional. */
-  available: boolean
-  /** `status()` has resolved at least once; distinguishes "loading" from "off". */
-  loaded: boolean
-  /** A `tick()` requested from Settings is in flight. */
-  syncing: boolean
-}
-
-const INITIAL_SYNC: SyncState = {
-  available: false,
-  configured: false,
-  cursor: 0,
-  enabled: false,
-  loaded: false,
-  pending: 0,
-  syncing: false
-}
-
-export const $sync = atom<SyncState>(INITIAL_SYNC)
-
-/**
- * Re-read where synchronisation has got to. Never throws, makes no network call.
- *
- * The backend answers this from its own database, so it still says something
- * useful while the service is unreachable — which is exactly when somebody
- * opens Settings to find out what is going on.
- */
-export async function refreshSyncStatus(): Promise<SyncState> {
-  const bridge = window.agentxDesktop?.sync
-
-  if (!bridge) {
-    const next = { ...INITIAL_SYNC, loaded: true }
-
-    $sync.set(next)
-
-    return next
-  }
-
-  try {
-    const body = await bridge.status()
-
-    const next: SyncState = {
-      ...INITIAL_SYNC,
-      ...body,
-      available: true,
-      loaded: true,
-      syncing: false
-    }
-
-    $sync.set(next)
-
-    return next
-  } catch {
-    const next: SyncState = { ...INITIAL_SYNC, available: true, loaded: true }
-
-    $sync.set(next)
-
-    return next
-  }
-}
-
-/**
- * Synchronise now instead of waiting for the next tick.
- *
- * Not merely a refresh: the backend holds no credential of its own for the
- * signed-in person, so the bearer travelling on this call is what lets it work
- * at all. Returns the outcome for the caller to report, and leaves `$sync`
- * holding the position afterwards.
- */
-export async function syncNow(): Promise<DesktopSyncOutcome> {
-  const bridge = window.agentxDesktop?.sync
-
-  if (!bridge) {
-    return { detail: 'This build cannot synchronise.', status: 'unconfigured' }
-  }
-
-  $sync.set({ ...$sync.get(), syncing: true })
-
-  let outcome: DesktopSyncOutcome
-
-  try {
-    outcome = await bridge.tick()
-  } catch (error) {
-    outcome = {
-      detail: error instanceof Error ? error.message : String(error),
-      status: 'offline'
-    }
-  }
-
-  // Whatever happened, the position has moved or the reason it did not is
-  // now recorded — either way what the panel is showing is stale.
-  await refreshSyncStatus()
-
-  return outcome
 }
 
 /**

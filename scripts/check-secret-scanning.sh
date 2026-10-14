@@ -26,9 +26,10 @@ if ! command -v gitleaks >/dev/null 2>&1; then
   exit 127
 fi
 
-# Somewhere the allowlist does not cover. Under deploy/ specifically, because
-# that is the directory this whole gate exists for.
-CANARY="deploy/second-brain/.secret-scanning-canary"
+# Somewhere the allowlist does not cover: the repository root, which every tree
+# scan reads. .gitignore lists it, so a run killed before its cleanup cannot
+# leave it to be committed.
+CANARY=".secret-scanning-canary"
 
 cleanup() {
   rm -f "$CANARY"
@@ -59,7 +60,7 @@ echo "Planted a secret at $CANARY; expecting gitleaks to find it."
 # back to its built-in config, saying so only at --log-level debug. Without
 # the flag the canary would prove gitleaks' own rules work and nothing about
 # this repository's config — it would stay green with useDefault turned off,
-# or with an allowlist covering deploy/. With it, the canary faces the same
+# or with an allowlist covering the root. With it, the canary faces the same
 # rules and allowlist as the tree scan in lint.yml.
 #
 # --exit-code "$CAUGHT" rather than 1, because gitleaks also exits 1 when it
@@ -84,7 +85,7 @@ if [ "$status" -ne "$CAUGHT" ]; then
   Likely causes, in order:
 
     * .gitleaks.toml no longer parses, or [extend] useDefault was turned off
-    * the allowlist grew a path pattern broad enough to cover deploy/
+    * the allowlist grew a path pattern broad enough to cover the canary
     * gitleaks was upgraded across a breaking change in its CLI or rules
 
 MESSAGE

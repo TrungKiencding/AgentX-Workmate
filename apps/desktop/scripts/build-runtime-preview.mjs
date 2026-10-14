@@ -39,7 +39,7 @@ await run('uv', ['export', '--frozen', '--no-dev', '--extra', 'anthropic', '--ex
 await run('uv', ['--no-config', 'pip', 'install', '--python', python, '--target', sitePackages, '--require-hashes', '--only-binary', ':all:', '-r', requirements])
 
 // Ship tracked runtime code/resources only, never local config, credentials or caches.
-const dirs = new Set(['agent', 'tools', 'hermes_cli', 'gateway', 'tui_gateway', 'cron', 'acp_adapter', 'plugins', 'providers', 'second_brain', 'skills', 'optional-skills', 'optional-mcps', 'scripts'])
+const dirs = new Set(['agent', 'tools', 'hermes_cli', 'gateway', 'tui_gateway', 'cron', 'acp_adapter', 'plugins', 'providers', 'skills', 'optional-skills', 'optional-mcps', 'scripts'])
 const source = path.join(out, 'source')
 const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repo }).toString().split('\0').filter(Boolean)
 for (const relative of tracked) {

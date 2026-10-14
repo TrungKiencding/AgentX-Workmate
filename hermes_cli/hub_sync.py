@@ -6,7 +6,7 @@ Workmate", "switch version 1.2 of Y off everywhere it was installed",
 "a workspace published Z". This engine makes the disk agree and
 reports back, so the web can say "installed on máy A".
 
-Four rules, inherited from :mod:`hermes_cli.sync_engine`:
+Four rules:
 
 **The hub decides nothing about files this machine already has.** A skill
 is installed through the same quarantine → ``skills_guard`` → lock-file path
@@ -83,9 +83,9 @@ switch it off, hears when it goes; the web's "Thêm vào Workmate" is one.
 
 **Credentials are given, never obtained.** This process holds no refresh
 token. The bearer arrives on ``POST /api/skills/hub/tick`` (the desktop's
-Hub tab), on ``POST /api/sync/tick`` (the desktop's 30-second timer — the
-same mailbox the second-brain sync engine spends), or as a personal hub
-token in ``skills.hub_token`` for an install without a desktop.
+Hub tab), on ``GET /api/account/license`` (the desktop's 30-second account
+ticker, which fills :mod:`hermes_cli.account_credentials`), or as a personal
+hub token in ``skills.hub_token`` for an install without a desktop.
 """
 
 from __future__ import annotations
@@ -133,7 +133,7 @@ class HubCredentials:
     device_name: str = ""
     expires_at: float = 0.0
     #: Where the bearer came from: ``session`` (a request), ``mailbox`` (the
-    #: desktop's sync tick), ``token`` (``skills.hub_token``).
+    #: desktop's account ticker), ``token`` (``skills.hub_token``).
     source: str = "session"
 
     @property
@@ -301,19 +301,17 @@ def resolve_credentials() -> Optional[HubCredentials]:
     """The best bearer available right now, or None.
 
     Order: this engine's mailbox (fed by ``/api/skills/hub/tick``), the
-    second-brain sync mailbox (fed every 30 s by the desktop's
-    ``/api/sync/tick`` — same person, same device, same ID token), a personal
-    hub token from ``skills.hub_token`` paired with the install's device id.
+    account mailbox (fed every 30 s by the desktop's
+    ``/api/account/license`` — same person, same device, same ID token), a
+    personal hub token from ``skills.hub_token`` paired with the install's
+    device id.
     """
     held = _MAILBOX.current()
     if held is not None:
         return held
-    try:
-        from hermes_cli.sync_engine import mailbox as sync_mailbox
+    from hermes_cli.account_credentials import mailbox as account_mailbox
 
-        shared = sync_mailbox().current()
-    except Exception:  # noqa: BLE001 - the sync engine is optional
-        shared = None
+    shared = account_mailbox().current()
     if shared is not None and getattr(shared, "usable", False):
         return HubCredentials(
             bearer=shared.bearer, device_id=shared.device_id, device_name=getattr(shared, "device_name", "") or "",

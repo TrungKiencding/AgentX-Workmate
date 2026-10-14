@@ -408,7 +408,7 @@ def _hub_identity() -> Dict[str, Any]:
     """Identity when the sync plane is the AgentX AgentHub.
 
     Bearer and device come from ``hermes_cli.hub_sync.resolve_credentials``
-    (the hub-tick / sync-tick mailboxes, else ``skills.hub_token``); owner,
+    (the hub-tick and account mailboxes, else ``skills.hub_token``); owner,
     organisation (the tenant) and the person's workspaces from the hub's
     ``/v1/me``. The claims dict is shaped like the Nous one (``sub``,
     ``org_id``) plus ``workspaces`` — the list :func:`resolve_workspace_identity`

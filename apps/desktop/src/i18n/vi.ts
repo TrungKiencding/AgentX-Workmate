@@ -292,7 +292,7 @@ export const vi: Translations = {
       'Workmate chỉ dùng model qua AgentX AI Gateway của tài khoản bạn. Bạn có thể thử lại hoặc bỏ qua thiết lập; AI chưa dùng được cho đến khi kết nối thành công.',
     account: who => `Tài khoản: ${who}`,
     reasons: {
-      offline: 'Không kết nối được tới máy chủ cấp key AgentX. Hãy kiểm tra mạng rồi bấm Thử lại.',
+      offline: 'Không kết nối được tới dịch vụ khoá AI của AgentX. Hãy kiểm tra mạng rồi bấm Thử lại.',
       revoked: 'Thiết bị này đã bị thu hồi khỏi tài khoản AgentX của bạn.',
       noModels: 'Tài khoản của bạn chưa được gán model nào đang hoạt động trên AgentX AI Gateway.',
       noAnswer:
@@ -585,35 +585,13 @@ export const vi: Translations = {
       deviceRevokeLastError:
         'Đây là thiết bị cuối cùng còn lại trong tài khoản của bạn. Cấp key mới lúc này sẽ không còn máy nào nhận được key. Hãy đăng nhập ở một máy khác trước, hoặc thu hồi mà không cấp key mới.',
       deviceRevokedSelf: 'Bản cài đặt này đã bị chặn truy cập tài khoản.',
-      deviceOffline: 'Không kết nối được tới dịch vụ tài khoản AgentX. Danh sách thiết bị của bạn không đổi.',
-      deviceUnconfigured: 'Bản cài đặt này chưa kết nối với dịch vụ tài khoản AgentX.',
+      deviceOffline: 'Không kết nối được tới dịch vụ khoá AI của AgentX. Danh sách thiết bị của bạn không đổi.',
+      deviceUnconfigured: 'Bản cài đặt này chưa kết nối với dịch vụ khoá AI của AgentX.',
       deviceLastSeenNow: 'Đang hoạt động',
       deviceLastSeenUnknown: 'Không rõ lần hoạt động gần nhất',
       deviceLastSeenMinutes: n => `Hoạt động ${n} phút trước`,
       deviceLastSeenHours: n => `Hoạt động ${n} giờ trước`,
-      deviceLastSeenDays: n => `Hoạt động ${n} ngày trước`,
-      syncTitle: 'Lịch sử trò chuyện',
-      syncUpToDate: 'Lịch sử của bạn đã khớp với các thiết bị khác.',
-      syncPending: n => `Còn ${n} thay đổi đang chờ sang các thiết bị khác.`,
-      syncPendingPill: n => `${n} đang chờ`,
-      syncOffline:
-        'Không kết nối được tới dịch vụ tài khoản AgentX. Việc bạn làm vẫn được lưu ở đây và sẽ tự đồng bộ sau.',
-      syncError: 'Dịch vụ tài khoản đã từ chối lần đồng bộ vừa rồi. Hệ thống sẽ thử lại sau ít phút.',
-      syncReauth: 'Thiết bị này không đồng bộ được nữa. Hãy đăng nhập lại để tiếp tục.',
-      syncSignedOut: 'Đăng nhập để đồng bộ lịch sử giữa các thiết bị của bạn.',
-      syncDisabled: 'Đồng bộ lịch sử đang tắt',
-      syncDisabledDesc: 'Máy này được đặt là không đồng bộ lịch sử trò chuyện. Mọi thứ khác vẫn hoạt động bình thường.',
-      syncNow: 'Đồng bộ ngay',
-      syncRunning: 'Đang đồng bộ…',
-      syncNowDone: 'Đã cập nhật.',
-      syncLastPull: 'Đồng bộ gần nhất',
-      syncLastPullDesc: when => when,
-      syncLastError: 'Sự cố gần nhất',
-      syncNever: 'Chưa bao giờ',
-      syncJustNow: 'Vừa xong',
-      syncMinutesAgo: n => `${n} phút trước`,
-      syncHoursAgo: n => `${n} giờ trước`,
-      syncDaysAgo: n => `${n} ngày trước`
+      deviceLastSeenDays: n => `Hoạt động ${n} ngày trước`
     },
     plugins: {
       title: 'Plugin desktop',

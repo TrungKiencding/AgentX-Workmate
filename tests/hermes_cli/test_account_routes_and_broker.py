@@ -363,14 +363,14 @@ def test_the_broker_never_retires_a_key_it_cannot_attribute(broker):
     """The broker leaks rather than revokes, deliberately.
 
     It used to delete every key wearing the alias before minting, and that was
-    the fault the second brain was built to end: one person's machines all
+    the fault the keys service was built to end: one person's machines all
     present the same alias, so the second laptop to call retired the first
     laptop's working key. The broker keeps no record of which machine holds
     which key, so it cannot tell a stale one from a colleague machine's live
     one — and an orphan is a bill, where the delete was an outage.
 
-    This is a holding position, not a design. ``mode: "second_brain"`` mints
-    once per person and has no orphans at all.
+    This is a holding position, not a design. ``mode: "keys"`` mints once per
+    person and has no orphans at all.
     """
     client, realm, proxy, settings = broker
     realm.add("tok-ada", _session("kc-ada", "ada@corp.test", "ada", "tok-ada"))

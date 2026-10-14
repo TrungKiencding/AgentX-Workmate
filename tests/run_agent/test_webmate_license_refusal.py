@@ -99,8 +99,8 @@ def _agent(*tools: str) -> AIAgent:
 @pytest.fixture
 def keys_service(monkeypatch):
     """The keys service, asked again with the desktop's bearer, answers *license*."""
-    from hermes_cli import sync_engine
-    from hermes_cli.sync_engine import SyncCredentials
+    from hermes_cli import account_credentials
+    from hermes_cli.account_credentials import AccountCredentials
 
     asked: list[str] = []
     answer = {"license": _REVOKED}
@@ -111,7 +111,7 @@ def keys_service(monkeypatch):
         return account_license.LicenseRefresh(status="ok", license=answer["license"])
 
     monkeypatch.setattr(account_license, "refresh_license", _refresh)
-    monkeypatch.setattr(sync_engine.mailbox(), "current", lambda: SyncCredentials(bearer="tok-live", device_id="dev-1"))
+    monkeypatch.setattr(account_credentials.mailbox(), "current", lambda: AccountCredentials(bearer="tok-live", device_id="dev-1"))
     return SimpleNamespace(asked=asked, answer=answer)
 
 

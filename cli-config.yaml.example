@@ -1885,11 +1885,11 @@ updates:
 #
 #     # How this machine obtains a key.
 #     #
-#     #   second_brain - (shipped) ask the central account service, which
+#     #   keys         - (shipped) ask the keys service of AgentX SSO, which
 #     #                  mints ONCE PER PERSON and hands the same key back to
 #     #                  every machine they sign in on. Needs
-#     #                  accounts.second_brain.base_url below, and nothing
-#     #                  secret on the laptop.
+#     #                  accounts.keys.base_url below, and nothing secret on
+#     #                  the laptop.
 #     #   broker       - (deprecated) POST the Keycloak token to the older
 #     #                  service, which mints on the user's behalf. Keeps the
 #     #                  admin key off laptops but still mints per MACHINE, so
@@ -1902,11 +1902,10 @@ updates:
 #     #                  longer shipped in the installer, so an admin has to
 #     #                  place it by hand.
 #     #
-#     # An install with no second_brain.base_url provisions nothing and says
-#     # so, naming the setting. It does NOT fall back to minting locally:
-#     # falling back is how the admin key ended up on laptops in the first
-#     # place.
-#     mode: "second_brain"
+#     # An install with no keys.base_url provisions nothing and says so,
+#     # naming the setting. It does NOT fall back to minting locally: falling
+#     # back is how the admin key ended up on laptops in the first place.
+#     mode: "keys"
 #
 #     # Where the broker listens. Required when mode is "broker"; put TLS in
 #     # front of it. Run the server side with `agentx account broker`.
@@ -1955,21 +1954,20 @@ updates:
 #     # path, so a wedged proxy must not be allowed to hold up a launch.
 #     request_timeout_seconds: 20
 #
-#   # ---- The second brain ----------------------------------------------------
-#   # The central account service (`agentx second-brain serve`). It answers one
-#   # question today: which machines is this person signed in on, and can I
-#   # revoke one? Later it holds their model key and their conversation
-#   # history, so a second laptop stops costing them the first one.
+#   # ---- The keys service -----------------------------------------------------
+#   # The keys service of AgentX SSO: this person's model key and the models it
+#   # is granted, their AgentX license, and the machines they are signed in on
+#   # (each one revocable). One key per person, so a second laptop never costs
+#   # them the first one.
 #   #
 #   # Machine-wide policy, like the litellm block above: written once per
 #   # install and inherited by every account on it.
-#   #
-#   # Standing one up: deploy/second-brain/README.md.
-#   second_brain:
-#     # Where it is, e.g. "https://brain.example.com". Empty means no service
-#     # is deployed for this install: Settings says so, the device list is
-#     # hidden, and nothing else changes. There is no separate `enabled` flag
-#     # — a URL is what decides whether there is anything to talk to.
+#   keys:
+#     # Where it is, e.g. "https://sso.example.com/keys". Empty means no
+#     # service is deployed for this install: Settings says so, the device
+#     # list is hidden, and nothing else changes. There is no separate
+#     # `enabled` flag — a URL is what decides whether there is anything to
+#     # talk to.
 #     base_url: ""
 #
 #     # Timeout for each call. Settings must not feel wedged because a

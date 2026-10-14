@@ -721,8 +721,8 @@ def _migrate_to_36(results: Dict[str, Any], quiet: bool) -> None:
     # ── Version 35 → 36: a stale ``accounts.litellm.mode`` moves to the service ──
     # Until 2026-08-13 AgentX shipped ``mode: "direct"`` — each laptop minting
     # its own key with an admin credential the installer carried — and the
-    # example config recommended ``"broker"``. Both are deprecated; the key
-    # vault (``second_brain``) is the default now. A config still pinning one
+    # example config recommended ``"broker"``. Both are deprecated; the keys
+    # service (``keys``) is the default now. A config still pinning one
     # of them on a machine that holds NEITHER the admin key (direct) NOR a
     # broker URL (broker) cannot sign in at all: every launch ends on
     # "AGENTX_LITELLM_ADMIN_KEY is not set", which is exactly what an install
@@ -755,17 +755,17 @@ def _migrate_to_36(results: Dict[str, Any], quiet: bool) -> None:
     else:
         return
 
-    litellm["mode"] = "second_brain"
+    litellm["mode"] = "keys"
     accounts["litellm"] = litellm
     config["accounts"] = accounts
     _persist_migration(config)
     results["config_added"].append(
-        f"accounts.litellm.mode=second_brain (was {mode}; {reason})"
+        f"accounts.litellm.mode=keys (was {mode}; {reason})"
     )
     if not quiet:
         print(
-            f"  ✓ Moved accounts.litellm.mode from {mode} to second_brain ({reason}): "
-            "this machine gets its model key from the account service."
+            f"  ✓ Moved accounts.litellm.mode from {mode} to keys ({reason}): "
+            "this machine gets its model key from the keys service."
         )
 
 
@@ -874,6 +874,85 @@ def _migrate_to_38(results: Dict[str, Any], quiet: bool) -> None:
             print(f"  ⚠ {results['warnings'][-1]}")
 
 
+#: The second-brain era's names for the keys service settings (until v39):
+#: ``accounts.second_brain`` held its URL and timeout, plus the conversation
+#: sync that retired with it, and ``accounts.litellm.mode: second_brain`` was
+#: the mode that collects a key from it.
+LEGACY_KEYS_SECTION = "second_brain"
+LEGACY_KEYS_MODE = "second_brain"
+
+#: What moves from ``accounts.second_brain`` to ``accounts.keys``.
+_KEYS_SERVICE_SETTINGS = ("base_url", "request_timeout_seconds")
+
+
+def upgrade_keys_service_settings(config: Dict[str, Any]) -> List[str]:
+    """Rename the second-brain era's account settings in *config*, in place.
+
+    One way only: ``accounts.second_brain.base_url`` and
+    ``request_timeout_seconds`` move to ``accounts.keys`` unless that section
+    already names them (a value written under the new name wins), the rest of
+    ``accounts.second_brain`` (the retired conversation sync) goes, and
+    ``accounts.litellm.mode: second_brain`` becomes ``keys``. Values move as
+    written; a retired host is read as the current default where the URL is
+    read (``account_provisioning.resolve_keys_url``).
+
+    Shared by the v39 step and by ``load_config``, which applies it to the
+    user and managed configs at read time because a desktop install never runs
+    this ladder. Returns what changed, for the migration report.
+    """
+    accounts = config.get("accounts") if isinstance(config, dict) else None
+    if not isinstance(accounts, dict):
+        return []
+
+    changed: List[str] = []
+    if LEGACY_KEYS_SECTION in accounts:
+        legacy = accounts.pop(LEGACY_KEYS_SECTION)
+        legacy = legacy if isinstance(legacy, dict) else {}
+        keys = accounts.get("keys")
+        keys = dict(keys) if isinstance(keys, dict) else {}
+        moved = [name for name in _KEYS_SERVICE_SETTINGS if name in legacy and name not in keys]
+        for name in moved:
+            keys[name] = legacy[name]
+        if keys:
+            accounts["keys"] = keys
+        if moved:
+            changed.append(f"accounts.second_brain → accounts.keys ({', '.join(moved)})")
+        if "sync" in legacy:
+            changed.append("accounts.second_brain.sync removed (conversation sync is retired)")
+        if not changed:
+            changed.append("accounts.second_brain removed")
+
+    litellm = accounts.get("litellm")
+    if isinstance(litellm, dict) and str(litellm.get("mode") or "").strip().lower() == LEGACY_KEYS_MODE:
+        litellm["mode"] = "keys"
+        changed.append("accounts.litellm.mode=keys (was second_brain)")
+
+    if not accounts:
+        config.pop("accounts")
+    return changed
+
+
+def _migrate_to_39(results: Dict[str, Any], quiet: bool) -> None:
+    # ── Version 38 → 39: the second brain's settings take the keys service's names ──
+    # The service that issues model keys is the keys service of AgentX SSO
+    # (since 2026-10-01), and the conversation sync the second brain also
+    # carried is retired. Only the names move: the URL, the timeout and the
+    # mode keep their values, so a machine keeps the key it holds and the
+    # service that issued it.
+    _c = _cfg()
+    read_raw_config = _c.read_raw_config
+    _persist_migration = _c._persist_migration
+
+    config = read_raw_config()
+    changed = upgrade_keys_service_settings(config)
+    if not changed:
+        return
+    _persist_migration(config)
+    results["config_added"].extend(changed)
+    if not quiet:
+        print(f"  ✓ The keys service settings have their own names: {'; '.join(changed)}.")
+
+
 #: Registry of (target_version, migration_fn), strictly ascending. The driver
 #: applies every entry whose target version is greater than the on-disk
 #: version captured before the ladder started. Order matters: later steps may
@@ -900,6 +979,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
     (36, _migrate_to_36),
     (37, _migrate_to_37),
     (38, _migrate_to_38),
+    (39, _migrate_to_39),
 )
 
 

@@ -284,7 +284,7 @@ export const en: Translations = {
       'Workmate only uses models through your account’s AgentX AI Gateway. Retry or skip setup; AI stays unavailable until the gateway connects.',
     account: who => `Account: ${who}`,
     reasons: {
-      offline: 'The AgentX key service could not be reached. Check your network, then select Try again.',
+      offline: 'The AgentX keys service could not be reached. Check your network, then select Try again.',
       revoked: 'This device was revoked from your AgentX account.',
       noModels: 'Your account has no model assigned that the AgentX AI Gateway currently serves.',
       noAnswer:
@@ -578,35 +578,13 @@ export const en: Translations = {
       deviceRevokeLastError:
         'This is the only device left on your account. Issuing a new key now would leave no machine able to collect it. Sign in somewhere else first, or revoke without issuing a new key.',
       deviceRevokedSelf: 'This installation has been blocked from accessing your account.',
-      deviceOffline: 'Could not reach the AgentX account service. Your devices are unchanged.',
-      deviceUnconfigured: 'This install is not connected to an AgentX account service.',
+      deviceOffline: 'Could not reach the AgentX keys service. Your devices are unchanged.',
+      deviceUnconfigured: 'This install is not connected to an AgentX keys service.',
       deviceLastSeenNow: 'Active now',
       deviceLastSeenUnknown: 'Last seen at an unknown time',
       deviceLastSeenMinutes: n => `Last seen ${n} minute${n === 1 ? '' : 's'} ago`,
       deviceLastSeenHours: n => `Last seen ${n} hour${n === 1 ? '' : 's'} ago`,
-      deviceLastSeenDays: n => `Last seen ${n} day${n === 1 ? '' : 's'} ago`,
-      syncTitle: 'Conversation history',
-      syncUpToDate: 'Your history is in step with your other devices.',
-      syncPending: n => `${n} change${n === 1 ? '' : 's'} waiting to reach your other devices.`,
-      syncPendingPill: n => `${n} waiting`,
-      syncOffline: 'Could not reach the AgentX account service. Your work is saved here and will catch up on its own.',
-      syncError: 'The account service refused the last sync. It will try again shortly.',
-      syncReauth: 'This device can no longer sync. Sign in again to resume.',
-      syncSignedOut: 'Sign in to sync your history across your devices.',
-      syncDisabled: 'History sync is off',
-      syncDisabledDesc:
-        'This machine has been set not to sync its conversation history. Everything else works as normal.',
-      syncNow: 'Sync now',
-      syncRunning: 'Syncing…',
-      syncNowDone: 'Up to date.',
-      syncLastPull: 'Last synced',
-      syncLastPullDesc: when => when,
-      syncLastError: 'Last problem',
-      syncNever: 'Never',
-      syncJustNow: 'Just now',
-      syncMinutesAgo: n => `${n} minute${n === 1 ? '' : 's'} ago`,
-      syncHoursAgo: n => `${n} hour${n === 1 ? '' : 's'} ago`,
-      syncDaysAgo: n => `${n} day${n === 1 ? '' : 's'} ago`
+      deviceLastSeenDays: n => `Last seen ${n} day${n === 1 ? '' : 's'} ago`
     },
     plugins: {
       title: 'Desktop plugins',

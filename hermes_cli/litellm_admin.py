@@ -4,7 +4,6 @@ Only the calls per-account provisioning needs, and nothing else:
 
     /key/list?key_alias=…   find the key we minted for this person last time
     /key/generate           mint one
-    /key/update             change which models a key reaches (the second brain)
     /key/delete             retire the old one
     /v1/models              prove a key still works, and list what it reaches
 
@@ -76,7 +75,7 @@ class MintedKey:
     key_alias: str
     models: tuple[str, ...] = ()
     #: The web search model the issuer granted beside ``models``, or ``""``.
-    #: Only the second brain grants one.
+    #: Only the keys service grants one.
     web_search_model: str = ""
     #: The image generation model granted beside ``models``, or ``""``.
     image_model: str = ""
@@ -325,23 +324,6 @@ class LiteLLMAdminClient:
         deleted = payload.get("deleted_keys") if isinstance(payload, dict) else None
         return [str(t) for t in (deleted or ())]
 
-    def update_key_models(self, token: str, models: Sequence[str]) -> None:
-        """Replace the models the key with hash *token* may reach.
-
-        LiteLLM reads ``models`` on ``/key/update`` as the whole list, not an
-        addition, so the caller passes everything the key should keep. An empty
-        list is refused here rather than sent: to LiteLLM it means "every
-        model", which would turn a scoped key into an unscoped one.
-        """
-        wanted = [str(m) for m in (models or ()) if str(m).strip()]
-        if not (token or "").strip():
-            raise LiteLLMError("cannot update a key without its token")
-        if not wanted:
-            raise LiteLLMError("refusing to clear a key's model list; that would unscope it")
-        self._request(
-            "POST", "/key/update", json_body={"key": token.strip(), "models": wanted}
-        )
-
     def list_models(self, api_key: str | None = None) -> list[str]:
         """Return the model ids reachable with *api_key* (admin key by default).
 
@@ -356,36 +338,6 @@ class LiteLLMAdminClient:
             for row in (rows or ())
             if isinstance(row, dict) and row.get("id")
         ]
-
-    def model_modes(self) -> dict[str, str]:
-        """Return ``{model_id: mode}`` for every model this proxy serves.
-
-        ``/v1/models`` answers with ids and nothing else, which is why this
-        exists: scoping a key to what a person can actually chat with means
-        knowing that ``BAAI/bge-m3`` is an embedding model and not a small one.
-        Granting it is not harmless — it shows up in the model picker, and the
-        chat that follows fails in a way that reads like a broken proxy.
-
-        Admin-only, so this is never called with a user key. A model the proxy
-        declares without a mode maps to ``""``: reported, not guessed, because
-        the caller is the one that decides whether an unlabelled model is safe
-        to hand out.
-        """
-        payload = self._request("GET", "/model/info")
-        rows = payload.get("data") if isinstance(payload, dict) else None
-        modes: dict[str, str] = {}
-        for row in rows or ():
-            if not isinstance(row, dict):
-                continue
-            name = str(row.get("model_name") or "").strip()
-            if not name:
-                continue
-            info = row.get("model_info")
-            mode = ""
-            if isinstance(info, dict):
-                mode = str(info.get("mode") or "").strip().lower()
-            modes[name] = mode
-        return modes
 
     def key_is_live(self, api_key: str) -> bool:
         """True when *api_key* is still accepted by the proxy.

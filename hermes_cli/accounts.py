@@ -80,7 +80,7 @@ _SLUG_LABEL_MAX = 24
 # number of accounts one machine will ever hold.
 _SLUG_DIGEST_CHARS = 8
 
-# Longest username fragment in a LiteLLM key alias (`second-brain-letrungkien`).
+# Longest username fragment in a LiteLLM key alias (`agentx-letrungkien`).
 _LITELLM_KEY_ALIAS_LABEL_MAX = 48
 
 
@@ -176,7 +176,7 @@ def litellm_key_alias_for_identity(
     display_name: str = "",
     email: str = "",
 ) -> str:
-    """Build ``{prefix}-{username}-{digest}``, e.g. ``second-brain-letrungkien-8c5f68bd``.
+    """Build ``{prefix}-{username}-{digest}``, e.g. ``agentx-letrungkien-8c5f68bd``.
 
     The digest is the same eight characters of the subject that end the
     account slug, and it is what makes the alias one person's and nobody

@@ -108,7 +108,7 @@ describe('account model synchronization', () => {
     expect(provision).not.toHaveBeenCalled()
   })
 
-  it('preserves catalog reads when the account service is offline', async () => {
+  it('preserves catalog reads when the keys service is offline', async () => {
     window.agentxDesktop.account = { provision: vi.fn().mockRejectedValue(new Error('offline')) } as never
     $connection.set({ mode: 'local', baseUrl: 'http://offline', profile: 'default' } as never)
     await expect(requestModelOptions({})).resolves.toEqual(globalOptions)

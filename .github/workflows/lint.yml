@@ -180,15 +180,12 @@ jobs:
         run: python scripts/check-windows-footguns.py --all
 
   secrets:
-    # Tree-wide secret scanning. Until the second-brain deploy directory
-    # landed, no deployment configuration lived in this repository and there
-    # was nothing here to scan for; there is now, and the repository is
-    # public. This is not a hypothetical class of mistake for us — the LiteLLM
-    # admin key has already shipped inside a released installer once.
+    # Tree-wide secret scanning. The repository is public, and this is not a
+    # hypothetical class of mistake for us — the LiteLLM admin key has already
+    # shipped inside a released installer once.
     #
-    # Deliberately the WHOLE tree, not just deploy/. A secret committed to
-    # docs/ or a stray .env.local is exactly as published as one committed to
-    # a compose file.
+    # Deliberately the WHOLE tree. A secret committed to docs/ or a stray
+    # .env.local is exactly as published as one committed to source.
     #
     # gitleaks' own rules do the detecting; .gitleaks.toml at the repo root
     # holds the allowlist, each entry with the reason it is excluded.
@@ -231,23 +228,6 @@ jobs:
         # repository publishes. Rules and allowlist live in .gitleaks.toml;
         # the scope decision (tree, not history) is argued there.
         run: gitleaks dir --no-banner --redact --exit-code 1 .
-
-  compose-validate:
-    # The deploy directory is only useful if it actually parses. Runs with
-    # .env.example so the required-variable guards (${VAR:?...}) are satisfied
-    # by placeholders rather than by a real .env that CI must never have.
-    name: Validate deploy compose files (blocking)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: docker compose config
-        # Exactly what `make -C deploy/second-brain config` runs, so a
-        # developer can reproduce a failure without reading this file.
-        working-directory: deploy/second-brain
-        run: docker compose --env-file .env.example config --quiet
 
   branding:
     # The rebrand regression gate. AgentX Workmate is a fork of an

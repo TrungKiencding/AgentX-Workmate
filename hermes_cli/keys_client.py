@@ -1,4 +1,4 @@
-"""The laptop's side of the conversation with the second-brain service.
+"""The laptop's side of the conversation with the AgentX keys service.
 
 Deliberately shaped like ``hermes_cli.litellm_admin.LiteLLMAdminClient``:
 synchronous httpx, one retry, and an error type that distinguishes "the
@@ -59,8 +59,8 @@ DEVICE_FILENAME = "device.json"
 _DEVICE_NAME_MAX = 64
 
 
-class SecondBrainError(RuntimeError):
-    """A call to the second brain failed.
+class KeysServiceError(RuntimeError):
+    """A call to the keys service failed.
 
     ``status_code`` is the HTTP status when there was one and ``None`` when the
     request never got an answer. ``code`` is the service's machine-readable
@@ -108,8 +108,8 @@ class SecondBrainError(RuntimeError):
         return self.status_code == 403 and self.code in LICENSE_REFUSAL_CODES
 
 
-class SecondBrainClient:
-    """Talks to one second-brain deployment on behalf of one person.
+class KeysClient:
+    """Talks to one keys service on behalf of one person.
 
     ``transport`` exists so tests drive the whole flow through
     ``httpx.MockTransport`` with no network and no fixture server — the
@@ -126,7 +126,7 @@ class SecondBrainClient:
     ) -> None:
         root = (base_url or "").strip().rstrip("/")
         if not root:
-            raise SecondBrainError("the second-brain base_url is empty")
+            raise KeysServiceError("the keys service base_url is empty")
         self._base_url = root
         self._timeout = timeout
         self._transport = transport
@@ -160,7 +160,7 @@ class SecondBrainClient:
         if device_name:
             headers[DEVICE_NAME_HEADER] = device_name
 
-        last: SecondBrainError | None = None
+        last: KeysServiceError | None = None
         for attempt in range(_MAX_ATTEMPTS):
             try:
                 with httpx.Client(
@@ -172,7 +172,7 @@ class SecondBrainClient:
                         method, url, params=params, json=json_body, headers=headers
                     )
             except httpx.RequestError as exc:
-                last = SecondBrainError(f"could not reach the second brain at {url}: {exc}")
+                last = KeysServiceError(f"could not reach the keys service at {url}: {exc}")
             else:
                 if response.status_code in _RETRY_STATUSES:
                     last = _failure(response)
@@ -182,15 +182,15 @@ class SecondBrainClient:
                     try:
                         return response.json()
                     except ValueError as exc:
-                        raise SecondBrainError(
-                            f"the second brain returned a non-JSON body for {path}",
+                        raise KeysServiceError(
+                            f"the keys service returned a non-JSON body for {path}",
                             status_code=response.status_code,
                         ) from exc
 
             if attempt + 1 < _MAX_ATTEMPTS:
                 self._sleep(_RETRY_DELAY_SECONDS)
 
-        raise last or SecondBrainError(f"the request to {path} failed")
+        raise last or KeysServiceError(f"the request to {path} failed")
 
     # -- the calls --------------------------------------------------------
 
@@ -313,59 +313,6 @@ class SecondBrainClient:
             device_name=device_name,
         )
 
-    def push_documents(
-        self,
-        documents: Any,
-        *,
-        bearer: str,
-        device_id: str,
-        device_name: str = "",
-    ) -> dict[str, Any]:
-        """Send this device's changed documents to the feed.
-
-        The answer names every document individually, because the service
-        accepts a batch containing one it cannot store rather than refusing
-        the batch — see the poison-document note in ``second_brain/sync.py``.
-        The caller is expected to read ``results`` and not just the count.
-        """
-        return self._request(
-            "POST",
-            "/v1/sync/push",
-            bearer=bearer,
-            device_id=device_id,
-            device_name=device_name,
-            json_body={"documents": list(documents)},
-        )
-
-    def changes(
-        self,
-        *,
-        bearer: str,
-        device_id: str,
-        device_name: str = "",
-        since: int = 0,
-        limit: int = 200,
-        kinds: Any = (),
-    ) -> dict[str, Any]:
-        """One page of the feed above *since*, oldest first.
-
-        ``has_more`` in the answer is what lets a device that has just been
-        set up drain a whole history immediately rather than collecting one
-        page per polling interval.
-        """
-        params: dict[str, Any] = {"since": int(since), "limit": int(limit)}
-        wanted = [str(kind).strip() for kind in (kinds or ()) if str(kind).strip()]
-        if wanted:
-            params["kinds"] = ",".join(wanted)
-        return self._request(
-            "GET",
-            "/v1/sync/changes",
-            bearer=bearer,
-            device_id=device_id,
-            device_name=device_name,
-            params=params,
-        )
-
 
 # ---------------------------------------------------------------------------
 # Which machine is this?
@@ -450,7 +397,7 @@ def install_device_identity(root: Path | None = None) -> tuple[str, str]:
     return device_id, name
 
 
-def _failure(response: Any) -> SecondBrainError:
+def _failure(response: Any) -> KeysServiceError:
     """Turn a refusal into one line, keeping what a caller can branch on.
 
     That is the code, and — on a license refusal — the ``license`` the body
@@ -472,8 +419,8 @@ def _failure(response: Any) -> SecondBrainError:
     if not detail:
         detail = (getattr(response, "text", "") or "")[:300]
     detail = detail.strip()
-    return SecondBrainError(
-        f"the second brain returned HTTP {status}{f': {detail}' if detail else ''}",
+    return KeysServiceError(
+        f"the keys service returned HTTP {status}{f': {detail}' if detail else ''}",
         status_code=status,
         code=code,
         license=license_body,

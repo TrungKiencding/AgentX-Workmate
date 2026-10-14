@@ -18,7 +18,7 @@
 ; So "uninstall" from Programs and Features used to leave `agentx` on the PATH
 ; of every new terminal, along with the config, the .env, and the LiteLLM key
 ; inside it — which is how a later reinstall came to silently adopt an old key
-; instead of collecting the current one from the second brain.
+; instead of collecting the current one from the keys service.
 ;
 ; This file closes that. Uninstalling hands the rest of the job to the agent's
 ; own uninstaller (`python -m hermes_cli.uninstall`). That module already knows

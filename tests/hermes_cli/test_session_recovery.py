@@ -20,6 +20,7 @@ from hermes_cli.session_recovery import (
     inspect_session_database,
     recover_session_database,
 )
+from tests.hermes_state import retired_sync_schema
 
 
 def _sha256(path: Path) -> str:
@@ -594,81 +595,35 @@ def test_cli_allow_partial_salvages_rows_across_a_corrupt_leaf(
     }
 
 
-def test_recovery_rederives_sync_bookkeeping_instead_of_carrying_it(
+def test_recovery_never_carries_the_retired_sync_bookkeeping(
     tmp_path: Path,
 ) -> None:
-    """Recovery copies rows through the destination's own INSERT triggers.
-
-    That means ``sync_outbox`` ends up holding one change record per
-    recovered row — a whole database described as a change — and the uuid
-    backfill markers must describe the ids that actually landed here, not
-    the source's. Both are derived state the destination owns.
+    """A source a 1.1.0 runtime wrote still holds conversation sync's queue,
+    cursor, triggers and markers. The recovered database is built from the
+    current schema and copies canonical rows only, so none of that arrives —
+    while every message does, with the identity the source gave it.
     """
-    source = tmp_path / "sync-state.db"
-    output = tmp_path / "sync-recovered.db"
+    source = tmp_path / "sync-era.db"
+    output = tmp_path / "sync-era-recovered.db"
     _make_source(source)
-
-    db = SessionDB(db_path=source)
+    conn = sqlite3.connect(str(source))
     try:
-        # A source caught mid-backfill: one message still has no identity.
-        db._conn.execute(
-            "UPDATE messages SET uuid = NULL "
-            "WHERE id = (SELECT MIN(id) FROM messages)"
-        )
-        db.set_meta("sync_uuid_backfill_high_water", "999999")
-        db.set_meta("sync_uuid_backfill_progress", "999999")
-        db._conn.commit()
-        source_uuids = {
-            str(row[0])
-            for row in db._conn.execute(
-                "SELECT uuid FROM messages WHERE uuid IS NOT NULL"
-            )
-        }
+        retired_sync_schema.install(conn)
+        conn.execute("UPDATE messages SET uuid = lower(hex(randomblob(16)))")
+        conn.commit()
+        source_uuids = {str(row[0]) for row in conn.execute("SELECT uuid FROM messages")}
     finally:
-        db.close()
+        conn.close()
 
     report = recover_session_database(source, output, work_dir=tmp_path)
     assert report["verified"] is True
 
     conn = sqlite3.connect(str(output))
     try:
-        assert conn.execute("SELECT COUNT(*) FROM sync_outbox").fetchone()[0] == 0
-        markers = dict(
-            conn.execute(
-                "SELECT key, value FROM state_meta "
-                "WHERE key LIKE 'sync_uuid_backfill%'"
-            ).fetchall()
-        )
-        assert markers == {}
-        # Identities that already existed came across unchanged: a recovered
-        # device must look like the same device to the other ones. The row
-        # the source had not reached yet is stamped on arrival by the
-        # destination's own INSERT trigger, so nothing lands unidentified.
-        recovered = {
-            str(row[0])
-            for row in conn.execute(
-                "SELECT uuid FROM messages WHERE uuid IS NOT NULL"
-            )
-        }
-        assert source_uuids < recovered
-        assert conn.execute(
-            "SELECT COUNT(*) FROM messages WHERE uuid IS NULL"
-        ).fetchone()[0] == 0
+        assert retired_sync_schema.present(conn) == set()
+        assert {str(row[0]) for row in conn.execute("SELECT uuid FROM messages")} == source_uuids
     finally:
         conn.close()
-
-    # Reopening re-seeds the markers against this database's own ids and
-    # finds nothing left to do.
-    db = SessionDB(db_path=output)
-    try:
-        assert db.get_meta("sync_uuid_backfill_progress") == db.get_meta(
-            "sync_uuid_backfill_high_water"
-        )
-        assert db.outbox_pending_count() == 0
-    finally:
-        db.close()
-
-
 def test_partial_recovery_clears_only_unreadable_system_prompt_refs(
     tmp_path: Path,
 ) -> None:

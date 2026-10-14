@@ -79,7 +79,6 @@ from hermes_state_common import (  # noqa: F401  (re-exported for back-compat)
 from hermes_state_portability import SessionPortabilityMixin
 from hermes_state_schema import SessionSchemaMixin
 from hermes_state_search import SessionSearchMixin
-from hermes_state_sync import SessionSyncMixin
 
 try:  # Hard dependency, but tolerate scaffold-phase imports before pip install.
     import psutil
@@ -3161,7 +3160,6 @@ class SessionDB(
     SessionSearchMixin,
     SessionSchemaMixin,
     SessionPortabilityMixin,
-    SessionSyncMixin,
 ):
     """
     SQLite-backed session storage with FTS5 search.
@@ -3281,8 +3279,7 @@ class SessionDB(
         """Decode one ``messages`` row into the shape callers expect.
 
         The counterpart of :meth:`_session_row_dict`. Reverses the stored
-        encodings (content, tool_calls JSON, display metadata) so a reader
-        that wants a single row — the sync mixin looking one up by uuid —
+        encodings (content, tool_calls JSON, display metadata) so every reader
         gets exactly what :meth:`get_messages` would have handed it for the
         same row, rather than a second decoder that can drift from it.
         """
@@ -8799,52 +8796,6 @@ class SessionDB(
 
         return row[0] if row else None
 
-    @staticmethod
-    def _claimable_uuids(conn, messages: List[Dict[str, Any]]) -> List[Optional[str]]:
-        """Which supplied ``uuid`` values each message may actually keep.
-
-        One query for the whole batch rather than a probe per row: message
-        identities are UNIQUE, and an insert that collided would abort the
-        caller's entire transaction — a malformed import file or a compaction
-        re-inserting rows whose soft-archived originals are still on disk
-        would take the whole write down with it.
-
-        Returns a list parallel to *messages*: the uuid to write, or None to
-        let ``sync_messages_insert`` mint a fresh one.
-        """
-        wanted = [
-            msg.get("uuid") if isinstance(msg.get("uuid"), str) and msg.get("uuid") else None
-            for msg in messages
-        ]
-        candidates = sorted({uuid for uuid in wanted if uuid})
-        if not candidates:
-            return wanted
-
-        taken: set = set()
-        # SQLITE_MAX_VARIABLE_NUMBER is 999 on old builds; batches can be
-        # larger (import allows 10k messages per session).
-        chunk = 900
-        for start in range(0, len(candidates), chunk):
-            window = candidates[start:start + chunk]
-            placeholders = ",".join("?" for _ in window)
-            taken.update(
-                row[0]
-                for row in conn.execute(
-                    f"SELECT uuid FROM messages WHERE uuid IN ({placeholders})",
-                    window,
-                ).fetchall()
-            )
-
-        claimed: set = set()
-        result: List[Optional[str]] = []
-        for uuid in wanted:
-            if uuid is None or uuid in taken or uuid in claimed:
-                result.append(None)
-            else:
-                claimed.add(uuid)
-                result.append(uuid)
-        return result
-
     def _insert_message_rows(self, conn, session_id: str, messages: List[Dict[str, Any]]) -> tuple[int, int]:
         """Insert *messages* as fresh active rows for *session_id*.
 
@@ -8853,22 +8804,11 @@ class SessionDB(
         caller's write transaction (takes the live ``conn``). Returns
         ``(inserted_count, tool_call_count)``. Does NOT touch sessions.* counters
         — the caller owns that, since the two flows reconcile counts differently.
-
-        A message that arrives carrying a ``uuid`` keeps it, so a document
-        applied from another device (or a session restored from an export)
-        lands under the identity it already has instead of a fresh one —
-        which is what makes applying the same document twice a no-op. A uuid
-        already spoken for is dropped rather than written: the collision is
-        resolved to a new identity by ``sync_messages_insert``, because two
-        distinct rows may not share one. This is the normal case for
-        :meth:`archive_and_compact`, whose soft-archived originals stay on
-        disk beside the rows it re-inserts.
         """
         now_ts = time.time()
         inserted = 0
         tool_calls_total = 0
-        claimed_uuids = self._claimable_uuids(conn, messages)
-        for index, msg in enumerate(messages):
+        for msg in messages:
             role = msg.get("role", "unknown")
             tool_calls = msg.get("tool_calls")
             message_timestamp = now_ts
@@ -8919,9 +8859,8 @@ class SessionDB(
                 """INSERT INTO messages (session_id, role, content, tool_call_id,
                    tool_calls, tool_name, effect_disposition, timestamp, token_count, finish_reason,
                    reasoning, reasoning_content, reasoning_details, codex_reasoning_items,
-                   codex_message_items, platform_message_id, observed, active, api_content, display_kind, display_metadata,
-                   uuid)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   codex_message_items, platform_message_id, observed, active, api_content, display_kind, display_metadata)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     session_id,
                     role,
@@ -8944,7 +8883,6 @@ class SessionDB(
                     _scrub_surrogates(api_content) if isinstance(api_content, str) else None,
                     _scrub_surrogates(msg.get("display_kind")) if isinstance(msg.get("display_kind"), str) else None,
                     self._encode_display_metadata(msg.get("display_metadata")),
-                    claimed_uuids[index],
                 ),
             )
             inserted += 1

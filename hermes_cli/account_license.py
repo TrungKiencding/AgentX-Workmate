@@ -501,13 +501,13 @@ def _read_only_after_asking_again() -> dict[str, Any] | None:
     """Ask the keys service again, then answer :func:`read_only_license`.
 
     Asked with the bearer the desktop last handed this process
-    (``sync_engine.mailbox``), when it holds one, on a short timeout — a
+    (``account_credentials.mailbox``), when it holds one, on a short timeout — a
     person is waiting on the turn. With no bearer to ask with (the messaging
     gateway's own process), or a service that cannot be reached, the license
     this machine already holds decides alone.
     """
     try:
-        from hermes_cli.sync_engine import mailbox
+        from hermes_cli.account_credentials import mailbox
 
         credentials = mailbox().current()
     except Exception:  # noqa: BLE001 — the record alone still decides
@@ -671,9 +671,9 @@ def refresh_license(
     result is the license that stands afterwards, evaluated for *now* — the
     fresh answer, or the last one known when the service could not give one.
     """
-    from hermes_cli.second_brain_client import (
-        SecondBrainClient,
-        SecondBrainError,
+    from hermes_cli.keys_client import (
+        KeysClient,
+        KeysServiceError,
         install_device_identity,
     )
 
@@ -681,14 +681,14 @@ def refresh_license(
         return LicenseRefresh(status=status, detail=detail, license=current_license(home=home, now=now))
 
     if base_url is None or timeout is None:
-        from hermes_cli.account_provisioning import second_brain_service
+        from hermes_cli.account_provisioning import keys_service
 
-        configured_url, configured_timeout = second_brain_service()
+        configured_url, configured_timeout = keys_service()
         base_url = configured_url if base_url is None else base_url
         timeout = configured_timeout if timeout is None else timeout
 
     if not base_url:
-        return _standing("unconfigured", "no keys service is configured (accounts.second_brain.base_url)")
+        return _standing("unconfigured", "no keys service is configured (accounts.keys.base_url)")
     if not bearer:
         return _standing("unauthorized", "no sign-in token to ask the keys service with")
 
@@ -705,10 +705,10 @@ def refresh_license(
         kwargs["sleep"] = sleep
 
     try:
-        body = SecondBrainClient(base_url, **kwargs).license(
+        body = KeysClient(base_url, **kwargs).license(
             bearer=bearer, device_id=device_id, device_name=device_name
         )
-    except SecondBrainError as exc:
+    except KeysServiceError as exc:
         if exc.status_code == 404:
             # A service that predates licensing. Unknown, which is full
             # access — and a record an earlier service left no longer applies.

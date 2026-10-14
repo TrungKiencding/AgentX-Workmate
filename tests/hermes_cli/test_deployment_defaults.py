@@ -207,17 +207,17 @@ class TestModelsWorkOutOfTheBox:
         assert settings.base_url == DEPLOYMENT_LITELLM_BASE_URL
         assert settings.default_model == DEPLOYMENT_LITELLM_DEFAULT_MODEL
 
-    def test_it_ships_asking_the_second_brain_for_its_key(self, fresh_machine):
+    def test_it_ships_asking_the_keys_service_for_its_key(self, fresh_machine):
         """The shipped mode is the one that needs no secret on the laptop.
 
-        ``second_brain`` mints once per person and hands the same key to every
+        ``keys`` mints once per person and hands the same key to every
         machine they sign in on. The other two mint per machine, which is the
         fault the service was built to end, and ``direct`` additionally needs
         an admin credential on the laptop.
         """
         settings = load_settings(load_config())
 
-        assert settings.mode == "second_brain"
+        assert settings.mode == "keys"
         assert settings.broker_url == ""
 
     def test_no_credential_is_needed_or_carried_for_the_shipped_mode(self, fresh_machine):
@@ -248,9 +248,9 @@ class TestModelsWorkOutOfTheBox:
     def test_a_fresh_install_with_no_service_configured_says_which_setting_is_missing(
         self, fresh_machine
     ):
-        """The consequence of shipping ``second_brain`` by default.
+        """The consequence of shipping ``keys`` by default.
 
-        Until ``DEPLOYMENT_SECOND_BRAIN_URL`` names a deployed service, a fresh
+        Until ``DEPLOYMENT_KEYS_URL`` names a deployed service, a fresh
         install has no model key — and has to say so in terms an admin can act
         on rather than silently having no model, which is the exact failure
         this module exists to prevent.
@@ -259,8 +259,8 @@ class TestModelsWorkOutOfTheBox:
         from hermes_cli.account_provisioning import ensure_account_key
 
         settings = load_settings(load_config())
-        if settings.second_brain_url:
-            pytest.skip("this build has a second brain configured")
+        if settings.keys_url:
+            pytest.skip("this build has a keys service configured")
 
         result = ensure_account_key(
             AccountIdentity(subject="s", username="u", email="u@test", issuer="kc"),
@@ -270,4 +270,4 @@ class TestModelsWorkOutOfTheBox:
         )
 
         assert result.status == "unconfigured"
-        assert "accounts.second_brain.base_url" in result.detail
+        assert "accounts.keys.base_url" in result.detail

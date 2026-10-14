@@ -45,7 +45,7 @@ fs.mkdirSync(site, { recursive: true })
 const requirements = path.join(out, 'requirements.txt')
 await run('uv', ['export', '--frozen', '--no-dev', '--extra', 'anthropic', '--extra', 'web', '--extra', 'messaging', '--no-emit-project', '--quiet', '--output-file', requirements])
 await run('uv', ['--no-config', 'pip', 'install', '--python', python, '--target', site, '--require-hashes', '--only-binary', ':all:', '-r', requirements])
-const dirs = new Set(['agent', 'tools', 'hermes_cli', 'gateway', 'tui_gateway', 'cron', 'acp_adapter', 'plugins', 'providers', 'second_brain', 'skills', 'optional-skills', 'optional-mcps', 'scripts'])
+const dirs = new Set(['agent', 'tools', 'hermes_cli', 'gateway', 'tui_gateway', 'cron', 'acp_adapter', 'plugins', 'providers', 'skills', 'optional-skills', 'optional-mcps', 'scripts'])
 const source = path.join(out, 'source')
 for (const relative of execFileSync('git', ['ls-files', '-z'], { cwd: repo }).toString().split('\0').filter(Boolean)) {
   const parts = relative.split('/')

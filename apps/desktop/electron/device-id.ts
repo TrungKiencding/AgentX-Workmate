@@ -4,9 +4,9 @@
  * Gives this INSTALL a stable name, so the service can tell one of a person's
  * machines from another.
  *
- * The second-brain service hands every device the same model key and the same
- * conversation history — which is the point — but that makes the devices
- * indistinguishable from the server's side unless each one says who it is.
+ * The keys service hands every device the same model key — which is the
+ * point — but that makes the devices indistinguishable from the server's side
+ * unless each one says who it is.
  * Settings has to be able to list "MacBook Pro, Windows desktop, that laptop
  * in the drawer" and revoke one of them, and a revocation that cannot name a
  * device is a revocation of the account.

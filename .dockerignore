@@ -39,7 +39,7 @@ ui-tui/packages/hermes-ink/dist/
 
 # Environment files — at ANY depth. A bare `.env` pattern only matches the
 # context root; without the `**/` forms, a nested one such as
-# deploy/second-brain/.env would be copied into an image by `COPY . /src`.
+# apps/desktop/.env would be copied into an image by `COPY . /src`.
 .env
 .env.*
 **/.env

@@ -646,13 +646,13 @@ const AGENTX_HOME = resolveHermesHome()
 // .env on first launch. Which put a credential that mints and revokes for the
 // whole estate inside every installer, readable by anyone who unpacked it.
 //
-// It is gone. The second-brain service holds the admin key now and issues each
-// person one key over their Keycloak bearer, so everything a fresh install
+// It is gone. The keys service holds the admin key now and issues each person
+// one key over their Keycloak bearer, so everything a fresh install
 // needs is public and lives in `hermes_cli/config_defaults.py`. Do not
 // reintroduce a "just one secret" carrier here; the way to ship a value to
 // laptops is to put it behind the service.
 //
-// A build whose `DEPLOYMENT_SECOND_BRAIN_URL` is empty installs and signs in
+// A build whose `DEPLOYMENT_KEYS_URL` is empty installs and signs in
 // normally and has no model key: provisioning reports `unconfigured` in
 // Settings → Account, naming the setting.
 
@@ -700,7 +700,7 @@ const DESKTOP_PROFILE_CONFIG_PATH = path.join(app.getPath('userData'), 'active-p
 // this memory has to exist at all. It holds no token; the session lives in the
 // OS keychain.
 const DESKTOP_ACCOUNT_CONFIG_PATH = path.join(app.getPath('userData'), 'accounts.json')
-// device.json names this INSTALL to the second-brain service, so Settings can
+// device.json names this INSTALL to the keys service, so Settings can
 // list the machines a person is signed in on and revoke one of them. It sits
 // in userData beside accounts.json rather than in an AgentX home on purpose:
 // the id belongs to the install, so signing in as somebody else must not turn
@@ -2899,7 +2899,7 @@ function activeRuntimeState() {
   // is — the in-app update path and `agentx update` move HEAD legitimately,
   // and an installer built months ago must never rewind them. Before this
   // check an installer only ever replaced the shell: an older agent under
-  // AGENTX_HOME kept running, with defaults the account service had long
+  // AGENTX_HOME kept running, with defaults the keys service had long
   // moved past (the `accounts.litellm.mode: direct` fault).
   const usable = isActiveRuntimeUsable()
   const pin = usable ? checkoutPinRelation() : { relation: 'unknown' as const, headSha: null }
@@ -3740,10 +3740,9 @@ function fetchJson(url, token, options: any = {}) {
         headers: {
           'Content-Type': contentType,
           'X-Agentx-Session-Token': token,
-          // Which machine this is. The second-brain service needs it on every
-          // request to keep a device registry that Settings can revoke from;
-          // the local backend ignores headers it does not know, so this
-          // travels harmlessly until that service exists. See device-id.ts.
+          // Which machine this is. The local backend passes it on to the keys
+          // service, which needs it on every request to keep the device
+          // registry Settings revokes from. See device-id.ts.
           ...deviceHeaders(currentDeviceRecord()),
           // RFC 8252 native flow authenticates the gated gateway with a bearer
           // token instead of the loopback session-token header. When
@@ -8610,8 +8609,7 @@ async function ensureAccountProvisioned(
   // Whatever provisioning did, the license is asked about once it is over — a
   // key the service refused for the license is exactly when it matters, and a
   // provisioning call that failed says nothing about it — and the account
-  // ticker keeps it (and synchronisation, which needs the bearer this moment
-  // is the first to have) going from here.
+  // ticker keeps it going from here.
   void attempt.then(() => {
     _provisionInFlight.delete(requestKey)
     startAccountTicker()
@@ -9807,16 +9805,10 @@ function createWindow() {
   mainWindow.on('hide', () => sendWindowStateChanged())
   mainWindow.on('show', () => sendWindowStateChanged())
 
-  // Coming back to this machine is exactly when "did my other laptop get
-  // that?" gets asked, and waiting up to thirty seconds to answer it feels
-  // broken even though nothing is. It is also when a license renewed (or
-  // ended) in the meantime should show — asked of the keys service once the
-  // last check is half an hour old. Both no-op until somebody has signed in.
+  // Coming back to this machine is when a license renewed (or ended) in the
+  // meantime should show — asked of the keys service once the last check is
+  // half an hour old. A no-op until somebody has signed in.
   mainWindow.on('focus', () => {
-    if (accountTicker) {
-      void syncTick('focus')
-    }
-
     void licenseSync.tick('focus')
     appUpdateService?.onFocus()
   })
@@ -10844,73 +10836,32 @@ function heartbeatDevice(): void {
   })
 }
 
-// --- Conversation history, across this person's machines -------------------
+// --- The account ticker --------------------------------------------------------
 //
-// The backend does the work; this drives it. That split is not arbitrary — the
-// backend holds `state.db` and the sync engine, but it holds NO credential for
-// the signed-in person and cannot mint one. This process does: it keeps the
-// refresh token in the OS keychain and `ensureNativeAccessToken` renews the
-// bearer without asking anybody anything.
-//
-// So each tick is both a trigger and a delivery. The bearer travelling on it
-// is what lets the backend's own loop keep working between ticks, which is
-// what a first sync needs — a large backlog takes several ticks in a row, and
-// this timer alone would be the slow part.
-//
-// Nothing here surfaces an error. Synchronisation being down is not something
-// a person can act on, and it costs them nothing while the app keeps working.
+// One timer for the signed-in person's account. The backend holds NO credential
+// for that person and cannot mint one; this process does — it keeps the refresh
+// token in the OS keychain and `ensureNativeAccessToken` renews the bearer
+// without asking anybody anything. So the license read on each beat also hands
+// the backend the bearer it spends outside any request (the AgentX AgentHub
+// sync loop, the license check after a gateway refusal).
 
-/** How often to sync while the window is open. Matches the backend default. */
-const SYNC_TICK_INTERVAL_MS = 30_000
+/** How often the account ticker beats while the window is open. */
+const ACCOUNT_TICK_INTERVAL_MS = 30_000
 
 let accountTicker: ReturnType<typeof setInterval> | null = null
-let syncInFlight = false
-
-async function syncTick(reason: string): Promise<any> {
-  // One at a time. A tick that runs long (a first sync draining pages) must
-  // not have the interval stack a second one behind it, each holding a
-  // database write lock the other is waiting for.
-  if (syncInFlight) {
-    return { detail: 'A synchronisation is already running.', status: 'busy' }
-  }
-
-  syncInFlight = true
-
-  try {
-    const body = await callDeviceRoute('/api/sync/tick', { body: {}, method: 'POST' })
-
-    if (body?.status && !['ok', 'offline', 'signed_out', 'unconfigured', 'disabled'].includes(body.status)) {
-      rememberLog(`[sync] ${reason}: ${body.status} — ${body.detail || ''}`)
-    }
-
-    return body
-  } finally {
-    syncInFlight = false
-  }
-}
 
 /**
- * Start the account ticker: synchronisation every thirty seconds, and the
- * license — re-read from the backend each beat, asked of the keys service on
- * its own half-hour cadence (see license-sync.ts) — one timer for both rather
- * than a second one.
- *
- * Both also tick on the moments a person is about to care. Window focus is one
- * of them: coming back to this machine is exactly when "did my other laptop get
- * that?" gets asked, and waiting up to thirty seconds to answer it feels broken
- * even though nothing is.
+ * Start the account ticker: the license, re-read from the backend each beat and
+ * asked of the keys service on its own half-hour cadence (see license-sync.ts).
  */
 function startAccountTicker(): void {
   if (accountTicker) {
     return
   }
 
-  void syncTick('launch')
-
   accountTicker = setInterval(() => {
-    void syncTick('interval')
     void licenseSync.tick('interval')
-  }, SYNC_TICK_INTERVAL_MS)
+  }, ACCOUNT_TICK_INTERVAL_MS)
 
   // `unref` so a stray timer can never be the reason the process will not
   // exit. Electron's main process outlives the window, and a 30-second
@@ -10926,10 +10877,6 @@ function stopAccountTicker(): void {
   clearInterval(accountTicker)
   accountTicker = null
 }
-
-ipcMain.handle('agentx:sync:tick', async () => syncTick('requested'))
-
-ipcMain.handle('agentx:sync:status', async () => callDeviceRoute('/api/sync/status', { method: 'GET' }))
 
 // --- The AgentX license ------------------------------------------------------
 //

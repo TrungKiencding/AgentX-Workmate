@@ -36,7 +36,7 @@ describe('agentxKeyReason', () => {
       failure({
         code: 'no_grantable_models',
         detail:
-          'the second brain could not issue a key: the second brain returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.'
+          'the keys service could not issue a key: the keys service returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.'
       }),
       viCatalog.agentxKey,
       viCatalog.license

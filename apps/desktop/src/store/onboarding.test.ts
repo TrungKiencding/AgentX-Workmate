@@ -134,7 +134,7 @@ describe('AgentX AI Gateway onboarding', () => {
   const grantedKey = (patch: Partial<DesktopAccountLiteLlm> = {}): DesktopAccountLiteLlm => ({
     base_url: 'https://gateway.example',
     detail: 'the key already on this account is still valid.',
-    key_alias: 'second-brain-someone',
+    key_alias: 'agentx-someone',
     masked_key: 'sk-…abcd',
     // Chat-first, the order the service grants in.
     models: ['Qwen/Qwen3.6-35B', 'MiniMax/MiniMax-M3'],
@@ -348,7 +348,7 @@ describe('AgentX AI Gateway onboarding', () => {
 
   it('turns the HTTP 424 from the SSO console into a reason and a support contact', async () => {
     const detail =
-      'the second brain could not issue a key: the second brain returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.'
+      'the keys service could not issue a key: the keys service returned HTTP 424: None of the models chosen in the SSO console is served by the model proxy right now.'
 
     installGatewayBridge(async () => ({
       ok: false,
@@ -371,7 +371,7 @@ describe('AgentX AI Gateway onboarding', () => {
   it.each(['unconfigured', 'disabled'])('keeps gateway failures recoverable when the service is %s', async status => {
     installGatewayBridge(async () => ({
       ok: false,
-      litellm: grantedKey({ detail: 'accounts.second_brain.base_url is not set.', models: [], ok: false, status })
+      litellm: grantedKey({ detail: 'accounts.keys.base_url is not set.', models: [], ok: false, status })
     }))
 
     await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))

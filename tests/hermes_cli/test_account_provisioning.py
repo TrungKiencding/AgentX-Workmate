@@ -45,7 +45,7 @@ from hermes_cli.litellm_admin import (
 
 PROXY_URL = "https://litellm.test"
 BROKER_URL = "https://broker.test/api/litellm/account-key"
-BRAIN_URL = "https://brain.test"
+KEYS_URL = "https://keys.test"
 
 IDENTITY = AccountIdentity(
     subject="8f1c0b2e-keycloak-sub",
@@ -311,11 +311,11 @@ def broker_settings(**overrides) -> LiteLLMAccountSettings:
     return LiteLLMAccountSettings(**base)
 
 
-def brain_settings(**overrides) -> LiteLLMAccountSettings:
+def keys_settings(**overrides) -> LiteLLMAccountSettings:
     base = {
         "enabled": True,
-        "mode": "second_brain",
-        "second_brain_url": BRAIN_URL,
+        "mode": "keys",
+        "keys_url": KEYS_URL,
         "base_url": PROXY_URL,
         "discover_models": False,
     }
@@ -637,7 +637,7 @@ class TestDirectProvisioning:
 
         So a key wearing it that this machine has no record of minting is, as
         far as this machine can tell, the key their other laptop is using
-        right now. Deleting it is the defect the second brain exists to fix,
+        right now. Deleting it is the defect the keys service exists to fix,
         and it used to live on exactly this path: provisioning retired
         everything under the alias before minting, which is why signing in on
         a second machine revoked the first one's key.
@@ -754,9 +754,9 @@ class TestDegradation:
         "settings,names",
         [
             pytest.param(
-                brain_settings(second_brain_url=""),
-                "accounts.second_brain.base_url",
-                id="second-brain-without-a-service-url",
+                keys_settings(keys_url=""),
+                "accounts.keys.base_url",
+                id="keys-without-a-service-url",
             ),
             pytest.param(
                 broker_settings(broker_url=""),
@@ -787,7 +787,7 @@ class TestDegradation:
         assert fake_proxy.requests == []
         assert env_value(provider_key_env(settings.provider_name)) == ""
 
-    def test_an_unconfigured_second_brain_never_falls_back_to_minting_locally(
+    def test_an_unconfigured_keys_service_never_falls_back_to_minting_locally(
         self, account, fake_proxy, monkeypatch
     ):
         # Falling back is how the admin key came to travel inside every
@@ -797,7 +797,7 @@ class TestDegradation:
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(second_brain_url=""),
+            settings=keys_settings(keys_url=""),
             home=account.home, bearer="tok",
         )
 
@@ -853,12 +853,12 @@ class TestDegradation:
 
 
 # ===========================================================================
-# second_brain mode — the fix for the bug this project exists for
+# keys mode — the fix for the bug this project exists for
 # ===========================================================================
 
 
-class FakeSecondBrain:
-    """A second brain that holds one key per person, like the real one.
+class FakeKeysService:
+    """A keys service that holds one key per person, like the real one.
 
     Faithful on the single point every assertion below rests on: the FIRST
     call for a person mints, and every call after it — from any machine —
@@ -1068,59 +1068,59 @@ class FakeSecondBrain:
 
 
 @pytest.fixture()
-def brain(fake_proxy) -> FakeSecondBrain:
-    return FakeSecondBrain(fake_proxy)
+def service(fake_proxy) -> FakeKeysService:
+    return FakeKeysService(fake_proxy)
 
 
-class TestSecondBrainMode:
+class TestKeysMode:
     def test_it_asks_the_service_and_never_the_admin_api(
-        self, account, fake_proxy, brain, monkeypatch
+        self, account, fake_proxy, service, monkeypatch
     ):
         # An admin key present on the machine must make no difference: this
         # mode never touches the admin API, which is what lets the installer
         # stop shipping one.
         monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
-        settings = brain_settings()
+        settings = keys_settings()
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         assert result.status == "provisioned"
         assert result.ok is True
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
-        assert brain.requests[0].headers["Authorization"] == "Bearer tok"
-        assert brain.requests[0].headers["X-AgentX-Device"] == "dev-a"
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
+        assert service.requests[0].headers["Authorization"] == "Bearer tok"
+        assert service.requests[0].headers["X-AgentX-Device"] == "dev-a"
 
         # The only proxy traffic is the service's own mint, made through the
-        # fake brain — nothing from this machine's admin client.
+        # fake service — nothing from this machine's admin client.
         assert fake_proxy.paths_hit("/key/list") == 0
         assert fake_proxy.paths_hit("/key/delete") == 0
 
     def test_the_key_lands_where_everything_downstream_expects_it(
-        self, account, brain
+        self, account, service
     ):
-        settings = brain_settings()
+        settings = keys_settings()
         key_env = provider_key_env(settings.provider_name)
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         # Nothing downstream of provisioning changes: same .env credential,
         # same providers: entry, same state sidecar.
-        assert env_value(key_env) == brain.keys["tok"]["key"]
+        assert env_value(key_env) == service.keys["tok"]["key"]
         entry = raw_config(account.home)["providers"][settings.provider_name]
         assert entry["key_env"] == key_env
         assert entry["base_url"] == openai_base_url(PROXY_URL)
-        assert read_state(account.home)["mode"] == "second_brain"
-        assert read_state(account.home)["token"] == brain.keys["tok"]["token"]
+        assert read_state(account.home)["mode"] == "keys"
+        assert read_state(account.home)["token"] == service.keys["tok"]["token"]
         assert result.masked_key == mask_key(env_value(key_env))
 
     def test_two_machines_signing_in_end_up_with_the_same_key(
-        self, tmp_path, monkeypatch, fake_proxy, brain
+        self, tmp_path, monkeypatch, fake_proxy, service
     ):
         """The acceptance test for the whole project, on the laptop side.
 
@@ -1131,7 +1131,7 @@ class TestSecondBrainMode:
         """
         from hermes_cli.config import load_env
 
-        settings = brain_settings()
+        settings = keys_settings()
         key_env = provider_key_env(settings.provider_name)
         held: list[str] = []
 
@@ -1147,7 +1147,7 @@ class TestSecondBrainMode:
 
             result = ensure_account_key(
                 IDENTITY, slug, settings=settings, home=home,
-                bearer="tok", device_id=machine, brain_transport=brain.transport,
+                bearer="tok", device_id=machine, keys_transport=service.transport,
             )
 
             assert result.ok is True
@@ -1159,18 +1159,18 @@ class TestSecondBrainMode:
         assert len(fake_proxy.records) == 1
 
     def test_the_second_machine_is_told_it_reused_rather_than_rotated(
-        self, account, brain
+        self, account, service
     ):
-        settings = brain_settings()
+        settings = keys_settings()
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         second = ensure_account_key(
             account.identity, "other-home-same-person", settings=settings,
             home=account.home, bearer="tok", device_id="dev-b",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # Telling somebody their key was replaced when the service simply
@@ -1178,27 +1178,27 @@ class TestSecondBrainMode:
         assert second.status == "reused"
         assert second.ok is True
 
-    def test_force_rotate_asks_the_service_to_rotate(self, account, brain, fake_proxy):
-        settings = brain_settings()
+    def test_force_rotate_asks_the_service_to_rotate(self, account, service, fake_proxy):
+        settings = keys_settings()
         first = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
         old_token = read_state(account.home)["token"]
 
         rotated = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             force_rotate=True,
         )
 
         assert rotated.status == "rotated"
         assert rotated.masked_key != first.masked_key
-        assert json.loads(brain.requests[-1].content)["rotate"] is True
+        assert json.loads(service.requests[-1].content)["rotate"] is True
         assert fake_proxy.holds_token(old_token) is False
 
     def test_a_key_the_proxy_stopped_accepting_is_collected_not_rotated(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """Another machine rotated. This one collects; it does not rotate back.
 
@@ -1207,44 +1207,44 @@ class TestSecondBrainMode:
         self-healing property: the other device is not broken by a rotation,
         it is one call behind it.
         """
-        settings = brain_settings()
+        settings = keys_settings()
         key_env = provider_key_env(settings.provider_name)
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=make_client(fake_proxy),
         )
         stale = env_value(key_env)
 
-        replacement = brain.rotate_from_another_device("tok")
+        replacement = service.rotate_from_another_device("tok")
         assert fake_proxy.key_is_live_for_tests(stale) is False
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=make_client(fake_proxy),
         )
 
         assert result.status == "reused"
-        assert json.loads(brain.requests[-1].content)["rotate"] is False
+        assert json.loads(service.requests[-1].content)["rotate"] is False
         assert env_value(key_env) == replacement["key"]
         assert env_value(key_env) != stale
 
     def test_an_unreachable_service_keeps_the_key_this_machine_holds(
-        self, account, brain
+        self, account, service
     ):
-        settings = brain_settings()
+        settings = keys_settings()
         key_env = provider_key_env(settings.provider_name)
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
         held = env_value(key_env)
 
-        brain.unreachable = True
+        service.unreachable = True
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             force_rotate=True,
         )
 
@@ -1256,14 +1256,14 @@ class TestSecondBrainMode:
 
     @pytest.mark.parametrize("status_code", [502, 503])
     def test_a_service_that_cannot_reach_litellm_reads_as_offline(
-        self, account, brain, status_code
+        self, account, service, status_code
     ):
-        brain.status_code = status_code
+        service.status_code = status_code
 
         result = ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
+            account.identity, account.slug, settings=keys_settings(),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # Nothing was minted and nothing was lost. From this machine that is
@@ -1271,19 +1271,19 @@ class TestSecondBrainMode:
         assert result.status == "offline"
         assert env_value(provider_key_env("litellm")) == ""
 
-    def test_a_revoked_device_is_told_to_sign_in_again(self, account, brain):
-        settings = brain_settings()
+    def test_a_revoked_device_is_told_to_sign_in_again(self, account, service):
+        settings = keys_settings()
         key_env = provider_key_env(settings.provider_name)
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
         held = env_value(key_env)
 
-        brain.revoked_devices.add("dev-a")
+        service.revoked_devices.add("dev-a")
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             force_rotate=True,
         )
 
@@ -1295,15 +1295,15 @@ class TestSecondBrainMode:
         # The key on disk is not the problem, and is left alone.
         assert env_value(key_env) == held
 
-    def test_an_empty_bearer_never_reads_as_success(self, account, brain):
+    def test_an_empty_bearer_never_reads_as_success(self, account, service):
         result = ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
+            account.identity, account.slug, settings=keys_settings(),
             home=account.home, bearer="", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         assert result.status == "error"
-        assert brain.requests == []
+        assert service.requests == []
         assert env_value(provider_key_env("litellm")) == ""
 
     def test_a_service_that_returns_no_key_is_an_error(self, account):
@@ -1312,16 +1312,16 @@ class TestSecondBrainMode:
         )
 
         result = ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
+            account.identity, account.slug, settings=keys_settings(),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=transport,
+            keys_transport=transport,
         )
 
         assert result.status == "error"
         assert env_value(provider_key_env("litellm")) == ""
 
     def test_a_backend_with_no_device_header_names_itself(
-        self, account, brain, tmp_path, monkeypatch
+        self, account, service, tmp_path, monkeypatch
     ):
         """A CLI sign-in has no desktop above it and so no device header.
 
@@ -1329,7 +1329,7 @@ class TestSecondBrainMode:
         backend keeps an id of its own at the install root — one per install,
         shared by every account on it, exactly like the desktop's.
         """
-        from hermes_cli.second_brain_client import DEVICE_FILENAME
+        from hermes_cli.keys_client import DEVICE_FILENAME
 
         root = tmp_path / ".agentx"
         monkeypatch.setattr(
@@ -1337,23 +1337,23 @@ class TestSecondBrainMode:
         )
 
         result = ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
-            home=account.home, bearer="tok", brain_transport=brain.transport,
+            account.identity, account.slug, settings=keys_settings(),
+            home=account.home, bearer="tok", keys_transport=service.transport,
         )
 
         assert result.ok is True
-        sent = brain.requests[0].headers["X-AgentX-Device"]
+        sent = service.requests[0].headers["X-AgentX-Device"]
         assert sent
         assert json.loads((root / DEVICE_FILENAME).read_text())["id"] == sent
 
         # And it is stable: a second sign-in is the same machine, not a
         # second row in somebody's device list.
         ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
-            home=account.home, bearer="tok", brain_transport=brain.transport,
+            account.identity, account.slug, settings=keys_settings(),
+            home=account.home, bearer="tok", keys_transport=service.transport,
             force_rotate=True,
         )
-        assert brain.requests[-1].headers["X-AgentX-Device"] == sent
+        assert service.requests[-1].headers["X-AgentX-Device"] == sent
 
 
 # ===========================================================================
@@ -1371,8 +1371,8 @@ def broker_transport(responder) -> tuple[httpx.MockTransport, list[httpx.Request
     return httpx.MockTransport(handler), seen
 
 
-class TestUpgradingOntoTheSecondBrain:
-    """What an install that predates the second brain has to do on next launch.
+class TestUpgradingOntoTheKeysService:
+    """What an install that predates the keys service has to do on next launch.
 
     This is the shape the bug arrived in. A machine that had provisioned under
     the old ``direct``/``broker`` modes still held a live key, so the reuse
@@ -1382,8 +1382,8 @@ class TestUpgradingOntoTheSecondBrain:
     picker kept offering whatever the old key had reached.
     """
 
-    def test_a_key_minted_before_the_brain_existed_is_collected_from_it(
-        self, account, fake_proxy, brain, monkeypatch
+    def test_a_key_minted_before_the_keys_service_is_collected_from_it(
+        self, account, fake_proxy, service, monkeypatch
     ):
         monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
 
@@ -1398,24 +1398,24 @@ class TestUpgradingOntoTheSecondBrain:
         key_env = provider_key_env("litellm")
         local_key = env_value(key_env)
 
-        # The install updates and now ships mode: second_brain. The old key is
+        # The install updates and now ships mode: keys. The old key is
         # still perfectly live at the proxy, which is exactly why the reuse rung
         # used to keep it forever.
         assert make_client(fake_proxy).key_is_live(local_key)
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         assert result.ok is True
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
-        assert env_value(key_env) == brain.keys["tok"]["key"]
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
+        assert env_value(key_env) == service.keys["tok"]["key"]
         assert env_value(key_env) != local_key
-        assert read_state(account.home)["mode"] == "second_brain"
+        assert read_state(account.home)["mode"] == "keys"
 
-    def test_the_reason_says_the_key_predates_the_brain(self, account, fake_proxy, brain, monkeypatch):
+    def test_the_reason_says_the_key_predates_the_keys_service(self, account, fake_proxy, service, monkeypatch):
         monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
         ensure_account_key(
             account.identity, account.slug,
@@ -1425,23 +1425,23 @@ class TestUpgradingOntoTheSecondBrain:
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         # Settings renders this. "the proxy no longer accepts the stored key"
         # would have been a lie — the proxy accepts it fine.
-        assert "predates the second brain" in result.detail
+        assert "predates the keys service" in result.detail
 
     def test_a_sidecar_written_before_the_mode_field_existed_is_also_collected(
-        self, account, brain
+        self, account, service
     ):
         from hermes_cli.account_provisioning import write_state
 
-        settings = brain_settings()
+        settings = keys_settings()
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         # An older AgentX recorded no mode at all. Absent must read as "not
@@ -1450,43 +1450,78 @@ class TestUpgradingOntoTheSecondBrain:
         state = read_state(account.home)
         state.pop("mode")
         write_state(account.home, state)
-        brain.requests.clear()
+        service.requests.clear()
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         assert result.ok is True
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
-        assert read_state(account.home)["mode"] == "second_brain"
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
+        assert read_state(account.home)["mode"] == "keys"
 
-    def test_a_key_the_brain_issued_is_still_reused_without_asking_again(
-        self, account, brain, fake_proxy
+    def test_a_key_the_service_issued_is_still_reused_without_asking_again(
+        self, account, service, fake_proxy
     ):
         """The common path must stay free. Re-checking the mode on every launch
         is only worth it if it costs nothing when nothing has changed."""
-        settings = brain_settings()
-        brain.grants = list(fake_proxy.catalog)
+        settings = keys_settings()
+        service.grants = list(fake_proxy.catalog)
         client = make_client(fake_proxy)
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
-        brain.requests.clear()
+        service.requests.clear()
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
 
         assert result.status == "reused"
-        assert brain.requests == []
+        assert service.requests == []
+
+    def test_a_sidecar_from_before_the_rename_is_reused_without_asking_again(
+        self, account, service, fake_proxy
+    ):
+        """An install updated from a build that called this mode ``second_brain``.
+
+        Its litellm-account.json says so; reading that as some other authority's
+        key would collect the key again on the next launch — a request nobody
+        needed. The key, the sidecar and the service stay exactly as they were.
+        """
+        settings = keys_settings()
+        service.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
+            client=client,
+        )
+        sidecar = account.home / "litellm-account.json"
+        written = json.loads(sidecar.read_text(encoding="utf-8"))
+        sidecar.write_text(json.dumps({**written, "mode": "second_brain"}), encoding="utf-8")
+        key_env = provider_key_env(settings.provider_name)
+        key = env_value(key_env)
+        service.requests.clear()
+
+        result = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
+            client=client,
+        )
+
+        assert result.status == "reused"
+        assert service.requests == []
+        assert env_value(key_env) == key
+        assert read_state(account.home)["mode"] == "keys"
 
     def test_a_proxy_that_cannot_be_reached_asks_the_service_where_it_is(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """A dead proxy hostname must not be forever.
 
@@ -1497,27 +1532,27 @@ class TestUpgradingOntoTheSecondBrain:
         Settings said the key was fine. Now a probe with no answer at all
         asks the service, which names the proxy it currently fronts.
         """
-        settings = brain_settings()
-        brain.grants = list(fake_proxy.catalog)
+        settings = keys_settings()
+        service.grants = list(fake_proxy.catalog)
         client = make_client(fake_proxy)
         first = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
-        brain.requests.clear()
-        brain.base_url = "https://moved-proxy.test"
+        service.requests.clear()
+        service.base_url = "https://moved-proxy.test"
 
         fake_proxy.fault = "connect"
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
 
         # Asked once, minted nothing: the key is the same one.
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
-        assert json.loads(brain.requests[0].content or b"{}").get("rotate") is not True
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
+        assert json.loads(service.requests[0].content or b"{}").get("rotate") is not True
         assert result.status == "reused"
         assert result.masked_key == first.masked_key
         assert result.base_url == "https://moved-proxy.test"
@@ -1526,54 +1561,54 @@ class TestUpgradingOntoTheSecondBrain:
         assert entry["base_url"] == "https://moved-proxy.test/v1"
 
     def test_a_key_the_proxy_rejects_and_the_service_still_holds_is_replaced(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """A 401 means the key is dead for everybody — the service's copy is
         the same key. Collecting it again on every launch would heal nothing."""
-        settings = brain_settings()
-        brain.grants = list(fake_proxy.catalog)
+        settings = keys_settings()
+        service.grants = list(fake_proxy.catalog)
         client = make_client(fake_proxy)
         first = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
         # Retired upstream by hand: the proxy no longer knows the key, the
         # service still does.
         fake_proxy.records.pop(read_state(account.home)["token"])
-        brain.requests.clear()
+        service.requests.clear()
 
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
 
-        asked = [json.loads(r.content or b"{}").get("rotate") for r in brain.requests]
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
         assert asked == [None, True] or asked == [False, True]
         assert result.status == "rotated"
         assert result.masked_key != first.masked_key
         assert fake_proxy.holds_token(read_state(account.home)["token"])
 
     def test_a_proxy_and_a_service_both_out_of_reach_keep_the_key(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """On a train nothing answers, and that is not a reason to change anything."""
-        settings = brain_settings()
-        brain.grants = list(fake_proxy.catalog)
+        settings = keys_settings()
+        service.grants = list(fake_proxy.catalog)
         client = make_client(fake_proxy)
         first = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
         before = read_state(account.home)
 
         fake_proxy.fault = "connect"
-        brain.unreachable = True
+        service.unreachable = True
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=client,
         )
 
@@ -1581,23 +1616,23 @@ class TestUpgradingOntoTheSecondBrain:
         assert result.masked_key == first.masked_key
         assert read_state(account.home) == before
 
-    def test_a_deprecated_mode_never_re_mints_over_a_brain_issued_key(
-        self, account, fake_proxy, brain, monkeypatch
+    def test_a_deprecated_mode_never_re_mints_over_a_service_issued_key(
+        self, account, fake_proxy, service, monkeypatch
     ):
         """Downgrading is not a reason to burn a working key.
 
-        ``direct`` mints by deleting first, so treating a brain-issued key as
+        ``direct`` mints by deleting first, so treating a service-issued key as
         unusable there would retire a key this person's other machines are
-        still holding — the exact ping-pong the second brain exists to end.
+        still holding — the exact ping-pong the keys service exists to end.
         """
         monkeypatch.setenv(ADMIN_KEY_ENV_VAR, fake_proxy.admin_key)
         ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(),
+            account.identity, account.slug, settings=keys_settings(),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
         key_env = provider_key_env("litellm")
-        brain_key = env_value(key_env)
+        issued_key = env_value(key_env)
 
         result = ensure_account_key(
             account.identity, account.slug,
@@ -1606,7 +1641,7 @@ class TestUpgradingOntoTheSecondBrain:
         )
 
         assert result.status == "reused"
-        assert env_value(key_env) == brain_key
+        assert env_value(key_env) == issued_key
         assert fake_proxy.paths_hit("/key/delete") == 0
 
 
@@ -1619,47 +1654,47 @@ class TestModelListFollowsTheKey:
     the proxy naming a model they were plainly being offered.
     """
 
-    def test_ids_the_new_key_cannot_reach_are_taken_back_out(self, account, brain):
-        settings = brain_settings()
-        brain.grants = ["chat-a", "chat-b"]
+    def test_ids_the_new_key_cannot_reach_are_taken_back_out(self, account, service):
+        settings = keys_settings()
+        service.grants = ["chat-a", "chat-b"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
             "chat-a", "chat-b",
         }
 
-        brain.grants = ["chat-a", "chat-c"]
+        service.grants = ["chat-a", "chat-c"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", force_rotate=True,
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
             "chat-a", "chat-c",
         }
 
-    def test_a_model_the_user_added_by_hand_is_never_pruned(self, account, brain):
+    def test_a_model_the_user_added_by_hand_is_never_pruned(self, account, service):
         from hermes_cli.config import load_config, save_config
 
-        settings = brain_settings()
-        brain.grants = ["chat-a"]
+        settings = keys_settings()
+        service.grants = ["chat-a"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         cfg = load_config()
         cfg["providers"]["litellm"]["models"]["my-own-model"] = {"context_window": 8000}
         save_config(cfg, merge_existing=True)
 
-        brain.grants = ["chat-b"]
+        service.grants = ["chat-b"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", force_rotate=True,
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         models = raw_config(account.home)["providers"]["litellm"]["models"]
@@ -1667,20 +1702,20 @@ class TestModelListFollowsTheKey:
         # And their settings on it survived the round trip.
         assert models["my-own-model"] == {"context_window": 8000}
 
-    def test_a_default_we_pinned_is_re_pinned_when_the_key_loses_it(self, account, brain):
-        settings = brain_settings()
-        brain.grants = ["chat-x", "chat-y"]
+    def test_a_default_we_pinned_is_re_pinned_when_the_key_loses_it(self, account, service):
+        settings = keys_settings()
+        service.grants = ["chat-x", "chat-y"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
         assert raw_config(account.home)["model"]["default"] == "chat-x"
 
-        brain.grants = ["chat-y"]
+        service.grants = ["chat-y"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", force_rotate=True,
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # Leaving chat-x pinned would open the app on a model group this key is
@@ -1689,26 +1724,26 @@ class TestModelListFollowsTheKey:
         assert raw_config(account.home)["model"]["default"] == "chat-y"
 
     def test_a_default_the_user_chose_is_left_alone_even_when_it_goes_away(
-        self, account, brain
+        self, account, service
     ):
         from hermes_cli.config import load_config, save_config
 
-        settings = brain_settings()
-        brain.grants = ["chat-a"]
+        settings = keys_settings()
+        service.grants = ["chat-a"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         cfg = load_config()
         cfg["model"]["default"] = "something-i-picked"
         save_config(cfg, merge_existing=True)
 
-        brain.grants = ["chat-b"]
+        service.grants = ["chat-b"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", force_rotate=True,
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # We only ever take back a pin we made ourselves.
@@ -1726,26 +1761,26 @@ class TestModelListFollowsTheProxy:
     minted or rotated.
     """
 
-    def _sign_in(self, account, brain, fake_proxy, **kwargs):
+    def _sign_in(self, account, service, fake_proxy, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=make_client(fake_proxy), **kwargs,
         )
 
     def test_a_model_the_service_retires_leaves_the_picker_on_the_next_launch(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a", "chat-b"]
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, service, fake_proxy)
         key_env = provider_key_env("litellm")
         held = env_value(key_env)
 
         # The proxy retired chat-b, and the service's grant pass has already
         # reached the key this laptop holds: allowlist and answer both shrank.
-        brain.retire_model("tok", "chat-b")
+        service.retire_model("tok", "chat-b")
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.ok is True
         assert read_state(account.home)["models"] == ["chat-a"]
@@ -1753,19 +1788,19 @@ class TestModelListFollowsTheProxy:
         # Learning that a model left is not a new key.
         assert env_value(key_env) == held
 
-        brain.requests.clear()
-        assert self._sign_in(account, brain, fake_proxy).status == "reused"
-        assert brain.requests == []
+        service.requests.clear()
+        assert self._sign_in(account, service, fake_proxy).status == "reused"
+        assert service.requests == []
 
     def test_the_default_pin_moves_off_the_retired_model_without_a_rotation(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-b", "chat-a"]
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-b", "chat-a"]
+        self._sign_in(account, service, fake_proxy)
         assert raw_config(account.home)["model"]["default"] == "chat-b"
 
-        brain.retire_model("tok", "chat-b")
-        self._sign_in(account, brain, fake_proxy)
+        service.retire_model("tok", "chat-b")
+        self._sign_in(account, service, fake_proxy)
 
         # Left pinned, chat-b would open the app on a dead model group on
         # every launch, and the first message's error would name the model
@@ -1773,10 +1808,10 @@ class TestModelListFollowsTheProxy:
         assert raw_config(account.home)["model"]["default"] == "chat-a"
 
     def test_a_service_answer_behind_the_allowlist_is_narrowed_to_it(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a", "chat-b"]
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, service, fake_proxy)
 
         # The allowlist was pruned upstream but the service's answer is
         # behind — a row write that lost a race, or an older service. Writing
@@ -1784,23 +1819,23 @@ class TestModelListFollowsTheProxy:
         token = read_state(account.home)["token"]
         fake_proxy.records[token]["models"] = ["chat-a"]
 
-        self._sign_in(account, brain, fake_proxy)
+        self._sign_in(account, service, fake_proxy)
 
         assert read_state(account.home)["models"] == ["chat-a"]
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"chat-a"}
 
     def test_an_answer_reaching_nothing_recorded_changes_nothing(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a", "chat-b"]
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, service, fake_proxy)
 
         # A probe that answers something unusable — here, ids naming nothing
         # the service granted — is not evidence that the key reaches nothing.
         token = read_state(account.home)["token"]
         fake_proxy.records[token]["models"] = ["nothing-granted"]
 
-        self._sign_in(account, brain, fake_proxy)
+        self._sign_in(account, service, fake_proxy)
 
         assert read_state(account.home)["models"] == ["chat-a", "chat-b"]
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
@@ -1808,15 +1843,15 @@ class TestModelListFollowsTheProxy:
         }
 
     def test_a_fresh_account_opens_on_the_preferred_model_its_key_reaches(
-        self, account, brain
+        self, account, service
     ):
-        brain.grants = ["chat-a", "MiniMax/MiniMax-M3"]
+        service.grants = ["chat-a", "MiniMax/MiniMax-M3"]
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            settings=keys_settings(preferred_default_model="MiniMax/MiniMax-M3"),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # The service still leads with chat-a; the preference only chooses among
@@ -1824,48 +1859,48 @@ class TestModelListFollowsTheProxy:
         assert raw_config(account.home)["model"]["default"] == "MiniMax/MiniMax-M3"
         assert result.to_json()["default_model"] == "MiniMax/MiniMax-M3"
 
-    def test_the_preferred_model_matches_another_proxys_spelling(self, account, brain):
-        brain.grants = ["chat-a", "minimax-m3"]
+    def test_the_preferred_model_matches_another_proxys_spelling(self, account, service):
+        service.grants = ["chat-a", "minimax-m3"]
 
         ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            settings=keys_settings(preferred_default_model="MiniMax/MiniMax-M3"),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         assert raw_config(account.home)["model"]["default"] == "minimax-m3"
 
     def test_a_key_without_the_preferred_model_opens_on_its_first_grant(
-        self, account, brain
+        self, account, service
     ):
-        brain.grants = ["chat-a", "chat-b"]
+        service.grants = ["chat-a", "chat-b"]
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=brain_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            settings=keys_settings(preferred_default_model="MiniMax/MiniMax-M3"),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         assert raw_config(account.home)["model"]["default"] == "chat-a"
         assert result.default_model == "chat-a"
 
     def test_the_preferred_model_never_moves_an_account_that_has_a_default(
-        self, account, brain
+        self, account, service
     ):
-        settings = brain_settings(preferred_default_model="MiniMax/MiniMax-M3")
-        brain.grants = ["chat-a"]
+        settings = keys_settings(preferred_default_model="MiniMax/MiniMax-M3")
+        service.grants = ["chat-a"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
-        brain.grants = ["chat-a", "MiniMax/MiniMax-M3"]
+        service.grants = ["chat-a", "MiniMax/MiniMax-M3"]
         ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", force_rotate=True,
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         # The preference is for fresh accounts; this one keeps what it opens on.
@@ -1881,7 +1916,7 @@ def test_the_shipped_deployment_prefers_minimax_m3():
 class TestWebSearchFollowsTheGrant:
     """The web search model rides on the key, and reaches laptops that hold one.
 
-    The second brain grants it beside ``models`` — never among them — and keeps
+    The keys service grants it beside ``models`` — never among them — and keeps
     existing keys' grants current by itself. A laptop with a working key never
     asks for the key again, so what it has to get right is noticing: the reuse
     path's ``/v1/models`` answer changing is its cue to ask, once.
@@ -1889,20 +1924,20 @@ class TestWebSearchFollowsTheGrant:
 
     SEARCH = "perplexity/preset/pro-search"
 
-    def _sign_in(self, account, brain, fake_proxy, **kwargs):
+    def _sign_in(self, account, service, fake_proxy, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             client=make_client(fake_proxy), **kwargs,
         )
 
     def test_the_granted_model_is_recorded_and_kept_out_of_the_picker(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a"]
-        brain.web_search_model = self.SEARCH
+        service.grants = ["chat-a"]
+        service.web_search_model = self.SEARCH
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "provisioned"
         assert read_state(account.home)["web_search_model"] == self.SEARCH
@@ -1913,129 +1948,129 @@ class TestWebSearchFollowsTheGrant:
         assert config["model"]["default"] == "chat-a"
 
     def test_a_service_that_says_nothing_about_web_search_grants_none(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a"]
+        service.grants = ["chat-a"]
 
-        self._sign_in(account, brain, fake_proxy)
+        self._sign_in(account, service, fake_proxy)
 
         assert read_state(account.home)["web_search_model"] == ""
 
-    def test_nothing_changed_costs_the_service_nothing(self, account, brain, fake_proxy):
-        brain.grants = ["chat-a"]
-        brain.web_search_model = self.SEARCH
-        self._sign_in(account, brain, fake_proxy)
-        brain.requests.clear()
+    def test_nothing_changed_costs_the_service_nothing(self, account, service, fake_proxy):
+        service.grants = ["chat-a"]
+        service.web_search_model = self.SEARCH
+        self._sign_in(account, service, fake_proxy)
+        service.requests.clear()
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "reused"
-        assert brain.requests == []
+        assert service.requests == []
 
     def test_a_grant_added_to_a_key_already_held_is_learned_on_the_next_launch(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a"]
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a"]
+        self._sign_in(account, service, fake_proxy)
         key_env = provider_key_env("litellm")
         held = env_value(key_env)
 
         # The service's grant pass reaches the key this laptop already holds.
-        brain.grant_web_search("tok", self.SEARCH)
-        brain.requests.clear()
+        service.grant_web_search("tok", self.SEARCH)
+        service.requests.clear()
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.ok is True
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
-        assert json.loads(brain.requests[0].content)["rotate"] is False
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
+        assert json.loads(service.requests[0].content)["rotate"] is False
         assert read_state(account.home)["web_search_model"] == self.SEARCH
         # Learning about the grant is not a new key.
         assert env_value(key_env) == held
 
-        brain.requests.clear()
-        assert self._sign_in(account, brain, fake_proxy).status == "reused"
-        assert brain.requests == []
+        service.requests.clear()
+        assert self._sign_in(account, service, fake_proxy).status == "reused"
+        assert service.requests == []
 
-    def test_a_withdrawn_grant_is_forgotten(self, account, brain, fake_proxy):
-        brain.grants = ["chat-a"]
-        brain.web_search_model = self.SEARCH
-        self._sign_in(account, brain, fake_proxy)
+    def test_a_withdrawn_grant_is_forgotten(self, account, service, fake_proxy):
+        service.grants = ["chat-a"]
+        service.web_search_model = self.SEARCH
+        self._sign_in(account, service, fake_proxy)
 
-        brain.grant_web_search("tok", "")
-        self._sign_in(account, brain, fake_proxy)
+        service.grant_web_search("tok", "")
+        self._sign_in(account, service, fake_proxy)
 
         assert read_state(account.home)["web_search_model"] == ""
 
-    def test_a_sidecar_from_before_web_search_asks_once(self, account, brain, fake_proxy):
+    def test_a_sidecar_from_before_web_search_asks_once(self, account, service, fake_proxy):
         from hermes_cli.account_provisioning import write_state
 
-        brain.grants = ["chat-a"]
-        brain.web_search_model = self.SEARCH
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a"]
+        service.web_search_model = self.SEARCH
+        self._sign_in(account, service, fake_proxy)
         state = read_state(account.home)
         state.pop("web_search_model")
         state.pop("reachable_models")
         write_state(account.home, state)
-        brain.requests.clear()
+        service.requests.clear()
 
-        self._sign_in(account, brain, fake_proxy)
+        self._sign_in(account, service, fake_proxy)
 
-        assert len(brain.requests) == 1
+        assert len(service.requests) == 1
         assert read_state(account.home)["web_search_model"] == self.SEARCH
 
-        brain.requests.clear()
-        self._sign_in(account, brain, fake_proxy)
-        assert brain.requests == []
+        service.requests.clear()
+        self._sign_in(account, service, fake_proxy)
+        assert service.requests == []
 
     def test_an_unreachable_service_keeps_the_key_and_asks_on_the_next_launch(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.grants = ["chat-a"]
-        self._sign_in(account, brain, fake_proxy)
-        brain.grant_web_search("tok", self.SEARCH)
+        service.grants = ["chat-a"]
+        self._sign_in(account, service, fake_proxy)
+        service.grant_web_search("tok", self.SEARCH)
 
-        brain.unreachable = True
-        result = self._sign_in(account, brain, fake_proxy)
+        service.unreachable = True
+        result = self._sign_in(account, service, fake_proxy)
 
         # The key still works. Being unable to ask about the grant is no reason
         # to report this launch as anything but a reuse.
         assert result.status == "reused"
         assert read_state(account.home)["web_search_model"] == ""
 
-        brain.unreachable = False
-        self._sign_in(account, brain, fake_proxy)
+        service.unreachable = False
+        self._sign_in(account, service, fake_proxy)
         assert read_state(account.home)["web_search_model"] == self.SEARCH
 
     def test_a_proxy_that_cannot_be_asked_is_asked_about_at_the_service(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """No answer from the proxy is what a proxy that moved looks like, so
         the service is asked where it is — once, and for the same key."""
-        brain.grants = ["chat-a"]
-        self._sign_in(account, brain, fake_proxy)
-        brain.grant_web_search("tok", self.SEARCH)
-        brain.requests.clear()
+        service.grants = ["chat-a"]
+        self._sign_in(account, service, fake_proxy)
+        service.grant_web_search("tok", self.SEARCH)
+        service.requests.clear()
         minted_before = len(fake_proxy.records)
 
         fake_proxy.fault = "connect"
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "reused"
-        assert [r.url.path for r in brain.requests] == ["/v1/model-key"]
+        assert [r.url.path for r in service.requests] == ["/v1/model-key"]
         assert len(fake_proxy.records) == minted_before
         assert read_state(account.home)["web_search_model"] == self.SEARCH
 
     def test_a_service_that_lists_the_search_preset_among_the_models_is_corrected(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """A proxy declares Perplexity's presets ``mode: chat``, and a service
         that trusted that put "Pro Search" in every picker. The laptop keeps
         it out regardless of what the service says."""
-        brain.grants = ["chat-a", self.SEARCH]
-        brain.web_search_model = self.SEARCH
+        service.grants = ["chat-a", self.SEARCH]
+        service.web_search_model = self.SEARCH
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "provisioned"
         assert result.models == ("chat-a",)
@@ -2047,16 +2082,16 @@ class TestWebSearchFollowsTheGrant:
         assert read_state(account.home)["web_search_model"] == self.SEARCH
 
     def test_a_search_preset_that_leaked_into_the_picker_is_taken_back_out_on_reuse(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """A sidecar written from an older service's answer — and the config
         it wrote — is corrected on the next launch, without asking anybody."""
         from hermes_cli.account_provisioning import write_state
         from hermes_cli.config import read_raw_config, save_config
 
-        brain.grants = ["chat-a"]
-        brain.web_search_model = self.SEARCH
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a"]
+        service.web_search_model = self.SEARCH
+        self._sign_in(account, service, fake_proxy)
 
         # What an older provisioning run left behind: the preset in the
         # picker, leading the list, and pinned as the account's default.
@@ -2066,20 +2101,20 @@ class TestWebSearchFollowsTheGrant:
         raw["providers"]["litellm"]["models"][self.SEARCH] = {}
         raw["model"]["default"] = self.SEARCH
         save_config(raw)
-        brain.requests.clear()
+        service.requests.clear()
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "reused"
-        assert brain.requests == []
+        assert service.requests == []
         assert result.models == ("chat-a",)
         config = raw_config(account.home)
         assert set(config["providers"]["litellm"]["models"]) == {"chat-a"}
         assert config["model"]["default"] == "chat-a"
         assert read_state(account.home)["models"] == ["chat-a"]
         # Once: the sidecar is rewritten, so the next launch has nothing to do.
-        assert self._sign_in(account, brain, fake_proxy).status == "reused"
-        assert brain.requests == []
+        assert self._sign_in(account, service, fake_proxy).status == "reused"
+        assert service.requests == []
 
 
 class TestBrokerMode:
@@ -2320,14 +2355,16 @@ class TestLoadSettings:
 
         # The safe one is the mode that needs no credential on the machine and
         # cannot delete a key another of this person's devices is using.
-        assert settings.mode == "second_brain"
+        assert settings.mode == "keys"
 
     def test_mode_is_case_insensitive(self):
         assert load_settings({"accounts": {"litellm": {"mode": "Direct"}}}).mode == "direct"
-        assert (
-            load_settings({"accounts": {"litellm": {"mode": "Second_Brain"}}}).mode
-            == "second_brain"
-        )
+        assert load_settings({"accounts": {"litellm": {"mode": "Keys"}}}).mode == "keys"
+
+    def test_the_mode_written_before_the_rename_reads_as_keys(self):
+        # ``second_brain`` was this mode's name until the keys service took it
+        # (config v39); a file nobody migrated still provisions the same way.
+        assert load_settings({"accounts": {"litellm": {"mode": "second_brain"}}}).mode == "keys"
 
     def test_values_are_coerced_and_the_base_url_normalized(self):
         settings = load_settings(
@@ -2537,15 +2574,15 @@ class TestVisionFollowsTheModelInUse:
     """Every model the proxy grants reads images itself, so nothing should route
     pictures to a second, pinned model — and Settings should not name one."""
 
-    def _provision(self, account, brain, **kwargs):
+    def _provision(self, account, service, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport, **kwargs,
         )
 
-    def test_every_granted_model_is_marked_vision_capable(self, account, brain):
-        brain.grants = ["chat-a", "chat-b"]
-        self._provision(account, brain)
+    def test_every_granted_model_is_marked_vision_capable(self, account, service):
+        service.grants = ["chat-a", "chat-b"]
+        self._provision(account, service)
 
         models = raw_config(account.home)["providers"]["litellm"]["models"]
         assert {m: models[m].get("supports_vision") for m in ("chat-a", "chat-b")} == {
@@ -2553,40 +2590,40 @@ class TestVisionFollowsTheModelInUse:
             "chat-b": True,
         }
 
-    def test_the_flag_makes_image_routing_go_native_for_the_model_in_use(self, account, brain):
+    def test_the_flag_makes_image_routing_go_native_for_the_model_in_use(self, account, service):
         from agent.image_routing import _supports_vision_override
         from hermes_cli.config import load_config
 
-        brain.grants = ["chat-a", "chat-b"]
-        self._provision(account, brain)
+        service.grants = ["chat-a", "chat-b"]
+        self._provision(account, service)
 
         cfg = load_config()
         # Whichever of the granted models a session is on, the answer is the same.
         assert _supports_vision_override(cfg, "litellm", "chat-a") is True
         assert _supports_vision_override(cfg, "litellm", "chat-b") is True
 
-    def test_a_flag_somebody_wrote_by_hand_stands(self, account, brain):
+    def test_a_flag_somebody_wrote_by_hand_stands(self, account, service):
         from hermes_cli.config import load_config, save_config
 
-        brain.grants = ["chat-a"]
-        self._provision(account, brain)
+        service.grants = ["chat-a"]
+        self._provision(account, service)
 
         cfg = load_config()
         cfg["providers"]["litellm"]["models"]["chat-a"]["supports_vision"] = False
         save_config(cfg, merge_existing=True)
 
-        self._provision(account, brain, force_rotate=True)
+        self._provision(account, service, force_rotate=True)
 
         assert (
             raw_config(account.home)["providers"]["litellm"]["models"]["chat-a"]["supports_vision"]
             is False
         )
 
-    def test_a_vision_pin_at_the_proxy_is_released_even_on_the_reuse_path(self, account, brain):
+    def test_a_vision_pin_at_the_proxy_is_released_even_on_the_reuse_path(self, account, service):
         from hermes_cli.config import load_config, save_config
 
-        brain.grants = ["chat-a", "chat-b"]
-        self._provision(account, brain)
+        service.grants = ["chat-a", "chat-b"]
+        self._provision(account, service)
 
         # What an older install, or a Settings → Model "Change" on the vision
         # slot, leaves behind: the slot naming one id on the proxy.
@@ -2596,7 +2633,7 @@ class TestVisionFollowsTheModelInUse:
         }
         save_config(cfg, merge_existing=True)
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.status == "reused"
         vision = raw_config(account.home)["auxiliary"]["vision"]
@@ -2605,33 +2642,33 @@ class TestVisionFollowsTheModelInUse:
         assert "base_url" not in vision
 
     def test_an_unflagged_map_from_an_older_install_is_flagged_on_the_reuse_path(
-        self, account, brain
+        self, account, service
     ):
         from hermes_cli.config import load_config, save_config
 
-        brain.grants = ["chat-a"]
-        self._provision(account, brain)
+        service.grants = ["chat-a"]
+        self._provision(account, service)
 
         cfg = load_config()
         del cfg["providers"]["litellm"]["models"]["chat-a"]["supports_vision"]
         save_config(cfg)
 
-        assert self._provision(account, brain).status == "reused"
+        assert self._provision(account, service).status == "reused"
         assert raw_config(account.home)["providers"]["litellm"]["models"]["chat-a"] == {
             "supports_vision": True
         }
 
-    def test_a_vision_pin_at_another_provider_returns_to_gateway_main(self, account, brain):
+    def test_a_vision_pin_at_another_provider_returns_to_gateway_main(self, account, service):
         from hermes_cli.config import load_config, save_config
 
-        brain.grants = ["chat-a"]
-        self._provision(account, brain)
+        service.grants = ["chat-a"]
+        self._provision(account, service)
 
         cfg = load_config()
         cfg["auxiliary"] = {"vision": {"provider": "openrouter", "model": "google/gemini-3-flash"}}
         save_config(cfg, merge_existing=True)
 
-        self._provision(account, brain)
+        self._provision(account, service)
 
         assert raw_config(account.home)["auxiliary"]["vision"] == {
             "provider": "auto",
@@ -2648,22 +2685,22 @@ class TestFeatureModels:
     the live ``/v1/models`` listing, which would show the key's whole allowlist.
     """
 
-    def _provision(self, account, brain, **kwargs):
+    def _provision(self, account, service, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport, **kwargs,
         )
 
-    def _features(self, brain):
-        brain.grants = ["big-chat", "small-chat"]
-        brain.web_search_model = "search-model"
-        brain.image_model = "paint-model"
-        brain.vision_model = "eyes-model"
+    def _features(self, service):
+        service.grants = ["big-chat", "small-chat"]
+        service.web_search_model = "search-model"
+        service.image_model = "paint-model"
+        service.vision_model = "eyes-model"
 
-    def test_feature_models_never_reach_the_picker(self, account, brain):
-        self._features(brain)
+    def test_feature_models_never_reach_the_picker(self, account, service):
+        self._features(service)
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.ok, result.detail
         assert result.models == ("big-chat", "small-chat")
@@ -2674,9 +2711,9 @@ class TestFeatureModels:
         assert entry["discover_models"] is False
         assert raw_config(account.home)["model"]["default"] == "big-chat"
 
-    def test_the_sidecar_records_each_feature_model(self, account, brain):
-        self._features(brain)
-        self._provision(account, brain)
+    def test_the_sidecar_records_each_feature_model(self, account, service):
+        self._features(service)
+        self._provision(account, service)
 
         state = read_state(account.home)
         assert (state["web_search_model"], state["image_model"], state["vision_model"]) == (
@@ -2689,36 +2726,36 @@ class TestFeatureModels:
             "big-chat", "small-chat", "search-model", "paint-model", "eyes-model",
         }
 
-    def test_the_vision_slot_names_the_granted_vision_model(self, account, brain):
-        self._features(brain)
-        self._provision(account, brain)
+    def test_the_vision_slot_names_the_granted_vision_model(self, account, service):
+        self._features(service)
+        self._provision(account, service)
 
         assert raw_config(account.home)["auxiliary"]["vision"] == {
             "provider": "litellm",
             "model": "eyes-model",
         }
 
-    def test_a_feature_model_listed_among_the_chat_models_is_kept_out(self, account, brain):
+    def test_a_feature_model_listed_among_the_chat_models_is_kept_out(self, account, service):
         # An answer that still lists the vision model for chat (a row written
         # before the change): the field naming it for vision wins.
-        self._features(brain)
-        brain.grants = ["eyes-model", "big-chat"]
+        self._features(service)
+        service.grants = ["eyes-model", "big-chat"]
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.models == ("big-chat",)
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat"}
         assert raw_config(account.home)["model"]["default"] == "big-chat"
 
-    def test_features_granted_later_arrive_on_the_reuse_path(self, account, brain):
+    def test_features_granted_later_arrive_on_the_reuse_path(self, account, service):
         # Day one: chat models only — the vision-capable small model among them.
-        brain.grants = ["small-chat", "big-chat", "eyes-model"]
-        first = self._provision(account, brain)
+        service.grants = ["small-chat", "big-chat", "eyes-model"]
+        first = self._provision(account, service)
         assert first.models == ("small-chat", "big-chat", "eyes-model")
 
         # The operator names an image and a vision model; the key keeps its token.
-        brain.grant_features("tok", image="paint-model", vision="eyes-model")
-        again = self._provision(account, brain)
+        service.grant_features("tok", image="paint-model", vision="eyes-model")
+        again = self._provision(account, service)
 
         assert again.ok, again.detail
         assert again.models == ("small-chat", "big-chat")
@@ -2730,22 +2767,22 @@ class TestFeatureModels:
         assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
 
     def test_a_default_on_a_model_that_became_a_feature_moves_to_a_chat_model(
-        self, account, brain
+        self, account, service
     ):
-        brain.grants = ["eyes-model", "big-chat"]
-        self._provision(account, brain)
+        service.grants = ["eyes-model", "big-chat"]
+        self._provision(account, service)
         assert raw_config(account.home)["model"]["default"] == "eyes-model"
 
-        brain.grant_features("tok", image="paint-model", vision="eyes-model")
-        self._provision(account, brain)
+        service.grant_features("tok", image="paint-model", vision="eyes-model")
+        self._provision(account, service)
 
         assert raw_config(account.home)["model"]["default"] == "big-chat"
 
-    def test_an_older_sidecar_listing_a_feature_model_is_tidied_on_reuse(self, account, brain):
+    def test_an_older_sidecar_listing_a_feature_model_is_tidied_on_reuse(self, account, service):
         from hermes_cli.account_provisioning import write_state
 
-        self._features(brain)
-        self._provision(account, brain)
+        self._features(service)
+        self._provision(account, service)
 
         # What a run before this change could leave behind: the vision model in
         # the recorded chat list and in the picker.
@@ -2758,7 +2795,7 @@ class TestFeatureModels:
         cfg["model"]["default"] = "eyes-model"
         save_config(cfg, merge_existing=True)
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.status == "reused"
         assert result.models == ("big-chat", "small-chat")
@@ -2766,31 +2803,31 @@ class TestFeatureModels:
         assert raw_config(account.home)["model"]["default"] == "big-chat"
         assert read_state(account.home)["models"] == ["big-chat", "small-chat"]
 
-    def test_a_vision_pin_at_another_provider_moves_to_the_granted_gateway_model(self, account, brain):
+    def test_a_vision_pin_at_another_provider_moves_to_the_granted_gateway_model(self, account, service):
         from hermes_cli.config import load_config, save_config
 
-        self._features(brain)
-        self._provision(account, brain)
+        self._features(service)
+        self._provision(account, service)
         cfg = load_config()
         cfg["auxiliary"] = {"vision": {"provider": "openrouter", "model": "google/gemini-3-flash"}}
         save_config(cfg, merge_existing=True)
 
-        self._provision(account, brain, force_rotate=True)
+        self._provision(account, service, force_rotate=True)
 
         assert raw_config(account.home)["auxiliary"]["vision"] == {
             "provider": "litellm",
             "model": "eyes-model",
         }
 
-    def test_no_vision_model_releases_the_pin(self, account, brain):
-        self._features(brain)
-        self._provision(account, brain)
+    def test_no_vision_model_releases_the_pin(self, account, service):
+        self._features(service)
+        self._provision(account, service)
         assert raw_config(account.home)["auxiliary"]["vision"]["model"] == "eyes-model"
 
         # The operator takes the vision model away; the next key the service
         # issues (a rotation here) names none.
-        brain.vision_model = ""
-        self._provision(account, brain, force_rotate=True)
+        service.vision_model = ""
+        self._provision(account, service, force_rotate=True)
 
         vision = raw_config(account.home)["auxiliary"]["vision"]
         assert (vision["provider"], vision["model"]) == ("auto", "")
@@ -2805,21 +2842,21 @@ class TestSpeechModel:
     are read in the account's speech model instead of Edge's English voice.
     """
 
-    def _provision(self, account, brain, **kwargs):
+    def _provision(self, account, service, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport, **kwargs,
         )
 
-    def _grant(self, brain, speech="voice-model"):
-        brain.grants = ["big-chat", "small-chat"]
-        brain.web_search_model = "search-model"
-        brain.speech_model = speech
+    def _grant(self, service, speech="voice-model"):
+        service.grants = ["big-chat", "small-chat"]
+        service.web_search_model = "search-model"
+        service.speech_model = speech
 
-    def test_recorded_kept_out_of_the_picker_and_made_the_tts_provider(self, account, brain):
-        self._grant(brain)
+    def test_recorded_kept_out_of_the_picker_and_made_the_tts_provider(self, account, service):
+        self._grant(service)
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.ok, result.detail
         assert result.models == ("big-chat", "small-chat")
@@ -2829,11 +2866,11 @@ class TestSpeechModel:
         assert "voice-model" in state["reachable_models"]
         assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
 
-    def test_a_provider_somebody_chose_stays(self, account, brain):
+    def test_a_provider_somebody_chose_stays(self, account, service):
         from hermes_cli.config import read_raw_config, save_config
 
-        self._grant(brain)
-        self._provision(account, brain)
+        self._grant(service)
+        self._provision(account, service)
         assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
 
         # Settings → Voice → Edge: the key is already in the file, so even the
@@ -2842,39 +2879,39 @@ class TestSpeechModel:
         raw["tts"]["provider"] = "edge"
         save_config(raw)
         assert raw_config(account.home)["tts"]["provider"] == "edge"
-        self._provision(account, brain)
-        self._provision(account, brain, force_rotate=True)
+        self._provision(account, service)
+        self._provision(account, service, force_rotate=True)
 
         assert raw_config(account.home)["tts"]["provider"] == "edge"
 
-    def test_a_hand_written_provider_stays(self, account, brain):
+    def test_a_hand_written_provider_stays(self, account, service):
         (account.home / "config.yaml").write_text("tts:\n  provider: openai\n")
-        self._grant(brain)
+        self._grant(service)
 
-        self._provision(account, brain)
+        self._provision(account, service)
 
         assert raw_config(account.home)["tts"]["provider"] == "openai"
 
-    def test_a_speech_model_granted_later_arrives_on_the_reuse_path(self, account, brain):
-        self._grant(brain, speech=None)
-        first = self._provision(account, brain)
+    def test_a_speech_model_granted_later_arrives_on_the_reuse_path(self, account, service):
+        self._grant(service, speech=None)
+        first = self._provision(account, service)
         assert first.ok and "provider" not in (raw_config(account.home).get("tts") or {})
 
-        brain.grant_features("tok", speech="voice-model")
-        again = self._provision(account, brain)
+        service.grant_features("tok", speech="voice-model")
+        again = self._provision(account, service)
 
         assert again.ok, again.detail
         assert again.models == ("big-chat", "small-chat")
         assert read_state(account.home)["speech_model"] == "voice-model"
         assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
 
-    def test_no_speech_model_hands_the_provider_back(self, account, brain):
-        self._grant(brain)
-        self._provision(account, brain)
+    def test_no_speech_model_hands_the_provider_back(self, account, service):
+        self._grant(service)
+        self._provision(account, service)
         assert raw_config(account.home)["tts"]["provider"] == "agentx-gateway"
 
-        brain.speech_model = ""
-        self._provision(account, brain, force_rotate=True)
+        service.speech_model = ""
+        self._provision(account, service, force_rotate=True)
 
         assert "provider" not in raw_config(account.home)["tts"]
         assert read_state(account.home)["speech_model"] == ""
@@ -2890,23 +2927,23 @@ class TestTranscriptionModel:
     of a local Whisper told every clip is English.
     """
 
-    def _provision(self, account, brain, **kwargs):
+    def _provision(self, account, service, **kwargs):
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport, **kwargs,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport, **kwargs,
         )
 
-    def _grant(self, brain, transcription="ears-model"):
-        brain.grants = ["big-chat", "small-chat"]
-        brain.web_search_model = "search-model"
-        brain.transcription_model = transcription
+    def _grant(self, service, transcription="ears-model"):
+        service.grants = ["big-chat", "small-chat"]
+        service.web_search_model = "search-model"
+        service.transcription_model = transcription
 
-    def test_recorded_kept_out_of_the_picker_and_made_the_stt_provider(self, account, brain):
+    def test_recorded_kept_out_of_the_picker_and_made_the_stt_provider(self, account, service):
         from tools.transcription_tools import _load_stt_config
 
-        self._grant(brain)
+        self._grant(service)
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.ok, result.detail
         assert result.models == ("big-chat", "small-chat")
@@ -2920,22 +2957,22 @@ class TestTranscriptionModel:
         # Nothing was granted for speech, so text-to-speech keeps its default.
         assert "provider" not in (raw_config(account.home).get("tts") or {})
 
-    def test_listed_among_the_chat_models_it_is_still_kept_out(self, account, brain):
+    def test_listed_among_the_chat_models_it_is_still_kept_out(self, account, service):
         # An answer that still lists it for chat: the field naming it wins.
-        self._grant(brain)
-        brain.grants = ["ears-model", "big-chat"]
+        self._grant(service)
+        service.grants = ["ears-model", "big-chat"]
 
-        result = self._provision(account, brain)
+        result = self._provision(account, service)
 
         assert result.models == ("big-chat",)
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"big-chat"}
         assert raw_config(account.home)["model"]["default"] == "big-chat"
 
-    def test_a_provider_somebody_chose_stays(self, account, brain):
+    def test_a_provider_somebody_chose_stays(self, account, service):
         from hermes_cli.config import read_raw_config, save_config
 
-        self._grant(brain)
-        self._provision(account, brain)
+        self._grant(service)
+        self._provision(account, service)
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
         # Settings → Voice → Local: the key is already in the file, so even the
@@ -2944,47 +2981,47 @@ class TestTranscriptionModel:
         raw["stt"]["provider"] = "local"
         save_config(raw)
         assert raw_config(account.home)["stt"]["provider"] == "local"
-        self._provision(account, brain)
-        self._provision(account, brain, force_rotate=True)
+        self._provision(account, service)
+        self._provision(account, service, force_rotate=True)
 
         assert raw_config(account.home)["stt"]["provider"] == "local"
 
-    def test_a_hand_written_provider_stays_even_the_default(self, account, brain):
+    def test_a_hand_written_provider_stays_even_the_default(self, account, service):
         # ``local`` is also what the shipped config says — but written, it is a choice.
         (account.home / "config.yaml").write_text("stt:\n  provider: local\n")
-        self._grant(brain)
+        self._grant(service)
 
-        self._provision(account, brain)
+        self._provision(account, service)
 
         assert raw_config(account.home)["stt"]["provider"] == "local"
 
     def test_a_transcription_model_granted_later_arrives_on_the_reuse_path(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         # An installed machine, before the service named a transcription model.
-        self._grant(brain, transcription=None)
-        first = self._provision(account, brain, client=make_client(fake_proxy))
+        self._grant(service, transcription=None)
+        first = self._provision(account, service, client=make_client(fake_proxy))
         assert first.ok and "provider" not in (raw_config(account.home).get("stt") or {})
 
         # The grant pass adds it to the key it already holds: the proxy's
         # /v1/models answer changes, and that is the cue to ask the service.
-        brain.grant_features("tok", transcription="ears-model")
-        again = self._provision(account, brain, client=make_client(fake_proxy))
+        service.grant_features("tok", transcription="ears-model")
+        again = self._provision(account, service, client=make_client(fake_proxy))
 
         assert again.ok, again.detail
         assert again.models == ("big-chat", "small-chat")
         assert read_state(account.home)["transcription_model"] == "ears-model"
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
-    def test_a_sidecar_from_before_transcription_asks_once(self, account, brain, fake_proxy):
+    def test_a_sidecar_from_before_transcription_asks_once(self, account, service, fake_proxy):
         from hermes_cli.account_provisioning import write_state
         from hermes_cli.config import read_raw_config, save_config
 
         # A version that did not know the field ran after the grant pass: it
         # re-asked because the allowlist changed, recorded that allowlist (the
         # transcription model included) and nothing about what it is for.
-        self._grant(brain)
-        self._provision(account, brain, client=make_client(fake_proxy))
+        self._grant(service)
+        self._provision(account, service, client=make_client(fake_proxy))
         state = read_state(account.home)
         state.pop("transcription_model")
         assert "ears-model" in state["reachable_models"]
@@ -2992,52 +3029,52 @@ class TestTranscriptionModel:
         raw = read_raw_config()
         raw["stt"].pop("provider")
         save_config(raw)
-        brain.requests.clear()
+        service.requests.clear()
 
         # The proxy's answer matches what was recorded, yet the service is asked
         # once, so the update learns the model and makes it the STT provider...
-        again = self._provision(account, brain, client=make_client(fake_proxy))
+        again = self._provision(account, service, client=make_client(fake_proxy))
 
         assert again.ok, again.detail
-        assert len(brain.requests) == 1
+        assert len(service.requests) == 1
         assert read_state(account.home)["transcription_model"] == "ears-model"
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
         # ...and only once.
-        brain.requests.clear()
-        third = self._provision(account, brain, client=make_client(fake_proxy))
-        assert third.status == "reused" and brain.requests == []
+        service.requests.clear()
+        third = self._provision(account, service, client=make_client(fake_proxy))
+        assert third.status == "reused" and service.requests == []
 
-    def test_no_transcription_model_hands_the_provider_back(self, account, brain):
-        self._grant(brain)
-        self._provision(account, brain)
+    def test_no_transcription_model_hands_the_provider_back(self, account, service):
+        self._grant(service)
+        self._provision(account, service)
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
-        brain.transcription_model = ""
-        self._provision(account, brain, force_rotate=True)
+        service.transcription_model = ""
+        self._provision(account, service, force_rotate=True)
 
         assert "provider" not in raw_config(account.home)["stt"]
         assert read_state(account.home)["transcription_model"] == ""
 
-    def test_the_reuse_path_follows_the_sidecar(self, account, brain, fake_proxy):
+    def test_the_reuse_path_follows_the_sidecar(self, account, service, fake_proxy):
         from hermes_cli.account_provisioning import write_state
 
-        self._grant(brain)
-        self._provision(account, brain, client=make_client(fake_proxy))
-        brain.requests.clear()
+        self._grant(service)
+        self._provision(account, service, client=make_client(fake_proxy))
+        service.requests.clear()
 
         # A key the proxy still accepts, reaching what was recorded, is simply
         # reused — the service is not asked, and the tidy pass reads the grant
         # from the sidecar: the gateway stays...
-        again = self._provision(account, brain, client=make_client(fake_proxy))
-        assert again.status == "reused" and brain.requests == []
+        again = self._provision(account, service, client=make_client(fake_proxy))
+        assert again.status == "reused" and service.requests == []
         assert raw_config(account.home)["stt"]["provider"] == "agentx-gateway"
 
         # ...and is handed back once the sidecar records no transcription model.
         write_state(account.home, {**read_state(account.home), "transcription_model": ""})
-        third = self._provision(account, brain, client=make_client(fake_proxy))
+        third = self._provision(account, service, client=make_client(fake_proxy))
 
-        assert third.status == "reused" and brain.requests == []
+        assert third.status == "reused" and service.requests == []
         assert "provider" not in raw_config(account.home)["stt"]
 
 
@@ -3051,19 +3088,19 @@ class TestStaleDeprecatedModes:
     """
 
     def test_direct_without_an_admin_key_signs_in_through_the_service(
-        self, account, fake_proxy, brain, monkeypatch
+        self, account, fake_proxy, service, monkeypatch
     ):
         monkeypatch.delenv(ADMIN_KEY_ENV_VAR, raising=False)
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=direct_settings(second_brain_url=BRAIN_URL), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            settings=direct_settings(keys_url=KEYS_URL), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
         )
 
         assert result.ok, result.detail
         assert env_value(provider_key_env("litellm"))
-        assert read_state(account.home)["mode"] == "second_brain"
+        assert read_state(account.home)["mode"] == "keys"
         # The admin API was never touched: nothing minted or deleted from here.
         assert fake_proxy.paths_hit("/key/delete") == 0
 
@@ -3074,7 +3111,7 @@ class TestStaleDeprecatedModes:
 
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=direct_settings(second_brain_url=BRAIN_URL), home=account.home,
+            settings=direct_settings(keys_url=KEYS_URL), home=account.home,
             client=make_client(fake_proxy),
         )
 
@@ -3094,16 +3131,16 @@ class TestStaleDeprecatedModes:
         assert result.status == "error"
         assert ADMIN_KEY_ENV_VAR in result.detail
 
-    def test_broker_without_a_url_signs_in_through_the_service(self, account, brain):
+    def test_broker_without_a_url_signs_in_through_the_service(self, account, service):
         result = ensure_account_key(
             account.identity, account.slug,
-            settings=broker_settings(broker_url="", second_brain_url=BRAIN_URL),
+            settings=broker_settings(broker_url="", keys_url=KEYS_URL),
             home=account.home, bearer="tok", device_id="dev-a",
-            brain_transport=brain.transport,
+            keys_transport=service.transport,
         )
 
         assert result.ok, result.detail
-        assert read_state(account.home)["mode"] == "second_brain"
+        assert read_state(account.home)["mode"] == "keys"
 
 
 # ===========================================================================
@@ -3141,34 +3178,34 @@ _EXPIRED = {"state": "expired", "access": "read_only", "notice": "read_only"}
 
 
 class TestLicense:
-    def _sign_in(self, account, brain, fake_proxy=None, **kwargs):
+    def _sign_in(self, account, service, fake_proxy=None, **kwargs):
         extra = {"client": make_client(fake_proxy)} if fake_proxy is not None else {}
         return ensure_account_key(
-            account.identity, account.slug, settings=brain_settings(), home=account.home,
-            bearer="tok", device_id="dev-a", brain_transport=brain.transport,
+            account.identity, account.slug, settings=keys_settings(), home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
             **extra, **kwargs,
         )
 
-    def test_the_license_sent_with_the_key_is_carried_and_recorded(self, account, brain):
+    def test_the_license_sent_with_the_key_is_carried_and_recorded(self, account, service):
         from hermes_cli.account_license import read_known_license
 
-        brain.license = _license()
+        service.license = _license()
 
-        result = self._sign_in(account, brain)
+        result = self._sign_in(account, service)
 
         assert result.ok is True
         assert result.license["state"] == "active"
         assert result.code == ""
         assert result.to_json()["license"]["plan"]["name"] == "Pilot nội bộ 2026"
         # Recorded for the person, at the account home.
-        assert read_known_license(account.home).license == brain.license
+        assert read_known_license(account.home).license == service.license
 
     def test_a_service_that_predates_licensing_sends_none_and_records_nothing(
-        self, account, brain
+        self, account, service
     ):
         from hermes_cli.account_license import LICENSE_FILENAME
 
-        result = self._sign_in(account, brain)
+        result = self._sign_in(account, service)
 
         assert result.ok is True
         assert result.license is None
@@ -3177,14 +3214,14 @@ class TestLicense:
 
     @pytest.mark.parametrize("code", ["license_required", "license_expired", "license_revoked"])
     def test_a_license_refusal_is_its_own_status_and_names_the_license(
-        self, account, brain, code
+        self, account, service, code
     ):
         from hermes_cli.account_license import effective_access
 
-        brain.license = _license(**_EXPIRED)
-        brain.license_refusal = code
+        service.license = _license(**_EXPIRED)
+        service.license_refusal = code
 
-        result = self._sign_in(account, brain)
+        result = self._sign_in(account, service)
 
         # Not a generic error the person can do nothing with: the license
         # that explains it rides along, and is now what this machine knows.
@@ -3197,10 +3234,10 @@ class TestLicense:
         assert env_value(provider_key_env("litellm")) == ""
 
     def test_a_refusal_never_takes_the_key_this_account_holds(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
-        brain.license = _license()
-        self._sign_in(account, brain, fake_proxy)
+        service.license = _license()
+        self._sign_in(account, service, fake_proxy)
         key_env = provider_key_env("litellm")
         held = env_value(key_env)
         state_before = read_state(account.home)
@@ -3208,10 +3245,10 @@ class TestLicense:
         # The plan ran out: the gateway now refuses the key, the service
         # refuses to hand it out again.
         fake_proxy.revoke_everything()
-        brain.license = _license(**_EXPIRED)
-        brain.license_refusal = "license_expired"
+        service.license = _license(**_EXPIRED)
+        service.license_refusal = "license_expired"
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "license_inactive"
         # Renewing the plan restores AI with the very same key — nothing here
@@ -3220,7 +3257,7 @@ class TestLicense:
         assert read_state(account.home) == state_before
 
     def test_a_refusal_ends_the_reuse_of_a_still_working_key(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """The gateway may take up to a sync interval to block the key.
 
@@ -3228,21 +3265,21 @@ class TestLicense:
         key reaches changed — a license refusal must reach the person rather
         than hiding behind "reused".
         """
-        brain.grants = ["chat-a", "chat-b"]
-        brain.license = _license()
-        self._sign_in(account, brain, fake_proxy)
+        service.grants = ["chat-a", "chat-b"]
+        service.license = _license()
+        self._sign_in(account, service, fake_proxy)
 
-        brain.retire_model("tok", "chat-b")
-        brain.license = _license(**_EXPIRED)
-        brain.license_refusal = "license_expired"
+        service.retire_model("tok", "chat-b")
+        service.license = _license(**_EXPIRED)
+        service.license_refusal = "license_expired"
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "license_inactive"
         assert result.code == "license_expired"
 
     def test_a_live_key_is_reused_without_asking_so_no_license_rides_along(
-        self, account, brain, fake_proxy
+        self, account, service, fake_proxy
     ):
         """Why the desktop refreshes the license on its own route.
 
@@ -3251,24 +3288,24 @@ class TestLicense:
         """
         from hermes_cli.account_license import read_known_license
 
-        brain.grants = ["chat-a"]
-        brain.license = _license()
-        self._sign_in(account, brain, fake_proxy)
-        brain.requests.clear()
-        brain.license = _license(**_EXPIRED)
+        service.grants = ["chat-a"]
+        service.license = _license()
+        self._sign_in(account, service, fake_proxy)
+        service.requests.clear()
+        service.license = _license(**_EXPIRED)
 
-        result = self._sign_in(account, brain, fake_proxy)
+        result = self._sign_in(account, service, fake_proxy)
 
         assert result.status == "reused"
-        assert brain.requests == []
+        assert service.requests == []
         assert result.license is None
         assert read_known_license(account.home).license["state"] == "active"
 
-    def test_the_cli_reports_the_status(self, account, brain):
-        brain.license = _license(**_EXPIRED)
-        brain.license_refusal = "license_expired"
+    def test_the_cli_reports_the_status(self, account, service):
+        service.license = _license(**_EXPIRED)
+        service.license_refusal = "license_expired"
 
-        result = self._sign_in(account, brain)
+        result = self._sign_in(account, service)
 
         assert result.to_json()["status"] == "license_inactive"
         assert result.to_json()["code"] == "license_expired"

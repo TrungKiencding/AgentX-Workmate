@@ -13,7 +13,7 @@
  * launch reuses for as long as it runs. Nothing compared the two, so a new
  * build installed over a machine that already had an agent kept running the
  * OLD agent: a September shell over an August checkout whose defaults the
- * account service had long moved past (`accounts.litellm.mode: direct`, an
+ * keys service had long moved past (`accounts.litellm.mode: direct`, an
  * admin key no installer carries any more).
  *
  * The rule is deliberately one-directional. A checkout BEHIND the stamp is
