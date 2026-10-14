@@ -204,7 +204,11 @@ async function fetchProviderDefaultModel(
   const models = matched.models ?? []
 
   const current = String(options.provider ?? '').toLowerCase()
-  const kept = current && lower.includes(current) ? (options.model ?? '').trim() : ''
+  const running = current && lower.includes(current) ? (options.model ?? '').trim() : ''
+  // Kept only while the gateway still lists it: config can name a model the
+  // grant has since dropped, and writing it back here pins every new chat to a
+  // model the key is refused for.
+  const kept = running && (models.length === 0 || models.includes(running)) ? running : ''
   const defaultModel = kept || accountGateway.model?.trim() || String(models[0] ?? '')
 
   return defaultModel ? { providerSlug: String(matched.slug), defaultModel } : null

@@ -276,6 +276,55 @@ describe('AgentX AI Gateway onboarding', () => {
     })
   })
 
+  it('moves a main model the gateway no longer lists onto the key default', async () => {
+    const calls: { body?: unknown; path: string }[] = []
+
+    installGatewayBridge(
+      async () => ({
+        ok: true,
+        litellm: grantedKey({
+          default_model: 'deepseek/deepseek-v4.1-flash',
+          models: ['deepseek/deepseek-v4.1-flash', 'z-ai/glm-5.3-flash']
+        })
+      }),
+      async ({ body, path }) => {
+        calls.push({ body, path })
+
+        if (path.startsWith('/api/model/options')) {
+          // config.yaml still pins a model the grant has since dropped.
+          return {
+            provider: 'litellm',
+            model: 'MiniMax/MiniMax-M3',
+            providers: [
+              {
+                name: 'AgentX AI Gateway',
+                slug: 'litellm',
+                models: ['deepseek/deepseek-v4.1-flash', 'z-ai/glm-5.3-flash']
+              }
+            ]
+          }
+        }
+
+        if (path === '/api/model/set') {
+          return { ok: true, provider: 'litellm', model: 'deepseek/deepseek-v4.1-flash' }
+        }
+
+        throw new Error(`unexpected api path: ${path}`)
+      }
+    )
+
+    await connectAgentxGateway(onboardingContext(gatewayReadyRuntime()))
+
+    expect(calls.find(c => c.path === '/api/model/set')?.body).toMatchObject({
+      provider: 'litellm',
+      model: 'deepseek/deepseek-v4.1-flash'
+    })
+    expect($desktopOnboarding.get().flow).toMatchObject({
+      status: 'confirming_model',
+      currentModel: 'deepseek/deepseek-v4.1-flash'
+    })
+  })
+
   it('never lands on another provider when the gateway row is missing', async () => {
     const calls: string[] = []
 

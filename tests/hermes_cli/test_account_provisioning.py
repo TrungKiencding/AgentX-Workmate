@@ -1736,7 +1736,36 @@ class TestModelListFollowsTheKey:
             "chat-a", "chat-c",
         }
 
-    def test_a_model_the_user_added_by_hand_is_never_pruned(self, account, service):
+    def test_a_model_the_user_added_by_hand_stays_while_the_key_reaches_it(
+        self, account, service, fake_proxy
+    ):
+        from hermes_cli.config import load_config, save_config
+
+        sign_in = dict(
+            settings=keys_settings(), home=account.home, bearer="tok",
+            device_id="dev-a", keys_transport=service.transport,
+            client=make_client(fake_proxy),
+        )
+        service.grants = ["chat-a"]
+        ensure_account_key(account.identity, account.slug, **sign_in)
+
+        cfg = load_config()
+        cfg["providers"]["litellm"]["models"]["my-own-model"] = {"context_window": 8000}
+        save_config(cfg, merge_existing=True)
+        # The key reaches it at the proxy, though it is no chat grant.
+        token = read_state(account.home)["token"]
+        fake_proxy.records[token]["models"].append("my-own-model")
+
+        ensure_account_key(account.identity, account.slug, **sign_in)
+
+        models = raw_config(account.home)["providers"]["litellm"]["models"]
+        assert set(models) == {"chat-a", "my-own-model"}
+        # And their settings on it survived the round trip.
+        assert models["my-own-model"] == {"context_window": 8000}
+
+    def test_a_model_the_user_added_by_hand_leaves_once_the_key_cannot_reach_it(
+        self, account, service
+    ):
         from hermes_cli.config import load_config, save_config
 
         settings = keys_settings()
@@ -1757,10 +1786,9 @@ class TestModelListFollowsTheKey:
             keys_transport=service.transport,
         )
 
-        models = raw_config(account.home)["providers"]["litellm"]["models"]
-        assert set(models) == {"chat-b", "my-own-model"}
-        # And their settings on it survived the round trip.
-        assert models["my-own-model"] == {"context_window": 8000}
+        # The gateway refuses this key every id outside what it reaches, so a
+        # row for one is a menu entry that can only fail.
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"chat-b"}
 
     def test_a_default_we_pinned_is_re_pinned_when_the_key_loses_it(self, account, service):
         settings = keys_settings()
@@ -1783,7 +1811,31 @@ class TestModelListFollowsTheKey:
         # than the stale pin that chose it.
         assert raw_config(account.home)["model"]["default"] == "chat-y"
 
-    def test_a_default_the_user_chose_is_left_alone_even_when_it_goes_away(
+    def test_a_default_the_user_chose_stays_while_the_key_reaches_it(
+        self, account, service, fake_proxy
+    ):
+        from hermes_cli.config import load_config, save_config
+
+        sign_in = dict(
+            settings=keys_settings(), home=account.home, bearer="tok",
+            device_id="dev-a", keys_transport=service.transport,
+            client=make_client(fake_proxy),
+        )
+        service.grants = ["chat-a"]
+        ensure_account_key(account.identity, account.slug, **sign_in)
+
+        cfg = load_config()
+        cfg["model"]["default"] = "something-i-picked"
+        save_config(cfg, merge_existing=True)
+        token = read_state(account.home)["token"]
+        fake_proxy.records[token]["models"].append("something-i-picked")
+
+        ensure_account_key(account.identity, account.slug, **sign_in)
+
+        # Not ours to take back: it is not a pin we made, and it still works.
+        assert raw_config(account.home)["model"]["default"] == "something-i-picked"
+
+    def test_a_default_the_key_cannot_reach_moves_even_when_the_user_chose_it(
         self, account, service
     ):
         from hermes_cli.config import load_config, save_config
@@ -1806,8 +1858,9 @@ class TestModelListFollowsTheKey:
             keys_transport=service.transport,
         )
 
-        # We only ever take back a pin we made ourselves.
-        assert raw_config(account.home)["model"]["default"] == "something-i-picked"
+        # Every new chat, cron job and messaging session would open on a model
+        # the gateway refuses this key.
+        assert raw_config(account.home)["model"]["default"] == "chat-b"
 
 
 class TestModelListFollowsTheProxy:
@@ -1965,6 +2018,151 @@ class TestModelListFollowsTheProxy:
 
         # The preference is for fresh accounts; this one keeps what it opens on.
         assert raw_config(account.home)["model"]["default"] == "chat-a"
+
+
+class TestStaleModelsLeaveOnTheNextLaunch:
+    """A config still naming a model the grant dropped is put right by any launch.
+
+    Reported on Windows with 1.1.0: the grant had moved from MiniMax-M3 to
+    DeepSeek V4.1 Flash and GLM 5.3 Flash, but config.yaml still pinned
+    ``model.default: MiniMax/MiniMax-M3``. 1.1.0 listed that pin first in every
+    model menu, reseeded every new chat with it, and "Refresh model list" could
+    not take it out. ``_write_provider_config`` only retires what the LAST run
+    wrote, so once the recorded list stopped naming the model nothing compared
+    config with what the key reaches. These pin the plain reuse — all a launch
+    or a model-menu refresh runs when nothing changed at the proxy — and a
+    grant change whose last recorded list was lost.
+    """
+
+    GRANT = ["deepseek/deepseek-v4.1-flash", "z-ai/glm-5.3-flash"]
+    DROPPED = "MiniMax/MiniMax-M3"
+
+    def _launch(self, account, service, fake_proxy):
+        return ensure_account_key(
+            account.identity, account.slug,
+            settings=keys_settings(preferred_default_model="MiniMax/MiniMax-M3"),
+            home=account.home, bearer="tok", device_id="dev-a",
+            keys_transport=service.transport, client=make_client(fake_proxy),
+        )
+
+    def _write(self, *path, value):
+        from hermes_cli.config import read_raw_config, save_config
+
+        raw = read_raw_config()
+        node = raw
+        for key in path[:-1]:
+            node = node.setdefault(key, {})
+        node[path[-1]] = value
+        save_config(raw)
+
+    def test_a_default_the_grant_dropped_moves_on_a_plain_reuse(
+        self, account, service, fake_proxy
+    ):
+        service.grants = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+        self._write("model", "default", value=self.DROPPED)
+        service.requests.clear()
+
+        result = self._launch(account, service, fake_proxy)
+
+        assert result.status == "reused"
+        # Nothing moved at the proxy, so the service is not asked again …
+        assert service.requests == []
+        # … and the pin still lands where a fresh account opens.
+        assert raw_config(account.home)["model"]["default"] == "deepseek/deepseek-v4.1-flash"
+
+    def test_a_model_the_grant_dropped_leaves_the_menu_on_a_plain_reuse(
+        self, account, service, fake_proxy
+    ):
+        service.grants = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+        listed = raw_config(account.home)["providers"]["litellm"]["models"]
+        self._write("providers", "litellm", "models", value={self.DROPPED: {}, **listed})
+
+        self._launch(account, service, fake_proxy)
+
+        assert list(raw_config(account.home)["providers"]["litellm"]["models"]) == self.GRANT
+
+    def test_the_model_menu_then_lists_the_grant_and_its_default(
+        self, account, service, fake_proxy, monkeypatch
+    ):
+        from hermes_cli.inventory import build_model_options_payload, load_picker_context
+
+        monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda *a, **kw: {})
+        for name in ("_apply_pricing", "_apply_capabilities", "_apply_featured"):
+            monkeypatch.setattr(f"hermes_cli.inventory.{name}", lambda *a, **kw: None)
+
+        service.grants = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+        listed = raw_config(account.home)["providers"]["litellm"]["models"]
+        self._write("providers", "litellm", "models", value={self.DROPPED: {}, **listed})
+        self._write("model", "default", value=self.DROPPED)
+
+        self._launch(account, service, fake_proxy)
+
+        payload = build_model_options_payload(load_picker_context(), explicit_only=True)
+        assert [row["models"] for row in payload["providers"]] == [self.GRANT]
+        # What a new chat is seeded with (``/api/model/info`` reads the same).
+        assert payload["model"] == "deepseek/deepseek-v4.1-flash"
+
+    def test_a_grant_change_heals_a_config_whose_last_list_was_lost(
+        self, account, service, fake_proxy
+    ):
+        from hermes_cli.account_provisioning import write_state
+
+        service.grants = [self.DROPPED, "Qwen/Qwen3.5-122B-A10B-FP8"]
+        self._launch(account, service, fake_proxy)
+        assert raw_config(account.home)["model"]["default"] == self.DROPPED
+        # The sidecar stopped naming them before the grant moved, so the diff
+        # against the last run has nothing to take back.
+        write_state(account.home, {**read_state(account.home), "models": []})
+
+        # The grant pass moves this person's key onto the new models.
+        held = service.keys["tok"]
+        held["models"] = list(self.GRANT)
+        fake_proxy.records[held["token"]]["models"] = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+
+        cfg = raw_config(account.home)
+        assert cfg["model"]["default"] == "deepseek/deepseek-v4.1-flash"
+        assert list(cfg["providers"]["litellm"]["models"]) == self.GRANT
+
+    def test_an_auxiliary_task_pinned_to_a_dropped_model_goes_back_to_auto(
+        self, account, service, fake_proxy
+    ):
+        service.grants = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+        self._write("auxiliary", "title", value={"provider": "litellm", "model": self.DROPPED})
+        self._write(
+            "auxiliary", "compression",
+            value={"provider": "litellm", "model": "z-ai/glm-5.3-flash"},
+        )
+
+        self._launch(account, service, fake_proxy)
+
+        auxiliary = raw_config(account.home)["auxiliary"]
+        assert auxiliary["title"] == {"provider": "auto", "model": ""}
+        assert auxiliary["compression"] == {"provider": "litellm", "model": "z-ai/glm-5.3-flash"}
+
+    def test_with_nothing_said_about_the_key_nothing_is_taken_out(
+        self, account, service, fake_proxy
+    ):
+        service.grants = list(self.GRANT)
+        self._launch(account, service, fake_proxy)
+        state = read_state(account.home)
+        state.pop("reachable_models")
+        from hermes_cli.account_provisioning import write_state
+
+        write_state(account.home, state)
+        self._write("model", "default", value=self.DROPPED)
+        # Offline: neither the proxy nor the service answers, and the sidecar
+        # predates the recorded reach.
+        fake_proxy.fault = "connect"
+        service.unreachable = True
+
+        self._launch(account, service, fake_proxy)
+
+        assert raw_config(account.home)["model"]["default"] == self.DROPPED
 
 
 def test_the_shipped_deployment_prefers_minimax_m3():

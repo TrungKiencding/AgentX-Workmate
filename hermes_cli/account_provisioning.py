@@ -758,6 +758,7 @@ def _write_provider_config(
     vision_model: str = "",
     speech_model: str = "",
     transcription_model: str = "",
+    reachable: tuple[str, ...] | None = None,
 ) -> None:
     """Point this account's ``providers:`` entry at the proxy and its key env.
 
@@ -770,8 +771,11 @@ def _write_provider_config(
     what makes the merge able to SHRINK. Without it the model map only ever
     grew: a key replaced by one that reaches fewer models left every id the old
     key could reach sitting in the picker, so people kept being offered models
-    their key was refused for. Only ids we wrote ourselves are removed — an id
-    the user added by hand is theirs and stays.
+    their key was refused for. Only ids we wrote ourselves are removed that
+    way; ``reachable`` (what the key reaches at the proxy) then lets
+    ``_retire_unreachable_models`` take out whatever the key cannot reach at
+    all, whoever wrote it. An id the user added by hand stays while the key
+    reaches it.
     """
     from hermes_cli.config import load_config, save_config
 
@@ -835,7 +839,8 @@ def _write_provider_config(
     # sees names the model rather than the stale pin that chose it — the same
     # failure as the shipped-constant default, arrived at from the other side.
     # A model the user picked by hand is never in ``previous_models``, so their
-    # choice still stands.
+    # choice still stands — while the key reaches it. One the key cannot reach
+    # at all moves too (``_retire_unreachable_models``, below).
     chosen = (default_model or settings.default_model or "").strip()
     if chosen:
         model_cfg = cfg.get("model")
@@ -870,6 +875,7 @@ def _write_provider_config(
         _drop_provider_models(settings.provider_name, retired_models)
 
     _reconcile_managed_inference(settings, {"base_url": base_url, "key_env": key_env}, models)
+    _retire_unreachable_models(settings, models, reachable)
 
     _apply_vision_model(settings.provider_name, vision_model)
     _apply_speech_default(speech_model)
@@ -1121,7 +1127,10 @@ def _ensure_vision_follows_main(
 
 
 def _tidy_reused_account(
-    settings: LiteLLMAccountSettings, state: Mapping[str, Any], home: Path
+    settings: LiteLLMAccountSettings,
+    state: Mapping[str, Any],
+    home: Path,
+    reachable: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
     """Bring an account whose key is simply reused up to current policy.
 
@@ -1134,6 +1143,12 @@ def _tidy_reused_account(
     picker and, when it led the list, as the account's default model. They
     are taken back out, and the sidecar is rewritten so this runs once rather
     than on every launch.
+
+    And any model this key cannot reach (``_retire_unreachable_models``):
+    ``reachable`` is what the proxy just answered, else what was recorded.
+    This is the only provisioning a launch or a model-menu refresh runs when
+    nothing changed at the proxy, so it is the one place a config left behind
+    by an older run can be put right.
     """
     roles = _role_models(state)
     recorded = tuple(str(m) for m in (state.get("models") or ()))
@@ -1155,6 +1170,16 @@ def _tidy_reused_account(
         for role in leaked:
             _repin_default_model_away_from(settings, role, models)
         write_state(home, {**state, "models": list(models)})
+
+    if reachable is None:
+        recorded_reach = state.get("reachable_models")
+        if isinstance(recorded_reach, list):
+            reachable = tuple(str(m) for m in recorded_reach)
+    if reachable:
+        # The feature models stay reachable by definition: the vision slot
+        # was just pointed at one, and taking it back out would only have the
+        # next launch put it back.
+        _retire_unreachable_models(settings, models, (*reachable, *roles))
 
     return models
 
@@ -1222,6 +1247,84 @@ def _reconcile_managed_inference(
             raw.pop(key, None)
     if raw != before:
         save_config(raw)
+
+
+def _retire_unreachable_models(
+    settings: LiteLLMAccountSettings,
+    models: tuple[str, ...],
+    reachable: tuple[str, ...] | None,
+) -> bool:
+    """Take every gateway model id this key cannot reach back out of config.
+
+    ``_write_provider_config`` only takes back what the LAST run wrote, and
+    moves the default only when that list named it — a diff, computed once. A
+    laptop whose list missed the model (a sidecar written without it, or a
+    default written back after the grant moved: a gateway reconnect keeps the
+    model config names) kept it for good. Workmate 1.1.0 then listed that
+    model first in every model menu and reseeded every new chat with it, and
+    no refresh or relaunch took it back out, because nothing compared what
+    config holds with what the key reaches.
+
+    This compares state. ``models`` is the chat grant and ``reachable`` the
+    key's allowlist at the proxy (what ``/v1/models`` answered, or what the
+    service said it granted). An id in neither is one the gateway refuses for
+    this key: it leaves the provider's model map, a default pinned to it moves
+    to the model a fresh account opens on (``choose_default_model``), and an
+    auxiliary task pinned to it goes back to ``auto``. Anything the key still
+    reaches stays, whoever put it there.
+
+    Only the keys service vouches for either list, and a proxy answer that
+    shares nothing with the grant proves nothing (see ``_rotate``), so every
+    other case changes nothing. Returns whether config changed.
+    """
+    if settings.mode != "keys" or not models or not reachable:
+        return False
+    reach = {str(model) for model in reachable}
+    if not reach.intersection(models):
+        return False
+    usable = reach.union(models)
+
+    from hermes_cli.config import read_raw_config, save_config
+
+    raw = read_raw_config()
+    name = settings.provider_name.lower()
+    ours = {name, f"custom:{name}"}
+    changed = False
+
+    providers = raw.get("providers")
+    entry = providers.get(settings.provider_name) if isinstance(providers, dict) else None
+    listed = entry.get("models") if isinstance(entry, dict) else None
+    if isinstance(listed, dict):
+        for model_id in [m for m in listed if str(m) not in usable]:
+            del listed[model_id]
+            changed = True
+
+    model_cfg = raw.get("model")
+    if isinstance(model_cfg, dict):
+        current = str(model_cfg.get("default") or "").strip()
+        provider = str(model_cfg.get("provider") or "").strip().lower()
+        if current and provider in ours and current not in usable:
+            replacement = choose_default_model(models, settings)
+            if replacement:
+                model_cfg["default"] = replacement
+                changed = True
+
+    auxiliary = raw.get("auxiliary")
+    if isinstance(auxiliary, dict):
+        for slot in auxiliary.values():
+            if not isinstance(slot, dict):
+                continue
+            pinned = str(slot.get("model") or "").strip()
+            provider = str(slot.get("provider") or "").strip().lower()
+            if pinned and provider in ours and pinned not in usable:
+                slot.update(provider="auto", model="")
+                changed = True
+
+    if changed:
+        # A full-document write, like ``_drop_provider_models``:
+        # ``merge_existing`` would merge every deleted id straight back.
+        save_config(raw)
+    return changed
 
 
 #: The feature models a sidecar records beside the chat grant (written by ``_rotate``).
@@ -1493,7 +1596,7 @@ def ensure_account_key(
                     return collected
                 # Offline, or nothing to ask with: the key still works, so this
                 # launch keeps it and the next one asks again.
-            models = _tidy_reused_account(settings, state, home)
+            models = _tidy_reused_account(settings, state, home, reachable)
             return ProvisionResult(
                 status="reused",
                 detail="the key already on this account is still valid.",
@@ -1894,6 +1997,12 @@ def _rotate(
     # model keeps it (see _write_provider_config).
     default_model = choose_default_model(models, settings)
 
+    # What the key reaches at the proxy: the probe's answer when there was
+    # one, else what the service says it granted — the chat models plus one
+    # per feature.
+    if reachable is None:
+        reachable = (*models, *minted.role_models)
+
     _write_provider_config(
         settings,
         base_url,
@@ -1906,6 +2015,7 @@ def _rotate(
         vision_model=minted.vision_model,
         speech_model=minted.speech_model,
         transcription_model=minted.transcription_model,
+        reachable=(*reachable, *minted.role_models),
     )
 
     # The models each feature calls with this key: granted by the keys service
@@ -1916,8 +2026,6 @@ def _rotate(
     # is also pinned in ``auxiliary.vision``, and the speech and transcription
     # models' backends were made the TTS and STT providers above.
     web_search_model = minted.web_search_model
-    if reachable is None:
-        reachable = (*models, *minted.role_models)
 
     # What the key actually wears at the proxy — a suffixed label when the
     # plain one was taken — not what this machine would have called it.
