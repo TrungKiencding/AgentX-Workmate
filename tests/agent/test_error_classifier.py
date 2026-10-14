@@ -1,5 +1,7 @@
 """Tests for agent.error_classifier — structured API error classification."""
 
+import json
+
 import pytest
 from agent.error_classifier import (
     ClassifiedError,
@@ -1391,6 +1393,175 @@ class TestServerInjectedParameterRejection:
                             "code": "unknown_parameter"}},
         )
         result = classify_api_error(e, provider="custom", model="m")
+        assert result.reason == FailoverReason.format_error
+        assert result.retryable is False
+
+
+class TestGatewayInjectedParameterRejection:
+    """OpenRouter adds fields to its own call to some providers, and GMICloud
+    rejects them: "Validation: Unsupported parameter(s):
+    `context_length_exceeded_behavior`, `prompt_cache_key`".  Seen through the
+    AgentX AI Gateway (a LiteLLM proxy) on a request that carried neither,
+    where the format_error it got aborted a 107k-token turn.  The body of the
+    request that failed decides whether such a rejection is ours.
+    """
+
+    # The GMICloud answer as OpenRouter relays it — compact JSON, as received.
+    GMICLOUD_RAW = json.dumps(
+        {"error": {
+            "type": "Bad Request",
+            "message": "Validation: Unsupported parameter(s): "
+                       "`context_length_exceeded_behavior`, `prompt_cache_key`",
+            "backend_status": 400,
+            "details": "Bad Request: Validation: Unsupported parameter(s): "
+                       "`context_length_exceeded_behavior`, `prompt_cache_key`",
+        }},
+        separators=(",", ":"),
+    )
+    OPENROUTER_BODY = {
+        "error": {
+            "message": "Provider returned error",
+            "code": 400,
+            "metadata": {"raw": GMICLOUD_RAW, "provider_name": "GMICloud", "is_byok": False},
+        },
+        "user_id": "user_test",
+    }
+    # Workmate's chat-completions request through the gateway: neither field.
+    REQUEST = {
+        "model": "z-ai/glm-5.3-flash",
+        "messages": [{"role": "user", "content": "hello"}],
+        "tools": [{"type": "function", "function": {"name": "read_file", "parameters": {}}}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "max_tokens": 65536,
+        "reasoning_effort": "none",
+        "extra_body": {"think": False},
+    }
+
+    def _gateway_error(self, status_code=400):
+        """What the OpenAI SDK raises when the gateway relays the rejection —
+        the shape the production LiteLLM build returns."""
+        message = (
+            "litellm.BadRequestError: OpenrouterException - "
+            + json.dumps(self.OPENROUTER_BODY, separators=(",", ":"))
+            + "\n\nLiteLLM: model group 'z-ai/glm-5.3-flash' failed with the "
+            "error above. No fallback was attempted."
+        )
+        body = {"message": message, "type": "invalid_request_error",
+                "param": None, "code": str(status_code)}
+        return MockAPIError(
+            f"Error code: {status_code} - {dict(error=body)}",
+            status_code=status_code,
+            body=body,
+        )
+
+    def _classify(self, error, api_kwargs=None, provider="litellm"):
+        return classify_api_error(
+            error,
+            provider=provider,
+            model="z-ai/glm-5.3-flash",
+            approx_tokens=107_014,
+            context_length=1_048_576,
+            num_messages=686,
+            api_kwargs=api_kwargs,
+        )
+
+    def test_relayed_rejection_of_fields_never_sent_is_retryable(self):
+        result = self._classify(self._gateway_error(), api_kwargs=dict(self.REQUEST))
+        assert result.reason == FailoverReason.server_error
+        assert result.retryable is True
+        # The request shape was fine: no compression, no provider switch.
+        assert result.should_compress is False
+        assert result.should_fallback is False
+
+    def test_direct_openrouter_rejection_of_fields_never_sent_is_retryable(self):
+        """Without the gateway: OpenRouter's own envelope, the provider's
+        error inside ``metadata.raw``."""
+        e = MockAPIError("Provider returned error", status_code=400,
+                         body=dict(self.OPENROUTER_BODY))
+        result = self._classify(e, api_kwargs=dict(self.REQUEST), provider="openrouter")
+        assert result.reason == FailoverReason.server_error
+        assert result.retryable is True
+
+    @pytest.mark.parametrize("placement", ["top_level", "extra_body"])
+    def test_rejection_of_a_field_the_request_carried_fails_fast(self, placement):
+        """Boundary: a body that carried ``prompt_cache_key`` — top level, or in
+        ``extra_body``, which the SDK merges into the same JSON — owns the
+        rejection, and an identical retry would fail the same way."""
+        request = dict(self.REQUEST)
+        if placement == "top_level":
+            request["prompt_cache_key"] = "cache-key"
+        else:
+            request["extra_body"] = {**request["extra_body"], "prompt_cache_key": "cache-key"}
+        result = self._classify(self._gateway_error(), api_kwargs=request)
+        assert result.reason == FailoverReason.format_error
+        assert result.retryable is False
+
+    def test_without_the_request_prompt_cache_key_counts_as_ours(self):
+        """Callers that cannot say what was sent keep failing fast: the
+        Responses transport sends ``prompt_cache_key`` under any provider slug,
+        so the slug alone cannot clear it."""
+        result = self._classify(self._gateway_error())
+        assert result.reason == FailoverReason.format_error
+        assert result.retryable is False
+
+    def test_never_sent_field_is_injected_even_without_the_request(self):
+        """AgentX sends ``context_length_exceeded_behavior`` on no route, so a
+        rejection naming only it is a server-side flake for every caller."""
+        msg = "Validation: Unsupported parameter(s): `context_length_exceeded_behavior`"
+        e = MockAPIError(msg, status_code=400, body={"error": {"message": msg}})
+        result = classify_api_error(e, provider="openrouter", model="m")
+        assert result.reason == FailoverReason.server_error
+        assert result.retryable is True
+
+    def test_request_body_outranks_the_sender_list(self):
+        """With the request at hand, ``prompt_cache_retention`` is judged by the
+        body both ways: absent on a sender route is injected, present on a
+        non-sender route is ours."""
+        msg = "prompt_cache_retention is not supported on this model"
+        e = MockAPIError(msg, status_code=400,
+                         body={"message": msg, "param": "prompt_cache_retention"})
+        absent = classify_api_error(
+            e, provider="meta-ai", model="muse-spark-1.2",
+            api_kwargs={"model": "muse-spark-1.2", "input": []},
+        )
+        assert absent.reason == FailoverReason.server_error
+        assert absent.retryable is True
+        present = classify_api_error(
+            e, provider="openai-codex", model="gpt-5.6-sol",
+            api_kwargs={"model": "gpt-5.6-sol", "input": [], "prompt_cache_retention": "24h"},
+        )
+        assert present.reason == FailoverReason.format_error
+        assert present.retryable is False
+
+    @pytest.mark.parametrize("status_code", [500, 502])
+    def test_relayed_rejection_via_5xx_follows_the_request_body(self, status_code):
+        """Sibling path: the 5xx request-validation guard decides the same way."""
+        injected = self._classify(self._gateway_error(status_code), api_kwargs=dict(self.REQUEST))
+        assert injected.reason == FailoverReason.server_error
+        assert injected.retryable is True
+        ours = self._classify(
+            self._gateway_error(status_code),
+            api_kwargs={**self.REQUEST, "prompt_cache_key": "cache-key"},
+        )
+        assert ours.reason == FailoverReason.format_error
+        assert ours.retryable is False
+
+    def test_unrelated_bad_parameter_still_fails_fast_with_the_request(self):
+        """Boundary: passing the request never makes a genuine bad parameter
+        of ours retryable."""
+        e = MockAPIError(
+            "Unsupported parameter: 'max_tokens' is not supported with this "
+            "model. Use 'max_completion_tokens' instead.",
+            status_code=400,
+            body={"message": "Unsupported parameter: 'max_tokens' is not supported.",
+                  "type": "invalid_request_error", "param": "max_tokens",
+                  "code": "unsupported_parameter"},
+        )
+        result = classify_api_error(
+            e, provider="openai", model="gpt-5.6",
+            api_kwargs={"model": "gpt-5.6", "messages": [], "max_tokens": 64},
+        )
         assert result.reason == FailoverReason.format_error
         assert result.retryable is False
 

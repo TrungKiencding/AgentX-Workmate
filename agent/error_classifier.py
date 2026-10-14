@@ -453,57 +453,97 @@ _REQUEST_VALIDATION_PATTERNS = [
     "unsupported_parameter",
 ]
 
-# Request parameters that AgentX sends on SOME routes only, paired with the
-# providers/hosts where sending them is deliberate.
+# Request parameters that a gateway between AgentX and the model may add to
+# its own upstream call, paired with the providers/hosts where AgentX sends
+# them on purpose.
 #
-# When a host that is NOT in the allowed set rejects one of these fields, the
-# client never put it in the body — the provider's own gateway injected it —
-# so the 400 is a server-side flake rather than a deterministic request-shape
-# error.  See ``_is_server_injected_param_rejection`` and the branch in
-# ``_classify_400``.
+# When one of these fields is rejected although the client never put it in
+# the body, a hop in between injected it, so the 400 is a server-side flake
+# rather than a deterministic request-shape error.  See
+# ``_is_server_injected_param_rejection`` and the branch in ``_classify_400``.
+#
+# The body of the request that failed decides whenever the caller passes it
+# (``classify_api_error(api_kwargs=...)``); the sender list answers only for
+# callers that cannot say what was sent, and ``None`` means only the body can
+# tell.
 #
 # ``prompt_cache_retention`` is only sent for api.meta.ai and bedrock-mantle
 # hosts (agent/transports/codex.py::_default_prompt_cache_retention_for_request).
 # The Codex OAuth backend rejects it spontaneously on requests that provably
 # never carried it.
-_SERVER_INJECTED_PARAM_SENDERS: Dict[str, tuple] = {
+#
+# ``prompt_cache_key`` is sent by the Responses transport on every route but
+# GitHub's, whatever the provider slug, and on chat completions to
+# api.openai.com or a route that opts in — so no slug list can answer for it.
+# ``context_length_exceeded_behavior`` is never sent.  OpenRouter adds both to
+# its own call to some providers, and GMICloud rejects both (seen through the
+# AgentX AI Gateway, a LiteLLM proxy, on a request that carried neither).
+_SERVER_INJECTED_PARAM_SENDERS: Dict[str, Optional[tuple]] = {
     "prompt_cache_retention": ("meta", "muse", "msl", "model-api", "bedrock", "mantle"),
+    "prompt_cache_key": None,
+    "context_length_exceeded_behavior": (),
 }
 
 
-def _is_server_injected_param_rejection(error_msg: str, provider: str) -> bool:
-    """True when a 400 blames a parameter this route never sends.
+def _sent_param_names(api_kwargs: Any) -> Optional[frozenset[str]]:
+    """The body fields of the request that failed, or None without one.
+
+    The OpenAI SDK merges ``extra_body`` into the top level of the JSON body,
+    so its keys were sent as well.
+    """
+    if not isinstance(api_kwargs, dict):
+        return None
+    names = set(api_kwargs)
+    extra_body = api_kwargs.get("extra_body")
+    if isinstance(extra_body, dict):
+        names.update(extra_body)
+    return frozenset(str(name).lower() for name in names)
+
+
+def _is_server_injected_param_rejection(
+    error_msg: str,
+    provider: str,
+    sent_params: Optional[frozenset[str]] = None,
+) -> bool:
+    """True when a 400 rejects only injectable parameters the request never carried.
 
     ``error_msg`` is the lowercased, concatenated message text; ``provider`` is
-    the lowercased provider slug.  A match means the rejection cannot be
-    attributed to our own request shape, so the error is transient and retrying
-    the identical request is the correct recovery.
+    the lowercased provider slug; ``sent_params`` holds the body fields of the
+    request that failed, when the caller has it.  A match means the rejection
+    cannot be attributed to our own request shape, so the error is transient
+    and retrying the identical request is the correct recovery.
 
-    Deliberately conservative: it fires only for known one-route-only
-    parameters AND only when the current provider is not one of the routes that
-    actually sends them, so a genuine client-side bad parameter (``max_tokens``
-    on a GPT-5 model) still fails fast as a ``format_error``.
+    Deliberately conservative: it fires only for the known injectable
+    parameters, and only when none of those the message names was ours —
+    judged by ``sent_params`` when known, else by the route's sender list, where
+    a parameter without one counts as ours.  A genuine client-side bad parameter
+    (``max_tokens`` on a GPT-5 model) still fails fast as a ``format_error``.
     """
     if not error_msg:
         return False
+    # Require the message to actually be a rejection, not an incidental
+    # mention of the parameter.
+    if not (
+        "not supported" in error_msg
+        or "unsupported" in error_msg
+        or "unknown" in error_msg
+        or "unrecognized" in error_msg
+    ):
+        return False
     provider_slug = (provider or "").strip().lower()
+    injected = False
     for param, senders in _SERVER_INJECTED_PARAM_SENDERS.items():
         if param not in error_msg:
             continue
-        # Require the message to actually be a rejection of that parameter,
-        # not an incidental mention.
-        if not (
-            "not supported" in error_msg
-            or "unsupported" in error_msg
-            or "unknown" in error_msg
-            or "unrecognized" in error_msg
-        ):
-            continue
-        if any(sender in provider_slug for sender in senders):
-            # This route sends the field on purpose — a real request error.
+        if sent_params is not None:
+            ours = param in sent_params
+        else:
+            ours = senders is None or any(sender in provider_slug for sender in senders)
+        if ours:
+            # The request carried this field on purpose — a real request error.
             return False
-        return True
-    return False
+        injected = True
+    return injected
 
 
 # OpenRouter aggregator policy-block patterns.
@@ -764,6 +804,7 @@ def classify_api_error(
     approx_tokens: int = 0,
     context_length: int = 200000,
     num_messages: int = 0,
+    api_kwargs: Optional[Dict[str, Any]] = None,
 ) -> ClassifiedError:
     """Classify an API error into a structured recovery recommendation.
 
@@ -784,6 +825,9 @@ def classify_api_error(
         model: Current model slug.
         approx_tokens: Approximate token count of the current context.
         context_length: Maximum context length for the current model.
+        api_kwargs: The request that failed, when the caller has it.  Lets a
+            rejection of a field this request never carried (one a gateway in
+            between added) be told apart from a bad field of our own.
 
     Returns:
         ClassifiedError with reason and recovery action hints.
@@ -840,6 +884,7 @@ def classify_api_error(
     error_msg = " ".join(parts)
     provider_lower = (provider or "").strip().lower()
     model_lower = (model or "").strip().lower()
+    sent_params = _sent_param_names(api_kwargs)
 
     def _result(reason: FailoverReason, **overrides) -> ClassifiedError:
         defaults = {
@@ -1039,6 +1084,7 @@ def classify_api_error(
             provider=provider_lower, model=model_lower,
             approx_tokens=approx_tokens, context_length=context_length,
             num_messages=num_messages,
+            sent_params=sent_params,
             result_fn=_result,
         )
         if classified is not None:
@@ -1196,6 +1242,7 @@ def _classify_by_status(
     approx_tokens: int,
     context_length: int,
     num_messages: int = 0,
+    sent_params: Optional[frozenset[str]] = None,
     result_fn,
 ) -> Optional[ClassifiedError]:
     """Classify based on HTTP status code with message-aware refinement."""
@@ -1344,6 +1391,7 @@ def _classify_by_status(
             approx_tokens=approx_tokens,
             context_length=context_length,
             num_messages=num_messages,
+            sent_params=sent_params,
             result_fn=result_fn,
         )
 
@@ -1364,7 +1412,7 @@ def _classify_by_status(
             any(p in error_msg for p in _REQUEST_VALIDATION_PATTERNS)
             or error_code.lower() in {"invalid_request_error", "unknown_parameter",
                                       "unsupported_parameter"}
-        ) and not _is_server_injected_param_rejection(error_msg, provider):
+        ) and not _is_server_injected_param_rejection(error_msg, provider, sent_params):
             return result_fn(
                 FailoverReason.format_error,
                 retryable=False,
@@ -1476,6 +1524,7 @@ def _classify_400(
     approx_tokens: int,
     context_length: int,
     num_messages: int = 0,
+    sent_params: Optional[frozenset[str]] = None,
     result_fn,
 ) -> ClassifiedError:
     """Classify 400 Bad Request — context overflow, format error, or generic."""
@@ -1534,7 +1583,10 @@ def _classify_400(
     # (measured ~20% failure over n=20 on a minimal 1-message request that
     # provably carried no cache parameters).  Retrying is the correct and only
     # recovery; failing fast burnt an entire large-context request per attempt.
-    if _is_server_injected_param_rejection(error_msg, provider):
+    # The same holds behind OpenRouter: a provider rejecting the fields
+    # OpenRouter added fails only that attempt, and OpenRouter re-routes the
+    # retry (a sticky provider that errored is not kept).
+    if _is_server_injected_param_rejection(error_msg, provider, sent_params):
         return result_fn(
             FailoverReason.server_error,
             retryable=True,
