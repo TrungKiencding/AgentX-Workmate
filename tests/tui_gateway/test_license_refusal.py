@@ -135,6 +135,8 @@ def test_a_refused_turn_tells_the_renderer_why(agent, emits, turn_env):
     payload = completes[0]
     assert payload["status"] == "error"
     assert payload["failure_reason"] == READ_ONLY_CODE
+    # …and the SSO usage metrics count it by the license's state.
+    assert payload["failure_code"] == "license_expired"
     assert payload["license"]["state"] == "expired"
     assert payload["license"]["plan"]["name"] == "Pilot 2026"
     assert payload["text"] == read_only_message(payload["license"])

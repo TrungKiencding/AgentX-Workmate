@@ -10479,7 +10479,12 @@ ipcMain.handle('agentx:usage:event', (_event, signal) => {
   if (signal.phase === 'start') {
     usageReporter.begin(key, signal.profile)
   } else if (signal.phase === 'finish') {
-    void usageReporter.end(key, signal.failed === true, signal.cancelled === true)
+    void usageReporter.end(
+      key,
+      signal.failed === true,
+      signal.cancelled === true,
+      typeof signal.code === 'string' ? signal.code : undefined
+    )
   }
 
   return true

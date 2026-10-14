@@ -40,6 +40,8 @@ from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
 from tui_gateway import git_probe
+from tui_gateway.usage_outcome import FALLBACK_CODE as FALLBACK_FAILURE_CODE
+from tui_gateway.usage_outcome import exception_failure_code, turn_failure_code
 from tui_gateway.turn_marker import (
     clear_turn_marker,
     read_turn_marker,
@@ -1826,7 +1828,11 @@ def _on_compute_host_turn_done(rid: str, sid: str, session: dict, frame: dict) -
         _clear_inflight_turn(session)
     if is_error:
         message = str(frame.get("message") or "compute host turn failed")
-        _emit("message.complete", sid, {"text": f"Error: {message}", "status": "error"})
+        _emit(
+            "message.complete",
+            sid,
+            {"text": f"Error: {message}", "status": "error", "failure_code": "compute_host_error"},
+        )
     _apply_compute_host_metadata_mirror(session, frame)
     try:
         info = _session_info(session.get("agent"), session)
@@ -7950,6 +7956,10 @@ def _emit_terminal_turn_error(sid: str, session: dict, error: Any) -> None:
         "status": "error",
         "error": message,
         "recoverable": True,
+        # What ended it, for the SSO usage metrics (tui_gateway/usage_outcome.py).
+        "failure_code": (
+            exception_failure_code(error) if isinstance(error, BaseException) else FALLBACK_FAILURE_CODE
+        ),
     }
     if partial:
         payload["partial"] = True
@@ -10333,6 +10343,11 @@ def _run_prompt_submit(
                 status = "complete"
 
             payload = {"text": raw, "usage": _get_usage(agent), "status": status}
+            # A turn that did not give the person their answer says why, for the SSO
+            # usage metrics (tui_gateway/usage_outcome.py): never its text.
+            failure_code = turn_failure_code(result, status)
+            if failure_code:
+                payload["failure_code"] = failure_code
             if last_reasoning:
                 payload["reasoning"] = last_reasoning
             if status_note:

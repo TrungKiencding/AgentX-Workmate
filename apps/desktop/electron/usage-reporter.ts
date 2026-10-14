@@ -40,6 +40,12 @@ interface ActiveTurn {
   identity: Promise<UsageIdentity | null>
   profile?: string
 }
+
+/** Sent for a failed turn that came without a code of its own. */
+const FALLBACK_ERROR_CODE = 'operation_failed'
+/** The `error_code` shape the SSO console accepts. */
+const ERROR_CODE = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/
+
 /** Main-process owner: multiple renderer windows cannot duplicate a turn. */
 export class UsageReporter {
   private readonly active = new Map<string, ActiveTurn>()
@@ -58,10 +64,14 @@ export class UsageReporter {
     this.logged.add(line)
     this.deps.log?.(line)
   }
+  /**
+   * Opens the key's turn. One still open under that key is either this same
+   * turn, reported by another window an instant earlier, or a turn that lost
+   * its end (a dropped connection, a reloaded window, a crashed backend): that
+   * one is dropped, never counted into this one's duration.
+   */
   begin(key: string, profile?: string): void {
-    if (this.active.has(key)) {
-      return
-    }
+    this.active.delete(key)
 
     if (this.active.size >= 256) {
       this.active.delete(this.active.keys().next().value!)
@@ -75,7 +85,8 @@ export class UsageReporter {
         .catch(() => null)
     })
   }
-  async end(key: string, failed: boolean, cancelled = false): Promise<boolean> {
+  /** `code` says why a failed turn failed, in the SSO dashboard's words. */
+  async end(key: string, failed: boolean, cancelled = false, code?: string): Promise<boolean> {
     const turn = this.active.get(key)
 
     if (!turn) {
@@ -116,7 +127,7 @@ export class UsageReporter {
         os: this.deps.os,
         browser: 'Native',
         duration_ms: Math.min(3600000, Math.max(0, Math.round(this.now() - turn.started))),
-        ...(failed ? { error_code: 'operation_failed' } : {})
+        ...(failed ? { error_code: code && ERROR_CODE.test(code) ? code : FALLBACK_ERROR_CODE } : {})
       }
 
       let lastFailure = ''

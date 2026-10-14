@@ -58,6 +58,66 @@ describe('usage reporting', () => {
       ].sort()
     )
   })
+  it("sends a failed turn's own code, and the fallback for none or a malformed one", async () => {
+    const events: Record<string, unknown>[] = []
+
+    const send = vi.fn(async (_url, init) => {
+      events.push(JSON.parse(init.body).events[0])
+
+      return new Response('', { status: 202 })
+    })
+
+    const reporter = new UsageReporter({ identity: async () => identity, version: '1.1.1', os: 'macOS', fetch: send })
+
+    const turn = (failed: boolean, code?: string) => {
+      reporter.begin('s')
+
+      return reporter.end('s', failed, false, code)
+    }
+
+    expect(await turn(true, 'rate_limited')).toBe(true)
+    expect(await turn(true, 'license_expired')).toBe(true)
+    expect(await turn(true, 'not a code!')).toBe(true)
+    expect(await turn(true, 'x'.repeat(81))).toBe(true)
+    expect(await turn(true)).toBe(true)
+    expect(await turn(false, 'rate_limited')).toBe(true)
+    expect(events.map(event => event.error_code)).toEqual([
+      'rate_limited',
+      'license_expired',
+      'operation_failed',
+      'operation_failed',
+      'operation_failed',
+      undefined
+    ])
+    expect(events.at(-1)?.outcome).toBe('success')
+  })
+  it('does not stretch a turn over one that lost its end', async () => {
+    const bodies: string[] = []
+
+    const send = vi.fn(async (_url, init) => {
+      bodies.push(init.body)
+
+      return new Response('', { status: 202 })
+    })
+
+    let now = 0
+    const reporter = new UsageReporter({
+      identity: async () => identity,
+      version: '1.1.1',
+      os: 'macOS',
+      fetch: send,
+      now: () => now
+    })
+
+    // The first turn's end never came (a reloaded window, say).
+    reporter.begin('s')
+    now = 90_000
+    reporter.begin('s')
+    now = 90_400
+    expect(await reporter.end('s', false)).toBe(true)
+    expect(await reporter.end('s', false)).toBe(false)
+    expect(bodies.map(body => JSON.parse(body).events[0].duration_ms)).toEqual([400])
+  })
   it('does not attribute a completed turn to a different account or a cancellation', async () => {
     let current = identity
     const send = vi.fn()
