@@ -124,6 +124,10 @@ def _reply_anchor_for_event(event) -> str | None:
     stays attached to the active lane; synthetic/resumed sends fall back to
     ``direct_messages_topic_id`` metadata when no message id is available.
     """
+    if getattr(event, "internal", False):
+        # A synthetic wake's message_id is a producer identity, not a platform reply id:
+        # anchoring on it breaks the adapter's send (Telegram int()s it).
+        return None
     source = getattr(event, "source", None)
     platform = _platform_name(getattr(source, "platform", None))
     thread_id = getattr(source, "thread_id", None)

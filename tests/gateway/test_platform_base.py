@@ -1252,3 +1252,14 @@ class TestMediaFallbackDoesNotLeakHostPath:
         sent_text = adapter.sent[0]["content"]
         assert "Here's the daily summary." in sent_text
         assert self.SENSITIVE_PATH not in sent_text
+
+
+def test_windows_drive_letter_host_mount_splits_on_the_container_colon(monkeypatch):
+    """``C:/data:/workspace`` splits on the container colon, not the drive."""
+    import json
+    from pathlib import Path
+
+    from gateway.platforms import base
+
+    monkeypatch.setenv("TERMINAL_DOCKER_VOLUMES", json.dumps(["C:/data:/workspace:ro"]))
+    assert [container for _host, container in base._parse_docker_volume_mounts()] == [Path("/workspace")]
