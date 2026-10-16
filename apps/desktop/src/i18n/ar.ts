@@ -1,5 +1,56 @@
 import { defineLocale } from './define-locale'
 
+/** How Arabic counts a noun, by CLDR plural category. */
+interface CountedNoun {
+  /** 1 — the singular with «واحد / واحدة», no digit. */
+  one: string
+  /** 2 — the dual, no digit. */
+  two: string
+  /** 3–10 (and 103–110…) — the plural. */
+  few: string
+  /** 11–99 (and 111–199…) — the accusative singular («ملفًا»). */
+  many: string
+  /** 100–102, 200… — the genitive singular («ملف»). */
+  other: string
+}
+
+function counted(forms: CountedNoun): (n: number) => string {
+  return n => {
+    if (n === 1) {
+      return forms.one
+    }
+
+    if (n === 2) {
+      return forms.two
+    }
+
+    const tail = n % 100
+
+    if (tail >= 3 && tail <= 10) {
+      return `${n} ${forms.few}`
+    }
+
+    return `${n} ${tail >= 11 ? forms.many : forms.other}`
+  }
+}
+
+const COUNTED_ITEMS: CountedNoun = { one: 'عنصر واحد', two: 'عنصران', few: 'عناصر', many: 'عنصرًا', other: 'عنصر' }
+const COUNTED_TASKS: CountedNoun = { one: 'مهمة واحدة', two: 'مهمتان', few: 'مهام', many: 'مهمة', other: 'مهمة' }
+
+const countButtons = counted({ one: 'زر واحد', two: 'زران', few: 'أزرار', many: 'زرًا', other: 'زر' })
+const countLinks = counted({ one: 'رابط واحد', two: 'رابطان', few: 'روابط', many: 'رابطًا', other: 'رابط' })
+
+const countInputs = counted({
+  one: 'حقل إدخال واحد',
+  two: 'حقلا إدخال',
+  few: 'حقول إدخال',
+  many: 'حقل إدخال',
+  other: 'حقل إدخال'
+})
+
+const countItems = counted(COUNTED_ITEMS)
+const countFields = counted({ one: 'حقل واحد', two: 'حقلان', few: 'حقول', many: 'حقلًا', other: 'حقل' })
+
 export const ar = defineLocale({
   common: {
     unknownError: 'خطأ غير معروف',
@@ -3715,7 +3766,153 @@ export const ar = defineLocale({
       statusError: 'خطأ',
       statusRecovered: 'تم الاسترداد',
       statusDone: 'تم',
+      statusAwaiting: 'بانتظار الموافقة',
       memoryWriteNoted: 'تم تسجيل كتابة الذاكرة',
+      memoryWriteAwaitingApproval: 'كتابة الذاكرة بانتظار الموافقة',
+      skillChangeAwaitingApproval: 'تغيير المهارة بانتظار الموافقة',
+      countNouns: {
+        document: counted({ one: 'مستند واحد', two: 'مستندان', few: 'مستندات', many: 'مستندًا', other: 'مستند' }),
+        element: counted(COUNTED_ITEMS),
+        entry: counted({ one: 'إدخال واحد', two: 'إدخالان', few: 'إدخالات', many: 'إدخالًا', other: 'إدخال' }),
+        file: counted({ one: 'ملف واحد', two: 'ملفان', few: 'ملفات', many: 'ملفًا', other: 'ملف' }),
+        item: counted(COUNTED_ITEMS),
+        line: counted({ one: 'سطر واحد', two: 'سطران', few: 'أسطر', many: 'سطرًا', other: 'سطر' }),
+        match: counted({ one: 'تطابق واحد', two: 'تطابقان', few: 'تطابقات', many: 'تطابقًا', other: 'تطابق' }),
+        message: counted({ one: 'رسالة واحدة', two: 'رسالتان', few: 'رسائل', many: 'رسالة', other: 'رسالة' }),
+        result: counted({ one: 'نتيجة واحدة', two: 'نتيجتان', few: 'نتائج', many: 'نتيجة', other: 'نتيجة' }),
+        row: counted({ one: 'صف واحد', two: 'صفان', few: 'صفوف', many: 'صفًا', other: 'صف' }),
+        search: counted({
+          one: 'عملية بحث واحدة',
+          two: 'عمليتا بحث',
+          few: 'عمليات بحث',
+          many: 'عملية بحث',
+          other: 'عملية بحث'
+        }),
+        skill: counted({ one: 'مهارة واحدة', two: 'مهارتان', few: 'مهارات', many: 'مهارة', other: 'مهارة' }),
+        source: counted({ one: 'مصدر واحد', two: 'مصدران', few: 'مصادر', many: 'مصدرًا', other: 'مصدر' }),
+        step: counted({ one: 'خطوة واحدة', two: 'خطوتان', few: 'خطوات', many: 'خطوة', other: 'خطوة' }),
+        task: counted(COUNTED_TASKS),
+        todo: counted(COUNTED_TASKS)
+      },
+      countGeneric: counted(COUNTED_ITEMS),
+      detailLabels: {
+        details: 'التفاصيل',
+        error: 'تفاصيل الخطأ',
+        search: 'بحث',
+        snapshot: 'ملخص اللقطة'
+      },
+      errorFallbacks: {
+        generic: 'أعادت الأداة خطأً.',
+        notSuccessful: 'أعادت الأداة success=false.',
+        status: status => `أعادت الأداة الحالة «${status}».`,
+        exitCode: code => `فشل الأمر برمز الخروج ${code}.`
+      },
+      snapshotSummary: {
+        counts: (buttons, links, inputs) => `${countButtons(buttons)} · ${countLinks(links)} · ${countInputs(inputs)}`,
+        topControls: labels => `أبرز عناصر التحكم: ${labels.join('، ')}`
+      },
+      cron: {
+        jobs: counted({
+          one: 'مهمة مجدولة واحدة',
+          two: 'مهمتان مجدولتان',
+          few: 'مهام مجدولة',
+          many: 'مهمة مجدولة',
+          other: 'مهمة مجدولة'
+        }),
+        noJobs: 'لا توجد مهام مجدولة',
+        noJobsScheduled: 'لم تتم جدولة أي مهام',
+        schedule: 'الجدول',
+        repeat: 'التكرار',
+        delivery: 'التسليم',
+        nextRun: 'التشغيل التالي'
+      },
+      subtitles: {
+        browserNavigated: 'تم التنقل في المتصفح',
+        browserSnapshot: 'تم التقاط لقطة إمكانية الوصول للمتصفح',
+        clicked: target => `تم النقر على ${target}`,
+        clickedOnPage: 'تم النقر على الصفحة',
+        clickedRef: ref => `تم النقر على عنصر في الصفحة (مرجع داخلي ${ref})`,
+        fieldLabel: 'الحقل',
+        valueLabel: 'القيمة',
+        filledInput: 'تم ملء حقل إدخال في الصفحة',
+        queryLabel: 'الاستعلام',
+        queriedWeb: 'تم الاستعلام من مصادر الويب',
+        executedCommand: 'تم تشغيل الأمر',
+        changedFile: 'تم تغيير الملف',
+        fetchedWebpage: 'تم جلب صفحة الويب'
+      },
+      resultSummary: {
+        fields: {
+          action: 'الإجراء',
+          analysis: 'التحليل',
+          code: 'الرمز',
+          command: 'الأمر',
+          content: 'المحتوى',
+          count: 'العدد',
+          created_at: 'تاريخ الإنشاء',
+          description: 'الوصف',
+          details: 'التفاصيل',
+          duration_s: 'المدة',
+          enabled: 'مفعّل',
+          error: 'الخطأ',
+          error_type: 'نوع الخطأ',
+          errors: 'الأخطاء',
+          exit_code: 'رمز الخروج',
+          file: 'الملف',
+          file_size: 'حجم الملف',
+          files: 'الملفات',
+          hint: 'تلميح',
+          id: 'المعرّف',
+          is_binary: 'ملف ثنائي',
+          is_image: 'صورة',
+          items: 'العناصر',
+          link: 'الرابط',
+          matches: 'التطابقات',
+          message: 'الرسالة',
+          mode: 'الوضع',
+          name: 'الاسم',
+          note: 'ملاحظة',
+          ok: 'النجاح',
+          path: 'المسار',
+          provider: 'المزوّد',
+          query: 'الاستعلام',
+          reason: 'السبب',
+          results: 'النتائج',
+          session_id: 'معرّف الجلسة',
+          similar_files: 'ملفات مشابهة',
+          size: 'الحجم',
+          source: 'المصدر',
+          state: 'الحالة',
+          status: 'الحالة',
+          success: 'النجاح',
+          summary: 'الملخص',
+          tags: 'الوسوم',
+          title: 'العنوان',
+          total: 'الإجمالي',
+          total_count: 'العدد الإجمالي',
+          total_lines: 'إجمالي الأسطر',
+          truncated: 'مقتطع',
+          type: 'النوع',
+          updated_at: 'تاريخ التحديث',
+          url: 'الرابط',
+          version: 'الإصدار',
+          warning: 'تحذير'
+        },
+        booleans: { true: 'نعم', false: 'لا' },
+        fieldCount: countFields,
+        // «بقي» before its subject stays masculine singular, which every count
+        // of these two masculine nouns takes.
+        moreItems: n => `… بقي ${countItems(n)}`,
+        moreFields: n => `… بقي ${countFields(n)}`
+      },
+      // A label, not a counted phrase: `omitted` arrives formatted, so it cannot
+      // pick the noun's form for its number.
+      truncatedNotice: omitted => `… الأحرف المقتطعة: ${omitted} — استخدم «نسخ» للحصول على الإخراج الكامل.`,
+      payload: {
+        toggle: 'البيانات الخام للأداة',
+        arguments: 'الوسائط',
+        result: 'النتيجة'
+      },
       actions: {
         read: 'قراءة',
         reading: 'جار القراءة',
@@ -3727,7 +3924,8 @@ export const ar = defineLocale({
         running: 'جار التشغيل',
         ranCode: 'تم تشغيل الكود',
         runningCode: 'جار البرمجة',
-        failedToOpen: 'تعذّر الفتح'
+        failedToOpen: 'تعذّر الفتح',
+        failedToRead: 'تعذّرت القراءة'
       },
       prefixes: {
         browser: 'المتصفح',
@@ -3739,7 +3937,8 @@ export const ar = defineLocale({
         actionTarget: (action, target) => `${action} ${target}`,
         prefixedDone: (prefix, action) => `${prefix} ${action}`,
         runningPrefixedTool: (prefix, action) => `جار تشغيل ${prefix.toLowerCase()} ${action.toLowerCase()}`,
-        runningTool: action => `جار تشغيل ${action.toLowerCase()}`
+        runningTool: action => `جار تشغيل ${action.toLowerCase()}`,
+        skillNamed: (title, name) => `${title} ${name}`
       },
       titles: {
         browser_click: {
@@ -3754,6 +3953,7 @@ export const ar = defineLocale({
         },
         browser_navigate: {
           done: 'تم فتح الصفحة',
+          failed: 'تعذّر فتح الصفحة',
           pending: 'جار فتح الصفحة',
           pendingAction: 'جار الفتح'
         },
@@ -3827,10 +4027,28 @@ export const ar = defineLocale({
           pending: 'جار البحث في الملفات',
           pendingAction: 'جار البحث'
         },
-        session_search_recall: {
+        session_search: {
           done: 'تم البحث في المحادثات السابقة',
           pending: 'جارٍ البحث في المحادثات السابقة',
           pendingAction: 'جار البحث'
+        },
+        skill_manage: {
+          done: 'تم تحديث المهارة',
+          failed: 'تعذّر تحديث المهارة',
+          pending: 'جار تحديث المهارة',
+          pendingAction: 'جار التحديث'
+        },
+        skill_view: {
+          done: 'تمت قراءة المهارة',
+          failed: 'تعذّرت قراءة المهارة',
+          pending: 'جار قراءة المهارة',
+          pendingAction: 'جار القراءة'
+        },
+        skills_list: {
+          done: 'تم سرد المهارات',
+          failed: 'تعذّر سرد المهارات',
+          pending: 'جار سرد المهارات',
+          pendingAction: 'جار السرد'
         },
         terminal: {
           done: 'تم تشغيل الأمر',
@@ -3862,6 +4080,10 @@ export const ar = defineLocale({
           pending: 'جار تحرير الملف',
           pendingAction: 'جار التحرير'
         }
+      },
+      skillManageTitles: {
+        create: { done: 'تم إنشاء المهارة', failed: 'تعذّر إنشاء المهارة' },
+        delete: { done: 'تم حذف المهارة', failed: 'تعذّر حذف المهارة' }
       }
     }
   },

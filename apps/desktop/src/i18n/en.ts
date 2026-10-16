@@ -3940,13 +3940,147 @@ export const en: Translations = {
       statusError: 'Error',
       statusRecovered: 'Recovered',
       statusDone: 'Done',
+      statusAwaiting: 'Awaiting approval',
       memoryWriteNoted: 'Memory write noted',
+      memoryWriteAwaitingApproval: 'Memory write awaiting approval',
+      skillChangeAwaitingApproval: 'Skill change awaiting approval',
+      countNouns: {
+        document: n => `${n} ${n === 1 ? 'document' : 'documents'}`,
+        element: n => `${n} ${n === 1 ? 'element' : 'elements'}`,
+        entry: n => `${n} ${n === 1 ? 'entry' : 'entries'}`,
+        file: n => `${n} ${n === 1 ? 'file' : 'files'}`,
+        item: n => `${n} ${n === 1 ? 'item' : 'items'}`,
+        line: n => `${n} ${n === 1 ? 'line' : 'lines'}`,
+        match: n => `${n} ${n === 1 ? 'match' : 'matches'}`,
+        message: n => `${n} ${n === 1 ? 'message' : 'messages'}`,
+        result: n => `${n} ${n === 1 ? 'result' : 'results'}`,
+        row: n => `${n} ${n === 1 ? 'row' : 'rows'}`,
+        search: n => `${n} ${n === 1 ? 'search' : 'searches'}`,
+        skill: n => `${n} ${n === 1 ? 'skill' : 'skills'}`,
+        source: n => `${n} ${n === 1 ? 'source' : 'sources'}`,
+        step: n => `${n} ${n === 1 ? 'step' : 'steps'}`,
+        task: n => `${n} ${n === 1 ? 'task' : 'tasks'}`,
+        todo: n => `${n} ${n === 1 ? 'todo' : 'todos'}`
+      },
+      countGeneric: (n, noun) => `${n} ${noun}`,
+      detailLabels: {
+        details: 'Details',
+        error: 'Error details',
+        search: 'Search',
+        snapshot: 'Snapshot summary'
+      },
+      errorFallbacks: {
+        generic: 'Tool returned an error.',
+        notSuccessful: 'Tool returned success=false.',
+        status: status => `Tool returned status "${status}".`,
+        exitCode: code => `Command failed with exit code ${code}.`
+      },
+      snapshotSummary: {
+        counts: (buttons, links, inputs) => `${buttons} buttons · ${links} links · ${inputs} inputs`,
+        topControls: labels => `Top controls: ${labels.join(', ')}`
+      },
+      cron: {
+        jobs: n => `${n} cron ${n === 1 ? 'job' : 'jobs'}`,
+        noJobs: 'No cron jobs',
+        noJobsScheduled: 'No cron jobs scheduled',
+        schedule: 'Schedule',
+        repeat: 'Repeat',
+        delivery: 'Delivery',
+        nextRun: 'Next run'
+      },
+      subtitles: {
+        browserNavigated: 'Navigated in browser',
+        browserSnapshot: 'Captured a browser accessibility snapshot',
+        clicked: target => `Clicked ${target}`,
+        clickedOnPage: 'Clicked on page',
+        clickedRef: ref => `Clicked page element (internal ref ${ref})`,
+        fieldLabel: 'Field',
+        valueLabel: 'Value',
+        filledInput: 'Filled page input',
+        queryLabel: 'Query',
+        queriedWeb: 'Queried web sources',
+        executedCommand: 'Executed command',
+        changedFile: 'Changed file',
+        fetchedWebpage: 'Fetched webpage'
+      },
+      resultSummary: {
+        // The title-cased key, as the summary printed it before it had words of
+        // its own. `duration_s` alone reads differently: it printed "Duration S"
+        // over raw seconds.
+        fields: {
+          action: 'Action',
+          analysis: 'Analysis',
+          code: 'Code',
+          command: 'Command',
+          content: 'Content',
+          count: 'Count',
+          created_at: 'Created At',
+          description: 'Description',
+          details: 'Details',
+          duration_s: 'Duration',
+          enabled: 'Enabled',
+          error: 'Error',
+          error_type: 'Error Type',
+          errors: 'Errors',
+          exit_code: 'Exit Code',
+          file: 'File',
+          file_size: 'File Size',
+          files: 'Files',
+          hint: 'Hint',
+          id: 'Id',
+          is_binary: 'Is Binary',
+          is_image: 'Is Image',
+          items: 'Items',
+          link: 'Link',
+          matches: 'Matches',
+          message: 'Message',
+          mode: 'Mode',
+          name: 'Name',
+          note: 'Note',
+          ok: 'Ok',
+          path: 'Path',
+          provider: 'Provider',
+          query: 'Query',
+          reason: 'Reason',
+          results: 'Results',
+          session_id: 'Session Id',
+          similar_files: 'Similar Files',
+          size: 'Size',
+          source: 'Source',
+          state: 'State',
+          status: 'Status',
+          success: 'Success',
+          summary: 'Summary',
+          tags: 'Tags',
+          title: 'Title',
+          total: 'Total',
+          total_count: 'Total Count',
+          total_lines: 'Total Lines',
+          truncated: 'Truncated',
+          type: 'Type',
+          updated_at: 'Updated At',
+          url: 'Url',
+          version: 'Version',
+          warning: 'Warning'
+        },
+        booleans: { true: 'true', false: 'false' },
+        fieldCount: n => `${n} ${n === 1 ? 'field' : 'fields'}`,
+        moreItems: n => `… ${n} more ${n === 1 ? 'item' : 'items'}`,
+        moreFields: n => `… ${n} more ${n === 1 ? 'field' : 'fields'}`
+      },
+      truncatedNotice: omitted => `… ${omitted} more characters truncated — use Copy for the full output.`,
+      payload: {
+        toggle: 'Tool payload',
+        arguments: 'Arguments',
+        result: 'Result'
+      },
       actions: {
         read: 'Read',
         reading: 'Reading',
         opened: 'Opened',
         opening: 'Opening',
         failedToOpen: 'Failed to open',
+        failedToRead: 'Failed to read',
         searched: 'Searched',
         searching: 'Searching',
         ran: 'Ran',
@@ -3964,12 +4098,18 @@ export const en: Translations = {
         actionTarget: (action, target) => `${action} ${target}`,
         prefixedDone: (prefix, action) => `${prefix} ${action}`,
         runningPrefixedTool: (prefix, action) => `Running ${prefix.toLowerCase()} ${action.toLowerCase()}`,
-        runningTool: action => `Running ${action.toLowerCase()}`
+        runningTool: action => `Running ${action.toLowerCase()}`,
+        skillNamed: (title, name) => `${title} ${name}`
       },
       titles: {
         browser_click: { done: 'Clicked page element', pending: 'Clicking page element', pendingAction: 'Clicking' },
         browser_fill: { done: 'Filled form field', pending: 'Filling form field', pendingAction: 'Filling' },
-        browser_navigate: { done: 'Opened page', pending: 'Opening page', pendingAction: 'Opening' },
+        browser_navigate: {
+          done: 'Opened page',
+          failed: 'Failed to open page',
+          pending: 'Opening page',
+          pendingAction: 'Opening'
+        },
         browser_snapshot: {
           done: 'Captured page snapshot',
           pending: 'Capturing page snapshot',
@@ -3992,10 +4132,28 @@ export const en: Translations = {
         patch: { done: 'Patched file', pending: 'Patching file', pendingAction: 'Patching' },
         read_file: { done: 'Read file', pending: 'Reading file', pendingAction: 'Reading' },
         search_files: { done: 'Searched files', pending: 'Searching files', pendingAction: 'Searching' },
-        session_search_recall: {
+        session_search: {
           done: 'Searched earlier chats',
           pending: 'Searching earlier chats',
           pendingAction: 'Searching'
+        },
+        skill_manage: {
+          done: 'Updated skill',
+          failed: 'Failed to update skill',
+          pending: 'Updating skill',
+          pendingAction: 'Updating'
+        },
+        skill_view: {
+          done: 'Read skill',
+          failed: 'Failed to read skill',
+          pending: 'Reading skill',
+          pendingAction: 'Reading'
+        },
+        skills_list: {
+          done: 'Listed skills',
+          failed: 'Failed to list skills',
+          pending: 'Listing skills',
+          pendingAction: 'Listing'
         },
         terminal: { done: 'Ran command', pending: 'Running command', pendingAction: 'Running' },
         todo: { done: 'Updated todos', pending: 'Updating todos', pendingAction: 'Updating' },
@@ -4003,6 +4161,10 @@ export const en: Translations = {
         web_extract: { done: 'Read webpage', pending: 'Reading webpage', pendingAction: 'Reading' },
         web_search: { done: 'Searched web', pending: 'Searching web', pendingAction: 'Searching' },
         write_file: { done: 'Edited file', pending: 'Editing file', pendingAction: 'Editing' }
+      },
+      skillManageTitles: {
+        create: { done: 'Created skill', failed: 'Failed to create skill' },
+        delete: { done: 'Deleted skill', failed: 'Failed to delete skill' }
       }
     }
   },

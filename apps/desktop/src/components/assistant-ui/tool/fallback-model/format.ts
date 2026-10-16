@@ -1,3 +1,6 @@
+import { translationsNow } from '@/i18n'
+import { getTimeFormatLocale } from '@/lib/time'
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
@@ -53,9 +56,10 @@ export function clampForDisplay(value: string, max = MAX_TOOL_RENDER_CHARS): str
     return value
   }
 
-  const omitted = value.length - max
+  // Grouped the display language's way, not the OS's (lib/time holds its tag).
+  const omitted = (value.length - max).toLocaleString(getTimeFormatLocale())
 
-  return `${value.slice(0, max)}\n\n… ${omitted.toLocaleString()} more characters truncated — use Copy for the full output.`
+  return `${value.slice(0, max)}\n\n${translationsNow().assistant.tool.truncatedNotice(omitted)}`
 }
 
 export function prettyJson(value: unknown): string {
@@ -79,6 +83,25 @@ export function parseMaybeObject(value: unknown): Record<string, unknown> {
     return isRecord(parsed) ? parsed : {}
   } catch {
     return {}
+  }
+}
+
+/**
+ * A result a tool returned in words: text, not JSON. The gateway passes it on
+ * as it is, and a reloaded row gets the stored text back. JSON text (an array,
+ * a number) is not plain text.
+ */
+export function plainTextResult(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    return ''
+  }
+
+  try {
+    JSON.parse(value)
+
+    return ''
+  } catch {
+    return value
   }
 }
 

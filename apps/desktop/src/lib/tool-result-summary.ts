@@ -1,6 +1,9 @@
 // Heuristic JSON → human summary for tool results. Default view; technical
 // mode still gets the raw JSON section.
 
+import { formatDurationSeconds } from '@/components/assistant-ui/tool/fallback-model/format'
+import { translationsNow } from '@/i18n'
+import { stripAnsi } from '@/lib/ansi'
 import { capitalize, normalize } from '@/lib/text'
 
 const WRAPPER_KEYS = ['data', 'result', 'output', 'response', 'payload'] as const
@@ -60,16 +63,54 @@ const titleCase = (k: string) =>
     .map(capitalize)
     .join(' ')
 
-const pluralize = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+const summaryCopy = () => translationsNow().assistant.tool.resultSummary
 
+// A key the catalog has words for reads in the display language; any other
+// prints title-cased. Only a string entry counts, so a result keyed
+// `constructor` gets "Constructor", not Object's.
+function fieldLabel(key: string): string {
+  const label: unknown = (summaryCopy().fields as Record<string, unknown>)[key]
+
+  return typeof label === 'string' ? label : titleCase(key)
+}
+
+const itemCount = (n: number) => translationsNow().assistant.tool.countNouns.item(n)
+const fieldCount = (n: number) => summaryCopy().fieldCount(n)
+
+/** A number as written, a boolean in the display language's words. */
+function primitiveText(v: boolean | number): string {
+  return typeof v === 'boolean' ? summaryCopy().booleans[v ? 'true' : 'false'] : String(v)
+}
+
+// The desktop stamps every live result with `duration_s` (lib/chat-messages).
+// Raw seconds read "0.0123"; print it the way the row's header does. Anything
+// but a non-negative number falls through to the plain value.
+function durationText(key: string, value: unknown): string {
+  return key === 'duration_s' && typeof value === 'number' ? formatDurationSeconds(value) : ''
+}
+
+// Every summary is plain text: a CLI's colour codes would print as
+// "[36m[1m…" garbage, so they go before anything is measured or clipped.
 function clipInline(value: string, max = 180): string {
-  const c = value.replace(/\s+/g, ' ').trim()
+  const c = stripAnsi(value).replace(/\s+/g, ' ').trim()
 
   return c.length > max ? `${c.slice(0, max - 1)}…` : c
 }
 
+// Fields that are logs read from the END. A failing command's stderr opens
+// with progress chatter (package downloads, warnings) and names the actual
+// error last — a Python traceback on its final line — so a head clip showed
+// the chatter and cut the cause.
+const TAIL_FIELDS = new Set(['stderr', 'traceback'])
+
+function clipInlineTail(value: string, max = 180): string {
+  const c = stripAnsi(value).replace(/\s+/g, ' ').trim()
+
+  return c.length > max ? `…${c.slice(-(max - 1)).trimStart()}` : c
+}
+
 function clipBlock(value: string, maxChars = 1800, maxLines = 18): string {
-  const t = value.trim()
+  const t = stripAnsi(value).trim()
 
   if (!t) {
     return ''
@@ -114,7 +155,7 @@ function summarizeScalar(v: unknown): string {
   }
 
   if (typeof v === 'number' || typeof v === 'boolean') {
-    return String(v)
+    return primitiveText(v)
   }
 
   return ''
@@ -122,7 +163,7 @@ function summarizeScalar(v: unknown): string {
 
 function summarizeRecordInline(record: Json, depth: number): string {
   if (depth > 3) {
-    return pluralize(Object.keys(record).length, 'field')
+    return fieldCount(Object.keys(record).length)
   }
 
   const title = firstString(record, ['title', 'name', 'path', 'file', 'filepath', 'url', 'href', 'link', 'id'])
@@ -144,14 +185,14 @@ function summarizeRecordInline(record: Json, depth: number): string {
   const pairs = orderedKeys(Object.keys(record))
     .filter(k => !skipField(k, record[k]))
     .map(k => {
-      const s = summarizeScalar(record[k])
+      const s = durationText(k, record[k]) || summarizeScalar(record[k])
 
-      return s ? `${titleCase(k)}: ${s}` : ''
+      return s ? `${fieldLabel(k)}: ${s}` : ''
     })
     .filter(Boolean)
     .slice(0, 2)
 
-  return pairs.length ? pairs.join(' · ') : pluralize(Object.keys(record).length, 'field')
+  return pairs.length ? pairs.join(' · ') : fieldCount(Object.keys(record).length)
 }
 
 function summarizeListItem(item: unknown, depth: number): string {
@@ -162,7 +203,7 @@ function summarizeListItem(item: unknown, depth: number): string {
   }
 
   if (typeof v === 'number' || typeof v === 'boolean') {
-    return String(v)
+    return primitiveText(v)
   }
 
   if (v == null) {
@@ -170,7 +211,7 @@ function summarizeListItem(item: unknown, depth: number): string {
   }
 
   if (Array.isArray(v)) {
-    return pluralize(v.length, 'item')
+    return itemCount(v.length)
   }
 
   if (isRecord(v)) {
@@ -205,7 +246,7 @@ function formatFieldValue(value: unknown, depth: number): string {
 
     const first = summarizeListItem(v[0], depth + 1)
 
-    return first ? `${pluralize(v.length, 'item')} (${first})` : pluralize(v.length, 'item')
+    return first ? `${itemCount(v.length)} (${first})` : itemCount(v.length)
   }
 
   if (isRecord(v)) {
@@ -235,8 +276,7 @@ function formatArraySummary(value: unknown[], depth: number): string {
   }
 
   if (value.length > max) {
-    const remaining = value.length - max
-    lines.push(`- … ${remaining} more ${remaining === 1 ? 'item' : 'items'}`)
+    lines.push(`- ${summaryCopy().moreItems(value.length - max)}`)
   }
 
   return lines.join('\n')
@@ -263,13 +303,17 @@ function formatRecordSummary(record: Json, depth: number): string {
   const lines: string[] = []
 
   for (const k of candidates) {
-    const v = formatFieldValue(record[k], depth + 1)
+    const raw = record[k]
+
+    const v =
+      durationText(k, raw) ||
+      (TAIL_FIELDS.has(k) && typeof raw === 'string' ? clipInlineTail(raw) : formatFieldValue(raw, depth + 1))
 
     if (!v) {
       continue
     }
 
-    lines.push(`- ${titleCase(k)}: ${v}`)
+    lines.push(`- ${fieldLabel(k)}: ${v}`)
 
     if (lines.length >= max) {
       break
@@ -281,8 +325,7 @@ function formatRecordSummary(record: Json, depth: number): string {
   }
 
   if (candidates.length > lines.length) {
-    const remaining = candidates.length - lines.length
-    lines.push(`- … ${remaining} more ${remaining === 1 ? 'field' : 'fields'}`)
+    lines.push(`- ${summaryCopy().moreFields(candidates.length - lines.length)}`)
   }
 
   return lines.join('\n')
@@ -300,7 +343,7 @@ function formatSummaryValue(value: unknown, depth: number): string {
   }
 
   if (typeof v === 'number' || typeof v === 'boolean') {
-    return String(v)
+    return primitiveText(v)
   }
 
   if (v == null) {

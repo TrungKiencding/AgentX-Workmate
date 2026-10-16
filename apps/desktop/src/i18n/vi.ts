@@ -4171,13 +4171,144 @@ export const vi: Translations = {
       statusError: 'Lỗi',
       statusRecovered: 'Đã khắc phục',
       statusDone: 'Xong',
+      statusAwaiting: 'Đang chờ phê duyệt',
       memoryWriteNoted: 'Đã ghi nhận vào bộ nhớ',
+      memoryWriteAwaitingApproval: 'Chờ phê duyệt để lưu vào bộ nhớ',
+      skillChangeAwaitingApproval: 'Chờ phê duyệt thay đổi kỹ năng',
+      countNouns: {
+        document: n => `${n} tài liệu`,
+        element: n => `${n} phần tử`,
+        entry: n => `${n} mục`,
+        file: n => `${n} tệp`,
+        item: n => `${n} mục`,
+        line: n => `${n} dòng`,
+        match: n => `${n} kết quả khớp`,
+        message: n => `${n} tin nhắn`,
+        result: n => `${n} kết quả`,
+        row: n => `${n} hàng`,
+        search: n => `${n} lượt tìm kiếm`,
+        skill: n => `${n} kỹ năng`,
+        source: n => `${n} nguồn`,
+        step: n => `${n} bước`,
+        task: n => `${n} việc`,
+        todo: n => `${n} việc`
+      },
+      countGeneric: (n, _noun) => `${n} mục`,
+      detailLabels: {
+        details: 'Chi tiết',
+        error: 'Chi tiết lỗi',
+        search: 'Tìm kiếm',
+        snapshot: 'Tóm tắt cấu trúc trang'
+      },
+      errorFallbacks: {
+        generic: 'Công cụ báo lỗi.',
+        notSuccessful: 'Công cụ báo thực hiện không thành công.',
+        status: status => `Công cụ trả về trạng thái "${status}".`,
+        exitCode: code => `Lệnh thất bại với mã thoát ${code}.`
+      },
+      snapshotSummary: {
+        counts: (buttons, links, inputs) => `${buttons} nút · ${links} liên kết · ${inputs} ô nhập`,
+        topControls: labels => `Điều khiển chính: ${labels.join(', ')}`
+      },
+      cron: {
+        jobs: n => `${n} tác vụ cron`,
+        noJobs: 'Không có tác vụ cron',
+        noJobsScheduled: 'Chưa có tác vụ cron nào được hẹn giờ',
+        schedule: 'Lịch chạy',
+        repeat: 'Lặp lại',
+        delivery: 'Gửi kết quả tới',
+        nextRun: 'Lần chạy tới'
+      },
+      subtitles: {
+        browserNavigated: 'Đã chuyển trang trong trình duyệt',
+        browserSnapshot: 'Đã chụp cấu trúc trang trong trình duyệt',
+        clicked: target => `Đã nhấp ${target}`,
+        clickedOnPage: 'Đã nhấp trên trang',
+        clickedRef: ref => `Đã nhấp phần tử trên trang (mã nội bộ ${ref})`,
+        fieldLabel: 'Ô nhập',
+        valueLabel: 'Giá trị',
+        filledInput: 'Đã điền ô nhập trên trang',
+        queryLabel: 'Truy vấn',
+        queriedWeb: 'Đã tra cứu nguồn trên web',
+        executedCommand: 'Đã chạy lệnh',
+        changedFile: 'Đã thay đổi tệp',
+        fetchedWebpage: 'Đã tải trang web'
+      },
+      resultSummary: {
+        fields: {
+          action: 'Thao tác',
+          analysis: 'Phân tích',
+          code: 'Mã',
+          command: 'Lệnh',
+          content: 'Nội dung',
+          count: 'Số lượng',
+          created_at: 'Tạo lúc',
+          description: 'Mô tả',
+          details: 'Chi tiết',
+          duration_s: 'Thời gian chạy',
+          enabled: 'Đã bật',
+          error: 'Lỗi',
+          error_type: 'Loại lỗi',
+          errors: 'Các lỗi',
+          exit_code: 'Mã thoát',
+          file: 'Tệp',
+          file_size: 'Kích thước tệp',
+          files: 'Các tệp',
+          hint: 'Gợi ý',
+          id: 'ID',
+          is_binary: 'Tệp nhị phân',
+          is_image: 'Tệp ảnh',
+          items: 'Các mục',
+          link: 'Liên kết',
+          matches: 'Kết quả khớp',
+          message: 'Thông báo',
+          mode: 'Chế độ',
+          name: 'Tên',
+          note: 'Ghi chú',
+          ok: 'Thành công',
+          path: 'Đường dẫn',
+          provider: 'Nhà cung cấp',
+          query: 'Truy vấn',
+          reason: 'Lý do',
+          results: 'Kết quả',
+          session_id: 'Mã phiên',
+          similar_files: 'Tệp tương tự',
+          size: 'Kích thước',
+          source: 'Nguồn',
+          state: 'Tình trạng',
+          status: 'Trạng thái',
+          success: 'Thành công',
+          summary: 'Tóm tắt',
+          tags: 'Thẻ',
+          title: 'Tiêu đề',
+          total: 'Tổng',
+          total_count: 'Tổng số',
+          total_lines: 'Tổng số dòng',
+          truncated: 'Đã cắt bớt',
+          type: 'Loại',
+          updated_at: 'Cập nhật lúc',
+          url: 'URL',
+          version: 'Phiên bản',
+          warning: 'Cảnh báo'
+        },
+        booleans: { true: 'có', false: 'không' },
+        fieldCount: n => `${n} trường`,
+        moreItems: n => `… còn ${n} mục nữa`,
+        moreFields: n => `… còn ${n} trường nữa`
+      },
+      truncatedNotice: omitted => `… đã lược bớt ${omitted} ký tự — bấm Sao chép để lấy toàn bộ kết quả.`,
+      payload: {
+        toggle: 'Dữ liệu thô của công cụ',
+        arguments: 'Tham số',
+        result: 'Kết quả'
+      },
       actions: {
         read: 'Đã đọc',
         reading: 'Đang đọc',
         opened: 'Đã mở',
         opening: 'Đang mở',
         failedToOpen: 'Không mở được',
+        failedToRead: 'Không đọc được',
         searched: 'Đã tìm',
         searching: 'Đang tìm',
         ran: 'Đã chạy',
@@ -4195,7 +4326,8 @@ export const vi: Translations = {
         actionTarget: (action, target) => `${action} ${target}`,
         prefixedDone: (prefix, action) => `${prefix} ${action}`,
         runningPrefixedTool: (prefix, action) => `Đang chạy ${prefix.toLowerCase()} ${action.toLowerCase()}`,
-        runningTool: action => `Đang chạy ${action.toLowerCase()}`
+        runningTool: action => `Đang chạy ${action.toLowerCase()}`,
+        skillNamed: (title, name) => `${title} ${name}`
       },
       titles: {
         browser_click: {
@@ -4208,7 +4340,12 @@ export const vi: Translations = {
           pending: 'Đang điền vào ô biểu mẫu',
           pendingAction: 'Đang điền'
         },
-        browser_navigate: { done: 'Đã mở trang', pending: 'Đang mở trang', pendingAction: 'Đang mở' },
+        browser_navigate: {
+          done: 'Đã mở trang',
+          failed: 'Không mở được trang',
+          pending: 'Đang mở trang',
+          pendingAction: 'Đang mở'
+        },
         browser_snapshot: {
           done: 'Đã chụp cấu trúc trang',
           pending: 'Đang chụp cấu trúc trang',
@@ -4231,10 +4368,28 @@ export const vi: Translations = {
         patch: { done: 'Đã vá tệp', pending: 'Đang vá tệp', pendingAction: 'Đang vá' },
         read_file: { done: 'Đã đọc tệp', pending: 'Đang đọc tệp', pendingAction: 'Đang đọc' },
         search_files: { done: 'Đã tìm trong tệp', pending: 'Đang tìm trong tệp', pendingAction: 'Đang tìm' },
-        session_search_recall: {
+        session_search: {
           done: 'Đã tìm trong các cuộc trò chuyện trước',
           pending: 'Đang tìm trong các cuộc trò chuyện trước',
           pendingAction: 'Đang tìm'
+        },
+        skill_manage: {
+          done: 'Đã cập nhật kỹ năng',
+          failed: 'Không cập nhật được kỹ năng',
+          pending: 'Đang cập nhật kỹ năng',
+          pendingAction: 'Đang cập nhật'
+        },
+        skill_view: {
+          done: 'Đã đọc kỹ năng',
+          failed: 'Không đọc được kỹ năng',
+          pending: 'Đang đọc kỹ năng',
+          pendingAction: 'Đang đọc'
+        },
+        skills_list: {
+          done: 'Đã liệt kê kỹ năng',
+          failed: 'Không liệt kê được kỹ năng',
+          pending: 'Đang liệt kê kỹ năng',
+          pendingAction: 'Đang liệt kê'
         },
         terminal: { done: 'Đã chạy lệnh', pending: 'Đang chạy lệnh', pendingAction: 'Đang chạy' },
         todo: {
@@ -4246,6 +4401,10 @@ export const vi: Translations = {
         web_extract: { done: 'Đã đọc trang web', pending: 'Đang đọc trang web', pendingAction: 'Đang đọc' },
         web_search: { done: 'Đã tìm trên web', pending: 'Đang tìm trên web', pendingAction: 'Đang tìm' },
         write_file: { done: 'Đã sửa tệp', pending: 'Đang sửa tệp', pendingAction: 'Đang sửa' }
+      },
+      skillManageTitles: {
+        create: { done: 'Đã tạo kỹ năng', failed: 'Không tạo được kỹ năng' },
+        delete: { done: 'Đã xoá kỹ năng', failed: 'Không xoá được kỹ năng' }
       }
     }
   },

@@ -25,7 +25,10 @@ export type ToolTitleKey =
   | 'patch'
   | 'read_file'
   | 'search_files'
-  | 'session_search_recall'
+  | 'session_search'
+  | 'skill_manage'
+  | 'skill_view'
+  | 'skills_list'
   | 'terminal'
   | 'todo'
   | 'vision_analyze'
@@ -33,8 +36,93 @@ export type ToolTitleKey =
   | 'web_search'
   | 'write_file'
 
+/** The English singular nouns a tool row's count can carry ("5 results"),
+ *  as the view model reads them off the result (fallback-model `countMetric`).
+ *  Any other noun reads as `assistant.tool.countGeneric`. */
+export type ToolCountNoun =
+  | 'document'
+  | 'element'
+  | 'entry'
+  | 'file'
+  | 'item'
+  | 'line'
+  | 'match'
+  | 'message'
+  | 'result'
+  | 'row'
+  | 'search'
+  | 'skill'
+  | 'source'
+  | 'step'
+  | 'task'
+  | 'todo'
+
+/** The JSON keys a tool result's generic summary (lib/tool-result-summary)
+ *  labels in words: the envelope every tool returns plus the fields real
+ *  tools emit most. Any other key prints title-cased ("lines_written" →
+ *  "Lines Written"). */
+export type ToolResultField =
+  | 'action'
+  | 'analysis'
+  | 'code'
+  | 'command'
+  | 'content'
+  | 'count'
+  | 'created_at'
+  | 'description'
+  | 'details'
+  | 'duration_s'
+  | 'enabled'
+  | 'error'
+  | 'error_type'
+  | 'errors'
+  | 'exit_code'
+  | 'file'
+  | 'file_size'
+  | 'files'
+  | 'hint'
+  | 'id'
+  | 'is_binary'
+  | 'is_image'
+  | 'items'
+  | 'link'
+  | 'matches'
+  | 'message'
+  | 'mode'
+  | 'name'
+  | 'note'
+  | 'ok'
+  | 'path'
+  | 'provider'
+  | 'query'
+  | 'reason'
+  | 'results'
+  | 'session_id'
+  | 'similar_files'
+  | 'size'
+  | 'source'
+  | 'state'
+  | 'status'
+  | 'success'
+  | 'summary'
+  | 'tags'
+  | 'title'
+  | 'total'
+  | 'total_count'
+  | 'total_lines'
+  | 'truncated'
+  | 'type'
+  | 'updated_at'
+  | 'url'
+  | 'version'
+  | 'warning'
+
 interface ToolTitleCopy {
   done: string
+  /** The title of a call that failed, for a tool whose `done` would claim what
+   *  it never did ("Read skill" above "Skill not found"). Without one, a failed
+   *  row keeps `done`. */
+  failed?: string
   pending: string
   pendingAction: string
 }
@@ -3291,14 +3379,101 @@ export interface Translations {
       statusError: string
       statusRecovered: string
       statusDone: string
+      /** The glyph of a row whose write waits on the user's approval. */
+      statusAwaiting: string
       /** Over-budget / rejected memory write title — not "Saved to memory". */
       memoryWriteNoted: string
+      /** A memory write the approval gate staged: nothing saved until the user
+       *  approves it. */
+      memoryWriteAwaitingApproval: string
+      /** A skill_manage write (create, edit, patch, delete…) the approval gate
+       *  staged: the skill is unchanged until the user approves it. */
+      skillChangeAwaitingApproval: string
+      /** The count after a finished tool row's title ("Đã tìm trên web · 5 kết
+       *  quả"), whole: number and noun, in the locale's counting grammar. */
+      countNouns: Record<ToolCountNoun, (count: number) => string>
+      /** The count for a noun with no entry above. `noun` is that English noun,
+       *  already pluralized for `count`: English shows it, every other locale a
+       *  neutral "N mục" rather than an English word. */
+      countGeneric: (count: number, noun: string) => string
+      /** Section labels inside an expanded row; `search` heads a web search's query. */
+      detailLabels: {
+        details: string
+        error: string
+        search: string
+        snapshot: string
+      }
+      /** A failed row's message when the result carries none of its own. */
+      errorFallbacks: {
+        generic: string
+        notSuccessful: string
+        status: (status: string) => string
+        exitCode: (code: number) => string
+      }
+      /** A browser snapshot's accessibility tree, summed up. */
+      snapshotSummary: {
+        counts: (buttons: number, links: number, inputs: number) => string
+        /** The first few control labels, in page order. */
+        topControls: (labels: string[]) => string
+      }
+      cron: {
+        jobs: (count: number) => string
+        noJobs: string
+        noJobsScheduled: string
+        /** Labels of one job's `Label: value` lines. */
+        schedule: string
+        repeat: string
+        delivery: string
+        nextRun: string
+      }
+      /** The line a row falls back on when its result names nothing better.
+       *  `*Label` entries head a `Label: value` pair. */
+      subtitles: {
+        browserNavigated: string
+        browserSnapshot: string
+        clicked: (target: string) => string
+        clickedOnPage: string
+        clickedRef: (ref: string) => string
+        fieldLabel: string
+        valueLabel: string
+        filledInput: string
+        queryLabel: string
+        queriedWeb: string
+        executedCommand: string
+        changedFile: string
+        fetchedWebpage: string
+      }
+      /** The `- Label: value` lines a row with no layout of its own opens onto,
+       *  read off the tool's JSON result (lib/tool-result-summary.ts). A list
+       *  counts its items with `countNouns.item`. */
+      resultSummary: {
+        /** Line labels by the key they name. English keeps the title-cased key
+         *  the summary has always printed ("Url", "Total Count"). */
+        fields: Record<ToolResultField, string>
+        booleans: { true: string; false: string }
+        /** A nested object too deep or too bare to spell out: "3 fields". */
+        fieldCount: (count: number) => string
+        /** Closes a list cut short: "… 2 more items". */
+        moreItems: (count: number) => string
+        /** Closes a record cut short: "… 3 more fields". */
+        moreFields: (count: number) => string
+      }
+      /** Under output clamped for display; `omitted` is the number of characters
+       *  left out, already formatted for the display language. */
+      truncatedNotice: (omitted: string) => string
+      /** The technical view's raw payload, behind its own disclosure. */
+      payload: {
+        toggle: string
+        arguments: string
+        result: string
+      }
       actions: {
         read: string
         reading: string
         opened: string
         opening: string
         failedToOpen: string
+        failedToRead: string
         searched: string
         searching: string
         ran: string
@@ -3317,8 +3492,18 @@ export interface Translations {
         prefixedDone: (prefix: string, action: string) => string
         runningPrefixedTool: (prefix: string, action: string) => string
         runningTool: (action: string) => string
+        /** A skill row's whole title (`titles.skill_view`, `skillManageTitles`…)
+         *  with the skill it is on: "Read skill deploy". `actionTarget` takes a
+         *  verb alone, and in ja would put the name before a title that already
+         *  has its own を; ja puts the name first: "deploy スキルを読み取りました". */
+        skillNamed: (title: string, name: string) => string
       }
       titles: Record<ToolTitleKey, ToolTitleCopy>
+      /** skill_manage titled by the `action` it ran, over `titles.skill_manage`.
+       *  Only a call that is back has its args, so a running one reads "Updating
+       *  skill"; edit, patch, write_file and remove_file change a skill and keep
+       *  "Updated skill". */
+      skillManageTitles: Record<'create' | 'delete', { done: string; failed: string }>
     }
   }
 

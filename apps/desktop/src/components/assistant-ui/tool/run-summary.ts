@@ -33,7 +33,9 @@ const EXPLORE_TOOLS = new Set([
   'list_files',
   'read_file',
   'search_files',
-  'session_search_recall',
+  'session_search',
+  'skill_view',
+  'skills_list',
   'vision_analyze',
   'web_extract',
   'web_search'

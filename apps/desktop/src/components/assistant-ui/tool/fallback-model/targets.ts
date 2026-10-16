@@ -39,7 +39,32 @@ export function toolGroupDisclosureId(parts: ToolPart[]): string {
   return `tool-group:${parts.map(toolPartDisclosureId).join('|')}`
 }
 
-export const URL_PATTERN = /https?:\/\/[^\s'"<>)\]]+/i
+// Up to whitespace, a quote, "<", ">" or "]", and past any ")": balancedUrl
+// cuts it at the first one that isn't the URL's. A host never starts with one.
+const URL_PATTERN = /https?:\/\/[^\s'"<>)\]][^\s'"<>\]]*/i
+
+/**
+ * A URL up to its first ")" that closes no "(" in it. One that does is the
+ * URL's own, as in a GFM autolink: "…/wiki/Mercury_(planet)" keeps its paren,
+ * and "(see https://acme.dev)" stops before the prose's.
+ */
+function balancedUrl(url: string): string {
+  let open = 0
+
+  for (let index = 0; index < url.length; index += 1) {
+    if (url[index] === '(') {
+      open += 1
+    } else if (url[index] === ')') {
+      if (!open) {
+        return url.slice(0, index)
+      }
+
+      open -= 1
+    }
+  }
+
+  return url
+}
 
 export function findFirstUrl(...sources: unknown[]): string {
   for (const src of sources) {
@@ -47,7 +72,7 @@ export function findFirstUrl(...sources: unknown[]): string {
       const m = src.match(URL_PATTERN)
 
       if (m) {
-        return m[0]
+        return balancedUrl(m[0])
       }
     } else if (src && typeof src === 'object') {
       for (const v of Object.values(src as Record<string, unknown>)) {

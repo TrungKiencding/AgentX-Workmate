@@ -3749,13 +3749,144 @@ export const zhHant = defineLocale({
       statusError: '錯誤',
       statusRecovered: '已復原',
       statusDone: '完成',
+      statusAwaiting: '待核准',
       memoryWriteNoted: '已記下記憶寫入',
+      memoryWriteAwaitingApproval: '記憶寫入待核准',
+      skillChangeAwaitingApproval: '技能變更待核准',
+      countNouns: {
+        document: n => `${n} 份文件`,
+        element: n => `${n} 個元素`,
+        entry: n => `${n} 個條目`,
+        file: n => `${n} 個檔案`,
+        item: n => `${n} 項`,
+        line: n => `${n} 行`,
+        match: n => `${n} 處相符`,
+        message: n => `${n} 則訊息`,
+        result: n => `${n} 個結果`,
+        row: n => `${n} 列`,
+        search: n => `${n} 次搜尋`,
+        skill: n => `${n} 個技能`,
+        source: n => `${n} 個來源`,
+        step: n => `${n} 個步驟`,
+        task: n => `${n} 個任務`,
+        todo: n => `${n} 項待辦`
+      },
+      countGeneric: (n, _noun) => `${n} 項`,
+      detailLabels: {
+        details: '詳細資料',
+        error: '錯誤詳細資料',
+        search: '搜尋',
+        snapshot: '快照摘要'
+      },
+      errorFallbacks: {
+        generic: '工具傳回了錯誤。',
+        notSuccessful: '工具傳回了 success=false。',
+        status: status => `工具傳回了狀態「${status}」。`,
+        exitCode: code => `指令失敗，結束代碼 ${code}。`
+      },
+      snapshotSummary: {
+        counts: (buttons, links, inputs) => `${buttons} 個按鈕 · ${links} 個連結 · ${inputs} 個輸入欄位`,
+        topControls: labels => `主要控制項: ${labels.join('、')}`
+      },
+      cron: {
+        jobs: n => `${n} 個 Cron 工作`,
+        noJobs: '沒有 Cron 工作',
+        noJobsScheduled: '尚未排定 Cron 工作',
+        schedule: '排程',
+        repeat: '重複',
+        delivery: '傳送至',
+        nextRun: '下次執行'
+      },
+      subtitles: {
+        browserNavigated: '已在瀏覽器中瀏覽',
+        browserSnapshot: '已擷取瀏覽器無障礙快照',
+        clicked: target => `已點擊 ${target}`,
+        clickedOnPage: '已點擊頁面',
+        clickedRef: ref => `已點擊頁面元素（內部參照 ${ref}）`,
+        fieldLabel: '欄位',
+        valueLabel: '值',
+        filledInput: '已填寫頁面輸入欄位',
+        queryLabel: '查詢',
+        queriedWeb: '已查詢網頁來源',
+        executedCommand: '已執行指令',
+        changedFile: '已變更檔案',
+        fetchedWebpage: '已擷取網頁'
+      },
+      resultSummary: {
+        fields: {
+          action: '操作',
+          analysis: '分析',
+          code: '代碼',
+          command: '指令',
+          content: '內容',
+          count: '數量',
+          created_at: '建立時間',
+          description: '說明',
+          details: '詳細資料',
+          duration_s: '耗時',
+          enabled: '已啟用',
+          error: '錯誤',
+          error_type: '錯誤類型',
+          errors: '錯誤清單',
+          exit_code: '結束代碼',
+          file: '檔案',
+          file_size: '檔案大小',
+          files: '檔案清單',
+          hint: '提示',
+          id: 'ID',
+          is_binary: '二進位檔案',
+          is_image: '圖片',
+          items: '項目',
+          link: '連結',
+          matches: '相符項目',
+          message: '訊息',
+          mode: '模式',
+          name: '名稱',
+          note: '備註',
+          ok: '成功',
+          path: '路徑',
+          provider: '提供者',
+          query: '查詢',
+          reason: '原因',
+          results: '結果',
+          session_id: '工作階段 ID',
+          similar_files: '相似檔案',
+          size: '大小',
+          source: '來源',
+          state: '狀態',
+          status: '狀態',
+          success: '成功',
+          summary: '摘要',
+          tags: '標籤',
+          title: '標題',
+          total: '總計',
+          total_count: '總數',
+          total_lines: '總行數',
+          truncated: '已截斷',
+          type: '類型',
+          updated_at: '更新時間',
+          url: 'URL',
+          version: '版本',
+          warning: '警告'
+        },
+        booleans: { true: '是', false: '否' },
+        fieldCount: n => `${n} 個欄位`,
+        moreItems: n => `… 還有 ${n} 項`,
+        moreFields: n => `… 還有 ${n} 個欄位`
+      },
+      truncatedNotice: omitted => `… 已截斷 ${omitted} 個字元 — 使用「複製」取得完整輸出。`,
+      payload: {
+        toggle: '工具原始資料',
+        arguments: '引數',
+        result: '結果'
+      },
       actions: {
         read: '已讀取',
         reading: '正在讀取',
         opened: '已開啟',
         opening: '正在開啟',
         failedToOpen: '開啟失敗',
+        failedToRead: '讀取失敗',
         searched: '已搜尋',
         searching: '正在搜尋',
         ran: '已執行',
@@ -3773,12 +3904,18 @@ export const zhHant = defineLocale({
         actionTarget: (action, target) => `${action} ${target}`,
         prefixedDone: (prefix, action) => `${prefix}${action}`,
         runningPrefixedTool: (prefix, action) => `正在執行${prefix}${action}`,
-        runningTool: action => `正在執行 ${action}`
+        runningTool: action => `正在執行 ${action}`,
+        skillNamed: (title, name) => `${title} ${name}`
       },
       titles: {
         browser_click: { done: '已點擊頁面元素', pending: '正在點擊頁面元素', pendingAction: '正在點擊' },
         browser_fill: { done: '已填寫表單欄位', pending: '正在填寫表單欄位', pendingAction: '正在填寫' },
-        browser_navigate: { done: '已開啟頁面', pending: '正在開啟頁面', pendingAction: '正在開啟' },
+        browser_navigate: {
+          done: '已開啟頁面',
+          failed: '開啟頁面失敗',
+          pending: '正在開啟頁面',
+          pendingAction: '正在開啟'
+        },
         browser_snapshot: { done: '已擷取頁面快照', pending: '正在擷取頁面快照', pendingAction: '正在擷取' },
         browser_take_screenshot: { done: '已擷取截圖', pending: '正在擷取截圖', pendingAction: '正在擷取' },
         browser_type: { done: '已在頁面輸入', pending: '正在頁面輸入', pendingAction: '正在輸入' },
@@ -3793,10 +3930,28 @@ export const zhHant = defineLocale({
         patch: { done: '已修補檔案', pending: '正在修補檔案', pendingAction: '正在修補' },
         read_file: { done: '已讀取檔案', pending: '正在讀取檔案', pendingAction: '正在讀取' },
         search_files: { done: '已搜尋檔案', pending: '正在搜尋檔案', pendingAction: '正在搜尋' },
-        session_search_recall: {
+        session_search: {
           done: '已搜尋之前的對話',
           pending: '正在搜尋之前的對話',
           pendingAction: '正在搜尋'
+        },
+        skill_manage: {
+          done: '已更新技能',
+          failed: '更新技能失敗',
+          pending: '正在更新技能',
+          pendingAction: '正在更新'
+        },
+        skill_view: {
+          done: '已讀取技能',
+          failed: '讀取技能失敗',
+          pending: '正在讀取技能',
+          pendingAction: '正在讀取'
+        },
+        skills_list: {
+          done: '已列出技能',
+          failed: '列出技能失敗',
+          pending: '正在列出技能',
+          pendingAction: '正在列出'
         },
         terminal: { done: '已執行指令', pending: '正在執行指令', pendingAction: '正在執行' },
         todo: { done: '已更新待辦', pending: '正在更新待辦', pendingAction: '正在更新' },
@@ -3804,6 +3959,10 @@ export const zhHant = defineLocale({
         web_extract: { done: '已讀取網頁', pending: '正在讀取網頁', pendingAction: '正在讀取' },
         web_search: { done: '已搜尋網頁', pending: '正在搜尋網頁', pendingAction: '正在搜尋' },
         write_file: { done: '已編輯檔案', pending: '正在編輯檔案', pendingAction: '正在編輯' }
+      },
+      skillManageTitles: {
+        create: { done: '已建立技能', failed: '建立技能失敗' },
+        delete: { done: '已刪除技能', failed: '刪除技能失敗' }
       }
     }
   },

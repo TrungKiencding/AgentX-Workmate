@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { setRuntimeI18nLocale, TRANSLATIONS } from '@/i18n'
 
 import { isCardTool, splitRunItems, technicalTrace } from './fallback'
 
@@ -64,5 +66,39 @@ describe('technicalTrace', () => {
   it('leaves scalar strings untouched', () => {
     expect(technicalTrace(undefined, 'plain text')).toBe('Result:\nplain text')
     expect(technicalTrace(undefined, '"already quoted"')).toBe('Result:\n"already quoted"')
+  })
+
+  describe('in the display language', () => {
+    afterEach(() => {
+      setRuntimeI18nLocale('en')
+    })
+
+    it.each([
+      ['vi', 'Tham số', 'Kết quả'],
+      ['ja', '引数', '結果'],
+      ['zh', '参数', '结果'],
+      ['zh-hant', '引數', '結果'],
+      ['ar', 'الوسائط', 'النتيجة']
+    ] as const)('labels the payload in %s', (locale, argumentsLabel, resultLabel) => {
+      setRuntimeI18nLocale(locale)
+
+      expect(technicalTrace({ path: '/tmp/demo.txt' }, 'plain text')).toBe(
+        `${argumentsLabel}:\n{\n  "path": "/tmp/demo.txt"\n}\n\n${resultLabel}:\nplain text`
+      )
+    })
+
+    // ja, zh-hant and ar fall back to English key by key; the disclosure's own
+    // toggle only renders in technical mode, so check its words here too.
+    it('has its own words for the payload disclosure in every locale', () => {
+      const english = TRANSLATIONS.en.assistant.tool.payload
+
+      for (const locale of ['vi', 'ja', 'zh', 'zh-hant', 'ar'] as const) {
+        const copy = TRANSLATIONS[locale].assistant.tool.payload
+
+        for (const key of Object.keys(english) as (keyof typeof english)[]) {
+          expect(copy[key], `${locale} ${key}`).not.toBe(english[key])
+        }
+      }
+    })
   })
 })

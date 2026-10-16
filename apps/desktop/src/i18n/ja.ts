@@ -3924,13 +3924,144 @@ export const ja = defineLocale({
       statusError: 'エラー',
       statusRecovered: '回復しました',
       statusDone: '完了',
+      statusAwaiting: '承認待ち',
       memoryWriteNoted: 'メモリへの書き込みを記録',
+      memoryWriteAwaitingApproval: 'メモリへの書き込みは承認待ちです',
+      skillChangeAwaitingApproval: 'スキルの変更は承認待ちです',
+      countNouns: {
+        document: n => `${n} 件のドキュメント`,
+        element: n => `${n} 個の要素`,
+        entry: n => `${n} 件のエントリ`,
+        file: n => `${n} 件のファイル`,
+        item: n => `${n} 件の項目`,
+        line: n => `${n} 行`,
+        match: n => `${n} 件の一致`,
+        message: n => `${n} 件のメッセージ`,
+        result: n => `${n} 件の結果`,
+        row: n => `${n} 行`,
+        search: n => `${n} 回の検索`,
+        skill: n => `${n} 件のスキル`,
+        source: n => `${n} 件のソース`,
+        step: n => `${n} ステップ`,
+        task: n => `${n} 件のタスク`,
+        todo: n => `${n} 件の Todo`
+      },
+      countGeneric: (n, _noun) => `${n} 件`,
+      detailLabels: {
+        details: '詳細',
+        error: 'エラーの詳細',
+        search: '検索',
+        snapshot: 'スナップショットの概要'
+      },
+      errorFallbacks: {
+        generic: 'ツールがエラーを返しました。',
+        notSuccessful: 'ツールが success=false を返しました。',
+        status: status => `ツールがステータス「${status}」を返しました。`,
+        exitCode: code => `コマンドが終了コード ${code} で失敗しました。`
+      },
+      snapshotSummary: {
+        counts: (buttons, links, inputs) => `ボタン ${buttons} 個 · リンク ${links} 個 · 入力欄 ${inputs} 個`,
+        topControls: labels => `主なコントロール: ${labels.join('、')}`
+      },
+      cron: {
+        jobs: n => `Cron ジョブ ${n} 件`,
+        noJobs: 'Cron ジョブはありません',
+        noJobsScheduled: 'スケジュールされた Cron ジョブはありません',
+        schedule: 'スケジュール',
+        repeat: '繰り返し',
+        delivery: '配信先',
+        nextRun: '次回実行'
+      },
+      subtitles: {
+        browserNavigated: 'ブラウザーでページを移動しました',
+        browserSnapshot: 'ブラウザーのアクセシビリティスナップショットを取得しました',
+        clicked: target => `${target} をクリックしました`,
+        clickedOnPage: 'ページをクリックしました',
+        clickedRef: ref => `ページ要素をクリックしました（内部参照 ${ref}）`,
+        fieldLabel: 'フィールド',
+        valueLabel: '値',
+        filledInput: 'ページの入力欄に入力しました',
+        queryLabel: 'クエリ',
+        queriedWeb: 'Web ソースを検索しました',
+        executedCommand: 'コマンドを実行しました',
+        changedFile: 'ファイルを変更しました',
+        fetchedWebpage: 'Web ページを取得しました'
+      },
+      resultSummary: {
+        fields: {
+          action: '操作',
+          analysis: '分析',
+          code: 'コード',
+          command: 'コマンド',
+          content: '内容',
+          count: '件数',
+          created_at: '作成日時',
+          description: '説明',
+          details: '詳細',
+          duration_s: '所要時間',
+          enabled: '有効',
+          error: 'エラー',
+          error_type: 'エラーの種類',
+          errors: 'エラー一覧',
+          exit_code: '終了コード',
+          file: 'ファイル',
+          file_size: 'ファイルサイズ',
+          files: 'ファイル一覧',
+          hint: 'ヒント',
+          id: 'ID',
+          is_binary: 'バイナリ',
+          is_image: '画像',
+          items: '項目',
+          link: 'リンク',
+          matches: '一致',
+          message: 'メッセージ',
+          mode: 'モード',
+          name: '名前',
+          note: '備考',
+          ok: '成功',
+          path: 'パス',
+          provider: 'プロバイダー',
+          query: 'クエリ',
+          reason: '理由',
+          results: '結果',
+          session_id: 'セッション ID',
+          similar_files: '類似ファイル',
+          size: 'サイズ',
+          source: 'ソース',
+          state: '状態',
+          status: 'ステータス',
+          success: '成功',
+          summary: '概要',
+          tags: 'タグ',
+          title: 'タイトル',
+          total: '合計',
+          total_count: '総数',
+          total_lines: '総行数',
+          truncated: '切り詰め',
+          type: '種類',
+          updated_at: '更新日時',
+          url: 'URL',
+          version: 'バージョン',
+          warning: '警告'
+        },
+        booleans: { true: 'はい', false: 'いいえ' },
+        fieldCount: n => `${n} 個のフィールド`,
+        moreItems: n => `… ほか ${n} 件`,
+        moreFields: n => `… ほか ${n} 個のフィールド`
+      },
+      truncatedNotice: omitted => `… ${omitted} 文字を省略しました — 全文は「コピー」で取得できます。`,
+      payload: {
+        toggle: 'ツールの生データ',
+        arguments: '引数',
+        result: '結果'
+      },
       actions: {
         read: '読み取り完了',
         reading: '読み取り中',
         opened: 'オープン済み',
         opening: 'オープン中',
         failedToOpen: 'オープン失敗',
+        failedToRead: '読み取り失敗',
         searched: '検索完了',
         searching: '検索中',
         ran: '実行完了',
@@ -3948,7 +4079,8 @@ export const ja = defineLocale({
         actionTarget: (action, target) => `${target} を${action}`,
         prefixedDone: (prefix, action) => `${prefix} ${action}`,
         runningPrefixedTool: (prefix, action) => `${prefix} ${action}を実行中`,
-        runningTool: action => `${action}を実行中`
+        runningTool: action => `${action}を実行中`,
+        skillNamed: (title, name) => `${name} ${title}`
       },
       titles: {
         browser_click: {
@@ -3957,7 +4089,12 @@ export const ja = defineLocale({
           pendingAction: 'クリック中'
         },
         browser_fill: { done: 'フォーム欄に入力しました', pending: 'フォーム欄に入力中', pendingAction: '入力中' },
-        browser_navigate: { done: 'ページを開きました', pending: 'ページをオープン中', pendingAction: 'オープン中' },
+        browser_navigate: {
+          done: 'ページを開きました',
+          failed: 'ページのオープンに失敗しました',
+          pending: 'ページをオープン中',
+          pendingAction: 'オープン中'
+        },
         browser_snapshot: {
           done: 'ページスナップショットを取得しました',
           pending: 'ページスナップショットを取得中',
@@ -3992,10 +4129,28 @@ export const ja = defineLocale({
         },
         read_file: { done: 'ファイルを読み取りました', pending: 'ファイルを読み取り中', pendingAction: '読み取り中' },
         search_files: { done: 'ファイルを検索しました', pending: 'ファイルを検索中', pendingAction: '検索中' },
-        session_search_recall: {
+        session_search: {
           done: '以前のチャットを検索しました',
           pending: '以前のチャットを検索中',
           pendingAction: '検索中'
+        },
+        skill_manage: {
+          done: 'スキルを更新しました',
+          failed: 'スキルの更新に失敗しました',
+          pending: 'スキルを更新中',
+          pendingAction: '更新中'
+        },
+        skill_view: {
+          done: 'スキルを読み取りました',
+          failed: 'スキルの読み取りに失敗しました',
+          pending: 'スキルを読み取り中',
+          pendingAction: '読み取り中'
+        },
+        skills_list: {
+          done: 'スキルを一覧表示しました',
+          failed: 'スキルの一覧表示に失敗しました',
+          pending: 'スキルを一覧表示中',
+          pendingAction: '一覧表示中'
         },
         terminal: { done: 'コマンドを実行しました', pending: 'コマンドを実行中', pendingAction: '実行中' },
         todo: { done: 'Todo を更新しました', pending: 'Todo を更新中', pendingAction: '更新中' },
@@ -4007,6 +4162,10 @@ export const ja = defineLocale({
         },
         web_search: { done: 'Web を検索しました', pending: 'Web を検索中', pendingAction: '検索中' },
         write_file: { done: 'ファイルを編集しました', pending: 'ファイルを編集中', pendingAction: '編集中' }
+      },
+      skillManageTitles: {
+        create: { done: 'スキルを作成しました', failed: 'スキルの作成に失敗しました' },
+        delete: { done: 'スキルを削除しました', failed: 'スキルの削除に失敗しました' }
       }
     }
   },

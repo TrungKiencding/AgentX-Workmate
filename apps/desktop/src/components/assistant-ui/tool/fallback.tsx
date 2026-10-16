@@ -34,10 +34,9 @@ import { FileTypeIcon } from '@/components/ui/file-type-icon'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { ToolIcon } from '@/components/ui/tool-icon'
 import { Tip } from '@/components/ui/tooltip'
-import { useI18n } from '@/i18n'
+import { translationsNow, useI18n } from '@/i18n'
 import { PrettyLink, LinkifiedText as SharedLinkifiedText, urlSlugTitleLabel } from '@/lib/external-link'
-import { AlertCircle, CheckCircle2 } from '@/lib/icons'
-import { normalize } from '@/lib/text'
+import { AlertCircle, CheckCircle2, Clock } from '@/lib/icons'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
 import { recordPreviewArtifact } from '@/store/preview-status'
@@ -116,6 +115,7 @@ const TOOL_PAYLOAD_PRE_CLASS = cn(
  * nothing else here.
  */
 function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknown }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
 
   return (
@@ -131,7 +131,7 @@ function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknow
         type="button"
       >
         <DisclosureCaret className="text-(--ui-text-tertiary)" open={open} size="0.625rem" />
-        Tool payload
+        {t.assistant.tool.payload.toggle}
       </button>
       {open && (
         <pre className={cn(TOOL_PAYLOAD_PRE_CLASS, 'mt-1 whitespace-pre-wrap wrap-anywhere')}>
@@ -143,6 +143,7 @@ function ToolPayloadDisclosure({ args, result }: { args: unknown; result: unknow
 }
 
 interface ToolStatusCopy {
+  statusAwaiting: string
   statusDone: string
   statusError: string
   statusRecovered: string
@@ -174,9 +175,11 @@ function prettyTechnicalValue(value: unknown): string {
 }
 
 export function technicalTrace(args: unknown, result: unknown): string {
+  const labels = translationsNow().assistant.tool.payload
+
   const parts = [
-    ['Arguments', args],
-    ['Result', result]
+    [labels.arguments, args],
+    [labels.result, result]
   ]
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([label, value]) => `${label}:\n${prettyTechnicalValue(value)}`)
@@ -203,12 +206,18 @@ function statusGlyph(status: ToolStatus, copy: ToolStatusCopy): ReactNode {
     return <AlertCircle aria-label={copy.statusRecovered} className="size-3.5 shrink-0 text-(--ui-yellow)" />
   }
 
+  // A write waiting on the user's approval: nothing went wrong and nothing was
+  // saved, so it takes the row's resting grey rather than amber, red or green.
+  if (status === 'awaiting') {
+    return <Clock aria-label={copy.statusAwaiting} className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
+  }
+
   return <CheckCircle2 aria-label={copy.statusDone} className="size-3.5 shrink-0 text-(--ui-green)" />
 }
 
-// Leading glyph for any tool-row header. Status (running/error/warning)
-// takes precedence; otherwise falls back to the tool's codicon. Returns
-// null when neither applies so callers can render unconditionally.
+// Leading glyph for any tool-row header. Status (running/error/warning/
+// awaiting) takes precedence; otherwise falls back to the tool's codicon.
+// Returns null when neither applies so callers can render unconditionally.
 function ToolGlyph({
   copy,
   filePath,
@@ -277,8 +286,10 @@ function SearchResultsList({ hits }: { hits: SearchResultRow[] }) {
   )
 }
 
+// Tool text is full of file names that read as bare domains (`notes.md`,
+// `setup.py`), so only a link written as one — a scheme or `www.` — goes live.
 function LinkifiedText({ className, text }: { className?: string; text: string }) {
-  return <SharedLinkifiedText className={className} pretty text={cleanVisibleText(text)} />
+  return <SharedLinkifiedText className={className} explicitOnly pretty text={cleanVisibleText(text)} />
 }
 
 function ToolTitle({
@@ -412,47 +423,53 @@ function ToolEntry({ part }: ToolEntryProps) {
     }
   }, [$sessionCwd, $sessionRuntimeId, isPending, previewTarget])
 
-  const detailSections = useMemo(() => {
-    if (!view.detail) {
-      return { body: '', summary: '' }
-    }
+  // A failed row (red) or a refused memory write (amber) opens with the first
+  // paragraph of its error; the rest of the error, then whatever else the call
+  // returned, sits in the block below it.
+  const flagged = view.status === 'error' || view.status === 'warning'
 
-    if (view.status !== 'error') {
+  const detailSections = useMemo(() => {
+    if (!flagged) {
       return { body: view.detail, summary: '' }
     }
 
-    const chunks = view.detail
+    const [summary = '', ...rest] = (view.errorLead ?? '')
       .split(/\n\s*\n+/)
       .map(chunk => chunk.trim())
       .filter(Boolean)
 
-    const [summary = '', ...rest] = chunks
-    const subtitleNorm = normalize(view.subtitle)
-    const summaryDuplicatesSubtitle = summary && summary.toLowerCase() === subtitleNorm
-
-    if (summaryDuplicatesSubtitle) {
-      return { body: rest.join('\n\n').trim(), summary: '' }
-    }
-
-    return { body: rest.join('\n\n').trim(), summary }
-  }, [view.detail, view.status, view.subtitle])
+    return { body: [...rest, view.detail].filter(Boolean).join('\n\n'), summary }
+  }, [flagged, view.detail, view.errorLead])
 
   // `looksRedundant` normalizes the FULL (uncapped) detail payload — a
   // read_file / terminal result can be huge. Memoize on the view fields so it
   // recomputes only when the tool's content changes, not on every parent
   // re-render (tool rows re-render on every stream tick of the running message).
-  const detailMatchesSubtitle = useMemo(() => looksRedundant(view.subtitle, view.detail), [view.subtitle, view.detail])
+  //
+  // Only a file edit puts its subtitle on screen (the path, as the header's
+  // tooltip). Any other row's subtitle is a preview of its detail that is never
+  // painted, so a detail matching it is the only place that text shows up:
+  // dropping it left a short result with nothing to open.
+  const detailMatchesSubtitle = useMemo(
+    () => isFileEdit && looksRedundant(view.subtitle, view.detail),
+    [isFileEdit, view.subtitle, view.detail]
+  )
+
   const detailMatchesTitle = useMemo(() => looksRedundant(view.title, view.detail), [view.title, view.detail])
 
   const showDetail =
     !view.inlineDiff &&
     (Boolean(view.stdout || view.stderr) ||
-      (view.status === 'error' && Boolean(detailSections.summary || detailSections.body)) ||
-      (view.status !== 'error' && Boolean(view.detail) && !detailMatchesTitle && !detailMatchesSubtitle))
+      (flagged && Boolean(detailSections.summary || detailSections.body)) ||
+      (!flagged && Boolean(view.detail) && !detailMatchesTitle && !detailMatchesSubtitle))
 
   const renderDetailAsCode =
     view.status !== 'error' &&
-    (part.toolName === 'terminal' || part.toolName === 'execute_code' || part.toolName === 'read_file')
+    (part.toolName === 'terminal' ||
+      part.toolName === 'execute_code' ||
+      part.toolName === 'read_file' ||
+      part.toolName === 'search_files' ||
+      view.detailIsCode === true)
 
   const hasSearchHits = Boolean(view.searchHits?.length)
   const searchResultsLabel = part.toolName === 'web_search' ? t.assistant.toolRun.searchResults : view.detailLabel
@@ -616,7 +633,7 @@ function ToolEntry({ part }: ToolEntryProps) {
             <div className="max-w-full text-xs leading-relaxed text-(--ui-text-secondary)">
               {view.searchQuery && (
                 <p className="mb-1 flex min-w-0 gap-1.5 wrap-anywhere">
-                  <span className="shrink-0 font-medium text-(--ui-text-tertiary)">Search</span>
+                  <span className="shrink-0 font-medium text-(--ui-text-tertiary)">{copy.detailLabels.search}</span>
                   <span>{view.searchQuery}</span>
                 </p>
               )}
@@ -629,16 +646,27 @@ function ToolEntry({ part }: ToolEntryProps) {
           )}
           {showDetail &&
             toolViewMode !== 'technical' &&
-            (view.status === 'error' ? (
+            (flagged ? (
               detailSections.summary || detailSections.body ? (
-                <div className="max-w-full text-xs leading-relaxed text-destructive">
+                <div
+                  className={cn(
+                    'max-w-full text-xs leading-relaxed',
+                    view.status === 'error' ? 'text-destructive' : 'text-(--ui-yellow)'
+                  )}
+                >
                   {detailSections.summary && (
-                    <LinkifiedText className="block font-medium" text={detailSections.summary} />
+                    <LinkifiedText
+                      className="block whitespace-pre-line wrap-anywhere font-medium"
+                      text={clampForDisplay(detailSections.summary)}
+                    />
                   )}
                   {detailSections.body && (
                     <pre
                       className={cn(
-                        'max-h-56 overflow-auto whitespace-pre-wrap wrap-anywhere font-mono text-[length:var(--conversation-code-font-size)] leading-(--conversation-code-line-height) text-destructive/90',
+                        'max-h-56 overflow-auto whitespace-pre-wrap wrap-anywhere font-mono text-[length:var(--conversation-code-font-size)] leading-(--conversation-code-line-height)',
+                        // Amber stays at full strength: at 90% it falls under
+                        // 4.5:1 on paper.
+                        view.status === 'error' && 'text-destructive/90',
                         detailSections.summary && 'mt-1.5'
                       )}
                     >
@@ -695,6 +723,9 @@ function ToolEntry({ part }: ToolEntryProps) {
                     className={cn(TOOL_SECTION_SURFACE_CLASS, 'wrap-anywhere')}
                     text={clampForDisplay(view.detail)}
                   />
+                )}
+                {view.detailNote && (
+                  <p className="px-2 whitespace-pre-line wrap-anywhere text-(--ui-text-tertiary)">{view.detailNote}</p>
                 )}
               </div>
             ))}

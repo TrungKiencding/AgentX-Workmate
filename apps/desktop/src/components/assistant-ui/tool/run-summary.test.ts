@@ -63,6 +63,26 @@ describe('summarizeToolRun', () => {
     expect(settled([read('a.ts'), tool('search_files', { query: 'toolRuns' })])).toBe('Explored 2 files')
   })
 
+  // The tool is `session_search`; listing it as `session_search_recall` left
+  // it narrated as "Using 1 tool".
+  it('reads a search through earlier chats as exploring', () => {
+    expect(toolPresentVerb('session_search', en)).toBe('Exploring')
+    expect(settled([tool('session_search', { query: 'auth refactor' }, { count: 2 })])).toBe('Explored auth refactor')
+  })
+
+  // Reading a skill or listing them is a lookup, as read_file and list_files
+  // are; left out, every run that loaded a skill ended "used 1 tool". A skill
+  // change is a write, and stays with the other tools.
+  it('reads loading a skill as exploring', () => {
+    const viewed = tool('skill_view', { name: 'deploy' }, { success: true })
+
+    expect(toolPresentVerb('skill_view', en)).toBe('Exploring')
+    expect(toolPresentVerb('skills_list', en)).toBe('Exploring')
+    expect(settled([viewed, read('a.ts'), ran('ls')])).toBe('Explored 2 files, ran 1 command')
+    expect(summarizeToolRun([viewed, read('a.ts'), ran('ls')], false, vi)).toBe('Đã xem 2 tệp, đã chạy 1 lệnh')
+    expect(settled([tool('skill_manage', { action: 'patch', name: 'deploy' }, { success: true })])).toBe('Used 1 tool')
+  })
+
   it('narrates in the app\'s language, with the catalog owning the nouns', () => {
     const mcp = (name: string) => tool(name)
 

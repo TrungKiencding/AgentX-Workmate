@@ -1,16 +1,19 @@
-import { type ToolTitleKey, translateNow } from '@/i18n'
+import { type ToolTitleKey, translateNow, translationsNow } from '@/i18n'
 import { normalizeExternalUrl } from '@/lib/external-link'
 import { summarizeShellCommand } from '@/lib/summarize-command'
 import { capitalize, normalize } from '@/lib/text'
+import { getTimeFormatLocale } from '@/lib/time'
 import { extractToolErrorMessage, formatToolResultSummary } from '@/lib/tool-result-summary'
 
 import {
+  clampForDisplay,
   compactPreview,
   contextValue,
   formatDurationSeconds,
   isRecord,
   numberValue,
   parseMaybeObject,
+  plainTextResult,
   unwrapToolPayload
 } from './format'
 import { findFirstUrl, hostnameOf, looksLikePath, looksLikeUrl } from './targets'
@@ -128,6 +131,218 @@ function readFileDisplayTarget(args: Record<string, unknown>, result: Record<str
   return [fileEditBasename(path), lineLabel].filter(Boolean).join(' ')
 }
 
+// A read that came back without text still carries the reader's result type
+// at its zero values (ReadResult in tools/file_operations.py). "Total lines: 0"
+// and "Is binary: false" are not news; what's left (a missing file's
+// `similar_files`, a `hint`) is.
+const EMPTY_READ_FIELDS: Record<string, unknown> = {
+  content: '',
+  file_size: 0,
+  is_binary: false,
+  is_image: false,
+  total_lines: 0,
+  truncated: false
+}
+
+function withoutEmptyReadFields(result: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(result).filter(
+      ([key, value]) => !(Object.hasOwn(EMPTY_READ_FIELDS, key) && EMPTY_READ_FIELDS[key] === value)
+    )
+  )
+}
+
+/**
+ * What a file search found, laid out the way the tool itself writes 5+ content
+ * matches (`matches_text`, SearchResult in tools/file_operations.py): each file
+ * once, its matching lines indented under it. A file-name search lists the
+ * files; a count search, each file with its count.
+ */
+function searchFilesDetail(result: Record<string, unknown>): string {
+  const grouped = firstStringField(result, ['matches_text'])
+
+  if (grouped) {
+    return grouped
+  }
+
+  const lines: string[] = []
+
+  if (Array.isArray(result.matches)) {
+    let currentPath = ''
+
+    for (const match of result.matches) {
+      const row = isRecord(match) ? match : {}
+      const path = firstStringField(row, ['path'])
+      const content = typeof row.content === 'string' ? row.content.trimEnd() : ''
+
+      if (path && path !== currentPath) {
+        lines.push(path)
+        currentPath = path
+      }
+
+      lines.push(typeof row.line === 'number' ? `  ${row.line}: ${content}` : `  ${content}`)
+    }
+  } else if (Array.isArray(result.files)) {
+    lines.push(...result.files.filter((file): file is string => typeof file === 'string'))
+  } else if (isRecord(result.counts)) {
+    for (const [path, count] of Object.entries(result.counts)) {
+      lines.push(`${path}: ${String(count)}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+/** A page web_extract was given that came back without text: its URL, and why
+ *  when the reader said. */
+interface UnreadPage {
+  error: string
+  url: string
+}
+
+/**
+ * What a web_extract call brought back, page by page (tools/web_tools.py): the
+ * text of each page it read, and each page that came back without any. A page
+ * the reader couldn't get carries its own `error`; the call itself doesn't
+ * fail. Null for a result without a `results` list.
+ */
+function extractedPages(result: Record<string, unknown>): null | { read: string[]; unread: UnreadPage[] } {
+  if (!Array.isArray(result.results)) {
+    return null
+  }
+
+  const read: string[] = []
+  const unread: UnreadPage[] = []
+
+  for (const item of result.results) {
+    const row = parseMaybeObject(item)
+    const text = firstStringField(row, ['content', 'text', 'markdown', 'body'])
+
+    if (text) {
+      read.push(text)
+
+      continue
+    }
+
+    // One line per page, though an extractor's exception can run over several.
+    const error = extractToolErrorMessage(row).replace(/\s+/g, ' ').trim()
+    const url = firstStringField(row, ['url'])
+
+    if (error || url) {
+      unread.push({ error, url })
+    }
+  }
+
+  return { read, unread }
+}
+
+/** Pages a call read none of: each URL, then why. The row's title already
+ *  says the read failed. */
+function unreadPagesText(unread: UnreadPage[]): string {
+  return unread.map(({ error, url }) => [url, error].filter(Boolean).join(' — ')).join('\n')
+}
+
+/** Pages a call didn't read, beside pages it did: each line says so. */
+function unreadPagesList(unread: UnreadPage[]): string {
+  const action = translateNow('assistant.tool.actions.failedToRead')
+
+  return unread
+    .map(({ error, url }) => {
+      const page = url ? translateNow('assistant.tool.titleTemplates.actionTarget', action, url) : ''
+
+      return `- ${[page, error].filter(Boolean).join(' — ')}`
+    })
+    .join('\n')
+}
+
+// What the skill tool puts above a SKILL.md for the model (tools/skills_tool.py):
+// a plugin skill's bundle banner, a workspace skill's provenance quote.
+const SKILL_NOTE_RE = /^(?:\[Bundle context:[^\]]*\]|> \[!NOTE\] WORKSPACE-SHARED SKILL[^\n]*(?:\n>[^\n]*)*)\s*/
+
+// A SKILL.md's YAML frontmatter, found the way agent/skill_utils
+// parse_frontmatter finds it: `---` opens the file (after the BOM a Windows
+// editor may put first), and the next line that is only `---` closes it.
+const SKILL_FRONTMATTER_RE = /^\uFEFF?---[\s\S]*?\n---[^\S\n]*(?:\n|$)/
+
+const MARKDOWN_FILE_RE = /\.(?:markdown|md|mdx)$/i
+
+/**
+ * What a skill says: its SKILL.md past the frontmatter, which only restates the
+ * name and description, and past the tool's note to the model above that. A
+ * file without frontmatter is the skill's words whole.
+ */
+function skillBody(content: string): string {
+  const afterNote = content.replace(SKILL_NOTE_RE, '')
+  const body = afterNote.replace(SKILL_FRONTMATTER_RE, '')
+
+  return (body === afterNote ? content : body).trim()
+}
+
+/** A skill file a view opened that isn't markdown (a script, a template): its
+ *  text shows as code, the way a file read_file opened does. */
+function skillFileIsCode(result: Record<string, unknown>): boolean {
+  const file = firstStringField(result, ['file'])
+
+  return (
+    Boolean(file) && typeof result.content === 'string' && result.is_binary !== true && !MARKDOWN_FILE_RE.test(file)
+  )
+}
+
+/**
+ * What a skill_view opens onto: the skill itself, as markdown, or the file a
+ * view asked for. Summarized like any other result, it read "Name", then
+ * "Description", then the file again from its frontmatter, clipped. A repeat
+ * view of a skill that hasn't changed returns the tool's note instead.
+ */
+function skillViewDetail(result: Record<string, unknown>): string {
+  const content = typeof result.content === 'string' ? result.content.trim() : ''
+
+  if (!content) {
+    return firstStringField(result, ['message'])
+  }
+
+  return skillFileIsCode(result) ? content : skillBody(content) || firstStringField(result, ['description'])
+}
+
+/** One line per skill skills_list found: its name, then what it is for. */
+function skillsListDetail(result: Record<string, unknown>): string {
+  const skills = Array.isArray(result.skills) ? result.skills : []
+
+  return skills
+    .map(skill => {
+      const row = isRecord(skill) ? skill : {}
+      const name = firstStringField(row, ['name'])
+      const description = firstStringField(row, ['description']).replace(/\s+/g, ' ')
+
+      if (!name) {
+        return ''
+      }
+
+      return description ? `- ${name} — ${description}` : `- ${name}`
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
+ * The skill a skill_view or skill_manage call is on, written the way the
+ * gateway previews it (agent/display build_tool_preview): its name, then the
+ * file a view opened. A running call has only that preview, as `context`; the
+ * args come back with the result. A row with a result but no args (a stored
+ * tool message without its call) names none: its `context` is the whole text.
+ */
+function skillTarget(part: ToolPart, args: Record<string, unknown>): string {
+  const name = firstStringField(args, ['name'])
+
+  if (!name) {
+    return part.result === undefined ? firstStringField(args, ['context']) : ''
+  }
+
+  const file = part.toolName === 'skill_view' ? firstStringField(args, ['file_path']) : ''
+
+  return file ? `${name} → ${file}` : name
+}
+
 // The real command, preferring the actual argument over the backend's
 // display preview. `context` is a *summarized* preview ("sleep 70 + 2
 // commands") the gateway sends on tool.start before real args arrive — fine
@@ -196,10 +411,13 @@ const TOOL_META: Record<ToolTitleKey, ToolMetaSpec> = {
     icon: 'search',
     tone: 'file'
   },
-  session_search_recall: {
+  session_search: {
     icon: 'search',
     tone: 'agent'
   },
+  skill_manage: { icon: 'puzzle', tone: 'agent' },
+  skill_view: { icon: 'puzzle', tone: 'agent' },
+  skills_list: { icon: 'puzzle', tone: 'agent' },
   terminal: {
     icon: 'terminal',
     tone: 'terminal'
@@ -236,17 +454,25 @@ const PREFIX_META: { icon?: string; labelKey: string; prefix: string; tone: Tool
   { prefix: 'web_', labelKey: 'web', icon: 'globe', tone: 'web' }
 ]
 
-function toolMeta(name: string): ToolMeta {
+/** A known tool's title copy. skill_manage says what its `action` did to the
+ *  skill; a live call's args only arrive with its result, so a running one
+ *  stays generic. */
+function toolTitleCopy(name: ToolTitleKey, args: Record<string, unknown>) {
+  const { skillManageTitles, titles } = translationsNow().assistant.tool
+
+  if (name === 'skill_manage' && (args.action === 'create' || args.action === 'delete')) {
+    return { ...titles.skill_manage, ...skillManageTitles[args.action] }
+  }
+
+  return titles[name]
+}
+
+function toolMeta(name: string, args: Record<string, unknown>): ToolMeta {
   if (isToolTitleKey(name)) {
     const meta = TOOL_META[name]
+    const { done, failed, pending, pendingAction } = toolTitleCopy(name, args)
 
-    return {
-      done: translateNow(`assistant.tool.titles.${name}.done`),
-      pending: translateNow(`assistant.tool.titles.${name}.pending`),
-      pendingAction: translateNow(`assistant.tool.titles.${name}.pendingAction`),
-      icon: meta.icon,
-      tone: meta.tone
-    }
+    return { done, failed, pending, pendingAction, icon: meta.icon, tone: meta.tone }
   }
 
   const action = titleForTool(name)
@@ -304,6 +530,11 @@ const COUNT_ARRAY_KEYS = ['results', 'items', 'matches', 'files', 'documents', '
 
 const COUNT_EXCLUDED_KEYS = new Set(['duration_s', 'exit_code', 'status_code'])
 
+// Bytes are a size, not things the call found: execute_code's
+// `stdout_bytes_total` is how much its script printed, so `print("12 rows")`
+// showed "8 stdout_bytes" ("8 mục" in Vietnamese).
+const BYTE_SIZE_KEY_RE = /bytes?_/i
+
 const COUNT_NOUN_BY_FIELD: Partial<Record<(typeof COUNT_FIELD_KEYS)[number], string>> = {
   count: '',
   total: '',
@@ -342,11 +573,15 @@ const COUNT_NOUN_BY_ARRAY: Record<(typeof COUNT_ARRAY_KEYS)[number], string> = {
   sources: 'source'
 }
 
+// search_files names its array (`files`, `matches`) until 5+ matches get
+// densified into `matches_text`; then only `total_count` is left, and it
+// still counts matches.
 const DEFAULT_COUNT_NOUN_BY_TOOL: Record<string, string> = {
   browser_snapshot: 'item',
   list_files: 'file',
-  search_files: 'result',
-  session_search_recall: 'result',
+  search_files: 'match',
+  session_search: 'result',
+  skills_list: 'skill',
   todo: 'todo',
   web_search: 'result'
 }
@@ -407,8 +642,15 @@ function pluralizeNoun(noun: string, count: number): string {
   return `${noun}s`
 }
 
-function formatCountLabel(metric: CountMetric): string {
-  return `${metric.count} ${pluralizeNoun(metric.noun, metric.count)}`
+// The noun comes off the result's English keys. A known one is counted in the
+// locale's own grammar; any other gets an English plural that only English
+// shows — the rest print a neutral "N mục" instead.
+function formatCountLabel({ count, noun }: CountMetric): string {
+  const { countGeneric, countNouns } = translationsNow().assistant.tool
+
+  return Object.hasOwn(countNouns, noun)
+    ? countNouns[noun as keyof typeof countNouns](count)
+    : countGeneric(count, pluralizeNoun(noun, count))
 }
 
 function countMetric(count: number, noun: string): CountMetric {
@@ -428,13 +670,15 @@ function fallbackCountNoun(toolName: string): string {
 }
 
 function dynamicCountNounFromKey(key: string, fallbackNoun: string): string {
-  const normalized = key.toLowerCase()
+  const stripped = key
+    .toLowerCase()
+    .replace(/_(count|total)$/i, '')
+    .replace(/^num_/, '')
 
-  if (normalized === 'count' || normalized === 'total') {
+  // `total_count` says how many, not of what — read as a noun it gave "12 totals".
+  if (stripped === 'count' || stripped === 'total') {
     return fallbackNoun
   }
-
-  const stripped = normalized.replace(/_(count|total)$/i, '').replace(/^num_/, '')
 
   return singularizeNoun(stripped) || fallbackNoun
 }
@@ -459,7 +703,7 @@ function countFromRecord(record: Record<string, unknown>, fallbackNoun: string):
   }
 
   for (const [key, value] of Object.entries(record)) {
-    if (COUNT_EXCLUDED_KEYS.has(key)) {
+    if (COUNT_EXCLUDED_KEYS.has(key) || BYTE_SIZE_KEY_RE.test(key)) {
       continue
     }
 
@@ -498,11 +742,7 @@ function countFromText(value: string, fallbackNoun: string): CountMetric | null 
   return null
 }
 
-function toolResultCount(
-  part: ToolPart,
-  argsRecord: Record<string, unknown>,
-  resultRecord: Record<string, unknown>
-): CountMetric | null {
+function toolResultCount(part: ToolPart, resultRecord: Record<string, unknown>): CountMetric | null {
   if (part.result === undefined) {
     return null
   }
@@ -517,14 +757,17 @@ function toolResultCount(
     }
   }
 
-  // Memory success payloads put the live total on `entry_count` — keep the noun
-  // as entry/entries instead of falling through the generic `*_count` path.
+  // A memory write's `entry_count` is the size of the WHOLE store, not what
+  // this call saved — "Saved to memory · 5 entries" read as five new memories.
+  // The row shows the saved text instead (toolDetailText), so no count here.
   if (part.toolName === 'memory') {
-    const entryTotal = countFromUnknown(resultRecord.entry_count)
+    return null
+  }
 
-    if (entryTotal !== null) {
-      return countMetric(entryTotal, 'entry')
-    }
+  // A skill view is one skill. Its numbers are words of the skill ("Runs 3
+  // steps"), which a reloaded row counted while the count read its summary.
+  if (part.toolName === 'skill_view') {
+    return null
   }
 
   const directCount = countFromRecord(resultRecord, fallbackNounByTool)
@@ -543,22 +786,37 @@ function toolResultCount(
     }
   }
 
-  const summaryText =
-    firstStringField(resultRecord, ['summary', 'message', 'detail']) || fallbackDetailText(argsRecord, resultRecord)
+  // Words that may hold a count ("Did 3 searches", "Uploaded 3 files"): the
+  // result's own, the same text in every language. Not the summary the row
+  // formats from the result: it's in the display language and only English
+  // reads as a count, so an English row counted its "2 items" (the length of
+  // whichever list it printed first) where Vietnamese counted nothing. Nor the
+  // call's args, which say what it was asked: tool.start's preview of them
+  // (live rows only) read `head -n 20 results.json` as "20 results" until the
+  // row was reloaded, and delegate_task's `context` is a subagent's brief.
+  const summaryText = firstStringField(resultRecord, ['summary', 'message', 'detail']) || contextValue(resultRecord)
 
   const textMetric = countFromText(summaryText, fallbackNounByTool)
 
   return textMetric ? normalizeMetricForTool(part.toolName, textMetric) : null
 }
 
+// Case and line wrapping aside: the same words re-wrapped or re-indented are
+// the same text.
+const squashText = (input: string) => input.toLowerCase().replace(/\s+/g, ' ').trim()
+
 export function looksRedundant(title: string, detail: string): boolean {
   if (!detail) {
     return true
   }
 
-  const norm = (input: string) => input.toLowerCase().replace(/\s+/g, ' ').trim()
+  return squashText(title) === squashText(detail)
+}
 
-  return norm(title) === norm(detail)
+function includesText(text: string, phrase: string): boolean {
+  const needle = squashText(phrase)
+
+  return Boolean(needle) && squashText(text).includes(needle)
 }
 
 export function cleanVisibleText(text: string): string {
@@ -580,20 +838,21 @@ export function cleanVisibleText(text: string): string {
 }
 
 function summarizeBrowserSnapshot(snapshot: string): string {
+  const { snapshotSummary } = translationsNow().assistant.tool
   const count = (re: RegExp) => snapshot.match(re)?.length ?? 0
 
-  const stats = [
-    `${count(/button\s+"[^"]+"/g)} buttons`,
-    `${count(/link\s+"[^"]+"/g)} links`,
-    `${count(/(?:textbox|combobox|searchbox)\s+"[^"]+"/g)} inputs`
-  ].join(' · ')
+  const stats = snapshotSummary.counts(
+    count(/button\s+"[^"]+"/g),
+    count(/link\s+"[^"]+"/g),
+    count(/(?:textbox|combobox|searchbox)\s+"[^"]+"/g)
+  )
 
   const labels = Array.from(snapshot.matchAll(/(?:button|link|combobox|textbox)\s+"([^"]+)"/g))
     .map(m => m[1].trim())
     .filter(Boolean)
     .slice(0, 4)
 
-  return labels.length ? `${stats}\nTop controls: ${labels.join(', ')}` : stats
+  return labels.length ? `${stats}\n${snapshotSummary.topControls(labels)}` : stats
 }
 
 export function firstStringField(record: Record<string, unknown>, keys: readonly string[]): string {
@@ -664,11 +923,14 @@ function extractSearchResults(result: unknown, limit = 6): SearchResultRow[] {
     .slice(0, limit)
 }
 
+const FAILED_STATUS_RE = /\b(error|failed|failure)\b/i
+
 function toolErrorText(part: ToolPart, result: Record<string, unknown>): string {
+  const { errorFallbacks } = translationsNow().assistant.tool
   const extractedError = extractToolErrorMessage(part.result)
 
   if (part.isError) {
-    return extractedError || (typeof part.result === 'string' && part.result.trim()) || 'Tool returned an error.'
+    return extractedError || (typeof part.result === 'string' && part.result.trim()) || errorFallbacks.generic
   }
 
   if (typeof result.error === 'string' && result.error.trim()) {
@@ -679,12 +941,22 @@ function toolErrorText(part: ToolPart, result: Record<string, unknown>): string 
     return extractedError
   }
 
-  if (result.success === false || result.ok === false) {
-    return firstStringField(result, ['message', 'reason', 'detail']) || 'Tool returned success=false.'
+  // web_extract tells why it couldn't read a page on that page, not as the
+  // call's error. A call that got no text from any page read nothing.
+  if (part.toolName === 'web_extract') {
+    const pages = extractedPages(result)
+
+    if (pages && !pages.read.length && pages.unread.length) {
+      return unreadPagesText(pages.unread)
+    }
   }
 
-  if (typeof result.status === 'string' && /\b(error|failed|failure)\b/i.test(result.status)) {
-    return firstStringField(result, ['message', 'reason', 'detail']) || `Tool returned status "${result.status}".`
+  if (result.success === false || result.ok === false) {
+    return firstStringField(result, ['message', 'reason', 'detail']) || errorFallbacks.notSuccessful
+  }
+
+  if (typeof result.status === 'string' && FAILED_STATUS_RE.test(result.status)) {
+    return firstStringField(result, ['message', 'reason', 'detail']) || errorFallbacks.status(result.status)
   }
 
   // A non-zero exit code alone is a weak failure signal: grep returns 1 on
@@ -699,15 +971,60 @@ function toolErrorText(part: ToolPart, result: Record<string, unknown>): string 
   if (exit !== null && exit !== 0) {
     const hasOutput = Boolean(firstStringField(result, ['output', 'stdout', 'stderr', 'output_preview'])?.trim())
 
-    return hasOutput ? '' : `Command failed with exit code ${exit}.`
+    return hasOutput ? '' : errorFallbacks.exitCode(exit)
   }
 
   return ''
 }
 
+/**
+ * A failed result minus what its row already opens with: the field the error
+ * was read from (verbatim, or clipped to a trailing "…" by the extractor) and
+ * the flags that only declare the failure. Left in, the generic summary below
+ * the error says it again as "- Error: …" and "- Success: false".
+ */
+function withoutFailureFields(result: Record<string, unknown>, error: string): Record<string, unknown> {
+  const clippedFrom = error.endsWith('…') ? error.slice(0, -1) : ''
+
+  const carriesError = (value: unknown) =>
+    typeof value === 'string' &&
+    (value.trim() === error || Boolean(clippedFrom && value.trim().startsWith(clippedFrom)))
+
+  return Object.fromEntries(
+    Object.entries(result).filter(
+      ([key, value]) =>
+        !carriesError(value) &&
+        !((key === 'success' || key === 'ok') && value === false) &&
+        !(key === 'status' && typeof value === 'string' && FAILED_STATUS_RE.test(value))
+    )
+  )
+}
+
+/**
+ * What a failed row or a refused memory write shows when opened: its error,
+ * then the rest of what the call returned. A rest that is just the error again
+ * is dropped; a rest that already carries the error where the row paints it
+ * (execute_code folds a script's stderr into its output) keeps it, and the row
+ * doesn't lead with it.
+ */
+function failedRowDetail(error: string, body: string): { detail: string; errorLead: string } {
+  const detail = looksRedundant(error, body) ? '' : body
+
+  return {
+    detail,
+    errorLead: includesText(clampForDisplay(detail), error) ? '' : error
+  }
+}
+
 function toolStatus(part: ToolPart, resultRecord: Record<string, unknown>): ToolStatus {
   if (part.result === undefined) {
     return 'running'
+  }
+
+  // With write approval on, the memory tool and skill_manage stage a write
+  // instead of saving it. Their `success: true` only says the staging worked.
+  if ((part.toolName === 'memory' || part.toolName === 'skill_manage') && resultRecord.staged === true) {
+    return 'awaiting'
   }
 
   // Explicit success wins over isError / nested-error heuristics. Memory writes
@@ -737,6 +1054,53 @@ function durationLabel(resultRecord: Record<string, unknown>): string | undefine
   return formatDurationSeconds(seconds)
 }
 
+/**
+ * The page a web_extract call reads first, from its own args: `urls`, else
+ * `url`. tool.start puts the gateway's preview of the call in the live args as
+ * `context`, and past 80 characters that preview is the URL cut to 77 and "..."
+ * (agent/display build_tool_preview). Read first, it named a live row's page
+ * by a URL the reloaded row shows whole. A running call has only the preview.
+ */
+function webExtractUrl(args: Record<string, unknown>, result: Record<string, unknown>): string {
+  return findFirstUrl(args.urls, args.url) || findFirstUrl(args, result)
+}
+
+/** A host and maybe a port, then a path or nothing: "acme.dev/docs", "10.0.0.1",
+ *  "web_app:3000". Not a path, an email, nor anything with a scheme ("about:blank"). */
+const SCHEMELESS_URL_RE = /^[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*(?::\d+)?(?:[/?#]|$)/u
+
+/**
+ * A `url` typed without a scheme ("acme.dev/docs"), completed with https the
+ * way the browser opens it. A call the browser never got through holds no
+ * other URL to name its page by: a cloud browser refuses a bare host as a
+ * private address (tools/url_safety is_safe_url), and the red row read
+ * "Opened page".
+ */
+function schemelessUrl(value: unknown): string {
+  const text = typeof value === 'string' ? value.trim() : ''
+
+  if (!SCHEMELESS_URL_RE.test(text)) {
+    return ''
+  }
+
+  try {
+    return new URL(`https://${text}`).href
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The page a browser_navigate call opens: its `url` arg, before the preview the
+ * live args carry as `context` (see webExtractUrl). Read first, that preview
+ * titled a live row by the URL cut to 77 characters. A running call has only it.
+ * A url typed without a scheme names its page too, before a URL in its query
+ * ("google.com/url?q=https://…" opens google.com).
+ */
+function browserNavigateUrl(args: Record<string, unknown>, result: Record<string, unknown>): string {
+  return schemelessUrl(args.url) || findFirstUrl(args.url) || findFirstUrl(args, result)
+}
+
 function toolPreviewTarget(toolName: string, args: Record<string, unknown>, result: Record<string, unknown>): string {
   const direct =
     firstStringField(result, ['preview', 'url', 'target']) ||
@@ -750,7 +1114,11 @@ function toolPreviewTarget(toolName: string, args: Record<string, unknown>, resu
   if (toolName === 'browser_navigate' || toolName === 'web_extract' || toolName === 'web_search') {
     const explicit = firstStringField(args, ['url', 'search_term', 'query']) || firstStringField(result, ['url'])
 
-    return looksLikeUrl(explicit) ? explicit : findFirstUrl(args, result)
+    if (looksLikeUrl(explicit)) {
+      return explicit
+    }
+
+    return toolName === 'web_extract' ? webExtractUrl(args, result) : findFirstUrl(args, result)
   }
 
   if (isFileEditTool(toolName)) {
@@ -805,14 +1173,6 @@ function htmlPathFromInlineDiff(value: string): string {
   return ''
 }
 
-function stripDividerLines(value: string): string {
-  return value
-    .split('\n')
-    .filter(line => !/^[-=]{3,}\s*$/.test(line.trim()))
-    .join('\n')
-    .trim()
-}
-
 export function inlineDiffFromResult(result: unknown): string {
   const record = parseMaybeObject(result)
 
@@ -845,23 +1205,41 @@ function minimalValueSummary(value: unknown): string {
   return ''
 }
 
-function fallbackDetailText(args: unknown, result: unknown): string {
-  const argContext = contextValue(args)
-  const resultContext = contextValue(result)
-
-  if (resultContext && resultContext !== argContext) {
-    return resultContext
+// `duration_s` is the gateway's stopwatch (lib/chat-messages stamps it on every
+// live result) and the row's header already shows it. It is not something the
+// call returned: alone it says nothing, and beside a message it turned the
+// message into a list a reloaded row, which has no stopwatch, never shows.
+function returnedSummary(result: unknown): string {
+  if (!isRecord(result)) {
+    return result === undefined ? '' : formatToolResultSummary(result) || minimalValueSummary(result)
   }
 
-  if (argContext) {
-    return argContext
+  const { duration_s: _stopwatch, ...returned } = result
+
+  return formatToolResultSummary(returned)
+}
+
+/**
+ * What a row without a layout of its own shows when opened: what the call
+ * returned. tool.start stamps the gateway's preview of the call's input into
+ * the live args as `context`, and reading that first showed a finished row its
+ * own input where its result belonged (a reloaded row, whose args carry no
+ * preview, showed the result). The preview still stands in while the call
+ * runs, and for a finished call that returned nothing to show — but not under
+ * a failure, whose error already says what happened.
+ */
+function fallbackDetailText(args: unknown, result: unknown, failed = false): string {
+  const returned = contextValue(result) || returnedSummary(result)
+
+  if (returned || failed) {
+    return returned
   }
 
   if (result !== undefined) {
-    return formatToolResultSummary(result) || minimalValueSummary(result)
+    return contextValue(args)
   }
 
-  return formatToolResultSummary(args) || minimalValueSummary(args)
+  return contextValue(args) || formatToolResultSummary(args) || minimalValueSummary(args)
 }
 
 function cronScalar(value: unknown): string {
@@ -883,7 +1261,8 @@ function formatCronTime(iso: string): string {
     return iso
   }
 
-  return new Date(ts).toLocaleString(undefined, {
+  // The display language's month names, not the OS's (lib/time).
+  return new Date(ts).toLocaleString(getTimeFormatLocale(), {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -892,10 +1271,11 @@ function formatCronTime(iso: string): string {
 }
 
 function cronjobSubtitle(argsRecord: Record<string, unknown>, resultRecord: Record<string, unknown>): string {
+  const { cron } = translationsNow().assistant.tool
   const jobs = Array.isArray(resultRecord.jobs) ? resultRecord.jobs : null
 
   if (jobs) {
-    return jobs.length ? `${jobs.length} cron job${jobs.length === 1 ? '' : 's'}` : 'No cron jobs'
+    return jobs.length ? cron.jobs(jobs.length) : cron.noJobs
   }
 
   const message = firstStringField(resultRecord, ['message'])
@@ -911,12 +1291,17 @@ function cronjobSubtitle(argsRecord: Record<string, unknown>, resultRecord: Reco
   return name ? `${label} ${name}` : `Cron ${action}`
 }
 
-function cronjobDetail(argsRecord: Record<string, unknown>, resultRecord: Record<string, unknown>): string {
+function cronjobDetail(
+  argsRecord: Record<string, unknown>,
+  resultRecord: Record<string, unknown>,
+  failed: boolean
+): string {
+  const { cron } = translationsNow().assistant.tool
   const jobs = Array.isArray(resultRecord.jobs) ? resultRecord.jobs : null
 
   if (jobs) {
     if (!jobs.length) {
-      return 'No cron jobs scheduled'
+      return cron.noJobsScheduled
     }
 
     return jobs
@@ -934,15 +1319,15 @@ function cronjobDetail(argsRecord: Record<string, unknown>, resultRecord: Record
   const nextRun = cronScalar(resultRecord.next_run_at)
 
   const rows: [string, string][] = [
-    ['Schedule', cronScalar(resultRecord.schedule)],
-    ['Repeat', cronScalar(resultRecord.repeat)],
-    ['Delivery', cronScalar(resultRecord.deliver)],
-    ['Next run', nextRun ? formatCronTime(nextRun) : '']
+    [cron.schedule, cronScalar(resultRecord.schedule)],
+    [cron.repeat, cronScalar(resultRecord.repeat)],
+    [cron.delivery, cronScalar(resultRecord.deliver)],
+    [cron.nextRun, nextRun ? formatCronTime(nextRun) : '']
   ]
 
   const lines = rows.filter(([, value]) => value).map(([key, value]) => `${key}: ${value}`)
 
-  return lines.length ? lines.join('\n') : fallbackDetailText(argsRecord, resultRecord)
+  return lines.length ? lines.join('\n') : fallbackDetailText(argsRecord, resultRecord, failed)
 }
 
 function toolSubtitle(
@@ -951,6 +1336,7 @@ function toolSubtitle(
   resultRecord: Record<string, unknown>
 ): string {
   const toolName = part.toolName
+  const { subtitles } = translationsNow().assistant.tool
 
   if (toolName === 'browser_navigate') {
     const url =
@@ -958,23 +1344,23 @@ function toolSubtitle(
       firstStringField(resultRecord, ['url']) ||
       findFirstUrl(argsRecord, resultRecord)
 
-    return url ? hostnameOf(url) : 'Navigated in browser'
+    return url ? hostnameOf(url) : subtitles.browserNavigated
   }
 
   if (toolName === 'browser_snapshot') {
     const snapshot = firstStringField(resultRecord, ['snapshot'])
 
-    return snapshot ? summarizeBrowserSnapshot(snapshot) : 'Captured a browser accessibility snapshot'
+    return snapshot ? summarizeBrowserSnapshot(snapshot) : subtitles.browserSnapshot
   }
 
   if (toolName === 'browser_click') {
     const clicked = firstStringField(resultRecord, ['clicked']) || firstStringField(argsRecord, ['ref', 'target'])
 
     if (!clicked) {
-      return 'Clicked on page'
+      return subtitles.clickedOnPage
     }
 
-    return clicked.startsWith('@') ? `Clicked page element (internal ref ${clicked})` : `Clicked ${clicked}`
+    return clicked.startsWith('@') ? subtitles.clickedRef(clicked) : subtitles.clicked(clicked)
   }
 
   if (toolName === 'browser_fill' || toolName === 'browser_type') {
@@ -982,15 +1368,16 @@ function toolSubtitle(
     const value = firstStringField(argsRecord, ['value', 'text'])
 
     return (
-      [field && `Field: ${field}`, value && `Value: ${compactPreview(value, 42)}`].filter(Boolean).join(' · ') ||
-      'Filled page input'
+      [field && `${subtitles.fieldLabel}: ${field}`, value && `${subtitles.valueLabel}: ${compactPreview(value, 42)}`]
+        .filter(Boolean)
+        .join(' · ') || subtitles.filledInput
     )
   }
 
   if (toolName === 'web_search') {
     const query = firstStringField(argsRecord, ['search_term', 'query']) || contextValue(argsRecord)
 
-    return query ? `Query: ${query}` : 'Queried web sources'
+    return query ? `${subtitles.queryLabel}: ${query}` : subtitles.queriedWeb
   }
 
   if (toolName === 'terminal' || toolName === 'execute_code') {
@@ -1015,7 +1402,7 @@ function toolSubtitle(
 
     const command = firstStringField(argsRecord, ['context', 'preview', 'command', 'code']) || contextValue(argsRecord)
 
-    return command ? '' : 'Executed command'
+    return command ? '' : subtitles.executedCommand
   }
 
   if (toolName === 'read_file' || isFileEditTool(toolName)) {
@@ -1033,16 +1420,16 @@ function toolSubtitle(
       return fallbackDetailText(argsRecord, resultRecord)
     }
 
-    return inlineDiffFromResult(resultRecord) ? 'Changed file' : ''
+    return inlineDiffFromResult(resultRecord) ? subtitles.changedFile : ''
   }
 
   if (toolName === 'web_extract') {
     const url =
       firstStringField(argsRecord, ['url']) ||
       firstStringField(resultRecord, ['url']) ||
-      findFirstUrl(argsRecord, resultRecord)
+      webExtractUrl(argsRecord, resultRecord)
 
-    return url ? hostnameOf(url) : 'Fetched webpage'
+    return url ? hostnameOf(url) : subtitles.fetchedWebpage
   }
 
   if (toolName === 'memory') {
@@ -1064,27 +1451,94 @@ function toolSubtitle(
   )
 }
 
-function toolDetailLabel(toolName: string): string {
+/** The title of a write the approval gate staged: what waits on the user. */
+function awaitingTitle(toolName: string): string {
+  return toolName === 'skill_manage'
+    ? translateNow('assistant.tool.skillChangeAwaitingApproval')
+    : translateNow('assistant.tool.memoryWriteAwaitingApproval')
+}
+
+function toolDetailLabel(toolName: string, failed: boolean): string {
+  const { detailLabels } = translationsNow().assistant.tool
+
+  if (failed) {
+    return detailLabels.error
+  }
+
   if (toolName === 'web_search') {
-    return 'Details'
+    return detailLabels.details
   }
 
   if (toolName === 'browser_snapshot') {
-    return 'Snapshot summary'
+    return detailLabels.snapshot
   }
 
   return ''
 }
 
+/** The text a memory call wrote, one paragraph per operation: the new text
+ *  for add / replace, the old text marked "−" for a removal. Batch calls carry
+ *  `operations`; single calls the same fields at the top level (`new_text` is
+ *  the tool's alias for `content`). */
+export function memoryWriteText(args: Record<string, unknown>): string {
+  const operations = Array.isArray(args.operations) ? args.operations : [args]
+  const lines: string[] = []
+
+  for (const operation of operations) {
+    if (!operation || typeof operation !== 'object') {
+      continue
+    }
+
+    const op = operation as Record<string, unknown>
+
+    if (op.action === 'remove') {
+      const removed = firstStringField(op, ['old_text'])
+
+      if (removed) {
+        lines.push(`− ${removed}`)
+      }
+
+      continue
+    }
+
+    const written = firstStringField(op, ['content', 'new_text'])
+
+    if (written) {
+      lines.push(written)
+    }
+  }
+
+  return lines.join('\n\n')
+}
+
 function toolDetailText(
   part: ToolPart,
   argsRecord: Record<string, unknown>,
-  resultRecord: Record<string, unknown>
+  resultRecord: Record<string, unknown>,
+  failed = false
 ): string {
   if (part.toolName === 'browser_snapshot') {
     const snapshot = firstStringField(resultRecord, ['snapshot'])
 
-    return snapshot ? summarizeBrowserSnapshot(snapshot) : fallbackDetailText(argsRecord, resultRecord)
+    return snapshot ? summarizeBrowserSnapshot(snapshot) : fallbackDetailText(argsRecord, resultRecord, failed)
+  }
+
+  if (part.toolName === 'web_search' && !failed) {
+    // The gateway's search (plugins/web/agentx_gateway) writes a cited answer
+    // beside its hits, and that answer is the detail; its `[1]` markers point
+    // into a list the row doesn't number. The hits the row lists already, so
+    // without an answer a summary of them ("Web: 5 items (…)") only said them
+    // again. With none, the gateway's English `summary` ("Did 0 searches in
+    // 1.2s") is no news either.
+    const answer = firstStringField(parseMaybeObject(unwrapToolPayload(resultRecord)), ['answer'])
+
+    if (answer || extractSearchResults(part.result).length) {
+      return answer.replace(CITATION_MARKER_RE, '')
+    }
+
+    const { summary: _tally, ...returned } = resultRecord
+
+    return fallbackDetailText(argsRecord, returned)
   }
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
@@ -1104,33 +1558,40 @@ function toolDetailText(
 
     // A terminal row with no output already shows its command in the `$`
     // transcript above; the generic fallback would print the same string a
-    // second time. `execute_code` has no transcript, so it keeps the fallback.
-    if (part.toolName === 'terminal') {
-      return ''
-    }
+    // second time. `execute_code` has no transcript, so it keeps the preview of
+    // its code: the rest of what it returns (`status`, `exit_code`,
+    // `tool_calls_made`, `duration_seconds`) is the sandbox's bookkeeping.
+    return part.toolName === 'terminal' || failed ? '' : contextValue(argsRecord)
   }
 
   if (part.toolName === 'web_extract') {
-    const direct = firstStringField(resultRecord, ['content', 'text', 'markdown', 'body', 'summary', 'message'])
+    // Beside the pages, `summary` is the gateway's tally of them ("Extracted 2
+    // pages in 1.2s", tui_gateway `_tool_summary`), on the live result only.
+    // Read first, it opened the live row onto the tally, where the reloaded row
+    // opens onto the pages. The header already counts them and times the call.
+    const { summary: _tally, ...returned } = resultRecord
+    const record = Array.isArray(resultRecord.results) ? returned : resultRecord
+    const direct = firstStringField(record, ['content', 'text', 'markdown', 'body', 'summary', 'message'])
 
     if (direct) {
       return direct.replace(/\s*in\s+\d+(?:\.\d+)?s\s*$/i, '').trim()
     }
 
-    const results = Array.isArray(resultRecord.results) ? resultRecord.results : []
+    const pages = extractedPages(resultRecord)
 
-    const aggregated = results
-      .map(item => {
-        const row = parseMaybeObject(item)
-
-        return firstStringField(row, ['content', 'text', 'markdown', 'body'])
-      })
-      .filter(Boolean)
-      .join('\n\n---\n\n')
-
-    if (aggregated) {
-      return aggregated
+    // A page it couldn't read says so, and why, above the pages it did: those
+    // can run past what the row paints.
+    if (pages?.read.length) {
+      return [unreadPagesList(pages.unread), ...pages.read].filter(Boolean).join('\n\n---\n\n')
     }
+
+    // It read none: the error the failed row leads with (toolErrorText).
+    // Summarized like any result, that read "Results: 1 item (4 fields)".
+    if (pages?.unread.length) {
+      return unreadPagesText(pages.unread)
+    }
+
+    return fallbackDetailText(argsRecord, record, failed)
   }
 
   if (part.toolName === 'read_file' && part.result !== undefined) {
@@ -1139,12 +1600,63 @@ function toolDetailText(
     if (content) {
       return content
     }
+
+    // No text: the reader's own note says why (a re-read of a file that hasn't
+    // changed), else whatever it returned past its empty defaults.
+    return (
+      firstStringField(resultRecord, ['message']) ||
+      fallbackDetailText(argsRecord, withoutEmptyReadFields(resultRecord), failed)
+    )
+  }
+
+  if (part.toolName === 'search_files' && part.result !== undefined) {
+    // What the search found. Summarized like any other result it read
+    // "Matches: 2 items (3 fields)", or quoted the result's note to the model
+    // on how to read its matches.
+    return searchFilesDetail(resultRecord) || (failed ? '' : contextValue(argsRecord))
   }
 
   if (part.toolName === 'memory') {
-    // Same reasoning as toolSubtitle: without this the generic fallback dumps
-    // the whole args + result payload into the expanded row.
-    return firstStringField(resultRecord, ['message', 'error'])
+    // What was saved IS the detail. The result is bookkeeping (a usage counter,
+    // a "don't retry" note, the store total), so the row had nothing to open
+    // and the user could not see what had been remembered. A staged write shows
+    // the text waiting for approval the same way; a refused write keeps its
+    // explanation instead.
+    const saved = resultRecord.success === false ? '' : memoryWriteText(argsRecord)
+
+    return saved || firstStringField(resultRecord, ['message', 'error'])
+  }
+
+  // The title names the skill (dynamicTitle). While the call runs, the gateway's
+  // preview of its args is that name and nothing more.
+  if ((part.toolName === 'skill_view' || part.toolName === 'skill_manage') && part.result === undefined) {
+    return ''
+  }
+
+  // A watch window's row has no result of its own, only the call's preview
+  // (lib/chat-messages): it opens onto that, as a call that returned nothing to
+  // show does (fallbackDetailText), not onto the skill layouts below.
+  const returnedNothing = isRecord(part.result) && !Object.keys(part.result).length
+
+  // The skill itself. A stored tool message without its call has only its text,
+  // as `context` (lib/chat-messages storedToolMessagePart), and that stays what
+  // it opens onto.
+  if (part.toolName === 'skill_view' && !failed && !returnedNothing) {
+    return skillViewDetail(resultRecord) || contextValue(resultRecord)
+  }
+
+  if (part.toolName === 'skills_list' && part.result !== undefined && !failed && !returnedNothing) {
+    // Summarized, the list read "Skills: 1 item (1 field)" under keys the
+    // display language has no words for. An empty one keeps the tool's note
+    // ("No skills found…").
+    return skillsListDetail(resultRecord) || firstStringField(resultRecord, ['message']) || contextValue(resultRecord)
+  }
+
+  if (part.toolName === 'skill_manage' && resultRecord.staged === true) {
+    // A staged skill change opens on the gate's one-line gist of it ("patch
+    // 'deploy' SKILL.md (+3/-1 lines)"). The rest of the result is the gate's
+    // bookkeeping: summarized, it read "Staged: true" and the pending id.
+    return firstStringField(resultRecord, ['gist', 'message'])
   }
 
   if (isFileEditTool(part.toolName)) {
@@ -1162,28 +1674,14 @@ function toolDetailText(
       return ''
     }
 
-    return fallbackDetailText(argsRecord, resultRecord)
-  }
-
-  if (part.toolName === 'web_search') {
-    const detail = fallbackDetailText(argsRecord, resultRecord)
-    const seconds = numberValue(resultRecord.duration_s)
-    const duration = seconds === null ? '' : formatDurationSeconds(seconds)
-
-    if (!duration) {
-      return detail
-    }
-
-    return detail
-      .replace(/^\s*-\s*Duration\s+S\s*:\s*[-+]?[\d.]+(?:e[-+]?\d+)?\s*$/gim, `- Duration: ${duration}`)
-      .replace(/\bDuration\s+S\s*:/gi, 'Duration:')
+    return fallbackDetailText(argsRecord, resultRecord, failed)
   }
 
   if (part.toolName === 'cronjob') {
-    return cronjobDetail(argsRecord, resultRecord)
+    return cronjobDetail(argsRecord, resultRecord, failed)
   }
 
-  return fallbackDetailText(argsRecord, resultRecord)
+  return fallbackDetailText(argsRecord, resultRecord, failed)
 }
 
 export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string; text: string } {
@@ -1201,7 +1699,8 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
 
   const args = parseMaybeObject(part.args)
   const result = parseMaybeObject(part.result)
-  const detail = view.detail.trim()
+  // A failed row's error sits above its detail; a copy carries both.
+  const detail = [view.errorLead, view.detail].filter(Boolean).join('\n\n').trim()
   const hasSubstantialOutput = detail.length > 16
 
   if (part.toolName === 'terminal' || part.toolName === 'execute_code') {
@@ -1221,7 +1720,7 @@ export function toolCopyPayload(part: ToolPart, view: ToolView): { label: string
       return { label: copy.content, text: detail }
     }
 
-    const url = firstStringField(args, ['url', 'target']) || findFirstUrl(args, result)
+    const url = firstStringField(args, ['url', 'target']) || webExtractUrl(args, result)
 
     if (url) {
       return { label: copy.url, text: url }
@@ -1311,16 +1810,24 @@ function dynamicTitle(
   part: ToolPart,
   args: Record<string, unknown>,
   result: Record<string, unknown>,
-  fallback: ToolTitleParts
+  fallback: ToolTitleParts,
+  failed: boolean
 ): ToolTitleParts {
   const verb = (gerund: string, past: string) => (part.result === undefined ? gerund : past)
 
   const titledAction = (action: string, title: string): ToolTitleParts =>
     titlePartsFromAction(title, part.result === undefined ? action : undefined)
 
+  // A read that failed read nothing; "Read notes.md" above "File not found"
+  // said it had.
+  const readAction = () =>
+    failed
+      ? translateNow('assistant.tool.actions.failedToRead')
+      : verb(translateNow('assistant.tool.actions.reading'), translateNow('assistant.tool.actions.read'))
+
   if (part.toolName === 'web_extract') {
-    const url = findFirstUrl(args, result)
-    const action = verb(translateNow('assistant.tool.actions.reading'), translateNow('assistant.tool.actions.read'))
+    const url = webExtractUrl(args, result)
+    const action = readAction()
 
     return url
       ? titledAction(action, translateNow('assistant.tool.titleTemplates.actionTarget', action, hostnameOf(url)))
@@ -1328,15 +1835,14 @@ function dynamicTitle(
   }
 
   if (part.toolName === 'browser_navigate') {
-    const url = findFirstUrl(args, result)
+    const url = browserNavigateUrl(args, result)
 
     if (!url) {
       return fallback
     }
 
-    const failed =
-      part.isError || result.success === false || result.ok === false || Boolean(firstStringField(result, ['error']))
-
+    // Failed as the row's glyph says, the way the title without a page reads
+    // it: an `error` beside `success: true` didn't stop the page opening.
     if (failed) {
       const failAction = translateNow('assistant.tool.actions.failedToOpen')
 
@@ -1369,7 +1875,7 @@ function dynamicTitle(
 
   if (part.toolName === 'read_file') {
     const target = readFileDisplayTarget(args, result)
-    const action = verb(translateNow('assistant.tool.actions.reading'), translateNow('assistant.tool.actions.read'))
+    const action = readAction()
 
     return target
       ? titledAction(action, translateNow('assistant.tool.titleTemplates.actionTarget', action, target))
@@ -1404,32 +1910,55 @@ function dynamicTitle(
     }
   }
 
+  if (part.toolName === 'skill_view' || part.toolName === 'skill_manage') {
+    const skill = skillTarget(part, args)
+
+    // A staged change keeps the title of what waits for approval; its gist
+    // names the skill.
+    if (skill && result.staged !== true) {
+      return titlePartsFromAction(
+        translateNow('assistant.tool.titleTemplates.skillNamed', fallback.title, skill),
+        fallback.action?.text
+      )
+    }
+  }
+
   return fallback
 }
 
 export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
   const argsRecord = parseMaybeObject(part.args)
-  const resultRecord = parseMaybeObject(part.result)
-  const meta = toolMeta(part.toolName)
+  // A tool that answered in plain text reads the way the live row keeps that
+  // text (lib/chat-messages): as the row's own text, `{ context }`. Parsed as
+  // an object it was empty, so a reloaded row had nothing to open.
+  const plainText = plainTextResult(part.result)
+  const resultRecord: Record<string, unknown> = plainText ? { context: plainText } : parseMaybeObject(part.result)
+  const meta = toolMeta(part.toolName, argsRecord)
   const status = toolStatus(part, resultRecord)
-  // Skip residual error-heuristic text once status is success (stale isError
-  // envelope over a landed memory write would otherwise foul the subtitle).
-  const error = status === 'success' ? '' : toolErrorText(part, resultRecord)
-  // Over-budget memory refusals stay amber — don't claim "Saved".
-  const memoryMissed = part.toolName === 'memory' && part.result !== undefined && status !== 'success'
+  // Skip residual error-heuristic text once status is success or awaiting
+  // (stale isError envelope over a landed or staged write would otherwise
+  // foul the subtitle).
+  const error = status === 'success' || status === 'awaiting' ? '' : toolErrorText(part, resultRecord)
+  // Over-budget memory refusals stay amber — don't claim "Saved". Neither does
+  // a staged write, which has its own title, nor a failed call whose tool has
+  // a title for that.
+  const memoryMissed = part.toolName === 'memory' && status === 'warning'
 
   const baseTitle =
     part.result === undefined
       ? meta.pending
-      : memoryMissed
-        ? translateNow('assistant.tool.memoryWriteNoted')
-        : meta.done
+      : status === 'awaiting'
+        ? awaitingTitle(part.toolName)
+        : memoryMissed
+          ? translateNow('assistant.tool.memoryWriteNoted')
+          : (status === 'error' && meta.failed) || meta.done
 
   const titleParts = dynamicTitle(
     part,
     argsRecord,
     resultRecord,
-    titlePartsFromAction(baseTitle, part.result === undefined ? meta.pendingAction : undefined)
+    titlePartsFromAction(baseTitle, part.result === undefined ? meta.pendingAction : undefined),
+    status === 'error'
   )
 
   const title = titleParts.title
@@ -1442,14 +1971,30 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
     (isFileEditTool(part.toolName) && Boolean(baseSubtitle.trim()))
 
   const subtitle = titleEnriched && !error && !keepSubtitleWithTitle ? '' : baseSubtitle
-  const detailBody = stripDividerLines(toolDetailText(part, argsRecord, resultRecord))
+  const failed = status === 'error'
 
-  const detail = error
-    ? [error, detailBody]
-        .filter(Boolean)
-        .filter((value, index, list) => list.findIndex(entry => entry.trim() === value.trim()) === index)
-        .join('\n\n')
-    : detailBody
+  const detailText = toolDetailText(
+    part,
+    argsRecord,
+    failed ? withoutFailureFields(resultRecord, error) : resultRecord,
+    failed
+  )
+
+  // Lines that are only `---` or `===` stay. No tool writes them as chrome:
+  // they are a YAML file's document separators, a page's rules and heading
+  // underlines, a test runner's banners, and Copy hands them on.
+  const detailBody = detailText.trim()
+
+  // A refused memory write (amber) opens on its reason the way a failed row
+  // does. It keeps its whole result: `success: false` is what stops the memory
+  // detail offering the refused text as if it had been saved.
+  const failure = failed || status === 'warning' ? failedRowDetail(error, detailBody) : undefined
+  const detail = failure ? failure.detail : detailBody
+  // A staged write opens on what waits for approval: the memory text, or a
+  // skill change's gist. The gate's own line goes under it, unless it only
+  // repeats the title or that.
+  const gateNote = status === 'awaiting' ? firstStringField(resultRecord, ['message']) : ''
+  const detailNote = looksRedundant(title, gateNote) || includesText(detail, gateNote) ? undefined : gateNote
 
   const searchHits =
     part.toolName === 'web_search' && status !== 'error' ? extractSearchResults(part.result) : undefined
@@ -1459,7 +2004,7 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
       ? firstStringField(argsRecord, ['search_term', 'query']) || contextValue(argsRecord)
       : ''
 
-  const resultCount = status === 'error' ? null : toolResultCount(part, argsRecord, resultRecord)
+  const resultCount = status === 'error' ? null : toolResultCount(part, resultRecord)
 
   // For shell/code tools we surface stdout and stderr as separate labeled
   // streams in the renderer. Many CLIs use stderr for informational
@@ -1478,8 +2023,11 @@ export function buildToolView(part: ToolPart, inlineDiff: string): ToolView {
   return {
     countLabel: resultCount ? formatCountLabel(resultCount) : undefined,
     detail,
-    detailLabel: error ? 'Error details' : toolDetailLabel(part.toolName),
+    detailIsCode: (part.toolName === 'skill_view' && !failed && skillFileIsCode(resultRecord)) || undefined,
+    detailLabel: toolDetailLabel(part.toolName, Boolean(error)),
+    detailNote,
     durationLabel: durationLabel(resultRecord),
+    errorLead: failure?.errorLead,
     icon: meta.icon,
     imageUrl: toolImageUrl(argsRecord, resultRecord),
     inlineDiff,

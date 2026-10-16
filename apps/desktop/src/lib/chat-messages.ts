@@ -660,19 +660,45 @@ function toolArgs(payload: GatewayEventPayload | undefined, prevArgs?: unknown):
   }
 }
 
+// "<warning>" or "<warning> in 1.2s": tui_gateway `_tool_summary` of a result
+// with a `fallback_warning`, whatever the tool.
+function restatesFallbackWarning(summary: unknown, result: Record<string, unknown>): boolean {
+  const warning = typeof result.fallback_warning === 'string' ? result.fallback_warning.trim() : ''
+
+  if (!warning || typeof summary !== 'string') {
+    return false
+  }
+
+  return summary === warning || summary.startsWith(`${warning} in `)
+}
+
 function toolResult(
   payload: GatewayEventPayload | undefined,
   prevResult?: unknown,
   prevArgs?: unknown
 ): Record<string, unknown> {
-  const parsedResult = parseMaybeJsonObject(payload?.result)
+  // A tool that answers in plain text, not JSON, arrives as that text: the
+  // gateway passes on what `json.loads` can't read. Parsed as an object it was
+  // dropped, and the row had nothing to open. It stays the row's text, the
+  // shape a stored tool message's text takes (storedToolMessagePart).
+  const text = plainTextResult(payload?.result)
+  const parsedResult = text ? { context: text } : parseMaybeJsonObject(payload?.result)
+  // A browser tool that fell back to another engine says so in its result
+  // (`fallback_warning`), and the gateway's `summary` is that warning again
+  // with the stopwatch. A stored tool message has no `summary`: merged, the
+  // live row listed the warning twice and the reloaded row once.
+  const summary = restatesFallbackWarning(payload?.summary, parsedResult) ? '' : payload?.summary
 
+  // The payload's `preview` stays the call's args (toolArgs). A watch window
+  // gets a subagent's calls that way (tui_gateway `_mirror_subagent_to_child`):
+  // the child's preview of each call's input, and no result. Copied in here
+  // too, the row counted the words of its own command ("20 results" off
+  // `head -n 20 results.json`).
   return {
     ...parsedResult,
     ...(payload?.inline_diff ? { inline_diff: payload.inline_diff } : {}),
-    ...(payload?.summary ? { summary: payload.summary } : {}),
+    ...(summary ? { summary } : {}),
     ...(payload?.message ? { message: payload.message } : {}),
-    ...(payload?.preview ? { preview: payload.preview } : {}),
     ...(payload?.duration_s !== undefined ? { duration_s: payload.duration_s } : {}),
     ...carryTodos(payload, prevResult, prevArgs),
     ...(payload?.error ? { error: payload.error } : {})
@@ -737,6 +763,21 @@ function parseMaybeJsonObject(value: unknown): Record<string, unknown> {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
   } catch {
     return {}
+  }
+}
+
+// Text that isn't JSON. JSON text (an array, a number) is not plain text.
+function plainTextResult(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    return ''
+  }
+
+  try {
+    JSON.parse(value)
+
+    return ''
+  } catch {
+    return value
   }
 }
 
@@ -875,9 +916,25 @@ function applyStoredToolResultToParts(parts: ChatMessagePart[], toolMessage: Ses
   return next
 }
 
+/**
+ * The gateway's preview of a call, when a tool message is all tui_gateway's
+ * history projection keeps of it (`_history_to_messages`, which a watch
+ * window's resume and /compress return): `context`, from `_tool_ctx`, says
+ * what the call was asked. Its output stays behind. A stored row (REST) has no
+ * `context`; its output is its `content`. Null for any other message.
+ */
+function projectedToolPreview(toolMessage: SessionMessage): null | string {
+  if (toolMessage.context === undefined || toolMessage.content || toolMessage.text) {
+    return null
+  }
+
+  return textFromUnknown(toolMessage.context)
+}
+
 function storedToolMessagePart(toolMessage: SessionMessage, fallbackIndex: number): ChatMessagePart {
   const name = toolMessage.tool_name || toolMessage.name || 'tool'
-  const context = textFromUnknown(toolMessage.context || toolMessage.text || toolMessage.content || '')
+  const preview = projectedToolPreview(toolMessage)
+  const context = preview ?? textFromUnknown(toolMessage.context || toolMessage.text || toolMessage.content || '')
   const args = context ? { context } : {}
 
   return {
@@ -886,7 +943,10 @@ function storedToolMessagePart(toolMessage: SessionMessage, fallbackIndex: numbe
     toolName: name,
     args: args as never,
     argsText: Object.keys(args).length ? JSON.stringify(args) : '',
-    result: context ? { context } : {},
+    // A projected call's preview is its args, as tool.start's preview is a
+    // live row's, and the row has no result of its own. Read as the result
+    // too, the row counted the words of its own command.
+    result: context && preview === null ? { context } : {},
     isError: false
   }
 }
@@ -977,7 +1037,11 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
   messages.forEach((message, index) => {
     if (message.role === 'tool') {
-      const updatedPendingToolParts = applyStoredToolResultToParts(pendingToolParts, message)
+      // A projected call settles no other call: it has no id, and matched by
+      // name, every same-name call folded into the first one's row, which took
+      // the last one's preview as its result.
+      const projected = projectedToolPreview(message) !== null
+      const updatedPendingToolParts = projected ? null : applyStoredToolResultToParts(pendingToolParts, message)
 
       if (updatedPendingToolParts) {
         pendingToolParts = updatedPendingToolParts
@@ -985,7 +1049,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
         return
       }
 
-      if (applyStoredToolResult(result, message)) {
+      if (!projected && applyStoredToolResult(result, message)) {
         return
       }
 

@@ -1,5 +1,7 @@
 export type ToolTone = 'agent' | 'browser' | 'default' | 'file' | 'image' | 'terminal' | 'web'
-export type ToolStatus = 'error' | 'running' | 'success' | 'warning'
+/** `awaiting`: a memory or skill write the approval gate staged. Not saved,
+ *  not refused: it waits for the user. */
+export type ToolStatus = 'awaiting' | 'error' | 'running' | 'success' | 'warning'
 
 export interface ToolPart {
   args?: unknown
@@ -29,9 +31,24 @@ export interface CountMetric {
 
 export interface ToolView {
   countLabel?: string
+  /** What the expanded row shows. A failed or refused row shows it under
+   *  `errorLead`; a failed row leaves out the result fields that only
+   *  restated the error. */
   detail: string
+  /** `detail` is a file's text that isn't markdown (a script or template a
+   *  skill_view opened): the renderer prints it as code instead of rendering
+   *  it as markdown, which would turn its `#` comments into headings. */
+  detailIsCode?: boolean
   detailLabel: string
+  /** A staged memory or skill write only: the approval gate's own line (where
+   *  to review the write), under `detail`. Not part of the row's Copy. */
+  detailNote?: string
   durationLabel?: string
+  /** Failed rows and refused memory writes only: the error the expanded row
+   *  opens with, above `detail`. Empty when `detail` already says it
+   *  (execute_code folds a script's stderr into its output), so the row never
+   *  prints it twice. */
+  errorLead?: string
   icon?: string
   imageUrl?: string
   inlineDiff: string
@@ -63,6 +80,8 @@ export interface ToolView {
 
 export interface ToolMeta {
   done: string
+  /** Titles a failed call in place of `done`, for the tools that have one. */
+  failed?: string
   icon?: string
   pending: string
   pendingAction: string

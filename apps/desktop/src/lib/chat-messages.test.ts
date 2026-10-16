@@ -383,6 +383,79 @@ describe('toChatMessages', () => {
     expect(read).not.toThrow()
     expect(chatMessageText(read()[0])).toBe(expected)
   })
+
+  // tui_gateway's history projection (`_history_to_messages`: a watch window's
+  // resume, /compress) keeps only each call's preview, as `context`, and
+  // neither the call's id nor its output.
+  const projectedCall = (name: string, context: string): SessionMessage => ({
+    content: undefined,
+    context,
+    name,
+    role: 'tool'
+  })
+
+  const toolRows = (messages: SessionMessage[]) =>
+    toChatMessages(messages)
+      .flatMap(message => message.parts)
+      .filter((part): part is Extract<ChatMessagePart, { type: 'tool-call' }> => part.type === 'tool-call')
+      .map(part => ({ args: part.args, result: part.result }))
+
+  it('reads a projected tool message as the call it previews, with no result', () => {
+    expect(toolRows([projectedCall('terminal', 'head -n 20 results.json')])).toEqual([
+      { args: { context: 'head -n 20 results.json' }, result: {} }
+    ])
+  })
+
+  // Matched by name, every same-name call folded into the first one's row,
+  // which took the last one's preview as its result.
+  it('gives every projected call its own row', () => {
+    expect(
+      toolRows([
+        { content: 'Go', role: 'user', timestamp: 1 },
+        projectedCall('terminal', 'ls -la'),
+        projectedCall('terminal', 'head -n 20 results.json'),
+        projectedCall('read_file', 'notes.md'),
+        { content: 'Listed.', role: 'assistant', timestamp: 5 },
+        projectedCall('terminal', 'git status')
+      ])
+    ).toEqual([
+      { args: { context: 'ls -la' }, result: {} },
+      { args: { context: 'head -n 20 results.json' }, result: {} },
+      { args: { context: 'notes.md' }, result: {} },
+      { args: { context: 'git status' }, result: {} }
+    ])
+  })
+
+  // A stored tool message (REST) is what its call returned.
+  it('still reads a stored tool message as its call’s output', () => {
+    // Its call isn't in the transcript: the row is the output.
+    expect(
+      toolRows([
+        {
+          content: 'Uploaded 3 files to staging',
+          role: 'tool',
+          timestamp: 1,
+          tool_call_id: 'gone-1',
+          tool_name: 'mcp_deploy'
+        }
+      ])
+    ).toEqual([
+      { args: { context: 'Uploaded 3 files to staging' }, result: { context: 'Uploaded 3 files to staging' } }
+    ])
+
+    // Without an id, it settles its call by name.
+    expect(
+      toolRows([
+        {
+          content: '',
+          role: 'assistant',
+          timestamp: 1,
+          tool_calls: [{ function: { arguments: '{"command":"ls"}', name: 'terminal' }, id: 'call-1' }]
+        },
+        { content: '{"output":"a.ts","exit_code":0}', role: 'tool', timestamp: 2, tool_name: 'terminal' }
+      ])
+    ).toEqual([{ args: { command: 'ls' }, result: { exit_code: 0, output: 'a.ts' } }])
+  })
 })
 
 describe('renderMediaTags', () => {
@@ -1042,6 +1115,122 @@ describe('upsertToolPart', () => {
       data: { web: [{ title: 'Suva forecast' }] },
       summary: 'Did 1 search in 0.5s'
     })
+  })
+
+  // The gateway hands on a result `json.loads` can't read as the text itself.
+  // Read as an object it was dropped, and the row had nothing to open.
+  it('keeps a plain-text tool result as the row text', () => {
+    const started = upsertToolPart([], { context: 'staging', name: 'mcp_deploy', tool_id: 'deploy-1' }, 'running')
+
+    const [part] = upsertToolPart(
+      started,
+      {
+        args: { target: 'staging' },
+        duration_s: 0.21,
+        name: 'mcp_deploy',
+        result: 'Deployed v1.2.3 to staging',
+        tool_id: 'deploy-1'
+      },
+      'complete'
+    )
+
+    expect(part && 'result' in part ? part.result : undefined).toEqual({
+      context: 'Deployed v1.2.3 to staging',
+      duration_s: 0.21
+    })
+  })
+
+  it('leaves a JSON result as it was', () => {
+    const resultOf = (result: unknown) => {
+      const [part] = upsertToolPart(
+        [],
+        { duration_s: 0.21, name: 'mcp_lookup', result, tool_id: 'lookup-1' },
+        'complete'
+      )
+
+      return part && 'result' in part ? part.result : undefined
+    }
+
+    expect(resultOf({ name: 'deploy' })).toEqual({ duration_s: 0.21, name: 'deploy' })
+    expect(resultOf('{"name":"deploy"}')).toEqual({ duration_s: 0.21, name: 'deploy' })
+    expect(resultOf(['deploy', 'rollback'])).toEqual({ duration_s: 0.21 })
+    expect(resultOf('[1, 2]')).toEqual({ duration_s: 0.21 })
+    expect(resultOf(12)).toEqual({ duration_s: 0.21 })
+    expect(resultOf('  ')).toEqual({ duration_s: 0.21 })
+  })
+
+  // A browser tool that fell back to Chrome says so in its result, and the
+  // gateway's summary of the call is that warning again with the stopwatch
+  // (tui_gateway `_tool_summary`). A stored tool message has no summary.
+  it('leaves out a gateway summary that only restates the fallback warning', () => {
+    const warning =
+      "⚠ Lightpanda fallback: Chrome was used for this browser action. Lightpanda 'click' failed (Target closed); retried with Chrome."
+
+    const clicked = { browser_engine: 'chrome', clicked: '@e1', fallback_warning: warning, success: true }
+
+    const resultOf = (summary: string, result: unknown = clicked) => {
+      const [part] = upsertToolPart(
+        [],
+        { args: { ref: '@e1' }, duration_s: 75, name: 'browser_click', result, summary, tool_id: 'click-1' },
+        'complete'
+      )
+
+      return part && 'result' in part ? part.result : undefined
+    }
+
+    for (const stopwatch of ['', ' in 1.2s', ' in 12s', ' in 1m 15s', ' in 2m']) {
+      expect(resultOf(`${warning}${stopwatch}`)).toEqual({ ...clicked, duration_s: 75 })
+    }
+
+    expect(resultOf(`${warning} in 1m 15s`, JSON.stringify(clicked))).toEqual({ ...clicked, duration_s: 75 })
+    // The gateway strips the warning before it restates it.
+    expect(resultOf(`${warning} in 1m 15s`, { ...clicked, fallback_warning: ` ${warning}\n` })).not.toHaveProperty(
+      'summary'
+    )
+    // A summary of the tool's own, which the restatement used to replace, stays.
+    expect(resultOf(`${warning} in 1m 15s`, { ...clicked, summary: 'Clicked Go' })).toMatchObject({
+      summary: 'Clicked Go'
+    })
+  })
+
+  it('keeps any other gateway summary', () => {
+    const warning = '⚠ Lightpanda fallback: Chrome was used for this browser action.'
+
+    const summaryOf = (summary: string, result: unknown) => {
+      const [part] = upsertToolPart([], { name: 'browser_click', result, summary, tool_id: 'click-1' }, 'complete')
+
+      return part && 'result' in part ? (part.result as Record<string, unknown>).summary : undefined
+    }
+
+    expect(summaryOf('Did 5 searches in 1.1s', { data: { web: [] }, fallback_warning: warning })).toBe(
+      'Did 5 searches in 1.1s'
+    )
+    expect(summaryOf(`${warning} Retried twice.`, { fallback_warning: warning })).toBe(`${warning} Retried twice.`)
+    expect(summaryOf(`${warning} in 1.2s`, { success: true })).toBe(`${warning} in 1.2s`)
+    expect(summaryOf(`${warning} in 1.2s`, { data: { fallback_warning: warning } })).toBe(`${warning} in 1.2s`)
+    expect(summaryOf(' in 1.2s', { fallback_warning: '  ' })).toBe(' in 1.2s')
+    expect(summaryOf('true in 1.2s', { fallback_warning: true })).toBe('true in 1.2s')
+  })
+
+  // A watch window's rows: tui_gateway mirrors a subagent's call as the child's
+  // preview of its input, tool.start then the same dict as tool.complete. The
+  // preview is what the call was asked; the window never sees what it returned.
+  it('keeps a mirrored call’s preview in its args, out of its result', () => {
+    const payload = { args: {}, name: 'terminal', preview: 'head -n 20 results.json', tool_id: 'submirror:child-1:1' }
+    const [part] = upsertToolPart(upsertToolPart([], payload, 'running'), payload, 'complete')
+
+    expect(part).toMatchObject({ args: { preview: 'head -n 20 results.json' }, toolCallId: 'submirror:child-1:1' })
+    expect(part && 'result' in part ? part.result : undefined).toEqual({})
+  })
+
+  it('keeps a tool’s own preview in its result', () => {
+    const [part] = upsertToolPart(
+      [],
+      { duration_s: 0.21, name: 'mcp_lookup', result: { preview: '3 rows ready' }, tool_id: 'lookup-1' },
+      'complete'
+    )
+
+    expect(part && 'result' in part ? part.result : undefined).toEqual({ duration_s: 0.21, preview: '3 rows ready' })
   })
 })
 
