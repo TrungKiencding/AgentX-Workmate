@@ -12,7 +12,8 @@ import {
   isModelPickerCommand,
   isPickerCommand,
   rankSkillCommands,
-  resolveDesktopCommand
+  resolveDesktopCommand,
+  resolveDesktopCommandSurface
 } from './desktop-slash-commands'
 
 describe('desktop slash command curation', () => {
@@ -320,6 +321,51 @@ describe('desktop slash command curation', () => {
     expect(desktopSlashUnavailableMessage('/model sonnet')).toContain('model picker')
     expect(desktopSlashUnavailableMessage('/skills')).toContain('desktop sidebar')
     expect(desktopSlashUnavailableMessage('/clear')).toContain('terminal interface')
+  })
+
+  // A staged skill write tells the user to "review with /skills pending", and
+  // the sidebar has no pending view, so the gate's review words go to the
+  // backend while /skills itself stays the sidebar's.
+  it('runs the /skills write-approval subcommands on the backend', () => {
+    const review = ['pending', 'approve 1a2b', 'apply all', 'reject 1a2b', 'deny 1a2b', 'drop all', 'diff 1a2b']
+    const gate = ['approval', 'approval off', 'mode', 'mode on']
+
+    for (const arg of [...review, ...gate, 'PENDING', '  pending  ']) {
+      expect(resolveDesktopCommandSurface('/skills', arg)).toEqual({ kind: 'exec' })
+      expect(isDesktopSlashCommand('/skills', arg)).toBe(true)
+    }
+  })
+
+  it('keeps a bare /skills and its hub subcommands on the sidebar message', () => {
+    for (const arg of ['', '   ', 'search pdf', 'browse', 'inspect pdf', 'install pdf', 'audit', 'list', 'pendings']) {
+      expect(resolveDesktopCommandSurface('/skills', arg)).toEqual({ kind: 'unavailable', reason: 'settings' })
+      expect(isDesktopSlashCommand('/skills', arg)).toBe(false)
+    }
+
+    expect(isDesktopSlashCommand('/skills')).toBe(false)
+    expect(desktopSlashUnavailableMessage('/skills')).toBe('/skills is managed from the desktop sidebar.')
+  })
+
+  it('never surfaces /skills in the palette or as an argument stage', () => {
+    expect(isDesktopSlashSuggestion('/skills')).toBe(false)
+    expect(isDesktopSlashSuggestion('/skills pending')).toBe(false)
+    expect(isDesktopSlashExtensionCommand('/skills')).toBe(false)
+    expect(desktopSlashCommandArgumentMode('/skills')).toBeNull()
+    expect(
+      filterDesktopCommandsCatalog({
+        pairs: [
+          ['/skills', 'Search, install, inspect, or manage skills'],
+          ['/new', 'Start a new session']
+        ]
+      }).pairs?.map(([command]) => command)
+    ).toEqual(['/new'])
+  })
+
+  it('scopes exec subcommands to the command that declares them', () => {
+    expect(resolveDesktopCommandSurface('/pets', 'pending')).toEqual({ kind: 'unavailable', reason: 'settings' })
+    expect(resolveDesktopCommandSurface('/clear', 'pending')).toEqual({ kind: 'unavailable', reason: 'terminal' })
+    expect(resolveDesktopCommandSurface('/new', 'pending')).toEqual({ kind: 'action', action: 'new' })
+    expect(resolveDesktopCommandSurface('/gif-search', 'pending')).toBeNull()
   })
 
   it('flags /model as a picker-owned command so the desktop opens the overlay', () => {

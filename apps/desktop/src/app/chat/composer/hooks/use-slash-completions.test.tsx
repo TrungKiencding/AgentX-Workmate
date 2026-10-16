@@ -154,4 +154,40 @@ describe('useSlashCompletions', () => {
 
     expect(commandsOf(await completions(api, 'research'))).toEqual(['/research', '/research-paper-writing'])
   })
+
+  // `/skills pending` runs from the composer, but /skills itself belongs to
+  // the sidebar: neither the bare `/` list nor a typed `/sk` may offer it.
+  it('never offers /skills, on a bare slash or a typed query', async () => {
+    const request = vi.fn().mockImplementation((method: string) =>
+      Promise.resolve(
+        method === 'commands.catalog'
+          ? {
+              categories: [
+                {
+                  name: 'Tools & Skills',
+                  pairs: [
+                    ['/skills', 'Search, install, inspect, or manage skills'],
+                    ['/tools', 'Manage tools']
+                  ]
+                }
+              ],
+              pairs: [
+                ['/skills', 'Search, install, inspect, or manage skills'],
+                ['/tools', 'Manage tools']
+              ]
+            }
+          : {
+              items: [
+                { text: '/skills', display: '/skills', meta: 'Search, install, inspect, or manage skills' },
+                { text: '/skin', display: '/skin', meta: 'Show or change the display skin' }
+              ]
+            }
+      )
+    )
+
+    const api = harness({ request } as unknown as HermesGateway)
+
+    expect(commandsOf(await completions(api, ''))).toEqual(['/tools'])
+    expect(commandsOf(await completions(api, 'sk'))).toEqual(['/skin'])
+  })
 })

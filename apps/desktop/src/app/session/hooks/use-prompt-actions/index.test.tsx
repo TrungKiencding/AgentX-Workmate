@@ -1557,6 +1557,86 @@ describe('usePromptActions slash.exec dispatch payloads', () => {
   })
 })
 
+// A staged skill write tells the user to "review with /skills pending". The
+// sidebar owns /skills but has no pending view, so the write-approval words
+// must reach the slash worker (HermesCLI._handle_skills_command).
+describe('usePromptActions /skills write-approval review', () => {
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
+
+  async function runSkillsCommand(command: string, output = '') {
+    const states: Record<string, unknown>[] = []
+    const requestGateway = vi.fn(async (method: string) => (method === 'slash.exec' ? { output } : {}) as never)
+
+    let handle: HarnessHandle | null = null
+    await actRender(
+      <Harness
+        onReady={h => (handle = h)}
+        onSeedState={s => states.push(s)}
+        refreshSessions={async () => undefined}
+        requestGateway={requestGateway}
+      />
+    )
+
+    await handle!.submitText(command)
+
+    const systemText = states
+      .flatMap(state => {
+        const messages = Array.isArray(state.messages)
+          ? (state.messages as Array<{ role?: string; parts?: Array<{ text?: string }> }>)
+          : []
+
+        return messages
+          .filter(message => message.role === 'system')
+          .flatMap(message => (message.parts ?? []).map(part => part.text ?? ''))
+      })
+      .join('\n')
+
+    return { requestGateway, systemText }
+  }
+
+  it('runs /skills pending on the slash worker and prints its list', async () => {
+    const listing = [
+      'Pending skills writes (1):',
+      "  1a2b3c4d  create skill 'release-notes'",
+      '',
+      'Apply: /skills approve <id>   Reject: /skills reject <id>',
+      'Review full diff: /skills diff <id>'
+    ].join('\n')
+
+    const { requestGateway, systemText } = await runSkillsCommand('/skills pending', listing)
+
+    expect(requestGateway).toHaveBeenCalledWith('slash.exec', {
+      command: 'skills pending',
+      session_id: RUNTIME_SESSION_ID
+    })
+    expect(systemText).toContain(`slash:/skills\n${listing}`)
+    expect(systemText).not.toContain('managed from the desktop sidebar')
+  })
+
+  it.each(['/skills approve 1a2b3c4d', '/skills reject 1a2b3c4d', '/skills diff 1a2b3c4d', '/skills mode'])(
+    'runs %s on the slash worker',
+    async command => {
+      const { requestGateway } = await runSkillsCommand(command, 'done')
+
+      expect(requestGateway).toHaveBeenCalledWith('slash.exec', {
+        command: command.slice(1),
+        session_id: RUNTIME_SESSION_ID
+      })
+    }
+  )
+
+  it.each(['/skills', '/skills search pdf'])('keeps %s on the sidebar message', async command => {
+    const { requestGateway, systemText } = await runSkillsCommand(command)
+
+    expect(requestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+    expect(requestGateway).not.toHaveBeenCalledWith('command.dispatch', expect.anything())
+    expect(systemText).toContain('slash:/skills\n/skills is managed from the desktop sidebar.')
+  })
+})
+
 describe('usePromptActions desktop slash pickers', () => {
   beforeEach(() => {
     setSessions(() => [sessionInfo({ id: '20260610_120000_abcdef', title: 'Loaded session' })])

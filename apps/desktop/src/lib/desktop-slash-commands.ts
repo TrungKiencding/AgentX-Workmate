@@ -132,6 +132,12 @@ export interface DesktopCommandSpec {
   hidden?: boolean
   /** Composer behavior for text following the command token. */
   argumentMode?: DesktopSlashArgumentMode
+  /**
+   * Subcommands that run on the backend (slash.exec) whatever the command's
+   * own surface is. Matched case-insensitively against the first argument
+   * token. They never make the bare command a suggestion or a pill.
+   */
+  execSubcommands?: readonly string[]
 }
 
 const exec = (): DesktopCommandSurface => ({ kind: 'exec' })
@@ -342,7 +348,17 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
 
   // No desktop surface, but carry an alias (underscore spelling variants).
   { name: '/reload-mcp', aliases: ['/reload_mcp'], surface: unavailable('advanced') },
-  { name: '/reload-skills', aliases: ['/reload_skills'], surface: unavailable('advanced') }
+  { name: '/reload-skills', aliases: ['/reload_skills'], surface: unavailable('advanced') },
+
+  // The sidebar owns /skills (search, install, browse …), but nothing there
+  // reviews the writes the skills write-approval gate stages, and a staged
+  // row says "review with /skills pending". These are the words
+  // HermesCLI._handle_skills_command takes before the skills hub sees them.
+  {
+    name: '/skills',
+    surface: unavailable('settings'),
+    execSubcommands: ['pending', 'approve', 'apply', 'reject', 'deny', 'drop', 'diff', 'approval', 'mode']
+  }
 ]
 
 // Known commands with no desktop surface (and no alias) — a flat name list
@@ -382,7 +398,7 @@ const NO_DESKTOP_SURFACE: Record<DesktopUnavailableReason, readonly string[]> = 
     '/verbose'
   ],
   messaging: ['/approve', '/deny'],
-  settings: ['/skills', '/pets'],
+  settings: ['/pets'],
   advanced: ['/curator', '/fast', '/insights', '/kanban', '/reasoning', '/voice']
 }
 
@@ -430,6 +446,22 @@ export function resolveDesktopCommand(command: string): DesktopCommandSpec | nul
   return SPEC_BY_NAME.get(canonicalDesktopSlashCommand(command)) ?? null
 }
 
+/**
+ * The surface one invocation resolves to: the command's own, unless `arg`
+ * opens with one of its `execSubcommands` (`/skills pending`).
+ */
+export function resolveDesktopCommandSurface(command: string, arg = ''): DesktopCommandSurface | null {
+  const spec = resolveDesktopCommand(command)
+
+  if (!spec) {
+    return null
+  }
+
+  const subcommand = arg.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? ''
+
+  return subcommand && spec.execSubcommands?.includes(subcommand) ? exec() : spec.surface
+}
+
 function isKnownHermesSlashCommand(command: string): boolean {
   const normalized = normalizeCommand(command)
 
@@ -452,12 +484,15 @@ export function isDesktopSlashExtensionCommand(command: string): boolean {
   return !isKnownHermesSlashCommand(normalized)
 }
 
-/** Gates execution: true unless the command is a known no-desktop-surface command. */
-export function isDesktopSlashCommand(command: string): boolean {
-  const spec = resolveDesktopCommand(command)
+/**
+ * Gates execution: true unless the command is a known no-desktop-surface
+ * command. Pass the invocation's `arg` so its `execSubcommands` count.
+ */
+export function isDesktopSlashCommand(command: string, arg = ''): boolean {
+  const surface = resolveDesktopCommandSurface(command, arg)
 
-  if (spec) {
-    return spec.surface.kind !== 'unavailable'
+  if (surface) {
+    return surface.kind !== 'unavailable'
   }
 
   return isDesktopSlashExtensionCommand(command)

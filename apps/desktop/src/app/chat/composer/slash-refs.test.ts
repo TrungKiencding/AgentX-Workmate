@@ -30,6 +30,11 @@ describe('slashCommandMatches', () => {
     expect(commands('/exit now')).toEqual([])
   })
 
+  it('leaves /skills as text even where its subcommand runs', () => {
+    expect(commands('/skills pending', { trailingCommitted: true })).toEqual([])
+    expect(commands('/skills ', { trailingCommitted: true })).toEqual([])
+  })
+
   it('offers a built-in only as an invocation, never mid-message', () => {
     // Mirrors what the popover offers: `/new` acts on the app, so it means
     // nothing dropped into a sentence, while a skill reads as "handle this

@@ -12,7 +12,7 @@ import {
   type DesktopPickerId,
   desktopSlashUnavailableMessage,
   isDesktopSlashCommand,
-  resolveDesktopCommand
+  resolveDesktopCommandSurface
 } from '@/lib/desktop-slash-commands'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { setSessionYolo } from '@/lib/yolo-session'
@@ -252,7 +252,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
 
         const { render: renderSlashOutput, sessionId, storedSessionId } = resolved
 
-        if (!isDesktopSlashCommand(name)) {
+        if (!isDesktopSlashCommand(name, arg)) {
           renderSlashOutput(desktopSlashUnavailableMessage(name) || `/${name} is not available in the desktop app.`)
 
           return
@@ -1040,7 +1040,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
         }
 
         const ctx: SlashActionCtx = { arg, command, name, recordInput, sessionHint }
-        const surface = resolveDesktopCommand(`/${name}`)?.surface
+        const surface = resolveDesktopCommandSurface(`/${name}`, arg)
 
         switch (surface?.kind) {
           case 'unavailable': {
@@ -1060,7 +1060,8 @@ export function useSlashCommand(deps: SlashCommandDeps) {
             return runRpc(surface, ctx)
 
           default:
-            // exec spec, or an unknown skill / quick command the backend owns.
+            // exec spec or subcommand (`/skills pending`), or an unknown
+            // skill / quick command the backend owns.
             return runExec(ctx)
         }
       }
