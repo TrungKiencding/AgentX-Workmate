@@ -686,7 +686,7 @@ def _run_command_stt(
     from agent.delegation_context import delegated_child_subprocess_env
     from tools.environments.local import hermes_subprocess_env
 
-    scrubbed = hermes_subprocess_env(inherit_credentials=False)
+    scrubbed = hermes_subprocess_env(inherit_credentials=False, inherit_backend_python=False)
     for key in env_passthrough or []:
         value = os.environ.get(key)
         if value is not None:
@@ -1786,7 +1786,7 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
             # the full process environment).
             from tools.environments.local import hermes_subprocess_env
 
-            child_env = hermes_subprocess_env(inherit_credentials=False)
+            child_env = hermes_subprocess_env(inherit_credentials=False, inherit_backend_python=False)
             subprocess.run(
                 shlex.split(command),
                 check=True,

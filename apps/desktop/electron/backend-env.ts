@@ -128,10 +128,20 @@ function buildDesktopBackendEnv({
 }: any = {}) {
   const delimiter = delimiterForPlatform(platform)
   const currentPythonPath = currentEnv?.PYTHONPATH || ''
+  const userPythonPath = new Set(currentPythonPath.split(delimiter))
   const key = pathEnvKey(currentEnv, platform)
 
   return {
     PYTHONPATH: appendUniquePathEntries([...pythonPathEntries, currentPythonPath], { delimiter }),
+    // The entries above that only the backend's own interpreter needs. The
+    // backend strips exactly these from the commands the agent runs: another
+    // Python there (uvx, `uv run --python 3.13`, a project venv) imported this
+    // venv's 3.11 compiled packages and died ("No module named
+    // 'pydantic_core._pydantic_core'"). The user's own PYTHONPATH stays.
+    AGENTX_BACKEND_PYTHONPATH: appendUniquePathEntries(
+      pythonPathEntries.filter(entry => !userPythonPath.has(entry)),
+      { delimiter }
+    ),
     // Force PEP 540 UTF-8 mode in the spawned Python backend so its stdio and
     // subprocess defaults are UTF-8 even on non-UTF-8 Windows locales (GBK,
     // cp1252, ...). hermes_bootstrap sets this inside the child too, but only

@@ -4,6 +4,7 @@ import logging
 import ntpath
 import os
 import platform
+import posixpath
 import re
 import shutil
 import signal
@@ -348,6 +349,54 @@ _AGENTX_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
 # these markers is safe and only prevents the cross-project clobber (#23473).
 _ACTIVE_VENV_MARKER_VARS = ("VIRTUAL_ENV", "CONDA_PREFIX")
 
+# What the desktop app added to the backend's PYTHONPATH / PYTHONHOME for the
+# backend's own interpreter (buildDesktopBackendEnv / bundledBackend in
+# apps/desktop/electron).
+_BACKEND_PYTHONPATH_MARKER = "AGENTX_BACKEND_PYTHONPATH"
+_BACKEND_PYTHONHOME_MARKER = "AGENTX_BACKEND_PYTHONHOME"
+
+
+def strip_backend_python_env(env: dict, markers: "Mapping[str, str] | None" = None) -> dict:
+    """Take the desktop backend's own interpreter paths out of a child env.
+
+    The desktop app starts the backend with PYTHONPATH on the agent root and
+    its venv's Python 3.11 site-packages — or, bundled, on the runtime's
+    source with PYTHONHOME on the bundled Python. A child running any other
+    Python (``uvx <tool>``, ``uv run --python 3.13``, a pipx tool, a project
+    venv) imported those compiled packages and died ("No module named
+    'pydantic_core._pydantic_core'"), or under that PYTHONHOME did not start.
+
+    Removes, in place, exactly the PYTHONPATH entries named in
+    AGENTX_BACKEND_PYTHONPATH and a PYTHONHOME equal to
+    AGENTX_BACKEND_PYTHONHOME. What the user set stays; without the markers
+    nothing changes. The markers stay too, so an ``agentx`` started from the
+    child (the bundled shim exports the same paths) keeps them out of its own
+    children. ``markers`` is where to read them if ``env`` dropped them.
+
+    Not for AgentX's own Python children (gateway, slash worker, cron,
+    ``python -m hermes_cli.main``): the bundled source is importable only
+    through this PYTHONPATH.
+    """
+    source = env if markers is None else markers
+    pathmod = ntpath if _IS_WINDOWS else posixpath
+    sep = ";" if _IS_WINDOWS else ":"
+
+    def _norm(entry: str) -> str:
+        return pathmod.normcase(pathmod.normpath(entry))
+
+    owned = {_norm(entry) for entry in (source.get(_BACKEND_PYTHONPATH_MARKER) or "").split(sep) if entry}
+    if owned and env.get("PYTHONPATH"):
+        kept = [entry for entry in env["PYTHONPATH"].split(sep) if not entry or _norm(entry) not in owned]
+        if any(kept):
+            env["PYTHONPATH"] = sep.join(kept)
+        else:
+            del env["PYTHONPATH"]
+
+    home = source.get(_BACKEND_PYTHONHOME_MARKER)
+    if home and env.get("PYTHONHOME") and _norm(env["PYTHONHOME"]) == _norm(home):
+        del env["PYTHONHOME"]
+    return env
+
 
 def _is_hermes_internal_secret(key: str) -> bool:
     """Return True for AgentX-internal secrets injected under *dynamic* names.
@@ -453,8 +502,18 @@ def _inject_session_context_env(env: dict) -> None:
             env.pop(var_name, None)
 
 
-def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = None) -> dict:
-    """Filter AgentX-managed secrets from a subprocess environment."""
+def _sanitize_subprocess_env(
+    base_env: dict | None,
+    extra_env: dict | None = None,
+    *,
+    inherit_backend_python: bool = True,
+) -> dict:
+    """Filter AgentX-managed secrets from a subprocess environment.
+
+    ``inherit_backend_python=False`` also drops the desktop backend's own
+    interpreter paths (:func:`strip_backend_python_env`) — for a child that
+    may run another Python, like a background terminal command.
+    """
     try:
         from tools.env_passthrough import (
             is_env_passthrough as _is_passthrough,
@@ -505,6 +564,9 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
 
     for _marker in _ACTIVE_VENV_MARKER_VARS:
         sanitized.pop(_marker, None)
+
+    if not inherit_backend_python:
+        strip_backend_python_env(sanitized)
 
     # Keep bare ``agentx`` invocations available to child jobs even when the
     # gateway was launched by a service manager or cron without the console
@@ -579,7 +641,11 @@ _ALWAYS_STRIP_KEYS: frozenset[str] = frozenset({
 })
 
 
-def hermes_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
+def hermes_subprocess_env(
+    *,
+    inherit_credentials: bool = False,
+    inherit_backend_python: bool = True,
+) -> dict[str, str]:
     """Build a sanitized environment dict for a spawned subprocess.
 
     Centralized helper for the **non-terminal** spawn surface (browser,
@@ -610,6 +676,12 @@ def hermes_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str
     needs ``BROWSERBASE_API_KEY`` / ``FIRECRAWL_API_KEY``) should call with
     ``inherit_credentials=False`` and copy just those keys back from
     ``os.environ`` into the returned dict.
+
+    Pass ``inherit_backend_python=False`` when the child is not AgentX's own
+    Python and may run another one — a browser CLI, a coding-agent CLI, a
+    user's TTS/STT command — so the desktop backend's interpreter paths stay
+    out (:func:`strip_backend_python_env`). The default keeps them for
+    ``sys.executable -m …`` children such as the slash worker.
     """
     env = os.environ.copy()
 
@@ -642,6 +714,9 @@ def hermes_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str
     # Active-venv markers must not clobber another project's environment.
     for _marker in _ACTIVE_VENV_MARKER_VARS:
         env.pop(_marker, None)
+
+    if not inherit_backend_python:
+        strip_backend_python_env(env)
 
     _apply_windows_msys_bash_env_defaults(env)
 
@@ -1343,6 +1418,9 @@ def _make_run_env(env: dict) -> dict:
 
     for _marker in _ACTIVE_VENV_MARKER_VARS:
         run_env.pop(_marker, None)
+
+    # The command may run any Python — uvx, a project venv, pipx tools.
+    strip_backend_python_env(run_env)
 
     _apply_windows_msys_bash_env_defaults(run_env)
 

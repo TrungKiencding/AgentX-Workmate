@@ -127,6 +127,41 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
   assert.ok(env.PATH.includes('/opt/homebrew/bin'))
 })
 
+test('buildDesktopBackendEnv names the PYTHONPATH entries it added, not the user’s', () => {
+  const env = buildDesktopBackendEnv({
+    hermesHome: '/Users/test/.agentx',
+    pythonPathEntries: [
+      '/repo/agentx-agent',
+      '/repo/agentx-agent/venv/lib/python3.11/site-packages',
+      '/Users/test/libs'
+    ],
+    venvRoot: '/repo/agentx-agent/venv',
+    currentEnv: { PATH: '/usr/bin', PYTHONPATH: '/Users/test/libs' },
+    platform: 'darwin',
+    pathModule: path.posix
+  })
+
+  // The backend strips exactly these from the commands the agent runs.
+  assert.equal(env.AGENTX_BACKEND_PYTHONPATH, '/repo/agentx-agent:/repo/agentx-agent/venv/lib/python3.11/site-packages')
+})
+
+test('buildDesktopBackendEnv names them with the Windows delimiter', () => {
+  const root = 'C:\\Users\\test\\AppData\\Local\\agentx\\agentx-agent'
+  const site = `${root}\\venv\\Lib\\site-packages`
+
+  const env = buildDesktopBackendEnv({
+    hermesHome: 'C:\\Users\\test\\AppData\\Local\\agentx',
+    pythonPathEntries: [root, site],
+    venvRoot: `${root}\\venv`,
+    currentEnv: { Path: 'C:\\Windows\\System32' },
+    platform: 'win32',
+    pathModule: path.win32
+  })
+
+  assert.equal(env.AGENTX_BACKEND_PYTHONPATH, `${root};${site}`)
+  assert.equal(env.PYTHONPATH, env.AGENTX_BACKEND_PYTHONPATH)
+})
+
 test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly', () => {
   const defaulted = buildDesktopBackendEnv({
     hermesHome: '/Users/test/.agentx',

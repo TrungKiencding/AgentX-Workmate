@@ -1029,7 +1029,7 @@ def _run_command_tts(
     from agent.delegation_context import delegated_child_subprocess_env
     from tools.environments.local import hermes_subprocess_env
 
-    scrubbed = hermes_subprocess_env(inherit_credentials=False)
+    scrubbed = hermes_subprocess_env(inherit_credentials=False, inherit_backend_python=False)
     for key in env_passthrough or []:
         value = os.environ.get(key)
         if value is not None:

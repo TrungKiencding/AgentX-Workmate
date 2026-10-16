@@ -7,6 +7,8 @@ covered by a separate live test gated on `codex --version`.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from hermes_cli.runtime_provider import (
@@ -340,3 +342,13 @@ class TestSpawnEnvSecretStripping:
         env = self._capture_spawn_env(monkeypatch)
         assert env.get("OPENAI_API_KEY") == "sk-codex-needs-this"
 
+
+    def test_backend_python_paths_stay_out_of_codex(self, monkeypatch):
+        """codex runs the user's commands, often on another Python (uv run,
+        a project venv); the desktop backend's own PYTHONPATH entries made
+        those import its 3.11 compiled packages. The user's own entry stays."""
+        backend = os.pathsep.join(["/app/agentx-agent", "/app/agentx-agent/venv/lib/python3.11/site-packages"])
+        monkeypatch.setenv("PYTHONPATH", backend + os.pathsep + "/Users/me/mylibs")
+        monkeypatch.setenv("AGENTX_BACKEND_PYTHONPATH", backend)
+        env = self._capture_spawn_env(monkeypatch)
+        assert env.get("PYTHONPATH") == "/Users/me/mylibs"

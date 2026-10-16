@@ -133,7 +133,7 @@ def _build_browser_env() -> dict:
     """
     from tools.environments.local import hermes_subprocess_env
 
-    env = hermes_subprocess_env(inherit_credentials=False)
+    env = hermes_subprocess_env(inherit_credentials=False, inherit_backend_python=False)
     for _key in _BROWSER_PASSTHROUGH_KEYS:
         if _key in os.environ:
             env[_key] = os.environ[_key]

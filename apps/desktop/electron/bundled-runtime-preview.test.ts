@@ -57,6 +57,9 @@ describe('opt-in bundled runtime preview', () => {
     expect(backend.command.startsWith(moved)).toBe(true)
     expect(backend.env.PYTHONHOME.startsWith(moved)).toBe(true)
     expect(backend.env.PYTHONPATH).toBe(runtime.source)
+    // Named so the commands the agent runs on another Python don't inherit them.
+    expect(backend.env.AGENTX_BACKEND_PYTHONPATH).toBe(backend.env.PYTHONPATH)
+    expect(backend.env.AGENTX_BACKEND_PYTHONHOME).toBe(backend.env.PYTHONHOME)
     expect(
       backend.env.AGENTX_LAZY_INSTALL_TARGET.startsWith(path.join(os.tmpdir(), 'preview-user-home') + path.sep)
     ).toBe(true)

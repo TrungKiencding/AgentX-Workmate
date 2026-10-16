@@ -1448,6 +1448,12 @@ def execute_code(
         # passed through — without those, the child can't create a socket
         # or spawn a subprocess.  See ``_scrub_child_env`` for the rules.
         child_env = _scrub_child_env(os.environ)
+        # The scrub keeps PYTHONPATH, so also drop the desktop backend's own
+        # entries (named by AGENTX_* markers the scrub removed): a project
+        # venv on another Python imported its 3.11 compiled packages and died.
+        # A same-environment child gets AgentX's root back below.
+        from tools.environments.local import strip_backend_python_env
+        strip_backend_python_env(child_env, markers=os.environ)
         child_env["AGENTX_RPC_SOCKET"] = rpc_endpoint
         child_env["AGENTX_RPC_TOKEN"] = rpc_token
         child_env["PYTHONDONTWRITEBYTECODE"] = "1"

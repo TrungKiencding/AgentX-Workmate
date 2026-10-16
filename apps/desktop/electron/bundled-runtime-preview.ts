@@ -93,6 +93,10 @@ export function bundledBackend(runtime: BundledRuntimePreview, home: string, arg
       PYTHONNOUSERSITE: '1',
       PYTHONDONTWRITEBYTECODE: '1',
       PYTHONHOME: runtime.pythonRoot,
+      // Only this interpreter's: the backend strips them from the commands the
+      // agent runs, where another Python would not even start under this home.
+      AGENTX_BACKEND_PYTHONPATH: runtime.source,
+      AGENTX_BACKEND_PYTHONHOME: runtime.pythonRoot,
       // Existing immutable-runtime support; optional installs cannot rewrite the bundle.
       AGENTX_LAZY_INSTALL_TARGET: path.join(
         home,
