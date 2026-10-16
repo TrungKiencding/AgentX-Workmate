@@ -294,9 +294,10 @@ function useSessionActions({
             onSelect: () => {
               triggerHaptic('selection')
               // Stack into the MAIN zone as a tab (center dock; the strip
-              // sticky-shows on gain) — the door to the tab bar. Focuses first
-              // if the session is already on screen.
-              openSession(sessionId, () => undefined, 'tab')
+              // sticky-shows on gain) — the door to the tab bar — and FRONT
+              // it: an explicit command must show its result, not leave a tab
+              // behind the current one. Focuses first if already on screen.
+              openSession(sessionId, () => undefined, 'tab', { front: true })
             }
           })
         ]

@@ -29,6 +29,14 @@ export type OpenSessionIntent = 'in-place' | 'stack' | 'tab' | 'window'
 
 export type OpenSessionNavigate = (to: string, options?: { replace?: boolean }) => void
 
+export interface OpenSessionOptions {
+  /** `tab` only: front the new tab instead of opening it behind the current
+   *  one. For the explicit "Open in new tab" command — a silent background tab
+   *  reads as "nothing happened"; ⌘-click / middle-click stay background
+   *  (browser muscle memory). */
+  front?: boolean
+}
+
 /**
  * Is the main tab holding a conversation worth preserving?
  *
@@ -72,7 +80,8 @@ export function openSessionIntentFromModifiers(
 export function openSession(
   storedSessionId: string,
   navigate: OpenSessionNavigate,
-  intent: OpenSessionIntent = 'in-place'
+  intent: OpenSessionIntent = 'in-place',
+  options: OpenSessionOptions = {}
 ): void {
   if (!storedSessionId) {
     return
@@ -118,6 +127,13 @@ export function openSession(
     }
 
     openSessionTile(storedSessionId, 'center')
+
+    // While main shows a full page (artifacts, skills, …) its strip stands
+    // down, so a tab opened behind the page appeared nowhere — the open looked
+    // dead. Front it then, and whenever the caller asked for it.
+    if (options.front || $workspaceIsPage.get()) {
+      focusOpenSession(storedSessionId)
+    }
 
     return
   }

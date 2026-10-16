@@ -132,6 +132,25 @@ describe('openSession', () => {
     focusOpenSession.mockReturnValue(null)
     openSession('s1', navigate, 'tab')
     expect(openSessionTile).toHaveBeenCalledWith('s1', 'center')
+    // ⌘-click semantics: the new tab opens BEHIND the current one.
+    expect(focusOpenSession).toHaveBeenCalledTimes(1)
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('tab fronts the new tile when the caller asks (the "Open in new tab" command)', () => {
+    focusOpenSession.mockReturnValueOnce(null).mockReturnValueOnce('tile')
+    openSession('s1', navigate, 'tab', { front: true })
+    expect(openSessionTile).toHaveBeenCalledWith('s1', 'center')
+    expect(focusOpenSession).toHaveBeenCalledTimes(2)
+    expect(focusOpenSession).toHaveBeenLastCalledWith('s1')
+  })
+
+  it('tab fronts the new tile while main shows a full page, where a background tab is invisible', () => {
+    workspaceIsPageGet.mockReturnValue(true)
+    focusOpenSession.mockReturnValueOnce(null).mockReturnValueOnce('tile')
+    openSession('s1', navigate, 'tab')
+    expect(openSessionTile).toHaveBeenCalledWith('s1', 'center')
+    expect(focusOpenSession).toHaveBeenCalledTimes(2)
     expect(navigate).not.toHaveBeenCalled()
   })
 
