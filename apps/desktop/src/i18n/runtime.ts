@@ -1,3 +1,5 @@
+import { atom } from 'nanostores'
+
 import { setTimeFormatLocale } from '@/lib/time'
 
 import { TRANSLATIONS } from './catalog'
@@ -5,6 +7,11 @@ import { DEFAULT_LOCALE, FALLBACK_LOCALE, localeToBcp47 } from './languages'
 import type { Locale, Translations } from './types'
 
 let runtimeLocale: Locale = DEFAULT_LOCALE
+
+/** The runtime locale as a store, for module-level text that is registered
+ *  once and must re-render on a language switch (pane titles in the tab
+ *  strip): listen and re-register. Components keep using `useI18n`. */
+export const $runtimeLocale = atom<Locale>(DEFAULT_LOCALE)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -55,6 +62,7 @@ export function translateFrom(
 
 export function setRuntimeI18nLocale(locale: Locale) {
   runtimeLocale = locale
+  $runtimeLocale.set(locale)
   // Dates and relative times follow the display language too — one call site
   // owns both, so a month name and the string beside it never disagree.
   setTimeFormatLocale(localeToBcp47(locale))

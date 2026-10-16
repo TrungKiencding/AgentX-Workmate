@@ -37,7 +37,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { transcribeAudio } from '@/hermes'
-import { useI18n } from '@/i18n'
+import { $runtimeLocale, translateNow, useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { sessionTitle } from '@/lib/chat-runtime'
 import { isMessagingSource } from '@/lib/session-source'
@@ -342,8 +342,9 @@ function tileTitle(storedSessionId: string): string {
   const stored = tileStoredRow(storedSessionId)
 
   // A tab-strip "+" tab is unlisted until its first turn persists, so it isn't
-  // in $sessions yet — label it "New session" rather than a bare "Session".
-  return stored ? sessionTitle(stored) : 'New session'
+  // in $sessions yet — label it "New chat" (in the display language) rather
+  // than a bare "Session".
+  return stored ? sessionTitle(stored) : translateNow('sidebar.nav.new-session')
 }
 
 /** The `@session` link payload for a tile tab drag — id + owning profile + title. */
@@ -577,7 +578,8 @@ export const watchSessionTiles = paneMirror<SessionTile>({
   // $projectTree: a tile whose session is older than the recents page resolves
   // its title through the tree, which loads after the tiles register. (The tab's
   // status dot subscribes to color/state itself, so it needs no `also` entry.)
-  also: [$sessions, $projectTree],
+  // $runtimeLocale: an unlisted tab's "New chat" follows a language switch.
+  also: [$sessions, $projectTree, $runtimeLocale],
   key: t => t.storedSessionId,
   prefix: 'session-tile',
   dir: t => t.dir,

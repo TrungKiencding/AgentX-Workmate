@@ -38,6 +38,7 @@ import { Slot } from '@/contrib/react/slot'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { registry } from '@/contrib/registry'
 import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
+import { $runtimeLocale, translateNow } from '@/i18n'
 import { sessionTitle as storedSessionTitle } from '@/lib/chat-runtime'
 import { Download, FileText, LayoutDashboard, PanelBottom, Terminal, Upload, Zap } from '@/lib/icons'
 import { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
@@ -160,7 +161,7 @@ registry.registerMany([
     id: 'workspace',
     area: 'panes',
     // Live-retitled to the loaded session by syncWorkspaceTitle below.
-    title: 'New session',
+    title: translateNow('sidebar.nav.new-session'),
     data: {
       placement: 'main',
       minWidth: '22vw',
@@ -461,7 +462,7 @@ const syncWorkspaceTitle = () => {
   registry.register({
     id: 'workspace',
     area: 'panes',
-    title: stored ? storedSessionTitle(stored) : 'New session',
+    title: stored ? storedSessionTitle(stored) : translateNow('sidebar.nav.new-session'),
     data: {
       // The tab's status dot — the SAME primitive the sidebar row and session
       // tiles render, so the main tab never disagrees with its sidebar row. No
@@ -482,6 +483,8 @@ const syncWorkspaceTitle = () => {
 $selectedStoredSessionId.listen(syncWorkspaceTitle)
 $sessions.listen(syncWorkspaceTitle)
 $workspaceIsPage.listen(syncWorkspaceTitle)
+// A fresh draft's tab reads "New chat" in the display language.
+$runtimeLocale.listen(syncWorkspaceTitle)
 
 // Layout reset collapses every session tile into main as a tab (after the
 // workspace) instead of re-scattering them — pre-placed before adoption.
