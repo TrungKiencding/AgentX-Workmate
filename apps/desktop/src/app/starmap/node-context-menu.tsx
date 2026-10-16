@@ -1,17 +1,24 @@
+import { useStore } from '@nanostores/react'
 import { useRef, useState } from 'react'
 
-import { ArchiveSkillConfirmDialog, fireOptimistic } from '@/app/learning/archive-skill-confirm-dialog'
+import { ArchiveSkillConfirmDialog } from '@/app/learning/archive-skill-confirm-dialog'
+import { memoryEntryErrorCode } from '@/app/settings/memory/memory-entries'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { deleteLearningNode, editLearningNode, getLearningNode } from '@/hermes'
+import { type Translations, useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
-import { evictStarmapNode, loadStarmapGraph } from '@/store/starmap'
+import { $starmapMemoryLocked, evictStarmapNode, mutateStarmap } from '@/store/starmap'
 
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 
 export interface NodeMenuTarget {
+  /** A memory node's exact text, when the graph carries it: edits and deletes
+   *  go by it, so they can't land on whatever entry now holds the node's
+   *  positional id. */
+  entry?: string
   id: string
   kind: 'memory' | 'skill'
   label: string
@@ -27,12 +34,41 @@ interface NodeContextMenuProps {
 
 interface EditState {
   content: string
+  entry?: string
   id: string
+  kind: NodeMenuTarget['kind']
   label: string
+}
+
+/** A memory edit/delete the backend refused, worded by its stable `code`. */
+function memoryFailure(m: Translations['starmap']['nodeMenu'], error: unknown): unknown {
+  switch (memoryEntryErrorCode(error)) {
+    case 'missing':
+      return new Error(m.memoryChanged)
+
+    case 'too_long':
+      return new Error(m.memoryTooLong)
+
+    case 'blocked':
+      return new Error(m.memoryBlocked)
+
+    case 'drift':
+
+    case 'unreadable':
+      return new Error(m.memoryDrift)
+
+    default:
+      return error
+  }
 }
 
 /** Right-click actions for a star-map node: edit (modal) or delete (confirm). */
 export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextMenuProps) {
+  const { t } = useI18n()
+  const m = t.starmap.nodeMenu
+  // Set from a map edit/delete until the graph reloads after it — memory ids
+  // shift on a delete, so the menu holds memory actions until they're fresh.
+  const memoryLocked = useStore($starmapMemoryLocked)
   const [editing, setEditing] = useState<EditState | null>(null)
   const [deleting, setDeleting] = useState<Omit<NodeMenuTarget, 'x' | 'y'> | null>(null)
   const [loading, setLoading] = useState(false)
@@ -53,7 +89,7 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
     setError(null)
   })
 
-  const noun = target?.kind === 'memory' ? 'memory' : 'skill'
+  const memoryBusy = target?.kind === 'memory' && memoryLocked
 
   const openEdit = async () => {
     if (!target) {
@@ -65,13 +101,15 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
     setError(null)
 
     try {
-      const detail = await getLearningNode(target.id)
+      // A memory opens as the graph showed it; fetching by its positional id
+      // could return a neighbour.
+      const content = target.entry ?? (await getLearningNode(target.id)).content
 
       if (editEpoch.current !== epoch) {
         return
       }
 
-      setEditing({ content: detail.content, id: target.id, label: target.label })
+      setEditing({ content, entry: target.entry, id: target.id, kind: target.kind, label: target.label })
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -81,27 +119,31 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
   }
 
   const save = async () => {
-    if (!editing) {
+    // The editor's Mod-S bypasses the disabled Save button; a second save by
+    // the old entry text would only find it gone.
+    if (!editing || saving) {
       return
     }
 
     setSaving(true)
     setError(null)
 
-    try {
-      const res = await editLearningNode(editing.id, editing.content)
+    await mutateStarmap(
+      async () => {
+        const res = await editLearningNode(editing.id, editing.content, editing.entry)
 
-      if (!res.ok) {
-        throw new Error(res.message)
+        if (!res.ok) {
+          throw new Error(res.message)
+        }
+
+        setEditing(null)
+      },
+      e => {
+        const failure = memoryFailure(m, e)
+        setError(failure instanceof Error ? failure.message : String(failure))
       }
-
-      setEditing(null)
-      void loadStarmapGraph(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setSaving(false)
-    }
+    )
+    setSaving(false)
   }
 
   const menuOpen = target && !editing && !deleting
@@ -121,21 +163,22 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
             <div className="truncate px-2 py-1 text-2xs text-muted-foreground">{target.label}</div>
             <button
               className="block w-full cursor-pointer rounded-md px-2 py-1 text-left text-xs hover:bg-(--ui-control-active-background) hover:text-foreground disabled:opacity-50"
-              disabled={loading}
+              disabled={loading || memoryBusy}
               onClick={() => void openEdit()}
               type="button"
             >
-              Edit {noun}…
+              {target.kind === 'skill' ? m.editSkill : m.editMemory}
             </button>
             <button
-              className="block w-full cursor-pointer rounded-md px-2 py-1 text-left text-xs text-destructive hover:bg-destructive/10"
+              className="block w-full cursor-pointer rounded-md px-2 py-1 text-left text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              disabled={memoryBusy}
               onClick={() => {
-                setDeleting({ id: target.id, kind: target.kind, label: target.label })
+                setDeleting({ entry: target.entry, id: target.id, kind: target.kind, label: target.label })
                 onClose()
               }}
               type="button"
             >
-              {target.kind === 'skill' ? 'Archive skill' : 'Delete memory'}
+              {target.kind === 'skill' ? m.archiveSkill : m.deleteMemory}
             </button>
           </div>
         </>
@@ -144,12 +187,12 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
       <Dialog onOpenChange={value => !value && !saving && setEditing(null)} open={Boolean(editing)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit {editing?.label}</DialogTitle>
+            <DialogTitle>{m.editTitle(editing?.label ?? '')}</DialogTitle>
           </DialogHeader>
           <div className="h-80">
             {editing && (
               <CodeEditor
-                filePath={noun === 'skill' ? 'SKILL.md' : 'memory.md'}
+                filePath={editing.kind === 'skill' ? 'SKILL.md' : 'memory.md'}
                 framed
                 initialValue={editing.content}
                 key={editing.id}
@@ -162,10 +205,10 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
           <DialogFooter>
             <Button disabled={saving} onClick={() => setEditing(null)} type="button" variant="ghost">
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button disabled={saving} onClick={() => void save()}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t.common.saving : t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -186,8 +229,8 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
         />
       ) : (
         <ConfirmDialog
-          confirmLabel="Delete"
-          description="This memory is removed permanently."
+          confirmLabel={t.common.delete}
+          description={m.deleteBody}
           destructive
           dismissOnConfirm
           onClose={() => setDeleting(null)}
@@ -196,22 +239,26 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
               return
             }
 
-            const { id, label } = deleting
+            const { entry, id, label } = deleting
             const rollback = evictStarmapNode(id)
             onNodeRemoved()
 
-            fireOptimistic(
-              deleteLearningNode(id).then(res => {
+            void mutateStarmap(
+              async () => {
+                const res = await deleteLearningNode(id, entry)
+
                 if (!res.ok) {
                   throw new Error(res.message)
                 }
-              }),
-              rollback,
-              err => notifyError(err, label)
+              },
+              err => {
+                rollback()
+                notifyError(memoryFailure(m, err), label)
+              }
             )
           }}
           open={Boolean(deleting)}
-          title={`Delete ${deleting?.label ?? ''}?`}
+          title={m.deleteTitle(deleting?.label ?? '')}
         />
       )}
     </>

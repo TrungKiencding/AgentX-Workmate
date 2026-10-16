@@ -315,6 +315,23 @@ class TestMemoryEndpoints:
         bad_target = self.client.request("DELETE", "/api/memory/entries", json={"target": "soul", "entry": "x"})
         assert bad_target.status_code == 400
 
+    def test_star_map_node_delete_goes_by_entry_text(self):
+        """The star map sends a memory node's text along with its positional
+        id: a stale id still removes that entry, and one that is gone reports
+        the same ``missing`` code as /api/memory/entries."""
+        from tools.memory_tool import MemoryStore
+
+        # The map loaded first/second/third; "first" was deleted since, so
+        # "third" (memory:memory:2) now sits at index 1.
+        path = self._write("MEMORY.md", "second", "third")
+
+        r = self.client.request("DELETE", "/api/learning/node", json={"id": "memory:memory:2", "entry": "third"})
+        assert r.status_code == 200 and MemoryStore._read_file(path) == ["second"]
+
+        gone = self.client.request("DELETE", "/api/learning/node", json={"id": "memory:memory:0", "entry": "first"})
+        assert gone.status_code == 404 and gone.json()["detail"]["code"] == "missing"
+        assert MemoryStore._read_file(path) == ["second"]
+
 
 class TestPairingEndpoints:
     @pytest.fixture(autouse=True)

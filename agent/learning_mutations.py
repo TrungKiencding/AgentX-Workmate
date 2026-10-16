@@ -13,6 +13,16 @@ shared by the CLI (``agentx journey delete|edit``), the TUI ``/journey`` overlay
 (gateway RPCs), and the desktop GUI (REST). Deleting a skill *archives* it
 (recoverable via ``agentx curator restore``); deleting a memory rewrites its
 file. Pure stdlib + existing skill/memory helpers.
+
+A memory id is only as fresh as the graph it came from: deleting an entry
+shifts every later index in that file. A caller that still has the entry's
+text passes it as ``entry`` — the desktop and TUI from the graph card / frames
+row, the CLI from ``node_detail`` before its prompt or $EDITOR; the mutation
+then goes through ``MemoryStore.remove_entry`` / ``replace_entry``, which find
+the entry by that exact text under the memory file lock — it lands on that
+entry or fails with a stable ``code`` (``missing`` once it changed elsewhere),
+never on whichever entry has moved into the old index. Without ``entry`` the id
+resolves by position, as before.
 """
 
 from __future__ import annotations
@@ -21,6 +31,8 @@ from pathlib import Path
 from typing import Any
 
 _MEMORY_FILES = {"memory": "MEMORY.md", "profile": "USER.md"}
+# The MemoryStore target that owns each memory source.
+_STORE_TARGETS = {"memory": "memory", "profile": "user"}
 
 
 def parse_node_kind(node_id: str) -> str:
@@ -121,9 +133,9 @@ def _node_detail(node_id: str) -> dict[str, Any]:
 # ── Delete ──────────────────────────────────────────────────────────────────
 
 
-def delete_node(node_id: str) -> dict[str, Any]:
+def delete_node(node_id: str, entry: str | None = None) -> dict[str, Any]:
     try:
-        return _delete_memory(node_id) if parse_node_kind(node_id) == "memory" else _delete_skill(node_id)
+        return _delete_memory(node_id, entry) if parse_node_kind(node_id) == "memory" else _delete_skill(node_id)
     except (ValueError, IndexError) as exc:
         return {"ok": False, "message": str(exc)}
 
@@ -141,8 +153,12 @@ def _delete_skill(name: str) -> dict[str, Any]:
     return {"ok": ok, "message": f"archived '{name}' — restore with: agentx curator restore {name}" if ok else message}
 
 
-def _delete_memory(node_id: str) -> dict[str, Any]:
+def _delete_memory(node_id: str, entry: str | None = None) -> dict[str, Any]:
     source, gidx = _parse_memory_id(node_id)
+    if entry is not None:
+        result = _memory_store().remove_entry(_STORE_TARGETS[source], entry)
+        return _store_result(result, f"deleted memory from {_MEMORY_FILES[source]}")
+
     path, chunks, local = _locate_memory(source, gidx)
 
     del chunks[local]
@@ -154,9 +170,9 @@ def _delete_memory(node_id: str) -> dict[str, Any]:
 # ── Edit ────────────────────────────────────────────────────────────────────
 
 
-def edit_node(node_id: str, content: str) -> dict[str, Any]:
+def edit_node(node_id: str, content: str, entry: str | None = None) -> dict[str, Any]:
     try:
-        return _edit_memory(node_id, content) if parse_node_kind(node_id) == "memory" else _edit_skill(node_id, content)
+        return _edit_memory(node_id, content, entry) if parse_node_kind(node_id) == "memory" else _edit_skill(node_id, content)
     except (ValueError, IndexError) as exc:
         return {"ok": False, "message": str(exc)}
 
@@ -173,11 +189,15 @@ def _edit_skill(name: str, content: str) -> dict[str, Any]:
     return {"ok": False, "message": result.get("error", "edit failed")}
 
 
-def _edit_memory(node_id: str, content: str) -> dict[str, Any]:
+def _edit_memory(node_id: str, content: str, entry: str | None = None) -> dict[str, Any]:
     source, gidx = _parse_memory_id(node_id)
     body = content.strip()
     if not body:
         return {"ok": False, "message": "empty memory — use delete to remove it"}
+    if entry is not None:
+        result = _memory_store().replace_entry(_STORE_TARGETS[source], entry, body)
+        return _store_result(result, f"updated memory in {_MEMORY_FILES[source]}")
+
     path, chunks, local = _locate_memory(source, gidx)
 
     chunks[local] = body
@@ -195,6 +215,23 @@ def _write_memory(path: Path, chunks: list[str]) -> None:
     from tools.memory_tool import MemoryStore
 
     MemoryStore._write_file(path, [c.strip() for c in chunks if c.strip()])
+
+
+def _memory_store():
+    """An on-disk MemoryStore with the configured char caps, so an edit by
+    entry text gets the same lock, drift guard, threat scan and cap as the
+    agent's own memory writes."""
+    from tools.memory_tool import load_on_disk_store
+
+    return load_on_disk_store()
+
+
+def _store_result(result: dict[str, Any], message: str) -> dict[str, Any]:
+    """MemoryStore's ``{success, code, error}`` in this module's shape, keeping
+    the stable ``code`` so a caller can tell a stale entry from a refused edit."""
+    if result.get("success"):
+        return {"ok": True, "message": message}
+    return {"ok": False, "code": result.get("code"), "message": result.get("error") or "memory update failed"}
 
 
 def _clear_skill_cache() -> None:

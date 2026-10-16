@@ -708,6 +708,10 @@ export interface StarmapMemoryCard {
   timestamp?: null | number
   title: string
   body: string
+  /** The entry's exact text — `body` is an excerpt. Sent back with an edit or
+   *  delete so it lands on this entry even once the positional node id has
+   *  shifted. Absent from older backends and imported maps. */
+  entry?: string
 }
 
 export interface StarmapGraph {

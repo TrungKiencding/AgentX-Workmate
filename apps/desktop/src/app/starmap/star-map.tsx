@@ -3,6 +3,7 @@ import { atom, type WritableAtom } from 'nanostores'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useThemeEpoch } from '@/hooks/use-theme-epoch'
+import { useI18n } from '@/i18n'
 import { createRendererLoopPauseController } from '@/lib/renderer-loop-pause'
 import { createDoubleTapDetector, isSmartZoomWheel } from '@/lib/trackpad-gestures'
 import type { StarmapGraph } from '@/types/hermes'
@@ -108,6 +109,7 @@ export function StarMap({
   onImport?: (graph: StarmapGraph) => void
   onResetMap?: () => void
 }) {
+  const { t } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
@@ -321,13 +323,16 @@ export function StarMap({
     invalidate()
   }, [invalidate, selectedId])
 
-  // A fresh graph resets the scrubber to "fully built" (the idle default).
+  // A fresh graph resets the scrubber to "fully built" (the idle default), and
+  // drops an open node menu: its target's memory id is positional and may now
+  // name a different entry.
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
     camRadiusRef.current = RING_OUTER
     snapMotionRef.current = false
     setRevealValue(1)
     setPlaying(false)
+    setMenuTarget(null)
   }, [graph, setRevealValue])
 
   // The stepped fit radius for a reveal: fit ONE ring BEYOND the leading shell
@@ -867,12 +872,15 @@ export function StarMap({
     const { x, y } = localXY(e)
     const node = pickNode(x, y)
 
-    if (!node) {
+    // An imported map is someone else's: its synthesized memory ids would
+    // point at your own entries, so it gets no edit/delete menu.
+    if (!node || imported) {
       return setMenuTarget(null)
     }
 
     setSelectedId(node.id)
     setMenuTarget({
+      entry: memById.get(node.id)?.entry,
       id: node.id,
       kind: node.kind === 'memory' ? 'memory' : 'skill',
       label: node.label,
@@ -952,12 +960,13 @@ export function StarMap({
       {/* Legend — bottom-left, one entry per line like a conventional key. */}
       <div className="pointer-events-none absolute bottom-2 left-2 flex flex-col gap-1 text-2xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-2 rounded-full bg-[var(--theme-primary)]/80" /> skill
+          <span className="inline-block size-2 rounded-full bg-[var(--theme-primary)]/80" /> {t.starmap.legend.skill}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-2 rotate-45" style={{ backgroundColor: memoryColor }} /> memory
+          <span className="inline-block size-2 rotate-45" style={{ backgroundColor: memoryColor }} />{' '}
+          {t.starmap.legend.memory}
         </span>
-        <span className="text-2xs text-muted-foreground/65">core = oldest · outer = newer</span>
+        <span className="text-2xs text-muted-foreground/65">{t.starmap.legend.rings}</span>
         <RevealLabel axis={timeAxis} revealStore={revealStore} />
       </div>
     </div>

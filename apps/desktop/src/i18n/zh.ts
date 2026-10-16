@@ -1672,6 +1672,8 @@ export const zh: Translations = {
     archive: '归档',
     skillArchivedTitle: '技能已归档',
     skillArchivedMessage: '可通过 agentx curator restore 恢复。',
+    archiveSkillTitle: name => `归档 ${name}？`,
+    archiveSkillDescription: '技能将被归档，可通过 `agentx curator restore` 恢复。',
     hub: {
       actions: '操作',
       searchPlaceholder: '搜索技能商店',
@@ -1862,7 +1864,25 @@ export const zh: Translations = {
     importEmpty: '粘贴图谱代码以加载。',
     importSuccess: nodes => `已加载包含 ${nodes} 个节点的图谱。`,
     importedBadge: '导入的图谱',
-    resetToMine: '返回我的图谱'
+    resetToMine: '返回我的图谱',
+    legend: {
+      skill: '技能',
+      memory: '记忆',
+      rings: '中心 = 最早 · 外圈 = 较新'
+    },
+    nodeMenu: {
+      editMemory: '编辑记忆…',
+      editSkill: '编辑技能…',
+      deleteMemory: '删除记忆',
+      archiveSkill: '归档技能',
+      editTitle: label => `编辑 ${label}`,
+      deleteTitle: label => `删除 ${label}？`,
+      deleteBody: '这条记忆将被永久删除。',
+      memoryChanged: '这条记忆已在别处更改，图谱已重新加载。',
+      memoryTooLong: '超出记忆的字符上限。请缩短内容，或先删除其他记忆。',
+      memoryBlocked: '已拦截：内容看起来像是对助手的指令。',
+      memoryDrift: '记忆文件被手动编辑过，无法在这里修改。请让 AgentX 整理记忆。'
+    }
   },
   agents: {
     close: '关闭代理',

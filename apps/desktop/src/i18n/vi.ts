@@ -1781,6 +1781,8 @@ export const vi: Translations = {
     archive: 'Lưu trữ',
     skillArchivedTitle: 'Đã lưu trữ kỹ năng',
     skillArchivedMessage: 'Có thể khôi phục bằng lệnh agentx curator restore.',
+    archiveSkillTitle: name => `Lưu trữ ${name}?`,
+    archiveSkillDescription: 'Kỹ năng sẽ được lưu trữ và có thể khôi phục bằng lệnh `agentx curator restore`.',
     hub: {
       actions: 'Thao tác',
       searchPlaceholder: 'Tìm trong kho kỹ năng',
@@ -1973,7 +1975,25 @@ export const vi: Translations = {
     importEmpty: 'Dán mã bản đồ vào để tải.',
     importSuccess: nodes => `Đã tải một bản đồ có ${nodes} nút.`,
     importedBadge: 'bản đồ đã nhập',
-    resetToMine: 'Về bản đồ của tôi'
+    resetToMine: 'Về bản đồ của tôi',
+    legend: {
+      skill: 'kỹ năng',
+      memory: 'ghi nhớ',
+      rings: 'tâm = cũ nhất · vòng ngoài = mới hơn'
+    },
+    nodeMenu: {
+      editMemory: 'Sửa ghi nhớ…',
+      editSkill: 'Sửa kỹ năng…',
+      deleteMemory: 'Xoá ghi nhớ',
+      archiveSkill: 'Lưu trữ kỹ năng',
+      editTitle: label => `Sửa ${label}`,
+      deleteTitle: label => `Xoá ${label}?`,
+      deleteBody: 'Ghi nhớ này sẽ bị xoá vĩnh viễn.',
+      memoryChanged: 'Ghi nhớ này vừa thay đổi ở nơi khác. Bản đồ đã được tải lại.',
+      memoryTooLong: 'Vượt hạn mức ký tự của bộ nhớ. Hãy rút gọn, hoặc xoá bớt ghi nhớ khác trước.',
+      memoryBlocked: 'Bị chặn: nội dung này giống một câu lệnh điều khiển trợ lý.',
+      memoryDrift: 'Tệp bộ nhớ đã bị sửa tay nên không chỉnh được từ đây. Hãy nhờ AgentX dọn lại bộ nhớ.'
+    }
   },
   agents: {
     close: 'Đóng bảng agent',

@@ -269,12 +269,16 @@ class CuratorPause(BaseModel):
 class LearningNodeRef(BaseModel):
     id: str
     profile: Optional[str] = None
+    # A memory node's exact entry text (the graph card's ``entry``): the
+    # mutation then finds the entry by it, not by the positional id.
+    entry: Optional[str] = None
 
 
 class LearningNodeEdit(BaseModel):
     id: str
     content: str
     profile: Optional[str] = None
+    entry: Optional[str] = None
 
 
 # --- from web_server.py (originally lines 3786-3792) ---

@@ -962,21 +962,27 @@ export function getLearningNode(id: string): Promise<LearningNodeDetail> {
   })
 }
 
-export function deleteLearningNode(id: string): Promise<{ message: string; ok: boolean }> {
+/** `entry` — a memory node's exact text (its card's `entry`) — makes the backend
+ *  act on that entry rather than on whatever now sits at the positional id. */
+export function deleteLearningNode(id: string, entry?: string): Promise<{ message: string; ok: boolean }> {
   return window.agentxDesktop.api<{ message: string; ok: boolean }>({
     ...profileScoped(),
     path: '/api/learning/node',
     method: 'DELETE',
-    body: { id }
+    body: { entry, id }
   })
 }
 
-export function editLearningNode(id: string, content: string): Promise<{ message: string; ok: boolean }> {
+export function editLearningNode(
+  id: string,
+  content: string,
+  entry?: string
+): Promise<{ message: string; ok: boolean }> {
   return window.agentxDesktop.api<{ message: string; ok: boolean }>({
     ...profileScoped(),
     path: '/api/learning/node',
     method: 'PUT',
-    body: { content, id }
+    body: { content, entry, id }
   })
 }
 

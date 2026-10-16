@@ -1528,6 +1528,8 @@ export const en: Translations = {
     archive: 'Archive',
     skillArchivedTitle: 'Skill archived',
     skillArchivedMessage: 'Restorable via agentx curator restore.',
+    archiveSkillTitle: name => `Archive ${name}?`,
+    archiveSkillDescription: 'The skill is archived and can be restored with `agentx curator restore`.',
     hub: {
       actions: 'Actions',
       searchPlaceholder: 'Search the skill store',
@@ -1729,7 +1731,26 @@ export const en: Translations = {
     importEmpty: 'Paste a map code to load it.',
     importSuccess: nodes => `Loaded a map with ${nodes} ${nodes === 1 ? 'node' : 'nodes'}.`,
     importedBadge: 'imported map',
-    resetToMine: 'Back to my map'
+    resetToMine: 'Back to my map',
+    legend: {
+      skill: 'skill',
+      memory: 'memory',
+      rings: 'core = oldest · outer = newer'
+    },
+    nodeMenu: {
+      editMemory: 'Edit memory…',
+      editSkill: 'Edit skill…',
+      deleteMemory: 'Delete memory',
+      archiveSkill: 'Archive skill',
+      editTitle: label => `Edit ${label}`,
+      deleteTitle: label => `Delete ${label}?`,
+      deleteBody: 'This memory is removed permanently.',
+      memoryChanged: 'This memory changed somewhere else. The map has been reloaded.',
+      memoryTooLong: "That's over the memory's character limit. Shorten it, or delete other memories first.",
+      memoryBlocked: 'Blocked: it reads like an instruction to the assistant.',
+      memoryDrift:
+        "The memory file was edited by hand, so it can't be changed from here. Ask AgentX to tidy its memory."
+    }
   },
   agents: {
     close: 'Close agents',

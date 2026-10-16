@@ -1541,6 +1541,8 @@ export const ja = defineLocale({
     archive: 'アーカイブ',
     skillArchivedTitle: 'スキルをアーカイブしました',
     skillArchivedMessage: 'agentx curator restore で復元できます。',
+    archiveSkillTitle: name => `${name} をアーカイブしますか？`,
+    archiveSkillDescription: 'スキルはアーカイブされ、`agentx curator restore` で復元できます。',
     toolsets: {
       a2a: {
         label: '他のアシスタントと連携',
@@ -1829,7 +1831,26 @@ export const ja = defineLocale({
     loadFailed: 'メモリグラフを読み込めませんでした',
     loading: '読み込み中…',
     emptyTitle: 'まだ学習はありません',
-    emptyDesc: 'AgentX がスキルやメモリを蓄積すると、ここに表示されます。'
+    emptyDesc: 'AgentX がスキルやメモリを蓄積すると、ここに表示されます。',
+    legend: {
+      skill: 'スキル',
+      memory: 'メモリ',
+      rings: '中心 = 最も古い · 外側 = 新しい'
+    },
+    nodeMenu: {
+      editMemory: 'メモリを編集…',
+      editSkill: 'スキルを編集…',
+      deleteMemory: 'メモリを削除',
+      archiveSkill: 'スキルをアーカイブ',
+      editTitle: label => `${label} を編集`,
+      deleteTitle: label => `${label} を削除しますか？`,
+      deleteBody: 'このメモリは完全に削除されます。',
+      memoryChanged: 'このメモリは別の場所で変更されました。グラフを再読み込みしました。',
+      memoryTooLong: 'メモリの文字数の上限を超えています。短くするか、ほかのメモリを先に削除してください。',
+      memoryBlocked: 'ブロックされました: アシスタントへの指示のように読めます。',
+      memoryDrift:
+        'メモリファイルが手動で編集されているため、ここでは変更できません。AgentX にメモリの整理を頼んでください。'
+    }
   },
   agents: {
     close: 'エージェントを閉じる',

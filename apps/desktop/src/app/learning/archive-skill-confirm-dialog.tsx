@@ -3,8 +3,6 @@ import { deleteLearningNode } from '@/hermes'
 import { translateNow, type Translations, useI18n } from '@/i18n'
 import { notify } from '@/store/notifications'
 
-export const ARCHIVE_SKILL_DESCRIPTION = 'The skill is archived and can be restored with `agentx curator restore`.'
-
 export function notifySkillArchived(t: Translations): void {
   notify({ kind: 'success', message: t.skills.skillArchivedMessage, title: t.skills.skillArchivedTitle })
 }
@@ -50,8 +48,8 @@ export function ArchiveSkillConfirmDialog({
 
   return (
     <ConfirmDialog
-      confirmLabel="Archive"
-      description={ARCHIVE_SKILL_DESCRIPTION}
+      confirmLabel={t.skills.archive}
+      description={t.skills.archiveSkillDescription}
       destructive
       dismissOnConfirm
       onClose={onClose}
@@ -68,7 +66,7 @@ export function ArchiveSkillConfirmDialog({
         )
       }}
       open={open}
-      title={`Archive ${skillName}?`}
+      title={t.skills.archiveSkillTitle(skillName)}
     />
   )
 }

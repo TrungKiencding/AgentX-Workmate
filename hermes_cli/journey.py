@@ -266,7 +266,7 @@ def _cmd_delete(args: argparse.Namespace) -> int:
         except (EOFError, KeyboardInterrupt):
             print("\n  aborted")
             return 1
-    res = delete_node(args.node)
+    res = delete_node(args.node, _memory_entry(detail))
     print(f"  {res['message']}")
     return 0 if res.get("ok") else 1
 
@@ -283,9 +283,17 @@ def _cmd_edit(args: argparse.Namespace) -> int:
     if edited is None or edited.strip() == detail["content"].strip():
         print("  no changes")
         return 0
-    res = edit_node(args.node, edited)
+    res = edit_node(args.node, edited, _memory_entry(detail))
     print(f"  {res['message']}")
     return 0 if res.get("ok") else 1
+
+
+def _memory_entry(detail: dict[str, Any]) -> Optional[str]:
+    """The text a memory node resolved to when it was shown, sent back with the
+    mutation. Memory ids are positional, so the agent can shift them while the
+    confirm prompt or $EDITOR is open; by text, the change lands on the entry
+    the user saw or fails as ``missing``. Skills go by name."""
+    return detail["content"] if detail.get("kind") == "memory" else None
 
 
 def _open_in_editor(initial: str, *, suffix: str) -> Optional[str]:

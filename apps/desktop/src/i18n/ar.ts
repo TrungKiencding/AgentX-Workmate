@@ -1545,6 +1545,8 @@ export const ar = defineLocale({
     archive: 'أرشفة',
     skillArchivedTitle: 'تمت أرشفة المهارة',
     skillArchivedMessage: 'يمكن استعادتها بالأمر agentx curator restore.',
+    archiveSkillTitle: name => `أرشفة ${name}؟`,
+    archiveSkillDescription: 'ستُؤرشف المهارة، ويمكن استعادتها بالأمر `agentx curator restore`.',
     hub: {
       actions: 'الإجراءات',
       searchPlaceholder: 'ابحث في متجر المهارات',
@@ -1717,6 +1719,26 @@ export const ar = defineLocale({
         kind_mismatch: 'المهارة التي تحمل هذا الاسم على AgentHub من نوع آخر.',
         workspace: 'لم يقبل AgentHub مساحة العمل هذه — لم تعد عضوًا فيها، أو لم تُختر مساحة عمل.'
       }
+    }
+  },
+  starmap: {
+    legend: {
+      skill: 'مهارة',
+      memory: 'ذكرى',
+      rings: 'المركز = الأقدم · الخارج = الأحدث'
+    },
+    nodeMenu: {
+      editMemory: 'تعديل الذكرى…',
+      editSkill: 'تعديل المهارة…',
+      deleteMemory: 'حذف الذكرى',
+      archiveSkill: 'أرشفة المهارة',
+      editTitle: label => `تعديل ${label}`,
+      deleteTitle: label => `حذف ${label}؟`,
+      deleteBody: 'ستُحذف هذه الذكرى نهائيًا.',
+      memoryChanged: 'تغيّرت هذه الذكرى في مكان آخر. أُعيد تحميل الخريطة.',
+      memoryTooLong: 'تجاوزت حد الأحرف في الذاكرة. اختصر النص أو احذف ذكريات أخرى أولًا.',
+      memoryBlocked: 'محظور: يبدو كأنه تعليمات للمساعد.',
+      memoryDrift: 'عُدّل ملف الذاكرة يدويًا، لذا لا يمكن تغييره من هنا. اطلب من AgentX ترتيب ذاكرته.'
     }
   },
   agents: {

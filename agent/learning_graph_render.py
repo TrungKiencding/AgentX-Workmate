@@ -343,17 +343,21 @@ def _bucket_nodes(bucket: _ChartBucket, memory_lookup: Optional[dict[str, dict[s
         style = STYLE_MEMORY if node.get("kind") == "memory" else STYLE_SKILL
         raw_label = str(node.get("label") or node.get("id") or "unknown").strip()
         memory = (memory_lookup or {}).get(str(node.get("id", "")))
-        out.append(
-            {
-                "id": str(node.get("id", "")),
-                "glyph": MEMORY_GLYPH if node.get("kind") == "memory" else SKILL_GLYPH,
-                "label": _node_label(node),
-                "fullLabel": raw_label,
-                "meta": _node_meta(node),
-                "body": str(memory.get("body", "")) if memory else "",
-                "style": style,
-            }
-        )
+        row = {
+            "id": str(node.get("id", "")),
+            "glyph": MEMORY_GLYPH if node.get("kind") == "memory" else SKILL_GLYPH,
+            "label": _node_label(node),
+            "fullLabel": raw_label,
+            "meta": _node_meta(node),
+            "body": str(memory.get("body", "")) if memory else "",
+            "style": style,
+        }
+        if memory:
+            # The exact entry text (``body`` is an excerpt): the TUI sends it
+            # back with an edit/delete so the mutation lands on this entry even
+            # after its positional id has shifted (``agent.learning_mutations``).
+            row["entry"] = str(memory.get("entry", ""))
+        out.append(row)
     return out
 
 

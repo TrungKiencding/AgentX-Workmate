@@ -1263,6 +1263,9 @@ export interface Translations {
     archive: string
     skillArchivedTitle: string
     skillArchivedMessage: string
+    /** Confirm before archiving a learned skill (capabilities page + memory graph). */
+    archiveSkillTitle: (name: string) => string
+    archiveSkillDescription: string
     hub: {
       actions: string
       searchPlaceholder: string
@@ -1445,6 +1448,26 @@ export interface Translations {
     importSuccess: (nodes: number) => string
     importedBadge: string
     resetToMine: string
+    /** Bottom-left key: what each node shape is, and how the rings read. */
+    legend: {
+      skill: string
+      memory: string
+      rings: string
+    }
+    /** Right-click menu on a map node, and its edit/delete dialogs. */
+    nodeMenu: {
+      editMemory: string
+      editSkill: string
+      deleteMemory: string
+      archiveSkill: string
+      editTitle: (label: string) => string
+      deleteTitle: (label: string) => string
+      deleteBody: string
+      memoryChanged: string
+      memoryTooLong: string
+      memoryBlocked: string
+      memoryDrift: string
+    }
   }
   agents: {
     close: string

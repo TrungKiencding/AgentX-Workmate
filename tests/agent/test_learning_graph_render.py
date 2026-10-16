@@ -125,6 +125,22 @@ def test_frames_play_through_grows_visibility():
         assert fr["grid"]
 
 
+def test_frame_rows_carry_a_memorys_exact_text():
+    """``body`` is a display excerpt; ``entry`` is what the TUI sends back with
+    an edit/delete to find the entry by text, so it must be whole. Skills go by
+    name and carry none."""
+    payload = _payload(skills=2, memories=1)
+    long_entry = "remember: " + "x" * 1500
+    payload["memory"] = [{"source": "memory", "title": "remember", "body": long_entry[:1200], "entry": long_entry}]
+
+    out = render.render_frames(payload, cols=60, rows=16, frames=2)
+    rows = {node["id"]: node for bucket in out["buckets"] for node in bucket["nodes"]}
+
+    assert rows["memory:memory:0"]["entry"] == long_entry
+    assert rows["memory:memory:0"]["body"] == long_entry[:1200]
+    assert "entry" not in rows["skill0"] and "entry" not in rows["skill1"]
+
+
 
 
 

@@ -1464,6 +1464,8 @@ export const zhHant = defineLocale({
     archive: '封存',
     skillArchivedTitle: '技能已封存',
     skillArchivedMessage: '可透過 agentx curator restore 還原。',
+    archiveSkillTitle: name => `封存 ${name}？`,
+    archiveSkillDescription: '技能將被封存，可透過 `agentx curator restore` 還原。',
     toolsets: {
       a2a: { label: '與其他助理協作', description: '依 A2A 標準與其他 AI 助理互相交付工作。' },
       web: {
@@ -1744,7 +1746,25 @@ export const zhHant = defineLocale({
     loadFailed: '無法載入記憶圖譜',
     loading: '載入中…',
     emptyTitle: '尚無學習內容',
-    emptyDesc: '當 AgentX 為你的工作建立技能與記憶時，會顯示在這裡。'
+    emptyDesc: '當 AgentX 為你的工作建立技能與記憶時，會顯示在這裡。',
+    legend: {
+      skill: '技能',
+      memory: '記憶',
+      rings: '中心 = 最早 · 外圈 = 較新'
+    },
+    nodeMenu: {
+      editMemory: '編輯記憶…',
+      editSkill: '編輯技能…',
+      deleteMemory: '刪除記憶',
+      archiveSkill: '封存技能',
+      editTitle: label => `編輯 ${label}`,
+      deleteTitle: label => `刪除 ${label}？`,
+      deleteBody: '這則記憶將被永久刪除。',
+      memoryChanged: '這則記憶已在別處變更，圖譜已重新載入。',
+      memoryTooLong: '超出記憶的字元上限。請縮短內容，或先刪除其他記憶。',
+      memoryBlocked: '已攔截：內容看起來像是對助理的指令。',
+      memoryDrift: '記憶檔案曾被手動編輯，無法在這裡修改。請讓 AgentX 整理記憶。'
+    }
   },
   agents: {
     close: '關閉代理',

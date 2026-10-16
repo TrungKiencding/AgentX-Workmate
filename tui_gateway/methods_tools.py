@@ -1776,22 +1776,36 @@ def _(rid, params: dict) -> dict:
 
 @method("learning.delete")
 def _(rid, params: dict) -> dict:
-    """Delete a journey node — skills are archived (restorable), memories removed."""
+    """Delete a journey node — skills are archived (restorable), memories removed.
+
+    A memory sent with its ``entry`` text is removed by that text: its id is
+    positional and goes stale as soon as an earlier entry is deleted. A refusal
+    keeps MemoryStore's ``code`` (``missing``: it changed since it was shown)."""
     try:
         from agent.learning_mutations import delete_node
 
-        return _ok(rid, delete_node(str(params.get("id", ""))))
+        entry = params.get("entry")
+        return _ok(rid, delete_node(str(params.get("id", "")), None if entry is None else str(entry)))
     except Exception as exc:  # noqa: BLE001
         return _err(rid, 5000, f"learning.delete failed: {exc}")
 
 
 @method("learning.edit")
 def _(rid, params: dict) -> dict:
-    """Rewrite a journey node's content (SKILL.md or memory chunk)."""
+    """Rewrite a journey node's content (SKILL.md or memory chunk); a memory
+    sent with its ``entry`` text is rewritten by that text, as on delete."""
     try:
         from agent.learning_mutations import edit_node
 
-        return _ok(rid, edit_node(str(params.get("id", "")), str(params.get("content", ""))))
+        entry = params.get("entry")
+        return _ok(
+            rid,
+            edit_node(
+                str(params.get("id", "")),
+                str(params.get("content", "")),
+                None if entry is None else str(entry),
+            ),
+        )
     except Exception as exc:  # noqa: BLE001
         return _err(rid, 5000, f"learning.edit failed: {exc}")
 

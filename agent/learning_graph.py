@@ -195,6 +195,10 @@ def _memory_cards() -> list[dict[str, Any]]:
 
     ``MEMORY.md`` / ``USER.md`` are prose split on bare ``§`` separators; each
     chunk becomes one card. Every chunk is surfaced — the graph shows everything.
+
+    ``body`` is a display excerpt; ``entry`` is the chunk's exact text, which a
+    client sends back with an edit/delete so it lands on this entry even after
+    the positional node ids have shifted (see ``agent.learning_mutations``).
     """
     base = get_hermes_home() / "memories"
     cards: list[dict[str, Any]] = []
@@ -215,6 +219,7 @@ def _memory_cards() -> list[dict[str, Any]]:
                     "timestamp": file_ts + chunk_idx if file_ts is not None else None,
                     "title": (first[:80] + "…") if len(first) > 80 else first,
                     "body": chunk[:1200],
+                    "entry": chunk,
                 }
             )
     return cards

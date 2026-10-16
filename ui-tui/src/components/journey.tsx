@@ -11,6 +11,9 @@ import { listRowStyle } from './overlayPrimitives.js'
 import { OverlayScrollbar } from './overlayScrollbar.js'
 
 interface MutationResult {
+  // MemoryStore's reason a memory mutation was refused; `missing` = the entry
+  // changed since the timeline loaded.
+  code?: string
   message: string
   ok: boolean
 }
@@ -32,6 +35,9 @@ interface LegendItem {
 
 interface BucketNode {
   body?: string
+  // A memory's exact text (`body` is an excerpt). Edits and deletes send it
+  // back: the positional id names another entry once an earlier one is gone.
+  entry?: string
   fullLabel?: string
   glyph: string
   id: string
@@ -79,6 +85,10 @@ type Cell = { color?: string; text: string }
 const MAX_CHART_ROWS = 8
 
 const rowText = (row: Run[]) => row.map(run => run[0]).join('')
+
+// The timeline no longer matches disk after a mutation landed, or after one was
+// refused because its memory changed since the timeline loaded.
+const isStaleAfter = (res: MutationResult) => res.ok || res.code === 'missing'
 
 const buildTree = (buckets: BucketRow[]): TreeRow[] => {
   const out: TreeRow[] = []
@@ -190,11 +200,11 @@ export function Journey({ gw, onClose, t }: JourneyProps) {
     }
 
     setBusy(true)
-    gw.request<MutationResult>('learning.delete', { id: node.id })
+    gw.request<MutationResult>('learning.delete', { entry: node.entry, id: node.id })
       .then(res => {
         setNotice(res.message)
 
-        if (res.ok) {
+        if (isStaleAfter(res)) {
           setMode('timeline')
           setReloadKey(k => k + 1)
         }
@@ -216,7 +226,12 @@ export function Journey({ gw, onClose, t }: JourneyProps) {
     setBusy(true)
 
     try {
-      const detail = await gw.request<NodeDetail>('learning.detail', { id: node.id })
+      // A memory row carries its exact text: edit that one — prefilled, then
+      // sent back as `entry` — not whichever entry has since moved into its id
+      // (the agent can rewrite memory while $EDITOR is open).
+      const detail: NodeDetail = node.entry
+        ? { content: node.entry, kind: 'memory', message: '', ok: true }
+        : await gw.request<NodeDetail>('learning.detail', { id: node.id })
 
       if (!detail.ok || detail.content == null) {
         return setNotice(detail.message || 'cannot edit')
@@ -228,10 +243,15 @@ export function Journey({ gw, onClose, t }: JourneyProps) {
         return setNotice('no changes')
       }
 
-      const res = await gw.request<MutationResult>('learning.edit', { content: edited, id: node.id })
+      const res = await gw.request<MutationResult>('learning.edit', {
+        content: edited,
+        entry: detail.kind === 'memory' ? detail.content : undefined,
+        id: node.id
+      })
+
       setNotice(res.message)
 
-      if (res.ok) {
+      if (isStaleAfter(res)) {
         setReloadKey(k => k + 1)
       }
     } catch (e) {

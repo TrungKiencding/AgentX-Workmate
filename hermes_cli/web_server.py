@@ -4008,27 +4008,46 @@ async def get_learning_node(id: str, profile: Optional[str] = None):
     return res
 
 
+def _learning_node_error(res: Dict[str, Any], fallback: str) -> HTTPException:
+    """A refused journey mutation as an HTTP error. One addressed by memory
+    entry text fails with MemoryStore's stable ``code``, passed on the way
+    /api/memory/entries does, so the desktop can tell "changed elsewhere"
+    (``missing``) from an edit it should explain."""
+    code = res.get("code")
+    message = res.get("message", fallback)
+    if code:
+        return HTTPException(
+            status_code=_MEMORY_ENTRY_ERROR_STATUS.get(code, 400),
+            detail={"code": code, "message": message},
+        )
+    return HTTPException(status_code=400, detail=message)
+
+
 @app.delete("/api/learning/node")
 async def delete_learning_node(body: LearningNodeRef):
-    """Delete a journey node — skills are archived (restorable), memories removed."""
+    """Delete a journey node — skills are archived (restorable), memories removed.
+
+    A memory sent with its ``entry`` text is removed by that text: its id is
+    positional and goes stale as soon as an earlier entry is deleted."""
     from agent.learning_mutations import delete_node
 
     with _profile_scope(body.profile):
-        res = delete_node(body.id)
+        res = delete_node(body.id, body.entry)
     if not res.get("ok"):
-        raise HTTPException(status_code=400, detail=res.get("message", "delete failed"))
+        raise _learning_node_error(res, "delete failed")
     return res
 
 
 @app.put("/api/learning/node")
 async def update_learning_node(body: LearningNodeEdit):
-    """Rewrite a journey node's content (SKILL.md or memory chunk)."""
+    """Rewrite a journey node's content (SKILL.md or memory chunk); a memory
+    sent with its ``entry`` text is rewritten by that text, as on delete."""
     from agent.learning_mutations import edit_node
 
     with _profile_scope(body.profile):
-        res = edit_node(body.id, body.content)
+        res = edit_node(body.id, body.content, body.entry)
     if not res.get("ok"):
-        raise HTTPException(status_code=400, detail=res.get("message", "edit failed"))
+        raise _learning_node_error(res, "edit failed")
     return res
 
 
