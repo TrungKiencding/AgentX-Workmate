@@ -36,8 +36,10 @@ import {
 } from '@/app/chat/composer/inline-refs'
 import { chipTypedPathOnSpace, pathifyRefs } from '@/app/chat/composer/path-refs'
 import {
+  beginComposerComposition,
   composerPlainText,
   insertComposerContentsAtCaret,
+  markEditorEmptiness,
   placeCaretEnd,
   refChipElement,
   renderComposerContents,
@@ -227,6 +229,14 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
 
   const syncDraftFromEditor = useCallback(
     (editor: HTMLDivElement) => {
+      // The placeholder paints while the editor carries `data-empty`. Repaints
+      // of an empty draft set it (clear-all, undo back to nothing), and
+      // nothing on the typing path took it off again, so the hint sat on top
+      // of every character typed after a clear. Every copy of the editor into
+      // the draft runs through here — input, paste, chips, blur, submit —
+      // so re-reading the editor here keeps the marker true.
+      markEditorEmptiness(editor)
+
       const nextDraft = sanitizeComposerInput(composerPlainText(editor))
 
       if (nextDraft !== draftRef.current) {
@@ -785,6 +795,9 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
               data-slot={RICH_INPUT_SLOT}
               onBeforeInput={handleBeforeInput}
               onBlur={() => window.setTimeout(closeTrigger, 80)}
+              // IME (Vietnamese Telex, Japanese, …): drop the marker before the
+              // first preedit character lands, as the main composer does.
+              onCompositionStart={event => beginComposerComposition(event.currentTarget)}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onFocus={() => markActiveComposer('edit')}

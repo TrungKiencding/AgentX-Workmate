@@ -161,6 +161,41 @@ describe('click-to-edit user message', () => {
     expect((await screen.findByRole('textbox', { name: 'Edit message' })).textContent).toBe(editedText)
   })
 
+  it('takes the placeholder off once text is typed after clearing the edit', async () => {
+    render(<IncrementalHarness onEdit={async () => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit message' }))
+    const editor = await screen.findByRole('textbox', { name: 'Edit message' })
+    // The hint is CSS: `[data-slot='composer-rich-input']:is(:empty, [data-empty])::before`.
+    const showsPlaceholder = () => editor.matches(':is(:empty, [data-empty])')
+
+    // Clear everything — the repaint of the empty draft marks the editor empty.
+    editor.replaceChildren()
+    fireEvent.input(editor)
+    await waitFor(() => expect(showsPlaceholder()).toBe(true))
+
+    // Then type again: "asdasd" must not sit under "Edit message".
+    editor.textContent = 'asdasd'
+    fireEvent.input(editor)
+
+    expect(showsPlaceholder()).toBe(false)
+  })
+
+  it('drops the empty marker as IME composition starts', async () => {
+    render(<IncrementalHarness onEdit={async () => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit message' }))
+    const editor = await screen.findByRole('textbox', { name: 'Edit message' })
+
+    editor.replaceChildren()
+    fireEvent.input(editor)
+    await waitFor(() => expect(editor.hasAttribute('data-empty')).toBe(true))
+
+    fireEvent.compositionStart(editor)
+
+    expect(editor.hasAttribute('data-empty')).toBe(false)
+  })
+
   it('still cancels an untouched inline edit when focus leaves the composer', async () => {
     const { container } = render(<IncrementalHarness onEdit={async () => {}} />)
 
