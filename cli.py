@@ -5182,6 +5182,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._command_running = False
         self._command_blocks_input = False
         self._command_status = ""
+        self._print_busy_status = True
         # Petdex mascot (opt-in via display.pet). The base CLI mirrors the TUI's
         # PetPane: a half-block sprite above the prompt that reacts to agent
         # activity. Lazily resolved; an invalidate timer drives the animation.
@@ -7607,7 +7608,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._command_status = status
         self._invalidate(min_interval=0.0)
         try:
-            print(f"⏳ {status}")
+            # The TUI slash worker turns this off: it hands back output only
+            # once the command has finished, where the line would sit above
+            # the result and read as still running.
+            if getattr(self, "_print_busy_status", True):
+                print(f"⏳ {status}")
             yield
         finally:
             self._command_running = False

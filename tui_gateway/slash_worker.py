@@ -103,6 +103,9 @@ def _run(cli: HermesCLI, command: str) -> str:
     # contextlib.redirect_stdout won't affect it. Swap the console's
     # underlying file to our buffer so self.console.print() is captured.
     cli.console = Console(file=buf, force_terminal=True, width=120)
+    # The caller sees this output only after the command has finished, so
+    # _busy_command's "⏳ <status>" line would read as still running.
+    cli._print_busy_status = False
 
     old = getattr(cli_mod, "_cprint", None)
     if old is not None:
