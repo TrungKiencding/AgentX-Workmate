@@ -123,8 +123,13 @@ async function startPaintObserver(page: Page): Promise<void> {
     let additions = 0
     let flushTimer: ReturnType<typeof setTimeout> | undefined
     new MutationObserver(records => {
+      // Measure transcript message builds, not loading rows, scroll controls
+      // or other viewport chrome that can mount independently of history.
+      const messageSelector = '[data-role="user"], [data-role="assistant"], [data-role="system"]'
       additions += records.reduce(
-        (count, record) => count + (record.type === 'childList' && record.addedNodes.length > 0 ? 1 : 0),
+        (count, record) => count + (record.type === 'childList' && [...record.addedNodes].some(node =>
+          node instanceof Element && (node.matches(messageSelector) || node.querySelector(messageSelector))
+        ) ? 1 : 0),
         0,
       )
       if (additions === 0) return

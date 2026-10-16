@@ -27,8 +27,7 @@ import { type MockServer, startMockServer } from './mock-server'
 import { RealSessionBuilder } from './real-session-builder'
 import { type ElectronApplication, expect, type Page, test } from './test'
 
-// A seeded session has no generated title, so every label falls back to the
-// session preview — the first 60 characters of the first user message.
+// The builder explicitly names this session; resume it by that durable title.
 const SESSION_TITLE = 'E2E attached image session'
 const CAPTION = 'E2E attached image must survive a relaunch'
 const IMAGE_DIR = 'Application Support/e2e shots'
@@ -90,7 +89,7 @@ async function setupSeededDesktop(): Promise<SeededFixture> {
 }
 
 function sessionRow(page: Page) {
-  return page.locator('[data-slot="sidebar"] button').filter({ hasText: CAPTION }).first()
+  return page.locator('[data-slot="sidebar"] button').filter({ hasText: SESSION_TITLE }).first()
 }
 
 // Inactive tabs stay mounted under a data-pane-hidden ancestor. Match the
@@ -211,13 +210,13 @@ test.describe('attached image resume', () => {
     fixture = await setupSeededDesktop()
     await waitForAppReady(fixture, 120_000)
 
-    // The sidebar labels a session by its preview, so the caption has to lead
-    // the persisted turn — a leading directive reads as a truncated file path.
+    // The explicit session title is authoritative; the caption is checked in
+    // the resumed transcript alongside its image below.
     const row = sessionRow(fixture.page)
     await row.waitFor({ state: 'visible', timeout: 60_000 })
 
     const label = (await row.textContent())?.trim() ?? ''
-    expect(label.startsWith(CAPTION), `sidebar label should open with the caption: ${label}`).toBe(true)
+    expect(label, 'sidebar should retain the explicit session title').toContain(SESSION_TITLE)
 
     await openSeededSession(fixture.page)
     await assertRendersThumbnail(fixture.page, 'first open')

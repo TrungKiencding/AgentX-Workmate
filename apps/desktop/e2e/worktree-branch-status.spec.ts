@@ -68,7 +68,7 @@ test.afterAll(async () => {
   fixture = null
 })
 
-test('creating a branch with ctrl-shift-b updates the composer git-status branch', async ({}, testInfo) => {
+test('creating a branch with the platform shortcut updates the composer git-status branch', async ({}, testInfo) => {
   const page = fixture!.page
   const codingRow = page.locator('.coding-status-bar')
   const composer = page.locator('[contenteditable="true"]').first()
@@ -82,12 +82,12 @@ test('creating a branch with ctrl-shift-b updates the composer git-status branch
     { timeout: 15_000 },
   )
   await expect(codingRow).toContainText('main')
-  await page.keyboard.press('Control+Shift+B')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B')
 
-  const branchInput = page.locator('input[placeholder="e.g. my-feature"]').first()
+  const branchInput = page.getByRole('dialog').getByRole('textbox').first()
   await expect(branchInput).toBeVisible()
   await branchInput.fill(BRANCH_NAME)
-  await page.getByRole('button', { name: 'New worktree' }).click()
+  await branchInput.press('Enter')
 
   await expect(codingRow).toContainText(BRANCH_NAME, { timeout: 15_000 })
   await page.screenshot({ path: testInfo.outputPath('composer-branch-after-create.png') })
