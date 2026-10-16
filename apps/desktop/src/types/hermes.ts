@@ -1502,6 +1502,24 @@ export interface MemoryStatusResponse {
   builtin_files: { memory: number; user: number }
 }
 
+/** Which built-in memory store: the agent's notes (MEMORY.md) or the user profile (USER.md). */
+export type MemoryTarget = 'memory' | 'user'
+
+/** One built-in store as `GET /api/memory/entries` reports it. */
+export interface MemoryStoreContents {
+  /** Entries in file order — exact text, the key for edits and deletes. */
+  entries: string[]
+  chars: number
+  limit: number
+  /** The store's config switch (memory.memory_enabled / user_profile_enabled). */
+  enabled: boolean
+  /** False when the file exists but couldn't be read — not the same as empty. */
+  readable: boolean
+}
+
+/** `GET /api/memory/entries` — what the built-in memory holds. */
+export type MemoryEntriesResponse = Record<MemoryTarget, MemoryStoreContents>
+
 /** `GET /api/curator` — background skill-curator status. */
 export interface CuratorStatusResponse {
   enabled: boolean

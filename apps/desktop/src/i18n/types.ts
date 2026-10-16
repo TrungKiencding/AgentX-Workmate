@@ -698,6 +698,31 @@ export interface Translations {
       attachmentSizeUnit: string
       attachmentSizeLabel: string
     }
+    memoryEntries: {
+      title: string
+      description: string
+      userTitle: string
+      memoryTitle: string
+      usage: (chars: string, limit: string) => string
+      emptyUser: string
+      emptyMemory: string
+      offHint: string
+      unreadable: string
+      loadFailed: string
+      edit: string
+      editLabel: string
+      deleteTitle: string
+      deleteBody: string
+      deleted: string
+      saved: string
+      saveFailed: string
+      deleteFailed: string
+      errorMissing: string
+      errorTooLong: (limit: string) => string
+      errorBlocked: string
+      errorDrift: string
+      errorEmpty: string
+    }
     quickEntry: {
       enabledTitle: string
       enabledDesc: string

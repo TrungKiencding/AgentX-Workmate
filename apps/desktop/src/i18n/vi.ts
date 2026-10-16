@@ -1107,6 +1107,32 @@ export const vi: Translations = {
       attachmentSizeUnit: 'MB',
       attachmentSizeLabel: 'Dung lượng tối đa khi xem trước / tải ảnh, tính bằng megabyte'
     },
+    memoryEntries: {
+      title: 'Những gì AgentX đang nhớ',
+      description:
+        'Ghi chú và hồ sơ về bạn được nạp vào mỗi cuộc trò chuyện mới. Sửa hoặc xoá ở đây — thay đổi có hiệu lực từ cuộc trò chuyện tiếp theo.',
+      userTitle: 'Về bạn',
+      memoryTitle: 'Ghi chú của AgentX',
+      usage: (chars, limit) => `${chars}/${limit} ký tự`,
+      emptyUser: 'AgentX chưa lưu gì về bạn.',
+      emptyMemory: 'Chưa có ghi chú nào.',
+      offHint: 'Đang tắt — AgentX không đọc cũng không ghi thêm vào đây. Bật lại ở bên dưới.',
+      unreadable: 'Không đọc được tệp bộ nhớ này.',
+      loadFailed: 'Không tải được nội dung bộ nhớ',
+      edit: 'Sửa',
+      editLabel: 'Nội dung ghi nhớ',
+      deleteTitle: 'Xoá ghi nhớ này?',
+      deleteBody: 'Từ cuộc trò chuyện tiếp theo, AgentX sẽ không còn nhớ điều này.',
+      deleted: 'Đã xoá khỏi bộ nhớ',
+      saved: 'Đã cập nhật bộ nhớ',
+      saveFailed: 'Không lưu được thay đổi',
+      deleteFailed: 'Không xoá được',
+      errorMissing: 'Mục này vừa thay đổi ở nơi khác. Danh sách đã được tải lại.',
+      errorTooLong: limit => `Vượt hạn mức ${limit} ký tự. Hãy rút gọn, hoặc xoá bớt mục khác trước.`,
+      errorBlocked: 'Bị chặn: nội dung này giống một câu lệnh điều khiển trợ lý.',
+      errorDrift: 'Tệp bộ nhớ đã bị sửa tay nên không chỉnh được từ đây. Hãy nhờ AgentX dọn lại bộ nhớ.',
+      errorEmpty: 'Nội dung không được để trống. Muốn bỏ mục này, hãy dùng Xoá.'
+    },
     quickEntry: {
       enabledTitle: 'Nhập nhanh',
       enabledDesc:

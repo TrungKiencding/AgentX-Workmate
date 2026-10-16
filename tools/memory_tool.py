@@ -559,6 +559,87 @@ class MemoryStore:
 
         return self._success_response(target, "Entry removed.")
 
+    # -- Whole-entry edits (the Desktop memory viewer) -------------------------
+    #
+    # `replace` / `remove` find an entry by a SUBSTRING the model quotes. A
+    # person picking a row in a list means that row and nothing else: deleting
+    # "Likes candy" must not fail as ambiguous because "Likes candy and tea"
+    # also exists, nor hit a different row. These address the entry by its
+    # exact text, under the same lock / reload / drift guard / threat scan /
+    # char cap as the model's edits. Failures carry a stable ``code`` (no
+    # model-facing retry prose) so the UI can explain them in its own words.
+
+    def _entry_edit_preflight(self, target: str) -> Optional[Dict[str, Any]]:
+        """Reload ``target`` under the caller's lock; an error dict to abort with."""
+        bak = self._reload_target(target)
+        if bak is _READ_FAILED:
+            return {**_read_failed_error(self._path_for(target)), "code": "unreadable"}
+        if bak:
+            return {**_drift_error(self._path_for(target), bak), "code": "drift"}
+        return None
+
+    def remove_entry(self, target: str, entry: str) -> Dict[str, Any]:
+        """Remove the entry whose text is exactly ``entry``."""
+        entry = entry.strip()
+        if not entry:
+            return {"success": False, "code": "empty", "error": "Entry cannot be empty."}
+
+        with self._file_lock(self._path_for(target)):
+            failure = self._entry_edit_preflight(target)
+            if failure:
+                return failure
+
+            entries = self._entries_for(target)
+            if entry not in entries:
+                return {"success": False, "code": "missing", "error": "That entry is no longer in memory."}
+
+            entries.remove(entry)
+            self._set_entries(target, entries)
+            self.save_to_disk(target)
+
+        return self._success_response(target, "Entry removed.")
+
+    def replace_entry(self, target: str, entry: str, new_content: str) -> Dict[str, Any]:
+        """Rewrite the entry whose text is exactly ``entry`` to ``new_content``."""
+        entry = entry.strip()
+        new_content = new_content.strip()
+        if not entry or not new_content:
+            return {"success": False, "code": "empty", "error": "Entry cannot be empty."}
+
+        scan_error = _scan_memory_content(new_content)
+        if scan_error:
+            return {"success": False, "code": "blocked", "error": scan_error}
+
+        with self._file_lock(self._path_for(target)):
+            failure = self._entry_edit_preflight(target)
+            if failure:
+                return failure
+
+            entries = self._entries_for(target)
+            if entry not in entries:
+                return {"success": False, "code": "missing", "error": "That entry is no longer in memory."}
+
+            idx = entries.index(entry)
+            # Rewriting an entry into the text of another one merges the two —
+            # the same dedupe every reload applies, done here so the file
+            # never holds the pair.
+            updated = list(dict.fromkeys([*entries[:idx], new_content, *entries[idx + 1:]]))
+            total = len(ENTRY_DELIMITER.join(updated))
+            limit = self._char_limit(target)
+            if total > limit:
+                return {
+                    "success": False,
+                    "code": "too_long",
+                    "error": f"Memory would hold {total:,}/{limit:,} characters.",
+                    "chars": total,
+                    "limit": limit,
+                }
+
+            self._set_entries(target, updated)
+            self.save_to_disk(target)
+
+        return self._success_response(target, "Entry replaced.")
+
     def apply_batch(self, target: str, operations: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Apply a sequence of add/replace/remove ops to one target atomically.
 
@@ -889,23 +970,57 @@ def load_on_disk_store() -> "MemoryStore":
     Falls back to the built-in defaults if config can't be loaded, so this can
     never raise on a missing/unreadable config.
     """
-    memory_char_limit = 2200
-    user_char_limit = 1375
+    limits = _configured_memory_settings()["limits"]
+    store = MemoryStore(
+        memory_char_limit=limits["memory"],
+        user_char_limit=limits["user"],
+    )
+    store.load_from_disk()
+    return store
+
+
+def _configured_memory_settings() -> Dict[str, Dict[str, Any]]:
+    """The ``memory`` config section as the stores use it: per-target char caps
+    and on/off switches, with the built-in defaults for anything unset or
+    unreadable (config is optional — never break a memory read over it)."""
+    limits = {"memory": 2200, "user": 1375}
+    enabled = {"memory": True, "user": True}
     try:
         from hermes_cli.config import load_config
 
         mem_cfg = (load_config() or {}).get("memory", {}) or {}
-        memory_char_limit = int(mem_cfg.get("memory_char_limit", memory_char_limit))
-        user_char_limit = int(mem_cfg.get("user_char_limit", user_char_limit))
+        limits["memory"] = int(mem_cfg.get("memory_char_limit", limits["memory"]))
+        limits["user"] = int(mem_cfg.get("user_char_limit", limits["user"]))
+        enabled["memory"] = bool(mem_cfg.get("memory_enabled", True))
+        enabled["user"] = bool(mem_cfg.get("user_profile_enabled", True))
     except Exception:
-        pass  # config optional — fall back to defaults rather than break /memory
+        pass
+    return {"limits": limits, "enabled": enabled}
 
-    store = MemoryStore(
-        memory_char_limit=memory_char_limit,
-        user_char_limit=user_char_limit,
-    )
-    store.load_from_disk()
-    return store
+
+def read_builtin_memory() -> Dict[str, Dict[str, Any]]:
+    """Both built-in stores as a person reads them (the Desktop memory viewer).
+
+    Per target: the entries in file order — deduplicated the way every agent
+    reload does — their size against the configured cap, whether the store is
+    switched on, and whether the file could be read at all. An unreadable file
+    reports ``readable: False`` instead of posing as an empty memory. The raw
+    text is returned even for entries the system-prompt snapshot would block,
+    so the user can see and remove a poisoned one.
+    """
+    settings = _configured_memory_settings()
+    result: Dict[str, Dict[str, Any]] = {}
+    for target in ("memory", "user"):
+        entries, readable = MemoryStore._read_entries_checked(MemoryStore._path_for(target))
+        entries = list(dict.fromkeys(entries))
+        result[target] = {
+            "entries": entries,
+            "chars": len(ENTRY_DELIMITER.join(entries)) if entries else 0,
+            "limit": settings["limits"][target],
+            "enabled": settings["enabled"][target],
+            "readable": readable,
+        }
+    return result
 
 
 def _apply_write_gate(action: str, target: str, content: Optional[str],

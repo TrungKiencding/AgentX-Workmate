@@ -29,9 +29,11 @@ import type {
   LogsResponse,
   McpCatalogResponse,
   McpServerSummary,
+  MemoryEntriesResponse,
   MemoryProviderConfig,
   MemoryProviderOAuthStatus,
   MemoryStatusResponse,
+  MemoryTarget,
   MessagingPlatformsResponse,
   MessagingPlatformTestResponse,
   MessagingPlatformUpdate,
@@ -1887,6 +1889,38 @@ export function getMemoryStatus(): Promise<MemoryStatusResponse> {
   return window.agentxDesktop.api<MemoryStatusResponse>({
     ...profileScoped(),
     path: '/api/memory'
+  })
+}
+
+/** What the built-in memory holds, entry by entry (Settings → memory viewer). */
+export function getMemoryEntries(): Promise<MemoryEntriesResponse> {
+  return window.agentxDesktop.api<MemoryEntriesResponse>({
+    ...profileScoped(),
+    path: '/api/memory/entries'
+  })
+}
+
+/** Delete one entry, named by its exact current text. */
+export function deleteMemoryEntry(target: MemoryTarget, entry: string): Promise<{ entry_count: number; ok: boolean }> {
+  return window.agentxDesktop.api<{ entry_count: number; ok: boolean }>({
+    ...profileScoped(),
+    path: '/api/memory/entries',
+    method: 'DELETE',
+    body: { entry, target }
+  })
+}
+
+/** Rewrite one entry, named by its exact current text. */
+export function updateMemoryEntry(
+  target: MemoryTarget,
+  entry: string,
+  content: string
+): Promise<{ entry_count: number; ok: boolean }> {
+  return window.agentxDesktop.api<{ entry_count: number; ok: boolean }>({
+    ...profileScoped(),
+    path: '/api/memory/entries',
+    method: 'PUT',
+    body: { content, entry, target }
   })
 }
 

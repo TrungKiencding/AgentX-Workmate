@@ -31,6 +31,7 @@ import { ConfigField } from './config-field'
 import { VOICE_PROVIDER_LABELS } from './constants'
 import { enumOptionsFor, getNested, isExternalMemoryProvider, sectionFieldEntries, setNested } from './helpers'
 import { MemoryConnect } from './memory/connect'
+import { MemoryEntriesPanel } from './memory/memory-entries'
 import { ProviderConfigPanel } from './memory/provider-config-panel'
 import { ModelSettings, ModelSettingsSkeleton } from './model-settings'
 import { EmptyState, ListRow, SettingsContent, SettingsSkeleton, ToggleRow } from './primitives'
@@ -341,6 +342,9 @@ export function ConfigSettings({
           where image-attachment behavior already lives, so this sits above the
           schema fields for that section. */}
       {activeSectionId === 'chat' ? <AttachmentSizeSetting /> : null}
+      {/* What memory actually holds — the switches below only say whether it
+          may. Without this the user could not see, fix or drop an entry. */}
+      {activeSectionId === 'memory' ? <MemoryEntriesPanel /> : null}
       {visibleFields.length === 0 && activeSectionId !== 'chat' ? (
         <EmptyState description={c.emptyDesc} title={c.emptyTitle} />
       ) : visibleFields.length === 0 ? null : (

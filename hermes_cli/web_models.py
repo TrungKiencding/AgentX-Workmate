@@ -483,6 +483,18 @@ class MemoryReset(BaseModel):
     target: str = "all"
 
 
+class MemoryEntryRemove(BaseModel):
+    # "memory" | "user"; ``entry`` is the entry's exact current text.
+    target: str
+    entry: str
+
+
+class MemoryEntryUpdate(BaseModel):
+    target: str
+    entry: str
+    content: str
+
+
 # --- from web_server.py (originally lines 14274-14276) ---
 
 class BackupRequest(BaseModel):

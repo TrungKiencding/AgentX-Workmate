@@ -942,6 +942,33 @@ export const ja = defineLocale({
       keepAwakeTitle: 'コンピューターをスリープさせない',
       keepAwakeDesc: '本体のスリープを防ぎ、長時間や夜通しの実行を継続します。画面は暗転できます。'
     },
+    memoryEntries: {
+      title: 'AgentX が覚えていること',
+      description:
+        'メモとあなたのプロフィールは新しいチャットごとに読み込まれます。ここで編集・削除でき、変更は次のチャットから反映されます。',
+      userTitle: 'あなたについて',
+      memoryTitle: 'AgentX のメモ',
+      usage: (chars, limit) => `${chars}/${limit} 文字`,
+      emptyUser: 'あなたについてはまだ何も保存されていません。',
+      emptyMemory: 'メモはまだありません。',
+      offHint: 'オフ — AgentX は読み込みも追記もしません。下でオンにできます。',
+      unreadable: 'このメモリファイルを読み込めませんでした。',
+      loadFailed: 'メモリの内容を読み込めませんでした',
+      edit: '編集',
+      editLabel: 'メモリの内容',
+      deleteTitle: 'このメモリを削除しますか？',
+      deleteBody: '次のチャットから AgentX はこれを覚えていません。',
+      deleted: 'メモリから削除しました',
+      saved: 'メモリを更新しました',
+      saveFailed: '変更を保存できませんでした',
+      deleteFailed: '削除できませんでした',
+      errorMissing: 'この項目は別の場所で変更されました。一覧を再読み込みしました。',
+      errorTooLong: limit => `上限の ${limit} 文字を超えています。短くするか、ほかの項目を先に削除してください。`,
+      errorBlocked: 'ブロックされました: アシスタントへの指示のように読めます。',
+      errorDrift:
+        'メモリファイルが手動で編集されているため、ここでは変更できません。AgentX にメモリの整理を頼んでください。',
+      errorEmpty: '空にはできません。項目を消すには削除を使ってください。'
+    },
     quickEntry: {
       enabledTitle: 'クイック入力',
       enabledDesc:

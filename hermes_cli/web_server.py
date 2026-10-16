@@ -1535,6 +1535,8 @@ from hermes_cli.web_models import (  # noqa: F401
     WebhookEnabledToggle,
     CredentialPoolAdd,
     MemoryProviderSelect,
+    MemoryEntryRemove,
+    MemoryEntryUpdate,
     MemoryReset,
     BackupRequest,
     ImportRequest,
@@ -13449,6 +13451,65 @@ async def reset_memory(body: MemoryReset):
             except OSError as exc:
                 raise HTTPException(status_code=500, detail=f"Could not delete {fname}: {exc}")
     return {"ok": True, "deleted": deleted}
+
+
+# ---------------------------------------------------------------------------
+# Built-in memory entries — the Desktop's "what does it remember" viewer.
+#
+# Reads and edits MEMORY.md / USER.md entry by entry through MemoryStore, so a
+# person's edit takes the same file lock, drift guard, threat scan and char cap
+# as the agent's own. ``profile`` arrives as a query parameter on every method:
+# that is how the desktop scopes a request to a profile on a shared backend.
+# ---------------------------------------------------------------------------
+
+# Status per MemoryStore failure ``code``: the entry moved under the viewer →
+# 404/409 (reload); the request itself is unacceptable → 400.
+_MEMORY_ENTRY_ERROR_STATUS = {"missing": 404, "drift": 409, "unreadable": 409}
+
+
+def _memory_entry_target(target: str) -> str:
+    normalized = (target or "").strip().lower()
+    if normalized not in {"memory", "user"}:
+        raise HTTPException(status_code=400, detail="target must be memory or user")
+    return normalized
+
+
+def _memory_entry_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    if result.get("success"):
+        return {"ok": True, "entry_count": result.get("entry_count", 0)}
+    code = str(result.get("code") or "invalid")
+    raise HTTPException(
+        status_code=_MEMORY_ENTRY_ERROR_STATUS.get(code, 400),
+        detail={"code": code, "message": str(result.get("error") or "")},
+    )
+
+
+@app.get("/api/memory/entries")
+async def get_memory_entries(profile: Optional[str] = None):
+    from tools.memory_tool import read_builtin_memory
+
+    with _config_profile_scope(profile):
+        return read_builtin_memory()
+
+
+@app.delete("/api/memory/entries")
+async def delete_memory_entry(body: MemoryEntryRemove, profile: Optional[str] = None):
+    from tools.memory_tool import load_on_disk_store
+
+    target = _memory_entry_target(body.target)
+    with _config_profile_scope(profile):
+        result = load_on_disk_store().remove_entry(target, body.entry)
+    return _memory_entry_result(result)
+
+
+@app.put("/api/memory/entries")
+async def update_memory_entry(body: MemoryEntryUpdate, profile: Optional[str] = None):
+    from tools.memory_tool import load_on_disk_store
+
+    target = _memory_entry_target(body.target)
+    with _config_profile_scope(profile):
+        result = load_on_disk_store().replace_entry(target, body.entry, body.content)
+    return _memory_entry_result(result)
 
 
 # ---------------------------------------------------------------------------

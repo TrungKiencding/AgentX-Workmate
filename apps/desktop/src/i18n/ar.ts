@@ -912,6 +912,32 @@ export const ar = defineLocale({
       imported: 'تم استيراد الإعدادات',
       invalidJson: 'JSON غير صالح'
     },
+    memoryEntries: {
+      title: 'ما يتذكره AgentX',
+      description:
+        'تُحمَّل الملاحظات وملفك الشخصي في كل محادثة جديدة. عدّلها أو احذفها هنا — تسري التغييرات من محادثتك التالية.',
+      userTitle: 'عنك',
+      memoryTitle: 'ملاحظات AgentX',
+      usage: (chars, limit) => `${chars}/${limit} حرف`,
+      emptyUser: 'لم يُحفظ شيء عنك بعد.',
+      emptyMemory: 'لا توجد ملاحظات بعد.',
+      offHint: 'متوقفة — لا يقرأ AgentX منها ولا يضيف إليها. فعّلها أدناه.',
+      unreadable: 'تعذّرت قراءة ملف الذاكرة هذا.',
+      loadFailed: 'تعذّر تحميل محتوى الذاكرة',
+      edit: 'تعديل',
+      editLabel: 'محتوى الذاكرة',
+      deleteTitle: 'حذف هذه الذكرى؟',
+      deleteBody: 'لن يتذكر AgentX هذا بدءًا من محادثتك التالية.',
+      deleted: 'أُزيلت من الذاكرة',
+      saved: 'تم تحديث الذاكرة',
+      saveFailed: 'تعذّر حفظ التغيير',
+      deleteFailed: 'تعذّر الحذف',
+      errorMissing: 'تغيّر هذا العنصر في مكان آخر. أُعيد تحميل القائمة.',
+      errorTooLong: limit => `تجاوزت الحد البالغ ${limit} حرف. اختصر النص أو احذف عناصر أخرى أولًا.`,
+      errorBlocked: 'محظور: يبدو كأنه تعليمات للمساعد.',
+      errorDrift: 'عُدّل ملف الذاكرة يدويًا، لذا لا يمكن تغييره من هنا. اطلب من AgentX ترتيب ذاكرته.',
+      errorEmpty: 'لا يمكن ترك العنصر فارغًا. لإزالته استخدم الحذف.'
+    },
     quickEntry: {
       enabledTitle: 'الإدخال السريع',
       enabledDesc: 'استدعِ محرّرا صغيرا من أي مكان باختصار عام وأرسل طلبا دون فتح AgentX.',

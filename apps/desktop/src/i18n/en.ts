@@ -848,6 +848,33 @@ export const en: Translations = {
       attachmentSizeUnit: 'MB',
       attachmentSizeLabel: 'Max preview / image load size in megabytes'
     },
+    memoryEntries: {
+      title: 'What AgentX remembers',
+      description:
+        'Notes and your profile load into every new chat. Edit or delete them here — changes apply from your next chat.',
+      userTitle: 'About you',
+      memoryTitle: "AgentX's notes",
+      usage: (chars, limit) => `${chars}/${limit} characters`,
+      emptyUser: 'Nothing saved about you yet.',
+      emptyMemory: 'No notes yet.',
+      offHint: 'Off — AgentX neither reads nor adds to this. Turn it on below.',
+      unreadable: "This memory file couldn't be read.",
+      loadFailed: "Couldn't load what AgentX remembers",
+      edit: 'Edit',
+      editLabel: 'Memory entry',
+      deleteTitle: 'Delete this memory?',
+      deleteBody: 'AgentX stops remembering it from your next chat.',
+      deleted: 'Removed from memory',
+      saved: 'Memory updated',
+      saveFailed: "Couldn't save the change",
+      deleteFailed: "Couldn't delete it",
+      errorMissing: 'This entry changed somewhere else. The list has been reloaded.',
+      errorTooLong: limit => `That's over the ${limit}-character limit. Shorten it or delete other entries first.`,
+      errorBlocked: 'Blocked: it reads like an instruction to the assistant.',
+      errorDrift:
+        "The memory file was edited by hand, so it can't be changed from here. Ask AgentX to tidy its memory.",
+      errorEmpty: "An entry can't be empty. To drop it, use Delete."
+    },
     quickEntry: {
       enabledTitle: 'Quick Entry',
       enabledDesc:
