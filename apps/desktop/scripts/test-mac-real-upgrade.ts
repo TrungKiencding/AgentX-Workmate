@@ -316,13 +316,17 @@ try {
   assert(!encrypted.includes(tokens.accessToken) && !encrypted.includes(tokens.refreshToken))
   assert.deepEqual(await readToken(application), { available: true, matches: true })
   // Create history through SessionDB while the real old app/backend are running.
+  // Use its bundled source when available, retaining the old database schema
+  // until the new runtime itself performs the migration.
+  const oldBundledSource = path.join(bundle, 'Contents/Resources/bundled-runtime/source')
+  const historySource = fs.existsSync(path.join(oldBundledSource, 'hermes_state.py')) ? oldBundledSource : repo
   execFileSync(
     path.join(repo, '.venv/bin/python'),
     [
       '-c',
       `from pathlib import Path; import os; from hermes_state import SessionDB; d=SessionDB(Path(os.environ['AGENTX_HOME'])/'state.db'); d.create_session('real-old-session','desktop'); d.append_message('real-old-session','user','Lịch sử trước cập nhật'); d.append_message('real-old-session','assistant','Giữ dữ liệu cũ'); d.close()`
     ],
-    { cwd: repo, env: { ...env, PYTHONPATH: repo } }
+    { cwd: historySource, env: { ...env, PYTHONPATH: historySource } }
   )
   assert(
     JSON.stringify(await gateway(oldConnection.wsUrl || oldConnection.url, 'session.list')).includes('real-old-session')

@@ -21,8 +21,11 @@ const storeFile = path.join(userData, 'native-oauth-tokens.json')
 const sessionFile = path.join(home, 'state.db')
 const repoRoot = path.resolve(import.meta.dirname, '../../..')
 function sessionDatabase(mode) {
-  // The SessionDB modules are unchanged since desktop-v1.0.5. Exercise their
-  // actual schema and reader as well as the independent binary SQLite fixture.
+  // Seed bundled releases with their own schema, so this actually exercises
+  // the old-to-new database migration rather than pre-migrating the fixture.
+  const bundledSource = path.join(path.dirname(executable), 'resources', 'bundled-runtime', 'source')
+  const sourceRoot = mode === 'before' && fs.existsSync(path.join(bundledSource, 'hermes_state.py'))
+    ? bundledSource : repoRoot
   const script = `
 import sqlite3, sys
 from pathlib import Path
@@ -41,7 +44,7 @@ with sqlite3.connect(filename) as connection:
     assert connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
 `
   execFileSync('python', ['-S', '-c', script, mode, sessionFile], {
-    cwd: repoRoot, env: { ...process.env, AGENTX_HOME: home, PYTHONUTF8: '1' }
+    cwd: sourceRoot, env: { ...process.env, PYTHONPATH: sourceRoot, AGENTX_HOME: home, PYTHONUTF8: '1' }
   })
 }
 fs.mkdirSync(userData, { recursive: true })
@@ -115,7 +118,7 @@ try {
     execFileSync('python', ['-c', "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'; assert c.execute('SELECT message FROM migration_fixture WHERE id=?', ('old-session',)).fetchone()[0]=='Lịch sử cũ'; c.close()", path.join(home, 'history.sqlite')])
     sessionDatabase(mode)
   }
-  const report = { mode, ...result, sessionHistory: true, preservedFiles: Object.keys(state.files).length, pluginFiles: Object.keys(state.files).filter(p => p.startsWith('plugins' + path.sep)).length, scope: 'Real published Electron process and Windows native safeStorage; synthetic login; old plugin bytes, actual SessionDB history and SQLite fixture preserved. SessionDB schema unchanged since desktop-v1.0.5. No live OAuth or external plugin service calls.' }
+  const report = { mode, ...result, sessionHistory: true, preservedFiles: Object.keys(state.files).length, pluginFiles: Object.keys(state.files).filter(p => p.startsWith('plugins' + path.sep)).length, scope: 'Real published Electron process and Windows native safeStorage; synthetic login; old plugin bytes, actual SessionDB history and SQLite fixture preserved. Bundled releases seed history using their own shipped schema. No live OAuth or external plugin service calls.' }
   fs.writeFileSync(path.join(root, mode + '-report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report))
 } finally {

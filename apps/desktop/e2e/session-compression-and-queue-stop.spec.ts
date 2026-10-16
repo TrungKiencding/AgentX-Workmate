@@ -11,18 +11,14 @@ async function send(page: Page, text: string, delay = 15): Promise<void> {
   const composer = page.locator('[contenteditable="true"]').first()
   await composer.click()
   await composer.type(text, { delay })
-  await composer.press('Enter')
+  await page.keyboard.press('Enter')
 }
 
 async function pasteAndSend(page: Page, text: string): Promise<void> {
   const composer = page.locator('[contenteditable="true"]').first()
-  await composer.fill(text)
-  await expect(composer).toHaveText(text)
-  // The prior reply's text may already be present while its turn is still
-  // ending. Cross the compression threshold with a new send, not a queued
-  // draft, and send to the editor that actually received the text.
-  await expect(page.locator('[data-slot="composer-root"] button[type="submit"]')).toHaveAttribute('aria-label', 'Send')
-  await page.locator('[data-slot="composer-root"] button[type="submit"]').click()
+  await composer.click()
+  await page.keyboard.insertText(text)
+  await page.keyboard.press('Enter')
 }
 
 async function waitForTranscript(page: Page, text: string, timeout = 90_000): Promise<void> {
@@ -104,12 +100,6 @@ auxiliary:
   })
 
   test.afterAll(async () => {
-    if (test.info().status !== test.info().expectedStatus) {
-      console.log('Compression mock diagnostics:', {
-        held: fixture.mock.heldCompletionCount(),
-        prompts: fixture.mock.receivedPrompts.map(text => ({ characters: text.length, prefix: text.slice(0, 64) })),
-      })
-    }
     await fixture?.cleanup()
   })
 
@@ -120,14 +110,16 @@ auxiliary:
     // A normal message crosses the tiny configured context budget. The mock
     // blocks only the resulting summary request, so these assertions run
     // during automatic compaction rather than a slash-command path.
-    // Cross threshold_tokens (22k) with the payload alone, even with the
-    // conservative four-characters-per-token fallback. The old 1500 repeats
-    // contributed only ~12k tokens and depended on the ambient system prompt.
+    // The payload must cross threshold_tokens (22k) on its OWN weight
+    // (~12k tokens) on top of the system prompt. Do not shrink it: at
+    // repeat(500) the trigger only worked because the ambient system prompt
+    // (skills index + tool schemas) happened to carry it over the line, and
+    // a 160-token skills-index cleanup on main broke the test for a day.
     await pasteAndSend(page, 'E2E_COMPACTION_HISTORY_ONE '.repeat(5))
     await waitForTranscript(page, MOCK_REPLY)
     await pasteAndSend(page, 'E2E_COMPACTION_HISTORY_TWO '.repeat(5))
     await waitForTranscript(page, MOCK_REPLY)
-    await pasteAndSend(page, 'E2E_TRIGGER_AUTOMATIC_COMPACTION '.repeat(3000))
+    await pasteAndSend(page, 'E2E_TRIGGER_AUTOMATIC_COMPACTION '.repeat(1500))
     await fixture.mock.waitForHeldCompletion()
     await expect(page.getByRole('status', { name: 'Summarizing thread' }).last()).toBeVisible()
 

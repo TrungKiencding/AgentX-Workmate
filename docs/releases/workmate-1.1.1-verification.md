@@ -20,7 +20,9 @@ Những thay đổi dưới đây chỉ thuộc bộ kiểm thử, không đư�
 - Tìm phiên đính kèm ảnh theo tiêu đề mà fixture đã đặt; xác minh caption và thumbnail trong transcript sau mở lại.
 - Dùng phím Command trên macOS cho thao tác tạo worktree và chọn trường nhập theo vai trò, không theo bản dịch placeholder.
 - Đếm việc dựng các phần tử tin nhắn để kiểm tra khôi phục hội thoại dài, thay vì đếm cả loading row và nút điều khiển trong viewport; vẫn giữ giới hạn hai đợt dựng.
-- Dữ liệu kích hoạt tự nén phải tự vượt ngưỡng 22.000 token, không phụ thuộc vào độ dài system prompt ở thời điểm chạy test.
+- Ca E2E tự nén rồi xếp hàng bằng Enter vẫn timeout 90 giây trên cả checkout main và bản mới; chưa được tính là đạt. Giữ nguyên test gốc, không đổi ngưỡng kiểm tra để làm xanh. Ca nén thủ công rồi gửi tiếp, các test hàng đợi và các test đơn vị Desktop đã đạt.
+
+Các ca giao diện ban đầu lỗi còn lại đã chạy lại đạt sau khi sửa fixture/phép đo: gửi tin nhắn, chuyển hội thoại, ảnh đính kèm sau mở lại, khôi phục hội thoại dài và tạo worktree. Tổng hợp các ca riêng biệt: 46 đạt, 9 bỏ qua theo cấu hình, 1 timeout đã tái hiện trên main. Không tuyên bố toàn bộ E2E xanh.
 
 ## Điều kiện công bố bộ cài
 
