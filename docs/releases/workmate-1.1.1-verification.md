@@ -38,8 +38,11 @@ Chỉ sau các kiểm tra native mới tạo tag `desktop-v1.1.1`, công bố b�
 - Bộ cài đã kiểm chứng được đưa nguyên vẹn vào [desktop-v1.1.1](https://github.com/TrungKiencding/AgentX-Workmate/releases/tag/desktop-v1.1.1). Lượt build tự sinh lại từ tag được huỷ vì trùng commit và không được dùng để thay các byte đã công bố. Bằng chứng native là lượt main thành công ở trên.
 - Feed dùng khoá Ed25519 hiện có. Cả hai bộ cài trên GitHub khớp kích thước và SHA-256 của feed. Các đường tải cũ được giữ nguyên. [Hồ sơ native](https://github.com/TrungKiencding/AgentX-Workmate/releases/download/desktop-v1.1.1/release-1.1.1-validation.json) lưu các kết quả chi tiết.
 - macOS vẫn dùng chữ ký ad-hoc ổn định và **chưa có Apple notarization**; môi trường phát hành chưa cấu hình chứng chỉ/tài khoản ký Apple. Phạm vi kiến trúc được kiểm chứng là macOS ARM64 và Windows x64.
+- Bộ cài Windows không có chứng chỉ Authenticode nhúng: offset và kích thước certificate table trong PE đều bằng 0. Phép kiểm tra đọc trực tiếp tệp CI; cấu trúc đối chiếu theo [định dạng PE của Microsoft](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-attribute-certificate-table-image-only).
 
 | Bộ cài | Kích thước (byte) | SHA-256 |
 | --- | ---: | --- |
 | darwin-arm64 | 277838765 | `d2fcf3287e4337125e7b6f1d3124456a6c01245ab856b40a022ba395f30e8570` |
 | win32-x64 | 347465502 | `b917d9fae37f5542974932be91e98cfef8b5a9c1b649cf84fa16716268e86a2a` |
+
+Landing đã phục vụ 1.1.1 sau khi kiểm tra toàn bộ tệp triển khai và chuyển phiên bản nguyên khối. Đã tải đầy đủ cả hai bộ cài qua bốn URL công khai (đường theo phiên bản và nút tải trực tiếp), xác nhận đúng kích thước/SHA-256; feed trên tên miền khớp nguyên vẹn feed đã ký. 24 cấu hình giao diện trên 4 ngôn ngữ và toàn bộ 7 trang tài liệu đã đạt. Bảy tệp lưu trữ của các bản cũ giữ nguyên mã kiểm tra. [Hồ sơ kiểm chứng công khai](https://github.com/TrungKiencding/AgentX-Landing/blob/main/deploy/release-1.1.1-publication.json) lưu kết quả và đường dẫn quay lui.

@@ -58,6 +58,7 @@ Workmate 1.1.1 giúp người dùng chủ động kiểm soát những gì trợ
 ## Lưu ý cần truyền đạt chính xác
 
 - Có bộ cài cho **macOS Apple Silicon (ARM64)** và **Windows x64**. Không quảng bá là đã hỗ trợ macOS Intel hoặc Windows ARM64.
+- Xác thực hệ điều hành: macOS dùng chữ ký ad-hoc, chưa có Apple notarization; bộ cài Windows chưa có chữ ký Authenticode.
 - Runtime có sẵn trong bộ cài là nền tảng đã có từ **1.1.0**, được tiếp tục duy trì ở 1.1.1. Người dùng không cần tự cài Python/Node để mở ứng dụng; đăng nhập và dịch vụ trực tuyến vẫn cần mạng.
 - Nâng cấp bằng cách **cài đè lên bản hiện tại**, giữ hội thoại, cấu hình, bộ nhớ và thông tin đăng nhập. Không hướng dẫn gỡ bản cũ trước khi nâng cấp.
 - Windows 1.0.x cần tải bộ cài mới và cài đè một lần do lỗi bàn giao cập nhật của bản cũ.
