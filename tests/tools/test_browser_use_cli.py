@@ -101,6 +101,24 @@ class TestSubprocessEnvironment:
         env = bu_cli._base_subprocess_env()
         assert env["ANONYMIZED_TELEMETRY"] == "false"
 
+    def test_backend_python_paths_stay_out_of_the_cli(self, monkeypatch):
+        # The desktop backend runs with PYTHONPATH on its own 3.11 venv; the
+        # CLI's uvx env on another Python then imported the backend's
+        # pydantic_core and died ("No module named 'pydantic_core._pydantic_core'").
+        monkeypatch.setenv("PYTHONPATH", "/app/agentx:/app/agentx/venv/lib/python3.11/site-packages")
+        monkeypatch.setenv("PYTHONHOME", "/app/python")
+        env = bu_cli._base_subprocess_env()
+        assert "PYTHONPATH" not in env
+        assert "PYTHONHOME" not in env
+        assert env.get("PATH")  # everything else still flows through
+
+    def test_cli_process_sees_no_backend_pythonpath(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PYTHONPATH", "/app/agentx/venv/lib/python3.11/site-packages")
+        cli = _fake_cli(tmp_path, 'cat > /dev/null\necho "pp:[${PYTHONPATH:-}]"\n')
+        monkeypatch.setattr(bu_cli, "_find_cli", lambda: [cli])
+        result = json.loads(bu_cli.browser_exec("print(1)"))
+        assert result["output"].strip() == "pp:[]"
+
 
 class TestToolSurfaceSwap:
     def test_legacy_browser_tools_hidden_in_cli_mode(self, monkeypatch):
@@ -805,6 +823,44 @@ class TestBrowserExec:
         assert result["success"] is False
         assert result["exit_code"] == 3
         assert "boom" in result["stderr"]
+
+    def test_uvx_zero_install_runs_quietly(self, tmp_path, monkeypatch):
+        # uv's cold-start chatter ("Downloading …", "Installed 107 packages")
+        # filled the error detail ahead of the real traceback.
+        uvx = tmp_path / "uvx"
+        uvx.write_text('#!/bin/sh\ncat > /dev/null\necho "argv:$*"\n')
+        uvx.chmod(uvx.stat().st_mode | stat.S_IXUSR)
+        monkeypatch.setattr(bu_cli, "_find_cli", lambda: [str(uvx), "browser-use"])
+        result = json.loads(bu_cli.browser_exec("print(1)"))
+        assert result["output"].strip() == "argv:--quiet browser-use"
+
+    def test_quiet_flag_only_goes_to_uvx(self):
+        assert bu_cli._quiet_uvx(["/usr/local/bin/browser-use"]) == ["/usr/local/bin/browser-use"]
+        assert bu_cli._quiet_uvx(["C:\\uv\\uvx.EXE", "browser-use"]) == ["C:\\uv\\uvx.EXE", "--quiet", "browser-use"]
+        assert bu_cli._quiet_uvx(["/x/uvx", "--quiet", "browser-use"]) == ["/x/uvx", "--quiet", "browser-use"]
+
+    def test_stderr_drops_colour_codes_and_keeps_the_failing_line(self, tmp_path, monkeypatch):
+        # The shape of the real failure: coloured uv/harness noise, a long
+        # traceback, and the line that names the error at the very end.
+        body = (
+            "cat > /dev/null\n"
+            "printf '\\033[36m\\033[1mDownloading\\033[0m anthropic\\n' >&2\n"
+            "i=0; while [ $i -lt 400 ]; do echo \"  File \\\"helpers.py\\\", line $i, in cdp\" >&2; i=$((i+1)); done\n"
+            "echo \"RuntimeError: {'code': -32000, 'message': 'Not supported'}\" >&2\n"
+            "exit 1\n"
+        )
+        monkeypatch.setattr(bu_cli, "_find_cli", lambda: [_fake_cli(tmp_path, body)])
+        result = json.loads(bu_cli.browser_exec("print(1)"))
+        stderr = result["stderr"]
+        assert "\x1b[" not in stderr
+        assert stderr.startswith("… (stderr truncated)\n")
+        assert stderr.endswith("RuntimeError: {'code': -32000, 'message': 'Not supported'}")
+        assert len(stderr) <= bu_cli._STDERR_CAP_CHARS + len("… (stderr truncated)\n")
+
+    def test_short_stderr_is_kept_whole(self, tmp_path, monkeypatch):
+        cli = _fake_cli(tmp_path, "cat > /dev/null\nprintf '\\033[31mboom\\033[0m\\n' >&2\nexit 2\n")
+        monkeypatch.setattr(bu_cli, "_find_cli", lambda: [cli])
+        assert json.loads(bu_cli.browser_exec("print(1)"))["stderr"] == "boom"
 
     def test_timeout_returns_actionable_error(self, tmp_path, monkeypatch):
         cli = _fake_cli(tmp_path, "cat > /dev/null\nsleep 30\n")

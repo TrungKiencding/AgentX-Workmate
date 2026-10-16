@@ -77,6 +77,10 @@ _MIN_TIMEOUT_S = 5
 _MAX_TIMEOUT_S = 1800
 _STDERR_CAP_CHARS = 4000
 
+# Terminal escape sequences (colours, cursor moves). They mean nothing in a
+# tool result and print as "[36m[1m…" garbage in the chat's error detail.
+_ANSI_CSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
 # Filesystem-safe task ids for per-task workspace dirs.
 _TASK_ID_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -93,6 +97,32 @@ _IMAGE_PATH_RE = re.compile(
 _URL_RE = re.compile(r"https?://[^\s'\"\\)]+", re.IGNORECASE)
 
 
+def _quiet_uvx(cmd: List[str]) -> List[str]:
+    """``uvx … browser-use`` with uv's own output silenced.
+
+    A zero-install run prints uv's chatter to stderr on every cold start
+    ("Downloading anthropic (2.0MiB)", "Installed 107 packages in 386ms").
+    It is not the tool's output, and in a failed run it filled the error
+    detail ahead of the traceback that said what actually went wrong.
+    ``--quiet`` drops that chatter; uv still reports its own failures.
+    """
+    # Split on both separators: a Windows path reaches here as C:\…\uvx.exe.
+    program = cmd[0].replace("\\", "/").rsplit("/", 1)[-1].lower() if cmd else ""
+    if len(cmd) > 1 and program in {"uvx", "uvx.exe"} and "--quiet" not in cmd:
+        return [cmd[0], "--quiet", *cmd[1:]]
+    return cmd
+
+
+def _readable_stderr(stderr: str) -> str:
+    """The CLI's stderr as a person or the model should read it: colour codes
+    stripped and, past the cap, the END kept — a traceback names the actual
+    error on its last line, which a head cut threw away."""
+    text = _ANSI_CSI_RE.sub("", stderr or "").strip()
+    if len(text) > _STDERR_CAP_CHARS:
+        text = "… (stderr truncated)\n" + text[-_STDERR_CAP_CHARS:].lstrip()
+    return text
+
+
 def _blocked_url_in_code(code: str) -> Optional[str]:
     """Return an error if a URL literal fails the built-in navigation checks."""
     from tools.browser_tool import evaluate_url_safety
@@ -104,10 +134,21 @@ def _blocked_url_in_code(code: str) -> Optional[str]:
     return None
 
 
+# Where the AgentX backend's OWN interpreter looks for modules. The desktop
+# app starts the backend with PYTHONPATH on its venv's site-packages (Python
+# 3.11). The browser-use CLI runs in a separate environment — uvx's, or its
+# tool venv — usually on a newer Python, so inheriting these made it import
+# the backend's compiled packages and die on import ("No module named
+# 'pydantic_core._pydantic_core'") before it ever reached a browser.
+_BACKEND_PYTHON_ENV_KEYS = ("PYTHONPATH", "PYTHONHOME")
+
+
 def _base_subprocess_env() -> dict:
     from tools.browser_tool import _build_browser_env
 
     env = _build_browser_env()
+    for key in _BACKEND_PYTHON_ENV_KEYS:
+        env.pop(key, None)
     env.setdefault("ANONYMIZED_TELEMETRY", "false")
     return env
 
@@ -572,6 +613,7 @@ def browser_exec(
             "(or `pipx install browser-use`), then run `browser-use --doctor` "
             "to verify the setup."
         )
+    cmd = _quiet_uvx(cmd)
 
     env = _base_subprocess_env()
     if session:
@@ -660,10 +702,8 @@ def browser_exec(
         result["workspace"] = workspace
     if session:
         result["session"] = session
-    stderr = (proc.stderr or "").strip()
+    stderr = _readable_stderr(proc.stderr)
     if stderr:
-        if len(stderr) > _STDERR_CAP_CHARS:
-            stderr = stderr[:_STDERR_CAP_CHARS] + "\n… (stderr truncated)"
         result["stderr"] = stderr
 
     screenshot = _find_screenshot(proc.stdout, started)
