@@ -97,7 +97,12 @@ from tools.tool_backend_helpers import (  # noqa: F401
     nous_tool_gateway_unavailable_message,
     prefers_gateway,
 )
-from tools.url_safety import async_is_safe_url, normalize_url_for_request, sensitive_query_param_name
+from tools.url_safety import (
+    async_is_safe_url,
+    normalize_url_for_request,
+    sensitive_query_param_name,
+    unsafe_url_reason,
+)
 import sys
 
 logger = logging.getLogger(__name__)
@@ -787,7 +792,7 @@ async def web_extract_tool(
     # Block URLs containing embedded secrets (exfiltration prevention).
     # URL-decode first so percent-encoded secrets (%73k- = sk-) are caught.
     from agent.redact import _PREFIX_RE
-    from urllib.parse import unquote
+    from urllib.parse import unquote, urlsplit
     normalized_urls: List[str] = []
     normalized_indices: List[int] = []
     invalid_urls: Dict[int, Dict[str, Any]] = {}
@@ -854,9 +859,19 @@ async def web_extract_tool(
         ssrf_blocked: Dict[int, Dict[str, Any]] = {}
         for index, url in zip(normalized_indices, normalized_urls):
             if not await async_is_safe_url(url):
+                # Ask why (the host is looked up again). Not http(s) even after
+                # a bare host was completed ("a@b.c/x", "file:///etc/hosts"), or
+                # a host that doesn't resolve: no private address to blame.
+                reason = await asyncio.to_thread(unsafe_url_reason, url)
+                if reason == "scheme":
+                    error = "Blocked: URL must start with http:// or https://"
+                elif reason == "unresolved":
+                    error = f"Blocked: could not resolve {urlsplit(url).hostname}"
+                else:
+                    error = "Blocked: URL targets a private or internal network address"
                 ssrf_blocked[index] = {
                     "url": url, "title": "", "content": "",
-                    "error": "Blocked: URL targets a private or internal network address",
+                    "error": error,
                 }
             else:
                 safe_urls.append(url)

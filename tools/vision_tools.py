@@ -1994,6 +1994,14 @@ async def video_analyze_tool(
             await _download_video(video_url, temp_video_path)
             should_cleanup = True
         else:
+            from tools.url_safety import unsafe_url_reason
+
+            # Ask why (the host is looked up again): an HTTP(S) URL whose host
+            # doesn't resolve (a typo, a dead name) is not an invalid source.
+            if _image_url_shape_ok(video_url) and (
+                await asyncio.to_thread(unsafe_url_reason, video_url) == "unresolved"
+            ):
+                raise ValueError(f"Blocked: could not resolve {urlparse(video_url).hostname}")
             raise ValueError(
                 "Invalid video source. Provide an HTTP/HTTPS URL or a valid local file path."
             )

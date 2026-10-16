@@ -181,10 +181,16 @@ def _http_block_reason(url: str) -> Optional[str]:
     blocked URL; the inner one covers redirects and non-resolver callers.
     Preserves the specific website-policy message so the agent sees *why*.
     """
-    from tools.url_safety import is_safe_url
+    from urllib.parse import urlsplit
+
+    from tools.url_safety import is_safe_url, unsafe_url_reason
     from tools.website_policy import check_website_access
 
     if not is_safe_url(url):
+        # Ask why (the host is looked up again): a host that doesn't resolve
+        # (a typo, a dead name) is not an unsafe or private address.
+        if unsafe_url_reason(url) == "unresolved":
+            return f"blocked: could not resolve {urlsplit(url).hostname}"
         return "blocked: unsafe or private URL"
     blocked = check_website_access(url)
     if blocked:

@@ -31,7 +31,7 @@ import os
 import socket
 import asyncio
 import re
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from urllib.parse import parse_qsl, quote, unquote, urljoin, urlparse, urlsplit, urlunsplit
 
 from hermes_constants import get_hermes_home_override
@@ -55,12 +55,24 @@ def _proxy_is_configured() -> bool:
     return any(os.environ.get(v) for v in _PROXY_ENV_VARS)
 
 
+# A URL typed without a scheme that starts with a host: dot-separated labels of
+# letters, digits, "-" and "_", maybe a port, then a path, query, fragment or
+# nothing ("acme.dev/docs", "localhost:3000", "10.0.0.1/admin"). Same rule as
+# the desktop's SCHEMELESS_URL_RE, which titles these rows
+# (apps/desktop/src/components/assistant-ui/tool/fallback-model/index.ts);
+# Python's ``\w`` is its ``[\p{L}\p{N}_]``. Not user-info ("a@b.c"), a path
+# ("/docs"), a trailing dot ("acme.dev./x") or another scheme ("about:blank").
+_SCHEMELESS_URL_RE = re.compile(r"[\w-]+(?:\.[\w-]+)*(?::([0-9]+))?(?:[/?#]|\Z)")
+
+
 def normalize_url_for_request(url: str) -> str:
     """Return an ASCII-safe HTTP URL for AgentX-owned URL tools.
 
     Browsers and HTTP clients expect URIs, but users and models often provide
     IRIs such as ``https://wttr.in/Köln``.  Preserve URL syntax and existing
     percent escapes while encoding non-ASCII host/path/query/fragment text.
+    A host typed without a scheme (``acme.dev/docs``) is completed with
+    ``https://``, the way the browser opens it.
     This is intentionally for URL tool inputs only; arbitrary shell commands
     must not be rewritten.
     """
@@ -77,6 +89,15 @@ def normalize_url_for_request(url: str) -> str:
     # web tools from failing on a formatting artifact while leaving path/query
     # whitespace to the normal percent-encoding path below.
     raw = re.sub(r"^([A-Za-z][A-Za-z0-9+.-]*://)\s+", r"\1", raw)
+
+    # A host typed without a scheme opens as https (agent-browser prepends it).
+    # Complete it here so every check after this (scheme, host, query, website
+    # policy) judges the URL that is fetched: ``is_safe_url`` refused the bare
+    # form for its empty scheme, as if "acme.dev/docs" were a private address.
+    # A port past 65535 is no port, so that string is left as typed.
+    bare_host = _SCHEMELESS_URL_RE.match(raw)
+    if bare_host and int(bare_host.group(1) or 0) <= 65535:
+        raw = f"https://{raw}"
 
     try:
         parsed = urlsplit(raw)
@@ -412,6 +433,14 @@ def _allows_private_ip_resolution(hostname: str, scheme: str) -> bool:
     return scheme == "https" and hostname in _TRUSTED_PRIVATE_IP_HOSTS
 
 
+# Why ``is_safe_url`` refuses a URL, as ``unsafe_url_reason`` reports it:
+#   "scheme"     not http(s)
+#   "unresolved" the host name has no address, and no proxy resolves it
+#   "address"    anything else: no host, a cloud metadata host, an address that
+#                is private, internal or unreadable, or a check that failed
+UnsafeUrlReason = Literal["scheme", "unresolved", "address"]
+
+
 def is_safe_url(url: str) -> bool:
     """Return True if the URL target is not a private/internal address.
 
@@ -422,6 +451,17 @@ def is_safe_url(url: str) -> bool:
     ``AGENTX_ALLOW_PRIVATE_URLS=true``), private-IP blocking is skipped.
     Cloud metadata endpoints (169.254.169.254, metadata.google.internal)
     remain blocked regardless — they are never legitimate agent targets.
+
+    ``unsafe_url_reason`` is the same check, and says why it refuses.
+    """
+    return unsafe_url_reason(url) is None
+
+
+def unsafe_url_reason(url: str) -> Optional[UnsafeUrlReason]:
+    """Why :func:`is_safe_url` refuses ``url``, or None when it lets it through.
+
+    For callers that tell the model why: a host that doesn't resolve (a typo,
+    a dead name) is not a private address.
     """
     try:
         parsed = urlparse(url)
@@ -429,14 +469,14 @@ def is_safe_url(url: str) -> bool:
         scheme = (parsed.scheme or "").strip().lower()
         if scheme not in {"http", "https"}:
             logger.warning("Blocked request — unsupported URL scheme: %s", scheme or "<empty>")
-            return False
+            return "scheme"
         if not hostname:
-            return False
+            return "address"
 
         # Block known internal hostnames — ALWAYS, even with toggle on
         if hostname in _BLOCKED_HOSTNAMES:
             logger.warning("Blocked request to internal hostname: %s", hostname)
-            return False
+            return "address"
 
         # Check the global toggle AFTER blocking metadata hostnames
         allow_all_private = _global_allow_private_urls()
@@ -469,9 +509,10 @@ def is_safe_url(url: str) -> bool:
                     "allowing through for proxy-side resolution",
                     hostname,
                 )
-                return True
+                return None
             logger.warning("Blocked request — DNS resolution failed for: %s", hostname)
-            return False
+            # A literal IP took no DNS to fail, so no name went unresolved.
+            return "address" if _is_literal_ip else "unresolved"
 
         for family, _, _, _, sockaddr in addr_info:
             ip_str = sockaddr[0]
@@ -482,7 +523,7 @@ def is_safe_url(url: str) -> bool:
             except ValueError:
                 # Still unparseable after scope ID strip — fail closed
                 logger.warning("Blocked request — unparseable IP address %r for hostname %s", sockaddr[0], hostname)
-                return False
+                return "address"
 
             # Always block cloud metadata IPs and link-local, even with toggle on
             if ip in _ALWAYS_BLOCKED_IPS or any(ip in net for net in _ALWAYS_BLOCKED_NETWORKS):
@@ -490,14 +531,14 @@ def is_safe_url(url: str) -> bool:
                     "Blocked request to cloud metadata address: %s -> %s",
                     hostname, ip_str,
                 )
-                return False
+                return "address"
 
             if not allow_all_private and not allow_private_ip and _is_blocked_ip(ip):
                 logger.warning(
                     "Blocked request to private/internal address: %s -> %s",
                     hostname, ip_str,
                 )
-                return False
+                return "address"
 
         if allow_all_private:
             logger.debug(
@@ -510,13 +551,13 @@ def is_safe_url(url: str) -> bool:
                 hostname,
             )
 
-        return True
+        return None
 
     except Exception as exc:
         # Fail closed on unexpected errors — don't let parsing edge cases
         # become SSRF bypass vectors
         logger.warning("Blocked request — URL safety check error for %s: %s", url, exc)
-        return False
+        return "address"
 
 
 async def async_is_safe_url(url: str) -> bool:

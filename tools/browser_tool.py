@@ -150,12 +150,14 @@ try:
         is_always_blocked_url as _is_always_blocked_url,
         normalize_url_for_request as _normalize_url_for_request,
         sensitive_query_param_name as _sensitive_query_param_name,
+        unsafe_url_reason as _unsafe_url_reason,
     )
 except Exception:
     _is_safe_url = lambda url: False  # noqa: E731 — fail-closed: block all if safety module unavailable
     _is_always_blocked_url = lambda url: True  # noqa: E731 — fail-closed on the floor too
     _normalize_url_for_request = lambda url: url  # noqa: E731 — best-effort fallback
     _sensitive_query_param_name = lambda url: None  # noqa: E731 — best-effort fallback
+    _unsafe_url_reason = lambda url: "address"  # noqa: E731 — no reason: the generic refusal
 # Browser-provider ABC + registry — PR #25214 moved the per-vendor providers
 # (Browserbase / Browser Use / Firecrawl) out of ``tools/browser_providers/``
 # and into ``plugins/browser/<vendor>/``. The dispatcher consults the
@@ -3042,6 +3044,24 @@ def _redact_browser_output(value: Any) -> Any:
 # Browser Tool Functions
 # ============================================================================
 
+def _ssrf_block_error(url: str) -> str:
+    """Why the cloud-backend SSRF check refused ``url``.
+
+    Asked once ``_is_safe_url`` has refused it, so the host is looked up a
+    second time. ``is_safe_url`` also refuses what isn't http(s) even after a
+    bare host is completed (``a@b.c/x``, ``/docs``, ``about:blank``) and a host
+    that doesn't resolve (a typo, a dead name): neither is a private address.
+    """
+    import urllib.parse
+
+    reason = _unsafe_url_reason(url)
+    if reason == "scheme":
+        return "Blocked: URL must start with http:// or https://"
+    if reason == "unresolved":
+        return f"Blocked: could not resolve {urllib.parse.urlsplit(url).hostname}"
+    return "Blocked: URL targets a private or internal address"
+
+
 def evaluate_url_safety(url: str) -> Optional[dict]:
     """Run URL safety checks; None if safe, else an error dict."""
     import urllib.parse
@@ -3072,7 +3092,7 @@ def evaluate_url_safety(url: str) -> Optional[dict]:
     if _is_always_blocked_url(url):
         return {"success": False, "error": "Blocked: URL targets a cloud metadata endpoint"}
     if not local and not _allow_private_urls() and not _is_safe_url(url):
-        return {"success": False, "error": "Blocked: URL targets a private or internal address"}
+        return {"success": False, "error": _ssrf_block_error(url)}
     blocked = check_website_access(url)
     if blocked:
         return {
@@ -3167,7 +3187,7 @@ def browser_navigate(url: str, task_id: Optional[str] = None) -> str:
     ):
         return json.dumps({
             "success": False,
-            "error": "Blocked: URL targets a private or internal address",
+            "error": _ssrf_block_error(url),
         })
 
     # Website policy check — block before navigating
