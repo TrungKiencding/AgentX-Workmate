@@ -3213,6 +3213,7 @@ export interface Translations {
     closeOthers: string
     closeToRight: string
     closeAll: string
+    closeTab: (label: string) => string
     newSessionTab: string
     pluginDisabled: (pluginId: string) => string
     pluginDisabledBody: string

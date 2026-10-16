@@ -27,7 +27,13 @@ import { ModelMenuPanel } from '@/app/shell/model-menu-panel'
 import { formatRefValue } from '@/components/assistant-ui/directive-text'
 import { CenteredThreadSpinner } from '@/components/assistant-ui/thread/status'
 import { findGroupOfPane } from '@/components/pane-shell/tree/model'
-import { $layoutTree, closeTreePane, moveTreePane, setTreeGroupHeaderHidden } from '@/components/pane-shell/tree/store'
+import {
+  $chatZonesSplit,
+  $layoutTree,
+  closeTreePane,
+  moveTreePane,
+  setTreeGroupHeaderHidden
+} from '@/components/pane-shell/tree/store'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { transcribeAudio } from '@/hermes'
@@ -535,6 +541,9 @@ export function SessionTabMenu({
  *  A fresh draft has no session — no menu. */
 export function WorkspaceTabMenu({ children }: { children: React.ReactElement }) {
   const selected = useStore($selectedStoredSessionId)
+  // Beside another chat zone the bar is locked on (see TreeGroup), so the off
+  // switch would be a dead item.
+  const chatZonesSplit = useStore($chatZonesSplit)
 
   const hideTabBar = () => {
     const tree = $layoutTree.get()
@@ -552,7 +561,7 @@ export function WorkspaceTabMenu({ children }: { children: React.ReactElement })
   return (
     <SessionTabMenu
       onClose={() => closeTreePane('workspace')}
-      onHideTabBar={hideTabBar}
+      onHideTabBar={chatZonesSplit ? undefined : hideTabBar}
       storedSessionId={selected}
       tabPaneId="workspace"
     >

@@ -1,12 +1,17 @@
 import { mainChatOccupied } from '@/app/open-session'
 import { closeActiveTerminal } from '@/app/right-sidebar/terminal/terminals'
 import { $workspaceIsPage } from '@/app/routes'
-import { closeFocusedSessionTab, closeFocusedToolTab } from '@/components/pane-shell/tree/store'
+import {
+  $layoutTree,
+  closeFocusedSessionTab,
+  closeFocusedToolTab,
+  setPaneCloserIdle
+} from '@/components/pane-shell/tree/store'
 import { isFocusWithin } from '@/lib/keybinds/combo'
 import { $previewTabs, closeActiveRightRailTab } from '@/store/preview'
 import { requestFreshSession } from '@/store/profile'
 import { $activeSessionId, $selectedStoredSessionId } from '@/store/session'
-import { closeSessionTile, nextSessionTileForWorkspace } from '@/store/session-states'
+import { $sessionTiles, closeSessionTile, nextSessionTileForWorkspace } from '@/store/session-states'
 
 /**
  * Close the MAIN tab. The workspace pane itself can't leave the tree, so
@@ -49,6 +54,39 @@ export function closeWorkspaceTab(loadSessionIntoWorkspace?: (storedSessionId: s
   requestFreshSession()
 
   return true
+}
+
+/** Would `closeWorkspaceTab` (with promotion wired) do anything right now?
+ *  Mirrors its two answers — a stacked session tab to shift in, or a loaded
+ *  chat to drop — so the main tab's ✕ shows exactly when it isn't dead. */
+export function workspaceTabHasClose(): boolean {
+  return (
+    nextSessionTileForWorkspace() !== null ||
+    (!$workspaceIsPage.get() && mainChatOccupied($activeSessionId.get(), $selectedStoredSessionId.get()))
+  )
+}
+
+/** Keep the main tab's ✕ honest: mark the workspace closer idle while a close
+ *  would do nothing. Every input `workspaceTabHasClose` reads is watched; the
+ *  idle set only changes on a flip, so the per-frame tree writes of a sash
+ *  drag cost a cheap re-check and nothing more. Returns the unsubscribe. */
+export function watchWorkspaceTabClose(): () => void {
+  const sync = () => setPaneCloserIdle('workspace', !workspaceTabHasClose())
+
+  sync()
+
+  const offs = [
+    $activeSessionId.listen(sync),
+    $selectedStoredSessionId.listen(sync),
+    $workspaceIsPage.listen(sync),
+    $sessionTiles.listen(sync),
+    $layoutTree.listen(sync)
+  ]
+
+  return () => {
+    offs.forEach(off => off())
+    setPaneCloserIdle('workspace', false)
+  }
 }
 
 /**

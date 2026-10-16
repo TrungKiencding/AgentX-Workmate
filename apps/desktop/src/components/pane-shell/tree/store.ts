@@ -219,6 +219,20 @@ export function registerPaneCloser(paneId: string, close?: () => void) {
   $panesWithCloser.set(new Set(Object.keys(paneClosers)))
 }
 
+/** Pane ids whose closer has nothing to close RIGHT NOW — the main tab on a
+ *  blank draft, where Close would only re-open the same empty draft. The strip
+ *  hides their ✕ so it never offers a dead button; the closer itself stays
+ *  registered (an unregistered workspace would fall through to dismissal). */
+export const $idlePaneClosers = atom<ReadonlySet<string>>(new Set())
+
+export function setPaneCloserIdle(paneId: string, idle: boolean) {
+  const next = toggledSet($idlePaneClosers.get(), paneId, idle)
+
+  if (next) {
+    $idlePaneClosers.set(next)
+  }
+}
+
 /**
  * Route a pane's "show it" intent through the app store that owns its
  * visibility — the mirror of `registerPaneCloser`, so a preset can reveal a
@@ -360,6 +374,31 @@ const isUncloseablePane = (paneId: string): boolean =>
 /** A pane that belongs to a CHAT tab strip — the workspace or a session tile. */
 export const isSessionStripPane = (paneId: string): boolean =>
   paneId === 'workspace' || paneId.startsWith('session-tile:')
+
+/** True while MORE THAN ONE zone hosts a chat strip (main split with a session
+ *  tile zone). A lone chat zone may hide its tab bar — it's the only chat, the
+ *  bar adds nothing — but side by side, a headerless chat zone is the odd one
+ *  out: no name, no ✕, no "+", nothing to grab. Boolean computed, so a sash
+ *  drag rewriting the tree every frame notifies nobody until the count flips. */
+export const $chatZonesSplit = computed($layoutTree, tree => {
+  if (!tree) {
+    return false
+  }
+
+  let zones = 0
+
+  const walk = (node: LayoutNode): boolean => {
+    if (node.type === 'group') {
+      zones += node.panes.some(isSessionStripPane) ? 1 : 0
+
+      return zones > 1
+    }
+
+    return node.children.some(walk)
+  }
+
+  return walk(tree)
+})
 
 /** The zone the session-tab verbs (⌘W / ⌘T / ⌘⇧T / the strip's "+") act on:
  *  the first of hovered / focused / workspace that hosts a chat strip. Same

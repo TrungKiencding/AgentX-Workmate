@@ -73,7 +73,7 @@ import { armWakeWord, pauseWakeForLicense, resumeWakeAfterVoice, stopClientCaptu
 import { isSecondaryWindow } from '@/store/windows'
 import { useSkinCommand } from '@/themes/use-skin-command'
 
-import { closeWorkspaceTab } from '../chat/close-tab'
+import { closeWorkspaceTab, watchWorkspaceTabClose } from '../chat/close-tab'
 import { requestComposerInsert } from '../chat/composer/focus'
 import { useComposerActions } from '../chat/hooks/use-composer-actions'
 import { CommandPalette } from '../command-palette'
@@ -938,8 +938,12 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   // the `uncloseable` flag, so the pane stays undismissable either way.
   useEffect(() => {
     registerPaneCloser('workspace', () => void closeWorkspaceTab(id => navigate(sessionRoute(id))))
+    const stopWatchingClose = watchWorkspaceTabClose()
 
-    return () => registerPaneCloser('workspace')
+    return () => {
+      stopWatchingClose()
+      registerPaneCloser('workspace')
+    }
   }, [navigate])
 
   // The controller's entire callback surface, gathered into the stable

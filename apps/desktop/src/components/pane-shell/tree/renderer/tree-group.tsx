@@ -27,8 +27,10 @@ import { useWindowControlsOverlap } from '../../geometry'
 import { hiddenPaneProps, PaneGroupContext, PaneVisibleContext } from '../../pane-visibility'
 import type { DropPosition, GroupNode } from '../model'
 import {
+  $chatZonesSplit,
   $dropHint,
   $hiddenTreePanes,
+  $idlePaneClosers,
   $narrowViewport,
   $newSessionTabAction,
   $panesWithCloser,
@@ -74,6 +76,7 @@ function ZoneMenu({
   closable,
   minimizable = true,
   headerHidden,
+  headerLocked,
   minimized,
   nodeId,
   targetPane
@@ -86,6 +89,9 @@ function ZoneMenu({
    *  MAIN pane strands the app behind a strip. */
   minimizable?: boolean
   headerHidden?: boolean
+  /** The bar is forced on (a chat zone beside another chat zone): a Hide
+   *  toggle would do nothing visible, so the menu leaves it out. */
+  headerLocked?: boolean
   minimized?: boolean
   nodeId: string
   /** The right-clicked chip (else the active pane) — what the close-others /
@@ -136,12 +142,13 @@ function ZoneMenu({
           label: t.zones.closeAll,
           onSelect: () => closeAllTreeTabs(targetPane())
         })}
-        <kit.Separator />
-        {renderActionItem(kit, {
-          icon: headerHidden ? 'eye' : 'eye-closed',
-          label: headerHidden ? t.zones.showHeader : t.zones.hideHeader,
-          onSelect: () => setTreeGroupHeaderHidden(nodeId, !headerHidden)
-        })}
+        {(!headerLocked || minimizable) && <kit.Separator />}
+        {!headerLocked &&
+          renderActionItem(kit, {
+            icon: headerHidden ? 'eye' : 'eye-closed',
+            label: headerHidden ? t.zones.showHeader : t.zones.hideHeader,
+            onSelect: () => setTreeGroupHeaderHidden(nodeId, !headerHidden)
+          })}
         {minimizable &&
           renderActionItem(kit, {
             icon: minimized ? 'chevron-down' : 'chevron-up',
@@ -194,6 +201,10 @@ export function TreeGroup({
   const narrow = useStore($narrowViewport)
   const newSessionTabAction = useStore($newSessionTabAction)
   const panesWithCloser = useStore($panesWithCloser)
+  // Both quiet: the idle set flips when main turns into/out of a blank draft,
+  // the split flag when a second chat zone appears or goes.
+  const idleClosers = useStore($idlePaneClosers)
+  const chatZonesSplit = useStore($chatZonesSplit)
   // Multi-tab selection (⌥/Ctrl-click, Shift-click) — null for every zone but
   // the one holding it, so this subscription is quiet during normal use.
   const tabSelection = useStore($tabSelection)
@@ -254,9 +265,16 @@ export function TreeGroup({
   // onto a freshly-split tile used to land headerless ("name card missing").
   const forceLoneHeader = forceLoneHeaderForPanes(shown, id => paneChrome(paneFor(id)), isCollapsePane)
 
+  // Beside another chat zone, a chat zone ALWAYS shows its bar: the default
+  // lone-workspace auto-hide (and a stray double-tap's explicit hide) left the
+  // main chat as the one zone with no name, no ✕ and no "+" — "the bottom
+  // window has no tab bar". Hiding stays available once it's the only chat.
+  const headerLocked = chatZonesSplit && shown.some(isSessionStripPane)
+
   // A full-page view (headerVeto) suppresses the strip while it's the active
   // pane — a page is not a tab-able surface; the bar returns with the chat.
-  const headerHidden = paneChrome(active).headerVeto || (node.headerHidden ?? (shown.length <= 1 && !forceLoneHeader))
+  const headerHidden =
+    paneChrome(active).headerVeto || (!headerLocked && (node.headerHidden ?? (shown.length <= 1 && !forceLoneHeader)))
 
   // A group collapses ALONG its parent split's axis. In a row that means the
   // WIDTH collapses — a full-width horizontal header would strand a tall
@@ -282,7 +300,12 @@ export function TreeGroup({
     key: `hide-header-${node.id}`,
     onDoubleTap: () => {
       setTreeGroupMinimized(node.id, false)
-      setTreeGroupHeaderHidden(node.id, true)
+
+      // A locked bar can't hide; recording the wish anyway would spring it
+      // on the user later, when the other chat zone closes.
+      if (!headerLocked) {
+        setTreeGroupHeaderHidden(node.id, true)
+      }
     }
   }
 
@@ -325,6 +348,7 @@ export function TreeGroup({
   const zoneMenu = {
     closable,
     headerHidden,
+    headerLocked,
     minimizable,
     minimized: node.minimized,
     nodeId: node.id,
@@ -452,6 +476,7 @@ export function TreeGroup({
                   <PaneTab
                     active={isActive}
                     aria-selected={isActive}
+                    closeLabel={t.zones.closeTab(title)}
                     data-tree-tab={paneId}
                     key={paneId}
                     onClose={closeable ? () => closeTab(paneId) : undefined}
@@ -539,6 +564,7 @@ export function TreeGroup({
                     }}
                     role="tab"
                     selected={isSelected}
+                    showClose={!idleClosers.has(paneId)}
                     style={{ cursor: 'grab' }}
                   >
                     {chrome.tabLead ? (

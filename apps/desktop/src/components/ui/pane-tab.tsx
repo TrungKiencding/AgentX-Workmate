@@ -1,5 +1,7 @@
 import * as React from 'react'
 
+import { Codicon } from '@/components/ui/codicon'
+import { useI18n } from '@/i18n'
 import { isMetaClose, middleClickHandlers } from '@/lib/middle-click'
 import { cn } from '@/lib/utils'
 
@@ -41,9 +43,15 @@ const TAB_SELECTED =
 interface PaneTabProps extends React.ComponentProps<'div'> {
   active?: boolean
   dirty?: boolean
-  /** Close gesture, no hover X (too easy to hit on small tabs): middle-click,
-   *  or ⌘-click as the trackpad-friendly Mac equivalent. */
+  /** Close: the ✕ button (horizontal tabs — always on the active tab, on
+   *  hover elsewhere), plus middle-click and ⌘-click. The gestures alone left
+   *  a Windows trackpad user no way to close a tab short of its menu. */
   onClose?: () => void
+  /** Accessible name for the ✕ (e.g. "Close <title>"); defaults to "Close". */
+  closeLabel?: string
+  /** Hide the ✕ while the close has nothing to do (the main tab on a blank
+   *  draft) — the gestures stay wired, they just no-op. Default: shown. */
+  showClose?: boolean
   /** Part of a multi-tab selection (⌥/Ctrl-click, Shift-click) — an accent
    *  wash marks every tab that a drag would carry, Chrome-style. */
   selected?: boolean
@@ -65,6 +73,8 @@ export const PaneTab = React.forwardRef<HTMLDivElement, PaneTabProps>(function P
     active = false,
     dirty = false,
     onClose,
+    closeLabel,
+    showClose = true,
     onMouseDown,
     onPointerDown,
     onPointerUp,
@@ -78,10 +88,14 @@ export const PaneTab = React.forwardRef<HTMLDivElement, PaneTabProps>(function P
   },
   ref
 ) {
+  const { t } = useI18n()
   // Vertical rails only. Horizontal tabs draw no bottom border — the strip owns
   // that rule, and a per-tab border stacked a second translucent line over it.
   const edge = vertical ? (side === 'right' ? 'border-l' : 'border-r') : undefined
   const middle = middleClickHandlers(onClose)
+  // A collapsed rail is too narrow for a second target; its tabs close from
+  // the rail menu or the gestures.
+  const closeButton = Boolean(onClose) && showClose && !vertical
 
   return (
     <div
@@ -137,12 +151,42 @@ export const PaneTab = React.forwardRef<HTMLDivElement, PaneTabProps>(function P
       {...props}
     >
       {children}
+      {closeButton && (
+        <button
+          aria-label={closeLabel ?? t.common.close}
+          className={cn(
+            'mr-1 grid size-4 shrink-0 place-items-center rounded-[4px] text-(--ui-text-tertiary) transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground focus-visible:opacity-100 group-hover/tab:opacity-100',
+            // The active tab always offers it; the rest on hover. A dirty tab
+            // keeps its dot until hovered, then trades it for the ✕ in place.
+            active && !dirty ? 'opacity-100' : 'opacity-0'
+          )}
+          data-pane-tab-close=""
+          onClick={event => {
+            event.stopPropagation()
+            onClose?.()
+          }}
+          // Claim the press: the tab and its strip activate / drag on
+          // pointerdown, and a close must not also front or pick up the tab.
+          // A ⌘-press still bubbles so the tab's own ⌘-click close runs (its
+          // click-capture then swallows this button's click).
+          onPointerDown={event => {
+            if (!isMetaClose(event)) {
+              event.stopPropagation()
+            }
+          }}
+          tabIndex={-1}
+          type="button"
+        >
+          <Codicon name="close" size="0.75rem" />
+        </button>
+      )}
       {dirty && (
         <span
           aria-hidden
           className={cn(
             'pointer-events-none absolute grid size-4 place-items-center',
-            vertical ? 'bottom-1.5 left-1/2 -translate-x-1/2' : 'right-1.5 top-1/2 -translate-y-1/2'
+            vertical ? 'bottom-1.5 left-1/2 -translate-x-1/2' : 'right-1.5 top-1/2 -translate-y-1/2',
+            closeButton && 'transition-opacity group-hover/tab:opacity-0'
           )}
         >
           <span className="size-2 rounded-full bg-(--ui-yellow) shadow-[0_0_0_2px_var(--tab-bg),0_1px_2px_rgba(0,0,0,0.45)]" />

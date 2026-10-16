@@ -3998,6 +3998,7 @@ export const vi: Translations = {
     closeOthers: 'Đóng các tab khác',
     closeToRight: 'Đóng các tab bên phải',
     closeAll: 'Đóng tất cả',
+    closeTab: label => `Đóng ${label}`,
     newSessionTab: 'Tab trò chuyện mới',
     pluginDisabled: pluginId => `Plugin "${pluginId}" đã tắt`,
     pluginDisabledBody: 'Hãy bật lại trong Cài đặt → Plugin để khung này quay lại.',

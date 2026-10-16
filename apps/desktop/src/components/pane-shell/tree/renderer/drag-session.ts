@@ -192,6 +192,19 @@ export interface DragSessionSpec {
   ghost?: { label: string }
 }
 
+/** A press that reached the handle only through the REACT tree. A portaled
+ *  descendant — a tab's context menu, a row's ⋯ dropdown — renders outside
+ *  the handle in the DOM, yet its synthetic events still bubble up the
+ *  component tree into the handle's onPointerDown. Claimed as a drag/tap, a
+ *  menu click doubled as a press on the strip: "Close" on a side zone's tab
+ *  minimized the zone, which unmounted the menu before the item's click
+ *  landed, so the tab collapsed to a rail instead of closing. */
+export function isPortaledPress(e: ReactPointerEvent<HTMLElement>): boolean {
+  const target = e.target
+
+  return target instanceof Node && !e.currentTarget.contains(target)
+}
+
 /** After an ENGAGED drag, the release still synthesizes a `click` on the
  *  capture element — swallow exactly that one so a drag can never double as
  *  an activation (row resume, tab close). Committed drags see the click in
@@ -223,7 +236,7 @@ function suppressDragClick(committed: boolean) {
  * synchronously, and nothing commits.
  */
 export function startDragSession(e: ReactPointerEvent<HTMLElement>, spec: DragSessionSpec) {
-  if (e.button !== 0) {
+  if (e.button !== 0 || isPortaledPress(e)) {
     return
   }
 
@@ -437,7 +450,9 @@ export function startPaneDrag(
    *  (it fronts at the destination). */
   selection?: readonly string[]
 ) {
-  if (e.button !== 0) {
+  // Checked before preventDefault/stopPropagation: a portaled menu's press
+  // must reach nothing here (see isPortaledPress).
+  if (e.button !== 0 || isPortaledPress(e)) {
     return
   }
 
