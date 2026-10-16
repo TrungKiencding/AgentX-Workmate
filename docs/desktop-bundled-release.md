@@ -49,6 +49,16 @@ Both tag builds and the signing command require the installer commit to be on
 Download authenticated workflow artifacts as the release operator; no GitHub
 credential is embedded in the app. GitHub can hold private build artifacts.
 
+A successful manual run on the exact release commit may supply the published
+bytes directly. Require both native jobs and their migration/offline checks to
+pass, authenticate the artifact downloads, verify their archive digests, and
+retain the Windows build manifest. Create a GitHub draft targeting that same
+main commit, attach the verified installers and manifest, then publish it to
+create the release tag. The signing command still validates both payloads and
+their source commit. Cancel a duplicate tag-triggered rebuild only after these
+gates have passed; record the successful manual run as release evidence and
+never substitute a rebuild for the already verified, published bytes.
+
 For local native macOS: `npm run dist:mac:dmg` from `apps/desktop`.
 For native Windows: `npm run dist:win:nsis -- --x64`.
 The install stamp must be clean. The Mac payload and hash-bound Windows CI

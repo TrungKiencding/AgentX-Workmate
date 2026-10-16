@@ -29,3 +29,17 @@ Các ca giao diện ban đầu lỗi còn lại đã chạy lại đạt sau khi
 Workflow Release Desktop phải chạy trên main với cùng commit sạch cho macOS ARM64 và Windows x64. Bộ cài phải chứa bundled-runtime phù hợp version/commit/OS/kiến trúc. Windows kiểm tra nâng từ 1.0.10 và từ bản 1.1.0 đang phân phối, giữ đăng nhập/dữ liệu, khởi động lại và chạy backend khi chặn mạng bên ngoài. macOS kiểm tra ứng dụng lấy từ DMG sau khi di chuyển, backend thật và giữ dữ liệu qua khởi động lại; kiểm tra updater thật từ 1.1.0 được chạy trên máy phát hành.
 
 Chỉ sau các kiểm tra native mới tạo tag `desktop-v1.1.1`, công bố bộ cài, ký feed bằng khoá Ed25519 hiện có và chuyển landing page sang bản mới. URL và bộ cài cũ được giữ để đối chiếu và quay lui. Hồ sơ triển khai của AgentX-Landing lưu SHA-256, kích thước, workflow và kết quả kiểm tra công khai sau khi công bố.
+
+## Kết quả native và phát hành
+
+- Commit bộ cài: `10a05d156dfe5a2369f87ccb2ef4bca9d0d9b4c7`, đã có trên origin/main trước khi ký và công bố. [Release Desktop 38890733391](https://github.com/TrungKiencding/AgentX-Workmate/actions/runs/38890733391) hoàn tất thành công trên cả hai hệ điều hành: macOS có 159 kiểm thử hồi quy đạt; Windows có 152 đạt và 7 bỏ qua theo nền tảng.
+- Windows dùng bộ cài thật để nâng từ 1.0.10 và bản bundled 1.1.0 đang phân phối. Cả hai giữ dữ liệu, lịch sử SessionDB và thông tin đăng nhập mã hoá qua khởi động lại; backend mới được chạy trong trạng thái chặn mạng ngoài, không có công cụ phát triển trên PATH. Fixture của bản bundled tạo lịch sử bằng schema thực sự đi kèm bản cũ.
+- Bộ cài macOS lấy nguyên vẹn từ cùng lượt CI đã qua smoke test sau di chuyển và kiểm tra updater thật từ 1.1.0 trên máy phát hành. Sau nâng cấp và khởi động lại, lịch sử còn nguyên; token access/refresh và danh tính giả lập giải mã được bằng Keychain thật; tệp mã hoá không đổi và mục Keychain thử nghiệm đã được xoá. Không dùng tài khoản SSO thật của người dùng để tạo dữ liệu thử.
+- Bộ cài đã kiểm chứng được đưa nguyên vẹn vào [desktop-v1.1.1](https://github.com/TrungKiencding/AgentX-Workmate/releases/tag/desktop-v1.1.1). Lượt build tự sinh lại từ tag được huỷ vì trùng commit và không được dùng để thay các byte đã công bố. Bằng chứng native là lượt main thành công ở trên.
+- Feed dùng khoá Ed25519 hiện có. Cả hai bộ cài trên GitHub khớp kích thước và SHA-256 của feed. Các đường tải cũ được giữ nguyên. [Hồ sơ native](https://github.com/TrungKiencding/AgentX-Workmate/releases/download/desktop-v1.1.1/release-1.1.1-validation.json) lưu các kết quả chi tiết.
+- macOS vẫn dùng chữ ký ad-hoc ổn định và **chưa có Apple notarization**; môi trường phát hành chưa cấu hình chứng chỉ/tài khoản ký Apple. Phạm vi kiến trúc được kiểm chứng là macOS ARM64 và Windows x64.
+
+| Bộ cài | Kích thước (byte) | SHA-256 |
+| --- | ---: | --- |
+| darwin-arm64 | 277838765 | `d2fcf3287e4337125e7b6f1d3124456a6c01245ab856b40a022ba395f30e8570` |
+| win32-x64 | 347465502 | `b917d9fae37f5542974932be91e98cfef8b5a9c1b649cf84fa16716268e86a2a` |
