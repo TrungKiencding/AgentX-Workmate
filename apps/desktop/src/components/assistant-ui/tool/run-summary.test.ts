@@ -83,7 +83,7 @@ describe('summarizeToolRun', () => {
     expect(settled([tool('skill_manage', { action: 'patch', name: 'deploy' }, { success: true })])).toBe('Used 1 tool')
   })
 
-  it('narrates in the app\'s language, with the catalog owning the nouns', () => {
+  it("narrates in the app's language, with the catalog owning the nouns", () => {
     const mcp = (name: string) => tool(name)
 
     expect(summarizeToolRun([mcp('mcp_webmate_webmate'), mcp('mcp_webmate_search')], true, vi)).toBe(

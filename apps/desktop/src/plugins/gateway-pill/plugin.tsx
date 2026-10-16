@@ -194,9 +194,7 @@ function Section({ children, className }: { children: ReactNode; className?: str
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return (
-    <div className="text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{children}</div>
-  )
+  return <div className="text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{children}</div>
 }
 
 function GatewayMenuPanel({ onClose }: { onClose: () => void }) {

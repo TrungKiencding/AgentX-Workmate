@@ -92,4 +92,3 @@ export const skillDisplayName = (slug: string): string =>
     .filter(Boolean)
     .map(word => DISPLAY_WORDS[word.toLowerCase()] ?? word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ') || slug
-

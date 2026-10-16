@@ -386,15 +386,7 @@ const toSessionEntry = (session: SessionRow): SessionEntry => ({
   title: sessionTitle(session)
 })
 
-type NonConfigSettingsLabel =
-  | 'about'
-  | 'archivedChats'
-  | 'gateway'
-  | 'keysSettings'
-  | 'keysTools'
-  | 'mcp'
-  | 'plugins'
-
+type NonConfigSettingsLabel = 'about' | 'archivedChats' | 'gateway' | 'keysSettings' | 'keysTools' | 'mcp' | 'plugins'
 
 const NON_CONFIG_SETTINGS: ReadonlyArray<{
   icon: IconComponent

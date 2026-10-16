@@ -267,7 +267,9 @@ export class WorkmateBrowserWindow {
     const cdp = this.cdp
     const extensionId = this.status.extensionId
 
-    if (!cdp || !extensionId) {return null}
+    if (!cdp || !extensionId) {
+      return null
+    }
     const deadline = Date.now() + 5_000
 
     while (Date.now() < deadline) {
@@ -299,7 +301,9 @@ export class WorkmateBrowserWindow {
 
           const value = response.result?.value
 
-          if (typeof value === 'string' && value.trim()) {return value}
+          if (typeof value === 'string' && value.trim()) {
+            return value
+          }
         } finally {
           await cdp.send('Target.detachFromTarget', { sessionId }).catch(() => undefined)
         }

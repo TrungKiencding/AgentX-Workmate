@@ -395,7 +395,9 @@ describe('device management experience', () => {
     fireEvent.click(screen.getAllByRole('button', { name: en.settings.account.deviceRevoke }).at(-1)!)
     expect(await screen.findByText(en.settings.account.deviceRotationFailed)).toBeTruthy()
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: en.settings.account.deviceRotateRetry }))
+    fireEvent.click(
+      within(screen.getByRole('status')).getByRole('button', { name: en.settings.account.deviceRotateRetry })
+    )
     fireEvent.click(screen.getAllByRole('button', { name: en.settings.account.deviceRotateRetry }).at(-1)!)
     expect(await screen.findByText(en.settings.account.deviceRotationDone)).toBeTruthy()
     expect(revoke).toHaveBeenLastCalledWith('device-b', { rotateKey: true })

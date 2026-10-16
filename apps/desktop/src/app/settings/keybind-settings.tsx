@@ -98,9 +98,7 @@ export function KeybindSettings() {
       <div className="flex items-center justify-between gap-3 pb-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">{k.title}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {k.subtitle(openCombo ? formatCombo(openCombo) : '')}
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{k.subtitle(openCombo ? formatCombo(openCombo) : '')}</p>
         </div>
         <button
           className="flex shrink-0 items-center gap-1 rounded-md text-xs text-muted-foreground hover:text-foreground"

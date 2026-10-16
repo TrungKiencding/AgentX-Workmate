@@ -307,6 +307,7 @@ export function resolveCheckoutPin(
   if (byGit.relation === 'unpinned') {
     return byGit
   }
+
   const byVersion = relateByVersion({ checkoutVersion: readCheckoutVersion(activeRoot), shellVersion })
 
   if (byVersion === 'ahead') {

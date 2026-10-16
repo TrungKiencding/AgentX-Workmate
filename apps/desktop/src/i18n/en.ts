@@ -567,7 +567,8 @@ export const en: Translations = {
       deviceRevoked: 'Revoked',
       deviceRevoke: 'Revoke device',
       deviceRevokeConfirmTitle: 'Revoke this device?',
-      deviceRevokeConfirmDesc: name => `${name} will be blocked from accessing your account. This installation will move to revocation history.`,
+      deviceRevokeConfirmDesc: name =>
+        `${name} will be blocked from accessing your account. This installation will move to revocation history.`,
       deviceRotateKey: 'Also issue a new model key',
       deviceRotateKeyDesc:
         'Your devices share one model key, so revoking alone does not remove that device’s model access. Your other devices pick the new key up on their own.',
@@ -1193,7 +1194,8 @@ export const en: Translations = {
       toolsEnabledOf: (on, total) => `${on} of ${total} on`,
       toolsHint: 'Click a tool to turn just that one on or off.',
       noTools: 'This connection offers no tools.',
-      gatewayServerDesc: 'A server of yours on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
+      gatewayServerDesc:
+        'A server of yours on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
       gatewayToolsetDesc:
         'A toolset you put together on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
       gatewayTokenNote: "This machine's token is kept in .env (AGENTX_HUB_GATEWAY_TOKEN) and renews itself.",

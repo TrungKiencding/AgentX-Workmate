@@ -10453,6 +10453,7 @@ ipcMain.handle('agentx:usage:event', (_event, signal) => {
   if (signal.profile != null && (typeof signal.profile !== 'string' || signal.profile.length > 255)) {
     return false
   }
+
   const key = `${signal.profile || 'default'}:${signal.key}`
 
   if (signal.phase === 'start') {

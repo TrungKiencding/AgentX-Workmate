@@ -15,8 +15,7 @@ vi.mock('@/lib/product-flags', () => ({
   },
   get PROFILE_MANAGEMENT_ENABLED() {
     return flags.profileManagement
-  },
-
+  }
 }))
 
 // SettingsView mounts a dozen panels that all reach the backend. Every `@/hermes`

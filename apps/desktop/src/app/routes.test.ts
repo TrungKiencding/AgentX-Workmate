@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { registry } from '@/contrib/registry'
 
-import { contributedRoutes, NEW_CHAT_ROUTE, primaryRouteSelectedSessionId, ROUTES_AREA, sessionRoute, SETTINGS_ROUTE } from './routes'
+import {
+  contributedRoutes,
+  NEW_CHAT_ROUTE,
+  primaryRouteSelectedSessionId,
+  ROUTES_AREA,
+  sessionRoute,
+  SETTINGS_ROUTE
+} from './routes'
 
 const SESS_A = 'sess-a'
 const SESS_B = 'sess-b'
