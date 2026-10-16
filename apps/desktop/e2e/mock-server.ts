@@ -31,7 +31,7 @@ holdFirstCompletionContaining?: string
 /** Absolute sandbox path written by the verify-on-stop scripted tool call. */
 verificationWritePath?: string
 /**
- * Sentinel path that ends the E2E_SIDEBAR_CROSS background process.
+ * Sentinel path that ends scripted cross-session terminal work.
  *
  * Without it that process is a bare `sleep 5`, which races the agent turn and
  * the 4s auto-dismiss linger — see `createBackgroundReleaseHandle`. Pass a
@@ -196,7 +196,7 @@ const SIDEBAR_SCRIPT: ScriptedTurn[] = [
 // test creates that sentinel file, so the test — not the clock — decides when
 // the dot clears. `sleep 5` remains the fallback for callers that don't pass
 // a handle.
-function sidebarCrossBgCommand(releasePath?: string): string {
+function sidebarCrossBgCommand(releasePath?: string, maxWaitSeconds = 60): string {
   if (!releasePath) {
     return 'echo "long bg output" && sleep 5 && echo "finished"'
   }
@@ -206,7 +206,7 @@ function sidebarCrossBgCommand(releasePath?: string): string {
   const quoted = JSON.stringify(releasePath)
   return [
     'echo "long bg output"',
-    `for _ in $(seq 1 600); do [ -e ${quoted} ] && break; sleep 0.1; done`,
+    `for _ in $(seq 1 ${maxWaitSeconds * 10}); do [ -e ${quoted} ] && break; sleep 0.1; done`,
     'echo "finished"',
   ].join(' && ')
 }
@@ -252,13 +252,18 @@ const QUEUE_STOP_SCRIPT: ScriptedTurn[] = [
 // The reported correction arrived while a foreground tool was still running.
 // Keep that boundary open long enough for the renderer to redirect the turn,
 // then let the next model request complete normally.
-const CORRECTION_SWITCH_SCRIPT: ScriptedTurn[] = [
+function correctionSwitchScript(releasePath?: string): ScriptedTurn[] {
+  return [
   {
     text: 'Checking the long-running task before I continue.',
-    toolCalls: [{ name: 'terminal', args: { command: 'sleep 5' } }],
+    toolCalls: [{ name: 'terminal', args: {
+      command: releasePath ? sidebarCrossBgCommand(releasePath, 120) : 'sleep 5',
+      timeout: 150,
+    } }],
   },
   { text: 'The corrected task finished.' },
-]
+  ]
+}
 
 export const CORRECTION_SWITCH_TRIGGER = 'E2E_CORRECTION_SWITCH_TRIGGER'
 
@@ -454,7 +459,8 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
           }
 
           if (isCorrectionSwitchTrigger) {
-            const turn = CORRECTION_SWITCH_SCRIPT[_correctionSwitchIndex] ?? CORRECTION_SWITCH_SCRIPT[CORRECTION_SWITCH_SCRIPT.length - 1]
+            const script = correctionSwitchScript(options.backgroundReleasePath)
+            const turn = script[_correctionSwitchIndex] ?? script[script.length - 1]
             _correctionSwitchIndex++
             if (stream) {
               streamScriptedTurn(res, model, turn)

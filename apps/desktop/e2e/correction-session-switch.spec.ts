@@ -10,7 +10,7 @@ import { type TestInfo } from '@playwright/test'
 import { expect, test, type Page } from './test'
 
 import { type MockBackendFixture, setupMockBackend, waitForAppReady } from './fixtures'
-import { CORRECTION_SWITCH_TRIGGER, MOCK_REPLY } from './mock-server'
+import { CORRECTION_SWITCH_TRIGGER, createBackgroundReleaseHandle, MOCK_REPLY } from './mock-server'
 
 const OTHER_SESSION_PROMPT = 'E2E persisted session used for a warm resume.'
 const ORIGINAL_PROMPT = `${CORRECTION_SWITCH_TRIGGER}: original prompt must remain singular after a correction.`
@@ -139,11 +139,13 @@ async function openSidebarSession(page: Page, sidebarText: string, expectedTrans
 async function reopenOriginalSession(page: Page): Promise<void> {
   // A still-running tool has not generated a final title yet, so the sidebar
   // retains the source prompt as its provisional session title.
-  await openSidebarSession(page, ORIGINAL_PROMPT, ORIGINAL_PROMPT)
+  // Provisional titles may abbreviate a long prompt; identify this chat by
+  // its unique prefix and verify the complete prompt in the transcript.
+  await openSidebarSession(page, CORRECTION_SWITCH_TRIGGER, ORIGINAL_PROMPT)
 }
 
 async function reopenInferenceSession(page: Page): Promise<void> {
-  const row = page.locator('[data-slot="sidebar"] button').filter({ hasText: INFERENCE_PROMPT }).first()
+  const row = page.locator('[data-slot="sidebar"] button').filter({ hasText: INFERENCE_SWITCH_TRIGGER }).first()
   await row.waitFor({ state: 'visible', timeout: 30_000 })
   await row.click()
   await waitForTranscriptText(page, INFERENCE_PROMPT)
@@ -170,17 +172,24 @@ function steerTurnOrder(messages: string[]): string[] {
 
 test.describe('correction session switch', () => {
   let fixture: MockBackendFixture | null = null
+  let toolRelease: ReturnType<typeof createBackgroundReleaseHandle>
 
   test.beforeEach(async () => {
+    toolRelease = createBackgroundReleaseHandle()
     fixture = await setupMockBackend({
-      mockServer: { holdFirstStreamForPrompt: INFERENCE_SWITCH_TRIGGER },
+      mockServer: {
+        holdFirstStreamForPrompt: INFERENCE_SWITCH_TRIGGER,
+        backgroundReleasePath: toolRelease.path,
+      },
     })
     await waitForAppReady(fixture, 120_000)
   })
 
   test.afterEach(async () => {
+    toolRelease.release()
     await fixture?.cleanup()
     fixture = null
+    toolRelease.cleanup()
   })
 
   test('keeps a live correction in place and does not duplicate its original prompt after switching sessions', async ({}, testInfo: TestInfo) => {
@@ -218,6 +227,7 @@ test.describe('correction session switch', () => {
     expect(await textNodeOccurrences(page, ORIGINAL_PROMPT)).toBe(1)
     expect(await textNodeOccurrences(page, CORRECTION)).toBe(1)
 
+    toolRelease.release()
     await waitForTranscriptText(page, CORRECTED_REPLY)
     expect(steerTurnOrder(await transcriptMessageOrder(page))).toEqual([ORIGINAL_PROMPT, CORRECTION, CORRECTED_REPLY])
   })

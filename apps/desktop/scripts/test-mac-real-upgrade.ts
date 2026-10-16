@@ -14,7 +14,9 @@ import { signAppAdHoc } from './sign-mac-adhoc.mjs'
 const desktop = path.resolve(import.meta.dirname, '..')
 const repo = path.resolve(desktop, '../..')
 const production = process.argv.includes('--production')
-const oldVersion = production ? '1.0.10' : '1.0.5'
+const oldVersion = process.argv.find(arg => arg.startsWith('--old-version='))?.slice('--old-version='.length)
+  || (production ? '1.0.10' : '1.0.5')
+assert.match(oldVersion, /^\d+\.\d+\.\d+$/)
 const newVersion = production
   ? JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8')).version
   : '1.0.10'

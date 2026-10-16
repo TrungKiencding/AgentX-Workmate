@@ -92,3 +92,13 @@ rollback; signing an older version does not force clients to downgrade.
 
 Archived 1.0.10 installers used by repeatable CI live under `/install/1.0.10/`;
 their hashes are fixed by the upgrade verification script.
+
+For 1.1.1, native Windows release CI also installs over the published 1.1.0
+bundled-runtime rebuild, with its immutable URL and SHA-256 pinned in the
+workflow. Each previous version gets independent state, install and offline
+smoke directories. Both migrations must pass before release artifacts upload.
+The macOS upgrade harness accepts `--old-version=1.1.0`; set
+`AGENTX_TEST_OLD_DMG` to the hash-verified published 1.1.0 DMG and run
+`npx tsx scripts/test-mac-real-upgrade.ts --production --old-version=1.1.0`
+from `apps/desktop` after downloading the new native build. This exercises the
+old app's real updater IPC, retained history and native credential encryption.

@@ -145,6 +145,15 @@ jobs:
         if: runner.os == 'macOS'
         run: node apps/desktop/scripts/smoke-runtime-preview.mjs --production
 
+      - name: Validate upgrade from the published bundled runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: >-
+          ./apps/desktop/scripts/verify-windows-bundled-release.ps1
+          -PreviousVersion '1.1.0'
+          -PreviousInstallerUrl 'https://agentx-landingpage.astralx.com.vn/install/rebuild-ed5751c8c08e/1.1.0/AgentXWorkmate-win-x64.exe'
+          -PreviousSha256 'b93b71a2fd1abf280a64417a077db699915bd9d0975934bf38d1ddec22c29885'
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
@@ -152,11 +161,11 @@ jobs:
           path: |
             apps/desktop/playwright-report
             apps/desktop/test-results
-            ${{ runner.temp }}/windows-release-upgrade/*-report.json
-            ${{ runner.temp }}/release-fresh/*.json
-            ${{ runner.temp }}/release-fresh/user-home/logs/desktop.log
-            ${{ runner.temp }}/release-migrated/*.json
-            ${{ runner.temp }}/release-migrated/user-home/logs/desktop.log
+            ${{ runner.temp }}/windows-release-upgrade-*/*-report.json
+            ${{ runner.temp }}/release-fresh-*/*.json
+            ${{ runner.temp }}/release-fresh-*/user-home/logs/desktop.log
+            ${{ runner.temp }}/release-migrated-*/*.json
+            ${{ runner.temp }}/release-migrated-*/user-home/logs/desktop.log
             apps/desktop/release/runtime-preview-smoke.*
 
       # The build already refuses to produce an unbranded Windows exe
@@ -187,9 +196,9 @@ jobs:
             apps/desktop/release/AgentXWorkmate-*.msi
             apps/desktop/release/AgentXWorkmate-*.zip
             apps/desktop/release/AgentXWorkmate-*-build.json
-            ${{ runner.temp }}/windows-release-upgrade/*-report.json
-            ${{ runner.temp }}/release-fresh/runtime-smoke-report.json
-            ${{ runner.temp }}/release-migrated/runtime-smoke-report.json
+            ${{ runner.temp }}/windows-release-upgrade-*/*-report.json
+            ${{ runner.temp }}/release-fresh-*/runtime-smoke-report.json
+            ${{ runner.temp }}/release-migrated-*/runtime-smoke-report.json
             apps/desktop/release/runtime-preview-smoke.json
 
   release:
