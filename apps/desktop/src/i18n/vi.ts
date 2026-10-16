@@ -2736,7 +2736,7 @@ export const vi: Translations = {
 
   artifacts: {
     pageTitle: 'Artifact',
-    pageDescription: 'Ảnh, tệp và liên kết AgentX đã tạo trong các cuộc trò chuyện.',
+    pageDescription: 'Ảnh và tệp AgentX đã tạo cho bạn trong các cuộc trò chuyện.',
     search: 'Tìm artifact...',
     refresh: 'Làm mới',
     refreshing: 'Đang làm mới',
@@ -2744,7 +2744,6 @@ export const vi: Translations = {
     tabAll: 'Tất cả',
     tabImages: 'Ảnh',
     tabFiles: 'Tệp',
-    tabLinks: 'Liên kết',
     emptyTitle: 'Chưa có artifact nào',
     emptyDesc: 'Khi AgentX tạo ảnh hay tệp cho bạn, chúng sẽ nằm ở đây.',
     emptyAction: 'Bắt đầu trò chuyện',
@@ -2755,9 +2754,7 @@ export const vi: Translations = {
     failedLoad: 'Tải artifact thất bại',
     openFailed: 'Mở thất bại',
     itemsImage: 'ảnh',
-    itemsLink: 'liên kết',
     itemsFile: 'tệp',
-    itemsGeneric: 'mục',
     zero: '0',
     rangeOf: (start, end, total) => `${start}-${end} trên ${total}`,
     goToPage: (itemLabel, page) => `Tới trang ${page} của ${itemLabel}`,
@@ -2767,7 +2764,6 @@ export const vi: Translations = {
     open: 'Mở',
     viewChat: 'Xem cuộc trò chuyện',
     rowActions: 'Thao tác khác',
-    copyUrl: 'Sao chép URL',
     copyPath: 'Sao chép đường dẫn'
   },
 

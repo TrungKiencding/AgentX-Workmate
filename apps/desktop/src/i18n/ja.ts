@@ -2482,7 +2482,7 @@ export const ja = defineLocale({
 
   artifacts: {
     pageTitle: 'アーティファクト',
-    pageDescription: 'チャットで AgentX が作成した画像・ファイル・リンク。',
+    pageDescription: 'チャットで AgentX が作成した画像とファイル。',
     search: 'アーティファクトを検索...',
     refresh: '更新',
     refreshing: '更新中',
@@ -2490,7 +2490,6 @@ export const ja = defineLocale({
     tabAll: 'すべて',
     tabImages: '画像',
     tabFiles: 'ファイル',
-    tabLinks: 'リンク',
     emptyTitle: 'まだアーティファクトはありません',
     emptyDesc: 'AgentX が画像やファイルを作ると、ここに並びます。',
     emptyAction: 'チャットを始める',
@@ -2501,9 +2500,7 @@ export const ja = defineLocale({
     failedLoad: 'アーティファクトの読み込みに失敗しました',
     openFailed: '開くことができませんでした',
     itemsImage: '画像',
-    itemsLink: 'リンク',
     itemsFile: 'ファイル',
-    itemsGeneric: '項目',
     zero: '0',
     rangeOf: (start, end, total) => `${total} 件中 ${start}-${end}`,
     goToPage: (itemLabel, page) => `${itemLabel} ページ ${page} に移動`,
@@ -2513,7 +2510,6 @@ export const ja = defineLocale({
     open: '開く',
     viewChat: 'チャットを見る',
     rowActions: 'その他の操作',
-    copyUrl: 'URL をコピー',
     copyPath: 'パスをコピー'
   },
 

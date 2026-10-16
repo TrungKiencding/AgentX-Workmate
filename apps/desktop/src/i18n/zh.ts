@@ -2580,7 +2580,7 @@ export const zh: Translations = {
 
   artifacts: {
     pageTitle: 'Artifact',
-    pageDescription: 'AgentX 在对话中创建的图片、文件和链接。',
+    pageDescription: 'AgentX 在对话中为你创建的图片和文件。',
     search: '搜索 artifact…',
     refresh: '刷新',
     refreshing: '正在刷新',
@@ -2588,7 +2588,6 @@ export const zh: Translations = {
     tabAll: '全部',
     tabImages: '图片',
     tabFiles: '文件',
-    tabLinks: '链接',
     emptyTitle: '还没有 artifact',
     emptyDesc: '当 AgentX 为你生成图片或文件时，会出现在这里。',
     emptyAction: '开始对话',
@@ -2599,9 +2598,7 @@ export const zh: Translations = {
     failedLoad: 'Artifact 加载失败',
     openFailed: '打开失败',
     itemsImage: '张图片',
-    itemsLink: '个链接',
     itemsFile: '个文件',
-    itemsGeneric: '项',
     zero: '0',
     rangeOf: (start, end, total) => `${start}-${end},共 ${total}`,
     goToPage: (itemLabel, page) => `前往${itemLabel}第 ${page} 页`,
@@ -2611,7 +2608,6 @@ export const zh: Translations = {
     open: '打开',
     viewChat: '查看对话',
     rowActions: '更多操作',
-    copyUrl: '复制 URL',
     copyPath: '复制路径'
   },
 

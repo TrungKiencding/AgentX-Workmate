@@ -2366,7 +2366,7 @@ export const zhHant = defineLocale({
 
   artifacts: {
     pageTitle: 'Artifact',
-    pageDescription: 'AgentX 在對話中建立的圖片、檔案和連結。',
+    pageDescription: 'AgentX 在對話中為你建立的圖片和檔案。',
     search: '搜尋 artifact…',
     refresh: '重新整理',
     refreshing: '正在重新整理',
@@ -2374,7 +2374,6 @@ export const zhHant = defineLocale({
     tabAll: '全部',
     tabImages: '圖片',
     tabFiles: '檔案',
-    tabLinks: '連結',
     emptyTitle: '還沒有 artifact',
     emptyDesc: '當 AgentX 為你產生圖片或檔案時，會出現在這裡。',
     emptyAction: '開始對話',
@@ -2385,9 +2384,7 @@ export const zhHant = defineLocale({
     failedLoad: 'Artifact 載入失敗',
     openFailed: '開啟失敗',
     itemsImage: '張圖片',
-    itemsLink: '個連結',
     itemsFile: '個檔案',
-    itemsGeneric: '項',
     zero: '0',
     rangeOf: (start, end, total) => `${start}-${end}，共 ${total}`,
     goToPage: (itemLabel, page) => `前往${itemLabel}第 ${page} 頁`,
@@ -2397,7 +2394,6 @@ export const zhHant = defineLocale({
     open: '開啟',
     viewChat: '檢視對話',
     rowActions: '更多操作',
-    copyUrl: '複製 URL',
     copyPath: '複製路徑'
   },
 

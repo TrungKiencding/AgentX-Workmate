@@ -2090,7 +2090,6 @@ export interface Translations {
     tabAll: string
     tabImages: string
     tabFiles: string
-    tabLinks: string
     emptyTitle: string
     emptyDesc: string
     emptyAction: string
@@ -2101,9 +2100,7 @@ export interface Translations {
     failedLoad: string
     openFailed: string
     itemsImage: string
-    itemsLink: string
     itemsFile: string
-    itemsGeneric: string
     zero: string
     rangeOf: (start: number, end: number, total: number) => string
     goToPage: (itemLabel: string, page: number) => string
@@ -2113,7 +2110,6 @@ export interface Translations {
     open: string
     viewChat: string
     rowActions: string
-    copyUrl: string
     copyPath: string
   }
 

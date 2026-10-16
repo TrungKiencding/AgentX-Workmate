@@ -21,9 +21,7 @@ import { RowButton } from '@/components/ui/row-button'
 import { Tip } from '@/components/ui/tooltip'
 import { getSessionMessages, listAllProfileSessions } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
-import { resolveBrandIcon } from '@/lib/brand-icon'
-import { ExternalLink, hostPathLabel, shortHostLabel, urlSlugTitleLabel, useLinkTitle } from '@/lib/external-link'
-import { Link2, Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
+import { Loader2, MoreVertical, RefreshCw } from '@/lib/icons'
 import { downloadGatewayMediaFile, isRemoteGateway } from '@/lib/media'
 import { normalize } from '@/lib/text'
 import { type DayGroup, dayGroup, fmtClock, fmtDayTime, fmtMonth, fmtMonthYear } from '@/lib/time'
@@ -37,13 +35,7 @@ import { PageSearchShell } from '../page-search-shell'
 import { NEW_CHAT_ROUTE } from '../routes'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
-import {
-  ARTIFACT_FILTERS,
-  type ArtifactFilter,
-  artifactImageSrc,
-  type ArtifactRecord,
-  collectArtifactsForSession
-} from './artifact-utils'
+import { ARTIFACT_FILTERS, artifactImageSrc, type ArtifactRecord, collectArtifactsForSession } from './artifact-utils'
 
 // A row inside a day group shows the clock alone; the group header carries the
 // date, so repeating "6 Sep" on every line would be noise.
@@ -94,9 +86,6 @@ type CellCtx = {
   onOpen: (href: string) => void | Promise<void>
   onOpenChat: (sessionId: string) => void
 }
-
-const itemsLabel = (f: ArtifactFilter, a: Translations['artifacts']) =>
-  f === 'link' ? a.itemsLink : f === 'file' ? a.itemsFile : a.itemsGeneric
 
 interface ArtifactsViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
@@ -273,8 +262,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     return {
       all: all.length,
       image: all.filter(artifact => artifact.kind === 'image').length,
-      file: all.filter(artifact => artifact.kind === 'file').length,
-      link: all.filter(artifact => artifact.kind === 'link').length
+      file: all.filter(artifact => artifact.kind === 'file').length
     }
   }, [artifacts])
 
@@ -354,8 +342,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
           ? [
               { id: 'all', label: a.tabAll, meta: counts.all },
               { id: 'image', label: a.tabImages, meta: counts.image },
-              { id: 'file', label: a.tabFiles, meta: counts.file },
-              { id: 'link', label: a.tabLinks, meta: counts.link }
+              { id: 'file', label: a.tabFiles, meta: counts.file }
             ]
           : undefined
       }
@@ -423,7 +410,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                 <div className="sticky top-0 z-10 -mx-3 flex h-7 items-center gap-3 overflow-x-auto bg-background px-3">
                   <ArtifactsPagination
                     className="ml-auto justify-end px-0"
-                    itemLabel={itemsLabel(kindFilter, a)}
+                    itemLabel={a.itemsFile}
                     onPageChange={setFilePage}
                     page={currentFilePage}
                     pageSize={100}
@@ -570,9 +557,9 @@ function ArtifactImageCard({ artifact, ctx, failedImage, onImageError }: Artifac
   )
 }
 
-// One library row: type icon · name over its place · which chat made it, when,
-// and the quiet actions. Memoized because link rows fetch their titles
-// asynchronously and must not re-render the whole page as results land.
+// One library row: type icon · name over its path · which chat made it, when,
+// and the quiet actions. Memoized so the page re-rendering (search keystrokes,
+// a refresh) doesn't redo every row.
 const ArtifactListRow = memo(function ArtifactListRow({
   artifact,
   ctx,
@@ -584,12 +571,6 @@ const ArtifactListRow = memo(function ArtifactListRow({
 }) {
   const { t } = useI18n()
   const a = t.artifacts
-  const isLink = artifact.kind === 'link'
-  const Brand = isLink ? resolveBrandIcon(shortHostLabel(artifact.href)) : null
-  const fetchedTitle = useLinkTitle(isLink ? artifact.href : null)
-  const label = isLink ? fetchedTitle || urlSlugTitleLabel(artifact.href) : artifact.label
-  const place = isLink ? hostPathLabel(artifact.value) : artifact.value
-  const copyLabel = isLink ? a.copyUrl : a.copyPath
 
   const copyValue = () => {
     if (window.agentxDesktop?.writeClipboard) {
@@ -599,49 +580,22 @@ const ArtifactListRow = memo(function ArtifactListRow({
     }
   }
 
-  const body = (
-    <>
-      <span className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
-        {isLink ? (
-          Brand ? (
-            <Brand className="size-3.5" />
-          ) : (
-            <Link2 className="size-3.5" />
-          )
-        ) : (
-          <FileTypeIcon path={artifact.value} size="0.875rem" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-base font-medium text-foreground/90">{label}</span>
-        <Tip label={artifact.value}>
-          <span className={cn('block truncate text-xs text-(--ui-text-tertiary)', !isLink && 'font-mono')}>
-            {place}
-          </span>
-        </Tip>
-      </span>
-    </>
-  )
-
   return (
     <div className="group/row row-hover flex h-(--artifact-row-height) w-full items-center gap-3 rounded-(--radius-control) px-2 text-(--ui-text-secondary) hover:text-foreground">
-      {isLink ? (
-        <ExternalLink
-          className="flex h-full min-w-0 flex-1 items-center gap-3 text-left no-underline"
-          href={artifact.href}
-          showExternalIcon={false}
-          title={label}
-        >
-          {body}
-        </ExternalLink>
-      ) : (
-        <RowButton
-          className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-          onClick={() => void ctx.onOpen(artifact.href)}
-        >
-          {body}
-        </RowButton>
-      )}
+      <RowButton
+        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+        onClick={() => void ctx.onOpen(artifact.href)}
+      >
+        <span className="grid size-6 shrink-0 place-items-center rounded-(--radius-control) bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
+          <FileTypeIcon path={artifact.value} size="0.875rem" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-medium text-foreground/90">{artifact.label}</span>
+          <Tip label={artifact.value}>
+            <span className="block truncate font-mono text-xs text-(--ui-text-tertiary)">{artifact.value}</span>
+          </Tip>
+        </span>
+      </RowButton>
       <span className="flex shrink-0 items-center gap-2">
         <button
           className="max-w-40 cursor-pointer truncate text-xs text-(--ui-text-tertiary) hover:text-foreground hover:underline"
@@ -662,7 +616,7 @@ const ArtifactListRow = memo(function ArtifactListRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={4}>
-              <DropdownMenuItem onSelect={copyValue}>{copyLabel}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={copyValue}>{a.copyPath}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => ctx.onOpenChat(artifact.sessionId)}>{a.viewChat}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

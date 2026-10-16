@@ -2491,7 +2491,7 @@ export const en: Translations = {
 
   artifacts: {
     pageTitle: 'Artifacts',
-    pageDescription: 'Images, files and links AgentX created in your chats.',
+    pageDescription: 'Images and files AgentX made for you in your chats.',
     search: 'Search artifacts...',
     refresh: 'Refresh',
     refreshing: 'Refreshing',
@@ -2499,7 +2499,6 @@ export const en: Translations = {
     tabAll: 'All',
     tabImages: 'Images',
     tabFiles: 'Files',
-    tabLinks: 'Links',
     emptyTitle: 'No artifacts yet',
     emptyDesc: 'When AgentX creates an image or a file for you, it lands here.',
     emptyAction: 'Start a chat',
@@ -2510,9 +2509,7 @@ export const en: Translations = {
     failedLoad: 'Artifacts failed to load',
     openFailed: 'Open failed',
     itemsImage: 'images',
-    itemsLink: 'links',
     itemsFile: 'files',
-    itemsGeneric: 'items',
     zero: '0',
     rangeOf: (start, end, total) => `${start}-${end} of ${total}`,
     goToPage: (itemLabel, page) => `Go to ${itemLabel} page ${page}`,
@@ -2522,7 +2519,6 @@ export const en: Translations = {
     open: 'Open',
     viewChat: 'View chat',
     rowActions: 'More actions',
-    copyUrl: 'Copy URL',
     copyPath: 'Copy path'
   },
 
