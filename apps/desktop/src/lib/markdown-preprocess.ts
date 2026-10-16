@@ -12,6 +12,7 @@ const FENCE_LINE_RE = /^([ \t]*)(`{3,}|~{3,})([^\n]*)$/
 const EMPTY_FENCE_BLOCK_RE = /(^|\n)[ \t]*(?:`{3,}|~{3,})[^\n]*\n[ \t]*(?:`{3,}|~{3,})[ \t]*(?=\n|$)/g
 const CODE_FENCE_SPLIT_RE = /((?:```|~~~)[\s\S]*?(?:```|~~~))/g
 const INLINE_CODE_SPLIT_RE = /(`[^`\n]+`)/g
+const AUTOLINK_SPLIT_RE = /(<https?:\/\/[^\s<>]*>)/gi
 const LATEX_DISPLAY_OPEN_LINE_RE = /^([ \t]*(?:>[ \t]*)*(?:(?:[-+*]|\d+[.)])[ \t]+)?[ \t]*)\\{1,2}\[[ \t]*\r?$/
 const LATEX_DISPLAY_CLOSE_LINE_RE = /^([ \t]*(?:>[ \t]*)*(?:(?:[-+*]|\d+[.)])[ \t]+)?[ \t]*)\\{1,2}\][ \t]*\r?$/
 const CUSTOM_DISPLAY_MATH_LINE_RE = /^([ \t]*(?:>[ \t]*)*(?:(?:[-+*]|\d+[.)])[ \t]+)?[ \t]*)\[\/math\][ \t]*\r?$/
@@ -21,7 +22,9 @@ const CUSTOM_DISPLAY_MATH_LINE_RE = /^([ \t]*(?:>[ \t]*)*(?:(?:[-+*]|\d+[.)])[ \
 // `*` is never meaningful in a real URL path, and GFM's own autolink extension
 // likewise strips trailing emphasis/punctuation — so dropping it here is safe
 // and keeps the emphasis run intact. Other trailing punctuation is still peeled
-// off by the final `[^\s<>"'`*.,;:!?]` class.
+// off by the final `[^\s<>"'`*.,;:!?]` class. A trailing ")" gets through it;
+// `withoutProseParens` decides whether that one is the URL's. A "]" anywhere
+// gets through too; `beforeProseBracket` cuts at one that closes no "[".
 const RAW_URL_RE = /https?:\/\/[^\s<>"'`*]+[^\s<>"'`*.,;:!?]/g
 const LOCAL_PREVIEW_URL_RE = /(^|\s)https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?\/?[^\s<>"'`]*/gi
 const LOCAL_PREVIEW_ONLY_RE = /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?\/?$/i
@@ -132,6 +135,64 @@ function isUrlOnlyBlock(lines: string[]): boolean {
   return nonEmpty.length > 0 && nonEmpty.every(line => URL_ONLY_LINE_RE.test(line))
 }
 
+/**
+ * A raw URL match without the ")" that belong to the prose around it, by GFM's
+ * autolink rule: while the URL holds more ")" than "(", a trailing one isn't
+ * its own. "(see https://acme.dev)" links "https://acme.dev", and
+ * ".../Mercury_(planet)" keeps its paren. Punctuation that a dropped ")" bares
+ * comes off too, as RAW_URL_RE's last class would have taken it.
+ */
+function withoutProseParens(url: string): string {
+  let unmatched = 0
+
+  for (const char of url) {
+    if (char === ')') {
+      unmatched += 1
+    } else if (char === '(') {
+      unmatched -= 1
+    }
+  }
+
+  let end = url.length
+
+  while (end > 0) {
+    const last = url[end - 1]
+
+    if (last === ')' && unmatched > 0) {
+      unmatched -= 1
+    } else if (!'.,;:!?'.includes(last)) {
+      break
+    }
+
+    end -= 1
+  }
+
+  return url.slice(0, end)
+}
+
+/**
+ * A raw URL match up to the first "]" that closes no "[" in it, the rule
+ * LinkifiedText uses: "[see https://acme.dev]" ends the URL before the prose's
+ * "]", while "http://[::1]:8080/" and "?a[]=1" keep their own.
+ */
+function beforeProseBracket(url: string): string {
+  let open = 0
+
+  for (let index = 0; index < url.length; index += 1) {
+    if (url[index] === '[') {
+      open += 1
+    } else if (url[index] === ']') {
+      if (open === 0) {
+        return url.slice(0, index)
+      }
+
+      open -= 1
+    }
+  }
+
+  return url
+}
+
 function autoLinkRawUrls(text: string): string {
   return text.replace(RAW_URL_RE, (url: string, index: number) => {
     const previous = text[index - 1] || ''
@@ -141,26 +202,60 @@ function autoLinkRawUrls(text: string): string {
       return url
     }
 
-    return `<${url}>`
+    const own = beforeProseBracket(url)
+
+    // "[https://acme.dev](https://acme.dev)": the URL is a markdown link's
+    // text, and the markdown parser links that whole link itself.
+    if (url.startsWith('](', own.length)) {
+      return url
+    }
+
+    const link = withoutProseParens(own)
+
+    // "(https://.)" leaves nothing past the scheme to link.
+    if (/^https?:\/\/$/.test(link)) {
+      return url
+    }
+
+    return `<${link}>${url.slice(link.length)}`
   })
+}
+
+// Drops a bare local URL from prose, but not the sentence's ")", "]" or "."
+// after it: an autolink would end there too. "(see http://localhost:3000)." →
+// "(see ).".
+function stripLocalPreviewUrls(text: string): string {
+  return text.replace(LOCAL_PREVIEW_URL_RE, (match: string, lead: string) => {
+    const url = match.slice(lead.length)
+
+    return lead + url.slice(withoutProseParens(beforeProseBracket(url)).length)
+  })
+}
+
+// Runs `pass` on the text between `<https://…>` autolinks, the ones
+// `autoLinkRawUrls` made and the ones the model wrote. A link's bounds are
+// final, so nothing may write inside one: the path pass would chip
+// "…/files_(2024)/report.pdf" or "…?next=/files/report.pdf" mid-URL, and a
+// session ref's value would run on into the link's ">".
+function outsideAutolinks(text: string, pass: (text: string) => string): string {
+  return text
+    .split(AUTOLINK_SPLIT_RE)
+    .map((piece, index) => (index % 2 === 1 ? piece : pass(piece)))
+    .join('')
 }
 
 // Prose only — inline code is split out here, fenced code by the caller. A
 // bare deliverable path ("saved to /tmp/report.docx") becomes a file chip;
-// URLs are auto-linked first so a path-shaped URL tail is already a link and
-// the path pass leaves it alone.
+// URLs are auto-linked first, and the passes after that skip the links.
 function normalizeVisibleProse(text: string): string {
   return text
     .split(INLINE_CODE_SPLIT_RE)
     .map(part =>
       part.startsWith('`')
         ? part
-        : linkifyDeliverablePaths(
-            linkifySessionRefs(
-              autoLinkRawUrls(
-                part.replace(/`{3,}/g, '').replace(LOCAL_PREVIEW_URL_RE, '$1').replace(CITATION_MARKER_RE, '')
-              )
-            )
+        : outsideAutolinks(
+            autoLinkRawUrls(stripLocalPreviewUrls(part.replace(/`{3,}/g, '')).replace(CITATION_MARKER_RE, '')),
+            prose => linkifyDeliverablePaths(linkifySessionRefs(prose))
           )
     )
     .join('')

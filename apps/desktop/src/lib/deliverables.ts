@@ -100,13 +100,15 @@ export function filePathFromMarkdownHref(href?: string): string | null {
 const EXT_ALTERNATION = [...KIND_BY_EXT.keys()].sort((a, b) => b.length - a.length).join('|')
 
 // A bare absolute path in prose: `/…`, `~/…`, or `C:\…`. The look-behind keeps
-// the tail of a URL out (`https://host/x/report.pdf` — every slash inside a
-// URL follows a word character, a colon or another slash), skips paths that
-// already sit in a markdown link (`](` / `(` before them) or a bracket, and
-// leaves inline code alone (a backtick before the path — the caller splits
-// code out, this is the belt to that suspender). A quoted path is still a
-// path. A sentence-ending period after the extension is allowed; a path with
-// brackets or parentheses in it is not recognised at all.
+// most of a URL's tail out (`https://host/x/report.pdf`: a slash there follows
+// a word character, a colon or another slash). A slash after ")", "=", "#" or
+// "đ" gets through, so preprocessMarkdown runs this pass only outside its
+// autolinks. The look-behind also skips paths that already sit in a markdown
+// link (`](` / `(` before them) or a bracket, and leaves inline code alone (a
+// backtick before the path — the caller splits code out, this is the belt to
+// that suspender). A quoted path is still a path. A sentence-ending period
+// after the extension is allowed; a path with brackets or parentheses in it is
+// not recognised at all.
 const BARE_PATH_RE = new RegExp(
   String.raw`(?<![\w:/\\.\-\[(<\x60])((?:~|/|[A-Za-z]:[\\/])[^\s"'\x60<>|*?\[\]{}()]*?\.(?:${EXT_ALTERNATION}))(?=[\s"'\x60<>|,;:)\]}]|\.(?:\s|$)|$)`,
   'gi'

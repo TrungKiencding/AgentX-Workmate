@@ -4,24 +4,26 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight } from '@/lib/icons'
 
 import { resolveBrandIcon } from './brand-icon'
+import { isPrivateNetworkHost } from './private-network-host'
 import { cn } from './utils'
 
 const titleCache = new Map<string, string>()
 const titleInflight = new Map<string, Promise<string>>()
 const titleSubs = new Map<string, Set<(value: string) => void>>()
 
+// A match may end in ")" or "]"; balancedUrl decides whether it is the URL's.
 const URL_RE =
-  /(?:https?:\/\/|www\.)[^\s<>"'`]+[^\s<>"'`.,;:!?)]|[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}(?:\/[^\s<>"'`.,;:!?)]*)?/gi
+  /(?:https?:\/\/|www\.)[^\s<>"'`]+[^\s<>"'`.,;:!?]|[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}(?:\/[^\s<>"'`.,;:!?]*)?/gi
 
 // Explicit-scheme / www. URLs only — no bare-domain matching. Used where the
 // surrounding text is full of filename-shaped tokens (e.g. `agent.log`,
 // `errors.log` in a /debug report) that the bare-domain branch of URL_RE would
 // otherwise mistake for domains and linkify.
-const EXPLICIT_URL_RE = /(?:https?:\/\/|www\.)[^\s<>"'`]+[^\s<>"'`.,;:!?)]/gi
+const EXPLICIT_URL_RE = /(?:https?:\/\/|www\.)[^\s<>"'`]+[^\s<>"'`.,;:!?]/gi
 
 const DOMAIN_RE = /^(?:www\.)?[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}(?::\d+)?(?:[/?#][^\s]*)?$/i
 const SKIP_PROTO_RE = /^(?:file|data|mailto|javascript|blob|chrome|about|agentx):/i
-const LOCAL_HOST_RE = /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?$/i
+const URL_HEAD_RE = /^(?:https?:\/\/|www\.)/i
 
 const ERROR_TITLE_RE =
   /\b(?:access denied|attention required|captcha|error|forbidden|just a moment|not found|request blocked|too many requests)\b/i
@@ -112,6 +114,8 @@ export function urlSlugTitleLabel(value: string): string {
   return hostPathLabel(value)
 }
 
+// Reading a title loads the page (curl, then a hidden window), so a link in a
+// reply or a tool error must not reach into this machine or its network.
 export function isTitleFetchable(value: string): boolean {
   if (!value || SKIP_PROTO_RE.test(value)) {
     return false
@@ -119,7 +123,7 @@ export function isTitleFetchable(value: string): boolean {
 
   const url = parseUrl(value)
 
-  return Boolean(url && /^https?:$/.test(url.protocol) && !LOCAL_HOST_RE.test(url.host))
+  return Boolean(url && /^https?:$/.test(url.protocol) && !isPrivateNetworkHost(url.hostname))
 }
 
 export function fetchLinkTitle(url: string): Promise<string> {
@@ -291,14 +295,68 @@ interface LinkifiedTextProps {
   explicitOnly?: boolean
 }
 
+/**
+ * A URL match up to its first ")" that closes no "(" in it, or "]" that closes
+ * no "[" (the rule tool-row titles use for ")"). One that does close a bracket
+ * is the URL's own, as in a GFM autolink: "…/wiki/Mercury_(planet)" and
+ * "http://[::1]:8080/" stay whole, and "(see https://acme.dev)" stops before
+ * the prose's ")". Empty when the cut leaves too little to link.
+ */
+function balancedUrl(match: string): string {
+  let parens = 0
+  let brackets = 0
+  let end = match.length
+
+  for (let index = 0; index < match.length; index += 1) {
+    const char = match[index]
+
+    if (char === '(') {
+      parens += 1
+    } else if (char === '[') {
+      brackets += 1
+    } else if ((char === ')' && !parens) || (char === ']' && !brackets)) {
+      end = index
+
+      break
+    } else if (char === ')') {
+      parens -= 1
+    } else if (char === ']') {
+      brackets -= 1
+    }
+  }
+
+  if (end === match.length) {
+    return match
+  }
+
+  // The punctuation the cut bares goes too: "(see https://acme.dev.)".
+  while (end > 0 && '.,;:!?'.includes(match[end - 1])) {
+    end -= 1
+  }
+
+  // The patterns ask for two characters past "https://" or "www.".
+  return end - (URL_HEAD_RE.exec(match)?.[0].length ?? 0) < 2 ? '' : match.slice(0, end)
+}
+
 export function LinkifiedText({ className, explicitOnly = false, pretty = true, text }: LinkifiedTextProps) {
   const nodes: ReactNode[] = []
+  // Its own lastIndex, so a scan goes on from where balancedUrl cut a URL:
+  // "(https://a.dev)(https://b.dev)" links both.
+  const pattern = new RegExp(explicitOnly ? EXPLICIT_URL_RE : URL_RE)
   let cursor = 0
 
-  for (const match of text.matchAll(explicitOnly ? EXPLICIT_URL_RE : URL_RE)) {
-    const raw = match[0]
+  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+    const raw = balancedUrl(match[0])
+    const index = match.index
+
+    // Right after the URL, or the next character when none is left here.
+    pattern.lastIndex = index + (raw.length || 1)
+
+    if (!raw) {
+      continue
+    }
+
     const url = normalizeExternalUrl(raw)
-    const index = match.index ?? 0
 
     if (index > cursor) {
       nodes.push(text.slice(cursor, index))

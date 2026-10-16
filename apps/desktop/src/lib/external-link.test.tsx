@@ -69,6 +69,20 @@ describe('external link helpers', () => {
     expect(isTitleFetchable('mailto:hello@example.com')).toBe(false)
   })
 
+  it('never looks up the title of a page on this machine or its network', async () => {
+    const bridge = installTitleBridge('Router Admin')
+
+    // A web_extract the backend refused names the URL in the row's red lead.
+    render(<LinkifiedText text="http://10.0.0.1/admin — Blocked: private address" />)
+
+    expect(screen.getByTitle('http://10.0.0.1/admin').textContent).toBe('Admin')
+    expect(isTitleFetchable('http://192.168.1.1/')).toBe(false)
+    expect(isTitleFetchable('http://2852039166/latest/meta-data/')).toBe(false)
+    expect(isTitleFetchable('nas.local/photos')).toBe(false)
+    await expect(fetchLinkTitle('http://169.254.169.254/latest/meta-data/')).resolves.toBe('')
+    expect(bridge).not.toHaveBeenCalled()
+  })
+
   it('deduplicates in-flight title fetches and caches results', async () => {
     const bridge = vi.fn().mockResolvedValue('El Yunque Tour Water Slide, Rope Swing & Pickup')
     installDesktopBridge({ fetchLinkTitle: bridge as unknown as Window['agentxDesktop']['fetchLinkTitle'] })
@@ -271,5 +285,93 @@ describe('external link helpers', () => {
     render(<PrettyLink fallbackLabel="Some Page" href={url} />)
 
     expect(screen.getByTitle(url).querySelector('svg')).toBeNull()
+  })
+})
+
+const MERCURY = 'https://en.wikipedia.org/wiki/Mercury_(planet)'
+
+// The text of each link LinkifiedText makes, explicitOnly as a tool row and a
+// system message use it unless `explicitOnly` is false.
+function links(text: string, explicitOnly = true): string[] {
+  const { container } = render(<LinkifiedText explicitOnly={explicitOnly} pretty={false} text={text} />)
+
+  // Linking never adds, drops or moves a character.
+  expect(container.textContent).toBe(text)
+
+  return Array.from(container.querySelectorAll('a'), link => link.textContent ?? '')
+}
+
+describe('LinkifiedText URLs with parentheses and brackets', () => {
+  it('links a URL whole when its ")" closes a "(" in it', () => {
+    expect(links(`${MERCURY} — Blocked: private address`)).toEqual([MERCURY])
+    expect(links(`Opened ${MERCURY}`, false)).toEqual([MERCURY])
+  })
+
+  it('names and looks up the whole page', async () => {
+    const bridge = installTitleBridge('Mercury (planet) - Wikipedia')
+
+    render(<LinkifiedText explicitOnly text={`${MERCURY} — Blocked: private address`} />)
+
+    const link = screen.getByTitle(MERCURY)
+
+    expect(link.getAttribute('href')).toBe(MERCURY)
+    expect(link.textContent).toBe('Mercury (Planet)')
+    await waitFor(() => {
+      expect(link.textContent).toBe('Mercury (planet) - Wikipedia')
+    })
+    expect(bridge).toHaveBeenCalledWith(MERCURY)
+  })
+
+  it('stops at a ")" that closes nothing in the URL', () => {
+    expect(links('(see https://acme.dev)')).toEqual(['https://acme.dev'])
+    expect(links('(see https://acme.dev).')).toEqual(['https://acme.dev'])
+    expect(links('(see https://acme.dev.)')).toEqual(['https://acme.dev'])
+    expect(links('[docs](https://acme.dev/docs), then')).toEqual(['https://acme.dev/docs'])
+    expect(links(`(see ${MERCURY})`)).toEqual([MERCURY])
+  })
+
+  it('keeps nested parens that the URL closes', () => {
+    expect(links('https://acme.dev/a_(b_(c))')).toEqual(['https://acme.dev/a_(b_(c))'])
+    expect(links('(https://acme.dev/a_(b_(c)))')).toEqual(['https://acme.dev/a_(b_(c))'])
+    expect(links('https://acme.dev/a((b)')).toEqual(['https://acme.dev/a((b)'])
+  })
+
+  it('still drops punctuation after a ")" the URL keeps', () => {
+    expect(links(`Opened ${MERCURY}.`)).toEqual([MERCURY])
+    expect(links(`${MERCURY}, ${MERCURY}!`)).toEqual([MERCURY, MERCURY])
+    expect(links(`(${MERCURY}).`)).toEqual([MERCURY])
+    // Inside the parens it is the URL's.
+    expect(links('https://acme.dev/(a.)')).toEqual(['https://acme.dev/(a.)'])
+  })
+
+  it('stops at a "]" that closes no "[", and keeps one that does', () => {
+    expect(links('[see https://acme.dev]')).toEqual(['https://acme.dev'])
+    expect(links('[see https://acme.dev/x].')).toEqual(['https://acme.dev/x'])
+    expect(links('[https://acme.dev](https://acme.dev)')).toEqual(['https://acme.dev', 'https://acme.dev'])
+    expect(links('http://[::1]:8080/x')).toEqual(['http://[::1]:8080/x'])
+    expect(links('https://acme.dev/?a[]=1&b[0]=2')).toEqual(['https://acme.dev/?a[]=1&b[0]=2'])
+    // A ")" closes only a "(", and a "]" only a "[".
+    expect(links('https://acme.dev/(x]')).toEqual(['https://acme.dev/(x'])
+    expect(links('https://acme.dev/[x)')).toEqual(['https://acme.dev/[x'])
+  })
+
+  it('stops at a ")" that closes nothing even mid-URL, as tool-row titles do', () => {
+    expect(links('(https://acme.dev)—x')).toEqual(['https://acme.dev'])
+    expect(links('https://a.b/x)y')).toEqual(['https://a.b/x'])
+    // What the cut leaves is read again, and a cut that leaves no host links nothing.
+    expect(links('(https://a.dev/x)(https://b.dev/y)')).toEqual(['https://a.dev/x', 'https://b.dev/y'])
+    expect(links('https://)x')).toEqual([])
+  })
+
+  it('reads a bare domain the same way, which explicitOnly never links', () => {
+    const { container } = render(<LinkifiedText pretty={false} text="see en.wikipedia.org/wiki/Mercury_(planet)." />)
+
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(MERCURY)
+    expect(links('see en.wikipedia.org/wiki/Mercury_(planet).', false)).toEqual([
+      'en.wikipedia.org/wiki/Mercury_(planet)'
+    ])
+    expect(links('(see acme.dev/docs)', false)).toEqual(['acme.dev/docs'])
+    expect(links('[see acme.dev/docs]', false)).toEqual(['acme.dev/docs'])
+    expect(links('see en.wikipedia.org/wiki/Mercury_(planet).')).toEqual([])
   })
 })

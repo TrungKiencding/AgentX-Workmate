@@ -165,6 +165,7 @@ import { fetchKeycloakEndpoints, logoutKeycloakSession } from './keycloak-login'
 import { buildEndSessionUrl, type KeycloakOidcConfig } from './keycloak-oidc'
 import { loadKeycloakSession } from './keycloak-session-store'
 import { createLicenseSync, LICENSE_ROUTE } from './license-sync'
+import { fetchTitleHtmlWithCurl, lookupAddresses, requestStaysPublic } from './link-title-fetch'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
 import { ensureMainWindow } from './main-window-lifecycle'
 import {
@@ -187,6 +188,7 @@ import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
 import { createKeepAwake } from './power-save'
 import { FirstRunSetupResetError, runPrimaryBackendStartup } from './primary-backend-startup'
 import { rehomePrimaryConnection } from './primary-connection-rehome'
+import { linkTitleTarget } from './private-network-host'
 import { decideProfileDeleteAction, profileNameFromDeleteRequest, resolveRouteProfile } from './profile-delete-routing'
 import { fetchPrimaryProfileSessions } from './profile-session-routing'
 import { createQuickEntryShortcut, quickEntryWindowBounds, sanitizeQuickEntrySettings } from './quick-entry'
@@ -4032,61 +4034,23 @@ function parseHtmlTitle(html) {
   return raw ? decodeHtmlEntities(raw).replace(/\s+/g, ' ').trim() : ''
 }
 
+// curl follows no redirect itself: link-title-fetch.ts checks each hop and pins
+// curl to an address that resolved publicly.
 function fetchHtmlTitleWithCurl(rawUrl: string): Promise<string> {
-  return new Promise(resolve => {
-    const url = String(rawUrl || '').trim()
+  return fetchTitleHtmlWithCurl(rawUrl, {
+    byteBudget: TITLE_BYTE_BUDGET,
+    maxRedirects: TITLE_MAX_REDIRECTS,
+    resolve: lookupAddresses,
+    spawn: (command, args) => spawn(command, args, hiddenWindowsChildOptions({ stdio: ['ignore', 'pipe', 'ignore'] })),
+    timeoutMs: TITLE_TIMEOUT_MS,
+    userAgent: TITLE_USER_AGENT
+  }).then(parseHtmlTitle)
+}
 
-    if (!url) {
-      return resolve('')
-    }
-
-    const args = [
-      '--silent',
-      '--show-error',
-      '--location',
-      '--max-redirs',
-      String(TITLE_MAX_REDIRECTS),
-      '--max-time',
-      String(Math.max(2, Math.ceil(TITLE_TIMEOUT_MS / 1000))),
-      '--connect-timeout',
-      '4',
-      '--user-agent',
-      TITLE_USER_AGENT,
-      '--header',
-      'Accept: text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
-      '--header',
-      'Accept-Language: en-US,en;q=0.7',
-      '--header',
-      'Accept-Encoding: identity',
-      '--raw',
-      url
-    ]
-
-    const child = spawn('curl', args, hiddenWindowsChildOptions({ stdio: ['ignore', 'pipe', 'ignore'] }))
-    const chunks = []
-    let bytes = 0
-
-    child.stdout.on('data', chunk => {
-      if (bytes >= TITLE_BYTE_BUDGET) {
-        return
-      }
-
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-      const remaining = TITLE_BYTE_BUDGET - bytes
-      const next = buffer.length > remaining ? buffer.subarray(0, remaining) : buffer
-      chunks.push(next)
-      bytes += next.length
-    })
-
-    child.on('error', () => resolve(''))
-    child.on('close', () => {
-      if (!chunks.length) {
-        return resolve('')
-      }
-
-      resolve(parseHtmlTitle(Buffer.concat(chunks).toString('utf8')))
-    })
-  })
+// The link-title session's own resolver, so a check sees the answers its
+// requests will get.
+function resolveLinkTitleHost(hostname: string): Promise<string[]> {
+  return linkTitleSession.resolveHost(hostname).then(({ endpoints }) => endpoints.map(endpoint => endpoint.address))
 }
 
 function getLinkTitleSession() {
@@ -4095,8 +4059,15 @@ function getLinkTitleSession() {
   }
 
   linkTitleSession = session.fromPartition('agentx:link-titles', { cache: false })
+  // fetchLinkTitle never starts on a private host; this also stops a redirect
+  // or the loaded page's own requests from getting there, whether the URL
+  // names a private host or its name resolves to one.
   linkTitleSession.webRequest.onBeforeRequest((details, callback) => {
-    callback({ cancel: RENDER_TITLE_BLOCKED_RESOURCES.has(details.resourceType) })
+    if (RENDER_TITLE_BLOCKED_RESOURCES.has(details.resourceType)) {
+      return callback({ cancel: true })
+    }
+
+    void requestStaysPublic(details.url, resolveLinkTitleHost).then(stays => callback({ cancel: !stays }))
   })
   guardLinkTitleSession(linkTitleSession)
 
@@ -4196,7 +4167,13 @@ function runRenderTitleJob(rawUrl) {
   })
 }
 
-function fetchHtmlTitleWithRenderer(rawUrl: string): Promise<string> {
+async function fetchHtmlTitleWithRenderer(rawUrl: string): Promise<string> {
+  // The session checks each request too; this spares a window for a host
+  // whose name resolves into the private network.
+  if (!getLinkTitleSession() || !(await requestStaysPublic(rawUrl, resolveLinkTitleHost))) {
+    return ''
+  }
+
   return new Promise(resolve => {
     renderTitleQueue.push({ resolve, url: rawUrl })
     dequeueRenderTitle()
@@ -4209,8 +4186,10 @@ function usableTitle(value: string): string {
   return value && !TITLE_ERROR_RE.test(value) ? value : ''
 }
 
+// Only public http(s) pages, whatever the renderer asks for. `url` is the
+// re-serialized form, so curl can't read the host differently from the check.
 function fetchLinkTitle(rawUrl) {
-  const url = String(rawUrl || '').trim()
+  const url = linkTitleTarget(rawUrl)
   const key = canonicalTitleCacheKey(url)
 
   if (!key) {
