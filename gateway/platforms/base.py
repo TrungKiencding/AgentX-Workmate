@@ -1487,8 +1487,8 @@ def _parse_docker_volume_mounts() -> List[Tuple[Path, Path]]:
         spec = entry.strip()
         if not spec:
             continue
-        # Prefer the first ':/' so absolute container paths are unambiguous.
-        sep = spec.find(":/")
+        # First ':/' past any Windows drive colon (``C:/data:/workspace``) splits host from container.
+        sep = spec.find(":/", 2 if re.match(r"[A-Za-z]:[/\\]", spec) else 0)
         if sep <= 0:
             continue
         host_raw = spec[:sep]
@@ -1507,8 +1507,6 @@ def _parse_docker_volume_mounts() -> List[Tuple[Path, Path]]:
             host_path = Path(host_expanded).resolve(strict=False)
             container_path = Path(container_raw)
         except (OSError, RuntimeError, ValueError):
-            continue
-        if not container_path.is_absolute():
             continue
         mounts.append((host_path, container_path))
     return mounts
@@ -1604,7 +1602,7 @@ def _translate_docker_container_media_path(candidate: Path) -> Optional[Path]:
     persistent Docker ``/workspace`` host root, and the persistent ``/root``
     home mount.
     """
-    if not candidate.is_absolute():
+    if not candidate.as_posix().startswith("/"):  # POSIX even on Windows gateways (not is_absolute)
         return None
 
     # In-process gateways (Desktop backend, `agentx serve`) may not have
