@@ -71,6 +71,20 @@ describe('ProjectOverviewRow', () => {
     expect(screen.queryByRole('button', { name: 'Show Test D sessions' })).toBeNull()
   })
 
+  it('truncates a long project name on a BLOCK box, so it ends before the row actions', () => {
+    const long = { id: 'p2', label: 'modifying Mihon android app for reading manga offline' } as SidebarProjectTree
+
+    render(<ProjectOverviewRow onNewSession={vi.fn()} project={long} />)
+
+    // jsdom has no layout; the contract is the classes. `truncate` on an inline
+    // span is a no-op and the button doesn't clip, so the name ran on under
+    // the "+" (the user's "button sits on top of the text").
+    const label = screen.getByText(long.label)
+    expect(label.tagName).toBe('SPAN')
+    expect(label.classList.contains('truncate')).toBe(true)
+    expect(label.classList.contains('block')).toBe(true)
+  })
+
   it('drops the "new session" add button on Home, which has no folder to start in', () => {
     const home = { id: '__no_project__', isNoProject: true, label: 'Home' } as unknown as SidebarProjectTree
 

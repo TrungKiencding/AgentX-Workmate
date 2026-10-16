@@ -80,7 +80,10 @@ export function SidebarRowBody({ className, ...props }: React.ComponentProps<'bu
   return <RowButton className={cn(rowInset, 'bg-transparent text-left', className)} {...props} />
 }
 
-/** Tappable label — underline/truncate live on the inner span, not the button. */
+/** Tappable label — underline/truncate live on the inner span, not the button.
+ *  The span must be BLOCK: `truncate` does nothing on an inline box, and a
+ *  button doesn't clip its content, so a long project name ran on under the
+ *  row's "+" / ⋯ instead of ending in an ellipsis. */
 export function SidebarRowLink({
   className,
   labelClassName,
@@ -89,7 +92,7 @@ export function SidebarRowLink({
 }: React.ComponentProps<'button'> & { labelClassName?: string }) {
   return (
     <RowButton className={cn('min-w-0 shrink bg-transparent p-0 text-left', className)} {...props}>
-      <span className={cn(rowLabel, labelClassName)}>{children}</span>
+      <span className={cn('block', rowLabel, labelClassName)}>{children}</span>
     </RowButton>
   )
 }
